@@ -56,7 +56,5 @@ export const tenantSsoProviders = identity.table(
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
-  (t) => ({
-    pk: primaryKey({ columns: [t.tenant_id, t.provider_id] }),
-  }),
+  (t) => [primaryKey({ columns: [t.tenant_id, t.provider_id] })],
 );
