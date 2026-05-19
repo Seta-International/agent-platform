@@ -1,6 +1,6 @@
-# CLAUDE.md
+# Agent guidance
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to coding agents (Claude Code, Codex, and any other AGENTS.md-aware tool) when working with code in this repository. `AGENTS.md` is a symlink to `CLAUDE.md` — edit one, both update.
 
 ## Reference docs
 
@@ -58,6 +58,8 @@ These apply to every code change. They are not negotiable per-PR.
 - **No `any`, no `// @ts-ignore`** without a one-line comment naming the specific external constraint forcing it. The constraint, not the symptom.
 - **Errors surface, they don't get swallowed.** Catch only to translate or add context. Empty `catch {}` and broad `catch (e) { return null }` need a written reason.
 - **Verify before claiming done.** Run `pnpm typecheck && pnpm lint && pnpm test` (and the relevant `test:e2e` if UI changed) before reporting a task complete. "Should work" is not a status.
+- **Install dependencies via CLI only — never hand-edit.** Use `pnpm add <pkg>` with no version specifier so the registry resolves latest. Do not hand-edit `package.json` versions or `pnpm-lock.yaml`.
+- **Generate migrations via CLI only — never hand-edit.** Use `pnpm drizzle-kit generate` (and `pnpm db:migrate` to apply). Do not hand-edit files under `drizzle/`. If output is wrong, fix the schema and re-run — don't patch the SQL.
 
 ## Repo layout & commands
 
