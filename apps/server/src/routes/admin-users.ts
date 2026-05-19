@@ -9,22 +9,10 @@ import {
   listUsers,
   reactivateUser,
   revokeRole,
+  TENANT_ROLE_SLUGS,
 } from '@seta/identity';
 import type { Context, Hono } from 'hono';
 import { z } from 'zod';
-
-const TENANT_ROLE_SLUGS = [
-  'org.admin',
-  'org.viewer',
-  'identity.admin',
-  'identity.viewer',
-  'copilot.admin',
-  'copilot.contributor',
-  'copilot.viewer',
-  'integrations.admin',
-  'integrations.viewer',
-  'planner.admin',
-];
 
 const createSchema = z.object({
   email: z.string().email(),
@@ -103,7 +91,7 @@ export function registerAdminUsersRoutes(app: Hono<SessionEnv>): void {
     if (!parsed.success) return c.json({ error: 'invalid' }, 400);
     if (parsed.data.scope_type === 'group')
       return c.json({ error: 'group_scope_ui_deferred' }, 400);
-    if (!TENANT_ROLE_SLUGS.includes(parsed.data.role_slug))
+    if (!(TENANT_ROLE_SLUGS as readonly string[]).includes(parsed.data.role_slug))
       return c.json({ error: 'unknown_role' }, 400);
     const result = await grantRole(
       {

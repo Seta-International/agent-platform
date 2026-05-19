@@ -11,14 +11,7 @@ import {
 } from '@seta/shared-ui';
 import { useEffect, useState } from 'react';
 import { type AdminUserListRow, listAdminUsers } from '../api/client.ts';
-
-const ROLE_FILTER_OPTIONS = [
-  'org.admin',
-  'org.viewer',
-  'identity.admin',
-  'identity.viewer',
-  'planner.admin',
-];
+import { TENANT_ROLE_SLUGS } from '../constants.ts';
 
 const PAGE_SIZE = 25;
 
@@ -90,7 +83,7 @@ export function AdminUsersTable({
           aria-label="Filter by role"
         >
           <option value="">All roles</option>
-          {ROLE_FILTER_OPTIONS.map((r) => (
+          {TENANT_ROLE_SLUGS.map((r) => (
             <option key={r} value={r}>
               {r}
             </option>

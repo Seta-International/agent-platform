@@ -18,3 +18,5 @@ export type { UpdateUserProfilePatch } from './backend/domain/update-user-profil
 export { updateUserProfile } from './backend/domain/update-user-profile.ts';
 export { IdentityError } from './backend/rbac.ts';
 export type { IdentityEvent } from './events/index.ts';
+export type { TenantRoleSlug } from './roles.ts';
+export { TENANT_ROLE_SLUGS } from './roles.ts';

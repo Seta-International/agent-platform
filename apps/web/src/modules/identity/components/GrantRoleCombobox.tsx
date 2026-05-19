@@ -1,19 +1,7 @@
 import { Button } from '@seta/shared-ui';
 import { useState } from 'react';
 import { grantTenantRole } from '../api/client.ts';
-
-const ROLE_OPTIONS = [
-  'org.admin',
-  'org.viewer',
-  'identity.admin',
-  'identity.viewer',
-  'copilot.admin',
-  'copilot.contributor',
-  'copilot.viewer',
-  'integrations.admin',
-  'integrations.viewer',
-  'planner.admin',
-];
+import { TENANT_ROLE_SLUGS } from '../constants.ts';
 
 export function GrantRoleCombobox({
   userId,
@@ -25,7 +13,7 @@ export function GrantRoleCombobox({
   onChange: () => void;
 }) {
   const [role, setRole] = useState('');
-  const available = ROLE_OPTIONS.filter((r) => !existing.includes(r));
+  const available = TENANT_ROLE_SLUGS.filter((r) => !existing.includes(r));
 
   async function grant() {
     if (!role) return;

@@ -12,19 +12,7 @@ import {
 } from '@seta/shared-ui';
 import { useState } from 'react';
 import { createAdminUser } from '../api/client.ts';
-
-const ROLE_OPTIONS = [
-  'org.admin',
-  'org.viewer',
-  'identity.admin',
-  'identity.viewer',
-  'copilot.admin',
-  'copilot.contributor',
-  'copilot.viewer',
-  'integrations.admin',
-  'integrations.viewer',
-  'planner.admin',
-];
+import { TENANT_ROLE_SLUGS } from '../constants.ts';
 
 function generatePassword(): string {
   const chars = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789-_';
@@ -128,7 +116,7 @@ export function CreateUserDialog({ onCreated }: { onCreated: () => void }) {
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               >
                 <option value="">No role</option>
-                {ROLE_OPTIONS.map((r) => (
+                {TENANT_ROLE_SLUGS.map((r) => (
                   <option key={r} value={r}>
                     {r}
                   </option>
