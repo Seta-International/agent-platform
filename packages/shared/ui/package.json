@@ -12,8 +12,8 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "test": "NODE_OPTIONS='--no-experimental-webstorage' vitest run",
+    "test:watch": "NODE_OPTIONS='--no-experimental-webstorage' vitest"
   },
   "peerDependencies": {
     "react": "^19.0.0",
@@ -56,7 +56,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
     "@vitest/coverage-v8": "^4.1.6",
-    "jsdom": "^29.1.1",
+    "happy-dom": "^20.9.0",
     "vitest": "^4.1.6"
   }
 }
