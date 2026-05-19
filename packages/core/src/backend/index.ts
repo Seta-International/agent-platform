@@ -1,2 +1,2 @@
-// core — backend entry.
-export const placeholder = 'core-backend' as const;
+// core — backend entry. Populated in later milestones.
+export {};

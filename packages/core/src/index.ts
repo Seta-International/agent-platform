@@ -1,2 +1,2 @@
-// core — public surface (cross-module entry point).
-export const placeholder = 'core-public' as const;
+// Top-level composition exports — populated in Phase 9.
+export {} from './db/schema/index.ts';
