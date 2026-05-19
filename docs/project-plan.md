@@ -233,6 +233,9 @@ This is the ADR ledger as of 2026-05-19 architect review. Edits land here as new
 | D18 | Hybrid migrations: drizzle-kit for typed tables; sibling hand-written `.sql` for PG features Drizzle cannot model; same folder, lexical filename order; CLAUDE.md updated | spec §7.1, CLAUDE.md |
 | D19 | graphile-worker pulled forward to M1 for partition-manager (daily) + DLQ alerter (5-min); consumer of `workerPool` per §K.2 | spec §3.4 |
 | D20 | `core.emit()` is strict — throws `EmitContextRequired` outside an `emitContext`; legal entry points: `withEmit`, `withCoreEmitContext`, subscriber framework | spec §3.2 |
+| D21 | `packages/shared/ui` is the style monopoly; tokens live only in its `@theme` block; shadcn primitives are overridden to reference DESIGN.md utilities directly (no alias bridge); CI grep audit (`pnpm lint:styles`) blocks any `.css`, `tailwind.config.*`, or `@theme/@layer/@apply` outside that package | docs/superpowers/specs/2026-05-19-frontend-foundation-design.md §3 + §7.3 |
+| D22 | DataTable Layer-1 composite ships with client and server modes — sort / filter / global search / expand / select / pagination / column visibility / loading / empty; built on `@tanstack/react-table` + shadcn Table primitive; resizing, drag-reorder, sticky columns, inline edit, virtualization deferred | docs/superpowers/specs/2026-05-19-frontend-foundation-design.md §5 |
+| D23 | Chromatic accent re-anchored from Linear lavender (`#5e6ad2`) to Seta blue (`#0047FF` / hover `#1A3CFF` / focus `#022DAD`); palette sourced from `seta-international.com` site CSS to match the brand mark; `DESIGN.md §Colors.Brand & Accent` follow-up PR updates the spec text to match | docs/superpowers/specs/2026-05-19-frontend-foundation-design.md §3.1 + §8.4 |
 
 ## 8. What this plan deliberately omits
 
