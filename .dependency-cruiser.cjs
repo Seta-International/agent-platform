@@ -86,6 +86,20 @@ module.exports = {
       },
       to: {},
     },
+    {
+      name: 'identity-auth-import-restricted',
+      comment: 'Only @seta/core may import @seta/identity/auth (better-auth instance).',
+      severity: 'error',
+      from: { path: '^packages/(?!core/|identity/)' },
+      to: { path: 'packages/identity/src/backend/auth\\.ts$' },
+    },
+    {
+      name: 'identity-internals-blocked',
+      comment: 'Peer modules must use @seta/identity public surface, never src/backend or src/db.',
+      severity: 'error',
+      from: { path: '^packages/(planner|copilot|integrations)/src/' },
+      to: { path: '^packages/identity/src/(backend|db)/' },
+    },
   ],
   options: {
     doNotFollow: { path: 'node_modules' },
