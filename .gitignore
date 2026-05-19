@@ -37,6 +37,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# TanStack Router generated files
+apps/web/src/routeTree.gen.ts
+
 # Misc
 .DS_Store
 *.pem
