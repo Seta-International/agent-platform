@@ -42,13 +42,24 @@ export async function listUsers(
 ): Promise<{ rows: ReadonlyArray<AdminUserRow>; total: number }> {
   const search = opts.search ? `%${opts.search.toLowerCase()}%` : null;
 
+  const userRolesCte = sql`WITH user_roles AS (
+    SELECT user_id, array_agg(DISTINCT role_slug) AS role_slugs
+    FROM identity.role_grants
+    WHERE tenant_id = ${tenantId} AND revoked_at IS NULL
+    GROUP BY user_id
+  )`;
+
+  const whereClause = sql`
+    WHERE u.tenant_id = ${tenantId}
+      ${search ? sql`AND (lower(u.email) LIKE ${search} OR lower(u.name) LIKE ${search})` : sql``}
+      ${opts.role_slug ? sql`AND ${opts.role_slug} = ANY(COALESCE(r.role_slugs, ARRAY[]::text[]))` : sql``}
+      ${opts.status === 'deactivated' ? sql`AND u.deactivated_at IS NOT NULL` : sql``}
+      ${opts.status === 'active' ? sql`AND u.deactivated_at IS NULL AND COALESCE(p.availability_status, 'available') != 'ooo'` : sql``}
+      ${opts.status === 'ooo' ? sql`AND u.deactivated_at IS NULL AND p.availability_status = 'ooo'` : sql``}
+  `;
+
   const rowsResult = await identityDb().execute(sql`
-    WITH user_roles AS (
-      SELECT user_id, array_agg(DISTINCT role_slug) AS role_slugs
-      FROM identity.role_grants
-      WHERE tenant_id = ${tenantId} AND revoked_at IS NULL
-      GROUP BY user_id
-    ),
+    ${userRolesCte},
     user_last_seen AS (
       SELECT user_id, max(updated_at) AS last_seen_at
       FROM identity.session
@@ -62,21 +73,17 @@ export async function listUsers(
     LEFT JOIN user_roles r ON r.user_id = u.id
     LEFT JOIN user_last_seen ls ON ls.user_id = u.id
     LEFT JOIN identity.user_profile p ON p.user_id = u.id
-    WHERE u.tenant_id = ${tenantId}
-      ${search ? sql`AND (lower(u.email) LIKE ${search} OR lower(u.name) LIKE ${search})` : sql``}
-      ${opts.role_slug ? sql`AND ${opts.role_slug} = ANY(COALESCE(r.role_slugs, ARRAY[]::text[]))` : sql``}
-      ${opts.status === 'deactivated' ? sql`AND u.deactivated_at IS NOT NULL` : sql``}
-      ${opts.status === 'active' ? sql`AND u.deactivated_at IS NULL AND COALESCE(p.availability_status, 'available') != 'ooo'` : sql``}
-      ${opts.status === 'ooo' ? sql`AND u.deactivated_at IS NULL AND p.availability_status = 'ooo'` : sql``}
+    ${whereClause}
     ORDER BY u.created_at DESC
     LIMIT ${opts.limit} OFFSET ${opts.offset}
   `);
 
   const totalResult = await identityDb().execute(sql`
+    ${userRolesCte}
     SELECT count(*)::int AS n FROM identity."user" u
+    LEFT JOIN user_roles r ON r.user_id = u.id
     LEFT JOIN identity.user_profile p ON p.user_id = u.id
-    WHERE u.tenant_id = ${tenantId}
-      ${search ? sql`AND (lower(u.email) LIKE ${search} OR lower(u.name) LIKE ${search})` : sql``}
+    ${whereClause}
   `);
 
   const rows = (rowsResult.rows as unknown as RawUserRow[]).map(
