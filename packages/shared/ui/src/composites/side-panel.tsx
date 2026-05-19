@@ -1,6 +1,6 @@
 import type * as React from 'react';
-import { cn } from '@/lib/cn';
-import { ScrollArea } from '@/primitives/scroll-area';
+import { cn } from '../lib/cn';
+import { ScrollArea } from '../primitives/scroll-area';
 
 export interface SidePanelProps {
   header?: React.ReactNode;

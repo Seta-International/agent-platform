@@ -1,12 +1,12 @@
 import type { Table } from '@tanstack/react-table';
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
-import { Button } from '@/primitives/button';
+import { Button } from '../primitives/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/primitives/dropdown-menu';
+} from '../primitives/dropdown-menu';
 
 interface Props<TData> {
   table: Table<TData>;

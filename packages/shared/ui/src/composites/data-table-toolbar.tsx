@@ -1,7 +1,7 @@
 import type { Table } from '@tanstack/react-table';
 import { Settings2 } from 'lucide-react';
 import type * as React from 'react';
-import { Button } from '@/primitives/button';
+import { Button } from '../primitives/button';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -9,7 +9,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/primitives/dropdown-menu';
+} from '../primitives/dropdown-menu';
 
 interface Props<TData> {
   table: Table<TData>;

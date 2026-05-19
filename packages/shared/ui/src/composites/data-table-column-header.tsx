@@ -1,8 +1,8 @@
 import type { Column } from '@tanstack/react-table';
 import { ArrowDown, ArrowUp, ChevronsUpDown } from 'lucide-react';
 import type * as React from 'react';
-import { cn } from '@/lib/cn';
-import { Button } from '@/primitives/button';
+import { cn } from '../lib/cn';
+import { Button } from '../primitives/button';
 
 interface Props<TData, TValue> {
   column: Column<TData, TValue>;

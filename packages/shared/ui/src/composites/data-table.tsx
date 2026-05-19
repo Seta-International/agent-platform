@@ -17,11 +17,11 @@ import {
 } from '@tanstack/react-table';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import * as React from 'react';
-import { Button } from '@/primitives/button';
-import { Checkbox } from '@/primitives/checkbox';
-import { Input } from '@/primitives/input';
-import { Skeleton } from '@/primitives/skeleton';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/primitives/table';
+import { Button } from '../primitives/button';
+import { Checkbox } from '../primitives/checkbox';
+import { Input } from '../primitives/input';
+import { Skeleton } from '../primitives/skeleton';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../primitives/table';
 import { DataTableColumnHeader } from './data-table-column-header';
 import { DataTablePagination } from './data-table-pagination';
 import { DataTableToolbar } from './data-table-toolbar';

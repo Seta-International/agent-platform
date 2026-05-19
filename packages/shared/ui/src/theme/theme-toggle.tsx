@@ -1,11 +1,11 @@
 import { Monitor, Moon, Sun } from 'lucide-react';
-import { Button } from '@/primitives/button';
+import { Button } from '../primitives/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/primitives/dropdown-menu';
+} from '../primitives/dropdown-menu';
 import { useTheme } from './theme-provider';
 
 export function ThemeToggle() {

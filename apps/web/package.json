@@ -8,12 +8,15 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "test": "NODE_OPTIONS='--no-experimental-webstorage' vitest run",
+    "test:watch": "NODE_OPTIONS='--no-experimental-webstorage' vitest",
     "typecheck": "tsc -b --noEmit"
   },
   "dependencies": {
     "@seta/shared-ui": "workspace:^",
     "@tailwindcss/vite": "^4.3.0",
     "@tanstack/react-router": "^1.170.4",
+    "@tanstack/react-table": "^8.21.3",
     "@tanstack/router-plugin": "^1.168.6",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
@@ -22,6 +25,9 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@seta/shared-config": "workspace:^",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^24.12.3",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
@@ -31,8 +37,10 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
+    "happy-dom": "^20.9.0",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.59.2",
-    "vite": "^8.0.12"
+    "vite": "^8.0.12",
+    "vitest": "^4.1.6"
   }
 }

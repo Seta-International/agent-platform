@@ -1,7 +1,7 @@
 import * as React from 'react';
 
-import { cn } from '@/lib/cn';
-import { cva, type VariantProps } from '@/lib/cva';
+import { cn } from '../lib/cn';
+import { cva, type VariantProps } from '../lib/cva';
 
 const cardVariants = cva('bg-surface-1 border border-hairline text-ink shadow-none', {
   variants: {

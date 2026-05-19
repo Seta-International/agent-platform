@@ -6,7 +6,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from '@/primitives/command';
+} from '../primitives/command';
 
 export interface PaletteCommand {
   id: string;
