@@ -47,11 +47,11 @@ This milestone runs as **three concurrent streams** converging on a single demo:
 
 **Scope (stream B — planner backend)**
 
-- Full §E.3 schema: groups, plans, buckets, tasks (incl. `skill_tags` + `review_state`), assignments, checklist items, labels, `task_chunks` / `task_embeddings` / `plan_embeddings` tables.
+- Full §E.3 schema: groups, plans, buckets, tasks (incl. optional `skill_tags` + `review_state` refinements per D15 — default empty/null is the normal case), assignments, checklist items, labels, `task_chunks` / `task_embeddings` / `plan_embeddings` tables.
 - Public API for read + write (`packages/planner/src/`).
 - Hono routes under `/api/planner/v1`.
 - Mastra tool definitions per §H.2 — read-only first (`listTasks`, `getTask`, `searchTasksSemantic` with stub embeddings); write tools deferred to M3.
-- Seed script (`pnpm seed`) — demo tenant with groups/plans/tasks/skill_tags.
+- Seed script (`pnpm seed`) — demo tenant with groups/plans/tasks; most untagged so the agent's semantic + LLM filter path is exercised, a subset with `skill_tags` / `review_state` to show the optional-refinement path (per D15).
 
 **Scope (stream C — copilot runtime baseline)**
 
@@ -112,18 +112,17 @@ Two parallel tracks under one milestone.
 
 **Scope**
 
-- Four Phase-A workflows (D7, §H.9):
+- Three Phase-A workflows (D7 + D15, §H.9):
   - `session-cache-invalidate` — event-triggered on role/membership change.
   - `embeddings-keep-fresh` — already wired in M3; documented + monitored here.
-  - `new-task-skill-tag-suggester` — event-triggered, HITL card posts to creator's chat.
-  - `stale-review-detector` — cron daily; emits inbox items in the Workflows tab.
+  - `new-task-skill-tag-suggester` — event-triggered, HITL card posts to creator's chat. Thin glue layer calling the `infer_task_topics` primitive (shared with the agent's untagged-task reasoning path).
 - Standalone Copilot Workflows tab (per §J.2): recent-runs list, per-run drill-down screen.
 - Tenant admin → users list + invite + role-grant (bare-bones; no audit-log browser, no IdP mapping UI per D8).
 - `apps/cli tenant-create | suspend | delete` finalized — superadmin tenants UI deferred to Phase B (D8).
 
 **Exit criteria**
 
-- All four workflows run on the demo tenant; suspend/resume outbox test from §14.1 / D12 passes against `new-task-skill-tag-suggester`.
+- All three workflows run on the demo tenant; suspend/resume outbox test from §14.1 / D12 passes against `new-task-skill-tag-suggester`.
 - Tenant admin can invite a user, assign `planner.contributor` in a group, and that user immediately sees the right tools in chat (validates the session-cache-invalidate flow).
 - CLI lifecycle commands produce the audit trail expected by M5's cascade test.
 
@@ -163,7 +162,7 @@ Two parallel tracks under one milestone.
 
 ## 3. Phase B and Phase C
 
-**Phase B — Planner UI + sync + collaboration.** Triggered when Phase A demo is signed off and the first dogfood pass (Seta International internal use) surfaces priorities. Scope per §14.2: Planner Kanban UI + task detail editor + embedded copilot panel; MS Planner sync end-to-end (delta poll, ETag PATCH, conflict log, `capability-gap-translation` HITL workflow); Entra OIDC + JIT + IdP-group→role mapping UI; comments + @mentions + in-app notifications + `comment_embeddings`; attachments (S3 + ClamAV + per-tenant quota — `shared/storage` lights up here); SSE on Kanban; bulk operations as new copilot tools; `staffing.agent` + `recommend_reviewers` + Timesheet MCP client (the D8 deferral lands here); audit-log browser UI; HIBP check for local-password registration. Deliberately deferred to Phase C: anything compliance-shaped (DSR, MFA, WCAG audit, secrets-rotation implementation).
+**Phase B — Planner UI + sync + collaboration.** Triggered when Phase A demo is signed off and the first dogfood pass (Seta International internal use) surfaces priorities. Scope per §14.2: Planner Kanban UI + task detail editor + embedded copilot panel; MS Planner sync end-to-end (delta poll, ETag PATCH, conflict log, `capability-gap-translation` HITL workflow); Entra OIDC + JIT + IdP-group→role mapping UI; comments + @mentions + in-app notifications + `comment_embeddings`; attachments (S3 + ClamAV + per-tenant quota — `shared/storage` lights up here); SSE on Kanban; bulk operations as new copilot tools; `staffing.agent` + the cross-module staffing primitives (`match_users_to_topic`, `infer_user_skills_from_history`, `get_user_availability`, `compute_workload`, `get_leave_overlap`) + Timesheet MCP client (the D8 deferral lands here, reshaped per D15 — no macro `recommend_reviewers` tool; the §7.2.2 composition recipe lights up once primitives ship); audit-log browser UI; HIBP check for local-password registration. Deliberately deferred to Phase C: anything compliance-shaped (DSR, MFA, WCAG audit, secrets-rotation implementation).
 
 **Phase C — Polish + compliance.** Triggered when a first enterprise prospect requires SOC 2 / GDPR DSR / WCAG, or after the second dogfood pass. Scope per §14.3: DSR tooling (export + erasure across primary data, audit pseudonymize-in-place, S3, chat history, embeddings); audit-log export (JSON/CSV); MFA (`better-auth/plugins/two-factor`); concept-map editor for skills; per-tenant rate-limit + cost dashboards; account-collision admin tool; tenant attachment-quota UI; reference Terraform/CDK for ECS Fargate; WCAG 2.1 AA audit (a hard Phase C gate); per-tenant knowledge RAG. Deliberately deferred indefinitely: anything in §11 not promoted into B or C.
 
@@ -228,6 +227,7 @@ This is the ADR ledger as of 2026-05-19 architect review. Edits land here as new
 | D12 | Three correctness tests — trace+actor presence / suspend-resume outbox / Mastra schema-leak boot | requirements.md §14.1; architecture.md §H |
 | D13 | Promote 4 cross-cutting concerns to `packages/shared/*` — `mailer`, `observability`, `crypto`, `storage` | requirements.md §15.6 |
 | D14 | Promote 3 more — `db`, `rbac`, `testing` | requirements.md §15.6 |
+| D15 | Tool catalog is atomic-primitives-only; `recommend_reviewers` and `find_tasks_needing_review` removed as macro tools and reframed as composition recipes (§7.2.2). `skill_tags` and `review_state` reclassified as optional refinements (agent does not depend on them being set). Skill matching uses embedding similarity + assignment-history inference; `skill_concepts` concept map and 4-rule literal/parent/sibling/leaf-of-concept match rule removed. Workload-score weight ladder moved out of spec into tenant config. `stale-review-detector` workflow dropped (mostly idle once `review_state` is optional). New atomic primitives surfaced in §7.2.1: `infer_task_topics`, `infer_user_skills_from_history`, `match_users_to_topic`, `get_user_availability` (with `compute_workload` and `get_leave_overlap` clarified as raw-output primitives without baked-in thresholds). Aligned with Mastra's agent-vs-workflow guidance — small composable tools for adaptive reasoning, workflows only for code-driven deterministic pipelines. Reverses the §5.3 "first-class `review_state` enum" framing, the §3.9.1 concept-map design, the §7.2 macro-tool framing, and the §16.5 monolithic-tool carve-out. | requirements.md §1 header, §3.9.1, §3.9.3, §5.1, §5.3, §7.2, §11.8, §12.2, §12.3, §14.1, §15.3, §16.5; architecture.md §E.3, §F.4.7, §H.4, §H.7, §H.9, §H.10, §O slice 7+8 |
 
 ## 8. What this plan deliberately omits
 

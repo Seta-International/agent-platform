@@ -1,8 +1,8 @@
 # Seta — Requirements (v1 scope)
 
-**Status:** v1 requirements closed (2026-05-19); architecture phase complete same day — all 11 §21 unknowns resolved, full architecture spec lives in `docs/architecture.md`. Scope expanded same day along three coordinated axes — user skills + availability (§3.9), Mastra agent/chat/RBAC architecture (§7.1b–§7.1e), and a Timesheet MCP integration for external availability data (§7.1d). New `org.viewer` cross-group read role added (§4.4). Accounts entity deferred with schema hook in `groups.account_id` (§2.3, §11.2). Domain event bus fixed as transactional outbox + Postgres `LISTEN/NOTIFY` (§1.6.5a). **Architecture reframed from multi-app to modular monolith with strict, enforced module boundaries (§1.6).** v1 ships one container; per-module extraction is documented as a v1.x+ playbook (§1.6.12) gated on real scaling pain. Module boundary discipline (schema-per-module, no cross-schema reads, public-API surfaces, no cross-module FKs) is enforced by tooling, not convention. Future business modules (`timesheet`, `pmo`, `okrs`, etc.) slot in via §1.6.3 with zero changes to existing modules. **Sync conflict resolution pinned (§6.3): field-level "Seta wins" with `last_pushed_field_values` snapshot — not timestamp LWW.** **Flagship demo now backed by a first-class `tasks.review_state` enum (§5.3), not label/bucket convention** — `find_tasks_needing_review` tool added to §7.2 capabilities. Six §12.1 residuals closed inline (Entra-removed-user detection, idle-session timeout, failed-login threshold + notification, audit-permission separability, IdP recompute cadence, import-recent windows). All foundational decisions resolved. Deferred capabilities with v1 architectural hooks in §11. Ready for architecture phase.
+**Status:** v1 requirements closed (2026-05-19); architecture phase complete same day — all 11 §21 unknowns resolved, full architecture spec lives in `docs/architecture.md`. Scope expanded same day along three coordinated axes — user skills + availability (§3.9), Mastra agent/chat/RBAC architecture (§7.1b–§7.1e), and a Timesheet MCP integration for external availability data (§7.1d). New `org.viewer` cross-group read role added (§4.4). Accounts entity deferred with schema hook in `groups.account_id` (§2.3, §11.2). Domain event bus fixed as transactional outbox + Postgres `LISTEN/NOTIFY` (§1.6.5a). **Architecture reframed from multi-app to modular monolith with strict, enforced module boundaries (§1.6).** v1 ships one container; per-module extraction is documented as a v1.x+ playbook (§1.6.12) gated on real scaling pain. Module boundary discipline (schema-per-module, no cross-schema reads, public-API surfaces, no cross-module FKs) is enforced by tooling, not convention. Future business modules (`timesheet`, `pmo`, `okrs`, etc.) slot in via §1.6.3 with zero changes to existing modules. **Sync conflict resolution pinned (§6.3): field-level "Seta wins" with `last_pushed_field_values` snapshot — not timestamp LWW.** **Flagship demo runs on agent composition over atomic primitives (§7.2), not macro tools** — `skill_tags` (§5.1) and `review_state` (§5.3) are optional refinements (default empty/null is the common case); the agent reasons primarily over `title` + `description` via semantic retrieval + LLM filter pass. Skill matching uses embedding similarity + assignment-history inference (§3.9.1), not a hand-curated concept map. Aligned with Mastra's agent-vs-workflow guidance (small composable tools for adaptive reasoning; deterministic step graphs only for system pipelines, §7.1f). Six §12.1 residuals closed inline (Entra-removed-user detection, idle-session timeout, failed-login threshold + notification, audit-permission separability, IdP recompute cadence, import-recent windows). All foundational decisions resolved. Deferred capabilities with v1 architectural hooks in §11. Ready for architecture phase.
 
-**Flagship v1 use case (drives §3.9 + §7.2 scope):** *"Show me tasks that need review on a given topic (e.g., infrastructure) and recommend available people in this tenant with matching skills."* This is the canonical demo of the "AI-first work management" framing in §1, and the reason v1 includes a user skill/availability model, a hand-curated skill concept map, a multi-factor workload score, an MCP timesheet hook for leave-aware availability, and an `org.viewer` role so leadership can see across all projects without being god-admin.
+**Flagship v1 use case (drives §3.9 + §7.2 scope):** *"Show me tasks that need review on a given topic (e.g., infrastructure) and recommend available people in this tenant with matching skills."* This is the canonical demo of the "AI-first work management" framing in §1. The agent answers it by composing atomic read primitives at runtime — `search_tasks_semantic`, `list_tasks`, `infer_task_topics`, `match_users_to_topic`, `infer_user_skills_from_history`, `compute_workload`, `get_leave_overlap`, `get_user_availability` — over the natural-language content of tasks and the assignment-history graph. No `recommend_reviewers` macro tool; the LLM is the orchestrator. The demo works whether or not users tag tasks (`skill_tags`) or set `review_state` — those are optional pinning signals. v1 still includes a user skill profile (HR-curated, trusted when present; augmented by assignment-history inference), a multi-factor workload score (tenant-configurable weights), an MCP timesheet hook for leave-aware availability, and an `org.viewer` role so leadership can see across all projects without being god-admin.
 
 ---
 
@@ -318,7 +318,7 @@ A modular monolith must still answer: *"Who issues the session? Who validates it
 
 **Cross-module reads of user profile (the recommender's "get user skills" path).**
 
-When `copilot` (running `staffing.agent` for `recommend_reviewers`) or any other module needs a user's profile fields:
+When `copilot` (running the §7.2.2 staffing-recommendation recipe via `staffing.agent` — Phase B) or any other module needs a user's profile fields:
 
 - **Synchronous path:** call `identity`'s public function API (§1.6.4) — `getUserProfile(userId, { acting_user })` — with the acting user's session context. `identity` re-checks RBAC at its public entry point.
 - **Hot-path read model (preferred):** subscribe to `identity.user.profile.updated`, `identity.user.deactivated`, and `identity.role_grant.changed` events. Maintain a local **denormalized projection** in the consuming module's own schema. The recommender's skill / workload / availability query becomes a single in-schema Postgres query.
@@ -518,38 +518,24 @@ The system must accommodate additional SSO providers without architectural chang
 
 In addition to identity (§3.3a), every user carries a profile used by the copilot for the flagship staffing-recommendation use case (§7.2) and visible to other members of the same tenant.
 
-#### 3.9.1 Skill model — leaves + concept groups
+#### 3.9.1 Skill model — declared skills + history inference
 
-People tag themselves with **specific** tools and frameworks, not umbrella categories. A skill profile reads `terraform`, `github-actions`, `kubernetes`, `react` — *not* just `infrastructure`. But queries (from humans or the copilot) often phrase intent at the concept level: "find me an infrastructure reviewer." v1 bridges that with a **skill concept map**.
+People tag themselves with **specific** tools and frameworks (`terraform`, `github-actions`, `kubernetes`, `react`). HR onboarding produces a credible initial skill set, so declared skills are the **primary** matching signal when present. Queries phrased at a concept level ("find me an infrastructure reviewer") are bridged by **embedding similarity** (e.g., `terraform` ≈ `cdk` ≈ `infrastructure` in vector space, §7.1c) — not by a hand-curated concept map.
 
-- **`skills: string[]`** — free-form leaf tags on the user profile. Lowercased on save; original casing preserved for display. User-editable; tenant admin can also edit.
-- **`skill_concepts` (instance config, tenant-overridable)** — a map from concept names to leaf tags they encompass. Ships seeded:
-  ```
-  infrastructure: [terraform, iac, kubernetes, k8s, github-actions, gitlab-ci, ansible,
-                   cloudformation, pulumi, cdk, devops, sre, aws, gcp, azure-ops]
-  frontend:       [react, vue, svelte, nextjs, css, html, typescript, javascript, tailwind]
-  backend:        [hono, node, golang, rust, python, java, drizzle, postgres, mysql]
-  ai:             [mastra, langchain, embeddings, rag, llm, prompt-engineering, openai, anthropic]
-  data:           [postgres, mysql, sql, etl, dbt, airflow, snowflake, bigquery]
-  security:       [appsec, owasp, pentesting, iam, encryption, sso]
-  ```
-  - Concept names may themselves appear as tags (a generalist self-tags `infrastructure`).
-  - Multi-membership is supported — `cdk` legitimately lives in `infrastructure` and a future `aws` group.
-  - Tenant admin can edit their tenant's map (add concepts, add/remove leaves, override defaults). UI surfaces "tags used in this tenant that are not in any concept" to highlight drift.
+- **`skills: string[]`** — free-form leaf tags on the user profile. Lowercased on save; original casing preserved for display. User-editable; tenant admin can also edit. Default empty is acceptable — the agent falls back to history inference (below).
 
-- **Skill-match rule used by the recommender (§7.2):** a user matches a queried skill *S* when **any** of these holds:
-  1. The user is literally tagged *S*.
-  2. *S* is a concept, and the user is tagged with any leaf inside that concept.
-  3. The user is tagged *S'*, and *S'* shares at least one concept with *S* (sibling match).
-  4. The user is tagged with a concept whose leaves include *S* (parent match).
-  
-  The recommender ranks higher for literal (rule 1) and parent (rule 4) matches than sibling matches (rule 3), because siblings are weaker signals.
+- **Two signal sources, combined:**
 
-- **Risks accepted by free-form leaves + concept map.**
-  - **Map drift.** New tools emerge constantly. Mitigated by tenant-admin editability + the "tags not in any concept" admin view. Long-term answer is embedding-based matching (v1.x, §11.8); v1 lives with hand-curated drift.
-  - **No proficiency level.** Junior `terraform` and principal `terraform` look identical to the recommender. v1.x (§11.8).
-  - **Stale skills.** No "you haven't used this in 6 months" demotion. v1.x (§11.8).
-  - **Concept ambiguity.** Some tags are genuinely in multiple buckets. Map handles via multi-membership; risk is minor.
+  1. **Declared skills (precision-leaning).** User-curated; trusted when populated. Concept-level queries match via embedding similarity over `identity.user_skill_embeddings` (§7.1c). No concept map, no synonym list — the embedding space is the only synonym layer.
+
+  2. **History inference (recall-leaning, freshness-aware).** From the user's assignment history, infer demonstrated skills: for each query topic, retrieve the user's recent tasks (title + description), score by topic embedding similarity × recency weight. A user with three completed `terraform` tasks last month outranks one who self-tagged `terraform` two years ago and hasn't touched it since. Exposed as the `infer_user_skills_from_history` primitive (§7.2).
+
+  The §7.2 `match_users_to_topic` primitive combines both — `max(declared_match, history_match)` — so a user with no declared skills is still discoverable through their work, and a user who declared a stale skill is downweighted when history disagrees.
+
+- **Tradeoffs accepted.**
+  - **No proficiency level.** Junior `terraform` and principal `terraform` are not distinguished in v1. v1.x adds `{tag, level}` if dogfood demands it (§11.8).
+  - **History inference cost.** Adds one vector query per candidate during ranking; bounded by per-user recent-assignment count and answered against the per-tenant HNSW index. Within the §10.2 latency budget on the §10.2 reference deployment.
+  - **Cold start for new hires.** A user with no declared skills and no assignment history yet is invisible to the recommender. Acceptable — same outcome as not being in the tenant. Admin can seed declared skills at invite.
 
 #### 3.9.2 Availability model — status, timezone, working hours
 
@@ -569,24 +555,15 @@ workload_score(user) = sum over user's open assignments of:
     priority_weight × due_weight × progress_weight
 ```
 
-Weights:
+**Factors are spec-pinned; weights are tenant-tunable.** The factor set (priority, due-date proximity, progress state) is fixed in v1. The numeric weight ladder is **tenant configuration**, not spec, so operators can recalibrate without code changes. Architecture phase ships a default ladder that produces sensible scoring on the §10.2 reference workload; tenant admins override via instance config.
 
-| Factor | Value × |
-|---|---|
-| **Priority:** Urgent / Important / Medium / Low | 2.0 / 1.5 / 1.0 / 0.5 |
-| **Due-date:** overdue or due today / ≤ 7 days / ≤ 14 days / later or none | 2.0 / 1.5 / 1.0 / 0.5 |
-| **Progress:** In Progress / Not Started / Completed / Deferred | 1.5 / 1.0 / 0 / 0 |
+The `compute_workload({ user_id })` primitive (§7.2) returns `{ score, breakdown }` — the raw score plus per-factor contribution. The agent (or a tenant policy) applies any threshold for "available for new work" — the threshold is not baked into the primitive. This keeps the tool atomic (per §16.5) and lets the agent answer "ignore workload, just rank by skill" without fighting a built-in filter.
 
-Computed live by the recommender (no cached column on the user row). Cheap to query — bounded by the user's open assignments, indexed by `assignee_id`. If at-scale listing endpoints need this, a scheduled recompute or materialized view is a v1 optimization, not a model change.
+Score is cheap to compute live — bounded by the user's open assignments, indexed by `assignee_id`. If at-scale listing endpoints need this, a scheduled recompute or materialized view is an optimization, not a model change.
 
-**Effective-availability rule (used by the recommender):**
+**Effective-availability — composed at the agent layer, not baked into a tool.** The agent combines `get_user_availability({ user_id })` (self-declared status, OOO, working hours, timezone), `compute_workload({ user_id })`, and `get_leave_overlap({ user_id, start, end })` (Timesheet MCP, §7.1d) to decide whether a candidate is currently available. A typical default policy returns "available" when status is `available`, score is under the tenant's threshold, OOO is past, and no MCP leave overlaps. Other policies ("any non-OOO user, ignoring workload"; "everyone, ranked by closest match regardless of capacity") are equally expressible because the inputs are separate primitives. Composition recipes documented in §7.2.
 
-A user is *available for new work* when all hold:
-- `availability_status = 'available'` (after auto-reset of stale OOO).
-- AND `workload_score < threshold` (tenant-configurable; default **8.0** — calibrated so a person with ~3 in-progress medium-priority mid-due tasks is at the boundary, room for one more).
-- AND `ooo_until` is null or in the past.
-
-**Behaviour when no one is strictly available.** The recommender always returns a non-empty list when *any* skill-matching users exist; users above the threshold are returned with an explicit "at capacity" label and de-ranked. Better than zero results — the human asking can decide if it's worth interrupting someone at capacity.
+**Behaviour when no one is strictly available.** The agent always returns a non-empty list when *any* skill-matching users exist; users that fail the availability policy are returned with an explicit "at capacity" / "on leave" label and de-ranked. Better than zero results — the human asking can decide if it's worth interrupting someone at capacity.
 
 #### 3.9.4 Signals deliberately not modeled in v1 (and why)
 
@@ -659,7 +636,7 @@ Each module is an **authorization scope** (§1.6). Roles below are *contributed*
 - **Groups** — the membership container that owns plans. MS Planner's "M365 Group" analogue, but native to the platform (no dependency on an actual M365 Group). A user is a member of zero or more groups within their tenant. Group membership controls visibility/access to plans within it.
 - **Plans** — containers for work, akin to a project or initiative. Each plan belongs to exactly one group.
 - **Buckets** — columns within a plan (Kanban-style grouping).
-- **Tasks** — the unit of work. Carries title, description, due date, start date, percent complete, priority, progress state, labels, checklist items, assignees, attachments, **skill_tags** (cross-plan free-form tags such as `infrastructure`, `frontend` — distinct from per-plan colored labels; see §3.9 for the matching user-skill model).
+- **Tasks** — the unit of work. Carries title, description, due date, start date, percent complete, priority, progress state, labels, checklist items, assignees, attachments, and two optional refinements: **skill_tags** (cross-plan free-form tags such as `infrastructure`, `frontend`; default empty — see §5.3 for the optional-refinement semantic) and **review_state** (also §5.3). Both are pinning signals when explicitly set; the agent does not depend on them being populated and reasons primarily over title + description.
 - **Assignments** — many users may be assigned to a task.
 - **Labels** — per-plan colored tags.
 - **Checklist items** — sub-tasks within a task, with done/not-done state.
@@ -685,16 +662,16 @@ Terminology and structure deliberately track Microsoft Planner's so sync mapping
 - **Soft-delete with no auto-purge.** Deleted tasks, plans, comments go to per-tenant trash indefinitely. Tenant admin can restore or empty trash manually. Hard-delete only via (a) explicit "empty trash" or (b) GDPR DSR erasure (see §10.1).
 - **Authorship after user deletion: "Former member" placeholder.** Content survives; the author label is replaced. Personal data is scrubbed.
 - **Empty-state:** new tenant lands on an empty Groups page with a single prominent "Create your first group" CTA. No sample data, no guided tour, no template gallery in v1.
-- **Skill-tagged tasks (new in v1):** any task may carry zero or more `skill_tags` (free-form, lowercased, cross-plan). These power the staffing-recommendation use case (§7.2). Skill tags are *not* synced to MS Planner — they are a Seta-native concept (Planner has no equivalent field). The sync layer ignores skill_tags on outbound writes and never overwrites them on inbound writes. See §6.5 for sync field coverage.
-- **Review state — first-class field in v1 (decided).** The flagship demo (§1) — "show me tasks that need review on a given topic and recommend available people" — rests on the platform knowing which tasks need review. Convention-based signals (a `needs-review` label, a "Needs Review" bucket) put the headline use case on fragile per-tenant config; first-class is cheaper.
-  - **Schema:** `tasks.review_state` — Postgres enum, Drizzle `pgEnum`. v1 values: `'needs_review'` and `null` (default null). Nullable rather than a `'none'` enum value for clean "unset" semantics.
+- **Skill-tagged tasks (optional refinement in v1).** Any task may carry zero or more `skill_tags` (free-form, lowercased, cross-plan). They are an **optional pinning signal**, not a primary input to the agent: the staffing flow (§7.2) reasons primarily over each task's `title` + `description` via semantic retrieval + LLM filter; explicit `skill_tags`, when present, boost confidence and short-circuit topic extraction. Default empty is the common case — task creators are not expected to tag. MS Planner has no equivalent field; sync ignores `skill_tags` on outbound writes and never overwrites them on inbound writes (§6.5).
+- **Review state — optional refinement in v1.** Whether a task "needs review" is a property the agent infers from `title` + `description` (wording like "ready for review", "PTAL", `@x please check`), labels, bucket names, checklist state, and progress (§7.2 composition recipe). `tasks.review_state` is an **optional pinning signal** for teams that want explicit workflow tracking; default null is the common case. MS Planner has no equivalent field, so Planner-imported tasks arrive with `review_state = null` and the agent still answers "find tasks needing review" correctly.
+  - **Schema:** `tasks.review_state` — Postgres enum, Drizzle `pgEnum`. v1 values: `'needs_review'` and `null` (default null).
   - **Why enum, not boolean.** v1.x will inevitably grow this surface (`'in_review'`, `'approved'`, `'changes_requested'`, `'blocked'`, etc., shaped by which review workflows real tenants run). Starting as an enum lets v1.x add values without a column migration — matches §11's "schema-leaves-room" principle.
   - **UI:** task detail surfaces a "Needs review" toggle alongside `priority` and `progress`. Permission: same as task-edit (`planner.contributor` and above) — no new permission string.
   - **Auto-clear on completion?** No. Review state is independent of progress; a completed task pending review is a coherent state.
   - **Checklist items don't carry review_state.** Review is task-level only in v1.
   - **Not synced to Planner.** Seta-native (Planner has no equivalent). Same handling pattern as `skill_tags` (§6.5) — sync layer ignores on outbound, never overwrites on inbound.
   - **Event:** `planner.task.review_state.changed` emitted on toggle. Feeds audit log + v1.x notification triggers (see §11.5 "skill-based notifications").
-  - **Planner-import compatibility:** tenants migrating with existing `needs-review` labels or "Needs Review" buckets can bulk-set `review_state` after import (manual bulk-edit, or a v1.x `bulk_set_review_state` copilot tool). No migration tooling in v1 core.
+  - **Planner-import compatibility:** imported tasks arrive with `review_state = null`; teams that want explicit tracking can bulk-set later. No migration tooling needed in v1 core because the flagship flow doesn't depend on the field being populated.
 
 ### 5.4 Notifications (in-app only, v1)
 
@@ -887,7 +864,7 @@ The copilot's chatflow architecture is fixed below; architecture phase implement
 - One **router agent** receives every user message. Job is intent classification + routing. Lightweight prompt, no domain tools attached.
 - A small set of **domain specialist agents**, each with a tightly scoped tool list:
   - **`planner.agent`** — task / plan / bucket / checklist / assignment CRUD, querying, summarization. Wraps the Planner module's HTTP handlers as tools.
-  - **`staffing.agent`** — exposes `recommend_reviewers` (§7.2) and future skill / availability tools.
+  - **`staffing.agent`** (Phase B) — exposes the cross-module skill/availability/workload primitives (`match_users_to_topic`, `infer_user_skills_from_history`, `get_user_availability`, `compute_workload`, `get_leave_overlap`) that the §7.2.2 staffing-recommendation recipe composes. Not a macro tool — atomic primitives only, per D15.
 - The router picks one specialist per turn. Specialists may call multiple tools within a turn but do not hand off to another specialist mid-turn. Cross-specialist orchestration via **Mastra Supervisor Agents** (the v1.0 successor to the deprecated `.network()` primitive) is a v1.x candidate. v1 uses a Supervisor Agent topology from day one — single-delegation-per-turn is enforced via `onDelegationComplete`, leaving the door open for v1.x multi-delegation without a rewrite. See §18 for the concrete wiring.
 - The current portal (which app the user is in) is passed as a routing hint, not a hard restriction — cross-domain questions still work.
 
@@ -947,8 +924,8 @@ Workflow vs chat boundary is summarized in the table at the top of §7.1b. The c
   Tool code chooses based on intent (or runs both and merges); implementations are swappable. Architecture phase defines the interface and the merge policy.
 - **What this unlocks in Phase A:**
   - "Find tasks similar to this one" / concept search over task descriptions.
-  - Skill matching beyond the §3.9.1 hand-curated concept map — `cloud architect` ≈ `infrastructure` works because both embed into nearby space.
-  - The synonym-list and concept-map maintenance burden flagged in §12.2 becomes lower-stakes — embeddings are the safety net.
+  - Skill matching at concept level — `cloud architect` ≈ `infrastructure` works because both embed into nearby space. This is the v1 design (§3.9.1), not a fallback for a concept map (there is no concept map per D15).
+  - Topic extraction from untagged tasks (`infer_task_topics`, §7.2.1) — embeddings power both the `new-task-skill-tag-suggester` workflow and the agent's reasoning when answering "find tasks about X".
 - **Tradeoffs accepted.**
   - Embedding cost: a small but real per-write cost (OpenAI text-embedding-3-small is ~$0.02 per 1M tokens; cheap, but non-zero).
   - One additional residency-scope surface (the embedding model endpoint) — listed in the §10.3 checklist alongside the LLM provider.
@@ -1137,24 +1114,78 @@ In v1, workflows are exclusively platform-operated pipelines. They are not surfa
 - Querying ("show me everything overdue this week," "what changed on the engineering board?").
 - Summarization ("summarize the open tasks in this plan").
 - Destructive actions guarded by human-in-the-loop approval (e.g., "reassign all of Bob's open tasks to Carol" requires a confirmation card).
-- **Find tasks needing review (flagship demo, part 1) — composed from small tools, not a monolithic tool.** The "find tasks needing review on topic X" query is **not** a single hardcoded tool; it is an LLM-orchestrated composition over small, composable Mastra Tools. Hardcoding the query as one tool would force tool sprawl for every variation ("find overdue tasks needing review", "find tasks needing review by assignee", …) and remove the LLM's ability to recompose primitives. The agent picks tools per intent. Phase A tools exposed by `planner.agent` for this flow:
-  - `list_my_accessible_groups()` — group scope resolution.
-  - `list_tasks({ group_ids?, review_state?, skill_tags?, due_before?, assignee_id?, completed?, limit? })` — structured filter.
-  - `search_tasks_semantic({ query, group_ids?, limit? })` — pgvector semantic search (§7.1c).
-  - `get_task({ task_id })`.
-  Typical LLM composition for "find tasks needing review on terraform": (1) `list_my_accessible_groups()` → group_ids; (2) parallel `list_tasks({ group_ids, review_state: 'needs_review', skill_tags: ['terraform'] })` + `search_tasks_semantic({ query: 'terraform', group_ids })`; (3) merge + dedupe → return cards. Cross-group expansion is role-gated identically to `recommend_reviewers` below (`org.viewer` / `org.admin` may pass `scope: 'tenant'`); the tool ignores `scope: 'tenant'` from callers without the role.
-- **Staffing recommendation (flagship demo, part 2 — see §1 callout).** The copilot exposes `recommend_reviewers` as a **Mastra Tool** (not a Workflow — single deterministic ranking algorithm with no LLM decision points inside). Given a task or a set of `skill_tags`, returns a ranked list of tenant members who are *available for new work* (per the §3.9.3 effective-availability rule) and whose skills overlap the requested tags. The algorithm's sub-pieces are *also* exposed as separate tools (`find_users_by_skill`, `compute_workload`, `get_leave_overlap`) so the LLM can build adjacent queries from the same primitives without re-implementation. Behaviour:
-  - **Inputs:** either a `task_id` (copilot reads its `skill_tags`) or an explicit `skill_tags: string[]` (for "find me anyone who knows X" queries). Skills may be either leaf tags (`terraform`) or concept names (`infrastructure`) — both work, see §3.9.1.
-  - **Default candidate pool — within the task's containing group.** The recommender does *not* search tenant-wide by default. For outsourcing tenants, suggesting a `terraform` engineer from Client B's team to review Client A's task creates client-isolation, billing, and trust problems. Default scope is the right safety choice.
-  - **Cross-group search is opt-in and role-gated.** A caller with `org.viewer` or `org.admin` (§4.4) may pass `scope: 'tenant'` (or the copilot offers a "search across all projects" toggle in the UI). Callers without that role cannot expand scope — the tool ignores the parameter if the caller lacks the role. The copilot surfaces this constraint in its rationale rather than silently downscoping.
-  - **Matching:** uses the §3.9.1 skill-match rule (literal + concept expansion + sibling + parent). Match quality is one of `literal` > `parent` > `leaf-of-concept` > `sibling`.
-  - **Ranking signal (in order):** (1) match-quality bucket, (2) count of matched skills, (3) `workload_score` ascending (§3.9.3), (4) recency of last task activity as tie-breaker.
-  - **Availability check.** Beyond `workload_score`, the recommender consults external timesheet data (§7.1d Timesheet MCP) when configured for the tenant. A user with approved leave overlapping today/the near future is auto-treated as `ooo` regardless of their self-declared status — source-of-truth wins.
-  - **Output:** ranked candidates with rationale per candidate, e.g. *"matches `terraform` (literal), `kubernetes` (literal); workload 4.5 (available); not on leave (per AcmeTimesheet); 2pm in Asia/Ho_Chi_Minh; last active 3h ago."* Candidates above the workload threshold are still returned but flagged `at capacity` and de-ranked.
-  - **Display only in v1.** The copilot presents the ranked list; the user manually picks and assigns through the task-edit UI. No copilot-driven auto-assign in v1 (one-click "assign from recommendation card" is v1.x — §11.8).
-  - **No v1 escalation when no one matches in scope.** The tool returns an empty list with a rationale ("no users in `ClientA-Mobile` tagged `terraform` or anything in the `infrastructure` concept; you may have permission to search across all projects — try `search all`"). The copilot does not silently broaden the search.
 - **Tool-call failure UX:** surfaced clearly in the conversation thread; copilot suggests retry or alternate path; never silently swallowed.
 - **No voice input, no mobile-native copilot in v1.** Web only.
+
+#### 7.2.1 Tool catalog — atomic primitives only
+
+Aligned with §16.5 and Mastra's agent-vs-workflow guidance: tools are **atomic primitives**. The agent decides composition dynamically per intent. No macro tools (no `recommend_reviewers`, no `find_tasks_needing_review` — those are composition recipes, §7.2.2). Deterministic multi-step processes go in §7.1f workflows, not in the tool catalog.
+
+**Read primitives (no HITL).**
+
+| Tool | Returns | Notes |
+|---|---|---|
+| `list_my_accessible_groups()` | `group_id[]` | Scope resolution. |
+| `list_tasks({ group_ids?, review_state?, skill_tags?, due_before?, assignee_id?, completed?, limit? })` | `TaskRow[]` | Structured filter. All filter fields optional. Empty `review_state` / `skill_tags` filters are typical (most tasks lack these). |
+| `get_task({ task_id })` | `TaskDetail` | Single record with full fields. |
+| `search_tasks_semantic({ query, group_ids?, limit? })` | `{ task, score }[]` | pgvector cosine similarity over `task_embeddings` (§7.1c). |
+| `search_users_semantic({ query, group_ids?, limit? })` | `{ user, score }[]` | pgvector over `identity.user_skill_embeddings`. |
+| `infer_task_topics({ task_id?, content?, top_k? })` | `{ topic, confidence, evidence }[]` | LLM + embedding aggregate over similar-task tags. Atomic primitive — used by the `new-task-skill-tag-suggester` workflow *and* by the agent when reasoning about a task whose `skill_tags` are empty. Same code path either way. |
+| `infer_user_skills_from_history({ user_id, top_k?, recency_window? })` | `{ skill, evidence_tasks[], last_used }[]` | Recency-weighted topic extraction over the user's assignment history (§3.9.1). |
+| `match_users_to_topic({ topic, group_ids?, top_k? })` | `{ user_id, match_score, source: 'declared' \| 'history' \| 'both' }[]` | Combines declared-skill embedding match (`identity.user_skill_embeddings`) and history-inferred match. Returns raw match scores — no workload or availability filter. |
+| `get_user_availability({ user_id })` | `{ status, ooo_until, working_hours, timezone }` | Self-declared availability fields (§3.9.2). No leave overlay. |
+| `compute_workload({ user_id })` | `{ score, breakdown }` | Live computation per §3.9.3; raw score, no threshold applied. |
+| `get_leave_overlap({ user_id, start, end })` | `{ on_leave: bool, source, range? } \| { degraded: true }` | Timesheet MCP call (§7.1d); graceful degradation on MCP failure. |
+
+**Write primitives (HITL-gated per §14.1).** `create_task`, `update_task`, `assign_task` / `unassign_task`, `complete_task`, `delete_task`, `set_review_state`, `add_skill_tag` / `remove_skill_tag`, `apply_label` / `remove_label`, `add_checklist_item` / `toggle_checklist_item`, `create_group`, `add_group_member`, `create_plan`, `create_bucket` / `reorder_buckets`, plus `bulk_*` variants (§5.3). Each is a thin wrapper over its module's public-API function; all writes require user approval via assistant-ui Interactable confirmation card.
+
+**Cross-group scope rule.** Tools that accept `group_ids` default to the caller's `accessible_group_ids`. Callers with `org.viewer` or `org.admin` (§4.4) may pass `scope: 'tenant'` for cross-group read primitives (`search_tasks_semantic`, `search_users_semantic`, `match_users_to_topic`, `list_tasks`); the tool ignores `scope: 'tenant'` from callers without the role and surfaces the constraint in its result rationale rather than silently downscoping.
+
+#### 7.2.2 Composition recipes (illustrative, not a contract)
+
+These narrate how the agent typically answers flagship queries by composing §7.2.1 primitives at runtime. They are **not** spec — the LLM may compose differently per turn, and that flexibility is the point. The recipes exist so reviewers see that the catalog is sufficient for the flagship use case.
+
+**Recipe: "Find tasks needing review on terraform"**
+
+```
+1. list_my_accessible_groups() → groups
+2. In parallel:
+   a. search_tasks_semantic({ query: 'terraform review needed', group_ids: groups })
+   b. list_tasks({ group_ids: groups, review_state: 'needs_review' })  // catches explicitly-pinned tasks
+3. Merge candidates; LLM filter pass over title + description of each:
+   - Is this task asking for review? Signals: "PTAL", "ready for review", "@x please check",
+     bucket name "Review", label "Needs Review", checklist incomplete with high % complete.
+   - Is it about terraform / infrastructure?
+4. Rank by: explicit review_state pinned (boost) > LLM judgment confidence > recency.
+5. Return ranked cards with one-line rationale per result.
+```
+
+The recipe degrades gracefully: if no tenant has ever set `review_state`, step 2b returns empty and the agent works entirely off semantic + LLM filter. If many do, step 2b is the high-precision anchor and 2a provides recall.
+
+**Recipe: "Recommend reviewers for this task"**
+
+```
+1. Read task: get_task({ task_id }) → { title, description, skill_tags, labels, bucket }
+2. Topic extraction:
+   - If skill_tags non-empty: use as pinned topics (high confidence).
+   - Else: infer_task_topics({ task_id }) → topics.
+3. For each topic: match_users_to_topic({ topic, group_ids: [task.group_id] }) → candidates_per_topic
+4. Merge, dedupe by user_id, sum match_scores across topics.
+5. For each candidate, in parallel:
+   - get_user_availability({ user_id })
+   - compute_workload({ user_id })
+   - get_leave_overlap({ user_id, start: today, end: today+14d })   // graceful degradation
+6. Apply availability policy (tenant-default or user-stated, e.g., "ignore workload"):
+   - default: rank available > at_capacity > on_leave; within bucket sort by match_score.
+7. Cross-group expansion is opt-in (org.viewer / org.admin) per §7.2.1 scope rule.
+8. Return ranked cards with per-candidate rationale:
+   "matches terraform (declared + 3 recent tasks), kubernetes (3 recent tasks);
+    workload 4.5; not on leave (per AcmeTimesheet); 2pm in Asia/Ho_Chi_Minh."
+```
+
+**Display only in v1.** The agent presents the ranked list; the user manually picks and assigns through the task-edit UI (or by saying "assign Alice" — which triggers the `assign_task` HITL card). No agent-driven auto-assign in v1 — v1.x (§11.8).
+
+**Why composition, not a macro.** Hardcoding either flow as a single tool (e.g., `recommend_reviewers({ task_id, scope })`) would freeze the ranking policy, the availability rule, the scope-resolution semantics, and the merge strategy inside the tool. Users asking variations ("ignore workload"; "include people on leave but flag them"; "rank by recent activity instead of skill match") would each need a new tool or a parameter, leading to tool sprawl. The atomic-primitive shape lets the LLM accommodate those variations turn-by-turn from the same building blocks. See §16.5 + ADR D15.
 
 ### 7.3 Agent operations (internal portal)
 
@@ -1365,17 +1396,16 @@ The critical posture: **v1 does not implement these, but v1 design must not pain
 
 ### 11.8 Skills, availability, staffing recommendations
 
-- **Embedding-based skill matching** (treat `terraform` ≈ `cdk` ≈ `pulumi` via vector similarity instead of relying on the hand-curated concept map) — `v1.x`, gated on a vector store landing (§11.5). *v1 hook:* the §3.9.1 skill-match rule already routes through a `matchSkills(query, user)` helper function; v1 implements with concept-map expansion, v1.x adds a vector path as a sibling or replacement. Tool code (§7.2 `recommend_reviewers`) does not change.
-- **Auto-suggest concept-map updates** (Seta detects tags used in user profiles that don't appear in any concept and suggests where to place them; uses LLM at admin's request) — `v1.x`. *v1 hook:* the "tags not in any concept" view in §3.9.1 surfaces the input; suggestion is a copilot tool over that list.
-- **Skill proficiency levels** (`junior` / `mid` / `senior` per skill) — `v1.x`. *v1 hook:* skills are bare strings in v1; the schema can be widened to `{tag, level}` objects without changing the recommender's input shape (level becomes an optional weight in the ranking function).
+- **Embedding-based skill matching** — **shipped in v1** as the default (replaces hand-curated concept map; see §3.9.1). Not a deferred item.
+- **Skill freshness signals** (recent-task-history weighting) — **shipped in v1** via `infer_user_skills_from_history` (§7.2, §3.9.1). Not a deferred item.
+- **Auto-suggest `skill_tags` on task creation** — **shipped in v1** via the `new-task-skill-tag-suggester` subscriber consuming the `infer_task_topics` primitive (§7.2). HITL card to the creator's chat.
+- **Skill proficiency levels** (`junior` / `mid` / `senior` per skill) — `v1.x`. *v1 hook:* skills are bare strings in v1; the schema can be widened to `{tag, level}` objects without changing the ranking primitives' input shape (level becomes an optional weight).
 - **Peer skill endorsement / verification** — `v2`. *v1 hook:* additive feature on top of user profile; no v1 schema work needed.
-- **Skill freshness signals** (last-time-this-user-completed-a-task-tagged-X, surfaced in ranking) — `v1.x`. *v1 hook:* skill_tags on tasks + assignment history already exist in v1; freshness is a derived metric over them.
 - **Calendar / Slack-status / Teams-status integration for richer availability** — `v1.x`. *v1 hook:* `availability_status` is the user-facing surface; an integration worker writes the same field on behalf of the user. Working-hours overlap (§3.9.2) becomes a filter, not just a display, once calendar context exists.
-- **Effort estimates / story points on tasks** — `v1.x`. *v1 hook:* task schema is extension-ready (§11.3 already calls this out for other dimensions); workload_score weights extend to include estimate.
+- **Effort estimates / story points on tasks** — `v1.x`. *v1 hook:* task schema is extension-ready (§11.3 already calls this out for other dimensions); workload-score factor set is fixed in v1 but extension-ready (§3.9.3).
 - **Velocity / historical completion rate** as a workload-score input — `v1.x`. *v1 hook:* requires a small analytics layer over assignment-history; metric flows into workload_score with the same multiplicative shape.
-- **Copilot-driven one-click assign from the recommendation card** — `v1.x`. *v1 hook:* `recommend_reviewers` already returns structured candidates; the "assign from card" tool call is a sibling of the existing assignment endpoint, gated by the same RBAC + HITL pattern as §7.2 destructive actions.
+- **Copilot-driven one-click assign from the recommendation card** — `v1.x`. *v1 hook:* the staffing-recommendation composition (§7.2) already produces structured candidates; the "assign from card" tool call is a sibling of the existing assignment endpoint, gated by the same RBAC + HITL pattern as §7.2 destructive actions.
 - **Skill-based notifications** ("a new task tagged `infrastructure` needs review") — `v1.x`. *v1 hook:* depends on the domain-event bus (§1.6.5a); a subscriber filters `planner.task.review_state.changed` events where `new_value = 'needs_review'` and matches subscribers by skill overlap.
-- **Auto-suggest `skill_tags` on task creation** (LLM reads task title/description, proposes tags) — `v1.x`. *v1 hook:* a copilot tool over the task entity; no schema change.
 
 ### 11.9 Distribution / commercial
 
@@ -1424,10 +1454,9 @@ All six previously-open items resolved 2026-05-19; decisions live in their home 
 - Default per-tenant attachment quota (currently 5 GB). May need adjustment.
 - The "translation log per binding" UX (§6.6). Verify admins actually use it; if not, simplify.
 - Scale targets (1k users/tenant, 100 tenants/instance, 100k tasks/tenant). Verify against actual dogfood load profile.
-- **Default workload-score threshold** (§3.9.3 — currently 8.0). Recommender treats `< 8.0` as "available." The weighting (§3.9.3 table) may also need re-calibration once real assignment patterns are visible. Validate against actual dogfood load profiles.
-- **Workload weighting calibration** (§3.9.3). The 2.0 / 1.5 / 1.0 / 0.5 ladders for priority / due-date / progress are pragmatic guesses, not measured. Revisit after dogfood — if everyone scores in a narrow band, the spreads are wrong.
-- **Concept-map quality and drift** (§3.9.1). Hand-curated maps go stale. Track: how often does the "tags not in any concept" view fill up? Do tenant admins actually edit the map, or ignore it? If maintenance is high and adoption low, prioritize the embedding-based matching work from §11.8.
-- **Skill-tag quality** (§3.9.1, §5.1). Even with the concept map, leaf tags will accumulate noise (`gh-actions` vs `github-actions`, `k8s` vs `kubernetes`). Acceptable v1; if it derails the recommender, accelerate embedding work.
+- **Default workload-score threshold and weight ladder** (§3.9.3). Both live in tenant config in v1, not in spec. Architecture phase ships a default ladder; revisit after dogfood — if everyone scores in a narrow band, the spreads are wrong.
+- **History-inference cost vs. precision** (§3.9.1). Recall comes from history inference; if it produces noisy candidates (matches against shallow task involvement), tune the recency window or raise the embedding-similarity threshold. Validate against dogfood — declared skills should usually outrank history when both signals exist.
+- **`skill_tags` adoption rate** (§5.1, §5.3). The agent does not require `skill_tags` to function, but if creators do start tagging, ranking benefits. Track adoption; if it's near-zero, drop the `new-task-skill-tag-suggester` workflow to remove an idle HITL surface.
 
 ### 12.3 Resolved-but-flagged (research-flagged trade-offs the team accepted)
 
@@ -1438,9 +1467,10 @@ Captured here so the rationale is recallable. None of these are open — they're
 - **Soft-delete forever in trash** (§5.3). Accepted; safety valve is the explicit DSR-erasure path that bypasses trash for legal obligations.
 - **No tenant branding in v1** (§9.1). Accepted; v1.x candidate. Frequently-requested in B2B, will surface in early adopter feedback.
 - **Operator-decided audit retention** (§8.1). Accepted; means SOC 2 readiness depends on operator following the deployment guide.
-- **Free-form leaf skills + hand-curated concept map, no proficiency level** (§3.9.1). Accepted that v1 ranks junior-`terraform` and principal-`terraform` identically; that the concept map will need maintenance; that map drift will quietly degrade recommendation quality between updates. Mitigated by tenant-admin editability of the map and the "tags not in any concept" admin view. Embedding-based matching (§11.8) is the long-term answer; v1 holds the line on the curated map.
+- **Free-form leaf skills + embedding-based matching, no proficiency level** (§3.9.1). Accepted that v1 ranks junior-`terraform` and principal-`terraform` identically; mitigated partially by history inference (a senior with many recent `terraform` tasks outranks a junior with one). Proficiency levels are a v1.x candidate if dogfood demands them.
 - **Multi-factor workload model derived from existing task fields** (§3.9.3). Accepted that v1's "busy" signal is bounded by what the task model already carries (priority, due, progress) — it does *not* see calendar load, real-time presence, effort estimates, or velocity. Documented in §3.9.4 so reviewers don't assume those signals are in play.
-- **Display-only staffing recommendation** (§7.2). The copilot ranks and shows; the user assigns by hand. Accepted as the safe default; one-click assign is v1.x (§11.8).
+- **Display-only staffing recommendation** (§7.2). The agent composes the recommendation; the user assigns by hand. Accepted as the safe default; one-click assign is v1.x (§11.8).
+- **Agent composes the recommendation; no `recommend_reviewers` macro tool** (§7.2, §16.5). Accepted that v1 documents a composition recipe over atomic primitives rather than a single ranking tool. Aligns with Mastra's agent-vs-workflow guidance and the user-instruction principle "each tool should be small enough that the agent can reuse and decide dynamically, not hardcode flow." Tradeoff: the LLM does the orchestration each turn (one extra reasoning step) vs. a deterministic macro. Acceptable for v1 latency budgets (§10.2) given the per-session Agent + prompt-cache architecture (§A8).
 
 ---
 
@@ -1458,7 +1488,7 @@ Original gates and current state:
 
 6. ~~Deferred capabilities have architectural hooks documented in §11.~~ **Done.** Each deferred capability lists its v1 hook so v1 design doesn't foreclose it.
 
-7. ~~Flagship copilot use case defined with concrete data-model implications.~~ **Done (2026-05-19 scope expansion).** Staffing-recommendation use case captured in the §1 callout; data-model implications in §3.9 (user skill profile, availability) and §5.1 (`skill_tags` on tasks); copilot capability in §7.2 (`recommend_reviewers` tool, display-only flow); deferred refinements in §11.8.
+7. ~~Flagship copilot use case defined with concrete data-model implications.~~ **Done (2026-05-19 scope expansion; refined 2026-05-19 per D15).** Staffing-recommendation use case captured in the §1 callout; data-model implications in §3.9 (user skill profile, availability) and §5.1 (optional `skill_tags` on tasks); copilot capability in §7.2 (atomic primitives + §7.2.2 composition recipe, display-only flow); deferred refinements in §11.8.
 
 ### Status
 
@@ -1486,7 +1516,7 @@ To translate this requirements doc into an architecture, the next phase should y
   - Agent topology: the router agent and v1 specialists (`planner.agent`, `staffing.agent`), prompt outlines, and the turn lifecycle (§7.1b).
   - Tool layer: the wrapping pattern that makes every tool a thin shell over its Hono handler so RBAC and validation are shared, not reimplemented. Confirmation-card flow for destructive tools.
   - **RBAC + performance contract (§7.1e):** session-scoped permission cache (`accessible_group_ids`, `effective_permissions`, `cross_tenant_read`), event-driven invalidation, role-shaped tool registry at session start, SQL-side filtering, async-batched audit, and stable cache-friendly system-prompt role block. Architecture must show how these are wired end-to-end (login → session boot → tool list → first turn).
-  - Concrete shape of the `recommend_reviewers` tool (§7.2) — group-scoped default + role-gated cross-group expansion, skill-match query, load-derivation query, MCP timesheet leave overlay, synonym-normalization seam (§11.8 hook), ranking function.
+  - Concrete shape of the §7.2.2 staffing-recommendation composition (Phase B) — the cross-module primitives (`match_users_to_topic`, `infer_user_skills_from_history`, `get_user_availability`, `compute_workload`, `get_leave_overlap`), group-scoped default + role-gated cross-group expansion semantics, embedding-based skill matching, MCP timesheet leave overlay. Per D15 no macro `recommend_reviewers` tool — the recipe is the contract.
   - Chat memory: thread schema, working-memory summarization strategy, GDPR-erasure path (§7.4, §10.1).
   - Streaming transport: SSE multiplexing with §5.2 board events.
   - `Retriever` function interface (§7.1c) — the v1 hook that keeps tool code stable when a vector store lands later.
@@ -1506,7 +1536,7 @@ Three sequenced phases. Phase A is **the standalone Copilot module end-to-end**,
 
 **Strategic framing.** Phase A proves the AI-first thesis (§1) with the agent as the only product surface. The user converses with the Supervisor or `planner.agent`; the Supervisor delegates; tools execute against the full planner schema. Planner Kanban UI, tenant admin UI, MS Planner sync, cross-domain `staffing.agent`, Timesheet MCP integration — all Phase B+. Backend APIs for everything Phase A's agent needs *are* in scope: schema, public functions, Mastra tools, RBAC, embeddings + CDC freshness pipeline (§7.1c).
 
-**Scope compression vs earlier draft (2026-05-19 architect review):** `staffing.agent` + `recommend_reviewers` + Timesheet MCP + leave-overlay narrative are deferred to Phase B. Superadmin tenants UI is deferred — Phase A creates tenants via the `apps/cli` `tenant-create` command only. Result: ~4–5 weeks compression; 4–5-engineer budget for Phase A becomes ~7–10 months.
+**Scope compression vs earlier draft (2026-05-19 architect review, refined 2026-05-19 per D15):** `staffing.agent` + cross-module staffing primitives (`match_users_to_topic`, `infer_user_skills_from_history`, `get_user_availability`, `compute_workload`, `get_leave_overlap`) + Timesheet MCP client + leave-overlay narrative are deferred to Phase B. Per D15 there is no `recommend_reviewers` macro tool — the staffing flow is the §7.2.2 composition recipe, which lights up in Phase B once the cross-module primitives ship. Phase A's flagship demo runs the "find tasks needing review" half of the recipe end-to-end (composition over `planner.agent`'s tools). Superadmin tenants UI is deferred — Phase A creates tenants via the `apps/cli` `tenant-create` command only. Result: ~4–5 weeks compression; 4–5-engineer budget for Phase A becomes ~7–10 months.
 
 **Journey under test.**
 
@@ -1514,9 +1544,9 @@ Three sequenced phases. Phase A is **the standalone Copilot module end-to-end**,
 2. Lands in the **standalone Copilot module** (the only app visible in the launcher).
 3. Sets profile: skills (`terraform`, `kubernetes`), availability, working hours, tz.
 4. Picks the **Supervisor** agent (default), or — if `copilot.contributor+` — picks `planner.agent` directly from the agent selector. (`staffing.agent` is Phase B.)
-5. *"Find tasks needing review on terraform."* → Supervisor delegates to `planner.agent` → LLM composes `list_my_accessible_groups()` + `list_tasks({ review_state, skill_tags })` + `search_tasks_semantic({ query })` → merged ranked cards stream back (per the composable-tools pattern in §7.2).
+5. *"Find tasks needing review on terraform."* → Supervisor delegates to `planner.agent` → LLM composes the §7.2.2 recipe: `list_my_accessible_groups()` + parallel `search_tasks_semantic({ query: 'terraform review needed' })` and `list_tasks({ review_state: 'needs_review' })` (the latter often empty, that's expected) → LLM filter pass over candidates judging "needs review?" and "about terraform?" from title + description → merged ranked cards stream back.
 6. *"Assign Alice to this task."* → Supervisor delegates to `planner.agent` → `assign_task` tool → **HITL confirmation card** → user confirms → assignment created → audit-event emitted → done.
-7. (Power-user) Switches to the **Workflows tab** in the standalone Copilot module → sees recent runs of `embeddings-keep-fresh`, `new-task-skill-tag-suggester`, `stale-review-detector`.
+7. (Power-user) Switches to the **Workflows tab** in the standalone Copilot module → sees recent runs of `embeddings-keep-fresh` and `new-task-skill-tag-suggester`.
 
 **In scope.**
 
@@ -1525,7 +1555,7 @@ Three sequenced phases. Phase A is **the standalone Copilot module end-to-end**,
 | `core` | Event bus (outbox + `LISTEN/NOTIFY` per §1.6.5a), audit log, session middleware, app launcher, shell, route/role/tool/subscriber registries | Shell + app launcher (Copilot the only visible app) |
 | `identity` | Schema for user, `user_profile` (skills, availability, working_hours, tz), `role_grants`, sessions via better-auth (local password, argon2id) + `user_skill_embeddings` table maintained by CDC subscriber | **Login**, password reset (functional), email verification, user profile / settings page |
 | `planner` | Full schema: groups, plans, buckets, tasks (incl. `skill_tags` + `review_state`), assignments, checklist items, labels + `task_chunks` / `task_embeddings` / `plan_embeddings` maintained by CDC subscribers. Public API for read + write. Mastra tools per §7.2 (decomposed primitives), all writes HITL-gated. | **No planner UI in Phase A.** Kanban, task detail, board views = Phase B. |
-| `copilot` | **Supervisor agent** + `planner.agent` (specialist). Thread persistence in `copilot.*`. Mastra workflows: `session-cache-invalidate`, **`embeddings-keep-fresh`** (CDC pipeline per §7.1c), `new-task-skill-tag-suggester`, `stale-review-detector`. (`staffing.agent`, `recommend_reviewers`, MCP Timesheet client all deferred to Phase B.) | **Standalone Copilot module:** sidebar with thread history, agent selector (Supervisor + `planner.agent`; `planner.agent` gated to `copilot.contributor+`), chat main pane with streaming + tool-call cards + HITL confirmation cards, Workflows tab (collapsed with §7.3 agent-ops, role-shaped). **Embedded panel deferred** — no domain portal exists yet. |
+| `copilot` | **Supervisor agent** + `planner.agent` (specialist). Thread persistence in `copilot.*`. Mastra workflows: `session-cache-invalidate`, **`embeddings-keep-fresh`** (CDC pipeline per §7.1c), `new-task-skill-tag-suggester`. (Cross-module `staffing.agent` deferred to Phase B; `recommend_reviewers` does not exist as a tool — flagship staffing flow is the §7.2.2 composition recipe, which lights up once `planner.agent` can call `match_users_to_topic` + workload/availability primitives — Phase B alongside the Kanban UI.) | **Standalone Copilot module:** sidebar with thread history, agent selector (Supervisor + `planner.agent`; `planner.agent` gated to `copilot.contributor+`), chat main pane with streaming + tool-call cards + HITL confirmation cards, Workflows tab (collapsed with §7.3 agent-ops, role-shaped). **Embedded panel deferred** — no domain portal exists yet. |
 | `integrations` | Schema + connection record stub for future MCP/Planner bindings (no live integrations in Phase A) | (none in Phase A) |
 
 **Admin UIs to make Phase A self-sufficient (bare-bones):**
@@ -1533,22 +1563,22 @@ Three sequenced phases. Phase A is **the standalone Copilot module end-to-end**,
 - Tenant admin → users list + invite + role-grant. No audit-log browser, no IdP mapping UI.
 - Superadmin tenants UI **deferred to Phase B.** Phase A creates / suspends / deletes tenants via `apps/cli tenant-create|suspend|delete` only.
 
-**Workflows running in Phase A (4 total):**
+**Workflows running in Phase A (3 total):**
 
 - `session-cache-invalidate` — event-triggered on role / membership change (§7.1f).
 - `embeddings-keep-fresh` — CDC pipeline per §7.1c; subscribers re-chunk + re-embed on entity write.
-- `new-task-skill-tag-suggester` — event-triggered on `planner.task.created` when `skill_tags` is empty. Runs vector similarity over existing tagged tasks → suggests 2-3 tags → posts a HITL card in the creator's chat. Closes the loop on the embeddings investment.
-- `stale-review-detector` — cron daily; finds tasks with `review_state=needs_review` waiting > N days; emits `planner.review.stale` events that surface as inbox items in the standalone Copilot module's Workflows tab. Demoes the Workflows tab with real data.
+- `new-task-skill-tag-suggester` — event-triggered on `planner.task.created` when `skill_tags` is empty. Thin glue layer: calls the `infer_task_topics` primitive (§7.2.1) and posts a HITL card in the creator's chat. The same `infer_task_topics` primitive is what the agent uses when reasoning about an untagged task; the subscriber and the agent share one inference path.
 
-**Workflows considered and deferred (architect review 2026-05-19):**
-- `workload-cache-refresh` — compute live in Phase A; only introduce a cache if recommender latency is measured. Phase B at earliest.
+**Workflows considered and deferred (architect review 2026-05-19, refined per D15):**
+- `workload-cache-refresh` — compute live via the `compute_workload` primitive; only introduce a cache if measured latency demands it. Phase B at earliest.
 - `audit-flush` — subsumed by D6 audit-collapse: audit writes land inline with event emissions, no batch drain needed.
-- `leave-overlap-warning` — depends on `staffing.agent` + Timesheet MCP; Phase B.
+- `leave-overlap-warning` — depends on Timesheet MCP wiring + cross-module agent surface; Phase B.
+- `stale-review-detector` — **dropped per D15.** Only fires for tasks with `review_state = 'needs_review'` explicitly set; since `review_state` is an optional refinement (default null) and adoption will be low, this subscriber is mostly idle. If a tenant wants stale-task surfacing, a v1.x replacement is a generic `stale-task-detector` (any task whose `updated_at` is past N days, regardless of `review_state`) — universal, no dependence on optional fields.
 
 All `planner-sync-*`, `capability-gap-translation`, `mcp-timesheet-leave-warm`, `trash-purge` are Phase B. See §14.4 for additional chatflow-extending workflows planned beyond Phase A.
 
 **Data bootstrap.** Without a planner UI, the first task in a new tenant comes from:
-- **CLI seed script** (`pnpm seed`) — demo tenant with groups/plans/tasks/skill_tags/review_state for sales demos.
+- **CLI seed script** (`pnpm seed`) — demo tenant with groups/plans/tasks for sales demos. A subset of seeded tasks carries `skill_tags` / `review_state` so reviewers can see the optional-refinement path; most are deliberately untagged so the agent's primary inference path (semantic + LLM filter over title+description, §7.2.2) is what gets demoed.
 - **Agent-driven bootstrap** for real tenants — user asks Supervisor *"create a group called Engineering, a plan called Backlog, and add three tasks tagged terraform"* → HITL cards → done. This is the proof that "agent is the UI" works.
 
 **Phase A screens (~7):** Login; password reset; email verification; user profile/settings; Standalone Copilot — Chat tab; Standalone Copilot — Workflows tab; Workflow run drill-down; Tenant admin → users (bare-bones). Plus empty-state + error pages. (Superadmin tenants UI and Integrations → Timesheet MCP config moved to Phase B with the cuts above.)
@@ -1610,12 +1640,12 @@ Continuing the pattern from Phase A's chatflow-relevant workflows — workflows 
 
 | Workflow | Phase | Trigger | What it does |
 |---|---|---|---|
-| `reviewer-pool-warm` | B | Cron every 15min | Pre-computes `recommend_reviewers` candidate lists for all `needs_review` tasks → caches in `copilot.recommendation_cache`. Makes the recommender feel instant in chat; foundation for "always-suggesting" UX |
+| `reviewer-pool-warm` | B | Cron every 15min | Pre-computes the §7.2.2 staffing recipe's candidate output for tasks with `review_state = 'needs_review'` and a sample of tasks whose title/description suggest a review intent → caches in `copilot.recommendation_cache`. Makes the recipe feel instant in chat; foundation for "always-suggesting" UX |
 | `review-cycle-summary` | B | Cron weekly | Aggregates per-user (tasks reviewed / tasks pending / avg time-to-review) → posts a weekly digest to the user's chat thread |
 | `sync-conflict-coach` | B | Event `integrations.conflict.recorded` | When a sync conflict lands, summarizes the field-level diff via LLM step and posts to the binding-owner's chat with quick-actions (accept Seta / accept Planner / manual edit). Makes the §6.3 conflict log conversational |
 | `bulk-edit-summarizer` | B | Event `planner.task.bulk.completed` | When a bulk edit affects >20 tasks, posts a chat-thread summary ("Reassigned 47 tasks from Bob to Carol; 3 had review_state=needs_review — review them here") with deep-links |
 | `onboarding-skill-prompt` | C | Event `identity.user.created` | Waits 1h (Mastra suspend/resume), then DMs the new user via copilot: *"Welcome — what are your skills?"* HITL-gated; closes when user fills profile or after 7d. Showcases durable suspend/resume |
-| `embedding-quality-canary` | C | Cron monthly | Samples N tasks, runs `recommend_reviewers`, compares against actual reviewer assignments. Surfaces embedding-drift signals to admins |
+| `embedding-quality-canary` | C | Cron monthly | Samples N tasks, runs the §7.2.2 staffing recipe (`infer_task_topics` → `match_users_to_topic`), compares against actual reviewer assignments. Surfaces embedding-drift signals to admins |
 
 These are illustrative, not committed scope. Phase B priorities should reflect actual dogfood pain.
 
@@ -1645,7 +1675,7 @@ For each module: what it **owns** (data + lifecycle), what its **public surface*
 ### 15.3 `planner`
 
 - **Owns:** groups, plans, buckets, tasks (incl. `skill_tags`, `review_state`, assignees, dates, priority, progress, labels, checklist items), per-plan labels, soft-delete trash, attachments metadata (Phase B), comments (Phase B), `task_chunks` / `task_embeddings` / `plan_embeddings` (+ Phase B `comment_embeddings`).
-- **Public surface:** `createGroup()`, `listGroups()`, `addGroupMember()`, `createPlan()`, `listPlans()`, `createBucket()`, `reorderBuckets()`, `createTask()`, `updateTask()`, `assignTask()`, `unassignTask()`, `toggleReviewState()`, `addSkillTag()`, `findTasks(criteria)`, `searchTasksSemantic(query, criteria)`, `getTask(id)`. Mastra tools wrap these 1:1 with HITL on writes.
+- **Public surface:** `createGroup()`, `listGroups()`, `addGroupMember()`, `createPlan()`, `listPlans()`, `createBucket()`, `reorderBuckets()`, `createTask()`, `updateTask()`, `assignTask()`, `unassignTask()`, `setReviewState()` (optional-refinement write), `addSkillTag()` / `removeSkillTag()` (optional-refinement write), `findTasks(criteria)`, `searchTasksSemantic(query, criteria)`, `inferTaskTopics(input)`, `getTask(id)`. Mastra tools wrap these 1:1 with HITL on writes.
 - **Emits events:** `planner.task.{created,updated,assigned,review_state.changed,deleted}`, `planner.plan.created`, `planner.bucket.reordered`, etc.
 - **Subscribes to:** `identity.user.deactivated` (reassign / unassign cleanup), `identity.user.profile.updated` (refresh own assignee projection).
 - **Does NOT do:** auth (identity), MS Planner sync (integrations), copilot orchestration (copilot — planner only contributes tools), agent-level RBAC (copilot enforces via tool registry per §7.1e).
@@ -1833,9 +1863,11 @@ Future business modules (`timesheet`, `pmo`, `docs`, `okrs`, …) own their own 
 
 ### 16.5 Tool design principle — small composable tools, LLM orchestrates
 
-Tools are atomic operations. Flows emerge from LLM composition over tools, not from baking flows into tools. Hardcoding `find_tasks_needing_review` as one monolithic tool would force tool sprawl for every variation and remove the LLM's ability to recompose primitives. Instead: expose small building blocks (`list_my_accessible_groups`, `list_tasks`, `search_tasks_semantic`, `get_task`) and let the agent compose them per intent (§7.2 has the canonical example).
+Tools are atomic operations. Flows emerge from LLM composition over tools, not from baking flows into tools. Hardcoding `find_tasks_needing_review` as one monolithic tool would force tool sprawl for every variation and remove the LLM's ability to recompose primitives. Instead: expose small building blocks (`list_my_accessible_groups`, `list_tasks`, `search_tasks_semantic`, `get_task`, `infer_task_topics`, `match_users_to_topic`, `infer_user_skills_from_history`, `compute_workload`, `get_user_availability`, `get_leave_overlap`) and let the agent compose them per intent (§7.2.2 has the canonical examples).
 
-**When to keep a tool monolithic.** When the operation is a single deterministic algorithm with no LLM decision points inside (e.g., `recommend_reviewers`'s ranking). Still expose the sub-pieces (`find_users_by_skill`, `compute_workload`, `get_leave_overlap`) so the LLM can build adjacent queries — but don't make the LLM re-orchestrate steps that are intrinsic to the operation.
+**Tools vs. workflows — Mastra's framing.** Mastra explicitly distinguishes the two ([agents-vs-workflows](https://mastra.ai/docs/learn/agents-vs-workflows)): *"use agents for flexible, adaptive reasoning and workflows for defined, controlled processes."* In Seta v1: agent-facing **tools** must be atomic primitives the LLM picks dynamically; deterministic multi-step processes go in **Mastra Workflows** (§7.1f), where the steps, order, and "done" criteria are explicit and code-driven. A flow that always runs the same way — embeddings CDC, sync poll, cron-triggered cleanup — is a workflow, not a tool. A flow whose shape varies per user intent — "find tasks needing review", "recommend reviewers" — is a composition recipe over tools, not a workflow disguised as a tool.
+
+**No tool-monolithic carve-outs.** Earlier drafts allowed monolithic tools "when the operation is a single deterministic algorithm with no LLM decision points inside" (e.g., the original `recommend_reviewers`). That carve-out is removed: the user-stated principle is that each tool must be small enough for the agent to reuse and decide dynamically rather than locking the flow inside the tool. ADR D15 records the reversal. Deterministic algorithms that don't need LLM mid-step decisions still belong in workflows when triggered by schedule/event, or in composition recipes when triggered by chat.
 
 ### 16.6 Tool vs Workflow — refined boundary
 
@@ -1845,7 +1877,7 @@ Tools are atomic operations. Flows emerge from LLM composition over tools, not f
 | Trigger | Agent's tool-call within a chat turn | Schedule, event, direct call |
 | Shape | Single atomic op | Multi-step with branching, retries, durable state across hours/days |
 | User-driven? | Yes (via chat) | No (system-internal in v1) |
-| Examples | `list_tasks`, `recommend_reviewers` (Phase B), `create_task` (HITL) | `planner-sync-poll` (Phase B), `capability-gap-translation` (HITL gate, Phase B), `embeddings-keep-fresh`, `new-task-skill-tag-suggester` |
+| Examples | `list_tasks`, `search_tasks_semantic`, `match_users_to_topic` (Phase B), `create_task` (HITL) | `planner-sync-poll` (Phase B), `capability-gap-translation` (HITL gate, Phase B), `embeddings-keep-fresh`, `new-task-skill-tag-suggester` |
 
 User queries are never workflows. Workflows are for code-driven deterministic pipelines (sync, batch jobs, CDC) and HITL gates that pause across hours/days.
 
@@ -2040,7 +2072,7 @@ Mastra v1.0 replaced `.network()` with **Supervisor Agents** (delegation hooks +
 - **Supervisor agent** at `/chat/router` — no domain tools, delegation hooks only. Uses `messageFilter` to bound context (Research-Coordinator pattern: last N messages).
 - **Specialist agents** registered as delegation targets:
   - `planner.agent` — tools per §7.2 (composable primitives).
-  - `staffing.agent` — `recommend_reviewers` + sub-piece tools (`find_users_by_skill`, `compute_workload`, `get_leave_overlap`).
+  - `staffing.agent` (Phase B) — atomic primitives per §7.2.1 (`match_users_to_topic`, `infer_user_skills_from_history`, `get_user_availability`, `compute_workload`, `get_leave_overlap`). The §7.2.2 staffing recipe is composed at chat time; per D15 there is no macro tool.
 - `onDelegationStart` records the delegation for audit + observability (§8.1).
 - `onDelegationComplete` is the seam where Phase A enforces "one specialist per turn." Phase B can soften.
 - Streaming is **parent-only** per Mastra's Supervisor model — child output flows through the supervisor. Matches SSE multiplexing constraint (§5.2 / §7.1b — one stream per session).
@@ -2172,7 +2204,7 @@ Stack:
 pnpm install
 pnpm db:up              # docker compose -f infra/docker/compose.dev.yml up -d
 pnpm db:migrate         # drizzle-kit migrate in dep order
-pnpm db:seed            # demo tenant: groups, plans, tasks, skill_tags, review_state
+pnpm db:seed            # demo tenant: groups, plans, tasks (most untagged; a subset with skill_tags/review_state)
 pnpm db:reset           # drop + migrate + seed
 pnpm dev                # turbo dev — apps/server + apps/web + apps/dev-mcp-stub in parallel
 pnpm studio             # mastra studio (optional)

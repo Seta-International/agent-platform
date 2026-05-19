@@ -192,7 +192,7 @@ All `planner.*` permissions are **evaluated in a group scope**. Holding `planner
 | `copilot.config.read` | Read copilot config (model, custom instructions, tool allowlist) |
 | `copilot.config.write` | Edit copilot config |
 | `copilot.rate_limit.read` | View per-tenant AI cost / token usage |
-| `staffing.recommend` | Invoke `recommend_reviewers` (separate from `copilot.chat.use` because cross-group rec needs different gate — see §7.2) |
+| `staffing.read` | Invoke staffing read primitives (`match_users_to_topic`, `infer_user_skills_from_history`, `get_user_availability`, `compute_workload`, `get_leave_overlap`). Separate from `copilot.chat.use` because cross-group expansion needs a different gate — see §7.2. Per D15 there is no `recommend_reviewers` macro tool; gating applies at the primitive level. |
 
 **Note on tool-level gating.** Each copilot tool declares a `requiredPermission` (per `architecture.md §C.1`). Tools are filtered out of the per-session Agent's tool list when the user lacks the permission (§A8). Read tools require `planner.task.read` etc.; write tools require `planner.task.create` etc. The user does NOT need a separate `copilot.tool.<x>` permission for each tool — the permission is the underlying domain permission.
 
@@ -239,7 +239,7 @@ All `planner.*` permissions are **evaluated in a group scope**. Holding `planner
 | `copilot.workflow.run.read.tenant` | ✓ | ✓ |
 | `copilot.config.*` | ✓ | |
 | `copilot.rate_limit.read` | ✓ | ✓ |
-| `staffing.recommend` | ✓ | ✓ (read-only rec; doesn't write) |
+| `staffing.read` | ✓ | ✓ (read-only primitives; no writes) |
 | All `integrations.*.read` | ✓ | ✓ |
 | All `integrations.*.write` | ✓ | |
 
@@ -308,7 +308,7 @@ These are baseline — every logged-in tenant member gets them. Grants only *add
 | `copilot.config.read` | ✓ | | ✓ |
 | `copilot.config.write` | ✓ | | |
 | `copilot.rate_limit.read` | ✓ | | ✓ |
-| `staffing.recommend` | ✓ | ✓ | ✓ |
+| `staffing.read` | ✓ | ✓ | ✓ |
 
 **`copilot.viewer` use-case.** Internal "AI ops" persona: see who's using the copilot, total token spend, workflow run history — but not personally use the specialists. Same person often holds `copilot.viewer` + `copilot.contributor` so they can also chat.
 
@@ -392,7 +392,7 @@ This section answers "what can role X do?" in terms of features, not permission 
 | Open Copilot, chat with Supervisor | ✓ (read-tools only) | ✓ | ✓ |
 | Pick specialist agent from selector (`planner.agent`, `staffing.agent`) | | ✓ | ✓ |
 | Invoke write tools (HITL-gated) | | ✓ (within own domain permissions) | ✓ |
-| Invoke `recommend_reviewers` | ✓ | ✓ | ✓ |
+| Invoke staffing read primitives (`match_users_to_topic`, etc.) — agent composes them into the §7.2.2 recipe | ✓ | ✓ | ✓ |
 | View all workflow runs in tenant (§7.3 ops view) | ✓ | | ✓ |
 | Edit copilot config (model, custom instructions, tool allowlist) | | | ✓ |
 | View per-tenant AI cost / token usage | ✓ | | ✓ |
@@ -482,10 +482,12 @@ Per `architecture.md §A8`: tools are filtered into the per-session Agent's tool
 | `planner.create_group` (Phase A bootstrap) | `planner.group.create` | ✓ | Lets new tenants bootstrap via chat without UI |
 | `planner.create_plan` (Phase A bootstrap) | `planner.plan.create` | ✓ | Same |
 | `planner.create_bucket` (Phase A bootstrap) | `planner.bucket.create` | ✓ | Same |
-| `staffing.find_users_by_skill` | `staffing.recommend` | | |
-| `staffing.compute_workload` | `staffing.recommend` | | |
-| `staffing.get_leave_overlap` | `staffing.recommend` | | |
-| `staffing.recommend_reviewers` | `staffing.recommend` | | Cross-group expansion gated by `org.viewer` OR `planner.task.read` in the target group |
+| `staffing.match_users_to_topic` | `staffing.read` | | Cross-group expansion (`scope: 'tenant'`) gated by `org.viewer` OR `planner.task.read` in the target group |
+| `staffing.infer_user_skills_from_history` | `staffing.read` | | |
+| `staffing.get_user_availability` | `staffing.read` | | |
+| `staffing.compute_workload` | `staffing.read` | | |
+| `staffing.get_leave_overlap` | `staffing.read` | | |
+| `planner.infer_task_topics` | `planner.task.read` | | Same primitive consumed by the `new-task-skill-tag-suggester` workflow |
 
 ### §5.3 HITL confirmation flow (re-stated for visibility)
 
@@ -757,7 +759,7 @@ Every load-bearing decision in §1–§7 was made with multi-module growth in mi
 | **Permission check function** | One signature (`hasPermission(session, permission, resource?)`) — every module's domain code calls it. New modules use the same import. |
 | **Frontend route gating** | TanStack Router `beforeLoad` checks `hasPermission()`. New module's routes (`/timesheet/*`) use the same pattern. |
 | **Copilot tool RBAC** | Per-tool `requiredPermission` is the underlying domain permission. `timesheet.log_hours` tool has `requiredPermission: 'timesheet.entry.create'`. The per-session Agent factory (§A8) filters it in/out without code change. |
-| **Cross-module tools** | `staffing.recommend_reviewers` already reads from `identity` + `planner` + `integrations`. Pattern repeats: `finance.compute_project_burn` reads `pmo` + `timesheet` + `planner`. Cross-module tools live in `copilot` (per §16.2 rule). |
+| **Cross-module tools** | The staffing primitives (`match_users_to_topic`, `compute_workload`, `get_leave_overlap`, etc.) already read from `identity` + `planner` + `integrations`. Pattern repeats: `finance.compute_project_burn` reads `pmo` + `timesheet` + `planner`. Cross-module tools live in `copilot` (per §16.2 rule). |
 | **Event-driven projections** | New modules emit `<module>.<entity>.<verb>` events. Existing modules' subscribers don't need to know; new modules subscribe to whatever they need. `staffing.agent` will pick up `timesheet.leave.approved` automatically once timesheet ships (per §1.6.3 worked example). |
 | **Schema isolation** | `timesheet.*` schema doesn't touch `planner.*`. dependency-cruiser and raw-SQL CI audit (§B.3) catch any drift. |
 
@@ -861,7 +863,7 @@ These hold across any number of modules / apps:
 3. **No app can leak data across tenants.** Every module's domain queries include `WHERE tenant_id = $session.tenant_id` (§H.3). dependency-cruiser doesn't enforce this; integration tests must.
 4. **`superadmin` never gets tenant business data, including from future modules.** §2.5's blocklist is permission-shaped: superadmin holds only `superadmin.*` permissions. `hasPermission(superadminSession, 'timesheet.entry.read')` returns false because superadmin holds no tenant role grants.
 5. **Group-scoped grants stay module-local.** Today only `planner.*` is group-scoped. If `timesheet` introduces group-scoped grants (e.g., per-project capacity allocations), it uses the same `scope_type='group', scope_id=<group_id>` shape — but groups themselves are owned by `planner`, so timesheet must subscribe to `planner.group.deleted` events and clean up its grants. Documented constraint; not a code change in `core`.
-6. **Cross-module tools enforce intersection RBAC.** A copilot tool that reads `timesheet` + `planner` data needs **both** module permissions. The tool's `requiredPermission` can be a single string (the most restrictive of the two), or the tool's handler does two `hasPermission` calls explicitly. Recommendation: define a synthetic `<crossmodule>.<action>` permission (`staffing.recommend` is the existing example) and grant it via roles that already imply the underlying access.
+6. **Cross-module tools enforce intersection RBAC.** A copilot tool that reads `timesheet` + `planner` data needs **both** module permissions. The tool's `requiredPermission` can be a single string (the most restrictive of the two), or the tool's handler does two `hasPermission` calls explicitly. Recommendation: define a synthetic `<crossmodule>.<action>` permission (`staffing.read` is the existing example) and grant it via roles that already imply the underlying access.
 
 ### §9.6 Worked example — adding `timesheet`
 

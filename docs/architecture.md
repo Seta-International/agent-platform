@@ -821,7 +821,12 @@ export const tasks = planner.table('tasks', {
   description: text('description'),
   priority: text('priority', { enum: ['urgent', 'important', 'medium', 'low'] }).default('medium').notNull(),
   progress: text('progress', { enum: ['not_started', 'in_progress', 'completed', 'deferred'] }).default('not_started').notNull(),
-  review_state: text('review_state', { enum: ['none', 'needs_review', 'in_review', 'reviewed'] }).default('none').notNull(),
+  // §5.3 — optional refinement; default null. Per D15 the agent does not depend on this field being set.
+  // v1 values: 'needs_review' | null. Schema is pgEnum with a single non-null value to leave room for
+  // 'in_review' / 'approved' / 'changes_requested' / 'blocked' in v1.x without a column migration.
+  review_state: text('review_state', { enum: ['needs_review'] }),
+  // §5.1 — optional refinement; default empty. Agent infers topics from title+description by default
+  // (§7.2 infer_task_topics). Explicit tags pin topic with high confidence when present.
   skill_tags: text('skill_tags').array().default([]).notNull(),
   due_at: timestamp('due_at', { withTimezone: true }),
   created_by: uuid('created_by').notNull(),
@@ -1266,7 +1271,7 @@ export async function listTasksWithAssignees(input: ListInput): Promise<TaskWith
 }
 ```
 
-`staffing.agent`'s `recommend_reviewers` query is the same shape — joins `assigneeProjection` with `taskAssignments` to filter by skill + availability + workload.
+The Phase B `staffing.agent`'s `match_users_to_topic` primitive runs the same shape — joins `assigneeProjection` with `taskAssignments` (and the embedding indexes) to filter by skill match, with availability/workload pulled separately as atomic primitives.
 
 #### §F.4.2 Bootstrap + backfill
 
@@ -1371,7 +1376,7 @@ Every new module follows the same playbook in §F.4.1. Existing modules unaffect
 
 #### §F.4.7 Worked example — copilot subscribing to planner (and identity) events
 
-`staffing.agent` is the canonical cross-module consumer. It needs: user skills + availability (from `identity`), task workload + skill_tags (from `planner`), and approved leave (from `integrations` MCP). Every recommendation request would otherwise fan out into 3 cross-module function calls per candidate × N candidates — N+1 across module boundaries. Unacceptable on the hot path.
+`staffing.agent` (Phase B) is the canonical cross-module consumer. The §7.2.2 staffing recipe needs: user skills + availability (from `identity`), task workload signals (from `planner`), and approved leave (from `integrations` MCP). Per D15 the recipe is composed by the LLM at chat time over atomic primitives, but every candidate the recipe scores still pulls skills + availability + workload — without a projection, that would fan out into 3 cross-module function calls per candidate × N candidates — N+1 across module boundaries. Unacceptable on the hot path.
 
 **Decision.** Pattern C — `copilot` maintains its own `staffing_user_view` projection inside `copilot.*` schema, fed by events from `identity` and `planner`. Recommender becomes one in-schema query. Pattern A for the MCP overlay (live read, no projection — it's an external system, not a peer module).
 
@@ -1473,19 +1478,21 @@ export async function bumpWorkload(e: DomainEvent<PlannerTaskAssigned>, ctx: Sub
 }
 ```
 
-**The hot-path query** that `staffing.agent`'s `recommend_reviewers` runs:
+**The hot-path query** that the Phase B `staffing.agent`'s `match_users_to_topic` primitive runs:
 
 ```ts
-// packages/copilot/src/backend/agents/staffing/find-candidates.ts
-export async function findCandidates(input: RecCriteria): Promise<Candidate[]> {
+// packages/copilot/src/backend/agents/staffing/match-users-to-topic.ts
+export async function matchUsersToTopic(input: MatchInput): Promise<Candidate[]> {
+  // Embed the topic once, then cosine-similarity against user_skill_embeddings.
+  // No concept-map expansion (D15) — embedding space is the only synonym layer.
+  const topicVec = await embedQuery(input.topic);
+
   return db.select().from(staffingUserView)
+    .innerJoin(userSkillEmbeddings, eq(userSkillEmbeddings.user_id, staffingUserView.user_id))
     .where(and(
       eq(staffingUserView.tenant_id, input.tenant_id),
       isNull(staffingUserView.deactivated_at),
-      // skill match — expanded by concept map (§3.9.1) before this query
-      arrayOverlap(staffingUserView.skills, input.expandedSkills),
-      eq(staffingUserView.availability_status, 'available'),
-      or(isNull(staffingUserView.ooo_until), lt(staffingUserView.ooo_until, sql`now()`)),
+      sql`1 - (${userSkillEmbeddings.embedding} <=> ${topicVec}) > ${input.minScore ?? 0.6}`,
     ))
     .orderBy(staffingUserView.weighted_workload_score)
     .limit(input.maxResults);
@@ -1938,71 +1945,130 @@ export function wrapTool<I, O>(def: ToolDef<I, O>): Tool {
 
 **End-to-end:** login → `buildSessionScope` (~30ms first call, ~0ms cached) → first chat request → `getAgentForSession('router', scope)` (~1ms cache miss to build Agent; ~0ms hit) → Mastra streams → tool call → `assignTask` → audit-async → done. p95 RBAC overhead for a chat turn: < 5ms (cache hit) / < 50ms (cold session).
 
-### §H.4 `recommend_reviewers` — concrete shape
+### §H.4 Staffing primitives — atomic tools, agent composes (Phase B)
 
-Single tool, deterministic ranking inside (per §16.5), composable sub-tools exposed too.
+Per D15 there is no `recommend_reviewers` macro tool. The staffing recommendation flow is the §7.2.2 composition recipe; the agent calls atomic primitives at chat time and applies the availability policy itself. The Phase B `staffing.agent` exposes the cross-module read primitives; ranking and merging happen in the LLM turn, not inside a tool.
 
 ```ts
-// packages/copilot/src/backend/agents/staffing/tools/recommend-reviewers.tool.ts
-export const recommendReviewersTool = wrapTool({
-  key: 'staffing.recommend_reviewers',
-  description: 'Rank tenant users by skill match + availability for a given task or skill set.',
+// packages/copilot/src/backend/agents/staffing/tools/index.ts (Phase B)
+export const matchUsersToTopicTool = wrapTool({
+  key: 'staffing.match_users_to_topic',
+  description: 'Return users whose declared skills or task history match a topic, with raw match scores. No workload or availability filter applied — agent composes those separately.',
   inputSchema: z.object({
-    task_id: z.string().uuid().optional(),
-    skill_query: z.string().optional(),
-    max_results: z.number().int().min(1).max(20).default(5),
-    cross_group: z.boolean().default(false),
+    topic: z.string().min(1),
+    group_ids: z.array(z.string().uuid()).optional(),   // defaults to session.accessible_group_ids
+    scope: z.enum(['accessible', 'tenant']).default('accessible'),
+    top_k: z.number().int().min(1).max(50).default(20),
   }),
-  requiredPermission: 'staffing.recommend',
+  requiredPermission: 'staffing.read',
   needsApproval: false,
   execute: async (input, { session }) => {
-    const skills = await resolveSkills(input);
-    const groupScope = input.cross_group && session.cross_tenant_read
-      ? null /* tenant-wide */
-      : session.accessible_group_ids;
+    const scope = input.scope === 'tenant' && session.cross_tenant_read
+      ? null
+      : (input.group_ids ?? session.accessible_group_ids);
 
-    // 1. Skill match (literal + concept-expansion + sibling, §3.9.1 rules 1-4)
-    const candidates = await findUsersBySkill(session.tenant_id, skills, groupScope);
+    // Two signals combined per §3.9.1:
+    //   1. Declared-skill embedding match against identity.user_skill_embeddings
+    //   2. History inference — embedding match against the user's recent task embeddings
+    // Both run via the embed-then-cosine path; merge by max(declared, history).
+    const declared = await matchDeclaredSkillsByEmbedding(session.tenant_id, input.topic, scope, input.top_k);
+    const history  = await matchHistoryByEmbedding(session.tenant_id, input.topic, scope, input.top_k);
+    return mergeBySource(declared, history).slice(0, input.top_k);
+  },
+});
 
-    // 2. Workload score (from planner.assignee_projection — local projection, no cross-schema read)
-    const withLoad = await annotateWorkload(candidates);
+export const inferUserSkillsFromHistoryTool = wrapTool({
+  key: 'staffing.infer_user_skills_from_history',
+  description: 'Recency-weighted topic extraction over a user\'s assignment history.',
+  inputSchema: z.object({
+    user_id: z.string().uuid(),
+    top_k: z.number().int().min(1).max(20).default(10),
+    recency_window: z.enum(['30d', '90d', '180d', '365d']).default('180d'),
+  }),
+  requiredPermission: 'staffing.read',
+  needsApproval: false,
+  execute: async (input) => {
+    // Pull user's recent task assignments → for each, retrieve task embedding + title+description
+    // → cluster topics → return top-k with evidence task ids and last_used dates.
+    return inferSkillsFromHistory(input.user_id, input.top_k, input.recency_window);
+  },
+});
 
-    // 3. Leave overlay (Timesheet MCP — graceful degradation on failure per §7.1d)
-    const withLeave = await overlayLeave(withLoad, input.task_id);
+export const getUserAvailabilityTool = wrapTool({
+  key: 'staffing.get_user_availability',
+  description: 'Self-declared availability fields. No leave overlay or workload computation — those are separate primitives.',
+  inputSchema: z.object({ user_id: z.string().uuid() }),
+  requiredPermission: 'staffing.read',
+  needsApproval: false,
+  execute: async (input) => {
+    // Reads from copilot.staffing_user_view (the projection per §F.4.7).
+    return readAvailability(input.user_id);
+  },
+});
 
-    // 4. Rank: skill_score * 0.5 + (1 - normalized_workload) * 0.3 + availability_score * 0.2
-    const ranked = rank(withLeave).slice(0, input.max_results);
+export const computeWorkloadTool = wrapTool({
+  key: 'staffing.compute_workload',
+  description: 'Weighted workload score per §3.9.3. Returns raw score and per-factor breakdown — no threshold applied.',
+  inputSchema: z.object({ user_id: z.string().uuid() }),
+  requiredPermission: 'staffing.read',
+  needsApproval: false,
+  execute: async (input) => {
+    return computeWeightedWorkload(input.user_id);  // priority × due × progress, tenant-configurable weights
+  },
+});
 
-    return {
-      candidates: ranked.map(c => ({
-        user_id: c.user_id,
-        display_name: c.display_name,
-        skills_matched: c.skills_matched,
-        workload_score: c.workload_score,
-        availability_status: c.effective_availability_status,    // OOO overlay applied
-        leave_overlap: c.leave_overlap,                          // null | { from, to, source: 'mcp' | 'user' }
-        rationale: buildRationale(c),                             // human-readable for UI card
-      })),
-      cross_group_used: groupScope === null,
-      mcp_health: leaveOverlayHealth,
-    };
+export const getLeaveOverlapTool = wrapTool({
+  key: 'staffing.get_leave_overlap',
+  description: 'Timesheet MCP call for approved leave in a date range. Returns degraded:true on MCP failure (§7.1d graceful degradation).',
+  inputSchema: z.object({
+    user_id: z.string().uuid(),
+    start: z.string().datetime(),
+    end:   z.string().datetime(),
+  }),
+  requiredPermission: 'staffing.read',
+  needsApproval: false,
+  execute: async (input, { session }) => {
+    return getLeaveOverlay(session.tenant_id, input.user_id, input.start, input.end);
   },
 });
 ```
 
-**Synonym normalization seam (§11.8 hook).** `resolveSkills(input)` is the seam where v1.x embedding-based matching plugs in. v1 uses the concept map (§3.9.1). v1.x: change `resolveSkills` to query `identity.user_skill_embeddings` for vector similarity above a cosine threshold. Tool signature unchanged.
+The `infer_task_topics` primitive lives in `planner.agent` (it's about task content), not `staffing.agent`:
 
-**Retriever interface (§7.1c).** Both the skill-concept lookup and the future embedding path are implementations of a thin `Retriever` interface:
+```ts
+// packages/copilot/src/backend/agents/planner/tools/infer-task-topics.tool.ts
+export const inferTaskTopicsTool = wrapTool({
+  key: 'planner.infer_task_topics',
+  description: 'Aggregate topics from a task\'s title+description via embedding similarity against similar-tagged tasks. Used by the agent when reasoning about an untagged task AND by the new-task-skill-tag-suggester workflow — same code path.',
+  inputSchema: z.object({
+    task_id: z.string().uuid().optional(),
+    content: z.string().optional(),
+    top_k:   z.number().int().min(1).max(10).default(5),
+  }),
+  requiredPermission: 'planner.task.read',
+  needsApproval: false,
+  execute: async (input, { session }) => {
+    const content = input.task_id
+      ? await readTaskContent(session.tenant_id, input.task_id)
+      : input.content!;
+    return inferTopics(content, session.tenant_id, input.top_k);
+  },
+});
+```
+
+**Embedding-based matching is the v1 default** (per §3.9.1, ADR D15). There is no concept-map fallback and no `resolveSkills` indirection layer — embedding cosine similarity over `identity.user_skill_embeddings` and `planner.task_embeddings` is the matching path. The old `conceptSkillRetriever` from earlier drafts has been removed; only `semanticTaskRetriever` and `semanticSkillRetriever` remain.
+
+**Retriever interface (§7.1c) — unchanged shape.**
 
 ```ts
 export interface Retriever<Q, R> {
   retrieve(tenantId: string, query: Q, opts?: { limit?: number; minScore?: number }): Promise<R[]>;
 }
-export const conceptSkillRetriever: Retriever<string, SkillMatch> = { /* v1 */ };
-export const semanticTaskRetriever: Retriever<string, TaskMatch> = { /* v1, used by searchTasksSemantic */ };
+export const semanticTaskRetriever: Retriever<string, TaskMatch> = { /* v1 */ };
+export const semanticSkillRetriever: Retriever<string, SkillMatch> = { /* v1 — embedding similarity over user_skill_embeddings */ };
 ```
 
-When v1.x adds calendar / Slack-presence retrievers, `staffing.agent`'s code only changes the retriever it instantiates — orchestration is unchanged.
+When v1.x adds calendar / Slack-presence retrievers, only the new retriever instances are added — neither primitive signatures nor agent composition recipes change.
 
 ### §H.5 Chat memory + GDPR erasure
 
@@ -2018,7 +2084,7 @@ When v1.x adds calendar / Slack-presence retrievers, `staffing.agent`'s code onl
 
 ### §H.7 Retriever interface
 
-Defined in §H.4. Single interface, multiple implementations, swap in place without changing agent prompts or tool signatures. v1: concept map for skills, semantic for tasks. v1.x candidates: calendar retriever, presence retriever, embedding-based skill retriever.
+Defined in §H.4. Single interface, multiple implementations, swap in place without changing agent prompts or tool signatures. v1: semantic retrievers for both skills (`semanticSkillRetriever` over `identity.user_skill_embeddings`) and tasks (`semanticTaskRetriever` over `planner.task_embeddings`). v1.x candidates: calendar retriever, presence retriever, history-weighted skill retriever variants.
 
 ### §H.8 MCP integration architecture (Timesheet)
 
@@ -2058,7 +2124,7 @@ export async function getLeaveOverlay(tenantId: string, userEmails: string[], da
 ```
 
 - **Phase A note (D8):** Timesheet MCP integration is deferred to Phase B; the §H.8 code above is the target shape, not the Phase A delivery.
-- **Degradation:** Timesheet MCP failure → `getLeaveOverlay` returns `degraded: true`; `recommend_reviewers` includes "Timesheet check skipped" in rationale.
+- **Degradation:** Timesheet MCP failure → `getLeaveOverlay` returns `degraded: true`; the agent surfaces "Timesheet check skipped" in its rationale when composing the §7.2.2 staffing recipe.
 - **Audit attribution:** `integrations.mcp.timesheet.invoked` event written with `payload.actor = { type:'copilot', user_id: <chat session's user> }` (per D6 audit-unified shape). The call is on the user's behalf.
 - **Encryption at rest:** credentials in Secrets Manager with KMS encryption (managed key in Phase A, customer-managed CMK as v1.x option per §10.3 hook).
 - **Generic MCP-consumer pattern:** when v1.x adds calendar / HRIS MCPs, `getTimesheetClient` → `getMCPClient(tenantId, kind)` with the same signature; per-MCP wrapper functions handle the tool-specific call shape.
@@ -2069,13 +2135,13 @@ export async function getLeaveOverlay(tenantId: string, userEmails: string[], da
 |---|---|---|---|---|
 | `session-cache-invalidate` | events `identity.role_grant.changed`, `identity.user.deactivated`, `identity.user.profile.updated` | 1. Mark `core.session_scope_cache.invalidated_at`. 2. Send in-process eviction signal. 3. Evict per-session Agents (§A8). | None. | `(user_id, event_id)` |
 | `embeddings-keep-fresh` | events `planner.task.created`, `planner.task.updated`, `planner.plan.created`, `identity.user.profile.updated` | 1. Compute `source_hash`. 2. If hash unchanged, skip. 3. Chunk if needed. 4. Enqueue graphile job with `job_key = ${entity}:${id}`. Worker pulls, calls embedding API, UPSERTs `planner.task_embeddings` / `identity.user_skill_embeddings`. | graphile-worker job table. | `(entity_type, entity_id, source_hash)` |
-| `new-task-skill-tag-suggester` | event `planner.task.created` where `skill_tags = []` | 1. Generate task embedding (call embedding API). 2. `searchTasksSemantic` for similar tagged tasks. 3. Aggregate top-N tags. 4. Post HITL card to creator's chat. | Mastra snapshot. | `task_id` |
-| `stale-review-detector` | cron daily 02:00 UTC | 1. SELECT tasks WHERE `review_state = 'needs_review' AND updated_at < now() - INTERVAL '7 days'`. 2. emit `planner.review.stale` per task. | None. | `(task_id, date)` |
+| `new-task-skill-tag-suggester` | event `planner.task.created` where `skill_tags = []` | Thin glue: 1. Call `inferTaskTopics({ task_id })` — the same atomic primitive (§H.4) the agent uses for untagged-task reasoning. 2. Post HITL card to creator's chat with the suggested tags. | Mastra snapshot. | `task_id` |
 
-**Deferred from earlier draft (architect review 2026-05-19):**
+**Deferred from earlier draft (architect review 2026-05-19; refined per D15):**
 - `audit-flush` removed (D6) — audit is now part of `core.emit()` inside the state-changing transaction; no in-memory queue, no separate batch drain.
-- `workload-cache-refresh` (D7) — compute live in Phase A; only re-introduce if recommender latency is measured.
+- `workload-cache-refresh` (D7) — compute live via the `compute_workload` primitive; only re-introduce if measured latency demands it.
 - `leave-overlap-warning` (D7 + D8) — depends on Timesheet MCP + `staffing.agent`; Phase B.
+- `stale-review-detector` (D15) — dropped. Only fires for tasks with `review_state = 'needs_review'` explicitly set; since `review_state` is an optional refinement (default null per §5.3), this subscriber would be mostly idle. A v1.x replacement is a generic `stale-task-detector` (any task whose `updated_at` is past N days) — universal, no dependence on optional fields.
 
 **Runtime story.** v1 single-process: all workflows run inside the one Hono container. Mastra Workflow runtime + graphile-worker share the process. Per-tenant isolation is logical (queries filter on `tenant_id`); no process-level isolation.
 
@@ -2105,11 +2171,16 @@ T+2.17s router agent runs; first LLM call streamed to client (SSE opens)
 T+3s    router emits delegation tool call: delegate_to=planner.agent
 T+3.05s getAgentForSession('planner', scope) → cache miss → build Agent
           with planner config + filtered tools (per role) → ~2ms
-T+3.06s planner.agent runs; LLM composes:
-          → list_my_accessible_groups()                  // local DB, ~5ms
-          → list_tasks({ review_state: 'needs_review', skill_tags: ['terraform'] })  // ~10ms
-          → search_tasks_semantic({ query: 'terraform infrastructure review' })       // ~30ms (vector)
-T+3.5s  Results merged; planner.agent streams natural-language summary back through router.
+T+3.06s planner.agent runs; LLM composes the §7.2.2 recipe:
+          → list_my_accessible_groups()                                                // local DB, ~5ms
+          → parallel (both fire, both may return empty — both are expected):
+              list_tasks({ review_state: 'needs_review' })                             // ~10ms; often empty
+              search_tasks_semantic({ query: 'terraform review needed' })              // ~30ms (vector)
+          → LLM filter pass over union: judges "needs review?" + "about terraform?"    // ~400ms (small model)
+            from each candidate's title + description; signals include "PTAL",
+            "ready for review", "@x please check", bucket name, label, checklist state.
+T+3.5s  Results merged + ranked (explicit review_state pinned > LLM confidence > recency);
+          planner.agent streams natural-language summary back through router.
 T+4s    Client renders ranked cards; SSE closes.
         Audit-shaped events already in core.events from inside each emit() tx (D6): copilot.delegate, copilot.tool.invoked × N.
         copilot.rate_limits incremented for the turn (token usage from Mastra response).
@@ -2689,8 +2760,8 @@ This is a build-order recommendation, not a doc requirement. Each slice is shipp
 5. **Slice 4: copilot runtime baseline.** Mastra installed, `chatRoute()` mounted (§A7), router agent + planner.agent with read-only tools (`listTasks`, `getTask`, `searchTasksSemantic` — embeddings stubbed initially), standalone Copilot module UI (chat pane + sidebar + agent selector). Per-session Agent cache (§A8). End-to-end: "list my tasks" works.
 6. **Slice 5: embeddings CDC pipeline.** §I shape; subscribers; graphile-worker; back-fill on demo tenant; `searchTasksSemantic` returns real results.
 7. **Slice 6: HITL write tools.** `createTask`, `assignTask`, `updateTask`, `addSkillTag`, `toggleReviewState` with `needsApproval`; assistant-ui Interactable cards; full audit (§H.2).
-8. **~~Slice 7: staffing.agent + recommend_reviewers.~~** **Deferred to Phase B (D8).** `staffing.agent`, recommend_reviewers, skill concept map, workload projection, leave overlay, and the Timesheet MCP client all ship in Phase B alongside the Kanban UI.
-9. **Slice 8: Phase A workflows (§H.9, post D7/D8).** `session-cache-invalidate`, `embeddings-keep-fresh`, `new-task-skill-tag-suggester`, `stale-review-detector`.
+8. **~~Slice 7: staffing.agent + recommend_reviewers.~~** **Deferred to Phase B (D8), reshaped per D15.** `staffing.agent` exposes atomic primitives (`match_users_to_topic`, `infer_user_skills_from_history`, `get_user_availability`, `compute_workload`, `get_leave_overlap`) — no macro `recommend_reviewers` tool. Skill matching is embedding-based (no concept map). Workload projection, leave overlay, and the Timesheet MCP client all ship in Phase B alongside the Kanban UI.
+9. **Slice 8: Phase A workflows (§H.9, post D7/D8/D15).** `session-cache-invalidate`, `embeddings-keep-fresh`, `new-task-skill-tag-suggester`. (`stale-review-detector` dropped per D15.)
 10. **Slice 9: tenant admin bare-bones UI + CLI tenant-create.** Superadmin tenants UI deferred to Phase B (D8); Phase A uses `apps/cli` for tenant lifecycle.
 11. **Slice 10: observability + cost telemetry.** §L. Per-tenant cost envelope dashboard against the §10.2 target (D11d).
 12. **Slice 11: tenant deletion cascade implementation.** §2.6 cascade end-to-end with the integration test that's a Phase A acceptance gate (D11a).
