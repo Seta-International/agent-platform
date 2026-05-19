@@ -1,0 +1,18 @@
+{
+  "name": "@seta/copilot",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./backend": "./src/backend/index.ts",
+    "./public": "./src/public/index.ts",
+    "./events": "./src/events/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@seta/shared-config": "workspace:^",
+    "typescript": "^6.0.3"
+  }
+}

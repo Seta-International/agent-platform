@@ -1,0 +1,16 @@
+{
+  "name": "@seta/{{name}}",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "seta-{{name}}": "./dist/index.js"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@seta/shared-config": "workspace:*",
+    "typescript": "^5"
+  }
+}
