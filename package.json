@@ -5,6 +5,7 @@
     "build": "turbo run build",
     "dev": "turbo run dev",
     "typecheck": "turbo run typecheck",
+    "lint": "pnpm depcruise && pnpm lint:boundaries && pnpm exec biome ci .",
     "lint:boundaries": "eslint . --max-warnings=999",
     "format": "biome format --write .",
     "format:check": "biome format .",
@@ -15,6 +16,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.15",
+    "@seta/shared-config": "workspace:^",
     "@turbo/gen": "^2.9.14",
     "@types/eslint": "^9.6.1",
     "dependency-cruiser": "^17.4.0",
@@ -22,10 +24,11 @@
     "eslint-plugin-boundaries": "^6.0.2",
     "jiti": "^2.7.0",
     "lefthook": "^2.1.6",
-    "turbo": "^2.9.14"
+    "turbo": "^2.9.14",
+    "typescript": "^6.0.3"
   },
   "packageManager": "pnpm@9.0.0",
   "engines": {
-    "node": ">=18"
+    "node": ">=24"
   }
 }

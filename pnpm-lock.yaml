@@ -11,6 +11,9 @@ importers:
       '@biomejs/biome':
         specifier: ^2.4.15
         version: 2.4.15
+      '@seta/shared-config':
+        specifier: workspace:^
+        version: link:packages/shared/config
       '@turbo/gen':
         specifier: ^2.9.14
         version: 2.9.14(@types/node@24.12.4)
@@ -35,6 +38,9 @@ importers:
       turbo:
         specifier: ^2.9.14
         version: 2.9.14
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
 
   apps/cli:
     devDependencies:

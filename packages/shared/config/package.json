@@ -5,6 +5,9 @@
   "type": "module",
   "exports": {
     "./tsconfig.base.json": "./tsconfig.base.json",
-    "./eslint/boundaries": "./eslint/boundaries.ts"
+    "./eslint/boundaries": {
+      "types": "./eslint/boundaries.ts",
+      "default": "./eslint/boundaries.ts"
+    }
   }
 }
