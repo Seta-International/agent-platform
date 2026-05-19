@@ -1,0 +1,24 @@
+{
+  "name": "@seta/shared-testing",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@seta/shared-config": "workspace:^",
+    "@types/pg": "^8.20.0",
+    "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "@seta/shared-db": "workspace:^",
+    "@seta/shared-types": "workspace:^",
+    "@testcontainers/postgresql": "^11.14.0",
+    "pg": "^8.21.0",
+    "testcontainers": "^11.14.0"
+  }
+}
