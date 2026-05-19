@@ -37,6 +37,16 @@ export function initPools(cfg: PoolsConfig): Pools {
       statement_timeout: webStmt,
     }),
   };
+  // Idle clients can emit 'error' if the server terminates them out from under us (admin
+  // shutdown, DROP DATABASE WITH FORCE in tests). Without a Pool-level handler, those
+  // become unhandled rejections and crash the process. We surface them via console.warn
+  // so genuine pool problems still show up but don't kill the runner.
+  const swallow = (e: unknown) => {
+    console.warn('[shared-db] pg pool client error (suppressed):', e);
+  };
+  pools.web.on('error', swallow);
+  pools.worker.on('error', swallow);
+  pools.mastraState.on('error', swallow);
   return pools;
 }
 

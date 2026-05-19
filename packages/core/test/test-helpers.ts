@@ -1,4 +1,4 @@
-import { createDb } from '@seta/shared-db';
+import { closePools, createDb, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { Pool } from 'pg';
@@ -22,8 +22,15 @@ export function withCoreTestDb<T>(
       baseUrl: process.env.SETA_TEST_PG_BASE as string,
     },
     async ({ pool, databaseUrl }) => {
-      const db = createDb(pool, coreSchema, { schemaFilter: ['core'] });
-      return fn({ pool, db, databaseUrl });
+      // shared/db's pool registry is what coreDb() / withEmit reach for. Wire it to the
+      // same DB as the test pool so writes through both paths land in one database.
+      initPools({ databaseUrl });
+      try {
+        const db = createDb(pool, coreSchema, { schemaFilter: ['core'] });
+        return await fn({ pool, db, databaseUrl });
+      } finally {
+        await closePools();
+      }
     },
   );
 }

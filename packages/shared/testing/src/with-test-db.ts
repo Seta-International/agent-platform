@@ -1,4 +1,3 @@
-import { closePools, getPool, initPools } from '@seta/shared-db';
 import { Pool } from 'pg';
 
 export interface TestDbCtx {
@@ -20,11 +19,14 @@ export async function withTestDb<T>(
   }
 
   const url = `${opts.baseUrl}/${name}`;
-  initPools({ databaseUrl: url });
+  // Lazily call the consumer's initPools at use site. We don't import @seta/shared-db here
+  // because that would create a circular workspace dependency (shared/db's tests need this).
+  // The consumer wires the pool wherever needed; here we just give it a connection string.
+  const testPool = new Pool({ connectionString: url });
   try {
-    return await fn({ pool: getPool('web'), databaseUrl: url });
+    return await fn({ pool: testPool, databaseUrl: url });
   } finally {
-    await closePools();
+    await testPool.end();
     const a = new Pool({ connectionString: adminUrl });
     try {
       await a.query(`DROP DATABASE ${name} WITH (FORCE)`);

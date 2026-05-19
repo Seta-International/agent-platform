@@ -43,6 +43,12 @@ export async function startDispatcher(opts: {
   listener.on('notification', () => {
     void tick();
   });
+  // The listener holds a long-lived connection. If the server terminates it (e.g. admin
+  // shutdown, DROP DATABASE WITH FORCE in tests), pg surfaces 'error' on the client; without
+  // a handler, the rejection becomes unhandled and crashes the test runner.
+  listener.on('error', () => {
+    // intentionally swallow: shutdown teardown handles cleanup.
+  });
 
   const log = {
     error: (obj: unknown, msg?: string) => {

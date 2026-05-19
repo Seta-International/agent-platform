@@ -294,9 +294,6 @@ importers:
 
   packages/shared/testing:
     dependencies:
-      '@seta/shared-db':
-        specifier: workspace:^
-        version: link:../db
       '@seta/shared-types':
         specifier: workspace:^
         version: link:../types
