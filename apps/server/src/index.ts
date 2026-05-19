@@ -49,11 +49,13 @@ const sessionMiddleware = createSessionMiddleware({
 // Cast required because buildHonoApp returns unparameterized Hono; SessionEnv is additive.
 const app = buildHonoApp(reg) as unknown as Hono<SessionEnv>;
 
-// Order matters: better-auth's /auth/* must register before sessionMiddleware so its routes are public.
+// /discover first so it matches before better-auth's wildcard catches the prefix
+registerDiscoverRoute(app);
+
+// better-auth handles all remaining /auth/* paths; must register before sessionMiddleware so its routes are public
 app.on(['GET', 'POST'], '/api/identity/v1/auth/*', (c) => auth.handler(c.req.raw));
 
 // Public routes — no session required
-registerDiscoverRoute(app);
 app.get('/health/live', (c) => c.json({ ok: true }));
 app.get('/health/ready', (c) => {
   const h = dispatcher.health();
