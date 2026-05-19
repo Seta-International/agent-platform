@@ -9,15 +9,17 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
         name: "name",
         message: "Package name (e.g. core, planner, cli):",
         validate: (input: string) =>
-          /^[a-z][a-z0-9-]*$/.test(input) ||
-          "must be kebab-case, lowercase letters/digits/hyphens",
+          /^[a-z][a-z0-9-]*$/.test(input) || "must be kebab-case, lowercase letters/digits/hyphens",
       },
       {
         type: "list",
         name: "kind",
         message: "Package kind:",
         choices: [
-          { name: "module (packages/<name>, src/{backend,public,events,db}/index.ts)", value: "module" },
+          {
+            name: "module (packages/<name>, src/{backend,public,events,db}/index.ts)",
+            value: "module",
+          },
           { name: "app-cli (apps/<name>, src/index.ts only)", value: "app-cli" },
         ],
       },
