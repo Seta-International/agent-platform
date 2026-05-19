@@ -1,10 +1,13 @@
 import { getPool, initPools } from '@seta/shared-db';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
+import { APIError, createAuthMiddleware, isAPIError } from 'better-auth/api';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../db/schema.ts';
 import { parseIdentityEnv } from './env.ts';
 import { argon2id } from './password/argon2.ts';
+import { computeBackoffSeconds, recordFailedAttempt } from './password/backoff.ts';
+import { hibpCheck } from './password/hibp.ts';
 
 function makeLazyDb(): NodePgDatabase<typeof schema> {
   let db: NodePgDatabase<typeof schema> | null = null;
@@ -61,6 +64,48 @@ export const auth = betterAuth({
   },
 
   rateLimit: { enabled: true, storage: 'database', window: 60, max: 100 },
+
+  databaseHooks: {
+    user: {
+      create: {
+        before: async (data) => {
+          const password = (data as { password?: string }).password;
+          if (password && (await hibpCheck(password))) {
+            throw new APIError('UNPROCESSABLE_ENTITY', {
+              message:
+                'This password appears in a known data breach. Please choose a different password.',
+            });
+          }
+          return { data };
+        },
+      },
+    },
+  },
+
+  hooks: {
+    before: createAuthMiddleware(async (ctx) => {
+      if (ctx.path === '/sign-in/email') {
+        const email = (ctx.body as { email?: string }).email ?? '';
+        const ip =
+          (ctx.request?.headers.get('x-forwarded-for') ?? '').split(',')[0]?.trim() || 'unknown';
+        const wait = await computeBackoffSeconds(email, ip);
+        if (wait > 0) {
+          throw new APIError('TOO_MANY_REQUESTS', {
+            message: `Too many failed login attempts. Try again in ${wait}s.`,
+            retryAfter: wait,
+          });
+        }
+      }
+    }),
+    after: createAuthMiddleware(async (ctx) => {
+      if (ctx.path === '/sign-in/email' && isAPIError(ctx.context.returned)) {
+        const email = (ctx.body as { email?: string }).email ?? '';
+        const ip =
+          (ctx.request?.headers.get('x-forwarded-for') ?? '').split(',')[0]?.trim() || 'unknown';
+        await recordFailedAttempt(email, ip, 'bad_password');
+      }
+    }),
+  },
 
   session: {
     expiresIn: 60 * 60 * 24 * 14,
