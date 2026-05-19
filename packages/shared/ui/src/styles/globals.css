@@ -1,0 +1,18 @@
+:root, html, body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-text);
+}
+
+html { color-scheme: dark; }
+html.theme-light { color-scheme: light; }
+
+*:focus-visible {
+  outline: 2px solid var(--color-primary-focus);
+  outline-offset: 2px;
+}
+
+::-webkit-scrollbar       { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--color-canvas); }
+::-webkit-scrollbar-thumb { background: var(--color-surface-3); border-radius: var(--radius-md); }
+::-webkit-scrollbar-thumb:hover { background: var(--color-surface-4); }
