@@ -1,2 +1,3 @@
-// identity — public surface (cross-module entry point).
-export const placeholder = 'identity-public' as const;
+// Public surface — populated incrementally by later tasks.
+// See spec §2 for the full export list.
+export {};

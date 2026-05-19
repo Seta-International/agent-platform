@@ -5,14 +5,39 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./backend": "./src/backend/index.ts",
-    "./events": "./src/events/index.ts"
+    "./auth": "./src/backend/auth.ts",
+    "./events": "./src/events/index.ts",
+    "./testing": "./src/testing/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "lint": "eslint . --no-error-on-unmatched-pattern",
+    "typecheck": "tsc -b --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:generate": "drizzle-kit generate",
+    "db:auth-generate": "better-auth generate --config src/backend/auth.ts --output drizzle/0001_auth.sql"
   },
   "devDependencies": {
+    "@better-auth/cli": "^1.4.21",
+    "@seta/core": "workspace:^",
     "@seta/shared-config": "workspace:^",
-    "typescript": "^6.0.3"
+    "@seta/shared-db": "workspace:^",
+    "@seta/shared-rbac": "workspace:^",
+    "@seta/shared-testing": "workspace:^",
+    "@seta/shared-types": "workspace:^",
+    "@types/node": "^25.9.0",
+    "@types/pg": "^8.20.0",
+    "@vitejs/plugin-react": "^6.0.1",
+    "drizzle-kit": "^0.31.10",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.6"
+  },
+  "dependencies": {
+    "@node-rs/argon2": "^2.0.2",
+    "better-auth": "^1.6.11",
+    "drizzle-orm": "^0.45.2",
+    "pg": "^8.21.0",
+    "pino": "^10.3.1",
+    "zod": "^4.4.3"
   }
 }
