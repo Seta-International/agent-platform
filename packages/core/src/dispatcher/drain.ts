@@ -1,0 +1,138 @@
+import type { DomainEvent, NodeTx, SubscriberDef } from '@seta/shared-types';
+import { and, asc, eq, gt } from 'drizzle-orm';
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import type * as schema from '../db/schema/index.ts';
+import {
+  coreEvents,
+  coreSubscriptionCursors,
+  coreSubscriptionDeadLetter,
+  coreSubscriptionProcessed,
+} from '../db/schema/index.ts';
+import { emitContext } from '../events/context.ts';
+import { bumpFailureState, clearFailureState, getFailureEntry } from './failure-state.ts';
+
+export interface BackoffOpts {
+  baseMs: number;
+  maxMs: number;
+  maxAttempts: number;
+}
+
+export interface DrainLogger {
+  error: (obj: unknown, msg?: string) => void;
+}
+export interface DrainMetrics {
+  incr: (name: string, labels?: Record<string, string>) => void;
+}
+
+const NIL_UUID = '00000000-0000-0000-0000-000000000000';
+
+export async function drainOne(
+  db: NodePgDatabase<typeof schema>,
+  sub: SubscriberDef,
+  backoff: BackoffOpts,
+  log: DrainLogger,
+  metrics: DrainMetrics,
+): Promise<{ processed: number; halted: boolean }> {
+  const entry = getFailureEntry(sub.subscription);
+  if (entry && entry.nextRetryAt > Date.now()) return { processed: 0, halted: true };
+
+  return db.transaction(async (outerTx) => {
+    const cursorRows = await outerTx
+      .select()
+      .from(coreSubscriptionCursors)
+      .where(eq(coreSubscriptionCursors.subscription, sub.subscription))
+      .for('update', { skipLocked: true })
+      .limit(1);
+    if (cursorRows.length === 0) {
+      // No cursor row yet, or another replica holds the lock. Race-safe seed under
+      // FOR UPDATE SKIP LOCKED: first replica inserts, others see no rows next tick.
+      await outerTx
+        .insert(coreSubscriptionCursors)
+        .values({ subscription: sub.subscription, lastProcessedEventId: NIL_UUID })
+        .onConflictDoNothing();
+      return { processed: 0, halted: false };
+    }
+
+    const lastId = cursorRows[0]?.lastProcessedEventId ?? NIL_UUID;
+    const batch = await outerTx
+      .select()
+      .from(coreEvents)
+      .where(
+        and(
+          eq(coreEvents.eventType, sub.event),
+          eq(coreEvents.eventVersion, sub.eventVersion),
+          gt(coreEvents.id, lastId),
+        ),
+      )
+      .orderBy(asc(coreEvents.occurredAt), asc(coreEvents.id))
+      .limit(100);
+
+    let processed = 0;
+    for (const row of batch) {
+      const evt: DomainEvent = {
+        id: row.id,
+        occurredAt: row.occurredAt,
+        tenantId: row.tenantId,
+        aggregateType: row.aggregateType,
+        aggregateId: row.aggregateId,
+        eventType: row.eventType,
+        eventVersion: row.eventVersion,
+        payload: row.payload,
+        causedByUserId: row.causedByUserId ?? undefined,
+        causedByEventId: row.causedByEventId ?? undefined,
+        traceId: row.traceId ?? undefined,
+      };
+
+      try {
+        await outerTx.transaction(async (handlerTx) => {
+          await emitContext.run(
+            {
+              tx: handlerTx as unknown as NodeTx,
+              causedByEventId: evt.id,
+              traceId: evt.traceId,
+            },
+            () => sub.handler(evt, { tx: handlerTx as unknown as NodeTx }),
+          );
+          await handlerTx
+            .insert(coreSubscriptionProcessed)
+            .values({ subscription: sub.subscription, eventId: evt.id })
+            .onConflictDoNothing();
+        });
+        await outerTx
+          .update(coreSubscriptionCursors)
+          .set({ lastProcessedEventId: evt.id, lastProcessedAt: new Date() })
+          .where(eq(coreSubscriptionCursors.subscription, sub.subscription));
+        clearFailureState(sub.subscription, evt.id);
+        processed += 1;
+      } catch (err) {
+        const attempt = bumpFailureState(sub.subscription, evt.id, err, backoff);
+        log.error(
+          { subscription: sub.subscription, eventId: evt.id, attempt, err },
+          'subscriber failure',
+        );
+        metrics.incr('dispatcher.subscriber_failures', { subscription: sub.subscription });
+        if (attempt >= backoff.maxAttempts) {
+          await outerTx.insert(coreSubscriptionDeadLetter).values({
+            subscription: sub.subscription,
+            eventId: evt.id,
+            eventType: evt.eventType,
+            attempts: attempt,
+            lastError: err instanceof Error ? err.message : String(err),
+            payload: evt.payload as Record<string, unknown>,
+            firstFailedAt: getFailureEntry(sub.subscription)?.firstFailedAt ?? new Date(),
+          });
+          await outerTx
+            .update(coreSubscriptionCursors)
+            .set({ lastProcessedEventId: evt.id, lastProcessedAt: new Date() })
+            .where(eq(coreSubscriptionCursors.subscription, sub.subscription));
+          metrics.incr('dispatcher.dead_letter', { subscription: sub.subscription });
+          clearFailureState(sub.subscription, evt.id);
+        } else {
+          return { processed, halted: true };
+        }
+      }
+    }
+
+    return { processed, halted: false };
+  });
+}
