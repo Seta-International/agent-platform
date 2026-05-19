@@ -4,11 +4,11 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    globalSetup: ['./tests/global-setup.ts'],
     setupFiles: ['./tests/setup.ts'],
     testTimeout: 60_000,
-    hookTimeout: 60_000,
+    hookTimeout: 120_000,
     pool: 'forks',
-    // Serialize test files so testcontainers spawns one DB container per run.
     fileParallelism: false,
   },
 });

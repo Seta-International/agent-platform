@@ -3,6 +3,7 @@ import { buildHonoApp, createContributionRegistry, runMigrations } from '@seta/c
 import { startDispatcher } from '@seta/core/dispatcher';
 import { registerCoreContributions } from '@seta/core/register';
 import { startWorkerPool } from '@seta/core/workers';
+import { registerIdentityContributions } from '@seta/identity/register';
 import { closePools, getPool, initPools } from '@seta/shared-db';
 import pino from 'pino';
 import { parseEnv } from './env.ts';
@@ -14,6 +15,7 @@ initPools({ databaseUrl: env.DATABASE_URL });
 
 const reg = createContributionRegistry();
 registerCoreContributions(reg);
+registerIdentityContributions(reg);
 
 await runMigrations(reg, { pool: getPool('worker') });
 log.info('migrations applied');

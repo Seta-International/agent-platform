@@ -50,6 +50,9 @@ importers:
       '@seta/core':
         specifier: workspace:^
         version: link:../../packages/core
+      '@seta/identity':
+        specifier: workspace:^
+        version: link:../../packages/identity
       '@seta/shared-db':
         specifier: workspace:^
         version: link:../../packages/shared/db
@@ -90,6 +93,9 @@ importers:
       '@seta/core':
         specifier: workspace:^
         version: link:../../packages/core
+      '@seta/identity':
+        specifier: workspace:^
+        version: link:../../packages/identity
       '@seta/shared-db':
         specifier: workspace:^
         version: link:../../packages/shared/db
