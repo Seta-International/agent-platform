@@ -16,6 +16,7 @@ import { closePools, getPool, initPools } from '@seta/shared-db';
 import type { Hono } from 'hono';
 import pino from 'pino';
 import { parseEnv } from './env.ts';
+import { registerAdminAuditRoutes } from './routes/admin-audit.ts';
 import { registerAdminUsersRoutes } from './routes/admin-users.ts';
 import { registerDiscoverRoute } from './routes/discover.ts';
 import { registerMeRoute } from './routes/me.ts';
@@ -72,6 +73,7 @@ app.use('*', sessionMiddleware);
 registerMeRoute(app);
 registerProfileRoutes(app);
 registerAdminUsersRoutes(app);
+registerAdminAuditRoutes(app);
 
 app.onError((err, c) => {
   if (err instanceof IdentityError) {

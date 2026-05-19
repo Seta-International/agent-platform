@@ -1,2 +1,1 @@
-// core — backend entry. Populated in later milestones.
-export {};
+export { type AuditQueryOpts, type AuditRow, queryAudit } from './audit.ts';
