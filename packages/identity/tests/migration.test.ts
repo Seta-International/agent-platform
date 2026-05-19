@@ -80,4 +80,39 @@ describe('identity migrations', () => {
       },
     );
   });
+
+  it('adds idle_timeout_days and local_password_disabled to core.tenants', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+      },
+      async ({ pool }) => {
+        const reg = createContributionRegistry();
+        registerCoreContributions(reg);
+        registerIdentityContributions(reg);
+        await runMigrations(reg, { pool });
+
+        const cols = (
+          await pool.query(`
+            SELECT column_name, data_type, column_default
+            FROM information_schema.columns
+            WHERE table_schema = 'core' AND table_name = 'tenants'
+              AND column_name IN ('idle_timeout_days', 'local_password_disabled')
+            ORDER BY column_name
+          `)
+        ).rows;
+        expect(cols).toEqual([
+          expect.objectContaining({ column_name: 'idle_timeout_days', data_type: 'integer' }),
+          expect.objectContaining({ column_name: 'local_password_disabled', data_type: 'boolean' }),
+        ]);
+
+        const cacheTable = await pool.query(`
+          SELECT table_name FROM information_schema.tables
+          WHERE table_schema = 'core' AND table_name = 'session_scope_cache'
+        `);
+        expect(cacheTable.rows.length).toBe(1);
+      },
+    );
+  });
 });

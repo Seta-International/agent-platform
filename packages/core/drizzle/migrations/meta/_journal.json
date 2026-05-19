@@ -8,6 +8,27 @@
       "when": 1779185195345,
       "tag": "0000_core_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1779185195346,
+      "tag": "0001_events_partitioned",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1779185195347,
+      "tag": "0002_subscription_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1779202703930,
+      "tag": "0003_tenant_columns_and_session_scope_cache",
+      "breakpoints": true
     }
   ]
 }
