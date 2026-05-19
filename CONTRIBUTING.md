@@ -44,3 +44,12 @@ Please do **not** open public issues for security vulnerabilities. See `SECURITY
 ## Code of conduct
 
 All contributors are expected to abide by `CODE_OF_CONDUCT.md`.
+
+## Database migrations
+
+- Generate with `pnpm -F @seta/<module> exec drizzle-kit generate` (per-module config).
+- Apply with `pnpm db:migrate` (runs all module migrations in dep order via apps/cli).
+- Hand-written `.sql` files (for partition / trigger / `pg_notify` DDL Drizzle cannot model) live in the same `packages/<module>/drizzle/migrations/` folder. Name them `NNNN_description.sql`; lexical filename order determines run order.
+- First line of every hand-written file: `-- hand-written: <why drizzle cannot model this>`.
+- Never edit a committed migration. Add a new numbered file instead.
+- Checksum mismatch on an already-applied migration aborts the run with `MigrationChecksumMismatch`.

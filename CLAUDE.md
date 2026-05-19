@@ -60,6 +60,7 @@ These apply to every code change. They are not negotiable per-PR.
 - **Verify before claiming done.** Run `pnpm typecheck && pnpm lint && pnpm test` (and the relevant `test:e2e` if UI changed) before reporting a task complete. "Should work" is not a status.
 - **Install dependencies via CLI only — never hand-edit.** Use `pnpm add <pkg>` with no version specifier so the registry resolves latest. Do not hand-edit `package.json` versions or `pnpm-lock.yaml`.
 - **Generate migrations via CLI only — never hand-edit.** Use `pnpm drizzle-kit generate` (and `pnpm db:migrate` to apply). Do not hand-edit files under `drizzle/`. If output is wrong, fix the schema and re-run — don't patch the SQL.
+  - **Exception: SQL Drizzle cannot model.** Partitioning (`PARTITION BY RANGE`), deferred constraint triggers, `pg_notify` wiring, partitioned indexes, and similar PG-specific DDL live as hand-written `.sql` files in the same `drizzle/migrations/` folder, sibling to generated ones. Each hand-written file begins with a one-line comment naming the limitation (`-- hand-written: drizzle pgTable cannot express PARTITION BY RANGE`). The migration runner walks the folder in lexical filename order; both formats coexist. The "don't patch generated SQL" rule still applies — if a hand-written file needs evolution, write a new numbered migration; never edit a committed one.
 
 ## Repo layout & commands
 

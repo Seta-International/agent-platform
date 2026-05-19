@@ -204,7 +204,7 @@ These layer continuously onto the milestones — they don't "ship" at a specific
 | 7 | Demo bootstrap (seed + agent-driven) breaks on schema change | Flagship demo fails to reset between sales calls | Seed script regression in CI | PM + tech lead (smoke test in CI every milestone) |
 | 8 | OpenAI embedding-provider availability | Embeddings stop refreshing, semantic search staleness grows | Provider error rate sustained >5% for >1h | Ops (graceful degradation per §P; queue persists, reactive pause) |
 
-## 7. Decision log seed (D1–D14)
+## 7. Decision log seed (D1–D20)
 
 This is the ADR ledger as of 2026-05-19 architect review. Edits land here as new D-rows; nothing in this table moves backward without a written reversal.
 
@@ -228,6 +228,11 @@ This is the ADR ledger as of 2026-05-19 architect review. Edits land here as new
 | D13 | Promote 4 cross-cutting concerns to `packages/shared/*` — `mailer`, `observability`, `crypto`, `storage` | requirements.md §15.6 |
 | D14 | Promote 3 more — `db`, `rbac`, `testing` | requirements.md §15.6 |
 | D15 | Tool catalog is atomic-primitives-only; `recommend_reviewers` and `find_tasks_needing_review` removed as macro tools and reframed as composition recipes (§7.2.2). `skill_tags` and `review_state` reclassified as optional refinements (agent does not depend on them being set). Skill matching uses embedding similarity + assignment-history inference; `skill_concepts` concept map and 4-rule literal/parent/sibling/leaf-of-concept match rule removed. Workload-score weight ladder moved out of spec into tenant config. `stale-review-detector` workflow dropped (mostly idle once `review_state` is optional). New atomic primitives surfaced in §7.2.1: `infer_task_topics`, `infer_user_skills_from_history`, `match_users_to_topic`, `get_user_availability` (with `compute_workload` and `get_leave_overlap` clarified as raw-output primitives without baked-in thresholds). Aligned with Mastra's agent-vs-workflow guidance — small composable tools for adaptive reasoning, workflows only for code-driven deterministic pipelines. Reverses the §5.3 "first-class `review_state` enum" framing, the §3.9.1 concept-map design, the §7.2 macro-tool framing, and the §16.5 monolithic-tool carve-out. | requirements.md §1 header, §3.9.1, §3.9.3, §5.1, §5.3, §7.2, §11.8, §12.2, §12.3, §14.1, §15.3, §16.5; architecture.md §E.3, §F.4.7, §H.4, §H.7, §H.9, §H.10, §O slice 7+8 |
+| D16 | Dispatcher hardening: per-`(subscription, event_id)` exponential backoff (1s→60s, 5 attempts) → DLQ + cursor advance; multi-replica safety via `FOR UPDATE SKIP LOCKED` on cursor row | docs/superpowers/specs/2026-05-19-m1-part2-cross-cutting-design.md §3.3 |
+| D17 | Test DB lifecycle: one pgvector container per Vitest worker; per-test `CREATE DATABASE … TEMPLATE seta_template` clone (~30 ms); migrations applied once at globalSetup | spec §6 |
+| D18 | Hybrid migrations: drizzle-kit for typed tables; sibling hand-written `.sql` for PG features Drizzle cannot model; same folder, lexical filename order; CLAUDE.md updated | spec §7.1, CLAUDE.md |
+| D19 | graphile-worker pulled forward to M1 for partition-manager (daily) + DLQ alerter (5-min); consumer of `workerPool` per §K.2 | spec §3.4 |
+| D20 | `core.emit()` is strict — throws `EmitContextRequired` outside an `emitContext`; legal entry points: `withEmit`, `withCoreEmitContext`, subscriber framework | spec §3.2 |
 
 ## 8. What this plan deliberately omits
 
