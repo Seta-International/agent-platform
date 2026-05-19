@@ -11,7 +11,7 @@ describe('ContributionRegistry', () => {
     expect(reg.collected.migrationDirs).toHaveLength(1);
     expect(reg.collected.migrationDirs[0]?.module).toBe('core');
     expect(reg.collected.migrationDirs[0]?.dir).toMatch(/packages\/core\/drizzle\/migrations$/);
-    expect(reg.collected.subscribers).toEqual([]);
+    expect(reg.collected.subscribers).toHaveLength(3);
   });
 
   it('publicApi entries are accumulated per module', () => {

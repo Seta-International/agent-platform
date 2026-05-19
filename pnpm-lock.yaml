@@ -221,6 +221,9 @@ importers:
       '@opentelemetry/api':
         specifier: ^1.9.1
         version: 1.9.1
+      '@seta/identity':
+        specifier: workspace:^
+        version: link:../identity
       '@seta/shared-db':
         specifier: workspace:^
         version: link:../shared/db
@@ -239,6 +242,9 @@ importers:
       hono:
         specifier: ^4.12.19
         version: 4.12.19
+      lru-cache:
+        specifier: ^11.4.0
+        version: 11.4.0
       pg:
         specifier: ^8.21.0
         version: 8.21.0
@@ -8777,8 +8783,7 @@ snapshots:
 
   lru-cache@10.4.3: {}
 
-  lru-cache@11.4.0:
-    optional: true
+  lru-cache@11.4.0: {}
 
   lru-cache@5.1.1:
     dependencies:
