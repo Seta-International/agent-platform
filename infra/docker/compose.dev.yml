@@ -1,0 +1,60 @@
+# Local dev stack for seta-agent-platform.
+#
+# Ports are offset by +10 from common defaults so this stack can run alongside
+# the seta-os stack (which holds 5432, 4318, 16686) on the same workstation.
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17-trixie
+    container_name: seta-ap-postgres-dev
+    ports:
+      - "5442:5432"
+    environment:
+      POSTGRES_USER: seta
+      POSTGRES_PASSWORD: seta
+      POSTGRES_DB: seta
+    volumes:
+      - seta-ap-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U seta -d seta"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: seta-ap-redis-dev
+    ports:
+      - "6389:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - seta-ap-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.111.0
+    container_name: seta-ap-otel-dev
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    ports:
+      - "4328:4318" # OTLP HTTP
+      - "4327:4317" # OTLP gRPC
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    depends_on:
+      - jaeger
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.62.0
+    container_name: seta-ap-jaeger-dev
+    ports:
+      - "16696:16686" # Jaeger UI
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+
+volumes:
+  seta-ap-postgres-data:
+  seta-ap-redis-data:
