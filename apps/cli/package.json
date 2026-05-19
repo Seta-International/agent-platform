@@ -7,10 +7,23 @@
     "seta-cli": "./dist/index.js"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "dev": "tsx src/index.ts",
+    "test": "vitest run"
   },
   "devDependencies": {
     "@seta/shared-config": "workspace:^",
-    "typescript": "^6.0.3"
+    "@seta/shared-testing": "workspace:^",
+    "drizzle-orm": "^0.45.2",
+    "tsx": "^4.7.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.6"
+  },
+  "dependencies": {
+    "@seta/core": "workspace:^",
+    "@seta/shared-db": "workspace:^",
+    "commander": "^14.0.3",
+    "pino": "^10.3.1",
+    "zod": "^4.4.3"
   }
 }
