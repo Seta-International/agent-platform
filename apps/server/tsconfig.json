@@ -1,17 +1,9 @@
 {
   "extends": "@seta/shared-config/tsconfig.base.json",
   "compilerOptions": {
-    "target": "ESNext",
-    "module": "NodeNext",
-    "strict": true,
-    "verbatimModuleSyntax": true,
-    "skipLibCheck": true,
     "types": ["node"],
     "jsx": "react-jsx",
-    "jsxImportSource": "hono/jsx",
-    "outDir": "./dist",
-    "rootDir": "./src"
+    "jsxImportSource": "hono/jsx"
   },
-  "include": ["src/**/*"],
-  "exclude": ["dist", "node_modules"]
+  "include": ["src"]
 }
