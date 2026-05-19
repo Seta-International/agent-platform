@@ -1,6 +1,8 @@
-import { boolean, jsonb, pgSchema, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { boolean, jsonb, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
-export const identity = pgSchema('identity');
+export { identity } from './pg-schema.ts';
+
+import { identity } from './pg-schema.ts';
 
 export const userProfile = identity.table('user_profile', {
   user_id: uuid('user_id').primaryKey(),
@@ -58,3 +60,5 @@ export const tenantSsoProviders = identity.table(
   },
   (t) => [primaryKey({ columns: [t.tenant_id, t.provider_id] })],
 );
+
+export * from './auth-tables.ts';
