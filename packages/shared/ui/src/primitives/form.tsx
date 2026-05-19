@@ -13,7 +13,7 @@ import {
 } from 'react-hook-form';
 
 import { cn } from '@/lib/cn';
-import { Label } from '@/primitives/ui/label';
+import { Label } from '@/primitives/label';
 
 const Form = FormProvider;
 
@@ -130,7 +130,7 @@ const FormDescription = React.forwardRef<
     <p
       ref={ref}
       id={formDescriptionId}
-      className={cn('text-sm text-muted-foreground', className)}
+      className={cn('text-sm text-ink-subtle', className)}
       {...props}
     />
   );
