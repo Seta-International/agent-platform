@@ -1,12 +1,23 @@
 import { serve } from '@hono/node-server';
-import { buildHonoApp, createContributionRegistry, runMigrations } from '@seta/core';
+import {
+  buildHonoApp,
+  createContributionRegistry,
+  createSessionMiddleware,
+  runMigrations,
+  type SessionEnv,
+} from '@seta/core';
 import { startDispatcher } from '@seta/core/dispatcher';
 import { registerCoreContributions } from '@seta/core/register';
 import { startWorkerPool } from '@seta/core/workers';
+import { listRoleGrants } from '@seta/identity';
+import { auth } from '@seta/identity/auth';
 import { registerIdentityContributions } from '@seta/identity/register';
 import { closePools, getPool, initPools } from '@seta/shared-db';
+import type { Hono } from 'hono';
 import pino from 'pino';
 import { parseEnv } from './env.ts';
+import { registerDiscoverRoute } from './routes/discover.ts';
+import { registerMeRoute } from './routes/me.ts';
 
 const log = pino({ name: 'apps/server' });
 const env = parseEnv(process.env);
@@ -29,12 +40,32 @@ log.info('dispatcher started');
 const workers = await startWorkerPool({ pool: getPool('worker') });
 log.info('workers started');
 
-const app = buildHonoApp(reg);
+const sessionMiddleware = createSessionMiddleware({
+  getSession: ({ headers }) => auth.api.getSession({ headers }),
+  signOut: ({ headers }) => auth.api.signOut({ headers }).then(() => undefined),
+  listRoleGrants,
+});
+
+// Cast required because buildHonoApp returns unparameterized Hono; SessionEnv is additive.
+const app = buildHonoApp(reg) as unknown as Hono<SessionEnv>;
+
+// Order matters: better-auth's /auth/* must register before sessionMiddleware so its routes are public.
+app.on(['GET', 'POST'], '/api/identity/v1/auth/*', (c) => auth.handler(c.req.raw));
+
+// Public routes — no session required
+registerDiscoverRoute(app);
+app.get('/health/live', (c) => c.json({ ok: true }));
 app.get('/health/ready', (c) => {
   const h = dispatcher.health();
   const fresh = Date.now() - h.lastTickAt.getTime() < 30_000;
-  return c.json({ ok: fresh, lastTickAt: h.lastTickAt }, fresh ? 200 : 503);
+  return c.json({ ok: fresh, lastTickAt: h.lastTickAt, identity: 'wired' }, fresh ? 200 : 503);
 });
+
+// Session middleware gates everything registered after this point
+app.use('*', sessionMiddleware);
+
+// Protected routes
+registerMeRoute(app);
 
 const server = serve({ fetch: app.fetch, port: env.PORT }, (info) => {
   log.info({ port: info.port }, 'server listening');
