@@ -29,4 +29,55 @@ describe('identity migrations', () => {
       },
     );
   });
+
+  it('creates all extension tables with the expected indexes', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+      },
+      async ({ pool }) => {
+        const reg = createContributionRegistry();
+        registerCoreContributions(reg);
+        registerIdentityContributions(reg);
+        await runMigrations(reg, { pool });
+
+        const tables = (
+          await pool.query(`
+          SELECT table_name FROM information_schema.tables
+          WHERE table_schema = 'identity' ORDER BY table_name
+        `)
+        ).rows.map((r: { table_name: string }) => r.table_name);
+        expect(tables).toEqual(
+          expect.arrayContaining([
+            'user',
+            'session',
+            'account',
+            'verification',
+            'user_profile',
+            'role_grants',
+            'failed_login_attempts',
+            'user_skill_embeddings',
+            'tenant_sso_providers',
+          ]),
+        );
+
+        const indexes = (
+          await pool.query(`
+          SELECT indexname FROM pg_indexes WHERE schemaname = 'identity'
+        `)
+        ).rows.map((r: { indexname: string }) => r.indexname);
+        expect(indexes).toEqual(
+          expect.arrayContaining([
+            'user_tenant_email_uniq',
+            'role_grants_active_uniq',
+            'role_grants_user_idx',
+            'role_grants_tenant_role_idx',
+            'failed_login_email_ip_idx',
+            'tenant_sso_providers_domain_idx',
+          ]),
+        );
+      },
+    );
+  });
 });
