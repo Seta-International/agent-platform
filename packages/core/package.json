@@ -5,14 +5,35 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./register": "./src/register.ts",
+    "./events": "./src/events/index.ts",
+    "./dispatcher": "./src/dispatcher/index.ts",
+    "./workers": "./src/workers/index.ts",
     "./backend": "./src/backend/index.ts",
-    "./events": "./src/events/index.ts"
+    "./db/schema": "./src/db/schema/index.ts",
+    "./internal/test-support": "./src/db/client.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "devDependencies": {
     "@seta/shared-config": "workspace:^",
-    "typescript": "^6.0.3"
+    "@seta/shared-testing": "workspace:^",
+    "@types/pg": "^8.20.0",
+    "drizzle-kit": "^0.31.10",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.6"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.1",
+    "@seta/shared-db": "workspace:^",
+    "@seta/shared-rbac": "workspace:^",
+    "@seta/shared-types": "workspace:^",
+    "drizzle-orm": "^0.45.2",
+    "graphile-worker": "^0.16.6",
+    "hono": "^4.12.19",
+    "pg": "^8.21.0",
+    "pino": "^10.3.1"
   }
 }
