@@ -51,7 +51,10 @@ module.exports = {
       name: "no-orphan-modules",
       severity: "warn",
       comment: "Surfaces packages with no callers; useful while the tree is mostly placeholders.",
-      from: { orphan: true, pathNot: "(^|/)(\\.|index\\.ts|.+\\.config\\.[cm]?[jt]s)$" },
+      from: {
+        orphan: true,
+        pathNot: "(^|/)(\\.|index\\.ts|.+\\.config\\.[cm]?[jt]s)$|^packages/shared/config/eslint/",
+      },
       to: {},
     },
   ],
