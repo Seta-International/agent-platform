@@ -11,6 +11,7 @@
     "./workers": "./src/workers/index.ts",
     "./backend": "./src/backend/index.ts",
     "./db/schema": "./src/db/schema/index.ts",
+    "./db": "./src/db/client.ts",
     "./internal/test-support": "./src/db/client.ts"
   },
   "scripts": {
