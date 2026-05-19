@@ -1,4 +1,4 @@
-import { createUser } from '@seta/identity';
+import { createUser, listRoleGrants } from '@seta/identity';
 import { registerIdentityContributions } from '@seta/identity/register';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
@@ -67,7 +67,13 @@ describe('session scope cache', () => {
           );
           const sessionId = `test-session-${crypto.randomUUID()}`;
 
-          const scope1 = await getSessionScope(sessionId, user_id, 'a@d.local', 'A');
+          const scope1 = await getSessionScope(
+            { listRoleGrants },
+            sessionId,
+            user_id,
+            'a@d.local',
+            'A',
+          );
           expect(scope1.role_summary.roles).toEqual(['org.admin']);
 
           const durableRow = (
@@ -79,7 +85,13 @@ describe('session scope cache', () => {
           expect(durableRow.session_id).toBe(sessionId);
 
           _clearHotForTest();
-          const scope2 = await getSessionScope(sessionId, user_id, 'a@d.local', 'A');
+          const scope2 = await getSessionScope(
+            { listRoleGrants },
+            sessionId,
+            user_id,
+            'a@d.local',
+            'A',
+          );
           expect(scope2.role_summary.roles).toEqual(['org.admin']);
         } finally {
           await closePools();

@@ -12,6 +12,8 @@ export {
   computeAccessibleGroups,
   getSessionScope,
   hashRoleSummary,
+  type ListRoleGrants,
+  type RoleGrant,
   rollup,
   type SessionScope,
 } from './session/scope.ts';

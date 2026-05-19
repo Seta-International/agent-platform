@@ -1,9 +1,19 @@
 import { createHash } from 'node:crypto';
-import { type ActiveRoleGrant, listRoleGrants } from '@seta/identity';
 import { eq } from 'drizzle-orm';
 import { LRUCache } from 'lru-cache';
 import { coreDb } from '../db/client.ts';
 import { sessionScopeCache } from '../db/schema/index.ts';
+
+export interface RoleGrant {
+  role_slug: string;
+  scope_type: 'tenant' | 'group';
+  scope_id: string | null;
+  granted_at: Date;
+}
+
+export type ListRoleGrants = (
+  userId: string,
+) => Promise<{ tenant_id: string; grants: ReadonlyArray<RoleGrant> }>;
 
 export interface SessionScope {
   session_id: string;
@@ -21,7 +31,7 @@ export interface SessionScope {
 
 const hot = new LRUCache<string, SessionScope>({ max: 50_000, ttl: 1000 * 60 * 15 });
 
-export function rollup(grants: ReadonlyArray<ActiveRoleGrant>): {
+export function rollup(grants: ReadonlyArray<RoleGrant>): {
   roles: string[];
   cross_tenant_read: boolean;
 } {
@@ -38,9 +48,7 @@ export function hashRoleSummary(summary: { roles: string[]; cross_tenant_read: b
   return createHash('sha256').update(canonical).digest('hex').slice(0, 16);
 }
 
-export function computeAccessibleGroups(
-  grants: ReadonlyArray<ActiveRoleGrant>,
-): ReadonlyArray<string> {
+export function computeAccessibleGroups(grants: ReadonlyArray<RoleGrant>): ReadonlyArray<string> {
   const groups = new Set<string>();
   for (const g of grants) {
     if (g.scope_type === 'group' && g.scope_id) groups.add(g.scope_id);
@@ -49,6 +57,7 @@ export function computeAccessibleGroups(
 }
 
 export async function getSessionScope(
+  deps: { listRoleGrants: ListRoleGrants },
   sessionId: string,
   userId: string,
   email: string,
@@ -80,7 +89,7 @@ export async function getSessionScope(
     return scope;
   }
 
-  const { tenant_id, grants } = await listRoleGrants(userId);
+  const { tenant_id, grants } = await deps.listRoleGrants(userId);
   const role_summary = rollup(grants);
   const scope: SessionScope = {
     session_id: sessionId,

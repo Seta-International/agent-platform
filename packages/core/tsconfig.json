@@ -1,4 +1,10 @@
 {
   "extends": "@seta/shared-config/tsconfig.base.json",
+  "compilerOptions": {
+    "paths": {
+      "@seta/identity": ["../identity/src/index.ts"],
+      "@seta/identity/*": ["../identity/src/*.ts"]
+    }
+  },
   "include": ["src", "__tests__", "test"]
 }
