@@ -38,6 +38,37 @@ export const auth = betterAuth({
 
   database: drizzleAdapter(makeLazyDb(), { provider: 'pg' }),
 
+  user: {
+    fields: {
+      emailVerified: 'email_verified',
+      createdAt: 'created_at',
+      updatedAt: 'updated_at',
+    },
+  },
+
+  account: {
+    fields: {
+      userId: 'user_id',
+      providerId: 'provider_id',
+      accountId: 'account_id',
+      accessToken: 'access_token',
+      refreshToken: 'refresh_token',
+      accessTokenExpiresAt: 'access_token_expires_at',
+      refreshTokenExpiresAt: 'refresh_token_expires_at',
+      idToken: 'id_token',
+      createdAt: 'created_at',
+      updatedAt: 'updated_at',
+    },
+  },
+
+  verification: {
+    fields: {
+      expiresAt: 'expires_at',
+      createdAt: 'created_at',
+      updatedAt: 'updated_at',
+    },
+  },
+
   advanced: {
     cookiePrefix: 'seta',
     useSecureCookies: env.NODE_ENV === 'production',
@@ -111,6 +142,14 @@ export const auth = betterAuth({
     expiresIn: 60 * 60 * 24 * 14,
     updateAge: 60 * 60 * 24,
     cookieCache: { enabled: true, maxAge: 60 * 5 },
+    fields: {
+      userId: 'user_id',
+      expiresAt: 'expires_at',
+      ipAddress: 'ip_address',
+      userAgent: 'user_agent',
+      createdAt: 'created_at',
+      updatedAt: 'updated_at',
+    },
   },
 });
 
