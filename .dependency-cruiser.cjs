@@ -17,7 +17,7 @@ module.exports = {
     },
     {
       name: 'no-cross-module-internals',
-      severity: 'warn',
+      severity: 'error',
       comment:
         "A feature module's internals (src/backend, src/db) are private. Cross-module imports must enter via the package root (src/index.ts) or the /events subpath.",
       from: { path: '^packages/(core|identity|planner|copilot|integrations)/src/' },
@@ -46,6 +46,34 @@ module.exports = {
       comment: 'Outside shared/<x>, never reach into its internals.',
       from: { pathNot: '^packages/shared/([^/]+)/' },
       to: { path: '^packages/shared/([^/]+)/src/internals/' },
+    },
+    {
+      name: 'shared-must-not-import-modules',
+      severity: 'error',
+      comment: 'shared/* may not import from feature modules. They are pure infrastructure.',
+      from: { path: '^packages/shared/' },
+      to: { path: '^packages/(core|identity|planner|copilot|integrations)/' },
+    },
+    {
+      name: 'shared-cross-imports-restricted',
+      severity: 'error',
+      comment:
+        'shared/<a> may not import from shared/<b>. shared/testing is the exception (it may import any shared/*; any shared/* may import shared/testing from test files).',
+      from: {
+        path: '^packages/shared/(?!testing)([^/]+)/',
+        pathNot: '(^|/)(__tests__|test)/',
+      },
+      to: {
+        path: '^packages/shared/([^/]+)/',
+        pathNot: '^packages/shared/(testing|$1)/',
+      },
+    },
+    {
+      name: 'apps-cli-no-dispatcher',
+      severity: 'error',
+      comment: 'apps/cli is short-lived; never start the dispatcher there.',
+      from: { path: '^apps/cli/' },
+      to: { path: '^packages/core/src/dispatcher/' },
     },
     {
       name: 'no-orphan-modules',
