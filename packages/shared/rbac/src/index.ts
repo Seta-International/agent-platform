@@ -6,4 +6,4 @@ export type {
   VisibilityGate,
 } from './types.ts';
 export { perm } from './types.ts';
-export { passesGate } from './visibility.ts';
+export { hasPermission, passesGate } from './visibility.ts';

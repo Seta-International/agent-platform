@@ -29,6 +29,7 @@ export default async function (): Promise<() => Promise<void>> {
 
   process.env.SETA_TEST_PG_BASE = handle.baseUrl;
   process.env.SETA_TEST_PG_TEMPLATE = 'seta_template';
+  process.env.BETTER_AUTH_SECRET ??= 'test'.padEnd(32, '_');
 
   return async () => {
     await handle?.stop();
