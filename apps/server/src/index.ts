@@ -18,6 +18,7 @@ import pino from 'pino';
 import { parseEnv } from './env.ts';
 import { registerDiscoverRoute } from './routes/discover.ts';
 import { registerMeRoute } from './routes/me.ts';
+import { registerProfileRoutes } from './routes/profile.ts';
 
 const log = pino({ name: 'apps/server' });
 const env = parseEnv(process.env);
@@ -68,6 +69,7 @@ app.use('*', sessionMiddleware);
 
 // Protected routes
 registerMeRoute(app);
+registerProfileRoutes(app);
 
 const server = serve({ fetch: app.fetch, port: env.PORT }, (info) => {
   log.info({ port: info.port }, 'server listening');
