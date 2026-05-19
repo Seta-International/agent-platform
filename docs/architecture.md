@@ -113,12 +113,12 @@ module.exports = {
   forbidden: [
     {
       name: 'no-private-cross-package',
-      comment: 'Cross-package imports must enter via /public or /events. Any path inside another package\'s src/ (other than public|events) is private. Exception: packages/shared/* are imported freely (they are pure infrastructure with no internal/public distinction).',
+      comment: 'Cross-package imports must enter via the package root (src/index.ts) or /events. Any other path inside another package\'s src/ is private. Exception: packages/shared/* are imported freely (they are pure infrastructure with no internal-vs-surface distinction).',
       severity: 'error',
       from: { path: '^packages/(?!shared/)([^/]+)/src/' },
       to: {
-        path: '^packages/(?!shared/)([^/]+)/src/(?!public/|events/)',
-        pathNot: '^packages/$1/src/',
+        path: '^packages/(?!shared/)([^/]+)/src/.+',
+        pathNot: '^packages/$1/src/|^packages/(?!shared/)[^/]+/src/(index\\.ts|events/)',
       },
     },
     {
@@ -130,14 +130,14 @@ module.exports = {
     },
     {
       name: 'no-peer-module-import',
-      comment: 'identity, planner, integrations are peers — they communicate only via events through core. Only copilot may import every peer\'s /public to wrap as tools.',
+      comment: 'identity, planner, integrations are peers — they communicate only via events through core. Only copilot may import every peer\'s public surface to wrap as tools.',
       severity: 'error',
       from: { path: '^packages/(identity|planner|integrations)/src/' },
-      to:   { path: '^packages/(identity|planner|integrations)/src/public/', pathNot: '^packages/$1/' },
+      to:   { path: '^packages/(identity|planner|integrations)/src/', pathNot: '^packages/$1/' },
     },
     {
       name: 'apps-only-backend',
-      comment: 'A package\'s /backend subpath is private to apps/server. Cross-package code uses /public or /events.',
+      comment: 'A package\'s /backend subpath is private to apps/server. Cross-package code uses the package root (src/index.ts) or /events.',
       severity: 'error',
       from: { pathNot: '^apps/server/' },
       to:   { path: '^packages/[^/]+/src/backend/' },
@@ -189,7 +189,7 @@ module.exports = {
     needsApproval: true,                    // <-- AI SDK v6 marker
     execute: async ({ taskId, assigneeId }, { context }) => {
       const session = context.session as SessionScope;
-      return plannerPublic.assignTask({ taskId, assigneeId, actingUser: session });
+      return planner.assignTask({ taskId, assigneeId, actingUser: session });
     },
   });
   ```
@@ -382,8 +382,8 @@ fi
 ### §B.4 Public-API integration test
 
 ```ts
-// packages/planner/test/public-surface.test.ts
-import { register } from '@seta/planner/public';
+// packages/planner/test/index-surface.test.ts
+import { register } from '@seta/planner';
 import { describe, it, expect } from 'vitest';
 
 describe('planner public surface', () => {
@@ -399,11 +399,11 @@ describe('planner public surface', () => {
 });
 ```
 
-Plus a build-time integration test that compiles `packages/<m>/public` with `paths` rewritten to alias all peers' `internals/` to `unreachable` — any leakage fails the build.
+Plus a build-time integration test that compiles `packages/<m>/src/index.ts` with `paths` rewritten to alias all peers' `internals/` to `unreachable` — any leakage fails the build.
 
 ### §B.5 What happens when a rule fires
 
-CI: fails the PR. PR comment template explains the rule + offers the legal alternative (call `/public`, subscribe to an event, propose adding to the public surface). No bypass mechanism; rules can only be relaxed by editing the config file in a PR that touches the architecture decision.
+CI: fails the PR. PR comment template explains the rule + offers the legal alternative (call the package's public surface from its root, subscribe to an event, propose adding to the public surface). No bypass mechanism; rules can only be relaxed by editing the config file in a PR that touches the architecture decision.
 
 ---
 
@@ -450,7 +450,7 @@ export interface ContributionRegistry {
 ### §C.2 Per-module registration function
 
 ```ts
-// packages/planner/src/public/register.ts
+// packages/planner/src/register.ts
 import type { ContributionRegistry } from '@seta/shared/types';
 import * as schema from '../db/schema';
 import { plannerRouter } from '../backend/routes';
@@ -538,7 +538,7 @@ Backend boot and shell boot use the same `ContributionRegistry` interface — on
 Permission-checked visibility — menu items, commands, hotkeys, app launcher tiles — uses one predicate utility from `@seta/shared/rbac` (D14):
 
 ```ts
-// packages/shared/rbac/src/public/visibility.ts
+// packages/shared/rbac/src/visibility.ts
 export type VisibilityGate =
   | string                                       // 'planner.task.read'
   | { anyOf: string[] }
@@ -559,7 +559,7 @@ export function passesGate(gate: VisibilityGate, session: SessionScope): boolean
 | Serializable for SSR / per-user shipping | Not serializable. We don't SSR (Vite SPA behind login). | Serializable — buys nothing v1 actually uses. |
 | Action references | Plain object: `reg.actions({ 'planner.openCreateTaskSheet': ({modal}) => ... })`. Direct closures, type-safe. | `ActionId` strings + lookup table; misses fail at boot. Indirection for a property we don't need. |
 | LOC overhead | ~50 LOC for the registry + boot wiring. | ~300 LOC: manifest type + composers + action registry + filter functions. |
-| Boundary preservation | Modules expose `register.ts` only via `public/`. §A5 dep-cruiser enforces. | Same. Tie. |
+| Boundary preservation | Modules expose `register.ts` only via the package root (`src/index.ts`). §A5 dep-cruiser enforces. | Same. Tie. |
 | Test ergonomics | `const reg = createContributionRegistry(); registerPlannerContributions(reg); expect(reg.collected.routes.get('planner'))...` | `composeShell([plannerManifest], mockSession)`. Tie. |
 
 Deciding factors: serializable manifests buy nothing v1 uses (we don't SSR; per-user filtering is solved server-side by computing `visibleApps` and shipping that). The action-registry indirection adds a failure mode (unregistered ActionId at boot) without solving a problem.
@@ -1104,12 +1104,12 @@ When `planner.assignTask` needs to confirm the user is active and in the same te
 
 ```ts
 // packages/planner/src/backend/domain/assign-task.ts
-import { identityPublic } from '@seta/identity/public';   // public surface only — dep-cruiser enforced
+import { identityPublic } from '@seta/identity';   // public surface only — dep-cruiser enforced
 
 export async function assignTask(input: AssignTaskInput): Promise<TaskRow> {
   // 1. Sync RBAC + existence check on the identity side.
   //    identity re-checks its own permissions; planner trusts the boolean answer.
-  const user = await identityPublic.getUser(input.assignee_id, { actingUser: input.session });
+  const user = await identity.getUser(input.assignee_id, { actingUser: input.session });
   if (!user || user.deactivated_at) {
     throw new DomainError('ASSIGNEE_NOT_ACTIVE', 'Cannot assign to a deactivated user.');
   }
@@ -1136,7 +1136,7 @@ export async function assignTask(input: AssignTaskInput): Promise<TaskRow> {
 
 **Why sync here and not the projection.** This check happens once per assignment (low-frequency action) and needs strongly-consistent data — a user deactivated 50ms ago must not be assignable. A projection would have eventually-consistent lag (sub-second usually, but never zero). The hot path is the recommender (Pattern C); the assignment is the cold path.
 
-**`identityPublic.getUser` shape** (from `packages/identity/src/public/functions.ts`):
+**`identity.getUser` shape** (re-exported from `packages/identity/src/index.ts`):
 
 ```ts
 export interface PublicUser {
@@ -1319,7 +1319,7 @@ OTel metric `bus.dispatcher.lag_ms` (§L.2) tracks this per-subscription. Operat
 #### §F.4.4 What this pattern forbids
 
 - ❌ `planner` SQL referencing `identity.users` or `identity.user_profile`. (Drizzle `schemaFilter` + raw-SQL CI audit catch it.)
-- ❌ `planner` importing `@seta/identity/src/backend/...` — only `/public` and `/events`. (dependency-cruiser catches it.)
+- ❌ `planner` importing `@seta/identity/src/backend/...` — only `@seta/identity` (the public surface) and `@seta/identity/events`. (dependency-cruiser catches it.)
 - ❌ `planner` writing into `identity.role_grants` or any identity table. (Drizzle schema scoping catches it.)
 - ❌ `identity` knowing about `planner` at all. Identity emits events; what consumes them is none of its concern. (Architectural invariant — no import to enforce.)
 
@@ -1505,7 +1505,7 @@ import { plannerTasks } from '@seta/planner/src/db/schema';
 
 // ❌ Allowed but discouraged on hot path — would be N+1 across module boundaries
 for (const id of candidateIds) {
-  const profile = await identityPublic.getUser(id, { actingUser });   // N calls
+  const profile = await identity.getUser(id, { actingUser });   // N calls
 }
 ```
 
@@ -1529,7 +1529,7 @@ T+2    integrations subscriber:
         - If no binding, skip
         - For each binding: enqueue a sync-push job (graphile-worker) keyed on (binding_id, task_id, event_id)
 T+10   sync-push worker pulls the job:
-        - Calls plannerPublic.getTask(task_id, { actingUser: SYSTEM }) — Pattern B sync read for the
+        - Calls planner.getTask(task_id, { actingUser: SYSTEM }) — Pattern B sync read for the
           full current record (NOT replaying the event payload — the event only carries the diff;
           the truth-of-now lives in planner's tables)
         - Maps Seta task → MS Planner task (translation layer, §6.6 capability-gap handling)
@@ -1573,7 +1573,7 @@ export async function enqueuePushOnTaskChange(
 
 ```ts
 // packages/integrations/src/backend/workers/planner-sync-push.ts
-import { plannerPublic } from '@seta/planner/public';
+import { plannerPublic } from '@seta/planner';
 
 export async function plannerSyncPushTask(payload: { binding_id: string; task_id: string; triggered_by_event_id: string }) {
   const binding = await db.select().from(bindings_).where(eq(bindings_.id, payload.binding_id)).limit(1).then(r => r[0]);
@@ -1587,7 +1587,7 @@ export async function plannerSyncPushTask(payload: { binding_id: string; task_id
   // and the task may have been updated again in that window. Always read truth-of-now.
   // The acting user is a synthetic SYSTEM identity scoped to this binding.
   // ============================================================================
-  const task = await plannerPublic.getTask(payload.task_id, {
+  const task = await planner.getTask(payload.task_id, {
     actingUser: SYSTEM_SYNC_USER(binding.tenant_id),
   });
   if (!task) { await markTombstone(binding, payload.task_id); return; }
@@ -1650,8 +1650,8 @@ UPDATE planner.tasks SET ms_planner_external_id = $1 WHERE id = $2;
 
 **Inbound direction (MS Planner → Seta).** Symmetric. Sync poll runs as a workflow:
 1. Delta-poll Graph for changes since last delta token.
-2. For each inbound change: call `plannerPublic.updateTask(...)` (Pattern B sync — NOT writing to planner tables directly).
-3. `plannerPublic.updateTask` re-checks RBAC at planner's public entry (the SYSTEM user scoped to the binding has the right permissions), runs the domain logic, emits `planner.task.updated` event.
+2. For each inbound change: call `planner.updateTask(...)` (Pattern B sync — NOT writing to planner tables directly).
+3. `planner.updateTask` re-checks RBAC at planner's public entry (the SYSTEM user scoped to the binding has the right permissions), runs the domain logic, emits `planner.task.updated` event.
 4. The subscriber from `enqueuePushOnTaskChange` above sees the new event — and uses echo-suppression (the `deepEqualFields(mapping.last_pushed_field_values, task)` check) to avoid pushing the change back out. This is why the field snapshot exists (§6.3 conflict-resolution decision).
 
 **Why this works without a projection.** Sync events are infrequent (~one per task change per binding) and each event is a discrete unit of work. The cost of an extra in-process function call per event is negligible vs the cost of MS Graph network round-trips. Projection would just be cached staleness — the public-API call is the right primitive here.
@@ -1759,7 +1759,7 @@ export async function getSessionScope(sessionId: string, userId: string): Promis
 
 async function buildSessionScope(userId: string): Promise<SessionScope> {
   // Pulls role_grants from identity (in-process, in the same DB — schema-per-module: identity reads its own tables).
-  const grants = await identityPublic.listRoleGrants(userId);
+  const grants = await identity.listRoleGrants(userId);
   const groups = computeAccessibleGroups(grants);                // tenant-scoped + group-scoped union
   return {
     tenant_id: grants.tenant_id,
@@ -1844,7 +1844,7 @@ The architectural meat. §7.1b–§7.1f + §16 + §18 made the decisions; this s
 
 ### §H.2 Tool layer — the wrapping pattern
 
-Every tool is a thin shell around a module's `/public` function. The wrapper adds: zod input validation, RBAC re-check, audit, OpenTelemetry span.
+Every tool is a thin shell around a module's public-surface function. The wrapper adds: zod input validation, RBAC re-check, audit, OpenTelemetry span.
 
 ```ts
 // packages/planner/src/backend/copilot/tools/assign-task.tool.ts
@@ -1923,7 +1923,7 @@ export function wrapTool<I, O>(def: ToolDef<I, O>): Tool {
 1. **Hono request middleware** — attaches `req.user = SessionScope` to every request.
 2. **Per-session Agent factory** (§A8) — filters tool list by `requiredPermission`. Role-shaped tool registry.
 3. **`wrapTool` execute** — redundant RBAC check (defense in depth).
-4. **Domain functions** (`planner.public.assignTask`, etc.) — re-check at the module's public entry point (§1.6.5 rule).
+4. **Domain functions** (`planner.assignTask`, etc.) — re-check at the module's public entry point (§1.6.5 rule).
 5. **SQL-side filter** — every domain query carries `tenant_id` + `accessible_group_ids` IN clause. `planner.listTasks` query:
    ```sql
    SELECT * FROM planner.tasks
@@ -2008,8 +2008,8 @@ When v1.x adds calendar / Slack-presence retrievers, `staffing.agent`'s code onl
 
 - **Storage:** Mastra's `PostgresStore({ schemaName: 'copilot' })` owns `mastra_threads` + `mastra_messages`. Per-user threads keyed on `resourceId = user.id`.
 - **Working memory summarization:** Mastra's built-in working-memory trigger fires when thread exceeds 16k tokens; summary replaces oldest messages while preserving last 8 turns. Configured in agent definition (`memory: { workingMemory: { template: '...', maxTokens: 16000 } }`).
-- **GDPR erasure (§7.4, §10.1):** `copilot.public.deleteThread(threadId)` → cascading delete of `mastra_messages` for the thread; thread row tombstoned. User-wide erasure (DSR): `copilot.public.eraseUserThreads(userId)` iterates threads and calls `deleteThread`. Bulk path runs as a workflow.
-- **Per-user export:** `copilot.public.exportUserThreads(userId)` streams threads + messages as NDJSON to S3, signed URL returned to DSR admin.
+- **GDPR erasure (§7.4, §10.1):** `copilot.deleteThread(threadId)` → cascading delete of `mastra_messages` for the thread; thread row tombstoned. User-wide erasure (DSR): `copilot.eraseUserThreads(userId)` iterates threads and calls `deleteThread`. Bulk path runs as a workflow.
+- **Per-user export:** `copilot.exportUserThreads(userId)` streams threads + messages as NDJSON to S3, signed URL returned to DSR admin.
 
 ### §H.6 Streaming transport
 

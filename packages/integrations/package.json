@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
+    ".": "./src/index.ts",
     "./backend": "./src/backend/index.ts",
-    "./public": "./src/public/index.ts",
     "./events": "./src/events/index.ts"
   },
   "scripts": {

@@ -81,13 +81,13 @@ This is the design contract. It is **enforced by tooling**, not aspirational.
 
 3. **No cross-schema reads.** A module's SQL queries reference only tables in its own schema. The `planner` module does not `SELECT FROM identity.users` — even though both tables sit in the same Postgres instance. The only exception is `core` itself, which legitimately reads `core.events` (which carries audit per D6) on behalf of all modules.
 
-4. **No cross-module imports of internals.** Each module exposes a `public/` surface (function exports from `packages/<module>/src/public/`); everything else is private. Other modules import only from `public/`. The `planner` module cannot `import { internalThing } from '@seta/identity/src/internals'`.
+4. **No cross-module imports of internals.** Each module exposes a public surface (function exports from `packages/<module>/src/index.ts`); everything else is private. Other modules import only from the package root (e.g., `@seta/identity`) or its `/events` subpath. The `planner` module cannot `import { internalThing } from '@seta/identity/src/internals'`.
 
 5. **No cross-schema foreign keys.** Database constraints are intra-schema only. A `planner.tasks.assignee_id` does not declare a FK to `identity.users.id`; it stores a plain `bigint`. Consistency is event-driven (`identity.user.deactivated` → `planner` cleanup handler).
 
 **How each rule is enforced.**
 
-- **ESLint boundary rule** (custom). Scans every import in `packages/X/src/**` and rejects imports from `packages/Y/src/!(public)/**`. Build-failing CI gate.
+- **ESLint boundary rule** (custom). Scans every import in `packages/X/src/**` and rejects imports from `packages/Y/src/!(index.ts|events)/**`. Build-failing CI gate.
 - **Drizzle schema scoping.** Each module's Drizzle config sets `schemaFilter: ['<module>']`. Cross-schema reads fail at the type level.
 - **Raw-SQL audit.** CI grep-check rejects any `FROM <other_module>.` or `JOIN <other_module>.` in module sources. Allowed only inside `packages/core/src/audit/` and `packages/core/src/events/` (which legitimately span schemas).
 - **Public-API integration test.** Each module ships a test suite that exercises only its public API. CI runs it with the *other* modules' source paths excluded from the resolver. A private cross-module dependency fails the test.
@@ -101,7 +101,7 @@ When v1.x adds `timesheet`, `pmo`, or any other module, the path is fixed and ex
 1. Create `packages/<new-module>/` as a new Turborepo workspace.
 2. Add schema `<new-module>` to Postgres; Drizzle migrations live in the package.
 3. Define the module's tables; no FK references to other modules' tables.
-4. Expose `packages/<new-module>/src/public/` — the typed function-level API other modules may call. RBAC re-checked at each public entry point.
+4. Expose `packages/<new-module>/src/index.ts` — the typed function-level API other modules may call. RBAC re-checked at each public entry point.
 5. Subscribe to whatever cross-module events the module needs; maintain local read-model projections in the module's own schema.
 6. Emit `<new-module>.<entity>.<verb>` events on every state change (§1.6.5a).
 7. Contribute Hono routes under `/api/<new-module>/v1/...` (registered with `core` at app boot).
@@ -113,9 +113,9 @@ When v1.x adds `timesheet`, `pmo`, or any other module, the path is fixed and ex
 
 ### 1.6.4 Module public surface — what crosses the boundary
 
-Each module's `packages/<module>/src/public/index.ts` is the only legal cross-module entry point. It exposes:
+Each module's `packages/<module>/src/index.ts` is the only legal cross-module entry point. It exposes:
 
-- **Typed function exports.** Inputs/outputs are TypeScript types defined in `public/`. The function body may delegate to internals; the type signature is the contract. Side effects must be scoped to the module's own schema and its own event emissions.
+- **Typed function exports.** Inputs/outputs are TypeScript types defined in `src/index.ts`. The function body may delegate to internals; the type signature is the contract. Side effects must be scoped to the module's own schema and its own event emissions.
 - **Event-payload TypeScript types** for events the module emits. Importing modules use these types to write typed subscribers.
 - **Route registration** — a function that returns the Hono sub-router for the module's HTTP API (`/api/<module>/v1/...`), mounted by `core`'s composition layer at app boot.
 - **Role + permission registration** — an array of role definitions (slug, permission list) registered with `core`'s role registry at app boot.
@@ -262,7 +262,7 @@ v1 ships **one deploy unit**: a single container running all modules in-process.
 
 See §13. Highlights:
 
-- Public-API contract for each module (`packages/<module>/src/public/`).
+- Public-API contract for each module (`packages/<module>/src/`).
 - Role / route / event / copilot-tool / frontend registration APIs in `core`.
 - Module-boundary enforcement: ESLint custom rule, Drizzle schema scoping, raw-SQL CI audit, public-API integration test (§1.6.2).
 - Per-module migration orchestration at app boot (dependency order: `core` → `identity` → others).
@@ -345,7 +345,7 @@ None of these apply at v1 scale. They might apply to `copilot` at v1.x+ if token
 
 **The extraction path (assuming `copilot` is the target).**
 
-1. **Add an HTTP API at the module's public surface.** Each function in `packages/copilot/src/public/` becomes a Hono route under `/api/copilot/v1/...`. Same input/output shapes as the in-process function. Existing in-process callers in other modules switch from direct import to an HTTP client wrapper — same call site, different transport.
+1. **Add an HTTP API at the module's public surface.** Each function in `packages/copilot/src/` becomes a Hono route under `/api/copilot/v1/...`. Same input/output shapes as the in-process function. Existing in-process callers in other modules switch from direct import to an HTTP client wrapper — same call site, different transport.
 2. **Introduce service-identity JWTs at the boundary.** Issuer: a key managed in `core`. Tokens carry caller-module-id, propagated user context (`user_id`, `tenant_id`, role summary, accessible_group_ids per §7.1e), ~60s TTL, signed with the shared key. RBAC re-checked at the callee — caller's claims are not trusted.
 3. **Split `copilot` to its own container.** Same Postgres connection — `copilot`'s own schema, plus read access to `core.events` (which carries audit per D6). Schema-per-module discipline already isolates the data.
 4. **Cross-process events.** `copilot`'s subscriber loop now reads `core.events` from the shared Postgres over the network. Same SQL, same cursor, same idempotency contract. LISTEN/NOTIFY works across clients in different processes.
@@ -353,7 +353,7 @@ None of these apply at v1 scale. They might apply to `copilot` at v1.x+ if token
 
 What makes this cheap: nothing in the v1 module design assumes co-location of *behavior*. Every cross-module call already goes through the public API surface or the event bus. Extraction changes the transport, not the contracts.
 
-What would make extraction expensive (and is therefore forbidden in v1): any cross-schema SQL, any direct cross-module struct import outside `public/`, any shared mutable in-memory state. The §1.6.2 enforcement tooling is what prevents these from creeping in.
+What would make extraction expensive (and is therefore forbidden in v1): any cross-schema SQL, any direct cross-module struct import outside the package root (`src/index.ts`), any shared mutable in-memory state. The §1.6.2 enforcement tooling is what prevents these from creeping in.
 
 ---
 
@@ -938,7 +938,7 @@ Workflow vs chat boundary is summarized in the table at the top of §7.1b. The c
   - **Plans** — `title + description`; one embedding per plan in `planner.plan_embeddings`.
   - **User skills** — concatenated free-form skill list per user; one embedding per user in `identity.user_skill_embeddings`. Enables `cloud architect` ≈ `infrastructure` matching that the synonym list cannot do.
   - **Phase B:** task comments (`planner.comment_embeddings`); per-tenant "company knowledge" corpus tied to per-tenant custom prompts (§7.1a) lives in `copilot.tenant_knowledge_embeddings`.
-- **Ownership.** Embeddings live in the **owning module's schema** as sibling tables — never in `copilot`. `planner` owns `planner.task_embeddings`; `identity` owns `identity.user_skill_embeddings`. The owning module's `/public` exposes a `Retriever`-shaped query function; copilot tools call it the same way they call any other read function. Boundary discipline (§1.6.2) holds.
+- **Ownership.** Embeddings live in the **owning module's schema** as sibling tables — never in `copilot`. `planner` owns `planner.task_embeddings`; `identity` owns `identity.user_skill_embeddings`. The owning module's public surface (`src/index.ts`) exposes a `Retriever`-shaped query function; copilot tools call it the same way they call any other read function. Boundary discipline (§1.6.2) holds.
 - **Freshness pipeline: event-driven CDC.** A subscriber per chunkable entity reacts to domain events (`planner.task.created`, `planner.task.updated`, `identity.user.profile.updated`, etc.), re-chunks + re-embeds the affected rows, upserts into the vector index. Idempotent by `event_id` (the bus rule from §1.6.5a applies). Batched through graphile-worker. **Freshness target: search index lags primary by ≤ 60s** — same envelope as inbound MS Planner sync (§6.7).
 - **Per-tenant isolation.** Embeddings tables partitioned by `tenant_id` or always filtered at WHERE; HNSW indexes scoped accordingly. Same SQL discipline as the rest of `planner.*` / `identity.*`.
 - **`Retriever` function interface stays the v1 design.** Two implementations coexist from day one:
@@ -1659,7 +1659,7 @@ For each module: what it **owns** (data + lifecycle), what its **public surface*
 - **Emits events:** `copilot.thread.created`, `copilot.tool.invoked`, `copilot.workflow.completed`, `copilot.workflow.failed`, `copilot.rate_limit.hit`.
 - **Subscribes to:** `identity.role_grant.changed` (invalidate session scope cache), `identity.user.deactivated` (close threads + drop cache), domain events from every module (workflow triggers).
 - **Does NOT do:** business-domain logic — tools are *thin wrappers* over each module's public surface, no duplicated logic. Owns no domain entities. Authentication = identity. Persistence outside `copilot.*` schema = forbidden.
-- **Depends on:** `core`, every module's `/public` (to wrap as tools), Mastra, AI SDK, MCP SDK, Postgres + pgvector.
+- **Depends on:** `core`, every module's public surface (to wrap as tools), Mastra, AI SDK, MCP SDK, Postgres + pgvector.
 - **Backed by §:** 7.
 
 ### 15.5 `integrations`
@@ -1669,15 +1669,15 @@ For each module: what it **owns** (data + lifecycle), what its **public surface*
 - **Emits events:** `integrations.mcp.timesheet.invoked`; Phase B adds `integrations.binding.created`, `integrations.sync.completed`, `integrations.conflict.recorded`, `integrations.translation.recorded`, `integrations.binding.degraded`.
 - **Subscribes to:** Phase B — `planner.task.*`, `planner.plan.*`, `planner.bucket.*` (outbound sync push triggers).
 - **Does NOT do:** own planner entities (planner does), tenancy decisions (core), route-level RBAC (middleware does).
-- **Depends on:** `core`, `planner/public` (Phase B), Mastra Workflows, MCP SDK, Microsoft Graph SDK (Phase B).
+- **Depends on:** `core`, `@seta/planner` (Phase B), Mastra Workflows, MCP SDK, Microsoft Graph SDK (Phase B).
 - **Backed by §:** 6, 7.1d.
 
 ### 15.6 Shared packages (`packages/shared/*`)
 
-Cross-cutting infrastructure lives in dedicated packages, not buried in `core`. Each is importable from every module + every app. Each has its own `public/` entry point + dep-cruiser rule (`packages/shared/<name>/src/public/`).
+Cross-cutting infrastructure lives in dedicated packages, not buried in `core`. Each is importable from every module + every app. Each has its own public surface at `packages/shared/<name>/src/index.ts` plus a dep-cruiser rule.
 
 - **`shared/ui`** — design tokens, primitive components (shadcn copy-in), Linear-flavored composites, theme provider, icons. Does NOT own business components (those live in `apps/web/src/modules/<m>/components/`).
-- **`shared/types`** — cross-package zod schemas, event-payload base types, shared utility types. Does NOT own module-specific types (those live in module `/public`).
+- **`shared/types`** — cross-package zod schemas, event-payload base types, shared utility types. Does NOT own module-specific types (those live in each module's `src/index.ts`).
 - **`shared/config`** — ESLint preset, tsconfig base, Tailwind preset, dependency-cruiser preset, Prettier config. Pure configuration; no runtime code.
 - **`shared/mailer`** (D13, 2026-05-19) — typed `sendEmail({ template, to, props })` API + react-email templates folder + swappable transport (SES default; Resend, SMTP, dev-stub all behind one interface). Used by `identity` (verify email, password reset), Phase B `planner` (@mentions), `core` (tenant lifecycle notifications). Operators swap transport via env config. Does NOT own message rendering inside modules — modules import templates from here.
 - **`shared/observability`** (D13) — OpenTelemetry SDK setup, pino logger config, metrics helpers, attribute-naming conventions (`tenant.id`, `tool.key`, `module.key`, `aggregate.type`). Used by `apps/server`, `apps/cli`, future `apps/worker`. Centralizes dashboard contract — dashboards don't drift when a module names attributes its own way.
@@ -1717,20 +1717,20 @@ Cross-cutting infrastructure lives in dedicated packages, not buried in `core`. 
        └─────────────┼───────────────┘
                      │
                 ┌────▼────┐
-                │ copilot │ ← copilot depends on every peer module's /public
+                │ copilot │ ← copilot depends on every peer module's public surface
                 └─────────┘   to wrap them as Mastra tools
 ```
 
 `identity`, `planner`, `integrations` are **peers** — they communicate only via events through `core`. No direct `planner → identity` import; `planner` reads `identity` data via subscribing to events and maintaining its own projection (e.g., `assignee_summary` table inside `planner.*` schema).
 
-`copilot` is the only module that imports every peer's `/public` (to wrap as tools). Intentional: copilot is the **integration point** for cross-module agent surface. It does not mutate other modules' state; it calls their public functions, which re-check RBAC.
+`copilot` is the only module that imports every peer's public surface (to wrap as tools). Intentional: copilot is the **integration point** for cross-module agent surface. It does not mutate other modules' state; it calls their public functions, which re-check RBAC.
 
 ### 15.8 Anti-scope summary — what NO module does
 
 - No cross-schema reads (§1.6.2 rule 3).
 - No cross-schema FKs — `planner.tasks.assignee_id` is a plain `uuid`, not a FK (§1.6.2 rule 5).
 - No shared mutable process-memory state — each module's caches live in its own module.
-- No duplicated business logic — a Mastra tool that "creates a task" calls `planner.public.createTask()`, never re-implements.
+- No duplicated business logic — a Mastra tool that "creates a task" calls `planner.createTask()` (imported from `@seta/planner`), never re-implements.
 - No silent error swallowing — every failure surface emits an event (`*.failed`) and an audit row.
 
 ---
@@ -1758,17 +1758,16 @@ packages/<module>/
     │   │   └── workflows/                # domain workflows (sync, recompute, scheduled jobs)
     │   │       └── <module>-<thing>.workflow.ts
     │   └── subscribers/                  # event handlers (cross-module reactions + CDC)
-    ├── public/
-    │   └── index.ts                      # register<Module>Contributions(registry)
+    ├── index.ts                          # the public surface — exports register<Module>Contributions(registry)
     ├── events/                           # event-payload types
     └── db/
         └── schema/                       # tables in <module>.* Postgres schema
 ```
 
-The module's `public/index.ts` exports one registration function:
+The module's `src/index.ts` exports one registration function:
 
 ```typescript
-// packages/planner/src/public/index.ts
+// packages/planner/src/index.ts
 export function registerPlannerContributions(reg: ContributionRegistry) {
   reg.routes(plannerHonoRouter);                       // mounts /api/planner/v1/*
   reg.roles([plannerAdminRole, plannerContribRole, plannerViewerRole]);
@@ -1978,7 +1977,7 @@ Bus semantics are fan-out with per-subscription cursors. pg-boss / pgmq are queu
 
 | Slot | Pick | Notes |
 |---|---|---|
-| Boundary enforcement | dependency-cruiser (CI gate) + `eslint-plugin-boundaries` (IDE) | Forbids `pkgA/src/!(public)/**` cross-imports |
+| Boundary enforcement | dependency-cruiser (CI gate) + `eslint-plugin-boundaries` (IDE) | Forbids `pkgA/src/!(index.ts|events)/**` cross-imports |
 | Migrations | drizzle-kit per module | Owned per package; orchestrator runs in dep order at boot (`core` first per §1.6.6) |
 | Unit tests | vitest | Pairs with Vite |
 | E2E tests | Playwright | — |
@@ -2111,16 +2110,16 @@ pnpm-workspace.yaml
 
 ```
 src/
+├── index.ts     # typed exports for cross-module calls — the public surface (§1.6.4)
 ├── backend/     # Hono routes, Mastra tools/agents/workflows, DB queries — internal
-├── public/      # typed exports for cross-module calls (§1.6.4)
 ├── events/      # event-payload type definitions (§1.6.5a)
 └── db/          # Drizzle schema + migrations (schemaFilter: ['<module>'])
-package.json     # subpath exports: ./backend (apps/server only), ./public, ./events
+package.json     # subpath exports: . (the public surface), ./backend (apps/server only), ./events
 ```
 
-`apps/server` imports `@seta/planner/backend`. Cross-module code imports `@seta/planner/public` / `@seta/planner/events`. dependency-cruiser rejects any other shape.
+`apps/server` imports `@seta/planner/backend`. Cross-module code imports `@seta/planner` / `@seta/planner/events`. dependency-cruiser rejects any other shape.
 
-**Frontend boundary discipline.** Backend boundaries are dep-cruiser-enforced (CI gate). Frontend lives inside `apps/web` — boundaries here are **conventional**, enforced by `eslint-plugin-boundaries` inside `apps/web/.eslintrc.cjs` (e.g., `apps/web/src/modules/planner/` cannot import `apps/web/src/modules/copilot/!(public)/**`).
+**Frontend boundary discipline.** Backend boundaries are dep-cruiser-enforced (CI gate). Frontend lives inside `apps/web` — boundaries here are **conventional**, enforced by `eslint-plugin-boundaries` inside `apps/web/.eslintrc.cjs` (e.g., `apps/web/src/modules/planner/` cannot reach into `apps/web/src/modules/copilot/`'s internals).
 
 ### 19.2 Deployment (production)
 

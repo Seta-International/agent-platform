@@ -32,14 +32,14 @@ Closed decisions per `requirements.md` §1.5; version pins at §17.2.
 
 The modular-monolith boundary discipline (`requirements.md` §1.6.2, `architecture.md` §B) is **CI-gated**. When implementation lands, every PR runs:
 
-1. **dependency-cruiser** (`.dependency-cruiser.cjs`, ruleset at `architecture.md` §A5): rejects cross-package imports that don't go through `packages/<module>/src/public/` or `/events/`. `shared/*` packages may not import from feature modules. Only `copilot` may wrap peer modules' `/public` as tools.
+1. **dependency-cruiser** (`.dependency-cruiser.cjs`, ruleset at `architecture.md` §A5): rejects cross-package imports that don't go through `packages/<module>/src/index.ts` (the public surface) or `src/events/`. `shared/*` packages may not import from feature modules. Only `copilot` may wrap peer modules' public surfaces as tools.
 2. **Drizzle schema scoping**: each module's Drizzle config sets `schemaFilter: ['<module>']`. Schemas are `core`, `identity`, `planner`, `copilot`, `integrations`.
 3. **Raw-SQL grep audit**: CI rejects `FROM <other_module>.` / `JOIN <other_module>.` anywhere outside `packages/core/src/{audit,events}/`.
 4. **Public-API integration test**: each module's tests run with peer source paths excluded from the resolver.
 
 **No cross-schema foreign keys.** A `planner.tasks.assignee_id` stores a `bigint` — no FK to `identity.users.id`. Consistency is event-driven via subscribers and local read-model projections in the consumer's own schema (`architecture.md` §F.4).
 
-**No cross-module data-handle sharing.** A module never hands its Drizzle client to another module. Mutation crosses the boundary only through `public/` function calls (with RBAC re-checked at the callee) or domain events.
+**No cross-module data-handle sharing.** A module never hands its Drizzle client to another module. Mutation crosses the boundary only through public-surface function calls exported from `src/index.ts` (with RBAC re-checked at the callee) or domain events.
 
 **The bus is the outbox.** State change + event row commit in one transaction via `core.emit()`. There is no separate publish path. `LISTEN/NOTIFY` wakes subscribers; 2s poll covers dropped notifies. Audit is unified into `core.events` per **D6**.
 
@@ -50,7 +50,7 @@ These apply to every code change. They are not negotiable per-PR.
 - **Test-first, always.** Write a failing test before the implementation. No carve-outs for "trivial" code — trivial code is where regressions hide. Tests run against real Postgres via `testcontainers`; do not introduce DB mocks to make a test cheaper.
 - **Build only what the task needs.** No speculative abstractions, no "we might need this later" parameters, no helpers with one caller. Three similar lines beats a premature shared function.
 - **Delete fearlessly.** Unused exports, dead branches, commented-out blocks, and `_unused` placeholders go. Git history is the archive.
-- **Boundaries first, internals second.** Public `public/` and event payloads are the contract — design and test those before the implementation behind them. Internals can be rewritten without ceremony; signatures cannot.
+- **Boundaries first, internals second.** A module's public surface (`src/index.ts`) and event payloads are the contract — design and test those before the implementation behind them. Internals can be rewritten without ceremony; signatures cannot.
 - **Comments explain *why*, never *what*.** Only write a comment when a future reader would be surprised by the code. Names do the *what*.
   - No ticket IDs, PR numbers, phase markers, milestone tags (`// M1`, `// Phase A`, `// fixes #123`), or author attributions in comments. That metadata belongs in the commit message and PR description, where it stays linked to the actual change. In code it rots.
   - No "added for X", "used by Y", "was Z before" — call sites and git history answer these.
@@ -65,7 +65,7 @@ These apply to every code change. They are not negotiable per-PR.
 
 Layout shape and command names are fixed by `requirements.md` §19.1 / §19.3 — read them before adding a directory or a script. Rules that apply:
 
-- **Use the layout in §19.1 exactly.** Do not invent alternative directory schemes. Module internals are always `src/{backend,public,events,db}/`.
+- **Use the layout in §19.1 exactly.** Do not invent alternative directory schemes. Each module has a public surface at `src/index.ts` plus internals at `src/{backend,events,db}/`.
 - **Do not invent commands.** `pnpm` script names in §19.3 are the contract; don't add aliases or rename.
 - **Protect the onboarding contract** (§19.3): `clone → install → db:up → db:migrate → db:seed → dev` must yield the flagship demo in 5 min on a fresh machine. Any change that adds a step needs an explicit reason.
 - **`pnpm lint` runs dep-cruiser** as the boundary gate — never bypass it.

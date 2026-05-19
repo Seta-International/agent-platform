@@ -41,7 +41,12 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
       ];
 
       if (kind === "module") {
-        for (const sub of ["backend", "public", "events", "db"]) {
+        actions.push({
+          type: "add",
+          path: `${base}/src/index.ts`,
+          templateFile: `templates/module/src/index.ts.hbs`,
+        });
+        for (const sub of ["backend", "events", "db"]) {
           actions.push({
             type: "add",
             path: `${base}/src/${sub}/index.ts`,

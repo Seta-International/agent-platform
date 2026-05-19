@@ -48,7 +48,7 @@ This milestone runs as **three concurrent streams** converging on a single demo:
 **Scope (stream B — planner backend)**
 
 - Full §E.3 schema: groups, plans, buckets, tasks (incl. `skill_tags` + `review_state`), assignments, checklist items, labels, `task_chunks` / `task_embeddings` / `plan_embeddings` tables.
-- Public API for read + write (`packages/planner/src/public/`).
+- Public API for read + write (`packages/planner/src/`).
 - Hono routes under `/api/planner/v1`.
 - Mastra tool definitions per §H.2 — read-only first (`listTasks`, `getTask`, `searchTasksSemantic` with stub embeddings); write tools deferred to M3.
 - Seed script (`pnpm seed`) — demo tenant with groups/plans/tasks/skill_tags.
@@ -74,7 +74,7 @@ This milestone runs as **three concurrent streams** converging on a single demo:
 
 **Headline risk**
 
-- Public-API contract drift between streams B and C. Stream C builds tools against the *types* exported from `planner/public`; if those types churn, every tool wrapper churns with them. Mitigation: planner public-API types frozen at end of M2 week 1; subsequent planner work goes into implementation, not signature changes.
+- Public-API contract drift between streams B and C. Stream C builds tools against the *types* exported from `@seta/planner` (the public surface in `src/index.ts`); if those types churn, every tool wrapper churns with them. Mitigation: planner public-API types frozen at end of M2 week 1; subsequent planner work goes into implementation, not signature changes.
 
 ### M3 — Embeddings + write path
 
@@ -173,7 +173,7 @@ Two parallel tracks under one milestone.
 
 **Parallelization opportunities for a 4–5-engineer team:**
 
-1. **M2's three streams (identity / planner / copilot) run concurrently.** Per the directive to build copilot in parallel with planner: copilot tool wrappers stub against types exported from `planner/public` until planner fills implementations. Identity has no shared seam with the other two beyond `role_grants` and event subscriptions, so it runs cleanly alongside. Suggested split: 2 engineers on planner (schema breadth), 1 on identity, 1–2 on copilot runtime + standalone UI.
+1. **M2's three streams (identity / planner / copilot) run concurrently.** Per the directive to build copilot in parallel with planner: copilot tool wrappers stub against types exported from `@seta/planner` until planner fills implementations. Identity has no shared seam with the other two beyond `role_grants` and event subscriptions, so it runs cleanly alongside. Suggested split: 2 engineers on planner (schema breadth), 1 on identity, 1–2 on copilot runtime + standalone UI.
 2. **M3's two tracks (embeddings CDC vs. HITL write tools) run concurrently.** They touch different files (embed workers + `searchTasksSemantic` vs. assistant-ui Interactables + write tool wrappers) and different §H.2 layers. Suggested split: 2 engineers on the CDC pipeline + provider integration, 2 on write tools + audit attribution.
 
 **Single-thread points.** M1 (everyone needs the foundation), M5 acceptance bake (one operator running the gate suite while others fix). M4's Workflows tab UI is hard to parallelize across more than one frontend engineer.

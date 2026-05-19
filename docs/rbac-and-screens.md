@@ -558,7 +558,7 @@ Plus standard empty-state and error pages (shell-owned).
 
 | # | Screen | Role gate | Notes |
 |---|---|---|---|
-| C1 | DSR — Export user data | `org.admin` | Triggers `copilot.public.exportUserThreads` + planner export; S3 signed URL returned |
+| C1 | DSR — Export user data | `org.admin` | Triggers `copilot.exportUserThreads` + planner export; S3 signed URL returned |
 | C2 | DSR — Erase user data | `org.admin` | Cascading delete; per-table tomb-stoning |
 | C3 | Cost dashboard — per-tenant | `copilot.rate_limit.read` | Token / USD spend over time |
 | C4 | Tenant — Attachment quota config | `core.tenant.write` | Per-tenant quota with current usage gauge |
@@ -799,7 +799,7 @@ export interface ContributionRegistry {
 Module-side registration (timesheet example):
 
 ```ts
-// packages/timesheet/src/public/index.ts
+// packages/timesheet/src/index.ts
 export function registerTimesheet(reg: ContributionRegistry): void {
   // ... routes, roles, tools, subscribers
   reg.apps([{
@@ -880,7 +880,7 @@ packages/timesheet/
 │   │   │   ├── agents/timesheet.agent.ts
 │   │   │   └── workflows/           # leave-approval-reminder, capacity-rollup
 │   │   └── subscribers/             # planner.group.deleted, identity.user.deactivated cleanup
-│   ├── public/index.ts              # registerTimesheet(reg)
+│   ├── index.ts                     # the public surface — exports registerTimesheet(reg)
 │   ├── events/                      # timesheet.leave.requested, .approved, .rejected, .hours.logged
 │   └── db/schema/                   # timesheet.leave_requests, .time_entries, .capacity_allocations
 ```
