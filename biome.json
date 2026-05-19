@@ -7,7 +7,16 @@
     "defaultBranch": "main"
   },
   "files": {
-    "includes": ["**", "!**/dist", "!**/build", "!**/.turbo", "!**/node_modules", "!pnpm-lock.yaml"]
+    "includes": [
+      "**",
+      "!**/dist",
+      "!**/build",
+      "!**/.turbo",
+      "!**/node_modules",
+      "!pnpm-lock.yaml",
+      "!packages/shared/ui/src/styles",
+      "!apps/web/src/styles"
+    ]
   },
   "formatter": {
     "enabled": true,

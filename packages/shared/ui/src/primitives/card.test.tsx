@@ -6,8 +6,8 @@ describe('Card', () => {
   it('default variant uses surface-1 + rounded-lg', () => {
     const { container } = render(<Card data-testid="c">x</Card>);
     const el = container.querySelector('[data-testid=c]');
-    expect(el!.className).toMatch(/\bbg-surface-1\b/);
-    expect(el!.className).toMatch(/\brounded-lg\b/);
+    expect(el?.className).toMatch(/\bbg-surface-1\b/);
+    expect(el?.className).toMatch(/\brounded-lg\b/);
   });
 
   it('product variant uses rounded-xl', () => {
@@ -16,7 +16,7 @@ describe('Card', () => {
         x
       </Card>,
     );
-    expect(container.querySelector('[data-testid=c]')!.className).toMatch(/\brounded-xl\b/);
+    expect(container.querySelector('[data-testid=c]')?.className).toMatch(/\brounded-xl\b/);
   });
 
   it('testimonial variant uses larger padding + body-lg', () => {
@@ -25,7 +25,7 @@ describe('Card', () => {
         x
       </Card>,
     );
-    const cls = container.querySelector('[data-testid=c]')!.className;
+    const cls = container.querySelector('[data-testid=c]')?.className;
     expect(cls).toMatch(/\bp-xl\b/);
     expect(cls).toMatch(/\btext-body-lg\b/);
   });
