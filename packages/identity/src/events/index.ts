@@ -1,2 +1,2 @@
-// identity — events entry.
-export const placeholder = 'identity-events' as const;
+export * from './emit-helpers.ts';
+export * from './types.ts';
