@@ -36,7 +36,7 @@ export async function startDispatcher(opts: {
   const db = createDb(opts.pool, schema, { schemaFilter: ['core'] });
   let lastTickAt = new Date();
   let shuttingDown = false;
-  let activeTick: Promise<void> = Promise.resolve();
+  let inFlight: Promise<void> | null = null;
 
   const listener = await opts.pool.connect();
   await listener.query('LISTEN events');
@@ -58,7 +58,10 @@ export async function startDispatcher(opts: {
 
   async function tick(): Promise<void> {
     if (shuttingDown) return;
-    activeTick = (async () => {
+    // Serialize ticks: only one drain in-flight at a time. New ticks scheduled while
+    // one is running are dropped; setInterval and the LISTEN handler will retrigger.
+    if (inFlight) return;
+    inFlight = (async () => {
       try {
         await Promise.all(opts.subscribers.map((sub) => drainOne(db, sub, backoff, log, metrics)));
       } catch (err) {
@@ -67,7 +70,11 @@ export async function startDispatcher(opts: {
         lastTickAt = new Date();
       }
     })();
-    await activeTick;
+    try {
+      await inFlight;
+    } finally {
+      inFlight = null;
+    }
   }
 
   const interval = setInterval(() => {
@@ -109,7 +116,9 @@ export async function startDispatcher(opts: {
       } catch {
         // ignore: already released
       }
-      await Promise.race([activeTick, new Promise<void>((r) => setTimeout(r, timeoutMs))]);
+      if (inFlight) {
+        await Promise.race([inFlight, new Promise<void>((r) => setTimeout(r, timeoutMs))]);
+      }
       resetAllFailureState();
     },
   };
