@@ -184,6 +184,9 @@ importers:
       '@seta/shared-config':
         specifier: workspace:^
         version: link:../config
+      '@seta/shared-testing':
+        specifier: workspace:^
+        version: link:../testing
       '@types/pg':
         specifier: ^8.20.0
         version: 8.20.0
