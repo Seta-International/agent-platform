@@ -65,7 +65,7 @@ export function LoginCard() {
         }
         return;
       }
-      void navigate({ to: (search.redirect ?? '/authed') as '/authed' });
+      void navigate({ to: (search.redirect ?? '/') as '/' });
     } finally {
       setSubmitting(false);
     }

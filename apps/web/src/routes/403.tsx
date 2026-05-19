@@ -8,7 +8,7 @@ function Page() {
       <EmptyState
         title="No access"
         description="You don't have permission to view this page."
-        action={{ label: 'Go home', onClick: () => void navigate({ to: '/authed' }) }}
+        action={{ label: 'Go home', onClick: () => void navigate({ to: '/' }) }}
       />
     </div>
   );

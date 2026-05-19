@@ -4,7 +4,7 @@ import { SessionProvider } from '@/modules/identity/components/SessionProvider.t
 import { UserMenu } from '@/modules/identity/components/UserMenu.tsx';
 import { AppShell } from '@/shell/layout/app-shell';
 
-export const Route = createFileRoute('/authed')({
+export const Route = createFileRoute('/_authed')({
   beforeLoad: async ({ location }) => {
     const session = await fetchMe();
     if (!session)

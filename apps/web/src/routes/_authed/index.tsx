@@ -13,4 +13,4 @@ function Landing() {
   );
 }
 
-export const Route = createFileRoute('/authed/')({ component: Landing });
+export const Route = createFileRoute('/_authed/')({ component: Landing });

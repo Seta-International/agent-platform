@@ -40,7 +40,7 @@ export function UserMenu() {
         <DropdownMenuItem
           onSelect={() =>
             // Route added in a later task; cast avoids premature route-tree types
-            navigate({ to: '/authed/profile' as '/authed' })
+            navigate({ to: '/profile' as '/' })
           }
         >
           Profile &amp; settings
@@ -49,7 +49,7 @@ export function UserMenu() {
           <DropdownMenuItem
             onSelect={() =>
               // Route added in a later task; cast avoids premature route-tree types
-              navigate({ to: '/authed/admin/users' as '/authed' })
+              navigate({ to: '/admin/users' as '/' })
             }
           >
             Admin
