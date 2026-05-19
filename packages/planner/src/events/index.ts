@@ -1,2 +1,2 @@
 // planner — events entry.
-export const placeholder = "planner-events" as const;
+export const placeholder = 'planner-events' as const;

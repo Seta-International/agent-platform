@@ -1,2 +1,2 @@
 // planner — backend entry.
-export const placeholder = "planner-backend" as const;
+export const placeholder = 'planner-backend' as const;

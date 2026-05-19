@@ -1,2 +1,2 @@
 // identity — backend entry.
-export const placeholder = "identity-backend" as const;
+export const placeholder = 'identity-backend' as const;

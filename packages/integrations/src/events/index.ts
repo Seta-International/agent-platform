@@ -1,2 +1,2 @@
 // integrations — events entry.
-export const placeholder = "integrations-events" as const;
+export const placeholder = 'integrations-events' as const;
