@@ -1,0 +1,4 @@
+{
+  "extends": "@seta/shared-config/tsconfig.base.json",
+  "include": ["src", "__tests__"]
+}
