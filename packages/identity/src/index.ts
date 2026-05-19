@@ -1,6 +1,8 @@
 export type { Actor, CreateUserInput } from './backend/domain/create-user.ts';
 export { createUser } from './backend/domain/create-user.ts';
 export { deactivateUser } from './backend/domain/deactivate-user.ts';
+export type { UserGrant } from './backend/domain/get-user-grants.ts';
+export { getUserGrants } from './backend/domain/get-user-grants.ts';
 export type { UserProfile } from './backend/domain/get-user-profile.ts';
 export { getUserProfile } from './backend/domain/get-user-profile.ts';
 export type { GrantRoleInput } from './backend/domain/grant-role.ts';

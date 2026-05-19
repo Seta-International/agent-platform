@@ -9,13 +9,14 @@ import {
 import { startDispatcher } from '@seta/core/dispatcher';
 import { registerCoreContributions } from '@seta/core/register';
 import { startWorkerPool } from '@seta/core/workers';
-import { listRoleGrants } from '@seta/identity';
+import { IdentityError, listRoleGrants } from '@seta/identity';
 import { auth } from '@seta/identity/auth';
 import { registerIdentityContributions } from '@seta/identity/register';
 import { closePools, getPool, initPools } from '@seta/shared-db';
 import type { Hono } from 'hono';
 import pino from 'pino';
 import { parseEnv } from './env.ts';
+import { registerAdminUsersRoutes } from './routes/admin-users.ts';
 import { registerDiscoverRoute } from './routes/discover.ts';
 import { registerMeRoute } from './routes/me.ts';
 import { registerProfileRoutes } from './routes/profile.ts';
@@ -70,6 +71,15 @@ app.use('*', sessionMiddleware);
 // Protected routes
 registerMeRoute(app);
 registerProfileRoutes(app);
+registerAdminUsersRoutes(app);
+
+app.onError((err, c) => {
+  if (err instanceof IdentityError) {
+    const status = err.code === 'FORBIDDEN' ? 403 : err.code === 'USER_NOT_FOUND' ? 404 : 400;
+    return c.json({ error: err.code, message: err.message }, status);
+  }
+  throw err;
+});
 
 const server = serve({ fetch: app.fetch, port: env.PORT }, (info) => {
   log.info({ port: info.port }, 'server listening');
