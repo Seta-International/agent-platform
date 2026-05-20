@@ -54,6 +54,8 @@ export type { RevokeUserSessionInput } from './backend/domain/revoke-user-sessio
 export { revokeUserSession } from './backend/domain/revoke-user-session.ts';
 export { searchSkills } from './backend/domain/search-skills.ts';
 export { setLocalPasswordDisabled } from './backend/domain/set-local-password-disabled.ts';
+export type { UpdateMyDisplayNameInput } from './backend/domain/update-my-display-name.ts';
+export { updateMyDisplayName } from './backend/domain/update-my-display-name.ts';
 export type { UpdateUserProfilePatch } from './backend/domain/update-user-profile.ts';
 export { updateUserProfile } from './backend/domain/update-user-profile.ts';
 export { whoAmI } from './backend/domain/who-am-i.ts';
