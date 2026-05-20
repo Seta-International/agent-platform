@@ -6,13 +6,13 @@ export {
   type OutboxStoreLike,
   type QueueHandle,
 } from './mailer.ts';
-export { listTemplates, type RenderedTemplate, renderTemplate } from './render.ts';
 export {
   type ResolvedTransport,
   type ResolveTransportConfigRow,
   type ResolveTransportDeps,
   resolveTransport,
 } from './resolve-transport.ts';
+export { TEMPLATE_NAMES } from './template-names.ts';
 export type {
   Transport,
   TransportSendInput,

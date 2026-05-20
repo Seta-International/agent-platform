@@ -1,11 +1,7 @@
 import { emit, withEmit } from '@seta/core/events';
 import type { EncryptedBlob } from '@seta/shared-crypto';
-import {
-  type MailerEnv,
-  type ResolvedTransport,
-  renderTemplate,
-  resolveTransport,
-} from '@seta/shared-mailer';
+import { type MailerEnv, type ResolvedTransport, resolveTransport } from '@seta/shared-mailer';
+import { renderTemplate } from '@seta/shared-mailer/render';
 import { eq, sql } from 'drizzle-orm';
 import { integrationsDb } from '../../db/client.ts';
 import { mailTransportConfig } from '../../db/schema/index.ts';

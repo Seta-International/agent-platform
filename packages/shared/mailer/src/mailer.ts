@@ -2,7 +2,7 @@ import type pino from 'pino';
 import { z } from 'zod';
 import type { MailerEnv } from './env.ts';
 import { hashProps } from './props-hash.ts';
-import { listTemplates } from './render.ts';
+import { TEMPLATE_NAMES } from './template-names.ts';
 import {
   type Mailer,
   MailerError,
@@ -72,7 +72,7 @@ function redactEmail(email: string): string {
 }
 
 export function createMailer(deps: CreateMailerDeps): Mailer {
-  const validTemplates = new Set<string>(listTemplates());
+  const validTemplates = new Set<string>(TEMPLATE_NAMES);
   return {
     async send<TName extends MailTemplateName>(input: SendInput<TName>): Promise<SendResult> {
       const parsed = sendInputSchema.parse(input);

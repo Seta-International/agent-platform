@@ -133,7 +133,7 @@ describe('mail transport config domain', () => {
                 senderDisplayName: null,
                 config: {
                   host: 'h',
-                  port: 99999,
+                  port: 99999 as 465 | 587,
                   username: 'u',
                   password: 'p',
                   require_tls: true,

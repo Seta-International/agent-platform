@@ -36,6 +36,7 @@
   },
   "dependencies": {
     "@node-rs/argon2": "^2.0.2",
+    "@seta/shared-mailer": "workspace:^",
     "better-auth": "^1.6.11",
     "drizzle-orm": "^0.45.2",
     "pg": "^8.21.0",

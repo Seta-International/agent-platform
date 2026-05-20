@@ -1,4 +1,5 @@
 import { emit, withEmit } from '@seta/core/events';
+import type { Mailer } from '@seta/shared-mailer';
 import { account, roleGrants, user, userProfile } from '../../db/schema.ts';
 import { argon2id } from '../password/argon2.ts';
 import { IdentityError, requirePermission } from '../rbac.ts';
@@ -22,11 +23,26 @@ export interface CreateUserInput {
   };
 }
 
+/**
+ * Optional invite email knob for D27 reversal. When `mailer` is supplied,
+ * an `invite` template email is sent after the user row commits. Caller
+ * provides `baseUrl`, `tenantName`, and the inviter's display name. The
+ * invite link doubles as proof of email control.
+ */
+export interface CreateUserInviteOpts {
+  mailer: Mailer;
+  baseUrl: string;
+  tenantName: string;
+  inviterName: string;
+  ttlMs?: number;
+}
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function createUser(
   input: CreateUserInput,
   actor: Actor,
+  invite?: CreateUserInviteOpts,
 ): Promise<{ user_id: string }> {
   if (actor.type === 'user') {
     if (!actor.user_id) throw new IdentityError('FORBIDDEN', 'user actor requires user_id');
@@ -131,6 +147,24 @@ export async function createUser(
       });
     },
   );
+
+  if (invite) {
+    const ttl = invite.ttlMs ?? 1000 * 60 * 60 * 24 * 7;
+    const expiresAt = new Date(Date.now() + ttl);
+    const acceptUrl = `${invite.baseUrl.replace(/\/$/, '')}/accept?user=${encodeURIComponent(userId)}`;
+    await invite.mailer.send({
+      to: email,
+      template: 'invite',
+      props: {
+        inviterName: invite.inviterName,
+        tenantName: invite.tenantName,
+        acceptUrl,
+        expiresAt: expiresAt.toISOString(),
+      },
+      tenantId: input.tenant_id,
+      dedupeKey: `invite:${userId}`,
+    });
+  }
 
   return { user_id: userId };
 }
