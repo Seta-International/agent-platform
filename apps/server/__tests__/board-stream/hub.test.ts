@@ -145,17 +145,19 @@ describe('BoardStreamHub', () => {
   it('tap predicate only matches planner.* events when using real addEventTap', () => {
     let capturedPredicate: ((e: DomainEvent) => boolean) | null = null;
     const hub = new BoardStreamHub((predicate, _handler) => {
-      capturedPredicate = predicate;
+      capturedPredicate = predicate as (e: DomainEvent) => boolean;
       return () => {};
     });
     hub.start();
 
-    expect(capturedPredicate).not.toBeNull();
+    const predicate = capturedPredicate as ((e: DomainEvent) => boolean) | null;
+    expect(predicate).not.toBeNull();
+    if (!predicate) throw new Error('tap predicate not captured');
 
     const plannerEvt = makePlannerEvent('g1');
     const otherEvt = { ...makePlannerEvent('g1'), eventType: 'identity.user.created' };
 
-    expect(capturedPredicate?.(plannerEvt)).toBe(true);
-    expect(capturedPredicate?.(otherEvt)).toBe(false);
+    expect(predicate(plannerEvt)).toBe(true);
+    expect(predicate(otherEvt)).toBe(false);
   });
 });
