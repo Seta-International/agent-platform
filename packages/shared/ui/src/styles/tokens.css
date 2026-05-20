@@ -1,5 +1,7 @@
 @import 'tailwindcss';
 
+@source '../**/*.{ts,tsx}';
+
 @theme {
   --color-primary:          #0047FF;
   --color-primary-hover:    #1A3CFF;
@@ -39,6 +41,20 @@
   --spacing-xl:    32px;
   --spacing-xxl:   48px;
   --spacing-section: 96px;
+
+  --max-width-3xs: 16rem;
+  --max-width-2xs: 18rem;
+  --max-width-xs:  20rem;
+  --max-width-sm:  24rem;
+  --max-width-md:  28rem;
+  --max-width-lg:  32rem;
+  --max-width-xl:  36rem;
+  --max-width-2xl: 42rem;
+  --max-width-3xl: 48rem;
+  --max-width-4xl: 56rem;
+  --max-width-5xl: 64rem;
+  --max-width-6xl: 72rem;
+  --max-width-7xl: 80rem;
 
   --radius-xs:   4px;
   --radius-sm:   6px;

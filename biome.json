@@ -13,6 +13,7 @@
       "!**/build",
       "!**/.turbo",
       "!**/node_modules",
+      "!**/.claude",
       "!pnpm-lock.yaml",
       "!packages/shared/ui/src/styles",
       "!apps/web/src/styles"
