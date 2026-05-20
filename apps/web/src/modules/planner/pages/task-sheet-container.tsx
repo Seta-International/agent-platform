@@ -1,5 +1,5 @@
 import { ProgressBar, TaskSheet } from '@seta/shared-ui';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useAddChecklistItem } from '../hooks/mutations/add-checklist-item';
@@ -11,6 +11,7 @@ import { useUpdateTask } from '../hooks/mutations/update-task';
 import { useTask } from '../hooks/queries/use-task';
 import { useTaskChecklist } from '../hooks/queries/use-task-checklist';
 import { useTaskEvents } from '../hooks/queries/use-task-events';
+import { useSheetKeyboard } from '../hooks/use-sheet-keyboard';
 import { useSavingIds } from '../state/saving-ids';
 
 interface Props {
@@ -38,6 +39,36 @@ export function TaskSheetContainer({ taskId, planId, onClose }: Props) {
     if (editingDesc) descTextareaRef.current?.focus();
   }, [editingDesc]);
 
+  // Stable callback so useSheetKeyboard's onSubmit can reference it before the task data guard.
+  // Reads taskQ.data at call time, so it is always current even though it's defined before the
+  // early-return guards below.
+  const commitDescription = useCallback(() => {
+    const task = taskQ.data;
+    if (!task || task.deleted_at) return;
+    if (draftDesc !== (task.description ?? '')) {
+      updateTask.mutate({
+        task_id: task.id,
+        expected_version: task.version,
+        patch: { description: draftDesc },
+      });
+    }
+    setEditingDesc(false);
+  }, [taskQ.data, draftDesc, updateTask]);
+
+  // PR2's TaskSheet renders title as a static string, so there is no input element to focus.
+  // When shared-ui exposes an editable title slot, wire titleInputRef to that element and
+  // remove this comment.
+  const titleInputRef = useRef<HTMLInputElement | null>(null);
+
+  useSheetKeyboard({
+    onClose,
+    onEditTitle: () => titleInputRef.current?.focus(),
+    onSubmit: () => {
+      // Commit description draft if the textarea is active; otherwise no-op.
+      if (editingDesc) commitDescription();
+    },
+  });
+
   if (taskQ.isPending) {
     return <TaskSheet title="Loading…" onClose={onClose} />;
   }
@@ -53,18 +84,6 @@ export function TaskSheetContainer({ taskId, planId, onClose }: Props) {
   const items = checklistQ.data ?? [];
   const checkedCount = items.filter((i) => i.checked).length;
   const events = eventsQ.data?.pages.flatMap((p) => p.events) ?? [];
-
-  function commitDescription() {
-    if (!task) return;
-    if (draftDesc !== (task.description ?? '')) {
-      updateTask.mutate({
-        task_id: task.id,
-        expected_version: task.version,
-        patch: { description: draftDesc },
-      });
-    }
-    setEditingDesc(false);
-  }
 
   const description = (
     <>
