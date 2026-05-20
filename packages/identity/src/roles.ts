@@ -12,3 +12,11 @@ export const TENANT_ROLE_SLUGS = [
 ] as const;
 
 export type TenantRoleSlug = (typeof TENANT_ROLE_SLUGS)[number];
+
+export const A2_PERMISSIONS = [
+  'identity.sso.read',
+  'identity.sso.write',
+  'identity.user.email.change',
+] as const;
+
+export type A2Permission = (typeof A2_PERMISSIONS)[number];

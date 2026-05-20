@@ -4,7 +4,7 @@ import { argon2id } from '../password/argon2.ts';
 import { IdentityError, requirePermission } from '../rbac.ts';
 
 export interface Actor {
-  type: 'user' | 'cli' | 'superadmin';
+  type: 'user' | 'cli' | 'superadmin' | 'sso';
   user_id: string | null;
   ip?: string;
   user_agent?: string;

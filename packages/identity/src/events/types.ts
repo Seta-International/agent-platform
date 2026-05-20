@@ -1,7 +1,7 @@
 export type Uuid = string;
 
 export interface IdentityEventActor {
-  type: 'user' | 'cli' | 'superadmin';
+  type: 'user' | 'cli' | 'superadmin' | 'sso';
   user_id: Uuid | null;
   ip?: string;
   user_agent?: string;
@@ -83,8 +83,67 @@ export interface IdentityRoleGrantChanged {
   };
 }
 
+export interface IdentitySsoProviderRegistered {
+  event_type: 'identity.sso_provider.registered';
+  event_version: 1;
+  aggregate_type: 'identity.sso_provider';
+  aggregate_id: string;
+  payload: {
+    actor: IdentityEventActor;
+    after: {
+      tenant_id: string;
+      provider_id: 'microsoft-entra-id';
+      entra_tenant_id: string;
+      email_domains: string[];
+    };
+  };
+}
+
+export interface IdentitySsoProviderConsentGranted {
+  event_type: 'identity.sso_provider.consent_granted';
+  event_version: 1;
+  aggregate_type: 'identity.sso_provider';
+  aggregate_id: string;
+  payload: {
+    actor: IdentityEventActor;
+    tenant_id: string;
+    provider_id: 'microsoft-entra-id';
+    granted_by_oid: string | null;
+    granted_by_email: string | null;
+  };
+}
+
+export interface IdentitySsoProviderEnabled {
+  event_type: 'identity.sso_provider.enabled';
+  event_version: 1;
+  aggregate_type: 'identity.sso_provider';
+  aggregate_id: string;
+  payload: { actor: IdentityEventActor; tenant_id: string; provider_id: 'microsoft-entra-id' };
+}
+
+export interface IdentitySsoProviderDisabled {
+  event_type: 'identity.sso_provider.disabled';
+  event_version: 1;
+  aggregate_type: 'identity.sso_provider';
+  aggregate_id: string;
+  payload: { actor: IdentityEventActor; tenant_id: string; provider_id: 'microsoft-entra-id' };
+}
+
+export interface IdentitySsoProviderDisconnected {
+  event_type: 'identity.sso_provider.disconnected';
+  event_version: 1;
+  aggregate_type: 'identity.sso_provider';
+  aggregate_id: string;
+  payload: { actor: IdentityEventActor; tenant_id: string; provider_id: 'microsoft-entra-id' };
+}
+
 export type IdentityEvent =
   | IdentityUserCreated
   | IdentityUserProfileUpdated
   | IdentityUserDeactivated
-  | IdentityRoleGrantChanged;
+  | IdentityRoleGrantChanged
+  | IdentitySsoProviderRegistered
+  | IdentitySsoProviderConsentGranted
+  | IdentitySsoProviderEnabled
+  | IdentitySsoProviderDisabled
+  | IdentitySsoProviderDisconnected;
