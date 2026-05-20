@@ -5,6 +5,7 @@ export * from './composites/app-shell';
 export * from './composites/command-palette';
 export * from './composites/copilot-panel';
 export * from './composites/data-table';
+export * from './composites/date-picker';
 export * from './composites/empty-state';
 export * from './composites/filter-pill';
 export * from './composites/inbox-list';

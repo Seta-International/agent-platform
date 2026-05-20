@@ -6,26 +6,24 @@ import {
   CardHeader,
   CardTitle,
   Command,
-  CommandEmpty,
   CommandItem,
   CommandList,
   Input,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
 } from '@seta/shared-ui';
+import { X } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { type ProfileDto, patchProfile, searchSkillsApi } from '../api/client.ts';
+import { type ProfileDto, type SaveProfile, searchSkillsApi } from '../api/client.ts';
 
 export function ProfileSkillsSection({
   profile,
+  onSave,
   onUpdate,
 }: {
   profile: ProfileDto;
+  onSave: SaveProfile;
   onUpdate: (p: ProfileDto) => void;
 }) {
   const [skills, setSkills] = useState<string[]>([...profile.skills]);
-  const [open, setOpen] = useState(false);
   const [prefix, setPrefix] = useState('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
@@ -33,12 +31,16 @@ export function ProfileSkillsSection({
   useEffect(() => {
     let cancelled = false;
     const t = setTimeout(async () => {
-      if (prefix.length === 0) {
+      if (prefix.trim().length === 0) {
         if (!cancelled) setSuggestions([]);
         return;
       }
-      const results = await searchSkillsApi(prefix);
-      if (!cancelled) setSuggestions(results.filter((s) => !skills.includes(s)));
+      try {
+        const results = await searchSkillsApi(prefix);
+        if (!cancelled) setSuggestions(results.filter((s) => !skills.includes(s)));
+      } catch {
+        if (!cancelled) setSuggestions([]);
+      }
     }, 200);
     return () => {
       cancelled = true;
@@ -51,6 +53,7 @@ export function ProfileSkillsSection({
     if (!clean || skills.includes(clean)) return;
     setSkills([...skills, clean]);
     setPrefix('');
+    setSuggestions([]);
   }
 
   function removeSkill(s: string) {
@@ -60,7 +63,7 @@ export function ProfileSkillsSection({
   async function save() {
     setSaving(true);
     try {
-      const updated = await patchProfile({ skills });
+      const updated = await onSave({ skills });
       onUpdate(updated);
       setSkills([...updated.skills]);
     } finally {
@@ -69,6 +72,7 @@ export function ProfileSkillsSection({
   }
 
   const dirty = JSON.stringify([...skills].sort()) !== JSON.stringify([...profile.skills].sort());
+  const showSuggestions = prefix.trim().length > 0 && suggestions.length > 0;
 
   return (
     <Card>
@@ -77,52 +81,58 @@ export function ProfileSkillsSection({
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-wrap gap-2">
+          {skills.length === 0 && (
+            <span className="text-sm text-ink-muted">No skills yet — add one below.</span>
+          )}
           {skills.map((s) => (
-            <Badge key={s} variant="secondary" className="gap-1">
-              {s}
-              <button type="button" onClick={() => removeSkill(s)} aria-label={`Remove ${s}`}>
-                ×
-              </button>
+            <Badge key={s} variant="secondary" className="gap-0.5 pr-0.5">
+              <span>{s}</span>
+              <Button
+                size="icon"
+                variant="ghost"
+                aria-label={`Remove ${s}`}
+                className="h-4 w-4"
+                onClick={() => removeSkill(s)}
+              >
+                <X className="h-3 w-3" />
+              </Button>
             </Badge>
           ))}
         </div>
-        <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger asChild>
-            <Input
-              placeholder="Add a skill"
-              value={prefix}
-              onChange={(e) => {
-                setPrefix(e.target.value);
-                setOpen(true);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  addSkill(prefix);
-                  setOpen(false);
-                }
-              }}
-            />
-          </PopoverTrigger>
-          <PopoverContent className="p-0 w-[var(--radix-popover-trigger-width)]">
-            <Command>
-              <CommandList>
-                <CommandEmpty>Press Enter to add &ldquo;{prefix}&rdquo;</CommandEmpty>
-                {suggestions.map((s) => (
-                  <CommandItem
-                    key={s}
-                    onSelect={() => {
-                      addSkill(s);
-                      setOpen(false);
-                    }}
-                  >
-                    {s}
-                  </CommandItem>
-                ))}
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
+
+        <div className="relative">
+          <Input
+            placeholder="Type a skill, then Enter to add"
+            value={prefix}
+            onChange={(e) => setPrefix(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                const top = suggestions[0];
+                if (top?.startsWith(prefix.toLowerCase().trim())) addSkill(top);
+                else addSkill(prefix);
+              } else if (e.key === 'Backspace' && prefix === '' && skills.length > 0) {
+                removeSkill(skills[skills.length - 1] as string);
+              } else if (e.key === 'Escape') {
+                setPrefix('');
+              }
+            }}
+          />
+          {showSuggestions && (
+            <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-md border border-hairline bg-canvas shadow-md">
+              <Command shouldFilter={false}>
+                <CommandList className="max-h-56">
+                  {suggestions.slice(0, 8).map((s) => (
+                    <CommandItem key={s} value={s} onSelect={() => addSkill(s)}>
+                      {s}
+                    </CommandItem>
+                  ))}
+                </CommandList>
+              </Command>
+            </div>
+          )}
+        </div>
+
         <Button onClick={save} disabled={saving || !dirty}>
           Save
         </Button>

@@ -1,17 +1,16 @@
-import { Badge, Card } from '@seta/shared-ui';
-import type { ReactNode } from 'react';
-import type { AdminUserDetail } from '../../api/client.ts';
+import { useState } from 'react';
+import {
+  type AdminUserDetail,
+  type ProfileDto,
+  patchAdminUserProfile,
+  type SaveProfile,
+} from '../../api/client.ts';
 import { ChangeEmailDialog } from '../ChangeEmailDialog.tsx';
 import { EmailHistorySection } from '../EmailHistorySection.tsx';
-
-function Row({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="grid grid-cols-[140px_1fr] items-center gap-3 py-2 border-b border-hairline last:border-b-0">
-      <span className="text-xs uppercase tracking-wider text-ink-muted">{label}</span>
-      <div className="text-sm">{children}</div>
-    </div>
-  );
-}
+import { ProfileAccountSection } from '../ProfileAccountSection.tsx';
+import { ProfileAvailabilitySection } from '../ProfileAvailabilitySection.tsx';
+import { ProfileLocaleSection } from '../ProfileLocaleSection.tsx';
+import { ProfileSkillsSection } from '../ProfileSkillsSection.tsx';
 
 export function ProfileTab({
   detail,
@@ -22,45 +21,48 @@ export function ProfileTab({
   userId: string;
   onChange: () => void;
 }) {
-  const wh = detail.profile.working_hours;
+  const [profile, setProfile] = useState<ProfileDto>(detail.profile);
+
+  const save: SaveProfile = (patch) => patchAdminUserProfile(userId, patch);
+
+  function handleUpdate(p: ProfileDto) {
+    setProfile(p);
+    onChange();
+  }
+
   return (
-    <Card className="p-5">
-      <Row label="Name">{detail.profile.display_name}</Row>
-      <Row label="Email">
-        <div className="flex items-center gap-2">
-          <span className="font-mono">{detail.profile.email}</span>
-          <ChangeEmailDialog
-            userId={userId}
-            currentEmail={detail.profile.email}
-            disabled={false}
-            onChanged={onChange}
-          />
+    <div className="space-y-5">
+      <ProfileAccountSection
+        profile={profile}
+        onSave={save}
+        onUpdate={handleUpdate}
+        showEmail={false}
+      />
+
+      <div className="flex items-center gap-3 rounded-md border border-hairline p-4">
+        <div className="flex-1 min-w-0">
+          <div className="text-xs uppercase tracking-wider text-ink-muted">Email</div>
+          <div className="font-mono text-sm mt-1 truncate" title={profile.email}>
+            {profile.email}
+          </div>
         </div>
-      </Row>
-      <Row label="Timezone">{detail.profile.timezone}</Row>
-      <Row label="Working hours">{wh ? `Mon–Fri ${wh.start}–${wh.end}` : '—'}</Row>
-      <Row label="Availability">
-        <Badge variant="outline">{detail.profile.availability_status}</Badge>
-        {detail.profile.ooo_until && (
-          <span className="ml-2 text-xs text-ink-muted">until {detail.profile.ooo_until}</span>
-        )}
-      </Row>
-      <Row label="Skills">
-        <div className="flex flex-wrap gap-1">
-          {detail.profile.skills.length === 0 ? (
-            <span className="text-ink-muted text-sm">None</span>
-          ) : (
-            detail.profile.skills.map((s) => (
-              <Badge key={s} variant="secondary">
-                {s}
-              </Badge>
-            ))
-          )}
-        </div>
-      </Row>
-      <div className="mt-3">
-        <EmailHistorySection userId={userId} />
+        <ChangeEmailDialog
+          userId={userId}
+          currentEmail={profile.email}
+          disabled={false}
+          onChanged={onChange}
+        />
       </div>
-    </Card>
+
+      <ProfileAvailabilitySection profile={profile} onSave={save} onUpdate={handleUpdate} />
+      <ProfileSkillsSection profile={profile} onSave={save} onUpdate={handleUpdate} />
+      <ProfileLocaleSection
+        profile={profile}
+        onSave={save}
+        onUpdate={handleUpdate}
+        canEditWorkingHours
+      />
+      <EmailHistorySection userId={userId} />
+    </div>
   );
 }

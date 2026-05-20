@@ -35,8 +35,11 @@ export interface ProfilePatch {
   availability_status?: 'available' | 'busy' | 'ooo';
   ooo_until?: string | null;
   timezone?: string;
+  working_hours?: { start: string; end: string } | null;
   skills?: string[];
 }
+
+export type SaveProfile = (patch: ProfilePatch) => Promise<ProfileDto>;
 
 export async function fetchProfile(): Promise<ProfileDto> {
   const res = await fetch('/api/identity/v1/profile', { credentials: 'include' });
@@ -52,6 +55,20 @@ export async function patchProfile(patch: ProfilePatch): Promise<ProfileDto> {
     body: JSON.stringify(patch),
   });
   if (!res.ok) throw new Error(`profile patch failed: ${res.status}`);
+  return res.json() as Promise<ProfileDto>;
+}
+
+export async function patchAdminUserProfile(
+  userId: string,
+  patch: ProfilePatch,
+): Promise<ProfileDto> {
+  const res = await fetch(`/api/identity/v1/users/${userId}/profile`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) throw new Error(`admin profile patch failed: ${res.status}`);
   return res.json() as Promise<ProfileDto>;
 }
 
