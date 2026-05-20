@@ -7,7 +7,6 @@ export function installWebVitals(send: (m: Metric) => void) {
 }
 
 export async function defaultSend(metric: Metric): Promise<void> {
-  // No client-side ingest endpoint yet — fall back to console for now.
   try {
     await fetch('/api/observability/v1/web-vitals', {
       method: 'POST',
