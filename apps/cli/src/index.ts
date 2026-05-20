@@ -3,6 +3,8 @@ import { createCrypto, createKeyProviderFromEnv, parseCryptoEnv } from '@seta/sh
 import { closePools, initPools } from '@seta/shared-db';
 import { Command } from 'commander';
 import pino from 'pino';
+import { integrationsMailSetCommand } from './commands/integrations-mail-set.ts';
+import { integrationsMailTestCommand } from './commands/integrations-mail-test.ts';
 import { migrateCommand } from './commands/migrate.ts';
 import { roleGrantCommand } from './commands/role-grant.ts';
 import { seedCommand } from './commands/seed.ts';
@@ -169,6 +171,67 @@ program
   .action(async (opts: { user: string; tenant: string }) => {
     try {
       await userDeactivateCommand({ user: opts.user, tenant: opts.tenant });
+    } finally {
+      await closePools();
+    }
+  });
+
+program
+  .command('integrations-mail-set')
+  .description('Configure outbound mail transport for a tenant')
+  .requiredOption('--tenant <slug-or-id>')
+  .requiredOption('--kind <kind>', "'graph' or 'smtp'")
+  .requiredOption('--sender <email>')
+  .option('--sender-display-name <name>')
+  .option('--smtp-host <host>')
+  .option('--smtp-port <port>', '465 or 587', (v) => Number.parseInt(v, 10))
+  .option('--smtp-user <user>')
+  .option('--smtp-password <pw>')
+  .option('--no-smtp-require-tls', 'disable STARTTLS (default require)')
+  .option('--policy-acked', 'attest Application Access Policy is configured (graph)')
+  .action(
+    async (opts: {
+      tenant: string;
+      kind: string;
+      sender: string;
+      senderDisplayName?: string;
+      smtpHost?: string;
+      smtpPort?: number;
+      smtpUser?: string;
+      smtpPassword?: string;
+      smtpRequireTls?: boolean;
+      policyAcked?: boolean;
+    }) => {
+      try {
+        if (opts.kind !== 'graph' && opts.kind !== 'smtp') {
+          throw new Error('--kind must be graph or smtp');
+        }
+        await integrationsMailSetCommand({
+          tenant: opts.tenant,
+          kind: opts.kind,
+          sender: opts.sender,
+          senderDisplayName: opts.senderDisplayName,
+          smtpHost: opts.smtpHost,
+          smtpPort: opts.smtpPort,
+          smtpUser: opts.smtpUser,
+          smtpPassword: opts.smtpPassword,
+          smtpRequireTls: opts.smtpRequireTls,
+          policyAcked: opts.policyAcked,
+        });
+      } finally {
+        await closePools();
+      }
+    },
+  );
+
+program
+  .command('integrations-mail-test')
+  .description('Send a test email through the resolved transport')
+  .requiredOption('--tenant <slug-or-id>')
+  .requiredOption('--to <email>')
+  .action(async (opts: { tenant: string; to: string }) => {
+    try {
+      await integrationsMailTestCommand(opts);
     } finally {
       await closePools();
     }

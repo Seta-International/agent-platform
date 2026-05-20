@@ -1,12 +1,20 @@
 import { serve } from '@hono/node-server';
 import { createContributionRegistry, runMigrations } from '@seta/core';
+import { coreDb } from '@seta/core/db';
 import { startDispatcher } from '@seta/core/dispatcher';
+import { emit, withEmit } from '@seta/core/events';
+import { createOutboxStore } from '@seta/core/outbox';
 import { registerCoreContributions } from '@seta/core/register';
 import { startWorkerPool } from '@seta/core/workers';
+import { getEntraTenantId } from '@seta/identity';
 import { registerIdentityContributions } from '@seta/identity/register';
+import { createMailTransportConfigStore } from '@seta/integrations';
+import { integrationsDb } from '@seta/integrations/db';
 import { registerIntegrationsContributions } from '@seta/integrations/register';
 import { createCrypto, createKeyProviderFromEnv, parseCryptoEnv } from '@seta/shared-crypto';
 import { closePools, getPool, initPools } from '@seta/shared-db';
+import { createMailer, resolveTransport } from '@seta/shared-mailer';
+import { createMailerSendTask } from '@seta/shared-mailer/queue';
 import pino from 'pino';
 import { buildServerApp, registerAppContributions } from './build.ts';
 import { parseEnv } from './env.ts';
@@ -18,9 +26,8 @@ initPools({ databaseUrl: env.DATABASE_URL });
 
 const cryptoEnv = parseCryptoEnv(process.env);
 const keyProvider = await createKeyProviderFromEnv(cryptoEnv);
-const crypto = createCrypto({ keyProvider, log: log.child({ component: 'crypto' }) });
+const cryptoSvc = createCrypto({ keyProvider, log: log.child({ component: 'crypto' }) });
 log.info({ provider: keyProvider.kind }, 'crypto wired');
-void crypto;
 
 const reg = createContributionRegistry();
 registerCoreContributions(reg);
@@ -37,8 +44,50 @@ const dispatcher = await startDispatcher({
 });
 log.info('dispatcher started');
 
-const workers = await startWorkerPool({ pool: getPool('worker') });
+const mailerLog = log.child({ component: 'mailer' });
+const outboxStore = createOutboxStore({ db: coreDb() });
+const configStore = createMailTransportConfigStore({ db: integrationsDb() });
+
+const mailerSendTask = createMailerSendTask({
+  outboxStore,
+  resolveTransport: (tenantId) =>
+    resolveTransport(tenantId, {
+      env,
+      configStore: { findEnabled: (tid) => configStore.findEnabled(tid) },
+      lookupEntraTenantId: getEntraTenantId,
+      crypto: { decrypt: (b) => cryptoSvc.decrypt(b) },
+    }),
+  emit: (event) =>
+    withEmit(undefined, async () => {
+      await emit(event);
+    }),
+  log: log.child({ component: 'mailer.worker' }),
+});
+
+const workers = await startWorkerPool({
+  pool: getPool('worker'),
+  jobs: {
+    'mailer:send': async (payload) => {
+      await mailerSendTask(payload as never);
+    },
+  },
+});
 log.info('workers started');
+
+const mailer = createMailer({
+  env,
+  outboxStore,
+  queue: {
+    addJob: (taskName, payload, opts) => workers.addJob(taskName, payload, opts),
+  },
+  emit: (event) =>
+    withEmit(undefined, async () => {
+      await emit(event);
+    }),
+  log: mailerLog,
+});
+log.info('mailer wired');
+void mailer;
 
 const { app } = buildServerApp(reg, {
   pool: getPool('worker'),

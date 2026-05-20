@@ -11,6 +11,11 @@ export interface StartWorkerPoolOpts {
 
 export interface WorkerHandle {
   shutdown(): Promise<void>;
+  addJob(
+    identifier: string,
+    payload?: unknown,
+    spec?: { jobKey?: string; maxAttempts?: number; queueName?: string; runAt?: Date },
+  ): Promise<void>;
 }
 
 export async function startWorkerPool(opts: StartWorkerPoolOpts): Promise<WorkerHandle> {
@@ -42,6 +47,9 @@ export async function startWorkerPool(opts: StartWorkerPoolOpts): Promise<Worker
   return {
     async shutdown() {
       await runner.stop();
+    },
+    async addJob(identifier, payload, spec) {
+      await runner.addJob(identifier, payload, spec);
     },
   };
 }
