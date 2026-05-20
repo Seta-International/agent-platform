@@ -16,6 +16,14 @@ const queryClient = new QueryClient();
 const rootElement = document.getElementById('root');
 if (!rootElement) throw new Error('Root element #root not found');
 
+if (typeof window !== 'undefined') {
+  void import('./modules/planner/observability/web-vitals').then(
+    ({ installWebVitals, defaultSend }) => {
+      installWebVitals(defaultSend);
+    },
+  );
+}
+
 createRoot(rootElement).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
