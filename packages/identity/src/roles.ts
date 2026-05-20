@@ -17,6 +17,7 @@ export const A2_PERMISSIONS = [
   'identity.sso.read',
   'identity.sso.write',
   'identity.user.email.change',
+  'identity.user.write.self',
 ] as const;
 
 export type A2Permission = (typeof A2_PERMISSIONS)[number];
