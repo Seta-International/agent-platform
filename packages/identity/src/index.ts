@@ -3,6 +3,8 @@ export { createUser } from './backend/domain/create-user.ts';
 export { deactivateUser } from './backend/domain/deactivate-user.ts';
 export { disableSsoProvider } from './backend/domain/disable-sso-provider.ts';
 export { disconnectSsoProvider } from './backend/domain/disconnect-sso-provider.ts';
+export type { DiscoverResult } from './backend/domain/discover-provider.ts';
+export { discoverProvider } from './backend/domain/discover-provider.ts';
 export { enableSsoProvider } from './backend/domain/enable-sso-provider.ts';
 export type { UserGrant } from './backend/domain/get-user-grants.ts';
 export { getUserGrants } from './backend/domain/get-user-grants.ts';
