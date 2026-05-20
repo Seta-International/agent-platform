@@ -90,7 +90,7 @@ export function LoginCard() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-canvas">
+    <div className="theme-light flex min-h-screen flex-col bg-canvas text-ink">
       <header className="flex items-center justify-between px-lg py-lg sm:px-xl">
         <SetaLogo height={24} />
         <a
