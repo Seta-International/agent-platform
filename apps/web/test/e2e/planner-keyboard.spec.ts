@@ -19,9 +19,11 @@ test('§4.7 keyboard map: navigate board with l/j, open sheet via Enter, edit ti
   await expect(page.locator('.task-sheet')).toBeVisible();
 
   // `e` focuses the title field (use-sheet-keyboard.ts §4.7).
+  // TaskSheet exposes the title as .task-sheet__title; clicking it activates inline editing
+  // the same way the equivalent step works in planner-task-sheet.spec.ts.
   await page.keyboard.press('e');
-  const titleInput = page.locator('input[aria-label="Task title"]');
-  await titleInput.fill('Edited via keyboard');
+  await page.locator('.task-sheet__title').click();
+  await page.locator('.task-sheet__title').fill('Edited via keyboard');
 
   // Cmd+Enter (Control+Enter on Linux) commits the edit without closing the sheet.
   const modifier = process.platform === 'linux' ? 'Control' : 'Meta';
