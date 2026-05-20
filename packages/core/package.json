@@ -12,6 +12,7 @@
     "./backend": "./src/backend/index.ts",
     "./db/schema": "./src/db/schema/index.ts",
     "./db": "./src/db/client.ts",
+    "./outbox": "./src/outbox/store.ts",
     "./rpc": "./src/rpc/index.ts",
     "./internal/test-support": "./src/db/client.ts"
   },
