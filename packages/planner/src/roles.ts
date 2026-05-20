@@ -1,0 +1,56 @@
+export const PLANNER_PERMISSIONS = [
+  'planner.group.read',
+  'planner.group.create',
+  'planner.group.update',
+  'planner.group.delete',
+  'planner.group.member.read',
+  'planner.group.member.write',
+  'planner.plan.read',
+  'planner.plan.create',
+  'planner.plan.update',
+  'planner.plan.delete',
+  'planner.bucket.read',
+  'planner.bucket.create',
+  'planner.bucket.update',
+  'planner.bucket.delete',
+  'planner.task.read',
+  'planner.task.create',
+  'planner.task.update',
+  'planner.task.assign',
+  'planner.task.delete',
+] as const;
+export type PlannerPermission = (typeof PLANNER_PERMISSIONS)[number];
+
+export const PLANNER_ROLE_SLUGS = [
+  'planner.admin',
+  'planner.contributor',
+  'planner.viewer',
+] as const;
+export type PlannerRoleSlug = (typeof PLANNER_ROLE_SLUGS)[number];
+
+export const PLANNER_ROLE_PERMISSIONS: Record<PlannerRoleSlug, PlannerPermission[]> = {
+  'planner.admin': [...PLANNER_PERMISSIONS],
+  'planner.contributor': [
+    'planner.group.read',
+    'planner.group.member.read',
+    'planner.plan.read',
+    'planner.plan.create',
+    'planner.plan.update',
+    'planner.bucket.read',
+    'planner.bucket.create',
+    'planner.bucket.update',
+    'planner.bucket.delete',
+    'planner.task.read',
+    'planner.task.create',
+    'planner.task.update',
+    'planner.task.assign',
+    'planner.task.delete',
+  ],
+  'planner.viewer': [
+    'planner.group.read',
+    'planner.group.member.read',
+    'planner.plan.read',
+    'planner.bucket.read',
+    'planner.task.read',
+  ],
+};
