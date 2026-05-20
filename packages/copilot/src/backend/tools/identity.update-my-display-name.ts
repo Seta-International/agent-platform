@@ -1,19 +1,22 @@
+import { createTool } from '@mastra/core/tools';
 import { updateMyDisplayName } from '@seta/identity';
 import { z } from 'zod';
-import type { CopilotTool } from './_types.ts';
+import { actorFromContext, RequestContextSchema, registerToolPermission } from './_types.ts';
 
-const Input = z.object({
-  displayName: z.string().trim().min(1).max(120),
-});
-
-export const updateMyDisplayNameTool: CopilotTool<typeof Input> = {
-  name: 'identity.updateMyDisplayName',
-  description: 'Renames the current user. Requires explicit user approval before applying.',
-  inputSchema: Input,
-  requiredPermission: 'identity.user.write.self',
-  needsApproval: true,
-  execute: async (actor, input) => {
-    await updateMyDisplayName(actor, input);
-    return { ok: true, displayName: input.displayName };
-  },
-};
+export const updateMyDisplayNameTool = registerToolPermission(
+  createTool({
+    id: 'identity_updateMyDisplayName',
+    description: 'Renames the current user. Requires explicit user approval before applying.',
+    inputSchema: z.object({
+      displayName: z.string().trim().min(1).max(120),
+    }),
+    requestContextSchema: RequestContextSchema,
+    requireApproval: true,
+    execute: async (input, ctx) => {
+      const actor = actorFromContext(ctx);
+      await updateMyDisplayName(actor, input);
+      return { ok: true, displayName: input.displayName };
+    },
+  }),
+  'identity.user.write.self',
+);

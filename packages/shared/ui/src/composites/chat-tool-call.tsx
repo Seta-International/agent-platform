@@ -1,3 +1,4 @@
+import { ChevronRight } from 'lucide-react';
 import * as React from 'react';
 import { cn } from '../lib/cn';
 
@@ -25,30 +26,52 @@ export function ChatToolCall({
   className,
 }: ChatToolCallProps) {
   const [open, setOpen] = React.useState(false);
+  const expandable = payload != null;
   return (
-    <div className={cn('ml-9 flex', className)} data-status={status}>
+    <div className={cn('my-xs flex flex-col gap-xxs', className)} data-status={status}>
       <button
         type="button"
-        onClick={() => payload != null && setOpen((v) => !v)}
-        className="inline-flex items-center gap-2.5 rounded-md border border-hairline bg-surface-2 px-2.5 py-1.5 text-caption text-ink-muted hover:bg-surface-3"
+        onClick={() => expandable && setOpen((v) => !v)}
+        aria-expanded={expandable ? open : undefined}
+        disabled={!expandable}
+        className={cn(
+          'inline-flex w-fit max-w-full items-center gap-2.5 whitespace-nowrap rounded-md border border-hairline bg-surface-2 px-2.5 py-1 text-caption text-ink-muted',
+          expandable && 'cursor-pointer hover:bg-surface-3',
+        )}
       >
-        <span className={cn('inline-block size-1.5 rounded-full', STATUS_DOT[status])} />
-        <span className="font-mono text-body-sm text-ink">{name}</span>
+        <span
+          className={cn('inline-block size-1.5 shrink-0 rounded-full', STATUS_DOT[status])}
+          aria-hidden
+        />
+        <span className="shrink-0 font-mono text-caption text-ink">{name}</span>
         {summary && (
           <>
-            <span className="text-ink-subtle">·</span>
-            <span>{summary}</span>
+            <span className="text-ink-subtle" aria-hidden>
+              ·
+            </span>
+            <span className="truncate">{summary}</span>
           </>
         )}
         {duration && (
           <>
-            <span className="text-ink-subtle">·</span>
-            <span className="font-mono">{duration}</span>
+            <span className="text-ink-subtle" aria-hidden>
+              ·
+            </span>
+            <span className="shrink-0 font-mono">{duration}</span>
           </>
+        )}
+        {expandable && (
+          <ChevronRight
+            className={cn(
+              'size-3 shrink-0 text-ink-subtle transition-transform',
+              open && 'rotate-90',
+            )}
+            aria-hidden
+          />
         )}
       </button>
       {open && payload != null && (
-        <pre className="ml-3 max-w-md overflow-auto rounded-md border border-hairline-tertiary bg-surface-1 p-2 text-caption">
+        <pre className="max-w-md overflow-auto rounded-md border border-hairline-tertiary bg-surface-1 p-2 text-caption">
           {JSON.stringify(payload, null, 2)}
         </pre>
       )}

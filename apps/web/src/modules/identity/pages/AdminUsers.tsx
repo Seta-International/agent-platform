@@ -21,7 +21,7 @@ export function AdminUsers() {
   }, [refreshKey]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-7 py-6">
       <div>
         <div className="text-xs text-ink-muted">Admin</div>
         <div className="flex items-center justify-between">

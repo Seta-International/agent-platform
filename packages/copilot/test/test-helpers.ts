@@ -1,7 +1,23 @@
+import { RequestContext } from '@mastra/core/request-context';
+import type { ToolExecutionContext } from '@mastra/core/tools';
 import { resetCoreDb } from '@seta/core/internal/test-support';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import type { Pool } from 'pg';
+import type { CopilotRequestContext } from '../src/backend/tools/_types.ts';
+
+export function makeToolContext(actor: {
+  user_id: string;
+  type?: 'user';
+}): ToolExecutionContext<unknown, unknown, CopilotRequestContext> {
+  const rc = new RequestContext<CopilotRequestContext>();
+  rc.set('actor', { type: actor.type ?? 'user', user_id: actor.user_id });
+  return {
+    requestContext: rc,
+    toolCallId: 'test-call',
+    messages: [],
+  } as ToolExecutionContext<unknown, unknown, CopilotRequestContext>;
+}
 
 export function withCopilotTestDb<T>(
   fn: (ctx: { pool: Pool; databaseUrl: string }) => Promise<T>,

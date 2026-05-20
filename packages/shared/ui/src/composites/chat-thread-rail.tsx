@@ -32,7 +32,7 @@ export function ChatThreadRail({
   return (
     <aside
       className={cn(
-        'flex w-[260px] flex-none flex-col border-r border-hairline bg-surface-1',
+        'flex w-full flex-none flex-col border-r border-hairline bg-surface-1 lg:w-[260px]',
         className,
       )}
     >
@@ -83,10 +83,17 @@ export function ChatThreadRail({
                     />
                   )}
                   <div className="mb-0.5 flex items-center justify-between gap-2">
-                    <span className={cn('truncate text-body-sm', isActive && 'font-medium')}>
+                    <span
+                      className={cn(
+                        'min-w-0 flex-1 truncate text-body-sm',
+                        isActive && 'font-medium',
+                      )}
+                    >
                       {t.title}
                     </span>
-                    <span className="text-caption text-ink-subtle">{t.updatedAtLabel}</span>
+                    <span className="shrink-0 whitespace-nowrap text-caption text-ink-subtle">
+                      {t.updatedAtLabel}
+                    </span>
                   </div>
                   {t.hint && (
                     <span className="inline-flex h-4 items-center rounded-sm bg-semantic-warning-tint px-1.5 text-[10px] font-semibold uppercase text-semantic-warning">

@@ -47,6 +47,15 @@ export default defineConfig([
               from: { type: 'routes' },
               allow: [{ to: { type: 'shell' } }, { to: { type: '@seta/shared-ui' } }],
             },
+            // Identity's admin role-grant dialog reads the planner group list to pick role scopes.
+            // Narrowed allowance; nothing else may cross modules.
+            {
+              from: { type: 'module', captured: { module: 'identity' } },
+              allow: [
+                { to: { type: '@seta/shared-ui' } },
+                { to: { type: 'module', captured: { module: 'planner' } } },
+              ],
+            },
             { from: { type: 'module' }, allow: [{ to: { type: '@seta/shared-ui' } }] },
           ],
         },

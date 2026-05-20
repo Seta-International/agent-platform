@@ -108,7 +108,7 @@ export function AdminAudit() {
   }, [eventType]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-7 py-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Audit</h1>
         <span className="text-sm text-muted-foreground">{total} events</span>

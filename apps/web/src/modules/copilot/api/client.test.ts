@@ -19,17 +19,29 @@ describe('copilotApi', () => {
     expect(out[0]?.id).toBe('t1');
   });
 
-  it('approveHitl POSTs and returns the parsed body', async () => {
+  it('resolveApproval POSTs the run/tool/approval payload and drains the SSE response', async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
     vi.stubGlobal(
       'fetch',
-      vi.fn(
-        async () =>
-          new Response(JSON.stringify({ status: 'approved', outcome: { ok: true } }), {
-            headers: { 'content-type': 'application/json' },
-          }),
-      ),
+      vi.fn(async (url: string, init: RequestInit) => {
+        calls.push({ url, init });
+        return new Response('data: [DONE]\n\n', {
+          headers: { 'content-type': 'text/event-stream' },
+        });
+      }),
     );
-    const out = await copilotApi.approveHitl('call-1');
-    expect(out.status).toBe('approved');
+    await copilotApi.resolveApproval('self', {
+      runId: 'run-1',
+      toolCallId: 'call-1',
+      approved: true,
+      threadId: 't-1',
+    });
+    expect(calls[0]?.url).toBe('/api/copilot/v1/chat/self/approve');
+    expect(JSON.parse(String(calls[0]?.init.body))).toEqual({
+      runId: 'run-1',
+      toolCallId: 'call-1',
+      approved: true,
+      threadId: 't-1',
+    });
   });
 });

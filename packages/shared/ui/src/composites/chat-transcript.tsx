@@ -13,7 +13,7 @@ export function ChatTranscript({ dateDividers, className, children }: ChatTransc
       data-testid="chat-transcript"
       className={cn('flex-1 overflow-auto bg-surface-1 py-6', className)}
     >
-      <div className="mx-auto flex max-w-[720px] flex-col gap-[18px]">
+      <div className="mx-auto flex max-w-conversation flex-col gap-lg px-md">
         {dateDividers?.map((d) => (
           <div key={d.label} className="flex items-center gap-2.5 text-ink-subtle">
             <div className="h-px flex-1 border-t border-hairline" />

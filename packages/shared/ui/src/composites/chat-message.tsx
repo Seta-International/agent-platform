@@ -1,3 +1,4 @@
+import { Sparkles } from 'lucide-react';
 import type * as React from 'react';
 import { cn } from '../lib/cn';
 
@@ -21,7 +22,7 @@ export function ChatMessage({
   if (variant === 'user') {
     return (
       <div data-variant="user" className={cn('flex justify-end', className)}>
-        <div className="max-w-[540px] rounded-xl border border-hairline bg-canvas px-3.5 py-2.5 text-body-sm shadow-sm">
+        <div className="max-w-message-bubble rounded-xl border border-hairline bg-canvas px-3.5 py-2.5 text-body-sm shadow-sm">
           {children}
         </div>
       </div>
@@ -29,10 +30,8 @@ export function ChatMessage({
   }
   return (
     <div data-variant="agent" className={cn('flex gap-2.5', dim && 'opacity-85', className)}>
-      <div className="flex h-6.5 w-6.5 flex-none items-center justify-center rounded-md border border-primary-border bg-primary-tint text-primary">
-        <span aria-hidden className="text-caption font-semibold">
-          C
-        </span>
+      <div className="flex size-6 flex-none items-center justify-center rounded-md border border-primary-border bg-primary-tint text-primary">
+        <Sparkles className="size-3.5" aria-hidden />
       </div>
       <div className="min-w-0 flex-1">
         <div className="mb-1 flex items-baseline gap-2">

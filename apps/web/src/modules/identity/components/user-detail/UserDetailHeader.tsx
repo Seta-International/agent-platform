@@ -7,9 +7,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  formatRelative,
 } from '@seta/shared-ui';
-import { useNavigate, useRouter } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { ChevronLeft, ChevronRight, MoreHorizontal } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { type AdminUserDetail, deactivateAdminUser } from '../../api/client.ts';
@@ -35,7 +34,6 @@ export function UserDetailHeader({
   onChange: () => void;
 }) {
   const navigate = useNavigate();
-  const router = useRouter();
   useUserListOrder();
   const { prev, next } = getNeighbors(userId);
   const [resetOpen, setResetOpen] = useState(false);
@@ -58,6 +56,7 @@ export function UserDetailHeader({
   }, [navigate, next, prev]);
 
   const isDeactivated = detail.profile.deactivated_at != null;
+  const wh = detail.profile.working_hours;
 
   async function toggleActivation() {
     await deactivateAdminUser(userId, isDeactivated ? 'reactivate' : 'deactivate');
@@ -65,29 +64,35 @@ export function UserDetailHeader({
   }
 
   return (
-    <div className="border-b border-hairline px-7 py-4 bg-canvas">
-      <div className="text-xs text-ink-muted mb-3 flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-6 px-1.5"
-          onClick={() => router.history.back()}
+    <div className="px-7 pt-4 pb-3 bg-canvas">
+      <div className="flex items-center gap-2 mb-3 text-xs text-ink-subtle">
+        <Link
+          to="/admin/users"
+          className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-ink-muted hover:bg-surface-2 hover:text-ink"
         >
-          <ChevronLeft className="h-3 w-3 mr-1" />
+          <ChevronLeft className="h-3 w-3" />
           Back to Users
-        </Button>
-        <span className="opacity-60">·</span>
-        <span>
-          Admin <ChevronRight className="inline h-3 w-3" /> Users
+        </Link>
+        <span>·</span>
+        <span className="inline-flex items-center gap-1">
+          <span>Admin</span>
+          <ChevronRight className="h-3 w-3 opacity-60" />
+          <Link to="/admin/users" className="text-primary hover:underline">
+            Users
+          </Link>
         </span>
       </div>
+
       <div className="flex items-center gap-4">
-        <Avatar className="h-16 w-16 text-xl">
-          <AvatarFallback>{initials(detail.profile.display_name)}</AvatarFallback>
+        <Avatar className="h-16 w-16 flex-none">
+          <AvatarFallback className="text-base font-semibold">
+            {initials(detail.profile.display_name)}
+          </AvatarFallback>
         </Avatar>
+
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2.5 mb-1">
-            <h1 className="text-[22px] font-semibold tracking-tight">
+            <h1 className="text-[22px] font-semibold tracking-tight truncate">
               {detail.profile.display_name}
             </h1>
             <StatusPill
@@ -103,17 +108,22 @@ export function UserDetailHeader({
               <Badge className="h-[18px] px-1.5 text-[11px]">org.admin</Badge>
             )}
           </div>
-          <div className="flex items-center gap-3 text-sm text-ink-muted min-w-0">
-            <span className="font-mono truncate min-w-0 max-w-[40ch]" title={detail.profile.email}>
-              {detail.profile.email}
-            </span>
-            <span className="opacity-60 flex-none">·</span>
-            <span className="flex-none">Joined {formatRelative(detail.profile.updated_at)}</span>
-            <span className="opacity-60 flex-none">·</span>
-            <span className="flex-none">{detail.profile.timezone}</span>
+          <div className="flex items-center gap-3 text-sm text-ink-subtle flex-wrap">
+            <span className="font-mono">{detail.profile.email}</span>
+            <span>·</span>
+            <span>{detail.profile.timezone}</span>
+            {wh && (
+              <>
+                <span>·</span>
+                <span>
+                  Mon–Fri {wh.start}–{wh.end}
+                </span>
+              </>
+            )}
           </div>
         </div>
-        <div className="flex items-center gap-1.5">
+
+        <div className="flex items-center gap-1.5 flex-none">
           <Button size="sm" onClick={() => setResetOpen(true)}>
             Reset password
           </Button>
@@ -158,6 +168,7 @@ export function UserDetailHeader({
           </Button>
         </div>
       </div>
+
       <ResetPasswordDialog
         open={resetOpen}
         userId={userId}

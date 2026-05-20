@@ -29,7 +29,8 @@ describe('parseCopilotEnv', () => {
     ).toThrow();
   });
 
-  it('throws when COPILOT_MODEL is missing', () => {
-    expect(() => parseCopilotEnv({})).toThrow();
+  it('allows COPILOT_MODEL to be unset (catalog falls back)', () => {
+    const env = parseCopilotEnv({});
+    expect(env.COPILOT_MODEL).toBeUndefined();
   });
 });

@@ -24,13 +24,13 @@ const baseSession = (overrides: Partial<TestSession> = {}): TestSession => ({
 });
 
 describe('createAgentFactory', () => {
-  it('returns the same Agent for two sessions with identical role bundles', async () => {
+  it('returns the same Agent bag for two sessions with identical role bundles', async () => {
     await withCopilotTestDb(async ({ pool, databaseUrl }) => {
       const mastra = buildMastra({ pool, databaseUrl });
       await (mastra.getStorage() as { init: () => Promise<void> }).init();
       const factory = createAgentFactory({ mastra });
-      const a = factory(baseSession({ user_id: 'u1' }) as never, 'self');
-      const b = factory(baseSession({ user_id: 'u2' }) as never, 'self');
+      const a = factory(baseSession({ user_id: 'u1' }) as never).get('self');
+      const b = factory(baseSession({ user_id: 'u2' }) as never).get('self');
       expect(a).toBe(b);
     });
   });
@@ -44,27 +44,30 @@ describe('createAgentFactory', () => {
         baseSession({
           role_summary: { roles: ['member'], cross_tenant_read: false },
         }) as never,
-        'self',
-      );
+      ).get('self');
       const b = factory(
         baseSession({
           role_summary: { roles: ['admin'], cross_tenant_read: true },
         }) as never,
-        'self',
-      );
+      ).get('self');
       expect(a).not.toBe(b);
     });
   });
 
-  it('caches router and self under distinct keys', async () => {
+  it('builds every spec in the catalog, keyed by name', async () => {
     await withCopilotTestDb(async ({ pool, databaseUrl }) => {
       const mastra = buildMastra({ pool, databaseUrl });
       await (mastra.getStorage() as { init: () => Promise<void> }).init();
       const factory = createAgentFactory({ mastra });
-      const session = baseSession();
-      const router = factory(session as never, 'router');
-      const self = factory(session as never, 'self');
-      expect(router).not.toBe(self);
+      const bag = factory(baseSession() as never);
+      expect(bag.names().sort()).toEqual(factory.names.slice().sort());
+      for (const name of factory.names) {
+        expect(bag.get(name)).toBeDefined();
+      }
+      expect(factory.names).toContain('self');
+      expect(factory.names).toContain('supervisor');
+      const supervisor = factory.specs.find((s) => s.name === 'supervisor');
+      expect(supervisor?.delegates).toEqual(['self']);
     });
   });
 });

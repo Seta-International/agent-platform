@@ -1,7 +1,13 @@
+import type { ToolExecutionContext } from '@mastra/core/tools';
 import { describe, expect, it } from 'vitest';
+import {
+  type CopilotRequestContext,
+  requiredPermissionFor,
+} from '../../src/backend/tools/_types.ts';
 import { makeListMyThreadsTool } from '../../src/backend/tools/copilot.list-my-threads.ts';
+import { makeToolContext } from '../test-helpers.ts';
 
-describe('copilot.listMyThreads tool', () => {
+describe('copilot_listMyThreads tool', () => {
   it("returns the user's own threads, scoped by resourceId", async () => {
     const tool = makeListMyThreadsTool({
       listThreads: async ({ resourceId }) => [
@@ -19,19 +25,31 @@ describe('copilot.listMyThreads tool', () => {
         },
       ],
     });
-    const out = (await tool.execute({ user_id: 'u1', type: 'user' }, { limit: 10 })) as {
+    const out = (await tool.execute!({ limit: 10 }, makeToolContext({ user_id: 'u1' }))) as {
       threads: Array<{ id: string }>;
     };
     expect(out.threads.map((t) => t.id)).toEqual(['t1', 't2']);
   });
 
-  it('requires copilot.thread.read.self', () => {
+  it('is registered with permission copilot.thread.read.self', () => {
     const tool = makeListMyThreadsTool({ listThreads: async () => [] });
-    expect(tool.requiredPermission).toBe('copilot.thread.read.self');
+    expect(requiredPermissionFor(tool)).toBe('copilot.thread.read.self');
   });
 
-  it('throws when actor is not a user', async () => {
+  it('surfaces an unauthenticated error when no actor is in requestContext', async () => {
     const tool = makeListMyThreadsTool({ listThreads: async () => [] });
-    await expect(tool.execute({ user_id: null, type: 'cli' }, { limit: 20 })).rejects.toThrow();
+    const { RequestContext } = await import('@mastra/core/request-context');
+    const rc = new RequestContext<CopilotRequestContext>();
+    const ctx = {
+      requestContext: rc,
+      toolCallId: 'x',
+      messages: [],
+    } as ToolExecutionContext<unknown, unknown, CopilotRequestContext>;
+    const out = (await tool.execute!({ limit: 20 }, ctx)) as { error: boolean; message?: string };
+    // requestContextSchema validation runs before our execute() body, so the user-visible
+    // failure is the schema mismatch on the missing `actor` field — equally an unauthenticated
+    // signal, just produced one layer earlier in the pipeline.
+    expect(out.error).toBe(true);
+    expect(out.message).toMatch(/request context|actor/i);
   });
 });

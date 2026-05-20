@@ -1,23 +1,55 @@
 import { ChatHitlCard, ChatToolCall } from '@seta/shared-ui';
-import { useHitlApproval } from '../../hooks/use-hitl-approval';
+import { useQueryClient } from '@tanstack/react-query';
+import { useSearch } from '@tanstack/react-router';
+import { useState } from 'react';
+import { resolveApproval, splitApprovalId } from '../../lib/resolve-approval';
 
 export interface UpdateMyDisplayNameProps {
   args: { displayName: string; expiresAt?: string };
   state: 'input-streaming' | 'input-pending-approval' | 'output-available' | 'output-error';
   callId: string;
+  approval?: { id?: string } | null;
 }
 
-export function UpdateMyDisplayNameRenderer({ args, state, callId }: UpdateMyDisplayNameProps) {
-  const { approve, reject } = useHitlApproval();
+export function UpdateMyDisplayNameRenderer({
+  args,
+  state,
+  callId,
+  approval,
+}: UpdateMyDisplayNameProps) {
+  const queryClient = useQueryClient();
+  const search = useSearch({ strict: false }) as { thread?: string };
+  const threadId = search.thread;
+  const [pending, setPending] = useState<'approve' | 'reject' | null>(null);
+
+  const onResolve = async (approved: boolean) => {
+    const { runId, toolCallId } = splitApprovalId(approval?.id);
+    if (!runId) return;
+    setPending(approved ? 'approve' : 'reject');
+    try {
+      await resolveApproval({
+        queryClient,
+        parentAgentName: 'self',
+        runId,
+        toolCallId: toolCallId ?? callId,
+        approved,
+        knownThreadId: threadId,
+      });
+    } finally {
+      setPending(null);
+    }
+  };
+
   if (state === 'input-pending-approval') {
     return (
       <ChatHitlCard
         title="Change display name"
         toolName="identity.updateMyDisplayName"
-        expiresAt={args.expiresAt ? new Date(args.expiresAt) : new Date(0)}
+        {...(args.expiresAt ? { expiresAt: new Date(args.expiresAt) } : {})}
         permissionHint="Requires identity.user.write.self"
-        onApprove={() => approve.mutate(callId)}
-        onReject={(note) => reject.mutate({ callId, note })}
+        onApprove={() => void onResolve(true)}
+        onReject={() => void onResolve(false)}
+        pending={pending}
       >
         <div className="rounded-md border border-hairline bg-surface-1 p-3 text-body-sm">
           <div className="flex items-center gap-2">

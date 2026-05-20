@@ -1,0 +1,1 @@
+DROP TABLE "copilot"."hitl_calls" CASCADE;

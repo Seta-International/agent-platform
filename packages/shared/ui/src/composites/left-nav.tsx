@@ -105,6 +105,7 @@ export interface LeftNavProps {
   linkComponent?: ShellLinkComponent;
   collapsed?: boolean;
   onCollapsedChange?: (collapsed: boolean) => void;
+  hideCollapse?: boolean;
   sessionFooter?: React.ReactNode;
   className?: string;
 }
@@ -124,6 +125,7 @@ export function LeftNav({
   linkComponent,
   collapsed: collapsedProp,
   onCollapsedChange,
+  hideCollapse = false,
   sessionFooter,
   className,
 }: LeftNavProps) {
@@ -219,15 +221,17 @@ export function LeftNav({
     >
       <div className="flex h-10 flex-none items-center justify-between border-b border-hairline pl-3.5 pr-2">
         <span className="text-eyebrow uppercase text-ink-subtle">Workspace</span>
-        <button
-          type="button"
-          onClick={() => setCollapsed(true)}
-          title="Collapse sidebar"
-          aria-label="Collapse sidebar"
-          className="inline-flex size-6 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
-        >
-          <ChevronLeft className="size-3.5" aria-hidden />
-        </button>
+        {!hideCollapse && (
+          <button
+            type="button"
+            onClick={() => setCollapsed(true)}
+            title="Collapse sidebar"
+            aria-label="Collapse sidebar"
+            className="inline-flex size-6 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
+          >
+            <ChevronLeft className="size-3.5" aria-hidden />
+          </button>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto py-1.5">

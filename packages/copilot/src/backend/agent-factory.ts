@@ -1,18 +1,13 @@
-import { openai } from '@ai-sdk/openai';
 import type { Mastra } from '@mastra/core';
 import { Agent } from '@mastra/core/agent';
+import { Memory } from '@mastra/memory';
 import { hashRoleSummary } from '@seta/core';
-import { MockLanguageModelV3 } from 'ai/test';
 import { LRUCache } from 'lru-cache';
-import type { ZodTypeAny } from 'zod';
-import { copilotEnv } from './env.ts';
-import { ROUTER_INSTRUCTIONS, SELF_INSTRUCTIONS } from './instructions.ts';
+import { buildAgentCatalog } from './agents/catalog.ts';
+import { type AgentSpec, type AgentSpecs, findSpec, listAgentNames } from './agents/specs.ts';
+import { resolveModel } from './model-registry.ts';
 import { filterToolsByRbac } from './rbac-filter.ts';
-import { type CopilotTool, toToolBag } from './tools/_types.ts';
-import { makeListMyThreadsTool } from './tools/copilot.list-my-threads.ts';
-import { STATIC_SELF_TOOLS } from './tools/self-tools.ts';
-
-export type AgentName = 'router' | 'self';
+import { type CopilotTool, RequestContextSchema } from './tools/_types.ts';
 
 export type AgentFactoryDeps = { mastra: Mastra };
 
@@ -21,78 +16,88 @@ type SessionLike = {
   role_summary: { roles: string[]; cross_tenant_read: boolean };
 };
 
-type MastraStorageThreadRow = {
-  id: string;
-  resourceId: string;
-  title?: string | null;
-  updatedAt?: Date;
-};
-
-type MastraMemoryStore = {
-  listThreads: (q: {
-    filter?: { resourceId?: string };
-    perPage?: number | false;
-  }) => Promise<{ threads: MastraStorageThreadRow[] }>;
-};
-
-type MastraStorageWithStores = {
-  stores?: { memory?: MastraMemoryStore };
-};
-
-export function createAgentFactory(deps: AgentFactoryDeps) {
-  const cache = new LRUCache<string, Agent>({ max: 512 });
-
-  return function forSession(session: SessionLike, agentName: AgentName): Agent {
-    const key = `${agentName}:${hashRoleSummary(session.role_summary)}`;
-    const cached = cache.get(key);
-    if (cached) return cached;
-
-    const baseTools: CopilotTool<ZodTypeAny>[] =
-      agentName === 'router'
-        ? []
-        : [
-            ...STATIC_SELF_TOOLS,
-            makeListMyThreadsTool({
-              listThreads: async ({ resourceId, limit }) => {
-                const storage = deps.mastra.getStorage() as MastraStorageWithStores | null;
-                const memory = storage?.stores?.memory;
-                if (!memory) return [];
-                const { threads } = await memory.listThreads({
-                  filter: { resourceId },
-                  perPage: limit,
-                });
-                return threads.map((r) => ({
-                  id: r.id,
-                  resource_id: r.resourceId,
-                  title: r.title ?? null,
-                  updated_at: r.updatedAt ?? new Date(),
-                }));
-              },
-            }),
-          ];
-
-    const allowedTools = filterToolsByRbac(baseTools, session);
-    const tools = toToolBag(allowedTools);
-
-    const agent = new Agent({
-      id: agentName === 'router' ? 'supervisor' : 'self',
-      name: agentName === 'router' ? 'Supervisor' : 'Self',
-      instructions: agentName === 'router' ? ROUTER_INSTRUCTIONS : SELF_INSTRUCTIONS,
-      model: resolveModel(),
-      tools: tools as never,
-    });
-    cache.set(key, agent);
-    return agent;
-  };
+export interface SessionAgents {
+  get(name: string): Agent | undefined;
+  names(): string[];
+  specs(): AgentSpecs;
 }
 
-function resolveModel() {
-  const id = copilotEnv.COPILOT_MODEL;
-  const slash = id.indexOf('/');
-  if (slash < 0) throw new Error(`COPILOT_MODEL must be in 'provider/model' form, got ${id}`);
-  const provider = id.slice(0, slash);
-  const model = id.slice(slash + 1);
-  if (provider === 'openai') return openai(model);
-  if (provider === 'mock') return new MockLanguageModelV3();
-  throw new Error(`Unsupported COPILOT_MODEL provider: ${provider} (supported: openai, mock)`);
+export interface AgentFactory {
+  (session: SessionLike): SessionAgents;
+  specs: AgentSpecs;
+  names: string[];
+}
+
+function toolsRecord(tools: ReadonlyArray<CopilotTool>): Record<string, CopilotTool> {
+  const bag: Record<string, CopilotTool> = {};
+  for (const t of tools) {
+    const id = (t as { id?: string }).id;
+    if (!id) throw new Error('Copilot tool is missing its required id field');
+    bag[id] = t;
+  }
+  return bag;
+}
+
+export function createAgentFactory(deps: AgentFactoryDeps): AgentFactory {
+  const specs = buildAgentCatalog({ mastra: deps.mastra });
+  const cache = new LRUCache<string, Map<string, Agent>>({ max: 256 });
+
+  function buildAgents(session: SessionLike): Map<string, Agent> {
+    const storage = deps.mastra.getStorage();
+    const memory = storage
+      ? new Memory({
+          storage: storage as never,
+          options: { semanticRecall: false, generateTitle: true },
+        })
+      : undefined;
+
+    const byName = new Map<string, Agent>();
+    const buildOne = (spec: AgentSpec): Agent => {
+      const cached = byName.get(spec.name);
+      if (cached) return cached;
+      const allowed = filterToolsByRbac(spec.tools, session);
+      const subAgents: Record<string, Agent> = {};
+      for (const target of spec.delegates ?? []) {
+        const targetSpec = findSpec(specs, target);
+        if (!targetSpec) continue;
+        subAgents[target] = buildOne(targetSpec);
+      }
+      const agent = new Agent({
+        id: spec.name,
+        name: spec.label,
+        description: spec.description,
+        instructions: spec.instructions,
+        model: resolveModel(undefined, { tierHint: spec.defaultTier }).model,
+        tools: toolsRecord(allowed) as never,
+        requestContextSchema: RequestContextSchema as never,
+        mastra: deps.mastra,
+        ...(Object.keys(subAgents).length > 0 ? { agents: subAgents as never } : {}),
+        ...(memory ? { memory } : {}),
+      });
+      byName.set(spec.name, agent);
+      return agent;
+    };
+
+    for (const spec of specs) buildOne(spec);
+    return byName;
+  }
+
+  const factory = ((session) => {
+    const key = hashRoleSummary(session.role_summary);
+    let bag = cache.get(key);
+    if (!bag) {
+      bag = buildAgents(session);
+      cache.set(key, bag);
+    }
+    const local = bag;
+    return {
+      get: (name) => local.get(name),
+      names: () => Array.from(local.keys()),
+      specs: () => specs,
+    };
+  }) as AgentFactory;
+
+  factory.specs = specs;
+  factory.names = listAgentNames(specs);
+  return factory;
 }

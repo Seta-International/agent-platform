@@ -16,7 +16,15 @@ const fakeAgent = {
 };
 
 const fakeMastra = { getStorage: () => null } as never;
-const fakeFactory = (() => fakeAgent) as never;
+const fakeSessionAgents = {
+  get: (name: string) => (name === 'router' ? fakeAgent : undefined),
+  names: () => ['router'],
+  specs: () => [{ name: 'router', label: 'R', description: 'r', instructions: '', tools: [] }],
+};
+const fakeFactory = Object.assign(() => fakeSessionAgents, {
+  specs: [{ name: 'router', label: 'R', description: 'r', instructions: '', tools: [] }],
+  names: ['router'],
+}) as never;
 
 const v6UserMessage = (text: string) => ({
   id: 'm-1',

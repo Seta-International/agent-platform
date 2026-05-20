@@ -64,6 +64,9 @@
   --max-width-6xl: 72rem;
   --max-width-7xl: 80rem;
 
+  --max-width-conversation: 45rem;
+  --max-width-message-bubble: 33.75rem;
+
   --radius-xs:   4px;
   --radius-sm:   6px;
   --radius-md:   8px;
@@ -97,6 +100,11 @@
   --text-card-title--line-height: 1.25;
   --text-card-title--letter-spacing: -0.4px;
   --text-card-title--font-weight: 500;
+
+  --text-section-title: 17px;
+  --text-section-title--line-height: 1.30;
+  --text-section-title--letter-spacing: -0.005em;
+  --text-section-title--font-weight: 600;
 
   --text-subhead: 20px;
   --text-subhead--line-height: 1.40;

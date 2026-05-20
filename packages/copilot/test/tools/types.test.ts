@@ -1,47 +1,61 @@
+import { RequestContext } from '@mastra/core/request-context';
 import { describe, expect, it } from 'vitest';
-import { z } from 'zod';
-import type { CopilotTool } from '../../src/backend/tools/_types.ts';
-import { toToolBag } from '../../src/backend/tools/_types.ts';
+import {
+  actorFromContext,
+  type CopilotRequestContext,
+  RequestContextSchema,
+  requiredPermissionFor,
+} from '../../src/backend/tools/_types.ts';
 import { STATIC_SELF_TOOLS } from '../../src/backend/tools/self-tools.ts';
 
-describe('toToolBag', () => {
-  it('produces a Mastra-shaped tools record', () => {
-    const tool: CopilotTool<z.ZodObject<{ x: z.ZodString }>> = {
-      name: 'x.echo',
-      description: 'echoes',
-      inputSchema: z.object({ x: z.string() }),
-      requiredPermission: 'copilot.chat.use',
-      execute: async (_actor, input) => ({ echoed: input.x }),
-    };
-    const bag = toToolBag([tool]);
-    const entry = bag['x.echo'];
-    expect(entry).toBeDefined();
-    expect(entry?.description).toBe('echoes');
+function ctxWith(entries: Record<string, unknown>) {
+  const rc = new RequestContext<CopilotRequestContext>();
+  for (const [k, v] of Object.entries(entries)) {
+    rc.set(k as keyof CopilotRequestContext, v as never);
+  }
+  return { requestContext: rc };
+}
+
+describe('RequestContextSchema', () => {
+  it('accepts a well-formed actor', () => {
+    expect(() =>
+      RequestContextSchema.parse({ actor: { type: 'user', user_id: 'u1' } }),
+    ).not.toThrow();
   });
 
-  it('preserves needsApproval flag when set', () => {
-    const tool: CopilotTool<z.ZodObject<Record<string, never>>> = {
-      name: 'y.write',
-      description: 'writes',
-      inputSchema: z.object({}),
-      requiredPermission: 'copilot.chat.use',
-      needsApproval: true,
-      execute: async () => null,
-    };
-    const bag = toToolBag([tool]);
-    const entry = bag['y.write'];
-    expect(entry?.needsApproval).toBe(true);
+  it('rejects missing user_id', () => {
+    expect(() => RequestContextSchema.parse({ actor: { type: 'user' } })).toThrow();
+  });
+});
+
+describe('actorFromContext', () => {
+  it('returns the actor when present and well-formed', () => {
+    expect(actorFromContext(ctxWith({ actor: { type: 'user', user_id: 'u1' } }))).toEqual({
+      type: 'user',
+      user_id: 'u1',
+    });
+  });
+
+  it('throws unauthenticated when actor is missing', () => {
+    expect(() => actorFromContext(ctxWith({}))).toThrow('unauthenticated');
+  });
+
+  it('throws unauthenticated when actor.user_id is missing', () => {
+    expect(() => actorFromContext(ctxWith({ actor: { type: 'user' } }))).toThrow('unauthenticated');
   });
 });
 
 describe('STATIC_SELF_TOOLS', () => {
-  it('contains the four static self tools', () => {
-    const names = STATIC_SELF_TOOLS.map((t) => t.name).sort();
-    expect(names).toEqual([
-      'core.serverTime',
-      'identity.listMyRoles',
-      'identity.updateMyDisplayName',
-      'identity.whoAmI',
+  it('contains the four static self tools, each with a registered required permission', () => {
+    const ids = STATIC_SELF_TOOLS.map((t) => t.id).sort();
+    expect(ids).toEqual([
+      'core_serverTime',
+      'identity_listMyRoles',
+      'identity_updateMyDisplayName',
+      'identity_whoAmI',
     ]);
+    for (const t of STATIC_SELF_TOOLS) {
+      expect(requiredPermissionFor(t)).toBeDefined();
+    }
   });
 });

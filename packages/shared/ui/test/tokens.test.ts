@@ -82,6 +82,7 @@ describe('tokens.css', () => {
       '--text-display-md',
       '--text-headline',
       '--text-card-title',
+      '--text-section-title',
       '--text-subhead',
       '--text-body-lg',
       '--text-body',

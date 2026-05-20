@@ -1,6 +1,7 @@
+import type { GroupRow } from '@seta/planner';
 import { Button } from '@seta/shared-ui';
 import { useEffect, useState } from 'react';
-import { listPlannerGroups, type PlannerGroupListItem } from '../../../lib/planner-api.ts';
+import { plannerClient } from '../../planner/api/planner-client.ts';
 import { grantRoleScoped } from '../api/client.ts';
 import { TENANT_ROLE_SLUGS } from '../constants.ts';
 
@@ -16,7 +17,7 @@ export function GrantRoleCombobox({
   const [role, setRole] = useState('');
   const [groupId, setGroupId] = useState('');
   const [tenantWide, setTenantWide] = useState(false);
-  const [groups, setGroups] = useState<PlannerGroupListItem[] | null>(null);
+  const [groups, setGroups] = useState<GroupRow[] | null>(null);
   const [groupsError, setGroupsError] = useState<string | null>(null);
 
   const isPlanner = role.startsWith('planner.');
@@ -26,7 +27,8 @@ export function GrantRoleCombobox({
   useEffect(() => {
     if (!isPlanner || groups !== null) return;
     let cancel = false;
-    listPlannerGroups()
+    plannerClient
+      .listGroups()
       .then((g) => {
         if (!cancel) setGroups(g);
       })

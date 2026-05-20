@@ -1,40 +1,46 @@
+import { createTool } from '@mastra/core/tools';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { filterToolsByRbac } from '../src/backend/rbac-filter.ts';
-import type { CopilotTool } from '../src/backend/tools/_types.ts';
+import { registerToolPermission } from '../src/backend/tools/_types.ts';
 
-const tools: CopilotTool<z.ZodObject<Record<string, never>>>[] = [
-  {
-    name: 'a',
+const a = registerToolPermission(
+  createTool({
+    id: 'a',
     description: '',
     inputSchema: z.object({}),
-    requiredPermission: 'copilot.chat.use',
-    execute: async () => null,
-  },
-  {
-    name: 'b',
+    execute: async () => ({}),
+  }),
+  'copilot.chat.use',
+);
+
+const b = registerToolPermission(
+  createTool({
+    id: 'b',
     description: '',
     inputSchema: z.object({}),
-    requiredPermission: 'identity.user.write.self',
-    execute: async () => null,
-  },
-];
+    execute: async () => ({}),
+  }),
+  'identity.user.write.self',
+);
 
 describe('filterToolsByRbac', () => {
   it('keeps tools whose permission the session holds', () => {
-    const out = filterToolsByRbac(tools, { effective_permissions: new Set(['copilot.chat.use']) });
-    expect(out.map((t) => t.name)).toEqual(['a']);
+    const out = filterToolsByRbac([a, b], {
+      effective_permissions: new Set(['copilot.chat.use']),
+    });
+    expect(out.map((t) => t.id)).toEqual(['a']);
   });
 
   it('keeps both when session holds both permissions', () => {
-    const out = filterToolsByRbac(tools, {
+    const out = filterToolsByRbac([a, b], {
       effective_permissions: new Set(['copilot.chat.use', 'identity.user.write.self']),
     });
-    expect(out.map((t) => t.name).sort()).toEqual(['a', 'b']);
+    expect(out.map((t) => t.id).sort()).toEqual(['a', 'b']);
   });
 
   it('returns empty when no permissions match', () => {
-    const out = filterToolsByRbac(tools, { effective_permissions: new Set<string>() });
+    const out = filterToolsByRbac([a, b], { effective_permissions: new Set<string>() });
     expect(out).toEqual([]);
   });
 });

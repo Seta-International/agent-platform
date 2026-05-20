@@ -41,7 +41,7 @@ export function AdminSso({ status, error }: AdminSsoProps) {
   const hasEnabledProvider = providers?.some((p) => p.enabled) ?? false;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 px-7 py-6">
       <h1 className="text-2xl font-semibold">SSO Configuration</h1>
 
       {status === 'consent_granted' && (

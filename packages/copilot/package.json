@@ -34,6 +34,7 @@
     "@ai-sdk/openai": "^3.0.64",
     "@mastra/ai-sdk": "^1.4.2",
     "@mastra/core": "^1.35.0",
+    "@mastra/memory": "^1.18.2",
     "@mastra/pg": "^1.11.0",
     "ai": "^6.0.185",
     "drizzle-orm": "^0.45.2",

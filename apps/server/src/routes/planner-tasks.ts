@@ -10,6 +10,7 @@ import {
   getTask,
   listChecklistItems,
   listMyAssignedTasks,
+  listTaskEvents,
   listTasks,
   moveTask,
   removeChecklistItem,
@@ -300,5 +301,33 @@ export function registerPlannerTasksRoutes(app: Hono<SessionEnv>): void {
     const session = c.get('user');
     await removeChecklistItem({ item_id: c.req.param('id'), session });
     return c.body(null, 204);
+  });
+
+  app.get('/api/planner/v1/tasks/:id/events', async (c) => {
+    const session = c.get('user');
+    const q = c.req.query();
+    const rawLimit = q.limit ? Number.parseInt(q.limit, 10) : undefined;
+    const limit = rawLimit !== undefined && !Number.isNaN(rawLimit) ? rawLimit : undefined;
+    const result = await listTaskEvents({
+      task_id: c.req.param('id'),
+      session,
+      limit,
+      cursor: q.cursor ?? undefined,
+    });
+    return c.json({
+      events: result.events.map((e) => ({
+        id: e.id,
+        event_type: e.event_type,
+        event_version: e.event_version,
+        aggregate_type: e.aggregate_type,
+        aggregate_id: e.aggregate_id,
+        tenant_id: e.tenant_id,
+        trace_id: e.trace_id,
+        caused_by_event_id: e.caused_by_event_id,
+        occurred_at: e.occurred_at.toISOString(),
+        payload: e.payload,
+      })),
+      next_cursor: result.next_cursor,
+    });
   });
 }

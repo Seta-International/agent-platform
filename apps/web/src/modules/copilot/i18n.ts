@@ -4,12 +4,12 @@ export const COPILOT_COPY = {
   searchThreads: 'Search threads…',
   emptyThreads: {
     title: 'Start a conversation',
-    body: 'Ask Supervisor anything — read tools run instantly, writes pause for your approval.',
+    body: 'Ask anything about your work. Changes that affect data will pause for your review.',
   },
-  composerPlaceholder: 'Ask Supervisor anything…',
-  composerHint: 'Will ask for approval before any writes',
+  composerPlaceholder: 'Message your assistant…',
+  composerHint: 'You’ll review any change before it’s applied',
   modelUnavailable: 'Set COPILOT_MODEL + key in .env to enable the assistant.',
   rateLimited: (s: number) => `You hit your per-minute limit — retry in ${s}s`,
-  hitlExpired: 'This request expired. Ask Supervisor to try again.',
+  hitlExpired: 'This request expired. Try again to continue.',
   permissionRevoked: 'Your role no longer permits this — the change was not applied.',
 } as const;

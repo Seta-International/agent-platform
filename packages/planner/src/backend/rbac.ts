@@ -15,13 +15,14 @@ export type PlannerErrorCode =
   | 'CROSS_TENANT';
 
 export class PlannerError extends Error {
-  constructor(
-    public code: PlannerErrorCode,
-    message: string,
-    public details?: Record<string, unknown>,
-  ) {
+  readonly code: PlannerErrorCode;
+  readonly details?: Record<string, unknown>;
+
+  constructor(code: PlannerErrorCode, message: string, details?: Record<string, unknown>) {
     super(message);
     this.name = 'PlannerError';
+    this.code = code;
+    this.details = details;
   }
 }
 

@@ -1,6 +1,7 @@
 import * as React from 'react';
 
 import { cn } from '../lib/cn';
+import { Sheet, SheetContent } from '../primitives/sheet';
 import { CopilotPanel } from './copilot-panel';
 import { LeftNav, type ShellLinkComponent, type ShellNavModule } from './left-nav';
 import { TopBar } from './top-bar';
@@ -20,6 +21,7 @@ export interface AppShellProps {
   copilotPanel?: React.ReactNode;
   copilotAlert?: boolean;
   defaultCopilotOpen?: boolean;
+  hideCopilot?: boolean;
   notificationCount?: number;
 
   children: React.ReactNode;
@@ -39,18 +41,21 @@ export function AppShell({
   copilotPanel,
   copilotAlert = false,
   defaultCopilotOpen = false,
+  hideCopilot = false,
   notificationCount = 0,
   children,
   className,
 }: AppShellProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(defaultSidebarCollapsed);
   const [copilotOpen, setCopilotOpen] = React.useState(defaultCopilotOpen);
+  const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const mod = e.metaKey || e.ctrlKey;
       if (!mod) return;
       if (e.key === '\\') {
+        if (hideCopilot) return;
         e.preventDefault();
         setCopilotOpen((o) => !o);
       } else if (e.key === 'b' || e.key === 'B') {
@@ -61,7 +66,7 @@ export function AppShell({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [hideCopilot]);
 
   return (
     <div
@@ -78,21 +83,42 @@ export function AppShell({
         copilotOpen={copilotOpen}
         copilotAlert={copilotAlert}
         onCopilotToggle={() => setCopilotOpen((o) => !o)}
+        hideCopilotButton={hideCopilot}
         notificationCount={notificationCount}
+        onMobileNavOpen={() => setMobileNavOpen(true)}
       />
       <div className="flex min-h-0 flex-1">
-        <LeftNav
-          modules={modules}
-          activeItemId={activeItemId}
-          linkComponent={linkComponent}
-          collapsed={sidebarCollapsed}
-          onCollapsedChange={setSidebarCollapsed}
-          sessionFooter={sessionFooter}
-        />
+        <div className="hidden md:flex">
+          <LeftNav
+            modules={modules}
+            activeItemId={activeItemId}
+            linkComponent={linkComponent}
+            collapsed={sidebarCollapsed}
+            onCollapsedChange={setSidebarCollapsed}
+            sessionFooter={sessionFooter}
+          />
+        </div>
+        <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+          <SheetContent
+            side="left"
+            hideClose
+            className="w-[260px] border-r border-hairline bg-surface-1 p-0 sm:max-w-none md:hidden"
+          >
+            <LeftNav
+              modules={modules}
+              activeItemId={activeItemId}
+              linkComponent={linkComponent}
+              collapsed={false}
+              hideCollapse
+              sessionFooter={sessionFooter}
+              className="w-full border-r-0"
+            />
+          </SheetContent>
+        </Sheet>
         <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto bg-canvas">
           {children}
         </main>
-        {copilotOpen && (
+        {!hideCopilot && copilotOpen && (
           <CopilotPanel onClose={() => setCopilotOpen(false)}>{copilotPanel}</CopilotPanel>
         )}
       </div>

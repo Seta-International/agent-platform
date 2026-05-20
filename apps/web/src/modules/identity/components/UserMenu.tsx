@@ -22,9 +22,11 @@ export function UserMenu() {
   const navigate = useNavigate();
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger>
-        <Avatar>
-          <AvatarFallback>{initials(session.display_name || session.email)}</AvatarFallback>
+      <DropdownMenuTrigger className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus focus-visible:ring-offset-2 focus-visible:ring-offset-canvas">
+        <Avatar className="size-6">
+          <AvatarFallback className="text-[10px] font-semibold">
+            {initials(session.display_name || session.email)}
+          </AvatarFallback>
         </Avatar>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">

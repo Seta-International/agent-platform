@@ -9,16 +9,20 @@ export interface ModuleMigration {
 }
 
 export class MigrationChecksumMismatch extends Error {
-  constructor(
-    public module: string,
-    public filename: string,
-    public expected: string,
-    public actual: string,
-  ) {
+  readonly module: string;
+  readonly filename: string;
+  readonly expected: string;
+  readonly actual: string;
+
+  constructor(module: string, filename: string, expected: string, actual: string) {
     super(
       `Migration checksum mismatch for ${module}/${filename}: expected ${expected}, found ${actual}. Don't hand-edit committed migrations — add a new numbered file instead.`,
     );
     this.name = 'MigrationChecksumMismatch';
+    this.module = module;
+    this.filename = filename;
+    this.expected = expected;
+    this.actual = actual;
   }
 }
 

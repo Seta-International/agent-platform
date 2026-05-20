@@ -1,7 +1,9 @@
 import { z } from 'zod';
 
 const Env = z.object({
-  COPILOT_MODEL: z.string().min(1),
+  COPILOT_MODEL: z.string().min(1).optional(),
+  COPILOT_MODELS: z.string().optional(),
+  COPILOT_MODEL_DEFAULT: z.string().optional(),
   COPILOT_MODEL_BASE_URL: z.string().url().optional(),
   COPILOT_MODEL_API_KEY: z.string().optional(),
   COPILOT_HITL_EXPIRY_SECONDS: z.coerce.number().int().positive().default(300),

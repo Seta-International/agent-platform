@@ -1,21 +1,19 @@
 import { toAISdkStream } from '@mastra/ai-sdk';
+import { RequestContext } from '@mastra/core/request-context';
 import { createUIMessageStream, createUIMessageStreamResponse, type UIMessage } from 'ai';
-import { and, eq } from 'drizzle-orm';
 import type { Hono } from 'hono';
 import { z } from 'zod';
-import { copilotDb } from '../db/index.ts';
-import { hitlCalls } from '../db/schema.ts';
-import type { AgentName } from './agent-factory.ts';
+import type { AgentFactory } from './agent-factory.ts';
 import { copilotEnv } from './env.ts';
-import { approveHitl, HitlError, rejectHitl } from './hitl.ts';
+import { listModels, ModelNotFoundError, resolveModel } from './model-registry.ts';
 import { RateLimitError, reserveTurn } from './rate-limit.ts';
-import { runWrappedTool } from './tool-runner.ts';
 
 const ChatBody = z.object({
   id: z.string().optional(),
   messages: z.array(z.unknown()).min(1),
   trigger: z.enum(['submit-message', 'regenerate-message']).optional(),
   resourceId: z.string().optional(),
+  model: z.string().optional(),
 });
 
 export type SessionLike = {
@@ -25,15 +23,8 @@ export type SessionLike = {
   role_summary: { roles: string[]; cross_tenant_read: boolean };
 };
 
-type AgentLike = {
-  stream: (
-    messages: UIMessage[],
-    options?: { memory?: { thread?: string; resource?: string } },
-  ) => Promise<unknown>;
-};
-
 export type CopilotRouteDeps = {
-  factory: (session: SessionLike, agentName: AgentName) => AgentLike;
+  factory: AgentFactory;
   mastra: unknown;
 };
 
@@ -66,7 +57,9 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
     }
 
     const agentName = c.req.param('agentName');
-    if (agentName !== 'router' && agentName !== 'self') {
+    const session_agents = deps.factory(session);
+    const agent = session_agents.get(agentName);
+    if (!agent) {
       return c.json({ error: 'not_found', message: 'unknown agent' }, 404);
     }
 
@@ -97,12 +90,38 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
       throw e;
     }
 
-    const agent = deps.factory(session, agentName);
+    const spec = session_agents.specs().find((s) => s.name === agentName);
     const resourceId = parsed.data.resourceId ?? session.user_id;
 
-    const result = await agent.stream(messages, {
-      memory: { thread: parsed.data.id, resource: resourceId },
+    let modelOverride: ReturnType<typeof resolveModel>['model'] | undefined;
+    try {
+      modelOverride = resolveModel(parsed.data.model, {
+        tierHint: spec?.defaultTier,
+        lastUserText: userText,
+      }).model;
+    } catch (e) {
+      if (e instanceof ModelNotFoundError) {
+        return c.json({ error: 'unknown_model', message: e.message }, 400);
+      }
+      throw e;
+    }
+
+    const requestContext = new RequestContext();
+    requestContext.set('actor', {
+      type: 'user' as const,
+      user_id: session.user_id,
     });
+
+    const result = await agent.stream(
+      messages as never,
+      {
+        ...(parsed.data.id
+          ? { memory: { thread: parsed.data.id, resource: resourceId } }
+          : { memory: { resource: resourceId } }),
+        requestContext,
+        ...(modelOverride ? { model: modelOverride as never } : {}),
+      } as never,
+    );
 
     const uiStream = createUIMessageStream({
       originalMessages: messages,
@@ -136,6 +155,12 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
   };
 
   type ListThreadsArgs = { filter?: { resourceId?: string }; perPage?: number | false };
+  type MastraStoredMessage = {
+    id?: string;
+    role?: string;
+    content?: unknown;
+    createdAt?: Date | string;
+  };
   type MemoryStore = {
     listThreads(args: ListThreadsArgs): Promise<{ threads: ThreadRow[] }>;
     getThreadById(q: { threadId: string; resourceId?: string }): Promise<ThreadRow | null>;
@@ -145,8 +170,86 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
       metadata: Record<string, unknown>;
     }): Promise<ThreadRow>;
     deleteThread(q: { threadId: string }): Promise<void>;
-    listMessages(q: { threadId: string }): Promise<{ messages: unknown[] }>;
+    listMessages(q: {
+      threadId: string;
+      page?: number;
+      perPage?: number;
+    }): Promise<{ messages: MastraStoredMessage[]; total?: number; hasMore?: boolean }>;
   };
+
+  type TextUIPart = { type: 'text'; text: string };
+  type ReasoningUIPart = { type: 'reasoning'; text: string };
+  type ToolUIPart = {
+    type: `tool-${string}`;
+    toolCallId: string;
+    state: 'output-available' | 'output-error' | 'input-available';
+    input: unknown;
+    output?: unknown;
+    errorText?: string;
+  };
+  type UIMessagePart = TextUIPart | ReasoningUIPart | ToolUIPart;
+  type UIMessageLike = { id: string; role: 'user' | 'assistant'; parts: UIMessagePart[] };
+
+  // Mastra stores tool calls as `{ type:'tool-invocation', toolInvocation }`; ai@6 wants
+  // `{ type:'tool-<name>', state, input, output }`. Translate at the read boundary.
+  type MastraToolInvocation = {
+    toolCallId?: unknown;
+    toolName?: unknown;
+    state?: unknown;
+    args?: unknown;
+    result?: unknown;
+    errorText?: unknown;
+  };
+
+  function mastraPartToUIPart(raw: unknown): UIMessagePart | null {
+    if (!raw || typeof raw !== 'object') return null;
+    const type = (raw as { type?: unknown }).type;
+    if (type === 'text') {
+      const text = (raw as { text?: unknown }).text;
+      return typeof text === 'string' && text.length > 0 ? { type: 'text', text } : null;
+    }
+    if (type === 'reasoning') {
+      const text = (raw as { text?: unknown }).text;
+      return typeof text === 'string' && text.length > 0 ? { type: 'reasoning', text } : null;
+    }
+    if (type === 'tool-invocation') {
+      const i = (raw as { toolInvocation?: MastraToolInvocation }).toolInvocation;
+      if (!i || typeof i.toolCallId !== 'string' || typeof i.toolName !== 'string') return null;
+      const hasError = typeof i.errorText === 'string';
+      const hasResult = i.result !== undefined;
+      const state: ToolUIPart['state'] = hasError
+        ? 'output-error'
+        : hasResult
+          ? 'output-available'
+          : 'input-available';
+      const part: ToolUIPart = {
+        type: `tool-${i.toolName}`,
+        toolCallId: i.toolCallId,
+        state,
+        input: i.args,
+      };
+      if (state === 'output-available') part.output = i.result;
+      if (state === 'output-error') part.errorText = (i.errorText as string) ?? 'tool failed';
+      return part;
+    }
+    return null;
+  }
+
+  function toUIMessage(m: MastraStoredMessage, idx: number): UIMessageLike | null {
+    const role = m.role === 'user' || m.role === 'assistant' ? m.role : null;
+    if (!role) return null;
+    const content = m.content;
+    if (!content || typeof content !== 'object' || Array.isArray(content)) return null;
+    const stored = content as { parts?: unknown };
+    if (!Array.isArray(stored.parts)) return null;
+    const parts: UIMessagePart[] = [];
+    for (const raw of stored.parts) {
+      const p = mastraPartToUIPart(raw);
+      if (p) parts.push(p);
+    }
+    if (parts.length === 0) return null;
+    return { id: m.id ?? `msg-${idx}`, role, parts };
+  }
 
   const getMemoryStore = (): MemoryStore | null => {
     const m = deps.mastra as {
@@ -209,10 +312,24 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
     if (!thread || thread.resourceId !== check.session.user_id) {
       return c.json({ error: 'not_found', message: 'thread not found' }, 404);
     }
-    const messagesResult = storage
-      ? await storage.listMessages({ threadId: thread.id })
-      : { messages: [] };
-    return c.json({ thread, messages: messagesResult.messages });
+    const pageRaw = c.req.query('page');
+    const perPageRaw = c.req.query('perPage');
+    const page = pageRaw ? Math.max(0, Number.parseInt(pageRaw, 10)) : 0;
+    const perPage = perPageRaw ? Math.min(200, Math.max(1, Number.parseInt(perPageRaw, 10))) : 50;
+    const result = storage
+      ? await storage.listMessages({ threadId: thread.id, page, perPage })
+      : { messages: [], total: 0, hasMore: false };
+    const uiMessages = result.messages
+      .map((m, i) => toUIMessage(m, i))
+      .filter((m): m is UIMessageLike => m !== null);
+    return c.json({
+      thread: { id: thread.id, title: thread.title ?? null, updatedAt: thread.updatedAt ?? null },
+      messages: uiMessages,
+      page,
+      perPage,
+      total: result.total ?? uiMessages.length,
+      hasMore: result.hasMore ?? false,
+    });
   });
 
   app.patch('/api/copilot/v1/threads/:id', async (c) => {
@@ -252,6 +369,36 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
     return c.json({ ok: true });
   });
 
+  app.get('/api/copilot/v1/agents', async (c) => {
+    const check = checkPerm(c.get('session') as SessionLike | undefined, 'copilot.chat.use');
+    if (!check.ok) return c.json(check.denied.body, check.denied.status);
+    const agents = deps.factory.specs
+      .filter((s) => s.userVisible !== false)
+      .map((s) => ({
+        name: s.name,
+        label: s.label,
+        description: s.description,
+        delegates: s.delegates ?? [],
+      }));
+    return c.json({ agents, default: agents[0]?.name ?? null });
+  });
+
+  app.get('/api/copilot/v1/models', async (c) => {
+    const check = checkPerm(c.get('session') as SessionLike | undefined, 'copilot.chat.use');
+    if (!check.ok) return c.json(check.denied.body, check.denied.status);
+    const { models, default: defaultKey } = listModels();
+    const withAuto = [
+      {
+        key: 'auto',
+        label: 'Auto',
+        tier: 'auto' as const,
+        supportsReasoning: models.some((m) => m.supportsReasoning),
+      },
+      ...models,
+    ];
+    return c.json({ models: withAuto, default: defaultKey });
+  });
+
   app.get('/api/copilot/v1/health', async (c) => {
     const modelConfigured = Boolean(copilotEnv.COPILOT_MODEL);
     let dbReachable = true;
@@ -277,51 +424,85 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
     });
   });
 
-  app.post('/api/copilot/v1/hitl/:callId/approve', async (c) => {
-    const session = c.get('session') as SessionLike | undefined;
-    if (!session) return c.json({ error: 'unauthorized', message: 'session required' }, 401);
-    const callId = c.req.param('callId');
-    const db = copilotDb();
-    const [row] = await db
-      .select()
-      .from(hitlCalls)
-      .where(and(eq(hitlCalls.callId, callId), eq(hitlCalls.userId, session.user_id)));
-    if (!row) return c.json({ error: 'not_found', message: 'call not found' }, 404);
-    if (!session.effective_permissions.has(row.requiredPermission)) {
-      return c.json({ error: 'forbidden', message: `${row.requiredPermission} required` }, 403);
-    }
-    try {
-      const outcome = await runWrappedTool(
-        row.toolName,
-        session,
-        row.input as Record<string, unknown>,
-      );
-      const result = await approveHitl({ callId, userId: session.user_id, outcome });
-      return c.json(result);
-    } catch (e) {
-      if (e instanceof HitlError && e.code === 'hitl_expired') {
-        return c.json({ error: 'hitl_expired', message: e.message }, 409);
-      }
-      throw e;
-    }
+  const ApproveBody = z.object({
+    runId: z.string().min(1),
+    toolCallId: z.string().min(1),
+    approved: z.boolean(),
+    threadId: z.string().optional(),
   });
 
-  app.post('/api/copilot/v1/hitl/:callId/reject', async (c) => {
+  app.post('/api/copilot/v1/chat/:agentName/approve', async (c) => {
     const session = c.get('session') as SessionLike | undefined;
-    if (!session) return c.json({ error: 'unauthorized', message: 'session required' }, 401);
-    const callId = c.req.param('callId');
-    const body = (await c.req.json().catch(() => ({}))) as { note?: string };
-    try {
-      const result = await rejectHitl({ callId, userId: session.user_id, note: body.note });
-      return c.json(result);
-    } catch (e) {
-      if (e instanceof HitlError && e.code === 'not_found') {
-        return c.json({ error: 'not_found', message: e.message }, 404);
-      }
-      if (e instanceof HitlError && e.code === 'hitl_expired') {
-        return c.json({ error: 'hitl_expired', message: e.message }, 409);
-      }
-      throw e;
+    if (!session) {
+      return c.json({ error: 'unauthorized', message: 'session required' }, 401);
     }
+    if (!session.effective_permissions.has('copilot.chat.use')) {
+      return c.json({ error: 'forbidden', message: 'copilot.chat.use required' }, 403);
+    }
+
+    const agentName = c.req.param('agentName');
+    const sessionAgents = deps.factory(session);
+    const agent = sessionAgents.get(agentName);
+    if (!agent) {
+      return c.json({ error: 'not_found', message: 'unknown agent' }, 404);
+    }
+
+    const parsed = ApproveBody.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) {
+      return c.json(
+        { error: 'validation_failed', message: 'bad body', details: parsed.error.format() },
+        400,
+      );
+    }
+
+    const requestContext = new RequestContext();
+    requestContext.set('actor', {
+      type: 'user' as const,
+      user_id: session.user_id,
+    });
+
+    const resourceId = session.user_id;
+    const resumeOpts = {
+      runId: parsed.data.runId,
+      toolCallId: parsed.data.toolCallId,
+      ...(parsed.data.threadId
+        ? { memory: { thread: parsed.data.threadId, resource: resourceId } }
+        : { memory: { resource: resourceId } }),
+      requestContext,
+    } as never;
+
+    let result: unknown;
+    try {
+      result = parsed.data.approved
+        ? await (agent as { approveToolCall: (o: never) => Promise<unknown> }).approveToolCall(
+            resumeOpts,
+          )
+        : await (agent as { declineToolCall: (o: never) => Promise<unknown> }).declineToolCall(
+            resumeOpts,
+          );
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return c.json({ error: 'resume_failed', message: msg }, 500);
+    }
+
+    const uiStream = createUIMessageStream({
+      execute: async ({ writer }) => {
+        const stream = toAISdkStream(result as never, {
+          from: 'agent',
+          version: 'v6',
+        }) as ReadableStream<unknown>;
+        const reader = stream.getReader();
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            writer.write(value as never);
+          }
+        } finally {
+          reader.releaseLock();
+        }
+      },
+    });
+    return createUIMessageStreamResponse({ stream: uiStream });
   });
 }

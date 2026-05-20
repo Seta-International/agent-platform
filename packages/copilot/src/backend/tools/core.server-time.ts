@@ -1,12 +1,15 @@
+import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
-import type { CopilotTool } from './_types.ts';
+import { RequestContextSchema, registerToolPermission } from './_types.ts';
 
-const Input = z.object({});
-
-export const serverTimeTool: CopilotTool<typeof Input> = {
-  name: 'core.serverTime',
-  description: 'Returns the current server time as ISO-8601.',
-  inputSchema: Input,
-  requiredPermission: 'copilot.chat.use',
-  execute: async () => ({ iso: new Date().toISOString() }),
-};
+export const serverTimeTool = registerToolPermission(
+  createTool({
+    id: 'core_serverTime',
+    description: 'Returns the current server time as ISO-8601.',
+    inputSchema: z.object({}),
+    outputSchema: z.object({ iso: z.string() }),
+    requestContextSchema: RequestContextSchema,
+    execute: async () => ({ iso: new Date().toISOString() }),
+  }),
+  'copilot.chat.use',
+);

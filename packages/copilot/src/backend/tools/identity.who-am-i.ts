@@ -1,17 +1,20 @@
+import { createTool } from '@mastra/core/tools';
 import { whoAmI } from '@seta/identity';
 import { z } from 'zod';
-import type { CopilotTool } from './_types.ts';
+import { actorFromContext, RequestContextSchema, registerToolPermission } from './_types.ts';
 
-const Input = z.object({});
-
-export const whoAmITool: CopilotTool<typeof Input> = {
-  name: 'identity.whoAmI',
-  description: "Returns the current user's profile (display name, email, tenant, availability).",
-  inputSchema: Input,
-  requiredPermission: 'identity.user.read.self',
-  execute: async (actor) => {
-    const profile = await whoAmI(actor);
-    if (!profile) throw new Error('profile_not_found');
-    return profile;
-  },
-};
+export const whoAmITool = registerToolPermission(
+  createTool({
+    id: 'identity_whoAmI',
+    description: "Returns the current user's profile (display name, email, tenant, availability).",
+    inputSchema: z.object({}),
+    requestContextSchema: RequestContextSchema,
+    execute: async (_input, ctx) => {
+      const actor = actorFromContext(ctx);
+      const profile = await whoAmI(actor);
+      if (!profile) throw new Error('profile_not_found');
+      return profile;
+    },
+  }),
+  'identity.user.read.self',
+);

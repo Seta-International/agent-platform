@@ -1,7 +1,9 @@
 import { Send } from 'lucide-react';
-import type * as React from 'react';
+import { type KeyboardEvent, type ReactNode, useLayoutEffect, useRef } from 'react';
 import { cn } from '../lib/cn';
 import { KbdHint } from './kbd-hint';
+
+const MAX_TEXTAREA_HEIGHT_PX = 160;
 
 export interface ChatComposerProps {
   value: string;
@@ -10,7 +12,7 @@ export interface ChatComposerProps {
   placeholder?: string;
   pending?: boolean;
   disabled?: boolean;
-  agentSelector?: React.ReactNode;
+  toolbar?: ReactNode;
   permissionHint?: string;
   className?: string;
 }
@@ -22,37 +24,56 @@ export function ChatComposer({
   placeholder,
   pending,
   disabled,
-  agentSelector,
+  toolbar,
   permissionHint,
   className,
 }: ChatComposerProps) {
-  const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: textarea must re-measure when value changes
+  useLayoutEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, MAX_TEXTAREA_HEIGHT_PX)}px`;
+  }, [value]);
+
+  const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.nativeEvent.isComposing || e.keyCode === 229) return;
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       if (!disabled && !pending && value.trim()) onSubmit();
     }
   };
   return (
-    <div className={cn('border-t border-hairline bg-canvas px-6 py-5', className)}>
-      <div className="mx-auto max-w-[720px]">
-        <div className="rounded-xl border border-hairline bg-canvas p-3 shadow-sm">
+    <div className={cn('border-t border-hairline bg-canvas px-4 py-4 md:px-6 md:py-5', className)}>
+      <div className="mx-auto max-w-conversation">
+        <div className="rounded-xl border border-hairline bg-canvas p-3 shadow-sm transition-[background-color,border-color] duration-150 focus-within:border-hairline-strong focus-within:bg-surface-1">
           <textarea
-            className="block w-full resize-none bg-transparent text-body-sm placeholder:text-ink-subtle focus:outline-none"
-            rows={2}
+            ref={textareaRef}
+            className="block w-full resize-none overflow-y-auto bg-transparent text-body-sm leading-[1.4] placeholder:text-ink-subtle focus:outline-none focus-visible:outline-none"
+            rows={1}
             value={value}
             onChange={(e) => onChange(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder={placeholder ?? 'Ask Supervisor anything…'}
+            placeholder={placeholder ?? 'Message your assistant…'}
             disabled={disabled || pending}
           />
-          <div className="mt-2.5 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-caption text-ink-subtle">
-              {agentSelector}
-              {permissionHint && <span>{permissionHint}</span>}
+          <div className="mt-2.5 flex items-center justify-between gap-3">
+            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-caption">
+              {toolbar}
+              {permissionHint && <span className="text-ink-subtle">{permissionHint}</span>}
             </div>
-            <div className="flex items-center gap-2 text-caption text-ink-subtle">
-              <KbdHint keys={['⏎']} /> <span>send</span>
-              <KbdHint keys={['⇧⏎']} /> <span>new line</span>
+            <div className="flex shrink-0 items-center gap-2 text-caption text-ink-subtle">
+              <span className="hidden items-center gap-1 sm:inline-flex">
+                <KbdHint keys={['⏎']} /> send
+              </span>
+              <span aria-hidden className="hidden sm:inline">
+                ·
+              </span>
+              <span className="hidden items-center gap-1 sm:inline-flex">
+                <KbdHint keys={['⇧⏎']} /> new line
+              </span>
               <button
                 type="button"
                 onClick={() => !disabled && !pending && value.trim() && onSubmit()}
