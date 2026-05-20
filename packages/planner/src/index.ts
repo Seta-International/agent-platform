@@ -1,13 +1,16 @@
 export { addChecklistItem } from './backend/domain/add-checklist-item.ts';
 export { addGroupMember } from './backend/domain/add-group-member.ts';
+export { applyLabel } from './backend/domain/apply-label.ts';
 export { assignTask } from './backend/domain/assign-task.ts';
 export { completeTask } from './backend/domain/complete-task.ts';
 export { createBucket } from './backend/domain/create-bucket.ts';
 export { createGroup } from './backend/domain/create-group.ts';
+export { createLabel } from './backend/domain/create-label.ts';
 export { createPlan } from './backend/domain/create-plan.ts';
 export { createTask } from './backend/domain/create-task.ts';
 export { deleteBucket } from './backend/domain/delete-bucket.ts';
 export { deleteGroup } from './backend/domain/delete-group.ts';
+export { deleteLabel } from './backend/domain/delete-label.ts';
 export { deletePlan } from './backend/domain/delete-plan.ts';
 export { deleteTask } from './backend/domain/delete-task.ts';
 export { moveTask } from './backend/domain/move-task.ts';
@@ -18,10 +21,12 @@ export { reorderBucket } from './backend/domain/reorder-bucket.ts';
 export { restoreGroup } from './backend/domain/restore-group.ts';
 export { restorePlan } from './backend/domain/restore-plan.ts';
 export { restoreTask } from './backend/domain/restore-task.ts';
+export { unapplyLabel } from './backend/domain/unapply-label.ts';
 export { unassignTask } from './backend/domain/unassign-task.ts';
 export { updateBucket } from './backend/domain/update-bucket.ts';
 export { updateChecklistItem } from './backend/domain/update-checklist-item.ts';
 export { updateGroup } from './backend/domain/update-group.ts';
+export { updateLabel } from './backend/domain/update-label.ts';
 export { updatePlan } from './backend/domain/update-plan.ts';
 export { updateTask } from './backend/domain/update-task.ts';
 export type {
@@ -39,11 +44,13 @@ export type {
   AddChecklistItemInput,
   CreateBucketInput,
   CreateGroupInput,
+  CreateLabelInput,
   CreatePlanInput,
   CreateTaskInput,
   UpdateBucketPatch,
   UpdateChecklistItemPatch,
   UpdateGroupPatch,
+  UpdateLabelPatch,
   UpdatePlanPatch,
   UpdateTaskPatch,
 } from './backend/inputs.ts';
