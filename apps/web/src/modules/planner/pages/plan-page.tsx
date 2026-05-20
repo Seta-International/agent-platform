@@ -256,7 +256,7 @@ export function PlanPage({
                             </Droppable>
                           );
                         }
-                        // Virtualized buckets don't participate in keyboard navigation in v1:
+                        // Virtualized buckets don't participate in keyboard navigation:
                         // rows outside the overscan window aren't mounted, so cardRefs never
                         // contains their elements and .focus() can't reach them.
                         return (

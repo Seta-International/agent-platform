@@ -55,9 +55,8 @@ export function TaskSheetContainer({ taskId, planId, onClose }: Props) {
     setEditingDesc(false);
   }, [taskQ.data, draftDesc, updateTask]);
 
-  // PR2's TaskSheet renders title as a static string, so there is no input element to focus.
-  // When shared-ui exposes an editable title slot, wire titleInputRef to that element and
-  // remove this comment.
+  // TaskSheet currently renders title as a static heading with no focusable input.
+  // Wire titleInputRef here once shared-ui exposes an editable title slot.
   const titleInputRef = useRef<HTMLInputElement | null>(null);
 
   useSheetKeyboard({
