@@ -53,7 +53,7 @@ export function useOptimisticMutation<TVars, TResult>(
         opts.onConflict(err, vars, qc);
       }
     },
-    onSuccess: (result, vars, _ctx) => {
+    onSuccess: (result, vars) => {
       opts.onServerOk(result, vars, qc);
     },
     onSettled: (result, _err, vars, ctx) => {
