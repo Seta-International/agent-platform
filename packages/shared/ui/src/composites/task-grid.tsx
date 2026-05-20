@@ -172,12 +172,13 @@ function groupRows(rows: TaskGridRow[], by: GroupBy): Map<string, TaskGridRow[]>
   const m = new Map<string, TaskGridRow[]>();
   for (const r of rows) {
     let k: string;
+    // groupBy assigns a task to one group only; the primary (first) assignee/label is used for
+    // the join key so each task appears exactly once per view.
     switch (by) {
       case 'bucket':
         k = r.bucket;
         break;
       case 'assignee':
-        // Group by primary assignee/label only — a task appears once per view; multi-assignee fan-out would require a separate iterator.
         k = r.assignees[0]?.name ?? 'Unassigned';
         break;
       case 'priority':
@@ -187,7 +188,6 @@ function groupRows(rows: TaskGridRow[], by: GroupBy): Map<string, TaskGridRow[]>
         k = r.due ? r.due.slice(0, 10) : 'No due date';
         break;
       case 'label':
-        // Group by primary assignee/label only — a task appears once per view; multi-assignee fan-out would require a separate iterator.
         k = r.labels[0]?.name ?? 'No label';
         break;
     }
