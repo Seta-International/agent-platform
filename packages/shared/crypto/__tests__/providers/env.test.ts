@@ -66,7 +66,7 @@ describe('EnvKeyProvider', () => {
       primaryKid: 'demo',
     });
     const dk = await provider.generateDataKey();
-    dk.wrapped[20] ^= 0xff;
+    dk.wrapped[20]! ^= 0xff;
     await expect(provider.unwrapDataKey(dk.kid, dk.wrapped)).rejects.toMatchObject({
       code: 'DECRYPT_FAILED',
     });

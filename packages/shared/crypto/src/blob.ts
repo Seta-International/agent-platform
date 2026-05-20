@@ -17,8 +17,7 @@ const encryptedBlobSchema = z.object({
   iv: z.string().regex(/^[A-Za-z0-9_-]{16}$/),
   ct: z
     .string()
-    .regex(/^[A-Za-z0-9_-]+$/)
-    .min(1)
+    .regex(/^[A-Za-z0-9_-]*$/)
     .max(131072),
   tag: z.string().regex(/^[A-Za-z0-9_-]{22}$/),
 });

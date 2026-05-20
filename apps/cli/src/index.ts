@@ -1,6 +1,8 @@
 #!/usr/bin/env node
+import { createCrypto, createKeyProviderFromEnv, parseCryptoEnv } from '@seta/shared-crypto';
 import { closePools, initPools } from '@seta/shared-db';
 import { Command } from 'commander';
+import pino from 'pino';
 import { migrateCommand } from './commands/migrate.ts';
 import { roleGrantCommand } from './commands/role-grant.ts';
 import { seedCommand } from './commands/seed.ts';
@@ -11,6 +13,14 @@ import { parseEnv } from './env.ts';
 
 const env = parseEnv(process.env);
 initPools({ databaseUrl: env.DATABASE_URL });
+
+const cryptoEnv = parseCryptoEnv(process.env);
+const keyProvider = await createKeyProviderFromEnv(cryptoEnv);
+const crypto = createCrypto({
+  keyProvider,
+  log: pino({ name: 'cli/crypto', level: 'silent' }),
+});
+void crypto;
 
 const program = new Command('seta-cli');
 

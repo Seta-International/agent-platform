@@ -12,6 +12,7 @@ import { startWorkerPool } from '@seta/core/workers';
 import { IdentityError, listRoleGrants } from '@seta/identity';
 import { auth } from '@seta/identity/auth';
 import { registerIdentityContributions } from '@seta/identity/register';
+import { createCrypto, createKeyProviderFromEnv, parseCryptoEnv } from '@seta/shared-crypto';
 import { closePools, getPool, initPools } from '@seta/shared-db';
 import type { Hono } from 'hono';
 import pino from 'pino';
@@ -32,6 +33,12 @@ const log = pino({ name: 'apps/server' });
 const env = parseEnv(process.env);
 
 initPools({ databaseUrl: env.DATABASE_URL });
+
+const cryptoEnv = parseCryptoEnv(process.env);
+const keyProvider = await createKeyProviderFromEnv(cryptoEnv);
+const crypto = createCrypto({ keyProvider, log: log.child({ component: 'crypto' }) });
+log.info({ provider: keyProvider.kind }, 'crypto wired');
+void crypto;
 
 const reg = createContributionRegistry();
 registerCoreContributions(reg);

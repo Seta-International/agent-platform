@@ -45,6 +45,14 @@ Please do **not** open public issues for security vulnerabilities. See `SECURITY
 
 All contributors are expected to abide by `CODE_OF_CONDUCT.md`.
 
+## Generating a local crypto master key
+
+```bash
+pnpm --filter @seta/shared-crypto crypto:gen-local-key
+```
+
+Emits a 32-byte hex KEK for `CRYPTO_LOCAL_MASTER_KEY` in `.env` / compose. See `docs/hosting/configuration.md` for the full crypto env vars.
+
 ## Database migrations
 
 - Generate with `pnpm -F @seta/<module> exec drizzle-kit generate` (per-module config).
