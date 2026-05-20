@@ -22,6 +22,7 @@ import { registerDiscoverRoute } from './routes/discover.ts';
 import { registerMeRoute } from './routes/me.ts';
 import { registerProfileRoutes } from './routes/profile.ts';
 import { registerSsoConsentRoutes } from './routes/sso-consent.ts';
+import { registerSsoProvidersRoutes } from './routes/sso-providers.ts';
 
 const log = pino({ name: 'apps/server' });
 const env = parseEnv(process.env);
@@ -76,6 +77,7 @@ registerProfileRoutes(app);
 registerAdminUsersRoutes(app);
 registerAdminAuditRoutes(app);
 registerSsoConsentRoutes(app);
+registerSsoProvidersRoutes(app);
 
 app.onError((err, c) => {
   if (err instanceof IdentityError) {

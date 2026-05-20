@@ -55,6 +55,11 @@ export function UserMenu() {
             Admin
           </DropdownMenuItem>
         )}
+        {hasAdminAccess(session.role_summary.roles) && (
+          <DropdownMenuItem onSelect={() => navigate({ to: '/admin/sso' as '/' })}>
+            SSO
+          </DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onSelect={async () => {

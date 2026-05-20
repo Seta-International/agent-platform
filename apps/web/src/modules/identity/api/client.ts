@@ -6,6 +6,7 @@ export interface SessionScopeProjection {
   role_summary: { roles: string[]; cross_tenant_read: boolean };
   accessible_group_ids: ReadonlyArray<string>;
   cross_tenant_read: boolean;
+  tenant_local_password_disabled: boolean;
 }
 
 export async function fetchMe(signal?: AbortSignal): Promise<SessionScopeProjection | null> {
