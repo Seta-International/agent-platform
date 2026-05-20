@@ -66,6 +66,34 @@ export async function disconnectProvider(): Promise<void> {
   await jsonOrThrow(res);
 }
 
+export interface EntraImportableUserDto {
+  entra_oid: string;
+  email: string;
+  display_name: string;
+  account_enabled: boolean;
+  already_in_seta: boolean;
+}
+
+export async function listEntraUsers(): Promise<EntraImportableUserDto[]> {
+  const res = await fetch('/api/identity/v1/sso/entra/users', { credentials: 'include' });
+  return ((await jsonOrThrow(res)) as { users: EntraImportableUserDto[] }).users;
+}
+
+export async function importEntraUsers(
+  selected_oids: string[],
+): Promise<{ imported: string[]; skipped: { entra_oid: string; reason: string }[] }> {
+  const res = await fetch('/api/identity/v1/sso/entra/users/import', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ selected_oids }),
+  });
+  return (await jsonOrThrow(res)) as {
+    imported: string[];
+    skipped: { entra_oid: string; reason: string }[];
+  };
+}
+
 export async function setLocalPasswordDisabled(disabled: boolean): Promise<void> {
   const res = await fetch('/api/identity/v1/tenants/me/local-password-disabled', {
     method: 'PATCH',

@@ -22,6 +22,7 @@ import { registerDiscoverRoute } from './routes/discover.ts';
 import { registerMeRoute } from './routes/me.ts';
 import { registerProfileRoutes } from './routes/profile.ts';
 import { registerSsoConsentRoutes } from './routes/sso-consent.ts';
+import { registerSsoEntraGraphRoutes } from './routes/sso-entra-graph.ts';
 import { registerSsoProvidersRoutes } from './routes/sso-providers.ts';
 import { registerUsersEmailRoutes } from './routes/users-email.ts';
 
@@ -80,6 +81,7 @@ registerAdminAuditRoutes(app);
 registerUsersEmailRoutes(app);
 registerSsoConsentRoutes(app);
 registerSsoProvidersRoutes(app);
+registerSsoEntraGraphRoutes(app);
 
 app.onError((err, c) => {
   if (err instanceof IdentityError) {
