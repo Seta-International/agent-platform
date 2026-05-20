@@ -179,6 +179,31 @@ export interface IdentityUserEmailChanged {
   };
 }
 
+export interface IdentityUserPasswordResetByAdmin {
+  event_type: 'identity.user.password_reset.by_admin';
+  event_version: 1;
+  aggregate_type: 'identity.user';
+  aggregate_id: Uuid;
+  payload: {
+    actor: IdentityEventActor;
+    user_id: Uuid;
+    tenant_id: Uuid;
+  };
+}
+
+export interface IdentitySessionRevoked {
+  event_type: 'identity.session.revoked';
+  event_version: 1;
+  aggregate_type: 'identity.user';
+  aggregate_id: Uuid;
+  payload: {
+    actor: IdentityEventActor;
+    user_id: Uuid;
+    tenant_id: Uuid;
+    session_id: Uuid;
+  };
+}
+
 export type IdentityEvent =
   | IdentityUserCreated
   | IdentityUserProfileUpdated
@@ -191,4 +216,6 @@ export type IdentityEvent =
   | IdentitySsoProviderDisconnected
   | IdentityUserSsoLinked
   | IdentityUserSsoRevoked
-  | IdentityUserEmailChanged;
+  | IdentityUserEmailChanged
+  | IdentityUserPasswordResetByAdmin
+  | IdentitySessionRevoked;
