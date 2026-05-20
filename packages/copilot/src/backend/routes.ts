@@ -11,7 +11,7 @@ const ChatBody = z.object({
   resourceId: z.string().optional(),
 });
 
-type SessionLike = {
+export type SessionLike = {
   tenant_id: string;
   user_id: string;
   effective_permissions: ReadonlySet<string>;
@@ -116,5 +116,114 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
         });
       }
     });
+  });
+
+  type ThreadRow = {
+    id: string;
+    resourceId: string;
+    title?: string | null;
+    createdAt?: Date;
+    updatedAt?: Date;
+    metadata?: Record<string, unknown>;
+  };
+
+  type ListThreadsArgs = { filter?: { resourceId?: string }; perPage?: number | false };
+  type MemoryStore = {
+    listThreads(args: ListThreadsArgs): Promise<{ threads: ThreadRow[] }>;
+    getThreadById(q: { threadId: string; resourceId?: string }): Promise<ThreadRow | null>;
+    updateThread(q: {
+      id: string;
+      title: string;
+      metadata: Record<string, unknown>;
+    }): Promise<ThreadRow>;
+    deleteThread(q: { threadId: string }): Promise<void>;
+    listMessages(q: { threadId: string }): Promise<{ messages: unknown[] }>;
+  };
+
+  const getMemoryStore = (): MemoryStore | null => {
+    const m = deps.mastra as {
+      getStorage?: () => { stores?: { memory?: MemoryStore } } | null;
+    } | null;
+    const storage = m?.getStorage ? m.getStorage() : null;
+    return storage?.stores?.memory ?? null;
+  };
+
+  const requirePerm = (
+    session: SessionLike | undefined,
+    perm: string,
+  ): { status: 401 | 403; body: { error: string; message: string } } | null => {
+    if (!session)
+      return { status: 401, body: { error: 'unauthorized', message: 'session required' } };
+    if (!session.effective_permissions.has(perm)) {
+      return { status: 403, body: { error: 'forbidden', message: `${perm} required` } };
+    }
+    return null;
+  };
+
+  app.get('/api/copilot/v1/threads', async (c) => {
+    const session = c.get('session') as SessionLike | undefined;
+    const guard = requirePerm(session, 'copilot.thread.read.self');
+    if (guard) return c.json(guard.body, guard.status);
+    const storage = getMemoryStore();
+    if (!storage) return c.json({ threads: [] });
+    const { threads } = await storage.listThreads({
+      filter: { resourceId: session!.user_id },
+      perPage: 100,
+    });
+    return c.json({
+      threads: threads.map((t) => ({
+        id: t.id,
+        title: t.title ?? null,
+        updatedAt: t.updatedAt ?? null,
+      })),
+    });
+  });
+
+  app.get('/api/copilot/v1/threads/:id', async (c) => {
+    const session = c.get('session') as SessionLike | undefined;
+    const guard = requirePerm(session, 'copilot.thread.read.self');
+    if (guard) return c.json(guard.body, guard.status);
+    const storage = getMemoryStore();
+    const thread = storage ? await storage.getThreadById({ threadId: c.req.param('id') }) : null;
+    if (!thread || thread.resourceId !== session!.user_id) {
+      return c.json({ error: 'not_found', message: 'thread not found' }, 404);
+    }
+    const messagesResult = storage
+      ? await storage.listMessages({ threadId: thread.id })
+      : { messages: [] };
+    return c.json({ thread, messages: messagesResult.messages });
+  });
+
+  app.patch('/api/copilot/v1/threads/:id', async (c) => {
+    const session = c.get('session') as SessionLike | undefined;
+    const guard = requirePerm(session, 'copilot.thread.write.self');
+    if (guard) return c.json(guard.body, guard.status);
+    const storage = getMemoryStore();
+    const thread = storage ? await storage.getThreadById({ threadId: c.req.param('id') }) : null;
+    if (!thread || thread.resourceId !== session!.user_id) {
+      return c.json({ error: 'not_found', message: 'thread not found' }, 404);
+    }
+    const body = (await c.req.json().catch(() => ({}))) as { title?: string };
+    if (body.title && storage) {
+      await storage.updateThread({
+        id: thread.id,
+        title: body.title,
+        metadata: thread.metadata ?? {},
+      });
+    }
+    return c.json({ ok: true });
+  });
+
+  app.delete('/api/copilot/v1/threads/:id', async (c) => {
+    const session = c.get('session') as SessionLike | undefined;
+    const guard = requirePerm(session, 'copilot.thread.write.self');
+    if (guard) return c.json(guard.body, guard.status);
+    const storage = getMemoryStore();
+    const thread = storage ? await storage.getThreadById({ threadId: c.req.param('id') }) : null;
+    if (!thread || thread.resourceId !== session!.user_id) {
+      return c.json({ error: 'not_found', message: 'thread not found' }, 404);
+    }
+    if (storage) await storage.deleteThread({ threadId: thread.id });
+    return c.json({ ok: true });
   });
 }
