@@ -14,6 +14,7 @@
     "@seta/copilot": "workspace:^",
     "@seta/core": "workspace:^",
     "@seta/identity": "workspace:^",
+    "@seta/integrations": "workspace:^",
     "@seta/shared-crypto": "workspace:^",
     "@seta/shared-db": "workspace:^",
     "drizzle-orm": "^0.45.2",

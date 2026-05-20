@@ -1,2 +1,2 @@
-// integrations — db entry.
-export const placeholder = 'integrations-db' as const;
+export { integrationsDb, resetIntegrationsDb } from './client.ts';
+export * as schema from './schema/index.ts';

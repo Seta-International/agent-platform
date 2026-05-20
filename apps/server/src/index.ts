@@ -4,6 +4,7 @@ import { startDispatcher } from '@seta/core/dispatcher';
 import { registerCoreContributions } from '@seta/core/register';
 import { startWorkerPool } from '@seta/core/workers';
 import { registerIdentityContributions } from '@seta/identity/register';
+import { registerIntegrationsContributions } from '@seta/integrations/register';
 import { createCrypto, createKeyProviderFromEnv, parseCryptoEnv } from '@seta/shared-crypto';
 import { closePools, getPool, initPools } from '@seta/shared-db';
 import pino from 'pino';
@@ -24,6 +25,7 @@ void crypto;
 const reg = createContributionRegistry();
 registerCoreContributions(reg);
 registerIdentityContributions(reg);
+registerIntegrationsContributions(reg);
 registerAppContributions(reg);
 
 await runMigrations(reg, { pool: getPool('worker') });
