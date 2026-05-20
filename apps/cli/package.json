@@ -14,8 +14,6 @@
   "devDependencies": {
     "@seta/shared-config": "workspace:^",
     "@seta/shared-testing": "workspace:^",
-    "drizzle-orm": "^0.45.2",
-    "tsx": "^4.7.1",
     "typescript": "^6.0.3",
     "vitest": "^4.1.6"
   },
@@ -24,7 +22,9 @@
     "@seta/identity": "workspace:^",
     "@seta/shared-db": "workspace:^",
     "commander": "^14.0.3",
+    "drizzle-orm": "^0.45.2",
     "pino": "^10.3.1",
+    "tsx": "^4.22.3",
     "zod": "^4.4.3"
   }
 }

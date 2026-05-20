@@ -1,0 +1,62 @@
+# Version control
+.git
+.gitignore
+.gitattributes
+
+# Dependencies — installed fresh inside the image
+**/node_modules
+.pnp
+.pnp.js
+
+# Build outputs — produced inside the image
+**/dist
+**/build
+**/.next
+**/.turbo
+**/out
+**/coverage
+
+# TS incremental cache
+**/*.tsbuildinfo
+
+# Local env / secrets — never bake into images
+.env
+.env.*
+!.env.example
+
+# Editor / OS
+.vscode
+.idea
+.DS_Store
+*.swp
+
+# Logs
+**/*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Test reports
+**/test-results
+**/playwright-report
+
+# Generated router tree — Vite rebuilds it
+apps/web/src/routeTree.gen.ts
+
+# Docs — never needed at runtime
+docs
+README.md
+CONTRIBUTING.md
+DESIGN.md
+LICENSE
+*.md
+!packages/**/README.md
+
+# Claude / superpowers — local only
+.claude
+AGENTS.md
+CLAUDE.md
+
+# Local dev infrastructure that should not be in the image build context
+infra/docker/compose.dev.yml
+infra/docker/otel-collector-config.yaml
