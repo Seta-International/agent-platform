@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 
 export interface TaskGridRow {
   id: string;
@@ -63,14 +63,14 @@ export function TaskGrid({
     <table className="task-grid">
       <thead>
         <tr aria-label="Grid columns">
-          <th aria-label="Select" />
-          <th>Title</th>
-          <th>Status</th>
-          <th>Bucket</th>
-          <th>Priority</th>
-          <th>Assignees</th>
-          <th>Due</th>
-          <th>Labels</th>
+          <th scope="col" aria-label="Select" />
+          <th scope="col">Title</th>
+          <th scope="col">Status</th>
+          <th scope="col">Bucket</th>
+          <th scope="col">Priority</th>
+          <th scope="col">Assignees</th>
+          <th scope="col">Due</th>
+          <th scope="col">Labels</th>
         </tr>
       </thead>
       <tbody>
@@ -88,16 +88,11 @@ export function TaskGrid({
                     type="checkbox"
                     aria-label={`Select ${r.title}`}
                     checked={selection.has(r.id)}
-                    onClick={(e) => toggleSelect(r.id, (e as unknown as React.MouseEvent).shiftKey)}
+                    onClick={(e) => toggleSelect(r.id, e.shiftKey)}
                     onChange={() => {}}
                   />
                 </td>
-                <td
-                  onClick={() => openTitleEditor(r.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') openTitleEditor(r.id);
-                  }}
-                >
+                <td>
                   {editing?.taskId === r.id && editing.field === 'title' ? (
                     <TitleInput
                       initialValue={r.title}
@@ -108,10 +103,17 @@ export function TaskGrid({
                       onCancel={() => setEditing(null)}
                     />
                   ) : (
-                    r.title
+                    <button
+                      type="button"
+                      aria-label={`Edit title: ${r.title}`}
+                      className="task-grid__title-trigger"
+                      onClick={() => openTitleEditor(r.id)}
+                    >
+                      {r.title}
+                    </button>
                   )}
                 </td>
-                <td>{r.status.replace('_', ' ')}</td>
+                <td>{r.status.replaceAll('_', ' ')}</td>
                 <td>{r.bucket}</td>
                 <td>{r.priority}</td>
                 <td>{r.assignees.map((a) => a.name).join(', ')}</td>
@@ -133,6 +135,13 @@ interface TitleInputProps {
 }
 
 function TitleInput({ initialValue, onCommit, onCancel }: TitleInputProps) {
+  // Tracks whether a commit/cancel was already triggered via keyboard so the
+  // subsequent blur (fired when the input unmounts) does not double-commit.
+  const committedRef = useRef(false);
+  useEffect(() => {
+    committedRef.current = false;
+  }, []);
+
   return (
     <input
       type="text"
@@ -141,11 +150,17 @@ function TitleInput({ initialValue, onCommit, onCancel }: TitleInputProps) {
       defaultValue={initialValue}
       aria-label="Edit title"
       onKeyDown={(e) => {
-        if (e.key === 'Enter') onCommit((e.target as HTMLInputElement).value);
-        if (e.key === 'Escape') onCancel();
+        if (e.key === 'Enter') {
+          committedRef.current = true;
+          onCommit((e.target as HTMLInputElement).value);
+        }
+        if (e.key === 'Escape') {
+          committedRef.current = true;
+          onCancel();
+        }
       }}
       onBlur={(e) => {
-        onCommit(e.target.value);
+        if (!committedRef.current) onCommit(e.target.value);
       }}
     />
   );
@@ -160,6 +175,7 @@ function groupRows(rows: TaskGridRow[], by: GroupBy): Map<string, TaskGridRow[]>
         k = r.bucket;
         break;
       case 'assignee':
+        // Group by primary assignee/label only — a task appears once per view; multi-assignee fan-out would require a separate iterator.
         k = r.assignees[0]?.name ?? 'Unassigned';
         break;
       case 'priority':
@@ -169,6 +185,7 @@ function groupRows(rows: TaskGridRow[], by: GroupBy): Map<string, TaskGridRow[]>
         k = r.due ? r.due.slice(0, 10) : 'No due date';
         break;
       case 'label':
+        // Group by primary assignee/label only — a task appears once per view; multi-assignee fan-out would require a separate iterator.
         k = r.labels[0]?.name ?? 'No label';
         break;
     }

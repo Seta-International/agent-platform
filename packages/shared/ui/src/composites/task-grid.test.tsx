@@ -26,7 +26,7 @@ const rows: TaskGridRow[] = [
 ];
 
 describe('TaskGrid', () => {
-  it('renders rows + collapsible group headers when grouped by bucket', () => {
+  it('renders rows and group headers when grouped by bucket', () => {
     render(
       <TaskGrid rows={rows} groupBy="bucket" selection={new Set()} onSelectionChange={() => {}} />,
     );
@@ -55,6 +55,26 @@ describe('TaskGrid', () => {
     fireEvent.change(input, { target: { value: 'A2' } });
     fireEvent.keyDown(input, { key: 'Enter' });
     expect(onCommit).toHaveBeenCalledWith('t1', { title: 'A2' });
+  });
+
+  it('Enter commit does not fire onCommitField a second time when blur follows', () => {
+    const onCommit = vi.fn();
+    render(
+      <TaskGrid
+        rows={rows}
+        groupBy="bucket"
+        selection={new Set()}
+        onSelectionChange={() => {}}
+        onCommitField={onCommit}
+      />,
+    );
+    fireEvent.click(screen.getByText('A'));
+    const input = screen.getByDisplayValue('A');
+    fireEvent.change(input, { target: { value: 'A3' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    // Simulate the blur that fires when the input unmounts after Enter
+    fireEvent.blur(input);
+    expect(onCommit.mock.calls.length).toBe(1);
   });
 
   it('range-selects rows on shift-click', () => {
