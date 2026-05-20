@@ -155,7 +155,7 @@ describe('BoardStreamHub', () => {
     const plannerEvt = makePlannerEvent('g1');
     const otherEvt = { ...makePlannerEvent('g1'), eventType: 'identity.user.created' };
 
-    expect(capturedPredicate!(plannerEvt)).toBe(true);
-    expect(capturedPredicate!(otherEvt)).toBe(false);
+    expect(capturedPredicate?.(plannerEvt)).toBe(true);
+    expect(capturedPredicate?.(otherEvt)).toBe(false);
   });
 });
