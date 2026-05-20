@@ -42,6 +42,8 @@ export { registerSsoProvider } from './backend/domain/register-sso-provider.ts';
 export type { ResetPasswordByAdminInput } from './backend/domain/reset-user-password-by-admin.ts';
 export { resetUserPasswordByAdmin } from './backend/domain/reset-user-password-by-admin.ts';
 export { revokeRole } from './backend/domain/revoke-role.ts';
+export type { RevokeUserSessionInput } from './backend/domain/revoke-user-session.ts';
+export { revokeUserSession } from './backend/domain/revoke-user-session.ts';
 export { searchSkills } from './backend/domain/search-skills.ts';
 export { setLocalPasswordDisabled } from './backend/domain/set-local-password-disabled.ts';
 export type { UpdateUserProfilePatch } from './backend/domain/update-user-profile.ts';
