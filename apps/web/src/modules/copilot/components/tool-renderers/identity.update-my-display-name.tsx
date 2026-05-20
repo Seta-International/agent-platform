@@ -14,7 +14,7 @@ export function UpdateMyDisplayNameRenderer({ args, state, callId }: UpdateMyDis
       <ChatHitlCard
         title="Change display name"
         toolName="identity.updateMyDisplayName"
-        expiresAt={new Date(args.expiresAt ?? Date.now() + 60_000)}
+        expiresAt={args.expiresAt ? new Date(args.expiresAt) : new Date(0)}
         permissionHint="Requires identity.user.write.self"
         onApprove={() => approve.mutate(callId)}
         onReject={(note) => reject.mutate({ callId, note })}
