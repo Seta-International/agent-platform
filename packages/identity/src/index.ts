@@ -36,6 +36,7 @@ export type { RegisterSsoProviderInput } from './backend/domain/register-sso-pro
 export { registerSsoProvider } from './backend/domain/register-sso-provider.ts';
 export { revokeRole } from './backend/domain/revoke-role.ts';
 export { searchSkills } from './backend/domain/search-skills.ts';
+export { setLocalPasswordDisabled } from './backend/domain/set-local-password-disabled.ts';
 export type { UpdateUserProfilePatch } from './backend/domain/update-user-profile.ts';
 export { updateUserProfile } from './backend/domain/update-user-profile.ts';
 export { IdentityError } from './backend/rbac.ts';

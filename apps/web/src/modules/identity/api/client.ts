@@ -70,6 +70,7 @@ export interface AdminUserListRow {
   name: string;
   status: 'active' | 'deactivated' | 'ooo';
   role_slugs: string[];
+  sign_in_methods: string[];
   last_seen_at: string | null;
   created_at: string;
 }

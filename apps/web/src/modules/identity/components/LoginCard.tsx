@@ -15,15 +15,35 @@ import { discoverProvider } from '../api/client.ts';
 
 type Step = 'email' | 'password';
 
+const ERROR_MESSAGES: Record<string, string> = {
+  not_pre_provisioned: 'Your email is not registered. Ask your admin to invite you.',
+  tid_mismatch:
+    'Your Microsoft account is in a different organization than configured for this tenant.',
+  oid_conflict:
+    'This Seta account is already linked to a different Microsoft identity. Contact your admin.',
+  user_deactivated: 'Your account has been deactivated. Contact your admin.',
+  access_denied: 'Microsoft blocked the sign-in. Check with your IT team.',
+  LOCAL_PASSWORD_DISABLED: 'This tenant requires Microsoft Entra sign-in. Use your work account.',
+};
+
 export function LoginCard() {
   const navigate = useNavigate();
-  const search = useSearch({ strict: false }) as { redirect?: string; reason?: string };
+  const search = useSearch({ strict: false }) as {
+    redirect?: string;
+    reason?: string;
+    error?: string;
+  };
   const [step, setStep] = useState<Step>('email');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(
-    search.reason === 'idle' ? 'Your session expired. Please sign in again.' : null,
-  );
+
+  const initialError = search.error
+    ? (ERROR_MESSAGES[search.error] ?? 'Sign-in failed. Try again or contact support.')
+    : search.reason === 'idle'
+      ? 'Your session expired. Please sign in again.'
+      : null;
+
+  const [error, setError] = useState<string | null>(initialError);
   const [rateLimited, setRateLimited] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 

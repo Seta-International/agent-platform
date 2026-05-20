@@ -100,6 +100,14 @@ module.exports = {
       from: { path: '^packages/(planner|copilot|integrations)/src/' },
       to: { path: '^packages/identity/src/(backend|db)/' },
     },
+    {
+      name: 'identity-sso-internals-blocked',
+      comment:
+        'SSO/Graph helpers under packages/identity/src/sso/ and /backend/sso/ are internal — outside callers must use the public surface.',
+      severity: 'error',
+      from: { path: '^packages/(?!identity/)' },
+      to: { path: '^packages/identity/src/(sso|backend/sso)/' },
+    },
   ],
   options: {
     doNotFollow: { path: 'node_modules' },

@@ -15,6 +15,7 @@ export interface AdminUserRow {
   name: string;
   status: 'active' | 'deactivated' | 'ooo';
   role_slugs: ReadonlyArray<string>;
+  sign_in_methods: ReadonlyArray<string>;
   last_seen_at: Date | null;
   created_at: Date;
 }
@@ -27,6 +28,7 @@ interface RawUserRow {
   deactivated_at: Date | null;
   last_seen_at: Date | null;
   role_slugs: string[];
+  sign_in_methods: string[];
   availability_status: 'available' | 'busy' | 'ooo' | null;
 }
 
@@ -46,6 +48,11 @@ export async function listUsers(
     SELECT user_id, array_agg(DISTINCT role_slug) AS role_slugs
     FROM identity.role_grants
     WHERE tenant_id = ${tenantId} AND revoked_at IS NULL
+    GROUP BY user_id
+  ),
+  user_sign_in_methods AS (
+    SELECT user_id, array_agg(DISTINCT provider_id) AS sign_in_methods
+    FROM identity.account
     GROUP BY user_id
   )`;
 
@@ -68,10 +75,12 @@ export async function listUsers(
     SELECT u.id AS user_id, u.email, u.name, u.created_at, u.deactivated_at,
            ls.last_seen_at,
            COALESCE(r.role_slugs, ARRAY[]::text[]) AS role_slugs,
+           COALESCE(sim.sign_in_methods, ARRAY[]::text[]) AS sign_in_methods,
            p.availability_status
     FROM identity."user" u
     LEFT JOIN user_roles r ON r.user_id = u.id
     LEFT JOIN user_last_seen ls ON ls.user_id = u.id
+    LEFT JOIN user_sign_in_methods sim ON sim.user_id = u.id
     LEFT JOIN identity.user_profile p ON p.user_id = u.id
     ${whereClause}
     ORDER BY u.created_at DESC
@@ -92,6 +101,7 @@ export async function listUsers(
       email: r.email,
       name: r.name,
       role_slugs: r.role_slugs,
+      sign_in_methods: r.sign_in_methods ?? [],
       last_seen_at: r.last_seen_at,
       created_at: r.created_at,
       status: toStatus(r),

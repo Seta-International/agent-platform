@@ -113,19 +113,20 @@ export function AdminUsersTable({
               <TableHead>Name</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Roles</TableHead>
+              <TableHead>Sign-in</TableHead>
               <TableHead>Last seen</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-sm text-muted-foreground">
+                <TableCell colSpan={6} className="text-center text-sm text-muted-foreground">
                   Loading…
                 </TableCell>
               </TableRow>
             ) : rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-sm text-muted-foreground">
+                <TableCell colSpan={6} className="text-center text-sm text-muted-foreground">
                   No users found.
                 </TableCell>
               </TableRow>
@@ -151,6 +152,22 @@ export function AdminUsersTable({
                         </Badge>
                       ))}
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    {(() => {
+                      const m = row.sign_in_methods ?? [];
+                      const hasCred = m.includes('credential');
+                      const hasMs = m.includes('microsoft');
+                      const label =
+                        hasCred && hasMs
+                          ? 'password + entra'
+                          : hasCred
+                            ? 'password'
+                            : hasMs
+                              ? 'entra'
+                              : 'none';
+                      return <Badge variant="outline">{label}</Badge>;
+                    })()}
                   </TableCell>
                   <TableCell>
                     {row.last_seen_at ? new Date(row.last_seen_at).toLocaleString() : '—'}

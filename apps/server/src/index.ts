@@ -18,12 +18,14 @@ import pino from 'pino';
 import { parseEnv } from './env.ts';
 import { registerAdminAuditRoutes } from './routes/admin-audit.ts';
 import { registerAdminUsersRoutes } from './routes/admin-users.ts';
+import { registerCredentialGate } from './routes/credential-gate.ts';
 import { registerDiscoverRoute } from './routes/discover.ts';
 import { registerMeRoute } from './routes/me.ts';
 import { registerProfileRoutes } from './routes/profile.ts';
 import { registerSsoConsentRoutes } from './routes/sso-consent.ts';
 import { registerSsoEntraGraphRoutes } from './routes/sso-entra-graph.ts';
 import { registerSsoProvidersRoutes } from './routes/sso-providers.ts';
+import { registerTenantSettingsRoutes } from './routes/tenant-settings.ts';
 import { registerUsersEmailRoutes } from './routes/users-email.ts';
 
 const log = pino({ name: 'apps/server' });
@@ -59,6 +61,10 @@ const app = buildHonoApp(reg) as unknown as Hono<SessionEnv>;
 // /discover first so it matches before better-auth's wildcard catches the prefix
 registerDiscoverRoute(app);
 
+// Credential gate intercepts /sign-in/email before better-auth handles it.
+// Rejects the request when the tenant has local_password_disabled = true.
+registerCredentialGate(app);
+
 // better-auth handles all remaining /auth/* paths; must register before sessionMiddleware so its routes are public
 app.on(['GET', 'POST'], '/api/identity/v1/auth/*', (c) => auth.handler(c.req.raw));
 
@@ -82,6 +88,7 @@ registerUsersEmailRoutes(app);
 registerSsoConsentRoutes(app);
 registerSsoProvidersRoutes(app);
 registerSsoEntraGraphRoutes(app);
+registerTenantSettingsRoutes(app);
 
 app.onError((err, c) => {
   if (err instanceof IdentityError) {
