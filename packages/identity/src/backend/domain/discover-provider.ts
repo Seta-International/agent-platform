@@ -10,7 +10,7 @@ export interface DiscoverResult {
 export async function discoverProvider(email: string): Promise<DiscoverResult> {
   const seta = await resolveSetaTenantFromEmail(email);
   if (!seta) return { provider_id: 'credential' };
-  const callback = encodeURIComponent('/_authed/');
+  const callback = encodeURIComponent('/');
   return {
     provider_id: seta.provider_id,
     tenant_id: seta.tenant_id,

@@ -83,19 +83,19 @@ export function registerSsoConsentRoutes(app: Hono<SessionEnv>): void {
     deleteCookie(c, STATE_COOKIE, { path: '/' });
 
     if (errorParam || adminConsent !== 'True') {
-      return c.redirect(`/_authed/admin/sso?status=consent_failed&error=${errorParam ?? 'denied'}`);
+      return c.redirect(`/admin/sso?status=consent_failed&error=${errorParam ?? 'denied'}`);
     }
     if (!cookieState || cookieState !== claimedState) {
-      return c.redirect('/_authed/admin/sso?status=consent_failed&error=csrf_state_mismatch');
+      return c.redirect('/admin/sso?status=consent_failed&error=csrf_state_mismatch');
     }
     const parsed = parseState(claimedState);
-    if (!parsed) return c.redirect('/_authed/admin/sso?status=consent_failed&error=bad_state');
+    if (!parsed) return c.redirect('/admin/sso?status=consent_failed&error=bad_state');
 
     const scope = c.get('user');
     await recordSsoConsent(
       { tenant_id: parsed.tenantId, provider_id: 'microsoft-entra-id' },
       { type: 'user', user_id: scope.user_id },
     );
-    return c.redirect('/_authed/admin/sso?status=consent_granted');
+    return c.redirect('/admin/sso?status=consent_granted');
   });
 }
