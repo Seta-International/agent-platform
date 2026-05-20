@@ -92,3 +92,26 @@ select:focus-visible,
 .status-dot--primary  { background: var(--color-primary); }
 .status-dot--warning  { background: var(--color-warning); }
 .status-dot--success  { background: var(--color-success); }
+
+/* KanbanBoard */
+.kanban-board {
+  display: flex;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  overflow-x: auto;
+  min-height: 100%;
+  align-items: flex-start;
+  background: var(--color-canvas);
+}
+.kanban-board__add-bucket {
+  flex: 0 0 auto;
+  width: 280px;
+  height: 60px;
+  border: 1.5px dashed var(--color-hairline-strong);
+  background: transparent;
+  border-radius: var(--radius-md);
+  color: var(--color-ink-subtle);
+  font-size: var(--text-body-sm);
+  cursor: pointer;
+}
+.kanban-board__add-bucket:hover { border-color: var(--color-primary); color: var(--color-primary); }
