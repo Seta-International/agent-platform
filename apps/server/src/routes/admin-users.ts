@@ -6,9 +6,13 @@ import {
   getUserProfile,
   grantRole,
   IdentityError,
+  listUserEvents,
+  listUserSessions,
   listUsers,
   reactivateUser,
+  resetUserPasswordByAdmin,
   revokeRole,
+  revokeUserSession,
   TENANT_ROLE_SLUGS,
 } from '@seta/identity';
 import type { Context, Hono } from 'hono';
@@ -43,9 +47,19 @@ export function registerAdminUsersRoutes(app: Hono<SessionEnv>): void {
     const role_slug = c.req.query('role') ?? undefined;
     const status =
       (c.req.query('status') as 'active' | 'deactivated' | 'ooo' | undefined) ?? undefined;
+    const sign_in_method =
+      (c.req.query('sign_in_method') as 'credential' | 'microsoft' | 'both' | undefined) ??
+      undefined;
     const limit = Math.min(parseInt(c.req.query('limit') ?? '25', 10), 100);
     const offset = parseInt(c.req.query('offset') ?? '0', 10);
-    const result = await listUsers(scope.tenant_id, { search, role_slug, status, limit, offset });
+    const result = await listUsers(scope.tenant_id, {
+      search,
+      role_slug,
+      status,
+      sign_in_method,
+      limit,
+      offset,
+    });
     return c.json(result);
   });
 
@@ -125,5 +139,74 @@ export function registerAdminUsersRoutes(app: Hono<SessionEnv>): void {
     const scope = c.get('user');
     await reactivateUser(c.req.param('id'), { type: 'user', user_id: scope.user_id });
     return c.json({ ok: true });
+  });
+
+  app.get('/api/identity/v1/users/:id/sessions', async (c) => {
+    requireAdmin(c);
+    const scope = c.get('user');
+    const rows = await listUserSessions(
+      {
+        tenant_id: scope.tenant_id,
+        user_id: c.req.param('id'),
+        current_session_id: scope.session_id,
+      },
+      { type: 'user', user_id: scope.user_id },
+    );
+    return c.json({ rows });
+  });
+
+  app.delete('/api/identity/v1/users/:id/sessions/:sessionId', async (c) => {
+    requireAdmin(c);
+    const scope = c.get('user');
+    try {
+      await revokeUserSession(
+        {
+          tenant_id: scope.tenant_id,
+          user_id: c.req.param('id'),
+          session_id: c.req.param('sessionId'),
+          current_session_id: scope.session_id,
+        },
+        { type: 'user', user_id: scope.user_id },
+      );
+      return c.body(null, 204);
+    } catch (e) {
+      if (e instanceof IdentityError && e.code === 'SELF_SESSION')
+        return c.json({ error: 'self_session' }, 409);
+      throw e;
+    }
+  });
+
+  app.post('/api/identity/v1/users/:id/reset-password', async (c) => {
+    requireAdmin(c);
+    const scope = c.get('user');
+    try {
+      const { password } = await resetUserPasswordByAdmin(
+        { tenant_id: scope.tenant_id, user_id: c.req.param('id') },
+        {
+          type: 'user',
+          user_id: scope.user_id,
+          ip: c.req.header('x-forwarded-for')?.split(',')[0]?.trim(),
+          user_agent: c.req.header('user-agent'),
+        },
+      );
+      return c.json({ password });
+    } catch (e) {
+      if (e instanceof IdentityError && e.code === 'NO_LOCAL_PASSWORD')
+        return c.json({ error: 'no_local_password' }, 409);
+      throw e;
+    }
+  });
+
+  app.get('/api/identity/v1/users/:id/activity', async (c) => {
+    requireAdmin(c);
+    const scope = c.get('user');
+    const role = (c.req.query('role') as 'actor' | 'subject' | 'all' | undefined) ?? 'all';
+    const limit = Math.min(parseInt(c.req.query('limit') ?? '25', 10), 100);
+    const offset = parseInt(c.req.query('offset') ?? '0', 10);
+    const result = await listUserEvents(
+      { tenant_id: scope.tenant_id, user_id: c.req.param('id'), role, limit, offset },
+      { type: 'user', user_id: scope.user_id },
+    );
+    return c.json(result);
   });
 }
