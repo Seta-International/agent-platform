@@ -1,3 +1,3 @@
-// @seta/shared-crypto — public surface.
-// Real exports added in later tasks.
-export const PACKAGE_NAME = '@seta/shared-crypto' as const;
+export { isEncryptedBlob, parseEncryptedBlob } from './blob.ts';
+export * from './constants.ts';
+export * from './types.ts';
