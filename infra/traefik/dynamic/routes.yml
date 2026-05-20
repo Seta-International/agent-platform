@@ -1,0 +1,37 @@
+# Seta routes — static, file-provider config.
+# Web (React bundle) is served at the apex. API (Hono) is served at /api/* and /health/*.
+#
+# TLS: the websecure entrypoint has `tls: {}` so any router on it serves HTTPS.
+# When ACME is configured (SETA_TLS_MODE=letsencrypt), Traefik issues real certs
+# via the letsencrypt resolver. In self-signed mode (smoke / local), Traefik
+# auto-generates a default self-signed cert at startup — no resolver needed.
+#
+# To force ACME for a router add `tls.certResolver: letsencrypt` here once a
+# domain is configured. The smoke test omits the resolver so Traefik falls back
+# to its default self-signed cert.
+
+http:
+  routers:
+    api:
+      rule: "PathPrefix(`/api`) || PathPrefix(`/health`)"
+      entryPoints:
+        - websecure
+      service: api
+      priority: 100  # match before the catch-all web route
+      tls: {}
+    web:
+      rule: "PathPrefix(`/`)"
+      entryPoints:
+        - websecure
+      service: web
+      tls: {}
+
+  services:
+    api:
+      loadBalancer:
+        servers:
+          - url: "http://server:3000"
+    web:
+      loadBalancer:
+        servers:
+          - url: "http://web:8080"

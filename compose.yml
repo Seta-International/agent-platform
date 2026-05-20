@@ -1,0 +1,123 @@
+# Seta self-host production stack.
+#
+# Usage:
+#   cp .env.example .env && $EDITOR .env    # fill in required secrets
+#   docker compose up -d
+#   docker compose logs -f server
+#
+# Architecture:
+#   - proxy (Traefik v3) owns port 443 (and 80 for ACME redirect).
+#   - web serves the React bundle.
+#   - server runs the Hono API + workers (SETA_MODULES=* = all-in-one).
+#   - postgres is pgvector/pg17.
+#   - migrator is a one-shot that runs Drizzle migrations and exits.
+#
+# Boundary: only `proxy` is publicly exposed. All other services are reachable
+# only via the `seta-edge` and `seta-internal` networks.
+
+name: seta
+
+networks:
+  seta-edge:
+    driver: bridge
+  seta-internal:
+    driver: bridge
+    internal: true
+
+volumes:
+  postgres-data:
+  traefik-acme:
+
+services:
+  proxy:
+    image: traefik:v3.1
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./infra/traefik/dynamic:/etc/traefik/dynamic:ro
+      - traefik-acme:/letsencrypt
+    environment:
+      SETA_ACME_EMAIL: ${SETA_ACME_EMAIL}
+    networks:
+      - seta-edge
+
+  web:
+    image: ${SETA_IMAGE_WEB:-ghcr.io/seta-io/seta-web:${SETA_VERSION:-latest}}
+    restart: unless-stopped
+    networks:
+      - seta-edge
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+      - /var/run
+
+  server:
+    image: ${SETA_IMAGE_SERVER:-ghcr.io/seta-io/seta-server:${SETA_VERSION:-latest}}
+    restart: unless-stopped
+    command: ["serve"]
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: ${PORT:-3000}
+      DATABASE_URL: ${DATABASE_URL}
+      PUBLIC_URL: ${PUBLIC_URL}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+      EVENTS_RETENTION_DAYS: ${EVENTS_RETENTION_DAYS:-30}
+      SETA_MODULES: ${SETA_MODULES:-*}
+      MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
+      MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+    networks:
+      - seta-edge
+      - seta-internal
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrator:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:'+(process.env.PORT||3000)+'/health/live',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 20s
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  postgres:
+    image: pgvector/pgvector:pg17-trixie
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - seta-internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  migrator:
+    image: ${SETA_IMAGE_SERVER:-ghcr.io/seta-io/seta-server:${SETA_VERSION:-latest}}
+    command: ["migrate"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      EVENTS_RETENTION_DAYS: ${EVENTS_RETENTION_DAYS:-30}
+      SETA_MODULES: ${SETA_MODULES:-*}
+    networks:
+      - seta-internal
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    read_only: true
+    tmpfs:
+      - /tmp

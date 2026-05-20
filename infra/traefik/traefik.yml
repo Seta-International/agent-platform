@@ -1,0 +1,43 @@
+# Traefik v3 static configuration. Loaded once at startup.
+# Routes are declared in infra/traefik/dynamic/*.yml (file provider).
+#
+# Why no Docker provider: mounting /var/run/docker.sock into Traefik grants
+# root-on-host to any container that compromises it. The file provider is
+# secure-by-default — Traefik does not need any docker access.
+
+api:
+  dashboard: false
+  insecure: false
+
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+          permanent: true
+  websecure:
+    address: ":443"
+    http:
+      tls: {}    # entrypoint-level TLS; per-router config in dynamic/routes.yml decides cert source
+
+providers:
+  file:
+    directory: /etc/traefik/dynamic
+    watch: true
+
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: "${SETA_ACME_EMAIL}"
+      storage: /letsencrypt/acme.json
+      httpChallenge:
+        entryPoint: web
+
+log:
+  level: INFO
+
+accessLog:
+  format: json
