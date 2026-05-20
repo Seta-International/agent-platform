@@ -7,7 +7,7 @@ import { discoverProvider } from '../api/client.ts';
 type Step =
   | { kind: 'email' }
   | { kind: 'password'; email: string }
-  | { kind: 'sso'; email: string; redirectUrl: string; providerId: string };
+  | { kind: 'sso'; email: string; callbackUrl: string; providerId: string };
 
 const ERROR_MESSAGES: Record<string, string> = {
   not_pre_provisioned: 'Your email is not registered. Ask your admin to invite you.',
@@ -47,16 +47,12 @@ export function LoginCard() {
     setError(null);
     setSubmitting(true);
     try {
-      const { provider_id, redirect_url } = await discoverProvider(email);
+      const { provider_id } = await discoverProvider(email);
       if (provider_id === 'credential') {
         setStep({ kind: 'password', email });
         return;
       }
-      if (redirect_url) {
-        setStep({ kind: 'sso', email, redirectUrl: redirect_url, providerId: provider_id });
-        return;
-      }
-      setError('Authentication path not configured.');
+      setStep({ kind: 'sso', email, callbackUrl: search.redirect ?? '/', providerId: provider_id });
     } catch {
       setError('Could not check sign-in method. Try again.');
     } finally {
@@ -121,7 +117,7 @@ export function LoginCard() {
       )}
 
       {step.kind === 'sso' && (
-        <SsoStep email={step.email} redirectUrl={step.redirectUrl} onEdit={resetToEmail} />
+        <SsoStep email={step.email} callbackUrl={step.callbackUrl} onEdit={resetToEmail} />
       )}
     </LoginShell>
   );
@@ -351,13 +347,29 @@ function PasswordStep({
 
 function SsoStep({
   email,
-  redirectUrl,
+  callbackUrl,
   onEdit,
 }: {
   email: string;
-  redirectUrl: string;
+  callbackUrl: string;
   onEdit: () => void;
 }) {
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSignIn() {
+    setError(null);
+    setSubmitting(true);
+    try {
+      const res = await signIn.social({ provider: 'microsoft', callbackURL: callbackUrl });
+      if (res?.error) {
+        setError(ERROR_MESSAGES[res.error.message ?? ''] ?? 'Sign-in failed. Try again.');
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
     <>
       <h1 className="text-center text-card-title font-semibold text-ink">Welcome back</h1>
@@ -378,11 +390,21 @@ function SsoStep({
           </AlertDescription>
         </Alert>
 
-        <Button asChild size="lg" variant="secondary" className="w-full gap-2.5 font-medium">
-          <a href={redirectUrl}>
-            <MicrosoftLogo />
-            Continue with Microsoft
-          </a>
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        <Button
+          size="lg"
+          variant="secondary"
+          className="w-full gap-2.5 font-medium"
+          onClick={() => void handleSignIn()}
+          disabled={submitting}
+        >
+          <MicrosoftLogo />
+          {submitting ? 'Redirecting…' : 'Continue with Microsoft'}
         </Button>
 
         <p className="text-center text-caption text-ink-subtle">

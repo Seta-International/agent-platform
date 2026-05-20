@@ -128,7 +128,7 @@ export const auth = betterAuth({
               email,
               name,
             });
-            return { email, name };
+            return { id: oid, email, name };
           },
         },
       }
