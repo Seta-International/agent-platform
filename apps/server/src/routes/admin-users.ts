@@ -4,6 +4,7 @@ import {
   deactivateUser,
   getUserGrants,
   getUserProfile,
+  getUserSignInMethods,
   grantRole,
   IdentityError,
   listUserEvents,
@@ -93,8 +94,11 @@ export function registerAdminUsersRoutes(app: Hono<SessionEnv>): void {
     const userId = c.req.param('id');
     const profile = await getUserProfile(userId);
     if (!profile) return c.json({ error: 'not_found' }, 404);
-    const grants = await getUserGrants(userId);
-    return c.json({ profile, grants });
+    const [grants, sign_in_methods] = await Promise.all([
+      getUserGrants(userId),
+      getUserSignInMethods(userId),
+    ]);
+    return c.json({ profile, grants, sign_in_methods });
   });
 
   app.post('/api/identity/v1/users/:id/role-grants', async (c) => {
