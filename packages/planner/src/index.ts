@@ -2,6 +2,7 @@ export { addGroupMember } from './backend/domain/add-group-member.ts';
 export { createBucket } from './backend/domain/create-bucket.ts';
 export { createGroup } from './backend/domain/create-group.ts';
 export { createPlan } from './backend/domain/create-plan.ts';
+export { createTask } from './backend/domain/create-task.ts';
 export { deleteBucket } from './backend/domain/delete-bucket.ts';
 export { deleteGroup } from './backend/domain/delete-group.ts';
 export { deletePlan } from './backend/domain/delete-plan.ts';
@@ -27,6 +28,7 @@ export type {
   CreateBucketInput,
   CreateGroupInput,
   CreatePlanInput,
+  CreateTaskInput,
   UpdateBucketPatch,
   UpdateGroupPatch,
   UpdatePlanPatch,
