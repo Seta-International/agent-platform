@@ -6,6 +6,7 @@ export * from './composites/command-palette';
 export * from './composites/copilot-panel';
 export * from './composites/data-table';
 export * from './composites/empty-state';
+export * from './composites/filter-pill';
 export * from './composites/inbox-list';
 export * from './composites/kbd-hint';
 export * from './composites/left-nav';
@@ -17,6 +18,7 @@ export * from './icons/seta-mark';
 // Utilities
 export { cn } from './lib/cn';
 export { cva, type VariantProps } from './lib/cva';
+export { formatRelative } from './lib/format-relative';
 export * from './primitives/alert';
 export * from './primitives/avatar';
 export * from './primitives/badge';
