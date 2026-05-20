@@ -1,9 +1,14 @@
+import { and, eq } from 'drizzle-orm';
 import type { Hono } from 'hono';
 import { z } from 'zod';
+import { copilotDb } from '../db/index.ts';
+import { hitlCalls } from '../db/schema.ts';
 import type { AgentName } from './agent-factory.ts';
 import { copilotEnv } from './env.ts';
+import { approveHitl, HitlError, rejectHitl } from './hitl.ts';
 import { commitActualTokens, RateLimitError, reserveTurn } from './rate-limit.ts';
 import { sse } from './sse.ts';
+import { runWrappedTool } from './tool-runner.ts';
 
 const ChatBody = z.object({
   threadId: z.string().optional(),
@@ -242,5 +247,53 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
     }
     if (storage) await storage.deleteThread({ threadId: thread.id });
     return c.json({ ok: true });
+  });
+
+  app.post('/api/copilot/v1/hitl/:callId/approve', async (c) => {
+    const session = c.get('session') as SessionLike | undefined;
+    if (!session) return c.json({ error: 'unauthorized', message: 'session required' }, 401);
+    const callId = c.req.param('callId');
+    const db = copilotDb();
+    const [row] = await db
+      .select()
+      .from(hitlCalls)
+      .where(and(eq(hitlCalls.callId, callId), eq(hitlCalls.userId, session.user_id)));
+    if (!row) return c.json({ error: 'not_found', message: 'call not found' }, 404);
+    if (!session.effective_permissions.has(row.requiredPermission)) {
+      return c.json({ error: 'forbidden', message: `${row.requiredPermission} required` }, 403);
+    }
+    try {
+      const outcome = await runWrappedTool(
+        row.toolName,
+        session,
+        row.input as Record<string, unknown>,
+      );
+      const result = await approveHitl({ callId, userId: session.user_id, outcome });
+      return c.json(result);
+    } catch (e) {
+      if (e instanceof HitlError && e.code === 'hitl_expired') {
+        return c.json({ error: 'hitl_expired', message: e.message }, 409);
+      }
+      throw e;
+    }
+  });
+
+  app.post('/api/copilot/v1/hitl/:callId/reject', async (c) => {
+    const session = c.get('session') as SessionLike | undefined;
+    if (!session) return c.json({ error: 'unauthorized', message: 'session required' }, 401);
+    const callId = c.req.param('callId');
+    const body = (await c.req.json().catch(() => ({}))) as { note?: string };
+    try {
+      const result = await rejectHitl({ callId, userId: session.user_id, note: body.note });
+      return c.json(result);
+    } catch (e) {
+      if (e instanceof HitlError && e.code === 'not_found') {
+        return c.json({ error: 'not_found', message: e.message }, 404);
+      }
+      if (e instanceof HitlError && e.code === 'hitl_expired') {
+        return c.json({ error: 'hitl_expired', message: e.message }, 409);
+      }
+      throw e;
+    }
   });
 }
