@@ -18,8 +18,10 @@ import { registerAdminUsersRoutes } from './routes/admin-users.ts';
 import { registerCredentialGate } from './routes/credential-gate.ts';
 import { registerDiscoverRoute } from './routes/discover.ts';
 import { registerMeRoute } from './routes/me.ts';
+import { registerPlannerBucketsRoutes } from './routes/planner-buckets.ts';
 import { registerPlannerGroupsRoutes } from './routes/planner-groups.ts';
 import { registerPlannerPlansRoutes } from './routes/planner-plans.ts';
+import { registerPlannerTasksRoutes } from './routes/planner-tasks.ts';
 import { registerProfileRoutes } from './routes/profile.ts';
 import { registerSsoConsentRoutes } from './routes/sso-consent.ts';
 import { registerSsoEntraGraphRoutes } from './routes/sso-entra-graph.ts';
@@ -129,6 +131,8 @@ export function buildServerApp(
   registerTenantSettingsRoutes(app);
   registerPlannerGroupsRoutes(app);
   registerPlannerPlansRoutes(app);
+  registerPlannerBucketsRoutes(app);
+  registerPlannerTasksRoutes(app);
 
   app.onError((err, c) => {
     if (err instanceof PlannerError) {

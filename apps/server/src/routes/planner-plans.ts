@@ -1,5 +1,16 @@
 import type { SessionEnv } from '@seta/core';
-import { createPlan, deletePlan, getPlan, listPlans, restorePlan, updatePlan } from '@seta/planner';
+import {
+  createLabel,
+  createPlan,
+  deleteLabel,
+  deletePlan,
+  getPlan,
+  listLabels,
+  listPlans,
+  restorePlan,
+  updateLabel,
+  updatePlan,
+} from '@seta/planner';
 import type { Hono } from 'hono';
 import { z } from 'zod';
 
@@ -12,6 +23,16 @@ const updateSchema = z.object({
   patch: z.object({ name: z.string().min(1).max(120).optional() }),
 });
 const versionSchema = z.object({ expected_version: z.number().int().positive() });
+const createLabelSchema = z.object({
+  name: z.string().min(1).max(120),
+  color: z.string().min(1).max(50),
+});
+const updateLabelSchema = z.object({
+  patch: z.object({
+    name: z.string().min(1).max(120).optional(),
+    color: z.string().min(1).max(50).optional(),
+  }),
+});
 
 export function registerPlannerPlansRoutes(app: Hono<SessionEnv>): void {
   app.get('/api/planner/v1/plans', async (c) => {
@@ -68,5 +89,45 @@ export function registerPlannerPlansRoutes(app: Hono<SessionEnv>): void {
   app.post('/api/planner/v1/plans/:id/restore', async (c) => {
     const session = c.get('user');
     return c.json(await restorePlan({ plan_id: c.req.param('id'), session }));
+  });
+
+  app.get('/api/planner/v1/plans/:id/labels', async (c) => {
+    const session = c.get('user');
+    const include_deleted = c.req.query('include_deleted') === 'true';
+    return c.json({
+      labels: await listLabels({ plan_id: c.req.param('id'), include_deleted, session }),
+    });
+  });
+
+  app.post('/api/planner/v1/plans/:id/labels', async (c) => {
+    const session = c.get('user');
+    const parsed = createLabelSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success)
+      return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
+    return c.json(
+      await createLabel({
+        plan_id: c.req.param('id'),
+        name: parsed.data.name,
+        color: parsed.data.color,
+        session,
+      }),
+      201,
+    );
+  });
+
+  app.patch('/api/planner/v1/labels/:id', async (c) => {
+    const session = c.get('user');
+    const parsed = updateLabelSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success)
+      return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
+    return c.json(
+      await updateLabel({ label_id: c.req.param('id'), patch: parsed.data.patch, session }),
+    );
+  });
+
+  app.delete('/api/planner/v1/labels/:id', async (c) => {
+    const session = c.get('user');
+    await deleteLabel({ label_id: c.req.param('id'), session });
+    return c.body(null, 204);
   });
 }
