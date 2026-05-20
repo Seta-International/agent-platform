@@ -1,58 +1,73 @@
-import { listRoleGrants } from '@seta/identity';
+import type { SessionScope } from '@seta/core';
+import { hasPermission } from '@seta/shared-rbac';
 import {
   PLANNER_ROLE_PERMISSIONS,
+  PLANNER_ROLE_SLUGS,
   type PlannerPermission,
   type PlannerRoleSlug,
 } from '../roles.ts';
 
 export type PlannerErrorCode =
-  | 'FORBIDDEN'
   | 'NOT_FOUND'
+  | 'FORBIDDEN'
   | 'CONFLICT'
-  | 'INVALID_INPUT'
-  | 'INTERNAL';
+  | 'VALIDATION'
+  | 'CROSS_TENANT';
 
 export class PlannerError extends Error {
   constructor(
     public code: PlannerErrorCode,
-    message?: string,
+    message: string,
+    public details?: Record<string, unknown>,
   ) {
-    super(message ?? code);
+    super(message);
     this.name = 'PlannerError';
   }
 }
 
-function roleHasPermission(roleSlug: string, permission: PlannerPermission): boolean {
-  const perms = PLANNER_ROLE_PERMISSIONS[roleSlug as PlannerRoleSlug];
-  return perms?.includes(permission) ?? false;
-}
-
-/**
- * Throws PlannerError('FORBIDDEN') if the user does not hold the given permission
- * in the tenant (or, for group-scoped permissions, within the specific group).
- *
- * Tenant-scoped grants cover all groups; group-scoped grants are narrowed to groupId.
- */
-export async function requirePermission(
-  userId: string,
+export function requirePermission(
+  session: SessionScope,
   permission: PlannerPermission,
-  tenantId: string,
   groupId?: string,
-): Promise<void> {
-  const { tenant_id: userTenantId, grants } = await listRoleGrants(userId);
-
-  if (userTenantId !== tenantId) {
-    throw new PlannerError('FORBIDDEN', `Missing permission: ${permission}`);
+): void {
+  // org.admin / tenant.admin short-circuit through shared-rbac (grants everything).
+  if (
+    hasPermission(
+      {
+        roles: session.role_summary.roles,
+        cross_tenant_read: session.role_summary.cross_tenant_read,
+      },
+      permission,
+    )
+  ) {
+    return;
   }
 
-  const allowed = grants.some((grant) => {
-    if (!roleHasPermission(grant.role_slug, permission)) return false;
-    if (grant.scope_type === 'tenant') return true;
-    if (grant.scope_type === 'group' && groupId !== undefined) {
-      return grant.scope_id === groupId;
-    }
-    return false;
-  });
+  // org.viewer is cross-tenant read-only: allow only *.read permissions.
+  if (session.role_summary.cross_tenant_read && permission.endsWith('.read')) {
+    return;
+  }
 
-  if (!allowed) throw new PlannerError('FORBIDDEN', `Missing permission: ${permission}`);
+  // Planner role evaluation: does the session hold any planner role that grants this permission?
+  const plannerRolesHeld = session.role_summary.roles.filter((r): r is PlannerRoleSlug =>
+    (PLANNER_ROLE_SLUGS as readonly string[]).includes(r),
+  );
+  const grantedByAnyPlannerRole = plannerRolesHeld.some((roleSlug) =>
+    PLANNER_ROLE_PERMISSIONS[roleSlug].includes(permission),
+  );
+  if (!grantedByAnyPlannerRole) {
+    throw new PlannerError('FORBIDDEN', `Missing permission: ${permission}`, {
+      permission,
+      group_id: groupId,
+    });
+  }
+
+  // Group-scope check: when groupId is given, the session must have access to that group.
+  // accessible_group_ids is populated from group-scoped role_grants in core/session/scope.ts.
+  if (groupId !== undefined && !session.accessible_group_ids.includes(groupId)) {
+    throw new PlannerError('FORBIDDEN', `No access to group`, {
+      permission,
+      group_id: groupId,
+    });
+  }
 }

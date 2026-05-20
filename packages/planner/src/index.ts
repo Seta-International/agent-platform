@@ -1,5 +1,3 @@
-// Public surface. Frozen on B1 merge.
-// Functions populated incrementally in later phases.
 export type { PlannerErrorCode } from './backend/rbac.ts';
 export { PlannerError } from './backend/rbac.ts';
 export type { PlannerEvent, PlannerEventActor } from './events/index.ts';
