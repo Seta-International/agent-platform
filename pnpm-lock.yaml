@@ -56,6 +56,9 @@ importers:
       '@seta/integrations':
         specifier: workspace:^
         version: link:../../packages/integrations
+      '@seta/planner':
+        specifier: workspace:^
+        version: link:../../packages/planner
       '@seta/shared-crypto':
         specifier: workspace:^
         version: link:../../packages/shared/crypto
@@ -111,6 +114,9 @@ importers:
       '@seta/integrations':
         specifier: workspace:^
         version: link:../../packages/integrations
+      '@seta/planner':
+        specifier: workspace:^
+        version: link:../../packages/planner
       '@seta/shared-crypto':
         specifier: workspace:^
         version: link:../../packages/shared/crypto

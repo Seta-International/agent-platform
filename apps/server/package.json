@@ -15,6 +15,7 @@
     "@seta/core": "workspace:^",
     "@seta/identity": "workspace:^",
     "@seta/integrations": "workspace:^",
+    "@seta/planner": "workspace:^",
     "@seta/shared-crypto": "workspace:^",
     "@seta/shared-db": "workspace:^",
     "@seta/shared-mailer": "workspace:^",

@@ -8,6 +8,7 @@ import {
 } from '@seta/core';
 import { IdentityError, listMyEffectivePermissions, listRoleGrants } from '@seta/identity';
 import { auth } from '@seta/identity/auth';
+import { PlannerError } from '@seta/planner';
 import { getPool } from '@seta/shared-db';
 import type { Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
@@ -17,6 +18,8 @@ import { registerAdminUsersRoutes } from './routes/admin-users.ts';
 import { registerCredentialGate } from './routes/credential-gate.ts';
 import { registerDiscoverRoute } from './routes/discover.ts';
 import { registerMeRoute } from './routes/me.ts';
+import { registerPlannerGroupsRoutes } from './routes/planner-groups.ts';
+import { registerPlannerPlansRoutes } from './routes/planner-plans.ts';
 import { registerProfileRoutes } from './routes/profile.ts';
 import { registerSsoConsentRoutes } from './routes/sso-consent.ts';
 import { registerSsoEntraGraphRoutes } from './routes/sso-entra-graph.ts';
@@ -124,8 +127,25 @@ export function buildServerApp(
   registerSsoProvidersRoutes(app);
   registerSsoEntraGraphRoutes(app);
   registerTenantSettingsRoutes(app);
+  registerPlannerGroupsRoutes(app);
+  registerPlannerPlansRoutes(app);
 
   app.onError((err, c) => {
+    if (err instanceof PlannerError) {
+      const status =
+        err.code === 'FORBIDDEN'
+          ? 403
+          : err.code === 'NOT_FOUND'
+            ? 404
+            : err.code === 'CONFLICT'
+              ? 409
+              : err.code === 'CROSS_TENANT'
+                ? 403
+                : err.code === 'VALIDATION'
+                  ? 400
+                  : 400;
+      return c.json({ error: err.code, message: err.message, details: err.details }, status);
+    }
     if (err instanceof IdentityError) {
       const status = err.code === 'FORBIDDEN' ? 403 : err.code === 'USER_NOT_FOUND' ? 404 : 400;
       return c.json({ error: err.code, message: err.message }, status);
