@@ -1,3 +1,4 @@
+import { resetCoreDb } from '@seta/core/internal/test-support';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import type { Pool } from 'pg';
@@ -15,6 +16,7 @@ export function withCopilotTestDb<T>(
       try {
         return await fn({ pool, databaseUrl });
       } finally {
+        resetCoreDb();
         await closePools();
       }
     },
