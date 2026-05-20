@@ -1,11 +1,15 @@
 export { addGroupMember } from './backend/domain/add-group-member.ts';
+export { createBucket } from './backend/domain/create-bucket.ts';
 export { createGroup } from './backend/domain/create-group.ts';
 export { createPlan } from './backend/domain/create-plan.ts';
+export { deleteBucket } from './backend/domain/delete-bucket.ts';
 export { deleteGroup } from './backend/domain/delete-group.ts';
 export { deletePlan } from './backend/domain/delete-plan.ts';
 export { removeGroupMember } from './backend/domain/remove-group-member.ts';
+export { reorderBucket } from './backend/domain/reorder-bucket.ts';
 export { restoreGroup } from './backend/domain/restore-group.ts';
 export { restorePlan } from './backend/domain/restore-plan.ts';
+export { updateBucket } from './backend/domain/update-bucket.ts';
 export { updateGroup } from './backend/domain/update-group.ts';
 export { updatePlan } from './backend/domain/update-plan.ts';
 export type {
@@ -20,8 +24,10 @@ export type {
   TaskWithAssigneesRow,
 } from './backend/dto.ts';
 export type {
+  CreateBucketInput,
   CreateGroupInput,
   CreatePlanInput,
+  UpdateBucketPatch,
   UpdateGroupPatch,
   UpdatePlanPatch,
 } from './backend/inputs.ts';
