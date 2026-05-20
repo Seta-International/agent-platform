@@ -6,6 +6,7 @@ import pino from 'pino';
 import { integrationsMailSetCommand } from './commands/integrations-mail-set.ts';
 import { integrationsMailTestCommand } from './commands/integrations-mail-test.ts';
 import { migrateCommand } from './commands/migrate.ts';
+import { plannerCommand } from './commands/planner.ts';
 import { roleGrantCommand } from './commands/role-grant.ts';
 import { seedCommand } from './commands/seed.ts';
 import { tenantCreateCommand } from './commands/tenant-create.ts';
@@ -236,5 +237,7 @@ program
       await closePools();
     }
   });
+
+plannerCommand(program);
 
 await program.parseAsync(process.argv);
