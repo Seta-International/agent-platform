@@ -384,22 +384,25 @@ describe('applyDeactivated', () => {
           // One planner.task.unassigned event per dropped assignment, with actor.type='system'
           const unassignedEvents = await readEvents(pool, tenantId, 'planner.task.unassigned');
           // Filter to those emitted by the system (from deactivation, not from the assignTask setup)
-          // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
-          const systemUnassignEvents = unassignedEvents.filter(
-            (ev) => (ev.payload as any).actor?.type === 'system',
-          );
+          const systemUnassignEvents = unassignedEvents.filter((ev) => {
+            const p = ev.payload as Record<string, unknown>;
+            const actor = p['actor'] as Record<string, unknown> | undefined;
+            return actor?.['type'] === 'system';
+          });
           expect(systemUnassignEvents).toHaveLength(2);
 
-          const taskIds = systemUnassignEvents.map((ev) => (ev.payload as any).task_id).sort();
+          const taskIds = systemUnassignEvents
+            .map((ev) => (ev.payload as Record<string, unknown>)['task_id'] as string)
+            .sort();
           expect(taskIds).toEqual([task1.id, task2.id].sort());
 
           for (const ev of systemUnassignEvents) {
-            // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
-            const p = ev.payload as any;
-            expect(p.actor.user_id).toBeNull();
-            expect(p.user_id).toBe(dave.user_id);
-            expect(p.plan_id).toBe(plan.id);
-            expect(p.group_id).toBe(group.id);
+            const p = ev.payload as Record<string, unknown>;
+            const actor = p['actor'] as Record<string, unknown>;
+            expect(actor['user_id']).toBeNull();
+            expect(p['user_id']).toBe(dave.user_id);
+            expect(p['plan_id']).toBe(plan.id);
+            expect(p['group_id']).toBe(group.id);
           }
         } finally {
           resetCoreDb();
