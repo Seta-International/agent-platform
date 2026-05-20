@@ -1,17 +1,15 @@
-import { useAui, useThread } from '@assistant-ui/react';
+import { useAui, useAuiState } from '@assistant-ui/react';
 import { ChatComposer } from '@seta/shared-ui';
 import { useState } from 'react';
 import { COPILOT_COPY } from '../i18n';
 
-export function ChatComposerContainer({ agentName: _agentName }: { agentName: 'router' | 'self' }) {
+export function ChatComposerContainer(_: { agentName: 'router' | 'self' }) {
   const [value, setValue] = useState('');
   const aui = useAui();
-  // useThread is the stable way to read reactive thread state when inside AssistantRuntimeProvider
-  const isRunning = useThread((s) => s.isRunning);
+  const isRunning = useAuiState((s) => s.thread.isRunning);
 
   const submit = () => {
     if (!value.trim() || isRunning) return;
-    // setText syncs our controlled value into the runtime composer, then send() dispatches it
     aui.composer().setText(value);
     aui.composer().send();
     setValue('');
