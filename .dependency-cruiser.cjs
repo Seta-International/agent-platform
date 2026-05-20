@@ -93,7 +93,7 @@ module.exports = {
       from: {
         orphan: true,
         pathNot:
-          '(^|/)(\\.|index\\.ts|.+\\.config\\.[cm]?[jt]s)$|^packages/shared/config/eslint/|(^|/)(__tests__|test)/|\\.(spec|test)\\.[jt]sx?$|/\\.storybook/|\\.stories\\.[jt]sx?$|(^|/)e2e/|^apps/web/src/lib/',
+          '(^|/)(\\.|index\\.ts|.+\\.config\\.[cm]?[jt]s)$|^packages/shared/config/eslint/|(^|/)(__tests__|test)/|\\.(spec|test)\\.[jt]sx?$|/\\.storybook/|\\.stories\\.[jt]sx?$|(^|/)e2e/|^apps/web/src/lib/|(^|/)scripts/',
       },
       to: {},
     },

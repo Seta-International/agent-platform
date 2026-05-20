@@ -1,3 +1,4 @@
+export { bindOtel, otel } from './backend/observability.ts';
 export type { SessionLike } from './backend/routes.ts';
 export type { CopilotEvent } from './events/index.ts';
 export type { CopilotPermission } from './permissions.ts';

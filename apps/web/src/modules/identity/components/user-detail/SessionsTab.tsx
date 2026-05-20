@@ -1,5 +1,5 @@
 import { Badge, Button, Card, formatRelative } from '@seta/shared-ui';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { parseUserAgent } from '@/lib/parse-user-agent.ts';
 import {
   type AdminUserSession,
@@ -12,7 +12,7 @@ export function SessionsTab({ userId, onCount }: { userId: string; onCount: (n: 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     setLoading(true);
     try {
       const r = await listUserSessionsApi(userId);
@@ -24,13 +24,12 @@ export function SessionsTab({ userId, onCount }: { userId: string; onCount: (n: 
     } finally {
       setLoading(false);
     }
-  }
+  }, [userId, onCount]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: refresh closes over userId via the call; effect re-runs on userId
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- delegates to refresh()
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- delegates to refresh() which manages loading/error/rows state
     void refresh();
-  }, [userId]);
+  }, [refresh]);
 
   if (loading) return <Card className="p-5 text-sm text-ink-muted">Loading…</Card>;
   if (error) return <Card className="p-5 text-sm text-destructive">{error}</Card>;
