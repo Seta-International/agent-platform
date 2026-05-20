@@ -12,14 +12,16 @@ import type {
 } from '@seta/planner';
 
 export class PlannerClientError extends Error {
-  constructor(
-    public status: number,
-    public code: string,
-    public body: Record<string, unknown>,
-    message?: string,
-  ) {
+  readonly status: number;
+  readonly code: string;
+  readonly body: Record<string, unknown>;
+
+  constructor(status: number, code: string, body: Record<string, unknown>, message?: string) {
     super(message ?? `${status} ${code}`);
     this.name = 'PlannerClientError';
+    this.status = status;
+    this.code = code;
+    this.body = body;
   }
 }
 
