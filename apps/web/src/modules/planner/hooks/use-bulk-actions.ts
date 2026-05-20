@@ -53,8 +53,6 @@ function aggregate(results: PromiseSettledResult<unknown>[], taskIds: string[]):
   return { ok, failed, failedPermissions };
 }
 
-// planId is on the signature per the contract so callers bind to a plan;
-// future enhancement: invalidate plannerKeys.planBoard(planId) after fan-out completes.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function useBulkActions(_planId: string) {
   async function bulkMove(input: BulkMoveInput): Promise<BulkResult> {

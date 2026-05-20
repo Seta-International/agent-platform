@@ -106,7 +106,6 @@ export function PlanGridPage({
       .filter((t): t is NonNullable<typeof t> => t !== undefined)
       .map((t) => ({ id: t.id, expected_version: t.version }));
 
-    // Toast wiring lands in a follow-up slice; bulk result is fire-and-forget here.
     void bulk.bulkMove({ tasks: selectedTasks, to_bucket_id: toBucketId });
     clearSelection();
   }

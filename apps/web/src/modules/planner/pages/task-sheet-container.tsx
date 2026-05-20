@@ -55,8 +55,6 @@ export function TaskSheetContainer({ taskId, planId, onClose }: Props) {
     setEditingDesc(false);
   }, [taskQ.data, draftDesc, updateTask]);
 
-  // TaskSheet currently renders title as a static heading with no focusable input.
-  // Wire titleInputRef here once shared-ui exposes an editable title slot.
   const titleInputRef = useRef<HTMLInputElement | null>(null);
 
   useSheetKeyboard({
