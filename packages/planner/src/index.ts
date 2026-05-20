@@ -7,6 +7,7 @@ export { deleteBucket } from './backend/domain/delete-bucket.ts';
 export { deleteGroup } from './backend/domain/delete-group.ts';
 export { deletePlan } from './backend/domain/delete-plan.ts';
 export { deleteTask } from './backend/domain/delete-task.ts';
+export { moveTask } from './backend/domain/move-task.ts';
 export { removeGroupMember } from './backend/domain/remove-group-member.ts';
 export { reorderBucket } from './backend/domain/reorder-bucket.ts';
 export { restoreGroup } from './backend/domain/restore-group.ts';
