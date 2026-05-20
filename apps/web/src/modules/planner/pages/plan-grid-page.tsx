@@ -15,8 +15,6 @@ interface Props {
   planId: string;
   filters: BoardFilters;
   onFiltersChange: (f: BoardFilters) => void;
-  // onOpenTask is in the Props contract for future "open row → sheet" wiring (Task 7 keyboard map).
-  // It is intentionally unused in this slice's render path.
   onOpenTask: (taskId: string) => void;
   view: 'board' | 'grid';
   onViewChange: (v: 'board' | 'grid') => void;
