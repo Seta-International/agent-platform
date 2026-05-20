@@ -15,6 +15,7 @@ export * from './composites/data-table';
 export * from './composites/empty-state';
 export * from './composites/filter-pill';
 export * from './composites/inbox-list';
+export * from './composites/kanban-card';
 export * from './composites/kbd-hint';
 export * from './composites/label-chip';
 export * from './composites/left-nav';

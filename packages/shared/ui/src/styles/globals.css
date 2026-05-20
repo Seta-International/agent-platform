@@ -43,3 +43,35 @@ select:focus-visible,
 /* ProgressBar */
 .progress-bar       { width: 100%; height: 8px; background: var(--color-surface-2); border-radius: var(--radius-sm); overflow: hidden; }
 .progress-bar__fill { height: 100%; background: var(--color-primary); transition: width 80ms ease-out; }
+
+/* KanbanCard */
+.kanban-card {
+  position: relative;
+  background: var(--color-surface-1); /* --color-surface-0 not in token set; surface-1 is the base card surface */
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-xs); /* --spacing-3 not in token set; spacing-xs (8px) is the closest equivalent */
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xxs); /* --spacing-2 not in token set; spacing-xxs (4px) is the closest equivalent */
+  cursor: grab;
+  transition: border-color 80ms ease-out, box-shadow 80ms ease-out;
+}
+.kanban-card:focus-visible    { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+/* Why: --shadow-md token not yet defined; literal used until token lands in tokens.css */
+.kanban-card--dragging        { cursor: grabbing; box-shadow: 0 2px 8px rgba(0,0,0,0.18); }
+.kanban-card--selected        { border-color: var(--color-primary); }
+.kanban-card--recently-moved  { animation: kanban-card-flash 1s ease-out 1; }
+
+@keyframes kanban-card-flash {
+  0%   { border-color: var(--color-primary); box-shadow: 0 0 0 2px var(--color-primary-tint); }
+  100% { border-color: var(--color-hairline); box-shadow: none; }
+}
+
+.kanban-card__title         { font-weight: 500; font-size: var(--text-body-sm); line-height: 1.4; } /* --font-size-sm not in token set; text-body-sm (13px) matches */
+.kanban-card__meta          { display: flex; align-items: center; gap: var(--spacing-xxs); font-size: var(--font-size-xs); color: var(--color-ink-muted); }
+.kanban-card__due           { color: var(--color-ink-subtle); }
+.kanban-card__assignees     { display: inline-flex; margin-left: auto; gap: -4px; }
+.kanban-card__avatar        { width: 20px; height: 20px; border-radius: 50%; background: var(--color-surface-2); font-size: 10px; display: inline-flex; align-items: center; justify-content: center; }
+.kanban-card__avatar-more   { font-size: 10px; color: var(--color-ink-subtle); align-self: center; padding-left: 4px; }
+.kanban-card__saving-dot    { position: absolute; top: var(--spacing-xxs); right: var(--spacing-xxs); width: 8px; height: 8px; border-radius: 50%; background: var(--color-ink-subtle); }
