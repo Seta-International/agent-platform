@@ -14,3 +14,5 @@ export type CopilotEnv = z.infer<typeof Env>;
 export function parseCopilotEnv(source: Record<string, string | undefined>): CopilotEnv {
   return Env.parse(source);
 }
+
+export const copilotEnv: CopilotEnv = parseCopilotEnv(process.env);
