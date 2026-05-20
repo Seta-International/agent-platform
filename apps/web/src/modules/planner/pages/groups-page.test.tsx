@@ -7,6 +7,7 @@ import {
   RouterProvider,
 } from '@tanstack/react-router';
 import { render, screen } from '@testing-library/react';
+import { axe } from 'jest-axe';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import type { ReactNode } from 'react';
@@ -73,5 +74,13 @@ describe('GroupsPage', () => {
     server.use(groupsHandlers.error);
     renderWithRouter(<GroupsPage />);
     expect(await screen.findByText(/Couldn't load groups/i)).toBeInTheDocument();
+  });
+
+  it('has no a11y violations on the happy path', async () => {
+    server.use(groupsHandlers.threeUp);
+    const { container } = renderWithRouter(<GroupsPage />);
+    await screen.findByText('Engineering');
+    const results = await axe(container);
+    expect(results).toHaveNoViolations();
   });
 });

@@ -71,7 +71,9 @@ export function TrashPage() {
             <th className="py-2 pr-4">Type</th>
             <th className="py-2 pr-4">Name</th>
             <th className="py-2 pr-4">Deleted</th>
-            <th className="py-2"></th>
+            <th className="py-2">
+              <span className="sr-only">Actions</span>
+            </th>
           </tr>
         </thead>
         <tbody>

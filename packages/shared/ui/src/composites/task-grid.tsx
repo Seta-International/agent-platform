@@ -63,7 +63,9 @@ export function TaskGrid({
     <table className="task-grid">
       <thead>
         <tr aria-label="Grid columns">
-          <th scope="col" aria-label="Select" />
+          <th scope="col">
+            <span className="sr-only">Select</span>
+          </th>
           <th scope="col">Title</th>
           <th scope="col">Status</th>
           <th scope="col">Bucket</th>

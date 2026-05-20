@@ -7,6 +7,7 @@ import {
   RouterProvider,
 } from '@tanstack/react-router';
 import { render, screen } from '@testing-library/react';
+import { axe } from 'jest-axe';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import type { ReactNode } from 'react';
@@ -119,5 +120,21 @@ describe('GroupDetailPage', () => {
     );
     await screen.findByText('Eng');
     expect(screen.queryByRole('tab', { name: /settings/i })).toBeNull();
+  });
+
+  it('has no a11y violations on the happy path (plans tab)', async () => {
+    server.use(
+      http.get('*/api/planner/v1/groups/g1', () =>
+        HttpResponse.json(makeGroup({ id: 'g1', name: 'Eng' })),
+      ),
+      http.get('*/api/planner/v1/plans', () =>
+        HttpResponse.json({ plans: [makePlan({ id: 'p1', group_id: 'g1', name: 'Q3' })] }),
+      ),
+      http.get('*/api/planner/v1/groups/g1/members', () => HttpResponse.json({ members: [] })),
+    );
+    const { container } = renderInRouter(<PageHarness tab="plans" />);
+    await screen.findByText('Q3');
+    const results = await axe(container);
+    expect(results).toHaveNoViolations();
   });
 });

@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { axe } from 'jest-axe';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import type { ReactNode } from 'react';
@@ -140,6 +141,14 @@ describe('PlanGridPage', () => {
       groupRows.some((r) => r.textContent?.includes('To do') && r.textContent?.includes('1')),
     ).toBe(true);
     expect(screen.getByText('Write tests')).toBeInTheDocument();
+  });
+
+  it('has no a11y violations on the happy path', async () => {
+    server.use(...seedBoardHandlers());
+    const { container } = renderPage();
+    await screen.findByText('Wire up DnD');
+    const results = await axe(container);
+    expect(results).toHaveNoViolations();
   });
 
   it('inline title edit commits via PATCH /api/planner/v1/tasks/:id', async () => {

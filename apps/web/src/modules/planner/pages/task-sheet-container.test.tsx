@@ -2,6 +2,7 @@ import type { TaskWithAssigneesRow } from '@seta/planner';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { axe } from 'jest-axe';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import type { ReactNode } from 'react';
@@ -102,6 +103,45 @@ describe('TaskSheetContainer', () => {
     expect(await screen.findByDisplayValue('Draft outline')).toBeInTheDocument();
     expect(await screen.findByDisplayValue('Write tests')).toBeInTheDocument();
     expect(await screen.findByText('task.created')).toBeInTheDocument();
+  });
+
+  it('has no a11y violations on the happy path', async () => {
+    const task: TaskWithAssigneesRow = makeTaskWithAssignees({
+      id: 't1',
+      title: 'Ship M3 spec',
+      description: '**Important** work',
+      priority: 'urgent',
+      progress: 'in_progress',
+      version: 1,
+    });
+    server.use(
+      http.get('/api/planner/v1/tasks/t1', () => HttpResponse.json(task)),
+      http.get('/api/planner/v1/tasks/t1/checklist', () =>
+        HttpResponse.json({
+          items: [
+            {
+              id: 'i1',
+              task_id: 't1',
+              label: 'Draft outline',
+              checked: true,
+              sort_order: 1,
+              created_at: '',
+              updated_at: '',
+            },
+          ],
+        }),
+      ),
+      http.get('/api/planner/v1/tasks/t1/events', () =>
+        HttpResponse.json({ events: [makeCreatedEvent('t1')] }),
+      ),
+    );
+
+    const { container } = renderWithQuery(
+      <TaskSheetContainer taskId="t1" planId="p1" onClose={vi.fn()} />,
+    );
+    await screen.findByText('Ship M3 spec');
+    const results = await axe(container);
+    expect(results).toHaveNoViolations();
   });
 
   it('switches description to edit mode + saves the new value on Cmd+Enter', async () => {

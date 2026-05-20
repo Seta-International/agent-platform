@@ -168,6 +168,7 @@ export function TaskSheetContainer({ taskId, planId, onClose }: Props) {
             />
             <input
               type="text"
+              aria-label={`Edit label: ${it.label}`}
               defaultValue={it.label}
               onBlur={(e) => {
                 if (e.target.value !== it.label) {

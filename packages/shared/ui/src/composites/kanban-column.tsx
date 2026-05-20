@@ -50,10 +50,13 @@ export function KanbanColumn({
         .join(' ')}
       aria-label={`Bucket: ${name}`}
     >
-      <header className="kanban-column__header" {...draggableHandle.handleProps}>
-        <span className={`status-dot status-dot--${status ?? 'muted'}`} aria-hidden="true" />
-        <span className="kanban-column__name">{name}</span>
-        <span className="kanban-column__count">{count}</span>
+      <header className="kanban-column__header">
+        {/* Drag handle is a neutral div so @hello-pangea/dnd's role="button" lands on a div, not header */}
+        <div className="kanban-column__drag-handle" {...draggableHandle.handleProps}>
+          <span className={`status-dot status-dot--${status ?? 'muted'}`} aria-hidden="true" />
+          <span className="kanban-column__name">{name}</span>
+          <span className="kanban-column__count">{count}</span>
+        </div>
       </header>
 
       <div

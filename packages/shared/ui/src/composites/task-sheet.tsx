@@ -36,7 +36,7 @@ export function TaskSheet({
   }, [onClose]);
 
   return (
-    <aside className="task-sheet" role="dialog" aria-modal="false" aria-label={title}>
+    <div className="task-sheet" role="dialog" aria-modal="false" aria-label={title}>
       <header className="task-sheet__header">
         <div className="task-sheet__title-block">
           <h2 className="task-sheet__title">{title}</h2>
@@ -65,6 +65,6 @@ export function TaskSheet({
       )}
 
       {footer && <footer className="task-sheet__footer">{footer}</footer>}
-    </aside>
+    </div>
   );
 }

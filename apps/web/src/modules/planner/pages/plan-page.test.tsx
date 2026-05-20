@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { axe } from 'jest-axe';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import type { ReactNode } from 'react';
@@ -156,6 +157,23 @@ describe('PlanPage', () => {
       />,
     );
     expect(await screen.findByTestId('virtualized-bucket-list')).toBeInTheDocument();
+  });
+
+  it('has no a11y violations on the happy path', async () => {
+    server.use(...seedBoardHandlers());
+    const { container } = renderWith(
+      <PlanPage
+        planId="p1"
+        filters={EMPTY_FILTERS}
+        onFiltersChange={() => {}}
+        onOpenTask={() => {}}
+        view="board"
+        onViewChange={() => {}}
+      />,
+    );
+    await screen.findByText('To do');
+    const results = await axe(container);
+    expect(results).toHaveNoViolations();
   });
 
   it('quick-create on a bucket fires createTask with the typed title', async () => {
