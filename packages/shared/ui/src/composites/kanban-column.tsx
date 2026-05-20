@@ -1,0 +1,102 @@
+import { type CSSProperties, type HTMLAttributes, type ReactNode, useState } from 'react';
+
+export interface KanbanColumnProps {
+  name: string;
+  count: number;
+  status?: 'muted' | 'primary' | 'warning' | 'success';
+  children: ReactNode;
+  onCreateTask?: (title: string) => void;
+  droppable: {
+    ref?: (el: HTMLElement | null) => void;
+    rootProps?: HTMLAttributes<HTMLElement>;
+    isDraggingOver?: boolean;
+    placeholder?: ReactNode;
+  };
+  draggableHandle: {
+    ref?: (el: HTMLElement | null) => void;
+    rootProps?: HTMLAttributes<HTMLElement>;
+    handleProps?: HTMLAttributes<HTMLElement>;
+    isDragging?: boolean;
+    extraStyle?: CSSProperties;
+  };
+}
+
+export function KanbanColumn({
+  name,
+  count,
+  status,
+  children,
+  onCreateTask,
+  droppable,
+  draggableHandle,
+}: KanbanColumnProps) {
+  const [composing, setComposing] = useState(false);
+  const [value, setValue] = useState('');
+
+  function submit() {
+    const v = value.trim();
+    if (v && onCreateTask) onCreateTask(v);
+    setValue('');
+    setComposing(false);
+  }
+
+  return (
+    <section
+      ref={draggableHandle.ref}
+      {...draggableHandle.rootProps}
+      style={draggableHandle.extraStyle}
+      className={['kanban-column', draggableHandle.isDragging && 'kanban-column--dragging']
+        .filter(Boolean)
+        .join(' ')}
+      aria-label={`Bucket: ${name}`}
+    >
+      <header className="kanban-column__header" {...draggableHandle.handleProps}>
+        <span className={`status-dot status-dot--${status ?? 'muted'}`} aria-hidden="true" />
+        <span className="kanban-column__name">{name}</span>
+        <span className="kanban-column__count">{count}</span>
+      </header>
+
+      <div
+        ref={droppable.ref}
+        {...droppable.rootProps}
+        className={['kanban-column__list', droppable.isDraggingOver && 'kanban-column__list--over']
+          .filter(Boolean)
+          .join(' ')}
+      >
+        {children}
+        {droppable.placeholder}
+      </div>
+
+      {!composing && onCreateTask && (
+        <button
+          type="button"
+          className="kanban-column__quick-create"
+          onClick={() => setComposing(true)}
+        >
+          + Add a task
+        </button>
+      )}
+      {composing && (
+        <div className="kanban-column__compose">
+          <input
+            // biome-ignore lint/a11y/noAutofocus: quick-create reveal requires immediate focus to be useful
+            autoFocus
+            placeholder="Add a task…"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') submit();
+              if (e.key === 'Escape') {
+                setComposing(false);
+                setValue('');
+              }
+            }}
+            onBlur={() => {
+              if (!value.trim()) setComposing(false);
+            }}
+          />
+        </div>
+      )}
+    </section>
+  );
+}
