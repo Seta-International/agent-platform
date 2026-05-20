@@ -27,7 +27,12 @@ export function IdentityRailCard({ detail }: { detail: AdminUserDetail }) {
     <Card className="p-4">
       <div className="text-[11px] uppercase tracking-wider text-ink-muted mb-2">Identity</div>
       <Row label="Email">
-        <span className="font-mono text-sm">{detail.profile.email}</span>
+        <span
+          className="font-mono text-sm truncate max-w-[200px] inline-block align-bottom"
+          title={detail.profile.email}
+        >
+          {detail.profile.email}
+        </span>
       </Row>
       <Row label="Auth">
         <span className="text-sm">{authLabel(detail.sign_in_methods)}</span>

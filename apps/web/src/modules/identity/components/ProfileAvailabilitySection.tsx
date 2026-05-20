@@ -1,25 +1,36 @@
 import {
   Button,
-  Calendar,
   Card,
   CardContent,
   CardHeader,
   CardTitle,
+  Input,
   Label,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
   RadioGroup,
   RadioGroupItem,
 } from '@seta/shared-ui';
 import { useState } from 'react';
-import { type ProfileDto, patchProfile } from '../api/client.ts';
+import type { ProfileDto, SaveProfile } from '../api/client.ts';
+
+function toDateInputValue(d: Date | null): string {
+  if (!d) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function todayInputValue(): string {
+  return toDateInputValue(new Date());
+}
 
 export function ProfileAvailabilitySection({
   profile,
+  onSave,
   onUpdate,
 }: {
   profile: ProfileDto;
+  onSave: SaveProfile;
   onUpdate: (p: ProfileDto) => void;
 }) {
   const [status, setStatus] = useState(profile.availability_status);
@@ -31,7 +42,7 @@ export function ProfileAvailabilitySection({
   async function save() {
     setSaving(true);
     try {
-      const updated = await patchProfile({
+      const updated = await onSave({
         availability_status: status,
         ooo_until: status === 'ooo' ? (oooUntil?.toISOString() ?? null) : null,
       });
@@ -73,21 +84,18 @@ export function ProfileAvailabilitySection({
         </RadioGroup>
         {status === 'ooo' && (
           <div className="space-y-2">
-            <Label>Until</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="secondary" className="w-full justify-start">
-                  {oooUntil ? oooUntil.toDateString() : 'Pick a date'}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar
-                  mode="single"
-                  selected={oooUntil ?? undefined}
-                  onSelect={(d) => setOooUntil(d ?? null)}
-                />
-              </PopoverContent>
-            </Popover>
+            <Label htmlFor="ooo-until">Until</Label>
+            <Input
+              id="ooo-until"
+              type="date"
+              min={todayInputValue()}
+              value={toDateInputValue(oooUntil)}
+              onChange={(e) => {
+                const v = e.target.value;
+                setOooUntil(v ? new Date(`${v}T00:00:00`) : null);
+              }}
+              className="w-56"
+            />
           </div>
         )}
         <Button onClick={save} disabled={saving || !dirty}>

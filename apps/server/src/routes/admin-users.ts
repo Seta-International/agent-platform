@@ -15,6 +15,7 @@ import {
   revokeRole,
   revokeUserSession,
   TENANT_ROLE_SLUGS,
+  updateUserProfile,
 } from '@seta/identity';
 import type { Context, Hono } from 'hono';
 import { z } from 'zod';
@@ -30,6 +31,20 @@ const grantSchema = z.object({
   role_slug: z.string(),
   scope_type: z.enum(['tenant', 'group']).default('tenant'),
   scope_id: z.string().nullable().optional(),
+});
+
+const HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+const adminProfilePatchSchema = z.object({
+  display_name: z.string().min(1).max(120).optional(),
+  availability_status: z.enum(['available', 'busy', 'ooo']).optional(),
+  ooo_until: z.string().datetime().nullable().optional(),
+  timezone: z.string().min(1).optional(),
+  working_hours: z
+    .object({ start: z.string().regex(HHMM_RE), end: z.string().regex(HHMM_RE) })
+    .nullable()
+    .optional(),
+  skills: z.array(z.string()).optional(),
 });
 
 function requireAdmin(c: Context<SessionEnv>): void {
@@ -99,6 +114,31 @@ export function registerAdminUsersRoutes(app: Hono<SessionEnv>): void {
       getUserSignInMethods(userId),
     ]);
     return c.json({ profile, grants, sign_in_methods });
+  });
+
+  app.patch('/api/identity/v1/users/:id/profile', async (c) => {
+    requireAdmin(c);
+    const scope = c.get('user');
+    const userId = c.req.param('id');
+    const parsed = adminProfilePatchSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success)
+      return c.json({ error: 'invalid_patch', details: parsed.error.flatten() }, 400);
+    const patch = {
+      ...parsed.data,
+      ooo_until:
+        parsed.data.ooo_until === undefined
+          ? undefined
+          : parsed.data.ooo_until
+            ? new Date(parsed.data.ooo_until)
+            : null,
+    };
+    const updated = await updateUserProfile(userId, patch, {
+      type: 'user',
+      user_id: scope.user_id,
+      ip: c.req.header('x-forwarded-for')?.split(',')[0]?.trim(),
+      user_agent: c.req.header('user-agent'),
+    });
+    return c.json(updated);
   });
 
   app.post('/api/identity/v1/users/:id/role-grants', async (c) => {

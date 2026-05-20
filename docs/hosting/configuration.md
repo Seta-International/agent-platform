@@ -105,6 +105,30 @@ Optional. Int. Default: `30`.
 
 Days to retain rows in the `core.events` outbox before the partition manager drops them. Lower values reduce disk usage at the cost of audit history. See `requirements.md` §1.6.5a.
 
+### CRYPTO_KEY_PROVIDER
+
+Optional. Enum (`env` | `kms`). Default: `env`.
+
+Selects how `@seta/shared-crypto` resolves its KEK. `env` reads a master key from `CRYPTO_LOCAL_MASTER_KEY` (or the rotation-aware `CRYPTO_LOCAL_KEYS` / `CRYPTO_LOCAL_PRIMARY_KID`) — appropriate for dev, test, and self-host scenarios without an AWS account. `kms` uses AWS KMS via `CRYPTO_KMS_KEY_ARN`. The chosen provider runs a `selfTest()` at server boot; misconfiguration crash-loops the process rather than silently failing. See `docs/superpowers/specs/2026-05-20-shared-crypto-design.md` and ADR D37.
+
+### CRYPTO_LOCAL_MASTER_KEY
+
+Conditional. Secret. No default.
+
+REQUIRED when `CRYPTO_KEY_PROVIDER=env`. 64-character hex string (32 bytes / 256 bits). Used to wrap per-message DEKs via AES-256-GCM in process. Generate with `pnpm --filter @seta/shared-crypto crypto:gen-local-key`. Treat as a high-value secret; rotating it leaves previously-encrypted blobs undecryptable unless you migrate to the multi-key form `CRYPTO_LOCAL_KEYS=new:<hex>,old:<hex>` + `CRYPTO_LOCAL_PRIMARY_KID=new`.
+
+### CRYPTO_KMS_KEY_ARN
+
+Conditional. String. No default.
+
+REQUIRED when `CRYPTO_KEY_PROVIDER=kms`. Full ARN (or `alias/<name>`) of the operator-provisioned customer master key. Provision the CMK out-of-band (CDK / Terraform); app code never creates or deletes CMKs. Grant the Fargate task IAM role `kms:GenerateDataKey`, `kms:Decrypt`, and `kms:DescribeKey` on this ARN. KMS rotates the underlying key material annually and transparently; same ARN keeps working without app changes.
+
+### AWS_REGION
+
+Conditional. String. No default.
+
+REQUIRED alongside `CRYPTO_KMS_KEY_ARN`. Identifies the AWS region the KMS key lives in so the SDK can route the request without a separate config file. Standard AWS region code (e.g. `us-east-1`, `eu-west-1`).
+
 ### SETA_MODULES
 
 Optional. String. Default: `*`.

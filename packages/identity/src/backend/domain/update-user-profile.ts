@@ -11,6 +11,7 @@ export interface UpdateUserProfilePatch {
   availability_status?: 'available' | 'busy' | 'ooo';
   ooo_until?: Date | null;
   timezone?: string;
+  working_hours?: { start: string; end: string } | null;
   skills?: ReadonlyArray<string>;
 }
 
@@ -64,6 +65,13 @@ export async function updateUserProfile(
     diffAfter.timezone = patch.timezone;
   }
   if (
+    patch.working_hours !== undefined &&
+    JSON.stringify(patch.working_hours) !== JSON.stringify(before.working_hours ?? null)
+  ) {
+    diffBefore.working_hours = before.working_hours ?? null;
+    diffAfter.working_hours = patch.working_hours;
+  }
+  if (
     normalizedSkills !== undefined &&
     JSON.stringify(normalizedSkills) !== JSON.stringify([...before.skills].sort())
   ) {
@@ -95,6 +103,7 @@ export async function updateUserProfile(
         profilePatch.availability_status = patch.availability_status;
       if (patch.ooo_until !== undefined) profilePatch.ooo_until = patch.ooo_until;
       if (patch.timezone !== undefined) profilePatch.timezone = patch.timezone;
+      if (patch.working_hours !== undefined) profilePatch.working_hours = patch.working_hours;
       if (normalizedSkills !== undefined) profilePatch.skills = normalizedSkills;
 
       if (Object.keys(profilePatch).length > 1) {

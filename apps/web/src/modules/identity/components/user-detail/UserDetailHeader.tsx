@@ -103,12 +103,14 @@ export function UserDetailHeader({
               <Badge className="h-[18px] px-1.5 text-[11px]">org.admin</Badge>
             )}
           </div>
-          <div className="flex items-center gap-3 text-sm text-ink-muted flex-wrap">
-            <span className="font-mono">{detail.profile.email}</span>
-            <span className="opacity-60">·</span>
-            <span>Joined {formatRelative(detail.profile.updated_at)}</span>
-            <span className="opacity-60">·</span>
-            <span>{detail.profile.timezone}</span>
+          <div className="flex items-center gap-3 text-sm text-ink-muted min-w-0">
+            <span className="font-mono truncate min-w-0 max-w-[40ch]" title={detail.profile.email}>
+              {detail.profile.email}
+            </span>
+            <span className="opacity-60 flex-none">·</span>
+            <span className="flex-none">Joined {formatRelative(detail.profile.updated_at)}</span>
+            <span className="opacity-60 flex-none">·</span>
+            <span className="flex-none">{detail.profile.timezone}</span>
           </div>
         </div>
         <div className="flex items-center gap-1.5">

@@ -87,6 +87,110 @@ describe('updateUserProfile', () => {
     );
   });
 
+  it('round-trips working_hours and emits the diff', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+      },
+      async ({ pool, databaseUrl }) => {
+        resetCoreDb();
+        const { userId } = await setup(pool, databaseUrl);
+        try {
+          const result = await updateUserProfile(
+            userId,
+            { working_hours: { start: '09:00', end: '18:00' } },
+            { type: 'user', user_id: userId },
+          );
+          expect(result.working_hours).toEqual({ start: '09:00', end: '18:00' });
+
+          const event = (
+            await pool.query(
+              `SELECT payload FROM core.events WHERE event_type = 'identity.user.profile.updated'`,
+            )
+          ).rows[0] as {
+            payload: { before: Record<string, unknown>; after: Record<string, unknown> };
+          };
+          expect(event.payload.before).toEqual({ working_hours: null });
+          expect(event.payload.after).toEqual({
+            working_hours: { start: '09:00', end: '18:00' },
+          });
+        } finally {
+          resetCoreDb();
+          await closePools();
+        }
+      },
+    );
+  });
+
+  it('admin can update another user with identity.user.write; non-admin cannot', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+      },
+      async ({ pool, databaseUrl }) => {
+        resetCoreDb();
+        const reg = createContributionRegistry();
+        registerCoreContributions(reg);
+        registerIdentityContributions(reg);
+        await runMigrations(reg, { pool: pool as Parameters<typeof runMigrations>[1]['pool'] });
+        initPools({ databaseUrl });
+        try {
+          const tenantId = crypto.randomUUID();
+          await pool.query(`INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'T', $2)`, [
+            tenantId,
+            `t-${tenantId.slice(0, 8)}`,
+          ]);
+          const { user_id: adminId } = await createUser(
+            {
+              tenant_id: tenantId,
+              email: 'admin@t.local',
+              name: 'Admin',
+              password: 'admin-password-1234',
+              initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
+            },
+            { type: 'cli', user_id: null },
+          );
+          const { user_id: viewerId } = await createUser(
+            {
+              tenant_id: tenantId,
+              email: 'viewer@t.local',
+              name: 'Viewer',
+              password: 'viewer-password-1234',
+              initial_role: { role_slug: 'identity.viewer', scope_type: 'tenant', scope_id: null },
+            },
+            { type: 'cli', user_id: null },
+          );
+          const { user_id: subjectId } = await createUser(
+            {
+              tenant_id: tenantId,
+              email: 's@t.local',
+              name: 'S',
+              password: 'subject-password-1234',
+            },
+            { type: 'cli', user_id: null },
+          );
+
+          const result = await updateUserProfile(
+            subjectId,
+            { skills: ['typescript'], working_hours: { start: '09:00', end: '17:00' } },
+            { type: 'user', user_id: adminId },
+          );
+          expect(result.skills).toEqual(['typescript']);
+          expect(result.working_hours).toEqual({ start: '09:00', end: '17:00' });
+
+          await expect(
+            updateUserProfile(subjectId, { skills: ['rust'] }, { type: 'user', user_id: viewerId }),
+          ).rejects.toThrow();
+        } finally {
+          resetCoreDb();
+          await closePools();
+        }
+      },
+    );
+  });
+
   it('does not emit when patch is a no-op', async () => {
     await withTestDb(
       {

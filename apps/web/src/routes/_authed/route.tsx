@@ -1,13 +1,7 @@
-import {
-  AppShell,
-  Avatar,
-  AvatarFallback,
-  type ShellLinkProps,
-  type ShellNavModule,
-} from '@seta/shared-ui';
+import { AppShell, type ShellLinkProps, type ShellNavModule } from '@seta/shared-ui';
 import { createFileRoute, Link, Outlet, redirect, useRouterState } from '@tanstack/react-router';
 import { fetchMe } from '@/modules/identity/api/client.ts';
-import { SessionProvider, useSession } from '@/modules/identity/components/SessionProvider.tsx';
+import { SessionProvider } from '@/modules/identity/components/SessionProvider.tsx';
 import { UserMenu } from '@/modules/identity/components/UserMenu.tsx';
 
 const NAV_MODULES: ShellNavModule[] = [
@@ -121,34 +115,9 @@ function AuthedLayout() {
         activeItemId={activeNavId(pathname)}
         linkComponent={ShellLink}
         userMenu={<UserMenu />}
-        sessionFooter={<SessionFooter />}
       >
         <Outlet />
       </AppShell>
     </SessionProvider>
-  );
-}
-
-function initialsOf(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '?';
-  return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase();
-}
-
-function SessionFooter() {
-  const session = useSession();
-  const primaryRole = session.role_summary.roles[0] ?? 'member';
-  return (
-    <div className="flex items-center gap-2">
-      <Avatar className="size-6">
-        <AvatarFallback className="text-eyebrow font-semibold">
-          {initialsOf(session.display_name || session.email)}
-        </AvatarFallback>
-      </Avatar>
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-caption font-medium text-ink">{session.display_name}</div>
-        <div className="truncate text-eyebrow text-ink-subtle">{primaryRole}</div>
-      </div>
-    </div>
   );
 }

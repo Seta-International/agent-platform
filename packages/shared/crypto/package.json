@@ -1,0 +1,28 @@
+{
+  "name": "@seta/shared-crypto",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./testing": "./src/testing/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "crypto:gen-local-key": "node --import=tsx scripts/gen-local-key.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-kms": "^3.1050.0",
+    "pino": "^10.3.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@seta/shared-config": "workspace:^",
+    "@types/node": "^25.9.1",
+    "aws-sdk-client-mock": "^4.1.0",
+    "tsx": "^4.22.3",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.6"
+  }
+}

@@ -1,13 +1,19 @@
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@seta/shared-ui';
 import { useState } from 'react';
-import { type ProfileDto, patchProfile } from '../api/client.ts';
+import type { ProfileDto, SaveProfile } from '../api/client.ts';
 
 export function ProfileAccountSection({
   profile,
+  onSave,
   onUpdate,
+  showEmail = true,
+  passwordHint,
 }: {
   profile: ProfileDto;
+  onSave: SaveProfile;
   onUpdate: (p: ProfileDto) => void;
+  showEmail?: boolean;
+  passwordHint?: string;
 }) {
   const [name, setName] = useState(profile.display_name);
   const [saving, setSaving] = useState(false);
@@ -15,7 +21,7 @@ export function ProfileAccountSection({
   async function save() {
     setSaving(true);
     try {
-      const updated = await patchProfile({ display_name: name });
+      const updated = await onSave({ display_name: name });
       onUpdate(updated);
     } finally {
       setSaving(false);
@@ -32,13 +38,13 @@ export function ProfileAccountSection({
           <Label htmlFor="display_name">Display name</Label>
           <Input id="display_name" value={name} onChange={(e) => setName(e.target.value)} />
         </div>
-        <div className="space-y-2">
-          <Label>Email</Label>
-          <Input value={profile.email} readOnly />
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Password change coming soon — contact your admin to reset for now.
-        </p>
+        {showEmail && (
+          <div className="space-y-2">
+            <Label>Email</Label>
+            <Input value={profile.email} readOnly />
+          </div>
+        )}
+        {passwordHint && <p className="text-sm text-ink-muted">{passwordHint}</p>}
         <Button onClick={save} disabled={saving || name === profile.display_name}>
           Save
         </Button>

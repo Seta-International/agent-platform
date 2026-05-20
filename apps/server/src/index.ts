@@ -4,6 +4,7 @@ import { startDispatcher } from '@seta/core/dispatcher';
 import { registerCoreContributions } from '@seta/core/register';
 import { startWorkerPool } from '@seta/core/workers';
 import { registerIdentityContributions } from '@seta/identity/register';
+import { createCrypto, createKeyProviderFromEnv, parseCryptoEnv } from '@seta/shared-crypto';
 import { closePools, getPool, initPools } from '@seta/shared-db';
 import pino from 'pino';
 import { buildServerApp, registerAppContributions } from './build.ts';
@@ -13,6 +14,12 @@ const log = pino({ name: 'apps/server' });
 const env = parseEnv(process.env);
 
 initPools({ databaseUrl: env.DATABASE_URL });
+
+const cryptoEnv = parseCryptoEnv(process.env);
+const keyProvider = await createKeyProviderFromEnv(cryptoEnv);
+const crypto = createCrypto({ keyProvider, log: log.child({ component: 'crypto' }) });
+log.info({ provider: keyProvider.kind }, 'crypto wired');
+void crypto;
 
 const reg = createContributionRegistry();
 registerCoreContributions(reg);
