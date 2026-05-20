@@ -34,8 +34,13 @@ const NAV_MODULES: ShellNavModule[] = [
         id: 'planner.groups',
         icon: 'users',
         label: 'Groups',
-        disabled: true,
-        disabledHint: 'Planner ships with M2 Stream B',
+        href: '/planner/groups',
+      },
+      {
+        id: 'planner.trash',
+        icon: 'inbox',
+        label: 'Trash',
+        href: '/planner/trash',
       },
     ],
   },
@@ -81,6 +86,9 @@ const NAV_MODULES: ShellNavModule[] = [
 
 function activeNavId(pathname: string): string | undefined {
   if (pathname.startsWith('/copilot/chat')) return 'copilot.chat';
+  if (pathname.startsWith('/planner/groups')) return 'planner.groups';
+  if (pathname.startsWith('/planner/plans')) return 'planner.groups';
+  if (pathname.startsWith('/planner/trash')) return 'planner.trash';
   if (pathname.startsWith('/admin/users')) return 'admin.users';
   if (pathname.startsWith('/admin/sso')) return 'admin.sso';
   if (pathname.startsWith('/admin/audit')) return 'admin.audit';
