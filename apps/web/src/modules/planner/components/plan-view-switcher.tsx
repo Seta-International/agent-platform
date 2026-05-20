@@ -1,10 +1,9 @@
 interface Props {
   value: 'board' | 'grid';
   onChange: (v: 'board' | 'grid') => void;
-  gridDisabled?: boolean;
 }
 
-export function PlanViewSwitcher({ value, onChange, gridDisabled }: Props) {
+export function PlanViewSwitcher({ value, onChange }: Props) {
   return (
     <div role="tablist" className="plan-view-switcher">
       <button
@@ -19,11 +18,7 @@ export function PlanViewSwitcher({ value, onChange, gridDisabled }: Props) {
         type="button"
         role="tab"
         aria-selected={value === 'grid'}
-        aria-disabled={gridDisabled || undefined}
-        onClick={() => {
-          if (!gridDisabled) onChange('grid');
-        }}
-        title={gridDisabled ? 'Grid view ships in PR3' : undefined}
+        onClick={() => onChange('grid')}
       >
         Grid
       </button>

@@ -141,7 +141,7 @@ export function PlanPage({
       <PlanPageHeader planName={plan.name} bucketCount={buckets.length} taskCount={tasks.length} />
       <div className="plan-toolbar">
         <PlanFilterBar filters={filters} onChange={onFiltersChange} />
-        <PlanViewSwitcher value={view} onChange={onViewChange} gridDisabled />
+        <PlanViewSwitcher value={view} onChange={onViewChange} />
       </div>
 
       <DragDropContext onDragEnd={onDragEnd}>
