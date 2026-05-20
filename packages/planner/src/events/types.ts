@@ -236,7 +236,7 @@ export interface PlannerTaskCreated {
       task_id: Uuid;
       plan_id: Uuid;
       group_id: Uuid;
-      bucket_id: Uuid;
+      bucket_id: Uuid | null;
       title: string;
       description: string | null;
       priority: 'urgent' | 'important' | 'medium' | 'low';
@@ -305,8 +305,8 @@ export interface PlannerTaskMoved {
     group_id: Uuid;
     task_id: Uuid;
     plan_id: Uuid;
-    before: { bucket_id: Uuid; sort_order: number };
-    after: { bucket_id: Uuid; sort_order: number };
+    before: { bucket_id: Uuid | null; sort_order: number };
+    after: { bucket_id: Uuid | null; sort_order: number };
     version_before: number;
     version_after: number;
   };
