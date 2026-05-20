@@ -1,11 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type {
-  Mailer,
-  MailTemplateName,
-  MailTemplateProps,
-  SendInput,
-  SendResult,
-} from '../types.ts';
+import type { Mailer, MailTemplateName, SendInput, SendResult } from '../types.ts';
 
 export interface FakeMailerSentItem {
   to: string;

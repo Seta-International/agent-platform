@@ -26,6 +26,6 @@ export async function getMailTransportConfig(
     .from(mailTransportConfig)
     .where(eq(mailTransportConfig.tenantId, tenantId))
     .limit(1);
-  if (!row || !row.enabled) return null;
+  if (!row?.enabled) return null;
   return row;
 }

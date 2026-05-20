@@ -71,7 +71,12 @@ module.exports = {
       },
       to: {
         path: '^packages/shared/([^/]+)/',
-        pathNot: '^packages/shared/(testing|$1)/',
+        // Exemptions:
+        //  - testing/$1 is always allowed (testing is the shared util)
+        //  - shared/mailer may import shared/crypto: typed EncryptedBlob crosses
+        //    the boundary so per-tenant SMTP passwords can be encrypted at the
+        //    transport-config boundary. shared/crypto stays a pure leaf.
+        pathNot: '^packages/shared/(testing|$1)/|^packages/shared/crypto/',
       },
     },
     {
