@@ -2,7 +2,12 @@ export { buildHonoApp } from './composition/hono-app.ts';
 export { runMigrations } from './composition/migrations.ts';
 export { type ContributionRegistry, createContributionRegistry } from './composition/registry.ts';
 export type { OutgoingEmailStatus, TransportKind } from './db/schema/index.ts';
-export { startDispatcher } from './dispatcher/index.ts';
+export {
+  addEventTap,
+  type EventTapHandler,
+  type EventTapPredicate,
+  startDispatcher,
+} from './dispatcher/index.ts';
 export {
   createSessionMiddleware,
   type SessionEnv,

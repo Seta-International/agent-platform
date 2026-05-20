@@ -1,11 +1,13 @@
 import { createDb } from '@seta/shared-db';
-import type { SubscriberDef } from '@seta/shared-types';
+import type { DomainEvent, SubscriberDef } from '@seta/shared-types';
 import type { Pool } from 'pg';
 import * as schema from '../db/schema/index.ts';
 import { type BackoffOpts, drainOne } from './drain.ts';
+import { dispatchTap } from './event-tap.ts';
 import { getFailureEntry, resetAllFailureState } from './failure-state.ts';
 
 export type { SubscriberDef } from '@seta/shared-types';
+export { addEventTap, type EventTapHandler, type EventTapPredicate } from './event-tap.ts';
 
 export interface SubscriptionHealth {
   subscription: string;
@@ -38,6 +40,12 @@ export async function startDispatcher(opts: {
   let shuttingDown = false;
   let inFlight: Promise<void> | null = null;
 
+  // NIL UUID is the sentinel "before everything" cursor for the tap drainer.
+  const NIL_UUID = '00000000-0000-0000-0000-000000000000';
+  // null means "not yet initialized"; on first tapTick we set it to the current max
+  // so we only observe events emitted after this process started.
+  let lastTapEventId: string | null = null;
+
   const listener = await opts.pool.connect();
   await listener.query('LISTEN events');
   listener.on('notification', () => {
@@ -62,6 +70,31 @@ export async function startDispatcher(opts: {
     },
   };
 
+  async function tapTick(): Promise<void> {
+    if (shuttingDown) return;
+    // Lazy initialization: set the cursor to the current max so we don't replay history.
+    if (lastTapEventId === null) {
+      const r = await opts.pool.query('SELECT id FROM core.events ORDER BY id DESC LIMIT 1');
+      lastTapEventId = (r.rows[0]?.id as string | undefined) ?? NIL_UUID;
+      return;
+    }
+    const r = await opts.pool.query<DomainEvent & { id: string }>(
+      `SELECT id, tenant_id AS "tenantId", aggregate_type AS "aggregateType",
+              aggregate_id AS "aggregateId", event_type AS "eventType",
+              event_version AS "eventVersion", payload, occurred_at AS "occurredAt",
+              caused_by_event_id AS "causedByEventId", trace_id AS "traceId"
+         FROM core.events
+        WHERE id > $1
+        ORDER BY id ASC
+        LIMIT 200`,
+      [lastTapEventId],
+    );
+    for (const row of r.rows) {
+      dispatchTap(row as DomainEvent);
+      lastTapEventId = row.id;
+    }
+  }
+
   async function tick(): Promise<void> {
     if (shuttingDown) return;
     // Serialize ticks: only one drain in-flight at a time. New ticks scheduled while
@@ -70,6 +103,7 @@ export async function startDispatcher(opts: {
     inFlight = (async () => {
       try {
         await Promise.all(opts.subscribers.map((sub) => drainOne(db, sub, backoff, log, metrics)));
+        await tapTick();
       } catch (err) {
         log.error({ err }, 'dispatcher tick failure');
       } finally {
