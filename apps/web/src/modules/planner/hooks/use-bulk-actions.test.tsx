@@ -20,7 +20,11 @@ describe('useBulkActions', () => {
         const id = String(params.id);
         if (failIds.has(id)) {
           return HttpResponse.json(
-            { error: 'FORBIDDEN', message: 'planner.task.update missing' },
+            {
+              error: 'FORBIDDEN',
+              message: 'Missing permission: planner.task.update',
+              details: { permission: 'planner.task.update', group_id: 'g1' },
+            },
             { status: 403 },
           );
         }

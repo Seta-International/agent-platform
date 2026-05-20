@@ -27,10 +27,12 @@ export interface BulkResult {
 
 function extractPermission(err: unknown): string | undefined {
   if (!(err instanceof PlannerClientError) || err.status !== 403) return undefined;
-  const msg = typeof err.body.message === 'string' ? err.body.message : err.message;
-  // 403 messages look like "planner.task.update missing" — extract the permission name
-  const m = msg.match(/([\w.]+)\s+missing/);
-  return m?.[1];
+  const details = err.body.details;
+  if (details && typeof details === 'object' && 'permission' in details) {
+    const permission = (details as { permission: unknown }).permission;
+    return typeof permission === 'string' ? permission : undefined;
+  }
+  return undefined;
 }
 
 function aggregate(results: PromiseSettledResult<unknown>[], taskIds: string[]): BulkResult {
