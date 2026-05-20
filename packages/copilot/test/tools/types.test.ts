@@ -20,7 +20,7 @@ describe('toToolBag', () => {
   });
 
   it('preserves needsApproval flag when set', () => {
-    const tool: CopilotTool<z.ZodObject<{}>> = {
+    const tool: CopilotTool<z.ZodObject<Record<string, never>>> = {
       name: 'y.write',
       description: 'writes',
       inputSchema: z.object({}),
