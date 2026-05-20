@@ -25,6 +25,7 @@ export type {
 export { linkSsoAccount } from './backend/domain/link-sso-account.ts';
 export type { EntraImportableUser } from './backend/domain/list-entra-importable-users.ts';
 export { listEntraImportableUsers } from './backend/domain/list-entra-importable-users.ts';
+export { listMyEffectivePermissions } from './backend/domain/list-my-effective-permissions.ts';
 export type { ActiveRoleGrant, RoleGrantsResult } from './backend/domain/list-role-grants.ts';
 export { listRoleGrants } from './backend/domain/list-role-grants.ts';
 export { listSsoProviders } from './backend/domain/list-sso-providers.ts';
