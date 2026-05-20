@@ -9,7 +9,7 @@ interface Props {
 }
 
 export function VirtualizedBucketList({ bucketId, cards, onOpen }: Props) {
-  const { parentRef, virtualizer } = useVirtualizedBucket({ count: cards.length, enabled: true });
+  const { parentRef, virtualizer } = useVirtualizedBucket({ count: cards.length });
 
   return (
     <Droppable
@@ -43,8 +43,10 @@ export function VirtualizedBucketList({ bucketId, cards, onOpen }: Props) {
           className={
             ds.isDraggingOver ? 'is-over virtualized-bucket-list' : 'virtualized-bucket-list'
           }
-          style={{ height: '600px', overflow: 'auto', position: 'relative' }}
+          // fixed scroll viewport — TanStack virtualizer needs a definite scroll-container height to compute the visible window
+          style={{ maxHeight: '70vh', height: '100%', overflow: 'auto', position: 'relative' }}
         >
+          {/* placeholder intentionally omitted — virtual mode; total height is provided by the spacer div above */}
           <div
             style={{
               height: `${virtualizer.getTotalSize()}px`,
