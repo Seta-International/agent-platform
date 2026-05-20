@@ -5,6 +5,7 @@ import type {
   IdentityUserCreated,
   IdentityUserDeactivated,
   IdentityUserProfileUpdated,
+  IdentityUserSsoRevoked,
 } from './types.ts';
 
 export async function emitIdentityUserCreated(args: {
@@ -171,5 +172,45 @@ export async function emitIdentitySsoProviderDisconnected(args: {
     eventType: 'identity.sso_provider.disconnected',
     eventVersion: 1,
     payload: { actor: args.actor, tenant_id: args.tenant_id, provider_id: 'microsoft-entra-id' },
+  });
+}
+
+export async function emitIdentityUserSsoLinked(args: {
+  actor: IdentityEventActor;
+  user_id: string;
+  tenant_id: string;
+  entra_oid: string;
+  entra_tid: string;
+}): Promise<void> {
+  await emit({
+    tenantId: args.tenant_id,
+    aggregateType: 'identity.user',
+    aggregateId: args.user_id,
+    eventType: 'identity.user.sso_linked',
+    eventVersion: 1,
+    payload: {
+      actor: args.actor,
+      user_id: args.user_id,
+      tenant_id: args.tenant_id,
+      provider_id: 'microsoft-entra-id',
+      entra_oid: args.entra_oid,
+      entra_tid: args.entra_tid,
+    },
+  });
+}
+
+export async function emitIdentityUserSsoRevoked(args: {
+  actor: IdentityEventActor;
+  user_id: string;
+  tenant_id: string;
+  reason: IdentityUserSsoRevoked['payload']['reason'];
+}): Promise<void> {
+  await emit({
+    tenantId: args.tenant_id,
+    aggregateType: 'identity.user',
+    aggregateId: args.user_id,
+    eventType: 'identity.user.sso_revoked',
+    eventVersion: 1,
+    payload: { actor: args.actor, user_id: args.user_id, reason: args.reason },
   });
 }

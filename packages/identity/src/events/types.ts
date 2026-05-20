@@ -137,6 +137,48 @@ export interface IdentitySsoProviderDisconnected {
   payload: { actor: IdentityEventActor; tenant_id: string; provider_id: 'microsoft-entra-id' };
 }
 
+export interface IdentityUserSsoLinked {
+  event_type: 'identity.user.sso_linked';
+  event_version: 1;
+  aggregate_type: 'identity.user';
+  aggregate_id: Uuid;
+  payload: {
+    actor: IdentityEventActor;
+    user_id: Uuid;
+    tenant_id: Uuid;
+    provider_id: 'microsoft-entra-id';
+    entra_oid: string;
+    entra_tid: string;
+  };
+}
+
+export interface IdentityUserSsoRevoked {
+  event_type: 'identity.user.sso_revoked';
+  event_version: 1;
+  aggregate_type: 'identity.user';
+  aggregate_id: Uuid;
+  payload: {
+    actor: IdentityEventActor;
+    user_id: Uuid;
+    reason: 'entra_returned_access_denied' | 'tid_mismatch' | 'user_deactivated' | 'oid_conflict';
+  };
+}
+
+export interface IdentityUserEmailChanged {
+  event_type: 'identity.user.email.changed';
+  event_version: 1;
+  aggregate_type: 'identity.user';
+  aggregate_id: Uuid;
+  payload: {
+    actor: IdentityEventActor;
+    user_id: Uuid;
+    tenant_id: Uuid;
+    old_email: string;
+    new_email: string;
+    reason: 'admin' | 'sso_sync';
+  };
+}
+
 export type IdentityEvent =
   | IdentityUserCreated
   | IdentityUserProfileUpdated
@@ -146,4 +188,7 @@ export type IdentityEvent =
   | IdentitySsoProviderConsentGranted
   | IdentitySsoProviderEnabled
   | IdentitySsoProviderDisabled
-  | IdentitySsoProviderDisconnected;
+  | IdentitySsoProviderDisconnected
+  | IdentityUserSsoLinked
+  | IdentityUserSsoRevoked
+  | IdentityUserEmailChanged;

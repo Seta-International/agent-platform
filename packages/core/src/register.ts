@@ -37,6 +37,22 @@ export function registerCoreContributions(reg: ContributionRegistry): void {
         }
       },
     },
+    {
+      event: 'identity.user.sso_revoked',
+      subscription: 'core.session-invalidate-by-sso-revoke',
+      eventVersion: 1,
+      handler: async (e) => {
+        await invalidateUserSessions((e.payload as { user_id: string }).user_id);
+      },
+    },
+    {
+      event: 'identity.user.email.changed',
+      subscription: 'core.session-invalidate-by-email-change',
+      eventVersion: 1,
+      handler: async (e) => {
+        await invalidateUserSessions((e.payload as { user_id: string }).user_id);
+      },
+    },
   ]);
   reg.publicApi('core', {});
 }

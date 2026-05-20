@@ -12,6 +12,12 @@ export type { UserProfile } from './backend/domain/get-user-profile.ts';
 export { getUserProfile } from './backend/domain/get-user-profile.ts';
 export type { GrantRoleInput } from './backend/domain/grant-role.ts';
 export { grantRole } from './backend/domain/grant-role.ts';
+export type {
+  LinkOutcome,
+  LinkSsoAccountInput,
+  LinkSsoAccountResult,
+} from './backend/domain/link-sso-account.ts';
+export { linkSsoAccount } from './backend/domain/link-sso-account.ts';
 export type { ActiveRoleGrant, RoleGrantsResult } from './backend/domain/list-role-grants.ts';
 export { listRoleGrants } from './backend/domain/list-role-grants.ts';
 export { listSsoProviders } from './backend/domain/list-sso-providers.ts';

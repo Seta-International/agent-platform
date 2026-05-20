@@ -4,6 +4,7 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { APIError, createAuthMiddleware, isAPIError } from 'better-auth/api';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../db/schema.ts';
+import { linkSsoAccount } from './domain/link-sso-account.ts';
 import { entraSsoConfigured, parseIdentityEnv } from './env.ts';
 import { argon2id } from './password/argon2.ts';
 import { computeBackoffSeconds, recordFailedAttempt } from './password/backoff.ts';
@@ -157,9 +158,37 @@ export const auth = betterAuth({
       create: {
         before: async (account) => {
           if (account.providerId !== 'microsoft') return { data: account };
-          // Task 8 will fill this body with the linkSsoAccount call.
-          // For now: drain the stash to avoid leaks.
-          if (account.accountId) takeSsoContext(account.accountId);
+
+          const accountId = (account as { accountId?: string }).accountId;
+          if (!accountId) throw new APIError('BAD_REQUEST', { message: 'missing_account_id' });
+
+          const ctx = takeSsoContext(accountId);
+          if (!ctx) {
+            throw new APIError('FORBIDDEN', { message: 'missing_sso_context' });
+          }
+
+          const result = await linkSsoAccount(
+            {
+              tenant_id: ctx.seta_tenant_id,
+              provider_id: 'microsoft-entra-id',
+              email: ctx.email,
+              name: ctx.name,
+              entra_oid: accountId,
+              entra_tid: ctx.tid,
+            },
+            { type: 'sso', user_id: null },
+          );
+
+          if (result.outcome === 'rejected_not_pre_provisioned') {
+            throw new APIError('BAD_REQUEST', { message: 'not_pre_provisioned' });
+          }
+          if (result.outcome === 'rejected_deactivated') {
+            throw new APIError('FORBIDDEN', { message: 'user_deactivated' });
+          }
+          if (result.outcome === 'rejected_oid_conflict') {
+            throw new APIError('CONFLICT', { message: 'oid_conflict' });
+          }
+
           return { data: account };
         },
       },
