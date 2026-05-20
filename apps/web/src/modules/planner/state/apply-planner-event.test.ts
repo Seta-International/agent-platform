@@ -1,5 +1,7 @@
+import type { BucketRow, TaskWithAssigneesRow } from '@seta/planner';
 import { QueryClient } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { makeTaskWithAssignees } from '../testing/fixtures';
 import { applyPlannerEvent, type StreamEvent } from './apply-planner-event';
 import { plannerKeys } from './query-keys';
 import { __resetRingForTests, rememberEventId } from './recent-mutation-event-ids';
@@ -17,6 +19,25 @@ function makeEvent(over: Partial<StreamEvent> = {}): StreamEvent {
     ...over,
   };
 }
+
+function makeBucket(over: Partial<BucketRow> = {}): BucketRow {
+  return {
+    id: 'b1',
+    tenant_id: 't',
+    plan_id: 'p1',
+    name: 'Todo',
+    sort_order: 1,
+    created_at: '2026-05-01T00:00:00Z',
+    updated_at: '2026-05-01T00:00:00Z',
+    deleted_at: null,
+    version: 1,
+    ...over,
+  };
+}
+
+const PLAN = 'p1';
+const tasksKey = plannerKeys.planTasks(PLAN, { plan_id: PLAN });
+const bucketsKey = [...plannerKeys.plan(PLAN), 'buckets'] as const;
 
 describe('applyPlannerEvent', () => {
   let qc: QueryClient;
@@ -42,5 +63,403 @@ describe('applyPlannerEvent', () => {
     const spy = vi.spyOn(qc, 'invalidateQueries');
     applyPlannerEvent(qc, makeEvent({ id: 'echo-1' }));
     expect(spy).not.toHaveBeenCalled();
+  });
+
+  describe('planner.task.moved', () => {
+    it('patches bucket_id, sort_order, version without invalidating', () => {
+      qc.setQueryData<TaskWithAssigneesRow[]>(tasksKey, [
+        makeTaskWithAssignees({ id: 't1', bucket_id: 'b1', sort_order: 1, version: 3 }),
+        makeTaskWithAssignees({ id: 't2', bucket_id: 'b1', sort_order: 2, version: 1 }),
+      ]);
+      const spy = vi.spyOn(qc, 'invalidateQueries');
+
+      applyPlannerEvent(
+        qc,
+        makeEvent({
+          id: 'e-moved',
+          eventType: 'planner.task.moved',
+          aggregateType: 'planner.task',
+          payload: {
+            task_id: 't1',
+            plan_id: PLAN,
+            group_id: 'g1',
+            before: { bucket_id: 'b1', sort_order: 1 },
+            after: { bucket_id: 'b2', sort_order: 5 },
+            version_before: 3,
+            version_after: 4,
+          },
+        }),
+      );
+
+      const after = qc.getQueryData<TaskWithAssigneesRow[]>(tasksKey)!;
+      expect(after[0]).toMatchObject({ id: 't1', bucket_id: 'b2', sort_order: 5, version: 4 });
+      expect(after[1]).toMatchObject({ id: 't2', bucket_id: 'b1', sort_order: 2 });
+      expect(spy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('planner.task.created', () => {
+    it('appends a task with assignees/labels/checklist_summary defaults', () => {
+      qc.setQueryData<TaskWithAssigneesRow[]>(tasksKey, []);
+      const spy = vi.spyOn(qc, 'invalidateQueries');
+
+      applyPlannerEvent(
+        qc,
+        makeEvent({
+          id: 'e-created',
+          eventType: 'planner.task.created',
+          aggregateType: 'planner.task',
+          payload: {
+            group_id: 'g1',
+            after: {
+              task_id: 'tnew',
+              plan_id: PLAN,
+              group_id: 'g1',
+              bucket_id: 'b1',
+              title: 'New',
+              description: null,
+              priority: 'medium',
+              due_at: null,
+              skill_tags: [],
+              review_state: null,
+              sort_order: 10,
+              created_by: 'u',
+            },
+          },
+        }),
+      );
+
+      const after = qc.getQueryData<TaskWithAssigneesRow[]>(tasksKey)!;
+      expect(after).toHaveLength(1);
+      expect(after[0]).toMatchObject({
+        id: 'tnew',
+        plan_id: PLAN,
+        bucket_id: 'b1',
+        title: 'New',
+        priority: 'medium',
+        progress: 'not_started',
+        sort_order: 10,
+        version: 1,
+        assignees: [],
+        labels: [],
+        checklist_summary: { total: 0, checked: 0 },
+      });
+      expect(spy).not.toHaveBeenCalled();
+    });
+
+    it('is idempotent (does not duplicate on replay)', () => {
+      qc.setQueryData<TaskWithAssigneesRow[]>(tasksKey, []);
+      const ev = makeEvent({
+        id: 'e-created',
+        eventType: 'planner.task.created',
+        aggregateType: 'planner.task',
+        payload: {
+          group_id: 'g1',
+          after: {
+            task_id: 'tnew',
+            plan_id: PLAN,
+            group_id: 'g1',
+            bucket_id: 'b1',
+            title: 'New',
+            description: null,
+            priority: 'medium',
+            due_at: null,
+            skill_tags: [],
+            review_state: null,
+            sort_order: 10,
+            created_by: 'u',
+          },
+        },
+      });
+      applyPlannerEvent(qc, ev);
+      applyPlannerEvent(qc, { ...ev, id: 'e-created-2' });
+      expect(qc.getQueryData<TaskWithAssigneesRow[]>(tasksKey)).toHaveLength(1);
+    });
+  });
+
+  describe('planner.task.updated', () => {
+    it('merges after-patch into the matching task and bumps version', () => {
+      qc.setQueryData<TaskWithAssigneesRow[]>(tasksKey, [
+        makeTaskWithAssignees({ id: 't1', title: 'Old', priority: 'low', version: 1 }),
+      ]);
+      const spy = vi.spyOn(qc, 'invalidateQueries');
+
+      applyPlannerEvent(
+        qc,
+        makeEvent({
+          id: 'e-upd',
+          eventType: 'planner.task.updated',
+          aggregateType: 'planner.task',
+          payload: {
+            task_id: 't1',
+            plan_id: PLAN,
+            before: { title: 'Old', priority: 'low' },
+            after: { title: 'New', priority: 'urgent' },
+            version_after: 2,
+          },
+        }),
+      );
+
+      const after = qc.getQueryData<TaskWithAssigneesRow[]>(tasksKey)!;
+      expect(after[0]).toMatchObject({ id: 't1', title: 'New', priority: 'urgent', version: 2 });
+      expect(spy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('planner.task.deleted', () => {
+    it('removes the task and invalidates the trash list', () => {
+      qc.setQueryData<TaskWithAssigneesRow[]>(tasksKey, [
+        makeTaskWithAssignees({ id: 't1' }),
+        makeTaskWithAssignees({ id: 't2' }),
+      ]);
+      const spy = vi.spyOn(qc, 'invalidateQueries');
+
+      applyPlannerEvent(
+        qc,
+        makeEvent({
+          id: 'e-del',
+          eventType: 'planner.task.deleted',
+          aggregateType: 'planner.task',
+          payload: {
+            task_id: 't1',
+            plan_id: PLAN,
+            version_before: 1,
+            deleted_at: '2026-05-20T00:00:00Z',
+          },
+        }),
+      );
+
+      const after = qc.getQueryData<TaskWithAssigneesRow[]>(tasksKey)!;
+      expect(after.map((t) => t.id)).toEqual(['t2']);
+      expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.trash() });
+    });
+  });
+
+  describe('planner.task.restored', () => {
+    it('invalidates planTasks and trash without mutating cache', () => {
+      qc.setQueryData<TaskWithAssigneesRow[]>(tasksKey, [makeTaskWithAssignees({ id: 't2' })]);
+      const spy = vi.spyOn(qc, 'invalidateQueries');
+
+      applyPlannerEvent(
+        qc,
+        makeEvent({
+          id: 'e-restore',
+          eventType: 'planner.task.restored',
+          aggregateType: 'planner.task',
+          payload: { task_id: 't1', plan_id: PLAN, version_after: 2 },
+        }),
+      );
+
+      // cache unchanged
+      const after = qc.getQueryData<TaskWithAssigneesRow[]>(tasksKey)!;
+      expect(after.map((t) => t.id)).toEqual(['t2']);
+      expect(spy).toHaveBeenCalledWith({ queryKey: tasksKey });
+      expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.trash() });
+    });
+  });
+
+  describe('planner.task.assigned', () => {
+    it('appends a placeholder assignee and invalidates the single-task cache', () => {
+      qc.setQueryData<TaskWithAssigneesRow[]>(tasksKey, [
+        makeTaskWithAssignees({ id: 't1', assignees: [] }),
+      ]);
+      const spy = vi.spyOn(qc, 'invalidateQueries');
+
+      applyPlannerEvent(
+        qc,
+        makeEvent({
+          id: 'e-assign',
+          eventType: 'planner.task.assigned',
+          aggregateType: 'planner.task',
+          payload: { task_id: 't1', plan_id: PLAN, user_id: 'u9' },
+        }),
+      );
+
+      const after = qc.getQueryData<TaskWithAssigneesRow[]>(tasksKey)!;
+      expect(after[0]!.assignees).toHaveLength(1);
+      expect(after[0]!.assignees[0]).toMatchObject({ user_id: 'u9', display_name: '…', email: '' });
+      expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.task('t1') });
+    });
+
+    it('is idempotent (does not duplicate on replay)', () => {
+      qc.setQueryData<TaskWithAssigneesRow[]>(tasksKey, [
+        makeTaskWithAssignees({ id: 't1', assignees: [] }),
+      ]);
+      const ev = makeEvent({
+        id: 'e-assign',
+        eventType: 'planner.task.assigned',
+        aggregateType: 'planner.task',
+        payload: { task_id: 't1', plan_id: PLAN, user_id: 'u9' },
+      });
+      applyPlannerEvent(qc, ev);
+      applyPlannerEvent(qc, { ...ev, id: 'e-assign-2' });
+      const after = qc.getQueryData<TaskWithAssigneesRow[]>(tasksKey)!;
+      expect(after[0]!.assignees).toHaveLength(1);
+    });
+  });
+
+  describe('planner.task.unassigned', () => {
+    it('removes the matching user from assignees', () => {
+      qc.setQueryData<TaskWithAssigneesRow[]>(tasksKey, [
+        makeTaskWithAssignees({
+          id: 't1',
+          assignees: [
+            {
+              user_id: 'u9',
+              display_name: 'Alice',
+              email: 'a@x',
+              availability_status: 'available',
+              ooo_until: null,
+              deactivated_at: null,
+            },
+          ],
+        }),
+      ]);
+
+      applyPlannerEvent(
+        qc,
+        makeEvent({
+          id: 'e-unassign',
+          eventType: 'planner.task.unassigned',
+          aggregateType: 'planner.task',
+          payload: { task_id: 't1', plan_id: PLAN, user_id: 'u9' },
+        }),
+      );
+
+      const after = qc.getQueryData<TaskWithAssigneesRow[]>(tasksKey)!;
+      expect(after[0]!.assignees).toEqual([]);
+    });
+  });
+
+  describe('planner.task.completed / reopened', () => {
+    it('completed sets progress=completed and bumps version', () => {
+      qc.setQueryData<TaskWithAssigneesRow[]>(tasksKey, [
+        makeTaskWithAssignees({ id: 't1', progress: 'in_progress', version: 1 }),
+      ]);
+
+      applyPlannerEvent(
+        qc,
+        makeEvent({
+          id: 'e-comp',
+          eventType: 'planner.task.completed',
+          aggregateType: 'planner.task',
+          payload: {
+            task_id: 't1',
+            plan_id: PLAN,
+            version_after: 2,
+            completed_at: '2026-05-20T00:00:00Z',
+          },
+        }),
+      );
+
+      const after = qc.getQueryData<TaskWithAssigneesRow[]>(tasksKey)!;
+      expect(after[0]).toMatchObject({ progress: 'completed', version: 2 });
+    });
+
+    it('reopened sets progress=not_started and bumps version', () => {
+      qc.setQueryData<TaskWithAssigneesRow[]>(tasksKey, [
+        makeTaskWithAssignees({ id: 't1', progress: 'completed', version: 2 }),
+      ]);
+
+      applyPlannerEvent(
+        qc,
+        makeEvent({
+          id: 'e-reop',
+          eventType: 'planner.task.reopened',
+          aggregateType: 'planner.task',
+          payload: { task_id: 't1', plan_id: PLAN, version_after: 3 },
+        }),
+      );
+
+      const after = qc.getQueryData<TaskWithAssigneesRow[]>(tasksKey)!;
+      expect(after[0]).toMatchObject({ progress: 'not_started', version: 3 });
+    });
+  });
+
+  describe('planner.bucket.created', () => {
+    it('appends a bucket to the buckets cache', () => {
+      qc.setQueryData<BucketRow[]>(bucketsKey, [makeBucket({ id: 'b1', sort_order: 1 })]);
+      const spy = vi.spyOn(qc, 'invalidateQueries');
+
+      applyPlannerEvent(
+        qc,
+        makeEvent({
+          id: 'e-bcreate',
+          eventType: 'planner.bucket.created',
+          aggregateType: 'planner.bucket',
+          payload: {
+            group_id: 'g1',
+            after: {
+              bucket_id: 'b2',
+              plan_id: PLAN,
+              group_id: 'g1',
+              name: 'Doing',
+              sort_order: 2,
+            },
+          },
+        }),
+      );
+
+      const after = qc.getQueryData<BucketRow[]>(bucketsKey)!;
+      expect(after.map((b) => b.id)).toEqual(['b1', 'b2']);
+      expect(after[1]).toMatchObject({ id: 'b2', name: 'Doing', sort_order: 2, version: 1 });
+      expect(spy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('planner.bucket.updated', () => {
+    it('merges after-patch into the matching bucket and bumps version', () => {
+      qc.setQueryData<BucketRow[]>(bucketsKey, [
+        makeBucket({ id: 'b1', name: 'Old', sort_order: 1, version: 1 }),
+      ]);
+
+      applyPlannerEvent(
+        qc,
+        makeEvent({
+          id: 'e-bupd',
+          eventType: 'planner.bucket.updated',
+          aggregateType: 'planner.bucket',
+          payload: {
+            bucket_id: 'b1',
+            plan_id: PLAN,
+            before: { name: 'Old' },
+            after: { name: 'New', sort_order: 5 },
+            version_after: 2,
+          },
+        }),
+      );
+
+      const after = qc.getQueryData<BucketRow[]>(bucketsKey)!;
+      expect(after[0]).toMatchObject({ id: 'b1', name: 'New', sort_order: 5, version: 2 });
+    });
+  });
+
+  describe('planner.bucket.deleted', () => {
+    it('removes the bucket and invalidates tasks for the plan', () => {
+      qc.setQueryData<BucketRow[]>(bucketsKey, [
+        makeBucket({ id: 'b1' }),
+        makeBucket({ id: 'b2' }),
+      ]);
+      const spy = vi.spyOn(qc, 'invalidateQueries');
+
+      applyPlannerEvent(
+        qc,
+        makeEvent({
+          id: 'e-bdel',
+          eventType: 'planner.bucket.deleted',
+          aggregateType: 'planner.bucket',
+          payload: {
+            bucket_id: 'b1',
+            plan_id: PLAN,
+            version_before: 1,
+            reflowed_task_ids: ['t1', 't2'],
+          },
+        }),
+      );
+
+      const after = qc.getQueryData<BucketRow[]>(bucketsKey)!;
+      expect(after.map((b) => b.id)).toEqual(['b2']);
+      expect(spy).toHaveBeenCalledWith({ queryKey: tasksKey });
+    });
   });
 });
