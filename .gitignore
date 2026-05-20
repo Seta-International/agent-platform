@@ -43,3 +43,9 @@ apps/web/src/routeTree.gen.ts
 # Misc
 .DS_Store
 *.pem
+
+# Compose smoke-test scratch (rendered from .env.example at test time)
+.env.smoke
+
+# Traefik ACME storage (per-deploy state, never committed)
+infra/traefik/acme.json

@@ -37,6 +37,14 @@ program
   });
 
 program
+  .command('health')
+  .description('Liveness probe — verifies env parses and the process can boot. Exits 0/non-0.')
+  .action(() => {
+    process.stdout.write('ok\n');
+    process.exit(0);
+  });
+
+program
   .command('tenant-create')
   .description('Create a new tenant with an initial admin user')
   .requiredOption('--name <name>', 'Tenant display name')
