@@ -2531,7 +2531,7 @@ Seta v1 has **no in-app mail or inbox feature**. Email is purely outbound transa
 
 **Phase B:** adds `EmailPreferencesSection` to the Profile settings page — toggles for notification categories, but the *delivery* of notification emails is itself a v1.x deferral. The UI ships before the backend so preference state is durable.
 
-**Transport:** `react-email` templates rendered server-side; SES (AWS) in production or Resend (operator option). Configured in `core.instance_config`.
+**Transport:** tenant-first / operator-fallback. Per-tenant config lives in `integrations.mail_transport_config` (Microsoft Graph or SMTP). Operator default lives in env (`MAILER_DEFAULT_TRANSPORT=smtp|dev-stub`, `MAILER_DEFAULT_SENDER`, `MAILER_DEFAULT_SMTP_URL`). SMTP-via-nodemailer covers SES/Resend/on-prem relays uniformly. Templates are `react-email` TSX centralised in `packages/shared/mailer`. Send is queued via graphile-worker; `core.outgoing_emails` provides outbox + dedupe + audit. See D36.
 
 **v1.x candidates** (not v1 work, but the shell APIs in §J.7 don't foreclose them):
 - In-app inbox for digesting notifications threaded by entity.
