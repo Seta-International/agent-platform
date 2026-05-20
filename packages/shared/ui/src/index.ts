@@ -24,6 +24,7 @@ export * from './composites/left-nav';
 export * from './composites/priority-icon';
 export * from './composites/progress-bar';
 export * from './composites/side-panel';
+export * from './composites/task-grid';
 export * from './composites/task-sheet';
 export * from './composites/top-bar';
 // Icons
