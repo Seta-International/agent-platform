@@ -4,10 +4,12 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { APIError, createAuthMiddleware, isAPIError } from 'better-auth/api';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../db/schema.ts';
-import { parseIdentityEnv } from './env.ts';
+import { entraSsoConfigured, parseIdentityEnv } from './env.ts';
 import { argon2id } from './password/argon2.ts';
 import { computeBackoffSeconds, recordFailedAttempt } from './password/backoff.ts';
 import { hibpCheck } from './password/hibp.ts';
+import { stashSsoContext, takeSsoContext } from './sso/profile-context.ts';
+import { resolveSetaTenantFromEmail, validateEntraTid } from './sso/tenant-resolution.ts';
 
 function makeLazyDb(): NodePgDatabase<typeof schema> {
   let db: NodePgDatabase<typeof schema> | null = null;
@@ -59,6 +61,11 @@ export const auth = betterAuth({
       createdAt: 'created_at',
       updatedAt: 'updated_at',
     },
+    accountLinking: {
+      enabled: true,
+      trustedProviders: ['microsoft'],
+      allowDifferentEmails: false,
+    },
   },
 
   verification: {
@@ -94,6 +101,38 @@ export const auth = betterAuth({
     },
   },
 
+  socialProviders: entraSsoConfigured(env)
+    ? {
+        microsoft: {
+          clientId: env.MICROSOFT_CLIENT_ID!,
+          clientSecret: env.MICROSOFT_CLIENT_SECRET!,
+          tenantId: 'common',
+          prompt: 'select_account',
+          disableImplicitSignUp: true,
+          mapProfileToUser: async (profile) => {
+            const seta = await resolveSetaTenantFromEmail(profile.email ?? '');
+            if (!seta) {
+              throw new APIError('FORBIDDEN', { message: 'no_tenant_for_email_domain' });
+            }
+            if (!profile.tid || !validateEntraTid(seta, profile.tid)) {
+              throw new APIError('FORBIDDEN', { message: 'tid_mismatch' });
+            }
+            const oid = profile.oid ?? profile.sub;
+            if (!oid) throw new APIError('BAD_REQUEST', { message: 'missing_oid' });
+            const email = (profile.email ?? '').toLowerCase();
+            const name = profile.name ?? profile.preferred_username ?? email.split('@')[0]!;
+            stashSsoContext(oid, {
+              seta_tenant_id: seta.tenant_id,
+              tid: profile.tid,
+              email,
+              name,
+            });
+            return { email, name };
+          },
+        },
+      }
+    : undefined,
+
   rateLimit: { enabled: true, storage: 'database', window: 60, max: 100 },
 
   databaseHooks: {
@@ -101,13 +140,27 @@ export const auth = betterAuth({
       create: {
         before: async (data) => {
           const password = (data as { password?: string }).password;
-          if (password && (await hibpCheck(password))) {
+          if (password === undefined) {
+            throw new APIError('BAD_REQUEST', { message: 'not_pre_provisioned' });
+          }
+          if (await hibpCheck(password)) {
             throw new APIError('UNPROCESSABLE_ENTITY', {
               message:
                 'This password appears in a known data breach. Please choose a different password.',
             });
           }
           return { data };
+        },
+      },
+    },
+    account: {
+      create: {
+        before: async (account) => {
+          if (account.providerId !== 'microsoft') return { data: account };
+          // Task 8 will fill this body with the linkSsoAccount call.
+          // For now: drain the stash to avoid leaks.
+          if (account.accountId) takeSsoContext(account.accountId);
+          return { data: account };
         },
       },
     },
