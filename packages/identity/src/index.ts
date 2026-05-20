@@ -55,6 +55,7 @@ export { searchSkills } from './backend/domain/search-skills.ts';
 export { setLocalPasswordDisabled } from './backend/domain/set-local-password-disabled.ts';
 export type { UpdateUserProfilePatch } from './backend/domain/update-user-profile.ts';
 export { updateUserProfile } from './backend/domain/update-user-profile.ts';
+export { whoAmI } from './backend/domain/who-am-i.ts';
 export { IdentityError } from './backend/rbac.ts';
 export { buildAdminConsentUrl } from './backend/sso/consent-url.ts';
 export type { ProviderRow as SsoProviderRow } from './backend/sso/helpers.ts';
