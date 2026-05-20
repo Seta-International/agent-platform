@@ -4,6 +4,7 @@ import { type HTMLAttributes, useMemo } from 'react';
 import { PlanFilterBar } from '../components/plan-filter-bar';
 import { PlanPageHeader } from '../components/plan-page-header';
 import { PlanViewSwitcher } from '../components/plan-view-switcher';
+import { VirtualizedBucketList } from '../components/virtualized-bucket-list';
 import { useCreateBucket } from '../hooks/mutations/create-bucket';
 import { useCreateTask } from '../hooks/mutations/create-task';
 import { useMoveTask } from '../hooks/mutations/move-task';
@@ -180,34 +181,44 @@ export function PlanPage({
                       }}
                       droppable={{}}
                     >
-                      <Droppable droppableId={b.id} type="TASK">
-                        {(dp2, ds2) => (
-                          <div
-                            ref={dp2.innerRef}
-                            {...dp2.droppableProps}
-                            className={ds2.isDraggingOver ? 'is-over' : ''}
-                          >
-                            {(tasksByBucket.get(b.id) ?? []).map((card, ci) => (
-                              <Draggable key={card.id} draggableId={card.id} index={ci}>
-                                {(dpc, dsc) => (
-                                  <KanbanCard
-                                    task={card}
-                                    onOpen={() => onOpenTask(card.id)}
-                                    draggable={{
-                                      ref: dpc.innerRef,
-                                      rootProps: dpc.draggableProps,
-                                      handleProps: dpc.dragHandleProps ?? undefined,
-                                      isDragging: dsc.isDragging,
-                                      extraStyle: dpc.draggableProps.style,
-                                    }}
-                                  />
-                                )}
-                              </Draggable>
-                            ))}
-                            {dp2.placeholder}
-                          </div>
-                        )}
-                      </Droppable>
+                      {(() => {
+                        const list = tasksByBucket.get(b.id) ?? [];
+                        if (list.length <= 50) {
+                          return (
+                            <Droppable droppableId={b.id} type="TASK">
+                              {(dp2, ds2) => (
+                                <div
+                                  ref={dp2.innerRef}
+                                  {...dp2.droppableProps}
+                                  className={ds2.isDraggingOver ? 'is-over' : ''}
+                                >
+                                  {list.map((card, ci) => (
+                                    <Draggable key={card.id} draggableId={card.id} index={ci}>
+                                      {(dpc, dsc) => (
+                                        <KanbanCard
+                                          task={card}
+                                          onOpen={() => onOpenTask(card.id)}
+                                          draggable={{
+                                            ref: dpc.innerRef,
+                                            rootProps: dpc.draggableProps,
+                                            handleProps: dpc.dragHandleProps ?? undefined,
+                                            isDragging: dsc.isDragging,
+                                            extraStyle: dpc.draggableProps.style,
+                                          }}
+                                        />
+                                      )}
+                                    </Draggable>
+                                  ))}
+                                  {dp2.placeholder}
+                                </div>
+                              )}
+                            </Droppable>
+                          );
+                        }
+                        return (
+                          <VirtualizedBucketList bucketId={b.id} cards={list} onOpen={onOpenTask} />
+                        );
+                      })()}
                     </KanbanColumn>
                   )}
                 </Draggable>
