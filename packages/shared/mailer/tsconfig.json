@@ -1,0 +1,8 @@
+{
+  "extends": "@seta/shared-config/tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "jsx": "react-jsx"
+  },
+  "include": ["src", "__tests__", "tests"]
+}

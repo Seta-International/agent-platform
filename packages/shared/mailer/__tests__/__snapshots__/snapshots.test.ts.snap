@@ -1,0 +1,62 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`template snapshots > _test-send html 1`] = `"<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html dir="ltr" lang="en"><head><meta content="text/html; charset=UTF-8" http-equiv="Content-Type"/><meta name="x-apple-disable-message-reformatting"/></head><body style="background:#f6f7f9"><!--$--><!--html--><!--head--><!--body--><table border="0" width="100%" cellPadding="0" cellSpacing="0" role="presentation" align="center"><tbody><tr><td style="background:#f6f7f9;font-family:system-ui, sans-serif"><table align="center" width="100%" border="0" cellPadding="0" cellSpacing="0" role="presentation" style="max-width:480px;padding:24px;background:#ffffff"><tbody><tr style="width:100%"><td><h1 style="font-size:20px;margin-bottom:12px">Mail transport test</h1><p style="font-size:14px;line-height:24px;margin-top:16px;margin-bottom:16px">This email confirms that <!-- -->Acme<!-- -->&#x27;s Seta mail transport is configured correctly.</p><p style="font-size:12px;line-height:24px;color:#65676b;margin-top:16px;margin-bottom:16px">Sent at <!-- -->2026-05-20 13:45 UTC<!-- -->.</p></td></tr></tbody></table></td></tr></tbody></table><!--/$--></body></html>"`;
+
+exports[`template snapshots > _test-send text 1`] = `
+"MAIL TRANSPORT TEST
+
+This email confirms that Acme's Seta mail transport is configured correctly.
+
+Sent at 2026-05-20 13:45 UTC."
+`;
+
+exports[`template snapshots > failed-login-alert html 1`] = `"<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html dir="ltr" lang="en"><head><meta content="text/html; charset=UTF-8" http-equiv="Content-Type"/><meta name="x-apple-disable-message-reformatting"/></head><body style="background:#f6f7f9"><!--$--><!--html--><!--head--><!--body--><table border="0" width="100%" cellPadding="0" cellSpacing="0" role="presentation" align="center"><tbody><tr><td style="background:#f6f7f9;font-family:system-ui, sans-serif"><table align="center" width="100%" border="0" cellPadding="0" cellSpacing="0" role="presentation" style="max-width:480px;padding:24px;background:#ffffff"><tbody><tr style="width:100%"><td><h1 style="font-size:20px;margin-bottom:12px">Suspicious sign-in attempts</h1><p style="font-size:14px;line-height:24px;margin-top:16px;margin-bottom:16px">Hi <!-- -->Alex Lee<!-- -->, we noticed 5 failed sign-in attempts to your Seta account.</p><p style="font-size:14px;line-height:24px;margin-top:16px;margin-bottom:16px">IP: <!-- -->192.0.2.10<!-- --> · Helsinki, FI<br/>Last attempt: <!-- -->2026-05-20 13:45 UTC</p><p style="font-size:14px;line-height:24px;margin-top:16px;margin-bottom:16px">If this wasn&#x27;t you, reset your password now.</p><a href="https://app.seta.example/reset?token=preview" style="line-height:100%;text-decoration:none;display:inline-block;max-width:100%;mso-padding-alt:0px;background:#0047FF;color:#ffffff;padding:10px 16px;border-radius:6px;padding-top:10px;padding-right:16px;padding-bottom:10px;padding-left:16px" target="_blank"><span><!--[if mso]><i style="mso-font-width:400%;mso-text-raise:15" hidden>&#8202;&#8202;</i><![endif]--></span><span style="max-width:100%;display:inline-block;line-height:120%;mso-padding-alt:0px;mso-text-raise:7.5px">Reset password</span><span><!--[if mso]><i style="mso-font-width:400%" hidden>&#8202;&#8202;&#8203;</i><![endif]--></span></a></td></tr></tbody></table></td></tr></tbody></table><!--/$--></body></html>"`;
+
+exports[`template snapshots > failed-login-alert text 1`] = `
+"SUSPICIOUS SIGN-IN ATTEMPTS
+
+Hi Alex Lee, we noticed 5 failed sign-in attempts to your Seta account.
+
+IP: 192.0.2.10 · Helsinki, FI
+Last attempt: 2026-05-20 13:45 UTC
+
+If this wasn't you, reset your password now.
+
+Reset password https://app.seta.example/reset?token=preview"
+`;
+
+exports[`template snapshots > invite html 1`] = `"<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html dir="ltr" lang="en"><head><meta content="text/html; charset=UTF-8" http-equiv="Content-Type"/><meta name="x-apple-disable-message-reformatting"/></head><body style="background:#f6f7f9"><!--$--><!--html--><!--head--><!--body--><table border="0" width="100%" cellPadding="0" cellSpacing="0" role="presentation" align="center"><tbody><tr><td style="background:#f6f7f9;font-family:system-ui, sans-serif"><table align="center" width="100%" border="0" cellPadding="0" cellSpacing="0" role="presentation" style="max-width:480px;padding:24px;background:#ffffff"><tbody><tr style="width:100%"><td><h1 style="font-size:20px;margin-bottom:12px">Join <!-- -->Acme<!-- --> on Seta</h1><p style="font-size:14px;line-height:24px;margin-top:16px;margin-bottom:16px">Sam Chen<!-- --> invited you to join their workspace on Seta.</p><a href="https://app.seta.example/accept?token=preview" style="line-height:100%;text-decoration:none;display:inline-block;max-width:100%;mso-padding-alt:0px;background:#0047FF;color:#ffffff;padding:10px 16px;border-radius:6px;padding-top:10px;padding-right:16px;padding-bottom:10px;padding-left:16px" target="_blank"><span><!--[if mso]><i style="mso-font-width:400%;mso-text-raise:15" hidden>&#8202;&#8202;</i><![endif]--></span><span style="max-width:100%;display:inline-block;line-height:120%;mso-padding-alt:0px;mso-text-raise:7.5px">Accept invite</span><span><!--[if mso]><i style="mso-font-width:400%" hidden>&#8202;&#8202;&#8203;</i><![endif]--></span></a><p style="font-size:12px;line-height:24px;color:#65676b;margin-top:16px;margin-bottom:16px">Link expires <!-- -->2026-05-21 09:00 UTC<!-- -->.</p></td></tr></tbody></table></td></tr></tbody></table><!--/$--></body></html>"`;
+
+exports[`template snapshots > invite text 1`] = `
+"JOIN ACME ON SETA
+
+Sam Chen invited you to join their workspace on Seta.
+
+Accept invite https://app.seta.example/accept?token=preview
+
+Link expires 2026-05-21 09:00 UTC."
+`;
+
+exports[`template snapshots > password-reset html 1`] = `"<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html dir="ltr" lang="en"><head><meta content="text/html; charset=UTF-8" http-equiv="Content-Type"/><meta name="x-apple-disable-message-reformatting"/></head><body style="background:#f6f7f9"><!--$--><!--html--><!--head--><!--body--><table border="0" width="100%" cellPadding="0" cellSpacing="0" role="presentation" align="center"><tbody><tr><td style="background:#f6f7f9;font-family:system-ui, sans-serif"><table align="center" width="100%" border="0" cellPadding="0" cellSpacing="0" role="presentation" style="max-width:480px;padding:24px;background:#ffffff"><tbody><tr style="width:100%"><td><h1 style="font-size:20px;margin-bottom:12px">Reset your password</h1><p style="font-size:14px;line-height:24px;margin-top:16px;margin-bottom:16px">Hi <!-- -->Alex Lee<!-- -->, click the button below to reset your password.</p><a href="https://app.seta.example/reset?token=preview" style="line-height:100%;text-decoration:none;display:inline-block;max-width:100%;mso-padding-alt:0px;background:#0047FF;color:#ffffff;padding:10px 16px;border-radius:6px;padding-top:10px;padding-right:16px;padding-bottom:10px;padding-left:16px" target="_blank"><span><!--[if mso]><i style="mso-font-width:400%;mso-text-raise:15" hidden>&#8202;&#8202;</i><![endif]--></span><span style="max-width:100%;display:inline-block;line-height:120%;mso-padding-alt:0px;mso-text-raise:7.5px">Reset password</span><span><!--[if mso]><i style="mso-font-width:400%" hidden>&#8202;&#8202;&#8203;</i><![endif]--></span></a><p style="font-size:12px;line-height:24px;color:#65676b;margin-top:16px;margin-bottom:16px">Link expires <!-- -->2026-05-20 14:00 UTC<!-- -->. Requested from IP <!-- -->192.0.2.10<!-- -->. If you didn&#x27;t request this, you can ignore this email.</p></td></tr></tbody></table></td></tr></tbody></table><!--/$--></body></html>"`;
+
+exports[`template snapshots > password-reset text 1`] = `
+"RESET YOUR PASSWORD
+
+Hi Alex Lee, click the button below to reset your password.
+
+Reset password https://app.seta.example/reset?token=preview
+
+Link expires 2026-05-20 14:00 UTC. Requested from IP 192.0.2.10. If you didn't request this, you can ignore this email."
+`;
+
+exports[`template snapshots > verify-email html 1`] = `"<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html dir="ltr" lang="en"><head><meta content="text/html; charset=UTF-8" http-equiv="Content-Type"/><meta name="x-apple-disable-message-reformatting"/></head><body style="background:#f6f7f9"><!--$--><!--html--><!--head--><!--body--><table border="0" width="100%" cellPadding="0" cellSpacing="0" role="presentation" align="center"><tbody><tr><td style="background:#f6f7f9;font-family:system-ui, sans-serif"><table align="center" width="100%" border="0" cellPadding="0" cellSpacing="0" role="presentation" style="max-width:480px;padding:24px;background:#ffffff"><tbody><tr style="width:100%"><td><h1 style="font-size:20px;margin-bottom:12px">Confirm your email</h1><p style="font-size:14px;line-height:24px;margin-top:16px;margin-bottom:16px">Hi <!-- -->Alex Lee<!-- -->, click the button below to confirm your email and finish signing in.</p><a href="https://app.seta.example/verify?token=preview" style="line-height:100%;text-decoration:none;display:inline-block;max-width:100%;mso-padding-alt:0px;background:#0047FF;color:#ffffff;padding:10px 16px;border-radius:6px;padding-top:10px;padding-right:16px;padding-bottom:10px;padding-left:16px" target="_blank"><span><!--[if mso]><i style="mso-font-width:400%;mso-text-raise:15" hidden>&#8202;&#8202;</i><![endif]--></span><span style="max-width:100%;display:inline-block;line-height:120%;mso-padding-alt:0px;mso-text-raise:7.5px">Confirm email</span><span><!--[if mso]><i style="mso-font-width:400%" hidden>&#8202;&#8202;&#8203;</i><![endif]--></span></a><p style="font-size:12px;line-height:24px;color:#65676b;margin-top:16px;margin-bottom:16px">Link expires <!-- -->2026-05-21 09:00 UTC<!-- -->.</p></td></tr></tbody></table></td></tr></tbody></table><!--/$--></body></html>"`;
+
+exports[`template snapshots > verify-email text 1`] = `
+"CONFIRM YOUR EMAIL
+
+Hi Alex Lee, click the button below to confirm your email and finish signing in.
+
+Confirm email https://app.seta.example/verify?token=preview
+
+Link expires 2026-05-21 09:00 UTC."
+`;
