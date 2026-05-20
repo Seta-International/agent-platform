@@ -28,6 +28,12 @@ export type { ActiveRoleGrant, RoleGrantsResult } from './backend/domain/list-ro
 export { listRoleGrants } from './backend/domain/list-role-grants.ts';
 export { listSsoProviders } from './backend/domain/list-sso-providers.ts';
 export type {
+  ActivityRole,
+  ActivityRow,
+  ListUserEventsInput,
+} from './backend/domain/list-user-events.ts';
+export { listUserEvents } from './backend/domain/list-user-events.ts';
+export type {
   ListUserSessionsInput,
   SessionRow,
 } from './backend/domain/list-user-sessions.ts';
