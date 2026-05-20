@@ -249,6 +249,31 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
     return c.json({ ok: true });
   });
 
+  app.get('/api/copilot/v1/health', async (c) => {
+    const modelConfigured = Boolean(copilotEnv.COPILOT_MODEL);
+    let dbReachable = true;
+    const storage = (deps.mastra as { getStorage: () => unknown }).getStorage();
+    try {
+      const maybePing = (storage as { ping?: () => Promise<void> } | null)?.ping;
+      if (typeof maybePing === 'function') {
+        await maybePing.call(storage);
+      } else if (
+        storage &&
+        typeof (storage as { init?: () => Promise<void> }).init === 'function'
+      ) {
+        await (storage as { init: () => Promise<void> }).init();
+      }
+    } catch {
+      dbReachable = false;
+    }
+    return c.json({
+      status: modelConfigured && dbReachable ? 'ok' : 'degraded',
+      model: { configured: modelConfigured },
+      db: { reachable: dbReachable },
+      mastra: { initialized: Boolean(storage) },
+    });
+  });
+
   app.post('/api/copilot/v1/hitl/:callId/approve', async (c) => {
     const session = c.get('session') as SessionLike | undefined;
     if (!session) return c.json({ error: 'unauthorized', message: 'session required' }, 401);

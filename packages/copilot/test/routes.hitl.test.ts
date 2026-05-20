@@ -2,11 +2,13 @@ import { createTestTenantWithAdmin } from '@seta/identity/testing';
 import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
 import { insertHitl } from '../src/backend/hitl.ts';
-import { registerCopilotRoutes } from '../src/backend/routes.ts';
+import { registerCopilotRoutes, type SessionLike } from '../src/backend/routes.ts';
 import { withCopilotTestDb } from './test-helpers.ts';
 
+type TestEnv = { Variables: { session: SessionLike } };
+
 function makeApp(session: { tenant_id: string; user_id: string; permissions: string[] }) {
-  const app = new Hono();
+  const app = new Hono<TestEnv>();
   app.use('*', async (c, next) => {
     c.set('session', {
       tenant_id: session.tenant_id,
@@ -121,7 +123,7 @@ describe('HITL routes', () => {
   });
 
   it('reject without session returns 401', async () => {
-    const app = new Hono();
+    const app = new Hono<TestEnv>();
     registerCopilotRoutes(app, {
       factory: () => ({}) as never,
       mastra: { getStorage: () => null } as never,
