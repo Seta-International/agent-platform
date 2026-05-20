@@ -108,7 +108,9 @@ describe('moveTask', () => {
 
           const events = await readEvents(pool, seeded.tenant_id, 'planner.task.moved');
           // At least one event for the moved task
-          const movedEvent = events.find((e) => (e.payload as any).task_id === taskB.id);
+          const movedEvent = events.find(
+            (e) => (e.payload as Record<string, unknown>).task_id === taskB.id,
+          );
           expect(movedEvent).toBeDefined();
           // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
           const payload = movedEvent?.payload as any;

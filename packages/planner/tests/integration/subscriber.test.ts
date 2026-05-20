@@ -324,7 +324,6 @@ describe('applyDeactivated', () => {
             users: [{ name: 'Dave', email: 'dave@example.test' }],
           });
           const session = seeded.adminSession;
-          // biome-ignore lint/style/noNonNullAssertion: seeded above with exactly one user
           const dave = seeded.users[0]!;
           const tenantId = seeded.tenant_id;
 
@@ -386,23 +385,23 @@ describe('applyDeactivated', () => {
           // Filter to those emitted by the system (from deactivation, not from the assignTask setup)
           const systemUnassignEvents = unassignedEvents.filter((ev) => {
             const p = ev.payload as Record<string, unknown>;
-            const actor = p['actor'] as Record<string, unknown> | undefined;
-            return actor?.['type'] === 'system';
+            const actor = p.actor as Record<string, unknown> | undefined;
+            return actor?.type === 'system';
           });
           expect(systemUnassignEvents).toHaveLength(2);
 
           const taskIds = systemUnassignEvents
-            .map((ev) => (ev.payload as Record<string, unknown>)['task_id'] as string)
+            .map((ev) => (ev.payload as Record<string, unknown>).task_id as string)
             .sort();
           expect(taskIds).toEqual([task1.id, task2.id].sort());
 
           for (const ev of systemUnassignEvents) {
             const p = ev.payload as Record<string, unknown>;
-            const actor = p['actor'] as Record<string, unknown>;
-            expect(actor['user_id']).toBeNull();
-            expect(p['user_id']).toBe(dave.user_id);
-            expect(p['plan_id']).toBe(plan.id);
-            expect(p['group_id']).toBe(group.id);
+            const actor = p.actor as Record<string, unknown>;
+            expect(actor.user_id).toBeNull();
+            expect(p.user_id).toBe(dave.user_id);
+            expect(p.plan_id).toBe(plan.id);
+            expect(p.group_id).toBe(group.id);
           }
         } finally {
           resetCoreDb();

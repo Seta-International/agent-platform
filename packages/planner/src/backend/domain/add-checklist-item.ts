@@ -49,16 +49,16 @@ export async function addChecklistItem(
 
       let sortOrder: number;
       if (input.after_item_id !== undefined) {
-        const afterIndex = existingItems.findIndex((i) => i.id === input.after_item_id);
-        if (afterIndex === -1) {
+        const afterItem = existingItems.find((i) => i.id === input.after_item_id);
+        if (!afterItem) {
           throw new PlannerError('VALIDATION', 'after_item_id not found in this task', {
             after_item_id: input.after_item_id,
             task_id: input.task_id,
           });
         }
-        const afterItem = existingItems[afterIndex];
+        const afterIndex = existingItems.indexOf(afterItem);
         const nextItem = existingItems[afterIndex + 1];
-        sortOrder = placeAfter(afterItem!.sort_order, nextItem?.sort_order);
+        sortOrder = placeAfter(afterItem.sort_order, nextItem?.sort_order);
       } else {
         const last = existingItems[existingItems.length - 1];
         sortOrder = placeAfter(last?.sort_order, undefined);

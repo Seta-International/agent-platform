@@ -32,7 +32,6 @@ describe('assignTask', () => {
             users: [{ name: 'Alice', email: 'alice@example.test' }],
           });
           const session = seeded.adminSession;
-          // biome-ignore lint/style/noNonNullAssertion: seeded above with exactly one user
           const alice = seeded.users[0]!;
 
           const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
@@ -78,7 +77,6 @@ describe('assignTask', () => {
             users: [{ name: 'Bob', email: 'bob@example.test' }],
           });
           const session = seeded.adminSession;
-          // biome-ignore lint/style/noNonNullAssertion: seeded above with exactly one user
           const bob = seeded.users[0]!;
 
           const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
@@ -124,7 +122,6 @@ describe('unassignTask', () => {
             users: [{ name: 'Carol', email: 'carol@example.test' }],
           });
           const session = seeded.adminSession;
-          // biome-ignore lint/style/noNonNullAssertion: seeded above with exactly one user
           const carol = seeded.users[0]!;
 
           const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
@@ -168,7 +165,6 @@ describe('unassignTask', () => {
             users: [{ name: 'Dave', email: 'dave@example.test' }],
           });
           const session = seeded.adminSession;
-          // biome-ignore lint/style/noNonNullAssertion: seeded above with exactly one user
           const dave = seeded.users[0]!;
 
           const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
