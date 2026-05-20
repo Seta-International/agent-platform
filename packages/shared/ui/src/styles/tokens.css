@@ -139,6 +139,25 @@
   --font-display: 'Geist', 'Inter', 'SF Pro Display', -apple-system, system-ui, sans-serif;
   --font-text:    'Geist', 'Inter', 'SF Pro Display', -apple-system, system-ui, sans-serif;
   --font-mono:    'Geist Mono', 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --font-size-xs: 11px;
+
+  /* Semantic aliases used by status/priority composites */
+  --color-danger:        #e5484d;
+  --color-danger-tint:   color-mix(in oklch, #e5484d 14%, transparent);
+  --color-danger-ink:    #ff9ea0;
+
+  --color-warning:       #f4a73a;
+  --color-warning-tint:  color-mix(in oklch, #f4a73a 14%, transparent);
+  --color-warning-ink:   #ffcf7a;
+
+  --color-success:       #27a644;
+  --color-success-tint:  color-mix(in oklch, #27a644 14%, transparent);
+  --color-success-ink:   #6dd98a;
+
+  --color-info:          #3b8ef3;
+  --color-info-tint:     color-mix(in oklch, #3b8ef3 14%, transparent);
+  --color-info-ink:      #93c4ff;
 }
 
 .theme-light {
@@ -165,4 +184,20 @@
   --color-semantic-warning-tint: #fbf0dd;
   --color-destructive:           #c53030;
   --color-destructive-tint:      #fbe9e9;
+
+  --color-danger:        #c53030;
+  --color-danger-tint:   #fbe9e9;
+  --color-danger-ink:    #8b1a1a;
+
+  --color-warning:       #b86e00;
+  --color-warning-tint:  #fbf0dd;
+  --color-warning-ink:   #7a4900;
+
+  --color-success:       #1f8a4c;
+  --color-success-tint:  #e7f4ec;
+  --color-success-ink:   #155c32;
+
+  --color-info:          #1d6fca;
+  --color-info-tint:     #e8f0fd;
+  --color-info-ink:      #103d72;
 }
