@@ -148,26 +148,37 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
     return storage?.stores?.memory ?? null;
   };
 
-  const requirePerm = (
+  type PermDenied = { status: 401 | 403; body: { error: string; message: string } };
+
+  const checkPerm = (
     session: SessionLike | undefined,
     perm: string,
-  ): { status: 401 | 403; body: { error: string; message: string } } | null => {
-    if (!session)
-      return { status: 401, body: { error: 'unauthorized', message: 'session required' } };
-    if (!session.effective_permissions.has(perm)) {
-      return { status: 403, body: { error: 'forbidden', message: `${perm} required` } };
+  ): { ok: true; session: SessionLike } | { ok: false; denied: PermDenied } => {
+    if (!session) {
+      return {
+        ok: false,
+        denied: { status: 401, body: { error: 'unauthorized', message: 'session required' } },
+      };
     }
-    return null;
+    if (!session.effective_permissions.has(perm)) {
+      return {
+        ok: false,
+        denied: { status: 403, body: { error: 'forbidden', message: `${perm} required` } },
+      };
+    }
+    return { ok: true, session };
   };
 
   app.get('/api/copilot/v1/threads', async (c) => {
-    const session = c.get('session') as SessionLike | undefined;
-    const guard = requirePerm(session, 'copilot.thread.read.self');
-    if (guard) return c.json(guard.body, guard.status);
+    const check = checkPerm(
+      c.get('session') as SessionLike | undefined,
+      'copilot.thread.read.self',
+    );
+    if (!check.ok) return c.json(check.denied.body, check.denied.status);
     const storage = getMemoryStore();
     if (!storage) return c.json({ threads: [] });
     const { threads } = await storage.listThreads({
-      filter: { resourceId: session!.user_id },
+      filter: { resourceId: check.session.user_id },
       perPage: 100,
     });
     return c.json({
@@ -180,12 +191,14 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
   });
 
   app.get('/api/copilot/v1/threads/:id', async (c) => {
-    const session = c.get('session') as SessionLike | undefined;
-    const guard = requirePerm(session, 'copilot.thread.read.self');
-    if (guard) return c.json(guard.body, guard.status);
+    const check = checkPerm(
+      c.get('session') as SessionLike | undefined,
+      'copilot.thread.read.self',
+    );
+    if (!check.ok) return c.json(check.denied.body, check.denied.status);
     const storage = getMemoryStore();
     const thread = storage ? await storage.getThreadById({ threadId: c.req.param('id') }) : null;
-    if (!thread || thread.resourceId !== session!.user_id) {
+    if (!thread || thread.resourceId !== check.session.user_id) {
       return c.json({ error: 'not_found', message: 'thread not found' }, 404);
     }
     const messagesResult = storage
@@ -195,12 +208,14 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
   });
 
   app.patch('/api/copilot/v1/threads/:id', async (c) => {
-    const session = c.get('session') as SessionLike | undefined;
-    const guard = requirePerm(session, 'copilot.thread.write.self');
-    if (guard) return c.json(guard.body, guard.status);
+    const check = checkPerm(
+      c.get('session') as SessionLike | undefined,
+      'copilot.thread.write.self',
+    );
+    if (!check.ok) return c.json(check.denied.body, check.denied.status);
     const storage = getMemoryStore();
     const thread = storage ? await storage.getThreadById({ threadId: c.req.param('id') }) : null;
-    if (!thread || thread.resourceId !== session!.user_id) {
+    if (!thread || thread.resourceId !== check.session.user_id) {
       return c.json({ error: 'not_found', message: 'thread not found' }, 404);
     }
     const body = (await c.req.json().catch(() => ({}))) as { title?: string };
@@ -215,12 +230,14 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
   });
 
   app.delete('/api/copilot/v1/threads/:id', async (c) => {
-    const session = c.get('session') as SessionLike | undefined;
-    const guard = requirePerm(session, 'copilot.thread.write.self');
-    if (guard) return c.json(guard.body, guard.status);
+    const check = checkPerm(
+      c.get('session') as SessionLike | undefined,
+      'copilot.thread.write.self',
+    );
+    if (!check.ok) return c.json(check.denied.body, check.denied.status);
     const storage = getMemoryStore();
     const thread = storage ? await storage.getThreadById({ threadId: c.req.param('id') }) : null;
-    if (!thread || thread.resourceId !== session!.user_id) {
+    if (!thread || thread.resourceId !== check.session.user_id) {
       return c.json({ error: 'not_found', message: 'thread not found' }, 404);
     }
     if (storage) await storage.deleteThread({ threadId: thread.id });
