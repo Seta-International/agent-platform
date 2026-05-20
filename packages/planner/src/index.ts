@@ -24,6 +24,12 @@ export { listLabels } from './backend/domain/list-labels.ts';
 export { listMyAccessibleGroups } from './backend/domain/list-my-accessible-groups.ts';
 export { listMyAssignedTasks } from './backend/domain/list-my-assigned-tasks.ts';
 export { listPlans } from './backend/domain/list-plans.ts';
+export type {
+  ListTaskEventsOpts,
+  ListTaskEventsResult,
+  PersistedPlannerEvent,
+} from './backend/domain/list-task-events.ts';
+export { listTaskEvents } from './backend/domain/list-task-events.ts';
 export type { ListTasksFilters } from './backend/domain/list-tasks.ts';
 export { listTasks } from './backend/domain/list-tasks.ts';
 export { moveTask } from './backend/domain/move-task.ts';
