@@ -449,6 +449,9 @@ importers:
       '@seta/shared-db':
         specifier: workspace:^
         version: link:../shared/db
+      '@seta/shared-mailer':
+        specifier: workspace:^
+        version: link:../shared/mailer
       '@seta/shared-rbac':
         specifier: workspace:^
         version: link:../shared/rbac

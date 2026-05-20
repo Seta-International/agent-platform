@@ -28,6 +28,7 @@
     "@seta/core": "workspace:^",
     "@seta/shared-crypto": "workspace:^",
     "@seta/shared-db": "workspace:^",
+    "@seta/shared-mailer": "workspace:^",
     "@seta/shared-rbac": "workspace:^",
     "@seta/shared-types": "workspace:^",
     "drizzle-orm": "^0.45.2",
