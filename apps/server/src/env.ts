@@ -7,6 +7,8 @@ const Env = z.object({
   EVENTS_RETENTION_DAYS: z.coerce.number().default(30),
   PUBLIC_URL: z.string().url().default('http://localhost:5173'),
   BETTER_AUTH_SECRET: z.string().min(32),
+  COPILOT_MODEL: z.string().optional(),
+  COPILOT_MODEL_BASE_URL: z.string().url().optional(),
 });
 
 export function parseEnv(raw: NodeJS.ProcessEnv) {
