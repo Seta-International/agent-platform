@@ -56,8 +56,9 @@ function subjectPredicate(userId: string): SQL {
     if (path == null) continue;
     fragments.push(sql`(e.event_type = ${eventType} AND ${sql.raw(path)} = ${userId})`);
   }
-  if (fragments.length === 0) return sql`FALSE`;
-  let combined = fragments[0]!;
+  const first = fragments[0];
+  if (!first) return sql`FALSE`;
+  let combined: SQL = first;
   for (let i = 1; i < fragments.length; i++) {
     combined = sql`${combined} OR ${fragments[i]}`;
   }
