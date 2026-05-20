@@ -1,3 +1,4 @@
+export { addChecklistItem } from './backend/domain/add-checklist-item.ts';
 export { addGroupMember } from './backend/domain/add-group-member.ts';
 export { assignTask } from './backend/domain/assign-task.ts';
 export { completeTask } from './backend/domain/complete-task.ts';
@@ -10,6 +11,7 @@ export { deleteGroup } from './backend/domain/delete-group.ts';
 export { deletePlan } from './backend/domain/delete-plan.ts';
 export { deleteTask } from './backend/domain/delete-task.ts';
 export { moveTask } from './backend/domain/move-task.ts';
+export { removeChecklistItem } from './backend/domain/remove-checklist-item.ts';
 export { removeGroupMember } from './backend/domain/remove-group-member.ts';
 export { reopenTask } from './backend/domain/reopen-task.ts';
 export { reorderBucket } from './backend/domain/reorder-bucket.ts';
@@ -18,6 +20,7 @@ export { restorePlan } from './backend/domain/restore-plan.ts';
 export { restoreTask } from './backend/domain/restore-task.ts';
 export { unassignTask } from './backend/domain/unassign-task.ts';
 export { updateBucket } from './backend/domain/update-bucket.ts';
+export { updateChecklistItem } from './backend/domain/update-checklist-item.ts';
 export { updateGroup } from './backend/domain/update-group.ts';
 export { updatePlan } from './backend/domain/update-plan.ts';
 export { updateTask } from './backend/domain/update-task.ts';
@@ -33,11 +36,13 @@ export type {
   TaskWithAssigneesRow,
 } from './backend/dto.ts';
 export type {
+  AddChecklistItemInput,
   CreateBucketInput,
   CreateGroupInput,
   CreatePlanInput,
   CreateTaskInput,
   UpdateBucketPatch,
+  UpdateChecklistItemPatch,
   UpdateGroupPatch,
   UpdatePlanPatch,
   UpdateTaskPatch,
