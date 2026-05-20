@@ -32,6 +32,11 @@ describe('TaskGrid', () => {
     );
     expect(screen.getByRole('row', { name: /A/i })).toBeInTheDocument();
     expect(screen.getByRole('row', { name: /B/i })).toBeInTheDocument();
+    const groupRows = screen
+      .getAllByRole('row')
+      .filter((row) => row.classList.contains('task-grid__group-header'));
+    expect(groupRows).toHaveLength(1);
+    expect(groupRows[0]).toHaveTextContent('Sprint (2)');
   });
 
   it('opens an inline editor when title cell clicked', () => {

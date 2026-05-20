@@ -100,7 +100,6 @@ export function TaskGrid({
                 >
                   {editing?.taskId === r.id && editing.field === 'title' ? (
                     <TitleInput
-                      rowId={r.id}
                       initialValue={r.title}
                       onCommit={(value) => {
                         onCommitField?.(r.id, { title: value });
@@ -128,7 +127,6 @@ export function TaskGrid({
 }
 
 interface TitleInputProps {
-  rowId: string;
   initialValue: string;
   onCommit: (value: string) => void;
   onCancel: () => void;
@@ -137,6 +135,7 @@ interface TitleInputProps {
 function TitleInput({ initialValue, onCommit, onCancel }: TitleInputProps) {
   return (
     <input
+      type="text"
       // biome-ignore lint/a11y/noAutofocus: inline editor must steal focus immediately; without it keyboard users lose context after clicking the cell
       autoFocus
       defaultValue={initialValue}
