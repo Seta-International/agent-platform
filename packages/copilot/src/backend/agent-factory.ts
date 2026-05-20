@@ -1,6 +1,8 @@
+import { openai } from '@ai-sdk/openai';
 import type { Mastra } from '@mastra/core';
 import { Agent } from '@mastra/core/agent';
 import { hashRoleSummary } from '@seta/core';
+import { MockLanguageModelV3 } from 'ai/test';
 import { LRUCache } from 'lru-cache';
 import type { ZodTypeAny } from 'zod';
 import { copilotEnv } from './env.ts';
@@ -84,6 +86,13 @@ export function createAgentFactory(deps: AgentFactoryDeps) {
   };
 }
 
-function resolveModel(): string {
-  return copilotEnv.COPILOT_MODEL;
+function resolveModel() {
+  const id = copilotEnv.COPILOT_MODEL;
+  const slash = id.indexOf('/');
+  if (slash < 0) throw new Error(`COPILOT_MODEL must be in 'provider/model' form, got ${id}`);
+  const provider = id.slice(0, slash);
+  const model = id.slice(slash + 1);
+  if (provider === 'openai') return openai(model);
+  if (provider === 'mock') return new MockLanguageModelV3();
+  throw new Error(`Unsupported COPILOT_MODEL provider: ${provider} (supported: openai, mock)`);
 }

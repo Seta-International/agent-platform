@@ -1,3 +1,5 @@
+import { toAISdkStream } from '@mastra/ai-sdk';
+import { createUIMessageStream, createUIMessageStreamResponse, type UIMessage } from 'ai';
 import { and, eq } from 'drizzle-orm';
 import type { Hono } from 'hono';
 import { z } from 'zod';
@@ -6,13 +8,13 @@ import { hitlCalls } from '../db/schema.ts';
 import type { AgentName } from './agent-factory.ts';
 import { copilotEnv } from './env.ts';
 import { approveHitl, HitlError, rejectHitl } from './hitl.ts';
-import { commitActualTokens, RateLimitError, reserveTurn } from './rate-limit.ts';
-import { sse } from './sse.ts';
+import { RateLimitError, reserveTurn } from './rate-limit.ts';
 import { runWrappedTool } from './tool-runner.ts';
 
 const ChatBody = z.object({
-  threadId: z.string().optional(),
-  message: z.object({ role: z.literal('user'), content: z.string().min(1) }),
+  id: z.string().optional(),
+  messages: z.array(z.unknown()).min(1),
+  trigger: z.enum(['submit-message', 'regenerate-message']).optional(),
   resourceId: z.string().optional(),
 });
 
@@ -23,20 +25,11 @@ export type SessionLike = {
   role_summary: { roles: string[]; cross_tenant_read: boolean };
 };
 
-type StreamArgs = {
-  messages: Array<{ role: 'user'; content: string }>;
-  memory?: { thread?: string; resource?: string };
-};
-
-type StreamPart = {
-  type?: string;
-  usage?: { promptTokens?: number; completionTokens?: number };
-};
-
 type AgentLike = {
   stream: (
-    args: StreamArgs,
-  ) => Promise<AsyncIterable<StreamPart> | { fullStream: AsyncIterable<StreamPart> }>;
+    messages: UIMessage[],
+    options?: { memory?: { thread?: string; resource?: string } },
+  ) => Promise<unknown>;
 };
 
 export type CopilotRouteDeps = {
@@ -46,11 +39,20 @@ export type CopilotRouteDeps = {
 
 export type CopilotRouteEnv = { Variables: { session: SessionLike } };
 
-function asAsyncIterable(
-  result: AsyncIterable<StreamPart> | { fullStream: AsyncIterable<StreamPart> },
-): AsyncIterable<StreamPart> {
-  if (Symbol.asyncIterator in result) return result;
-  return result.fullStream;
+function lastUserText(messages: UIMessage[]): string {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m && m.role === 'user') {
+      const text = (m.parts ?? [])
+        .filter(
+          (p): p is Extract<UIMessage['parts'][number], { type: 'text' }> => p.type === 'text',
+        )
+        .map((p) => p.text)
+        .join(' ');
+      if (text) return text;
+    }
+  }
+  return '';
 }
 
 export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotRouteDeps): void {
@@ -76,11 +78,14 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
       );
     }
 
+    const messages = parsed.data.messages as UIMessage[];
+    const userText = lastUserText(messages);
+
     try {
       await reserveTurn({
         tenantId: session.tenant_id,
         userId: session.user_id,
-        estimatedTokens: Math.min(2_000, parsed.data.message.content.length * 4),
+        estimatedTokens: Math.min(2_000, Math.max(50, userText.length * 4)),
         turnLimit: copilotEnv.COPILOT_RATE_LIMIT_TURNS_PER_MIN,
         tpmLimit: copilotEnv.COPILOT_RATE_LIMIT_TPM,
       });
@@ -95,32 +100,30 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
     const agent = deps.factory(session, agentName);
     const resourceId = parsed.data.resourceId ?? session.user_id;
 
-    return sse(c, async (write) => {
-      const result = await agent.stream({
-        messages: [{ role: 'user', content: parsed.data.message.content }],
-        memory: { thread: parsed.data.threadId, resource: resourceId },
-      });
-      const iterable = asAsyncIterable(result);
-
-      let tokensIn = 0;
-      let tokensOut = 0;
-      for await (const part of iterable) {
-        await write(part);
-        if (part.type === 'finish' && part.usage) {
-          tokensIn = part.usage.promptTokens ?? 0;
-          tokensOut = part.usage.completionTokens ?? 0;
-        }
-      }
-
-      if (tokensIn || tokensOut) {
-        await commitActualTokens({
-          tenantId: session.tenant_id,
-          userId: session.user_id,
-          tokensIn,
-          tokensOut,
-        });
-      }
+    const result = await agent.stream(messages, {
+      memory: { thread: parsed.data.id, resource: resourceId },
     });
+
+    const uiStream = createUIMessageStream({
+      originalMessages: messages,
+      execute: async ({ writer }) => {
+        const stream = toAISdkStream(result as never, {
+          from: 'agent',
+          version: 'v6',
+        }) as ReadableStream<unknown>;
+        const reader = stream.getReader();
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            writer.write(value as never);
+          }
+        } finally {
+          reader.releaseLock();
+        }
+      },
+    });
+    return createUIMessageStreamResponse({ stream: uiStream });
   });
 
   type ThreadRow = {
