@@ -3,7 +3,7 @@ import { ChatComposer } from '@seta/shared-ui';
 import { useState } from 'react';
 import { COPILOT_COPY } from '../i18n';
 
-export function ChatComposerContainer(_: { agentName: 'router' | 'self' }) {
+export function ChatComposerContainer() {
   const [value, setValue] = useState('');
   const aui = useAui();
   const isRunning = useAuiState((s) => s.thread.isRunning);
