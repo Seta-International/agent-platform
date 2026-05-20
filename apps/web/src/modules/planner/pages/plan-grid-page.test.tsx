@@ -1,0 +1,206 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { HttpResponse, http } from 'msw';
+import { setupServer } from 'msw/node';
+import type { ReactNode } from 'react';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { useSelectedTaskIds } from '../state/selected-task-ids';
+import { EMPTY_FILTERS } from '../state/url-state';
+import { PlanGridPage } from './plan-grid-page';
+
+const server = setupServer();
+beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
+beforeEach(() => useSelectedTaskIds.getState().clear());
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());
+
+function renderWith(node: ReactNode) {
+  const qc = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  return render(<QueryClientProvider client={qc}>{node}</QueryClientProvider>);
+}
+
+const planFixture = {
+  id: 'p1',
+  tenant_id: 't',
+  group_id: 'g1',
+  name: 'Q3 Launch',
+  created_by: 'u',
+  created_at: '',
+  updated_at: '',
+  deleted_at: null,
+  version: 1,
+};
+
+const bucketTodo = {
+  id: 'b1',
+  tenant_id: 't',
+  plan_id: 'p1',
+  name: 'To do',
+  sort_order: 1_000_000,
+  created_at: '',
+  updated_at: '',
+  deleted_at: null,
+  version: 1,
+};
+
+const bucketDone = {
+  id: 'b2',
+  tenant_id: 't',
+  plan_id: 'p1',
+  name: 'Done',
+  sort_order: 2_000_000,
+  created_at: '',
+  updated_at: '',
+  deleted_at: null,
+  version: 1,
+};
+
+const taskOne = {
+  id: 't1',
+  tenant_id: 't',
+  plan_id: 'p1',
+  bucket_id: 'b1',
+  title: 'Wire up DnD',
+  description: null,
+  priority: 'medium' as const,
+  progress: 'not_started' as const,
+  review_state: null,
+  skill_tags: [],
+  due_at: null,
+  sort_order: 1_000_000,
+  created_by: 'u',
+  created_at: '',
+  updated_at: '',
+  deleted_at: null,
+  version: 1,
+  assignees: [],
+  labels: [],
+  checklist_summary: { total: 0, checked: 0 },
+};
+
+const taskTwo = {
+  ...taskOne,
+  id: 't2',
+  title: 'Write tests',
+  bucket_id: 'b2',
+  version: 2,
+};
+
+function seedBoardHandlers() {
+  return [
+    http.get('*/api/planner/v1/plans/p1', () => HttpResponse.json(planFixture)),
+    http.get('*/api/planner/v1/plans/p1/buckets', () =>
+      HttpResponse.json({ buckets: [bucketTodo, bucketDone] }),
+    ),
+    http.get('*/api/planner/v1/tasks', () => HttpResponse.json({ tasks: [taskOne, taskTwo] })),
+    http.get('*/api/planner/v1/plans/p1/labels', () => HttpResponse.json({ labels: [] })),
+  ];
+}
+
+function renderPage() {
+  return renderWith(
+    <PlanGridPage
+      planId="p1"
+      filters={EMPTY_FILTERS}
+      onFiltersChange={() => {}}
+      onOpenTask={() => {}}
+      view="grid"
+      onViewChange={() => {}}
+      groupBy="bucket"
+      onGroupByChange={() => {}}
+    />,
+  );
+}
+
+describe('PlanGridPage', () => {
+  it('renders skeleton while board is loading', () => {
+    server.use(
+      http.get('*/api/planner/v1/plans/p1', async () => {
+        await new Promise((r) => setTimeout(r, 1_000));
+        return HttpResponse.json(planFixture);
+      }),
+      http.get('*/api/planner/v1/plans/p1/buckets', () => HttpResponse.json({ buckets: [] })),
+      http.get('*/api/planner/v1/tasks', () => HttpResponse.json({ tasks: [] })),
+      http.get('*/api/planner/v1/plans/p1/labels', () => HttpResponse.json({ labels: [] })),
+    );
+    renderPage();
+    expect(screen.getByTestId('grid-skeleton')).toBeInTheDocument();
+  });
+
+  it('renders rows and group header after load', async () => {
+    server.use(...seedBoardHandlers());
+    renderPage();
+    expect(await screen.findByText('Wire up DnD')).toBeInTheDocument();
+    // Group header text is split across elements (name + count span); match by class
+    const groupRows = Array.from(document.querySelectorAll('.task-grid__group-header'));
+    expect(
+      groupRows.some((r) => r.textContent?.includes('To do') && r.textContent?.includes('1')),
+    ).toBe(true);
+    expect(screen.getByText('Write tests')).toBeInTheDocument();
+  });
+
+  it('inline title edit commits via PATCH /api/planner/v1/tasks/:id', async () => {
+    const captured: unknown[] = [];
+    server.use(
+      ...seedBoardHandlers(),
+      http.patch('*/api/planner/v1/tasks/t1', async ({ request }) => {
+        const body = await request.json();
+        captured.push(body);
+        return HttpResponse.json({ ...taskOne, title: 'Updated title' });
+      }),
+    );
+    renderPage();
+    await screen.findByText('Wire up DnD');
+
+    const user = userEvent.setup();
+    // Click the title cell to open inline editor
+    await user.click(screen.getByText('Wire up DnD'));
+    const input = await screen.findByDisplayValue('Wire up DnD');
+    await user.clear(input);
+    await user.type(input, 'Updated title');
+    await user.keyboard('{Enter}');
+
+    expect(captured).toHaveLength(1);
+    expect(captured[0]).toMatchObject({ patch: { title: 'Updated title' } });
+  });
+
+  it('shift-click range selection drives bulk footer count', async () => {
+    server.use(...seedBoardHandlers());
+    renderPage();
+    await screen.findByText('Wire up DnD');
+
+    const checkboxes = screen.getAllByRole('checkbox');
+    fireEvent.click(checkboxes[0]!);
+    fireEvent.click(checkboxes[1]!, { shiftKey: true });
+
+    // Footer should now show 2 selected
+    expect(screen.getByRole('toolbar', { name: '2 tasks selected' })).toBeInTheDocument();
+  });
+
+  it('bulk move triggers POST /api/planner/v1/tasks/:id/move for each selected task', async () => {
+    const moveCalls: string[] = [];
+    server.use(
+      ...seedBoardHandlers(),
+      http.post('*/api/planner/v1/tasks/:taskId/move', ({ params }) => {
+        moveCalls.push(params['taskId'] as string);
+        return HttpResponse.json({ ...taskOne, bucket_id: 'b2' });
+      }),
+    );
+    renderPage();
+    await screen.findByText('Wire up DnD');
+
+    const user = userEvent.setup();
+    const checkboxes = screen.getAllByRole('checkbox');
+    // Select first task
+    await user.click(checkboxes[0]!);
+
+    // Click Move in the footer
+    const moveBtn = await screen.findByRole('button', { name: 'Move' });
+    await user.click(moveBtn);
+
+    expect(moveCalls).toContain('t1');
+  });
+});

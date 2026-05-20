@@ -195,3 +195,26 @@ select:focus-visible,
 .plan-filter-bar__label       { font-weight: 600; }
 .plan-filter-bar__value       { color: var(--color-ink-subtle); }
 .plan-filter-bar__chip--active .plan-filter-bar__value { color: inherit; }
+
+/* PlanGridPage */
+.plan-grid-page { display: flex; flex-direction: column; gap: var(--spacing-md); }
+
+.grid-bulk-action-footer {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-surface-1);
+  border-top: 1px solid var(--color-hairline);
+}
+.grid-bulk-action-footer button {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.grid-group-by { font-size: var(--text-body-sm); color: var(--color-ink-subtle); }
