@@ -3,7 +3,6 @@
 // Composites
 export * from './composites/command-palette';
 export * from './composites/data-table';
-export * from './composites/dot-field-backdrop';
 export * from './composites/empty-state';
 export * from './composites/inbox-list';
 export * from './composites/kbd-hint';
