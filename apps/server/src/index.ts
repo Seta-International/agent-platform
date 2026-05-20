@@ -23,6 +23,7 @@ import { registerMeRoute } from './routes/me.ts';
 import { registerProfileRoutes } from './routes/profile.ts';
 import { registerSsoConsentRoutes } from './routes/sso-consent.ts';
 import { registerSsoProvidersRoutes } from './routes/sso-providers.ts';
+import { registerUsersEmailRoutes } from './routes/users-email.ts';
 
 const log = pino({ name: 'apps/server' });
 const env = parseEnv(process.env);
@@ -76,6 +77,7 @@ registerMeRoute(app);
 registerProfileRoutes(app);
 registerAdminUsersRoutes(app);
 registerAdminAuditRoutes(app);
+registerUsersEmailRoutes(app);
 registerSsoConsentRoutes(app);
 registerSsoProvidersRoutes(app);
 

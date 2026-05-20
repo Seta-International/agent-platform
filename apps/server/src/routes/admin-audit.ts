@@ -15,6 +15,7 @@ export function registerAdminAuditRoutes(app: Hono<SessionEnv>): void {
     requireAuditRead(c);
     const scope = c.get('user');
     const event_type = c.req.query('event_type');
+    const aggregate_id = c.req.query('aggregate_id');
     const from = c.req.query('from');
     const to = c.req.query('to');
     const limit = Math.min(parseInt(c.req.query('limit') ?? '50', 10), 200);
@@ -23,6 +24,7 @@ export function registerAdminAuditRoutes(app: Hono<SessionEnv>): void {
     const result = await queryAudit({
       tenant_id: scope.tenant_id,
       event_type: event_type || undefined,
+      aggregate_id: aggregate_id || undefined,
       from: from || undefined,
       to: to || undefined,
       limit,

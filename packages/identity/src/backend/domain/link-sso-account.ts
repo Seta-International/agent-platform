@@ -5,6 +5,7 @@ import { account, user } from '../../db/schema.ts';
 import { emitIdentityUserSsoLinked, emitIdentityUserSsoRevoked } from '../../events/index.ts';
 import type { SsoProviderId } from '../../sso/config.ts';
 import { toEmitActor, toEventActor } from '../sso/helpers.ts';
+import { changeUserEmail } from './change-user-email.ts';
 import type { Actor } from './create-user.ts';
 import { updateUserProfile } from './update-user-profile.ts';
 
@@ -39,6 +40,7 @@ export async function linkSsoAccount(
     .select({
       user_id: user.id,
       current_name: user.name,
+      current_email: user.email,
       deactivated_at: user.deactivated_at,
     })
     .from(user)
@@ -69,7 +71,7 @@ export async function linkSsoAccount(
     if (existing.account_id !== input.entra_oid) {
       return { user_id: u.user_id, outcome: 'rejected_oid_conflict' };
     }
-    await syncNameFromIdToken(u, input, actor);
+    await syncProfileFromIdToken(u, input, actor);
     return { user_id: u.user_id, outcome: 'matched' };
   }
 
@@ -83,16 +85,20 @@ export async function linkSsoAccount(
     });
   });
 
-  await syncNameFromIdToken(u, input, actor);
+  await syncProfileFromIdToken(u, input, actor);
   return { user_id: u.user_id, outcome: 'linked' };
 }
 
-async function syncNameFromIdToken(
-  u: { user_id: string; current_name: string },
+async function syncProfileFromIdToken(
+  u: { user_id: string; current_name: string; current_email: string },
   input: LinkSsoAccountInput,
   actor: Actor,
 ): Promise<void> {
   if (input.name && input.name !== u.current_name) {
     await updateUserProfile(u.user_id, { display_name: input.name }, actor);
+  }
+  const wantEmail = input.email.toLowerCase();
+  if (wantEmail !== u.current_email) {
+    await changeUserEmail({ user_id: u.user_id, new_email: wantEmail, reason: 'sso_sync' }, actor);
   }
 }

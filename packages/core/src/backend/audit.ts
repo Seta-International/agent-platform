@@ -5,7 +5,10 @@ export interface AuditRow {
   event_id: string;
   occurred_at: string;
   event_type: string;
+  aggregate_type: string;
+  aggregate_id: string;
   actor: Record<string, unknown> | null;
+  payload: Record<string, unknown> | null;
   before: unknown;
   after: unknown;
   trace_id: string | null;
@@ -14,6 +17,7 @@ export interface AuditRow {
 export interface AuditQueryOpts {
   tenant_id: string;
   event_type?: string;
+  aggregate_id?: string;
   from?: string;
   to?: string;
   limit: number;
@@ -23,13 +27,14 @@ export interface AuditQueryOpts {
 export async function queryAudit(
   opts: AuditQueryOpts,
 ): Promise<{ rows: AuditRow[]; total: number }> {
-  const { tenant_id, event_type, from: fromTs, to: toTs, limit, offset } = opts;
+  const { tenant_id, event_type, aggregate_id, from: fromTs, to: toTs, limit, offset } = opts;
 
   const rows = await coreDb().execute(sql`
-    SELECT event_id, occurred_at, event_type, actor, before, after, trace_id
+    SELECT event_id, occurred_at, event_type, aggregate_type, aggregate_id, actor, payload, before, after, trace_id
     FROM core.audit_v
     WHERE tenant_id = ${tenant_id}::uuid
       ${event_type ? sql`AND event_type = ${event_type}` : sql``}
+      ${aggregate_id ? sql`AND aggregate_id = ${aggregate_id}` : sql``}
       ${fromTs ? sql`AND occurred_at >= ${fromTs}::timestamptz` : sql``}
       ${toTs ? sql`AND occurred_at < ${toTs}::timestamptz` : sql``}
     ORDER BY occurred_at DESC
@@ -41,6 +46,7 @@ export async function queryAudit(
     FROM core.audit_v
     WHERE tenant_id = ${tenant_id}::uuid
       ${event_type ? sql`AND event_type = ${event_type}` : sql``}
+      ${aggregate_id ? sql`AND aggregate_id = ${aggregate_id}` : sql``}
       ${fromTs ? sql`AND occurred_at >= ${fromTs}::timestamptz` : sql``}
       ${toTs ? sql`AND occurred_at < ${toTs}::timestamptz` : sql``}
   `);

@@ -10,6 +10,8 @@ import {
 } from '@seta/shared-ui';
 import { useEffect, useState } from 'react';
 import { type AdminUserDetail, deactivateAdminUser, getAdminUserDetail } from '../api/client.ts';
+import { ChangeEmailDialog } from './ChangeEmailDialog.tsx';
+import { EmailHistorySection } from './EmailHistorySection.tsx';
 import { GrantRoleCombobox } from './GrantRoleCombobox.tsx';
 import { RoleGrantList } from './RoleGrantList.tsx';
 
@@ -87,7 +89,19 @@ export function UserDetailDrawer({
         {detail && (
           <div className="space-y-6 py-4">
             <div className="space-y-1">
-              <div className="text-sm">{detail.profile.email}</div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm">{detail.profile.email}</span>
+                <ChangeEmailDialog
+                  userId={detail.profile.user_id}
+                  currentEmail={detail.profile.email}
+                  disabled={false}
+                  onChanged={() => {
+                    void refresh();
+                    onChange();
+                  }}
+                />
+              </div>
+              <EmailHistorySection userId={detail.profile.user_id} />
               <div className="flex gap-2">
                 <Badge variant={detail.profile.deactivated_at ? 'destructive' : 'secondary'}>
                   {detail.profile.deactivated_at

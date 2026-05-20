@@ -318,6 +318,72 @@ describe('@seta/identity linkSsoAccount', () => {
     );
   });
 
+  it('linked + email sync: stored email has mixed case → normalised on link, email.changed emitted', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+      },
+      async ({ pool, databaseUrl }) => {
+        resetCoreDb();
+        initPools({ databaseUrl });
+        try {
+          const tenantId = crypto.randomUUID();
+          await pool.query(
+            `INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'EmailSyncTenant', $2)`,
+            [tenantId, `email-sync-${tenantId.slice(0, 8)}`],
+          );
+
+          // Seed user with mixed-case email directly, bypassing createUser normalisation.
+          // This simulates a user imported via a legacy path with a non-lowercased email.
+          const userId = crypto.randomUUID();
+          await pool.query(
+            `INSERT INTO identity."user" (id, email, name, email_verified, tenant_id)
+             VALUES ($1, 'Bob.Old@acme.com', 'Bob', true, $2)`,
+            [userId, tenantId],
+          );
+
+          // linkSsoAccount finds the user via lower(email) = 'bob.old@acme.com'
+          // syncProfileFromIdToken sees current_email 'Bob.Old@acme.com' != lowercased 'bob.old@acme.com'
+          const result = await linkSsoAccount(
+            {
+              tenant_id: tenantId,
+              provider_id: 'microsoft-entra-id',
+              email: 'bob.old@acme.com',
+              name: 'Bob',
+              entra_oid: ENTRA_OID,
+              entra_tid: ENTRA_TID,
+            },
+            SSO_ACTOR,
+          );
+
+          expect(result.outcome).toBe('linked');
+          expect(result.user_id).toBe(userId);
+
+          const { rows: userRows } = await pool.query<{ email: string }>(
+            `SELECT email FROM identity."user" WHERE id = $1`,
+            [userId],
+          );
+          expect(userRows[0]!.email).toBe('bob.old@acme.com');
+
+          const { rows: events } = await pool.query<{ event_type: string; payload: unknown }>(
+            `SELECT event_type, payload FROM core.events WHERE tenant_id = $1 ORDER BY occurred_at, id`,
+            [tenantId],
+          );
+          const eventTypes = events.map((e) => e.event_type);
+          expect(eventTypes).toContain('identity.user.sso_linked');
+          expect(eventTypes).toContain('identity.user.email.changed');
+
+          const emailEvent = events.find((e) => e.event_type === 'identity.user.email.changed');
+          expect((emailEvent!.payload as { reason: string }).reason).toBe('sso_sync');
+        } finally {
+          resetCoreDb();
+          await closePools();
+        }
+      },
+    );
+  });
+
   it('linked + name sync: sso name differs → user name updated, both sso_linked and profile.updated emitted', async () => {
     await withTestDb(
       {

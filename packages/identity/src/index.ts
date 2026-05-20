@@ -1,3 +1,5 @@
+export type { ChangeUserEmailInput } from './backend/domain/change-user-email.ts';
+export { changeUserEmail } from './backend/domain/change-user-email.ts';
 export type { Actor, CreateUserInput } from './backend/domain/create-user.ts';
 export { createUser } from './backend/domain/create-user.ts';
 export { deactivateUser } from './backend/domain/deactivate-user.ts';

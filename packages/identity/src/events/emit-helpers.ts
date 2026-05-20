@@ -4,6 +4,7 @@ import type {
   IdentityRoleGrantChanged,
   IdentityUserCreated,
   IdentityUserDeactivated,
+  IdentityUserEmailChanged,
   IdentityUserProfileUpdated,
   IdentityUserSsoRevoked,
 } from './types.ts';
@@ -212,5 +213,30 @@ export async function emitIdentityUserSsoRevoked(args: {
     eventType: 'identity.user.sso_revoked',
     eventVersion: 1,
     payload: { actor: args.actor, user_id: args.user_id, reason: args.reason },
+  });
+}
+
+export async function emitIdentityUserEmailChanged(args: {
+  actor: IdentityEventActor;
+  user_id: string;
+  tenant_id: string;
+  old_email: string;
+  new_email: string;
+  reason: IdentityUserEmailChanged['payload']['reason'];
+}): Promise<void> {
+  await emit({
+    tenantId: args.tenant_id,
+    aggregateType: 'identity.user',
+    aggregateId: args.user_id,
+    eventType: 'identity.user.email.changed',
+    eventVersion: 1,
+    payload: {
+      actor: args.actor,
+      user_id: args.user_id,
+      tenant_id: args.tenant_id,
+      old_email: args.old_email,
+      new_email: args.new_email,
+      reason: args.reason,
+    },
   });
 }
