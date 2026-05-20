@@ -23,11 +23,18 @@ type MastraStorageThreadRow = {
   id: string;
   resourceId: string;
   title?: string | null;
-  updatedAt: Date;
+  updatedAt?: Date;
 };
 
-type MastraStorageWithThreads = {
-  getThreadsByResourceId: (q: { resourceId: string }) => Promise<MastraStorageThreadRow[]>;
+type MastraMemoryStore = {
+  listThreads: (q: {
+    filter?: { resourceId?: string };
+    perPage?: number | false;
+  }) => Promise<{ threads: MastraStorageThreadRow[] }>;
+};
+
+type MastraStorageWithStores = {
+  stores?: { memory?: MastraMemoryStore };
 };
 
 export function createAgentFactory(deps: AgentFactoryDeps) {
@@ -45,16 +52,18 @@ export function createAgentFactory(deps: AgentFactoryDeps) {
             ...STATIC_SELF_TOOLS,
             makeListMyThreadsTool({
               listThreads: async ({ resourceId, limit }) => {
-                const storage = deps.mastra.getStorage();
-                if (!storage) return [];
-                const rows = await (
-                  storage as unknown as MastraStorageWithThreads
-                ).getThreadsByResourceId({ resourceId });
-                return rows.slice(0, limit).map((r) => ({
+                const storage = deps.mastra.getStorage() as MastraStorageWithStores | null;
+                const memory = storage?.stores?.memory;
+                if (!memory) return [];
+                const { threads } = await memory.listThreads({
+                  filter: { resourceId },
+                  perPage: limit,
+                });
+                return threads.map((r) => ({
                   id: r.id,
                   resource_id: r.resourceId,
                   title: r.title ?? null,
-                  updated_at: r.updatedAt,
+                  updated_at: r.updatedAt ?? new Date(),
                 }));
               },
             }),
