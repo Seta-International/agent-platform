@@ -27,6 +27,7 @@ function toWriteState(
 
 // Using `any` for TResult avoids addResult contravariance issues — we only read result, never write.
 /* eslint-disable @typescript-eslint/no-explicit-any */
+// biome-ignore lint/suspicious/noExplicitAny: addResult contravariance — TResult is write-only in makeAssistantToolUI
 const SERVER_TIME_TOOL = makeAssistantToolUI<Record<string, unknown>, any>({
   toolName: 'core_serverTime',
   render: (props) => (
@@ -38,6 +39,7 @@ const SERVER_TIME_TOOL = makeAssistantToolUI<Record<string, unknown>, any>({
   ),
 });
 
+// biome-ignore lint/suspicious/noExplicitAny: addResult contravariance — TResult is write-only in makeAssistantToolUI
 const WHO_AM_I_TOOL = makeAssistantToolUI<Record<string, unknown>, any>({
   toolName: 'identity_whoAmI',
   render: (props) => (
@@ -49,6 +51,7 @@ const WHO_AM_I_TOOL = makeAssistantToolUI<Record<string, unknown>, any>({
   ),
 });
 
+// biome-ignore lint/suspicious/noExplicitAny: addResult contravariance — TResult is write-only in makeAssistantToolUI
 const LIST_MY_ROLES_TOOL = makeAssistantToolUI<Record<string, unknown>, any>({
   toolName: 'identity_listMyRoles',
   render: (props) => (
@@ -60,6 +63,7 @@ const LIST_MY_ROLES_TOOL = makeAssistantToolUI<Record<string, unknown>, any>({
   ),
 });
 
+// biome-ignore lint/suspicious/noExplicitAny: addResult contravariance — TResult is write-only in makeAssistantToolUI
 const LIST_MY_THREADS_TOOL = makeAssistantToolUI<Record<string, unknown>, any>({
   toolName: 'copilot_listMyThreads',
   render: (props) => (
@@ -73,6 +77,7 @@ const LIST_MY_THREADS_TOOL = makeAssistantToolUI<Record<string, unknown>, any>({
 
 const UPDATE_MY_DISPLAY_NAME_TOOL = makeAssistantToolUI<
   { displayName: string; expiresAt?: string },
+  // biome-ignore lint/suspicious/noExplicitAny: addResult contravariance — TResult is write-only in makeAssistantToolUI
   any
 >({
   toolName: 'identity_updateMyDisplayName',

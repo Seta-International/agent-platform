@@ -119,6 +119,14 @@ module.exports = {
       from: { path: '^packages/(?!identity/)' },
       to: { path: '^packages/identity/src/(sso|backend/sso)/' },
     },
+    {
+      name: 'shared-ui-no-dnd',
+      comment:
+        'Style monopoly: shared-ui composites must not depend on @hello-pangea/dnd; the app layer wires DnD via render slots.',
+      severity: 'error',
+      from: { path: '^packages/shared/ui/src/' },
+      to: { path: '^node_modules/@hello-pangea/dnd' },
+    },
   ],
   options: {
     doNotFollow: { path: 'node_modules' },
