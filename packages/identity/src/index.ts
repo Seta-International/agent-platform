@@ -8,6 +8,7 @@ export { disconnectSsoProvider } from './backend/domain/disconnect-sso-provider.
 export type { DiscoverResult } from './backend/domain/discover-provider.ts';
 export { discoverProvider } from './backend/domain/discover-provider.ts';
 export { enableSsoProvider } from './backend/domain/enable-sso-provider.ts';
+export { getEntraTenantId } from './backend/domain/get-entra-tenant-id.ts';
 export type { UserGrant } from './backend/domain/get-user-grants.ts';
 export { getUserGrants } from './backend/domain/get-user-grants.ts';
 export type { UserProfile } from './backend/domain/get-user-profile.ts';
