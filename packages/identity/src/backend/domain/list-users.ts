@@ -5,6 +5,7 @@ export interface ListUsersOpts {
   search?: string;
   role_slug?: string;
   status?: 'active' | 'deactivated' | 'ooo';
+  sign_in_method?: 'credential' | 'microsoft' | 'both';
   limit: number;
   offset: number;
 }
@@ -63,6 +64,9 @@ export async function listUsers(
       ${opts.status === 'deactivated' ? sql`AND u.deactivated_at IS NOT NULL` : sql``}
       ${opts.status === 'active' ? sql`AND u.deactivated_at IS NULL AND COALESCE(p.availability_status, 'available') != 'ooo'` : sql``}
       ${opts.status === 'ooo' ? sql`AND u.deactivated_at IS NULL AND p.availability_status = 'ooo'` : sql``}
+      ${opts.sign_in_method === 'credential' ? sql`AND 'credential' = ANY(COALESCE(sim.sign_in_methods, ARRAY[]::text[]))` : sql``}
+      ${opts.sign_in_method === 'microsoft' ? sql`AND 'microsoft' = ANY(COALESCE(sim.sign_in_methods, ARRAY[]::text[]))` : sql``}
+      ${opts.sign_in_method === 'both' ? sql`AND 'credential' = ANY(COALESCE(sim.sign_in_methods, ARRAY[]::text[])) AND 'microsoft' = ANY(COALESCE(sim.sign_in_methods, ARRAY[]::text[]))` : sql``}
   `;
 
   const rowsResult = await identityDb().execute(sql`
@@ -91,6 +95,7 @@ export async function listUsers(
     ${userRolesCte}
     SELECT count(*)::int AS n FROM identity."user" u
     LEFT JOIN user_roles r ON r.user_id = u.id
+    LEFT JOIN user_sign_in_methods sim ON sim.user_id = u.id
     LEFT JOIN identity.user_profile p ON p.user_id = u.id
     ${whereClause}
   `);

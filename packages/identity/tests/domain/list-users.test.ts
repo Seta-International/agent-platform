@@ -243,4 +243,89 @@ describe('listUsers', () => {
       },
     );
   });
+
+  it('filters by sign_in_method=credential', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+      },
+      async ({ pool, databaseUrl }) => {
+        resetCoreDb();
+        initPools({ databaseUrl });
+        try {
+          const reg = createContributionRegistry();
+          registerCoreContributions(reg);
+          registerIdentityContributions(reg);
+          await runMigrations(reg, { pool });
+
+          const tenantId = crypto.randomUUID();
+          await pool.query(
+            `INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'Demo', 'demo')`,
+            [tenantId],
+          );
+
+          // cred-only
+          await createUser(
+            { tenant_id: tenantId, email: 'cred@d.local', name: 'C', password: 'pw-1234567890' },
+            { type: 'cli', user_id: null },
+          );
+
+          // sso-only — create with password then delete the credential account row to leave a microsoft account
+          const { user_id: ssoId } = await createUser(
+            { tenant_id: tenantId, email: 'sso@d.local', name: 'S', password: 'pw-1234567890' },
+            { type: 'cli', user_id: null },
+          );
+          await pool.query(
+            `DELETE FROM identity.account WHERE user_id = $1 AND provider_id = 'credential'`,
+            [ssoId],
+          );
+          await pool.query(
+            `INSERT INTO identity.account (id, user_id, provider_id, account_id)
+             VALUES ($1, $2, 'microsoft', $3)`,
+            [crypto.randomUUID(), ssoId, crypto.randomUUID()],
+          );
+
+          // both
+          const { user_id: bothId } = await createUser(
+            { tenant_id: tenantId, email: 'both@d.local', name: 'B', password: 'pw-1234567890' },
+            { type: 'cli', user_id: null },
+          );
+          await pool.query(
+            `INSERT INTO identity.account (id, user_id, provider_id, account_id)
+             VALUES ($1, $2, 'microsoft', $3)`,
+            [crypto.randomUUID(), bothId, crypto.randomUUID()],
+          );
+
+          const credOnly = await listUsers(tenantId, {
+            sign_in_method: 'credential',
+            limit: 25,
+            offset: 0,
+          });
+          // includes cred-only and both (both have 'credential')
+          expect(credOnly.rows.every((r) => r.sign_in_methods.includes('credential'))).toBe(true);
+          expect(credOnly.total).toBe(2);
+
+          const ssoOnly = await listUsers(tenantId, {
+            sign_in_method: 'microsoft',
+            limit: 25,
+            offset: 0,
+          });
+          expect(ssoOnly.rows.every((r) => r.sign_in_methods.includes('microsoft'))).toBe(true);
+          expect(ssoOnly.total).toBe(2);
+
+          const both = await listUsers(tenantId, {
+            sign_in_method: 'both',
+            limit: 25,
+            offset: 0,
+          });
+          expect(both.total).toBe(1);
+          expect(both.rows[0]?.email).toBe('both@d.local');
+        } finally {
+          resetCoreDb();
+          await closePools();
+        }
+      },
+    );
+  });
 });
