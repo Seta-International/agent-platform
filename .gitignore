@@ -49,3 +49,15 @@ apps/web/src/routeTree.gen.ts
 
 # Traefik ACME storage (per-deploy state, never committed)
 infra/traefik/acme.json
+
+# OpenTofu / Terraform
+**/.terraform/
+**/.terraform.lock.hcl
+**/terraform.tfstate
+**/terraform.tfstate.backup
+**/terraform.tfstate.d/
+**/*.tfvars
+!**/*.tfvars.example
+**/.tofu/
+**/crash.log
+**/crash.*.log

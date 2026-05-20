@@ -328,6 +328,18 @@ Architect review 2026-05-19 compressed an earlier 5-lever spec. v1 scale (§10.2
 
 Each lever is 1–2 days to add and lights up independently; pre-wiring them in Phase A bakes config surface that can't be tuned without telemetry that doesn't exist yet.
 
+### §A12. Single image, mode-selectable runtime → **`SETA_MODULES` + dispatch shim**
+
+The "one runtime binary" framing in earlier drafts of this section is amended. The `seta-server` image is one artifact; the runtime topology (modular monolith vs split per-module ECS services) is chosen at startup via the `SETA_MODULES` env var. Cross-module sync calls route through a dispatch shim (`packages/core/src/rpc/`) that picks in-process function call vs Hono RPC HTTP client based on which modules this process loaded. The event bus is unchanged — `core.events` outbox + `LISTEN/NOTIFY` is already cross-process. Boundary discipline (`CLAUDE.md` "Architectural rules that are enforced") is unchanged; the shim lives entirely inside `core` and peer modules consume it only through `@seta/core/rpc`.
+
+- **Public surface.** `createModuleClient(reg, 'identity', identityRpcMethods)` returns a typed object whose method shapes match `identity`'s `RpcMethodMap`. Each call: (a) reads the current actor from the registry, (b) parses input via zod, (c) runs `rbacCheck` (same code path as remote), (d) dispatches — in-proc function call if `identity ∈ SETA_MODULES`, Hono RPC over HTTP otherwise.
+- **Authorization.** Two transports, one `peerAuth` middleware. Self-host single-host uses constant-time bearer comparison against `SETA_RPC_SHARED_SECRET`. AWS production uses mTLS — ECS Service Connect + AWS Private CA terminate the cert chain upstream; the middleware trusts a verified-cert header (`X-Client-Cert-Verified: SUCCESS`).
+- **OTel trace propagation.** W3C `traceparent` header injected on egress; resumed via `withRemoteSpan` on ingress. Same trace IDs whether the call was in-proc or split.
+- **Mutating-call idempotency.** Callers attach `Idempotency-Key: <uuid>` (auto-generated for methods declared `mutates: true`). Callee dedups via `core.rpc_idempotency` table — race-safe via the primary-key constraint. Failures are NOT cached; retries re-run the body.
+- **Error contract.** `ModuleUnavailable` (peer down after 1 retry on network/timeout/502/503/504), `RpcTimeout`, `RpcForbidden`, `RpcInvalidArgument`, `RpcInternal`. Callers handle as named classes.
+
+This provision keeps OSS self-host as a single container and unlocks AWS per-module scaling without a code fork — see ADR D34 in `docs/project-plan.md §7` and `docs/superpowers/specs/2026-05-20-deployment-strategy-design.md` §5.4.
+
 ---
 
 ## §B. Module boundary enforcement

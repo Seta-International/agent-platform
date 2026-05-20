@@ -1,0 +1,346 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+  attestations: write
+
+env:
+  REGISTRY: ghcr.io
+  ORG: ${{ vars.SETA_GH_ORG || github.repository_owner }}
+
+jobs:
+  metadata:
+    name: Derive version & tags
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.parse.outputs.version }}
+      major: ${{ steps.parse.outputs.major }}
+      minor: ${{ steps.parse.outputs.minor }}
+      semver_ok: ${{ steps.parse.outputs.semver_ok }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - id: parse
+        name: Parse tag into vX, vX.Y, vX.Y.Z
+        shell: bash
+        run: |
+          ref="${GITHUB_REF#refs/tags/}"
+          if [[ ! "$ref" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "Tag '$ref' is not vX.Y.Z; aborting." >&2
+            echo "semver_ok=false" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+          echo "version=$ref" >> "$GITHUB_OUTPUT"
+          echo "major=v${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
+          echo "minor=v${BASH_REMATCH[1]}.${BASH_REMATCH[2]}" >> "$GITHUB_OUTPUT"
+          echo "semver_ok=true" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build & push ${{ matrix.image.name }}
+    needs: metadata
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        image:
+          - { name: seta-server, dockerfile: infra/docker/server.Dockerfile }
+          - { name: seta-web,    dockerfile: infra/docker/web.Dockerfile }
+    outputs:
+      server_digest: ${{ steps.collect.outputs.server_digest }}
+      web_digest:    ${{ steps.collect.outputs.web_digest }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Build & push
+        id: build
+        uses: ./.github/actions/build-images
+        with:
+          image: ${{ matrix.image.name }}
+          dockerfile: ${{ matrix.image.dockerfile }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.ORG }}/${{ matrix.image.name }}:${{ needs.metadata.outputs.version }}
+            ${{ env.REGISTRY }}/${{ env.ORG }}/${{ matrix.image.name }}:${{ needs.metadata.outputs.minor }}
+            ${{ env.REGISTRY }}/${{ env.ORG }}/${{ matrix.image.name }}:${{ needs.metadata.outputs.major }}
+            ${{ env.REGISTRY }}/${{ env.ORG }}/${{ matrix.image.name }}:latest
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ needs.metadata.outputs.version }}
+            org.opencontainers.image.title=${{ matrix.image.name }}
+          push: true
+          cache-ref: ${{ env.REGISTRY }}/${{ env.ORG }}/${{ matrix.image.name }}:buildcache
+
+      - name: Collect digest per image
+        id: collect
+        shell: bash
+        run: |
+          if [[ "${{ matrix.image.name }}" == "seta-server" ]]; then
+            echo "server_digest=${{ steps.build.outputs.digest }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "web_digest=${{ steps.build.outputs.digest }}" >> "$GITHUB_OUTPUT"
+          fi
+
+  smoke:
+    name: Smoke test seta-server
+    needs: [metadata, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull and run health subcommand
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMG="${{ env.REGISTRY }}/${{ env.ORG }}/seta-server@${{ needs.build.outputs.server_digest }}"
+          echo "smoke target: $IMG"
+          docker pull "$IMG"
+          docker run --rm "$IMG" health
+
+  scan:
+    name: Trivy scan
+    needs: [metadata, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Scan seta-server (gating)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.ORG }}/seta-server@${{ needs.build.outputs.server_digest }}
+          format: table
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: os,library
+
+      - name: Scan seta-web (informational)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        continue-on-error: true
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.ORG }}/seta-web@${{ needs.build.outputs.web_digest }}
+          format: table
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: os,library
+
+  sign:
+    name: Cosign sign + SBOM attest
+    needs: [metadata, build, smoke, scan]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    strategy:
+      fail-fast: true
+      matrix:
+        image:
+          - { name: seta-server, digest_ref: server_digest }
+          - { name: seta-web,    digest_ref: web_digest }
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Log in to GHCR
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Resolve digest
+        id: digest
+        shell: bash
+        run: |
+          if [[ "${{ matrix.image.name }}" == "seta-server" ]]; then
+            echo "value=${{ needs.build.outputs.server_digest }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${{ needs.build.outputs.web_digest }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Sign image (keyless OIDC)
+        shell: bash
+        env:
+          COSIGN_EXPERIMENTAL: '1'
+        run: |
+          IMG="${{ env.REGISTRY }}/${{ env.ORG }}/${{ matrix.image.name }}@${{ steps.digest.outputs.value }}"
+          cosign sign --yes "$IMG"
+
+      - name: Generate SPDX SBOM and attest
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.ORG }}/${{ matrix.image.name }}@${{ steps.digest.outputs.value }}
+          format: spdx-json
+          output-file: sbom-${{ matrix.image.name }}.spdx.json
+          upload-artifact: true
+          registry-username: ${{ github.actor }}
+          registry-password: ${{ github.token }}
+
+      - name: Attest SBOM with cosign
+        shell: bash
+        env:
+          COSIGN_EXPERIMENTAL: '1'
+        run: |
+          IMG="${{ env.REGISTRY }}/${{ env.ORG }}/${{ matrix.image.name }}@${{ steps.digest.outputs.value }}"
+          cosign attest --yes \
+            --predicate "sbom-${{ matrix.image.name }}.spdx.json" \
+            --type spdxjson \
+            "$IMG"
+
+  ecr-mirror:
+    name: Mirror seta-server to ECR
+    if: vars.SETA_AWS_MIRROR == 'true'
+    needs: [metadata, build, sign]
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@d979d5b3a71173a29b74b5b88418bfda9437d885 # v6.1.1
+        with:
+          role-to-assume: ${{ vars.SETA_AWS_ROLE_ARN }}
+          aws-region: ${{ vars.SETA_AWS_REGION }}
+          role-session-name: gha-release-${{ github.run_id }}
+
+      - name: Log in to ECR
+        shell: bash
+        run: |
+          aws ecr get-login-password --region "${{ vars.SETA_AWS_REGION }}" \
+            | docker login --username AWS --password-stdin "$(echo '${{ vars.SETA_ECR_SERVER_URI }}' | cut -d/ -f1)"
+
+      - name: Log in to GHCR (pull source)
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Set up Buildx (for multi-arch copy)
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
+
+      - name: Copy manifest list from GHCR to ECR
+        shell: bash
+        env:
+          SRC: ${{ env.REGISTRY }}/${{ env.ORG }}/seta-server@${{ needs.build.outputs.server_digest }}
+          DST_BASE: ${{ vars.SETA_ECR_SERVER_URI }}
+          V: ${{ needs.metadata.outputs.version }}
+          MINOR: ${{ needs.metadata.outputs.minor }}
+          MAJOR: ${{ needs.metadata.outputs.major }}
+        run: |
+          set -euo pipefail
+          docker buildx imagetools create \
+            --tag "${DST_BASE}:${V}" \
+            --tag "${DST_BASE}:${MINOR}" \
+            --tag "${DST_BASE}:${MAJOR}" \
+            --tag "${DST_BASE}:latest" \
+            "${SRC}"
+
+  web-s3:
+    name: Sync web bundle to S3 + invalidate CloudFront
+    if: vars.SETA_AWS_MIRROR == 'true'
+    needs: [metadata, build, sign]
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build web bundle
+        run: pnpm turbo run build --filter=@seta/web
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@d979d5b3a71173a29b74b5b88418bfda9437d885 # v6.1.1
+        with:
+          role-to-assume: ${{ vars.SETA_AWS_ROLE_ARN }}
+          aws-region: ${{ vars.SETA_AWS_REGION }}
+          role-session-name: gha-release-${{ github.run_id }}
+
+      - name: Sync to S3 (versioned prefix)
+        shell: bash
+        env:
+          BUCKET: ${{ vars.SETA_S3_WEB_BUCKET }}
+          V: ${{ needs.metadata.outputs.version }}
+        run: |
+          set -euo pipefail
+          aws s3 sync apps/web/dist/ "s3://${BUCKET}/${V}/" \
+            --delete \
+            --cache-control "public,max-age=31536000,immutable" \
+            --exclude "index.html"
+          aws s3 cp apps/web/dist/index.html "s3://${BUCKET}/${V}/index.html" \
+            --cache-control "public,max-age=60,must-revalidate" \
+            --content-type "text/html"
+
+      - name: Invalidate CloudFront
+        shell: bash
+        env:
+          DIST: ${{ vars.SETA_CF_DISTRIBUTION_ID }}
+          V: ${{ needs.metadata.outputs.version }}
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id "${DIST}" \
+            --paths "/${V}/*"
+
+  github-release:
+    name: Create GitHub Release
+    needs: [metadata, build, sign]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.metadata.outputs.version }}
+          SERVER_DIGEST: ${{ needs.build.outputs.server_digest }}
+          WEB_DIGEST: ${{ needs.build.outputs.web_digest }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > release-notes.md <<EOF
+          ## Images
+
+          - \`ghcr.io/${{ env.ORG }}/seta-server:${VERSION}\` (digest: \`${SERVER_DIGEST}\`)
+          - \`ghcr.io/${{ env.ORG }}/seta-web:${VERSION}\` (digest: \`${WEB_DIGEST}\`)
+
+          ## Verification
+
+          \`\`\`
+          cosign verify ghcr.io/${{ env.ORG }}/seta-server:${VERSION} \\
+            --certificate-identity-regexp='^https://github.com/${{ github.repository }}/\\.github/workflows/release\\.yml@refs/tags/v.*\$' \\
+            --certificate-oidc-issuer='https://token.actions.githubusercontent.com'
+          \`\`\`
+
+          See \`docs/hosting/upgrading.md\` for the full verification flow.
+          EOF
+
+          gh release create "${VERSION}" \
+            --title "${VERSION}" \
+            --notes-file release-notes.md \
+            --generate-notes \
+            --verify-tag

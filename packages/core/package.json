@@ -12,6 +12,7 @@
     "./backend": "./src/backend/index.ts",
     "./db/schema": "./src/db/schema/index.ts",
     "./db": "./src/db/client.ts",
+    "./rpc": "./src/rpc/index.ts",
     "./internal/test-support": "./src/db/client.ts"
   },
   "scripts": {
@@ -36,6 +37,7 @@
     "hono": "^4.12.19",
     "lru-cache": "^11.4.0",
     "pg": "^8.21.0",
-    "pino": "^10.3.1"
+    "pino": "^10.3.1",
+    "zod": "^4.4.3"
   }
 }

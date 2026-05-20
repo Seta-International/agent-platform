@@ -1,0 +1,45 @@
+name: Edge
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: edge-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  ORG: ${{ vars.SETA_GH_ORG || github.repository_owner }}
+
+jobs:
+  build:
+    name: Build & push :edge
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - { name: seta-server, dockerfile: infra/docker/server.Dockerfile }
+          - { name: seta-web,    dockerfile: infra/docker/web.Dockerfile }
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Build & push edge
+        uses: ./.github/actions/build-images
+        with:
+          image: ${{ matrix.image.name }}
+          dockerfile: ${{ matrix.image.dockerfile }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.ORG }}/${{ matrix.image.name }}:edge
+            ${{ env.REGISTRY }}/${{ env.ORG }}/${{ matrix.image.name }}:edge-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.title=${{ matrix.image.name }}
+          push: true
+          cache-ref: ${{ env.REGISTRY }}/${{ env.ORG }}/${{ matrix.image.name }}:buildcache

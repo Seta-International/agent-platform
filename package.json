@@ -23,7 +23,11 @@
     "smoke:login": "tsx apps/web/e2e/login.smoke.ts",
     "docker:build:server": "docker build -f infra/docker/server.Dockerfile -t seta-server:local .",
     "docker:build:web": "docker build -f infra/docker/web.Dockerfile -t seta-web:local .",
-    "docker:build": "pnpm docker:build:server && pnpm docker:build:web"
+    "docker:build": "pnpm docker:build:server && pnpm docker:build:web",
+    "docs:hosting:check": "./scripts/check-env-doc-sync.sh",
+    "docs:hosting:links": "for f in docs/hosting/*.md; do pnpm dlx markdown-link-check --quiet \"$f\" || exit 1; done",
+    "release:check": "bash scripts/release-check.sh --no-build",
+    "release:check:full": "bash scripts/release-check.sh"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.15",

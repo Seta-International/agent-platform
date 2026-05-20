@@ -29,6 +29,13 @@
       "when": 1779202703930,
       "tag": "0003_tenant_columns_and_session_scope_cache",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1779251502216,
+      "tag": "0006_rpc_idempotency",
+      "breakpoints": true
     }
   ]
 }
