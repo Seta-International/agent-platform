@@ -34,6 +34,8 @@ export type { RecordSsoConsentInput } from './backend/domain/record-sso-consent.
 export { recordSsoConsent } from './backend/domain/record-sso-consent.ts';
 export type { RegisterSsoProviderInput } from './backend/domain/register-sso-provider.ts';
 export { registerSsoProvider } from './backend/domain/register-sso-provider.ts';
+export type { ResetPasswordByAdminInput } from './backend/domain/reset-user-password-by-admin.ts';
+export { resetUserPasswordByAdmin } from './backend/domain/reset-user-password-by-admin.ts';
 export { revokeRole } from './backend/domain/revoke-role.ts';
 export { searchSkills } from './backend/domain/search-skills.ts';
 export { setLocalPasswordDisabled } from './backend/domain/set-local-password-disabled.ts';
