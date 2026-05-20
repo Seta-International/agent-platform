@@ -59,8 +59,8 @@ export async function seedTenant(
     [admin.user_id, tenantId, admin.name, admin.email],
   );
 
-  // The identity → assignee_projection subscriber is not wired yet (lands in Task 21).
-  // Insert projection rows directly so planner reads can join.
+  // Insert assignee_projection rows directly: planner reads need them and the
+  // identity → projection subscriber is not wired yet.
   const users: SeededUser[] = [];
   for (const u of opts.users ?? []) {
     const r = await createUser(
@@ -72,14 +72,15 @@ export async function seedTenant(
       },
       { type: 'cli', user_id: null },
     );
-    users.push({ user_id: r.user_id, name: u.name, email: u.email });
+    const normalizedEmail = u.email.toLowerCase().trim();
+    users.push({ user_id: r.user_id, name: u.name, email: normalizedEmail });
 
     await pool.query(
       `INSERT INTO planner.assignee_projection
          (user_id, tenant_id, display_name, email, skills, availability_status, timezone)
          VALUES ($1, $2, $3, $4, ARRAY[]::text[], 'available', 'UTC')
          ON CONFLICT (user_id) DO NOTHING`,
-      [r.user_id, tenantId, u.name, u.email.toLowerCase()],
+      [r.user_id, tenantId, u.name, normalizedEmail],
     );
   }
 
