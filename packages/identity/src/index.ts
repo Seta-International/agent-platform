@@ -27,6 +27,11 @@ export { listEntraImportableUsers } from './backend/domain/list-entra-importable
 export type { ActiveRoleGrant, RoleGrantsResult } from './backend/domain/list-role-grants.ts';
 export { listRoleGrants } from './backend/domain/list-role-grants.ts';
 export { listSsoProviders } from './backend/domain/list-sso-providers.ts';
+export type {
+  ListUserSessionsInput,
+  SessionRow,
+} from './backend/domain/list-user-sessions.ts';
+export { listUserSessions } from './backend/domain/list-user-sessions.ts';
 export type { AdminUserRow, ListUsersOpts } from './backend/domain/list-users.ts';
 export { listUsers } from './backend/domain/list-users.ts';
 export { reactivateUser } from './backend/domain/reactivate-user.ts';
