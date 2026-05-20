@@ -21,6 +21,8 @@ export { listChecklistItems } from './backend/domain/list-checklist-items.ts';
 export { listGroupMembers } from './backend/domain/list-group-members.ts';
 export { listGroups } from './backend/domain/list-groups.ts';
 export { listLabels } from './backend/domain/list-labels.ts';
+export { listMyAccessibleGroups } from './backend/domain/list-my-accessible-groups.ts';
+export { listMyAssignedTasks } from './backend/domain/list-my-assigned-tasks.ts';
 export { listPlans } from './backend/domain/list-plans.ts';
 export type { ListTasksFilters } from './backend/domain/list-tasks.ts';
 export { listTasks } from './backend/domain/list-tasks.ts';
