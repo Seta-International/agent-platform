@@ -162,6 +162,21 @@ export async function grantTenantRole(userId: string, role_slug: string): Promis
   if (!res.ok) throw new Error(`grant failed: ${res.status}`);
 }
 
+export async function grantRoleScoped(
+  userId: string,
+  role_slug: string,
+  scope_type: 'tenant' | 'group',
+  scope_id: string | null,
+): Promise<void> {
+  const res = await fetch(`/api/identity/v1/users/${userId}/role-grants`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ role_slug, scope_type, scope_id }),
+  });
+  if (!res.ok) throw new Error(`grant failed: ${res.status}`);
+}
+
 export async function revokeGrant(grantId: string): Promise<void> {
   const res = await fetch(`/api/identity/v1/role-grants/${grantId}`, {
     method: 'DELETE',
