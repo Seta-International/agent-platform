@@ -65,6 +65,7 @@ export function AdminUsersTable({ refreshKey }: { refreshKey: number }) {
   useEffect(() => {
     void refreshKey;
     let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loading-while-fetching pattern
     setLoading(true);
     (async () => {
       try {

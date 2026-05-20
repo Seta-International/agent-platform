@@ -28,6 +28,7 @@ export function SessionsTab({ userId, onCount }: { userId: string; onCount: (n: 
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: refresh closes over userId via the call; effect re-runs on userId
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- delegates to refresh()
     void refresh();
   }, [userId]);
 

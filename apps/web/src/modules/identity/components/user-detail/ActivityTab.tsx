@@ -13,6 +13,7 @@ export function ActivityTab({ userId, onCount }: { userId: string; onCount: (n: 
 
   useEffect(() => {
     let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loading-while-fetching pattern
     setLoading(true);
     (async () => {
       try {
