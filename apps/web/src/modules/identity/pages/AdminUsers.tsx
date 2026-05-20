@@ -3,11 +3,9 @@ import { listProviders } from '../api/sso-client.ts';
 import { AdminUsersTable } from '../components/AdminUsersTable.tsx';
 import { CreateUserDialog } from '../components/CreateUserDialog.tsx';
 import { ImportFromEntraDialog } from '../components/ImportFromEntraDialog.tsx';
-import { UserDetailDrawer } from '../components/UserDetailDrawer.tsx';
 
 export function AdminUsers() {
   const [refreshKey, setRefreshKey] = useState(0);
-  const [openUserId, setOpenUserId] = useState<string | null>(null);
   const [hasActiveEntra, setHasActiveEntra] = useState(false);
   const bump = () => setRefreshKey((k) => k + 1);
 
@@ -24,15 +22,17 @@ export function AdminUsers() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Users</h1>
-        <div className="flex items-center gap-2">
-          <ImportFromEntraDialog enabled={hasActiveEntra} onImported={bump} />
-          <CreateUserDialog onCreated={bump} />
+      <div>
+        <div className="text-xs text-ink-muted">Admin</div>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-semibold tracking-tight">Users</h1>
+          <div className="flex items-center gap-2">
+            <ImportFromEntraDialog enabled={hasActiveEntra} onImported={bump} />
+            <CreateUserDialog onCreated={bump} triggerLabel="Invite user" />
+          </div>
         </div>
       </div>
-      <AdminUsersTable refreshKey={refreshKey} onRowClick={setOpenUserId} />
-      <UserDetailDrawer userId={openUserId} onClose={() => setOpenUserId(null)} onChange={bump} />
+      <AdminUsersTable refreshKey={refreshKey} />
     </div>
   );
 }

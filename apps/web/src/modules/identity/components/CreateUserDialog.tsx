@@ -21,7 +21,13 @@ function generatePassword(): string {
   return s;
 }
 
-export function CreateUserDialog({ onCreated }: { onCreated: () => void }) {
+export function CreateUserDialog({
+  onCreated,
+  triggerLabel = 'Create user',
+}: {
+  onCreated: () => void;
+  triggerLabel?: string;
+}) {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
@@ -63,7 +69,7 @@ export function CreateUserDialog({ onCreated }: { onCreated: () => void }) {
       }}
     >
       <DialogTrigger asChild>
-        <Button>Create user</Button>
+        <Button>{triggerLabel}</Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
