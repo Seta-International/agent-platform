@@ -19,6 +19,7 @@
     "@seta/shared-crypto": "workspace:^",
     "@seta/shared-db": "workspace:^",
     "@seta/shared-mailer": "workspace:^",
+    "@seta/shared-types": "workspace:^",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.12.19",
     "pino": "^10.3.1",

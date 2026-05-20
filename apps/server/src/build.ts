@@ -13,11 +13,13 @@ import { getPool } from '@seta/shared-db';
 import type { Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import type { Pool } from 'pg';
+import type { BoardStreamHub } from './board-stream/hub.ts';
 import { registerAdminAuditRoutes } from './routes/admin-audit.ts';
 import { registerAdminUsersRoutes } from './routes/admin-users.ts';
 import { registerCredentialGate } from './routes/credential-gate.ts';
 import { registerDiscoverRoute } from './routes/discover.ts';
 import { registerMeRoute } from './routes/me.ts';
+import { registerPlannerBoardStreamRoutes } from './routes/planner-board-stream.ts';
 import { registerPlannerBucketsRoutes } from './routes/planner-buckets.ts';
 import { registerPlannerGroupsRoutes } from './routes/planner-groups.ts';
 import { registerPlannerPlansRoutes } from './routes/planner-plans.ts';
@@ -33,6 +35,7 @@ export type BuildServerAppDeps = {
   pool: Pool;
   databaseUrl: string;
   readinessSnapshot?: () => { lastTickAt: Date };
+  boardStreamHub?: BoardStreamHub;
 };
 
 export type BuiltServerApp = {
@@ -133,6 +136,9 @@ export function buildServerApp(
   registerPlannerPlansRoutes(app);
   registerPlannerBucketsRoutes(app);
   registerPlannerTasksRoutes(app);
+  if (deps.boardStreamHub) {
+    registerPlannerBoardStreamRoutes(app, deps.boardStreamHub);
+  }
 
   app.onError((err, c) => {
     if (err instanceof PlannerError) {
