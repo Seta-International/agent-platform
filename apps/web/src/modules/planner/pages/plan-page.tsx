@@ -9,6 +9,7 @@ import { useCreateTask } from '../hooks/mutations/create-task';
 import { useMoveTask } from '../hooks/mutations/move-task';
 import { useReorderBucket } from '../hooks/mutations/reorder-bucket';
 import { usePlanBoard } from '../hooks/queries/use-plan-board';
+import { useBoardKeyboard } from '../hooks/use-board-keyboard';
 import { useSavingIds } from '../state/saving-ids';
 import type { BoardFilters } from '../state/url-state';
 
@@ -45,6 +46,7 @@ export function PlanPage({
   const createTask = useCreateTask(planId);
   const createBucket = useCreateBucket(planId);
   const savingIds = useSavingIds((s) => s.ids);
+  useBoardKeyboard({});
 
   const tasksByBucket = useMemo(() => {
     const map = new Map<string | null, KanbanCardTask[]>();
