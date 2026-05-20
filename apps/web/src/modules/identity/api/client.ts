@@ -80,19 +80,24 @@ export interface AdminUserGrant {
   role_slug: string;
   scope_type: 'tenant' | 'group';
   scope_id: string | null;
+  scope_label: string | null;
   granted_via: 'admin' | 'cli' | 'idp';
   granted_at: string;
+  granted_by_user_id: string | null;
+  granted_by_name: string | null;
 }
 
 export interface AdminUserDetail {
   profile: ProfileDto;
   grants: AdminUserGrant[];
+  sign_in_methods?: string[];
 }
 
 export async function listAdminUsers(params: {
   search?: string;
   role?: string;
   status?: string;
+  sign_in_method?: 'credential' | 'microsoft' | 'both';
   limit: number;
   offset: number;
 }): Promise<{ rows: AdminUserListRow[]; total: number }> {
@@ -170,4 +175,61 @@ export async function discoverProvider(
   });
   if (!res.ok) throw new Error(`discover failed: ${res.status}`);
   return res.json() as Promise<{ provider_id: string; redirect_url?: string }>;
+}
+
+export interface AdminUserSession {
+  session_id: string;
+  user_agent: string | null;
+  ip_address: string | null;
+  created_at: string;
+  updated_at: string;
+  is_current: boolean;
+}
+
+export async function listUserSessionsApi(userId: string): Promise<AdminUserSession[]> {
+  const res = await fetch(`/api/identity/v1/users/${userId}/sessions`, { credentials: 'include' });
+  if (!res.ok) throw new Error(`sessions failed: ${res.status}`);
+  return ((await res.json()) as { rows: AdminUserSession[] }).rows;
+}
+
+export async function revokeUserSessionApi(userId: string, sessionId: string): Promise<void> {
+  const res = await fetch(`/api/identity/v1/users/${userId}/sessions/${sessionId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  if (res.status === 409) throw new Error('Cannot revoke your own session here.');
+  if (!res.ok) throw new Error(`revoke session failed: ${res.status}`);
+}
+
+export async function resetUserPasswordApi(userId: string): Promise<{ password: string }> {
+  const res = await fetch(`/api/identity/v1/users/${userId}/reset-password`, {
+    method: 'POST',
+    credentials: 'include',
+  });
+  if (res.status === 409) throw new Error('User has no local password (SSO-only).');
+  if (!res.ok) throw new Error(`reset-password failed: ${res.status}`);
+  return (await res.json()) as { password: string };
+}
+
+export interface ActivityRow {
+  event_id: string;
+  event_type: string;
+  occurred_at: string;
+  summary: string;
+  actor_user_id: string | null;
+  subject_user_id: string | null;
+}
+
+export async function listUserActivityApi(
+  userId: string,
+  role: 'actor' | 'subject' | 'all' = 'all',
+  limit = 25,
+  offset = 0,
+): Promise<{ rows: ActivityRow[]; total: number }> {
+  const q = new URLSearchParams({ role, limit: String(limit), offset: String(offset) });
+  const res = await fetch(`/api/identity/v1/users/${userId}/activity?${q}`, {
+    credentials: 'include',
+  });
+  if (!res.ok) throw new Error(`activity failed: ${res.status}`);
+  return (await res.json()) as { rows: ActivityRow[]; total: number };
 }
