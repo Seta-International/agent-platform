@@ -5,14 +5,34 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./backend": "./src/backend/index.ts",
-    "./events": "./src/events/index.ts"
+    "./events": "./src/events/index.ts",
+    "./register": "./src/register.ts",
+    "./testing": "./src/testing/fixtures.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "lint": "eslint . --no-error-on-unmatched-pattern",
+    "typecheck": "tsc -b --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:generate": "drizzle-kit generate"
   },
   "devDependencies": {
+    "@seta/core": "workspace:^",
+    "@seta/identity": "workspace:^",
     "@seta/shared-config": "workspace:^",
-    "typescript": "^6.0.3"
+    "@seta/shared-db": "workspace:^",
+    "@seta/shared-rbac": "workspace:^",
+    "@seta/shared-testing": "workspace:^",
+    "@seta/shared-types": "workspace:^",
+    "@types/node": "^25.9.0",
+    "@types/pg": "^8.20.0",
+    "drizzle-kit": "^0.31.10",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.6"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.45.2",
+    "pg": "^8.21.0",
+    "zod": "^4.4.3"
   }
 }
