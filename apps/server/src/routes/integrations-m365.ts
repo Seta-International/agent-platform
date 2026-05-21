@@ -1,5 +1,5 @@
 import type { Client } from '@microsoft/microsoft-graph-client';
-import type { SessionEnv } from '@seta/core';
+import { addEventTap, type SessionEnv, type SessionScope } from '@seta/core';
 import type { WorkerHandle } from '@seta/core/workers';
 import { m365 } from '@seta/integrations';
 import {
@@ -10,11 +10,22 @@ import {
   unlinkGroupFromM365,
 } from '@seta/planner';
 import type { Hono } from 'hono';
+import { streamSSE } from 'hono/streaming';
+
+const HEARTBEAT_INTERVAL_MS = 30_000;
 
 interface IntegrationsM365Deps {
   graphClientFor: (tenantId: string) => Promise<Client>;
   workers: WorkerHandle;
   m365LinksRepo: m365.M365GroupLinkRepo;
+}
+
+function hasGroupAccess(session: SessionScope, groupId: string): boolean {
+  return (
+    session.accessible_group_ids.includes(groupId) ||
+    session.role_summary.roles.includes('org.admin') ||
+    session.role_summary.roles.includes('tenant.admin')
+  );
 }
 
 export function registerIntegrationsM365Routes(
@@ -122,5 +133,86 @@ export function registerIntegrationsM365Routes(
       },
     );
     return c.json({ ok: true });
+  });
+
+  app.get('/api/integrations/m365/groups/:groupId/sync-status', async (c) => {
+    const session = c.get('user');
+    const groupId = c.req.param('groupId');
+
+    if (!hasGroupAccess(session, groupId)) {
+      return c.json({ error: 'FORBIDDEN' }, 403);
+    }
+
+    const link = await deps.m365LinksRepo.findByGroup(groupId);
+    if (!link) {
+      return c.json({ sync_status: null });
+    }
+    return c.json({
+      sync_status: link.syncStatus,
+      synced_at: link.lastSyncedAt,
+      last_error: link.lastError,
+    });
+  });
+
+  app.get('/api/integrations/m365/groups/:groupId/sync-status/stream', async (c) => {
+    const session = c.get('user');
+    const groupId = c.req.param('groupId');
+
+    if (!hasGroupAccess(session, groupId)) {
+      return c.json({ error: 'FORBIDDEN' }, 403);
+    }
+
+    return streamSSE(
+      c,
+      async (s) => {
+        const heartbeat = setInterval(() => {
+          s.write(':keepalive\n\n').catch(() => {});
+        }, HEARTBEAT_INTERVAL_MS);
+
+        const pushCurrentStatus = async () => {
+          const link = await deps.m365LinksRepo.findByGroup(groupId);
+          if (!link) {
+            s.writeSSE({ event: 'sync-status', data: JSON.stringify({ sync_status: null }) }).catch(
+              () => {},
+            );
+          } else {
+            s.writeSSE({
+              event: 'sync-status',
+              data: JSON.stringify({
+                sync_status: link.syncStatus,
+                synced_at: link.lastSyncedAt,
+                last_error: link.lastError,
+              }),
+            }).catch(() => {});
+          }
+        };
+
+        const unsub = addEventTap(
+          (e) =>
+            (e.eventType === 'integrations.m365.group.field-conflict' ||
+              e.eventType === 'planner.group.updated') &&
+            (e.payload as { group_id?: string })?.group_id === groupId,
+          () => {
+            pushCurrentStatus();
+          },
+        );
+
+        const cleanup = () => {
+          clearInterval(heartbeat);
+          unsub();
+        };
+
+        c.req.raw.signal.addEventListener('abort', cleanup, { once: true });
+
+        await pushCurrentStatus();
+
+        await new Promise<void>((resolve) => {
+          c.req.raw.signal.addEventListener('abort', () => resolve(), { once: true });
+        });
+      },
+      async (_err, _s) => {
+        // Stream error — connection will be cleaned up via the abort signal.
+      },
+    );
   });
 }

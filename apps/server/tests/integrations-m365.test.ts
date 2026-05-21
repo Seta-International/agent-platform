@@ -735,3 +735,197 @@ describe('POST /api/integrations/m365/groups/:groupId/resolve', () => {
     });
   });
 });
+
+describe('GET /api/integrations/m365/groups/:groupId/sync-status', () => {
+  const tenantId = crypto.randomUUID();
+  const userId = crypto.randomUUID();
+  const groupId = crypto.randomUUID();
+
+  it('returns { sync_status: null } when not linked', async () => {
+    const session = buildSession({ tenant_id: tenantId, user_id: userId });
+    const app = buildTestApp(
+      session,
+      async () => {
+        throw new Error('unused');
+      },
+      {
+        m365LinksRepo: {
+          findByGroup: vi.fn().mockResolvedValue(null),
+          findByExternal: vi.fn(),
+          upsert: vi.fn(),
+          tombstone: vi.fn(),
+          setSyncStatus: vi.fn(),
+          persistDeltaLink: vi.fn(),
+        } as unknown as m365.M365GroupLinkRepo,
+      },
+    );
+
+    const res = await app.request(`/api/integrations/m365/groups/${groupId}/sync-status`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { sync_status: null };
+    expect(body.sync_status).toBeNull();
+  });
+
+  it('returns current sync status when linked', async () => {
+    const syncedAt = new Date('2024-01-15T10:00:00Z');
+    const session = buildSession({ tenant_id: tenantId, user_id: userId });
+    const app = buildTestApp(
+      session,
+      async () => {
+        throw new Error('unused');
+      },
+      {
+        m365LinksRepo: {
+          findByGroup: vi.fn().mockResolvedValue({
+            id: crypto.randomUUID(),
+            tenantId,
+            groupId,
+            externalId: 'ext-aaa',
+            lastSyncedFields: {},
+            deltaLink: null,
+            syncStatus: 'idle',
+            lastError: null,
+            lastSyncedAt: syncedAt,
+            unlinkedAt: null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          }),
+          findByExternal: vi.fn(),
+          upsert: vi.fn(),
+          tombstone: vi.fn(),
+          setSyncStatus: vi.fn(),
+          persistDeltaLink: vi.fn(),
+        } as unknown as m365.M365GroupLinkRepo,
+      },
+    );
+
+    const res = await app.request(`/api/integrations/m365/groups/${groupId}/sync-status`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { sync_status: string; synced_at: string; last_error: null };
+    expect(body.sync_status).toBe('idle');
+    expect(body.synced_at).toBe(syncedAt.toISOString());
+    expect(body.last_error).toBeNull();
+  });
+
+  it('returns 403 when user does not have access to the group', async () => {
+    const session = buildSession({
+      tenant_id: tenantId,
+      user_id: userId,
+      roles: ['planner.contributor'],
+    });
+    const app = buildTestApp(
+      session,
+      async () => {
+        throw new Error('unused');
+      },
+      {
+        m365LinksRepo: {
+          findByGroup: vi.fn().mockResolvedValue(null),
+          findByExternal: vi.fn(),
+          upsert: vi.fn(),
+          tombstone: vi.fn(),
+          setSyncStatus: vi.fn(),
+          persistDeltaLink: vi.fn(),
+        } as unknown as m365.M365GroupLinkRepo,
+      },
+    );
+
+    const res = await app.request(`/api/integrations/m365/groups/${groupId}/sync-status`);
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe('FORBIDDEN');
+  });
+});
+
+describe('GET /api/integrations/m365/groups/:groupId/sync-status/stream', () => {
+  const tenantId = crypto.randomUUID();
+  const userId = crypto.randomUUID();
+  const groupId = crypto.randomUUID();
+
+  it('returns 403 when user does not have group access', async () => {
+    const session = buildSession({
+      tenant_id: tenantId,
+      user_id: userId,
+      roles: ['planner.contributor'],
+    });
+    const app = buildTestApp(
+      session,
+      async () => {
+        throw new Error('unused');
+      },
+      {
+        m365LinksRepo: {
+          findByGroup: vi.fn().mockResolvedValue(null),
+          findByExternal: vi.fn(),
+          upsert: vi.fn(),
+          tombstone: vi.fn(),
+          setSyncStatus: vi.fn(),
+          persistDeltaLink: vi.fn(),
+        } as unknown as m365.M365GroupLinkRepo,
+      },
+    );
+
+    const res = await app.request(`/api/integrations/m365/groups/${groupId}/sync-status/stream`);
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe('FORBIDDEN');
+  });
+
+  it('connects and sends initial sync-status event with SSE headers', async () => {
+    const syncedAt = new Date('2024-03-01T08:00:00Z');
+    const session = buildSession({ tenant_id: tenantId, user_id: userId });
+    const findByGroup = vi.fn().mockResolvedValue({
+      id: crypto.randomUUID(),
+      tenantId,
+      groupId,
+      externalId: 'ext-stream-aaa',
+      lastSyncedFields: {},
+      deltaLink: null,
+      syncStatus: 'pulling',
+      lastError: null,
+      lastSyncedAt: syncedAt,
+      unlinkedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const app = buildTestApp(
+      session,
+      async () => {
+        throw new Error('unused');
+      },
+      {
+        m365LinksRepo: {
+          findByGroup,
+          findByExternal: vi.fn(),
+          upsert: vi.fn(),
+          tombstone: vi.fn(),
+          setSyncStatus: vi.fn(),
+          persistDeltaLink: vi.fn(),
+        } as unknown as m365.M365GroupLinkRepo,
+      },
+    );
+
+    const ac = new AbortController();
+    const res = await app.request(`/api/integrations/m365/groups/${groupId}/sync-status/stream`, {
+      signal: ac.signal,
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('text/event-stream');
+
+    // Read the initial SSE chunk
+    const reader = res.body!.getReader();
+    const decoder = new TextDecoder();
+    let received = '';
+    while (!received.includes('event: sync-status')) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      received += decoder.decode(value);
+    }
+    ac.abort();
+
+    expect(received).toContain('event: sync-status');
+    expect(received).toContain('"sync_status":"pulling"');
+  });
+});
