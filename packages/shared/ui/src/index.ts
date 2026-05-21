@@ -1,6 +1,5 @@
 // Board
 export * from './board/preview-card';
-
 // Composites
 export * from './composites/app-shell';
 export * from './composites/avatar-stack';
@@ -42,6 +41,8 @@ export * from './icons/seta-mark';
 export { cn } from './lib/cn';
 export { cva, type VariantProps } from './lib/cva';
 export { formatRelative } from './lib/format-relative';
+// Plan
+export * from './plan/category-description-editor';
 export * from './primitives/alert';
 export * from './primitives/avatar';
 export * from './primitives/badge';
