@@ -1,4 +1,5 @@
 import { toAISdkStream } from '@mastra/ai-sdk';
+import type { Mastra } from '@mastra/core';
 import { RequestContext } from '@mastra/core/request-context';
 import { createUIMessageStream, createUIMessageStreamResponse, type UIMessage } from 'ai';
 import type { Hono } from 'hono';
@@ -9,6 +10,7 @@ import { copilotEnv } from './env.ts';
 import { listModels, ModelNotFoundError, resolveModel } from './model-registry.ts';
 import { RateLimitError, reserveTurn } from './rate-limit.ts';
 import { mountInboxSse } from './workflows/sse-inbox.ts';
+import { mountRunSse } from './workflows/sse-run.ts';
 
 const ChatBody = z.object({
   id: z.string().optional(),
@@ -510,4 +512,5 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
   });
 
   mountInboxSse(app as unknown as Hono, { pool: deps.pool });
+  mountRunSse(app as unknown as Hono, { pool: deps.pool, mastra: deps.mastra as Mastra });
 }
