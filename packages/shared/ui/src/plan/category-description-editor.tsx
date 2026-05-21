@@ -7,7 +7,7 @@ export interface CategoryLabel {
   category_slot: number | null;
 }
 
-export type SlotPatch = { name?: string; labelId?: string | null };
+export type SlotPatch = { name?: string | null; labelId?: string | null };
 
 export interface SavePayload {
   slots: Record<number, SlotPatch>;
@@ -47,7 +47,8 @@ export function CategoryDescriptionEditor({
   const slots = Array.from({ length: visibleCount }, (_, i) => i + 1);
 
   const currentName = (n: number): string => {
-    if (pending[n]?.name !== undefined) return pending[n].name ?? '';
+    const patch = pending[n];
+    if (patch && 'name' in patch) return patch.name ?? '';
     return descriptions[`category${n}`] ?? '';
   };
 
@@ -63,7 +64,9 @@ export function CategoryDescriptionEditor({
   };
 
   const setName = (n: number, value: string) => {
-    setPending((p) => ({ ...p, [n]: { ...p[n], name: value } }));
+    const hadExisting = (descriptions[`category${n}`] ?? '').length > 0;
+    const next: string | null = value.trim() === '' && hadExisting ? null : value;
+    setPending((p) => ({ ...p, [n]: { ...p[n], name: next } }));
   };
 
   const setLabel = (n: number, labelId: string | null) => {
@@ -137,61 +140,70 @@ export function CategoryDescriptionEditor({
                   style={inputEl(empty)}
                 />
               </div>
-              {attached ? (
-                <button
-                  type="button"
-                  aria-label={`Slot ${n} change label`}
-                  disabled={disabled}
-                  onClick={() => setPickerSlot(pickerSlot === n ? null : n)}
-                  style={labelButton}
-                >
-                  <span style={labelButtonLeft}>
-                    <span
-                      aria-hidden="true"
-                      className="dot"
-                      style={{ background: attached.color }}
-                    />
-                    {attached.name}
-                  </span>
-                  <span aria-hidden="true" style={chevronStyle}>
-                    ▾
-                  </span>
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  aria-label={`Slot ${n} attach label`}
-                  disabled={disabled}
-                  onClick={() => setPickerSlot(pickerSlot === n ? null : n)}
-                  style={attachButton}
-                >
-                  <span aria-hidden="true">+</span> Attach a label
-                </button>
-              )}
+              <div style={labelCell}>
+                {attached ? (
+                  <button
+                    type="button"
+                    aria-label={`Slot ${n} change label`}
+                    disabled={disabled}
+                    onClick={() => setPickerSlot(pickerSlot === n ? null : n)}
+                    style={labelButton}
+                  >
+                    <span style={labelButtonLeft}>
+                      <span
+                        aria-hidden="true"
+                        className="dot"
+                        style={{ background: attached.color }}
+                      />
+                      {attached.name}
+                    </span>
+                    <span aria-hidden="true" style={chevronStyle}>
+                      ▾
+                    </span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    aria-label={`Slot ${n} attach label`}
+                    disabled={disabled}
+                    onClick={() => setPickerSlot(pickerSlot === n ? null : n)}
+                    style={attachButton}
+                  >
+                    <span aria-hidden="true">+</span> Attach a label
+                  </button>
+                )}
+                {pickerSlot === n && (
+                  <LabelPicker
+                    labels={labels}
+                    selectedId={lid}
+                    onPick={(id) => setLabel(n, id)}
+                    onClear={() => setLabel(n, null)}
+                  />
+                )}
+              </div>
               <span style={countCell(count != null && count > 0)} className="mono t-sm">
                 {count != null && count > 0 ? count : '—'}
               </span>
-
-              {pickerSlot === n && (
-                <LabelPicker
-                  labels={labels}
-                  selectedId={lid}
-                  onPick={(id) => setLabel(n, id)}
-                  onClear={() => setLabel(n, null)}
-                />
-              )}
             </div>
           );
         })}
 
-        {!expanded && (
-          <div style={tableFoot}>
-            <span className="t-sm subtle">{TOTAL_SLOTS - DEFAULT_VISIBLE} more empty slots · </span>
-            <button type="button" style={ghostBtn} onClick={() => setExpanded(true)}>
-              Show all {TOTAL_SLOTS}
+        <div style={tableFoot}>
+          {expanded ? (
+            <button type="button" style={ghostBtn} onClick={() => setExpanded(false)}>
+              Show {DEFAULT_VISIBLE}
             </button>
-          </div>
-        )}
+          ) : (
+            <>
+              <span className="t-sm subtle">
+                {TOTAL_SLOTS - DEFAULT_VISIBLE} more empty slots ·{' '}
+              </span>
+              <button type="button" style={ghostBtn} onClick={() => setExpanded(true)}>
+                Show all {TOTAL_SLOTS}
+              </button>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -213,7 +225,6 @@ function LabelPicker({ labels, selectedId, onPick, onClear }: LabelPickerProps) 
           type="button"
           role="option"
           aria-selected={selectedId === l.id}
-          aria-label={l.name}
           onClick={() => onPick(l.id)}
           style={pickerOption}
         >
@@ -370,10 +381,14 @@ const ghostBtn: CSSProperties = {
   padding: '0 6px',
   height: 22,
 };
+const labelCell: CSSProperties = {
+  position: 'relative',
+};
 const pickerStyle: CSSProperties = {
   position: 'absolute',
-  top: 'calc(100% - 4px)',
-  left: 'calc(60px + 12px + 1.4fr)',
+  top: 'calc(100% + 2px)',
+  left: 0,
+  width: '100%',
   zIndex: 10,
   background: 'var(--color-canvas)',
   border: '1px solid var(--color-hairline)',

@@ -86,6 +86,23 @@ describe('CategoryDescriptionEditor', () => {
     expect(screen.getAllByText('—').length).toBeGreaterThan(0);
   });
 
+  it('clearing an existing description emits { name: null } to delete the slot', () => {
+    const onSave = vi.fn();
+    render(
+      <CategoryDescriptionEditor
+        descriptions={{ category3: 'old-value' }}
+        labels={labels}
+        taskCounts={taskCounts}
+        onSave={onSave}
+      />,
+    );
+    fireEvent.change(screen.getByRole('textbox', { name: 'Slot 3 description' }), {
+      target: { value: '' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Save changes/ }));
+    expect(onSave).toHaveBeenCalledWith({ slots: { 3: { name: null } } });
+  });
+
   it('disabled prop disables inputs and hides Save changes', () => {
     render(
       <CategoryDescriptionEditor
