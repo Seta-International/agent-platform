@@ -5,6 +5,21 @@ export type GroupExternalSource = 'native' | 'm365';
 export type GroupMemberRole = 'owner' | 'member';
 export type GroupSyncStatus = 'idle' | 'pulling' | 'pushing' | 'error' | 'conflict';
 
+export type TaskExternalSource = 'native' | 'm365';
+export type TaskPriorityNumber = 1 | 3 | 5 | 9;
+export type TaskPreviewType = 'automatic' | 'noPreview' | 'checklist' | 'description' | 'reference';
+export type TaskReferenceType =
+  | 'word'
+  | 'excel'
+  | 'powerPoint'
+  | 'visio'
+  | 'other'
+  | 'powerBI'
+  | 'oneNote'
+  | 'sharePoint'
+  | 'web'
+  | 'link';
+
 export interface GroupRow {
   id: string;
   tenant_id: string;
@@ -36,6 +51,11 @@ export interface PlanRow {
   tenant_id: string;
   group_id: string;
   name: string;
+  category_descriptions: Record<string, string>;
+  external_source: TaskExternalSource;
+  external_id: string | null;
+  external_etag: string | null;
+  external_synced_at: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -48,7 +68,11 @@ export interface BucketRow {
   tenant_id: string;
   plan_id: string;
   name: string;
-  sort_order: number;
+  order_hint: string | null;
+  external_source: TaskExternalSource;
+  external_id: string | null;
+  external_etag: string | null;
+  external_synced_at: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -62,12 +86,20 @@ export interface TaskRow {
   bucket_id: string | null;
   title: string;
   description: string | null;
-  priority: 'urgent' | 'important' | 'medium' | 'low';
-  progress: 'not_started' | 'in_progress' | 'completed' | 'deferred';
+  priority_number: TaskPriorityNumber;
+  percent_complete: number;
+  is_deferred: boolean;
+  preview_type: TaskPreviewType;
   review_state: 'needs_review' | null;
   skill_tags: string[];
+  start_at: string | null;
   due_at: string | null;
-  sort_order: number;
+  order_hint: string | null;
+  assignee_priority: string | null;
+  external_source: TaskExternalSource;
+  external_id: string | null;
+  external_etag: string | null;
+  external_synced_at: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -90,6 +122,7 @@ export interface LabelRow {
   plan_id: string;
   name: string;
   color: string;
+  category_slot: number | null;
   created_at: string;
   deleted_at: string | null;
 }
@@ -99,7 +132,9 @@ export interface ChecklistItemRow {
   task_id: string;
   label: string;
   checked: boolean;
-  sort_order: number;
+  order_hint: string | null;
+  external_id: string | null;
+  external_etag: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -118,4 +153,38 @@ export interface TaskWithAssigneesRow extends TaskRow {
   assignees: AssigneeRow[];
   labels: LabelRow[];
   checklist_summary: { total: number; checked: number };
+}
+
+export interface TaskReferenceRow {
+  id: string;
+  tenant_id: string;
+  task_id: string;
+  url: string;
+  alias: string | null;
+  type: TaskReferenceType;
+  preview_priority: string | null;
+  external_etag: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TaskWithPlan extends TaskRow {
+  plan: { id: string; name: string; group_id: string };
+}
+
+export interface MyTasksResult {
+  late: TaskWithPlan[];
+  dueThisWeek: TaskWithPlan[];
+  inProgress: TaskWithPlan[];
+  notStarted: TaskWithPlan[];
+  recentlyCompleted: TaskWithPlan[];
+}
+
+export interface ChartData {
+  kpis: { open: number; completed: number; atRisk: number; velocity: number };
+  byStatus: Record<'not_started' | 'in_progress' | 'completed' | 'deferred', number>;
+  byPriority: Record<'urgent' | 'important' | 'medium' | 'low', number>;
+  byBucket: Array<{ bucketId: string; name: string; count: number }>;
+  byMember: Array<{ userId: string; displayName: string; count: number }>;
+  burndown?: Array<{ date: string; remaining: number; ideal: number }>;
 }
