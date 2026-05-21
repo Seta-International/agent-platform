@@ -1,1 +1,3 @@
+export type { RankedItem, RrfResult } from './rrf.ts';
+export { rrfFuse } from './rrf.ts';
 export type { RetrievalCtx, RetrievalHit, Retriever } from './types.ts';
