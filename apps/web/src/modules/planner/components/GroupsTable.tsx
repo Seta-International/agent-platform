@@ -10,8 +10,7 @@ interface Props {
 function initialsOf(name: string): string {
   return name
     .split(/\s+/)
-    .filter(Boolean)
-    .map((p) => p.charAt(0))
+    .flatMap((p) => (p ? [p.charAt(0)] : []))
     .slice(0, 2)
     .join('')
     .toUpperCase();
@@ -63,7 +62,7 @@ export function GroupsTable({ groups }: Props) {
 
             {/* Owner */}
             <div className="flex min-w-0 items-center gap-2 pr-4">
-              <Avatar className="h-6 w-6 shrink-0 text-[10px]">
+              <Avatar className="size-6 shrink-0 text-[10px]">
                 <AvatarFallback>
                   {group.owner_display_name ? initialsOf(group.owner_display_name) : '—'}
                 </AvatarFallback>

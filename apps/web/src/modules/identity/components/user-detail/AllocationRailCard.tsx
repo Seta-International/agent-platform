@@ -10,18 +10,19 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+const DASH = <span className="font-mono text-sm text-ink-tertiary">{'\u2014'}</span>;
+
 export function AllocationRailCard() {
-  const dash = <span className="font-mono text-sm text-ink-tertiary">—</span>;
   return (
     <Card className="p-4">
       <div className="text-[11px] uppercase tracking-wider text-ink-muted mb-2">
         Allocation rollup
       </div>
-      <Row label="Projects">{dash}</Row>
-      <Row label="Total allocation">{dash}</Row>
-      <Row label="Available capacity">{dash}</Row>
-      <Row label="Tasks open">{dash}</Row>
-      <Row label="Workflow runs (7d)">{dash}</Row>
+      <Row label="Projects">{DASH}</Row>
+      <Row label="Total allocation">{DASH}</Row>
+      <Row label="Available capacity">{DASH}</Row>
+      <Row label="Tasks open">{DASH}</Row>
+      <Row label="Workflow runs (7d)">{DASH}</Row>
     </Card>
   );
 }

@@ -64,39 +64,36 @@ export function PlanGridPage({
     const bucketById = new Map(buckets.map((b) => [b.id, b]));
     const taskMap = new Map(tasks.map((t) => [t.id, t]));
 
-    const gridRows: TaskGridRow[] = tasks
-      .filter((t) => {
-        if (
-          filters.assignee_ids.length &&
-          !t.assignees.some((a) => filters.assignee_ids.includes(a.user_id))
-        ) {
-          return false;
-        }
-        if (filters.label_ids.length && !t.labels.some((l) => filters.label_ids.includes(l.id))) {
-          return false;
-        }
-        if (
-          filters.skill_tags.length &&
-          !t.skill_tags.some((s) => filters.skill_tags.includes(s))
-        ) {
-          return false;
-        }
-        if (q && !t.title.toLowerCase().includes(q.toLowerCase())) {
-          return false;
-        }
-        return true;
-      })
-      .map((t) => ({
-        id: t.id,
-        title: t.title,
-        status: t.progress,
-        bucket: bucketById.get(t.bucket_id ?? '')?.name ?? 'No bucket',
-        bucket_id: t.bucket_id,
-        priority: t.priority,
-        assignees: t.assignees.map((a) => ({ id: a.user_id, name: a.display_name })),
-        due: t.due_at,
-        labels: t.labels.map((l) => ({ id: l.id, name: l.name })),
-      }));
+    const gridRows: TaskGridRow[] = tasks.flatMap((t) => {
+      if (
+        filters.assignee_ids.length &&
+        !t.assignees.some((a) => filters.assignee_ids.includes(a.user_id))
+      ) {
+        return [];
+      }
+      if (filters.label_ids.length && !t.labels.some((l) => filters.label_ids.includes(l.id))) {
+        return [];
+      }
+      if (filters.skill_tags.length && !t.skill_tags.some((s) => filters.skill_tags.includes(s))) {
+        return [];
+      }
+      if (q && !t.title.toLowerCase().includes(q.toLowerCase())) {
+        return [];
+      }
+      return [
+        {
+          id: t.id,
+          title: t.title,
+          status: t.progress,
+          bucket: bucketById.get(t.bucket_id ?? '')?.name ?? 'No bucket',
+          bucket_id: t.bucket_id,
+          priority: t.priority,
+          assignees: t.assignees.map((a) => ({ id: a.user_id, name: a.display_name })),
+          due: t.due_at,
+          labels: t.labels.map((l) => ({ id: l.id, name: l.name })),
+        },
+      ];
+    });
 
     const bucketOpts = buckets.map((b) => ({ id: b.id, name: b.name }));
     const assigneeMap = new Map<string, string>();
@@ -154,10 +151,10 @@ export function PlanGridPage({
   }
 
   function selectedExpectedVersions() {
-    return [...selectedIds]
-      .map((id) => tasksById.get(id))
-      .filter((t): t is NonNullable<typeof t> => t !== undefined)
-      .map((t) => ({ id: t.id, expected_version: t.version }));
+    return [...selectedIds].flatMap((id) => {
+      const t = tasksById.get(id);
+      return t !== undefined ? [{ id: t.id, expected_version: t.version }] : [];
+    });
   }
 
   function onMove(toBucketId: string | null) {

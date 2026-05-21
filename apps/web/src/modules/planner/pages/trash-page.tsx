@@ -113,7 +113,7 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
               <tr key={`${r.kind}:${r.id}`} className="border-t border-surface-3">
                 <td className="py-2 pr-4">{r.kind}</td>
                 <td className="py-2 pr-4">{r.name}</td>
-                <td className="py-2 pr-4">
+                <td className="py-2 pr-4" suppressHydrationWarning>
                   {r.deleted_at ? new Date(r.deleted_at).toLocaleDateString() : ''}
                 </td>
                 <td className="py-2 pr-4">

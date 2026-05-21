@@ -1,12 +1,36 @@
 import { toAISdkStream } from '@mastra/ai-sdk';
+import type { Mastra } from '@mastra/core';
 import { RequestContext } from '@mastra/core/request-context';
 import { createUIMessageStream, createUIMessageStreamResponse, type UIMessage } from 'ai';
-import type { Hono } from 'hono';
+import type { Context, Hono } from 'hono';
+import type { Pool } from 'pg';
 import { z } from 'zod';
 import type { AgentFactory } from './agent-factory.ts';
+import { decideApproval } from './domain/decide-approval.ts';
+import { getWorkflowRun } from './domain/get-workflow-run.ts';
+import { listMyPendingApprovals } from './domain/list-my-pending-approvals.ts';
+import { listWorkflowRuns } from './domain/list-workflow-runs.ts';
+import { rerunWorkflow } from './domain/rerun-workflow.ts';
 import { copilotEnv } from './env.ts';
 import { listModels, ModelNotFoundError, resolveModel } from './model-registry.ts';
 import { RateLimitError, reserveTurn } from './rate-limit.ts';
+import type { SessionLike } from './types.ts';
+import { issueSseToken } from './workflows/auth-token.ts';
+import { mountInboxSse } from './workflows/sse-inbox.ts';
+import { mountRunSse } from './workflows/sse-run.ts';
+
+function handleDomainError(c: Context<CopilotRouteEnv>, err: unknown): Response {
+  if (err && typeof err === 'object' && 'code' in err) {
+    const typed = err as { code: string; message?: string };
+    const code = typed.code;
+    const message = typed.message ?? code;
+    if (code === 'forbidden') return c.json({ error: 'forbidden', message }, 403);
+    if (code === 'not_found') return c.json({ error: 'not_found', message }, 404);
+    if (code === 'already_decided') return c.json({ error: 'already_decided', message }, 409);
+    if (code === 'invalid_cursor') return c.json({ error: 'invalid_cursor', message }, 400);
+  }
+  throw err;
+}
 
 const ChatBody = z.object({
   id: z.string().optional(),
@@ -16,16 +40,10 @@ const ChatBody = z.object({
   model: z.string().optional(),
 });
 
-export type SessionLike = {
-  tenant_id: string;
-  user_id: string;
-  effective_permissions: ReadonlySet<string>;
-  role_summary: { roles: string[]; cross_tenant_read: boolean };
-};
-
 export type CopilotRouteDeps = {
   factory: AgentFactory;
   mastra: unknown;
+  pool: Pool;
 };
 
 export type CopilotRouteEnv = { Variables: { session: SessionLike } };
@@ -504,5 +522,113 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
       },
     });
     return createUIMessageStreamResponse({ stream: uiStream });
+  });
+
+  mountInboxSse(app as unknown as Hono, { pool: deps.pool });
+  mountRunSse(app as unknown as Hono, { pool: deps.pool, mastra: deps.mastra as Mastra });
+
+  app.get('/api/copilot/v1/workflows/runs', async (c) => {
+    const session = c.get('session') as SessionLike | undefined;
+    if (!session) return c.json({ error: 'unauthorized', message: 'session required' }, 401);
+    const url = new URL(c.req.url);
+    const scopeRaw = url.searchParams.get('scope') ?? 'self';
+    if (
+      scopeRaw !== 'self' &&
+      scopeRaw !== 'group' &&
+      scopeRaw !== 'tenant' &&
+      scopeRaw !== 'instance'
+    ) {
+      return c.json(
+        { error: 'invalid_scope', message: 'scope must be self|group|tenant|instance' },
+        400,
+      );
+    }
+    const cursor = url.searchParams.get('cursor') ?? undefined;
+    const limitStr = url.searchParams.get('limit');
+    const limit = limitStr ? Number(limitStr) : undefined;
+    if (limit !== undefined && !Number.isFinite(limit)) {
+      return c.json({ error: 'invalid_limit', message: 'limit must be a number' }, 400);
+    }
+    try {
+      const result = await listWorkflowRuns({ session, scope: scopeRaw, cursor, limit });
+      return c.json(result);
+    } catch (err) {
+      return handleDomainError(c, err);
+    }
+  });
+
+  app.get('/api/copilot/v1/workflows/runs/:runId', async (c) => {
+    const session = c.get('session') as SessionLike | undefined;
+    if (!session) return c.json({ error: 'unauthorized', message: 'session required' }, 401);
+    try {
+      const row = await getWorkflowRun({ session, runId: c.req.param('runId') });
+      if (!row) return c.json({ error: 'not_found', message: 'workflow run not found' }, 404);
+      return c.json(row);
+    } catch (err) {
+      return handleDomainError(c, err);
+    }
+  });
+
+  app.get('/api/copilot/v1/workflows/my-pending-approvals', async (c) => {
+    const session = c.get('session') as SessionLike | undefined;
+    if (!session) return c.json({ error: 'unauthorized', message: 'session required' }, 401);
+    return c.json(await listMyPendingApprovals({ session }));
+  });
+
+  app.post('/api/copilot/v1/workflows/approvals/:approvalId/decide', async (c) => {
+    const session = c.get('session') as SessionLike | undefined;
+    if (!session) return c.json({ error: 'unauthorized', message: 'session required' }, 401);
+    let body: { decision: 'approve' | 'reject' | 'modify'; overrideUserId?: string; note?: string };
+    try {
+      body = (await c.req.json()) as typeof body;
+    } catch {
+      return c.json({ error: 'invalid_body', message: 'JSON body required' }, 400);
+    }
+    if (body.decision !== 'approve' && body.decision !== 'reject' && body.decision !== 'modify') {
+      return c.json(
+        { error: 'invalid_decision', message: 'decision must be approve|reject|modify' },
+        400,
+      );
+    }
+    try {
+      const result = await decideApproval({
+        session,
+        approvalId: c.req.param('approvalId'),
+        decision: body.decision,
+        overrideUserId: body.overrideUserId,
+        note: body.note,
+        mastra: deps.mastra as Mastra,
+      });
+      return c.json(result);
+    } catch (err) {
+      return handleDomainError(c, err);
+    }
+  });
+
+  app.post('/api/copilot/v1/workflows/runs/:runId/rerun', async (c) => {
+    const session = c.get('session') as SessionLike | undefined;
+    if (!session) return c.json({ error: 'unauthorized', message: 'session required' }, 401);
+    const raw = (await c.req.json().catch(() => ({}))) as {
+      inputOverride?: Record<string, unknown>;
+    };
+    try {
+      const result = await rerunWorkflow({
+        session,
+        runId: c.req.param('runId'),
+        inputOverride: raw.inputOverride,
+        mastra: deps.mastra as Mastra,
+      });
+      return c.json(result);
+    } catch (err) {
+      return handleDomainError(c, err);
+    }
+  });
+
+  app.get('/api/copilot/v1/workflows/sse-token', async (c) => {
+    const session = c.get('session') as SessionLike | undefined;
+    if (!session) return c.json({ error: 'unauthorized', message: 'session required' }, 401);
+    return c.json({
+      token: issueSseToken({ userId: session.user_id, tenantId: session.tenant_id }),
+    });
   });
 }

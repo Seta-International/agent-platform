@@ -21,6 +21,10 @@ const Env = z.object({
   MAILER_DEFAULT_SMTP_URL: z.string().url().optional(),
   MAILER_GRAPH_CLIENT_ID: z.string().optional(),
   MAILER_GRAPH_CLIENT_SECRET: z.string().optional(),
+  // 32+ char secret used to derive clientState HMACs for Microsoft Graph
+  // webhook subscriptions. When absent, the m365 jobs and webhook are not
+  // registered — startup proceeds normally without M365 features.
+  M365_WEBHOOK_SECRET: z.string().min(32).optional(),
 });
 
 export function parseEnv(raw: NodeJS.ProcessEnv) {

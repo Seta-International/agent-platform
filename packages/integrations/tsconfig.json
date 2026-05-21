@@ -3,7 +3,12 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": ".",
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "paths": {
+      "@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials": [
+        "./node_modules/@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials/index.d.ts"
+      ]
+    }
   },
   "include": ["src/**/*", "tests/**/*", "drizzle.config.ts", "vitest.config.ts"],
   "exclude": ["dist", "node_modules"]

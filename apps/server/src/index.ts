@@ -5,7 +5,7 @@ import { startDispatcher } from '@seta/core/dispatcher';
 import { emit, withEmit } from '@seta/core/events';
 import { createOutboxStore } from '@seta/core/outbox';
 import { registerCoreContributions } from '@seta/core/register';
-import { startWorkerPool } from '@seta/core/workers';
+import { startWorkerPool, type WorkerHandle } from '@seta/core/workers';
 import { getEntraTenantId } from '@seta/identity';
 import { registerIdentityContributions } from '@seta/identity/register';
 import { createMailTransportConfigStore } from '@seta/integrations';
@@ -20,6 +20,7 @@ import pino from 'pino';
 import { BoardStreamHub } from './board-stream/hub.ts';
 import { buildServerApp, registerAppContributions } from './build.ts';
 import { parseEnv } from './env.ts';
+import { buildM365Boot } from './m365-boot.ts';
 
 const log = pino({ name: 'apps/server' });
 const env = parseEnv(process.env);
@@ -70,14 +71,34 @@ const mailerSendTask = createMailerSendTask({
   log: log.child({ component: 'mailer.worker' }),
 });
 
+// Forward reference resolves the cycle between the jobs object and the
+// WorkerHandle they need to call workers.addJob on. The variable is written
+// before any job can be dispatched (startWorkerPool returns before any job
+// fires), so this is always initialised at call time.
+let _workerHandle: WorkerHandle | undefined;
+function enqueue(id: string, payload?: unknown, opts?: Parameters<WorkerHandle['addJob']>[2]) {
+  if (!_workerHandle) throw new Error('worker pool not yet initialised');
+  return _workerHandle.addJob(id, payload, opts);
+}
+
+const m365Boot = env.M365_WEBHOOK_SECRET
+  ? buildM365Boot({
+      webhookSecret: env.M365_WEBHOOK_SECRET,
+      cryptoSvc,
+      workers: { addJob: enqueue, shutdown: async () => {} },
+    })
+  : null;
+
 const workers = await startWorkerPool({
   pool: getPool('worker'),
   jobs: {
     'mailer:send': async (payload) => {
       await mailerSendTask(payload as never);
     },
+    ...(m365Boot ? m365Boot.jobs : {}),
   },
 });
+_workerHandle = workers;
 log.info('workers started');
 
 const mailer = createMailer({
@@ -101,6 +122,11 @@ const { app } = buildServerApp(reg, {
   readinessSnapshot: () => dispatcher.health(),
   boardStreamHub,
 });
+
+if (m365Boot) {
+  app.route('/', m365Boot.webhookRouter);
+  log.info('m365 webhook router mounted');
+}
 
 const server = serve({ fetch: app.fetch, port: env.PORT }, (info) => {
   log.info({ port: info.port }, 'server listening');

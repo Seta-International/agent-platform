@@ -126,11 +126,8 @@ function makeAssistantMessage(authorLabel: string) {
 function useThreadTitle(threadId: string | undefined): string | undefined {
   const { groups } = useThreadList();
   if (!threadId || !groups) return undefined;
-  for (const g of groups) {
-    const hit = g.items.find((i) => i.id === threadId);
-    if (hit) return hit.title;
-  }
-  return undefined;
+  const titleById = new Map(groups.flatMap((g) => g.items.map((i) => [i.id, i.title] as const)));
+  return titleById.get(threadId);
 }
 
 interface ConversationHeaderProps {

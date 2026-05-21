@@ -12,20 +12,21 @@ export function computeNextFocus(
     for (const b of s.buckets) if (b.cardIds.length > 0) return b.cardIds[0] ?? null;
     return null;
   }
-  // Find current location.
-  let bIdx = -1,
-    cIdx = -1;
+  // Build card-position index for O(1) lookup.
+  const cardPos = new Map<string, { bIdx: number; cIdx: number }>();
   for (let i = 0; i < s.buckets.length; i++) {
     const bucket = s.buckets[i];
     if (!bucket) continue;
-    const idx = bucket.cardIds.indexOf(prev);
-    if (idx >= 0) {
-      bIdx = i;
-      cIdx = idx;
-      break;
+    for (let j = 0; j < bucket.cardIds.length; j++) {
+      const id = bucket.cardIds[j];
+      if (id !== undefined) cardPos.set(id, { bIdx: i, cIdx: j });
     }
   }
-  if (bIdx < 0) return prev; // stale — keep focus
+
+  const loc = cardPos.get(prev);
+  if (!loc) return prev; // stale — keep focus
+  const { bIdx, cIdx } = loc;
+
   const cards = s.buckets[bIdx]?.cardIds;
   if (!cards) return prev;
   switch (dir) {

@@ -31,7 +31,7 @@ export function FilterPill<T extends string>({
         <Button variant="secondary" size="sm" className="h-7 gap-1">
           <span className="text-ink-muted">{label}</span>
           {selected ? <span className="font-medium">{selected.label}</span> : null}
-          <ChevronDown className="h-3 w-3 opacity-60" />
+          <ChevronDown className="size-3 opacity-60" />
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-56 p-1">
@@ -44,7 +44,7 @@ export function FilterPill<T extends string>({
           }}
         >
           {anyLabel}
-          {value == null ? <Check className="h-3 w-3" /> : null}
+          {value == null ? <Check className="size-3" /> : null}
         </button>
         {options.map((o) => (
           <button
@@ -57,7 +57,7 @@ export function FilterPill<T extends string>({
             }}
           >
             {o.label}
-            {value === o.value ? <Check className="h-3 w-3" /> : null}
+            {value === o.value ? <Check className="size-3" /> : null}
           </button>
         ))}
       </PopoverContent>
@@ -110,22 +110,22 @@ export function MultiFilterPill<T extends string>({
             <button
               type="button"
               aria-label={`Clear ${label} filter`}
-              className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded hover:bg-surface-3"
+              className="ml-1 inline-flex size-4 items-center justify-center rounded hover:bg-surface-3"
               onClick={(e) => {
                 e.stopPropagation();
                 onChange([]);
               }}
             >
-              <X className="h-3 w-3" />
+              <X className="size-3" />
             </button>
           ) : (
-            <ChevronDown className="h-3 w-3 opacity-60" />
+            <ChevronDown className="size-3 opacity-60" />
           )}
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-64 p-1">
         {options.length === 0 ? (
-          <p className="px-2 py-2 text-sm text-ink-subtle">No options.</p>
+          <p className="p-2 text-sm text-ink-subtle">No options.</p>
         ) : (
           options.map((o) => {
             const checked = valueSet.has(o.value);
@@ -139,7 +139,7 @@ export function MultiFilterPill<T extends string>({
                 onClick={() => toggle(o.value)}
               >
                 <span>{o.label}</span>
-                {checked ? <Check className="h-3 w-3 text-primary" /> : null}
+                {checked ? <Check className="size-3 text-primary" /> : null}
               </button>
             );
           })

@@ -70,13 +70,13 @@ export function UserDetailHeader({
           to="/admin/users"
           className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-ink-muted hover:bg-surface-2 hover:text-ink"
         >
-          <ChevronLeft className="h-3 w-3" />
+          <ChevronLeft className="size-3" />
           Back to Users
         </Link>
         <span>·</span>
         <span className="inline-flex items-center gap-1">
           <span>Admin</span>
-          <ChevronRight className="h-3 w-3 opacity-60" />
+          <ChevronRight className="size-3 opacity-60" />
           <Link to="/admin/users" className="text-primary hover:underline">
             Users
           </Link>
@@ -84,7 +84,7 @@ export function UserDetailHeader({
       </div>
 
       <div className="flex items-center gap-4">
-        <Avatar className="h-16 w-16 flex-none">
+        <Avatar className="size-16 flex-none">
           <AvatarFallback className="text-base font-semibold">
             {initials(detail.profile.display_name)}
           </AvatarFallback>
@@ -130,7 +130,7 @@ export function UserDetailHeader({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" aria-label="More actions">
-                <MoreHorizontal className="h-4 w-4" />
+                <MoreHorizontal className="size-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -152,7 +152,7 @@ export function UserDetailHeader({
             }
             title={prev ? 'Previous user (K)' : 'Open the user list to enable J/K nav'}
           >
-            <ChevronLeft className="h-3 w-3" />K
+            <ChevronLeft className="size-3" />K
           </Button>
           <Button
             variant="ghost"
@@ -164,7 +164,7 @@ export function UserDetailHeader({
             title={next ? 'Next user (J)' : 'Open the user list to enable J/K nav'}
           >
             J
-            <ChevronRight className="h-3 w-3" />
+            <ChevronRight className="size-3" />
           </Button>
         </div>
       </div>

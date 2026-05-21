@@ -312,7 +312,7 @@ export function TaskSheetContainer({
         {events.map((e) => (
           <li key={String(e.id)}>
             <span className="event-type">{e.event_type.replace('planner.', '')}</span>
-            <time>{new Date(e.occurred_at).toLocaleString()}</time>
+            <time suppressHydrationWarning>{new Date(e.occurred_at).toLocaleString()}</time>
           </li>
         ))}
       </ol>

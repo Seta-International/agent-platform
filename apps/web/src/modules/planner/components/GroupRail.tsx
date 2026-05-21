@@ -17,12 +17,14 @@ function initials(name: string): string {
   return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase();
 }
 
+const shortDateFmt = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric',
+});
+
 function shortDate(iso: string): string {
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  }).format(new Date(iso));
+  return shortDateFmt.format(new Date(iso));
 }
 
 interface PropertyRowProps {
@@ -139,7 +141,7 @@ export function GroupRail({ group, members, canManage, onAddMember, shownMemberC
               value={
                 group.external_source === 'native'
                   ? 'Native'
-                  : `M365${group.external_id ? ' · ' + group.external_id : ''}`
+                  : `M365${group.external_id ? ` · ${group.external_id}` : ''}`
               }
             />
             <PropertyRow

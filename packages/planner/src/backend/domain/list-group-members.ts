@@ -5,6 +5,7 @@ import { assigneeProjection, groupMembers, groups } from '../../db/schema.ts';
 import type { GroupMemberRole, GroupMemberRow } from '../dto.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 import { groupFilterFor } from '../read-helpers.ts';
+import { isM365SystemActor } from './_actor.ts';
 
 export async function listGroupMembers(input: {
   group_id: string;
@@ -31,7 +32,7 @@ export async function listGroupMembers(input: {
   }
 
   const filter = groupFilterFor(input.session);
-  if (filter !== null && !filter.includes(input.group_id)) {
+  if (filter !== null && !isM365SystemActor(input.session) && !filter.includes(input.group_id)) {
     throw new PlannerError('FORBIDDEN', 'No access to group', { group_id: input.group_id });
   }
 

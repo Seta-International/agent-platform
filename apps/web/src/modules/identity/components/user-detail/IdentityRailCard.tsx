@@ -38,10 +38,10 @@ export function IdentityRailCard({ detail }: { detail: AdminUserDetail }) {
         <span className="text-sm">{authLabel(detail.sign_in_methods)}</span>
       </Row>
       <Row label="Joined">
-        <span className="text-sm">
+        <span className="text-sm" suppressHydrationWarning>
           {detail.profile.updated_at
             ? new Date(detail.profile.updated_at).toLocaleDateString()
-            : '—'}
+            : '\u2014'}
         </span>
       </Row>
       <Row label="Timezone">{detail.profile.timezone}</Row>

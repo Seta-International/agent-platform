@@ -17,10 +17,10 @@ const VIEW_MODES = ['board', 'grid'] as const;
 const GROUP_BYS = ['bucket', 'assignee', 'priority', 'due', 'label'] as const;
 
 function splitCSV(s: string | undefined): string[] {
-  return (s ?? '')
-    .split(',')
-    .map((x) => x.trim())
-    .filter(Boolean);
+  return (s ?? '').split(',').flatMap((x) => {
+    const v = x.trim();
+    return v ? [v] : [];
+  });
 }
 
 export function parseFiltersFromSearch(search: Record<string, string | undefined>): BoardFilters {

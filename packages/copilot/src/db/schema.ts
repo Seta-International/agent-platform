@@ -16,3 +16,7 @@ export const rateLimits = copilot.table(
     byTenantWindow: index('rl_by_tenant_window').on(t.tenantId, t.windowStart),
   }),
 );
+
+export * from './schema.workflow-approvals.ts';
+export * from './schema.workflow-events-seen.ts';
+export * from './schema.workflow-runs.ts';

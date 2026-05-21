@@ -26,12 +26,8 @@ export function AdminSso({ status, error }: AdminSsoProps) {
   const session = useSession();
   const [providers, setProviders] = useState<SsoProviderRowDto[] | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
 
-  const refresh = useCallback(() => setRefreshKey((k) => k + 1), []);
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: refreshKey is a manual trigger
-  useEffect(() => {
+  const fetchProviders = useCallback(() => {
     let cancelled = false;
     const t = setTimeout(() => {
       listProviders()
@@ -46,7 +42,13 @@ export function AdminSso({ status, error }: AdminSsoProps) {
       cancelled = true;
       clearTimeout(t);
     };
-  }, [refreshKey]);
+  }, []);
+
+  const refresh = useCallback(() => {
+    void fetchProviders();
+  }, [fetchProviders]);
+
+  useEffect(() => fetchProviders(), [fetchProviders]);
 
   const entraRow = providers?.find((p) => p.provider_id === 'microsoft-entra-id') ?? null;
   const hasEnabledProvider = providers?.some((p) => p.enabled) ?? false;
@@ -70,7 +72,7 @@ export function AdminSso({ status, error }: AdminSsoProps) {
         </Button>
       }
     >
-      <div className="mx-auto max-w-[880px] space-y-4 px-6 py-6">
+      <div className="mx-auto max-w-[880px] space-y-4 p-6">
         {status === 'consent_granted' && (
           <Alert>
             <AlertDescription>Admin consent granted successfully.</AlertDescription>

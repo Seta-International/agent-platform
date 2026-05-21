@@ -27,10 +27,10 @@ interface Props {
   onMenuAction: (action: 'archive' | 'delete') => void;
 }
 
+const createdDateFmt = new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric' });
+
 function formatCreatedDate(dateStr: string): string {
-  return new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric' }).format(
-    new Date(dateStr),
-  );
+  return createdDateFmt.format(new Date(dateStr));
 }
 
 export function GroupDetailHeader({

@@ -141,7 +141,7 @@ function LoginShell({ children }: { children: React.ReactNode }) {
       </main>
 
       <footer className="flex items-center justify-between px-lg py-md text-caption text-ink-subtle sm:px-xl">
-        <span>© {new Date().getFullYear()} Seta International</span>
+        <span suppressHydrationWarning>© {new Date().getFullYear()} Seta International</span>
         <div className="flex items-center gap-md">
           <a
             href="https://seta-international.vn/privacy"
@@ -233,7 +233,6 @@ function EmailStep({
             inputMode="email"
             autoComplete="email"
             placeholder="you@company.com"
-            autoFocus
             value={email}
             onChange={(e) => onEmailChange(e.target.value)}
             size="lg"
@@ -311,7 +310,6 @@ function PasswordStep({
             id="password"
             type="password"
             autoComplete="current-password"
-            autoFocus
             value={password}
             onChange={(e) => onPasswordChange(e.target.value)}
             size="lg"

@@ -24,7 +24,7 @@ export function PlanSearchInput({ value, onChange, placeholder = 'Search tasksâ€
           onClick={() => onChange('')}
           className="plan-search-input__clear"
         >
-          <X aria-hidden="true" className="h-3 w-3" />
+          <X aria-hidden="true" className="size-3" />
         </button>
       )}
     </div>

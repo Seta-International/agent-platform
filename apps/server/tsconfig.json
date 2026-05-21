@@ -3,7 +3,12 @@
   "compilerOptions": {
     "types": ["node"],
     "jsx": "react-jsx",
-    "jsxImportSource": "hono/jsx"
+    "jsxImportSource": "hono/jsx",
+    "paths": {
+      "@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials": [
+        "../../packages/integrations/node_modules/@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials/index.d.ts"
+      ]
+    }
   },
   "include": ["src", "tests", "__tests__", "vitest.config.ts"]
 }

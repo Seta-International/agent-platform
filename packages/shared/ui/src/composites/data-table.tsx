@@ -28,6 +28,15 @@ import { DataTablePagination } from './data-table-pagination';
 import { DataTableToolbar } from './data-table-toolbar';
 import { EmptyState } from './empty-state';
 
+interface ExpandedRowContentProps<TData> {
+  row: Row<TData>;
+  renderSubComponent: (props: { row: Row<TData> }) => React.ReactNode;
+}
+
+function ExpandedRowContent<TData>({ row, renderSubComponent }: ExpandedRowContentProps<TData>) {
+  return <>{renderSubComponent({ row })}</>;
+}
+
 export type DataTableDensity = 'comfortable' | 'compact';
 
 interface ClientPagination {
@@ -333,7 +342,10 @@ export function DataTable<TData, TValue>(props: DataTableProps<TData, TValue>) {
                           colSpan={row.getVisibleCells().length}
                           className="px-md py-sm bg-surface-1"
                         >
-                          {props.renderSubComponent({ row })}
+                          <ExpandedRowContent
+                            row={row}
+                            renderSubComponent={props.renderSubComponent}
+                          />
                         </TableCell>
                       </TableRow>
                     )}

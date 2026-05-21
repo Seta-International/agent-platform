@@ -1,4 +1,3 @@
-import type { SessionScope } from '@seta/core';
 import { withEmit } from '@seta/core/events';
 import { and, eq, isNull } from 'drizzle-orm';
 import { groups } from '../../db/schema.ts';
@@ -7,6 +6,7 @@ import type { GroupFieldKey } from '../../events/types.ts';
 import type { GroupRow } from '../dto.ts';
 import type { UpdateGroupPatch } from '../inputs.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
+import { isM365SystemActor, type PlannerSessionScope } from './_actor.ts';
 import { groupRowToDto } from './_group-dto.ts';
 
 type GroupDbRow = typeof groups.$inferSelect;
@@ -25,7 +25,7 @@ export async function updateGroup(input: {
   group_id: string;
   expected_version: number;
   patch: UpdateGroupPatch;
-  session: SessionScope;
+  session: PlannerSessionScope;
 }): Promise<GroupRow> {
   requirePermission(input.session, 'planner.group.update', input.group_id);
 
@@ -100,8 +100,11 @@ export async function updateGroup(input: {
       if (!row) throw new PlannerError('VALIDATION', 'Update returned no row');
       resultRow = row;
 
+      const isSystemActor = isM365SystemActor(input.session);
       await emitPlannerGroupUpdated({
-        actor: { type: 'user', user_id: input.session.user_id },
+        actor: isSystemActor
+          ? { type: 'system', user_id: input.session.user_id, system_id: 'integrations.m365' }
+          : { type: 'user', user_id: input.session.user_id },
         tenant_id: existing.tenant_id,
         group_id: existing.id,
         before,

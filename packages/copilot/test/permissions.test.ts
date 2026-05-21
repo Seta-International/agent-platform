@@ -12,4 +12,15 @@ describe('COPILOT_PERMISSIONS', () => {
       ]),
     );
   });
+
+  it('contains the four new workflow run + approval permissions', () => {
+    expect(COPILOT_PERMISSIONS).toEqual(
+      expect.arrayContaining([
+        'copilot.workflow.run.read.tenant',
+        'copilot.workflow.run.read.instance',
+        'copilot.workflow.run.execute.self',
+        'copilot.workflow.approve',
+      ]),
+    );
+  });
 });

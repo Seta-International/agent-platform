@@ -5,7 +5,7 @@ export function ProfileRolesCard({ roles }: { roles: string[] }) {
     <Card className="p-5">
       <div className="flex items-baseline justify-between mb-1">
         <h2 className="text-base font-semibold tracking-tight">Roles</h2>
-        <span className="text-xs text-ink-subtle">Read-only — your admin manages these.</span>
+        <span className="text-xs text-ink-subtle">Read-only: your admin manages these.</span>
       </div>
       <p className="text-sm text-ink-muted mt-0 mb-3.5">
         What you can read and write across Seta. Need a change?{' '}
@@ -28,7 +28,7 @@ export function ProfileRolesCard({ roles }: { roles: string[] }) {
               }}
             >
               <span className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                <span className="size-1.5 rounded-full bg-primary" />
                 <span className="font-mono text-[12.5px]">{slug}</span>
               </span>
               <span className="text-sm text-ink-muted">Tenant</span>

@@ -48,7 +48,7 @@ function TimezonePicker({ value, onChange }: { value: string; onChange: (next: s
           className="w-full justify-between font-normal h-9"
         >
           <span className="truncate">{value || 'Select timezone'}</span>
-          <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50 flex-none" />
+          <ChevronsUpDown className="ml-2 size-4 opacity-50 flex-none" />
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] p-0">
@@ -142,7 +142,7 @@ export function ProfileIdentityCard({
     <Card className="p-5">
       <div className="flex items-start gap-5">
         <div className="flex flex-col items-center gap-2 flex-none">
-          <Avatar className="h-16 w-16">
+          <Avatar className="size-16">
             <AvatarFallback className="text-base font-semibold">
               {initials(profile.display_name)}
             </AvatarFallback>
@@ -200,7 +200,7 @@ export function ProfileIdentityCard({
               </div>
             ) : (
               <div className="flex items-center gap-2.5 rounded-md border border-hairline-strong px-3 py-1.5 text-sm">
-                <Calendar className="h-3.5 w-3.5 text-ink-muted flex-none" />
+                <Calendar className="size-3.5 text-ink-muted flex-none" />
                 <span>{wh ? `Mon–Fri · ${wh.start}–${wh.end}` : 'Not set'}</span>
                 <span className="flex-1" />
                 {canEditWorkingHours ? (

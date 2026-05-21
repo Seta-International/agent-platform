@@ -350,10 +350,10 @@ describe('listGroupsWithCounts via HTTP', () => {
           groups: Array<Record<string, unknown>>;
         };
         expect(Array.isArray(body.groups)).toBe(true);
-        const g = body.groups.find((r) => r['id'] === group.id);
+        const g = body.groups.find((r) => r.id === group.id);
         expect(g).toBeDefined();
-        expect(g?.['plan_count']).toBe(1);
-        expect(Number(g?.['member_count'])).toBeGreaterThanOrEqual(1); // at least the explicitly added member
+        expect(g?.plan_count).toBe(1);
+        expect(Number(g?.member_count)).toBeGreaterThanOrEqual(1); // at least the explicitly added member
       } finally {
         resetCoreDb();
         await closePools();
@@ -419,9 +419,9 @@ describe('listGroupsWithCounts via HTTP', () => {
 
         expect(res.status).toBe(200);
         const body = (await res.json()) as { groups: Array<Record<string, unknown>> };
-        const g = body.groups.find((r) => r['id'] === group.id);
+        const g = body.groups.find((r) => r.id === group.id);
         expect(g).toBeDefined();
-        expect(g?.['plan_count']).toBe(0); // soft-deleted plan must not count
+        expect(g?.plan_count).toBe(0); // soft-deleted plan must not count
       } finally {
         resetCoreDb();
         await closePools();

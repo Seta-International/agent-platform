@@ -133,7 +133,7 @@ export function AdminUsersTable({ refreshKey }: { refreshKey: number }) {
         header: 'Name',
         cell: ({ row }) => (
           <div className="flex items-center gap-2.5 min-w-0">
-            <Avatar className="h-6 w-6">
+            <Avatar className="size-6">
               <AvatarFallback>{initials(row.original.name)}</AvatarFallback>
             </Avatar>
             <span className="truncate font-medium">{row.original.name}</span>
@@ -154,7 +154,7 @@ export function AdminUsersTable({ refreshKey }: { refreshKey: number }) {
         header: 'Roles',
         cell: ({ row }) => {
           const r = row.original.role_slugs;
-          if (r.length === 0) return <span className="text-ink-muted text-xs">—</span>;
+          if (r.length === 0) return <span className="text-ink-muted text-xs">{'\u2014'}</span>;
           return (
             <div className="flex gap-1 overflow-hidden">
               {r.slice(0, 2).map((s) => (

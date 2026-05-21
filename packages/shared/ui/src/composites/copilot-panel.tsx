@@ -58,8 +58,7 @@ export function CopilotPanel({
     const onUp = () => {
       if (!dragStartRef.current) return;
       dragStartRef.current = null;
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
+      Object.assign(document.body.style, { cursor: '', userSelect: '' });
       setWidth((w) => {
         persistWidth(w);
         return w;
@@ -76,8 +75,7 @@ export function CopilotPanel({
   const startResize = (e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();
     dragStartRef.current = { startX: e.clientX, startWidth: width };
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
+    Object.assign(document.body.style, { cursor: 'col-resize', userSelect: 'none' });
   };
 
   const onResizeKey = (e: React.KeyboardEvent<HTMLDivElement>) => {

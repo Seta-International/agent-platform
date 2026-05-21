@@ -56,12 +56,12 @@ export function GroupsToolbar({
   showSourceFilter = false,
 }: GroupsToolbarProps) {
   const [localSearch, setLocalSearch] = useState(searchQuery);
-  const [lastSyncedQuery, setLastSyncedQuery] = useState(searchQuery);
+  const [prevSearchQuery, setPrevSearchQuery] = useState(searchQuery);
 
   // Sync local state when parent resets searchQuery externally (state-during-render pattern
   // from https://react.dev/reference/react/useState#storing-information-from-previous-renders).
-  if (searchQuery !== lastSyncedQuery) {
-    setLastSyncedQuery(searchQuery);
+  if (searchQuery !== prevSearchQuery) {
+    setPrevSearchQuery(searchQuery);
     setLocalSearch(searchQuery);
   }
 

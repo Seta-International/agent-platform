@@ -37,9 +37,9 @@ export function useThreadList() {
           });
         }
         const keys: BucketKey[] = ['Today', 'Earlier this week', 'Older'];
-        return keys
-          .filter((k) => buckets[k].length > 0)
-          .map((label) => ({ label, items: buckets[label] }));
+        return keys.flatMap((k) =>
+          buckets[k].length > 0 ? [{ label: k, items: buckets[k] }] : [],
+        );
       })()
     : undefined;
   return { ...q, groups };

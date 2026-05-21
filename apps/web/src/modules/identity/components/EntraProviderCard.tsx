@@ -227,7 +227,7 @@ export function EntraProviderCard({ row, onChanged }: EntraProviderCardProps) {
                 <span className="inline-flex items-center gap-1.5">
                   <ShieldCheck aria-hidden className="size-3.5 text-warning" />
                   <span className="text-body-sm text-ink-muted">
-                    Pending — grant consent in Microsoft to activate.
+                    Pending: grant consent in Microsoft to activate.
                   </span>
                 </span>
               )}

@@ -55,7 +55,7 @@ export function EmailHistorySection({ userId }: { userId: string }) {
           const reason = row.payload?.reason ?? '';
           return (
             <div key={row.event_id} className="text-xs">
-              <span className="text-muted-foreground">
+              <span className="text-muted-foreground" suppressHydrationWarning>
                 {new Date(row.occurred_at).toLocaleString()}
               </span>{' '}
               <span>

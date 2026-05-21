@@ -26,7 +26,7 @@ export function registerCopilot(deps: { pool: Pool; databaseUrl: string }): Copi
   const factory = createAgentFactory({ mastra });
   return {
     attach(app) {
-      registerCopilotRoutes(app as never, { factory, mastra });
+      registerCopilotRoutes(app as never, { factory, mastra, pool: deps.pool });
     },
   };
 }
