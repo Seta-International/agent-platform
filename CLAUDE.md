@@ -79,6 +79,14 @@ Layout shape and command names are fixed by `requirements.md` §19.1 / §19.3 �
 - **One domain per agent, ≤ ~15 tools** (architecture §H.1). Tool schemas live in the system prompt — overflowing it burns prompt-cache hits and worsens model tool selection. Past the cap, spin up a new specialist agent and route to it; don't keep stapling tools onto an existing one. Soft rule, reviewer-enforced, no lint.
 - **Style monopoly.** All styling lives in `packages/shared/ui`. No `.css`, no `tailwind.config.*`, no `@theme/@layer/@apply` outside that package (one shim allowed at `apps/web/src/styles/globals.css`). Enforced by `pnpm lint:styles`.
 
+## Subagent dispatch (when executing plans via subagent-driven-development)
+
+Right-size the model and collapse the review stage when the work is mechanical.
+
+- **Implementer model.** Default to `sonnet` for mechanical tasks: SQL migrations, package scaffolds, single-file utilities with a complete spec block, type-only declarations, doc rewrites that are pure find-and-replace. Use the harness default (opus) only when the task needs design judgment, multi-file coordination, concurrency/retry/race-condition reasoning, or broad codebase pattern matching.
+- **Reviewer fan-out.** For mechanical tasks, dispatch a single combined reviewer that does spec compliance *and* code quality in one pass. Keep the two-stage (spec-first, then quality) split only for genuinely complex tasks where each stage benefits from a fresh, narrow lens.
+- **Heuristic.** If the plan task text reads like a recipe (verbatim file contents + a `git commit` step), it's mechanical. If it asks for an interface, a concurrency primitive, or coordination across packages, it's not.
+
 ## When proposing changes to docs
 
 - Don't reorganize section numbers — they're cited from elsewhere. Add new sections at the end of their parent or as letter suffixes (e.g. §1.6.5a).
