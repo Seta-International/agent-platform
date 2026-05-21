@@ -228,4 +228,43 @@ describe('GroupDetailHeader', () => {
     await user.click(await screen.findByRole('button', { name: /more/i }));
     expect(screen.getByRole('menuitem', { name: /Refresh sync/i })).toBeInTheDocument();
   });
+
+  it('error state badge is clickable and calls refreshGroupSync', async () => {
+    const { userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup();
+    let refreshCalled = false;
+    server.use(
+      http.get('/api/integrations/m365/groups/:groupId/sync-status', () =>
+        HttpResponse.json({
+          sync_status: 'error',
+          synced_at: null,
+          last_error: 'connection timeout',
+        }),
+      ),
+      http.post('/api/integrations/m365/groups/:groupId/refresh', () => {
+        refreshCalled = true;
+        return HttpResponse.json({ ok: true });
+      }),
+    );
+    renderInRouter(
+      <GroupDetailHeader {...baseProps} group={{ ...baseGroup, external_source: 'm365' }} />,
+    );
+    await user.click(await screen.findByRole('button', { name: /Sync failed/i }));
+    await vi.waitFor(() => expect(refreshCalled).toBe(true));
+  });
+
+  it('conflict state badge opens ResolveConflictDialog', async () => {
+    const { userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup();
+    server.use(
+      http.get('/api/integrations/m365/groups/:groupId/sync-status', () =>
+        HttpResponse.json({ sync_status: 'conflict', synced_at: null, last_error: null }),
+      ),
+    );
+    renderInRouter(
+      <GroupDetailHeader {...baseProps} group={{ ...baseGroup, external_source: 'm365' }} />,
+    );
+    await user.click(await screen.findByRole('button', { name: /Conflict/i }));
+    expect(await screen.findByText('Resolve sync conflict')).toBeInTheDocument();
+  });
 });

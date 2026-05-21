@@ -20,6 +20,7 @@ import {
   Users,
 } from 'lucide-react';
 import { useState } from 'react';
+import { useRefreshGroupSync } from '../hooks/mutations/refresh-group-sync';
 import { useGroupSyncStatus } from '../hooks/queries/use-group-sync-status';
 import { useGroupSyncStream } from '../hooks/queries/use-group-sync-stream';
 import { LinkToM365Dialog } from './LinkToM365Dialog';
@@ -70,6 +71,7 @@ export function GroupDetailHeader({
   const rawSyncStatus = syncData && 'sync_status' in syncData ? syncData.sync_status : null;
   const syncedAt = syncData && 'synced_at' in syncData ? syncData.synced_at : null;
   const badgeState = isLinked ? toSyncBadgeState(rawSyncStatus) : null;
+  const refresh = useRefreshGroupSync(group.id);
 
   return (
     <>
@@ -134,7 +136,26 @@ export function GroupDetailHeader({
               {isLinked && (
                 <>
                   <span>·</span>
-                  <SyncBadge state={badgeState} synced_at={syncedAt ?? null} />
+                  {badgeState === 'error' ? (
+                    <button
+                      type="button"
+                      className="inline-flex items-center"
+                      onClick={() => refresh.mutate()}
+                      disabled={refresh.isPending}
+                    >
+                      <SyncBadge state="error" synced_at={syncedAt ?? null} />
+                    </button>
+                  ) : badgeState === 'conflict' ? (
+                    <button
+                      type="button"
+                      className="inline-flex items-center"
+                      onClick={() => setResolveOpen(true)}
+                    >
+                      <SyncBadge state="conflict" synced_at={syncedAt ?? null} />
+                    </button>
+                  ) : (
+                    <SyncBadge state={badgeState} synced_at={syncedAt ?? null} />
+                  )}
                 </>
               )}
             </div>
