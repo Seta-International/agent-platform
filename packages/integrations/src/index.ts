@@ -44,3 +44,4 @@ export {
 } from './backend/rbac.ts';
 export type { TransportConfigKind, TransportConfigPayload } from './db/schema/index.ts';
 export type { IntegrationsEvent } from './events/index.ts';
+export * as m365 from './m365/index.ts';
