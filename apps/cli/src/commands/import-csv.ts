@@ -1,10 +1,17 @@
 import { computeAccessibleGroups, hashRoleSummary, rollup, type SessionScope } from '@seta/core';
 import { coreDb } from '@seta/core/db';
 import { createUser, grantRole, listRoleGrants } from '@seta/identity';
-import { addGroupMember, createGroup } from '@seta/planner';
+import {
+  addGroupMember,
+  assignTask,
+  createBucket,
+  createGroup,
+  createPlan,
+  createTask,
+} from '@seta/planner';
 import { sql } from 'drizzle-orm';
 import pino from 'pino';
-import { parseCsvs } from './lib/csv-parser.ts';
+import { mapPriority, mapStatus, parseCsvs, splitIds } from './lib/csv-parser.ts';
 import { resolveTenantId, UUID_RE } from './lib/tenant-resolve.ts';
 
 const log = pino({ name: 'cli/import-csv' });
@@ -130,5 +137,99 @@ export async function importCsvCommand(opts: ImportCsvOpts): Promise<void> {
   }
   process.stdout.write(
     `${JSON.stringify({ phase: 'members', added: membersAdded, skipped: membersSkipped })}\n`,
+  );
+
+  // Phase 5 — Create plans
+  log.info('phase 5: creating plans');
+  const planMap = new Map<string, string>(); // csvPlanId → db uuid
+
+  for (const row of csvs.plans) {
+    const plan = await createPlan({
+      group_id: group.id,
+      name: row.title || 'Untitled Plan',
+      session,
+    });
+    planMap.set(row.plan_id, plan.id);
+  }
+  process.stdout.write(`${JSON.stringify({ phase: 'plans', created: csvs.plans.length })}\n`);
+
+  // Phase 6 — Create buckets (CSV order = sort_order via createBucket's append logic)
+  log.info('phase 6: creating buckets');
+  const bucketMap = new Map<string, string>(); // csvBucketId → db uuid
+  let bucketsCreated = 0;
+  let bucketsSkipped = 0;
+
+  for (const row of csvs.buckets) {
+    const planId = planMap.get(row.plan_id);
+    if (!planId) {
+      log.warn(
+        { csv_bucket_id: row.bucket_id, csv_plan_id: row.plan_id },
+        'plan not found, skipping bucket',
+      );
+      bucketsSkipped++;
+      continue;
+    }
+    const bucket = await createBucket({ plan_id: planId, name: row.name, session });
+    bucketMap.set(row.bucket_id, bucket.id);
+    bucketsCreated++;
+  }
+  process.stdout.write(
+    `${JSON.stringify({ phase: 'buckets', created: bucketsCreated, skipped: bucketsSkipped })}\n`,
+  );
+
+  // Phase 7 — Create tasks and assignments
+  log.info('phase 7: creating tasks');
+  let tasksCreated = 0;
+  let assignmentsCreated = 0;
+  let tasksSkipped = 0;
+
+  for (const row of csvs.tasks) {
+    const planId = planMap.get(row.plan_id);
+    if (!planId) {
+      log.warn(
+        { csv_task_id: row.task_id, csv_plan_id: row.plan_id },
+        'plan not found, skipping task',
+      );
+      tasksSkipped++;
+      continue;
+    }
+
+    const bucketId = bucketMap.get(row.bucket_id) ?? undefined;
+    const skill_tags = splitIds(row.tags);
+
+    const task = await createTask({
+      plan_id: planId,
+      bucket_id: bucketId,
+      title: row.title || 'Untitled',
+      priority: mapPriority(row.priority),
+      progress: mapStatus(row.status),
+      due_at: row.due_date || undefined,
+      skill_tags: skill_tags.length > 0 ? skill_tags : undefined,
+      session,
+    });
+    tasksCreated++;
+
+    for (const csvId of splitIds(row.assignee_ids)) {
+      const userId = idMap.get(csvId);
+      if (!userId) {
+        log.warn(
+          { csv_task_id: row.task_id, csv_assignee_id: csvId },
+          'assignee not in users.csv, skipping',
+        );
+        continue;
+      }
+      try {
+        await assignTask({ task_id: task.id, user_id: userId, session });
+        assignmentsCreated++;
+      } catch (err) {
+        log.warn(
+          { csv_task_id: row.task_id, csv_assignee_id: csvId, err },
+          'assignTask failed, skipping',
+        );
+      }
+    }
+  }
+  process.stdout.write(
+    `${JSON.stringify({ phase: 'tasks', created: tasksCreated, assignments: assignmentsCreated, skipped: tasksSkipped })}\n`,
   );
 }
