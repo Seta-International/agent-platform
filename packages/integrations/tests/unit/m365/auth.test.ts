@@ -1,15 +1,16 @@
 import { Client } from '@microsoft/microsoft-graph-client';
 import { TokenCredentialAuthenticationProvider } from '@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials';
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   buildAuthProvider,
-  getM365CredsForTenant,
+  buildDbCredsProvider,
   type M365Creds,
+  M365NotConfiguredError,
 } from '../../../src/m365/auth.ts';
 import { buildGraphClient } from '../../../src/m365/client.ts';
 
 const fakeCreds: M365Creds = {
-  tenantId: 'tenant-id',
+  entraTenantId: 'entra-tenant-id',
   clientId: 'client-id',
   clientSecret: 'client-secret',
 };
@@ -28,26 +29,40 @@ describe('buildGraphClient', () => {
   });
 });
 
-describe('getM365CredsForTenant', () => {
-  afterEach(() => {
-    delete process.env.M365_DEFAULT_TENANT_ID;
-    delete process.env.M365_CLIENT_ID;
-    delete process.env.M365_CLIENT_SECRET;
-  });
-
-  it('throws when env vars are not set', () => {
-    expect(() => getM365CredsForTenant('any-tenant')).toThrow('M365 credentials not configured');
-  });
-
-  it('returns creds when env vars are present', () => {
-    process.env.M365_DEFAULT_TENANT_ID = 'entra-tenant';
-    process.env.M365_CLIENT_ID = 'app-id';
-    process.env.M365_CLIENT_SECRET = 'secret';
-    const creds = getM365CredsForTenant('seta-tenant');
+describe('buildDbCredsProvider', () => {
+  it('returns creds when store has a row', async () => {
+    const provider = buildDbCredsProvider({
+      store: {
+        async get(_tenantId) {
+          return {
+            entra_tenant_id: 'entra-abc',
+            client_id: 'app-xyz',
+            client_secret_plaintext: 'my-secret',
+          };
+        },
+      },
+    });
+    const creds = await provider.getCreds('seta-tenant-1');
     expect(creds).toEqual({
-      tenantId: 'entra-tenant',
-      clientId: 'app-id',
-      clientSecret: 'secret',
+      entraTenantId: 'entra-abc',
+      clientId: 'app-xyz',
+      clientSecret: 'my-secret',
+    });
+  });
+
+  it('throws M365NotConfiguredError when store returns null', async () => {
+    const provider = buildDbCredsProvider({
+      store: {
+        async get(_tenantId) {
+          return null;
+        },
+      },
+    });
+    await expect(provider.getCreds('missing-tenant')).rejects.toBeInstanceOf(
+      M365NotConfiguredError,
+    );
+    await expect(provider.getCreds('missing-tenant')).rejects.toMatchObject({
+      message: 'M365 not configured for tenant missing-tenant',
     });
   });
 });

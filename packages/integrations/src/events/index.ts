@@ -14,4 +14,8 @@ export type IntegrationsEvent =
   | {
       type: 'integrations.mail_transport.verify_failed';
       payload: { kind: 'graph' | 'smtp'; error_code: string; error_message: string };
+    }
+  | {
+      type: 'integrations.m365_tenant_config.set';
+      payload: { entra_tenant_id: string; client_id: string };
     };

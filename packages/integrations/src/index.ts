@@ -7,6 +7,13 @@ export {
   getMailTransportConfig,
 } from './backend/domain/get-mail-transport-config.ts';
 export {
+  type CreateM365TenantConfigStoreDeps,
+  createM365TenantConfigStore,
+  type M365TenantConfigRow,
+  type M365TenantConfigStore,
+  type UpsertM365TenantConfigInput,
+} from './backend/domain/m365-tenant-config-store.ts';
+export {
   type CreateMailTransportConfigStoreDeps,
   createMailTransportConfigStore,
   type GraphTransportConfig,
@@ -15,6 +22,11 @@ export {
   type SmtpTransportConfigEncrypted,
   type UpsertMailTransportConfigInput,
 } from './backend/domain/mail-transport-config-store.ts';
+export {
+  type SetM365TenantConfigArgs,
+  type SetM365TenantConfigInput,
+  setM365TenantConfig,
+} from './backend/domain/set-m365-tenant-config.ts';
 export {
   type SetMailTransportConfigArgs,
   type SetMailTransportConfigInput,
