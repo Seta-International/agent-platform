@@ -5,6 +5,7 @@ export type { NodePgDatabase, Pool };
 export type PoolName = 'web' | 'worker' | 'mastraState';
 
 export { createDb } from './db.ts';
+export { halfvec } from './halfvec.ts';
 export { MigrationChecksumMismatch, type ModuleMigration, runMigrations } from './migrate.ts';
 export { closePools, getPool, initPools, type Pools, type PoolsConfig } from './pools.ts';
 export { type NodeTx, withRetry, withTx } from './tx.ts';
