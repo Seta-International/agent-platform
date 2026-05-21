@@ -1,5 +1,3 @@
-// Pre-req: Playwright runner is provisioned in a separate slice. Until then this file documents
-// the create-group flow contract introduced in PR2 (planner groups UI rewrite).
 import { expect, test } from '@playwright/test';
 
 test('admin creates a group with description, theme, and visibility', async ({ page }) => {
