@@ -16,6 +16,7 @@ export { deleteTask } from './backend/domain/delete-task.ts';
 export { getGroup } from './backend/domain/get-group.ts';
 export { getPlan } from './backend/domain/get-plan.ts';
 export { getTask } from './backend/domain/get-task.ts';
+export { linkGroupToM365 } from './backend/domain/link-group-to-m365.ts';
 export { listBuckets } from './backend/domain/list-buckets.ts';
 export { listChecklistItems } from './backend/domain/list-checklist-items.ts';
 export { listGroupMembers } from './backend/domain/list-group-members.ts';
