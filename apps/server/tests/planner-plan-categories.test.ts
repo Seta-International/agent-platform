@@ -1,12 +1,13 @@
 import { hashRoleSummary, type SessionEnv, type SessionScope } from '@seta/core';
 import { resetCoreDb } from '@seta/core/internal/test-support';
 import { createUser } from '@seta/identity';
-import { createGroup, createLabel, createPlan, PlannerError } from '@seta/planner';
+import { createGroup, createLabel, createPlan } from '@seta/planner';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { Hono } from 'hono';
 import type { Pool } from 'pg';
 import { describe, expect, it } from 'vitest';
+import { handleServerError } from '../src/build.ts';
 import { registerPlannerPlansRoutes } from '../src/routes/planner-plans.ts';
 
 function buildSession(opts: {
@@ -40,22 +41,7 @@ function buildTestApp(session: SessionScope): Hono<SessionEnv> {
     await next();
   });
   registerPlannerPlansRoutes(app);
-  app.onError((err, c) => {
-    if (err instanceof PlannerError) {
-      const status =
-        err.code === 'FORBIDDEN' || err.code === 'CROSS_TENANT'
-          ? 403
-          : err.code === 'NOT_FOUND'
-            ? 404
-            : err.code === 'CONFLICT'
-              ? 409
-              : err.code === 'VALIDATION'
-                ? 400
-                : 400;
-      return c.json({ error: err.code, message: err.message, details: err.details }, status);
-    }
-    throw err;
-  });
+  app.onError(handleServerError);
   return app;
 }
 

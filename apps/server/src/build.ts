@@ -13,8 +13,9 @@ import { auth } from '@seta/identity/auth';
 import type { m365 } from '@seta/integrations';
 import { PlannerError } from '@seta/planner';
 import { getPool } from '@seta/shared-db';
-import type { Hono } from 'hono';
+import type { Context, Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
+import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import type { Pool } from 'pg';
 import type { BoardStreamHub } from './board-stream/hub.ts';
 import { registerAdminAuditRoutes } from './routes/admin-audit.ts';
@@ -154,34 +155,44 @@ export function buildServerApp(
     });
   }
 
-  app.onError((err, c) => {
-    if (err instanceof PlannerError) {
-      const status =
-        err.code === 'FORBIDDEN'
-          ? 403
-          : err.code === 'NOT_FOUND'
-            ? 404
-            : err.code === 'CONFLICT'
-              ? 409
-              : err.code === 'CROSS_TENANT'
-                ? 403
-                : err.code === 'VALIDATION'
-                  ? 400
-                  : err.code === 'LINKED_GROUP_IMMUTABLE_MEMBERS'
-                    ? 409
-                    : err.code === 'LINKED_DUPLICATE'
-                      ? 409
-                      : 400;
-      return c.json({ error: err.code, message: err.message, details: err.details }, status);
-    }
-    if (err instanceof IdentityError) {
-      const status = err.code === 'FORBIDDEN' ? 403 : err.code === 'USER_NOT_FOUND' ? 404 : 400;
-      return c.json({ error: err.code, message: err.message }, status);
-    }
-    throw err;
-  });
+  app.onError(handleServerError);
 
   return { app, reg };
+}
+
+// Maps domain errors thrown out of any route to HTTP responses. Exported so
+// tests can register the exact same handler when they assemble a minimal Hono
+// app for session injection — keeping route-error behaviour single-sourced.
+export function handleServerError(err: Error, c: Context): Response {
+  if (err instanceof PlannerError) {
+    const status: ContentfulStatusCode =
+      err.code === 'FORBIDDEN'
+        ? 403
+        : err.code === 'NOT_FOUND'
+          ? 404
+          : err.code === 'CONFLICT'
+            ? 409
+            : err.code === 'CROSS_TENANT'
+              ? 403
+              : err.code === 'VALIDATION'
+                ? 400
+                : err.code === 'LINKED_GROUP_IMMUTABLE_MEMBERS'
+                  ? 409
+                  : err.code === 'LINKED_DUPLICATE'
+                    ? 409
+                    : err.code === 'DUPLICATE_REFERENCE'
+                      ? 409
+                      : err.code === 'RESERVED_FOR_SYSTEM_ACTOR'
+                        ? 403
+                        : 400;
+    return c.json({ error: err.code, message: err.message, details: err.details }, status);
+  }
+  if (err instanceof IdentityError) {
+    const status: ContentfulStatusCode =
+      err.code === 'FORBIDDEN' ? 403 : err.code === 'USER_NOT_FOUND' ? 404 : 400;
+    return c.json({ error: err.code, message: err.message }, status);
+  }
+  throw err;
 }
 
 // Re-export getPool so callers building the app from the entry point don't need

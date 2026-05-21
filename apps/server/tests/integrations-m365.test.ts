@@ -2,12 +2,13 @@ import { hashRoleSummary, type SessionEnv, type SessionScope } from '@seta/core'
 import { resetCoreDb } from '@seta/core/internal/test-support';
 import { createUser } from '@seta/identity';
 import { m365 } from '@seta/integrations';
-import { createGroup, PlannerError } from '@seta/planner';
+import { createGroup } from '@seta/planner';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { Hono } from 'hono';
 import type { Pool } from 'pg';
 import { describe, expect, it, vi } from 'vitest';
+import { handleServerError } from '../src/build.ts';
 import { registerIntegrationsM365Routes } from '../src/routes/integrations-m365.ts';
 
 function buildSession(opts: {
@@ -70,22 +71,7 @@ function buildTestApp(
     workers: (extraDeps?.workers ?? defaultWorkers) as import('@seta/core/workers').WorkerHandle,
     m365LinksRepo: extraDeps?.m365LinksRepo ?? defaultLinksRepo,
   });
-  app.onError((err, c) => {
-    if (err instanceof PlannerError) {
-      const status =
-        err.code === 'FORBIDDEN'
-          ? 403
-          : err.code === 'NOT_FOUND'
-            ? 404
-            : err.code === 'CONFLICT'
-              ? 409
-              : err.code === 'LINKED_DUPLICATE'
-                ? 409
-                : 400;
-      return c.json({ error: err.code, message: err.message }, status);
-    }
-    throw err;
-  });
+  app.onError(handleServerError);
   return app;
 }
 
