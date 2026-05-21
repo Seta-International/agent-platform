@@ -15,6 +15,8 @@ export default async function (): Promise<() => Promise<void>> {
     pool: getPool('worker'),
     modules: [
       { name: 'core', dir: resolve(__dirname, '../../core/drizzle/migrations') },
+      { name: 'identity', dir: resolve(__dirname, '../../identity/drizzle') },
+      { name: 'planner', dir: resolve(__dirname, '../../planner/drizzle') },
       { name: 'integrations', dir: resolve(__dirname, '../drizzle/migrations') },
     ],
   });
@@ -24,6 +26,7 @@ export default async function (): Promise<() => Promise<void>> {
 
   process.env.SETA_TEST_PG_BASE = handle.baseUrl;
   process.env.SETA_TEST_PG_TEMPLATE = 'seta_template';
+  process.env.BETTER_AUTH_SECRET ??= 'test'.padEnd(32, '_');
   return async () => {
     await handle?.stop();
   };

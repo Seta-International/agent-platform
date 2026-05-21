@@ -3,6 +3,7 @@ import { createCrypto, createKeyProviderFromEnv, parseCryptoEnv } from '@seta/sh
 import { closePools, initPools } from '@seta/shared-db';
 import { Command } from 'commander';
 import pino from 'pino';
+import { importCsvCommand } from './commands/import-csv.ts';
 import { integrationsMailSetCommand } from './commands/integrations-mail-set.ts';
 import { integrationsMailTestCommand } from './commands/integrations-mail-test.ts';
 import { migrateCommand } from './commands/migrate.ts';
@@ -233,6 +234,20 @@ program
   .action(async (opts: { tenant: string; to: string }) => {
     try {
       await integrationsMailTestCommand(opts);
+    } finally {
+      await closePools();
+    }
+  });
+
+program
+  .command('import-csv')
+  .description('Import users, plans, buckets, and tasks from a directory of CSV files')
+  .requiredOption('--tenant <slug-or-id>', 'Tenant slug or UUID')
+  .requiredOption('--dir <path>', 'Directory containing the six CSV files')
+  .requiredOption('--as <email>', 'Email of an existing org.admin user (acting session)')
+  .action(async (opts: { tenant: string; dir: string; as: string }) => {
+    try {
+      await importCsvCommand({ tenant: opts.tenant, dir: opts.dir, as: opts.as });
     } finally {
       await closePools();
     }

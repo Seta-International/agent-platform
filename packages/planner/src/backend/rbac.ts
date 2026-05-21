@@ -6,6 +6,7 @@ import {
   type PlannerPermission,
   type PlannerRoleSlug,
 } from '../roles.ts';
+import { isM365SystemActor } from './domain/_actor.ts';
 
 export type PlannerErrorCode =
   | 'NOT_FOUND'
@@ -67,7 +68,14 @@ export function requirePermission(
 
   // Group-scope check: when groupId is given, the session must have access to that group.
   // accessible_group_ids is populated from group-scoped role_grants in core/session/scope.ts.
-  if (groupId !== undefined && !session.accessible_group_ids.includes(groupId)) {
+  // The M365 system actor has no user-scoped role grants, so accessible_group_ids is always [].
+  // It operates tenant-wide by design; cross-tenant access is blocked via tenant_id comparison
+  // inside each domain function instead.
+  if (
+    groupId !== undefined &&
+    !isM365SystemActor(session) &&
+    !session.accessible_group_ids.includes(groupId)
+  ) {
     throw new PlannerError('FORBIDDEN', `No access to group`, {
       permission,
       group_id: groupId,

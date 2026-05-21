@@ -1,0 +1,6 @@
+{
+  "value": [
+    { "id": "entra-oid-1", "displayName": "Alice", "mail": "alice@example.com" },
+    { "id": "entra-oid-2", "displayName": "Bob", "mail": "bob@example.com" }
+  ]
+}

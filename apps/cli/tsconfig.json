@@ -2,7 +2,12 @@
   "extends": "@seta/shared-config/tsconfig.base.json",
   "compilerOptions": {
     "jsx": "react-jsx",
-    "jsxImportSource": "react"
+    "jsxImportSource": "react",
+    "paths": {
+      "@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials": [
+        "../../packages/integrations/node_modules/@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials/index.d.ts"
+      ]
+    }
   },
   "include": ["src", "__tests__", "test"]
 }

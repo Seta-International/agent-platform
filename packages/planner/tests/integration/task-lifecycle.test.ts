@@ -373,3 +373,67 @@ describe('reopenTask', () => {
     );
   });
 });
+
+describe('createTask initial progress', () => {
+  it('stores in_progress when progress is passed', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+      },
+      async ({ pool, databaseUrl }) => {
+        resetCoreDb();
+        initPools({ databaseUrl });
+        try {
+          const seeded = await seedTenant(pool);
+          const session = seeded.adminSession;
+          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'G', session });
+          const plan = await createPlan({ group_id: group.id, name: 'P', session });
+
+          const task = await createTask({
+            plan_id: plan.id,
+            title: 'In-flight task',
+            progress: 'in_progress',
+            session,
+          });
+
+          expect(task.progress).toBe('in_progress');
+
+          const { rows } = await pool.query(`SELECT progress FROM planner.tasks WHERE id = $1`, [
+            task.id,
+          ]);
+          expect(rows[0]?.progress).toBe('in_progress');
+        } finally {
+          resetCoreDb();
+          await closePools();
+        }
+      },
+    );
+  });
+
+  it('defaults to not_started when progress is omitted', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+      },
+      async ({ pool, databaseUrl }) => {
+        resetCoreDb();
+        initPools({ databaseUrl });
+        try {
+          const seeded = await seedTenant(pool);
+          const session = seeded.adminSession;
+          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'G2', session });
+          const plan = await createPlan({ group_id: group.id, name: 'P2', session });
+
+          const task = await createTask({ plan_id: plan.id, title: 'New task', session });
+
+          expect(task.progress).toBe('not_started');
+        } finally {
+          resetCoreDb();
+          await closePools();
+        }
+      },
+    );
+  });
+});
