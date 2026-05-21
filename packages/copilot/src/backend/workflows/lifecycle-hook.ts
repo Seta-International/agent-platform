@@ -1,0 +1,142 @@
+import type { Pool, PoolClient } from 'pg';
+
+interface BaseEvent {
+  runId: string;
+  eventSeq: number;
+  workflowId: string;
+  tenantId: string;
+  occurredAt: Date;
+}
+
+export interface RunStartedEvent extends BaseEvent {
+  kind: 'run-started';
+  startedBy: string;
+  startedVia: 'event' | 'chat' | 'rerun';
+  parentThreadId: string | null;
+  parentRunId: string | null;
+  sourceEventId: string | null;
+  inputSummary: unknown;
+}
+
+export interface RunSuspendedEvent extends BaseEvent {
+  kind: 'run-suspended';
+  stepId: string;
+  suspendReason: string;
+  proposedPayload: unknown;
+  approverUserId: string;
+  fallbackApproverUserId: string | null;
+  surfaceCanvas: boolean;
+  surfaceChatThreadId: string | null;
+  expiresAt: Date;
+}
+
+export interface RunResumedEvent extends BaseEvent {
+  kind: 'run-resumed';
+}
+export interface RunCompletedEvent extends BaseEvent {
+  kind: 'run-completed';
+  durationMs: number;
+  outcome: 'success' | 'rejected';
+  summary: unknown;
+}
+export interface RunFailedEvent extends BaseEvent {
+  kind: 'run-failed';
+  durationMs: number;
+  error: { code: string; message: string };
+}
+export interface RunCanceledEvent extends BaseEvent {
+  kind: 'run-canceled';
+  durationMs: number;
+}
+
+export type MastraLifecycleEvent =
+  | RunStartedEvent
+  | RunSuspendedEvent
+  | RunResumedEvent
+  | RunCompletedEvent
+  | RunFailedEvent
+  | RunCanceledEvent;
+
+export async function onLifecycleEvent(pool: Pool, evt: MastraLifecycleEvent): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const seen = await client.query(
+      `INSERT INTO copilot.workflow_run_events_seen (run_id, event_seq)
+       VALUES ($1, $2)
+       ON CONFLICT DO NOTHING
+       RETURNING run_id`,
+      [evt.runId, evt.eventSeq],
+    );
+    if (seen.rowCount === 0) {
+      await client.query('COMMIT');
+      return;
+    }
+    await dispatch(client, evt);
+    await client.query(`SELECT pg_notify('copilot_workflow_runs', $1)`, [
+      JSON.stringify({ runId: evt.runId, kind: evt.kind, tenantId: evt.tenantId }),
+    ]);
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+async function dispatch(client: PoolClient, evt: MastraLifecycleEvent): Promise<void> {
+  switch (evt.kind) {
+    case 'run-started':
+      return onRunStarted(client, evt);
+    case 'run-suspended':
+      return onRunSuspended(client, evt);
+    case 'run-resumed':
+      return onRunResumed(client, evt);
+    case 'run-completed':
+      return onRunCompleted(client, evt);
+    case 'run-failed':
+      return onRunFailed(client, evt);
+    case 'run-canceled':
+      return onRunCanceled(client, evt);
+  }
+}
+
+async function onRunStarted(client: PoolClient, evt: RunStartedEvent): Promise<void> {
+  await client.query(
+    `INSERT INTO copilot.workflow_runs
+       (run_id, workflow_id, tenant_id, started_by, started_via,
+        parent_thread_id, parent_run_id, source_event_id,
+        input_summary, status, started_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'running', $10)
+     ON CONFLICT (run_id) DO NOTHING`,
+    [
+      evt.runId,
+      evt.workflowId,
+      evt.tenantId,
+      evt.startedBy,
+      evt.startedVia,
+      evt.parentThreadId,
+      evt.parentRunId,
+      evt.sourceEventId,
+      JSON.stringify(evt.inputSummary),
+      evt.occurredAt,
+    ],
+  );
+}
+
+async function onRunSuspended(_client: PoolClient, _evt: RunSuspendedEvent): Promise<void> {
+  throw new Error('not implemented');
+}
+async function onRunResumed(_client: PoolClient, _evt: RunResumedEvent): Promise<void> {
+  throw new Error('not implemented');
+}
+async function onRunCompleted(_client: PoolClient, _evt: RunCompletedEvent): Promise<void> {
+  throw new Error('not implemented');
+}
+async function onRunFailed(_client: PoolClient, _evt: RunFailedEvent): Promise<void> {
+  throw new Error('not implemented');
+}
+async function onRunCanceled(_client: PoolClient, _evt: RunCanceledEvent): Promise<void> {
+  throw new Error('not implemented');
+}
