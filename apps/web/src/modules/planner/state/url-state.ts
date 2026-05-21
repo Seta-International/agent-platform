@@ -46,3 +46,7 @@ export function parseViewMode(s: string | undefined): ViewMode {
 export function parseGroupBy(s: string | undefined): GroupBy {
   return (GROUP_BYS as readonly string[]).includes(s ?? '') ? (s as GroupBy) : 'bucket';
 }
+
+export function parseSearchQuery(s: string | undefined): string {
+  return (s ?? '').trim();
+}

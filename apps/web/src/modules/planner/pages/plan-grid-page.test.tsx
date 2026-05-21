@@ -203,13 +203,61 @@ describe('PlanGridPage', () => {
 
     const user = userEvent.setup();
     const checkboxes = screen.getAllByRole('checkbox');
-    // Select first task
     await user.click(checkboxes[0]!);
 
-    // Click Move in the footer
-    const moveBtn = await screen.findByRole('button', { name: 'Move' });
-    await user.click(moveBtn);
+    // Click Move to open the bucket popover, then pick Done
+    await user.click(await screen.findByRole('button', { name: 'Move' }));
+    await user.click(await screen.findByRole('button', { name: 'Done' }));
 
     expect(moveCalls).toContain('t1');
+  });
+
+  it('bulk assign triggers POST /api/planner/v1/tasks/:id/assign for each selected task', async () => {
+    const assignCalls: Array<{ taskId: string; user_id: string }> = [];
+    server.use(
+      http.get('*/api/planner/v1/plans/p1', () => HttpResponse.json(planFixture)),
+      http.get('*/api/planner/v1/plans/p1/buckets', () =>
+        HttpResponse.json({ buckets: [bucketTodo, bucketDone] }),
+      ),
+      http.get('*/api/planner/v1/tasks', () =>
+        HttpResponse.json({
+          tasks: [{ ...taskOne, assignees: [{ user_id: 'u1', display_name: 'Alice' }] }, taskTwo],
+        }),
+      ),
+      http.get('*/api/planner/v1/plans/p1/labels', () => HttpResponse.json({ labels: [] })),
+      http.post('*/api/planner/v1/tasks/:taskId/assign', async ({ params, request }) => {
+        const body = (await request.json()) as { user_id: string };
+        assignCalls.push({ taskId: params['taskId'] as string, user_id: body.user_id });
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    renderPage();
+    await screen.findByText('Wire up DnD');
+
+    const user = userEvent.setup();
+    await user.click(screen.getAllByRole('checkbox')[0]!);
+    await user.click(await screen.findByRole('button', { name: 'Assign' }));
+    await user.click(await screen.findByRole('button', { name: 'Alice' }));
+
+    expect(assignCalls).toContainEqual({ taskId: 't1', user_id: 'u1' });
+  });
+
+  it('bulk delete triggers DELETE /api/planner/v1/tasks/:id for each selected task', async () => {
+    const deleteCalls: string[] = [];
+    server.use(
+      ...seedBoardHandlers(),
+      http.delete('*/api/planner/v1/tasks/:taskId', ({ params }) => {
+        deleteCalls.push(params['taskId'] as string);
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    renderPage();
+    await screen.findByText('Wire up DnD');
+
+    const user = userEvent.setup();
+    await user.click(screen.getAllByRole('checkbox')[0]!);
+    await user.click(await screen.findByRole('button', { name: 'Delete' }));
+
+    expect(deleteCalls).toContain('t1');
   });
 });

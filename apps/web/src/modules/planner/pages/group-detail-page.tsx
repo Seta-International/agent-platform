@@ -1,4 +1,12 @@
-import { EmptyState, Skeleton, Tabs, TabsContent, TabsList, TabsTrigger } from '@seta/shared-ui';
+import {
+  AvatarStack,
+  EmptyState,
+  Skeleton,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@seta/shared-ui';
 import { Link } from '@tanstack/react-router';
 import { useGroup } from '../hooks/queries/use-group';
 import { useGroupMembers } from '../hooks/queries/use-group-members';
@@ -43,7 +51,18 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
 
   return (
     <div className="p-6">
-      <h1 className="text-display-md text-ink mb-4">{groupQ.data.name}</h1>
+      <header className="mb-4 flex items-center justify-between">
+        <h1 className="text-display-md text-ink">{groupQ.data.name}</h1>
+        {membersQ.data && membersQ.data.length > 0 && (
+          <AvatarStack
+            max={5}
+            assignees={membersQ.data.map((m) => ({
+              user_id: m.user_id,
+              display_name: m.display_name,
+            }))}
+          />
+        )}
+      </header>
       <Tabs value={tab} onValueChange={(v) => onTabChange(v as GroupDetailTab)}>
         <TabsList>
           <TabsTrigger value="plans">Plans</TabsTrigger>
@@ -66,8 +85,8 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
               {plansQ.data.map((p) => (
                 <li key={p.id}>
                   <Link
-                    to="/planner/groups/$groupId"
-                    params={{ groupId }}
+                    to="/planner/plans/$planId"
+                    params={{ planId: p.id }}
                     className="block rounded-md border border-surface-3 bg-surface-1 p-4 hover:border-primary"
                   >
                     {p.name}

@@ -8,6 +8,7 @@ const rows: TaskGridRow[] = [
     title: 'A',
     status: 'in_progress',
     bucket: 'Sprint',
+    bucket_id: 'b1',
     priority: 'medium',
     assignees: [{ id: 'u1', name: 'Alice' }],
     due: null,
@@ -18,6 +19,7 @@ const rows: TaskGridRow[] = [
     title: 'B',
     status: 'not_started',
     bucket: 'Sprint',
+    bucket_id: 'b1',
     priority: 'important',
     assignees: [],
     due: null,
@@ -75,6 +77,73 @@ describe('TaskGrid', () => {
     // Simulate the blur that fires when the input unmounts after Enter
     fireEvent.blur(input);
     expect(onCommit.mock.calls.length).toBe(1);
+  });
+
+  it('commits a new status when a status option is picked', () => {
+    const onCommit = vi.fn();
+    render(
+      <TaskGrid
+        rows={rows}
+        groupBy="bucket"
+        selection={new Set()}
+        onSelectionChange={() => {}}
+        onCommitField={onCommit}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Edit status for A/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Completed' }));
+    expect(onCommit).toHaveBeenCalledWith('t1', { status: 'completed' });
+  });
+
+  it('commits a new priority when a priority option is picked', () => {
+    const onCommit = vi.fn();
+    render(
+      <TaskGrid
+        rows={rows}
+        groupBy="bucket"
+        selection={new Set()}
+        onSelectionChange={() => {}}
+        onCommitField={onCommit}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Edit priority for B/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Urgent' }));
+    expect(onCommit).toHaveBeenCalledWith('t2', { priority: 'urgent' });
+  });
+
+  it('commits a new bucket when bucketOptions are provided', () => {
+    const onCommit = vi.fn();
+    render(
+      <TaskGrid
+        rows={rows}
+        groupBy="bucket"
+        selection={new Set()}
+        onSelectionChange={() => {}}
+        onCommitField={onCommit}
+        bucketOptions={[
+          { id: 'b1', name: 'Sprint' },
+          { id: 'b2', name: 'Backlog' },
+        ]}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Edit bucket for A/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Backlog' }));
+    expect(onCommit).toHaveBeenCalledWith('t1', { bucket_id: 'b2', bucket: 'Backlog' });
+  });
+
+  it('opens the task sheet when assignees cell is clicked', () => {
+    const onOpenSheet = vi.fn();
+    render(
+      <TaskGrid
+        rows={rows}
+        groupBy="bucket"
+        selection={new Set()}
+        onSelectionChange={() => {}}
+        onOpenSheet={onOpenSheet}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Edit assignees for A/i }));
+    expect(onOpenSheet).toHaveBeenCalledWith('t1');
   });
 
   it('range-selects rows on shift-click', () => {

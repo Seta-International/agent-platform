@@ -2,6 +2,7 @@ import type { BucketRow, TaskWithAssigneesRow } from '@seta/planner';
 import type { QueryClient } from '@tanstack/react-query';
 import { plannerKeys } from './query-keys';
 import { isOwnEcho } from './recent-mutation-event-ids';
+import { useRecentlyMovedTasks } from './recently-moved-tasks';
 
 export interface StreamEvent {
   id: string;
@@ -176,6 +177,7 @@ export function applyPlannerEvent(qc: QueryClient, event: StreamEvent): void {
       const after = asObject(p.after);
       const versionAfter = asNumber(p.version_after);
       if (!planId || !taskId || !after) return;
+      useRecentlyMovedTasks.getState().mark(taskId);
       const newBucket = 'bucket_id' in after ? (asString(after.bucket_id) ?? null) : undefined;
       const newSort = asNumber(after.sort_order);
       qc.setQueryData<TaskWithAssigneesRow[]>(tasksKey(planId), (prev) => {

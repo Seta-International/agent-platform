@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, CSSProperties } from 'react';
+import { AvatarStack } from './avatar-stack';
 import { LabelChip } from './label-chip';
 import { PriorityIcon } from './priority-icon';
 
@@ -11,6 +12,7 @@ export interface KanbanCardTask {
   assignees: Array<{ user_id: string; display_name: string }>;
   recentlyMoved?: boolean;
   saving?: boolean;
+  blocked?: boolean;
 }
 
 export interface KanbanCardProps {
@@ -48,25 +50,22 @@ export function KanbanCard({ task, onOpen, selected, draggable }: KanbanCardProp
       onClick={onOpen}
       aria-label={`Task: ${task.title}`}
     >
-      <div className="kanban-card__title">{task.title}</div>
+      <div className="kanban-card__title">
+        {task.blocked && (
+          <span
+            role="img"
+            aria-label="Blocked"
+            className="kanban-card__blocked-dot"
+            title="Blocked"
+          />
+        )}
+        {task.title}
+      </div>
       <div className="kanban-card__meta">
         <PriorityIcon level={task.priority} />
         {task.label && <LabelChip name={task.label.name} color={task.label.color} />}
         {task.due_label && <span className="kanban-card__due">{task.due_label}</span>}
-        <span className="kanban-card__assignees">
-          {task.assignees.slice(0, 3).map((a) => (
-            <span key={a.user_id} className="kanban-card__avatar" title={a.display_name}>
-              {a.display_name
-                .split(' ')
-                .map((p) => p[0])
-                .join('')
-                .slice(0, 2)}
-            </span>
-          ))}
-          {task.assignees.length > 3 && (
-            <span className="kanban-card__avatar-more">+{task.assignees.length - 3}</span>
-          )}
-        </span>
+        <AvatarStack assignees={task.assignees} />
       </div>
       {task.saving && (
         <span

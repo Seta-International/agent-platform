@@ -1,4 +1,5 @@
 import { type CSSProperties, type HTMLAttributes, type ReactNode, useState } from 'react';
+import { KbdHint } from './kbd-hint';
 
 export interface KanbanColumnProps {
   name: string;
@@ -75,8 +76,10 @@ export function KanbanColumn({
           type="button"
           className="kanban-column__quick-create"
           onClick={() => setComposing(true)}
+          title="Add a task (C)"
         >
           + Add a task
+          <KbdHint keys={['C']} className="ml-1" />
         </button>
       )}
       {composing && (

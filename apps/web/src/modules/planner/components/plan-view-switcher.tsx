@@ -1,3 +1,5 @@
+import { LayoutGrid, Rows3 } from 'lucide-react';
+
 interface Props {
   value: 'board' | 'grid';
   onChange: (v: 'board' | 'grid') => void;
@@ -5,22 +7,24 @@ interface Props {
 
 export function PlanViewSwitcher({ value, onChange }: Props) {
   return (
-    <div role="tablist" className="plan-view-switcher">
+    <div className="plan-view-switcher">
       <button
         type="button"
-        role="tab"
-        aria-selected={value === 'board'}
+        aria-pressed={value === 'board'}
+        aria-label="Board view"
         onClick={() => onChange('board')}
       >
-        Board
+        <LayoutGrid aria-hidden="true" className="h-3.5 w-3.5" />
+        <span>Board</span>
       </button>
       <button
         type="button"
-        role="tab"
-        aria-selected={value === 'grid'}
+        aria-pressed={value === 'grid'}
+        aria-label="Grid view"
         onClick={() => onChange('grid')}
       >
-        Grid
+        <Rows3 aria-hidden="true" className="h-3.5 w-3.5" />
+        <span>Grid</span>
       </button>
     </div>
   );

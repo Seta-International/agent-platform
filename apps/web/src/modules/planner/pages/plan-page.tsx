@@ -1,8 +1,11 @@
 import { DragDropContext, Draggable, Droppable, type DropResult } from '@hello-pangea/dnd';
 import { KanbanBoard, KanbanCard, type KanbanCardTask, KanbanColumn } from '@seta/shared-ui';
 import { type HTMLAttributes, useEffect, useMemo, useRef, useState } from 'react';
+import { BoardSkeleton } from '../components/board-skeleton';
+import { PlanError } from '../components/plan-error';
 import { PlanFilterBar } from '../components/plan-filter-bar';
 import { PlanPageHeader } from '../components/plan-page-header';
+import { PlanSearchInput } from '../components/plan-search-input';
 import { PlanViewSwitcher } from '../components/plan-view-switcher';
 import { VirtualizedBucketList } from '../components/virtualized-bucket-list';
 import { useCreateBucket } from '../hooks/mutations/create-bucket';
@@ -11,7 +14,9 @@ import { useMoveTask } from '../hooks/mutations/move-task';
 import { useReorderBucket } from '../hooks/mutations/reorder-bucket';
 import { usePlanBoard } from '../hooks/queries/use-plan-board';
 import { useBoardKeyboard } from '../hooks/use-board-keyboard';
+import { useFilterOptions } from '../hooks/use-filter-options';
 import { computeNextFocus } from '../state/compute-next-focus';
+import { useRecentlyMovedTasks } from '../state/recently-moved-tasks';
 import { useSavingIds } from '../state/saving-ids';
 import type { BoardFilters } from '../state/url-state';
 
@@ -22,6 +27,16 @@ interface Props {
   onOpenTask: (taskId: string) => void;
   view: 'board' | 'grid';
   onViewChange: (v: 'board' | 'grid') => void;
+  q?: string;
+  onQChange?: (next: string) => void;
+  /** When provided, header shows "You have N" count. */
+  currentUserId?: string;
+  /** When provided, header renders breadcrumb and overflow menu. */
+  groupName?: string;
+  canManage?: boolean;
+  onRenamePlan?: (name: string) => void;
+  onArchivePlan?: () => void;
+  onDeletePlan?: () => void;
 }
 
 const NO_BUCKET_DROPPABLE_ID = '__no_bucket__';
@@ -41,13 +56,23 @@ export function PlanPage({
   onOpenTask,
   view,
   onViewChange,
+  q = '',
+  onQChange,
+  currentUserId,
+  groupName,
+  canManage,
+  onRenamePlan,
+  onArchivePlan,
+  onDeletePlan,
 }: Props) {
   const boardQ = usePlanBoard(planId);
+  const filterOptions = useFilterOptions(boardQ.data);
   const moveTask = useMoveTask(planId);
   const reorderBucket = useReorderBucket(planId);
   const createTask = useCreateTask(planId);
   const createBucket = useCreateBucket(planId);
   const savingIds = useSavingIds((s) => s.ids);
+  const recentlyMoved = useRecentlyMovedTasks((s) => s.ids);
 
   const [focusedCardId, setFocusedCardId] = useState<string | null>(null);
   const cardRefs = useRef<Map<string, HTMLElement>>(new Map());
@@ -69,6 +94,9 @@ export function PlanPage({
       if (filters.skill_tags.length && !t.skill_tags.some((s) => filters.skill_tags.includes(s))) {
         continue;
       }
+      if (q && !t.title.toLowerCase().includes(q.toLowerCase())) {
+        continue;
+      }
       const card: KanbanCardTask = {
         id: t.id,
         title: t.title,
@@ -80,6 +108,7 @@ export function PlanPage({
           display_name: a.display_name,
         })),
         saving: savingIds.has(t.id),
+        recentlyMoved: recentlyMoved.has(t.id),
       };
       const arr = map.get(t.bucket_id) ?? [];
       arr.push(card);
@@ -93,7 +122,7 @@ export function PlanPage({
       });
     }
     return map;
-  }, [boardQ.data, filters, savingIds]);
+  }, [boardQ.data, filters, savingIds, recentlyMoved, q]);
 
   // Build a flat bucket structure for computeNextFocus. Derived from boardQ.data.buckets so
   // the order matches the rendered columns. Falls back to empty when data isn't loaded yet.
@@ -127,12 +156,18 @@ export function PlanPage({
   });
 
   if (boardQ.isPending) {
-    return <div data-testid="board-skeleton">Loading…</div>;
+    return <BoardSkeleton />;
   }
   if (boardQ.isError || !boardQ.data) {
-    return <div role="alert">Couldn't load the plan.</div>;
+    return <PlanError onRetry={() => boardQ.refetch()} />;
   }
   const { plan, buckets, tasks } = boardQ.data;
+  const hasActiveFilters =
+    filters.assignee_ids.length > 0 ||
+    filters.label_ids.length > 0 ||
+    filters.skill_tags.length > 0 ||
+    q.length > 0;
+  const totalVisible = Array.from(tasksByBucket.values()).reduce((acc, l) => acc + l.length, 0);
 
   function onDragEnd(r: DropResult) {
     if (!r.destination) return;
@@ -173,11 +208,50 @@ export function PlanPage({
 
   return (
     <div className="plan-page">
-      <PlanPageHeader planName={plan.name} bucketCount={buckets.length} taskCount={tasks.length} />
+      <PlanPageHeader
+        planName={plan.name}
+        groupName={groupName}
+        groupId={plan.group_id}
+        bucketCount={buckets.length}
+        taskCount={tasks.length}
+        myTaskCount={
+          currentUserId
+            ? tasks.filter((t) => t.assignees.some((a) => a.user_id === currentUserId)).length
+            : undefined
+        }
+        canRename={canManage}
+        onRename={onRenamePlan}
+        onArchive={canManage ? onArchivePlan : undefined}
+        onDelete={canManage ? onDeletePlan : undefined}
+      />
       <div className="plan-toolbar">
-        <PlanFilterBar filters={filters} onChange={onFiltersChange} />
-        <PlanViewSwitcher value={view} onChange={onViewChange} />
+        <PlanFilterBar
+          filters={filters}
+          onChange={onFiltersChange}
+          assigneeOptions={filterOptions.assigneeOptions}
+          labelOptions={filterOptions.labelOptions}
+          skillOptions={filterOptions.skillOptions}
+        />
+        <div className="plan-toolbar__right">
+          {onQChange && <PlanSearchInput value={q} onChange={onQChange} />}
+          <PlanViewSwitcher value={view} onChange={onViewChange} />
+        </div>
       </div>
+
+      {hasActiveFilters && totalVisible === 0 && (
+        <div role="status" className="plan-no-results">
+          <p>No tasks match these filters.</p>
+          <button
+            type="button"
+            onClick={() => {
+              onFiltersChange({ assignee_ids: [], label_ids: [], skill_tags: [] });
+              onQChange?.('');
+            }}
+          >
+            Clear filters
+          </button>
+        </div>
+      )}
 
       <DragDropContext onDragEnd={onDragEnd}>
         <Droppable droppableId="board" type="COLUMN" direction="horizontal">

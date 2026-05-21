@@ -9,6 +9,8 @@ export interface TaskSheetProps {
   checklist?: ReactNode;
   activity?: ReactNode;
   footer?: ReactNode;
+  /** Optional overflow menu / extra controls rendered in the header. */
+  headerActions?: ReactNode;
   onClose: () => void;
   /** When set, replaces the body with the concurrent-delete state. */
   deletedBy?: string;
@@ -23,6 +25,7 @@ export function TaskSheet({
   checklist,
   activity,
   footer,
+  headerActions,
   onClose,
   deletedBy,
   saving,
@@ -42,6 +45,7 @@ export function TaskSheet({
           <h2 className="task-sheet__title">{title}</h2>
           {subtitle && <div className="task-sheet__subtitle">{subtitle}</div>}
         </div>
+        {headerActions}
         <button type="button" className="task-sheet__close" aria-label="Close" onClick={onClose}>
           <X className="size-3.5" aria-hidden />
         </button>
