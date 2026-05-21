@@ -24,4 +24,7 @@ function EmptyClearable() {
   const [v, setV] = useState<string | null>('2026-08-30');
   return <DatePill kind="Due" value={v} onChange={setV} clearable />;
 }
-export const EmptyClearableStory: Story = { render: () => <EmptyClearable /> };
+export const EmptyClearableStory: Story = {
+  args: { kind: 'Due', value: '2026-08-30', onChange: () => undefined, clearable: true },
+  render: () => <EmptyClearable />,
+};

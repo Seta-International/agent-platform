@@ -16,4 +16,7 @@ function LiveImpl() {
   const [v, setV] = useState<PreviewType>('automatic');
   return <PreviewTypeRadio value={v} onChange={setV} />;
 }
-export const Live: Story = { render: () => <LiveImpl /> };
+export const Live: Story = {
+  args: { value: 'automatic', onChange: () => undefined },
+  render: () => <LiveImpl />,
+};

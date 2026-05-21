@@ -15,4 +15,7 @@ function LiveImpl() {
   const [v, setV] = useState<1 | 3 | 5 | 9>(5);
   return <PrioritySegmented value={v} onChange={setV} />;
 }
-export const Live: Story = { render: () => <LiveImpl /> };
+export const Live: Story = {
+  args: { value: 5, onChange: () => undefined },
+  render: () => <LiveImpl />,
+};

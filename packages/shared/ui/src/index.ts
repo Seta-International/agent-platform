@@ -69,6 +69,7 @@ export * from './primitives/tooltip';
 // Task
 export * from './task/add-reference-combobox';
 export * from './task/date-pill';
+export * from './task/mini-gantt';
 export * from './task/preview-type-radio';
 export * from './task/priority-segmented';
 export * from './task/progress-slider';

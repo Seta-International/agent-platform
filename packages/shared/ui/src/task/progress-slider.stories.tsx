@@ -11,9 +11,18 @@ function Live({ initial }: { initial: number }) {
   return <ProgressSlider value={v} onChange={setV} />;
 }
 
-export const NotStarted: Story = { render: () => <Live initial={0} /> };
-export const InProgress: Story = { render: () => <Live initial={60} /> };
-export const Done: Story = { render: () => <Live initial={100} /> };
+export const NotStarted: Story = {
+  args: { value: 0, onChange: () => undefined },
+  render: () => <Live initial={0} />,
+};
+export const InProgress: Story = {
+  args: { value: 60, onChange: () => undefined },
+  render: () => <Live initial={60} />,
+};
+export const Done: Story = {
+  args: { value: 100, onChange: () => undefined },
+  render: () => <Live initial={100} />,
+};
 export const Disabled: Story = {
-  args: { value: 45, onChange: () => {}, disabled: true },
+  args: { value: 45, onChange: () => undefined, disabled: true },
 };

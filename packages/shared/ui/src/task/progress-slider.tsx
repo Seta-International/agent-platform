@@ -18,7 +18,7 @@ export function ProgressSlider({ value, onChange, disabled = false }: Props) {
         <Slider.Root
           className="seta-progress-slider"
           value={[value]}
-          onValueChange={(v) => onChange(v[0])}
+          onValueChange={(v) => onChange(v[0] ?? 0)}
           min={0}
           max={100}
           step={1}
