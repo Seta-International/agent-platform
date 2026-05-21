@@ -1,12 +1,12 @@
 import type { SessionScope } from '@seta/core';
 import { withEmit } from '@seta/core/events';
-import { and, asc, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import { checklistItems, plans, tasks } from '../../db/schema.ts';
 import { emitPlannerChecklistItemAdded } from '../../events/emit-helpers.ts';
 import type { ChecklistItemRow } from '../dto.ts';
 import type { AddChecklistItemInput } from '../inputs.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
-import { placeAfter } from '../sort-order.ts';
+import { hintBetween } from './order-hint.ts';
 
 type ChecklistItemDbRow = typeof checklistItems.$inferSelect;
 
@@ -45,9 +45,9 @@ export async function addChecklistItem(
         .select()
         .from(checklistItems)
         .where(eq(checklistItems.task_id, input.task_id))
-        .orderBy(asc(checklistItems.sort_order));
+        .orderBy(sql`order_hint NULLS LAST`);
 
-      let sortOrder: number;
+      let orderHint: string;
       if (input.after_item_id !== undefined) {
         const afterItem = existingItems.find((i) => i.id === input.after_item_id);
         if (!afterItem) {
@@ -58,10 +58,10 @@ export async function addChecklistItem(
         }
         const afterIndex = existingItems.indexOf(afterItem);
         const nextItem = existingItems[afterIndex + 1];
-        sortOrder = placeAfter(afterItem.sort_order, nextItem?.sort_order);
+        orderHint = hintBetween(afterItem.order_hint, nextItem?.order_hint ?? null);
       } else {
         const last = existingItems[existingItems.length - 1];
-        sortOrder = placeAfter(last?.sort_order, undefined);
+        orderHint = hintBetween(last?.order_hint ?? null, null);
       }
 
       const [row] = await tx
@@ -69,7 +69,7 @@ export async function addChecklistItem(
         .values({
           task_id: input.task_id,
           label: input.label,
-          sort_order: sortOrder,
+          order_hint: orderHint,
         })
         .returning();
       if (!row) throw new PlannerError('VALIDATION', 'Insert returned no row');
@@ -83,7 +83,7 @@ export async function addChecklistItem(
         task_id: input.task_id,
         plan_id: task.plan_id,
         label: row.label,
-        sort_order: row.sort_order,
+        order_hint: row.order_hint,
       });
     },
   );
@@ -97,7 +97,9 @@ function rowToDto(row: ChecklistItemDbRow): ChecklistItemRow {
     task_id: row.task_id,
     label: row.label,
     checked: row.checked,
-    sort_order: row.sort_order,
+    order_hint: row.order_hint,
+    external_id: row.external_id,
+    external_etag: row.external_etag,
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
   };

@@ -47,8 +47,8 @@ export async function updateChecklistItem(input: {
 
       requirePermission(input.session, 'planner.task.update', plan.group_id);
 
-      const before: Partial<{ label: string; checked: boolean; sort_order: number }> = {};
-      const after: Partial<{ label: string; checked: boolean; sort_order: number }> = {};
+      const before: Partial<{ label: string; checked: boolean; order_hint: string | null }> = {};
+      const after: Partial<{ label: string; checked: boolean; order_hint: string | null }> = {};
       const setFields: { label?: string; checked?: boolean; updated_at: Date } = {
         updated_at: new Date(),
       };
@@ -100,7 +100,9 @@ function rowToDto(row: ChecklistItemDbRow): ChecklistItemRow {
     task_id: row.task_id,
     label: row.label,
     checked: row.checked,
-    sort_order: row.sort_order,
+    order_hint: row.order_hint,
+    external_id: row.external_id,
+    external_etag: row.external_etag,
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
   };

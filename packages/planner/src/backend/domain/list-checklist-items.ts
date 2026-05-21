@@ -1,5 +1,5 @@
 import type { SessionScope } from '@seta/core';
-import { and, asc, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import { plannerDb } from '../../db/index.ts';
 import { checklistItems, plans, tasks } from '../../db/schema.ts';
 import type { ChecklistItemRow } from '../dto.ts';
@@ -46,7 +46,7 @@ export async function listChecklistItems(input: {
     .select()
     .from(checklistItems)
     .where(eq(checklistItems.task_id, input.task_id))
-    .orderBy(asc(checklistItems.sort_order));
+    .orderBy(sql`order_hint NULLS LAST`);
 
   return rows.map(rowToDto);
 }
@@ -57,7 +57,9 @@ function rowToDto(row: ChecklistItemDbRow): ChecklistItemRow {
     task_id: row.task_id,
     label: row.label,
     checked: row.checked,
-    sort_order: row.sort_order,
+    order_hint: row.order_hint,
+    external_id: row.external_id,
+    external_etag: row.external_etag,
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
   };
