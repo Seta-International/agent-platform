@@ -37,21 +37,30 @@ export interface PreviewCardProps {
   variant: PreviewVariant;
 }
 
+export interface PreviewBodyTask {
+  description?: string;
+  checklist?: ReadonlyArray<ChecklistItem>;
+  references?: ReadonlyArray<PreviewReference>;
+}
+
+export interface PreviewBodyProps {
+  task: PreviewBodyTask;
+  variant: PreviewVariant;
+}
+
 type PickedSource = 'references' | 'description' | 'checklist';
 
 export function PreviewCard({ task, variant }: PreviewCardProps) {
-  const body = renderBody(task, variant);
-
   return (
     <div style={cardShell}>
       <div style={titleStyle}>{task.title}</div>
-      {body}
+      <PreviewBody task={task} variant={variant} />
       <Footer task={task} />
     </div>
   );
 }
 
-function renderBody(task: PreviewCardTask, variant: PreviewVariant) {
+export function PreviewBody({ task, variant }: PreviewBodyProps) {
   if (variant === 'noPreview') return null;
 
   if (variant === 'automatic') {
@@ -84,14 +93,14 @@ function variantToSource(
   return 'references';
 }
 
-function pickAutomaticSource(task: PreviewCardTask): PickedSource | null {
+function pickAutomaticSource(task: PreviewBodyTask): PickedSource | null {
   if (task.references && task.references.length > 0) return 'references';
   if (task.description && task.description.trim().length > 0) return 'description';
   if (task.checklist && task.checklist.length > 0) return 'checklist';
   return null;
 }
 
-function bodyForSource(task: PreviewCardTask, source: PickedSource) {
+function bodyForSource(task: PreviewBodyTask, source: PickedSource) {
   if (source === 'references') {
     const ref = task.references?.[0];
     if (!ref) return null;
