@@ -1,8 +1,8 @@
-import { embedTask } from '@seta/copilot/testing/embed';
 import { resetCoreDb } from '@seta/core/internal/test-support';
 import { closePools, initPools } from '@seta/shared-db';
 import { FakeEmbeddingProvider, withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
+import { embedTaskForTest } from '../../../../tests/helpers/embed.ts';
 import { seedTaskForTest } from '../../../../tests/helpers/seed.ts';
 import { VectorRetriever } from '../vector.ts';
 
@@ -35,30 +35,41 @@ describe('VectorRetriever', () => {
       const provider = new FakeEmbeddingProvider();
       const retriever = new VectorRetriever({ pool });
 
-      const t1 = await seedTaskForTest(pool, {
+      const t1Opts = {
         title: 'kubernetes cluster setup',
         description: 'Setting up a kubernetes cluster with nodes and pods.',
-        skill_tags: [],
-      });
-      const t2 = await seedTaskForTest(pool, {
+        skill_tags: [] as string[],
+      };
+      const t1 = await seedTaskForTest(pool, t1Opts);
+      const t2Opts = {
         tenant_id: t1.tenant_id,
         title: 'deploy nginx reverse proxy',
         description: 'Configure nginx as a reverse proxy for web traffic.',
-        skill_tags: [],
-      });
-      const t3 = await seedTaskForTest(pool, {
+        skill_tags: [] as string[],
+      };
+      const t2 = await seedTaskForTest(pool, t2Opts);
+      const t3Opts = {
         tenant_id: t1.tenant_id,
         title: 'setup postgresql database',
         description: 'Install and configure postgresql database server.',
-        skill_tags: [],
-      });
+        skill_tags: [] as string[],
+      };
+      const t3 = await seedTaskForTest(pool, t3Opts);
 
       // Embed all tasks
-      for (const t of [t1, t2, t3]) {
-        await embedTask(
-          { tenant_id: t.tenant_id, task_id: t.task_id, event_id: 'test' },
-          { pool, provider },
-        );
+      for (const [t, opts] of [
+        [t1, t1Opts],
+        [t2, t2Opts],
+        [t3, t3Opts],
+      ] as const) {
+        await embedTaskForTest(pool, {
+          tenant_id: t.tenant_id,
+          task_id: t.task_id,
+          title: opts.title,
+          description: opts.description,
+          skill_tags: opts.skill_tags,
+          provider,
+        });
       }
 
       // Query using vector for t1
@@ -83,26 +94,36 @@ describe('VectorRetriever', () => {
       const provider = new FakeEmbeddingProvider();
       const retriever = new VectorRetriever({ pool });
 
-      const taskA = await seedTaskForTest(pool, {
+      const taskAOpts = {
         title: 'machine learning pipeline tenantA',
         description: 'Build ML pipeline for training and inference.',
-        skill_tags: [],
-      });
-      const taskB = await seedTaskForTest(pool, {
+        skill_tags: [] as string[],
+      };
+      const taskA = await seedTaskForTest(pool, taskAOpts);
+      const taskBOpts = {
         title: 'machine learning pipeline tenantB',
         description: 'Build ML pipeline for training and inference.',
-        skill_tags: [],
-      });
+        skill_tags: [] as string[],
+      };
+      const taskB = await seedTaskForTest(pool, taskBOpts);
 
       // Embed both tasks
-      await embedTask(
-        { tenant_id: taskA.tenant_id, task_id: taskA.task_id, event_id: 'test-a' },
-        { pool, provider },
-      );
-      await embedTask(
-        { tenant_id: taskB.tenant_id, task_id: taskB.task_id, event_id: 'test-b' },
-        { pool, provider },
-      );
+      await embedTaskForTest(pool, {
+        tenant_id: taskA.tenant_id,
+        task_id: taskA.task_id,
+        title: taskAOpts.title,
+        description: taskAOpts.description,
+        skill_tags: taskAOpts.skill_tags,
+        provider,
+      });
+      await embedTaskForTest(pool, {
+        tenant_id: taskB.tenant_id,
+        task_id: taskB.task_id,
+        title: taskBOpts.title,
+        description: taskBOpts.description,
+        skill_tags: taskBOpts.skill_tags,
+        provider,
+      });
 
       // Use a shared query vector
       const queryVectors = await provider.embed(['machine learning pipeline']);
@@ -134,16 +155,21 @@ describe('VectorRetriever', () => {
           `Paragraph ${i + 1}: This is a detailed description of a complex distributed system task involving microservices architecture, container orchestration, service mesh configuration, load balancing strategies, and fault tolerance patterns.`,
       ).join('\n\n');
 
-      const task = await seedTaskForTest(pool, {
+      const taskOpts = {
         title: 'distributed system architecture design',
         description: longDescription,
-        skill_tags: [],
-      });
+        skill_tags: [] as string[],
+      };
+      const task = await seedTaskForTest(pool, taskOpts);
 
-      await embedTask(
-        { tenant_id: task.tenant_id, task_id: task.task_id, event_id: 'test-chunk' },
-        { pool, provider },
-      );
+      await embedTaskForTest(pool, {
+        tenant_id: task.tenant_id,
+        task_id: task.task_id,
+        title: taskOpts.title,
+        description: taskOpts.description,
+        skill_tags: taskOpts.skill_tags,
+        provider,
+      });
 
       // Confirm multiple chunks were stored
       const countResult = await pool.query<{ count: string }>(

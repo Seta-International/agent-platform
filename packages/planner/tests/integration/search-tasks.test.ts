@@ -1,9 +1,9 @@
-import { embedTask } from '@seta/copilot/testing/embed';
 import { resetCoreDb } from '@seta/core/internal/test-support';
 import { closePools, initPools } from '@seta/shared-db';
 import { FakeEmbeddingProvider, withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { searchTasks } from '../../src/index.ts';
+import { embedTaskForTest } from '../helpers/embed.ts';
 import { seedTaskForTest } from '../helpers/seed.ts';
 
 const withDb = <T>(fn: (ctx: { pool: import('pg').Pool }) => Promise<T>) =>
@@ -29,16 +29,21 @@ describe('searchTasks', () => {
     withDb(async ({ pool }) => {
       const provider = new FakeEmbeddingProvider();
 
-      const task = await seedTaskForTest(pool, {
+      const taskOpts = {
         title: 'kubernetes review',
         description: 'review prod cluster for kubernetes deployment issues',
-        skill_tags: ['kubernetes'],
-      });
+        skill_tags: ['kubernetes'] as string[],
+      };
+      const task = await seedTaskForTest(pool, taskOpts);
 
-      await embedTask(
-        { tenant_id: task.tenant_id, task_id: task.task_id, event_id: 'test' },
-        { pool, provider },
-      );
+      await embedTaskForTest(pool, {
+        tenant_id: task.tenant_id,
+        task_id: task.task_id,
+        title: taskOpts.title,
+        description: taskOpts.description,
+        skill_tags: taskOpts.skill_tags,
+        provider,
+      });
 
       const hits = await searchTasks(
         {
@@ -59,17 +64,22 @@ describe('searchTasks', () => {
     withDb(async ({ pool }) => {
       const realProvider = new FakeEmbeddingProvider();
 
-      const task = await seedTaskForTest(pool, {
+      const taskOpts = {
         title: 'kubernetes review',
         description: 'review prod cluster for kubernetes deployment issues',
-        skill_tags: ['kubernetes'],
-      });
+        skill_tags: ['kubernetes'] as string[],
+      };
+      const task = await seedTaskForTest(pool, taskOpts);
 
       // Embed with real provider so FTS tsv is populated
-      await embedTask(
-        { tenant_id: task.tenant_id, task_id: task.task_id, event_id: 'test' },
-        { pool, provider: realProvider },
-      );
+      await embedTaskForTest(pool, {
+        tenant_id: task.tenant_id,
+        task_id: task.task_id,
+        title: taskOpts.title,
+        description: taskOpts.description,
+        skill_tags: taskOpts.skill_tags,
+        provider: realProvider,
+      });
 
       const failingProvider: import('@seta/shared-embeddings').EmbeddingProvider = {
         modelId: 'failing:provider',

@@ -55,6 +55,9 @@ importers:
 
   apps/cli:
     dependencies:
+      '@seta/copilot':
+        specifier: workspace:^
+        version: link:../../packages/copilot
       '@seta/core':
         specifier: workspace:^
         version: link:../../packages/core
@@ -648,9 +651,6 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
-      '@seta/copilot':
-        specifier: workspace:^
-        version: link:../copilot
       '@seta/core':
         specifier: workspace:^
         version: link:../core

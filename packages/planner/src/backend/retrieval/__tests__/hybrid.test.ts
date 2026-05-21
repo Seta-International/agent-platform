@@ -1,8 +1,8 @@
-import { embedTask } from '@seta/copilot/testing/embed';
 import { resetCoreDb } from '@seta/core/internal/test-support';
 import { closePools, initPools } from '@seta/shared-db';
 import { FakeEmbeddingProvider, withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
+import { embedTaskForTest } from '../../../../tests/helpers/embed.ts';
 import { seedTaskForTest } from '../../../../tests/helpers/seed.ts';
 import { HybridRetriever } from '../hybrid.ts';
 
@@ -36,30 +36,41 @@ describe('HybridRetriever', () => {
       const retriever = new HybridRetriever({ pool });
 
       // Task A: strong FTS signal + embeddings for 'kubernetes deployment'
-      const taskA = await seedTaskForTest(pool, {
+      const taskAOpts = {
         title: 'kubernetes deployment',
         description: 'rollout review for prod cluster',
-        skill_tags: ['kubernetes'],
-      });
+        skill_tags: ['kubernetes'] as string[],
+      };
+      const taskA = await seedTaskForTest(pool, taskAOpts);
 
       // Decoy tasks — different tenant; they won't appear in taskA's results
-      const taskB = await seedTaskForTest(pool, {
+      const taskBOpts = {
         title: 'deploy nginx reverse proxy',
         description: 'configure nginx as a load balancer',
-        skill_tags: [],
-      });
-      const taskC = await seedTaskForTest(pool, {
+        skill_tags: [] as string[],
+      };
+      const taskB = await seedTaskForTest(pool, taskBOpts);
+      const taskCOpts = {
         title: 'setup postgresql database',
         description: 'install and configure postgresql',
-        skill_tags: [],
-      });
+        skill_tags: [] as string[],
+      };
+      const taskC = await seedTaskForTest(pool, taskCOpts);
 
       // Embed all three tasks
-      for (const t of [taskA, taskB, taskC]) {
-        await embedTask(
-          { tenant_id: t.tenant_id, task_id: t.task_id, event_id: 'test' },
-          { pool, provider },
-        );
+      for (const [t, opts] of [
+        [taskA, taskAOpts],
+        [taskB, taskBOpts],
+        [taskC, taskCOpts],
+      ] as const) {
+        await embedTaskForTest(pool, {
+          tenant_id: t.tenant_id,
+          task_id: t.task_id,
+          title: opts.title,
+          description: opts.description,
+          skill_tags: opts.skill_tags,
+          provider,
+        });
       }
 
       // Build query vector by embedding something semantically close to taskA
@@ -89,17 +100,22 @@ describe('HybridRetriever', () => {
       const provider = new FakeEmbeddingProvider();
       const retriever = new HybridRetriever({ pool });
 
-      const task = await seedTaskForTest(pool, {
+      const taskOpts = {
         title: 'literal-exact-phrase-xyz',
-        description: null,
-        skill_tags: [],
-      });
+        description: null as string | null,
+        skill_tags: [] as string[],
+      };
+      const task = await seedTaskForTest(pool, taskOpts);
 
       // Embed the task so it's indexed
-      await embedTask(
-        { tenant_id: task.tenant_id, task_id: task.task_id, event_id: 'test' },
-        { pool, provider },
-      );
+      await embedTaskForTest(pool, {
+        tenant_id: task.tenant_id,
+        task_id: task.task_id,
+        title: taskOpts.title,
+        description: taskOpts.description,
+        skill_tags: taskOpts.skill_tags,
+        provider,
+      });
 
       // Use an unrelated query vector that won't match semantically
       const unrelatedVectors = await provider.embed(['unrelated semantic query about cooking']);
