@@ -141,7 +141,7 @@ export function GroupRail({ group, members, canManage, onAddMember, shownMemberC
               value={
                 group.external_source === 'native'
                   ? 'Native'
-                  : `M365${group.external_id ? ' · ' + group.external_id : ''}`
+                  : `M365${group.external_id ? ` · ${group.external_id}` : ''}`
               }
             />
             <PropertyRow

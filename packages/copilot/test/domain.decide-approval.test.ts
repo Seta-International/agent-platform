@@ -3,7 +3,7 @@ import type { Mastra } from '@mastra/core';
 import { describe, expect, it, vi } from 'vitest';
 import { decideApproval } from '../src/backend/domain/decide-approval.ts';
 import { listMyPendingApprovals } from '../src/backend/domain/list-my-pending-approvals.ts';
-import type { SessionLike } from '../src/backend/routes.ts';
+import type { SessionLike } from '../src/backend/types.ts';
 import { onLifecycleEvent } from '../src/backend/workflows/lifecycle-hook.ts';
 import { withCopilotTestDb } from './test-helpers.ts';
 
@@ -126,7 +126,7 @@ describe('decideApproval', () => {
   });
 
   it('rejects when caller lacks copilot.workflow.approve permission', async () => {
-    await withCopilotTestDb(async ({ pool }) => {
+    await withCopilotTestDb(async ({ pool: _pool }) => {
       const me = sessionWith(['copilot.workflow.run.read.self']);
       await expect(
         decideApproval({

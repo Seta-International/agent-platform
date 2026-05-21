@@ -6,7 +6,7 @@ import { getWorkflowRun } from '../../src/backend/domain/get-workflow-run.ts';
 import { listMyPendingApprovals } from '../../src/backend/domain/list-my-pending-approvals.ts';
 import { listWorkflowRuns } from '../../src/backend/domain/list-workflow-runs.ts';
 import { rerunWorkflow } from '../../src/backend/domain/rerun-workflow.ts';
-import type { SessionLike } from '../../src/backend/routes.ts';
+import type { SessionLike } from '../../src/backend/types.ts';
 import { onLifecycleEvent } from '../../src/backend/workflows/lifecycle-hook.ts';
 import { withCopilotTestDb } from '../test-helpers.ts';
 

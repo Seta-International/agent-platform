@@ -2,8 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { getWorkflowRun } from '../src/backend/domain/get-workflow-run.ts';
 import { getWorkflowRunSnapshot } from '../src/backend/domain/get-workflow-run-snapshot.ts';
-import type { SessionLike } from '../src/backend/routes.ts';
 import { buildMastra } from '../src/backend/runtime.ts';
+import type { SessionLike } from '../src/backend/types.ts';
 import { onLifecycleEvent } from '../src/backend/workflows/lifecycle-hook.ts';
 import { withCopilotTestDb } from './test-helpers.ts';
 

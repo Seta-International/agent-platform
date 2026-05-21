@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { Mastra } from '@mastra/core';
 import { describe, expect, it, vi } from 'vitest';
 import { rerunWorkflow } from '../src/backend/domain/rerun-workflow.ts';
-import type { SessionLike } from '../src/backend/routes.ts';
+import type { SessionLike } from '../src/backend/types.ts';
 import { onLifecycleEvent } from '../src/backend/workflows/lifecycle-hook.ts';
 import { withCopilotTestDb } from './test-helpers.ts';
 

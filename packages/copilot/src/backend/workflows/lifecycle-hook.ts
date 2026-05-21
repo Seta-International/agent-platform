@@ -172,7 +172,7 @@ async function onRunSuspended(client: PoolClient, evt: RunSuspendedEvent): Promi
   );
   if (ins.rowCount === 0) return;
 
-  const approvalId = ins.rows[0]!.approval_id;
+  const approvalId = ins.rows[0]?.approval_id;
   await insertOutboxEvent(client, {
     eventType: 'copilot.workflow.approval.requested',
     aggregateId: evt.runId,
@@ -362,7 +362,7 @@ export function adaptMastraEvent(raw: RawMastraEvent): MastraLifecycleEvent | nu
         typeof data.approverUserId === 'string' ? data.approverUserId : startedBy;
       const fallbackApproverUserId =
         typeof data.fallbackApproverUserId === 'string' ? data.fallbackApproverUserId : null;
-      const surfaceCanvas = data.surfaceCanvas === false ? false : true;
+      const surfaceCanvas = data.surfaceCanvas !== false;
       const surfaceChatThreadId =
         typeof data.surfaceChatThreadId === 'string' ? data.surfaceChatThreadId : null;
       const expiresAt =

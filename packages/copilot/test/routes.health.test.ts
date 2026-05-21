@@ -1,7 +1,8 @@
 import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
-import { registerCopilotRoutes, type SessionLike } from '../src/backend/routes.ts';
+import { registerCopilotRoutes } from '../src/backend/routes.ts';
 import { buildMastra } from '../src/backend/runtime.ts';
+import type { SessionLike } from '../src/backend/types.ts';
 import { withCopilotTestDb } from './test-helpers.ts';
 
 type TestEnv = { Variables: { session: SessionLike } };
