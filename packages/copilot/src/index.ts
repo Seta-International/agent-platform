@@ -16,6 +16,8 @@ export type {
   WorkflowRunStatus,
 } from './backend/domain/list-workflow-runs.ts';
 export { listWorkflowRuns } from './backend/domain/list-workflow-runs.ts';
+export type { RerunWorkflowOpts, RerunWorkflowResult } from './backend/domain/rerun-workflow.ts';
+export { rerunWorkflow } from './backend/domain/rerun-workflow.ts';
 export { bindOtel, otel } from './backend/observability.ts';
 export type { SessionLike } from './backend/routes.ts';
 export type { CopilotEvent } from './events/index.ts';
