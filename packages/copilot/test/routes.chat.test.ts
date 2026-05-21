@@ -1,5 +1,6 @@
 import { createTestTenantWithAdmin } from '@seta/identity/testing';
 import { Hono } from 'hono';
+import type { Pool } from 'pg';
 import { describe, expect, it } from 'vitest';
 import { registerCopilotRoutes } from '../src/backend/routes.ts';
 import { withCopilotTestDb } from './test-helpers.ts';
@@ -16,6 +17,11 @@ const fakeAgent = {
 };
 
 const fakeMastra = { getStorage: () => null } as never;
+const fakePool = {
+  connect: async () => {
+    throw new Error('no pool in unit test');
+  },
+} as unknown as Pool;
 const fakeSessionAgents = {
   get: (name: string) => (name === 'router' ? fakeAgent : undefined),
   names: () => ['router'],
@@ -35,7 +41,7 @@ const v6UserMessage = (text: string) => ({
 describe('POST /api/copilot/v1/chat/:agentName', () => {
   it('returns 401 when no session', async () => {
     const app = new Hono<{ Variables: { session: TestSession } }>();
-    registerCopilotRoutes(app, { factory: fakeFactory, mastra: fakeMastra });
+    registerCopilotRoutes(app, { factory: fakeFactory, mastra: fakeMastra, pool: fakePool });
     const res = await app.request('/api/copilot/v1/chat/router', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -55,7 +61,7 @@ describe('POST /api/copilot/v1/chat/:agentName', () => {
       });
       await next();
     });
-    registerCopilotRoutes(app, { factory: fakeFactory, mastra: fakeMastra });
+    registerCopilotRoutes(app, { factory: fakeFactory, mastra: fakeMastra, pool: fakePool });
     const res = await app.request('/api/copilot/v1/chat/router', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -77,7 +83,7 @@ describe('POST /api/copilot/v1/chat/:agentName', () => {
         });
         await next();
       });
-      registerCopilotRoutes(app, { factory: fakeFactory, mastra: fakeMastra });
+      registerCopilotRoutes(app, { factory: fakeFactory, mastra: fakeMastra, pool: fakePool });
       const res = await app.request('/api/copilot/v1/chat/unknown', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -100,7 +106,7 @@ describe('POST /api/copilot/v1/chat/:agentName', () => {
         });
         await next();
       });
-      registerCopilotRoutes(app, { factory: fakeFactory, mastra: fakeMastra });
+      registerCopilotRoutes(app, { factory: fakeFactory, mastra: fakeMastra, pool: fakePool });
       const res = await app.request('/api/copilot/v1/chat/router', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },

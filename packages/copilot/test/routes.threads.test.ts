@@ -51,6 +51,7 @@ function makeApp(args: {
   user_id: string;
   permissions?: string[];
   mastra: unknown;
+  pool: import('pg').Pool;
 }) {
   const app = new Hono<{ Variables: { session: TestSession } }>();
   app.use('*', async (c, next) => {
@@ -68,7 +69,11 @@ function makeApp(args: {
     });
     await next();
   });
-  registerCopilotRoutes(app, { factory: (() => ({})) as never, mastra: args.mastra as never });
+  registerCopilotRoutes(app, {
+    factory: (() => ({})) as never,
+    mastra: args.mastra as never,
+    pool: args.pool,
+  });
   return app;
 }
 
@@ -80,7 +85,7 @@ describe('threads routes', () => {
       const storage = mastra.getStorage();
       await (storage as { init: () => Promise<void> }).init();
 
-      const app = makeApp({ tenant_id, user_id: admin_user_id, mastra });
+      const app = makeApp({ tenant_id, user_id: admin_user_id, mastra, pool });
       const res = await app.request('/api/copilot/v1/threads');
       expect(res.status).toBe(200);
       const body = (await res.json()) as { threads: unknown[] };
@@ -97,7 +102,7 @@ describe('threads routes', () => {
 
       await seedThread(storage, { id: 'foreign-1', resourceId: 'someone-else', title: 'foreign' });
 
-      const app = makeApp({ tenant_id, user_id: admin_user_id, mastra });
+      const app = makeApp({ tenant_id, user_id: admin_user_id, mastra, pool });
       const res = await app.request('/api/copilot/v1/threads/foreign-1');
       expect(res.status).toBe(404);
     });
@@ -112,7 +117,7 @@ describe('threads routes', () => {
 
       await seedThread(storage, { id: 'foreign-2', resourceId: 'someone-else', title: 'foreign' });
 
-      const app = makeApp({ tenant_id, user_id: admin_user_id, mastra });
+      const app = makeApp({ tenant_id, user_id: admin_user_id, mastra, pool });
       const res = await app.request('/api/copilot/v1/threads/foreign-2', {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
@@ -129,7 +134,7 @@ describe('threads routes', () => {
       await (storage as { init: () => Promise<void> }).init();
 
       const app = new Hono<{ Variables: { session: TestSession } }>();
-      registerCopilotRoutes(app, { factory: (() => ({})) as never, mastra: mastra as never });
+      registerCopilotRoutes(app, { factory: (() => ({})) as never, mastra: mastra as never, pool });
       const res = await app.request('/api/copilot/v1/threads');
       expect(res.status).toBe(401);
     });
@@ -147,6 +152,7 @@ describe('threads routes', () => {
         user_id: admin_user_id,
         permissions: ['copilot.chat.use'],
         mastra,
+        pool,
       });
       const res = await app.request('/api/copilot/v1/threads');
       expect(res.status).toBe(403);

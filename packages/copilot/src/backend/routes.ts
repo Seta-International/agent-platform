@@ -2,11 +2,13 @@ import { toAISdkStream } from '@mastra/ai-sdk';
 import { RequestContext } from '@mastra/core/request-context';
 import { createUIMessageStream, createUIMessageStreamResponse, type UIMessage } from 'ai';
 import type { Hono } from 'hono';
+import type { Pool } from 'pg';
 import { z } from 'zod';
 import type { AgentFactory } from './agent-factory.ts';
 import { copilotEnv } from './env.ts';
 import { listModels, ModelNotFoundError, resolveModel } from './model-registry.ts';
 import { RateLimitError, reserveTurn } from './rate-limit.ts';
+import { mountInboxSse } from './workflows/sse-inbox.ts';
 
 const ChatBody = z.object({
   id: z.string().optional(),
@@ -26,6 +28,7 @@ export type SessionLike = {
 export type CopilotRouteDeps = {
   factory: AgentFactory;
   mastra: unknown;
+  pool: Pool;
 };
 
 export type CopilotRouteEnv = { Variables: { session: SessionLike } };
@@ -505,4 +508,6 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
     });
     return createUIMessageStreamResponse({ stream: uiStream });
   });
+
+  mountInboxSse(app as unknown as Hono, { pool: deps.pool });
 }
