@@ -124,6 +124,64 @@ describe('plan categories HTTP routes', () => {
     );
   });
 
+  it('PUT /plans/:id/categories accepts a label-only patch and preserves the description', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+      },
+      async ({ pool, databaseUrl }) => {
+        resetCoreDb();
+        initPools({ databaseUrl });
+        try {
+          const { tenantId, adminUserId, adminEmail } = await seedTenant(pool, 'catslabelonly');
+          const session = buildSession({
+            tenant_id: tenantId,
+            user_id: adminUserId,
+            email: adminEmail,
+            display_name: 'Admin',
+          });
+          const group = await createGroup({ tenant_id: tenantId, name: 'Eng', session });
+          const plan = await createPlan({ group_id: group.id, name: 'P', session });
+          const label = await createLabel({
+            plan_id: plan.id,
+            name: 'Bug',
+            color: 'red',
+            session,
+          });
+
+          const app = buildTestApp(session);
+
+          // Seed slot 4 with a description, then send a label-only patch.
+          const seedRes = await app.request(`/api/planner/v1/plans/${plan.id}/categories`, {
+            method: 'PUT',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ slots: { '4': { name: 'QA' } } }),
+          });
+          expect(seedRes.status).toBe(200);
+
+          const res = await app.request(`/api/planner/v1/plans/${plan.id}/categories`, {
+            method: 'PUT',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ slots: { '4': { label_id: label.id } } }),
+          });
+          expect(res.status).toBe(200);
+          const body = (await res.json()) as { category_descriptions: Record<string, string> };
+          expect(body.category_descriptions.category4).toBe('QA');
+
+          const labelRows = await pool.query(
+            `SELECT category_slot FROM planner.labels WHERE id = $1`,
+            [label.id],
+          );
+          expect(labelRows.rows[0]?.category_slot).toBe(4);
+        } finally {
+          resetCoreDb();
+          await closePools();
+        }
+      },
+    );
+  });
+
   it('PUT /plans/:id/categories rejects non-numeric slot keys with 400', async () => {
     await withTestDb(
       {

@@ -186,12 +186,15 @@ export interface SetAssigneePriorityInput {
 export interface SetCategoryDescriptionInput {
   plan_id: string;
   slot: number;
-  name: string | null;
+  // undefined = leave unchanged; null = clear; string = set
+  name?: string | null;
 }
 
 export interface SetCategoryDescriptionsInput {
   plan_id: string;
-  slots: Record<number, { name: string | null; label_id?: string | null }>;
+  // For each slot: name absent = leave unchanged, null = clear, string = set.
+  // label_id absent = leave unchanged, null = detach, uuid = attach.
+  slots: Record<number, { name?: string | null; label_id?: string | null }>;
 }
 
 export interface AttachLabelToCategorySlotInput {

@@ -1,7 +1,7 @@
 import type { SessionScope } from '@seta/core';
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { plannerDb } from '../../db/index.ts';
-import { plans } from '../../db/schema.ts';
+import { labels, plans } from '../../db/schema.ts';
 import type { PlanRow, TaskExternalSource } from '../dto.ts';
 import type { SetCategoryDescriptionsInput } from '../inputs.ts';
 import { PlannerError } from '../rbac.ts';
@@ -29,24 +29,62 @@ function rowToDto(row: PlanDbRow): PlanRow {
   };
 }
 
+async function detachLabelFromSlot(args: {
+  plan_id: string;
+  slot: number;
+  session: SessionScope;
+}): Promise<void> {
+  const db = plannerDb();
+  const [row] = await db
+    .select({ id: labels.id })
+    .from(labels)
+    .where(
+      and(
+        eq(labels.plan_id, args.plan_id),
+        eq(labels.category_slot, args.slot),
+        isNull(labels.deleted_at),
+      ),
+    )
+    .limit(1);
+  if (!row) return;
+  await attachLabelToCategorySlot({
+    plan_id: args.plan_id,
+    label_id: row.id,
+    slot: null,
+    session: args.session,
+  });
+}
+
 export async function setCategoryDescriptions(
   input: SetCategoryDescriptionsInput & { session: SessionScope },
 ): Promise<PlanRow> {
   for (const [slotStr, entry] of Object.entries(input.slots)) {
     const slot = Number(slotStr);
-    await setCategoryDescription({
-      plan_id: input.plan_id,
-      slot,
-      name: entry.name,
-      session: input.session,
-    });
-    if (entry.label_id !== undefined && entry.label_id !== null) {
-      await attachLabelToCategorySlot({
+    if ('name' in entry) {
+      await setCategoryDescription({
         plan_id: input.plan_id,
-        label_id: entry.label_id,
         slot,
+        name: entry.name,
         session: input.session,
       });
+    }
+    if ('label_id' in entry && entry.label_id !== undefined) {
+      // label_id === null means detach the currently attached label from this slot.
+      // label_id === <uuid> means attach this label to this slot.
+      if (entry.label_id === null) {
+        await detachLabelFromSlot({
+          plan_id: input.plan_id,
+          slot,
+          session: input.session,
+        });
+      } else {
+        await attachLabelToCategorySlot({
+          plan_id: input.plan_id,
+          label_id: entry.label_id,
+          slot,
+          session: input.session,
+        });
+      }
     }
   }
 

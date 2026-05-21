@@ -39,7 +39,9 @@ const setCategoriesSchema = z.object({
   slots: z.record(
     z.string().regex(/^(?:[1-9]|1\d|2[0-5])$/),
     z.object({
-      name: z.string().nullable(),
+      // Absent: leave the description unchanged. null: clear. string: set.
+      name: z.string().max(100).nullable().optional(),
+      // Absent: leave the label binding unchanged. null: detach. uuid: attach.
       label_id: z.string().uuid().nullable().optional(),
     }),
   ),
@@ -164,7 +166,7 @@ export function registerPlannerPlansRoutes(app: Hono<SessionEnv>): void {
     const parsed = setCategoriesSchema.safeParse(await c.req.json().catch(() => ({})));
     if (!parsed.success)
       return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
-    const slots: Record<number, { name: string | null; label_id?: string | null }> = {};
+    const slots: Record<number, { name?: string | null; label_id?: string | null }> = {};
     for (const [k, v] of Object.entries(parsed.data.slots)) {
       slots[Number(k)] = v;
     }

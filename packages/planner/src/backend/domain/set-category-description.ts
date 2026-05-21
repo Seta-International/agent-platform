@@ -52,7 +52,7 @@ async function setCategoryDescriptionImpl(
       slot: input.slot,
     });
   }
-  if (input.name !== null && input.name.length > 100) {
+  if (typeof input.name === 'string' && input.name.length > 100) {
     throw new PlannerError('VALIDATION', 'Category description must be 100 characters or fewer', {
       plan_id: input.plan_id,
       slot: input.slot,
@@ -90,11 +90,23 @@ async function setCategoryDescriptionImpl(
       const currentMap = (existing.category_descriptions ?? {}) as Record<string, string>;
       const beforeVal: string | null = currentMap[key] ?? null;
 
+      // undefined => no-op for description; return current row.
+      if (input.name === undefined) {
+        updated = existing;
+        return;
+      }
+
+      const afterVal: string | null = input.name;
+      if (beforeVal === afterVal) {
+        updated = existing;
+        return;
+      }
+
       const nextMap: Record<string, string> = { ...currentMap };
-      if (input.name === null) {
+      if (afterVal === null) {
         delete nextMap[key];
       } else {
-        nextMap[key] = input.name;
+        nextMap[key] = afterVal;
       }
 
       const [row] = await tx
@@ -115,7 +127,7 @@ async function setCategoryDescriptionImpl(
         plan_id: existing.id,
         slot: input.slot,
         before: beforeVal,
-        after: input.name,
+        after: afterVal,
       });
     },
   );
