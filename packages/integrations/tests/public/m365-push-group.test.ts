@@ -136,8 +136,6 @@ describe('runPushGroup', () => {
             {
               graphClient: graphStub,
               repo,
-              findUserByEntraOid: async () => null,
-              findEntraOidByUserId: async () => null,
             },
           );
 
@@ -209,8 +207,6 @@ describe('runPushGroup', () => {
             {
               graphClient: graphStub,
               repo,
-              findUserByEntraOid: async () => null,
-              findEntraOidByUserId: async () => null,
             },
           );
 
@@ -285,8 +281,6 @@ describe('runPushGroup', () => {
             {
               graphClient: graphStub,
               repo,
-              findUserByEntraOid: async () => null,
-              findEntraOidByUserId: async () => null,
             },
           );
 

@@ -1,11 +1,5 @@
 import { emit, withEmit } from '@seta/core/events';
-import {
-  getGroup,
-  listGroupMembers,
-  markGroupSyncStatus,
-  type UpdateGroupPatch,
-  updateGroup,
-} from '@seta/planner';
+import { getGroup, markGroupSyncStatus, type UpdateGroupPatch, updateGroup } from '@seta/planner';
 import { resolveField } from '../lww.ts';
 import type { M365GroupLinkRepo } from '../repo.ts';
 import { type SyncSnapshot, snapshotFromGraph } from '../snapshot.ts';
@@ -36,11 +30,6 @@ export interface RunPushGroupInput {
 export interface RunPushGroupDeps {
   graphClient: GraphLike;
   repo: M365GroupLinkRepo;
-  findUserByEntraOid: (input: {
-    entra_oid: string;
-    tenant_id: string;
-  }) => Promise<{ user_id: string } | null>;
-  findEntraOidByUserId: (input: { user_id: string; tenant_id: string }) => Promise<string | null>;
 }
 
 const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000';
@@ -77,7 +66,7 @@ export async function runPushGroup(
   deps: RunPushGroupDeps,
 ): Promise<void> {
   const { tenant_id, group_id, changed_fields } = input;
-  const { graphClient, repo, findEntraOidByUserId } = deps;
+  const { graphClient, repo } = deps;
 
   const session = buildSystemSession(tenant_id);
 
@@ -159,7 +148,8 @@ export async function runPushGroup(
         if (graphProps) Object.assign(graphPatchPayload, graphProps);
       } else if (decision.kind === 'remote-wins') {
         // Remote changed; local still matches snapshot — apply remote value locally
-        // Cast safe: snapshotFromGraph normalises values to valid enum members
+        // cast: field is a runtime-validated UpdateField; the discriminated UpdateGroupPatch
+        //       type can't be indexed by a `string` without narrowing
         (localUpdatePatch as Record<string, unknown>)[field] = decision.value;
       } else if (decision.kind === 'conflict') {
         conflictFields.push(field);
