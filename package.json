@@ -7,6 +7,7 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "test:watch": "turbo run test:watch",
+    "test:e2e": "pnpm --filter @seta/web test:e2e",
     "lint": "pnpm depcruise && pnpm lint:styles && pnpm lint:raw-sql && pnpm lint:boundaries && pnpm exec biome ci .",
     "lint:boundaries": "eslint . --max-warnings=999",
     "lint:raw-sql": "bash scripts/audit-raw-sql.sh",

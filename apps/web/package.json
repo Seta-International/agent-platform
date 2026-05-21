@@ -12,6 +12,7 @@
     "preview": "vite preview",
     "test": "NODE_OPTIONS='--no-experimental-webstorage' vitest run",
     "test:watch": "NODE_OPTIONS='--no-experimental-webstorage' vitest",
+    "test:e2e": "playwright test",
     "typecheck": "pnpm generate-routes && tsc -b --noEmit"
   },
   "dependencies": {
@@ -45,6 +46,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.60.0",
     "@seta/shared-config": "workspace:^",
     "@tanstack/router-cli": "^1.167.8",
     "@testing-library/jest-dom": "^6.9.1",
