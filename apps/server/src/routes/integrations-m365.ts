@@ -162,6 +162,8 @@ export function registerIntegrationsM365Routes(
       return c.json({ error: 'FORBIDDEN' }, 403);
     }
 
+    let cleanup: (() => void) | undefined;
+
     return streamSSE(
       c,
       async (s) => {
@@ -170,20 +172,24 @@ export function registerIntegrationsM365Routes(
         }, HEARTBEAT_INTERVAL_MS);
 
         const pushCurrentStatus = async () => {
-          const link = await deps.m365LinksRepo.findByGroup(groupId);
-          if (!link) {
-            s.writeSSE({ event: 'sync-status', data: JSON.stringify({ sync_status: null }) }).catch(
-              () => {},
-            );
-          } else {
-            s.writeSSE({
-              event: 'sync-status',
-              data: JSON.stringify({
-                sync_status: link.syncStatus,
-                synced_at: link.lastSyncedAt,
-                last_error: link.lastError,
-              }),
-            }).catch(() => {});
+          try {
+            const link = await deps.m365LinksRepo.findByGroup(groupId);
+            await s
+              .writeSSE({
+                event: 'sync-status',
+                data: JSON.stringify(
+                  link
+                    ? {
+                        sync_status: link.syncStatus,
+                        synced_at: link.lastSyncedAt,
+                        last_error: link.lastError,
+                      }
+                    : { sync_status: null },
+                ),
+              })
+              .catch(() => {});
+          } catch {
+            // repo failure — skip this update; stream remains open
           }
         };
 
@@ -193,25 +199,33 @@ export function registerIntegrationsM365Routes(
               e.eventType === 'planner.group.updated') &&
             (e.payload as { group_id?: string })?.group_id === groupId,
           () => {
-            pushCurrentStatus();
+            void pushCurrentStatus();
           },
         );
 
-        const cleanup = () => {
+        cleanup = () => {
           clearInterval(heartbeat);
           unsub();
         };
 
+        if (c.req.raw.signal.aborted) {
+          cleanup();
+          return;
+        }
         c.req.raw.signal.addEventListener('abort', cleanup, { once: true });
 
         await pushCurrentStatus();
 
         await new Promise<void>((resolve) => {
+          if (c.req.raw.signal.aborted) {
+            resolve();
+            return;
+          }
           c.req.raw.signal.addEventListener('abort', () => resolve(), { once: true });
         });
       },
       async (_err, _s) => {
-        // Stream error — connection will be cleaned up via the abort signal.
+        cleanup?.();
       },
     );
   });

@@ -43,7 +43,10 @@ function buildTestApp(
   session: SessionScope,
   graphClientFor: (tenantId: string) => Promise<unknown>,
   extraDeps?: {
-    workers?: { addJob: (id: string, payload?: unknown) => Promise<void> };
+    workers?: {
+      addJob: (id: string, payload?: unknown) => Promise<void>;
+      shutdown?: () => Promise<void>;
+    };
     m365LinksRepo?: m365.M365GroupLinkRepo;
   },
 ): Hono<SessionEnv> {
