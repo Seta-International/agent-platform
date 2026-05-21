@@ -194,7 +194,7 @@ describe('GroupsPage', () => {
 
     // Dialog should open
     expect(await screen.findByRole('dialog', { name: /Create a group/i })).toBeInTheDocument();
-    expect(screen.getByLabelText(/^Name$/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Group name/i)).toBeInTheDocument();
   });
 
   it('row links navigate to /planner/groups/$groupId', async () => {
