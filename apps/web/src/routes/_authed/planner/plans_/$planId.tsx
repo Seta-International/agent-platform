@@ -9,8 +9,6 @@ import { usePlanBoard } from '@/modules/planner/hooks/queries/use-plan-board';
 import { useRecentPlans } from '@/modules/planner/hooks/use-recent-plans';
 import { PlanGridPage } from '@/modules/planner/pages/plan-grid-page';
 import { PlanPage } from '@/modules/planner/pages/plan-page';
-import { TaskSheetContainer } from '@/modules/planner/pages/task-sheet-container';
-import { compareOrderHint } from '@/modules/planner/state/task-derived';
 import {
   parseFiltersFromSearch,
   parseGroupBy,
@@ -22,7 +20,6 @@ import {
 const searchSchema = z.object({
   view: z.enum(['board', 'grid']).optional(),
   groupBy: z.enum(['bucket', 'assignee', 'priority', 'due', 'label']).optional(),
-  task: z.string().uuid().optional(),
   'filter.assignee': z.string().optional(),
   'filter.label': z.string().optional(),
   'filter.skill': z.string().optional(),
@@ -83,7 +80,10 @@ function PlanRoute() {
   const onViewChange = (v: 'board' | 'grid') =>
     navigate({ search: (prev) => ({ ...prev, view: v === 'board' ? undefined : v }) });
   const onOpenTask = (taskId: string) =>
-    navigate({ search: (prev) => ({ ...prev, task: taskId }) });
+    void navigate({
+      to: '/planner/plans/$planId/tasks/$taskId',
+      params: { planId, taskId },
+    });
 
   function onRenamePlan(name: string) {
     if (!plan) return;
@@ -95,56 +95,36 @@ function PlanRoute() {
     void navigate({ to: '/planner/groups/$groupId', params: { groupId: plan.group_id } });
   }
 
-  return (
-    <>
-      {view === 'board' ? (
-        <PlanPage
-          planId={planId}
-          view={view}
-          filters={filters}
-          onFiltersChange={onFiltersChange}
-          onViewChange={onViewChange}
-          onOpenTask={onOpenTask}
-          q={q}
-          onQChange={onQChange}
-          currentUserId={session.user_id}
-          groupName={groupQ.data?.name}
-          canManage={canManage}
-          onRenamePlan={onRenamePlan}
-          onDeletePlan={onDeletePlan}
-        />
-      ) : (
-        <PlanGridPage
-          planId={planId}
-          view={view}
-          filters={filters}
-          onFiltersChange={onFiltersChange}
-          onViewChange={onViewChange}
-          onOpenTask={onOpenTask}
-          groupBy={groupBy}
-          onGroupByChange={(g) =>
-            navigate({ search: (prev) => ({ ...prev, groupBy: g === 'bucket' ? undefined : g }) })
-          }
-          q={q}
-          onQChange={onQChange}
-        />
-      )}
-      {search.task && (
-        <TaskSheetContainer
-          taskId={search.task}
-          planId={planId}
-          onClose={() => navigate({ search: (prev) => ({ ...prev, task: undefined }) })}
-          taskIdsInView={
-            boardQ.data
-              ? boardQ.data.tasks
-                  .slice()
-                  .sort((a, b) => compareOrderHint(a.order_hint, b.order_hint))
-                  .map((t) => t.id)
-              : undefined
-          }
-          onNavigateTask={(id) => navigate({ search: (prev) => ({ ...prev, task: id }) })}
-        />
-      )}
-    </>
+  return view === 'board' ? (
+    <PlanPage
+      planId={planId}
+      view={view}
+      filters={filters}
+      onFiltersChange={onFiltersChange}
+      onViewChange={onViewChange}
+      onOpenTask={onOpenTask}
+      q={q}
+      onQChange={onQChange}
+      currentUserId={session.user_id}
+      groupName={groupQ.data?.name}
+      canManage={canManage}
+      onRenamePlan={onRenamePlan}
+      onDeletePlan={onDeletePlan}
+    />
+  ) : (
+    <PlanGridPage
+      planId={planId}
+      view={view}
+      filters={filters}
+      onFiltersChange={onFiltersChange}
+      onViewChange={onViewChange}
+      onOpenTask={onOpenTask}
+      groupBy={groupBy}
+      onGroupByChange={(g) =>
+        navigate({ search: (prev) => ({ ...prev, groupBy: g === 'bucket' ? undefined : g }) })
+      }
+      q={q}
+      onQChange={onQChange}
+    />
   );
 }

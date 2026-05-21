@@ -29,8 +29,8 @@ export interface TaskGridProps {
   onCommitField?: (taskId: string, patch: Partial<TaskGridRow>) => void;
   /** Buckets available when editing the bucket cell. If omitted, the cell is read-only. */
   bucketOptions?: ReadonlyArray<BucketOption>;
-  /** Open task sheet for cells that cannot be edited inline (assignees, labels). */
-  onOpenSheet?: (taskId: string) => void;
+  /** Open the task page for cells that cannot be edited inline (assignees, labels). */
+  onOpenTask?: (taskId: string) => void;
   columnOrder?: string[];
   columnWidths?: Record<string, number>;
   onColumnOrderChange?: (next: string[]) => void;
@@ -58,7 +58,7 @@ export function TaskGrid({
   onSelectionChange,
   onCommitField,
   bucketOptions,
-  onOpenSheet,
+  onOpenTask,
 }: TaskGridProps) {
   const groups = useMemo(() => groupRows(rows, groupBy), [rows, groupBy]);
   const [editing, setEditing] = useState<{ taskId: string; field: keyof TaskGridRow } | null>(null);
@@ -182,7 +182,7 @@ export function TaskGrid({
                     type="button"
                     className="task-grid__cell-trigger"
                     aria-label={`Edit assignees for ${r.title}`}
-                    onClick={() => onOpenSheet?.(r.id)}
+                    onClick={() => onOpenTask?.(r.id)}
                   >
                     {r.assignees.length === 0 ? '—' : r.assignees.map((a) => a.name).join(', ')}
                   </button>
@@ -199,7 +199,7 @@ export function TaskGrid({
                     type="button"
                     className="task-grid__cell-trigger"
                     aria-label={`Edit labels for ${r.title}`}
-                    onClick={() => onOpenSheet?.(r.id)}
+                    onClick={() => onOpenTask?.(r.id)}
                   >
                     {r.labels.length === 0 ? '—' : r.labels.map((l) => l.name).join(', ')}
                   </button>

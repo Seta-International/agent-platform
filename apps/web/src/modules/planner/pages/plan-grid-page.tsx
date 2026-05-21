@@ -212,7 +212,7 @@ export function PlanGridPage({
         onSelectionChange={setSelectedIds}
         onCommitField={onCommitField}
         bucketOptions={bucketOptions}
-        onOpenSheet={onOpenTask}
+        onOpenTask={onOpenTask}
         columnOrder={prefs.order}
         columnWidths={prefs.widths}
         onColumnOrderChange={(order) => setPrefs((p) => ({ ...p, order }))}

@@ -32,7 +32,6 @@ export * from './composites/side-panel';
 export * from './composites/status-pill';
 export * from './composites/sync-badge';
 export * from './composites/task-grid';
-export * from './composites/task-sheet';
 export * from './composites/top-bar';
 // Icons
 export * from './icons/seta-logo';

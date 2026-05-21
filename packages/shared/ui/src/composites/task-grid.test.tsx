@@ -132,18 +132,18 @@ describe('TaskGrid', () => {
   });
 
   it('opens the task sheet when assignees cell is clicked', () => {
-    const onOpenSheet = vi.fn();
+    const onOpenTask = vi.fn();
     render(
       <TaskGrid
         rows={rows}
         groupBy="bucket"
         selection={new Set()}
         onSelectionChange={() => {}}
-        onOpenSheet={onOpenSheet}
+        onOpenTask={onOpenTask}
       />,
     );
     fireEvent.click(screen.getByRole('button', { name: /Edit assignees for A/i }));
-    expect(onOpenSheet).toHaveBeenCalledWith('t1');
+    expect(onOpenTask).toHaveBeenCalledWith('t1');
   });
 
   it('range-selects rows on shift-click', () => {
