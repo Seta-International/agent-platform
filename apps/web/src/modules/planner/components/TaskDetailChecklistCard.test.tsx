@@ -41,7 +41,7 @@ function renderWithClient(node: ReactNode) {
 }
 
 describe('TaskDetailChecklistCard', () => {
-  it('renders one row per item with checkbox, label, and mono order_hint', () => {
+  it('renders one row per item with checkbox and label', () => {
     const items = [
       item({ id: 'c1', label: 'one', order_hint: 'a0' }),
       item({ id: 'c2', label: 'two', order_hint: 'a1' }),
@@ -52,8 +52,9 @@ describe('TaskDetailChecklistCard', () => {
     renderWithClient(<TaskDetailChecklistCard task={makeDetail(items)} planId="p1" />);
     expect(screen.getAllByRole('checkbox')).toHaveLength(5);
     expect(screen.getByText('one')).toBeInTheDocument();
-    expect(screen.getByText('a0')).toBeInTheDocument();
-    expect(screen.getByText('a4')).toBeInTheDocument();
+    expect(screen.getByText('five')).toBeInTheDocument();
+    expect(screen.queryByText('a0')).not.toBeInTheDocument();
+    expect(screen.queryByText('a4')).not.toBeInTheDocument();
   });
 
   it('toggles a checkbox by calling updateChecklistItem with { checked }', async () => {

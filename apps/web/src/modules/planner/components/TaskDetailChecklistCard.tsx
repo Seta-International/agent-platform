@@ -110,7 +110,6 @@ export function TaskDetailChecklistCard({ task, planId }: Props) {
                       >
                         {it.label}
                       </label>
-                      <span className="mono t-xs subtle">{it.order_hint ?? '—'}</span>
                       <button
                         type="button"
                         aria-label="Remove"
