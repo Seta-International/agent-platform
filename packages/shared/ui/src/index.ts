@@ -43,6 +43,7 @@ export { cva, type VariantProps } from './lib/cva';
 export { formatRelative } from './lib/format-relative';
 // Plan
 export * from './plan/category-description-editor';
+// Primitives
 export * from './primitives/alert';
 export * from './primitives/avatar';
 export * from './primitives/badge';
