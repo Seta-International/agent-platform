@@ -67,6 +67,7 @@ export * from './primitives/textarea';
 export * from './primitives/toast';
 export * from './primitives/tooltip';
 // Task
+export * from './task/preview-type-radio';
 export * from './task/priority-segmented';
 export * from './task/progress-slider';
 // Theme
