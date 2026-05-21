@@ -1,7 +1,11 @@
 import type { Mastra } from '@mastra/core';
+import type { EmbeddingProvider } from '@seta/shared-embeddings';
+import type { Pool } from 'pg';
+import { resolveEmbeddingProvider } from '../embeddings/provider-resolver.ts';
 import { ROUTER_INSTRUCTIONS, SELF_INSTRUCTIONS } from '../instructions.ts';
 import { makeListMyThreadsTool } from '../tools/copilot.list-my-threads.ts';
 import { copilotRunNewTaskSkillTagTool } from '../tools/copilot.run-new-task-skill-tag.ts';
+import { searchTasksSemanticTool } from '../tools/search-tasks-semantic.ts';
 import { STATIC_SELF_TOOLS } from '../tools/self-tools.ts';
 import type { AgentSpec, AgentSpecs } from './specs.ts';
 
@@ -21,7 +25,23 @@ type MastraMemoryStore = {
 
 type MastraStorageWithStores = { stores?: { memory?: MastraMemoryStore } };
 
-export function buildAgentCatalog(deps: { mastra: Mastra }): AgentSpecs {
+/** Lazily-resolved proxy: resolveEmbeddingProvider() is called on first embed() invocation. */
+function makeLazyProvider(): EmbeddingProvider {
+  let inner: EmbeddingProvider | undefined;
+  const get = (): EmbeddingProvider => (inner ??= resolveEmbeddingProvider());
+  return {
+    get modelId() {
+      return get().modelId;
+    },
+    get dimensions() {
+      return get().dimensions;
+    },
+    embed: (...args) => get().embed(...args),
+  };
+}
+
+export function buildAgentCatalog(deps: { mastra: Mastra; pool: Pool }): AgentSpecs {
+  const provider = makeLazyProvider();
   const listMyThreads = makeListMyThreadsTool({
     listThreads: async ({ resourceId, limit }) => {
       const storage = deps.mastra.getStorage() as MastraStorageWithStores | null;
@@ -42,7 +62,11 @@ export function buildAgentCatalog(deps: { mastra: Mastra }): AgentSpecs {
     label: 'Self',
     description: 'Answers questions about your account, roles, and recent threads',
     instructions: SELF_INSTRUCTIONS,
-    tools: [...STATIC_SELF_TOOLS, listMyThreads],
+    tools: [
+      ...STATIC_SELF_TOOLS,
+      listMyThreads,
+      searchTasksSemanticTool({ provider, pool: deps.pool }),
+    ],
     defaultTier: 'fast',
   };
 

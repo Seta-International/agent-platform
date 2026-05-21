@@ -28,7 +28,7 @@ describe('createAgentFactory', () => {
     await withCopilotTestDb(async ({ pool, databaseUrl }) => {
       const mastra = buildMastra({ pool, databaseUrl });
       await (mastra.getStorage() as { init: () => Promise<void> }).init();
-      const factory = createAgentFactory({ mastra });
+      const factory = createAgentFactory({ mastra, pool });
       const a = factory(baseSession({ user_id: 'u1' }) as never).get('self');
       const b = factory(baseSession({ user_id: 'u2' }) as never).get('self');
       expect(a).toBe(b);
@@ -39,7 +39,7 @@ describe('createAgentFactory', () => {
     await withCopilotTestDb(async ({ pool, databaseUrl }) => {
       const mastra = buildMastra({ pool, databaseUrl });
       await (mastra.getStorage() as { init: () => Promise<void> }).init();
-      const factory = createAgentFactory({ mastra });
+      const factory = createAgentFactory({ mastra, pool });
       const a = factory(
         baseSession({
           role_summary: { roles: ['member'], cross_tenant_read: false },
@@ -58,7 +58,7 @@ describe('createAgentFactory', () => {
     await withCopilotTestDb(async ({ pool, databaseUrl }) => {
       const mastra = buildMastra({ pool, databaseUrl });
       await (mastra.getStorage() as { init: () => Promise<void> }).init();
-      const factory = createAgentFactory({ mastra });
+      const factory = createAgentFactory({ mastra, pool });
       const bag = factory(baseSession() as never);
       expect(bag.names().sort()).toEqual(factory.names.slice().sort());
       for (const name of factory.names) {
@@ -68,6 +68,17 @@ describe('createAgentFactory', () => {
       expect(factory.names).toContain('supervisor');
       const supervisor = factory.specs.find((s) => s.name === 'supervisor');
       expect(supervisor?.delegates).toEqual(['self']);
+    });
+  });
+
+  it('includes search_tasks_semantic in the self agent tools', async () => {
+    await withCopilotTestDb(async ({ pool, databaseUrl }) => {
+      const mastra = buildMastra({ pool, databaseUrl });
+      await (mastra.getStorage() as { init: () => Promise<void> }).init();
+      const factory = createAgentFactory({ mastra, pool });
+      const selfSpec = factory.specs.find((s) => s.name === 'self');
+      const toolIds = selfSpec?.tools.map((t) => (t as { id?: string }).id) ?? [];
+      expect(toolIds).toContain('search_tasks_semantic');
     });
   });
 });

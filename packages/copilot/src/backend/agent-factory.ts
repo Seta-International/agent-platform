@@ -3,13 +3,14 @@ import { Agent } from '@mastra/core/agent';
 import { Memory } from '@mastra/memory';
 import { hashRoleSummary } from '@seta/core';
 import { LRUCache } from 'lru-cache';
+import type { Pool } from 'pg';
 import { buildAgentCatalog } from './agents/catalog.ts';
 import { type AgentSpec, type AgentSpecs, findSpec, listAgentNames } from './agents/specs.ts';
 import { resolveModel } from './model-registry.ts';
 import { filterToolsByRbac } from './rbac-filter.ts';
 import { type CopilotTool, RequestContextSchema } from './tools/_types.ts';
 
-export type AgentFactoryDeps = { mastra: Mastra };
+export type AgentFactoryDeps = { mastra: Mastra; pool: Pool };
 
 type SessionLike = {
   effective_permissions: ReadonlySet<string>;
@@ -39,7 +40,7 @@ function toolsRecord(tools: ReadonlyArray<CopilotTool>): Record<string, CopilotT
 }
 
 export function createAgentFactory(deps: AgentFactoryDeps): AgentFactory {
-  const specs = buildAgentCatalog({ mastra: deps.mastra });
+  const specs = buildAgentCatalog({ mastra: deps.mastra, pool: deps.pool });
   const cache = new LRUCache<string, Map<string, Agent>>({ max: 256 });
 
   function buildAgents(session: SessionLike): Map<string, Agent> {

@@ -66,7 +66,7 @@ export function registerCopilot(deps: { pool: Pool; databaseUrl: string }): Copi
   registerNewTaskSkillTagWorkflow(mastra);
   void mastra.startWorkers();
   setMastraRef(mastra);
-  const factory = createAgentFactory({ mastra });
+  const factory = createAgentFactory({ mastra, pool: deps.pool });
   return {
     attach(app) {
       registerCopilotRoutes(app as never, { factory, mastra, pool: deps.pool });

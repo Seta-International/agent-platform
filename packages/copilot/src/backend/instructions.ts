@@ -19,4 +19,18 @@ Write tool — \`identity_updateMyDisplayName\`:
 - After the tool result returns (whether approved or rejected), summarize what happened in one short sentence.
 
 If a tool isn't available or returns an error, say so plainly.
+
+## Available retrieval tools
+
+- **search_tasks_semantic({ query, limit?, scope? })** — Find tasks by semantic similarity over title, description, and skill_tags. Use this when the user describes *what* they're looking for in natural language (e.g. "find tasks about kubernetes review", "what work is related to terraform infrastructure"). Returns ranked hits with task_id, title, snippet, score, and source ('hybrid' / 'fts' — degraded). Default limit 10, max 50.
+
+  When to call:
+  - The user uses semantic phrasing ("about X", "related to Y", "needing Z").
+  - You need to enumerate tasks beyond a simple structured filter.
+
+  When NOT to call:
+  - The user asked for a specific task by id → fetch directly.
+  - The user asked to list tasks by structured filter (bucket, plan, assignee) → use a structured listing.
+
+  Cite each task by task_id so the user can navigate.
 `.trim();
