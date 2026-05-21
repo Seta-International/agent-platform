@@ -1,10 +1,10 @@
 import { sql } from 'drizzle-orm';
 import {
-  bigint,
   boolean,
   check,
   index,
   integer,
+  jsonb,
   pgSchema,
   primaryKey,
   text,
@@ -77,13 +77,21 @@ export const plans = planner.table(
     tenant_id: uuid('tenant_id').notNull(),
     group_id: uuid('group_id').notNull(),
     name: text('name').notNull(),
+    category_descriptions: jsonb('category_descriptions').notNull().default(sql`'{}'::jsonb`),
+    external_source: text('external_source').notNull().default('native'),
+    external_id: text('external_id'),
+    external_etag: text('external_etag'),
+    external_synced_at: timestamp('external_synced_at', { withTimezone: true }),
     created_by: uuid('created_by').notNull(),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
     deleted_at: timestamp('deleted_at', { withTimezone: true }),
     version: integer('version').default(1).notNull(),
   },
-  (t) => [index('plans_by_group_live').on(t.group_id, t.deleted_at)],
+  (t) => [
+    index('plans_by_group_live').on(t.group_id, t.deleted_at),
+    check('plans_external_source_check', sql`external_source IN ('native','m365')`),
+  ],
 );
 
 export const buckets = planner.table(
@@ -93,13 +101,20 @@ export const buckets = planner.table(
     tenant_id: uuid('tenant_id').notNull(),
     plan_id: uuid('plan_id').notNull(),
     name: text('name').notNull(),
-    sort_order: bigint('sort_order', { mode: 'number' }).notNull(),
+    order_hint: text('order_hint'),
+    external_source: text('external_source').notNull().default('native'),
+    external_id: text('external_id'),
+    external_etag: text('external_etag'),
+    external_synced_at: timestamp('external_synced_at', { withTimezone: true }),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
     deleted_at: timestamp('deleted_at', { withTimezone: true }),
     version: integer('version').default(1).notNull(),
   },
-  (t) => [index('buckets_by_plan_order').on(t.plan_id, t.sort_order)],
+  (t) => [
+    index('buckets_by_plan_hint').on(t.plan_id, t.order_hint),
+    check('buckets_external_source_check', sql`external_source IN ('native','m365')`),
+  ],
 );
 
 export const tasks = planner.table(
@@ -111,16 +126,20 @@ export const tasks = planner.table(
     bucket_id: uuid('bucket_id'),
     title: text('title').notNull(),
     description: text('description'),
-    priority: text('priority', { enum: ['urgent', 'important', 'medium', 'low'] })
-      .default('medium')
-      .notNull(),
-    progress: text('progress', { enum: ['not_started', 'in_progress', 'completed', 'deferred'] })
-      .default('not_started')
-      .notNull(),
+    priority_number: integer('priority_number').default(5).notNull(),
+    percent_complete: integer('percent_complete').default(0).notNull(),
+    is_deferred: boolean('is_deferred').default(false).notNull(),
+    preview_type: text('preview_type').default('automatic').notNull(),
     review_state: text('review_state', { enum: ['needs_review'] }),
     skill_tags: text('skill_tags').array().default([]).notNull(),
+    start_at: timestamp('start_at', { withTimezone: true }),
     due_at: timestamp('due_at', { withTimezone: true }),
-    sort_order: bigint('sort_order', { mode: 'number' }).notNull(),
+    order_hint: text('order_hint'),
+    assignee_priority: text('assignee_priority'),
+    external_source: text('external_source').notNull().default('native'),
+    external_id: text('external_id'),
+    external_etag: text('external_etag'),
+    external_synced_at: timestamp('external_synced_at', { withTimezone: true }),
     created_by: uuid('created_by').notNull(),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
@@ -129,14 +148,21 @@ export const tasks = planner.table(
   },
   (t) => [
     index('tasks_by_plan_live').on(t.tenant_id, t.plan_id, t.deleted_at),
-    index('tasks_by_bucket_order').on(t.bucket_id, t.sort_order),
+    index('tasks_by_bucket_hint').on(t.bucket_id, t.order_hint),
     index('tasks_by_due_soon')
       .on(t.tenant_id, t.due_at)
-      .where(sql`deleted_at IS NULL AND progress <> 'completed'`),
+      .where(sql`deleted_at IS NULL AND is_deferred = false AND percent_complete < 100`),
     index('tasks_by_skill_tags').using('gin', t.skill_tags),
     index('tasks_by_review_state')
       .on(t.tenant_id, t.review_state)
       .where(sql`review_state IS NOT NULL AND deleted_at IS NULL`),
+    check('tasks_percent_complete_range', sql`percent_complete BETWEEN 0 AND 100`),
+    check('tasks_priority_number_set', sql`priority_number IN (1,3,5,9)`),
+    check(
+      'tasks_preview_type_check',
+      sql`preview_type IN ('automatic','noPreview','checklist','description','reference')`,
+    ),
+    check('tasks_external_source_check', sql`external_source IN ('native','m365')`),
   ],
 );
 
@@ -145,12 +171,14 @@ export const taskAssignments = planner.table(
   {
     task_id: uuid('task_id').notNull(),
     user_id: uuid('user_id').notNull(),
+    order_hint: text('order_hint'),
     assigned_at: timestamp('assigned_at', { withTimezone: true }).defaultNow().notNull(),
     assigned_by: uuid('assigned_by').notNull(),
   },
   (t) => [
     primaryKey({ columns: [t.task_id, t.user_id] }),
     index('task_assignments_by_user').on(t.user_id),
+    index('task_assignments_by_task_hint').on(t.task_id, t.order_hint),
   ],
 );
 
@@ -161,11 +189,13 @@ export const checklistItems = planner.table(
     task_id: uuid('task_id').notNull(),
     label: text('label').notNull(),
     checked: boolean('checked').default(false).notNull(),
-    sort_order: bigint('sort_order', { mode: 'number' }).notNull(),
+    order_hint: text('order_hint'),
+    external_id: text('external_id'),
+    external_etag: text('external_etag'),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
-  (t) => [index('checklist_items_by_task_order').on(t.task_id, t.sort_order)],
+  (t) => [index('checklist_items_by_task_hint').on(t.task_id, t.order_hint)],
 );
 
 export const labels = planner.table(
@@ -176,10 +206,17 @@ export const labels = planner.table(
     plan_id: uuid('plan_id').notNull(),
     name: text('name').notNull(),
     color: text('color').notNull(),
+    category_slot: integer('category_slot'),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     deleted_at: timestamp('deleted_at', { withTimezone: true }),
   },
-  (t) => [index('labels_by_plan_live').on(t.plan_id, t.deleted_at)],
+  (t) => [
+    index('labels_by_plan_live').on(t.plan_id, t.deleted_at),
+    check(
+      'labels_category_slot_range',
+      sql`category_slot IS NULL OR category_slot BETWEEN 1 AND 25`,
+    ),
+  ],
 );
 
 export const taskLabels = planner.table(
@@ -193,6 +230,30 @@ export const taskLabels = planner.table(
   (t) => [
     primaryKey({ columns: [t.task_id, t.label_id] }),
     index('task_labels_by_label').on(t.label_id),
+  ],
+);
+
+export const taskReferences = planner.table(
+  'task_references',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenant_id: uuid('tenant_id').notNull(),
+    task_id: uuid('task_id').notNull(),
+    url: text('url').notNull(),
+    alias: text('alias'),
+    type: text('type').notNull().default('other'),
+    preview_priority: text('preview_priority'),
+    external_etag: text('external_etag'),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('task_references_uniq_task_url').on(t.task_id, t.url),
+    index('task_references_by_task').on(t.task_id),
+    check(
+      'task_references_type_check',
+      sql`type IN ('word','excel','powerPoint','visio','other','powerBI','oneNote','sharePoint','web','link')`,
+    ),
   ],
 );
 
