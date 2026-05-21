@@ -1,0 +1,51 @@
+plan_id,title,description,tags,owner
+p001,Infrastructure Review Q2 2026,"Quarterly infrastructure audit covering AWS spend, Kubernetes posture, and Terraform debt.","infrastructure,cloud,review",u001
+p002,Frontend Modernization,Move design system and shell to the new tokens-based stack.,"frontend,react",u001
+p003,DevOps Standalone Project,Single-engineer infra spike covering Terraform bootstrap and CI hardening.,"infrastructure,devops",u010
+p004,Backend Cleanup Sprint,,,u004
+p005,AI Platform R&D,Build internal AI experimentation platform with Spark + ML pipelines.,"ai,ml,spark",u013
+p006,Orphan Plan,,,u013
+p007,Infrastructure Review Q3 2026,Plan summary for infrastructure review q3 2026.,,u133
+p008,Quarterly Engineering Sprint,Plan summary for quarterly engineering sprint.,"roadmap,backend,mobile",u213
+p009,Mobile Modernization,Plan summary for mobile modernization.,"mobile,backend",u108
+p010,Infrastructure Review Q1 2026,Plan summary for infrastructure review q1 2026.,"review,infrastructure,aws",u065
+p011,Security & Compliance 2026,Plan summary for security & compliance 2026.,,u229
+p012,DevOps Modernization,,"cloud,kubernetes",u224
+p013,Infrastructure Review Q1 2026,,"review,aws",u036
+p014,Backend Cleanup Sprint,Plan summary for backend cleanup sprint.,"mobile,backend",u093
+p015,Mobile App 2026,Plan summary for mobile app 2026.,"backend,mobile,frontend",u293
+p016,Platform Cleanup Sprint,Plan summary for platform cleanup sprint.,,u102
+p017,Mobile App 2026,Plan summary for mobile app 2026.,"mobile,backend,product",u238
+p018,AI Platform R&D,Plan summary for ai platform r&d.,"data,spark,analytics",u181
+p019,Infrastructure Review Q4 2026,Plan summary for infrastructure review q4 2026.,"devops,kubernetes,review",u162
+p020,Quarterly Engineering Sprint,Plan summary for quarterly engineering sprint.,,u073
+p021,Mobile App 2026,Plan summary for mobile app 2026.,,u043
+p022,Product Roadmap Q1,Plan summary for product roadmap q1.,,u138
+p023,Infrastructure Review Q4 2026,Plan summary for infrastructure review q4 2026.,,u057
+p024,Cloud Migration Q2,Plan summary for cloud migration q2.,"review,aws,infrastructure",u204
+p025,Mobile App 2026,,,u237
+p026,Cloud Migration Q4,,,u292
+p027,Mobile App 2026,,,u272
+p028,Security & Compliance 2026,,"roadmap,backend",u280
+p029,Cloud Migration Q1,Plan summary for cloud migration q1.,,u178
+p030,Infrastructure Review Q3 2026,Plan summary for infrastructure review q3 2026.,,u137
+p031,Platform Cleanup Sprint,Plan summary for platform cleanup sprint.,"frontend,backend",u070
+p032,Cloud Migration Q4,Plan summary for cloud migration q4.,,u166
+p033,Product Roadmap Q2,Plan summary for product roadmap q2.,,u254
+p034,Frontend Cleanup Sprint,,"frontend,roadmap,mobile",u230
+p035,AI Platform R&D,Plan summary for ai platform r&d.,,u034
+p036,AI Platform R&D,Plan summary for ai platform r&d.,,u240
+p037,Product Roadmap Q3,Plan summary for product roadmap q3.,"backend,frontend",u110
+p038,Infrastructure Review Q3 2026,Plan summary for infrastructure review q3 2026.,"review,devops,aws",u140
+p039,AI Platform R&D,Plan summary for ai platform r&d.,"ml,spark",u166
+p040,Product Roadmap Q4,Plan summary for product roadmap q4.,"frontend,roadmap,product",u270
+p041,Platform Reliability Initiative,Plan summary for platform reliability initiative.,"backend,roadmap,mobile",u221
+p042,Infrastructure Review Q4 2026,Plan summary for infrastructure review q4 2026.,"aws,infrastructure,review",u065
+p043,Platform Cleanup Sprint,Plan summary for platform cleanup sprint.,"roadmap,frontend,mobile",u064
+p044,Infrastructure Review Q3 2026,,"devops,cloud,infrastructure",u177
+p045,Mobile App 2026,Plan summary for mobile app 2026.,"product,backend",u212
+p046,Cloud Migration Q1,Plan summary for cloud migration q1.,"devops,infrastructure,kubernetes",u056
+p047,Mobile Reliability Initiative,Plan summary for mobile reliability initiative.,,u012
+p048,Cloud Migration Q2,Plan summary for cloud migration q2.,"cloud,review",u249
+p049,AI Platform R&D,Plan summary for ai platform r&d.,,u009
+p050,Backend Reliability Initiative,,,u287
