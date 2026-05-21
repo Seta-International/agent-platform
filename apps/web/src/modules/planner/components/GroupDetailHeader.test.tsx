@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   createMemoryHistory,
   createRootRoute,
@@ -6,12 +7,52 @@ import {
   RouterProvider,
 } from '@tanstack/react-router';
 import { render, screen } from '@testing-library/react';
+import { HttpResponse, http } from 'msw';
+import { setupServer } from 'msw/node';
 import type { ReactNode } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { makeGroup } from '../testing/fixtures';
 import { GroupDetailHeader } from './GroupDetailHeader';
 
+// EventSource is not provided by happy-dom; use a class-based stub so `new EventSource()` works.
+class FakeEventSource extends EventTarget {
+  static instances: FakeEventSource[] = [];
+  url: string;
+  withCredentials: boolean;
+  readyState = 0;
+  constructor(url: string, init?: EventSourceInit) {
+    super();
+    this.url = url;
+    this.withCredentials = init?.withCredentials ?? false;
+    FakeEventSource.instances.push(this);
+  }
+  close() {
+    this.readyState = 2;
+  }
+}
+
+beforeEach(() => {
+  vi.stubGlobal('EventSource', FakeEventSource as unknown as typeof EventSource);
+  FakeEventSource.instances = [];
+});
+afterEach(() => vi.unstubAllGlobals());
+
+const server = setupServer(
+  http.get('/api/integrations/m365/groups/:groupId/sync-status', () =>
+    HttpResponse.json({ sync_status: null }),
+  ),
+);
+
+beforeAll(() => server.listen({ onUnhandledRequest: 'warn' }));
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());
+
+function makeQueryClient() {
+  return new QueryClient({ defaultOptions: { queries: { retry: false } } });
+}
+
 function renderInRouter(node: ReactNode) {
+  const qc = makeQueryClient();
   const rootRoute = createRootRoute({ component: () => node });
   const indexRoute = createRoute({
     getParentRoute: () => rootRoute,
@@ -32,7 +73,11 @@ function renderInRouter(node: ReactNode) {
     routeTree: rootRoute.addChildren([indexRoute, groupsRoute, groupDetailRoute]),
     history: createMemoryHistory({ initialEntries: ['/'] }),
   });
-  return render(<RouterProvider router={router} />);
+  return render(
+    <QueryClientProvider client={qc}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
 }
 
 const baseGroup = makeGroup({
@@ -127,5 +172,60 @@ describe('GroupDetailHeader', () => {
     renderInRouter(<GroupDetailHeader {...baseProps} />);
     await screen.findByRole('heading', { name: 'Engineering' });
     expect(screen.getByText(/Created Mar 2026/)).toBeInTheDocument();
+  });
+
+  it('does not show SyncBadge when external_source is native', async () => {
+    server.use(
+      http.get('/api/integrations/m365/groups/:groupId/sync-status', () =>
+        HttpResponse.json({ sync_status: null }),
+      ),
+    );
+    renderInRouter(
+      <GroupDetailHeader {...baseProps} group={{ ...baseGroup, external_source: 'native' }} />,
+    );
+    await screen.findByRole('heading', { name: 'Engineering' });
+    expect(screen.queryByText(/Sync/i)).not.toBeInTheDocument();
+  });
+
+  it('shows SyncBadge with Synced text for m365 group with idle status', async () => {
+    server.use(
+      http.get('/api/integrations/m365/groups/:groupId/sync-status', () =>
+        HttpResponse.json({ sync_status: 'idle', synced_at: null, last_error: null }),
+      ),
+    );
+    renderInRouter(
+      <GroupDetailHeader
+        {...baseProps}
+        group={{ ...baseGroup, external_source: 'm365', external_id: 'ext-1' }}
+      />,
+    );
+    expect(await screen.findByText('Synced')).toBeInTheDocument();
+  });
+
+  it('shows "Link to M365…" menu item when external_source is native and canManage', async () => {
+    const { userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup();
+    renderInRouter(
+      <GroupDetailHeader
+        {...baseProps}
+        group={{ ...baseGroup, external_source: 'native' }}
+        canManage={true}
+      />,
+    );
+    await user.click(await screen.findByRole('button', { name: /more/i }));
+    expect(screen.getByRole('menuitem', { name: /Link to M365/i })).toBeInTheDocument();
+  });
+
+  it('shows "Refresh sync" menu item for m365 group', async () => {
+    const { userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup();
+    renderInRouter(
+      <GroupDetailHeader
+        {...baseProps}
+        group={{ ...baseGroup, external_source: 'm365', external_id: 'ext-1' }}
+      />,
+    );
+    await user.click(await screen.findByRole('button', { name: /more/i }));
+    expect(screen.getByRole('menuitem', { name: /Refresh sync/i })).toBeInTheDocument();
   });
 });

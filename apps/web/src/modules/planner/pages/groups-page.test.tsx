@@ -215,7 +215,7 @@ describe('GroupsPage', () => {
     server.use(makeGroupsHandler(groups));
     renderWithRouter(<GroupsPage />);
 
-    await screen.findByText('Native');
+    await screen.findByRole('link', { name: 'Native' });
     // Source filter pill should appear because at least one m365 group exists
     expect(screen.getByRole('button', { name: /Source/i })).toBeInTheDocument();
   });

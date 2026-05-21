@@ -1,7 +1,7 @@
 import type { GroupWithCountsRow } from '@seta/planner';
 import { Avatar, AvatarFallback, AvatarStack, formatRelative, GroupTile } from '@seta/shared-ui';
 import { Link } from '@tanstack/react-router';
-import { ChevronRight, Shield, Users } from 'lucide-react';
+import { ChevronRight, RefreshCw, Shield, Users } from 'lucide-react';
 
 interface Props {
   groups: ReadonlyArray<GroupWithCountsRow>;
@@ -22,7 +22,7 @@ export function GroupsTable({ groups }: Props) {
       {/* Header row */}
       <div
         className="sticky top-0 z-10 grid items-center border-b border-border bg-surface-0 px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-ink-muted"
-        style={{ gridTemplateColumns: '40px 1.6fr 1fr 90px 110px 130px 100px 32px' }}
+        style={{ gridTemplateColumns: '40px 1.6fr 1fr 90px 110px 130px 100px 100px 32px' }}
       >
         <div />
         <div>Group</div>
@@ -31,6 +31,7 @@ export function GroupsTable({ groups }: Props) {
         <div>Members</div>
         <div>Visibility</div>
         <div className="text-right">Activity</div>
+        <div>Source</div>
         <div />
       </div>
 
@@ -42,7 +43,7 @@ export function GroupsTable({ groups }: Props) {
             to="/planner/groups/$groupId"
             params={{ groupId: group.id }}
             className="grid items-center border-b border-border px-4 py-3 text-sm text-ink transition-colors hover:bg-surface-1"
-            style={{ gridTemplateColumns: '40px 1.6fr 1fr 90px 110px 130px 100px 32px' }}
+            style={{ gridTemplateColumns: '40px 1.6fr 1fr 90px 110px 130px 100px 100px 32px' }}
             aria-label={group.name}
           >
             {/* Tile */}
@@ -52,7 +53,18 @@ export function GroupsTable({ groups }: Props) {
 
             {/* Name + description */}
             <div className="min-w-0 pr-4">
-              <p className="truncate font-semibold text-ink">{group.name}</p>
+              <p className="truncate font-semibold text-ink">
+                {group.name}
+                {group.external_source !== 'native' && (
+                  <span
+                    role="img"
+                    aria-label="Synced from M365"
+                    className="ml-1.5 inline-flex items-center align-middle text-ink-muted"
+                  >
+                    <RefreshCw className="size-3" aria-hidden="true" />
+                  </span>
+                )}
+              </p>
               {group.description && (
                 <p className="overflow-hidden text-ellipsis whitespace-nowrap text-xs text-ink-muted">
                   {group.description}
@@ -99,6 +111,11 @@ export function GroupsTable({ groups }: Props) {
             {/* Activity */}
             <div className="text-right text-xs text-ink-muted">
               {formatRelative(group.updated_at)}
+            </div>
+
+            {/* Source */}
+            <div className="text-xs text-ink-subtle">
+              {group.external_source === 'm365' ? 'M365' : 'Native'}
             </div>
 
             {/* Chevron */}

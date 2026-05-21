@@ -11,10 +11,33 @@ import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import type { ReactNode } from 'react';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SessionScopeProjection } from '../../identity/api/client';
 import { makeGroup, makePlan } from '../testing/fixtures';
 import { GroupDetailPage, type GroupTab } from './group-detail-page';
+
+// EventSource is not provided by happy-dom; GroupDetailHeader opens one via useGroupSyncStream.
+class FakeEventSource extends EventTarget {
+  static instances: FakeEventSource[] = [];
+  url: string;
+  withCredentials: boolean;
+  readyState = 0;
+  constructor(url: string, init?: EventSourceInit) {
+    super();
+    this.url = url;
+    this.withCredentials = init?.withCredentials ?? false;
+    FakeEventSource.instances.push(this);
+  }
+  close() {
+    this.readyState = 2;
+  }
+}
+
+beforeEach(() => {
+  vi.stubGlobal('EventSource', FakeEventSource as unknown as typeof EventSource);
+  FakeEventSource.instances = [];
+});
+afterEach(() => vi.unstubAllGlobals());
 
 const server = setupServer();
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
@@ -81,6 +104,9 @@ function defaultHandlers() {
       HttpResponse.json({ plans: [makePlan({ id: 'p1', group_id: 'g1', name: 'Q3 Launch' })] }),
     ),
     http.get('*/api/planner/v1/groups/g1/members', () => HttpResponse.json({ members: [] })),
+    http.get('*/api/integrations/m365/groups/g1/sync-status', () =>
+      HttpResponse.json({ sync_status: null }),
+    ),
   ];
 }
 
@@ -144,6 +170,9 @@ describe('GroupDetailPage', () => {
             },
           ],
         }),
+      ),
+      http.get('*/api/integrations/m365/groups/g1/sync-status', () =>
+        HttpResponse.json({ sync_status: null }),
       ),
     );
     renderInRouter(<AdminPage tab="members" />);
