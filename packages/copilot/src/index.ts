@@ -20,6 +20,8 @@ export type { RerunWorkflowOpts, RerunWorkflowResult } from './backend/domain/re
 export { rerunWorkflow } from './backend/domain/rerun-workflow.ts';
 export { bindOtel, otel } from './backend/observability.ts';
 export type { SessionLike } from './backend/routes.ts';
+export type { SweepDeps, SweepResult } from './backend/workflows/sweeper.ts';
+export { sweepWorkflowApprovals } from './backend/workflows/sweeper.ts';
 export type { CopilotEvent } from './events/index.ts';
 export type { CopilotPermission } from './permissions.ts';
 export { COPILOT_PERMISSIONS } from './permissions.ts';
