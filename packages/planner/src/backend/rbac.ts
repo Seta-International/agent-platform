@@ -12,7 +12,9 @@ export type PlannerErrorCode =
   | 'FORBIDDEN'
   | 'CONFLICT'
   | 'VALIDATION'
-  | 'CROSS_TENANT';
+  | 'CROSS_TENANT'
+  | 'LINKED_GROUP_IMMUTABLE_MEMBERS'
+  | 'LINKED_DUPLICATE';
 
 export class PlannerError extends Error {
   readonly code: PlannerErrorCode;

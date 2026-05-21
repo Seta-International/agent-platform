@@ -18,6 +18,12 @@ export const PLANNER_PERMISSIONS = [
   'planner.task.update',
   'planner.task.assign',
   'planner.task.delete',
+  'planner.group.member.role.set',
+  'planner.group.link.m365',
+  'planner.group.unlink',
+  'planner.group.refresh',
+  'planner.group.resolve-conflict',
+  'planner.group.sync.mark-status',
 ] as const;
 export type PlannerPermission = (typeof PLANNER_PERMISSIONS)[number];
 
@@ -45,6 +51,7 @@ export const PLANNER_ROLE_PERMISSIONS: Record<PlannerRoleSlug, PlannerPermission
     'planner.task.update',
     'planner.task.assign',
     'planner.task.delete',
+    'planner.group.refresh',
   ],
   'planner.viewer': [
     'planner.group.read',
@@ -52,5 +59,6 @@ export const PLANNER_ROLE_PERMISSIONS: Record<PlannerRoleSlug, PlannerPermission
     'planner.plan.read',
     'planner.bucket.read',
     'planner.task.read',
+    'planner.group.refresh',
   ],
 };
