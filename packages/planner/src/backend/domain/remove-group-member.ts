@@ -1,15 +1,14 @@
-import type { SessionScope } from '@seta/core';
 import { withEmit } from '@seta/core/events';
 import { and, eq, isNull } from 'drizzle-orm';
 import { groupMembers, groups } from '../../db/schema.ts';
 import { emitPlannerGroupMemberRemoved } from '../../events/emit-helpers.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
-import { isM365SystemActor } from './_actor.ts';
+import { isM365SystemActor, type PlannerSessionScope } from './_actor.ts';
 
 export async function removeGroupMember(input: {
   group_id: string;
   user_id: string;
-  session: SessionScope;
+  session: PlannerSessionScope;
 }): Promise<void> {
   requirePermission(input.session, 'planner.group.member.write', input.group_id);
 
@@ -49,8 +48,11 @@ export async function removeGroupMember(input: {
         .returning();
 
       if (removed.length > 0) {
+        const isSystemActor = isM365SystemActor(input.session);
         await emitPlannerGroupMemberRemoved({
-          actor: { type: 'user', user_id: input.session.user_id },
+          actor: isSystemActor
+            ? { type: 'system', user_id: input.session.user_id, system_id: 'integrations.m365' }
+            : { type: 'user', user_id: input.session.user_id },
           tenant_id: existing.tenant_id,
           group_id: existing.id,
           user_id: input.user_id,
