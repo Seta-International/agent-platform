@@ -40,6 +40,7 @@ export interface CreateTaskInput {
   title: string;
   description?: string;
   priority?: 'urgent' | 'important' | 'medium' | 'low';
+  progress?: 'not_started' | 'in_progress' | 'completed' | 'deferred';
   due_at?: string;
   skill_tags?: string[];
   review_state?: 'needs_review';

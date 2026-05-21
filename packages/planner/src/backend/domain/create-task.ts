@@ -77,6 +77,7 @@ export async function createTask(
           title: input.title,
           description: input.description ?? null,
           priority: input.priority ?? 'medium',
+          progress: input.progress ?? 'not_started',
           review_state: input.review_state ?? null,
           skill_tags: input.skill_tags ?? [],
           due_at: input.due_at ? new Date(input.due_at) : null,
