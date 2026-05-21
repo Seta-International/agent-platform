@@ -36,10 +36,12 @@ module.exports = {
     {
       name: 'only-server-imports-backend',
       severity: 'warn',
-      comment: "A module's /backend subpath is private to apps/server and the module itself.",
+      // apps/cli is an ops/admin tool that legitimately needs access to backend domain ops; it doesn't ship to end users.
+      comment:
+        "A module's /backend subpath is private to apps/server, apps/cli (ops/admin tool), and the module itself.",
       from: {
         path: '^(?:packages|apps)/([^/]+)/',
-        pathNot: '^apps/server/src/',
+        pathNot: '^apps/(server|cli)/src/',
       },
       to: {
         path: '^packages/(core|identity|planner|copilot|integrations)/src/backend/',
