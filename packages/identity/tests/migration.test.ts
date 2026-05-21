@@ -57,7 +57,6 @@ describe('identity migrations', () => {
             'user_profile',
             'role_grants',
             'failed_login_attempts',
-            'user_skill_embeddings',
             'tenant_sso_providers',
           ]),
         );
@@ -152,6 +151,29 @@ describe('identity migrations', () => {
           WHERE table_schema = 'core' AND table_name = 'session_scope_cache'
         `);
         expect(cacheTable.rows.length).toBe(1);
+      },
+    );
+  });
+
+  it('drops the user_skill_embeddings table (renamed to user_profile_embeddings)', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+      },
+      async ({ pool }) => {
+        const reg = createContributionRegistry();
+        registerCoreContributions(reg);
+        registerIdentityContributions(reg);
+        await runMigrations(reg, { pool });
+
+        const r = await pool.query<{ exists: boolean }>(`
+          SELECT EXISTS (
+            SELECT 1 FROM information_schema.tables
+             WHERE table_schema = 'identity' AND table_name = 'user_skill_embeddings'
+          ) AS exists
+        `);
+        expect(r.rows[0]?.exists).toBe(false);
       },
     );
   });
