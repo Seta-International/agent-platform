@@ -22,6 +22,7 @@
     "@seta/shared-testing": "workspace:^",
     "@types/pg": "^8.20.0",
     "drizzle-kit": "^0.31.10",
+    "graphile-worker": "^0.16.6",
     "msw": "^2.14.6",
     "typescript": "^6.0.3",
     "vitest": "^4.1.7"
