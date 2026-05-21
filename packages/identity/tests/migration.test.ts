@@ -177,4 +177,39 @@ describe('identity migrations', () => {
       },
     );
   });
+
+  it('creates identity.user_profile_embeddings as a partitioned parent', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+      },
+      async ({ pool }) => {
+        const reg = createContributionRegistry();
+        registerCoreContributions(reg);
+        registerIdentityContributions(reg);
+        await runMigrations(reg, { pool });
+
+        const cols = await pool.query<{ column_name: string; data_type: string }>(`
+          SELECT column_name, data_type FROM information_schema.columns
+           WHERE table_schema = 'identity' AND table_name = 'user_profile_embeddings'
+           ORDER BY ordinal_position
+        `);
+        expect(cols.rows.map((r) => r.column_name)).toEqual([
+          'tenant_id',
+          'user_id',
+          'source_hash',
+          'embedding',
+          'model_id',
+          'embedded_at',
+        ]);
+
+        const part = await pool.query<{ partstrat: string; partattrs: string }>(`
+          SELECT partstrat::text, partattrs::text FROM pg_partitioned_table
+           WHERE partrelid = 'identity.user_profile_embeddings'::regclass
+        `);
+        expect(part.rows[0]?.partstrat).toBe('l');
+      },
+    );
+  });
 });
