@@ -67,19 +67,31 @@ llmDescribe('classify-skills agent (real LLM)', () => {
 
 describe('classify-skills agent (deterministic mock)', () => {
   it('returns mocked structured output', async () => {
-    const spy = vi.spyOn(classifySkillsAgent, 'generate').mockResolvedValue({
+    const mockOutput = {
       object: { requiredSkills: ['postgres', 'sql-tuning', 'observability'] },
       error: undefined,
       text: '',
       toolResults: [],
-      finishReason: 'stop',
+      finishReason: 'stop' as const,
       usage: { promptTokens: 0, completionTokens: 0 },
       response: {
         id: 'mock-id',
         timestamp: new Date(),
         modelId: 'mock-model',
       },
-    } as any);
+      steps: [],
+      warnings: undefined,
+      providerMetadata: undefined,
+      request: { body: '' },
+      reasoning: undefined,
+      reasoningText: undefined,
+      toolCalls: [],
+      sources: [],
+      files: [],
+      totalUsage: { promptTokens: 0, completionTokens: 0 },
+      tripwire: undefined,
+    };
+    const spy = vi.spyOn(classifySkillsAgent, 'generate').mockResolvedValue(mockOutput);
 
     const result = await classifySkillsAgent.generate(
       [{ role: 'user', content: 'Any task description' }],
