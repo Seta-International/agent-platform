@@ -904,15 +904,15 @@ Workflow vs chat boundary is summarized in the table at the top of §7.1b. The c
 
 ### 7.1c Retrieval & embeddings posture (revised 2026-05-19 — in scope for v1)
 
-**Posture (revised 2026-05-21, M3 implementation slice).** Semantic retrieval is the agent-flow substrate per the flagship demo §3.9.1. v1 ships embeddings for three entities (tasks, user profile, tenant knowledge corpus); the pipeline is event-driven CDC for the entity-bus entities and admin-driven upload for tenant knowledge. The spec at `docs/superpowers/specs/2026-05-21-vectorization-strategy-design.md` is the source of truth; this section summarizes.
+**Posture (revised 2026-05-21, M3 implementation slice).** Semantic retrieval is the agent-flow substrate per the flagship demo §3.9.1. v1 ships embeddings for three entities (tasks, user profile, tenant knowledge corpus); the pipeline is event-driven CDC for the entity-bus entities and admin-driven upload for tenant knowledge.
 
 - **Vector store: pgvector** (Postgres extension). No new runtime infra per §1.6.5a. HNSW indexes; per-tenant filtering at WHERE; per-tenant residency posture is identical to the rest of the data per §10.3.
 - **Embedding model: pluggable via Mastra's model abstraction**, same pattern as the LLM provider (§7.1a). **Default: OpenAI `text-embedding-3-small`** (1536d) for managed deploys; self-hosters can swap in AWS Bedrock Titan Embed v2, local Ollama (`nomic-embed-text` / `bge-small`), or any model Mastra exposes. The provider config schema accommodates this from day one.
 - **Embedded entities (v1):**
   - **Tasks** — `title + description + skill_tags` (labeled prose). One vector per task when source ≤1000 tokens (~95% of rows); recursive 512/50 chunking above. Stored in `planner.task_embeddings`. CDC trigger: `planner.task.{created,updated,deleted}`.
   - **User profile** — labeled prose over `identity.user_profile` (today: `skills`; extensible to job title / department / bio without schema change). One vector per user, never chunked. Stored in `identity.user_profile_embeddings` (renamed from the v1 stub `user_skill_embeddings`). CDC trigger: `identity.user.{created,profile.updated,deactivated}`.
-  - **Tenant knowledge corpus** — parsed text from admin-uploaded PDF/DOCX/XLSX/CSV/TXT/MD. Recursive 512/50 chunking (always chunk — knowledge docs are long-form). Stored in `copilot.tenant_knowledge_embeddings` joined with `copilot.tenant_knowledge_chunks` and `copilot.tenant_knowledge_files`. Trigger: admin upload → parse worker → embed worker. **Pulled forward from Phase B** per D43.
-  - **Plans** and **comments** — deferred per D42. Re-evaluate Phase B when a consumer query justifies the cost.
+  - **Tenant knowledge corpus** — parsed text from admin-uploaded PDF/DOCX/XLSX/CSV/TXT/MD. Recursive 512/50 chunking (always chunk — knowledge docs are long-form). Stored in `copilot.tenant_knowledge_embeddings` joined with `copilot.tenant_knowledge_chunks` and `copilot.tenant_knowledge_files`. Trigger: admin upload → parse worker → embed worker. **Pulled forward from Phase B** per D47.
+  - **Plans** and **comments** — deferred per D46. Re-evaluate Phase B when a consumer query justifies the cost.
 - **Ownership.** Embeddings live in the **owning module's schema** as sibling tables — never in `copilot`. The owning module's public surface (`src/index.ts`) exposes a `getEntityForEmbedding()` view function that the embedding subscriber (which lives in `copilot`) calls when refreshing. Boundary discipline (§1.6.2) holds.
 - **Freshness pipeline: event-driven CDC.** A subscriber per chunkable entity reacts to domain events (`planner.task.created`, `planner.task.updated`, `identity.user.profile.updated`, etc.), re-chunks + re-embeds the affected rows, upserts into the vector index. Idempotent by `event_id` (the bus rule from §1.6.5a applies). Batched through graphile-worker. **Freshness target: search index lags primary by ≤ 60s** — same envelope as inbound MS Planner sync (§6.7).
 - **Per-tenant isolation.** Embeddings tables partitioned by `tenant_id` or always filtered at WHERE; HNSW indexes scoped accordingly. Same SQL discipline as the rest of `planner.*` / `identity.*`.
@@ -934,7 +934,7 @@ Workflow vs chat boundary is summarized in the table at the top of §7.1b. The c
   - Custom per-tenant embedding models (instance-level pick only).
   - Vector-store-backed long-term memory (Mastra working-memory summarization per §7.1b is sufficient for v1; no separate "agent memory store" in vectors).
 
-**Decisions:** see D38–D45 in `project-plan.md` §7 for the M3 implementation deltas (LIST partitioning day-1, halfvec, ef_search=100, conditional chunking, knowledge corpus pulled forward, two-stage hybrid+rerank, Mastra utilities-only).
+**Decisions:** see D42–D49 in `project-plan.md` §7 for the M3 implementation deltas (LIST partitioning day-1, halfvec, ef_search=100, conditional chunking, knowledge corpus pulled forward, two-stage hybrid+rerank, Mastra utilities-only).
 
 ### 7.1d External data via MCP — Timesheet integration (decided)
 

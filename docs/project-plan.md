@@ -76,16 +76,21 @@ This milestone runs as **three concurrent streams** converging on a single demo:
 
 - Public-API contract drift between streams B and C. Stream C builds tools against the *types* exported from `@seta/planner` (the public surface in `src/index.ts`); if those types churn, every tool wrapper churns with them. Mitigation: planner public-API types frozen at end of M2 week 1; subsequent planner work goes into implementation, not signature changes.
 
-### M3 — Embeddings + write path
+### M3 — Embeddings + write path (revised 2026-05-21)
 
 Two parallel tracks under one milestone.
 
-**Scope (track 1 — embeddings CDC)**
+**Scope (track 1 — vectorization, broken into 5 sequential PR slices):**
 
-- §I pipeline: CDC subscribers on `planner.task.*` and `planner.plan.*` events; graphile-worker job queue; embed worker calling the provider; HNSW index per §A10 with `tenant_id` prefilter.
-- Backfill on demo tenant; `searchTasksSemantic` returns real results.
-- 2-lever embeddings backpressure per D4 / §A11 (queue-depth threshold + per-tenant fair-share); the three reactive levers stay deferred.
-- `shared/crypto` lands here — Secrets Manager reader needed for provider keys.
+- **M3.1** `embeddings-foundation` — pgvector extension; `shared/retrieval` + `shared/embeddings` packages; partitioned parent tables (`planner.task_embeddings`, `identity.user_profile_embeddings`); lazy per-tenant HNSW provisioning; no-op job stubs; doc edits per spec §6.
+- **M3.2** `embeddings-cdc-tasks` — real `embed_task` handler; subscribers on `planner.task.*`; FTS/Vector/Hybrid retrievers for tasks; `search_tasks_semantic` tool; backfill CLI (OpenAI Batch API).
+- **M3.3** `embeddings-cdc-user-profile` — real `embed_user_profile` handler; subscribers on `identity.user.*`; user-profile retriever; `match_users_to_topic` tool (declared-skill match only — history-inference half is Phase B per D15).
+- **M3.4** `rerank-and-knowledge-foundation` — `Reranker` interface + Cohere/LlmJudge/Noop implementations; two-stage retrieval; **`shared/storage` (S3-lite) pulled forward** (presigned upload URLs, file-type allowlist, tenant-scoped key prefix); `copilot.tenant_knowledge_files` + upload API.
+- **M3.5** `tenant-knowledge-pipeline` — parse workers (PDF/DOCX/XLSX/CSV); embed worker; chunks + embeddings tables; `search_tenant_knowledge` tool with citation metadata; upload UI status.
+
+Dependency graph: M3.1 → {M3.2, M3.3, M3.4}; M3.4 → M3.5.
+
+Spec: `docs/superpowers/specs/2026-05-21-vectorization-strategy-design.md`. Per-slice plan files in `docs/superpowers/plans/2026-05-21-m3-*.md`.
 
 **Scope (track 2 — HITL write tools)**
 
@@ -254,6 +259,14 @@ This is the ADR ledger as of 2026-05-19 architect review. Edits land here as new
 | D39 | Planner public-surface (`packages/planner/src/index.ts`) frozen on B1 merge. Function signatures, DTO shapes, event payloads, `PlannerError` codes do not change after B1; B2/B3/B4 and any future Mastra slice import the frozen contract. Internal refactors are unaffected. Reversal: a signature change requires a new D-row explicitly retiring this freeze with the reason. (Recorded as D35 in the source spec; renumbered here for ledger continuity.) | docs/superpowers/specs/2026-05-20-planner-foundation-design.md |
 | D40 | B2 (planner web UI) ships in a 3-PR split: PR1 foundation (routing + data layer + Groups/Group detail/Trash) → PR2 board+sheet (Kanban DnD + Task sheet) → PR3 grid+polish. Locks `@hello-pangea/dnd` for DnD, TanStack Query + SSE reconciliation, plain `Textarea` + `react-markdown` for the description editor (TipTap/Lexical + @mentions deferred to Phase B). One additive change to the planner public surface in PR1: `listTaskEvents` + `GET /api/planner/v1/tasks/:id/events`; D39 freeze preserved. Reversal: a different DnD library or data layer requires a new D-row retiring this lock. | docs/superpowers/specs/2026-05-20-planner-web-ui-design.md |
 | D41 | Split workflow `execute.self` from `approve`. Re-run is a per-user action; approval is per-run authorization. Bundling leaks approval power to anyone who can re-run an action. Recorded 2026-05-21 in the workflow runs foundation slice. | docs/superpowers/specs/2026-05-21-copilot-workflow-runs-readonly-design.md |
+| D42 | Vector index tenant isolation: declarative LIST partitioning by `tenant_id` from day 1; per-partition HNSW; planner prunes at WHERE. Reverses §A10 "no partitioning in v1". Rationale: arXiv:2401.07119 (Curator) — 37× faster vs. shared-index prefilter at 100-tenant scale. | `docs/superpowers/specs/2026-05-21-vectorization-strategy-design.md` §3.2; `architecture.md` §A10 (edited) |
+| D43 | Vector storage type: `halfvec(1536)` (pgvector ≥0.7) over `vector(1536)`. ~60% smaller index, negligible recall loss. Day-1 decision. | spec §3.2 |
+| D44 | HNSW tuning: `m=16, ef_construction=200, ef_search=100`. Bump `ef_search` from §A10's `40`. | spec §3.2 |
+| D45 | Conditional chunking. One vector per task ≤1000 source tokens; recursive 512/50 above. Drop `planner.task_chunks` from M3. Reverses §7.1c "always chunk". | spec §3.2, §3.3 |
+| D46 | M3 scope: tasks + user_profile + tenant_knowledge. `plan_embeddings` and `comment_embeddings` deferred. Rename `identity.user_skill_embeddings` → `identity.user_profile_embeddings`. Reverses §7.1c entity list. | spec §1, §2, §3.4 |
+| D47 | Tenant knowledge corpus + `shared/storage` (S3-lite) pulled forward from Phase B to M3 (M3.4/M3.5). No ClamAV in M3; mitigated by tenant-admin upload gate + file-type allowlist. Reverses §14.2 sequencing. | spec §3.5, §4.2, §7.1 |
+| D48 | Two-stage retrieval (hybrid + rerank) is production default. Stage 1: FTS+vector RRF k=60, top-50. Stage 2: cross-encoder rerank top-N. Reranker provider abstracted same as embedding provider — Cohere default for managed; LLM-judge fallback; Noop opt-out. | spec §5.3 |
+| D49 | Mastra integration depth: utilities-only. Use `@mastra/rag`'s `MDocument.chunk()`, `rerank()`, and scorers. **Do not** use `@mastra/pg`'s `PgVector` (incompatible with §F.4 module-owned table schemas). AI SDK `embedMany` called directly. | spec §5.1, §5.3 |
 
 ## 8. What this plan deliberately omits
 

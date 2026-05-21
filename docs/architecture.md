@@ -283,7 +283,7 @@ registry.subscribers([
 
 ### §A10. pgvector index strategy → **LIST-partition per tenant + per-partition HNSW on `halfvec(1536)`**
 
-- **Decision (revised 2026-05-21 per D38–D40).** Every embedding parent table is declared `PARTITION BY LIST (tenant_id)`. Per-tenant child partitions and their HNSW indexes are provisioned lazily on first embed per tenant by `shared/db`'s `ensureTenantPartition()` helper, guarded by a Postgres advisory lock. The query planner prunes partitions at `WHERE tenant_id = $1`, so each query scans only one tenant's HNSW index — Curator-paper-style (arXiv:2401.07119) 37× faster than a single-index + prefilter approach at our 100-tenant scale.
+- **Decision (revised 2026-05-21 per D42–D44).** Every embedding parent table is declared `PARTITION BY LIST (tenant_id)`. Per-tenant child partitions and their HNSW indexes are provisioned lazily on first embed per tenant by `shared/db`'s `ensureTenantPartition()` helper, guarded by a Postgres advisory lock. The query planner prunes partitions at `WHERE tenant_id = $1`, so each query scans only one tenant's HNSW index — Curator-paper-style (arXiv:2401.07119) 37× faster than a single-index + prefilter approach at our 100-tenant scale.
 
 - **Storage type.** `halfvec(1536)` (pgvector ≥0.7 half-precision). ~60% smaller index than `vector(1536)`, negligible recall loss at this dimensionality. Day-1 decision, not opt-in.
 
