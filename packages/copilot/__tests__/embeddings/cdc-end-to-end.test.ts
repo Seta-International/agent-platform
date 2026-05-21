@@ -15,10 +15,13 @@
 import { resetCoreDb } from '@seta/core/internal/test-support';
 import { closePools, initPools } from '@seta/shared-db';
 import { FakeEmbeddingProvider, withTestDb } from '@seta/shared-testing';
+import { PgDialect } from 'drizzle-orm/pg-core';
 import { describe, expect, it } from 'vitest';
 import { seedTaskForTest } from '../../../planner/tests/helpers/seed.ts';
 import { embedTask } from '../../src/backend/embeddings/embed-task.ts';
 import { refreshTaskCreatedSubscriber } from '../../src/backend/embeddings/subscribers/refresh-task.ts';
+
+const pgDialect = new PgDialect();
 
 function withDb<T>(fn: (ctx: { pool: import('pg').Pool }) => Promise<T>): Promise<T> {
   return withTestDb(
@@ -82,57 +85,34 @@ function makeTaskCreatedEvent(opts: { tenantId: string; taskId: string; eventId:
 /**
  * Build a fake ctx.tx that intercepts graphile_worker.add_job calls.
  *
- * Instead of inserting into the worker queue, it extracts the embed_task
- * payload from the SQL template args and invokes embedTask synchronously
- * with the provided pool + provider.
+ * Instead of inserting into the worker queue, it uses drizzle's public
+ * `PgDialect.sqlToQuery()` to materialise the SQL and positional params from
+ * the drizzle SQL template object, then extracts the embed_task payload from
+ * params[1] (the second positional arg in the add_job call, after the job name).
  *
- * drizzle's sql`` template produces an SQL object with `queryChunks` — an
- * alternating sequence of StringChunk (literal SQL text) and Param objects
- * (interpolated values). Param has `.value` holding the raw JS value.
- * The refresh-task subscriber passes 9 positional args to add_job; arg[1]
- * (the payload JSON string) is at queryChunks index 3 (0=StringChunk,
- * 1=Param('embed_task'), 2=StringChunk, 3=Param(payloadJson), …).
- *
- * To be robust against index changes we scan all Param chunks and pick the
- * first one whose value is a JSON string with tenant_id + task_id.
+ * sqlToQuery() returns { sql: string, params: unknown[] } where params are the
+ * interpolated values in template order. For the refresh-task subscriber the
+ * order is: ['embed_task', payloadJson, 10, jobKey, 'replace'].
  */
 function makeSyncEmbedCtx(opts: { pool: import('pg').Pool; provider: FakeEmbeddingProvider }) {
   const { pool, provider } = opts;
 
   return {
     tx: {
-      async execute(sqlTemplate: { queryChunks?: Array<unknown> }) {
-        const chunks = sqlTemplate.queryChunks ?? [];
+      async execute(sqlTemplate: Parameters<typeof pgDialect.sqlToQuery>[0]) {
+        const { sql: sqlText, params } = pgDialect.sqlToQuery(sqlTemplate);
 
-        // drizzle's sql`` template in this version stores interpolated values as
-        // raw primitives directly in queryChunks (not wrapped in Param objects).
-        // StringChunk objects have a `.value` array of string literals.
-        // Plain string/number interpolations are stored as primitive values.
-        // We scan for a chunk that is a JSON string containing the embed_task payload.
-        let jobPayload: { tenant_id: string; task_id: string; event_id: string } | null = null;
-        for (const chunk of chunks) {
-          // Plain string primitive (interpolated value)
-          if (typeof chunk === 'string') {
-            try {
-              const parsed = JSON.parse(chunk) as Record<string, unknown>;
-              if (
-                typeof parsed.tenant_id === 'string' &&
-                typeof parsed.task_id === 'string' &&
-                typeof parsed.event_id === 'string'
-              ) {
-                jobPayload = parsed as { tenant_id: string; task_id: string; event_id: string };
-                break;
-              }
-            } catch {
-              // not JSON — skip
-            }
-          }
-        }
-
-        if (!jobPayload) {
+        if (!sqlText.includes('graphile_worker.add_job')) {
           // Not an embed_task add_job call — ignore.
           return { rows: [] };
         }
+
+        // params[1] is the payload JSON string (second positional arg after the job name).
+        const rawPayload = params[1];
+        const jobPayload =
+          typeof rawPayload === 'string'
+            ? (JSON.parse(rawPayload) as { tenant_id: string; task_id: string; event_id: string })
+            : (rawPayload as { tenant_id: string; task_id: string; event_id: string });
 
         await embedTask(jobPayload, { pool, provider });
         return { rows: [] };

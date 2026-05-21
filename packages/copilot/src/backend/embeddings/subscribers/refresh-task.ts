@@ -93,7 +93,7 @@ async function handleRefreshTask(
 // ── Subscriber definitions ───────────────────────────────────────────────────
 
 export const refreshTaskCreatedSubscriber: SubscriberDef = {
-  subscription: 'copilot.embeddings.refresh-task-created',
+  subscription: 'copilot.embeddings.refresh-task.created',
   event: 'planner.task.created',
   eventVersion: 1,
   handler: async (event, ctx) => {
@@ -102,7 +102,7 @@ export const refreshTaskCreatedSubscriber: SubscriberDef = {
 };
 
 export const refreshTaskUpdatedSubscriber: SubscriberDef = {
-  subscription: 'copilot.embeddings.refresh-task-updated',
+  subscription: 'copilot.embeddings.refresh-task.updated',
   event: 'planner.task.updated',
   eventVersion: 1,
   handler: async (event, ctx) => {
@@ -111,7 +111,7 @@ export const refreshTaskUpdatedSubscriber: SubscriberDef = {
 };
 
 export const refreshTaskDeletedSubscriber: SubscriberDef = {
-  subscription: 'copilot.embeddings.refresh-task-deleted',
+  subscription: 'copilot.embeddings.refresh-task.deleted',
   event: 'planner.task.deleted',
   eventVersion: 1,
   handler: async (event, ctx) => {
