@@ -17,6 +17,7 @@ import { listModels, ModelNotFoundError, resolveModel } from './model-registry.t
 import { RateLimitError, reserveTurn } from './rate-limit.ts';
 import type { SessionLike } from './types.ts';
 import { issueSseToken } from './workflows/auth-token.ts';
+import { getWorkflowInputSchema } from './workflows/input-schema-registry.ts';
 import { mountInboxSse } from './workflows/sse-inbox.ts';
 import { mountRunSse } from './workflows/sse-run.ts';
 
@@ -639,6 +640,16 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
     } catch (err) {
       return handleDomainError(c, err);
     }
+  });
+
+  app.get('/api/copilot/v1/workflows/:workflowId/input-schema', async (c) => {
+    const session = c.get('session') as SessionLike | undefined;
+    if (!session) return c.json({ error: 'unauthorized', message: 'session required' }, 401);
+    const schema = getWorkflowInputSchema(c.req.param('workflowId'));
+    if (!schema) {
+      return c.json({ error: 'not_found', message: 'unknown workflow id' }, 404);
+    }
+    return c.json(schema);
   });
 
   app.get('/api/copilot/v1/workflows/sse-token', async (c) => {

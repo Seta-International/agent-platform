@@ -259,3 +259,51 @@ describe('GET /api/copilot/v1/workflows/sse-token', () => {
     });
   });
 });
+
+describe('GET /api/copilot/v1/workflows/:workflowId/input-schema', () => {
+  it('returns 401 without a session', async () => {
+    await withCopilotTestDb(async ({ pool }) => {
+      const app = makeApp(null, makeMastra(vi.fn()), pool);
+      const res = await app.request(
+        '/api/copilot/v1/workflows/copilot.new-task-skill-tag/input-schema',
+      );
+      expect(res.status).toBe(401);
+    });
+  });
+
+  it('returns the JSON Schema for a registered workflow', async () => {
+    await withCopilotTestDb(async ({ pool }) => {
+      const { registerWorkflowInputSchema } = await import(
+        '../src/backend/workflows/input-schema-registry.ts'
+      );
+      const { z } = await import('zod');
+      registerWorkflowInputSchema(
+        'copilot.routes-test-workflow',
+        z.object({ taskId: z.string().uuid() }),
+      );
+      const me = session(['copilot.workflow.run.read.self']);
+      const app = makeApp(me, makeMastra(vi.fn()), pool);
+      const res = await app.request(
+        '/api/copilot/v1/workflows/copilot.routes-test-workflow/input-schema',
+      );
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        type: string;
+        properties: { taskId: { format: string } };
+      };
+      expect(body.type).toBe('object');
+      expect(body.properties.taskId.format).toBe('uuid');
+    });
+  });
+
+  it('returns 404 for an unknown workflow id', async () => {
+    await withCopilotTestDb(async ({ pool }) => {
+      const me = session(['copilot.workflow.run.read.self']);
+      const app = makeApp(me, makeMastra(vi.fn()), pool);
+      const res = await app.request(
+        '/api/copilot/v1/workflows/copilot.no-such-workflow/input-schema',
+      );
+      expect(res.status).toBe(404);
+    });
+  });
+});
