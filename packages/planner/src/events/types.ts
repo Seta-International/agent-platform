@@ -4,6 +4,7 @@ export interface PlannerEventActor {
   type: 'user' | 'cli' | 'system' | 'agent' | 'sync';
   user_id: Uuid | null;
   binding_id?: string; // when type === 'sync'
+  system_id?: 'integrations.m365';
 }
 
 export type TaskMutableFields = {
@@ -20,6 +21,15 @@ export type TaskMutableFields = {
 // Groups
 // ---------------------------------------------------------------------------
 
+export type GroupFieldKey =
+  | 'name'
+  | 'description'
+  | 'theme'
+  | 'visibility'
+  | 'default_role'
+  | 'external_source'
+  | 'external_id';
+
 export interface PlannerGroupCreated {
   event_type: 'planner.group.created';
   event_version: 1;
@@ -32,6 +42,12 @@ export interface PlannerGroupCreated {
       group_id: Uuid;
       tenant_id: Uuid;
       name: string;
+      description: string | null;
+      theme: 'teal' | 'purple' | 'green' | 'blue' | 'pink' | 'orange' | 'red';
+      visibility: 'private' | 'public';
+      default_role: 'owner' | 'member';
+      external_source: 'native' | 'm365';
+      external_id: string | null;
       account_id: Uuid | null;
       created_by: Uuid;
     };
@@ -46,8 +62,9 @@ export interface PlannerGroupUpdated {
   payload: {
     actor: PlannerEventActor;
     group_id: Uuid;
-    before: Partial<{ name: string }>;
-    after: Partial<{ name: string }>;
+    before: Partial<Record<GroupFieldKey, unknown>>;
+    after: Partial<Record<GroupFieldKey, unknown>>;
+    changed_fields: GroupFieldKey[];
     version_before: number;
     version_after: number;
   };
@@ -99,6 +116,20 @@ export interface PlannerGroupMemberRemoved {
     actor: PlannerEventActor;
     group_id: Uuid;
     user_id: Uuid;
+  };
+}
+
+export interface PlannerGroupMemberRoleChanged {
+  event_type: 'planner.group.member.role-changed';
+  event_version: 1;
+  aggregate_type: 'planner.group';
+  aggregate_id: Uuid;
+  payload: {
+    actor: PlannerEventActor;
+    group_id: Uuid;
+    user_id: Uuid;
+    before_role: 'owner' | 'member';
+    after_role: 'owner' | 'member';
   };
 }
 
@@ -510,6 +541,7 @@ export type PlannerEvent =
   | PlannerGroupRestored
   | PlannerGroupMemberAdded
   | PlannerGroupMemberRemoved
+  | PlannerGroupMemberRoleChanged
   | PlannerPlanCreated
   | PlannerPlanUpdated
   | PlannerPlanDeleted
