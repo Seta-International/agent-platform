@@ -1,9 +1,20 @@
+import type { GroupDefaultRole, GroupMemberRole, GroupTheme, GroupVisibility } from './dto.ts';
+
 export interface CreateGroupInput {
   tenant_id: string;
   name: string;
+  description?: string;
+  theme?: GroupTheme;
+  visibility?: GroupVisibility;
+  default_role?: GroupDefaultRole;
+  initial_members?: { user_id: string; role: GroupMemberRole }[];
 }
 export interface UpdateGroupPatch {
   name?: string;
+  description?: string | null;
+  theme?: GroupTheme;
+  visibility?: GroupVisibility;
+  default_role?: GroupDefaultRole;
 }
 
 export interface CreatePlanInput {
@@ -60,4 +71,20 @@ export interface CreateLabelInput {
 export interface UpdateLabelPatch {
   name?: string;
   color?: string;
+}
+
+export interface SetMemberRoleInput {
+  group_id: string;
+  user_id: string;
+  role: GroupMemberRole;
+}
+
+export interface LinkGroupToM365Input {
+  group_id: string;
+  external_id: string;
+}
+
+export interface MarkGroupSyncStatusInput {
+  group_id: string;
+  external_synced_at: string;
 }
