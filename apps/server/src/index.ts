@@ -1,4 +1,5 @@
 import { serve } from '@hono/node-server';
+import { embeddingJobs } from '@seta/copilot';
 import { createContributionRegistry, runMigrations } from '@seta/core';
 import { coreDb } from '@seta/core/db';
 import { startDispatcher } from '@seta/core/dispatcher';
@@ -96,6 +97,7 @@ const workers = await startWorkerPool({
       await mailerSendTask(payload as never);
     },
     ...(m365Boot ? m365Boot.jobs : {}),
+    ...embeddingJobs,
   },
 });
 _workerHandle = workers;
