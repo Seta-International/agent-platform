@@ -129,8 +129,7 @@ describe('PlanPage', () => {
     );
     expect(await screen.findByText('To do')).toBeInTheDocument();
     expect(screen.getByText('Done')).toBeInTheDocument();
-    // Title appears twice (KanbanCard title + PreviewCard title) per Task 30; assert presence.
-    expect(screen.getAllByText('Wire up DnD').length).toBeGreaterThan(0);
+    expect(screen.getByText('Wire up DnD')).toBeInTheDocument();
   });
 
   it('uses virtualized list when bucket has > 50 cards', async () => {
@@ -177,7 +176,7 @@ describe('PlanPage', () => {
     expect(results).toHaveNoViolations();
   });
 
-  it('board card body renders PreviewCard body content for tasks with a description', async () => {
+  it('board card body renders PreviewBody content for tasks with a description', async () => {
     const richTask = {
       ...taskOne,
       id: 't-desc',

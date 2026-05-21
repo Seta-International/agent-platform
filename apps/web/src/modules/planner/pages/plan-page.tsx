@@ -3,8 +3,8 @@ import {
   KanbanBoard,
   KanbanCard,
   KanbanColumn,
-  PreviewCard,
-  type PreviewCardTask,
+  PreviewBody,
+  type PreviewBodyTask,
 } from '@seta/shared-ui';
 import { type HTMLAttributes, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { BoardSkeleton } from '../components/board-skeleton';
@@ -119,20 +119,11 @@ export function PlanPage({
         saving: savingIds.has(t.id),
         recentlyMoved: recentlyMoved.has(t.id),
       };
-      const previewTask: PreviewCardTask = {
-        id: t.id,
-        title: t.title,
+      const previewTask: PreviewBodyTask = {
         description: t.description ?? undefined,
-        priority,
-        labels: t.labels.map((l) => ({ name: l.name, color: l.color })),
-        assignees: t.assignees.map((a) => ({
-          user_id: a.user_id,
-          display_name: a.display_name,
-        })),
-        due_at: t.due_at ?? undefined,
       };
       const previewSlot: ReactNode = (
-        <PreviewCard task={previewTask} variant={t.preview_type ?? 'automatic'} />
+        <PreviewBody task={previewTask} variant={t.preview_type ?? 'automatic'} />
       );
       const arr = map.get(t.bucket_id) ?? [];
       arr.push({ card, previewSlot });
