@@ -15,6 +15,13 @@
       "when": 1779295386916,
       "tag": "0002_green_scalphunter",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1779343784258,
+      "tag": "0003_fearless_cerise",
+      "breakpoints": true
     }
   ]
 }
