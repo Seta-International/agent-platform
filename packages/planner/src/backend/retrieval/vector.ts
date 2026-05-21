@@ -17,7 +17,11 @@ interface TaskRow {
 }
 
 export class VectorRetriever implements Retriever<VectorQuery, TaskRetrievalItem> {
-  constructor(private readonly opts: { pool: Pool }) {}
+  private readonly opts: { pool: Pool };
+
+  constructor(opts: { pool: Pool }) {
+    this.opts = opts;
+  }
 
   async query(input: VectorQuery, _ctx: RetrievalCtx): Promise<RetrievalHit<TaskRetrievalItem>[]> {
     const { pool } = this.opts;

@@ -19,7 +19,11 @@ interface TaskRow {
 }
 
 export class FtsRetriever implements Retriever<FtsQuery, TaskRetrievalItem> {
-  constructor(private readonly opts: { pool: Pool }) {}
+  private readonly opts: { pool: Pool };
+
+  constructor(opts: { pool: Pool }) {
+    this.opts = opts;
+  }
 
   async query(input: FtsQuery, _ctx: RetrievalCtx): Promise<RetrievalHit<TaskRetrievalItem>[]> {
     const { pool } = this.opts;

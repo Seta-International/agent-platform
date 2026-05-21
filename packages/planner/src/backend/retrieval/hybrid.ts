@@ -23,7 +23,11 @@ interface HybridRow {
 }
 
 export class HybridRetriever implements Retriever<HybridQuery, TaskRetrievalItem> {
-  constructor(private readonly opts: { pool: Pool }) {}
+  private readonly opts: { pool: Pool };
+
+  constructor(opts: { pool: Pool }) {
+    this.opts = opts;
+  }
 
   async query(input: HybridQuery, _ctx: RetrievalCtx): Promise<RetrievalHit<TaskRetrievalItem>[]> {
     const { pool } = this.opts;

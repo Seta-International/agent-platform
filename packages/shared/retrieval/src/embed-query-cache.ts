@@ -25,8 +25,11 @@ export interface EmbedQueryCacheOptions {
  */
 export class EmbedQueryCache {
   private readonly entries = new Map<string, Entry>();
+  private readonly opts: EmbedQueryCacheOptions;
 
-  constructor(private readonly opts: EmbedQueryCacheOptions) {}
+  constructor(opts: EmbedQueryCacheOptions) {
+    this.opts = opts;
+  }
 
   async get(modelId: string, query: string, compute: () => Promise<number[]>): Promise<number[]> {
     const key = `${modelId} ${query}`;
