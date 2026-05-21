@@ -26,7 +26,7 @@ async function refetchTopmostThreadId(
       queryFn: () => copilotApi.listThreads(),
     });
     if (!Array.isArray(threads) || threads.length === 0) return fallback;
-    const sorted = [...threads].sort(
+    const sorted = threads.toSorted(
       (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
     );
     return sorted[0]?.id ?? fallback;

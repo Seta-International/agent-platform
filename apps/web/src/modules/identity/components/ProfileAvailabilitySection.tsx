@@ -95,6 +95,7 @@ export function ProfileAvailabilitySection({
                 setOooUntil(v ? new Date(`${v}T00:00:00`) : null);
               }}
               className="w-56"
+              suppressHydrationWarning
             />
           </div>
         )}

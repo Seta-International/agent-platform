@@ -42,7 +42,7 @@ function TimezonePicker({ value, onChange }: { value: string; onChange: (next: s
           className="w-full justify-between font-normal"
         >
           {value || 'Select timezone'}
-          <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+          <ChevronsUpDown className="ml-2 size-4 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] p-0">

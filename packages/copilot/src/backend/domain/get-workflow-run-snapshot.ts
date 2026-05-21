@@ -1,5 +1,5 @@
 import type { Mastra } from '@mastra/core';
-import type { SessionLike } from '../routes.ts';
+import type { SessionLike } from '../types.ts';
 import { getWorkflowRun } from './get-workflow-run.ts';
 
 export interface GetWorkflowRunSnapshotOpts {

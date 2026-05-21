@@ -41,18 +41,19 @@ export function DataTableToolbar<TData>({
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            {table
-              .getAllColumns()
-              .filter((c) => c.getCanHide())
-              .map((c) => (
-                <DropdownMenuCheckboxItem
-                  key={c.id}
-                  checked={c.getIsVisible()}
-                  onCheckedChange={(v) => c.toggleVisibility(!!v)}
-                >
-                  {String(c.columnDef.header ?? c.id)}
-                </DropdownMenuCheckboxItem>
-              ))}
+            {table.getAllColumns().flatMap((c) =>
+              c.getCanHide()
+                ? [
+                    <DropdownMenuCheckboxItem
+                      key={c.id}
+                      checked={c.getIsVisible()}
+                      onCheckedChange={(v) => c.toggleVisibility(!!v)}
+                    >
+                      {String(c.columnDef.header ?? c.id)}
+                    </DropdownMenuCheckboxItem>,
+                  ]
+                : [],
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       )}

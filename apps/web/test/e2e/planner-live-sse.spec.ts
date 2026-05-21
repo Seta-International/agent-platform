@@ -5,10 +5,8 @@ import { expect, test } from '@playwright/test';
 test('two browser contexts: drag a card; observer sees the move within 100 ms with primary-flash class', async ({
   browser,
 }) => {
-  const ctxA = await browser.newContext();
-  const ctxB = await browser.newContext();
-  const a = await ctxA.newPage();
-  const b = await ctxB.newPage();
+  const [ctxA, ctxB] = await Promise.all([browser.newContext(), browser.newContext()]);
+  const [a, b] = await Promise.all([ctxA.newPage(), ctxB.newPage()]);
 
   // Seeded users + plan come from `pnpm db:seed` (see apps/web/test/e2e/helpers/auth.ts once provisioned).
   await a.goto('/login');

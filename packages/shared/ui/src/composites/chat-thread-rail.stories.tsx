@@ -26,20 +26,22 @@ const groups = [
   },
 ];
 
+function DefaultWrapper() {
+  const [q, setQ] = useState('');
+  const [active, setActive] = useState('t1');
+  return (
+    <ChatThreadRail
+      groups={groups}
+      activeId={active}
+      onSelect={setActive}
+      onNewThread={() => undefined}
+      searchValue={q}
+      onSearchChange={setQ}
+    />
+  );
+}
+
 export const Default: Story = {
   args: {} as never,
-  render: () => {
-    const [q, setQ] = useState('');
-    const [active, setActive] = useState('t1');
-    return (
-      <ChatThreadRail
-        groups={groups}
-        activeId={active}
-        onSelect={setActive}
-        onNewThread={() => undefined}
-        searchValue={q}
-        onSearchChange={setQ}
-      />
-    );
-  },
+  render: () => <DefaultWrapper />,
 };

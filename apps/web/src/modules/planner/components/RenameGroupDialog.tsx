@@ -57,8 +57,6 @@ function RenameForm({ groupId, currentName, version, onDone }: FormProps) {
         <Label htmlFor="rename-group-name">Name</Label>
         <Input
           id="rename-group-name"
-          // biome-ignore lint/a11y/noAutofocus: dialog opens explicitly on user action
-          autoFocus
           value={name}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => {

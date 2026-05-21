@@ -79,7 +79,7 @@ export function DataTablePagination<TData>({
             aria-label="Previous"
             disabled={!table.getCanPreviousPage()}
             onClick={() => table.previousPage()}
-            className="h-7 w-7"
+            className="size-7"
           >
             <ChevronLeft className="size-3" />
           </Button>
@@ -115,7 +115,7 @@ export function DataTablePagination<TData>({
             aria-label="Next"
             disabled={!table.getCanNextPage()}
             onClick={() => table.nextPage()}
-            className="h-7 w-7"
+            className="size-7"
           >
             <ChevronRight className="size-3" />
           </Button>

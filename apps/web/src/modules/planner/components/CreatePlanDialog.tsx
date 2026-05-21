@@ -68,8 +68,6 @@ export function CreatePlanDialog({ groupId, open, onOpenChange, onCreated }: Pro
             <Label htmlFor="create-plan-name">Name</Label>
             <Input
               id="create-plan-name"
-              // biome-ignore lint/a11y/noAutofocus: dialog opens explicitly on user action
-              autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => {

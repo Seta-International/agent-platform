@@ -106,7 +106,7 @@ function ActorCell({ actor }: { actor: AuditRowDto['actor'] }) {
 }
 
 function TraceCell({ traceId }: { traceId: string | null }) {
-  if (!traceId) return <span className="text-ink-tertiary">—</span>;
+  if (!traceId) return <span className="text-ink-tertiary">{'\u2014'}</span>;
   return <code className="font-mono text-caption text-ink-subtle">{traceId.slice(0, 12)}…</code>;
 }
 

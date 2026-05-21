@@ -81,17 +81,17 @@ export function PlanPage({
     const map = new Map<string | null, KanbanCardTask[]>();
     if (!boardQ.data) return map;
     const sourceById = new Map(boardQ.data.tasks.map((t) => [t.id, t]));
+    const assigneeIdSet = new Set(filters.assignee_ids);
+    const labelIdSet = new Set(filters.label_ids);
+    const skillTagSet = new Set(filters.skill_tags);
     for (const t of boardQ.data.tasks) {
-      if (
-        filters.assignee_ids.length &&
-        !t.assignees.some((a) => filters.assignee_ids.includes(a.user_id))
-      ) {
+      if (filters.assignee_ids.length && !t.assignees.some((a) => assigneeIdSet.has(a.user_id))) {
         continue;
       }
-      if (filters.label_ids.length && !t.labels.some((l) => filters.label_ids.includes(l.id))) {
+      if (filters.label_ids.length && !t.labels.some((l) => labelIdSet.has(l.id))) {
         continue;
       }
-      if (filters.skill_tags.length && !t.skill_tags.some((s) => filters.skill_tags.includes(s))) {
+      if (filters.skill_tags.length && !t.skill_tags.some((s) => skillTagSet.has(s))) {
         continue;
       }
       if (q && !t.title.toLowerCase().includes(q.toLowerCase())) {

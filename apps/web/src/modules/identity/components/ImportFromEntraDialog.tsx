@@ -190,7 +190,7 @@ export function ImportFromEntraDialog({
                         const u = users?.find((u) => u.entra_oid === s.entra_oid);
                         return (
                           <li key={s.entra_oid} className="text-muted-foreground">
-                            {u?.email ?? s.entra_oid} — {s.reason}
+                            {u?.email ?? s.entra_oid}: {s.reason}
                           </li>
                         );
                       })}
@@ -225,7 +225,7 @@ export function ImportFromEntraDialog({
                 {loading ? (
                   <div className="space-y-2">
                     {[0, 1, 2, 3].map((i) => (
-                      <Skeleton key={i} className="h-8 w-full" />
+                      <Skeleton key={`skeleton-${i}`} className="h-8 w-full" />
                     ))}
                   </div>
                 ) : users !== null ? (

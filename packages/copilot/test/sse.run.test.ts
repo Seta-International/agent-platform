@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { Mastra } from '@mastra/core';
 import { Hono } from 'hono';
 import { describe, expect, it, vi } from 'vitest';
-import type { SessionLike } from '../src/backend/routes.ts';
+import type { SessionLike } from '../src/backend/types.ts';
 import { onLifecycleEvent } from '../src/backend/workflows/lifecycle-hook.ts';
 import { mountRunSse } from '../src/backend/workflows/sse-run.ts';
 import { withCopilotTestDb } from './test-helpers.ts';

@@ -17,6 +17,7 @@ export function ActivityTab({ userId, onCount }: { userId: string; onCount: (n: 
     setLoading(true);
     (async () => {
       try {
+        if (cancelled) return;
         const res = await listUserActivityApi(userId, role, PAGE, offset);
         if (cancelled) return;
         setRows(res.rows);
@@ -90,7 +91,7 @@ export function ActivityTab({ userId, onCount }: { userId: string; onCount: (n: 
               size="sm"
               variant="ghost"
               disabled={offset + PAGE >= total}
-              onClick={() => setOffset(offset + PAGE)}
+              onClick={() => setOffset((prev) => prev + PAGE)}
             >
               ›
             </Button>

@@ -41,10 +41,10 @@ export function ModelSelector({ value, onChange, variant = 'ghost' }: ModelSelec
       ? 'inline-flex h-7 items-center gap-1.5 rounded-md border border-hairline px-2.5 text-body-sm text-ink hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus'
       : 'inline-flex h-6 items-center gap-1.5 rounded-md px-1.5 text-caption text-ink hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus';
 
-  const grouped: Array<{ tier: ModelTier; items: ModelOption[] }> = TIER_ORDER.map((tier) => ({
-    tier,
-    items: models.filter((m) => m.tier === tier),
-  })).filter((g) => g.items.length > 0);
+  const grouped: Array<{ tier: ModelTier; items: ModelOption[] }> = TIER_ORDER.flatMap((tier) => {
+    const items = models.filter((m) => m.tier === tier);
+    return items.length > 0 ? [{ tier, items }] : [];
+  });
 
   const CurrentIcon = current ? TIER_ICON[current.tier] : Wand2;
 

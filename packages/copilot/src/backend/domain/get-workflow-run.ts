@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { copilotDb } from '../../db/index.ts';
-import type { SessionLike } from '../routes.ts';
+import type { SessionLike } from '../types.ts';
 import type { WorkflowRunRow, WorkflowRunStartedVia } from './list-workflow-runs.ts';
 
 export interface GetWorkflowRunOpts {

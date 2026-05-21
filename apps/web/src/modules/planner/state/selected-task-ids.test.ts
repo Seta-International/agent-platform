@@ -20,7 +20,7 @@ describe('useSelectedTaskIds', () => {
     useSelectedTaskIds.getState().selectAll(['a', 'b', 'c']);
     const { ids } = useSelectedTaskIds.getState();
     expect(ids.has('old')).toBe(false);
-    expect([...ids].sort()).toEqual(['a', 'b', 'c']);
+    expect([...ids].toSorted()).toEqual(['a', 'b', 'c']);
   });
 
   it('clear empties the set', () => {
@@ -34,6 +34,6 @@ describe('useSelectedTaskIds', () => {
     useSelectedTaskIds.getState().set(new Set(['p', 'q']));
     const { ids } = useSelectedTaskIds.getState();
     expect(ids.has('old')).toBe(false);
-    expect([...ids].sort()).toEqual(['p', 'q']);
+    expect([...ids].toSorted()).toEqual(['p', 'q']);
   });
 });

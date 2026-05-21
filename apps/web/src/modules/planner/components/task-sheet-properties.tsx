@@ -210,8 +210,6 @@ function DateCell({
     return (
       <input
         type="date"
-        // biome-ignore lint/a11y/noAutofocus: inline editor must steal focus immediately
-        autoFocus
         defaultValue={value ? value.slice(0, 10) : ''}
         aria-label="Edit due date"
         onBlur={(e) => {
@@ -225,7 +223,12 @@ function DateCell({
     );
   }
   return (
-    <button type="button" className="task-sheet__prop-trigger" onClick={() => setEditing(true)}>
+    <button
+      suppressHydrationWarning
+      type="button"
+      className="task-sheet__prop-trigger"
+      onClick={() => setEditing(true)}
+    >
       {value ? new Date(value).toLocaleDateString() : '—'}
     </button>
   );
@@ -253,7 +256,7 @@ function AssigneePopover({
       </PopoverTrigger>
       <PopoverContent align="start" className="w-56 p-1">
         {memberOptions.length === 0 ? (
-          <p className="px-2 py-2 text-sm text-ink-subtle">No members.</p>
+          <p className="p-2 text-sm text-ink-subtle">No members.</p>
         ) : (
           memberOptions.map((m) => {
             const isAssigned = assignedSet.has(m.user_id);
@@ -299,7 +302,7 @@ function LabelPopover({
       </PopoverTrigger>
       <PopoverContent align="start" className="w-56 p-1">
         {options.length === 0 ? (
-          <p className="px-2 py-2 text-sm text-ink-subtle">No labels.</p>
+          <p className="p-2 text-sm text-ink-subtle">No labels.</p>
         ) : (
           options.map((l) => {
             const isApplied = appliedSet.has(l.id);
@@ -335,16 +338,14 @@ function SkillTagsCell({
     return (
       <input
         type="text"
-        // biome-ignore lint/a11y/noAutofocus: inline editor must steal focus immediately
-        autoFocus
         defaultValue={value.join(', ')}
         aria-label="Edit skill tags"
         placeholder="comma-separated"
         onBlur={(e) => {
-          const next = e.target.value
-            .split(',')
-            .map((s) => s.trim())
-            .filter(Boolean);
+          const next = e.target.value.split(',').flatMap((s) => {
+            const v = s.trim();
+            return v ? [v] : [];
+          });
           if (JSON.stringify(next) !== JSON.stringify([...value])) onChange(next);
           setEditing(false);
         }}

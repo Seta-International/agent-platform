@@ -1,7 +1,7 @@
 import type { Mastra } from '@mastra/core';
 import { sql } from 'drizzle-orm';
 import { copilotDb } from '../../db/index.ts';
-import type { SessionLike } from '../routes.ts';
+import type { SessionLike } from '../types.ts';
 import { getWorkflowRun } from './get-workflow-run.ts';
 
 export interface RerunWorkflowOpts {

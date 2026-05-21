@@ -228,8 +228,6 @@ function TitleInput({ initialValue, onCommit, onCancel }: TitleInputProps) {
   return (
     <input
       type="text"
-      // biome-ignore lint/a11y/noAutofocus: inline editor must steal focus immediately; without it keyboard users lose context after clicking the cell
-      autoFocus
       defaultValue={initialValue}
       aria-label="Edit title"
       onKeyDown={(e) => {
@@ -305,8 +303,6 @@ function DueCell({ value, onChange, label }: DueCellProps) {
     return (
       <input
         type="date"
-        // biome-ignore lint/a11y/noAutofocus: inline editor must steal focus immediately
-        autoFocus
         defaultValue={value ? value.slice(0, 10) : ''}
         aria-label={label}
         onBlur={(e) => {
@@ -323,6 +319,7 @@ function DueCell({ value, onChange, label }: DueCellProps) {
   return (
     <button
       type="button"
+      suppressHydrationWarning
       className="task-grid__cell-trigger"
       aria-label={label}
       onClick={() => setEditing(true)}

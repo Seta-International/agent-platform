@@ -118,7 +118,6 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
             <Label htmlFor="cg-name">Group name</Label>
             <Input
               id="cg-name"
-              autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Customer Success"

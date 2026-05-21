@@ -47,6 +47,7 @@ export const copilotApi = {
     const reader = res.body?.getReader();
     if (reader) {
       try {
+        // Sequential by necessity: each read() call depends on the previous chunk's `done` flag.
         while (true) {
           const { done } = await reader.read();
           if (done) break;

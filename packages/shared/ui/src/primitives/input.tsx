@@ -1,4 +1,4 @@
-import * as React from 'react';
+import type * as React from 'react';
 import { cn } from '../lib/cn';
 import { cva, type VariantProps } from '../lib/cva';
 
@@ -22,14 +22,14 @@ const inputVariants = cva(
 );
 
 export interface InputProps
-  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'>,
+  extends Omit<React.ComponentProps<'input'>, 'size'>,
     VariantProps<typeof inputVariants> {}
 
-const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, type, size, ...props }, ref) => (
+function Input({ className, type, size, ref, ...props }: InputProps) {
+  return (
     <input type={type} ref={ref} className={cn(inputVariants({ size }), className)} {...props} />
-  ),
-);
+  );
+}
 Input.displayName = 'Input';
 
 export { Input, inputVariants };

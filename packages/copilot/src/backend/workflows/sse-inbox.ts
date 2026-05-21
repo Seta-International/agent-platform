@@ -1,7 +1,7 @@
 import type { Context, Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
 import type { Pool } from 'pg';
-import type { SessionLike } from '../routes.ts';
+import type { SessionLike } from '../types.ts';
 import { verifySseToken } from './auth-token.ts';
 
 export type WorkflowRunScope = 'self' | 'group' | 'tenant' | 'instance';

@@ -1,6 +1,6 @@
 import { FilterPill, Input, SegmentedControl } from '@seta/shared-ui';
 import { LayoutGrid, List, Search } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export type GroupsView = 'list' | 'grid';
 export type VisibilityFilter = 'private' | 'public';
@@ -56,12 +56,12 @@ export function GroupsToolbar({
   showSourceFilter = false,
 }: GroupsToolbarProps) {
   const [localSearch, setLocalSearch] = useState(searchQuery);
-  const [lastSyncedQuery, setLastSyncedQuery] = useState(searchQuery);
+  const lastSyncedQueryRef = useRef(searchQuery);
 
   // Sync local state when parent resets searchQuery externally (state-during-render pattern
   // from https://react.dev/reference/react/useState#storing-information-from-previous-renders).
-  if (searchQuery !== lastSyncedQuery) {
-    setLastSyncedQuery(searchQuery);
+  if (searchQuery !== lastSyncedQueryRef.current) {
+    lastSyncedQueryRef.current = searchQuery;
     setLocalSearch(searchQuery);
   }
 

@@ -6,7 +6,7 @@ function serializeFilters(f: ListTasksFilters): string {
   for (const k of sortedKeys) {
     const v = (f as Record<string, unknown>)[k];
     if (v === undefined) continue;
-    sorted[k] = Array.isArray(v) ? [...v].sort() : v;
+    sorted[k] = Array.isArray(v) ? v.toSorted() : v;
   }
   return JSON.stringify(sorted);
 }

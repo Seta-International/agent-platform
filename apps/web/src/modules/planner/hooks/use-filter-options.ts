@@ -27,7 +27,7 @@ export function useFilterOptions(data: PlanBoardData | undefined): FilterOptions
     const labelOptions = data.labels
       .map((l) => ({ value: l.id, label: l.name }))
       .sort((a, b) => a.label.localeCompare(b.label));
-    const skillOptions = [...skills].sort().map((s) => ({ value: s, label: s }));
+    const skillOptions = [...skills].toSorted().map((s) => ({ value: s, label: s }));
     return { assigneeOptions, labelOptions, skillOptions };
   }, [data]);
 }

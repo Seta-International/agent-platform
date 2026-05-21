@@ -203,7 +203,7 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
         {canManage ? (
           <TabsContent value="settings" className="p-7">
             <div className="text-sm text-ink-subtle">
-              Settings tab — actual form coming in a follow-up. PR2 only scaffolds the route.
+              Settings tab: actual form coming in a follow-up. PR2 only scaffolds the route.
             </div>
           </TabsContent>
         ) : null}

@@ -35,7 +35,10 @@ export function ChatComposer({
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, MAX_TEXTAREA_HEIGHT_PX)}px`;
+    // height must be reset to 'auto' first so scrollHeight reflects actual content
+    Object.assign(el.style, {
+      height: `${Math.min(el.scrollHeight, MAX_TEXTAREA_HEIGHT_PX)}px`,
+    });
   }, [value]);
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {

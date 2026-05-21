@@ -32,11 +32,13 @@ export function createMailerSendTask(
     if (!row) return;
     if (row.status === 'sent' || row.status === 'permanently_failed') return;
 
-    const resolved = await deps.resolveTransport(row.tenantId);
-    const rendered = await renderTemplate(
-      row.template as MailTemplateName,
-      payload.props as MailTemplateProps[MailTemplateName],
-    );
+    const [resolved, rendered] = await Promise.all([
+      deps.resolveTransport(row.tenantId),
+      renderTemplate(
+        row.template as MailTemplateName,
+        payload.props as MailTemplateProps[MailTemplateName],
+      ),
+    ]);
     try {
       const result = await resolved.transport.send({
         from: resolved.sender,

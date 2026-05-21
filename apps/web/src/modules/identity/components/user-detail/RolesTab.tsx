@@ -9,7 +9,7 @@ function RoleRow({ g, onChange }: { g: AdminUserGrant; onChange: () => void }) {
   return (
     <div className="flex items-center justify-between rounded-md border border-hairline bg-canvas px-3 py-2.5">
       <div className="flex items-center gap-2 min-w-0">
-        <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary" />
+        <span className="inline-block size-1.5 rounded-full bg-primary" />
         <code className="font-mono text-[12.5px] font-medium">{g.role_slug}</code>
         <Badge variant={isIdp ? 'default' : 'secondary'} className="h-4 px-1.5 text-[10px]">
           {isIdp ? 'IdP' : 'Manual'}
@@ -24,14 +24,14 @@ function RoleRow({ g, onChange }: { g: AdminUserGrant; onChange: () => void }) {
           <Button
             size="icon"
             variant="ghost"
-            className="h-5 w-5"
+            className="size-5"
             aria-label="Revoke"
             onClick={async () => {
               await revokeGrant(g.id);
               onChange();
             }}
           >
-            <X className="h-3 w-3" />
+            <X className="size-3" />
           </Button>
         )}
       </div>

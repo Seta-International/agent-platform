@@ -51,7 +51,7 @@ export function ProfileSkillsSection({
   function addSkill(s: string) {
     const clean = s.toLowerCase().trim();
     if (!clean || skills.includes(clean)) return;
-    setSkills([...skills, clean]);
+    setSkills((prev) => [...prev, clean]);
     setPrefix('');
     setSuggestions([]);
   }
@@ -71,7 +71,7 @@ export function ProfileSkillsSection({
     }
   }
 
-  const dirty = JSON.stringify([...skills].sort()) !== JSON.stringify([...profile.skills].sort());
+  const dirty = JSON.stringify(skills.toSorted()) !== JSON.stringify(profile.skills.toSorted());
   const showSuggestions = prefix.trim().length > 0 && suggestions.length > 0;
 
   return (
@@ -82,7 +82,7 @@ export function ProfileSkillsSection({
       <CardContent className="space-y-4">
         <div className="flex flex-wrap gap-2">
           {skills.length === 0 && (
-            <span className="text-sm text-ink-muted">No skills yet — add one below.</span>
+            <span className="text-sm text-ink-muted">No skills yet; add one below.</span>
           )}
           {skills.map((s) => (
             <Badge key={s} variant="secondary" className="gap-0.5 pr-0.5">
@@ -91,10 +91,10 @@ export function ProfileSkillsSection({
                 size="icon"
                 variant="ghost"
                 aria-label={`Remove ${s}`}
-                className="h-4 w-4"
+                className="size-4"
                 onClick={() => removeSkill(s)}
               >
-                <X className="h-3 w-3" />
+                <X className="size-3" />
               </Button>
             </Badge>
           ))}

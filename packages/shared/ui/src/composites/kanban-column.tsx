@@ -85,8 +85,6 @@ export function KanbanColumn({
       {composing && (
         <div className="kanban-column__compose">
           <input
-            // biome-ignore lint/a11y/noAutofocus: quick-create reveal requires immediate focus to be useful
-            autoFocus
             placeholder="Add a task…"
             value={value}
             onChange={(e) => setValue(e.target.value)}

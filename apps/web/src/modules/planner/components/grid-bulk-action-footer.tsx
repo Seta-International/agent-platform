@@ -106,7 +106,7 @@ function AssigneeMenu({
       </PopoverTrigger>
       <PopoverContent align="start" className="w-56 p-1">
         {options.length === 0 ? (
-          <p className="px-2 py-2 text-sm text-ink-subtle">No members.</p>
+          <p className="p-2 text-sm text-ink-subtle">No members.</p>
         ) : (
           options.map((a) => (
             <button
@@ -138,6 +138,7 @@ function DueMenu({ onPick }: { onPick: (due: string | null) => void }) {
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-ink-subtle">Due date</span>
           <input
+            suppressHydrationWarning
             type="date"
             aria-label="Bulk due date"
             onChange={(e) => {

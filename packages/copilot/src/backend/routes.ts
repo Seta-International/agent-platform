@@ -14,6 +14,7 @@ import { rerunWorkflow } from './domain/rerun-workflow.ts';
 import { copilotEnv } from './env.ts';
 import { listModels, ModelNotFoundError, resolveModel } from './model-registry.ts';
 import { RateLimitError, reserveTurn } from './rate-limit.ts';
+import type { SessionLike } from './types.ts';
 import { issueSseToken } from './workflows/auth-token.ts';
 import { mountInboxSse } from './workflows/sse-inbox.ts';
 import { mountRunSse } from './workflows/sse-run.ts';
@@ -38,13 +39,6 @@ const ChatBody = z.object({
   resourceId: z.string().optional(),
   model: z.string().optional(),
 });
-
-export type SessionLike = {
-  tenant_id: string;
-  user_id: string;
-  effective_permissions: ReadonlySet<string>;
-  role_summary: { roles: string[]; cross_tenant_read: boolean };
-};
 
 export type CopilotRouteDeps = {
   factory: AgentFactory;

@@ -70,6 +70,10 @@ export function useBoardStream(accessibleGroupIds: string[]): void {
     for (const t of EVENT_TYPES) es.addEventListener(t, handleMessage as EventListener);
 
     return () => {
+      es.removeEventListener('open', handleOpen);
+      es.removeEventListener('error', handleError);
+      es.removeEventListener('gap', handleGap);
+      for (const t of EVENT_TYPES) es.removeEventListener(t, handleMessage as EventListener);
       es.close();
       setStatus('idle');
     };

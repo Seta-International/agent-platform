@@ -14,7 +14,7 @@ export function PlanViewSwitcher({ value, onChange }: Props) {
         aria-label="Board view"
         onClick={() => onChange('board')}
       >
-        <LayoutGrid aria-hidden="true" className="h-3.5 w-3.5" />
+        <LayoutGrid aria-hidden="true" className="size-3.5" />
         <span>Board</span>
       </button>
       <button
@@ -23,7 +23,7 @@ export function PlanViewSwitcher({ value, onChange }: Props) {
         aria-label="Grid view"
         onClick={() => onChange('grid')}
       >
-        <Rows3 aria-hidden="true" className="h-3.5 w-3.5" />
+        <Rows3 aria-hidden="true" className="size-3.5" />
         <span>Grid</span>
       </button>
     </div>

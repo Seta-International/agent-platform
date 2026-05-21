@@ -65,7 +65,7 @@ export function ResetPasswordDialog({
         )}
         {password && (
           <div className="space-y-2">
-            <p className="text-sm text-ink-muted">Copy this now — it will not be shown again.</p>
+            <p className="text-sm text-ink-muted">Copy this now: it will not be shown again.</p>
             <div className="flex items-center gap-2">
               <code className="bg-surface-2 rounded px-2 py-1 font-mono text-sm flex-1 break-all">
                 {password}

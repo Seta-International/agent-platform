@@ -12,7 +12,9 @@ export function ProjectsAllocationTab() {
         </div>
 
         <div className="flex items-baseline gap-2.5 mb-2.5">
-          <span className="text-3xl font-semibold tracking-tight text-ink-tertiary">—</span>
+          <span className="text-3xl font-semibold tracking-tight text-ink-tertiary">
+            {'\u2014'}
+          </span>
           <span className="text-sm text-ink-muted">no project allocations yet</span>
         </div>
         <div className="h-3.5 rounded-full bg-surface-2 mb-2" />
