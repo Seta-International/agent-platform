@@ -211,19 +211,31 @@ describe('plannerClient', () => {
     expect(result).toEqual({ ok: true });
   });
 
-  it('getGroupSyncStatus GET returns sync status fields', async () => {
+  it('getGroupSyncStatus GET returns sync status fields when linked', async () => {
     server.use(
       http.get('*/api/integrations/m365/groups/g1/sync-status', () =>
         HttpResponse.json({
-          sync_status: 'synced',
+          sync_status: 'idle',
           synced_at: '2026-05-20T00:00:00Z',
           last_error: null,
         }),
       ),
     );
-    const result = await plannerClient.getGroupSyncStatus('g1');
-    expect(result.sync_status).toBe('synced');
-    expect(result.synced_at).toBe('2026-05-20T00:00:00Z');
-    expect(result.last_error).toBeNull();
+    const result = await plannerClient.getGroupSyncStatus({ groupId: 'g1' });
+    expect(result.sync_status).toBe('idle');
+    if (result.sync_status !== null) {
+      expect(result.synced_at).toBe('2026-05-20T00:00:00Z');
+      expect(result.last_error).toBeNull();
+    }
+  });
+
+  it('getGroupSyncStatus GET returns { sync_status: null } when not linked', async () => {
+    server.use(
+      http.get('*/api/integrations/m365/groups/g2/sync-status', () =>
+        HttpResponse.json({ sync_status: null }),
+      ),
+    );
+    const result = await plannerClient.getGroupSyncStatus({ groupId: 'g2' });
+    expect(result.sync_status).toBeNull();
   });
 });

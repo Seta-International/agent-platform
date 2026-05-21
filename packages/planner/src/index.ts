@@ -64,6 +64,7 @@ export type {
   ChecklistItemRow,
   GroupMemberRow,
   GroupRow,
+  GroupSyncStatus,
   GroupWithCountsRow,
   LabelRow,
   PlanRow,

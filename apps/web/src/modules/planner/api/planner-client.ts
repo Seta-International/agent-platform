@@ -3,6 +3,7 @@ import type {
   ChecklistItemRow,
   GroupMemberRow,
   GroupRow,
+  GroupSyncStatus,
   GroupWithCountsRow,
   LabelRow,
   ListTasksFilters,
@@ -11,6 +12,12 @@ import type {
   TaskRow,
   TaskWithAssigneesRow,
 } from '@seta/planner';
+
+type M365GroupSearchResult = { external_id: string; display_name: string; mail_nickname: string };
+
+type GroupSyncStatusResponse =
+  | { sync_status: null }
+  | { sync_status: GroupSyncStatus; synced_at: string | null; last_error: string | null };
 
 export class PlannerClientError extends Error {
   readonly status: number;
@@ -452,14 +459,10 @@ async function removeChecklistItem(input: { item_id: string }): Promise<void> {
   await request<void>(`/api/planner/v1/checklist-items/${input.item_id}`, { method: 'DELETE' });
 }
 
-async function searchM365Groups(q: string): Promise<{
-  groups: Array<{ external_id: string; display_name: string; mail_nickname: string }>;
-}> {
-  return (await request<{
-    groups: Array<{ external_id: string; display_name: string; mail_nickname: string }>;
-  }>(`/api/integrations/m365/groups/search?q=${encodeURIComponent(q)}`)) as {
-    groups: Array<{ external_id: string; display_name: string; mail_nickname: string }>;
-  };
+async function searchM365Groups(q: string): Promise<{ groups: M365GroupSearchResult[] }> {
+  return (await request<{ groups: M365GroupSearchResult[] }>(
+    `/api/integrations/m365/groups/search?q=${encodeURIComponent(q)}`,
+  )) as { groups: M365GroupSearchResult[] };
 }
 
 async function linkGroupToM365(input: { groupId: string; externalId: string }): Promise<GroupRow> {
@@ -491,18 +494,10 @@ async function resolveGroupConflict(input: {
   })) as { ok: true };
 }
 
-async function getGroupSyncStatus(
-  groupId: string,
-): Promise<{ sync_status: string | null; synced_at: string | null; last_error: string | null }> {
-  return (await request<{
-    sync_status: string | null;
-    synced_at: string | null;
-    last_error: string | null;
-  }>(`/api/integrations/m365/groups/${groupId}/sync-status`)) as {
-    sync_status: string | null;
-    synced_at: string | null;
-    last_error: string | null;
-  };
+async function getGroupSyncStatus(input: { groupId: string }): Promise<GroupSyncStatusResponse> {
+  return (await request<GroupSyncStatusResponse>(
+    `/api/integrations/m365/groups/${input.groupId}/sync-status`,
+  )) as GroupSyncStatusResponse;
 }
 
 async function listTaskEvents(input: {
