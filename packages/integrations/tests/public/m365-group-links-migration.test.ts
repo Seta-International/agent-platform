@@ -45,14 +45,14 @@ describe('migration: m365_group_links + m365_subscriptions', () => {
       );
       const byName = Object.fromEntries(rows.map((r) => [r.column_name, r]));
 
-      expect(byName['id']?.udt_name).toBe('uuid');
-      expect(byName['tenant_id']?.udt_name).toBe('uuid');
-      expect(byName['group_id']?.udt_name).toBe('uuid');
-      expect(byName['external_id']?.data_type).toBe('text');
-      expect(byName['last_synced_fields']?.data_type).toBe('jsonb');
-      expect(byName['sync_status']?.data_type).toBe('text');
-      expect(byName['last_synced_at']?.data_type).toBe('timestamp with time zone');
-      expect(byName['unlinked_at']?.data_type).toBe('timestamp with time zone');
+      expect(byName.id?.udt_name).toBe('uuid');
+      expect(byName.tenant_id?.udt_name).toBe('uuid');
+      expect(byName.group_id?.udt_name).toBe('uuid');
+      expect(byName.external_id?.data_type).toBe('text');
+      expect(byName.last_synced_fields?.data_type).toBe('jsonb');
+      expect(byName.sync_status?.data_type).toBe('text');
+      expect(byName.last_synced_at?.data_type).toBe('timestamp with time zone');
+      expect(byName.unlinked_at?.data_type).toBe('timestamp with time zone');
     });
   });
 
@@ -122,9 +122,9 @@ describe('migration: m365_group_links + m365_subscriptions', () => {
       );
       const byName = Object.fromEntries(rows.map((r) => [r.column_name, r]));
 
-      expect(byName['sync_status']?.column_default).toMatch(/'idle'/);
-      expect(byName['delta_link']?.is_nullable).toBe('YES');
-      expect(byName['last_synced_fields']?.is_nullable).toBe('NO');
+      expect(byName.sync_status?.column_default).toMatch(/'idle'/);
+      expect(byName.delta_link?.is_nullable).toBe('YES');
+      expect(byName.last_synced_fields?.is_nullable).toBe('NO');
     });
   });
 
