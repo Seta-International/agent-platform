@@ -112,5 +112,9 @@ describe('Demo journey step 5 — find tasks needing review on terraform', () =>
       expect(hits.length).toBeGreaterThanOrEqual(1);
       // The terraform task must rank first — FTS on "terraform" guarantees this.
       expect(hits[0]?.task.task_id).toBe(terraformTaskId);
+      // Both arms must fire: terraform task matches FTS AND has a vector neighbor.
+      // 'hybrid' source confirms both FTS + vector contributed; 'fts' source would
+      // indicate the vector pipeline silently broke.
+      expect(hits[0]?.source).toBe('hybrid');
     }));
 });
