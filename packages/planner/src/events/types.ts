@@ -10,12 +10,23 @@ export interface PlannerEventActor {
 export type TaskMutableFields = {
   title: string;
   description: string | null;
-  priority: 'urgent' | 'important' | 'medium' | 'low';
+  bucket_id: Uuid | null;
+  priority_number: 1 | 3 | 5 | 9;
+  percent_complete: number;
+  is_deferred: boolean;
+  preview_type: 'automatic' | 'noPreview' | 'checklist' | 'description' | 'reference';
+  start_at: string | null;
   due_at: string | null;
+  order_hint: string | null;
+  assignee_priority: string | null;
   skill_tags: string[];
   review_state: 'needs_review' | null;
-  progress: 'not_started' | 'in_progress' | 'completed' | 'deferred';
+  external_source: 'native' | 'm365';
+  external_id: string | null;
+  external_etag: string | null;
 };
+
+export type TaskChangedField = keyof TaskMutableFields;
 
 // ---------------------------------------------------------------------------
 // Groups
@@ -197,6 +208,21 @@ export interface PlannerPlanRestored {
   };
 }
 
+export interface PlannerPlanCategoryDescriptionChanged {
+  event_type: 'planner.plan.category-description-changed';
+  event_version: 1;
+  aggregate_type: 'planner.plan';
+  aggregate_id: Uuid;
+  payload: {
+    actor: PlannerEventActor;
+    tenant_id: Uuid;
+    plan_id: Uuid;
+    slot: number;
+    before: string | null;
+    after: string | null;
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Buckets
 // ---------------------------------------------------------------------------
@@ -214,7 +240,7 @@ export interface PlannerBucketCreated {
       plan_id: Uuid;
       group_id: Uuid;
       name: string;
-      sort_order: number;
+      order_hint: string | null;
     };
   };
 }
@@ -229,8 +255,8 @@ export interface PlannerBucketUpdated {
     group_id: Uuid;
     bucket_id: Uuid;
     plan_id: Uuid;
-    before: Partial<{ name: string; sort_order: number }>;
-    after: Partial<{ name: string; sort_order: number }>;
+    before: Partial<{ name: string; order_hint: string | null }>;
+    after: Partial<{ name: string; order_hint: string | null }>;
     version_before: number;
     version_after: number;
   };
@@ -270,11 +296,18 @@ export interface PlannerTaskCreated {
       bucket_id: Uuid | null;
       title: string;
       description: string | null;
-      priority: 'urgent' | 'important' | 'medium' | 'low';
+      priority_number: 1 | 3 | 5 | 9;
+      percent_complete: number;
+      is_deferred: boolean;
+      preview_type: 'automatic' | 'noPreview' | 'checklist' | 'description' | 'reference';
+      start_at: string | null;
       due_at: string | null;
+      order_hint: string | null;
+      assignee_priority: string | null;
       skill_tags: string[];
       review_state: 'needs_review' | null;
-      sort_order: number;
+      external_source: 'native' | 'm365';
+      external_id: string | null;
       created_by: Uuid;
     };
   };
@@ -292,6 +325,7 @@ export interface PlannerTaskUpdated {
     plan_id: Uuid;
     before: Partial<TaskMutableFields>;
     after: Partial<TaskMutableFields>;
+    changed_fields: TaskChangedField[];
     version_before: number;
     version_after: number;
   };
@@ -336,8 +370,8 @@ export interface PlannerTaskMoved {
     group_id: Uuid;
     task_id: Uuid;
     plan_id: Uuid;
-    before: { bucket_id: Uuid | null; sort_order: number };
-    after: { bucket_id: Uuid | null; sort_order: number };
+    before: { bucket_id: Uuid | null; order_hint: string | null };
+    after: { bucket_id: Uuid | null; order_hint: string | null };
     version_before: number;
     version_after: number;
   };
@@ -402,6 +436,46 @@ export interface PlannerTaskReopened {
   };
 }
 
+export interface PlannerTaskReferenceAdded {
+  event_type: 'planner.task.reference-added';
+  event_version: 1;
+  aggregate_type: 'planner.task';
+  aggregate_id: Uuid;
+  payload: {
+    actor: PlannerEventActor;
+    tenant_id: Uuid;
+    task_id: Uuid;
+    plan_id: Uuid;
+    url: string;
+    alias: string | null;
+    type:
+      | 'word'
+      | 'excel'
+      | 'powerPoint'
+      | 'visio'
+      | 'other'
+      | 'powerBI'
+      | 'oneNote'
+      | 'sharePoint'
+      | 'web'
+      | 'link';
+  };
+}
+
+export interface PlannerTaskReferenceRemoved {
+  event_type: 'planner.task.reference-removed';
+  event_version: 1;
+  aggregate_type: 'planner.task';
+  aggregate_id: Uuid;
+  payload: {
+    actor: PlannerEventActor;
+    tenant_id: Uuid;
+    task_id: Uuid;
+    plan_id: Uuid;
+    url: string;
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Checklist items
 // ---------------------------------------------------------------------------
@@ -418,7 +492,7 @@ export interface PlannerChecklistItemAdded {
     task_id: Uuid;
     plan_id: Uuid;
     label: string;
-    sort_order: number;
+    order_hint: string | null;
   };
 }
 
@@ -433,8 +507,8 @@ export interface PlannerChecklistItemUpdated {
     item_id: Uuid;
     task_id: Uuid;
     plan_id: Uuid;
-    before: Partial<{ label: string; checked: boolean; sort_order: number }>;
-    after: Partial<{ label: string; checked: boolean; sort_order: number }>;
+    before: Partial<{ label: string; checked: boolean; order_hint: string | null }>;
+    after: Partial<{ label: string; checked: boolean; order_hint: string | null }>;
   };
 }
 
@@ -530,6 +604,21 @@ export interface PlannerLabelUnapplied {
   };
 }
 
+export interface PlannerLabelCategorySlotChanged {
+  event_type: 'planner.label.category-slot-changed';
+  event_version: 1;
+  aggregate_type: 'planner.label';
+  aggregate_id: Uuid;
+  payload: {
+    actor: PlannerEventActor;
+    tenant_id: Uuid;
+    plan_id: Uuid;
+    label_id: Uuid;
+    before: number | null;
+    after: number | null;
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Discriminated union
 // ---------------------------------------------------------------------------
@@ -546,6 +635,7 @@ export type PlannerEvent =
   | PlannerPlanUpdated
   | PlannerPlanDeleted
   | PlannerPlanRestored
+  | PlannerPlanCategoryDescriptionChanged
   | PlannerBucketCreated
   | PlannerBucketUpdated
   | PlannerBucketDeleted
@@ -558,6 +648,8 @@ export type PlannerEvent =
   | PlannerTaskUnassigned
   | PlannerTaskCompleted
   | PlannerTaskReopened
+  | PlannerTaskReferenceAdded
+  | PlannerTaskReferenceRemoved
   | PlannerChecklistItemAdded
   | PlannerChecklistItemUpdated
   | PlannerChecklistItemRemoved
@@ -565,4 +657,5 @@ export type PlannerEvent =
   | PlannerLabelUpdated
   | PlannerLabelDeleted
   | PlannerLabelApplied
-  | PlannerLabelUnapplied;
+  | PlannerLabelUnapplied
+  | PlannerLabelCategorySlotChanged;

@@ -14,10 +14,12 @@ import type {
   PlannerGroupRestored,
   PlannerGroupUpdated,
   PlannerLabelApplied,
+  PlannerLabelCategorySlotChanged,
   PlannerLabelCreated,
   PlannerLabelDeleted,
   PlannerLabelUnapplied,
   PlannerLabelUpdated,
+  PlannerPlanCategoryDescriptionChanged,
   PlannerPlanCreated,
   PlannerPlanDeleted,
   PlannerPlanRestored,
@@ -27,10 +29,13 @@ import type {
   PlannerTaskCreated,
   PlannerTaskDeleted,
   PlannerTaskMoved,
+  PlannerTaskReferenceAdded,
+  PlannerTaskReferenceRemoved,
   PlannerTaskReopened,
   PlannerTaskRestored,
   PlannerTaskUnassigned,
   PlannerTaskUpdated,
+  TaskChangedField,
   Uuid,
 } from './types.ts';
 
@@ -398,6 +403,7 @@ export async function emitPlannerTaskUpdated(args: {
   plan_id: Uuid;
   before: PlannerTaskUpdated['payload']['before'];
   after: PlannerTaskUpdated['payload']['after'];
+  changed_fields: TaskChangedField[];
   version_before: number;
   version_after: number;
 }): Promise<void> {
@@ -414,6 +420,7 @@ export async function emitPlannerTaskUpdated(args: {
       plan_id: args.plan_id,
       before: args.before,
       after: args.after,
+      changed_fields: args.changed_fields,
       version_before: args.version_before,
       version_after: args.version_after,
     },
@@ -614,7 +621,7 @@ export async function emitPlannerChecklistItemAdded(args: {
   task_id: Uuid;
   plan_id: Uuid;
   label: PlannerChecklistItemAdded['payload']['label'];
-  sort_order: PlannerChecklistItemAdded['payload']['sort_order'];
+  order_hint: PlannerChecklistItemAdded['payload']['order_hint'];
 }): Promise<void> {
   await emit({
     tenantId: args.tenant_id,
@@ -629,7 +636,7 @@ export async function emitPlannerChecklistItemAdded(args: {
       task_id: args.task_id,
       plan_id: args.plan_id,
       label: args.label,
-      sort_order: args.sort_order,
+      order_hint: args.order_hint,
     },
   });
 }
@@ -801,6 +808,110 @@ export async function emitPlannerLabelUnapplied(args: {
       task_id: args.task_id,
       plan_id: args.plan_id,
       label_id: args.label_id,
+    },
+  });
+}
+
+// -----
+// Native-parity (PR1)
+// -----
+
+export async function emitPlannerTaskReferenceAdded(args: {
+  actor: PlannerEventActor;
+  tenant_id: Uuid;
+  task_id: Uuid;
+  plan_id: Uuid;
+  url: PlannerTaskReferenceAdded['payload']['url'];
+  alias: PlannerTaskReferenceAdded['payload']['alias'];
+  type: PlannerTaskReferenceAdded['payload']['type'];
+}): Promise<void> {
+  await emit({
+    tenantId: args.tenant_id,
+    aggregateType: 'planner.task',
+    aggregateId: args.task_id,
+    eventType: 'planner.task.reference-added',
+    eventVersion: 1,
+    payload: {
+      actor: args.actor,
+      tenant_id: args.tenant_id,
+      task_id: args.task_id,
+      plan_id: args.plan_id,
+      url: args.url,
+      alias: args.alias,
+      type: args.type,
+    },
+  });
+}
+
+export async function emitPlannerTaskReferenceRemoved(args: {
+  actor: PlannerEventActor;
+  tenant_id: Uuid;
+  task_id: Uuid;
+  plan_id: Uuid;
+  url: PlannerTaskReferenceRemoved['payload']['url'];
+}): Promise<void> {
+  await emit({
+    tenantId: args.tenant_id,
+    aggregateType: 'planner.task',
+    aggregateId: args.task_id,
+    eventType: 'planner.task.reference-removed',
+    eventVersion: 1,
+    payload: {
+      actor: args.actor,
+      tenant_id: args.tenant_id,
+      task_id: args.task_id,
+      plan_id: args.plan_id,
+      url: args.url,
+    },
+  });
+}
+
+export async function emitPlannerPlanCategoryDescriptionChanged(args: {
+  actor: PlannerEventActor;
+  tenant_id: Uuid;
+  plan_id: Uuid;
+  slot: PlannerPlanCategoryDescriptionChanged['payload']['slot'];
+  before: PlannerPlanCategoryDescriptionChanged['payload']['before'];
+  after: PlannerPlanCategoryDescriptionChanged['payload']['after'];
+}): Promise<void> {
+  await emit({
+    tenantId: args.tenant_id,
+    aggregateType: 'planner.plan',
+    aggregateId: args.plan_id,
+    eventType: 'planner.plan.category-description-changed',
+    eventVersion: 1,
+    payload: {
+      actor: args.actor,
+      tenant_id: args.tenant_id,
+      plan_id: args.plan_id,
+      slot: args.slot,
+      before: args.before,
+      after: args.after,
+    },
+  });
+}
+
+export async function emitPlannerLabelCategorySlotChanged(args: {
+  actor: PlannerEventActor;
+  tenant_id: Uuid;
+  plan_id: Uuid;
+  label_id: Uuid;
+  before: PlannerLabelCategorySlotChanged['payload']['before'];
+  after: PlannerLabelCategorySlotChanged['payload']['after'];
+}): Promise<void> {
+  await emit({
+    tenantId: args.tenant_id,
+    aggregateType: 'planner.label',
+    aggregateId: args.label_id,
+    eventType: 'planner.label.category-slot-changed',
+    eventVersion: 1,
+    payload: {
+      actor: args.actor,
+      tenant_id: args.tenant_id,
+      plan_id: args.plan_id,
+      label_id: args.label_id,
+      before: args.before,
+      after: args.after,
     },
   });
 }
