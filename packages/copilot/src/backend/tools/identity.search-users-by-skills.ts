@@ -37,7 +37,7 @@ export const identitySearchUsersBySkillsTool = registerToolPermission(
       const rows = await searchUsersBySkills({
         group_id: input.groupId,
         skills: input.skills,
-        limit: input.limit,
+        limit: input.limit ?? 5,
         session,
       });
 

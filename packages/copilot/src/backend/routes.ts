@@ -8,6 +8,7 @@ import { z } from 'zod';
 import type { AgentFactory } from './agent-factory.ts';
 import { decideApproval } from './domain/decide-approval.ts';
 import { getWorkflowRun } from './domain/get-workflow-run.ts';
+import { getWorkflowRunSnapshot } from './domain/get-workflow-run-snapshot.ts';
 import { listMyPendingApprovals } from './domain/list-my-pending-approvals.ts';
 import { listWorkflowRuns } from './domain/list-workflow-runs.ts';
 import { rerunWorkflow } from './domain/rerun-workflow.ts';
@@ -564,6 +565,22 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
       const row = await getWorkflowRun({ session, runId: c.req.param('runId') });
       if (!row) return c.json({ error: 'not_found', message: 'workflow run not found' }, 404);
       return c.json(row);
+    } catch (err) {
+      return handleDomainError(c, err);
+    }
+  });
+
+  app.get('/api/copilot/v1/workflows/runs/:runId/snapshot', async (c) => {
+    const session = c.get('session') as SessionLike | undefined;
+    if (!session) return c.json({ error: 'unauthorized', message: 'session required' }, 401);
+    try {
+      const snap = await getWorkflowRunSnapshot({
+        session,
+        runId: c.req.param('runId'),
+        mastra: deps.mastra as Mastra,
+      });
+      if (!snap) return c.json({ error: 'not_found', message: 'snapshot not found' }, 404);
+      return c.json(snap);
     } catch (err) {
       return handleDomainError(c, err);
     }
