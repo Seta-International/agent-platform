@@ -45,6 +45,8 @@ export { reorderBucket } from './backend/domain/reorder-bucket.ts';
 export { restoreGroup } from './backend/domain/restore-group.ts';
 export { restorePlan } from './backend/domain/restore-plan.ts';
 export { restoreTask } from './backend/domain/restore-task.ts';
+export type { CandidateRow } from './backend/domain/search-users-by-skills.ts';
+export { searchUsersBySkills } from './backend/domain/search-users-by-skills.ts';
 export { setMemberRole } from './backend/domain/set-member-role.ts';
 export { unapplyLabel } from './backend/domain/unapply-label.ts';
 export { unassignTask } from './backend/domain/unassign-task.ts';
