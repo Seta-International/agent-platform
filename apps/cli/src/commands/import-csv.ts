@@ -1,6 +1,6 @@
 import { computeAccessibleGroups, hashRoleSummary, rollup, type SessionScope } from '@seta/core';
 import { coreDb } from '@seta/core/db';
-import { createUser, grantRole, listRoleGrants } from '@seta/identity';
+import { createUser, grantRole, listRoleGrants, updateUserProfile } from '@seta/identity';
 import {
   addGroupMember,
   assignTask,
@@ -232,4 +232,46 @@ export async function importCsvCommand(opts: ImportCsvOpts): Promise<void> {
   process.stdout.write(
     `${JSON.stringify({ phase: 'tasks', created: tasksCreated, assignments: assignmentsCreated, skipped: tasksSkipped })}\n`,
   );
+
+  // Phase 8 — Update user availability from timesheet
+  log.info('phase 8: updating availability');
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Collect the furthest ooo_until per user among active approved leaves
+  const oooMap = new Map<string, Date>(); // csvUserId → furthest end_date
+
+  for (const row of csvs.timesheet) {
+    if (row.status !== 'approved') continue;
+    const start = new Date(row.start_date);
+    const end = new Date(row.end_date);
+    if (start > today || end < today) continue;
+    const existing = oooMap.get(row.employee_id);
+    if (!existing || end > existing) {
+      oooMap.set(row.employee_id, end);
+    }
+  }
+
+  let availabilityUpdated = 0;
+  let availabilitySkipped = 0;
+
+  for (const [csvId, oooUntil] of oooMap) {
+    const userId = idMap.get(csvId);
+    if (!userId) {
+      log.warn({ csv_employee_id: csvId }, 'timesheet employee not in users.csv, skipping');
+      availabilitySkipped++;
+      continue;
+    }
+    await updateUserProfile(
+      userId,
+      { availability_status: 'ooo', ooo_until: oooUntil },
+      { type: 'cli', user_id: null },
+    );
+    availabilityUpdated++;
+  }
+  process.stdout.write(
+    `${JSON.stringify({ phase: 'availability', updated: availabilityUpdated, skipped: availabilitySkipped })}\n`,
+  );
+
+  log.info({ tenant_id: tenantId, group_id: group.id }, 'import-csv: complete');
 }
