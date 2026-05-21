@@ -3,6 +3,10 @@ export {
   disableMailTransportConfig,
 } from './backend/domain/disable-mail-transport-config.ts';
 export {
+  type DecryptedM365TenantConfig,
+  getM365TenantConfig,
+} from './backend/domain/get-m365-tenant-config.ts';
+export {
   type Actor as IntegrationsActor,
   getMailTransportConfig,
 } from './backend/domain/get-mail-transport-config.ts';
