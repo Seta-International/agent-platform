@@ -44,6 +44,7 @@ export { restoreTask } from './backend/domain/restore-task.ts';
 export { setMemberRole } from './backend/domain/set-member-role.ts';
 export { unapplyLabel } from './backend/domain/unapply-label.ts';
 export { unassignTask } from './backend/domain/unassign-task.ts';
+export { unlinkGroupFromM365 } from './backend/domain/unlink-group-from-m365.ts';
 export { updateBucket } from './backend/domain/update-bucket.ts';
 export { updateChecklistItem } from './backend/domain/update-checklist-item.ts';
 export { updateGroup } from './backend/domain/update-group.ts';
