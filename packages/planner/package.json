@@ -33,6 +33,7 @@
   },
   "dependencies": {
     "@seta/shared-embeddings": "workspace:^",
+    "@seta/shared-retrieval": "workspace:^",
     "@opentelemetry/api": "^1.9.1",
     "drizzle-orm": "^0.45.2",
     "fractional-indexing": "^3.2.0",
