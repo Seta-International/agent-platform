@@ -4,21 +4,9 @@ import { resolveField } from '../lww.ts';
 import type { M365GroupLinkRepo } from '../repo.ts';
 import { type SyncSnapshot, snapshotFromGraph } from '../snapshot.ts';
 import { buildSystemSession } from '../system-session.ts';
+import type { GraphLikeReadPatch } from './_graph-types.ts';
 
-// Extends the read-only GraphLike from pull-group with patch support.
-// Duplicating the minimal duck type here avoids a cross-file import of
-// pull-group's unexported interface.
-// TODO: factor GraphLike + GraphRequest into _shared.ts if a third job is added.
-interface GraphRequest {
-  select(...fields: string[]): GraphRequest;
-  filter(expr: string): GraphRequest;
-  get(): Promise<unknown>;
-  patch(body: unknown): Promise<void>;
-}
-
-export interface GraphLike {
-  api(path: string): GraphRequest;
-}
+export type GraphLike = GraphLikeReadPatch;
 
 export interface RunPushGroupInput {
   tenant_id: string;

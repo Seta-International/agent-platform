@@ -1,14 +1,8 @@
 import { createHmac } from 'node:crypto';
 import type { M365SubscriptionInsert, M365SubscriptionRow } from '../repo-subscriptions.ts';
+import type { GraphLikePost } from './_graph-types.ts';
 
-// Minimal duck type for Graph client — only the methods this job uses
-interface GraphPost {
-  post(body: unknown): Promise<{ id: string }>;
-}
-
-export interface GraphLike {
-  api(path: string): GraphPost;
-}
+export type GraphLike = GraphLikePost;
 
 export interface RunCreateSubscriptionInput {
   tenant_id: string;

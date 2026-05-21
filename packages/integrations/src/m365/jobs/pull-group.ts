@@ -13,17 +13,9 @@ import { type MemberRef, resolveField, resolveMembers } from '../lww.ts';
 import type { M365GroupLinkRepo } from '../repo.ts';
 import { type SyncSnapshot, snapshotFromGraph } from '../snapshot.ts';
 import { buildSystemSession } from '../system-session.ts';
+import type { GraphLikeRead } from './_graph-types.ts';
 
-// Minimal duck type for Graph client — only the methods this job uses
-interface GraphRequest {
-  select(...fields: string[]): GraphRequest;
-  filter(expr: string): GraphRequest;
-  get(): Promise<unknown>;
-}
-
-export interface GraphLike {
-  api(path: string): GraphRequest;
-}
+export type GraphLike = GraphLikeRead;
 
 export interface RunPullGroupDeps {
   graphClient: GraphLike;
