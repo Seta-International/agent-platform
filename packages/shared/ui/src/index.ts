@@ -1,4 +1,5 @@
-// Primitives
+// Board
+export * from './board/preview-card';
 
 // Composites
 export * from './composites/app-shell';
