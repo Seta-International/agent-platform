@@ -109,6 +109,46 @@ describe('createGroup', () => {
     );
   });
 
+  it('persists description/theme/visibility/default_role and emits them in the created event', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+      },
+      async ({ pool, databaseUrl }) => {
+        resetCoreDb();
+        initPools({ databaseUrl });
+        try {
+          const seeded = await seedTenant(pool);
+          const group = await createGroup({
+            tenant_id: seeded.tenant_id,
+            name: 'Engineering',
+            description: 'Platform work',
+            theme: 'green',
+            visibility: 'public',
+            default_role: 'owner',
+            session: seeded.adminSession,
+          });
+          expect(group.description).toBe('Platform work');
+          expect(group.theme).toBe('green');
+          expect(group.visibility).toBe('public');
+          expect(group.default_role).toBe('owner');
+          expect(group.external_source).toBe('native');
+          expect(group.external_id).toBeNull();
+
+          const events = await readEvents(pool, seeded.tenant_id, 'planner.group.created');
+          const after = (events[0]?.payload as { after: { description: string; theme: string } })
+            .after;
+          expect(after.description).toBe('Platform work');
+          expect(after.theme).toBe('green');
+        } finally {
+          resetCoreDb();
+          await closePools();
+        }
+      },
+    );
+  });
+
   it('rejects duplicate name within the same tenant (live rows)', async () => {
     await withTestDb(
       {

@@ -1,10 +1,11 @@
 import type { SessionScope } from '@seta/core';
 import { withEmit } from '@seta/core/events';
-import { groups } from '../../db/schema.ts';
+import { groupMembers, groups } from '../../db/schema.ts';
 import { emitPlannerGroupCreated } from '../../events/emit-helpers.ts';
 import type { GroupRow } from '../dto.ts';
 import type { CreateGroupInput } from '../inputs.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
+import { groupRowToDto } from './_group-dto.ts';
 
 type GroupDbRow = typeof groups.$inferSelect;
 
@@ -33,11 +34,29 @@ export async function createGroup(
         .values({
           tenant_id: input.tenant_id,
           name: input.name,
+          description: input.description ?? null,
+          theme: input.theme ?? 'blue',
+          visibility: input.visibility ?? 'private',
+          default_role: input.default_role ?? 'member',
           created_by: input.session.user_id,
         })
         .returning();
       if (!row) throw new PlannerError('VALIDATION', 'Insert returned no row');
       inserted = row;
+
+      if (input.initial_members && input.initial_members.length > 0) {
+        await tx
+          .insert(groupMembers)
+          .values(
+            input.initial_members.map((m) => ({
+              group_id: row.id,
+              user_id: m.user_id,
+              role: m.role,
+              added_by: input.session.user_id,
+            })),
+          )
+          .onConflictDoNothing();
+      }
 
       await emitPlannerGroupCreated({
         actor: { type: 'user', user_id: input.session.user_id },
@@ -46,12 +65,12 @@ export async function createGroup(
           group_id: row.id,
           tenant_id: row.tenant_id,
           name: row.name,
-          description: null,
-          theme: 'blue',
-          visibility: 'private',
-          default_role: 'member',
-          external_source: 'native',
-          external_id: null,
+          description: row.description,
+          theme: row.theme as GroupRow['theme'],
+          visibility: row.visibility as GroupRow['visibility'],
+          default_role: row.default_role as GroupRow['default_role'],
+          external_source: row.external_source as GroupRow['external_source'],
+          external_id: row.external_id,
           account_id: row.account_id,
           created_by: row.created_by,
         },
@@ -59,26 +78,5 @@ export async function createGroup(
     },
   );
 
-  return rowToDto(inserted);
-}
-
-function rowToDto(row: GroupDbRow): GroupRow {
-  return {
-    id: row.id,
-    tenant_id: row.tenant_id,
-    name: row.name,
-    description: null,
-    theme: 'blue',
-    visibility: 'private',
-    default_role: 'member',
-    external_source: 'native',
-    external_id: null,
-    external_synced_at: null,
-    account_id: row.account_id,
-    created_by: row.created_by,
-    created_at: row.created_at.toISOString(),
-    updated_at: row.updated_at.toISOString(),
-    deleted_at: row.deleted_at ? row.deleted_at.toISOString() : null,
-    version: row.version,
-  };
+  return groupRowToDto(inserted);
 }
