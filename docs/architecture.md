@@ -281,27 +281,31 @@ registry.subscribers([
 - **Pin** `graphile-worker@^0.16.6` for v1 (prod-stable). Track `0.17` RC for Phase B upgrade window.
 - **Fallback contract.** If maintenance signal degrades (no commits in 12 months, security CVE unaddressed), swap to `pg-boss`. Our usage is narrow (cron triggers + retry + `LISTEN/NOTIFY` wakeup) — both libraries cover it. Cost: ~1 sprint to port the ~10 scheduled workflows. Captured as risk #2 in §17.3.
 
-### §A10. pgvector index strategy → **HNSW + tenant_id prefilter**
+### §A10. pgvector index strategy → **LIST-partition per tenant + per-partition HNSW on `halfvec(1536)`**
 
-- **Decision.** HNSW index on every embedding column. Standard parameters: `m=16, ef_construction=200`. Per-query: `SET LOCAL hnsw.ef_search = 40` (default; tune up to 100 for higher recall in `staffing.agent`).
-- **Tenant scoping.** All embedding queries include `WHERE tenant_id = $1` as a B-tree prefilter alongside the HNSW order-by. The HNSW index expression is `ON ... USING hnsw (embedding vector_cosine_ops)`; Postgres planner uses the tenant_id index for the filter and HNSW for the order-by.
-- **Schema shape.**
+- **Decision (revised 2026-05-21 per D38–D40).** Every embedding parent table is declared `PARTITION BY LIST (tenant_id)`. Per-tenant child partitions and their HNSW indexes are provisioned lazily on first embed per tenant by `shared/db`'s `ensureTenantPartition()` helper, guarded by a Postgres advisory lock. The query planner prunes partitions at `WHERE tenant_id = $1`, so each query scans only one tenant's HNSW index — Curator-paper-style (arXiv:2401.07119) 37× faster than a single-index + prefilter approach at our 100-tenant scale.
+
+- **Storage type.** `halfvec(1536)` (pgvector ≥0.7 half-precision). ~60% smaller index than `vector(1536)`, negligible recall loss at this dimensionality. Day-1 decision, not opt-in.
+
+- **HNSW params.** `m=16, ef_construction=200` at build time; `ef_search=100` per query (session-scoped via `SET LOCAL hnsw.ef_search = 100`). Bumped from the previous draft's `ef_search=40` per current pgvector production guidance.
+
+- **Per-tenant indexes (per partition).**
+
   ```sql
-  CREATE TABLE planner.task_embeddings (
-    chunk_id uuid PRIMARY KEY REFERENCES planner.task_chunks(id) ON DELETE CASCADE,
-    tenant_id uuid NOT NULL,
-    task_id uuid NOT NULL,
-    embedding vector(1536) NOT NULL,
-    embedded_at timestamptz NOT NULL DEFAULT now()
-  );
-  CREATE INDEX task_embeddings_tenant_idx ON planner.task_embeddings (tenant_id);
-  CREATE INDEX task_embeddings_hnsw_idx
-    ON planner.task_embeddings USING hnsw (embedding vector_cosine_ops)
+  CREATE INDEX <child>_hnsw_idx
+    ON planner.task_embeddings_<tenant_slug>
+    USING hnsw (embedding halfvec_cosine_ops)
     WITH (m = 16, ef_construction = 200);
+
+  CREATE INDEX <child>_task_id_idx
+    ON planner.task_embeddings_<tenant_slug> (task_id);
   ```
-- **v1 scale check.** §10.2: 100 tenants × ≤100k tasks × avg 1.5 chunks/task = ≤15M vectors total, ≤150k vectors per tenant. Well inside HNSW's <1M-per-tenant comfort zone. No need for per-tenant partitioning in v1.
-- **v1.x trigger for partitioning.** Single tenant > 1M vectors *and* p95 vector-query latency > 200ms. Mitigation: declarative partitioning on `tenant_id` (list partitioning, one partition per hot tenant) so the planner prunes shards.
-- **Rebuild cadence.** None scheduled. HNSW handles incremental writes without index-quality degradation at our scale. Reactive rebuild only if recall drops are observed in `embedding-quality-canary` (§14.4, Phase C).
+
+- **Memory cost.** Per-tenant HNSW costs ~10× the memory of a shared index — acceptable at 100 tenants, would not be at 10k. If we cross 1k tenants we revisit (`v1.x` trigger).
+
+- **Backfill from existing data.** None at M3 cutover — `identity.user_skill_embeddings` was empty per A1; `planner.task_embeddings` is new.
+
+- **v1.x trigger for per-partition rebuild.** Recall canary (Phase C per §14.4) drops sustained >5% — rebuild the offending tenant partition with `CONCURRENTLY`. No scheduled rebuild cadence.
 
 ### §A11. Embeddings CDC backpressure → **2 levers Phase A, 3 reactive (D4)**
 
