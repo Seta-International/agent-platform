@@ -37,10 +37,11 @@ interface RoleControlProps {
   member: GroupMemberRow;
   canEdit: boolean;
   isLinkedGroup: boolean;
+  externalId: string | null;
   onChange: (role: 'owner' | 'member') => void;
 }
 
-function RoleControl({ member, canEdit, isLinkedGroup, onChange }: RoleControlProps) {
+function RoleControl({ member, canEdit, isLinkedGroup, externalId, onChange }: RoleControlProps) {
   if (canEdit) {
     return (
       <select
@@ -77,7 +78,19 @@ function RoleControl({ member, canEdit, isLinkedGroup, onChange }: RoleControlPr
             {/* biome-ignore lint/a11y/noNoninteractiveTabindex: tooltip needs keyboard access */}
             <span tabIndex={0}>{pill}</span>
           </TooltipTrigger>
-          <TooltipContent>Managed in M365</TooltipContent>
+          <TooltipContent>
+            <p>Managed in Microsoft 365</p>
+            {externalId && (
+              <a
+                href={`https://entra.microsoft.com/#view/Microsoft_AAD_IAM/GroupDetailsMenuBlade/~/Overview/groupId/${externalId}`}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-0.5 block text-xs underline"
+              >
+                Open in Azure portal
+              </a>
+            )}
+          </TooltipContent>
         </Tooltip>
       </TooltipProvider>
     );
@@ -115,6 +128,7 @@ export function GroupMembersTable({ group, members, canManageRoles, onRoleChange
                   member={m}
                   canEdit={canManageRoles && group.external_source === 'native'}
                   isLinkedGroup={group.external_source !== 'native'}
+                  externalId={group.external_id}
                   onChange={(role) => onRoleChange({ user_id: m.user_id, role })}
                 />
               </td>

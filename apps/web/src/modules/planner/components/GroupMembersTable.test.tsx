@@ -1,5 +1,5 @@
 import type { GroupMemberRow } from '@seta/planner';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { makeGroup } from '../testing/fixtures';
@@ -92,5 +92,27 @@ describe('GroupMembersTable', () => {
       screen.getByRole('option', { name: 'Owner' }),
     );
     expect(onRoleChange).toHaveBeenCalledWith({ user_id: 'u1', role: 'owner' });
+  });
+
+  it('tooltip for linked group shows "Managed in Microsoft 365" with Azure portal link', async () => {
+    const user = userEvent.setup();
+    render(
+      <GroupMembersTable
+        group={linkedGroup}
+        members={[member()]}
+        canManageRoles
+        onRoleChange={vi.fn()}
+      />,
+    );
+    const trigger = document.querySelector('[tabindex="0"]');
+    expect(trigger).not.toBeNull();
+    if (trigger) await user.hover(trigger as Element);
+    await waitFor(() => {
+      const items = screen.getAllByText('Managed in Microsoft 365');
+      expect(items.length).toBeGreaterThanOrEqual(1);
+    });
+    const links = await screen.findAllByRole('link', { name: /Open in Azure portal/i });
+    expect(links.length).toBeGreaterThanOrEqual(1);
+    expect(links[0]?.getAttribute('href')).toContain('graph-123');
   });
 });

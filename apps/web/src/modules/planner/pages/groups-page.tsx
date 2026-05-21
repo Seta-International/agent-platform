@@ -1,10 +1,21 @@
-import { Alert, AlertDescription, Button, EmptyState, Skeleton } from '@seta/shared-ui';
-import { Plus } from 'lucide-react';
+import {
+  Alert,
+  AlertDescription,
+  Button,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  EmptyState,
+  Skeleton,
+} from '@seta/shared-ui';
+import { Cloud, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { CreateGroupDialog } from '../components/CreateGroupDialog';
 import { GroupsGrid } from '../components/GroupsGrid';
 import { GroupsTable } from '../components/GroupsTable';
 import { GroupsToolbar } from '../components/GroupsToolbar';
+import { LinkToM365Dialog } from '../components/LinkToM365Dialog';
 import { useGroupsWithCounts } from '../hooks/queries/use-groups-with-counts';
 
 interface Props {
@@ -19,6 +30,9 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
   const [source, setSource] = useState<'native' | 'm365' | null>(null);
   const [owner, setOwner] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [syncFromIdPOpen, setSyncFromIdPOpen] = useState(false);
+  const [groupToLink, setGroupToLink] = useState<string | null>(null);
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
 
   // Derive owner options from the data
   const ownerOptions = useMemo(() => {
@@ -112,6 +126,9 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
         </p>
         {canCreateGroup ? (
           <div className="absolute right-7 top-5 flex gap-2">
+            <Button size="sm" variant="secondary" onClick={() => setSyncFromIdPOpen(true)}>
+              <Cloud className="size-3" /> Sync from IdP
+            </Button>
             <Button size="sm" onClick={() => setCreateOpen(true)}>
               <Plus className="size-3" /> New group
             </Button>
@@ -136,6 +153,54 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
         {view === 'list' ? <GroupsTable groups={filtered} /> : <GroupsGrid groups={filtered} />}
       </div>
       <CreateGroupDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <Dialog open={syncFromIdPOpen} onOpenChange={setSyncFromIdPOpen}>
+        <DialogContent className="max-w-[440px]">
+          <DialogHeader>
+            <DialogTitle>Select group to link to M365</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <select
+              className="block h-9 w-full rounded-md border border-hairline bg-canvas px-3 text-sm"
+              value={groupToLink ?? ''}
+              onChange={(e) => setGroupToLink(e.target.value || null)}
+              aria-label="Select a Seta group"
+            >
+              <option value="">— choose a group —</option>
+              {groups
+                .filter((g) => g.external_source === 'native')
+                .map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
+                ))}
+            </select>
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setSyncFromIdPOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                disabled={!groupToLink}
+                onClick={() => {
+                  setSyncFromIdPOpen(false);
+                  setLinkDialogOpen(true);
+                }}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      {groupToLink && (
+        <LinkToM365Dialog
+          groupId={groupToLink}
+          open={linkDialogOpen}
+          onOpenChange={(v) => {
+            setLinkDialogOpen(v);
+            if (!v) setGroupToLink(null);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -219,4 +219,99 @@ describe('GroupsPage', () => {
     // Source filter pill should appear because at least one m365 group exists
     expect(screen.getByRole('button', { name: /Source/i })).toBeInTheDocument();
   });
+
+  it('source filter "Native" shows only native groups', async () => {
+    const groups = [
+      makeGroupWithCounts({ id: 'g1', name: 'Native Group', external_source: 'native' }),
+      makeGroupWithCounts({ id: 'g2', name: 'M365 Group', external_source: 'm365' }),
+    ];
+    server.use(makeGroupsHandler(groups));
+    const user = userEvent.setup();
+    renderWithRouter(<GroupsPage />);
+
+    await screen.findByRole('link', { name: 'Native Group' });
+
+    await user.click(screen.getByRole('button', { name: /Source/i }));
+    await user.click(screen.getByRole('button', { name: 'Native' }));
+
+    await waitFor(() => expect(screen.queryByText('M365 Group')).not.toBeInTheDocument());
+    expect(screen.getByText('Native Group')).toBeInTheDocument();
+  });
+
+  it('source filter "M365" shows only m365 groups', async () => {
+    const groups = [
+      makeGroupWithCounts({ id: 'g1', name: 'Native Group', external_source: 'native' }),
+      makeGroupWithCounts({ id: 'g2', name: 'M365 Group', external_source: 'm365' }),
+    ];
+    server.use(makeGroupsHandler(groups));
+    const user = userEvent.setup();
+    renderWithRouter(<GroupsPage />);
+
+    await screen.findByRole('link', { name: 'Native Group' });
+
+    await user.click(screen.getByRole('button', { name: /Source/i }));
+    await user.click(screen.getByRole('button', { name: 'M365' }));
+
+    await waitFor(() => expect(screen.queryByText('Native Group')).not.toBeInTheDocument());
+    expect(screen.getByText('M365 Group')).toBeInTheDocument();
+  });
+
+  it('source filter null (Any) shows all groups', async () => {
+    const groups = [
+      makeGroupWithCounts({ id: 'g1', name: 'Native Group', external_source: 'native' }),
+      makeGroupWithCounts({ id: 'g2', name: 'M365 Group', external_source: 'm365' }),
+    ];
+    server.use(makeGroupsHandler(groups));
+    const user = userEvent.setup();
+    renderWithRouter(<GroupsPage />);
+
+    await screen.findByRole('link', { name: 'Native Group' });
+
+    // Apply a filter then clear it
+    await user.click(screen.getByRole('button', { name: /Source/i }));
+    await user.click(screen.getByRole('button', { name: 'Native' }));
+    await waitFor(() => expect(screen.queryByText('M365 Group')).not.toBeInTheDocument());
+
+    // Clear filter via "Any"
+    await user.click(screen.getByRole('button', { name: /Source/i }));
+    await user.click(screen.getByRole('button', { name: /Any/i }));
+
+    await waitFor(() => expect(screen.getByText('M365 Group')).toBeInTheDocument());
+    expect(screen.getByText('Native Group')).toBeInTheDocument();
+  });
+
+  it('canCreateGroup=true shows "Sync from IdP" button', async () => {
+    const groups = [makeGroupWithCounts({ id: 'g1', name: 'Engineering' })];
+    server.use(makeGroupsHandler(groups));
+    renderWithRouter(<GroupsPage canCreateGroup={true} />);
+
+    await screen.findByText('Engineering');
+    expect(screen.getByRole('button', { name: /Sync from IdP/i })).toBeInTheDocument();
+  });
+
+  it('canCreateGroup=false does not show "Sync from IdP" button', async () => {
+    const groups = [makeGroupWithCounts({ id: 'g1', name: 'Engineering' })];
+    server.use(makeGroupsHandler(groups));
+    renderWithRouter(<GroupsPage canCreateGroup={false} />);
+
+    await screen.findByText('Engineering');
+    expect(screen.queryByRole('button', { name: /Sync from IdP/i })).not.toBeInTheDocument();
+  });
+
+  it('clicking "Sync from IdP" opens the group selector dialog', async () => {
+    const groups = [
+      makeGroupWithCounts({ id: 'g1', name: 'Engineering', external_source: 'native' }),
+    ];
+    server.use(makeGroupsHandler(groups));
+    const user = userEvent.setup();
+    renderWithRouter(<GroupsPage canCreateGroup={true} />);
+
+    await screen.findByText('Engineering');
+    await user.click(screen.getByRole('button', { name: /Sync from IdP/i }));
+
+    expect(
+      await screen.findByRole('dialog', { name: /Select group to link to M365/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Engineering' })).toBeInTheDocument();
+  });
 });

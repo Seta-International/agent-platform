@@ -88,17 +88,25 @@ describe('CreateGroupDialog', () => {
     );
   });
 
-  it('Link group button is disabled with a "Available after sync goes live" tooltip', async () => {
+  it('Link group button is enabled and submitting creates group then opens LinkToM365Dialog', async () => {
     const user = userEvent.setup();
+    server.use(
+      http.post('*/api/planner/v1/groups', async () =>
+        HttpResponse.json(makeGroup({ id: 'g-new', name: 'Linked Group' }), { status: 201 }),
+      ),
+    );
     wrap(<CreateGroupDialog open onOpenChange={() => {}} />);
+
     const btn = screen.getByRole('button', { name: /Link group/i });
-    expect(btn).toBeDisabled();
-    // hover to show tooltip
-    await user.hover(btn);
-    await waitFor(() => {
-      const matches = screen.getAllByText(/Available after sync goes live/i);
-      expect(matches.length).toBeGreaterThanOrEqual(1);
-    });
+    // Button is enabled when name is empty (disabled by the name check)
+    await user.type(screen.getByLabelText(/Group name/i), 'Linked Group');
+    expect(btn).not.toBeDisabled();
+
+    await user.click(btn);
+    // After creation, LinkToM365Dialog should open
+    await waitFor(() =>
+      expect(screen.getByText('Link to a Microsoft 365 group')).toBeInTheDocument(),
+    );
   });
 
   it('when starter-plan is checked, fires createPlan on submit', async () => {
