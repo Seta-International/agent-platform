@@ -39,7 +39,8 @@ describe('ReferenceRow', () => {
       const { container, unmount } = render(
         <ReferenceRow refRow={{ ...row, type: t }} onOpen={() => {}} onRemove={() => {}} />,
       );
-      expect(container.querySelector(`[data-type-color="${expected[i]}"]`)).toBeInTheDocument();
+      const icon = container.querySelector('[aria-hidden="true"]') as HTMLElement;
+      expect(icon.style.background).toBe(expected[i]);
       unmount();
     });
   });

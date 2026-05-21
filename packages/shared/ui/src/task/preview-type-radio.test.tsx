@@ -5,7 +5,7 @@ import { PREVIEW_TYPES, PreviewTypeRadio } from './preview-type-radio';
 describe('PreviewTypeRadio', () => {
   it('renders 5 options in spec order', () => {
     render(<PreviewTypeRadio value="automatic" onChange={() => {}} />);
-    expect(PREVIEW_TYPES.map((o) => o.v)).toEqual([
+    expect(PREVIEW_TYPES.map((o) => o.value)).toEqual([
       'automatic',
       'noPreview',
       'checklist',

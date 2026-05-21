@@ -3,17 +3,17 @@ import type { CSSProperties } from 'react';
 export type PreviewType = 'automatic' | 'noPreview' | 'checklist' | 'description' | 'reference';
 
 export interface PreviewTypeOption {
-  v: PreviewType;
+  value: PreviewType;
   label: string;
   desc: string;
 }
 
 export const PREVIEW_TYPES: PreviewTypeOption[] = [
-  { v: 'automatic', label: 'Automatic', desc: 'Best of below' },
-  { v: 'noPreview', label: 'None', desc: 'Title only' },
-  { v: 'checklist', label: 'Checklist', desc: 'First 3 items' },
-  { v: 'description', label: 'Description', desc: '2-line excerpt' },
-  { v: 'reference', label: 'Reference', desc: 'Top link host' },
+  { value: 'automatic', label: 'Automatic', desc: 'Best of below' },
+  { value: 'noPreview', label: 'None', desc: 'Title only' },
+  { value: 'checklist', label: 'Checklist', desc: 'First 3 items' },
+  { value: 'description', label: 'Description', desc: '2-line excerpt' },
+  { value: 'reference', label: 'Reference', desc: 'Top link host' },
 ];
 
 interface Props {
@@ -25,16 +25,16 @@ export function PreviewTypeRadio({ value, onChange }: Props) {
   return (
     <div role="radiogroup" aria-label="Preview type" style={group}>
       {PREVIEW_TYPES.map((opt) => {
-        const active = opt.v === value;
+        const active = opt.value === value;
         return (
           // biome-ignore lint/a11y/useSemanticElements: button-with-role pattern preserves the two-line label+desc layout that a native <input type="radio"> cannot express.
           <button
-            key={opt.v}
+            key={opt.value}
             type="button"
             role="radio"
             aria-checked={active}
             aria-label={opt.label}
-            onClick={() => onChange(opt.v)}
+            onClick={() => onChange(opt.value)}
             style={{ ...optBtn, ...(active ? activeOpt : {}) }}
           >
             <span style={{ fontWeight: 600, fontSize: 12 }}>{opt.label}</span>

@@ -48,7 +48,7 @@ export function ReferenceRow({ refRow, onOpen, onRemove, dragHandleProps }: Prop
       <button type="button" {...dragHandleProps} aria-label="Drag" style={dragHandle}>
         ⋮⋮
       </button>
-      <span data-type-color={color} aria-hidden="true" style={{ ...iconSquare, background: color }}>
+      <span aria-hidden="true" style={{ ...iconSquare, background: color }}>
         {refRow.type.charAt(0).toUpperCase()}
       </span>
       <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>

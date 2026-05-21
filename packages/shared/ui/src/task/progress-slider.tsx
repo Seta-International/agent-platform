@@ -11,12 +11,11 @@ const TICKS = [0, 25, 50, 75, 100];
 
 export function ProgressSlider({ value, onChange, disabled = false }: Props) {
   const status = value === 0 ? 'Not started' : value === 100 ? 'Done' : 'In Progress';
-  const dotClass = value === 0 ? 'muted' : value === 100 ? 'success' : 'primary';
+  const dotClass = value === 0 ? 'dot--muted' : value === 100 ? 'dot--success' : 'dot--primary';
   return (
     <div>
       <div style={row}>
         <Slider.Root
-          className="seta-progress-slider"
           value={[value]}
           onValueChange={(v) => onChange(v[0] ?? 0)}
           min={0}
