@@ -8,6 +8,13 @@
       "when": 1779378020925,
       "tag": "0000_initial",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1748044800000,
+      "tag": "0006_tasks_search_tsv_and_task_id_fix",
+      "breakpoints": true
     }
   ]
 }

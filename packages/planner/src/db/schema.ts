@@ -1,7 +1,6 @@
 import { halfvec } from '@seta/shared-db';
 import { sql } from 'drizzle-orm';
 import {
-  bigint,
   boolean,
   check,
   index,
@@ -282,7 +281,7 @@ export const taskEmbeddings = planner.table(
   'task_embeddings',
   {
     tenant_id: uuid('tenant_id').notNull(),
-    task_id: bigint('task_id', { mode: 'bigint' }).notNull(),
+    task_id: uuid('task_id').notNull(),
     chunk_ordinal: integer('chunk_ordinal').notNull(),
     chunk_text: text('chunk_text').notNull(),
     source_hash: text('source_hash').notNull(),
