@@ -336,6 +336,26 @@ export function applyPlannerEvent(qc: QueryClient, event: StreamEvent): void {
       if (taskId) qc.invalidateQueries({ queryKey: plannerKeys.task(taskId) });
       if (planId) qc.invalidateQueries({ queryKey: plannerKeys.plan(planId) });
       return;
+
+    case 'planner.task.reference-added.v1':
+    case 'planner.task.reference-removed.v1':
+      if (taskId) qc.invalidateQueries({ queryKey: plannerKeys.task(taskId) });
+      if (planId) qc.invalidateQueries({ queryKey: plannerKeys.planBoard(planId) });
+      return;
+
+    case 'planner.plan.category-description-changed.v1':
+      if (planId) {
+        qc.invalidateQueries({ queryKey: plannerKeys.planCategories(planId) });
+        qc.invalidateQueries({ queryKey: plannerKeys.planBoard(planId) });
+      }
+      return;
+
+    case 'planner.label.category-slot-changed.v1':
+      if (planId) {
+        qc.invalidateQueries({ queryKey: plannerKeys.planCategories(planId) });
+        qc.invalidateQueries({ queryKey: plannerKeys.planLabels(planId) });
+      }
+      return;
   }
 }
 
@@ -361,9 +381,25 @@ function mergeTaskPatch(
       patch.priority_number = v as TaskWithAssigneesRow['priority_number'];
     }
   }
+  if ('start_at' in after) {
+    const v = after.start_at;
+    patch.start_at = typeof v === 'string' ? v : null;
+  }
   if ('due_at' in after) {
     const v = after.due_at;
     patch.due_at = typeof v === 'string' ? v : null;
+  }
+  if ('preview_type' in after) {
+    const v = asString(after.preview_type);
+    if (
+      v === 'automatic' ||
+      v === 'noPreview' ||
+      v === 'checklist' ||
+      v === 'description' ||
+      v === 'reference'
+    ) {
+      patch.preview_type = v;
+    }
   }
   if ('skill_tags' in after && Array.isArray(after.skill_tags)) {
     patch.skill_tags = after.skill_tags as string[];

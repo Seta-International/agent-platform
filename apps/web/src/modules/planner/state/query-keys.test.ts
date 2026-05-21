@@ -15,6 +15,7 @@ describe('plannerKeys', () => {
     expect(plannerKeys.task('t1')).toEqual(['planner', 'task', 't1']);
     expect(plannerKeys.taskEvents('t1')).toEqual(['planner', 'task', 't1', 'events']);
     expect(plannerKeys.taskChecklist('t1')).toEqual(['planner', 'task', 't1', 'checklist']);
+    expect(plannerKeys.planCategories('p1')).toEqual(['planner', 'plan', 'p1', 'categories']);
     expect(plannerKeys.trash()).toEqual(['planner', 'trash']);
   });
 

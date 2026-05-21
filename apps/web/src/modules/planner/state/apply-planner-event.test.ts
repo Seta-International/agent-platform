@@ -443,6 +443,138 @@ describe('applyPlannerEvent', () => {
     });
   });
 
+  describe('planner.task.reference-added.v1', () => {
+    it('invalidates task and planBoard', () => {
+      const spy = vi.spyOn(qc, 'invalidateQueries');
+      applyPlannerEvent(
+        qc,
+        makeEvent({
+          id: 'e-ref-add',
+          eventType: 'planner.task.reference-added.v1',
+          aggregateType: 'planner.task',
+          payload: { task_id: 't1', plan_id: PLAN, url: 'https://x', alias: null, type: 'web' },
+        }),
+      );
+      expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.task('t1') });
+      expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.planBoard(PLAN) });
+    });
+  });
+
+  describe('planner.task.reference-removed.v1', () => {
+    it('invalidates task and planBoard', () => {
+      const spy = vi.spyOn(qc, 'invalidateQueries');
+      applyPlannerEvent(
+        qc,
+        makeEvent({
+          id: 'e-ref-rm',
+          eventType: 'planner.task.reference-removed.v1',
+          aggregateType: 'planner.task',
+          payload: { task_id: 't1', plan_id: PLAN, url: 'https://x' },
+        }),
+      );
+      expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.task('t1') });
+      expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.planBoard(PLAN) });
+    });
+  });
+
+  describe('planner.plan.category-description-changed.v1', () => {
+    it('invalidates planCategories and planBoard', () => {
+      const spy = vi.spyOn(qc, 'invalidateQueries');
+      applyPlannerEvent(
+        qc,
+        makeEvent({
+          id: 'e-cat-desc',
+          eventType: 'planner.plan.category-description-changed.v1',
+          aggregateType: 'planner.plan',
+          payload: { plan_id: PLAN, slot: 1, before: null, after: 'Backend' },
+        }),
+      );
+      expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.planCategories(PLAN) });
+      expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.planBoard(PLAN) });
+    });
+  });
+
+  describe('planner.label.category-slot-changed.v1', () => {
+    it('invalidates planCategories and planLabels', () => {
+      const spy = vi.spyOn(qc, 'invalidateQueries');
+      applyPlannerEvent(
+        qc,
+        makeEvent({
+          id: 'e-label-slot',
+          eventType: 'planner.label.category-slot-changed.v1',
+          aggregateType: 'planner.label',
+          payload: { plan_id: PLAN, label_id: 'l1', before: null, after: 2 },
+        }),
+      );
+      expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.planCategories(PLAN) });
+      expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.planLabels(PLAN) });
+    });
+  });
+
+  describe('planner.task.updated with new mutable fields', () => {
+    it('merges percent_complete, priority_number, start_at, due_at, is_deferred, preview_type', () => {
+      qc.setQueryData<TaskWithAssigneesRow[]>(tasksKey, [
+        makeTaskWithAssignees({
+          id: 't1',
+          percent_complete: 0,
+          priority_number: 5,
+          is_deferred: false,
+          version: 1,
+        }),
+      ]);
+
+      applyPlannerEvent(
+        qc,
+        makeEvent({
+          id: 'e-upd-fields',
+          eventType: 'planner.task.updated',
+          aggregateType: 'planner.task',
+          payload: {
+            task_id: 't1',
+            plan_id: PLAN,
+            before: {
+              percent_complete: 0,
+              priority_number: 5,
+              start_at: null,
+              due_at: null,
+              is_deferred: false,
+              preview_type: 'automatic',
+            },
+            after: {
+              percent_complete: 50,
+              priority_number: 9,
+              start_at: '2026-05-01T00:00:00Z',
+              due_at: '2026-05-31T00:00:00Z',
+              is_deferred: true,
+              preview_type: 'checklist',
+            },
+            changed_fields: [
+              'percent_complete',
+              'priority_number',
+              'start_at',
+              'due_at',
+              'is_deferred',
+              'preview_type',
+            ],
+            version_after: 2,
+          },
+        }),
+      );
+
+      const after = qc.getQueryData<TaskWithAssigneesRow[]>(tasksKey)!;
+      expect(after[0]).toMatchObject({
+        id: 't1',
+        percent_complete: 50,
+        priority_number: 9,
+        start_at: '2026-05-01T00:00:00Z',
+        due_at: '2026-05-31T00:00:00Z',
+        is_deferred: true,
+        preview_type: 'checklist',
+        version: 2,
+      });
+    });
+  });
+
   describe('planner.bucket.deleted', () => {
     it('removes the bucket and invalidates tasks for the plan', () => {
       qc.setQueryData<BucketRow[]>(bucketsKey, [

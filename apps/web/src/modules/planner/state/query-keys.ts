@@ -24,6 +24,7 @@ export const plannerKeys = {
   plan: (id: string) => [...plannerKeys.all, 'plan', id] as const,
   planBoard: (id: string) => [...plannerKeys.plan(id), 'board'] as const,
   planLabels: (id: string) => [...plannerKeys.plan(id), 'labels'] as const,
+  planCategories: (id: string) => [...plannerKeys.plan(id), 'categories'] as const,
   planTasks: (id: string, filters: ListTasksFilters) =>
     [...plannerKeys.plan(id), 'tasks', serializeFilters(filters)] as const,
   task: (id: string) => [...plannerKeys.all, 'task', id] as const,
