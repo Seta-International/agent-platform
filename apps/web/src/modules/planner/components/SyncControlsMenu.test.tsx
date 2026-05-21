@@ -77,7 +77,7 @@ describe('SyncControlsMenu', () => {
     expect(screen.getByText('Resolve conflict…')).toBeInTheDocument();
   });
 
-  it('canManage false shows no items', () => {
+  it('m365 + canManage=false still shows Refresh sync (any member may refresh)', () => {
     wrap(
       <SyncControlsMenu
         groupId="g1"
@@ -88,7 +88,7 @@ describe('SyncControlsMenu', () => {
         onResolveClick={vi.fn()}
       />,
     );
-    expect(screen.queryByText('Refresh sync')).not.toBeInTheDocument();
+    expect(screen.getByText('Refresh sync')).toBeInTheDocument();
     expect(screen.queryByText('Unlink from M365')).not.toBeInTheDocument();
     expect(screen.queryByText('Link to M365…')).not.toBeInTheDocument();
   });

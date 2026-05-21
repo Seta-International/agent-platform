@@ -31,7 +31,7 @@ export function SyncControlsMenu({
       {isNative && canManage && (
         <DropdownMenuItem onSelect={onLinkClick}>Link to M365…</DropdownMenuItem>
       )}
-      {!isNative && canManage && (
+      {!isNative && (
         <DropdownMenuItem onSelect={() => refresh.mutate()}>Refresh sync</DropdownMenuItem>
       )}
       {!isNative && canManage && (
