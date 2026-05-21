@@ -24,7 +24,7 @@ describe('buildAuthProvider', () => {
 
 describe('buildGraphClient', () => {
   it('returns a Client instance', () => {
-    const client = buildGraphClient(fakeCreds);
+    const client = buildGraphClient(fakeCreds, 'seta-tenant-test');
     expect(client).toBeInstanceOf(Client);
   });
 });
