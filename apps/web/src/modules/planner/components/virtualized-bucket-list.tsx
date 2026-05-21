@@ -1,10 +1,16 @@
 import { Draggable, Droppable } from '@hello-pangea/dnd';
 import { KanbanCard, type KanbanCardTask } from '@seta/shared-ui';
+import type { ReactNode } from 'react';
 import { useVirtualizedBucket } from '../hooks/use-virtualized-bucket';
+
+export interface BucketCard {
+  card: KanbanCardTask;
+  previewSlot?: ReactNode;
+}
 
 interface Props {
   bucketId: string;
-  cards: KanbanCardTask[];
+  cards: BucketCard[];
   onOpen: (taskId: string) => void;
 }
 
@@ -17,11 +23,12 @@ export function VirtualizedBucketList({ bucketId, cards, onOpen }: Props) {
       type="TASK"
       mode="virtual"
       renderClone={(provided, snapshot, rubric) => {
-        const card = cards[rubric.source.index];
-        if (!card) return <div ref={provided.innerRef} {...provided.draggableProps} />;
+        const entry = cards[rubric.source.index];
+        if (!entry) return <div ref={provided.innerRef} {...provided.draggableProps} />;
         return (
           <KanbanCard
-            task={card}
+            task={entry.card}
+            previewSlot={entry.previewSlot}
             draggable={{
               ref: provided.innerRef,
               rootProps: provided.draggableProps,
@@ -56,11 +63,11 @@ export function VirtualizedBucketList({ bucketId, cards, onOpen }: Props) {
             }}
           >
             {virtualizer.getVirtualItems().map((vi) => {
-              const card = cards[vi.index];
-              if (!card) return null;
+              const entry = cards[vi.index];
+              if (!entry) return null;
               return (
                 <div
-                  key={card.id}
+                  key={entry.card.id}
                   style={{
                     position: 'absolute',
                     top: 0,
@@ -69,11 +76,12 @@ export function VirtualizedBucketList({ bucketId, cards, onOpen }: Props) {
                     transform: `translateY(${vi.start}px)`,
                   }}
                 >
-                  <Draggable draggableId={card.id} index={vi.index}>
+                  <Draggable draggableId={entry.card.id} index={vi.index}>
                     {(dpc, dsc) => (
                       <KanbanCard
-                        task={card}
-                        onOpen={() => onOpen(card.id)}
+                        task={entry.card}
+                        previewSlot={entry.previewSlot}
+                        onOpen={() => onOpen(entry.card.id)}
                         draggable={{
                           ref: dpc.innerRef,
                           rootProps: dpc.draggableProps,

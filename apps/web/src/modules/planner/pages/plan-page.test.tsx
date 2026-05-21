@@ -129,7 +129,8 @@ describe('PlanPage', () => {
     );
     expect(await screen.findByText('To do')).toBeInTheDocument();
     expect(screen.getByText('Done')).toBeInTheDocument();
-    expect(screen.getByText('Wire up DnD')).toBeInTheDocument();
+    // Title appears twice (KanbanCard title + PreviewCard title) per Task 30; assert presence.
+    expect(screen.getAllByText('Wire up DnD').length).toBeGreaterThan(0);
   });
 
   it('uses virtualized list when bucket has > 50 cards', async () => {
@@ -174,6 +175,37 @@ describe('PlanPage', () => {
     await screen.findByText('To do');
     const results = await axe(container);
     expect(results).toHaveNoViolations();
+  });
+
+  it('board card body renders PreviewCard body content for tasks with a description', async () => {
+    const richTask = {
+      ...taskOne,
+      id: 't-desc',
+      title: 'With body',
+      description: 'Ship the release notes by Friday',
+      preview_type: 'automatic',
+    };
+    server.use(
+      http.get('*/api/planner/v1/plans/p1', () => HttpResponse.json(planFixture)),
+      http.get('*/api/planner/v1/plans/p1/buckets', () =>
+        HttpResponse.json({ buckets: [bucketTodo, bucketDone] }),
+      ),
+      http.get('*/api/planner/v1/tasks', () => HttpResponse.json({ tasks: [richTask] })),
+      http.get('*/api/planner/v1/plans/p1/labels', () => HttpResponse.json({ labels: [] })),
+    );
+    renderWith(
+      <PlanPage
+        planId="p1"
+        filters={EMPTY_FILTERS}
+        onFiltersChange={() => {}}
+        onOpenTask={() => {}}
+        view="board"
+        onViewChange={() => {}}
+      />,
+    );
+
+    expect(await screen.findByText('Ship the release notes by Friday')).toBeInTheDocument();
+    expect(screen.getByText('picked from description')).toBeInTheDocument();
   });
 
   it('quick-create on a bucket fires createTask with the typed title', async () => {
