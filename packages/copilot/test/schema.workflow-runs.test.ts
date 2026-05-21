@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { workflowApprovals } from '../src/db/schema.workflow-approvals.ts';
+import { workflowRunEventsSeen } from '../src/db/schema.workflow-events-seen.ts';
 import { workflowRuns } from '../src/db/schema.workflow-runs.ts';
 
 describe('copilot.workflow_runs table', () => {
@@ -48,5 +49,13 @@ describe('copilot.workflow_approvals table', () => {
     ]) {
       expect(cols).toContain(c);
     }
+  });
+});
+
+describe('copilot.workflow_run_events_seen table', () => {
+  it('has composite PK columns the lifecycle hook checks', () => {
+    const cols = Object.keys(workflowRunEventsSeen);
+    expect(cols).toContain('runId');
+    expect(cols).toContain('eventSeq');
   });
 });
