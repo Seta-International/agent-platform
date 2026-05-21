@@ -739,6 +739,12 @@ importers:
 
   packages/shared/embeddings:
     dependencies:
+      '@ai-sdk/openai':
+        specifier: ^3.0.64
+        version: 3.0.64(zod@4.4.3)
+      ai:
+        specifier: ^6.0.188
+        version: 6.0.188(zod@4.4.3)
       tiktoken:
         specifier: ^1.0.22
         version: 1.0.22

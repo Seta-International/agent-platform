@@ -16,6 +16,8 @@
     "vitest": "^4.1.7"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^3.0.64",
+    "ai": "^6.0.188",
     "tiktoken": "^1.0.22"
   }
 }
