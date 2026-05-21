@@ -22,6 +22,7 @@ import { usePlanBoard } from '../hooks/queries/use-plan-board';
 import { useBoardKeyboard } from '../hooks/use-board-keyboard';
 import { useFilterOptions } from '../hooks/use-filter-options';
 import { computeNextFocus } from '../state/compute-next-focus';
+import { computeTaskMove } from '../state/compute-task-move';
 import { useRecentlyMovedTasks } from '../state/recently-moved-tasks';
 import { useSavingIds } from '../state/saving-ids';
 import { compareOrderHint, priorityLabel } from '../state/task-derived';
@@ -220,18 +221,23 @@ export function PlanPage({
 
     const targetBucketId =
       r.destination.droppableId === NO_BUCKET_DROPPABLE_ID ? null : r.destination.droppableId;
-    const inTarget = (tasksByBucket.get(targetBucketId) ?? []).filter(
-      (e) => e.card.id !== r.draggableId,
-    );
-    const afterId =
-      r.destination.index === 0 ? undefined : inTarget[r.destination.index - 1]?.card.id;
+    const inTarget = (tasksByBucket.get(targetBucketId) ?? [])
+      .filter((e) => e.card.id !== r.draggableId)
+      .map((e) => ({ id: e.card.id }));
     const task = tasks.find((t) => t.id === r.draggableId);
     if (!task) return;
+    const move = computeTaskMove({
+      draggableId: r.draggableId,
+      destinationIndex: r.destination.index,
+      destinationBucketId: targetBucketId,
+      inTarget,
+    });
     moveTask.mutate({
       task_id: task.id,
       expected_version: task.version,
-      bucket_id: targetBucketId,
-      after_id: afterId,
+      bucket_id: move.bucket_id,
+      before_id: move.before_id,
+      after_id: move.after_id,
     });
   }
 
