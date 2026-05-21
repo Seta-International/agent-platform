@@ -3,6 +3,7 @@ import type {
   ChecklistItemRow,
   GroupMemberRow,
   GroupRow,
+  GroupWithCountsRow,
   LabelRow,
   ListTasksFilters,
   PersistedPlannerEvent,
@@ -48,6 +49,13 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T | und
 
 async function listGroups(): Promise<GroupRow[]> {
   const r = (await request<{ groups: GroupRow[] }>(`/api/planner/v1/groups`)) ?? { groups: [] };
+  return r.groups;
+}
+
+async function listGroupsWithCounts(): Promise<GroupWithCountsRow[]> {
+  const r = (await request<{ groups: GroupWithCountsRow[] }>(
+    `/api/planner/v1/groups?withCounts=true`,
+  )) ?? { groups: [] };
   return r.groups;
 }
 
@@ -442,6 +450,7 @@ async function listTaskEvents(input: {
 
 export const plannerClient = {
   listGroups,
+  listGroupsWithCounts,
   listMyGroups,
   getGroup,
   createGroup,

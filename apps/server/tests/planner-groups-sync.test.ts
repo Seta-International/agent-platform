@@ -1,7 +1,7 @@
 import { hashRoleSummary, type SessionEnv, type SessionScope } from '@seta/core';
 import { resetCoreDb } from '@seta/core/internal/test-support';
 import { createUser } from '@seta/identity';
-import { addGroupMember, createGroup, PlannerError } from '@seta/planner';
+import { addGroupMember, createGroup, createPlan, deletePlan, PlannerError } from '@seta/planner';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { Hono } from 'hono';
@@ -314,6 +314,114 @@ describe('planner groups sync routes', () => {
         expect(res.status).toBe(400);
         const body = (await res.json()) as { error: string };
         expect(body.error).toBe('VALIDATION');
+      } finally {
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+});
+
+describe('listGroupsWithCounts via HTTP', () => {
+  it('GET /groups?withCounts=true returns plan_count and member_count', async () => {
+    await withTestDb(dbEnv(), async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      initPools({ databaseUrl });
+      try {
+        const { tenantId, adminUserId, adminEmail } = await seedTenant(pool, 'counts-ok');
+        const session = buildSession({
+          tenant_id: tenantId,
+          user_id: adminUserId,
+          email: adminEmail,
+          display_name: 'Admin',
+        });
+
+        const group = await createGroup({ tenant_id: tenantId, name: 'Counts Group', session });
+        await createPlan({ group_id: group.id, name: 'Plan A', session });
+
+        const memberId = crypto.randomUUID();
+        await addGroupMember({ group_id: group.id, user_id: memberId, session });
+
+        const app = buildTestApp(session);
+        const res = await app.request(`/api/planner/v1/groups?withCounts=true`);
+
+        expect(res.status).toBe(200);
+        const body = (await res.json()) as {
+          groups: Array<Record<string, unknown>>;
+        };
+        expect(Array.isArray(body.groups)).toBe(true);
+        const g = body.groups.find((r) => r['id'] === group.id);
+        expect(g).toBeDefined();
+        expect(g?.['plan_count']).toBe(1);
+        expect(Number(g?.['member_count'])).toBeGreaterThanOrEqual(1); // at least the explicitly added member
+      } finally {
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('GET /groups (without withCounts) does not include plan_count or member_count', async () => {
+    await withTestDb(dbEnv(), async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      initPools({ databaseUrl });
+      try {
+        const { tenantId, adminUserId, adminEmail } = await seedTenant(pool, 'counts-absent');
+        const session = buildSession({
+          tenant_id: tenantId,
+          user_id: adminUserId,
+          email: adminEmail,
+          display_name: 'Admin',
+        });
+
+        await createGroup({ tenant_id: tenantId, name: 'Plain Group', session });
+
+        const app = buildTestApp(session);
+        const res = await app.request(`/api/planner/v1/groups`);
+
+        expect(res.status).toBe(200);
+        const body = (await res.json()) as {
+          groups: Array<Record<string, unknown>>;
+        };
+        expect(Array.isArray(body.groups)).toBe(true);
+        expect(body.groups.length).toBeGreaterThanOrEqual(1);
+
+        for (const g of body.groups) {
+          expect('plan_count' in g).toBe(false);
+          expect('member_count' in g).toBe(false);
+        }
+      } finally {
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('GET /groups?withCounts=true excludes soft-deleted plans from plan_count', async () => {
+    await withTestDb(dbEnv(), async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      initPools({ databaseUrl });
+      try {
+        const { tenantId, adminUserId, adminEmail } = await seedTenant(pool, 'counts-deleted');
+        const session = buildSession({
+          tenant_id: tenantId,
+          user_id: adminUserId,
+          email: adminEmail,
+          display_name: 'Admin',
+        });
+
+        const group = await createGroup({ tenant_id: tenantId, name: 'Delta Group', session });
+        const plan = await createPlan({ group_id: group.id, name: 'Deleted Plan', session });
+        await deletePlan({ plan_id: plan.id, expected_version: plan.version, session });
+
+        const app = buildTestApp(session);
+        const res = await app.request(`/api/planner/v1/groups?withCounts=true`);
+
+        expect(res.status).toBe(200);
+        const body = (await res.json()) as { groups: Array<Record<string, unknown>> };
+        const g = body.groups.find((r) => r['id'] === group.id);
+        expect(g).toBeDefined();
+        expect(g?.['plan_count']).toBe(0); // soft-deleted plan must not count
       } finally {
         resetCoreDb();
         await closePools();

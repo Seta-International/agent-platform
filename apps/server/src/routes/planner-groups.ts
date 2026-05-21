@@ -7,6 +7,7 @@ import {
   linkGroupToM365,
   listGroupMembers,
   listGroups,
+  listGroupsWithCounts,
   listMyAccessibleGroups,
   removeGroupMember,
   restoreGroup,
@@ -43,6 +44,10 @@ export function registerPlannerGroupsRoutes(app: Hono<SessionEnv>): void {
   app.get('/api/planner/v1/groups', async (c) => {
     const session = c.get('user');
     const include_deleted = c.req.query('include_deleted') === 'true';
+    const withCounts = c.req.query('withCounts') === 'true';
+    if (withCounts) {
+      return c.json({ groups: await listGroupsWithCounts({ session, include_deleted }) });
+    }
     return c.json({ groups: await listGroups({ session, include_deleted }) });
   });
 
