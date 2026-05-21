@@ -72,27 +72,25 @@ function RoleControl({ member, canEdit, isLinkedGroup, externalId, onChange }: R
 
   if (isLinkedGroup) {
     return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            {/* biome-ignore lint/a11y/noNoninteractiveTabindex: tooltip needs keyboard access */}
-            <span tabIndex={0}>{pill}</span>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Managed in Microsoft 365</p>
-            {externalId && (
-              <a
-                href={`https://entra.microsoft.com/#view/Microsoft_AAD_IAM/GroupDetailsMenuBlade/~/Overview/groupId/${externalId}`}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-0.5 block text-xs underline"
-              >
-                Open in Azure portal
-              </a>
-            )}
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          {/* biome-ignore lint/a11y/noNoninteractiveTabindex: tooltip needs keyboard access */}
+          <span tabIndex={0}>{pill}</span>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Managed in Microsoft 365</p>
+          {externalId && (
+            <a
+              href={`https://entra.microsoft.com/#view/Microsoft_AAD_IAM/GroupDetailsMenuBlade/~/Overview/groupId/${externalId}`}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-0.5 block text-xs underline"
+            >
+              Open in Azure portal
+            </a>
+          )}
+        </TooltipContent>
+      </Tooltip>
     );
   }
 
@@ -101,42 +99,44 @@ function RoleControl({ member, canEdit, isLinkedGroup, externalId, onChange }: R
 
 export function GroupMembersTable({ group, members, canManageRoles, onRoleChange }: Props) {
   return (
-    <div className="overflow-auto">
-      <table className="w-full text-sm">
-        <thead className="sticky top-0 bg-canvas">
-          <tr className="border-b border-hairline text-left text-eyebrow uppercase tracking-wide text-ink-subtle">
-            <th className="px-4 py-2 font-medium">Member</th>
-            <th className="px-4 py-2 font-medium">Email</th>
-            <th className="px-4 py-2 font-medium">Role</th>
-            <th className="px-4 py-2 font-medium">Added</th>
-          </tr>
-        </thead>
-        <tbody>
-          {members.map((m) => (
-            <tr key={m.user_id} className="border-b border-hairline-tertiary">
-              <td className="px-4 py-2.5">
-                <div className="flex items-center gap-2">
-                  <Avatar className="size-7 shrink-0">
-                    <AvatarFallback>{initials(m.display_name)}</AvatarFallback>
-                  </Avatar>
-                  <span className="font-medium">{m.display_name}</span>
-                </div>
-              </td>
-              <td className="px-4 py-2.5 text-ink-subtle">{m.email}</td>
-              <td className="px-4 py-2.5">
-                <RoleControl
-                  member={m}
-                  canEdit={canManageRoles && group.external_source === 'native'}
-                  isLinkedGroup={group.external_source !== 'native'}
-                  externalId={group.external_id}
-                  onChange={(role) => onRoleChange({ user_id: m.user_id, role })}
-                />
-              </td>
-              <td className="px-4 py-2.5 text-ink-subtle">{shortDate(m.added_at)}</td>
+    <TooltipProvider>
+      <div className="overflow-auto">
+        <table className="w-full text-sm">
+          <thead className="sticky top-0 bg-canvas">
+            <tr className="border-b border-hairline text-left text-eyebrow uppercase tracking-wide text-ink-subtle">
+              <th className="px-4 py-2 font-medium">Member</th>
+              <th className="px-4 py-2 font-medium">Email</th>
+              <th className="px-4 py-2 font-medium">Role</th>
+              <th className="px-4 py-2 font-medium">Added</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {members.map((m) => (
+              <tr key={m.user_id} className="border-b border-hairline-tertiary">
+                <td className="px-4 py-2.5">
+                  <div className="flex items-center gap-2">
+                    <Avatar className="size-7 shrink-0">
+                      <AvatarFallback>{initials(m.display_name)}</AvatarFallback>
+                    </Avatar>
+                    <span className="font-medium">{m.display_name}</span>
+                  </div>
+                </td>
+                <td className="px-4 py-2.5 text-ink-subtle">{m.email}</td>
+                <td className="px-4 py-2.5">
+                  <RoleControl
+                    member={m}
+                    canEdit={canManageRoles && group.external_source === 'native'}
+                    isLinkedGroup={group.external_source !== 'native'}
+                    externalId={group.external_id}
+                    onChange={(role) => onRoleChange({ user_id: m.user_id, role })}
+                  />
+                </td>
+                <td className="px-4 py-2.5 text-ink-subtle">{shortDate(m.added_at)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </TooltipProvider>
   );
 }

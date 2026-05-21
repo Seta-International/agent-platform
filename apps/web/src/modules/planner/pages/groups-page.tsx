@@ -98,6 +98,11 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
   }
 
   // Apply filters
+  const showSourceFilter = groups.some((g) => g.external_source !== 'native');
+
+  // state-during-render: reset stale source filter when no M365 groups exist
+  if (!showSourceFilter && source !== null) setSource(null);
+
   const filtered = groups.filter((g) => {
     if (visibility && g.visibility !== visibility) return false;
     if (source && g.external_source !== source) return false;
@@ -114,7 +119,6 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
   const totalPlans = groups.reduce((s, g) => s + g.plan_count, 0);
   const totalMembers = groups.reduce((s, g) => s + g.member_count, 0);
   // Show Source filter only when at least one group is from m365 (PR2 native-only by default)
-  const showSourceFilter = groups.some((g) => g.external_source !== 'native');
 
   return (
     <div className="flex h-full flex-col">

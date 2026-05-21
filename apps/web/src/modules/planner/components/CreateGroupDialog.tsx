@@ -13,7 +13,7 @@ import {
   Label,
 } from '@seta/shared-ui';
 import { Link2, Shield, Users } from 'lucide-react';
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { plannerClient } from '../api/planner-client';
 import { LinkToM365Dialog } from '../components/LinkToM365Dialog';
 import { useCreateGroup } from '../hooks/mutations/create-group';
@@ -204,10 +204,9 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
                   const Icon = v.icon;
                   const active = visibility === v.key;
                   return (
-                    <>
+                    <React.Fragment key={v.key}>
                       {/* biome-ignore lint/a11y/useSemanticElements: custom radio card with rich content requires button, not input[radio] */}
                       <button
-                        key={v.key}
                         type="button"
                         role="radio"
                         aria-checked={active}
@@ -227,7 +226,7 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
                         </div>
                         <div className="text-xs text-ink-subtle">{v.body}</div>
                       </button>
-                    </>
+                    </React.Fragment>
                   );
                 })}
               </div>
@@ -273,7 +272,13 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
             </label>
             <div className="flex gap-2 items-center">
               <span className="text-xs text-ink-tertiary">⌘ Return</span>
-              <Button variant="secondary" onClick={() => onOpenChange(false)}>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  reset();
+                  onOpenChange(false);
+                }}
+              >
                 Cancel
               </Button>
               <Button onClick={submit} disabled={!name.trim() || createGroup.isPending}>

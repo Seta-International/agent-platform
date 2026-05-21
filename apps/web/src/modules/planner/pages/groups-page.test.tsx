@@ -151,15 +151,12 @@ describe('GroupsPage', () => {
     ];
     server.use(makeGroupsHandler(groups));
 
-    beforeEach(() => vi.useFakeTimers());
-
+    vi.useFakeTimers();
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     renderWithRouter(<GroupsPage />);
 
     await screen.findByText('Engineering');
     await screen.findByText('Marketing');
-
-    vi.useFakeTimers();
 
     const searchInput = screen.getByPlaceholderText(/Search groups/i);
     await user.type(searchInput, 'engin');
