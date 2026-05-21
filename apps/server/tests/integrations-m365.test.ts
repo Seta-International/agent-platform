@@ -1,8 +1,13 @@
 import { hashRoleSummary, type SessionEnv, type SessionScope } from '@seta/core';
+import { resetCoreDb } from '@seta/core/internal/test-support';
+import { createUser } from '@seta/identity';
 import { m365 } from '@seta/integrations';
-import { PlannerError } from '@seta/planner';
+import { createGroup, PlannerError } from '@seta/planner';
+import { closePools, initPools } from '@seta/shared-db';
+import { withTestDb } from '@seta/shared-testing';
 import { Hono } from 'hono';
-import { describe, expect, it } from 'vitest';
+import type { Pool } from 'pg';
+import { describe, expect, it, vi } from 'vitest';
 import { registerIntegrationsM365Routes } from '../src/routes/integrations-m365.ts';
 
 function buildSession(opts: {
@@ -37,6 +42,10 @@ const MOCK_GROUPS = [
 function buildTestApp(
   session: SessionScope,
   graphClientFor: (tenantId: string) => Promise<unknown>,
+  extraDeps?: {
+    workers?: { addJob: (id: string, payload?: unknown) => Promise<void> };
+    m365LinksRepo?: m365.M365GroupLinkRepo;
+  },
 ): Hono<SessionEnv> {
   const app = new Hono<SessionEnv>();
   app.use('*', async (c, next) => {
@@ -47,10 +56,21 @@ function buildTestApp(
     graphClientFor: graphClientFor as (
       tenantId: string,
     ) => Promise<import('@microsoft/microsoft-graph-client').Client>,
+    workers: extraDeps?.workers as import('@seta/core/workers').WorkerHandle | undefined,
+    m365LinksRepo: extraDeps?.m365LinksRepo,
   });
   app.onError((err, c) => {
     if (err instanceof PlannerError) {
-      const status = err.code === 'FORBIDDEN' ? 403 : 400;
+      const status =
+        err.code === 'FORBIDDEN'
+          ? 403
+          : err.code === 'NOT_FOUND'
+            ? 404
+            : err.code === 'CONFLICT'
+              ? 409
+              : err.code === 'LINKED_DUPLICATE'
+                ? 409
+                : 400;
       return c.json({ error: err.code, message: err.message }, status);
     }
     throw err;
@@ -160,5 +180,328 @@ describe('GET /api/integrations/m365/groups/search', () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as { groups: unknown[] };
     expect(body.groups).toHaveLength(0);
+  });
+});
+
+const dbEnv = () => ({
+  templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
+  baseUrl: process.env.SETA_TEST_PG_BASE as string,
+});
+
+async function seedTenant(pool: Pool, slug: string) {
+  const tenantId = crypto.randomUUID();
+  await pool.query(`INSERT INTO core.tenants (id, name, slug) VALUES ($1, $2, $3)`, [
+    tenantId,
+    `Tenant ${slug}`,
+    slug,
+  ]);
+  const adminEmail = `admin-${slug}@example.test`;
+  const adminResult = await createUser(
+    {
+      tenant_id: tenantId,
+      email: adminEmail,
+      name: 'Admin',
+      password: 'correct-horse-battery-staple',
+      initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
+    },
+    { type: 'cli', user_id: null },
+  );
+  return { tenantId, adminUserId: adminResult.user_id, adminEmail };
+}
+
+describe('POST /api/integrations/m365/groups/:groupId/link', () => {
+  it('returns 201 with group on happy path', async () => {
+    await withTestDb(dbEnv(), async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      initPools({ databaseUrl });
+      try {
+        const { tenantId, adminUserId, adminEmail } = await seedTenant(pool, 'm365-link-ok');
+        const session = buildSession({ tenant_id: tenantId, user_id: adminUserId });
+        const addJob = vi.fn().mockResolvedValue(undefined);
+
+        const group = await createGroup({
+          tenant_id: tenantId,
+          name: 'Eng',
+          session: {
+            ...session,
+            email: adminEmail,
+            display_name: 'Admin',
+            accessible_group_ids: [],
+          },
+        });
+
+        const app = buildTestApp(
+          session,
+          async () => {
+            throw new Error('unused');
+          },
+          {
+            workers: { addJob, shutdown: async () => {} },
+          },
+        );
+
+        const res = await app.request(`/api/integrations/m365/groups/${group.id}/link`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ external_id: 'ext-m365-aaa' }),
+        });
+
+        expect(res.status).toBe(201);
+        const body = (await res.json()) as { external_source: string; external_id: string };
+        expect(body.external_source).toBe('m365');
+        expect(body.external_id).toBe('ext-m365-aaa');
+        expect(addJob).toHaveBeenCalledWith('m365.group.pull', {
+          tenant_id: tenantId,
+          group_id: group.id,
+          external_id: 'ext-m365-aaa',
+          full: true,
+        });
+      } finally {
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('returns 403 for non-admin without planner.group.link.m365', async () => {
+    await withTestDb(dbEnv(), async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      initPools({ databaseUrl });
+      try {
+        const { tenantId, adminUserId, adminEmail } = await seedTenant(pool, 'm365-link-rbac');
+        const adminSession = {
+          ...buildSession({ tenant_id: tenantId, user_id: adminUserId }),
+          email: adminEmail,
+          display_name: 'Admin',
+          accessible_group_ids: [] as string[],
+        };
+        const group = await createGroup({
+          tenant_id: tenantId,
+          name: 'Eng',
+          session: adminSession,
+        });
+
+        const nonAdminSession = buildSession({
+          tenant_id: tenantId,
+          user_id: crypto.randomUUID(),
+          roles: ['planner.contributor'],
+        });
+        const app = buildTestApp(nonAdminSession, async () => {
+          throw new Error('unused');
+        });
+
+        const res = await app.request(`/api/integrations/m365/groups/${group.id}/link`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ external_id: 'ext-m365-bbb' }),
+        });
+
+        expect(res.status).toBe(403);
+        const body = (await res.json()) as { error: string };
+        expect(body.error).toBe('FORBIDDEN');
+      } finally {
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+});
+
+describe('POST /api/integrations/m365/groups/:groupId/unlink', () => {
+  it('returns 200 with group unlinked on happy path', async () => {
+    await withTestDb(dbEnv(), async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      initPools({ databaseUrl });
+      try {
+        const { tenantId, adminUserId, adminEmail } = await seedTenant(pool, 'm365-unlink-ok');
+        const session = buildSession({ tenant_id: tenantId, user_id: adminUserId });
+        const fullSession = {
+          ...session,
+          email: adminEmail,
+          display_name: 'Admin',
+          accessible_group_ids: [] as string[],
+        };
+
+        const group = await createGroup({ tenant_id: tenantId, name: 'Eng', session: fullSession });
+
+        const app = buildTestApp(session, async () => {
+          throw new Error('unused');
+        });
+
+        // Link first via the route
+        const linkRes = await app.request(`/api/integrations/m365/groups/${group.id}/link`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ external_id: 'ext-m365-ccc' }),
+        });
+        expect(linkRes.status).toBe(201);
+
+        const unlinkRes = await app.request(`/api/integrations/m365/groups/${group.id}/unlink`, {
+          method: 'POST',
+        });
+
+        expect(unlinkRes.status).toBe(200);
+        const body = (await unlinkRes.json()) as {
+          external_source: string;
+          external_id: string | null;
+        };
+        expect(body.external_source).toBe('native');
+        expect(body.external_id).toBeNull();
+      } finally {
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('returns 403 for non-admin without planner.group.unlink', async () => {
+    await withTestDb(dbEnv(), async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      initPools({ databaseUrl });
+      try {
+        const { tenantId, adminUserId, adminEmail } = await seedTenant(pool, 'm365-unlink-rbac');
+        const adminSession = {
+          ...buildSession({ tenant_id: tenantId, user_id: adminUserId }),
+          email: adminEmail,
+          display_name: 'Admin',
+          accessible_group_ids: [] as string[],
+        };
+        const group = await createGroup({
+          tenant_id: tenantId,
+          name: 'Eng',
+          session: adminSession,
+        });
+
+        // Link via admin first
+        const adminApp = buildTestApp(adminSession, async () => {
+          throw new Error('unused');
+        });
+        const linkRes = await adminApp.request(`/api/integrations/m365/groups/${group.id}/link`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ external_id: 'ext-m365-ddd' }),
+        });
+        expect(linkRes.status).toBe(201);
+
+        const nonAdminSession = buildSession({
+          tenant_id: tenantId,
+          user_id: crypto.randomUUID(),
+          roles: ['planner.contributor'],
+        });
+        const app = buildTestApp(nonAdminSession, async () => {
+          throw new Error('unused');
+        });
+
+        const res = await app.request(`/api/integrations/m365/groups/${group.id}/unlink`, {
+          method: 'POST',
+        });
+
+        expect(res.status).toBe(403);
+        const body = (await res.json()) as { error: string };
+        expect(body.error).toBe('FORBIDDEN');
+      } finally {
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+});
+
+describe('POST /api/integrations/m365/groups/:groupId/refresh', () => {
+  const tenantId = crypto.randomUUID();
+  const userId = crypto.randomUUID();
+  const groupId = crypto.randomUUID();
+
+  it('returns 200 { ok: true } when group is linked', async () => {
+    const mockLink = { tenantId, groupId, externalId: 'ext-refresh-aaa' };
+    const addJob = vi.fn().mockResolvedValue(undefined);
+    const session = buildSession({ tenant_id: tenantId, user_id: userId });
+    const app = buildTestApp(
+      session,
+      async () => {
+        throw new Error('unused');
+      },
+      {
+        workers: { addJob, shutdown: async () => {} },
+        m365LinksRepo: {
+          findByGroup: vi.fn().mockResolvedValue(mockLink),
+          findByExternal: vi.fn(),
+          upsert: vi.fn(),
+          markUnlinked: vi.fn(),
+          updateSyncStatus: vi.fn(),
+        } as unknown as m365.M365GroupLinkRepo,
+      },
+    );
+
+    const res = await app.request(`/api/integrations/m365/groups/${groupId}/refresh`, {
+      method: 'POST',
+    });
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean };
+    expect(body.ok).toBe(true);
+    expect(addJob).toHaveBeenCalledWith('m365.group.pull', {
+      tenant_id: tenantId,
+      group_id: groupId,
+      external_id: 'ext-refresh-aaa',
+    });
+  });
+
+  it('returns 409 NOT_LINKED when no link exists', async () => {
+    const session = buildSession({ tenant_id: tenantId, user_id: userId });
+    const app = buildTestApp(
+      session,
+      async () => {
+        throw new Error('unused');
+      },
+      {
+        m365LinksRepo: {
+          findByGroup: vi.fn().mockResolvedValue(null),
+          findByExternal: vi.fn(),
+          upsert: vi.fn(),
+          markUnlinked: vi.fn(),
+          updateSyncStatus: vi.fn(),
+        } as unknown as m365.M365GroupLinkRepo,
+      },
+    );
+
+    const res = await app.request(`/api/integrations/m365/groups/${groupId}/refresh`, {
+      method: 'POST',
+    });
+
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe('NOT_LINKED');
+  });
+
+  it('returns 403 for non-admin without planner.group.refresh', async () => {
+    const session = buildSession({
+      tenant_id: tenantId,
+      user_id: userId,
+      roles: ['planner.viewer'],
+    });
+    const app = buildTestApp(
+      session,
+      async () => {
+        throw new Error('unused');
+      },
+      {
+        m365LinksRepo: {
+          findByGroup: vi.fn().mockResolvedValue({ tenantId, groupId, externalId: 'ext-x' }),
+          findByExternal: vi.fn(),
+          upsert: vi.fn(),
+          markUnlinked: vi.fn(),
+          updateSyncStatus: vi.fn(),
+        } as unknown as m365.M365GroupLinkRepo,
+      },
+    );
+
+    const res = await app.request(`/api/integrations/m365/groups/${groupId}/refresh`, {
+      method: 'POST',
+    });
+
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe('FORBIDDEN');
   });
 });

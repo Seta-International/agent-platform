@@ -121,6 +121,9 @@ const { app } = buildServerApp(reg, {
   databaseUrl: env.DATABASE_URL,
   readinessSnapshot: () => dispatcher.health(),
   boardStreamHub,
+  m365GraphClientFor: m365Boot?.graphClientFor,
+  m365Workers: m365Boot?.workers,
+  m365LinksRepo: m365Boot?.m365LinksRepo,
 });
 
 if (m365Boot) {

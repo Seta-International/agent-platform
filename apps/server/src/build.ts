@@ -1,3 +1,4 @@
+import type { Client } from '@microsoft/microsoft-graph-client';
 import type { SessionLike } from '@seta/copilot';
 import { registerCopilot, registerCopilotContributions } from '@seta/copilot/register';
 import {
@@ -6,8 +7,10 @@ import {
   createSessionMiddleware,
   type SessionEnv,
 } from '@seta/core';
+import type { WorkerHandle } from '@seta/core/workers';
 import { IdentityError, listMyEffectivePermissions, listRoleGrants } from '@seta/identity';
 import { auth } from '@seta/identity/auth';
+import type { m365 } from '@seta/integrations';
 import { PlannerError } from '@seta/planner';
 import { getPool } from '@seta/shared-db';
 import type { Hono } from 'hono';
@@ -18,6 +21,7 @@ import { registerAdminAuditRoutes } from './routes/admin-audit.ts';
 import { registerAdminUsersRoutes } from './routes/admin-users.ts';
 import { registerCredentialGate } from './routes/credential-gate.ts';
 import { registerDiscoverRoute } from './routes/discover.ts';
+import { registerIntegrationsM365Routes } from './routes/integrations-m365.ts';
 import { registerMeRoute } from './routes/me.ts';
 import { registerPlannerBoardStreamRoutes } from './routes/planner-board-stream.ts';
 import { registerPlannerBucketsRoutes } from './routes/planner-buckets.ts';
@@ -36,6 +40,9 @@ export type BuildServerAppDeps = {
   databaseUrl: string;
   readinessSnapshot?: () => { lastTickAt: Date };
   boardStreamHub?: BoardStreamHub;
+  m365GraphClientFor?: (tenantId: string) => Promise<Client>;
+  m365Workers?: WorkerHandle;
+  m365LinksRepo?: m365.M365GroupLinkRepo;
 };
 
 export type BuiltServerApp = {
@@ -138,6 +145,13 @@ export function buildServerApp(
   registerPlannerTasksRoutes(app);
   if (deps.boardStreamHub) {
     registerPlannerBoardStreamRoutes(app, deps.boardStreamHub);
+  }
+  if (deps.m365GraphClientFor) {
+    registerIntegrationsM365Routes(app, {
+      graphClientFor: deps.m365GraphClientFor,
+      workers: deps.m365Workers,
+      m365LinksRepo: deps.m365LinksRepo,
+    });
   }
 
   app.onError((err, c) => {

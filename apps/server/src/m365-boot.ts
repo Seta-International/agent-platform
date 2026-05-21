@@ -1,3 +1,4 @@
+import type { Client } from '@microsoft/microsoft-graph-client';
 import type { StartWorkerPoolOpts, WorkerHandle } from '@seta/core/workers';
 import { findEntraOidByUserId, findUserByEntraOid } from '@seta/identity';
 import { getM365TenantConfig, m365 } from '@seta/integrations';
@@ -13,6 +14,9 @@ export interface M365BootDeps {
 export interface M365BootResult {
   jobs: NonNullable<StartWorkerPoolOpts['jobs']>;
   webhookRouter: ReturnType<typeof m365.buildWebhookRouter>;
+  graphClientFor: (setaTenantId: string) => Promise<Client>;
+  workers: WorkerHandle;
+  m365LinksRepo: m365.M365GroupLinkRepo;
 }
 
 export function buildM365Boot(deps: M365BootDeps): M365BootResult {
@@ -99,5 +103,5 @@ export function buildM365Boot(deps: M365BootDeps): M365BootResult {
     },
   });
 
-  return { jobs, webhookRouter };
+  return { jobs, webhookRouter, graphClientFor, workers, m365LinksRepo };
 }
