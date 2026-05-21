@@ -38,6 +38,8 @@ export type PlannerRoleSlug = (typeof PLANNER_ROLE_SLUGS)[number];
 export const PLANNER_ROLE_PERMISSIONS: Record<PlannerRoleSlug, PlannerPermission[]> = {
   'planner.admin': [...PLANNER_PERMISSIONS],
   'system.integrations.m365': [
+    'planner.group.read',
+    'planner.group.member.read',
     'planner.group.update',
     'planner.group.member.write',
     'planner.group.member.role.set',
