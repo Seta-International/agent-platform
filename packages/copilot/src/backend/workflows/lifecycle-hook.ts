@@ -153,15 +153,35 @@ async function onRunSuspended(client: PoolClient, evt: RunSuspendedEvent): Promi
     ],
   );
 }
-async function onRunResumed(_client: PoolClient, _evt: RunResumedEvent): Promise<void> {
-  throw new Error('not implemented');
+async function onRunResumed(client: PoolClient, evt: RunResumedEvent): Promise<void> {
+  await client.query(
+    `UPDATE copilot.workflow_runs
+        SET status = 'running', suspend_reason = NULL
+      WHERE run_id = $1`,
+    [evt.runId],
+  );
 }
-async function onRunCompleted(_client: PoolClient, _evt: RunCompletedEvent): Promise<void> {
-  throw new Error('not implemented');
+
+async function terminate(
+  client: PoolClient,
+  evt: BaseEvent & { durationMs: number },
+  status: 'success' | 'failed' | 'canceled',
+  errorSummary: string | null,
+): Promise<void> {
+  await client.query(
+    `UPDATE copilot.workflow_runs
+        SET status = $2, finished_at = $3, duration_ms = $4, error_summary = $5
+      WHERE run_id = $1`,
+    [evt.runId, status, evt.occurredAt, evt.durationMs, errorSummary],
+  );
 }
-async function onRunFailed(_client: PoolClient, _evt: RunFailedEvent): Promise<void> {
-  throw new Error('not implemented');
+
+async function onRunCompleted(client: PoolClient, evt: RunCompletedEvent): Promise<void> {
+  await terminate(client, evt, 'success', null);
 }
-async function onRunCanceled(_client: PoolClient, _evt: RunCanceledEvent): Promise<void> {
-  throw new Error('not implemented');
+async function onRunFailed(client: PoolClient, evt: RunFailedEvent): Promise<void> {
+  await terminate(client, evt, 'failed', `${evt.error.code}: ${evt.error.message}`);
+}
+async function onRunCanceled(client: PoolClient, evt: RunCanceledEvent): Promise<void> {
+  await terminate(client, evt, 'canceled', null);
 }

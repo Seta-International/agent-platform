@@ -151,3 +151,109 @@ describe('onLifecycleEvent — run-suspended', () => {
     });
   });
 });
+
+describe('onLifecycleEvent — terminal branches', () => {
+  it('run-resumed flips status back to running and clears suspend_reason', async () => {
+    await withCopilotTestDb(async ({ pool }) => {
+      const runId = randomUUID();
+      const tenantId = randomUUID();
+      const userId = randomUUID();
+      await onLifecycleEvent(
+        pool,
+        baseRunStarted({ runId, eventSeq: 1, tenantId, startedBy: userId }),
+      );
+      // simulate a suspend so we have a non-null suspend_reason to clear
+      await onLifecycleEvent(pool, {
+        kind: 'run-suspended',
+        runId,
+        eventSeq: 2,
+        workflowId: 'copilot.test-workflow',
+        tenantId,
+        occurredAt: new Date(),
+        stepId: 'await-approval',
+        suspendReason: 'hitl_pending',
+        proposedPayload: {},
+        approverUserId: userId,
+        fallbackApproverUserId: null,
+        surfaceCanvas: true,
+        surfaceChatThreadId: null,
+        expiresAt: new Date(Date.now() + 86400000),
+      });
+      await onLifecycleEvent(pool, {
+        kind: 'run-resumed',
+        runId,
+        eventSeq: 3,
+        workflowId: 'copilot.test-workflow',
+        tenantId,
+        occurredAt: new Date('2026-05-21T00:02:00Z'),
+      });
+      const r = await pool.query(
+        `SELECT status, suspend_reason FROM copilot.workflow_runs WHERE run_id = $1`,
+        [runId],
+      );
+      expect(r.rows[0]!.status).toBe('running');
+      expect(r.rows[0]!.suspend_reason).toBeNull();
+    });
+  });
+
+  it.each([
+    ['run-completed', 'success'],
+    ['run-failed', 'failed'],
+    ['run-canceled', 'canceled'],
+  ] as const)('%s sets terminal status and duration', async (kind, expectedStatus) => {
+    await withCopilotTestDb(async ({ pool }) => {
+      const runId = randomUUID();
+      const tenantId = randomUUID();
+      const userId = randomUUID();
+      await onLifecycleEvent(
+        pool,
+        baseRunStarted({ runId, eventSeq: 1, tenantId, startedBy: userId }),
+      );
+      const occurredAt = new Date();
+      const terminal: MastraLifecycleEvent =
+        kind === 'run-completed'
+          ? {
+              kind,
+              runId,
+              eventSeq: 2,
+              workflowId: 'x',
+              tenantId,
+              occurredAt,
+              durationMs: 500,
+              outcome: 'success',
+              summary: {},
+            }
+          : kind === 'run-failed'
+            ? {
+                kind,
+                runId,
+                eventSeq: 2,
+                workflowId: 'x',
+                tenantId,
+                occurredAt,
+                durationMs: 500,
+                error: { code: 'boom', message: 'oops' },
+              }
+            : {
+                kind: 'run-canceled',
+                runId,
+                eventSeq: 2,
+                workflowId: 'x',
+                tenantId,
+                occurredAt,
+                durationMs: 500,
+              };
+      await onLifecycleEvent(pool, terminal);
+      const r = await pool.query(
+        `SELECT status, finished_at, duration_ms, error_summary FROM copilot.workflow_runs WHERE run_id = $1`,
+        [runId],
+      );
+      expect(r.rows[0]!.status).toBe(expectedStatus);
+      expect(r.rows[0]!.duration_ms).toBe(500);
+      expect(r.rows[0]!.finished_at).not.toBeNull();
+      if (kind === 'run-failed') {
+        expect(r.rows[0]!.error_summary).toContain('oops');
+      }
+    });
+  });
+});
