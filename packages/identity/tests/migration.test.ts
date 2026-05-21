@@ -81,6 +81,46 @@ describe('identity migrations', () => {
     );
   });
 
+  it('has the vector extension installed after migrations', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+      },
+      async ({ pool }) => {
+        const reg = createContributionRegistry();
+        registerCoreContributions(reg);
+        registerIdentityContributions(reg);
+        await runMigrations(reg, { pool });
+
+        const r = await pool.query<{ extname: string }>(
+          `SELECT extname FROM pg_extension WHERE extname = 'vector'`,
+        );
+        expect(r.rows).toHaveLength(1);
+      },
+    );
+  });
+
+  it('supports halfvec column type (pgvector >= 0.7) after migrations', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+      },
+      async ({ pool }) => {
+        const reg = createContributionRegistry();
+        registerCoreContributions(reg);
+        registerIdentityContributions(reg);
+        await runMigrations(reg, { pool });
+
+        await pool.query(`CREATE TEMP TABLE _hv_probe (e halfvec(3))`);
+        await pool.query(`INSERT INTO _hv_probe (e) VALUES ('[0.1, 0.2, 0.3]'::halfvec)`);
+        const r = await pool.query<{ e: string }>(`SELECT e::text FROM _hv_probe`);
+        expect(r.rows[0]?.e).toMatch(/^\[0\.[0-9]+/);
+      },
+    );
+  });
+
   it('adds idle_timeout_days and local_password_disabled to core.tenants', async () => {
     await withTestDb(
       {
