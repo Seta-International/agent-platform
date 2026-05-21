@@ -22,7 +22,6 @@ export const plannerKeys = {
   groupSyncStatus: (groupId: string) => [...plannerKeys.group(groupId), 'syncStatus'] as const,
   m365GroupSearch: (q: string) => [...plannerKeys.all, 'm365GroupSearch', q] as const,
   plan: (id: string) => [...plannerKeys.all, 'plan', id] as const,
-  planBoard: (id: string) => [...plannerKeys.plan(id), 'board'] as const,
   planLabels: (id: string) => [...plannerKeys.plan(id), 'labels'] as const,
   planCategories: (id: string) => [...plannerKeys.plan(id), 'categories'] as const,
   planTasks: (id: string, filters: ListTasksFilters) =>

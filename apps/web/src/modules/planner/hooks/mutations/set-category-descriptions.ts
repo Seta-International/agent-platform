@@ -13,7 +13,7 @@ export function useSetCategoryDescriptions(planId: string) {
       plannerClient.setCategoryDescriptions({ plan_id: planId, slots: v.slots }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: plannerKeys.planCategories(planId) });
-      qc.invalidateQueries({ queryKey: plannerKeys.planBoard(planId) });
+      qc.invalidateQueries({ queryKey: plannerKeys.plan(planId) });
     },
   });
 }

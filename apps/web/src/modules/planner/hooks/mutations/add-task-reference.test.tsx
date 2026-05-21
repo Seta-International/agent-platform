@@ -23,7 +23,7 @@ function setup() {
 }
 
 describe('useAddTaskReference', () => {
-  it('posts the reference and invalidates task + planBoard on success', async () => {
+  it('posts the reference and invalidates task + plan on success', async () => {
     const captured = vi.fn<(body: Record<string, unknown>) => void>();
     server.use(
       http.post('/api/planner/v1/tasks/t1/references', async ({ request }) => {
@@ -42,6 +42,6 @@ describe('useAddTaskReference', () => {
     expect(captured.mock.calls[0]?.[0]).toEqual({ url: 'https://x', alias: 'X', type: 'web' });
     const keys = invalidateSpy.mock.calls.map((c) => c[0]?.queryKey);
     expect(keys).toContainEqual(plannerKeys.task('t1'));
-    expect(keys).toContainEqual(plannerKeys.planBoard('p1'));
+    expect(keys).toContainEqual(plannerKeys.plan('p1'));
   });
 });

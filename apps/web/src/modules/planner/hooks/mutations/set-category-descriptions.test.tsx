@@ -23,7 +23,7 @@ function setup() {
 }
 
 describe('useSetCategoryDescriptions', () => {
-  it('sends slots and invalidates planCategories + planBoard on success', async () => {
+  it('sends slots and invalidates planCategories + plan on success', async () => {
     const captured = vi.fn<(body: Record<string, unknown>) => void>();
     server.use(
       http.put('/api/planner/v1/plans/p1/categories', async ({ request }) => {
@@ -44,6 +44,6 @@ describe('useSetCategoryDescriptions', () => {
     });
     const keys = invalidateSpy.mock.calls.map((c) => c[0]?.queryKey);
     expect(keys).toContainEqual(plannerKeys.planCategories('p1'));
-    expect(keys).toContainEqual(plannerKeys.planBoard('p1'));
+    expect(keys).toContainEqual(plannerKeys.plan('p1'));
   });
 });

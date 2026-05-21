@@ -340,13 +340,13 @@ export function applyPlannerEvent(qc: QueryClient, event: StreamEvent): void {
     case 'planner.task.reference-added.v1':
     case 'planner.task.reference-removed.v1':
       if (taskId) qc.invalidateQueries({ queryKey: plannerKeys.task(taskId) });
-      if (planId) qc.invalidateQueries({ queryKey: plannerKeys.planBoard(planId) });
+      if (planId) qc.invalidateQueries({ queryKey: plannerKeys.plan(planId) });
       return;
 
     case 'planner.plan.category-description-changed.v1':
       if (planId) {
         qc.invalidateQueries({ queryKey: plannerKeys.planCategories(planId) });
-        qc.invalidateQueries({ queryKey: plannerKeys.planBoard(planId) });
+        qc.invalidateQueries({ queryKey: plannerKeys.plan(planId) });
       }
       return;
 

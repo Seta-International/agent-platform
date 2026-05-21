@@ -23,7 +23,7 @@ function setup() {
 }
 
 describe('useRemoveTaskReference', () => {
-  it('sends url in delete body and invalidates task + planBoard on success', async () => {
+  it('sends url in delete body and invalidates task + plan on success', async () => {
     const captured = vi.fn<(body: Record<string, unknown>) => void>();
     server.use(
       http.delete('/api/planner/v1/tasks/t1/references', async ({ request }) => {
@@ -42,6 +42,6 @@ describe('useRemoveTaskReference', () => {
     expect(captured.mock.calls[0]?.[0]).toEqual({ url: 'https://x' });
     const keys = invalidateSpy.mock.calls.map((c) => c[0]?.queryKey);
     expect(keys).toContainEqual(plannerKeys.task('t1'));
-    expect(keys).toContainEqual(plannerKeys.planBoard('p1'));
+    expect(keys).toContainEqual(plannerKeys.plan('p1'));
   });
 });

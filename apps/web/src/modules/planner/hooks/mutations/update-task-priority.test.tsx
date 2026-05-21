@@ -23,7 +23,7 @@ function setup() {
 }
 
 describe('useUpdateTaskPriority', () => {
-  it('sends priority_number and invalidates task + planBoard on success', async () => {
+  it('sends priority_number and invalidates task + plan on success', async () => {
     const captured = vi.fn<(body: Record<string, unknown>) => void>();
     server.use(
       http.patch('/api/planner/v1/tasks/t1', async ({ request }) => {
@@ -45,6 +45,6 @@ describe('useUpdateTaskPriority', () => {
     });
     const keys = invalidateSpy.mock.calls.map((c) => c[0]?.queryKey);
     expect(keys).toContainEqual(plannerKeys.task('t1'));
-    expect(keys).toContainEqual(plannerKeys.planBoard('p1'));
+    expect(keys).toContainEqual(plannerKeys.plan('p1'));
   });
 });

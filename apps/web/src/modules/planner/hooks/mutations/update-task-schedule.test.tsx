@@ -23,7 +23,7 @@ function setup() {
 }
 
 describe('useUpdateTaskSchedule', () => {
-  it('sends start_at + due_at and invalidates task + planBoard on success', async () => {
+  it('sends start_at + due_at and invalidates task + plan on success', async () => {
     const captured = vi.fn<(body: Record<string, unknown>) => void>();
     server.use(
       http.patch('/api/planner/v1/tasks/t1', async ({ request }) => {
@@ -50,7 +50,7 @@ describe('useUpdateTaskSchedule', () => {
     });
     const keys = invalidateSpy.mock.calls.map((c) => c[0]?.queryKey);
     expect(keys).toContainEqual(plannerKeys.task('t1'));
-    expect(keys).toContainEqual(plannerKeys.planBoard('p1'));
+    expect(keys).toContainEqual(plannerKeys.plan('p1'));
   });
 
   it('passes null to clear schedule fields', async () => {

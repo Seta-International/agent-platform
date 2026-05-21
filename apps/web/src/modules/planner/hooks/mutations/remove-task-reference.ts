@@ -13,7 +13,7 @@ export function useRemoveTaskReference(planId: string) {
     mutationFn: (v: RemoveReferenceVars) => plannerClient.removeTaskReference(v),
     onSuccess: (_data, v) => {
       qc.invalidateQueries({ queryKey: plannerKeys.task(v.task_id) });
-      qc.invalidateQueries({ queryKey: plannerKeys.planBoard(planId) });
+      qc.invalidateQueries({ queryKey: plannerKeys.plan(planId) });
     },
   });
 }

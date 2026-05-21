@@ -444,7 +444,7 @@ describe('applyPlannerEvent', () => {
   });
 
   describe('planner.task.reference-added.v1', () => {
-    it('invalidates task and planBoard', () => {
+    it('invalidates task and plan', () => {
       const spy = vi.spyOn(qc, 'invalidateQueries');
       applyPlannerEvent(
         qc,
@@ -456,12 +456,12 @@ describe('applyPlannerEvent', () => {
         }),
       );
       expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.task('t1') });
-      expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.planBoard(PLAN) });
+      expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.plan(PLAN) });
     });
   });
 
   describe('planner.task.reference-removed.v1', () => {
-    it('invalidates task and planBoard', () => {
+    it('invalidates task and plan', () => {
       const spy = vi.spyOn(qc, 'invalidateQueries');
       applyPlannerEvent(
         qc,
@@ -473,12 +473,12 @@ describe('applyPlannerEvent', () => {
         }),
       );
       expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.task('t1') });
-      expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.planBoard(PLAN) });
+      expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.plan(PLAN) });
     });
   });
 
   describe('planner.plan.category-description-changed.v1', () => {
-    it('invalidates planCategories and planBoard', () => {
+    it('invalidates planCategories and plan', () => {
       const spy = vi.spyOn(qc, 'invalidateQueries');
       applyPlannerEvent(
         qc,
@@ -490,7 +490,7 @@ describe('applyPlannerEvent', () => {
         }),
       );
       expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.planCategories(PLAN) });
-      expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.planBoard(PLAN) });
+      expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.plan(PLAN) });
     });
   });
 
