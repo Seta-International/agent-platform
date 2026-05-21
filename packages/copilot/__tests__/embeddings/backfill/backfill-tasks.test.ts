@@ -1,11 +1,15 @@
-import { randomUUID } from 'node:crypto';
 import { resetCoreDb } from '@seta/core/internal/test-support';
 import { buildTaskSource } from '@seta/planner';
 import { closePools, ensureTenantPartition, initPools } from '@seta/shared-db';
 import { sourceHash } from '@seta/shared-embeddings';
 import { withTestDb } from '@seta/shared-testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { type BatchInputRow, type BatchResultRow, backfillTasks } from '../backfill-tasks.ts';
+import { seedTaskForTest } from '../../../../planner/tests/helpers/seed.ts';
+import {
+  type BatchInputRow,
+  type BatchResultRow,
+  backfillTasks,
+} from '../../../src/backend/embeddings/backfill/backfill-tasks.ts';
 
 // ---------------------------------------------------------------------------
 // Test DB wrapper
@@ -27,81 +31,6 @@ function withDb<T>(fn: (ctx: { pool: import('pg').Pool }) => Promise<T>): Promis
       }
     },
   );
-}
-
-// ---------------------------------------------------------------------------
-// Inline task seeder (avoids cross-package relative import outside rootDir)
-// ---------------------------------------------------------------------------
-
-interface SeededTask {
-  tenant_id: string;
-  task_id: string;
-}
-
-interface SeedOpts {
-  tenant_id?: string;
-  title: string;
-  description: string | null;
-  skill_tags: string[];
-  soft_deleted?: boolean;
-}
-
-async function seedTask(pool: import('pg').Pool, opts: SeedOpts): Promise<SeededTask> {
-  let tenant_id = opts.tenant_id;
-
-  if (!tenant_id) {
-    // Create a minimal tenant row.
-    tenant_id = randomUUID();
-    await pool.query(`INSERT INTO core.tenants (id, name, slug) VALUES ($1, $2, $3)`, [
-      tenant_id,
-      `Tenant ${tenant_id.slice(0, 8)}`,
-      `tenant-${tenant_id.slice(0, 8)}`,
-    ]);
-  }
-
-  const actor_id = randomUUID();
-  const group_id = randomUUID();
-  const plan_id = randomUUID();
-  const bucket_id = randomUUID();
-  const task_id = randomUUID();
-  const created_by = randomUUID();
-  const deletedAt = opts.soft_deleted ? 'now()' : 'NULL';
-
-  await pool.query(
-    `INSERT INTO planner.groups
-       (id, tenant_id, name, theme, visibility, default_role, external_source, created_by, deleted_at)
-     VALUES ($1, $2, $3, 'blue', 'private', 'member', 'native', $4, NULL)`,
-    [group_id, tenant_id, `Group ${group_id.slice(0, 8)}`, actor_id],
-  );
-  await pool.query(
-    `INSERT INTO planner.plans
-       (id, tenant_id, group_id, name, external_source, created_by)
-     VALUES ($1, $2, $3, $4, 'native', $5)`,
-    [plan_id, tenant_id, group_id, `Plan ${plan_id.slice(0, 8)}`, actor_id],
-  );
-  await pool.query(
-    `INSERT INTO planner.buckets
-       (id, tenant_id, plan_id, name, external_source)
-     VALUES ($1, $2, $3, $4, 'native')`,
-    [bucket_id, tenant_id, plan_id, `Bucket ${bucket_id.slice(0, 8)}`],
-  );
-  await pool.query(
-    `INSERT INTO planner.tasks
-       (id, tenant_id, plan_id, bucket_id, title, description, skill_tags, created_by, deleted_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, ${deletedAt})`,
-    [
-      task_id,
-      tenant_id,
-      plan_id,
-      bucket_id,
-      opts.title,
-      opts.description,
-      opts.skill_tags,
-      created_by,
-    ],
-  );
-
-  return { tenant_id, task_id };
 }
 
 // ---------------------------------------------------------------------------
@@ -162,18 +91,18 @@ describe('backfillTasks', () => {
       const { submitBatch, pollUntilDone } = makeFakeBatch(1536);
 
       // Seed 2 live tasks + 1 soft-deleted in the same tenant.
-      const t1 = await seedTask(pool, {
+      const t1 = await seedTaskForTest(pool, {
         title: 'Task one',
         description: 'First live task',
         skill_tags: ['ts'],
       });
-      const t2 = await seedTask(pool, {
+      const t2 = await seedTaskForTest(pool, {
         tenant_id: t1.tenant_id,
         title: 'Task two',
         description: 'Second live task',
         skill_tags: ['go'],
       });
-      await seedTask(pool, {
+      await seedTaskForTest(pool, {
         tenant_id: t1.tenant_id,
         title: 'Deleted task',
         description: 'Should not be embedded',
@@ -228,12 +157,12 @@ describe('backfillTasks', () => {
     await withDb(async ({ pool }) => {
       const { submitBatch, pollUntilDone, submittedInputs } = makeFakeBatch(1536);
 
-      const t1 = await seedTask(pool, {
+      const t1 = await seedTaskForTest(pool, {
         title: 'Already embedded',
         description: 'This one is current',
         skill_tags: ['ts'],
       });
-      const t2 = await seedTask(pool, {
+      const t2 = await seedTaskForTest(pool, {
         tenant_id: t1.tenant_id,
         title: 'Needs embedding',
         description: 'This one is new',
@@ -295,7 +224,7 @@ describe('backfillTasks', () => {
       const { submitBatch, pollUntilDone, submittedInputs } = makeFakeBatch(1536);
 
       // Use a soft-deleted task to get a valid tenant_id with zero live tasks.
-      const seeded = await seedTask(pool, {
+      const seeded = await seedTaskForTest(pool, {
         title: 'Only task',
         description: null,
         skill_tags: [],
