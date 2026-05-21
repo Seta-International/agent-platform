@@ -6,6 +6,7 @@ import {
   linkGroupToM365,
   PlannerError,
   requirePermission,
+  resolveGroupConflict,
   unlinkGroupFromM365,
 } from '@seta/planner';
 import type { Hono } from 'hono';
@@ -103,6 +104,23 @@ export function registerIntegrationsM365Routes(
       external_id: link.externalId,
     });
 
+    return c.json({ ok: true });
+  });
+
+  app.post('/api/integrations/m365/groups/:groupId/resolve', async (c) => {
+    const session = c.get('user');
+    const groupId = c.req.param('groupId');
+    const body = await c.req.json<{
+      decisions: Array<{ field: string; choice: 'local' | 'remote' }>;
+    }>();
+    await resolveGroupConflict(
+      { group_id: groupId, decisions: body?.decisions ?? [], session },
+      {
+        getLink: (gid) => deps.m365LinksRepo.findByGroup(gid),
+        setSyncStatus: (id, status) => deps.m365LinksRepo.setSyncStatus(id, status),
+        enqueueGroupPush: (payload) => deps.workers.addJob('m365.group.push', payload),
+      },
+    );
     return c.json({ ok: true });
   });
 }

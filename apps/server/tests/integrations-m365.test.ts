@@ -541,3 +541,109 @@ describe('POST /api/integrations/m365/groups/:groupId/refresh', () => {
     expect(body.error).toBe('FORBIDDEN');
   });
 });
+
+describe('POST /api/integrations/m365/groups/:groupId/resolve', () => {
+  const tenantId = crypto.randomUUID();
+  const userId = crypto.randomUUID();
+  const groupId = crypto.randomUUID();
+  const linkId = crypto.randomUUID();
+
+  function buildResolveLinksRepo(
+    overrides?: Partial<m365.M365GroupLinkRepo>,
+  ): m365.M365GroupLinkRepo {
+    return {
+      findByGroup: vi.fn().mockResolvedValue({
+        id: linkId,
+        tenantId,
+        groupId,
+        externalId: 'ext-resolve-aaa',
+        lastSyncedFields: {},
+        deltaLink: null,
+        syncStatus: 'conflict',
+        lastError: null,
+        lastSyncedAt: new Date(),
+        unlinkedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }),
+      findByExternal: vi.fn(),
+      upsert: vi.fn(),
+      setSyncStatus: vi.fn().mockResolvedValue(undefined),
+      persistDeltaLink: vi.fn(),
+      tombstone: vi.fn(),
+      ...overrides,
+    } as unknown as m365.M365GroupLinkRepo;
+  }
+
+  it('returns 400 VALIDATION when decisions array is empty', async () => {
+    const session = buildSession({ tenant_id: tenantId, user_id: userId });
+    const app = buildTestApp(session, async () => {
+      throw new Error('unused');
+    });
+
+    const res = await app.request(`/api/integrations/m365/groups/${groupId}/resolve`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ decisions: [] }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe('VALIDATION');
+  });
+
+  it('returns 404 NOT_FOUND when group has no link', async () => {
+    const session = buildSession({ tenant_id: tenantId, user_id: userId });
+    const app = buildTestApp(
+      session,
+      async () => {
+        throw new Error('unused');
+      },
+      {
+        m365LinksRepo: buildResolveLinksRepo({
+          findByGroup: vi.fn().mockResolvedValue(null),
+        }),
+      },
+    );
+
+    const res = await app.request(`/api/integrations/m365/groups/${groupId}/resolve`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ decisions: [{ field: 'name', choice: 'local' }] }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe('NOT_FOUND');
+  });
+
+  it('returns 200 { ok: true } on happy path with local choice', async () => {
+    const addJob = vi.fn().mockResolvedValue(undefined);
+    const session = buildSession({ tenant_id: tenantId, user_id: userId });
+    const app = buildTestApp(
+      session,
+      async () => {
+        throw new Error('unused');
+      },
+      {
+        workers: { addJob, shutdown: async () => {} } as import('@seta/core/workers').WorkerHandle,
+        m365LinksRepo: buildResolveLinksRepo(),
+      },
+    );
+
+    const res = await app.request(`/api/integrations/m365/groups/${groupId}/resolve`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ decisions: [{ field: 'name', choice: 'local' }] }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean };
+    expect(body.ok).toBe(true);
+    expect(addJob).toHaveBeenCalledWith('m365.group.push', {
+      tenant_id: tenantId,
+      group_id: groupId,
+      changed_fields: ['name'],
+    });
+  });
+});

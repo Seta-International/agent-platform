@@ -42,6 +42,7 @@ export { removeChecklistItem } from './backend/domain/remove-checklist-item.ts';
 export { removeGroupMember } from './backend/domain/remove-group-member.ts';
 export { reopenTask } from './backend/domain/reopen-task.ts';
 export { reorderBucket } from './backend/domain/reorder-bucket.ts';
+export { resolveGroupConflict } from './backend/domain/resolve-group-conflict.ts';
 export { restoreGroup } from './backend/domain/restore-group.ts';
 export { restorePlan } from './backend/domain/restore-plan.ts';
 export { restoreTask } from './backend/domain/restore-task.ts';
@@ -84,7 +85,7 @@ export type {
   UpdateTaskPatch,
 } from './backend/inputs.ts';
 export type { PlannerErrorCode } from './backend/rbac.ts';
-export { PlannerError } from './backend/rbac.ts';
+export { PlannerError, requirePermission } from './backend/rbac.ts';
 export type { PlannerEvent, PlannerEventActor } from './events/index.ts';
 export {
   PLANNER_PERMISSIONS,
