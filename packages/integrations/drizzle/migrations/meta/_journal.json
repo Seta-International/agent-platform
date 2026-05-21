@@ -8,6 +8,13 @@
       "when": 1779274298889,
       "tag": "0000_mail_transport_config",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1779345033855,
+      "tag": "0001_m365_groups_sync",
+      "breakpoints": true
     }
   ]
 }
