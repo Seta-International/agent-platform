@@ -15,6 +15,7 @@ export * from './composites/copilot-panel';
 export * from './composites/data-table';
 export * from './composites/empty-state';
 export * from './composites/filter-pill';
+export * from './composites/group-tile';
 export * from './composites/inbox-list';
 export * from './composites/kanban-board';
 export * from './composites/kanban-card';
