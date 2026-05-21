@@ -16,6 +16,7 @@
     "typescript": "^6.0.3"
   },
   "dependencies": {
+    "@seta/shared-embeddings": "workspace:^",
     "@seta/shared-types": "workspace:^",
     "@testcontainers/postgresql": "^12.0.0",
     "pg": "^8.21.0",

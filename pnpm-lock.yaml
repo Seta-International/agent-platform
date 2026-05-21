@@ -831,6 +831,9 @@ importers:
 
   packages/shared/testing:
     dependencies:
+      '@seta/shared-embeddings':
+        specifier: workspace:^
+        version: link:../embeddings
       '@seta/shared-types':
         specifier: workspace:^
         version: link:../types

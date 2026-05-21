@@ -1,4 +1,4 @@
-export { type EmbeddingLike, FakeEmbeddingProvider } from './fakes/embedding.ts';
+export { FakeEmbeddingProvider, type FakeEmbeddingProviderOptions } from './fakes/embedding.ts';
 export { type EventBusLike, FakeEventBus } from './fakes/event-bus.ts';
 export { FakeMailer, type MailerLike } from './fakes/mailer.ts';
 export { fixtures, type TenantRow } from './fixtures.ts';
