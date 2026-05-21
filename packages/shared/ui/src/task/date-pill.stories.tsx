@@ -16,7 +16,7 @@ export const DueOverdue: Story = {
     value: '2024-01-01',
     onChange: () => {},
     overdue: true,
-    tail: '· 2d late',
+    suffix: '· 2d late',
   },
 };
 
@@ -25,6 +25,6 @@ function EmptyClearable() {
   return <DatePill kind="Due" value={v} onChange={setV} clearable />;
 }
 export const EmptyClearableStory: Story = {
-  args: { kind: 'Due', value: '2026-08-30', onChange: () => undefined, clearable: true },
+  args: { kind: 'Due', value: null, onChange: () => undefined },
   render: () => <EmptyClearable />,
 };

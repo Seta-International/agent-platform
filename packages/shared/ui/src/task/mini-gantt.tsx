@@ -1,22 +1,16 @@
 import { differenceInDays, parseISO } from 'date-fns';
 
-const VIEW_WIDTH = 220;
+export const VIEW_WIDTH = 220;
 const VIEW_HEIGHT = 56;
-const PADDING = 20;
-const VISIBLE_DAYS = 6;
+export const PADDING = 20;
+const TICK_COUNT = 7;
 
-export function xForDay(
-  date: string,
-  start: string,
-  due: string,
-  viewWidth: number = VIEW_WIDTH,
-  padding: number = PADDING,
-): number {
-  const drawable = viewWidth - padding * 2;
+export function xForDay(date: string, start: string, due: string): number {
+  const drawable = VIEW_WIDTH - PADDING * 2;
   const span = Math.max(differenceInDays(parseISO(due), parseISO(start)), 1);
   const offset = differenceInDays(parseISO(date), parseISO(start));
   const ratio = Math.max(0, Math.min(1, offset / span));
-  return padding + ratio * drawable;
+  return PADDING + ratio * drawable;
 }
 
 interface Props {
@@ -34,8 +28,8 @@ export function MiniGantt({ start, due, today, title }: Props) {
   const xToday = xForDay(today, start, due);
 
   const drawable = VIEW_WIDTH - PADDING * 2;
-  const tickStep = drawable / VISIBLE_DAYS;
-  const tickXs = Array.from({ length: VISIBLE_DAYS + 1 }, (_, i) => PADDING + i * tickStep);
+  const tickStep = drawable / (TICK_COUNT - 1);
+  const tickXs = Array.from({ length: TICK_COUNT }, (_, i) => PADDING + i * tickStep);
 
   return (
     <svg

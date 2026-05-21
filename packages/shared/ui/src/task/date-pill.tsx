@@ -5,11 +5,11 @@ interface Props {
   value: string | null;
   onChange: (next: string | null) => void;
   overdue?: boolean;
-  tail?: string;
+  suffix?: string;
   clearable?: boolean;
 }
 
-export function DatePill({ kind, value, onChange, overdue = false, tail, clearable }: Props) {
+export function DatePill({ kind, value, onChange, overdue = false, suffix, clearable }: Props) {
   return (
     <span
       data-overdue={overdue ? 'true' : undefined}
@@ -34,7 +34,7 @@ export function DatePill({ kind, value, onChange, overdue = false, tail, clearab
         style={dateInput}
         aria-label={kind}
       />
-      {tail && <span className="t-xs subtle">{tail}</span>}
+      {suffix && <span className="t-xs subtle">{suffix}</span>}
       {clearable && value && (
         <button type="button" onClick={() => onChange(null)} aria-label="Clear" style={clearBtn}>
           ×

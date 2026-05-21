@@ -10,7 +10,7 @@ describe('DatePill', () => {
   });
   it('renders overdue styling when overdue', () => {
     const { container } = render(
-      <DatePill kind="Due" value="2024-01-01" onChange={() => {}} overdue tail="· 2d late" />,
+      <DatePill kind="Due" value="2024-01-01" onChange={() => {}} overdue suffix="· 2d late" />,
     );
     expect(screen.getByText(/2d late/)).toBeInTheDocument();
     expect(container.querySelector('[data-overdue="true"]')).toBeInTheDocument();
