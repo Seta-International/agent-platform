@@ -1,3 +1,5 @@
+export type { PlannerSessionScope } from './backend/domain/_actor.ts';
+export { isM365SystemActor } from './backend/domain/_actor.ts';
 export { addChecklistItem } from './backend/domain/add-checklist-item.ts';
 export { addGroupMember } from './backend/domain/add-group-member.ts';
 export { applyLabel } from './backend/domain/apply-label.ts';
@@ -33,6 +35,7 @@ export type {
 export { listTaskEvents } from './backend/domain/list-task-events.ts';
 export type { ListTasksFilters } from './backend/domain/list-tasks.ts';
 export { listTasks } from './backend/domain/list-tasks.ts';
+export { markGroupSyncStatus } from './backend/domain/mark-group-sync-status.ts';
 export { moveTask } from './backend/domain/move-task.ts';
 export { removeChecklistItem } from './backend/domain/remove-checklist-item.ts';
 export { removeGroupMember } from './backend/domain/remove-group-member.ts';
