@@ -1,0 +1,4 @@
+{
+  "value": [{ "id": "m365-abc", "displayName": "Engineering Renamed" }],
+  "@odata.deltaLink": "https://graph.microsoft.com/v1.0/groups/delta?$deltatoken=ABC123"
+}

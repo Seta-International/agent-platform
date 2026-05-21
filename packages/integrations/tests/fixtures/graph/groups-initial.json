@@ -1,0 +1,11 @@
+{
+  "value": [
+    {
+      "id": "m365-abc",
+      "displayName": "Engineering",
+      "description": "Eng team",
+      "visibility": "Private",
+      "theme": "blue"
+    }
+  ]
+}

@@ -538,6 +538,9 @@ importers:
       '@seta/core':
         specifier: workspace:^
         version: link:../core
+      '@seta/identity':
+        specifier: workspace:^
+        version: link:../identity
       '@seta/planner':
         specifier: workspace:^
         version: link:../planner

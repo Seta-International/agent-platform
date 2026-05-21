@@ -31,6 +31,7 @@
     "@microsoft/microsoft-graph-client": "^3.0.7",
     "@microsoft/microsoft-graph-types": "^2.43.1",
     "@seta/core": "workspace:^",
+    "@seta/identity": "workspace:^",
     "@seta/planner": "workspace:^",
     "@seta/shared-crypto": "workspace:^",
     "@seta/shared-db": "workspace:^",
