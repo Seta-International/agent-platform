@@ -14,7 +14,7 @@ export function GroupTile({ name, theme, size = 36, className }: Props) {
     .split(/[\s&]+/)
     .filter(Boolean)
     .slice(0, 2);
-  const initials = tokens.map((t) => t[0]!.toUpperCase()).join('');
+  const initials = tokens.map((t) => t[0]?.toUpperCase()).join('');
 
   const color = `var(--color-group-theme-${theme})`;
   const radius = size <= 28 ? 5 : 7;
