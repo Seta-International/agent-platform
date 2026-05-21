@@ -12,12 +12,16 @@ const env = {
  * Minimal partitioned parent table that mirrors planner.task_embeddings's shape
  * enough to exercise the provisioner. Inlining avoids importing planner's
  * migration registry from shared/db (which would invert the dep graph).
+ *
+ * The parent is named 'planner.te' (shortened from 'task_embeddings') so that
+ * generated identifier names stay under PG's 63-byte limit when the
+ * secondaryIndexColumn 'task_id' is appended.
  */
 async function createParent(pool: import('pg').Pool): Promise<void> {
   await pool.query(`CREATE EXTENSION IF NOT EXISTS vector`);
   await pool.query(`CREATE SCHEMA IF NOT EXISTS planner`);
   await pool.query(`
-    CREATE TABLE planner.task_embeddings (
+    CREATE TABLE planner.te (
       tenant_id     uuid          NOT NULL,
       task_id       bigint        NOT NULL,
       chunk_ordinal integer       NOT NULL,
@@ -35,7 +39,7 @@ describe('ensureTenantPartition', () => {
       const slug = tenantId.replaceAll('-', '_');
 
       const config = {
-        parent: 'planner.task_embeddings',
+        parent: 'planner.te',
         embeddingColumn: 'embedding',
         tenantId,
         secondaryIndexColumns: ['task_id'],
@@ -51,7 +55,7 @@ describe('ensureTenantPartition', () => {
                JOIN pg_namespace n ON n.oid = c.relnamespace
               WHERE c.relname = $1 AND n.nspname = 'planner'
            ) AS exists`,
-        [`task_embeddings_${slug}`],
+        [`te_${slug}`],
       );
       expect(childExists.rows[0]?.exists).toBe(true);
 
@@ -60,7 +64,7 @@ describe('ensureTenantPartition', () => {
              SELECT 1 FROM pg_indexes
               WHERE schemaname = 'planner' AND indexname = $1
            ) AS exists`,
-        [`task_embeddings_${slug}_hnsw_idx`],
+        [`te_${slug}_hnsw_idx`],
       );
       expect(hnswExists.rows[0]?.exists).toBe(true);
 
@@ -69,7 +73,7 @@ describe('ensureTenantPartition', () => {
              SELECT 1 FROM pg_indexes
               WHERE schemaname = 'planner' AND indexname = $1
            ) AS exists`,
-        [`task_embeddings_${slug}_task_id_idx`],
+        [`te_${slug}_task_id_idx`],
       );
       expect(btreeExists.rows[0]?.exists).toBe(true);
 
@@ -85,7 +89,7 @@ describe('ensureTenantPartition', () => {
       const slug = tenantId.replaceAll('-', '_');
 
       const config = {
-        parent: 'planner.task_embeddings',
+        parent: 'planner.te',
         embeddingColumn: 'embedding',
         tenantId,
         secondaryIndexColumns: ['task_id'],
@@ -99,23 +103,40 @@ describe('ensureTenantPartition', () => {
         `SELECT count(*)::int AS n FROM pg_class c
              JOIN pg_namespace n ON n.oid = c.relnamespace
             WHERE c.relname = $1 AND n.nspname = 'planner'`,
-        [`task_embeddings_${slug}`],
+        [`te_${slug}`],
       );
       expect(childCount.rows[0]?.n).toBe(1);
 
       const hnswCount = await pool.query<{ n: number }>(
         `SELECT count(*)::int AS n FROM pg_indexes
             WHERE schemaname = 'planner' AND indexname = $1`,
-        [`task_embeddings_${slug}_hnsw_idx`],
+        [`te_${slug}_hnsw_idx`],
       );
       expect(hnswCount.rows[0]?.n).toBe(1);
 
       const btreeCount = await pool.query<{ n: number }>(
         `SELECT count(*)::int AS n FROM pg_indexes
             WHERE schemaname = 'planner' AND indexname = $1`,
-        [`task_embeddings_${slug}_task_id_idx`],
+        [`te_${slug}_task_id_idx`],
       );
       expect(btreeCount.rows[0]?.n).toBe(1);
     });
+  });
+
+  it('throws when the generated index name would exceed Postgres 63-byte identifier limit', async () => {
+    await expect(
+      ensureTenantPartition(
+        // pool is not needed — the throw happens before any SQL runs
+        null as unknown as import('pg').Pool,
+        {
+          parent: 'planner.task_embeddings_with_a_very_long_name',
+          embeddingColumn: 'embedding',
+          tenantId: randomUUID(),
+          secondaryIndexColumns: ['some_long_column'],
+          opclass: 'halfvec_cosine_ops',
+          hnsw: { m: 16, efConstruction: 200 },
+        },
+      ),
+    ).rejects.toThrow(/63/);
   });
 });

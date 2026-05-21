@@ -21,7 +21,7 @@ export interface EnsureTenantPartitionOptions {
  * partitioned embeddings table. Guarded by pg_advisory_xact_lock keyed on
  * sha256(parent || tenant_id) so concurrent worker processes do not race.
  *
- * Identifier inputs (parent, embeddingColumn, opclass, secondaryIndexColumns)
+ * Identifier inputs (parent, embeddingColumn, opclass, secondaryIndexColumns entries)
  * are interpolated raw into SQL — Postgres cannot parameterize identifiers.
  * Callers must supply these from trusted internal config, never user input.
  */
@@ -42,6 +42,24 @@ export async function ensureTenantPartition(
   const childName = `${parentName}_${slug}`;
   const hnswIndex = `${childName}_hnsw_idx`;
 
+  // Guard against PG silently truncating identifiers at 63 bytes — throw early,
+  // before any SQL runs, so the caller gets a clear error instead of a corrupt index name.
+  if (hnswIndex.length > 63) {
+    throw new Error(
+      `Generated HNSW index name '${hnswIndex}' is ${hnswIndex.length} chars; Postgres truncates identifiers at 63.`,
+    );
+  }
+  for (const col of opts.secondaryIndexColumns ?? []) {
+    const idx = `${childName}_${col}_idx`;
+    if (idx.length > 63) {
+      throw new Error(
+        `Generated index name '${idx}' is ${idx.length} chars; Postgres truncates identifiers at 63. Shorten the parent table name or the column name.`,
+      );
+    }
+  }
+
+  // pg_advisory_xact_lock(classid int4, id int4): take first 8 bytes of the SHA-256 digest
+  // as two signed 32-bit big-endian values to fill both lock-key slots.
   const digest = createHash('sha256').update(`${opts.parent}|${opts.tenantId}`).digest();
   const k1 = digest.readInt32BE(0);
   const k2 = digest.readInt32BE(4);
@@ -87,7 +105,11 @@ export async function ensureTenantPartition(
 
     await client.query('COMMIT');
   } catch (err) {
-    await client.query('ROLLBACK');
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      // connection is already dead; the ROLLBACK error is not actionable
+    }
     throw err;
   } finally {
     client.release();
