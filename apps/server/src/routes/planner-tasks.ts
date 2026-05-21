@@ -2,6 +2,7 @@ import type { SessionEnv } from '@seta/core';
 import type { ListTasksFilters } from '@seta/planner';
 import {
   addChecklistItem,
+  addTaskReference,
   applyLabel,
   assignTask,
   completeTask,
@@ -14,8 +15,11 @@ import {
   listTasks,
   moveTask,
   removeChecklistItem,
+  removeTaskReference,
   reopenTask,
   restoreTask,
+  setAssigneePriority,
+  setTaskAssignees,
   unapplyLabel,
   unassignTask,
   updateChecklistItem,
@@ -59,6 +63,40 @@ const moveTaskSchema = z.object({
 const versionSchema = z.object({ expected_version: z.number().int().positive() });
 
 const assignSchema = z.object({ user_id: z.string().uuid() });
+
+const addReferenceSchema = z.object({
+  url: z.string().min(1).max(2048),
+  alias: z.string().min(1).max(255).optional(),
+  type: z
+    .enum([
+      'word',
+      'excel',
+      'powerPoint',
+      'visio',
+      'other',
+      'powerBI',
+      'oneNote',
+      'sharePoint',
+      'web',
+      'link',
+    ])
+    .optional(),
+});
+
+const removeReferenceSchema = z.object({ url: z.string().min(1).max(2048) });
+
+const setAssigneesSchema = z.object({
+  assignees: z
+    .array(
+      z.object({
+        user_id: z.string().uuid(),
+        order_hint: z.string().optional(),
+      }),
+    )
+    .max(50),
+});
+
+const setAssigneePrioritySchema = z.object({ value: z.string().nullable() });
 
 const applyLabelSchema = z.object({ label_id: z.string().uuid() });
 
@@ -198,6 +236,63 @@ export function registerPlannerTasksRoutes(app: Hono<SessionEnv>): void {
     await unassignTask({
       task_id: c.req.param('id'),
       user_id: c.req.param('userId'),
+      session,
+    });
+    return c.body(null, 204);
+  });
+
+  app.put('/api/planner/v1/tasks/:id/assignees', async (c) => {
+    const session = c.get('user');
+    const parsed = setAssigneesSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success)
+      return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
+    await setTaskAssignees({
+      task_id: c.req.param('id'),
+      assignees: parsed.data.assignees,
+      session,
+    });
+    return c.body(null, 204);
+  });
+
+  app.put('/api/planner/v1/tasks/:id/assignee-priority', async (c) => {
+    const session = c.get('user');
+    const parsed = setAssigneePrioritySchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success)
+      return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
+    return c.json(
+      await setAssigneePriority({
+        task_id: c.req.param('id'),
+        value: parsed.data.value,
+        session,
+      }),
+    );
+  });
+
+  app.post('/api/planner/v1/tasks/:id/references', async (c) => {
+    const session = c.get('user');
+    const parsed = addReferenceSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success)
+      return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
+    return c.json(
+      await addTaskReference({
+        task_id: c.req.param('id'),
+        url: parsed.data.url,
+        alias: parsed.data.alias,
+        type: parsed.data.type,
+        session,
+      }),
+      201,
+    );
+  });
+
+  app.delete('/api/planner/v1/tasks/:id/references', async (c) => {
+    const session = c.get('user');
+    const parsed = removeReferenceSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success)
+      return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
+    await removeTaskReference({
+      task_id: c.req.param('id'),
+      url: parsed.data.url,
       session,
     });
     return c.body(null, 204);

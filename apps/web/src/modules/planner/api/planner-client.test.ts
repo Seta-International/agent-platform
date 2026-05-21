@@ -246,4 +246,218 @@ describe('plannerClient', () => {
     const result = await plannerClient.getGroupSyncStatus({ groupId: 'g2' });
     expect(result.sync_status).toBeNull();
   });
+
+  it('addTaskReference POSTs /api/planner/v1/tasks/:id/references with url/alias/type', async () => {
+    let captured: unknown;
+    server.use(
+      http.post('*/api/planner/v1/tasks/t1/references', async ({ request }) => {
+        captured = await request.json();
+        return HttpResponse.json({
+          id: 'r1',
+          tenant_id: 't',
+          task_id: 't1',
+          url: 'https://x',
+          alias: 'X',
+          type: 'web',
+          preview_priority: null,
+          external_etag: null,
+          created_at: '2026-05-20T00:00:00Z',
+          updated_at: '2026-05-20T00:00:00Z',
+        });
+      }),
+    );
+    const result = await plannerClient.addTaskReference({
+      task_id: 't1',
+      url: 'https://x',
+      alias: 'X',
+      type: 'web',
+    });
+    expect(captured).toEqual({ url: 'https://x', alias: 'X', type: 'web' });
+    expect(result.id).toBe('r1');
+  });
+
+  it('removeTaskReference DELETEs /api/planner/v1/tasks/:id/references with body { url }', async () => {
+    let captured: unknown;
+    let method = '';
+    server.use(
+      http.delete('*/api/planner/v1/tasks/t1/references', async ({ request }) => {
+        method = request.method;
+        captured = await request.json();
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    await plannerClient.removeTaskReference({ task_id: 't1', url: 'https://x' });
+    expect(method).toBe('DELETE');
+    expect(captured).toEqual({ url: 'https://x' });
+  });
+
+  it('setTaskAssignees PUTs /api/planner/v1/tasks/:id/assignees with assignees array', async () => {
+    let captured: unknown;
+    let method = '';
+    server.use(
+      http.put('*/api/planner/v1/tasks/t1/assignees', async ({ request }) => {
+        method = request.method;
+        captured = await request.json();
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    await plannerClient.setTaskAssignees({
+      task_id: 't1',
+      assignees: [
+        { user_id: 'u1', order_hint: 'a' },
+        { user_id: 'u2', order_hint: 'b' },
+      ],
+    });
+    expect(method).toBe('PUT');
+    expect(captured).toEqual({
+      assignees: [
+        { user_id: 'u1', order_hint: 'a' },
+        { user_id: 'u2', order_hint: 'b' },
+      ],
+    });
+  });
+
+  it('setAssigneePriority PUTs /api/planner/v1/tasks/:id/assignee-priority with { value }', async () => {
+    let captured: unknown;
+    let method = '';
+    server.use(
+      http.put('*/api/planner/v1/tasks/t1/assignee-priority', async ({ request }) => {
+        method = request.method;
+        captured = await request.json();
+        return HttpResponse.json({
+          id: 't1',
+          tenant_id: 't',
+          plan_id: 'p1',
+          bucket_id: null,
+          title: 'x',
+          description: null,
+          priority_number: 5,
+          percent_complete: 0,
+          is_deferred: false,
+          preview_type: 'automatic',
+          review_state: null,
+          skill_tags: [],
+          start_at: null,
+          due_at: null,
+          order_hint: null,
+          assignee_priority: 'm',
+          external_source: 'native',
+          external_id: null,
+          external_etag: null,
+          external_synced_at: null,
+          created_by: 'u',
+          created_at: '',
+          updated_at: '',
+          deleted_at: null,
+          version: 2,
+        });
+      }),
+    );
+    const r = await plannerClient.setAssigneePriority({ task_id: 't1', value: 'm' });
+    expect(method).toBe('PUT');
+    expect(captured).toEqual({ value: 'm' });
+    expect(r.assignee_priority).toBe('m');
+  });
+
+  it('getPlanCategories GETs /api/planner/v1/plans/:id/categories', async () => {
+    server.use(
+      http.get('*/api/planner/v1/plans/p1/categories', () =>
+        HttpResponse.json({
+          descriptions: { '1': 'Backend' },
+          labels: [],
+          task_counts: {},
+          counts: { categories: 1 },
+        }),
+      ),
+    );
+    const r = await plannerClient.getPlanCategories('p1');
+    expect(r.descriptions).toEqual({ '1': 'Backend' });
+    expect(r.counts.categories).toBe(1);
+  });
+
+  it('setCategoryDescriptions PUTs /api/planner/v1/plans/:id/categories with { slots }', async () => {
+    let captured: unknown;
+    let method = '';
+    server.use(
+      http.put('*/api/planner/v1/plans/p1/categories', async ({ request }) => {
+        method = request.method;
+        captured = await request.json();
+        return HttpResponse.json({
+          id: 'p1',
+          tenant_id: 't',
+          group_id: 'g1',
+          name: 'P',
+          category_descriptions: { '1': 'Backend' },
+          external_source: 'native',
+          external_id: null,
+          external_etag: null,
+          external_synced_at: null,
+          created_by: 'u',
+          created_at: '',
+          updated_at: '',
+          deleted_at: null,
+          version: 2,
+        });
+      }),
+    );
+    await plannerClient.setCategoryDescriptions({
+      planId: 'p1',
+      slots: { 1: { name: 'Backend', label_id: 'l1' } },
+    });
+    expect(method).toBe('PUT');
+    expect(captured).toEqual({ slots: { '1': { name: 'Backend', label_id: 'l1' } } });
+  });
+
+  it('updateTask accepts percent_complete in patch', async () => {
+    let captured: unknown;
+    server.use(
+      http.patch('*/api/planner/v1/tasks/t1', async ({ request }) => {
+        captured = await request.json();
+        return HttpResponse.json({
+          id: 't1',
+          tenant_id: 't',
+          plan_id: 'p1',
+          bucket_id: null,
+          title: 'x',
+          description: null,
+          priority_number: 5,
+          percent_complete: 50,
+          is_deferred: false,
+          preview_type: 'automatic',
+          review_state: null,
+          skill_tags: [],
+          start_at: null,
+          due_at: null,
+          order_hint: null,
+          assignee_priority: null,
+          external_source: 'native',
+          external_id: null,
+          external_etag: null,
+          external_synced_at: null,
+          created_by: 'u',
+          created_at: '',
+          updated_at: '',
+          deleted_at: null,
+          version: 2,
+        });
+      }),
+    );
+    await plannerClient.updateTask({
+      task_id: 't1',
+      expected_version: 1,
+      patch: {
+        percent_complete: 50,
+        start_at: '2026-05-01T00:00:00Z',
+        preview_type: 'checklist',
+      },
+    });
+    expect(captured).toEqual({
+      expected_version: 1,
+      patch: {
+        percent_complete: 50,
+        start_at: '2026-05-01T00:00:00Z',
+        preview_type: 'checklist',
+      },
+    });
+  });
 });

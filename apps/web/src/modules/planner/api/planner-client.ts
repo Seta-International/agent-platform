@@ -9,6 +9,8 @@ import type {
   ListTasksFilters,
   PersistedPlannerEvent,
   PlanRow,
+  TaskReferenceRow,
+  TaskReferenceType,
   TaskRow,
   TaskWithAssigneesRow,
 } from '@seta/planner';
@@ -365,6 +367,8 @@ async function updateTask(input: {
       | 'priority_number'
       | 'percent_complete'
       | 'is_deferred'
+      | 'preview_type'
+      | 'start_at'
       | 'due_at'
       | 'skill_tags'
       | 'review_state'
@@ -406,6 +410,68 @@ async function unassignTask(input: { task_id: string; user_id: string }): Promis
   await request<void>(`/api/planner/v1/tasks/${input.task_id}/assignees/${input.user_id}`, {
     method: 'DELETE',
   });
+}
+
+async function addTaskReference(input: {
+  task_id: string;
+  url: string;
+  alias?: string;
+  type?: TaskReferenceType;
+}): Promise<TaskReferenceRow> {
+  return (await request<TaskReferenceRow>(`/api/planner/v1/tasks/${input.task_id}/references`, {
+    method: 'POST',
+    body: JSON.stringify({ url: input.url, alias: input.alias, type: input.type }),
+  })) as TaskReferenceRow;
+}
+
+async function removeTaskReference(input: { task_id: string; url: string }): Promise<void> {
+  await request<void>(`/api/planner/v1/tasks/${input.task_id}/references`, {
+    method: 'DELETE',
+    body: JSON.stringify({ url: input.url }),
+  });
+}
+
+async function setTaskAssignees(input: {
+  task_id: string;
+  assignees: Array<{ user_id: string; order_hint?: string }>;
+}): Promise<void> {
+  await request<void>(`/api/planner/v1/tasks/${input.task_id}/assignees`, {
+    method: 'PUT',
+    body: JSON.stringify({ assignees: input.assignees }),
+  });
+}
+
+async function setAssigneePriority(input: {
+  task_id: string;
+  value: string | null;
+}): Promise<TaskRow> {
+  return (await request<TaskRow>(`/api/planner/v1/tasks/${input.task_id}/assignee-priority`, {
+    method: 'PUT',
+    body: JSON.stringify({ value: input.value }),
+  })) as TaskRow;
+}
+
+export interface PlanCategoriesResponse {
+  descriptions: Record<string, string>;
+  labels: LabelRow[];
+  task_counts: Record<string, number>;
+  counts: { categories: number };
+}
+
+async function getPlanCategories(planId: string): Promise<PlanCategoriesResponse> {
+  return (await request<PlanCategoriesResponse>(
+    `/api/planner/v1/plans/${planId}/categories`,
+  )) as PlanCategoriesResponse;
+}
+
+async function setCategoryDescriptions(input: {
+  planId: string;
+  slots: Record<number, { name: string | null; label_id?: string | null }>;
+}): Promise<PlanRow> {
+  return (await request<PlanRow>(`/api/planner/v1/plans/${input.planId}/categories`, {
+    method: 'PUT',
+    body: JSON.stringify({ slots: input.slots }),
+  })) as PlanRow;
 }
 
 async function completeTask(input: {
@@ -573,6 +639,12 @@ export const plannerClient = {
   moveTask,
   assignTask,
   unassignTask,
+  addTaskReference,
+  removeTaskReference,
+  setTaskAssignees,
+  setAssigneePriority,
+  getPlanCategories,
+  setCategoryDescriptions,
   completeTask,
   reopenTask,
   deleteTask,

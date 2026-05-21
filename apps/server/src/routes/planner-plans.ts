@@ -8,6 +8,7 @@ import {
   listLabels,
   listPlans,
   restorePlan,
+  setCategoryDescriptions,
   updateLabel,
   updatePlan,
 } from '@seta/planner';
@@ -32,6 +33,16 @@ const updateLabelSchema = z.object({
     name: z.string().min(1).max(120).optional(),
     color: z.string().min(1).max(50).optional(),
   }),
+});
+
+const setCategoriesSchema = z.object({
+  slots: z.record(
+    z.string(),
+    z.object({
+      name: z.string().nullable(),
+      label_id: z.string().uuid().nullable().optional(),
+    }),
+  ),
 });
 
 export function registerPlannerPlansRoutes(app: Hono<SessionEnv>): void {
@@ -129,5 +140,41 @@ export function registerPlannerPlansRoutes(app: Hono<SessionEnv>): void {
     const session = c.get('user');
     await deleteLabel({ label_id: c.req.param('id'), session });
     return c.body(null, 204);
+  });
+
+  app.get('/api/planner/v1/plans/:id/categories', async (c) => {
+    const session = c.get('user');
+    const planId = c.req.param('id');
+    const plan = await getPlan({ plan_id: planId, session });
+    const labels = await listLabels({ plan_id: planId, session });
+    const descriptions = plan.category_descriptions ?? {};
+    const categoriesCount = Object.values(descriptions).filter(
+      (v) => typeof v === 'string' && v.length > 0,
+    ).length;
+    return c.json({
+      descriptions,
+      labels,
+      task_counts: {},
+      counts: { categories: categoriesCount },
+    });
+  });
+
+  app.put('/api/planner/v1/plans/:id/categories', async (c) => {
+    const session = c.get('user');
+    const parsed = setCategoriesSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success)
+      return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
+    const slots: Record<number, { name: string | null; label_id?: string | null }> = {};
+    for (const [k, v] of Object.entries(parsed.data.slots)) {
+      const n = Number(k);
+      if (Number.isFinite(n)) slots[n] = v;
+    }
+    return c.json(
+      await setCategoryDescriptions({
+        plan_id: c.req.param('id'),
+        slots,
+        session,
+      }),
+    );
   });
 }
