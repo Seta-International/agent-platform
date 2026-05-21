@@ -216,18 +216,21 @@ async function terminate(
 
 async function onRunCompleted(client: PoolClient, evt: RunCompletedEvent): Promise<void> {
   await terminate(client, evt, 'success', null);
-  const r = await client.query<{ started_by: string }>(
-    `SELECT started_by FROM copilot.workflow_runs WHERE run_id = $1`,
+  // Fetch identity columns from the run row — terminal events on 'workflows-finish' may arrive
+  // without requestContext (evented runtime doesn't echo it back on finish).
+  const r = await client.query<{ started_by: string; tenant_id: string }>(
+    `SELECT started_by, tenant_id FROM copilot.workflow_runs WHERE run_id = $1`,
     [evt.runId],
   );
-  const startedBy = r.rows[0]!.started_by;
+  if (!r.rows[0]) return;
+  const { started_by: startedBy, tenant_id: tenantId } = r.rows[0];
   await insertOutboxEvent(client, {
     eventType: 'copilot.workflow.run.completed',
     aggregateId: evt.runId,
-    tenantId: evt.tenantId,
+    tenantId,
     payload: {
       workflow_id: evt.workflowId,
-      tenant_id: evt.tenantId,
+      tenant_id: tenantId,
       started_by: startedBy,
       duration_ms: evt.durationMs,
       outcome: evt.outcome,
@@ -237,18 +240,21 @@ async function onRunCompleted(client: PoolClient, evt: RunCompletedEvent): Promi
 }
 async function onRunFailed(client: PoolClient, evt: RunFailedEvent): Promise<void> {
   await terminate(client, evt, 'failed', `${evt.error.code}: ${evt.error.message}`);
-  const r = await client.query<{ started_by: string }>(
-    `SELECT started_by FROM copilot.workflow_runs WHERE run_id = $1`,
+  // Fetch identity columns from the run row — terminal events on 'workflows-finish' may arrive
+  // without requestContext (evented runtime doesn't echo it back on finish).
+  const r = await client.query<{ started_by: string; tenant_id: string }>(
+    `SELECT started_by, tenant_id FROM copilot.workflow_runs WHERE run_id = $1`,
     [evt.runId],
   );
-  const startedBy = r.rows[0]!.started_by;
+  if (!r.rows[0]) return;
+  const { started_by: startedBy, tenant_id: tenantId } = r.rows[0];
   await insertOutboxEvent(client, {
     eventType: 'copilot.workflow.run.failed',
     aggregateId: evt.runId,
-    tenantId: evt.tenantId,
+    tenantId,
     payload: {
       workflow_id: evt.workflowId,
-      tenant_id: evt.tenantId,
+      tenant_id: tenantId,
       started_by: startedBy,
       duration_ms: evt.durationMs,
       error: { code: evt.error.code, message: evt.error.message },
@@ -257,4 +263,140 @@ async function onRunFailed(client: PoolClient, evt: RunFailedEvent): Promise<voi
 }
 async function onRunCanceled(client: PoolClient, evt: RunCanceledEvent): Promise<void> {
   await terminate(client, evt, 'canceled', null);
+}
+
+export interface RawMastraEvent {
+  type: string;
+  runId: string;
+  data?: Record<string, unknown>;
+}
+
+export function adaptMastraEvent(raw: RawMastraEvent): MastraLifecycleEvent | null {
+  const data = raw.data ?? {};
+  const occurredAt = new Date();
+  const workflowId = typeof data.workflowId === 'string' ? data.workflowId : '';
+  const rc = (data.requestContext ?? {}) as Record<string, unknown>;
+  const tenantId = typeof rc.tenantId === 'string' ? rc.tenantId : '';
+  const startedBy = typeof rc.startedBy === 'string' ? rc.startedBy : '';
+  const startedVia =
+    rc.startedVia === 'chat' || rc.startedVia === 'rerun' ? rc.startedVia : 'event';
+
+  switch (raw.type) {
+    case 'workflow.start': {
+      if (!tenantId || !startedBy || !workflowId) return null;
+      const prevResult = data.prevResult as { output?: unknown } | undefined;
+      return {
+        kind: 'run-started',
+        runId: raw.runId,
+        eventSeq: hashEventSeq(raw.type, raw.runId, ''),
+        workflowId,
+        tenantId,
+        startedBy,
+        startedVia,
+        parentThreadId: typeof rc.parentThreadId === 'string' ? rc.parentThreadId : null,
+        parentRunId: typeof rc.parentRunId === 'string' ? rc.parentRunId : null,
+        sourceEventId: typeof rc.sourceEventId === 'string' ? rc.sourceEventId : null,
+        inputSummary: prevResult?.output ?? {},
+        occurredAt,
+      };
+    }
+    case 'workflow.resume':
+      return {
+        kind: 'run-resumed',
+        runId: raw.runId,
+        eventSeq: hashEventSeq(raw.type, raw.runId, ''),
+        workflowId,
+        tenantId,
+        occurredAt,
+      };
+    case 'workflow.cancel': {
+      const durationMs = typeof data.durationMs === 'number' ? data.durationMs : 0;
+      return {
+        kind: 'run-canceled',
+        runId: raw.runId,
+        eventSeq: hashEventSeq(raw.type, raw.runId, ''),
+        workflowId,
+        tenantId,
+        occurredAt,
+        durationMs,
+      };
+    }
+    case 'workflow.end': {
+      const durationMs = typeof data.durationMs === 'number' ? data.durationMs : 0;
+      const state = data.state as { result?: { output?: unknown } } | undefined;
+      return {
+        kind: 'run-completed',
+        runId: raw.runId,
+        eventSeq: hashEventSeq(raw.type, raw.runId, ''),
+        workflowId,
+        tenantId,
+        occurredAt,
+        durationMs,
+        outcome: 'success',
+        summary: state?.result?.output ?? {},
+      };
+    }
+    case 'workflow.fail': {
+      const durationMs = typeof data.durationMs === 'number' ? data.durationMs : 0;
+      const errSource = (data.error ?? data.errorInfo ?? {}) as { code?: string; message?: string };
+      return {
+        kind: 'run-failed',
+        runId: raw.runId,
+        eventSeq: hashEventSeq(raw.type, raw.runId, ''),
+        workflowId,
+        tenantId,
+        occurredAt,
+        durationMs,
+        error: {
+          code: typeof errSource.code === 'string' ? errSource.code : 'unknown',
+          message: typeof errSource.message === 'string' ? errSource.message : 'workflow failed',
+        },
+      };
+    }
+    case 'workflow.suspend': {
+      const stepId = typeof data.stepId === 'string' ? data.stepId : 'await-approval';
+      const suspendReason =
+        typeof data.suspendReason === 'string' ? data.suspendReason : 'hitl_pending';
+      const proposedPayload = data.proposedPayload ?? {};
+      const approverUserId =
+        typeof data.approverUserId === 'string' ? data.approverUserId : startedBy;
+      const fallbackApproverUserId =
+        typeof data.fallbackApproverUserId === 'string' ? data.fallbackApproverUserId : null;
+      const surfaceCanvas = data.surfaceCanvas === false ? false : true;
+      const surfaceChatThreadId =
+        typeof data.surfaceChatThreadId === 'string' ? data.surfaceChatThreadId : null;
+      const expiresAt =
+        typeof data.expiresAt === 'string'
+          ? new Date(data.expiresAt)
+          : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      if (!approverUserId) return null;
+      return {
+        kind: 'run-suspended',
+        runId: raw.runId,
+        eventSeq: hashEventSeq(raw.type, raw.runId, stepId),
+        workflowId,
+        tenantId,
+        occurredAt,
+        stepId,
+        suspendReason,
+        proposedPayload,
+        approverUserId,
+        fallbackApproverUserId,
+        surfaceCanvas,
+        surfaceChatThreadId,
+        expiresAt,
+      };
+    }
+    default:
+      return null;
+  }
+}
+
+function hashEventSeq(type: string, runId: string, suffix: string): number {
+  const s = `${type}::${runId}::${suffix}`;
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) {
+    h = (h * 33) ^ s.charCodeAt(i);
+  }
+  return Math.abs(h | 0);
 }
