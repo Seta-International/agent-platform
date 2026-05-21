@@ -29,6 +29,12 @@ import { useTaskChecklist } from '../hooks/queries/use-task-checklist';
 import { useTaskEvents } from '../hooks/queries/use-task-events';
 import { useSheetKeyboard } from '../hooks/use-sheet-keyboard';
 import { useSavingIds } from '../state/saving-ids';
+import {
+  priorityLabel,
+  priorityNumber,
+  progressLabel,
+  progressLabelPatch,
+} from '../state/task-derived';
 
 interface Props {
   taskId: string;
@@ -102,7 +108,7 @@ export function TaskSheetContainer({
   function markDone() {
     const t = taskQ.data;
     if (!t || t.deleted_at) return;
-    if (t.progress === 'completed') {
+    if (t.percent_complete >= 100) {
       reopenTask.mutate({ task_id: t.id, expected_version: t.version });
     } else {
       completeTask.mutate({ task_id: t.id, expected_version: t.version });
@@ -193,16 +199,25 @@ export function TaskSheetContainer({
     </>
   );
 
+  const currentStatus = progressLabel({
+    percent_complete: task.percent_complete,
+    is_deferred: task.is_deferred,
+  });
   const properties = (
     <TaskSheetProperties
-      status={task.progress}
+      status={currentStatus}
       onStatusChange={(next) => {
-        if (next === 'completed' && task.progress !== 'completed') {
+        if (next === 'completed' && currentStatus !== 'completed') {
           completeTask.mutate({ task_id: task.id, expected_version: task.version });
-        } else if (next !== 'completed' && task.progress === 'completed') {
+        } else if (next !== 'completed' && currentStatus === 'completed') {
           reopenTask.mutate({ task_id: task.id, expected_version: task.version });
+        } else if (next !== currentStatus) {
+          updateTask.mutate({
+            task_id: task.id,
+            expected_version: task.version,
+            patch: progressLabelPatch(next),
+          });
         }
-        // not_started ↔ in_progress ↔ deferred without complete/reopen has no API yet.
       }}
       bucketId={task.bucket_id}
       bucketOptions={buckets.map((b) => ({ id: b.id, name: b.name }))}
@@ -210,15 +225,15 @@ export function TaskSheetContainer({
         moveTask.mutate({
           task_id: task.id,
           expected_version: task.version,
-          to_bucket_id: next,
+          bucket_id: next,
         })
       }
-      priority={task.priority}
+      priority={priorityLabel(task.priority_number)}
       onPriorityChange={(next) =>
         updateTask.mutate({
           task_id: task.id,
           expected_version: task.version,
-          patch: { priority: next },
+          patch: { priority_number: priorityNumber(next) },
         })
       }
       due={task.due_at}
@@ -324,7 +339,7 @@ export function TaskSheetContainer({
     </>
   );
 
-  const subtitle = `T-${task.id.slice(-4)} · ${task.progress.replace('_', ' ')} · Created ${formatRelative(task.created_at)} ago`;
+  const subtitle = `T-${task.id.slice(-4)} · ${currentStatus.replace('_', ' ')} · Created ${formatRelative(task.created_at)} ago`;
 
   const overflowMenu = (
     <DropdownMenu>
@@ -366,7 +381,7 @@ export function TaskSheetContainer({
       onClose={onClose}
       saving={saving}
       footer={
-        task.progress === 'completed' ? (
+        currentStatus === 'completed' ? (
           <button
             type="button"
             title="Reopen (⌘↵)"

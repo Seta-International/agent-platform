@@ -257,16 +257,18 @@ async function updateBucket(input: {
   })) as BucketRow;
 }
 
-async function reorderBucket(input: {
+async function moveBucket(input: {
+  plan_id: string;
   bucket_id: string;
-  expected_version: number;
-  after_bucket_id?: string;
+  before_id?: string;
+  after_id?: string;
 }): Promise<BucketRow> {
-  return (await request<BucketRow>(`/api/planner/v1/buckets/${input.bucket_id}/reorder`, {
+  return (await request<BucketRow>(`/api/planner/v1/buckets/${input.bucket_id}/move`, {
     method: 'POST',
     body: JSON.stringify({
-      expected_version: input.expected_version,
-      after_bucket_id: input.after_bucket_id,
+      plan_id: input.plan_id,
+      before_id: input.before_id,
+      after_id: input.after_id,
     }),
   })) as BucketRow;
 }
@@ -287,7 +289,11 @@ async function listTasks(
   if (filters.bucket_id) q.set('bucket_id', filters.bucket_id);
   if (filters.assignee_id) q.set('assignee_id', filters.assignee_id);
   if (filters.review_state) q.set('review_state', filters.review_state);
-  if (filters.progress) q.set('progress', filters.progress);
+  if (filters.is_deferred !== undefined) q.set('is_deferred', String(filters.is_deferred));
+  if (filters.percent_complete_lt !== undefined)
+    q.set('percent_complete_lt', String(filters.percent_complete_lt));
+  if (filters.percent_complete_gte !== undefined)
+    q.set('percent_complete_gte', String(filters.percent_complete_gte));
   if (filters.due_before) q.set('due_before', filters.due_before);
   if (filters.skill_tags?.length) q.set('skill_tags', filters.skill_tags.join(','));
   if (filters.include_deleted) q.set('include_deleted', 'true');
@@ -303,14 +309,20 @@ async function listMyAssignedTasks(
     limit?: number;
     cursor?: string;
     review_state?: 'needs_review';
-    progress?: TaskRow['progress'];
+    is_deferred?: boolean;
+    percent_complete_lt?: number;
+    percent_complete_gte?: number;
     due_before?: string;
     include_deleted?: boolean;
   } = {},
 ): Promise<{ tasks: TaskWithAssigneesRow[]; next_cursor?: string }> {
   const q = new URLSearchParams();
   if (filters.review_state) q.set('review_state', filters.review_state);
-  if (filters.progress) q.set('progress', filters.progress);
+  if (filters.is_deferred !== undefined) q.set('is_deferred', String(filters.is_deferred));
+  if (filters.percent_complete_lt !== undefined)
+    q.set('percent_complete_lt', String(filters.percent_complete_lt));
+  if (filters.percent_complete_gte !== undefined)
+    q.set('percent_complete_gte', String(filters.percent_complete_gte));
   if (filters.due_before) q.set('due_before', filters.due_before);
   if (filters.include_deleted) q.set('include_deleted', 'true');
   if (filters.limit) q.set('limit', String(filters.limit));
@@ -331,7 +343,7 @@ async function createTask(input: {
   bucket_id?: string;
   title: string;
   description?: string;
-  priority?: TaskRow['priority'];
+  priority_number?: 1 | 3 | 5 | 9;
   due_at?: string;
   skill_tags?: string[];
   review_state?: 'needs_review';
@@ -346,7 +358,17 @@ async function updateTask(input: {
   task_id: string;
   expected_version: number;
   patch: Partial<
-    Pick<TaskRow, 'title' | 'description' | 'priority' | 'due_at' | 'skill_tags' | 'review_state'>
+    Pick<
+      TaskRow,
+      | 'title'
+      | 'description'
+      | 'priority_number'
+      | 'percent_complete'
+      | 'is_deferred'
+      | 'due_at'
+      | 'skill_tags'
+      | 'review_state'
+    >
   >;
 }): Promise<TaskRow> {
   return (await request<TaskRow>(`/api/planner/v1/tasks/${input.task_id}`, {
@@ -358,15 +380,17 @@ async function updateTask(input: {
 async function moveTask(input: {
   task_id: string;
   expected_version: number;
-  to_bucket_id: string | null;
-  after_task_id?: string;
+  bucket_id?: string | null;
+  before_id?: string;
+  after_id?: string;
 }): Promise<TaskRow> {
   return (await request<TaskRow>(`/api/planner/v1/tasks/${input.task_id}/move`, {
     method: 'POST',
     body: JSON.stringify({
       expected_version: input.expected_version,
-      to_bucket_id: input.to_bucket_id,
-      after_task_id: input.after_task_id,
+      bucket_id: input.bucket_id,
+      before_id: input.before_id,
+      after_id: input.after_id,
     }),
   })) as TaskRow;
 }
@@ -539,7 +563,7 @@ export const plannerClient = {
   listBuckets,
   createBucket,
   updateBucket,
-  reorderBucket,
+  moveBucket,
   deleteBucket,
   listTasks,
   listMyAssignedTasks,

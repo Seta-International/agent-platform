@@ -16,6 +16,12 @@ import { useBulkActions } from '../hooks/use-bulk-actions';
 import { useFilterOptions } from '../hooks/use-filter-options';
 import { useGridColumnPrefs } from '../hooks/use-grid-column-prefs';
 import { useSelectedTaskIds } from '../state/selected-task-ids';
+import {
+  type PriorityLabel,
+  priorityLabel,
+  priorityNumber,
+  progressLabel,
+} from '../state/task-derived';
 import type { BoardFilters, GroupBy } from '../state/url-state';
 
 interface Props {
@@ -84,10 +90,13 @@ export function PlanGridPage({
         {
           id: t.id,
           title: t.title,
-          status: t.progress,
+          status: progressLabel({
+            percent_complete: t.percent_complete,
+            is_deferred: t.is_deferred,
+          }),
           bucket: bucketById.get(t.bucket_id ?? '')?.name ?? 'No bucket',
           bucket_id: t.bucket_id,
-          priority: t.priority,
+          priority: priorityLabel(t.priority_number),
           assignees: t.assignees.map((a) => ({ id: a.user_id, name: a.display_name })),
           due: t.due_at,
           labels: t.labels.map((l) => ({ id: l.id, name: l.name })),
@@ -127,24 +136,30 @@ export function PlanGridPage({
     const expected_version = task.version;
 
     if (patch.bucket_id !== undefined) {
-      moveTask.mutate({ task_id: taskId, expected_version, to_bucket_id: patch.bucket_id });
+      moveTask.mutate({ task_id: taskId, expected_version, bucket_id: patch.bucket_id });
       return;
     }
+    const currentStatus = progressLabel({
+      percent_complete: task.percent_complete,
+      is_deferred: task.is_deferred,
+    });
     if (patch.status !== undefined) {
-      if (patch.status === 'completed' && task.progress !== 'completed') {
+      if (patch.status === 'completed' && currentStatus !== 'completed') {
         completeTask.mutate({ task_id: taskId, expected_version });
-      } else if (patch.status !== 'completed' && task.progress === 'completed') {
+      } else if (patch.status !== 'completed' && currentStatus === 'completed') {
         reopenTask.mutate({ task_id: taskId, expected_version });
       }
       return;
     }
     const apiPatch: Partial<{
       title: string;
-      priority: 'urgent' | 'important' | 'medium' | 'low';
+      priority_number: 1 | 3 | 5 | 9;
       due_at: string | undefined;
     }> = {};
     if (patch.title !== undefined) apiPatch.title = patch.title;
-    if (patch.priority !== undefined) apiPatch.priority = patch.priority;
+    if (patch.priority !== undefined) {
+      apiPatch.priority_number = priorityNumber(patch.priority as PriorityLabel);
+    }
     if (patch.due !== undefined) apiPatch.due_at = patch.due ?? undefined;
     if (Object.keys(apiPatch).length === 0) return;
     updateTask.mutate({ task_id: taskId, expected_version, patch: apiPatch });

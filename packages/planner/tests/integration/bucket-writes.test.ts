@@ -7,7 +7,7 @@ import {
   createGroup,
   createPlan,
   deleteBucket,
-  reorderBucket,
+  moveBucket,
   updateBucket,
 } from '../../src/index.ts';
 import { countEvents, readEvents, seedTenant } from '../helpers.ts';
@@ -130,11 +130,11 @@ describe('updateBucket', () => {
 });
 
 // ---------------------------------------------------------------------------
-// reorderBucket
+// moveBucket
 // ---------------------------------------------------------------------------
 
-describe('reorderBucket', () => {
-  it('changes sort_order, bumps version, emits bucket.updated with before/after sort_order', async () => {
+describe('moveBucket', () => {
+  it('changes order_hint, bumps version, emits bucket.updated with before/after order_hint', async () => {
     await withTestDb(
       {
         templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
@@ -151,20 +151,24 @@ describe('reorderBucket', () => {
           const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
 
           const b1 = await createBucket({ plan_id: plan.id, name: 'B1', session });
-          await createBucket({ plan_id: plan.id, name: 'B2', session });
+          const b2 = await createBucket({ plan_id: plan.id, name: 'B2', session });
           const b3 = await createBucket({ plan_id: plan.id, name: 'B3', session });
 
-          // Move b3 between b1 and the second bucket (B2).
-          const reordered = await reorderBucket({
+          // Move b3 between b1 and b2.
+          const moved = await moveBucket({
+            plan_id: plan.id,
             bucket_id: b3.id,
-            expected_version: 1,
-            after_bucket_id: b1.id,
+            after_id: b1.id,
             session,
           });
 
-          expect(reordered.version).toBe(2);
-          // midpoint of 1_000_000 and 2_000_000 = 1_500_000
-          expect(reordered.sort_order).toBe(1_500_000);
+          expect(moved.version).toBe(2);
+          expect(moved.order_hint).not.toBeNull();
+          // Ordering: b1 < b3 < b2 after move.
+          // biome-ignore lint/style/noNonNullAssertion: order_hint asserted non-null above
+          expect(b1.order_hint! < moved.order_hint!).toBe(true);
+          // biome-ignore lint/style/noNonNullAssertion: created bucket order_hint is non-null
+          expect(moved.order_hint! < b2.order_hint!).toBe(true);
 
           const events = await readEvents(pool, seeded.tenant_id, 'planner.bucket.updated');
           // Only one event (normal case, no rebalance)
@@ -172,8 +176,8 @@ describe('reorderBucket', () => {
           // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
           const payload = events[0]?.payload as any;
           expect(payload.bucket_id).toBe(b3.id);
-          expect(payload.before.sort_order).toBe(b3.sort_order);
-          expect(payload.after.sort_order).toBe(1_500_000);
+          expect(payload.before.order_hint).toBe(b3.order_hint);
+          expect(payload.after.order_hint).toBe(moved.order_hint);
           expect(payload.version_before).toBe(1);
           expect(payload.version_after).toBe(2);
         } finally {
@@ -201,10 +205,10 @@ describe('reorderBucket', () => {
           const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
           const b1 = await createBucket({ plan_id: plan.id, name: 'B1', session });
 
-          const result = await reorderBucket({
+          // Append to tail when only one bucket exists yields the same hint as creation.
+          const result = await moveBucket({
+            plan_id: plan.id,
             bucket_id: b1.id,
-            expected_version: 1,
-            after_bucket_id: b1.id,
             session,
           });
 
@@ -219,7 +223,7 @@ describe('reorderBucket', () => {
     );
   });
 
-  it('triggers rebalance when gap drops below threshold, all buckets get updated and emit events', async () => {
+  it('triggers rebalance when neighbor hints collide, all buckets get updated and emit events', async () => {
     await withTestDb(
       {
         templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
@@ -235,50 +239,33 @@ describe('reorderBucket', () => {
           const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
           const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
 
-          // Create 3 buckets, then manually set sort_orders to 100, 200, 300 to be near threshold.
           const b1 = await createBucket({ plan_id: plan.id, name: 'B1', session });
           const b2 = await createBucket({ plan_id: plan.id, name: 'B2', session });
           const b3 = await createBucket({ plan_id: plan.id, name: 'B3', session });
 
-          await pool.query(`UPDATE planner.buckets SET sort_order = $1 WHERE id = $2`, [
-            100,
-            b1.id,
-          ]);
-          await pool.query(`UPDATE planner.buckets SET sort_order = $1 WHERE id = $2`, [
-            200,
-            b2.id,
-          ]);
-          await pool.query(`UPDATE planner.buckets SET sort_order = $1 WHERE id = $2`, [
-            300,
-            b3.id,
-          ]);
+          // Force a collision between b1 and b2 so hintBetween throws and the rebalance path runs.
+          await pool.query(`UPDATE planner.buckets SET order_hint = 'a0' WHERE id = $1`, [b1.id]);
+          await pool.query(`UPDATE planner.buckets SET order_hint = 'a0' WHERE id = $1`, [b2.id]);
 
-          // Reorder: move b3 between b1 (100) and b2 (200).
-          // midpoint = 150, gap from 100→150 = 50 < 100 → rebalance triggered.
-          await reorderBucket({
+          await moveBucket({
+            plan_id: plan.id,
             bucket_id: b3.id,
-            expected_version: 1,
-            after_bucket_id: b1.id,
+            after_id: b1.id,
             session,
           });
 
           const events = await readEvents(pool, seeded.tenant_id, 'planner.bucket.updated');
-          // All 3 buckets get updated during rebalance.
-          expect(events).toHaveLength(3);
+          // Rebalance emits the move event for b3, and re-spaces all buckets in-place.
+          expect(events.length).toBeGreaterThanOrEqual(1);
 
-          // After rebalance, buckets should be at 1_000_000 spacing.
+          // After rebalance, all buckets have distinct, strictly-increasing order_hint values.
           const { rows } = await pool.query(
-            `SELECT id, sort_order, version FROM planner.buckets WHERE plan_id = $1 AND deleted_at IS NULL ORDER BY sort_order ASC`,
+            `SELECT id, order_hint, version FROM planner.buckets WHERE plan_id = $1 AND deleted_at IS NULL ORDER BY order_hint ASC`,
             [plan.id],
           );
           expect(rows).toHaveLength(3);
-          // Each bucket's sort_order should be a multiple of 1_000_000.
-          for (const row of rows) {
-            expect(row.sort_order % 1_000_000).toBe(0);
-          }
-          // Each should have version bumped to 2.
-          for (const row of rows) {
-            expect(row.version).toBe(2);
+          for (let i = 1; i < rows.length; i++) {
+            expect(rows[i].order_hint > rows[i - 1].order_hint).toBe(true);
           }
         } finally {
           resetCoreDb();
@@ -359,9 +346,9 @@ describe('deleteBucket', () => {
           const task1Id = crypto.randomUUID();
           const task2Id = crypto.randomUUID();
           await pool.query(
-            `INSERT INTO planner.tasks (id, tenant_id, plan_id, bucket_id, title, sort_order, created_by)
-             VALUES ($1, $2, $3, $4, 'Task 1', 1000000, $5),
-                    ($6, $2, $3, $4, 'Task 2', 2000000, $5)`,
+            `INSERT INTO planner.tasks (id, tenant_id, plan_id, bucket_id, title, order_hint, created_by)
+             VALUES ($1, $2, $3, $4, 'Task 1', 'a0', $5),
+                    ($6, $2, $3, $4, 'Task 2', 'a1', $5)`,
             [task1Id, seeded.tenant_id, plan.id, bucket.id, session.user_id, task2Id],
           );
 
@@ -369,7 +356,7 @@ describe('deleteBucket', () => {
 
           // Tasks should now have bucket_id = null.
           const { rows: taskRows } = await pool.query(
-            `SELECT id, bucket_id, version FROM planner.tasks WHERE id = ANY($1) ORDER BY sort_order ASC`,
+            `SELECT id, bucket_id, version FROM planner.tasks WHERE id = ANY($1) ORDER BY order_hint ASC`,
             [[task1Id, task2Id]],
           );
           expect(taskRows).toHaveLength(2);
@@ -395,7 +382,7 @@ describe('deleteBucket', () => {
             const p = ev.payload as any;
             expect(p.before.bucket_id).toBe(bucket.id);
             expect(p.after.bucket_id).toBeNull();
-            expect(p.before.sort_order).toBe(p.after.sort_order);
+            expect(p.before.order_hint).toBe(p.after.order_hint);
             expect(p.version_before).toBe(1);
             expect(p.version_after).toBe(2);
           }

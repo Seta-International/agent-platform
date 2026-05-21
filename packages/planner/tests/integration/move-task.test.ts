@@ -36,7 +36,7 @@ describe('moveTask', () => {
           const moved = await moveTask({
             task_id: task.id,
             expected_version: 1,
-            to_bucket_id: bucketB.id,
+            bucket_id: bucketB.id,
             session,
           });
 
@@ -64,7 +64,7 @@ describe('moveTask', () => {
     );
   });
 
-  it('reorders within same bucket (bucket_id unchanged, only sort_order changes)', async () => {
+  it('reorders within same bucket (bucket_id unchanged, only order_hint changes)', async () => {
     await withTestDb(
       {
         templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
@@ -97,13 +97,15 @@ describe('moveTask', () => {
           const moved = await moveTask({
             task_id: taskB.id,
             expected_version: 1,
-            to_bucket_id: bucket.id,
-            after_task_id: undefined,
+            bucket_id: bucket.id,
+            before_id: taskA.id,
             session,
           });
 
           expect(moved.bucket_id).toBe(bucket.id);
-          expect(moved.sort_order).toBeLessThan(taskA.sort_order);
+          expect(moved.order_hint).not.toBeNull();
+          // biome-ignore lint/style/noNonNullAssertion: asserted non-null above
+          expect(moved.order_hint! < taskA.order_hint!).toBe(true);
           expect(moved.version).toBe(2);
 
           const events = await readEvents(pool, seeded.tenant_id, 'planner.task.moved');
@@ -124,7 +126,7 @@ describe('moveTask', () => {
     );
   });
 
-  it('moves task to no-bucket (to_bucket_id = null)', async () => {
+  it('moves task to no-bucket (bucket_id = null)', async () => {
     await withTestDb(
       {
         templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
@@ -150,7 +152,7 @@ describe('moveTask', () => {
           const moved = await moveTask({
             task_id: task.id,
             expected_version: 1,
-            to_bucket_id: null,
+            bucket_id: null,
             session,
           });
 
@@ -171,7 +173,7 @@ describe('moveTask', () => {
     );
   });
 
-  it('throws VALIDATION when to_bucket_id belongs to a different plan', async () => {
+  it('throws VALIDATION when bucket_id belongs to a different plan', async () => {
     await withTestDb(
       {
         templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
@@ -200,7 +202,7 @@ describe('moveTask', () => {
             moveTask({
               task_id: task.id,
               expected_version: 1,
-              to_bucket_id: bucket2.id,
+              bucket_id: bucket2.id,
               session,
             }),
           ).rejects.toMatchObject({ code: 'VALIDATION' });
@@ -212,7 +214,7 @@ describe('moveTask', () => {
     );
   });
 
-  it('throws VALIDATION when to_bucket_id is soft-deleted', async () => {
+  it('throws VALIDATION when bucket_id is soft-deleted', async () => {
     await withTestDb(
       {
         templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
@@ -245,7 +247,7 @@ describe('moveTask', () => {
             moveTask({
               task_id: task.id,
               expected_version: 1,
-              to_bucket_id: bucketB.id,
+              bucket_id: bucketB.id,
               session,
             }),
           ).rejects.toMatchObject({ code: 'VALIDATION' });
@@ -279,7 +281,7 @@ describe('moveTask', () => {
             moveTask({
               task_id: task.id,
               expected_version: 99,
-              to_bucket_id: bucketB.id,
+              bucket_id: bucketB.id,
               session,
             }),
           ).rejects.toMatchObject({ code: 'CONFLICT' });
@@ -309,7 +311,7 @@ describe('moveTask', () => {
           const bucketA = await createBucket({ plan_id: plan.id, name: 'Bucket A', session });
           const bucketB = await createBucket({ plan_id: plan.id, name: 'Bucket B', session });
 
-          // Create two tasks in bucketB with very tight sort_orders.
+          // Create two tasks in bucketB with colliding order_hints.
           const task1 = await createTask({
             plan_id: plan.id,
             bucket_id: bucketB.id,
@@ -323,9 +325,10 @@ describe('moveTask', () => {
             session,
           });
 
-          // Manually set adjacent tasks to nearly-colliding sort_orders (gap < REBALANCE_THRESHOLD=100).
-          await pool.query(`UPDATE planner.tasks SET sort_order = 1000 WHERE id = $1`, [task1.id]);
-          await pool.query(`UPDATE planner.tasks SET sort_order = 1050 WHERE id = $1`, [task2.id]);
+          // Force a collision: set both adjacent tasks to the same order_hint so
+          // hintBetween throws and the rebalance branch runs.
+          await pool.query(`UPDATE planner.tasks SET order_hint = 'a0' WHERE id = $1`, [task1.id]);
+          await pool.query(`UPDATE planner.tasks SET order_hint = 'a0' WHERE id = $1`, [task2.id]);
 
           // Create task in bucketA to move to bucketB between the tight tasks.
           const taskToMove = await createTask({
@@ -339,21 +342,20 @@ describe('moveTask', () => {
           const moved = await moveTask({
             task_id: taskToMove.id,
             expected_version: 1,
-            to_bucket_id: bucketB.id,
-            after_task_id: task1.id,
+            bucket_id: bucketB.id,
+            after_id: task1.id,
             session,
           });
 
           expect(moved.bucket_id).toBe(bucketB.id);
 
-          // All tasks in bucketB should now have 1M-spaced sort_orders.
+          // After rebalance, all tasks in bucketB have distinct, strictly-increasing order_hints.
           const { rows } = await pool.query(
-            `SELECT sort_order FROM planner.tasks WHERE bucket_id = $1 AND deleted_at IS NULL ORDER BY sort_order`,
+            `SELECT order_hint FROM planner.tasks WHERE bucket_id = $1 AND deleted_at IS NULL ORDER BY order_hint`,
             [bucketB.id],
           );
-          for (let i = 0; i < rows.length - 1; i++) {
-            const gap = rows[i + 1].sort_order - rows[i].sort_order;
-            expect(gap).toBeGreaterThanOrEqual(100);
+          for (let i = 1; i < rows.length; i++) {
+            expect(rows[i].order_hint > rows[i - 1].order_hint).toBe(true);
           }
 
           // Multiple planner.task.moved events should have been emitted (one per rebalanced task).

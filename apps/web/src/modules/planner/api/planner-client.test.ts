@@ -53,7 +53,7 @@ describe('plannerClient', () => {
     });
   });
 
-  it('moveTask sends to_bucket_id (nullable) + after_task_id', async () => {
+  it('moveTask sends bucket_id (nullable) + after_id', async () => {
     let captured: unknown;
     server.use(
       http.post('*/api/planner/v1/tasks/t1/move', async ({ request }) => {
@@ -65,12 +65,20 @@ describe('plannerClient', () => {
           bucket_id: 'b2',
           title: 'x',
           description: null,
-          priority: 'medium',
-          progress: 'not_started',
+          priority_number: 5,
+          percent_complete: 0,
+          is_deferred: false,
+          preview_type: 'automatic',
           review_state: null,
           skill_tags: [],
+          start_at: null,
           due_at: null,
-          sort_order: 1,
+          order_hint: 'a',
+          assignee_priority: null,
+          external_source: 'native',
+          external_id: null,
+          external_etag: null,
+          external_synced_at: null,
           created_by: 'u',
           created_at: '',
           updated_at: '',
@@ -82,13 +90,13 @@ describe('plannerClient', () => {
     await plannerClient.moveTask({
       task_id: 't1',
       expected_version: 1,
-      to_bucket_id: 'b2',
-      after_task_id: 't0',
+      bucket_id: 'b2',
+      after_id: 't0',
     });
     expect(captured).toEqual({
       expected_version: 1,
-      to_bucket_id: 'b2',
-      after_task_id: 't0',
+      bucket_id: 'b2',
+      after_id: 't0',
     });
   });
 

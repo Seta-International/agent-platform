@@ -567,7 +567,7 @@ describe('getPlan', () => {
 // ---------------------------------------------------------------------------
 
 describe('listBuckets', () => {
-  it('returns buckets ordered by sort_order', async () => {
+  it('returns buckets ordered by order_hint', async () => {
     await withTestDb(
       {
         templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
@@ -590,8 +590,11 @@ describe('listBuckets', () => {
 
           const buckets = await listBuckets({ plan_id: plan.id, session });
           expect(buckets).toHaveLength(2);
-          // First bucket inserted has lower sort_order
-          expect(buckets[0]?.sort_order).toBeLessThan(buckets[1]?.sort_order ?? Number.MAX_VALUE);
+          // First bucket inserted has a lower order_hint than the second.
+          expect(buckets[0]?.order_hint).not.toBeNull();
+          expect(buckets[1]?.order_hint).not.toBeNull();
+          // biome-ignore lint/style/noNonNullAssertion: asserted non-null above
+          expect(buckets[0]!.order_hint! < buckets[1]!.order_hint!).toBe(true);
         } finally {
           resetCoreDb();
           await closePools();
@@ -674,7 +677,7 @@ describe('listBuckets', () => {
 // ---------------------------------------------------------------------------
 
 describe('listChecklistItems', () => {
-  it('returns checklist items ordered by sort_order', async () => {
+  it('returns checklist items ordered by order_hint', async () => {
     await withTestDb(
       {
         templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
@@ -700,7 +703,10 @@ describe('listChecklistItems', () => {
           expect(items).toHaveLength(2);
           expect(items[0]?.label).toBe('Step 1');
           expect(items[1]?.label).toBe('Step 2');
-          expect(items[0]?.sort_order).toBeLessThan(items[1]?.sort_order ?? Number.MAX_VALUE);
+          expect(items[0]?.order_hint).not.toBeNull();
+          expect(items[1]?.order_hint).not.toBeNull();
+          // biome-ignore lint/style/noNonNullAssertion: asserted non-null above
+          expect(items[0]!.order_hint! < items[1]!.order_hint!).toBe(true);
         } finally {
           resetCoreDb();
           await closePools();

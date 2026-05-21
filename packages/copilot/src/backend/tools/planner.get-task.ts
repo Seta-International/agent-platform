@@ -21,11 +21,14 @@ export const plannerGetTaskTool = registerToolPermission(
         title: z.string(),
         description: z.string().nullable(),
         priority: z.enum(['urgent', 'important', 'medium', 'low']),
+        priorityNumber: z.union([z.literal(1), z.literal(3), z.literal(5), z.literal(9)]),
         progress: z.enum(['not_started', 'in_progress', 'completed', 'deferred']),
+        percentComplete: z.number(),
+        isDeferred: z.boolean(),
         reviewState: z.enum(['needs_review']).nullable(),
         skillTags: z.array(z.string()),
         dueAt: z.string().nullable(),
-        sortOrder: z.number(),
+        orderHint: z.string().nullable(),
         createdBy: z.string(),
         createdAt: z.string(),
         updatedAt: z.string(),
@@ -73,6 +76,17 @@ export const plannerGetTaskTool = registerToolPermission(
         session,
       });
 
+      const priorityLabel = ({ 1: 'urgent', 3: 'important', 5: 'medium', 9: 'low' } as const)[
+        taskRow.priority_number
+      ];
+      const progress: 'not_started' | 'in_progress' | 'completed' | 'deferred' = taskRow.is_deferred
+        ? 'deferred'
+        : taskRow.percent_complete >= 100
+          ? 'completed'
+          : taskRow.percent_complete > 0
+            ? 'in_progress'
+            : 'not_started';
+
       return {
         task: {
           taskId: taskRow.id,
@@ -82,12 +96,15 @@ export const plannerGetTaskTool = registerToolPermission(
           bucketId: taskRow.bucket_id,
           title: taskRow.title,
           description: taskRow.description,
-          priority: taskRow.priority,
-          progress: taskRow.progress,
+          priority: priorityLabel,
+          priorityNumber: taskRow.priority_number,
+          progress,
+          percentComplete: taskRow.percent_complete,
+          isDeferred: taskRow.is_deferred,
           reviewState: taskRow.review_state,
           skillTags: taskRow.skill_tags,
           dueAt: taskRow.due_at,
-          sortOrder: taskRow.sort_order,
+          orderHint: taskRow.order_hint,
           createdBy: taskRow.created_by,
           createdAt: taskRow.created_at,
           updatedAt: taskRow.updated_at,

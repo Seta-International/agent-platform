@@ -12,7 +12,7 @@ import {
 } from '@seta/planner';
 import { sql } from 'drizzle-orm';
 import pino from 'pino';
-import { mapPriority, mapStatus, parseCsvs, splitIds } from './lib/csv-parser.ts';
+import { mapPriorityNumber, mapStatusFields, parseCsvs, splitIds } from './lib/csv-parser.ts';
 import { resolveTenantId, UUID_RE } from './lib/tenant-resolve.ts';
 
 const log = pino({ name: 'cli/import-csv' });
@@ -230,12 +230,14 @@ export async function importCsvCommand(opts: ImportCsvOpts): Promise<void> {
     const bucketId = bucketMap.get(row.bucket_id) ?? undefined;
     const skill_tags = splitIds(row.tags);
 
+    const statusFields = mapStatusFields(row.status);
     const task = await createTask({
       plan_id: planId,
       bucket_id: bucketId,
       title: row.title || 'Untitled',
-      priority: mapPriority(row.priority),
-      progress: mapStatus(row.status),
+      priority_number: mapPriorityNumber(row.priority),
+      percent_complete: statusFields.percent_complete,
+      is_deferred: statusFields.is_deferred,
       due_at: row.due_date || undefined,
       skill_tags: skill_tags.length > 0 ? skill_tags : undefined,
       session,

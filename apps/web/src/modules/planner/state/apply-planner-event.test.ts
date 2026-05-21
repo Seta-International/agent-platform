@@ -26,7 +26,11 @@ function makeBucket(over: Partial<BucketRow> = {}): BucketRow {
     tenant_id: 't',
     plan_id: 'p1',
     name: 'Todo',
-    sort_order: 1,
+    order_hint: 'a',
+    external_source: 'native',
+    external_id: null,
+    external_etag: null,
+    external_synced_at: null,
     created_at: '2026-05-01T00:00:00Z',
     updated_at: '2026-05-01T00:00:00Z',
     deleted_at: null,
@@ -66,10 +70,10 @@ describe('applyPlannerEvent', () => {
   });
 
   describe('planner.task.moved', () => {
-    it('patches bucket_id, sort_order, version without invalidating', () => {
+    it('patches bucket_id, order_hint, version without invalidating', () => {
       qc.setQueryData<TaskWithAssigneesRow[]>(tasksKey, [
-        makeTaskWithAssignees({ id: 't1', bucket_id: 'b1', sort_order: 1, version: 3 }),
-        makeTaskWithAssignees({ id: 't2', bucket_id: 'b1', sort_order: 2, version: 1 }),
+        makeTaskWithAssignees({ id: 't1', bucket_id: 'b1', order_hint: 'a', version: 3 }),
+        makeTaskWithAssignees({ id: 't2', bucket_id: 'b1', order_hint: 'b', version: 1 }),
       ]);
       const spy = vi.spyOn(qc, 'invalidateQueries');
 
@@ -83,8 +87,8 @@ describe('applyPlannerEvent', () => {
             task_id: 't1',
             plan_id: PLAN,
             group_id: 'g1',
-            before: { bucket_id: 'b1', sort_order: 1 },
-            after: { bucket_id: 'b2', sort_order: 5 },
+            before: { bucket_id: 'b1', order_hint: 'a' },
+            after: { bucket_id: 'b2', order_hint: 'm' },
             version_before: 3,
             version_after: 4,
           },
@@ -92,8 +96,8 @@ describe('applyPlannerEvent', () => {
       );
 
       const after = qc.getQueryData<TaskWithAssigneesRow[]>(tasksKey)!;
-      expect(after[0]).toMatchObject({ id: 't1', bucket_id: 'b2', sort_order: 5, version: 4 });
-      expect(after[1]).toMatchObject({ id: 't2', bucket_id: 'b1', sort_order: 2 });
+      expect(after[0]).toMatchObject({ id: 't1', bucket_id: 'b2', order_hint: 'm', version: 4 });
+      expect(after[1]).toMatchObject({ id: 't2', bucket_id: 'b1', order_hint: 'b' });
       expect(spy).not.toHaveBeenCalled();
     });
   });
@@ -118,11 +122,13 @@ describe('applyPlannerEvent', () => {
               bucket_id: 'b1',
               title: 'New',
               description: null,
-              priority: 'medium',
+              priority_number: 5,
+              percent_complete: 0,
+              is_deferred: false,
               due_at: null,
               skill_tags: [],
               review_state: null,
-              sort_order: 10,
+              order_hint: 'a',
               created_by: 'u',
             },
           },
@@ -136,9 +142,10 @@ describe('applyPlannerEvent', () => {
         plan_id: PLAN,
         bucket_id: 'b1',
         title: 'New',
-        priority: 'medium',
-        progress: 'not_started',
-        sort_order: 10,
+        priority_number: 5,
+        percent_complete: 0,
+        is_deferred: false,
+        order_hint: 'a',
         version: 1,
         assignees: [],
         labels: [],
@@ -162,11 +169,13 @@ describe('applyPlannerEvent', () => {
             bucket_id: 'b1',
             title: 'New',
             description: null,
-            priority: 'medium',
+            priority_number: 5,
+            percent_complete: 0,
+            is_deferred: false,
             due_at: null,
             skill_tags: [],
             review_state: null,
-            sort_order: 10,
+            order_hint: 'a',
             created_by: 'u',
           },
         },
@@ -180,7 +189,7 @@ describe('applyPlannerEvent', () => {
   describe('planner.task.updated', () => {
     it('merges after-patch into the matching task and bumps version', () => {
       qc.setQueryData<TaskWithAssigneesRow[]>(tasksKey, [
-        makeTaskWithAssignees({ id: 't1', title: 'Old', priority: 'low', version: 1 }),
+        makeTaskWithAssignees({ id: 't1', title: 'Old', priority_number: 9, version: 1 }),
       ]);
       const spy = vi.spyOn(qc, 'invalidateQueries');
 
@@ -193,15 +202,15 @@ describe('applyPlannerEvent', () => {
           payload: {
             task_id: 't1',
             plan_id: PLAN,
-            before: { title: 'Old', priority: 'low' },
-            after: { title: 'New', priority: 'urgent' },
+            before: { title: 'Old', priority_number: 9 },
+            after: { title: 'New', priority_number: 1 },
             version_after: 2,
           },
         }),
       );
 
       const after = qc.getQueryData<TaskWithAssigneesRow[]>(tasksKey)!;
-      expect(after[0]).toMatchObject({ id: 't1', title: 'New', priority: 'urgent', version: 2 });
+      expect(after[0]).toMatchObject({ id: 't1', title: 'New', priority_number: 1, version: 2 });
       expect(spy).not.toHaveBeenCalled();
     });
   });
@@ -332,9 +341,9 @@ describe('applyPlannerEvent', () => {
   });
 
   describe('planner.task.completed / reopened', () => {
-    it('completed sets progress=completed and bumps version', () => {
+    it('completed sets percent_complete=100 and bumps version', () => {
       qc.setQueryData<TaskWithAssigneesRow[]>(tasksKey, [
-        makeTaskWithAssignees({ id: 't1', progress: 'in_progress', version: 1 }),
+        makeTaskWithAssignees({ id: 't1', percent_complete: 50, version: 1 }),
       ]);
 
       applyPlannerEvent(
@@ -353,12 +362,12 @@ describe('applyPlannerEvent', () => {
       );
 
       const after = qc.getQueryData<TaskWithAssigneesRow[]>(tasksKey)!;
-      expect(after[0]).toMatchObject({ progress: 'completed', version: 2 });
+      expect(after[0]).toMatchObject({ percent_complete: 100, is_deferred: false, version: 2 });
     });
 
-    it('reopened sets progress=not_started and bumps version', () => {
+    it('reopened sets percent_complete=0 and bumps version', () => {
       qc.setQueryData<TaskWithAssigneesRow[]>(tasksKey, [
-        makeTaskWithAssignees({ id: 't1', progress: 'completed', version: 2 }),
+        makeTaskWithAssignees({ id: 't1', percent_complete: 100, version: 2 }),
       ]);
 
       applyPlannerEvent(
@@ -372,13 +381,13 @@ describe('applyPlannerEvent', () => {
       );
 
       const after = qc.getQueryData<TaskWithAssigneesRow[]>(tasksKey)!;
-      expect(after[0]).toMatchObject({ progress: 'not_started', version: 3 });
+      expect(after[0]).toMatchObject({ percent_complete: 0, is_deferred: false, version: 3 });
     });
   });
 
   describe('planner.bucket.created', () => {
     it('appends a bucket to the buckets cache', () => {
-      qc.setQueryData<BucketRow[]>(bucketsKey, [makeBucket({ id: 'b1', sort_order: 1 })]);
+      qc.setQueryData<BucketRow[]>(bucketsKey, [makeBucket({ id: 'b1', order_hint: 'a' })]);
       const spy = vi.spyOn(qc, 'invalidateQueries');
 
       applyPlannerEvent(
@@ -394,7 +403,7 @@ describe('applyPlannerEvent', () => {
               plan_id: PLAN,
               group_id: 'g1',
               name: 'Doing',
-              sort_order: 2,
+              order_hint: 'b',
             },
           },
         }),
@@ -402,7 +411,7 @@ describe('applyPlannerEvent', () => {
 
       const after = qc.getQueryData<BucketRow[]>(bucketsKey)!;
       expect(after.map((b) => b.id)).toEqual(['b1', 'b2']);
-      expect(after[1]).toMatchObject({ id: 'b2', name: 'Doing', sort_order: 2, version: 1 });
+      expect(after[1]).toMatchObject({ id: 'b2', name: 'Doing', order_hint: 'b', version: 1 });
       expect(spy).not.toHaveBeenCalled();
     });
   });
@@ -410,7 +419,7 @@ describe('applyPlannerEvent', () => {
   describe('planner.bucket.updated', () => {
     it('merges after-patch into the matching bucket and bumps version', () => {
       qc.setQueryData<BucketRow[]>(bucketsKey, [
-        makeBucket({ id: 'b1', name: 'Old', sort_order: 1, version: 1 }),
+        makeBucket({ id: 'b1', name: 'Old', order_hint: 'a', version: 1 }),
       ]);
 
       applyPlannerEvent(
@@ -423,14 +432,14 @@ describe('applyPlannerEvent', () => {
             bucket_id: 'b1',
             plan_id: PLAN,
             before: { name: 'Old' },
-            after: { name: 'New', sort_order: 5 },
+            after: { name: 'New', order_hint: 'm' },
             version_after: 2,
           },
         }),
       );
 
       const after = qc.getQueryData<BucketRow[]>(bucketsKey)!;
-      expect(after[0]).toMatchObject({ id: 'b1', name: 'New', sort_order: 5, version: 2 });
+      expect(after[0]).toMatchObject({ id: 'b1', name: 'New', order_hint: 'm', version: 2 });
     });
   });
 

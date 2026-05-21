@@ -26,6 +26,9 @@ function asString(v: unknown): string | undefined {
 function asNumber(v: unknown): number | undefined {
   return typeof v === 'number' ? v : undefined;
 }
+function asBoolean(v: unknown): boolean | undefined {
+  return typeof v === 'boolean' ? v : undefined;
+}
 
 function payloadField(p: Record<string, unknown>, field: string): string | undefined {
   return asString(p[field]);
@@ -80,7 +83,11 @@ export function applyPlannerEvent(qc: QueryClient, event: StreamEvent): void {
           tenant_id: event.tenantId,
           plan_id: afterPlan,
           name: asString(after.name) ?? '',
-          sort_order: asNumber(after.sort_order) ?? 0,
+          order_hint: asString(after.order_hint) ?? null,
+          external_source: 'native',
+          external_id: null,
+          external_etag: null,
+          external_synced_at: null,
           created_at: now,
           updated_at: now,
           deleted_at: null,
@@ -101,11 +108,12 @@ export function applyPlannerEvent(qc: QueryClient, event: StreamEvent): void {
         return prev.map((b) => {
           if (b.id !== bucketId) return b;
           const name = asString(after.name);
-          const sortOrder = asNumber(after.sort_order);
+          const orderHint =
+            'order_hint' in after ? (asString(after.order_hint) ?? null) : undefined;
           return {
             ...b,
             ...(name !== undefined ? { name } : {}),
-            ...(sortOrder !== undefined ? { sort_order: sortOrder } : {}),
+            ...(orderHint !== undefined ? { order_hint: orderHint } : {}),
             ...(versionAfter !== undefined ? { version: versionAfter } : {}),
           };
         });
@@ -119,7 +127,7 @@ export function applyPlannerEvent(qc: QueryClient, event: StreamEvent): void {
       qc.setQueryData<BucketRow[]>(bucketsKey(planId), (prev) =>
         prev ? prev.filter((b) => b.id !== bucketId) : prev,
       );
-      // Deletion server-side reflows sort_order on the affected tasks; safest to refetch the list.
+      // Deletion server-side reflows order_hint on the affected tasks; safest to refetch the list.
       qc.invalidateQueries({ queryKey: tasksKey(planId) });
       return;
     }
@@ -133,6 +141,7 @@ export function applyPlannerEvent(qc: QueryClient, event: StreamEvent): void {
         if (!prev) return prev;
         if (prev.some((t) => t.id === id)) return prev;
         const now = new Date().toISOString();
+        const priorityNumber = asNumber(after.priority_number);
         const fresh: TaskWithAssigneesRow = {
           id,
           tenant_id: event.tenantId,
@@ -140,14 +149,27 @@ export function applyPlannerEvent(qc: QueryClient, event: StreamEvent): void {
           bucket_id: asString(after.bucket_id) ?? null,
           title: asString(after.title) ?? '',
           description: asString(after.description) ?? null,
-          // Why: payload `priority` is the union literal, but we read it through unknown.
-          priority: (asString(after.priority) as TaskWithAssigneesRow['priority']) ?? 'medium',
-          progress: 'not_started',
+          priority_number: (priorityNumber === 1 ||
+          priorityNumber === 3 ||
+          priorityNumber === 5 ||
+          priorityNumber === 9
+            ? priorityNumber
+            : 5) as TaskWithAssigneesRow['priority_number'],
+          percent_complete: asNumber(after.percent_complete) ?? 0,
+          is_deferred: asBoolean(after.is_deferred) ?? false,
+          preview_type:
+            (asString(after.preview_type) as TaskWithAssigneesRow['preview_type']) ?? 'automatic',
           review_state:
             (asString(after.review_state) as TaskWithAssigneesRow['review_state']) ?? null,
           skill_tags: Array.isArray(after.skill_tags) ? (after.skill_tags as string[]) : [],
+          start_at: asString(after.start_at) ?? null,
           due_at: asString(after.due_at) ?? null,
-          sort_order: asNumber(after.sort_order) ?? 0,
+          order_hint: asString(after.order_hint) ?? null,
+          assignee_priority: asString(after.assignee_priority) ?? null,
+          external_source: 'native',
+          external_id: null,
+          external_etag: null,
+          external_synced_at: null,
           created_by: asString(after.created_by) ?? '',
           created_at: now,
           updated_at: now,
@@ -179,7 +201,7 @@ export function applyPlannerEvent(qc: QueryClient, event: StreamEvent): void {
       if (!planId || !taskId || !after) return;
       useRecentlyMovedTasks.getState().mark(taskId);
       const newBucket = 'bucket_id' in after ? (asString(after.bucket_id) ?? null) : undefined;
-      const newSort = asNumber(after.sort_order);
+      const newHint = 'order_hint' in after ? (asString(after.order_hint) ?? null) : undefined;
       qc.setQueryData<TaskWithAssigneesRow[]>(tasksKey(planId), (prev) => {
         if (!prev) return prev;
         return prev.map((t) => {
@@ -187,7 +209,7 @@ export function applyPlannerEvent(qc: QueryClient, event: StreamEvent): void {
           return {
             ...t,
             ...(newBucket !== undefined ? { bucket_id: newBucket } : {}),
-            ...(newSort !== undefined ? { sort_order: newSort } : {}),
+            ...(newHint !== undefined ? { order_hint: newHint } : {}),
             ...(versionAfter !== undefined ? { version: versionAfter } : {}),
           };
         });
@@ -246,7 +268,12 @@ export function applyPlannerEvent(qc: QueryClient, event: StreamEvent): void {
         if (!prev) return prev;
         return prev.map((t) =>
           t.id === taskId
-            ? { ...t, progress: 'completed', ...(versionAfter ? { version: versionAfter } : {}) }
+            ? {
+                ...t,
+                percent_complete: 100,
+                is_deferred: false,
+                ...(versionAfter ? { version: versionAfter } : {}),
+              }
             : t,
         );
       });
@@ -260,7 +287,12 @@ export function applyPlannerEvent(qc: QueryClient, event: StreamEvent): void {
         if (!prev) return prev;
         return prev.map((t) =>
           t.id === taskId
-            ? { ...t, progress: 'not_started', ...(versionAfter ? { version: versionAfter } : {}) }
+            ? {
+                ...t,
+                percent_complete: 0,
+                is_deferred: false,
+                ...(versionAfter ? { version: versionAfter } : {}),
+              }
             : t,
         );
       });
@@ -323,9 +355,11 @@ function mergeTaskPatch(
     const v = after.description;
     patch.description = typeof v === 'string' ? v : null;
   }
-  if ('priority' in after) {
-    const v = asString(after.priority);
-    if (v !== undefined) patch.priority = v as TaskWithAssigneesRow['priority'];
+  if ('priority_number' in after) {
+    const v = asNumber(after.priority_number);
+    if (v === 1 || v === 3 || v === 5 || v === 9) {
+      patch.priority_number = v as TaskWithAssigneesRow['priority_number'];
+    }
   }
   if ('due_at' in after) {
     const v = after.due_at;
@@ -338,9 +372,17 @@ function mergeTaskPatch(
     const v = after.review_state;
     patch.review_state = v === 'needs_review' ? 'needs_review' : null;
   }
-  if ('progress' in after) {
-    const v = asString(after.progress);
-    if (v !== undefined) patch.progress = v as TaskWithAssigneesRow['progress'];
+  if ('percent_complete' in after) {
+    const v = asNumber(after.percent_complete);
+    if (v !== undefined) patch.percent_complete = v;
+  }
+  if ('is_deferred' in after) {
+    const v = asBoolean(after.is_deferred);
+    if (v !== undefined) patch.is_deferred = v;
+  }
+  if ('order_hint' in after) {
+    const v = after.order_hint;
+    patch.order_hint = typeof v === 'string' ? v : null;
   }
   if ('bucket_id' in after) {
     const v = after.bucket_id;

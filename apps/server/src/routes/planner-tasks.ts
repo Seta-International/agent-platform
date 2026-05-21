@@ -29,7 +29,7 @@ const createTaskSchema = z.object({
   bucket_id: z.string().uuid().optional(),
   title: z.string().min(1).max(255),
   description: z.string().optional(),
-  priority: z.enum(['urgent', 'important', 'medium', 'low']).optional(),
+  priority_number: z.union([z.literal(1), z.literal(3), z.literal(5), z.literal(9)]).optional(),
   due_at: z.string().optional(),
   skill_tags: z.array(z.string()).optional(),
   review_state: z.literal('needs_review').optional(),
@@ -40,7 +40,9 @@ const updateTaskSchema = z.object({
   patch: z.object({
     title: z.string().min(1).max(255).optional(),
     description: z.string().nullable().optional(),
-    priority: z.enum(['urgent', 'important', 'medium', 'low']).optional(),
+    priority_number: z.union([z.literal(1), z.literal(3), z.literal(5), z.literal(9)]).optional(),
+    percent_complete: z.number().int().min(0).max(100).optional(),
+    is_deferred: z.boolean().optional(),
     due_at: z.string().nullable().optional(),
     skill_tags: z.array(z.string()).optional(),
     review_state: z.literal('needs_review').nullable().optional(),
@@ -49,8 +51,9 @@ const updateTaskSchema = z.object({
 
 const moveTaskSchema = z.object({
   expected_version: z.number().int().positive(),
-  to_bucket_id: z.string().uuid().nullable(),
-  after_task_id: z.string().uuid().optional(),
+  bucket_id: z.string().uuid().nullable().optional(),
+  before_id: z.string().uuid().optional(),
+  after_id: z.string().uuid().optional(),
 });
 
 const versionSchema = z.object({ expected_version: z.number().int().positive() });
@@ -83,13 +86,15 @@ function parseListTasksQuery(query: Record<string, string | undefined>): {
   if (query.bucket_id) filters.bucket_id = query.bucket_id;
   if (query.assignee_id) filters.assignee_id = query.assignee_id;
   if (query.review_state === 'needs_review') filters.review_state = 'needs_review';
-  if (
-    query.progress === 'not_started' ||
-    query.progress === 'in_progress' ||
-    query.progress === 'completed' ||
-    query.progress === 'deferred'
-  ) {
-    filters.progress = query.progress;
+  if (query.is_deferred === 'true') filters.is_deferred = true;
+  else if (query.is_deferred === 'false') filters.is_deferred = false;
+  if (query.percent_complete_lt !== undefined) {
+    const n = Number.parseInt(query.percent_complete_lt, 10);
+    if (!Number.isNaN(n)) filters.percent_complete_lt = n;
+  }
+  if (query.percent_complete_gte !== undefined) {
+    const n = Number.parseInt(query.percent_complete_gte, 10);
+    if (!Number.isNaN(n)) filters.percent_complete_gte = n;
   }
   if (query.due_before) filters.due_before = query.due_before;
   if (query.skill_tags) filters.skill_tags = query.skill_tags.split(',').filter(Boolean);
@@ -114,13 +119,15 @@ export function registerPlannerTasksRoutes(app: Hono<SessionEnv>): void {
     const q = c.req.query();
     const filters: Parameters<typeof listMyAssignedTasks>[0]['filters'] = {};
     if (q.review_state === 'needs_review') filters.review_state = 'needs_review';
-    if (
-      q.progress === 'not_started' ||
-      q.progress === 'in_progress' ||
-      q.progress === 'completed' ||
-      q.progress === 'deferred'
-    ) {
-      filters.progress = q.progress;
+    if (q.is_deferred === 'true') filters.is_deferred = true;
+    else if (q.is_deferred === 'false') filters.is_deferred = false;
+    if (q.percent_complete_lt !== undefined) {
+      const n = Number.parseInt(q.percent_complete_lt, 10);
+      if (!Number.isNaN(n)) filters.percent_complete_lt = n;
+    }
+    if (q.percent_complete_gte !== undefined) {
+      const n = Number.parseInt(q.percent_complete_gte, 10);
+      if (!Number.isNaN(n)) filters.percent_complete_gte = n;
     }
     if (q.due_before) filters.due_before = q.due_before;
     if (q.include_deleted === 'true') filters.include_deleted = true;
@@ -169,8 +176,9 @@ export function registerPlannerTasksRoutes(app: Hono<SessionEnv>): void {
       await moveTask({
         task_id: c.req.param('id'),
         expected_version: parsed.data.expected_version,
-        to_bucket_id: parsed.data.to_bucket_id,
-        after_task_id: parsed.data.after_task_id,
+        bucket_id: parsed.data.bucket_id,
+        before_id: parsed.data.before_id,
+        after_id: parsed.data.after_id,
         session,
       }),
     );

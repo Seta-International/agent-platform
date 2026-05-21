@@ -3,16 +3,17 @@ import { plannerClient } from '../../api/planner-client';
 import { plannerKeys } from '../../state/query-keys';
 import { useOptimisticMutation } from '../use-optimistic-mutation';
 
-interface ReorderVars {
+interface MoveVars {
+  plan_id: string;
   bucket_id: string;
-  expected_version: number;
-  after_bucket_id?: string;
+  before_id?: string;
+  after_id?: string;
 }
 
-export function useReorderBucket(planId: string) {
+export function useMoveBucket(planId: string) {
   const key = [...plannerKeys.plan(planId), 'buckets'] as const;
-  return useOptimisticMutation<ReorderVars, BucketRow>({
-    mutationFn: (v) => plannerClient.reorderBucket(v),
+  return useOptimisticMutation<MoveVars, BucketRow>({
+    mutationFn: (v) => plannerClient.moveBucket(v),
     snapshot: (_v, qc) => [{ key, prev: qc.getQueryData(key) }],
     applyOptimistic: (v, qc) => {
       qc.setQueryData<BucketRow[]>(key, (prev) => {
@@ -20,10 +21,17 @@ export function useReorderBucket(planId: string) {
         const moved = prev.find((b) => b.id === v.bucket_id);
         if (!moved) return prev;
         const others = prev.filter((b) => b.id !== v.bucket_id);
-        if (v.after_bucket_id === undefined) return [moved, ...others];
-        const afterIdx = others.findIndex((b) => b.id === v.after_bucket_id);
-        if (afterIdx === -1) return prev;
-        return [...others.slice(0, afterIdx + 1), moved, ...others.slice(afterIdx + 1)];
+        if (v.before_id !== undefined) {
+          const idx = others.findIndex((b) => b.id === v.before_id);
+          if (idx === -1) return prev;
+          return [...others.slice(0, idx), moved, ...others.slice(idx)];
+        }
+        if (v.after_id !== undefined) {
+          const idx = others.findIndex((b) => b.id === v.after_id);
+          if (idx === -1) return prev;
+          return [...others.slice(0, idx + 1), moved, ...others.slice(idx + 1)];
+        }
+        return [...others, moved];
       });
     },
     onServerOk: (server, _v, qc) => {

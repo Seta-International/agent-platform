@@ -122,13 +122,13 @@ function pickBucketIndex(rng: SeedRng): number {
   return BUCKET_WEIGHTS.length - 1;
 }
 
-function pickPriority(rng: SeedRng): 'urgent' | 'important' | 'medium' | 'low' {
-  // ~10% urgent, ~25% important, ~45% medium, ~20% low
+function pickPriorityNumber(rng: SeedRng): 1 | 3 | 5 | 9 {
+  // ~10% urgent (1), ~25% important (3), ~45% medium (5), ~20% low (9)
   const roll = rng.next() * 100;
-  if (roll < 10) return 'urgent';
-  if (roll < 35) return 'important';
-  if (roll < 80) return 'medium';
-  return 'low';
+  if (roll < 10) return 1;
+  if (roll < 35) return 3;
+  if (roll < 80) return 5;
+  return 9;
 }
 
 const TASK_TITLE_TEMPLATES: string[] = [
@@ -395,13 +395,13 @@ export async function seedCommand(): Promise<void> {
             : isoOffset(Math.floor(rng.next() * 30 + 1));
         }
 
-        const priority = pickPriority(rng);
+        const priority_number = pickPriorityNumber(rng);
 
         const task = await createTask({
           plan_id: plan.id,
           bucket_id: bucket.id,
           title,
-          priority,
+          priority_number,
           skill_tags: skill_tags.length > 0 ? skill_tags : undefined,
           review_state,
           due_at,

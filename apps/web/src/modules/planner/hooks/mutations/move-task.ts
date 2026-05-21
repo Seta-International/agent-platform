@@ -6,8 +6,9 @@ import { useOptimisticMutation } from '../use-optimistic-mutation';
 interface MoveVars {
   task_id: string;
   expected_version: number;
-  to_bucket_id: string | null;
-  after_task_id?: string;
+  bucket_id?: string | null;
+  before_id?: string;
+  after_id?: string;
 }
 
 export function useMoveTask(planId: string) {
@@ -20,32 +21,30 @@ export function useMoveTask(planId: string) {
         if (!prev) return prev;
         const moved = prev.find((t) => t.id === v.task_id);
         if (!moved) return prev;
+        const targetBucket = v.bucket_id !== undefined ? v.bucket_id : moved.bucket_id;
         const others = prev.filter((t) => t.id !== v.task_id);
         const inTarget = others
-          .filter((t) => t.bucket_id === v.to_bucket_id)
-          .sort((a, b) => a.sort_order - b.sort_order);
-        const insertAfterIdx = v.after_task_id
-          ? inTarget.findIndex((t) => t.id === v.after_task_id)
-          : -1;
-        const afterOrder = insertAfterIdx >= 0 ? inTarget[insertAfterIdx]?.sort_order : undefined;
-        const nextOrder =
-          insertAfterIdx >= 0 ? inTarget[insertAfterIdx + 1]?.sort_order : inTarget[0]?.sort_order;
-        const newOrder =
-          afterOrder !== undefined && nextOrder !== undefined
-            ? (afterOrder + nextOrder) / 2
-            : afterOrder !== undefined
-              ? afterOrder + 1_000_000
-              : nextOrder !== undefined
-                ? nextOrder - 1_000_000
-                : 1_000_000;
+          .filter((t) => t.bucket_id === targetBucket)
+          .sort((a, b) => compareHint(a.order_hint, b.order_hint));
+        let insertIdx = inTarget.length;
+        if (v.before_id !== undefined) {
+          const idx = inTarget.findIndex((t) => t.id === v.before_id);
+          if (idx >= 0) insertIdx = idx;
+        } else if (v.after_id !== undefined) {
+          const idx = inTarget.findIndex((t) => t.id === v.after_id);
+          if (idx >= 0) insertIdx = idx + 1;
+        }
+        // Optimistic order_hint: borrow neighbour's hint so optimistic sort is stable.
+        // Server response will replace with the canonical fractional hint.
+        const neighbour = inTarget[insertIdx - 1]?.order_hint ?? inTarget[insertIdx]?.order_hint;
         const updated: TaskWithAssigneesRow = {
           ...moved,
-          bucket_id: v.to_bucket_id,
-          sort_order: newOrder,
+          bucket_id: targetBucket,
+          order_hint: neighbour ?? moved.order_hint,
         };
-        const outOfTarget = others.filter((t) => t.bucket_id !== v.to_bucket_id);
-        const head = inTarget.slice(0, insertAfterIdx + 1);
-        const tail = inTarget.slice(insertAfterIdx + 1);
+        const outOfTarget = others.filter((t) => t.bucket_id !== targetBucket);
+        const head = inTarget.slice(0, insertIdx);
+        const tail = inTarget.slice(insertIdx);
         return [...outOfTarget, ...head, updated, ...tail];
       });
     },
@@ -73,4 +72,11 @@ export function useMoveTask(planId: string) {
         ? 'Someone else moved this — refreshed.'
         : "Couldn't move task.",
   });
+}
+
+function compareHint(a: string | null, b: string | null): number {
+  if (a === null && b === null) return 0;
+  if (a === null) return 1;
+  if (b === null) return -1;
+  return a < b ? -1 : a > b ? 1 : 0;
 }

@@ -7,7 +7,17 @@ interface UpdateVars {
   task_id: string;
   expected_version: number;
   patch: Partial<
-    Pick<TaskRow, 'title' | 'description' | 'priority' | 'due_at' | 'skill_tags' | 'review_state'>
+    Pick<
+      TaskRow,
+      | 'title'
+      | 'description'
+      | 'priority_number'
+      | 'percent_complete'
+      | 'is_deferred'
+      | 'due_at'
+      | 'skill_tags'
+      | 'review_state'
+    >
   >;
 }
 

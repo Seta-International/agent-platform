@@ -25,14 +25,15 @@ describe('createTask', () => {
           const task = await createTask({ plan_id: plan.id, title: 'First task', session });
 
           expect(task.title).toBe('First task');
-          expect(task.priority).toBe('medium');
-          expect(task.progress).toBe('not_started');
+          expect(task.priority_number).toBe(5);
+          expect(task.percent_complete).toBe(0);
+          expect(task.is_deferred).toBe(false);
           expect(task.description).toBeNull();
           expect(task.due_at).toBeNull();
           expect(task.review_state).toBeNull();
           expect(task.skill_tags).toEqual([]);
           expect(task.bucket_id).toBeNull();
-          expect(task.sort_order).toBe(1_000_000);
+          expect(task.order_hint).not.toBeNull();
           expect(task.version).toBe(1);
           expect(task.deleted_at).toBeNull();
           expect(task.plan_id).toBe(plan.id);
@@ -50,11 +51,11 @@ describe('createTask', () => {
           expect(payload.after.bucket_id).toBeNull();
           expect(payload.after.title).toBe('First task');
           expect(payload.after.description).toBeNull();
-          expect(payload.after.priority).toBe('medium');
+          expect(payload.after.priority_number).toBe(5);
           expect(payload.after.due_at).toBeNull();
           expect(payload.after.skill_tags).toEqual([]);
           expect(payload.after.review_state).toBeNull();
-          expect(payload.after.sort_order).toBe(1_000_000);
+          expect(payload.after.order_hint).toBe(task.order_hint);
           expect(payload.after.created_by).toBe(session.user_id);
           expect(payload.group_id).toBe(group.id);
           expect(payload.actor.user_id).toBe(session.user_id);
@@ -97,8 +98,10 @@ describe('createTask', () => {
             session,
           });
 
-          expect(t1.sort_order).toBe(1_000_000);
-          expect(t2.sort_order).toBe(2_000_000);
+          expect(t1.order_hint).not.toBeNull();
+          expect(t2.order_hint).not.toBeNull();
+          // biome-ignore lint/style/noNonNullAssertion: asserted non-null above
+          expect(t1.order_hint! < t2.order_hint!).toBe(true);
           expect(t1.bucket_id).toBe(bucket.id);
           expect(t2.bucket_id).toBe(bucket.id);
         } finally {

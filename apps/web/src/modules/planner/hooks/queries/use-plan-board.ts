@@ -2,6 +2,7 @@ import type { BucketRow, LabelRow, PlanRow, TaskWithAssigneesRow } from '@seta/p
 import { useQueries } from '@tanstack/react-query';
 import { plannerClient } from '../../api/planner-client';
 import { plannerKeys } from '../../state/query-keys';
+import { compareOrderHint } from '../../state/task-derived';
 
 export interface PlanBoardData {
   plan: PlanRow;
@@ -48,7 +49,7 @@ export function usePlanBoard(planId: string) {
           plan: planQ.data as PlanRow,
           buckets: (bucketsQ.data as BucketRow[])
             .slice()
-            .sort((a, b) => a.sort_order - b.sort_order),
+            .sort((a, b) => compareOrderHint(a.order_hint, b.order_hint)),
           tasks: tasksQ.data as TaskWithAssigneesRow[],
           labels: labelsQ.data as LabelRow[],
         }

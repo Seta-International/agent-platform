@@ -40,7 +40,9 @@ export function useAddChecklistItem(planId: string, taskId: string) {
         task_id: taskId,
         label: v.label,
         checked: false,
-        sort_order: Number.MAX_SAFE_INTEGER / 2,
+        order_hint: null,
+        external_id: null,
+        external_etag: null,
         created_at: now,
         updated_at: now,
       };

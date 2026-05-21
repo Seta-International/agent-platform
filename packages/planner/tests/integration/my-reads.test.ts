@@ -234,7 +234,7 @@ describe('listMyAssignedTasks', () => {
     );
   });
 
-  it('honors progress filter', async () => {
+  it('honors percent_complete_gte filter', async () => {
     await withTestDb(
       {
         templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
@@ -292,7 +292,7 @@ describe('listMyAssignedTasks', () => {
 
           const result = await listMyAssignedTasks({
             session: aliceSession,
-            filters: { progress: 'completed' },
+            filters: { percent_complete_gte: 100 },
           });
           expect(result.tasks).toHaveLength(1);
           expect(result.tasks[0]?.id).toBe(taskCompleted.id);

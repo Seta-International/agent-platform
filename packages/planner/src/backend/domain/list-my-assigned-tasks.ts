@@ -5,7 +5,15 @@ import { listTasks } from './list-tasks.ts';
 
 export async function listMyAssignedTasks(input: {
   session: SessionScope;
-  filters?: Pick<ListTasksFilters, 'review_state' | 'progress' | 'due_before' | 'include_deleted'>;
+  filters?: Pick<
+    ListTasksFilters,
+    | 'review_state'
+    | 'is_deferred'
+    | 'percent_complete_lt'
+    | 'percent_complete_gte'
+    | 'due_before'
+    | 'include_deleted'
+  >;
   limit?: number;
   cursor?: string;
 }): Promise<{ tasks: TaskWithAssigneesRow[]; next_cursor?: string }> {

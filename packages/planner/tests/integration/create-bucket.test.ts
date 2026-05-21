@@ -6,7 +6,7 @@ import { createBucket, createGroup, createPlan } from '../../src/index.ts';
 import { readEvents, seedTenant } from '../helpers.ts';
 
 describe('createBucket', () => {
-  it('inserts a bucket with sort_order=1000000 when plan is empty, emits planner.bucket.created', async () => {
+  it('inserts a bucket with a non-null order_hint when plan is empty, emits planner.bucket.created', async () => {
     await withTestDb(
       {
         templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
@@ -25,7 +25,7 @@ describe('createBucket', () => {
           const bucket = await createBucket({ plan_id: plan.id, name: 'To Do', session });
 
           expect(bucket.name).toBe('To Do');
-          expect(bucket.sort_order).toBe(1_000_000);
+          expect(bucket.order_hint).not.toBeNull();
           expect(bucket.version).toBe(1);
           expect(bucket.deleted_at).toBeNull();
           expect(bucket.plan_id).toBe(plan.id);
@@ -40,7 +40,7 @@ describe('createBucket', () => {
           expect(payload.after.plan_id).toBe(plan.id);
           expect(payload.after.group_id).toBe(group.id);
           expect(payload.after.name).toBe('To Do');
-          expect(payload.after.sort_order).toBe(1_000_000);
+          expect(payload.after.order_hint).toBe(bucket.order_hint);
           expect(payload.group_id).toBe(group.id);
           expect(payload.actor.user_id).toBe(session.user_id);
           expect(payload.actor.type).toBe('user');
@@ -71,8 +71,10 @@ describe('createBucket', () => {
           const b1 = await createBucket({ plan_id: plan.id, name: 'B1', session });
           const b2 = await createBucket({ plan_id: plan.id, name: 'B2', session });
 
-          expect(b1.sort_order).toBe(1_000_000);
-          expect(b2.sort_order).toBe(2_000_000);
+          expect(b1.order_hint).not.toBeNull();
+          expect(b2.order_hint).not.toBeNull();
+          // biome-ignore lint/style/noNonNullAssertion: asserted non-null above
+          expect(b1.order_hint! < b2.order_hint!).toBe(true);
         } finally {
           resetCoreDb();
           await closePools();
@@ -107,10 +109,14 @@ describe('createBucket', () => {
             session,
           });
 
-          // midpoint of 1_000_000 and 2_000_000
-          expect(b2.sort_order).toBe(1_500_000);
-          expect(b1.sort_order).toBe(1_000_000);
-          expect(b3.sort_order).toBe(2_000_000);
+          // B2 should slot between B1 and B3 by order_hint.
+          expect(b1.order_hint).not.toBeNull();
+          expect(b2.order_hint).not.toBeNull();
+          expect(b3.order_hint).not.toBeNull();
+          // biome-ignore lint/style/noNonNullAssertion: asserted non-null above
+          expect(b1.order_hint! < b2.order_hint!).toBe(true);
+          // biome-ignore lint/style/noNonNullAssertion: asserted non-null above
+          expect(b2.order_hint! < b3.order_hint!).toBe(true);
         } finally {
           resetCoreDb();
           await closePools();
@@ -143,8 +149,11 @@ describe('createBucket', () => {
             session,
           });
 
-          // after is last, no next → sort_order = 1_000_000 + 1_000_000 = 2_000_000
-          expect(b2.sort_order).toBe(2_000_000);
+          // after is last, no next → b2 hint should sort after b1.
+          expect(b1.order_hint).not.toBeNull();
+          expect(b2.order_hint).not.toBeNull();
+          // biome-ignore lint/style/noNonNullAssertion: asserted non-null above
+          expect(b1.order_hint! < b2.order_hint!).toBe(true);
         } finally {
           resetCoreDb();
           await closePools();

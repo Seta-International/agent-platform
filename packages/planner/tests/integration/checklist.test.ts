@@ -39,7 +39,7 @@ describe('addChecklistItem', () => {
           expect(item.task_id).toBe(task.id);
           expect(item.label).toBe('Step 1');
           expect(item.checked).toBe(false);
-          expect(item.sort_order).toBeGreaterThan(0);
+          expect(item.order_hint).not.toBeNull();
 
           const events = await readEvents(pool, seeded.tenant_id, 'planner.checklist_item.added');
           expect(events).toHaveLength(1);
@@ -50,7 +50,7 @@ describe('addChecklistItem', () => {
           expect(payload.plan_id).toBe(plan.id);
           expect(payload.group_id).toBe(group.id);
           expect(payload.label).toBe('Step 1');
-          expect(payload.sort_order).toBe(item.sort_order);
+          expect(payload.order_hint).toBe(item.order_hint);
           expect(payload.actor.user_id).toBe(session.user_id);
         } finally {
           resetCoreDb();
@@ -87,8 +87,13 @@ describe('addChecklistItem', () => {
           });
 
           // B should be between A and C
-          expect(second.sort_order).toBeGreaterThan(first.sort_order);
-          expect(second.sort_order).toBeLessThan(third.sort_order);
+          expect(first.order_hint).not.toBeNull();
+          expect(second.order_hint).not.toBeNull();
+          expect(third.order_hint).not.toBeNull();
+          // biome-ignore lint/style/noNonNullAssertion: asserted non-null above
+          expect(second.order_hint! > first.order_hint!).toBe(true);
+          // biome-ignore lint/style/noNonNullAssertion: asserted non-null above
+          expect(second.order_hint! < third.order_hint!).toBe(true);
         } finally {
           resetCoreDb();
           await closePools();

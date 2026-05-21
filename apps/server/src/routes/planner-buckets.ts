@@ -1,11 +1,5 @@
 import type { SessionEnv } from '@seta/core';
-import {
-  createBucket,
-  deleteBucket,
-  listBuckets,
-  reorderBucket,
-  updateBucket,
-} from '@seta/planner';
+import { createBucket, deleteBucket, listBuckets, moveBucket, updateBucket } from '@seta/planner';
 import type { Hono } from 'hono';
 import { z } from 'zod';
 
@@ -18,9 +12,10 @@ const updateSchema = z.object({
   expected_version: z.number().int().positive(),
   patch: z.object({ name: z.string().min(1).max(120).optional() }),
 });
-const reorderSchema = z.object({
-  expected_version: z.number().int().positive(),
-  after_bucket_id: z.string().uuid().optional(),
+const moveSchema = z.object({
+  plan_id: z.string().uuid(),
+  before_id: z.string().uuid().optional(),
+  after_id: z.string().uuid().optional(),
 });
 const versionSchema = z.object({ expected_version: z.number().int().positive() });
 
@@ -68,16 +63,17 @@ export function registerPlannerBucketsRoutes(app: Hono<SessionEnv>): void {
     );
   });
 
-  app.post('/api/planner/v1/buckets/:id/reorder', async (c) => {
+  app.post('/api/planner/v1/buckets/:id/move', async (c) => {
     const session = c.get('user');
-    const parsed = reorderSchema.safeParse(await c.req.json().catch(() => ({})));
+    const parsed = moveSchema.safeParse(await c.req.json().catch(() => ({})));
     if (!parsed.success)
       return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
     return c.json(
-      await reorderBucket({
+      await moveBucket({
+        plan_id: parsed.data.plan_id,
         bucket_id: c.req.param('id'),
-        expected_version: parsed.data.expected_version,
-        after_bucket_id: parsed.data.after_bucket_id,
+        before_id: parsed.data.before_id,
+        after_id: parsed.data.after_id,
         session,
       }),
     );

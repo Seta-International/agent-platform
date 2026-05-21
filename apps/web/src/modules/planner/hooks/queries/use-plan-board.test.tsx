@@ -13,6 +13,11 @@ const server = setupServer(
       tenant_id: 't',
       group_id: 'g1',
       name: 'Q3',
+      category_descriptions: {},
+      external_source: 'native',
+      external_id: null,
+      external_etag: null,
+      external_synced_at: null,
       created_by: '',
       created_at: '',
       updated_at: '',
@@ -28,7 +33,11 @@ const server = setupServer(
           tenant_id: 't',
           plan_id: 'p1',
           name: 'To do',
-          sort_order: 1_000_000,
+          order_hint: 'a',
+          external_source: 'native',
+          external_id: null,
+          external_etag: null,
+          external_synced_at: null,
           created_at: '',
           updated_at: '',
           deleted_at: null,
@@ -59,11 +68,11 @@ describe('usePlanBoard', () => {
     expect(result.current.data!.labels).toEqual([]);
   });
 
-  it('sorts buckets by sort_order ascending', async () => {
-    // The single bucket at sort_order 1_000_000 — trivially sorted, but verifies the field is accessed
+  it('sorts buckets by order_hint ascending', async () => {
+    // The single bucket at order_hint 'a' — trivially sorted, but verifies the field is accessed
     const { result } = renderHook(() => usePlanBoard('p1'), { wrapper });
     await waitFor(() => expect(result.current.data).toBeDefined());
-    expect(result.current.data!.buckets[0]!.sort_order).toBe(1_000_000);
+    expect(result.current.data!.buckets[0]!.order_hint).toBe('a');
   });
 
   it('isPending is true before data resolves', () => {

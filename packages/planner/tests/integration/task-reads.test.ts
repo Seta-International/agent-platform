@@ -230,7 +230,7 @@ describe('listTasks', () => {
     );
   });
 
-  it('filter by progress', async () => {
+  it('filter by percent_complete_gte', async () => {
     await withTestDb(
       {
         templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
@@ -258,10 +258,13 @@ describe('listTasks', () => {
             session,
           });
 
-          const result = await listTasks({ filters: { progress: 'completed' }, session });
+          const result = await listTasks({
+            filters: { percent_complete_gte: 100 },
+            session,
+          });
           const ids = result.tasks.map((t) => t.id);
           expect(ids).toContain(completedTask.id);
-          expect(result.tasks.every((t) => t.progress === 'completed')).toBe(true);
+          expect(result.tasks.every((t) => t.percent_complete === 100)).toBe(true);
         } finally {
           resetCoreDb();
           await closePools();

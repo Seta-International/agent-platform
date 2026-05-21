@@ -10,14 +10,15 @@ import { PlanViewSwitcher } from '../components/plan-view-switcher';
 import { VirtualizedBucketList } from '../components/virtualized-bucket-list';
 import { useCreateBucket } from '../hooks/mutations/create-bucket';
 import { useCreateTask } from '../hooks/mutations/create-task';
+import { useMoveBucket } from '../hooks/mutations/move-bucket';
 import { useMoveTask } from '../hooks/mutations/move-task';
-import { useReorderBucket } from '../hooks/mutations/reorder-bucket';
 import { usePlanBoard } from '../hooks/queries/use-plan-board';
 import { useBoardKeyboard } from '../hooks/use-board-keyboard';
 import { useFilterOptions } from '../hooks/use-filter-options';
 import { computeNextFocus } from '../state/compute-next-focus';
 import { useRecentlyMovedTasks } from '../state/recently-moved-tasks';
 import { useSavingIds } from '../state/saving-ids';
+import { compareOrderHint, priorityLabel } from '../state/task-derived';
 import type { BoardFilters } from '../state/url-state';
 
 interface Props {
@@ -68,7 +69,7 @@ export function PlanPage({
   const boardQ = usePlanBoard(planId);
   const filterOptions = useFilterOptions(boardQ.data);
   const moveTask = useMoveTask(planId);
-  const reorderBucket = useReorderBucket(planId);
+  const moveBucket = useMoveBucket(planId);
   const createTask = useCreateTask(planId);
   const createBucket = useCreateBucket(planId);
   const savingIds = useSavingIds((s) => s.ids);
@@ -100,7 +101,7 @@ export function PlanPage({
       const card: KanbanCardTask = {
         id: t.id,
         title: t.title,
-        priority: t.priority,
+        priority: priorityLabel(t.priority_number),
         due_label: t.due_at ? new Date(t.due_at).toLocaleDateString() : undefined,
         label: t.labels[0] ? { name: t.labels[0].name, color: t.labels[0].color } : undefined,
         assignees: t.assignees.map((a) => ({
@@ -118,7 +119,7 @@ export function PlanPage({
       arr.sort((a, b) => {
         const ta = sourceById.get(a.id);
         const tb = sourceById.get(b.id);
-        return (ta?.sort_order ?? 0) - (tb?.sort_order ?? 0);
+        return compareOrderHint(ta?.order_hint ?? null, tb?.order_hint ?? null);
       });
     }
     return map;
@@ -179,13 +180,17 @@ export function PlanPage({
     }
 
     if (r.type === 'COLUMN') {
-      const afterId = r.destination.index === 0 ? undefined : buckets[r.destination.index - 1]?.id;
+      const others = buckets.filter((b) => b.id !== r.draggableId);
+      const beforeNeighbour = others[r.destination.index];
+      const afterNeighbour =
+        r.destination.index === 0 ? undefined : others[r.destination.index - 1];
       const bucket = buckets.find((b) => b.id === r.draggableId);
       if (!bucket) return;
-      reorderBucket.mutate({
+      moveBucket.mutate({
+        plan_id: plan.id,
         bucket_id: bucket.id,
-        expected_version: bucket.version,
-        after_bucket_id: afterId,
+        before_id: beforeNeighbour?.id,
+        after_id: beforeNeighbour ? undefined : afterNeighbour?.id,
       });
       return;
     }
@@ -201,8 +206,8 @@ export function PlanPage({
     moveTask.mutate({
       task_id: task.id,
       expected_version: task.version,
-      to_bucket_id: targetBucketId,
-      after_task_id: afterId,
+      bucket_id: targetBucketId,
+      after_id: afterId,
     });
   }
 

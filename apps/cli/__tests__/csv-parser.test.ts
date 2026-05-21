@@ -1,36 +1,41 @@
 import { describe, expect, it } from 'vitest';
-import { mapPriority, mapStatus, splitIds } from '../src/commands/lib/csv-parser.ts';
+import { mapPriorityNumber, mapStatusFields, splitIds } from '../src/commands/lib/csv-parser.ts';
 
-describe('mapPriority', () => {
+describe('mapPriorityNumber', () => {
   it.each([
-    ['1', 'urgent'],
-    ['2', 'urgent'],
-    ['3', 'important'],
-    ['4', 'important'],
-    ['5', 'medium'],
-    ['6', 'medium'],
-    ['7', 'low'],
-    ['9', 'low'],
-  ])('maps %s → %s', (input, expected) => {
-    expect(mapPriority(input)).toBe(expected);
+    ['1', 1],
+    ['2', 1],
+    ['3', 3],
+    ['4', 3],
+    ['5', 5],
+    ['6', 5],
+    ['7', 9],
+    ['9', 9],
+  ] as const)('maps %s → %s', (input, expected) => {
+    expect(mapPriorityNumber(input)).toBe(expected);
   });
 
-  it('returns medium for NaN', () => {
-    expect(mapPriority('')).toBe('medium');
-    expect(mapPriority('abc')).toBe('medium');
+  it('returns 5 (medium) for NaN', () => {
+    expect(mapPriorityNumber('')).toBe(5);
+    expect(mapPriorityNumber('abc')).toBe(5);
   });
 
-  it('returns urgent for 0', () => {
-    expect(mapPriority('0')).toBe('urgent'); // 0 <= 2, so urgent
+  it('returns 1 (urgent) for 0', () => {
+    expect(mapPriorityNumber('0')).toBe(1); // 0 <= 2, so urgent
   });
 });
 
-describe('mapStatus', () => {
-  it('maps done → completed', () => expect(mapStatus('done')).toBe('completed'));
-  it('maps in progress → in_progress', () => expect(mapStatus('in progress')).toBe('in_progress'));
-  it('maps todo → not_started', () => expect(mapStatus('todo')).toBe('not_started'));
-  it('maps empty → not_started', () => expect(mapStatus('')).toBe('not_started'));
-  it('maps unrecognised → not_started', () => expect(mapStatus('pending')).toBe('not_started'));
+describe('mapStatusFields', () => {
+  it('maps done → percent_complete=100', () =>
+    expect(mapStatusFields('done')).toEqual({ percent_complete: 100, is_deferred: false }));
+  it('maps in progress → percent_complete=50', () =>
+    expect(mapStatusFields('in progress')).toEqual({ percent_complete: 50, is_deferred: false }));
+  it('maps todo → percent_complete=0', () =>
+    expect(mapStatusFields('todo')).toEqual({ percent_complete: 0, is_deferred: false }));
+  it('maps empty → percent_complete=0', () =>
+    expect(mapStatusFields('')).toEqual({ percent_complete: 0, is_deferred: false }));
+  it('maps unrecognised → percent_complete=0', () =>
+    expect(mapStatusFields('pending')).toEqual({ percent_complete: 0, is_deferred: false }));
 });
 
 describe('splitIds', () => {

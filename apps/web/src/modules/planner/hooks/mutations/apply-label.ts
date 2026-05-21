@@ -19,6 +19,7 @@ function addLabel(task: TaskWithAssigneesRow, v: ApplyLabelVars): TaskWithAssign
     plan_id: '',
     name: v.label_name ?? '',
     color: v.label_color ?? '',
+    category_slot: null,
     created_at: new Date().toISOString(),
     deleted_at: null,
   };

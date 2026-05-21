@@ -10,6 +10,7 @@ import { useRecentPlans } from '@/modules/planner/hooks/use-recent-plans';
 import { PlanGridPage } from '@/modules/planner/pages/plan-grid-page';
 import { PlanPage } from '@/modules/planner/pages/plan-page';
 import { TaskSheetContainer } from '@/modules/planner/pages/task-sheet-container';
+import { compareOrderHint } from '@/modules/planner/state/task-derived';
 import {
   parseFiltersFromSearch,
   parseGroupBy,
@@ -137,7 +138,7 @@ function PlanRoute() {
             boardQ.data
               ? boardQ.data.tasks
                   .slice()
-                  .sort((a, b) => a.sort_order - b.sort_order)
+                  .sort((a, b) => compareOrderHint(a.order_hint, b.order_hint))
                   .map((t) => t.id)
               : undefined
           }

@@ -94,6 +94,7 @@ function rowToDto(row: LabelDbRow): LabelRow {
     plan_id: row.plan_id,
     name: row.name,
     color: row.color,
+    category_slot: row.category_slot,
     created_at: row.created_at.toISOString(),
     deleted_at: row.deleted_at ? row.deleted_at.toISOString() : null,
   };

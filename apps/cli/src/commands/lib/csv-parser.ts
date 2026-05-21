@@ -32,19 +32,19 @@ export function parseCsvs(dir: string): ParsedCsvs {
   };
 }
 
-export function mapPriority(raw: string): 'urgent' | 'important' | 'medium' | 'low' {
+export function mapPriorityNumber(raw: string): 1 | 3 | 5 | 9 {
   const n = parseInt(raw, 10);
-  if (Number.isNaN(n)) return 'medium';
-  if (n <= 2) return 'urgent';
-  if (n <= 4) return 'important';
-  if (n <= 6) return 'medium';
-  return 'low';
+  if (Number.isNaN(n)) return 5;
+  if (n <= 2) return 1;
+  if (n <= 4) return 3;
+  if (n <= 6) return 5;
+  return 9;
 }
 
-export function mapStatus(raw: string): 'not_started' | 'in_progress' | 'completed' | 'deferred' {
-  if (raw === 'done') return 'completed';
-  if (raw === 'in progress') return 'in_progress';
-  return 'not_started';
+export function mapStatusFields(raw: string): { percent_complete: number; is_deferred: boolean } {
+  if (raw === 'done') return { percent_complete: 100, is_deferred: false };
+  if (raw === 'in progress') return { percent_complete: 50, is_deferred: false };
+  return { percent_complete: 0, is_deferred: false };
 }
 
 export function splitIds(raw: string): string[] {

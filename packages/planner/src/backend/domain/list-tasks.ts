@@ -1,5 +1,5 @@
 import type { SessionScope } from '@seta/core';
-import { and, eq, gte, inArray, isNull, lt, lte, sql } from 'drizzle-orm';
+import { and, eq, gte, inArray, isNull, lt, sql } from 'drizzle-orm';
 import { plannerDb } from '../../db/index.ts';
 import {
   assigneeProjection,

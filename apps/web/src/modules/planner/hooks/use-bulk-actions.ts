@@ -61,7 +61,7 @@ export function useBulkActions(_planId: string) {
         plannerClient.moveTask({
           task_id: t.id,
           expected_version: t.expected_version,
-          to_bucket_id: input.to_bucket_id,
+          bucket_id: input.to_bucket_id,
         }),
       ),
     );

@@ -190,7 +190,7 @@ describe('unassignTask', () => {
 // ---------------------------------------------------------------------------
 
 describe('completeTask', () => {
-  it('sets progress to completed, bumps version, emits planner.task.completed', async () => {
+  it('sets percent_complete to 100, bumps version, emits planner.task.completed', async () => {
     await withTestDb(
       {
         templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
@@ -213,7 +213,8 @@ describe('completeTask', () => {
             session,
           });
 
-          expect(completed.progress).toBe('completed');
+          expect(completed.percent_complete).toBe(100);
+          expect(completed.is_deferred).toBe(false);
           expect(completed.version).toBe(2);
 
           const events = await readEvents(pool, seeded.tenant_id, 'planner.task.completed');
@@ -299,7 +300,7 @@ describe('completeTask', () => {
 // ---------------------------------------------------------------------------
 
 describe('reopenTask', () => {
-  it('sets progress to in_progress, bumps version, emits planner.task.reopened', async () => {
+  it('resets percent_complete, bumps version, emits planner.task.reopened', async () => {
     await withTestDb(
       {
         templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
@@ -324,7 +325,9 @@ describe('reopenTask', () => {
             session,
           });
 
-          expect(reopened.progress).toBe('in_progress');
+          // reopenTask resets percent_complete to 0 and clears the deferred flag.
+          expect(reopened.percent_complete).toBe(0);
+          expect(reopened.is_deferred).toBe(false);
           expect(reopened.version).toBe(3);
 
           const events = await readEvents(pool, seeded.tenant_id, 'planner.task.reopened');
@@ -374,8 +377,8 @@ describe('reopenTask', () => {
   });
 });
 
-describe('createTask initial progress', () => {
-  it('stores in_progress when progress is passed', async () => {
+describe('createTask initial percent_complete', () => {
+  it('stores in-progress percent when percent_complete is passed', async () => {
     await withTestDb(
       {
         templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
@@ -393,16 +396,17 @@ describe('createTask initial progress', () => {
           const task = await createTask({
             plan_id: plan.id,
             title: 'In-flight task',
-            progress: 'in_progress',
+            percent_complete: 50,
             session,
           });
 
-          expect(task.progress).toBe('in_progress');
+          expect(task.percent_complete).toBe(50);
 
-          const { rows } = await pool.query(`SELECT progress FROM planner.tasks WHERE id = $1`, [
-            task.id,
-          ]);
-          expect(rows[0]?.progress).toBe('in_progress');
+          const { rows } = await pool.query(
+            `SELECT percent_complete FROM planner.tasks WHERE id = $1`,
+            [task.id],
+          );
+          expect(rows[0]?.percent_complete).toBe(50);
         } finally {
           resetCoreDb();
           await closePools();
@@ -411,7 +415,7 @@ describe('createTask initial progress', () => {
     );
   });
 
-  it('defaults to not_started when progress is omitted', async () => {
+  it('defaults to 0 / not deferred when percent_complete is omitted', async () => {
     await withTestDb(
       {
         templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
@@ -428,7 +432,8 @@ describe('createTask initial progress', () => {
 
           const task = await createTask({ plan_id: plan.id, title: 'New task', session });
 
-          expect(task.progress).toBe('not_started');
+          expect(task.percent_complete).toBe(0);
+          expect(task.is_deferred).toBe(false);
         } finally {
           resetCoreDb();
           await closePools();

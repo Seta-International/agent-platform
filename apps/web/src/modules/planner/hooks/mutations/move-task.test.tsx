@@ -20,12 +20,20 @@ function baseTask(over: Record<string, unknown> = {}) {
     bucket_id: 'b1',
     title: 'x',
     description: null,
-    priority: 'medium',
-    progress: 'not_started',
+    priority_number: 5,
+    percent_complete: 0,
+    is_deferred: false,
+    preview_type: 'automatic',
     review_state: null,
     skill_tags: [],
+    start_at: null,
     due_at: null,
-    sort_order: 1_000_000,
+    order_hint: 'a',
+    assignee_priority: null,
+    external_source: 'native',
+    external_id: null,
+    external_etag: null,
+    external_synced_at: null,
     created_by: 'u',
     created_at: '',
     updated_at: '',
@@ -53,13 +61,13 @@ describe('useMoveTask', () => {
   it('moves the task optimistically + commits server version on success', async () => {
     server.use(
       http.post('/api/planner/v1/tasks/t1/move', () =>
-        HttpResponse.json(baseTask({ bucket_id: 'b2', sort_order: 1_500_000, version: 4 })),
+        HttpResponse.json(baseTask({ bucket_id: 'b2', order_hint: 'm', version: 4 })),
       ),
     );
     const { qc, Wrapper } = setup();
     const { result } = renderHook(() => useMoveTask('p1'), { wrapper: Wrapper });
 
-    result.current.mutate({ task_id: 't1', expected_version: 3, to_bucket_id: 'b2' });
+    result.current.mutate({ task_id: 't1', expected_version: 3, bucket_id: 'b2' });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     const tasks = qc.getQueryData<Array<{ bucket_id: string; version: number }>>(
@@ -78,7 +86,7 @@ describe('useMoveTask', () => {
     const { qc, Wrapper } = setup();
     const { result } = renderHook(() => useMoveTask('p1'), { wrapper: Wrapper });
 
-    result.current.mutate({ task_id: 't1', expected_version: 3, to_bucket_id: 'b2' });
+    result.current.mutate({ task_id: 't1', expected_version: 3, bucket_id: 'b2' });
 
     await waitFor(() => expect(result.current.isError).toBe(true));
     const tasks = qc.getQueryData<Array<{ bucket_id: string; version: number }>>(
