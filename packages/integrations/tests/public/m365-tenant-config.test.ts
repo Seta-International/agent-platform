@@ -124,6 +124,7 @@ describe('setM365TenantConfig domain', () => {
       async ({ pool, databaseUrl }) => {
         const { tenantId, actor } = await setup(pool, databaseUrl);
         const db = (await import('../../src/db/client.ts')).integrationsDb();
+        // `as never`: dynamic import's inferred db type isn't structurally assignable to NodePgDatabase here
         const store = createM365TenantConfigStore({ db: db as never });
         try {
           await setM365TenantConfig({
