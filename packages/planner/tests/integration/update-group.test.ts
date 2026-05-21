@@ -55,7 +55,7 @@ describe('updateGroup', () => {
     );
   });
 
-  it('emits no field deltas when patch.name matches existing name', async () => {
+  it('skips emit and version bump when patch is a no-op', async () => {
     await withTestDb(
       {
         templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
@@ -81,15 +81,50 @@ describe('updateGroup', () => {
             session,
           });
 
-          // version still bumps because we always increment
-          expect(updated.version).toBe(2);
+          expect(updated.version).toBe(1);
 
           const events = await readEvents(pool, seeded.tenant_id, 'planner.group.updated');
-          expect(events).toHaveLength(1);
-          // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
-          const payload = events[0]?.payload as any;
-          expect(payload.before).toEqual({});
-          expect(payload.after).toEqual({});
+          expect(events).toHaveLength(0);
+        } finally {
+          resetCoreDb();
+          await closePools();
+        }
+      },
+    );
+  });
+
+  it('updates description/theme/visibility/default_role and emits changed_fields', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+      },
+      async ({ pool, databaseUrl }) => {
+        resetCoreDb();
+        initPools({ databaseUrl });
+        try {
+          const seeded = await seedTenant(pool);
+          const g = await createGroup({
+            tenant_id: seeded.tenant_id,
+            name: 'X',
+            session: seeded.adminSession,
+          });
+          const u = await updateGroup({
+            group_id: g.id,
+            expected_version: 1,
+            patch: { description: 'new', theme: 'pink', visibility: 'public' },
+            session: seeded.adminSession,
+          });
+          expect(u.description).toBe('new');
+          expect(u.theme).toBe('pink');
+          expect(u.visibility).toBe('public');
+
+          const events = await readEvents(pool, seeded.tenant_id, 'planner.group.updated');
+          const payload = events[0]?.payload as { changed_fields: string[] };
+          expect(payload.changed_fields).toEqual(
+            expect.arrayContaining(['description', 'theme', 'visibility']),
+          );
+          expect(payload.changed_fields).not.toContain('name');
         } finally {
           resetCoreDb();
           await closePools();

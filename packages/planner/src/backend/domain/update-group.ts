@@ -3,11 +3,23 @@ import { withEmit } from '@seta/core/events';
 import { and, eq, isNull } from 'drizzle-orm';
 import { groups } from '../../db/schema.ts';
 import { emitPlannerGroupUpdated } from '../../events/emit-helpers.ts';
+import type { GroupFieldKey } from '../../events/types.ts';
 import type { GroupRow } from '../dto.ts';
 import type { UpdateGroupPatch } from '../inputs.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
+import { groupRowToDto } from './_group-dto.ts';
 
 type GroupDbRow = typeof groups.$inferSelect;
+
+const UPDATABLE_FIELDS = [
+  'name',
+  'description',
+  'theme',
+  'visibility',
+  'default_role',
+] as const satisfies readonly GroupFieldKey[];
+
+type UpdatableField = (typeof UPDATABLE_FIELDS)[number];
 
 export async function updateGroup(input: {
   group_id: string;
@@ -17,7 +29,7 @@ export async function updateGroup(input: {
 }): Promise<GroupRow> {
   requirePermission(input.session, 'planner.group.update', input.group_id);
 
-  let updated!: GroupDbRow;
+  let resultRow!: GroupDbRow;
   await withEmit(
     {
       actor: {
@@ -44,26 +56,39 @@ export async function updateGroup(input: {
         });
       }
 
-      const before: Partial<{ name: string }> = {};
-      const after: Partial<{ name: string }> = {};
-      const setFields: { name?: string; updated_at: Date; version: number } = {
-        updated_at: new Date(),
-        version: existing.version + 1,
-      };
+      const before: Partial<Record<UpdatableField, unknown>> = {};
+      const after: Partial<Record<UpdatableField, unknown>> = {};
+      const changed_fields: GroupFieldKey[] = [];
+      const setFields: Partial<Record<UpdatableField, string | null>> = {};
 
-      if (input.patch.name !== undefined && input.patch.name !== existing.name) {
-        before.name = existing.name;
-        after.name = input.patch.name;
-        setFields.name = input.patch.name;
+      for (const field of UPDATABLE_FIELDS) {
+        if (!(field in input.patch)) continue;
+        const next = input.patch[field];
+        if (next === undefined) continue;
+        const current = existing[field];
+        if (next === current) continue;
+        before[field] = current;
+        after[field] = next;
+        changed_fields.push(field);
+        setFields[field] = next;
+      }
+
+      if (changed_fields.length === 0) {
+        resultRow = existing;
+        return;
       }
 
       const [row] = await tx
         .update(groups)
-        .set(setFields)
+        .set({
+          ...setFields,
+          updated_at: new Date(),
+          version: existing.version + 1,
+        })
         .where(eq(groups.id, input.group_id))
         .returning();
       if (!row) throw new PlannerError('VALIDATION', 'Update returned no row');
-      updated = row;
+      resultRow = row;
 
       await emitPlannerGroupUpdated({
         actor: { type: 'user', user_id: input.session.user_id },
@@ -71,33 +96,12 @@ export async function updateGroup(input: {
         group_id: existing.id,
         before,
         after,
-        changed_fields: [],
+        changed_fields,
         version_before: existing.version,
         version_after: existing.version + 1,
       });
     },
   );
 
-  return rowToDto(updated);
-}
-
-function rowToDto(row: GroupDbRow): GroupRow {
-  return {
-    id: row.id,
-    tenant_id: row.tenant_id,
-    name: row.name,
-    description: null,
-    theme: 'blue',
-    visibility: 'private',
-    default_role: 'member',
-    external_source: 'native',
-    external_id: null,
-    external_synced_at: null,
-    account_id: row.account_id,
-    created_by: row.created_by,
-    created_at: row.created_at.toISOString(),
-    updated_at: row.updated_at.toISOString(),
-    deleted_at: row.deleted_at ? row.deleted_at.toISOString() : null,
-    version: row.version,
-  };
+  return groupRowToDto(resultRow);
 }
