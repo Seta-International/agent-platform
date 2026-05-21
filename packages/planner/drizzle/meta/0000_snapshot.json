@@ -1,5 +1,5 @@
 {
-  "id": "e7e356ce-2738-4e5f-af31-5da89b0cabb1",
+  "id": "46a14344-3e19-4ffd-9e76-fe68dbb4c20e",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -130,11 +130,36 @@
           "primaryKey": false,
           "notNull": true
         },
-        "sort_order": {
-          "name": "sort_order",
-          "type": "bigint",
+        "order_hint": {
+          "name": "order_hint",
+          "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
+        },
+        "external_source": {
+          "name": "external_source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'native'"
+        },
+        "external_id": {
+          "name": "external_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "external_etag": {
+          "name": "external_etag",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "external_synced_at": {
+          "name": "external_synced_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",
@@ -165,8 +190,8 @@
         }
       },
       "indexes": {
-        "buckets_by_plan_order": {
-          "name": "buckets_by_plan_order",
+        "buckets_by_plan_hint": {
+          "name": "buckets_by_plan_hint",
           "columns": [
             {
               "expression": "plan_id",
@@ -175,7 +200,7 @@
               "nulls": "last"
             },
             {
-              "expression": "sort_order",
+              "expression": "order_hint",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -191,7 +216,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "buckets_external_source_check": {
+          "name": "buckets_external_source_check",
+          "value": "external_source IN ('native','m365')"
+        }
+      },
       "isRLSEnabled": false
     },
     "planner.checklist_items": {
@@ -224,11 +254,23 @@
           "notNull": true,
           "default": false
         },
-        "sort_order": {
-          "name": "sort_order",
-          "type": "bigint",
+        "order_hint": {
+          "name": "order_hint",
+          "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
+        },
+        "external_id": {
+          "name": "external_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "external_etag": {
+          "name": "external_etag",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",
@@ -246,8 +288,8 @@
         }
       },
       "indexes": {
-        "checklist_items_by_task_order": {
-          "name": "checklist_items_by_task_order",
+        "checklist_items_by_task_hint": {
+          "name": "checklist_items_by_task_hint",
           "columns": [
             {
               "expression": "task_id",
@@ -256,7 +298,7 @@
               "nulls": "last"
             },
             {
-              "expression": "sort_order",
+              "expression": "order_hint",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -290,6 +332,13 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'member'"
         },
         "added_at": {
           "name": "added_at",
@@ -331,7 +380,12 @@
       },
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "group_members_role_check": {
+          "name": "group_members_role_check",
+          "value": "role IN ('owner','member')"
+        }
+      },
       "isRLSEnabled": false
     },
     "planner.groups": {
@@ -356,6 +410,52 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "theme": {
+          "name": "theme",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'blue'"
+        },
+        "visibility": {
+          "name": "visibility",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'private'"
+        },
+        "default_role": {
+          "name": "default_role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'member'"
+        },
+        "external_source": {
+          "name": "external_source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'native'"
+        },
+        "external_id": {
+          "name": "external_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "external_synced_at": {
+          "name": "external_synced_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
         },
         "account_id": {
           "name": "account_id",
@@ -446,7 +546,28 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "groups_theme_check": {
+          "name": "groups_theme_check",
+          "value": "theme IN ('teal','purple','green','blue','pink','orange','red')"
+        },
+        "groups_visibility_check": {
+          "name": "groups_visibility_check",
+          "value": "visibility IN ('private','public')"
+        },
+        "groups_default_role_check": {
+          "name": "groups_default_role_check",
+          "value": "default_role IN ('owner','member')"
+        },
+        "groups_external_source_check": {
+          "name": "groups_external_source_check",
+          "value": "external_source IN ('native','m365')"
+        },
+        "groups_external_id_required_for_linked": {
+          "name": "groups_external_id_required_for_linked",
+          "value": "external_source = 'native' OR external_id IS NOT NULL"
+        }
+      },
       "isRLSEnabled": false
     },
     "planner.labels": {
@@ -483,6 +604,12 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "category_slot": {
+          "name": "category_slot",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",
@@ -525,7 +652,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "labels_category_slot_range": {
+          "name": "labels_category_slot_range",
+          "value": "category_slot IS NULL OR category_slot BETWEEN 1 AND 25"
+        }
+      },
       "isRLSEnabled": false
     },
     "planner.plans": {
@@ -556,6 +688,38 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "category_descriptions": {
+          "name": "category_descriptions",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "external_source": {
+          "name": "external_source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'native'"
+        },
+        "external_id": {
+          "name": "external_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "external_etag": {
+          "name": "external_etag",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "external_synced_at": {
+          "name": "external_synced_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
         },
         "created_by": {
           "name": "created_by",
@@ -618,7 +782,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "plans_external_source_check": {
+          "name": "plans_external_source_check",
+          "value": "external_source IN ('native','m365')"
+        }
+      },
       "isRLSEnabled": false
     },
     "planner.task_assignments": {
@@ -636,6 +805,12 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
+        },
+        "order_hint": {
+          "name": "order_hint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "assigned_at": {
           "name": "assigned_at",
@@ -657,6 +832,27 @@
           "columns": [
             {
               "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "task_assignments_by_task_hint": {
+          "name": "task_assignments_by_task_hint",
+          "columns": [
+            {
+              "expression": "task_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "order_hint",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -739,6 +935,125 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "planner.task_references": {
+      "name": "task_references",
+      "schema": "planner",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "task_id": {
+          "name": "task_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "url": {
+          "name": "url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "alias": {
+          "name": "alias",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'other'"
+        },
+        "preview_priority": {
+          "name": "preview_priority",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "external_etag": {
+          "name": "external_etag",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "task_references_uniq_task_url": {
+          "name": "task_references_uniq_task_url",
+          "columns": [
+            {
+              "expression": "task_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "url",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "task_references_by_task": {
+          "name": "task_references_by_task",
+          "columns": [
+            {
+              "expression": "task_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "task_references_type_check": {
+          "name": "task_references_type_check",
+          "value": "type IN ('word','excel','powerPoint','visio','other','powerBI','oneNote','sharePoint','web','link')"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "planner.tasks": {
       "name": "tasks",
       "schema": "planner",
@@ -780,19 +1095,33 @@
           "primaryKey": false,
           "notNull": false
         },
-        "priority": {
-          "name": "priority",
-          "type": "text",
+        "priority_number": {
+          "name": "priority_number",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
-          "default": "'medium'"
+          "default": 5
         },
-        "progress": {
-          "name": "progress",
+        "percent_complete": {
+          "name": "percent_complete",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "is_deferred": {
+          "name": "is_deferred",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "preview_type": {
+          "name": "preview_type",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "default": "'not_started'"
+          "default": "'automatic'"
         },
         "review_state": {
           "name": "review_state",
@@ -807,17 +1136,54 @@
           "notNull": true,
           "default": "'{}'"
         },
+        "start_at": {
+          "name": "start_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
         "due_at": {
           "name": "due_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },
-        "sort_order": {
-          "name": "sort_order",
-          "type": "bigint",
+        "order_hint": {
+          "name": "order_hint",
+          "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
+        },
+        "assignee_priority": {
+          "name": "assignee_priority",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "external_source": {
+          "name": "external_source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'native'"
+        },
+        "external_id": {
+          "name": "external_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "external_etag": {
+          "name": "external_etag",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "external_synced_at": {
+          "name": "external_synced_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
         },
         "created_by": {
           "name": "created_by",
@@ -881,8 +1247,8 @@
           "method": "btree",
           "with": {}
         },
-        "tasks_by_bucket_order": {
-          "name": "tasks_by_bucket_order",
+        "tasks_by_bucket_hint": {
+          "name": "tasks_by_bucket_hint",
           "columns": [
             {
               "expression": "bucket_id",
@@ -891,7 +1257,7 @@
               "nulls": "last"
             },
             {
-              "expression": "sort_order",
+              "expression": "order_hint",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -919,7 +1285,7 @@
             }
           ],
           "isUnique": false,
-          "where": "deleted_at IS NULL AND progress <> 'completed'",
+          "where": "deleted_at IS NULL AND is_deferred = false AND percent_complete < 100",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -966,7 +1332,24 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "tasks_percent_complete_range": {
+          "name": "tasks_percent_complete_range",
+          "value": "percent_complete BETWEEN 0 AND 100"
+        },
+        "tasks_priority_number_set": {
+          "name": "tasks_priority_number_set",
+          "value": "priority_number IN (1,3,5,9)"
+        },
+        "tasks_preview_type_check": {
+          "name": "tasks_preview_type_check",
+          "value": "preview_type IN ('automatic','noPreview','checklist','description','reference')"
+        },
+        "tasks_external_source_check": {
+          "name": "tasks_external_source_check",
+          "value": "external_source IN ('native','m365')"
+        }
+      },
       "isRLSEnabled": false
     }
   },

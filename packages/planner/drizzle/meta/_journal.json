@@ -5,15 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1779262271075,
-      "tag": "0000_brief_nightcrawler",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1779334541454,
-      "tag": "0002_groups_sync_columns",
+      "when": 1779378020925,
+      "tag": "0000_initial",
       "breakpoints": true
     }
   ]
