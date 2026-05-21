@@ -94,6 +94,15 @@ export const workflowsApi = {
     return jsonOrThrow<{ runId: string }>(res);
   },
 
+  async getInputSchema(workflowId: string): Promise<Record<string, unknown> | null> {
+    const res = await fetch(
+      `/api/copilot/v1/workflows/${encodeURIComponent(workflowId)}/input-schema`,
+      { credentials: 'include' },
+    );
+    if (res.status === 404) return null;
+    return jsonOrThrow<Record<string, unknown>>(res);
+  },
+
   async issueSseToken(): Promise<string> {
     const res = await fetch('/api/copilot/v1/workflows/sse-token', {
       credentials: 'include',

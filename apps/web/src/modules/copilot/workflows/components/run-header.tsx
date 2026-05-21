@@ -7,10 +7,9 @@ const TERMINAL = new Set(['success', 'failed', 'tripwire', 'canceled']);
 export interface RunHeaderProps {
   run: WorkflowRunRow;
   onRerun?: () => void;
-  isRerunning?: boolean;
 }
 
-export function RunHeader({ run, onRerun, isRerunning }: RunHeaderProps) {
+export function RunHeader({ run, onRerun }: RunHeaderProps) {
   const terminal = TERMINAL.has(run.status);
   return (
     <header className="flex items-center gap-3 border-b border-[var(--color-hairline)] px-4 py-2.5">
@@ -32,10 +31,9 @@ export function RunHeader({ run, onRerun, isRerunning }: RunHeaderProps) {
           <button
             type="button"
             onClick={onRerun}
-            disabled={isRerunning}
-            className="rounded border border-[var(--color-hairline)] px-2 py-1 text-sm hover:bg-[var(--color-surface-2)] disabled:opacity-50"
+            className="rounded border border-[var(--color-hairline)] px-2 py-1 text-sm hover:bg-[var(--color-surface-2)]"
           >
-            {isRerunning ? 'Re-running…' : 'Re-run'}
+            Re-run
           </button>
         ) : null}
       </div>

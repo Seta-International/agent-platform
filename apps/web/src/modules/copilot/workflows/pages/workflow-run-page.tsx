@@ -1,7 +1,6 @@
-import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { workflowsApi } from '../api/workflows.ts';
 import { HitlApprovalCard } from '../components/hitl-approval-card.tsx';
+import { RerunSideSheet } from '../components/rerun-side-sheet.tsx';
 import { RunHeader } from '../components/run-header.tsx';
 import { RunRightPanel } from '../components/run-right-panel.tsx';
 import { WorkflowGraph } from '../components/workflow-graph.tsx';
@@ -10,22 +9,30 @@ import { usePendingApprovals } from '../hooks/use-pending-approvals.ts';
 import { useWorkflowRun } from '../hooks/use-workflow-run.ts';
 import { useWorkflowRunSnapshot } from '../hooks/use-workflow-run-snapshot.ts';
 
-export function WorkflowRunPage({ runId }: { runId: string }) {
+export interface WorkflowRunPageProps {
+  runId: string;
+  rerunOpen?: boolean;
+}
+
+export function WorkflowRunPage({ runId, rerunOpen = false }: WorkflowRunPageProps) {
   const navigate = useNavigate();
   const runQuery = useWorkflowRun(runId);
   const snapshotQuery = useWorkflowRunSnapshot(runId);
   const approvalsQuery = usePendingApprovals();
   const decide = useDecideApproval(runId);
 
-  const rerun = useMutation({
-    mutationFn: () => workflowsApi.rerunRun(runId),
-    onSuccess: (out) => {
-      void navigate({
-        to: '/copilot/workflows/runs/$runId',
-        params: { runId: out.runId },
-      });
-    },
-  });
+  const openRerun = () =>
+    void navigate({
+      to: '/copilot/workflows/runs/$runId',
+      params: { runId },
+      search: { rerun: '1' },
+    });
+  const closeRerun = () =>
+    void navigate({
+      to: '/copilot/workflows/runs/$runId',
+      params: { runId },
+      search: {},
+    });
 
   if (runQuery.isLoading) {
     return <div className="p-8 text-sm text-[var(--color-ink-subtle)]">Loading run…</div>;
@@ -48,7 +55,7 @@ export function WorkflowRunPage({ runId }: { runId: string }) {
 
   return (
     <div className="flex h-full flex-col">
-      <RunHeader run={run} onRerun={() => rerun.mutate()} isRerunning={rerun.isPending} />
+      <RunHeader run={run} onRerun={openRerun} />
       <div className="flex flex-1 overflow-hidden">
         <main className="relative flex-1 overflow-hidden bg-[var(--color-surface-2)]">
           <WorkflowGraph snapshot={snapshotQuery.data} />
@@ -71,6 +78,13 @@ export function WorkflowRunPage({ runId }: { runId: string }) {
           snapshot={snapshotQuery.data}
         />
       </div>
+      <RerunSideSheet
+        open={rerunOpen}
+        runId={runId}
+        workflowId={run.workflowId}
+        priorInputSummary={run.inputSummary}
+        onClose={closeRerun}
+      />
     </div>
   );
 }
