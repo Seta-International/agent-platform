@@ -3,6 +3,7 @@ import { streamSSE } from 'hono/streaming';
 import type { Pool } from 'pg';
 import type { SessionLike } from '../types.ts';
 import { verifySseToken } from './auth-token.ts';
+import { CoalescingEmitter } from './coalescing-emitter.ts';
 
 export type WorkflowRunScope = 'self' | 'group' | 'tenant' | 'instance';
 
@@ -17,6 +18,17 @@ const SCOPE_PERMISSIONS: Record<WorkflowRunScope, string> = {
   tenant: 'copilot.workflow.run.read.tenant',
   instance: 'copilot.workflow.run.read.instance',
 };
+
+// Broad-scope inbox subscriptions can fire many notifications per run. Coalesce
+// them into one emission per run per second so React Query invalidations don't
+// thrash the client.
+const COALESCE_WINDOW_MS = 1000;
+
+interface NotificationPayload {
+  runId: string;
+  kind: string;
+  tenantId: string;
+}
 
 export function mountInboxSse(app: Hono, deps: MountInboxSseDeps): void {
   const resolveSession = deps.resolveSession ?? defaultSessionResolver;
@@ -33,7 +45,14 @@ export function mountInboxSse(app: Hono, deps: MountInboxSseDeps): void {
 
     return streamSSE(c, async (stream) => {
       const client = await deps.pool.connect();
-      const onNotification = makeNotificationHandler(stream, sess, scope);
+      const coalescer = shouldCoalesce(scope)
+        ? new CoalescingEmitter<NotificationPayload>({
+            windowMs: COALESCE_WINDOW_MS,
+            keyFn: (e) => e.runId,
+            emit: (payload) => writeNotification(stream, payload),
+          })
+        : null;
+      const onNotification = makeNotificationHandler(stream, sess, scope, coalescer);
       client.on('notification', onNotification);
       let heartbeat: ReturnType<typeof setInterval> | null = null;
       try {
@@ -48,6 +67,7 @@ export function mountInboxSse(app: Hono, deps: MountInboxSseDeps): void {
         });
       } finally {
         if (heartbeat) clearInterval(heartbeat);
+        coalescer?.dispose();
         client.off('notification', onNotification);
         try {
           await client.query('UNLISTEN copilot_workflow_runs');
@@ -62,31 +82,44 @@ export function mountInboxSse(app: Hono, deps: MountInboxSseDeps): void {
 
 type SseHandle = { writeSSE: (m: { event: string; data: string; id?: string }) => Promise<void> };
 
+function shouldCoalesce(scope: WorkflowRunScope): boolean {
+  return scope === 'tenant' || scope === 'instance';
+}
+
+function writeNotification(stream: SseHandle, payload: NotificationPayload): Promise<void> {
+  const eventName = payload.kind === 'run-started' ? 'run.created' : 'run.status_changed';
+  return stream.writeSSE({
+    event: eventName,
+    data: JSON.stringify({
+      runId: payload.runId,
+      kind: payload.kind,
+      tenantId: payload.tenantId,
+    }),
+    id: String(Date.now()),
+  });
+}
+
 function makeNotificationHandler(
   stream: SseHandle,
   sess: SessionLike,
   scope: WorkflowRunScope,
+  coalescer: CoalescingEmitter<NotificationPayload> | null,
 ): (n: { channel: string; payload?: string }) => void {
   return (n) => {
     if (n.channel !== 'copilot_workflow_runs' || !n.payload) return;
-    let parsed: { runId: string; kind: string; tenantId: string };
+    let parsed: NotificationPayload;
     try {
-      parsed = JSON.parse(n.payload) as { runId: string; kind: string; tenantId: string };
+      parsed = JSON.parse(n.payload) as NotificationPayload;
     } catch {
       // malformed payload from pg_notify — drop silently
       return;
     }
     if (scope !== 'instance' && parsed.tenantId !== sess.tenant_id) return;
-    const eventName = parsed.kind === 'run-started' ? 'run.created' : 'run.status_changed';
-    void stream.writeSSE({
-      event: eventName,
-      data: JSON.stringify({
-        runId: parsed.runId,
-        kind: parsed.kind,
-        tenantId: parsed.tenantId,
-      }),
-      id: String(Date.now()),
-    });
+    if (coalescer) {
+      coalescer.push(parsed);
+    } else {
+      void writeNotification(stream, parsed);
+    }
   };
 }
 
