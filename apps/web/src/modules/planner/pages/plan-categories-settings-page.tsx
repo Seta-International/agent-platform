@@ -50,10 +50,6 @@ export function PlanCategoriesSettingsPage({ planId }: Props) {
   const planName = boardQ.data?.plan.name ?? '';
   const buckets = boardQ.data?.buckets.length ?? 0;
 
-  // Editor types its slot map as Record<number, number>; the wire format keys
-  // them as digit-strings. Runtime lookup is identical, so a cast is enough.
-  const taskCountsByNumber = task_counts as unknown as Record<number, number>;
-
   return (
     <div className="flex flex-col h-full">
       <header className="px-7 pt-4 pb-0 border-b border-hairline bg-canvas">
@@ -83,7 +79,7 @@ export function PlanCategoriesSettingsPage({ planId }: Props) {
           <CategoryDescriptionEditor
             descriptions={descriptions}
             labels={labels}
-            taskCounts={taskCountsByNumber}
+            taskCounts={task_counts}
             disabled={m.isPending}
             onSave={(payload) => {
               const slots: Record<number, { name?: string | null; label_id?: string | null }> = {};

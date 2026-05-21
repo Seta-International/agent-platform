@@ -16,7 +16,8 @@ export interface SavePayload {
 export interface CategoryDescriptionEditorProps {
   descriptions: Record<string, string>;
   labels: ReadonlyArray<CategoryLabel>;
-  taskCounts: Record<number, number>;
+  // Keyed by slot number; wire format keys are digit-strings, JS coerces lookups either way.
+  taskCounts: Record<string, number>;
   onSave: (payload: SavePayload) => void;
   disabled?: boolean;
 }

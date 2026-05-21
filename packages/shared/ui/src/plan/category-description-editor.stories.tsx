@@ -36,7 +36,7 @@ const fullDescriptions: Record<string, string> = Array.from({ length: 25 }, (_, 
   return acc;
 }, {});
 
-const taskCounts: Record<number, number> = { 1: 6, 2: 3, 3: 4, 4: 5, 5: 2, 6: 1, 7: 7 };
+const taskCounts: Record<string, number> = { 1: 6, 2: 3, 3: 4, 4: 5, 5: 2, 6: 1, 7: 7 };
 
 export const Empty: Story = {
   args: {
