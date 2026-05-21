@@ -37,7 +37,7 @@ const updateLabelSchema = z.object({
 
 const setCategoriesSchema = z.object({
   slots: z.record(
-    z.string(),
+    z.string().regex(/^(?:[1-9]|1\d|2[0-5])$/),
     z.object({
       name: z.string().nullable(),
       label_id: z.string().uuid().nullable().optional(),
@@ -166,8 +166,7 @@ export function registerPlannerPlansRoutes(app: Hono<SessionEnv>): void {
       return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
     const slots: Record<number, { name: string | null; label_id?: string | null }> = {};
     for (const [k, v] of Object.entries(parsed.data.slots)) {
-      const n = Number(k);
-      if (Number.isFinite(n)) slots[n] = v;
+      slots[Number(k)] = v;
     }
     return c.json(
       await setCategoryDescriptions({

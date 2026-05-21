@@ -124,6 +124,49 @@ describe('plan categories HTTP routes', () => {
     );
   });
 
+  it('PUT /plans/:id/categories rejects non-numeric slot keys with 400', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+      },
+      async ({ pool, databaseUrl }) => {
+        resetCoreDb();
+        initPools({ databaseUrl });
+        try {
+          const { tenantId, adminUserId, adminEmail } = await seedTenant(pool, 'catsbad');
+          const session = buildSession({
+            tenant_id: tenantId,
+            user_id: adminUserId,
+            email: adminEmail,
+            display_name: 'Admin',
+          });
+          const group = await createGroup({ tenant_id: tenantId, name: 'Eng', session });
+          const plan = await createPlan({ group_id: group.id, name: 'P', session });
+
+          const app = buildTestApp(session);
+
+          const res = await app.request(`/api/planner/v1/plans/${plan.id}/categories`, {
+            method: 'PUT',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ slots: { foo: { name: 'x' } } }),
+          });
+          expect(res.status).toBe(400);
+
+          const resOut = await app.request(`/api/planner/v1/plans/${plan.id}/categories`, {
+            method: 'PUT',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ slots: { '26': { name: 'x' } } }),
+          });
+          expect(resOut.status).toBe(400);
+        } finally {
+          resetCoreDb();
+          await closePools();
+        }
+      },
+    );
+  });
+
   it('GET /plans/:id/categories returns descriptions, labels, task_counts, counts', async () => {
     await withTestDb(
       {
