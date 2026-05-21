@@ -1,9 +1,9 @@
-import { render, screen, within } from '@testing-library/react';
+import type { GroupMemberRow } from '@seta/planner';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import type { GroupMemberRow } from '@seta/planner';
-import { GroupMembersTable } from './GroupMembersTable';
 import { makeGroup } from '../testing/fixtures';
+import { GroupMembersTable } from './GroupMembersTable';
 
 const nativeGroup = makeGroup({ id: 'g1', external_source: 'native' });
 const linkedGroup = makeGroup({ id: 'g2', external_source: 'm365', external_id: 'graph-123' });
