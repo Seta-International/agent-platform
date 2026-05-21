@@ -30,19 +30,19 @@ export const workflowRuns = copilot.table(
     finishedAt: timestamp('finished_at', { withTimezone: true }),
     durationMs: integer('duration_ms'),
   },
-  (t) => ({
-    tenantStatusStartedAtIdx: index('workflow_runs_tenant_status_started_at_idx').on(
+  (t) => [
+    index('workflow_runs_tenant_status_started_at_idx').on(
       t.tenantId,
       t.status,
       sql`${t.startedAt} desc`,
     ),
-    actorStartedAtIdx: index('workflow_runs_actor_started_at_idx').on(
+    index('workflow_runs_actor_started_at_idx').on(
       t.tenantId,
       t.startedBy,
       sql`${t.startedAt} desc`,
     ),
-    sourceEventIdUniq: uniqueIndex('workflow_runs_source_event_id_idx').on(t.sourceEventId),
-  }),
+    uniqueIndex('workflow_runs_source_event_id_idx').on(t.sourceEventId),
+  ],
 );
 
 export type WorkflowRunRow = typeof workflowRuns.$inferSelect;

@@ -22,12 +22,7 @@ export const workflowApprovals = copilot.table(
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => ({
-    approverStatusIdx: index('workflow_approvals_approver_status_idx').on(
-      t.approverUserId,
-      t.status,
-    ),
-  }),
+  (t) => [index('workflow_approvals_approver_status_idx').on(t.approverUserId, t.status)],
 );
 
 export type WorkflowApprovalRow = typeof workflowApprovals.$inferSelect;

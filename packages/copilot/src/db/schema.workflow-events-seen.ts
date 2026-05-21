@@ -7,9 +7,7 @@ export const workflowRunEventsSeen = copilot.table(
     runId: uuid('run_id').notNull(),
     eventSeq: bigint('event_seq', { mode: 'number' }).notNull(),
   },
-  (t) => ({
-    pk: primaryKey({ columns: [t.runId, t.eventSeq] }),
-  }),
+  (t) => [primaryKey({ columns: [t.runId, t.eventSeq] })],
 );
 
 export type WorkflowRunEventSeenRow = typeof workflowRunEventsSeen.$inferSelect;
