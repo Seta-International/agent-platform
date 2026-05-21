@@ -51,6 +51,7 @@ export async function listGroupMembers(input: {
   return rows.map((r) => ({
     group_id: r.group_id,
     user_id: r.user_id,
+    role: 'member',
     display_name: r.display_name,
     email: r.email,
     added_at: r.added_at.toISOString(),

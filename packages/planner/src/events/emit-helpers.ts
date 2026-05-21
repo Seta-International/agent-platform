@@ -63,6 +63,7 @@ export async function emitPlannerGroupUpdated(args: {
   group_id: Uuid;
   before: PlannerGroupUpdated['payload']['before'];
   after: PlannerGroupUpdated['payload']['after'];
+  changed_fields: PlannerGroupUpdated['payload']['changed_fields'];
   version_before: number;
   version_after: number;
 }): Promise<void> {
@@ -77,6 +78,7 @@ export async function emitPlannerGroupUpdated(args: {
       group_id: args.group_id,
       before: args.before,
       after: args.after,
+      changed_fields: args.changed_fields,
       version_before: args.version_before,
       version_after: args.version_after,
     },
@@ -161,6 +163,30 @@ export async function emitPlannerGroupMemberRemoved(args: {
       actor: args.actor,
       group_id: args.group_id,
       user_id: args.user_id,
+    },
+  });
+}
+
+export async function emitPlannerGroupMemberRoleChanged(args: {
+  actor: PlannerEventActor;
+  tenant_id: Uuid;
+  group_id: Uuid;
+  user_id: Uuid;
+  before_role: 'owner' | 'member';
+  after_role: 'owner' | 'member';
+}): Promise<void> {
+  await emit({
+    tenantId: args.tenant_id,
+    aggregateType: 'planner.group',
+    aggregateId: args.group_id,
+    eventType: 'planner.group.member.role-changed',
+    eventVersion: 1,
+    payload: {
+      actor: args.actor,
+      group_id: args.group_id,
+      user_id: args.user_id,
+      before_role: args.before_role,
+      after_role: args.after_role,
     },
   });
 }
