@@ -39,4 +39,31 @@ describe('KanbanCard', () => {
 
     expect(screen.getByTestId('saving-indicator')).toBeInTheDocument();
   });
+
+  it('renders previewSlot between the title and the meta footer when provided', () => {
+    render(
+      <KanbanCard
+        task={task}
+        draggable={{}}
+        previewSlot={<div data-testid="preview-body">first three items</div>}
+      />,
+    );
+
+    const card = screen.getByRole('button', { name: /Ship M3 spec/ });
+    const slot = screen.getByTestId('preview-body');
+    expect(slot).toBeInTheDocument();
+
+    const children = Array.from(card.children);
+    const titleIdx = children.findIndex((c) => c.classList.contains('kanban-card__title'));
+    const slotIdx = children.indexOf(slot);
+    const metaIdx = children.findIndex((c) => c.classList.contains('kanban-card__meta'));
+    expect(titleIdx).toBeGreaterThan(-1);
+    expect(slotIdx).toBeGreaterThan(titleIdx);
+    expect(metaIdx).toBeGreaterThan(slotIdx);
+  });
+
+  it('omits the preview slot wrapper entirely when previewSlot is undefined', () => {
+    const { container } = render(<KanbanCard task={task} draggable={{}} />);
+    expect(container.querySelector('[data-role="preview-slot"]')).toBeNull();
+  });
 });

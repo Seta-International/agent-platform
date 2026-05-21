@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, CSSProperties } from 'react';
+import type { ButtonHTMLAttributes, CSSProperties, ReactNode } from 'react';
 import { AvatarStack } from './avatar-stack';
 import { LabelChip } from './label-chip';
 import { PriorityIcon } from './priority-icon';
@@ -19,6 +19,8 @@ export interface KanbanCardProps {
   task: KanbanCardTask;
   onOpen?: () => void;
   selected?: boolean;
+  /** Optional body content rendered between the title and the meta footer. */
+  previewSlot?: ReactNode;
   /** Render slots fed by the app layer's @hello-pangea/dnd wiring. shared-ui stays DnD-agnostic. */
   draggable: {
     ref?: (el: HTMLButtonElement | null) => void;
@@ -29,7 +31,7 @@ export interface KanbanCardProps {
   };
 }
 
-export function KanbanCard({ task, onOpen, selected, draggable }: KanbanCardProps) {
+export function KanbanCard({ task, onOpen, selected, previewSlot, draggable }: KanbanCardProps) {
   const className = [
     'kanban-card',
     task.recentlyMoved && 'kanban-card--recently-moved',
@@ -61,6 +63,7 @@ export function KanbanCard({ task, onOpen, selected, draggable }: KanbanCardProp
         )}
         {task.title}
       </div>
+      {previewSlot}
       <div className="kanban-card__meta">
         <PriorityIcon level={task.priority} />
         {task.label && <LabelChip name={task.label.name} color={task.label.color} />}
