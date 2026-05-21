@@ -5,7 +5,7 @@ import { useOptimisticMutation } from '../use-optimistic-mutation';
 
 interface UpdateChecklistVars {
   item_id: string;
-  patch: { label?: string; checked?: boolean };
+  patch: { label?: string; checked?: boolean; order_hint?: string };
 }
 
 function recomputeChecked(items: ChecklistItemRow[]): { total: number; checked: number } {

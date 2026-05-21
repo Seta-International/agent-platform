@@ -113,6 +113,7 @@ export interface AddChecklistItemInput {
 export interface UpdateChecklistItemPatch {
   label?: string;
   checked?: boolean;
+  order_hint?: string;
 }
 
 export interface CreateLabelInput {

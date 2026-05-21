@@ -49,7 +49,12 @@ export async function updateChecklistItem(input: {
 
       const before: Partial<{ label: string; checked: boolean; order_hint: string | null }> = {};
       const after: Partial<{ label: string; checked: boolean; order_hint: string | null }> = {};
-      const setFields: { label?: string; checked?: boolean; updated_at: Date } = {
+      const setFields: {
+        label?: string;
+        checked?: boolean;
+        order_hint?: string;
+        updated_at: Date;
+      } = {
         updated_at: new Date(),
       };
 
@@ -63,6 +68,12 @@ export async function updateChecklistItem(input: {
         before.checked = existing.checked;
         after.checked = input.patch.checked;
         setFields.checked = input.patch.checked;
+      }
+
+      if (input.patch.order_hint !== undefined && input.patch.order_hint !== existing.order_hint) {
+        before.order_hint = existing.order_hint;
+        after.order_hint = input.patch.order_hint;
+        setFields.order_hint = input.patch.order_hint;
       }
 
       if (Object.keys(after).length === 0) {

@@ -536,7 +536,7 @@ async function addChecklistItem(input: {
 
 async function updateChecklistItem(input: {
   item_id: string;
-  patch: { label?: string; checked?: boolean };
+  patch: { label?: string; checked?: boolean; order_hint?: string };
 }): Promise<ChecklistItemRow> {
   return (await request<ChecklistItemRow>(`/api/planner/v1/checklist-items/${input.item_id}`, {
     method: 'PATCH',

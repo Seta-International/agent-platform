@@ -1,6 +1,7 @@
 import { resetCoreDb } from '@seta/core/internal/test-support';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
+import { generateKeyBetween } from 'fractional-indexing';
 import { describe, expect, it } from 'vitest';
 import {
   addChecklistItem,
@@ -223,6 +224,55 @@ describe('updateChecklistItem', () => {
           const payload = events[0]?.payload as any;
           expect(payload.before).toEqual({ checked: false });
           expect(payload.after).toEqual({ checked: true });
+        } finally {
+          resetCoreDb();
+          await closePools();
+        }
+      },
+    );
+  });
+
+  it('updates order_hint and read order reflects the new key', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+      },
+      async ({ pool, databaseUrl }) => {
+        resetCoreDb();
+        initPools({ databaseUrl });
+        try {
+          const seeded = await seedTenant(pool);
+          const session = seeded.adminSession;
+
+          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+          const task = await createTask({ plan_id: plan.id, title: 'T1', session });
+          const a = await addChecklistItem({ task_id: task.id, label: 'A', session });
+          const b = await addChecklistItem({ task_id: task.id, label: 'B', session });
+          const c = await addChecklistItem({ task_id: task.id, label: 'C', session });
+
+          // Move C between A and B by giving it a fresh order_hint.
+          const newHint = generateKeyBetween(a.order_hint, b.order_hint);
+          const moved = await updateChecklistItem({
+            item_id: c.id,
+            patch: { order_hint: newHint },
+            session,
+          });
+          expect(moved.order_hint).toBe(newHint);
+
+          const { rows } = await pool.query<{ id: string; order_hint: string | null }>(
+            `SELECT id, order_hint FROM planner.checklist_items WHERE task_id = $1 ORDER BY order_hint NULLS LAST`,
+            [task.id],
+          );
+          expect(rows.map((r) => r.id)).toEqual([a.id, c.id, b.id]);
+
+          const events = await readEvents(pool, seeded.tenant_id, 'planner.checklist_item.updated');
+          expect(events).toHaveLength(1);
+          // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
+          const payload = events[0]?.payload as any;
+          expect(payload.after.order_hint).toBe(newHint);
+          expect(payload.before.order_hint).toBe(c.order_hint);
         } finally {
           resetCoreDb();
           await closePools();

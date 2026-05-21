@@ -109,6 +109,7 @@ const updateChecklistItemSchema = z.object({
   patch: z.object({
     label: z.string().min(1).max(500).optional(),
     checked: z.boolean().optional(),
+    order_hint: z.string().min(1).max(64).optional(),
   }),
 });
 
