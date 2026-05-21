@@ -9,6 +9,7 @@ import type {
   ListTasksFilters,
   PersistedPlannerEvent,
   PlanRow,
+  TaskDetailRow,
   TaskReferenceRow,
   TaskReferenceType,
   TaskRow,
@@ -334,10 +335,8 @@ async function listMyAssignedTasks(
   )) as { tasks: TaskWithAssigneesRow[]; next_cursor?: string };
 }
 
-async function getTask(task_id: string): Promise<TaskWithAssigneesRow> {
-  return (await request<TaskWithAssigneesRow>(
-    `/api/planner/v1/tasks/${task_id}`,
-  )) as TaskWithAssigneesRow;
+async function getTask(task_id: string): Promise<TaskDetailRow> {
+  return (await request<TaskDetailRow>(`/api/planner/v1/tasks/${task_id}`)) as TaskDetailRow;
 }
 
 async function createTask(input: {

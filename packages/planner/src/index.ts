@@ -85,6 +85,7 @@ export type {
   LabelRow,
   MyTasksResult,
   PlanRow,
+  TaskDetailRow,
   TaskExternalSource,
   TaskPreviewType,
   TaskPriorityNumber,

@@ -4,6 +4,7 @@ import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import {
   addChecklistItem,
+  addTaskReference,
   applyLabel,
   assignTask,
   completeTask,
@@ -498,6 +499,19 @@ describe('getTask', () => {
           const item1 = await addChecklistItem({ task_id: task.id, label: 'Step 1', session });
           await addChecklistItem({ task_id: task.id, label: 'Step 2', session });
           await updateChecklistItem({ item_id: item1.id, patch: { checked: true }, session });
+          await addTaskReference({
+            task_id: task.id,
+            url: 'https://example.com/spec',
+            alias: 'Spec',
+            type: 'web',
+            session,
+          });
+          await addTaskReference({
+            task_id: task.id,
+            url: 'https://example.com/doc',
+            type: 'word',
+            session,
+          });
 
           const fetched = await getTask({ task_id: task.id, session });
           expect(fetched.id).toBe(task.id);
@@ -508,6 +522,14 @@ describe('getTask', () => {
           expect(fetched.labels[0]!.id).toBe(label.id);
           expect(fetched.checklist_summary.total).toBe(2);
           expect(fetched.checklist_summary.checked).toBe(1);
+          expect(fetched.checklist).toHaveLength(2);
+          expect(fetched.checklist.map((c) => c.label).sort()).toEqual(['Step 1', 'Step 2']);
+          expect(fetched.checklist.find((c) => c.label === 'Step 1')?.checked).toBe(true);
+          expect(fetched.references).toHaveLength(2);
+          expect(fetched.references.map((r) => r.url).sort()).toEqual([
+            'https://example.com/doc',
+            'https://example.com/spec',
+          ]);
         } finally {
           resetCoreDb();
           await closePools();

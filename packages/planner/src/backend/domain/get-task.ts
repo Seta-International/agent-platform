@@ -1,8 +1,13 @@
 import type { SessionScope } from '@seta/core';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { plannerDb } from '../../db/index.ts';
-import { plans, tasks } from '../../db/schema.ts';
-import type { TaskWithAssigneesRow } from '../dto.ts';
+import { checklistItems, plans, taskReferences, tasks } from '../../db/schema.ts';
+import type {
+  ChecklistItemRow,
+  TaskDetailRow,
+  TaskReferenceRow,
+  TaskReferenceType,
+} from '../dto.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 import { groupFilterFor } from '../read-helpers.ts';
 import { taskRowToDto } from './_task-dto.ts';
@@ -11,7 +16,7 @@ import { fetchSupplementaryData } from './list-tasks.ts';
 export async function getTask(input: {
   task_id: string;
   session: SessionScope;
-}): Promise<TaskWithAssigneesRow> {
+}): Promise<TaskDetailRow> {
   requirePermission(input.session, 'planner.task.read');
 
   const db = plannerDb();
@@ -47,14 +52,52 @@ export async function getTask(input: {
     });
   }
 
-  const { assigneesByTaskId, labelsByTaskId, summaryByTaskId } = await fetchSupplementaryData(db, [
-    row.id,
-  ]);
+  const [{ assigneesByTaskId, labelsByTaskId, summaryByTaskId }, checklistRows, referenceRows] =
+    await Promise.all([
+      fetchSupplementaryData(db, [row.id]),
+      db
+        .select()
+        .from(checklistItems)
+        .where(eq(checklistItems.task_id, row.id))
+        .orderBy(sql`order_hint NULLS LAST`),
+      db
+        .select()
+        .from(taskReferences)
+        .where(eq(taskReferences.task_id, row.id))
+        .orderBy(sql`preview_priority NULLS LAST`, asc(taskReferences.created_at)),
+    ]);
+
+  const checklist: ChecklistItemRow[] = checklistRows.map((r) => ({
+    id: r.id,
+    task_id: r.task_id,
+    label: r.label,
+    checked: r.checked,
+    order_hint: r.order_hint,
+    external_id: r.external_id,
+    external_etag: r.external_etag,
+    created_at: r.created_at.toISOString(),
+    updated_at: r.updated_at.toISOString(),
+  }));
+
+  const references: TaskReferenceRow[] = referenceRows.map((r) => ({
+    id: r.id,
+    tenant_id: r.tenant_id,
+    task_id: r.task_id,
+    url: r.url,
+    alias: r.alias,
+    type: r.type as TaskReferenceType,
+    preview_priority: r.preview_priority,
+    external_etag: r.external_etag,
+    created_at: r.created_at.toISOString(),
+    updated_at: r.updated_at.toISOString(),
+  }));
 
   return {
     ...taskRowToDto(row),
     assignees: assigneesByTaskId.get(row.id) ?? [],
     labels: labelsByTaskId.get(row.id) ?? [],
     checklist_summary: summaryByTaskId.get(row.id) ?? { total: 0, checked: 0 },
+    checklist,
+    references,
   };
 }

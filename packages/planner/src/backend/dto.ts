@@ -155,6 +155,15 @@ export interface TaskWithAssigneesRow extends TaskRow {
   checklist_summary: { total: number; checked: number };
 }
 
+// Single-task detail shape — what /tasks/:id and getTask return. Lists keep the
+// lighter TaskWithAssigneesRow (which exposes only a checklist count) so board
+// queries don't fan out per-task. Detail screens need the full ordered checklist
+// and the reference list.
+export interface TaskDetailRow extends TaskWithAssigneesRow {
+  checklist: ChecklistItemRow[];
+  references: TaskReferenceRow[];
+}
+
 export interface TaskReferenceRow {
   id: string;
   tenant_id: string;
