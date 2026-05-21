@@ -3,7 +3,7 @@ import { withEmit } from '@seta/core/events';
 import { and, eq, isNull } from 'drizzle-orm';
 import { buckets, plans } from '../../db/schema.ts';
 import { emitPlannerBucketUpdated } from '../../events/emit-helpers.ts';
-import type { BucketRow } from '../dto.ts';
+import type { BucketRow, TaskExternalSource } from '../dto.ts';
 import type { UpdateBucketPatch } from '../inputs.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 
@@ -95,7 +95,11 @@ function rowToDto(row: BucketDbRow): BucketRow {
     tenant_id: row.tenant_id,
     plan_id: row.plan_id,
     name: row.name,
-    sort_order: row.sort_order,
+    order_hint: row.order_hint,
+    external_source: row.external_source as TaskExternalSource,
+    external_id: row.external_id,
+    external_etag: row.external_etag,
+    external_synced_at: row.external_synced_at ? row.external_synced_at.toISOString() : null,
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
     deleted_at: row.deleted_at ? row.deleted_at.toISOString() : null,

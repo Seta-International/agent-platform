@@ -5,14 +5,13 @@ import { plans, tasks } from '../../db/schema.ts';
 import { emitPlannerTaskRestored } from '../../events/emit-helpers.ts';
 import type { TaskRow } from '../dto.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
-
-type TaskDbRow = typeof tasks.$inferSelect;
+import { taskRowToDto } from './_task-dto.ts';
 
 export async function restoreTask(input: {
   task_id: string;
   session: SessionScope;
 }): Promise<TaskRow> {
-  let restored!: TaskDbRow;
+  let restored!: typeof tasks.$inferSelect;
   await withEmit(
     {
       actor: {
@@ -61,27 +60,5 @@ export async function restoreTask(input: {
     },
   );
 
-  return rowToDto(restored);
-}
-
-function rowToDto(row: TaskDbRow): TaskRow {
-  return {
-    id: row.id,
-    tenant_id: row.tenant_id,
-    plan_id: row.plan_id,
-    bucket_id: row.bucket_id,
-    title: row.title,
-    description: row.description,
-    priority: row.priority,
-    progress: row.progress,
-    review_state: row.review_state,
-    skill_tags: row.skill_tags,
-    due_at: row.due_at ? row.due_at.toISOString() : null,
-    sort_order: row.sort_order,
-    created_by: row.created_by,
-    created_at: row.created_at.toISOString(),
-    updated_at: row.updated_at.toISOString(),
-    deleted_at: row.deleted_at ? row.deleted_at.toISOString() : null,
-    version: row.version,
-  };
+  return taskRowToDto(restored);
 }

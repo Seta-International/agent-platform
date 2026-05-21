@@ -5,33 +5,8 @@ import { plans, tasks } from '../../db/schema.ts';
 import type { TaskWithAssigneesRow } from '../dto.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 import { groupFilterFor } from '../read-helpers.ts';
+import { taskRowToDto } from './_task-dto.ts';
 import { fetchSupplementaryData } from './list-tasks.ts';
-
-type TaskDbRow = typeof tasks.$inferSelect;
-
-function taskRowToBase(
-  row: TaskDbRow,
-): Omit<TaskWithAssigneesRow, 'assignees' | 'labels' | 'checklist_summary'> {
-  return {
-    id: row.id,
-    tenant_id: row.tenant_id,
-    plan_id: row.plan_id,
-    bucket_id: row.bucket_id,
-    title: row.title,
-    description: row.description,
-    priority: row.priority,
-    progress: row.progress,
-    review_state: row.review_state,
-    skill_tags: row.skill_tags,
-    due_at: row.due_at ? row.due_at.toISOString() : null,
-    sort_order: row.sort_order,
-    created_by: row.created_by,
-    created_at: row.created_at.toISOString(),
-    updated_at: row.updated_at.toISOString(),
-    deleted_at: row.deleted_at ? row.deleted_at.toISOString() : null,
-    version: row.version,
-  };
-}
 
 export async function getTask(input: {
   task_id: string;
@@ -77,7 +52,7 @@ export async function getTask(input: {
   ]);
 
   return {
-    ...taskRowToBase(row),
+    ...taskRowToDto(row),
     assignees: assigneesByTaskId.get(row.id) ?? [],
     labels: labelsByTaskId.get(row.id) ?? [],
     checklist_summary: summaryByTaskId.get(row.id) ?? { total: 0, checked: 0 },

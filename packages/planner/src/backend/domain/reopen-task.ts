@@ -5,15 +5,14 @@ import { plans, tasks } from '../../db/schema.ts';
 import { emitPlannerTaskReopened } from '../../events/emit-helpers.ts';
 import type { TaskRow } from '../dto.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
-
-type TaskDbRow = typeof tasks.$inferSelect;
+import { taskRowToDto } from './_task-dto.ts';
 
 export async function reopenTask(input: {
   task_id: string;
   expected_version: number;
   session: SessionScope;
 }): Promise<TaskRow> {
-  let result!: TaskDbRow;
+  let result!: typeof tasks.$inferSelect;
   await withEmit(
     {
       actor: {
@@ -49,10 +48,10 @@ export async function reopenTask(input: {
         });
       }
 
-      if (existing.progress !== 'completed') {
+      if (existing.percent_complete !== 100) {
         throw new PlannerError('VALIDATION', 'Task is not completed', {
           task_id: input.task_id,
-          progress: existing.progress,
+          percent_complete: existing.percent_complete,
         });
       }
 
@@ -61,7 +60,7 @@ export async function reopenTask(input: {
 
       const [updated] = await tx
         .update(tasks)
-        .set({ progress: 'in_progress', updated_at: now, version: versionAfter })
+        .set({ percent_complete: 0, is_deferred: false, updated_at: now, version: versionAfter })
         .where(eq(tasks.id, input.task_id))
         .returning();
       if (!updated) throw new PlannerError('VALIDATION', 'Update returned no row');
@@ -79,27 +78,5 @@ export async function reopenTask(input: {
     },
   );
 
-  return rowToDto(result);
-}
-
-function rowToDto(row: TaskDbRow): TaskRow {
-  return {
-    id: row.id,
-    tenant_id: row.tenant_id,
-    plan_id: row.plan_id,
-    bucket_id: row.bucket_id,
-    title: row.title,
-    description: row.description,
-    priority: row.priority,
-    progress: row.progress,
-    review_state: row.review_state,
-    skill_tags: row.skill_tags,
-    due_at: row.due_at ? row.due_at.toISOString() : null,
-    sort_order: row.sort_order,
-    created_by: row.created_by,
-    created_at: row.created_at.toISOString(),
-    updated_at: row.updated_at.toISOString(),
-    deleted_at: row.deleted_at ? row.deleted_at.toISOString() : null,
-    version: row.version,
-  };
+  return taskRowToDto(result);
 }

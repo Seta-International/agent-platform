@@ -1,5 +1,5 @@
 import type { SessionScope } from '@seta/core';
-import { and, eq, inArray, isNull, lt, sql } from 'drizzle-orm';
+import { and, eq, gte, inArray, isNull, lt, lte, sql } from 'drizzle-orm';
 import { plannerDb } from '../../db/index.ts';
 import {
   assigneeProjection,
@@ -13,6 +13,7 @@ import {
 import type { AssigneeRow, LabelRow, TaskWithAssigneesRow } from '../dto.ts';
 import { requirePermission } from '../rbac.ts';
 import { groupFilterFor } from '../read-helpers.ts';
+import { taskRowToDto } from './_task-dto.ts';
 
 export interface ListTasksFilters {
   plan_id?: string;
@@ -21,7 +22,9 @@ export interface ListTasksFilters {
   assignee_id?: string;
   review_state?: 'needs_review';
   skill_tags?: string[];
-  progress?: 'not_started' | 'in_progress' | 'completed' | 'deferred';
+  is_deferred?: boolean;
+  percent_complete_lt?: number;
+  percent_complete_gte?: number;
   due_before?: string;
   include_deleted?: boolean;
 }
@@ -36,32 +39,6 @@ function decodeCursor(c: string): { u: string; i: string } | null {
   } catch {
     return null;
   }
-}
-
-type TaskDbRow = typeof tasks.$inferSelect;
-
-function taskRowToBase(
-  row: TaskDbRow,
-): Omit<TaskWithAssigneesRow, 'assignees' | 'labels' | 'checklist_summary'> {
-  return {
-    id: row.id,
-    tenant_id: row.tenant_id,
-    plan_id: row.plan_id,
-    bucket_id: row.bucket_id,
-    title: row.title,
-    description: row.description,
-    priority: row.priority,
-    progress: row.progress,
-    review_state: row.review_state,
-    skill_tags: row.skill_tags,
-    due_at: row.due_at ? row.due_at.toISOString() : null,
-    sort_order: row.sort_order,
-    created_by: row.created_by,
-    created_at: row.created_at.toISOString(),
-    updated_at: row.updated_at.toISOString(),
-    deleted_at: row.deleted_at ? row.deleted_at.toISOString() : null,
-    version: row.version,
-  };
 }
 
 export async function fetchSupplementaryData(
@@ -95,6 +72,7 @@ export async function fetchSupplementaryData(
         plan_id: labels.plan_id,
         name: labels.name,
         color: labels.color,
+        category_slot: labels.category_slot,
         created_at: labels.created_at,
         deleted_at: labels.deleted_at,
       })
@@ -136,6 +114,7 @@ export async function fetchSupplementaryData(
       plan_id: r.plan_id,
       name: r.name,
       color: r.color,
+      category_slot: r.category_slot,
       created_at: r.created_at.toISOString(),
       deleted_at: r.deleted_at ? r.deleted_at.toISOString() : null,
     });
@@ -234,8 +213,16 @@ export async function listTasks(input: {
     conditions.push(eq(tasks.review_state, filters.review_state));
   }
 
-  if (filters.progress !== undefined) {
-    conditions.push(eq(tasks.progress, filters.progress));
+  if (filters.is_deferred !== undefined) {
+    conditions.push(eq(tasks.is_deferred, filters.is_deferred));
+  }
+
+  if (filters.percent_complete_lt !== undefined) {
+    conditions.push(lt(tasks.percent_complete, filters.percent_complete_lt));
+  }
+
+  if (filters.percent_complete_gte !== undefined) {
+    conditions.push(gte(tasks.percent_complete, filters.percent_complete_gte));
   }
 
   if (filters.skill_tags !== undefined && filters.skill_tags.length > 0) {
@@ -279,7 +266,7 @@ export async function listTasks(input: {
   );
 
   const result = rows.map((r) =>
-    stitchRow(taskRowToBase(r), assigneesByTaskId, labelsByTaskId, summaryByTaskId),
+    stitchRow(taskRowToDto(r), assigneesByTaskId, labelsByTaskId, summaryByTaskId),
   );
 
   const lastRow = rows[rows.length - 1];

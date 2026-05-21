@@ -1,19 +1,18 @@
 import type { SessionScope } from '@seta/core';
 import { withEmit } from '@seta/core/events';
-import { and, asc, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { buckets, plans, tasks } from '../../db/schema.ts';
 import { emitPlannerTaskCreated } from '../../events/emit-helpers.ts';
 import type { TaskRow } from '../dto.ts';
 import type { CreateTaskInput } from '../inputs.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
-import { placeAfter } from '../sort-order.ts';
-
-type TaskDbRow = typeof tasks.$inferSelect;
+import { taskRowToDto } from './_task-dto.ts';
+import { hintBetween } from './order-hint.ts';
 
 export async function createTask(
   input: CreateTaskInput & { session: SessionScope },
 ): Promise<TaskRow> {
-  let inserted!: TaskDbRow;
+  let inserted!: typeof tasks.$inferSelect;
   await withEmit(
     {
       actor: {
@@ -54,19 +53,21 @@ export async function createTask(
         }
       }
 
-      // Compute sort_order: append after the last live task in this bucket scope.
+      // Append: pick a key after the current last live task in this bucket scope.
       const bucketCondition =
         input.bucket_id !== undefined
           ? eq(tasks.bucket_id, input.bucket_id)
           : isNull(tasks.bucket_id);
       const existingTasks = await tx
-        .select({ sort_order: tasks.sort_order })
+        .select({ order_hint: tasks.order_hint })
         .from(tasks)
-        .where(and(eq(tasks.plan_id, input.plan_id), bucketCondition, isNull(tasks.deleted_at)))
-        .orderBy(asc(tasks.sort_order));
-
-      const last = existingTasks[existingTasks.length - 1];
-      const sortOrder = placeAfter(last?.sort_order, undefined);
+        .where(and(eq(tasks.plan_id, input.plan_id), bucketCondition, isNull(tasks.deleted_at)));
+      const sortedHints = existingTasks
+        .map((r) => r.order_hint)
+        .filter((h): h is string => h !== null)
+        .sort();
+      const lastHint = sortedHints[sortedHints.length - 1] ?? null;
+      const orderHint = hintBetween(lastHint, null);
 
       const [row] = await tx
         .insert(tasks)
@@ -76,12 +77,15 @@ export async function createTask(
           bucket_id: input.bucket_id ?? null,
           title: input.title,
           description: input.description ?? null,
-          priority: input.priority ?? 'medium',
-          progress: input.progress ?? 'not_started',
+          priority_number: input.priority_number ?? 5,
+          percent_complete: input.percent_complete ?? 0,
+          is_deferred: input.is_deferred ?? false,
+          preview_type: input.preview_type ?? 'automatic',
           review_state: input.review_state ?? null,
           skill_tags: input.skill_tags ?? [],
+          start_at: input.start_at ? new Date(input.start_at) : null,
           due_at: input.due_at ? new Date(input.due_at) : null,
-          sort_order: sortOrder,
+          order_hint: orderHint,
           created_by: input.session.user_id,
         })
         .returning();
@@ -98,38 +102,28 @@ export async function createTask(
           bucket_id: row.bucket_id,
           title: row.title,
           description: row.description,
-          priority: row.priority,
+          priority_number: row.priority_number as 1 | 3 | 5 | 9,
+          percent_complete: row.percent_complete,
+          is_deferred: row.is_deferred,
+          preview_type: row.preview_type as
+            | 'automatic'
+            | 'noPreview'
+            | 'checklist'
+            | 'description'
+            | 'reference',
+          start_at: row.start_at ? row.start_at.toISOString() : null,
           due_at: row.due_at ? row.due_at.toISOString() : null,
+          order_hint: row.order_hint,
+          assignee_priority: row.assignee_priority,
           skill_tags: row.skill_tags,
           review_state: row.review_state,
-          sort_order: row.sort_order,
+          external_source: row.external_source as 'native' | 'm365',
+          external_id: row.external_id,
           created_by: row.created_by,
         },
       });
     },
   );
 
-  return rowToDto(inserted);
-}
-
-function rowToDto(row: TaskDbRow): TaskRow {
-  return {
-    id: row.id,
-    tenant_id: row.tenant_id,
-    plan_id: row.plan_id,
-    bucket_id: row.bucket_id,
-    title: row.title,
-    description: row.description,
-    priority: row.priority,
-    progress: row.progress,
-    review_state: row.review_state,
-    skill_tags: row.skill_tags,
-    due_at: row.due_at ? row.due_at.toISOString() : null,
-    sort_order: row.sort_order,
-    created_by: row.created_by,
-    created_at: row.created_at.toISOString(),
-    updated_at: row.updated_at.toISOString(),
-    deleted_at: row.deleted_at ? row.deleted_at.toISOString() : null,
-    version: row.version,
-  };
+  return taskRowToDto(inserted);
 }

@@ -52,9 +52,9 @@ export async function deleteBucket(input: {
         .set({ deleted_at: deletedAt, updated_at: deletedAt, version: existing.version + 1 })
         .where(eq(buckets.id, input.bucket_id));
 
-      // Snapshot live tasks before reflowing so we have their version and sort_order.
+      // Snapshot live tasks before reflowing so we have their version and order_hint.
       const liveTasks = await tx
-        .select({ id: tasks.id, sort_order: tasks.sort_order, version: tasks.version })
+        .select({ id: tasks.id, order_hint: tasks.order_hint, version: tasks.version })
         .from(tasks)
         .where(and(eq(tasks.bucket_id, input.bucket_id), isNull(tasks.deleted_at)));
 
@@ -75,8 +75,8 @@ export async function deleteBucket(input: {
             task_id: task.id,
             plan_id: existing.plan_id,
             group_id: plan.group_id,
-            before: { bucket_id: existing.id, sort_order: task.sort_order },
-            after: { bucket_id: null, sort_order: task.sort_order },
+            before: { bucket_id: existing.id, order_hint: task.order_hint },
+            after: { bucket_id: null, order_hint: task.order_hint },
             version_before: task.version,
             version_after: task.version + 1,
           });

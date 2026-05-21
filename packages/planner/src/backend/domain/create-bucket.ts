@@ -1,12 +1,12 @@
 import type { SessionScope } from '@seta/core';
 import { withEmit } from '@seta/core/events';
-import { and, asc, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import { buckets, plans } from '../../db/schema.ts';
 import { emitPlannerBucketCreated } from '../../events/emit-helpers.ts';
-import type { BucketRow } from '../dto.ts';
+import type { BucketRow, TaskExternalSource } from '../dto.ts';
 import type { CreateBucketInput } from '../inputs.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
-import { placeAfter } from '../sort-order.ts';
+import { hintBetween } from './order-hint.ts';
 
 type BucketDbRow = typeof buckets.$inferSelect;
 
@@ -40,9 +40,9 @@ export async function createBucket(
         .select()
         .from(buckets)
         .where(and(eq(buckets.plan_id, input.plan_id), isNull(buckets.deleted_at)))
-        .orderBy(asc(buckets.sort_order));
+        .orderBy(sql`order_hint NULLS LAST`);
 
-      let sortOrder: number;
+      let orderHint: string;
       if (input.after_bucket_id !== undefined) {
         const afterIdx = existingBuckets.findIndex((b) => b.id === input.after_bucket_id);
         if (afterIdx === -1) {
@@ -50,13 +50,13 @@ export async function createBucket(
             after_bucket_id: input.after_bucket_id,
           });
         }
-        // biome-ignore lint/style/noNonNullAssertion: afterIdx was verified !== -1 above
+        // biome-ignore lint/style/noNonNullAssertion: index verified above
         const afterBucket = existingBuckets[afterIdx]!;
         const nextBucket = existingBuckets[afterIdx + 1];
-        sortOrder = placeAfter(afterBucket.sort_order, nextBucket?.sort_order);
+        orderHint = hintBetween(afterBucket.order_hint, nextBucket?.order_hint ?? null);
       } else {
         const lastBucket = existingBuckets[existingBuckets.length - 1];
-        sortOrder = placeAfter(lastBucket?.sort_order, undefined);
+        orderHint = hintBetween(lastBucket?.order_hint ?? null, null);
       }
 
       const [row] = await tx
@@ -65,7 +65,7 @@ export async function createBucket(
           tenant_id: plan.tenant_id,
           plan_id: input.plan_id,
           name: input.name,
-          sort_order: sortOrder,
+          order_hint: orderHint,
         })
         .returning();
       if (!row) throw new PlannerError('VALIDATION', 'Insert returned no row');
@@ -79,7 +79,7 @@ export async function createBucket(
           plan_id: input.plan_id,
           group_id: plan.group_id,
           name: row.name,
-          sort_order: row.sort_order,
+          order_hint: row.order_hint,
         },
       });
     },
@@ -94,7 +94,11 @@ function rowToDto(row: BucketDbRow): BucketRow {
     tenant_id: row.tenant_id,
     plan_id: row.plan_id,
     name: row.name,
-    sort_order: row.sort_order,
+    order_hint: row.order_hint,
+    external_source: row.external_source as TaskExternalSource,
+    external_id: row.external_id,
+    external_etag: row.external_etag,
+    external_synced_at: row.external_synced_at ? row.external_synced_at.toISOString() : null,
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
     deleted_at: row.deleted_at ? row.deleted_at.toISOString() : null,

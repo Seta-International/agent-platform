@@ -3,22 +3,43 @@ import { withEmit } from '@seta/core/events';
 import { and, eq, isNull } from 'drizzle-orm';
 import { plans, tasks } from '../../db/schema.ts';
 import { emitPlannerTaskUpdated } from '../../events/emit-helpers.ts';
-import type { TaskMutableFields } from '../../events/types.ts';
+import type { TaskChangedField, TaskMutableFields } from '../../events/types.ts';
 import type { TaskRow } from '../dto.ts';
-import type { UpdateTaskPatch } from '../inputs.ts';
+import { type UpdateTaskPatch, UpdateTaskPatchSchema } from '../inputs.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
+import { isM365SystemActor } from './_actor.ts';
+import { taskRowToDto } from './_task-dto.ts';
 
 type TaskDbRow = typeof tasks.$inferSelect;
-type TaskSetFields = {
-  title?: string;
-  description?: string | null;
-  priority?: 'urgent' | 'important' | 'medium' | 'low';
-  review_state?: 'needs_review' | null;
-  skill_tags?: string[];
-  due_at?: Date | null;
-  updated_at: Date;
-  version: number;
-};
+
+const SIMPLE_FIELDS = [
+  'title',
+  'description',
+  'bucket_id',
+  'percent_complete',
+  'priority_number',
+  'is_deferred',
+  'preview_type',
+  'order_hint',
+  'assignee_priority',
+  'skill_tags',
+  'review_state',
+] as const satisfies readonly (keyof TaskMutableFields)[];
+
+const DATE_FIELDS = ['start_at', 'due_at'] as const satisfies readonly (keyof TaskMutableFields)[];
+
+const EXTERNAL_FIELDS = [
+  'external_source',
+  'external_id',
+  'external_etag',
+  'external_synced_at',
+] as const;
+
+type ExternalField = (typeof EXTERNAL_FIELDS)[number];
+const isExternalChangedField = (
+  f: ExternalField,
+): f is Exclude<ExternalField, 'external_synced_at'> & TaskChangedField =>
+  f !== 'external_synced_at';
 
 export async function updateTask(input: {
   task_id: string;
@@ -26,6 +47,27 @@ export async function updateTask(input: {
   patch: UpdateTaskPatch;
   session: SessionScope;
 }): Promise<TaskRow> {
+  // Strict parse — rejects unknown keys (e.g. legacy `priority`/`progress`).
+  let patch: UpdateTaskPatch;
+  try {
+    patch = UpdateTaskPatchSchema.parse(input.patch) as UpdateTaskPatch;
+  } catch (e) {
+    throw new PlannerError('VALIDATION', `Invalid updateTask patch: ${(e as Error).message}`, {
+      task_id: input.task_id,
+    });
+  }
+
+  const touchesExternal = EXTERNAL_FIELDS.some(
+    (f) => (patch as Record<string, unknown>)[f] !== undefined,
+  );
+  if (touchesExternal && !isM365SystemActor(input.session)) {
+    throw new PlannerError(
+      'RESERVED_FOR_SYSTEM_ACTOR',
+      'external_* fields writable only by M365 system actor',
+      { task_id: input.task_id },
+    );
+  }
+
   let result!: TaskDbRow;
 
   await withEmit(
@@ -65,63 +107,56 @@ export async function updateTask(input: {
 
       const before: Partial<TaskMutableFields> = {};
       const after: Partial<TaskMutableFields> = {};
-      const setFields: TaskSetFields = {
+      const changed: TaskChangedField[] = [];
+      const setFields: Record<string, unknown> = {
         updated_at: new Date(),
         version: existing.version + 1,
       };
 
-      if (input.patch.title !== undefined && input.patch.title !== existing.title) {
-        before.title = existing.title;
-        after.title = input.patch.title;
-        setFields.title = input.patch.title;
+      for (const f of SIMPLE_FIELDS) {
+        const v = (patch as Record<string, unknown>)[f];
+        if (v === undefined) continue;
+        const exVal = (existing as unknown as Record<string, unknown>)[f];
+        if (JSON.stringify(exVal) === JSON.stringify(v)) continue;
+        (before as Record<string, unknown>)[f] = exVal;
+        (after as Record<string, unknown>)[f] = v;
+        setFields[f] = v;
+        changed.push(f);
       }
 
-      if (
-        input.patch.description !== undefined &&
-        input.patch.description !== existing.description
-      ) {
-        before.description = existing.description;
-        after.description = input.patch.description;
-        setFields.description = input.patch.description;
+      for (const f of DATE_FIELDS) {
+        const v = patch[f];
+        if (v === undefined) continue;
+        const exDate = (existing as unknown as Record<string, Date | null>)[f];
+        const exIso = exDate ? exDate.toISOString() : null;
+        const next = v ?? null;
+        if (exIso === next) continue;
+        (before as Record<string, unknown>)[f] = exIso;
+        (after as Record<string, unknown>)[f] = next;
+        setFields[f] = next ? new Date(next) : null;
+        changed.push(f);
       }
 
-      if (input.patch.priority !== undefined && input.patch.priority !== existing.priority) {
-        before.priority = existing.priority;
-        after.priority = input.patch.priority;
-        setFields.priority = input.patch.priority;
-      }
-
-      if (
-        input.patch.review_state !== undefined &&
-        input.patch.review_state !== existing.review_state
-      ) {
-        before.review_state = existing.review_state;
-        after.review_state = input.patch.review_state;
-        setFields.review_state = input.patch.review_state;
-      }
-
-      if (input.patch.skill_tags !== undefined) {
-        const existingStr = JSON.stringify(existing.skill_tags);
-        const patchStr = JSON.stringify(input.patch.skill_tags);
-        if (existingStr !== patchStr) {
-          before.skill_tags = existing.skill_tags;
-          after.skill_tags = input.patch.skill_tags;
-          setFields.skill_tags = input.patch.skill_tags;
+      for (const f of EXTERNAL_FIELDS) {
+        const v = (patch as Record<string, unknown>)[f];
+        if (v === undefined) continue;
+        if (f === 'external_synced_at') {
+          const exDate = existing.external_synced_at;
+          const exIso = exDate ? exDate.toISOString() : null;
+          const next = (v as string | null) ?? null;
+          if (exIso === next) continue;
+          setFields[f] = next ? new Date(next) : null;
+          continue;
         }
+        const exVal = (existing as unknown as Record<string, unknown>)[f];
+        if (JSON.stringify(exVal) === JSON.stringify(v)) continue;
+        (before as Record<string, unknown>)[f] = exVal;
+        (after as Record<string, unknown>)[f] = v;
+        setFields[f] = v;
+        if (isExternalChangedField(f)) changed.push(f);
       }
 
-      if (input.patch.due_at !== undefined) {
-        const existingIso = existing.due_at ? existing.due_at.toISOString() : null;
-        const patchIso = input.patch.due_at ?? null;
-        if (existingIso !== patchIso) {
-          before.due_at = existingIso;
-          after.due_at = patchIso;
-          setFields.due_at = patchIso ? new Date(patchIso) : null;
-        }
-      }
-
-      // No fields changed — return existing row without version bump or event.
-      if (Object.keys(after).length === 0) {
+      if (changed.length === 0 && Object.keys(setFields).length === 2) {
         result = existing;
         return;
       }
@@ -135,40 +170,21 @@ export async function updateTask(input: {
       result = row;
 
       await emitPlannerTaskUpdated({
-        actor: { type: 'user', user_id: input.session.user_id },
+        actor: isM365SystemActor(input.session)
+          ? { type: 'system', user_id: null, system_id: 'integrations.m365' }
+          : { type: 'user', user_id: input.session.user_id },
         tenant_id: existing.tenant_id,
         task_id: existing.id,
         plan_id: existing.plan_id,
         group_id: plan.group_id,
         before,
         after,
+        changed_fields: changed,
         version_before: existing.version,
         version_after: existing.version + 1,
       });
     },
   );
 
-  return rowToDto(result);
-}
-
-function rowToDto(row: TaskDbRow): TaskRow {
-  return {
-    id: row.id,
-    tenant_id: row.tenant_id,
-    plan_id: row.plan_id,
-    bucket_id: row.bucket_id,
-    title: row.title,
-    description: row.description,
-    priority: row.priority,
-    progress: row.progress,
-    review_state: row.review_state,
-    skill_tags: row.skill_tags,
-    due_at: row.due_at ? row.due_at.toISOString() : null,
-    sort_order: row.sort_order,
-    created_by: row.created_by,
-    created_at: row.created_at.toISOString(),
-    updated_at: row.updated_at.toISOString(),
-    deleted_at: row.deleted_at ? row.deleted_at.toISOString() : null,
-    version: row.version,
-  };
+  return taskRowToDto(result);
 }

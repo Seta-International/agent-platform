@@ -1,8 +1,8 @@
 import type { SessionScope } from '@seta/core';
-import { and, asc, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import { plannerDb } from '../../db/index.ts';
 import { buckets, plans } from '../../db/schema.ts';
-import type { BucketRow } from '../dto.ts';
+import type { BucketRow, TaskExternalSource } from '../dto.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 import { groupFilterFor } from '../read-helpers.ts';
 
@@ -47,7 +47,7 @@ export async function listBuckets(input: {
     .select()
     .from(buckets)
     .where(and(...conditions))
-    .orderBy(asc(buckets.sort_order));
+    .orderBy(sql`order_hint NULLS LAST`);
 
   return rows.map(rowToDto);
 }
@@ -58,7 +58,11 @@ function rowToDto(row: BucketDbRow): BucketRow {
     tenant_id: row.tenant_id,
     plan_id: row.plan_id,
     name: row.name,
-    sort_order: row.sort_order,
+    order_hint: row.order_hint,
+    external_source: row.external_source as TaskExternalSource,
+    external_id: row.external_id,
+    external_etag: row.external_etag,
+    external_synced_at: row.external_synced_at ? row.external_synced_at.toISOString() : null,
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
     deleted_at: row.deleted_at ? row.deleted_at.toISOString() : null,
