@@ -4,6 +4,7 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { groupMembers, groups } from '../../db/schema.ts';
 import { emitPlannerGroupMemberRemoved } from '../../events/emit-helpers.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
+import { isM365SystemActor } from './_actor.ts';
 
 export async function removeGroupMember(input: {
   group_id: string;
@@ -31,6 +32,13 @@ export async function removeGroupMember(input: {
         throw new PlannerError('CROSS_TENANT', 'Group belongs to another tenant', {
           group_id: input.group_id,
         });
+      }
+      if (existing.external_source !== 'native' && !isM365SystemActor(input.session)) {
+        throw new PlannerError(
+          'LINKED_GROUP_IMMUTABLE_MEMBERS',
+          'Member changes on linked groups are managed in M365',
+          { group_id: input.group_id },
+        );
       }
 
       const removed = await tx
