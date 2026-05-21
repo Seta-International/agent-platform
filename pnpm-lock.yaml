@@ -358,6 +358,9 @@ importers:
       '@seta/planner':
         specifier: workspace:^
         version: link:../planner
+      '@seta/shared-embeddings':
+        specifier: workspace:^
+        version: link:../shared/embeddings
       ai:
         specifier: ^6.0.188
         version: 6.0.188(zod@4.4.3)

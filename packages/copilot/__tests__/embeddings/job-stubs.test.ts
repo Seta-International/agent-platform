@@ -1,14 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { embeddingJobs } from '../../src/backend/embeddings/register-jobs.ts';
 
-describe('M3.1 embedding job stubs', () => {
+/**
+ * Smoke tests for the embedding job registry.
+ *
+ * M3.2: embed_task is now the real handler — we only verify the registry shape here.
+ *       Integration tests for the real handler live in embed-task.test.ts.
+ * M3.3: embed_user_profile stub remains; will be replaced.
+ */
+describe('embedding job registry', () => {
   it('exposes embed_task and embed_user_profile as graphile-worker task functions', () => {
     expect(typeof embeddingJobs.embed_task).toBe('function');
     expect(typeof embeddingJobs.embed_user_profile).toBe('function');
-  });
-
-  it('embed_task is a no-op that returns without throwing', async () => {
-    await embeddingJobs.embed_task!({ tenant_id: 't', task_id: '1', event_id: 'e' }, {} as never);
   });
 
   it('embed_user_profile is a no-op that returns without throwing', async () => {

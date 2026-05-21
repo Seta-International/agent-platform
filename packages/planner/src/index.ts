@@ -122,6 +122,8 @@ export type {
 } from './backend/inputs.ts';
 export type { PlannerErrorCode } from './backend/rbac.ts';
 export { PlannerError, requirePermission } from './backend/rbac.ts';
+export type { TaskSourceInput } from './embeddings/source.ts';
+export { buildTaskSource } from './embeddings/source.ts';
 export type { PlannerEvent, PlannerEventActor } from './events/index.ts';
 export {
   PLANNER_PERMISSIONS,
