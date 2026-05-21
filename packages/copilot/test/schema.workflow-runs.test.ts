@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { workflowApprovals } from '../src/db/schema.workflow-approvals.ts';
 import { workflowRuns } from '../src/db/schema.workflow-runs.ts';
 
 describe('copilot.workflow_runs table', () => {
@@ -20,6 +21,30 @@ describe('copilot.workflow_runs table', () => {
       'startedAt',
       'finishedAt',
       'durationMs',
+    ]) {
+      expect(cols).toContain(c);
+    }
+  });
+});
+
+describe('copilot.workflow_approvals table', () => {
+  it('exposes the columns the lifecycle hook + decideApproval write', () => {
+    const cols = Object.keys(workflowApprovals);
+    for (const c of [
+      'approvalId',
+      'runId',
+      'stepId',
+      'proposedPayload',
+      'approverUserId',
+      'fallbackApproverUserId',
+      'surfaceCanvas',
+      'surfaceChatThreadId',
+      'status',
+      'decisionPayload',
+      'decidedBy',
+      'decidedAt',
+      'expiresAt',
+      'createdAt',
     ]) {
       expect(cols).toContain(c);
     }
