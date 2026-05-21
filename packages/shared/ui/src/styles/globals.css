@@ -100,6 +100,16 @@ select:focus-visible,
 .status-dot--warning  { background: var(--color-warning); }
 .status-dot--success  { background: var(--color-success); }
 
+.mono   { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.subtle { color: var(--color-ink-subtle); }
+.t-xs   { font-size: var(--font-size-xs); }
+.dot         { display: inline-block; width: 6px; height: 6px; border-radius: 50%; }
+.dot.muted   { background: var(--color-ink-subtle); }
+.dot.primary { background: var(--color-primary); }
+.dot.success { background: var(--color-success); }
+.dot.warning { background: var(--color-warning); }
+.dot.danger  { background: var(--color-danger); }
+
 /* KanbanBoard */
 .kanban-board {
   display: flex;
