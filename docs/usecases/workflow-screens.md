@@ -1,6 +1,6 @@
 # Workflow screens — designer handoff
 
-**Status:** draft for design review.
+**Status:** draft for design review. W1, W3, W4, W5, W8 shipped 2026-05-21 (foundation + feature + polish PRs).
 **Audience:** product designer + design-system reviewer.
 **Engineering anchors:** `docs/rbac-and-screens.md` A7/A8/B17, `docs/architecture.md` §A/§F/§H, `DESIGN.md` + `packages/shared/ui/src/styles/tokens.css`.
 **Reference patterns:** Mastra Studio editor (`mastra.ai/docs/editor/overview`, `mastra.ai/docs/editor/prompts`, `mastra.ai/docs/workflows/overview`) — see the local checkout at `/Users/canh/Projects/Seta/mastra` for ground truth.
@@ -71,7 +71,7 @@ The same human often holds two of these. Design must not create separate sub-app
 
 ## 4. Screens
 
-### W1 — Workflows catalog + run inbox
+### W1 — Workflows catalog + run inbox   **[shipped 2026-05-21]**
 
 **Route:** `/copilot/studio/workflows`
 
@@ -231,7 +231,7 @@ Canvas shows a single ghost "Start" placeholder + an inline tip: *"Drag a step f
 
 ---
 
-### W3 — Run input dialog
+### W3 — Run input dialog   **[shipped 2026-05-21 — re-run side sheet]**
 
 **Trigger:** **Run** in W2, or **Re-run with edits** from W5.
 
@@ -253,7 +253,7 @@ Canvas shows a single ghost "Start" placeholder + an inline tip: *"Drag a step f
 
 ---
 
-### W4 — Live run (streaming)
+### W4 — Live run (streaming)   **[shipped 2026-05-21]**
 
 **Route:** `/copilot/studio/workflows/:workflowId/runs/:runId` while status is `running` / `paused` / `waiting`.
 
@@ -278,7 +278,7 @@ Canvas shows a single ghost "Start" placeholder + an inline tip: *"Drag a step f
 
 ---
 
-### W5 — Run drilldown (completed run)
+### W5 — Run drilldown (completed run)   **[shipped 2026-05-21]**
 
 **Route:** same as W4, surfaces this state once status ∈ {`success`, `failed`, `tripwire`}.
 
@@ -335,7 +335,7 @@ We do not have a separate inbox page anymore — A7's intent is preserved as the
 
 ---
 
-### W8 — HITL approval (used by W4)
+### W8 — HITL approval (used by W4)   **[shipped 2026-05-21 — canvas + chat-embedded]**
 
 **Purpose:** when a workflow `suspend`s for human approval (required across half our workflows per §14.1), render a card that a permitted human can act on.
 
