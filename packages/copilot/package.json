@@ -9,7 +9,8 @@
     "./events": "./src/events/index.ts",
     "./register": "./src/register.ts",
     "./testing": "./src/testing/fixtures.ts",
-    "./testing/embed": "./src/testing/embed.ts"
+    "./testing/embed": "./src/testing/embed.ts",
+    "./backend/embeddings/backfill/backfill-tasks": "./src/backend/embeddings/backfill/backfill-tasks.ts"
   },
   "scripts": {
     "lint": "eslint . --no-error-on-unmatched-pattern",

@@ -18,6 +18,7 @@
     "vitest": "^4.1.7"
   },
   "dependencies": {
+    "@seta/copilot": "workspace:^",
     "@seta/core": "workspace:^",
     "@seta/identity": "workspace:^",
     "@seta/integrations": "workspace:^",

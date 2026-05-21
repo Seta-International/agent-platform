@@ -3,6 +3,7 @@ import { createCrypto, createKeyProviderFromEnv, parseCryptoEnv } from '@seta/sh
 import { closePools, initPools } from '@seta/shared-db';
 import { Command } from 'commander';
 import pino from 'pino';
+import { runEmbedBackfill } from './commands/embed-backfill.ts';
 import { importCsvCommand } from './commands/import-csv.ts';
 import { integrationsMailSetCommand } from './commands/integrations-mail-set.ts';
 import { integrationsMailTestCommand } from './commands/integrations-mail-test.ts';
@@ -254,5 +255,18 @@ program
   });
 
 plannerCommand(program);
+
+program
+  .command('embed-backfill')
+  .description('Backfill embeddings for a tenant')
+  .requiredOption('--module <module>', 'module to backfill (currently: planner)')
+  .requiredOption('--tenant <tenant>', 'tenant uuid')
+  .action(async (opts: { module: string; tenant: string }) => {
+    try {
+      await runEmbedBackfill({ module: opts.module, tenant: opts.tenant });
+    } finally {
+      await closePools();
+    }
+  });
 
 await program.parseAsync(process.argv);
