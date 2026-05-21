@@ -41,3 +41,5 @@ export interface SubscriberDef<P = unknown> {
   eventVersion: number;
   handler: (event: DomainEvent<P>, ctx: SubscriberCtx) => Promise<void>;
 }
+
+export type WorkflowBuilder<TMastra = unknown> = (mastra: TMastra) => unknown;
