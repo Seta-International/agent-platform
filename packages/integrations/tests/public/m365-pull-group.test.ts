@@ -159,7 +159,6 @@ describe('runPullGroup', () => {
             { tenant_id: tenantId, group_id: groupId, external_id: EXTERNAL_ID },
             {
               graphClient: graphStub,
-              db: db as never,
               repo,
               findUserByEntraOid,
               findEntraOidByUserId,
@@ -239,7 +238,6 @@ describe('runPullGroup', () => {
             { tenant_id: tenantId, group_id: groupId, external_id: EXTERNAL_ID },
             {
               graphClient: graphStub,
-              db: db as never,
               repo,
               findUserByEntraOid,
               findEntraOidByUserId,
@@ -294,7 +292,6 @@ describe('runPullGroup', () => {
             { tenant_id: tenantId, group_id: groupId, external_id: EXTERNAL_ID },
             {
               graphClient: graphStub,
-              db: db as never,
               repo,
               findUserByEntraOid,
               findEntraOidByUserId,
@@ -394,7 +391,6 @@ describe('runPullGroup', () => {
             { tenant_id: tenantId, group_id: groupId, external_id: EXTERNAL_ID },
             {
               graphClient: graphStub,
-              db: db as never,
               repo,
               findUserByEntraOid,
               findEntraOidByUserId,
@@ -471,7 +467,6 @@ describe('runPullGroup', () => {
             { tenant_id: tenantId, group_id: groupId, external_id: EXTERNAL_ID },
             {
               graphClient: graphStub,
-              db: db as never,
               repo,
               findUserByEntraOid,
               findEntraOidByUserId,

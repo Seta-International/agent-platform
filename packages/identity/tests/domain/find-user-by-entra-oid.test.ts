@@ -76,6 +76,48 @@ describe('findUserByEntraOid', () => {
     );
   });
 
+  it('returns null for a deactivated user', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+      },
+      async ({ pool, databaseUrl }) => {
+        resetCoreDb();
+        initPools({ databaseUrl });
+        try {
+          const tenantId = crypto.randomUUID();
+          const userId = crypto.randomUUID();
+          const entraOid = crypto.randomUUID();
+
+          await pool.query(
+            `INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'Test Org', $2)`,
+            [tenantId, `t-${tenantId.slice(0, 8)}`],
+          );
+          await pool.query(
+            `INSERT INTO identity."user" (id, email, name, email_verified, tenant_id)
+             VALUES ($1, 'eve@example.com', 'Eve', true, $2)`,
+            [userId, tenantId],
+          );
+          await pool.query(
+            `INSERT INTO identity.account (id, user_id, provider_id, account_id)
+             VALUES ($1, $2, 'microsoft-entra-id', $3)`,
+            [crypto.randomUUID(), userId, entraOid],
+          );
+          await pool.query(`UPDATE identity."user" SET deactivated_at = now() WHERE id = $1`, [
+            userId,
+          ]);
+
+          const result = await findUserByEntraOid({ entra_oid: entraOid, tenant_id: tenantId });
+          expect(result).toBeNull();
+        } finally {
+          resetCoreDb();
+          await closePools();
+        }
+      },
+    );
+  });
+
   it('returns null when account exists in a different tenant', async () => {
     await withTestDb(
       {
@@ -150,6 +192,48 @@ describe('findEntraOidByUserId', () => {
 
           const result = await findEntraOidByUserId({ user_id: userId, tenant_id: tenantId });
           expect(result).toBe(entraOid);
+        } finally {
+          resetCoreDb();
+          await closePools();
+        }
+      },
+    );
+  });
+
+  it('returns null for a deactivated user', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+      },
+      async ({ pool, databaseUrl }) => {
+        resetCoreDb();
+        initPools({ databaseUrl });
+        try {
+          const tenantId = crypto.randomUUID();
+          const userId = crypto.randomUUID();
+          const entraOid = crypto.randomUUID();
+
+          await pool.query(
+            `INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'Test Org', $2)`,
+            [tenantId, `t-${tenantId.slice(0, 8)}`],
+          );
+          await pool.query(
+            `INSERT INTO identity."user" (id, email, name, email_verified, tenant_id)
+             VALUES ($1, 'frank@example.com', 'Frank', true, $2)`,
+            [userId, tenantId],
+          );
+          await pool.query(
+            `INSERT INTO identity.account (id, user_id, provider_id, account_id)
+             VALUES ($1, $2, 'microsoft-entra-id', $3)`,
+            [crypto.randomUUID(), userId, entraOid],
+          );
+          await pool.query(`UPDATE identity."user" SET deactivated_at = now() WHERE id = $1`, [
+            userId,
+          ]);
+
+          const result = await findEntraOidByUserId({ user_id: userId, tenant_id: tenantId });
+          expect(result).toBeNull();
         } finally {
           resetCoreDb();
           await closePools();

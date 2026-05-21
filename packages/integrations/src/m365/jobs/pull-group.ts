@@ -9,8 +9,6 @@ import {
   type UpdateGroupPatch,
   updateGroup,
 } from '@seta/planner';
-import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import type * as schema from '../../db/schema/index.ts';
 import { type MemberRef, resolveField, resolveMembers } from '../lww.ts';
 import type { M365GroupLinkRepo } from '../repo.ts';
 import { type SyncSnapshot, snapshotFromGraph } from '../snapshot.ts';
@@ -29,7 +27,6 @@ export interface GraphLike {
 
 export interface RunPullGroupDeps {
   graphClient: GraphLike;
-  db: NodePgDatabase<typeof schema>;
   repo: M365GroupLinkRepo;
   findUserByEntraOid: (input: {
     entra_oid: string;
