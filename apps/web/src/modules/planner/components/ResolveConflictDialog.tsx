@@ -1,4 +1,6 @@
 import {
+  Alert,
+  AlertDescription,
   Button,
   Dialog,
   DialogContent,
@@ -8,7 +10,7 @@ import {
   RadioGroup,
   RadioGroupItem,
 } from '@seta/shared-ui';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useResolveGroupConflict } from '../hooks/mutations/resolve-group-conflict';
 
 interface ConflictField {
@@ -34,6 +36,13 @@ export function ResolveConflictDialog({
 }: Props) {
   const [decisions, setDecisions] = useState<Record<string, 'local' | 'remote'>>({});
   const resolve = useResolveGroupConflict(groupId);
+
+  useEffect(() => {
+    if (!open) {
+      setDecisions({});
+      resolve.reset();
+    }
+  }, [open, resolve.reset]);
 
   const allDecided = conflictFields.every((f) => decisions[f.field] !== undefined);
 
@@ -81,6 +90,16 @@ export function ResolveConflictDialog({
             </div>
           ))}
         </div>
+
+        {resolve.isError && (
+          <Alert variant="destructive">
+            <AlertDescription>
+              {resolve.error instanceof Error
+                ? resolve.error.message
+                : 'Failed to resolve conflict.'}
+            </AlertDescription>
+          </Alert>
+        )}
 
         <div className="flex justify-end pt-2 border-t border-hairline mt-2">
           <Button onClick={handleResolve} disabled={!allDecided || resolve.isPending}>

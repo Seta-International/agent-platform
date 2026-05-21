@@ -91,4 +91,21 @@ describe('LinkToM365Dialog', () => {
     await user.click(screen.getByRole('button', { name: 'Link group' }));
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
   });
+
+  it('Cancel button clears search and selection state', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get('*/api/integrations/m365/groups/search*', () =>
+        HttpResponse.json({
+          groups: [{ external_id: 'ext1', display_name: 'Eng', mail_nickname: 'eng' }],
+        }),
+      ),
+    );
+    const onOpenChange = vi.fn();
+    wrap(<LinkToM365Dialog groupId={GROUP_ID} open onOpenChange={onOpenChange} />);
+    await user.type(screen.getByPlaceholderText('Search M365 groups...'), 'eng');
+    await screen.findByText('Eng');
+    await user.click(screen.getByRole('button', { name: /cancel/i }));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
 });

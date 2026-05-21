@@ -35,7 +35,9 @@ export function SyncControlsMenu({
         <DropdownMenuItem onSelect={() => refresh.mutate()}>Refresh sync</DropdownMenuItem>
       )}
       {!isNative && canManage && (
-        <DropdownMenuItem onSelect={() => unlink.mutate()}>Unlink from M365</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => unlink.mutate()} disabled={unlink.isPending}>
+          {unlink.isPending ? 'Unlinking…' : 'Unlink from M365'}
+        </DropdownMenuItem>
       )}
       {!isNative && canManage && syncStatus === 'conflict' && (
         <DropdownMenuItem onSelect={onResolveClick}>Resolve conflict…</DropdownMenuItem>

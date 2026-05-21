@@ -29,6 +29,12 @@ export function LinkToM365Dialog({ groupId, open, onOpenChange }: Props) {
   function reset() {
     setQuery('');
     setSelectedId(null);
+    link.reset();
+  }
+
+  function handleClose() {
+    reset();
+    onOpenChange(false);
   }
 
   function handleLink() {
@@ -47,8 +53,8 @@ export function LinkToM365Dialog({ groupId, open, onOpenChange }: Props) {
     <Dialog
       open={open}
       onOpenChange={(v) => {
-        if (!v) reset();
-        onOpenChange(v);
+        if (!v) handleClose();
+        else onOpenChange(true);
       }}
     >
       <DialogContent className="max-w-[520px]">
@@ -113,7 +119,7 @@ export function LinkToM365Dialog({ groupId, open, onOpenChange }: Props) {
         </div>
 
         <div className="flex justify-end gap-2 pt-2 border-t border-hairline mt-2">
-          <Button variant="secondary" onClick={() => onOpenChange(false)}>
+          <Button variant="secondary" onClick={handleClose}>
             Cancel
           </Button>
           <Button onClick={handleLink} disabled={!selectedId || link.isPending}>

@@ -118,4 +118,24 @@ describe('ResolveConflictDialog', () => {
     await user.click(screen.getByRole('button', { name: 'Resolve' }));
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
   });
+
+  it('shows error alert when resolve mutation fails', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.post(`*/api/integrations/m365/groups/${GROUP_ID}/resolve`, () =>
+        HttpResponse.json({ error: 'CONFLICT_STALE' }, { status: 409 }),
+      ),
+    );
+    wrap(
+      <ResolveConflictDialog
+        groupId={GROUP_ID}
+        conflictFields={[{ field: 'name', localValue: 'Local', remoteValue: 'Remote' }]}
+        open
+        onOpenChange={() => {}}
+      />,
+    );
+    await user.click(screen.getByRole('radio', { name: /Keep local.*Local/ }));
+    await user.click(screen.getByRole('button', { name: 'Resolve' }));
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
+  });
 });
