@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createContributionRegistry } from '../src/composition/registry.ts';
 
 describe('ContributionRegistry.workflows', () => {
-  it('collects workflow builders in registration order, deduped by module', () => {
+  it('collects all workflow builders in registration order', () => {
     const reg = createContributionRegistry();
     const b1 = vi.fn();
     const b2 = vi.fn();
