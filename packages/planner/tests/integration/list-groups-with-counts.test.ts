@@ -57,6 +57,15 @@ describe('listGroupsWithCounts', () => {
           expect(a?.plan_count).toBe(2);
           expect(a?.member_count).toBe(2);
 
+          // owner_display_name: admin has an assignee_projection row seeded by helpers.ts
+          const adminProjection = await pool.query(
+            'SELECT display_name FROM planner.assignee_projection WHERE user_id = $1',
+            [seeded.admin.user_id],
+          );
+          expect(a?.owner_display_name).toBe(
+            adminProjection.rows[0]?.display_name ?? seeded.admin.name,
+          );
+
           expect(b).toBeDefined();
           expect(b?.plan_count).toBe(0);
           expect(b?.member_count).toBe(0);

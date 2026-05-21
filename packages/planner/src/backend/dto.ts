@@ -27,6 +27,8 @@ export interface GroupRow {
 export interface GroupWithCountsRow extends GroupRow {
   plan_count: number;
   member_count: number;
+  owner_display_name: string | null;
+  owner_email: string | null;
 }
 
 export interface PlanRow {

@@ -1,4 +1,4 @@
-import type { GroupRow, PlanRow, TaskWithAssigneesRow } from '@seta/planner';
+import type { GroupRow, GroupWithCountsRow, PlanRow, TaskWithAssigneesRow } from '@seta/planner';
 
 export function makeGroup(over: Partial<GroupRow> = {}): GroupRow {
   return {
@@ -19,6 +19,16 @@ export function makeGroup(over: Partial<GroupRow> = {}): GroupRow {
     deleted_at: null,
     version: 1,
     ...over,
+  };
+}
+
+export function makeGroupWithCounts(over: Partial<GroupWithCountsRow> = {}): GroupWithCountsRow {
+  return {
+    ...makeGroup(over),
+    plan_count: over.plan_count ?? 0,
+    member_count: over.member_count ?? 0,
+    owner_display_name: over.owner_display_name !== undefined ? over.owner_display_name : 'Owner Name',
+    owner_email: over.owner_email !== undefined ? over.owner_email : 'owner@example.test',
   };
 }
 

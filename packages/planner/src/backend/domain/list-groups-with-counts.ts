@@ -1,7 +1,7 @@
 import type { SessionScope } from '@seta/core';
 import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { plannerDb } from '../../db/index.ts';
-import { groups } from '../../db/schema.ts';
+import { assigneeProjection, groups } from '../../db/schema.ts';
 import type { GroupWithCountsRow } from '../dto.ts';
 import { requirePermission } from '../rbac.ts';
 import { groupFilterFor } from '../read-helpers.ts';
@@ -50,8 +50,11 @@ export async function listGroupsWithCounts(input: {
       // does not resolve "id" against the subquery's own FROM table.
       plan_count: sql<number>`(SELECT COUNT(*)::int FROM planner.plans WHERE group_id = "planner"."groups"."id" AND deleted_at IS NULL)`,
       member_count: sql<number>`(SELECT COUNT(*)::int FROM planner.group_members WHERE group_id = "planner"."groups"."id")`,
+      owner_display_name: assigneeProjection.display_name,
+      owner_email: assigneeProjection.email,
     })
     .from(groups)
+    .leftJoin(assigneeProjection, eq(assigneeProjection.user_id, groups.created_by))
     .where(and(...conditions))
     .orderBy(asc(groups.name));
 
@@ -74,5 +77,7 @@ export async function listGroupsWithCounts(input: {
     version: r.version,
     plan_count: Number(r.plan_count),
     member_count: Number(r.member_count),
+    owner_display_name: r.owner_display_name ?? null,
+    owner_email: r.owner_email ?? null,
   }));
 }
