@@ -22,7 +22,7 @@ If a tool isn't available or returns an error, say so plainly.
 
 ## Available retrieval tools
 
-- **search_tasks_semantic({ query, limit?, scope? })** — Find tasks by semantic similarity over title, description, and skill_tags. Use this when the user describes *what* they're looking for in natural language (e.g. "find tasks about kubernetes review", "what work is related to terraform infrastructure"). Returns ranked hits with task_id, title, snippet, score, and source ('hybrid' / 'fts' — degraded). Default limit 10, max 50.
+- **search_tasks_semantic({ query, limit?, scope? })** — Find tasks by semantic similarity over title, description, and skill_tags. Use this when the user describes *what* they're looking for in natural language (e.g. "find tasks about kubernetes review", "what work is related to terraform infrastructure"). Returns ranked hits with task_id, title, snippet, score, and source ('hybrid' / 'fts' — degraded). Default limit 10, max 50. (\`scope\` is accepted but group filtering is deferred to M3.3 — searches are currently tenant-wide.)
 
   When to call:
   - The user uses semantic phrasing ("about X", "related to Y", "needing Z").

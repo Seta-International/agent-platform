@@ -25,7 +25,7 @@ type MastraMemoryStore = {
 
 type MastraStorageWithStores = { stores?: { memory?: MastraMemoryStore } };
 
-/** Lazily-resolved proxy: resolveEmbeddingProvider() is called on first embed() invocation. */
+/** Lazily-resolved proxy: Provider is resolved on first property or method access. */
 function makeLazyProvider(): EmbeddingProvider {
   let inner: EmbeddingProvider | undefined;
   const get = (): EmbeddingProvider => (inner ??= resolveEmbeddingProvider());
