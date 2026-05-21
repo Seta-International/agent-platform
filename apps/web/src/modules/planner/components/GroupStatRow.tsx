@@ -41,10 +41,7 @@ export function GroupStatRow({ planCount, openTaskCount, memberCount }: Props) {
       {stats.map((s, i) => (
         <div
           key={s.label}
-          className={cn(
-            'px-4 py-3',
-            i < stats.length - 1 && 'border-r border-hairline-tertiary',
-          )}
+          className={cn('px-4 py-3', i < stats.length - 1 && 'border-r border-hairline-tertiary')}
         >
           <div className="text-eyebrow text-ink-subtle uppercase tracking-wide">{s.label}</div>
           <div className="mt-1 text-card-title">{s.value}</div>

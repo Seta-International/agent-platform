@@ -18,9 +18,9 @@ const THEME_HEX: Record<GroupTheme, string> = {
 export { THEME_HEX };
 
 interface Props {
-  groupName: string;       // shown in the dashed tile copy
+  groupName: string; // shown in the dashed tile copy
   plans: ReadonlyArray<PlanRow>;
-  themeColor: string;      // hex from group's theme
+  themeColor: string; // hex from group's theme
   canCreatePlan: boolean;
   onCreatePlan: () => void;
   onPlanClick: (planId: string) => void;

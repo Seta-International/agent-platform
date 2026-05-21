@@ -1,8 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { GroupPlansSection } from './GroupPlansSection';
 import { makePlan } from '../testing/fixtures';
+import { GroupPlansSection } from './GroupPlansSection';
 
 const baseProps = {
   groupName: 'Engineering',
@@ -47,7 +47,9 @@ describe('GroupPlansSection', () => {
   });
 
   it('renders empty when plans is empty and canCreatePlan=false', () => {
-    const { container } = render(<GroupPlansSection {...baseProps} plans={[]} canCreatePlan={false} />);
-    expect(container.querySelector('a, button')).toBeNull();  // nothing clickable
+    const { container } = render(
+      <GroupPlansSection {...baseProps} plans={[]} canCreatePlan={false} />,
+    );
+    expect(container.querySelector('a, button')).toBeNull(); // nothing clickable
   });
 });

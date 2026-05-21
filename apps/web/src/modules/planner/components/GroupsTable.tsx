@@ -1,5 +1,5 @@
 import type { GroupWithCountsRow } from '@seta/planner';
-import { Avatar, AvatarFallback, AvatarStack, GroupTile, formatRelative } from '@seta/shared-ui';
+import { Avatar, AvatarFallback, AvatarStack, formatRelative, GroupTile } from '@seta/shared-ui';
 import { Link } from '@tanstack/react-router';
 import { ChevronRight, Shield, Users } from 'lucide-react';
 

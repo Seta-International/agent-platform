@@ -1,9 +1,9 @@
+import type { GroupMemberRow } from '@seta/planner';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import type { GroupMemberRow } from '@seta/planner';
-import { GroupRail } from './GroupRail';
 import { makeGroup } from '../testing/fixtures';
+import { GroupRail } from './GroupRail';
 
 function makeMember(over: Partial<GroupMemberRow> = {}): GroupMemberRow {
   return {

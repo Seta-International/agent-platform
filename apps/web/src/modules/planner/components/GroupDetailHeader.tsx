@@ -8,7 +8,15 @@ import {
   GroupTile,
 } from '@seta/shared-ui';
 import { Link } from '@tanstack/react-router';
-import { ChevronLeft, ChevronRight, MoreHorizontal, Pencil, Plus, Shield, Users } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Shield,
+  Users,
+} from 'lucide-react';
 
 interface Props {
   group: GroupRow;
@@ -48,8 +56,7 @@ export function GroupDetailHeader({
         </Link>
         <span>·</span>
         <span>
-          Planner{' '}
-          <ChevronRight className="inline size-2.5 text-ink-tertiary" />{' '}
+          Planner <ChevronRight className="inline size-2.5 text-ink-tertiary" />{' '}
           <span className="text-primary">Groups</span>
         </span>
       </div>
@@ -121,9 +128,7 @@ export function GroupDetailHeader({
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={() => onMenuAction('archive')}>
-                Archive
-              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => onMenuAction('archive')}>Archive</DropdownMenuItem>
               <DropdownMenuItem
                 onSelect={() => onMenuAction('delete')}
                 className="text-semantic-danger"

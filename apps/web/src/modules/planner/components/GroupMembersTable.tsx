@@ -2,11 +2,11 @@ import type { GroupMemberRow, GroupRow } from '@seta/planner';
 import {
   Avatar,
   AvatarFallback,
+  cn,
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-  cn,
 } from '@seta/shared-ui';
 
 interface Props {

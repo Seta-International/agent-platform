@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { PlanCard } from './PlanCard';
 import { makePlan } from '../testing/fixtures';
+import { PlanCard } from './PlanCard';
 
 const basePlan = makePlan({ id: 'p1', name: 'Q3 Launch' });
 
@@ -13,7 +13,9 @@ describe('PlanCard', () => {
   });
 
   it('renders task counts when provided', () => {
-    render(<PlanCard plan={basePlan} taskCount={28} openTaskCount={18} dueDate="2026-08-15T00:00:00Z" />);
+    render(
+      <PlanCard plan={basePlan} taskCount={28} openTaskCount={18} dueDate="2026-08-15T00:00:00Z" />,
+    );
     expect(screen.getByText(/28 tasks/)).toBeInTheDocument();
     expect(screen.getByText(/18 open/)).toBeInTheDocument();
   });
@@ -25,7 +27,7 @@ describe('PlanCard', () => {
 
   it('renders status pill for on-track status', () => {
     render(<PlanCard plan={basePlan} status="on-track" />);
-    expect(screen.getByText('Active')).toBeInTheDocument();  // on-track → Active via StatusPill mapping
+    expect(screen.getByText('Active')).toBeInTheDocument(); // on-track → Active via StatusPill mapping
   });
 
   it('does not render a status pill when status is null', () => {

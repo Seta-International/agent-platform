@@ -5,14 +5,14 @@ export type PlanStatus = 'on-track' | 'at-risk' | 'off-track';
 
 interface PlanCardProps {
   plan: PlanRow;
-  status?: PlanStatus | null;       // PR2: null/undefined → no status pill rendered
-  progressPct?: number | null;      // 0..1, optional
-  taskCount?: number;               // optional
-  openTaskCount?: number;           // optional
-  dueDate?: string | null;          // ISO; rendered as short date or "—"
+  status?: PlanStatus | null; // PR2: null/undefined → no status pill rendered
+  progressPct?: number | null; // 0..1, optional
+  taskCount?: number; // optional
+  openTaskCount?: number; // optional
+  dueDate?: string | null; // ISO; rendered as short date or "—"
   ownerDisplayName?: string | null; // optional
-  themeColor?: string;              // hex, used for color rail and progress bar; default '#0047FF'
-  onClick?: () => void;             // navigates to plan board — caller wires
+  themeColor?: string; // hex, used for color rail and progress bar; default '#0047FF'
+  onClick?: () => void; // navigates to plan board — caller wires
 }
 
 function initials(name: string): string {
@@ -22,9 +22,7 @@ function initials(name: string): string {
 }
 
 function formatShortDate(iso: string): string {
-  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(
-    new Date(iso),
-  );
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(new Date(iso));
 }
 
 function subtextParts(
@@ -56,18 +54,13 @@ export function PlanCard({
 }: PlanCardProps) {
   const subtext = subtextParts(taskCount, openTaskCount, dueDate);
 
-  const pillKind =
-    status === 'on-track' ? 'active' : status === 'at-risk' ? 'pending' : 'blocked';
+  const pillKind = status === 'on-track' ? 'active' : status === 'at-risk' ? 'pending' : 'blocked';
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
+    <button
+      type="button"
       onClick={onClick}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') onClick?.();
-      }}
-      className="relative cursor-pointer rounded-lg border border-hairline bg-canvas p-4 hover:border-hairline-strong hover:shadow-sm transition"
+      className="relative cursor-pointer rounded-lg border border-hairline bg-canvas p-4 text-left w-full hover:border-hairline-strong hover:shadow-sm transition"
     >
       {/* Color rail */}
       <div
@@ -79,9 +72,7 @@ export function PlanCard({
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <p className="text-base font-semibold text-ink truncate">{plan.name}</p>
-          {subtext != null && (
-            <p className="text-xs text-ink-subtle mt-0.5">{subtext}</p>
-          )}
+          {subtext != null && <p className="text-xs text-ink-subtle mt-0.5">{subtext}</p>}
         </div>
         {status != null && (
           <div className="shrink-0">
@@ -122,6 +113,6 @@ export function PlanCard({
         {/* Right: reserved for AvatarStack (PR3+) */}
         <div />
       </div>
-    </div>
+    </button>
   );
 }

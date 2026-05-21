@@ -29,9 +29,7 @@ export function GroupsGrid({ groups }: Props) {
 
           {/* Description — always rendered for height consistency */}
           <p className="mt-1 line-clamp-2 text-sm text-ink-subtle">
-            {g.description ?? (
-              <span className="text-ink-tertiary italic">No description</span>
-            )}
+            {g.description ?? <span className="text-ink-tertiary italic">No description</span>}
           </p>
 
           {/* Metadata row */}

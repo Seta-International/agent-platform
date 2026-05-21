@@ -1,13 +1,5 @@
 import type { GroupMemberRow, GroupRow } from '@seta/planner';
-import {
-  Avatar,
-  AvatarFallback,
-  Button,
-  Card,
-  CardContent,
-  ComingSoon,
-  cn,
-} from '@seta/shared-ui';
+import { Avatar, AvatarFallback, Button, Card, CardContent, ComingSoon, cn } from '@seta/shared-ui';
 import { ChevronRight, Plus, Shield, Users } from 'lucide-react';
 import type { ReactNode } from 'react';
 
