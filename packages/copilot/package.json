@@ -37,6 +37,7 @@
     "@mastra/core": "^1.36.0",
     "@mastra/memory": "^1.19.0",
     "@mastra/pg": "^1.11.1",
+    "@seta/planner": "workspace:^",
     "ai": "^6.0.188",
     "drizzle-orm": "^0.45.2",
     "graphile-worker": "^0.16.6",
