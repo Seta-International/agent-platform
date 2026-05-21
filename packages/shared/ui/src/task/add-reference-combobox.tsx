@@ -57,7 +57,7 @@ export function AddReferenceCombobox({ onAdd, suggestions = [] }: Props) {
     <Command style={shell} loop>
       <div style={inputRow}>
         <span aria-hidden="true" style={glyph}>
-          🔗
+          ⎘
         </span>
         <Command.Input
           value={value}
