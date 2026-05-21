@@ -1,5 +1,5 @@
 {
-  "id": "9ff02486-b49e-432e-97d7-1b8ddabb0a96",
+  "id": "c0832869-7061-4a5d-9dcb-670bc4205a62",
   "prevId": "577de567-99f6-4b22-b94a-bcbcfca4ee23",
   "version": "7",
   "dialect": "postgresql",
@@ -113,13 +113,13 @@
         },
         "approver_user_id": {
           "name": "approver_user_id",
-          "type": "bigint",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
         "fallback_approver_user_id": {
           "name": "fallback_approver_user_id",
-          "type": "bigint",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": false
         },
@@ -150,7 +150,7 @@
         },
         "decided_by": {
           "name": "decided_by",
-          "type": "bigint",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": false
         },
@@ -269,7 +269,7 @@
         },
         "started_by": {
           "name": "started_by",
-          "type": "bigint",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },

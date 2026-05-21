@@ -1,4 +1,4 @@
-import { bigint, boolean, index, jsonb, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { boolean, index, jsonb, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { copilot } from './pg-schema.ts';
 import { workflowRuns } from './schema.workflow-runs.ts';
 
@@ -11,13 +11,13 @@ export const workflowApprovals = copilot.table(
       .references(() => workflowRuns.runId, { onDelete: 'cascade' }),
     stepId: text('step_id').notNull(),
     proposedPayload: jsonb('proposed_payload').notNull(),
-    approverUserId: bigint('approver_user_id', { mode: 'number' }).notNull(),
-    fallbackApproverUserId: bigint('fallback_approver_user_id', { mode: 'number' }),
+    approverUserId: uuid('approver_user_id').notNull(),
+    fallbackApproverUserId: uuid('fallback_approver_user_id'),
     surfaceCanvas: boolean('surface_canvas').notNull().default(true),
     surfaceChatThreadId: uuid('surface_chat_thread_id'),
     status: text('status').notNull(),
     decisionPayload: jsonb('decision_payload'),
-    decidedBy: bigint('decided_by', { mode: 'number' }),
+    decidedBy: uuid('decided_by'),
     decidedAt: timestamp('decided_at', { withTimezone: true }),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

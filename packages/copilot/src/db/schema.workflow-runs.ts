@@ -1,14 +1,5 @@
 import { sql } from 'drizzle-orm';
-import {
-  bigint,
-  index,
-  integer,
-  jsonb,
-  text,
-  timestamp,
-  uniqueIndex,
-  uuid,
-} from 'drizzle-orm/pg-core';
+import { index, integer, jsonb, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { copilot } from './pg-schema.ts';
 
 export const workflowRuns = copilot.table(
@@ -17,7 +8,7 @@ export const workflowRuns = copilot.table(
     runId: uuid('run_id').primaryKey(),
     workflowId: text('workflow_id').notNull(),
     tenantId: uuid('tenant_id').notNull(),
-    startedBy: bigint('started_by', { mode: 'number' }).notNull(),
+    startedBy: uuid('started_by').notNull(),
     startedVia: text('started_via').notNull(),
     parentThreadId: uuid('parent_thread_id'),
     parentRunId: uuid('parent_run_id'),
