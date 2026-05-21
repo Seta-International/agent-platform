@@ -44,7 +44,8 @@ export function ResolveConflictDialog({
     }
   }, [open, resolve.reset]);
 
-  const allDecided = conflictFields.every((f) => decisions[f.field] !== undefined);
+  const allDecided =
+    conflictFields.length > 0 && conflictFields.every((f) => decisions[f.field] !== undefined);
 
   function handleResolve() {
     if (!allDecided) return;
@@ -65,30 +66,37 @@ export function ResolveConflictDialog({
         </DialogHeader>
 
         <div className="space-y-5">
-          {conflictFields.map((cf) => (
-            <div key={cf.field} className="space-y-2">
-              <p className="text-sm font-medium capitalize">{cf.field}</p>
-              <RadioGroup
-                value={decisions[cf.field] ?? ''}
-                onValueChange={(v) =>
-                  setDecisions((prev) => ({ ...prev, [cf.field]: v as 'local' | 'remote' }))
-                }
-              >
-                <div className="flex items-center gap-2">
-                  <RadioGroupItem value="local" id={`${cf.field}-local`} />
-                  <Label htmlFor={`${cf.field}-local`}>
-                    Keep local: <span className="text-ink-subtle">{cf.localValue}</span>
-                  </Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <RadioGroupItem value="remote" id={`${cf.field}-remote`} />
-                  <Label htmlFor={`${cf.field}-remote`}>
-                    Use remote: <span className="text-ink-subtle">{cf.remoteValue}</span>
-                  </Label>
-                </div>
-              </RadioGroup>
-            </div>
-          ))}
+          {conflictFields.length === 0 ? (
+            <p className="text-sm text-ink-subtle">
+              Conflict field details are not available. Use the "Refresh sync" action and reopen to
+              see fields.
+            </p>
+          ) : (
+            conflictFields.map((cf) => (
+              <div key={cf.field} className="space-y-2">
+                <p className="text-sm font-medium capitalize">{cf.field}</p>
+                <RadioGroup
+                  value={decisions[cf.field] ?? ''}
+                  onValueChange={(v) =>
+                    setDecisions((prev) => ({ ...prev, [cf.field]: v as 'local' | 'remote' }))
+                  }
+                >
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="local" id={`${cf.field}-local`} />
+                    <Label htmlFor={`${cf.field}-local`}>
+                      Keep local: <span className="text-ink-subtle">{cf.localValue}</span>
+                    </Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="remote" id={`${cf.field}-remote`} />
+                    <Label htmlFor={`${cf.field}-remote`}>
+                      Use remote: <span className="text-ink-subtle">{cf.remoteValue}</span>
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </div>
+            ))
+          )}
         </div>
 
         {resolve.isError && (

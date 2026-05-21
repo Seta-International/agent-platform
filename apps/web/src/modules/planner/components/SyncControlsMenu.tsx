@@ -9,6 +9,8 @@ interface Props {
   canManage: boolean;
   onLinkClick: () => void;
   onResolveClick: () => void;
+  onRefreshClick?: () => void;
+  isRefreshing?: boolean;
 }
 
 export function SyncControlsMenu({
@@ -18,8 +20,12 @@ export function SyncControlsMenu({
   canManage,
   onLinkClick,
   onResolveClick,
+  onRefreshClick,
+  isRefreshing,
 }: Props) {
-  const refresh = useRefreshGroupSync(groupId);
+  const internalRefresh = useRefreshGroupSync(groupId);
+  const handleRefresh = onRefreshClick ?? (() => internalRefresh.mutate());
+  const refreshPending = isRefreshing ?? internalRefresh.isPending;
   const unlink = useUnlinkGroupFromM365(groupId);
 
   const isNative = externalSource === 'native';
@@ -32,7 +38,9 @@ export function SyncControlsMenu({
         <DropdownMenuItem onSelect={onLinkClick}>Link to M365…</DropdownMenuItem>
       )}
       {!isNative && (
-        <DropdownMenuItem onSelect={() => refresh.mutate()}>Refresh sync</DropdownMenuItem>
+        <DropdownMenuItem onSelect={handleRefresh} disabled={refreshPending}>
+          {refreshPending ? 'Refreshing…' : 'Refresh sync'}
+        </DropdownMenuItem>
       )}
       {!isNative && canManage && (
         <DropdownMenuItem onSelect={() => unlink.mutate()} disabled={unlink.isPending}>

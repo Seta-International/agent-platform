@@ -43,8 +43,7 @@ function formatCreatedDate(dateStr: string): string {
 }
 
 function toSyncBadgeState(status: string | null | undefined): SyncState | null {
-  if (!status) return null;
-  if (status === 'pushing') return 'pulling';
+  if (!status || status === 'pushing') return null; // SyncBadge has no pushing variant; hide during outbound sync
   if (status === 'idle' || status === 'pulling' || status === 'error' || status === 'conflict') {
     return status as SyncState;
   }
@@ -191,6 +190,8 @@ export function GroupDetailHeader({
                   canManage={canManage}
                   onLinkClick={() => setLinkOpen(true)}
                   onResolveClick={() => setResolveOpen(true)}
+                  onRefreshClick={() => refresh.mutate()}
+                  isRefreshing={refresh.isPending}
                 />
                 <DropdownMenuItem onSelect={() => onMenuAction('archive')}>
                   Archive
