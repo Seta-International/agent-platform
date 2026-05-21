@@ -1,3 +1,7 @@
+export type { GetWorkflowRunOpts } from './backend/domain/get-workflow-run.ts';
+export { getWorkflowRun } from './backend/domain/get-workflow-run.ts';
+export type { GetWorkflowRunSnapshotOpts } from './backend/domain/get-workflow-run-snapshot.ts';
+export { getWorkflowRunSnapshot } from './backend/domain/get-workflow-run-snapshot.ts';
 export type {
   ListWorkflowRunsOpts,
   ListWorkflowRunsResult,
