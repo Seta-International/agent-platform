@@ -1,13 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { z } from 'zod';
-import { classifySkillsAgent } from '../../../src/backend/workflows/new-task-skill-tag/agents/classify-skills.ts';
+import {
+  classifySkillsAgent,
+  classifySkillsOutputSchema,
+} from '../../../src/backend/workflows/new-task-skill-tag/agents/classify-skills.ts';
 
-const outputSchema = z.object({
-  requiredSkills: z
-    .array(z.string().regex(/^[a-z0-9-]+$/))
-    .min(3)
-    .max(7),
-});
+const outputSchema = classifySkillsOutputSchema;
 
 const llmDescribe = process.env.OPENAI_API_KEY ? describe : describe.skip;
 
@@ -29,7 +26,7 @@ llmDescribe('classify-skills agent (real LLM)', () => {
     );
 
     expect(result.error).toBeUndefined();
-    const output = await result.object;
+    const output = result.object;
     expect(Array.isArray(output.requiredSkills)).toBe(true);
     expect(output.requiredSkills.length).toBeGreaterThanOrEqual(3);
     expect(output.requiredSkills.length).toBeLessThanOrEqual(7);
@@ -55,7 +52,7 @@ llmDescribe('classify-skills agent (real LLM)', () => {
     );
 
     expect(result.error).toBeUndefined();
-    const output = await result.object;
+    const output = result.object;
     expect(Array.isArray(output.requiredSkills)).toBe(true);
     expect(output.requiredSkills.length).toBeGreaterThanOrEqual(3);
     expect(output.requiredSkills.length).toBeLessThanOrEqual(7);
@@ -70,27 +67,7 @@ describe('classify-skills agent (deterministic mock)', () => {
     const mockOutput = {
       object: { requiredSkills: ['postgres', 'sql-tuning', 'observability'] },
       error: undefined,
-      text: '',
-      toolResults: [],
-      finishReason: 'stop' as const,
-      usage: { promptTokens: 0, completionTokens: 0 },
-      response: {
-        id: 'mock-id',
-        timestamp: new Date(),
-        modelId: 'mock-model',
-      },
-      steps: [],
-      warnings: undefined,
-      providerMetadata: undefined,
-      request: { body: '' },
-      reasoning: undefined,
-      reasoningText: undefined,
-      toolCalls: [],
-      sources: [],
-      files: [],
-      totalUsage: { promptTokens: 0, completionTokens: 0 },
-      tripwire: undefined,
-    };
+    } as unknown as Awaited<ReturnType<typeof classifySkillsAgent.generate>>;
     const spy = vi.spyOn(classifySkillsAgent, 'generate').mockResolvedValue(mockOutput);
 
     const result = await classifySkillsAgent.generate(
@@ -102,7 +79,7 @@ describe('classify-skills agent (deterministic mock)', () => {
       },
     );
 
-    const output = await result.object;
+    const output = result.object;
     expect(output.requiredSkills).toEqual(['postgres', 'sql-tuning', 'observability']);
     spy.mockRestore();
   });

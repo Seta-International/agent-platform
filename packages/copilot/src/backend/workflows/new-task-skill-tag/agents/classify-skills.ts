@@ -1,7 +1,16 @@
 import { Agent } from '@mastra/core/agent';
+import { z } from 'zod';
 import { resolveModel } from '../../../model-registry.ts';
 
+export const classifySkillsOutputSchema = z.object({
+  requiredSkills: z
+    .array(z.string().regex(/^[a-z0-9-]+$/))
+    .min(3)
+    .max(7),
+});
+
 export const classifySkillsAgent = new Agent({
+  id: 'classify-skills',
   name: 'classify-skills',
   instructions: `
 You extract the 3-7 most likely required skill tags from a software task.
