@@ -20,6 +20,7 @@ export const plannerKeys = {
   groupMembers: (id: string) => [...plannerKeys.group(id), 'members'] as const,
   groupPlans: (id: string) => [...plannerKeys.group(id), 'plans'] as const,
   groupSyncStatus: (groupId: string) => [...plannerKeys.group(groupId), 'syncStatus'] as const,
+  m365GroupSearch: (q: string) => [...plannerKeys.all, 'm365GroupSearch', q] as const,
   plan: (id: string) => [...plannerKeys.all, 'plan', id] as const,
   planBoard: (id: string) => [...plannerKeys.plan(id), 'board'] as const,
   planLabels: (id: string) => [...plannerKeys.plan(id), 'labels'] as const,
