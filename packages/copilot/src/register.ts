@@ -6,6 +6,11 @@ import type { SubscriberDef } from '@seta/shared-types';
 import type { Hono } from 'hono';
 import type { Pool } from 'pg';
 import { createAgentFactory } from './backend/agent-factory.ts';
+import {
+  refreshTaskCreatedSubscriber,
+  refreshTaskDeletedSubscriber,
+  refreshTaskUpdatedSubscriber,
+} from './backend/embeddings/subscribers/refresh-task.ts';
 import { registerCopilotRoutes } from './backend/routes.ts';
 import { buildMastra } from './backend/runtime.ts';
 import { makeOnPlannerTaskCreatedSubscriber } from './backend/subscribers/on-planner-task-created.ts';
@@ -39,6 +44,9 @@ function copilotSubscribers(): SubscriberDef[] {
         return m;
       },
     } as never),
+    refreshTaskCreatedSubscriber,
+    refreshTaskUpdatedSubscriber,
+    refreshTaskDeletedSubscriber,
   ];
 }
 
