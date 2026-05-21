@@ -3,7 +3,7 @@ import { plannerClient } from '../../api/planner-client';
 import { plannerKeys } from '../../state/query-keys';
 
 interface SetCategoryDescriptionsVars {
-  slots: Record<number, { name: string | null; label_id?: string | null }>;
+  slots: Record<number, { name?: string | null; label_id?: string | null }>;
 }
 
 export function useSetCategoryDescriptions(planId: string) {

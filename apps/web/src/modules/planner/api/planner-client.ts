@@ -465,7 +465,7 @@ async function getPlanCategories(plan_id: string): Promise<PlanCategoriesRespons
 
 async function setCategoryDescriptions(input: {
   plan_id: string;
-  slots: Record<number, { name: string | null; label_id?: string | null }>;
+  slots: Record<number, { name?: string | null; label_id?: string | null }>;
 }): Promise<PlanRow> {
   return (await request<PlanRow>(`/api/planner/v1/plans/${input.plan_id}/categories`, {
     method: 'PUT',
