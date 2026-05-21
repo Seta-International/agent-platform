@@ -15,6 +15,13 @@
       "when": 1779345033855,
       "tag": "0001_m365_groups_sync",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1779346269515,
+      "tag": "0002_m365_tenant_config",
+      "breakpoints": true
     }
   ]
 }
