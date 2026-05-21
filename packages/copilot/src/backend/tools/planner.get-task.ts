@@ -1,27 +1,8 @@
 import { createTool } from '@mastra/core/tools';
-import { computeAccessibleGroups, hashRoleSummary, rollup, type SessionScope } from '@seta/core';
-import { listRoleGrants } from '@seta/identity';
 import { getPlan, getTask } from '@seta/planner';
 import { z } from 'zod';
+import { buildActorSession } from '../session.ts';
 import { actorFromContext, RequestContextSchema, registerToolPermission } from './_types.ts';
-
-async function actorToSession(actor: { user_id: string }): Promise<SessionScope> {
-  const { tenant_id, grants } = await listRoleGrants(actor.user_id);
-  const role_summary = rollup(grants);
-  return {
-    session_id: crypto.randomUUID(),
-    user_id: actor.user_id,
-    tenant_id,
-    email: '',
-    display_name: '',
-    role_summary,
-    role_summary_hash: hashRoleSummary(role_summary),
-    accessible_group_ids: computeAccessibleGroups(grants),
-    cross_tenant_read: role_summary.cross_tenant_read,
-    built_at: new Date(),
-    invalidated_at: null,
-  };
-}
 
 export const plannerGetTaskTool = registerToolPermission(
   createTool({
@@ -80,7 +61,7 @@ export const plannerGetTaskTool = registerToolPermission(
     requestContextSchema: RequestContextSchema,
     execute: async (input, ctx) => {
       const actor = actorFromContext(ctx);
-      const session = await actorToSession(actor);
+      const session = await buildActorSession(actor);
 
       const taskRow = await getTask({
         task_id: input.taskId,

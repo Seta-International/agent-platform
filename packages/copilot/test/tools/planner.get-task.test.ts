@@ -80,4 +80,16 @@ describe('planner_getTask tool', () => {
   it('is registered with permission planner.task.read', () => {
     expect(requiredPermissionFor(plannerGetTaskTool)).toBe('planner.task.read');
   });
+
+  it('throws when task does not exist', async () => {
+    await withCopilotTestDb(async ({ pool }) => {
+      const { admin_user_id } = await createTestTenantWithAdmin({ pool });
+      await expect(
+        plannerGetTaskTool.execute!(
+          { taskId: crypto.randomUUID() },
+          makeToolContext({ user_id: admin_user_id }),
+        ),
+      ).rejects.toThrow();
+    });
+  });
 });
