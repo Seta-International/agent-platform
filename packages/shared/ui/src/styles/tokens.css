@@ -158,6 +158,14 @@
   --color-info:          #3b8ef3;
   --color-info-tint:     color-mix(in oklch, #3b8ef3 14%, transparent);
   --color-info-ink:      #93c4ff;
+
+  --color-group-theme-teal:   #207087;
+  --color-group-theme-purple: #7a2f7c;
+  --color-group-theme-green:  #1f8a4c;
+  --color-group-theme-blue:   #0047FF;
+  --color-group-theme-pink:   #c0367f;
+  --color-group-theme-orange: #b86e00;
+  --color-group-theme-red:    #c53030;
 }
 
 .theme-light {
