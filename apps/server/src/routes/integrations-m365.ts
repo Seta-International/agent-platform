@@ -12,8 +12,8 @@ import type { Hono } from 'hono';
 
 interface IntegrationsM365Deps {
   graphClientFor: (tenantId: string) => Promise<Client>;
-  workers?: WorkerHandle;
-  m365LinksRepo?: m365.M365GroupLinkRepo;
+  workers: WorkerHandle;
+  m365LinksRepo: m365.M365GroupLinkRepo;
 }
 
 export function registerIntegrationsM365Routes(
@@ -57,13 +57,17 @@ export function registerIntegrationsM365Routes(
     const groupId = c.req.param('groupId');
     const body = await c.req.json<{ external_id: string }>();
 
+    if (!body?.external_id?.trim()) {
+      return c.json({ error: 'VALIDATION', message: 'external_id is required' }, 400);
+    }
+
     const group = await linkGroupToM365({
       group_id: groupId,
       external_id: body.external_id,
       session,
     });
 
-    await deps.workers?.addJob('m365.group.pull', {
+    await deps.workers.addJob('m365.group.pull', {
       tenant_id: session.tenant_id,
       group_id: groupId,
       external_id: body.external_id,
@@ -88,12 +92,12 @@ export function registerIntegrationsM365Routes(
 
     requirePermission(session, 'planner.group.refresh', groupId);
 
-    const link = (await deps.m365LinksRepo?.findByGroup(groupId)) ?? null;
+    const link = (await deps.m365LinksRepo.findByGroup(groupId)) ?? null;
     if (!link) {
       return c.json({ error: 'NOT_LINKED' }, 409);
     }
 
-    await deps.workers?.addJob('m365.group.pull', {
+    await deps.workers.addJob('m365.group.pull', {
       tenant_id: link.tenantId,
       group_id: groupId,
       external_id: link.externalId,

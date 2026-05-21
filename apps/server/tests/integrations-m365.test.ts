@@ -52,12 +52,20 @@ function buildTestApp(
     c.set('user', session);
     await next();
   });
+  const defaultWorkers = { addJob: async () => {}, shutdown: async () => {} };
+  const defaultLinksRepo = {
+    findByGroup: async () => null,
+    findByExternal: async () => null,
+    upsert: async () => undefined,
+    markUnlinked: async () => undefined,
+    updateSyncStatus: async () => undefined,
+  } as unknown as m365.M365GroupLinkRepo;
   registerIntegrationsM365Routes(app, {
     graphClientFor: graphClientFor as (
       tenantId: string,
     ) => Promise<import('@microsoft/microsoft-graph-client').Client>,
-    workers: extraDeps?.workers as import('@seta/core/workers').WorkerHandle | undefined,
-    m365LinksRepo: extraDeps?.m365LinksRepo,
+    workers: (extraDeps?.workers ?? defaultWorkers) as import('@seta/core/workers').WorkerHandle,
+    m365LinksRepo: extraDeps?.m365LinksRepo ?? defaultLinksRepo,
   });
   app.onError((err, c) => {
     if (err instanceof PlannerError) {
@@ -305,6 +313,32 @@ describe('POST /api/integrations/m365/groups/:groupId/link', () => {
       }
     });
   });
+
+  it('returns 400 with VALIDATION when external_id is missing or empty', async () => {
+    const tenantId = crypto.randomUUID();
+    const userId = crypto.randomUUID();
+    const groupId = crypto.randomUUID();
+    const session = buildSession({ tenant_id: tenantId, user_id: userId });
+    const app = buildTestApp(session, async () => {
+      throw new Error('unused');
+    });
+
+    const resMissing = await app.request(`/api/integrations/m365/groups/${groupId}/link`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    expect(resMissing.status).toBe(400);
+    expect(((await resMissing.json()) as { error: string }).error).toBe('VALIDATION');
+
+    const resEmpty = await app.request(`/api/integrations/m365/groups/${groupId}/link`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ external_id: '   ' }),
+    });
+    expect(resEmpty.status).toBe(400);
+    expect(((await resEmpty.json()) as { error: string }).error).toBe('VALIDATION');
+  });
 });
 
 describe('POST /api/integrations/m365/groups/:groupId/unlink', () => {
@@ -474,7 +508,9 @@ describe('POST /api/integrations/m365/groups/:groupId/refresh', () => {
     expect(body.error).toBe('NOT_LINKED');
   });
 
-  it('returns 403 for non-admin without planner.group.refresh', async () => {
+  it('returns 403 when the user does not have the group in accessible_group_ids', async () => {
+    // Tests the group-scope gate in requirePermission: accessible_group_ids: [] means the
+    // caller has no access to this group, regardless of which roles they hold.
     const session = buildSession({
       tenant_id: tenantId,
       user_id: userId,

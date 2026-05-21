@@ -146,7 +146,7 @@ export function buildServerApp(
   if (deps.boardStreamHub) {
     registerPlannerBoardStreamRoutes(app, deps.boardStreamHub);
   }
-  if (deps.m365GraphClientFor) {
+  if (deps.m365GraphClientFor && deps.m365Workers && deps.m365LinksRepo) {
     registerIntegrationsM365Routes(app, {
       graphClientFor: deps.m365GraphClientFor,
       workers: deps.m365Workers,
