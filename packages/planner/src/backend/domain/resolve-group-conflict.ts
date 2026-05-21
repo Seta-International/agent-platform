@@ -50,23 +50,26 @@ export async function resolveGroupConflict(
   const remoteDecisions = input.decisions.filter((d) => d.choice === 'remote');
   const localDecisions = input.decisions.filter((d) => d.choice === 'local');
 
+  const missingFields = remoteDecisions.filter((d) => !(d.field in snapshot));
+  if (missingFields.length > 0) {
+    throw new PlannerError(
+      'VALIDATION',
+      `Remote snapshot missing requested fields: ${missingFields.map((d) => d.field).join(', ')}`,
+    );
+  }
+
   if (remoteDecisions.length > 0) {
     const group = await getGroup({ group_id: input.group_id, session: input.session });
     const patch: Record<string, unknown> = {};
     for (const d of remoteDecisions) {
-      const field = d.field as keyof ConflictSnapshot;
-      if (field in snapshot) {
-        patch[field] = snapshot[field];
-      }
+      patch[d.field as keyof ConflictSnapshot] = snapshot[d.field as keyof ConflictSnapshot];
     }
-    if (Object.keys(patch).length > 0) {
-      await updateGroup({
-        group_id: input.group_id,
-        expected_version: group.version,
-        patch,
-        session: input.session as PlannerSessionScope,
-      });
-    }
+    await updateGroup({
+      group_id: input.group_id,
+      expected_version: group.version,
+      patch,
+      session: input.session as PlannerSessionScope,
+    });
   }
 
   if (localDecisions.length > 0) {

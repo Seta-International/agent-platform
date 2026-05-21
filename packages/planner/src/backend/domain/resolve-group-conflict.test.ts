@@ -97,6 +97,34 @@ describe('resolveGroupConflict', () => {
     expect(setSyncStatus).toHaveBeenCalledWith(linkId, 'idle');
   });
 
+  it('rejects when a remote decision requests a field not in the snapshot', async () => {
+    const session = buildSession({
+      tenant_id: crypto.randomUUID(),
+      user_id: crypto.randomUUID(),
+      roles: ['org.admin'],
+    });
+    const getLink = vi.fn().mockResolvedValue({
+      id: 'link-x',
+      lastSyncedFields: { description: 'some desc' },
+      externalId: 'ext-x',
+      tenantId: crypto.randomUUID(),
+    });
+    const setSyncStatus = vi.fn();
+    const enqueueGroupPush = vi.fn();
+
+    await expect(
+      resolveGroupConflict(
+        {
+          group_id: crypto.randomUUID(),
+          decisions: [{ field: 'name', choice: 'remote' }],
+          session,
+        },
+        { getLink, setSyncStatus, enqueueGroupPush },
+      ),
+    ).rejects.toSatisfy((e: unknown) => e instanceof PlannerError && e.code === 'VALIDATION');
+    expect(setSyncStatus).not.toHaveBeenCalled();
+  });
+
   it('applies remote choices to the group via updateGroup and marks status idle', async () => {
     await withTestDb(dbEnv(), async ({ pool, databaseUrl }) => {
       resetCoreDb();

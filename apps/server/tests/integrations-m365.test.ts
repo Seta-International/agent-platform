@@ -57,8 +57,8 @@ function buildTestApp(
     findByGroup: async () => null,
     findByExternal: async () => null,
     upsert: async () => undefined,
-    markUnlinked: async () => undefined,
-    updateSyncStatus: async () => undefined,
+    tombstone: async () => undefined,
+    setSyncStatus: async () => undefined,
   } as unknown as m365.M365GroupLinkRepo;
   registerIntegrationsM365Routes(app, {
     graphClientFor: graphClientFor as (
@@ -461,8 +461,8 @@ describe('POST /api/integrations/m365/groups/:groupId/refresh', () => {
           findByGroup: vi.fn().mockResolvedValue(mockLink),
           findByExternal: vi.fn(),
           upsert: vi.fn(),
-          markUnlinked: vi.fn(),
-          updateSyncStatus: vi.fn(),
+          tombstone: vi.fn(),
+          setSyncStatus: vi.fn(),
         } as unknown as m365.M365GroupLinkRepo,
       },
     );
@@ -493,8 +493,8 @@ describe('POST /api/integrations/m365/groups/:groupId/refresh', () => {
           findByGroup: vi.fn().mockResolvedValue(null),
           findByExternal: vi.fn(),
           upsert: vi.fn(),
-          markUnlinked: vi.fn(),
-          updateSyncStatus: vi.fn(),
+          tombstone: vi.fn(),
+          setSyncStatus: vi.fn(),
         } as unknown as m365.M365GroupLinkRepo,
       },
     );
@@ -526,8 +526,8 @@ describe('POST /api/integrations/m365/groups/:groupId/refresh', () => {
           findByGroup: vi.fn().mockResolvedValue({ tenantId, groupId, externalId: 'ext-x' }),
           findByExternal: vi.fn(),
           upsert: vi.fn(),
-          markUnlinked: vi.fn(),
-          updateSyncStatus: vi.fn(),
+          tombstone: vi.fn(),
+          setSyncStatus: vi.fn(),
         } as unknown as m365.M365GroupLinkRepo,
       },
     );
@@ -615,6 +615,94 @@ describe('POST /api/integrations/m365/groups/:groupId/resolve', () => {
     expect(res.status).toBe(404);
     const body = (await res.json()) as { error: string };
     expect(body.error).toBe('NOT_FOUND');
+  });
+
+  it('returns 403 for planner.contributor without resolve permission', async () => {
+    const session = buildSession({
+      tenant_id: tenantId,
+      user_id: userId,
+      roles: ['planner.contributor'],
+    });
+    const app = buildTestApp(
+      session,
+      async () => {
+        throw new Error('unused');
+      },
+      { m365LinksRepo: buildResolveLinksRepo() },
+    );
+
+    const res = await app.request(`/api/integrations/m365/groups/${groupId}/resolve`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ decisions: [{ field: 'name', choice: 'local' }] }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe('FORBIDDEN');
+  });
+
+  it('returns 200 { ok: true } on happy path with remote choice', async () => {
+    await withTestDb(dbEnv(), async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      initPools({ databaseUrl });
+      try {
+        const {
+          tenantId: tid,
+          adminUserId,
+          adminEmail,
+        } = await seedTenant(pool, 'm365-resolve-remote');
+        const adminSession = {
+          ...buildSession({ tenant_id: tid, user_id: adminUserId }),
+          email: adminEmail,
+          display_name: 'Admin',
+          accessible_group_ids: [] as string[],
+        };
+        const group = await createGroup({
+          tenant_id: tid,
+          name: 'Original',
+          session: adminSession,
+        });
+
+        const resolveLinksRepo = buildResolveLinksRepo({
+          findByGroup: vi.fn().mockResolvedValue({
+            id: linkId,
+            tenantId: tid,
+            groupId: group.id,
+            externalId: 'ext-resolve-remote',
+            lastSyncedFields: { name: 'Remote Name' },
+            deltaLink: null,
+            syncStatus: 'conflict',
+            lastError: null,
+            lastSyncedAt: new Date(),
+            unlinkedAt: null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          }),
+        });
+
+        const app = buildTestApp(
+          adminSession,
+          async () => {
+            throw new Error('unused');
+          },
+          { m365LinksRepo: resolveLinksRepo },
+        );
+
+        const res = await app.request(`/api/integrations/m365/groups/${group.id}/resolve`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ decisions: [{ field: 'name', choice: 'remote' }] }),
+        });
+
+        expect(res.status).toBe(200);
+        const body = (await res.json()) as { ok: boolean };
+        expect(body.ok).toBe(true);
+      } finally {
+        resetCoreDb();
+        await closePools();
+      }
+    });
   });
 
   it('returns 200 { ok: true } on happy path with local choice', async () => {
