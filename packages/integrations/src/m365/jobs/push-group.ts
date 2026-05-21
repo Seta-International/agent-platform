@@ -115,6 +115,9 @@ export async function runPushGroup(
 
     // Step 6: Resolve scalar fields scoped by changed_fields hint
     // We still evaluate all changed_fields defensively against the snapshot.
+    // 'members' is intentionally not a scalar — M365 is authoritative for linked-group
+    // membership, so push of member ops to Graph is deferred (spec §11). Subscribers
+    // still enqueue this job for member events to keep the link snapshot fresh.
     type ScalarKey = 'name' | 'description' | 'visibility' | 'theme';
     const scalarFields: ScalarKey[] = ['name', 'description', 'visibility', 'theme'];
     const fieldsToConsider = scalarFields.filter((f) => changed_fields.includes(f));
