@@ -89,14 +89,22 @@ export class VectorRetriever implements Retriever<VectorQuery, TaskRetrievalItem
 
     const client = await pool.connect();
     try {
-      await client.query(`SET LOCAL hnsw.ef_search = ${HNSW_EF_SEARCH}`);
-      const result = await client.query<TaskRow>(sql, params);
-      return result.rows.map((row, i) => ({
-        item: { task_id: row.task_id, title: row.title },
-        score: 1 / (1 + i),
-        rank: i + 1,
-        source: 'vector' as const,
-      }));
+      await client.query('BEGIN');
+      try {
+        // SET LOCAL is transaction-scoped; the BEGIN above is required for the value to apply and not leak to the pool.
+        await client.query(`SET LOCAL hnsw.ef_search = ${HNSW_EF_SEARCH}`);
+        const result = await client.query<TaskRow>(sql, params);
+        await client.query('COMMIT');
+        return result.rows.map((row, i) => ({
+          item: { task_id: row.task_id, title: row.title },
+          score: 1 / (1 + i),
+          rank: i + 1,
+          source: 'vector' as const,
+        }));
+      } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+      }
     } finally {
       client.release();
     }
