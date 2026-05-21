@@ -11,7 +11,7 @@ import type {
 import { PlannerError, requirePermission } from '../rbac.ts';
 import { groupFilterFor } from '../read-helpers.ts';
 import { taskRowToDto } from './_task-dto.ts';
-import { fetchSupplementaryData } from './list-tasks.ts';
+import { fetchAssigneesAndLabels } from './list-tasks.ts';
 
 export async function getTask(input: {
   task_id: string;
@@ -52,20 +52,19 @@ export async function getTask(input: {
     });
   }
 
-  const [{ assigneesByTaskId, labelsByTaskId, summaryByTaskId }, checklistRows, referenceRows] =
-    await Promise.all([
-      fetchSupplementaryData(db, [row.id]),
-      db
-        .select()
-        .from(checklistItems)
-        .where(eq(checklistItems.task_id, row.id))
-        .orderBy(sql`order_hint NULLS LAST`),
-      db
-        .select()
-        .from(taskReferences)
-        .where(eq(taskReferences.task_id, row.id))
-        .orderBy(sql`preview_priority NULLS LAST`, asc(taskReferences.created_at)),
-    ]);
+  const [{ assigneesByTaskId, labelsByTaskId }, checklistRows, referenceRows] = await Promise.all([
+    fetchAssigneesAndLabels(db, [row.id]),
+    db
+      .select()
+      .from(checklistItems)
+      .where(eq(checklistItems.task_id, row.id))
+      .orderBy(sql`order_hint NULLS LAST`),
+    db
+      .select()
+      .from(taskReferences)
+      .where(eq(taskReferences.task_id, row.id))
+      .orderBy(sql`preview_priority NULLS LAST`, asc(taskReferences.created_at)),
+  ]);
 
   const checklist: ChecklistItemRow[] = checklistRows.map((r) => ({
     id: r.id,
@@ -78,6 +77,11 @@ export async function getTask(input: {
     created_at: r.created_at.toISOString(),
     updated_at: r.updated_at.toISOString(),
   }));
+
+  const checklist_summary = {
+    total: checklist.length,
+    checked: checklist.filter((c) => c.checked).length,
+  };
 
   const references: TaskReferenceRow[] = referenceRows.map((r) => ({
     id: r.id,
@@ -96,7 +100,7 @@ export async function getTask(input: {
     ...taskRowToDto(row),
     assignees: assigneesByTaskId.get(row.id) ?? [],
     labels: labelsByTaskId.get(row.id) ?? [],
-    checklist_summary: summaryByTaskId.get(row.id) ?? { total: 0, checked: 0 },
+    checklist_summary,
     checklist,
     references,
   };

@@ -41,15 +41,14 @@ function decodeCursor(c: string): { u: string; i: string } | null {
   }
 }
 
-export async function fetchSupplementaryData(
+export async function fetchAssigneesAndLabels(
   db: ReturnType<typeof plannerDb>,
   taskIds: string[],
 ): Promise<{
   assigneesByTaskId: Map<string, AssigneeRow[]>;
   labelsByTaskId: Map<string, LabelRow[]>;
-  summaryByTaskId: Map<string, { total: number; checked: number }>;
 }> {
-  const [assigneeRows, labelRows, checklistRows] = await Promise.all([
+  const [assigneeRows, labelRows] = await Promise.all([
     db
       .select({
         task_id: taskAssignments.task_id,
@@ -79,16 +78,6 @@ export async function fetchSupplementaryData(
       .from(taskLabels)
       .innerJoin(labels, eq(labels.id, taskLabels.label_id))
       .where(and(inArray(taskLabels.task_id, taskIds), isNull(labels.deleted_at))),
-
-    db
-      .select({
-        task_id: checklistItems.task_id,
-        total: sql<number>`COUNT(*)::int`,
-        checked: sql<number>`COUNT(*) FILTER (WHERE ${checklistItems.checked})::int`,
-      })
-      .from(checklistItems)
-      .where(inArray(checklistItems.task_id, taskIds))
-      .groupBy(checklistItems.task_id),
   ]);
 
   const assigneesByTaskId = new Map<string, AssigneeRow[]>();
@@ -120,6 +109,30 @@ export async function fetchSupplementaryData(
     });
     labelsByTaskId.set(r.task_id, list);
   }
+
+  return { assigneesByTaskId, labelsByTaskId };
+}
+
+export async function fetchSupplementaryData(
+  db: ReturnType<typeof plannerDb>,
+  taskIds: string[],
+): Promise<{
+  assigneesByTaskId: Map<string, AssigneeRow[]>;
+  labelsByTaskId: Map<string, LabelRow[]>;
+  summaryByTaskId: Map<string, { total: number; checked: number }>;
+}> {
+  const [{ assigneesByTaskId, labelsByTaskId }, checklistRows] = await Promise.all([
+    fetchAssigneesAndLabels(db, taskIds),
+    db
+      .select({
+        task_id: checklistItems.task_id,
+        total: sql<number>`COUNT(*)::int`,
+        checked: sql<number>`COUNT(*) FILTER (WHERE ${checklistItems.checked})::int`,
+      })
+      .from(checklistItems)
+      .where(inArray(checklistItems.task_id, taskIds))
+      .groupBy(checklistItems.task_id),
+  ]);
 
   const summaryByTaskId = new Map<string, { total: number; checked: number }>();
   for (const r of checklistRows) {
