@@ -9,9 +9,9 @@
  * that job row presence can be verified in graphile_worker._private_jobs.
  */
 import { resetCoreDb } from '@seta/core/internal/test-support';
-import { closePools, createDb, initPools } from '@seta/shared-db';
+import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
-import { drizzle } from 'drizzle-orm/node-postgres';
+import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { makeWorkerUtils } from 'graphile-worker';
 import type { Pool } from 'pg';
 import { describe, expect, it } from 'vitest';
@@ -131,9 +131,8 @@ async function withSetup<T>(
     tenantId: string;
     groupId: string;
     repo: ReturnType<typeof createM365GroupLinkRepo>;
-    // drizzle db backed by the test pool — schemaFilter not enforced at runtime per createDb
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    db: ReturnType<typeof drizzle<any>>;
+    // drizzle db backed by the test pool — schemaFilter not enforced at runtime
+    db: NodePgDatabase<Record<string, never>>;
   }) => Promise<T>,
 ) {
   return withTestDb(
@@ -152,8 +151,7 @@ async function withSetup<T>(
         const repo = createM365GroupLinkRepo({
           // db typed as never: drizzle() generic differs from NodePgDatabase<schema> but is
           // structurally compatible for the repo's select/update operations.
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          db: db as any,
+          db: db as never,
         });
         return await fn({ pool, tenantId, groupId, repo, db });
       } finally {
@@ -183,8 +181,7 @@ describe('M365 event subscribers', () => {
         const event = makeGroupUpdatedEvent({ tenantId, groupId, changedFields: ['name'] });
 
         // Run handler inside a real drizzle transaction so ctx.tx.execute works.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await db.transaction(async (tx) => groupUpdatedSub.handler(event, { tx: tx as any }));
+        await db.transaction(async (tx) => groupUpdatedSub.handler(event, { tx: tx as never }));
 
         const identifiers = await getJobIdentifiers(pool);
         expect(identifiers).toContain('m365.group.push');
@@ -201,8 +198,7 @@ describe('M365 event subscribers', () => {
           changedFields: ['external_source', 'external_id'],
         });
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await db.transaction(async (tx) => groupUpdatedSub.handler(event, { tx: tx as any }));
+        await db.transaction(async (tx) => groupUpdatedSub.handler(event, { tx: tx as never }));
 
         const identifiers = await getJobIdentifiers(pool);
         expect(identifiers).not.toContain('m365.group.push');
@@ -215,8 +211,7 @@ describe('M365 event subscribers', () => {
 
         const event = makeGroupUpdatedEvent({ tenantId, groupId, changedFields: ['name'] });
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await db.transaction(async (tx) => groupUpdatedSub.handler(event, { tx: tx as any }));
+        await db.transaction(async (tx) => groupUpdatedSub.handler(event, { tx: tx as never }));
 
         const identifiers = await getJobIdentifiers(pool);
         expect(identifiers).not.toContain('m365.group.push');
@@ -234,8 +229,7 @@ describe('M365 event subscribers', () => {
           actorType: 'system',
         });
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await db.transaction(async (tx) => groupUpdatedSub.handler(event, { tx: tx as any }));
+        await db.transaction(async (tx) => groupUpdatedSub.handler(event, { tx: tx as never }));
 
         const identifiers = await getJobIdentifiers(pool);
         expect(identifiers).not.toContain('m365.group.push');
@@ -250,8 +244,7 @@ describe('M365 event subscribers', () => {
 
         const event = makeGroupDeletedEvent({ tenantId, groupId });
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await db.transaction(async (tx) => groupDeletedSub.handler(event, { tx: tx as any }));
+        await db.transaction(async (tx) => groupDeletedSub.handler(event, { tx: tx as never }));
 
         const { rows } = await pool.query(
           `SELECT unlinked_at FROM integrations.m365_group_links WHERE group_id = $1`,
@@ -272,8 +265,7 @@ describe('M365 event subscribers', () => {
 
         const event = makeMemberRoleChangedEvent({ tenantId, groupId });
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await db.transaction(async (tx) => roleChangedSub.handler(event, { tx: tx as any }));
+        await db.transaction(async (tx) => roleChangedSub.handler(event, { tx: tx as never }));
 
         const { rows } = await pool.query(`
           SELECT j.payload

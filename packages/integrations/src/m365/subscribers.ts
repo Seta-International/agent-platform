@@ -53,13 +53,13 @@ async function handleGroupUpdated(
 
   // Skip-loop guard: if the event was emitted by the M365 sync system actor (e.g. during a
   // remote-wins updateGroup call), enqueueing another push would create an infinite cycle.
-  const actor = payload.actor as { type?: string; system_id?: string } | undefined;
+  const actor = payload.actor as { type?: string; system_id?: string };
   if (actor?.type === 'system' && actor.system_id === M365_SYSTEM_ID) return;
 
   // ctx.tx is a NodeTx (drizzle NodePgDatabase at a specific transaction level).
   // createM365GroupLinkRepo expects NodePgDatabase<typeof schema>; NodeTx is structurally
   // compatible for the select/update operations we perform here.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // biome-ignore lint/suspicious/noExplicitAny: NodeTx generic param omits schema, structurally compatible
   const repo = createM365GroupLinkRepo({ db: ctx.tx as any });
 
   const link = await repo.findByGroup(payload.group_id);
@@ -83,7 +83,7 @@ async function handleGroupDeleted(
 ): Promise<void> {
   const payload = event.payload;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // biome-ignore lint/suspicious/noExplicitAny: NodeTx generic param omits schema, structurally compatible
   const repo = createM365GroupLinkRepo({ db: ctx.tx as any });
 
   const link = await repo.findByGroup(payload.group_id);
@@ -100,7 +100,7 @@ async function handleMemberRoleChanged(
 ): Promise<void> {
   const payload = event.payload;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // biome-ignore lint/suspicious/noExplicitAny: NodeTx generic param omits schema, structurally compatible
   const repo = createM365GroupLinkRepo({ db: ctx.tx as any });
 
   const link = await repo.findByGroup(payload.group_id);
