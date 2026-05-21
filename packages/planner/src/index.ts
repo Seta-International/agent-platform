@@ -23,6 +23,7 @@ export { listBuckets } from './backend/domain/list-buckets.ts';
 export { listChecklistItems } from './backend/domain/list-checklist-items.ts';
 export { listGroupMembers } from './backend/domain/list-group-members.ts';
 export { listGroups } from './backend/domain/list-groups.ts';
+export { listGroupsWithCounts } from './backend/domain/list-groups-with-counts.ts';
 export { listLabels } from './backend/domain/list-labels.ts';
 export { listMyAccessibleGroups } from './backend/domain/list-my-accessible-groups.ts';
 export { listMyAssignedTasks } from './backend/domain/list-my-assigned-tasks.ts';
@@ -60,6 +61,7 @@ export type {
   ChecklistItemRow,
   GroupMemberRow,
   GroupRow,
+  GroupWithCountsRow,
   LabelRow,
   PlanRow,
   TaskRow,

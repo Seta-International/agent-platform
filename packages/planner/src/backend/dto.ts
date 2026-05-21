@@ -24,6 +24,11 @@ export interface GroupRow {
   version: number;
 }
 
+export interface GroupWithCountsRow extends GroupRow {
+  plan_count: number;
+  member_count: number;
+}
+
 export interface PlanRow {
   id: string;
   tenant_id: string;
