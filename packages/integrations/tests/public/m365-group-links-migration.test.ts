@@ -92,6 +92,42 @@ describe('migration: m365_group_links + m365_subscriptions', () => {
     });
   });
 
+  it('partial unique indexes carry the unlinked_at IS NULL predicate', async () => {
+    await withIntegrationsTestDb(async ({ pool }) => {
+      const { rows } = await pool.query<{ indexname: string; indexdef: string }>(
+        `SELECT indexname, indexdef
+           FROM pg_indexes
+          WHERE schemaname = 'integrations'
+            AND indexname IN ('m365_group_links_uniq_group_live', 'm365_group_links_uniq_external_live')`,
+      );
+      expect(rows).toHaveLength(2);
+      for (const row of rows) {
+        expect(row.indexdef).toMatch(/WHERE \(unlinked_at IS NULL\)/);
+      }
+    });
+  });
+
+  it('m365_group_links column defaults and nullability', async () => {
+    await withIntegrationsTestDb(async ({ pool }) => {
+      const { rows } = await pool.query<{
+        column_name: string;
+        column_default: string | null;
+        is_nullable: string;
+      }>(
+        `SELECT column_name, column_default, is_nullable
+           FROM information_schema.columns
+          WHERE table_schema = 'integrations'
+            AND table_name   = 'm365_group_links'
+            AND column_name  IN ('sync_status', 'delta_link', 'last_synced_fields')`,
+      );
+      const byName = Object.fromEntries(rows.map((r) => [r.column_name, r]));
+
+      expect(byName['sync_status']?.column_default).toMatch(/'idle'/);
+      expect(byName['delta_link']?.is_nullable).toBe('YES');
+      expect(byName['last_synced_fields']?.is_nullable).toBe('NO');
+    });
+  });
+
   it('m365_subscriptions table has all required columns', async () => {
     await withIntegrationsTestDb(async ({ pool }) => {
       const { rows } = await pool.query<{ column_name: string }>(
