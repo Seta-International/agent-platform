@@ -67,6 +67,7 @@ export * from './primitives/textarea';
 export * from './primitives/toast';
 export * from './primitives/tooltip';
 // Task
+export * from './task/add-reference-combobox';
 export * from './task/date-pill';
 export * from './task/preview-type-radio';
 export * from './task/priority-segmented';
