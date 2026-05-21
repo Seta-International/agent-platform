@@ -189,6 +189,8 @@ All `planner.*` permissions are **evaluated in a group scope**. Holding `planner
 | `copilot.workflow.run.read.self` | Read own workflow runs in the Workflows tab |
 | `copilot.workflow.run.read.tenant` | Read all workflow runs in the tenant (§7.3 agent-ops) |
 | `copilot.workflow.run.read.instance` | Read all workflow runs across all tenants (superadmin) |
+| `copilot.workflow.run.execute.self` | Re-run own (or otherwise-visible) workflow runs |
+| `copilot.workflow.approve` | Act on an assigned HITL approval card |
 | `copilot.config.read` | Read copilot config (model, custom instructions, tool allowlist) |
 | `copilot.config.write` | Edit copilot config |
 | `copilot.rate_limit.read` | View per-tenant AI cost / token usage |
@@ -305,6 +307,8 @@ These are baseline — every logged-in tenant member gets them. Grants only *add
 | `copilot.thread.erase.any` | ✓ | | |
 | `copilot.workflow.run.read.self` | ✓ | ✓ | ✓ |
 | `copilot.workflow.run.read.tenant` | ✓ | | ✓ |
+| `copilot.workflow.run.execute.self` | ✓ | ✓ | |
+| `copilot.workflow.approve` | ✓ | ✓ | |
 | `copilot.config.read` | ✓ | | ✓ |
 | `copilot.config.write` | ✓ | | |
 | `copilot.rate_limit.read` | ✓ | | ✓ |
