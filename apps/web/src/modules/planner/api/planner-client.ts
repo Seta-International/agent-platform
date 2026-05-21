@@ -70,7 +70,13 @@ async function getGroup(group_id: string): Promise<GroupRow> {
   return (await request<GroupRow>(`/api/planner/v1/groups/${group_id}`)) as GroupRow;
 }
 
-async function createGroup(input: { name: string }): Promise<GroupRow> {
+async function createGroup(input: {
+  name: string;
+  description?: string;
+  theme?: 'teal' | 'purple' | 'green' | 'blue' | 'pink' | 'orange' | 'red';
+  visibility?: 'private' | 'public';
+  default_role?: 'owner' | 'member';
+}): Promise<GroupRow> {
   return (await request<GroupRow>(`/api/planner/v1/groups`, {
     method: 'POST',
     body: JSON.stringify(input),
