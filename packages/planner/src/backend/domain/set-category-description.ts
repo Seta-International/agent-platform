@@ -5,6 +5,7 @@ import { plans } from '../../db/schema.ts';
 import { emitPlannerPlanCategoryDescriptionChanged } from '../../events/emit-helpers.ts';
 import type { PlanRow, TaskExternalSource } from '../dto.ts';
 import type { SetCategoryDescriptionInput } from '../inputs.ts';
+import { withSpan } from '../observability.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 
 type PlanDbRow = typeof plans.$inferSelect;
@@ -29,6 +30,20 @@ function rowToDto(row: PlanDbRow): PlanRow {
 }
 
 export async function setCategoryDescription(
+  input: SetCategoryDescriptionInput & { session: SessionScope },
+): Promise<PlanRow> {
+  return withSpan(
+    'planner.plan.set-category-description',
+    {
+      'planner.tenant_id': input.session.tenant_id,
+      'planner.user_id': input.session.user_id,
+      'planner.plan_id': input.plan_id,
+    },
+    () => setCategoryDescriptionImpl(input),
+  );
+}
+
+async function setCategoryDescriptionImpl(
   input: SetCategoryDescriptionInput & { session: SessionScope },
 ): Promise<PlanRow> {
   if (!Number.isInteger(input.slot) || input.slot < 1 || input.slot > 25) {

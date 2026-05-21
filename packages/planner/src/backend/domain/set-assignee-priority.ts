@@ -5,12 +5,27 @@ import { plans, taskAssignments, tasks } from '../../db/schema.ts';
 import { emitPlannerTaskUpdated } from '../../events/emit-helpers.ts';
 import type { TaskRow } from '../dto.ts';
 import type { SetAssigneePriorityInput } from '../inputs.ts';
+import { withSpan } from '../observability.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 import { taskRowToDto } from './_task-dto.ts';
 
 type TaskDbRow = typeof tasks.$inferSelect;
 
 export async function setAssigneePriority(
+  input: SetAssigneePriorityInput & { session: SessionScope },
+): Promise<TaskRow> {
+  return withSpan(
+    'planner.task.set-assignee-priority',
+    {
+      'planner.tenant_id': input.session.tenant_id,
+      'planner.user_id': input.session.user_id,
+      'planner.task_id': input.task_id,
+    },
+    () => setAssigneePriorityImpl(input),
+  );
+}
+
+async function setAssigneePriorityImpl(
   input: SetAssigneePriorityInput & { session: SessionScope },
 ): Promise<TaskRow> {
   let result!: TaskDbRow;

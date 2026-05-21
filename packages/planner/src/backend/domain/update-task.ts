@@ -6,6 +6,7 @@ import { emitPlannerTaskUpdated } from '../../events/emit-helpers.ts';
 import type { TaskChangedField, TaskMutableFields } from '../../events/types.ts';
 import type { TaskRow } from '../dto.ts';
 import { type UpdateTaskPatch, UpdateTaskPatchSchema } from '../inputs.ts';
+import { recordTaskFieldUpdated, withSpan } from '../observability.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 import { isM365SystemActor } from './_actor.ts';
 import { taskRowToDto } from './_task-dto.ts';
@@ -42,6 +43,23 @@ const isExternalChangedField = (
   f !== 'external_synced_at';
 
 export async function updateTask(input: {
+  task_id: string;
+  expected_version: number;
+  patch: UpdateTaskPatch;
+  session: SessionScope;
+}): Promise<TaskRow> {
+  return withSpan(
+    'planner.task.update',
+    {
+      'planner.tenant_id': input.session.tenant_id,
+      'planner.user_id': input.session.user_id,
+      'planner.task_id': input.task_id,
+    },
+    () => updateTaskImpl(input),
+  );
+}
+
+async function updateTaskImpl(input: {
   task_id: string;
   expected_version: number;
   patch: UpdateTaskPatch;
@@ -122,6 +140,7 @@ export async function updateTask(input: {
         (after as Record<string, unknown>)[f] = v;
         setFields[f] = v;
         changed.push(f);
+        recordTaskFieldUpdated(f);
       }
 
       for (const f of DATE_FIELDS) {
@@ -135,6 +154,7 @@ export async function updateTask(input: {
         (after as Record<string, unknown>)[f] = next;
         setFields[f] = next ? new Date(next) : null;
         changed.push(f);
+        recordTaskFieldUpdated(f);
       }
 
       for (const f of EXTERNAL_FIELDS) {
@@ -153,7 +173,10 @@ export async function updateTask(input: {
         (before as Record<string, unknown>)[f] = exVal;
         (after as Record<string, unknown>)[f] = v;
         setFields[f] = v;
-        if (isExternalChangedField(f)) changed.push(f);
+        if (isExternalChangedField(f)) {
+          changed.push(f);
+          recordTaskFieldUpdated(f);
+        }
       }
 
       if (changed.length === 0 && Object.keys(setFields).length === 2) {

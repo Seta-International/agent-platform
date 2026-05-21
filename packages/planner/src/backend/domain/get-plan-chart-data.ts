@@ -4,6 +4,7 @@ import { plannerDb } from '../../db/index.ts';
 import { assigneeProjection, buckets, plans, taskAssignments, tasks } from '../../db/schema.ts';
 import type { ChartData } from '../dto.ts';
 import type { GetPlanChartDataInput } from '../inputs.ts';
+import { withSpan } from '../observability.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 import { groupFilterFor } from '../read-helpers.ts';
 
@@ -17,6 +18,21 @@ const PRIORITY_LABEL: Record<number, 'urgent' | 'important' | 'medium' | 'low'> 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 export async function getPlanChartData(
+  input: GetPlanChartDataInput,
+  session: SessionScope,
+): Promise<ChartData> {
+  return withSpan(
+    'planner.plan.charts.get',
+    {
+      'planner.tenant_id': session.tenant_id,
+      'planner.user_id': session.user_id,
+      'planner.plan_id': input.plan_id,
+    },
+    () => getPlanChartDataImpl(input, session),
+  );
+}
+
+async function getPlanChartDataImpl(
   input: GetPlanChartDataInput,
   session: SessionScope,
 ): Promise<ChartData> {

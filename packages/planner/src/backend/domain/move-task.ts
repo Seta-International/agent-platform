@@ -6,6 +6,7 @@ import { emitPlannerTaskMoved, emitPlannerTaskUpdated } from '../../events/emit-
 import type { TaskChangedField } from '../../events/types.ts';
 import type { TaskRow } from '../dto.ts';
 import type { MoveTaskInput } from '../inputs.ts';
+import { withSpan } from '../observability.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 import { taskRowToDto } from './_task-dto.ts';
 import { hintBetween, hintsForN } from './order-hint.ts';
@@ -13,6 +14,18 @@ import { hintBetween, hintsForN } from './order-hint.ts';
 type TaskDbRow = typeof tasks.$inferSelect;
 
 export async function moveTask(input: MoveTaskInput & { session: SessionScope }): Promise<TaskRow> {
+  return withSpan(
+    'planner.task.move',
+    {
+      'planner.tenant_id': input.session.tenant_id,
+      'planner.user_id': input.session.user_id,
+      'planner.task_id': input.task_id,
+    },
+    () => moveTaskImpl(input),
+  );
+}
+
+async function moveTaskImpl(input: MoveTaskInput & { session: SessionScope }): Promise<TaskRow> {
   let result!: TaskDbRow;
   await withEmit(
     {

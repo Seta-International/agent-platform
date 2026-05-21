@@ -4,6 +4,7 @@ import { plannerDb } from '../../db/index.ts';
 import { plans, tasks } from '../../db/schema.ts';
 import type { TaskRow } from '../dto.ts';
 import type { ListPlanTasksByDateRangeInput } from '../inputs.ts';
+import { withSpan } from '../observability.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 import { groupFilterFor } from '../read-helpers.ts';
 import { taskRowToDto } from './_task-dto.ts';
@@ -11,6 +12,21 @@ import { taskRowToDto } from './_task-dto.ts';
 type TaskDbRow = typeof tasks.$inferSelect;
 
 export async function listPlanTasksByDateRange(
+  input: ListPlanTasksByDateRangeInput,
+  session: SessionScope,
+): Promise<TaskRow[]> {
+  return withSpan(
+    'planner.plan.schedule.list',
+    {
+      'planner.tenant_id': session.tenant_id,
+      'planner.user_id': session.user_id,
+      'planner.plan_id': input.plan_id,
+    },
+    () => listPlanTasksByDateRangeImpl(input, session),
+  );
+}
+
+async function listPlanTasksByDateRangeImpl(
   input: ListPlanTasksByDateRangeInput,
   session: SessionScope,
 ): Promise<TaskRow[]> {

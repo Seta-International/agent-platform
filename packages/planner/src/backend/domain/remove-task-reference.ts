@@ -4,9 +4,24 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { plans, taskReferences, tasks } from '../../db/schema.ts';
 import { emitPlannerTaskReferenceRemoved } from '../../events/emit-helpers.ts';
 import type { RemoveTaskReferenceInput } from '../inputs.ts';
+import { withSpan } from '../observability.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 
 export async function removeTaskReference(
+  input: RemoveTaskReferenceInput & { session: SessionScope },
+): Promise<void> {
+  return withSpan(
+    'planner.task.remove-reference',
+    {
+      'planner.tenant_id': input.session.tenant_id,
+      'planner.user_id': input.session.user_id,
+      'planner.task_id': input.task_id,
+    },
+    () => removeTaskReferenceImpl(input),
+  );
+}
+
+async function removeTaskReferenceImpl(
   input: RemoveTaskReferenceInput & { session: SessionScope },
 ): Promise<void> {
   await withEmit(

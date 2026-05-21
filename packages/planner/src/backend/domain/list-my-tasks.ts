@@ -4,6 +4,7 @@ import { plannerDb } from '../../db/index.ts';
 import { plans, taskAssignments, tasks } from '../../db/schema.ts';
 import type { MyTasksResult, TaskPriorityNumber, TaskWithPlan } from '../dto.ts';
 import type { ListMyTasksInput } from '../inputs.ts';
+import { withSpan } from '../observability.ts';
 import { taskRowToDto } from './_task-dto.ts';
 
 const PRIORITY_MAP: Record<'urgent' | 'important' | 'medium' | 'low', TaskPriorityNumber> = {
@@ -34,6 +35,20 @@ function compareTasks(a: TaskWithPlan, b: TaskWithPlan): number {
 }
 
 export async function listMyTasks(
+  input: ListMyTasksInput,
+  session: SessionScope,
+): Promise<MyTasksResult> {
+  return withSpan(
+    'planner.my-tasks.list',
+    {
+      'planner.tenant_id': session.tenant_id,
+      'planner.user_id': session.user_id,
+    },
+    () => listMyTasksImpl(input, session),
+  );
+}
+
+async function listMyTasksImpl(
   input: ListMyTasksInput,
   session: SessionScope,
 ): Promise<MyTasksResult> {

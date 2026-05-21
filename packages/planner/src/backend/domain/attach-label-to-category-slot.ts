@@ -5,6 +5,7 @@ import { labels, plans } from '../../db/schema.ts';
 import { emitPlannerLabelCategorySlotChanged } from '../../events/emit-helpers.ts';
 import type { LabelRow } from '../dto.ts';
 import type { AttachLabelToCategorySlotInput } from '../inputs.ts';
+import { withSpan } from '../observability.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 
 type LabelDbRow = typeof labels.$inferSelect;
@@ -38,6 +39,20 @@ function rowToDto(row: LabelDbRow): LabelRow {
 }
 
 export async function attachLabelToCategorySlot(
+  input: AttachLabelToCategorySlotInput & { session: SessionScope },
+): Promise<LabelRow> {
+  return withSpan(
+    'planner.label.attach-category-slot',
+    {
+      'planner.tenant_id': input.session.tenant_id,
+      'planner.user_id': input.session.user_id,
+      'planner.plan_id': input.plan_id,
+    },
+    () => attachLabelToCategorySlotImpl(input),
+  );
+}
+
+async function attachLabelToCategorySlotImpl(
   input: AttachLabelToCategorySlotInput & { session: SessionScope },
 ): Promise<LabelRow> {
   if (input.slot !== null && (!Number.isInteger(input.slot) || input.slot < 1 || input.slot > 25)) {

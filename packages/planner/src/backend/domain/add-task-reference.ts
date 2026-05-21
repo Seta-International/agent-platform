@@ -5,6 +5,7 @@ import { plans, taskReferences, tasks } from '../../db/schema.ts';
 import { emitPlannerTaskReferenceAdded } from '../../events/emit-helpers.ts';
 import type { TaskReferenceRow, TaskReferenceType } from '../dto.ts';
 import type { AddTaskReferenceInput } from '../inputs.ts';
+import { withSpan } from '../observability.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 
 type TaskReferenceDbRow = typeof taskReferences.$inferSelect;
@@ -40,6 +41,20 @@ function rowToDto(row: TaskReferenceDbRow): TaskReferenceRow {
 }
 
 export async function addTaskReference(
+  input: AddTaskReferenceInput & { session: SessionScope },
+): Promise<TaskReferenceRow> {
+  return withSpan(
+    'planner.task.add-reference',
+    {
+      'planner.tenant_id': input.session.tenant_id,
+      'planner.user_id': input.session.user_id,
+      'planner.task_id': input.task_id,
+    },
+    () => addTaskReferenceImpl(input),
+  );
+}
+
+async function addTaskReferenceImpl(
   input: AddTaskReferenceInput & { session: SessionScope },
 ): Promise<TaskReferenceRow> {
   let result!: TaskReferenceDbRow;

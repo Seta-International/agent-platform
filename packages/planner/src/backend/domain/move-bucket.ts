@@ -5,12 +5,28 @@ import { buckets, plans } from '../../db/schema.ts';
 import { emitPlannerBucketUpdated } from '../../events/emit-helpers.ts';
 import type { BucketRow, TaskExternalSource } from '../dto.ts';
 import type { MoveBucketInput } from '../inputs.ts';
+import { withSpan } from '../observability.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 import { hintBetween, hintsForN } from './order-hint.ts';
 
 type BucketDbRow = typeof buckets.$inferSelect;
 
 export async function moveBucket(
+  input: MoveBucketInput & { session: SessionScope },
+): Promise<BucketRow> {
+  return withSpan(
+    'planner.bucket.move',
+    {
+      'planner.tenant_id': input.session.tenant_id,
+      'planner.user_id': input.session.user_id,
+      'planner.bucket_id': input.bucket_id,
+      'planner.plan_id': input.plan_id,
+    },
+    () => moveBucketImpl(input),
+  );
+}
+
+async function moveBucketImpl(
   input: MoveBucketInput & { session: SessionScope },
 ): Promise<BucketRow> {
   let result!: BucketDbRow;

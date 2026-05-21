@@ -4,10 +4,25 @@ import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { plans, taskAssignments, tasks } from '../../db/schema.ts';
 import { emitPlannerTaskAssigned, emitPlannerTaskUnassigned } from '../../events/emit-helpers.ts';
 import type { SetTaskAssigneesInput } from '../inputs.ts';
+import { withSpan } from '../observability.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 import { hintsForN } from './order-hint.ts';
 
 export async function setTaskAssignees(
+  input: SetTaskAssigneesInput & { session: SessionScope },
+): Promise<void> {
+  return withSpan(
+    'planner.task.set-assignees',
+    {
+      'planner.tenant_id': input.session.tenant_id,
+      'planner.user_id': input.session.user_id,
+      'planner.task_id': input.task_id,
+    },
+    () => setTaskAssigneesImpl(input),
+  );
+}
+
+async function setTaskAssigneesImpl(
   input: SetTaskAssigneesInput & { session: SessionScope },
 ): Promise<void> {
   await withEmit(
