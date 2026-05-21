@@ -1,4 +1,4 @@
-import type { TaskRow, TaskWithAssigneesRow } from '@seta/planner';
+import type { TaskPreviewType, TaskRow, TaskWithAssigneesRow } from '@seta/planner';
 import { plannerClient } from '../../api/planner-client';
 import { plannerKeys } from '../../state/query-keys';
 import { useOptimisticMutation } from '../use-optimistic-mutation';
@@ -7,6 +7,9 @@ interface CreateVars {
   plan_id: string;
   bucket_id?: string;
   title: string;
+  start_at?: string;
+  priority_number?: 1 | 3 | 5 | 9;
+  preview_type?: TaskPreviewType;
 }
 
 export function useCreateTask(planId: string) {
@@ -25,13 +28,13 @@ export function useCreateTask(planId: string) {
         bucket_id: v.bucket_id ?? null,
         title: v.title,
         description: null,
-        priority_number: 5,
+        priority_number: v.priority_number ?? 5,
         percent_complete: 0,
         is_deferred: false,
-        preview_type: 'automatic',
+        preview_type: v.preview_type ?? 'automatic',
         review_state: null,
         skill_tags: [],
-        start_at: null,
+        start_at: v.start_at ?? null,
         due_at: null,
         order_hint: null,
         assignee_priority: null,

@@ -345,7 +345,9 @@ async function createTask(input: {
   title: string;
   description?: string;
   priority_number?: 1 | 3 | 5 | 9;
+  start_at?: string;
   due_at?: string;
+  preview_type?: TaskRow['preview_type'];
   skill_tags?: string[];
   review_state?: 'needs_review';
 }): Promise<TaskRow> {

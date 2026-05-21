@@ -57,7 +57,7 @@ export const WithQuickCreate: Story = {
         <div className="kanban-card">Review design tokens</div>
       </>
     ),
-    onCreateTask: (title) => console.log('create task:', title),
+    onCreateTask: (input) => console.log('create task:', input),
     droppable: {},
     draggableHandle: {},
   },

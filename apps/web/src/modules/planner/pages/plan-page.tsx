@@ -282,8 +282,8 @@ export function PlanPage({
                       name={b.name}
                       count={(tasksByBucket.get(b.id) ?? []).length}
                       status={statusForBucketName(b.name)}
-                      onCreateTask={(title) =>
-                        createTask.mutate({ plan_id: plan.id, bucket_id: b.id, title })
+                      onCreateTask={(input) =>
+                        createTask.mutate({ plan_id: plan.id, bucket_id: b.id, ...input })
                       }
                       draggableHandle={{
                         ref: dp.innerRef,

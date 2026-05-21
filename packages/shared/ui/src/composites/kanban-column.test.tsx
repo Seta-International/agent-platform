@@ -38,7 +38,84 @@ describe('KanbanColumn', () => {
     fireEvent.change(input, { target: { value: 'New' } });
     fireEvent.keyDown(input, { key: 'Enter' });
 
-    expect(onCreateTask).toHaveBeenCalledWith('New');
+    expect(onCreateTask).toHaveBeenCalledWith({ title: 'New' });
     expect(screen.queryByPlaceholderText('Add a task…')).not.toBeInTheDocument();
+  });
+
+  it('keeps the "More options" disclosure collapsed by default', () => {
+    render(
+      <KanbanColumn
+        name="Todo"
+        count={0}
+        onCreateTask={() => {}}
+        droppable={{}}
+        draggableHandle={{}}
+      >
+        <span />
+      </KanbanColumn>,
+    );
+    fireEvent.click(screen.getByText('+ Add a task'));
+
+    expect(screen.queryByLabelText('Start')).not.toBeInTheDocument();
+    expect(screen.queryByRole('radiogroup', { name: 'Preview type' })).not.toBeInTheDocument();
+  });
+
+  it('expands "More options" and forwards start_at, priority_number, and preview_type', () => {
+    const onCreateTask = vi.fn();
+    render(
+      <KanbanColumn
+        name="Todo"
+        count={0}
+        onCreateTask={onCreateTask}
+        droppable={{}}
+        draggableHandle={{}}
+      >
+        <span />
+      </KanbanColumn>,
+    );
+
+    fireEvent.click(screen.getByText('+ Add a task'));
+    fireEvent.change(screen.getByPlaceholderText('Add a task…'), {
+      target: { value: 'With details' },
+    });
+    fireEvent.click(screen.getByText('More options'));
+
+    fireEvent.change(screen.getByLabelText('Start'), { target: { value: '2026-06-15' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Urgent' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Checklist' }));
+
+    fireEvent.keyDown(screen.getByPlaceholderText('Add a task…'), { key: 'Enter' });
+
+    expect(onCreateTask).toHaveBeenCalledTimes(1);
+    expect(onCreateTask).toHaveBeenCalledWith({
+      title: 'With details',
+      start_at: '2026-06-15',
+      priority_number: 1,
+      preview_type: 'checklist',
+    });
+  });
+
+  it('omits default-valued extras from the payload', () => {
+    const onCreateTask = vi.fn();
+    render(
+      <KanbanColumn
+        name="Todo"
+        count={0}
+        onCreateTask={onCreateTask}
+        droppable={{}}
+        draggableHandle={{}}
+      >
+        <span />
+      </KanbanColumn>,
+    );
+
+    fireEvent.click(screen.getByText('+ Add a task'));
+    fireEvent.change(screen.getByPlaceholderText('Add a task…'), {
+      target: { value: 'Plain' },
+    });
+    fireEvent.click(screen.getByText('More options'));
+    fireEvent.keyDown(screen.getByPlaceholderText('Add a task…'), { key: 'Enter' });
+
+    expect(onCreateTask).toHaveBeenCalledWith({ title: 'Plain' });
   });
 });
