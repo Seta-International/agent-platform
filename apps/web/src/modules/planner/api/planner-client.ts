@@ -15,7 +15,7 @@ import type {
 
 type M365GroupSearchResult = { external_id: string; display_name: string; mail_nickname: string };
 
-type GroupSyncStatusResponse =
+export type GroupSyncStatusResponse =
   | { sync_status: null }
   | { sync_status: GroupSyncStatus; synced_at: string | null; last_error: string | null };
 

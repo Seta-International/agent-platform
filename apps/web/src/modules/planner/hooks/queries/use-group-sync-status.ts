@@ -7,5 +7,6 @@ export function useGroupSyncStatus(groupId: string | null | undefined) {
     queryKey: plannerKeys.groupSyncStatus(groupId ?? ''),
     queryFn: () => plannerClient.getGroupSyncStatus({ groupId: groupId! }),
     enabled: !!groupId,
+    staleTime: 30_000,
   });
 }

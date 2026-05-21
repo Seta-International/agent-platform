@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
+import type { GroupSyncStatusResponse } from '../../api/planner-client';
 import { plannerKeys } from '../../state/query-keys';
 
 export function useGroupSyncStream(groupId: string | null | undefined): void {
@@ -11,20 +12,21 @@ export function useGroupSyncStream(groupId: string | null | undefined): void {
 
     const handleSyncStatus = (e: MessageEvent) => {
       try {
-        const data = JSON.parse(e.data) as {
-          sync_status: string | null;
-          synced_at?: string | null;
-          last_error?: string | null;
-        };
-        qc.setQueryData(plannerKeys.groupSyncStatus(groupId), data);
+        const data = JSON.parse(e.data) as GroupSyncStatusResponse;
+        qc.setQueryData<GroupSyncStatusResponse>(plannerKeys.groupSyncStatus(groupId), data);
       } catch {
         // malformed frame
       }
     };
 
+    es.onerror = () => {
+      // Connection error or closed — browser will auto-reconnect
+    };
+
     es.addEventListener('sync-status', handleSyncStatus as EventListener);
     return () => {
       es.removeEventListener('sync-status', handleSyncStatus as EventListener);
+      es.onerror = null;
       es.close();
     };
   }, [groupId, qc]);
