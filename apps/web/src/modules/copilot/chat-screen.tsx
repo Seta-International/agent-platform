@@ -30,6 +30,7 @@ import { useThreadList } from './hooks/use-thread-list';
 import { useThreadMessages } from './hooks/use-thread-messages';
 import { useDeleteThread, useRenameThread } from './hooks/use-thread-mutations';
 import { COPILOT_COPY } from './i18n';
+import { ChatEmbeddedHitl } from './workflows/components/chat-embedded-hitl.tsx';
 
 const MODEL_STORAGE_KEY = 'seta.copilot.model';
 const AGENT_STORAGE_KEY = 'seta.copilot.agent';
@@ -284,6 +285,9 @@ function ChatPane({
             </div>
           </ThreadPrimitive.Empty>
           <ThreadPrimitive.Messages components={{ UserMessage, AssistantMessage }} />
+          <div className="px-4 pb-4">
+            <ChatEmbeddedHitl threadId={threadId} />
+          </div>
         </ChatTranscript>
         <ToolUIRegistry agentName={agentName} />
         <ThreadListRefresher threadId={threadId} />
