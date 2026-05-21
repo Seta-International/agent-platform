@@ -15,7 +15,10 @@ export type PlannerErrorCode =
   | 'VALIDATION'
   | 'CROSS_TENANT'
   | 'LINKED_GROUP_IMMUTABLE_MEMBERS'
-  | 'LINKED_DUPLICATE';
+  | 'LINKED_DUPLICATE'
+  | 'DUPLICATE_REFERENCE'
+  | 'RESERVED_FOR_SYSTEM_ACTOR'
+  | 'CATEGORY_SLOT_OUT_OF_RANGE';
 
 export class PlannerError extends Error {
   readonly code: PlannerErrorCode;
