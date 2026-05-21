@@ -125,6 +125,23 @@ async function onRunStarted(client: PoolClient, evt: RunStartedEvent): Promise<v
   );
 }
 
+async function insertOutboxEvent(
+  client: PoolClient,
+  args: {
+    eventType: string;
+    aggregateId: string;
+    tenantId: string;
+    payload: Record<string, unknown>;
+  },
+): Promise<void> {
+  await client.query(
+    `INSERT INTO core.events
+       (id, tenant_id, aggregate_type, aggregate_id, event_type, event_version, payload)
+     VALUES (gen_random_uuid(), $1, 'workflow_run', $2, $3, 1, $4)`,
+    [args.tenantId, args.aggregateId, args.eventType, args.payload],
+  );
+}
+
 async function onRunSuspended(client: PoolClient, evt: RunSuspendedEvent): Promise<void> {
   await client.query(
     `UPDATE copilot.workflow_runs
@@ -132,14 +149,15 @@ async function onRunSuspended(client: PoolClient, evt: RunSuspendedEvent): Promi
       WHERE run_id = $1`,
     [evt.runId, evt.suspendReason],
   );
-  await client.query(
+  const ins = await client.query<{ approval_id: string }>(
     `INSERT INTO copilot.workflow_approvals
        (approval_id, run_id, step_id, proposed_payload,
         approver_user_id, fallback_approver_user_id,
         surface_canvas, surface_chat_thread_id,
         status, expires_at, created_at)
      VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, 'pending', $8, $9)
-     ON CONFLICT DO NOTHING`,
+     ON CONFLICT DO NOTHING
+     RETURNING approval_id`,
     [
       evt.runId,
       evt.stepId,
@@ -152,6 +170,26 @@ async function onRunSuspended(client: PoolClient, evt: RunSuspendedEvent): Promi
       evt.occurredAt,
     ],
   );
+  if (ins.rowCount === 0) return;
+
+  const approvalId = ins.rows[0]!.approval_id;
+  await insertOutboxEvent(client, {
+    eventType: 'copilot.workflow.approval.requested',
+    aggregateId: evt.runId,
+    tenantId: evt.tenantId,
+    payload: {
+      approval_id: approvalId,
+      workflow_id: evt.workflowId,
+      tenant_id: evt.tenantId,
+      approver_user_id: evt.approverUserId,
+      proposed_payload: evt.proposedPayload,
+      expires_at: evt.expiresAt.toISOString(),
+      surface: [
+        ...(evt.surfaceCanvas ? ['canvas' as const] : []),
+        ...(evt.surfaceChatThreadId ? ['chat' as const] : []),
+      ],
+    },
+  });
 }
 async function onRunResumed(client: PoolClient, evt: RunResumedEvent): Promise<void> {
   await client.query(
@@ -178,9 +216,44 @@ async function terminate(
 
 async function onRunCompleted(client: PoolClient, evt: RunCompletedEvent): Promise<void> {
   await terminate(client, evt, 'success', null);
+  const r = await client.query<{ started_by: string }>(
+    `SELECT started_by FROM copilot.workflow_runs WHERE run_id = $1`,
+    [evt.runId],
+  );
+  const startedBy = r.rows[0]!.started_by;
+  await insertOutboxEvent(client, {
+    eventType: 'copilot.workflow.run.completed',
+    aggregateId: evt.runId,
+    tenantId: evt.tenantId,
+    payload: {
+      workflow_id: evt.workflowId,
+      tenant_id: evt.tenantId,
+      started_by: startedBy,
+      duration_ms: evt.durationMs,
+      outcome: evt.outcome,
+      summary: evt.summary,
+    },
+  });
 }
 async function onRunFailed(client: PoolClient, evt: RunFailedEvent): Promise<void> {
   await terminate(client, evt, 'failed', `${evt.error.code}: ${evt.error.message}`);
+  const r = await client.query<{ started_by: string }>(
+    `SELECT started_by FROM copilot.workflow_runs WHERE run_id = $1`,
+    [evt.runId],
+  );
+  const startedBy = r.rows[0]!.started_by;
+  await insertOutboxEvent(client, {
+    eventType: 'copilot.workflow.run.failed',
+    aggregateId: evt.runId,
+    tenantId: evt.tenantId,
+    payload: {
+      workflow_id: evt.workflowId,
+      tenant_id: evt.tenantId,
+      started_by: startedBy,
+      duration_ms: evt.durationMs,
+      error: { code: evt.error.code, message: evt.error.message },
+    },
+  });
 }
 async function onRunCanceled(client: PoolClient, evt: RunCanceledEvent): Promise<void> {
   await terminate(client, evt, 'canceled', null);

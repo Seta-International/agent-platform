@@ -152,6 +152,98 @@ describe('onLifecycleEvent — run-suspended', () => {
   });
 });
 
+describe('onLifecycleEvent — outbox emission', () => {
+  it('writes a core.events row for each outbox-eligible kind', async () => {
+    await withCopilotTestDb(async ({ pool }) => {
+      const runId = randomUUID();
+      const tenantId = randomUUID();
+      const userId = randomUUID();
+      const approverUserId = randomUUID();
+
+      await onLifecycleEvent(
+        pool,
+        baseRunStarted({ runId, eventSeq: 1, tenantId, startedBy: userId }),
+      );
+      await onLifecycleEvent(pool, {
+        kind: 'run-suspended',
+        runId,
+        eventSeq: 2,
+        workflowId: 'copilot.test-workflow',
+        tenantId,
+        occurredAt: new Date(),
+        stepId: 'await-approval',
+        suspendReason: 'hitl_pending',
+        proposedPayload: {},
+        approverUserId,
+        fallbackApproverUserId: null,
+        surfaceCanvas: true,
+        surfaceChatThreadId: null,
+        expiresAt: new Date(Date.now() + 86400000),
+      });
+      await onLifecycleEvent(pool, {
+        kind: 'run-completed',
+        runId,
+        eventSeq: 3,
+        workflowId: 'copilot.test-workflow',
+        tenantId,
+        occurredAt: new Date(),
+        durationMs: 100,
+        outcome: 'success',
+        summary: {},
+      });
+
+      const evts = await pool.query<{
+        event_type: string;
+        aggregate_id: string;
+        tenant_id: string;
+        payload: Record<string, unknown>;
+      }>(
+        `SELECT event_type, aggregate_id, tenant_id, payload FROM core.events
+          WHERE aggregate_id = $1
+          ORDER BY occurred_at ASC, event_type ASC`,
+        [runId],
+      );
+      expect(evts.rows.map((r) => r.event_type)).toEqual([
+        'copilot.workflow.approval.requested',
+        'copilot.workflow.run.completed',
+      ]);
+      expect(evts.rows[0]!.tenant_id).toBe(tenantId);
+      expect(evts.rows[1]!.tenant_id).toBe(tenantId);
+      expect(evts.rows[0]!.payload.approval_id).toBeTruthy();
+      expect(evts.rows[1]!.payload.outcome).toBe('success');
+    });
+  });
+
+  it('writes copilot.workflow.run.failed for a run-failed terminal event', async () => {
+    await withCopilotTestDb(async ({ pool }) => {
+      const runId = randomUUID();
+      const tenantId = randomUUID();
+      const userId = randomUUID();
+      await onLifecycleEvent(
+        pool,
+        baseRunStarted({ runId, eventSeq: 1, tenantId, startedBy: userId }),
+      );
+      await onLifecycleEvent(pool, {
+        kind: 'run-failed',
+        runId,
+        eventSeq: 2,
+        workflowId: 'copilot.test-workflow',
+        tenantId,
+        occurredAt: new Date(),
+        durationMs: 250,
+        error: { code: 'boom', message: 'oops' },
+      });
+
+      const evts = await pool.query<{ event_type: string; payload: Record<string, unknown> }>(
+        `SELECT event_type, payload FROM core.events WHERE aggregate_id = $1`,
+        [runId],
+      );
+      expect(evts.rows.map((r) => r.event_type)).toEqual(['copilot.workflow.run.failed']);
+      expect((evts.rows[0]!.payload.error as { code: string }).code).toBe('boom');
+    });
+  });
+});
+
 describe('onLifecycleEvent — terminal branches', () => {
   it('run-resumed flips status back to running and clears suspend_reason', async () => {
     await withCopilotTestDb(async ({ pool }) => {
