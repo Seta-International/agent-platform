@@ -8,8 +8,9 @@ export function StepNode({ data }: NodeProps<Node<StepNodeData>>) {
   const runStatus = stepStatusToRunStatus(data.status);
   const t = tokenFor(runStatus);
   return (
-    <div
-      className="w-[240px] rounded-md border bg-[var(--color-surface)] px-3 py-2 shadow-sm"
+    <article
+      aria-label={`Step ${data.stepId} (${runStatus})`}
+      className="w-[240px] rounded-md border bg-[var(--color-surface)] px-3 py-2 shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--color-primary)]"
       style={{
         borderColor: data.status === 'running' ? 'var(--color-primary)' : 'var(--color-hairline)',
       }}
@@ -34,6 +35,6 @@ export function StepNode({ data }: NodeProps<Node<StepNodeData>>) {
         position={Position.Bottom}
         className="!h-2 !w-2 !bg-[var(--color-hairline)]"
       />
-    </div>
+    </article>
   );
 }
