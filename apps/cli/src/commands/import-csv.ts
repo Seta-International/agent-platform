@@ -8,6 +8,7 @@ import {
   createGroup,
   createPlan,
   createTask,
+  listGroups,
 } from '@seta/planner';
 import { sql } from 'drizzle-orm';
 import pino from 'pino';
@@ -101,7 +102,16 @@ export async function importCsvCommand(opts: ImportCsvOpts): Promise<void> {
         );
       }
     } catch (err) {
-      log.warn({ csv_user_id: row.user_id, email: row.email, err }, 'createUser failed, skipping');
+      // User may already exist — look up existing UUID so assignee links still work.
+      try {
+        const existingId = await resolveUserIdByEmail(tenantId, row.email);
+        idMap.set(row.user_id, existingId);
+      } catch {
+        log.warn(
+          { csv_user_id: row.user_id, email: row.email, err },
+          'createUser failed, skipping',
+        );
+      }
       usersSkipped++;
     }
   }
@@ -109,9 +119,17 @@ export async function importCsvCommand(opts: ImportCsvOpts): Promise<void> {
     `${JSON.stringify({ phase: 'users', created: usersCreated, skipped: usersSkipped })}\n`,
   );
 
-  // Phase 3 — Create SETA Future group
+  // Phase 3 — Create SETA Future group (idempotent: reuse existing if name already taken)
   log.info('phase 3: creating group');
-  const group = await createGroup({ tenant_id: tenantId, name: 'SETA Future', session });
+  let group: { id: string; name: string };
+  try {
+    group = await createGroup({ tenant_id: tenantId, name: 'SETA Future', session });
+  } catch {
+    const existing = (await listGroups({ session })).find((g) => g.name === 'SETA Future');
+    if (!existing) throw new Error('createGroup failed and "SETA Future" group not found');
+    group = existing;
+    log.info({ group_id: existing.id }, 'phase 3: reusing existing group');
+  }
   process.stdout.write(`${JSON.stringify({ phase: 'group', id: group.id, name: group.name })}\n`);
 
   // Phase 4 — Add group members (deduplicated union of all plan_members)
