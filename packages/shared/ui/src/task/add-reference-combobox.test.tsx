@@ -33,7 +33,22 @@ describe('AddReferenceCombobox', () => {
       expect(onAdd).toHaveBeenLastCalledWith(expect.objectContaining({ type }));
     }
   });
-  it('does nothing on Enter when the input is not a URL', () => {
+  it('classifies extensionless SharePoint URLs as type=sharePoint', () => {
+    const onAdd = vi.fn();
+    render(<AddReferenceCombobox onAdd={onAdd} />);
+    const input = screen.getByPlaceholderText(/Paste a URL/i);
+    fireEvent.change(input, {
+      target: { value: 'https://acme.sharepoint.com/sites/Engineering' },
+    });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onAdd).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: 'https://acme.sharepoint.com/sites/Engineering',
+        type: 'sharePoint',
+      }),
+    );
+  });
+  it('does not call onAdd when input is not a URL', () => {
     const onAdd = vi.fn();
     render(<AddReferenceCombobox onAdd={onAdd} />);
     fireEvent.change(screen.getByPlaceholderText(/Paste a URL/i), {

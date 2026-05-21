@@ -24,8 +24,7 @@ export function classifyUrl(raw: string): ClassifiedReference | null {
   else if (ext?.startsWith('ppt')) type = 'powerPoint';
   else if (ext?.startsWith('vsd')) type = 'visio';
   else if (ext === 'one') type = 'oneNote';
-  else if (u.host.endsWith('sharepoint.com'))
-    type = path.endsWith('.xlsx') ? 'excel' : 'sharePoint';
+  else if (u.host.endsWith('sharepoint.com')) type = 'sharePoint';
   const last = u.pathname.split('/').filter(Boolean).at(-1) ?? u.host;
   const alias = decodeURIComponent(last);
   return { url: raw, type, alias, host: u.host };
