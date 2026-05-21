@@ -1,6 +1,7 @@
 import type { Mastra } from '@mastra/core';
 import { ROUTER_INSTRUCTIONS, SELF_INSTRUCTIONS } from '../instructions.ts';
 import { makeListMyThreadsTool } from '../tools/copilot.list-my-threads.ts';
+import { copilotRunNewTaskSkillTagTool } from '../tools/copilot.run-new-task-skill-tag.ts';
 import { STATIC_SELF_TOOLS } from '../tools/self-tools.ts';
 import type { AgentSpec, AgentSpecs } from './specs.ts';
 
@@ -50,7 +51,7 @@ export function buildAgentCatalog(deps: { mastra: Mastra }): AgentSpecs {
     label: 'Supervisor',
     description: 'Routes to the right specialist for the job',
     instructions: ROUTER_INSTRUCTIONS,
-    tools: [],
+    tools: [copilotRunNewTaskSkillTagTool],
     delegates: ['self'],
     defaultTier: 'fast',
   };
