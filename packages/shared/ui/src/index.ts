@@ -71,6 +71,7 @@ export * from './task/date-pill';
 export * from './task/preview-type-radio';
 export * from './task/priority-segmented';
 export * from './task/progress-slider';
+export * from './task/reference-row';
 // Theme
 export * from './theme/theme-provider';
 export * from './theme/theme-toggle';
