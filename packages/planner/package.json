@@ -18,6 +18,7 @@
     "db:check": "drizzle-kit check"
   },
   "devDependencies": {
+    "@seta/copilot": "workspace:^",
     "@seta/core": "workspace:^",
     "@seta/identity": "workspace:^",
     "@seta/shared-config": "workspace:^",
