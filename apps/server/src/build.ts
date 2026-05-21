@@ -153,7 +153,11 @@ export function buildServerApp(
                 ? 403
                 : err.code === 'VALIDATION'
                   ? 400
-                  : 400;
+                  : err.code === 'LINKED_GROUP_IMMUTABLE_MEMBERS'
+                    ? 409
+                    : err.code === 'LINKED_DUPLICATE'
+                      ? 409
+                      : 400;
       return c.json({ error: err.code, message: err.message, details: err.details }, status);
     }
     if (err instanceof IdentityError) {
