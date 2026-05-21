@@ -17,6 +17,7 @@ export function useAddGroupMember(groupId: string) {
       const optimistic: GroupMemberRow = {
         group_id: groupId,
         user_id: v.user_id,
+        role: 'member',
         display_name: v.display_name ?? '',
         email: v.email ?? '',
         added_at: now,
