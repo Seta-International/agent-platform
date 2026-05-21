@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import { AvatarStack } from '../composites/avatar-stack';
 import { LabelChip } from '../composites/label-chip';
 import { PriorityIcon } from '../composites/priority-icon';
+import { REFERENCE_TYPE_COLOR, type ReferenceType } from '../task/reference-row';
 
 export type PreviewVariant = 'automatic' | 'noPreview' | 'checklist' | 'description' | 'reference';
 
@@ -14,7 +15,7 @@ export interface ChecklistItem {
 
 export interface PreviewReference {
   id: string;
-  type: string;
+  type: ReferenceType;
   alias: string | null;
   host: string;
 }
@@ -107,9 +108,10 @@ function bodyForSource(task: PreviewCardTask, source: PickedSource) {
 }
 
 function ReferenceBody({ refRow }: { refRow: PreviewReference }) {
+  const color = REFERENCE_TYPE_COLOR[refRow.type] ?? 'var(--color-info)';
   return (
     <div style={refBoxStyle}>
-      <span aria-hidden="true" style={refDotStyle} />
+      <span aria-hidden="true" style={{ ...refDotStyle, background: color }} />
       <span style={refAliasStyle}>{refRow.alias ?? refRow.host}</span>
       <span className="mono t-xs subtle">{stripTld(refRow.host)}</span>
     </div>
@@ -207,7 +209,6 @@ const refDotStyle: CSSProperties = {
   width: 11,
   height: 11,
   borderRadius: 3,
-  background: '#2b579a',
   flexShrink: 0,
 };
 const refAliasStyle: CSSProperties = {

@@ -18,7 +18,7 @@ exports[`PreviewCard > renders automatic variant matching snapshot 1`] = `
     >
       <span
         aria-hidden="true"
-        style="width: 11px; height: 11px; border-radius: 3px; background: #2b579a; flex-shrink: 0;"
+        style="width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; background: #2b579a;"
       />
       <span
         style="min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; flex-grow: 1; flex-shrink: 1; flex-basis: 0%;"
@@ -320,7 +320,7 @@ exports[`PreviewCard > renders reference variant matching snapshot 1`] = `
     >
       <span
         aria-hidden="true"
-        style="width: 11px; height: 11px; border-radius: 3px; background: #2b579a; flex-shrink: 0;"
+        style="width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; background: #2b579a;"
       />
       <span
         style="min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; flex-grow: 1; flex-shrink: 1; flex-basis: 0%;"
