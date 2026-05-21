@@ -95,7 +95,15 @@ function makeGroupDeletedEvent(opts: { tenantId: string; groupId: string }) {
   };
 }
 
-function makeMemberRoleChangedEvent(opts: { tenantId: string; groupId: string }) {
+function makeMemberRoleChangedEvent(opts: {
+  tenantId: string;
+  groupId: string;
+  actorType?: 'user' | 'system';
+}) {
+  const actor =
+    opts.actorType === 'system'
+      ? { type: 'system' as const, user_id: null as null, system_id: 'integrations.m365' as const }
+      : { type: 'user' as const, user_id: SYSTEM_USER_ID };
   return {
     id: crypto.randomUUID(),
     occurredAt: new Date(),
@@ -105,7 +113,7 @@ function makeMemberRoleChangedEvent(opts: { tenantId: string; groupId: string })
     eventType: 'planner.group.member.role-changed',
     eventVersion: 1 as const,
     payload: {
-      actor: { type: 'user' as const, user_id: SYSTEM_USER_ID },
+      actor,
       group_id: opts.groupId,
       user_id: crypto.randomUUID(),
       before_role: 'member' as const,
@@ -276,6 +284,19 @@ describe('M365 event subscribers', () => {
         expect(rows).toHaveLength(1);
         expect(rows[0].payload.changed_fields).toEqual(['members']);
         expect(rows[0].payload.group_id).toBe(groupId);
+      });
+    });
+
+    it('system (M365 sync) actor → NO push job (loop prevention)', async () => {
+      await withSetup(async ({ pool, tenantId, groupId, repo, db }) => {
+        await repo.upsert({ tenantId, groupId, externalId: 'ext-sub-test', lastSyncedFields: {} });
+
+        const event = makeMemberRoleChangedEvent({ tenantId, groupId, actorType: 'system' });
+
+        await db.transaction(async (tx) => roleChangedSub.handler(event, { tx: tx as never }));
+
+        const identifiers = await getJobIdentifiers(pool);
+        expect(identifiers).not.toContain('m365.group.push');
       });
     });
   });

@@ -15,6 +15,7 @@ interface GroupDeletedPayload {
 }
 
 interface MemberRoleChangedPayload {
+  actor?: { type?: string; system_id?: string };
   group_id: string;
 }
 
@@ -99,6 +100,10 @@ async function handleMemberRoleChanged(
   ctx: SubscriberCtx,
 ): Promise<void> {
   const payload = event.payload;
+
+  // Skip-loop guard: set-member-role emits with system actor when called by the sync machinery;
+  // re-enqueueing here would create an infinite push cycle.
+  if (payload.actor?.type === 'system' && payload.actor.system_id === M365_SYSTEM_ID) return;
 
   // biome-ignore lint/suspicious/noExplicitAny: NodeTx generic param omits schema, structurally compatible
   const repo = createM365GroupLinkRepo({ db: ctx.tx as any });
