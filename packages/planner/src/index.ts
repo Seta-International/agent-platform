@@ -7,6 +7,7 @@ export { applyLabel } from './backend/domain/apply-label.ts';
 export { assignTask } from './backend/domain/assign-task.ts';
 export { attachLabelToCategorySlot } from './backend/domain/attach-label-to-category-slot.ts';
 export { completeTask } from './backend/domain/complete-task.ts';
+export { countTasksByCategorySlot } from './backend/domain/count-tasks-by-category-slot.ts';
 export { createBucket } from './backend/domain/create-bucket.ts';
 export { createGroup } from './backend/domain/create-group.ts';
 export { createLabel } from './backend/domain/create-label.ts';

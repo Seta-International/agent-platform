@@ -1,7 +1,7 @@
 import { hashRoleSummary, type SessionEnv, type SessionScope } from '@seta/core';
 import { resetCoreDb } from '@seta/core/internal/test-support';
 import { createUser } from '@seta/identity';
-import { createGroup, createLabel, createPlan } from '@seta/planner';
+import { applyLabel, createGroup, createLabel, createPlan, createTask } from '@seta/planner';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { Hono } from 'hono';
@@ -225,7 +225,7 @@ describe('plan categories HTTP routes', () => {
     );
   });
 
-  it('GET /plans/:id/categories returns descriptions, labels, task_counts, counts', async () => {
+  it('GET /plans/:id/categories aggregates descriptions, attached labels, task_counts, and counts', async () => {
     await withTestDb(
       {
         templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
@@ -244,28 +244,91 @@ describe('plan categories HTTP routes', () => {
           });
           const group = await createGroup({ tenant_id: tenantId, name: 'Eng', session });
           const plan = await createPlan({ group_id: group.id, name: 'P', session });
-          await createLabel({ plan_id: plan.id, name: 'Backend', color: 'blue', session });
+
+          const attachedNames = ['Backend', 'Frontend', 'QA', 'Docs'] as const;
+          const unattachedNames = ['Bug', 'Spike', 'Chore'] as const;
+          const attachedLabels = await Promise.all(
+            attachedNames.map((name) =>
+              createLabel({ plan_id: plan.id, name, color: 'blue', session }),
+            ),
+          );
+          await Promise.all(
+            unattachedNames.map((name) =>
+              createLabel({ plan_id: plan.id, name, color: 'gray', session }),
+            ),
+          );
 
           const app = buildTestApp(session);
 
-          await app.request(`/api/planner/v1/plans/${plan.id}/categories`, {
+          // Seed 8 descriptions and bind the 4 attached labels to slots 1..4.
+          const slots: Record<string, { name: string; label_id?: string }> = {};
+          const descriptionSeed = [
+            'Backend',
+            'Frontend',
+            'QA',
+            'Docs',
+            'Research',
+            'Ops',
+            'Security',
+            'Design',
+          ];
+          for (let i = 0; i < 8; i++) {
+            const slotKey = String(i + 1);
+            slots[slotKey] = {
+              name: descriptionSeed[i] as string,
+              ...(i < 4 ? { label_id: attachedLabels[i]?.id } : {}),
+            };
+          }
+          const seedRes = await app.request(`/api/planner/v1/plans/${plan.id}/categories`, {
             method: 'PUT',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ slots: { '3': { name: 'QA' } } }),
+            body: JSON.stringify({ slots }),
           });
+          expect(seedRes.status).toBe(200);
+
+          // Create tasks and apply attached labels:
+          //   slot 1 (Backend): 2 distinct tasks
+          //   slot 2 (Frontend): 1 task
+          //   slot 3 (QA): 0 tasks
+          //   slot 4 (Docs): 1 task, also labeled Backend (counts once per slot)
+          const t1 = await createTask({ plan_id: plan.id, title: 'T1', session });
+          const t2 = await createTask({ plan_id: plan.id, title: 'T2', session });
+          const t3 = await createTask({ plan_id: plan.id, title: 'T3', session });
+          const t4 = await createTask({ plan_id: plan.id, title: 'T4', session });
+          const slot1Label = attachedLabels[0] as { id: string };
+          const slot2Label = attachedLabels[1] as { id: string };
+          const slot4Label = attachedLabels[3] as { id: string };
+          await applyLabel({ task_id: t1.id, label_id: slot1Label.id, session });
+          await applyLabel({ task_id: t2.id, label_id: slot1Label.id, session });
+          await applyLabel({ task_id: t3.id, label_id: slot2Label.id, session });
+          await applyLabel({ task_id: t4.id, label_id: slot4Label.id, session });
+          await applyLabel({ task_id: t4.id, label_id: slot1Label.id, session });
 
           const res = await app.request(`/api/planner/v1/plans/${plan.id}/categories`);
           expect(res.status).toBe(200);
           const body = (await res.json()) as {
             descriptions: Record<string, string>;
-            labels: Array<{ name: string }>;
+            labels: Array<{ name: string; category_slot: number | null }>;
             task_counts: Record<string, number>;
             counts: { categories: number };
           };
-          expect(body.descriptions.category3).toBe('QA');
-          expect(body.labels.map((l) => l.name)).toContain('Backend');
-          expect(body.task_counts).toEqual({});
-          expect(body.counts.categories).toBe(1);
+
+          expect(body.descriptions.category1).toBe('Backend');
+          expect(body.descriptions.category8).toBe('Design');
+          expect(body.counts.categories).toBe(8);
+
+          // Only labels bound to a slot show up in the editor's labels list.
+          expect(body.labels).toHaveLength(4);
+          expect(body.labels.every((l) => l.category_slot !== null)).toBe(true);
+          expect(new Set(body.labels.map((l) => l.name))).toEqual(
+            new Set(['Backend', 'Frontend', 'QA', 'Docs']),
+          );
+
+          // task_counts uses string slot keys; slots without tasks are absent.
+          expect(body.task_counts['1']).toBe(3);
+          expect(body.task_counts['2']).toBe(1);
+          expect(body.task_counts['3']).toBeUndefined();
+          expect(body.task_counts['4']).toBe(1);
         } finally {
           resetCoreDb();
           await closePools();

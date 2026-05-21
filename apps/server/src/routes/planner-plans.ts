@@ -1,5 +1,6 @@
 import type { SessionEnv } from '@seta/core';
 import {
+  countTasksByCategorySlot,
   createLabel,
   createPlan,
   deleteLabel,
@@ -147,16 +148,21 @@ export function registerPlannerPlansRoutes(app: Hono<SessionEnv>): void {
   app.get('/api/planner/v1/plans/:id/categories', async (c) => {
     const session = c.get('user');
     const planId = c.req.param('id');
-    const plan = await getPlan({ plan_id: planId, session });
-    const labels = await listLabels({ plan_id: planId, session });
+    const [plan, allLabels, task_counts] = await Promise.all([
+      getPlan({ plan_id: planId, session }),
+      listLabels({ plan_id: planId, session }),
+      countTasksByCategorySlot({ plan_id: planId, session }),
+    ]);
     const descriptions = plan.category_descriptions ?? {};
+    // Editor's right column only shows labels bound to a category slot.
+    const labels = allLabels.filter((l) => l.category_slot !== null);
     const categoriesCount = Object.values(descriptions).filter(
       (v) => typeof v === 'string' && v.length > 0,
     ).length;
     return c.json({
       descriptions,
       labels,
-      task_counts: {},
+      task_counts,
       counts: { categories: categoriesCount },
     });
   });
