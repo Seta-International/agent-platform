@@ -1,7 +1,21 @@
+export type GroupTheme = 'teal' | 'purple' | 'green' | 'blue' | 'pink' | 'orange' | 'red';
+export type GroupVisibility = 'private' | 'public';
+export type GroupDefaultRole = 'owner' | 'member';
+export type GroupExternalSource = 'native' | 'm365';
+export type GroupMemberRole = 'owner' | 'member';
+export type GroupSyncStatus = 'idle' | 'pulling' | 'pushing' | 'error' | 'conflict';
+
 export interface GroupRow {
   id: string;
   tenant_id: string;
   name: string;
+  description: string | null;
+  theme: GroupTheme;
+  visibility: GroupVisibility;
+  default_role: GroupDefaultRole;
+  external_source: GroupExternalSource;
+  external_id: string | null;
+  external_synced_at: string | null;
   account_id: string | null;
   created_by: string;
   created_at: string;
@@ -86,6 +100,7 @@ export interface ChecklistItemRow {
 export interface GroupMemberRow {
   group_id: string;
   user_id: string;
+  role: GroupMemberRole;
   display_name: string;
   email: string;
   added_at: string;
