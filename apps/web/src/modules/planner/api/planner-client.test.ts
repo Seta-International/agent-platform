@@ -127,4 +127,103 @@ describe('plannerClient', () => {
     );
     await expect(plannerClient.getGroup('g1')).rejects.toBeInstanceOf(PlannerClientError);
   });
+
+  it('searchM365Groups GET with encoded query string', async () => {
+    server.use(
+      http.get('*/api/integrations/m365/groups/search', () =>
+        HttpResponse.json({
+          groups: [{ external_id: 'ext1', display_name: 'Eng Team', mail_nickname: 'eng' }],
+        }),
+      ),
+    );
+    const result = await plannerClient.searchM365Groups('eng');
+    expect(result.groups).toHaveLength(1);
+    expect(result.groups[0]?.external_id).toBe('ext1');
+    expect(result.groups[0]?.display_name).toBe('Eng Team');
+  });
+
+  it('linkGroupToM365 POST with external_id body, returns GroupRow', async () => {
+    let captured: unknown;
+    const group = {
+      id: 'g1',
+      tenant_id: 't1',
+      name: 'Eng',
+      account_id: null,
+      created_by: 'u1',
+      created_at: '2026-05-20T00:00:00Z',
+      updated_at: '2026-05-20T00:00:00Z',
+      deleted_at: null,
+      version: 2,
+    };
+    server.use(
+      http.post('*/api/integrations/m365/groups/g1/link', async ({ request }) => {
+        captured = await request.json();
+        return HttpResponse.json(group);
+      }),
+    );
+    const result = await plannerClient.linkGroupToM365({ groupId: 'g1', externalId: 'ext1' });
+    expect(captured).toEqual({ external_id: 'ext1' });
+    expect(result.id).toBe('g1');
+  });
+
+  it('unlinkGroupFromM365 POST with no body, returns GroupRow', async () => {
+    const group = {
+      id: 'g1',
+      tenant_id: 't1',
+      name: 'Eng',
+      account_id: null,
+      created_by: 'u1',
+      created_at: '2026-05-20T00:00:00Z',
+      updated_at: '2026-05-20T00:00:00Z',
+      deleted_at: null,
+      version: 3,
+    };
+    server.use(
+      http.post('*/api/integrations/m365/groups/g1/unlink', () => HttpResponse.json(group)),
+    );
+    const result = await plannerClient.unlinkGroupFromM365({ groupId: 'g1' });
+    expect(result.id).toBe('g1');
+    expect(result.version).toBe(3);
+  });
+
+  it('refreshGroupSync POST returns { ok: true }', async () => {
+    server.use(
+      http.post('*/api/integrations/m365/groups/g1/refresh', () => HttpResponse.json({ ok: true })),
+    );
+    const result = await plannerClient.refreshGroupSync({ groupId: 'g1' });
+    expect(result).toEqual({ ok: true });
+  });
+
+  it('resolveGroupConflict POST sends decisions array', async () => {
+    let captured: unknown;
+    server.use(
+      http.post('*/api/integrations/m365/groups/g1/resolve', async ({ request }) => {
+        captured = await request.json();
+        return HttpResponse.json({ ok: true });
+      }),
+    );
+    const decisions = [
+      { field: 'name', choice: 'local' as const },
+      { field: 'description', choice: 'remote' as const },
+    ];
+    const result = await plannerClient.resolveGroupConflict({ groupId: 'g1', decisions });
+    expect(captured).toEqual({ decisions });
+    expect(result).toEqual({ ok: true });
+  });
+
+  it('getGroupSyncStatus GET returns sync status fields', async () => {
+    server.use(
+      http.get('*/api/integrations/m365/groups/g1/sync-status', () =>
+        HttpResponse.json({
+          sync_status: 'synced',
+          synced_at: '2026-05-20T00:00:00Z',
+          last_error: null,
+        }),
+      ),
+    );
+    const result = await plannerClient.getGroupSyncStatus('g1');
+    expect(result.sync_status).toBe('synced');
+    expect(result.synced_at).toBe('2026-05-20T00:00:00Z');
+    expect(result.last_error).toBeNull();
+  });
 });

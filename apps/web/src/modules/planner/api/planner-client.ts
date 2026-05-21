@@ -452,6 +452,59 @@ async function removeChecklistItem(input: { item_id: string }): Promise<void> {
   await request<void>(`/api/planner/v1/checklist-items/${input.item_id}`, { method: 'DELETE' });
 }
 
+async function searchM365Groups(q: string): Promise<{
+  groups: Array<{ external_id: string; display_name: string; mail_nickname: string }>;
+}> {
+  return (await request<{
+    groups: Array<{ external_id: string; display_name: string; mail_nickname: string }>;
+  }>(`/api/integrations/m365/groups/search?q=${encodeURIComponent(q)}`)) as {
+    groups: Array<{ external_id: string; display_name: string; mail_nickname: string }>;
+  };
+}
+
+async function linkGroupToM365(input: { groupId: string; externalId: string }): Promise<GroupRow> {
+  return (await request<GroupRow>(`/api/integrations/m365/groups/${input.groupId}/link`, {
+    method: 'POST',
+    body: JSON.stringify({ external_id: input.externalId }),
+  })) as GroupRow;
+}
+
+async function unlinkGroupFromM365(input: { groupId: string }): Promise<GroupRow> {
+  return (await request<GroupRow>(`/api/integrations/m365/groups/${input.groupId}/unlink`, {
+    method: 'POST',
+  })) as GroupRow;
+}
+
+async function refreshGroupSync(input: { groupId: string }): Promise<{ ok: true }> {
+  return (await request<{ ok: true }>(`/api/integrations/m365/groups/${input.groupId}/refresh`, {
+    method: 'POST',
+  })) as { ok: true };
+}
+
+async function resolveGroupConflict(input: {
+  groupId: string;
+  decisions: Array<{ field: string; choice: 'local' | 'remote' }>;
+}): Promise<{ ok: true }> {
+  return (await request<{ ok: true }>(`/api/integrations/m365/groups/${input.groupId}/resolve`, {
+    method: 'POST',
+    body: JSON.stringify({ decisions: input.decisions }),
+  })) as { ok: true };
+}
+
+async function getGroupSyncStatus(
+  groupId: string,
+): Promise<{ sync_status: string | null; synced_at: string | null; last_error: string | null }> {
+  return (await request<{
+    sync_status: string | null;
+    synced_at: string | null;
+    last_error: string | null;
+  }>(`/api/integrations/m365/groups/${groupId}/sync-status`)) as {
+    sync_status: string | null;
+    synced_at: string | null;
+    last_error: string | null;
+  };
+}
+
 async function listTaskEvents(input: {
   task_id: string;
   limit?: number;
@@ -512,4 +565,10 @@ export const plannerClient = {
   updateChecklistItem,
   removeChecklistItem,
   listTaskEvents,
+  searchM365Groups,
+  linkGroupToM365,
+  unlinkGroupFromM365,
+  refreshGroupSync,
+  resolveGroupConflict,
+  getGroupSyncStatus,
 } as const;
