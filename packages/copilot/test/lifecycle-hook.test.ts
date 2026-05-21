@@ -66,3 +66,88 @@ describe('onLifecycleEvent — idempotency', () => {
     });
   });
 });
+
+describe('onLifecycleEvent — run-suspended', () => {
+  it('updates run status to paused and writes a workflow_approvals row', async () => {
+    await withCopilotTestDb(async ({ pool }) => {
+      const runId = randomUUID();
+      const tenantId = randomUUID();
+      const approverUserId = randomUUID();
+      await onLifecycleEvent(
+        pool,
+        baseRunStarted({ runId, eventSeq: 1, tenantId, startedBy: approverUserId }),
+      );
+
+      await onLifecycleEvent(pool, {
+        kind: 'run-suspended',
+        runId,
+        eventSeq: 2,
+        workflowId: 'copilot.test-workflow',
+        tenantId,
+        occurredAt: new Date('2026-05-21T00:01:00Z'),
+        stepId: 'await-approval',
+        suspendReason: 'hitl_pending',
+        proposedPayload: { userId: '77777777-7777-7777-7777-777777777777' },
+        approverUserId,
+        fallbackApproverUserId: null,
+        surfaceCanvas: true,
+        surfaceChatThreadId: null,
+        expiresAt: new Date('2026-05-28T00:01:00Z'),
+      });
+
+      const r = await pool.query(
+        `SELECT status, suspend_reason FROM copilot.workflow_runs WHERE run_id = $1`,
+        [runId],
+      );
+      expect(r.rows[0]!.status).toBe('paused');
+      expect(r.rows[0]!.suspend_reason).toBe('hitl_pending');
+
+      const a = await pool.query(
+        `SELECT status, approver_user_id, surface_canvas, expires_at
+           FROM copilot.workflow_approvals WHERE run_id = $1`,
+        [runId],
+      );
+      expect(a.rowCount).toBe(1);
+      expect(a.rows[0]!.status).toBe('pending');
+      expect(a.rows[0]!.approver_user_id).toBe(approverUserId);
+      expect(a.rows[0]!.surface_canvas).toBe(true);
+    });
+  });
+
+  it('is idempotent — second delivery of same (runId, eventSeq) no-ops the approval insert', async () => {
+    await withCopilotTestDb(async ({ pool }) => {
+      const runId = randomUUID();
+      const tenantId = randomUUID();
+      const approverUserId = randomUUID();
+      await onLifecycleEvent(
+        pool,
+        baseRunStarted({ runId, eventSeq: 1, tenantId, startedBy: approverUserId }),
+      );
+
+      const suspendEvt = {
+        kind: 'run-suspended' as const,
+        runId,
+        eventSeq: 2,
+        workflowId: 'copilot.test-workflow',
+        tenantId,
+        occurredAt: new Date(),
+        stepId: 'await-approval',
+        suspendReason: 'hitl_pending',
+        proposedPayload: {},
+        approverUserId,
+        fallbackApproverUserId: null,
+        surfaceCanvas: true,
+        surfaceChatThreadId: null,
+        expiresAt: new Date(Date.now() + 86400000),
+      };
+      await onLifecycleEvent(pool, suspendEvt);
+      await onLifecycleEvent(pool, suspendEvt);
+
+      const a = await pool.query(
+        `SELECT count(*)::int AS n FROM copilot.workflow_approvals WHERE run_id = $1`,
+        [runId],
+      );
+      expect(a.rows[0]!.n).toBe(1);
+    });
+  });
+});

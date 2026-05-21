@@ -125,8 +125,33 @@ async function onRunStarted(client: PoolClient, evt: RunStartedEvent): Promise<v
   );
 }
 
-async function onRunSuspended(_client: PoolClient, _evt: RunSuspendedEvent): Promise<void> {
-  throw new Error('not implemented');
+async function onRunSuspended(client: PoolClient, evt: RunSuspendedEvent): Promise<void> {
+  await client.query(
+    `UPDATE copilot.workflow_runs
+        SET status = 'paused', suspend_reason = $2
+      WHERE run_id = $1`,
+    [evt.runId, evt.suspendReason],
+  );
+  await client.query(
+    `INSERT INTO copilot.workflow_approvals
+       (approval_id, run_id, step_id, proposed_payload,
+        approver_user_id, fallback_approver_user_id,
+        surface_canvas, surface_chat_thread_id,
+        status, expires_at, created_at)
+     VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, 'pending', $8, $9)
+     ON CONFLICT DO NOTHING`,
+    [
+      evt.runId,
+      evt.stepId,
+      JSON.stringify(evt.proposedPayload),
+      evt.approverUserId,
+      evt.fallbackApproverUserId,
+      evt.surfaceCanvas,
+      evt.surfaceChatThreadId,
+      evt.expiresAt,
+      evt.occurredAt,
+    ],
+  );
 }
 async function onRunResumed(_client: PoolClient, _evt: RunResumedEvent): Promise<void> {
   throw new Error('not implemented');
