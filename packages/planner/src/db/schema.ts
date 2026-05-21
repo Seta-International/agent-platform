@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import {
   bigint,
   boolean,
+  check,
   index,
   integer,
   pgSchema,
@@ -20,6 +21,13 @@ export const groups = planner.table(
     id: uuid('id').primaryKey().defaultRandom(),
     tenant_id: uuid('tenant_id').notNull(),
     name: text('name').notNull(),
+    description: text('description'),
+    theme: text('theme').notNull().default('blue'),
+    visibility: text('visibility').notNull().default('private'),
+    default_role: text('default_role').notNull().default('member'),
+    external_source: text('external_source').notNull().default('native'),
+    external_id: text('external_id'),
+    external_synced_at: timestamp('external_synced_at', { withTimezone: true }),
     account_id: uuid('account_id'),
     created_by: uuid('created_by').notNull(),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -32,6 +40,17 @@ export const groups = planner.table(
     uniqueIndex('groups_uniq_name_per_tenant')
       .on(t.tenant_id, t.name)
       .where(sql`deleted_at IS NULL`),
+    check(
+      'groups_theme_check',
+      sql`theme IN ('teal','purple','green','blue','pink','orange','red')`,
+    ),
+    check('groups_visibility_check', sql`visibility IN ('private','public')`),
+    check('groups_default_role_check', sql`default_role IN ('owner','member')`),
+    check('groups_external_source_check', sql`external_source IN ('native','m365')`),
+    check(
+      'groups_external_id_required_for_linked',
+      sql`external_source = 'native' OR external_id IS NOT NULL`,
+    ),
   ],
 );
 
@@ -40,12 +59,14 @@ export const groupMembers = planner.table(
   {
     group_id: uuid('group_id').notNull(),
     user_id: uuid('user_id').notNull(),
+    role: text('role').notNull().default('member'),
     added_at: timestamp('added_at', { withTimezone: true }).defaultNow().notNull(),
     added_by: uuid('added_by').notNull(),
   },
   (t) => [
     primaryKey({ columns: [t.group_id, t.user_id] }),
     index('group_members_by_user').on(t.user_id),
+    check('group_members_role_check', sql`role IN ('owner','member')`),
   ],
 );
 

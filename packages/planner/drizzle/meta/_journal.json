@@ -8,6 +8,13 @@
       "when": 1779262271075,
       "tag": "0000_brief_nightcrawler",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1779334541454,
+      "tag": "0002_groups_sync_columns",
+      "breakpoints": true
     }
   ]
 }
