@@ -121,6 +121,17 @@ async function removeGroupMember(input: { group_id: string; user_id: string }): 
   });
 }
 
+async function setMemberRole(input: {
+  group_id: string;
+  user_id: string;
+  role: 'owner' | 'member';
+}): Promise<void> {
+  await request<void>(`/api/planner/v1/groups/${input.group_id}/members/${input.user_id}/role`, {
+    method: 'PATCH',
+    body: JSON.stringify({ role: input.role }),
+  });
+}
+
 async function listPlans(
   input: { group_id?: string; include_deleted?: boolean } = {},
 ): Promise<PlanRow[]> {
@@ -460,6 +471,7 @@ export const plannerClient = {
   listGroupMembers,
   addGroupMember,
   removeGroupMember,
+  setMemberRole,
   listPlans,
   getPlan,
   createPlan,
