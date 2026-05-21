@@ -2,7 +2,7 @@ import type { SessionScope } from '@seta/core';
 import { and, eq, isNull } from 'drizzle-orm';
 import { plannerDb } from '../../db/index.ts';
 import { assigneeProjection, groupMembers, groups } from '../../db/schema.ts';
-import type { GroupMemberRow } from '../dto.ts';
+import type { GroupMemberRole, GroupMemberRow } from '../dto.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 import { groupFilterFor } from '../read-helpers.ts';
 
@@ -39,6 +39,7 @@ export async function listGroupMembers(input: {
     .select({
       group_id: groupMembers.group_id,
       user_id: groupMembers.user_id,
+      role: groupMembers.role,
       added_at: groupMembers.added_at,
       added_by: groupMembers.added_by,
       display_name: assigneeProjection.display_name,
@@ -51,7 +52,7 @@ export async function listGroupMembers(input: {
   return rows.map((r) => ({
     group_id: r.group_id,
     user_id: r.user_id,
-    role: 'member',
+    role: r.role as GroupMemberRole,
     display_name: r.display_name,
     email: r.email,
     added_at: r.added_at.toISOString(),

@@ -5,29 +5,7 @@ import { groups } from '../../db/schema.ts';
 import type { GroupRow } from '../dto.ts';
 import { requirePermission } from '../rbac.ts';
 import { isTenantAdminish } from '../read-helpers.ts';
-
-type GroupDbRow = typeof groups.$inferSelect;
-
-function rowToDto(row: GroupDbRow): GroupRow {
-  return {
-    id: row.id,
-    tenant_id: row.tenant_id,
-    name: row.name,
-    description: null,
-    theme: 'blue',
-    visibility: 'private',
-    default_role: 'member',
-    external_source: 'native',
-    external_id: null,
-    external_synced_at: null,
-    account_id: row.account_id,
-    created_by: row.created_by,
-    created_at: row.created_at.toISOString(),
-    updated_at: row.updated_at.toISOString(),
-    deleted_at: row.deleted_at ? row.deleted_at.toISOString() : null,
-    version: row.version,
-  };
-}
+import { groupRowToDto } from './_group-dto.ts';
 
 export async function listMyAccessibleGroups(input: {
   session: SessionScope;
@@ -45,7 +23,7 @@ export async function listMyAccessibleGroups(input: {
       .from(groups)
       .where(and(...baseConditions))
       .orderBy(asc(groups.name));
-    return rows.map(rowToDto);
+    return rows.map(groupRowToDto);
   }
 
   if (session.accessible_group_ids.length === 0) {
@@ -58,5 +36,5 @@ export async function listMyAccessibleGroups(input: {
     .where(and(...baseConditions, inArray(groups.id, session.accessible_group_ids)))
     .orderBy(asc(groups.name));
 
-  return rows.map(rowToDto);
+  return rows.map(groupRowToDto);
 }

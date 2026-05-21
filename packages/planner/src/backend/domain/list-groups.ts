@@ -5,8 +5,7 @@ import { groups } from '../../db/schema.ts';
 import type { GroupRow } from '../dto.ts';
 import { requirePermission } from '../rbac.ts';
 import { groupFilterFor } from '../read-helpers.ts';
-
-type GroupDbRow = typeof groups.$inferSelect;
+import { groupRowToDto } from './_group-dto.ts';
 
 export async function listGroups(input: {
   include_deleted?: boolean;
@@ -36,26 +35,5 @@ export async function listGroups(input: {
     .where(and(...conditions))
     .orderBy(asc(groups.name));
 
-  return rows.map(rowToDto);
-}
-
-function rowToDto(row: GroupDbRow): GroupRow {
-  return {
-    id: row.id,
-    tenant_id: row.tenant_id,
-    name: row.name,
-    description: null,
-    theme: 'blue',
-    visibility: 'private',
-    default_role: 'member',
-    external_source: 'native',
-    external_id: null,
-    external_synced_at: null,
-    account_id: row.account_id,
-    created_by: row.created_by,
-    created_at: row.created_at.toISOString(),
-    updated_at: row.updated_at.toISOString(),
-    deleted_at: row.deleted_at ? row.deleted_at.toISOString() : null,
-    version: row.version,
-  };
+  return rows.map(groupRowToDto);
 }
