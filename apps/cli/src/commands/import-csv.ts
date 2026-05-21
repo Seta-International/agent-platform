@@ -142,16 +142,26 @@ export async function importCsvCommand(opts: ImportCsvOpts): Promise<void> {
   // Phase 5 — Create plans
   log.info('phase 5: creating plans');
   const planMap = new Map<string, string>(); // csvPlanId → db uuid
+  let plansCreated = 0;
+  let plansSkipped = 0;
 
   for (const row of csvs.plans) {
-    const plan = await createPlan({
-      group_id: group.id,
-      name: row.title || 'Untitled Plan',
-      session,
-    });
-    planMap.set(row.plan_id, plan.id);
+    try {
+      const plan = await createPlan({
+        group_id: group.id,
+        name: row.title || 'Untitled Plan',
+        session,
+      });
+      planMap.set(row.plan_id, plan.id);
+      plansCreated++;
+    } catch (err) {
+      log.warn({ csv_plan_id: row.plan_id, err }, 'createPlan failed, skipping');
+      plansSkipped++;
+    }
   }
-  process.stdout.write(`${JSON.stringify({ phase: 'plans', created: csvs.plans.length })}\n`);
+  process.stdout.write(
+    `${JSON.stringify({ phase: 'plans', created: plansCreated, skipped: plansSkipped })}\n`,
+  );
 
   // Phase 6 — Create buckets (CSV order = sort_order via createBucket's append logic)
   log.info('phase 6: creating buckets');
@@ -169,9 +179,14 @@ export async function importCsvCommand(opts: ImportCsvOpts): Promise<void> {
       bucketsSkipped++;
       continue;
     }
-    const bucket = await createBucket({ plan_id: planId, name: row.name, session });
-    bucketMap.set(row.bucket_id, bucket.id);
-    bucketsCreated++;
+    try {
+      const bucket = await createBucket({ plan_id: planId, name: row.name, session });
+      bucketMap.set(row.bucket_id, bucket.id);
+      bucketsCreated++;
+    } catch (err) {
+      log.warn({ csv_bucket_id: row.bucket_id, err }, 'createBucket failed, skipping');
+      bucketsSkipped++;
+    }
   }
   process.stdout.write(
     `${JSON.stringify({ phase: 'buckets', created: bucketsCreated, skipped: bucketsSkipped })}\n`,
