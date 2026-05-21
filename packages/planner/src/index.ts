@@ -21,6 +21,11 @@ export { getGroup } from './backend/domain/get-group.ts';
 export { getPlan } from './backend/domain/get-plan.ts';
 export { getPlanChartData } from './backend/domain/get-plan-chart-data.ts';
 export { getTask } from './backend/domain/get-task.ts';
+export type {
+  GetTaskForEmbeddingInput,
+  TaskForEmbedding,
+} from './backend/domain/get-task-for-embedding.ts';
+export { getTaskForEmbedding } from './backend/domain/get-task-for-embedding.ts';
 export { linkGroupToM365 } from './backend/domain/link-group-to-m365.ts';
 export { listBuckets } from './backend/domain/list-buckets.ts';
 export { listChecklistItems } from './backend/domain/list-checklist-items.ts';
