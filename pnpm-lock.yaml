@@ -110,6 +110,9 @@ importers:
 
   apps/server:
     dependencies:
+      '@microsoft/microsoft-graph-client':
+        specifier: ^3.0.7
+        version: 3.0.7(@azure/identity@4.13.1)
       '@seta/copilot':
         specifier: workspace:^
         version: link:../../packages/copilot

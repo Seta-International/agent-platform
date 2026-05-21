@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@microsoft/microsoft-graph-client": "^3.0.7",
     "@seta/copilot": "workspace:^",
     "@seta/core": "workspace:^",
     "@seta/identity": "workspace:^",
