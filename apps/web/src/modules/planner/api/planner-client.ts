@@ -457,17 +457,17 @@ export interface PlanCategoriesResponse {
   counts: { categories: number };
 }
 
-async function getPlanCategories(planId: string): Promise<PlanCategoriesResponse> {
+async function getPlanCategories(plan_id: string): Promise<PlanCategoriesResponse> {
   return (await request<PlanCategoriesResponse>(
-    `/api/planner/v1/plans/${planId}/categories`,
+    `/api/planner/v1/plans/${plan_id}/categories`,
   )) as PlanCategoriesResponse;
 }
 
 async function setCategoryDescriptions(input: {
-  planId: string;
+  plan_id: string;
   slots: Record<number, { name: string | null; label_id?: string | null }>;
 }): Promise<PlanRow> {
-  return (await request<PlanRow>(`/api/planner/v1/plans/${input.planId}/categories`, {
+  return (await request<PlanRow>(`/api/planner/v1/plans/${input.plan_id}/categories`, {
     method: 'PUT',
     body: JSON.stringify({ slots: input.slots }),
   })) as PlanRow;

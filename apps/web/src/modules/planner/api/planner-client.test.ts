@@ -401,7 +401,7 @@ describe('plannerClient', () => {
       }),
     );
     await plannerClient.setCategoryDescriptions({
-      planId: 'p1',
+      plan_id: 'p1',
       slots: { 1: { name: 'Backend', label_id: 'l1' } },
     });
     expect(method).toBe('PUT');

@@ -50,7 +50,7 @@ describe('usePlanCategories', () => {
     expect(result.current.data?.counts.categories).toBe(2);
   });
 
-  it('caches under plannerKeys.planCategories(planId)', async () => {
+  it('caches under plannerKeys.planCategories(plan_id)', async () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const { result } = renderHook(() => usePlanCategories('p1'), { wrapper: makeWrapper(qc) });
     await waitFor(() => expect(result.current.data).toBeDefined());
