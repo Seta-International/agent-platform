@@ -1,5 +1,5 @@
 import type { DomainEvent, NodeTx, SubscriberDef } from '@seta/shared-types';
-import { and, asc, eq, gt } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type * as schema from '../db/schema/index.ts';
 import {
@@ -48,12 +48,22 @@ export async function drainOne(
       // FOR UPDATE SKIP LOCKED: first replica inserts, others see no rows next tick.
       await outerTx
         .insert(coreSubscriptionCursors)
-        .values({ subscription: sub.subscription, lastProcessedEventId: NIL_UUID })
+        .values({
+          subscription: sub.subscription,
+          lastProcessedEventId: NIL_UUID,
+          lastProcessedOccurredAt: new Date(0),
+        })
         .onConflictDoNothing();
       return { processed: 0, halted: false };
     }
 
     const lastId = cursorRows[0]?.lastProcessedEventId ?? NIL_UUID;
+    // Tuple compare (occurred_at, id) > (cursor.occurred_at, cursor.id). UUID-only ordering
+    // would lose events whose v4 ids sort lexicographically below the cursor. We read the
+    // cursor's occurred_at via a SQL subquery instead of binding a JS Date because JS Date
+    // truncates the PG microsecond precision, and `e.occurred_at > truncated` is true on
+    // values that are actually equal at the microsecond level — replaying the same event
+    // forever.
     const batch = await outerTx
       .select()
       .from(coreEvents)
@@ -61,12 +71,14 @@ export async function drainOne(
         and(
           eq(coreEvents.eventType, sub.event),
           eq(coreEvents.eventVersion, sub.eventVersion),
-          gt(coreEvents.id, lastId),
+          sql`(${coreEvents.occurredAt}, ${coreEvents.id}) > (
+            (SELECT last_processed_occurred_at FROM core.subscription_cursors WHERE subscription = ${sub.subscription}),
+            ${lastId}::uuid
+          )`,
         ),
       )
       .orderBy(asc(coreEvents.occurredAt), asc(coreEvents.id))
       .limit(100);
-
     let processed = 0;
     for (const row of batch) {
       const evt: DomainEvent = {
@@ -100,7 +112,14 @@ export async function drainOne(
         });
         await outerTx
           .update(coreSubscriptionCursors)
-          .set({ lastProcessedEventId: evt.id, lastProcessedAt: new Date() })
+          .set({
+            lastProcessedEventId: evt.id,
+            // Use the event row's PG timestamp directly. Round-tripping through a JS Date
+            // truncates microseconds, which makes the tuple comparison treat the cursor as
+            // less-than the event row on the next tick and replays the same event forever.
+            lastProcessedOccurredAt: sql`(SELECT occurred_at FROM core.events WHERE id = ${evt.id})`,
+            lastProcessedAt: new Date(),
+          })
           .where(eq(coreSubscriptionCursors.subscription, sub.subscription));
         clearFailureState(sub.subscription, evt.id);
         processed += 1;
@@ -123,7 +142,14 @@ export async function drainOne(
           });
           await outerTx
             .update(coreSubscriptionCursors)
-            .set({ lastProcessedEventId: evt.id, lastProcessedAt: new Date() })
+            .set({
+              lastProcessedEventId: evt.id,
+              // Use the event row's PG timestamp directly. Round-tripping through a JS Date
+              // truncates microseconds, which makes the tuple comparison treat the cursor as
+              // less-than the event row on the next tick and replays the same event forever.
+              lastProcessedOccurredAt: sql`(SELECT occurred_at FROM core.events WHERE id = ${evt.id})`,
+              lastProcessedAt: new Date(),
+            })
             .where(eq(coreSubscriptionCursors.subscription, sub.subscription));
           metrics.incr('dispatcher.dead_letter', { subscription: sub.subscription });
           clearFailureState(sub.subscription, evt.id);

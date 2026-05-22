@@ -4,6 +4,12 @@ import { core } from './_core-schema.ts';
 export const coreSubscriptionCursors = core.table('subscription_cursors', {
   subscription: text('subscription').primaryKey(),
   lastProcessedEventId: uuid('last_processed_event_id').notNull(),
+  // Paired with lastProcessedEventId for tuple-comparison (occurred_at, id) advancement.
+  // Without the timestamp half, v4 UUIDs would let the cursor jump arbitrarily in byte
+  // order and lose events whose ids sort lexicographically below the cursor.
+  lastProcessedOccurredAt: timestamp('last_processed_occurred_at', { withTimezone: true })
+    .notNull()
+    .default(new Date(0)),
   lastProcessedAt: timestamp('last_processed_at', { withTimezone: true }).notNull().defaultNow(),
 });
 

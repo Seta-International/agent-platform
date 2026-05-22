@@ -50,6 +50,13 @@
       "when": 1779424260542,
       "tag": "0008_core_notifications",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1779428861360,
+      "tag": "0009_subscription_cursor_occurred_at",
+      "breakpoints": true
     }
   ]
 }
