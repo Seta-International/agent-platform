@@ -686,6 +686,9 @@ importers:
       fractional-indexing:
         specifier: ^3.2.0
         version: 3.2.0
+      graphile-worker:
+        specifier: ^0.16.6
+        version: 0.16.6(typescript@6.0.3)
       pg:
         specifier: ^8.21.0
         version: 8.21.0

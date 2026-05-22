@@ -5,6 +5,7 @@ import {
   applyProfileUpdated,
   applyUserCreated,
 } from './identity-projection.ts';
+import { handleTaskCreated, handleTaskDeleted, handleTaskUpdated } from './task-embedding.ts';
 
 export function plannerSubscribers(): SubscriberDef[] {
   return [
@@ -31,6 +32,24 @@ export function plannerSubscribers(): SubscriberDef[] {
       eventVersion: 1,
       subscription: 'planner.assignee-projection.email',
       handler: applyEmailChanged as SubscriberDef['handler'],
+    },
+    {
+      event: 'planner.task.created',
+      eventVersion: 1,
+      subscription: 'planner.embeddings.refresh-task.created',
+      handler: handleTaskCreated as SubscriberDef['handler'],
+    },
+    {
+      event: 'planner.task.updated',
+      eventVersion: 1,
+      subscription: 'planner.embeddings.refresh-task.updated',
+      handler: handleTaskUpdated as SubscriberDef['handler'],
+    },
+    {
+      event: 'planner.task.deleted',
+      eventVersion: 1,
+      subscription: 'planner.embeddings.refresh-task.deleted',
+      handler: handleTaskDeleted as SubscriberDef['handler'],
     },
   ];
 }
