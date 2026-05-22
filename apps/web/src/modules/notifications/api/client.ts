@@ -41,6 +41,24 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return body as T;
 }
 
+export interface NotificationPrefRowDTO {
+  event_type: string;
+  label: string;
+  in_app_enabled: boolean;
+  email_enabled: boolean;
+  email_available: boolean;
+}
+
+export interface NotificationPrefsResponse {
+  rows: NotificationPrefRowDTO[];
+}
+
+export interface PatchPrefInput {
+  event_type: string;
+  channel: 'in_app' | 'email';
+  enabled: boolean;
+}
+
 export const notificationsClient = {
   list({
     unread,
@@ -69,5 +87,14 @@ export const notificationsClient = {
   },
   dismiss(id: string): Promise<NotificationDTO> {
     return request<NotificationDTO>(`/api/core/v1/notifications/${id}/dismiss`, { method: 'POST' });
+  },
+  listPrefs(): Promise<NotificationPrefsResponse> {
+    return request<NotificationPrefsResponse>(`/api/core/v1/notification-prefs`);
+  },
+  setPref(input: PatchPrefInput): Promise<{ ok: true }> {
+    return request<{ ok: true }>(`/api/core/v1/notification-prefs`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    });
   },
 };

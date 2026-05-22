@@ -1,6 +1,7 @@
 import {
   AlertTriangle,
   Archive,
+  Bell,
   Building2,
   ChevronLeft,
   ChevronRight,
@@ -35,7 +36,8 @@ export type ShellIconName =
   | 'alert'
   | 'search'
   | 'archive'
-  | 'hash';
+  | 'hash'
+  | 'bell';
 
 export const SHELL_ICONS: Record<ShellIconName, LucideIcon> = {
   sparkles: Sparkles,
@@ -52,6 +54,7 @@ export const SHELL_ICONS: Record<ShellIconName, LucideIcon> = {
   search: Search,
   archive: Archive,
   hash: Hash,
+  bell: Bell,
 };
 
 export type ShellDotTone = 'primary' | 'warning' | 'danger' | 'success' | 'muted';

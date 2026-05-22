@@ -84,6 +84,12 @@ export function buildNavModules(recents: RecentPlanEntry[]): ShellNavModule[] {
       items: [
         { id: 'admin.users', icon: 'users', label: 'Users', href: '/admin/users' },
         { id: 'admin.sso', icon: 'shield', label: 'SSO', href: '/admin/sso' },
+        {
+          id: 'admin.notifications',
+          icon: 'bell',
+          label: 'Notifications',
+          href: '/admin/notifications',
+        },
         { id: 'admin.audit', icon: 'inbox', label: 'Audit log', href: '/admin/audit' },
       ],
     },
@@ -102,6 +108,7 @@ export function activeNavId(pathname: string): string | undefined {
   if (pathname.startsWith('/planner/trash')) return 'planner.trash';
   if (pathname.startsWith('/admin/users')) return 'admin.users';
   if (pathname.startsWith('/admin/sso')) return 'admin.sso';
+  if (pathname.startsWith('/admin/notifications')) return 'admin.notifications';
   if (pathname.startsWith('/admin/audit')) return 'admin.audit';
   return undefined;
 }
