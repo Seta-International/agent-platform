@@ -1,4 +1,4 @@
-import type { NodeTx } from '@seta/shared-types';
+import type { NodeTx } from '@seta/shared-db';
 import { eq } from 'drizzle-orm';
 import { groupMembers } from '../../db/schema.ts';
 

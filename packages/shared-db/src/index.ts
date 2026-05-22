@@ -1,7 +1,7 @@
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 
-export type { NodePgDatabase, Pool };
+export type { NodePgDatabase, Pool, PoolClient };
 export type PoolName = 'web' | 'worker' | 'mastraState';
 
 export { createDb } from './db.ts';

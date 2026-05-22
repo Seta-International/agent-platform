@@ -2,7 +2,7 @@
   "name": "@seta/core",
   "version": "0.0.1",
   "private": true,
-  "description": "Transactional outbox, domain-event bus, dispatcher, and graphile-worker jobs \u2014 the shared spine of the Seta modular monolith.",
+  "description": "Transactional outbox, domain-event bus, dispatcher, and graphile-worker jobs — the shared spine of the Seta modular monolith.",
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
@@ -31,6 +31,7 @@
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.1",
+    "@seta/copilot-sdk": "workspace:^",
     "@seta/shared-db": "workspace:^",
     "@seta/shared-rbac": "workspace:^",
     "@seta/shared-types": "workspace:^",

@@ -1,4 +1,5 @@
-import type { ActorContext, NodeTx } from '@seta/shared-types';
+import type { NodeTx } from '@seta/shared-db';
+import type { ActorContext } from '@seta/shared-types';
 import { coreDb } from '../db/client.ts';
 import { emitContext } from './context.ts';
 

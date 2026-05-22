@@ -1,9 +1,7 @@
-import type { ModuleKey } from '@seta/shared-types';
-
 abstract class RpcError extends Error {
   abstract readonly name: string;
   constructor(
-    readonly module: ModuleKey,
+    readonly module: string,
     readonly method: string,
     message: string,
     readonly cause?: unknown,
@@ -14,7 +12,7 @@ abstract class RpcError extends Error {
 
 export class ModuleUnavailable extends RpcError {
   readonly name = 'ModuleUnavailable';
-  constructor(module: ModuleKey, method: string, cause?: unknown) {
+  constructor(module: string, method: string, cause?: unknown) {
     super(module, method, 'peer unavailable after retry', cause);
   }
 }
@@ -22,7 +20,7 @@ export class ModuleUnavailable extends RpcError {
 export class RpcTimeout extends RpcError {
   readonly name = 'RpcTimeout';
   constructor(
-    module: ModuleKey,
+    module: string,
     method: string,
     readonly timeoutMs: number,
     cause?: unknown,
@@ -34,7 +32,7 @@ export class RpcTimeout extends RpcError {
 export class RpcForbidden extends RpcError {
   readonly name = 'RpcForbidden';
   constructor(
-    module: ModuleKey,
+    module: string,
     method: string,
     readonly permission: string,
   ) {
@@ -50,7 +48,7 @@ export interface RpcIssue {
 export class RpcInvalidArgument extends RpcError {
   readonly name = 'RpcInvalidArgument';
   constructor(
-    module: ModuleKey,
+    module: string,
     method: string,
     readonly issues: ReadonlyArray<RpcIssue>,
   ) {
@@ -61,7 +59,7 @@ export class RpcInvalidArgument extends RpcError {
 export class RpcInternal extends RpcError {
   readonly name = 'RpcInternal';
   constructor(
-    module: ModuleKey,
+    module: string,
     method: string,
     readonly status: number,
     detail: string,

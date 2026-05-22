@@ -1,8 +1,8 @@
+export type { NodeTx } from '@seta/shared-db';
 export type {
   ActorContext,
   DomainEvent,
   DomainEventInput,
-  NodeTx,
   SubscriberCtx,
   SubscriberDef,
 } from '@seta/shared-types';

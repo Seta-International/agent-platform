@@ -464,6 +464,9 @@ importers:
       '@opentelemetry/api':
         specifier: ^1.9.1
         version: 1.9.1
+      '@seta/copilot-sdk':
+        specifier: workspace:^
+        version: link:../../sdks/copilot
       '@seta/shared-db':
         specifier: workspace:^
         version: link:../shared-db
@@ -945,16 +948,10 @@ importers:
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(@opentelemetry/api@1.9.1)(@prisma/client@5.22.0)(@types/pg@8.20.0)(better-sqlite3@12.10.0)(kysely@0.28.17)(pg@8.21.0)
-      pg:
-        specifier: ^8.21.0
-        version: 8.21.0
     devDependencies:
       '@seta/shared-config':
         specifier: workspace:^
         version: link:../shared-config
-      '@types/pg':
-        specifier: ^8.20.0
-        version: 8.20.0
       typescript:
         specifier: ^6.0.3
         version: 6.0.3

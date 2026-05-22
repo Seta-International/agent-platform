@@ -12,11 +12,9 @@
   },
   "devDependencies": {
     "@seta/shared-config": "workspace:^",
-    "@types/pg": "^8.20.0",
     "typescript": "^6.0.3"
   },
   "dependencies": {
-    "drizzle-orm": "^0.45.2",
-    "pg": "^8.21.0"
+    "drizzle-orm": "^0.45.2"
   }
 }

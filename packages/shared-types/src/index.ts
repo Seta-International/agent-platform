@@ -1,7 +1,6 @@
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import type { Pool, PoolClient } from 'pg';
 
-export type ModuleKey = 'core' | 'identity' | 'planner' | 'copilot' | 'integrations';
+type NodeTx = NodePgDatabase<Record<string, unknown>>;
 
 export interface ActorContext {
   userId: string;
@@ -28,9 +27,6 @@ export interface DomainEvent<P = unknown> {
 export interface DomainEventInput<P = unknown>
   extends Omit<DomainEvent<P>, 'id' | 'occurredAt' | 'traceId' | 'causedByEventId' | 'actor'> {}
 
-export type { Pool, PoolClient };
-export type NodeTx = NodePgDatabase<Record<string, unknown>>;
-
 export interface SubscriberCtx {
   tx: NodeTx;
 }
@@ -41,5 +37,3 @@ export interface SubscriberDef<P = unknown> {
   eventVersion: number;
   handler: (event: DomainEvent<P>, ctx: SubscriberCtx) => Promise<void>;
 }
-
-export type WorkflowBuilder<TMastra = unknown> = (mastra: TMastra) => unknown;

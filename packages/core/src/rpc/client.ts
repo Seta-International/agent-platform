@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import type { ModuleKey } from '@seta/shared-types';
 import type { RpcMethodDef, RpcMethodMap } from './define.ts';
 import { RpcInvalidArgument } from './errors.ts';
 import { rbacCheck } from './rbac.ts';
@@ -15,7 +14,7 @@ export type ModuleClient<M extends RpcMethodMap> = {
 
 export function createModuleClient<M extends RpcMethodMap>(
   reg: RuntimeRegistry,
-  module: ModuleKey,
+  module: string,
   methods: M,
 ): ModuleClient<M> {
   const route = reg.requireRoute(module);

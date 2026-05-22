@@ -1,4 +1,5 @@
-import type { DomainEvent, NodeTx, SubscriberCtx, SubscriberDef } from '@seta/shared-types';
+import type { NodeTx } from '@seta/shared-db';
+import type { DomainEvent, SubscriberCtx, SubscriberDef } from '@seta/shared-types';
 import { sql } from 'drizzle-orm';
 import { buildM365PlanPushSubscribers } from './plans/push.ts';
 import { createM365GroupLinkRepo } from './repo.ts';

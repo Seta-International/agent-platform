@@ -1,5 +1,4 @@
 import { hasPermission } from '@seta/shared-rbac';
-import type { ModuleKey } from '@seta/shared-types';
 import { z } from 'zod';
 import { RpcForbidden } from './errors.ts';
 
@@ -20,7 +19,7 @@ export type RpcActor = z.infer<typeof RpcActorSchema>;
 export function rbacCheck(
   actor: RpcActor,
   permission: string,
-  module: ModuleKey,
+  module: string,
   method: string,
 ): void {
   const allowed = hasPermission(

@@ -1,26 +1,27 @@
-import type { ModuleKey, SubscriberDef, WorkflowBuilder } from '@seta/shared-types';
+import type { WorkflowBuilder } from '@seta/copilot-sdk';
+import type { SubscriberDef } from '@seta/shared-types';
 
 export interface ContributionRegistry {
-  schema(mod: ModuleKey, schema: Record<string, unknown>): void;
-  migrationsDir(mod: ModuleKey, dir: string): void;
+  schema(mod: string, schema: Record<string, unknown>): void;
+  migrationsDir(mod: string, dir: string): void;
   subscribers(subs: SubscriberDef[]): void;
-  publicApi(mod: ModuleKey, api: Record<string, unknown>): void;
-  workflows(mod: ModuleKey, builders: WorkflowBuilder[]): void;
+  publicApi(mod: string, api: Record<string, unknown>): void;
+  workflows(mod: string, builders: WorkflowBuilder[]): void;
   readonly collected: {
-    schemas: ReadonlyMap<ModuleKey, Record<string, unknown>>;
-    migrationDirs: ReadonlyArray<{ module: ModuleKey; dir: string }>;
+    schemas: ReadonlyMap<string, Record<string, unknown>>;
+    migrationDirs: ReadonlyArray<{ module: string; dir: string }>;
     subscribers: ReadonlyArray<SubscriberDef>;
-    publicApis: ReadonlyMap<ModuleKey, Record<string, unknown>>;
-    workflowBuilders: ReadonlyArray<{ module: ModuleKey; builder: WorkflowBuilder }>;
+    publicApis: ReadonlyMap<string, Record<string, unknown>>;
+    workflowBuilders: ReadonlyArray<{ module: string; builder: WorkflowBuilder }>;
   };
 }
 
 export function createContributionRegistry(): ContributionRegistry {
-  const schemas = new Map<ModuleKey, Record<string, unknown>>();
-  const migrationDirs: { module: ModuleKey; dir: string }[] = [];
+  const schemas = new Map<string, Record<string, unknown>>();
+  const migrationDirs: { module: string; dir: string }[] = [];
   const subscribers: SubscriberDef[] = [];
-  const publicApis = new Map<ModuleKey, Record<string, unknown>>();
-  const workflowBuilders: { module: ModuleKey; builder: WorkflowBuilder }[] = [];
+  const publicApis = new Map<string, Record<string, unknown>>();
+  const workflowBuilders: { module: string; builder: WorkflowBuilder }[] = [];
 
   return {
     schema(mod, schema) {

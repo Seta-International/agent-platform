@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import type { ActorContext, NodeTx } from '@seta/shared-types';
+import type { NodeTx } from '@seta/shared-db';
+import type { ActorContext } from '@seta/shared-types';
 
 export interface EmitCtx {
   tx: NodeTx;

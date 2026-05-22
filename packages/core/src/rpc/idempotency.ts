@@ -1,11 +1,10 @@
-import type { ModuleKey } from '@seta/shared-types';
 import { eq } from 'drizzle-orm';
 import { coreDb } from '../db/client.ts';
 import { rpcIdempotency } from '../db/schema/rpc-idempotency.ts';
 
 export async function withIdempotency<T>(
   key: string,
-  module: ModuleKey,
+  module: string,
   method: string,
   body: () => Promise<T>,
 ): Promise<T> {

@@ -1,6 +1,6 @@
 import type { SessionScope } from '@seta/core';
 import { withEmit } from '@seta/core/events';
-import type { NodeTx } from '@seta/shared-types';
+import type { NodeTx } from '@seta/shared-db';
 import { and, eq, isNull } from 'drizzle-orm';
 import { labels, plans } from '../../db/schema.ts';
 import { emitPlannerLabelCategorySlotChanged } from '../../events/emit-helpers.ts';

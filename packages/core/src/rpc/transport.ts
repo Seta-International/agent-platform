@@ -1,4 +1,3 @@
-import type { ModuleKey } from '@seta/shared-types';
 import {
   ModuleUnavailable,
   RpcForbidden,
@@ -11,7 +10,7 @@ import type { RpcActor } from './rbac.ts';
 import { injectTraceparent } from './tracing.ts';
 
 export interface CallRemoteOpts<I = unknown> {
-  module: ModuleKey;
+  module: string;
   method: string;
   baseUrl: string;
   authHeader: string;

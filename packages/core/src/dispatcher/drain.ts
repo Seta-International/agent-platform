@@ -1,4 +1,5 @@
-import type { DomainEvent, NodeTx, SubscriberDef } from '@seta/shared-types';
+import type { NodeTx } from '@seta/shared-db';
+import type { DomainEvent, SubscriberDef } from '@seta/shared-types';
 import { and, asc, eq, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type * as schema from '../db/schema/index.ts';

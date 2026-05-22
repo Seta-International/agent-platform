@@ -1,4 +1,3 @@
-import type { ModuleKey } from '@seta/shared-types';
 import { Hono } from 'hono';
 import type { z } from 'zod';
 import { RpcForbidden } from './errors.ts';
@@ -16,7 +15,7 @@ export interface RpcMethodDef<I, O> {
 export type RpcMethodMap = Record<string, RpcMethodDef<unknown, unknown>>;
 
 export interface DefineModuleRpcOpts<M extends RpcMethodMap> {
-  module: ModuleKey;
+  module: string;
   methods: M;
 }
 

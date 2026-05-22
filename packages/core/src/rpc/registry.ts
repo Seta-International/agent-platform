@@ -1,22 +1,21 @@
-import type { ModuleKey } from '@seta/shared-types';
 import type { RpcMethodMap } from './define.ts';
 import type { RpcActor } from './rbac.ts';
 
-export type ModuleRegistry = Partial<Record<ModuleKey, RpcMethodMap>>;
+export type ModuleRegistry = Partial<Record<string, RpcMethodMap>>;
 
 export interface RuntimeRegistry {
-  isLocal(module: ModuleKey): boolean;
-  getLocalMethods(module: ModuleKey): RpcMethodMap | undefined;
-  getPeerUrl(module: ModuleKey): string | undefined;
+  isLocal(module: string): boolean;
+  getLocalMethods(module: string): RpcMethodMap | undefined;
+  getPeerUrl(module: string): string | undefined;
   getAuthHeader(): string;
   getCurrentActor(): RpcActor | null;
   getFetch(): typeof fetch | undefined;
-  requireRoute(module: ModuleKey): { kind: 'local' } | { kind: 'remote'; baseUrl: string };
+  requireRoute(module: string): { kind: 'local' } | { kind: 'remote'; baseUrl: string };
 }
 
 export interface CreateRegistryOpts {
   loaded: ModuleRegistry;
-  peerUrls: Partial<Record<ModuleKey, string>>;
+  peerUrls: Partial<Record<string, string>>;
   authHeader: string;
   currentActor: () => RpcActor | null;
   fetch?: typeof fetch;
