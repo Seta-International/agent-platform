@@ -2,9 +2,20 @@ import type { BucketRow, TaskWithAssigneesRow } from '@seta/planner';
 import { QueryClient } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { makeTaskWithAssignees } from '../testing/fixtures';
-import { applyPlannerEvent, type StreamEvent } from './apply-planner-event';
+import {
+  __resetSkippedCountersForTests,
+  applyPlannerEvent,
+  type StreamEvent,
+} from './apply-planner-event';
 import { plannerKeys } from './query-keys';
 import { __resetRingForTests, rememberEventId } from './recent-mutation-event-ids';
+
+vi.mock('@seta/shared-ui', async () => {
+  const actual = await vi.importActual<typeof import('@seta/shared-ui')>('@seta/shared-ui');
+  return { ...actual, toast: vi.fn() };
+});
+
+import { toast } from '@seta/shared-ui';
 
 function makeEvent(over: Partial<StreamEvent> = {}): StreamEvent {
   return {
@@ -48,6 +59,8 @@ describe('applyPlannerEvent', () => {
   beforeEach(() => {
     qc = new QueryClient();
     __resetRingForTests();
+    __resetSkippedCountersForTests();
+    vi.mocked(toast).mockClear();
   });
 
   it('planner.group.created invalidates plannerKeys.groups()', () => {
@@ -634,6 +647,115 @@ describe('applyPlannerEvent', () => {
       );
       expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.planSyncStatus(PLAN) });
       expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.plan(PLAN) });
+    });
+  });
+
+  describe('skipped-assignee toast', () => {
+    function syncStatusEvent(planId: string, afterStatus: string, id = 'e-sync'): StreamEvent {
+      return makeEvent({
+        id,
+        eventType: 'planner.plan.sync-status-changed.v1',
+        aggregateType: 'planner.plan',
+        payload: {
+          actor: { type: 'system', system_id: 'integrations.m365' },
+          plan_id: planId,
+          after_status: afterStatus,
+        },
+      });
+    }
+
+    function skippedEvent(planId: string, taskId: string, id = 'e-skip'): StreamEvent {
+      return makeEvent({
+        id,
+        eventType: 'integrations.m365.assignee.skipped.v1',
+        aggregateType: 'planner.task',
+        payload: {
+          tenant_id: 't1',
+          plan_id: planId,
+          task_id: taskId,
+          entra_oid: 'oid-1',
+          reason: 'not_provisioned',
+        },
+      });
+    }
+
+    it('resets counter when pull starts (after_status=pulling)', () => {
+      // Pre-load a count so the reset is observable
+      applyPlannerEvent(qc, skippedEvent(PLAN, 't1', 'e-s1'));
+      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'pulling', 'e-pull'));
+      // Now finishing the pull with no further skipped events — no toast expected
+      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'idle', 'e-idle'));
+      expect(toast).not.toHaveBeenCalled();
+    });
+
+    it('accumulates 3 skipped events and fires toast when pull completes', () => {
+      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'pulling', 'e-pull'));
+      applyPlannerEvent(qc, skippedEvent(PLAN, 't1', 'e-s1'));
+      applyPlannerEvent(qc, skippedEvent(PLAN, 't2', 'e-s2'));
+      applyPlannerEvent(qc, skippedEvent(PLAN, 't3', 'e-s3'));
+      expect(toast).not.toHaveBeenCalled();
+      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'idle', 'e-idle'));
+      expect(toast).toHaveBeenCalledTimes(1);
+      expect(toast).toHaveBeenCalledWith(
+        'Synced — 3 M365 users skipped. Ask an admin to provision them in Seta. (Settings → Users)',
+      );
+    });
+
+    it('does not fire toast when counter is 0 after idle', () => {
+      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'pulling', 'e-pull'));
+      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'idle', 'e-idle'));
+      expect(toast).not.toHaveBeenCalled();
+    });
+
+    it('resets counter after toast fires so a second idle does not re-fire', () => {
+      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'pulling', 'e-pull'));
+      applyPlannerEvent(qc, skippedEvent(PLAN, 't1', 'e-s1'));
+      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'idle', 'e-idle1'));
+      expect(toast).toHaveBeenCalledTimes(1);
+      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'idle', 'e-idle2'));
+      expect(toast).toHaveBeenCalledTimes(1);
+    });
+
+    it('tracks skipped events for different plans independently', () => {
+      const P2 = 'p2';
+      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'pulling', 'e-pull1'));
+      applyPlannerEvent(qc, syncStatusEvent(P2, 'pulling', 'e-pull2'));
+      applyPlannerEvent(qc, skippedEvent(PLAN, 't1', 'e-s1'));
+      applyPlannerEvent(qc, skippedEvent(PLAN, 't2', 'e-s2'));
+      applyPlannerEvent(qc, skippedEvent(P2, 't3', 'e-s3'));
+      // Finish p2 first — only 1 skip
+      applyPlannerEvent(qc, syncStatusEvent(P2, 'idle', 'e-idle-p2'));
+      expect(toast).toHaveBeenCalledTimes(1);
+      expect(toast).toHaveBeenCalledWith(
+        'Synced — 1 M365 user skipped. Ask an admin to provision them in Seta. (Settings → Users)',
+      );
+      vi.mocked(toast).mockClear();
+      // Finish p1 — 2 skips
+      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'idle', 'e-idle-p1'));
+      expect(toast).toHaveBeenCalledTimes(1);
+      expect(toast).toHaveBeenCalledWith(
+        'Synced — 2 M365 users skipped. Ask an admin to provision them in Seta. (Settings → Users)',
+      );
+    });
+
+    it('uses singular "user" for exactly 1 skip', () => {
+      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'pulling', 'e-pull'));
+      applyPlannerEvent(qc, skippedEvent(PLAN, 't1', 'e-s1'));
+      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'idle', 'e-idle'));
+      expect(toast).toHaveBeenCalledWith(
+        'Synced — 1 M365 user skipped. Ask an admin to provision them in Seta. (Settings → Users)',
+      );
+    });
+
+    it('uses plural "users" for 3 skips', () => {
+      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'pulling', 'e-pull'));
+      applyPlannerEvent(qc, skippedEvent(PLAN, 't1', 'e-s1'));
+      applyPlannerEvent(qc, skippedEvent(PLAN, 't2', 'e-s2'));
+      applyPlannerEvent(qc, skippedEvent(PLAN, 't3', 'e-s3'));
+      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'idle', 'e-idle'));
+      expect(toast).toHaveBeenCalledWith(
+        'Synced — 3 M365 users skipped. Ask an admin to provision them in Seta. (Settings → Users)',
+      );
     });
   });
 

@@ -1,8 +1,19 @@
 import type { BucketRow, TaskWithAssigneesRow } from '@seta/planner';
+import { toast } from '@seta/shared-ui';
 import type { QueryClient } from '@tanstack/react-query';
 import { plannerKeys } from './query-keys';
 import { isOwnEcho } from './recent-mutation-event-ids';
 import { useRecentlyMovedTasks } from './recently-moved-tasks';
+
+// Tracks how many assignees were skipped (not provisioned in Seta) during the current pull window
+// per plan. Reset when a new pull starts; read and cleared when the pull finishes.
+const skippedCounters: Record<string, number> = {};
+
+export function __resetSkippedCountersForTests(): void {
+  for (const key of Object.keys(skippedCounters)) {
+    delete skippedCounters[key];
+  }
+}
 
 export interface StreamEvent {
   id: string;
@@ -365,12 +376,35 @@ export function applyPlannerEvent(qc: QueryClient, event: StreamEvent): void {
       }
       return;
 
-    case 'planner.plan.sync-status-changed.v1':
+    case 'integrations.m365.assignee.skipped.v1': {
+      if (planId) {
+        skippedCounters[planId] = (skippedCounters[planId] ?? 0) + 1;
+      }
+      return;
+    }
+
+    case 'planner.plan.sync-status-changed.v1': {
+      const afterStatus = asString(p.after_status);
+      if (planId && afterStatus === 'pulling') {
+        // New pull window starting — reset so stale counts don't bleed into the next cycle.
+        skippedCounters[planId] = 0;
+      }
+      if (planId && afterStatus === 'idle') {
+        const count = skippedCounters[planId] ?? 0;
+        if (count > 0) {
+          const noun = count === 1 ? 'user' : 'users';
+          toast(
+            `Synced — ${count} M365 ${noun} skipped. Ask an admin to provision them in Seta. (Settings → Users)`,
+          );
+          skippedCounters[planId] = 0;
+        }
+      }
       if (planId) {
         qc.invalidateQueries({ queryKey: plannerKeys.planSyncStatus(planId) });
         qc.invalidateQueries({ queryKey: plannerKeys.plan(planId) });
       }
       return;
+    }
 
     case 'planner.task.sync-status-changed.v1':
       if (taskId) {
