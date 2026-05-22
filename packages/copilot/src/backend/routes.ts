@@ -6,6 +6,7 @@ import type { Context, Hono } from 'hono';
 import type { Pool } from 'pg';
 import { z } from 'zod';
 import type { AgentFactory } from './agent-factory.ts';
+import { cancelWorkflowRun } from './domain/cancel-workflow-run.ts';
 import { decideApproval } from './domain/decide-approval.ts';
 import { getWorkflowRun } from './domain/get-workflow-run.ts';
 import { getWorkflowRunSnapshot } from './domain/get-workflow-run-snapshot.ts';
@@ -637,6 +638,21 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
         mastra: deps.mastra as Mastra,
       });
       return c.json(result);
+    } catch (err) {
+      return handleDomainError(c, err);
+    }
+  });
+
+  app.post('/api/copilot/v1/workflows/runs/:runId/cancel', async (c) => {
+    const session = c.get('session') as SessionLike | undefined;
+    if (!session) return c.json({ error: 'unauthorized', message: 'session required' }, 401);
+    try {
+      await cancelWorkflowRun({
+        session,
+        runId: c.req.param('runId'),
+        mastra: deps.mastra as Mastra,
+      });
+      return c.json({ ok: true });
     } catch (err) {
       return handleDomainError(c, err);
     }

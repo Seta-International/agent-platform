@@ -1,3 +1,5 @@
+export type { CancelWorkflowRunOpts } from './backend/domain/cancel-workflow-run.ts';
+export { cancelWorkflowRun } from './backend/domain/cancel-workflow-run.ts';
 export type { DecideApprovalOpts, DecideApprovalResult } from './backend/domain/decide-approval.ts';
 export { decideApproval } from './backend/domain/decide-approval.ts';
 export type { GetWorkflowRunOpts } from './backend/domain/get-workflow-run.ts';
