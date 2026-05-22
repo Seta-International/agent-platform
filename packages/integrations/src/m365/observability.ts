@@ -11,6 +11,14 @@ export const tasksWalkedHistogram = meter.createHistogram('m365.plan.pull.tasks_
 export const tasksChangedHistogram = meter.createHistogram('m365.plan.pull.tasks_changed');
 export const assigneeSkippedCounter = meter.createCounter('m365.assignee.skipped.not_provisioned');
 
+export const planPushSuccessCounter = meter.createCounter('m365.plan.push.success');
+export const planPushErrorCounter = meter.createCounter('m365.plan.push.error');
+export const planPushConflictCounter = meter.createCounter('m365.plan.push.conflict');
+export const planPushPreconditionRetryCounter = meter.createCounter(
+  'm365.plan.push.precondition_retry',
+);
+export const pushEchoSuppressedCounter = meter.createCounter('m365.push.echo_suppressed');
+
 export async function withSpan<T>(
   name: string,
   attributes: Record<string, string | number | boolean>,

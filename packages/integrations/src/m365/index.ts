@@ -20,6 +20,12 @@ export type {
   RunPlanPullCronResult,
 } from './jobs/plan-pull-cron.ts';
 export { runPlanPullCron } from './jobs/plan-pull-cron.ts';
+export type {
+  PlannerPushSurface,
+  RunPlanPushDeps,
+  RunPlanPushInput,
+} from './jobs/plan-push.ts';
+export { runPlanPush } from './jobs/plan-push.ts';
 export type { RunPullGroupDeps, RunPullGroupInput } from './jobs/pull-group.ts';
 export { runPullGroup } from './jobs/pull-group.ts';
 export type { RunPushGroupDeps, RunPushGroupInput } from './jobs/push-group.ts';
@@ -40,8 +46,8 @@ export type {
   RunAutoMirrorResult,
 } from './plans/auto-mirror.ts';
 export { runAutoMirror } from './plans/auto-mirror.ts';
-export type { PlansGraph } from './plans/graph.ts';
-export { createPlansGraph } from './plans/graph.ts';
+export type { PlansGraph, PlansGraphWrite } from './plans/graph.ts';
+export { createPlansGraph, createPlansGraphWrite } from './plans/graph.ts';
 export type {
   CreateM365PlanLinkRepoDeps,
   CreateM365ResourceEtagRepoDeps,

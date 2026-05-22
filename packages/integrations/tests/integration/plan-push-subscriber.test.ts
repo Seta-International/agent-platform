@@ -174,7 +174,7 @@ describe('plan-push subscribers', () => {
       const jobs = await getEnqueuedJobs(pool);
       const pushJobs = jobs.filter((j) => j.identifier === 'm365.plan.push');
       expect(pushJobs).toHaveLength(1);
-      expect(pushJobs[0].payload).toMatchObject({
+      expect(pushJobs[0]?.payload).toMatchObject({
         tenant_id: tenantId,
         plan_id: planId,
         resource_type: 'task',
