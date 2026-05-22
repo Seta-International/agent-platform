@@ -1,3 +1,4 @@
+import { desc } from 'drizzle-orm';
 import { bigint, bigserial, index, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { copilot } from './pg-schema.ts';
 
@@ -18,5 +19,5 @@ export const tenantKnowledgeFiles = copilot.table(
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     processed_at: timestamp('processed_at', { withTimezone: true }),
   },
-  (t) => [index('tenant_knowledge_files_by_tenant').on(t.tenant_id, t.created_at)],
+  (t) => [index('tenant_knowledge_files_by_tenant').on(t.tenant_id, desc(t.created_at))],
 );

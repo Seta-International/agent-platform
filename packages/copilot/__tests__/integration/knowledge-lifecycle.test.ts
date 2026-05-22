@@ -27,7 +27,7 @@ const withDb = <T>(fn: (ctx: { pool: import('pg').Pool }) => Promise<T>) =>
     },
   );
 
-describe("knowledge file lifecycle (without parse/embed — that's M3.5)", () => {
+describe('knowledge file lifecycle', () => {
   it('flips status to parsing on markProcessed', () =>
     withDb(async ({ pool }) => {
       const presign = vi.fn(async () => 'https://signed');

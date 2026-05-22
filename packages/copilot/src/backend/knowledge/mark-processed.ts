@@ -19,5 +19,4 @@ export async function markKnowledgeFileProcessed(input: MarkProcessedInput): Pro
         eq(tenantKnowledgeFiles.status, 'uploading'),
       ),
     );
-  // M3.5 will follow this with: enqueue parse_knowledge_file({ tenant_id, file_id }).
 }

@@ -57,17 +57,19 @@ export async function requestKnowledgeUpload(
     })
     .returning({ id: tenantKnowledgeFiles.id });
 
+  if (!row) throw new Error('insert returned no row');
+
   const s3Key = buildTenantKey({
     tenant_id: input.tenant_id,
     domain: 'knowledge',
-    file_id: String(row!.id),
+    file_id: String(row.id),
     filename: input.filename,
   });
 
   await db
     .update(tenantKnowledgeFiles)
     .set({ s3_key: s3Key })
-    .where(eq(tenantKnowledgeFiles.id, row!.id));
+    .where(eq(tenantKnowledgeFiles.id, row.id));
 
   const presign = deps.presign ?? presignedUploadUrl;
   const upload_url = await presign({
@@ -77,5 +79,5 @@ export async function requestKnowledgeUpload(
     expiresInSeconds: UPLOAD_URL_TTL_SECONDS,
   });
 
-  return { file_id: String(row!.id), upload_url, s3_key: s3Key };
+  return { file_id: String(row.id), upload_url, s3_key: s3Key };
 }

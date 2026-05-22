@@ -8,9 +8,10 @@ export interface DeleteKnowledgeFileInput {
 }
 
 /**
- * Delete the metadata row. S3 object cleanup deferred to M3.5 (which knows
- * about the chunk + embedding rows that may also need cleanup — one consistent
- * cleanup path is better than two partial ones).
+ * Delete the metadata row. S3 object cleanup is omitted here — chunk and
+ * embedding rows that reference this file must also be cleaned in one pass
+ * to avoid orphans, so the unified cleanup lives downstream once those tables
+ * exist.
  */
 export async function deleteKnowledgeFile(input: DeleteKnowledgeFileInput): Promise<void> {
   const db = copilotDb();
