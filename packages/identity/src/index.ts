@@ -47,6 +47,8 @@ export type {
 export { listUserSessions } from './backend/domain/list-user-sessions.ts';
 export type { AdminUserRow, ListUsersOpts } from './backend/domain/list-users.ts';
 export { listUsers } from './backend/domain/list-users.ts';
+export type { MatchUsersToTopicInput, UserMatch } from './backend/domain/match-users-to-topic.ts';
+export { matchUsersToTopic } from './backend/domain/match-users-to-topic.ts';
 export { reactivateUser } from './backend/domain/reactivate-user.ts';
 export type { RecordSsoConsentInput } from './backend/domain/record-sso-consent.ts';
 export { recordSsoConsent } from './backend/domain/record-sso-consent.ts';

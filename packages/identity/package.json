@@ -39,6 +39,7 @@
     "@node-rs/argon2": "^2.0.2",
     "@seta/shared-embeddings": "workspace:^",
     "@seta/shared-mailer": "workspace:^",
+    "@seta/shared-retrieval": "workspace:^",
     "@seta/shared-validation": "workspace:^",
     "better-auth": "^1.6.11",
     "drizzle-orm": "^0.45.2",
