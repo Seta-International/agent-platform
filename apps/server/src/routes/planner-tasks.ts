@@ -11,6 +11,7 @@ import {
   getTask,
   listChecklistItems,
   listMyAssignedTasks,
+  listMyTasks,
   listTaskEvents,
   listTasks,
   moveTask,
@@ -105,6 +106,16 @@ const addChecklistItemSchema = z.object({
   after_item_id: z.string().uuid().optional(),
 });
 
+const MY_TASKS_PRIORITY_MAP: Record<string, 'urgent' | 'important' | 'medium' | 'low'> = {
+  '1': 'urgent',
+  '3': 'important',
+  '5': 'medium',
+  '9': 'low',
+};
+
+const MY_TASKS_DUE_VALUES = new Set(['this_week', 'overdue', 'no_date']);
+const MY_TASKS_SORT_VALUES = new Set(['assignee_priority', 'due_at']);
+
 const updateChecklistItemSchema = z.object({
   patch: z.object({
     label: z.string().min(1).max(500).optional(),
@@ -176,6 +187,30 @@ export function registerPlannerTasksRoutes(app: Hono<SessionEnv>): void {
     const cursor = q.cursor ?? undefined;
 
     return c.json(await listMyAssignedTasks({ filters, limit, cursor, session }));
+  });
+
+  app.get('/api/planner/v1/my-tasks', async (c) => {
+    const session = c.get('user');
+    const q = c.req.query();
+    const filter: {
+      plan_id?: string;
+      group_id?: string;
+      priority?: 'urgent' | 'important' | 'medium' | 'low';
+      due?: 'this_week' | 'overdue' | 'no_date';
+    } = {};
+    if (q.planId) filter.plan_id = q.planId;
+    if (q.groupId) filter.group_id = q.groupId;
+    const mappedPriority = q.priority ? MY_TASKS_PRIORITY_MAP[q.priority] : undefined;
+    if (mappedPriority) filter.priority = mappedPriority;
+    if (q.due && MY_TASKS_DUE_VALUES.has(q.due)) {
+      filter.due = q.due as 'this_week' | 'overdue' | 'no_date';
+    }
+    const input: Parameters<typeof listMyTasks>[0] = {};
+    if (Object.keys(filter).length > 0) input.filter = filter;
+    if (q.sort && MY_TASKS_SORT_VALUES.has(q.sort)) {
+      input.sort = q.sort as 'assignee_priority' | 'due_at';
+    }
+    return c.json(await listMyTasks(input, session));
   });
 
   app.get('/api/planner/v1/tasks/:id', async (c) => {
