@@ -18,19 +18,8 @@ export function PriorityChip({ prio }: Props) {
   const cfg = CFG[prio] ?? FALLBACK;
   return (
     <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 5,
-        height: 20,
-        padding: '0 8px',
-        fontSize: 11.5,
-        borderRadius: 999,
-        background: cfg.tint,
-        color: cfg.color,
-        fontWeight: 500,
-        justifySelf: 'flex-start',
-      }}
+      className="inline-flex items-center gap-1.5 h-5 px-2 text-[11.5px] rounded-full font-medium justify-self-start"
+      style={{ background: cfg.tint, color: cfg.color }}
     >
       <Flag size={10} stroke={cfg.color} />
       {cfg.label}
