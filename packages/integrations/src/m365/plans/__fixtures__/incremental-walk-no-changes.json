@@ -1,0 +1,116 @@
+{
+  "GET /planner/plans/P-EXT-1": {
+    "id": "P-EXT-1",
+    "@odata.etag": "W/\"plan-v1\"",
+    "title": "Roadmap",
+    "container": { "containerId": "G-EXT-1", "type": "group" }
+  },
+  "GET /planner/plans/P-EXT-1/details": {
+    "id": "PD-EXT-1",
+    "@odata.etag": "W/\"pd-v1\"",
+    "categoryDescriptions": {
+      "category1": "Urgent",
+      "category3": "Bug"
+    }
+  },
+  "GET /planner/plans/P-EXT-1/buckets": {
+    "value": [
+      {
+        "id": "B-EXT-1",
+        "@odata.etag": "W/\"b1-v1\"",
+        "name": "To Do",
+        "planId": "P-EXT-1",
+        "orderHint": "8585858585"
+      },
+      {
+        "id": "B-EXT-2",
+        "@odata.etag": "W/\"b2-v1\"",
+        "name": "Doing",
+        "planId": "P-EXT-1",
+        "orderHint": "9090909090"
+      }
+    ]
+  },
+  "GET /planner/plans/P-EXT-1/tasks": {
+    "value": [
+      {
+        "id": "T-EXT-1",
+        "@odata.etag": "W/\"t1-v1\"",
+        "planId": "P-EXT-1",
+        "bucketId": "B-EXT-1",
+        "title": "Task 1",
+        "orderHint": "8585",
+        "percentComplete": 0,
+        "priority": 5,
+        "previewType": "automatic",
+        "appliedCategories": { "category1": true },
+        "assignments": {
+          "OID-1": {
+            "@odata.type": "#microsoft.graph.plannerAssignment",
+            "orderHint": "8"
+          }
+        }
+      },
+      {
+        "id": "T-EXT-2",
+        "@odata.etag": "W/\"t2-v1\"",
+        "planId": "P-EXT-1",
+        "bucketId": "B-EXT-1",
+        "title": "Task 2",
+        "orderHint": "8587",
+        "percentComplete": 50,
+        "priority": 3,
+        "previewType": "description",
+        "appliedCategories": {},
+        "assignments": {}
+      },
+      {
+        "id": "T-EXT-3",
+        "@odata.etag": "W/\"t3-v1\"",
+        "planId": "P-EXT-1",
+        "bucketId": "B-EXT-2",
+        "title": "Task 3",
+        "orderHint": "9091",
+        "percentComplete": 0,
+        "priority": 9,
+        "previewType": "automatic",
+        "appliedCategories": { "category3": true },
+        "assignments": {
+          "OID-2": {
+            "@odata.type": "#microsoft.graph.plannerAssignment",
+            "orderHint": "8"
+          },
+          "OID-UNRESOLVABLE": {
+            "@odata.type": "#microsoft.graph.plannerAssignment",
+            "orderHint": "9"
+          }
+        }
+      },
+      {
+        "id": "T-EXT-4",
+        "@odata.etag": "W/\"t4-v1\"",
+        "planId": "P-EXT-1",
+        "bucketId": "B-EXT-2",
+        "title": "Task 4",
+        "orderHint": "9095",
+        "percentComplete": 100,
+        "priority": 1,
+        "previewType": "checklist",
+        "startDateTime": "2026-05-01T00:00:00Z",
+        "dueDateTime": "2026-05-15T00:00:00Z",
+        "completedDateTime": "2026-05-14T18:30:00Z",
+        "appliedCategories": {},
+        "assignments": {
+          "OID-3": {
+            "@odata.type": "#microsoft.graph.plannerAssignment",
+            "orderHint": "8"
+          },
+          "OID-4": {
+            "@odata.type": "#microsoft.graph.plannerAssignment",
+            "orderHint": "9"
+          }
+        }
+      }
+    ]
+  }
+}

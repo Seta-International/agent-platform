@@ -1,0 +1,148 @@
+{
+  "GET /planner/plans/P-EXT-1": {
+    "id": "P-EXT-1",
+    "@odata.etag": "W/\"plan-v1\"",
+    "title": "Roadmap",
+    "container": { "containerId": "G-EXT-1", "type": "group" }
+  },
+  "GET /planner/plans/P-EXT-1/details": {
+    "id": "PD-EXT-1",
+    "@odata.etag": "W/\"pd-v1\"",
+    "categoryDescriptions": {
+      "category1": "Urgent",
+      "category3": "Bug"
+    }
+  },
+  "GET /planner/plans/P-EXT-1/buckets": {
+    "value": [
+      {
+        "id": "B-EXT-1",
+        "@odata.etag": "W/\"b1-v1\"",
+        "name": "To Do",
+        "planId": "P-EXT-1",
+        "orderHint": "8585858585"
+      },
+      {
+        "id": "B-EXT-2",
+        "@odata.etag": "W/\"b2-v1\"",
+        "name": "Doing",
+        "planId": "P-EXT-1",
+        "orderHint": "9090909090"
+      }
+    ]
+  },
+  "GET /planner/plans/P-EXT-1/tasks": {
+    "value": [
+      {
+        "id": "T-EXT-1",
+        "@odata.etag": "W/\"t1-v2\"",
+        "planId": "P-EXT-1",
+        "bucketId": "B-EXT-1",
+        "title": "Task 1 — updated",
+        "orderHint": "8585",
+        "percentComplete": 0,
+        "priority": 5,
+        "previewType": "automatic",
+        "appliedCategories": { "category1": true },
+        "assignments": {
+          "OID-1": {
+            "@odata.type": "#microsoft.graph.plannerAssignment",
+            "orderHint": "8"
+          }
+        }
+      },
+      {
+        "id": "T-EXT-2",
+        "@odata.etag": "W/\"t2-v2\"",
+        "planId": "P-EXT-1",
+        "bucketId": "B-EXT-1",
+        "title": "Task 2",
+        "orderHint": "8587",
+        "percentComplete": 50,
+        "priority": 3,
+        "previewType": "description",
+        "appliedCategories": {},
+        "assignments": {}
+      },
+      {
+        "id": "T-EXT-3",
+        "@odata.etag": "W/\"t3-v2\"",
+        "planId": "P-EXT-1",
+        "bucketId": "B-EXT-2",
+        "title": "Task 3",
+        "orderHint": "9091",
+        "percentComplete": 0,
+        "priority": 9,
+        "previewType": "description",
+        "appliedCategories": { "category3": true },
+        "assignments": {
+          "OID-2": {
+            "@odata.type": "#microsoft.graph.plannerAssignment",
+            "orderHint": "8"
+          },
+          "OID-UNRESOLVABLE": {
+            "@odata.type": "#microsoft.graph.plannerAssignment",
+            "orderHint": "9"
+          }
+        }
+      }
+    ]
+  },
+  "GET /planner/tasks/T-EXT-1/details": {
+    "id": "TD-EXT-1",
+    "@odata.etag": "W/\"td1-v2\"",
+    "description": "First task description — updated",
+    "previewType": "automatic",
+    "references": {
+      "https%3A//example.com/spec": {
+        "@odata.type": "#microsoft.graph.plannerExternalReference",
+        "alias": "Spec",
+        "type": "Other"
+      },
+      "https%3A//example.com/design": {
+        "@odata.type": "#microsoft.graph.plannerExternalReference",
+        "alias": "Design",
+        "type": "Other"
+      }
+    },
+    "checklist": {
+      "CL-1-A": {
+        "@odata.type": "#microsoft.graph.plannerChecklistItem",
+        "title": "Step 1",
+        "isChecked": false,
+        "orderHint": "8585"
+      }
+    }
+  },
+  "GET /planner/tasks/T-EXT-1/bucketTaskBoardFormat": {
+    "id": "BTBF-EXT-1",
+    "@odata.etag": "W/\"btbf1-v2\"",
+    "orderHint": "8585"
+  },
+  "GET /planner/tasks/T-EXT-2/details": {
+    "id": "TD-EXT-2",
+    "@odata.etag": "W/\"td2-v2\"",
+    "description": "Second task description",
+    "previewType": "description",
+    "references": {},
+    "checklist": {}
+  },
+  "GET /planner/tasks/T-EXT-2/bucketTaskBoardFormat": {
+    "id": "BTBF-EXT-2",
+    "@odata.etag": "W/\"btbf2-v2\"",
+    "orderHint": "8587"
+  },
+  "GET /planner/tasks/T-EXT-3/details": {
+    "id": "TD-EXT-3",
+    "@odata.etag": "W/\"td3-v2\"",
+    "description": null,
+    "previewType": "description",
+    "references": {},
+    "checklist": {}
+  },
+  "GET /planner/tasks/T-EXT-3/bucketTaskBoardFormat": {
+    "id": "BTBF-EXT-3",
+    "@odata.etag": "W/\"btbf3-v2\"",
+    "orderHint": "9091"
+  }
+}
