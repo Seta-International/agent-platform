@@ -13,8 +13,9 @@ import userEvent from '@testing-library/user-event';
 import { delay, HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { findNeighbors } from '../lib/my-tasks-sections';
 import type { MyTasksFilters } from '../state/query-keys';
-import { findNeighbors, MyTasksPage } from './my-tasks-page';
+import { MyTasksPage } from './my-tasks-page';
 
 const server = setupServer();
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));

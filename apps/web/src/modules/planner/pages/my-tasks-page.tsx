@@ -10,52 +10,10 @@ import type { MyTasksRowTask } from '../components/my-tasks/mt-task-row';
 import { MyTasksGrid } from '../components/my-tasks/my-tasks-grid';
 import { MyTasksToolbar, type PlanOption } from '../components/my-tasks/my-tasks-toolbar';
 import type { PlanGroupData } from '../components/my-tasks/plan-group';
-import type { SectionKey, SectionTone } from '../components/my-tasks/types';
 import { useSetAssigneePriority } from '../hooks/mutations/use-set-assignee-priority';
 import { useMyTasks } from '../hooks/queries/use-my-tasks';
+import { findNeighbors, SECTION_SPECS, type SectionSpec } from '../lib/my-tasks-sections';
 import type { MyTasksFilters } from '../state/query-keys';
-
-interface SectionSpec {
-  key: SectionKey;
-  label: string;
-  tone: SectionTone;
-  bucket: keyof MyTasksResult;
-  hint?: string;
-  defaultOpen: boolean;
-}
-
-const SECTION_SPECS: ReadonlyArray<SectionSpec> = [
-  { key: 'late', label: 'Late', tone: 'danger', bucket: 'late', defaultOpen: true },
-  {
-    key: 'week',
-    label: 'Due this week',
-    tone: 'warning',
-    bucket: 'dueThisWeek',
-    defaultOpen: true,
-  },
-  {
-    key: 'in_progress',
-    label: 'In progress',
-    tone: 'primary',
-    bucket: 'inProgress',
-    defaultOpen: false,
-  },
-  {
-    key: 'not_started',
-    label: 'Not started',
-    tone: 'muted',
-    bucket: 'notStarted',
-    defaultOpen: false,
-  },
-  {
-    key: 'done',
-    label: 'Recently completed',
-    tone: 'success',
-    bucket: 'recentlyCompleted',
-    defaultOpen: false,
-    hint: 'last 14 days',
-  },
-];
 
 function groupTasksByPlan(tasks: ReadonlyArray<TaskWithPlan>): PlanGroupData[] {
   const byPlan = new Map<string, { plan: TaskWithPlan['plan']; tasks: MyTasksRowTask[] }>();
@@ -101,25 +59,6 @@ function totalCount(data: MyTasksResult): number {
     data.notStarted.length +
     data.recentlyCompleted.length
   );
-}
-
-export function findNeighbors(
-  data: MyTasksResult,
-  droppableId: string,
-  taskId: string,
-  index: number,
-): { prev: string | null; next: string | null } {
-  const parts = droppableId.split(':');
-  if (parts.length !== 3) return { prev: null, next: null };
-  const sectionKey = parts[1] as SectionKey;
-  const planId = parts[2];
-  const spec = SECTION_SPECS.find((s) => s.key === sectionKey);
-  if (!spec) return { prev: null, next: null };
-  const tasks = data[spec.bucket].filter((t) => t.plan.id === planId && t.id !== taskId);
-  return {
-    prev: tasks[index - 1]?.assignee_priority ?? null,
-    next: tasks[index]?.assignee_priority ?? null,
-  };
 }
 
 interface Props {

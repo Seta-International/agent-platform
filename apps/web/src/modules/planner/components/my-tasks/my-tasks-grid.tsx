@@ -108,6 +108,8 @@ export function MyTasksGrid({ data }: Props) {
     [],
   );
 
+  // TanStack Table returns functions that can't be safely memoized — React Compiler skips this hook
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data: rows,
     columns,
