@@ -137,6 +137,53 @@ describe('setMemberRole', () => {
     );
   });
 
+  it('requests a notification for the affected user, excluding the actor', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+      },
+      async ({ pool, databaseUrl }) => {
+        resetCoreDb();
+        initPools({ databaseUrl });
+        try {
+          const seeded = await seedTenant(pool, {
+            users: [{ name: 'Affected', email: 'affected@example.test' }],
+          });
+          const session = seeded.adminSession;
+          const affected = seeded.users[0]!;
+
+          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+          await addGroupMember({ group_id: group.id, user_id: affected.user_id, session });
+
+          // Wipe the notification event from the addGroupMember step.
+          await pool.query(
+            `DELETE FROM core.events WHERE event_type = 'core.notification.requested' AND tenant_id = $1`,
+            [seeded.tenant_id],
+          );
+
+          await setMemberRole({
+            group_id: group.id,
+            user_id: affected.user_id,
+            role: 'owner',
+            session,
+          });
+
+          const events = await readEvents(pool, seeded.tenant_id, 'core.notification.requested');
+          expect(events).toHaveLength(1);
+          // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
+          const payload = events[0]?.payload as any;
+          expect(payload.target_event_type).toBe('planner.group.member.role-changed');
+          expect(payload.user_ids).toEqual([affected.user_id]);
+          expect(payload.target_payload.group_id).toBe(group.id);
+        } finally {
+          resetCoreDb();
+          await closePools();
+        }
+      },
+    );
+  });
+
   it('rejects with FORBIDDEN when actor lacks permission', async () => {
     await withTestDb(
       {
