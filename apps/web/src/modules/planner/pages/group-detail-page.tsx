@@ -157,7 +157,7 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
         </TabsList>
 
         <TabsContent value="plans" className="flex-1 overflow-auto bg-surface-1">
-          <div className="mx-auto max-w-[1240px] px-7 py-6 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
+          <div className="mx-auto max-w-[1240px] px-7 py-6 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
             <GroupPlansSection
               groupName={group.name}
               plans={plans}
@@ -184,7 +184,7 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
         </TabsContent>
 
         <TabsContent value="members" className="flex-1 overflow-auto bg-surface-1">
-          <div className="mx-auto max-w-[1240px] px-7 py-6 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
+          <div className="mx-auto max-w-[1240px] px-7 py-6 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
             <GroupMembersTable
               group={group}
               members={members}

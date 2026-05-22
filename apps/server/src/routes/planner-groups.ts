@@ -125,14 +125,19 @@ export function registerPlannerGroupsRoutes(app: Hono<SessionEnv>): void {
     const limitParam = c.req.query('limit');
     const since = sinceParam ?? new Date(Date.now() - 7 * 86_400_000).toISOString();
     const limit = limitParam ? Math.min(Math.max(Number.parseInt(limitParam, 10), 1), 50) : 8;
-    return c.json(
-      await getGroupActivity({
-        group_id: c.req.param('id'),
-        since,
-        limit,
-        session,
-      }),
-    );
+    try {
+      return c.json(
+        await getGroupActivity({
+          group_id: c.req.param('id'),
+          since,
+          limit,
+          session,
+        }),
+      );
+    } catch (err) {
+      console.error('[group-activity] failed', err);
+      throw err;
+    }
   });
 
   app.post('/api/planner/v1/groups/:id/members', async (c) => {

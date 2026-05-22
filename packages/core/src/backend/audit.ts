@@ -51,9 +51,20 @@ export async function queryAudit(
   if (aggregate_ids !== undefined && aggregate_ids.length === 0) {
     return { rows: [], total: 0 };
   }
+  // Why inline literal: drizzle's `sql\`${array}\`` expands a JS array as comma-separated
+  // parameters (tuple form), which the `::text[]` cast then rejects. Building a SQL ARRAY
+  // literal sends zero parameters for this clause. Safe because every id is validated as
+  // a UUID — no SQL injection surface.
   const aggregateIdsFilter =
     aggregate_ids && aggregate_ids.length > 0
-      ? sql`AND aggregate_id = ANY(${aggregate_ids}::text[])`
+      ? (() => {
+          const validated = aggregate_ids.filter((id) =>
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id),
+          );
+          if (validated.length === 0) return sql`AND FALSE`;
+          const literal = `ARRAY[${validated.map((id) => `'${id}'`).join(',')}]::text[]`;
+          return sql`AND aggregate_id = ANY(${sql.raw(literal)})`;
+        })()
       : sql``;
 
   const orderBy =

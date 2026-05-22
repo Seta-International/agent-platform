@@ -56,7 +56,10 @@ export function PlanCard({
 }: PlanCardProps) {
   const subtext = subtextParts(taskCount, openTaskCount, dueDate);
 
-  const pillKind = status === 'on-track' ? 'active' : status === 'at-risk' ? 'pending' : 'blocked';
+  // Use the mockup vocabulary directly — kind names map 1:1 to StatusPill which
+  // already renders "On track" / "At risk" / "Off track" copy.
+  const pillKind =
+    status === 'on-track' ? 'on-track' : status === 'at-risk' ? 'at-risk' : 'off-track';
 
   return (
     <button
