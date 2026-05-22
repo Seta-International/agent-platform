@@ -11,6 +11,11 @@ import {
   refreshTaskDeletedSubscriber,
   refreshTaskUpdatedSubscriber,
 } from './backend/embeddings/subscribers/refresh-task.ts';
+import {
+  refreshUserProfileCreatedSubscriber,
+  refreshUserProfileDeactivatedSubscriber,
+  refreshUserProfileUpdatedSubscriber,
+} from './backend/embeddings/subscribers/refresh-user-profile.ts';
 import { registerCopilotRoutes } from './backend/routes.ts';
 import { buildMastra } from './backend/runtime.ts';
 import { makeOnPlannerTaskCreatedSubscriber } from './backend/subscribers/on-planner-task-created.ts';
@@ -47,6 +52,9 @@ function copilotSubscribers(): SubscriberDef[] {
     refreshTaskCreatedSubscriber,
     refreshTaskUpdatedSubscriber,
     refreshTaskDeletedSubscriber,
+    refreshUserProfileCreatedSubscriber,
+    refreshUserProfileUpdatedSubscriber,
+    refreshUserProfileDeactivatedSubscriber,
   ];
 }
 
