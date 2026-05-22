@@ -22,7 +22,7 @@ describe('KnowledgePage', () => {
 
     render(wrap(<KnowledgePage />));
 
-    expect(screen.getByText('Company knowledge')).toBeInTheDocument();
+    expect(screen.getByText('Knowledge')).toBeInTheDocument();
     // Wait for empty state
     expect(await screen.findByText(/No files uploaded yet/i)).toBeInTheDocument();
   });
