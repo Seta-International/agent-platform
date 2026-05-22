@@ -4,6 +4,7 @@ const tracer: Tracer = trace.getTracer('planner');
 const meter = metrics.getMeter('planner');
 
 const taskFieldUpdatedCounter = meter.createCounter('planner.task.updated.field');
+const embedTaskSkippedCounter = meter.createCounter('planner.embed_task.skipped');
 
 export async function withSpan<T>(
   name: string,
@@ -24,4 +25,8 @@ export async function withSpan<T>(
 
 export function recordTaskFieldUpdated(field: string): void {
   taskFieldUpdatedCounter.add(1, { field });
+}
+
+export function recordEmbedTaskSkipped(reason: string): void {
+  embedTaskSkippedCounter.add(1, { reason });
 }
