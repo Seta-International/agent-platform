@@ -25,9 +25,11 @@ export type CheckInProgressTasksDeps = {
   /**
    * Wraps listTasks() from @seta/planner.
    * Caller resolves SessionScope from userId internally.
-   * Filters: assignee_id = userId AND progress = 'in_progress'.
    */
-  getInProgressTasks: (params: { userId: string }) => Promise<InProgressTask[]>;
+  getInProgressTasks: (params: {
+    userId: string;
+    filters: { assignee_id: string; progress: string };
+  }) => Promise<InProgressTask[]>;
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -79,6 +81,7 @@ Pass the result to avaiChecker_buildAvailabilityQueue.
 
         const tasks = await deps.getInProgressTasks({
           userId: input.user_id,
+          filters: { assignee_id: input.user_id, progress: 'in_progress' },
         });
 
         return {

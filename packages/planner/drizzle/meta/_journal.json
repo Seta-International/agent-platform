@@ -15,6 +15,13 @@
       "when": 1748044800000,
       "tag": "0006_tasks_search_tsv_and_task_id_fix",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1779437899568,
+      "tag": "0007_living_red_hulk",
+      "breakpoints": true
     }
   ]
 }

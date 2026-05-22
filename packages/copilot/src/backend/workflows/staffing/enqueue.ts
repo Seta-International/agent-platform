@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import type { TaskSkillItem } from '../tools/analyzer/planner.build-task-skill-queue.ts';
-import type { UserAvailabilityResult } from '../tools/avai-checker/build-availability-queue.ts';
-import type { RankedCandidate } from '../tools/skill-matcher/rank-candidates.ts';
+import type { TaskSkillItem } from '../../tools/analyzer/planner.build-task-skill-queue.ts';
+import type { UserAvailabilityResult } from '../../tools/avai-checker/build-availability-queue.ts';
+import type { RankedCandidate } from '../../tools/skill-matcher/rank-candidates.ts';
 import {
   type AvaiCheckerDispatchPayload,
   JOB_NAMES,
@@ -17,7 +17,7 @@ type AddJob = (identifier: string, payload?: unknown) => Promise<void>;
 type EnqueueResult = { job_id: string; queue: string; enqueued_at: string };
 
 // ──────────────────────────────────────────────────────────────────────────────
-// TaskAnalyzer → Orchestrator
+// TaskAnalyzer → Staffing workflow
 //
 // Inject as `enqueueForOrchestrator` in makePlannerBuildTaskSkillQueueTool.
 //
@@ -52,7 +52,7 @@ export function makeTaskAnalyzerEnqueue(deps: { addJob: AddJob }) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// SkillMatcher → Orchestrator
+// SkillMatcher → Staffing workflow
 //
 // Inject as `enqueueForOrchestrator` in makeSkillMatcherRankCandidatesTool.
 //
@@ -88,7 +88,7 @@ export function makeSkillMatcherEnqueue(
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// AvaiChecker → Orchestrator
+// AvaiChecker → Staffing workflow
 //
 // Inject as `enqueueForOrchestrator` in makeAvaiCheckerBuildAvailabilityQueueTool.
 //

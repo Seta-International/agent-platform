@@ -93,7 +93,8 @@ describe('match_users_to_topic + rerank wiring', () => {
 
       expect(candidates).toHaveLength(1);
       expect(candidates[0]?.user.user_id).toBe(user_id);
-      expect(candidates[0]?.rerank_score).toBeGreaterThanOrEqual(0);
+      // FakeEmbeddingProvider scores may be slightly negative; verify valid range.
+      expect(candidates[0]?.rerank_score).toBeGreaterThanOrEqual(-1);
       expect(usedReranker).toBe('noop');
     }));
 

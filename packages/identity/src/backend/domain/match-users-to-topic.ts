@@ -42,7 +42,9 @@ export async function matchUsersToTopic(
   });
 
   const { tenant_id, limit } = input;
-  const minScore = input.minScore ?? 0.5;
+  const rawMinScore = input.minScore ?? 0.5;
+  // 0 means "no threshold": use -1 so the WHERE condition never filters (halfvec sim >= -1).
+  const minScore = rawMinScore <= 0 ? -1 : rawMinScore;
   const vectorLiteral = `[${queryVector.join(',')}]`;
 
   const sql = `

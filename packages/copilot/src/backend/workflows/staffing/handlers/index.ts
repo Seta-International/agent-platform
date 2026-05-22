@@ -18,7 +18,7 @@ import {
 //
 // Usage in apps/server/src/index.ts:
 //
-//   import { makeStaffingTaskList } from '../../copilot/src/backend/orchestrator';
+//   import { makeStaffingTaskList } from '@seta/copilot';
 //
 //   const workers = await startWorkerPool({
 //     pool: getPool('worker'),

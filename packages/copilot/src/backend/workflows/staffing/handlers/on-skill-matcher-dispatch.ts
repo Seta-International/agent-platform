@@ -4,7 +4,7 @@ import { SkillMatcherDispatchSchema } from '../types.ts';
 // ──────────────────────────────────────────────────────────────────────────────
 // Handler: staffing:skill_matcher_dispatch
 //
-// Triggered when TaskAnalyzer pushes a task to the Orchestrator queue.
+// Triggered when TaskAnalyzer pushes a task to the staffing workflow queue.
 // Invokes the SkillMatcher agent with the task context.
 //
 // The agent runs its 4-tool pipeline (format-query → context-search →

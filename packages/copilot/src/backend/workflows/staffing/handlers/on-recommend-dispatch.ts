@@ -1,4 +1,4 @@
-import type { RecommendedUser } from '../../tools/recommender/merge-and-rank.ts';
+import type { RecommendedUser } from '../../../tools/recommender/merge-and-rank.ts';
 import { RecommendDispatchSchema } from '../types.ts';
 
 // ──────────────────────────────────────────────────────────────────────────────

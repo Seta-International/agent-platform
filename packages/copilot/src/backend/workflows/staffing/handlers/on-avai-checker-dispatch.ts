@@ -4,7 +4,7 @@ import { AvaiCheckerDispatchSchema } from '../types.ts';
 // ──────────────────────────────────────────────────────────────────────────────
 // Handler: staffing:avai_checker_dispatch
 //
-// Triggered when SkillMatcher pushes ranked candidates to the Orchestrator queue.
+// Triggered when SkillMatcher pushes ranked candidates to the staffing workflow queue.
 // Invokes the AvaiChecker agent with the list of candidate user_ids.
 //
 // The agent runs its 4-tool pipeline (check-user-availability →

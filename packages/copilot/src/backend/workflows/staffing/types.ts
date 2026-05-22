@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Graphile-worker job names for the staffing workflow.
-// Each name corresponds to one handler in the Orchestrator task list.
+// Each name corresponds to one handler in the staffing task list.
 // ──────────────────────────────────────────────────────────────────────────────
 
 export const JOB_NAMES = {
