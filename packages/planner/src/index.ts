@@ -61,6 +61,11 @@ export { removeGroupMember } from './backend/domain/remove-group-member.ts';
 export { removeTaskReference } from './backend/domain/remove-task-reference.ts';
 export { reopenTask } from './backend/domain/reopen-task.ts';
 export { resolveGroupConflict } from './backend/domain/resolve-group-conflict.ts';
+export {
+  type ResolvePlanConflictsDeps,
+  type ResolvePlanConflictsResult,
+  resolvePlanConflicts,
+} from './backend/domain/resolve-plan-conflicts.ts';
 export { restoreGroup } from './backend/domain/restore-group.ts';
 export { restorePlan } from './backend/domain/restore-plan.ts';
 export { restoreTask } from './backend/domain/restore-task.ts';
