@@ -1,7 +1,8 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { z } from 'zod';
 import { useSession } from '@/modules/identity/components/SessionProvider';
+import { ConfirmDeletePlanDialog } from '@/modules/planner/components/ConfirmDeletePlanDialog';
 import { useDeletePlan } from '@/modules/planner/hooks/mutations/delete-plan';
 import { useUpdatePlan } from '@/modules/planner/hooks/mutations/update-plan';
 import { useGroup } from '@/modules/planner/hooks/queries/use-group';
@@ -51,6 +52,8 @@ function PlanRoute() {
   const updatePlan = useUpdatePlan(groupId ?? '', planId);
   const deletePlan = useDeletePlan(groupId ?? '', planId);
 
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+
   const { recordVisit, evict } = useRecentPlans(session.tenant_id);
   const planName = plan?.name;
   useEffect(() => {
@@ -91,45 +94,63 @@ function PlanRoute() {
   }
   function onDeletePlan() {
     if (!plan) return;
+    setDeleteDialogOpen(true);
+  }
+
+  function handleConfirmDelete() {
+    if (!plan) return;
     deletePlan.mutate({ expected_version: plan.version });
+    setDeleteDialogOpen(false);
     void navigate({ to: '/planner/groups/$groupId', params: { groupId: plan.group_id } });
   }
 
-  return view === 'board' ? (
-    <PlanPage
-      planId={planId}
-      view={view}
-      filters={filters}
-      onFiltersChange={onFiltersChange}
-      onViewChange={onViewChange}
-      onOpenTask={onOpenTask}
-      q={q}
-      onQChange={onQChange}
-      currentUserId={session.user_id}
-      groupName={groupQ.data?.name}
-      canManage={canManage}
-      onRenamePlan={onRenamePlan}
-      onDeletePlan={onDeletePlan}
-    />
-  ) : (
-    <PlanGridPage
-      planId={planId}
-      view={view}
-      filters={filters}
-      onFiltersChange={onFiltersChange}
-      onViewChange={onViewChange}
-      onOpenTask={onOpenTask}
-      groupBy={groupBy}
-      onGroupByChange={(g) =>
-        navigate({ search: (prev) => ({ ...prev, groupBy: g === 'bucket' ? undefined : g }) })
-      }
-      q={q}
-      onQChange={onQChange}
-      currentUserId={session.user_id}
-      groupName={groupQ.data?.name}
-      canManage={canManage}
-      onRenamePlan={onRenamePlan}
-      onDeletePlan={onDeletePlan}
-    />
+  return (
+    <>
+      {view === 'board' ? (
+        <PlanPage
+          planId={planId}
+          view={view}
+          filters={filters}
+          onFiltersChange={onFiltersChange}
+          onViewChange={onViewChange}
+          onOpenTask={onOpenTask}
+          q={q}
+          onQChange={onQChange}
+          currentUserId={session.user_id}
+          groupName={groupQ.data?.name}
+          canManage={canManage}
+          onRenamePlan={onRenamePlan}
+          onDeletePlan={onDeletePlan}
+        />
+      ) : (
+        <PlanGridPage
+          planId={planId}
+          view={view}
+          filters={filters}
+          onFiltersChange={onFiltersChange}
+          onViewChange={onViewChange}
+          onOpenTask={onOpenTask}
+          groupBy={groupBy}
+          onGroupByChange={(g) =>
+            navigate({ search: (prev) => ({ ...prev, groupBy: g === 'bucket' ? undefined : g }) })
+          }
+          q={q}
+          onQChange={onQChange}
+          currentUserId={session.user_id}
+          groupName={groupQ.data?.name}
+          canManage={canManage}
+          onRenamePlan={onRenamePlan}
+          onDeletePlan={onDeletePlan}
+        />
+      )}
+      <ConfirmDeletePlanDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        planName={plan?.name ?? ''}
+        externalSource={plan?.external_source === 'm365' ? 'm365' : 'native'}
+        onConfirm={handleConfirmDelete}
+        pending={deletePlan.isPending}
+      />
+    </>
   );
 }
