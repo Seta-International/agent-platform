@@ -304,12 +304,15 @@ export const taskEmbeddings = planner.table(
   {
     tenant_id: uuid('tenant_id').notNull(),
     task_id: uuid('task_id').notNull(),
-    chunk_ordinal: integer('chunk_ordinal').notNull(),
+    plan_id: uuid('plan_id').notNull(),
     chunk_text: text('chunk_text').notNull(),
     source_hash: text('source_hash').notNull(),
     embedding: halfvec('embedding', { dimensions: 1536 }).notNull(),
     model_id: text('model_id').notNull(),
     embedded_at: timestamp('embedded_at', { withTimezone: true }).defaultNow().notNull(),
   },
-  (t) => [primaryKey({ columns: [t.tenant_id, t.task_id, t.chunk_ordinal] })],
+  (t) => [
+    primaryKey({ columns: [t.tenant_id, t.task_id] }),
+    index('task_embeddings_plan_idx').on(t.tenant_id, t.plan_id),
+  ],
 );
