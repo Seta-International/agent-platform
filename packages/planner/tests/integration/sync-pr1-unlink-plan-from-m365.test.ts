@@ -41,7 +41,6 @@ describe('unlinkPlanFromM365', () => {
         expect(unlinked.version).toBe(linked.version + 1);
 
         const events = await readEvents(pool, seeded.tenant_id, 'planner.plan.updated');
-        // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
         const unlinkEvent = events
           // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
           .map((e) => e.payload as any)
