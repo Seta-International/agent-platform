@@ -5,12 +5,19 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
   NotificationNotFound,
+  requestNotification,
   type SessionEnv,
 } from '@seta/core';
+import { withEmit } from '@seta/core/events';
 import type { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
 import { z } from 'zod';
 import type { NotificationStreamHub } from '../notifications-stream/hub.ts';
+
+const synthesizeSchema = z.object({
+  event_type: z.string().min(1),
+  payload: z.record(z.string(), z.unknown()).default({}),
+});
 
 const HEARTBEAT_INTERVAL_MS = 25_000;
 
@@ -89,6 +96,27 @@ export function registerNotificationsRoutes(
       throw err;
     }
   });
+
+  if (process.env.NODE_ENV !== 'production') {
+    app.post('/api/core/v1/notifications/__dev/synthesize', async (c) => {
+      const session = c.get('user');
+      const body = await c.req.json().catch(() => ({}));
+      const parsed = synthesizeSchema.safeParse(body);
+      if (!parsed.success) return c.json({ error: 'VALIDATION' }, 400);
+
+      const sourceEventId = crypto.randomUUID();
+      await withEmit(undefined, async () => {
+        await requestNotification({
+          tenant_id: session.tenant_id,
+          event_type: parsed.data.event_type,
+          user_ids: [session.user_id],
+          payload: parsed.data.payload,
+          source_event_id: sourceEventId,
+        });
+      });
+      return c.json({ accepted: true, source_event_id: sourceEventId }, 202);
+    });
+  }
 
   app.get('/api/core/v1/notifications/stream', async (c) => {
     const session = c.get('user');
