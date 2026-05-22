@@ -2,7 +2,7 @@ import type { SessionScope } from '@seta/core';
 import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { plannerDb } from '../../db/index.ts';
 import { assigneeProjection, groups } from '../../db/schema.ts';
-import type { GroupWithCountsRow } from '../dto.ts';
+import type { GroupMemberPreview, GroupWithCountsRow } from '../dto.ts';
 import { requirePermission } from '../rbac.ts';
 import { groupFilterFor } from '../read-helpers.ts';
 
@@ -50,6 +50,11 @@ export async function listGroupsWithCounts(input: {
       // does not resolve "id" against the subquery's own FROM table.
       plan_count: sql<number>`(SELECT COUNT(*)::int FROM planner.plans WHERE group_id = "planner"."groups"."id" AND deleted_at IS NULL)`,
       member_count: sql<number>`(SELECT COUNT(*)::int FROM planner.group_members WHERE group_id = "planner"."groups"."id")`,
+      // First 3 members by added_at, oldest first, joined to assignee_projection for display_name.
+      // Returns [] when group has no members or no projection rows yet.
+      members_preview: sql<
+        GroupMemberPreview[]
+      >`(SELECT COALESCE(json_agg(json_build_object('user_id', m.user_id, 'display_name', ap.display_name) ORDER BY m.added_at), '[]'::json) FROM (SELECT user_id, added_at FROM planner.group_members WHERE group_id = "planner"."groups"."id" ORDER BY added_at LIMIT 3) m JOIN planner.assignee_projection ap ON ap.user_id = m.user_id)`,
       owner_display_name: assigneeProjection.display_name,
       owner_email: assigneeProjection.email,
     })
@@ -77,6 +82,7 @@ export async function listGroupsWithCounts(input: {
     version: r.version,
     plan_count: Number(r.plan_count),
     member_count: Number(r.member_count),
+    members_preview: Array.isArray(r.members_preview) ? r.members_preview : [],
     owner_display_name: r.owner_display_name ?? null,
     owner_email: r.owner_email ?? null,
   }));

@@ -27,6 +27,7 @@ export function makeGroupWithCounts(over: Partial<GroupWithCountsRow> = {}): Gro
     ...makeGroup(over),
     plan_count: over.plan_count ?? 0,
     member_count: over.member_count ?? 0,
+    members_preview: over.members_preview ?? [],
     owner_display_name:
       over.owner_display_name !== undefined ? over.owner_display_name : 'Owner Name',
     owner_email: over.owner_email !== undefined ? over.owner_email : 'owner@example.test',

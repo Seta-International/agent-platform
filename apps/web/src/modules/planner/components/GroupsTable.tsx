@@ -1,5 +1,5 @@
 import type { GroupWithCountsRow } from '@seta/planner';
-import { Avatar, AvatarFallback, formatRelative, GroupTile } from '@seta/shared-ui';
+import { Avatar, AvatarFallback, AvatarStack, formatRelative, GroupTile } from '@seta/shared-ui';
 import { Link } from '@tanstack/react-router';
 import { ChevronRight, RefreshCw, Shield, Users } from 'lucide-react';
 
@@ -89,6 +89,7 @@ export function GroupsTable({ groups }: Props) {
 
             {/* Members */}
             <div className="flex items-center gap-2">
+              <AvatarStack assignees={group.members_preview} max={3} />
               <span className="text-xs text-ink-muted">{group.member_count}</span>
             </div>
 

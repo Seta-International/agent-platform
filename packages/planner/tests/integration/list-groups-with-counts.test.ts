@@ -57,6 +57,13 @@ describe('listGroupsWithCounts', () => {
           expect(a?.plan_count).toBe(2);
           expect(a?.member_count).toBe(2);
 
+          // Members preview: first 3 by added_at — alpha has 2 (bob, carol)
+          expect(a?.members_preview).toHaveLength(2);
+          const previewIds = new Set(a?.members_preview.map((p) => p.user_id));
+          expect(previewIds.has(bob.user_id)).toBe(true);
+          expect(previewIds.has(carol.user_id)).toBe(true);
+          expect(a?.members_preview.every((p) => typeof p.display_name === 'string')).toBe(true);
+
           // owner_display_name: admin has an assignee_projection row seeded by helpers.ts
           const adminProjection = await pool.query(
             'SELECT display_name FROM planner.assignee_projection WHERE user_id = $1',
