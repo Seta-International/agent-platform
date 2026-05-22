@@ -6,7 +6,6 @@
  */
 
 import { RequestContext } from '@mastra/core/request-context';
-import { embedUserProfile } from '@seta/copilot/testing/embed-user-profile';
 import { createContributionRegistry, runMigrations } from '@seta/core';
 import { resetCoreDb } from '@seta/core/internal/test-support';
 import { registerCoreContributions } from '@seta/core/register';
@@ -14,6 +13,7 @@ import { createUser, updateUserProfile } from '@seta/identity';
 import { closePools, initPools } from '@seta/shared-db';
 import { FakeEmbeddingProvider, withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
+import { embedUserProfile } from '../../src/backend/embeddings/embed-user-profile.ts';
 import { matchUsersToTopicTool } from '../../src/backend/tools/match-users-to-topic.ts';
 
 const withDb = <T>(fn: (ctx: { pool: import('pg').Pool }) => Promise<T>) =>
