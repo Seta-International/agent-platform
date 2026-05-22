@@ -10,6 +10,12 @@ export interface EnsureTenantPartitionOptions {
   tenantId: string;
   /** Additional columns to btree-index per-partition. */
   secondaryIndexColumns?: string[];
+  /**
+   * Override the generated HNSW index name. Required when the auto-generated name
+   * `${parentName}_${slug}_hnsw_idx` would exceed Postgres's 63-byte identifier limit.
+   * Must itself be ≤ 63 bytes.
+   */
+  hnswIndexName?: string;
   /** pgvector opclass. */
   opclass: 'halfvec_cosine_ops' | 'halfvec_l2_ops' | 'vector_cosine_ops';
   /** HNSW build params. */
@@ -40,7 +46,7 @@ export async function ensureTenantPartition(
     throw new Error(`parent must be 'schema.table', got ${opts.parent}`);
   }
   const childName = `${parentName}_${slug}`;
-  const hnswIndex = `${childName}_hnsw_idx`;
+  const hnswIndex = opts.hnswIndexName ?? `${childName}_hnsw_idx`;
 
   // Guard against PG silently truncating identifiers at 63 bytes — throw early,
   // before any SQL runs, so the caller gets a clear error instead of a corrupt index name.
