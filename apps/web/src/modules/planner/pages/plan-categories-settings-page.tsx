@@ -1,9 +1,11 @@
 import { CategoryDescriptionEditor, Skeleton, toast } from '@seta/shared-ui';
-import { useNavigate } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useEffect } from 'react';
 import { PlannerClientError } from '../api/planner-client';
-import { type PlanSettingsTab, PlanSettingsTabStrip } from '../components/PlanSettingsTabStrip';
+import { PlanSettingsTabStrip } from '../components/PlanSettingsTabStrip';
 import { PlanError } from '../components/plan-error';
+import type { PlanSettingsTab } from '../components/plan-settings-tabs';
 import { useSetCategoryDescriptions } from '../hooks/mutations/set-category-descriptions';
 import { usePlanBoard } from '../hooks/queries/use-plan-board';
 import { usePlanCategories } from '../hooks/queries/use-plan-categories';
@@ -48,16 +50,44 @@ export function PlanCategoriesSettingsPage({ planId }: Props) {
 
   const { descriptions, labels, task_counts, counts } = q.data;
   const planName = boardQ.data?.plan.name ?? '';
+  const planForGroup = boardQ.data?.plan;
   const buckets = boardQ.data?.buckets.length ?? 0;
 
   return (
     <div className="flex flex-col h-full">
       <header className="px-7 pt-4 pb-0 border-b border-hairline bg-canvas">
-        <div className="text-xs text-ink-subtle mb-1">
-          Plan settings {planName ? `· ${planName}` : null}
-        </div>
-        <h1 className="text-lg font-semibold text-ink mb-3">
-          {planName ? `${planName} settings` : 'Plan settings'}
+        <nav
+          aria-label="Breadcrumb"
+          className="mb-2 flex items-center gap-2 text-xs text-ink-subtle"
+        >
+          {planForGroup ? (
+            <Link
+              to="/planner/plans/$planId"
+              params={{ planId: planForGroup.id }}
+              className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 hover:bg-surface-1"
+            >
+              <ChevronLeft className="size-3" />
+              Back to board
+            </Link>
+          ) : (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5">
+              <ChevronLeft className="size-3" />
+              Back to board
+            </span>
+          )}
+          <span>·</span>
+          <span className="inline-flex items-center gap-1">
+            <span>Planner</span>
+            <ChevronRight className="size-2.5 text-ink-tertiary" aria-hidden="true" />
+            {planName ? <span className="text-primary">{planName}</span> : null}
+            <ChevronRight className="size-2.5 text-ink-tertiary" aria-hidden="true" />
+            <span>Settings</span>
+            <ChevronRight className="size-2.5 text-ink-tertiary" aria-hidden="true" />
+            <span className="text-ink">Categories</span>
+          </span>
+        </nav>
+        <h1 className="text-card-title font-semibold text-ink mb-3">
+          Categories{planName ? ` · ${planName}` : ''}
         </h1>
         <PlanSettingsTabStrip
           activeTab="categories"

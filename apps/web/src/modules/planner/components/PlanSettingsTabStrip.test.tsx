@@ -1,10 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import {
-  PLAN_SETTINGS_TABS,
-  type PlanSettingsTab,
-  PlanSettingsTabStrip,
-} from './PlanSettingsTabStrip';
+import { PlanSettingsTabStrip } from './PlanSettingsTabStrip';
+import { PLAN_SETTINGS_TABS, type PlanSettingsTab } from './plan-settings-tabs';
 
 const baseCounts = {
   buckets: 4,
