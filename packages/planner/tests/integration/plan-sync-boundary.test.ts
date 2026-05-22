@@ -40,7 +40,7 @@ describe('sync PR1 boundary', () => {
   });
 
   it('planner package has the expected drizzle migration applied', () => {
-    const migration = resolve(__dirname, '../../drizzle/0007_plans_tasks_sync_pr1_schema.sql');
+    const migration = resolve(__dirname, '../../drizzle/0007_plans_tasks_sync_schema.sql');
     expect(existsSync(migration)).toBe(true);
     const sql = readFileSync(migration, 'utf8');
     expect(sql).toMatch(/plans_sync_status_check/);
