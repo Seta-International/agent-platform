@@ -190,6 +190,9 @@ All `planner.*` permissions are **evaluated in a group scope**. Holding `planner
 | `copilot.workflow.run.read.tenant` | Read all workflow runs in the tenant (§7.3 agent-ops) |
 | `copilot.workflow.run.read.instance` | Read all workflow runs across all tenants (superadmin) |
 | `copilot.workflow.run.execute.self` | Re-run own (or otherwise-visible) workflow runs |
+| `copilot.workflow.run.cancel.self` | Cancel own workflow runs |
+| `copilot.workflow.run.cancel.tenant` | Cancel any workflow run in the tenant (ops) |
+| `copilot.workflow.run.cancel.instance` | Cancel any workflow run across all tenants (superadmin) |
 | `copilot.workflow.approve` | Act on an assigned HITL approval card |
 | `copilot.config.read` | Read copilot config (model, custom instructions, tool allowlist) |
 | `copilot.config.write` | Edit copilot config |
@@ -239,6 +242,7 @@ All `planner.*` permissions are **evaluated in a group scope**. Holding `planner
 | `copilot.thread.*.self` | ✓ | ✓ |
 | `copilot.thread.erase.any` | ✓ | |
 | `copilot.workflow.run.read.tenant` | ✓ | ✓ |
+| `copilot.workflow.run.cancel.tenant` | ✓ | |
 | `copilot.config.*` | ✓ | |
 | `copilot.rate_limit.read` | ✓ | ✓ |
 | `staffing.read` | ✓ | ✓ (read-only primitives; no writes) |
@@ -247,7 +251,7 @@ All `planner.*` permissions are **evaluated in a group scope**. Holding `planner
 
 **Implicit self-permissions for any authenticated user** (no grant required):
 - `identity.user.read.self`, `identity.user.write.self`
-- `copilot.chat.use`, `copilot.thread.read.self`, `copilot.thread.write.self`, `copilot.workflow.run.read.self`
+- `copilot.chat.use`, `copilot.thread.read.self`, `copilot.thread.write.self`, `copilot.workflow.run.read.self`, `copilot.workflow.run.cancel.self`
 
 These are baseline — every logged-in tenant member gets them. Grants only *add* beyond this baseline.
 
@@ -308,6 +312,8 @@ These are baseline — every logged-in tenant member gets them. Grants only *add
 | `copilot.workflow.run.read.self` | ✓ | ✓ | ✓ |
 | `copilot.workflow.run.read.tenant` | ✓ | | ✓ |
 | `copilot.workflow.run.execute.self` | ✓ | ✓ | |
+| `copilot.workflow.run.cancel.self` | ✓ | ✓ | ✓ |
+| `copilot.workflow.run.cancel.tenant` | ✓ | | |
 | `copilot.workflow.approve` | ✓ | ✓ | |
 | `copilot.config.read` | ✓ | | ✓ |
 | `copilot.config.write` | ✓ | | |
