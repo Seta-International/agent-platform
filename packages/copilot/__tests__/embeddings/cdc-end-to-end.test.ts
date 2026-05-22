@@ -147,13 +147,12 @@ describe('CDC end-to-end: planner.task.created → task_embeddings row', () => {
 
       // 4. Assert the embedding row exists.
       const { rows } = await pool.query(
-        `SELECT chunk_ordinal FROM planner.task_embeddings
-          WHERE tenant_id = $1 AND task_id = $2
-          ORDER BY chunk_ordinal`,
+        `SELECT plan_id FROM planner.task_embeddings
+          WHERE tenant_id = $1 AND task_id = $2`,
         [seeded.tenant_id, seeded.task_id],
       );
-      expect(rows.length).toBeGreaterThanOrEqual(1);
-      expect((rows[0] as { chunk_ordinal: number }).chunk_ordinal).toBe(0);
+      expect(rows).toHaveLength(1);
+      expect((rows[0] as { plan_id: string }).plan_id).toBe(seeded.plan_id);
     });
   });
 });
