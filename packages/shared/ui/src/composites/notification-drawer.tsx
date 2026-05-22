@@ -16,6 +16,7 @@ export interface NotificationDrawerProps {
   onMarkRead: (id: string) => void;
   onDismiss: (id: string) => void;
   isLoadingMore?: boolean;
+  renderItem?: (n: NotificationListItemNotification) => React.ReactNode;
 }
 
 export function NotificationDrawer({
@@ -29,6 +30,7 @@ export function NotificationDrawer({
   onMarkRead,
   onDismiss,
   isLoadingMore = false,
+  renderItem,
 }: NotificationDrawerProps): React.ReactElement {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -53,11 +55,15 @@ export function NotificationDrawer({
             <>
               {items.map((n) => (
                 <article key={n.id}>
-                  <NotificationListItem
-                    notification={n}
-                    onMarkRead={onMarkRead}
-                    onDismiss={onDismiss}
-                  />
+                  {renderItem ? (
+                    renderItem(n)
+                  ) : (
+                    <NotificationListItem
+                      notification={n}
+                      onMarkRead={onMarkRead}
+                      onDismiss={onDismiss}
+                    />
+                  )}
                 </article>
               ))}
               {hasMore && (

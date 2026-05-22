@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { NotificationDrawer } from './notification-drawer';
+import type { NotificationListItemNotification } from './notification-list-item';
 
 const items = [
   {
@@ -91,6 +92,41 @@ describe('NotificationDrawer', () => {
     );
     await userEvent.click(screen.getByRole('button', { name: /mark all as read/i }));
     expect(onMarkAll).toHaveBeenCalled();
+  });
+
+  it('uses renderItem when provided for each notification', () => {
+    const customItems: NotificationListItemNotification[] = [
+      {
+        id: 'n-1',
+        event_type: 'planner.task.assigned',
+        payload: { title: 'T1' },
+        created_at: new Date().toISOString(),
+        read_at: null,
+      },
+      {
+        id: 'n-2',
+        event_type: 'planner.plan.deleted',
+        payload: { title: 'T2' },
+        created_at: new Date().toISOString(),
+        read_at: null,
+      },
+    ];
+    render(
+      <NotificationDrawer
+        open
+        onOpenChange={() => {}}
+        items={customItems}
+        hasMore={false}
+        unreadCount={0}
+        onMarkAll={() => {}}
+        onLoadMore={() => {}}
+        onMarkRead={() => {}}
+        onDismiss={() => {}}
+        renderItem={(n) => <div data-testid={`custom-${n.id}`}>{n.event_type}</div>}
+      />,
+    );
+    expect(screen.getByTestId('custom-n-1')).toHaveTextContent('planner.task.assigned');
+    expect(screen.getByTestId('custom-n-2')).toHaveTextContent('planner.plan.deleted');
   });
 
   it('shows a Load more button when hasMore is true', () => {

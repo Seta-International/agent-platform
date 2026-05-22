@@ -1,5 +1,10 @@
-import { NotificationDrawer } from '@seta/shared-ui';
+import {
+  NotificationDrawer,
+  NotificationListItem,
+  type NotificationListItemNotification,
+} from '@seta/shared-ui';
 import type * as React from 'react';
+import { useResolvePlannerNotification } from '../../planner/notifications/renderers';
 import { useDismiss, useMarkAllRead, useMarkRead } from '../hooks/mutations';
 import { useNotifications } from '../hooks/useNotifications';
 import { useUnreadCount } from '../hooks/useUnreadCount';
@@ -35,6 +40,44 @@ export function NotificationDrawerContainer({
       }}
       onMarkRead={(id) => markRead.mutate(id)}
       onDismiss={(id) => dismiss.mutate(id)}
+      renderItem={(n) => (
+        <DrawerRow
+          notification={n}
+          onMarkRead={(id) => markRead.mutate(id)}
+          onDismiss={(id) => dismiss.mutate(id)}
+          onClose={onClose}
+        />
+      )}
+    />
+  );
+}
+
+function DrawerRow({
+  notification,
+  onMarkRead,
+  onDismiss,
+  onClose,
+}: {
+  notification: NotificationListItemNotification;
+  onMarkRead: (id: string) => void;
+  onDismiss: (id: string) => void;
+  onClose: () => void;
+}): React.ReactElement {
+  const { icon, onClick } = useResolvePlannerNotification(notification);
+  return (
+    <NotificationListItem
+      notification={notification}
+      onMarkRead={onMarkRead}
+      onDismiss={onDismiss}
+      icon={icon}
+      onClick={
+        onClick
+          ? () => {
+              onClick();
+              onClose();
+            }
+          : undefined
+      }
     />
   );
 }
