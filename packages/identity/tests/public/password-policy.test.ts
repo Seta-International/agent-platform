@@ -31,7 +31,7 @@ describe('password policy', () => {
           await expect(
             createUser(
               { tenant_id: tenantId, email: 'a@d.local', name: 'A', password: 'short' },
-              { type: 'cli', user_id: null },
+              { type: 'superadmin', user_id: null },
             ),
           ).rejects.toSatisfy(
             (e: unknown) => e instanceof IdentityError && e.code === 'PASSWORD_LENGTH',

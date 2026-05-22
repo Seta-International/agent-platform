@@ -164,7 +164,7 @@ describe('createUser', () => {
                 name: 'Charlie',
                 password: 'short',
               },
-              { type: 'cli', user_id: null },
+              { type: 'superadmin', user_id: null },
             ),
           ).rejects.toSatisfy(
             (e: unknown) => e instanceof IdentityError && /PASSWORD_LENGTH/.test(e.code),

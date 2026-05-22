@@ -124,11 +124,18 @@ async function moveTaskImpl(input: MoveTaskInput & { session: SessionScope }): P
       try {
         newHint = hintBetween(prev?.order_hint ?? null, next?.order_hint ?? null, planSource);
       } catch {
-        // Collision: rebalance the whole target bucket.
+        // Collision: rebalance the whole target bucket. Every task whose order_hint
+        // (or bucket, for the moved one) changes gets its own planner.task.moved
+        // event so subscribers see each shift.
         const seq = [...others];
         const insertIdx = next ? seq.indexOf(next) : seq.length;
         seq.splice(insertIdx, 0, existing);
         const fresh = hintsForN(seq.length, planSource);
+        const rebalanced: Array<{
+          before: TaskDbRow;
+          after_hint: string;
+          new_bucket: string | null;
+        }> = [];
         for (let i = 0; i < seq.length; i++) {
           const t = seq[i];
           const h = fresh[i];
@@ -143,22 +150,25 @@ async function moveTaskImpl(input: MoveTaskInput & { session: SessionScope }): P
               version: t.version + 1,
             })
             .where(eq(tasks.id, t.id));
+          rebalanced.push({ before: t, after_hint: h, new_bucket: newBucket });
         }
         const [reread] = await tx.select().from(tasks).where(eq(tasks.id, input.task_id)).limit(1);
         if (!reread) throw new PlannerError('VALIDATION', 'Rebalance read returned no row');
         result = reread;
 
-        await emitPlannerTaskMoved({
-          actor: { type: 'user', user_id: input.session.user_id },
-          tenant_id: existing.tenant_id,
-          task_id: existing.id,
-          plan_id: existing.plan_id,
-          group_id: plan.group_id,
-          before: { bucket_id: existing.bucket_id, order_hint: existing.order_hint },
-          after: { bucket_id: result.bucket_id, order_hint: result.order_hint },
-          version_before: existing.version,
-          version_after: result.version,
-        });
+        for (const r of rebalanced) {
+          await emitPlannerTaskMoved({
+            actor: { type: 'user', user_id: input.session.user_id },
+            tenant_id: r.before.tenant_id,
+            task_id: r.before.id,
+            plan_id: r.before.plan_id,
+            group_id: plan.group_id,
+            before: { bucket_id: r.before.bucket_id, order_hint: r.before.order_hint },
+            after: { bucket_id: r.new_bucket, order_hint: r.after_hint },
+            version_before: r.before.version,
+            version_after: r.before.version + 1,
+          });
+        }
         return;
       }
 
