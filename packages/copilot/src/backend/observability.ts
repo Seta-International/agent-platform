@@ -13,6 +13,7 @@ export const otel = {
   modelTokenIn: noopCounter,
   modelTokenOut: noopCounter,
   chatTurnDurationMs: noopHistogram,
+  embedTaskSkipped: noopCounter,
 };
 
 export function bindOtel(impl: Partial<typeof otel>): void {
