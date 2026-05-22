@@ -19,7 +19,10 @@ export { listWorkflowRuns } from './backend/domain/list-workflow-runs.ts';
 export type { RerunWorkflowOpts, RerunWorkflowResult } from './backend/domain/rerun-workflow.ts';
 export { rerunWorkflow } from './backend/domain/rerun-workflow.ts';
 export { embeddingJobs } from './backend/embeddings/register-jobs.ts';
-export type { DeleteKnowledgeFileInput } from './backend/knowledge/delete-file.ts';
+export type {
+  DeleteKnowledgeFileDeps,
+  DeleteKnowledgeFileInput,
+} from './backend/knowledge/delete-file.ts';
 export { deleteKnowledgeFile } from './backend/knowledge/delete-file.ts';
 export type {
   KnowledgeFileSummary,
