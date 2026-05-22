@@ -6,3 +6,5 @@ export type { LlmJudge, LlmJudgeRerankerOptions } from './llm-judge.ts';
 export { LlmJudgeReranker } from './llm-judge.ts';
 export { NoopReranker } from './noop.ts';
 export type { RerankedHit, Reranker } from './reranker.ts';
+export type { ResolveRerankerOptions } from './resolver.ts';
+export { resolveReranker } from './resolver.ts';
