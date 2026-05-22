@@ -408,6 +408,51 @@ describe('plannerClient', () => {
     expect(captured).toEqual({ slots: { '1': { name: 'Backend', label_id: 'l1' } } });
   });
 
+  it('listMyTasks GETs /api/planner/v1/my-tasks with filter + sort + search in query string', async () => {
+    let url = '';
+    server.use(
+      http.get('*/api/planner/v1/my-tasks', ({ request }) => {
+        url = new URL(request.url).search;
+        return HttpResponse.json({
+          late: [],
+          dueThisWeek: [],
+          inProgress: [],
+          notStarted: [],
+          recentlyCompleted: [],
+        });
+      }),
+    );
+    await plannerClient.listMyTasks({
+      filter: { planId: 'p1', priority: 1, due: 'overdue' },
+      sort: 'due_at',
+      search: 'cache',
+    });
+    const sp = new URLSearchParams(url);
+    expect(sp.get('planId')).toBe('p1');
+    expect(sp.get('priority')).toBe('1');
+    expect(sp.get('due')).toBe('overdue');
+    expect(sp.get('sort')).toBe('due_at');
+    expect(sp.get('q')).toBe('cache');
+  });
+
+  it('listMyTasks omits absent filters from the query string', async () => {
+    let url = '';
+    server.use(
+      http.get('*/api/planner/v1/my-tasks', ({ request }) => {
+        url = new URL(request.url).search;
+        return HttpResponse.json({
+          late: [],
+          dueThisWeek: [],
+          inProgress: [],
+          notStarted: [],
+          recentlyCompleted: [],
+        });
+      }),
+    );
+    await plannerClient.listMyTasks({});
+    expect(url).toBe('');
+  });
+
   it('updateTask accepts percent_complete in patch', async () => {
     let captured: unknown;
     server.use(

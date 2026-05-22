@@ -7,6 +7,7 @@ import type {
   GroupWithCountsRow,
   LabelRow,
   ListTasksFilters,
+  MyTasksResult,
   PersistedPlannerEvent,
   PlanRow,
   TaskDetailRow,
@@ -452,6 +453,28 @@ async function setAssigneePriority(input: {
   })) as TaskRow;
 }
 
+async function listMyTasks(input: {
+  filter?: {
+    planId?: string;
+    groupId?: string;
+    priority?: 1 | 3 | 5 | 9;
+    due?: 'overdue' | 'this_week' | 'no_date';
+  };
+  sort?: 'assignee_priority' | 'due_at';
+  search?: string;
+}): Promise<MyTasksResult> {
+  const q = new URLSearchParams();
+  if (input.filter?.planId) q.set('planId', input.filter.planId);
+  if (input.filter?.groupId) q.set('groupId', input.filter.groupId);
+  if (input.filter?.priority !== undefined) q.set('priority', String(input.filter.priority));
+  if (input.filter?.due) q.set('due', input.filter.due);
+  if (input.sort) q.set('sort', input.sort);
+  if (input.search) q.set('q', input.search);
+  return (await request<MyTasksResult>(
+    `/api/planner/v1/my-tasks${q.toString() ? `?${q}` : ''}`,
+  )) as MyTasksResult;
+}
+
 export interface PlanCategoriesResponse {
   descriptions: Record<string, string>;
   labels: LabelRow[];
@@ -644,6 +667,7 @@ export const plannerClient = {
   removeTaskReference,
   setTaskAssignees,
   setAssigneePriority,
+  listMyTasks,
   getPlanCategories,
   setCategoryDescriptions,
   completeTask,
