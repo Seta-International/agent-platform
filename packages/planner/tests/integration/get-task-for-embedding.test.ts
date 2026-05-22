@@ -38,6 +38,7 @@ describe('getTaskForEmbedding', () => {
           expect(result!.description).toBe('Some description');
           expect(result!.skill_tags).toEqual(expect.arrayContaining(['typescript', 'react']));
           expect(result!.skill_tags).toHaveLength(2);
+          expect(result!.plan_id).toBe(plan.id);
         } finally {
           resetCoreDb();
           await closePools();

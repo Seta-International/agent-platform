@@ -11,6 +11,7 @@ export interface TaskForEmbedding {
   title: string;
   description: string | null;
   skill_tags: string[];
+  plan_id: string;
 }
 
 /**
@@ -30,6 +31,7 @@ export async function getTaskForEmbedding(
       title: tasks.title,
       description: tasks.description,
       skill_tags: tasks.skill_tags,
+      plan_id: tasks.plan_id,
     })
     .from(tasks)
     .where(
