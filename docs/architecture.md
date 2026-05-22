@@ -407,6 +407,27 @@ Plus a build-time integration test that compiles `packages/<m>/src/index.ts` wit
 
 CI: fails the PR. PR comment template explains the rule + offers the legal alternative (call the package's public surface from its root, subscribe to an event, propose adding to the public surface). No bypass mechanism; rules can only be relaxed by editing the config file in a PR that touches the architecture decision.
 
+### §B.6 The `sdks/` tier
+
+Alongside `apps/` and `packages/`, the workspace has a third top-level tier at `sdks/`. It holds **contract packages** — empty-runtime SDKs whose only job is to expose typed interfaces that modules build against without pulling in the implementation runtime.
+
+Packages today:
+
+- `sdks/module` (`@seta/module-sdk`) — frontend nav contract: `NavManifest`, `NavItem`. Consumed by the apps/web shell and each module's `<m>-web` package.
+- `sdks/copilot` (`@seta/copilot-sdk`) — agent-tool contract: `defineCopilotTool`, `CopilotTool`, `SessionLike`, `RequestContext`, `WorkflowBuilder`. Lets feature modules ship agent tools without a runtime dep on `@mastra/core`; the `@seta/copilot` package adapts `CopilotTool[]` into Mastra-shaped tools at agent-build time.
+
+Why a separate tier instead of more `packages/shared-*`:
+
+- Different semantics. `packages/shared-*` are infra utilities with runtime code (mailer, db pool, crypto, retrieval, ui). `sdks/*` are pure type contracts plus thin pass-through helpers — no runtime to depend on, no implementation to swap.
+- Different boundary rules. A module is permitted to import any `sdks/*`; a `shared/*` package is **not** permitted to import an `sdks/*` (the SDK is for module-level consumers, not for infra). The eslint boundaries config (`packages/shared-config/eslint/boundaries.ts`) defines an `sdk` element type at `sdks/*` enforcing exactly this.
+
+Workspace plumbing:
+
+- `pnpm-workspace.yaml` includes `sdks/*` alongside `apps/*` and `packages/*`.
+- `pnpm depcruise` scans `apps packages sdks`; `.dependency-cruiser.cjs` `includeOnly` matches `^(packages|apps|sdks)/`.
+- A `copilot-sdk-no-mastra-runtime` dep-cruiser rule rejects any import from `sdks/copilot/` into `@mastra/*` runtime modules (only the `@mastra/core` module entry is allowed, and only at the type level).
+- ESLint boundaries: `app` and `module` may depend on `sdk`; `shared` may not; `sdk` is leaf-like (only depends on other `sdk`).
+
 ---
 
 ## §C. Module composition — imperative `ContributionRegistry`

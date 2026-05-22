@@ -40,6 +40,8 @@ A fresh DB has **no tenants and no users** (`db:seed` is a no-op today); the log
 | [`packages/shared-testing`](packages/shared-testing) | Postgres testcontainers |
 | [`packages/shared-types`](packages/shared-types) | Cross-module type contracts |
 | [`packages/shared-config`](packages/shared-config) | Base tsconfig + ESLint boundaries |
+| [`sdks/module`](sdks/module) | `@seta/module-sdk` — frontend nav-manifest contract |
+| [`sdks/copilot`](sdks/copilot) | `@seta/copilot-sdk` — agent-tool contract (`defineCopilotTool`) |
 
 ## Scripts
 
