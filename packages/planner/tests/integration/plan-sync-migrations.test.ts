@@ -10,7 +10,7 @@ const HARNESS = {
   baseUrl: process.env.SETA_TEST_PG_BASE as string,
 };
 
-describe('sync PR1 schema migration', () => {
+describe('plan sync schema migration', () => {
   it('adds sync_status + last_error to planner.plans and planner.tasks', async () => {
     await withTestDb(HARNESS, async ({ databaseUrl }) => {
       resetCoreDb();

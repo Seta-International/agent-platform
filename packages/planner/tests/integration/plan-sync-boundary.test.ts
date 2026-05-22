@@ -15,7 +15,7 @@ function walk(dir: string, acc: string[] = []): string[] {
   return acc;
 }
 
-describe('sync PR1 boundary', () => {
+describe('plan sync boundary', () => {
   it('planner src does not import @seta/integrations', () => {
     const files = walk(PLANNER_SRC);
     const offenders = files.filter((f) => {
