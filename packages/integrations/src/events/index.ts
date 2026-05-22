@@ -35,7 +35,7 @@ export type IntegrationsEvent =
       };
     }
   | {
-      type: 'integrations.m365.assignee.skipped.v1';
+      type: 'integrations.m365.assignee.skipped';
       payload: {
         tenant_id: string;
         plan_id: string;
@@ -45,12 +45,26 @@ export type IntegrationsEvent =
       };
     }
   | {
-      type: 'integrations.m365.task.field-conflict.v1';
+      type: 'integrations.m365.task.field-conflict';
       payload: {
         tenant_id: string;
         plan_id: string;
         task_id: string;
         external_task_id: string;
         conflicts: Array<{ field: string; local: unknown; remote: unknown; snapshot: unknown }>;
+      };
+    }
+  | {
+      type: 'integrations.m365.plan.field-conflict';
+      payload: {
+        tenant_id: string;
+        plan_id: string;
+        conflicts: Array<{
+          scope: string;
+          field: string;
+          local: unknown;
+          remote: unknown;
+          snapshot: unknown;
+        }>;
       };
     };

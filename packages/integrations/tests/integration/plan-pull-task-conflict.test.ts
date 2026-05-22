@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { runPlanPull } from '../../src/m365/jobs/plan-pull.ts';
+import planTitleConflictFixture from '../../src/m365/plans/__fixtures__/incremental-walk-with-plan-title-conflict.json' with {
+  type: 'json',
+};
 import conflictFixture from '../../src/m365/plans/__fixtures__/incremental-walk-with-task-title-conflict.json' with {
   type: 'json',
 };
@@ -102,6 +105,7 @@ const LOCAL_STATE_WITH_T1_SAME_AS_SNAPSHOT = {
 async function seedBaseState(
   db: Parameters<Parameters<typeof withIntegrationsTestDb>[0]>[0]['db'],
   snapshotTasks: Record<string, { title?: string }>,
+  snapshotPlanTitle = 'Roadmap',
 ) {
   const groupLinkRepo = createM365GroupLinkRepo({ db });
   await groupLinkRepo.upsert({
@@ -118,7 +122,7 @@ async function seedBaseState(
     planId: PLAN_ID,
     externalId: EXTERNAL_PLAN_ID,
     initialSnapshot: {
-      plan: { title: 'Roadmap' },
+      plan: { title: snapshotPlanTitle },
       categoryDescriptions: { category1: 'Urgent', category3: 'Bug' },
       tasks: snapshotTasks,
     },
@@ -223,7 +227,7 @@ describe('runPlanPull — per-field LWW: conflict path', () => {
       // conflict event emitted for T1 with the title conflict
       expect(deps.emit).toHaveBeenCalledWith(
         expect.objectContaining({
-          type: 'integrations.m365.task.field-conflict.v1',
+          type: 'integrations.m365.task.field-conflict',
           payload: expect.objectContaining({
             tenant_id: TENANT_ID,
             plan_id: PLAN_ID,
@@ -290,7 +294,7 @@ describe('runPlanPull — per-field LWW: remote-wins happy path', () => {
       // no conflict event emitted
       const emitCalls = vi.mocked(deps.emit).mock.calls;
       const conflictEmits = emitCalls.filter(
-        (c) => c[0]?.type === 'integrations.m365.task.field-conflict.v1',
+        (c) => c[0]?.type === 'integrations.m365.task.field-conflict',
       );
       expect(conflictEmits).toHaveLength(0);
 
@@ -309,6 +313,91 @@ describe('runPlanPull — per-field LWW: remote-wins happy path', () => {
       const statusCalls = vi.mocked(planner.markPlanSyncStatus).mock.calls.map((c) => c[0]);
       const finalStatus = statusCalls[statusCalls.length - 1];
       expect(finalStatus).toMatchObject({ plan_id: PLAN_ID, status: 'idle' });
+    });
+  });
+});
+
+describe('runPlanPull — plan-level field conflict', () => {
+  it('emits plan.field-conflict event and ends plan status as conflict when plan title diverges on both sides', async () => {
+    await withIntegrationsTestDb(async ({ db }) => {
+      // snapshot.plan.title = 'A'
+      // local.plan.title = 'B'   (diverged from snapshot)
+      // remote.plan.title = 'C'  (also diverged from snapshot)
+      // → LWW decision: conflict → emits plan.field-conflict, no updatePlan call, plan status = conflict
+      const { planLinkRepo, etagRepo } = await seedBaseState(db, {}, 'A');
+
+      const LOCAL_STATE_WITH_PLAN_TITLE_B = {
+        planTitle: 'B',
+        categoryDescriptions: { category1: 'Urgent', category3: 'Bug' },
+        buckets: [
+          { id: 'BUCKET-LOCAL-1', name: 'To Do', order_hint: '8585858585', external_id: 'B-EXT-1' },
+          { id: 'BUCKET-LOCAL-2', name: 'Doing', order_hint: '9090909090', external_id: 'B-EXT-2' },
+        ],
+        tasks: [
+          {
+            id: 'TASK-LOCAL-1',
+            bucket_id: 'BUCKET-LOCAL-1',
+            title: 'Task 1',
+            external_id: 'T-EXT-1',
+            external_etag: 'W/"t1-v1"',
+          },
+          {
+            id: 'TASK-LOCAL-2',
+            bucket_id: 'BUCKET-LOCAL-1',
+            title: 'Task 2',
+            external_id: 'T-EXT-2',
+            external_etag: 'W/"t2-v1"',
+          },
+          {
+            id: 'TASK-LOCAL-3',
+            bucket_id: 'BUCKET-LOCAL-2',
+            title: 'Task 3',
+            external_id: 'T-EXT-3',
+            external_etag: 'W/"t3-v1"',
+          },
+          {
+            id: 'TASK-LOCAL-4',
+            bucket_id: 'BUCKET-LOCAL-2',
+            title: 'Task 4',
+            external_id: 'T-EXT-4',
+            external_etag: 'W/"t4-v1"',
+          },
+        ],
+      };
+
+      const { graph } = buildStubGraph(planTitleConflictFixture as Record<string, unknown>);
+      const planner = buildPlannerMocks(LOCAL_STATE_WITH_PLAN_TITLE_B);
+      const deps = buildDeps(graph, planLinkRepo, etagRepo, planner);
+
+      await runPlanPull({ tenant_id: TENANT_ID, plan_id: PLAN_ID, full: false }, deps);
+
+      // plan.field-conflict event emitted with the title conflict
+      expect(deps.emit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'integrations.m365.plan.field-conflict',
+          payload: expect.objectContaining({
+            tenant_id: TENANT_ID,
+            plan_id: PLAN_ID,
+            conflicts: expect.arrayContaining([
+              expect.objectContaining({
+                scope: 'plan',
+                field: 'title',
+                local: 'B',
+                remote: 'C',
+                snapshot: 'A',
+              }),
+            ]),
+          }),
+        }),
+      );
+
+      // updatePlan NOT called (conflict — title not applied)
+      expect(planner.updatePlan).not.toHaveBeenCalled();
+
+      // plan status ends as 'conflict'
+      const statusCalls = vi.mocked(planner.markPlanSyncStatus).mock.calls.map((c) => c[0]);
+      const finalStatus = statusCalls[statusCalls.length - 1];
+      expect(finalStatus).toMatchObject({ plan_id: PLAN_ID, status: 'conflict' });
     });
   });
 });

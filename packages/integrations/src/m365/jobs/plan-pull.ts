@@ -252,6 +252,20 @@ export async function runPlanPull(input: RunPlanPullInput, deps: RunPlanPullDeps
           });
         }
 
+        let anyConflicts = false;
+
+        if (actions.fieldConflicts.length > 0) {
+          anyConflicts = true;
+          await deps.emit({
+            type: 'integrations.m365.plan.field-conflict',
+            payload: {
+              tenant_id: input.tenant_id,
+              plan_id: input.plan_id,
+              conflicts: actions.fieldConflicts,
+            },
+          });
+        }
+
         await deps.etagRepo.upsert({
           tenantId: input.tenant_id,
           planLinkId: link.id,
@@ -348,8 +362,6 @@ export async function runPlanPull(input: RunPlanPullInput, deps: RunPlanPullDeps
 
         // Accumulates per-task snapshots to persist at the end of this pull.
         const updatedTaskSnapshots: Record<string, Record<string, unknown>> = {};
-
-        let anyTaskConflicts = false;
 
         for (const extId of actions.changedTaskExternalIds) {
           const rt = remoteTasks.find((t) => t.id === extId);
@@ -496,9 +508,9 @@ export async function runPlanPull(input: RunPlanPullInput, deps: RunPlanPullDeps
             await deps.planner.updateTask({ task_id: setaTaskId, patch, session });
 
             if (conflicts.length > 0) {
-              anyTaskConflicts = true;
+              anyConflicts = true;
               await deps.emit({
-                type: 'integrations.m365.task.field-conflict.v1',
+                type: 'integrations.m365.task.field-conflict',
                 payload: {
                   tenant_id: input.tenant_id,
                   plan_id: input.plan_id,
@@ -623,7 +635,7 @@ export async function runPlanPull(input: RunPlanPullInput, deps: RunPlanPullDeps
           tasks: mergedTaskSnapshots,
         });
 
-        if (anyTaskConflicts) {
+        if (anyConflicts) {
           planPullConflictCounter.add(1, { tenant_id: input.tenant_id });
         } else {
           planPullSuccessCounter.add(1, { tenant_id: input.tenant_id });
@@ -631,7 +643,7 @@ export async function runPlanPull(input: RunPlanPullInput, deps: RunPlanPullDeps
 
         await deps.planner.markPlanSyncStatus({
           plan_id: input.plan_id,
-          status: anyTaskConflicts ? 'conflict' : 'idle',
+          status: anyConflicts ? 'conflict' : 'idle',
           last_error: null,
           session,
         });
