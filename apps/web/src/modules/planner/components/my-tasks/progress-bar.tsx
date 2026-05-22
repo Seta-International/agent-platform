@@ -14,26 +14,18 @@ export function ProgressBar({ pct, status }: Props) {
       ? 'var(--color-ink-tertiary)'
       : 'var(--color-primary)';
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+    <div className="flex items-center gap-2 min-w-0">
       <div
         data-testid="progress-bar-track"
-        style={{
-          flex: 1,
-          height: 4,
-          background: 'var(--color-surface-2)',
-          borderRadius: 999,
-          overflow: 'hidden',
-          minWidth: 32,
-        }}
+        className="flex-1 h-1 bg-surface-2 rounded-full overflow-hidden min-w-[32px]"
       >
         <div
           data-testid="progress-bar-fill"
-          style={{ width: `${pct}%`, height: '100%', background: fill }}
+          className="h-full"
+          style={{ width: `${pct}%`, background: fill }}
         />
       </div>
-      <span className="mono t-xs subtle" style={{ width: 28, textAlign: 'right' }}>
-        {pct}%
-      </span>
+      <span className="font-mono text-[11px] text-ink-subtle w-7 text-right">{pct}%</span>
     </div>
   );
 }
