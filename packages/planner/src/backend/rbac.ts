@@ -16,9 +16,14 @@ export type PlannerErrorCode =
   | 'CROSS_TENANT'
   | 'LINKED_GROUP_IMMUTABLE_MEMBERS'
   | 'LINKED_DUPLICATE'
+  | 'LINKED_DUPLICATE_PLAN'
   | 'DUPLICATE_REFERENCE'
   | 'RESERVED_FOR_SYSTEM_ACTOR'
-  | 'CATEGORY_SLOT_OUT_OF_RANGE';
+  | 'CATEGORY_SLOT_OUT_OF_RANGE'
+  | 'GROUP_NOT_LINKED'
+  | 'PLAN_NOT_LINKED'
+  | 'LABEL_NOT_SYNCABLE'
+  | 'ASSIGNEE_NOT_M365_SYNCABLE';
 
 export class PlannerError extends Error {
   readonly code: PlannerErrorCode;
