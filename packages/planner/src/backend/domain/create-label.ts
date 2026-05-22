@@ -5,7 +5,7 @@ import { labels, plans } from '../../db/schema.ts';
 import { emitPlannerLabelCreated } from '../../events/emit-helpers.ts';
 import type { LabelRow } from '../dto.ts';
 import type { CreateLabelInput } from '../inputs.ts';
-import { PlannerError, requirePermission } from '../rbac.ts';
+import { assertLinkedPlanWritable, PlannerError, requirePermission } from '../rbac.ts';
 
 type LabelDbRow = typeof labels.$inferSelect;
 
@@ -35,6 +35,7 @@ export async function createLabel(
       }
 
       requirePermission(input.session, 'planner.plan.update', plan.group_id);
+      assertLinkedPlanWritable(plan, input.session);
 
       const [row] = await tx
         .insert(labels)

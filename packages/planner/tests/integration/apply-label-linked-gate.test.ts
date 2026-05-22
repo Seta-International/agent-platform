@@ -14,6 +14,11 @@ import {
   linkPlanToM365,
   type PlannerSessionScope,
 } from '../../src/index.ts';
+
+function buildSystemSession(session: PlannerSessionScope): PlannerSessionScope {
+  return { ...session, actor: { kind: 'system', system_id: 'integrations.m365' } };
+}
+
 import { seedTenant } from '../helpers.ts';
 
 const HARNESS = {
@@ -29,30 +34,33 @@ describe('applyLabel — m365-linked plan gate', () => {
     if (linkPlan) await linkGroupToM365({ group_id: group.id, external_id: 'G-EXT', session });
     const plan = await createPlan({ group_id: group.id, name: 'P', session });
     if (linkPlan) await linkPlanToM365({ plan_id: plan.id, external_id: 'P-EXT-1', session });
-    const bucket = await createBucket({ plan_id: plan.id, name: 'B', session });
+
+    // After linking, writes must use the system actor so they bypass the write-gate.
+    const writeSession = linkPlan ? buildSystemSession(session as PlannerSessionScope) : session;
+    const bucket = await createBucket({ plan_id: plan.id, name: 'B', session: writeSession });
     const task = await createTask({
       plan_id: plan.id,
       bucket_id: bucket.id,
       title: 'T',
-      session,
+      session: writeSession,
     });
     const slotless = await createLabel({
       plan_id: plan.id,
       name: 'SlotLess',
       color: 'red',
-      session,
+      session: writeSession,
     });
     const slotted = await createLabel({
       plan_id: plan.id,
       name: 'Slotted',
       color: 'blue',
-      session,
+      session: writeSession,
     });
     await attachLabelToCategorySlot({
       plan_id: plan.id,
       label_id: slotted.id,
       slot: 1,
-      session,
+      session: writeSession,
     });
     return { seeded, session, plan, task, slotless, slotted };
   }
@@ -76,13 +84,19 @@ describe('applyLabel — m365-linked plan gate', () => {
     });
   });
 
-  it('on a linked plan, allows slot-mapped label', async () => {
+  it('on a linked plan, system actor can apply slot-mapped label (human blocked by broad gate)', async () => {
     await withTestDb(HARNESS, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       initPools({ databaseUrl });
       try {
         const { session, task, slotted } = await setup(pool, true);
-        await applyLabel({ task_id: task.id, label_id: slotted.id, session });
+        // Broad write-gate blocks all human-session writes to linked plans.
+        // System actor bypasses both gates.
+        const systemSession: PlannerSessionScope = {
+          ...session,
+          actor: { kind: 'system', system_id: 'integrations.m365' },
+        };
+        await applyLabel({ task_id: task.id, label_id: slotted.id, session: systemSession });
         const rows = await pool.query(
           'SELECT label_id FROM planner.task_labels WHERE task_id = $1',
           [task.id],
@@ -95,7 +109,7 @@ describe('applyLabel — m365-linked plan gate', () => {
     });
   });
 
-  it('on a linked plan, rejects LABEL_NOT_SYNCABLE for slot-less label', async () => {
+  it('on a linked plan, human session is blocked by broad gate before LABEL_NOT_SYNCABLE check', async () => {
     await withTestDb(HARNESS, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       initPools({ databaseUrl });
@@ -103,7 +117,7 @@ describe('applyLabel — m365-linked plan gate', () => {
         const { session, task, slotless } = await setup(pool, true);
         await expect(
           applyLabel({ task_id: task.id, label_id: slotless.id, session }),
-        ).rejects.toMatchObject({ code: 'LABEL_NOT_SYNCABLE' });
+        ).rejects.toMatchObject({ code: 'LINKED_PLAN_IMMUTABLE_PENDING_PUSH' });
       } finally {
         resetCoreDb();
         await closePools();

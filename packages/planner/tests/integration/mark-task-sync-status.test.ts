@@ -27,17 +27,18 @@ describe('markTaskSyncStatus', () => {
     await linkGroupToM365({ group_id: group.id, external_id: 'G-EXT', session });
     const plan = await createPlan({ group_id: group.id, name: 'P', session });
     await linkPlanToM365({ plan_id: plan.id, external_id: 'P-EXT-1', session });
-    const bucket = await createBucket({ plan_id: plan.id, name: 'B', session });
-    const task = await createTask({
-      plan_id: plan.id,
-      bucket_id: bucket.id,
-      title: 'T',
-      session,
-    });
+    // After linking, writes must use the system actor to bypass the write-gate.
     const systemSession: PlannerSessionScope = {
       ...session,
       actor: { kind: 'system', system_id: 'integrations.m365' },
     };
+    const bucket = await createBucket({ plan_id: plan.id, name: 'B', session: systemSession });
+    const task = await createTask({
+      plan_id: plan.id,
+      bucket_id: bucket.id,
+      title: 'T',
+      session: systemSession,
+    });
     return { seeded, task, systemSession, userSession: session };
   }
 

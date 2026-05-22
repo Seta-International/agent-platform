@@ -2,7 +2,14 @@ import { resetCoreDb } from '@seta/core/internal/test-support';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
-import { createBucket, createGroup, createPlan, createTask, moveTask } from '../../src/index.ts';
+import {
+  createBucket,
+  createGroup,
+  createPlan,
+  createTask,
+  moveTask,
+  type PlannerSessionScope,
+} from '../../src/index.ts';
 import { seedTenant } from '../helpers.ts';
 
 const HARNESS = {
@@ -82,12 +89,17 @@ describe('moveTask order_hint format per plan external_source', () => {
         await pool.query(`UPDATE planner.tasks SET order_hint = '5637' WHERE id = $1`, [t1.id]);
         await pool.query(`UPDATE planner.tasks SET order_hint = 'adhg' WHERE id = $1`, [t2.id]);
 
+        // moveTask on an m365-linked plan requires the system actor (write-gate blocks human sessions).
+        const systemSession: PlannerSessionScope = {
+          ...session,
+          actor: { kind: 'system', system_id: 'integrations.m365' },
+        };
         const moved = await moveTask({
           task_id: t2.id,
           expected_version: 1,
           bucket_id: bucket.id,
           before_id: t1.id,
-          session,
+          session: systemSession,
         });
         // Before t1 with no prev: prev=null, next='5637' → directive ` 5637!`.
         expect(moved.order_hint).toBe(' 5637!');

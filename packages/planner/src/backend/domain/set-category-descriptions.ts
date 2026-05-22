@@ -6,7 +6,7 @@ import { plannerDb } from '../../db/index.ts';
 import { labels, plans } from '../../db/schema.ts';
 import type { PlanRow, TaskExternalSource } from '../dto.ts';
 import type { SetCategoryDescriptionsInput } from '../inputs.ts';
-import { PlannerError } from '../rbac.ts';
+import { assertLinkedPlanWritable, PlannerError } from '../rbac.ts';
 import { attachLabelToCategorySlotTx } from './attach-label-to-category-slot.ts';
 import { setCategoryDescriptionTx } from './set-category-description.ts';
 
@@ -70,6 +70,19 @@ export async function setCategoryDescriptions(
       },
     },
     async (tx) => {
+      const [plan] = await tx
+        .select()
+        .from(plans)
+        .where(and(eq(plans.id, input.plan_id), isNull(plans.deleted_at)))
+        .limit(1);
+      if (!plan) throw new PlannerError('NOT_FOUND', 'Plan not found', { plan_id: input.plan_id });
+      if (plan.tenant_id !== input.session.tenant_id) {
+        throw new PlannerError('CROSS_TENANT', 'Plan belongs to another tenant', {
+          plan_id: input.plan_id,
+        });
+      }
+      assertLinkedPlanWritable(plan, input.session);
+
       for (const [slotStr, entry] of Object.entries(input.slots)) {
         const slot = Number(slotStr);
         if ('name' in entry) {

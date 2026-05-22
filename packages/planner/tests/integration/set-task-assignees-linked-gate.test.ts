@@ -33,12 +33,19 @@ describe('setTaskAssignees — m365-linked plan gate', () => {
     if (linkPlan) await linkGroupToM365({ group_id: group.id, external_id: 'G-EXT', session });
     const plan = await createPlan({ group_id: group.id, name: 'P', session });
     if (linkPlan) await linkPlanToM365({ plan_id: plan.id, external_id: 'P-EXT-1', session });
-    const bucket = await createBucket({ plan_id: plan.id, name: 'B', session });
+
+    // After linking, bucket/task writes must use the system actor to bypass the write-gate.
+    const systemSession: PlannerSessionScope = {
+      ...session,
+      actor: { kind: 'system', system_id: 'integrations.m365' },
+    };
+    const writeSession = linkPlan ? systemSession : session;
+    const bucket = await createBucket({ plan_id: plan.id, name: 'B', session: writeSession });
     const task = await createTask({
       plan_id: plan.id,
       bucket_id: bucket.id,
       title: 'T',
-      session,
+      session: writeSession,
     });
     return { seeded, session, plan, task };
   }
@@ -69,19 +76,22 @@ describe('setTaskAssignees — m365-linked plan gate', () => {
     });
   });
 
-  it('on a linked plan, allows users whose entra_oid is set', async () => {
+  it('on a linked plan, system actor can set assignees (human session blocked by broad gate)', async () => {
     await withTestDb(HARNESS, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       initPools({ databaseUrl });
       try {
         const { seeded, session, task } = await setup(pool, true);
-        const lookupEntraOids: SetTaskAssigneesDeps['lookupEntraOids'] = async (ids) =>
-          new Map(ids.map((id) => [id, `oid-${id}`]));
+        const systemSession: PlannerSessionScope = {
+          ...session,
+          actor: { kind: 'system', system_id: 'integrations.m365' },
+        };
+        const lookupEntraOids = vi.fn();
         await setTaskAssignees(
           {
             task_id: task.id,
             assignees: seeded.users.map((u) => ({ user_id: u.user_id })),
-            session,
+            session: systemSession,
           },
           { lookupEntraOids },
         );
@@ -90,6 +100,8 @@ describe('setTaskAssignees — m365-linked plan gate', () => {
           [task.id],
         );
         expect(rows.rows).toHaveLength(2);
+        // system actor bypasses entra lookup
+        expect(lookupEntraOids).not.toHaveBeenCalled();
       } finally {
         resetCoreDb();
         await closePools();
@@ -97,7 +109,7 @@ describe('setTaskAssignees — m365-linked plan gate', () => {
     });
   });
 
-  it('on a linked plan, rejects ASSIGNEE_NOT_M365_SYNCABLE when a user has no entra_oid', async () => {
+  it('on a linked plan, human session is blocked by broad gate before entra check', async () => {
     await withTestDb(HARNESS, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       initPools({ databaseUrl });
@@ -114,7 +126,7 @@ describe('setTaskAssignees — m365-linked plan gate', () => {
             },
             { lookupEntraOids },
           ),
-        ).rejects.toMatchObject({ code: 'ASSIGNEE_NOT_M365_SYNCABLE' });
+        ).rejects.toMatchObject({ code: 'LINKED_PLAN_IMMUTABLE_PENDING_PUSH' });
       } finally {
         resetCoreDb();
         await closePools();
