@@ -13,40 +13,67 @@ export interface RequestPasswordResetArgs {
   ttlMs?: number;
 }
 
-/**
- * Anti-enumeration: silently no-op if email doesn't match a user.
- */
-export async function requestPasswordReset(args: RequestPasswordResetArgs): Promise<void> {
-  const email = args.email.toLowerCase().trim();
+export interface MintedResetToken {
+  url: string;
+  userId: string;
+  email: string;
+  displayName: string;
+  nonce: string;
+  expiresAt: Date;
+}
+
+export async function mintPasswordResetUrlIfKnown(
+  email: string,
+  baseUrl: string,
+  ttlMs: number = 1000 * 60 * 60,
+): Promise<MintedResetToken | null> {
+  const normalized = email.toLowerCase().trim();
   const [u] = await identityDb()
     .select()
     .from(userTable)
-    .where(eq(userTable.email, email))
+    .where(eq(userTable.email, normalized))
     .limit(1);
-  if (!u) return;
+  if (!u) return null;
 
   const nonce = randomBytes(24).toString('base64url');
-  const expiresAt = new Date(Date.now() + (args.ttlMs ?? 1000 * 60 * 60));
+  const expiresAt = new Date(Date.now() + ttlMs);
   await identityDb()
     .insert(verification)
     .values({
       id: crypto.randomUUID(),
       identifier: `password-reset:${u.id}:${nonce}`,
-      value: email,
+      value: normalized,
       expires_at: expiresAt,
     });
 
-  const resetUrl = `${args.baseUrl.replace(/\/$/, '')}/reset?token=${encodeURIComponent(nonce)}`;
+  const url = `${baseUrl.replace(/\/$/, '')}/reset?token=${encodeURIComponent(nonce)}`;
+  return {
+    url,
+    userId: u.id,
+    email: normalized,
+    displayName: u.name ?? normalized,
+    nonce,
+    expiresAt,
+  };
+}
+
+/**
+ * Anti-enumeration: silently no-op if email doesn't match a user.
+ */
+export async function requestPasswordReset(args: RequestPasswordResetArgs): Promise<void> {
+  const minted = await mintPasswordResetUrlIfKnown(args.email, args.baseUrl, args.ttlMs);
+  if (!minted) return;
+
   await args.mailer.send({
-    to: email,
+    to: minted.email,
     template: 'password-reset',
     props: {
-      displayName: u.name ?? u.email,
-      resetUrl,
-      expiresAt: expiresAt.toISOString(),
+      displayName: minted.displayName,
+      resetUrl: minted.url,
+      expiresAt: minted.expiresAt.toISOString(),
       requestedFromIp: args.requestedFromIp,
     },
     tenantId: args.tenantId,
-    dedupeKey: `password-reset:${u.id}:${nonce}`,
+    dedupeKey: `password-reset:${minted.userId}:${minted.nonce}`,
   });
 }
