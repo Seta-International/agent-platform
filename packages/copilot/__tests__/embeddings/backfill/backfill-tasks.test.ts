@@ -121,14 +121,14 @@ describe('backfillTasks', () => {
 
       const rows = await pool.query<{
         task_id: string;
-        chunk_ordinal: number;
+        plan_id: string;
         chunk_text: string;
         source_hash: string;
       }>(
-        `SELECT task_id, chunk_ordinal, chunk_text, source_hash
+        `SELECT task_id, plan_id, chunk_text, source_hash
            FROM planner.task_embeddings
           WHERE tenant_id = $1
-          ORDER BY task_id, chunk_ordinal`,
+          ORDER BY task_id`,
         [t1.tenant_id],
       );
 
@@ -138,8 +138,13 @@ describe('backfillTasks', () => {
       expect(taskIds).toContain(t1.task_id);
       expect(taskIds).toContain(t2.task_id);
 
+      const planByTask = new Map([
+        [t1.task_id, t1.plan_id],
+        [t2.task_id, t2.plan_id],
+      ]);
+
       for (const row of rows.rows) {
-        expect(row.chunk_ordinal).toBe(0);
+        expect(row.plan_id).toBe(planByTask.get(row.task_id));
 
         const isT1 = row.task_id === t1.task_id;
         const expectedSource = buildTaskSource(
@@ -189,12 +194,13 @@ describe('backfillTasks', () => {
       const fakeVec = new Array<number>(1536).fill(0);
       await pool.query(
         `INSERT INTO planner.task_embeddings
-           (tenant_id, task_id, chunk_ordinal, chunk_text, source_hash, embedding, model_id, embedded_at)
-         VALUES ($1, $2, 0, $3, $4, $5::halfvec, $6, now())
+           (tenant_id, task_id, plan_id, chunk_text, source_hash, embedding, model_id, embedded_at)
+         VALUES ($1, $2, $3, $4, $5, $6::halfvec, $7, now())
          ON CONFLICT DO NOTHING`,
         [
           t1.tenant_id,
           t1.task_id,
+          t1.plan_id,
           source1,
           hash1,
           `[${fakeVec.join(',')}]`,
