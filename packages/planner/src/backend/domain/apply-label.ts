@@ -4,6 +4,7 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { labels, plans, taskLabels, tasks } from '../../db/schema.ts';
 import { emitPlannerLabelApplied } from '../../events/emit-helpers.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
+import { isM365SystemActor } from './_actor.ts';
 
 export async function applyLabel(input: {
   task_id: string;
@@ -49,6 +50,18 @@ export async function applyLabel(input: {
           label_plan_id: label.plan_id,
           task_plan_id: plan.id,
         });
+      }
+
+      if (
+        plan.external_source === 'm365' &&
+        label.category_slot == null &&
+        !isM365SystemActor(input.session)
+      ) {
+        throw new PlannerError(
+          'LABEL_NOT_SYNCABLE',
+          'On a linked plan, only labels mapped to a category slot can be applied',
+          { label_id: input.label_id, plan_id: plan.id },
+        );
       }
 
       const inserted = await tx
