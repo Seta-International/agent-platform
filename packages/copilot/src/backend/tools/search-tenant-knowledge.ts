@@ -11,13 +11,7 @@ const STAGE1_TOPK = Number(process.env.RERANK_STAGE1_TOPK ?? 50);
 
 const inputSchema = z.object({
   query: z.string().min(1).max(500).describe('Natural language search query'),
-  limit: z
-    .number()
-    .int()
-    .min(1)
-    .max(50)
-    .default(10)
-    .describe('Maximum number of results to return'),
+  limit: z.number().int().min(1).max(20).default(5).describe('Maximum number of results to return'),
 });
 
 const outputSchema = z.object({
