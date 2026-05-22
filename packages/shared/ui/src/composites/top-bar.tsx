@@ -15,6 +15,7 @@ export interface TopBarProps {
   onCopilotToggle?: () => void;
   hideCopilotButton?: boolean;
   notificationCount?: number;
+  onBellClick?: () => void;
   onMobileNavOpen?: () => void;
   className?: string;
 }
@@ -29,6 +30,7 @@ export function TopBar({
   onCopilotToggle,
   hideCopilotButton = false,
   notificationCount = 0,
+  onBellClick,
   onMobileNavOpen,
   className,
 }: TopBarProps) {
@@ -100,6 +102,7 @@ export function TopBar({
 
         <button
           type="button"
+          onClick={onBellClick}
           className="relative inline-flex size-6 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
           aria-label={
             notificationCount > 0 ? `Notifications (${notificationCount})` : 'Notifications'

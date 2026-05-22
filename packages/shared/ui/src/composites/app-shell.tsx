@@ -23,6 +23,7 @@ export interface AppShellProps {
   defaultCopilotOpen?: boolean;
   hideCopilot?: boolean;
   notificationCount?: number;
+  onBellClick?: () => void;
 
   children: React.ReactNode;
   className?: string;
@@ -43,6 +44,7 @@ export function AppShell({
   defaultCopilotOpen = false,
   hideCopilot = false,
   notificationCount = 0,
+  onBellClick,
   children,
   className,
 }: AppShellProps) {
@@ -85,6 +87,7 @@ export function AppShell({
         onCopilotToggle={() => setCopilotOpen((o) => !o)}
         hideCopilotButton={hideCopilot}
         notificationCount={notificationCount}
+        onBellClick={onBellClick}
         onMobileNavOpen={() => setMobileNavOpen(true)}
       />
       <div className="flex min-h-0 flex-1">
