@@ -48,6 +48,17 @@ describe('workflowsApi', () => {
     expect(JSON.parse(String(firstCall?.[1].body))).toEqual({ decision: 'approve' });
   });
 
+  it('cancelRun POSTs /cancel and returns void on 200', async () => {
+    const fetchMock = vi.fn(async () => mockJsonResponse({ ok: true }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await workflowsApi.cancelRun('run-1');
+
+    const firstCall = fetchMock.mock.calls[0] as [string, RequestInit] | undefined;
+    expect(String(firstCall?.[0])).toContain('/api/copilot/v1/workflows/runs/run-1/cancel');
+    expect(firstCall?.[1].method).toBe('POST');
+  });
+
   it('issueSseToken returns the token string', async () => {
     vi.stubGlobal(
       'fetch',

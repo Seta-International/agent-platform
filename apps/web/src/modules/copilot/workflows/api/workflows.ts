@@ -84,6 +84,14 @@ export const workflowsApi = {
     return jsonOrThrow(res, DecideApprovalResponse);
   },
 
+  async cancelRun(runId: string): Promise<void> {
+    const res = await fetch(`/api/copilot/v1/workflows/runs/${encodeURIComponent(runId)}/cancel`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    await jsonOrThrow<{ ok: true }>(res);
+  },
+
   async rerunRun(runId: string, inputOverride?: Record<string, unknown>) {
     const res = await fetch(`/api/copilot/v1/workflows/runs/${encodeURIComponent(runId)}/rerun`, {
       method: 'POST',
