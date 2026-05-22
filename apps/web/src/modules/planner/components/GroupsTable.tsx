@@ -21,8 +21,8 @@ export function GroupsTable({ groups }: Props) {
     <div className="w-full overflow-x-auto">
       {/* Header row */}
       <div
-        className="sticky top-0 z-10 grid items-center border-b border-border bg-surface-0 px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-ink-muted"
-        style={{ gridTemplateColumns: '40px 1.6fr 1fr 90px 110px 130px 100px 100px 32px' }}
+        className="sticky top-0 z-10 grid items-center gap-2 border-b border-hairline bg-canvas px-7 py-2.5 text-[11px] font-medium uppercase tracking-wider text-ink-subtle"
+        style={{ gridTemplateColumns: '40px 1.6fr 1fr 90px 110px 130px 100px 32px' }}
       >
         <div />
         <div>Group</div>
@@ -31,7 +31,6 @@ export function GroupsTable({ groups }: Props) {
         <div>Members</div>
         <div>Visibility</div>
         <div className="text-right">Activity</div>
-        <div>Source</div>
         <div />
       </div>
 
@@ -42,8 +41,8 @@ export function GroupsTable({ groups }: Props) {
             key={group.id}
             to="/planner/groups/$groupId"
             params={{ groupId: group.id }}
-            className="grid items-center border-b border-border px-4 py-3 text-sm text-ink transition-colors hover:bg-surface-1"
-            style={{ gridTemplateColumns: '40px 1.6fr 1fr 90px 110px 130px 100px 100px 32px' }}
+            className="grid items-center gap-2 border-b border-hairline-tertiary px-7 py-3 text-sm text-ink transition-colors hover:bg-surface-1"
+            style={{ gridTemplateColumns: '40px 1.6fr 1fr 90px 110px 130px 100px 32px' }}
             aria-label={group.name}
           >
             {/* Tile */}
@@ -53,13 +52,14 @@ export function GroupsTable({ groups }: Props) {
 
             {/* Name + description */}
             <div className="min-w-0 pr-4">
-              <p className="truncate font-semibold text-ink">
+              <p className="truncate font-medium text-ink">
                 {group.name}
                 {group.external_source !== 'native' && (
                   <span
                     role="img"
                     aria-label="Synced from M365"
-                    className="ml-1.5 inline-flex items-center align-middle text-ink-muted"
+                    title="Synced from IdP"
+                    className="ml-1.5 inline-flex items-center align-middle text-info"
                   >
                     <RefreshCw className="size-3" aria-hidden="true" />
                   </span>
@@ -102,7 +102,7 @@ export function GroupsTable({ groups }: Props) {
               ) : (
                 <>
                   <Users className="size-3.5 shrink-0" aria-hidden="true" />
-                  <span>Public</span>
+                  <span>Workspace</span>
                 </>
               )}
             </div>
@@ -110,11 +110,6 @@ export function GroupsTable({ groups }: Props) {
             {/* Activity */}
             <div className="text-right text-xs text-ink-muted">
               {formatRelative(group.updated_at)}
-            </div>
-
-            {/* Source */}
-            <div className="text-xs text-ink-subtle">
-              {group.external_source === 'm365' ? 'M365' : 'Native'}
             </div>
 
             {/* Chevron */}

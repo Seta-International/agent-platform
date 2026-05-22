@@ -7,10 +7,11 @@ import {
   DialogHeader,
   DialogTitle,
   EmptyState,
+  KbdHint,
   Skeleton,
 } from '@seta/shared-ui';
 import { Cloud, Plus } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { CreateGroupDialog } from '../components/CreateGroupDialog';
 import { GroupsGrid } from '../components/GroupsGrid';
 import { GroupsTable } from '../components/GroupsTable';
@@ -33,6 +34,26 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
   const [syncFromIdPOpen, setSyncFromIdPOpen] = useState(false);
   const [groupToLink, setGroupToLink] = useState<string | null>(null);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+
+  useEffect(() => {
+    if (!canCreateGroup) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== 'n' && e.key !== 'N') return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (
+        t?.tagName === 'INPUT' ||
+        t?.tagName === 'TEXTAREA' ||
+        t?.isContentEditable ||
+        t?.getAttribute('role') === 'combobox'
+      )
+        return;
+      e.preventDefault();
+      setCreateOpen(true);
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [canCreateGroup]);
 
   // Derive owner options from the data
   const ownerOptions = useMemo(() => {
@@ -118,7 +139,7 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
 
   const totalPlans = groups.reduce((s, g) => s + g.plan_count, 0);
   const totalMembers = groups.reduce((s, g) => s + g.member_count, 0);
-  // Show Source filter only when at least one group is from m365 (PR2 native-only by default)
+  const syncedCount = groups.filter((g) => g.external_source !== 'native').length;
 
   return (
     <div className="flex h-full flex-col">
@@ -156,6 +177,19 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
       <div className="flex-1 overflow-auto">
         {view === 'list' ? <GroupsTable groups={filtered} /> : <GroupsGrid groups={filtered} />}
       </div>
+      <footer className="flex h-11 flex-none items-center justify-between border-t border-hairline bg-canvas px-7 text-xs text-ink-muted">
+        <span>
+          Showing {filtered.length} of {groups.length}
+          {syncedCount > 0
+            ? ` · ${syncedCount} ${syncedCount === 1 ? 'group' : 'groups'} synced from IdP`
+            : ''}
+        </span>
+        {canCreateGroup ? (
+          <span className="inline-flex items-center gap-1 text-ink-subtle">
+            Press <KbdHint keys={['N']} /> to create a new group
+          </span>
+        ) : null}
+      </footer>
       <CreateGroupDialog open={createOpen} onOpenChange={setCreateOpen} />
       <Dialog open={syncFromIdPOpen} onOpenChange={setSyncFromIdPOpen}>
         <DialogContent className="max-w-[440px]">

@@ -48,7 +48,7 @@ export function GroupsGrid({ groups }: Props) {
               ) : (
                 <>
                   <Users className="size-3 shrink-0" aria-hidden="true" />
-                  <span>Public</span>
+                  <span>Workspace</span>
                 </>
               )}
             </span>

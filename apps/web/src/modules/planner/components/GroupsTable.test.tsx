@@ -47,7 +47,6 @@ describe('GroupsTable', () => {
     expect(screen.getByText(/Members/)).toBeInTheDocument();
     expect(screen.getByText(/Visibility/)).toBeInTheDocument();
     expect(screen.getByText(/Activity/)).toBeInTheDocument();
-    expect(screen.getByText(/Source/)).toBeInTheDocument();
   });
 
   it('renders one row per group with key fields', async () => {
@@ -85,24 +84,10 @@ describe('GroupsTable', () => {
     expect(dashes.length).toBeGreaterThan(0);
   });
 
-  it('uses Public icon/label for public visibility', async () => {
+  it('uses "Workspace" label for public visibility', async () => {
     const g = makeGroupWithCounts({ visibility: 'public' });
     renderInRouter(<TableWithRouter groups={[g]} />);
-    expect(await screen.findByText('Public')).toBeInTheDocument();
-  });
-
-  it('shows "Native" in Source column for native group', async () => {
-    const g = makeGroupWithCounts({ external_source: 'native' });
-    renderInRouter(<TableWithRouter groups={[g]} />);
-    await screen.findByRole('link');
-    expect(screen.getByText('Native')).toBeInTheDocument();
-  });
-
-  it('shows "M365" in Source column for m365 group', async () => {
-    const g = makeGroupWithCounts({ external_source: 'm365', external_id: 'ext-1' });
-    renderInRouter(<TableWithRouter groups={[g]} />);
-    await screen.findByRole('link');
-    expect(screen.getByText('M365')).toBeInTheDocument();
+    expect(await screen.findByText('Workspace')).toBeInTheDocument();
   });
 
   it('shows refresh glyph for m365 group', async () => {

@@ -28,7 +28,7 @@ export interface GroupsToolbarProps {
 
 const VISIBILITY_OPTIONS = [
   { value: 'private' as const, label: 'Private' },
-  { value: 'public' as const, label: 'Public' },
+  { value: 'public' as const, label: 'Workspace' },
 ];
 
 const SOURCE_OPTIONS = [
