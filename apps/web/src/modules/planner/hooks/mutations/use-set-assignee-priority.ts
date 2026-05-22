@@ -1,7 +1,6 @@
 import type { MyTasksResult, TaskRow, TaskWithPlan } from '@seta/planner';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { plannerClient } from '../../api/planner-client';
-import { plannerKeys } from '../../state/query-keys';
 
 interface Vars {
   taskId: string;
@@ -57,7 +56,8 @@ function patchTaskInResult(data: MyTasksResult, taskId: string, value: string): 
   for (const k of sections) {
     const idx = data[k].findIndex((t) => t.id === taskId);
     if (idx === -1) continue;
-    const updated: TaskWithPlan = { ...data[k][idx], assignee_priority: value };
+    const source = data[k][idx] as TaskWithPlan;
+    const updated: TaskWithPlan = { ...source, assignee_priority: value, plan: source.plan };
     const next = [...data[k]];
     next[idx] = updated;
     next.sort((a, b) => {
