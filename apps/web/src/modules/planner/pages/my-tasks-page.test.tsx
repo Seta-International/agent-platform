@@ -300,4 +300,34 @@ describe('MyTasksPage', () => {
     await userEvent.click(await screen.findByText('Urgent'));
     expect(setFilters).toHaveBeenCalledWith(expect.objectContaining({ priority: 1 }));
   });
+
+  it('toggling SegmentedControl to Grid calls onFiltersChange with view: grid', async () => {
+    server.use(
+      http.get('*/api/planner/v1/my-tasks', () =>
+        HttpResponse.json({
+          ...emptyResult(),
+          late: [fxTask({ title: 'Login storm' })],
+        }),
+      ),
+    );
+    const { setFilters } = renderPage();
+    await screen.findByText('Login storm');
+    expect(screen.queryByTestId('my-tasks-grid')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('tab', { name: /grid view/i }));
+    expect(setFilters).toHaveBeenCalledWith(expect.objectContaining({ view: 'grid' }));
+  });
+
+  it('renders MyTasksGrid when filters.view is grid', async () => {
+    server.use(
+      http.get('*/api/planner/v1/my-tasks', () =>
+        HttpResponse.json({
+          ...emptyResult(),
+          late: [fxTask({ title: 'Login storm' })],
+        }),
+      ),
+    );
+    renderPage({ view: 'grid' });
+    expect(await screen.findByTestId('my-tasks-grid')).toBeInTheDocument();
+    expect(document.querySelectorAll('[data-testid="mt-section"]').length).toBe(0);
+  });
 });

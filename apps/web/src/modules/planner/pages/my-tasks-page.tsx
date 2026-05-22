@@ -7,6 +7,7 @@ import { CheckCircle2 } from 'lucide-react';
 import { useMemo } from 'react';
 import { MtSection, type MyTasksSection } from '../components/my-tasks/mt-section';
 import type { MyTasksRowTask } from '../components/my-tasks/mt-task-row';
+import { MyTasksGrid } from '../components/my-tasks/my-tasks-grid';
 import { MyTasksToolbar, type PlanOption } from '../components/my-tasks/my-tasks-toolbar';
 import type { PlanGroupData } from '../components/my-tasks/plan-group';
 import type { SectionKey, SectionTone } from '../components/my-tasks/types';
@@ -224,7 +225,12 @@ export function MyTasksPage({ filters, onFiltersChange }: Props) {
           <MyTasksEmpty onBrowse={() => void navigate({ to: '/planner/groups' })} />
         </PageBody>
       )}
-      {hasData && total > 0 && q.data && (
+      {hasData && total > 0 && q.data && filters.view === 'grid' && (
+        <PageBody>
+          <MyTasksGrid data={q.data} />
+        </PageBody>
+      )}
+      {hasData && total > 0 && q.data && filters.view !== 'grid' && (
         <DragDropContext onDragEnd={handleDragEnd}>
           <PageBody>
             {SECTION_SPECS.map((spec) => (
