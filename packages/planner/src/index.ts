@@ -51,6 +51,8 @@ export { listTaskEvents } from './backend/domain/list-task-events.ts';
 export type { ListTasksFilters } from './backend/domain/list-tasks.ts';
 export { listTasks } from './backend/domain/list-tasks.ts';
 export { markGroupSyncStatus } from './backend/domain/mark-group-sync-status.ts';
+export { markPlanSyncStatus } from './backend/domain/mark-plan-sync-status.ts';
+export { markTaskSyncStatus } from './backend/domain/mark-task-sync-status.ts';
 export { moveBucket } from './backend/domain/move-bucket.ts';
 export { moveTask } from './backend/domain/move-task.ts';
 export { removeChecklistItem } from './backend/domain/remove-checklist-item.ts';
