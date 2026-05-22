@@ -2,10 +2,10 @@ import { S3Client } from '@aws-sdk/client-s3';
 
 export interface S3ClientOptions {
   region?: string;
-  endpoint?: string; // for MinIO / LocalStack in dev
+  endpoint?: string;
   accessKeyId?: string;
   secretAccessKey?: string;
-  forcePathStyle?: boolean; // true for MinIO
+  forcePathStyle?: boolean;
 }
 
 let cached: S3Client | undefined;

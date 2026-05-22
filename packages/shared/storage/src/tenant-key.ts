@@ -2,7 +2,7 @@ import { basename } from 'node:path';
 
 export interface BuildTenantKeyInput {
   tenant_id: string;
-  domain: 'knowledge'; // future-extensible (attachments, etc.)
+  domain: 'knowledge';
   file_id: string;
   filename: string;
 }
@@ -15,7 +15,7 @@ export interface BuildTenantKeyInput {
  * "../../etc/passwd" tricks). Empty filename → throw.
  */
 export function buildTenantKey(input: BuildTenantKeyInput): string {
-  if (!input.filename || input.filename.length === 0) {
+  if (!input.filename) {
     throw new Error('filename required');
   }
   const safe = basename(input.filename);
