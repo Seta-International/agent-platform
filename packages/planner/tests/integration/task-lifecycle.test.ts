@@ -101,6 +101,74 @@ describe('assignTask', () => {
       },
     );
   });
+
+  it('requests a notification for the assignee, excluding the actor', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+      },
+      async ({ pool, databaseUrl }) => {
+        resetCoreDb();
+        initPools({ databaseUrl });
+        try {
+          const seeded = await seedTenant(pool, {
+            users: [{ name: 'Alice', email: 'alice@example.test' }],
+          });
+          const session = seeded.adminSession;
+          const alice = seeded.users[0]!;
+
+          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+          const task = await createTask({ plan_id: plan.id, title: 'T', session });
+
+          await assignTask({ task_id: task.id, user_id: alice.user_id, session });
+
+          const events = await readEvents(pool, seeded.tenant_id, 'core.notification.requested');
+          expect(events).toHaveLength(1);
+          // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
+          const payload = events[0]?.payload as any;
+          expect(payload.target_event_type).toBe('planner.task.assigned');
+          expect(payload.user_ids).toEqual([alice.user_id]);
+          expect(payload.target_payload.task_id).toBe(task.id);
+          expect(payload.target_payload.plan_id).toBe(plan.id);
+          expect(payload.target_payload.group_id).toBe(group.id);
+          expect(payload.source_event_id).toBeTruthy();
+        } finally {
+          resetCoreDb();
+          await closePools();
+        }
+      },
+    );
+  });
+
+  it('does not emit a notification request when the actor assigns themselves', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+      },
+      async ({ pool, databaseUrl }) => {
+        resetCoreDb();
+        initPools({ databaseUrl });
+        try {
+          const seeded = await seedTenant(pool, {});
+          const session = seeded.adminSession;
+          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+          const task = await createTask({ plan_id: plan.id, title: 'T', session });
+
+          await assignTask({ task_id: task.id, user_id: session.user_id, session });
+
+          const events = await readEvents(pool, seeded.tenant_id, 'core.notification.requested');
+          expect(events).toHaveLength(0);
+        } finally {
+          resetCoreDb();
+          await closePools();
+        }
+      },
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
