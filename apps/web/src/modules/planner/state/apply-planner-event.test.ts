@@ -98,7 +98,11 @@ describe('applyPlannerEvent', () => {
       const after = qc.getQueryData<TaskWithAssigneesRow[]>(tasksKey)!;
       expect(after[0]).toMatchObject({ id: 't1', bucket_id: 'b2', order_hint: 'm', version: 4 });
       expect(after[1]).toMatchObject({ id: 't2', bucket_id: 'b1', order_hint: 'b' });
-      expect(spy).not.toHaveBeenCalled();
+      // Only the broad myTasks predicate-based invalidation should fire; no queryKey-based invalidation.
+      const queryKeyCalls = spy.mock.calls.filter(
+        (c) => (c[0] as { queryKey?: unknown }).queryKey !== undefined,
+      );
+      expect(queryKeyCalls).toHaveLength(0);
     });
   });
 
@@ -151,7 +155,11 @@ describe('applyPlannerEvent', () => {
         labels: [],
         checklist_summary: { total: 0, checked: 0 },
       });
-      expect(spy).not.toHaveBeenCalled();
+      // Only the broad myTasks predicate-based invalidation should fire; no queryKey-based invalidation.
+      const queryKeyCalls = spy.mock.calls.filter(
+        (c) => (c[0] as { queryKey?: unknown }).queryKey !== undefined,
+      );
+      expect(queryKeyCalls).toHaveLength(0);
     });
 
     it('is idempotent (does not duplicate on replay)', () => {
@@ -211,7 +219,11 @@ describe('applyPlannerEvent', () => {
 
       const after = qc.getQueryData<TaskWithAssigneesRow[]>(tasksKey)!;
       expect(after[0]).toMatchObject({ id: 't1', title: 'New', priority_number: 1, version: 2 });
-      expect(spy).not.toHaveBeenCalled();
+      // Only the broad myTasks predicate-based invalidation should fire; no queryKey-based invalidation.
+      const queryKeyCalls = spy.mock.calls.filter(
+        (c) => (c[0] as { queryKey?: unknown }).queryKey !== undefined,
+      );
+      expect(queryKeyCalls).toHaveLength(0);
     });
   });
 
@@ -601,6 +613,73 @@ describe('applyPlannerEvent', () => {
       const after = qc.getQueryData<BucketRow[]>(bucketsKey)!;
       expect(after.map((b) => b.id)).toEqual(['b2']);
       expect(spy).toHaveBeenCalledWith({ queryKey: tasksKey });
+    });
+  });
+
+  describe('myTasks invalidation on planner.task.* events', () => {
+    it.each([
+      ['planner.task.created'],
+      ['planner.task.updated'],
+      ['planner.task.deleted'],
+      ['planner.task.assigned'],
+      ['planner.task.unassigned'],
+      ['planner.task.completed'],
+      ['planner.task.reopened'],
+      ['planner.task.moved'],
+      ['planner.task.restored'],
+    ])('%s triggers invalidation of plannerKeys.myTasks(...)', (type) => {
+      qc.setQueryData(plannerKeys.myTasks({}), {
+        late: [],
+        dueThisWeek: [],
+        inProgress: [],
+        notStarted: [],
+        recentlyCompleted: [],
+      });
+      const spy = vi.spyOn(qc, 'invalidateQueries');
+      applyPlannerEvent(
+        qc,
+        makeEvent({ eventType: type, payload: { plan_id: 'p1', task_id: 't1', user_id: 'u1' } }),
+      );
+      const calls = spy.mock.calls;
+      const matched = calls.some((c) => {
+        const arg = c[0] as {
+          predicate?: (q: { queryKey: readonly unknown[] }) => boolean;
+          queryKey?: readonly unknown[];
+        };
+        if (arg.predicate) {
+          return arg.predicate({
+            queryKey: plannerKeys.myTasks({}) as unknown as readonly unknown[],
+          });
+        }
+        return false;
+      });
+      expect(matched).toBe(true);
+    });
+
+    it('does NOT invalidate myTasks on non-task events', () => {
+      const spy = vi.spyOn(qc, 'invalidateQueries');
+      applyPlannerEvent(
+        qc,
+        makeEvent({ eventType: 'planner.plan.updated', payload: { plan_id: 'p1' } }),
+      );
+      const calls = spy.mock.calls;
+      const matched = calls.some((c) => {
+        const arg = c[0] as {
+          predicate?: (q: { queryKey: readonly unknown[] }) => boolean;
+          queryKey?: readonly unknown[];
+        };
+        if (arg.predicate) {
+          try {
+            return arg.predicate({
+              queryKey: plannerKeys.myTasks({}) as unknown as readonly unknown[],
+            });
+          } catch {
+            return false;
+          }
+        }
+        return false;
+      });
+      expect(matched).toBe(false);
     });
   });
 });

@@ -40,6 +40,12 @@ const bucketsKey = (planId: string) => [...plannerKeys.plan(planId), 'buckets'] 
 export function applyPlannerEvent(qc: QueryClient, event: StreamEvent): void {
   if (isOwnEcho(event.id)) return;
 
+  if (event.eventType.startsWith('planner.task.')) {
+    qc.invalidateQueries({
+      predicate: (q) => q.queryKey[0] === 'planner' && q.queryKey[1] === 'myTasks',
+    });
+  }
+
   const p = event.payload;
   const groupId = payloadField(p, 'group_id');
   const planId = payloadField(p, 'plan_id');
