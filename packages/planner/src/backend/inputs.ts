@@ -142,6 +142,39 @@ export interface MarkGroupSyncStatusInput {
   external_synced_at: string;
 }
 
+export interface LinkPlanToM365Input {
+  plan_id: string;
+  external_id: string;
+}
+
+export interface UnlinkPlanFromM365Input {
+  plan_id: string;
+}
+
+export interface MarkPlanSyncStatusInput {
+  plan_id: string;
+  status: 'idle' | 'pulling' | 'pushing' | 'error' | 'conflict';
+  error?: string | null;
+}
+
+export interface MarkTaskSyncStatusInput {
+  task_id: string;
+  status: 'idle' | 'pulling' | 'pushing' | 'error' | 'conflict';
+  error?: string | null;
+}
+
+export interface RefreshPlanSyncInput {
+  plan_id: string;
+}
+
+export interface ResolvePlanConflictsInput {
+  plan_id: string;
+  decisions: Array<
+    | { kind: 'plan'; field: string; choice: 'local' | 'remote' }
+    | { kind: 'task'; task_id: string; field: string; choice: 'local' | 'remote' }
+  >;
+}
+
 // ---------------------------------------------------------------------------
 // Native-parity ops (PR1)
 // ---------------------------------------------------------------------------
