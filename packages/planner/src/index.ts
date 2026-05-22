@@ -148,6 +148,7 @@ export type {
   SearchTasksInput,
 } from './backend/retrieval/search-tasks.ts';
 export { searchTasks } from './backend/retrieval/search-tasks.ts';
+export { fitsInWindow, MAX_SOURCE_TOKENS } from './embeddings/chunking.ts';
 export type { TaskSourceInput } from './embeddings/source.ts';
 export { buildTaskSource } from './embeddings/source.ts';
 export type { PlannerEvent, PlannerEventActor } from './events/index.ts';
