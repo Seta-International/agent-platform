@@ -4,6 +4,12 @@ export { buildGraphClient } from './client.ts';
 export type { RunPlanAutoMirrorDeps, RunPlanAutoMirrorInput } from './jobs/plan-auto-mirror.ts';
 export { runPlanAutoMirror } from './jobs/plan-auto-mirror.ts';
 export type {
+  RunPlanDeleteLinkDeps,
+  RunPlanDeleteLinkInput,
+  RunPlanDeleteLinkResult,
+} from './jobs/plan-delete-link.ts';
+export { runPlanDeleteLink } from './jobs/plan-delete-link.ts';
+export type {
   PlannerPullSurface,
   RunPlanPullDeps,
   RunPlanPullInput,
