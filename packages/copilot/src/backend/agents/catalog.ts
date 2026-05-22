@@ -1,5 +1,6 @@
 import type { Mastra } from '@mastra/core';
 import type { EmbeddingProvider } from '@seta/shared-embeddings';
+import { resolveReranker } from '@seta/shared-rerank';
 import type { Pool } from 'pg';
 import { resolveEmbeddingProvider } from '../embeddings/provider-resolver.ts';
 import { ROUTER_INSTRUCTIONS, SELF_INSTRUCTIONS } from '../instructions.ts';
@@ -9,6 +10,9 @@ import { matchUsersToTopicTool } from '../tools/match-users-to-topic.ts';
 import { searchTasksSemanticTool } from '../tools/search-tasks-semantic.ts';
 import { STATIC_SELF_TOOLS } from '../tools/self-tools.ts';
 import type { AgentSpec, AgentSpecs } from './specs.ts';
+
+// Resolved once at module load — avoids re-reading env on every agent catalog rebuild.
+const reranker = resolveReranker();
 
 type MastraStorageThreadRow = {
   id: string;
@@ -66,8 +70,8 @@ export function buildAgentCatalog(deps: { mastra: Mastra; pool: Pool }): AgentSp
     tools: [
       ...STATIC_SELF_TOOLS,
       listMyThreads,
-      searchTasksSemanticTool({ provider, pool: deps.pool }),
-      matchUsersToTopicTool({ provider, pool: deps.pool }),
+      searchTasksSemanticTool({ provider, pool: deps.pool, reranker }),
+      matchUsersToTopicTool({ provider, pool: deps.pool, reranker }),
     ],
     defaultTier: 'fast',
   };

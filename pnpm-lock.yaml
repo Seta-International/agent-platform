@@ -370,6 +370,9 @@ importers:
       '@seta/shared-embeddings':
         specifier: workspace:^
         version: link:../shared/embeddings
+      '@seta/shared-rerank':
+        specifier: workspace:^
+        version: link:../shared/rerank
       '@seta/shared-storage':
         specifier: workspace:^
         version: link:../shared/storage

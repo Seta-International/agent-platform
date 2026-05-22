@@ -15,6 +15,7 @@ import { RequestContext } from '@mastra/core/request-context';
 import { embedTask } from '@seta/copilot/testing/embed';
 import { resetCoreDb } from '@seta/core/internal/test-support';
 import { closePools, initPools } from '@seta/shared-db';
+import { NoopReranker } from '@seta/shared-rerank';
 import { FakeEmbeddingProvider, withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { seedTaskForTest } from '../../../planner/tests/helpers/seed.ts';
@@ -96,6 +97,7 @@ describe('Demo journey step 5 — find tasks needing review on terraform', () =>
       const tool = searchTasksSemanticTool({
         provider,
         pool,
+        reranker: new NoopReranker(),
         sessionProvider: makeSessionProvider(tenant_id),
       });
 
