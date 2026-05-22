@@ -9,6 +9,10 @@
     "./eslint/boundaries": {
       "types": "./eslint/boundaries.ts",
       "default": "./eslint/boundaries.ts"
+    },
+    "./vitest/db-test-defaults": {
+      "types": "./vitest/db-test-defaults.ts",
+      "default": "./vitest/db-test-defaults.ts"
     }
   }
 }

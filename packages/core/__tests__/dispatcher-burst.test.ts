@@ -32,12 +32,17 @@ describe('dispatcher burst', () => {
           }
         });
 
-        await waitFor(async () => {
-          const { rows } = await pool.query(
-            `SELECT count(*)::int AS n FROM core.subscription_processed WHERE subscription='test.counter'`,
-          );
-          return rows[0]?.n === 200;
-        });
+        await waitFor(
+          async () => {
+            const { rows } = await pool.query(
+              `SELECT count(*)::int AS n FROM core.subscription_processed WHERE subscription='test.counter'`,
+            );
+            return rows[0]?.n === 200;
+          },
+          // Bumped from the 10s default: under concurrent test load this burst takes
+          // longer than the dispatcher's solo run. Local solo runs finish in ~1s.
+          45_000,
+        );
       });
 
       expect(handled).toBe(200);

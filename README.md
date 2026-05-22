@@ -48,7 +48,7 @@ A fresh DB has **no tenants and no users** (`db:seed` is a no-op today); the log
 | `pnpm dev` | Run every app with HMR |
 | `pnpm build` | Production build across the workspace |
 | `pnpm typecheck` | TypeScript project references |
-| `pnpm test` | Vitest, against real Postgres via testcontainers |
+| `pnpm test` | Vitest, against real Postgres via testcontainers (DB-test parallelism capped — see `packages/shared-config/vitest/db-test-defaults.ts`) |
 | `pnpm lint` | Biome + dep-cruiser + style + raw-SQL + boundaries |
 | `pnpm db:reset` | Drop, recreate, migrate, and reseed the dev DB |
 

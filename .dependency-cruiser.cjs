@@ -82,8 +82,10 @@ module.exports = {
         //    RetrievalHit shape produced by stage-1 retrievers. Rerank is the
         //    stage-2 precision lift in the same pipeline; the type contract
         //    must stay shared.
+        //  - shared/config is pure toolchain (tsconfig, eslint rules, vitest
+        //    knobs); every package may import it.
         pathNot:
-          '^packages/shared-(testing|$1)/|^packages/shared-crypto/|^packages/shared-retrieval/',
+          '^packages/shared-(testing|$1)/|^packages/shared-crypto/|^packages/shared-retrieval/|^packages/shared-config/',
       },
     },
     {

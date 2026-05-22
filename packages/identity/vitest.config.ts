@@ -1,13 +1,9 @@
+import { dbTestDefaults } from '@seta/shared-config/vitest/db-test-defaults';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    globals: true,
-    environment: 'node',
+    ...dbTestDefaults,
     globalSetup: ['./tests/global-setup.ts'],
-    testTimeout: 60_000,
-    hookTimeout: 120_000,
-    pool: 'forks',
-    fileParallelism: false,
   },
 });

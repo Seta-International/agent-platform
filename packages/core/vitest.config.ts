@@ -1,4 +1,5 @@
 import { resolve } from 'node:path';
+import { dbTestDefaults } from '@seta/shared-config/vitest/db-test-defaults';
 import { defineConfig } from 'vitest/config';
 
 const identityRoot = resolve(__dirname, '../identity/src');
@@ -14,9 +15,8 @@ export default defineConfig({
     ],
   },
   test: {
+    ...dbTestDefaults,
     include: ['__tests__/**/*.test.ts'],
     globalSetup: ['./test/global-setup.ts'],
-    testTimeout: 30_000,
-    hookTimeout: 120_000,
   },
 });
