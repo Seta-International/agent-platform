@@ -9,18 +9,18 @@ export function KnowledgePage() {
   useKnowledgeFileStream();
 
   const { data: files, isPending } = useKnowledgeFiles();
+  const fileCount = files?.length ?? 0;
+  const subtitle = isPending
+    ? undefined
+    : fileCount === 0
+      ? 'No files yet'
+      : `${fileCount} ${fileCount === 1 ? 'file' : 'files'}`;
 
   return (
-    <PageChrome
-      title="Company knowledge"
-      subtitle="Upload handbooks, policies, and processes the copilot can cite"
-      breadcrumb={['Copilot', 'Knowledge']}
-    >
-      <div className="px-6 py-6 space-y-6">
-        <UploadDropzone />
-
-        <section className="space-y-2">
-          <h2 className="text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">Files</h2>
+    <PageChrome breadcrumb={['Copilot']} title="Knowledge" subtitle={subtitle}>
+      <div className="bg-surface-1 px-4 py-6 pb-10 sm:px-6 min-h-full">
+        <div className="mx-auto flex max-w-3xl flex-col gap-6">
+          <UploadDropzone />
 
           {isPending ? (
             <div className="space-y-2">
@@ -28,7 +28,7 @@ export function KnowledgePage() {
               <Skeleton className="h-14 w-full" />
               <Skeleton className="h-14 w-full" />
             </div>
-          ) : files?.length === 0 ? (
+          ) : fileCount === 0 ? (
             <EmptyState
               icon={<BookOpen className="size-10" />}
               title="No files uploaded yet"
@@ -41,7 +41,7 @@ export function KnowledgePage() {
               ))}
             </ul>
           )}
-        </section>
+        </div>
       </div>
     </PageChrome>
   );

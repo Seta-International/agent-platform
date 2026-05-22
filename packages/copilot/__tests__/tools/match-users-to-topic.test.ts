@@ -74,7 +74,7 @@ describe('matchUsersToTopicTool', () => {
           tenant_id: tenantId,
           email: `u-${tenantId.slice(0, 8)}@d.local`,
           name: 'Alice',
-          password: 'demo-password-1234',
+          password: 'ChangeMe@2026',
         },
         { type: 'cli', user_id: null },
       );
@@ -132,7 +132,7 @@ describe('matchUsersToTopicTool', () => {
             tenant_id: tenantId,
             email: `u${i}-${tenantId.slice(0, 6)}@d.local`,
             name: `User${i}`,
-            password: 'demo-password-1234',
+            password: 'ChangeMe@2026',
           },
           { type: 'cli', user_id: null },
         );

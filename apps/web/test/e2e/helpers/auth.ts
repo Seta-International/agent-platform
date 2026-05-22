@@ -1,7 +1,7 @@
 import type { APIRequestContext } from '@playwright/test';
 
 export const ADMIN_EMAIL = 'alice@acme-corp.example';
-export const ADMIN_PASSWORD = 'Changeme1!alice';
+export const ADMIN_PASSWORD = 'ChangeMe@2026';
 
 async function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));

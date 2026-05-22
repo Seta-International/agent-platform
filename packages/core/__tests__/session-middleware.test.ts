@@ -40,7 +40,7 @@ describe('invalidation subscribers drain identity events', () => {
               tenant_id: tenantId,
               email: 'a@d.local',
               name: 'A',
-              password: 'demo-password-1234',
+              password: 'ChangeMe@2026',
             },
             { type: 'cli', user_id: null },
           );

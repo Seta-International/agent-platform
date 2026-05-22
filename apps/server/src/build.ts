@@ -29,6 +29,7 @@ import { registerKnowledgeRoutes } from './routes/knowledge.ts';
 import { registerKnowledgeStreamRoutes } from './routes/knowledge-stream.ts';
 import { registerMeRoute } from './routes/me.ts';
 import { registerNotificationsRoutes } from './routes/notifications.ts';
+import { registerObservabilityRoutes } from './routes/observability.ts';
 import { registerPlannerBoardStreamRoutes } from './routes/planner-board-stream.ts';
 import { registerPlannerBucketsRoutes } from './routes/planner-buckets.ts';
 import { registerPlannerGroupsRoutes } from './routes/planner-groups.ts';
@@ -118,6 +119,7 @@ export function buildServerApp(
 
   // Public routes — no session required
   app.get('/health/live', (c) => c.json({ ok: true }));
+  registerObservabilityRoutes(app);
   if (deps.readinessSnapshot) {
     const snapshot = deps.readinessSnapshot;
     app.get('/health/ready', (c) => {

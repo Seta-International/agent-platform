@@ -280,7 +280,7 @@ export async function seedCommand(): Promise<void> {
         tenant_id: tenantId,
         email,
         name: def.name,
-        password: `Changeme1!${def.localPart}`,
+        password: 'ChangeMe@2026',
         ...(isAdmin
           ? { initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null } }
           : {}),

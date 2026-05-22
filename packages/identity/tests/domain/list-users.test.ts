@@ -36,13 +36,13 @@ describe('listUsers', () => {
               tenant_id: tenantId,
               email: 'a@d.local',
               name: 'A',
-              password: 'demo-password-1234',
+              password: 'ChangeMe@2026',
               initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
             },
             { type: 'cli', user_id: null },
           );
           await createUser(
-            { tenant_id: tenantId, email: 'b@d.local', name: 'B', password: 'demo-password-1234' },
+            { tenant_id: tenantId, email: 'b@d.local', name: 'B', password: 'ChangeMe@2026' },
             { type: 'cli', user_id: null },
           );
 
@@ -86,7 +86,7 @@ describe('listUsers', () => {
               tenant_id: tenantId,
               email: 'alice@d.local',
               name: 'Alice',
-              password: 'demo-password-1234',
+              password: 'ChangeMe@2026',
             },
             { type: 'cli', user_id: null },
           );
@@ -95,7 +95,7 @@ describe('listUsers', () => {
               tenant_id: tenantId,
               email: 'bob@d.local',
               name: 'Bob',
-              password: 'demo-password-1234',
+              password: 'ChangeMe@2026',
             },
             { type: 'cli', user_id: null },
           );
@@ -138,7 +138,7 @@ describe('listUsers', () => {
               tenant_id: tenantId,
               email: 'admin@d.local',
               name: 'Admin',
-              password: 'demo-password-1234',
+              password: 'ChangeMe@2026',
               initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
             },
             { type: 'cli', user_id: null },
@@ -148,7 +148,7 @@ describe('listUsers', () => {
               tenant_id: tenantId,
               email: 'member@d.local',
               name: 'Member',
-              password: 'demo-password-1234',
+              password: 'ChangeMe@2026',
             },
             { type: 'cli', user_id: null },
           );
@@ -209,7 +209,7 @@ describe('listUsers', () => {
               tenant_id: tenantId,
               email: 'active@d.local',
               name: 'Active',
-              password: 'demo-password-1234',
+              password: 'ChangeMe@2026',
               initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
             },
             { type: 'cli', user_id: null },
@@ -219,7 +219,7 @@ describe('listUsers', () => {
               tenant_id: tenantId,
               email: 'gone@d.local',
               name: 'Gone',
-              password: 'demo-password-1234',
+              password: 'ChangeMe@2026',
             },
             { type: 'cli', user_id: null },
           );

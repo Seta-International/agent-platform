@@ -30,7 +30,7 @@ describe('getUserProfile', () => {
           await runMigrations(reg, { pool });
 
           const { user_id } = await createUser(
-            { tenant_id: tenantId, email: 'a@d.local', name: 'A', password: 'demo-password-1234' },
+            { tenant_id: tenantId, email: 'a@d.local', name: 'A', password: 'ChangeMe@2026' },
             { type: 'cli', user_id: null },
           );
 

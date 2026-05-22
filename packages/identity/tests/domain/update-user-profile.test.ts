@@ -23,7 +23,7 @@ describe('updateUserProfile', () => {
       tenantId,
     ]);
     const { user_id } = await createUser(
-      { tenant_id: tenantId, email: 'a@d.local', name: 'A', password: 'demo-password-1234' },
+      { tenant_id: tenantId, email: 'a@d.local', name: 'A', password: 'ChangeMe@2026' },
       { type: 'cli', user_id: null },
     );
     return { tenantId, userId: user_id };
