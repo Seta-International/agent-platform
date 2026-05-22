@@ -146,6 +146,36 @@ describe('TaskGrid', () => {
     expect(onOpenTask).toHaveBeenCalledWith('t1');
   });
 
+  it('renders a mini SyncBadge in the title cell when external_source is m365', () => {
+    const m365Rows: TaskGridRow[] = [
+      {
+        ...rows[0]!,
+        external_source: 'm365',
+        sync_status: 'pulling',
+        external_synced_at: null,
+      },
+      { ...rows[1]! },
+    ];
+    render(
+      <TaskGrid
+        rows={m365Rows}
+        groupBy="bucket"
+        selection={new Set()}
+        onSelectionChange={() => {}}
+      />,
+    );
+    expect(screen.getByLabelText('Sync pulling')).toBeInTheDocument();
+    // Only the m365 row gets a badge; the native row does not.
+    expect(screen.queryAllByLabelText(/^Sync /).length).toBe(1);
+  });
+
+  it('does not render a SyncBadge for native rows', () => {
+    render(
+      <TaskGrid rows={rows} groupBy="bucket" selection={new Set()} onSelectionChange={() => {}} />,
+    );
+    expect(screen.queryByLabelText(/^Sync /)).toBeNull();
+  });
+
   it('range-selects rows on shift-click', () => {
     const onSelect = vi.fn();
     render(

@@ -122,6 +122,9 @@ export function PlanPage({
         })),
         saving: savingIds.has(t.id),
         recentlyMoved: recentlyMoved.has(t.id),
+        external_source: t.external_source,
+        sync_status: t.sync_status,
+        external_synced_at: t.external_synced_at,
       };
       const previewTask: PreviewBodyTask = {
         description: t.description ?? undefined,

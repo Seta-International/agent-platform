@@ -1,6 +1,6 @@
 import type { DraggableProvidedDragHandleProps } from '@hello-pangea/dnd';
 import type { TaskWithPlan } from '@seta/planner';
-import { AvatarStack, LabelChip } from '@seta/shared-ui';
+import { AvatarStack, LabelChip, SyncBadge } from '@seta/shared-ui';
 import { Link } from '@tanstack/react-router';
 import { Calendar, GripVertical } from 'lucide-react';
 import { deriveTaskStatus } from '../../lib/derive-task-status';
@@ -90,6 +90,13 @@ export function MtTaskRow({ task, dragHandleProps }: Props) {
         </span>
         <div className="flex items-center gap-2">
           <StatusInline status={status} />
+          {task.external_source === 'm365' && (
+            <SyncBadge
+              state={task.sync_status ?? null}
+              synced_at={task.external_synced_at ?? null}
+              size="mini"
+            />
+          )}
           {daysLate !== undefined && daysLate > 0 ? (
             <span className="text-[11px] text-danger font-medium">· {daysLate}d late</span>
           ) : null}

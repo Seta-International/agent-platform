@@ -116,6 +116,9 @@ export function PlanGridPage({
           assignees: t.assignees.map((a) => ({ id: a.user_id, name: a.display_name })),
           due: t.due_at,
           labels: t.labels.map((l) => ({ id: l.id, name: l.name })),
+          external_source: t.external_source,
+          sync_status: t.sync_status,
+          external_synced_at: t.external_synced_at,
         },
       ];
     });

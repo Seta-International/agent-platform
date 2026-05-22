@@ -36,6 +36,8 @@ function fxTask(over: Partial<MyTasksRowTask> = {}): MyTasksRowTask {
     external_id: null,
     external_etag: null,
     external_synced_at: null,
+    sync_status: 'idle',
+    last_error: null,
     created_by: 'u',
     created_at: '',
     updated_at: '',
@@ -138,5 +140,25 @@ describe('MtTaskRow', () => {
   it('reads priority_number for the chip (not a dropped priority field)', async () => {
     renderInRouter(<MtTaskRow task={fxTask({ priority_number: 9 })} />);
     expect(await screen.findByText('Low')).toBeInTheDocument();
+  });
+
+  it('renders a mini SyncBadge when external_source is m365', async () => {
+    renderInRouter(
+      <MtTaskRow
+        task={fxTask({
+          external_source: 'm365',
+          sync_status: 'idle',
+          external_synced_at: '2026-05-22T00:00:00.000Z',
+        })}
+      />,
+    );
+    const badge = await screen.findByLabelText('Sync idle');
+    expect(badge).toBeInTheDocument();
+    expect(badge.getAttribute('data-sync-badge-mini')).toBe('true');
+  });
+
+  it('does not render a SyncBadge for native tasks', async () => {
+    renderInRouter(<MtTaskRow task={fxTask()} />);
+    expect(screen.queryByLabelText(/^Sync /)).toBeNull();
   });
 });

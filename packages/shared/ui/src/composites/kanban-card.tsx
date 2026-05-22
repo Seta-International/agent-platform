@@ -2,6 +2,7 @@ import type { ButtonHTMLAttributes, CSSProperties, ReactNode } from 'react';
 import { AvatarStack } from './avatar-stack';
 import { LabelChip } from './label-chip';
 import { PriorityIcon } from './priority-icon';
+import { SyncBadge, type SyncState } from './sync-badge';
 
 export interface KanbanCardTask {
   id: string;
@@ -13,6 +14,9 @@ export interface KanbanCardTask {
   recentlyMoved?: boolean;
   saving?: boolean;
   blocked?: boolean;
+  external_source?: 'native' | 'm365';
+  sync_status?: SyncState | null;
+  external_synced_at?: string | null;
 }
 
 export interface KanbanCardProps {
@@ -76,6 +80,15 @@ export function KanbanCard({ task, onOpen, selected, previewSlot, draggable }: K
           aria-hidden="true"
           className="kanban-card__saving-dot"
         />
+      )}
+      {task.external_source === 'm365' && (
+        <span style={{ position: 'absolute', right: 8, top: 8 }}>
+          <SyncBadge
+            state={task.sync_status ?? null}
+            synced_at={task.external_synced_at ?? null}
+            size="mini"
+          />
+        </span>
       )}
     </button>
   );

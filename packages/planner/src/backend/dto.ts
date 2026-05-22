@@ -141,6 +141,8 @@ export interface TaskRow {
   external_id: string | null;
   external_etag: string | null;
   external_synced_at: string | null;
+  sync_status: 'idle' | 'pulling' | 'pushing' | 'error' | 'conflict';
+  last_error: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;

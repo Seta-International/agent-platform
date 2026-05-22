@@ -66,4 +66,36 @@ describe('KanbanCard', () => {
     const { container } = render(<KanbanCard task={task} draggable={{}} />);
     expect(container.querySelector('[data-role="preview-slot"]')).toBeNull();
   });
+
+  it('renders a mini SyncBadge when external_source is m365', () => {
+    render(
+      <KanbanCard
+        task={{
+          ...task,
+          external_source: 'm365',
+          sync_status: 'idle',
+          external_synced_at: '2026-05-22T00:00:00.000Z',
+        }}
+        draggable={{}}
+      />,
+    );
+    const badge = screen.getByLabelText('Sync idle');
+    expect(badge).toBeInTheDocument();
+    expect(badge.getAttribute('data-sync-badge-mini')).toBe('true');
+  });
+
+  it('does not render a SyncBadge when external_source is native', () => {
+    render(
+      <KanbanCard
+        task={{ ...task, external_source: 'native', sync_status: 'idle' }}
+        draggable={{}}
+      />,
+    );
+    expect(screen.queryByLabelText(/^Sync /)).toBeNull();
+  });
+
+  it('does not render a SyncBadge when external_source is undefined', () => {
+    render(<KanbanCard task={task} draggable={{}} />);
+    expect(screen.queryByLabelText(/^Sync /)).toBeNull();
+  });
 });

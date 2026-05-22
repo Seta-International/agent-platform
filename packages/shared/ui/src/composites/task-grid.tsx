@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from '../primitives/popover';
+import { SyncBadge, type SyncState } from './sync-badge';
 
 export interface TaskGridRow {
   id: string;
@@ -11,6 +12,9 @@ export interface TaskGridRow {
   assignees: Array<{ id: string; name: string }>;
   due: string | null;
   labels: Array<{ id: string; name: string }>;
+  external_source?: 'native' | 'm365';
+  sync_status?: SyncState | null;
+  external_synced_at?: string | null;
 }
 
 export type GroupBy = 'bucket' | 'assignee' | 'priority' | 'due' | 'label';
@@ -129,14 +133,23 @@ export function TaskGrid({
                       onCancel={() => setEditing(null)}
                     />
                   ) : (
-                    <button
-                      type="button"
-                      aria-label={`Edit title: ${r.title}`}
-                      className="task-grid__title-trigger"
-                      onClick={() => setEditing({ taskId: r.id, field: 'title' })}
-                    >
-                      {r.title}
-                    </button>
+                    <span className="inline-flex items-center gap-2">
+                      <button
+                        type="button"
+                        aria-label={`Edit title: ${r.title}`}
+                        className="task-grid__title-trigger"
+                        onClick={() => setEditing({ taskId: r.id, field: 'title' })}
+                      >
+                        {r.title}
+                      </button>
+                      {r.external_source === 'm365' && (
+                        <SyncBadge
+                          state={r.sync_status ?? null}
+                          synced_at={r.external_synced_at ?? null}
+                          size="mini"
+                        />
+                      )}
+                    </span>
                   )}
                 </td>
                 <td>
