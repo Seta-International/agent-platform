@@ -43,6 +43,7 @@ interface WalkResult {
   nodes: Node<AnyNodeData>[];
   edges: Edge[];
   outIds: string[];
+  inHeads: string[];
 }
 
 interface WalkCtx {
@@ -72,6 +73,7 @@ function walkOne(step: SerializedStep, ctx: WalkCtx): WalkResult {
         ],
         edges: [],
         outIds: [id],
+        inHeads: [id],
       };
     }
     case 'conditional': {
@@ -84,7 +86,7 @@ function walkOne(step: SerializedStep, ctx: WalkCtx): WalkResult {
         status: ctx.context[id]?.status ?? 'pending',
         predicates,
       });
-      const out: WalkResult = { nodes: [node], edges: [], outIds: [] };
+      const out: WalkResult = { nodes: [node], edges: [], outIds: [], inHeads: [id] };
       for (let i = 0; i < branches.length; i++) {
         const branch = branches[i]!;
         const inner = walkOne(branch.step, ctx);
@@ -104,8 +106,34 @@ function walkOne(step: SerializedStep, ctx: WalkCtx): WalkResult {
       }
       return out;
     }
+    case 'parallel': {
+      const id = (step as { id?: string }).id ?? 'par';
+      const branches = (step as { steps?: SerializedStep[] }).steps ?? [];
+      const afterId = `${id}__after`;
+      const afterNode = makeNode<NodeBaseData>(afterId, 'after-node', {
+        stepId: afterId,
+        status: ctx.context[id]?.status ?? 'pending',
+      });
+      const out: WalkResult = { nodes: [], edges: [], outIds: [afterId], inHeads: [] };
+      for (const branch of branches) {
+        const inner = walkOne(branch, ctx);
+        out.nodes.push(...inner.nodes);
+        out.edges.push(...inner.edges);
+        out.inHeads.push(...inner.inHeads);
+        for (const tail of inner.outIds) {
+          out.edges.push({
+            id: `${tail}->${afterId}`,
+            source: tail,
+            target: afterId,
+            ...EDGE_DEFAULTS,
+          });
+        }
+      }
+      out.nodes.push(afterNode);
+      return out;
+    }
     default:
-      return { nodes: [], edges: [], outIds: [] };
+      return { nodes: [], edges: [], outIds: [], inHeads: [] };
   }
 }
 
@@ -147,9 +175,10 @@ export function buildWorkflowGraph(snapshot: unknown): {
     if (r.nodes.length === 0) continue;
     nodes.push(...r.nodes);
     edges.push(...r.edges);
-    const headId = r.nodes[0]!.id;
     for (const src of prevOutIds) {
-      edges.push({ id: `${src}->${headId}`, source: src, target: headId, ...EDGE_DEFAULTS });
+      for (const head of r.inHeads) {
+        edges.push({ id: `${src}->${head}`, source: src, target: head, ...EDGE_DEFAULTS });
+      }
     }
     prevOutIds = r.outIds;
   }

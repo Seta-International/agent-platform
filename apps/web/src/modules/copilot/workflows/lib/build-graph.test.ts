@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { conditionalSnapshot, linearSnapshot } from './__fixtures__/snapshots.ts';
+import { conditionalSnapshot, linearSnapshot, parallelSnapshot } from './__fixtures__/snapshots.ts';
 import { buildWorkflowGraph } from './build-graph.ts';
 
 describe('buildWorkflowGraph', () => {
@@ -63,5 +63,22 @@ describe('buildWorkflowGraph', () => {
     expect(branchEdges).toHaveLength(2);
     expect(branchEdges.map((e) => e.target).sort()).toEqual(['cold', 'hot']);
     expect(out.edges.find((e) => e.source === 'classify' && e.target === 'route')).toBeDefined();
+  });
+
+  it('parallel fans out N edges and joins on an after-node', () => {
+    const out = buildWorkflowGraph(parallelSnapshot);
+    const ids = out.nodes.map((n) => n.id).sort();
+    expect(ids).toContain('p1');
+    expect(ids).toContain('p2');
+    expect(ids).toContain('join');
+    const after = out.nodes.find((n) => n.type === 'after-node');
+    expect(after).toBeDefined();
+    expect(
+      out.edges
+        .filter((e) => e.target === after!.id)
+        .map((e) => e.source)
+        .sort(),
+    ).toEqual(['p1', 'p2']);
+    expect(out.edges.find((e) => e.source === after!.id && e.target === 'join')).toBeDefined();
   });
 });
