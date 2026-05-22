@@ -614,6 +614,26 @@ async function unlinkGroupFromM365(input: { groupId: string }): Promise<GroupRow
   })) as GroupRow;
 }
 
+async function refreshPlanSync(input: { planId: string }): Promise<{ ok: true }> {
+  return (await request<{ ok: true }>(`/api/planner/v1/plans/${input.planId}/refresh-sync`, {
+    method: 'POST',
+  })) as { ok: true };
+}
+
+type PlanConflictDecision =
+  | { kind: 'plan'; field: string; choice: 'local' | 'remote' }
+  | { kind: 'task'; task_id: string; field: string; choice: 'local' | 'remote' };
+
+async function resolvePlanConflicts(input: {
+  planId: string;
+  decisions: PlanConflictDecision[];
+}): Promise<{ applied: number }> {
+  return (await request<{ applied: number }>(
+    `/api/planner/v1/plans/${input.planId}/resolve-conflicts`,
+    { method: 'POST', body: JSON.stringify({ decisions: input.decisions }) },
+  )) as { applied: number };
+}
+
 async function refreshGroupSync(input: { groupId: string }): Promise<{ ok: true }> {
   return (await request<{ ok: true }>(`/api/integrations/m365/groups/${input.groupId}/refresh`, {
     method: 'POST',
@@ -711,4 +731,6 @@ export const plannerClient = {
   refreshGroupSync,
   resolveGroupConflict,
   getGroupSyncStatus,
+  refreshPlanSync,
+  resolvePlanConflicts,
 } as const;

@@ -152,7 +152,7 @@ export function buildServerApp(
   registerTenantSettingsRoutes(app);
   registerKnowledgeRoutes(app, { workers: deps.workers });
   registerPlannerGroupsRoutes(app);
-  registerPlannerPlansRoutes(app);
+  registerPlannerPlansRoutes(app, { workers: deps.m365Workers });
   registerPlannerBucketsRoutes(app);
   registerPlannerTasksRoutes(app);
   registerNotificationsRoutes(app, deps.notificationStreamHub ?? new NotificationStreamHub());
@@ -199,7 +199,9 @@ export function handleServerError(err: Error, c: Context): Response {
                       ? 409
                       : err.code === 'RESERVED_FOR_SYSTEM_ACTOR'
                         ? 403
-                        : 400;
+                        : err.code === 'PLAN_NOT_LINKED'
+                          ? 409
+                          : 400;
     return c.json({ error: err.code, message: err.message, details: err.details }, status);
   }
   if (err instanceof IdentityError) {

@@ -247,6 +247,31 @@ describe('plannerClient', () => {
     expect(result.sync_status).toBeNull();
   });
 
+  it('refreshPlanSync POST /api/planner/v1/plans/:id/refresh-sync returns { ok: true }', async () => {
+    server.use(
+      http.post('*/api/planner/v1/plans/p1/refresh-sync', () => HttpResponse.json({ ok: true })),
+    );
+    const result = await plannerClient.refreshPlanSync({ planId: 'p1' });
+    expect(result).toEqual({ ok: true });
+  });
+
+  it('resolvePlanConflicts POST sends decisions array and returns { applied }', async () => {
+    let captured: unknown;
+    server.use(
+      http.post('*/api/planner/v1/plans/p1/resolve-conflicts', async ({ request }) => {
+        captured = await request.json();
+        return HttpResponse.json({ applied: 2 });
+      }),
+    );
+    const decisions = [
+      { kind: 'plan' as const, field: 'name', choice: 'local' as const },
+      { kind: 'task' as const, task_id: 't1', field: 'title', choice: 'remote' as const },
+    ];
+    const result = await plannerClient.resolvePlanConflicts({ planId: 'p1', decisions });
+    expect(captured).toEqual({ decisions });
+    expect(result.applied).toBe(2);
+  });
+
   it('addTaskReference POSTs /api/planner/v1/tasks/:id/references with url/alias/type', async () => {
     let captured: unknown;
     server.use(

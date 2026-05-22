@@ -1,4 +1,5 @@
 import type { SessionEnv } from '@seta/core';
+import type { WorkerHandle } from '@seta/core/workers';
 import {
   countTasksByCategorySlot,
   createLabel,
@@ -9,6 +10,8 @@ import {
   listGroupPlansWithRollups,
   listLabels,
   listPlans,
+  refreshPlanSync,
+  resolvePlanConflicts,
   restorePlan,
   setCategoryDescriptions,
   updateLabel,
@@ -16,6 +19,26 @@ import {
 } from '@seta/planner';
 import type { Hono } from 'hono';
 import { z } from 'zod';
+
+interface PlannerPlansDeps {
+  workers: WorkerHandle;
+}
+
+const decisionsSchema = z.array(
+  z.discriminatedUnion('kind', [
+    z.object({
+      kind: z.literal('plan'),
+      field: z.string(),
+      choice: z.enum(['local', 'remote']),
+    }),
+    z.object({
+      kind: z.literal('task'),
+      task_id: z.string(),
+      field: z.string(),
+      choice: z.enum(['local', 'remote']),
+    }),
+  ]),
+);
 
 const createSchema = z.object({
   group_id: z.string().uuid(),
@@ -49,7 +72,37 @@ const setCategoriesSchema = z.object({
   ),
 });
 
-export function registerPlannerPlansRoutes(app: Hono<SessionEnv>): void {
+export function registerPlannerPlansRoutes(
+  app: Hono<SessionEnv>,
+  deps?: { workers?: WorkerHandle },
+): void {
+  if (deps?.workers) {
+    const workers = deps.workers as PlannerPlansDeps['workers'];
+
+    app.post('/api/planner/v1/plans/:id/refresh-sync', async (c) => {
+      const session = c.get('user');
+      await refreshPlanSync(
+        { plan_id: c.req.param('id'), session },
+        { enqueuePlanPull: (p) => workers.addJob('m365.plan.pull', p) },
+      );
+      return c.json({ ok: true });
+    });
+
+    app.post('/api/planner/v1/plans/:id/resolve-conflicts', async (c) => {
+      const session = c.get('user');
+      const parsed = decisionsSchema.safeParse(
+        (await c.req.json().catch(() => ({}))).decisions ?? null,
+      );
+      if (!parsed.success)
+        return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
+      const { applied } = await resolvePlanConflicts(
+        { plan_id: c.req.param('id'), decisions: parsed.data, session },
+        { enqueuePlanPush: (p) => workers.addJob('m365.plan.push', p) },
+      );
+      return c.json({ applied });
+    });
+  }
+
   app.get('/api/planner/v1/plans', async (c) => {
     const session = c.get('user');
     const group_id = c.req.query('group_id') ?? undefined;
