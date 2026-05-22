@@ -47,6 +47,11 @@ export type {
 export { listUserSessions } from './backend/domain/list-user-sessions.ts';
 export type { AdminUserRow, ListUsersOpts } from './backend/domain/list-users.ts';
 export { listUsers } from './backend/domain/list-users.ts';
+export type {
+  ListUsersForBackfillInput,
+  UserBackfillRow,
+} from './backend/domain/list-users-for-embedding-backfill.ts';
+export { listUsersForBackfill } from './backend/domain/list-users-for-embedding-backfill.ts';
 export type { MatchUsersToTopicInput, UserMatch } from './backend/domain/match-users-to-topic.ts';
 export { matchUsersToTopic } from './backend/domain/match-users-to-topic.ts';
 export { reactivateUser } from './backend/domain/reactivate-user.ts';
