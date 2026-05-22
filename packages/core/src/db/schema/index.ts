@@ -1,4 +1,5 @@
 export * from './events.ts';
+export * from './notification-prefs.ts';
 export * from './notifications.ts';
 export * from './outgoing-emails.ts';
 export * from './rpc-idempotency.ts';
