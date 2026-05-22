@@ -16,6 +16,9 @@ describe('plannerKeys', () => {
     expect(plannerKeys.taskChecklist('t1')).toEqual(['planner', 'task', 't1', 'checklist']);
     expect(plannerKeys.planCategories('p1')).toEqual(['planner', 'plan', 'p1', 'categories']);
     expect(plannerKeys.trash()).toEqual(['planner', 'trash']);
+    expect(plannerKeys.planSyncStatus('p1')).toEqual(['planner', 'plan', 'p1', 'syncStatus']);
+    expect(plannerKeys.planConflicts('p1')).toEqual(['planner', 'plan', 'p1', 'conflicts']);
+    expect(plannerKeys.taskSyncStatus('t1')).toEqual(['planner', 'task', 't1', 'syncStatus']);
   });
 
   it('planTasks serializes filters deterministically', () => {

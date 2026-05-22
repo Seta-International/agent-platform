@@ -362,6 +362,45 @@ export function applyPlannerEvent(qc: QueryClient, event: StreamEvent): void {
         qc.invalidateQueries({ queryKey: plannerKeys.planLabels(planId) });
       }
       return;
+
+    case 'planner.plan.sync-status-changed.v1':
+      if (planId) {
+        qc.invalidateQueries({ queryKey: plannerKeys.planSyncStatus(planId) });
+        qc.invalidateQueries({ queryKey: plannerKeys.plan(planId) });
+      }
+      return;
+
+    case 'planner.task.sync-status-changed.v1':
+      if (taskId) {
+        qc.invalidateQueries({ queryKey: plannerKeys.taskSyncStatus(taskId) });
+        qc.invalidateQueries({ queryKey: plannerKeys.task(taskId) });
+        if (planId) qc.invalidateQueries({ queryKey: tasksKey(planId) });
+      }
+      return;
+
+    case 'integrations.m365.plan.field-conflict.v1':
+      if (planId) {
+        qc.invalidateQueries({ queryKey: plannerKeys.planConflicts(planId) });
+        qc.invalidateQueries({ queryKey: plannerKeys.planSyncStatus(planId) });
+      }
+      return;
+
+    case 'integrations.m365.task.field-conflict.v1':
+      if (planId) qc.invalidateQueries({ queryKey: plannerKeys.planConflicts(planId) });
+      if (taskId) {
+        qc.invalidateQueries({ queryKey: plannerKeys.taskSyncStatus(taskId) });
+        qc.invalidateQueries({ queryKey: plannerKeys.task(taskId) });
+      }
+      return;
+
+    case 'planner.plan.conflict-resolved.v1':
+      if (planId) {
+        qc.invalidateQueries({ queryKey: plannerKeys.planConflicts(planId) });
+        qc.invalidateQueries({ queryKey: plannerKeys.planSyncStatus(planId) });
+        qc.invalidateQueries({ queryKey: plannerKeys.plan(planId) });
+        qc.invalidateQueries({ queryKey: tasksKey(planId) });
+      }
+      return;
   }
 }
 

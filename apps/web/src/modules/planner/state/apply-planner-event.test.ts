@@ -616,6 +616,117 @@ describe('applyPlannerEvent', () => {
     });
   });
 
+  describe('planner.plan.sync-status-changed.v1', () => {
+    it('invalidates planSyncStatus and plan', () => {
+      const spy = vi.spyOn(qc, 'invalidateQueries');
+      applyPlannerEvent(
+        qc,
+        makeEvent({
+          id: 'e-plan-sync',
+          eventType: 'planner.plan.sync-status-changed.v1',
+          aggregateType: 'planner.plan',
+          payload: {
+            actor: { type: 'system', system_id: 'integrations.m365' },
+            plan_id: PLAN,
+            after_status: 'idle',
+          },
+        }),
+      );
+      expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.planSyncStatus(PLAN) });
+      expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.plan(PLAN) });
+    });
+  });
+
+  describe('planner.task.sync-status-changed.v1', () => {
+    it('invalidates taskSyncStatus, task, and tasksKey when plan_id present', () => {
+      const spy = vi.spyOn(qc, 'invalidateQueries');
+      applyPlannerEvent(
+        qc,
+        makeEvent({
+          id: 'e-task-sync',
+          eventType: 'planner.task.sync-status-changed.v1',
+          aggregateType: 'planner.task',
+          payload: {
+            actor: { type: 'system', system_id: 'integrations.m365' },
+            task_id: 't1',
+            plan_id: PLAN,
+            after_status: 'idle',
+          },
+        }),
+      );
+      expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.taskSyncStatus('t1') });
+      expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.task('t1') });
+      expect(spy).toHaveBeenCalledWith({ queryKey: tasksKey });
+    });
+  });
+
+  describe('integrations.m365.plan.field-conflict.v1', () => {
+    it('invalidates planConflicts and planSyncStatus', () => {
+      const spy = vi.spyOn(qc, 'invalidateQueries');
+      applyPlannerEvent(
+        qc,
+        makeEvent({
+          id: 'e-plan-conflict',
+          eventType: 'integrations.m365.plan.field-conflict.v1',
+          aggregateType: 'planner.plan',
+          payload: {
+            actor: { type: 'system', system_id: 'integrations.m365' },
+            plan_id: PLAN,
+            field: 'title',
+          },
+        }),
+      );
+      expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.planConflicts(PLAN) });
+      expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.planSyncStatus(PLAN) });
+    });
+  });
+
+  describe('integrations.m365.task.field-conflict.v1', () => {
+    it('invalidates planConflicts, taskSyncStatus, and task', () => {
+      const spy = vi.spyOn(qc, 'invalidateQueries');
+      applyPlannerEvent(
+        qc,
+        makeEvent({
+          id: 'e-task-conflict',
+          eventType: 'integrations.m365.task.field-conflict.v1',
+          aggregateType: 'planner.task',
+          payload: {
+            actor: { type: 'system', system_id: 'integrations.m365' },
+            plan_id: PLAN,
+            task_id: 't1',
+            field: 'title',
+          },
+        }),
+      );
+      expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.planConflicts(PLAN) });
+      expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.taskSyncStatus('t1') });
+      expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.task('t1') });
+    });
+  });
+
+  describe('planner.plan.conflict-resolved.v1', () => {
+    it('invalidates planConflicts, planSyncStatus, plan, and tasksKey', () => {
+      const spy = vi.spyOn(qc, 'invalidateQueries');
+      applyPlannerEvent(
+        qc,
+        makeEvent({
+          id: 'e-conflict-resolved',
+          eventType: 'planner.plan.conflict-resolved.v1',
+          aggregateType: 'planner.plan',
+          payload: {
+            actor: { type: 'system', system_id: 'integrations.m365' },
+            plan_id: PLAN,
+            resolved_field: 'title',
+          },
+        }),
+      );
+      expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.planConflicts(PLAN) });
+      expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.planSyncStatus(PLAN) });
+      expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.plan(PLAN) });
+      expect(spy).toHaveBeenCalledWith({ queryKey: tasksKey });
+    });
+  });
+
   describe('myTasks invalidation on planner.task.* events', () => {
     it.each([
       ['planner.task.created'],
