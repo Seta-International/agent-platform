@@ -18,6 +18,7 @@ import { createMiddleware } from 'hono/factory';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import type { Pool } from 'pg';
 import type { BoardStreamHub } from './board-stream/hub.ts';
+import { NotificationStreamHub } from './notifications-stream/hub.ts';
 import { registerAdminAuditRoutes } from './routes/admin-audit.ts';
 import { registerAdminUsersRoutes } from './routes/admin-users.ts';
 import { registerCredentialGate } from './routes/credential-gate.ts';
@@ -25,6 +26,7 @@ import { registerDiscoverRoute } from './routes/discover.ts';
 import { registerIntegrationsM365Routes } from './routes/integrations-m365.ts';
 import { registerKnowledgeRoutes } from './routes/knowledge.ts';
 import { registerMeRoute } from './routes/me.ts';
+import { registerNotificationsRoutes } from './routes/notifications.ts';
 import { registerPlannerBoardStreamRoutes } from './routes/planner-board-stream.ts';
 import { registerPlannerBucketsRoutes } from './routes/planner-buckets.ts';
 import { registerPlannerGroupsRoutes } from './routes/planner-groups.ts';
@@ -42,6 +44,7 @@ export type BuildServerAppDeps = {
   databaseUrl: string;
   readinessSnapshot?: () => { lastTickAt: Date };
   boardStreamHub?: BoardStreamHub;
+  notificationStreamHub?: NotificationStreamHub;
   m365GraphClientFor?: (tenantId: string) => Promise<Client>;
   m365Workers?: WorkerHandle;
   m365LinksRepo?: m365.M365GroupLinkRepo;
@@ -146,6 +149,7 @@ export function buildServerApp(
   registerPlannerPlansRoutes(app);
   registerPlannerBucketsRoutes(app);
   registerPlannerTasksRoutes(app);
+  registerNotificationsRoutes(app, deps.notificationStreamHub ?? new NotificationStreamHub());
   if (deps.boardStreamHub) {
     registerPlannerBoardStreamRoutes(app, deps.boardStreamHub);
   }
