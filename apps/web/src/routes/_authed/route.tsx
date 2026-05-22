@@ -1,9 +1,12 @@
 import { AppShell, type ShellLinkProps } from '@seta/shared-ui';
 import { createFileRoute, Link, Outlet, redirect, useRouterState } from '@tanstack/react-router';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { fetchMe } from '@/modules/identity/api/client.ts';
 import { SessionProvider } from '@/modules/identity/components/SessionProvider.tsx';
 import { UserMenu } from '@/modules/identity/components/UserMenu.tsx';
+import { NotificationDrawerContainer } from '@/modules/notifications/components/NotificationDrawerContainer.tsx';
+import { useNotificationStream } from '@/modules/notifications/hooks/useNotificationStream.ts';
+import { useUnreadCount } from '@/modules/notifications/hooks/useUnreadCount.ts';
 import { useRecentPlans } from '@/modules/planner/hooks/use-recent-plans.ts';
 import { activeNavId, buildNavModules } from './-nav';
 
@@ -29,6 +32,10 @@ function AuthedLayout() {
   const { recents } = useRecentPlans(session.tenant_id);
   const navModules = useMemo(() => buildNavModules(recents), [recents]);
 
+  useNotificationStream(true);
+  const { count: notificationCount } = useUnreadCount();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
   return (
     <SessionProvider session={session}>
       <AppShell
@@ -38,9 +45,12 @@ function AuthedLayout() {
         linkComponent={ShellLink}
         userMenu={<UserMenu />}
         hideCopilot={pathname.startsWith('/copilot/')}
+        notificationCount={notificationCount}
+        onBellClick={() => setDrawerOpen(true)}
       >
         <Outlet />
       </AppShell>
+      <NotificationDrawerContainer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
     </SessionProvider>
   );
 }
