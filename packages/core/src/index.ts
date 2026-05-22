@@ -23,10 +23,15 @@ export {
 export {
   CORE_NOTIFICATION_REQUESTED,
   type CoreNotificationRequestedPayload,
+  dismissNotification,
   getUnreadCount,
   type ListNotificationsInput,
   listNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
   type Notification,
+  type NotificationMutationResult,
+  NotificationNotFound,
   type RequestNotificationInput,
   requestNotification,
 } from './notifications/index.ts';
