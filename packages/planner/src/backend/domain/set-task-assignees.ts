@@ -6,7 +6,7 @@ import { emitPlannerTaskAssigned, emitPlannerTaskUnassigned } from '../../events
 import type { SetTaskAssigneesInput } from '../inputs.ts';
 import { withSpan } from '../observability.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
-import { hintsForN } from './order-hint.ts';
+import { hintsForN, type PlanExternalSource } from './order-hint.ts';
 
 export async function setTaskAssignees(
   input: SetTaskAssigneesInput & { session: SessionScope },
@@ -66,7 +66,10 @@ async function setTaskAssigneesImpl(
         if (!existingIds.has(a.user_id)) addedIndices.push(i);
       });
 
-      const generatedHints = hintsForN(input.assignees.length);
+      const generatedHints = hintsForN(
+        input.assignees.length,
+        plan.external_source as PlanExternalSource,
+      );
 
       if (addedIndices.length > 0) {
         const values = addedIndices.map((i) => {

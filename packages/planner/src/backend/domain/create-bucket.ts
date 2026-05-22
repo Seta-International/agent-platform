@@ -6,7 +6,7 @@ import { emitPlannerBucketCreated } from '../../events/emit-helpers.ts';
 import type { BucketRow, TaskExternalSource } from '../dto.ts';
 import type { CreateBucketInput } from '../inputs.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
-import { hintBetween } from './order-hint.ts';
+import { hintBetween, type PlanExternalSource } from './order-hint.ts';
 
 type BucketDbRow = typeof buckets.$inferSelect;
 
@@ -42,6 +42,7 @@ export async function createBucket(
         .where(and(eq(buckets.plan_id, input.plan_id), isNull(buckets.deleted_at)))
         .orderBy(sql`order_hint NULLS LAST`);
 
+      const planSource = plan.external_source as PlanExternalSource;
       let orderHint: string;
       if (input.after_bucket_id !== undefined) {
         const afterIdx = existingBuckets.findIndex((b) => b.id === input.after_bucket_id);
@@ -53,10 +54,10 @@ export async function createBucket(
         // biome-ignore lint/style/noNonNullAssertion: index verified above
         const afterBucket = existingBuckets[afterIdx]!;
         const nextBucket = existingBuckets[afterIdx + 1];
-        orderHint = hintBetween(afterBucket.order_hint, nextBucket?.order_hint ?? null);
+        orderHint = hintBetween(afterBucket.order_hint, nextBucket?.order_hint ?? null, planSource);
       } else {
         const lastBucket = existingBuckets[existingBuckets.length - 1];
-        orderHint = hintBetween(lastBucket?.order_hint ?? null, null);
+        orderHint = hintBetween(lastBucket?.order_hint ?? null, null, planSource);
       }
 
       const [row] = await tx

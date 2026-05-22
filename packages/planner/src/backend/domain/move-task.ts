@@ -9,7 +9,7 @@ import type { MoveTaskInput } from '../inputs.ts';
 import { withSpan } from '../observability.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 import { taskRowToDto } from './_task-dto.ts';
-import { hintBetween, hintsForN } from './order-hint.ts';
+import { hintBetween, hintsForN, type PlanExternalSource } from './order-hint.ts';
 
 type TaskDbRow = typeof tasks.$inferSelect;
 
@@ -120,14 +120,15 @@ async function moveTaskImpl(input: MoveTaskInput & { session: SessionScope }): P
       const now = new Date();
       const versionAfter = existing.version + 1;
 
+      const planSource = plan.external_source as PlanExternalSource;
       try {
-        newHint = hintBetween(prev?.order_hint ?? null, next?.order_hint ?? null);
+        newHint = hintBetween(prev?.order_hint ?? null, next?.order_hint ?? null, planSource);
       } catch {
         // Collision: rebalance the whole target bucket.
         const seq = [...others];
         const insertIdx = next ? seq.indexOf(next) : seq.length;
         seq.splice(insertIdx, 0, existing);
-        const fresh = hintsForN(seq.length);
+        const fresh = hintsForN(seq.length, planSource);
         for (let i = 0; i < seq.length; i++) {
           const t = seq[i];
           const h = fresh[i];

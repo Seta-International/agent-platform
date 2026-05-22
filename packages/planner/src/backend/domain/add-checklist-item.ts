@@ -6,7 +6,7 @@ import { emitPlannerChecklistItemAdded } from '../../events/emit-helpers.ts';
 import type { ChecklistItemRow } from '../dto.ts';
 import type { AddChecklistItemInput } from '../inputs.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
-import { hintBetween } from './order-hint.ts';
+import { hintBetween, type PlanExternalSource } from './order-hint.ts';
 
 type ChecklistItemDbRow = typeof checklistItems.$inferSelect;
 
@@ -47,6 +47,7 @@ export async function addChecklistItem(
         .where(eq(checklistItems.task_id, input.task_id))
         .orderBy(sql`order_hint NULLS LAST`);
 
+      const planSource = plan.external_source as PlanExternalSource;
       let orderHint: string;
       if (input.after_item_id !== undefined) {
         const afterItem = existingItems.find((i) => i.id === input.after_item_id);
@@ -58,10 +59,10 @@ export async function addChecklistItem(
         }
         const afterIndex = existingItems.indexOf(afterItem);
         const nextItem = existingItems[afterIndex + 1];
-        orderHint = hintBetween(afterItem.order_hint, nextItem?.order_hint ?? null);
+        orderHint = hintBetween(afterItem.order_hint, nextItem?.order_hint ?? null, planSource);
       } else {
         const last = existingItems[existingItems.length - 1];
-        orderHint = hintBetween(last?.order_hint ?? null, null);
+        orderHint = hintBetween(last?.order_hint ?? null, null, planSource);
       }
 
       const [row] = await tx
