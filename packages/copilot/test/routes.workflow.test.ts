@@ -247,6 +247,67 @@ describe('POST /api/copilot/v1/workflows/runs/:runId/rerun', () => {
   });
 });
 
+describe('POST /api/copilot/v1/workflows/runs/:runId/replay-from-step', () => {
+  it('returns 200 with newRunId on happy path', async () => {
+    await withCopilotTestDb(async ({ pool }) => {
+      const me = session(['copilot.workflow.run.read.self', 'copilot.workflow.run.execute.self']);
+      const runId = randomUUID();
+      await seed(pool, { runId, tenantId: me.tenant_id, startedBy: me.user_id });
+      const timeTravel = vi.fn().mockResolvedValue({ status: 'success' });
+      const mastra = {
+        getWorkflow: () => ({
+          createRun: async ({ runId: r }: { runId?: string } = {}) => ({
+            runId: r ?? randomUUID(),
+            timeTravel,
+          }),
+        }),
+      } as unknown as Mastra;
+      const app = makeApp(me, mastra, pool);
+      const res = await app.request(`/api/copilot/v1/workflows/runs/${runId}/replay-from-step`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stepId: 'b', payload: { x: 2 } }),
+      });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { newRunId: string };
+      expect(body.newRunId).toBe(runId);
+      expect(timeTravel).toHaveBeenCalledWith(
+        expect.objectContaining({ step: 'b', inputData: { x: 2 } }),
+      );
+    });
+  });
+
+  it('returns 400 on missing stepId', async () => {
+    await withCopilotTestDb(async ({ pool }) => {
+      const me = session(['copilot.workflow.run.read.self', 'copilot.workflow.run.execute.self']);
+      const runId = randomUUID();
+      await seed(pool, { runId, tenantId: me.tenant_id, startedBy: me.user_id });
+      const app = makeApp(me, makeMastra(vi.fn()), pool);
+      const res = await app.request(`/api/copilot/v1/workflows/runs/${runId}/replay-from-step`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payload: {} }),
+      });
+      expect(res.status).toBe(400);
+    });
+  });
+
+  it('returns 401 without a session', async () => {
+    await withCopilotTestDb(async ({ pool }) => {
+      const app = makeApp(null, makeMastra(vi.fn()), pool);
+      const res = await app.request(
+        `/api/copilot/v1/workflows/runs/${randomUUID()}/replay-from-step`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ stepId: 'b' }),
+        },
+      );
+      expect(res.status).toBe(401);
+    });
+  });
+});
+
 describe('POST /api/copilot/v1/workflows/runs/:runId/cancel', () => {
   it('returns 200 and publishes workflow.cancel for own running run', async () => {
     await withCopilotTestDb(async ({ pool }) => {

@@ -12,6 +12,7 @@ import { getWorkflowRun } from './domain/get-workflow-run.ts';
 import { getWorkflowRunSnapshot } from './domain/get-workflow-run-snapshot.ts';
 import { listMyPendingApprovals } from './domain/list-my-pending-approvals.ts';
 import { listWorkflowRuns } from './domain/list-workflow-runs.ts';
+import { replayWorkflowFromStep } from './domain/replay-workflow-from-step.ts';
 import { rerunWorkflow } from './domain/rerun-workflow.ts';
 import { copilotEnv } from './env.ts';
 import { listModels, ModelNotFoundError, resolveModel } from './model-registry.ts';
@@ -635,6 +636,30 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
         session,
         runId: c.req.param('runId'),
         inputOverride: raw.inputOverride,
+        mastra: deps.mastra as Mastra,
+      });
+      return c.json(result);
+    } catch (err) {
+      return handleDomainError(c, err);
+    }
+  });
+
+  app.post('/api/copilot/v1/workflows/runs/:runId/replay-from-step', async (c) => {
+    const session = c.get('session') as SessionLike | undefined;
+    if (!session) return c.json({ error: 'unauthorized', message: 'session required' }, 401);
+    const raw = (await c.req.json().catch(() => ({}))) as {
+      stepId?: string;
+      payload?: Record<string, unknown>;
+    };
+    if (!raw.stepId || typeof raw.stepId !== 'string') {
+      return c.json({ error: 'bad_request', message: 'stepId is required' }, 400);
+    }
+    try {
+      const result = await replayWorkflowFromStep({
+        session,
+        runId: c.req.param('runId'),
+        stepId: raw.stepId,
+        payload: raw.payload ?? {},
         mastra: deps.mastra as Mastra,
       });
       return c.json(result);

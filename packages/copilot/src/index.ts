@@ -18,6 +18,11 @@ export type {
   WorkflowRunStatus,
 } from './backend/domain/list-workflow-runs.ts';
 export { listWorkflowRuns } from './backend/domain/list-workflow-runs.ts';
+export type {
+  ReplayWorkflowFromStepOpts,
+  ReplayWorkflowFromStepResult,
+} from './backend/domain/replay-workflow-from-step.ts';
+export { replayWorkflowFromStep } from './backend/domain/replay-workflow-from-step.ts';
 export type { RerunWorkflowOpts, RerunWorkflowResult } from './backend/domain/rerun-workflow.ts';
 export { rerunWorkflow } from './backend/domain/rerun-workflow.ts';
 export { embeddingJobs } from './backend/embeddings/register-jobs.ts';
