@@ -39,6 +39,16 @@ const EDGE_DEFAULTS = {
 
 type SerializedStep = { type: string; [k: string]: unknown };
 
+const seenUnknown = new Set<string>();
+function warnUnknown(type: string): void {
+  if (seenUnknown.has(type)) return;
+  seenUnknown.add(type);
+  // biome-ignore lint/suspicious/noConsole: forward-compat surface — operators need to see new step types we don't render
+  console.warn(
+    `[copilot/workflows] unknown step type '${type}' — rendered as default-node fallback`,
+  );
+}
+
 interface WalkResult {
   nodes: Node<AnyNodeData>[];
   edges: Edge[];
@@ -167,8 +177,100 @@ function walkOne(step: SerializedStep, ctx: WalkCtx): WalkResult {
       out.nodes.push(afterNode);
       return out;
     }
-    default:
-      return { nodes: [], edges: [], outIds: [], inHeads: [] };
+    case 'foreach': {
+      const id = (step as { id?: string }).id ?? 'each';
+      const inner = (step as { step: SerializedStep }).step;
+      const itemsPath = String((step as { itemsPath?: unknown }).itemsPath ?? '');
+      const innerStep = (inner as { step?: { id?: string; description?: string } }).step ?? {};
+      return {
+        nodes: [
+          makeNode<DefaultNodeData & { itemsPath: string; kind: string }>(id, 'default-node', {
+            stepId: id,
+            description: innerStep.description ?? `for each ${itemsPath}`,
+            status: ctx.context[id]?.status ?? 'pending',
+            itemsPath,
+            kind: 'foreach',
+          }),
+        ],
+        edges: [],
+        outIds: [id],
+        inHeads: [id],
+      };
+    }
+    case 'sleep': {
+      const id = (step as { id?: string }).id ?? 'sleep';
+      const duration = (step as { duration?: number }).duration;
+      const label = typeof duration === 'number' ? `${duration}ms` : 'dynamic';
+      return {
+        nodes: [
+          makeNode<NodeBaseData & { kind: string; label: string }>(id, 'control-node', {
+            stepId: id,
+            status: ctx.context[id]?.status ?? 'pending',
+            kind: 'sleep',
+            label,
+          }),
+        ],
+        edges: [],
+        outIds: [id],
+        inHeads: [id],
+      };
+    }
+    case 'waitForEvent': {
+      const id = (step as { id?: string }).id ?? 'wait';
+      const eventName = String((step as { eventName?: unknown }).eventName ?? '');
+      return {
+        nodes: [
+          makeNode<NodeBaseData & { kind: string; label: string }>(id, 'control-node', {
+            stepId: id,
+            status: ctx.context[id]?.status ?? 'pending',
+            kind: 'waitForEvent',
+            label: eventName,
+          }),
+        ],
+        edges: [],
+        outIds: [id],
+        inHeads: [id],
+      };
+    }
+    case 'nestedWorkflow': {
+      const id = (step as { id?: string }).id ?? 'nested';
+      const workflowName = String((step as { workflowName?: unknown }).workflowName ?? id);
+      const childSnapshot = (step as { child?: unknown }).child ?? null;
+      return {
+        nodes: [
+          makeNode<NodeBaseData & { workflowName: string; childSnapshot: unknown }>(
+            id,
+            'nested-node',
+            {
+              stepId: id,
+              status: ctx.context[id]?.status ?? 'pending',
+              workflowName,
+              childSnapshot,
+            },
+          ),
+        ],
+        edges: [],
+        outIds: [id],
+        inHeads: [id],
+      };
+    }
+    default: {
+      const id = (step as { id?: string }).id ?? `${step.type}-anon`;
+      warnUnknown(step.type);
+      return {
+        nodes: [
+          makeNode<DefaultNodeData & { kind: string }>(id, 'default-node', {
+            stepId: id,
+            description: `(unknown step type: ${step.type})`,
+            status: ctx.context[id]?.status ?? 'pending',
+            kind: 'unknown',
+          }),
+        ],
+        edges: [],
+        outIds: [id],
+        inHeads: [id],
+      };
+    }
   }
 }
 

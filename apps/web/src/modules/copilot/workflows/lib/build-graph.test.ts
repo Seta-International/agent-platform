@@ -1,9 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   conditionalSnapshot,
+  foreachSnapshot,
   linearSnapshot,
   loopSnapshot,
+  nestedSnapshot,
   parallelSnapshot,
+  sleepSnapshot,
+  unknownTypeSnapshot,
+  waitForEventSnapshot,
 } from './__fixtures__/snapshots.ts';
 import { buildWorkflowGraph } from './build-graph.ts';
 
@@ -42,16 +47,21 @@ describe('buildWorkflowGraph', () => {
     });
   });
 
-  it('skips non-step entries gracefully', () => {
+  it('renders unknown future types as default-node fallback (no silent drop)', () => {
     const snapshot = {
       serializedStepGraph: [
         { type: 'step', step: { id: 'a' } },
-        { type: 'sleep', id: 'wait-1' },
+        { type: 'totallyFuture', id: 'x' },
         { type: 'step', step: { id: 'b' } },
       ],
     };
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const out = buildWorkflowGraph(snapshot);
-    expect(out.nodes.map((n) => n.id)).toEqual(['a', 'b']);
+    const ids = out.nodes.map((n) => n.id);
+    expect(ids).toEqual(['a', 'x', 'b']);
+    expect(out.nodes[1]!.type).toBe('default-node');
+    expect((out.nodes[1]!.data as { kind: string }).kind).toBe('unknown');
+    warnSpy.mockRestore();
   });
 
   it('linearSnapshot still produces type:"default-node"', () => {
@@ -96,5 +106,48 @@ describe('buildWorkflowGraph', () => {
     const back = out.edges.find((e) => e.source === 'attempt' && e.target === 'retry');
     expect(back).toBeDefined();
     expect(back!.data).toMatchObject({ predicate: 'attempt.ok' });
+  });
+
+  it('foreach renders default-node with item-count badge data', () => {
+    const out = buildWorkflowGraph(foreachSnapshot);
+    const each = out.nodes.find((n) => n.id === 'each-item');
+    expect(each).toMatchObject({ type: 'default-node' });
+    expect(each!.data).toMatchObject({ itemsPath: 'items' });
+  });
+
+  it('sleep renders a control-node with mono duration text', () => {
+    const out = buildWorkflowGraph(sleepSnapshot);
+    const wait = out.nodes.find((n) => n.id === 'wait-30s');
+    expect(wait).toMatchObject({ type: 'control-node' });
+    expect(wait!.data).toMatchObject({ kind: 'sleep', label: '30000ms' });
+    expect(out.edges.some((e) => e.source === 'start' && e.target === 'wait-30s')).toBe(true);
+    expect(out.edges.some((e) => e.source === 'wait-30s' && e.target === 'after-wait')).toBe(true);
+  });
+
+  it('waitForEvent renders a control-node tagged with the event name', () => {
+    const out = buildWorkflowGraph(waitForEventSnapshot);
+    const wait = out.nodes.find((n) => n.id === 'wait-approval');
+    expect(wait).toMatchObject({ type: 'control-node' });
+    expect(wait!.data).toMatchObject({ kind: 'waitForEvent', label: 'approval.granted' });
+  });
+
+  it('nestedWorkflow renders a nested-node carrying the child snapshot', () => {
+    const out = buildWorkflowGraph(nestedSnapshot);
+    const nested = out.nodes.find((n) => n.id === 'sync-children');
+    expect(nested).toMatchObject({ type: 'nested-node' });
+    expect(nested!.data).toMatchObject({ workflowName: 'sync-child' });
+    expect((nested!.data as { childSnapshot: unknown }).childSnapshot).toBeDefined();
+    expect(out.edges.some((e) => e.source === 'pre' && e.target === 'sync-children')).toBe(true);
+    expect(out.edges.some((e) => e.source === 'sync-children' && e.target === 'post')).toBe(true);
+  });
+
+  it('unknown step type falls back to default-node with kind=unknown', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const out = buildWorkflowGraph(unknownTypeSnapshot);
+    const myst = out.nodes.find((n) => n.id === 'mystery');
+    expect(myst).toMatchObject({ type: 'default-node' });
+    expect((myst!.data as { kind: string }).kind).toBe('unknown');
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
   });
 });
