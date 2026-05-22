@@ -1,11 +1,11 @@
+import type { NodeTx } from '@seta/shared-types';
 import { eq } from 'drizzle-orm';
-import type { PlannerDb } from '../../db/index.ts';
 import { groupMembers } from '../../db/schema.ts';
 
 export async function resolveGroupMemberIds(
   _tenantId: string,
   groupId: string,
-  tx: PlannerDb,
+  tx: NodeTx,
 ): Promise<string[]> {
   const rows = await tx
     .select({ user_id: groupMembers.user_id })

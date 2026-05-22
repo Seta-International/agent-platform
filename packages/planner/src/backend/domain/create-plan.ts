@@ -2,7 +2,6 @@ import type { SessionScope } from '@seta/core';
 import { requestNotification } from '@seta/core';
 import { withEmit } from '@seta/core/events';
 import { and, eq, isNull } from 'drizzle-orm';
-import type { PlannerDb } from '../../db/index.ts';
 import { groups, plans } from '../../db/schema.ts';
 import { emitPlannerPlanCreated } from '../../events/emit-helpers.ts';
 import type { PlanRow } from '../dto.ts';
@@ -62,11 +61,7 @@ export async function createPlan(
         },
       });
 
-      const memberIds = await resolveGroupMemberIds(
-        input.session.tenant_id,
-        input.group_id,
-        tx as unknown as PlannerDb,
-      );
+      const memberIds = await resolveGroupMemberIds(input.session.tenant_id, input.group_id, tx);
       const recipients = memberIds.filter((u) => u !== input.session.user_id);
       await requestNotification({
         tenant_id: group.tenant_id,
