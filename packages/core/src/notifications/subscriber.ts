@@ -1,5 +1,6 @@
 import type { DomainEvent, SubscriberCtx, SubscriberDef } from '@seta/shared-types';
-import { sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
+import { coreNotificationPrefs } from '../db/schema/notification-prefs.ts';
 import { coreNotifications } from '../db/schema/notifications.ts';
 import {
   CORE_NOTIFICATION_REQUESTED,
@@ -14,6 +15,19 @@ async function handle(
   ctx: SubscriberCtx,
 ): Promise<void> {
   const { user_ids, target_event_type, target_payload, source_event_id } = event.payload;
+
+  const [pref] = await ctx.tx
+    .select({ enabled: coreNotificationPrefs.enabled })
+    .from(coreNotificationPrefs)
+    .where(
+      and(
+        eq(coreNotificationPrefs.tenantId, event.tenantId),
+        eq(coreNotificationPrefs.eventType, target_event_type),
+        eq(coreNotificationPrefs.channel, 'in_app'),
+      ),
+    )
+    .limit(1);
+  if (pref && !pref.enabled) return;
 
   const inserted = await ctx.tx
     .insert(coreNotifications)

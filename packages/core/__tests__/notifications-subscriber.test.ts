@@ -113,4 +113,138 @@ describe('core.notifier subscriber', () => {
       );
     });
   });
+
+  it('skips insert when tenant pref has enabled=false', async () => {
+    await withCoreTestDb(async ({ pool }) => {
+      resetCoreDb();
+      const tenantId = crypto.randomUUID();
+      const sourceEventId = crypto.randomUUID();
+      const u1 = crypto.randomUUID();
+
+      await pool.query(
+        `INSERT INTO core.events (id, tenant_id, aggregate_type, aggregate_id,
+                                  event_type, event_version, payload)
+         VALUES ($1, $2, 'test', 'test', 'test.thing.happened', 1, '{}'::jsonb)`,
+        [sourceEventId, tenantId],
+      );
+      await pool.query(
+        `INSERT INTO core.notification_prefs (tenant_id, event_type, channel, enabled)
+         VALUES ($1, $2, 'in_app', $3)`,
+        [tenantId, 'planner.task.assigned', false],
+      );
+
+      await withDispatcher(
+        { subscribers: [coreNotifierSubscriber() as SubscriberDef], pool },
+        async () => {
+          await withEmit(undefined, async () => {
+            await requestNotification({
+              tenant_id: tenantId,
+              event_type: 'planner.task.assigned',
+              user_ids: [u1],
+              payload: {},
+              source_event_id: sourceEventId,
+            });
+          });
+          await new Promise((r) => setTimeout(r, 500));
+          const r = await pool.query<{ n: string }>(
+            `SELECT COUNT(*)::text AS n FROM core.notifications WHERE source_event_id = $1`,
+            [sourceEventId],
+          );
+          expect(r.rows[0]?.n).toBe('0');
+        },
+      );
+    });
+  });
+
+  it('inserts when no pref row exists (default ON)', async () => {
+    await withCoreTestDb(async ({ pool }) => {
+      resetCoreDb();
+      const tenantId = crypto.randomUUID();
+      const sourceEventId = crypto.randomUUID();
+      const u1 = crypto.randomUUID();
+      const u2 = crypto.randomUUID();
+
+      await pool.query(
+        `INSERT INTO core.events (id, tenant_id, aggregate_type, aggregate_id,
+                                  event_type, event_version, payload)
+         VALUES ($1, $2, 'test', 'test', 'test.thing.happened', 1, '{}'::jsonb)`,
+        [sourceEventId, tenantId],
+      );
+
+      await withDispatcher(
+        { subscribers: [coreNotifierSubscriber() as SubscriberDef], pool },
+        async () => {
+          await withEmit(undefined, async () => {
+            await requestNotification({
+              tenant_id: tenantId,
+              event_type: 'planner.task.assigned',
+              user_ids: [u1, u2],
+              payload: {},
+              source_event_id: sourceEventId,
+            });
+          });
+          await waitFor(async () => {
+            const r = await pool.query<{ n: string }>(
+              `SELECT COUNT(*)::text AS n FROM core.notifications WHERE source_event_id = $1`,
+              [sourceEventId],
+            );
+            return r.rows[0]?.n === '2';
+          });
+          const r = await pool.query<{ n: string }>(
+            `SELECT COUNT(*)::text AS n FROM core.notifications WHERE source_event_id = $1`,
+            [sourceEventId],
+          );
+          expect(r.rows[0]?.n).toBe('2');
+        },
+      );
+    });
+  });
+
+  it('inserts when tenant pref has enabled=true', async () => {
+    await withCoreTestDb(async ({ pool }) => {
+      resetCoreDb();
+      const tenantId = crypto.randomUUID();
+      const sourceEventId = crypto.randomUUID();
+      const u1 = crypto.randomUUID();
+
+      await pool.query(
+        `INSERT INTO core.events (id, tenant_id, aggregate_type, aggregate_id,
+                                  event_type, event_version, payload)
+         VALUES ($1, $2, 'test', 'test', 'test.thing.happened', 1, '{}'::jsonb)`,
+        [sourceEventId, tenantId],
+      );
+      await pool.query(
+        `INSERT INTO core.notification_prefs (tenant_id, event_type, channel, enabled)
+         VALUES ($1, $2, 'in_app', $3)`,
+        [tenantId, 'planner.task.assigned', true],
+      );
+
+      await withDispatcher(
+        { subscribers: [coreNotifierSubscriber() as SubscriberDef], pool },
+        async () => {
+          await withEmit(undefined, async () => {
+            await requestNotification({
+              tenant_id: tenantId,
+              event_type: 'planner.task.assigned',
+              user_ids: [u1],
+              payload: {},
+              source_event_id: sourceEventId,
+            });
+          });
+          await waitFor(async () => {
+            const r = await pool.query<{ n: string }>(
+              `SELECT COUNT(*)::text AS n FROM core.notifications WHERE source_event_id = $1`,
+              [sourceEventId],
+            );
+            return r.rows[0]?.n === '1';
+          });
+          const r = await pool.query<{ n: string }>(
+            `SELECT COUNT(*)::text AS n FROM core.notifications WHERE source_event_id = $1`,
+            [sourceEventId],
+          );
+          expect(r.rows[0]?.n).toBe('1');
+        },
+      );
+    });
+  });
 });
