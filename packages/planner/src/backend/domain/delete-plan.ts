@@ -5,7 +5,7 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { groups, plans } from '../../db/schema.ts';
 import { emitPlannerPlanDeleted } from '../../events/emit-helpers.ts';
 import { resolveGroupMemberIds } from '../notifications/recipients.ts';
-import { assertLinkedPlanWritable, PlannerError, requirePermission } from '../rbac.ts';
+import { PlannerError, requirePermission } from '../rbac.ts';
 
 export async function deletePlan(input: {
   plan_id: string;
@@ -34,7 +34,6 @@ export async function deletePlan(input: {
       }
 
       requirePermission(input.session, 'planner.plan.delete', existing.group_id);
-      assertLinkedPlanWritable(existing, input.session);
 
       if (existing.version !== input.expected_version) {
         throw new PlannerError('CONFLICT', 'Version mismatch', {

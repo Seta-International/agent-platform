@@ -5,7 +5,7 @@ import { checklistItems, plans, tasks } from '../../db/schema.ts';
 import { emitPlannerChecklistItemAdded } from '../../events/emit-helpers.ts';
 import type { ChecklistItemRow } from '../dto.ts';
 import type { AddChecklistItemInput } from '../inputs.ts';
-import { assertLinkedPlanWritable, PlannerError, requirePermission } from '../rbac.ts';
+import { PlannerError, requirePermission } from '../rbac.ts';
 import { hintBetween, type PlanExternalSource } from './order-hint.ts';
 
 type ChecklistItemDbRow = typeof checklistItems.$inferSelect;
@@ -40,7 +40,6 @@ export async function addChecklistItem(
         throw new PlannerError('NOT_FOUND', 'Parent plan not found', { plan_id: task.plan_id });
 
       requirePermission(input.session, 'planner.task.update', plan.group_id);
-      assertLinkedPlanWritable(plan, input.session);
 
       const existingItems = await tx
         .select()

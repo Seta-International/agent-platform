@@ -5,7 +5,7 @@ import { buckets, plans } from '../../db/schema.ts';
 import { emitPlannerBucketCreated } from '../../events/emit-helpers.ts';
 import type { BucketRow, TaskExternalSource } from '../dto.ts';
 import type { CreateBucketInput } from '../inputs.ts';
-import { assertLinkedPlanWritable, PlannerError, requirePermission } from '../rbac.ts';
+import { PlannerError, requirePermission } from '../rbac.ts';
 import { hintBetween, type PlanExternalSource } from './order-hint.ts';
 
 type BucketDbRow = typeof buckets.$inferSelect;
@@ -35,7 +35,6 @@ export async function createBucket(
       }
 
       requirePermission(input.session, 'planner.bucket.create', plan.group_id);
-      assertLinkedPlanWritable(plan, input.session);
 
       const existingBuckets = await tx
         .select()

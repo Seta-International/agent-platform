@@ -7,7 +7,7 @@ import type { TaskChangedField } from '../../events/types.ts';
 import type { TaskRow } from '../dto.ts';
 import type { MoveTaskInput } from '../inputs.ts';
 import { withSpan } from '../observability.ts';
-import { assertLinkedPlanWritable, PlannerError, requirePermission } from '../rbac.ts';
+import { PlannerError, requirePermission } from '../rbac.ts';
 import { taskRowToDto } from './_task-dto.ts';
 import { hintBetween, hintsForN, type PlanExternalSource } from './order-hint.ts';
 
@@ -55,7 +55,6 @@ async function moveTaskImpl(input: MoveTaskInput & { session: SessionScope }): P
         });
 
       requirePermission(input.session, 'planner.task.update', plan.group_id);
-      assertLinkedPlanWritable(plan, input.session);
 
       if (existing.version !== input.expected_version) {
         throw new PlannerError('CONFLICT', 'Version mismatch', {

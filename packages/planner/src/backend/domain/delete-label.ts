@@ -3,7 +3,7 @@ import { withEmit } from '@seta/core/events';
 import { and, eq, isNull } from 'drizzle-orm';
 import { labels, plans, taskLabels } from '../../db/schema.ts';
 import { emitPlannerLabelDeleted } from '../../events/emit-helpers.ts';
-import { assertLinkedPlanWritable, PlannerError, requirePermission } from '../rbac.ts';
+import { PlannerError, requirePermission } from '../rbac.ts';
 
 export async function deleteLabel(input: {
   label_id: string;
@@ -35,7 +35,6 @@ export async function deleteLabel(input: {
         throw new PlannerError('NOT_FOUND', 'Parent plan not found', { plan_id: existing.plan_id });
 
       requirePermission(input.session, 'planner.plan.update', plan.group_id);
-      assertLinkedPlanWritable(plan, input.session);
 
       await tx.update(labels).set({ deleted_at: new Date() }).where(eq(labels.id, input.label_id));
 

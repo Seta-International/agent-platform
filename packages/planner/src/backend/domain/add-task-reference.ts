@@ -6,7 +6,7 @@ import { emitPlannerTaskReferenceAdded } from '../../events/emit-helpers.ts';
 import type { TaskReferenceRow, TaskReferenceType } from '../dto.ts';
 import type { AddTaskReferenceInput } from '../inputs.ts';
 import { withSpan } from '../observability.ts';
-import { assertLinkedPlanWritable, PlannerError, requirePermission } from '../rbac.ts';
+import { PlannerError, requirePermission } from '../rbac.ts';
 
 type TaskReferenceDbRow = typeof taskReferences.$inferSelect;
 
@@ -86,7 +86,6 @@ async function addTaskReferenceImpl(
         });
 
       requirePermission(input.session, 'planner.task.update', plan.group_id);
-      assertLinkedPlanWritable(plan, input.session);
 
       const type: TaskReferenceType = input.type ?? 'other';
       const alias = input.alias ?? null;

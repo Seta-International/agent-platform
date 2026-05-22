@@ -6,7 +6,7 @@ import { emitPlannerPlanUpdated } from '../../events/emit-helpers.ts';
 import type { PlanFieldKey } from '../../events/types.ts';
 import type { PlanRow } from '../dto.ts';
 import type { UpdatePlanPatch } from '../inputs.ts';
-import { assertLinkedPlanWritable, PlannerError, requirePermission } from '../rbac.ts';
+import { PlannerError, requirePermission } from '../rbac.ts';
 
 type PlanDbRow = typeof plans.$inferSelect;
 
@@ -39,7 +39,6 @@ export async function updatePlan(input: {
       }
 
       requirePermission(input.session, 'planner.plan.update', existing.group_id);
-      assertLinkedPlanWritable(existing, input.session);
 
       if (existing.version !== input.expected_version) {
         throw new PlannerError('CONFLICT', 'Version mismatch', {

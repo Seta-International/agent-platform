@@ -7,7 +7,7 @@ import type { TaskChangedField, TaskMutableFields } from '../../events/types.ts'
 import type { TaskRow } from '../dto.ts';
 import { type UpdateTaskPatch, UpdateTaskPatchSchema } from '../inputs.ts';
 import { recordTaskFieldUpdated, withSpan } from '../observability.ts';
-import { assertLinkedPlanWritable, PlannerError, requirePermission } from '../rbac.ts';
+import { PlannerError, requirePermission } from '../rbac.ts';
 import { isM365SystemActor } from './_actor.ts';
 import { taskRowToDto } from './_task-dto.ts';
 
@@ -116,7 +116,6 @@ async function updateTaskImpl(input: {
         });
 
       requirePermission(input.session, 'planner.task.update', plan.group_id);
-      assertLinkedPlanWritable(plan, input.session);
 
       if (existing.version !== input.expected_version) {
         throw new PlannerError('CONFLICT', 'Version mismatch', {

@@ -6,7 +6,7 @@ import { plannerDb } from '../../db/index.ts';
 import { labels, plans } from '../../db/schema.ts';
 import type { PlanRow, TaskExternalSource } from '../dto.ts';
 import type { SetCategoryDescriptionsInput } from '../inputs.ts';
-import { assertLinkedPlanWritable, PlannerError } from '../rbac.ts';
+import { PlannerError } from '../rbac.ts';
 import { attachLabelToCategorySlotTx } from './attach-label-to-category-slot.ts';
 import { setCategoryDescriptionTx } from './set-category-description.ts';
 
@@ -81,8 +81,6 @@ export async function setCategoryDescriptions(
           plan_id: input.plan_id,
         });
       }
-      assertLinkedPlanWritable(plan, input.session);
-
       for (const [slotStr, entry] of Object.entries(input.slots)) {
         const slot = Number(slotStr);
         if ('name' in entry) {

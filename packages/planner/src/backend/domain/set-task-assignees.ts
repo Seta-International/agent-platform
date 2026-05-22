@@ -5,7 +5,7 @@ import { plans, taskAssignments, tasks } from '../../db/schema.ts';
 import { emitPlannerTaskAssigned, emitPlannerTaskUnassigned } from '../../events/emit-helpers.ts';
 import type { SetTaskAssigneesInput } from '../inputs.ts';
 import { withSpan } from '../observability.ts';
-import { assertLinkedPlanWritable, PlannerError, requirePermission } from '../rbac.ts';
+import { PlannerError, requirePermission } from '../rbac.ts';
 import { isM365SystemActor } from './_actor.ts';
 import { hintsForN, type PlanExternalSource } from './order-hint.ts';
 
@@ -65,7 +65,6 @@ async function setTaskAssigneesImpl(
         });
 
       requirePermission(input.session, 'planner.task.assign', plan.group_id);
-      assertLinkedPlanWritable(plan, input.session);
 
       const existing = await tx
         .select({ user_id: taskAssignments.user_id })

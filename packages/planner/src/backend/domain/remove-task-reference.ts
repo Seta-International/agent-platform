@@ -5,7 +5,7 @@ import { plans, taskReferences, tasks } from '../../db/schema.ts';
 import { emitPlannerTaskReferenceRemoved } from '../../events/emit-helpers.ts';
 import type { RemoveTaskReferenceInput } from '../inputs.ts';
 import { withSpan } from '../observability.ts';
-import { assertLinkedPlanWritable, PlannerError, requirePermission } from '../rbac.ts';
+import { PlannerError, requirePermission } from '../rbac.ts';
 
 export async function removeTaskReference(
   input: RemoveTaskReferenceInput & { session: SessionScope },
@@ -51,7 +51,6 @@ async function removeTaskReferenceImpl(
         });
 
       requirePermission(input.session, 'planner.task.update', plan.group_id);
-      assertLinkedPlanWritable(plan, input.session);
 
       const deleted = await tx
         .delete(taskReferences)

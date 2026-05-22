@@ -3,7 +3,7 @@ import { withEmit } from '@seta/core/events';
 import { eq } from 'drizzle-orm';
 import { checklistItems, plans, tasks } from '../../db/schema.ts';
 import { emitPlannerChecklistItemRemoved } from '../../events/emit-helpers.ts';
-import { assertLinkedPlanWritable, PlannerError, requirePermission } from '../rbac.ts';
+import { PlannerError, requirePermission } from '../rbac.ts';
 
 export async function removeChecklistItem(input: {
   item_id: string;
@@ -39,7 +39,6 @@ export async function removeChecklistItem(input: {
         throw new PlannerError('NOT_FOUND', 'Parent plan not found', { plan_id: task.plan_id });
 
       requirePermission(input.session, 'planner.task.update', plan.group_id);
-      assertLinkedPlanWritable(plan, input.session);
 
       await tx.delete(checklistItems).where(eq(checklistItems.id, input.item_id));
 

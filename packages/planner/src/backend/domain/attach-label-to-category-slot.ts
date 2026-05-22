@@ -7,7 +7,7 @@ import { emitPlannerLabelCategorySlotChanged } from '../../events/emit-helpers.t
 import type { LabelRow } from '../dto.ts';
 import type { AttachLabelToCategorySlotInput } from '../inputs.ts';
 import { withSpan } from '../observability.ts';
-import { assertLinkedPlanWritable, PlannerError, requirePermission } from '../rbac.ts';
+import { PlannerError, requirePermission } from '../rbac.ts';
 
 type LabelDbRow = typeof labels.$inferSelect;
 
@@ -115,7 +115,6 @@ export async function attachLabelToCategorySlotTx(
   }
 
   requirePermission(input.session, 'planner.plan.update', plan.group_id);
-  assertLinkedPlanWritable(plan, input.session);
 
   const beforeSlot = existing.category_slot;
 

@@ -5,7 +5,7 @@ import { labels, plans } from '../../db/schema.ts';
 import { emitPlannerLabelUpdated } from '../../events/emit-helpers.ts';
 import type { LabelRow } from '../dto.ts';
 import type { UpdateLabelPatch } from '../inputs.ts';
-import { assertLinkedPlanWritable, PlannerError, requirePermission } from '../rbac.ts';
+import { PlannerError, requirePermission } from '../rbac.ts';
 
 type LabelDbRow = typeof labels.$inferSelect;
 
@@ -42,7 +42,6 @@ export async function updateLabel(input: {
         throw new PlannerError('NOT_FOUND', 'Parent plan not found', { plan_id: existing.plan_id });
 
       requirePermission(input.session, 'planner.plan.update', plan.group_id);
-      assertLinkedPlanWritable(plan, input.session);
 
       const before: Partial<{ name: string; color: string }> = {};
       const after: Partial<{ name: string; color: string }> = {};

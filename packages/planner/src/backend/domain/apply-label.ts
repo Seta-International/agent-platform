@@ -3,7 +3,7 @@ import { withEmit } from '@seta/core/events';
 import { and, eq, isNull } from 'drizzle-orm';
 import { labels, plans, taskLabels, tasks } from '../../db/schema.ts';
 import { emitPlannerLabelApplied } from '../../events/emit-helpers.ts';
-import { assertLinkedPlanWritable, PlannerError, requirePermission } from '../rbac.ts';
+import { PlannerError, requirePermission } from '../rbac.ts';
 import { isM365SystemActor } from './_actor.ts';
 
 export async function applyLabel(input: {
@@ -36,7 +36,6 @@ export async function applyLabel(input: {
         throw new PlannerError('NOT_FOUND', 'Parent plan not found', { plan_id: task.plan_id });
 
       requirePermission(input.session, 'planner.task.update', plan.group_id);
-      assertLinkedPlanWritable(plan, input.session);
 
       const [label] = await tx
         .select()

@@ -6,7 +6,7 @@ import { emitPlannerBucketUpdated } from '../../events/emit-helpers.ts';
 import type { BucketRow, TaskExternalSource } from '../dto.ts';
 import type { MoveBucketInput } from '../inputs.ts';
 import { withSpan } from '../observability.ts';
-import { assertLinkedPlanWritable, PlannerError, requirePermission } from '../rbac.ts';
+import { PlannerError, requirePermission } from '../rbac.ts';
 import { hintBetween, hintsForN, type PlanExternalSource } from './order-hint.ts';
 
 type BucketDbRow = typeof buckets.$inferSelect;
@@ -61,7 +61,6 @@ async function moveBucketImpl(
       if (!plan) throw new PlannerError('NOT_FOUND', 'Plan not found', { plan_id: input.plan_id });
 
       requirePermission(input.session, 'planner.bucket.update', plan.group_id);
-      assertLinkedPlanWritable(plan, input.session);
 
       const ordered = await tx
         .select()

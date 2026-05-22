@@ -5,7 +5,7 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { plans, taskAssignments, tasks } from '../../db/schema.ts';
 import { emitPlannerTaskReopened } from '../../events/emit-helpers.ts';
 import type { TaskRow } from '../dto.ts';
-import { assertLinkedPlanWritable, PlannerError, requirePermission } from '../rbac.ts';
+import { PlannerError, requirePermission } from '../rbac.ts';
 import { taskRowToDto } from './_task-dto.ts';
 
 export async function reopenTask(input: {
@@ -42,7 +42,6 @@ export async function reopenTask(input: {
         });
 
       requirePermission(input.session, 'planner.task.update', plan.group_id);
-      assertLinkedPlanWritable(plan, input.session);
 
       if (existing.version !== input.expected_version) {
         throw new PlannerError('CONFLICT', 'Version mismatch', {

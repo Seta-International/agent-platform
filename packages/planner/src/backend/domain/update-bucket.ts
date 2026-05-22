@@ -5,7 +5,7 @@ import { buckets, plans } from '../../db/schema.ts';
 import { emitPlannerBucketUpdated } from '../../events/emit-helpers.ts';
 import type { BucketRow, TaskExternalSource } from '../dto.ts';
 import type { UpdateBucketPatch } from '../inputs.ts';
-import { assertLinkedPlanWritable, PlannerError, requirePermission } from '../rbac.ts';
+import { PlannerError, requirePermission } from '../rbac.ts';
 
 type BucketDbRow = typeof buckets.$inferSelect;
 
@@ -44,7 +44,6 @@ export async function updateBucket(input: {
         });
 
       requirePermission(input.session, 'planner.bucket.update', plan.group_id);
-      assertLinkedPlanWritable(plan, input.session);
 
       if (existing.version !== input.expected_version) {
         throw new PlannerError('CONFLICT', 'Version mismatch', {

@@ -5,7 +5,7 @@ import { checklistItems, plans, tasks } from '../../db/schema.ts';
 import { emitPlannerChecklistItemUpdated } from '../../events/emit-helpers.ts';
 import type { ChecklistItemRow } from '../dto.ts';
 import type { UpdateChecklistItemPatch } from '../inputs.ts';
-import { assertLinkedPlanWritable, PlannerError, requirePermission } from '../rbac.ts';
+import { PlannerError, requirePermission } from '../rbac.ts';
 
 type ChecklistItemDbRow = typeof checklistItems.$inferSelect;
 
@@ -46,7 +46,6 @@ export async function updateChecklistItem(input: {
         throw new PlannerError('NOT_FOUND', 'Parent plan not found', { plan_id: task.plan_id });
 
       requirePermission(input.session, 'planner.task.update', plan.group_id);
-      assertLinkedPlanWritable(plan, input.session);
 
       const before: Partial<{ label: string; checked: boolean; order_hint: string | null }> = {};
       const after: Partial<{ label: string; checked: boolean; order_hint: string | null }> = {};

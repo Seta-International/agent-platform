@@ -23,8 +23,7 @@ export type PlannerErrorCode =
   | 'GROUP_NOT_LINKED'
   | 'PLAN_NOT_LINKED'
   | 'LABEL_NOT_SYNCABLE'
-  | 'ASSIGNEE_NOT_M365_SYNCABLE'
-  | 'LINKED_PLAN_IMMUTABLE_PENDING_PUSH';
+  | 'ASSIGNEE_NOT_M365_SYNCABLE';
 
 export class PlannerError extends Error {
   readonly code: PlannerErrorCode;
@@ -89,18 +88,5 @@ export function requirePermission(
       permission,
       group_id: groupId,
     });
-  }
-}
-
-export function assertLinkedPlanWritable(
-  plan: { external_source: string; id?: string },
-  session: SessionScope,
-): void {
-  if (plan.external_source === 'm365' && !isM365SystemActor(session)) {
-    throw new PlannerError(
-      'LINKED_PLAN_IMMUTABLE_PENDING_PUSH',
-      'writes to M365-linked plans are deferred until M365 push lands',
-      { plan_id: plan.id },
-    );
   }
 }

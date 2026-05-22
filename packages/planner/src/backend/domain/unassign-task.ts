@@ -4,7 +4,7 @@ import { withEmit } from '@seta/core/events';
 import { and, eq, isNull } from 'drizzle-orm';
 import { plans, taskAssignments, tasks } from '../../db/schema.ts';
 import { emitPlannerTaskUnassigned } from '../../events/emit-helpers.ts';
-import { assertLinkedPlanWritable, PlannerError, requirePermission } from '../rbac.ts';
+import { PlannerError, requirePermission } from '../rbac.ts';
 
 export async function unassignTask(input: {
   task_id: string;
@@ -39,7 +39,6 @@ export async function unassignTask(input: {
         });
 
       requirePermission(input.session, 'planner.task.assign', plan.group_id);
-      assertLinkedPlanWritable(plan, input.session);
 
       const deleted = await tx
         .delete(taskAssignments)

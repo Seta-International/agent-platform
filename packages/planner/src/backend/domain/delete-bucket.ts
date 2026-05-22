@@ -3,7 +3,7 @@ import { withEmit } from '@seta/core/events';
 import { and, eq, isNull } from 'drizzle-orm';
 import { buckets, plans, tasks } from '../../db/schema.ts';
 import { emitPlannerBucketDeleted, emitPlannerTaskMoved } from '../../events/emit-helpers.ts';
-import { assertLinkedPlanWritable, PlannerError, requirePermission } from '../rbac.ts';
+import { PlannerError, requirePermission } from '../rbac.ts';
 
 export async function deleteBucket(input: {
   bucket_id: string;
@@ -38,7 +38,6 @@ export async function deleteBucket(input: {
         });
 
       requirePermission(input.session, 'planner.bucket.delete', plan.group_id);
-      assertLinkedPlanWritable(plan, input.session);
 
       if (existing.version !== input.expected_version) {
         throw new PlannerError('CONFLICT', 'Version mismatch', {

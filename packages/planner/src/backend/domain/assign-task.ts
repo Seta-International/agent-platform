@@ -4,7 +4,7 @@ import { withEmit } from '@seta/core/events';
 import { and, eq, isNull } from 'drizzle-orm';
 import { plans, taskAssignments, tasks } from '../../db/schema.ts';
 import { emitPlannerTaskAssigned } from '../../events/emit-helpers.ts';
-import { assertLinkedPlanWritable, PlannerError, requirePermission } from '../rbac.ts';
+import { PlannerError, requirePermission } from '../rbac.ts';
 
 export async function assignTask(input: {
   task_id: string;
@@ -39,7 +39,6 @@ export async function assignTask(input: {
         });
 
       requirePermission(input.session, 'planner.task.assign', plan.group_id);
-      assertLinkedPlanWritable(plan, input.session);
 
       // ON CONFLICT DO NOTHING: idempotent — if already assigned, skip.
       const inserted = await tx

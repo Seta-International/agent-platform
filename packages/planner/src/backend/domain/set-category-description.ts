@@ -7,7 +7,7 @@ import { emitPlannerPlanCategoryDescriptionChanged } from '../../events/emit-hel
 import type { PlanRow, TaskExternalSource } from '../dto.ts';
 import type { SetCategoryDescriptionInput } from '../inputs.ts';
 import { withSpan } from '../observability.ts';
-import { assertLinkedPlanWritable, PlannerError, requirePermission } from '../rbac.ts';
+import { PlannerError, requirePermission } from '../rbac.ts';
 
 type PlanDbRow = typeof plans.$inferSelect;
 
@@ -91,7 +91,6 @@ export async function setCategoryDescriptionTx(
   }
 
   requirePermission(input.session, 'planner.plan.update', existing.group_id);
-  assertLinkedPlanWritable(existing, input.session);
 
   const key = `category${input.slot}`;
   const currentMap = (existing.category_descriptions ?? {}) as Record<string, string>;
