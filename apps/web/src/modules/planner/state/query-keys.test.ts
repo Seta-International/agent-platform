@@ -23,4 +23,16 @@ describe('plannerKeys', () => {
     const b = plannerKeys.planTasks('p1', { skill_tags: ['ts', 'react'], assignee_id: 'u1' });
     expect(a).toEqual(b);
   });
+
+  it('myTasks key serializes filters stably regardless of insertion order', () => {
+    const a = plannerKeys.myTasks({ planId: 'p1', priority: 1, due: 'this_week' });
+    const b = plannerKeys.myTasks({ due: 'this_week', priority: 1, planId: 'p1' });
+    expect(a).toEqual(b);
+  });
+
+  it('myTasks key omits undefined filter fields', () => {
+    expect(plannerKeys.myTasks({ planId: undefined, priority: 5 })).toEqual(
+      plannerKeys.myTasks({ priority: 5 }),
+    );
+  });
 });
