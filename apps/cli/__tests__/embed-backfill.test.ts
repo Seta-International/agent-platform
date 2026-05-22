@@ -22,6 +22,26 @@ describe('embed-backfill CLI', () => {
     );
   });
 
+  it('dispatches to backfillUserProfiles with identity', async () => {
+    const backfillUserProfiles = vi.fn(async () => {});
+    const fakePool = { end: vi.fn(async () => {}) };
+    await runEmbedBackfill(
+      { module: 'identity', tenant: '00000000-0000-0000-0000-000000000000' },
+      {
+        backfillUserProfiles: backfillUserProfiles as never,
+        env: { OPENAI_API_KEY: 'k' },
+        pool: fakePool as never,
+      },
+    );
+    expect(backfillUserProfiles).toHaveBeenCalledOnce();
+    expect(backfillUserProfiles).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenant_id: '00000000-0000-0000-0000-000000000000',
+        model: 'text-embedding-3-small',
+      }),
+    );
+  });
+
   it('throws on unsupported module', async () => {
     await expect(
       runEmbedBackfill({ module: 'foo', tenant: 't' }, { env: { OPENAI_API_KEY: 'k' } }),
