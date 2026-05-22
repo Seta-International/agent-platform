@@ -13,7 +13,6 @@ import { useState } from 'react';
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  planName: string;
   externalSource: 'native' | 'm365';
   onConfirm: () => void;
   pending?: boolean;
@@ -22,7 +21,6 @@ interface Props {
 export function ConfirmDeletePlanDialog({
   open,
   onOpenChange,
-  planName: _planName,
   externalSource,
   onConfirm,
   pending = false,

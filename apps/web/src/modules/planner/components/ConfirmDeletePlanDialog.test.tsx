@@ -9,7 +9,6 @@ describe('ConfirmDeletePlanDialog', () => {
       <ConfirmDeletePlanDialog
         open
         onOpenChange={() => {}}
-        planName="Q3 Launch"
         externalSource="native"
         onConfirm={() => {}}
       />,
@@ -22,7 +21,6 @@ describe('ConfirmDeletePlanDialog', () => {
       <ConfirmDeletePlanDialog
         open
         onOpenChange={() => {}}
-        planName="Q3 Launch"
         externalSource="native"
         onConfirm={() => {}}
       />,
@@ -40,7 +38,6 @@ describe('ConfirmDeletePlanDialog', () => {
       <ConfirmDeletePlanDialog
         open
         onOpenChange={() => {}}
-        planName="M365 Plan"
         externalSource="m365"
         onConfirm={() => {}}
       />,
@@ -66,7 +63,6 @@ describe('ConfirmDeletePlanDialog', () => {
       <ConfirmDeletePlanDialog
         open
         onOpenChange={onOpenChange}
-        planName="Q3 Launch"
         externalSource="native"
         onConfirm={onConfirm}
       />,
@@ -83,7 +79,6 @@ describe('ConfirmDeletePlanDialog', () => {
       <ConfirmDeletePlanDialog
         open
         onOpenChange={() => {}}
-        planName="Q3 Launch"
         externalSource="native"
         onConfirm={onConfirm}
       />,
@@ -97,7 +92,6 @@ describe('ConfirmDeletePlanDialog', () => {
       <ConfirmDeletePlanDialog
         open
         onOpenChange={() => {}}
-        planName="Q3 Launch"
         externalSource="native"
         onConfirm={() => {}}
         pending

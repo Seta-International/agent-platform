@@ -146,7 +146,6 @@ function PlanRoute() {
       <ConfirmDeletePlanDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        planName={plan?.name ?? ''}
         externalSource={plan?.external_source === 'm365' ? 'm365' : 'native'}
         onConfirm={handleConfirmDelete}
         pending={deletePlan.isPending}
