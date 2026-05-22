@@ -31,6 +31,7 @@ export * from './composites/notification-list-item';
 export * from './composites/page-chrome';
 export * from './composites/priority-icon';
 export * from './composites/progress-bar';
+export * from './composites/resolve-plan-conflicts-dialog';
 export * from './composites/segmented-control';
 export * from './composites/side-panel';
 export * from './composites/status-pill';
