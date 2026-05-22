@@ -16,13 +16,7 @@ export function StatusInline({ status }: Props) {
   return (
     <span
       data-testid="status-inline"
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 5,
-        fontSize: 11.5,
-        color: 'var(--color-ink-subtle)',
-      }}
+      className="inline-flex items-center gap-1.5 text-[11.5px] text-ink-subtle"
     >
       <span data-testid="status-inline-dot" className={`dot dot--${tone}`} />
       {status}
