@@ -12,6 +12,7 @@ import { registerIdentityContributions } from '@seta/identity/register';
 import { createMailTransportConfigStore } from '@seta/integrations';
 import { integrationsDb } from '@seta/integrations/db';
 import { registerIntegrationsContributions } from '@seta/integrations/register';
+import { plannerEmbeddingJobs } from '@seta/planner';
 import { registerPlannerContributions } from '@seta/planner/register';
 import { createCrypto, createKeyProviderFromEnv, parseCryptoEnv } from '@seta/shared-crypto';
 import { closePools, getPool, initPools } from '@seta/shared-db';
@@ -121,6 +122,7 @@ const workers = await startWorkerPool({
     },
     ...(m365Boot ? m365Boot.jobs : {}),
     ...embeddingJobs,
+    ...plannerEmbeddingJobs,
   },
 });
 _workerHandle = workers;
