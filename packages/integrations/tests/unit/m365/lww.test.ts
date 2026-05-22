@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveField } from '../../../src/m365/lww.ts';
+import { resolveDict, resolveField } from '../../../src/m365/lww.ts';
 
 describe('resolveField', () => {
   it('noop when local === remote', () => {
@@ -105,5 +105,98 @@ describe('resolveMembers', () => {
     expect(result.removes).toEqual([]);
     expect(result.roleChanges).toEqual([]);
     expect(result.conflicts).toEqual([]);
+  });
+});
+
+describe('resolveDict', () => {
+  it('noop when all three dicts match', () => {
+    const r = resolveDict<string>({
+      local: { a: 'X' },
+      remote: { a: 'X' },
+      snapshot: { a: 'X' },
+    });
+    expect(r.patch).toEqual({});
+    expect(r.conflicts).toEqual([]);
+  });
+
+  it('local-wins on local edit, key unchanged remotely', () => {
+    const r = resolveDict<string>({
+      local: { a: 'Y' },
+      remote: { a: 'X' },
+      snapshot: { a: 'X' },
+    });
+    expect(r.patch).toEqual({ a: 'Y' });
+    expect(r.conflicts).toEqual([]);
+  });
+
+  it('local-wins on local add (key missing from snapshot and remote)', () => {
+    const r = resolveDict<string>({
+      local: { a: 'X' },
+      remote: {},
+      snapshot: {},
+    });
+    expect(r.patch).toEqual({ a: 'X' });
+    expect(r.conflicts).toEqual([]);
+  });
+
+  it('local-wins on local remove, key unchanged remotely; patch sets null', () => {
+    const r = resolveDict<string>({
+      local: {},
+      remote: { a: 'X' },
+      snapshot: { a: 'X' },
+    });
+    expect(r.patch).toEqual({ a: null });
+    expect(r.conflicts).toEqual([]);
+  });
+
+  it('skips remote-wins keys (remote changed, local unchanged)', () => {
+    const r = resolveDict<string>({
+      local: { a: 'X' },
+      remote: { a: 'Y' },
+      snapshot: { a: 'X' },
+    });
+    expect(r.patch).toEqual({});
+    expect(r.conflicts).toEqual([]);
+  });
+
+  it('skips remote-wins on remote add (key only in remote)', () => {
+    const r = resolveDict<string>({
+      local: {},
+      remote: { a: 'X' },
+      snapshot: {},
+    });
+    expect(r.patch).toEqual({});
+    expect(r.conflicts).toEqual([]);
+  });
+
+  it('flags conflict when both sides change the same key differently', () => {
+    const r = resolveDict<string>({
+      local: { a: 'Y' },
+      remote: { a: 'Z' },
+      snapshot: { a: 'X' },
+    });
+    expect(r.patch).toEqual({});
+    expect(r.conflicts).toEqual([{ key: 'a', local: 'Y', remote: 'Z', snapshot: 'X' }]);
+  });
+
+  it('handles multi-key mixed cases', () => {
+    const r = resolveDict<string>({
+      local: { a: 'Y', b: 'X', c: 'M' }, // a edited, b unchanged, c added
+      remote: { a: 'X', b: 'X', d: 'N' }, // a unchanged, b unchanged, d remote-added
+      snapshot: { a: 'X', b: 'X' },
+    });
+    expect(r.patch).toEqual({ a: 'Y', c: 'M' });
+    expect(r.conflicts).toEqual([]);
+  });
+
+  it('initial-push mode (remote = snapshot) never produces conflicts', () => {
+    const snap = { a: 'X', b: 'Y' };
+    const r = resolveDict<string>({
+      local: { a: 'Z', b: 'Y' },
+      remote: snap,
+      snapshot: snap,
+    });
+    expect(r.patch).toEqual({ a: 'Z' });
+    expect(r.conflicts).toEqual([]);
   });
 });

@@ -15,6 +15,47 @@ export function resolveField<T>(c: FieldChange<T>): Decision<T> {
   return { kind: 'conflict', local: c.local, remote: c.remote, snapshot: c.snapshot };
 }
 
+export interface DictConflict<V> {
+  key: string;
+  local: V | undefined;
+  remote: V | undefined;
+  snapshot: V | undefined;
+}
+
+export interface DictResolution<V> {
+  // Planner dict update semantics: keys present with a value are upserts; keys
+  // present with `null` are deletions. Keys not in the patch are left untouched
+  // server-side. See https://learn.microsoft.com/graph/api/planner-update.
+  patch: Record<string, V | null>;
+  conflicts: DictConflict<V>[];
+}
+
+export function resolveDict<V>(input: {
+  local: Record<string, V | undefined>;
+  remote: Record<string, V | undefined>;
+  snapshot: Record<string, V | undefined>;
+}): DictResolution<V> {
+  const patch: Record<string, V | null> = {};
+  const conflicts: DictConflict<V>[] = [];
+  const allKeys = new Set<string>([
+    ...Object.keys(input.local),
+    ...Object.keys(input.remote),
+    ...Object.keys(input.snapshot),
+  ]);
+  for (const k of allKeys) {
+    const l = input.local[k];
+    const r = input.remote[k];
+    const s = input.snapshot[k];
+    const decision = resolveField<V | undefined>({ local: l, remote: r, snapshot: s });
+    if (decision.kind === 'local-wins') {
+      patch[k] = decision.value === undefined ? null : decision.value;
+    } else if (decision.kind === 'conflict') {
+      conflicts.push({ key: k, local: l, remote: r, snapshot: s });
+    }
+  }
+  return { patch, conflicts };
+}
+
 export interface MemberRef {
   entra_oid: string;
   role: 'owner' | 'member';
