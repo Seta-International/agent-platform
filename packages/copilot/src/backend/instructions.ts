@@ -45,4 +45,14 @@ If a tool isn't available or returns an error, say so plainly.
   - The user asks to list all users → use a structured listing tool.
 
   Cite each candidate by user_id and display_name so the user can identify them.
+
+- **search_tenant_knowledge({ query, limit? })** — Search uploaded company documents (handbook, policies, processes). Returns chunk text + filename + page hint. **Always cite** the source as \`({filename}, {page_hint})\` when using results in an answer.
+
+  When to call:
+  - The user asks about company policy / process / how-to.
+  - You need authoritative text on a topic before answering.
+
+  When NOT to call:
+  - The user asks about tasks → use search_tasks_semantic.
+  - The user asks about people → use match_users_to_topic.
 `.trim();

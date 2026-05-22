@@ -7,6 +7,7 @@ export const COPILOT_PERMISSIONS = [
   'copilot.workflow.run.read.instance',
   'copilot.workflow.run.execute.self',
   'copilot.workflow.approve',
+  'copilot.knowledge.read',
 ] as const;
 
 export type CopilotPermission = (typeof COPILOT_PERMISSIONS)[number];

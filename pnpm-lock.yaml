@@ -379,6 +379,9 @@ importers:
       '@seta/shared-rerank':
         specifier: workspace:^
         version: link:../shared/rerank
+      '@seta/shared-retrieval':
+        specifier: workspace:^
+        version: link:../shared/retrieval
       '@seta/shared-storage':
         specifier: workspace:^
         version: link:../shared/storage
