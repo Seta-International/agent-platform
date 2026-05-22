@@ -29,6 +29,13 @@
       "when": 1779432600402,
       "tag": "0003_m365_plan_links",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1779432964021,
+      "tag": "0004_m365_resource_etags",
+      "breakpoints": true
     }
   ]
 }
