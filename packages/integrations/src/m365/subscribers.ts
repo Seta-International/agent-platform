@@ -1,5 +1,6 @@
 import type { DomainEvent, NodeTx, SubscriberCtx, SubscriberDef } from '@seta/shared-types';
 import { sql } from 'drizzle-orm';
+import { buildM365PlanPushSubscribers } from './plans/push.ts';
 import { createM365GroupLinkRepo } from './repo.ts';
 
 // Minimal payload shapes for the planner events we handle.
@@ -245,5 +246,6 @@ export function buildM365Subscribers(): SubscriberDef[] {
       subscription: 'integrations.m365.plan-delete-link-on-plan-deleted',
       handler: handlePlanDeletedForLinks as SubscriberDef['handler'],
     },
+    ...buildM365PlanPushSubscribers(),
   ];
 }
