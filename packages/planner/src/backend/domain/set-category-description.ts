@@ -1,5 +1,6 @@
 import type { SessionScope } from '@seta/core';
 import { withEmit } from '@seta/core/events';
+import type { NodeTx } from '@seta/shared-types';
 import { and, eq, isNull } from 'drizzle-orm';
 import { plans } from '../../db/schema.ts';
 import { emitPlannerPlanCategoryDescriptionChanged } from '../../events/emit-helpers.ts';
@@ -39,13 +40,28 @@ export async function setCategoryDescription(
       'planner.user_id': input.session.user_id,
       'planner.plan_id': input.plan_id,
     },
-    () => setCategoryDescriptionImpl(input),
+    async () => {
+      let updated!: PlanDbRow;
+      await withEmit(
+        {
+          actor: {
+            userId: input.session.user_id,
+            tenantId: input.session.tenant_id,
+          },
+        },
+        async (tx) => {
+          updated = await setCategoryDescriptionTx(tx, input);
+        },
+      );
+      return rowToDto(updated);
+    },
   );
 }
 
-async function setCategoryDescriptionImpl(
+export async function setCategoryDescriptionTx(
+  tx: NodeTx,
   input: SetCategoryDescriptionInput & { session: SessionScope },
-): Promise<PlanRow> {
+): Promise<PlanDbRow> {
   if (!Number.isInteger(input.slot) || input.slot < 1 || input.slot > 25) {
     throw new PlannerError('CATEGORY_SLOT_OUT_OF_RANGE', 'Category slot must be between 1 and 25', {
       plan_id: input.plan_id,
@@ -60,77 +76,61 @@ async function setCategoryDescriptionImpl(
     });
   }
 
-  let updated!: PlanDbRow;
+  const [existing] = await tx
+    .select()
+    .from(plans)
+    .where(and(eq(plans.id, input.plan_id), isNull(plans.deleted_at)))
+    .limit(1);
+  if (!existing) {
+    throw new PlannerError('NOT_FOUND', 'Plan not found', { plan_id: input.plan_id });
+  }
+  if (existing.tenant_id !== input.session.tenant_id) {
+    throw new PlannerError('CROSS_TENANT', 'Plan belongs to another tenant', {
+      plan_id: input.plan_id,
+    });
+  }
 
-  await withEmit(
-    {
-      actor: {
-        userId: input.session.user_id,
-        tenantId: input.session.tenant_id,
-      },
-    },
-    async (tx) => {
-      const [existing] = await tx
-        .select()
-        .from(plans)
-        .where(and(eq(plans.id, input.plan_id), isNull(plans.deleted_at)))
-        .limit(1);
-      if (!existing) {
-        throw new PlannerError('NOT_FOUND', 'Plan not found', { plan_id: input.plan_id });
-      }
-      if (existing.tenant_id !== input.session.tenant_id) {
-        throw new PlannerError('CROSS_TENANT', 'Plan belongs to another tenant', {
-          plan_id: input.plan_id,
-        });
-      }
+  requirePermission(input.session, 'planner.plan.update', existing.group_id);
 
-      requirePermission(input.session, 'planner.plan.update', existing.group_id);
+  const key = `category${input.slot}`;
+  const currentMap = (existing.category_descriptions ?? {}) as Record<string, string>;
+  const beforeVal: string | null = currentMap[key] ?? null;
 
-      const key = `category${input.slot}`;
-      const currentMap = (existing.category_descriptions ?? {}) as Record<string, string>;
-      const beforeVal: string | null = currentMap[key] ?? null;
+  if (input.name === undefined) {
+    return existing;
+  }
 
-      // undefined => no-op for description; return current row.
-      if (input.name === undefined) {
-        updated = existing;
-        return;
-      }
+  const afterVal: string | null = input.name;
+  if (beforeVal === afterVal) {
+    return existing;
+  }
 
-      const afterVal: string | null = input.name;
-      if (beforeVal === afterVal) {
-        updated = existing;
-        return;
-      }
+  const nextMap: Record<string, string> = { ...currentMap };
+  if (afterVal === null) {
+    delete nextMap[key];
+  } else {
+    nextMap[key] = afterVal;
+  }
 
-      const nextMap: Record<string, string> = { ...currentMap };
-      if (afterVal === null) {
-        delete nextMap[key];
-      } else {
-        nextMap[key] = afterVal;
-      }
+  const [row] = await tx
+    .update(plans)
+    .set({
+      category_descriptions: nextMap,
+      updated_at: new Date(),
+      version: existing.version + 1,
+    })
+    .where(eq(plans.id, input.plan_id))
+    .returning();
+  if (!row) throw new PlannerError('VALIDATION', 'Update returned no row');
 
-      const [row] = await tx
-        .update(plans)
-        .set({
-          category_descriptions: nextMap,
-          updated_at: new Date(),
-          version: existing.version + 1,
-        })
-        .where(eq(plans.id, input.plan_id))
-        .returning();
-      if (!row) throw new PlannerError('VALIDATION', 'Update returned no row');
-      updated = row;
+  await emitPlannerPlanCategoryDescriptionChanged({
+    actor: { type: 'user', user_id: input.session.user_id },
+    tenant_id: existing.tenant_id,
+    plan_id: existing.id,
+    slot: input.slot,
+    before: beforeVal,
+    after: afterVal,
+  });
 
-      await emitPlannerPlanCategoryDescriptionChanged({
-        actor: { type: 'user', user_id: input.session.user_id },
-        tenant_id: existing.tenant_id,
-        plan_id: existing.id,
-        slot: input.slot,
-        before: beforeVal,
-        after: afterVal,
-      });
-    },
-  );
-
-  return rowToDto(updated);
+  return row;
 }
