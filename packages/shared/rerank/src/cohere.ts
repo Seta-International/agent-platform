@@ -74,13 +74,25 @@ export class CohereReranker implements Reranker {
     model: string,
   ): Promise<{ result: T; score: number }[]> => {
     // Lazy import so test path doesn't pull @mastra/rag into the test bundle.
-    const { rerank, CohereRelevanceScorer } = await import('@mastra/rag');
-    const scorer = new CohereRelevanceScorer({ apiKey, model });
-    const results = await rerank({
+    // CohereRelevanceScorer(model, apiKey) — positional args in @mastra/rag@2.2.1.
+    const { rerankWithScorer, CohereRelevanceScorer } = await import('@mastra/rag');
+    const scorer = new CohereRelevanceScorer(model, apiKey);
+    // @mastra/rag operates on QueryResult[] internally; we wrap our items as
+    // unknown metadata and extract them back by index after scoring.
+    const queryResults = items.map((item) => ({
+      id: String(Math.random()),
+      score: 0,
+      metadata: item as Record<string, unknown>,
+    }));
+    const results = await rerankWithScorer({
+      results: queryResults,
       query,
-      results: items.map((item) => ({ result: item, score: 0 })),
       scorer,
+      options: {},
     });
-    return results;
+    return results.map((r, i) => ({
+      result: items[i] as T,
+      score: r.score,
+    }));
   };
 }
