@@ -102,6 +102,23 @@ export const workflowsApi = {
     return jsonOrThrow<{ runId: string }>(res);
   },
 
+  async replayFromStep(
+    runId: string,
+    stepId: string,
+    payload: Record<string, unknown>,
+  ): Promise<{ newRunId: string }> {
+    const res = await fetch(
+      `/api/copilot/v1/workflows/runs/${encodeURIComponent(runId)}/replay-from-step`,
+      {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stepId, payload }),
+      },
+    );
+    return jsonOrThrow<{ newRunId: string }>(res);
+  },
+
   async getInputSchema(workflowId: string): Promise<Record<string, unknown> | null> {
     const res = await fetch(
       `/api/copilot/v1/workflows/${encodeURIComponent(workflowId)}/input-schema`,

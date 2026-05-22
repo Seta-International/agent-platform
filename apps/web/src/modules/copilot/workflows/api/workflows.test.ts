@@ -59,6 +59,22 @@ describe('workflowsApi', () => {
     expect(firstCall?.[1].method).toBe('POST');
   });
 
+  it('replayFromStep POSTs /replay-from-step with stepId + payload, returns newRunId', async () => {
+    const fetchMock = vi.fn(async () => mockJsonResponse({ newRunId: 'new-run-1' }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const out = await workflowsApi.replayFromStep('r1', 'step-b', { x: 2 });
+
+    expect(out.newRunId).toBe('new-run-1');
+    const firstCall = fetchMock.mock.calls[0] as [string, RequestInit] | undefined;
+    expect(String(firstCall?.[0])).toContain('/workflows/runs/r1/replay-from-step');
+    expect(firstCall?.[1].method).toBe('POST');
+    expect(JSON.parse(String(firstCall?.[1].body))).toEqual({
+      stepId: 'step-b',
+      payload: { x: 2 },
+    });
+  });
+
   it('issueSseToken returns the token string', async () => {
     vi.stubGlobal(
       'fetch',
