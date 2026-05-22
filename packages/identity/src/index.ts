@@ -15,6 +15,8 @@ export type { UserGrant } from './backend/domain/get-user-grants.ts';
 export { getUserGrants } from './backend/domain/get-user-grants.ts';
 export type { UserProfile } from './backend/domain/get-user-profile.ts';
 export { getUserProfile } from './backend/domain/get-user-profile.ts';
+export type { UserProfileForEmbedding } from './backend/domain/get-user-profile-for-embedding.ts';
+export { getUserProfileForEmbedding } from './backend/domain/get-user-profile-for-embedding.ts';
 export { getUserSignInMethods } from './backend/domain/get-user-sign-in-methods.ts';
 export type { GrantRoleInput } from './backend/domain/grant-role.ts';
 export { grantRole } from './backend/domain/grant-role.ts';
