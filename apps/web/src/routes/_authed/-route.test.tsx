@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activeNavId, buildNavModules } from './nav';
+import { activeNavId, buildNavModules } from './-nav';
 
 describe('buildNavModules', () => {
   it('planner module includes my-tasks item before groups', () => {

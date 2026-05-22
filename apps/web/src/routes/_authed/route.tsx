@@ -4,8 +4,8 @@ import { useMemo } from 'react';
 import { fetchMe } from '@/modules/identity/api/client.ts';
 import { SessionProvider } from '@/modules/identity/components/SessionProvider.tsx';
 import { UserMenu } from '@/modules/identity/components/UserMenu.tsx';
-import { type RecentPlan, useRecentPlans } from '@/modules/planner/hooks/use-recent-plans.ts';
-import { activeNavId, buildNavModules } from './nav';
+import { useRecentPlans } from '@/modules/planner/hooks/use-recent-plans.ts';
+import { activeNavId, buildNavModules } from './-nav';
 
 function ShellLink({ href, ...rest }: ShellLinkProps) {
   // TanStack Router's typed `to` is strictly enumerated; cast preserves intellisense at call sites
