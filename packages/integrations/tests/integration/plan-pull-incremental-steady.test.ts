@@ -210,12 +210,13 @@ describe('runPlanPull — incremental walk, steady state (no changes)', () => {
       const etagRows = await etagRepo.listForLink(link.id);
       expect(etagRows).toHaveLength(16);
 
-      // Snapshot unchanged (same structure and values)
+      // Snapshot unchanged for plan/categoryDescriptions; tasks map empty since no changed tasks
       const refreshedLink = await planLinkRepo.findByPlan(PLAN_ID);
       expect(refreshedLink).not.toBeNull();
       expect(refreshedLink!.lastSyncedSnapshot).toEqual({
         plan: { title: 'Roadmap' },
         categoryDescriptions: { category1: 'Urgent', category3: 'Bug' },
+        tasks: {},
       });
     });
   });

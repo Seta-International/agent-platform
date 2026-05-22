@@ -43,4 +43,14 @@ export type IntegrationsEvent =
         entra_oid: string;
         reason: 'not_provisioned';
       };
+    }
+  | {
+      type: 'integrations.m365.task.field-conflict.v1';
+      payload: {
+        tenant_id: string;
+        plan_id: string;
+        task_id: string;
+        external_task_id: string;
+        conflicts: Array<{ field: string; local: unknown; remote: unknown; snapshot: unknown }>;
+      };
     };

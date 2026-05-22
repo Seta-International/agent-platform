@@ -193,6 +193,20 @@ describe('runPlanPull — initial full pull', () => {
         expect(call.external_etag).toBeTruthy();
       }
 
+      // markTaskSyncStatus called once per created task with status idle
+      expect(planner.markTaskSyncStatus).toHaveBeenCalledTimes(4);
+      const taskStatusCalls = vi.mocked(planner.markTaskSyncStatus).mock.calls.map((c) => c[0]);
+      for (const call of taskStatusCalls) {
+        expect(call.status).toBe('idle');
+      }
+      const taskStatusIds = taskStatusCalls.map((c) => c.task_id).sort();
+      expect(taskStatusIds).toEqual([
+        'TASK-LOCAL-1',
+        'TASK-LOCAL-2',
+        'TASK-LOCAL-3',
+        'TASK-LOCAL-4',
+      ]);
+
       // Spot-check Task 4 fields (dates + priority + percent + previewType)
       const t4 = createTaskCalls.find((c) => c.external_id === 'T-EXT-4')!;
       expect(t4.priority).toBe(1);
@@ -280,12 +294,58 @@ describe('runPlanPull — initial full pull', () => {
         bucketTaskBoardTaskFormat: 4,
       });
 
-      // Snapshot persisted on link row
+      // Snapshot persisted on link row — includes the tasks map added in Stage C
       const refreshedLink = await planLinkRepo.findByPlan(PLAN_ID);
       expect(refreshedLink).not.toBeNull();
       expect(refreshedLink!.lastSyncedSnapshot).toEqual({
         plan: { title: 'Roadmap' },
         categoryDescriptions: { category1: 'Urgent', category3: 'Bug' },
+        tasks: {
+          'T-EXT-1': {
+            title: 'Task 1',
+            priority: 5,
+            percent_complete: 0,
+            start_date: null,
+            due_date: null,
+            completed_at: null,
+            preview_type: 'automatic',
+            order_hint: '8585',
+            bucket_external_id: 'B-EXT-1',
+          },
+          'T-EXT-2': {
+            title: 'Task 2',
+            priority: 3,
+            percent_complete: 50,
+            start_date: null,
+            due_date: null,
+            completed_at: null,
+            preview_type: 'description',
+            order_hint: '8587',
+            bucket_external_id: 'B-EXT-1',
+          },
+          'T-EXT-3': {
+            title: 'Task 3',
+            priority: 9,
+            percent_complete: 0,
+            start_date: null,
+            due_date: null,
+            completed_at: null,
+            preview_type: 'automatic',
+            order_hint: '9091',
+            bucket_external_id: 'B-EXT-2',
+          },
+          'T-EXT-4': {
+            title: 'Task 4',
+            priority: 1,
+            percent_complete: 100,
+            start_date: '2026-05-01T00:00:00Z',
+            due_date: '2026-05-15T00:00:00Z',
+            completed_at: '2026-05-14T18:30:00Z',
+            preview_type: 'checklist',
+            order_hint: '9095',
+            bucket_external_id: 'B-EXT-2',
+          },
+        },
       });
 
       // Verify total Graph request count: 4 listing + (1 details + 1 boardFormat) * 4 tasks = 12

@@ -1,4 +1,6 @@
+import { isDeepStrictEqual } from 'node:util';
 import type { PlannerSessionScope } from '@seta/planner';
+import { resolveField } from '../lww.ts';
 import { createAssigneeResolver } from '../plans/assignee-resolver.ts';
 import { pullCategoryMapping } from '../plans/category-mapping.ts';
 import type { PlansGraph } from '../plans/graph.ts';
@@ -322,6 +324,15 @@ export async function runPlanPull(input: RunPlanPullInput, deps: RunPlanPullDeps
       emit: deps.emit,
     });
 
+    // Tasks snapshot keyed by external task id; populated from the persisted snapshot if present.
+    const snapshotTasks = ((link.lastSyncedSnapshot as Record<string, unknown> | null)?.tasks ??
+      {}) as Record<string, Record<string, unknown>>;
+
+    // Accumulates per-task snapshots to persist at the end of this pull.
+    const updatedTaskSnapshots: Record<string, Record<string, unknown>> = {};
+
+    let anyTaskConflicts = false;
+
     for (const extId of actions.changedTaskExternalIds) {
       const rt = remoteTasks.find((t) => t.id === extId);
       if (!rt) continue;
@@ -358,25 +369,138 @@ export async function runPlanPull(input: RunPlanPullInput, deps: RunPlanPullDeps
           session,
         });
         setaTaskId = created.id;
+        await deps.planner.markTaskSyncStatus({ task_id: setaTaskId, status: 'idle', session });
       } else {
         setaTaskId = local.id;
-        await deps.planner.updateTask({
-          task_id: setaTaskId,
-          patch: {
-            title: rt.title,
-            order_hint: rt.orderHint,
-            priority: rt.priority,
-            percent_complete: rt.percentComplete,
-            start_date: rt.startDateTime ?? null,
-            due_date: rt.dueDateTime ?? null,
-            completed_at: rt.completedDateTime ?? null,
-            preview_type: rt.previewType,
-            bucket_id: setaBucketId,
-            external_etag: rt['@odata.etag'],
-          },
-          session,
+
+        // Per-field LWW for existing tasks.
+        // The snapshot entry for this task, if any, contains field values from the last
+        // successful sync. Used as the LWW anchor.
+        const snap = snapshotTasks[extId] ?? {};
+
+        type TaskPatch = Parameters<typeof deps.planner.updateTask>[0]['patch'];
+        const patch: TaskPatch = { external_etag: rt['@odata.etag'] };
+        const conflicts: Array<{
+          field: string;
+          local: unknown;
+          remote: unknown;
+          snapshot: unknown;
+        }> = [];
+
+        // Resolve a field that IS returned by listTasks (title, bucket_id). We have a genuine
+        // local value and can detect local edits vs the snapshot anchor.
+        function resolveObservable<T>(
+          field: string,
+          localVal: T,
+          remoteVal: T,
+          applyToPatch: (v: T) => void,
+        ) {
+          // Synthetic-anchor: if the snapshot has no entry for this field yet (first pull), use
+          // the current local value so the decision is remote-wins when remote differs from local.
+          const snapshotVal: T = field in snap ? (snap[field] as T) : localVal;
+          const decision = resolveField({
+            local: localVal,
+            remote: remoteVal,
+            snapshot: snapshotVal,
+          });
+          if (decision.kind === 'remote-wins') {
+            applyToPatch(decision.value);
+          } else if (decision.kind === 'conflict') {
+            conflicts.push({ field, local: localVal, remote: remoteVal, snapshot: snapshotVal });
+          }
+          // 'noop' and 'local-wins': no contribution in PR2
+        }
+
+        // Resolve a field NOT returned by listTasks (priority, percent_complete, etc.). We cannot
+        // observe local edits for these fields. Always apply remote value when it differs from the
+        // last synced snapshot (= remote-wins semantics without conflict detection).
+        function applyUnobservable<T>(field: string, remoteVal: T, applyToPatch: (v: T) => void) {
+          const snapshotVal: T | undefined = field in snap ? (snap[field] as T) : undefined;
+          // noop when remote unchanged from last sync; remote-wins otherwise
+          if (snapshotVal === undefined || !isDeepStrictEqual(remoteVal, snapshotVal)) {
+            applyToPatch(remoteVal);
+          }
+        }
+
+        // title: observable via listTasks
+        resolveObservable('title', local.title, rt.title, (v) => {
+          patch.title = v;
         });
+
+        // Non-observable fields: apply remote when changed from snapshot
+        applyUnobservable('priority', rt.priority, (v) => {
+          patch.priority = v;
+        });
+        applyUnobservable('percent_complete', rt.percentComplete, (v) => {
+          patch.percent_complete = v;
+        });
+        applyUnobservable('start_date', rt.startDateTime ?? null, (v) => {
+          patch.start_date = v;
+        });
+        applyUnobservable('due_date', rt.dueDateTime ?? null, (v) => {
+          patch.due_date = v;
+        });
+        applyUnobservable('completed_at', rt.completedDateTime ?? null, (v) => {
+          patch.completed_at = v;
+        });
+        applyUnobservable('preview_type', rt.previewType, (v) => {
+          patch.preview_type = v;
+        });
+        applyUnobservable('order_hint', rt.orderHint, (v) => {
+          patch.order_hint = v;
+        });
+
+        // bucket_id: observable via listTasks (bucket_id is returned). Map local bucket id to
+        // its external id for the LWW comparison, then resolve back to local id if remote-wins.
+        const localBucketExtId = local.bucket_id
+          ? ([...localBucketByExt.entries()].find(([, id]) => id === local.bucket_id)?.[0] ?? null)
+          : null;
+        resolveObservable(
+          'bucket_external_id',
+          localBucketExtId as string | null,
+          rt.bucketId,
+          (v) => {
+            const resolvedBucketId = v ? localBucketByExt.get(v) : undefined;
+            if (resolvedBucketId) patch.bucket_id = resolvedBucketId;
+          },
+        );
+
+        await deps.planner.updateTask({ task_id: setaTaskId, patch, session });
+
+        if (conflicts.length > 0) {
+          anyTaskConflicts = true;
+          await deps.emit({
+            type: 'integrations.m365.task.field-conflict.v1',
+            payload: {
+              tenant_id: input.tenant_id,
+              plan_id: input.plan_id,
+              task_id: setaTaskId,
+              external_task_id: extId,
+              conflicts,
+            },
+          });
+          await deps.planner.markTaskSyncStatus({
+            task_id: setaTaskId,
+            status: 'conflict',
+            session,
+          });
+        } else {
+          await deps.planner.markTaskSyncStatus({ task_id: setaTaskId, status: 'idle', session });
+        }
       }
+
+      // Persist updated remote field values into the task snapshot for the next pull.
+      updatedTaskSnapshots[extId] = {
+        title: rt.title,
+        priority: rt.priority,
+        percent_complete: rt.percentComplete,
+        start_date: rt.startDateTime ?? null,
+        due_date: rt.dueDateTime ?? null,
+        completed_at: rt.completedDateTime ?? null,
+        preview_type: rt.previewType,
+        order_hint: rt.orderHint,
+        bucket_external_id: rt.bucketId,
+      };
 
       await deps.planner.setTaskAssignees({
         task_id: setaTaskId,
@@ -453,14 +577,23 @@ export async function runPlanPull(input: RunPlanPullInput, deps: RunPlanPullDeps
       }
     }
 
+    // Merge updated task snapshots with existing ones (carry forward entries for tasks not touched
+    // in this pull cycle, so LWW anchors remain stable across incremental runs).
+    const mergedTaskSnapshots = { ...snapshotTasks, ...updatedTaskSnapshots };
+    // Remove entries for tasks that were deleted remotely so the map stays tidy.
+    for (const extId of actions.removedTaskExternalIds) {
+      delete mergedTaskSnapshots[extId];
+    }
+
     await deps.planLinkRepo.persistSnapshot(link.id, {
       plan: { title: remotePlan.title },
       categoryDescriptions: remotePlanDetails.categoryDescriptions ?? {},
+      tasks: mergedTaskSnapshots,
     });
 
     await deps.planner.markPlanSyncStatus({
       plan_id: input.plan_id,
-      status: 'idle',
+      status: anyTaskConflicts ? 'conflict' : 'idle',
       last_error: null,
       session,
     });
