@@ -148,7 +148,10 @@ export type {
   SearchTasksInput,
 } from './backend/retrieval/search-tasks.ts';
 export { searchTasks } from './backend/retrieval/search-tasks.ts';
+export { backfillTasks } from './embeddings/backfill.ts';
 export { fitsInWindow, MAX_SOURCE_TOKENS } from './embeddings/chunking.ts';
+export { type EmbedTaskPayload, embedTask } from './embeddings/embed-task.ts';
+export { plannerEmbeddingJobs } from './embeddings/register-worker.ts';
 export type { TaskSourceInput } from './embeddings/source.ts';
 export { buildTaskSource } from './embeddings/source.ts';
 export type { PlannerEvent, PlannerEventActor } from './events/index.ts';
