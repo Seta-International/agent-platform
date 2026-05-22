@@ -4,7 +4,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import type { ReactNode } from 'react';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { plannerKeys } from '../state/query-keys';
 import { makeTaskWithAssignees } from '../testing/fixtures';
 import { TaskDetailLabelsCard } from './TaskDetailLabelsCard';
@@ -90,5 +90,120 @@ describe('TaskDetailLabelsCard', () => {
     const task = makeTask([label({ id: 'l1', name: 'plain', category_slot: null })]);
     renderWithClient(<TaskDetailLabelsCard task={task} planId="p1" />);
     expect(screen.queryByText(/cat /)).not.toBeInTheDocument();
+  });
+
+  describe('isLinkedToM365=false (default behavior)', () => {
+    it('shows slot-less labels as enabled items with no "Local only" badge', async () => {
+      const { userEvent } = await import('@testing-library/user-event');
+      const user = userEvent.setup();
+      const task = makeTask([]);
+      renderWithClient(<TaskDetailLabelsCard task={task} planId="p1" isLinkedToM365={false} />, [
+        label({ id: 'la', name: 'alpha' }),
+      ]);
+      await user.click(screen.getByRole('button', { name: /Add label/i }));
+      await waitFor(() => expect(screen.getByText('alpha')).toBeInTheDocument());
+      expect(screen.queryByText('Local only')).not.toBeInTheDocument();
+      const item = screen.getByRole('option', { name: /alpha/i });
+      expect(item).not.toHaveAttribute('aria-disabled', 'true');
+    });
+
+    it('calls apply mutation when a slot-less label is clicked', async () => {
+      const { userEvent } = await import('@testing-library/user-event');
+      const user = userEvent.setup();
+
+      const applyMutate = vi.fn();
+      server.use(
+        http.post('/api/planner/v1/tasks/t1/labels', async () => {
+          applyMutate();
+          return HttpResponse.json({});
+        }),
+      );
+
+      const task = makeTask([]);
+      renderWithClient(<TaskDetailLabelsCard task={task} planId="p1" isLinkedToM365={false} />, [
+        label({ id: 'la', name: 'alpha' }),
+      ]);
+      await user.click(screen.getByRole('button', { name: /Add label/i }));
+      await waitFor(() => expect(screen.getByText('alpha')).toBeInTheDocument());
+      await user.click(screen.getByRole('option', { name: /alpha/i }));
+      await waitFor(() => expect(applyMutate).toHaveBeenCalledOnce());
+    });
+  });
+
+  describe('isLinkedToM365=true', () => {
+    it('shows slot-less labels with "Local only" badge text', async () => {
+      const { userEvent } = await import('@testing-library/user-event');
+      const user = userEvent.setup();
+      const task = makeTask([]);
+      renderWithClient(<TaskDetailLabelsCard task={task} planId="p1" isLinkedToM365={true} />, [
+        label({ id: 'la', name: 'alpha' }),
+      ]);
+      await user.click(screen.getByRole('button', { name: /Add label/i }));
+      await waitFor(() => expect(screen.getByText('alpha')).toBeInTheDocument());
+      expect(screen.getByText('Local only')).toBeInTheDocument();
+    });
+
+    it('marks slot-less label items as disabled (aria-disabled)', async () => {
+      const { userEvent } = await import('@testing-library/user-event');
+      const user = userEvent.setup();
+      const task = makeTask([]);
+      renderWithClient(<TaskDetailLabelsCard task={task} planId="p1" isLinkedToM365={true} />, [
+        label({ id: 'la', name: 'alpha' }),
+      ]);
+      await user.click(screen.getByRole('button', { name: /Add label/i }));
+      await waitFor(() => expect(screen.getByText('alpha')).toBeInTheDocument());
+      const item = screen.getByRole('option', { name: /alpha/i });
+      expect(item).toHaveAttribute('aria-disabled', 'true');
+    });
+
+    it('does NOT call apply mutation when a disabled slot-less label is clicked', async () => {
+      const { userEvent } = await import('@testing-library/user-event');
+      const user = userEvent.setup();
+
+      const applyMutate = vi.fn();
+      server.use(
+        http.post('/api/planner/v1/tasks/t1/labels', async () => {
+          applyMutate();
+          return HttpResponse.json({});
+        }),
+      );
+
+      const task = makeTask([]);
+      renderWithClient(<TaskDetailLabelsCard task={task} planId="p1" isLinkedToM365={true} />, [
+        label({ id: 'la', name: 'alpha' }),
+      ]);
+      await user.click(screen.getByRole('button', { name: /Add label/i }));
+      await waitFor(() => expect(screen.getByText('alpha')).toBeInTheDocument());
+
+      const item = screen.getByRole('option', { name: /alpha/i });
+      // pointer-events-none on disabled item means the click won't trigger onSelect
+      await user.click(item);
+      // Wait a tick to confirm mutation wasn't triggered
+      await new Promise((r) => setTimeout(r, 50));
+      expect(applyMutate).not.toHaveBeenCalled();
+    });
+
+    it('shows tooltip message when hovering a disabled slot-less label', async () => {
+      const { userEvent } = await import('@testing-library/user-event');
+      const user = userEvent.setup();
+      const task = makeTask([]);
+      renderWithClient(<TaskDetailLabelsCard task={task} planId="p1" isLinkedToM365={true} />, [
+        label({ id: 'la', name: 'alpha' }),
+      ]);
+      await user.click(screen.getByRole('button', { name: /Add label/i }));
+      await waitFor(() => expect(screen.getByText('alpha')).toBeInTheDocument());
+
+      // The tooltip trigger is the wrapper div around the disabled CommandItem
+      const option = screen.getByRole('option', { name: /alpha/i });
+      const trigger = option.closest('[data-radix-collection-item]')?.parentElement ?? option;
+      await user.hover(trigger);
+      await waitFor(() =>
+        expect(
+          screen.getAllByText(
+            'Add a category slot in Plan Settings to sync this label to M365 Planner.',
+          ).length,
+        ).toBeGreaterThanOrEqual(1),
+      );
+    });
   });
 });

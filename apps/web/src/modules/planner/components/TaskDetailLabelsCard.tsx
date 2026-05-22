@@ -1,5 +1,6 @@
 import type { LabelRow, TaskWithAssigneesRow } from '@seta/planner';
 import {
+  Badge,
   Button,
   Command,
   CommandEmpty,
@@ -11,6 +12,10 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from '@seta/shared-ui';
 import { useQuery } from '@tanstack/react-query';
 import { Plus, X } from 'lucide-react';
@@ -24,9 +29,10 @@ import { plannerKeys } from '../state/query-keys';
 interface Props {
   task: TaskWithAssigneesRow;
   planId: string;
+  isLinkedToM365?: boolean;
 }
 
-export function TaskDetailLabelsCard({ task, planId }: Props) {
+export function TaskDetailLabelsCard({ task, planId, isLinkedToM365 = false }: Props) {
   const apply = useApplyLabel(planId);
   const unapply = useUnapplyLabel(planId);
   const planLabelsQuery = useQuery({
@@ -82,23 +88,42 @@ export function TaskDetailLabelsCard({ task, planId }: Props) {
               <CommandList>
                 <CommandEmpty>No labels.</CommandEmpty>
                 <CommandGroup>
-                  {availableLabels.map((l) => (
-                    <CommandItem
-                      key={l.id}
-                      value={l.name}
-                      onSelect={() => {
-                        apply.mutate({
-                          task_id: task.id,
-                          label_id: l.id,
-                          label_name: l.name,
-                          label_color: l.color,
-                        });
-                        setPickerOpen(false);
-                      }}
-                    >
-                      <LabelChip name={l.name} color={l.color || undefined} />
-                    </CommandItem>
-                  ))}
+                  <TooltipProvider delayDuration={0}>
+                    {availableLabels.map((l) =>
+                      isLinkedToM365 ? (
+                        <Tooltip key={l.id}>
+                          <TooltipTrigger asChild>
+                            {/* Wrapper div captures hover events; CommandItem's pointer-events-none only blocks clicks */}
+                            <div>
+                              <CommandItem value={l.name} disabled className="opacity-50">
+                                <LabelChip name={l.name} color={l.color || undefined} />
+                                <Badge variant="outline" className="ml-auto shrink-0">
+                                  Local only
+                                </Badge>
+                              </CommandItem>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>{LOCAL_ONLY_TOOLTIP}</TooltipContent>
+                        </Tooltip>
+                      ) : (
+                        <CommandItem
+                          key={l.id}
+                          value={l.name}
+                          onSelect={() => {
+                            apply.mutate({
+                              task_id: task.id,
+                              label_id: l.id,
+                              label_name: l.name,
+                              label_color: l.color,
+                            });
+                            setPickerOpen(false);
+                          }}
+                        >
+                          <LabelChip name={l.name} color={l.color || undefined} />
+                        </CommandItem>
+                      ),
+                    )}
+                  </TooltipProvider>
                 </CommandGroup>
               </CommandList>
             </Command>
@@ -121,6 +146,9 @@ export function TaskDetailLabelsCard({ task, planId }: Props) {
     </section>
   );
 }
+
+const LOCAL_ONLY_TOOLTIP =
+  'Add a category slot in Plan Settings to sync this label to M365 Planner.';
 
 const head: CSSProperties = { marginBottom: 8 };
 const chips: CSSProperties = {
