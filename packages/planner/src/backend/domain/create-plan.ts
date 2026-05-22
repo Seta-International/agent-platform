@@ -1,10 +1,13 @@
 import type { SessionScope } from '@seta/core';
+import { requestNotification } from '@seta/core';
 import { withEmit } from '@seta/core/events';
 import { and, eq, isNull } from 'drizzle-orm';
+import type { PlannerDb } from '../../db/index.ts';
 import { groups, plans } from '../../db/schema.ts';
 import { emitPlannerPlanCreated } from '../../events/emit-helpers.ts';
 import type { PlanRow } from '../dto.ts';
 import type { CreatePlanInput } from '../inputs.ts';
+import { resolveGroupMemberIds } from '../notifications/recipients.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 
 type PlanDbRow = typeof plans.$inferSelect;
@@ -48,7 +51,7 @@ export async function createPlan(
       if (!row) throw new PlannerError('VALIDATION', 'Insert returned no row');
       inserted = row;
 
-      await emitPlannerPlanCreated({
+      const { eventId } = await emitPlannerPlanCreated({
         actor: { type: 'user', user_id: input.session.user_id },
         tenant_id: group.tenant_id,
         after: {
@@ -56,6 +59,26 @@ export async function createPlan(
           group_id: row.group_id,
           name: row.name,
           created_by: row.created_by,
+        },
+      });
+
+      const memberIds = await resolveGroupMemberIds(
+        input.session.tenant_id,
+        input.group_id,
+        tx as unknown as PlannerDb,
+      );
+      const recipients = memberIds.filter((u) => u !== input.session.user_id);
+      await requestNotification({
+        tenant_id: group.tenant_id,
+        event_type: 'planner.plan.created',
+        user_ids: recipients,
+        source_event_id: eventId,
+        payload: {
+          title: 'Plan created',
+          body: `New plan "${row.name}" was created in "${group.name}"`,
+          plan_id: row.id,
+          group_id: input.group_id,
+          actor: { user_id: input.session.user_id, name: input.session.user_id },
         },
       });
     },

@@ -2,7 +2,7 @@ import { resetCoreDb } from '@seta/core/internal/test-support';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
-import { createGroup, createPlan } from '../../src/index.ts';
+import { addGroupMember, createGroup, createPlan } from '../../src/index.ts';
 import { readEvents, seedTenant } from '../helpers.ts';
 
 describe('createPlan', () => {
@@ -50,6 +50,56 @@ describe('createPlan', () => {
           expect(payload.actor.user_id).toBe(session.user_id);
           expect(payload.actor.type).toBe('user');
           expect(payload.group_id).toBe(group.id);
+        } finally {
+          resetCoreDb();
+          await closePools();
+        }
+      },
+    );
+  });
+
+  it('requests a notification to all group members except the actor', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+      },
+      async ({ pool, databaseUrl }) => {
+        resetCoreDb();
+        initPools({ databaseUrl });
+        try {
+          const seeded = await seedTenant(pool, {
+            users: [
+              { name: 'Bob', email: 'bob@example.test' },
+              { name: 'Carol', email: 'carol@example.test' },
+            ],
+          });
+          const session = seeded.adminSession;
+          const bob = seeded.users[0]!;
+          const carol = seeded.users[1]!;
+
+          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+          await addGroupMember({ group_id: group.id, user_id: session.user_id, session });
+          await addGroupMember({ group_id: group.id, user_id: bob.user_id, session });
+          await addGroupMember({ group_id: group.id, user_id: carol.user_id, session });
+
+          await pool.query(
+            `DELETE FROM core.events WHERE event_type = 'core.notification.requested' AND tenant_id = $1`,
+            [seeded.tenant_id],
+          );
+
+          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+
+          const events = await readEvents(pool, seeded.tenant_id, 'core.notification.requested');
+          expect(events).toHaveLength(1);
+          // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
+          const payload = events[0]?.payload as any;
+          expect(payload.target_event_type).toBe('planner.plan.created');
+          expect((payload.user_ids as string[]).sort()).toEqual(
+            [bob.user_id, carol.user_id].sort(),
+          );
+          expect(payload.target_payload.plan_id).toBe(plan.id);
+          expect(payload.target_payload.group_id).toBe(group.id);
         } finally {
           resetCoreDb();
           await closePools();
