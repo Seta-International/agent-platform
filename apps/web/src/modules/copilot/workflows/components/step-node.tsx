@@ -4,7 +4,7 @@ import type { DefaultNodeData } from '../lib/build-graph.ts';
 import { stepStatusToRunStatus, tokenFor } from '../lib/status-tokens.ts';
 import { RunStatusPill } from './run-status-pill.tsx';
 
-export function StepNode({ data }: NodeProps<Node<DefaultNodeData>>) {
+export function DefaultNode({ data }: NodeProps<Node<DefaultNodeData>>) {
   const runStatus = stepStatusToRunStatus(data.status);
   const t = tokenFor(runStatus);
   return (
