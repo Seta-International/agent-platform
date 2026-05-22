@@ -9,6 +9,9 @@ export interface NodeBaseData extends Record<string, unknown> {
 
 export interface DefaultNodeData extends NodeBaseData {
   description: string;
+  runStatus?: string;
+  originalPayload?: unknown;
+  onReplay?: (args: { stepId: string; originalPayload: unknown }) => void;
 }
 
 export interface ConditionNodeData extends NodeBaseData {

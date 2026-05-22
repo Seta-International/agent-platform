@@ -32,6 +32,7 @@ export interface WorkflowGraphRun {
 export interface WorkflowGraphProps {
   snapshot: unknown;
   run: WorkflowGraphRun;
+  onReplay?: (args: { stepId: string; originalPayload: unknown }) => void;
 }
 
 const nodeTypes = {
@@ -43,11 +44,28 @@ const nodeTypes = {
   'control-node': ControlNode,
 };
 
-function WorkflowGraphInner({ snapshot, run }: WorkflowGraphProps) {
-  const { nodes: initialNodes, edges: initialEdges } = useMemo(
-    () => buildWorkflowGraph(snapshot),
-    [snapshot],
-  );
+function WorkflowGraphInner({ snapshot, run, onReplay }: WorkflowGraphProps) {
+  const { nodes: initialNodes, edges: initialEdges } = useMemo(() => {
+    const { nodes: rawNodes, edges } = buildWorkflowGraph(snapshot);
+    const snapContext = (snapshot as { context?: Record<string, { payload?: unknown }> } | null)
+      ?.context;
+    const enriched = onReplay
+      ? rawNodes.map((n) =>
+          n.type === 'default-node'
+            ? {
+                ...n,
+                data: {
+                  ...n.data,
+                  runStatus: run.status,
+                  originalPayload: snapContext?.[(n.data as { stepId: string }).stepId]?.payload,
+                  onReplay,
+                },
+              }
+            : n,
+        )
+      : rawNodes;
+    return { nodes: enriched, edges };
+  }, [snapshot, run.status, onReplay]);
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [cancelling, setCancelling] = useState(false);

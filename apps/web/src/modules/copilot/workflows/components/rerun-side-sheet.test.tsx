@@ -118,7 +118,7 @@ describe('RerunSideSheet', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Replay from step' }));
 
     await waitFor(() => {
-      const calls = fetchMock.mock.calls as Array<[unknown, RequestInit | undefined]>;
+      const calls = fetchMock.mock.calls as unknown as Array<[unknown, RequestInit | undefined]>;
       const replayCall = calls.find(([u]) => String(u).includes('replay-from-step'));
       expect(replayCall).toBeDefined();
       const body = JSON.parse(String(replayCall?.[1]?.body));

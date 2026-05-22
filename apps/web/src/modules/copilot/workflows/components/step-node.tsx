@@ -2,11 +2,13 @@ import type { Node } from '@xyflow/react';
 import { Handle, type NodeProps, Position } from '@xyflow/react';
 import type { DefaultNodeData } from '../lib/build-graph.ts';
 import { stepStatusToRunStatus, tokenFor } from '../lib/status-tokens.ts';
+import { ReplayFromStepButton } from './replay-from-step-button.tsx';
 import { RunStatusPill } from './run-status-pill.tsx';
 
 export function DefaultNode({ data }: NodeProps<Node<DefaultNodeData>>) {
   const runStatus = stepStatusToRunStatus(data.status);
   const t = tokenFor(runStatus);
+  const canReplay = Boolean(data.runStatus && data.onReplay);
   return (
     <article
       aria-label={`Step ${data.stepId} (${runStatus})`}
@@ -30,6 +32,17 @@ export function DefaultNode({ data }: NodeProps<Node<DefaultNodeData>>) {
         </p>
       ) : null}
       <div aria-hidden className="mt-2 h-0.5 w-full rounded-full" style={{ background: t.bg }} />
+      {canReplay && data.runStatus && data.onReplay ? (
+        <div className="mt-1 flex justify-end">
+          <ReplayFromStepButton
+            runStatus={data.runStatus}
+            stepStatus={data.status}
+            stepId={data.stepId}
+            originalPayload={data.originalPayload ?? {}}
+            onReplay={data.onReplay}
+          />
+        </div>
+      ) : null}
       <Handle
         type="source"
         position={Position.Bottom}

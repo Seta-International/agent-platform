@@ -1,4 +1,5 @@
 import { useNavigate } from '@tanstack/react-router';
+import { useCallback, useState } from 'react';
 import { HitlApprovalCard } from '../components/hitl-approval-card.tsx';
 import { RerunSideSheet } from '../components/rerun-side-sheet.tsx';
 import { RunHeader } from '../components/run-header.tsx';
@@ -20,6 +21,15 @@ export function WorkflowRunPage({ runId, rerunOpen = false }: WorkflowRunPagePro
   const snapshotQuery = useWorkflowRunSnapshot(runId);
   const approvalsQuery = usePendingApprovals();
   const decide = useDecideApproval(runId);
+  const [replayCtx, setReplayCtx] = useState<{
+    stepId: string;
+    originalPayload: unknown;
+  } | null>(null);
+
+  const onReplay = useCallback(
+    (args: { stepId: string; originalPayload: unknown }) => setReplayCtx(args),
+    [],
+  );
 
   const openRerun = () =>
     void navigate({
@@ -33,6 +43,10 @@ export function WorkflowRunPage({ runId, rerunOpen = false }: WorkflowRunPagePro
       params: { runId },
       search: {},
     });
+  const closeSheet = () => {
+    if (replayCtx) setReplayCtx(null);
+    if (rerunOpen) closeRerun();
+  };
 
   if (runQuery.isLoading) {
     return <div className="p-8 text-sm text-[var(--color-ink-subtle)]">Loading run…</div>;
@@ -66,6 +80,7 @@ export function WorkflowRunPage({ runId, rerunOpen = false }: WorkflowRunPagePro
               finishedAt: run.finishedAt,
               status: run.status,
             }}
+            onReplay={onReplay}
           />
           {run.status === 'paused' && myApproval ? (
             <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center p-4">
@@ -87,11 +102,13 @@ export function WorkflowRunPage({ runId, rerunOpen = false }: WorkflowRunPagePro
         />
       </div>
       <RerunSideSheet
-        open={rerunOpen}
+        open={rerunOpen || replayCtx !== null}
+        mode={replayCtx ? 'replay-from-step' : 'rerun'}
+        replayContext={replayCtx ?? undefined}
         runId={runId}
         workflowId={run.workflowId}
         priorInputSummary={run.inputSummary}
-        onClose={closeRerun}
+        onClose={closeSheet}
       />
     </div>
   );
