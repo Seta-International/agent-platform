@@ -1,3 +1,4 @@
+import { DragDropContext } from '@hello-pangea/dnd';
 import type { TaskWithPlan } from '@seta/planner';
 import {
   createMemoryHistory,
@@ -90,7 +91,11 @@ function renderInRouter(ui: ReactNode) {
     routeTree: rootRoute.addChildren([indexRoute, planRoute, taskRoute]),
     history: createMemoryHistory({ initialEntries: ['/'] }),
   });
-  render(<RouterProvider router={router} />);
+  render(
+    <DragDropContext onDragEnd={() => undefined}>
+      <RouterProvider router={router} />
+    </DragDropContext>,
+  );
   return router;
 }
 

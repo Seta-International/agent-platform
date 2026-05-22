@@ -1,3 +1,4 @@
+import { Draggable, Droppable } from '@hello-pangea/dnd';
 import { Link } from '@tanstack/react-router';
 import { ChevronRight, ExternalLink, Layout } from 'lucide-react';
 import { MtTaskRow, type MyTasksRowTask } from './mt-task-row';
@@ -19,13 +20,17 @@ export interface PlanGroupData {
   tasks: ReadonlyArray<MyTasksRowTask>;
 }
 
+export type PlanGroupSectionKey = 'late' | 'week' | 'in_progress' | 'not_started' | 'done';
+
 interface Props {
+  sectionKey: PlanGroupSectionKey;
   group: PlanGroupData;
   first?: boolean;
 }
 
-export function PlanGroup({ group, first = false }: Props) {
+export function PlanGroup({ sectionKey, group, first = false }: Props) {
   const taskCount = group.tasks.length;
+  const droppableId = `mt:${sectionKey}:${group.plan.id}`;
   return (
     <div
       data-testid="plan-group"
@@ -76,9 +81,22 @@ export function PlanGroup({ group, first = false }: Props) {
         <span>Assignees</span>
       </div>
 
-      {group.tasks.map((t) => (
-        <MtTaskRow key={t.id} task={t} />
-      ))}
+      <Droppable droppableId={droppableId} type="MT_TASK">
+        {(dp) => (
+          <div ref={dp.innerRef} {...dp.droppableProps}>
+            {group.tasks.map((t, i) => (
+              <Draggable key={t.id} draggableId={t.id} index={i}>
+                {(dpc) => (
+                  <div ref={dpc.innerRef} {...dpc.draggableProps}>
+                    <MtTaskRow task={t} dragHandleProps={dpc.dragHandleProps ?? undefined} />
+                  </div>
+                )}
+              </Draggable>
+            ))}
+            {dp.placeholder}
+          </div>
+        )}
+      </Droppable>
     </div>
   );
 }

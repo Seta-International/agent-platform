@@ -1,3 +1,4 @@
+import { DragDropContext } from '@hello-pangea/dnd';
 import type { TaskWithPlan } from '@seta/planner';
 import {
   createMemoryHistory,
@@ -77,13 +78,17 @@ function renderInRouter(ui: ReactNode) {
     routeTree: rootRoute.addChildren([indexRoute, planRoute, taskRoute]),
     history: createMemoryHistory({ initialEntries: ['/'] }),
   });
-  render(<RouterProvider router={router} />);
+  render(
+    <DragDropContext onDragEnd={() => undefined}>
+      <RouterProvider router={router} />
+    </DragDropContext>,
+  );
   return router;
 }
 
 describe('PlanGroup', () => {
   it('renders the plan strip header with rail, plan name, group name, count, Open-plan link', async () => {
-    renderInRouter(<PlanGroup group={fxGroup()} first />);
+    renderInRouter(<PlanGroup sectionKey="late" group={fxGroup()} first />);
     expect(await screen.findByText('Q3 Launch')).toBeInTheDocument();
     expect(screen.getByText('Engineering')).toBeInTheDocument();
     expect(screen.getByText(/1 task\b/)).toBeInTheDocument();
@@ -93,7 +98,7 @@ describe('PlanGroup', () => {
   });
 
   it('renders the column-key row', async () => {
-    renderInRouter(<PlanGroup group={fxGroup()} />);
+    renderInRouter(<PlanGroup sectionKey="late" group={fxGroup()} />);
     expect(await screen.findByText('Task')).toBeInTheDocument();
     expect(screen.getByText('Priority')).toBeInTheDocument();
     expect(screen.getByText('Progress')).toBeInTheDocument();
@@ -105,6 +110,7 @@ describe('PlanGroup', () => {
   it('renders one MtTaskRow per task', async () => {
     renderInRouter(
       <PlanGroup
+        sectionKey="late"
         group={fxGroup({
           tasks: [
             fxTask({ id: 't1', title: 'One' }),
@@ -122,20 +128,56 @@ describe('PlanGroup', () => {
   it('singularizes "1 task" vs "N tasks"', async () => {
     const { unmount } = render(<div />);
     unmount();
-    renderInRouter(<PlanGroup group={fxGroup({ tasks: [fxTask()] })} />);
+    renderInRouter(<PlanGroup sectionKey="late" group={fxGroup({ tasks: [fxTask()] })} />);
     expect(await screen.findByText(/^1 task$/)).toBeInTheDocument();
     cleanup();
     renderInRouter(
-      <PlanGroup group={fxGroup({ tasks: [fxTask({ id: 'a' }), fxTask({ id: 'b' })] })} />,
+      <PlanGroup
+        sectionKey="late"
+        group={fxGroup({ tasks: [fxTask({ id: 'a' }), fxTask({ id: 'b' })] })}
+      />,
     );
     expect(await screen.findByText(/^2 tasks$/)).toBeInTheDocument();
   });
 
   it('Open-plan link href is /planner/plans/$planId', async () => {
     renderInRouter(
-      <PlanGroup group={fxGroup({ plan: { id: 'p-q3', name: 'Q3 Launch', color: '#0047FF' } })} />,
+      <PlanGroup
+        sectionKey="late"
+        group={fxGroup({ plan: { id: 'p-q3', name: 'Q3 Launch', color: '#0047FF' } })}
+      />,
     );
     const link = await screen.findByRole('link', { name: /open plan/i });
     expect(link).toHaveAttribute('href', '/planner/plans/p-q3');
+  });
+
+  it('wraps task rows in a Droppable with droppableId `mt:<sectionKey>:<planId>`', async () => {
+    renderInRouter(
+      <PlanGroup
+        sectionKey="late"
+        group={fxGroup({
+          plan: { id: 'p-q3', name: 'Q3 Launch', color: '#0047FF' },
+          tasks: [fxTask({ id: 't1' })],
+        })}
+      />,
+    );
+    expect(await screen.findByText('Task one')).toBeInTheDocument();
+    const droppable = document.querySelector('[data-rfd-droppable-id]');
+    expect(droppable?.getAttribute('data-rfd-droppable-id')).toBe('mt:late:p-q3');
+  });
+
+  it('renders one Draggable per task with the task id as draggableId', async () => {
+    renderInRouter(
+      <PlanGroup
+        sectionKey="week"
+        group={fxGroup({
+          tasks: [fxTask({ id: 't1', title: 'A' }), fxTask({ id: 't2', title: 'B' })],
+        })}
+      />,
+    );
+    expect(await screen.findByText('A')).toBeInTheDocument();
+    const draggables = document.querySelectorAll('[data-rfd-draggable-id]');
+    const ids = Array.from(draggables).map((d) => d.getAttribute('data-rfd-draggable-id'));
+    expect(ids).toEqual(['t1', 't2']);
   });
 });

@@ -74,7 +74,9 @@ export function MtSection({ section }: Props) {
       </button>
 
       {open &&
-        section.groups.map((g, i) => <PlanGroup key={g.plan.id} group={g} first={i === 0} />)}
+        section.groups.map((g, i) => (
+          <PlanGroup key={g.plan.id} sectionKey={section.key} group={g} first={i === 0} />
+        ))}
     </section>
   );
 }
