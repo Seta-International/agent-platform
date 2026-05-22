@@ -1,4 +1,4 @@
-import { buildTaskSource } from '@seta/planner';
+import { buildTaskSource, fitsInWindow } from '@seta/planner';
 import { ensureTenantPartition } from '@seta/shared-db';
 import { sourceHash } from '@seta/shared-embeddings';
 import type { Pool } from 'pg';
@@ -84,14 +84,16 @@ export async function backfillTasks(opts: BackfillTasksOptions): Promise<void> {
 
     cursor = page[page.length - 1]!.id;
 
-    const sourced = page.map((row) => {
-      const source = buildTaskSource({
-        title: row.title,
-        description: row.description,
-        skill_tags: row.skill_tags,
-      });
-      return { id: row.id, plan_id: row.plan_id, source, hash: sourceHash(source) };
-    });
+    const sourced = page
+      .map((row) => {
+        const source = buildTaskSource({
+          title: row.title,
+          description: row.description,
+          skill_tags: row.skill_tags,
+        });
+        return { id: row.id, plan_id: row.plan_id, source, hash: sourceHash(source) };
+      })
+      .filter((s) => fitsInWindow(s.source));
 
     const pageIds = page.map((r) => r.id);
     const existingResult = await pool.query<{ task_id: string; source_hash: string }>(

@@ -225,6 +225,44 @@ describe('backfillTasks', () => {
     });
   });
 
+  it('backfill skips tasks whose source exceeds MAX_SOURCE_TOKENS', async () => {
+    await withDb(async ({ pool }) => {
+      const { submitBatch, pollUntilDone, submittedInputs } = makeFakeBatch(1536);
+
+      const shortTask = await seedTaskForTest(pool, {
+        title: 'short',
+        description: 'fits',
+        skill_tags: [],
+      });
+      const longTask = await seedTaskForTest(pool, {
+        tenant_id: shortTask.tenant_id,
+        title: 'long',
+        description: Array.from({ length: 1100 }, () => 'word').join(' '),
+        skill_tags: [],
+      });
+
+      await backfillTasks({
+        tenant_id: shortTask.tenant_id,
+        pool,
+        apiKey: 'test-key',
+        model: 'text-embedding-3-small',
+        submitBatch: submitBatch as never,
+        pollUntilDone: pollUntilDone as never,
+      });
+
+      const rows = await pool.query<{ task_id: string }>(
+        `SELECT task_id FROM planner.task_embeddings
+          WHERE tenant_id = $1 ORDER BY task_id`,
+        [shortTask.tenant_id],
+      );
+      expect(rows.rows.map((r) => r.task_id)).toEqual([shortTask.task_id]);
+
+      const submittedIds = submittedInputs.flat().map((r) => r.custom_id);
+      expect(submittedIds).toContain(shortTask.task_id);
+      expect(submittedIds).not.toContain(longTask.task_id);
+    });
+  });
+
   it('empty tenant: returns without calling submitBatch', async () => {
     await withDb(async ({ pool }) => {
       const { submitBatch, pollUntilDone, submittedInputs } = makeFakeBatch(1536);
