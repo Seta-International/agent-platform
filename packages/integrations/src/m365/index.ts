@@ -15,6 +15,16 @@ export type {
   RunRenewSubscriptionInput,
 } from './jobs/subscription-renew.ts';
 export { runRenewSubscription } from './jobs/subscription-renew.ts';
+export type {
+  CreateM365PlanLinkRepoDeps,
+  CreateM365ResourceEtagRepoDeps,
+  M365PlanLinkRepo,
+  M365ResourceEtagRepo,
+  PlanLink,
+  ResourceEtag,
+  ResourceType,
+} from './plans/repo.ts';
+export { createM365PlanLinkRepo, createM365ResourceEtagRepo } from './plans/repo.ts';
 export type { Link, M365GroupLinkRepo, SyncStatus, UpsertLinkInput } from './repo.ts';
 export { createM365GroupLinkRepo } from './repo.ts';
 export type {
