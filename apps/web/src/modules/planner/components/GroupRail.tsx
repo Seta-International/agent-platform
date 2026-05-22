@@ -132,7 +132,7 @@ export function GroupRail({ group, members, canManage, onAddMember, shownMemberC
                   ) : (
                     <Users className="size-3 text-ink-muted" />
                   )}
-                  {group.visibility === 'private' ? 'Private' : 'Public'}
+                  {group.visibility === 'private' ? 'Private' : 'Workspace'}
                 </span>
               }
             />

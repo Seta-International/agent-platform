@@ -111,12 +111,12 @@ describe('GroupDetailHeader', () => {
     expect(screen.getByText('Private')).toBeInTheDocument();
   });
 
-  it('renders Public when visibility=public', async () => {
+  it('renders Workspace label when visibility=public', async () => {
     renderInRouter(
       <GroupDetailHeader {...baseProps} group={{ ...baseGroup, visibility: 'public' }} />,
     );
     await screen.findByRole('heading', { name: 'Engineering' });
-    expect(screen.getByText('Public')).toBeInTheDocument();
+    expect(screen.getByText('Workspace')).toBeInTheDocument();
   });
 
   it('hides the Invite and rename pencil when canManage=false', async () => {

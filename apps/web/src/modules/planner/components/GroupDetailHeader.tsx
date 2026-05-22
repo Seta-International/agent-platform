@@ -121,7 +121,7 @@ export function GroupDetailHeader({
                 ) : (
                   <>
                     <Users className="size-3 text-ink-subtle" aria-hidden="true" />
-                    Public
+                    Workspace
                   </>
                 )}
               </span>
