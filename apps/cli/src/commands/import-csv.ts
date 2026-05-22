@@ -268,6 +268,7 @@ export async function importCsvCommand(opts: ImportCsvOpts): Promise<void> {
         plan_id: planId,
         bucket_id: bucketId,
         title: row.title || 'Untitled',
+        description: row.description || undefined,
         priority_number: mapPriorityNumber(row.priority),
         percent_complete: statusFields.percent_complete,
         is_deferred: statusFields.is_deferred,
