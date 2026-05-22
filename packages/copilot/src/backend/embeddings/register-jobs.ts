@@ -45,7 +45,7 @@ export const embeddingJobs: TaskList = {
         await helpers.addJob('embed_knowledge_chunks', {
           tenant_id,
           file_id,
-          event_id: (payload as { event_id: string }).event_id,
+          event_id: (payload as ParseKnowledgeFilePayload).event_id,
         });
       },
     });
