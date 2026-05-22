@@ -55,6 +55,7 @@ export { markPlanSyncStatus } from './backend/domain/mark-plan-sync-status.ts';
 export { markTaskSyncStatus } from './backend/domain/mark-task-sync-status.ts';
 export { moveBucket } from './backend/domain/move-bucket.ts';
 export { moveTask } from './backend/domain/move-task.ts';
+export { type RefreshPlanSyncDeps, refreshPlanSync } from './backend/domain/refresh-plan-sync.ts';
 export { removeChecklistItem } from './backend/domain/remove-checklist-item.ts';
 export { removeGroupMember } from './backend/domain/remove-group-member.ts';
 export { removeTaskReference } from './backend/domain/remove-task-reference.ts';
