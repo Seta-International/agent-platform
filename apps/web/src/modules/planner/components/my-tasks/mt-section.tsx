@@ -1,9 +1,9 @@
 import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import { PlanGroup, type PlanGroupData } from './plan-group';
+import type { SectionKey, SectionTone } from './types';
 
-export type SectionKey = 'late' | 'week' | 'in_progress' | 'not_started' | 'done';
-export type SectionTone = 'danger' | 'warning' | 'primary' | 'muted' | 'success';
+export type { SectionKey, SectionTone } from './types';
 
 export interface MyTasksSection {
   key: SectionKey;

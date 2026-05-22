@@ -4,6 +4,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { ChevronRight, ExternalLink, Layout } from 'lucide-react';
 import { useRef } from 'react';
 import { MtTaskRow, type MyTasksRowTask } from './mt-task-row';
+import type { SectionKey } from './types';
 
 export interface PlanGroupRef {
   id: string;
@@ -22,10 +23,8 @@ export interface PlanGroupData {
   tasks: ReadonlyArray<MyTasksRowTask>;
 }
 
-export type PlanGroupSectionKey = 'late' | 'week' | 'in_progress' | 'not_started' | 'done';
-
 interface Props {
-  sectionKey: PlanGroupSectionKey;
+  sectionKey: SectionKey;
   group: PlanGroupData;
   first?: boolean;
 }
