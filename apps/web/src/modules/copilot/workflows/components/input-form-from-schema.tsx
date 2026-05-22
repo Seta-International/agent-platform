@@ -1,9 +1,11 @@
 import { Button, Input, Label } from '@seta/shared-ui';
+import { dequal } from 'dequal';
 import { useState } from 'react';
 
 export interface InputFormFromSchemaProps {
   schema: Record<string, unknown>;
   defaults?: Record<string, unknown>;
+  original?: Record<string, unknown>;
   onSubmit: (values: Record<string, unknown>) => void;
   submitting?: boolean;
   submitLabel?: string;
@@ -114,9 +116,16 @@ function inputIdFor(leaf: LeafSpec): string {
   return `field-${leaf.path.join('.')}`;
 }
 
+function formatPriorValue(v: unknown): string {
+  if (v === undefined) return '(empty)';
+  if (typeof v === 'string') return v;
+  return JSON.stringify(v);
+}
+
 export function InputFormFromSchema({
   schema,
   defaults,
+  original,
   onSubmit,
   submitting,
   submitLabel,
@@ -158,11 +167,21 @@ export function InputFormFromSchema({
         const raw = readPath(values, leaf.path);
         const rawStr = raw === undefined || raw === null ? '' : String(raw);
         const error = errors[leaf.path.join('.')];
+        const priorValue = original ? readPath(original, leaf.path) : undefined;
+        const showDiff =
+          original !== undefined &&
+          !(priorValue === undefined && raw === undefined) &&
+          !dequal(priorValue, raw);
         return (
           <div key={id} className="space-y-1.5">
             <Label htmlFor={id}>
               {labelFor(leaf)}
               {leaf.required ? <span className="text-[var(--color-danger)]"> *</span> : null}
+              {showDiff ? (
+                <span className="ml-2 text-xs text-[var(--color-ink-subtle)] line-through">
+                  was: {formatPriorValue(priorValue)}
+                </span>
+              ) : null}
             </Label>
             {leaf.enumValues ? (
               <select

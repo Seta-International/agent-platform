@@ -75,6 +75,47 @@ describe('InputFormFromSchema', () => {
     expect(screen.getByText(/must be a uuid/i)).toBeInTheDocument();
   });
 
+  it('renders `was: <prior>` strikethrough next to fields the user has changed', () => {
+    render(
+      <InputFormFromSchema
+        schema={NESTED_SCHEMA as unknown as Record<string, unknown>}
+        defaults={{
+          taskRef: { taskId: '11111111-1111-1111-1111-111111111111', groupId: 'g1' },
+          initiatedBy: { userId: 'u1', via: 'event' },
+        }}
+        original={{
+          taskRef: { taskId: '11111111-1111-1111-1111-111111111111', groupId: 'g0' },
+          initiatedBy: { userId: 'u1', via: 'event' },
+        }}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/was: g0/i)).toBeInTheDocument();
+    expect(screen.queryByText(/was: 11111111/i)).not.toBeInTheDocument();
+  });
+
+  it('updates the was-marker when the user edits a previously-matching field', () => {
+    render(
+      <InputFormFromSchema
+        schema={NESTED_SCHEMA as unknown as Record<string, unknown>}
+        defaults={{
+          taskRef: { taskId: '11111111-1111-1111-1111-111111111111', groupId: 'g1' },
+          initiatedBy: { userId: 'u1', via: 'event' },
+        }}
+        original={{
+          taskRef: { taskId: '11111111-1111-1111-1111-111111111111', groupId: 'g1' },
+          initiatedBy: { userId: 'u1', via: 'event' },
+        }}
+        onSubmit={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText(/was:/i)).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('taskRef › groupId'), { target: { value: 'g2' } });
+    expect(screen.getByText(/was: g1/i)).toBeInTheDocument();
+  });
+
   it('disables the submit button while submitting', () => {
     render(
       <InputFormFromSchema
