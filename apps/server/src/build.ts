@@ -23,6 +23,7 @@ import { registerAdminUsersRoutes } from './routes/admin-users.ts';
 import { registerCredentialGate } from './routes/credential-gate.ts';
 import { registerDiscoverRoute } from './routes/discover.ts';
 import { registerIntegrationsM365Routes } from './routes/integrations-m365.ts';
+import { registerKnowledgeRoutes } from './routes/knowledge.ts';
 import { registerMeRoute } from './routes/me.ts';
 import { registerPlannerBoardStreamRoutes } from './routes/planner-board-stream.ts';
 import { registerPlannerBucketsRoutes } from './routes/planner-buckets.ts';
@@ -140,6 +141,7 @@ export function buildServerApp(
   registerSsoProvidersRoutes(app);
   registerSsoEntraGraphRoutes(app);
   registerTenantSettingsRoutes(app);
+  registerKnowledgeRoutes(app);
   registerPlannerGroupsRoutes(app);
   registerPlannerPlansRoutes(app);
   registerPlannerBucketsRoutes(app);
