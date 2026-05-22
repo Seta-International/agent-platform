@@ -3,8 +3,12 @@ import { identityDb } from '../../db/index.ts';
 import { user, userProfile } from '../../db/schema.ts';
 
 export interface UserProfileForEmbedding {
+  name: string;
+  role: string;
   skills: string[];
 }
+
+const ROLE_FALLBACK = 'team member';
 
 export async function getUserProfileForEmbedding(input: {
   tenant_id: string;
@@ -12,6 +16,8 @@ export async function getUserProfileForEmbedding(input: {
 }): Promise<UserProfileForEmbedding | null> {
   const [row] = await identityDb()
     .select({
+      name: user.name,
+      role: userProfile.role,
       skills: userProfile.skills,
     })
     .from(user)
@@ -25,5 +31,9 @@ export async function getUserProfileForEmbedding(input: {
     )
     .limit(1);
   if (!row) return null;
-  return row as UserProfileForEmbedding;
+  return {
+    name: row.name,
+    role: row.role ?? ROLE_FALLBACK,
+    skills: row.skills,
+  };
 }

@@ -13,6 +13,7 @@ export interface UpdateUserProfilePatch {
   timezone?: string;
   working_hours?: { start: string; end: string } | null;
   skills?: ReadonlyArray<string>;
+  role?: string | null;
 }
 
 export async function updateUserProfile(
@@ -78,6 +79,10 @@ export async function updateUserProfile(
     diffBefore.skills = [...before.skills];
     diffAfter.skills = normalizedSkills;
   }
+  if (patch.role !== undefined && (patch.role ?? null) !== (before.role ?? null)) {
+    diffBefore.role = before.role ?? null;
+    diffAfter.role = patch.role ?? null;
+  }
 
   if (Object.keys(diffAfter).length === 0) return before;
 
@@ -105,6 +110,7 @@ export async function updateUserProfile(
       if (patch.timezone !== undefined) profilePatch.timezone = patch.timezone;
       if (patch.working_hours !== undefined) profilePatch.working_hours = patch.working_hours;
       if (normalizedSkills !== undefined) profilePatch.skills = normalizedSkills;
+      if (patch.role !== undefined) profilePatch.role = patch.role;
 
       if (Object.keys(profilePatch).length > 1) {
         await tx.update(userProfile).set(profilePatch).where(eq(userProfile.user_id, userId));

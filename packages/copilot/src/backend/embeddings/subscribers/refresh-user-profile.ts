@@ -5,7 +5,7 @@ import { sql } from 'drizzle-orm';
  * Fields whose changes warrant re-embedding the user profile.
  * Display name, availability, timezone etc. do not affect the embedded text.
  */
-const EMBEDDED_FIELDS = new Set(['skills']);
+const EMBEDDED_FIELDS = new Set(['skills', 'role']);
 
 // ── Payload shapes (local types — avoids importing identity internals) ───────
 

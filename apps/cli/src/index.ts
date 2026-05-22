@@ -1,10 +1,20 @@
 #!/usr/bin/env node
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+try {
+  // CLI is invoked from apps/cli/, but .env lives at repo root.
+  process.loadEnvFile(resolve(dirname(fileURLToPath(import.meta.url)), '../../../.env'));
+} catch {
+  // .env absent — rely on shell-exported vars.
+}
+
 import { createCrypto, createKeyProviderFromEnv, parseCryptoEnv } from '@seta/shared-crypto';
 import { closePools, initPools } from '@seta/shared-db';
 import { Command } from 'commander';
 import pino from 'pino';
 import { runEmbedBackfill } from './commands/embed-backfill.ts';
+import { importAndEmbedCommand } from './commands/import-and-embed.ts';
 import { importCsvCommand } from './commands/import-csv.ts';
 import { integrationsMailSetCommand } from './commands/integrations-mail-set.ts';
 import { integrationsMailTestCommand } from './commands/integrations-mail-test.ts';
@@ -280,6 +290,20 @@ program
   .action(async (opts: { module: string; tenant: string }) => {
     try {
       await runEmbedBackfill({ module: opts.module, tenant: opts.tenant });
+    } finally {
+      await closePools();
+    }
+  });
+
+program
+  .command('import-and-embed')
+  .description('Import CSVs then embed-backfill user profiles')
+  .requiredOption('--tenant <slug-or-id>', 'Tenant slug or UUID')
+  .requiredOption('--dir <path>', 'Directory containing CSV files')
+  .requiredOption('--as <email>', 'Email of an existing org.admin user (acting session)')
+  .action(async (opts: { tenant: string; dir: string; as: string }) => {
+    try {
+      await importAndEmbedCommand(opts);
     } finally {
       await closePools();
     }

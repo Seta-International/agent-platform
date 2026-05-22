@@ -225,7 +225,11 @@ describe('embedUserProfile', () => {
 
       // Verify the stored hash matches what buildUserProfileSource + sourceHash produces.
       const { buildUserProfileSource } = await import('@seta/identity');
-      const source = buildUserProfileSource({ skills });
+      const source = buildUserProfileSource({
+        name: 'Test User',
+        role: 'team member',
+        skills,
+      });
       expect(rows.rows[0]?.source_hash).toBe(sourceHash(source));
     });
   });

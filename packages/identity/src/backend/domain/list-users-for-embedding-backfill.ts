@@ -9,22 +9,31 @@ export interface ListUsersForBackfillInput {
 
 export interface UserBackfillRow {
   user_id: string;
+  name: string;
+  role: string;
   skills: string[];
 }
+
+const ROLE_FALLBACK = 'team member';
 
 /**
  * Keyset-paginated read of active users with non-empty skills for the embedding
  * backfill pipeline. Deactivated users and users without skills are excluded
  * because the embed_user_profile worker also skips them.
- *
- * Accepts an injectable pool so the copilot backfill can pass its own pool
- * without sharing the identity Drizzle client.
  */
 export async function listUsersForBackfill(
   input: ListUsersForBackfillInput,
 ): Promise<UserBackfillRow[]> {
-  const result = await input.pool.query<UserBackfillRow>(
-    `SELECT u.id AS user_id, p.skills
+  const result = await input.pool.query<{
+    user_id: string;
+    name: string;
+    role: string | null;
+    skills: string[];
+  }>(
+    `SELECT u.id AS user_id,
+            u.name AS name,
+            p.role AS role,
+            p.skills
        FROM identity."user" u
        JOIN identity.user_profile p ON p.user_id = u.id
       WHERE u.tenant_id = $1
@@ -35,5 +44,10 @@ export async function listUsersForBackfill(
       LIMIT $3`,
     [input.tenant_id, input.cursor, input.limit],
   );
-  return result.rows;
+  return result.rows.map((r) => ({
+    user_id: r.user_id,
+    name: r.name,
+    role: r.role ?? ROLE_FALLBACK,
+    skills: r.skills,
+  }));
 }

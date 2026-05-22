@@ -1,13 +1,18 @@
 export interface UserProfileSourceInput {
+  name: string;
+  role: string;
   skills: string[];
-  // Future fields (job_title, department, bio) land here — no schema migration.
-  // job_title?: string | null;
-  // department?: string | null;
-  // bio?: string | null;
 }
 
 export function buildUserProfileSource(input: UserProfileSourceInput): string {
-  const lines: string[] = [];
-  if (input.skills.length > 0) lines.push(`Skills: ${input.skills.join(', ')}`);
-  return lines.join('\n');
+  if (input.skills.length === 0) return '';
+  const skillsStr = input.skills.join(', ');
+  const lastTwo = input.skills.slice(-2).join(' and ');
+  const primary = input.skills[0];
+  return (
+    `${input.name} is a ${input.role}. ` +
+    `Core competencies include ${skillsStr}. ` +
+    `Experienced in ${lastTwo} ` +
+    `with a strong background in ${primary}.`
+  );
 }

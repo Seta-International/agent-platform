@@ -97,6 +97,16 @@ export async function importCsvCommand(opts: ImportCsvOpts): Promise<void> {
         idMap.set(row.user_id, user_id);
         usersCreated++;
 
+        const skills = splitIds(row.skills);
+        await updateUserProfile(
+          user_id,
+          {
+            skills: skills.length > 0 ? skills : undefined,
+            role: row.role || null,
+          },
+          { type: 'cli', user_id: null },
+        );
+
         if (row.rbac_role && KNOWN_ROLES.has(row.rbac_role)) {
           await grantRole(
             {

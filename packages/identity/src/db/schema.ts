@@ -9,6 +9,7 @@ export const userProfile = identity.table('user_profile', {
   user_id: uuid('user_id').primaryKey(),
   tenant_id: uuid('tenant_id').notNull(),
   skills: text('skills').array().default([]).notNull(),
+  role: text('role'),
   availability_status: text('availability_status', { enum: ['available', 'busy', 'ooo'] })
     .default('available')
     .notNull(),

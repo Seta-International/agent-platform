@@ -76,7 +76,11 @@ export async function backfillUserProfiles(opts: BackfillUserProfilesOptions): P
 
     // Step 3a: build source text + hash for each row.
     const sourced = page.map((row) => {
-      const source = buildUserProfileSource({ skills: row.skills });
+      const source = buildUserProfileSource({
+        name: row.name,
+        role: row.role,
+        skills: row.skills,
+      });
       return { user_id: row.user_id, source, hash: sourceHash(source) };
     });
 

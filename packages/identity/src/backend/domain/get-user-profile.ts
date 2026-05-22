@@ -12,6 +12,7 @@ export interface UserProfile {
   timezone: string;
   working_hours: { start: string; end: string } | null;
   skills: ReadonlyArray<string>;
+  role: string | null;
   updated_at: Date;
   deactivated_at: Date | null;
 }
@@ -29,6 +30,7 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
       timezone: userProfile.timezone,
       working_hours: userProfile.working_hours,
       skills: userProfile.skills,
+      role: userProfile.role,
       updated_at: userProfile.updated_at,
     })
     .from(user)
