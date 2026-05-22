@@ -13,9 +13,13 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from '@seta/shared-ui';
 import { useQuery } from '@tanstack/react-query';
-import { GripVertical, Plus, X, Zap } from 'lucide-react';
+import { GripVertical, Info, Plus, X, Zap } from 'lucide-react';
 import { type CSSProperties, useEffect, useState } from 'react';
 import { listAdminUsers } from '../../identity/api/client';
 import { useAssignTask } from '../hooks/mutations/assign-task';
@@ -27,6 +31,7 @@ import { computeAssigneeReorder } from './assignee-reorder';
 interface Props {
   task: TaskWithAssigneesRow;
   planId: string;
+  isLinkedToM365?: boolean;
 }
 
 function initialsOf(name: string): string {
@@ -47,16 +52,35 @@ function useDebounced<T>(value: T, ms: number): T {
   return debounced;
 }
 
-function useUserSearch(search: string, enabled: boolean) {
+function useUserSearch(search: string, enabled: boolean, isLinkedToM365: boolean) {
   const debounced = useDebounced(search, 200);
   return useQuery({
-    queryKey: ['identity', 'admin-users', { search: debounced }],
+    queryKey: [
+      'identity',
+      'admin-users',
+      { search: debounced, sign_in_method: isLinkedToM365 ? 'microsoft' : null },
+    ],
+    queryFn: () =>
+      listAdminUsers({
+        search: debounced,
+        limit: 8,
+        offset: 0,
+        ...(isLinkedToM365 ? { sign_in_method: 'microsoft' as const } : {}),
+      }),
+    enabled: enabled && debounced.length >= 1,
+  });
+}
+
+function useUnfilteredUserCount(search: string, enabled: boolean) {
+  const debounced = useDebounced(search, 200);
+  return useQuery({
+    queryKey: ['identity', 'admin-users', { search: debounced, sign_in_method: null }],
     queryFn: () => listAdminUsers({ search: debounced, limit: 8, offset: 0 }),
     enabled: enabled && debounced.length >= 1,
   });
 }
 
-export function TaskDetailAssigneesCard({ task, planId }: Props) {
+export function TaskDetailAssigneesCard({ task, planId, isLinkedToM365 = false }: Props) {
   const reorder = useReorderTaskAssignees();
   const moveToTop = useMoveToTopOfMyList();
   const assign = useAssignTask(planId);
@@ -64,7 +88,13 @@ export function TaskDetailAssigneesCard({ task, planId }: Props) {
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const userQuery = useUserSearch(search, pickerOpen);
+  const userQuery = useUserSearch(search, pickerOpen, isLinkedToM365);
+  const unfilteredQuery = useUnfilteredUserCount(search, pickerOpen && isLinkedToM365);
+
+  const filteredTotal = userQuery.data?.total ?? 0;
+  const unfilteredTotal = unfilteredQuery.data?.total ?? 0;
+  const hiddenCount = isLinkedToM365 ? Math.max(0, unfilteredTotal - filteredTotal) : 0;
+  const showHiddenFooter = isLinkedToM365 && hiddenCount > 0;
 
   const onDragEnd = (result: DropResult) => {
     if (!result.destination) return;
@@ -172,6 +202,27 @@ export function TaskDetailAssigneesCard({ task, planId }: Props) {
                     );
                   })}
                 </CommandGroup>
+                {showHiddenFooter ? (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div
+                          role="note"
+                          className="flex items-center gap-1 border-t border-hairline px-3 py-2 text-caption text-ink-subtle"
+                        >
+                          <Info className="size-3" />
+                          <span>
+                            {hiddenCount} user{hiddenCount === 1 ? '' : 's'} hidden — not in M365
+                          </span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        Users without a Microsoft Entra identity can&apos;t be assigned to tasks on
+                        a linked plan.
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : null}
               </CommandList>
             </Command>
           </PopoverContent>

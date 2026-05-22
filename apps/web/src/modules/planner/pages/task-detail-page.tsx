@@ -136,7 +136,11 @@ export function TaskDetailPage({ planId, taskId }: Props) {
             <TaskDetailPriorityCard task={task} planId={planId} />
             <TaskDetailScheduleCard task={task} planId={planId} />
             <TaskDetailPreviewTypeCard task={task} planId={planId} />
-            <TaskDetailAssigneesCard task={task} planId={planId} />
+            <TaskDetailAssigneesCard
+              task={task}
+              planId={planId}
+              isLinkedToM365={plan?.external_source === 'm365'}
+            />
             <TaskDetailLabelsCard task={task} planId={planId} />
             <TaskDetailExternalCard
               task={task}

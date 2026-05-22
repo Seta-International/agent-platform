@@ -81,6 +81,156 @@ describe('TaskDetailAssigneesCard', () => {
     await waitFor(() => expect(screen.getByText('Dora')).toBeInTheDocument());
   });
 
+  it('does not send sign_in_method or show hidden footer when plan is not linked', async () => {
+    const { userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup();
+    const capturedParams: Array<URLSearchParams> = [];
+    server.use(
+      http.get('/api/identity/v1/users', ({ request }) => {
+        const url = new URL(request.url);
+        capturedParams.push(url.searchParams);
+        return HttpResponse.json({
+          rows: [
+            {
+              user_id: 'u9',
+              email: 'dora@x',
+              name: 'Dora',
+              status: 'active',
+              role_slugs: [],
+              sign_in_methods: ['credential'],
+              last_seen_at: null,
+              created_at: '',
+            },
+          ],
+          total: 1,
+        });
+      }),
+    );
+
+    const task = withAssignees([]);
+    renderWithClient(<TaskDetailAssigneesCard task={task} planId="p1" isLinkedToM365={false} />);
+    await user.click(screen.getByRole('button', { name: /Add assignee/i }));
+    const searchInput = screen.getByLabelText(/Search users/i);
+    await user.type(searchInput, 'd');
+
+    await waitFor(() => expect(screen.getByText('Dora')).toBeInTheDocument());
+    expect(capturedParams.length).toBeGreaterThanOrEqual(1);
+    for (const params of capturedParams) {
+      expect(params.get('sign_in_method')).toBeNull();
+    }
+    expect(screen.queryByText(/hidden — not in M365/)).not.toBeInTheDocument();
+  });
+
+  it('sends sign_in_method=microsoft and shows hidden footer when plan is linked to M365', async () => {
+    const { userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup();
+    const capturedParams: Array<URLSearchParams> = [];
+    server.use(
+      http.get('/api/identity/v1/users', ({ request }) => {
+        const url = new URL(request.url);
+        capturedParams.push(url.searchParams);
+        const isFiltered = url.searchParams.get('sign_in_method') === 'microsoft';
+        return HttpResponse.json({
+          rows: isFiltered
+            ? [
+                {
+                  user_id: 'u9',
+                  email: 'dora@m365',
+                  name: 'Dora',
+                  status: 'active',
+                  role_slugs: [],
+                  sign_in_methods: ['microsoft'],
+                  last_seen_at: null,
+                  created_at: '',
+                },
+              ]
+            : [
+                {
+                  user_id: 'u9',
+                  email: 'dora@m365',
+                  name: 'Dora',
+                  status: 'active',
+                  role_slugs: [],
+                  sign_in_methods: ['microsoft'],
+                  last_seen_at: null,
+                  created_at: '',
+                },
+                {
+                  user_id: 'u10',
+                  email: 'dan@x',
+                  name: 'Dan',
+                  status: 'active',
+                  role_slugs: [],
+                  sign_in_methods: ['credential'],
+                  last_seen_at: null,
+                  created_at: '',
+                },
+                {
+                  user_id: 'u11',
+                  email: 'don@x',
+                  name: 'Don',
+                  status: 'active',
+                  role_slugs: [],
+                  sign_in_methods: ['credential'],
+                  last_seen_at: null,
+                  created_at: '',
+                },
+              ],
+          total: isFiltered ? 1 : 3,
+        });
+      }),
+    );
+
+    const task = withAssignees([]);
+    renderWithClient(<TaskDetailAssigneesCard task={task} planId="p1" isLinkedToM365={true} />);
+    await user.click(screen.getByRole('button', { name: /Add assignee/i }));
+    const searchInput = screen.getByLabelText(/Search users/i);
+    await user.type(searchInput, 'd');
+
+    await waitFor(() => expect(screen.getByText('Dora')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText(/2 users hidden — not in M365/)).toBeInTheDocument(),
+    );
+
+    const microsoftCalls = capturedParams.filter((p) => p.get('sign_in_method') === 'microsoft');
+    const unfilteredCalls = capturedParams.filter((p) => p.get('sign_in_method') === null);
+    expect(microsoftCalls.length).toBeGreaterThanOrEqual(1);
+    expect(unfilteredCalls.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('does not show hidden footer when all users are M365-eligible', async () => {
+    const { userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup();
+    server.use(
+      http.get('/api/identity/v1/users', () =>
+        HttpResponse.json({
+          rows: [
+            {
+              user_id: 'u9',
+              email: 'dora@m365',
+              name: 'Dora',
+              status: 'active',
+              role_slugs: [],
+              sign_in_methods: ['microsoft'],
+              last_seen_at: null,
+              created_at: '',
+            },
+          ],
+          total: 1,
+        }),
+      ),
+    );
+
+    const task = withAssignees([]);
+    renderWithClient(<TaskDetailAssigneesCard task={task} planId="p1" isLinkedToM365={true} />);
+    await user.click(screen.getByRole('button', { name: /Add assignee/i }));
+    const searchInput = screen.getByLabelText(/Search users/i);
+    await user.type(searchInput, 'd');
+
+    await waitFor(() => expect(screen.getByText('Dora')).toBeInTheDocument());
+    expect(screen.queryByText(/hidden — not in M365/)).not.toBeInTheDocument();
+  });
+
   it('calls moveToTopOfMyList when "Move to top of my list" is clicked', async () => {
     const { userEvent } = await import('@testing-library/user-event');
     const user = userEvent.setup();
