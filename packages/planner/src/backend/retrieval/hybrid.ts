@@ -51,18 +51,12 @@ export class HybridRetriever implements Retriever<HybridQuery, TaskRetrievalItem
            LIMIT $4
         ),
         vec AS (
-          SELECT task_id, MIN(per_chunk_rank) AS rank
-            FROM (
-              SELECT te.task_id,
-                     ROW_NUMBER() OVER (ORDER BY te.embedding <=> $3::halfvec) AS per_chunk_rank
-                FROM planner.task_embeddings te
-               WHERE te.tenant_id = $1
-               ORDER BY te.embedding <=> $3::halfvec
-               LIMIT $4 * 4
-            ) sub
-            GROUP BY task_id
-            ORDER BY rank
-            LIMIT $4
+          SELECT te.task_id,
+                 ROW_NUMBER() OVER (ORDER BY te.embedding <=> $3::halfvec) AS rank
+            FROM planner.task_embeddings te
+           WHERE te.tenant_id = $1
+           ORDER BY te.embedding <=> $3::halfvec
+           LIMIT $4
         )
         SELECT t.id AS task_id,
                t.title,
@@ -96,18 +90,12 @@ export class HybridRetriever implements Retriever<HybridQuery, TaskRetrievalItem
            LIMIT $4
         ),
         vec AS (
-          SELECT task_id, MIN(per_chunk_rank) AS rank
-            FROM (
-              SELECT te.task_id,
-                     ROW_NUMBER() OVER (ORDER BY te.embedding <=> $3::halfvec) AS per_chunk_rank
-                FROM planner.task_embeddings te
-               WHERE te.tenant_id = $1
-               ORDER BY te.embedding <=> $3::halfvec
-               LIMIT $4 * 4
-            ) sub
-            GROUP BY task_id
-            ORDER BY rank
-            LIMIT $4
+          SELECT te.task_id,
+                 ROW_NUMBER() OVER (ORDER BY te.embedding <=> $3::halfvec) AS rank
+            FROM planner.task_embeddings te
+           WHERE te.tenant_id = $1
+           ORDER BY te.embedding <=> $3::halfvec
+           LIMIT $4
         )
         SELECT t.id AS task_id,
                t.title,
