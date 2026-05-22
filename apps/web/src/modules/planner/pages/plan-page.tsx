@@ -1,10 +1,14 @@
 import { DragDropContext, Draggable, Droppable, type DropResult } from '@hello-pangea/dnd';
 import {
+  EmptyState,
   KanbanBoard,
   KanbanCard,
   KanbanColumn,
+  PLANNER_403_LIMIT_MESSAGES,
+  type PlanConflictDecision,
   PreviewBody,
   type PreviewBodyTask,
+  ResolvePlanConflictsDialog,
 } from '@seta/shared-ui';
 import { type HTMLAttributes, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { BoardSkeleton } from '../components/board-skeleton';
@@ -19,6 +23,10 @@ import { useCreateTask } from '../hooks/mutations/create-task';
 import { useMoveBucket } from '../hooks/mutations/move-bucket';
 import { useMoveTask } from '../hooks/mutations/move-task';
 import { useRefreshPlanSync } from '../hooks/mutations/refresh-plan-sync';
+import {
+  type ResolvePlanDecisions,
+  useResolvePlanConflicts,
+} from '../hooks/mutations/resolve-plan-conflicts';
 import { usePlanBoard } from '../hooks/queries/use-plan-board';
 import { useBoardKeyboard } from '../hooks/use-board-keyboard';
 import { useFilterOptions } from '../hooks/use-filter-options';
@@ -82,11 +90,12 @@ export function PlanPage({
   const createTask = useCreateTask(planId);
   const createBucket = useCreateBucket(planId);
   const refreshSync = useRefreshPlanSync(planId);
+  const resolveConflicts = useResolvePlanConflicts(planId);
   const savingIds = useSavingIds((s) => s.ids);
   const recentlyMoved = useRecentlyMovedTasks((s) => s.ids);
 
   const [focusedCardId, setFocusedCardId] = useState<string | null>(null);
-  const [, setConflictDialogOpen] = useState(false);
+  const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
   const cardRefs = useRef<Map<string, HTMLElement>>(new Map());
 
   const tasksByBucket = useMemo(() => {
@@ -284,6 +293,41 @@ export function PlanPage({
         </div>
       </div>
 
+      {plan.sync_status === 'error' && plan.last_error && (
+        <div
+          role="alert"
+          className="mx-7 mt-3 rounded border border-semantic-danger bg-semantic-danger-tint p-3 text-body-sm"
+          data-testid="plan-sync-error-banner"
+        >
+          <div className="font-medium">
+            Sync failed: {PLANNER_403_LIMIT_MESSAGES[plan.last_error] ?? plan.last_error}
+          </div>
+          <button
+            type="button"
+            className="mt-2 text-primary underline"
+            onClick={() => refreshSync.mutate()}
+            disabled={refreshSync.isPending}
+          >
+            Retry sync
+          </button>
+        </div>
+      )}
+      {plan.sync_status === 'conflict' && (
+        <div
+          className="mx-7 mt-3 rounded border border-semantic-warning bg-semantic-warning-tint p-3 text-body-sm"
+          data-testid="plan-sync-conflict-banner"
+        >
+          <div className="font-medium">Sync conflicts need resolution</div>
+          <button
+            type="button"
+            className="mt-2 text-primary underline"
+            onClick={() => setConflictDialogOpen(true)}
+          >
+            Resolve now
+          </button>
+        </div>
+      )}
+
       {hasActiveFilters && totalVisible === 0 && (
         <div role="status" className="plan-no-results">
           <p>No tasks match these filters.</p>
@@ -299,103 +343,132 @@ export function PlanPage({
         </div>
       )}
 
-      <DragDropContext onDragEnd={onDragEnd}>
-        <Droppable droppableId="board" type="COLUMN" direction="horizontal">
-          {(provided) => (
-            <KanbanBoard
-              onAddBucket={() =>
-                createBucket.mutate({
-                  name: 'New bucket',
-                  after_bucket_id: buckets[buckets.length - 1]?.id,
-                })
-              }
-              rootDroppable={{
-                ref: provided.innerRef,
-                // Why: @hello-pangea/dnd uses string-indexed data-rfd-* keys that don't satisfy React's HTMLAttributes shape.
-                rootProps: provided.droppableProps as unknown as HTMLAttributes<HTMLElement>,
-                placeholder: provided.placeholder,
-              }}
-            >
-              {buckets.map((b, idx) => (
-                <Draggable key={b.id} draggableId={b.id} index={idx}>
-                  {(dp, ds) => (
-                    <KanbanColumn
-                      name={b.name}
-                      count={(tasksByBucket.get(b.id) ?? []).length}
-                      status={statusForBucketName(b.name)}
-                      onCreateTask={(input) =>
-                        createTask.mutate({ plan_id: plan.id, bucket_id: b.id, ...input })
-                      }
-                      draggableHandle={{
-                        ref: dp.innerRef,
-                        rootProps: dp.draggableProps,
-                        handleProps: dp.dragHandleProps ?? undefined,
-                        isDragging: ds.isDragging,
-                        extraStyle: dp.draggableProps.style,
-                      }}
-                      droppable={{}}
-                    >
-                      {(() => {
-                        const list = tasksByBucket.get(b.id) ?? [];
-                        if (list.length <= 50) {
-                          return (
-                            <Droppable droppableId={b.id} type="TASK">
-                              {(dp2, ds2) => (
-                                <div
-                                  ref={dp2.innerRef}
-                                  {...dp2.droppableProps}
-                                  className={ds2.isDraggingOver ? 'is-over' : ''}
-                                >
-                                  {list.map((entry, ci) => (
-                                    <Draggable
-                                      key={entry.card.id}
-                                      draggableId={entry.card.id}
-                                      index={ci}
-                                    >
-                                      {(dpc, dsc) => (
-                                        <KanbanCard
-                                          task={entry.card}
-                                          previewSlot={entry.previewSlot}
-                                          onOpen={() => onOpenTask(entry.card.id)}
-                                          selected={focusedCardId === entry.card.id}
-                                          draggable={{
-                                            // Compose dnd's innerRef with our cardRefs map so
-                                            // keyboard focus (focusedCardId effect) can call .focus().
-                                            ref: (el) => {
-                                              dpc.innerRef(el);
-                                              if (el) cardRefs.current.set(entry.card.id, el);
-                                              else cardRefs.current.delete(entry.card.id);
-                                            },
-                                            rootProps: dpc.draggableProps,
-                                            handleProps: dpc.dragHandleProps ?? undefined,
-                                            isDragging: dsc.isDragging,
-                                            extraStyle: dpc.draggableProps.style,
-                                          }}
-                                        />
-                                      )}
-                                    </Draggable>
-                                  ))}
-                                  {dp2.placeholder}
-                                </div>
-                              )}
-                            </Droppable>
-                          );
+      {plan.sync_status === 'pulling' && tasks.length === 0 ? (
+        <div role="status" data-testid="plan-sync-pulling-empty">
+          <EmptyState
+            title="Syncing from M365 Planner…"
+            description="This may take a minute for large plans."
+          />
+        </div>
+      ) : (
+        <DragDropContext onDragEnd={onDragEnd}>
+          <Droppable droppableId="board" type="COLUMN" direction="horizontal">
+            {(provided) => (
+              <KanbanBoard
+                onAddBucket={() =>
+                  createBucket.mutate({
+                    name: 'New bucket',
+                    after_bucket_id: buckets[buckets.length - 1]?.id,
+                  })
+                }
+                rootDroppable={{
+                  ref: provided.innerRef,
+                  // Why: @hello-pangea/dnd uses string-indexed data-rfd-* keys that don't satisfy React's HTMLAttributes shape.
+                  rootProps: provided.droppableProps as unknown as HTMLAttributes<HTMLElement>,
+                  placeholder: provided.placeholder,
+                }}
+              >
+                {buckets.map((b, idx) => (
+                  <Draggable key={b.id} draggableId={b.id} index={idx}>
+                    {(dp, ds) => (
+                      <KanbanColumn
+                        name={b.name}
+                        count={(tasksByBucket.get(b.id) ?? []).length}
+                        status={statusForBucketName(b.name)}
+                        onCreateTask={(input) =>
+                          createTask.mutate({ plan_id: plan.id, bucket_id: b.id, ...input })
                         }
-                        // Virtualized buckets don't participate in keyboard navigation:
-                        // rows outside the overscan window aren't mounted, so cardRefs never
-                        // contains their elements and .focus() can't reach them.
-                        return (
-                          <VirtualizedBucketList bucketId={b.id} cards={list} onOpen={onOpenTask} />
-                        );
-                      })()}
-                    </KanbanColumn>
-                  )}
-                </Draggable>
-              ))}
-            </KanbanBoard>
-          )}
-        </Droppable>
-      </DragDropContext>
+                        draggableHandle={{
+                          ref: dp.innerRef,
+                          rootProps: dp.draggableProps,
+                          handleProps: dp.dragHandleProps ?? undefined,
+                          isDragging: ds.isDragging,
+                          extraStyle: dp.draggableProps.style,
+                        }}
+                        droppable={{}}
+                      >
+                        {(() => {
+                          const list = tasksByBucket.get(b.id) ?? [];
+                          if (list.length <= 50) {
+                            return (
+                              <Droppable droppableId={b.id} type="TASK">
+                                {(dp2, ds2) => (
+                                  <div
+                                    ref={dp2.innerRef}
+                                    {...dp2.droppableProps}
+                                    className={ds2.isDraggingOver ? 'is-over' : ''}
+                                  >
+                                    {list.map((entry, ci) => (
+                                      <Draggable
+                                        key={entry.card.id}
+                                        draggableId={entry.card.id}
+                                        index={ci}
+                                      >
+                                        {(dpc, dsc) => (
+                                          <KanbanCard
+                                            task={entry.card}
+                                            previewSlot={entry.previewSlot}
+                                            onOpen={() => onOpenTask(entry.card.id)}
+                                            selected={focusedCardId === entry.card.id}
+                                            draggable={{
+                                              // Compose dnd's innerRef with our cardRefs map so
+                                              // keyboard focus (focusedCardId effect) can call .focus().
+                                              ref: (el) => {
+                                                dpc.innerRef(el);
+                                                if (el) cardRefs.current.set(entry.card.id, el);
+                                                else cardRefs.current.delete(entry.card.id);
+                                              },
+                                              rootProps: dpc.draggableProps,
+                                              handleProps: dpc.dragHandleProps ?? undefined,
+                                              isDragging: dsc.isDragging,
+                                              extraStyle: dpc.draggableProps.style,
+                                            }}
+                                          />
+                                        )}
+                                      </Draggable>
+                                    ))}
+                                    {dp2.placeholder}
+                                  </div>
+                                )}
+                              </Droppable>
+                            );
+                          }
+                          // Virtualized buckets don't participate in keyboard navigation:
+                          // rows outside the overscan window aren't mounted, so cardRefs never
+                          // contains their elements and .focus() can't reach them.
+                          return (
+                            <VirtualizedBucketList
+                              bucketId={b.id}
+                              cards={list}
+                              onOpen={onOpenTask}
+                            />
+                          );
+                        })()}
+                      </KanbanColumn>
+                    )}
+                  </Draggable>
+                ))}
+              </KanbanBoard>
+            )}
+          </Droppable>
+        </DragDropContext>
+      )}
+      {plan.external_source === 'm365' && (
+        <ResolvePlanConflictsDialog
+          open={conflictDialogOpen}
+          onOpenChange={setConflictDialogOpen}
+          data={{ planId: plan.id, planLevelConflicts: [], taskConflicts: [] }}
+          onApply={async (decisions: PlanConflictDecision[]) => {
+            const apiDecisions: ResolvePlanDecisions = decisions.map((d) =>
+              d.kind === 'plan'
+                ? { kind: 'plan', field: d.field, choice: d.choice }
+                : { kind: 'task', task_id: d.taskId, field: d.field, choice: d.choice },
+            );
+            await resolveConflicts.mutateAsync(apiDecisions);
+            setConflictDialogOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }

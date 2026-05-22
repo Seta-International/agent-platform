@@ -145,6 +145,67 @@ describe('PlanGridPage', () => {
     expect(await screen.findByText(/synced/i)).toBeInTheDocument();
   });
 
+  it('renders no sync banners or pulling empty state when plan is idle', async () => {
+    server.use(...seedBoardHandlers());
+    renderPage();
+    await screen.findByText('Wire up DnD');
+    expect(screen.queryByTestId('plan-sync-error-banner')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('plan-sync-conflict-banner')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Syncing from M365 Planner/)).not.toBeInTheDocument();
+  });
+
+  it('renders an error banner with humanized message and a Retry sync button when sync_status=error', async () => {
+    server.use(
+      http.get('*/api/planner/v1/plans/p1', () =>
+        HttpResponse.json({
+          ...m365LinkedPlanFixture,
+          sync_status: 'error',
+          last_error: 'Network unreachable',
+        }),
+      ),
+      http.get('*/api/planner/v1/plans/p1/buckets', () =>
+        HttpResponse.json({ buckets: [bucketTodo, bucketDone] }),
+      ),
+      http.get('*/api/planner/v1/tasks', () => HttpResponse.json({ tasks: [taskOne] })),
+      http.get('*/api/planner/v1/plans/p1/labels', () => HttpResponse.json({ labels: [] })),
+    );
+    renderPage();
+    const banner = await screen.findByTestId('plan-sync-error-banner');
+    expect(banner).toHaveTextContent('Sync failed: Network unreachable');
+    expect(screen.getByRole('button', { name: 'Retry sync' })).toBeInTheDocument();
+  });
+
+  it('renders a conflict banner with a Resolve now button that opens the conflicts dialog', async () => {
+    server.use(
+      http.get('*/api/planner/v1/plans/p1', () =>
+        HttpResponse.json({ ...m365LinkedPlanFixture, sync_status: 'conflict' }),
+      ),
+      http.get('*/api/planner/v1/plans/p1/buckets', () =>
+        HttpResponse.json({ buckets: [bucketTodo, bucketDone] }),
+      ),
+      http.get('*/api/planner/v1/tasks', () => HttpResponse.json({ tasks: [taskOne] })),
+      http.get('*/api/planner/v1/plans/p1/labels', () => HttpResponse.json({ labels: [] })),
+    );
+    renderPage();
+    expect(await screen.findByTestId('plan-sync-conflict-banner')).toBeInTheDocument();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Resolve now' }));
+    expect(await screen.findByText('Resolve sync conflicts')).toBeInTheDocument();
+  });
+
+  it('renders the pulling empty state when sync_status=pulling and tasks are empty', async () => {
+    server.use(
+      http.get('*/api/planner/v1/plans/p1', () =>
+        HttpResponse.json({ ...m365LinkedPlanFixture, sync_status: 'pulling' }),
+      ),
+      http.get('*/api/planner/v1/plans/p1/buckets', () => HttpResponse.json({ buckets: [] })),
+      http.get('*/api/planner/v1/tasks', () => HttpResponse.json({ tasks: [] })),
+      http.get('*/api/planner/v1/plans/p1/labels', () => HttpResponse.json({ labels: [] })),
+    );
+    renderPage();
+    expect(await screen.findByText(/Syncing from M365 Planner/)).toBeInTheDocument();
+  });
+
   it('renders skeleton while board is loading', () => {
     server.use(
       http.get('*/api/planner/v1/plans/p1', async () => {

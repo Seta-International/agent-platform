@@ -1,4 +1,11 @@
-import { TaskGrid, type TaskGridRow } from '@seta/shared-ui';
+import {
+  EmptyState,
+  PLANNER_403_LIMIT_MESSAGES,
+  type PlanConflictDecision,
+  ResolvePlanConflictsDialog,
+  TaskGrid,
+  type TaskGridRow,
+} from '@seta/shared-ui';
 import { useMemo, useState } from 'react';
 import { GridSkeleton } from '../components/board-skeleton';
 import { GridBulkActionFooter } from '../components/grid-bulk-action-footer';
@@ -12,6 +19,10 @@ import { useCompleteTask } from '../hooks/mutations/complete-task';
 import { useMoveTask } from '../hooks/mutations/move-task';
 import { useRefreshPlanSync } from '../hooks/mutations/refresh-plan-sync';
 import { useReopenTask } from '../hooks/mutations/reopen-task';
+import {
+  type ResolvePlanDecisions,
+  useResolvePlanConflicts,
+} from '../hooks/mutations/resolve-plan-conflicts';
 import { useUpdateTask } from '../hooks/mutations/update-task';
 import { usePlanBoard } from '../hooks/queries/use-plan-board';
 import { useBulkActions } from '../hooks/use-bulk-actions';
@@ -74,8 +85,9 @@ export function PlanGridPage({
   const completeTask = useCompleteTask(planId);
   const reopenTask = useReopenTask(planId);
   const refreshSync = useRefreshPlanSync(planId);
+  const resolveConflicts = useResolvePlanConflicts(planId);
   const bulk = useBulkActions(planId);
-  const [, setConflictDialogOpen] = useState(false);
+  const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
 
   const { rows, tasksById, bucketOptions, assigneeOptions } = useMemo(() => {
     if (!boardQ.data) {
@@ -254,28 +266,89 @@ export function PlanGridPage({
           {onQChange && <PlanSearchInput value={q} onChange={onQChange} />}
         </div>
       </div>
-      <TaskGrid
-        rows={rows}
-        groupBy={groupBy}
-        selection={selectedIds}
-        onSelectionChange={setSelectedIds}
-        onCommitField={onCommitField}
-        bucketOptions={bucketOptions}
-        onOpenTask={onOpenTask}
-        columnOrder={prefs.order}
-        columnWidths={prefs.widths}
-        onColumnOrderChange={(order) => setPrefs((p) => ({ ...p, order }))}
-        onColumnWidthsChange={(widths) => setPrefs((p) => ({ ...p, widths }))}
-      />
-      {selectedIds.size > 0 && (
-        <GridBulkActionFooter
-          count={selectedIds.size}
-          bucketOptions={bucketOptions}
-          assigneeOptions={assigneeOptions}
-          onMove={onMove}
-          onAssign={onAssign}
-          onSetDue={onSetDue}
-          onDelete={onDelete}
+      {plan.sync_status === 'error' && plan.last_error && (
+        <div
+          role="alert"
+          className="mx-7 mt-3 rounded border border-semantic-danger bg-semantic-danger-tint p-3 text-body-sm"
+          data-testid="plan-sync-error-banner"
+        >
+          <div className="font-medium">
+            Sync failed: {PLANNER_403_LIMIT_MESSAGES[plan.last_error] ?? plan.last_error}
+          </div>
+          <button
+            type="button"
+            className="mt-2 text-primary underline"
+            onClick={() => refreshSync.mutate()}
+            disabled={refreshSync.isPending}
+          >
+            Retry sync
+          </button>
+        </div>
+      )}
+      {plan.sync_status === 'conflict' && (
+        <div
+          className="mx-7 mt-3 rounded border border-semantic-warning bg-semantic-warning-tint p-3 text-body-sm"
+          data-testid="plan-sync-conflict-banner"
+        >
+          <div className="font-medium">Sync conflicts need resolution</div>
+          <button
+            type="button"
+            className="mt-2 text-primary underline"
+            onClick={() => setConflictDialogOpen(true)}
+          >
+            Resolve now
+          </button>
+        </div>
+      )}
+      {plan.sync_status === 'pulling' && tasks.length === 0 ? (
+        <div role="status" data-testid="plan-sync-pulling-empty">
+          <EmptyState
+            title="Syncing from M365 Planner…"
+            description="This may take a minute for large plans."
+          />
+        </div>
+      ) : (
+        <>
+          <TaskGrid
+            rows={rows}
+            groupBy={groupBy}
+            selection={selectedIds}
+            onSelectionChange={setSelectedIds}
+            onCommitField={onCommitField}
+            bucketOptions={bucketOptions}
+            onOpenTask={onOpenTask}
+            columnOrder={prefs.order}
+            columnWidths={prefs.widths}
+            onColumnOrderChange={(order) => setPrefs((p) => ({ ...p, order }))}
+            onColumnWidthsChange={(widths) => setPrefs((p) => ({ ...p, widths }))}
+          />
+          {selectedIds.size > 0 && (
+            <GridBulkActionFooter
+              count={selectedIds.size}
+              bucketOptions={bucketOptions}
+              assigneeOptions={assigneeOptions}
+              onMove={onMove}
+              onAssign={onAssign}
+              onSetDue={onSetDue}
+              onDelete={onDelete}
+            />
+          )}
+        </>
+      )}
+      {plan.external_source === 'm365' && (
+        <ResolvePlanConflictsDialog
+          open={conflictDialogOpen}
+          onOpenChange={setConflictDialogOpen}
+          data={{ planId: plan.id, planLevelConflicts: [], taskConflicts: [] }}
+          onApply={async (decisions: PlanConflictDecision[]) => {
+            const apiDecisions: ResolvePlanDecisions = decisions.map((d) =>
+              d.kind === 'plan'
+                ? { kind: 'plan', field: d.field, choice: d.choice }
+                : { kind: 'task', task_id: d.taskId, field: d.field, choice: d.choice },
+            );
+            await resolveConflicts.mutateAsync(apiDecisions);
+            setConflictDialogOpen(false);
+          }}
         />
       )}
     </div>
