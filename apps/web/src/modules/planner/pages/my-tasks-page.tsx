@@ -1,7 +1,9 @@
 import { DragDropContext, type DropResult } from '@hello-pangea/dnd';
 import type { MyTasksResult, TaskWithPlan } from '@seta/planner';
 import { Alert, AlertDescription, Button, EmptyState, PageChrome, Skeleton } from '@seta/shared-ui';
+import { useNavigate } from '@tanstack/react-router';
 import { generateKeyBetween } from 'fractional-indexing';
+import { CheckCircle2 } from 'lucide-react';
 import { useMemo } from 'react';
 import { MtSection, type MyTasksSection } from '../components/my-tasks/mt-section';
 import type { MyTasksRowTask } from '../components/my-tasks/mt-task-row';
@@ -127,6 +129,7 @@ interface Props {
 export function MyTasksPage({ filters, onFiltersChange }: Props) {
   const q = useMyTasks(filters);
   const setPrio = useSetAssigneePriority();
+  const navigate = useNavigate();
 
   const planOptions: PlanOption[] = useMemo(() => {
     if (!q.data) return [];
@@ -218,7 +221,7 @@ export function MyTasksPage({ filters, onFiltersChange }: Props) {
       )}
       {hasData && total === 0 && (
         <PageBody>
-          <MyTasksEmpty />
+          <MyTasksEmpty onBrowse={() => void navigate({ to: '/planner/groups' })} />
         </PageBody>
       )}
       {hasData && total > 0 && q.data && (
@@ -272,10 +275,15 @@ function MyTasksError({ onRetry }: { onRetry: () => void }) {
   );
 }
 
-function MyTasksEmpty() {
+function MyTasksEmpty({ onBrowse }: { onBrowse?: () => void }) {
   return (
     <div data-testid="my-tasks-empty">
-      <EmptyState title="Nothing assigned" description="Browse plans to find work to pick up." />
+      <EmptyState
+        icon={<CheckCircle2 className="size-8" />}
+        title="Nothing assigned"
+        description="Browse plans to find work to pick up."
+        action={onBrowse ? { label: 'Browse plans', onClick: onBrowse } : undefined}
+      />
     </div>
   );
 }
