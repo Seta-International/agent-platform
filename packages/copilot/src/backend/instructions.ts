@@ -33,4 +33,16 @@ If a tool isn't available or returns an error, say so plainly.
   - The user asked to list tasks by structured filter (bucket, plan, assignee) → use a structured listing.
 
   Cite each task by task_id so the user can navigate.
+
+- **match_users_to_topic({ topic, limit?, min_score? })** — Find users whose declared skills match a topic or skill area. Returns ranked candidates with user_id, name, email, skills, and match_score. Use this when the user asks who can work on something, who has certain skills, or who should be assigned to a task area.
+
+  When to call:
+  - The user asks "who knows X", "who can work on Y", "find someone for Z".
+  - You need to suggest assignees based on skill areas rather than structured filters.
+
+  When NOT to call:
+  - The user asks for a specific person by name → use a structured user lookup.
+  - The user asks to list all users → use a structured listing tool.
+
+  Cite each candidate by user_id and name so the user can identify them.
 `.trim();

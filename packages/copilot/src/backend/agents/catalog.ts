@@ -5,6 +5,7 @@ import { resolveEmbeddingProvider } from '../embeddings/provider-resolver.ts';
 import { ROUTER_INSTRUCTIONS, SELF_INSTRUCTIONS } from '../instructions.ts';
 import { makeListMyThreadsTool } from '../tools/copilot.list-my-threads.ts';
 import { copilotRunNewTaskSkillTagTool } from '../tools/copilot.run-new-task-skill-tag.ts';
+import { matchUsersToTopicTool } from '../tools/match-users-to-topic.ts';
 import { searchTasksSemanticTool } from '../tools/search-tasks-semantic.ts';
 import { STATIC_SELF_TOOLS } from '../tools/self-tools.ts';
 import type { AgentSpec, AgentSpecs } from './specs.ts';
@@ -66,6 +67,7 @@ export function buildAgentCatalog(deps: { mastra: Mastra; pool: Pool }): AgentSp
       ...STATIC_SELF_TOOLS,
       listMyThreads,
       searchTasksSemanticTool({ provider, pool: deps.pool }),
+      matchUsersToTopicTool({ provider, pool: deps.pool }),
     ],
     defaultTier: 'fast',
   };
