@@ -37,18 +37,20 @@ export class LlmJudgeReranker implements Reranker {
     hits: RetrievalHit<T>[],
     opts: { topN?: number } = {},
   ): Promise<RerankedHit<T>[]> {
-    const sliced = opts.topN != null ? hits.slice(0, opts.topN) : hits;
-    if (sliced.length === 0) return [];
+    if (hits.length === 0) return [];
 
     try {
-      const passages = sliced.map((h) => JSON.stringify(h.item));
+      // Score the FULL hit set so stage-1 oversampling is not wasted.
+      const passages = hits.map((h) => JSON.stringify(h.item));
       const { scores } = await this.judge({ query, passages });
-      if (scores.length !== sliced.length) throw new Error('judge returned mismatched score count');
+      if (scores.length !== hits.length) throw new Error('judge returned mismatched score count');
 
-      const paired = sliced.map((h, i) => ({ h, score: scores[i]! }));
+      const paired = hits.map((h, i) => ({ h, score: scores[i]! }));
       paired.sort((a, b) => b.score - a.score);
 
-      return paired.map((p, i) => ({
+      // Truncate to topN AFTER scoring, then assign final ranks.
+      const truncated = opts.topN != null ? paired.slice(0, opts.topN) : paired;
+      return truncated.map((p, i) => ({
         ...p.h,
         rerankScore: p.score,
         rank: i + 1,
@@ -56,7 +58,8 @@ export class LlmJudgeReranker implements Reranker {
       }));
     } catch {
       // Reranker contract: provider errors degrade to fallback hits, never throw into the calling tool.
-      return sliced.map((h, i) => ({
+      const truncated = opts.topN != null ? hits.slice(0, opts.topN) : hits;
+      return truncated.map((h, i) => ({
         ...h,
         rerankScore: h.score,
         rank: i + 1,

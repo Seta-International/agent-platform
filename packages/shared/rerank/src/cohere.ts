@@ -37,27 +37,33 @@ export class CohereReranker implements Reranker {
     hits: RetrievalHit<T>[],
     callOpts: { topN?: number } = {},
   ): Promise<RerankedHit<T>[]> {
-    const sliced = callOpts.topN != null ? hits.slice(0, callOpts.topN) : hits;
-    if (sliced.length === 0) return [];
+    if (hits.length === 0) return [];
 
     try {
       const fn = this.opts.rerankFn ?? this.callMastraRerank;
+      // Score the FULL hit set so stage-1 oversampling is not wasted.
       const scored = await fn(
         query,
-        sliced.map((h) => h.item),
+        hits.map((h) => h.item),
         this.opts.apiKey,
         this.opts.model,
       );
 
       // Map back to a RerankedHit preserving the original RetrievalHit fields.
-      const byItem = new Map(sliced.map((h) => [h.item, h]));
-      return scored.map((s, i) => {
-        const orig = byItem.get(s.result)!;
-        return { ...orig, rerankScore: s.score, rank: i + 1, reranker: 'cohere' as const };
+      const byItem = new Map(hits.map((h) => [h.item, h]));
+      const reranked = scored.map((s) => {
+        const orig = byItem.get(s.result);
+        if (!orig) throw new Error('reranker returned item not in input');
+        return { ...orig, rerankScore: s.score, reranker: 'cohere' as const };
       });
+
+      // Truncate to topN AFTER scoring, then assign final ranks.
+      const truncated = callOpts.topN != null ? reranked.slice(0, callOpts.topN) : reranked;
+      return truncated.map((h, i) => ({ ...h, rank: i + 1 }));
     } catch {
       // Reranker contract: provider errors degrade to fallback hits, never throw into the calling tool.
-      return sliced.map((h, i) => ({
+      const truncated = callOpts.topN != null ? hits.slice(0, callOpts.topN) : hits;
+      return truncated.map((h, i) => ({
         ...h,
         rerankScore: h.score,
         rank: i + 1,
@@ -77,21 +83,25 @@ export class CohereReranker implements Reranker {
     const { rerankWithScorer, CohereRelevanceScorer } = await import('@mastra/rag');
     const scorer = new CohereRelevanceScorer(model, apiKey);
     // @mastra/rag operates on QueryResult[] internally; we wrap our items as
-    // unknown metadata and extract them back by index after scoring.
+    // unknown metadata and extract them back by id after scoring.
+    // `text` is required so the cross-encoder has a string payload to score against;
+    // `id` is the original index so we can map back correctly after reordering.
     const queryResults = items.map((item, i) => ({
       id: String(i),
       score: 0,
-      metadata: item as Record<string, unknown>,
+      metadata: { text: JSON.stringify(item), original: item as Record<string, unknown> },
     }));
     const results = await rerankWithScorer({
       results: queryResults,
       query,
       scorer,
-      options: {},
+      // topK must equal the full set so all candidates are scored and returned.
+      options: { topK: queryResults.length },
     });
-    return results.map((r, i) => ({
-      result: items[i] as T,
-      score: r.score,
-    }));
+    return results.map((r) => {
+      const originalIdx = Number(r.result.id);
+      if (!Number.isFinite(originalIdx)) throw new Error(`corrupt rerank id: ${r.result.id}`);
+      return { result: items[originalIdx] as T, score: r.score };
+    });
   };
 }

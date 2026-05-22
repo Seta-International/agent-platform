@@ -256,6 +256,58 @@ describe('GET /api/copilot/v1/knowledge', () => {
   });
 });
 
+describe('POST /api/copilot/v1/knowledge/:id/processed — bad id', () => {
+  it('returns 400 when :id is not numeric', async () => {
+    await withTestDb(dbEnv(), async ({ databaseUrl }) => {
+      resetCoreDb();
+      initPools({ databaseUrl });
+      try {
+        const session = buildSession({
+          tenant_id: crypto.randomUUID(),
+          user_id: crypto.randomUUID(),
+          email: 'admin@example.test',
+          display_name: 'Admin',
+        });
+        const app = buildTestApp(session);
+        const res = await app.request('/api/copilot/v1/knowledge/foo/processed', {
+          method: 'POST',
+        });
+        expect(res.status).toBe(400);
+        const body = (await res.json()) as { error: string };
+        expect(body.error).toBe('invalid_id');
+      } finally {
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+});
+
+describe('DELETE /api/copilot/v1/knowledge/:id — bad id', () => {
+  it('returns 400 when :id is not numeric', async () => {
+    await withTestDb(dbEnv(), async ({ databaseUrl }) => {
+      resetCoreDb();
+      initPools({ databaseUrl });
+      try {
+        const session = buildSession({
+          tenant_id: crypto.randomUUID(),
+          user_id: crypto.randomUUID(),
+          email: 'admin@example.test',
+          display_name: 'Admin',
+        });
+        const app = buildTestApp(session);
+        const res = await app.request('/api/copilot/v1/knowledge/foo', { method: 'DELETE' });
+        expect(res.status).toBe(400);
+        const body = (await res.json()) as { error: string };
+        expect(body.error).toBe('invalid_id');
+      } finally {
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+});
+
 describe('DELETE /api/copilot/v1/knowledge/:id', () => {
   it('returns 200 after deleting a file row', async () => {
     await withTestDb(dbEnv(), async ({ pool, databaseUrl }) => {

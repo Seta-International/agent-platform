@@ -58,6 +58,7 @@ export function registerKnowledgeRoutes(
     requireOrgAdmin(c);
     const scope = c.get('user');
     const file_id = c.req.param('id');
+    if (!/^\d+$/.test(file_id)) return c.json({ error: 'invalid_id' }, 400);
     await markKnowledgeFileProcessed({ tenant_id: scope.tenant_id, file_id });
     return c.json({ ok: true });
   });
@@ -73,6 +74,7 @@ export function registerKnowledgeRoutes(
     requireOrgAdmin(c);
     const scope = c.get('user');
     const file_id = c.req.param('id');
+    if (!/^\d+$/.test(file_id)) return c.json({ error: 'invalid_id' }, 400);
     await deleteKnowledgeFile({ tenant_id: scope.tenant_id, file_id });
     return c.json({ ok: true });
   });
