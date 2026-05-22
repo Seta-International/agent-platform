@@ -41,7 +41,7 @@ export function createAssigneeResolver(deps: AssigneeResolverDeps): AssigneeReso
           skipped.push(oid);
           assigneeSkippedCounter.add(1, { tenant_id: ctx.tenantId });
           await deps.emit({
-            type: 'integrations.m365.assignee.skipped.v1',
+            type: 'integrations.m365.assignee.skipped',
             payload: {
               tenant_id: ctx.tenantId,
               plan_id: ctx.planId,

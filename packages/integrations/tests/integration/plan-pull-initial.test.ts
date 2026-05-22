@@ -238,7 +238,7 @@ describe('runPlanPull — initial full pull', () => {
       expect(emit).toHaveBeenCalledTimes(1);
       expect(emit).toHaveBeenCalledWith(
         expect.objectContaining({
-          type: 'integrations.m365.assignee.skipped.v1',
+          type: 'integrations.m365.assignee.skipped',
           payload: expect.objectContaining({
             entra_oid: 'OID-UNRESOLVABLE',
             tenant_id: TENANT_ID,

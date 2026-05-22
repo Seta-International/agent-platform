@@ -24,7 +24,7 @@ describe('createAssigneeResolver', () => {
     expect(result.resolved).toEqual([{ entra_oid: 'OID-1', user_id: 'U1' }]);
     expect(result.skipped).toEqual(['OID-2']);
     expect(emit).toHaveBeenCalledExactlyOnceWith({
-      type: 'integrations.m365.assignee.skipped.v1',
+      type: 'integrations.m365.assignee.skipped',
       payload: {
         tenant_id: 'T',
         plan_id: 'P',
