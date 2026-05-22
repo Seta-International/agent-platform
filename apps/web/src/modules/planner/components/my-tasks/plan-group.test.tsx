@@ -180,4 +180,29 @@ describe('PlanGroup', () => {
     const ids = Array.from(draggables).map((d) => d.getAttribute('data-rfd-draggable-id'));
     expect(ids).toEqual(['t1', 't2']);
   });
+
+  it('does NOT virtualize when tasks.length < 10', async () => {
+    renderInRouter(
+      <PlanGroup
+        sectionKey="late"
+        group={fxGroup({
+          tasks: Array.from({ length: 9 }, (_, i) => fxTask({ id: `t${i}`, title: `Task ${i}` })),
+        })}
+      />,
+    );
+    expect(await screen.findByText('Task 0')).toBeInTheDocument();
+    expect(document.querySelector('[data-testid="plan-group-rows-virtualized"]')).toBeNull();
+  });
+
+  it('virtualizes when tasks.length >= 10', async () => {
+    renderInRouter(
+      <PlanGroup
+        sectionKey="late"
+        group={fxGroup({
+          tasks: Array.from({ length: 30 }, (_, i) => fxTask({ id: `t${i}`, title: `Task ${i}` })),
+        })}
+      />,
+    );
+    expect(await screen.findByTestId('plan-group-rows-virtualized')).toBeInTheDocument();
+  });
 });

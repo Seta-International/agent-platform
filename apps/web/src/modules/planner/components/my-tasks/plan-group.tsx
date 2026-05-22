@@ -1,6 +1,8 @@
 import { Draggable, Droppable } from '@hello-pangea/dnd';
 import { Link } from '@tanstack/react-router';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { ChevronRight, ExternalLink, Layout } from 'lucide-react';
+import { useRef } from 'react';
 import { MtTaskRow, type MyTasksRowTask } from './mt-task-row';
 
 export interface PlanGroupRef {
@@ -28,9 +30,24 @@ interface Props {
   first?: boolean;
 }
 
+// virtualization kicks in once rows would noticeably affect layout cost;
+// below this threshold the non-virtual path keeps DOM simple for tests and a11y
+const VIRTUAL_THRESHOLD = 10;
+
 export function PlanGroup({ sectionKey, group, first = false }: Props) {
   const taskCount = group.tasks.length;
   const droppableId = `mt:${sectionKey}:${group.plan.id}`;
+  const virtualize = taskCount >= VIRTUAL_THRESHOLD;
+  const parentRef = useRef<HTMLDivElement | null>(null);
+  // TanStack Virtual returns functions that can't be safely memoized — React Compiler skips this hook
+  // eslint-disable-next-line react-hooks/incompatible-library
+  const virtualizer = useVirtualizer({
+    count: taskCount,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 44,
+    overscan: 6,
+  });
+
   return (
     <div
       data-testid="plan-group"
@@ -81,22 +98,86 @@ export function PlanGroup({ sectionKey, group, first = false }: Props) {
         <span>Assignees</span>
       </div>
 
-      <Droppable droppableId={droppableId} type="MT_TASK">
-        {(dp) => (
-          <div ref={dp.innerRef} {...dp.droppableProps}>
-            {group.tasks.map((t, i) => (
-              <Draggable key={t.id} draggableId={t.id} index={i}>
-                {(dpc) => (
-                  <div ref={dpc.innerRef} {...dpc.draggableProps}>
-                    <MtTaskRow task={t} dragHandleProps={dpc.dragHandleProps ?? undefined} />
-                  </div>
-                )}
-              </Draggable>
-            ))}
-            {dp.placeholder}
-          </div>
-        )}
-      </Droppable>
+      {virtualize ? (
+        <Droppable
+          droppableId={droppableId}
+          type="MT_TASK"
+          mode="virtual"
+          renderClone={(provided, _snapshot, rubric) => {
+            const t = group.tasks[rubric.source.index];
+            if (!t) return <div ref={provided.innerRef} {...provided.draggableProps} />;
+            return (
+              <div
+                ref={provided.innerRef}
+                {...provided.draggableProps}
+                style={provided.draggableProps.style}
+              >
+                <MtTaskRow task={t} dragHandleProps={provided.dragHandleProps ?? undefined} />
+              </div>
+            );
+          }}
+        >
+          {(dp) => (
+            <div
+              ref={(node) => {
+                dp.innerRef(node);
+                parentRef.current = node;
+              }}
+              {...dp.droppableProps}
+              data-testid="plan-group-rows-virtualized"
+              style={{ maxHeight: 480, overflow: 'auto', position: 'relative' }}
+            >
+              <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
+                {virtualizer.getVirtualItems().map((vi) => {
+                  const t = group.tasks[vi.index];
+                  if (!t) return null;
+                  return (
+                    <div
+                      key={t.id}
+                      data-task-row
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        transform: `translateY(${vi.start}px)`,
+                      }}
+                    >
+                      <Draggable draggableId={t.id} index={vi.index}>
+                        {(dpc) => (
+                          <div ref={dpc.innerRef} {...dpc.draggableProps}>
+                            <MtTaskRow
+                              task={t}
+                              dragHandleProps={dpc.dragHandleProps ?? undefined}
+                            />
+                          </div>
+                        )}
+                      </Draggable>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </Droppable>
+      ) : (
+        <Droppable droppableId={droppableId} type="MT_TASK">
+          {(dp) => (
+            <div ref={dp.innerRef} {...dp.droppableProps}>
+              {group.tasks.map((t, i) => (
+                <Draggable key={t.id} draggableId={t.id} index={i}>
+                  {(dpc) => (
+                    <div ref={dpc.innerRef} {...dpc.draggableProps}>
+                      <MtTaskRow task={t} dragHandleProps={dpc.dragHandleProps ?? undefined} />
+                    </div>
+                  )}
+                </Draggable>
+              ))}
+              {dp.placeholder}
+            </div>
+          )}
+        </Droppable>
+      )}
     </div>
   );
 }
