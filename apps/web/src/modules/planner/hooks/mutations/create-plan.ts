@@ -27,6 +27,8 @@ export function useCreatePlan(groupId: string) {
           external_id: null,
           external_etag: null,
           external_synced_at: null,
+          sync_status: 'idle',
+          last_error: null,
           created_by: '',
           created_at: now,
           updated_at: now,

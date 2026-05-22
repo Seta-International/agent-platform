@@ -18,6 +18,7 @@ import { useCreateBucket } from '../hooks/mutations/create-bucket';
 import { useCreateTask } from '../hooks/mutations/create-task';
 import { useMoveBucket } from '../hooks/mutations/move-bucket';
 import { useMoveTask } from '../hooks/mutations/move-task';
+import { useRefreshPlanSync } from '../hooks/mutations/refresh-plan-sync';
 import { usePlanBoard } from '../hooks/queries/use-plan-board';
 import { useBoardKeyboard } from '../hooks/use-board-keyboard';
 import { useFilterOptions } from '../hooks/use-filter-options';
@@ -80,10 +81,12 @@ export function PlanPage({
   const moveBucket = useMoveBucket(planId);
   const createTask = useCreateTask(planId);
   const createBucket = useCreateBucket(planId);
+  const refreshSync = useRefreshPlanSync(planId);
   const savingIds = useSavingIds((s) => s.ids);
   const recentlyMoved = useRecentlyMovedTasks((s) => s.ids);
 
   const [focusedCardId, setFocusedCardId] = useState<string | null>(null);
+  const [, setConflictDialogOpen] = useState(false);
   const cardRefs = useRef<Map<string, HTMLElement>>(new Map());
 
   const tasksByBucket = useMemo(() => {
@@ -247,9 +250,19 @@ export function PlanPage({
             : undefined
         }
         canRename={canManage}
+        canManage={canManage}
         onRename={onRenamePlan}
         onArchive={canManage ? onArchivePlan : undefined}
         onDelete={canManage ? onDeletePlan : undefined}
+        external_source={plan.external_source}
+        syncStatus={plan.sync_status}
+        externalSyncedAt={plan.external_synced_at}
+        externalId={plan.external_id}
+        conflictCount={null}
+        onRefreshSync={plan.external_source === 'm365' ? () => refreshSync.mutate() : undefined}
+        onOpenConflictDialog={
+          plan.external_source === 'm365' ? () => setConflictDialogOpen(true) : undefined
+        }
       />
       <div className="plan-toolbar">
         <div className="plan-toolbar__left">

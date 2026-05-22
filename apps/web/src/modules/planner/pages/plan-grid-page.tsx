@@ -1,14 +1,16 @@
 import { TaskGrid, type TaskGridRow } from '@seta/shared-ui';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { GridSkeleton } from '../components/board-skeleton';
 import { GridBulkActionFooter } from '../components/grid-bulk-action-footer';
 import { GridGroupBySelector } from '../components/grid-group-by-selector';
 import { PlanError } from '../components/plan-error';
 import { PlanFilterBar } from '../components/plan-filter-bar';
+import { PlanPageHeader } from '../components/plan-page-header';
 import { PlanSearchInput } from '../components/plan-search-input';
 import { PlanViewSwitcher } from '../components/plan-view-switcher';
 import { useCompleteTask } from '../hooks/mutations/complete-task';
 import { useMoveTask } from '../hooks/mutations/move-task';
+import { useRefreshPlanSync } from '../hooks/mutations/refresh-plan-sync';
 import { useReopenTask } from '../hooks/mutations/reopen-task';
 import { useUpdateTask } from '../hooks/mutations/update-task';
 import { usePlanBoard } from '../hooks/queries/use-plan-board';
@@ -35,6 +37,12 @@ interface Props {
   onGroupByChange: (g: GroupBy) => void;
   q?: string;
   onQChange?: (next: string) => void;
+  currentUserId?: string;
+  groupName?: string;
+  canManage?: boolean;
+  onRenamePlan?: (name: string) => void;
+  onArchivePlan?: () => void;
+  onDeletePlan?: () => void;
 }
 
 export function PlanGridPage({
@@ -48,6 +56,12 @@ export function PlanGridPage({
   onGroupByChange,
   q = '',
   onQChange,
+  currentUserId,
+  groupName,
+  canManage,
+  onRenamePlan,
+  onArchivePlan,
+  onDeletePlan,
 }: Props) {
   const boardQ = usePlanBoard(planId);
   const filterOptions = useFilterOptions(boardQ.data);
@@ -59,7 +73,9 @@ export function PlanGridPage({
   const moveTask = useMoveTask(planId);
   const completeTask = useCompleteTask(planId);
   const reopenTask = useReopenTask(planId);
+  const refreshSync = useRefreshPlanSync(planId);
   const bulk = useBulkActions(planId);
+  const [, setConflictDialogOpen] = useState(false);
 
   const { rows, tasksById, bucketOptions, assigneeOptions } = useMemo(() => {
     if (!boardQ.data) {
@@ -129,6 +145,7 @@ export function PlanGridPage({
   if (boardQ.isError || !boardQ.data) {
     return <PlanError onRetry={() => boardQ.refetch()} />;
   }
+  const { plan, buckets, tasks } = boardQ.data;
 
   function onCommitField(taskId: string, patch: Partial<TaskGridRow>) {
     const task = tasksById.get(taskId);
@@ -191,6 +208,32 @@ export function PlanGridPage({
 
   return (
     <div className="plan-grid-page">
+      <PlanPageHeader
+        planName={plan.name}
+        groupName={groupName}
+        groupId={plan.group_id}
+        bucketCount={buckets.length}
+        taskCount={tasks.length}
+        myTaskCount={
+          currentUserId
+            ? tasks.filter((t) => t.assignees.some((a) => a.user_id === currentUserId)).length
+            : undefined
+        }
+        canRename={canManage}
+        canManage={canManage}
+        onRename={onRenamePlan}
+        onArchive={canManage ? onArchivePlan : undefined}
+        onDelete={canManage ? onDeletePlan : undefined}
+        external_source={plan.external_source}
+        syncStatus={plan.sync_status}
+        externalSyncedAt={plan.external_synced_at}
+        externalId={plan.external_id}
+        conflictCount={null}
+        onRefreshSync={plan.external_source === 'm365' ? () => refreshSync.mutate() : undefined}
+        onOpenConflictDialog={
+          plan.external_source === 'm365' ? () => setConflictDialogOpen(true) : undefined
+        }
+      />
       <div className="plan-toolbar">
         <div className="plan-toolbar__left">
           <PlanFilterBar

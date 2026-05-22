@@ -28,11 +28,26 @@ const planFixture = {
   tenant_id: 't',
   group_id: 'g1',
   name: 'Q3 Launch',
+  category_descriptions: {},
+  external_source: 'native',
+  external_id: null,
+  external_etag: null,
+  external_synced_at: null,
+  sync_status: 'idle',
+  last_error: null,
   created_by: 'u',
   created_at: '',
   updated_at: '',
   deleted_at: null,
   version: 1,
+};
+
+const m365LinkedPlanFixture = {
+  ...planFixture,
+  external_source: 'm365',
+  external_id: 'ext-plan-123',
+  external_synced_at: '2026-05-22T10:00:00Z',
+  sync_status: 'idle',
 };
 
 const bucketTodo = {
@@ -117,6 +132,19 @@ function renderPage() {
 }
 
 describe('PlanGridPage', () => {
+  it('renders SyncBadge in header when plan is linked to m365', async () => {
+    server.use(
+      http.get('*/api/planner/v1/plans/p1', () => HttpResponse.json(m365LinkedPlanFixture)),
+      http.get('*/api/planner/v1/plans/p1/buckets', () =>
+        HttpResponse.json({ buckets: [bucketTodo, bucketDone] }),
+      ),
+      http.get('*/api/planner/v1/tasks', () => HttpResponse.json({ tasks: [taskOne] })),
+      http.get('*/api/planner/v1/plans/p1/labels', () => HttpResponse.json({ labels: [] })),
+    );
+    renderPage();
+    expect(await screen.findByText(/synced/i)).toBeInTheDocument();
+  });
+
   it('renders skeleton while board is loading', () => {
     server.use(
       http.get('*/api/planner/v1/plans/p1', async () => {

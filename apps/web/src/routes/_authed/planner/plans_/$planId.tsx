@@ -125,6 +125,11 @@ function PlanRoute() {
       }
       q={q}
       onQChange={onQChange}
+      currentUserId={session.user_id}
+      groupName={groupQ.data?.name}
+      canManage={canManage}
+      onRenamePlan={onRenamePlan}
+      onDeletePlan={onDeletePlan}
     />
   );
 }
