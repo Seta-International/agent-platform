@@ -37,7 +37,7 @@ interface Props {
   onViewChange: (v: 'board' | 'grid') => void;
   q?: string;
   onQChange?: (next: string) => void;
-  /** When provided, header shows "You have N" count. */
+  /** When provided, header shows "N assigned to you" count. */
   currentUserId?: string;
   /** When provided, header renders breadcrumb and overflow menu. */
   groupName?: string;
@@ -251,16 +251,19 @@ export function PlanPage({
         onDelete={canManage ? onDeletePlan : undefined}
       />
       <div className="plan-toolbar">
-        <PlanFilterBar
-          filters={filters}
-          onChange={onFiltersChange}
-          assigneeOptions={filterOptions.assigneeOptions}
-          labelOptions={filterOptions.labelOptions}
-          skillOptions={filterOptions.skillOptions}
-        />
+        <div className="plan-toolbar__left">
+          <PlanFilterBar
+            filters={filters}
+            onChange={onFiltersChange}
+            assigneeOptions={filterOptions.assigneeOptions}
+            labelOptions={filterOptions.labelOptions}
+            skillOptions={filterOptions.skillOptions}
+          />
+          <div className="plan-toolbar__divider" aria-hidden="true" />
+          <PlanViewSwitcher value={view} onChange={onViewChange} />
+        </div>
         <div className="plan-toolbar__right">
           {onQChange && <PlanSearchInput value={q} onChange={onQChange} />}
-          <PlanViewSwitcher value={view} onChange={onViewChange} />
         </div>
       </div>
 

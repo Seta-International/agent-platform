@@ -17,8 +17,9 @@ const PRIORITY_FROM_LABEL: Record<PriorityLabel, TaskPriorityNumber> = {
   low: 9,
 };
 
-export function priorityLabel(n: TaskPriorityNumber): PriorityLabel {
-  return PRIORITY_TO_LABEL[n];
+export function priorityLabel(n: TaskPriorityNumber | null | undefined): PriorityLabel {
+  if (n == null) return 'medium';
+  return PRIORITY_TO_LABEL[n] ?? 'medium';
 }
 
 export function priorityNumber(label: PriorityLabel): TaskPriorityNumber {

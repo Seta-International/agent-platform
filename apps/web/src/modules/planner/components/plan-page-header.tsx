@@ -120,7 +120,7 @@ export function PlanPageHeader({
       </div>
       <p>
         {bucketCount} buckets · {taskCount} tasks
-        {typeof myTaskCount === 'number' && <> · You have {myTaskCount}</>}
+        {typeof myTaskCount === 'number' && <> · {myTaskCount} assigned to you</>}
       </p>
     </header>
   );
