@@ -123,10 +123,14 @@ export async function parseKnowledgeFile(
     await ensureChunksPartition(deps.pool, tenant_id);
 
     // Insert chunks, flip status, enqueue embed job — all in one tx.
-    await deps.pool.query('BEGIN');
+    // pool.connect() pins all statements to a single connection so BEGIN/COMMIT
+    // are not silently dispatched to different pool members.
+    const client = await deps.pool.connect();
     try {
+      await client.query('BEGIN');
+
       // Wipe any previous attempt's chunks (idempotent re-run).
-      await deps.pool.query(
+      await client.query(
         `DELETE FROM copilot.tenant_knowledge_chunks WHERE tenant_id = $1 AND file_id = $2`,
         [tenant_id, file_id],
       );
@@ -141,24 +145,30 @@ export async function parseKnowledgeFile(
       const params: unknown[] = [tenant_id, file_id];
       for (const c of chunks) params.push(c.ordinal, c.text, c.page_hint);
 
-      await deps.pool.query(
+      await client.query(
         `INSERT INTO copilot.tenant_knowledge_chunks
            (tenant_id, file_id, chunk_ordinal, chunk_text, page_hint)
          VALUES ${placeholders}`,
         params,
       );
 
-      await deps.pool.query(
+      await client.query(
         `UPDATE copilot.tenant_knowledge_files
             SET status = 'embedding'
           WHERE id = $1 AND tenant_id = $2`,
         [file_id, tenant_id],
       );
 
-      await deps.pool.query('COMMIT');
+      await client.query('COMMIT');
     } catch (err) {
-      await deps.pool.query('ROLLBACK');
+      try {
+        await client.query('ROLLBACK');
+      } catch {
+        /* connection dead */
+      }
       throw err;
+    } finally {
+      client.release();
     }
 
     await deps.enqueueEmbedJob({ tenant_id, file_id });
