@@ -99,7 +99,7 @@ export const workflowsApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ inputOverride }),
     });
-    return jsonOrThrow<{ runId: string }>(res);
+    return jsonOrThrow<{ newRunId: string }>(res);
   },
 
   async replayFromStep(
