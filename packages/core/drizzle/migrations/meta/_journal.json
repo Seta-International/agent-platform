@@ -43,6 +43,13 @@
       "when": 1779273922153,
       "tag": "0007_outgoing_emails",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1779424260542,
+      "tag": "0008_core_notifications",
+      "breakpoints": true
     }
   ]
 }
