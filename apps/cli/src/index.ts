@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { resolve } from 'node:path';
 import { createCrypto, createKeyProviderFromEnv, parseCryptoEnv } from '@seta/shared-crypto';
 import { closePools, initPools } from '@seta/shared-db';
 import { Command } from 'commander';
@@ -246,13 +247,28 @@ program
   .requiredOption('--tenant <slug-or-id>', 'Tenant slug or UUID')
   .requiredOption('--dir <path>', 'Directory containing the six CSV files')
   .requiredOption('--as <email>', 'Email of an existing org.admin user (acting session)')
-  .action(async (opts: { tenant: string; dir: string; as: string }) => {
-    try {
-      await importCsvCommand({ tenant: opts.tenant, dir: opts.dir, as: opts.as });
-    } finally {
-      await closePools();
-    }
-  });
+  .option('--password <password>', 'Password for created users (default: Seta@2026)')
+  .option(
+    '--only <modules>',
+    'Comma-separated subset of modules to run: users,planner,availability (default: all)',
+  )
+  .action(
+    async (opts: { tenant: string; dir: string; as: string; password?: string; only?: string }) => {
+      try {
+        // pnpm exec changes CWD to the package dir; INIT_CWD is the original invocation dir.
+        const base = process.env.INIT_CWD ?? process.cwd();
+        await importCsvCommand({
+          tenant: opts.tenant,
+          dir: resolve(base, opts.dir),
+          as: opts.as,
+          password: opts.password,
+          only: opts.only,
+        });
+      } finally {
+        await closePools();
+      }
+    },
+  );
 
 plannerCommand(program);
 

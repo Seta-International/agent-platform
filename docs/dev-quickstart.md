@@ -37,6 +37,62 @@ pnpm -F @seta/cli exec tsx src/index.ts user-create \
 - `--role` is repeatable: `org.admin`, `org.member`, `planner.contributor`, `planner.viewer`, …
 - Other commands: `role-grant`, `user-deactivate`, `integrations-mail-set`. Full list via `pnpm -F @seta/cli exec tsx src/index.ts --help`.
 
+## Bulk import from CSV (SETA Future Org mock data)
+
+The `mock/planner/` directory contains 300 pre-built users plus plans, tasks, and timesheet data for the `setafutureorg` tenant. Use `pnpm db:import-csv` to load it all in one shot.
+
+### First run (tenant does not exist yet)
+
+Create the tenant and its admin account first:
+
+```bash
+export $(grep -v '^#' .env | xargs)
+
+pnpm -F @seta/cli exec tsx src/index.ts tenant-create \
+  --name "SETA Future Org" \
+  --slug setafutureorg \
+  --admin-email thang.tran@setafutureorg.onmicrosoft.com \
+  --admin-password "Seta2026@"
+```
+
+### Import all CSV data
+
+```bash
+export $(grep -v '^#' .env | xargs)
+
+pnpm db:import-csv \
+  --tenant setafutureorg \
+  --dir ./mock/planner \
+  --as thang.tran@setafutureorg.onmicrosoft.com \
+  --password "Seta2026@"
+```
+
+All 300 users are created with password **`Seta2026@`**. The command is idempotent — re-running it skips users that already exist and reuses the existing group.
+
+### Import only specific modules
+
+Use `--only` to limit which phases run (comma-separated: `users`, `planner`, `availability`):
+
+```bash
+# Users only — skip planner data and timesheet availability
+pnpm db:import-csv \
+  --tenant setafutureorg \
+  --dir ./mock/planner \
+  --as thang.tran@setafutureorg.onmicrosoft.com \
+  --password "Seta2026@" \
+  --only users
+
+# Users + planner data, skip availability/timesheet
+pnpm db:import-csv \
+  --tenant setafutureorg \
+  --dir ./mock/planner \
+  --as thang.tran@setafutureorg.onmicrosoft.com \
+  --password "Seta2026@" \
+  --only users,planner
+```
+
+Sign in at http://localhost:5173/login with any CSV user email and password `Seta2026@`, or use the admin account `thang.tran@setafutureorg.onmicrosoft.com`.
+
 ## Hand it to an agent
 
 Paste this into Claude Code (or any AGENTS.md-aware CLI) from the repo root:

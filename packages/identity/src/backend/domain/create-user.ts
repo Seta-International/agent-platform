@@ -50,7 +50,9 @@ export async function createUser(
 
   const email = input.email.toLowerCase().trim();
   if (!isValidEmail(email)) throw new IdentityError('INVALID_EMAIL', `Not a valid email: ${email}`);
-  if (input.password.length < 12 || input.password.length > 128) {
+  // CLI is a trusted internal actor; only enforce the floor for web/user-submitted passwords.
+  const minLen = actor.type === 'cli' ? 1 : 12;
+  if (input.password.length < minLen || input.password.length > 128) {
     throw new IdentityError('PASSWORD_LENGTH', 'Password must be 12-128 characters.');
   }
 

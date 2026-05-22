@@ -111,7 +111,9 @@ export const auth = betterAuth({
           prompt: 'select_account',
           disableImplicitSignUp: true,
           mapProfileToUser: async (profile) => {
-            const seta = await resolveSetaTenantFromEmail(profile.email ?? '');
+            // MS Entra work accounts often omit the `email` claim; preferred_username (UPN) is reliable
+            const rawEmail = profile.email ?? profile.preferred_username ?? '';
+            const seta = await resolveSetaTenantFromEmail(rawEmail);
             if (!seta) {
               throw new APIError('FORBIDDEN', { message: 'no_tenant_for_email_domain' });
             }
@@ -120,7 +122,7 @@ export const auth = betterAuth({
             }
             const oid = profile.oid ?? profile.sub;
             if (!oid) throw new APIError('BAD_REQUEST', { message: 'missing_oid' });
-            const email = (profile.email ?? '').toLowerCase();
+            const email = rawEmail.toLowerCase();
             const name = profile.name ?? profile.preferred_username ?? email.split('@')[0] ?? email;
             stashSsoContext(oid, {
               seta_tenant_id: seta.tenant_id,
