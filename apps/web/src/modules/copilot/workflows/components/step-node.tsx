@@ -1,10 +1,10 @@
 import type { Node } from '@xyflow/react';
 import { Handle, type NodeProps, Position } from '@xyflow/react';
-import type { StepNodeData } from '../lib/build-graph.ts';
+import type { DefaultNodeData } from '../lib/build-graph.ts';
 import { stepStatusToRunStatus, tokenFor } from '../lib/status-tokens.ts';
 import { RunStatusPill } from './run-status-pill.tsx';
 
-export function StepNode({ data }: NodeProps<Node<StepNodeData>>) {
+export function StepNode({ data }: NodeProps<Node<DefaultNodeData>>) {
   const runStatus = stepStatusToRunStatus(data.status);
   const t = tokenFor(runStatus);
   return (

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { conditionalSnapshot, linearSnapshot } from './__fixtures__/snapshots.ts';
 import { buildWorkflowGraph } from './build-graph.ts';
 
 describe('buildWorkflowGraph', () => {
@@ -46,5 +47,21 @@ describe('buildWorkflowGraph', () => {
     };
     const out = buildWorkflowGraph(snapshot);
     expect(out.nodes.map((n) => n.id)).toEqual(['a', 'b']);
+  });
+
+  it('linearSnapshot still produces type:"default-node"', () => {
+    const out = buildWorkflowGraph(linearSnapshot);
+    expect(out.nodes.every((n) => n.type === 'default-node')).toBe(true);
+  });
+
+  it('emits a condition-node with one edge per branch', () => {
+    const out = buildWorkflowGraph(conditionalSnapshot);
+    expect(out.nodes.find((n) => n.id === 'route')).toMatchObject({ type: 'condition-node' });
+    expect(out.nodes.find((n) => n.id === 'hot')).toMatchObject({ type: 'default-node' });
+    expect(out.nodes.find((n) => n.id === 'cold')).toMatchObject({ type: 'default-node' });
+    const branchEdges = out.edges.filter((e) => e.source === 'route');
+    expect(branchEdges).toHaveLength(2);
+    expect(branchEdges.map((e) => e.target).sort()).toEqual(['cold', 'hot']);
+    expect(out.edges.find((e) => e.source === 'classify' && e.target === 'route')).toBeDefined();
   });
 });

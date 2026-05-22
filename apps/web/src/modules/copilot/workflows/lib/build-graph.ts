@@ -2,27 +2,29 @@ import Dagre from '@dagrejs/dagre';
 import type { Edge, Node } from '@xyflow/react';
 import { MarkerType } from '@xyflow/react';
 
-interface SerializedStep {
-  type: string;
-  step?: {
-    id: string;
-    description?: string;
-  };
-}
-
-interface SnapshotShape {
-  serializedStepGraph?: SerializedStep[];
-  context?: Record<string, { status?: string; output?: unknown } | undefined>;
-  status?: string;
-}
-
-export interface StepNodeData extends Record<string, unknown> {
+export interface NodeBaseData extends Record<string, unknown> {
   stepId: string;
-  description: string;
   status: string;
 }
 
-const NODE_WIDTH = 240;
+export interface DefaultNodeData extends NodeBaseData {
+  description: string;
+}
+
+export interface ConditionNodeData extends NodeBaseData {
+  predicates: string[];
+}
+
+export type AnyNodeData = DefaultNodeData | ConditionNodeData | NodeBaseData;
+
+const NODE_WIDTHS: Record<string, number> = {
+  'default-node': 240,
+  'condition-node': 180,
+  'loop-result-node': 260,
+  'nested-node': 280,
+  'after-node': 24,
+  'control-node': 140,
+};
 const NODE_HEIGHT = 76;
 
 const EDGE_DEFAULTS = {
@@ -35,68 +37,121 @@ const EDGE_DEFAULTS = {
   },
 };
 
-function layoutNodes<T extends Node>(nodes: T[], edges: Edge[]): T[] {
+type SerializedStep = { type: string; [k: string]: unknown };
+
+interface WalkResult {
+  nodes: Node<AnyNodeData>[];
+  edges: Edge[];
+  outIds: string[];
+}
+
+interface WalkCtx {
+  context: Record<string, { status?: string } | undefined>;
+}
+
+function makeNode<D extends AnyNodeData>(
+  id: string,
+  type: keyof typeof NODE_WIDTHS,
+  data: D,
+): Node<AnyNodeData> {
+  return { id, type, position: { x: 0, y: 0 }, data } as Node<AnyNodeData>;
+}
+
+function walkOne(step: SerializedStep, ctx: WalkCtx): WalkResult {
+  switch (step.type) {
+    case 'step': {
+      const inner = (step as { step?: { id?: string; description?: string } }).step ?? {};
+      const id = inner.id ?? 'unknown';
+      return {
+        nodes: [
+          makeNode<DefaultNodeData>(id, 'default-node', {
+            stepId: id,
+            description: inner.description ?? '',
+            status: ctx.context[id]?.status ?? 'pending',
+          }),
+        ],
+        edges: [],
+        outIds: [id],
+      };
+    }
+    case 'conditional': {
+      const id = (step as { id?: string }).id ?? 'cond';
+      const branches =
+        (step as { steps?: Array<{ condition?: unknown; step: SerializedStep }> }).steps ?? [];
+      const predicates: string[] = branches.map((b) => String(b.condition ?? ''));
+      const node = makeNode<ConditionNodeData>(id, 'condition-node', {
+        stepId: id,
+        status: ctx.context[id]?.status ?? 'pending',
+        predicates,
+      });
+      const out: WalkResult = { nodes: [node], edges: [], outIds: [] };
+      for (let i = 0; i < branches.length; i++) {
+        const branch = branches[i]!;
+        const inner = walkOne(branch.step, ctx);
+        out.nodes.push(...inner.nodes);
+        out.edges.push(...inner.edges);
+        const head = inner.nodes[0]?.id;
+        if (head) {
+          out.edges.push({
+            id: `${id}->${head}#${i}`,
+            source: id,
+            target: head,
+            data: { branchLabel: predicates[i] ?? '' },
+            ...EDGE_DEFAULTS,
+          });
+        }
+        out.outIds.push(...inner.outIds);
+      }
+      return out;
+    }
+    default:
+      return { nodes: [], edges: [], outIds: [] };
+  }
+}
+
+function layoutNodes(nodes: Node<AnyNodeData>[], edges: Edge[]): Node<AnyNodeData>[] {
   const g = new Dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
   g.setGraph({ rankdir: 'TB', nodesep: 30, ranksep: 40 });
   for (const e of edges) g.setEdge(e.source, e.target);
-  for (const n of nodes) g.setNode(n.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
+  for (const n of nodes) {
+    g.setNode(n.id, {
+      width: NODE_WIDTHS[n.type ?? 'default-node'] ?? 240,
+      height: NODE_HEIGHT,
+    });
+  }
   Dagre.layout(g);
   return nodes.map((n) => {
     const pos = g.node(n.id);
-    return {
-      ...n,
-      position: {
-        x: pos.x - NODE_WIDTH / 2,
-        y: pos.y - NODE_HEIGHT / 2,
-      },
-    };
+    const width = NODE_WIDTHS[n.type ?? 'default-node'] ?? 240;
+    return { ...n, position: { x: pos.x - width / 2, y: pos.y - NODE_HEIGHT / 2 } };
   });
 }
 
-/**
- * Build a ReactFlow graph from a Mastra workflow snapshot. Supports straight-line
- * step flows (the v1 workflow shape). When workflows gain branching / loop / parallel
- * shapes, the upstream snapshot will carry additional SerializedStep types and the
- * build function should be extended to match.
- */
 export function buildWorkflowGraph(snapshot: unknown): {
-  nodes: Node<StepNodeData>[];
+  nodes: Node<AnyNodeData>[];
   edges: Edge[];
 } {
-  const snap = (snapshot ?? {}) as SnapshotShape;
+  const snap = (snapshot ?? {}) as {
+    serializedStepGraph?: SerializedStep[];
+    context?: Record<string, { status?: string } | undefined>;
+  };
+  const ctx: WalkCtx = { context: snap.context ?? {} };
   const steps = snap.serializedStepGraph ?? [];
-  const context = snap.context ?? {};
 
-  const linearSteps = steps
-    .filter(
-      (s): s is SerializedStep & { step: { id: string } } => s.type === 'step' && !!s.step?.id,
-    )
-    .map((s) => s.step);
-
-  const nodes: Node<StepNodeData>[] = linearSteps.map((step, i) => {
-    const ctxEntry = context[step.id];
-    return {
-      id: step.id,
-      type: 'step',
-      position: { x: 0, y: i * (NODE_HEIGHT + 40) },
-      data: {
-        stepId: step.id,
-        description: step.description ?? '',
-        status: ctxEntry?.status ?? 'pending',
-      },
-    };
-  });
-
+  const nodes: Node<AnyNodeData>[] = [];
   const edges: Edge[] = [];
-  for (let i = 0; i < linearSteps.length - 1; i++) {
-    const src = linearSteps[i]!.id;
-    const tgt = linearSteps[i + 1]!.id;
-    edges.push({
-      id: `${src}->${tgt}`,
-      source: src,
-      target: tgt,
-      ...EDGE_DEFAULTS,
-    });
+  let prevOutIds: string[] = [];
+
+  for (const s of steps) {
+    const r = walkOne(s, ctx);
+    if (r.nodes.length === 0) continue;
+    nodes.push(...r.nodes);
+    edges.push(...r.edges);
+    const headId = r.nodes[0]!.id;
+    for (const src of prevOutIds) {
+      edges.push({ id: `${src}->${headId}`, source: src, target: headId, ...EDGE_DEFAULTS });
+    }
+    prevOutIds = r.outIds;
   }
 
   return { nodes: layoutNodes(nodes, edges), edges };
