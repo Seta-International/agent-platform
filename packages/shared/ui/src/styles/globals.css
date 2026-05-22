@@ -47,20 +47,21 @@ select:focus-visible,
 /* KanbanCard */
 .kanban-card {
   position: relative;
-  background: var(--color-surface-1); /* --color-surface-0 not in token set; surface-1 is the base card surface */
+  background: var(--color-canvas);
   border: 1px solid var(--color-hairline);
-  border-radius: var(--radius-md);
-  padding: var(--spacing-xs); /* --spacing-3 not in token set; spacing-xs (8px) is the closest equivalent */
+  border-radius: 6px;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-xxs); /* --spacing-2 not in token set; spacing-xxs (4px) is the closest equivalent */
+  gap: 8px;
   cursor: grab;
+  box-shadow: var(--shadow-sm);
   transition: border-color 80ms ease-out, box-shadow 80ms ease-out;
+  text-align: left;
 }
 .kanban-card:focus-visible    { outline: 2px solid var(--color-primary); outline-offset: 2px; }
-/* Why: --shadow-md token not yet defined; literal used until token lands in tokens.css */
 .kanban-card--dragging        { cursor: grabbing; box-shadow: 0 2px 8px rgba(0,0,0,0.18); }
-.kanban-card--selected        { border-color: var(--color-primary); }
+.kanban-card--selected        { border-color: var(--color-primary); box-shadow: 0 0 0 1px var(--color-primary), var(--shadow-sm); }
 .kanban-card--recently-moved  { animation: kanban-card-flash 1s ease-out 1; }
 
 @keyframes kanban-card-flash {

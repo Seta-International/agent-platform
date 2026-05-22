@@ -21,6 +21,7 @@ import { useMoveTask } from '../hooks/mutations/move-task';
 import { usePlanBoard } from '../hooks/queries/use-plan-board';
 import { useBoardKeyboard } from '../hooks/use-board-keyboard';
 import { useFilterOptions } from '../hooks/use-filter-options';
+import { formatDueShort } from '../lib/format-due-short';
 import { computeNextFocus } from '../state/compute-next-focus';
 import { computeTaskMove } from '../state/compute-task-move';
 import { useRecentlyMovedTasks } from '../state/recently-moved-tasks';
@@ -110,7 +111,7 @@ export function PlanPage({
         id: t.id,
         title: t.title,
         priority,
-        due_label: t.due_at ? new Date(t.due_at).toLocaleDateString() : undefined,
+        due_label: t.due_at ? formatDueShort(t.due_at) : undefined,
         label: t.labels[0] ? { name: t.labels[0].name, color: t.labels[0].color } : undefined,
         assignees: t.assignees.map((a) => ({
           user_id: a.user_id,
