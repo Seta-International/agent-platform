@@ -75,7 +75,10 @@ export { setAssigneePriority } from './backend/domain/set-assignee-priority.ts';
 export { setCategoryDescription } from './backend/domain/set-category-description.ts';
 export { setCategoryDescriptions } from './backend/domain/set-category-descriptions.ts';
 export { setMemberRole } from './backend/domain/set-member-role.ts';
-export { setTaskAssignees } from './backend/domain/set-task-assignees.ts';
+export {
+  type SetTaskAssigneesDeps,
+  setTaskAssignees,
+} from './backend/domain/set-task-assignees.ts';
 export { unapplyLabel } from './backend/domain/unapply-label.ts';
 export { unassignTask } from './backend/domain/unassign-task.ts';
 export { unlinkGroupFromM365 } from './backend/domain/unlink-group-from-m365.ts';
