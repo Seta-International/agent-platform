@@ -593,7 +593,6 @@ describe('listBuckets', () => {
           // First bucket inserted has a lower order_hint than the second.
           expect(buckets[0]?.order_hint).not.toBeNull();
           expect(buckets[1]?.order_hint).not.toBeNull();
-          // biome-ignore lint/style/noNonNullAssertion: asserted non-null above
           expect(buckets[0]!.order_hint! < buckets[1]!.order_hint!).toBe(true);
         } finally {
           resetCoreDb();
@@ -705,7 +704,6 @@ describe('listChecklistItems', () => {
           expect(items[1]?.label).toBe('Step 2');
           expect(items[0]?.order_hint).not.toBeNull();
           expect(items[1]?.order_hint).not.toBeNull();
-          // biome-ignore lint/style/noNonNullAssertion: asserted non-null above
           expect(items[0]!.order_hint! < items[1]!.order_hint!).toBe(true);
         } finally {
           resetCoreDb();

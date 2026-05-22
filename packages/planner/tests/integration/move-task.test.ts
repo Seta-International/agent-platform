@@ -104,7 +104,6 @@ describe('moveTask', () => {
 
           expect(moved.bucket_id).toBe(bucket.id);
           expect(moved.order_hint).not.toBeNull();
-          // biome-ignore lint/style/noNonNullAssertion: asserted non-null above
           expect(moved.order_hint! < taskA.order_hint!).toBe(true);
           expect(moved.version).toBe(2);
 

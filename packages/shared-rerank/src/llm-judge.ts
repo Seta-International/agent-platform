@@ -45,6 +45,7 @@ export class LlmJudgeReranker implements Reranker {
       const { scores } = await this.judge({ query, passages });
       if (scores.length !== hits.length) throw new Error('judge returned mismatched score count');
 
+      // biome-ignore lint/style/noNonNullAssertion: scores.length === hits.length checked above
       const paired = hits.map((h, i) => ({ h, score: scores[i]! }));
       paired.sort((a, b) => b.score - a.score);
 

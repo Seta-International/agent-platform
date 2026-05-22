@@ -48,7 +48,7 @@ describe('RerunSideSheet', () => {
           headers: { 'Content-Type': 'application/json' },
         });
       }
-      throw new Error('unexpected fetch ' + url);
+      throw new Error(`unexpected fetch ${url}`);
     });
     globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch;
 
@@ -87,7 +87,7 @@ describe('RerunSideSheet', () => {
           headers: { 'Content-Type': 'application/json' },
         });
       }
-      throw new Error('unexpected fetch ' + u);
+      throw new Error(`unexpected fetch ${u}`);
     });
     globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch;
 

@@ -18,6 +18,7 @@ function makeStub(routes: Record<string, () => unknown>) {
         get: async () => handler(),
         select: () => ({ get: async () => handler() }),
         filter: () => ({ get: async () => handler() }),
+        // biome-ignore lint/suspicious/noExplicitAny: minimal stub of the Graph client request chain
       } as any;
     },
   };

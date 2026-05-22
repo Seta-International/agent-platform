@@ -60,6 +60,7 @@ export async function deleteKnowledgeFile(
       ),
     );
 
+  // biome-ignore lint/style/noNonNullAssertion: fileRow.length === 0 returned above
   const s3Key = fileRow[0]!.s3_key;
   if (deps.deleteS3Object) {
     await deps.deleteS3Object(s3Key);

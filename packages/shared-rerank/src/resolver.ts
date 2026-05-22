@@ -19,7 +19,6 @@ export function resolveReranker(opts: ResolveRerankerOptions = {}): Reranker {
       return new CohereReranker({ apiKey: env.COHERE_API_KEY });
     case 'llm-judge':
       return new LlmJudgeReranker();
-    case 'auto':
     default:
       return env.COHERE_API_KEY
         ? new CohereReranker({ apiKey: env.COHERE_API_KEY })

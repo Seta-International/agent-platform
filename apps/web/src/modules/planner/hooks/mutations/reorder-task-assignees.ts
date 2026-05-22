@@ -15,6 +15,7 @@ export function useReorderTaskAssignees() {
       const hints = generateNKeysBetween(null, null, v.newOrder.length);
       const assignees = v.newOrder.map((a, i) => ({
         user_id: a.user_id,
+        // biome-ignore lint/style/noNonNullAssertion: generateNKeysBetween returns exactly N hints
         order_hint: hints[i]!,
       }));
       return plannerClient.setTaskAssignees({ task_id: v.task_id, assignees });

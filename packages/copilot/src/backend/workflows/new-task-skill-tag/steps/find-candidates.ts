@@ -16,7 +16,7 @@ export const findCandidatesStep = createStep({
   inputSchema: stateAfterClassifySchema,
   outputSchema: stateAfterCandidatesSchema,
   execute: async ({ inputData, requestContext }) => {
-    const result = (await identitySearchUsersBySkillsTool.execute!(
+    const result = (await identitySearchUsersBySkillsTool.execute?.(
       {
         groupId: inputData.taskRef.groupId,
         skills: inputData.requiredSkills,

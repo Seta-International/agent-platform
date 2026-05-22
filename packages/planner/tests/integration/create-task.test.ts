@@ -100,7 +100,6 @@ describe('createTask', () => {
 
           expect(t1.order_hint).not.toBeNull();
           expect(t2.order_hint).not.toBeNull();
-          // biome-ignore lint/style/noNonNullAssertion: asserted non-null above
           expect(t1.order_hint! < t2.order_hint!).toBe(true);
           expect(t1.bucket_id).toBe(bucket.id);
           expect(t2.bucket_id).toBe(bucket.id);

@@ -162,7 +162,11 @@ export async function listWorkflowRuns(
     rows: camelRows,
     nextCursor:
       hasMore && last
-        ? buildCursor({ startedAt: camelRows[camelRows.length - 1]!.startedAt, runId: last.run_id })
+        ? buildCursor({
+            // biome-ignore lint/style/noNonNullAssertion: hasMore && last guarantees camelRows.length > 0
+            startedAt: camelRows[camelRows.length - 1]!.startedAt,
+            runId: last.run_id,
+          })
         : null,
   };
 }

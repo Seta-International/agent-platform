@@ -80,7 +80,10 @@ async function setTaskAssigneesImpl(
       });
 
       if (plan.external_source === 'm365' && !isM365SystemActor(input.session)) {
-        const addedUserIds = addedIndices.map((i) => input.assignees[i]!.user_id);
+        const addedUserIds = addedIndices.map(
+          // biome-ignore lint/style/noNonNullAssertion: i is a valid index from addedIndices
+          (i) => input.assignees[i]!.user_id,
+        );
         if (addedUserIds.length > 0) {
           const entraByUser = await deps.lookupEntraOids(addedUserIds);
           const missing = addedUserIds.filter((id) => !entraByUser.get(id));
@@ -101,10 +104,12 @@ async function setTaskAssigneesImpl(
 
       if (addedIndices.length > 0) {
         const values = addedIndices.map((i) => {
+          // biome-ignore lint/style/noNonNullAssertion: i is a valid index from addedIndices
           const a = input.assignees[i]!;
           return {
             task_id: input.task_id,
             user_id: a.user_id,
+            // biome-ignore lint/style/noNonNullAssertion: hintsForN returns exactly input.assignees.length hints
             order_hint: a.order_hint ?? generatedHints[i]!,
             assigned_by: input.session.user_id,
           };
@@ -124,6 +129,7 @@ async function setTaskAssigneesImpl(
       }
 
       for (const i of addedIndices) {
+        // biome-ignore lint/style/noNonNullAssertion: i is a valid index from addedIndices
         const a = input.assignees[i]!;
         await emitPlannerTaskAssigned({
           actor: { type: 'user', user_id: input.session.user_id },

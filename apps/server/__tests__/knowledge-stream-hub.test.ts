@@ -27,6 +27,7 @@ describe('KnowledgeStreamHub', () => {
       registered = h;
       return () => {};
     });
+    // biome-ignore lint/suspicious/noExplicitAny: vi.fn mock cast to internal subscribe shape
     const hub = new KnowledgeStreamHub(addTap as any);
     hub.start();
 
@@ -44,6 +45,7 @@ describe('KnowledgeStreamHub', () => {
       registered = h;
       return () => {};
     });
+    // biome-ignore lint/suspicious/noExplicitAny: vi.fn mock cast to internal subscribe shape
     const hub = new KnowledgeStreamHub(addTap as any);
     hub.start();
 
@@ -64,6 +66,7 @@ describe('KnowledgeStreamHub', () => {
       registered = h;
       return () => {};
     });
+    // biome-ignore lint/suspicious/noExplicitAny: vi.fn mock cast to internal subscribe shape
     const hub = new KnowledgeStreamHub(addTap as any);
     hub.start();
 
@@ -85,6 +88,7 @@ describe('KnowledgeStreamHub', () => {
       registered = h;
       return () => {};
     });
+    // biome-ignore lint/suspicious/noExplicitAny: vi.fn mock cast to internal subscribe shape
     const hub = new KnowledgeStreamHub(addTap as any);
     hub.start();
 

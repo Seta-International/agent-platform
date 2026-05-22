@@ -41,6 +41,9 @@ export const groups = planner.table(
     uniqueIndex('groups_uniq_name_per_tenant')
       .on(t.tenant_id, t.name)
       .where(sql`deleted_at IS NULL`),
+    uniqueIndex('groups_external_uniq')
+      .on(t.external_source, t.external_id)
+      .where(sql`external_source <> 'native' AND external_id IS NOT NULL AND deleted_at IS NULL`),
     check(
       'groups_theme_check',
       sql`theme IN ('teal','purple','green','blue','pink','orange','red')`,

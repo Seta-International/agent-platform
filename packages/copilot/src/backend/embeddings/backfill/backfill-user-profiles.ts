@@ -72,6 +72,7 @@ export async function backfillUserProfiles(opts: BackfillUserProfilesOptions): P
 
     if (page.length === 0) break;
 
+    // biome-ignore lint/style/noNonNullAssertion: page.length > 0 checked above
     cursor = page[page.length - 1]!.user_id;
 
     // Step 3a: build source text + hash for each row.

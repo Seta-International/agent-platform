@@ -20,7 +20,7 @@ describe('inputSchemaRegistry', () => {
   });
 
   it('returns undefined for an unknown workflow id', () => {
-    expect(getWorkflowInputSchema('copilot.unknown-' + Date.now())).toBeUndefined();
+    expect(getWorkflowInputSchema(`copilot.unknown-${Date.now()}`)).toBeUndefined();
   });
 
   it('exposes the raw registry map for callers that need iteration', () => {

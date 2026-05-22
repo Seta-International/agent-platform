@@ -83,6 +83,7 @@ export async function backfillTasks(opts: BackfillTasksOptions): Promise<void> {
     const page = result.rows;
     if (page.length === 0) break;
 
+    // biome-ignore lint/style/noNonNullAssertion: page.length > 0 checked above
     cursor = page[page.length - 1]!.id;
 
     const sourced = page

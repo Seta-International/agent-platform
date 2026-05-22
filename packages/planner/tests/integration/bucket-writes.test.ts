@@ -165,9 +165,7 @@ describe('moveBucket', () => {
           expect(moved.version).toBe(2);
           expect(moved.order_hint).not.toBeNull();
           // Ordering: b1 < b3 < b2 after move.
-          // biome-ignore lint/style/noNonNullAssertion: order_hint asserted non-null above
           expect(b1.order_hint! < moved.order_hint!).toBe(true);
-          // biome-ignore lint/style/noNonNullAssertion: created bucket order_hint is non-null
           expect(moved.order_hint! < b2.order_hint!).toBe(true);
 
           const events = await readEvents(pool, seeded.tenant_id, 'planner.bucket.updated');

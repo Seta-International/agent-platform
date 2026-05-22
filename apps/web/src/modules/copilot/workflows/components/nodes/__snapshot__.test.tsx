@@ -13,9 +13,9 @@ function withFlow(child: ReactNode) {
   return <ReactFlowProvider>{child}</ReactFlowProvider>;
 }
 
-// @xyflow/react NodeProps requires a fully populated ReactFlow internal context that isn't available in unit tests
-// biome-ignore lint/suspicious/noExplicitAny: see above
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// @xyflow/react NodeProps requires a fully populated ReactFlow internal context that isn't available in unit tests.
+// biome-ignore-start lint/suspicious/noExplicitAny: see above
+/* eslint-disable @typescript-eslint/no-explicit-any */
 const nodeProps = (data: Record<string, unknown>): any => ({
   id: String(data.stepId),
   type: 'x',
@@ -27,6 +27,8 @@ const nodeProps = (data: Record<string, unknown>): any => ({
   yPos: 0,
   zIndex: 0,
 });
+/* eslint-enable @typescript-eslint/no-explicit-any */
+// biome-ignore-end lint/suspicious/noExplicitAny: see above
 
 describe('node variants render', () => {
   it('DefaultNode renders stepId + description', () => {

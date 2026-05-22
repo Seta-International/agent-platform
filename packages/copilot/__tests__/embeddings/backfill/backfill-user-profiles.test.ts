@@ -1,6 +1,5 @@
 import { resetCoreDb } from '@seta/core/internal/test-support';
-import { closePools, ensureTenantPartition, initPools } from '@seta/shared-db';
-import { sourceHash } from '@seta/shared-embeddings';
+import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {

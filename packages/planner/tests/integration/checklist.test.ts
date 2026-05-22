@@ -91,9 +91,7 @@ describe('addChecklistItem', () => {
           expect(first.order_hint).not.toBeNull();
           expect(second.order_hint).not.toBeNull();
           expect(third.order_hint).not.toBeNull();
-          // biome-ignore lint/style/noNonNullAssertion: asserted non-null above
           expect(second.order_hint! > first.order_hint!).toBe(true);
-          // biome-ignore lint/style/noNonNullAssertion: asserted non-null above
           expect(second.order_hint! < third.order_hint!).toBe(true);
         } finally {
           resetCoreDb();

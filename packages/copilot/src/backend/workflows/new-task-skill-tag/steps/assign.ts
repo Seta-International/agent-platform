@@ -17,12 +17,11 @@ export const assignStep = createStep({
     if (inputData.decision !== 'approve' && inputData.decision !== 'modify') {
       return { decision: inputData.decision, assignment: null };
     }
-    if (!inputData.proposed && !inputData.overrideUserId) {
+    const assigneeUserId = inputData.overrideUserId ?? inputData.proposed?.userId;
+    if (!assigneeUserId) {
       return { decision: inputData.decision, assignment: null };
     }
-
-    const assigneeUserId = inputData.overrideUserId ?? inputData.proposed!.userId;
-    const result = (await plannerAssignTaskTool.execute!(
+    const result = (await plannerAssignTaskTool.execute?.(
       {
         taskId: inputData.taskRef.taskId,
         assigneeUserId,

@@ -5,6 +5,7 @@ export const xlsxParser: Parser = {
   async parse(buffer: Buffer): Promise<ParsedDocument> {
     const wb = XLSX.read(buffer, { type: 'buffer' });
     const sections = wb.SheetNames.map((sheetName) => {
+      // biome-ignore lint/style/noNonNullAssertion: sheetName is iterated from wb.SheetNames
       const sheet = wb.Sheets[sheetName]!;
       const csv = XLSX.utils.sheet_to_csv(sheet);
       return { text: csv.trim(), page_hint: sheetName };

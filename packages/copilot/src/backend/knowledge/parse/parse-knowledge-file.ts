@@ -93,13 +93,13 @@ export async function parseKnowledgeFile(
       [file_id, tenant_id],
     );
     if (fileRow.rows.length === 0) return; // file gone; nothing to parse
-    if (fileRow.rows[0]!.status !== 'parsing') return; // already moved on; idempotent
+    if (fileRow.rows[0]?.status !== 'parsing') return; // already moved on; idempotent
 
-    const ext = fileRow.rows[0]!.filename.split('.').pop()?.toLowerCase() ?? '';
+    const ext = fileRow.rows[0]?.filename.split('.').pop()?.toLowerCase() ?? '';
     const parser = PARSERS[ext];
     if (!parser) throw new Error(`no parser for extension: .${ext}`);
 
-    const buf = await deps.fetchObject(fileRow.rows[0]!.s3_key);
+    const buf = await deps.fetchObject(fileRow.rows[0]?.s3_key);
     const parsed: ParsedDocument = await parser.parse(buf);
 
     // Chunk every section. page_hint passes through to the chunks table.

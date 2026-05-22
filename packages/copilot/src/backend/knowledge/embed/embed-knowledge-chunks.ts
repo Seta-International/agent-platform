@@ -69,8 +69,8 @@ export async function embedKnowledgeChunks(
       const params: unknown[] = [tenant_id, file_id];
       for (let i = 0; i < chunks.rows.length; i += 1) {
         params.push(
-          chunks.rows[i]!.chunk_ordinal,
-          `[${vectors[i]!.join(',')}]`,
+          chunks.rows[i]?.chunk_ordinal,
+          `[${vectors[i]?.join(',')}]`,
           deps.provider.modelId,
         );
       }

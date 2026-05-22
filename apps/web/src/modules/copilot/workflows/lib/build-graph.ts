@@ -46,7 +46,6 @@ const seenUnknown = new Set<string>();
 function warnUnknown(type: string): void {
   if (seenUnknown.has(type)) return;
   seenUnknown.add(type);
-  // biome-ignore lint/suspicious/noConsole: forward-compat surface — operators need to see new step types we don't render
   console.warn(
     `[copilot/workflows] unknown step type '${type}' — rendered as default-node fallback`,
   );
@@ -101,7 +100,8 @@ function walkOne(step: SerializedStep, ctx: WalkCtx): WalkResult {
       });
       const out: WalkResult = { nodes: [node], edges: [], outIds: [], inHeads: [id] };
       for (let i = 0; i < branches.length; i++) {
-        const branch = branches[i]!;
+        const branch = branches[i];
+        if (!branch) continue;
         const inner = walkOne(branch.step, ctx);
         out.nodes.push(...inner.nodes);
         out.edges.push(...inner.edges);

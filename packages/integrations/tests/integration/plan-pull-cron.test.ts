@@ -67,7 +67,7 @@ describe('runPlanPullCron', () => {
 
       // Collect actual payloads
       const payloads = calls.map((c) => ({ tenantId: c[1].tenant_id, planId: c[1].plan_id }));
-      const keys = calls.map((c) => c[2].jobKey as string);
+      const _keys = calls.map((c) => c[2].jobKey as string);
       const runAts = calls.map((c) => c[2].runAt as Date);
 
       // Each jobKey is tenantId:planId
@@ -96,7 +96,7 @@ describe('runPlanPullCron', () => {
     await withIntegrationsTestDb(async ({ db }) => {
       const planLinkRepo = createM365PlanLinkRepo({ db });
 
-      const live = await planLinkRepo.upsert({
+      const _live = await planLinkRepo.upsert({
         tenantId: TENANT_A,
         groupId: GROUP_A,
         planId: '22222222-2222-2222-2222-222222222201',

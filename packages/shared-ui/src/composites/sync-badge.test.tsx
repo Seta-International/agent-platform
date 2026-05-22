@@ -1,6 +1,5 @@
 import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import type { SyncState } from './sync-badge';
 import { SyncBadge } from './sync-badge';
 
 describe('SyncBadge', () => {

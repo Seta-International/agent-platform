@@ -73,7 +73,6 @@ describe('createBucket', () => {
 
           expect(b1.order_hint).not.toBeNull();
           expect(b2.order_hint).not.toBeNull();
-          // biome-ignore lint/style/noNonNullAssertion: asserted non-null above
           expect(b1.order_hint! < b2.order_hint!).toBe(true);
         } finally {
           resetCoreDb();
@@ -113,9 +112,7 @@ describe('createBucket', () => {
           expect(b1.order_hint).not.toBeNull();
           expect(b2.order_hint).not.toBeNull();
           expect(b3.order_hint).not.toBeNull();
-          // biome-ignore lint/style/noNonNullAssertion: asserted non-null above
           expect(b1.order_hint! < b2.order_hint!).toBe(true);
-          // biome-ignore lint/style/noNonNullAssertion: asserted non-null above
           expect(b2.order_hint! < b3.order_hint!).toBe(true);
         } finally {
           resetCoreDb();
@@ -152,7 +149,6 @@ describe('createBucket', () => {
           // after is last, no next → b2 hint should sort after b1.
           expect(b1.order_hint).not.toBeNull();
           expect(b2.order_hint).not.toBeNull();
-          // biome-ignore lint/style/noNonNullAssertion: asserted non-null above
           expect(b1.order_hint! < b2.order_hint!).toBe(true);
         } finally {
           resetCoreDb();

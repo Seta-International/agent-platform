@@ -13,6 +13,7 @@ export const proposeAssigneeStep = createStep({
         failureReason: 'no_candidates',
       };
     }
+    // biome-ignore lint/style/noNonNullAssertion: length === 0 guarded above
     const top = inputData.candidates[0]!;
     const total = inputData.requiredSkills.length;
     return {
