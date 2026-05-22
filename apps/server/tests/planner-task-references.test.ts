@@ -1,5 +1,5 @@
 import { hashRoleSummary, type SessionEnv, type SessionScope } from '@seta/core';
-import { resetCoreDb } from '@seta/core/internal/test-support';
+import { resetCoreDb } from '@seta/core/testing';
 import { createUser } from '@seta/identity';
 import { createBucket, createGroup, createPlan, createTask } from '@seta/planner';
 import { closePools, initPools } from '@seta/shared-db';

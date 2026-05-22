@@ -1,4 +1,4 @@
-import { resetCoreDb } from '@seta/core/internal/test-support';
+import { resetCoreDb } from '@seta/core/testing';
 import type { EncryptedBlob } from '@seta/shared-crypto';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';

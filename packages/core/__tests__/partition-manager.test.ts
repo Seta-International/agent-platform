@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { resetCoreDb } from '../src/db/client.ts';
-import { partitionManagerTick } from '../src/workers/partition-manager.ts';
+import { partitionManagerTick } from '../src/runtime/workers/partition-manager.ts';
 import { withCoreTestDb } from '../test/test-helpers.ts';
 
 describe('partition manager', () => {

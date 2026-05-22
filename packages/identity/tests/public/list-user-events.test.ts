@@ -1,4 +1,4 @@
-import { resetCoreDb } from '@seta/core/internal/test-support';
+import { resetCoreDb } from '@seta/core/testing';
 import {
   changeUserEmail,
   createUser,

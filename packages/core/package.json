@@ -8,14 +8,13 @@
     ".": "./src/index.ts",
     "./register": "./src/register.ts",
     "./events": "./src/events/index.ts",
-    "./dispatcher": "./src/dispatcher/index.ts",
-    "./workers": "./src/workers/index.ts",
+    "./runtime": "./src/runtime/index.ts",
     "./backend": "./src/backend/index.ts",
     "./db/schema": "./src/db/schema/index.ts",
     "./db": "./src/db/client.ts",
     "./outbox": "./src/outbox/store.ts",
     "./rpc": "./src/rpc/index.ts",
-    "./internal/test-support": "./src/test-support.ts"
+    "./testing": "./src/test-support.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -30,6 +29,7 @@
     "vitest": "^4.1.7"
   },
   "dependencies": {
+    "@hono/node-server": "^2.0.3",
     "@opentelemetry/api": "^1.9.1",
     "@seta/copilot-sdk": "workspace:^",
     "@seta/shared-db": "workspace:^",

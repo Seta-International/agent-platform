@@ -7,7 +7,7 @@ import {
   createSessionMiddleware,
   type SessionEnv,
 } from '@seta/core';
-import type { WorkerHandle } from '@seta/core/workers';
+import type { WorkerHandle } from '@seta/core/runtime';
 import { IdentityError, listMyEffectivePermissions, listRoleGrants } from '@seta/identity';
 import { auth } from '@seta/identity/auth';
 import type { m365 } from '@seta/integrations';

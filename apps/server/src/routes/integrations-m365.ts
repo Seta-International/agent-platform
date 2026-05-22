@@ -1,6 +1,6 @@
 import type { Client } from '@microsoft/microsoft-graph-client';
 import { addEventTap, type SessionEnv, type SessionScope } from '@seta/core';
-import type { WorkerHandle } from '@seta/core/workers';
+import type { WorkerHandle } from '@seta/core/runtime';
 import { m365 } from '@seta/integrations';
 import {
   linkGroupToM365,

@@ -1,4 +1,4 @@
-import { resetCoreDb } from '@seta/core/internal/test-support';
+import { resetCoreDb } from '@seta/core/testing';
 import { closePools, ensureTenantPartition, initPools } from '@seta/shared-db';
 import { sourceHash } from '@seta/shared-embeddings';
 import { withTestDb } from '@seta/shared-testing';

@@ -7,8 +7,8 @@
 
 import { RequestContext } from '@mastra/core/request-context';
 import { createContributionRegistry, runMigrations } from '@seta/core';
-import { resetCoreDb } from '@seta/core/internal/test-support';
 import { registerCoreContributions } from '@seta/core/register';
+import { resetCoreDb } from '@seta/core/testing';
 import { createUser, updateUserProfile } from '@seta/identity';
 import { closePools, initPools } from '@seta/shared-db';
 import { NoopReranker } from '@seta/shared-retrieval';

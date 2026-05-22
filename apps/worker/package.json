@@ -1,0 +1,39 @@
+{
+  "name": "@seta/worker",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Seta worker — graphile-worker host + LISTEN/NOTIFY dispatcher. Consumes the same module registry as apps/server.",
+  "scripts": {
+    "dev": "tsx watch --env-file=../../.env src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@microsoft/microsoft-graph-client": "^3.0.7",
+    "@seta/copilot": "workspace:^",
+    "@seta/core": "workspace:^",
+    "@seta/identity": "workspace:^",
+    "@seta/integrations": "workspace:^",
+    "@seta/planner": "workspace:^",
+    "@seta/shared-crypto": "workspace:^",
+    "@seta/shared-db": "workspace:^",
+    "@seta/shared-mailer": "workspace:^",
+    "@seta/shared-types": "workspace:^",
+    "drizzle-orm": "^0.45.2",
+    "pino": "^10.3.1",
+    "tsx": "^4.22.3",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@seta/shared-config": "workspace:^",
+    "@seta/shared-testing": "workspace:^",
+    "@types/node": "^25.9.1",
+    "@types/pg": "^8.20.0",
+    "pg": "^8.21.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.7"
+  }
+}

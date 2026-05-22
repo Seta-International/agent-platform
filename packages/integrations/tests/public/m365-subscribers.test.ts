@@ -8,7 +8,7 @@
  * graphile-worker's schema is installed per-test-db via makeWorkerUtils so
  * that job row presence can be verified in graphile_worker._private_jobs.
  */
-import { resetCoreDb } from '@seta/core/internal/test-support';
+import { resetCoreDb } from '@seta/core/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';

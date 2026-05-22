@@ -7,7 +7,7 @@ import {
   type DispatcherHandle,
   type SubscriberDef,
   startDispatcher,
-} from '../src/dispatcher/index.ts';
+} from '../src/runtime/dispatcher/index.ts';
 
 export function withCoreTestDb<T>(
   fn: (ctx: {

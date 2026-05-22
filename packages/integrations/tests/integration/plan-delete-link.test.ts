@@ -4,7 +4,7 @@
  * Tests runPlanDeleteLink directly (real Postgres via testcontainers)
  * and validates subscriber logic with a fake ctx.tx that records SQL calls.
  */
-import { resetCoreDb } from '@seta/core/internal/test-support';
+import { resetCoreDb } from '@seta/core/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';

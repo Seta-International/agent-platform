@@ -1,7 +1,7 @@
 import { hashRoleSummary, type SessionEnv, type SessionScope } from '@seta/core';
 import * as coreSchema from '@seta/core/db/schema';
 import { coreNotifications } from '@seta/core/db/schema';
-import { resetCoreDb } from '@seta/core/internal/test-support';
+import { resetCoreDb } from '@seta/core/testing';
 import { closePools, createDb, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { Hono } from 'hono';

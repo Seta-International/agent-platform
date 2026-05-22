@@ -2,14 +2,14 @@ import type { NodeTx } from '@seta/shared-db';
 import type { DomainEvent, SubscriberDef } from '@seta/shared-types';
 import { and, asc, eq, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import type * as schema from '../db/schema/index.ts';
+import type * as schema from '../../db/schema/index.ts';
 import {
   coreEvents,
   coreSubscriptionCursors,
   coreSubscriptionDeadLetter,
   coreSubscriptionProcessed,
-} from '../db/schema/index.ts';
-import { emitContext } from '../events/context.ts';
+} from '../../db/schema/index.ts';
+import { emitContext } from '../../events/context.ts';
 import { bumpFailureState, clearFailureState, getFailureEntry } from './failure-state.ts';
 
 export interface BackoffOpts {

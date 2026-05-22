@@ -1,12 +1,10 @@
-import { serve } from '@hono/node-server';
 import { embeddingJobs } from '@seta/copilot';
-import { createContributionRegistry, runMigrations } from '@seta/core';
+import { createContributionRegistry } from '@seta/core';
 import { coreDb } from '@seta/core/db';
-import { startDispatcher } from '@seta/core/dispatcher';
 import { emit, withEmit } from '@seta/core/events';
 import { createOutboxStore } from '@seta/core/outbox';
 import { registerCoreContributions } from '@seta/core/register';
-import { startWorkerPool, type WorkerHandle } from '@seta/core/workers';
+import { buildRuntime, runMigrations, type WorkerHandle } from '@seta/core/runtime';
 import { getEntraTenantId } from '@seta/identity';
 import { registerIdentityContributions } from '@seta/identity/register';
 import { createMailTransportConfigStore } from '@seta/integrations';
@@ -44,39 +42,23 @@ registerIntegrationsContributions(reg);
 registerPlannerContributions(reg);
 registerAppContributions(reg);
 
-await runMigrations(reg, { pool: getPool('worker') });
-log.info('migrations applied');
+const lag = await runMigrations(reg, { pool: getPool('worker'), assertCaughtUpOnly: true });
+if (lag.length > 0) {
+  log.error({ lag }, 'schema_migrations behind — run apps/cli migrate before booting server');
+  process.exit(1);
+}
 
-// Mailer is initialised after the dispatcher to avoid a circular dependency.
-// The forward reference resolves before any event can be dispatched to the
-// subscriber, so getMailer() is always populated at call time.
+const inDev = process.env.NODE_ENV !== 'production';
+
+// Forward reference: the mailer is wired after workers start so its addJob target
+// (the WorkerHandle) exists. The reference is set inside onServerStart before any
+// route handler can pull from the mailer.
 let mailerRef: import('@seta/shared-mailer').Mailer | undefined;
 const getMailer = (): import('@seta/shared-mailer').Mailer => {
   if (!mailerRef) throw new Error('mailer not yet initialised');
   return mailerRef;
 };
 
-const dispatcher = await startDispatcher({
-  pool: getPool('worker'),
-  // SubscriberDef<P> is invariant in P; cast to the bare form the dispatcher expects
-  subscribers: [
-    ...reg.collected.subscribers,
-    failedLoginAlertSubscriber({ getMailer }) as import('@seta/shared-types').SubscriberDef,
-  ],
-});
-log.info('dispatcher started');
-
-const boardStreamHub = new BoardStreamHub();
-boardStreamHub.start();
-
-const knowledgeStreamHub = new KnowledgeStreamHub();
-knowledgeStreamHub.start();
-
-const notificationStreamHub = new NotificationStreamHub();
-await notificationStreamHub.start(getPool('worker'));
-log.info('notification stream hub started');
-
-const mailerLog = log.child({ component: 'mailer' });
 const outboxStore = createOutboxStore({ db: coreDb() });
 const configStore = createMailTransportConfigStore({ db: integrationsDb() });
 
@@ -96,15 +78,21 @@ const mailerSendTask = createMailerSendTask({
   log: log.child({ component: 'mailer.worker' }),
 });
 
-// Forward reference resolves the cycle between the jobs object and the
-// WorkerHandle they need to call workers.addJob on. The variable is written
-// before any job can be dispatched (startWorkerPool returns before any job
-// fires), so this is always initialised at call time.
-let _workerHandle: WorkerHandle | undefined;
-function enqueue(id: string, payload?: unknown, opts?: Parameters<WorkerHandle['addJob']>[2]) {
-  if (!_workerHandle) throw new Error('worker pool not yet initialised');
-  return _workerHandle.addJob(id, payload, opts);
-}
+const boardStreamHub = new BoardStreamHub();
+const knowledgeStreamHub = new KnowledgeStreamHub();
+const notificationStreamHub = new NotificationStreamHub();
+
+// Forward reference for the WorkerHandle so m365Boot (constructed before workers
+// start) can enqueue from its closures once workers are running.
+let workerHandleRef: WorkerHandle | undefined;
+const enqueue = (
+  id: string,
+  payload?: unknown,
+  opts?: Parameters<WorkerHandle['addJob']>[2],
+): Promise<void> => {
+  if (!workerHandleRef) throw new Error('worker handle not yet initialised');
+  return workerHandleRef.addJob(id, payload, opts);
+};
 
 const m365Boot = env.M365_WEBHOOK_SECRET
   ? buildM365Boot({
@@ -114,71 +102,89 @@ const m365Boot = env.M365_WEBHOOK_SECRET
     })
   : null;
 
-const workers = await startWorkerPool({
+// In dev (NODE_ENV !== production) startBoth runs HTTP + dispatcher + worker pool in one
+// process — mirroring the previous single-process developer experience. In production
+// startServerRuntime runs HTTP only, with an enqueue-only WorkerHandle; apps/worker runs
+// the actual job handlers.
+const rt = buildRuntime(env, {
+  reg,
   pool: getPool('worker'),
-  jobs: {
-    'mailer:send': async (payload) => {
-      await mailerSendTask(payload as never);
-    },
-    ...(m365Boot ? m365Boot.jobs : {}),
-    ...embeddingJobs,
-    ...plannerEmbeddingJobs,
+  extraSubscribers: [
+    failedLoginAlertSubscriber({
+      getMailer,
+    }) as import('@seta/shared-types').SubscriberDef,
+  ],
+  extraJobs: inDev
+    ? {
+        'mailer:send': async (payload) => {
+          await mailerSendTask(payload as never);
+        },
+        ...(m365Boot ? m365Boot.jobs : {}),
+        ...embeddingJobs,
+        ...plannerEmbeddingJobs,
+      }
+    : undefined,
+  onServerStart: async ({ workers }) => {
+    workerHandleRef = workers;
+    boardStreamHub.start();
+    knowledgeStreamHub.start();
+    await notificationStreamHub.start(getPool('worker'));
+    log.info('notification stream hub started');
+
+    const mailer = createMailer({
+      env,
+      outboxStore,
+      queue: {
+        addJob: (taskName, payload, opts) => workers.addJob(taskName, payload, opts),
+      },
+      emit: (event) =>
+        withEmit(undefined, async () => {
+          await emit(event);
+        }),
+      log: log.child({ component: 'mailer' }),
+    });
+    mailerRef = mailer;
+    log.info('mailer wired');
+  },
+  buildServerApp: ({ workers, pool, dispatcher }) => {
+    const { app } = buildServerApp(reg, {
+      pool,
+      databaseUrl: env.DATABASE_URL,
+      workers,
+      readinessSnapshot: () => dispatcher.health(),
+      boardStreamHub,
+      knowledgeStreamHub,
+      notificationStreamHub,
+      m365GraphClientFor: m365Boot?.graphClientFor,
+      m365Workers: m365Boot?.workers,
+      m365LinksRepo: m365Boot?.m365LinksRepo,
+    });
+    if (m365Boot) {
+      app.route('/', m365Boot.webhookRouter);
+      log.info('m365 webhook router mounted');
+    }
+    return app;
   },
 });
-_workerHandle = workers;
-log.info('workers started');
 
-const mailer = createMailer({
-  env,
-  outboxStore,
-  queue: {
-    addJob: (taskName, payload, opts) => workers.addJob(taskName, payload, opts),
-  },
-  emit: (event) =>
-    withEmit(undefined, async () => {
-      await emit(event);
-    }),
-  log: mailerLog,
-});
-mailerRef = mailer;
-log.info('mailer wired');
-
-const { app } = buildServerApp(reg, {
-  pool: getPool('worker'),
-  databaseUrl: env.DATABASE_URL,
-  workers: { addJob: enqueue, shutdown: async () => {} },
-  readinessSnapshot: () => dispatcher.health(),
-  boardStreamHub,
-  knowledgeStreamHub,
-  notificationStreamHub,
-  m365GraphClientFor: m365Boot?.graphClientFor,
-  m365Workers: m365Boot?.workers,
-  m365LinksRepo: m365Boot?.m365LinksRepo,
-});
-
-if (m365Boot) {
-  app.route('/', m365Boot.webhookRouter);
-  log.info('m365 webhook router mounted');
-}
-
-const server = serve({ fetch: app.fetch, port: env.PORT }, (info) => {
-  log.info({ port: info.port }, 'server listening');
+const { server, shutdown } = inDev ? await rt.startBoth() : await rt.startServerRuntime();
+server.on('listening', () => {
+  const addr = server.address();
+  if (addr && typeof addr === 'object') log.info({ port: addr.port }, 'server listening');
 });
 
 let shuttingDown = false;
-const shutdown = async (signal: string) => {
+const handle = async (signal: string): Promise<void> => {
   if (shuttingDown) return;
   shuttingDown = true;
   log.info({ signal }, 'shutdown begin');
-  await new Promise<void>((r) => server.close(() => r()));
+  await shutdown(signal);
   boardStreamHub.stop();
   knowledgeStreamHub.stop();
   await notificationStreamHub.stop();
-  await dispatcher.shutdown(15_000);
-  await workers.shutdown();
   await closePools();
   log.info('shutdown complete');
   process.exit(0);
 };
-process.on('SIGTERM', () => void shutdown('SIGTERM'));
-process.on('SIGINT', () => void shutdown('SIGINT'));
+process.on('SIGTERM', () => void handle('SIGTERM'));
+process.on('SIGINT', () => void handle('SIGINT'));

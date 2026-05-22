@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { resetCoreDb } from '../src/db/client.ts';
-import { startDispatcher } from '../src/dispatcher/index.ts';
 import { emit, withEmit } from '../src/events/index.ts';
+import { startDispatcher } from '../src/runtime/dispatcher/index.ts';
 import { waitFor, withCoreTestDb } from '../test/test-helpers.ts';
 
 describe('dispatcher DLQ', () => {

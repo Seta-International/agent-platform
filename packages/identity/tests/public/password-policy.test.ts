@@ -1,6 +1,6 @@
 import { createContributionRegistry, runMigrations } from '@seta/core';
-import { resetCoreDb } from '@seta/core/internal/test-support';
 import { registerCoreContributions } from '@seta/core/register';
+import { resetCoreDb } from '@seta/core/testing';
 import { createUser, IdentityError } from '@seta/identity';
 import { registerIdentityContributions } from '@seta/identity/register';
 import { closePools, initPools } from '@seta/shared-db';

@@ -1,5 +1,5 @@
 import { coreEvents, coreTenants } from '@seta/core/db/schema';
-import { resetCoreDb } from '@seta/core/internal/test-support';
+import { resetCoreDb } from '@seta/core/testing';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { tenantCreateCommand } from '../src/commands/tenant-create.ts';

@@ -1,5 +1,5 @@
 import type { Client } from '@microsoft/microsoft-graph-client';
-import type { StartWorkerPoolOpts, WorkerHandle } from '@seta/core/workers';
+import type { StartWorkerPoolOpts, WorkerHandle } from '@seta/core/runtime';
 import { findEntraOidByUserId, findUserByEntraOid } from '@seta/identity';
 import { getM365TenantConfig, m365 } from '@seta/integrations';
 import { integrationsDb } from '@seta/integrations/db';

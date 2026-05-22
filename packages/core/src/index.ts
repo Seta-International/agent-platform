@@ -6,15 +6,8 @@ export {
   queryAudit,
 } from './backend/audit.ts';
 export { buildHonoApp } from './composition/hono-app.ts';
-export { runMigrations } from './composition/migrations.ts';
 export { type ContributionRegistry, createContributionRegistry } from './composition/registry.ts';
 export type { OutgoingEmailStatus, TransportKind } from './db/schema/index.ts';
-export {
-  addEventTap,
-  type EventTapHandler,
-  type EventTapPredicate,
-  startDispatcher,
-} from './dispatcher/index.ts';
 export {
   createSessionMiddleware,
   type SessionEnv,
@@ -54,6 +47,12 @@ export {
   type OutboxStore,
   type UpsertPendingInput,
 } from './outbox/store.ts';
+export {
+  addEventTap,
+  type EventTapHandler,
+  type EventTapPredicate,
+} from './runtime/dispatcher/index.ts';
+export { runMigrations } from './runtime/migrations.ts';
 export { invalidateUserSessions } from './session/invalidate.ts';
 export {
   computeAccessibleGroups,

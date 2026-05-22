@@ -1,7 +1,7 @@
 import { createDb } from '@seta/shared-db';
 import type { DomainEvent, SubscriberDef } from '@seta/shared-types';
 import type { Pool } from 'pg';
-import * as schema from '../db/schema/index.ts';
+import * as schema from '../../db/schema/index.ts';
 import { type BackoffOpts, drainOne } from './drain.ts';
 import { dispatchTap } from './event-tap.ts';
 import { getFailureEntry, resetAllFailureState } from './failure-state.ts';

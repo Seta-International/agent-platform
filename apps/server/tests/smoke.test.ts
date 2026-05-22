@@ -1,6 +1,6 @@
 import { createContributionRegistry } from '@seta/core';
-import { resetCoreDb } from '@seta/core/internal/test-support';
 import { registerCoreContributions } from '@seta/core/register';
+import { resetCoreDb } from '@seta/core/testing';
 import { registerIdentityContributions } from '@seta/identity/register';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';

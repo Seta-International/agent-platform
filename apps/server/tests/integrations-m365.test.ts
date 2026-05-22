@@ -1,5 +1,5 @@
 import { hashRoleSummary, type SessionEnv, type SessionScope } from '@seta/core';
-import { resetCoreDb } from '@seta/core/internal/test-support';
+import { resetCoreDb } from '@seta/core/testing';
 import { createUser } from '@seta/identity';
 import { m365 } from '@seta/integrations';
 import { createGroup } from '@seta/planner';
@@ -68,7 +68,7 @@ function buildTestApp(
     graphClientFor: graphClientFor as (
       tenantId: string,
     ) => Promise<import('@microsoft/microsoft-graph-client').Client>,
-    workers: (extraDeps?.workers ?? defaultWorkers) as import('@seta/core/workers').WorkerHandle,
+    workers: (extraDeps?.workers ?? defaultWorkers) as import('@seta/core/runtime').WorkerHandle,
     m365LinksRepo: extraDeps?.m365LinksRepo ?? defaultLinksRepo,
   });
   app.onError(handleServerError);
@@ -703,7 +703,7 @@ describe('POST /api/integrations/m365/groups/:groupId/resolve', () => {
         throw new Error('unused');
       },
       {
-        workers: { addJob, shutdown: async () => {} } as import('@seta/core/workers').WorkerHandle,
+        workers: { addJob, shutdown: async () => {} } as import('@seta/core/runtime').WorkerHandle,
         m365LinksRepo: buildResolveLinksRepo(),
       },
     );

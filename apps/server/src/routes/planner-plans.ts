@@ -1,5 +1,5 @@
 import type { SessionEnv } from '@seta/core';
-import type { WorkerHandle } from '@seta/core/workers';
+import type { WorkerHandle } from '@seta/core/runtime';
 import {
   countTasksByCategorySlot,
   createLabel,

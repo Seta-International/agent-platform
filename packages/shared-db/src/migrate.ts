@@ -26,13 +26,26 @@ export class MigrationChecksumMismatch extends Error {
   }
 }
 
+export interface MigrationLagRow {
+  module: string;
+  filename: string;
+}
+
 export async function runMigrations(opts: {
   pool: Pool;
   modules: ModuleMigration[];
   ledgerSchema?: string;
-}): Promise<void> {
+  /**
+   * When true, diff schema_migrations against expected files and return the lag rows
+   * without applying anything. Used by apps/server and apps/worker on boot to fail
+   * fast when schema_migrations is behind.
+   */
+  assertCaughtUpOnly?: boolean;
+}): Promise<MigrationLagRow[]> {
   const ledgerSchema = opts.ledgerSchema ?? 'core';
+  const assertOnly = opts.assertCaughtUpOnly ?? false;
   const client = await opts.pool.connect();
+  const lag: MigrationLagRow[] = [];
   try {
     await client.query('BEGIN');
     await client.query('SELECT pg_advisory_xact_lock($1)', [hashLockKey('seta:migrate')]);
@@ -54,6 +67,10 @@ export async function runMigrations(opts: {
           }
           continue;
         }
+        if (assertOnly) {
+          lag.push({ module: mod.name, filename: file });
+          continue;
+        }
         await client.query(body);
         await client.query(
           `INSERT INTO ${ledgerSchema}.__seta_migrations (module, filename, checksum) VALUES ($1, $2, $3)`,
@@ -63,6 +80,7 @@ export async function runMigrations(opts: {
     }
 
     await client.query('COMMIT');
+    return lag;
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});
     throw err;

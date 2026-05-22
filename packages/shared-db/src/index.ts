@@ -6,7 +6,12 @@ export type PoolName = 'web' | 'worker' | 'mastraState';
 
 export { createDb } from './db.ts';
 export { halfvec } from './halfvec.ts';
-export { MigrationChecksumMismatch, type ModuleMigration, runMigrations } from './migrate.ts';
+export {
+  MigrationChecksumMismatch,
+  type MigrationLagRow,
+  type ModuleMigration,
+  runMigrations,
+} from './migrate.ts';
 export {
   type EnsureTenantPartitionOptions,
   ensureTenantPartition,

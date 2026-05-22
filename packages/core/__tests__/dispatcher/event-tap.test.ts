@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { resetCoreDb } from '../../src/db/client.ts';
-import { _clearTapsForTest, addEventTap } from '../../src/dispatcher/event-tap.ts';
 import { emit, withEmit } from '../../src/events/index.ts';
+import { _clearTapsForTest, addEventTap } from '../../src/runtime/dispatcher/event-tap.ts';
 import { waitFor, withCoreTestDb, withDispatcher } from '../../test/test-helpers.ts';
 
 describe('addEventTap', () => {

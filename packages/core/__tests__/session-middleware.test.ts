@@ -4,8 +4,9 @@ import { closePools, getPool, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { resetCoreDb } from '../src/db/client.ts';
-import { createContributionRegistry, runMigrations, startDispatcher } from '../src/index.ts';
+import { createContributionRegistry, runMigrations } from '../src/index.ts';
 import { registerCoreContributions } from '../src/register.ts';
+import { startDispatcher } from '../src/runtime/index.ts';
 import { _clearHotForTest, getSessionScope } from '../src/session/scope.ts';
 
 describe('invalidation subscribers drain identity events', () => {

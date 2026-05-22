@@ -88,7 +88,15 @@ module.exports = {
       severity: 'error',
       comment: 'apps/cli is short-lived; never start the dispatcher there.',
       from: { path: '^apps/cli/' },
-      to: { path: '^packages/core/src/dispatcher/' },
+      to: { path: '^packages/core/src/runtime/dispatcher/' },
+    },
+    {
+      name: 'core-runtime-restricted',
+      severity: 'error',
+      comment:
+        '@seta/core/runtime (dispatcher + worker pool + bootstrap) is private to apps/server and apps/worker. Other importers must use the main @seta/core surface.',
+      from: { pathNot: '^(apps/(server|worker)/|packages/core/)' },
+      to: { path: '^packages/core/src/runtime/' },
     },
     {
       name: 'no-orphan-modules',

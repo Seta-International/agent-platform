@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { coreDb } from '../db/client.ts';
+import { coreDb } from '../../db/client.ts';
 
 export async function subscriptionDlqAlerter(): Promise<void> {
   const db = coreDb();

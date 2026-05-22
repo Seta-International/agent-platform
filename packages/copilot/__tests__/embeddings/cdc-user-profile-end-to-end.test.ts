@@ -12,7 +12,7 @@
  * This verifies the full CDC→embedding pipeline intent without wiring a real
  * graphile-worker queue (which would require a separate worker process).
  */
-import { resetCoreDb } from '@seta/core/internal/test-support';
+import { resetCoreDb } from '@seta/core/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { FakeEmbeddingProvider, withTestDb } from '@seta/shared-testing';
 import { PgDialect } from 'drizzle-orm/pg-core';

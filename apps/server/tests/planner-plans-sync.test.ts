@@ -1,6 +1,6 @@
 import { hashRoleSummary, type SessionEnv, type SessionScope } from '@seta/core';
-import { resetCoreDb } from '@seta/core/internal/test-support';
-import type { WorkerHandle } from '@seta/core/workers';
+import type { WorkerHandle } from '@seta/core/runtime';
+import { resetCoreDb } from '@seta/core/testing';
 import { createUser } from '@seta/identity';
 import { createGroup, createPlan } from '@seta/planner';
 import { closePools, initPools } from '@seta/shared-db';

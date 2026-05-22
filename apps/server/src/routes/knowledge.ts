@@ -5,7 +5,7 @@ import {
   requestKnowledgeUpload,
 } from '@seta/copilot';
 import type { SessionEnv } from '@seta/core';
-import type { WorkerHandle } from '@seta/core/workers';
+import type { WorkerHandle } from '@seta/core/runtime';
 import { IdentityError } from '@seta/identity';
 import type { Context, Hono } from 'hono';
 import { z } from 'zod';

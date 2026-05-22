@@ -1,6 +1,6 @@
 import { createContributionRegistry, runMigrations } from '@seta/core';
-import { resetCoreDb } from '@seta/core/internal/test-support';
 import { registerCoreContributions } from '@seta/core/register';
+import { resetCoreDb } from '@seta/core/testing';
 import { closePools, ensureTenantPartition, initPools } from '@seta/shared-db';
 import { FakeEmbeddingProvider, withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
