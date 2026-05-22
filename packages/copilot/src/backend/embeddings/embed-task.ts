@@ -1,7 +1,21 @@
-import { buildTaskSource, getTaskForEmbedding } from '@seta/planner';
+import {
+  buildTaskSource,
+  fitsInWindow,
+  getTaskForEmbedding,
+  MAX_SOURCE_TOKENS,
+} from '@seta/planner';
 import { ensureTenantPartition } from '@seta/shared-db';
-import { type EmbeddingProvider, embedMany, sourceHash } from '@seta/shared-embeddings';
+import {
+  countTokens,
+  type EmbeddingProvider,
+  embedMany,
+  sourceHash,
+} from '@seta/shared-embeddings';
 import type { Pool } from 'pg';
+import pino from 'pino';
+import { otel } from '../observability.ts';
+
+const log = pino({ name: 'copilot/embed-task' });
 
 export interface EmbedTaskPayload {
   tenant_id: string;
@@ -39,6 +53,23 @@ export async function embedTask(payload: EmbedTaskPayload, deps: EmbedTaskDeps):
   }
 
   const source = buildTaskSource(task);
+
+  if (!fitsInWindow(source)) {
+    log.warn(
+      {
+        event: 'planner.embed_task.skipped',
+        reason: 'input_too_long',
+        tenant_id,
+        task_id,
+        token_count: countTokens(source),
+        max_tokens: MAX_SOURCE_TOKENS,
+      },
+      'embed_task skipped: source exceeds MAX_SOURCE_TOKENS',
+    );
+    otel.embedTaskSkipped.add(1, { reason: 'input_too_long' });
+    return;
+  }
+
   const hash = sourceHash(source);
 
   const existing = await deps.pool.query<{ source_hash: string }>(

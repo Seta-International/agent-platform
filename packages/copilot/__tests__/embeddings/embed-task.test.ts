@@ -124,6 +124,119 @@ describe('embedTask', () => {
     });
   });
 
+  it('skip-input-too-long: skips embedding when source exceeds MAX_SOURCE_TOKENS', async () => {
+    await withDb(async ({ pool }) => {
+      const provider = new FakeEmbeddingProvider();
+      const embedSpy = vi.spyOn(provider, 'embed');
+
+      const longDesc = Array.from({ length: 1100 }, () => 'word').join(' ');
+
+      const seeded = await seedTaskForTest(pool, {
+        title: 'too long',
+        description: longDesc,
+        skill_tags: [],
+      });
+
+      await embedTask(
+        { tenant_id: seeded.tenant_id, task_id: seeded.task_id, event_id: 'e1' },
+        { pool, provider },
+      );
+
+      expect(embedSpy).not.toHaveBeenCalled();
+
+      const rows = await pool.query(
+        `SELECT 1 FROM planner.task_embeddings WHERE tenant_id = $1 AND task_id = $2`,
+        [seeded.tenant_id, seeded.task_id],
+      );
+      expect(rows.rowCount).toBe(0);
+    });
+  });
+
+  it('skip-keeps-stale-row: previously-embedded row stays when source grows past the limit', async () => {
+    await withDb(async ({ pool }) => {
+      const provider = new FakeEmbeddingProvider();
+
+      const seeded = await seedTaskForTest(pool, {
+        title: 'short',
+        description: 'fits fine',
+        skill_tags: [],
+      });
+
+      await embedTask(
+        { tenant_id: seeded.tenant_id, task_id: seeded.task_id, event_id: 'e1' },
+        { pool, provider },
+      );
+
+      const before = await pool.query<{ source_hash: string; embedded_at: Date }>(
+        `SELECT source_hash, embedded_at FROM planner.task_embeddings
+          WHERE tenant_id = $1 AND task_id = $2`,
+        [seeded.tenant_id, seeded.task_id],
+      );
+      expect(before.rowCount).toBe(1);
+      const beforeRow = before.rows[0]!;
+
+      const longDesc = Array.from({ length: 1100 }, () => 'word').join(' ');
+      await pool.query(`UPDATE planner.tasks SET description = $1 WHERE id = $2`, [
+        longDesc,
+        seeded.task_id,
+      ]);
+
+      await embedTask(
+        { tenant_id: seeded.tenant_id, task_id: seeded.task_id, event_id: 'e2' },
+        { pool, provider },
+      );
+
+      const after = await pool.query<{ source_hash: string; embedded_at: Date }>(
+        `SELECT source_hash, embedded_at FROM planner.task_embeddings
+          WHERE tenant_id = $1 AND task_id = $2`,
+        [seeded.tenant_id, seeded.task_id],
+      );
+      expect(after.rowCount).toBe(1);
+      expect(after.rows[0]!.source_hash).toBe(beforeRow.source_hash);
+      expect(after.rows[0]!.embedded_at.getTime()).toBe(beforeRow.embedded_at.getTime());
+    });
+  });
+
+  it('skip-recovers-when-shrunk: re-embeds once the source falls back under the limit', async () => {
+    await withDb(async ({ pool }) => {
+      const provider = new FakeEmbeddingProvider();
+
+      const longDesc = Array.from({ length: 1100 }, () => 'word').join(' ');
+      const seeded = await seedTaskForTest(pool, {
+        title: 'recover',
+        description: longDesc,
+        skill_tags: [],
+      });
+
+      await embedTask(
+        { tenant_id: seeded.tenant_id, task_id: seeded.task_id, event_id: 'e1' },
+        { pool, provider },
+      );
+      let rows = await pool.query(
+        `SELECT 1 FROM planner.task_embeddings WHERE tenant_id = $1 AND task_id = $2`,
+        [seeded.tenant_id, seeded.task_id],
+      );
+      expect(rows.rowCount).toBe(0);
+
+      await pool.query(`UPDATE planner.tasks SET description = $1 WHERE id = $2`, [
+        'now fits',
+        seeded.task_id,
+      ]);
+
+      await embedTask(
+        { tenant_id: seeded.tenant_id, task_id: seeded.task_id, event_id: 'e2' },
+        { pool, provider },
+      );
+
+      rows = await pool.query(
+        `SELECT source_hash, model_id FROM planner.task_embeddings
+          WHERE tenant_id = $1 AND task_id = $2`,
+        [seeded.tenant_id, seeded.task_id],
+      );
+      expect(rows.rowCount).toBe(1);
+    });
+  });
+
   it('lazy partition: per-tenant partition is created on first embed', async () => {
     await withDb(async ({ pool }) => {
       const provider = new FakeEmbeddingProvider();
