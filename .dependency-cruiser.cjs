@@ -78,7 +78,12 @@ module.exports = {
         //  - shared/mailer may import shared/crypto: typed EncryptedBlob crosses
         //    the boundary so per-tenant SMTP passwords can be encrypted at the
         //    transport-config boundary. shared/crypto stays a pure leaf.
-        pathNot: '^packages/shared/(testing|$1)/|^packages/shared/crypto/',
+        //  - shared/rerank may import shared/retrieval: rerank consumes the
+        //    RetrievalHit shape produced by stage-1 retrievers. Rerank is the
+        //    stage-2 precision lift in the same pipeline; the type contract
+        //    must stay shared.
+        pathNot:
+          '^packages/shared/(testing|$1)/|^packages/shared/crypto/|^packages/shared/retrieval/',
       },
     },
     {
