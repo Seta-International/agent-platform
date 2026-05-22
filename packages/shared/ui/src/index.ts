@@ -16,6 +16,7 @@ export * from './composites/copilot-panel';
 export * from './composites/data-table';
 export * from './composites/dropzone';
 export * from './composites/empty-state';
+export * from './composites/field-conflict-row';
 export * from './composites/filter-pill';
 export * from './composites/group-tile';
 export * from './composites/inbox-list';
