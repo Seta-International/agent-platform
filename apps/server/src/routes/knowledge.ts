@@ -2,7 +2,6 @@ import {
   deleteKnowledgeFile,
   listKnowledgeFiles,
   markKnowledgeFileProcessed,
-  type RequestKnowledgeUploadResult,
   requestKnowledgeUpload,
 } from '@seta/copilot';
 import type { SessionEnv } from '@seta/core';
