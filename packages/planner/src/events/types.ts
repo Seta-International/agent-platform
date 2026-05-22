@@ -24,9 +24,19 @@ export type TaskMutableFields = {
   external_source: 'native' | 'm365';
   external_id: string | null;
   external_etag: string | null;
+  external_synced_at: string | null;
 };
 
 export type TaskChangedField = keyof TaskMutableFields;
+
+export type PlanSyncStatus = 'idle' | 'pulling' | 'pushing' | 'error' | 'conflict';
+
+export type PlanFieldKey =
+  | 'name'
+  | 'external_source'
+  | 'external_id'
+  | 'external_etag'
+  | 'external_synced_at';
 
 // ---------------------------------------------------------------------------
 // Groups
@@ -174,10 +184,62 @@ export interface PlannerPlanUpdated {
     actor: PlannerEventActor;
     group_id: Uuid;
     plan_id: Uuid;
-    before: Partial<{ name: string }>;
-    after: Partial<{ name: string }>;
+    before: Partial<Record<PlanFieldKey, unknown>>;
+    after: Partial<Record<PlanFieldKey, unknown>>;
+    changed_fields: PlanFieldKey[];
     version_before: number;
     version_after: number;
+  };
+}
+
+export interface PlannerPlanSyncStatusChanged {
+  event_type: 'planner.plan.sync-status-changed';
+  event_version: 1;
+  aggregate_type: 'planner.plan';
+  aggregate_id: Uuid;
+  payload: {
+    actor: PlannerEventActor;
+    tenant_id: Uuid;
+    group_id: Uuid;
+    plan_id: Uuid;
+    before_status: PlanSyncStatus;
+    after_status: PlanSyncStatus;
+    error: string | null;
+  };
+}
+
+export interface PlannerTaskSyncStatusChanged {
+  event_type: 'planner.task.sync-status-changed';
+  event_version: 1;
+  aggregate_type: 'planner.task';
+  aggregate_id: Uuid;
+  payload: {
+    actor: PlannerEventActor;
+    tenant_id: Uuid;
+    group_id: Uuid;
+    plan_id: Uuid;
+    task_id: Uuid;
+    before_status: PlanSyncStatus;
+    after_status: PlanSyncStatus;
+    error: string | null;
+  };
+}
+
+export type PlannerConflictDecision =
+  | { kind: 'plan'; field: string; choice: 'local' | 'remote' }
+  | { kind: 'task'; task_id: Uuid; field: string; choice: 'local' | 'remote' };
+
+export interface PlannerPlanConflictResolved {
+  event_type: 'planner.plan.conflict-resolved';
+  event_version: 1;
+  aggregate_type: 'planner.plan';
+  aggregate_id: Uuid;
+  payload: {
+    actor: PlannerEventActor;
+    tenant_id: Uuid;
+    group_id: Uuid;
+    plan_id: Uuid;
+    decisions: PlannerConflictDecision[];
   };
 }
 
@@ -658,4 +720,7 @@ export type PlannerEvent =
   | PlannerLabelDeleted
   | PlannerLabelApplied
   | PlannerLabelUnapplied
-  | PlannerLabelCategorySlotChanged;
+  | PlannerLabelCategorySlotChanged
+  | PlannerPlanSyncStatusChanged
+  | PlannerTaskSyncStatusChanged
+  | PlannerPlanConflictResolved;
