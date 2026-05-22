@@ -1,10 +1,13 @@
 import { createTool } from '@mastra/core/tools';
 import { matchUsersToTopic } from '@seta/identity';
 import type { EmbeddingProvider } from '@seta/shared-embeddings';
+import type { Reranker } from '@seta/shared-rerank';
 import type { Pool } from 'pg';
 import { z } from 'zod';
 import { buildActorSession } from '../session.ts';
 import { actorFromContext, RequestContextSchema, registerToolPermission } from './_types.ts';
+
+const STAGE1_TOPK = Number(process.env.RERANK_STAGE1_TOPK ?? 50);
 
 const inputSchema = z.object({
   topic: z
@@ -37,14 +40,18 @@ const outputSchema = z.object({
         skills: z.array(z.string()),
       }),
       match_score: z.number(),
+      rerank_score: z.number(),
       source: z.literal('vector'),
     }),
   ),
+  /** Which reranker actually ran — surfaces precision tier to the agent. */
+  reranker: z.enum(['cohere', 'llm-judge', 'noop', 'fallback']),
 });
 
 export interface MatchUsersToTopicToolDeps {
   provider: EmbeddingProvider;
   pool: Pool;
+  reranker: Reranker;
   /**
    * Optional override for deriving a session from an actor.
    * Defaults to buildActorSession. Injected in tests to avoid
@@ -71,22 +78,35 @@ export function matchUsersToTopicTool(deps: MatchUsersToTopicToolDeps) {
         const actor = actorFromContext(ctx);
         const session = await resolveSession(actor);
 
-        const hits = await matchUsersToTopic(
+        const requestedLimit = input.limit ?? 10;
+
+        // Stage 1: oversampled vector retrieval.
+        const stage1Limit = Math.max(requestedLimit * 3, STAGE1_TOPK);
+        const stage1 = await matchUsersToTopic(
           {
             topic: input.topic,
             tenant_id: session.tenant_id,
-            limit: input.limit ?? 10,
+            limit: stage1Limit,
             minScore: input.min_score,
           },
           { provider: deps.provider, pool: deps.pool },
         );
 
+        // Stage 2: rerank stage-1 hits and truncate to the requested limit.
+        const reranked = await deps.reranker.rescore(input.topic, stage1, {
+          topN: requestedLimit,
+        });
+
+        const usedReranker = reranked[0]?.reranker ?? 'noop';
+
         return {
-          candidates: hits.map((h) => ({
+          candidates: reranked.map((h) => ({
             user: h.item,
             match_score: h.score,
+            rerank_score: h.rerankScore,
             source: 'vector' as const,
           })),
+          reranker: usedReranker,
         };
       },
     }),

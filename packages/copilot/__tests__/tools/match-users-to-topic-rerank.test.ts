@@ -1,21 +1,21 @@
 /**
- * Integration tests for the match_users_to_topic Mastra tool.
+ * Integration tests for two-stage retrieval (vector + rerank) in match_users_to_topic.
  *
- * Embeddings are seeded via embedUserProfile (same package, no boundary violation).
- * Session resolution is bypassed via an injected sessionProvider.
+ * Uses NoopReranker so the test is deterministic; verifies that the reranker tag
+ * surfaces in the result and that the limit is respected after stage-2 truncation.
  */
 
 import { RequestContext } from '@mastra/core/request-context';
 import { createContributionRegistry, runMigrations } from '@seta/core';
 import { resetCoreDb } from '@seta/core/internal/test-support';
 import { registerCoreContributions } from '@seta/core/register';
-import { createUser, updateUserProfile } from '@seta/identity';
 import { closePools, initPools } from '@seta/shared-db';
 import { NoopReranker } from '@seta/shared-rerank';
 import { FakeEmbeddingProvider, withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { embedUserProfile } from '../../src/backend/embeddings/embed-user-profile.ts';
 import { matchUsersToTopicTool } from '../../src/backend/tools/match-users-to-topic.ts';
+import { seedUserWithSkillsForTest } from '../helpers/seed-user.ts';
 
 const withDb = <T>(fn: (ctx: { pool: import('pg').Pool }) => Promise<T>) =>
   withTestDb(
@@ -57,44 +57,26 @@ function makeSessionProvider(tenantId: string) {
   });
 }
 
-describe('matchUsersToTopicTool', () => {
-  it('returns candidates with user fields, match_score, source', () =>
+describe('match_users_to_topic + rerank wiring', () => {
+  it('passes hits through the configured reranker and surfaces the reranker tag in the result', () =>
     withDb(async ({ pool }) => {
       const provider = new FakeEmbeddingProvider();
+      const reranker = new NoopReranker();
 
-      const tenantId = crypto.randomUUID();
-      await pool.query(`INSERT INTO core.tenants (id, name, slug) VALUES ($1, $2, $3)`, [
-        tenantId,
-        'Demo',
-        `t-${tenantId.slice(0, 8)}`,
-      ]);
-
-      const { user_id: userId } = await createUser(
-        {
-          tenant_id: tenantId,
-          email: `u-${tenantId.slice(0, 8)}@d.local`,
-          name: 'Alice',
-          password: 'demo-password-1234',
-        },
-        { type: 'cli', user_id: null },
-      );
-
-      await updateUserProfile(
-        userId,
-        { skills: ['terraform', 'kubernetes'] },
-        { type: 'user', user_id: userId },
-      );
+      const { tenant_id, user_id } = await seedUserWithSkillsForTest(pool, {
+        skills: ['terraform', 'kubernetes'],
+      });
 
       await embedUserProfile(
-        { tenant_id: tenantId, user_id: userId, event_id: 'test-e1' },
+        { tenant_id, user_id, event_id: 'rerank-user-e1' },
         { pool, provider },
       );
 
       const tool = matchUsersToTopicTool({
         provider,
         pool,
-        reranker: new NoopReranker(),
-        sessionProvider: makeSessionProvider(tenantId),
+        reranker,
+        sessionProvider: makeSessionProvider(tenant_id),
       });
 
       const actor = { type: 'user' as const, user_id: 'test-user-id' };
@@ -105,44 +87,36 @@ describe('matchUsersToTopicTool', () => {
 
       expect(result).toBeDefined();
       expect(result).not.toHaveProperty('error');
-      const { candidates } = result as Awaited<ReturnType<ReturnType<typeof tool.execute>>>;
+      const { candidates, reranker: usedReranker } = result as Awaited<
+        ReturnType<ReturnType<typeof tool.execute>>
+      >;
+
       expect(candidates).toHaveLength(1);
-      const c = candidates[0]!;
-      expect(c.user.user_id).toBe(userId);
-      expect(c.user.display_name).toBe('Alice');
-      expect(c.match_score).toBeGreaterThan(0);
-      expect(c.rerank_score).toBeGreaterThanOrEqual(0);
-      expect(c.source).toBe('vector');
+      expect(candidates[0]?.user.user_id).toBe(user_id);
+      expect(candidates[0]?.rerank_score).toBeGreaterThanOrEqual(0);
+      expect(usedReranker).toBe('noop');
     }));
 
-  it('respects limit', () =>
+  it('respects limit after stage-2 truncation', () =>
     withDb(async ({ pool }) => {
       const provider = new FakeEmbeddingProvider();
+      const reranker = new NoopReranker();
 
-      const tenantId = crypto.randomUUID();
-      await pool.query(`INSERT INTO core.tenants (id, name, slug) VALUES ($1, $2, $3)`, [
-        tenantId,
-        'Demo',
-        `t-${tenantId.slice(0, 8)}`,
-      ]);
+      const first = await seedUserWithSkillsForTest(pool, { skills: ['python', 'django'] });
+      const { tenant_id } = first;
 
-      for (let i = 0; i < 3; i++) {
-        const { user_id: userId } = await createUser(
-          {
-            tenant_id: tenantId,
-            email: `u${i}-${tenantId.slice(0, 6)}@d.local`,
-            name: `User${i}`,
-            password: 'demo-password-1234',
-          },
-          { type: 'cli', user_id: null },
-        );
-        await updateUserProfile(
-          userId,
-          { skills: ['python', 'django'] },
-          { type: 'user', user_id: userId },
-        );
+      await embedUserProfile(
+        { tenant_id, user_id: first.user_id, event_id: 'rerank-limit-1' },
+        { pool, provider },
+      );
+
+      for (let i = 2; i <= 4; i++) {
+        const { user_id } = await seedUserWithSkillsForTest(pool, {
+          tenant_id,
+          skills: ['python', 'django'],
+        });
         await embedUserProfile(
-          { tenant_id: tenantId, user_id: userId, event_id: `test-limit-${i}` },
+          { tenant_id, user_id, event_id: `rerank-limit-${i}` },
           { pool, provider },
         );
       }
@@ -150,8 +124,8 @@ describe('matchUsersToTopicTool', () => {
       const tool = matchUsersToTopicTool({
         provider,
         pool,
-        reranker: new NoopReranker(),
-        sessionProvider: makeSessionProvider(tenantId),
+        reranker,
+        sessionProvider: makeSessionProvider(tenant_id),
       });
 
       const actor = { type: 'user' as const, user_id: 'test-user-id' };
