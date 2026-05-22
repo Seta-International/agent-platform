@@ -37,6 +37,17 @@ export interface GraphLikePatch {
   api(path: string): GraphRequestPatch;
 }
 
+export interface GraphRequestWrite {
+  header(name: string, value: string): GraphRequestWrite;
+  update(body: unknown): Promise<unknown>;
+  post(body: unknown): Promise<unknown>;
+  delete(): Promise<void>;
+}
+
+export interface GraphLikeWrite {
+  api(path: string): GraphRequestWrite;
+}
+
 // Planner-specific DTOs -------------------------------------------------------
 
 export interface GraphPlan {

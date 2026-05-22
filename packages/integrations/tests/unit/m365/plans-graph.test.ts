@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import type { GraphLikeRead } from '../../../src/m365/jobs/_graph-types.ts';
-import { createPlansGraph } from '../../../src/m365/plans/graph.ts';
+import type {
+  GraphLikeRead,
+  GraphLikeWrite,
+  GraphTask,
+} from '../../../src/m365/jobs/_graph-types.ts';
+import { createPlansGraph, createPlansGraphWrite } from '../../../src/m365/plans/graph.ts';
 
 function makeStub(routes: Record<string, () => unknown>) {
   const calls: string[] = [];
@@ -59,6 +63,57 @@ describe('createPlansGraph', () => {
 
       expect(result).toEqual(details);
       expect(stub.calls).toEqual(['/planner/plans/P/details']);
+    });
+  });
+});
+
+describe('createPlansGraphWrite', () => {
+  describe('patchTask — forwards If-Match + Prefer headers', () => {
+    it('records headers and path correctly, returns {object, etag}', async () => {
+      const fixture = {
+        id: 'T-1',
+        '@odata.etag': 'W/"new"',
+        planId: 'P-1',
+        bucketId: 'B-1',
+        title: 'updated',
+        orderHint: '0',
+        percentComplete: 0,
+        priority: 5,
+        appliedCategories: {},
+        assignments: {},
+      } satisfies GraphTask;
+
+      let recordedPath = '';
+      let recordedBody: unknown;
+      const recordedHeaders: [string, string][] = [];
+
+      const builder = {
+        header(name: string, value: string) {
+          recordedHeaders.push([name, value]);
+          return builder;
+        },
+        async update(body: unknown) {
+          recordedBody = body;
+          return fixture;
+        },
+      };
+
+      const stub = {
+        api(path: string) {
+          recordedPath = path;
+          return builder;
+        },
+      } as unknown as GraphLikeRead & GraphLikeWrite;
+
+      const graph = createPlansGraphWrite(stub);
+      const result = await graph.patchTask('T-1', { title: 'updated' }, 'W/"old"');
+
+      expect(result.etag).toBe('W/"new"');
+      expect(result.object).toEqual(fixture);
+      expect(recordedPath).toBe('/planner/tasks/T-1');
+      expect(recordedBody).toEqual({ title: 'updated' });
+      expect(recordedHeaders).toContainEqual(['If-Match', 'W/"old"']);
+      expect(recordedHeaders).toContainEqual(['Prefer', 'return=representation']);
     });
   });
 });

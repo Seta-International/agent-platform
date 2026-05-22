@@ -2,6 +2,7 @@ import type {
   GraphBucket,
   GraphBucketTaskBoardTaskFormat,
   GraphLikeRead,
+  GraphLikeWrite,
   GraphPlan,
   GraphPlanDetails,
   GraphTask,
@@ -12,6 +13,7 @@ import { withSpan } from '../observability.ts';
 export type {
   GraphBucket,
   GraphBucketTaskBoardTaskFormat,
+  GraphLikeWrite,
   GraphPlan,
   GraphPlanDetails,
   GraphTask,
@@ -100,5 +102,102 @@ export function createPlansGraph(client: GraphLikeRead): PlansGraph {
         pageIterate<GraphPlan>(`/groups/${groupExternalId}/planner/plans`),
       );
     },
+  };
+}
+
+export interface PlansGraphWrite extends PlansGraph {
+  patchPlan(
+    externalId: string,
+    body: Record<string, unknown>,
+    etag: string,
+  ): Promise<{ object: GraphPlan; etag: string }>;
+  patchPlanDetails(
+    externalId: string,
+    body: Record<string, unknown>,
+    etag: string,
+  ): Promise<{ object: GraphPlanDetails; etag: string }>;
+  postPlan(body: { owner: string; title: string }): Promise<{ object: GraphPlan; etag: string }>;
+  deletePlan(externalId: string, etag: string): Promise<void>;
+
+  patchBucket(
+    externalId: string,
+    body: Record<string, unknown>,
+    etag: string,
+  ): Promise<{ object: GraphBucket; etag: string }>;
+  postBucket(body: {
+    planId: string;
+    name: string;
+    orderHint?: string;
+  }): Promise<{ object: GraphBucket; etag: string }>;
+  deleteBucket(externalId: string, etag: string): Promise<void>;
+
+  patchTask(
+    externalId: string,
+    body: Record<string, unknown>,
+    etag: string,
+  ): Promise<{ object: GraphTask; etag: string }>;
+  postTask(body: Record<string, unknown>): Promise<{ object: GraphTask; etag: string }>;
+  deleteTask(externalId: string, etag: string): Promise<void>;
+
+  patchTaskDetails(
+    externalId: string,
+    body: Record<string, unknown>,
+    etag: string,
+  ): Promise<{ object: GraphTaskDetails; etag: string }>;
+  patchBucketTaskBoardTaskFormat(
+    taskExternalId: string,
+    body: { orderHint: string },
+    etag: string,
+  ): Promise<{ object: GraphBucketTaskBoardTaskFormat; etag: string }>;
+}
+
+export function createPlansGraphWrite(client: GraphLikeRead & GraphLikeWrite): PlansGraphWrite {
+  const reads = createPlansGraph(client);
+  async function patch<T>(
+    path: string,
+    body: Record<string, unknown>,
+    etag: string,
+  ): Promise<{ object: T; etag: string }> {
+    const r = (await (client as GraphLikeWrite)
+      .api(path)
+      .header('If-Match', etag)
+      .header('Prefer', 'return=representation')
+      .update(body)) as T & { '@odata.etag': string };
+    return { object: r, etag: r['@odata.etag'] };
+  }
+  async function post<T>(
+    path: string,
+    body: Record<string, unknown>,
+  ): Promise<{ object: T; etag: string }> {
+    const r = (await (client as GraphLikeWrite)
+      .api(path)
+      .header('Prefer', 'return=representation')
+      .post(body)) as T & { '@odata.etag': string };
+    return { object: r, etag: r['@odata.etag'] };
+  }
+  async function del(path: string, etag: string): Promise<void> {
+    await (client as GraphLikeWrite).api(path).header('If-Match', etag).delete();
+  }
+  return {
+    ...reads,
+    patchPlan: (id, body, etag) => patch<GraphPlan>(`/planner/plans/${id}`, body, etag),
+    patchPlanDetails: (id, body, etag) =>
+      patch<GraphPlanDetails>(`/planner/plans/${id}/details`, body, etag),
+    postPlan: (body) => post<GraphPlan>(`/planner/plans`, body),
+    deletePlan: (id, etag) => del(`/planner/plans/${id}`, etag),
+    patchBucket: (id, body, etag) => patch<GraphBucket>(`/planner/buckets/${id}`, body, etag),
+    postBucket: (body) => post<GraphBucket>(`/planner/buckets`, body),
+    deleteBucket: (id, etag) => del(`/planner/buckets/${id}`, etag),
+    patchTask: (id, body, etag) => patch<GraphTask>(`/planner/tasks/${id}`, body, etag),
+    postTask: (body) => post<GraphTask>(`/planner/tasks`, body),
+    deleteTask: (id, etag) => del(`/planner/tasks/${id}`, etag),
+    patchTaskDetails: (id, body, etag) =>
+      patch<GraphTaskDetails>(`/planner/tasks/${id}/details`, body, etag),
+    patchBucketTaskBoardTaskFormat: (id, body, etag) =>
+      patch<GraphBucketTaskBoardTaskFormat>(
+        `/planner/tasks/${id}/bucketTaskBoardFormat`,
+        body,
+        etag,
+      ),
   };
 }
