@@ -44,4 +44,35 @@ describe('NotificationListItem', () => {
     await userEvent.click(screen.getByRole('button', { name: /dismiss/i }));
     expect(onDismiss).toHaveBeenCalledWith('1');
   });
+
+  it('renders the icon when provided', () => {
+    render(<NotificationListItem notification={base} icon={<span data-testid="icon">★</span>} />);
+    expect(screen.getByTestId('icon')).toBeInTheDocument();
+  });
+
+  it('calls onClick when the body region is clicked', async () => {
+    const onClick = vi.fn();
+    render(<NotificationListItem notification={base} onClick={onClick} />);
+    await userEvent.click(screen.getByText('Hello'));
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
+
+  it('clicking the inline action buttons does NOT call onClick', async () => {
+    const onClick = vi.fn();
+    const onDismiss = vi.fn();
+    const onMarkRead = vi.fn();
+    render(
+      <NotificationListItem
+        notification={base}
+        onClick={onClick}
+        onMarkRead={onMarkRead}
+        onDismiss={onDismiss}
+      />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: /mark as read/i }));
+    await userEvent.click(screen.getByRole('button', { name: /dismiss/i }));
+    expect(onMarkRead).toHaveBeenCalledWith('1');
+    expect(onDismiss).toHaveBeenCalledWith('1');
+    expect(onClick).not.toHaveBeenCalled();
+  });
 });

@@ -15,6 +15,8 @@ export interface NotificationListItemProps {
   notification: NotificationListItemNotification;
   onMarkRead?: (id: string) => void;
   onDismiss?: (id: string) => void;
+  onClick?: () => void;
+  icon?: React.ReactNode;
   className?: string;
 }
 
@@ -26,11 +28,23 @@ export function NotificationListItem({
   notification,
   onMarkRead,
   onDismiss,
+  onClick,
+  icon,
   className,
 }: NotificationListItemProps): React.ReactElement {
   const title = pickString(notification.payload?.title) ?? notification.event_type;
   const body = pickString(notification.payload?.body);
   const isUnread = notification.read_at === null;
+
+  const middleContent = (
+    <>
+      <div className="truncate text-body-sm font-medium text-ink">{title}</div>
+      {body && <div className="line-clamp-2 text-caption text-ink-muted">{body}</div>}
+      <div className="mt-1 text-caption text-ink-subtle">
+        {formatRelative(new Date(notification.created_at))}
+      </div>
+    </>
+  );
 
   return (
     <div
@@ -47,13 +61,18 @@ export function NotificationListItem({
           aria-hidden
         />
       )}
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-body-sm font-medium text-ink">{title}</div>
-        {body && <div className="line-clamp-2 text-caption text-ink-muted">{body}</div>}
-        <div className="mt-1 text-caption text-ink-subtle">
-          {formatRelative(new Date(notification.created_at))}
-        </div>
-      </div>
+      {icon && <div className="shrink-0 text-ink-muted">{icon}</div>}
+      {onClick ? (
+        <button
+          type="button"
+          onClick={onClick}
+          className="min-w-0 flex-1 cursor-pointer rounded-md text-left hover:bg-surface-3 focus:outline-none focus:ring-1 focus:ring-primary"
+        >
+          {middleContent}
+        </button>
+      ) : (
+        <div className="min-w-0 flex-1">{middleContent}</div>
+      )}
       <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
         {isUnread && onMarkRead && (
           <button
