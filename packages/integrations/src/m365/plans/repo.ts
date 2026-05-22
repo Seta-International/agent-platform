@@ -36,6 +36,7 @@ export interface M365PlanLinkRepo {
   setSyncStatus(id: string, status: SyncStatus, lastError?: string | null): Promise<void>;
   persistSnapshot(id: string, snapshot: unknown): Promise<void>;
   tombstone(id: string): Promise<void>;
+  listAllLive(): Promise<PlanLink[]>;
 }
 
 export function createM365PlanLinkRepo(deps: CreateM365PlanLinkRepoDeps): M365PlanLinkRepo {
@@ -134,6 +135,10 @@ export function createM365PlanLinkRepo(deps: CreateM365PlanLinkRepoDeps): M365Pl
           updatedAt: new Date(),
         })
         .where(eq(m365PlanLinks.id, id));
+    },
+
+    async listAllLive() {
+      return db.select().from(m365PlanLinks).where(isNull(m365PlanLinks.unlinkedAt));
     },
   };
 }

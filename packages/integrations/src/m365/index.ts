@@ -9,6 +9,11 @@ export type {
   RunPlanPullInput,
 } from './jobs/plan-pull.ts';
 export { runPlanPull } from './jobs/plan-pull.ts';
+export type {
+  RunPlanPullCronDeps,
+  RunPlanPullCronResult,
+} from './jobs/plan-pull-cron.ts';
+export { runPlanPullCron } from './jobs/plan-pull-cron.ts';
 export type { RunPullGroupDeps, RunPullGroupInput } from './jobs/pull-group.ts';
 export { runPullGroup } from './jobs/pull-group.ts';
 export type { RunPushGroupDeps, RunPushGroupInput } from './jobs/push-group.ts';
