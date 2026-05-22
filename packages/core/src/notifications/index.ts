@@ -8,6 +8,15 @@ export {
   NotificationNotFound,
 } from './mutations.ts';
 export {
+  listNotificationPrefs,
+  NOTIFICATIONS_WRITE_PERMISSION,
+  NotificationPrefError,
+  type NotificationPrefErrorCode,
+  type NotificationPrefMatrix,
+  type NotificationPrefRow,
+  setNotificationPref,
+} from './prefs.ts';
+export {
   getUnreadCount,
   type ListNotificationsInput,
   listNotifications,
