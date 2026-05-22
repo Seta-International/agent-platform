@@ -21,6 +21,8 @@ export interface AssigneeResolver {
   resolveMany(entraOids: string[], ctx: AssigneeResolveContext): Promise<AssigneeResolveResult>;
 }
 
+import { assigneeSkippedCounter } from '../observability.ts';
+
 export function createAssigneeResolver(deps: AssigneeResolverDeps): AssigneeResolver {
   return {
     async resolveMany(entraOids, ctx) {
@@ -37,6 +39,7 @@ export function createAssigneeResolver(deps: AssigneeResolverDeps): AssigneeReso
           resolved.push({ entra_oid: oid, user_id: user.user_id });
         } else {
           skipped.push(oid);
+          assigneeSkippedCounter.add(1, { tenant_id: ctx.tenantId });
           await deps.emit({
             type: 'integrations.m365.assignee.skipped.v1',
             payload: {

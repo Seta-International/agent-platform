@@ -7,6 +7,7 @@ import type {
   GraphTask,
   GraphTaskDetails,
 } from '../jobs/_graph-types.ts';
+import { withSpan } from '../observability.ts';
 
 export type {
   GraphBucket,
@@ -46,36 +47,58 @@ export function createPlansGraph(client: GraphLikeRead): PlansGraph {
   }
 
   return {
-    async getPlan(externalId) {
-      return client.api(`/planner/plans/${externalId}`).get() as Promise<GraphPlan>;
+    getPlan(externalId) {
+      return withSpan(
+        'graph.GET.planner.plan',
+        { external_id: externalId },
+        () => client.api(`/planner/plans/${externalId}`).get() as Promise<GraphPlan>,
+      );
     },
 
-    async getPlanDetails(externalId) {
-      return client.api(`/planner/plans/${externalId}/details`).get() as Promise<GraphPlanDetails>;
+    getPlanDetails(externalId) {
+      return withSpan(
+        'graph.GET.planner.plan_details',
+        { external_id: externalId },
+        () => client.api(`/planner/plans/${externalId}/details`).get() as Promise<GraphPlanDetails>,
+      );
     },
 
     listBuckets(externalId) {
-      return pageIterate<GraphBucket>(`/planner/plans/${externalId}/buckets`);
+      return withSpan('graph.GET.planner.buckets', { external_id: externalId }, () =>
+        pageIterate<GraphBucket>(`/planner/plans/${externalId}/buckets`),
+      );
     },
 
     listTasks(externalId) {
-      return pageIterate<GraphTask>(`/planner/plans/${externalId}/tasks`);
+      return withSpan('graph.GET.planner.tasks', { external_id: externalId }, () =>
+        pageIterate<GraphTask>(`/planner/plans/${externalId}/tasks`),
+      );
     },
 
-    async getTaskDetails(taskExternalId) {
-      return client
-        .api(`/planner/tasks/${taskExternalId}/details`)
-        .get() as Promise<GraphTaskDetails>;
+    getTaskDetails(taskExternalId) {
+      return withSpan(
+        'graph.GET.planner.task_details',
+        { task_external_id: taskExternalId },
+        () =>
+          client.api(`/planner/tasks/${taskExternalId}/details`).get() as Promise<GraphTaskDetails>,
+      );
     },
 
-    async getBucketTaskBoardTaskFormat(taskExternalId) {
-      return client
-        .api(`/planner/tasks/${taskExternalId}/bucketTaskBoardFormat`)
-        .get() as Promise<GraphBucketTaskBoardTaskFormat>;
+    getBucketTaskBoardTaskFormat(taskExternalId) {
+      return withSpan(
+        'graph.GET.planner.task_board_format',
+        { task_external_id: taskExternalId },
+        () =>
+          client
+            .api(`/planner/tasks/${taskExternalId}/bucketTaskBoardFormat`)
+            .get() as Promise<GraphBucketTaskBoardTaskFormat>,
+      );
     },
 
     listGroupPlans(groupExternalId) {
-      return pageIterate<GraphPlan>(`/groups/${groupExternalId}/planner/plans`);
+      return withSpan('graph.GET.planner.group_plans', { group_external_id: groupExternalId }, () =>
+        pageIterate<GraphPlan>(`/groups/${groupExternalId}/planner/plans`),
+      );
     },
   };
 }

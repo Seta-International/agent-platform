@@ -1,4 +1,5 @@
 import type { PlannerSessionScope } from '@seta/planner';
+import { withSpan } from '../observability.ts';
 import { runAutoMirror } from '../plans/auto-mirror.ts';
 import type { PlansGraph } from '../plans/graph.ts';
 import type { M365PlanLinkRepo } from '../plans/repo.ts';
@@ -34,15 +35,25 @@ export async function runPlanAutoMirror(
   input: RunPlanAutoMirrorInput,
   deps: RunPlanAutoMirrorDeps,
 ): Promise<void> {
-  await runAutoMirror(
+  return withSpan(
+    'm365.plan.auto-mirror',
     {
       tenant_id: input.tenant_id,
       group_id: input.group_id,
       external_group_id: input.external_group_id,
     },
-    {
-      ...deps,
-      buildSystemSession,
+    async () => {
+      await runAutoMirror(
+        {
+          tenant_id: input.tenant_id,
+          group_id: input.group_id,
+          external_group_id: input.external_group_id,
+        },
+        {
+          ...deps,
+          buildSystemSession,
+        },
+      );
     },
   );
 }
