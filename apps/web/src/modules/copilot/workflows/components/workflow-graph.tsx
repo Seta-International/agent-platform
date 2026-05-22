@@ -9,7 +9,12 @@ import {
 } from '@xyflow/react';
 import { useEffect, useMemo } from 'react';
 import { buildWorkflowGraph } from '../lib/build-graph.ts';
-import { StepNode } from './step-node.tsx';
+import { AfterNode } from './after-node.tsx';
+import { ConditionNode } from './condition-node.tsx';
+import { ControlNode } from './control-node.tsx';
+import { LoopResultNode } from './loop-result-node.tsx';
+import { NestedNode } from './nested-node.tsx';
+import { DefaultNode } from './step-node.tsx';
 
 import '@xyflow/react/dist/style.css';
 
@@ -17,7 +22,14 @@ export interface WorkflowGraphProps {
   snapshot: unknown;
 }
 
-const nodeTypes = { step: StepNode };
+const nodeTypes = {
+  'default-node': DefaultNode,
+  'condition-node': ConditionNode,
+  'loop-result-node': LoopResultNode,
+  'nested-node': NestedNode,
+  'after-node': AfterNode,
+  'control-node': ControlNode,
+};
 
 function WorkflowGraphInner({ snapshot }: WorkflowGraphProps) {
   const { nodes: initialNodes, edges: initialEdges } = useMemo(

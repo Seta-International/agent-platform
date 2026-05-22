@@ -60,7 +60,7 @@ describe('buildWorkflowGraph', () => {
     const ids = out.nodes.map((n) => n.id);
     expect(ids).toEqual(['a', 'x', 'b']);
     expect(out.nodes[1]!.type).toBe('default-node');
-    expect((out.nodes[1]!.data as { kind: string }).kind).toBe('unknown');
+    expect((out.nodes[1]!.data as unknown as { kind: string }).kind).toBe('unknown');
     warnSpy.mockRestore();
   });
 
@@ -136,7 +136,7 @@ describe('buildWorkflowGraph', () => {
     const nested = out.nodes.find((n) => n.id === 'sync-children');
     expect(nested).toMatchObject({ type: 'nested-node' });
     expect(nested!.data).toMatchObject({ workflowName: 'sync-child' });
-    expect((nested!.data as { childSnapshot: unknown }).childSnapshot).toBeDefined();
+    expect((nested!.data as unknown as { childSnapshot: unknown }).childSnapshot).toBeDefined();
     expect(out.edges.some((e) => e.source === 'pre' && e.target === 'sync-children')).toBe(true);
     expect(out.edges.some((e) => e.source === 'sync-children' && e.target === 'post')).toBe(true);
   });
@@ -146,7 +146,7 @@ describe('buildWorkflowGraph', () => {
     const out = buildWorkflowGraph(unknownTypeSnapshot);
     const myst = out.nodes.find((n) => n.id === 'mystery');
     expect(myst).toMatchObject({ type: 'default-node' });
-    expect((myst!.data as { kind: string }).kind).toBe('unknown');
+    expect((myst!.data as unknown as { kind: string }).kind).toBe('unknown');
     expect(warnSpy).toHaveBeenCalled();
     warnSpy.mockRestore();
   });

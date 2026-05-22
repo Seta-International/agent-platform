@@ -13,7 +13,9 @@ function withFlow(child: ReactNode) {
   return <ReactFlowProvider>{child}</ReactFlowProvider>;
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: @xyflow/react NodeProps requires a fully populated ReactFlow internal context that isn't available in unit tests
+// @xyflow/react NodeProps requires a fully populated ReactFlow internal context that isn't available in unit tests
+// biome-ignore lint/suspicious/noExplicitAny: see above
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const nodeProps = (data: Record<string, unknown>): any => ({
   id: String(data.stepId),
   type: 'x',

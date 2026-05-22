@@ -118,7 +118,7 @@ function walkOne(step: SerializedStep, ctx: WalkCtx): WalkResult {
     }
     case 'loop': {
       const id = (step as { id?: string }).id ?? 'loop';
-      const child = (step as { step: SerializedStep }).step;
+      const child = (step as { step?: SerializedStep }).step ?? { type: 'step' };
       const predicate = String((step as { condition?: unknown }).condition ?? '');
       const loopNode = makeNode<NodeBaseData & { predicate: string }>(id, 'loop-result-node', {
         stepId: id,
@@ -179,7 +179,7 @@ function walkOne(step: SerializedStep, ctx: WalkCtx): WalkResult {
     }
     case 'foreach': {
       const id = (step as { id?: string }).id ?? 'each';
-      const inner = (step as { step: SerializedStep }).step;
+      const inner = (step as { step?: SerializedStep }).step ?? { type: 'step' };
       const itemsPath = String((step as { itemsPath?: unknown }).itemsPath ?? '');
       const innerStep = (inner as { step?: { id?: string; description?: string } }).step ?? {};
       return {
