@@ -22,6 +22,7 @@ import { BoardStreamHub } from './board-stream/hub.ts';
 import { buildServerApp, registerAppContributions } from './build.ts';
 import { parseEnv } from './env.ts';
 import { buildM365Boot } from './m365-boot.ts';
+import { NotificationStreamHub } from './notifications-stream/hub.ts';
 
 const log = pino({ name: 'apps/server' });
 const env = parseEnv(process.env);
@@ -51,6 +52,10 @@ log.info('dispatcher started');
 
 const boardStreamHub = new BoardStreamHub();
 boardStreamHub.start();
+
+const notificationStreamHub = new NotificationStreamHub();
+await notificationStreamHub.start(getPool('worker'));
+log.info('notification stream hub started');
 
 const mailerLog = log.child({ component: 'mailer' });
 const outboxStore = createOutboxStore({ db: coreDb() });
@@ -123,6 +128,7 @@ const { app } = buildServerApp(reg, {
   databaseUrl: env.DATABASE_URL,
   readinessSnapshot: () => dispatcher.health(),
   boardStreamHub,
+  notificationStreamHub,
   m365GraphClientFor: m365Boot?.graphClientFor,
   m365Workers: m365Boot?.workers,
   m365LinksRepo: m365Boot?.m365LinksRepo,
@@ -144,6 +150,7 @@ const shutdown = async (signal: string) => {
   log.info({ signal }, 'shutdown begin');
   await new Promise<void>((r) => server.close(() => r()));
   boardStreamHub.stop();
+  await notificationStreamHub.stop();
   await dispatcher.shutdown(15_000);
   await workers.shutdown();
   await closePools();

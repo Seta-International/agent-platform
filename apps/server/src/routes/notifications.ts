@@ -8,8 +8,11 @@ import {
   type SessionEnv,
 } from '@seta/core';
 import type { Hono } from 'hono';
+import { streamSSE } from 'hono/streaming';
 import { z } from 'zod';
 import type { NotificationStreamHub } from '../notifications-stream/hub.ts';
+
+const HEARTBEAT_INTERVAL_MS = 25_000;
 
 const listQuerySchema = z.object({
   unread: z.enum(['true', 'false']).optional(),
@@ -21,7 +24,6 @@ export function registerNotificationsRoutes(
   app: Hono<SessionEnv>,
   hub: NotificationStreamHub,
 ): void {
-  void hub;
   app.get('/api/core/v1/notifications', async (c) => {
     const session = c.get('user');
     const parsed = listQuerySchema.safeParse(c.req.query());
@@ -86,5 +88,32 @@ export function registerNotificationsRoutes(
       if (err instanceof NotificationNotFound) return c.json({ error: 'NOT_FOUND' }, 404);
       throw err;
     }
+  });
+
+  app.get('/api/core/v1/notifications/stream', async (c) => {
+    const session = c.get('user');
+    return streamSSE(c, async (s) => {
+      const connectionId = crypto.randomUUID();
+      const heartbeat = setInterval(() => {
+        s.write(':ping\n\n').catch(() => {});
+      }, HEARTBEAT_INTERVAL_MS);
+      const cleanup = () => {
+        clearInterval(heartbeat);
+        hub.unregister(connectionId);
+      };
+      hub.register({
+        id: connectionId,
+        userId: session.user_id,
+        send: () => {
+          s.writeSSE({ event: 'invalidate', data: '{}' }).catch(() => {});
+        },
+        close: cleanup,
+      });
+      c.req.raw.signal.addEventListener('abort', cleanup, { once: true });
+      await s.write(`:connected ${connectionId}\n\n`);
+      await new Promise<void>((resolve) => {
+        c.req.raw.signal.addEventListener('abort', () => resolve(), { once: true });
+      });
+    });
   });
 }
