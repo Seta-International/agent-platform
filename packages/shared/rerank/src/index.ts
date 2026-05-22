@@ -1,3 +1,5 @@
+export type { RerankCacheOptions } from './cache.ts';
+export { RerankCache } from './cache.ts';
 export type { CohereRerankerOptions } from './cohere.ts';
 export { CohereReranker } from './cohere.ts';
 export type { LlmJudge, LlmJudgeRerankerOptions } from './llm-judge.ts';
