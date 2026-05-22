@@ -83,6 +83,8 @@ export const plans = planner.table(
     external_id: text('external_id'),
     external_etag: text('external_etag'),
     external_synced_at: timestamp('external_synced_at', { withTimezone: true }),
+    sync_status: text('sync_status').notNull().default('idle'),
+    last_error: text('last_error'),
     created_by: uuid('created_by').notNull(),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
@@ -91,7 +93,14 @@ export const plans = planner.table(
   },
   (t) => [
     index('plans_by_group_live').on(t.group_id, t.deleted_at),
+    uniqueIndex('plans_external_uniq')
+      .on(t.external_source, t.external_id)
+      .where(sql`external_source <> 'native' AND external_id IS NOT NULL AND deleted_at IS NULL`),
     check('plans_external_source_check', sql`external_source IN ('native','m365')`),
+    check(
+      'plans_sync_status_check',
+      sql`sync_status IN ('idle','pulling','pushing','error','conflict')`,
+    ),
   ],
 );
 
@@ -141,6 +150,8 @@ export const tasks = planner.table(
     external_id: text('external_id'),
     external_etag: text('external_etag'),
     external_synced_at: timestamp('external_synced_at', { withTimezone: true }),
+    sync_status: text('sync_status').notNull().default('idle'),
+    last_error: text('last_error'),
     created_by: uuid('created_by').notNull(),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
@@ -164,6 +175,10 @@ export const tasks = planner.table(
       sql`preview_type IN ('automatic','noPreview','checklist','description','reference')`,
     ),
     check('tasks_external_source_check', sql`external_source IN ('native','m365')`),
+    check(
+      'tasks_sync_status_check',
+      sql`sync_status IN ('idle','pulling','pushing','error','conflict')`,
+    ),
   ],
 );
 
@@ -174,6 +189,7 @@ export const taskAssignments = planner.table(
     user_id: uuid('user_id').notNull(),
     order_hint: text('order_hint'),
     assigned_at: timestamp('assigned_at', { withTimezone: true }).defaultNow().notNull(),
+    external_assigned_at: timestamp('external_assigned_at', { withTimezone: true }),
     assigned_by: uuid('assigned_by').notNull(),
   },
   (t) => [
@@ -195,8 +211,14 @@ export const checklistItems = planner.table(
     external_etag: text('external_etag'),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+    deleted_at: timestamp('deleted_at', { withTimezone: true }),
   },
-  (t) => [index('checklist_items_by_task_hint').on(t.task_id, t.order_hint)],
+  (t) => [
+    index('checklist_items_by_task_hint').on(t.task_id, t.order_hint),
+    uniqueIndex('checklist_items_external_uniq')
+      .on(t.task_id, t.external_id)
+      .where(sql`external_id IS NOT NULL AND deleted_at IS NULL`),
+  ],
 );
 
 export const labels = planner.table(
