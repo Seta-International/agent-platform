@@ -60,7 +60,7 @@ describe('session scope cache', () => {
               tenant_id: tenantId,
               email: 'a@d.local',
               name: 'A',
-              password: 'demo-password-1234',
+              password: 'ChangeMe@2026',
               initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
             },
             { type: 'cli', user_id: null },

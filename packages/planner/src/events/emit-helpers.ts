@@ -20,9 +20,11 @@ import type {
   PlannerLabelUnapplied,
   PlannerLabelUpdated,
   PlannerPlanCategoryDescriptionChanged,
+  PlannerPlanConflictResolved,
   PlannerPlanCreated,
   PlannerPlanDeleted,
   PlannerPlanRestored,
+  PlannerPlanSyncStatusChanged,
   PlannerPlanUpdated,
   PlannerTaskAssigned,
   PlannerTaskCompleted,
@@ -33,6 +35,7 @@ import type {
   PlannerTaskReferenceRemoved,
   PlannerTaskReopened,
   PlannerTaskRestored,
+  PlannerTaskSyncStatusChanged,
   PlannerTaskUnassigned,
   PlannerTaskUpdated,
   TaskChangedField,
@@ -226,6 +229,7 @@ export async function emitPlannerPlanUpdated(args: {
   plan_id: Uuid;
   before: PlannerPlanUpdated['payload']['before'];
   after: PlannerPlanUpdated['payload']['after'];
+  changed_fields: PlannerPlanUpdated['payload']['changed_fields'];
   version_before: number;
   version_after: number;
 }): Promise<void> {
@@ -241,8 +245,88 @@ export async function emitPlannerPlanUpdated(args: {
       plan_id: args.plan_id,
       before: args.before,
       after: args.after,
+      changed_fields: args.changed_fields,
       version_before: args.version_before,
       version_after: args.version_after,
+    },
+  });
+}
+
+export async function emitPlannerPlanSyncStatusChanged(args: {
+  actor: PlannerEventActor;
+  tenant_id: Uuid;
+  group_id: Uuid;
+  plan_id: Uuid;
+  before_status: PlannerPlanSyncStatusChanged['payload']['before_status'];
+  after_status: PlannerPlanSyncStatusChanged['payload']['after_status'];
+  error: string | null;
+}): Promise<void> {
+  await emit({
+    tenantId: args.tenant_id,
+    aggregateType: 'planner.plan',
+    aggregateId: args.plan_id,
+    eventType: 'planner.plan.sync-status-changed',
+    eventVersion: 1,
+    payload: {
+      actor: args.actor,
+      tenant_id: args.tenant_id,
+      group_id: args.group_id,
+      plan_id: args.plan_id,
+      before_status: args.before_status,
+      after_status: args.after_status,
+      error: args.error,
+    },
+  });
+}
+
+export async function emitPlannerTaskSyncStatusChanged(args: {
+  actor: PlannerEventActor;
+  tenant_id: Uuid;
+  group_id: Uuid;
+  plan_id: Uuid;
+  task_id: Uuid;
+  before_status: PlannerTaskSyncStatusChanged['payload']['before_status'];
+  after_status: PlannerTaskSyncStatusChanged['payload']['after_status'];
+  error: string | null;
+}): Promise<void> {
+  await emit({
+    tenantId: args.tenant_id,
+    aggregateType: 'planner.task',
+    aggregateId: args.task_id,
+    eventType: 'planner.task.sync-status-changed',
+    eventVersion: 1,
+    payload: {
+      actor: args.actor,
+      tenant_id: args.tenant_id,
+      group_id: args.group_id,
+      plan_id: args.plan_id,
+      task_id: args.task_id,
+      before_status: args.before_status,
+      after_status: args.after_status,
+      error: args.error,
+    },
+  });
+}
+
+export async function emitPlannerPlanConflictResolved(args: {
+  actor: PlannerEventActor;
+  tenant_id: Uuid;
+  group_id: Uuid;
+  plan_id: Uuid;
+  decisions: PlannerPlanConflictResolved['payload']['decisions'];
+}): Promise<void> {
+  await emit({
+    tenantId: args.tenant_id,
+    aggregateType: 'planner.plan',
+    aggregateId: args.plan_id,
+    eventType: 'planner.plan.conflict-resolved',
+    eventVersion: 1,
+    payload: {
+      actor: args.actor,
+      tenant_id: args.tenant_id,
+      group_id: args.group_id,
+      plan_id: args.plan_id,
+      decisions: args.decisions,
     },
   });
 }

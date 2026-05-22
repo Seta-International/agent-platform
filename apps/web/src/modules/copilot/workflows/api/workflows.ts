@@ -84,6 +84,14 @@ export const workflowsApi = {
     return jsonOrThrow(res, DecideApprovalResponse);
   },
 
+  async cancelRun(runId: string): Promise<void> {
+    const res = await fetch(`/api/copilot/v1/workflows/runs/${encodeURIComponent(runId)}/cancel`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    await jsonOrThrow<{ ok: true }>(res);
+  },
+
   async rerunRun(runId: string, inputOverride?: Record<string, unknown>) {
     const res = await fetch(`/api/copilot/v1/workflows/runs/${encodeURIComponent(runId)}/rerun`, {
       method: 'POST',
@@ -91,7 +99,24 @@ export const workflowsApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ inputOverride }),
     });
-    return jsonOrThrow<{ runId: string }>(res);
+    return jsonOrThrow<{ newRunId: string }>(res);
+  },
+
+  async replayFromStep(
+    runId: string,
+    stepId: string,
+    payload: Record<string, unknown>,
+  ): Promise<{ newRunId: string }> {
+    const res = await fetch(
+      `/api/copilot/v1/workflows/runs/${encodeURIComponent(runId)}/replay-from-step`,
+      {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stepId, payload }),
+      },
+    );
+    return jsonOrThrow<{ newRunId: string }>(res);
   },
 
   async getInputSchema(workflowId: string): Promise<Record<string, unknown> | null> {

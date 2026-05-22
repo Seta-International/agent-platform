@@ -3,9 +3,16 @@ import { useWorkflowRuns } from '../hooks/use-workflow-runs.ts';
 import type { WorkflowRunScope } from '../state/query-keys.ts';
 import { RunsInboxRow } from './runs-inbox-row.tsx';
 
-export function RunsInbox() {
+export interface RunsInboxProps {
+  definitionId?: string | null;
+}
+
+export function RunsInbox({ definitionId = null }: RunsInboxProps) {
   const [scope, setScope] = useState<WorkflowRunScope>('self');
   const { data, isLoading, isError, refetch } = useWorkflowRuns({ scope });
+  const rows = definitionId
+    ? (data?.rows.filter((r) => r.workflowId === definitionId) ?? [])
+    : (data?.rows ?? []);
 
   return (
     <section className="flex h-full flex-col">
@@ -44,12 +51,14 @@ export function RunsInbox() {
             </button>
           </div>
         ) : null}
-        {!isLoading && data && data.rows.length === 0 ? (
+        {!isLoading && data && rows.length === 0 ? (
           <div className="flex h-full items-center justify-center p-8 text-center text-sm text-[var(--color-ink-subtle)]">
-            No runs in this scope yet. Create a task to start one.
+            {definitionId
+              ? 'No runs for this definition in this scope.'
+              : 'No runs in this scope yet. Create a task to start one.'}
           </div>
         ) : null}
-        {data?.rows.map((row) => (
+        {rows.map((row) => (
           <RunsInboxRow key={row.runId} row={row} />
         ))}
       </div>

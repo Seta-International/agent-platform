@@ -247,6 +247,111 @@ describe('POST /api/copilot/v1/workflows/runs/:runId/rerun', () => {
   });
 });
 
+describe('POST /api/copilot/v1/workflows/runs/:runId/replay-from-step', () => {
+  it('returns 200 with newRunId on happy path', async () => {
+    await withCopilotTestDb(async ({ pool }) => {
+      const me = session(['copilot.workflow.run.read.self', 'copilot.workflow.run.execute.self']);
+      const runId = randomUUID();
+      await seed(pool, { runId, tenantId: me.tenant_id, startedBy: me.user_id });
+      const timeTravel = vi.fn().mockResolvedValue({ status: 'success' });
+      const mastra = {
+        getWorkflow: () => ({
+          createRun: async ({ runId: r }: { runId?: string } = {}) => ({
+            runId: r ?? randomUUID(),
+            timeTravel,
+          }),
+        }),
+      } as unknown as Mastra;
+      const app = makeApp(me, mastra, pool);
+      const res = await app.request(`/api/copilot/v1/workflows/runs/${runId}/replay-from-step`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stepId: 'b', payload: { x: 2 } }),
+      });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { newRunId: string };
+      expect(body.newRunId).toBe(runId);
+      expect(timeTravel).toHaveBeenCalledWith(
+        expect.objectContaining({ step: 'b', inputData: { x: 2 } }),
+      );
+    });
+  });
+
+  it('returns 400 on missing stepId', async () => {
+    await withCopilotTestDb(async ({ pool }) => {
+      const me = session(['copilot.workflow.run.read.self', 'copilot.workflow.run.execute.self']);
+      const runId = randomUUID();
+      await seed(pool, { runId, tenantId: me.tenant_id, startedBy: me.user_id });
+      const app = makeApp(me, makeMastra(vi.fn()), pool);
+      const res = await app.request(`/api/copilot/v1/workflows/runs/${runId}/replay-from-step`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payload: {} }),
+      });
+      expect(res.status).toBe(400);
+    });
+  });
+
+  it('returns 401 without a session', async () => {
+    await withCopilotTestDb(async ({ pool }) => {
+      const app = makeApp(null, makeMastra(vi.fn()), pool);
+      const res = await app.request(
+        `/api/copilot/v1/workflows/runs/${randomUUID()}/replay-from-step`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ stepId: 'b' }),
+        },
+      );
+      expect(res.status).toBe(401);
+    });
+  });
+});
+
+describe('POST /api/copilot/v1/workflows/runs/:runId/cancel', () => {
+  it('returns 200 and publishes workflow.cancel for own running run', async () => {
+    await withCopilotTestDb(async ({ pool }) => {
+      const me = session(['copilot.workflow.run.read.self', 'copilot.workflow.run.cancel.self']);
+      const runId = randomUUID();
+      await seed(pool, { runId, tenantId: me.tenant_id, startedBy: me.user_id });
+      const publish = vi.fn().mockResolvedValue(undefined);
+      const mastra = { pubsub: { publish } } as unknown as Mastra;
+      const app = makeApp(me, mastra, pool);
+      const res = await app.request(`/api/copilot/v1/workflows/runs/${runId}/cancel`, {
+        method: 'POST',
+      });
+      expect(res.status).toBe(200);
+      expect(publish).toHaveBeenCalledWith(
+        'workflows',
+        expect.objectContaining({ type: 'workflow.cancel', runId }),
+      );
+    });
+  });
+
+  it('returns 403 when caller lacks any cancel permission', async () => {
+    await withCopilotTestDb(async ({ pool }) => {
+      const me = session(['copilot.workflow.run.read.self']);
+      const runId = randomUUID();
+      await seed(pool, { runId, tenantId: me.tenant_id, startedBy: me.user_id });
+      const app = makeApp(me, makeMastra(vi.fn()), pool);
+      const res = await app.request(`/api/copilot/v1/workflows/runs/${runId}/cancel`, {
+        method: 'POST',
+      });
+      expect(res.status).toBe(403);
+    });
+  });
+
+  it('returns 401 without a session', async () => {
+    await withCopilotTestDb(async ({ pool }) => {
+      const app = makeApp(null, makeMastra(vi.fn()), pool);
+      const res = await app.request(`/api/copilot/v1/workflows/runs/${randomUUID()}/cancel`, {
+        method: 'POST',
+      });
+      expect(res.status).toBe(401);
+    });
+  });
+});
+
 describe('GET /api/copilot/v1/workflows/sse-token', () => {
   it('returns a token', async () => {
     await withCopilotTestDb(async ({ pool }) => {

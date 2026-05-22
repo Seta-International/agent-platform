@@ -28,9 +28,10 @@ const withDb = <T>(fn: (ctx: { pool: import('pg').Pool }) => Promise<T>) =>
   );
 
 describe('knowledge file lifecycle', () => {
-  it('flips status to parsing on markProcessed', () =>
+  it('flips status to parsing and enqueues parse job on markProcessed', () =>
     withDb(async ({ pool }) => {
       const presign = vi.fn(async () => 'https://signed');
+      const enqueueParseJob = vi.fn(async () => {});
       const tenantId = crypto.randomUUID();
       const { file_id } = await requestKnowledgeUpload(
         {
@@ -43,13 +44,42 @@ describe('knowledge file lifecycle', () => {
         { bucket: 'b', presign: presign as never },
       );
 
-      await markKnowledgeFileProcessed({ tenant_id: tenantId, file_id });
+      await markKnowledgeFileProcessed({ tenant_id: tenantId, file_id }, { enqueueParseJob });
 
       const row = await pool.query<{ status: string }>(
         `SELECT status FROM copilot.tenant_knowledge_files WHERE id = $1`,
         [file_id],
       );
       expect(row.rows[0]?.status).toBe('parsing');
+      expect(enqueueParseJob).toHaveBeenCalledOnce();
+      expect(enqueueParseJob).toHaveBeenCalledWith({ tenant_id: tenantId, file_id });
+    }));
+
+  it('does NOT enqueue when status was not uploading (row already past uploading)', () =>
+    withDb(async ({ pool }) => {
+      const presign = vi.fn(async () => 'https://signed');
+      const enqueueParseJob = vi.fn(async () => {});
+      const tenantId = crypto.randomUUID();
+      const { file_id } = await requestKnowledgeUpload(
+        {
+          tenant_id: tenantId,
+          uploaded_by: crypto.randomUUID(),
+          filename: 'x.pdf',
+          mime_type: 'application/pdf',
+          size_bytes: 100,
+        },
+        { bucket: 'b', presign: presign as never },
+      );
+
+      // Manually set status to 'parsing' so the UPDATE WHERE status='uploading' won't match
+      await pool.query(
+        `UPDATE copilot.tenant_knowledge_files SET status = 'parsing' WHERE id = $1`,
+        [file_id],
+      );
+
+      await markKnowledgeFileProcessed({ tenant_id: tenantId, file_id }, { enqueueParseJob });
+
+      expect(enqueueParseJob).not.toHaveBeenCalled();
     }));
 
   it('lists files ordered by created_at DESC', () =>

@@ -37,7 +37,7 @@ async function seedUser(pool: import('pg').Pool): Promise<{ tenant_id: string; u
       tenant_id,
       email: `u-${tenant_id.slice(0, 8)}@d.local`,
       name: 'Test User',
-      password: 'demo-password-1234',
+      password: 'ChangeMe@2026',
     },
     { type: 'cli', user_id: null },
   );

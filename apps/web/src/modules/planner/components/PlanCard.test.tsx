@@ -27,14 +27,14 @@ describe('PlanCard', () => {
 
   it('renders status pill for on-track status', () => {
     render(<PlanCard plan={basePlan} status="on-track" />);
-    expect(screen.getByText('Active')).toBeInTheDocument(); // on-track → Active via StatusPill mapping
+    expect(screen.getByText('On track')).toBeInTheDocument();
   });
 
   it('does not render a status pill when status is null', () => {
     render(<PlanCard plan={basePlan} status={null} />);
-    expect(screen.queryByText('Active')).not.toBeInTheDocument();
-    expect(screen.queryByText('Pending')).not.toBeInTheDocument();
-    expect(screen.queryByText('Blocked')).not.toBeInTheDocument();
+    expect(screen.queryByText('On track')).not.toBeInTheDocument();
+    expect(screen.queryByText('At risk')).not.toBeInTheDocument();
+    expect(screen.queryByText('Off track')).not.toBeInTheDocument();
   });
 
   it('renders owner display name when provided', () => {

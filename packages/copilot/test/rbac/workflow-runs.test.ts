@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Mastra } from '@mastra/core';
 import { describe, expect, it, vi } from 'vitest';
+import { cancelWorkflowRun } from '../../src/backend/domain/cancel-workflow-run.ts';
 import { decideApproval } from '../../src/backend/domain/decide-approval.ts';
 import { getWorkflowRun } from '../../src/backend/domain/get-workflow-run.ts';
 import { listMyPendingApprovals } from '../../src/backend/domain/list-my-pending-approvals.ts';
@@ -24,6 +25,8 @@ const PERMS = {
   readTenant: 'copilot.workflow.run.read.tenant',
   readInstance: 'copilot.workflow.run.read.instance',
   executeSelf: 'copilot.workflow.run.execute.self',
+  cancelSelf: 'copilot.workflow.run.cancel.self',
+  cancelTenant: 'copilot.workflow.run.cancel.tenant',
   approve: 'copilot.workflow.approve',
 } as const;
 
@@ -234,6 +237,56 @@ describe('RBAC boundary: execute.self gates rerun', () => {
       await expect(
         rerunWorkflow({ session: approver, runId, mastra: noopMastra() }),
       ).rejects.toThrow(/forbidden|permission/i);
+    });
+  });
+});
+
+describe('RBAC boundary: cancel.self grants cancellation of own runs only', () => {
+  it('cancel.self allows cancelling own running run', async () => {
+    await withCopilotTestDb(async ({ pool }) => {
+      const me = session(randomUUID(), randomUUID(), [PERMS.readSelf, PERMS.cancelSelf]);
+      const runId = await seedRun(pool, { tenantId: me.tenant_id, startedBy: me.user_id });
+      const publish = vi.fn().mockResolvedValue(undefined);
+      const mastra = { pubsub: { publish } } as unknown as Mastra;
+      await cancelWorkflowRun({ session: me, runId, mastra });
+      expect(publish).toHaveBeenCalled();
+    });
+  });
+
+  it('cancel.self cannot cancel another user run in same tenant', async () => {
+    await withCopilotTestDb(async ({ pool }) => {
+      const me = session(randomUUID(), randomUUID(), [PERMS.readTenant, PERMS.cancelSelf]);
+      const runId = await seedRun(pool, { tenantId: me.tenant_id, startedBy: randomUUID() });
+      const publish = vi.fn();
+      const mastra = { pubsub: { publish } } as unknown as Mastra;
+      await expect(cancelWorkflowRun({ session: me, runId, mastra })).rejects.toThrow(/forbidden/i);
+      expect(publish).not.toHaveBeenCalled();
+    });
+  });
+});
+
+describe('RBAC boundary: cancel.tenant grants cancellation across tenant runs', () => {
+  it('cancel.tenant allows cancelling another user run in same tenant', async () => {
+    await withCopilotTestDb(async ({ pool }) => {
+      const ops = session(randomUUID(), randomUUID(), [PERMS.readTenant, PERMS.cancelTenant]);
+      const runId = await seedRun(pool, { tenantId: ops.tenant_id, startedBy: randomUUID() });
+      const publish = vi.fn().mockResolvedValue(undefined);
+      const mastra = { pubsub: { publish } } as unknown as Mastra;
+      await cancelWorkflowRun({ session: ops, runId, mastra });
+      expect(publish).toHaveBeenCalled();
+    });
+  });
+
+  it('cancel.tenant does not bypass tenant boundary', async () => {
+    await withCopilotTestDb(async ({ pool }) => {
+      const ops = session(randomUUID(), randomUUID(), [PERMS.readTenant, PERMS.cancelTenant]);
+      const runId = await seedRun(pool, { tenantId: randomUUID(), startedBy: randomUUID() });
+      const publish = vi.fn();
+      const mastra = { pubsub: { publish } } as unknown as Mastra;
+      await expect(cancelWorkflowRun({ session: ops, runId, mastra })).rejects.toThrow(
+        /not_found/i,
+      );
+      expect(publish).not.toHaveBeenCalled();
     });
   });
 });

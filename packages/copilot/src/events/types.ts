@@ -111,4 +111,14 @@ export type CopilotEvent =
         tenant_id: string;
         requested_by: string;
       };
+    }
+  | {
+      type: 'copilot.tenant_knowledge.processed';
+      aggregate_id: string;
+      data: { tenant_id: string; file_id: string };
+    }
+  | {
+      type: 'copilot.tenant_knowledge.failed';
+      aggregate_id: string;
+      data: { tenant_id: string; file_id: string; error_reason: string };
     };

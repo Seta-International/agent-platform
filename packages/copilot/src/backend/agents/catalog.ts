@@ -8,6 +8,7 @@ import { makeListMyThreadsTool } from '../tools/copilot.list-my-threads.ts';
 import { copilotRunNewTaskSkillTagTool } from '../tools/copilot.run-new-task-skill-tag.ts';
 import { matchUsersToTopicTool } from '../tools/match-users-to-topic.ts';
 import { searchTasksSemanticTool } from '../tools/search-tasks-semantic.ts';
+import { searchTenantKnowledgeTool } from '../tools/search-tenant-knowledge.ts';
 import { STATIC_SELF_TOOLS } from '../tools/self-tools.ts';
 import type { AgentSpec, AgentSpecs } from './specs.ts';
 
@@ -72,6 +73,7 @@ export function buildAgentCatalog(deps: { mastra: Mastra; pool: Pool }): AgentSp
       listMyThreads,
       searchTasksSemanticTool({ provider, pool: deps.pool, reranker }),
       matchUsersToTopicTool({ provider, pool: deps.pool, reranker }),
+      searchTenantKnowledgeTool({ provider, pool: deps.pool, reranker }),
     ],
     defaultTier: 'fast',
   };

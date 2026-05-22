@@ -29,7 +29,7 @@ async function setup(
       tenant_id: tenantId,
       email: `u-${tenantId.slice(0, 8)}@d.local`,
       name: 'Alice',
-      password: 'demo-password-1234',
+      password: 'ChangeMe@2026',
     },
     { type: 'cli', user_id: null },
   );
@@ -137,7 +137,7 @@ describe('matchUsersToTopic', () => {
               tenant_id: tenantId,
               email: `u2-${tenantId.slice(0, 8)}@d.local`,
               name: 'Bob',
-              password: 'demo-password-1234',
+              password: 'ChangeMe@2026',
             },
             { type: 'cli', user_id: null },
           );

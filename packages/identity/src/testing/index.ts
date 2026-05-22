@@ -21,7 +21,7 @@ export async function createTestTenantWithAdmin(opts: {
       tenant_id,
       email: opts.adminEmail ?? 'admin@demo.local',
       name: 'Admin',
-      password: opts.adminPassword ?? 'demo-admin-password-1',
+      password: opts.adminPassword ?? 'ChangeMe@2026',
       initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
     },
     { type: 'cli', user_id: null },

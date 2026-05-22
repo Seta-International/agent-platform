@@ -256,7 +256,7 @@ program
   .requiredOption('--tenant <slug-or-id>', 'Tenant slug or UUID')
   .requiredOption('--dir <path>', 'Directory containing the six CSV files')
   .requiredOption('--as <email>', 'Email of an existing org.admin user (acting session)')
-  .option('--password <password>', 'Password for created users (default: Seta@2026)')
+  .option('--password <password>', 'Password for created users (default: ChangeMe@2026)')
   .option(
     '--only <modules>',
     'Comma-separated subset of modules to run: users,planner,availability (default: all)',

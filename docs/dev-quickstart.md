@@ -52,7 +52,7 @@ pnpm -F @seta/cli exec tsx src/index.ts tenant-create \
   --name "SETA Future Org" \
   --slug setafutureorg \
   --admin-email thang.tran@setafutureorg.onmicrosoft.com \
-  --admin-password "Seta2026@"
+  --admin-password "ChangeMe@2026"
 ```
 
 ### Import all CSV data
@@ -64,10 +64,10 @@ pnpm db:import-csv \
   --tenant setafutureorg \
   --dir ./mock/planner \
   --as thang.tran@setafutureorg.onmicrosoft.com \
-  --password "Seta2026@"
+  --password "ChangeMe@2026"
 ```
 
-All 300 users are created with password **`Seta2026@`**. The command is idempotent — re-running it skips users that already exist and reuses the existing group.
+All 300 users are created with password **`ChangeMe@2026`**. The command is idempotent — re-running it skips users that already exist and reuses the existing group.
 
 ### Import only specific modules
 
@@ -79,7 +79,7 @@ pnpm db:import-csv \
   --tenant setafutureorg \
   --dir ./mock/planner \
   --as thang.tran@setafutureorg.onmicrosoft.com \
-  --password "Seta2026@" \
+  --password "ChangeMe@2026" \
   --only users
 
 # Users + planner data, skip availability/timesheet
@@ -87,11 +87,11 @@ pnpm db:import-csv \
   --tenant setafutureorg \
   --dir ./mock/planner \
   --as thang.tran@setafutureorg.onmicrosoft.com \
-  --password "Seta2026@" \
+  --password "ChangeMe@2026" \
   --only users,planner
 ```
 
-Sign in at http://localhost:5173/login with any CSV user email and password `Seta2026@`, or use the admin account `thang.tran@setafutureorg.onmicrosoft.com`.
+Sign in at http://localhost:5173/login with any CSV user email and password `ChangeMe@2026`, or use the admin account `thang.tran@setafutureorg.onmicrosoft.com`.
 
 ## Hand it to an agent
 

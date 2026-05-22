@@ -7,7 +7,7 @@ import type { TaskRow } from '../dto.ts';
 import type { CreateTaskInput } from '../inputs.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 import { taskRowToDto } from './_task-dto.ts';
-import { hintBetween } from './order-hint.ts';
+import { hintBetween, type PlanExternalSource } from './order-hint.ts';
 
 export async function createTask(
   input: CreateTaskInput & { session: SessionScope },
@@ -67,7 +67,7 @@ export async function createTask(
         .filter((h): h is string => h !== null)
         .sort();
       const lastHint = sortedHints[sortedHints.length - 1] ?? null;
-      const orderHint = hintBetween(lastHint, null);
+      const orderHint = hintBetween(lastHint, null, plan.external_source as PlanExternalSource);
 
       const [row] = await tx
         .insert(tasks)

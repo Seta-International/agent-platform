@@ -11,6 +11,8 @@ export interface RerunSideSheetProps {
   workflowId: string;
   priorInputSummary: unknown;
   onClose: () => void;
+  mode?: 'rerun' | 'replay-from-step';
+  replayContext?: { stepId: string; originalPayload: unknown };
 }
 
 export function RerunSideSheet({
@@ -19,6 +21,8 @@ export function RerunSideSheet({
   workflowId,
   priorInputSummary,
   onClose,
+  mode = 'rerun',
+  replayContext,
 }: RerunSideSheetProps) {
   const navigate = useNavigate();
 
@@ -33,7 +37,14 @@ export function RerunSideSheet({
   });
 
   const submit = useMutation({
-    mutationFn: (values: Record<string, unknown>) => workflowsApi.rerunRun(runId, values),
+    mutationFn: async (values: Record<string, unknown>) => {
+      if (mode === 'replay-from-step' && replayContext) {
+        const out = await workflowsApi.replayFromStep(runId, replayContext.stepId, values);
+        return { runId: out.newRunId };
+      }
+      const out = await workflowsApi.rerunRun(runId, values);
+      return { runId: out.newRunId };
+    },
     onSuccess: (out) => {
       onClose();
       void navigate({
@@ -44,12 +55,31 @@ export function RerunSideSheet({
     },
   });
 
+  const isReplay = mode === 'replay-from-step' && replayContext !== undefined;
+  const title = isReplay ? 'Replay from step' : 'Re-run workflow';
+  const submitLabel = isReplay ? 'Replay from step' : 'Re-run';
+  const rerunDefaults = renderRerunInput(priorInputSummary);
+  const defaults =
+    isReplay && replayContext
+      ? (replayContext.originalPayload as Record<string, unknown>)
+      : rerunDefaults;
+  const original =
+    isReplay && replayContext
+      ? (replayContext.originalPayload as Record<string, unknown>)
+      : (rerunDefaults as Record<string, unknown>);
+
   return (
     <Sheet open={open} onOpenChange={(v) => (v ? null : onClose())}>
       <SheetContent side="right" className="w-[480px] sm:max-w-none">
         <SheetHeader>
-          <SheetTitle>Re-run workflow</SheetTitle>
+          <SheetTitle>{title}</SheetTitle>
         </SheetHeader>
+        {isReplay && replayContext ? (
+          <div className="mt-3 rounded border border-[var(--color-hairline)] bg-[var(--color-surface-1)] px-3 py-2 text-xs text-[var(--color-ink-muted)]">
+            Replaying from step <span className="font-mono">{replayContext.stepId}</span>. Earlier
+            steps' outputs are reused; this step receives the input below.
+          </div>
+        ) : null}
         <div className="mt-4">
           {schemaQ.isLoading ? (
             <div className="text-sm text-[var(--color-ink-subtle)]">Loading input schema…</div>
@@ -62,15 +92,16 @@ export function RerunSideSheet({
           {schemaQ.data ? (
             <InputFormFromSchema
               schema={schemaQ.data}
-              defaults={renderRerunInput(priorInputSummary)}
+              defaults={defaults}
+              original={original}
               onSubmit={(v) => submit.mutate(v)}
               submitting={submit.isPending}
-              submitLabel="Re-run"
+              submitLabel={submitLabel}
             />
           ) : null}
           {submit.isError ? (
             <p className="mt-3 text-xs text-[var(--color-danger)]">
-              Re-run failed. Adjust inputs and try again.
+              {isReplay ? 'Replay failed.' : 'Re-run failed.'} Adjust inputs and try again.
             </p>
           ) : null}
         </div>

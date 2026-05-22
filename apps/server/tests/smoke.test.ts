@@ -4,7 +4,7 @@ import { registerCoreContributions } from '@seta/core/register';
 import { registerIdentityContributions } from '@seta/identity/register';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { buildServerApp, registerAppContributions } from '../src/build.ts';
 
 describe('apps/server smoke', () => {
@@ -22,7 +22,8 @@ describe('apps/server smoke', () => {
           registerIdentityContributions(reg);
           registerAppContributions(reg);
 
-          const { app } = buildServerApp(reg, { pool, databaseUrl });
+          const fakeWorkers = { addJob: vi.fn(async () => {}), shutdown: async () => {} };
+          const { app } = buildServerApp(reg, { pool, databaseUrl, workers: fakeWorkers });
 
           const res = await app.request('/api/copilot/v1/health');
           expect(res.status).toBe(200);

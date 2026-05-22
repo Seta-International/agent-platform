@@ -6,10 +6,22 @@ import { emitPlannerTaskAssigned, emitPlannerTaskUnassigned } from '../../events
 import type { SetTaskAssigneesInput } from '../inputs.ts';
 import { withSpan } from '../observability.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
-import { hintsForN } from './order-hint.ts';
+import { isM365SystemActor } from './_actor.ts';
+import { hintsForN, type PlanExternalSource } from './order-hint.ts';
+
+export interface SetTaskAssigneesDeps {
+  // Returns entra_oid keyed by user_id. Only invoked on m365-linked plans
+  // from non-system sessions; native plans and system-actor calls skip lookup.
+  lookupEntraOids: (userIds: string[]) => Promise<Map<string, string | null>>;
+}
+
+const NOOP_DEPS: SetTaskAssigneesDeps = {
+  lookupEntraOids: async () => new Map(),
+};
 
 export async function setTaskAssignees(
   input: SetTaskAssigneesInput & { session: SessionScope },
+  deps: SetTaskAssigneesDeps = NOOP_DEPS,
 ): Promise<void> {
   return withSpan(
     'planner.task.set-assignees',
@@ -18,12 +30,13 @@ export async function setTaskAssignees(
       'planner.user_id': input.session.user_id,
       'planner.task_id': input.task_id,
     },
-    () => setTaskAssigneesImpl(input),
+    () => setTaskAssigneesImpl(input, deps),
   );
 }
 
 async function setTaskAssigneesImpl(
   input: SetTaskAssigneesInput & { session: SessionScope },
+  deps: SetTaskAssigneesDeps,
 ): Promise<void> {
   await withEmit(
     {
@@ -66,7 +79,25 @@ async function setTaskAssigneesImpl(
         if (!existingIds.has(a.user_id)) addedIndices.push(i);
       });
 
-      const generatedHints = hintsForN(input.assignees.length);
+      if (plan.external_source === 'm365' && !isM365SystemActor(input.session)) {
+        const addedUserIds = addedIndices.map((i) => input.assignees[i]!.user_id);
+        if (addedUserIds.length > 0) {
+          const entraByUser = await deps.lookupEntraOids(addedUserIds);
+          const missing = addedUserIds.filter((id) => !entraByUser.get(id));
+          if (missing.length > 0) {
+            throw new PlannerError(
+              'ASSIGNEE_NOT_M365_SYNCABLE',
+              'Cannot add users without an M365 identity to a linked plan',
+              { task_id: input.task_id, user_ids: missing },
+            );
+          }
+        }
+      }
+
+      const generatedHints = hintsForN(
+        input.assignees.length,
+        plan.external_source as PlanExternalSource,
+      );
 
       if (addedIndices.length > 0) {
         const values = addedIndices.map((i) => {

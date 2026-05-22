@@ -1,16 +1,11 @@
-import {
-  deleteKnowledgeFile,
-  listKnowledgeFiles,
-  markKnowledgeFileProcessed,
-  requestKnowledgeUpload,
-} from '@seta/copilot';
+import { requestKnowledgeUpload } from '@seta/copilot';
 import { hashRoleSummary, type SessionEnv, type SessionScope } from '@seta/core';
 import { resetCoreDb } from '@seta/core/internal/test-support';
 import { createUser } from '@seta/identity';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { Hono } from 'hono';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { handleServerError } from '../src/build.ts';
 import { registerKnowledgeRoutes } from '../src/routes/knowledge.ts';
 
@@ -38,6 +33,7 @@ function buildSession(opts: {
 }
 
 const fakePresign = async () => 'https://s3.example/presigned';
+const fakeWorkers = { addJob: vi.fn(async () => {}), shutdown: async () => {} };
 
 function buildTestApp(session: SessionScope): Hono<SessionEnv> {
   const app = new Hono<SessionEnv>();
@@ -45,7 +41,7 @@ function buildTestApp(session: SessionScope): Hono<SessionEnv> {
     c.set('user', session);
     await next();
   });
-  registerKnowledgeRoutes(app, { presign: fakePresign });
+  registerKnowledgeRoutes(app, { workers: fakeWorkers, presign: fakePresign });
   app.onError(handleServerError);
   return app;
 }

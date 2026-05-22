@@ -18,6 +18,12 @@ export function buildNavModules(recents: RecentPlanEntry[]): ShellNavModule[] {
           label: 'Workflows',
           href: '/copilot/workflows',
         },
+        {
+          id: 'copilot.knowledge',
+          icon: 'archive',
+          label: 'Knowledge',
+          href: '/copilot/knowledge',
+        },
       ],
     },
     {
@@ -85,6 +91,7 @@ export function buildNavModules(recents: RecentPlanEntry[]): ShellNavModule[] {
 }
 
 export function activeNavId(pathname: string): string | undefined {
+  if (pathname.startsWith('/copilot/knowledge')) return 'copilot.knowledge';
   if (pathname.startsWith('/copilot/chat')) return 'copilot.chat';
   if (pathname.startsWith('/planner/my-tasks')) return 'planner.my-tasks';
   if (pathname.startsWith('/planner/groups')) return 'planner.groups';

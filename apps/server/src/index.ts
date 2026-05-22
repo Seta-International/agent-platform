@@ -21,6 +21,7 @@ import pino from 'pino';
 import { BoardStreamHub } from './board-stream/hub.ts';
 import { buildServerApp, registerAppContributions } from './build.ts';
 import { parseEnv } from './env.ts';
+import { KnowledgeStreamHub } from './knowledge-stream/hub.ts';
 import { buildM365Boot } from './m365-boot.ts';
 import { NotificationStreamHub } from './notifications-stream/hub.ts';
 
@@ -52,6 +53,9 @@ log.info('dispatcher started');
 
 const boardStreamHub = new BoardStreamHub();
 boardStreamHub.start();
+
+const knowledgeStreamHub = new KnowledgeStreamHub();
+knowledgeStreamHub.start();
 
 const notificationStreamHub = new NotificationStreamHub();
 await notificationStreamHub.start(getPool('worker'));
@@ -126,8 +130,10 @@ void mailer;
 const { app } = buildServerApp(reg, {
   pool: getPool('worker'),
   databaseUrl: env.DATABASE_URL,
+  workers: { addJob: enqueue, shutdown: async () => {} },
   readinessSnapshot: () => dispatcher.health(),
   boardStreamHub,
+  knowledgeStreamHub,
   notificationStreamHub,
   m365GraphClientFor: m365Boot?.graphClientFor,
   m365Workers: m365Boot?.workers,
@@ -150,6 +156,7 @@ const shutdown = async (signal: string) => {
   log.info({ signal }, 'shutdown begin');
   await new Promise<void>((r) => server.close(() => r()));
   boardStreamHub.stop();
+  knowledgeStreamHub.stop();
   await notificationStreamHub.stop();
   await dispatcher.shutdown(15_000);
   await workers.shutdown();

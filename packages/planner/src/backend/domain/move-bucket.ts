@@ -7,7 +7,7 @@ import type { BucketRow, TaskExternalSource } from '../dto.ts';
 import type { MoveBucketInput } from '../inputs.ts';
 import { withSpan } from '../observability.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
-import { hintBetween, hintsForN } from './order-hint.ts';
+import { hintBetween, hintsForN, type PlanExternalSource } from './order-hint.ts';
 
 type BucketDbRow = typeof buckets.$inferSelect;
 
@@ -96,13 +96,14 @@ async function moveBucketImpl(
       const now = new Date();
       const versionAfter = existing.version + 1;
 
+      const planSource = plan.external_source as PlanExternalSource;
       try {
-        newHint = hintBetween(prev?.order_hint ?? null, next?.order_hint ?? null);
+        newHint = hintBetween(prev?.order_hint ?? null, next?.order_hint ?? null, planSource);
       } catch {
         const seq = [...others];
         const insertIdx = next ? seq.indexOf(next) : seq.length;
         seq.splice(insertIdx, 0, existing);
-        const fresh = hintsForN(seq.length);
+        const fresh = hintsForN(seq.length, planSource);
         for (let i = 0; i < seq.length; i++) {
           const b = seq[i];
           const h = fresh[i];

@@ -18,6 +18,7 @@ import { createMiddleware } from 'hono/factory';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import type { Pool } from 'pg';
 import type { BoardStreamHub } from './board-stream/hub.ts';
+import type { KnowledgeStreamHub } from './knowledge-stream/hub.ts';
 import { NotificationStreamHub } from './notifications-stream/hub.ts';
 import { registerAdminAuditRoutes } from './routes/admin-audit.ts';
 import { registerAdminUsersRoutes } from './routes/admin-users.ts';
@@ -25,8 +26,10 @@ import { registerCredentialGate } from './routes/credential-gate.ts';
 import { registerDiscoverRoute } from './routes/discover.ts';
 import { registerIntegrationsM365Routes } from './routes/integrations-m365.ts';
 import { registerKnowledgeRoutes } from './routes/knowledge.ts';
+import { registerKnowledgeStreamRoutes } from './routes/knowledge-stream.ts';
 import { registerMeRoute } from './routes/me.ts';
 import { registerNotificationsRoutes } from './routes/notifications.ts';
+import { registerObservabilityRoutes } from './routes/observability.ts';
 import { registerPlannerBoardStreamRoutes } from './routes/planner-board-stream.ts';
 import { registerPlannerBucketsRoutes } from './routes/planner-buckets.ts';
 import { registerPlannerGroupsRoutes } from './routes/planner-groups.ts';
@@ -42,8 +45,10 @@ import { registerUsersEmailRoutes } from './routes/users-email.ts';
 export type BuildServerAppDeps = {
   pool: Pool;
   databaseUrl: string;
+  workers: WorkerHandle;
   readinessSnapshot?: () => { lastTickAt: Date };
   boardStreamHub?: BoardStreamHub;
+  knowledgeStreamHub?: KnowledgeStreamHub;
   notificationStreamHub?: NotificationStreamHub;
   m365GraphClientFor?: (tenantId: string) => Promise<Client>;
   m365Workers?: WorkerHandle;
@@ -114,6 +119,7 @@ export function buildServerApp(
 
   // Public routes — no session required
   app.get('/health/live', (c) => c.json({ ok: true }));
+  registerObservabilityRoutes(app);
   if (deps.readinessSnapshot) {
     const snapshot = deps.readinessSnapshot;
     app.get('/health/ready', (c) => {
@@ -144,7 +150,7 @@ export function buildServerApp(
   registerSsoProvidersRoutes(app);
   registerSsoEntraGraphRoutes(app);
   registerTenantSettingsRoutes(app);
-  registerKnowledgeRoutes(app);
+  registerKnowledgeRoutes(app, { workers: deps.workers });
   registerPlannerGroupsRoutes(app);
   registerPlannerPlansRoutes(app);
   registerPlannerBucketsRoutes(app);
@@ -152,6 +158,9 @@ export function buildServerApp(
   registerNotificationsRoutes(app, deps.notificationStreamHub ?? new NotificationStreamHub());
   if (deps.boardStreamHub) {
     registerPlannerBoardStreamRoutes(app, deps.boardStreamHub);
+  }
+  if (deps.knowledgeStreamHub) {
+    registerKnowledgeStreamRoutes(app, deps.knowledgeStreamHub);
   }
   if (deps.m365GraphClientFor && deps.m365Workers && deps.m365LinksRepo) {
     registerIntegrationsM365Routes(app, {

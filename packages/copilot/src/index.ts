@@ -1,3 +1,5 @@
+export type { CancelWorkflowRunOpts } from './backend/domain/cancel-workflow-run.ts';
+export { cancelWorkflowRun } from './backend/domain/cancel-workflow-run.ts';
 export type { DecideApprovalOpts, DecideApprovalResult } from './backend/domain/decide-approval.ts';
 export { decideApproval } from './backend/domain/decide-approval.ts';
 export type { GetWorkflowRunOpts } from './backend/domain/get-workflow-run.ts';
@@ -16,17 +18,25 @@ export type {
   WorkflowRunStatus,
 } from './backend/domain/list-workflow-runs.ts';
 export { listWorkflowRuns } from './backend/domain/list-workflow-runs.ts';
+export type {
+  ReplayWorkflowFromStepOpts,
+  ReplayWorkflowFromStepResult,
+} from './backend/domain/replay-workflow-from-step.ts';
+export { replayWorkflowFromStep } from './backend/domain/replay-workflow-from-step.ts';
 export type { RerunWorkflowOpts, RerunWorkflowResult } from './backend/domain/rerun-workflow.ts';
 export { rerunWorkflow } from './backend/domain/rerun-workflow.ts';
 export { embeddingJobs } from './backend/embeddings/register-jobs.ts';
-export type { DeleteKnowledgeFileInput } from './backend/knowledge/delete-file.ts';
+export type {
+  DeleteKnowledgeFileDeps,
+  DeleteKnowledgeFileInput,
+} from './backend/knowledge/delete-file.ts';
 export { deleteKnowledgeFile } from './backend/knowledge/delete-file.ts';
 export type {
   KnowledgeFileSummary,
   ListKnowledgeFilesInput,
 } from './backend/knowledge/list-files.ts';
 export { listKnowledgeFiles } from './backend/knowledge/list-files.ts';
-export type { MarkProcessedInput } from './backend/knowledge/mark-processed.ts';
+export type { MarkProcessedDeps, MarkProcessedInput } from './backend/knowledge/mark-processed.ts';
 export { markKnowledgeFileProcessed } from './backend/knowledge/mark-processed.ts';
 export type {
   RequestKnowledgeUploadInput,

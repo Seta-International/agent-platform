@@ -5,6 +5,7 @@ import {
   requestKnowledgeUpload,
 } from '@seta/copilot';
 import type { SessionEnv } from '@seta/core';
+import type { WorkerHandle } from '@seta/core/workers';
 import { IdentityError } from '@seta/identity';
 import type { Context, Hono } from 'hono';
 import { z } from 'zod';
@@ -23,6 +24,7 @@ function requireOrgAdmin(c: Context<SessionEnv>): void {
 }
 
 export type KnowledgeRouteDeps = {
+  workers: WorkerHandle;
   /** Override S3 presigner for testing. When absent, uses the real AWS presigner. */
   presign?: (opts: {
     bucket: string;
@@ -32,10 +34,7 @@ export type KnowledgeRouteDeps = {
   }) => Promise<string>;
 };
 
-export function registerKnowledgeRoutes(
-  app: Hono<SessionEnv>,
-  deps: KnowledgeRouteDeps = {},
-): void {
+export function registerKnowledgeRoutes(app: Hono<SessionEnv>, deps: KnowledgeRouteDeps): void {
   app.post('/api/copilot/v1/knowledge/upload-url', async (c) => {
     requireOrgAdmin(c);
     const scope = c.get('user');
@@ -59,7 +58,17 @@ export function registerKnowledgeRoutes(
     const scope = c.get('user');
     const file_id = c.req.param('id');
     if (!/^\d+$/.test(file_id)) return c.json({ error: 'invalid_id' }, 400);
-    await markKnowledgeFileProcessed({ tenant_id: scope.tenant_id, file_id });
+    await markKnowledgeFileProcessed(
+      { tenant_id: scope.tenant_id, file_id },
+      {
+        enqueueParseJob: async (payload) => {
+          await deps.workers.addJob('parse_knowledge_file', {
+            ...payload,
+            event_id: crypto.randomUUID(),
+          });
+        },
+      },
+    );
     return c.json({ ok: true });
   });
 

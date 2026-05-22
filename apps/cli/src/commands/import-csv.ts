@@ -74,7 +74,7 @@ async function buildAdminSession(tenantId: string, adminEmail: string): Promise<
 export async function importCsvCommand(opts: ImportCsvOpts): Promise<void> {
   const tenantId = await resolveTenantId(opts.tenant);
   const session = await buildAdminSession(tenantId, opts.as);
-  const password = opts.password ?? 'Seta@2026';
+  const password = opts.password ?? 'ChangeMe@2026';
   const modules = parseModules(opts.only);
 
   // Phase 1 — Parse all CSVs

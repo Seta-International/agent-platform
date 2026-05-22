@@ -29,6 +29,7 @@ export type {
 } from './backend/domain/get-task-for-embedding.ts';
 export { getTaskForEmbedding } from './backend/domain/get-task-for-embedding.ts';
 export { linkGroupToM365 } from './backend/domain/link-group-to-m365.ts';
+export { linkPlanToM365 } from './backend/domain/link-plan-to-m365.ts';
 export { listBuckets } from './backend/domain/list-buckets.ts';
 export { listChecklistItems } from './backend/domain/list-checklist-items.ts';
 export { listGroupMembers } from './backend/domain/list-group-members.ts';
@@ -50,13 +51,21 @@ export { listTaskEvents } from './backend/domain/list-task-events.ts';
 export type { ListTasksFilters } from './backend/domain/list-tasks.ts';
 export { listTasks } from './backend/domain/list-tasks.ts';
 export { markGroupSyncStatus } from './backend/domain/mark-group-sync-status.ts';
+export { markPlanSyncStatus } from './backend/domain/mark-plan-sync-status.ts';
+export { markTaskSyncStatus } from './backend/domain/mark-task-sync-status.ts';
 export { moveBucket } from './backend/domain/move-bucket.ts';
 export { moveTask } from './backend/domain/move-task.ts';
+export { type RefreshPlanSyncDeps, refreshPlanSync } from './backend/domain/refresh-plan-sync.ts';
 export { removeChecklistItem } from './backend/domain/remove-checklist-item.ts';
 export { removeGroupMember } from './backend/domain/remove-group-member.ts';
 export { removeTaskReference } from './backend/domain/remove-task-reference.ts';
 export { reopenTask } from './backend/domain/reopen-task.ts';
 export { resolveGroupConflict } from './backend/domain/resolve-group-conflict.ts';
+export {
+  type ResolvePlanConflictsDeps,
+  type ResolvePlanConflictsResult,
+  resolvePlanConflicts,
+} from './backend/domain/resolve-plan-conflicts.ts';
 export { restoreGroup } from './backend/domain/restore-group.ts';
 export { restorePlan } from './backend/domain/restore-plan.ts';
 export { restoreTask } from './backend/domain/restore-task.ts';
@@ -66,10 +75,14 @@ export { setAssigneePriority } from './backend/domain/set-assignee-priority.ts';
 export { setCategoryDescription } from './backend/domain/set-category-description.ts';
 export { setCategoryDescriptions } from './backend/domain/set-category-descriptions.ts';
 export { setMemberRole } from './backend/domain/set-member-role.ts';
-export { setTaskAssignees } from './backend/domain/set-task-assignees.ts';
+export {
+  type SetTaskAssigneesDeps,
+  setTaskAssignees,
+} from './backend/domain/set-task-assignees.ts';
 export { unapplyLabel } from './backend/domain/unapply-label.ts';
 export { unassignTask } from './backend/domain/unassign-task.ts';
 export { unlinkGroupFromM365 } from './backend/domain/unlink-group-from-m365.ts';
+export { unlinkPlanFromM365 } from './backend/domain/unlink-plan-from-m365.ts';
 export { updateBucket } from './backend/domain/update-bucket.ts';
 export { updateChecklistItem } from './backend/domain/update-checklist-item.ts';
 export { updateGroup } from './backend/domain/update-group.ts';

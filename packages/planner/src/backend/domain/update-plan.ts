@@ -3,6 +3,7 @@ import { withEmit } from '@seta/core/events';
 import { and, eq, isNull } from 'drizzle-orm';
 import { plans } from '../../db/schema.ts';
 import { emitPlannerPlanUpdated } from '../../events/emit-helpers.ts';
+import type { PlanFieldKey } from '../../events/types.ts';
 import type { PlanRow } from '../dto.ts';
 import type { UpdatePlanPatch } from '../inputs.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
@@ -45,8 +46,9 @@ export async function updatePlan(input: {
         });
       }
 
-      const before: Partial<{ name: string }> = {};
-      const after: Partial<{ name: string }> = {};
+      const before: Partial<Record<PlanFieldKey, unknown>> = {};
+      const after: Partial<Record<PlanFieldKey, unknown>> = {};
+      const changed: PlanFieldKey[] = [];
       const setFields: { name?: string; updated_at: Date; version: number } = {
         updated_at: new Date(),
         version: existing.version + 1,
@@ -56,6 +58,7 @@ export async function updatePlan(input: {
         before.name = existing.name;
         after.name = input.patch.name;
         setFields.name = input.patch.name;
+        changed.push('name');
       }
 
       const [row] = await tx
@@ -73,6 +76,7 @@ export async function updatePlan(input: {
         group_id: existing.group_id,
         before,
         after,
+        changed_fields: changed,
         version_before: existing.version,
         version_after: existing.version + 1,
       });

@@ -35,13 +35,13 @@ describe('grantRole / revokeRole', () => {
               tenant_id: tenantId,
               email: 'admin@d.local',
               name: 'Admin',
-              password: 'demo-password-1234',
+              password: 'ChangeMe@2026',
               initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
             },
             { type: 'cli', user_id: null },
           );
           const { user_id: targetId } = await createUser(
-            { tenant_id: tenantId, email: 'u@d.local', name: 'U', password: 'demo-password-1234' },
+            { tenant_id: tenantId, email: 'u@d.local', name: 'U', password: 'ChangeMe@2026' },
             { type: 'cli', user_id: null },
           );
 

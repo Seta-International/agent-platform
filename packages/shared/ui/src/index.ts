@@ -14,6 +14,7 @@ export * from './composites/coming-soon';
 export * from './composites/command-palette';
 export * from './composites/copilot-panel';
 export * from './composites/data-table';
+export * from './composites/dropzone';
 export * from './composites/empty-state';
 export * from './composites/filter-pill';
 export * from './composites/group-tile';
