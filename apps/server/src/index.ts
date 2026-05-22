@@ -24,6 +24,7 @@ import { parseEnv } from './env.ts';
 import { KnowledgeStreamHub } from './knowledge-stream/hub.ts';
 import { buildM365Boot } from './m365-boot.ts';
 import { NotificationStreamHub } from './notifications-stream/hub.ts';
+import { failedLoginAlertSubscriber } from './subscribers/failed-login-alert.ts';
 
 const log = pino({ name: 'apps/server' });
 const env = parseEnv(process.env);
@@ -45,9 +46,22 @@ registerAppContributions(reg);
 await runMigrations(reg, { pool: getPool('worker') });
 log.info('migrations applied');
 
+// Mailer is initialised after the dispatcher to avoid a circular dependency.
+// The forward reference resolves before any event can be dispatched to the
+// subscriber, so getMailer() is always populated at call time.
+let mailerRef: import('@seta/shared-mailer').Mailer | undefined;
+const getMailer = (): import('@seta/shared-mailer').Mailer => {
+  if (!mailerRef) throw new Error('mailer not yet initialised');
+  return mailerRef;
+};
+
 const dispatcher = await startDispatcher({
   pool: getPool('worker'),
-  subscribers: [...reg.collected.subscribers],
+  // SubscriberDef<P> is invariant in P; cast to the bare form the dispatcher expects
+  subscribers: [
+    ...reg.collected.subscribers,
+    failedLoginAlertSubscriber({ getMailer }) as import('@seta/shared-types').SubscriberDef,
+  ],
 });
 log.info('dispatcher started');
 
@@ -124,8 +138,8 @@ const mailer = createMailer({
     }),
   log: mailerLog,
 });
+mailerRef = mailer;
 log.info('mailer wired');
-void mailer;
 
 const { app } = buildServerApp(reg, {
   pool: getPool('worker'),
