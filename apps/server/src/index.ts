@@ -126,6 +126,7 @@ void mailer;
 const { app } = buildServerApp(reg, {
   pool: getPool('worker'),
   databaseUrl: env.DATABASE_URL,
+  workers: { addJob: enqueue, shutdown: async () => {} },
   readinessSnapshot: () => dispatcher.health(),
   boardStreamHub,
   notificationStreamHub,

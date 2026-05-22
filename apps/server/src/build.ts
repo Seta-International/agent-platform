@@ -42,6 +42,7 @@ import { registerUsersEmailRoutes } from './routes/users-email.ts';
 export type BuildServerAppDeps = {
   pool: Pool;
   databaseUrl: string;
+  workers: WorkerHandle;
   readinessSnapshot?: () => { lastTickAt: Date };
   boardStreamHub?: BoardStreamHub;
   notificationStreamHub?: NotificationStreamHub;
@@ -144,7 +145,7 @@ export function buildServerApp(
   registerSsoProvidersRoutes(app);
   registerSsoEntraGraphRoutes(app);
   registerTenantSettingsRoutes(app);
-  registerKnowledgeRoutes(app);
+  registerKnowledgeRoutes(app, { workers: deps.workers });
   registerPlannerGroupsRoutes(app);
   registerPlannerPlansRoutes(app);
   registerPlannerBucketsRoutes(app);

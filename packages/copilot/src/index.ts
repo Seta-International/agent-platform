@@ -26,7 +26,7 @@ export type {
   ListKnowledgeFilesInput,
 } from './backend/knowledge/list-files.ts';
 export { listKnowledgeFiles } from './backend/knowledge/list-files.ts';
-export type { MarkProcessedInput } from './backend/knowledge/mark-processed.ts';
+export type { MarkProcessedDeps, MarkProcessedInput } from './backend/knowledge/mark-processed.ts';
 export { markKnowledgeFileProcessed } from './backend/knowledge/mark-processed.ts';
 export type {
   RequestKnowledgeUploadInput,
