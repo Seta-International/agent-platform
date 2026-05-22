@@ -86,15 +86,22 @@ describe('matchUsersToTopic', () => {
             provider,
           });
 
+          // minScore: 0 bypasses the threshold so the fake provider's near-zero
+          // cosine similarities don't filter out all results.
           const hits = await matchUsersToTopic(
-            { topic: 'infrastructure provisioning with terraform', tenant_id: tenantId, limit: 5 },
+            {
+              topic: 'infrastructure provisioning with terraform',
+              tenant_id: tenantId,
+              limit: 5,
+              minScore: 0,
+            },
             { provider, pool },
           );
 
           expect(hits).toHaveLength(1);
           const hit = hits[0]!;
           expect(hit.item.user_id).toBe(userId);
-          expect(hit.item.name).toBe('Alice');
+          expect(hit.item.display_name).toBe('Alice');
           expect(hit.score).toBeGreaterThan(0);
           expect(hit.rank).toBe(1);
           expect(hit.source).toBe('vector');
@@ -143,7 +150,7 @@ describe('matchUsersToTopic', () => {
           });
 
           const hits = await matchUsersToTopic(
-            { topic: 'python web development', tenant_id: tenantId, limit: 1 },
+            { topic: 'python web development', tenant_id: tenantId, limit: 1, minScore: 0 },
             { provider, pool },
           );
 
@@ -239,7 +246,8 @@ describe('matchUsersToTopic', () => {
             provider,
           });
 
-          // minScore of 1.0 is impossible (cosine similarity tops at 1 but score = 1/(1+rank)).
+          // minScore 1.0 is the maximum possible cosine similarity; two distinct strings
+          // will never reach it with a deterministic fake provider, so zero hits are expected.
           const hits = await matchUsersToTopic(
             { topic: 'java spring boot', tenant_id: tenantId, limit: 5, minScore: 1.0 },
             { provider, pool },

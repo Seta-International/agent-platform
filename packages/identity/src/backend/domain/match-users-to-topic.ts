@@ -6,7 +6,7 @@ const HNSW_EF_SEARCH = Number(process.env.HNSW_EF_SEARCH ?? 100);
 
 export interface UserMatch {
   user_id: string;
-  name: string;
+  display_name: string;
   email: string;
   skills: string[];
 }
@@ -36,46 +36,36 @@ export async function matchUsersToTopic(
 ): Promise<RetrievalHit<UserMatch>[]> {
   const cache = deps.embedQueryCache ?? defaultCache;
 
-  const [queryVector] = await Promise.all([
-    cache.get(deps.provider.modelId, input.topic, async () => {
-      const [vec] = await deps.provider.embed([input.topic]);
-      return vec as number[];
-    }),
-  ]);
+  const queryVector = await cache.get(deps.provider.modelId, input.topic, async () => {
+    const [vec] = await deps.provider.embed([input.topic]);
+    return vec as number[];
+  });
 
   const { tenant_id, limit } = input;
-  const overscan = Math.max(limit * 4, 50);
+  const minScore = input.minScore ?? 0.5;
   const vectorLiteral = `[${queryVector.join(',')}]`;
 
   const sql = `
-    WITH ranked AS (
-      SELECT upe.user_id,
-             ROW_NUMBER() OVER (ORDER BY upe.embedding <=> $2::halfvec) AS rank
-        FROM identity.user_profile_embeddings upe
-       WHERE upe.tenant_id = $1
-       ORDER BY upe.embedding <=> $2::halfvec
-       LIMIT $4
-    )
-    SELECT r.rank,
-           u.id       AS user_id,
-           u.name,
+    SELECT u.id AS user_id,
+           u.name AS display_name,
            u.email,
-           COALESCE(up.skills, ARRAY[]::text[]) AS skills
-      FROM ranked r
-      JOIN identity."user" u ON u.id = r.user_id
-      LEFT JOIN identity.user_profile up ON up.user_id = r.user_id
-     WHERE u.tenant_id = $1
-       AND u.deactivated_at IS NULL
-     ORDER BY r.rank
-     LIMIT $3
+           COALESCE(p.skills, ARRAY[]::text[]) AS skills,
+           1 - (e.embedding <=> $2::halfvec) AS score
+      FROM identity.user_profile_embeddings e
+      JOIN identity."user" u ON u.id = e.user_id
+      JOIN identity.user_profile p ON p.user_id = e.user_id
+     WHERE e.tenant_id = $1
+       AND (1 - (e.embedding <=> $2::halfvec)) >= $3
+     ORDER BY e.embedding <=> $2::halfvec
+     LIMIT $4
   `;
 
   interface UserRow {
-    rank: string;
     user_id: string;
-    name: string;
+    display_name: string;
     email: string;
     skills: string[];
+    score: string;
   }
 
   const client = await deps.pool.connect();
@@ -83,28 +73,20 @@ export async function matchUsersToTopic(
     await client.query('BEGIN');
     try {
       await client.query(`SET LOCAL hnsw.ef_search = ${HNSW_EF_SEARCH}`);
-      const result = await client.query<UserRow>(sql, [tenant_id, vectorLiteral, limit, overscan]);
+      const result = await client.query<UserRow>(sql, [tenant_id, vectorLiteral, minScore, limit]);
       await client.query('COMMIT');
 
-      const hits: RetrievalHit<UserMatch>[] = [];
-      let outRank = 0;
-      for (const row of result.rows) {
-        outRank += 1;
-        const score = 1 / (1 + outRank);
-        if (input.minScore !== undefined && score < input.minScore) continue;
-        hits.push({
-          item: {
-            user_id: row.user_id,
-            name: row.name,
-            email: row.email,
-            skills: row.skills,
-          },
-          score,
-          rank: outRank,
-          source: 'vector',
-        });
-      }
-      return hits;
+      return result.rows.map((r, i) => ({
+        item: {
+          user_id: r.user_id,
+          display_name: r.display_name,
+          email: r.email,
+          skills: r.skills,
+        },
+        score: Number(r.score),
+        rank: i + 1,
+        source: 'vector',
+      }));
     } catch (err) {
       await client.query('ROLLBACK');
       throw err;

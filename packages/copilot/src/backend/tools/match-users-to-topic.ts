@@ -32,7 +32,7 @@ const outputSchema = z.object({
     z.object({
       user: z.object({
         user_id: z.string(),
-        name: z.string(),
+        display_name: z.string(),
         email: z.string(),
         skills: z.array(z.string()),
       }),

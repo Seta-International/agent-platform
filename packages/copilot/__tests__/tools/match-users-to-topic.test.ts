@@ -97,7 +97,7 @@ describe('matchUsersToTopicTool', () => {
 
       const actor = { type: 'user' as const, user_id: 'test-user-id' };
       const result = await tool.execute(
-        { topic: 'infrastructure kubernetes', limit: 5 },
+        { topic: 'infrastructure kubernetes', limit: 5, min_score: 0 },
         makeFakeCtx(actor),
       );
 
@@ -107,7 +107,7 @@ describe('matchUsersToTopicTool', () => {
       expect(candidates).toHaveLength(1);
       const c = candidates[0]!;
       expect(c.user.user_id).toBe(userId);
-      expect(c.user.name).toBe('Alice');
+      expect(c.user.display_name).toBe('Alice');
       expect(c.match_score).toBeGreaterThan(0);
       expect(c.source).toBe('vector');
     }));
@@ -152,7 +152,7 @@ describe('matchUsersToTopicTool', () => {
 
       const actor = { type: 'user' as const, user_id: 'test-user-id' };
       const result = await tool.execute(
-        { topic: 'python web development', limit: 2 },
+        { topic: 'python web development', limit: 2, min_score: 0 },
         makeFakeCtx(actor),
       );
 
