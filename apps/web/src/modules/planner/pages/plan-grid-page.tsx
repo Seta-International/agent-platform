@@ -192,17 +192,20 @@ export function PlanGridPage({
   return (
     <div className="plan-grid-page">
       <div className="plan-toolbar">
-        <PlanFilterBar
-          filters={filters}
-          onChange={onFiltersChange}
-          assigneeOptions={filterOptions.assigneeOptions}
-          labelOptions={filterOptions.labelOptions}
-          skillOptions={filterOptions.skillOptions}
-        />
-        <GridGroupBySelector value={groupBy} onChange={onGroupByChange} />
+        <div className="plan-toolbar__left">
+          <PlanFilterBar
+            filters={filters}
+            onChange={onFiltersChange}
+            assigneeOptions={filterOptions.assigneeOptions}
+            labelOptions={filterOptions.labelOptions}
+            skillOptions={filterOptions.skillOptions}
+          />
+          <div className="plan-toolbar__divider" aria-hidden="true" />
+          <PlanViewSwitcher value={view} onChange={onViewChange} />
+          <GridGroupBySelector value={groupBy} onChange={onGroupByChange} />
+        </div>
         <div className="plan-toolbar__right">
           {onQChange && <PlanSearchInput value={q} onChange={onQChange} />}
-          <PlanViewSwitcher value={view} onChange={onViewChange} />
         </div>
       </div>
       <TaskGrid
