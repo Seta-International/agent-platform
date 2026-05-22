@@ -60,10 +60,48 @@ describe('GroupRail', () => {
     expect(onAddMember).toHaveBeenCalled();
   });
 
-  it("renders 'Recent activity' card with ComingSoon", () => {
+  it("renders 'Recent activity' card with a loading hint when activityItems is undefined", () => {
     render(<GroupRail group={baseGroup} members={[]} canManage onAddMember={vi.fn()} />);
     expect(screen.getByText('Recent activity', { selector: 'h3' })).toBeInTheDocument();
-    expect(screen.getByText(/Recent activity is coming soon/)).toBeInTheDocument();
+    expect(screen.getByText(/Loading activity/)).toBeInTheDocument();
+  });
+
+  it("'Recent activity' shows an empty-state when activityItems is []", () => {
+    render(
+      <GroupRail
+        group={baseGroup}
+        members={[]}
+        canManage
+        onAddMember={vi.fn()}
+        activityItems={[]}
+      />,
+    );
+    expect(screen.getByText(/No activity in the last 7 days/)).toBeInTheDocument();
+  });
+
+  it("'Recent activity' renders each item with actor + verb + relative time", () => {
+    render(
+      <GroupRail
+        group={baseGroup}
+        members={[]}
+        canManage
+        onAddMember={vi.fn()}
+        activityItems={[
+          {
+            event_id: 'e1',
+            event_type: 'planner.task.created',
+            verb: 'created task',
+            target_title: 'Ship M3 spec',
+            occurred_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+            actor_user_id: 'u1',
+            actor_display_name: 'Jane Doe',
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByText('Jane Doe')).toBeInTheDocument();
+    expect(screen.getByText('created task')).toBeInTheDocument();
+    expect(screen.getByText('Ship M3 spec')).toBeInTheDocument();
   });
 
   it('Properties card shows Visibility/Source/Default role/Created', () => {

@@ -19,6 +19,7 @@ export { deleteLabel } from './backend/domain/delete-label.ts';
 export { deletePlan } from './backend/domain/delete-plan.ts';
 export { deleteTask } from './backend/domain/delete-task.ts';
 export { getGroup } from './backend/domain/get-group.ts';
+export { getGroupActivity } from './backend/domain/get-group-activity.ts';
 export { getPlan } from './backend/domain/get-plan.ts';
 export { getPlanChartData } from './backend/domain/get-plan-chart-data.ts';
 export { getTask } from './backend/domain/get-task.ts';
@@ -80,6 +81,8 @@ export type {
   BucketRow,
   ChartData,
   ChecklistItemRow,
+  GroupActivityItem,
+  GroupActivityResult,
   GroupMemberRow,
   GroupRow,
   GroupSyncStatus,

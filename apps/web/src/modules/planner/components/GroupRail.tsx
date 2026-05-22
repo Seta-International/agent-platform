@@ -1,5 +1,13 @@
-import type { GroupMemberRow, GroupRow } from '@seta/planner';
-import { Avatar, AvatarFallback, Button, Card, CardContent, ComingSoon, cn } from '@seta/shared-ui';
+import type { GroupActivityItem, GroupMemberRow, GroupRow } from '@seta/planner';
+import {
+  Avatar,
+  AvatarFallback,
+  Button,
+  Card,
+  CardContent,
+  cn,
+  formatRelative,
+} from '@seta/shared-ui';
 import { ChevronRight, Plus, Shield, Users } from 'lucide-react';
 import type { ReactNode } from 'react';
 
@@ -9,6 +17,8 @@ interface Props {
   canManage: boolean;
   onAddMember: () => void;
   shownMemberCount?: number;
+  /** Recent items from getGroupActivity; `null` while loading. */
+  activityItems?: ReadonlyArray<GroupActivityItem> | null;
 }
 
 function initials(name: string): string {
@@ -32,6 +42,50 @@ interface PropertyRowProps {
   value: ReactNode;
 }
 
+function ActivityList({ items }: { items: ReadonlyArray<GroupActivityItem> | null | undefined }) {
+  if (items === undefined) {
+    return <p className="text-xs text-ink-subtle">Loading activity…</p>;
+  }
+  if (items === null) {
+    return <p className="text-xs text-ink-subtle">Activity unavailable.</p>;
+  }
+  if (items.length === 0) {
+    return <p className="text-xs text-ink-subtle">No activity in the last 7 days.</p>;
+  }
+  return (
+    <ul className="flex flex-col gap-2">
+      {items.map((item) => (
+        <li key={item.event_id} className="flex items-start gap-2 text-sm">
+          <Avatar className="size-6 shrink-0">
+            <AvatarFallback className="text-[10px] font-semibold">
+              {item.actor_display_name ? itemInitials(item.actor_display_name) : '?'}
+            </AvatarFallback>
+          </Avatar>
+          <div className="min-w-0 flex-1">
+            <div className="truncate">
+              <span className="font-medium">{item.actor_display_name ?? 'Someone'}</span>{' '}
+              <span className="text-ink-muted">{item.verb}</span>
+              {item.target_title ? (
+                <>
+                  {' '}
+                  <span className="font-medium">{item.target_title}</span>
+                </>
+              ) : null}
+            </div>
+            <div className="text-xs text-ink-subtle">{formatRelative(item.occurred_at)}</div>
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function itemInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase();
+}
+
 function PropertyRow({ label, value }: PropertyRowProps) {
   return (
     <div className="flex items-center justify-between py-1.5 text-sm">
@@ -41,7 +95,14 @@ function PropertyRow({ label, value }: PropertyRowProps) {
   );
 }
 
-export function GroupRail({ group, members, canManage, onAddMember, shownMemberCount = 7 }: Props) {
+export function GroupRail({
+  group,
+  members,
+  canManage,
+  onAddMember,
+  shownMemberCount = 7,
+  activityItems,
+}: Props) {
   const visibleMembers = members.slice(0, shownMemberCount);
   const hasMore = members.length > shownMemberCount;
 
@@ -114,7 +175,7 @@ export function GroupRail({ group, members, canManage, onAddMember, shownMemberC
           <h3 className="mb-2 text-eyebrow uppercase tracking-wide text-ink-subtle">
             Recent activity
           </h3>
-          <ComingSoon feature="Recent activity" />
+          <ActivityList items={activityItems} />
         </CardContent>
       </Card>
 

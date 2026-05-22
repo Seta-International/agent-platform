@@ -1,6 +1,7 @@
 import type {
   BucketRow,
   ChecklistItemRow,
+  GroupActivityResult,
   GroupMemberRow,
   GroupRow,
   GroupSyncStatus,
@@ -80,6 +81,18 @@ async function listMyGroups(): Promise<GroupRow[]> {
 
 async function getGroup(group_id: string): Promise<GroupRow> {
   return (await request<GroupRow>(`/api/planner/v1/groups/${group_id}`)) as GroupRow;
+}
+
+async function getGroupActivity(
+  group_id: string,
+  opts: { since?: string; limit?: number } = {},
+): Promise<GroupActivityResult> {
+  const q = new URLSearchParams();
+  if (opts.since) q.set('since', opts.since);
+  if (opts.limit !== undefined) q.set('limit', String(opts.limit));
+  return (await request<GroupActivityResult>(
+    `/api/planner/v1/groups/${group_id}/activity${q.toString() ? `?${q}` : ''}`,
+  )) as GroupActivityResult;
 }
 
 async function createGroup(input: {
@@ -641,6 +654,7 @@ export const plannerClient = {
   listGroupsWithCounts,
   listMyGroups,
   getGroup,
+  getGroupActivity,
   createGroup,
   updateGroup,
   deleteGroup,

@@ -4,6 +4,7 @@ import {
   createGroup,
   deleteGroup,
   getGroup,
+  getGroupActivity,
   linkGroupToM365,
   listGroupMembers,
   listGroups,
@@ -116,6 +117,22 @@ export function registerPlannerGroupsRoutes(app: Hono<SessionEnv>): void {
   app.get('/api/planner/v1/groups/:id/members', async (c) => {
     const session = c.get('user');
     return c.json({ members: await listGroupMembers({ group_id: c.req.param('id'), session }) });
+  });
+
+  app.get('/api/planner/v1/groups/:id/activity', async (c) => {
+    const session = c.get('user');
+    const sinceParam = c.req.query('since');
+    const limitParam = c.req.query('limit');
+    const since = sinceParam ?? new Date(Date.now() - 7 * 86_400_000).toISOString();
+    const limit = limitParam ? Math.min(Math.max(Number.parseInt(limitParam, 10), 1), 50) : 8;
+    return c.json(
+      await getGroupActivity({
+        group_id: c.req.param('id'),
+        since,
+        limit,
+        session,
+      }),
+    );
   });
 
   app.post('/api/planner/v1/groups/:id/members', async (c) => {

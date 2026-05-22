@@ -4,6 +4,8 @@ interface Props {
   planCount: number;
   openTaskCount: number;
   memberCount: number;
+  /** Total events touching the group in the last 7 days. Null while loading. */
+  activityCount?: number | null;
 }
 
 interface Stat {
@@ -12,7 +14,18 @@ interface Stat {
   sub: string;
 }
 
-export function GroupStatRow({ planCount, openTaskCount, memberCount }: Props) {
+export function GroupStatRow({ planCount, openTaskCount, memberCount, activityCount }: Props) {
+  const activityValue =
+    activityCount === undefined || activityCount === null ? '—' : String(activityCount);
+  const activitySub =
+    activityCount === undefined
+      ? 'Loading…'
+      : activityCount === null
+        ? 'Unavailable'
+        : activityCount === 1
+          ? 'event in last 7 days'
+          : 'events in last 7 days';
+
   const stats: Stat[] = [
     {
       label: 'Plans',
@@ -31,8 +44,8 @@ export function GroupStatRow({ planCount, openTaskCount, memberCount }: Props) {
     },
     {
       label: 'Activity (7d)',
-      value: '—',
-      sub: 'Coming soon',
+      value: activityValue,
+      sub: activitySub,
     },
   ];
 

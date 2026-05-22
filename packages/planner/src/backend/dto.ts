@@ -69,6 +69,25 @@ export interface PlanRow {
   version: number;
 }
 
+export interface GroupActivityItem {
+  event_id: string;
+  event_type: string;
+  /** Human-friendly verb derived from event_type, e.g. "moved task" or "added member". */
+  verb: string;
+  /** Payload title/name when present, otherwise null. UI may render "<verb> <target_title>". */
+  target_title: string | null;
+  occurred_at: string;
+  actor_user_id: string | null;
+  /** Resolved from planner.assignee_projection; null when projection lookup misses. */
+  actor_display_name: string | null;
+}
+
+export interface GroupActivityResult {
+  /** Total events in the window (independent of `items.length`, which is capped by `limit`). */
+  count: number;
+  items: ReadonlyArray<GroupActivityItem>;
+}
+
 export type PlanStatus = 'on-track' | 'at-risk' | 'off-track';
 
 export interface PlanWithRollupsRow extends PlanRow {

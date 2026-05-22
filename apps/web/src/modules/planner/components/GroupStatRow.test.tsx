@@ -18,9 +18,21 @@ describe('GroupStatRow', () => {
     expect(screen.getByText('5')).toBeInTheDocument();
   });
 
-  it('renders "—" and "Coming soon" for the Activity (7d) stat', () => {
+  it('shows "—" + Loading… for Activity (7d) when activityCount is undefined (loading)', () => {
     render(<GroupStatRow planCount={0} openTaskCount={0} memberCount={0} />);
     expect(screen.getByText('—')).toBeInTheDocument();
-    expect(screen.getByText(/Coming soon/i)).toBeInTheDocument();
+    expect(screen.getByText(/Loading…/i)).toBeInTheDocument();
+  });
+
+  it('shows the activity count + "events in last 7 days" when activityCount is a number', () => {
+    render(<GroupStatRow planCount={0} openTaskCount={0} memberCount={0} activityCount={42} />);
+    expect(screen.getByText('42')).toBeInTheDocument();
+    expect(screen.getByText(/events in last 7 days/i)).toBeInTheDocument();
+  });
+
+  it('shows "—" + Unavailable when activityCount is null (load failed)', () => {
+    render(<GroupStatRow planCount={0} openTaskCount={0} memberCount={0} activityCount={null} />);
+    expect(screen.getByText('—')).toBeInTheDocument();
+    expect(screen.getByText(/Unavailable/i)).toBeInTheDocument();
   });
 });

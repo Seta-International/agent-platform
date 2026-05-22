@@ -21,6 +21,9 @@ export interface AuditQueryOpts {
   tenant_id: string;
   event_type?: string;
   aggregate_id?: string;
+  /** When set, restricts results to events whose aggregate_id is in this list. Combined with
+   *  aggregate_id (single) via AND when both are provided. */
+  aggregate_ids?: ReadonlyArray<string>;
   from?: string;
   to?: string;
   limit: number;
@@ -36,6 +39,7 @@ export async function queryAudit(
     tenant_id,
     event_type,
     aggregate_id,
+    aggregate_ids,
     from: fromTs,
     to: toTs,
     limit,
@@ -43,6 +47,14 @@ export async function queryAudit(
     sort_by = 'occurred_at',
     sort_dir = 'desc',
   } = opts;
+
+  if (aggregate_ids !== undefined && aggregate_ids.length === 0) {
+    return { rows: [], total: 0 };
+  }
+  const aggregateIdsFilter =
+    aggregate_ids && aggregate_ids.length > 0
+      ? sql`AND aggregate_id = ANY(${aggregate_ids}::text[])`
+      : sql``;
 
   const orderBy =
     sort_by === 'event_type'
@@ -59,6 +71,7 @@ export async function queryAudit(
     WHERE tenant_id = ${tenant_id}::uuid
       ${event_type ? sql`AND event_type = ${event_type}` : sql``}
       ${aggregate_id ? sql`AND aggregate_id = ${aggregate_id}` : sql``}
+      ${aggregateIdsFilter}
       ${fromTs ? sql`AND occurred_at >= ${fromTs}::timestamptz` : sql``}
       ${toTs ? sql`AND occurred_at < ${toTs}::timestamptz` : sql``}
     ${orderBy}
@@ -71,6 +84,7 @@ export async function queryAudit(
     WHERE tenant_id = ${tenant_id}::uuid
       ${event_type ? sql`AND event_type = ${event_type}` : sql``}
       ${aggregate_id ? sql`AND aggregate_id = ${aggregate_id}` : sql``}
+      ${aggregateIdsFilter}
       ${fromTs ? sql`AND occurred_at >= ${fromTs}::timestamptz` : sql``}
       ${toTs ? sql`AND occurred_at < ${toTs}::timestamptz` : sql``}
   `);

@@ -106,6 +106,9 @@ function defaultHandlers() {
       }),
     ),
     http.get('*/api/planner/v1/groups/g1/members', () => HttpResponse.json({ members: [] })),
+    http.get('*/api/planner/v1/groups/g1/activity*', () =>
+      HttpResponse.json({ count: 0, items: [] }),
+    ),
     http.get('*/api/integrations/m365/groups/g1/sync-status', () =>
       HttpResponse.json({ sync_status: null }),
     ),
