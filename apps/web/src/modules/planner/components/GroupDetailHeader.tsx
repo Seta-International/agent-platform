@@ -158,6 +158,12 @@ export function GroupDetailHeader({
                 </>
               )}
             </div>
+            {isLinked && (
+              <p className="mt-1 text-body-sm text-ink-subtle" data-testid="m365-auto-mirror-info">
+                Plans in this group are mirrored to and from M365 Planner automatically. Native
+                plans you create here will be pushed to M365 as new Planner plans.
+              </p>
+            )}
           </div>
 
           {/* Right: action buttons */}

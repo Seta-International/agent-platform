@@ -86,9 +86,14 @@ export function PlanCategoriesSettingsPage({ planId }: Props) {
             <span className="text-ink">Categories</span>
           </span>
         </nav>
-        <h1 className="text-card-title font-semibold text-ink mb-3">
+        <h1 className="text-card-title font-semibold text-ink mb-1">
           Categories{planName ? ` · ${planName}` : ''}
         </h1>
+        <p className="mb-3 text-body-sm text-ink-subtle" data-testid="categories-sync-subhead">
+          {planForGroup?.external_source === 'm365'
+            ? 'Synced to M365 Planner'
+            : 'Local to this plan'}
+        </p>
         <PlanSettingsTabStrip
           activeTab="categories"
           counts={{ buckets, members: 0, categories: counts.categories }}

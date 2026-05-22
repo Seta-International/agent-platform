@@ -101,6 +101,16 @@ describe('PlanCategoriesSettingsPage', () => {
     expect(screen.getByDisplayValue('Backend')).toBeInTheDocument();
   });
 
+  it('renders the sync subhead reflecting the plan link state', async () => {
+    server.use(
+      http.get('/api/planner/v1/plans/p1/categories', () => HttpResponse.json(CATEGORIES_RESPONSE)),
+    );
+    renderPage('p1');
+    const subhead = await screen.findByTestId('categories-sync-subhead');
+    // Default native fixture: subhead shows "Local to this plan".
+    expect(subhead.textContent).toMatch(/Local to this plan/);
+  });
+
   it('renders the "Heads up" helper card', async () => {
     server.use(
       http.get('/api/planner/v1/plans/p1/categories', () => HttpResponse.json(CATEGORIES_RESPONSE)),

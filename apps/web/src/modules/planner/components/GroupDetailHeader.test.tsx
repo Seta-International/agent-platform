@@ -187,6 +187,35 @@ describe('GroupDetailHeader', () => {
     expect(screen.queryByText(/Sync/i)).not.toBeInTheDocument();
   });
 
+  it('does not show the auto-mirror info line for native groups', async () => {
+    server.use(
+      http.get('/api/integrations/m365/groups/:groupId/sync-status', () =>
+        HttpResponse.json({ sync_status: null }),
+      ),
+    );
+    renderInRouter(
+      <GroupDetailHeader {...baseProps} group={{ ...baseGroup, external_source: 'native' }} />,
+    );
+    await screen.findByRole('heading', { name: 'Engineering' });
+    expect(screen.queryByTestId('m365-auto-mirror-info')).not.toBeInTheDocument();
+  });
+
+  it('shows the auto-mirror info line for m365-linked groups', async () => {
+    server.use(
+      http.get('/api/integrations/m365/groups/:groupId/sync-status', () =>
+        HttpResponse.json({ sync_status: 'idle', synced_at: null, last_error: null }),
+      ),
+    );
+    renderInRouter(
+      <GroupDetailHeader
+        {...baseProps}
+        group={{ ...baseGroup, external_source: 'm365', external_id: 'ext-1' }}
+      />,
+    );
+    const info = await screen.findByTestId('m365-auto-mirror-info');
+    expect(info.textContent).toMatch(/mirrored to and from M365 Planner/);
+  });
+
   it('shows SyncBadge with Synced text for m365 group with idle status', async () => {
     server.use(
       http.get('/api/integrations/m365/groups/:groupId/sync-status', () =>
