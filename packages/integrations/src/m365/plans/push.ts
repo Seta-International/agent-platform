@@ -1,5 +1,6 @@
 import type { DomainEvent, NodeTx, SubscriberCtx, SubscriberDef } from '@seta/shared-types';
 import { sql } from 'drizzle-orm';
+import { pushEchoSuppressedCounter } from '../observability.ts';
 import type { ResourceType } from './repo.ts';
 import { createM365PlanLinkRepo } from './repo.ts';
 
@@ -110,8 +111,12 @@ interface LabelUnappliedPayload extends ActorBearing, PlanIdBearing, TaskIdBeari
   label_id: string;
 }
 
-function isEcho(payload: ActorBearing): boolean {
-  return payload.actor?.type === 'system' && payload.actor.system_id === M365_SYSTEM_ID;
+function isEcho(payload: ActorBearing, tenantId: string): boolean {
+  if (payload.actor?.type === 'system' && payload.actor.system_id === M365_SYSTEM_ID) {
+    pushEchoSuppressedCounter.add(1, { tenant_id: tenantId });
+    return true;
+  }
+  return false;
 }
 
 async function enqueueJob(
@@ -223,7 +228,7 @@ async function handlePlanCreated(
   ctx: SubscriberCtx,
 ): Promise<void> {
   const p = event.payload;
-  if (isEcho(p)) return;
+  if (isEcho(p, event.tenantId)) return;
   // Auto-create only fires for a native plan inside an M365-linked group.
   if (p.after.external_source !== 'native') return;
   if (!(await isGroupLinked(ctx.tx, event.tenantId, p.after.group_id))) return;
@@ -240,7 +245,7 @@ async function handlePlanUpdated(
   ctx: SubscriberCtx,
 ): Promise<void> {
   const p = event.payload;
-  if (isEcho(p)) return;
+  if (isEcho(p, event.tenantId)) return;
   await enqueueUpdate(ctx, event.tenantId, p.plan_id, 'plan', p.plan_id, p.changed_fields);
 }
 
@@ -249,7 +254,7 @@ async function handlePlanDeleted(
   ctx: SubscriberCtx,
 ): Promise<void> {
   const p = event.payload;
-  if (isEcho(p)) return;
+  if (isEcho(p, event.tenantId)) return;
   await enqueueDelete(ctx, event.tenantId, p.plan_id, 'plan', p.plan_id);
 }
 
@@ -258,7 +263,7 @@ async function handlePlanCategoryDescriptionChanged(
   ctx: SubscriberCtx,
 ): Promise<void> {
   const p = event.payload;
-  if (isEcho(p)) return;
+  if (isEcho(p, event.tenantId)) return;
   await enqueueUpdate(ctx, event.tenantId, p.plan_id, 'planDetails', p.plan_id, [
     'categoryDescriptions',
   ]);
@@ -273,7 +278,7 @@ async function handleBucketCreated(
   ctx: SubscriberCtx,
 ): Promise<void> {
   const p = event.payload;
-  if (isEcho(p)) return;
+  if (isEcho(p, event.tenantId)) return;
   if (!(await isPlanLinked(ctx.tx, p.after.plan_id))) return;
   await enqueueJob(ctx.tx, 'm365.plan.push-create-bucket', {
     tenant_id: event.tenantId,
@@ -287,7 +292,7 @@ async function handleBucketUpdated(
   ctx: SubscriberCtx,
 ): Promise<void> {
   const p = event.payload;
-  if (isEcho(p)) return;
+  if (isEcho(p, event.tenantId)) return;
   const changed: string[] = [];
   if (p.after.name !== undefined) changed.push('name');
   if (p.after.order_hint !== undefined) changed.push('orderHint');
@@ -300,7 +305,7 @@ async function handleBucketDeleted(
   ctx: SubscriberCtx,
 ): Promise<void> {
   const p = event.payload;
-  if (isEcho(p)) return;
+  if (isEcho(p, event.tenantId)) return;
   await enqueueDelete(ctx, event.tenantId, p.plan_id, 'bucket', p.bucket_id);
 }
 
@@ -329,7 +334,7 @@ async function handleTaskCreated(
   ctx: SubscriberCtx,
 ): Promise<void> {
   const p = event.payload;
-  if (isEcho(p)) return;
+  if (isEcho(p, event.tenantId)) return;
   if (p.after.external_source !== 'native') return;
   if (!(await isPlanLinked(ctx.tx, p.after.plan_id))) return;
   await enqueueJob(ctx.tx, 'm365.plan.push-create-task', {
@@ -344,7 +349,7 @@ async function handleTaskUpdated(
   ctx: SubscriberCtx,
 ): Promise<void> {
   const p = event.payload;
-  if (isEcho(p)) return;
+  if (isEcho(p, event.tenantId)) return;
   const taskFields: string[] = [];
   const detailsFields: string[] = [];
   for (const f of p.changed_fields) {
@@ -366,7 +371,7 @@ async function handleTaskDeleted(
   ctx: SubscriberCtx,
 ): Promise<void> {
   const p = event.payload;
-  if (isEcho(p)) return;
+  if (isEcho(p, event.tenantId)) return;
   await enqueueDelete(ctx, event.tenantId, p.plan_id, 'task', p.task_id);
 }
 
@@ -375,7 +380,7 @@ async function handleTaskMoved(
   ctx: SubscriberCtx,
 ): Promise<void> {
   const p = event.payload;
-  if (isEcho(p)) return;
+  if (isEcho(p, event.tenantId)) return;
   const taskFields: string[] = [];
   if (p.before.bucket_id !== p.after.bucket_id) taskFields.push('bucketId');
   if (p.before.order_hint !== p.after.order_hint) taskFields.push('orderHint');
@@ -393,7 +398,7 @@ async function handleTaskCompleted(
   ctx: SubscriberCtx,
 ): Promise<void> {
   const p = event.payload;
-  if (isEcho(p)) return;
+  if (isEcho(p, event.tenantId)) return;
   await enqueueUpdate(ctx, event.tenantId, p.plan_id, 'task', p.task_id, ['percentComplete']);
 }
 
@@ -402,7 +407,7 @@ async function handleTaskReopened(
   ctx: SubscriberCtx,
 ): Promise<void> {
   const p = event.payload;
-  if (isEcho(p)) return;
+  if (isEcho(p, event.tenantId)) return;
   await enqueueUpdate(ctx, event.tenantId, p.plan_id, 'task', p.task_id, ['percentComplete']);
 }
 
@@ -411,7 +416,7 @@ async function handleTaskAssigned(
   ctx: SubscriberCtx,
 ): Promise<void> {
   const p = event.payload;
-  if (isEcho(p)) return;
+  if (isEcho(p, event.tenantId)) return;
   await enqueueUpdate(ctx, event.tenantId, p.plan_id, 'task', p.task_id, ['assignments']);
 }
 
@@ -420,7 +425,7 @@ async function handleTaskUnassigned(
   ctx: SubscriberCtx,
 ): Promise<void> {
   const p = event.payload;
-  if (isEcho(p)) return;
+  if (isEcho(p, event.tenantId)) return;
   await enqueueUpdate(ctx, event.tenantId, p.plan_id, 'task', p.task_id, ['assignments']);
 }
 
@@ -429,7 +434,7 @@ async function handleTaskReferenceAdded(
   ctx: SubscriberCtx,
 ): Promise<void> {
   const p = event.payload;
-  if (isEcho(p)) return;
+  if (isEcho(p, event.tenantId)) return;
   await enqueueUpdate(ctx, event.tenantId, p.plan_id, 'taskDetails', p.task_id, ['references']);
 }
 
@@ -438,7 +443,7 @@ async function handleTaskReferenceRemoved(
   ctx: SubscriberCtx,
 ): Promise<void> {
   const p = event.payload;
-  if (isEcho(p)) return;
+  if (isEcho(p, event.tenantId)) return;
   await enqueueUpdate(ctx, event.tenantId, p.plan_id, 'taskDetails', p.task_id, ['references']);
 }
 
@@ -451,7 +456,7 @@ async function handleChecklistAdded(
   ctx: SubscriberCtx,
 ): Promise<void> {
   const p = event.payload;
-  if (isEcho(p)) return;
+  if (isEcho(p, event.tenantId)) return;
   await enqueueUpdate(ctx, event.tenantId, p.plan_id, 'taskDetails', p.task_id, ['checklist']);
 }
 
@@ -460,7 +465,7 @@ async function handleChecklistUpdated(
   ctx: SubscriberCtx,
 ): Promise<void> {
   const p = event.payload;
-  if (isEcho(p)) return;
+  if (isEcho(p, event.tenantId)) return;
   await enqueueUpdate(ctx, event.tenantId, p.plan_id, 'taskDetails', p.task_id, ['checklist']);
 }
 
@@ -469,7 +474,7 @@ async function handleChecklistRemoved(
   ctx: SubscriberCtx,
 ): Promise<void> {
   const p = event.payload;
-  if (isEcho(p)) return;
+  if (isEcho(p, event.tenantId)) return;
   await enqueueUpdate(ctx, event.tenantId, p.plan_id, 'taskDetails', p.task_id, ['checklist']);
 }
 
@@ -482,7 +487,7 @@ async function handleLabelApplied(
   ctx: SubscriberCtx,
 ): Promise<void> {
   const p = event.payload;
-  if (isEcho(p)) return;
+  if (isEcho(p, event.tenantId)) return;
   await enqueueUpdate(ctx, event.tenantId, p.plan_id, 'task', p.task_id, ['appliedCategories']);
 }
 
@@ -491,7 +496,7 @@ async function handleLabelUnapplied(
   ctx: SubscriberCtx,
 ): Promise<void> {
   const p = event.payload;
-  if (isEcho(p)) return;
+  if (isEcho(p, event.tenantId)) return;
   await enqueueUpdate(ctx, event.tenantId, p.plan_id, 'task', p.task_id, ['appliedCategories']);
 }
 
