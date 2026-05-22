@@ -138,7 +138,18 @@ export function TaskDetailPage({ planId, taskId }: Props) {
             <TaskDetailPreviewTypeCard task={task} planId={planId} />
             <TaskDetailAssigneesCard task={task} planId={planId} />
             <TaskDetailLabelsCard task={task} planId={planId} />
-            <TaskDetailExternalCard task={task} />
+            <TaskDetailExternalCard
+              task={task}
+              plan={
+                plan
+                  ? {
+                      external_source: plan.external_source,
+                      external_id: plan.external_id,
+                      name: plan.name,
+                    }
+                  : undefined
+              }
+            />
           </aside>
         </div>
       </div>
