@@ -38,7 +38,7 @@ async function setup(
 }
 
 describe('getUserProfileForEmbedding', () => {
-  it('returns name, skills, and availability_status for an active user', async () => {
+  it('returns skills for an active user with skills', async () => {
     await withTestDb(
       {
         templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
@@ -58,7 +58,28 @@ describe('getUserProfileForEmbedding', () => {
 
           expect(result).not.toBeNull();
           expect(result?.skills).toEqual(['kubernetes', 'terraform']);
-          expect(result?.availability_status).toBe('available');
+        } finally {
+          resetCoreDb();
+          await closePools();
+        }
+      },
+    );
+  });
+
+  it('returns { skills: [] } for an active user with no skills', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+      },
+      async ({ pool, databaseUrl }) => {
+        resetCoreDb();
+        const { tenantId, userId } = await setup(pool, databaseUrl);
+        try {
+          const result = await getUserProfileForEmbedding({ tenant_id: tenantId, user_id: userId });
+
+          expect(result).not.toBeNull();
+          expect(result?.skills).toEqual([]);
         } finally {
           resetCoreDb();
           await closePools();

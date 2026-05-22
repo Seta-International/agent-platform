@@ -3,34 +3,26 @@ import { describe, expect, it } from 'vitest';
 import { buildUserProfileSource, type UserProfileSourceInput } from '../source.ts';
 
 describe('buildUserProfileSource', () => {
-  it('joins Name + Skills as labeled prose', () => {
+  it('joins skills as a comma-separated labeled line', () => {
     const input: UserProfileSourceInput = {
-      name: 'Alice',
       skills: ['terraform', 'kubernetes'],
-      availability_status: 'available',
     };
-    expect(buildUserProfileSource(input)).toBe(
-      'Name: Alice\nSkills: terraform, kubernetes\nAvailability: available',
-    );
+    expect(buildUserProfileSource(input)).toBe('Skills: terraform, kubernetes');
   });
 
-  it('omits Skills when empty array', () => {
+  it('returns empty string when skills is empty', () => {
     const input: UserProfileSourceInput = {
-      name: 'Bob',
       skills: [],
-      availability_status: 'busy',
     };
-    expect(buildUserProfileSource(input)).toBe('Name: Bob\nAvailability: busy');
+    expect(buildUserProfileSource(input)).toBe('');
   });
 
   it('hash-regression pin — known input produces known sha256', () => {
     const source = buildUserProfileSource({
-      name: 'Alice',
       skills: ['terraform', 'kubernetes'],
-      availability_status: 'available',
     });
     expect(sourceHash(source)).toBe(
-      'dd1e89b242cb99042284114395b9997eaaa46e1e7390c89c56e201b87c5afa19',
+      '8e5f082b3e786fb0f1d9b57864de99552d6da32c8a79e4d8f9e5336502a58ea6',
     );
   });
 });

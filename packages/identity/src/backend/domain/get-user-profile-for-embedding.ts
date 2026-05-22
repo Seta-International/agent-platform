@@ -4,7 +4,6 @@ import { user, userProfile } from '../../db/schema.ts';
 
 export interface UserProfileForEmbedding {
   skills: string[];
-  availability_status: 'available' | 'busy' | 'ooo';
 }
 
 export async function getUserProfileForEmbedding(input: {
@@ -14,7 +13,6 @@ export async function getUserProfileForEmbedding(input: {
   const [row] = await identityDb()
     .select({
       skills: userProfile.skills,
-      availability_status: userProfile.availability_status,
     })
     .from(user)
     .innerJoin(userProfile, eq(userProfile.user_id, user.id))
