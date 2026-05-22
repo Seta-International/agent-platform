@@ -33,4 +33,14 @@ export type IntegrationsEvent =
         group_id: string;
         conflict_fields: string[];
       };
+    }
+  | {
+      type: 'integrations.m365.assignee.skipped.v1';
+      payload: {
+        tenant_id: string;
+        plan_id: string;
+        task_id: string;
+        entra_oid: string;
+        reason: 'not_provisioned';
+      };
     };
