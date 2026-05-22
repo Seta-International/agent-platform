@@ -13,8 +13,8 @@ test('re-run a terminal run with edited inputs creates a new run', async ({ page
   await page.locator('[aria-label="status: success"]').first().waitFor({ timeout: 15_000 });
   await page.locator('a:has-text("new-task-skill-tag")').first().click();
 
-  // Open the re-run side sheet.
-  await page.getByRole('button', { name: /Re-run/ }).click();
+  // Open the re-run side sheet (run-header button is "Replay from start" after PR2 rename).
+  await page.getByRole('button', { name: /Replay from start/ }).click();
   await expect(page.getByRole('heading', { name: /Re-run workflow/i })).toBeVisible();
 
   // Schema-driven form is pre-filled from the prior run's inputSummary; submit unchanged.
@@ -37,7 +37,7 @@ test('invalid input in the re-run side sheet blocks submit', async ({ page }) =>
 
   await page.goto('/copilot/workflows');
   await page.locator('a:has-text("new-task-skill-tag")').first().click();
-  await page.getByRole('button', { name: /Re-run/ }).click();
+  await page.getByRole('button', { name: /Replay from start/ }).click();
 
   // Replace the uuid leaf with garbage.
   const uuidInput = page.getByLabel('taskRef › taskId');
