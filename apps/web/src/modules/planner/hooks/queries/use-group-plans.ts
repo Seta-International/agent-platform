@@ -4,8 +4,8 @@ import { plannerKeys } from '../../state/query-keys';
 
 export function useGroupPlans(groupId: string) {
   return useQuery({
-    queryKey: plannerKeys.groupPlans(groupId),
-    queryFn: () => plannerClient.listPlans({ group_id: groupId }),
+    queryKey: plannerKeys.groupPlansWithRollups(groupId),
+    queryFn: () => plannerClient.listGroupPlansWithRollups(groupId),
     enabled: !!groupId,
   });
 }

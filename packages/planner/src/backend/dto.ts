@@ -69,6 +69,20 @@ export interface PlanRow {
   version: number;
 }
 
+export type PlanStatus = 'on-track' | 'at-risk' | 'off-track';
+
+export interface PlanWithRollupsRow extends PlanRow {
+  task_count: number;
+  open_task_count: number;
+  /** Average percent_complete across non-deleted tasks, 0..1. Null when plan has no tasks. */
+  percent_complete: number | null;
+  /** Latest task due_at across non-deleted tasks. Null when no tasks have due dates. */
+  latest_due_at: string | null;
+  owner_display_name: string | null;
+  /** Derived from progress vs time-to-due; null when neither is known. */
+  status: PlanStatus | null;
+}
+
 export interface BucketRow {
   id: string;
   tenant_id: string;

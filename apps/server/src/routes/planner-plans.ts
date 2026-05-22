@@ -6,6 +6,7 @@ import {
   deleteLabel,
   deletePlan,
   getPlan,
+  listGroupPlansWithRollups,
   listLabels,
   listPlans,
   restorePlan,
@@ -53,6 +54,13 @@ export function registerPlannerPlansRoutes(app: Hono<SessionEnv>): void {
     const session = c.get('user');
     const group_id = c.req.query('group_id') ?? undefined;
     const include_deleted = c.req.query('include_deleted') === 'true';
+    const withRollups = c.req.query('withRollups') === 'true';
+    if (withRollups) {
+      if (!group_id) {
+        return c.json({ error: 'VALIDATION', message: 'withRollups requires group_id' }, 400);
+      }
+      return c.json({ plans: await listGroupPlansWithRollups({ group_id, session }) });
+    }
     return c.json({ plans: await listPlans({ group_id, include_deleted, session }) });
   });
 

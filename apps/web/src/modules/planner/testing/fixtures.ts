@@ -1,4 +1,10 @@
-import type { GroupRow, GroupWithCountsRow, PlanRow, TaskWithAssigneesRow } from '@seta/planner';
+import type {
+  GroupRow,
+  GroupWithCountsRow,
+  PlanRow,
+  PlanWithRollupsRow,
+  TaskWithAssigneesRow,
+} from '@seta/planner';
 
 export function makeGroup(over: Partial<GroupRow> = {}): GroupRow {
   return {
@@ -51,6 +57,18 @@ export function makePlan(over: Partial<PlanRow> = {}): PlanRow {
     deleted_at: null,
     version: 1,
     ...over,
+  };
+}
+
+export function makePlanWithRollups(over: Partial<PlanWithRollupsRow> = {}): PlanWithRollupsRow {
+  return {
+    ...makePlan(over),
+    task_count: over.task_count ?? 0,
+    open_task_count: over.open_task_count ?? 0,
+    percent_complete: over.percent_complete ?? null,
+    latest_due_at: over.latest_due_at ?? null,
+    owner_display_name: over.owner_display_name ?? null,
+    status: over.status ?? null,
   };
 }
 

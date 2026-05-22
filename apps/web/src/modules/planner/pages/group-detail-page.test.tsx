@@ -13,7 +13,7 @@ import { setupServer } from 'msw/node';
 import type { ReactNode } from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SessionScopeProjection } from '../../identity/api/client';
-import { makeGroup, makePlan } from '../testing/fixtures';
+import { makeGroup, makePlanWithRollups } from '../testing/fixtures';
 import { GroupDetailPage, type GroupTab } from './group-detail-page';
 
 // EventSource is not provided by happy-dom; GroupDetailHeader opens one via useGroupSyncStream.
@@ -101,7 +101,9 @@ function defaultHandlers() {
       HttpResponse.json(makeGroup({ id: 'g1', name: 'Engineering' })),
     ),
     http.get('*/api/planner/v1/plans*', () =>
-      HttpResponse.json({ plans: [makePlan({ id: 'p1', group_id: 'g1', name: 'Q3 Launch' })] }),
+      HttpResponse.json({
+        plans: [makePlanWithRollups({ id: 'p1', group_id: 'g1', name: 'Q3 Launch' })],
+      }),
     ),
     http.get('*/api/planner/v1/groups/g1/members', () => HttpResponse.json({ members: [] })),
     http.get('*/api/integrations/m365/groups/g1/sync-status', () =>

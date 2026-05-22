@@ -1,12 +1,15 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { makePlan } from '../testing/fixtures';
+import { makePlanWithRollups } from '../testing/fixtures';
 import { GroupPlansSection } from './GroupPlansSection';
 
 const baseProps = {
   groupName: 'Engineering',
-  plans: [makePlan({ id: 'p1', name: 'Q3 Launch' }), makePlan({ id: 'p2', name: 'Refresh' })],
+  plans: [
+    makePlanWithRollups({ id: 'p1', name: 'Q3 Launch' }),
+    makePlanWithRollups({ id: 'p2', name: 'Refresh' }),
+  ],
   themeColor: '#0047FF',
   canCreatePlan: true,
   onCreatePlan: vi.fn(),
