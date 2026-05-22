@@ -14,7 +14,7 @@ import { delay, HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { MyTasksFilters } from '../state/query-keys';
-import { MyTasksPage } from './my-tasks-page';
+import { findNeighbors, MyTasksPage } from './my-tasks-page';
 
 const server = setupServer();
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
@@ -104,6 +104,78 @@ function renderPage(initialFilters: MyTasksFilters = {}) {
   );
   return { router, setFilters };
 }
+
+describe('findNeighbors', () => {
+  it('drag forward (src=0 → dest=2) excludes the dragged task before indexing', () => {
+    const data = {
+      ...emptyResult(),
+      late: [
+        fxTask({
+          id: 'A',
+          plan_id: 'p',
+          assignee_priority: 'a',
+          plan: { id: 'p', name: 'P', group_id: 'g' },
+        }),
+        fxTask({
+          id: 'B',
+          plan_id: 'p',
+          assignee_priority: 'b',
+          plan: { id: 'p', name: 'P', group_id: 'g' },
+        }),
+        fxTask({
+          id: 'C',
+          plan_id: 'p',
+          assignee_priority: 'c',
+          plan: { id: 'p', name: 'P', group_id: 'g' },
+        }),
+      ],
+    } as MyTasksResult;
+    // After A is removed, tasks = [B, C]; destination.index=2 means after C
+    expect(findNeighbors(data, 'mt:late:p', 'A', 2)).toEqual({ prev: 'c', next: null });
+  });
+
+  it('drag backward (src=2 → dest=0) excludes the dragged task before indexing', () => {
+    const data = {
+      ...emptyResult(),
+      late: [
+        fxTask({
+          id: 'A',
+          plan_id: 'p',
+          assignee_priority: 'a',
+          plan: { id: 'p', name: 'P', group_id: 'g' },
+        }),
+        fxTask({
+          id: 'B',
+          plan_id: 'p',
+          assignee_priority: 'b',
+          plan: { id: 'p', name: 'P', group_id: 'g' },
+        }),
+        fxTask({
+          id: 'C',
+          plan_id: 'p',
+          assignee_priority: 'c',
+          plan: { id: 'p', name: 'P', group_id: 'g' },
+        }),
+      ],
+    } as MyTasksResult;
+    // After C is removed, tasks = [A, B]; destination.index=0 means before A
+    expect(findNeighbors(data, 'mt:late:p', 'C', 0)).toEqual({ prev: null, next: 'a' });
+  });
+
+  it('malformed droppableId returns null/null', () => {
+    expect(findNeighbors({} as MyTasksResult, 'invalid', 't', 0)).toEqual({
+      prev: null,
+      next: null,
+    });
+  });
+
+  it('unknown section returns null/null', () => {
+    expect(findNeighbors({} as MyTasksResult, 'mt:bogus:p', 't', 0)).toEqual({
+      prev: null,
+      next: null,
+    });
+  });
+});
 
 describe('MyTasksPage', () => {
   it('renders the loading skeleton while data is in-flight', async () => {

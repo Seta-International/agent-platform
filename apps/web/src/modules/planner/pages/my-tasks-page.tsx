@@ -100,9 +100,10 @@ function totalCount(data: MyTasksResult): number {
   );
 }
 
-function findNeighbors(
+export function findNeighbors(
   data: MyTasksResult,
   droppableId: string,
+  taskId: string,
   index: number,
 ): { prev: string | null; next: string | null } {
   const parts = droppableId.split(':');
@@ -111,7 +112,7 @@ function findNeighbors(
   const planId = parts[2];
   const spec = SECTION_SPECS.find((s) => s.key === sectionKey);
   if (!spec) return { prev: null, next: null };
-  const tasks = data[spec.bucket].filter((t) => t.plan.id === planId);
+  const tasks = data[spec.bucket].filter((t) => t.plan.id === planId && t.id !== taskId);
   return {
     prev: tasks[index - 1]?.assignee_priority ?? null,
     next: tasks[index]?.assignee_priority ?? null,
@@ -167,6 +168,7 @@ export function MyTasksPage({ filters, onFiltersChange }: Props) {
     const { prev, next } = findNeighbors(
       q.data,
       result.destination.droppableId,
+      result.draggableId,
       result.destination.index,
     );
     try {
