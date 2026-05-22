@@ -12,14 +12,15 @@ export class EmitContextRequired extends Error {
   }
 }
 
-export async function emit<P>(event: DomainEventInput<P>): Promise<void> {
+export async function emit<P>(event: DomainEventInput<P>): Promise<{ eventId: string }> {
   const ctx = emitContext.getStore();
   if (!ctx) throw new EmitContextRequired();
 
   const traceId = ctx.traceId ?? otelTrace.getActiveSpan()?.spanContext().traceId;
+  const eventId = crypto.randomUUID();
 
   await ctx.tx.insert(coreEvents).values({
-    id: crypto.randomUUID(),
+    id: eventId,
     tenantId: event.tenantId,
     aggregateType: event.aggregateType,
     aggregateId: event.aggregateId,
@@ -38,4 +39,5 @@ export async function emit<P>(event: DomainEventInput<P>): Promise<void> {
         }
       : null,
   });
+  return { eventId };
 }

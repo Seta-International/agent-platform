@@ -32,6 +32,34 @@ describe('emit() round-trip', () => {
     });
   });
 
+  it('returns the inserted eventId', async () => {
+    await withCoreTestDb(async ({ db }) => {
+      resetCoreDb();
+      const aggregateId = crypto.randomUUID();
+      const tenantId = crypto.randomUUID();
+      let returned: { eventId: string } | undefined;
+      await withEmit({ actor: { userId: 'u-1', tenantId: 't-1' } }, async () => {
+        returned = await emit({
+          tenantId,
+          aggregateType: 'test.aggregate',
+          aggregateId,
+          eventType: 'test.event.returns-id',
+          eventVersion: 1,
+          payload: { hello: 'world' },
+        });
+      });
+      expect(returned?.eventId).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+      );
+      const rows = await db
+        .select()
+        .from(coreEvents)
+        .where(eq(coreEvents.aggregateId, aggregateId));
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.id).toEqual(returned?.eventId);
+    });
+  });
+
   it('rollback inside withEmit drops the event row (outbox invariant)', async () => {
     await withCoreTestDb(async ({ db }) => {
       resetCoreDb();
