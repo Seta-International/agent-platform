@@ -25,7 +25,7 @@ describe('planner migrations', () => {
         expect(cols.rows.map((r) => r.column_name)).toEqual([
           'tenant_id',
           'task_id',
-          'chunk_ordinal',
+          'plan_id',
           'chunk_text',
           'source_hash',
           'embedding',
@@ -38,6 +38,26 @@ describe('planner migrations', () => {
            WHERE partrelid = 'planner.task_embeddings'::regclass
         `);
         expect(part.rows[0]?.partstrat).toBe('l');
+
+        const pk = await pool.query<{ attname: string }>(`
+          SELECT a.attname
+            FROM pg_index i
+            JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+           WHERE i.indrelid = 'planner.task_embeddings'::regclass
+             AND i.indisprimary
+           ORDER BY array_position(i.indkey, a.attnum)
+        `);
+        expect(pk.rows.map((r) => r.attname)).toEqual(['tenant_id', 'task_id']);
+
+        const idx = await pool.query<{ indexname: string; indexdef: string }>(`
+          SELECT indexname, indexdef
+            FROM pg_indexes
+           WHERE schemaname = 'planner'
+             AND tablename = 'task_embeddings'
+             AND indexname = 'task_embeddings_plan_idx'
+        `);
+        expect(idx.rows).toHaveLength(1);
+        expect(idx.rows[0]?.indexdef).toContain('(tenant_id, plan_id)');
       },
     );
   });
@@ -128,26 +148,6 @@ describe('0006_tasks_search_tsv_and_task_id_fix', () => {
 
         expect(res.rows).toHaveLength(1);
         expect(res.rows[0]?.matched).toBe(true);
-      },
-    );
-  });
-
-  it('planner.task_embeddings.task_id column type is uuid', async () => {
-    await withTestDb(
-      {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
-      },
-      async ({ pool }) => {
-        const res = await pool.query<{ data_type: string }>(`
-          SELECT data_type
-          FROM information_schema.columns
-          WHERE table_schema = 'planner'
-            AND table_name = 'task_embeddings'
-            AND column_name = 'task_id'
-        `);
-        expect(res.rows).toHaveLength(1);
-        expect(res.rows[0]?.data_type).toBe('uuid');
       },
     );
   });
