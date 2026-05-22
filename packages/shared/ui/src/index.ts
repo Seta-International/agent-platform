@@ -74,6 +74,8 @@ export * from './primitives/tabs';
 export * from './primitives/textarea';
 export * from './primitives/toast';
 export * from './primitives/tooltip';
+// Sync
+export * from './sync/m365-error-messages';
 // Task
 export * from './task/add-reference-combobox';
 export * from './task/date-pill';
