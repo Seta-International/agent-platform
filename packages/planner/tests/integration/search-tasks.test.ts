@@ -39,6 +39,7 @@ describe('searchTasks', () => {
       await embedTaskForTest(pool, {
         tenant_id: task.tenant_id,
         task_id: task.task_id,
+        plan_id: task.plan_id,
         title: taskOpts.title,
         description: taskOpts.description,
         skill_tags: taskOpts.skill_tags,
@@ -75,6 +76,7 @@ describe('searchTasks', () => {
       await embedTaskForTest(pool, {
         tenant_id: task.tenant_id,
         task_id: task.task_id,
+        plan_id: task.plan_id,
         title: taskOpts.title,
         description: taskOpts.description,
         skill_tags: taskOpts.skill_tags,

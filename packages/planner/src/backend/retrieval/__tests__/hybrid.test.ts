@@ -66,6 +66,7 @@ describe('HybridRetriever', () => {
         await embedTaskForTest(pool, {
           tenant_id: t.tenant_id,
           task_id: t.task_id,
+          plan_id: t.plan_id,
           title: opts.title,
           description: opts.description,
           skill_tags: opts.skill_tags,
@@ -111,6 +112,7 @@ describe('HybridRetriever', () => {
       await embedTaskForTest(pool, {
         tenant_id: task.tenant_id,
         task_id: task.task_id,
+        plan_id: task.plan_id,
         title: taskOpts.title,
         description: taskOpts.description,
         skill_tags: taskOpts.skill_tags,

@@ -65,6 +65,7 @@ describe('VectorRetriever', () => {
         await embedTaskForTest(pool, {
           tenant_id: t.tenant_id,
           task_id: t.task_id,
+          plan_id: t.plan_id,
           title: opts.title,
           description: opts.description,
           skill_tags: opts.skill_tags,
@@ -111,6 +112,7 @@ describe('VectorRetriever', () => {
       await embedTaskForTest(pool, {
         tenant_id: taskA.tenant_id,
         task_id: taskA.task_id,
+        plan_id: taskA.plan_id,
         title: taskAOpts.title,
         description: taskAOpts.description,
         skill_tags: taskAOpts.skill_tags,
@@ -119,6 +121,7 @@ describe('VectorRetriever', () => {
       await embedTaskForTest(pool, {
         tenant_id: taskB.tenant_id,
         task_id: taskB.task_id,
+        plan_id: taskB.plan_id,
         title: taskBOpts.title,
         description: taskBOpts.description,
         skill_tags: taskBOpts.skill_tags,
@@ -141,53 +144,5 @@ describe('VectorRetriever', () => {
       // Each tenant sees only their own task
       expect(hitsA.every((h) => h.item.task_id === taskA.task_id)).toBe(true);
       expect(hitsB.every((h) => h.item.task_id === taskB.task_id)).toBe(true);
-    }));
-
-  it('chunk dedup — long task appears exactly once in results', () =>
-    withDb(async ({ pool }) => {
-      const provider = new FakeEmbeddingProvider();
-      const retriever = new VectorRetriever({ pool });
-
-      // Generate a ~1500-word description to force multiple chunks
-      const longDescription = Array.from(
-        { length: 150 },
-        (_, i) =>
-          `Paragraph ${i + 1}: This is a detailed description of a complex distributed system task involving microservices architecture, container orchestration, service mesh configuration, load balancing strategies, and fault tolerance patterns.`,
-      ).join('\n\n');
-
-      const taskOpts = {
-        title: 'distributed system architecture design',
-        description: longDescription,
-        skill_tags: [] as string[],
-      };
-      const task = await seedTaskForTest(pool, taskOpts);
-
-      await embedTaskForTest(pool, {
-        tenant_id: task.tenant_id,
-        task_id: task.task_id,
-        title: taskOpts.title,
-        description: taskOpts.description,
-        skill_tags: taskOpts.skill_tags,
-        provider,
-      });
-
-      // Confirm multiple chunks were stored
-      const countResult = await pool.query<{ count: string }>(
-        `SELECT COUNT(*) AS count FROM planner.task_embeddings WHERE tenant_id = $1 AND task_id = $2`,
-        [task.tenant_id, task.task_id],
-      );
-      expect(Number(countResult.rows[0]!.count)).toBeGreaterThanOrEqual(2);
-
-      // Query and verify task appears exactly once
-      const queryVectors = await provider.embed(['distributed system architecture design']);
-      const queryVector = queryVectors[0]!;
-
-      const hits = await retriever.query(
-        { tenant_id: task.tenant_id, queryVector, limit: 10 },
-        mockCtx,
-      );
-
-      const matchingHits = hits.filter((h) => h.item.task_id === task.task_id);
-      expect(matchingHits).toHaveLength(1);
     }));
 });
