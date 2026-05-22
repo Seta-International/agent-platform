@@ -4,6 +4,7 @@ import { resolveReranker } from '@seta/shared-retrieval';
 import type { Pool } from 'pg';
 import { resolveEmbeddingProvider } from '../embeddings/provider-resolver.ts';
 import { ROUTER_INSTRUCTIONS, SELF_INSTRUCTIONS } from '../instructions.ts';
+import type { CopilotTool } from '../tools/_types.ts';
 import { makeListMyThreadsTool } from '../tools/copilot.list-my-threads.ts';
 import { copilotRunNewTaskSkillTagTool } from '../tools/copilot.run-new-task-skill-tag.ts';
 import { matchUsersToTopicTool } from '../tools/match-users-to-topic.ts';
@@ -46,7 +47,11 @@ function makeLazyProvider(): EmbeddingProvider {
   };
 }
 
-export function buildAgentCatalog(deps: { mastra: Mastra; pool: Pool }): AgentSpecs {
+export function buildAgentCatalog(deps: {
+  mastra: Mastra;
+  pool: Pool;
+  agentTools: ReadonlyArray<CopilotTool>;
+}): AgentSpecs {
   const provider = makeLazyProvider();
   const listMyThreads = makeListMyThreadsTool({
     listThreads: async ({ resourceId, limit }) => {

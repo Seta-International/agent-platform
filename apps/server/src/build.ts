@@ -133,7 +133,7 @@ export function buildServerApp(
   // copilot route checks session itself via c.get('session') and returns 401 if
   // absent; /health intentionally has no check and stays public. The bridge
   // middleware below populates c.var.session from better-auth.
-  const copilot = registerCopilot({ pool: deps.pool, databaseUrl: deps.databaseUrl });
+  const copilot = registerCopilot({ pool: deps.pool, databaseUrl: deps.databaseUrl, reg });
   app.use('/api/copilot/*', createCopilotSessionBridge({ listRoleGrants }));
   copilot.attach(app as unknown as Hono);
 

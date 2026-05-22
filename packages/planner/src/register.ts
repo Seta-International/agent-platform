@@ -7,8 +7,10 @@ import * as schema from './db/schema.ts';
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
 export function registerPlannerContributions(reg: ContributionRegistry): void {
-  reg.schema('planner', schema);
-  reg.migrationsDir('planner', resolve(__dirname, '../drizzle'));
-  reg.subscribers(plannerSubscribers());
-  reg.publicApi('planner', {});
+  reg.module({
+    name: 'planner',
+    schema,
+    migrationsDir: resolve(__dirname, '../drizzle'),
+    subscribers: plannerSubscribers(),
+  });
 }

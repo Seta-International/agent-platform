@@ -7,8 +7,10 @@ import { buildM365Subscribers } from './m365/subscribers.ts';
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
 export function registerIntegrationsContributions(reg: ContributionRegistry): void {
-  reg.schema('integrations', schema);
-  reg.migrationsDir('integrations', resolve(__dirname, '../drizzle/migrations'));
-  reg.subscribers(buildM365Subscribers());
-  reg.publicApi('integrations', {});
+  reg.module({
+    name: 'integrations',
+    schema,
+    migrationsDir: resolve(__dirname, '../drizzle/migrations'),
+    subscribers: buildM365Subscribers(),
+  });
 }

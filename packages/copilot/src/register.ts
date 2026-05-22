@@ -51,22 +51,32 @@ function copilotSubscribers(): SubscriberDef[] {
 }
 
 export function registerCopilotContributions(reg: ContributionRegistry): void {
-  reg.schema('copilot', schema);
-  reg.migrationsDir('copilot', resolve(__dirname, '../drizzle'));
-  reg.subscribers(copilotSubscribers());
-  reg.publicApi('copilot', {});
+  reg.module({
+    name: 'copilot',
+    schema,
+    migrationsDir: resolve(__dirname, '../drizzle'),
+    subscribers: copilotSubscribers(),
+  });
 }
 
 export type CopilotHandle = {
   attach: (app: Hono) => void;
 };
 
-export function registerCopilot(deps: { pool: Pool; databaseUrl: string }): CopilotHandle {
+export function registerCopilot(deps: {
+  pool: Pool;
+  databaseUrl: string;
+  reg: ContributionRegistry;
+}): CopilotHandle {
   const mastra = buildMastra({ pool: deps.pool, databaseUrl: deps.databaseUrl });
   registerNewTaskSkillTagWorkflow(mastra);
   void mastra.startWorkers();
   setMastraRef(mastra);
-  const factory = createAgentFactory({ mastra, pool: deps.pool });
+  const factory = createAgentFactory({
+    mastra,
+    pool: deps.pool,
+    agentTools: deps.reg.collected.agentTools,
+  });
   return {
     attach(app) {
       registerCopilotRoutes(app as never, { factory, mastra, pool: deps.pool });

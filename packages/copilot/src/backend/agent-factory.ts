@@ -10,7 +10,11 @@ import { resolveModel } from './model-registry.ts';
 import { filterToolsByRbac } from './rbac-filter.ts';
 import { type CopilotTool, RequestContextSchema } from './tools/_types.ts';
 
-export type AgentFactoryDeps = { mastra: Mastra; pool: Pool };
+export type AgentFactoryDeps = {
+  mastra: Mastra;
+  pool: Pool;
+  agentTools: ReadonlyArray<CopilotTool>;
+};
 
 type SessionLike = {
   effective_permissions: ReadonlySet<string>;
@@ -40,7 +44,11 @@ function toolsRecord(tools: ReadonlyArray<CopilotTool>): Record<string, CopilotT
 }
 
 export function createAgentFactory(deps: AgentFactoryDeps): AgentFactory {
-  const specs = buildAgentCatalog({ mastra: deps.mastra, pool: deps.pool });
+  const specs = buildAgentCatalog({
+    mastra: deps.mastra,
+    pool: deps.pool,
+    agentTools: deps.agentTools,
+  });
   const cache = new LRUCache<string, Map<string, Agent>>({ max: 256 });
 
   function buildAgents(session: SessionLike): Map<string, Agent> {
