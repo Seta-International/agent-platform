@@ -11,8 +11,6 @@ export interface CohereRerankerOptions {
     apiKey: string,
     model: string,
   ) => Promise<{ result: T; score: number }[]>;
-  /** Score-blend weights (spec §5.3): semantic 0.6, vector 0.3, position 0.1. Currently unused but reserved. */
-  weights?: { semantic: number; vector: number; position: number };
 }
 
 /**
@@ -58,6 +56,7 @@ export class CohereReranker implements Reranker {
         return { ...orig, rerankScore: s.score, rank: i + 1, reranker: 'cohere' as const };
       });
     } catch {
+      // Reranker contract: provider errors degrade to fallback hits, never throw into the calling tool.
       return sliced.map((h, i) => ({
         ...h,
         rerankScore: h.score,
@@ -79,8 +78,8 @@ export class CohereReranker implements Reranker {
     const scorer = new CohereRelevanceScorer(model, apiKey);
     // @mastra/rag operates on QueryResult[] internally; we wrap our items as
     // unknown metadata and extract them back by index after scoring.
-    const queryResults = items.map((item) => ({
-      id: String(Math.random()),
+    const queryResults = items.map((item, i) => ({
+      id: String(i),
       score: 0,
       metadata: item as Record<string, unknown>,
     }));

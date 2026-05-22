@@ -27,9 +27,7 @@ export class LlmJudgeReranker implements Reranker {
     this.judge =
       opts.judge ??
       (async (_in) => {
-        // Lazy import — wire to @mastra/rag's MastraAgentRelevanceScorer in production
-        // (the exact wire-up depends on your Mastra agent config and is out of scope
-        // for this slice's unit tests).
+        // No default scorer: throwing surfaces a misconfiguration early so callers inject explicitly.
         throw new Error('LlmJudgeReranker production judge not configured');
       });
   }
@@ -57,6 +55,7 @@ export class LlmJudgeReranker implements Reranker {
         reranker: 'llm-judge' as const,
       }));
     } catch {
+      // Reranker contract: provider errors degrade to fallback hits, never throw into the calling tool.
       return sliced.map((h, i) => ({
         ...h,
         rerankScore: h.score,
