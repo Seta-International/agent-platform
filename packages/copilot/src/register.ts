@@ -7,11 +7,6 @@ import type { Hono } from 'hono';
 import type { Pool } from 'pg';
 import { createAgentFactory } from './backend/agent-factory.ts';
 import {
-  refreshTaskCreatedSubscriber,
-  refreshTaskDeletedSubscriber,
-  refreshTaskUpdatedSubscriber,
-} from './backend/embeddings/subscribers/refresh-task.ts';
-import {
   refreshUserProfileCreatedSubscriber,
   refreshUserProfileDeactivatedSubscriber,
   refreshUserProfileUpdatedSubscriber,
@@ -49,9 +44,6 @@ function copilotSubscribers(): SubscriberDef[] {
         return m;
       },
     } as never),
-    refreshTaskCreatedSubscriber,
-    refreshTaskUpdatedSubscriber,
-    refreshTaskDeletedSubscriber,
     refreshUserProfileCreatedSubscriber,
     refreshUserProfileUpdatedSubscriber,
     refreshUserProfileDeactivatedSubscriber,
