@@ -16,7 +16,9 @@
     },
     "test": {
       "dependsOn": ["^build"],
-      "cache": false
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": [],
+      "env": ["DATABASE_URL", "CI"]
     },
     "test:watch": {
       "cache": false,
