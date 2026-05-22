@@ -58,7 +58,15 @@ export function WorkflowRunPage({ runId, rerunOpen = false }: WorkflowRunPagePro
       <RunHeader run={run} onRerun={openRerun} />
       <div className="flex flex-1 overflow-hidden">
         <main className="relative flex-1 overflow-hidden bg-[var(--color-surface-2)]">
-          <WorkflowGraph snapshot={snapshotQuery.data} />
+          <WorkflowGraph
+            snapshot={snapshotQuery.data}
+            run={{
+              runId: run.runId,
+              startedAt: run.startedAt,
+              finishedAt: run.finishedAt,
+              status: run.status,
+            }}
+          />
           {run.status === 'paused' && myApproval ? (
             <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center p-4">
               <div className="pointer-events-auto w-full max-w-xl">
