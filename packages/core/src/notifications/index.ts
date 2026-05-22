@@ -1,3 +1,4 @@
+export { findCategory, NOTIFICATION_CATEGORIES, type NotificationCategory } from './categories.ts';
 export * from './events.ts';
 export {
   dismissNotification,
