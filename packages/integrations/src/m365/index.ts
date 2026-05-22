@@ -3,6 +3,12 @@ export { buildAuthProvider, buildDbCredsProvider, M365NotConfiguredError } from 
 export { buildGraphClient } from './client.ts';
 export type { RunPlanAutoMirrorDeps, RunPlanAutoMirrorInput } from './jobs/plan-auto-mirror.ts';
 export { runPlanAutoMirror } from './jobs/plan-auto-mirror.ts';
+export type {
+  PlannerPullSurface,
+  RunPlanPullDeps,
+  RunPlanPullInput,
+} from './jobs/plan-pull.ts';
+export { runPlanPull } from './jobs/plan-pull.ts';
 export type { RunPullGroupDeps, RunPullGroupInput } from './jobs/pull-group.ts';
 export { runPullGroup } from './jobs/pull-group.ts';
 export type { RunPushGroupDeps, RunPushGroupInput } from './jobs/push-group.ts';
