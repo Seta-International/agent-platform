@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { conditionalSnapshot, linearSnapshot, parallelSnapshot } from './__fixtures__/snapshots.ts';
+import {
+  conditionalSnapshot,
+  linearSnapshot,
+  loopSnapshot,
+  parallelSnapshot,
+} from './__fixtures__/snapshots.ts';
 import { buildWorkflowGraph } from './build-graph.ts';
 
 describe('buildWorkflowGraph', () => {
@@ -80,5 +85,16 @@ describe('buildWorkflowGraph', () => {
         .sort(),
     ).toEqual(['p1', 'p2']);
     expect(out.edges.find((e) => e.source === after!.id && e.target === 'join')).toBeDefined();
+  });
+
+  it('loop renders a loop-result-node containing the child + back-edge labeled by predicate', () => {
+    const out = buildWorkflowGraph(loopSnapshot);
+    const loop = out.nodes.find((n) => n.id === 'retry');
+    expect(loop).toMatchObject({ type: 'loop-result-node' });
+    const child = out.nodes.find((n) => n.id === 'attempt');
+    expect(child).toMatchObject({ type: 'default-node' });
+    const back = out.edges.find((e) => e.source === 'attempt' && e.target === 'retry');
+    expect(back).toBeDefined();
+    expect(back!.data).toMatchObject({ predicate: 'attempt.ok' });
   });
 });

@@ -106,6 +106,41 @@ function walkOne(step: SerializedStep, ctx: WalkCtx): WalkResult {
       }
       return out;
     }
+    case 'loop': {
+      const id = (step as { id?: string }).id ?? 'loop';
+      const child = (step as { step: SerializedStep }).step;
+      const predicate = String((step as { condition?: unknown }).condition ?? '');
+      const loopNode = makeNode<NodeBaseData & { predicate: string }>(id, 'loop-result-node', {
+        stepId: id,
+        status: ctx.context[id]?.status ?? 'pending',
+        predicate,
+      });
+      const inner = walkOne(child, ctx);
+      const out: WalkResult = {
+        nodes: [loopNode, ...inner.nodes],
+        edges: [...inner.edges],
+        outIds: [id],
+        inHeads: [id],
+      };
+      if (inner.nodes[0]) {
+        out.edges.push({
+          id: `${id}->${inner.nodes[0].id}`,
+          source: id,
+          target: inner.nodes[0].id,
+          ...EDGE_DEFAULTS,
+        });
+      }
+      for (const tail of inner.outIds) {
+        out.edges.push({
+          id: `${tail}->${id}#back`,
+          source: tail,
+          target: id,
+          data: { predicate },
+          ...EDGE_DEFAULTS,
+        });
+      }
+      return out;
+    }
     case 'parallel': {
       const id = (step as { id?: string }).id ?? 'par';
       const branches = (step as { steps?: SerializedStep[] }).steps ?? [];
