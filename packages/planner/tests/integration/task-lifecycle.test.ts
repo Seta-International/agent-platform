@@ -620,6 +620,100 @@ describe('reopenTask', () => {
       },
     );
   });
+
+  it('requests a notification for the creator and current assignee, excluding the actor', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+      },
+      async ({ pool, databaseUrl }) => {
+        resetCoreDb();
+        initPools({ databaseUrl });
+        try {
+          const seeded = await seedTenant(pool, {
+            users: [
+              { name: 'Creator', email: 'creator@example.test' },
+              { name: 'Assignee', email: 'assignee@example.test' },
+            ],
+          });
+          const adminSession = seeded.adminSession;
+          const creator = seeded.users[0]!;
+          const assignee = seeded.users[1]!;
+          const creatorSession = { ...adminSession, user_id: creator.user_id };
+
+          const group = await createGroup({
+            tenant_id: seeded.tenant_id,
+            name: 'Eng',
+            session: adminSession,
+          });
+          const plan = await createPlan({
+            group_id: group.id,
+            name: 'Sprint 1',
+            session: adminSession,
+          });
+          const task = await createTask({ plan_id: plan.id, title: 'T', session: creatorSession });
+          await assignTask({ task_id: task.id, user_id: assignee.user_id, session: adminSession });
+          await completeTask({ task_id: task.id, expected_version: 1, session: adminSession });
+
+          await pool.query(
+            `DELETE FROM core.events WHERE event_type = 'core.notification.requested' AND tenant_id = $1`,
+            [seeded.tenant_id],
+          );
+
+          await reopenTask({ task_id: task.id, expected_version: 2, session: adminSession });
+
+          const events = await readEvents(pool, seeded.tenant_id, 'core.notification.requested');
+          expect(events).toHaveLength(1);
+          // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
+          const payload = events[0]?.payload as any;
+          expect(payload.target_event_type).toBe('planner.task.reopened');
+          expect((payload.user_ids as string[]).sort()).toEqual(
+            [creator.user_id, assignee.user_id].sort(),
+          );
+          expect(payload.target_payload.task_id).toBe(task.id);
+        } finally {
+          resetCoreDb();
+          await closePools();
+        }
+      },
+    );
+  });
+
+  it('emits no notification when creator==assignee==actor', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+      },
+      async ({ pool, databaseUrl }) => {
+        resetCoreDb();
+        initPools({ databaseUrl });
+        try {
+          const seeded = await seedTenant(pool, {});
+          const session = seeded.adminSession;
+          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+          const task = await createTask({ plan_id: plan.id, title: 'T', session });
+          await assignTask({ task_id: task.id, user_id: session.user_id, session });
+          await completeTask({ task_id: task.id, expected_version: 1, session });
+
+          await pool.query(
+            `DELETE FROM core.events WHERE event_type = 'core.notification.requested' AND tenant_id = $1`,
+            [seeded.tenant_id],
+          );
+
+          await reopenTask({ task_id: task.id, expected_version: 2, session });
+
+          const events = await readEvents(pool, seeded.tenant_id, 'core.notification.requested');
+          expect(events).toHaveLength(0);
+        } finally {
+          resetCoreDb();
+          await closePools();
+        }
+      },
+    );
+  });
 });
 
 describe('createTask initial percent_complete', () => {

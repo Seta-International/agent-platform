@@ -1,7 +1,8 @@
 import type { SessionScope } from '@seta/core';
+import { requestNotification } from '@seta/core';
 import { withEmit } from '@seta/core/events';
 import { and, eq, isNull } from 'drizzle-orm';
-import { plans, tasks } from '../../db/schema.ts';
+import { plans, taskAssignments, tasks } from '../../db/schema.ts';
 import { emitPlannerTaskReopened } from '../../events/emit-helpers.ts';
 import type { TaskRow } from '../dto.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
@@ -66,7 +67,13 @@ export async function reopenTask(input: {
       if (!updated) throw new PlannerError('VALIDATION', 'Update returned no row');
       result = updated;
 
-      await emitPlannerTaskReopened({
+      const [assignment] = await tx
+        .select({ user_id: taskAssignments.user_id })
+        .from(taskAssignments)
+        .where(eq(taskAssignments.task_id, existing.id))
+        .limit(1);
+
+      const { eventId } = await emitPlannerTaskReopened({
         actor: { type: 'user', user_id: input.session.user_id },
         tenant_id: existing.tenant_id,
         task_id: existing.id,
@@ -74,6 +81,27 @@ export async function reopenTask(input: {
         group_id: plan.group_id,
         version_before: existing.version,
         version_after: versionAfter,
+      });
+
+      const recipientSet = new Set<string>();
+      if (existing.created_by) recipientSet.add(existing.created_by);
+      if (assignment?.user_id) recipientSet.add(assignment.user_id);
+      recipientSet.delete(input.session.user_id);
+      const recipients = [...recipientSet];
+
+      await requestNotification({
+        tenant_id: existing.tenant_id,
+        event_type: 'planner.task.reopened',
+        user_ids: recipients,
+        source_event_id: eventId,
+        payload: {
+          title: 'Task reopened',
+          body: `"${existing.title}" was reopened`,
+          task_id: existing.id,
+          plan_id: existing.plan_id,
+          group_id: plan.group_id,
+          actor: { user_id: input.session.user_id, name: input.session.user_id },
+        },
       });
     },
   );
