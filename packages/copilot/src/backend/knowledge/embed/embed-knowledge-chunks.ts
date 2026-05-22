@@ -34,6 +34,8 @@ export async function embedKnowledgeChunks(
     // 'tenant_knowledge_embeddings_${slug}_hnsw_idx' is 69 chars,
     // exceeding Postgres's 63-byte identifier limit. 'tke_${slug}_hnsw_idx' is 49 chars.
     const slug = tenant_id.replaceAll('-', '_');
+    // secondaryIndexColumns omitted: ensureTenantPartition has no per-secondary-index name override;
+    // 'tenant_knowledge_embeddings_${slug}_file_id_idx' is 76 chars > Postgres 63-byte limit.
     await ensureTenantPartition(deps.pool, {
       parent: 'copilot.tenant_knowledge_embeddings',
       embeddingColumn: 'embedding',
@@ -88,7 +90,11 @@ export async function embedKnowledgeChunks(
 
       await client.query('COMMIT');
     } catch (err) {
-      await client.query('ROLLBACK');
+      try {
+        await client.query('ROLLBACK');
+      } catch {
+        // connection dead — original error in `err` is the actionable one
+      }
       throw err;
     } finally {
       client.release();
