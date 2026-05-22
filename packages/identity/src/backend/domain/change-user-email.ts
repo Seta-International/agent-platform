@@ -1,11 +1,11 @@
 import { withEmit } from '@seta/core/events';
-import { isValidEmail } from '@seta/shared-validation';
 import { and, eq, ne, sql } from 'drizzle-orm';
 import { identityDb } from '../../db/index.ts';
 import { account, user } from '../../db/schema.ts';
 import { emitIdentityUserEmailChanged } from '../../events/index.ts';
 import { IdentityError, requirePermission } from '../rbac.ts';
 import { toEmitActor, toEventActor } from '../sso/helpers.ts';
+import { isValidEmail } from './_email.ts';
 import type { Actor } from './create-user.ts';
 
 export interface ChangeUserEmailInput {

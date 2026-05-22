@@ -44,7 +44,6 @@
     "@mastra/rag": "^2.2.1",
     "@seta/planner": "workspace:^",
     "@seta/shared-embeddings": "workspace:^",
-    "@seta/shared-rerank": "workspace:^",
     "@seta/shared-retrieval": "workspace:^",
     "@seta/shared-storage": "workspace:^",
     "ai": "^6.0.188",

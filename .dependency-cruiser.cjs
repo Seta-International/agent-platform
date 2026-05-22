@@ -78,14 +78,9 @@ module.exports = {
         //  - shared/mailer may import shared/crypto: typed EncryptedBlob crosses
         //    the boundary so per-tenant SMTP passwords can be encrypted at the
         //    transport-config boundary. shared/crypto stays a pure leaf.
-        //  - shared/rerank may import shared/retrieval: rerank consumes the
-        //    RetrievalHit shape produced by stage-1 retrievers. Rerank is the
-        //    stage-2 precision lift in the same pipeline; the type contract
-        //    must stay shared.
         //  - shared/config is pure toolchain (tsconfig, eslint rules, vitest
         //    knobs); every package may import it.
-        pathNot:
-          '^packages/shared-(testing|$1)/|^packages/shared-crypto/|^packages/shared-retrieval/|^packages/shared-config/',
+        pathNot: '^packages/shared-(testing|$1)/|^packages/shared-crypto/|^packages/shared-config/',
       },
     },
     {
@@ -129,6 +124,14 @@ module.exports = {
       to: { path: '^packages/identity/src/(sso|backend/sso)/' },
     },
     {
+      name: 'copilot-sdk-no-mastra-runtime',
+      severity: 'error',
+      comment:
+        '@seta/copilot-sdk is a pure contract package. It may import Mastra types (the @mastra/core module entry) but must not import deeper runtime modules.',
+      from: { path: '^sdks/copilot/' },
+      to: { path: '^node_modules/@mastra/(?!core/?$)' },
+    },
+    {
       name: 'shared-ui-no-dnd',
       comment:
         'Style monopoly: shared-ui composites must not depend on @hello-pangea/dnd; the app layer wires DnD via render slots.',
@@ -146,6 +149,6 @@ module.exports = {
     },
     tsPreCompilationDeps: true,
     tsConfig: { fileName: 'tsconfig.json' },
-    includeOnly: '^(packages|apps)/',
+    includeOnly: '^(packages|apps|sdks)/',
   },
 };

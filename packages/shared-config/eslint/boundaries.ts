@@ -9,6 +9,7 @@ export const boundariesConfig: Linter.Config[] = [
         { type: 'app', pattern: 'apps/*' },
         { type: 'module', pattern: 'packages/{core,identity,planner,copilot,integrations}/*' },
         { type: 'shared', pattern: 'packages/shared-*' },
+        { type: 'sdk', pattern: 'sdks/*' },
       ],
     },
     rules: {
@@ -19,10 +20,18 @@ export const boundariesConfig: Linter.Config[] = [
           rules: [
             {
               from: { type: 'app' },
-              allow: [{ to: { type: 'module' } }, { to: { type: 'shared' } }],
+              allow: [
+                { to: { type: 'module' } },
+                { to: { type: 'shared' } },
+                { to: { type: 'sdk' } },
+              ],
             },
-            { from: { type: 'module' }, allow: [{ to: { type: 'shared' } }] },
+            {
+              from: { type: 'module' },
+              allow: [{ to: { type: 'shared' } }, { to: { type: 'sdk' } }],
+            },
             { from: { type: 'shared' }, allow: [{ to: { type: 'shared' } }] },
+            { from: { type: 'sdk' }, allow: [{ to: { type: 'sdk' } }] },
           ],
         },
       ],

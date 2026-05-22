@@ -1,6 +1,6 @@
 import { createTool } from '@mastra/core/tools';
 import type { EmbeddingProvider } from '@seta/shared-embeddings';
-import type { Reranker } from '@seta/shared-rerank';
+import type { Reranker } from '@seta/shared-retrieval';
 import type { Pool } from 'pg';
 import { z } from 'zod';
 import { searchTenantKnowledge } from '../knowledge/retrieval/search-tenant-knowledge.ts';

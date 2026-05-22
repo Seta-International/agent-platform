@@ -1,7 +1,7 @@
 import { createTool } from '@mastra/core/tools';
 import { searchTasks } from '@seta/planner';
 import type { EmbeddingProvider } from '@seta/shared-embeddings';
-import type { Reranker } from '@seta/shared-rerank';
+import type { Reranker } from '@seta/shared-retrieval';
 import type { Pool } from 'pg';
 import { z } from 'zod';
 import { buildActorSession } from '../session.ts';

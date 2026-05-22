@@ -10,7 +10,7 @@ import { createContributionRegistry, runMigrations } from '@seta/core';
 import { resetCoreDb } from '@seta/core/internal/test-support';
 import { registerCoreContributions } from '@seta/core/register';
 import { closePools, initPools } from '@seta/shared-db';
-import { NoopReranker } from '@seta/shared-rerank';
+import { NoopReranker } from '@seta/shared-retrieval';
 import { FakeEmbeddingProvider, withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { embedUserProfile } from '../../src/backend/embeddings/embed-user-profile.ts';

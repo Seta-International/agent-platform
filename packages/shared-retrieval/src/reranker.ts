@@ -1,4 +1,4 @@
-import type { RetrievalHit } from '@seta/shared-retrieval';
+import type { RetrievalHit } from './types.ts';
 
 export interface RerankedHit<TItem> extends RetrievalHit<TItem> {
   /** Rerank score 0..1 from the cross-encoder, blended with stage-1 signals. */

@@ -1,5 +1,5 @@
-import type { RetrievalHit } from '@seta/shared-retrieval';
 import type { RerankedHit, Reranker } from './reranker.ts';
+import type { RetrievalHit } from './types.ts';
 
 /**
  * Pass-through reranker. Stage-1 RRF order is preserved; the `rerankScore`

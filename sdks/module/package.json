@@ -1,8 +1,8 @@
 {
-  "name": "@seta/shared-validation",
+  "name": "@seta/module-sdk",
   "version": "0.0.1",
   "private": true,
-  "description": "Cross-module input validators — non-backtracking, allocation-light string predicates used at module boundaries.",
+  "description": "Frontend module manifest contract — NavManifest, NavItem types consumed by the apps/web shell and by per-module web packages.",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
@@ -13,7 +13,11 @@
   },
   "devDependencies": {
     "@seta/shared-config": "workspace:^",
+    "@types/react": "^19.0.0",
     "typescript": "^6.0.3",
     "vitest": "^4.1.7"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
   }
 }

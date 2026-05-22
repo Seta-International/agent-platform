@@ -11,7 +11,7 @@ import { RequestContext } from '@mastra/core/request-context';
 import { embedTask } from '@seta/copilot/testing/embed';
 import { resetCoreDb } from '@seta/core/internal/test-support';
 import { closePools, initPools } from '@seta/shared-db';
-import { NoopReranker } from '@seta/shared-rerank';
+import { NoopReranker } from '@seta/shared-retrieval';
 import { FakeEmbeddingProvider, withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { seedTaskForTest } from '../../../planner/tests/helpers/seed.ts';

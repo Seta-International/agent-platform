@@ -14,7 +14,7 @@
     "lint:styles": "bash packages/shared-config/scripts/grep-no-stray-styles.sh",
     "format": "biome format --write .",
     "format:check": "biome format .",
-    "depcruise": "depcruise apps packages --config .dependency-cruiser.cjs",
+    "depcruise": "depcruise apps packages sdks --config .dependency-cruiser.cjs",
     "gen": "turbo gen run",
     "db:up": "docker compose -f infra/docker/compose.dev.yml up -d",
     "db:down": "docker compose -f infra/docker/compose.dev.yml down",

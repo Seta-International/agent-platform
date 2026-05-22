@@ -19,8 +19,11 @@ export interface RerankCacheOptions {
  */
 export class RerankCache<T = unknown> {
   private readonly entries = new Map<string, Entry<T>>();
+  private readonly opts: RerankCacheOptions;
 
-  constructor(private readonly opts: RerankCacheOptions) {}
+  constructor(opts: RerankCacheOptions) {
+    this.opts = opts;
+  }
 
   async get(query: string, docIds: string[], compute: () => Promise<T>): Promise<T> {
     const key = this.keyFor(query, docIds);

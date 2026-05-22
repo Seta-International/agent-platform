@@ -1,6 +1,6 @@
 import type { Mastra } from '@mastra/core';
 import type { EmbeddingProvider } from '@seta/shared-embeddings';
-import { resolveReranker } from '@seta/shared-rerank';
+import { resolveReranker } from '@seta/shared-retrieval';
 import type { Pool } from 'pg';
 import { resolveEmbeddingProvider } from '../embeddings/provider-resolver.ts';
 import { ROUTER_INSTRUCTIONS, SELF_INSTRUCTIONS } from '../instructions.ts';

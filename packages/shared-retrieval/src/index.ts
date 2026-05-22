@@ -1,5 +1,15 @@
+export type { RerankCacheOptions } from './cache.ts';
+export { RerankCache } from './cache.ts';
+export type { CohereRerankerOptions } from './cohere.ts';
+export { CohereReranker } from './cohere.ts';
 export type { EmbedQueryCacheOptions } from './embed-query-cache.ts';
 export { EmbedQueryCache } from './embed-query-cache.ts';
+export type { LlmJudge, LlmJudgeRerankerOptions } from './llm-judge.ts';
+export { LlmJudgeReranker } from './llm-judge.ts';
+export { NoopReranker } from './noop.ts';
+export type { RerankedHit, Reranker } from './reranker.ts';
+export type { ResolveRerankerOptions } from './resolver.ts';
+export { resolveReranker } from './resolver.ts';
 export type { RankedItem, RrfResult } from './rrf.ts';
 export { rrfFuse } from './rrf.ts';
 export type { RetrievalCtx, RetrievalHit, Retriever } from './types.ts';

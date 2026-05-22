@@ -40,7 +40,6 @@
     "@seta/shared-embeddings": "workspace:^",
     "@seta/shared-mailer": "workspace:^",
     "@seta/shared-retrieval": "workspace:^",
-    "@seta/shared-validation": "workspace:^",
     "better-auth": "^1.6.11",
     "drizzle-orm": "^0.45.2",
     "pg": "^8.21.0",

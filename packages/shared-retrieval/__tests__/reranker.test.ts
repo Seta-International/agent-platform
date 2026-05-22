@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { RerankedHit, Reranker } from '../src/index.ts';
 
-describe('@seta/shared-rerank types', () => {
+describe('@seta/shared-retrieval rerank types', () => {
   it('exposes the Reranker interface and RerankedHit shape', () => {
     const reranker = {
       providerId: 'noop',

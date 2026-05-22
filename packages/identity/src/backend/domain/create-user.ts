@@ -1,9 +1,9 @@
 import { emit, withEmit } from '@seta/core/events';
 import type { Mailer } from '@seta/shared-mailer';
-import { isValidEmail } from '@seta/shared-validation';
 import { account, roleGrants, user, userProfile } from '../../db/schema.ts';
 import { argon2id } from '../password/argon2.ts';
 import { IdentityError, requirePermission } from '../rbac.ts';
+import { isValidEmail } from './_email.ts';
 
 export interface Actor {
   type: 'user' | 'cli' | 'superadmin' | 'sso';
