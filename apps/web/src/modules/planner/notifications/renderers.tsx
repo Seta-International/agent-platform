@@ -84,6 +84,7 @@ export function useResolvePlannerNotification(notification: NotificationListItem
   return {
     icon: spec.icon,
     onClick: () => {
+      // `as never`: TanStack Router types `to` as a union of generated route literals; runtime-composed planner paths can't be expressed in that union.
       void navigate({ to: spec.getHref(payload) as never });
     },
   };
