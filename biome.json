@@ -15,9 +15,9 @@
       "!**/node_modules",
       "!.claude",
       "!pnpm-lock.yaml",
-      "!packages/shared/ui/src/styles",
-      "!packages/shared/ui/.storybook/preview.css",
-      "!packages/shared/ui/storybook-static",
+      "!packages/shared-ui/src/styles",
+      "!packages/shared-ui/.storybook/preview.css",
+      "!packages/shared-ui/storybook-static",
       "!apps/web/src/styles"
     ]
   },

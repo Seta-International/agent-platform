@@ -52,14 +52,14 @@ module.exports = {
       name: 'no-deep-shared-imports',
       severity: 'warn',
       comment: 'Outside shared/<x>, never reach into its internals.',
-      from: { pathNot: '^packages/shared/([^/]+)/' },
-      to: { path: '^packages/shared/([^/]+)/src/internals/' },
+      from: { pathNot: '^packages/shared-([^/]+)/' },
+      to: { path: '^packages/shared-([^/]+)/src/internals/' },
     },
     {
       name: 'shared-must-not-import-modules',
       severity: 'error',
       comment: 'shared/* may not import from feature modules. They are pure infrastructure.',
-      from: { path: '^packages/shared/' },
+      from: { path: '^packages/shared-' },
       to: { path: '^packages/(core|identity|planner|copilot|integrations)/' },
     },
     {
@@ -68,11 +68,11 @@ module.exports = {
       comment:
         'shared/<a> may not import from shared/<b>. shared/testing is the exception (it may import any shared/*; any shared/* may import shared/testing from test files).',
       from: {
-        path: '^packages/shared/(?!testing)([^/]+)/',
+        path: '^packages/shared-(?!testing)([^/]+)/',
         pathNot: '(^|/)(__tests__|test)/',
       },
       to: {
-        path: '^packages/shared/([^/]+)/',
+        path: '^packages/shared-([^/]+)/',
         // Exemptions:
         //  - testing/$1 is always allowed (testing is the shared util)
         //  - shared/mailer may import shared/crypto: typed EncryptedBlob crosses
@@ -83,7 +83,7 @@ module.exports = {
         //    stage-2 precision lift in the same pipeline; the type contract
         //    must stay shared.
         pathNot:
-          '^packages/shared/(testing|$1)/|^packages/shared/crypto/|^packages/shared/retrieval/',
+          '^packages/shared-(testing|$1)/|^packages/shared-crypto/|^packages/shared-retrieval/',
       },
     },
     {
@@ -100,7 +100,7 @@ module.exports = {
       from: {
         orphan: true,
         pathNot:
-          '(^|/)(\\.|index\\.ts|.+\\.config\\.[cm]?[jt]s)$|^packages/shared/config/eslint/|(^|/)(__tests__|test)/|\\.(spec|test)\\.[jt]sx?$|/\\.storybook/|\\.stories\\.[jt]sx?$|(^|/)e2e/|^apps/web/src/lib/|(^|/)scripts/',
+          '(^|/)(\\.|index\\.ts|.+\\.config\\.[cm]?[jt]s)$|^packages/shared-config/eslint/|(^|/)(__tests__|test)/|\\.(spec|test)\\.[jt]sx?$|/\\.storybook/|\\.stories\\.[jt]sx?$|(^|/)e2e/|^apps/web/src/lib/|(^|/)scripts/',
       },
       to: {},
     },
@@ -131,7 +131,7 @@ module.exports = {
       comment:
         'Style monopoly: shared-ui composites must not depend on @hello-pangea/dnd; the app layer wires DnD via render slots.',
       severity: 'error',
-      from: { path: '^packages/shared/ui/src/' },
+      from: { path: '^packages/shared-ui/src/' },
       to: { path: '^node_modules/@hello-pangea/dnd' },
     },
   ],

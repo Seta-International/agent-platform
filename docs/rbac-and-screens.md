@@ -1025,7 +1025,7 @@ Most of the v1 design supports this already. Three small additions, plus one con
 | Add `apps()` method to `ContributionRegistry` and `AppContribution` type | `packages/core/src/registry` | ~1h | Not yet — add to architecture doc §C.1 before Phase A code lands |
 | Server-side `visibleApps` field on `/api/auth/me` response | `packages/identity/src/backend/routes/me.ts` | ~2h | Same |
 | `hasAnyRole(prefix: string)` helper | `packages/core/src/rbac` | ~30m | Helper for `visibilityGate` shorthand |
-| Lock the naming convention `<module>.<resource>.<action>[.self|.any|.read|...]` as a CI lint | `packages/shared/config` ESLint rule on registered permissions | ~3h | Defense against future modules inventing inconsistent permission names |
+| Lock the naming convention `<module>.<resource>.<action>[.self|.any|.read|...]` as a CI lint | `packages/shared-config` ESLint rule on registered permissions | ~3h | Defense against future modules inventing inconsistent permission names |
 
 **Documentation updates needed:**
 - `architecture.md §C.1` — add `apps()` to the `ContributionRegistry` interface (one paragraph).

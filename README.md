@@ -32,14 +32,14 @@ A fresh DB has **no tenants and no users** (`db:seed` is a no-op today); the log
 | [`packages/planner`](packages/planner) | Plans, buckets, tasks; Microsoft Planner sync |
 | [`packages/copilot`](packages/copilot) | Mastra agents + AI SDK tools with HITL approvals |
 | [`packages/integrations`](packages/integrations) | Credential store, mail config, MS Graph |
-| [`packages/shared/ui`](packages/shared/ui) | Design system — tokens, primitives, the only `.css` |
-| [`packages/shared/db`](packages/shared/db) | Postgres + Drizzle primitives |
-| [`packages/shared/rbac`](packages/shared/rbac) | Role and permission primitives |
-| [`packages/shared/crypto`](packages/shared/crypto) | KMS envelope encryption |
-| [`packages/shared/mailer`](packages/shared/mailer) | Transactional mail + React Email |
-| [`packages/shared/testing`](packages/shared/testing) | Postgres testcontainers |
-| [`packages/shared/types`](packages/shared/types) | Cross-module type contracts |
-| [`packages/shared/config`](packages/shared/config) | Base tsconfig + ESLint boundaries |
+| [`packages/shared-ui`](packages/shared-ui) | Design system — tokens, primitives, the only `.css` |
+| [`packages/shared-db`](packages/shared-db) | Postgres + Drizzle primitives |
+| [`packages/shared-rbac`](packages/shared-rbac) | Role and permission primitives |
+| [`packages/shared-crypto`](packages/shared-crypto) | KMS envelope encryption |
+| [`packages/shared-mailer`](packages/shared-mailer) | Transactional mail + React Email |
+| [`packages/shared-testing`](packages/shared-testing) | Postgres testcontainers |
+| [`packages/shared-types`](packages/shared-types) | Cross-module type contracts |
+| [`packages/shared-config`](packages/shared-config) | Base tsconfig + ESLint boundaries |
 
 ## Scripts
 

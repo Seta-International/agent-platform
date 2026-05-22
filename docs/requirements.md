@@ -126,7 +126,7 @@ Each module's `packages/<module>/src/index.ts` is the only legal cross-module en
 **Not allowed across the boundary:**
 
 - Re-exporting types from internals. If a type leaks an internal entity shape, it stays in `internals/`.
-- Shared utilities that live in module A and are imported from module B. Cross-module utilities live in `packages/shared/` (UI primitives, type helpers) or in `core` (event bus, role registry, session middleware).
+- Shared utilities that live in module A and are imported from module B. Cross-module utilities live in `packages/shared-*` (UI primitives, type helpers) or in `core` (event bus, role registry, session middleware).
 - Direct database handles. A module never hands its Drizzle client to another module.
 - Mutating state callbacks. A module never registers a callback that another module invokes to mutate it — mutation happens through the public API, not through callback registration.
 
@@ -243,7 +243,7 @@ v1 ships **one deploy unit**: a single container running all modules in-process.
 
 - **Shell** owns: top navigation, app launcher (Google-style grid), tenant context, copilot panel slot, notification center, global search.
 - **Modules** own: their own pages, rendered inside the shell as SPA route slots (`/planner/*`, `/integrations/*`, …). Pages register with the shell at app boot via the module's frontend contribution (§1.6.4).
-- **Shared UI library** as a Turborepo package (`packages/shared/ui`) — design system, base components, theming — consumed by every module's frontend.
+- **Shared UI library** as a Turborepo package (`packages/shared-ui`) — design system, base components, theming — consumed by every module's frontend.
 - **Single SPA bundle in v1.** Per-module bundles (micro-frontends, module federation) are an extraction-time concern (§1.6.12), not v1. Build-time tree-shaking handles dead code; per-route code-splitting handles initial-load size.
 - **iframes are not used in v1** — SPA route slots are lighter. Iframes remain available as an opt-in isolation mode if a future plugin/extension scenario needs it (§11.8).
 
@@ -1702,9 +1702,9 @@ For each module: what it **owns** (data + lifecycle), what its **public surface*
 - **Depends on:** `core`, `@seta/planner` (Phase B), Mastra Workflows, MCP SDK, Microsoft Graph SDK (Phase B).
 - **Backed by §:** 6, 7.1d.
 
-### 15.6 Shared packages (`packages/shared/*`)
+### 15.6 Shared packages (`packages/shared-*`)
 
-Cross-cutting infrastructure lives in dedicated packages, not buried in `core`. Each is importable from every module + every app. Each has its own public surface at `packages/shared/<name>/src/index.ts` plus a dep-cruiser rule.
+Cross-cutting infrastructure lives in dedicated packages, not buried in `core`. Each is importable from every module + every app. Each has its own public surface at `packages/shared-<name>/src/index.ts` plus a dep-cruiser rule.
 
 - **`shared/ui`** — design tokens, primitive components (shadcn copy-in), Linear-flavored composites, theme provider, icons. Does NOT own business components (those live in `apps/web/src/modules/<m>/components/`).
 - **`shared/types`** — cross-package zod schemas, event-payload base types, shared utility types. Does NOT own module-specific types (those live in each module's `src/index.ts`).
@@ -2222,7 +2222,7 @@ pnpm test:e2e           # playwright against the dev stack
 
 ## 20. Design system & UI library — Linear-flavored
 
-Build `packages/shared/ui` upfront as the Phase A foundation. ~1–2 weeks for the v1 surface (mostly shadcn copy-in + Linear-flavored theming + ~6 custom composites). Without it, every module reinvents buttons; with it, Phase A's standalone Copilot module is meaningfully less code.
+Build `packages/shared-ui` upfront as the Phase A foundation. ~1–2 weeks for the v1 surface (mostly shadcn copy-in + Linear-flavored theming + ~6 custom composites). Without it, every module reinvents buttons; with it, Phase A's standalone Copilot module is meaningfully less code.
 
 **Linear UX traits we adopt for v1:**
 
@@ -2239,7 +2239,7 @@ Build `packages/shared/ui` upfront as the Phase A foundation. ~1–2 weeks for t
 | Typography | Inter (or system); tight line heights; ~14px body |
 | Dense info, low chrome | No card shadows, no over-iconification; whitespace + typography hierarchy carry the weight |
 
-**`packages/shared/ui` layering:**
+**`packages/shared-ui` layering:**
 
 ```
 shared/ui/

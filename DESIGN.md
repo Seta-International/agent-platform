@@ -4,8 +4,8 @@ name: Seta-design-system
 description: "Linear-flavored work surface. Light by default (warm off-white ladder — canvas #ffffff → surface-1 #fafaf9 → surface-2 #f4f4f3 → surface-3 #ecebea → surface-4 #e2e1df) with hairline borders at #e9e8e6. Dark theme retained for inverse contexts. The single chromatic accent is Seta blue #0047FF, applied to brand mark, primary CTA, focus ring, link emphasis, and the 'current selection' indicator. Status pills are dot + label at low saturation; no second accent, no decorative gradients. Display + body type both run Geist (Geist Mono for code, task IDs, kbd hints); the keyboard-first surface inherits Linear's calm density at 14/13/12 px on an 8 px rhythm. Cards are 1 px hairlines on canvas; radii 4/6/8/12 px."
 
 implementation_notice: |
-  The authoritative tokens live in `packages/shared/ui/src/styles/tokens.css` and the
-  font wiring in `packages/shared/ui/src/styles/fonts.css`. Where this document and
+  The authoritative tokens live in `packages/shared-ui/src/styles/tokens.css` and the
+  font wiring in `packages/shared-ui/src/styles/fonts.css`. Where this document and
   `tokens.css` disagree, `tokens.css` wins — it is what ships and is CI-enforced.
   Notable updates landed alongside the M2 login redesign (2026-05): primary `#0047FF`
   (not Linear lavender), Geist + Geist Mono (not Inter / JetBrains Mono), warm

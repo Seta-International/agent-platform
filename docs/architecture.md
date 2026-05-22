@@ -113,19 +113,19 @@ module.exports = {
   forbidden: [
     {
       name: 'no-private-cross-package',
-      comment: 'Cross-package imports must enter via the package root (src/index.ts) or /events. Any other path inside another package\'s src/ is private. Exception: packages/shared/* are imported freely (they are pure infrastructure with no internal-vs-surface distinction).',
+      comment: 'Cross-package imports must enter via the package root (src/index.ts) or /events. Any other path inside another package\'s src/ is private. Exception: packages/shared-* are imported freely (they are pure infrastructure with no internal-vs-surface distinction).',
       severity: 'error',
-      from: { path: '^packages/(?!shared/)([^/]+)/src/' },
+      from: { path: '^packages/(?!shared-)([^/]+)/src/' },
       to: {
-        path: '^packages/(?!shared/)([^/]+)/src/.+',
-        pathNot: '^packages/$1/src/|^packages/(?!shared/)[^/]+/src/(index\\.ts|events/)',
+        path: '^packages/(?!shared-)([^/]+)/src/.+',
+        pathNot: '^packages/$1/src/|^packages/(?!shared-)[^/]+/src/(index\\.ts|events/)',
       },
     },
     {
       name: 'shared-must-not-import-modules',
-      comment: 'D13/D14: shared/* packages must not import from feature modules (core, identity, planner, copilot, integrations). They are pure infrastructure consumed by modules, not the reverse.',
+      comment: 'D13/D14: shared-* packages must not import from feature modules (core, identity, planner, copilot, integrations). They are pure infrastructure consumed by modules, not the reverse.',
       severity: 'error',
-      from: { path: '^packages/shared/' },
+      from: { path: '^packages/shared-' },
       to:   { path: '^packages/(core|identity|planner|copilot|integrations)/' },
     },
     {
@@ -168,7 +168,7 @@ module.exports = {
 ```
 
 - Runs in CI as `pnpm dlx dependency-cruiser --validate .dependency-cruiser.cjs packages apps` in the lint Turbo task. Build-failing.
-- IDE companion: `eslint-plugin-boundaries` mirroring the same rules (configured in `packages/shared/config/eslint-boundaries.cjs`) for faster feedback.
+- IDE companion: `eslint-plugin-boundaries` mirroring the same rules (configured in `packages/shared-config/eslint-boundaries.cjs`) for faster feedback.
 - **Raw-SQL audit** (§1.6.2 rule 3 enforcement) is a separate CI grep step, not dep-cruiser's job:
   ```
   ! grep -rEn '(FROM|JOIN)\s+(core|identity|planner|copilot|integrations)\.' \
@@ -418,7 +418,7 @@ CI: fails the PR. PR comment template explains the rule + offers the legal alter
 Each module exports **one registration function** that takes a single `ContributionRegistry` and calls the registry's typed methods. Boot order in `apps/server` is plain code: call each module's `registerXContributions(reg)` in dependency order.
 
 ```ts
-// packages/shared/types/contribution-registry.ts
+// packages/shared-types/contribution-registry.ts
 import type { HonoRouter } from '@seta/shared/types';
 import type { PgSchemaModule } from '@seta/shared/db';
 import type { ToolDef, AgentDef, WorkflowDef, SubscriberDef } from '@seta/shared/types';
@@ -540,7 +540,7 @@ Backend boot and shell boot use the same `ContributionRegistry` interface — on
 Permission-checked visibility — menu items, commands, hotkeys, app launcher tiles — uses one predicate utility from `@seta/shared/rbac` (D14):
 
 ```ts
-// packages/shared/rbac/src/visibility.ts
+// packages/shared-rbac/src/visibility.ts
 export type VisibilityGate =
   | string                                       // 'planner.task.read'
   | { anyOf: string[] }
@@ -2307,7 +2307,7 @@ Per §14.1:
 Three layers, each with strict rules on what it can know:
 
 ```
-LAYER 1 — packages/shared/ui              (knows: design tokens, nothing app-specific)
+LAYER 1 — packages/shared-ui              (knows: design tokens, nothing app-specific)
   Primitives    — Button, Input, Sheet, Dialog, Command, Toast, Avatar, Badge,
                   Dropdown, Tooltip, Tabs, Switch, Checkbox, RadioGroup, Form,
                   Label, Textarea, Popover, ScrollArea, Skeleton, Calendar,
@@ -2507,7 +2507,7 @@ Seta v1 has **no in-app mail or inbox feature**. Email is purely outbound transa
 
 **Phase B:** adds `EmailPreferencesSection` to the Profile settings page — toggles for notification categories, but the *delivery* of notification emails is itself a v1.x deferral. The UI ships before the backend so preference state is durable.
 
-**Transport:** tenant-first / operator-fallback. Per-tenant config lives in `integrations.mail_transport_config` (Microsoft Graph or SMTP). Operator default lives in env (`MAILER_DEFAULT_TRANSPORT=smtp|dev-stub`, `MAILER_DEFAULT_SENDER`, `MAILER_DEFAULT_SMTP_URL`). SMTP-via-nodemailer covers SES/Resend/on-prem relays uniformly. Templates are `react-email` TSX centralised in `packages/shared/mailer`. Send is queued via graphile-worker; `core.outgoing_emails` provides outbox + dedupe + audit. See D36.
+**Transport:** tenant-first / operator-fallback. Per-tenant config lives in `integrations.mail_transport_config` (Microsoft Graph or SMTP). Operator default lives in env (`MAILER_DEFAULT_TRANSPORT=smtp|dev-stub`, `MAILER_DEFAULT_SENDER`, `MAILER_DEFAULT_SMTP_URL`). SMTP-via-nodemailer covers SES/Resend/on-prem relays uniformly. Templates are `react-email` TSX centralised in `packages/shared-mailer`. Send is queued via graphile-worker; `core.outgoing_emails` provides outbox + dedupe + audit. See D36.
 
 **v1.x candidates** (not v1 work, but the shell APIs in §J.7 don't foreclose them):
 - In-app inbox for digesting notifications threaded by entity.
