@@ -140,8 +140,8 @@ export async function emitPlannerGroupMemberAdded(args: {
   tenant_id: Uuid;
   group_id: Uuid;
   user_id: PlannerGroupMemberAdded['payload']['user_id'];
-}): Promise<void> {
-  await emit({
+}): Promise<{ eventId: string }> {
+  return emit({
     tenantId: args.tenant_id,
     aggregateType: 'planner.group',
     aggregateId: args.group_id,
@@ -182,8 +182,8 @@ export async function emitPlannerGroupMemberRoleChanged(args: {
   user_id: Uuid;
   before_role: 'owner' | 'member';
   after_role: 'owner' | 'member';
-}): Promise<void> {
-  await emit({
+}): Promise<{ eventId: string }> {
+  return emit({
     tenantId: args.tenant_id,
     aggregateType: 'planner.group',
     aggregateId: args.group_id,
@@ -207,8 +207,8 @@ export async function emitPlannerPlanCreated(args: {
   actor: PlannerEventActor;
   tenant_id: Uuid;
   after: PlannerPlanCreated['payload']['after'];
-}): Promise<void> {
-  await emit({
+}): Promise<{ eventId: string }> {
+  return emit({
     tenantId: args.tenant_id,
     aggregateType: 'planner.plan',
     aggregateId: args.after.plan_id,
@@ -338,8 +338,8 @@ export async function emitPlannerPlanDeleted(args: {
   plan_id: Uuid;
   version_before: PlannerPlanDeleted['payload']['version_before'];
   deleted_at: PlannerPlanDeleted['payload']['deleted_at'];
-}): Promise<void> {
-  await emit({
+}): Promise<{ eventId: string }> {
+  return emit({
     tenantId: args.tenant_id,
     aggregateType: 'planner.plan',
     aggregateId: args.plan_id,
@@ -598,8 +598,8 @@ export async function emitPlannerTaskAssigned(args: {
   task_id: Uuid;
   plan_id: Uuid;
   user_id: PlannerTaskAssigned['payload']['user_id'];
-}): Promise<void> {
-  await emit({
+}): Promise<{ eventId: string }> {
+  return emit({
     tenantId: args.tenant_id,
     aggregateType: 'planner.task',
     aggregateId: args.task_id,
@@ -622,8 +622,8 @@ export async function emitPlannerTaskUnassigned(args: {
   task_id: Uuid;
   plan_id: Uuid;
   user_id: PlannerTaskUnassigned['payload']['user_id'];
-}): Promise<void> {
-  await emit({
+}): Promise<{ eventId: string }> {
+  return emit({
     tenantId: args.tenant_id,
     aggregateType: 'planner.task',
     aggregateId: args.task_id,
@@ -648,8 +648,8 @@ export async function emitPlannerTaskCompleted(args: {
   version_before: number;
   version_after: number;
   completed_at: PlannerTaskCompleted['payload']['completed_at'];
-}): Promise<void> {
-  await emit({
+}): Promise<{ eventId: string }> {
+  return emit({
     tenantId: args.tenant_id,
     aggregateType: 'planner.task',
     aggregateId: args.task_id,
@@ -675,8 +675,8 @@ export async function emitPlannerTaskReopened(args: {
   plan_id: Uuid;
   version_before: PlannerTaskReopened['payload']['version_before'];
   version_after: PlannerTaskReopened['payload']['version_after'];
-}): Promise<void> {
-  await emit({
+}): Promise<{ eventId: string }> {
+  return emit({
     tenantId: args.tenant_id,
     aggregateType: 'planner.task',
     aggregateId: args.task_id,
