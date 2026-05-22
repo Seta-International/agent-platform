@@ -1,12 +1,15 @@
 import {
   dismissNotification,
   getUnreadCount,
+  listNotificationPrefs,
   listNotifications,
   markAllNotificationsRead,
   markNotificationRead,
   NotificationNotFound,
+  NotificationPrefError,
   requestNotification,
   type SessionEnv,
+  setNotificationPref,
 } from '@seta/core';
 import { withEmit } from '@seta/core/events';
 import type { Hono } from 'hono';
@@ -26,6 +29,18 @@ const listQuerySchema = z.object({
   cursor: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(100).optional(),
 });
+
+const patchPrefSchema = z.object({
+  event_type: z.string().min(1),
+  channel: z.enum(['in_app', 'email']),
+  enabled: z.boolean(),
+});
+
+function prefErrorToHttp(err: unknown): { status: 400 | 403; body: { error: string } } | null {
+  if (!(err instanceof NotificationPrefError)) return null;
+  if (err.code === 'FORBIDDEN') return { status: 403, body: { error: 'FORBIDDEN' } };
+  return { status: 400, body: { error: err.code } };
+}
 
 export function registerNotificationsRoutes(
   app: Hono<SessionEnv>,
@@ -117,6 +132,45 @@ export function registerNotificationsRoutes(
       return c.json({ accepted: true, source_event_id: sourceEventId }, 202);
     });
   }
+
+  app.get('/api/core/v1/notification-prefs', async (c) => {
+    const session = c.get('user');
+    try {
+      const matrix = await listNotificationPrefs({ session });
+      return c.json(matrix);
+    } catch (err) {
+      const httpErr = prefErrorToHttp(err);
+      if (httpErr) return c.json(httpErr.body, httpErr.status);
+      throw err;
+    }
+  });
+
+  app.patch('/api/core/v1/notification-prefs', async (c) => {
+    const session = c.get('user');
+    const body = await c.req.json().catch(() => ({}));
+    const parsed = patchPrefSchema.safeParse(body);
+    if (!parsed.success) {
+      return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
+    }
+    try {
+      await withEmit(
+        { actor: { userId: session.user_id, tenantId: session.tenant_id } },
+        async () => {
+          await setNotificationPref({
+            event_type: parsed.data.event_type,
+            channel: parsed.data.channel,
+            enabled: parsed.data.enabled,
+            session,
+          });
+        },
+      );
+      return c.json({ ok: true });
+    } catch (err) {
+      const httpErr = prefErrorToHttp(err);
+      if (httpErr) return c.json(httpErr.body, httpErr.status);
+      throw err;
+    }
+  });
 
   app.get('/api/core/v1/notifications/stream', async (c) => {
     const session = c.get('user');
