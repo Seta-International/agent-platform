@@ -27,7 +27,6 @@ export class VectorRetriever implements Retriever<VectorQuery, TaskRetrievalItem
     const { pool } = this.opts;
     const { tenant_id, queryVector, limit, group_ids } = input;
 
-    const overscan = Math.max(limit * 4, 50);
     const vectorLiteral = `[${queryVector.join(',')}]`;
 
     let sql: string;
@@ -35,60 +34,34 @@ export class VectorRetriever implements Retriever<VectorQuery, TaskRetrievalItem
 
     if (group_ids && group_ids.length > 0) {
       sql = `
-        WITH ranked AS (
-          SELECT te.task_id,
-                 ROW_NUMBER() OVER (ORDER BY te.embedding <=> $2::halfvec) AS per_chunk_rank
-            FROM planner.task_embeddings te
-           WHERE te.tenant_id = $1
-           ORDER BY te.embedding <=> $2::halfvec
-           LIMIT $4
-        ),
-        dedup AS (
-          SELECT task_id, MIN(per_chunk_rank) AS rank
-            FROM ranked
-           GROUP BY task_id
-           ORDER BY rank
-           LIMIT $3
-        )
-        SELECT d.task_id, t.title
-          FROM dedup d
-          JOIN planner.tasks t ON t.id = d.task_id
-         WHERE t.tenant_id = $1
+        SELECT te.task_id, t.title
+          FROM planner.task_embeddings te
+          JOIN planner.tasks t ON t.id = te.task_id
+         WHERE te.tenant_id = $1
+           AND t.tenant_id = $1
            AND t.deleted_at IS NULL
            AND t.plan_id IN (
              SELECT id FROM planner.plans
               WHERE tenant_id = $1
-                AND group_id = ANY($5::bigint[])
+                AND group_id = ANY($4::bigint[])
                 AND deleted_at IS NULL
            )
-         ORDER BY d.rank
+         ORDER BY te.embedding <=> $2::halfvec
+         LIMIT $3
       `;
-      params = [tenant_id, vectorLiteral, limit, overscan, group_ids];
+      params = [tenant_id, vectorLiteral, limit, group_ids];
     } else {
       sql = `
-        WITH ranked AS (
-          SELECT te.task_id,
-                 ROW_NUMBER() OVER (ORDER BY te.embedding <=> $2::halfvec) AS per_chunk_rank
-            FROM planner.task_embeddings te
-           WHERE te.tenant_id = $1
-           ORDER BY te.embedding <=> $2::halfvec
-           LIMIT $4
-        ),
-        dedup AS (
-          SELECT task_id, MIN(per_chunk_rank) AS rank
-            FROM ranked
-           GROUP BY task_id
-           ORDER BY rank
-           LIMIT $3
-        )
-        SELECT d.task_id, t.title
-          FROM dedup d
-          JOIN planner.tasks t ON t.id = d.task_id
-         WHERE t.tenant_id = $1
+        SELECT te.task_id, t.title
+          FROM planner.task_embeddings te
+          JOIN planner.tasks t ON t.id = te.task_id
+         WHERE te.tenant_id = $1
+           AND t.tenant_id = $1
            AND t.deleted_at IS NULL
-         ORDER BY d.rank
+         ORDER BY te.embedding <=> $2::halfvec
+         LIMIT $3
       `;
-      params = [tenant_id, vectorLiteral, limit, overscan];
+      params = [tenant_id, vectorLiteral, limit];
     }
 
     const client = await pool.connect();
