@@ -8,6 +8,13 @@
       "when": 1779201963713,
       "tag": "0004_user_profile",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1779442428087,
+      "tag": "0017_failed_login_alerts_sent",
+      "breakpoints": true
     }
   ]
 }

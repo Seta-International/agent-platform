@@ -70,4 +70,9 @@ export const userProfileEmbeddings = identity.table(
   (t) => [primaryKey({ columns: [t.tenant_id, t.user_id] })],
 );
 
+export const failedLoginAlertsSent = identity.table('failed_login_alerts_sent', {
+  email: text('email').primaryKey(),
+  lastSentAt: timestamp('last_sent_at', { withTimezone: true }).notNull(),
+});
+
 export * from './auth-tables.ts';
