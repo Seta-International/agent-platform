@@ -21,6 +21,12 @@ export {
   type SessionMiddlewareDeps,
 } from './middleware/session.ts';
 export {
+  CORE_NOTIFICATION_REQUESTED,
+  type CoreNotificationRequestedPayload,
+  type RequestNotificationInput,
+  requestNotification,
+} from './notifications/index.ts';
+export {
   type CreateOutboxStoreDeps,
   createOutboxStore,
   type OutboxRow,
