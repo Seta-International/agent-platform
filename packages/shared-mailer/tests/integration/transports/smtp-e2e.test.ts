@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createSmtpTransport } from '../../src/transports/smtp.ts';
+import { createSmtpTransport } from '../../../src/transports/smtp.ts';
 
 const MAILHOG = process.env.SETA_MAILHOG_URL ?? '';
 const run = MAILHOG ? describe : describe.skip;

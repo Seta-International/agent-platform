@@ -1,7 +1,7 @@
 import type { EncryptedBlob } from '@seta/shared-crypto';
 import { describe, expect, it } from 'vitest';
-import type { MailerEnv } from '../src/env.ts';
-import { resolveTransport } from '../src/resolve-transport.ts';
+import type { MailerEnv } from '../../src/env.ts';
+import { resolveTransport } from '../../src/resolve-transport.ts';
 
 const BASE_ENV: MailerEnv = {
   MAILER_DEFAULT_TRANSPORT: 'dev-stub',

@@ -1,9 +1,9 @@
 import pino from 'pino';
 import { describe, expect, it, vi } from 'vitest';
-import type { OutboxStoreLike } from '../src/mailer.ts';
-import { createMailerSendTask } from '../src/queue/worker.ts';
-import type { ResolvedTransport } from '../src/resolve-transport.ts';
-import { TransportError } from '../src/transports/types.ts';
+import type { OutboxStoreLike } from '../../src/mailer.ts';
+import { createMailerSendTask } from '../../src/queue/worker.ts';
+import type { ResolvedTransport } from '../../src/resolve-transport.ts';
+import { TransportError } from '../../src/transports/types.ts';
 
 const SILENT_LOG = pino({ enabled: false });
 

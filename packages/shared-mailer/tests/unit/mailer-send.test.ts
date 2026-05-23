@@ -1,6 +1,6 @@
 import pino from 'pino';
 import { describe, expect, it, vi } from 'vitest';
-import { createMailer } from '../src/mailer.ts';
+import { createMailer } from '../../src/mailer.ts';
 
 const SILENT_LOG = pino({ enabled: false });
 

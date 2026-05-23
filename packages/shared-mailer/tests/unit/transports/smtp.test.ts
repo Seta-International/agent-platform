@@ -1,6 +1,6 @@
 import nodemailer from 'nodemailer';
 import { describe, expect, it } from 'vitest';
-import { createSmtpTransportFromTransporter } from '../../src/transports/smtp.ts';
+import { createSmtpTransportFromTransporter } from '../../../src/transports/smtp.ts';
 
 describe('smtp transport', () => {
   it('builds a properly-shaped envelope via nodemailer.jsonTransport', async () => {

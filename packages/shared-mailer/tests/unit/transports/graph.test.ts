@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { _resetGraphTokenCache, createGraphTransport } from '../../src/transports/graph.ts';
+import { _resetGraphTokenCache, createGraphTransport } from '../../../src/transports/graph.ts';
 
 const ENV = {
   clientId: 'client-id',

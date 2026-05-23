@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { listTemplates, renderTemplate } from '../src/render.ts';
-import { previewProps as testSendPreview } from '../src/templates/_test-send/preview-props.ts';
-import { previewProps as alertPreview } from '../src/templates/failed-login-alert/preview-props.ts';
-import { previewProps as invitePreview } from '../src/templates/invite/preview-props.ts';
-import { previewProps as resetPreview } from '../src/templates/password-reset/preview-props.ts';
-import { previewProps as verifyPreview } from '../src/templates/verify-email/preview-props.ts';
+import { listTemplates, renderTemplate } from '../../src/render.ts';
+import { previewProps as testSendPreview } from '../../src/templates/_test-send/preview-props.ts';
+import { previewProps as alertPreview } from '../../src/templates/failed-login-alert/preview-props.ts';
+import { previewProps as invitePreview } from '../../src/templates/invite/preview-props.ts';
+import { previewProps as resetPreview } from '../../src/templates/password-reset/preview-props.ts';
+import { previewProps as verifyPreview } from '../../src/templates/verify-email/preview-props.ts';
 
 describe('renderTemplate', () => {
   it('renders verify-email to HTML with subject and plain text', async () => {

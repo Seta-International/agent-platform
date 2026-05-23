@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createDevStubTransport } from '../../src/transports/dev-stub.ts';
+import { createDevStubTransport } from '../../../src/transports/dev-stub.ts';
 
 describe('dev-stub transport', () => {
   it('captures sent messages in memory and returns a fake message id', async () => {
