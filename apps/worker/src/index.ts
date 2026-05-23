@@ -19,6 +19,7 @@ import { closePools, getPool, initPools } from '@seta/shared-db';
 import { resolveTransport } from '@seta/shared-mailer';
 import { createMailerSendTask } from '@seta/shared-mailer/queue';
 import { registerStaffingContributions } from '@seta/staffing/register';
+// MODULE_IMPORTS_END — generator inserts new register*Contributions imports above this comment.
 import pino from 'pino';
 import { parseEnv } from './env.ts';
 
@@ -51,6 +52,7 @@ registerKnowledgeContributions(reg);
 registerNotificationsContributions(reg);
 registerPlannerContributions(reg);
 registerStaffingContributions(reg);
+// MODULE_REGISTRATIONS_END — generator inserts new register*Contributions(reg) calls above this comment.
 log.info('contributions registered');
 
 const lag = await runMigrations(reg, { pool: getPool('worker'), assertCaughtUpOnly: true });

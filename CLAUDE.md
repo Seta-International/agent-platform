@@ -32,8 +32,8 @@ Closed decisions per `requirements.md` §1.5; version pins at §17.2.
 
 The modular-monolith boundary discipline (`requirements.md` §1.6.2, `architecture.md` §B) is **CI-gated**. When implementation lands, every PR runs:
 
-1. **dependency-cruiser** (`.dependency-cruiser.cjs`, ruleset at `architecture.md` §A5): rejects cross-package imports that don't go through `packages/<module>/src/index.ts` (the public surface) or `src/events/`. `shared/*` packages may not import from feature modules. Only `copilot` may wrap peer modules' public surfaces as tools.
-2. **Drizzle schema scoping**: each module's Drizzle config sets `schemaFilter: ['<module>']`. Schemas are `core`, `identity`, `planner`, `copilot`, `integrations`.
+1. **dependency-cruiser** (`.dependency-cruiser.cjs`, ruleset at `architecture.md` §A5): rejects cross-package imports that don't go through `packages/<module>/src/index.ts` (the public surface), the `/events`, `/rbac`, or `/contracts` subpaths, or the `/agent-tools` subpath. `shared-*` packages may not import from feature modules. Each module owns its agent tools and contributes them via `reg.module({ agentTools })`; `copilot` is engine-only and may not import any feature or orchestrator module (enforced by dep-cruiser rule `copilot-no-feature-imports`).
+2. **Drizzle schema scoping**: each module's Drizzle config sets `schemaFilter: ['<module>']`. Schemas at time of writing are `core`, `identity`, `planner`, `integrations`, `copilot`, `notifications`, `knowledge`. The list grows whenever a module is added. Orchestrators (e.g. `staffing`) may declare their own schema but most persist workflow state under `copilot.workflow_runs`.
 3. **Raw-SQL grep audit**: CI rejects `FROM <other_module>.` / `JOIN <other_module>.` anywhere outside `packages/core/src/{audit,events}/`.
 4. **Public-API integration test**: each module's tests run with peer source paths excluded from the resolver.
 
@@ -66,7 +66,7 @@ These apply to every code change. They are not negotiable per-PR.
 
 Layout shape and command names are fixed by `requirements.md` §19.1 / §19.3 — read them before adding a directory or a script. Rules that apply:
 
-- **Use the layout in §19.1 exactly.** Do not invent alternative directory schemes. Each module has a public surface at `src/index.ts` plus internals at `src/{backend,events,db}/`.
+- **Use the layout in §19.1 exactly.** Do not invent alternative directory schemes. Each module has a public surface at `src/index.ts` plus `events.ts`, `rbac.ts`, `contracts.ts`, `register.ts` at the same level, and internals under `src/backend/{domain,subscribers,jobs,http,stream,workflows,agent-tools,agent-specs,db}/`. The module factory at `pnpm gen module` produces this shape.
 - **Do not invent commands.** `pnpm` script names in §19.3 are the contract; don't add aliases or rename.
 - **Protect the onboarding contract** (§19.3): `clone → install → db:up → db:migrate → db:seed → dev` must yield the flagship demo in 5 min on a fresh machine. Any change that adds a step needs an explicit reason.
 - **`pnpm lint` runs dep-cruiser** as the boundary gate — never bypass it.
@@ -76,8 +76,23 @@ Layout shape and command names are fixed by `requirements.md` §19.1 / §19.3 �
 - **HITL on every write tool** (§14.1): AI SDK v6 `needsApproval: true` + assistant-ui Interactable confirmation card. Read tools execute directly.
 - **Subscribers must be idempotent**, keyed on `event_id`. At-least-once delivery; per-aggregate ordering only.
 - **Design tokens** in `DESIGN.md` are Linear-flavored. Lavender (`#5e6ad2`) is the only chromatic accent — brand mark, primary CTA, focus ring, link emphasis. Dark mode from day one.
-- **One domain per agent, ≤ ~15 tools** (architecture §H.1). Tool schemas live in the system prompt — overflowing it burns prompt-cache hits and worsens model tool selection. Past the cap, spin up a new specialist agent and route to it; don't keep stapling tools onto an existing one. Soft rule, reviewer-enforced, no lint.
+- **One domain per agent, ≤ ~15 tools assembled into an agent at session-assembly time** (architecture §H.1). Tool schemas live in the system prompt — overflowing it burns prompt-cache hits and worsens model tool selection. The cap is per-agent, not per-module — a module may contribute more tools than this if they're distributed across multiple agent specs. Past the cap on a single agent, spin up a new specialist agent and route to it; don't keep stapling tools onto an existing one. Soft rule, reviewer-enforced, no lint.
 - **Style monopoly.** All styling lives in `packages/shared-ui`. No `.css`, no `tailwind.config.*`, no `@theme/@layer/@apply` outside that package (one shim allowed at `apps/web/src/styles/globals.css`). Enforced by `pnpm lint:styles`.
+
+## Module tiers
+
+Two tiers are enforced by `.dependency-cruiser.cjs`:
+
+- **infra** — `packages/shared-*` and `sdks/*`. Leaf packages. May not import from feature/orchestrator modules.
+- **module** — `packages/<name>/` (everything that isn't `shared-*`). Cross-module imports must go through the public surface (`src/index.ts`, `events`, `rbac`, `contracts`, `agent-tools`); reaching into another module's `src/backend/` or `src/db/` is a CI failure.
+
+Three patterns are documented but not enforced as separate tiers:
+
+- **foundation** — modules every other module may depend on (`core`, `identity`). `setaTier: "foundation"` in `package.json`.
+- **orchestrator** — modules that compose multiple feature modules into cross-domain workflows (`staffing`). Should not own a heavy schema; most state lives in `copilot.workflow_runs`. `setaTier: "orchestrator"`.
+- **engine** — `copilot` only. Composes module-owned agent tools/specs into a Mastra runtime; may not import feature/orchestrator modules.
+
+See `project-plan.md §7` rows D53–D54 for the rationale.
 
 ## Subagent dispatch (when executing plans via subagent-driven-development)
 

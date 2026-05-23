@@ -26,4 +26,4 @@ Provisions Aurora Postgres Serverless v2 with the `pgvector` extension enabled, 
 
 The Cloud Posse `terraform-aws-rds-cluster` module provisions the cluster but does not run extension DDL. The follow-up PR's `main.tf` triggers a one-shot ECS RunTask after cluster creation that runs `CREATE EXTENSION IF NOT EXISTS vector` — first-apply only, idempotent on re-apply.
 
-See `docs/superpowers/plans/2026-05-20-deployment-layer-4-opentofu-aws.md` Task 6 for the full HCL.
+See _internal design notes_ for the full HCL.

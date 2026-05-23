@@ -37,4 +37,4 @@ Built atop:
 - `cloudposse/terraform-aws-ecs-alb-service-task` (the service + task definition wrapper).
 - `cloudposse/terraform-aws-ecs-container-definition` (container JSON with secrets, port mappings, log config).
 
-See `docs/superpowers/plans/2026-05-20-deployment-layer-4-opentofu-aws.md` Task 4 for the full HCL the follow-up PR will land.
+See _internal design notes_ for the full HCL the follow-up PR will land.

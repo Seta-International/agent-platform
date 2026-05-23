@@ -22,4 +22,4 @@ Provisions an AWS Private Certificate Authority in short-lived mode (5-day rotat
 
 AWS PCA has two modes: **general-purpose** ($400/month + per-cert fees) and **short-lived** ($50/month + lower per-cert). Short-lived caps cert lifetime at 7 days but ECS auto-rotates every 5 — perfect fit for east-west traffic that never leaves the VPC. The general-purpose mode is documented as opt-out in the follow-up README, not the default.
 
-See `docs/superpowers/plans/2026-05-20-deployment-layer-4-opentofu-aws.md` Task 5 for the full HCL.
+See _internal design notes_ for the full HCL.

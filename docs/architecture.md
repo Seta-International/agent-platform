@@ -4,6 +4,8 @@
 
 This document is the **architecture-phase output** for §13 / §1.6.10 / §14.1. It is consumed by implementation; if a section conflicts with `requirements.md`, requirements wins and this doc is a bug.
 
+**Refactor note (2026-05-22 → 2026-05-23).** Sections §A13 (composition), §A5 (dep-cruiser ruleset), §B (boundary discipline), §J.7 (registry shape), and §J.8 (notifications) describe the post-refactor architecture. Closed decisions land as D50–D58 in `project-plan.md` §7.
+
 ---
 
 ## Table of contents
@@ -105,79 +107,36 @@ export async function emit(event: DomainEvent): Promise<void> {
 
 **Idempotency.** Subscriber framework keys on `event_id` (§1.6.5a). If a step retries after the tx committed but before its `runStep` ack landed, Mastra will re-execute the step → tx rolls back the duplicate event row → same outbox correctness story as any other emitter.
 
-### §A5. dependency-cruiser config → **complete `.dependency-cruiser.cjs`**
+### §A5. dependency-cruiser config → **post-refactor rule sheet**
 
-```js
-// .dependency-cruiser.cjs (repo root)
-module.exports = {
-  forbidden: [
-    {
-      name: 'no-private-cross-package',
-      comment: 'Cross-package imports must enter via the package root (src/index.ts) or /events. Any other path inside another package\'s src/ is private. Exception: packages/shared-* are imported freely (they are pure infrastructure with no internal-vs-surface distinction).',
-      severity: 'error',
-      from: { path: '^packages/(?!shared-)([^/]+)/src/' },
-      to: {
-        path: '^packages/(?!shared-)([^/]+)/src/.+',
-        pathNot: '^packages/$1/src/|^packages/(?!shared-)[^/]+/src/(index\\.ts|events/)',
-      },
-    },
-    {
-      name: 'shared-must-not-import-modules',
-      comment: 'D13/D14: shared-* packages must not import from feature modules (core, identity, planner, copilot, integrations). They are pure infrastructure consumed by modules, not the reverse.',
-      severity: 'error',
-      from: { path: '^packages/shared-' },
-      to:   { path: '^packages/(core|identity|planner|copilot|integrations)/' },
-    },
-    {
-      name: 'no-peer-module-import',
-      comment: 'identity, planner, integrations are peers — they communicate only via events through core. Only copilot may import every peer\'s public surface to wrap as tools.',
-      severity: 'error',
-      from: { path: '^packages/(identity|planner|integrations)/src/' },
-      to:   { path: '^packages/(identity|planner|integrations)/src/', pathNot: '^packages/$1/' },
-    },
-    {
-      name: 'apps-only-backend',
-      comment: 'A package\'s /backend subpath is private to apps/server. Cross-package code uses the package root (src/index.ts) or /events.',
-      severity: 'error',
-      from: { pathNot: '^apps/server/' },
-      to:   { path: '^packages/[^/]+/src/backend/' },
-    },
-    {
-      name: 'no-circular',
-      severity: 'error',
-      from: {},
-      to:   { circular: true },
-    },
-    {
-      name: 'no-orphans',
-      severity: 'warn',
-      from: { orphan: true, pathNot: '\\.(d\\.ts|spec\\.ts|test\\.ts|stories\\.tsx?|config\\.(c|m)?[jt]s)$' },
-      to: {},
-    },
-  ],
-  options: {
-    tsConfig: { fileName: 'tsconfig.json' },
-    enhancedResolveOptions: {
-      exportsFields: ['exports'],
-      conditionNames: ['import', 'require', 'node', 'default'],
-    },
-    doNotFollow: { path: 'node_modules' },
-    includeOnly: '^(packages|apps)/',
-  },
-};
-```
+The repo-root `.dependency-cruiser.cjs` is the authoritative implementation; this section names the rules and their intent. The implementation is a direct translation of the rules below — when they diverge, the `.cjs` file is the bug.
 
-- Runs in CI as `pnpm dlx dependency-cruiser --validate .dependency-cruiser.cjs packages apps` in the lint Turbo task. Build-failing.
-- IDE companion: `eslint-plugin-boundaries` mirroring the same rules (configured in `packages/shared-config/eslint-boundaries.cjs`) for faster feedback.
-- **Raw-SQL audit** (§1.6.2 rule 3 enforcement) is a separate CI grep step, not dep-cruiser's job:
-  ```
-  ! grep -rEn '(FROM|JOIN)\s+(core|identity|planner|copilot|integrations)\.' \
-    packages/{identity,planner,copilot,integrations}/src \
-    --include='*.ts' \
-    | grep -v 'src/db/' \
-    | grep -v "//.*allow-cross-schema"
-  ```
-  Allowed in `packages/core/src/{audit,events}/`. Same-package schema references via Drizzle's `pgSchema` are fine.
+| # | Rule | From | To | Intent |
+|---|------|------|----|--------|
+| 1 | `infra-no-module-imports` | `^packages/shared-` | `^packages/(?!shared-)([^/]+)/` | Infra is a leaf. `shared-*` may not pull in feature/orchestrator/engine modules. |
+| 2 | `no-cross-module-internals` | `^packages/(?!shared-)([^/]+)/src/` | `^packages/(?!shared-)([^/]+)/src/(backend\|db)/` (excluding self and `/agent-tools/`) | Modules consume each other's public surface only — `src/index.ts`, `/events`, `/rbac`, `/contracts`, `/agent-tools`. Internals (`backend`, `db`) are private. |
+| 3 | `no-circular` | _any_ | `circular: true` | No cycles. Upgraded from warn to error post-refactor. |
+| 4 | `copilot-no-feature-imports` | `^packages/copilot/` | `^packages/(?!shared-\|copilot/\|core/src/runtime)([^/]+)/` (excluding `/events` + `/agent-tools` subpaths) | `copilot` is engine-only: composes module-owned tools/specs but does not import feature/orchestrator domain code. |
+| 5 | `copilot-sdk-no-mastra-runtime` | `^sdks/copilot/` | `^node_modules/@mastra/(?!core/?$)` | `@seta/copilot-sdk` is a pure contract — may use Mastra _type_ entry but no runtime modules. |
+| 6 | `modules-no-copilot-direct` | feature/orchestrator modules | `^packages/copilot/src/` (except `index.ts` + `events.ts`) | Modules build tools against `@seta/copilot-sdk`, not against copilot internals. Orchestrators may use the engine helpers exposed from copilot's main entry. |
+| 7 | `web-no-backend-imports` | `^(apps/web/\|packages/.+-web/)` | `^packages/(?!shared-\|.+-web/)([^/]+)/src/(backend\|db)/` | Browser surface cannot pull in Node backend code. |
+| 8 | `no-app-to-app-imports` | `^apps/([^/]+)/` | `^apps/([^/]+)/` (excluding self) | Apps don't import each other. |
+| 9 | `core-runtime-restricted` | not `^apps/(server\|worker)/` and not `^packages/core/` | `^packages/core/src/runtime/` | `@seta/core/runtime` (dispatcher + worker pool + bootstrap) is private to `apps/server`, `apps/worker`, and module integration tests. |
+| 10 | `apps-cli-no-dispatcher` | `^apps/cli/` | `^packages/core/src/runtime/dispatcher/` | `apps/cli` is short-lived — never start the dispatcher there. |
+| 11 | `shared-ui-no-dnd` | `^packages/shared-ui/src/` | `^node_modules/@hello-pangea/dnd` | Style monopoly: shared-ui composites cannot depend on DnD — apps wire DnD via render slots. |
+| 12 | `not-to-test` | _any_ non-test | `\\.(spec\|test)\\.[jt]sx?$` | No production imports of test files. |
+
+Removed since the pre-refactor sheet:
+
+- `identity-auth-import-restricted` — better-auth wiring moved into `@seta/core/runtime`; the rule's premise no longer exists.
+- `identity-internals-blocked` and `identity-sso-internals-blocked` — both subsumed by the generic `no-cross-module-internals`.
+- `no-peer-module-import` — replaced by the public-surface rule; peer-to-peer imports are now governed by the same rule that governs every cross-module import.
+
+Mechanics unchanged:
+
+- `pnpm depcruise` runs `depcruise apps packages sdks --config .dependency-cruiser.cjs`. Wired into `pnpm lint`; build-failing.
+- IDE companion `eslint-plugin-boundaries` mirrors a subset for faster feedback inside the editor.
+- **Raw-SQL audit** (§1.6.2 rule 3) is a separate CI step (`pnpm lint:raw-sql`) — dep-cruiser does not see SQL strings. It rejects `FROM <other_module>.` / `JOIN <other_module>.` anywhere outside `packages/core/src/{audit,events}/`.
 
 ### §A6. assistant-ui HITL → **AI SDK v6 `needsApproval` + Interactables**
 
@@ -327,13 +286,56 @@ The "one runtime binary" framing in earlier drafts of this section is amended. T
 - **Mutating-call idempotency.** Callers attach `Idempotency-Key: <uuid>` (auto-generated for methods declared `mutates: true`). Callee dedups via `core.rpc_idempotency` table — race-safe via the primary-key constraint. Failures are NOT cached; retries re-run the body.
 - **Error contract.** `ModuleUnavailable` (peer down after 1 retry on network/timeout/502/503/504), `RpcTimeout`, `RpcForbidden`, `RpcInvalidArgument`, `RpcInternal`. Callers handle as named classes.
 
-This provision keeps OSS self-host as a single container and unlocks AWS per-module scaling without a code fork — see ADR D34 in `docs/project-plan.md §7` and `docs/superpowers/specs/2026-05-20-deployment-strategy-design.md` §5.4.
+This provision keeps OSS self-host as a single container and unlocks AWS per-module scaling without a code fork — see ADR D34 in `docs/project-plan.md §7` and _internal design notes_ §5.4.
+
+### §A13. Four runtimes, one composition library → **`apps/web`, `apps/server`, `apps/worker`, `apps/cli` + `@seta/core/runtime`** (post-refactor, D50)
+
+`apps/server` and `apps/worker` are now distinct runtimes that share a single composition library at `packages/core/src/runtime/`, exported as the private subpath `@seta/core/runtime`. Dep-cruiser rule `core-runtime-restricted` limits importers to `apps/server`, `apps/worker`, and module integration tests.
+
+```ts
+// apps/server/src/index.ts and apps/worker/src/index.ts both call:
+const reg = createContributionRegistry();
+registerCoreContributions(reg);
+registerIdentityContributions(reg);
+// ...one register*Contributions call per active module...
+// MODULE_REGISTRATIONS_END — generator inserts here.
+
+const rt = buildRuntime(env, { reg, pool, ...deps });
+// apps/server picks startServerRuntime (HTTP only in prod) or startBoth (dev convenience).
+// apps/worker picks startWorkerRuntime (dispatcher + graphile-worker pool only).
+```
+
+Topology:
+
+- `apps/server` — Hono HTTP only in production. The dispatcher and worker pool are off here; the `WorkerHandle` it holds is enqueue-only.
+- `apps/worker` — runs the LISTEN/NOTIFY dispatcher and the graphile-worker pool, with the same `reg.collected.subscribers` and `reg.collected.jobs` the server uses. **Only `apps/worker` runs the dispatcher**, removing the previous "two dispatchers in dev" footgun (avoided by convention pre-refactor).
+- `apps/cli` — short-lived ops surface; the only path that runs migrations (`pnpm db:migrate`). Server and worker both fail fast if `schema_migrations` is behind their expected versions.
+- `apps/web` — browser runtime; shares no Node composition with the others, but the same registry concept drives the web shell via the `module-sdk` nav manifest registry.
+
+**Dev convenience.** `apps/server` in dev (`NODE_ENV !== 'production'`) calls `rt.startBoth()` — HTTP + dispatcher + worker pool in one process. Production splits into two ECS services. This is the only difference between dev and prod composition.
+
+`SETA_MODULES` and the §A12 RPC shim survive unchanged — they describe a different axis (which modules a process loads), orthogonal to the server/worker split (which runtime role a process plays). See `project-plan.md §7` D50.
 
 ---
 
 ## §B. Module boundary enforcement
 
 §1.6.2 mandates four enforcement mechanisms. Concrete shapes:
+
+### §B.0 Tiers (post-refactor)
+
+Two tiers are enforced:
+
+- **infra** — `packages/shared-*/` and `sdks/*/`. Leaf packages. Path prefix is the gate; no maintained allowlist.
+- **module** — `packages/<name>/`. Cross-module imports are restricted to the public surface (`src/index.ts`, `events`, `rbac`, `contracts`, `agent-tools`); `src/backend/`, `src/db/` are private.
+
+Three patterns ride on top of the two tiers but are documented rather than enforced:
+
+- **foundation** — modules every other module may depend on (`core`, `identity`). Declared via `"setaTier": "foundation"` in `package.json`.
+- **orchestrator** — modules that compose multiple feature modules into cross-domain workflows (e.g. `staffing`). Most orchestrators don't carry their own schema; workflow state lives in `copilot.workflow_runs`.
+- **engine** — `copilot`. Composes module-owned agent tools/specs into a Mastra runtime; cannot import feature or orchestrator modules (rule §A5 #4).
+
+The pattern decisions land as ADRs in `project-plan.md §7`: D54 (two enforced tiers), D53 (engine-only copilot).
 
 ### §B.1 ESLint / dependency-cruiser
 
@@ -2217,7 +2219,7 @@ Subsequent turns in the same thread: cached SessionScope, cached Agents — ~2ms
 
 ## §I. Embeddings CDC pipeline (M3 concrete shape)
 
-Per spec `docs/superpowers/specs/2026-05-21-vectorization-strategy-design.md`. Subscriber + worker + storage names are stable contracts.
+Per spec _internal design notes_. Subscriber + worker + storage names are stable contracts.
 
 **Subscribers** (registered in `copilot` via `reg.subscribers([...])`):
 
@@ -2469,7 +2471,29 @@ Adding a new contribution type follows the §C.8 playbook — extend the manifes
 
 **Important:** the imperative `ShellContributionRegistry` and declarative `ModuleManifest` designs that appeared in earlier drafts of this section are both superseded. Use the unified `ContributionRegistry` from §C.1 exclusively (D1, 2026-05-19).
 
+**Post-refactor update (D55).** The registry now collapses to a single `reg.module({...})` call instead of the previous 5 separate methods. Each module's `register.ts` makes exactly one call:
+
+```ts
+reg.module({
+  name: 'planner',
+  schema,                    // Drizzle pgSchema
+  migrationsDir,             // resolved at register time
+  events: PLANNER_EVENTS,    // Record<EventType, ZodSchema>
+  rbac: PLANNER_PERMISSIONS, // Record<slug, description>
+  subscribers,               // SubscriberDef[]
+  jobs,                      // graphile-worker TaskList
+  routes:    { mountAt: '/', build: plannerRoutes },
+  stream:    buildPlannerStreamHub,
+  agentTools, agentSpecs,    // surfaced to copilot's agent factory
+  workflows, errorMapper,    // optional
+});
+```
+
+Validation runs at composition time: duplicate module/job/permission/tool/spec/workflow IDs all throw before HTTP boot. Frontend `navManifest` registration (web-side) remains a separate concern handled in `apps/web/src/shell/manifests.ts`; see D58.
+
 ### §J.8 Notification system shape (Phase B+)
+
+> **Post-refactor (D51).** Notifications now live in their own module at `packages/notifications/` with schema `notifications.*`. The diagram below describes the architectural seam; for current implementation details (schema, subscribers, SSE hub, RBAC) see `packages/notifications/README.md`. The pre-refactor seam landed inside `@seta/core`; the move is structural, the bus contract is unchanged.
 
 Architectural seam fixed in Phase A even though the UI ships in Phase B.
 

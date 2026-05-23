@@ -17,7 +17,7 @@ Deploys Seta as **one** ECS Fargate service running `seta-server` with `SETA_MOD
 
 - AWS Private CA — east-west mTLS is unnecessary when there's only one service. See the `split-services` example for the multi-service topology that opts in.
 
-See `docs/superpowers/plans/2026-05-20-deployment-layer-4-opentofu-aws.md` Task 7 for the full HCL the follow-up PR will land.
+See _internal design notes_ for the full HCL the follow-up PR will land.
 
 ## Apply (after follow-up PR ships the HCL)
 

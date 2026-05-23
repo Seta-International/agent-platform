@@ -73,11 +73,22 @@ Adding any new business module is the playbook in §1.6.3. **Existing modules ar
 
 This is the design contract. It is **enforced by tooling**, not aspirational.
 
+**Tiers (post-refactor 2026-05-22, D54).** Two tiers are enforced:
+
+- **infra** — `packages/shared-*/` and `sdks/*/`. Leaf packages: shared utilities (`shared-db`, `shared-mailer`, `shared-ui`, …) and pure contract SDKs (`module-sdk`, `copilot-sdk`). Path prefix is the gate; no maintained allowlist.
+- **module** — `packages/<name>/` for anything that isn't `shared-*`. Cross-module imports must go through the public surface (`src/index.ts`, `events`, `rbac`, `contracts`, `agent-tools`); reaching into another module's `src/backend/` or `src/db/` is a CI failure.
+
+Three patterns are declared (`"setaTier": "<pattern>"` in `package.json`) but not enforced as separate layers — they document intent for reviewers:
+
+- **foundation** — modules every other module may depend on (`core`, `identity`).
+- **orchestrator** — modules that compose multiple feature modules (`staffing`); typically have no schema of their own.
+- **engine** — `copilot` only; engine-only, may not import feature or orchestrator modules (enforced by dep-cruiser rule `copilot-no-feature-imports`).
+
 **The five rules.**
 
-1. **One Turborepo package per module.** `packages/core`, `packages/identity`, `packages/planner`, `packages/copilot`, `packages/integrations`. A module's source code lives nowhere else.
+1. **One Turborepo package per module.** `packages/<name>/` for every module — see `architecture.md` §B for the current module list. A module's source code lives nowhere else. The module factory at `pnpm gen module` produces the canonical shape.
 
-2. **Schema-per-module in shared Postgres.** Schemas `core`, `identity`, `planner`, `copilot`, `integrations`. Each module's Drizzle config targets *only* its own schema. Migrations live in the module's package.
+2. **Schema-per-module in shared Postgres.** Each module owns one Postgres schema named after the module. Each module's Drizzle config targets *only* its own schema (`schemaFilter: ['<module>']`). Migrations live in the module's package.
 
 3. **No cross-schema reads.** A module's SQL queries reference only tables in its own schema. The `planner` module does not `SELECT FROM identity.users` — even though both tables sit in the same Postgres instance. The only exception is `core` itself, which legitimately reads `core.events` (which carries audit per D6) on behalf of all modules.
 
@@ -2094,64 +2105,81 @@ The standalone module takes UX inspiration from **Mastra Studio** (Studio's UX =
 
 ### 19.1 Repo layout
 
+Post-refactor (2026-05-22, D50 / D56). Flat `packages/` with the `shared-` prefix marking infra; `sdks/` for pure-contract packages; four runtimes under `apps/`.
+
 ```
 apps/
-├── server/              # Hono + Mastra runtime; imports each package's /backend
-├── web/
-│   └── src/
-│       ├── shell/       # header, app launcher, copilot panel slot, providers, command palette
-│       ├── modules/
-│       │   ├── identity/    # login, profile, password reset
-│       │   ├── planner/     # Phase B Kanban + task detail
-│       │   ├── copilot/     # standalone Copilot module (Phase A), embedded panel (Phase B)
-│       │   └── integrations/# Timesheet MCP config (Phase A), sync admin (Phase B)
-│       └── lib/         # app-only utilities (auth client, API client, hotkeys hub)
-├── cli/                 # tenant-create, seed, migration runner
-└── dev-mcp-stub/        # canned Timesheet getLeave (local-dev only)
+├── server/              # Hono HTTP + buildRuntime().startServerRuntime (or startBoth in dev)
+├── worker/              # graphile-worker pool + LISTEN/NOTIFY dispatcher (post-refactor D50)
+├── cli/                 # ops surface: migrate, seed, import-csv, embedding backfills
+└── web/
+    └── src/
+        ├── shell/       # router, providers, manifests registry
+        └── modules/
+            ├── console/    # tenant-admin aggregation (D57): users, SSO, audit, integrations, prefs
+            ├── copilot/    # chat, workflows, knowledge UI
+            ├── planner/    # board / sheet / grid / task detail
+            ├── identity/   # login / password reset / profile
+            └── notifications/, knowledge/   # admin sub-areas surfaced via console
 
 packages/
-├── core/                # BACKEND: event bus (incl. audit per D6), session middleware, registries, tenant lifecycle
-├── identity/            # BACKEND: better-auth wiring, user_profile, role_grants
-├── planner/             # BACKEND: schema, Hono routes, Mastra tools/agent
-├── copilot/             # BACKEND: Mastra Supervisor + cross-module agents/workflows, thread storage
-├── integrations/        # BACKEND: MS Planner sync (Phase B), MCP clients (Phase B)
-└── shared/              # cross-cutting infrastructure — imported by every module + app
-    ├── ui/              # design system: tokens + primitives + Linear-flavored composites
-    ├── types/           # cross-package zod schemas, event-payload base types
-    ├── config/          # eslint, tsconfig, tailwind preset, dep-cruiser preset
-    ├── mailer/          # D13: react-email templates + swappable transport (SES/Resend/SMTP/dev-stub)
-    ├── observability/   # D13: OTel SDK + pino + metrics helpers + attribute naming conventions
-    ├── crypto/          # D13: Secrets Manager reader, KMS envelope encryption, JWT rotation, HIBP
-    ├── storage/         # D13 (Phase B impl): S3 wrapper + presigned URLs + ClamAV + tenant key namespacing
-    ├── db/              # D14: pg.Pool factory (3 workload-class pools), drizzle client builder, tx primitives
-    ├── rbac/            # D14: VisibilityGate predicate + permission-string types + role-registry types (~50 LOC)
-    └── testing/         # D14 (dev-only): testcontainers helper + fake event bus / mailer / embeddings + fixtures
+├── core/                # event bus, outbox, registry, runtime composition (@seta/core/runtime)
+├── identity/            # better-auth wiring, users, sessions, SSO, role grants
+├── planner/             # plans, buckets, tasks, M365 sync
+├── integrations/        # M365 boot, mail transport config, MCP clients (Phase B)
+├── knowledge/           # post-refactor (D52): tenant knowledge corpus, RAG pipeline
+├── notifications/       # post-refactor (D51): in-app + email prefs, SSE hub
+├── copilot/             # engine-only (D53): Mastra runtime, agent factory, workflow infra
+├── staffing/            # orchestrator (D54): cross-module workflows
+├── shared-config/       # tsconfig, eslint, biome, vitest presets
+├── shared-db/           # pool factory + Drizzle helpers
+├── shared-rbac/         # permission types + visibility gate
+├── shared-types/        # event-payload base types
+├── shared-ui/           # design system, primitives, composites (style monopoly)
+├── shared-crypto/       # KMS / env-key provider + AES-256-GCM envelope
+├── shared-mailer/       # react-email templates + transport resolver
+├── shared-storage/      # (Phase B) S3 helper + presigned URLs
+├── shared-embeddings/   # provider clients + batching
+├── shared-retrieval/    # FTS + vector + rerank (post-refactor: rerank merged in)
+└── shared-testing/      # testcontainers helper + fakes + fixtures
+
+sdks/                    # pure contract packages (D56)
+├── copilot/             # @seta/copilot-sdk — defineCopilotTool + tool-contract types
+└── module/              # @seta/module-sdk — NavManifest + nav helpers
 
 infra/
 ├── cdk/                 # AWS CDK reference deployment
-└── docker/              # Dockerfile, docker-compose.yml (eval), compose.dev.yml (Postgres-only)
+└── docker/              # Dockerfile, docker-compose.yml, compose.dev.yml
 
-docs/                    # requirements.md (this file), adr/
-.dependency-cruiser.cjs  # CI boundary gate per §1.6.2
+docs/                    # requirements.md (this file), architecture.md, project-plan.md, …
+.dependency-cruiser.cjs  # CI boundary gate per §1.6.2 / architecture.md §A5
 turbo.json
 pnpm-workspace.yaml
-.nvmrc                   # 24
+.nvmrc
 ```
 
-**Backend package shape (`packages/<module>/`):**
+**Backend module shape (`packages/<module>/` — produced by `pnpm gen module`):**
 
 ```
 src/
-├── index.ts     # typed exports for cross-module calls — the public surface (§1.6.4)
-├── backend/     # Hono routes, Mastra tools/agents/workflows, DB queries — internal
-├── events/      # event-payload type definitions (§1.6.5a)
-└── db/          # Drizzle schema + migrations (schemaFilter: ['<module>'])
-package.json     # subpath exports: . (the public surface), ./backend (apps/server only), ./events
+├── index.ts       # application-service functions — the public surface (§1.6.4)
+├── events.ts      # event constants + zod payload schemas
+├── rbac.ts        # permission constants
+├── contracts.ts   # browser-safe DTOs + zod schemas
+├── register.ts    # one call: reg.module({...})
+└── backend/
+    ├── domain/    # use-case functions
+    ├── subscribers/ http/ stream/ jobs/ workflows/
+    ├── agent-tools.ts agent-specs.ts
+    └── db/        # schema.ts + client.ts (internal, NOT exported)
+drizzle/migrations/   # generated + hand-written .sql files
+tests/{public,integration,unit}/
+package.json    # exports: ., ./events, ./rbac, ./contracts, ./register, optional ./testing
 ```
 
-`apps/server` imports `@seta/planner/backend`. Cross-module code imports `@seta/planner` / `@seta/planner/events`. dependency-cruiser rejects any other shape.
+`apps/server` and `apps/worker` call `register<Module>Contributions(reg)` for each module; the registry collects schemas, migrations, subscribers, jobs, routes, stream hubs, agent tools/specs, workflows, and error mappers. Cross-module imports go through the public surface only (D55 + dep-cruiser rule `no-cross-module-internals`).
 
-**Frontend boundary discipline.** Backend boundaries are dep-cruiser-enforced (CI gate). Frontend lives inside `apps/web` — boundaries here are **conventional**, enforced by `eslint-plugin-boundaries` inside `apps/web/.eslintrc.cjs` (e.g., `apps/web/src/modules/planner/` cannot reach into `apps/web/src/modules/copilot/`'s internals).
+**Frontend boundary discipline.** Backend boundaries are dep-cruiser-enforced (CI gate). Frontend lives inside `apps/web` — boundaries here are **conventional**, enforced by `eslint-plugin-boundaries` inside `apps/web/eslint.config.js` (e.g., `apps/web/src/modules/planner/` cannot reach into `apps/web/src/modules/copilot/`'s internals). Each web module exports a typed `navManifest` from `@seta/module-sdk` registered in `apps/web/src/shell/manifests.ts` (D58).
 
 ### 19.2 Deployment (production)
 
@@ -2193,7 +2221,7 @@ Any step fails → exit non-zero → ECS restarts. No degraded-mode boot.
 Stack:
 
 - Postgres + pgvector in Docker (`compose.dev.yml`, Postgres-only — app runs natively for HMR).
-- `apps/server` via `tsx watch` on `:3000` (Hono + Mastra + workers).
+- `apps/server` via `tsx watch` on `:3000`. In dev (`NODE_ENV !== 'production'`) `apps/server` calls `rt.startBoth()` — HTTP + dispatcher + worker pool in one process. Production splits into separate `apps/server` (HTTP only) and `apps/worker` (dispatcher + worker pool) ECS services (D50). `apps/worker` has its own `pnpm dev` for developers who want to run the split locally.
 - `apps/web` via Vite dev server on `:5173`, `/api/*` proxied to `:3000`.
 - `apps/dev-mcp-stub` on `:4000` (canned `getLeave` data; deterministic).
 - **Mastra Studio** on `:4111` as a dev convenience (`pnpm studio`) — inspect agents/workflows/traces while developing. Documented as optional.

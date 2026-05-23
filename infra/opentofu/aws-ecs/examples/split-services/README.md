@@ -21,7 +21,7 @@ The gateway service is the only one attached to the public ALB. All other servic
 
 ## Bus ownership
 
-Per `docs/superpowers/specs/2026-05-20-deployment-strategy-design.md` §6, the container that loads `core` owns the `LISTEN/NOTIFY` dispatch and the 2-second fallback poll. In this example that is the gateway service. Other services run their own subscriber-cursor polling for the events they subscribe to.
+Per _internal design notes_ , the container that loads `core` owns the `LISTEN/NOTIFY` dispatch and the 2-second fallback poll. In this example that is the gateway service. Other services run their own subscriber-cursor polling for the events they subscribe to.
 
 ## Apply (after follow-up PR ships the HCL)
 
@@ -35,4 +35,4 @@ tofu apply tfplan
 
 After the first apply, run migrations once per module via `../../scripts/run-migrations.sh` (the helper that wraps `aws ecs run-task` with the migrator task definition).
 
-See `docs/superpowers/plans/2026-05-20-deployment-layer-4-opentofu-aws.md` Task 8 for the full HCL.
+See _internal design notes_ for the full HCL.

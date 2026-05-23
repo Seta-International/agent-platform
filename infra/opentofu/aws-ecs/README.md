@@ -1,6 +1,6 @@
 # Seta on AWS — OpenTofu module
 
-This directory provisions the AWS ECS Fargate topology described in `docs/superpowers/specs/2026-05-20-deployment-strategy-design.md` §5.5. It is the executable form of the diagram in [`docs/hosting/aws.md`](../../../docs/hosting/aws.md).
+This directory provisions the AWS ECS Fargate topology described in _internal design notes_ It is the executable form of the diagram in [`docs/hosting/aws.md`](../../../docs/hosting/aws.md).
 
 ## Status
 
@@ -11,7 +11,7 @@ Layer 4 of the deployment strategy ships in two PRs:
 
 The reason for the split: the surrounding tooling (gate script, `.gitignore`, README) is verifiable without OpenTofu installed. The HCL bodies require `tofu validate`, which requires the OpenTofu CLI and (for some checks) network access to fetch provider schemas. Shipping un-validated HCL in this PR would land code that "looks right" but has not been exercised by the tool that will execute it. The follow-up PR closes that gap.
 
-The plan is fully written: see `docs/superpowers/plans/2026-05-20-deployment-layer-4-opentofu-aws.md`. Each task in that plan corresponds to one file in the tree below.
+The plan is fully written: see _internal design notes_ . Each task in that plan corresponds to one file in the tree below.
 
 ## Topology summary
 
@@ -67,7 +67,7 @@ infra/opentofu/aws-ecs/
 
 ## Decisions locked in
 
-These resolve open questions called out in `docs/superpowers/specs/2026-05-20-deployment-strategy-design.md` §9. The follow-up PR repeats them in module-local READMEs.
+These resolve open questions called out in _internal design notes_ The follow-up PR repeats them in module-local READMEs.
 
 1. **Migrator runs as `aws ecs run-task`, not as a compose service.** The same `seta-server` image with `command: ["migrate"]` is invoked by `scripts/run-migrations.sh` from the Layer 5 deploy workflow.
 2. **Cloud Posse module versions pinned by exact tag.** No `~>` ranges. Bumps require an ADR row.

@@ -7,6 +7,7 @@ export {
 } from './backend/audit.ts';
 export { buildHonoApp } from './composition/hono-app.ts';
 export {
+  type AgentSpec,
   type ContributionRegistry,
   createContributionRegistry,
   type ErrorMapper,
