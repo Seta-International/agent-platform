@@ -11,7 +11,7 @@ pnpm typecheck
 pnpm lint
 ```
 
-See `CLAUDE.md` for the fixed technical foundations and architectural rules. The doc set under `docs/` is the source of truth — read `docs/requirements.md` and `docs/architecture.md` before proposing scope changes.
+See [`CLAUDE.md`](CLAUDE.md) for the fixed technical foundations and architectural rules, and [`docs/architecture.md`](docs/architecture.md) for the implementation shape — the single source of truth.
 
 ## Branching & commits
 
@@ -31,7 +31,7 @@ These gates are enforced in CI (`.github/workflows/ci.yml`). The same checks run
 
 ## Architectural rules
 
-The modular-monolith boundaries (`CLAUDE.md` and `docs/architecture.md` §A5) are enforced by dependency-cruiser. Cross-module imports must go through `packages/<module>/src/index.ts` (public surface) or `packages/<module>/src/events/`. Do not bypass these rules; PRs that loosen them require a written decision in `docs/project-plan.md` §7.
+The modular-monolith boundaries ([`CLAUDE.md`](CLAUDE.md) "Enforced architectural rules") are enforced by dependency-cruiser. Cross-module imports must go through `packages/<module>/src/index.ts` (public surface) or the `events` / `rbac` / `contracts` / `agent-tools` subpaths. Do not bypass these rules; PRs that loosen them need an explanation in the PR description.
 
 ## Reporting bugs / requesting features
 

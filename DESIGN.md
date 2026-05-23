@@ -7,10 +7,9 @@ implementation_notice: |
   The authoritative tokens live in `packages/shared-ui/src/styles/tokens.css` and the
   font wiring in `packages/shared-ui/src/styles/fonts.css`. Where this document and
   `tokens.css` disagree, `tokens.css` wins — it is what ships and is CI-enforced.
-  Notable updates landed alongside the M2 login redesign (2026-05): primary `#0047FF`
-  (not Linear lavender), Geist + Geist Mono (not Inter / JetBrains Mono), warm
-  off-white light surface ladder (not cool grays), and a `primary-tint / primary-border
-  / primary-ink` triad for the focus + status-banner pattern.
+  The system uses Seta blue (#0047FF), Geist + Geist Mono, a warm off-white light
+  surface ladder, and a `primary-tint / primary-border / primary-ink` triad for the
+  focus + status-banner pattern.
 
 colors:
   primary: "#0047FF"

@@ -54,10 +54,6 @@ Practical rule of thumb: deploy `core` (the bus owner) last, so consumers of new
 - Cookies and tokens signed with a rotated `BETTER_AUTH_SECRET` are unrecoverable — users re-authenticate.
 - If you change `EVENTS_RETENTION_DAYS` downward, the partition manager will drop matching partitions on the next sweep. Schedule with care.
 
-## ADR reference
-
-See `docs/project-plan.md §7` D34 — "Single image, mode-selectable runtime" — for the architectural decision that makes the upgrade story work the same for the monolith and split deploys.
-
 ## Verifying image signatures
 
 Every published image is signed keylessly via [Sigstore Cosign](https://docs.sigstore.dev/cosign/) using GitHub Actions OIDC. There is no Seta-controlled signing key — verification anchors on Sigstore's public transparency log (Rekor) and the GitHub workflow identity that produced the image.

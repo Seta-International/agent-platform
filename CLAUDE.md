@@ -1,47 +1,59 @@
 # Agent guidance
 
-This file provides guidance to coding agents (Claude Code, Codex, and any other AGENTS.md-aware tool) when working with code in this repository. `AGENTS.md` is a symlink to `CLAUDE.md` — edit one, both update.
+This file is the contract for coding agents (Claude Code, Codex, any other `AGENTS.md`-aware tool) working in this repo. `AGENTS.md` is a symlink to `CLAUDE.md` — edit one, both update.
 
 ## Reference docs
 
-- `docs/requirements.md` — **source of truth** for product scope. If anything conflicts with this, requirements wins.
-- `docs/architecture.md` — implementation shape; resolves all 11 §21 known unknowns in `requirements.md`.
-- `docs/rbac-and-screens.md` — role × permission × screen matrix.
-- `docs/project-plan.md` — milestones M1–M5, parallelization, risks, ADR ledger (D1–D14).
-- `DESIGN.md` — Linear-flavored design tokens. Drives `packages/shared-ui` once it lands.
+Maintain one version of every doc. No internal milestones, no Phase A/B/C, no ADR ledgers — the code is the spec; this is a production-grade OSS project.
 
-Cross-reference by section anchor (e.g. `§1.6.5a`, `§A4`, `D7`); keep anchors stable.
+- [`docs/architecture.md`](docs/architecture.md) — the single source of truth for the implementation shape.
+- [`docs/creating-modules.md`](docs/creating-modules.md) — how to add a new module + agent tool with `pnpm gen module`.
+- [`docs/dev-quickstart.md`](docs/dev-quickstart.md) — first tenant and accounts on a fresh DB.
+- [`docs/hosting/`](docs/hosting/) — self-host (docker compose, AWS, scaling, upgrading).
+- [`DESIGN.md`](DESIGN.md) — design tokens and the `packages/shared-ui` contract.
+- [`/.env.example`](.env.example) — configuration contract for every variable the stack reads.
 
-**Do not read these docs end-to-end.** `requirements.md` is ~230 KB, `architecture.md` ~150 KB. Jump to the anchor a task points to. Cold-start entry points: `project-plan.md` §1–§4, `requirements.md` §1.5–§1.6, `architecture.md` §A.
-
-If a referenced doc is missing, stop and ask before guessing.
+When `architecture.md` and the code disagree, the doc is the bug — fix it there.
 
 ## Fixed technical foundations (do not propose alternatives)
 
-Closed decisions per `requirements.md` §1.5; version pins at §17.2.
-
 - **Runtime / build**: Node 24 LTS, Turborepo + pnpm workspaces, Vite.
-- **Backend**: Hono, Mastra (`@mastra/core@^1.35` + `pg`/`hono`/`ai-sdk`), graphile-worker (fallback: pg-boss).
-- **DB**: Postgres + pgvector, Drizzle ORM (`pgSchema` + `schemaFilter`). No other ORM, no raw migration tool.
-- **Bus**: transactional outbox in `core.events` + `LISTEN/NOTIFY` + 2s fallback poll (§1.6.5a). No SQS, no Kafka in v1.
+- **Backend**: Hono, Mastra (`@mastra/core@^1.35`), graphile-worker.
+- **Database**: Postgres + pgvector, Drizzle ORM (`pgSchema` + `schemaFilter`). No other ORM, no raw migration tool.
+- **Event bus**: transactional outbox in `core.events` + `LISTEN/NOTIFY` + 2s fallback poll. No SQS, no Kafka.
 - **Frontend**: React 19, TanStack Router, shadcn/ui, Tailwind 4, AI SDK v6 (`ai@^6` + `@ai-sdk/react@^3`), assistant-ui v6-paired.
 - **Auth**: better-auth + Drizzle adapter, argon2id via `@node-rs/argon2`.
-- **Cloud**: AWS — ECS Fargate, RDS, Secrets Manager, S3 (S3 in Phase B).
+- **Cloud**: AWS — ECS Fargate, RDS, Secrets Manager, S3.
 
-## Architectural rules that are enforced, not aspirational
+When working on copilot, the full Mastra source lives at `../mastra/` (sibling to this repo) — consult it for `@mastra/core` API names instead of guessing from npm types. `../mastra/packages/playground-ui/` is a useful reference for chat/upload UX patterns when building `apps/web` features.
 
-The modular-monolith boundary discipline (`requirements.md` §1.6.2, `architecture.md` §B) is **CI-gated**. When implementation lands, every PR runs:
+## Enforced architectural rules
 
-1. **dependency-cruiser** (`.dependency-cruiser.cjs`, ruleset at `architecture.md` §A5): rejects cross-package imports that don't go through `packages/<module>/src/index.ts` (the public surface), the `/events`, `/rbac`, or `/contracts` subpaths, or the `/agent-tools` subpath. `shared-*` packages may not import from feature modules. Each module owns its agent tools and contributes them via `reg.module({ agentTools })`; `copilot` is engine-only and may not import any feature or orchestrator module (enforced by dep-cruiser rule `copilot-no-feature-imports`).
-2. **Drizzle schema scoping**: each module's Drizzle config sets `schemaFilter: ['<module>']`. Schemas at time of writing are `core`, `identity`, `planner`, `integrations`, `copilot`, `notifications`, `knowledge`. The list grows whenever a module is added. Orchestrators (e.g. `staffing`) may declare their own schema but most persist workflow state under `copilot.workflow_runs`.
-3. **Raw-SQL grep audit**: CI rejects `FROM <other_module>.` / `JOIN <other_module>.` anywhere outside `packages/core/src/{audit,events}/`.
-4. **Public-API integration test**: each module's tests run with peer source paths excluded from the resolver.
+The modular-monolith boundaries are CI-gated. Every PR runs:
 
-**No cross-schema foreign keys.** A `planner.tasks.assignee_id` stores a `bigint` — no FK to `identity.users.id`. Consistency is event-driven via subscribers and local read-model projections in the consumer's own schema (`architecture.md` §F.4).
+1. **`pnpm depcruise`** — rejects cross-module imports that don't go through `packages/<module>/src/index.ts` (the public surface), the `/events`, `/rbac`, `/contracts`, or `/agent-tools` subpaths. `shared-*` packages may not import from feature modules. `copilot` is engine-only and may not import any feature or orchestrator module (rule `copilot-no-feature-imports`).
+2. **`pnpm lint:raw-sql`** — rejects `FROM <other_module>.` / `JOIN <other_module>.` anywhere outside `packages/core/src/{audit,events}/`.
+3. **`pnpm lint:styles`** — rejects `.css`, `tailwind.config.*`, `@theme/@layer/@apply` outside `packages/shared-ui/` (one shim allowed at `apps/web/src/styles/globals.css`).
+4. **Drizzle schema scoping** — each module's `drizzle.config.ts` sets `schemaFilter: ['<module>']`; cross-schema reads fail at codegen.
 
-**No cross-module data-handle sharing.** A module never hands its Drizzle client to another module. Mutation crosses the boundary only through public-surface function calls exported from `src/index.ts` (with RBAC re-checked at the callee) or domain events.
+**No cross-schema foreign keys.** A `planner.tasks.assignee_id` stores a `uuid` with no FK to `identity.user.id`. Consistency is event-driven via local read-model projections.
 
-**The bus is the outbox.** State change + event row commit in one transaction via `core.emit()`. There is no separate publish path. `LISTEN/NOTIFY` wakes subscribers; 2s poll covers dropped notifies. Audit is unified into `core.events` per **D6**.
+**No cross-module data-handle sharing.** A module never hands its Drizzle client to another module. Mutation crosses the boundary only through public-surface function calls (with RBAC re-checked at the callee) or domain events.
+
+**The bus is the outbox.** State change + event row commit in one transaction via `core.emit()` inside `withEmit(session, ...)`. There is no separate publish path. `LISTEN/NOTIFY` wakes subscribers; the 2s poll covers dropped notifies. Audit lives in `core.events` alongside domain events.
+
+## Module tiers
+
+Two tiers are enforced by `.dependency-cruiser.cjs`:
+
+- **infra** — `packages/shared-*` and `sdks/*`. Leaf packages. May not import from feature/orchestrator modules.
+- **module** — `packages/<name>/`. Cross-module imports go through the public surface only.
+
+Three patterns are declared via `"setaTier"` in `package.json` but not enforced as separate layers:
+
+- **foundation** — modules every other module depends on (`core`, `identity`).
+- **orchestrator** — modules composing multiple feature modules into cross-domain workflows (`staffing`). Typically schemaless; workflow state lives in `copilot.workflow_runs`.
+- **engine** — `copilot` only. Composes module-owned agent tools/specs into a Mastra runtime; may not import feature or orchestrator modules.
 
 ## Engineering discipline
 
@@ -52,58 +64,31 @@ These apply to every code change. They are not negotiable per-PR.
 - **Delete fearlessly.** Unused exports, dead branches, commented-out blocks, and `_unused` placeholders go. Git history is the archive.
 - **Boundaries first, internals second.** A module's public surface (`src/index.ts`) and event payloads are the contract — design and test those before the implementation behind them. Internals can be rewritten without ceremony; signatures cannot.
 - **Comments explain *why*, never *what*.** Only write a comment when a future reader would be surprised by the code. Names do the *what*.
-  - No ticket IDs, PR numbers, phase markers, milestone tags (`// M1`, `// Phase A`, `// fixes #123`), or author attributions in comments. That metadata belongs in the commit message and PR description, where it stays linked to the actual change. In code it rots.
+  - No ticket IDs, PR numbers, phase markers, milestone tags, or author attributions in comments. That metadata belongs in the commit message and PR description.
   - No "added for X", "used by Y", "was Z before" — call sites and git history answer these.
   - No `TODO(later)` without a tracked issue, no commented-out code, no changelog narration.
 - **No `any`, no `// @ts-ignore`** without a one-line comment naming the specific external constraint forcing it. The constraint, not the symptom.
 - **Errors surface, they don't get swallowed.** Catch only to translate or add context. Empty `catch {}` and broad `catch (e) { return null }` need a written reason.
-- **Verify before claiming done.** Run `pnpm typecheck && pnpm lint && pnpm test` (and the relevant `test:e2e` if UI changed) before reporting a task complete. "Should work" is not a status.
+- **Verify before claiming done.** Run `pnpm typecheck && pnpm lint && pnpm test` (and `pnpm test:e2e` if UI changed) before reporting a task complete. "Should work" is not a status.
 - **Install dependencies via CLI only — never hand-edit.** Use `pnpm add <pkg>` with no version specifier so the registry resolves latest. Do not hand-edit `package.json` versions or `pnpm-lock.yaml`.
-- **Generate migrations via CLI only — never hand-edit.** Use `pnpm drizzle-kit generate` (and `pnpm db:migrate` to apply). Do not hand-edit files under `drizzle/`. If output is wrong, fix the schema and re-run — don't patch the SQL.
-  - **Exception: SQL Drizzle cannot model.** Partitioning (`PARTITION BY RANGE`), deferred constraint triggers, `pg_notify` wiring, partitioned indexes, and similar PG-specific DDL live as hand-written `.sql` files in the same `drizzle/migrations/` folder, sibling to generated ones. Each hand-written file begins with a one-line comment naming the limitation (`-- hand-written: drizzle pgTable cannot express PARTITION BY RANGE`). The migration runner walks the folder in lexical filename order; both formats coexist. The "don't patch generated SQL" rule still applies — if a hand-written file needs evolution, write a new numbered migration; never edit a committed one.
+- **Generate migrations via CLI only — never hand-edit.** Use `pnpm --filter @seta/<module> db:generate` (and `pnpm db:migrate` to apply). Do not hand-edit files under `drizzle/`. If output is wrong, fix the schema and re-run.
+  - **Exception: SQL Drizzle cannot model.** Partitioning (`PARTITION BY RANGE`), deferred constraint triggers, `pg_notify` wiring, partitioned indexes, and similar PG-specific DDL live as hand-written `.sql` files in the same `drizzle/migrations/` folder, sibling to generated ones. Each hand-written file begins with a one-line comment naming the limitation. The migration runner walks the folder in lexical filename order; both formats coexist. If a hand-written file needs evolution, write a new numbered migration; never edit a committed one.
 
 ## Repo layout & commands
 
-Layout shape and command names are fixed by `requirements.md` §19.1 / §19.3 — read them before adding a directory or a script. Rules that apply:
-
-- **Use the layout in §19.1 exactly.** Do not invent alternative directory schemes. Each module has a public surface at `src/index.ts` plus `events.ts`, `rbac.ts`, `contracts.ts`, `register.ts` at the same level, and internals under `src/backend/{domain,subscribers,jobs,http,stream,workflows,agent-tools,agent-specs,db}/`. The module factory at `pnpm gen module` produces this shape — see `docs/creating-modules.md` for the full walkthrough (scaffold → tables → events → tool → agent spec).
-- **Do not invent commands.** `pnpm` script names in §19.3 are the contract; don't add aliases or rename.
-- **Protect the onboarding contract** (§19.3): `clone → install → db:up → db:migrate → db:seed → dev` must yield the flagship demo in 5 min on a fresh machine. Any change that adds a step needs an explicit reason.
+- **Use the canonical module shape** from [`docs/architecture.md`](docs/architecture.md) §4. The module factory at `pnpm gen module` produces it — see [`docs/creating-modules.md`](docs/creating-modules.md) for the full walkthrough.
+- **Do not invent commands.** The `pnpm` scripts in the root `package.json` are the contract; don't add aliases or rename.
+- **Protect the onboarding contract**: `clone → install → db:up → db:migrate → bash scripts/tenant-bootstrap.sh → dev` must yield a working demo in 5 minutes on a fresh machine.
 - **`pnpm lint` runs dep-cruiser** as the boundary gate — never bypass it.
 
 ## Conventions worth knowing
 
-- **HITL on every write tool** (§14.1): AI SDK v6 `needsApproval: true` + assistant-ui Interactable confirmation card. Read tools execute directly.
+- **HITL on every write tool.** AI SDK v6 `needsApproval: true` + assistant-ui Interactable confirmation card. Tied via `registerToolPermission` from `@seta/copilot-sdk`. Read tools execute directly.
 - **Subscribers must be idempotent**, keyed on `event_id`. At-least-once delivery; per-aggregate ordering only.
-- **Design tokens** in `DESIGN.md` are Linear-flavored. Lavender (`#5e6ad2`) is the only chromatic accent — brand mark, primary CTA, focus ring, link emphasis. Dark mode from day one.
-- **One domain per agent, ≤ ~15 tools assembled into an agent at session-assembly time** (architecture §H.1). Tool schemas live in the system prompt — overflowing it burns prompt-cache hits and worsens model tool selection. The cap is per-agent, not per-module — a module may contribute more tools than this if they're distributed across multiple agent specs. Past the cap on a single agent, spin up a new specialist agent and route to it; don't keep stapling tools onto an existing one. Soft rule, reviewer-enforced, no lint.
-- **Style monopoly.** All styling lives in `packages/shared-ui`. No `.css`, no `tailwind.config.*`, no `@theme/@layer/@apply` outside that package (one shim allowed at `apps/web/src/styles/globals.css`). Enforced by `pnpm lint:styles`.
-
-## Module tiers
-
-Two tiers are enforced by `.dependency-cruiser.cjs`:
-
-- **infra** — `packages/shared-*` and `sdks/*`. Leaf packages. May not import from feature/orchestrator modules.
-- **module** — `packages/<name>/` (everything that isn't `shared-*`). Cross-module imports must go through the public surface (`src/index.ts`, `events`, `rbac`, `contracts`, `agent-tools`); reaching into another module's `src/backend/` or `src/db/` is a CI failure.
-
-Three patterns are documented but not enforced as separate tiers:
-
-- **foundation** — modules every other module may depend on (`core`, `identity`). `setaTier: "foundation"` in `package.json`.
-- **orchestrator** — modules that compose multiple feature modules into cross-domain workflows (`staffing`). Should not own a heavy schema; most state lives in `copilot.workflow_runs`. `setaTier: "orchestrator"`.
-- **engine** — `copilot` only. Composes module-owned agent tools/specs into a Mastra runtime; may not import feature/orchestrator modules.
-
-See `project-plan.md §7` rows D53–D54 for the rationale.
-
-## Subagent dispatch (when executing plans via subagent-driven-development)
-
-Right-size the model and collapse the review stage when the work is mechanical.
-
-- **Implementer model.** Default to `sonnet` for mechanical tasks: SQL migrations, package scaffolds, single-file utilities with a complete spec block, type-only declarations, doc rewrites that are pure find-and-replace. Use the harness default (opus) only when the task needs design judgment, multi-file coordination, concurrency/retry/race-condition reasoning, or broad codebase pattern matching.
-- **Reviewer fan-out.** For mechanical tasks, dispatch a single combined reviewer that does spec compliance *and* code quality in one pass. Keep the two-stage (spec-first, then quality) split only for genuinely complex tasks where each stage benefits from a fresh, narrow lens.
-- **Heuristic.** If the plan task text reads like a recipe (verbatim file contents + a `git commit` step), it's mechanical. If it asks for an interface, a concurrency primitive, or coordination across packages, it's not.
+- **One domain per agent, ≤ ~15 tools assembled into an agent at session-assembly time.** Tool schemas live in the system prompt — overflowing burns cache hits and worsens model tool selection. The cap is per-agent, not per-module — a module may contribute more tools across multiple agent specs. Past the cap on a single agent, spin up a new specialist agent and route to it. Soft rule, reviewer-enforced.
 
 ## When proposing changes to docs
 
-- Don't reorganize section numbers — they're cited from elsewhere. Add new sections at the end of their parent or as letter suffixes (e.g. §1.6.5a).
-- Don't move a D-row in the ADR ledger (`project-plan.md` §7). Append new rows; reversals get a written D-row of their own.
-- If `architecture.md` conflicts with `requirements.md`, the architecture doc is the bug — fix it there, not in requirements.
+- One version per doc. No "current vs deprecated" sections, no Phase tags, no internal milestone references.
+- If [`docs/architecture.md`](docs/architecture.md) conflicts with the code, the doc is the bug — fix it there.
+- New decisions land directly in [`docs/architecture.md`](docs/architecture.md). The old ADR ledger is gone; the code + commit history is the trail.

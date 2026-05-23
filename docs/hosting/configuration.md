@@ -103,13 +103,13 @@ REQUIRED. Minimum 32 characters. Used by better-auth to sign session cookies and
 
 Optional. Int. Default: `30`.
 
-Days to retain rows in the `core.events` outbox before the partition manager drops them. Lower values reduce disk usage at the cost of audit history. See `requirements.md` §1.6.5a.
+Days to retain rows in the `core.events` outbox before the partition manager drops them. Lower values reduce disk usage at the cost of audit history.
 
 ### CRYPTO_KEY_PROVIDER
 
 Optional. Enum (`env` | `kms`). Default: `env`.
 
-Selects how `@seta/shared-crypto` resolves its KEK. `env` reads a master key from `CRYPTO_LOCAL_MASTER_KEY` (or the rotation-aware `CRYPTO_LOCAL_KEYS` / `CRYPTO_LOCAL_PRIMARY_KID`) — appropriate for dev, test, and self-host scenarios without an AWS account. `kms` uses AWS KMS via `CRYPTO_KMS_KEY_ARN`. The chosen provider runs a `selfTest()` at server boot; misconfiguration crash-loops the process rather than silently failing. See ADR D37 in project-plan.md §7.
+Selects how `@seta/shared-crypto` resolves its KEK. `env` reads a master key from `CRYPTO_LOCAL_MASTER_KEY` (or the rotation-aware `CRYPTO_LOCAL_KEYS` / `CRYPTO_LOCAL_PRIMARY_KID`) — appropriate for dev, test, and self-host scenarios without an AWS account. `kms` uses AWS KMS via `CRYPTO_KMS_KEY_ARN`. The chosen provider runs a `selfTest()` at server boot; misconfiguration crash-loops the process rather than silently failing.
 
 ### CRYPTO_LOCAL_MASTER_KEY
 

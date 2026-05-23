@@ -35,4 +35,4 @@ Seta is not officially supported on Coolify, Dokploy, Kamal, or other compose-wr
 
 ## If you want first-party support
 
-Open a discussion (not an issue) describing your platform, scale, and what's broken on the standard compose path. If a critical mass of users converges on one platform, we'll reassess. Tracked in the deployment-strategy ADR (D34 in project-plan.md §7) Deferred Work table.
+Open a discussion (not an issue) describing your platform, scale, and what's broken on the standard compose path. If a critical mass of users converges on one platform, we'll reassess.

@@ -48,8 +48,8 @@ The single-service example (one ECS service, `SETA_MODULES=*`) is the same pictu
 ## Data
 
 - RDS Postgres (or Aurora Postgres) with the `pgvector` extension, sized per workload.
-- One database; modules are isolated by Postgres schemas (`core`, `identity`, `planner`, `copilot`, `integrations`). See `CLAUDE.md` for the boundary rule — no cross-schema FKs, projections live in the consumer's own schema.
-- S3 bucket for attachments (Phase B). CloudFront in front of the `seta-web` static bundle.
+- One database; modules are isolated by Postgres schemas (`core`, `identity`, `planner`, `integrations`, `copilot`, `notifications`, `knowledge`). See [`docs/architecture.md`](../architecture.md) §3 for the boundary rule — no cross-schema FKs, projections live in the consumer's own schema.
+- S3 bucket for tenant knowledge files. CloudFront in front of the `seta-web` static bundle.
 
 ## What the OpenTofu module owns vs. you own
 

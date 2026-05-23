@@ -2,7 +2,7 @@
 
 The module factory (`pnpm gen module`) produces a Seta module that compiles, lints, and tests with **zero edits**. This doc walks the path from `gen module` to a working agent-callable tool.
 
-If anything below conflicts with `architecture.md` §B (boundaries) or `requirements.md` §1.6.2 (module rules), those win — this doc is the operator's view.
+If anything below conflicts with [`architecture.md`](./architecture.md) §3 (boundaries) or §4 (canonical shape), that doc wins — this one is the operator's view.
 
 ---
 
@@ -174,7 +174,7 @@ That's the contract other modules see. **Never let another module import from `s
 
 ## 5. Give the module an agent tool
 
-Each module owns its agent tools (post-refactor D53). They live in `src/backend/agent-tools.ts` and are surfaced to copilot via the registry.
+Each module owns its agent tools. They live in `src/backend/agent-tools.ts` and are surfaced to copilot via the registry.
 
 Replace the stub in `packages/timesheet/src/backend/agent-tools.ts`:
 

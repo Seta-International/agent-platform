@@ -1,11 +1,10 @@
 import type { Actor } from './create-user.ts';
 import { getUserGrants } from './get-user-grants.ts';
 
-// Local role->permission catalog mirroring docs/rbac-and-screens.md §3.1/§3.2.
-// The shipping shared-rbac `hasPermission` is a wildcard short-circuit on
-// org.admin/tenant.admin and the permission registry is not yet implemented.
-// This catalog gives the identity public surface a stable, sorted view of what
-// each role grants until the registry lands. Roles absent from this map
+// Local role->permission catalog. The shipping shared-rbac `hasPermission` is
+// a wildcard short-circuit on org.admin/tenant.admin and the permission registry
+// is not yet implemented; this catalog gives the identity public surface a
+// stable, sorted view of what each role grants. Roles absent from this map
 // contribute zero permissions.
 const ROLE_PERMISSIONS: Record<string, readonly string[]> = {
   'org.admin': [
