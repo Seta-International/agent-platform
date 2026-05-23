@@ -66,7 +66,7 @@ These apply to every code change. They are not negotiable per-PR.
 
 Layout shape and command names are fixed by `requirements.md` §19.1 / §19.3 — read them before adding a directory or a script. Rules that apply:
 
-- **Use the layout in §19.1 exactly.** Do not invent alternative directory schemes. Each module has a public surface at `src/index.ts` plus `events.ts`, `rbac.ts`, `contracts.ts`, `register.ts` at the same level, and internals under `src/backend/{domain,subscribers,jobs,http,stream,workflows,agent-tools,agent-specs,db}/`. The module factory at `pnpm gen module` produces this shape.
+- **Use the layout in §19.1 exactly.** Do not invent alternative directory schemes. Each module has a public surface at `src/index.ts` plus `events.ts`, `rbac.ts`, `contracts.ts`, `register.ts` at the same level, and internals under `src/backend/{domain,subscribers,jobs,http,stream,workflows,agent-tools,agent-specs,db}/`. The module factory at `pnpm gen module` produces this shape — see `docs/creating-modules.md` for the full walkthrough (scaffold → tables → events → tool → agent spec).
 - **Do not invent commands.** `pnpm` script names in §19.3 are the contract; don't add aliases or rename.
 - **Protect the onboarding contract** (§19.3): `clone → install → db:up → db:migrate → db:seed → dev` must yield the flagship demo in 5 min on a fresh machine. Any change that adds a step needs an explicit reason.
 - **`pnpm lint` runs dep-cruiser** as the boundary gate — never bypass it.
