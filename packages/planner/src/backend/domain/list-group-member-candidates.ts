@@ -36,7 +36,8 @@ export async function listGroupMemberCandidates(input: {
   }
 
   const cap = Math.min(input.limit ?? 20, 50);
-  const { search } = input;
+  // Escape LIKE special characters so user input is treated as literal text.
+  const search = input.search ? input.search.replace(/[\\%_]/g, '\\$&') : undefined;
 
   // Left-join anti-pattern: rows with no matching group_members row have groupMembers.user_id = null.
   const rows = await db
