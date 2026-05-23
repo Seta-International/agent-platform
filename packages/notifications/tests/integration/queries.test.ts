@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { notificationsDb, resetNotificationsDb } from '../src/backend/db/client.ts';
-import { notificationsTable } from '../src/backend/db/schema/notifications.ts';
-import { getUnreadCount, listNotifications } from '../src/index.ts';
+import { notificationsDb, resetNotificationsDb } from '../../src/backend/db/client.ts';
+import { notificationsTable } from '../../src/backend/db/schema/notifications.ts';
+import { getUnreadCount, listNotifications } from '../../src/index.ts';
 import { withNotificationsTestDb } from './test-helpers.ts';
 
 async function seed(opts: {

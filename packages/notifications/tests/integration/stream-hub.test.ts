@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { NotificationStreamHub } from '../src/backend/stream/hub.ts';
+import { NotificationStreamHub } from '../../src/backend/stream/hub.ts';
 
 describe('NotificationStreamHub', () => {
   it('routes a userId payload to that user only', () => {

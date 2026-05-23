@@ -1,6 +1,6 @@
 import { createContributionRegistry } from '@seta/core';
 import { describe, expect, it } from 'vitest';
-import { registerNotificationsContributions } from '../src/register.ts';
+import { registerNotificationsContributions } from '../../src/register.ts';
 
 describe('registerNotificationsContributions', () => {
   it('registers the notifications.notifier.deliver subscriber', () => {

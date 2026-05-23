@@ -1,12 +1,12 @@
 import { and, eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
-import { notificationsDb, resetNotificationsDb } from '../src/backend/db/client.ts';
-import { notificationsTable } from '../src/backend/db/schema/notifications.ts';
+import { notificationsDb, resetNotificationsDb } from '../../src/backend/db/client.ts';
+import { notificationsTable } from '../../src/backend/db/schema/notifications.ts';
 import {
   dismissNotification,
   markAllNotificationsRead,
   markNotificationRead,
-} from '../src/index.ts';
+} from '../../src/index.ts';
 import { waitFor, withNotificationsTestDb } from './test-helpers.ts';
 
 async function seedOne(tenantId: string, userId: string): Promise<string> {

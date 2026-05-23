@@ -3,9 +3,13 @@ import { coreEvents } from '@seta/core/db/schema';
 import { withEmit } from '@seta/core/events';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
-import { notificationsDb, resetNotificationsDb } from '../src/backend/db/client.ts';
-import { notificationPrefs } from '../src/backend/db/schema/notification-prefs.ts';
-import { listNotificationPrefs, NotificationPrefError, setNotificationPref } from '../src/index.ts';
+import { notificationsDb, resetNotificationsDb } from '../../src/backend/db/client.ts';
+import { notificationPrefs } from '../../src/backend/db/schema/notification-prefs.ts';
+import {
+  listNotificationPrefs,
+  NotificationPrefError,
+  setNotificationPref,
+} from '../../src/index.ts';
 import { withNotificationsTestDb } from './test-helpers.ts';
 
 function makeAdminSession(overrides: Partial<SessionScope> = {}): SessionScope {

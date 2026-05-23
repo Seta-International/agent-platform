@@ -1,7 +1,7 @@
 import { withEmit } from '@seta/core/events';
 import { describe, expect, it } from 'vitest';
-import { resetNotificationsDb } from '../src/backend/db/client.ts';
-import { requestNotification } from '../src/index.ts';
+import { resetNotificationsDb } from '../../src/backend/db/client.ts';
+import { requestNotification } from '../../src/index.ts';
 import { withNotificationsTestDb } from './test-helpers.ts';
 
 describe('requestNotification', () => {

@@ -5,8 +5,8 @@ import { withTestDb } from '@seta/shared-testing';
 import type { SubscriberDef } from '@seta/shared-types';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { Pool } from 'pg';
-import { resetNotificationsDb } from '../src/backend/db/client.ts';
-import * as notificationsSchema from '../src/backend/db/schema/index.ts';
+import { resetNotificationsDb } from '../../src/backend/db/client.ts';
+import * as notificationsSchema from '../../src/backend/db/schema/index.ts';
 
 export function withNotificationsTestDb<T>(
   fn: (ctx: {
