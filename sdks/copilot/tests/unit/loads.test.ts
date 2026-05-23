@@ -8,7 +8,7 @@ import {
   RequestContextSchema,
   registerToolPermission,
   requiredPermissionFor,
-} from '../src/index.ts';
+} from '../../src/index.ts';
 
 function ctxWith(entries: Record<string, unknown>) {
   const rc = new RequestContext<CopilotRequestContext>();
