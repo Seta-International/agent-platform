@@ -46,7 +46,7 @@ function makeFakeCtx(actor: { type: 'user'; user_id: string }) {
   const rc = new RequestContext<{ actor: typeof actor }>();
   rc.set('actor', actor);
   return { requestContext: rc } as unknown as Parameters<
-    ReturnType<typeof matchUsersToTopicTool>['execute']
+    NonNullable<ReturnType<typeof matchUsersToTopicTool>['execute']>
   >[1];
 }
 
@@ -80,15 +80,16 @@ describe('match_users_to_topic + rerank wiring', () => {
       });
 
       const actor = { type: 'user' as const, user_id: 'test-user-id' };
-      const result = await tool.execute(
+      const result = await tool.execute!(
         { topic: 'infrastructure kubernetes', limit: 5, min_score: 0 },
         makeFakeCtx(actor),
       );
 
       expect(result).toBeDefined();
       expect(result).not.toHaveProperty('error');
-      const { candidates, reranker: usedReranker } = result as Awaited<
-        ReturnType<ReturnType<typeof tool.execute>>
+      const { candidates, reranker: usedReranker } = result as Extract<
+        typeof result,
+        { candidates: unknown[] }
       >;
 
       expect(candidates).toHaveLength(1);
@@ -130,14 +131,14 @@ describe('match_users_to_topic + rerank wiring', () => {
       });
 
       const actor = { type: 'user' as const, user_id: 'test-user-id' };
-      const result = await tool.execute(
+      const result = await tool.execute!(
         { topic: 'python web development', limit: 2, min_score: 0 },
         makeFakeCtx(actor),
       );
 
       expect(result).toBeDefined();
       expect(result).not.toHaveProperty('error');
-      const { candidates } = result as Awaited<ReturnType<ReturnType<typeof tool.execute>>>;
+      const { candidates } = result as Extract<typeof result, { candidates: unknown[] }>;
       expect(candidates.length).toBeLessThanOrEqual(2);
     }));
 });

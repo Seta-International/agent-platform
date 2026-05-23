@@ -101,7 +101,7 @@ describe('refreshUserProfileCreatedSubscriber', () => {
     await refreshUserProfileCreatedSubscriber.handler(makeCreatedEvent() as never, ctx as never);
 
     expect(executeSpy).toHaveBeenCalledOnce();
-    const serialised = JSON.stringify(executeSpy.mock.calls[0][0]);
+    const serialised = JSON.stringify(executeSpy.mock.calls[0]![0]);
     expect(serialised).toContain('embed_user_profile');
     expect(serialised).toContain(`embed_user_profile:${TENANT_ID}:${USER_ID}`);
     expect(serialised).toContain('replace');
@@ -112,7 +112,7 @@ describe('refreshUserProfileCreatedSubscriber', () => {
     const { ctx, executeSpy } = makeFakeCtx();
     await refreshUserProfileCreatedSubscriber.handler(makeCreatedEvent() as never, ctx as never);
 
-    const serialised = JSON.stringify(executeSpy.mock.calls[0][0]);
+    const serialised = JSON.stringify(executeSpy.mock.calls[0]![0]);
     expect(serialised).toContain(TENANT_ID);
     expect(serialised).toContain(USER_ID);
     expect(serialised).toContain(EVENT_ID);
@@ -150,7 +150,7 @@ describe('refreshUserProfileUpdatedSubscriber', () => {
       makeUpdatedEvent({ skills: ['go'] }) as never,
       ctx as never,
     );
-    const serialised = JSON.stringify(executeSpy.mock.calls[0][0]);
+    const serialised = JSON.stringify(executeSpy.mock.calls[0]![0]);
     expect(serialised).toContain(`embed_user_profile:${TENANT_ID}:${USER_ID}`);
     expect(serialised).toContain('replace');
     expect(serialised).toContain('10');
@@ -172,7 +172,7 @@ describe('refreshUserProfileDeactivatedSubscriber', () => {
     );
 
     expect(executeSpy).toHaveBeenCalledOnce();
-    const serialised = JSON.stringify(executeSpy.mock.calls[0][0]);
+    const serialised = JSON.stringify(executeSpy.mock.calls[0]![0]);
     expect(serialised).toContain('embed_user_profile');
     expect(serialised).toContain(`embed_user_profile:${TENANT_ID}:${USER_ID}`);
   });
