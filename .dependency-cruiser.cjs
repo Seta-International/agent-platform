@@ -94,8 +94,11 @@ module.exports = {
       name: 'core-runtime-restricted',
       severity: 'error',
       comment:
-        '@seta/core/runtime (dispatcher + worker pool + bootstrap) is private to apps/server and apps/worker. Other importers must use the main @seta/core surface.',
-      from: { pathNot: '^(apps/(server|worker)/|packages/core/)' },
+        '@seta/core/runtime (dispatcher + worker pool + bootstrap) is private to apps/server, apps/worker, and feature-module integration tests. Other importers must use the main @seta/core surface.',
+      from: {
+        pathNot:
+          '^(apps/(server|worker)/|packages/core/)|/(__tests__|tests)/|\\.(test|spec)\\.[jt]sx?$',
+      },
       to: { path: '^packages/core/src/runtime/' },
     },
     {

@@ -1,12 +1,13 @@
 import { hashRoleSummary, type SessionEnv, type SessionScope } from '@seta/core';
 import { resetCoreDb } from '@seta/core/testing';
+import { registerNotificationsRoutes } from '@seta/notifications/http';
+import { NotificationStreamHub } from '@seta/notifications/stream';
+import { resetNotificationsDb } from '@seta/notifications/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { Hono } from 'hono';
 import type { Pool } from 'pg';
 import { describe, expect, it } from 'vitest';
-import { NotificationStreamHub } from '../src/notifications-stream/hub.ts';
-import { registerNotificationsRoutes } from '../src/routes/notifications.ts';
 
 function buildSession(opts: {
   tenant_id: string;
@@ -50,24 +51,26 @@ async function withTest<T>(fn: (ctx: { pool: Pool }) => Promise<T>): Promise<T> 
     },
     async ({ pool, databaseUrl }) => {
       resetCoreDb();
+      resetNotificationsDb();
       initPools({ databaseUrl });
       try {
         return await fn({ pool });
       } finally {
         resetCoreDb();
+        resetNotificationsDb();
         await closePools();
       }
     },
   );
 }
 
-describe('GET /api/core/v1/notification-prefs', () => {
+describe('GET /api/notifications/v1/prefs', () => {
   it('returns the matrix with 8 default rows for tenant admin', async () => {
     await withTest(async () => {
       const tenantId = crypto.randomUUID();
       const userId = crypto.randomUUID();
       const app = buildTestApp(buildSession({ tenant_id: tenantId, user_id: userId }));
-      const res = await app.request('/api/core/v1/notification-prefs');
+      const res = await app.request('/api/notifications/v1/prefs');
       expect(res.status).toBe(200);
       const body = (await res.json()) as {
         rows: Array<{
@@ -93,13 +96,13 @@ describe('GET /api/core/v1/notification-prefs', () => {
       const app = buildTestApp(
         buildSession({ tenant_id: tenantId, user_id: userId, roles: ['planner.member'] }),
       );
-      const res = await app.request('/api/core/v1/notification-prefs');
+      const res = await app.request('/api/notifications/v1/prefs');
       expect(res.status).toBe(403);
     });
   });
 });
 
-describe('PATCH /api/core/v1/notification-prefs', () => {
+describe('PATCH /api/notifications/v1/prefs', () => {
   it('persists a toggle and reads it back', async () => {
     await withTest(async ({ pool }) => {
       const tenantId = crypto.randomUUID();
@@ -108,7 +111,7 @@ describe('PATCH /api/core/v1/notification-prefs', () => {
         tenantId,
       ]);
       const app = buildTestApp(buildSession({ tenant_id: tenantId, user_id: userId }));
-      const patch = await app.request('/api/core/v1/notification-prefs', {
+      const patch = await app.request('/api/notifications/v1/prefs', {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -119,7 +122,7 @@ describe('PATCH /api/core/v1/notification-prefs', () => {
       });
       expect(patch.status).toBe(200);
 
-      const get = await app.request('/api/core/v1/notification-prefs');
+      const get = await app.request('/api/notifications/v1/prefs');
       const body = (await get.json()) as {
         rows: Array<{ event_type: string; in_app_enabled: boolean }>;
       };
@@ -136,7 +139,7 @@ describe('PATCH /api/core/v1/notification-prefs', () => {
         tenantId,
       ]);
       const app = buildTestApp(buildSession({ tenant_id: tenantId, user_id: userId }));
-      const res = await app.request('/api/core/v1/notification-prefs', {
+      const res = await app.request('/api/notifications/v1/prefs', {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -157,7 +160,7 @@ describe('PATCH /api/core/v1/notification-prefs', () => {
         tenantId,
       ]);
       const app = buildTestApp(buildSession({ tenant_id: tenantId, user_id: userId }));
-      const res = await app.request('/api/core/v1/notification-prefs', {
+      const res = await app.request('/api/notifications/v1/prefs', {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -180,7 +183,7 @@ describe('PATCH /api/core/v1/notification-prefs', () => {
       const app = buildTestApp(
         buildSession({ tenant_id: tenantId, user_id: userId, roles: ['planner.member'] }),
       );
-      const res = await app.request('/api/core/v1/notification-prefs', {
+      const res = await app.request('/api/notifications/v1/prefs', {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({

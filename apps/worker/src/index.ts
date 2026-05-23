@@ -10,6 +10,7 @@ import { registerIdentityContributions } from '@seta/identity/register';
 import { createMailTransportConfigStore } from '@seta/integrations';
 import { integrationsDb } from '@seta/integrations/db';
 import { registerIntegrationsContributions } from '@seta/integrations/register';
+import { registerNotificationsContributions } from '@seta/notifications/register';
 import { plannerEmbeddingJobs } from '@seta/planner';
 import { registerPlannerContributions } from '@seta/planner/register';
 import { createCrypto, createKeyProviderFromEnv, parseCryptoEnv } from '@seta/shared-crypto';
@@ -33,6 +34,7 @@ const reg = createContributionRegistry();
 registerCoreContributions(reg);
 registerIdentityContributions(reg);
 registerIntegrationsContributions(reg);
+registerNotificationsContributions(reg);
 registerPlannerContributions(reg);
 log.info('contributions registered');
 

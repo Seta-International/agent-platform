@@ -1,6 +1,6 @@
 import type { SessionScope } from '@seta/core';
-import { requestNotification } from '@seta/core';
 import { withEmit } from '@seta/core/events';
+import { requestNotification } from '@seta/notifications';
 import { and, eq, isNull } from 'drizzle-orm';
 import { plans, taskAssignments, tasks } from '../../db/schema.ts';
 import { emitPlannerTaskUnassigned } from '../../events/emit-helpers.ts';

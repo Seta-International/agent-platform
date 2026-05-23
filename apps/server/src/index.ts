@@ -10,6 +10,8 @@ import { registerIdentityContributions } from '@seta/identity/register';
 import { createMailTransportConfigStore } from '@seta/integrations';
 import { integrationsDb } from '@seta/integrations/db';
 import { registerIntegrationsContributions } from '@seta/integrations/register';
+import { registerNotificationsContributions } from '@seta/notifications/register';
+import { NotificationStreamHub } from '@seta/notifications/stream';
 import { plannerEmbeddingJobs } from '@seta/planner';
 import { registerPlannerContributions } from '@seta/planner/register';
 import { createCrypto, createKeyProviderFromEnv, parseCryptoEnv } from '@seta/shared-crypto';
@@ -22,7 +24,6 @@ import { buildServerApp, registerAppContributions } from './build.ts';
 import { parseEnv } from './env.ts';
 import { KnowledgeStreamHub } from './knowledge-stream/hub.ts';
 import { buildM365Boot } from './m365-boot.ts';
-import { NotificationStreamHub } from './notifications-stream/hub.ts';
 import { failedLoginAlertSubscriber } from './subscribers/failed-login-alert.ts';
 
 const log = pino({ name: 'apps/server' });
@@ -39,6 +40,7 @@ const reg = createContributionRegistry();
 registerCoreContributions(reg);
 registerIdentityContributions(reg);
 registerIntegrationsContributions(reg);
+registerNotificationsContributions(reg);
 registerPlannerContributions(reg);
 registerAppContributions(reg);
 

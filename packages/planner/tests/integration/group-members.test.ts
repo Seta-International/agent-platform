@@ -180,7 +180,7 @@ describe('addGroupMember', () => {
           const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
           await addGroupMember({ group_id: group.id, user_id: newcomer.user_id, session });
 
-          const events = await readEvents(pool, seeded.tenant_id, 'core.notification.requested');
+          const events = await readEvents(pool, seeded.tenant_id, 'notification.requested');
           expect(events).toHaveLength(1);
           // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
           const payload = events[0]?.payload as any;

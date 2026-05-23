@@ -6,7 +6,7 @@ export function useNotificationStream(enabled: boolean): void {
   const qc = useQueryClient();
   useEffect(() => {
     if (!enabled) return;
-    const es = new EventSource('/api/core/v1/notifications/stream', { withCredentials: true });
+    const es = new EventSource('/api/notifications/v1/stream', { withCredentials: true });
     const onInvalidate = () => {
       qc.invalidateQueries({ queryKey: notificationKeys.all });
     };

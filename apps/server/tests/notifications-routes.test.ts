@@ -1,14 +1,15 @@
 import { hashRoleSummary, type SessionEnv, type SessionScope } from '@seta/core';
-import * as coreSchema from '@seta/core/db/schema';
-import { coreNotifications } from '@seta/core/db/schema';
 import { resetCoreDb } from '@seta/core/testing';
+import * as notificationsSchema from '@seta/notifications/db/schema';
+import { notificationsTable } from '@seta/notifications/db/schema';
+import { registerNotificationsRoutes } from '@seta/notifications/http';
+import { NotificationStreamHub } from '@seta/notifications/stream';
+import { resetNotificationsDb } from '@seta/notifications/testing';
 import { closePools, createDb, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { Hono } from 'hono';
 import type { Pool } from 'pg';
 import { describe, expect, it } from 'vitest';
-import { NotificationStreamHub } from '../src/notifications-stream/hub.ts';
-import { registerNotificationsRoutes } from '../src/routes/notifications.ts';
 
 function buildSession(opts: { tenant_id: string; user_id: string }): SessionScope {
   const role_summary = { roles: ['org.admin'], cross_tenant_read: false };
@@ -43,9 +44,9 @@ async function seedNotification(opts: {
   userId: string;
   read?: boolean;
 }): Promise<string> {
-  const db = createDb(opts.pool, coreSchema, { schemaFilter: ['core'] });
+  const db = createDb(opts.pool, notificationsSchema, { schemaFilter: ['notifications'] });
   const [row] = await db
-    .insert(coreNotifications)
+    .insert(notificationsTable)
     .values({
       tenantId: opts.tenantId,
       userId: opts.userId,
@@ -54,7 +55,7 @@ async function seedNotification(opts: {
       payload: { title: 'hi' },
       readAt: opts.read ? new Date() : null,
     })
-    .returning({ id: coreNotifications.id });
+    .returning({ id: notificationsTable.id });
   if (!row) throw new Error('seed failed');
   return row.id;
 }
@@ -67,18 +68,20 @@ async function withTest<T>(fn: (ctx: { pool: Pool }) => Promise<T>): Promise<T> 
     },
     async ({ pool, databaseUrl }) => {
       resetCoreDb();
+      resetNotificationsDb();
       initPools({ databaseUrl });
       try {
         return await fn({ pool });
       } finally {
         resetCoreDb();
+        resetNotificationsDb();
         await closePools();
       }
     },
   );
 }
 
-describe('GET /api/core/v1/notifications', () => {
+describe('GET /api/notifications/v1', () => {
   it('returns only the caller-tenant rows, paginated', async () => {
     await withTest(async ({ pool }) => {
       const tenantA = crypto.randomUUID();
@@ -96,7 +99,7 @@ describe('GET /api/core/v1/notifications', () => {
       await seedNotification({ pool, tenantId: tenantB, userId });
 
       const app = buildTestApp(buildSession({ tenant_id: tenantA, user_id: userId }));
-      const res = await app.request('/api/core/v1/notifications?limit=2');
+      const res = await app.request('/api/notifications/v1?limit=2');
       expect(res.status).toBe(200);
       const body = (await res.json()) as {
         items: Array<{ id: string }>;
@@ -106,7 +109,7 @@ describe('GET /api/core/v1/notifications', () => {
       expect(body.next_cursor).not.toBeNull();
 
       const page2 = await app.request(
-        `/api/core/v1/notifications?limit=2&cursor=${encodeURIComponent(body.next_cursor as string)}`,
+        `/api/notifications/v1?limit=2&cursor=${encodeURIComponent(body.next_cursor as string)}`,
       );
       const body2 = (await page2.json()) as typeof body;
       expect(body2.items).toHaveLength(1);
@@ -125,14 +128,14 @@ describe('GET /api/core/v1/notifications', () => {
       await seedNotification({ pool, tenantId, userId, read: true });
 
       const app = buildTestApp(buildSession({ tenant_id: tenantId, user_id: userId }));
-      const res = await app.request('/api/core/v1/notifications?unread=true');
+      const res = await app.request('/api/notifications/v1?unread=true');
       const body = (await res.json()) as { items: unknown[] };
       expect(body.items).toHaveLength(1);
     });
   });
 });
 
-describe('GET /api/core/v1/notifications/unread-count', () => {
+describe('GET /api/notifications/v1/unread-count', () => {
   it('counts only the caller-tenant unread rows', async () => {
     await withTest(async ({ pool }) => {
       const tenantId = crypto.randomUUID();
@@ -145,13 +148,13 @@ describe('GET /api/core/v1/notifications/unread-count', () => {
       await seedNotification({ pool, tenantId, userId, read: true });
 
       const app = buildTestApp(buildSession({ tenant_id: tenantId, user_id: userId }));
-      const res = await app.request('/api/core/v1/notifications/unread-count');
+      const res = await app.request('/api/notifications/v1/unread-count');
       expect(await res.json()).toEqual({ count: 2 });
     });
   });
 });
 
-describe('POST /api/core/v1/notifications/:id/read', () => {
+describe('POST /api/notifications/v1/:id/read', () => {
   it('marks the row read; 404 when another user tries', async () => {
     await withTest(async ({ pool }) => {
       const tenantId = crypto.randomUUID();
@@ -163,13 +166,13 @@ describe('POST /api/core/v1/notifications/:id/read', () => {
       const id = await seedNotification({ pool, tenantId, userId: owner });
 
       const intruderApp = buildTestApp(buildSession({ tenant_id: tenantId, user_id: intruder }));
-      const r404 = await intruderApp.request(`/api/core/v1/notifications/${id}/read`, {
+      const r404 = await intruderApp.request(`/api/notifications/v1/${id}/read`, {
         method: 'POST',
       });
       expect(r404.status).toBe(404);
 
       const ownerApp = buildTestApp(buildSession({ tenant_id: tenantId, user_id: owner }));
-      const ok = await ownerApp.request(`/api/core/v1/notifications/${id}/read`, {
+      const ok = await ownerApp.request(`/api/notifications/v1/${id}/read`, {
         method: 'POST',
       });
       expect(ok.status).toBe(200);
@@ -179,7 +182,7 @@ describe('POST /api/core/v1/notifications/:id/read', () => {
   });
 });
 
-describe('POST /api/core/v1/notifications/read-all', () => {
+describe('POST /api/notifications/v1/read-all', () => {
   it('marks every unread row of the caller', async () => {
     await withTest(async ({ pool }) => {
       const tenantId = crypto.randomUUID();
@@ -191,15 +194,15 @@ describe('POST /api/core/v1/notifications/read-all', () => {
       await seedNotification({ pool, tenantId, userId });
 
       const app = buildTestApp(buildSession({ tenant_id: tenantId, user_id: userId }));
-      const res = await app.request('/api/core/v1/notifications/read-all', { method: 'POST' });
+      const res = await app.request('/api/notifications/v1/read-all', { method: 'POST' });
       expect(await res.json()).toEqual({ updated: 2 });
-      const after = await app.request('/api/core/v1/notifications/unread-count');
+      const after = await app.request('/api/notifications/v1/unread-count');
       expect(await after.json()).toEqual({ count: 0 });
     });
   });
 });
 
-describe('POST /api/core/v1/notifications/:id/dismiss', () => {
+describe('POST /api/notifications/v1/:id/dismiss', () => {
   it('sets dismissed_at; the row no longer appears in list', async () => {
     await withTest(async ({ pool }) => {
       const tenantId = crypto.randomUUID();
@@ -210,12 +213,12 @@ describe('POST /api/core/v1/notifications/:id/dismiss', () => {
       const id = await seedNotification({ pool, tenantId, userId });
 
       const app = buildTestApp(buildSession({ tenant_id: tenantId, user_id: userId }));
-      const dismissed = await app.request(`/api/core/v1/notifications/${id}/dismiss`, {
+      const dismissed = await app.request(`/api/notifications/v1/${id}/dismiss`, {
         method: 'POST',
       });
       expect(dismissed.status).toBe(200);
 
-      const list = await app.request('/api/core/v1/notifications');
+      const list = await app.request('/api/notifications/v1');
       const body = (await list.json()) as { items: unknown[] };
       expect(body.items).toHaveLength(0);
     });

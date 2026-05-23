@@ -7,7 +7,7 @@ test('admin notification-prefs: toggle in-app off blocks delivery; toggle on res
   request,
 }) => {
   // Make sure we start from a clean unread state.
-  await request.post('/api/core/v1/notifications/read-all');
+  await request.post('/api/notifications/v1/read-all');
 
   // Visit the admin screen and verify the 8 default rows render.
   await page.goto('/admin/notifications');
@@ -35,7 +35,7 @@ test('admin notification-prefs: toggle in-app off blocks delivery; toggle on res
   // the in-app subscriber must drop the row.
   const cookies = await page.context().cookies();
   const cookieHeader = cookies.map((c) => `${c.name}=${c.value}`).join('; ');
-  const res = await request.post('/api/core/v1/notifications/__dev/synthesize', {
+  const res = await request.post('/api/notifications/v1/__dev/synthesize', {
     headers: { cookie: cookieHeader, 'content-type': 'application/json' },
     data: { event_type: 'planner.task.assigned', payload: { title: 'Should be dropped' } },
   });
@@ -49,7 +49,7 @@ test('admin notification-prefs: toggle in-app off blocks delivery; toggle on res
   await inAppSwitchAfterReload.click();
   await expect(inAppSwitchAfterReload).toHaveAttribute('data-state', 'checked');
 
-  const res2 = await request.post('/api/core/v1/notifications/__dev/synthesize', {
+  const res2 = await request.post('/api/notifications/v1/__dev/synthesize', {
     headers: { cookie: cookieHeader, 'content-type': 'application/json' },
     data: { event_type: 'planner.task.assigned', payload: { title: 'Should arrive' } },
   });
@@ -60,7 +60,7 @@ test('admin notification-prefs: toggle in-app off blocks delivery; toggle on res
   });
 
   // Clean up so other tests start with a clean unread state.
-  await request.post('/api/core/v1/notifications/read-all');
+  await request.post('/api/notifications/v1/read-all');
 });
 
 test('admin notification-prefs: nav highlights and route is reachable', async ({ page }) => {

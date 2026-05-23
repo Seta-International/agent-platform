@@ -12,7 +12,7 @@ describe('notificationsClient', () => {
           headers: { 'content-type': 'application/json' },
         });
       }
-      if (url.includes('/notifications?')) {
+      if (url.includes('/notifications/v1?')) {
         return new Response(
           JSON.stringify({
             items: [{ id: '1', event_type: 't', payload: {}, created_at: 'x', read_at: null }],

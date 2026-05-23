@@ -1,11 +1,12 @@
 import { hashRoleSummary, type SessionEnv, type SessionScope } from '@seta/core';
 import { resetCoreDb } from '@seta/core/testing';
+import { registerNotificationsRoutes } from '@seta/notifications/http';
+import { NotificationStreamHub } from '@seta/notifications/stream';
+import { resetNotificationsDb } from '@seta/notifications/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
-import { NotificationStreamHub } from '../src/notifications-stream/hub.ts';
-import { registerNotificationsRoutes } from '../src/routes/notifications.ts';
 
 function buildSession(userId: string, tenantId: string): SessionScope {
   const role_summary = { roles: ['org.admin'], cross_tenant_read: false };
@@ -34,8 +35,8 @@ function buildApp(session: SessionScope): Hono<SessionEnv> {
   return app;
 }
 
-describe('POST /api/core/v1/notifications/__dev/synthesize (dev)', () => {
-  it('emits a core.notification.requested event for the caller and returns 202', async () => {
+describe('POST /api/notifications/v1/__dev/synthesize (dev)', () => {
+  it('emits a notification.requested event for the caller and returns 202', async () => {
     await withTestDb(
       {
         templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
@@ -43,6 +44,7 @@ describe('POST /api/core/v1/notifications/__dev/synthesize (dev)', () => {
       },
       async ({ pool, databaseUrl }) => {
         resetCoreDb();
+        resetNotificationsDb();
         initPools({ databaseUrl });
         try {
           const tenantId = crypto.randomUUID();
@@ -51,7 +53,7 @@ describe('POST /api/core/v1/notifications/__dev/synthesize (dev)', () => {
             tenantId,
           ]);
           const app = buildApp(buildSession(userId, tenantId));
-          const res = await app.request('/api/core/v1/notifications/__dev/synthesize', {
+          const res = await app.request('/api/notifications/v1/__dev/synthesize', {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({ event_type: 'core.dev.sample', payload: { title: 'hi' } }),
@@ -60,13 +62,14 @@ describe('POST /api/core/v1/notifications/__dev/synthesize (dev)', () => {
 
           const rows = await pool.query<{ event_type: string }>(
             `SELECT event_type FROM core.events
-              WHERE event_type = 'core.notification.requested'
+              WHERE event_type = 'notification.requested'
                 AND tenant_id = $1::uuid`,
             [tenantId],
           );
           expect(rows.rows).toHaveLength(1);
         } finally {
           resetCoreDb();
+          resetNotificationsDb();
           await closePools();
         }
       },

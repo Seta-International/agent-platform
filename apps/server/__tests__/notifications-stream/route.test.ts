@@ -1,8 +1,8 @@
 import { hashRoleSummary, type SessionEnv, type SessionScope } from '@seta/core';
+import { registerNotificationsRoutes } from '@seta/notifications/http';
+import { NotificationStreamHub } from '@seta/notifications/stream';
 import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
-import { NotificationStreamHub } from '../../src/notifications-stream/hub.ts';
-import { registerNotificationsRoutes } from '../../src/routes/notifications.ts';
 
 function buildSession(userId: string, tenantId: string): SessionScope {
   const role_summary = { roles: ['org.admin'], cross_tenant_read: false };
@@ -48,13 +48,13 @@ async function readChunkContaining(
   throw new Error(`timeout waiting for ${needle} in stream; got: ${acc}`);
 }
 
-describe('GET /api/core/v1/notifications/stream', () => {
+describe('GET /api/notifications/v1/stream', () => {
   it('writes event: invalidate when the hub fans out for the caller user_id', async () => {
     const hub = new NotificationStreamHub();
     const userId = crypto.randomUUID();
     const app = buildApp(buildSession(userId, crypto.randomUUID()), hub);
 
-    const res = await app.request('/api/core/v1/notifications/stream');
+    const res = await app.request('/api/notifications/v1/stream');
     expect(res.status).toBe(200);
     const reader = (res.body as ReadableStream<Uint8Array>).getReader();
 
@@ -74,7 +74,7 @@ describe('GET /api/core/v1/notifications/stream', () => {
     const userId = crypto.randomUUID();
     const otherUserId = crypto.randomUUID();
     const app = buildApp(buildSession(userId, crypto.randomUUID()), hub);
-    const res = await app.request('/api/core/v1/notifications/stream');
+    const res = await app.request('/api/notifications/v1/stream');
     const reader = (res.body as ReadableStream<Uint8Array>).getReader();
     await readChunkContaining(reader, ':connected');
 

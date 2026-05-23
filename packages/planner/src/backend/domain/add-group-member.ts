@@ -1,5 +1,5 @@
-import { requestNotification } from '@seta/core';
 import { withEmit } from '@seta/core/events';
+import { requestNotification } from '@seta/notifications';
 import { and, eq, isNull } from 'drizzle-orm';
 import { groupMembers, groups } from '../../db/schema.ts';
 import { emitPlannerGroupMemberAdded } from '../../events/emit-helpers.ts';

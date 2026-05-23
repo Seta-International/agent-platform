@@ -33,6 +33,7 @@
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.1",
+    "@seta/notifications": "workspace:^",
     "@seta/shared-embeddings": "workspace:^",
     "@seta/shared-retrieval": "workspace:^",
     "drizzle-orm": "^0.45.2",

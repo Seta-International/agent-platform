@@ -37,7 +37,7 @@ describe('useNotificationStream', () => {
     const spy = vi.spyOn(qc, 'invalidateQueries');
     renderHook(() => useNotificationStream(true), { wrapper: wrap(qc) });
     expect(FakeEventSource.instances).toHaveLength(1);
-    expect(FakeEventSource.instances[0]?.url).toBe('/api/core/v1/notifications/stream');
+    expect(FakeEventSource.instances[0]?.url).toBe('/api/notifications/v1/stream');
     FakeEventSource.instances[0]?.dispatchEvent(new MessageEvent('invalidate', { data: '{}' }));
     expect(spy).toHaveBeenCalledWith({ queryKey: notificationKeys.all });
   });

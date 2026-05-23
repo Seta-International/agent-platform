@@ -158,7 +158,7 @@ describe('setMemberRole', () => {
 
           // Wipe the notification event from the addGroupMember step.
           await pool.query(
-            `DELETE FROM core.events WHERE event_type = 'core.notification.requested' AND tenant_id = $1`,
+            `DELETE FROM core.events WHERE event_type = 'notification.requested' AND tenant_id = $1`,
             [seeded.tenant_id],
           );
 
@@ -169,7 +169,7 @@ describe('setMemberRole', () => {
             session,
           });
 
-          const events = await readEvents(pool, seeded.tenant_id, 'core.notification.requested');
+          const events = await readEvents(pool, seeded.tenant_id, 'notification.requested');
           expect(events).toHaveLength(1);
           // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
           const payload = events[0]?.payload as any;

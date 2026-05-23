@@ -5,12 +5,12 @@ test('notification: synthesize -> badge appears -> drawer shows -> mark all clea
   request,
 }) => {
   // Clear any unread rows left from previous runs so the badge starts empty.
-  await request.post('/api/core/v1/notifications/read-all');
+  await request.post('/api/notifications/v1/read-all');
 
   // Watch for the SSE EventSource connection before navigating; otherwise the synthesize
   // kick can fire before the browser has subscribed and be lost.
   const sseConnected = page.waitForRequest(
-    (r) => r.url().includes('/api/core/v1/notifications/stream'),
+    (r) => r.url().includes('/api/notifications/v1/stream'),
     { timeout: 10_000 },
   );
   await page.goto('/planner/groups');
@@ -24,7 +24,7 @@ test('notification: synthesize -> badge appears -> drawer shows -> mark all clea
 
   const cookies = await page.context().cookies();
   const cookieHeader = cookies.map((c) => `${c.name}=${c.value}`).join('; ');
-  const res = await request.post('/api/core/v1/notifications/__dev/synthesize', {
+  const res = await request.post('/api/notifications/v1/__dev/synthesize', {
     headers: { cookie: cookieHeader, 'content-type': 'application/json' },
     data: { event_type: 'core.dev.sample', payload: { title: 'E2E Hello' } },
   });

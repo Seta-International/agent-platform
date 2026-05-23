@@ -1,10 +1,10 @@
 import { hashRoleSummary, type SessionEnv, type SessionScope } from '@seta/core';
+import { registerNotificationsRoutes } from '@seta/notifications/http';
+import { NotificationStreamHub } from '@seta/notifications/stream';
 import { Hono } from 'hono';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { NotificationStreamHub } from '../src/notifications-stream/hub.ts';
-import { registerNotificationsRoutes } from '../src/routes/notifications.ts';
 
-describe('POST /api/core/v1/notifications/__dev/synthesize (prod)', () => {
+describe('POST /api/notifications/v1/__dev/synthesize (prod)', () => {
   const originalNodeEnv = process.env.NODE_ENV;
   beforeAll(() => {
     process.env.NODE_ENV = 'production';
@@ -36,7 +36,7 @@ describe('POST /api/core/v1/notifications/__dev/synthesize (prod)', () => {
       await next();
     });
     registerNotificationsRoutes(app, new NotificationStreamHub());
-    const res = await app.request('/api/core/v1/notifications/__dev/synthesize', {
+    const res = await app.request('/api/notifications/v1/__dev/synthesize', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ event_type: 'core.dev.sample', payload: {} }),

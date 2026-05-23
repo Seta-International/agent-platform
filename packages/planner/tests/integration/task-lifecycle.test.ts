@@ -124,7 +124,7 @@ describe('assignTask', () => {
 
           await assignTask({ task_id: task.id, user_id: alice.user_id, session });
 
-          const events = await readEvents(pool, seeded.tenant_id, 'core.notification.requested');
+          const events = await readEvents(pool, seeded.tenant_id, 'notification.requested');
           expect(events).toHaveLength(1);
           // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
           const payload = events[0]?.payload as any;
@@ -160,7 +160,7 @@ describe('assignTask', () => {
 
           await assignTask({ task_id: task.id, user_id: session.user_id, session });
 
-          const events = await readEvents(pool, seeded.tenant_id, 'core.notification.requested');
+          const events = await readEvents(pool, seeded.tenant_id, 'notification.requested');
           expect(events).toHaveLength(0);
         } finally {
           resetCoreDb();
@@ -275,13 +275,13 @@ describe('unassignTask', () => {
 
           // Wipe any pre-existing notification events from the assign step so we isolate the unassign event.
           await pool.query(
-            `DELETE FROM core.events WHERE event_type = 'core.notification.requested' AND tenant_id = $1`,
+            `DELETE FROM core.events WHERE event_type = 'notification.requested' AND tenant_id = $1`,
             [seeded.tenant_id],
           );
 
           await unassignTask({ task_id: task.id, user_id: alice.user_id, session });
 
-          const events = await readEvents(pool, seeded.tenant_id, 'core.notification.requested');
+          const events = await readEvents(pool, seeded.tenant_id, 'notification.requested');
           expect(events).toHaveLength(1);
           // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
           const payload = events[0]?.payload as any;
@@ -317,13 +317,13 @@ describe('unassignTask', () => {
 
           // Self-assign already produced 0 notifications. Clean slate is the same.
           await pool.query(
-            `DELETE FROM core.events WHERE event_type = 'core.notification.requested' AND tenant_id = $1`,
+            `DELETE FROM core.events WHERE event_type = 'notification.requested' AND tenant_id = $1`,
             [seeded.tenant_id],
           );
 
           await unassignTask({ task_id: task.id, user_id: session.user_id, session });
 
-          const events = await readEvents(pool, seeded.tenant_id, 'core.notification.requested');
+          const events = await readEvents(pool, seeded.tenant_id, 'notification.requested');
           expect(events).toHaveLength(0);
         } finally {
           resetCoreDb();
@@ -478,17 +478,13 @@ describe('completeTask', () => {
           await assignTask({ task_id: task.id, user_id: assignee.user_id, session: adminSession });
 
           await pool.query(
-            `DELETE FROM core.events WHERE event_type = 'core.notification.requested' AND tenant_id = $1`,
+            `DELETE FROM core.events WHERE event_type = 'notification.requested' AND tenant_id = $1`,
             [creatorSeed.tenant_id],
           );
 
           await completeTask({ task_id: task.id, expected_version: 1, session: adminSession });
 
-          const events = await readEvents(
-            pool,
-            creatorSeed.tenant_id,
-            'core.notification.requested',
-          );
+          const events = await readEvents(pool, creatorSeed.tenant_id, 'notification.requested');
           expect(events).toHaveLength(1);
           // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
           const payload = events[0]?.payload as any;
@@ -523,13 +519,13 @@ describe('completeTask', () => {
           await assignTask({ task_id: task.id, user_id: session.user_id, session });
 
           await pool.query(
-            `DELETE FROM core.events WHERE event_type = 'core.notification.requested' AND tenant_id = $1`,
+            `DELETE FROM core.events WHERE event_type = 'notification.requested' AND tenant_id = $1`,
             [seeded.tenant_id],
           );
 
           await completeTask({ task_id: task.id, expected_version: 1, session });
 
-          const events = await readEvents(pool, seeded.tenant_id, 'core.notification.requested');
+          const events = await readEvents(pool, seeded.tenant_id, 'notification.requested');
           expect(events).toHaveLength(0);
         } finally {
           resetCoreDb();
@@ -657,13 +653,13 @@ describe('reopenTask', () => {
           await completeTask({ task_id: task.id, expected_version: 1, session: adminSession });
 
           await pool.query(
-            `DELETE FROM core.events WHERE event_type = 'core.notification.requested' AND tenant_id = $1`,
+            `DELETE FROM core.events WHERE event_type = 'notification.requested' AND tenant_id = $1`,
             [seeded.tenant_id],
           );
 
           await reopenTask({ task_id: task.id, expected_version: 2, session: adminSession });
 
-          const events = await readEvents(pool, seeded.tenant_id, 'core.notification.requested');
+          const events = await readEvents(pool, seeded.tenant_id, 'notification.requested');
           expect(events).toHaveLength(1);
           // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
           const payload = events[0]?.payload as any;
@@ -699,13 +695,13 @@ describe('reopenTask', () => {
           await completeTask({ task_id: task.id, expected_version: 1, session });
 
           await pool.query(
-            `DELETE FROM core.events WHERE event_type = 'core.notification.requested' AND tenant_id = $1`,
+            `DELETE FROM core.events WHERE event_type = 'notification.requested' AND tenant_id = $1`,
             [seeded.tenant_id],
           );
 
           await reopenTask({ task_id: task.id, expected_version: 2, session });
 
-          const events = await readEvents(pool, seeded.tenant_id, 'core.notification.requested');
+          const events = await readEvents(pool, seeded.tenant_id, 'notification.requested');
           expect(events).toHaveLength(0);
         } finally {
           resetCoreDb();

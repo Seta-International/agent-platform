@@ -74,25 +74,25 @@ export const notificationsClient = {
     if (cursor) params.set('cursor', cursor);
     if (limit !== undefined) params.set('limit', String(limit));
     const qs = params.toString();
-    return request<ListNotificationsResponse>(`/api/core/v1/notifications${qs ? `?${qs}` : ''}`);
+    return request<ListNotificationsResponse>(`/api/notifications/v1${qs ? `?${qs}` : ''}`);
   },
   unreadCount(): Promise<{ count: number }> {
-    return request<{ count: number }>(`/api/core/v1/notifications/unread-count`);
+    return request<{ count: number }>(`/api/notifications/v1/unread-count`);
   },
   markRead(id: string): Promise<NotificationDTO> {
-    return request<NotificationDTO>(`/api/core/v1/notifications/${id}/read`, { method: 'POST' });
+    return request<NotificationDTO>(`/api/notifications/v1/${id}/read`, { method: 'POST' });
   },
   markAllRead(): Promise<{ updated: number }> {
-    return request<{ updated: number }>(`/api/core/v1/notifications/read-all`, { method: 'POST' });
+    return request<{ updated: number }>(`/api/notifications/v1/read-all`, { method: 'POST' });
   },
   dismiss(id: string): Promise<NotificationDTO> {
-    return request<NotificationDTO>(`/api/core/v1/notifications/${id}/dismiss`, { method: 'POST' });
+    return request<NotificationDTO>(`/api/notifications/v1/${id}/dismiss`, { method: 'POST' });
   },
   listPrefs(): Promise<NotificationPrefsResponse> {
-    return request<NotificationPrefsResponse>(`/api/core/v1/notification-prefs`);
+    return request<NotificationPrefsResponse>(`/api/notifications/v1/prefs`);
   },
   setPref(input: PatchPrefInput): Promise<{ ok: true }> {
-    return request<{ ok: true }>(`/api/core/v1/notification-prefs`, {
+    return request<{ ok: true }>(`/api/notifications/v1/prefs`, {
       method: 'PATCH',
       body: JSON.stringify(input),
     });
