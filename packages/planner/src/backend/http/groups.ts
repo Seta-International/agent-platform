@@ -8,6 +8,7 @@ import {
   getGroup,
   getGroupActivity,
   linkGroupToM365,
+  listGroupMemberCandidates,
   listGroupMembers,
   listGroups,
   listGroupsWithCounts,
@@ -112,6 +113,21 @@ export function registerPlannerGroupsRoutes(app: Hono<SessionEnv>): void {
   app.post('/api/planner/v1/groups/:id/restore', async (c) => {
     const session = c.get('user');
     return c.json(await restoreGroup({ group_id: c.req.param('id'), session }));
+  });
+
+  app.get('/api/planner/v1/groups/:id/members/candidates', async (c) => {
+    const session = c.get('user');
+    const search = c.req.query('search');
+    const limitStr = c.req.query('limit');
+    const limit = limitStr ? Math.min(Math.max(Number.parseInt(limitStr, 10), 1), 50) : 20;
+    return c.json({
+      candidates: await listGroupMemberCandidates({
+        group_id: c.req.param('id'),
+        search: search || undefined,
+        limit,
+        session,
+      }),
+    });
   });
 
   app.get('/api/planner/v1/groups/:id/members', async (c) => {
