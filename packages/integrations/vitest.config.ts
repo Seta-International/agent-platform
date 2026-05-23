@@ -6,6 +6,7 @@ export default defineConfig({
     ...dbTestDefaults,
     globals: true,
     environment: 'node',
+    include: ['tests/**/*.test.ts'],
     globalSetup: ['./tests/global-setup.ts'],
   },
 });

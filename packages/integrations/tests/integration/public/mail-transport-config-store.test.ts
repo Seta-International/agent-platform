@@ -1,8 +1,8 @@
 import type { EncryptedBlob } from '@seta/shared-crypto';
 import { describe, expect, it } from 'vitest';
-import { createMailTransportConfigStore } from '../../src/backend/domain/mail-transport-config-store.ts';
-import { resetIntegrationsDb } from '../../src/db/client.ts';
-import { withIntegrationsTestDb } from '../helpers/test-db.ts';
+import { createMailTransportConfigStore } from '../../../src/backend/domain/mail-transport-config-store.ts';
+import { resetIntegrationsDb } from '../../../src/db/client.ts';
+import { withIntegrationsTestDb } from '../../helpers/test-db.ts';
 
 const fakeBlob: EncryptedBlob = {
   v: 1,

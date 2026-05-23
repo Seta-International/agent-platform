@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { withIntegrationsTestDb } from '../helpers/test-db.ts';
+import { withIntegrationsTestDb } from '../../helpers/test-db.ts';
 
 describe('migration: m365_group_links + m365_subscriptions', () => {
   it('m365_group_links table has all required columns', async () => {

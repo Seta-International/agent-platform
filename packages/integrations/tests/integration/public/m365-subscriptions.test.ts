@@ -1,8 +1,8 @@
 import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
-import { runCreateSubscription } from '../../src/m365/jobs/subscription-create.ts';
-import { createM365SubscriptionsRepo } from '../../src/m365/repo-subscriptions.ts';
-import { withIntegrationsTestDb } from '../helpers/test-db.ts';
+import { runCreateSubscription } from '../../../src/m365/jobs/subscription-create.ts';
+import { createM365SubscriptionsRepo } from '../../../src/m365/repo-subscriptions.ts';
+import { withIntegrationsTestDb } from '../../helpers/test-db.ts';
 
 const WEBHOOK_SECRET = 'test-webhook-secret-32-chars-paddd';
 
