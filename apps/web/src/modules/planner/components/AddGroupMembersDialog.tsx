@@ -48,12 +48,7 @@ function useDebounced<T>(value: T, ms: number): T {
   return debounced;
 }
 
-export function AddGroupMembersDialog({
-  groupId,
-  existingMembers: _existingMembers,
-  open,
-  onOpenChange,
-}: Props) {
+export function AddGroupMembersDialog({ groupId, open, onOpenChange }: Props) {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Candidate[]>([]);
   const [error, setError] = useState<string | null>(null);

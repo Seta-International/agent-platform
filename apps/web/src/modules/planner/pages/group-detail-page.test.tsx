@@ -244,4 +244,21 @@ describe('GroupDetailPage', () => {
 
     expect(onTabChange).toHaveBeenCalledWith('members');
   });
+
+  it('opens AddGroupMembersDialog when invite button is clicked', async () => {
+    server.use(
+      ...defaultHandlers(),
+      http.get('*/api/planner/v1/groups/g1/members/candidates*', () =>
+        HttpResponse.json({ candidates: [] }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderInRouter(<AdminPage tab="plans" />);
+
+    await screen.findByRole('heading', { name: 'Engineering' });
+    const inviteBtn = screen.getByRole('button', { name: /^invite$/i });
+    await user.click(inviteBtn);
+
+    expect(screen.getByRole('dialog', { name: /add members/i })).toBeInTheDocument();
+  });
 });

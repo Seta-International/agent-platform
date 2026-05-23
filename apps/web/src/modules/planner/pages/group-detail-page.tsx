@@ -10,6 +10,7 @@ import {
 import { Navigate, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { SessionScopeProjection } from '@/modules/identity/api/client';
+import { AddGroupMembersDialog } from '../components/AddGroupMembersDialog';
 import { CreatePlanDialog } from '../components/CreatePlanDialog';
 import { GroupDetailHeader } from '../components/GroupDetailHeader';
 import { GroupMembersTable } from '../components/GroupMembersTable';
@@ -78,6 +79,7 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
 
   const [createPlanOpen, setCreatePlanOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
+  const [addMembersOpen, setAddMembersOpen] = useState(false);
 
   // Capability checks
   const roles = session.role_summary.roles;
@@ -126,7 +128,7 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
         group={group}
         canManage={canManage}
         onRenameClick={() => setRenameOpen(true)}
-        onInviteClick={() => toast('Invite functionality coming soon.')}
+        onInviteClick={() => setAddMembersOpen(true)}
         onCreatePlanClick={() => setCreatePlanOpen(true)}
         onMenuAction={handleMenuAction}
       />
@@ -175,7 +177,7 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
               group={group}
               members={members}
               canManage={canManage}
-              onAddMember={() => toast('Invite functionality coming soon.')}
+              onAddMember={() => setAddMembersOpen(true)}
               activityItems={
                 activityQuery.isPending ? undefined : (activityQuery.data?.items ?? null)
               }
@@ -195,7 +197,7 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
               group={group}
               members={members}
               canManage={canManage}
-              onAddMember={() => toast('Invite functionality coming soon.')}
+              onAddMember={() => setAddMembersOpen(true)}
               activityItems={
                 activityQuery.isPending ? undefined : (activityQuery.data?.items ?? null)
               }
@@ -229,6 +231,12 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
         version={group.version}
         open={renameOpen}
         onOpenChange={setRenameOpen}
+      />
+      <AddGroupMembersDialog
+        groupId={groupId}
+        existingMembers={members}
+        open={addMembersOpen}
+        onOpenChange={setAddMembersOpen}
       />
     </div>
   );
