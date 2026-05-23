@@ -1,6 +1,6 @@
 import type { EmbeddingProvider } from '@seta/shared-embeddings';
 import { describe, expect, it } from 'vitest';
-import { FakeEmbeddingProvider } from '../src/fakes/embedding.ts';
+import { FakeEmbeddingProvider } from '../../src/fakes/embedding.ts';
 
 describe('FakeEmbeddingProvider', () => {
   it('implements @seta/shared-embeddings EmbeddingProvider', () => {
