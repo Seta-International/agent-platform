@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { closePools, getPool, initPools } from '../src/pools.ts';
+import { closePools, getPool, initPools } from '../../src/pools.ts';
 
 beforeEach(async () => {
   try {

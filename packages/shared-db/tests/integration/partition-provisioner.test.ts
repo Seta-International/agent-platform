@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
-import { ensureTenantPartition } from '../src/partition-provisioner.ts';
+import { ensureTenantPartition } from '../../src/partition-provisioner.ts';
 
 const env = {
   template: () => process.env.SETA_TEST_PG_TEMPLATE as string,

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { withRetry } from '../src/tx.ts';
+import { withRetry } from '../../src/tx.ts';
 
 describe('withRetry', () => {
   it('returns the value on first success', async () => {

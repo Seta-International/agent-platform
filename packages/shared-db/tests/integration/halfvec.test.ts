@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { halfvec } from '../src/halfvec.ts';
+import { halfvec } from '../../src/halfvec.ts';
 
 // customType() returns a PgCustomColumnBuilder. The mapping functions and SQL type
 // are stored on builder.config.customTypeParams, not on the builder itself.
