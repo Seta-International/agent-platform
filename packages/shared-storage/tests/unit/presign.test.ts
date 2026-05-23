@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { presignedDownloadUrl, presignedUploadUrl } from '../src/presign.ts';
+import { presignedDownloadUrl, presignedUploadUrl } from '../../src/presign.ts';
 
 describe('presigned URLs', () => {
   it('returns an https URL via getSignedUrl', async () => {

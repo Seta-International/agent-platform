@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildTenantKey } from '../src/tenant-key.ts';
+import { buildTenantKey } from '../../src/tenant-key.ts';
 
 describe('buildTenantKey', () => {
   it('produces a tenant-scoped key path', () => {
