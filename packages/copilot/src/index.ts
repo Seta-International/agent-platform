@@ -26,23 +26,6 @@ export { replayWorkflowFromStep } from './backend/domain/replay-workflow-from-st
 export type { RerunWorkflowOpts, RerunWorkflowResult } from './backend/domain/rerun-workflow.ts';
 export { rerunWorkflow } from './backend/domain/rerun-workflow.ts';
 export { embeddingJobs } from './backend/embeddings/register-jobs.ts';
-export type {
-  DeleteKnowledgeFileDeps,
-  DeleteKnowledgeFileInput,
-} from './backend/knowledge/delete-file.ts';
-export { deleteKnowledgeFile } from './backend/knowledge/delete-file.ts';
-export type {
-  KnowledgeFileSummary,
-  ListKnowledgeFilesInput,
-} from './backend/knowledge/list-files.ts';
-export { listKnowledgeFiles } from './backend/knowledge/list-files.ts';
-export type { MarkProcessedDeps, MarkProcessedInput } from './backend/knowledge/mark-processed.ts';
-export { markKnowledgeFileProcessed } from './backend/knowledge/mark-processed.ts';
-export type {
-  RequestKnowledgeUploadInput,
-  RequestKnowledgeUploadResult,
-} from './backend/knowledge/upload-url.ts';
-export { requestKnowledgeUpload } from './backend/knowledge/upload-url.ts';
 export { bindOtel, otel } from './backend/observability.ts';
 export type { SessionLike } from './backend/types.ts';
 export type { ResumeRetryDeps, ResumeRetryResult } from './backend/workflows/resume-retry.ts';

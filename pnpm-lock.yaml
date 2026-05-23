@@ -128,6 +128,9 @@ importers:
       '@seta/integrations':
         specifier: workspace:^
         version: link:../../packages/integrations
+      '@seta/knowledge':
+        specifier: workspace:^
+        version: link:../../packages/knowledge
       '@seta/notifications':
         specifier: workspace:^
         version: link:../../packages/notifications
@@ -370,6 +373,9 @@ importers:
       '@seta/integrations':
         specifier: workspace:^
         version: link:../../packages/integrations
+      '@seta/knowledge':
+        specifier: workspace:^
+        version: link:../../packages/knowledge
       '@seta/notifications':
         specifier: workspace:^
         version: link:../../packages/notifications
@@ -428,9 +434,6 @@ importers:
       '@ai-sdk/openai':
         specifier: ^3.0.64
         version: 3.0.64(zod@4.4.3)
-      '@aws-sdk/client-s3':
-        specifier: ^3.1052.0
-        version: 3.1052.0
       '@mastra/ai-sdk':
         specifier: ^1.4.3
         version: 1.4.3(@mastra/core@1.36.0(@grpc/grpc-js@1.14.3)(@standard-community/standard-json@0.3.5(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(quansync@0.2.11)(zod-to-json-schema@3.25.2(zod@4.4.3))(zod@4.4.3))(@standard-community/standard-openapi@0.2.9(@standard-community/standard-json@0.3.5(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(quansync@0.2.11)(zod-to-json-schema@3.25.2(zod@4.4.3))(zod@4.4.3))(@standard-schema/spec@1.1.0)(openapi-types@12.1.3)(zod@4.4.3))(@types/json-schema@7.0.15)(ai@6.0.188(zod@4.4.3))(express@5.2.1)(openapi-types@12.1.3)(zod@4.4.3))(zod@4.4.3)
@@ -443,9 +446,6 @@ importers:
       '@mastra/pg':
         specifier: ^1.11.1
         version: 1.11.1(@mastra/core@1.36.0(@grpc/grpc-js@1.14.3)(@standard-community/standard-json@0.3.5(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(quansync@0.2.11)(zod-to-json-schema@3.25.2(zod@4.4.3))(zod@4.4.3))(@standard-community/standard-openapi@0.2.9(@standard-community/standard-json@0.3.5(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(quansync@0.2.11)(zod-to-json-schema@3.25.2(zod@4.4.3))(zod@4.4.3))(@standard-schema/spec@1.1.0)(openapi-types@12.1.3)(zod@4.4.3))(@types/json-schema@7.0.15)(ai@6.0.188(zod@4.4.3))(express@5.2.1)(openapi-types@12.1.3)(zod@4.4.3))
-      '@mastra/rag':
-        specifier: ^2.2.1
-        version: 2.2.1(@mastra/core@1.36.0(@grpc/grpc-js@1.14.3)(@standard-community/standard-json@0.3.5(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(quansync@0.2.11)(zod-to-json-schema@3.25.2(zod@4.4.3))(zod@4.4.3))(@standard-community/standard-openapi@0.2.9(@standard-community/standard-json@0.3.5(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(quansync@0.2.11)(zod-to-json-schema@3.25.2(zod@4.4.3))(zod@4.4.3))(@standard-schema/spec@1.1.0)(openapi-types@12.1.3)(zod@4.4.3))(@types/json-schema@7.0.15)(ai@6.0.188(zod@4.4.3))(express@5.2.1)(openapi-types@12.1.3)(zod@4.4.3))(zod@4.4.3)
       '@seta/planner':
         specifier: workspace:^
         version: link:../planner
@@ -461,9 +461,6 @@ importers:
       ai:
         specifier: ^6.0.188
         version: 6.0.188(zod@4.4.3)
-      csv-parse:
-        specifier: ^6.2.1
-        version: 6.2.1
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(@opentelemetry/api@1.9.1)(@prisma/client@5.22.0)(@types/pg@8.20.0)(better-sqlite3@12.10.0)(kysely@0.28.17)(pg@8.21.0)
@@ -476,21 +473,12 @@ importers:
       lru-cache:
         specifier: ^11.5.0
         version: 11.5.0
-      mammoth:
-        specifier: ^1.12.0
-        version: 1.12.0
       pg:
         specifier: ^8.21.0
         version: 8.21.0
       pino:
         specifier: ^10.3.1
         version: 10.3.1
-      unpdf:
-        specifier: ^1.6.2
-        version: 1.6.2
-      xlsx:
-        specifier: ^0.18.5
-        version: 0.18.5
       zod:
         specifier: ^4.4.3
         version: 4.4.3
@@ -735,6 +723,94 @@ importers:
       msw:
         specifier: ^2.14.6
         version: 2.14.6(@types/node@25.9.1)(typescript@6.0.3)
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.7
+        version: 4.1.7(@opentelemetry/api@1.9.1)(@types/node@25.9.1)(@vitest/coverage-v8@4.1.7)(happy-dom@20.9.0)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@25.9.1)(typescript@6.0.3))(vite@8.0.13(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.3)(yaml@2.9.0))
+
+  packages/knowledge:
+    dependencies:
+      '@aws-sdk/client-s3':
+        specifier: ^3.1052.0
+        version: 3.1052.0
+      '@mastra/rag':
+        specifier: ^2.2.1
+        version: 2.2.1(@mastra/core@1.36.0(@grpc/grpc-js@1.14.3)(@standard-community/standard-json@0.3.5(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(quansync@0.2.11)(zod-to-json-schema@3.25.2(zod@4.4.3))(zod@4.4.3))(@standard-community/standard-openapi@0.2.9(@standard-community/standard-json@0.3.5(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(quansync@0.2.11)(zod-to-json-schema@3.25.2(zod@4.4.3))(zod@4.4.3))(@standard-schema/spec@1.1.0)(openapi-types@12.1.3)(zod@4.4.3))(@types/json-schema@7.0.15)(ai@6.0.188(zod@4.4.3))(express@5.2.1)(openapi-types@12.1.3)(zod@4.4.3))(zod@4.4.3)
+      '@seta/copilot-sdk':
+        specifier: workspace:^
+        version: link:../../sdks/copilot
+      '@seta/core':
+        specifier: workspace:^
+        version: link:../core
+      '@seta/identity':
+        specifier: workspace:^
+        version: link:../identity
+      '@seta/shared-db':
+        specifier: workspace:^
+        version: link:../shared-db
+      '@seta/shared-embeddings':
+        specifier: workspace:^
+        version: link:../shared-embeddings
+      '@seta/shared-rbac':
+        specifier: workspace:^
+        version: link:../shared-rbac
+      '@seta/shared-retrieval':
+        specifier: workspace:^
+        version: link:../shared-retrieval
+      '@seta/shared-storage':
+        specifier: workspace:^
+        version: link:../shared-storage
+      '@seta/shared-types':
+        specifier: workspace:^
+        version: link:../shared-types
+      csv-parse:
+        specifier: ^6.2.1
+        version: 6.2.1
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(@opentelemetry/api@1.9.1)(@prisma/client@5.22.0)(@types/pg@8.20.0)(better-sqlite3@12.10.0)(kysely@0.28.17)(pg@8.21.0)
+      graphile-worker:
+        specifier: ^0.16.6
+        version: 0.16.6(typescript@6.0.3)
+      hono:
+        specifier: ^4.12.21
+        version: 4.12.21
+      mammoth:
+        specifier: ^1.12.0
+        version: 1.12.0
+      pg:
+        specifier: ^8.21.0
+        version: 8.21.0
+      pino:
+        specifier: ^10.3.1
+        version: 10.3.1
+      unpdf:
+        specifier: ^1.6.2
+        version: 1.6.2
+      xlsx:
+        specifier: ^0.18.5
+        version: 0.18.5
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@seta/shared-config':
+        specifier: workspace:^
+        version: link:../shared-config
+      '@seta/shared-testing':
+        specifier: workspace:^
+        version: link:../shared-testing
+      '@types/node':
+        specifier: ^25.9.1
+        version: 25.9.1
+      '@types/pg':
+        specifier: ^8.20.0
+        version: 8.20.0
+      drizzle-kit:
+        specifier: ^0.31.10
+        version: 0.31.10
       typescript:
         specifier: ^6.0.3
         version: 6.0.3

@@ -17,6 +17,7 @@
     "@seta/core": "workspace:^",
     "@seta/identity": "workspace:^",
     "@seta/integrations": "workspace:^",
+    "@seta/knowledge": "workspace:^",
     "@seta/notifications": "workspace:^",
     "@seta/planner": "workspace:^",
     "@seta/shared-crypto": "workspace:^",

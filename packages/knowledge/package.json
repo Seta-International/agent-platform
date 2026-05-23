@@ -1,0 +1,58 @@
+{
+  "name": "@seta/knowledge",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Tenant knowledge base — file upload, parsing, chunk embedding, RAG retrieval.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./register": "./src/register.ts",
+    "./events": "./src/events.ts",
+    "./rbac": "./src/rbac.ts",
+    "./db/schema": "./src/backend/db/schema.ts",
+    "./db": "./src/backend/db/client.ts",
+    "./http": "./src/backend/http/index.ts",
+    "./stream": "./src/backend/stream/hub.ts",
+    "./jobs": "./src/backend/jobs/index.ts",
+    "./testing": "./src/testing.ts"
+  },
+  "scripts": {
+    "lint": "eslint . --no-error-on-unmatched-pattern",
+    "typecheck": "tsc -b --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:generate": "drizzle-kit generate"
+  },
+  "devDependencies": {
+    "@seta/shared-config": "workspace:^",
+    "@seta/shared-testing": "workspace:^",
+    "@types/node": "^25.9.1",
+    "@types/pg": "^8.20.0",
+    "drizzle-kit": "^0.31.10",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.7"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1052.0",
+    "@mastra/rag": "^2.2.1",
+    "@seta/copilot-sdk": "workspace:^",
+    "@seta/core": "workspace:^",
+    "@seta/identity": "workspace:^",
+    "@seta/shared-db": "workspace:^",
+    "@seta/shared-embeddings": "workspace:^",
+    "@seta/shared-rbac": "workspace:^",
+    "@seta/shared-retrieval": "workspace:^",
+    "@seta/shared-storage": "workspace:^",
+    "@seta/shared-types": "workspace:^",
+    "csv-parse": "^6.2.1",
+    "drizzle-orm": "^0.45.2",
+    "graphile-worker": "^0.16.6",
+    "hono": "^4.12.21",
+    "mammoth": "^1.12.0",
+    "pg": "^8.21.0",
+    "pino": "^10.3.1",
+    "unpdf": "^1.6.2",
+    "xlsx": "^0.18.5",
+    "zod": "^4.4.3"
+  }
+}

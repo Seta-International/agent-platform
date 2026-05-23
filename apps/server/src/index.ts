@@ -10,6 +10,9 @@ import { registerIdentityContributions } from '@seta/identity/register';
 import { createMailTransportConfigStore } from '@seta/integrations';
 import { integrationsDb } from '@seta/integrations/db';
 import { registerIntegrationsContributions } from '@seta/integrations/register';
+import { knowledgeJobs } from '@seta/knowledge/jobs';
+import { registerKnowledgeContributions } from '@seta/knowledge/register';
+import { KnowledgeStreamHub } from '@seta/knowledge/stream';
 import { registerNotificationsContributions } from '@seta/notifications/register';
 import { NotificationStreamHub } from '@seta/notifications/stream';
 import { plannerEmbeddingJobs } from '@seta/planner';
@@ -22,7 +25,6 @@ import pino from 'pino';
 import { BoardStreamHub } from './board-stream/hub.ts';
 import { buildServerApp, registerAppContributions } from './build.ts';
 import { parseEnv } from './env.ts';
-import { KnowledgeStreamHub } from './knowledge-stream/hub.ts';
 import { buildM365Boot } from './m365-boot.ts';
 import { failedLoginAlertSubscriber } from './subscribers/failed-login-alert.ts';
 
@@ -40,6 +42,7 @@ const reg = createContributionRegistry();
 registerCoreContributions(reg);
 registerIdentityContributions(reg);
 registerIntegrationsContributions(reg);
+registerKnowledgeContributions(reg);
 registerNotificationsContributions(reg);
 registerPlannerContributions(reg);
 registerAppContributions(reg);
@@ -123,6 +126,7 @@ const rt = buildRuntime(env, {
         },
         ...(m365Boot ? m365Boot.jobs : {}),
         ...embeddingJobs,
+        ...knowledgeJobs,
         ...plannerEmbeddingJobs,
       }
     : undefined,

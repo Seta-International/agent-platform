@@ -6,11 +6,8 @@ describe('embedding job registry', () => {
     expect(typeof embeddingJobs.embed_user_profile).toBe('function');
   });
 
-  it('exposes parse_knowledge_file as a graphile-worker task function', () => {
-    expect(typeof embeddingJobs.parse_knowledge_file).toBe('function');
-  });
-
-  it('exposes embed_knowledge_chunks as a graphile-worker task function', () => {
-    expect(typeof embeddingJobs.embed_knowledge_chunks).toBe('function');
+  it('no longer exposes knowledge jobs (those moved to @seta/knowledge)', () => {
+    expect(embeddingJobs).not.toHaveProperty('parse_knowledge_file');
+    expect(embeddingJobs).not.toHaveProperty('embed_knowledge_chunks');
   });
 });

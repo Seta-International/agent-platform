@@ -10,6 +10,8 @@ import { registerIdentityContributions } from '@seta/identity/register';
 import { createMailTransportConfigStore } from '@seta/integrations';
 import { integrationsDb } from '@seta/integrations/db';
 import { registerIntegrationsContributions } from '@seta/integrations/register';
+import { knowledgeJobs } from '@seta/knowledge/jobs';
+import { registerKnowledgeContributions } from '@seta/knowledge/register';
 import { registerNotificationsContributions } from '@seta/notifications/register';
 import { plannerEmbeddingJobs } from '@seta/planner';
 import { registerPlannerContributions } from '@seta/planner/register';
@@ -34,6 +36,7 @@ const reg = createContributionRegistry();
 registerCoreContributions(reg);
 registerIdentityContributions(reg);
 registerIntegrationsContributions(reg);
+registerKnowledgeContributions(reg);
 registerNotificationsContributions(reg);
 registerPlannerContributions(reg);
 log.info('contributions registered');
@@ -81,6 +84,7 @@ const rt = buildRuntime(
       },
       ...m365Jobs,
       ...embeddingJobs,
+      ...knowledgeJobs,
       ...plannerEmbeddingJobs,
     },
   },
