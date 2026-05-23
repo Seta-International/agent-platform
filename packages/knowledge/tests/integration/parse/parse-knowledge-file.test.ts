@@ -4,7 +4,7 @@ import { resetKnowledgeDb } from '@seta/knowledge/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it, vi } from 'vitest';
-import { parseKnowledgeFile } from './parse-knowledge-file.ts';
+import { parseKnowledgeFile } from '../../../src/backend/parse/parse-knowledge-file.ts';
 
 const withDb = <T>(fn: (ctx: { pool: import('pg').Pool }) => Promise<T>) =>
   withTestDb(

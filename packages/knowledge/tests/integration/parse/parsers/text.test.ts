@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { textParser } from '../text.ts';
+import { textParser } from '../../../../src/backend/parse/parsers/text.ts';
 
 describe('textParser', () => {
   it('returns one section for plain text', async () => {

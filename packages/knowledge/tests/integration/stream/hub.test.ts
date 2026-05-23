@@ -1,6 +1,6 @@
 import type { DomainEvent } from '@seta/shared-types';
 import { describe, expect, it, vi } from 'vitest';
-import { KnowledgeStreamHub } from './hub.ts';
+import { KnowledgeStreamHub } from '../../../src/backend/stream/hub.ts';
 
 function makeKnowledgeEvent(
   tenantId: string,

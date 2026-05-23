@@ -4,8 +4,8 @@ import { resetKnowledgeDb } from '@seta/knowledge/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { FakeEmbeddingProvider, withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
-import { embedKnowledgeChunks } from '../embed/embed-knowledge-chunks.ts';
-import { searchTenantKnowledge } from './search-tenant-knowledge.ts';
+import { embedKnowledgeChunks } from '../../../src/backend/embed/embed-knowledge-chunks.ts';
+import { searchTenantKnowledge } from '../../../src/backend/retrieval/search-tenant-knowledge.ts';
 
 const withDb = <T>(fn: (ctx: { pool: import('pg').Pool }) => Promise<T>) =>
   withTestDb(

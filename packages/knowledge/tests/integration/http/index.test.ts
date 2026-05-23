@@ -7,8 +7,8 @@ import { withTestDb } from '@seta/shared-testing';
 import { Hono } from 'hono';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { describe, expect, it, vi } from 'vitest';
-import { requestKnowledgeUpload } from '../domain/upload-url.ts';
-import { registerKnowledgeRoutes } from './index.ts';
+import { requestKnowledgeUpload } from '../../../src/backend/domain/upload-url.ts';
+import { registerKnowledgeRoutes } from '../../../src/backend/http/index.ts';
 
 function handleKnowledgeError(
   err: Error,

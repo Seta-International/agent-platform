@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import * as XLSX from 'xlsx';
-import { xlsxParser } from '../xlsx.ts';
+import { xlsxParser } from '../../../../src/backend/parse/parsers/xlsx.ts';
 
 const FIXTURES = resolve(import.meta.dirname, 'fixtures');
 

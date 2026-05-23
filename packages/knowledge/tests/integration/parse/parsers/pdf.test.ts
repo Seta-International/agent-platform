@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { pdfParser } from '../pdf.ts';
+import { pdfParser } from '../../../../src/backend/parse/parsers/pdf.ts';
 
 const FIXTURES = resolve(import.meta.dirname, 'fixtures');
 
