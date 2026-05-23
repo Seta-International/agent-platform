@@ -1,0 +1,138 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`PreviewBody > renders automatic variant matching snapshot 1`] = `
+<div
+  data-role="preview-body"
+  style="display: flex; flex-direction: column;"
+>
+  <div
+    style="display: flex; align-items: center; gap: 6px; padding: 6px 8px; background: var(--color-surface-1); border-radius: 4px; border: 1px solid; font-size: 11.5px; border-width: var(--color-hairline-tertiary); border-style: var(--color-hairline-tertiary); border-color: var(--color-hairline-tertiary);"
+  >
+    <span
+      aria-hidden="true"
+      style="width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; background: #2b579a;"
+    />
+    <span
+      style="min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; flex-grow: 1; flex-shrink: 1; flex-basis: 0%;"
+    >
+      Architecture review notes
+    </span>
+    <span
+      class="mono t-xs subtle"
+    >
+      docs.acme
+    </span>
+  </div>
+  <div
+    class="t-xs subtle"
+    style="margin-top: 5px; font-style: italic;"
+  >
+    picked from 
+    references
+  </div>
+</div>
+`;
+
+exports[`PreviewBody > renders checklist variant matching snapshot 1`] = `
+<div
+  data-role="preview-body"
+  style="display: flex; flex-direction: column;"
+>
+  <div
+    style="display: flex; flex-direction: column; gap: 4px; padding: 6px 8px; background: var(--color-surface-1); border-radius: 4px; border: 1px solid; border-width: var(--color-hairline-tertiary); border-style: var(--color-hairline-tertiary); border-color: var(--color-hairline-tertiary);"
+  >
+    <div
+      style="display: flex; align-items: center; gap: 6px; font-size: 11.5px;"
+    >
+      <span
+        aria-hidden="true"
+        style="width: 11px; height: 11px; border-radius: 3px; background: var(--color-success); display: inline-block; flex-shrink: 0;"
+      />
+      <span
+        style="color: var(--color-ink-subtle); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-decoration: line-through;"
+      >
+        Draft cache key schema
+      </span>
+    </div>
+    <div
+      style="display: flex; align-items: center; gap: 6px; font-size: 11.5px;"
+    >
+      <span
+        aria-hidden="true"
+        style="width: 11px; height: 11px; border-radius: 3px; background: var(--color-success); display: inline-block; flex-shrink: 0;"
+      />
+      <span
+        style="color: var(--color-ink-subtle); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-decoration: line-through;"
+      >
+        Architecture review
+      </span>
+    </div>
+    <div
+      style="display: flex; align-items: center; gap: 6px; font-size: 11.5px;"
+    >
+      <span
+        aria-hidden="true"
+        style="width: 11px; height: 11px; border-radius: 3px; border: 1px solid; display: inline-block; flex-shrink: 0; border-width: var(--color-hairline-strong); border-style: var(--color-hairline-strong); border-color: var(--color-hairline-strong);"
+      />
+      <span
+        style="color: var(--color-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
+      >
+        SSE invalidation test
+      </span>
+    </div>
+    <div
+      class="t-xs subtle"
+      style="margin-top: 2px;"
+    >
+      2
+       of 
+      5
+    </div>
+  </div>
+</div>
+`;
+
+exports[`PreviewBody > renders description variant matching snapshot 1`] = `
+<div
+  data-role="preview-body"
+  style="display: flex; flex-direction: column;"
+>
+  <div
+    style="font-size: 12px; line-height: 1.5; color: var(--color-ink-muted); overflow: hidden;"
+  >
+    <span>
+      Add a write-through cache to reduce p95.
+    </span>
+  </div>
+</div>
+`;
+
+exports[`PreviewBody > renders empty automatic (no sources) as null 1`] = `null`;
+
+exports[`PreviewBody > renders noPreview variant matching snapshot 1`] = `null`;
+
+exports[`PreviewBody > renders reference variant matching snapshot 1`] = `
+<div
+  data-role="preview-body"
+  style="display: flex; flex-direction: column;"
+>
+  <div
+    style="display: flex; align-items: center; gap: 6px; padding: 6px 8px; background: var(--color-surface-1); border-radius: 4px; border: 1px solid; font-size: 11.5px; border-width: var(--color-hairline-tertiary); border-style: var(--color-hairline-tertiary); border-color: var(--color-hairline-tertiary);"
+  >
+    <span
+      aria-hidden="true"
+      style="width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; background: #2b579a;"
+    />
+    <span
+      style="min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; flex-grow: 1; flex-shrink: 1; flex-basis: 0%;"
+    >
+      Architecture review notes
+    </span>
+    <span
+      class="mono t-xs subtle"
+    >
+      docs.acme
+    </span>
+  </div>
+</div>
+`;

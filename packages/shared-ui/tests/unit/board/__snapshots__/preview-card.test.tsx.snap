@@ -1,0 +1,377 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`PreviewCard > renders automatic variant matching snapshot 1`] = `
+<div
+  style="background: var(--color-canvas); border: 1px solid; border-radius: 6px; padding: 10px 12px; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; border-width: var(--color-hairline); border-style: var(--color-hairline); border-color: var(--color-hairline);"
+>
+  <div
+    style="font-size: 13px; line-height: 1.35; font-weight: 500; margin-bottom: 8px;"
+  >
+    Cache layer for /tasks API
+  </div>
+  <div
+    data-role="preview-body"
+    style="display: flex; flex-direction: column;"
+  >
+    <div
+      style="display: flex; align-items: center; gap: 6px; padding: 6px 8px; background: var(--color-surface-1); border-radius: 4px; border: 1px solid; font-size: 11.5px; border-width: var(--color-hairline-tertiary); border-style: var(--color-hairline-tertiary); border-color: var(--color-hairline-tertiary);"
+    >
+      <span
+        aria-hidden="true"
+        style="width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; background: #2b579a;"
+      />
+      <span
+        style="min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; flex-grow: 1; flex-shrink: 1; flex-basis: 0%;"
+      >
+        Architecture review notes
+      </span>
+      <span
+        class="mono t-xs subtle"
+      >
+        docs.acme
+      </span>
+    </div>
+    <div
+      class="t-xs subtle"
+      style="margin-top: 5px; font-style: italic;"
+    >
+      picked from 
+      references
+    </div>
+  </div>
+  <div
+    style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px;"
+  >
+    <div
+      style="display: flex; align-items: center; gap: 6px;"
+    >
+      <span
+        aria-label="Urgent priority"
+        class="priority-icon priority-icon--urgent"
+        role="img"
+      />
+      <span
+        class="label-chip label-chip--var(--color-primary)"
+      >
+        api
+      </span>
+      <span
+        class="t-xs subtle"
+      >
+        Tue
+      </span>
+    </div>
+    <span
+      class="avatar-stack"
+    >
+      <span
+        class="avatar-stack__avatar"
+        title="Jane Doe"
+      >
+        JD
+      </span>
+      <span
+        class="avatar-stack__avatar"
+        title="Mark Lee"
+      >
+        ML
+      </span>
+    </span>
+  </div>
+</div>
+`;
+
+exports[`PreviewCard > renders checklist variant matching snapshot 1`] = `
+<div
+  style="background: var(--color-canvas); border: 1px solid; border-radius: 6px; padding: 10px 12px; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; border-width: var(--color-hairline); border-style: var(--color-hairline); border-color: var(--color-hairline);"
+>
+  <div
+    style="font-size: 13px; line-height: 1.35; font-weight: 500; margin-bottom: 8px;"
+  >
+    Cache layer for /tasks API
+  </div>
+  <div
+    data-role="preview-body"
+    style="display: flex; flex-direction: column;"
+  >
+    <div
+      style="display: flex; flex-direction: column; gap: 4px; padding: 6px 8px; background: var(--color-surface-1); border-radius: 4px; border: 1px solid; border-width: var(--color-hairline-tertiary); border-style: var(--color-hairline-tertiary); border-color: var(--color-hairline-tertiary);"
+    >
+      <div
+        style="display: flex; align-items: center; gap: 6px; font-size: 11.5px;"
+      >
+        <span
+          aria-hidden="true"
+          style="width: 11px; height: 11px; border-radius: 3px; background: var(--color-success); display: inline-block; flex-shrink: 0;"
+        />
+        <span
+          style="color: var(--color-ink-subtle); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-decoration: line-through;"
+        >
+          Draft cache key schema
+        </span>
+      </div>
+      <div
+        style="display: flex; align-items: center; gap: 6px; font-size: 11.5px;"
+      >
+        <span
+          aria-hidden="true"
+          style="width: 11px; height: 11px; border-radius: 3px; background: var(--color-success); display: inline-block; flex-shrink: 0;"
+        />
+        <span
+          style="color: var(--color-ink-subtle); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-decoration: line-through;"
+        >
+          Architecture review
+        </span>
+      </div>
+      <div
+        style="display: flex; align-items: center; gap: 6px; font-size: 11.5px;"
+      >
+        <span
+          aria-hidden="true"
+          style="width: 11px; height: 11px; border-radius: 3px; border: 1px solid; display: inline-block; flex-shrink: 0; border-width: var(--color-hairline-strong); border-style: var(--color-hairline-strong); border-color: var(--color-hairline-strong);"
+        />
+        <span
+          style="color: var(--color-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
+        >
+          SSE invalidation test
+        </span>
+      </div>
+      <div
+        class="t-xs subtle"
+        style="margin-top: 2px;"
+      >
+        2
+         of 
+        5
+      </div>
+    </div>
+  </div>
+  <div
+    style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px;"
+  >
+    <div
+      style="display: flex; align-items: center; gap: 6px;"
+    >
+      <span
+        aria-label="Urgent priority"
+        class="priority-icon priority-icon--urgent"
+        role="img"
+      />
+      <span
+        class="label-chip label-chip--var(--color-primary)"
+      >
+        api
+      </span>
+      <span
+        class="t-xs subtle"
+      >
+        Tue
+      </span>
+    </div>
+    <span
+      class="avatar-stack"
+    >
+      <span
+        class="avatar-stack__avatar"
+        title="Jane Doe"
+      >
+        JD
+      </span>
+      <span
+        class="avatar-stack__avatar"
+        title="Mark Lee"
+      >
+        ML
+      </span>
+    </span>
+  </div>
+</div>
+`;
+
+exports[`PreviewCard > renders description variant matching snapshot 1`] = `
+<div
+  style="background: var(--color-canvas); border: 1px solid; border-radius: 6px; padding: 10px 12px; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; border-width: var(--color-hairline); border-style: var(--color-hairline); border-color: var(--color-hairline);"
+>
+  <div
+    style="font-size: 13px; line-height: 1.35; font-weight: 500; margin-bottom: 8px;"
+  >
+    Cache layer for /tasks API
+  </div>
+  <div
+    data-role="preview-body"
+    style="display: flex; flex-direction: column;"
+  >
+    <div
+      style="font-size: 12px; line-height: 1.5; color: var(--color-ink-muted); overflow: hidden;"
+    >
+      <span>
+        Add a write-through cache to reduce p95.
+      </span>
+    </div>
+  </div>
+  <div
+    style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px;"
+  >
+    <div
+      style="display: flex; align-items: center; gap: 6px;"
+    >
+      <span
+        aria-label="Urgent priority"
+        class="priority-icon priority-icon--urgent"
+        role="img"
+      />
+      <span
+        class="label-chip label-chip--var(--color-primary)"
+      >
+        api
+      </span>
+      <span
+        class="t-xs subtle"
+      >
+        Tue
+      </span>
+    </div>
+    <span
+      class="avatar-stack"
+    >
+      <span
+        class="avatar-stack__avatar"
+        title="Jane Doe"
+      >
+        JD
+      </span>
+      <span
+        class="avatar-stack__avatar"
+        title="Mark Lee"
+      >
+        ML
+      </span>
+    </span>
+  </div>
+</div>
+`;
+
+exports[`PreviewCard > renders noPreview variant matching snapshot 1`] = `
+<div
+  style="background: var(--color-canvas); border: 1px solid; border-radius: 6px; padding: 10px 12px; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; border-width: var(--color-hairline); border-style: var(--color-hairline); border-color: var(--color-hairline);"
+>
+  <div
+    style="font-size: 13px; line-height: 1.35; font-weight: 500; margin-bottom: 8px;"
+  >
+    Cache layer for /tasks API
+  </div>
+  <div
+    style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px;"
+  >
+    <div
+      style="display: flex; align-items: center; gap: 6px;"
+    >
+      <span
+        aria-label="Urgent priority"
+        class="priority-icon priority-icon--urgent"
+        role="img"
+      />
+      <span
+        class="label-chip label-chip--var(--color-primary)"
+      >
+        api
+      </span>
+      <span
+        class="t-xs subtle"
+      >
+        Tue
+      </span>
+    </div>
+    <span
+      class="avatar-stack"
+    >
+      <span
+        class="avatar-stack__avatar"
+        title="Jane Doe"
+      >
+        JD
+      </span>
+      <span
+        class="avatar-stack__avatar"
+        title="Mark Lee"
+      >
+        ML
+      </span>
+    </span>
+  </div>
+</div>
+`;
+
+exports[`PreviewCard > renders reference variant matching snapshot 1`] = `
+<div
+  style="background: var(--color-canvas); border: 1px solid; border-radius: 6px; padding: 10px 12px; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; border-width: var(--color-hairline); border-style: var(--color-hairline); border-color: var(--color-hairline);"
+>
+  <div
+    style="font-size: 13px; line-height: 1.35; font-weight: 500; margin-bottom: 8px;"
+  >
+    Cache layer for /tasks API
+  </div>
+  <div
+    data-role="preview-body"
+    style="display: flex; flex-direction: column;"
+  >
+    <div
+      style="display: flex; align-items: center; gap: 6px; padding: 6px 8px; background: var(--color-surface-1); border-radius: 4px; border: 1px solid; font-size: 11.5px; border-width: var(--color-hairline-tertiary); border-style: var(--color-hairline-tertiary); border-color: var(--color-hairline-tertiary);"
+    >
+      <span
+        aria-hidden="true"
+        style="width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; background: #2b579a;"
+      />
+      <span
+        style="min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; flex-grow: 1; flex-shrink: 1; flex-basis: 0%;"
+      >
+        Architecture review notes
+      </span>
+      <span
+        class="mono t-xs subtle"
+      >
+        docs.acme
+      </span>
+    </div>
+  </div>
+  <div
+    style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px;"
+  >
+    <div
+      style="display: flex; align-items: center; gap: 6px;"
+    >
+      <span
+        aria-label="Urgent priority"
+        class="priority-icon priority-icon--urgent"
+        role="img"
+      />
+      <span
+        class="label-chip label-chip--var(--color-primary)"
+      >
+        api
+      </span>
+      <span
+        class="t-xs subtle"
+      >
+        Tue
+      </span>
+    </div>
+    <span
+      class="avatar-stack"
+    >
+      <span
+        class="avatar-stack__avatar"
+        title="Jane Doe"
+      >
+        JD
+      </span>
+      <span
+        class="avatar-stack__avatar"
+        title="Mark Lee"
+      >
+        ML
+      </span>
+    </span>
+  </div>
+</div>
+`;
