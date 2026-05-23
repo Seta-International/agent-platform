@@ -5,7 +5,7 @@ import { registerIdentityContributions } from '@seta/identity/register';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it, vi } from 'vitest';
-import { buildServerApp, registerAppContributions } from '../src/build.ts';
+import { buildServerApp, registerAppContributions } from '../../src/build.ts';
 
 describe('apps/server smoke', () => {
   it('mounts copilot routes and serves /api/copilot/v1/health', async () => {

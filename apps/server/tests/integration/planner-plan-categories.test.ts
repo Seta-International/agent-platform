@@ -9,7 +9,7 @@ import { withTestDb } from '@seta/shared-testing';
 import { Hono } from 'hono';
 import type { Pool } from 'pg';
 import { describe, expect, it } from 'vitest';
-import { makeErrorHandler } from '../src/build.ts';
+import { makeErrorHandler } from '../../src/build.ts';
 
 function buildSession(opts: {
   tenant_id: string;

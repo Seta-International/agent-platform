@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { failedLoginAlertSubscriber } from '../src/subscribers/failed-login-alert.ts';
+import { failedLoginAlertSubscriber } from '../../src/subscribers/failed-login-alert.ts';
 
 describe('failedLoginAlertSubscriber', () => {
   it('calls mailer.send with the failed-login-alert template + props', async () => {
