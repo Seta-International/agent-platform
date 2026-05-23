@@ -3,13 +3,14 @@ import type { WorkerHandle } from '@seta/core/runtime';
 import { resetCoreDb } from '@seta/core/testing';
 import { createUser } from '@seta/identity';
 import { createGroup, createPlan } from '@seta/planner';
+import { registerPlannerPlansRoutes } from '@seta/planner/http';
+import { plannerErrorMapper } from '@seta/planner/register';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { Hono } from 'hono';
 import type { Pool } from 'pg';
 import { describe, expect, it, vi } from 'vitest';
-import { handleServerError } from '../src/build.ts';
-import { registerPlannerPlansRoutes } from '../src/routes/planner-plans.ts';
+import { makeErrorHandler } from '../src/build.ts';
 
 function buildSession(opts: {
   tenant_id: string;
@@ -35,14 +36,19 @@ function buildSession(opts: {
   };
 }
 
+const noopWorkers: WorkerHandle = {
+  addJob: async () => {},
+  shutdown: async () => {},
+};
+
 function buildTestApp(session: SessionScope, workers?: WorkerHandle): Hono<SessionEnv> {
   const app = new Hono<SessionEnv>();
   app.use('*', async (c, next) => {
     c.set('user', session);
     await next();
   });
-  registerPlannerPlansRoutes(app, workers ? { workers } : undefined);
-  app.onError(handleServerError);
+  registerPlannerPlansRoutes(app, { workers: workers ?? noopWorkers });
+  app.onError(makeErrorHandler(plannerErrorMapper));
   return app;
 }
 
@@ -157,37 +163,6 @@ describe('POST /api/planner/v1/plans/:id/refresh-sync', () => {
         expect(res.status).toBe(409);
         const body = (await res.json()) as { error: string };
         expect(body.error).toBe('PLAN_NOT_LINKED');
-      } finally {
-        resetCoreDb();
-        await closePools();
-      }
-    });
-  });
-
-  it('does not register the route when workers are absent', async () => {
-    await withTestDb(dbEnv(), async ({ pool, databaseUrl }) => {
-      resetCoreDb();
-      initPools({ databaseUrl });
-      try {
-        const { tenantId, adminUserId, adminEmail } = await seedTenant(pool, 'refresh-noworkers');
-        const session = buildSession({
-          tenant_id: tenantId,
-          user_id: adminUserId,
-          email: adminEmail,
-          display_name: 'Admin',
-        });
-
-        const group = await createGroup({ tenant_id: tenantId, name: 'Eng', session });
-        const plan = await createPlan({ group_id: group.id, name: 'Sprint', session });
-
-        // No workers passed
-        const app = buildTestApp(session);
-
-        const res = await app.request(`/api/planner/v1/plans/${plan.id}/refresh-sync`, {
-          method: 'POST',
-        });
-
-        expect(res.status).toBe(404);
       } finally {
         resetCoreDb();
         await closePools();

@@ -4,7 +4,7 @@ import { coreDb } from '@seta/core/db';
 import { emit, withEmit } from '@seta/core/events';
 import { createOutboxStore } from '@seta/core/outbox';
 import { registerCoreContributions } from '@seta/core/register';
-import { buildRuntime, runMigrations } from '@seta/core/runtime';
+import { buildRuntime, runMigrations, type WorkerHandle } from '@seta/core/runtime';
 import { getEntraTenantId } from '@seta/identity';
 import { registerIdentityContributions } from '@seta/identity/register';
 import { createMailTransportConfigStore } from '@seta/integrations';
@@ -21,7 +21,6 @@ import { resolveTransport } from '@seta/shared-mailer';
 import { createMailerSendTask } from '@seta/shared-mailer/queue';
 import pino from 'pino';
 import { parseEnv } from './env.ts';
-import { buildM365Boot } from './m365-boot.ts';
 
 const log = pino({ name: 'apps/worker' });
 const env = parseEnv(process.env);
@@ -32,10 +31,22 @@ const cryptoEnv = parseCryptoEnv(process.env);
 const keyProvider = await createKeyProviderFromEnv(cryptoEnv);
 const cryptoSvc = createCrypto({ keyProvider, log: log.child({ component: 'crypto' }) });
 
+// Forward reference for the WorkerHandle so m365 boot's job handlers can
+// enqueue follow-on jobs once the worker pool is running.
+let workerHandleRef: WorkerHandle | undefined;
+const getWorkers = (): WorkerHandle => {
+  if (!workerHandleRef) throw new Error('worker handle not yet initialised');
+  return workerHandleRef;
+};
+
 const reg = createContributionRegistry();
 registerCoreContributions(reg);
 registerIdentityContributions(reg);
-registerIntegrationsContributions(reg);
+registerIntegrationsContributions(reg, {
+  cryptoSvc,
+  webhookSecret: env.M365_WEBHOOK_SECRET,
+  getWorkers,
+});
 registerKnowledgeContributions(reg);
 registerNotificationsContributions(reg);
 registerPlannerContributions(reg);
@@ -66,10 +77,6 @@ const mailerSendTask = createMailerSendTask({
   log: log.child({ component: 'mailer.worker' }),
 });
 
-const m365Jobs = env.M365_WEBHOOK_SECRET
-  ? buildM365Boot({ webhookSecret: env.M365_WEBHOOK_SECRET, cryptoSvc }).jobs
-  : {};
-
 const rt = buildRuntime(
   { PORT: 0, DATABASE_URL: env.DATABASE_URL },
   {
@@ -82,10 +89,12 @@ const rt = buildRuntime(
       'mailer:send': async (payload) => {
         await mailerSendTask(payload as never);
       },
-      ...m365Jobs,
       ...embeddingJobs,
       ...knowledgeJobs,
       ...plannerEmbeddingJobs,
+    },
+    onWorkerStart: ({ workers }) => {
+      workerHandleRef = workers;
     },
   },
 );

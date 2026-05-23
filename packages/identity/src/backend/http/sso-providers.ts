@@ -1,4 +1,6 @@
 import type { SessionEnv } from '@seta/core';
+import type { Context, Hono } from 'hono';
+import { z } from 'zod';
 import {
   disableSsoProvider,
   disconnectSsoProvider,
@@ -6,9 +8,7 @@ import {
   IdentityError,
   listSsoProviders,
   registerSsoProvider,
-} from '@seta/identity';
-import type { Context, Hono } from 'hono';
-import { z } from 'zod';
+} from '../../index.ts';
 
 function requireSsoAdmin(c: Context<SessionEnv>): void {
   const scope = c.get('user');

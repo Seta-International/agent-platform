@@ -1,7 +1,6 @@
-import type { SessionEnv } from '@seta/core';
-import { queryAudit } from '@seta/core/backend';
-import { IdentityError } from '@seta/identity';
+import { queryAudit, type SessionEnv } from '@seta/core';
 import type { Context, Hono } from 'hono';
+import { IdentityError } from '../../index.ts';
 
 function requireAuditRead(c: Context<SessionEnv>): void {
   const scope = c.get('user');

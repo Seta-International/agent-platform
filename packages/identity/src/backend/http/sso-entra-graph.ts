@@ -1,7 +1,7 @@
 import type { SessionEnv } from '@seta/core';
-import { IdentityError, importUsersFromEntra, listEntraImportableUsers } from '@seta/identity';
 import type { Context, Hono } from 'hono';
 import { z } from 'zod';
+import { IdentityError, importUsersFromEntra, listEntraImportableUsers } from '../../index.ts';
 
 const importSchema = z.object({
   selected_oids: z.array(z.string()).min(1).max(500),

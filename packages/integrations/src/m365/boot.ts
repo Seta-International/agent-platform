@@ -1,31 +1,32 @@
 import type { Client } from '@microsoft/microsoft-graph-client';
-import type { StartWorkerPoolOpts, WorkerHandle } from '@seta/core/runtime';
+import type { RouteBuildDeps, SessionEnv, WorkerHandle } from '@seta/core';
 import { findEntraOidByUserId, findUserByEntraOid } from '@seta/identity';
-import { getM365TenantConfig, m365 } from '@seta/integrations';
-import { integrationsDb } from '@seta/integrations/db';
 import type { Crypto, EncryptedBlob } from '@seta/shared-crypto';
+import type { TaskList } from 'graphile-worker';
+import { Hono } from 'hono';
+import { registerIntegrationsM365Routes } from '../backend/http/m365-routes.ts';
+import { integrationsDb } from '../db/client.ts';
+import { getM365TenantConfig } from '../index.ts';
+import * as m365 from './index.ts';
 
 export interface M365BootDeps {
   webhookSecret: string;
   cryptoSvc: Crypto;
-  workers: WorkerHandle;
+  getWorkers: () => WorkerHandle;
 }
 
-export interface M365BootResult {
-  jobs: NonNullable<StartWorkerPoolOpts['jobs']>;
-  webhookRouter: ReturnType<typeof m365.buildWebhookRouter>;
-  graphClientFor: (setaTenantId: string) => Promise<Client>;
-  workers: WorkerHandle;
-  m365LinksRepo: m365.M365GroupLinkRepo;
+export interface M365Boot {
+  jobs: TaskList;
+  buildRoutes: (deps: RouteBuildDeps) => Hono<SessionEnv>;
 }
 
-export function buildM365Boot(deps: M365BootDeps): M365BootResult {
-  const { webhookSecret, cryptoSvc, workers } = deps;
+export function buildM365Boot(deps: M365BootDeps): M365Boot {
+  const { webhookSecret, cryptoSvc, getWorkers } = deps;
 
   const m365LinksRepo = m365.createM365GroupLinkRepo({ db: integrationsDb() });
   const m365SubsRepo = m365.createM365SubscriptionsRepo({ db: integrationsDb() });
 
-  async function graphClientFor(setaTenantId: string) {
+  async function graphClientFor(setaTenantId: string): Promise<Client> {
     const config = await getM365TenantConfig(setaTenantId, {
       crypto: { decrypt: (b: EncryptedBlob) => cryptoSvc.decrypt(b) },
     });
@@ -40,7 +41,7 @@ export function buildM365Boot(deps: M365BootDeps): M365BootResult {
     );
   }
 
-  const jobs: NonNullable<StartWorkerPoolOpts['jobs']> = {
+  const jobs: TaskList = {
     'm365.group.pull': async (payload) => {
       const p = payload as {
         tenant_id: string;
@@ -78,7 +79,7 @@ export function buildM365Boot(deps: M365BootDeps): M365BootResult {
         graphClient,
         webhookSecret,
         subscriptionsRepo: m365SubsRepo,
-        workerAddJob: (id, jobPayload, opts) => workers.addJob(id, jobPayload, opts),
+        workerAddJob: (id, jobPayload, opts) => getWorkers().addJob(id, jobPayload, opts),
       });
     },
     'm365.subscription.renew': async (payload) => {
@@ -89,19 +90,29 @@ export function buildM365Boot(deps: M365BootDeps): M365BootResult {
       await m365.runRenewSubscription(p, {
         graphClient,
         subscriptionsRepo: m365SubsRepo,
-        workerAddJob: (id, jobPayload, opts) => workers.addJob(id, jobPayload, opts),
+        workerAddJob: (id, jobPayload, opts) => getWorkers().addJob(id, jobPayload, opts),
       });
     },
   };
 
-  const webhookRouter = m365.buildWebhookRouter({
-    webhookSecret,
-    subscriptionsRepo: m365SubsRepo,
-    linksRepo: m365LinksRepo,
-    enqueuePullJob: async (input) => {
-      await workers.addJob('m365.group.pull', input);
-    },
-  });
+  function buildRoutes(rtDeps: RouteBuildDeps): Hono<SessionEnv> {
+    const app = new Hono<SessionEnv>();
+    registerIntegrationsM365Routes(app, {
+      graphClientFor,
+      workers: rtDeps.workers,
+      m365LinksRepo,
+    });
+    const webhookRouter = m365.buildWebhookRouter({
+      webhookSecret,
+      subscriptionsRepo: m365SubsRepo,
+      linksRepo: m365LinksRepo,
+      enqueuePullJob: async (input) => {
+        await rtDeps.workers.addJob('m365.group.pull', input);
+      },
+    });
+    app.route('/', webhookRouter as unknown as Hono<SessionEnv>);
+    return app;
+  }
 
-  return { jobs, webhookRouter, graphClientFor, workers, m365LinksRepo };
+  return { jobs, buildRoutes };
 }

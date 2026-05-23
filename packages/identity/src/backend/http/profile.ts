@@ -1,7 +1,7 @@
 import type { SessionEnv } from '@seta/core';
-import { getUserProfile, searchSkills, updateUserProfile } from '@seta/identity';
 import type { Hono } from 'hono';
 import { z } from 'zod';
+import { getUserProfile, searchSkills, updateUserProfile } from '../../index.ts';
 
 const patchSchema = z.object({
   display_name: z.string().min(1).max(120).optional(),

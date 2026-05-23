@@ -1,5 +1,7 @@
 import type { SessionEnv } from '@seta/core';
-import type { ListTasksFilters } from '@seta/planner';
+import type { Hono } from 'hono';
+import { z } from 'zod';
+import type { ListTasksFilters } from '../../index.ts';
 import {
   addChecklistItem,
   addTaskReference,
@@ -25,9 +27,7 @@ import {
   unassignTask,
   updateChecklistItem,
   updateTask,
-} from '@seta/planner';
-import type { Hono } from 'hono';
-import { z } from 'zod';
+} from '../../index.ts';
 
 const createTaskSchema = z.object({
   plan_id: z.string().uuid(),

@@ -1,20 +1,38 @@
 import type { CopilotTool, WorkflowBuilder } from '@seta/copilot-sdk';
 import type { SubscriberDef } from '@seta/shared-types';
+import type { Task, TaskList } from 'graphile-worker';
 import type { Hono } from 'hono';
+import type { Pool } from 'pg';
 import type { z } from 'zod';
+import type { WorkerHandle } from '../runtime/workers/index.ts';
 
-export type JobHandler = (payload: unknown) => Promise<void>;
+export type JobHandler = Task;
+
+export interface RouteBuildDeps {
+  pool: Pool;
+  workers: WorkerHandle;
+  streams: ReadonlyMap<string, unknown>;
+}
+
+// biome-ignore lint/suspicious/noExplicitAny: Hono's env generic is invariant; route builders return Hono<SessionEnv> and we collect them via this widened any.
+export type AnyHono = Hono<any, any, any>;
 
 export interface RouteContribution {
   mountAt: string;
-  build: (deps: unknown) => Hono;
+  build: (deps: RouteBuildDeps) => AnyHono;
 }
 
-export type StreamHubBuilder = (deps: unknown) => {
-  start: () => void;
-  stop: () => void;
+export interface StreamHubBuildDeps {
+  pool: Pool;
+}
+
+export type StreamHubHandle = {
+  start: () => void | Promise<void>;
+  stop: () => void | Promise<void>;
   [k: string]: unknown;
 };
+
+export type StreamHubBuilder = (deps: StreamHubBuildDeps) => StreamHubHandle;
 
 export interface AgentSpec {
   id: string;
@@ -34,7 +52,7 @@ export interface ModuleContribution {
   events?: Record<string, z.ZodSchema>;
   rbac?: Record<string, string>;
   subscribers?: SubscriberDef[];
-  jobs?: Record<string, JobHandler>;
+  jobs?: TaskList;
   routes?: RouteContribution;
   stream?: StreamHubBuilder;
   agentTools?: CopilotTool[];
@@ -77,7 +95,6 @@ export function createContributionRegistry(): ContributionRegistry {
   const seenToolIds = new Set<string>();
   const seenAgentSpecIds = new Set<string>();
   const seenPermissionSlugs = new Set<string>();
-  const seenMountPaths = new Set<string>();
 
   function module(c: ModuleContribution): void {
     if (schemas.has(c.name)) throw new Error(`module registered twice: ${c.name}`);
@@ -86,21 +103,19 @@ export function createContributionRegistry(): ContributionRegistry {
     if (c.subscribers) subscribers.push(...c.subscribers);
     if (c.jobs) {
       for (const [taskName, handler] of Object.entries(c.jobs)) {
+        if (handler === undefined) continue;
         if (jobs.has(taskName)) throw new Error(`duplicate job name: ${taskName}`);
         jobs.set(taskName, handler);
       }
     }
     if (c.routes) {
-      if (seenMountPaths.has(c.routes.mountAt)) {
-        throw new Error(`duplicate route mountAt: ${c.routes.mountAt}`);
+      // Route handlers register absolute paths internally, so the mountAt is
+      // typically '/' — modules with absolute paths inside the contributed Hono
+      // app don't need a prefix. Duplicate names already guarded by module-name
+      // uniqueness above.
+      if (!c.routes.mountAt.startsWith('/')) {
+        throw new Error(`route mountAt for ${c.name} must start with /, got ${c.routes.mountAt}`);
       }
-      const expectedPrefix = `/api/${c.name}/v`;
-      if (!c.routes.mountAt.startsWith(expectedPrefix)) {
-        throw new Error(
-          `route mountAt for ${c.name} must start with ${expectedPrefix}, got ${c.routes.mountAt}`,
-        );
-      }
-      seenMountPaths.add(c.routes.mountAt);
       routes.push({ module: c.name, mountAt: c.routes.mountAt, build: c.routes.build });
     }
     if (c.stream) streamHubBuilders.push({ module: c.name, builder: c.stream });

@@ -1,7 +1,6 @@
 import type { Client } from '@microsoft/microsoft-graph-client';
+import type { WorkerHandle } from '@seta/core';
 import { addEventTap, type SessionEnv, type SessionScope } from '@seta/core';
-import type { WorkerHandle } from '@seta/core/runtime';
-import { m365 } from '@seta/integrations';
 import {
   linkGroupToM365,
   PlannerError,
@@ -11,6 +10,7 @@ import {
 } from '@seta/planner';
 import type { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
+import * as m365 from '../../m365/index.ts';
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
 

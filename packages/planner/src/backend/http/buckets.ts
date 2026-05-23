@@ -1,7 +1,7 @@
 import type { SessionEnv } from '@seta/core';
-import { createBucket, deleteBucket, listBuckets, moveBucket, updateBucket } from '@seta/planner';
 import type { Hono } from 'hono';
 import { z } from 'zod';
+import { createBucket, deleteBucket, listBuckets, moveBucket, updateBucket } from '../../index.ts';
 
 const createSchema = z.object({
   plan_id: z.string().uuid(),

@@ -1,4 +1,6 @@
 import type { SessionEnv } from '@seta/core';
+import type { Context, Hono } from 'hono';
+import { z } from 'zod';
 import {
   createUser,
   deactivateUser,
@@ -16,9 +18,7 @@ import {
   revokeUserSession,
   TENANT_ROLE_SLUGS,
   updateUserProfile,
-} from '@seta/identity';
-import type { Context, Hono } from 'hono';
-import { z } from 'zod';
+} from '../../index.ts';
 
 const createSchema = z.object({
   email: z.string().email(),

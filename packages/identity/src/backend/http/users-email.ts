@@ -1,7 +1,7 @@
 import type { SessionEnv } from '@seta/core';
-import { changeUserEmail, IdentityError } from '@seta/identity';
 import type { Context, Hono } from 'hono';
 import { z } from 'zod';
+import { changeUserEmail, IdentityError } from '../../index.ts';
 
 const patchSchema = z.object({ new_email: z.string().email() });
 

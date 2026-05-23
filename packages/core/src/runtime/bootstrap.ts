@@ -8,7 +8,7 @@ import type { Pool } from 'pg';
 // biome-ignore lint/suspicious/noExplicitAny: external Hono generic invariance
 type AnyHono = Hono<any, any, any>;
 
-import type { ContributionRegistry } from '../composition/registry.ts';
+import type { ContributionRegistry, StreamHubHandle } from '../composition/registry.ts';
 import {
   type DispatcherHandle,
   type SubscriptionHealth,
@@ -29,6 +29,7 @@ export interface BuildServerAppArgs {
   workers: WorkerHandle;
   pool: Pool;
   dispatcher: DispatcherSnapshot;
+  streams: ReadonlyMap<string, StreamHubHandle>;
 }
 
 export interface BuildRuntimeDeps {
@@ -48,9 +49,19 @@ export interface BuildRuntimeDeps {
   buildServerApp: (args: BuildServerAppArgs) => AnyHono;
   /**
    * Hook fired before the HTTP server starts. Receives the (already-running) worker
-   * handle so the mailer/m365 boot can register itself.
+   * handle so the mailer/m365 boot can register itself, plus the started stream
+   * hubs keyed by module name.
    */
-  onServerStart?: (args: { workers: WorkerHandle }) => Promise<void> | void;
+  onServerStart?: (args: {
+    workers: WorkerHandle;
+    streams: ReadonlyMap<string, StreamHubHandle>;
+  }) => Promise<void> | void;
+  /**
+   * Hook fired after the worker pool + dispatcher start but before this function
+   * resolves. apps/worker uses it to publish the WorkerHandle to closures that
+   * the m365 boot's job handlers depend on at fire time.
+   */
+  onWorkerStart?: (args: { workers: WorkerHandle }) => Promise<void> | void;
 }
 
 export interface ServerRuntime {
@@ -71,6 +82,7 @@ export interface Runtime {
 interface DispatcherWiring {
   dispatcher: DispatcherHandle | null;
   workers: WorkerHandle | null;
+  streams: Map<string, StreamHubHandle>;
 }
 
 const STUB_DISPATCHER_SNAPSHOT: DispatcherSnapshot = {
@@ -78,7 +90,11 @@ const STUB_DISPATCHER_SNAPSHOT: DispatcherSnapshot = {
 };
 
 export function buildRuntime(env: BuildRuntimeEnv, deps: BuildRuntimeDeps): Runtime {
-  const wiring: DispatcherWiring = { dispatcher: null, workers: null };
+  const wiring: DispatcherWiring = {
+    dispatcher: null,
+    workers: null,
+    streams: new Map<string, StreamHubHandle>(),
+  };
 
   async function startWorkerRuntimeInternal(): Promise<void> {
     if (wiring.workers) return;
@@ -91,6 +107,7 @@ export function buildRuntime(env: BuildRuntimeEnv, deps: BuildRuntimeDeps): Runt
       ...(deps.extraJobs ?? {}),
     };
     wiring.workers = await startWorkerPool({ pool: deps.pool, jobs });
+    if (deps.onWorkerStart) await deps.onWorkerStart({ workers: wiring.workers });
     wiring.dispatcher = await startDispatcher({ pool: deps.pool, subscribers: subs });
   }
 
@@ -98,11 +115,20 @@ export function buildRuntime(env: BuildRuntimeEnv, deps: BuildRuntimeDeps): Runt
     if (!wiring.workers) {
       wiring.workers = enqueueOnlyWorkerHandle(deps.pool);
     }
-    if (deps.onServerStart) await deps.onServerStart({ workers: wiring.workers });
+    for (const { module, builder } of deps.reg.collected.streamHubBuilders) {
+      wiring.streams.set(module, builder({ pool: deps.pool }));
+    }
+    for (const handle of wiring.streams.values()) {
+      await handle.start();
+    }
+    if (deps.onServerStart) {
+      await deps.onServerStart({ workers: wiring.workers, streams: wiring.streams });
+    }
     const app = deps.buildServerApp({
       workers: wiring.workers,
       pool: deps.pool,
       dispatcher: wiring.dispatcher ?? STUB_DISPATCHER_SNAPSHOT,
+      streams: wiring.streams,
     });
     const server = serve({ fetch: app.fetch, port: env.PORT });
     return { server, shutdown: makeShutdown(server, wiring) };
@@ -130,6 +156,9 @@ function makeShutdown(
     if (shuttingDown) return;
     shuttingDown = true;
     if (server) await new Promise<void>((r) => server.close(() => r()));
+    for (const handle of wiring.streams.values()) {
+      await handle.stop();
+    }
     if (wiring.dispatcher) await wiring.dispatcher.shutdown(15_000);
     if (wiring.workers) await wiring.workers.shutdown();
   };

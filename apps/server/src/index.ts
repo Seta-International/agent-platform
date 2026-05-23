@@ -12,9 +12,7 @@ import { integrationsDb } from '@seta/integrations/db';
 import { registerIntegrationsContributions } from '@seta/integrations/register';
 import { knowledgeJobs } from '@seta/knowledge/jobs';
 import { registerKnowledgeContributions } from '@seta/knowledge/register';
-import { KnowledgeStreamHub } from '@seta/knowledge/stream';
 import { registerNotificationsContributions } from '@seta/notifications/register';
-import { NotificationStreamHub } from '@seta/notifications/stream';
 import { plannerEmbeddingJobs } from '@seta/planner';
 import { registerPlannerContributions } from '@seta/planner/register';
 import { createCrypto, createKeyProviderFromEnv, parseCryptoEnv } from '@seta/shared-crypto';
@@ -22,10 +20,8 @@ import { closePools, getPool, initPools } from '@seta/shared-db';
 import { createMailer, resolveTransport } from '@seta/shared-mailer';
 import { createMailerSendTask } from '@seta/shared-mailer/queue';
 import pino from 'pino';
-import { BoardStreamHub } from './board-stream/hub.ts';
 import { buildServerApp, registerAppContributions } from './build.ts';
 import { parseEnv } from './env.ts';
-import { buildM365Boot } from './m365-boot.ts';
 import { failedLoginAlertSubscriber } from './subscribers/failed-login-alert.ts';
 
 const log = pino({ name: 'apps/server' });
@@ -38,10 +34,23 @@ const keyProvider = await createKeyProviderFromEnv(cryptoEnv);
 const cryptoSvc = createCrypto({ keyProvider, log: log.child({ component: 'crypto' }) });
 log.info({ provider: keyProvider.kind }, 'crypto wired');
 
+// Forward reference for the WorkerHandle so m365 boot (constructed at register
+// time, before workers start) can enqueue from its closures once workers are
+// running. onServerStart sets this just before HTTP boot completes.
+let workerHandleRef: WorkerHandle | undefined;
+const getWorkers = (): WorkerHandle => {
+  if (!workerHandleRef) throw new Error('worker handle not yet initialised');
+  return workerHandleRef;
+};
+
 const reg = createContributionRegistry();
 registerCoreContributions(reg);
 registerIdentityContributions(reg);
-registerIntegrationsContributions(reg);
+registerIntegrationsContributions(reg, {
+  cryptoSvc,
+  webhookSecret: env.M365_WEBHOOK_SECRET,
+  getWorkers,
+});
 registerKnowledgeContributions(reg);
 registerNotificationsContributions(reg);
 registerPlannerContributions(reg);
@@ -83,30 +92,6 @@ const mailerSendTask = createMailerSendTask({
   log: log.child({ component: 'mailer.worker' }),
 });
 
-const boardStreamHub = new BoardStreamHub();
-const knowledgeStreamHub = new KnowledgeStreamHub();
-const notificationStreamHub = new NotificationStreamHub();
-
-// Forward reference for the WorkerHandle so m365Boot (constructed before workers
-// start) can enqueue from its closures once workers are running.
-let workerHandleRef: WorkerHandle | undefined;
-const enqueue = (
-  id: string,
-  payload?: unknown,
-  opts?: Parameters<WorkerHandle['addJob']>[2],
-): Promise<void> => {
-  if (!workerHandleRef) throw new Error('worker handle not yet initialised');
-  return workerHandleRef.addJob(id, payload, opts);
-};
-
-const m365Boot = env.M365_WEBHOOK_SECRET
-  ? buildM365Boot({
-      webhookSecret: env.M365_WEBHOOK_SECRET,
-      cryptoSvc,
-      workers: { addJob: enqueue, shutdown: async () => {} },
-    })
-  : null;
-
 // In dev (NODE_ENV !== production) startBoth runs HTTP + dispatcher + worker pool in one
 // process — mirroring the previous single-process developer experience. In production
 // startServerRuntime runs HTTP only, with an enqueue-only WorkerHandle; apps/worker runs
@@ -124,7 +109,6 @@ const rt = buildRuntime(env, {
         'mailer:send': async (payload) => {
           await mailerSendTask(payload as never);
         },
-        ...(m365Boot ? m365Boot.jobs : {}),
         ...embeddingJobs,
         ...knowledgeJobs,
         ...plannerEmbeddingJobs,
@@ -132,11 +116,6 @@ const rt = buildRuntime(env, {
     : undefined,
   onServerStart: async ({ workers }) => {
     workerHandleRef = workers;
-    boardStreamHub.start();
-    knowledgeStreamHub.start();
-    await notificationStreamHub.start(getPool('worker'));
-    log.info('notification stream hub started');
-
     const mailer = createMailer({
       env,
       outboxStore,
@@ -152,23 +131,14 @@ const rt = buildRuntime(env, {
     mailerRef = mailer;
     log.info('mailer wired');
   },
-  buildServerApp: ({ workers, pool, dispatcher }) => {
+  buildServerApp: ({ workers, pool, dispatcher, streams }) => {
     const { app } = buildServerApp(reg, {
       pool,
       databaseUrl: env.DATABASE_URL,
       workers,
       readinessSnapshot: () => dispatcher.health(),
-      boardStreamHub,
-      knowledgeStreamHub,
-      notificationStreamHub,
-      m365GraphClientFor: m365Boot?.graphClientFor,
-      m365Workers: m365Boot?.workers,
-      m365LinksRepo: m365Boot?.m365LinksRepo,
+      streams,
     });
-    if (m365Boot) {
-      app.route('/', m365Boot.webhookRouter);
-      log.info('m365 webhook router mounted');
-    }
     return app;
   },
 });
@@ -185,9 +155,6 @@ const handle = async (signal: string): Promise<void> => {
   shuttingDown = true;
   log.info({ signal }, 'shutdown begin');
   await shutdown(signal);
-  boardStreamHub.stop();
-  knowledgeStreamHub.stop();
-  await notificationStreamHub.stop();
   await closePools();
   log.info('shutdown complete');
   process.exit(0);

@@ -1,6 +1,6 @@
 import type { DomainEvent } from '@seta/shared-types';
 import { describe, expect, it } from 'vitest';
-import { BoardStreamHub } from '../../src/board-stream/hub.ts';
+import { BoardStreamHub } from '../src/backend/stream/hub.ts';
 
 function makePlannerEvent(groupId: string, eventType = 'planner.task.created'): DomainEvent {
   return {

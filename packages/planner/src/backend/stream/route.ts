@@ -1,7 +1,7 @@
 import type { SessionEnv } from '@seta/core';
 import type { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
-import type { BoardStreamHub } from '../board-stream/hub.ts';
+import type { BoardStreamHub } from './hub.ts';
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
 

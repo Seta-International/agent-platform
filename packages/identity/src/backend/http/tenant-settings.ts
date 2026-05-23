@@ -1,7 +1,7 @@
 import type { SessionEnv } from '@seta/core';
-import { IdentityError, setLocalPasswordDisabled } from '@seta/identity';
 import type { Context, Hono } from 'hono';
 import { z } from 'zod';
+import { IdentityError, setLocalPasswordDisabled } from '../../index.ts';
 
 const patchSchema = z.object({ disabled: z.boolean() });
 

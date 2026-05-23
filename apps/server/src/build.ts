@@ -1,57 +1,36 @@
-import type { Client } from '@microsoft/microsoft-graph-client';
 import type { SessionLike } from '@seta/copilot';
 import { registerCopilot, registerCopilotContributions } from '@seta/copilot/register';
 import {
   buildHonoApp,
   type ContributionRegistry,
   createSessionMiddleware,
+  type ErrorMapper,
   type SessionEnv,
+  type StreamHubHandle,
 } from '@seta/core';
 import type { WorkerHandle } from '@seta/core/runtime';
-import { IdentityError, listMyEffectivePermissions, listRoleGrants } from '@seta/identity';
+import { listMyEffectivePermissions, listRoleGrants } from '@seta/identity';
 import { auth } from '@seta/identity/auth';
-import type { m365 } from '@seta/integrations';
 import { registerKnowledgeRoutes, registerKnowledgeStreamRoutes } from '@seta/knowledge/http';
 import type { KnowledgeStreamHub } from '@seta/knowledge/stream';
 import { registerNotificationsRoutes } from '@seta/notifications/http';
 import { NotificationStreamHub } from '@seta/notifications/stream';
-import { PlannerError } from '@seta/planner';
 import { getPool } from '@seta/shared-db';
 import type { Context, Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import type { Pool } from 'pg';
-import type { BoardStreamHub } from './board-stream/hub.ts';
-import { registerAdminAuditRoutes } from './routes/admin-audit.ts';
-import { registerAdminUsersRoutes } from './routes/admin-users.ts';
 import { registerCredentialGate } from './routes/credential-gate.ts';
 import { registerDiscoverRoute } from './routes/discover.ts';
-import { registerIntegrationsM365Routes } from './routes/integrations-m365.ts';
 import { registerMeRoute } from './routes/me.ts';
 import { registerObservabilityRoutes } from './routes/observability.ts';
-import { registerPlannerBoardStreamRoutes } from './routes/planner-board-stream.ts';
-import { registerPlannerBucketsRoutes } from './routes/planner-buckets.ts';
-import { registerPlannerGroupsRoutes } from './routes/planner-groups.ts';
-import { registerPlannerPlansRoutes } from './routes/planner-plans.ts';
-import { registerPlannerTasksRoutes } from './routes/planner-tasks.ts';
-import { registerProfileRoutes } from './routes/profile.ts';
-import { registerSsoConsentRoutes } from './routes/sso-consent.ts';
-import { registerSsoEntraGraphRoutes } from './routes/sso-entra-graph.ts';
-import { registerSsoProvidersRoutes } from './routes/sso-providers.ts';
-import { registerTenantSettingsRoutes } from './routes/tenant-settings.ts';
-import { registerUsersEmailRoutes } from './routes/users-email.ts';
 
 export type BuildServerAppDeps = {
   pool: Pool;
   databaseUrl: string;
   workers: WorkerHandle;
   readinessSnapshot?: () => { lastTickAt: Date };
-  boardStreamHub?: BoardStreamHub;
-  knowledgeStreamHub?: KnowledgeStreamHub;
-  notificationStreamHub?: NotificationStreamHub;
-  m365GraphClientFor?: (tenantId: string) => Promise<Client>;
-  m365Workers?: WorkerHandle;
-  m365LinksRepo?: m365.M365GroupLinkRepo;
+  streams: ReadonlyMap<string, StreamHubHandle>;
 };
 
 export type BuiltServerApp = {
@@ -139,76 +118,61 @@ export function buildServerApp(
   // Session middleware gates everything registered after this point
   app.use('*', sessionMiddleware);
 
-  // Protected routes
+  // Cross-cutting protected routes that stay in apps/server.
   registerMeRoute(app);
-  registerProfileRoutes(app);
-  registerAdminUsersRoutes(app);
-  registerAdminAuditRoutes(app);
-  registerUsersEmailRoutes(app);
-  registerSsoConsentRoutes(app);
-  registerSsoProvidersRoutes(app);
-  registerSsoEntraGraphRoutes(app);
-  registerTenantSettingsRoutes(app);
-  registerKnowledgeRoutes(app, { workers: deps.workers });
-  registerPlannerGroupsRoutes(app);
-  registerPlannerPlansRoutes(app, { workers: deps.m365Workers });
-  registerPlannerBucketsRoutes(app);
-  registerPlannerTasksRoutes(app);
-  registerNotificationsRoutes(app, deps.notificationStreamHub ?? new NotificationStreamHub());
-  if (deps.boardStreamHub) {
-    registerPlannerBoardStreamRoutes(app, deps.boardStreamHub);
-  }
-  if (deps.knowledgeStreamHub) {
-    registerKnowledgeStreamRoutes(app, deps.knowledgeStreamHub);
-  }
-  if (deps.m365GraphClientFor && deps.m365Workers && deps.m365LinksRepo) {
-    registerIntegrationsM365Routes(app, {
-      graphClientFor: deps.m365GraphClientFor,
-      workers: deps.m365Workers,
-      m365LinksRepo: deps.m365LinksRepo,
+
+  // Module-contributed routes. Each module's build factory mounts its absolute
+  // paths inside a fresh Hono app; we attach that app at '/' so the inner paths
+  // (e.g. /api/planner/v1/buckets) keep their public URLs.
+  const streamsView: ReadonlyMap<string, unknown> = deps.streams;
+  for (const route of reg.collected.routes) {
+    const subApp = route.build({
+      pool: deps.pool,
+      workers: deps.workers,
+      streams: streamsView,
     });
+    app.route(route.mountAt, subApp as unknown as Hono<SessionEnv>);
   }
 
-  app.onError(handleServerError);
+  // Knowledge + notifications routes still hand-wired because they pull
+  // module-internal deps (workers, presign override, stream hub) that the
+  // contribution model exposes selectively rather than en bloc.
+  const knowledgeStreamHandle = deps.streams.get('knowledge') as
+    | { hub: KnowledgeStreamHub }
+    | undefined;
+  registerKnowledgeRoutes(app, { workers: deps.workers });
+  if (knowledgeStreamHandle) {
+    registerKnowledgeStreamRoutes(app, knowledgeStreamHandle.hub);
+  }
+  const notificationStreamHandle = deps.streams.get('notifications') as
+    | { hub: NotificationStreamHub }
+    | undefined;
+  registerNotificationsRoutes(app, notificationStreamHandle?.hub ?? new NotificationStreamHub());
+
+  app.onError(handleServerError(reg));
 
   return { app, reg };
 }
 
-// Maps domain errors thrown out of any route to HTTP responses. Exported so
-// tests can register the exact same handler when they assemble a minimal Hono
-// app for session injection — keeping route-error behaviour single-sourced.
-export function handleServerError(err: Error, c: Context): Response {
-  if (err instanceof PlannerError) {
-    const status: ContentfulStatusCode =
-      err.code === 'FORBIDDEN'
-        ? 403
-        : err.code === 'NOT_FOUND'
-          ? 404
-          : err.code === 'CONFLICT'
-            ? 409
-            : err.code === 'CROSS_TENANT'
-              ? 403
-              : err.code === 'VALIDATION'
-                ? 400
-                : err.code === 'LINKED_GROUP_IMMUTABLE_MEMBERS'
-                  ? 409
-                  : err.code === 'LINKED_DUPLICATE'
-                    ? 409
-                    : err.code === 'DUPLICATE_REFERENCE'
-                      ? 409
-                      : err.code === 'RESERVED_FOR_SYSTEM_ACTOR'
-                        ? 403
-                        : err.code === 'PLAN_NOT_LINKED'
-                          ? 409
-                          : 400;
-    return c.json({ error: err.code, message: err.message, details: err.details }, status);
-  }
-  if (err instanceof IdentityError) {
-    const status: ContentfulStatusCode =
-      err.code === 'FORBIDDEN' ? 403 : err.code === 'USER_NOT_FOUND' ? 404 : 400;
-    return c.json({ error: err.code, message: err.message }, status);
-  }
-  throw err;
+// Maps domain errors thrown out of any route to HTTP responses. Iterates the
+// per-module errorMapper contributions; the first non-null mapping wins. Falls
+// through (rethrows) when no mapper claims the error so the default 500
+// handling kicks in.
+export function handleServerError(reg: ContributionRegistry): (err: Error, c: Context) => Response {
+  return makeErrorHandler(...reg.collected.errorMappers.map((e) => e.mapper));
+}
+
+// Test-friendly variant: tests assemble a minimal Hono app around a single
+// route family, so they pick the mappers they need directly without spinning
+// up a full ContributionRegistry. Production code path stays handleServerError.
+export function makeErrorHandler(...mappers: ErrorMapper[]): (err: Error, c: Context) => Response {
+  return (err, c) => {
+    for (const mapper of mappers) {
+      const mapped = mapper(err);
+      if (mapped) return c.json(mapped.body, mapped.status as ContentfulStatusCode);
+    }
+    throw err;
+  };
 }
 
 // Re-export getPool so callers building the app from the entry point don't need

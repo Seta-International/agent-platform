@@ -2,13 +2,14 @@ import { hashRoleSummary, type SessionEnv, type SessionScope } from '@seta/core'
 import { resetCoreDb } from '@seta/core/testing';
 import { createUser } from '@seta/identity';
 import { applyLabel, createGroup, createLabel, createPlan, createTask } from '@seta/planner';
+import { registerPlannerPlansRoutes } from '@seta/planner/http';
+import { plannerErrorMapper } from '@seta/planner/register';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { Hono } from 'hono';
 import type { Pool } from 'pg';
 import { describe, expect, it } from 'vitest';
-import { handleServerError } from '../src/build.ts';
-import { registerPlannerPlansRoutes } from '../src/routes/planner-plans.ts';
+import { makeErrorHandler } from '../src/build.ts';
 
 function buildSession(opts: {
   tenant_id: string;
@@ -40,8 +41,10 @@ function buildTestApp(session: SessionScope): Hono<SessionEnv> {
     c.set('user', session);
     await next();
   });
-  registerPlannerPlansRoutes(app);
-  app.onError(handleServerError);
+  registerPlannerPlansRoutes(app, {
+    workers: { addJob: async () => {}, shutdown: async () => {} },
+  });
+  app.onError(makeErrorHandler(plannerErrorMapper));
   return app;
 }
 

@@ -48,34 +48,16 @@ describe('reg.module', () => {
     }).toThrow(/duplicate job name: shared\.job/);
   });
 
-  it('rejects duplicate route mountAt across modules', () => {
-    const reg = createContributionRegistry();
-    reg.module({
-      name: 'a',
-      schema: {},
-      migrationsDir: '/a',
-      routes: { mountAt: '/api/a/v1', build: () => undefined as never },
-    });
-    expect(() => {
-      reg.module({
-        name: 'b',
-        schema: {},
-        migrationsDir: '/b',
-        routes: { mountAt: '/api/a/v1', build: () => undefined as never },
-      });
-    }).toThrow(/duplicate route mountAt: \/api\/a\/v1/);
-  });
-
-  it('rejects route mountAt not under /api/<module>/v*', () => {
+  it('rejects route mountAt that does not start with /', () => {
     const reg = createContributionRegistry();
     expect(() => {
       reg.module({
         name: 'planner',
         schema: {},
         migrationsDir: '/a',
-        routes: { mountAt: '/api/other/v1', build: () => undefined as never },
+        routes: { mountAt: 'api/planner/v1', build: () => undefined as never },
       });
-    }).toThrow(/route mountAt for planner must start with \/api\/planner\/v/);
+    }).toThrow(/route mountAt for planner must start with \//);
   });
 
   it('rejects duplicate agent tool IDs', () => {
@@ -134,15 +116,13 @@ describe('reg.module', () => {
       name: 'planner',
       schema: {},
       migrationsDir: '/a',
-      routes: { mountAt: '/api/planner/v1', build: routeBuild },
+      routes: { mountAt: '/', build: routeBuild },
       stream: streamBuilder,
       errorMapper: mapper,
       rbac: { 'planner.read': 'Read planner' },
       events: { 'planner.task.created': {} as never },
     });
-    expect(reg.collected.routes).toEqual([
-      { module: 'planner', mountAt: '/api/planner/v1', build: routeBuild },
-    ]);
+    expect(reg.collected.routes).toEqual([{ module: 'planner', mountAt: '/', build: routeBuild }]);
     expect(reg.collected.streamHubBuilders).toEqual([
       { module: 'planner', builder: streamBuilder },
     ]);

@@ -1,4 +1,6 @@
 import type { SessionEnv } from '@seta/core';
+import type { Hono } from 'hono';
+import { z } from 'zod';
 import {
   addGroupMember,
   createGroup,
@@ -15,9 +17,7 @@ import {
   setMemberRole,
   unlinkGroupFromM365,
   updateGroup,
-} from '@seta/planner';
-import type { Hono } from 'hono';
-import { z } from 'zod';
+} from '../../index.ts';
 
 const createSchema = z.object({
   name: z.string().min(1).max(120),

@@ -2,14 +2,15 @@ import { hashRoleSummary, type SessionEnv, type SessionScope } from '@seta/core'
 import { resetCoreDb } from '@seta/core/testing';
 import { createUser } from '@seta/identity';
 import { m365 } from '@seta/integrations';
+import { registerIntegrationsM365Routes } from '@seta/integrations/http';
 import { createGroup } from '@seta/planner';
+import { plannerErrorMapper } from '@seta/planner/register';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { Hono } from 'hono';
 import type { Pool } from 'pg';
 import { describe, expect, it, vi } from 'vitest';
-import { handleServerError } from '../src/build.ts';
-import { registerIntegrationsM365Routes } from '../src/routes/integrations-m365.ts';
+import { makeErrorHandler } from '../src/build.ts';
 
 function buildSession(opts: {
   tenant_id: string;
@@ -71,7 +72,7 @@ function buildTestApp(
     workers: (extraDeps?.workers ?? defaultWorkers) as import('@seta/core/runtime').WorkerHandle,
     m365LinksRepo: extraDeps?.m365LinksRepo ?? defaultLinksRepo,
   });
-  app.onError(handleServerError);
+  app.onError(makeErrorHandler(plannerErrorMapper));
   return app;
 }
 

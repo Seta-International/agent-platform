@@ -601,6 +601,9 @@ importers:
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(@opentelemetry/api@1.9.1)(@prisma/client@5.22.0)(@types/pg@8.20.0)(better-sqlite3@12.10.0)(kysely@0.28.17)(pg@8.21.0)
+      hono:
+        specifier: ^4.12.21
+        version: 4.12.21
       pg:
         specifier: ^8.21.0
         version: 8.21.0
@@ -890,6 +893,9 @@ importers:
       graphile-worker:
         specifier: ^0.16.6
         version: 0.16.6(typescript@6.0.3)
+      hono:
+        specifier: ^4.12.21
+        version: 4.12.21
       pg:
         specifier: ^8.21.0
         version: 8.21.0

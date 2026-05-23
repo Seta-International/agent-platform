@@ -23,7 +23,12 @@ describe('apps/server smoke', () => {
           registerAppContributions(reg);
 
           const fakeWorkers = { addJob: vi.fn(async () => {}), shutdown: async () => {} };
-          const { app } = buildServerApp(reg, { pool, databaseUrl, workers: fakeWorkers });
+          const { app } = buildServerApp(reg, {
+            pool,
+            databaseUrl,
+            workers: fakeWorkers,
+            streams: new Map(),
+          });
 
           const res = await app.request('/api/copilot/v1/health');
           expect(res.status).toBe(200);

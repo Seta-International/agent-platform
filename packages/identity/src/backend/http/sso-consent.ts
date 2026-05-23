@@ -1,13 +1,13 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { SessionEnv } from '@seta/core';
+import type { Context, Hono } from 'hono';
+import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import {
   buildAdminConsentUrl,
   IdentityError,
   recordSsoConsent,
   requireProviderRow,
-} from '@seta/identity';
-import type { Context, Hono } from 'hono';
-import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
+} from '../../index.ts';
 
 const STATE_COOKIE = 'seta_sso_consent_state';
 const STATE_COOKIE_MAXAGE = 60 * 10;

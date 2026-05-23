@@ -8,6 +8,7 @@
     ".": "./src/index.ts",
     "./backend": "./src/backend/index.ts",
     "./events": "./src/events/index.ts",
+    "./http": "./src/backend/http/index.ts",
     "./register": "./src/register.ts",
     "./db/schema": "./src/db/schema/index.ts",
     "./db": "./src/db/client.ts",
