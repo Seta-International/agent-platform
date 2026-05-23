@@ -56,6 +56,22 @@ export default defineConfig([
                 { to: { type: 'module', captured: { module: 'planner' } } },
               ],
             },
+            // Console is the tenant-admin aggregator: it composes user-facing pages from
+            // every other module's contracts and UI primitives. Cross-module imports
+            // from console into peers are the intended shape, not a violation.
+            {
+              from: { type: 'module', captured: { module: 'console' } },
+              allow: [{ to: { type: '@seta/shared-ui' } }, { to: { type: 'module' } }],
+            },
+            // Planner's nav manifest invokes useSession to read tenant_id when
+            // computing recent-plans dynamic entries. Session shape lives in identity.
+            {
+              from: { type: 'module', captured: { module: 'planner' } },
+              allow: [
+                { to: { type: '@seta/shared-ui' } },
+                { to: { type: 'module', captured: { module: 'identity' } } },
+              ],
+            },
             { from: { type: 'module' }, allow: [{ to: { type: '@seta/shared-ui' } }] },
           ],
         },

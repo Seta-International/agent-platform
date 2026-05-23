@@ -21,7 +21,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { GripVertical, Info, Plus, X, Zap } from 'lucide-react';
 import { type CSSProperties, useEffect, useState } from 'react';
-import { listAdminUsers } from '../../identity/api/client';
+import { listTenantUsers } from '../../identity/api/client';
 import { useAssignTask } from '../hooks/mutations/assign-task';
 import { useMoveToTopOfMyList } from '../hooks/mutations/move-to-top-of-my-list';
 import { useReorderTaskAssignees } from '../hooks/mutations/reorder-task-assignees';
@@ -61,7 +61,7 @@ function useUserSearch(search: string, enabled: boolean, isLinkedToM365: boolean
       { search: debounced, sign_in_method: isLinkedToM365 ? 'microsoft' : null },
     ],
     queryFn: () =>
-      listAdminUsers({
+      listTenantUsers({
         search: debounced,
         limit: 8,
         offset: 0,
@@ -75,7 +75,7 @@ function useUnfilteredUserCount(search: string, enabled: boolean) {
   const debounced = useDebounced(search, 200);
   return useQuery({
     queryKey: ['identity', 'admin-users', { search: debounced, sign_in_method: null }],
-    queryFn: () => listAdminUsers({ search: debounced, limit: 8, offset: 0 }),
+    queryFn: () => listTenantUsers({ search: debounced, limit: 8, offset: 0 }),
     enabled: enabled && debounced.length >= 1,
   });
 }

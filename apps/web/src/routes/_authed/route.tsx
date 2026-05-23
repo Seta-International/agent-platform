@@ -1,4 +1,5 @@
 import { AppShell, type ShellLinkProps } from '@seta/shared-ui';
+import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link, Outlet, redirect, useRouterState } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 import { fetchMe } from '@/modules/identity/api/client.ts';
@@ -7,8 +8,9 @@ import { UserMenu } from '@/modules/identity/components/UserMenu.tsx';
 import { NotificationDrawerContainer } from '@/modules/notifications/components/NotificationDrawerContainer.tsx';
 import { useNotificationStream } from '@/modules/notifications/hooks/useNotificationStream.ts';
 import { useUnreadCount } from '@/modules/notifications/hooks/useUnreadCount.ts';
-import { useRecentPlans } from '@/modules/planner/hooks/use-recent-plans.ts';
-import { activeNavId, buildNavModules } from './-nav';
+import { fetchEnabledModules } from '@/shell/enabled-modules.ts';
+import { activeNavId, visibleManifests } from '@/shell/manifest-registry.ts';
+import { ALL_MANIFESTS } from '@/shell/manifests.ts';
 
 function ShellLink({ href, ...rest }: ShellLinkProps) {
   // TanStack Router's typed `to` is strictly enumerated; cast preserves intellisense at call sites
@@ -29,8 +31,19 @@ export const Route = createFileRoute('/_authed')({
 function AuthedLayout() {
   const { session } = Route.useRouteContext();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const { recents } = useRecentPlans(session.tenant_id);
-  const navModules = useMemo(() => buildNavModules(recents), [recents]);
+
+  const enabledQuery = useQuery({
+    queryKey: ['shell', 'enabled-modules'],
+    queryFn: ({ signal }) => fetchEnabledModules(signal),
+    staleTime: 60_000,
+  });
+
+  const navModules = useMemo(() => {
+    const enabled = new Set(enabledQuery.data?.enabled ?? ALL_MANIFESTS.map((m) => m.id));
+    return visibleManifests(ALL_MANIFESTS, session, enabled);
+  }, [enabledQuery.data, session]);
+
+  const activeId = activeNavId(navModules, pathname);
 
   useNotificationStream(true);
   const { count: notificationCount } = useUnreadCount();
@@ -41,7 +54,7 @@ function AuthedLayout() {
       <AppShell
         workspace="Acme · Engineering"
         modules={navModules}
-        activeItemId={activeNavId(pathname)}
+        activeItemId={activeId}
         linkComponent={ShellLink}
         userMenu={<UserMenu />}
         hideCopilot={pathname.startsWith('/copilot/')}

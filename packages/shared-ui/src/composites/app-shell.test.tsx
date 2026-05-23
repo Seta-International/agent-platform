@@ -1,31 +1,38 @@
+import { type NavManifest, noNavExtensions } from '@seta/module-sdk';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { Building2, Inbox, LayoutDashboard, Sparkles, Users, Workflow } from 'lucide-react';
 import { describe, expect, it } from 'vitest';
 
 import { AppShell } from './app-shell';
-import type { ShellNavModule } from './left-nav';
 
-const MODULES: ShellNavModule[] = [
+const MODULES: NavManifest[] = [
   {
     id: 'copilot',
     label: 'Copilot',
-    icon: 'sparkles',
-    items: [
-      { id: 'copilot.chat', icon: 'inbox', label: 'Chat', disabled: true },
-      { id: 'copilot.workflows', icon: 'workflow', label: 'Workflows', disabled: true },
+    icon: Sparkles,
+    requiredPermissions: [],
+    useNavExtensions: noNavExtensions,
+    nav: [
+      { id: 'copilot.chat', icon: Inbox, label: 'Chat', disabled: true },
+      { id: 'copilot.workflows', icon: Workflow, label: 'Workflows', disabled: true },
     ],
   },
   {
     id: 'planner',
     label: 'Planner',
-    icon: 'board',
-    items: [{ id: 'planner.groups', icon: 'users', label: 'Groups', href: '/planner/groups' }],
+    icon: LayoutDashboard,
+    requiredPermissions: [],
+    useNavExtensions: noNavExtensions,
+    nav: [{ id: 'planner.groups', icon: Users, label: 'Groups', to: '/planner/groups' }],
   },
   {
     id: 'admin',
     label: 'Admin',
-    icon: 'building',
-    items: [{ id: 'admin.users', icon: 'users', label: 'Users', href: '/admin/users' }],
+    icon: Building2,
+    requiredPermissions: [],
+    useNavExtensions: noNavExtensions,
+    nav: [{ id: 'admin.users', icon: Users, label: 'Users', to: '/admin/users' }],
   },
 ];
 

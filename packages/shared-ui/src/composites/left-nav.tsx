@@ -1,90 +1,16 @@
-import {
-  AlertTriangle,
-  Archive,
-  Bell,
-  Building2,
-  ChevronLeft,
-  ChevronRight,
-  Hash,
-  Inbox,
-  LayoutDashboard,
-  Link2,
-  type LucideIcon,
-  Search,
-  Settings,
-  Shield,
-  Sparkles,
-  Star,
-  Users,
-  Workflow,
-} from 'lucide-react';
+import type { NavBadgeTone, NavItem, NavManifest } from '@seta/module-sdk';
+import { ChevronLeft, ChevronRight, LayoutDashboard } from 'lucide-react';
 import * as React from 'react';
 
 import { cn } from '../lib/cn';
 
-export type ShellIconName =
-  | 'sparkles'
-  | 'board'
-  | 'link'
-  | 'building'
-  | 'users'
-  | 'cog'
-  | 'inbox'
-  | 'workflow'
-  | 'star'
-  | 'shield'
-  | 'alert'
-  | 'search'
-  | 'archive'
-  | 'hash'
-  | 'bell';
-
-export const SHELL_ICONS: Record<ShellIconName, LucideIcon> = {
-  sparkles: Sparkles,
-  board: LayoutDashboard,
-  link: Link2,
-  building: Building2,
-  users: Users,
-  cog: Settings,
-  inbox: Inbox,
-  workflow: Workflow,
-  star: Star,
-  shield: Shield,
-  alert: AlertTriangle,
-  search: Search,
-  archive: Archive,
-  hash: Hash,
-  bell: Bell,
-};
-
-export type ShellDotTone = 'primary' | 'warning' | 'danger' | 'success' | 'muted';
-
-const DOT_CLASS: Record<ShellDotTone, string> = {
+const DOT_CLASS: Record<NavBadgeTone, string> = {
   primary: 'bg-primary',
   warning: 'bg-semantic-warning',
   danger: 'bg-destructive',
   success: 'bg-semantic-success',
   muted: 'bg-ink-subtle',
 };
-
-export interface ShellNavItem {
-  id: string;
-  label: string;
-  icon?: ShellIconName;
-  href?: string;
-  disabled?: boolean;
-  disabledHint?: string;
-  badge?: string | number;
-  badgeTone?: ShellDotTone;
-  indent?: number;
-}
-
-export interface ShellNavModule {
-  id: string;
-  label: string;
-  icon: ShellIconName;
-  items: ShellNavItem[];
-}
 
 export interface ShellLinkProps {
   href: string;
@@ -103,7 +29,7 @@ const DefaultShellLink: ShellLinkComponent = ({ href, className, style, children
 );
 
 export interface LeftNavProps {
-  modules: ShellNavModule[];
+  modules: NavManifest[];
   activeItemId?: string;
   linkComponent?: ShellLinkComponent;
   collapsed?: boolean;
@@ -113,11 +39,10 @@ export interface LeftNavProps {
   className?: string;
 }
 
-function moduleIdOfItem(modules: ShellNavModule[], itemId: string | undefined): string | null {
+function moduleIdOfItem(modules: NavManifest[], itemId: string | undefined): string | null {
   if (!itemId) return null;
   for (const m of modules) {
-    if (m.items.some((i) => i.id === itemId)) return m.id;
-    if (itemId.startsWith(`${m.id}.`)) return m.id;
+    if (itemId === m.id || itemId.startsWith(`${m.id}.`)) return m.id;
   }
   return null;
 }
@@ -173,7 +98,7 @@ export function LeftNav({
         <div className="mx-2 h-px bg-hairline" aria-hidden />
         <div className="flex flex-col gap-1 py-3">
           {modules.map((m) => {
-            const Icon = SHELL_ICONS[m.icon];
+            const Icon = m.icon;
             const isActive = openModuleId === m.id || activeModuleId === m.id;
             return (
               <button
@@ -238,53 +163,17 @@ export function LeftNav({
       </div>
 
       <div className="flex-1 overflow-y-auto py-1.5">
-        {modules.map((m) => {
-          const ModuleIcon = SHELL_ICONS[m.icon];
-          const isOpen = openModuleId === m.id;
-          const moduleActive = activeModuleId === m.id;
-          return (
-            <div key={m.id} className="mb-0.5">
-              <button
-                type="button"
-                onClick={() => setOpenModuleId(isOpen ? null : m.id)}
-                aria-expanded={isOpen}
-                aria-controls={`shell-nav-module-${m.id}`}
-                className="mx-1.5 flex h-[30px] w-[calc(100%-12px)] items-center gap-2 rounded-sm px-2 text-left text-body-sm font-semibold text-ink transition-colors hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
-              >
-                <ChevronRight
-                  className={cn(
-                    'size-3 text-ink-subtle transition-transform duration-100',
-                    isOpen && 'rotate-90',
-                  )}
-                  aria-hidden
-                />
-                <ModuleIcon
-                  className={cn('size-3.5', moduleActive ? 'text-primary' : 'text-ink-muted')}
-                  aria-hidden
-                />
-                <span className={cn('flex-1', moduleActive ? 'text-ink' : 'text-ink-muted')}>
-                  {m.label}
-                </span>
-                {!isOpen && moduleActive && (
-                  <span className="inline-block size-1.5 rounded-full bg-primary" aria-hidden />
-                )}
-              </button>
-
-              {isOpen && (
-                <div id={`shell-nav-module-${m.id}`} className="pb-1.5 pt-0.5">
-                  {m.items.map((item) => (
-                    <NavItem
-                      key={item.id}
-                      item={item}
-                      active={activeItemId === item.id}
-                      Link={Link}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
+        {modules.map((m) => (
+          <ModuleSection
+            key={m.id}
+            manifest={m}
+            isOpen={openModuleId === m.id}
+            moduleActive={activeModuleId === m.id}
+            activeItemId={activeItemId}
+            onToggle={() => setOpenModuleId(openModuleId === m.id ? null : m.id)}
+            Link={Link}
+          />
+        ))}
       </div>
 
       {sessionFooter && (
@@ -294,14 +183,74 @@ export function LeftNav({
   );
 }
 
-interface NavItemProps {
-  item: ShellNavItem;
+interface ModuleSectionProps {
+  manifest: NavManifest;
+  isOpen: boolean;
+  moduleActive: boolean;
+  activeItemId: string | undefined;
+  onToggle: () => void;
+  Link: ShellLinkComponent;
+}
+
+function ModuleSection({
+  manifest,
+  isOpen,
+  moduleActive,
+  activeItemId,
+  onToggle,
+  Link,
+}: ModuleSectionProps) {
+  const extensions = manifest.useNavExtensions();
+  const items: NavItem[] = [...manifest.nav, ...extensions];
+  const ModuleIcon = manifest.icon;
+
+  return (
+    <div className="mb-0.5">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={isOpen}
+        aria-controls={`shell-nav-module-${manifest.id}`}
+        className="mx-1.5 flex h-[30px] w-[calc(100%-12px)] items-center gap-2 rounded-sm px-2 text-left text-body-sm font-semibold text-ink transition-colors hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
+      >
+        <ChevronRight
+          className={cn(
+            'size-3 text-ink-subtle transition-transform duration-100',
+            isOpen && 'rotate-90',
+          )}
+          aria-hidden
+        />
+        <ModuleIcon
+          className={cn('size-3.5', moduleActive ? 'text-primary' : 'text-ink-muted')}
+          aria-hidden
+        />
+        <span className={cn('flex-1', moduleActive ? 'text-ink' : 'text-ink-muted')}>
+          {manifest.label}
+        </span>
+        {!isOpen && moduleActive && (
+          <span className="inline-block size-1.5 rounded-full bg-primary" aria-hidden />
+        )}
+      </button>
+
+      {isOpen && (
+        <div id={`shell-nav-module-${manifest.id}`} className="pb-1.5 pt-0.5">
+          {items.map((item) => (
+            <NavItemRow key={item.id} item={item} active={activeItemId === item.id} Link={Link} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface NavItemRowProps {
+  item: NavItem;
   active: boolean;
   Link: ShellLinkComponent;
 }
 
-function NavItem({ item, active, Link }: NavItemProps) {
-  const Icon = item.icon ? SHELL_ICONS[item.icon] : null;
+function NavItemRow({ item, active, Link }: NavItemRowProps) {
+  const Icon = item.icon ?? null;
   const indent = item.indent ?? 0;
 
   const inner = (
@@ -333,7 +282,7 @@ function NavItem({ item, active, Link }: NavItemProps) {
 
   const style: React.CSSProperties = { paddingLeft: 28 + indent * 14, paddingRight: 10 };
 
-  if (item.disabled || !item.href) {
+  if (item.disabled || !item.to) {
     return (
       <span
         className={baseClass}
@@ -348,7 +297,7 @@ function NavItem({ item, active, Link }: NavItemProps) {
 
   return (
     <Link
-      href={item.href}
+      href={item.to}
       className={baseClass}
       style={style}
       aria-current={active ? 'page' : undefined}

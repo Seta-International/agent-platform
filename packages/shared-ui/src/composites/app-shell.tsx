@@ -1,9 +1,10 @@
+import type { NavManifest } from '@seta/module-sdk';
 import * as React from 'react';
 
 import { cn } from '../lib/cn';
 import { Sheet, SheetContent } from '../primitives/sheet';
 import { CopilotPanel } from './copilot-panel';
-import { LeftNav, type ShellLinkComponent, type ShellNavModule } from './left-nav';
+import { LeftNav, type ShellLinkComponent } from './left-nav';
 import { TopBar } from './top-bar';
 
 export interface AppShellProps {
@@ -12,7 +13,7 @@ export interface AppShellProps {
   userMenu?: React.ReactNode;
   onSearchOpen?: () => void;
 
-  modules: ShellNavModule[];
+  modules: NavManifest[];
   activeItemId?: string;
   linkComponent?: ShellLinkComponent;
   sessionFooter?: React.ReactNode;

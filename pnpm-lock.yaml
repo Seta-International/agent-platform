@@ -67,6 +67,12 @@ importers:
       '@seta/integrations':
         specifier: workspace:^
         version: link:../../packages/integrations
+      '@seta/knowledge':
+        specifier: workspace:^
+        version: link:../../packages/knowledge
+      '@seta/notifications':
+        specifier: workspace:^
+        version: link:../../packages/notifications
       '@seta/planner':
         specifier: workspace:^
         version: link:../../packages/planner
@@ -79,6 +85,9 @@ importers:
       '@seta/shared-mailer':
         specifier: workspace:^
         version: link:../../packages/shared-mailer
+      '@seta/staffing':
+        specifier: workspace:^
+        version: link:../../packages/staffing
       commander:
         specifier: ^14.0.3
         version: 14.0.3
@@ -216,6 +225,9 @@ importers:
       '@mastra/ai-sdk':
         specifier: ^1.4.3
         version: 1.4.3(@mastra/core@1.36.0(@grpc/grpc-js@1.14.3)(@standard-community/standard-json@0.3.5(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(quansync@0.2.11)(zod-to-json-schema@3.25.2(zod@4.4.3))(zod@4.4.3))(@standard-community/standard-openapi@0.2.9(@standard-community/standard-json@0.3.5(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(quansync@0.2.11)(zod-to-json-schema@3.25.2(zod@4.4.3))(zod@4.4.3))(@standard-schema/spec@1.1.0)(openapi-types@12.1.3)(zod@4.4.3))(@types/json-schema@7.0.15)(ai@6.0.188(zod@4.4.3))(express@5.2.1)(openapi-types@12.1.3)(zod@4.4.3))(zod@4.4.3)
+      '@seta/module-sdk':
+        specifier: workspace:^
+        version: link:../../sdks/module
       '@seta/planner':
         specifier: workspace:^
         version: link:../../packages/planner
@@ -1249,6 +1261,9 @@ importers:
       '@radix-ui/react-tooltip':
         specifier: ^1.2.8
         version: 1.2.8(@types/react-dom@19.2.3(@types/react@19.2.15))(@types/react@19.2.15)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@seta/module-sdk':
+        specifier: workspace:^
+        version: link:../../sdks/module
       '@tanstack/react-table':
         specifier: ^8.21.3
         version: 8.21.3(react-dom@19.2.6(react@19.2.6))(react@19.2.6)

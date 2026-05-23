@@ -23,6 +23,7 @@
     "@dagrejs/dagre": "^3.0.0",
     "@hello-pangea/dnd": "^18.0.1",
     "@mastra/ai-sdk": "^1.4.3",
+    "@seta/module-sdk": "workspace:^",
     "@seta/planner": "workspace:^",
     "@seta/shared-ui": "workspace:^",
     "@tailwindcss/vite": "^4.3.0",

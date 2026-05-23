@@ -22,6 +22,7 @@ import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import type { Pool } from 'pg';
 import { registerCredentialGate } from './routes/credential-gate.ts';
 import { registerDiscoverRoute } from './routes/discover.ts';
+import { registerEnabledModulesRoute } from './routes/enabled-modules.ts';
 import { registerMeRoute } from './routes/me.ts';
 import { registerObservabilityRoutes } from './routes/observability.ts';
 
@@ -120,6 +121,7 @@ export function buildServerApp(
 
   // Cross-cutting protected routes that stay in apps/server.
   registerMeRoute(app);
+  registerEnabledModulesRoute(app, reg);
 
   // Module-contributed routes. Each module's build factory mounts its absolute
   // paths inside a fresh Hono app; we attach that app at '/' so the inner paths

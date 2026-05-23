@@ -48,6 +48,7 @@ registerCoreContributions(reg);
 registerIdentityContributions(reg);
 registerIntegrationsContributions(reg, {
   cryptoSvc,
+  mailerEnv: env,
   webhookSecret: env.M365_WEBHOOK_SECRET,
   getWorkers,
 });

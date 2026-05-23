@@ -1,4 +1,5 @@
 import type { SessionEnv } from '@seta/core';
+import { getPool } from '@seta/shared-db';
 import type { Context, Hono } from 'hono';
 import { z } from 'zod';
 import { IdentityError, setLocalPasswordDisabled } from '../../index.ts';
@@ -12,7 +13,22 @@ function requireOrgAdmin(c: Context<SessionEnv>): void {
   }
 }
 
+async function getLocalPasswordDisabled(tenantId: string): Promise<boolean> {
+  const result = await getPool('web').query<{ local_password_disabled: boolean }>(
+    'SELECT local_password_disabled FROM core.tenants WHERE id = $1',
+    [tenantId],
+  );
+  return result.rows[0]?.local_password_disabled ?? false;
+}
+
 export function registerTenantSettingsRoutes(app: Hono<SessionEnv>): void {
+  app.get('/api/identity/v1/tenants/me/settings', async (c) => {
+    requireOrgAdmin(c);
+    const scope = c.get('user');
+    const local_password_disabled = await getLocalPasswordDisabled(scope.tenant_id);
+    return c.json({ local_password_disabled });
+  });
+
   app.patch('/api/identity/v1/tenants/me/local-password-disabled', async (c) => {
     requireOrgAdmin(c);
     const scope = c.get('user');
