@@ -41,7 +41,9 @@ function buildTestApp(session: SessionScope): Hono<SessionEnv> {
     c.set('user', session);
     await next();
   });
-  registerPlannerGroupsRoutes(app);
+  registerPlannerGroupsRoutes(app, {
+    workers: { addJob: async () => {}, shutdown: async () => {} },
+  });
   app.onError(makeErrorHandler(plannerErrorMapper));
   return app;
 }
