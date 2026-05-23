@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   classifySkillsAgent,
   classifySkillsOutputSchema,
-} from '../../../src/backend/workflows/new-task-skill-tag/agents/classify-skills.ts';
+} from '../../../../src/backend/workflows/new-task-skill-tag/agents/classify-skills.ts';
 
 const outputSchema = classifySkillsOutputSchema;
 

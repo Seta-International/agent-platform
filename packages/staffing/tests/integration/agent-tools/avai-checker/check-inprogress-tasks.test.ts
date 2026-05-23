@@ -3,8 +3,8 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   type InProgressTask,
   makeAvaiCheckerCheckInProgressTasksTool,
-} from '../../../src/backend/agent-tools/avai-checker/check-inprogress-tasks.ts';
-import { makeToolContext } from '../../test-helpers.ts';
+} from '../../../../src/backend/agent-tools/avai-checker/check-inprogress-tasks.ts';
+import { makeToolContext } from '../../../test-helpers.ts';
 
 const USER_ID = '00000000-0000-4000-8000-000000000001';
 const CALLER_ID = '00000000-0000-4000-8000-000000000099';

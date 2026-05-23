@@ -6,9 +6,9 @@ import { createTestTenantWithAdmin } from '@seta/identity/testing';
 import { addGroupMember, createGroup, createPlan, createTask } from '@seta/planner';
 import type { Pool } from 'pg';
 import { describe, expect, it, vi } from 'vitest';
-import { classifySkillsAgent } from '../../../src/backend/workflows/new-task-skill-tag/agents/classify-skills.ts';
-import { registerNewTaskSkillTagWorkflow } from '../../../src/backend/workflows/new-task-skill-tag/index.ts';
-import { withCopilotTestDb } from '../../test-helpers.ts';
+import { classifySkillsAgent } from '../../../../src/backend/workflows/new-task-skill-tag/agents/classify-skills.ts';
+import { registerNewTaskSkillTagWorkflow } from '../../../../src/backend/workflows/new-task-skill-tag/index.ts';
+import { withCopilotTestDb } from '../../../test-helpers.ts';
 
 const NEW_TASK_WORKFLOW_ID = 'copilot.new-task-skill-tag';
 

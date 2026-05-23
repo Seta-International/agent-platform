@@ -1,7 +1,7 @@
 import { requiredPermissionFor } from '@seta/copilot-sdk';
 import { describe, expect, it, vi } from 'vitest';
-import { makeAvaiCheckerBuildAvailabilityQueueTool } from '../../../src/backend/agent-tools/avai-checker/build-availability-queue.ts';
-import { makeToolContext } from '../../test-helpers.ts';
+import { makeAvaiCheckerBuildAvailabilityQueueTool } from '../../../../src/backend/agent-tools/avai-checker/build-availability-queue.ts';
+import { makeToolContext } from '../../../test-helpers.ts';
 
 const CALLER_ID = '00000000-0000-4000-8000-000000000099';
 const CTX = makeToolContext({ user_id: CALLER_ID });
