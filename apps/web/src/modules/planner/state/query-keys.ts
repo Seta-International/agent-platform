@@ -28,6 +28,8 @@ export const plannerKeys = {
   groupsWithCounts: () => [...plannerKeys.groups(), 'withCounts'] as const,
   group: (id: string) => [...plannerKeys.groups(), id] as const,
   groupMembers: (id: string) => [...plannerKeys.group(id), 'members'] as const,
+  groupMemberCandidates: (id: string, search: string) =>
+    [...plannerKeys.group(id), 'candidates', search] as const,
   groupActivity: (id: string, days: number) =>
     [...plannerKeys.group(id), 'activity', days] as const,
   groupPlans: (id: string) => [...plannerKeys.group(id), 'plans'] as const,

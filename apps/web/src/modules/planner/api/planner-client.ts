@@ -139,6 +139,43 @@ async function listGroupMembers(group_id: string): Promise<GroupMemberRow[]> {
   return r.members;
 }
 
+async function listGroupMemberCandidates(input: {
+  group_id: string;
+  search?: string;
+  limit?: number;
+}): Promise<{ candidates: { user_id: string; display_name: string; email: string }[] }> {
+  const q = new URLSearchParams();
+  if (input.search) q.set('search', input.search);
+  if (input.limit !== undefined) q.set('limit', String(input.limit));
+  return (await request<{
+    candidates: { user_id: string; display_name: string; email: string }[];
+  }>(
+    `/api/planner/v1/groups/${input.group_id}/members/candidates${q.toString() ? `?${q}` : ''}`,
+  )) as { candidates: { user_id: string; display_name: string; email: string }[] };
+}
+
+async function addGroupMembersBulk(input: {
+  group_id: string;
+  members: { user_id: string }[];
+}): Promise<{ status: 201; members: GroupMemberRow[] } | { status: 202; job_id: string }> {
+  const res = await fetch(`/api/planner/v1/groups/${input.group_id}/members/bulk`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ members: input.members }),
+  });
+  const text = await res.text();
+  const body = text ? (JSON.parse(text) as Record<string, unknown>) : {};
+  if (!res.ok) {
+    const code = typeof body.error === 'string' ? body.error : `HTTP_${res.status}`;
+    throw new PlannerClientError(res.status, code, body);
+  }
+  if (res.status === 202) {
+    return { status: 202, job_id: body.job_id as string };
+  }
+  return { status: 201, members: body.members as GroupMemberRow[] };
+}
+
 async function addGroupMember(input: { group_id: string; user_id: string }): Promise<void> {
   await request<void>(`/api/planner/v1/groups/${input.group_id}/members`, {
     method: 'POST',
@@ -680,6 +717,8 @@ export const plannerClient = {
   deleteGroup,
   restoreGroup,
   listGroupMembers,
+  listGroupMemberCandidates,
+  addGroupMembersBulk,
   addGroupMember,
   removeGroupMember,
   setMemberRole,
