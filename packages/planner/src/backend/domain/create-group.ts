@@ -44,19 +44,23 @@ export async function createGroup(
       if (!row) throw new PlannerError('VALIDATION', 'Insert returned no row');
       inserted = row;
 
-      if (input.initial_members && input.initial_members.length > 0) {
-        await tx
-          .insert(groupMembers)
-          .values(
-            input.initial_members.map((m) => ({
-              group_id: row.id,
-              user_id: m.user_id,
-              role: m.role,
-              added_by: input.session.user_id,
-            })),
-          )
-          .onConflictDoNothing();
-      }
+      // Always insert creator as owner; caller-supplied initial_members append after.
+      // onConflictDoNothing deduplicates if caller also listed the creator.
+      const membersToInsert = [
+        { user_id: input.session.user_id, role: 'owner' as const },
+        ...(input.initial_members ?? []),
+      ];
+      await tx
+        .insert(groupMembers)
+        .values(
+          membersToInsert.map((m) => ({
+            group_id: row.id,
+            user_id: m.user_id,
+            role: m.role,
+            added_by: input.session.user_id,
+          })),
+        )
+        .onConflictDoNothing();
 
       await emitPlannerGroupCreated({
         actor: { type: 'user', user_id: input.session.user_id },

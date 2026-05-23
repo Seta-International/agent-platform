@@ -177,4 +177,66 @@ describe('createGroup', () => {
       },
     );
   });
+
+  it('auto-adds the creator as owner in group_members', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+      },
+      async ({ pool, databaseUrl }) => {
+        resetCoreDb();
+        initPools({ databaseUrl });
+        try {
+          const seeded = await seedTenant(pool);
+          const group = await createGroup({
+            tenant_id: seeded.tenant_id,
+            name: 'AutoOwner',
+            session: seeded.adminSession,
+          });
+          const { rows } = await pool.query(
+            `SELECT user_id, role FROM planner.group_members WHERE group_id = $1`,
+            [group.id],
+          );
+          expect(rows).toHaveLength(1);
+          expect(rows[0].user_id).toBe(seeded.admin.user_id);
+          expect(rows[0].role).toBe('owner');
+        } finally {
+          resetCoreDb();
+          await closePools();
+        }
+      },
+    );
+  });
+
+  it('deduplicates creator when also supplied in initial_members', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+      },
+      async ({ pool, databaseUrl }) => {
+        resetCoreDb();
+        initPools({ databaseUrl });
+        try {
+          const seeded = await seedTenant(pool);
+          const group = await createGroup({
+            tenant_id: seeded.tenant_id,
+            name: 'DedupOwner',
+            session: seeded.adminSession,
+            initial_members: [{ user_id: seeded.admin.user_id, role: 'member' }],
+          });
+          const { rows } = await pool.query(
+            `SELECT user_id FROM planner.group_members WHERE group_id = $1`,
+            [group.id],
+          );
+          // creator appears exactly once (onConflictDoNothing handles duplicate)
+          expect(rows).toHaveLength(1);
+        } finally {
+          resetCoreDb();
+          await closePools();
+        }
+      },
+    );
+  });
 });
