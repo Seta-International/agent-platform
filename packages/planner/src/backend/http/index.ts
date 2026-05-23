@@ -15,7 +15,7 @@ export { registerPlannerTasksRoutes } from './tasks.ts';
 
 export function buildPlannerRoutes(deps: RouteBuildDeps): Hono<SessionEnv> {
   const app = new Hono<SessionEnv>();
-  registerPlannerGroupsRoutes(app);
+  registerPlannerGroupsRoutes(app, { workers: deps.workers });
   registerPlannerPlansRoutes(app, { workers: deps.workers });
   registerPlannerBucketsRoutes(app);
   registerPlannerTasksRoutes(app);

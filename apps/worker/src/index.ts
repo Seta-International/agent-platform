@@ -12,7 +12,7 @@ import { registerIntegrationsContributions } from '@seta/integrations/register';
 import { knowledgeJobs } from '@seta/knowledge/jobs';
 import { registerKnowledgeContributions } from '@seta/knowledge/register';
 import { registerNotificationsContributions } from '@seta/notifications/register';
-import { plannerEmbeddingJobs } from '@seta/planner';
+import { plannerEmbeddingJobs, plannerMembershipJobs } from '@seta/planner';
 import { registerPlannerContributions } from '@seta/planner/register';
 import { createCrypto, createKeyProviderFromEnv, parseCryptoEnv } from '@seta/shared-crypto';
 import { closePools, getPool, initPools } from '@seta/shared-db';
@@ -95,6 +95,7 @@ const rt = buildRuntime(
       ...embeddingJobs,
       ...knowledgeJobs,
       ...plannerEmbeddingJobs,
+      ...plannerMembershipJobs,
     },
     onWorkerStart: ({ workers }) => {
       workerHandleRef = workers;

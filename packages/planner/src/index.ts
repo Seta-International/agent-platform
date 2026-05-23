@@ -2,6 +2,7 @@ export type { PlannerSessionScope } from './backend/domain/_actor.ts';
 export { isM365SystemActor } from './backend/domain/_actor.ts';
 export { addChecklistItem } from './backend/domain/add-checklist-item.ts';
 export { addGroupMember } from './backend/domain/add-group-member.ts';
+export { addGroupMembers } from './backend/domain/add-group-members.ts';
 export { addTaskReference } from './backend/domain/add-task-reference.ts';
 export { applyLabel } from './backend/domain/apply-label.ts';
 export { assignTask } from './backend/domain/assign-task.ts';
@@ -150,6 +151,7 @@ export type {
   SearchTasksInput,
 } from './backend/retrieval/search-tasks.ts';
 export { searchTasks } from './backend/retrieval/search-tasks.ts';
+export { plannerMembershipJobs } from './backend/workers/bulk-add-group-members.ts';
 export { backfillTasks } from './embeddings/backfill.ts';
 export { fitsInWindow, MAX_SOURCE_TOKENS } from './embeddings/chunking.ts';
 export { type EmbedTaskDeps, type EmbedTaskPayload, embedTask } from './embeddings/embed-task.ts';
