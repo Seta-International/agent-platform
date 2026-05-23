@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { NoopReranker } from '../src/noop.ts';
+import { NoopReranker } from '../../src/noop.ts';
 
 describe('NoopReranker', () => {
   it('returns input hits unchanged, tagged reranker="noop"', async () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { RetrievalCtx, RetrievalHit, Retriever } from '../src/index.ts';
+import type { RetrievalCtx, RetrievalHit, Retriever } from '../../src/index.ts';
 
 describe('@seta/shared-retrieval types', () => {
   it('exposes the Retriever, RetrievalHit, RetrievalCtx surface', () => {

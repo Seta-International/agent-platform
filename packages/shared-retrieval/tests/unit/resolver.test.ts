@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveReranker } from '../src/resolver.ts';
+import { resolveReranker } from '../../src/resolver.ts';
 
 describe('resolveReranker', () => {
   it('returns NoopReranker when RERANKER_PROVIDER=none', () => {

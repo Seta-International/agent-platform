@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { RerankCache } from '../src/cache.ts';
+import { RerankCache } from '../../src/cache.ts';
 
 describe('RerankCache', () => {
   it('returns cached order on repeat same-query-same-docs call', async () => {

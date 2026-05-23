@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { LlmJudgeReranker } from '../src/llm-judge.ts';
+import { LlmJudgeReranker } from '../../src/llm-judge.ts';
 
 describe('LlmJudgeReranker', () => {
   it('asks the LLM to score each item and returns descending', async () => {

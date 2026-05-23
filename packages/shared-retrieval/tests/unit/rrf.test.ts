@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { rrfFuse } from '../src/rrf.ts';
+import { rrfFuse } from '../../src/rrf.ts';
 
 describe('rrfFuse', () => {
   it('fuses two lists by reciprocal rank with k=60 default', () => {

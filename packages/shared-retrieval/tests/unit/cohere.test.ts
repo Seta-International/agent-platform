@@ -19,7 +19,7 @@ vi.mock('@mastra/rag', () => ({
   CohereRelevanceScorer: mastraMocks.CohereRelevanceScorer,
 }));
 
-import { CohereReranker } from '../src/cohere.ts';
+import { CohereReranker } from '../../src/cohere.ts';
 
 describe('CohereReranker', () => {
   it('calls the underlying rerank with weight config and tags result reranker="cohere"', async () => {

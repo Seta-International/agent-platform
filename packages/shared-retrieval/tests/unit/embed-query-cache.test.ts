@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { EmbedQueryCache } from '../src/embed-query-cache.ts';
+import { EmbedQueryCache } from '../../src/embed-query-cache.ts';
 
 describe('EmbedQueryCache', () => {
   it('returns cached vector on repeat query within TTL', async () => {
