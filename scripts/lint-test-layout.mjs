@@ -20,7 +20,11 @@ const errors = [];
 
 async function walk(dir, visit) {
   let entries;
-  try { entries = await readdir(dir, { withFileTypes: true }); } catch { return; }
+  try {
+    entries = await readdir(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
   for (const e of entries) {
     if (e.name === 'node_modules' || e.name === 'dist' || e.name === '.turbo') continue;
     const full = join(dir, e.name);
@@ -34,7 +38,11 @@ async function walk(dir, visit) {
 async function findPackageRoots(root) {
   const out = [];
   let entries;
-  try { entries = await readdir(root, { withFileTypes: true }); } catch { return out; }
+  try {
+    entries = await readdir(root, { withFileTypes: true });
+  } catch {
+    return out;
+  }
   for (const e of entries) {
     if (!e.isDirectory() || e.name === 'node_modules') continue;
     const pkgPath = join(root, e.name);
@@ -73,7 +81,11 @@ for (const r of SCAN_ROOTS) {
     // 3) inside <pkg>/tests/: only allowlisted children
     const testsDir = join(pkg, 'tests');
     let testsEntries;
-    try { testsEntries = await readdir(testsDir, { withFileTypes: true }); } catch { continue; }
+    try {
+      testsEntries = await readdir(testsDir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
     for (const e of testsEntries) {
       const rel = relative(ROOT, join(testsDir, e.name));
       if (e.isDirectory()) {
