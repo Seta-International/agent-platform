@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mapPriorityNumber, mapStatusFields, splitIds } from '../src/commands/lib/csv-parser.ts';
+import { mapPriorityNumber, mapStatusFields, splitIds } from '../../src/commands/lib/csv-parser.ts';
 
 describe('mapPriorityNumber', () => {
   it.each([

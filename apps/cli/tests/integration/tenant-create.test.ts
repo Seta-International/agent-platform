@@ -2,8 +2,8 @@ import { coreEvents, coreTenants } from '@seta/core/db/schema';
 import { resetCoreDb } from '@seta/core/testing';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
-import { tenantCreateCommand } from '../src/commands/tenant-create.ts';
-import { withCliTestDb } from '../test/test-helpers.ts';
+import { tenantCreateCommand } from '../../src/commands/tenant-create.ts';
+import { withCliTestDb } from '../helpers.ts';
 
 describe('tenant-create', () => {
   it('inserts a tenant row + emits core.tenant.created in the same tx', async () => {

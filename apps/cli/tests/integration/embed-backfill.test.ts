@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { runEmbedBackfill } from '../src/commands/embed-backfill.ts';
+import { runEmbedBackfill } from '../../src/commands/embed-backfill.ts';
 
 describe('embed-backfill CLI', () => {
   it('dispatches to backfillTasks with planner', async () => {
