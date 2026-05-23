@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { resetCoreDb } from '../src/db/client.ts';
-import { partitionManagerTick } from '../src/runtime/workers/partition-manager.ts';
-import { withCoreTestDb } from '../test/test-helpers.ts';
+import { resetCoreDb } from '../../src/db/client.ts';
+import { partitionManagerTick } from '../../src/runtime/workers/partition-manager.ts';
+import { withCoreTestDb } from '../helpers.ts';
 
 describe('partition manager', () => {
   it('creates partitions for current+1 and current+2 months', async () => {

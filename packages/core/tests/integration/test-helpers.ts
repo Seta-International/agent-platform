@@ -1,7 +1,7 @@
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import type { Pool } from 'pg';
-import { resetCoreDb } from '../src/test-support.ts';
+import { resetCoreDb } from '../../src/test-support.ts';
 
 export { makeToolContext } from '@seta/copilot-sdk/testing';
 

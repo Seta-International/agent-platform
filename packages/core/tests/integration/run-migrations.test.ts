@@ -1,8 +1,8 @@
 import { closePools, getPool, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
-import { createContributionRegistry, runMigrations } from '../src/index.ts';
-import { registerCoreContributions } from '../src/register.ts';
+import { createContributionRegistry, runMigrations } from '../../src/index.ts';
+import { registerCoreContributions } from '../../src/register.ts';
 
 describe('runMigrations(reg)', () => {
   it('applies all core migrations against a fresh DB and is idempotent', async () => {

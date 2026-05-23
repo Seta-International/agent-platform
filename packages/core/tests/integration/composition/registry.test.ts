@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createContributionRegistry } from '../../src/composition/registry.ts';
+import { createContributionRegistry } from '../../../src/composition/registry.ts';
 
 describe('reg.module', () => {
   it('records schema + migrations dir + subscribers in one call', () => {

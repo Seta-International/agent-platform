@@ -3,15 +3,15 @@ import { registerIdentityContributions } from '@seta/identity/register';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { resetCoreDb } from '../src/db/client.ts';
-import { createContributionRegistry, runMigrations } from '../src/index.ts';
-import { registerCoreContributions } from '../src/register.ts';
+import { resetCoreDb } from '../../src/db/client.ts';
+import { createContributionRegistry, runMigrations } from '../../src/index.ts';
+import { registerCoreContributions } from '../../src/register.ts';
 import {
   _clearHotForTest,
   getSessionScope,
   hashRoleSummary,
   rollup,
-} from '../src/session/scope.ts';
+} from '../../src/session/scope.ts';
 
 describe('session scope cache', () => {
   beforeEach(() => _clearHotForTest());

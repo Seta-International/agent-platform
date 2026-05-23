@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { createContributionRegistry } from '../src/index.ts';
-import { registerCoreContributions } from '../src/register.ts';
+import { createContributionRegistry } from '../../src/index.ts';
+import { registerCoreContributions } from '../../src/register.ts';
 
 describe('ContributionRegistry', () => {
   it('registerCoreContributions populates schema + migrationsDir', () => {

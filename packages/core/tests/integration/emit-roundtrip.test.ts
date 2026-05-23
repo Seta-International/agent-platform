@@ -1,9 +1,9 @@
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
-import { resetCoreDb } from '../src/db/client.ts';
-import { coreEvents } from '../src/db/schema/index.ts';
-import { emit, withEmit } from '../src/events/index.ts';
-import { withCoreTestDb } from '../test/test-helpers.ts';
+import { resetCoreDb } from '../../src/db/client.ts';
+import { coreEvents } from '../../src/db/schema/index.ts';
+import { emit, withEmit } from '../../src/events/index.ts';
+import { withCoreTestDb } from '../helpers.ts';
 
 describe('emit() round-trip', () => {
   it('emit inside withEmit writes one row in the same transaction', async () => {

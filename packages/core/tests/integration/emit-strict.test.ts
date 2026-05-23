@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EmitContextRequired, emit } from '../src/events/index.ts';
+import { EmitContextRequired, emit } from '../../src/events/index.ts';
 
 describe('emit() strict contract', () => {
   it('throws EmitContextRequired when called outside emitContext', async () => {

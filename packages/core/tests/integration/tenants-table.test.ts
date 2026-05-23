@@ -6,8 +6,8 @@ import {
   coreSubscriptionDeadLetter,
   coreSubscriptionProcessed,
   coreTenants,
-} from '../src/db/schema/index.ts';
-import { withCoreTestDb } from '../test/test-helpers.ts';
+} from '../../src/db/schema/index.ts';
+import { withCoreTestDb } from '../helpers.ts';
 
 describe('core schema', () => {
   it('tenants table accepts inserts', async () => {

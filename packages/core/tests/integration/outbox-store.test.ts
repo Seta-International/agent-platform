@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { resetCoreDb } from '../src/db/client.ts';
-import { createOutboxStore } from '../src/outbox/store.ts';
-import { withCoreTestDb } from '../test/test-helpers.ts';
+import { resetCoreDb } from '../../src/db/client.ts';
+import { createOutboxStore } from '../../src/outbox/store.ts';
+import { withCoreTestDb } from '../helpers.ts';
 
 describe('outbox store', () => {
   it('upsertPending inserts a row and returns deduped=false', async () => {

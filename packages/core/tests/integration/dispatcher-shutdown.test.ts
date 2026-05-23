@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { resetCoreDb } from '../src/db/client.ts';
-import { emit, withEmit } from '../src/events/index.ts';
-import { startDispatcher } from '../src/runtime/dispatcher/index.ts';
-import { withCoreTestDb } from '../test/test-helpers.ts';
+import { resetCoreDb } from '../../src/db/client.ts';
+import { emit, withEmit } from '../../src/events/index.ts';
+import { startDispatcher } from '../../src/runtime/dispatcher/index.ts';
+import { withCoreTestDb } from '../helpers.ts';
 
 describe('dispatcher graceful shutdown', () => {
   it('shutdown waits for in-flight handler to complete', async () => {

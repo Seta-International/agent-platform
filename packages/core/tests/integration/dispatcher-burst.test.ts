@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { resetCoreDb } from '../src/db/client.ts';
-import { emit, withEmit } from '../src/events/index.ts';
-import { waitFor, withCoreTestDb, withDispatcher } from '../test/test-helpers.ts';
+import { resetCoreDb } from '../../src/db/client.ts';
+import { emit, withEmit } from '../../src/events/index.ts';
+import { waitFor, withCoreTestDb, withDispatcher } from '../helpers.ts';
 
 describe('dispatcher burst', () => {
   it('delivers a burst of 200 events to one subscriber, cursor + processed table consistent', async () => {

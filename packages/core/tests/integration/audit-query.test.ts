@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { queryAudit } from '../src/backend/audit.ts';
-import { resetCoreDb } from '../src/db/client.ts';
-import { emit, withEmit } from '../src/events/index.ts';
-import { withCoreTestDb } from '../test/test-helpers.ts';
+import { queryAudit } from '../../src/backend/audit.ts';
+import { resetCoreDb } from '../../src/db/client.ts';
+import { emit, withEmit } from '../../src/events/index.ts';
+import { withCoreTestDb } from '../helpers.ts';
 
 async function seedAuditEvents(tenantId: string): Promise<void> {
   await withEmit({ actor: { userId: 'u1', tenantId } }, async () => {

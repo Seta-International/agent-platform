@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { resetCoreDb } from '../src/db/client.ts';
-import { emit, withEmit } from '../src/events/index.ts';
-import { startDispatcher } from '../src/runtime/dispatcher/index.ts';
-import { waitFor, withCoreTestDb } from '../test/test-helpers.ts';
+import { resetCoreDb } from '../../src/db/client.ts';
+import { emit, withEmit } from '../../src/events/index.ts';
+import { startDispatcher } from '../../src/runtime/dispatcher/index.ts';
+import { waitFor, withCoreTestDb } from '../helpers.ts';
 
 describe('dispatcher DLQ', () => {
   it('after 3 failures (override), event lands in dead_letter and cursor advances', async () => {

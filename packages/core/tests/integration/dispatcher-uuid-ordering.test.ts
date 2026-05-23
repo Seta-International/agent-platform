@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { resetCoreDb } from '../src/db/client.ts';
-import { waitFor, withCoreTestDb, withDispatcher } from '../test/test-helpers.ts';
+import { resetCoreDb } from '../../src/db/client.ts';
+import { waitFor, withCoreTestDb, withDispatcher } from '../helpers.ts';
 
 // Regression: the dispatcher cursor used to advance by `id > lastId` (UUID lexicographic
 // comparison). With v4 random UUIDs, an event whose id sorts below the current cursor was
