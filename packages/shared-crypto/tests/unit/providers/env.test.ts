@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { createEnvKeyProvider } from '../../src/providers/env.ts';
+import { createEnvKeyProvider } from '../../../src/providers/env.ts';
 
 function fixedKeys(): { primary: Buffer; secondary: Buffer } {
   return { primary: randomBytes(32), secondary: randomBytes(32) };

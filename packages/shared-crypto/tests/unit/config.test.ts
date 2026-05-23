@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { DescribeKeyCommand, KMSClient } from '@aws-sdk/client-kms';
 import { mockClient } from 'aws-sdk-client-mock';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createKeyProviderFromEnv, parseCryptoEnv } from '../src/config.ts';
+import { createKeyProviderFromEnv, parseCryptoEnv } from '../../src/config.ts';
 
 const ARN = 'arn:aws:kms:us-east-1:000000000000:key/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
 const HEX = randomBytes(32).toString('hex');

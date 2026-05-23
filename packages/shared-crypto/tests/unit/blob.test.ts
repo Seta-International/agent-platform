@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isEncryptedBlob, parseEncryptedBlob } from '../src/blob.ts';
+import { isEncryptedBlob, parseEncryptedBlob } from '../../src/blob.ts';
 
 const VALID = {
   v: 1,

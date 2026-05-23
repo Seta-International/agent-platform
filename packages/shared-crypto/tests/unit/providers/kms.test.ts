@@ -7,7 +7,7 @@ import {
 } from '@aws-sdk/client-kms';
 import { mockClient } from 'aws-sdk-client-mock';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createKmsKeyProvider } from '../../src/providers/kms.ts';
+import { createKmsKeyProvider } from '../../../src/providers/kms.ts';
 
 const ARN = 'arn:aws:kms:us-east-1:000000000000:key/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
 

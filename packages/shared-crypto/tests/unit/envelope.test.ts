@@ -1,9 +1,9 @@
 import { randomBytes } from 'node:crypto';
 import pino from 'pino';
 import { describe, expect, it } from 'vitest';
-import { MAX_PLAINTEXT_BYTES } from '../src/constants.ts';
-import { createCrypto } from '../src/envelope.ts';
-import { createEnvKeyProvider } from '../src/providers/env.ts';
+import { MAX_PLAINTEXT_BYTES } from '../../src/constants.ts';
+import { createCrypto } from '../../src/envelope.ts';
+import { createEnvKeyProvider } from '../../src/providers/env.ts';
 
 function makeCrypto() {
   const provider = createEnvKeyProvider({

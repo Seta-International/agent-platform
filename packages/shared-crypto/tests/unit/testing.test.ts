@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createTestCrypto } from '../src/testing/index.ts';
+import { createTestCrypto } from '../../src/testing/index.ts';
 
 describe('createTestCrypto', () => {
   it('round-trips a string', async () => {
