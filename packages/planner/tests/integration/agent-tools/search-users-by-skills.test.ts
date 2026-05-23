@@ -5,7 +5,7 @@ import { createTestTenantWithAdmin } from '@seta/identity/testing';
 import { addGroupMember, createGroup } from '@seta/planner';
 import { identitySearchUsersBySkillsTool } from '@seta/planner/agent-tools';
 import { describe, expect, it } from 'vitest';
-import { makeToolContext, withCopilotTestDb } from '../test-helpers.ts';
+import { makeToolContext, withCopilotTestDb } from '../agent-tools-helpers.ts';
 
 function buildAdminSession(opts: {
   tenant_id: string;

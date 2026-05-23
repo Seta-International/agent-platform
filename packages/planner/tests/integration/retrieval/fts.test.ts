@@ -2,8 +2,8 @@ import { resetCoreDb } from '@seta/core/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
-import { seedTaskForTest } from '../../../../tests/helpers/seed.ts';
-import { FtsRetriever } from '../fts.ts';
+import { FtsRetriever } from '../../../src/backend/retrieval/fts.ts';
+import { seedTaskForTest } from '../../helpers/seed.ts';
 
 const mockCtx = {
   tenant_id: 'irrelevant',

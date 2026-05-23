@@ -2,7 +2,7 @@ import { createContributionRegistry, runMigrations } from '@seta/core';
 import { registerCoreContributions } from '@seta/core/register';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
-import { registerPlannerContributions } from '../src/register.ts';
+import { registerPlannerContributions } from '../../src/register.ts';
 
 describe('planner migrations', () => {
   it('creates planner.task_embeddings as a partitioned parent with the expected columns', async () => {

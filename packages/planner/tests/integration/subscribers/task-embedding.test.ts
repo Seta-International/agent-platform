@@ -5,7 +5,11 @@
  * records the graphile_worker.add_job call arguments.
  */
 import { describe, expect, it, vi } from 'vitest';
-import { handleTaskCreated, handleTaskDeleted, handleTaskUpdated } from '../task-embedding.ts';
+import {
+  handleTaskCreated,
+  handleTaskDeleted,
+  handleTaskUpdated,
+} from '../../../src/backend/subscribers/task-embedding.ts';
 
 function makeFakeCtx() {
   const executeSpy = vi.fn().mockResolvedValue({ rows: [] });

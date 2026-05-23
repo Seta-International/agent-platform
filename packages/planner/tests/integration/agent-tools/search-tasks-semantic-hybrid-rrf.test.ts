@@ -15,7 +15,7 @@ import { closePools, initPools } from '@seta/shared-db';
 import { NoopReranker } from '@seta/shared-retrieval';
 import { FakeEmbeddingProvider, withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
-import { seedTaskForTest } from '../../tests/helpers/seed.ts';
+import { seedTaskForTest } from '../../helpers/seed.ts';
 
 const withDb = <T>(fn: (ctx: { pool: import('pg').Pool }) => Promise<T>) =>
   withTestDb(
@@ -39,7 +39,7 @@ function makeFakeCtx(actor: { type: 'user'; user_id: string }) {
   const rc = new RequestContext<{ actor: typeof actor }>();
   rc.set('actor', actor);
   return { requestContext: rc } as unknown as Parameters<
-    ReturnType<typeof searchTasksSemanticTool>['execute']
+    NonNullable<ReturnType<typeof searchTasksSemanticTool>['execute']>
   >[1];
 }
 
@@ -98,7 +98,7 @@ describe('Demo journey step 5 — find tasks needing review on terraform', () =>
       });
 
       const actor = { type: 'user' as const, user_id: 'test-user-id' };
-      const result = await tool.execute(
+      const result = await tool.execute!(
         { query: 'tasks about terraform needing review', limit: 5 },
         makeFakeCtx(actor),
       );
@@ -106,7 +106,7 @@ describe('Demo journey step 5 — find tasks needing review on terraform', () =>
       expect(result).toBeDefined();
       expect(result).not.toHaveProperty('error');
 
-      const { hits } = result as Awaited<ReturnType<ReturnType<typeof tool.execute>>>;
+      const { hits } = result as Extract<typeof result, { hits: unknown[] }>;
       expect(hits.length).toBeGreaterThanOrEqual(1);
       // The terraform task must rank first — FTS on "terraform" guarantees this.
       expect(hits[0]?.task.task_id).toBe(terraformTaskId);

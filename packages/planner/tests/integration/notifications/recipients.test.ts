@@ -2,9 +2,9 @@ import { resetCoreDb } from '@seta/core/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
-import { plannerDb } from '../../db/index.ts';
-import { groupMembers, groups } from '../../db/schema.ts';
-import { resolveGroupMemberIds } from './recipients.ts';
+import { resolveGroupMemberIds } from '../../../src/backend/notifications/recipients.ts';
+import { plannerDb } from '../../../src/db/index.ts';
+import { groupMembers, groups } from '../../../src/db/schema.ts';
 
 const dbEnv = () => ({
   templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,

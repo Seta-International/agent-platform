@@ -3,9 +3,9 @@ import { closePools, initPools } from '@seta/shared-db';
 import { sourceHash } from '@seta/shared-embeddings';
 import { FakeEmbeddingProvider, withTestDb } from '@seta/shared-testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { seedTaskForTest } from '../../../tests/helpers/seed.ts';
-import { embedTask } from '../embed-task.ts';
-import { buildTaskSource } from '../source.ts';
+import { embedTask } from '../../../src/embeddings/embed-task.ts';
+import { buildTaskSource } from '../../../src/embeddings/source.ts';
+import { seedTaskForTest } from '../../helpers/seed.ts';
 
 function makeSpy(base: FakeEmbeddingProvider) {
   return vi.spyOn(base, 'embed');

@@ -2,7 +2,7 @@ import { resetCoreDb } from '@seta/core/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
-import { seedTenant } from './helpers.ts';
+import { seedTenant } from '../helpers.ts';
 
 describe('planner test harness smoke', () => {
   it('seeds a tenant + users + admin session', async () => {

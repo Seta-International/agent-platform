@@ -2,11 +2,11 @@ import { resetCoreDb } from '@seta/core/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it, vi } from 'vitest';
-import { buildSession, seedTenant } from '../../../tests/helpers.ts';
-import { createGroup } from '../../index.ts';
-import { PlannerError } from '../rbac.ts';
-import { getGroup } from './get-group.ts';
-import { resolveGroupConflict } from './resolve-group-conflict.ts';
+import { getGroup } from '../../../src/backend/domain/get-group.ts';
+import { resolveGroupConflict } from '../../../src/backend/domain/resolve-group-conflict.ts';
+import { PlannerError } from '../../../src/backend/rbac.ts';
+import { createGroup } from '../../../src/index.ts';
+import { buildSession, seedTenant } from '../../helpers.ts';
 
 const dbEnv = () => ({
   templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,

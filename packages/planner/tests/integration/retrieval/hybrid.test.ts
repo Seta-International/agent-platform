@@ -2,9 +2,9 @@ import { resetCoreDb } from '@seta/core/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { FakeEmbeddingProvider, withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
-import { embedTaskForTest } from '../../../../tests/helpers/embed.ts';
-import { seedTaskForTest } from '../../../../tests/helpers/seed.ts';
-import { HybridRetriever } from '../hybrid.ts';
+import { HybridRetriever } from '../../../src/backend/retrieval/hybrid.ts';
+import { embedTaskForTest } from '../../helpers/embed.ts';
+import { seedTaskForTest } from '../../helpers/seed.ts';
 
 const mockCtx = {
   tenant_id: 'irrelevant',
