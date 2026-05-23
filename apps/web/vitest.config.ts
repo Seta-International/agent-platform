@@ -6,8 +6,9 @@ export default defineConfig({
   test: {
     environment: 'happy-dom',
     globals: true,
-    setupFiles: ['./test/setup.ts'],
+    include: ['tests/**/*.test.{ts,tsx}'],
+    setupFiles: ['./tests/setup.ts'],
     css: false,
-    exclude: ['test/e2e/**', 'node_modules/**'],
+    exclude: ['tests/e2e/**', 'node_modules/**'],
   },
 });

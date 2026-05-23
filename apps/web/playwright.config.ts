@@ -9,13 +9,13 @@ if (existsSync(ENV_PATH)) process.loadEnvFile(ENV_PATH);
 const ADMIN_STORAGE_STATE = '.auth/admin.json';
 
 export default defineConfig({
-  testDir: 'test/e2e',
+  testDir: 'tests/e2e',
   testIgnore: ['**/helpers/**', '**/global-setup.ts'],
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['github'], ['list']] : 'list',
-  globalSetup: './test/e2e/global-setup.ts',
+  globalSetup: './tests/e2e/global-setup.ts',
   use: {
     baseURL: 'http://localhost:5173',
     storageState: ADMIN_STORAGE_STATE,
