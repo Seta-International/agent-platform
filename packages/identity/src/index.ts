@@ -1,3 +1,4 @@
+export { buildActorSession } from './backend/domain/build-actor-session.ts';
 export type { ChangeUserEmailInput } from './backend/domain/change-user-email.ts';
 export { changeUserEmail } from './backend/domain/change-user-email.ts';
 export type { Actor, CreateUserInput, CreateUserInviteOpts } from './backend/domain/create-user.ts';
@@ -79,6 +80,11 @@ export { updateMyDisplayName } from './backend/domain/update-my-display-name.ts'
 export type { UpdateUserProfilePatch } from './backend/domain/update-user-profile.ts';
 export { updateUserProfile } from './backend/domain/update-user-profile.ts';
 export { whoAmI } from './backend/domain/who-am-i.ts';
+export {
+  type BackfillUserProfilesOptions,
+  backfillUserProfiles,
+} from './backend/embeddings/backfill/backfill-user-profiles.ts';
+export { embeddingJobs } from './backend/embeddings/register-jobs.ts';
 export { IdentityError } from './backend/rbac.ts';
 export { buildAdminConsentUrl } from './backend/sso/consent-url.ts';
 export type { ProviderRow as SsoProviderRow } from './backend/sso/helpers.ts';

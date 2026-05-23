@@ -1,4 +1,4 @@
-import type { CopilotTool, WorkflowBuilder } from '@seta/copilot-sdk';
+import type { CopilotTool } from '@seta/copilot-sdk';
 import type { SubscriberDef } from '@seta/shared-types';
 import type { Task, TaskList } from 'graphile-worker';
 import type { Hono } from 'hono';
@@ -7,6 +7,10 @@ import type { z } from 'zod';
 import type { WorkerHandle } from '../runtime/workers/index.ts';
 
 export type JobHandler = Task;
+
+// Workflow builders are passed an opaque Mastra instance and register workflows on it.
+// Typed as `unknown` to avoid leaking @mastra/core into the registry's dependency surface.
+export type WorkflowBuilder = (mastra: unknown) => unknown;
 
 export interface RouteBuildDeps {
   pool: Pool;
@@ -121,8 +125,10 @@ export function createContributionRegistry(): ContributionRegistry {
     if (c.stream) streamHubBuilders.push({ module: c.name, builder: c.stream });
     if (c.agentTools) {
       for (const tool of c.agentTools) {
-        if (seenToolIds.has(tool.id)) throw new Error(`duplicate agent tool id: ${tool.id}`);
-        seenToolIds.add(tool.id);
+        const id = (tool as { id?: string }).id;
+        if (!id) throw new Error('agent tool is missing its required id field');
+        if (seenToolIds.has(id)) throw new Error(`duplicate agent tool id: ${id}`);
+        seenToolIds.add(id);
         agentTools.push(tool);
       }
     }

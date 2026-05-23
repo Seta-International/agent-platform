@@ -1,6 +1,6 @@
 import { createTool } from '@mastra/core/tools';
+import { RequestContextSchema, registerToolPermission } from '@seta/copilot-sdk';
 import { z } from 'zod';
-import { RequestContextSchema, registerToolPermission } from '../_types.ts';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Tool

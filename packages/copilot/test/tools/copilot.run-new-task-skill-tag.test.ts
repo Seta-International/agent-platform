@@ -1,7 +1,7 @@
+import { requiredPermissionFor } from '@seta/copilot-sdk';
+import { plannerGetTaskTool } from '@seta/planner/agent-tools';
 import { describe, expect, it, vi } from 'vitest';
-import { requiredPermissionFor } from '../../src/backend/tools/_types.ts';
 import { copilotRunNewTaskSkillTagTool } from '../../src/backend/tools/copilot.run-new-task-skill-tag.ts';
-import { plannerGetTaskTool } from '../../src/backend/tools/planner.get-task.ts';
 import { makeToolContext } from '../test-helpers.ts';
 
 describe('copilot_runNewTaskSkillTag tool', () => {

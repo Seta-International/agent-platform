@@ -1,5 +1,5 @@
 import { createStep } from '@mastra/core/workflows';
-import { plannerGetTaskTool } from '../../../tools/planner.get-task.ts';
+import { plannerGetTaskTool } from '@seta/planner/agent-tools';
 import { stateAfterLoadSchema, workflowInputSchema } from '../state-schema.ts';
 
 interface TaskExecResult {

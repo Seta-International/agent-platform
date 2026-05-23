@@ -1,10 +1,10 @@
-import { embeddingJobs } from '@seta/copilot';
+import { embeddingJobs } from '@seta/identity';
 import { knowledgeJobs } from '@seta/knowledge/jobs';
 import { plannerEmbeddingJobs } from '@seta/planner';
 import { describe, expect, it } from 'vitest';
 
 describe('apps/server — embedding job registration', () => {
-  it('exposes embed_user_profile from @seta/copilot', () => {
+  it('exposes embed_user_profile from @seta/identity', () => {
     expect(Object.keys(embeddingJobs)).toEqual(['embed_user_profile']);
     expect(embeddingJobs).not.toHaveProperty('embed_task');
     expect(embeddingJobs).not.toHaveProperty('parse_knowledge_file');

@@ -1,10 +1,10 @@
 import { RequestContext } from '@mastra/core/request-context';
 import type { ToolExecutionContext } from '@mastra/core/tools';
+import type { CopilotRequestContext } from '@seta/copilot-sdk';
 import { resetCoreDb } from '@seta/core/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import type { Pool } from 'pg';
-import type { CopilotRequestContext } from '../src/backend/tools/_types.ts';
 
 export function makeToolContext(actor: {
   user_id: string;

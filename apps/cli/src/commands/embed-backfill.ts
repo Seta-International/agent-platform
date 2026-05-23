@@ -1,4 +1,4 @@
-import { backfillUserProfiles as defaultBackfillUserProfiles } from '@seta/copilot/backend/embeddings/backfill/backfill-user-profiles';
+import { backfillUserProfiles as defaultBackfillUserProfiles } from '@seta/identity';
 import { backfillTasks as defaultBackfillTasks } from '@seta/planner';
 import { getPool, type Pool } from '@seta/shared-db';
 

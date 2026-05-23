@@ -1,11 +1,10 @@
-import { embeddingJobs } from '@seta/copilot';
 import { createContributionRegistry } from '@seta/core';
 import { coreDb } from '@seta/core/db';
 import { emit, withEmit } from '@seta/core/events';
 import { createOutboxStore } from '@seta/core/outbox';
 import { registerCoreContributions } from '@seta/core/register';
 import { buildRuntime, runMigrations, type WorkerHandle } from '@seta/core/runtime';
-import { getEntraTenantId } from '@seta/identity';
+import { embeddingJobs, getEntraTenantId } from '@seta/identity';
 import { registerIdentityContributions } from '@seta/identity/register';
 import { createMailTransportConfigStore } from '@seta/integrations';
 import { integrationsDb } from '@seta/integrations/db';

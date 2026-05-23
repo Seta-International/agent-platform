@@ -8,10 +8,7 @@
     ".": "./src/index.ts",
     "./events": "./src/events/index.ts",
     "./register": "./src/register.ts",
-    "./testing": "./src/testing/fixtures.ts",
-    "./testing/embed": "./src/testing/embed.ts",
-    "./backend/embeddings/backfill/backfill-tasks": "./src/backend/embeddings/backfill/backfill-tasks.ts",
-    "./backend/embeddings/backfill/backfill-user-profiles": "./src/backend/embeddings/backfill/backfill-user-profiles.ts"
+    "./testing": "./src/testing/fixtures.ts"
   },
   "scripts": {
     "lint": "eslint . --no-error-on-unmatched-pattern",

@@ -1,5 +1,5 @@
+import { requiredPermissionFor } from '@seta/copilot-sdk';
 import { describe, expect, it } from 'vitest';
-import { requiredPermissionFor } from '../../../src/backend/tools/_types.ts';
 import { skillMatcherLlmParserTool } from '../../../src/backend/tools/skill-matcher/llm-parser.ts';
 import { makeToolContext } from '../../test-helpers.ts';
 

@@ -2,10 +2,11 @@
   "name": "@seta/copilot-sdk",
   "version": "0.0.1",
   "private": true,
-  "description": "Agent-tool contract — defineCopilotTool, SessionLike, RequestContext type re-exports. Modules build agent tools against this contract without depending on the Mastra runtime.",
+  "description": "Agent-tool contract — Mastra tool types, request-context schema, and permission registry. Modules build agent tools against this contract without depending on the @seta/copilot runtime.",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./testing": "./src/testing.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -17,6 +18,7 @@
     "vitest": "^4.1.7"
   },
   "dependencies": {
+    "@mastra/core": "^1.36.0",
     "zod": "^4.4.3"
   }
 }

@@ -2,6 +2,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ContributionRegistry, ErrorMapper } from '@seta/core';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
+import { plannerAgentTools } from './backend/agent-tools/index.ts';
 import { buildPlannerRoutes } from './backend/http/index.ts';
 import { PlannerError } from './backend/rbac.ts';
 import { buildPlannerBoardStreamHub } from './backend/stream/index.ts';
@@ -42,6 +43,7 @@ export function registerPlannerContributions(reg: ContributionRegistry): void {
     name: 'planner',
     schema,
     migrationsDir: resolve(__dirname, '../drizzle'),
+    agentTools: plannerAgentTools,
     subscribers: plannerSubscribers(),
     routes: { mountAt: '/', build: buildPlannerRoutes },
     stream: buildPlannerBoardStreamHub,

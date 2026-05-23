@@ -25,7 +25,6 @@ export type {
 export { replayWorkflowFromStep } from './backend/domain/replay-workflow-from-step.ts';
 export type { RerunWorkflowOpts, RerunWorkflowResult } from './backend/domain/rerun-workflow.ts';
 export { rerunWorkflow } from './backend/domain/rerun-workflow.ts';
-export { embeddingJobs } from './backend/embeddings/register-jobs.ts';
 export { bindOtel, otel } from './backend/observability.ts';
 export type { SessionLike } from './backend/types.ts';
 export type { ResumeRetryDeps, ResumeRetryResult } from './backend/workflows/resume-retry.ts';

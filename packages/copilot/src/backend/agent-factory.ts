@@ -1,6 +1,7 @@
 import type { Mastra } from '@mastra/core';
 import { Agent } from '@mastra/core/agent';
 import { Memory } from '@mastra/memory';
+import { type CopilotTool, RequestContextSchema } from '@seta/copilot-sdk';
 import { hashRoleSummary } from '@seta/core';
 import { LRUCache } from 'lru-cache';
 import type { Pool } from 'pg';
@@ -8,7 +9,6 @@ import { buildAgentCatalog } from './agents/catalog.ts';
 import { type AgentSpec, type AgentSpecs, findSpec, listAgentNames } from './agents/specs.ts';
 import { resolveModel } from './model-registry.ts';
 import { filterToolsByRbac } from './rbac-filter.ts';
-import { type CopilotTool, RequestContextSchema } from './tools/_types.ts';
 
 export type AgentFactoryDeps = {
   mastra: Mastra;

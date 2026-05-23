@@ -2,6 +2,12 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ContributionRegistry, ErrorMapper } from '@seta/core';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
+import { identityAgentTools } from './backend/agent-tools/index.ts';
+import {
+  refreshUserProfileCreatedSubscriber,
+  refreshUserProfileDeactivatedSubscriber,
+  refreshUserProfileUpdatedSubscriber,
+} from './backend/embeddings/subscribers/refresh-user-profile.ts';
 import { buildIdentityRoutes } from './backend/http/index.ts';
 import { IdentityError } from './backend/rbac.ts';
 import * as schema from './db/schema.ts';
@@ -20,6 +26,12 @@ export function registerIdentityContributions(reg: ContributionRegistry): void {
     name: 'identity',
     schema,
     migrationsDir: resolve(__dirname, '../drizzle'),
+    agentTools: identityAgentTools,
+    subscribers: [
+      refreshUserProfileCreatedSubscriber,
+      refreshUserProfileUpdatedSubscriber,
+      refreshUserProfileDeactivatedSubscriber,
+    ],
     routes: { mountAt: '/', build: buildIdentityRoutes },
     errorMapper: identityErrorMapper,
   });

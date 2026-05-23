@@ -1,5 +1,5 @@
+import type { CopilotTool } from '@seta/copilot-sdk';
 import type { ModelTier } from '../model-registry.ts';
-import type { CopilotTool } from '../tools/_types.ts';
 
 export interface AgentSpec {
   name: string;

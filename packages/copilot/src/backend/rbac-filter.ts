@@ -1,4 +1,4 @@
-import { type CopilotTool, requiredPermissionFor } from './tools/_types.ts';
+import { type CopilotTool, requiredPermissionFor } from '@seta/copilot-sdk';
 
 type SessionLike = { effective_permissions: ReadonlySet<string> };
 

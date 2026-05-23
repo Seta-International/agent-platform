@@ -1,8 +1,8 @@
 import { createTool } from '@mastra/core/tools';
+import { registerToolPermission } from '@seta/copilot-sdk';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { filterToolsByRbac } from '../src/backend/rbac-filter.ts';
-import { registerToolPermission } from '../src/backend/tools/_types.ts';
 
 const a = registerToolPermission(
   createTool({

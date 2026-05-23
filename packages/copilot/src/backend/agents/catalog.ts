@@ -1,18 +1,16 @@
 import type { Mastra } from '@mastra/core';
+import type { CopilotTool } from '@seta/copilot-sdk';
+import { matchUsersToTopicTool } from '@seta/identity/agent-tools';
+import { searchTasksSemanticTool } from '@seta/planner/agent-tools';
 import type { EmbeddingProvider } from '@seta/shared-embeddings';
 import { resolveReranker } from '@seta/shared-retrieval';
 import type { Pool } from 'pg';
-import { resolveEmbeddingProvider } from '../embeddings/provider-resolver.ts';
+import { resolveEmbeddingProvider } from '../embedding-provider.ts';
 import { ROUTER_INSTRUCTIONS, SELF_INSTRUCTIONS } from '../instructions.ts';
-import type { CopilotTool } from '../tools/_types.ts';
 import { makeListMyThreadsTool } from '../tools/copilot.list-my-threads.ts';
 import { copilotRunNewTaskSkillTagTool } from '../tools/copilot.run-new-task-skill-tag.ts';
-import { matchUsersToTopicTool } from '../tools/match-users-to-topic.ts';
-import { searchTasksSemanticTool } from '../tools/search-tasks-semantic.ts';
-import { STATIC_SELF_TOOLS } from '../tools/self-tools.ts';
 import type { AgentSpec, AgentSpecs } from './specs.ts';
 
-// Resolved once at module load — avoids re-reading env on every agent catalog rebuild.
 const reranker = resolveReranker();
 
 type MastraStorageThreadRow = {
@@ -31,7 +29,6 @@ type MastraMemoryStore = {
 
 type MastraStorageWithStores = { stores?: { memory?: MastraMemoryStore } };
 
-/** Lazily-resolved proxy: Provider is resolved on first property or method access. */
 function makeLazyProvider(): EmbeddingProvider {
   let inner: EmbeddingProvider | undefined;
   const get = (): EmbeddingProvider => (inner ??= resolveEmbeddingProvider());
@@ -46,12 +43,31 @@ function makeLazyProvider(): EmbeddingProvider {
   };
 }
 
+function indexById(tools: ReadonlyArray<CopilotTool>): Map<string, CopilotTool> {
+  const bag = new Map<string, CopilotTool>();
+  for (const t of tools) {
+    const id = (t as { id?: string }).id;
+    if (id) bag.set(id, t);
+  }
+  return bag;
+}
+
+function pickById(byId: Map<string, CopilotTool>, ids: string[]): CopilotTool[] {
+  return ids.map((id) => {
+    const t = byId.get(id);
+    if (!t) throw new Error(`agent-catalog: tool not registered: ${id}`);
+    return t;
+  });
+}
+
 export function buildAgentCatalog(deps: {
   mastra: Mastra;
   pool: Pool;
   agentTools: ReadonlyArray<CopilotTool>;
 }): AgentSpecs {
   const provider = makeLazyProvider();
+  const byId = indexById(deps.agentTools);
+
   const listMyThreads = makeListMyThreadsTool({
     listThreads: async ({ resourceId, limit }) => {
       const storage = deps.mastra.getStorage() as MastraStorageWithStores | null;
@@ -73,7 +89,12 @@ export function buildAgentCatalog(deps: {
     description: 'Answers questions about your account, roles, and recent threads',
     instructions: SELF_INSTRUCTIONS,
     tools: [
-      ...STATIC_SELF_TOOLS,
+      ...pickById(byId, [
+        'core_serverTime',
+        'identity_whoAmI',
+        'identity_listMyRoles',
+        'identity_updateMyDisplayName',
+      ]),
       listMyThreads,
       searchTasksSemanticTool({ provider, pool: deps.pool, reranker }),
       matchUsersToTopicTool({ provider, pool: deps.pool, reranker }),

@@ -1,5 +1,5 @@
 import { createStep } from '@mastra/core/workflows';
-import { plannerAssignTaskTool } from '../../../tools/planner.assign-task.ts';
+import { plannerAssignTaskTool } from '@seta/planner/agent-tools';
 import { stateAfterApprovalSchema, workflowOutputSchema } from '../state-schema.ts';
 
 interface AssignExecResult {

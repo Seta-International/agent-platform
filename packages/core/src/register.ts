@@ -1,5 +1,6 @@
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { coreAgentTools } from './backend/agent-tools/index.ts';
 import type { ContributionRegistry } from './composition/registry.ts';
 import * as schema from './db/schema/index.ts';
 import { invalidateUserSessions } from './session/invalidate.ts';
@@ -11,6 +12,7 @@ export function registerCoreContributions(reg: ContributionRegistry): void {
     name: 'core',
     schema,
     migrationsDir: resolve(__dirname, '../drizzle/migrations'),
+    agentTools: coreAgentTools,
     subscribers: [
       {
         event: 'identity.role_grant.changed',

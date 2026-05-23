@@ -1,3 +1,6 @@
+import { coreAgentTools } from '@seta/core/agent-tools';
+import { identityAgentTools } from '@seta/identity/agent-tools';
+import { plannerAgentTools } from '@seta/planner/agent-tools';
 import { describe, expect, it } from 'vitest';
 import { createAgentFactory } from '../src/backend/agent-factory.ts';
 import { buildMastra } from '../src/backend/runtime.ts';
@@ -28,7 +31,11 @@ describe('createAgentFactory', () => {
     await withCopilotTestDb(async ({ pool, databaseUrl }) => {
       const mastra = buildMastra({ pool, databaseUrl });
       await (mastra.getStorage() as { init: () => Promise<void> }).init();
-      const factory = createAgentFactory({ mastra, pool, agentTools: [] });
+      const factory = createAgentFactory({
+        mastra,
+        pool,
+        agentTools: [...coreAgentTools, ...identityAgentTools, ...plannerAgentTools],
+      });
       const a = factory(baseSession({ user_id: 'u1' }) as never).get('self');
       const b = factory(baseSession({ user_id: 'u2' }) as never).get('self');
       expect(a).toBe(b);
@@ -39,7 +46,11 @@ describe('createAgentFactory', () => {
     await withCopilotTestDb(async ({ pool, databaseUrl }) => {
       const mastra = buildMastra({ pool, databaseUrl });
       await (mastra.getStorage() as { init: () => Promise<void> }).init();
-      const factory = createAgentFactory({ mastra, pool, agentTools: [] });
+      const factory = createAgentFactory({
+        mastra,
+        pool,
+        agentTools: [...coreAgentTools, ...identityAgentTools, ...plannerAgentTools],
+      });
       const a = factory(
         baseSession({
           role_summary: { roles: ['member'], cross_tenant_read: false },
@@ -58,7 +69,11 @@ describe('createAgentFactory', () => {
     await withCopilotTestDb(async ({ pool, databaseUrl }) => {
       const mastra = buildMastra({ pool, databaseUrl });
       await (mastra.getStorage() as { init: () => Promise<void> }).init();
-      const factory = createAgentFactory({ mastra, pool, agentTools: [] });
+      const factory = createAgentFactory({
+        mastra,
+        pool,
+        agentTools: [...coreAgentTools, ...identityAgentTools, ...plannerAgentTools],
+      });
       const bag = factory(baseSession() as never);
       expect(bag.names().sort()).toEqual(factory.names.slice().sort());
       for (const name of factory.names) {
@@ -75,7 +90,11 @@ describe('createAgentFactory', () => {
     await withCopilotTestDb(async ({ pool, databaseUrl }) => {
       const mastra = buildMastra({ pool, databaseUrl });
       await (mastra.getStorage() as { init: () => Promise<void> }).init();
-      const factory = createAgentFactory({ mastra, pool, agentTools: [] });
+      const factory = createAgentFactory({
+        mastra,
+        pool,
+        agentTools: [...coreAgentTools, ...identityAgentTools, ...plannerAgentTools],
+      });
       const selfSpec = factory.specs.find((s) => s.name === 'self');
       const toolIds = selfSpec?.tools.map((t) => (t as { id?: string }).id) ?? [];
       expect(toolIds).toContain('search_tasks_semantic');

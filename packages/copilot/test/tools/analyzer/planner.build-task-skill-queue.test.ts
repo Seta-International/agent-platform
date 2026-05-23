@@ -1,5 +1,5 @@
+import { requiredPermissionFor } from '@seta/copilot-sdk';
 import { describe, expect, it, vi } from 'vitest';
-import { requiredPermissionFor } from '../../../src/backend/tools/_types.ts';
 import { makePlannerBuildTaskSkillQueueTool } from '../../../src/backend/tools/analyzer/planner.build-task-skill-queue.ts';
 import { makeToolContext } from '../../test-helpers.ts';
 

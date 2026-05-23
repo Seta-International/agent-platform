@@ -1,5 +1,5 @@
 import { createStep } from '@mastra/core/workflows';
-import { identitySearchUsersBySkillsTool } from '../../../tools/identity.search-users-by-skills.ts';
+import { identitySearchUsersBySkillsTool } from '@seta/planner/agent-tools';
 import { stateAfterCandidatesSchema, stateAfterClassifySchema } from '../state-schema.ts';
 
 interface CandidatesExecResult {

@@ -1,6 +1,6 @@
 import { createTool } from '@mastra/core/tools';
+import { actorFromContext, RequestContextSchema, registerToolPermission } from '@seta/copilot-sdk';
 import { z } from 'zod';
-import { actorFromContext, RequestContextSchema, registerToolPermission } from '../_types.ts';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Leave record type
