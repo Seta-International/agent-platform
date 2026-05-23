@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { passesGate, perm, type SessionScope, type VisibilityGate } from '../src/index.ts';
+import { passesGate, perm, type SessionScope, type VisibilityGate } from '../../src/index.ts';
 
 const session = (perms: string[], extra: Partial<SessionScope> = {}): SessionScope => ({
   userId: 'u1',
