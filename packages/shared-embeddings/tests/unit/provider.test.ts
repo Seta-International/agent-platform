@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { EmbeddingProvider } from '../src/index.ts';
+import type { EmbeddingProvider } from '../../src/index.ts';
 
 describe('EmbeddingProvider type', () => {
   it('exposes a callable shape with modelId and embed(texts)', async () => {

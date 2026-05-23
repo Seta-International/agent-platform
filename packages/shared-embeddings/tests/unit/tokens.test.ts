@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { countTokens } from '../src/tokens.ts';
+import { countTokens } from '../../src/tokens.ts';
 
 describe('countTokens', () => {
   it('counts the empty string as 0 tokens', () => {

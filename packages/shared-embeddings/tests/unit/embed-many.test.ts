@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { embedMany } from '../src/embed-many.ts';
-import type { EmbeddingProvider } from '../src/index.ts';
+import { embedMany } from '../../src/embed-many.ts';
+import type { EmbeddingProvider } from '../../src/index.ts';
 
 const fakeProvider = (impl: (texts: string[]) => Promise<number[][]>): EmbeddingProvider => ({
   modelId: 'fake:test',

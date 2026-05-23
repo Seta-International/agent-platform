@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sourceHash } from '../src/source-hash.ts';
+import { sourceHash } from '../../src/source-hash.ts';
 
 describe('sourceHash', () => {
   it('is stable across runs for the same string', () => {
