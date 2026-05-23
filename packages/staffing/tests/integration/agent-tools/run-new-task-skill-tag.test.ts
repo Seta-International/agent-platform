@@ -2,7 +2,7 @@ import { requiredPermissionFor } from '@seta/copilot-sdk';
 import { plannerGetTaskTool } from '@seta/planner/agent-tools';
 import { describe, expect, it, vi } from 'vitest';
 import { staffingRunNewTaskSkillTagTool } from '../../../src/backend/agent-tools/run-new-task-skill-tag.ts';
-import { makeToolContext } from '../../test-helpers.ts';
+import { makeToolContext } from '../../helpers.ts';
 
 describe('copilot_runNewTaskSkillTag tool', () => {
   it('is registered with permission copilot.workflow.run.execute.self', () => {

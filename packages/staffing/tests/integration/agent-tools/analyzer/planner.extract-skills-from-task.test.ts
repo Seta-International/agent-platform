@@ -1,7 +1,7 @@
 import { requiredPermissionFor } from '@seta/copilot-sdk';
 import { describe, expect, it } from 'vitest';
 import { plannerExtractSkillsFromTaskTool } from '../../../../src/backend/agent-tools/analyzer/planner.extract-skills-from-task.ts';
-import { makeToolContext } from '../../../test-helpers.ts';
+import { makeToolContext } from '../../../helpers.ts';
 
 const CTX = makeToolContext({ user_id: '00000000-0000-4000-8000-000000000099' });
 const TASK_ID = '00000000-0000-4000-8000-000000000001';

@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { onPlannerTaskCreated } from '../../../src/backend/subscribers/on-planner-task-created.ts';
 import { classifySkillsAgent } from '../../../src/backend/workflows/new-task-skill-tag/agents/classify-skills.ts';
 import { registerNewTaskSkillTagWorkflow } from '../../../src/backend/workflows/new-task-skill-tag/index.ts';
-import { withCopilotTestDb } from '../../test-helpers.ts';
+import { withCopilotTestDb } from '../../helpers.ts';
 
 function buildPlannerTaskCreatedEvent(opts: {
   tenant_id: string;

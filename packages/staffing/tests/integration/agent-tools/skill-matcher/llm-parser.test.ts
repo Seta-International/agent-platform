@@ -1,7 +1,7 @@
 import { requiredPermissionFor } from '@seta/copilot-sdk';
 import { describe, expect, it } from 'vitest';
 import { skillMatcherLlmParserTool } from '../../../../src/backend/agent-tools/skill-matcher/llm-parser.ts';
-import { makeToolContext } from '../../../test-helpers.ts';
+import { makeToolContext } from '../../../helpers.ts';
 
 const TASK_ID = '00000000-0000-4000-8000-000000000001';
 const CTX = makeToolContext({ user_id: '00000000-0000-4000-8000-000000000099' });

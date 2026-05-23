@@ -4,7 +4,7 @@ import {
   type ChunkResult,
   makeSkillMatcherContextSearchTool,
 } from '../../../../src/backend/agent-tools/skill-matcher/context-search.ts';
-import { makeToolContext } from '../../../test-helpers.ts';
+import { makeToolContext } from '../../../helpers.ts';
 
 const TASK_ID = '00000000-0000-4000-8000-000000000001';
 const CALLER_ID = '00000000-0000-4000-8000-000000000099';
