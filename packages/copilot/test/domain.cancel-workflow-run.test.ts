@@ -3,7 +3,7 @@ import type { Mastra } from '@mastra/core';
 import { describe, expect, it, vi } from 'vitest';
 import { cancelWorkflowRun } from '../src/backend/domain/cancel-workflow-run.ts';
 import type { SessionLike } from '../src/backend/types.ts';
-import { onLifecycleEvent } from '../src/backend/workflows/lifecycle-hook.ts';
+import { onLifecycleEvent } from '../src/backend/workflows/_infra/lifecycle-hook.ts';
 import { withCopilotTestDb } from './test-helpers.ts';
 
 function sessionWith(perms: string[], tenantId = randomUUID(), userId = randomUUID()): SessionLike {

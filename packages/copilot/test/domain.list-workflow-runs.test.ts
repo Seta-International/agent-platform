@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { listWorkflowRuns } from '../src/backend/domain/list-workflow-runs.ts';
 import type { SessionLike } from '../src/backend/types.ts';
-import { onLifecycleEvent } from '../src/backend/workflows/lifecycle-hook.ts';
+import { onLifecycleEvent } from '../src/backend/workflows/_infra/lifecycle-hook.ts';
 import { withCopilotTestDb } from './test-helpers.ts';
 
 function sessionWith(perms: string[], tenantId = randomUUID(), userId = randomUUID()): SessionLike {

@@ -18,6 +18,7 @@ import { createCrypto, createKeyProviderFromEnv, parseCryptoEnv } from '@seta/sh
 import { closePools, getPool, initPools } from '@seta/shared-db';
 import { createMailer, resolveTransport } from '@seta/shared-mailer';
 import { createMailerSendTask } from '@seta/shared-mailer/queue';
+import { registerStaffingContributions } from '@seta/staffing/register';
 import pino from 'pino';
 import { buildServerApp, registerAppContributions } from './build.ts';
 import { parseEnv } from './env.ts';
@@ -53,6 +54,7 @@ registerIntegrationsContributions(reg, {
 registerKnowledgeContributions(reg);
 registerNotificationsContributions(reg);
 registerPlannerContributions(reg);
+registerStaffingContributions(reg);
 registerAppContributions(reg);
 
 const lag = await runMigrations(reg, { pool: getPool('worker'), assertCaughtUpOnly: true });

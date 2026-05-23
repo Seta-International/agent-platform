@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import type { MastraLifecycleEvent } from '../src/backend/workflows/lifecycle-hook.ts';
-import { onLifecycleEvent } from '../src/backend/workflows/lifecycle-hook.ts';
+import type { MastraLifecycleEvent } from '../src/backend/workflows/_infra/lifecycle-hook.ts';
+import { onLifecycleEvent } from '../src/backend/workflows/_infra/lifecycle-hook.ts';
 import { withCopilotTestDb } from './test-helpers.ts';
 
 const FIXED_RUN_ID = '11111111-1111-1111-1111-111111111111';

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { CoalescingEmitter } from '../../src/backend/workflows/coalescing-emitter.ts';
+import { CoalescingEmitter } from '../../src/backend/workflows/_infra/coalescing-emitter.ts';
 
 describe('CoalescingEmitter', () => {
   it('coalesces updates per key to one emission per window', async () => {

@@ -18,10 +18,10 @@ import { copilotEnv } from './env.ts';
 import { listModels, ModelNotFoundError, resolveModel } from './model-registry.ts';
 import { RateLimitError, reserveTurn } from './rate-limit.ts';
 import type { SessionLike } from './types.ts';
-import { issueSseToken } from './workflows/auth-token.ts';
-import { getWorkflowInputSchema } from './workflows/input-schema-registry.ts';
-import { mountInboxSse } from './workflows/sse-inbox.ts';
-import { mountRunSse } from './workflows/sse-run.ts';
+import { issueSseToken } from './workflows/_infra/auth-token.ts';
+import { getWorkflowInputSchema } from './workflows/_infra/input-schema-registry.ts';
+import { mountInboxSse } from './workflows/_infra/sse-inbox.ts';
+import { mountRunSse } from './workflows/_infra/sse-run.ts';
 
 function handleDomainError(c: Context<CopilotRouteEnv>, err: unknown): Response {
   if (err && typeof err === 'object' && 'code' in err) {

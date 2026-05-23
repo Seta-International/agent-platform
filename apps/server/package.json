@@ -24,6 +24,7 @@
     "@seta/shared-db": "workspace:^",
     "@seta/shared-mailer": "workspace:^",
     "@seta/shared-types": "workspace:^",
+    "@seta/staffing": "workspace:^",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.12.21",
     "pino": "^10.3.1",

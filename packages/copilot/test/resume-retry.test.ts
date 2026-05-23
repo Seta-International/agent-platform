@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import type { Mastra } from '@mastra/core';
 import { describe, expect, it, vi } from 'vitest';
-import { onLifecycleEvent } from '../src/backend/workflows/lifecycle-hook.ts';
-import { resumeRetry } from '../src/backend/workflows/resume-retry.ts';
+import { onLifecycleEvent } from '../src/backend/workflows/_infra/lifecycle-hook.ts';
+import { resumeRetry } from '../src/backend/workflows/_infra/resume-retry.ts';
 import { withCopilotTestDb } from './test-helpers.ts';
 
 function makeMastra(resume: ReturnType<typeof vi.fn>): Mastra {

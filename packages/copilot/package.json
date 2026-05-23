@@ -37,6 +37,7 @@
     "@mastra/core": "^1.36.0",
     "@mastra/memory": "^1.19.0",
     "@mastra/pg": "^1.11.1",
+    "@seta/copilot-sdk": "workspace:^",
     "@seta/planner": "workspace:^",
     "@seta/shared-embeddings": "workspace:^",
     "@seta/shared-retrieval": "workspace:^",

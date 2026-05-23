@@ -8,7 +8,7 @@ import { listMyPendingApprovals } from '../../src/backend/domain/list-my-pending
 import { listWorkflowRuns } from '../../src/backend/domain/list-workflow-runs.ts';
 import { rerunWorkflow } from '../../src/backend/domain/rerun-workflow.ts';
 import type { SessionLike } from '../../src/backend/types.ts';
-import { onLifecycleEvent } from '../../src/backend/workflows/lifecycle-hook.ts';
+import { onLifecycleEvent } from '../../src/backend/workflows/_infra/lifecycle-hook.ts';
 import { withCopilotTestDb } from '../test-helpers.ts';
 
 function session(tenantId: string, userId: string, perms: string[]): SessionLike {

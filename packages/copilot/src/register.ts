@@ -2,25 +2,24 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Mastra } from '@mastra/core';
 import type { ContributionRegistry } from '@seta/core';
-import type { SubscriberDef } from '@seta/shared-types';
 import type { Hono } from 'hono';
 import type { Pool } from 'pg';
 import { createAgentFactory } from './backend/agent-factory.ts';
 import { registerCopilotRoutes } from './backend/routes.ts';
 import { buildMastra } from './backend/runtime.ts';
-import { makeOnPlannerTaskCreatedSubscriber } from './backend/subscribers/on-planner-task-created.ts';
-import { registerNewTaskSkillTagWorkflow } from './backend/workflows/new-task-skill-tag/index.ts';
 import * as schema from './db/schema.ts';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
-// Late-bound Mastra reference. registerCopilotContributions() registers subscribers
-// at composition time (before any runtime deps exist); registerCopilot(deps) builds
-// the Mastra instance and parks it here so subscriber handlers can reach it. Single
-// instance per process by design — never re-assigned across builds.
+// Single-process Mastra singleton. registerCopilot(deps) builds it; orchestrator
+// modules (staffing, future task-assistant, etc.) reach it from their subscribers
+// via getMastra() through @seta/copilot's public surface.
 let mastraRef: Mastra | null = null;
 
-function getMastraOrNull(): Mastra | null {
+export function getMastra(): Mastra {
+  if (!mastraRef) {
+    throw new Error('mastra runtime not built yet — call registerCopilot(deps) first');
+  }
   return mastraRef;
 }
 
@@ -28,26 +27,11 @@ function setMastraRef(mastra: Mastra): void {
   mastraRef = mastra;
 }
 
-function copilotSubscribers(): SubscriberDef[] {
-  return [
-    makeOnPlannerTaskCreatedSubscriber({
-      get mastra() {
-        const m = getMastraOrNull();
-        if (!m) {
-          throw new Error('copilot subscriber invoked before Mastra runtime was built');
-        }
-        return m;
-      },
-    } as never),
-  ];
-}
-
 export function registerCopilotContributions(reg: ContributionRegistry): void {
   reg.module({
     name: 'copilot',
     schema,
     migrationsDir: resolve(__dirname, '../drizzle'),
-    subscribers: copilotSubscribers(),
   });
 }
 
@@ -61,7 +45,9 @@ export function registerCopilot(deps: {
   reg: ContributionRegistry;
 }): CopilotHandle {
   const mastra = buildMastra({ pool: deps.pool, databaseUrl: deps.databaseUrl });
-  registerNewTaskSkillTagWorkflow(mastra);
+  for (const { builder } of deps.reg.collected.workflowBuilders) {
+    builder(mastra);
+  }
   void mastra.startWorkers();
   setMastraRef(mastra);
   const factory = createAgentFactory({

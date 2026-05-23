@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import type { Mastra } from '@mastra/core';
 import { describe, expect, it, vi } from 'vitest';
-import { onLifecycleEvent } from '../src/backend/workflows/lifecycle-hook.ts';
-import { sweepWorkflowApprovals } from '../src/backend/workflows/sweeper.ts';
+import { onLifecycleEvent } from '../src/backend/workflows/_infra/lifecycle-hook.ts';
+import { sweepWorkflowApprovals } from '../src/backend/workflows/_infra/sweeper.ts';
 import { withCopilotTestDb } from './test-helpers.ts';
 
 async function seedSuspendedRun(

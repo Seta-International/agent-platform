@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { CopilotRouteEnv } from '../src/backend/routes.ts';
 import { registerCopilotRoutes } from '../src/backend/routes.ts';
 import type { SessionLike } from '../src/backend/types.ts';
-import { onLifecycleEvent } from '../src/backend/workflows/lifecycle-hook.ts';
+import { onLifecycleEvent } from '../src/backend/workflows/_infra/lifecycle-hook.ts';
 import { withCopilotTestDb } from './test-helpers.ts';
 
 function session(perms: string[], tenantId = randomUUID(), userId = randomUUID()): SessionLike {
@@ -379,7 +379,7 @@ describe('GET /api/copilot/v1/workflows/:workflowId/input-schema', () => {
   it('returns the JSON Schema for a registered workflow', async () => {
     await withCopilotTestDb(async ({ pool }) => {
       const { registerWorkflowInputSchema } = await import(
-        '../src/backend/workflows/input-schema-registry.ts'
+        '../src/backend/workflows/_infra/input-schema-registry.ts'
       );
       const { z } = await import('zod');
       registerWorkflowInputSchema(

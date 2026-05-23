@@ -8,7 +8,6 @@ import type { Pool } from 'pg';
 import { resolveEmbeddingProvider } from '../embedding-provider.ts';
 import { ROUTER_INSTRUCTIONS, SELF_INSTRUCTIONS } from '../instructions.ts';
 import { makeListMyThreadsTool } from '../tools/copilot.list-my-threads.ts';
-import { copilotRunNewTaskSkillTagTool } from '../tools/copilot.run-new-task-skill-tag.ts';
 import type { AgentSpec, AgentSpecs } from './specs.ts';
 
 const reranker = resolveReranker();
@@ -60,6 +59,15 @@ function pickById(byId: Map<string, CopilotTool>, ids: string[]): CopilotTool[] 
   });
 }
 
+function pickByIdSoft(byId: Map<string, CopilotTool>, ids: string[]): CopilotTool[] {
+  const out: CopilotTool[] = [];
+  for (const id of ids) {
+    const t = byId.get(id);
+    if (t) out.push(t);
+  }
+  return out;
+}
+
 export function buildAgentCatalog(deps: {
   mastra: Mastra;
   pool: Pool;
@@ -107,7 +115,7 @@ export function buildAgentCatalog(deps: {
     label: 'Supervisor',
     description: 'Routes to the right specialist for the job',
     instructions: ROUTER_INSTRUCTIONS,
-    tools: [copilotRunNewTaskSkillTagTool],
+    tools: pickByIdSoft(byId, ['staffing_runNewTaskSkillTag']),
     delegates: ['self'],
     defaultTier: 'fast',
   };

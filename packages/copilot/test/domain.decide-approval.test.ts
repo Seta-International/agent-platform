@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { decideApproval } from '../src/backend/domain/decide-approval.ts';
 import { listMyPendingApprovals } from '../src/backend/domain/list-my-pending-approvals.ts';
 import type { SessionLike } from '../src/backend/types.ts';
-import { onLifecycleEvent } from '../src/backend/workflows/lifecycle-hook.ts';
+import { onLifecycleEvent } from '../src/backend/workflows/_infra/lifecycle-hook.ts';
 import { withCopilotTestDb } from './test-helpers.ts';
 
 function sessionWith(perms: string[], tenantId = randomUUID(), userId = randomUUID()): SessionLike {

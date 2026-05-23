@@ -20,10 +20,13 @@ module.exports = {
       severity: 'error',
       comment:
         "A feature module's internals (src/backend, src/db) are private. Cross-module imports must enter via the package root (src/index.ts), the /events subpath, or the /agent-tools subpath (which is a public surface for cross-module Mastra tool composition).",
-      from: { path: '^packages/(core|identity|planner|copilot|integrations)/src/' },
+      from: {
+        path: '^packages/(core|identity|planner|copilot|integrations|knowledge|notifications|staffing)/src/',
+      },
       to: {
-        path: '^packages/(core|identity|planner|copilot|integrations)/src/(backend|db)/',
-        pathNot: '^packages/$1/src/|^packages/(core|identity|planner)/src/backend/agent-tools/',
+        path: '^packages/(core|identity|planner|copilot|integrations|knowledge|notifications|staffing)/src/(backend|db)/',
+        pathNot:
+          '^packages/$1/src/|^packages/(core|identity|planner|staffing)/src/backend/agent-tools/',
       },
     },
     {
@@ -44,8 +47,9 @@ module.exports = {
         pathNot: '^apps/(server|cli)/src/',
       },
       to: {
-        path: '^packages/(core|identity|planner|copilot|integrations)/src/backend/',
-        pathNot: '^packages/$1/|^packages/(core|identity|planner)/src/backend/agent-tools/',
+        path: '^packages/(core|identity|planner|copilot|integrations|knowledge|notifications|staffing)/src/backend/',
+        pathNot:
+          '^packages/$1/|^packages/(core|identity|planner|staffing)/src/backend/agent-tools/',
       },
     },
     {
@@ -60,7 +64,9 @@ module.exports = {
       severity: 'error',
       comment: 'shared/* may not import from feature modules. They are pure infrastructure.',
       from: { path: '^packages/shared-' },
-      to: { path: '^packages/(core|identity|planner|copilot|integrations)/' },
+      to: {
+        path: '^packages/(core|identity|planner|copilot|integrations|knowledge|notifications|staffing)/',
+      },
     },
     {
       name: 'shared-cross-imports-restricted',
@@ -142,11 +148,24 @@ module.exports = {
       name: 'copilot-no-feature-imports',
       severity: 'error',
       comment:
-        'copilot is engine-only: it composes module-owned agent tools but must not pull in feature-module domain code. Cross-module imports must enter through /events (event-shape contracts) or /agent-tools (tool surface) subpaths.',
+        'copilot is engine-only: it composes module-owned agent tools but must not pull in feature-module or orchestrator domain code. Cross-module imports must enter through /events (event-shape contracts) or /agent-tools (tool surface) subpaths.',
       from: { path: '^packages/copilot/src/' },
       to: {
-        path: '^packages/(identity|planner|integrations|knowledge|notifications)/',
+        path: '^packages/(identity|planner|integrations|knowledge|notifications|staffing)/',
         pathNot: '^packages/[^/]+/src/events/|^packages/[^/]+/src/backend/agent-tools/',
+      },
+    },
+    {
+      name: 'modules-no-copilot-direct',
+      severity: 'error',
+      comment:
+        'Feature and orchestrator modules consume the agent SDK (@seta/copilot-sdk), never @seta/copilot internals. Only the package main entry (src/index.ts) is allowed for orchestrators that need engine helpers like buildMastra/registerWorkflowInputSchema.',
+      from: {
+        path: '^packages/(identity|planner|integrations|knowledge|notifications|staffing)/src/',
+      },
+      to: {
+        path: '^packages/copilot/src/',
+        pathNot: '^packages/copilot/src/(index|events)\\.ts$',
       },
     },
     {

@@ -1,7 +1,7 @@
 import { Mastra } from '@mastra/core';
 import { PostgresStore } from '@mastra/pg';
 import type { Pool } from 'pg';
-import { adaptMastraEvent, onLifecycleEvent } from './workflows/lifecycle-hook.ts';
+import { adaptMastraEvent, onLifecycleEvent } from './workflows/_infra/lifecycle-hook.ts';
 
 export type CopilotRuntimeDeps = {
   pool: Pool;

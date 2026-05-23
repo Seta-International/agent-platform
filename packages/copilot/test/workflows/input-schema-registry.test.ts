@@ -4,7 +4,7 @@ import {
   getWorkflowInputSchema,
   registerWorkflowInputSchema,
   workflowInputSchemaRegistry,
-} from '../../src/backend/workflows/input-schema-registry.ts';
+} from '../../src/backend/workflows/_infra/input-schema-registry.ts';
 
 describe('inputSchemaRegistry', () => {
   it('stores converted JSON Schema for a workflow id', () => {
