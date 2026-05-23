@@ -227,11 +227,13 @@ describe('createGroup', () => {
             initial_members: [{ user_id: seeded.admin.user_id, role: 'member' }],
           });
           const { rows } = await pool.query(
-            `SELECT user_id FROM planner.group_members WHERE group_id = $1`,
+            `SELECT user_id, role FROM planner.group_members WHERE group_id = $1`,
             [group.id],
           );
           // creator appears exactly once (onConflictDoNothing handles duplicate)
           expect(rows).toHaveLength(1);
+          // creator's owner role wins over the caller-supplied member role
+          expect(rows[0].role).toBe('owner');
         } finally {
           resetCoreDb();
           await closePools();
