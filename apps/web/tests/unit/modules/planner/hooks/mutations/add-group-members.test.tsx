@@ -4,8 +4,8 @@ import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import type { PropsWithChildren } from 'react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { plannerKeys } from '../../state/query-keys';
-import { useAddGroupMembers } from './add-group-members';
+import { useAddGroupMembers } from '../../../../../../src/modules/planner/hooks/mutations/add-group-members';
+import { plannerKeys } from '../../../../../../src/modules/planner/state/query-keys';
 
 const GROUP_ID = 'g1';
 

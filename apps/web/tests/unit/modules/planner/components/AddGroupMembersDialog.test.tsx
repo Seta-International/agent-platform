@@ -5,7 +5,7 @@ import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import type { PropsWithChildren } from 'react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { AddGroupMembersDialog } from './AddGroupMembersDialog';
+import { AddGroupMembersDialog } from '../../../../../src/modules/planner/components/AddGroupMembersDialog';
 
 const GROUP_ID = 'g1';
 
