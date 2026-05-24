@@ -15,6 +15,7 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
 
@@ -34,3 +35,11 @@ jobs:
       - run: pnpm lint:boundaries
 
       - run: pnpm depcruise
+
+      - run: pnpm lint
+
+      - name: Run tests
+        run: pnpm test
+        env:
+          # testcontainers needs to find Docker; default socket on ubuntu-latest.
+          TESTCONTAINERS_RYUK_DISABLED: 'true'
