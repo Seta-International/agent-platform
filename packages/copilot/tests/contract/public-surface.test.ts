@@ -1,34 +1,60 @@
 import { describe, expect, it } from 'vitest';
 import pkg from '../../package.json' with { type: 'json' };
 
+const EXPECTED_NAMED_EXPORTS = new Set<string>([
+  'cancelWorkflowRun',
+  'decideApproval',
+  'getWorkflowRun',
+  'getWorkflowRunSnapshot',
+  'listMyPendingApprovals',
+  'listWorkflowRuns',
+  'replayWorkflowFromStep',
+  'rerunWorkflow',
+  'registerCopilotContributions',
+]);
+
+const EXPECTED_EXPORT_SUBPATHS = new Set<string>([
+  '.',
+  './events',
+  './rbac',
+  './models',
+  './register',
+  './runtime',
+  './workflows',
+  './testing',
+]);
+
+const FORBIDDEN_VALUES = [
+  'buildMastra',
+  'getMastra',
+  'registerCopilot',
+  'registerWorkflowInputSchema',
+  'resumeRetry',
+  'sweepWorkflowApprovals',
+  'bindOtel',
+  'otel',
+  'listModels',
+  'resolveModel',
+  'ModelNotFoundError',
+  'COPILOT_PERMISSIONS',
+];
+
 describe('@seta/copilot public surface', () => {
-  // ENABLED after PRs B + C + D normalize every module's exports map to the canonical set.
-  // PR-A's exports today include legacy entries (e.g. ./http, ./stream); strict matching
-  // would block this PR. Leave skipped here; PR-D enables it.
-  it.skip('exports match the canonical set', () => {
-    const allowed = new Set([
-      '.',
-      './events',
-      './rbac',
-      './contracts',
-      './agent-tools',
-      './register',
-      './testing',
-    ]);
-    const declared = Object.keys(pkg.exports as Record<string, unknown>);
-    for (const e of declared) {
-      expect(allowed.has(e), `unexpected export entry: ${e}`).toBe(true);
-    }
+  it('package.json exports declares exactly the canonical subpaths', () => {
+    const declared = new Set(Object.keys(pkg.exports as Record<string, unknown>));
+    expect(declared).toEqual(EXPECTED_EXPORT_SUBPATHS);
   });
 
-  // PR-A scope-out: registerWorkflowInputSchema leaks from main entry — fix in PR-C
-  it.skip('main entry re-exports only domain functions, not backend internals', async () => {
+  it('main entry exports only the workflow-run domain surface', async () => {
     const mod = await import('@seta/copilot');
-    for (const key of Object.keys(mod)) {
-      expect(
-        key,
-        `'${key}' on main entry looks like a backend symbol (Client/Pool/Pgschema/drizzle/schema suffix)`,
-      ).not.toMatch(/(Client|Pool|Pgschema|drizzle|schema)$/i);
+    const actual = new Set(Object.keys(mod));
+    expect(actual).toEqual(EXPECTED_NAMED_EXPORTS);
+  });
+
+  it('main entry does not re-export engine internals', async () => {
+    const mod = (await import('@seta/copilot')) as Record<string, unknown>;
+    for (const name of FORBIDDEN_VALUES) {
+      expect(mod[name], `'${name}' must not be on the main entry`).toBeUndefined();
     }
   });
 });
