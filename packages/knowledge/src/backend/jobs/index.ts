@@ -5,8 +5,8 @@ import type { TaskList } from 'graphile-worker';
 import {
   type EmbedKnowledgeChunksPayload,
   embedKnowledgeChunks,
-} from '../embed/embed-knowledge-chunks.ts';
-import { resolveEmbeddingProvider } from '../embed/provider-resolver.ts';
+} from '../embeddings/embed-knowledge-chunks.ts';
+import { resolveEmbeddingProvider } from '../embeddings/provider-resolver.ts';
 import {
   type ParseKnowledgeFilePayload,
   parseKnowledgeFile,

@@ -4,7 +4,7 @@ import { resetKnowledgeDb } from '@seta/knowledge/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { FakeEmbeddingProvider, withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
-import { embedKnowledgeChunks } from '../../src/backend/embed/embed-knowledge-chunks.ts';
+import { embedKnowledgeChunks } from '../../src/backend/embeddings/embed-knowledge-chunks.ts';
 import { parseKnowledgeFile } from '../../src/backend/parse/parse-knowledge-file.ts';
 import { searchTenantKnowledge } from '../../src/backend/retrieval/search-tenant-knowledge.ts';
 
