@@ -1,8 +1,15 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('@tanstack/react-router', () => ({
+  useNavigate: () => vi.fn(),
+  useLocation: () => ({ pathname: '/copilot/chat' }),
+}));
+
 import {
   CopilotProvider,
+  useCopilotRuntimeContext,
   useCopilotSelection,
 } from '@/modules/copilot/chat-experience/copilot-provider';
 
@@ -40,5 +47,12 @@ describe('CopilotProvider', () => {
 
   it('throws when useCopilotSelection is used outside provider', () => {
     expect(() => renderHook(() => useCopilotSelection())).toThrow(/CopilotProvider/);
+  });
+});
+
+describe('CopilotProvider runtime', () => {
+  it('exposes a non-null runtime via useCopilotRuntimeContext', () => {
+    const { result } = renderHook(() => useCopilotRuntimeContext(), { wrapper });
+    expect(result.current.runtime).toBeDefined();
   });
 });
