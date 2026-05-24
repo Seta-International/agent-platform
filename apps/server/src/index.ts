@@ -1,6 +1,6 @@
 import './otel.ts'; // MUST be first; see otel.ts header comment.
 import { registerCopilot } from '@seta/copilot/register';
-import { createContributionRegistry } from '@seta/core';
+import { createContributionRegistry, requestIdStorage } from '@seta/core';
 import { coreDb } from '@seta/core/db';
 import { emit, withEmit } from '@seta/core/events';
 import { createOutboxStore } from '@seta/core/outbox';
@@ -27,7 +27,13 @@ import { buildServerApp, registerAppContributions } from './build.ts';
 import { parseEnv } from './env.ts';
 import { failedLoginAlertSubscriber } from './subscribers/failed-login-alert.ts';
 
-const log = pino({ name: 'apps/server' });
+const log = pino({
+  name: 'apps/server',
+  mixin() {
+    const requestId = requestIdStorage.getStore()?.requestId;
+    return requestId ? { request_id: requestId } : {};
+  },
+});
 const env = parseEnv(process.env);
 
 initPools({ databaseUrl: env.DATABASE_URL });
