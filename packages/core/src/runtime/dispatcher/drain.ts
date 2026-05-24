@@ -1,3 +1,4 @@
+import { context, SpanStatusCode, trace } from '@opentelemetry/api';
 import type { NodeTx } from '@seta/shared-db';
 import type { DomainEvent, SubscriberDef } from '@seta/shared-types';
 import { and, asc, eq, sql } from 'drizzle-orm';
@@ -10,7 +11,10 @@ import {
   coreSubscriptionProcessed,
 } from '../../db/schema/index.ts';
 import { emitContext } from '../../events/context.ts';
+import { restoreTraceContext } from '../../events/trace-context.ts';
 import { bumpFailureState, clearFailureState, getFailureEntry } from './failure-state.ts';
+
+const tracer = trace.getTracer('@seta/core/dispatcher');
 
 export interface BackoffOpts {
   baseMs: number;
@@ -97,20 +101,43 @@ export async function drainOne(
       };
 
       try {
-        await outerTx.transaction(async (handlerTx) => {
-          await emitContext.run(
-            {
-              tx: handlerTx as unknown as NodeTx,
-              causedByEventId: evt.id,
-              traceId: evt.traceId,
-            },
-            () => sub.handler(evt, { tx: handlerTx as unknown as NodeTx }),
-          );
-          await handlerTx
-            .insert(coreSubscriptionProcessed)
-            .values({ subscription: sub.subscription, eventId: evt.id })
-            .onConflictDoNothing();
+        const parentCtx = restoreTraceContext({
+          traceParent: row.traceParent ?? null,
+          traceState: row.traceState ?? null,
         });
+        await context.with(parentCtx, () =>
+          tracer.startActiveSpan(
+            `subscriber.${sub.subscription}`,
+            { attributes: { 'seta.event.type': evt.eventType, 'seta.event.id': evt.id } },
+            async (span) => {
+              try {
+                await outerTx.transaction(async (handlerTx) => {
+                  await emitContext.run(
+                    {
+                      tx: handlerTx as unknown as NodeTx,
+                      causedByEventId: evt.id,
+                      traceId: evt.traceId,
+                    },
+                    () => sub.handler(evt, { tx: handlerTx as unknown as NodeTx }),
+                  );
+                  await handlerTx
+                    .insert(coreSubscriptionProcessed)
+                    .values({ subscription: sub.subscription, eventId: evt.id })
+                    .onConflictDoNothing();
+                });
+              } catch (err) {
+                if (err instanceof Error) span.recordException(err);
+                span.setStatus({
+                  code: SpanStatusCode.ERROR,
+                  message: err instanceof Error ? err.message : String(err),
+                });
+                throw err;
+              } finally {
+                span.end();
+              }
+            },
+          ),
+        );
         await outerTx
           .update(coreSubscriptionCursors)
           .set({

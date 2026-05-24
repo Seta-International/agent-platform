@@ -2,6 +2,7 @@ import { trace as otelTrace } from '@opentelemetry/api';
 import type { DomainEventInput } from '@seta/shared-types';
 import { coreEvents } from '../db/schema/index.ts';
 import { emitContext } from './context.ts';
+import { captureActiveTraceContext } from './trace-context.ts';
 
 export class EmitContextRequired extends Error {
   constructor() {
@@ -17,6 +18,7 @@ export async function emit<P>(event: DomainEventInput<P>): Promise<{ eventId: st
   if (!ctx) throw new EmitContextRequired();
 
   const traceId = ctx.traceId ?? otelTrace.getActiveSpan()?.spanContext().traceId;
+  const captured = captureActiveTraceContext();
   const eventId = crypto.randomUUID();
 
   await ctx.tx.insert(coreEvents).values({
@@ -30,6 +32,8 @@ export async function emit<P>(event: DomainEventInput<P>): Promise<{ eventId: st
     causedByUserId: event.causedByUserId ?? null,
     causedByEventId: ctx.causedByEventId ?? null,
     traceId: traceId ?? null,
+    traceParent: captured.traceParent,
+    traceState: captured.traceState,
     actor: ctx.actor
       ? {
           user_id: ctx.actor.userId,
