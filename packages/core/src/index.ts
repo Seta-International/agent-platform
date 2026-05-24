@@ -16,7 +16,6 @@ export {
   type StreamHubBuildDeps,
   type StreamHubBuilder,
   type StreamHubHandle,
-  type WorkflowBuilder,
 } from './composition/registry.ts';
 export type { OutgoingEmailStatus, TransportKind } from './db/schema/index.ts';
 export {

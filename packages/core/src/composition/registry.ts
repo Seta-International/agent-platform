@@ -1,4 +1,4 @@
-import type { CopilotTool } from '@seta/copilot-sdk';
+import type { CopilotTool, WorkflowBuilder } from '@seta/copilot-sdk';
 import type { SubscriberDef } from '@seta/shared-types';
 import type { Task, TaskList } from 'graphile-worker';
 import type { Hono } from 'hono';
@@ -7,10 +7,6 @@ import type { z } from 'zod';
 import type { WorkerHandle } from '../runtime/workers/index.ts';
 
 export type JobHandler = Task;
-
-// Workflow builders are passed an opaque Mastra instance and register workflows on it.
-// Typed as `unknown` to avoid leaking @mastra/core into the registry's dependency surface.
-export type WorkflowBuilder = (mastra: unknown) => unknown;
 
 export interface RouteBuildDeps {
   pool: Pool;
