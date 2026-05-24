@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useThreadList } from '../hooks/use-thread-list';
 import { useDeleteThread, useRenameThread } from '../hooks/use-thread-mutations';
 import { useCopilotSelection } from './copilot-provider';
+import { CopilotThreadSwitcher } from './copilot-thread-switcher';
 
 interface CopilotHeaderProps {
   compact?: boolean;
@@ -61,13 +62,14 @@ export function CopilotHeader({ compact = false, onOpenMobileNav }: CopilotHeade
     });
   };
 
-  // PR-A always renders the full variant. `compact` is reserved for PR-B.
-  void compact;
-
   return (
-    <header className="flex h-14 flex-none items-center justify-between gap-4 border-b border-hairline bg-canvas px-6">
+    <header
+      className={`flex flex-none items-center justify-between border-b border-hairline bg-canvas ${
+        compact ? 'h-12 gap-2 px-3' : 'h-14 gap-4 px-6'
+      }`}
+    >
       <div className="flex min-w-0 flex-1 items-center gap-3">
-        {onOpenMobileNav && (
+        {!compact && onOpenMobileNav && (
           <button
             type="button"
             onClick={onOpenMobileNav}
@@ -124,14 +126,21 @@ export function CopilotHeader({ compact = false, onOpenMobileNav }: CopilotHeade
               <MoreHorizontal className="size-3.5" aria-hidden />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-[180px]">
-            <DropdownMenuItem onSelect={startEdit} className="gap-2">
+          <DropdownMenuContent align="end" className="min-w-[220px]">
+            {compact && (
+              <>
+                <CopilotThreadSwitcher />
+                <DropdownMenuSeparator />
+              </>
+            )}
+            <DropdownMenuItem onSelect={startEdit} disabled={!canEdit} className="gap-2">
               <Pencil className="size-3.5" aria-hidden />
               Rename
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onSelect={onDelete}
+              disabled={!canEdit}
               className="gap-2 text-destructive focus:text-destructive"
             >
               <Trash2 className="size-3.5" aria-hidden />
