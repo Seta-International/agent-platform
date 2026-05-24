@@ -1,7 +1,7 @@
 import type { ToolExecutionContext } from '@mastra/core/tools';
 import { type CopilotRequestContext, requiredPermissionFor } from '@seta/copilot-sdk';
 import { describe, expect, it } from 'vitest';
-import { makeListMyThreadsTool } from '../../../src/backend/tools/copilot.list-my-threads.ts';
+import { makeListMyThreadsTool } from '../../../src/backend/agent-tools/copilot.list-my-threads.ts';
 import { makeToolContext } from '../../helpers.ts';
 
 describe('copilot_listMyThreads tool', () => {
