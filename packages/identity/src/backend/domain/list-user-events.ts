@@ -1,3 +1,5 @@
+// -- cross-schema-read: identity activity feed reads core.events (the global outbox) to
+//    surface per-user audit/activity rows; core owns the event store by design.
 import { type SQL, sql } from 'drizzle-orm';
 import { identityDb } from '../db/index.ts';
 import { IdentityError, requirePermission } from '../rbac.ts';

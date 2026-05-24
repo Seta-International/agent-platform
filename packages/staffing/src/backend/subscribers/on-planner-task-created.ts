@@ -1,3 +1,5 @@
+// -- cross-schema-read: staffing checks copilot.workflow_runs for idempotency
+//    (source_event_id de-dup) before dispatching a workflow run; copilot owns runs.
 import type { Mastra } from '@mastra/core';
 import { RequestContext } from '@mastra/core/request-context';
 import type { PlannerTaskCreated } from '@seta/planner/events';

@@ -1,3 +1,5 @@
+// -- cross-schema-read: identity reads core.tenants for the local_password_disabled
+//    flag because tenant metadata is owned by core; identity uses it for sign-in routing.
 import type { SessionEnv } from '@seta/core';
 import { getPool } from '@seta/shared-db';
 import type { Context, Hono } from 'hono';
