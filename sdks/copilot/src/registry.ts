@@ -1,0 +1,98 @@
+import type { z } from 'zod';
+
+export type Domain = 'work' | 'people' | 'self' | 'meta';
+
+export interface SpecialistSpec {
+  domain: Domain;
+  id: string;
+  description: string;
+  instructions: (ctx: { runtimeContext: unknown }) => string;
+  model?: string;
+  tools: Record<string, unknown>;
+  workflows?: Record<string, unknown>;
+}
+
+export interface CrossModuleReadToolSpec {
+  id: string;
+  description: string;
+  inputSchema: z.ZodTypeAny;
+  outputSchema: z.ZodTypeAny;
+  rbac: string;
+  availableTo: 'all-specialists' | string[];
+  execute: (input: { session: unknown }) => Promise<unknown>;
+}
+
+export interface WorkflowSpec {
+  domain: Domain;
+  id: string;
+  description: string;
+  inputSchema: z.ZodTypeAny;
+  outputSchema: z.ZodTypeAny;
+  workflow: unknown;
+  hitlSteps?: string[];
+}
+
+export class RegistryFrozenError extends Error {
+  constructor() {
+    super('CopilotRegistry is frozen; register at module load time only.');
+  }
+}
+export class RegistryNotFrozenError extends Error {
+  constructor() {
+    super('CopilotRegistry not frozen; call freeze() in app boot first.');
+  }
+}
+
+const state = {
+  frozen: false,
+  specialists: [] as SpecialistSpec[],
+  crossReadTools: [] as CrossModuleReadToolSpec[],
+  workflows: [] as WorkflowSpec[],
+};
+
+export const CopilotRegistry = {
+  registerSpecialist(spec: SpecialistSpec): void {
+    if (state.frozen) throw new RegistryFrozenError();
+    if (!spec.description) throw new Error(`Specialist ${spec.id} missing description`);
+    state.specialists.push(spec);
+  },
+  registerCrossModuleReadTool(spec: CrossModuleReadToolSpec): void {
+    if (state.frozen) throw new RegistryFrozenError();
+    if (!spec.rbac) throw new Error(`Cross-module read tool ${spec.id} missing rbac`);
+    state.crossReadTools.push(spec);
+  },
+  registerWorkflow(spec: WorkflowSpec): void {
+    if (state.frozen) throw new RegistryFrozenError();
+    state.workflows.push(spec);
+  },
+  freeze(): void {
+    state.frozen = true;
+  },
+  isFrozen(): boolean {
+    return state.frozen;
+  },
+  listSpecialists(domain: Domain): SpecialistSpec[] {
+    return state.specialists.filter((s) => s.domain === domain);
+  },
+  listWorkflows(domain: Domain): WorkflowSpec[] {
+    return state.workflows.filter((w) => w.domain === domain);
+  },
+  listCrossModuleReadTools(): CrossModuleReadToolSpec[] {
+    return state.crossReadTools.slice();
+  },
+  snapshot() {
+    if (!state.frozen) throw new RegistryNotFrozenError();
+    return {
+      domains: Array.from(new Set(state.specialists.map((s) => s.domain))).sort(),
+      specialists: state.specialists.slice(),
+      crossReadTools: state.crossReadTools.slice(),
+      workflows: state.workflows.slice(),
+    };
+  },
+  __resetForTests(): void {
+    state.frozen = false;
+    state.specialists = [];
+    state.crossReadTools = [];
+    state.workflows = [];
+  },
+};
