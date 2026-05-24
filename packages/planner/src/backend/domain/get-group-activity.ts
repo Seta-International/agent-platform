@@ -1,7 +1,7 @@
 import { queryAudit, type SessionScope } from '@seta/core';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
-import { plannerDb } from '../../db/index.ts';
-import { assigneeProjection, buckets, plans, tasks } from '../../db/schema.ts';
+import { plannerDb } from '../db/index.ts';
+import { assigneeProjection, buckets, plans, tasks } from '../db/schema.ts';
 import type { GroupActivityResult } from '../dto.ts';
 import { requirePermission } from '../rbac.ts';
 

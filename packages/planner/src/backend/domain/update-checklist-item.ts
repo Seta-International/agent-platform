@@ -1,8 +1,8 @@
 import type { SessionScope } from '@seta/core';
 import { withEmit } from '@seta/core/events';
 import { eq } from 'drizzle-orm';
-import { checklistItems, plans, tasks } from '../../db/schema.ts';
 import { emitPlannerChecklistItemUpdated } from '../../events/emit-helpers.ts';
+import { checklistItems, plans, tasks } from '../db/schema.ts';
 import type { ChecklistItemRow } from '../dto.ts';
 import type { UpdateChecklistItemPatch } from '../inputs.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';

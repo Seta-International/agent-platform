@@ -1,8 +1,8 @@
 import type { SessionScope } from '@seta/core';
 import { withEmit } from '@seta/core/events';
 import { eq } from 'drizzle-orm';
-import { checklistItems, plans, tasks } from '../../db/schema.ts';
 import { emitPlannerChecklistItemRemoved } from '../../events/emit-helpers.ts';
+import { checklistItems, plans, tasks } from '../db/schema.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 
 export async function removeChecklistItem(input: {

@@ -1,4 +1,4 @@
-import type { groups } from '../../db/schema.ts';
+import type { groups } from '../db/schema.ts';
 import type {
   GroupDefaultRole,
   GroupExternalSource,

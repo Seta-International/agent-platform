@@ -1,7 +1,7 @@
 import type { SessionScope } from '@seta/core';
 import { withEmit } from '@seta/core/events';
-import { groupMembers, groups } from '../../db/schema.ts';
 import { emitPlannerGroupCreated } from '../../events/emit-helpers.ts';
+import { groupMembers, groups } from '../db/schema.ts';
 import type { GroupRow } from '../dto.ts';
 import type { CreateGroupInput } from '../inputs.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';

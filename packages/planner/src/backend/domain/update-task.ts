@@ -1,9 +1,9 @@
 import type { SessionScope } from '@seta/core';
 import { withEmit } from '@seta/core/events';
 import { and, eq, isNull } from 'drizzle-orm';
-import { plans, tasks } from '../../db/schema.ts';
 import { emitPlannerTaskUpdated } from '../../events/emit-helpers.ts';
 import type { TaskChangedField, TaskMutableFields } from '../../events/types.ts';
+import { plans, tasks } from '../db/schema.ts';
 import type { TaskRow } from '../dto.ts';
 import { type UpdateTaskPatch, UpdateTaskPatchSchema } from '../inputs.ts';
 import { recordTaskFieldUpdated, withSpan } from '../observability.ts';

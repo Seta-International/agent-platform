@@ -1,8 +1,8 @@
 import type { SessionScope } from '@seta/core';
 import { withEmit } from '@seta/core/events';
 import { and, eq, isNull } from 'drizzle-orm';
-import { plans, taskReferences, tasks } from '../../db/schema.ts';
 import { emitPlannerTaskReferenceAdded } from '../../events/emit-helpers.ts';
+import { plans, taskReferences, tasks } from '../db/schema.ts';
 import type { TaskReferenceRow, TaskReferenceType } from '../dto.ts';
 import type { AddTaskReferenceInput } from '../inputs.ts';
 import { withSpan } from '../observability.ts';

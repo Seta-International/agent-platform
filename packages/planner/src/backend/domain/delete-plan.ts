@@ -2,8 +2,8 @@ import type { SessionScope } from '@seta/core';
 import { withEmit } from '@seta/core/events';
 import { requestNotification } from '@seta/notifications';
 import { and, eq, isNull } from 'drizzle-orm';
-import { groups, plans } from '../../db/schema.ts';
 import { emitPlannerPlanDeleted } from '../../events/emit-helpers.ts';
+import { groups, plans } from '../db/schema.ts';
 import { resolveGroupMemberIds } from '../notifications/recipients.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 

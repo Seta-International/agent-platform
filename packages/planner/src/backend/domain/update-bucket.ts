@@ -1,8 +1,8 @@
 import type { SessionScope } from '@seta/core';
 import { withEmit } from '@seta/core/events';
 import { and, eq, isNull } from 'drizzle-orm';
-import { buckets, plans } from '../../db/schema.ts';
 import { emitPlannerBucketUpdated } from '../../events/emit-helpers.ts';
+import { buckets, plans } from '../db/schema.ts';
 import type { BucketRow, TaskExternalSource } from '../dto.ts';
 import type { UpdateBucketPatch } from '../inputs.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';

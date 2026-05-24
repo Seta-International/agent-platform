@@ -1,6 +1,6 @@
 import type { NodeTx } from '@seta/shared-db';
 import { eq } from 'drizzle-orm';
-import { groupMembers } from '../../db/schema.ts';
+import { groupMembers } from '../db/schema.ts';
 
 export async function resolveGroupMemberIds(
   _tenantId: string,

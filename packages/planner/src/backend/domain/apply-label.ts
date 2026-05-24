@@ -1,8 +1,8 @@
 import type { SessionScope } from '@seta/core';
 import { withEmit } from '@seta/core/events';
 import { and, eq, isNull } from 'drizzle-orm';
-import { labels, plans, taskLabels, tasks } from '../../db/schema.ts';
 import { emitPlannerLabelApplied } from '../../events/emit-helpers.ts';
+import { labels, plans, taskLabels, tasks } from '../db/schema.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 import { isM365SystemActor } from './_actor.ts';
 

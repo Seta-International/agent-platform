@@ -1,4 +1,4 @@
-import type { tasks } from '../../db/schema.ts';
+import type { tasks } from '../db/schema.ts';
 import type { TaskExternalSource, TaskPreviewType, TaskPriorityNumber, TaskRow } from '../dto.ts';
 
 type TaskDbRow = typeof tasks.$inferSelect;

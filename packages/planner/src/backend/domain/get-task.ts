@@ -1,7 +1,7 @@
 import type { SessionScope } from '@seta/core';
 import { and, asc, eq, isNull, sql } from 'drizzle-orm';
-import { plannerDb } from '../../db/index.ts';
-import { checklistItems, plans, taskReferences, tasks } from '../../db/schema.ts';
+import { plannerDb } from '../db/index.ts';
+import { checklistItems, plans, taskReferences, tasks } from '../db/schema.ts';
 import type {
   ChecklistItemRow,
   TaskDetailRow,

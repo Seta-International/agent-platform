@@ -1,8 +1,8 @@
 import type { SessionScope } from '@seta/core';
 import { withEmit } from '@seta/core/events';
 import { and, eq, isNull } from 'drizzle-orm';
-import { buckets, plans, tasks } from '../../db/schema.ts';
 import { emitPlannerBucketDeleted, emitPlannerTaskMoved } from '../../events/emit-helpers.ts';
+import { buckets, plans, tasks } from '../db/schema.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 
 export async function deleteBucket(input: {

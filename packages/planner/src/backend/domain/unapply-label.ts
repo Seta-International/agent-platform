@@ -1,8 +1,8 @@
 import type { SessionScope } from '@seta/core';
 import { withEmit } from '@seta/core/events';
 import { and, eq, isNull } from 'drizzle-orm';
-import { plans, taskLabels, tasks } from '../../db/schema.ts';
 import { emitPlannerLabelUnapplied } from '../../events/emit-helpers.ts';
+import { plans, taskLabels, tasks } from '../db/schema.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 
 export async function unapplyLabel(input: {

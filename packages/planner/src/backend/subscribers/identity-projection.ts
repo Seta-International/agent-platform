@@ -7,7 +7,7 @@ import type {
 } from '@seta/identity/events';
 import type { DomainEvent, SubscriberCtx } from '@seta/shared-types';
 import { and, eq } from 'drizzle-orm';
-import { assigneeProjection, plans, taskAssignments, tasks } from '../../db/schema.ts';
+import { assigneeProjection, plans, taskAssignments, tasks } from '../db/schema.ts';
 
 export async function applyUserCreated(
   e: DomainEvent<IdentityUserCreated['payload']>,

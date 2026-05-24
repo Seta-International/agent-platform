@@ -1,7 +1,7 @@
 import type { SessionScope } from '@seta/core';
 import { eq, sql } from 'drizzle-orm';
-import { plannerDb } from '../../db/index.ts';
-import { plans, tasks } from '../../db/schema.ts';
+import { plannerDb } from '../db/index.ts';
+import { plans, tasks } from '../db/schema.ts';
 import type { TaskRow } from '../dto.ts';
 import type { ListPlanTasksByDateRangeInput } from '../inputs.ts';
 import { withSpan } from '../observability.ts';
