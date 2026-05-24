@@ -19,9 +19,9 @@ export async function bumpFailureStateDb(
   opts: { baseMs: number; maxMs: number },
 ): Promise<number> {
   const existing = await getFailureEntryDb(db, subscription);
-  const sameEvent = existing?.eventId === eventId;
-  const attempts = sameEvent ? existing!.attempts + 1 : 1;
-  const firstFailedAt = sameEvent ? existing!.firstFailedAt : new Date();
+  const sameEvent = existing && existing.eventId === eventId ? existing : null;
+  const attempts = sameEvent ? sameEvent.attempts + 1 : 1;
+  const firstFailedAt = sameEvent ? sameEvent.firstFailedAt : new Date();
   const delay = Math.min(opts.maxMs, opts.baseMs * 2 ** (attempts - 1));
   const lastError = err instanceof Error ? err.message : String(err);
   const nextRetryAt = new Date(Date.now() + delay);
