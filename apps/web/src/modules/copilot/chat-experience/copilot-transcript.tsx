@@ -7,7 +7,7 @@ import { ToolUIRegistry } from '../components/tool-renderers';
 import { useAgentCatalog } from '../hooks/use-agent-catalog';
 import { COPILOT_COPY } from '../i18n';
 import { ChatEmbeddedHitl } from '../workflows/components/chat-embedded-hitl';
-import { type PageContext, useCopilotSelection } from './copilot-provider';
+import { type PageContext, useCopilotSelection, usePageContext } from './copilot-provider';
 import { RenderContextBadge } from './render-context-badge';
 
 interface PartProps {
@@ -115,19 +115,24 @@ function makeAssistantMessage(authorLabel: string) {
 export function CopilotTranscript() {
   const { selection } = useCopilotSelection();
   const { agents } = useAgentCatalog();
+  const { pageContext } = usePageContext();
   const AssistantMessage = makeAssistantMessage(
     agentLabel(selection.agentName as AgentName, agents),
   );
+
+  const emptyTitle = pageContext
+    ? `Ask about ${pageContext.label}`
+    : COPILOT_COPY.emptyThreads.title;
+  const emptyBody = pageContext
+    ? `Ask copilot anything about this ${pageContext.kind.split('.').pop() ?? 'item'}.`
+    : COPILOT_COPY.emptyThreads.body;
 
   return (
     <>
       <ChatTranscript>
         <ThreadPrimitive.Empty>
           <div className="flex flex-1 items-center justify-center py-12">
-            <EmptyState
-              title={COPILOT_COPY.emptyThreads.title}
-              description={COPILOT_COPY.emptyThreads.body}
-            />
+            <EmptyState title={emptyTitle} description={emptyBody} />
           </div>
         </ThreadPrimitive.Empty>
         <ThreadPrimitive.Messages components={{ UserMessage, AssistantMessage }} />
