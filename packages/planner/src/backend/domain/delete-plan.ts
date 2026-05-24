@@ -4,8 +4,8 @@ import { requestNotification } from '@seta/notifications';
 import { and, eq, isNull } from 'drizzle-orm';
 import { emitPlannerPlanDeleted } from '../../events/emit-helpers.ts';
 import { groups, plans } from '../db/schema.ts';
-import { resolveGroupMemberIds } from '../notifications/recipients.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
+import { resolveGroupMemberIds } from './recipients.ts';
 
 export async function deletePlan(input: {
   plan_id: string;

@@ -4,7 +4,7 @@ import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { plannerDb } from '../../../src/backend/db/index.ts';
 import { groupMembers, groups } from '../../../src/backend/db/schema.ts';
-import { resolveGroupMemberIds } from '../../../src/backend/notifications/recipients.ts';
+import { resolveGroupMemberIds } from '../../../src/backend/domain/recipients.ts';
 
 const dbEnv = () => ({
   templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
