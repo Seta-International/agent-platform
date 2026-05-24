@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { COPILOT_PERMISSIONS } from '../../src/permissions.ts';
+import { COPILOT_PERMISSIONS } from '../../src/rbac.ts';
 
 describe('COPILOT_PERMISSIONS', () => {
   it('contains chat + thread + workflow self-read permissions', () => {
