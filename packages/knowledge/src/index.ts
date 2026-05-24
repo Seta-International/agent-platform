@@ -27,10 +27,13 @@ export {
   searchTenantKnowledge,
 } from './backend/retrieval/search-tenant-knowledge.ts';
 export {
+  KNOWLEDGE_DOCUMENT_SCAN_COMPLETED,
+  KNOWLEDGE_DOCUMENT_SCAN_COMPLETED_VERSION,
   KNOWLEDGE_FILE_FAILED,
   KNOWLEDGE_FILE_FAILED_VERSION,
   KNOWLEDGE_FILE_PROCESSED,
   KNOWLEDGE_FILE_PROCESSED_VERSION,
+  type KnowledgeDocumentScanCompletedPayload,
   type KnowledgeFileFailedPayload,
   type KnowledgeFileProcessedPayload,
 } from './events.ts';

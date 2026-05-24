@@ -48,6 +48,7 @@
     "@seta/shared-types": "workspace:^",
     "csv-parse": "^6.2.1",
     "drizzle-orm": "^0.45.2",
+    "file-type": "^22.0.1",
     "graphile-worker": "^0.16.6",
     "hono": "^4.12.21",
     "mammoth": "^1.12.0",
