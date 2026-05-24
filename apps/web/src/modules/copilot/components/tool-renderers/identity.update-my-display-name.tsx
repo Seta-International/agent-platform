@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { resolveApproval, splitApprovalId } from '../../lib/resolve-approval';
 
 export interface UpdateMyDisplayNameProps {
+  name: string;
   args: { displayName: string; expiresAt?: string };
   state: 'input-streaming' | 'input-pending-approval' | 'output-available' | 'output-error';
   callId: string;
@@ -12,6 +13,7 @@ export interface UpdateMyDisplayNameProps {
 }
 
 export function UpdateMyDisplayNameRenderer({
+  name,
   args,
   state,
   callId,
@@ -43,8 +45,8 @@ export function UpdateMyDisplayNameRenderer({
   if (state === 'input-pending-approval') {
     return (
       <ChatHitlCard
-        title="Change display name"
-        toolName="identity.updateMyDisplayName"
+        title={name}
+        toolName={name}
         {...(args.expiresAt ? { expiresAt: new Date(args.expiresAt) } : {})}
         permissionHint="Requires identity.user.write.self"
         onApprove={() => void onResolve(true)}
@@ -61,14 +63,7 @@ export function UpdateMyDisplayNameRenderer({
     );
   }
   if (state === 'output-available')
-    return (
-      <ChatToolCall
-        name="identity.updateMyDisplayName"
-        status="ok"
-        summary="Display name updated"
-      />
-    );
-  if (state === 'output-error')
-    return <ChatToolCall name="identity.updateMyDisplayName" status="error" summary="failed" />;
-  return <ChatToolCall name="identity.updateMyDisplayName" status="running" />;
+    return <ChatToolCall name={name} status="ok" summary="Display name updated" />;
+  if (state === 'output-error') return <ChatToolCall name={name} status="error" summary="failed" />;
+  return <ChatToolCall name={name} status="running" />;
 }
