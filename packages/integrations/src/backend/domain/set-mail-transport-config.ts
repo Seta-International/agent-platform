@@ -3,7 +3,7 @@ import type { EncryptedBlob } from '@seta/shared-crypto';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { mailTransportConfig } from '../../db/schema/index.ts';
-import { INTEGRATIONS_PERMISSIONS, IntegrationsError } from '../rbac.ts';
+import { INTEGRATIONS_PERMISSIONS, IntegrationsError, requirePermission } from '../rbac.ts';
 import type { Actor } from './get-mail-transport-config.ts';
 
 const graphInputSchema = z.object({
@@ -41,12 +41,7 @@ export interface SetMailTransportConfigArgs {
 }
 
 export async function setMailTransportConfig(args: SetMailTransportConfigArgs): Promise<void> {
-  if (!args.actor.permissions.has(INTEGRATIONS_PERMISSIONS.mailConfigure)) {
-    throw new IntegrationsError(
-      'FORBIDDEN',
-      `missing permission ${INTEGRATIONS_PERMISSIONS.mailConfigure}`,
-    );
-  }
+  requirePermission(args.actor, INTEGRATIONS_PERMISSIONS.mailConfigure);
   if (args.actor.tenantId !== args.tenantId)
     throw new IntegrationsError('FORBIDDEN', 'tenant mismatch');
 

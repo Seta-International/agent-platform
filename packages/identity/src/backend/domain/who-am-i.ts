@@ -1,3 +1,5 @@
+// rbac: user-self-scoped — returns the actor's own profile or null. Authentication
+// already happened in the session middleware; this is a session-bound read.
 import type { Actor } from './create-user.ts';
 import { getUserProfile, type UserProfile } from './get-user-profile.ts';
 

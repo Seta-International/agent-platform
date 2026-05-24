@@ -1,3 +1,5 @@
+// rbac: public-endpoint — pre-auth SSO provider lookup keyed off an email address.
+// No session exists yet; the result drives the login form's redirect.
 import type { SsoProviderId } from '../sso/config.ts';
 import { resolveSetaTenantFromEmail } from '../sso/tenant-resolution.ts';
 

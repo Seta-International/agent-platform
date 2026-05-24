@@ -1,3 +1,5 @@
+// rbac: delegates — internal lookup helper used inside other domain functions that own
+// the rbac check. Not a request entry point.
 import { eq } from 'drizzle-orm';
 import { identityDb } from '../db/index.ts';
 import { user } from '../db/schema.ts';

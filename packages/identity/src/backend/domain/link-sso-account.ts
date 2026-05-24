@@ -1,3 +1,5 @@
+// rbac: public-endpoint — runs inside the SSO callback for a user who isn't logged in yet.
+// Authorization is performed via the OIDC issuer's signed id-token, not via session perms.
 import { withEmit } from '@seta/core/events';
 import { and, eq, sql } from 'drizzle-orm';
 import { emitIdentityUserSsoLinked, emitIdentityUserSsoRevoked } from '../../events/index.ts';

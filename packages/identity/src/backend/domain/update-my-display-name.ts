@@ -1,3 +1,4 @@
+// rbac: delegates — forwards to updateUserProfile, which enforces the identity write check.
 import { z } from 'zod';
 import { IdentityError } from '../rbac.ts';
 import type { Actor } from './create-user.ts';

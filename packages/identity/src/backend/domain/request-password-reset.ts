@@ -1,3 +1,5 @@
+// rbac: public-endpoint — pre-auth password reset request. The reset link goes to the
+// account's verified email; abuse is rate-limited at the HTTP layer.
 import { randomBytes } from 'node:crypto';
 import type { Mailer } from '@seta/shared-mailer';
 import { eq } from 'drizzle-orm';

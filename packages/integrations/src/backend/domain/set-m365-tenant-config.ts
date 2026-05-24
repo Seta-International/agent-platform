@@ -3,7 +3,7 @@ import type { EncryptedBlob } from '@seta/shared-crypto';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { m365TenantConfig } from '../../db/schema/index.ts';
-import { INTEGRATIONS_PERMISSIONS, IntegrationsError } from '../rbac.ts';
+import { INTEGRATIONS_PERMISSIONS, IntegrationsError, requirePermission } from '../rbac.ts';
 import type { Actor } from './get-mail-transport-config.ts';
 
 const inputSchema = z.object({
@@ -22,12 +22,7 @@ export interface SetM365TenantConfigArgs {
 }
 
 export async function setM365TenantConfig(args: SetM365TenantConfigArgs): Promise<void> {
-  if (!args.actor.permissions.has(INTEGRATIONS_PERMISSIONS.m365ConfigWrite)) {
-    throw new IntegrationsError(
-      'FORBIDDEN',
-      `missing permission ${INTEGRATIONS_PERMISSIONS.m365ConfigWrite}`,
-    );
-  }
+  requirePermission(args.actor, INTEGRATIONS_PERMISSIONS.m365ConfigWrite);
   if (args.actor.tenantId !== args.tenantId)
     throw new IntegrationsError('FORBIDDEN', 'tenant mismatch');
 

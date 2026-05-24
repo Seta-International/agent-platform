@@ -1,3 +1,5 @@
+// rbac: delegates — every iteration calls addGroupMember(), which enforces
+// planner.group.member.write via requirePermission(session, ...).
 import type { PlannerSessionScope } from './_actor.ts';
 import { addGroupMember } from './add-group-member.ts';
 

@@ -1,3 +1,5 @@
+// rbac: system-only — called from event subscribers (e.g. planner task assigned),
+// not from request handlers. No session is available; the source_event_id is the audit trail.
 import { emit } from '@seta/core/events';
 import {
   NOTIFICATION_REQUESTED,

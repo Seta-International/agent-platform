@@ -1,3 +1,5 @@
+// rbac: user-self-scoped — every mutation filters on userId from the session,
+// so a user can only flip their own notification rows. No tenant-admin gate.
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { notificationsDb } from '../db/client.ts';
 import { notificationsTable } from '../db/schema/notifications.ts';

@@ -1,3 +1,5 @@
+// rbac: delegates — body forwards to attachLabelToCategorySlotTx / setCategoryDescriptionTx
+// in sibling files, both of which call requirePermission(session, ...) on the planner permission.
 import type { SessionScope } from '@seta/core';
 import { withEmit } from '@seta/core/events';
 import type { NodeTx } from '@seta/shared-db';

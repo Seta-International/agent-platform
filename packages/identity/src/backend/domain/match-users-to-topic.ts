@@ -1,3 +1,5 @@
+// rbac: system-only — called from staffing's recommender pipeline, not from request handlers.
+// Tenant scoping is enforced by the caller (tenantId on the query).
 import type { EmbeddingProvider } from '@seta/shared-embeddings';
 import { EmbedQueryCache, type RetrievalHit } from '@seta/shared-retrieval';
 import type { Pool } from 'pg';

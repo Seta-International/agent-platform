@@ -1,3 +1,5 @@
+// rbac: user-self-scoped — only emits a verification mail to the requesting user's own
+// inbox; an attacker who guesses an email gets at most a one-shot mail to that mailbox.
 import { randomBytes } from 'node:crypto';
 import type { Mailer } from '@seta/shared-mailer';
 import { eq } from 'drizzle-orm';
