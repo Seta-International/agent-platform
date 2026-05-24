@@ -12,6 +12,8 @@ export type CopilotToolContext = ToolExecutionContext<unknown, unknown, CopilotR
 
 export interface CopilotToolSpec<I extends z.ZodTypeAny, O extends z.ZodTypeAny> {
   id: string;
+  // Short human-friendly label shown in the chat UI (e.g. "Assign task").
+  name: string;
   description: string;
   input: I;
   output: O;

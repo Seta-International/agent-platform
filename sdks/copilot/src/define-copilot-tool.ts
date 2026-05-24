@@ -24,5 +24,8 @@ export function defineCopilotTool<I extends z.ZodTypeAny, O extends z.ZodTypeAny
   });
   if (spec.rbac) registerToolPermission(tool, spec.rbac);
   if (spec.needsApproval) Object.assign(tool, { needsApproval: true });
+  // Expose the friendly name on the tool object so the agent factory can build a
+  // tool catalog (id → name) without re-deriving it from the spec.
+  Object.assign(tool, { displayName: spec.name });
   return tool;
 }
