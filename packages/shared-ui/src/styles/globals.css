@@ -88,13 +88,16 @@ select:focus-visible,
 .kanban-column            { flex: 0 0 280px; display: flex; flex-direction: column; gap: var(--spacing-xs); border-radius: var(--radius-md); padding: var(--spacing-xs); }
 .kanban-column--dragging  { opacity: 0.9; }
 .kanban-column__header    { position: relative; display: flex; align-items: center; gap: var(--spacing-xs); padding: var(--spacing-xxs) var(--spacing-xs); font-weight: 600; }
-.kanban-column__name      { flex: 1; font-size: var(--text-body-sm); }
+.kanban-column__name      { font-size: var(--text-body-sm); }
 .kanban-column__count     { font-size: var(--font-size-xs); color: var(--color-ink-subtle); margin-left: var(--spacing-xs); }
 .kanban-column__list      { display: flex; flex-direction: column; gap: var(--spacing-xs); min-height: 40px; padding: var(--spacing-xxs); }
 .kanban-column__list--over { background: var(--color-primary-tint); border-radius: var(--radius-sm); }
 .kanban-column__quick-create        { background: transparent; border: 1px dashed transparent; padding: var(--spacing-xs); color: var(--color-ink-subtle); text-align: left; cursor: pointer; border-radius: var(--radius-sm); }
 .kanban-column__quick-create:hover  { border-color: var(--color-hairline); }
 .kanban-column__compose input { width: 100%; padding: var(--spacing-xs); border: 1px solid var(--color-primary); border-radius: var(--radius-sm); background: var(--color-surface-1); color: var(--color-ink); }
+
+/* Drag handle — flex row keeping grip · dot · name · count in line */
+.kanban-column__drag-handle { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
 
 /* Drag grip icon */
 .kanban-column__grip { color: var(--color-ink-tertiary); flex-shrink: 0; cursor: grab; }
