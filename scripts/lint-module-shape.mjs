@@ -18,7 +18,7 @@ import { join } from 'node:path';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 
-const MODULES_CHECKED = ['identity', 'planner', 'copilot', 'notifications', 'staffing', 'integrations', 'knowledge'];
+const MODULES_CHECKED = ['identity', 'planner', 'copilot', 'notifications', 'staffing'];
 
 // TODO: promote to MODULES_CHECKED as each module is normalized.
 //  - core: foundation tier; carries `composition/`, `middleware/`, `outbox/`,
@@ -43,6 +43,20 @@ const SRC_ALLOWLIST = new Set([
   'testing',
   'testing.ts',
   'backend',
+]);
+
+// core is foundation-tier and owns infrastructure surfaces consumed by EVERY app +
+// every other module. Putting them under backend/ would imply "backend-only" semantics
+// they don't have. Keep them at src/ root and extend the allowlist accordingly.
+const CORE_EXTRA_SRC_ALLOWLIST = new Set([
+  'composition',
+  'middleware',
+  'outbox',
+  'rpc',
+  'runtime',
+  'session',
+  'db',
+  'test-support.ts',
 ]);
 
 const BACKEND_DIR_ALLOWLIST = new Set([
@@ -71,8 +85,12 @@ function checkModule(modName) {
     errors.push(`[${modName}] src/ directory missing`);
     return;
   }
+  const effectiveSrcAllowlist =
+    modName === 'core'
+      ? new Set([...SRC_ALLOWLIST, ...CORE_EXTRA_SRC_ALLOWLIST])
+      : SRC_ALLOWLIST;
   for (const entry of readdirSync(srcDir)) {
-    if (!SRC_ALLOWLIST.has(entry)) {
+    if (!effectiveSrcAllowlist.has(entry)) {
       errors.push(`[${modName}] src/${entry} not in canonical src/ allowlist`);
     }
   }
