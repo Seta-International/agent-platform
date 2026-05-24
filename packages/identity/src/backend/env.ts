@@ -6,6 +6,7 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   MICROSOFT_CLIENT_ID: z.string().optional(),
   MICROSOFT_CLIENT_SECRET: z.string().optional(),
+  SESSION_COOKIE_SAMESITE: z.enum(['strict', 'lax']).default('strict'),
 });
 
 export type IdentityEnv = z.infer<typeof envSchema>;

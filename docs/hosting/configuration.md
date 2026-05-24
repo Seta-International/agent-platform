@@ -99,6 +99,18 @@ Required. Secret. No default.
 
 REQUIRED. Minimum 32 characters. Used by better-auth to sign session cookies and JWTs. Generate with `openssl rand -hex 32`. Rotating invalidates all existing sessions.
 
+### SESSION_COOKIE_SAMESITE
+
+Optional. Enum (`strict` | `lax`). Default: `strict`.
+
+SameSite attribute for the session cookie. `strict` is the safest default: the cookie is sent only on same-site navigations, blocking the broad class of CSRF where an attacker site triggers a credentialed cross-site POST. Switch to `lax` only when your Entra SSO callback lives on a different registered domain than the app and the post-callback redirect drops the session cookie — that's a real cross-site navigation that `strict` would interrupt.
+
+### CORS_ORIGINS
+
+Optional. Comma-separated origins. Default: `http://localhost:5173`.
+
+Allowlist of origins the API will honour for cross-origin browser requests with credentials. Production deployments where the web bundle is served from a different origin than the API must list every such origin here. An empty list disables CORS entirely (same-origin only) and is the safest production setting if you co-locate web + API behind one Traefik host.
+
 ### EVENTS_RETENTION_DAYS
 
 Optional. Int. Default: `30`.
