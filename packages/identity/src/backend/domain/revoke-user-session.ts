@@ -1,7 +1,7 @@
 import { emit, withEmit } from '@seta/core/events';
 import { and, eq, sql } from 'drizzle-orm';
-import { identityDb } from '../../db/index.ts';
-import { session } from '../../db/schema.ts';
+import { identityDb } from '../db/index.ts';
+import { session } from '../db/schema.ts';
 import { IdentityError, requirePermission } from '../rbac.ts';
 import type { Actor } from './create-user.ts';
 

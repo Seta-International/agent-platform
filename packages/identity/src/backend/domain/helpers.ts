@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
-import { identityDb } from '../../db/index.ts';
-import { user } from '../../db/schema.ts';
+import { identityDb } from '../db/index.ts';
+import { user } from '../db/schema.ts';
 import { IdentityError } from '../rbac.ts';
 
 export async function requireUserExists(

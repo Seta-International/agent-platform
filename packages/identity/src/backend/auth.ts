@@ -3,7 +3,7 @@ import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { APIError, createAuthMiddleware, isAPIError } from 'better-auth/api';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
-import * as schema from '../db/schema.ts';
+import * as schema from './db/schema.ts';
 import { linkSsoAccount } from './domain/link-sso-account.ts';
 import { entraSsoConfigured, parseIdentityEnv } from './env.ts';
 import { argon2id } from './password/argon2.ts';

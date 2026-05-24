@@ -1,7 +1,7 @@
 import { hasPermission } from '@seta/shared-rbac';
 import { and, eq, isNull } from 'drizzle-orm';
-import { identityDb } from '../db/index.ts';
-import { roleGrants } from '../db/schema.ts';
+import { identityDb } from './db/index.ts';
+import { roleGrants } from './db/schema.ts';
 
 export class IdentityError extends Error {
   constructor(

@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { identityDb } from '../../db/index.ts';
+import { identityDb } from '../db/index.ts';
 
 export interface UserGrant {
   id: string;

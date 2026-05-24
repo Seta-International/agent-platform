@@ -1,6 +1,6 @@
 import { emit, withEmit } from '@seta/core/events';
 import { and, eq } from 'drizzle-orm';
-import { tenantSsoProviders } from '../../db/schema.ts';
+import { tenantSsoProviders } from '../db/schema.ts';
 import { IdentityError, requirePermission } from '../rbac.ts';
 import type { SsoProviderId } from '../sso/config.ts';
 import { requireProviderRow, toEmitActor, toEventActor } from '../sso/helpers.ts';

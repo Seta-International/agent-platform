@@ -1,8 +1,8 @@
 import { withEmit } from '@seta/core/events';
 import { and, eq, sql } from 'drizzle-orm';
-import { identityDb } from '../../db/index.ts';
-import { account, user } from '../../db/schema.ts';
 import { emitIdentityUserSsoLinked, emitIdentityUserSsoRevoked } from '../../events/index.ts';
+import { identityDb } from '../db/index.ts';
+import { account, user } from '../db/schema.ts';
 import type { SsoProviderId } from '../sso/config.ts';
 import { toEmitActor, toEventActor } from '../sso/helpers.ts';
 import { changeUserEmail } from './change-user-email.ts';

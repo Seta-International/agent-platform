@@ -1,8 +1,8 @@
 import { randomBytes } from 'node:crypto';
 import type { Mailer } from '@seta/shared-mailer';
 import { eq } from 'drizzle-orm';
-import { identityDb } from '../../db/index.ts';
-import { user as userTable, verification } from '../../db/schema.ts';
+import { identityDb } from '../db/index.ts';
+import { user as userTable, verification } from '../db/schema.ts';
 
 export interface RequestPasswordResetArgs {
   tenantId: string;

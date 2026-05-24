@@ -1,7 +1,7 @@
 import { and, eq } from 'drizzle-orm';
-import { identityDb } from '../../db/index.ts';
-import { tenantSsoProviders } from '../../db/schema.ts';
 import type { IdentityEventActor } from '../../events/types.ts';
+import { identityDb } from '../db/index.ts';
+import { tenantSsoProviders } from '../db/schema.ts';
 import type { Actor } from '../domain/create-user.ts';
 import { IdentityError } from '../rbac.ts';
 import type { MicrosoftEntraConfig, SsoProviderId } from './config.ts';

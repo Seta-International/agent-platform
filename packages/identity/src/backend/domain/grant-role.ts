@@ -1,5 +1,5 @@
 import { emit, withEmit } from '@seta/core/events';
-import { roleGrants } from '../../db/schema.ts';
+import { roleGrants } from '../db/schema.ts';
 import { IdentityError, requirePermission } from '../rbac.ts';
 import type { Actor } from './create-user.ts';
 import { requireUserExists } from './helpers.ts';
