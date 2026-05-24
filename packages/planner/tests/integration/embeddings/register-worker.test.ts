@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { plannerEmbeddingJobs } from '../../../src/embeddings/register-worker.ts';
+import { plannerEmbeddingJobs } from '../../../src/backend/embeddings/register-worker.ts';
 
 describe('plannerEmbeddingJobs', () => {
   it('exposes planner.embed_task as a function', () => {

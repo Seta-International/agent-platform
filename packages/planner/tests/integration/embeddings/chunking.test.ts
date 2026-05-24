@@ -1,6 +1,6 @@
 import { countTokens } from '@seta/shared-embeddings';
 import { describe, expect, it } from 'vitest';
-import { fitsInWindow, MAX_SOURCE_TOKENS } from '../../../src/embeddings/chunking.ts';
+import { fitsInWindow, MAX_SOURCE_TOKENS } from '../../../src/backend/embeddings/chunking.ts';
 
 describe('fitsInWindow', () => {
   it('returns true for empty string', () => {

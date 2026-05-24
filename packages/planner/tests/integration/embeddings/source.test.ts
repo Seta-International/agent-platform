@@ -1,6 +1,6 @@
 import { sourceHash } from '@seta/shared-embeddings';
 import { describe, expect, it } from 'vitest';
-import { buildTaskSource, type TaskSourceInput } from '../../../src/embeddings/source.ts';
+import { buildTaskSource, type TaskSourceInput } from '../../../src/backend/embeddings/source.ts';
 
 describe('buildTaskSource', () => {
   it('joins Title + Description + Skills as labeled prose', () => {

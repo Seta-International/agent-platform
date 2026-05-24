@@ -3,8 +3,8 @@ import { closePools, initPools } from '@seta/shared-db';
 import { sourceHash } from '@seta/shared-embeddings';
 import { FakeEmbeddingProvider, withTestDb } from '@seta/shared-testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { embedTask } from '../../../src/embeddings/embed-task.ts';
-import { buildTaskSource } from '../../../src/embeddings/source.ts';
+import { embedTask } from '../../../src/backend/embeddings/embed-task.ts';
+import { buildTaskSource } from '../../../src/backend/embeddings/source.ts';
 import { seedTaskForTest } from '../../helpers/seed.ts';
 
 function makeSpy(base: FakeEmbeddingProvider) {

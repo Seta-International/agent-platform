@@ -17,8 +17,8 @@ import { closePools, initPools } from '@seta/shared-db';
 import { FakeEmbeddingProvider, withTestDb } from '@seta/shared-testing';
 import { PgDialect } from 'drizzle-orm/pg-core';
 import { describe, expect, it } from 'vitest';
+import { embedTask } from '../../src/backend/embeddings/embed-task.ts';
 import { handleTaskCreated } from '../../src/backend/subscribers/task-embedding.ts';
-import { embedTask } from '../../src/embeddings/embed-task.ts';
 import { seedTaskForTest } from '../helpers/seed.ts';
 
 const pgDialect = new PgDialect();

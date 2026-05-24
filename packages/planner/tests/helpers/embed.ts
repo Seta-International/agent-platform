@@ -2,7 +2,7 @@ import { ensureTenantPartition } from '@seta/shared-db';
 import type { EmbeddingProvider } from '@seta/shared-embeddings';
 import { embedMany, sourceHash } from '@seta/shared-embeddings';
 import type { Pool } from 'pg';
-import { buildTaskSource } from '../../src/embeddings/source.ts';
+import { buildTaskSource } from '../../src/backend/embeddings/source.ts';
 
 export interface EmbedTaskForTestOptions {
   tenant_id: string;

@@ -7,8 +7,8 @@ import {
   type BatchInputRow,
   type BatchResultRow,
   backfillTasks,
-} from '../../../src/embeddings/backfill.ts';
-import { buildTaskSource } from '../../../src/embeddings/source.ts';
+} from '../../../src/backend/embeddings/backfill.ts';
+import { buildTaskSource } from '../../../src/backend/embeddings/source.ts';
 import { seedTaskForTest } from '../../helpers/seed.ts';
 
 function withDb<T>(fn: (ctx: { pool: import('pg').Pool }) => Promise<T>): Promise<T> {

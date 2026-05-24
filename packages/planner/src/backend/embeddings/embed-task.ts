@@ -7,8 +7,8 @@ import {
 } from '@seta/shared-embeddings';
 import type { Pool } from 'pg';
 import pino from 'pino';
-import { getTaskForEmbedding } from '../backend/domain/get-task-for-embedding.ts';
-import { recordEmbedTaskSkipped } from '../backend/observability.ts';
+import { getTaskForEmbedding } from '../domain/get-task-for-embedding.ts';
+import { recordEmbedTaskSkipped } from '../observability.ts';
 import { fitsInWindow, MAX_SOURCE_TOKENS } from './chunking.ts';
 import { buildTaskSource } from './source.ts';
 
