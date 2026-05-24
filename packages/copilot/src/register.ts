@@ -61,10 +61,3 @@ export function registerCopilot(deps: {
     },
   };
 }
-
-export type { CopilotRuntimeDeps } from './backend/runtime.ts';
-// Orchestrator-facing helpers — exposed on the './register' subpath so workflow
-// authors (e.g. staffing) and integration tests can reach the runtime without
-// the engine appearing on the package's main entry.
-export { buildMastra } from './backend/runtime.ts';
-export { registerWorkflowInputSchema } from './backend/workflows/_infra/input-schema-registry.ts';
