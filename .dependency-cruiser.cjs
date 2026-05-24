@@ -152,7 +152,8 @@ module.exports = {
       from: { path: '^packages/copilot/src/' },
       to: {
         path: '^packages/(identity|planner|integrations|knowledge|notifications|staffing)/',
-        pathNot: '^packages/[^/]+/src/events/|^packages/[^/]+/src/backend/agent-tools/',
+        pathNot:
+          '^packages/[^/]+/src/events/|^packages/[^/]+/src/backend/agent-tools/|^packages/[^/]+/src/agent-tools\\.ts$',
       },
     },
     {
