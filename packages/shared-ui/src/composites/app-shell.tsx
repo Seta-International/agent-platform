@@ -22,6 +22,11 @@ export interface AppShellProps {
   copilotPanel?: React.ReactNode;
   copilotAlert?: boolean;
   defaultCopilotOpen?: boolean;
+  /** When provided, AppShell becomes controlled for the copilot panel. */
+  copilotOpen?: boolean;
+  onCopilotOpenChange?: (open: boolean) => void;
+  /** Slot rendered outside the desktop aside, used by the mobile FAB. */
+  copilotMobileSlot?: React.ReactNode;
   hideCopilot?: boolean;
   notificationCount?: number;
   onBellClick?: () => void;
@@ -43,6 +48,9 @@ export function AppShell({
   copilotPanel,
   copilotAlert = false,
   defaultCopilotOpen = false,
+  copilotOpen: controlledCopilotOpen,
+  onCopilotOpenChange,
+  copilotMobileSlot,
   hideCopilot = false,
   notificationCount = 0,
   onBellClick,
@@ -50,7 +58,15 @@ export function AppShell({
   className,
 }: AppShellProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(defaultSidebarCollapsed);
-  const [copilotOpen, setCopilotOpen] = React.useState(defaultCopilotOpen);
+  const [internalCopilotOpen, setInternalCopilotOpen] = React.useState(defaultCopilotOpen);
+  const copilotOpen = controlledCopilotOpen ?? internalCopilotOpen;
+  const setCopilotOpen = React.useCallback(
+    (next: boolean) => {
+      if (controlledCopilotOpen === undefined) setInternalCopilotOpen(next);
+      onCopilotOpenChange?.(next);
+    },
+    [controlledCopilotOpen, onCopilotOpenChange],
+  );
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
 
   React.useEffect(() => {
@@ -60,7 +76,7 @@ export function AppShell({
       if (e.key === '\\') {
         if (hideCopilot) return;
         e.preventDefault();
-        setCopilotOpen((o) => !o);
+        setCopilotOpen(!copilotOpen);
       } else if (e.key === 'b' || e.key === 'B') {
         if (e.shiftKey) return;
         e.preventDefault();
@@ -69,7 +85,7 @@ export function AppShell({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [hideCopilot]);
+  }, [hideCopilot, copilotOpen, setCopilotOpen]);
 
   return (
     <div
@@ -85,7 +101,7 @@ export function AppShell({
         onSearchOpen={onSearchOpen}
         copilotOpen={copilotOpen}
         copilotAlert={copilotAlert}
-        onCopilotToggle={() => setCopilotOpen((o) => !o)}
+        onCopilotToggle={() => setCopilotOpen(!copilotOpen)}
         hideCopilotButton={hideCopilot}
         notificationCount={notificationCount}
         onBellClick={onBellClick}
@@ -126,6 +142,7 @@ export function AppShell({
           <CopilotPanel onClose={() => setCopilotOpen(false)}>{copilotPanel}</CopilotPanel>
         )}
       </div>
+      {copilotMobileSlot}
     </div>
   );
 }
