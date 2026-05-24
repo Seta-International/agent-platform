@@ -3,17 +3,17 @@ import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useThreadList } from '../hooks/use-thread-list';
 
-interface ChatThreadRailContainerProps {
+interface CopilotThreadRailProps {
   activeThreadId?: string;
   onAfterNavigate?: () => void;
   className?: string;
 }
 
-export function ChatThreadRailContainer({
+export function CopilotThreadRail({
   activeThreadId,
   onAfterNavigate,
   className,
-}: ChatThreadRailContainerProps) {
+}: CopilotThreadRailProps) {
   const [search, setSearch] = useState('');
   const navigate = useNavigate();
   const { groups } = useThreadList();
