@@ -1,3 +1,4 @@
+import './otel.ts'; // MUST be first; see otel.ts header comment.
 import { registerCopilot } from '@seta/copilot/register';
 import { createContributionRegistry } from '@seta/core';
 import { coreDb } from '@seta/core/db';
