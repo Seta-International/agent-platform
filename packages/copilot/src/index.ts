@@ -1,6 +1,15 @@
+// Public surface of @seta/copilot — workflow-run domain only.
+// Engine internals (buildMastra, model registry, workflow infra, observability)
+// are reachable on subpaths (./register, ./models) consumed by apps and
+// orchestrators. Contract types (SessionLike, WorkflowBuilder) live in
+// @seta/copilot-sdk. Permissions on ./rbac. Events on ./events.
+
 export type { CancelWorkflowRunOpts } from './backend/domain/cancel-workflow-run.ts';
 export { cancelWorkflowRun } from './backend/domain/cancel-workflow-run.ts';
-export type { DecideApprovalOpts, DecideApprovalResult } from './backend/domain/decide-approval.ts';
+export type {
+  DecideApprovalOpts,
+  DecideApprovalResult,
+} from './backend/domain/decide-approval.ts';
 export { decideApproval } from './backend/domain/decide-approval.ts';
 export type { GetWorkflowRunOpts } from './backend/domain/get-workflow-run.ts';
 export { getWorkflowRun } from './backend/domain/get-workflow-run.ts';
@@ -25,22 +34,5 @@ export type {
 export { replayWorkflowFromStep } from './backend/domain/replay-workflow-from-step.ts';
 export type { RerunWorkflowOpts, RerunWorkflowResult } from './backend/domain/rerun-workflow.ts';
 export { rerunWorkflow } from './backend/domain/rerun-workflow.ts';
-export type { ModelEntry, ModelTier, PublicModel, ResolveOpts } from './backend/model-registry.ts';
-export { listModels, ModelNotFoundError, resolveModel } from './backend/model-registry.ts';
-export { bindOtel, otel } from './backend/observability.ts';
-export type { CopilotRuntimeDeps } from './backend/runtime.ts';
-export { buildMastra } from './backend/runtime.ts';
-export type { SessionLike } from './backend/types.ts';
-export { registerWorkflowInputSchema } from './backend/workflows/_infra/input-schema-registry.ts';
-export type {
-  ResumeRetryDeps,
-  ResumeRetryResult,
-} from './backend/workflows/_infra/resume-retry.ts';
-export { resumeRetry } from './backend/workflows/_infra/resume-retry.ts';
-export type { SweepDeps, SweepResult } from './backend/workflows/_infra/sweeper.ts';
-export { sweepWorkflowApprovals } from './backend/workflows/_infra/sweeper.ts';
-export type { CopilotEvent } from './events/index.ts';
-export type { CopilotPermission } from './rbac.ts';
-export { COPILOT_PERMISSIONS } from './rbac.ts';
-export type { CopilotHandle } from './register.ts';
-export { getMastra, registerCopilot, registerCopilotContributions } from './register.ts';
+
+export { registerCopilotContributions } from './register.ts';
