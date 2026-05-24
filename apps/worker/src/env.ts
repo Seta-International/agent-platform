@@ -17,6 +17,12 @@ const Env = z.object({
   MAILER_GRAPH_CLIENT_ID: z.string().optional(),
   MAILER_GRAPH_CLIENT_SECRET: z.string().optional(),
   M365_WEBHOOK_SECRET: z.string().min(32).optional(),
+  CLAMAV_HOST: z.string().default('localhost'),
+  CLAMAV_PORT: z.coerce.number().int().positive().default(3310),
+  KNOWLEDGE_AV_REQUIRED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((s) => s === 'true'),
 });
 
 export function parseEnv(raw: NodeJS.ProcessEnv): WorkerEnv {

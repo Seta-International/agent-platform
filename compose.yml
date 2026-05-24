@@ -70,6 +70,11 @@ services:
       MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
       MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+      SESSION_COOKIE_SAMESITE: ${SESSION_COOKIE_SAMESITE:-strict}
+      CLAMAV_HOST: ${CLAMAV_HOST:-clamav}
+      CLAMAV_PORT: ${CLAMAV_PORT:-3310}
+      KNOWLEDGE_AV_REQUIRED: ${KNOWLEDGE_AV_REQUIRED:-true}
     networks:
       - seta-edge
       - seta-internal
@@ -78,6 +83,8 @@ services:
         condition: service_healthy
       migrator:
         condition: service_completed_successfully
+      clamav:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:'+(process.env.PORT||3000)+'/health/live',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
       interval: 10s
@@ -121,3 +128,15 @@ services:
     read_only: true
     tmpfs:
       - /tmp
+
+  clamav:
+    image: clamav/clamav:1.4
+    restart: unless-stopped
+    networks:
+      - seta-internal
+    healthcheck:
+      test: ["CMD", "clamdcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 180s

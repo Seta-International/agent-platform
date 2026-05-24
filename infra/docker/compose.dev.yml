@@ -55,6 +55,19 @@ services:
     environment:
       COLLECTOR_OTLP_ENABLED: "true"
 
+  clamav:
+    image: clamav/clamav:1.4
+    container_name: seta-ap-clamav-dev
+    # Port offset +10 to coexist with other workstation stacks.
+    ports:
+      - "3320:3310"
+    healthcheck:
+      test: ["CMD", "clamdcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 180s
+
 volumes:
   seta-ap-postgres-data:
   seta-ap-redis-data:

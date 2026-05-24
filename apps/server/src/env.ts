@@ -25,6 +25,22 @@ const Env = z.object({
   // webhook subscriptions. When absent, the m365 jobs and webhook are not
   // registered — startup proceeds normally without M365 features.
   M365_WEBHOOK_SECRET: z.string().min(32).optional(),
+  CORS_ORIGINS: z
+    .string()
+    .default('http://localhost:5173')
+    .transform((s) =>
+      s
+        .split(',')
+        .map((o) => o.trim())
+        .filter(Boolean),
+    ),
+  SESSION_COOKIE_SAMESITE: z.enum(['strict', 'lax']).default('strict'),
+  CLAMAV_HOST: z.string().default('localhost'),
+  CLAMAV_PORT: z.coerce.number().int().positive().default(3310),
+  KNOWLEDGE_AV_REQUIRED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((s) => s === 'true'),
 });
 
 export function parseEnv(raw: NodeJS.ProcessEnv) {
