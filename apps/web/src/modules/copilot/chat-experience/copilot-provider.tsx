@@ -47,12 +47,9 @@ interface RuntimeContextValue {
 
 const RuntimeContext = createContext<RuntimeContextValue | null>(null);
 
-export interface PageContext {
-  kind: string;
-  id: string;
-  label: string;
-  summary?: string;
-}
+export type { PageContext } from '../lib/page-context-types';
+
+import type { PageContext } from '../lib/page-context-types';
 
 interface PageContextValue {
   pageContext: PageContext | null;

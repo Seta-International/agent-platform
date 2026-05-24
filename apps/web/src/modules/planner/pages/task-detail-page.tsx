@@ -10,6 +10,7 @@ import {
 import { useNavigate } from '@tanstack/react-router';
 import { ArrowRightLeft, ChevronRight, Copy, MoreHorizontal } from 'lucide-react';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { useCopilotContext } from '@/modules/copilot';
 import { PlannerClientError } from '../api/planner-client';
 import { ConfirmDeleteTaskDialog } from '../components/ConfirmDeleteTaskDialog';
 import { DuplicateTaskDialog } from '../components/DuplicateTaskDialog';
@@ -120,6 +121,13 @@ export function TaskDetailPage({
     toast.error("You don't have access to this task anymore.");
     void navigate({ to: '/planner/groups' });
   }, [isForbidden, navigate]);
+
+  useCopilotContext({
+    kind: 'planner.task',
+    id: taskId,
+    label: taskQ.data?.title ?? 'Task',
+    summary: taskQ.data?.description?.slice(0, 200),
+  });
 
   if (taskQ.isPending) {
     return (

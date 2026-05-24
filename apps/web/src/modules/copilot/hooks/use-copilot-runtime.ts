@@ -1,8 +1,8 @@
 import { AssistantChatTransport, useChatRuntime } from '@assistant-ui/react-ai-sdk';
 import type { UIMessage } from 'ai';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import type { PageContext } from '../chat-experience/copilot-provider';
 import { buildPageContextPart } from '../lib/page-context-part';
+import type { PageContext } from '../lib/page-context-types';
 
 interface UseCopilotRuntimeOpts {
   agentName: string;

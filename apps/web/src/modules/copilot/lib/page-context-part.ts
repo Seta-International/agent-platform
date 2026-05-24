@@ -1,4 +1,4 @@
-import type { PageContext } from '../chat-experience/copilot-provider';
+import type { PageContext } from './page-context-types';
 
 export interface PageContextPart {
   type: 'data-page-context';
