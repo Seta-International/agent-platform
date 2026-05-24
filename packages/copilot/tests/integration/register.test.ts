@@ -4,7 +4,7 @@ import { registerIdentityContributions } from '@seta/identity/register';
 import { registerPlannerContributions } from '@seta/planner/register';
 import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
-import { registerCopilot } from '../../src/index.ts';
+import { registerCopilot } from '../../src/register.ts';
 import { withCopilotTestDb } from '../helpers.ts';
 
 describe('registerCopilot', () => {
