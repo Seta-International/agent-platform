@@ -448,6 +448,8 @@ async function moveTask(input: {
   bucket_id?: string | null;
   before_id?: string;
   after_id?: string;
+  /** Cross-plan move: target plan id. Labels are dropped server-side. */
+  new_plan_id?: string;
 }): Promise<TaskRow> {
   return (await request<TaskRow>(`/api/planner/v1/tasks/${input.task_id}/move`, {
     method: 'POST',
@@ -456,6 +458,7 @@ async function moveTask(input: {
       bucket_id: input.bucket_id,
       before_id: input.before_id,
       after_id: input.after_id,
+      new_plan_id: input.new_plan_id,
     }),
   })) as TaskRow;
 }
@@ -579,6 +582,23 @@ async function deleteTask(input: { task_id: string; expected_version: number }):
     method: 'DELETE',
     body: JSON.stringify({ expected_version: input.expected_version }),
   });
+}
+
+async function duplicateTask(input: {
+  task_id: string;
+  options: {
+    include_description?: boolean;
+    include_checklist?: boolean;
+    include_assignees?: boolean;
+    include_labels?: boolean;
+    include_references?: boolean;
+    include_dates?: boolean;
+  };
+}): Promise<TaskWithAssigneesRow> {
+  return (await request<TaskWithAssigneesRow>(`/api/planner/v1/tasks/${input.task_id}/duplicate`, {
+    method: 'POST',
+    body: JSON.stringify(input.options),
+  })) as TaskWithAssigneesRow;
 }
 
 async function restoreTask(input: { task_id: string }): Promise<TaskRow> {
@@ -756,6 +776,7 @@ export const plannerClient = {
   completeTask,
   reopenTask,
   deleteTask,
+  duplicateTask,
   restoreTask,
   applyLabel,
   unapplyLabel,

@@ -4,13 +4,10 @@ import { TaskDetailHeader } from '../../../../../src/modules/planner/components/
 
 const baseProps = {
   taskNumber: 42,
-  title: 'Wire telemetry plumbing',
   groupName: 'Engineering',
   planName: 'Q3 Launch',
   bucketName: 'In progress',
-  createdAt: '2026-05-01T00:00:00Z',
-  updatedAt: '2026-05-12T00:00:00Z',
-  creatorName: 'Alice',
+  titleSlot: <h1>Wire telemetry plumbing</h1>,
   onBack: vi.fn(),
   onAskCopilot: vi.fn(),
   onCopyLink: vi.fn(),
@@ -19,19 +16,18 @@ const baseProps = {
 };
 
 describe('TaskDetailHeader', () => {
-  it('renders the back button, breadcrumb, T-ID badge, title, and metadata', () => {
+  it('renders the back button, breadcrumb, T-ID badge, and titleSlot', () => {
     render(<TaskDetailHeader {...baseProps} />);
     expect(screen.getByRole('button', { name: /Back to board/i })).toBeInTheDocument();
     expect(screen.getByText('Engineering')).toBeInTheDocument();
     expect(screen.getByText('Q3 Launch')).toBeInTheDocument();
     expect(screen.getByText('In progress')).toBeInTheDocument();
     expect(screen.getByText('T-42')).toBeInTheDocument();
-    // Title is no longer rendered as <h1> here — the editable input in the body owns it.
-    // The header keeps an sr-only span with the title for accessibility.
-    expect(screen.getByText('Wire telemetry plumbing')).toBeInTheDocument();
-    expect(screen.getByText(/Created/)).toBeInTheDocument();
-    expect(screen.getByText(/Last updated/)).toBeInTheDocument();
-    expect(screen.getByText(/by Alice/)).toBeInTheDocument();
+    // Title is owned by the slot — the page passes TaskTitleEditor; tests pass a static h1.
+    expect(screen.getByRole('heading', { name: 'Wire telemetry plumbing' })).toBeInTheDocument();
+    // Created/updated metadata no longer lives in the header — it moved to the aside footer.
+    expect(screen.queryByText(/Created/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Last updated/)).not.toBeInTheDocument();
   });
 
   it('renders the Ask copilot, Copy link, and prev/next action group', () => {

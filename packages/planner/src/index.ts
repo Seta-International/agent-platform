@@ -19,6 +19,7 @@ export { deleteGroup } from './backend/domain/delete-group.ts';
 export { deleteLabel } from './backend/domain/delete-label.ts';
 export { deletePlan } from './backend/domain/delete-plan.ts';
 export { deleteTask } from './backend/domain/delete-task.ts';
+export { duplicateTask } from './backend/domain/duplicate-task.ts';
 export { getGroup } from './backend/domain/get-group.ts';
 export { getGroupActivity } from './backend/domain/get-group-activity.ts';
 export { getPlan } from './backend/domain/get-plan.ts';
@@ -137,6 +138,8 @@ export type {
   CreateLabelInput,
   CreatePlanInput,
   CreateTaskInput,
+  DuplicateTaskInput,
+  DuplicateTaskOptions,
   GetPlanChartDataInput,
   ListMyTasksInput,
   ListPlanTasksByDateRangeInput,

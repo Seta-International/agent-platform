@@ -16,14 +16,14 @@ function sessionWith(perms: string[], tenantId = randomUUID(), userId = randomUU
 
 async function seedRun(
   pool: import('pg').Pool,
-  overrides: { runId?: string; tenantId: string; startedBy: string },
+  overrides: { runId?: string; tenantId: string; startedBy: string; workflowId?: string },
 ): Promise<string> {
   const runId = overrides.runId ?? randomUUID();
   await onLifecycleEvent(pool, {
     kind: 'run-started',
     runId,
     eventSeq: 1,
-    workflowId: 'copilot.test',
+    workflowId: overrides.workflowId ?? 'copilot.test',
     tenantId: overrides.tenantId,
     startedBy: overrides.startedBy,
     startedVia: 'event',
@@ -135,6 +135,49 @@ describe('listWorkflowRuns', () => {
       });
       expect(successOnly.rows).toHaveLength(1);
       expect(successOnly.rows[0]!.runId).toBe(completedRunId);
+    });
+  });
+
+  it('filters by workflowId so cursor pagination respects the definition', async () => {
+    await withCopilotTestDb(async ({ pool }) => {
+      const me = sessionWith(['copilot.workflow.run.read.self']);
+      const wantedId = 'copilot.new-task-skill-tag';
+      const otherId = 'copilot.something-else';
+      const wantedA = await seedRun(pool, {
+        tenantId: me.tenant_id,
+        startedBy: me.user_id,
+        workflowId: wantedId,
+      });
+      const wantedB = await seedRun(pool, {
+        tenantId: me.tenant_id,
+        startedBy: me.user_id,
+        workflowId: wantedId,
+      });
+      await seedRun(pool, {
+        tenantId: me.tenant_id,
+        startedBy: me.user_id,
+        workflowId: otherId,
+      });
+
+      const result = await listWorkflowRuns({
+        session: me,
+        scope: 'self',
+        filters: { workflowId: wantedId },
+      });
+      const returnedIds = new Set(result.rows.map((r) => r.runId));
+      expect(returnedIds.has(wantedA)).toBe(true);
+      expect(returnedIds.has(wantedB)).toBe(true);
+      expect(result.rows.every((r) => r.workflowId === wantedId)).toBe(true);
+
+      const paged = await listWorkflowRuns({
+        session: me,
+        scope: 'self',
+        filters: { workflowId: wantedId },
+        limit: 1,
+      });
+      expect(paged.rows).toHaveLength(1);
+      expect(paged.nextCursor).not.toBeNull();
+      expect(paged.rows[0]!.workflowId).toBe(wantedId);
     });
   });
 

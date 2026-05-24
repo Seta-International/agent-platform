@@ -1,9 +1,29 @@
-import { Button, EmptyState, Skeleton } from '@seta/shared-ui';
+// biome-ignore-all lint/a11y/useSemanticElements: intentional div+role="table"/"row"/"cell" markup to escape native table layout constraints; a11y semantics preserved via explicit roles.
+// biome-ignore-all lint/a11y/useFocusableInteractive: row/cell roles are decorative grid wrappers, not interactive elements; focus targets live inside (buttons).
+import {
+  Alert,
+  AlertDescription,
+  Badge,
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  EmptyState,
+  formatRelative,
+  PageChrome,
+  Skeleton,
+} from '@seta/shared-ui';
+import { CheckSquare, Layers, RotateCcw, Trash2, Users } from 'lucide-react';
 import { useState } from 'react';
 import { useRestoreGroup } from '../hooks/mutations/restore-group';
 import { useRestorePlan } from '../hooks/mutations/restore-plan';
 import { useRestoreTask } from '../hooks/mutations/restore-task';
 import { useTrash } from '../hooks/queries/use-trash';
+
+type TrashKind = 'group' | 'plan' | 'task';
 
 type TrashRow =
   | { kind: 'group'; id: string; name: string; deleted_at: string | null }
@@ -12,11 +32,32 @@ type TrashRow =
 
 const RETENTION_DAYS = 30;
 
+const GRID_TEMPLATE = '120px 1.7fr 160px 130px 220px';
+
+const KIND_META: Record<TrashKind, { label: string; Icon: typeof Users; iconClass: string }> = {
+  group: { label: 'Group', Icon: Users, iconClass: 'text-primary' },
+  plan: { label: 'Plan', Icon: Layers, iconClass: 'text-info' },
+  task: { label: 'Task', Icon: CheckSquare, iconClass: 'text-ink-subtle' },
+};
+
 function daysRemaining(deletedAt: string | null): number | null {
   if (!deletedAt) return null;
   const expires = new Date(deletedAt).getTime() + RETENTION_DAYS * 86_400_000;
   const days = Math.ceil((expires - Date.now()) / 86_400_000);
   return Math.max(0, days);
+}
+
+function DaysBadge({ days }: { days: number | null }) {
+  if (days === null) {
+    return <span className="text-ink-tertiary">—</span>;
+  }
+  if (days === 0) {
+    return <Badge variant="destructive">Expiring</Badge>;
+  }
+  if (days <= 7) {
+    return <Badge variant="warning">{days}d left</Badge>;
+  }
+  return <Badge variant="secondary">{days}d left</Badge>;
 }
 
 interface Props {
@@ -32,13 +73,31 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
   const [confirmingPurge, setConfirmingPurge] = useState<TrashRow | null>(null);
 
   if (q.isPending) {
-    return <Skeleton data-testid="skeleton-trash" className="m-6 h-24 w-full" />;
+    return (
+      <PageChrome breadcrumb={['Planner']} title="Trash">
+        <div data-testid="skeleton-trash" className="space-y-3 p-6">
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-12 w-full" />
+        </div>
+      </PageChrome>
+    );
   }
+
   if (q.isError) {
     return (
-      <div role="alert" className="m-6">
-        Couldn&apos;t load trash.
-      </div>
+      <PageChrome breadcrumb={['Planner']} title="Trash">
+        <div className="p-6">
+          <Alert variant="destructive" role="alert">
+            <AlertDescription className="flex items-center justify-between gap-3">
+              <span>Couldn&apos;t load trash.</span>
+              <Button size="sm" variant="secondary" onClick={() => q.refetch()}>
+                Retry
+              </Button>
+            </AlertDescription>
+          </Alert>
+        </div>
+      </PageChrome>
     );
   }
 
@@ -69,12 +128,22 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
 
   if (rows.length === 0) {
     return (
-      <EmptyState
-        title="Trash is empty"
-        description={`Anything you delete sits here for ${RETENTION_DAYS} days, then it's gone for good.`}
-      />
+      <PageChrome
+        breadcrumb={['Planner']}
+        title="Trash"
+        subtitle={`Auto-purged after ${RETENTION_DAYS} days`}
+      >
+        <div className="p-6">
+          <EmptyState
+            title="Trash is empty"
+            description={`Anything you delete sits here for ${RETENTION_DAYS} days, then it's gone for good.`}
+          />
+        </div>
+      </PageChrome>
     );
   }
+
+  const subtitle = `${rows.length} ${rows.length === 1 ? 'item' : 'items'} · auto-purged after ${RETENTION_DAYS} days`;
 
   function onRestore(r: TrashRow) {
     if (r.kind === 'task') {
@@ -92,72 +161,86 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
   }
 
   return (
-    <div className="p-6">
-      <h1 className="text-display-md text-ink mb-4">Trash</h1>
-      <table className="w-full text-left text-body-sm">
-        <thead className="text-ink-subtle">
-          <tr>
-            <th className="py-2 pr-4">Type</th>
-            <th className="py-2 pr-4">Name</th>
-            <th className="py-2 pr-4">Deleted</th>
-            <th className="py-2 pr-4">Days remaining</th>
-            <th className="py-2">
-              <span className="sr-only">Actions</span>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
+    <PageChrome breadcrumb={['Planner']} title="Trash" subtitle={subtitle}>
+      <div role="table" aria-label="Trash" className="w-full">
+        <div
+          role="row"
+          className="sticky top-0 z-10 grid items-center gap-2 border-b border-hairline bg-canvas px-7 py-2.5 text-[11px] font-medium uppercase tracking-wider text-ink-subtle"
+          style={{ gridTemplateColumns: GRID_TEMPLATE }}
+        >
+          <div role="columnheader">Type</div>
+          <div role="columnheader">Name</div>
+          <div role="columnheader">Deleted</div>
+          <div role="columnheader">Retention</div>
+          <div role="columnheader" className="text-right">
+            <span className="sr-only">Actions</span>
+          </div>
+        </div>
+        <div role="rowgroup">
           {rows.map((r) => {
             const days = daysRemaining(r.deleted_at);
+            const meta = KIND_META[r.kind];
+            const Icon = meta.Icon;
             return (
-              <tr key={`${r.kind}:${r.id}`} className="border-t border-surface-3">
-                <td className="py-2 pr-4">{r.kind}</td>
-                <td className="py-2 pr-4">{r.name}</td>
-                <td className="py-2 pr-4" suppressHydrationWarning>
-                  {r.deleted_at ? new Date(r.deleted_at).toLocaleDateString() : ''}
-                </td>
-                <td className="py-2 pr-4">
-                  {days === null ? '—' : days === 0 ? 'Expiring' : `${days}d`}
-                </td>
-                <td className="py-2">
+              <div
+                role="row"
+                key={`${r.kind}:${r.id}`}
+                className="grid items-center gap-2 border-b border-hairline-tertiary px-7 py-3 text-sm text-ink transition-colors hover:bg-surface-1"
+                style={{ gridTemplateColumns: GRID_TEMPLATE }}
+              >
+                <div role="cell" className="flex items-center gap-2 text-ink-subtle">
+                  <Icon className={`size-3.5 shrink-0 ${meta.iconClass}`} aria-hidden />
+                  <span className="text-xs">{meta.label}</span>
+                </div>
+                <div role="cell" className="min-w-0 pr-4">
+                  <p className="truncate font-medium text-ink">{r.name}</p>
+                </div>
+                <div role="cell" className="text-xs text-ink-muted" suppressHydrationWarning>
+                  {r.deleted_at ? formatRelative(r.deleted_at) : '—'}
+                </div>
+                <div role="cell">
+                  <DaysBadge days={days} />
+                </div>
+                <div role="cell" className="flex justify-end gap-1">
                   <Button variant="ghost" size="sm" onClick={() => onRestore(r)}>
-                    Restore
+                    <RotateCcw className="size-3" aria-hidden /> Restore
                   </Button>
                   {canPermanentlyDelete && (
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="ml-2 text-semantic-danger"
+                      className="text-semantic-danger hover:text-semantic-danger"
                       onClick={() => setConfirmingPurge(r)}
                     >
-                      Permanently delete
+                      <Trash2 className="size-3" aria-hidden /> Delete
                     </Button>
                   )}
-                </td>
-              </tr>
+                </div>
+              </div>
             );
           })}
-        </tbody>
-      </table>
-      {confirmingPurge && (
-        <div
-          role="alertdialog"
-          aria-labelledby="purge-title"
-          className="mt-4 rounded-md border border-semantic-danger bg-semantic-danger-tint p-4"
-        >
-          <h2 id="purge-title" className="font-medium">
-            Permanently delete &ldquo;{confirmingPurge.name}&rdquo;?
-          </h2>
-          <p className="mt-1 text-body-sm text-ink-subtle">
-            You won&apos;t be able to get this back.
-          </p>
-          <div className="mt-3 flex gap-2">
-            <Button size="sm" variant="ghost" onClick={() => setConfirmingPurge(null)}>
+        </div>
+      </div>
+
+      <Dialog
+        open={confirmingPurge !== null}
+        onOpenChange={(v) => {
+          if (!v) setConfirmingPurge(null);
+        }}
+      >
+        <DialogContent className="max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle>
+              Permanently delete &ldquo;{confirmingPurge?.name ?? ''}&rdquo;?
+            </DialogTitle>
+            <DialogDescription>You won&apos;t be able to get this back.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setConfirmingPurge(null)}>
               Cancel
             </Button>
             <Button
-              size="sm"
-              className="bg-semantic-danger text-white"
+              variant="destructive"
               onClick={() => {
                 // The backend's hard-delete endpoint is policy-driven (RETENTION_DAYS sweep, not
                 // a manual API); this dialog confirms intent until that endpoint lands.
@@ -166,9 +249,9 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
             >
               Permanently delete
             </Button>
-          </div>
-        </div>
-      )}
-    </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </PageChrome>
   );
 }

@@ -10,6 +10,9 @@ export interface PlannerEventActor {
 export type TaskMutableFields = {
   title: string;
   description: string | null;
+  // Cross-plan move emits a `planner.task.updated` with `plan_id` in the
+  // changed_fields list so subscribers can re-parent projections.
+  plan_id: Uuid;
   bucket_id: Uuid | null;
   priority_number: 1 | 3 | 5 | 9;
   percent_complete: number;
@@ -431,7 +434,16 @@ export interface PlannerTaskMoved {
     actor: PlannerEventActor;
     group_id: Uuid;
     task_id: Uuid;
+    /**
+     * The task's plan at the time of emission. For cross-plan moves this is
+     * the new (target) plan; use `from_plan_id` / `to_plan_id` to recover
+     * the source. For in-plan moves `plan_id` equals both.
+     */
     plan_id: Uuid;
+    /** Cross-plan move source — equals `plan_id` for in-plan moves. */
+    from_plan_id: Uuid;
+    /** Cross-plan move target — equals `plan_id` for in-plan moves. */
+    to_plan_id: Uuid;
     before: { bucket_id: Uuid | null; order_hint: string | null };
     after: { bucket_id: Uuid | null; order_hint: string | null };
     version_before: number;

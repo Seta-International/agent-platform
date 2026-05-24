@@ -43,6 +43,20 @@ function initialsOf(name: string): string {
     .toUpperCase();
 }
 
+function hueFromUserId(userId: string): number {
+  let h = 0;
+  for (let i = 0; i < userId.length; i++) h = (h * 31 + userId.charCodeAt(i)) >>> 0;
+  return h % 360;
+}
+
+function userAvatarStyle(userId: string) {
+  const hue = hueFromUserId(userId);
+  return {
+    background: `hsl(${hue} 60% 88%)`,
+    color: `hsl(${hue} 40% 22%)`,
+  };
+}
+
 function useDebounced<T>(value: T, ms: number): T {
   const [debounced, setDebounced] = useState<T>(value);
   useEffect(() => {
@@ -164,7 +178,7 @@ export function TaskDetailAssigneesCard({ task, planId, isLinkedToM365 = false }
               Add assignee
             </Button>
           </PopoverTrigger>
-          <PopoverContent align="start" className="w-72 p-0">
+          <PopoverContent align="start" className="w-80 p-0">
             <Command shouldFilter={false}>
               <CommandInput
                 aria-label="Search users"
@@ -194,9 +208,26 @@ export function TaskDetailAssigneesCard({ task, planId, isLinkedToM365 = false }
                           setPickerOpen(false);
                           setSearch('');
                         }}
+                        className="flex items-center gap-2.5"
                       >
-                        <span className="flex-1">{u.name}</span>
-                        <span className="t-xs subtle">{u.email}</span>
+                        <span
+                          aria-hidden
+                          className="inline-flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
+                          style={userAvatarStyle(u.user_id)}
+                        >
+                          {initialsOf(u.name)}
+                        </span>
+                        <span className="flex min-w-0 flex-1 flex-col">
+                          <span className="truncate text-body-sm leading-tight text-ink">
+                            {u.name}
+                          </span>
+                          <span className="truncate text-caption leading-tight text-ink-subtle">
+                            {u.email}
+                          </span>
+                        </span>
+                        {already && (
+                          <span className="shrink-0 text-caption text-ink-subtle">Added</span>
+                        )}
                       </CommandItem>
                     );
                   })}

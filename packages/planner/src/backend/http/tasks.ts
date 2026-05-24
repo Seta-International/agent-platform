@@ -10,6 +10,7 @@ import {
   completeTask,
   createTask,
   deleteTask,
+  duplicateTask,
   getTask,
   listChecklistItems,
   listMyAssignedTasks,
@@ -59,9 +60,22 @@ const moveTaskSchema = z.object({
   bucket_id: z.string().uuid().nullable().optional(),
   before_id: z.string().uuid().optional(),
   after_id: z.string().uuid().optional(),
+  // Cross-plan move: target plan id. When provided and different from the
+  // task's current plan, the task is relocated to the target plan and any
+  // plan-scoped labels are dropped (matches Microsoft Planner parity).
+  new_plan_id: z.string().uuid().optional(),
 });
 
 const versionSchema = z.object({ expected_version: z.number().int().positive() });
+
+const duplicateTaskSchema = z.object({
+  include_description: z.boolean().optional(),
+  include_checklist: z.boolean().optional(),
+  include_assignees: z.boolean().optional(),
+  include_labels: z.boolean().optional(),
+  include_references: z.boolean().optional(),
+  include_dates: z.boolean().optional(),
+});
 
 const assignSchema = z.object({ user_id: z.string().uuid() });
 
@@ -253,8 +267,24 @@ export function registerPlannerTasksRoutes(app: Hono<SessionEnv>): void {
         bucket_id: parsed.data.bucket_id,
         before_id: parsed.data.before_id,
         after_id: parsed.data.after_id,
+        new_plan_id: parsed.data.new_plan_id,
         session,
       }),
+    );
+  });
+
+  app.post('/api/planner/v1/tasks/:id/duplicate', async (c) => {
+    const session = c.get('user');
+    const parsed = duplicateTaskSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success)
+      return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
+    return c.json(
+      await duplicateTask({
+        task_id: c.req.param('id'),
+        options: parsed.data,
+        session,
+      }),
+      201,
     );
   });
 

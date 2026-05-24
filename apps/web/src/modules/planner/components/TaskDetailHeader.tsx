@@ -4,26 +4,32 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  formatRelative,
   KbdHint,
 } from '@seta/shared-ui';
-import { ChevronLeft, ChevronRight, Copy, MoreHorizontal, Sparkles } from 'lucide-react';
-import { useEffect } from 'react';
+import {
+  ArrowRightLeft,
+  ChevronLeft,
+  ChevronRight,
+  Copy,
+  MoreHorizontal,
+  Sparkles,
+} from 'lucide-react';
+import { type ReactNode, useEffect } from 'react';
 
 interface Props {
   taskNumber: number;
-  title: string;
   groupName: string;
   planName: string;
   bucketName: string | null;
-  createdAt: string;
-  updatedAt: string;
-  creatorName: string;
+  /** Editable title slot (TaskTitleEditor) — rendered prominently below the breadcrumb. */
+  titleSlot: ReactNode;
   onBack: () => void;
   onAskCopilot: () => void;
   onCopyLink: () => void;
   onPrevious: () => void;
   onNext: () => void;
+  onDuplicate?: () => void;
+  onMove?: () => void;
   onDelete?: () => void;
 }
 
@@ -37,18 +43,17 @@ function isEditableTarget(node: EventTarget | null): boolean {
 
 export function TaskDetailHeader({
   taskNumber,
-  title,
   groupName,
   planName,
   bucketName,
-  createdAt,
-  updatedAt,
-  creatorName,
+  titleSlot,
   onBack,
   onAskCopilot,
   onCopyLink,
   onPrevious,
   onNext,
+  onDuplicate,
+  onMove,
   onDelete,
 }: Props) {
   useEffect(() => {
@@ -100,13 +105,7 @@ export function TaskDetailHeader({
       </div>
 
       <div className="flex items-start gap-4">
-        <div className="flex-1 min-w-0">
-          <span className="sr-only">{title}</span>
-          <div className="text-xs text-ink-subtle">
-            Created {formatRelative(createdAt)} by {creatorName} · Last updated{' '}
-            {formatRelative(updatedAt)}
-          </div>
-        </div>
+        <div className="min-w-0 flex-1">{titleSlot}</div>
 
         <div className="flex items-center gap-2">
           <Button size="sm" variant="secondary" onClick={onAskCopilot}>
@@ -117,7 +116,7 @@ export function TaskDetailHeader({
             <Copy className="size-3" />
             Copy link
           </Button>
-          {onDelete && (
+          {(onDuplicate || onMove || onDelete) && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
@@ -129,9 +128,23 @@ export function TaskDetailHeader({
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onSelect={() => onDelete()} className="text-semantic-danger">
-                  Delete
-                </DropdownMenuItem>
+                {onDuplicate && (
+                  <DropdownMenuItem onSelect={() => onDuplicate()}>
+                    <Copy className="size-3.5" />
+                    Duplicate
+                  </DropdownMenuItem>
+                )}
+                {onMove && (
+                  <DropdownMenuItem onSelect={() => onMove()}>
+                    <ArrowRightLeft className="size-3.5" />
+                    Move…
+                  </DropdownMenuItem>
+                )}
+                {onDelete && (
+                  <DropdownMenuItem onSelect={() => onDelete()} className="text-semantic-danger">
+                    Delete
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           )}

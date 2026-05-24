@@ -28,6 +28,7 @@ export interface ListRunsOpts {
   scope: WorkflowRunScope;
   cursor?: string;
   limit?: number;
+  workflowId?: string;
 }
 
 export interface DecideApprovalBody {
@@ -41,6 +42,7 @@ export const workflowsApi = {
     const qs = new URLSearchParams({ scope: opts.scope });
     if (opts.cursor) qs.set('cursor', opts.cursor);
     if (opts.limit != null) qs.set('limit', String(opts.limit));
+    if (opts.workflowId) qs.set('workflowId', opts.workflowId);
     const res = await fetch(`/api/copilot/v1/workflows/runs?${qs}`, {
       credentials: 'include',
     });

@@ -24,6 +24,16 @@ describe('workflowsApi', () => {
     expect(callUrl).toContain('limit=25');
   });
 
+  it('listRuns forwards workflowId so pagination is server-side scoped', async () => {
+    const fetchMock = vi.fn(async () => mockJsonResponse({ rows: [], nextCursor: null }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await workflowsApi.listRuns({ scope: 'self', workflowId: 'copilot.new-task-skill-tag' });
+
+    const callUrl = String((fetchMock.mock.calls[0] as [string])[0]);
+    expect(callUrl).toContain('workflowId=copilot.new-task-skill-tag');
+  });
+
   it('getRun returns null on 404', async () => {
     vi.stubGlobal(
       'fetch',

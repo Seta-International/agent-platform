@@ -559,8 +559,15 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
     if (limit !== undefined && !Number.isFinite(limit)) {
       return c.json({ error: 'invalid_limit', message: 'limit must be a number' }, 400);
     }
+    const workflowId = url.searchParams.get('workflowId') ?? undefined;
     try {
-      const result = await listWorkflowRuns({ session, scope: scopeRaw, cursor, limit });
+      const result = await listWorkflowRuns({
+        session,
+        scope: scopeRaw,
+        cursor,
+        limit,
+        filters: workflowId ? { workflowId } : undefined,
+      });
       return c.json(result);
     } catch (err) {
       return handleDomainError(c, err);

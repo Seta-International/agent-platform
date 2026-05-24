@@ -169,13 +169,13 @@ function ConversationHeader({ title, threadId, onOpenMobileNav }: ConversationHe
   };
 
   return (
-    <div className="flex h-14 flex-none items-center justify-between gap-2 border-b border-hairline px-4 md:px-6">
-      <div className="flex min-w-0 items-center gap-2.5">
+    <header className="flex h-14 flex-none items-center justify-between gap-4 border-b border-hairline bg-canvas px-6">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
         <button
           type="button"
           onClick={onOpenMobileNav}
           aria-label="Open chats"
-          className="-ml-1 inline-flex size-8 items-center justify-center rounded-md text-ink-muted hover:bg-surface-2 hover:text-ink lg:hidden"
+          className="-ml-1 inline-flex size-8 flex-none items-center justify-center rounded-md text-ink-muted hover:bg-surface-2 hover:text-ink lg:hidden"
         >
           <Menu className="size-4" aria-hidden />
         </button>
@@ -194,31 +194,34 @@ function ConversationHeader({ title, threadId, onOpenMobileNav }: ConversationHe
                 cancelEdit();
               }
             }}
-            className="min-w-0 flex-1 bg-transparent text-section-title text-ink focus:outline-none"
+            aria-label="Chat name"
+            className="min-w-0 flex-1 bg-transparent text-card-title font-semibold tracking-tight text-ink focus:outline-none"
           />
         ) : (
-          <>
-            <span className="truncate text-section-title text-ink">{title}</span>
+          <div className="flex min-w-0 items-center gap-1.5">
+            <h1 className="text-card-title m-0 truncate font-semibold tracking-tight text-ink">
+              {title}
+            </h1>
             <button
               type="button"
               onClick={() => canEdit && startEdit()}
               disabled={!canEdit}
               aria-label="Rename chat"
-              className="inline-flex size-6 items-center justify-center rounded-md text-ink-tertiary hover:bg-surface-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex size-6 flex-none items-center justify-center rounded-md text-ink-tertiary hover:bg-surface-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Pencil className="size-3.5" aria-hidden />
             </button>
-          </>
+          </div>
         )}
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-none items-center gap-2">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
               aria-label="Chat actions"
               disabled={!canEdit}
-              className="inline-flex size-7 items-center justify-center rounded-md text-ink-muted hover:bg-surface-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex size-8 items-center justify-center rounded-md text-ink-muted hover:bg-surface-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
             >
               <MoreHorizontal className="size-3.5" aria-hidden />
             </button>
@@ -239,7 +242,7 @@ function ConversationHeader({ title, threadId, onOpenMobileNav }: ConversationHe
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-    </div>
+    </header>
   );
 }
 
