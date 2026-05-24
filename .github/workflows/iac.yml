@@ -1,0 +1,40 @@
+name: IaC
+
+on:
+  pull_request:
+    paths:
+      - 'infra/opentofu/**'
+      - '.github/workflows/iac.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'infra/opentofu/**'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: opentofu/setup-opentofu@v1
+      - name: Format check
+        working-directory: infra/opentofu/aws-ecs
+        run: tofu fmt -check -recursive
+      - name: Validate root module
+        working-directory: infra/opentofu/aws-ecs
+        run: |
+          tofu init -backend=false
+          tofu validate
+      - name: Validate examples
+        run: |
+          set -e
+          for d in infra/opentofu/aws-ecs/examples/*/; do
+            if compgen -G "${d}*.tf" > /dev/null; then
+              echo "Validating $d"
+              (cd "$d" && tofu init -backend=false && tofu validate)
+            else
+              echo "Skipping $d (no .tf files yet)"
+            fi
+          done
