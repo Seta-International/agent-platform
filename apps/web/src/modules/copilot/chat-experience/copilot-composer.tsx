@@ -7,7 +7,11 @@ import { ModelSelector } from '../components/model-selector';
 import { COPILOT_COPY } from '../i18n';
 import { useCopilotSelection } from './copilot-provider';
 
-export function CopilotComposer() {
+interface CopilotComposerProps {
+  compact?: boolean;
+}
+
+export function CopilotComposer({ compact = false }: CopilotComposerProps) {
   const [value, setValue] = useState('');
   const aui = useAui();
   const isRunning = useAuiState((s) => s.thread.isRunning);
@@ -15,6 +19,8 @@ export function CopilotComposer() {
 
   const submit = () => {
     if (!value.trim() || isRunning) return;
+    // Page-context attachment is wired in useCopilotRuntime's toCreateMessage
+    // override (assistant-ui v0.14.5 rejects arbitrary parts on composer.addAttachment).
     aui.composer().setText(value);
     aui.composer().send();
     setValue('');
@@ -33,11 +39,13 @@ export function CopilotComposer() {
             value={selection.modelKey}
             onChange={actions.setModelKey}
             variant="ghost"
+            compact={compact}
           />
           <AgentSelector
             value={selection.agentName as AgentName}
             onChange={(n) => actions.setAgentName(n)}
             variant="ghost"
+            compact={compact}
           />
         </>
       }

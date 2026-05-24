@@ -169,10 +169,21 @@ export function CopilotProvider({ children }: { children: React.ReactNode }) {
 
 function CopilotRuntimeHost({ children }: { children: React.ReactNode }) {
   const { selection, actions } = useCopilotSelection();
+  const { pageContext, suppressedFor } = usePageContext();
   const approvalEvent = useApprovalResolvedEvent();
   const navigate = useNavigate();
   const location = useLocation();
   const handledRevision = useRef(0);
+
+  // Ref read by the runtime's toCreateMessage override at send time; mirrors
+  // the live PageContext state so callers can detach without re-mounting the runtime.
+  const pageContextRef = useRef<{ ctx: PageContext | null; suppressedFor: string | null }>({
+    ctx: pageContext,
+    suppressedFor,
+  });
+  useEffect(() => {
+    pageContextRef.current = { ctx: pageContext, suppressedFor };
+  }, [pageContext, suppressedFor]);
 
   // Approval-driven thread switch.
   // Pre-lift this lived in chat-screen and always redirected to /copilot/chat.
@@ -212,6 +223,7 @@ function CopilotRuntimeHost({ children }: { children: React.ReactNode }) {
       threadId={selection.threadId}
       agentName={selection.agentName}
       modelKey={selection.modelKey}
+      pageContextRef={pageContextRef}
     >
       {children}
     </CopilotRuntimeHostInner>
@@ -222,17 +234,28 @@ function CopilotRuntimeHostInner({
   threadId,
   agentName,
   modelKey,
+  pageContextRef,
   children,
 }: {
   threadId: string | undefined;
   agentName: string;
   modelKey: string;
+  pageContextRef: React.MutableRefObject<{
+    ctx: PageContext | null;
+    suppressedFor: string | null;
+  }>;
   children: React.ReactNode;
 }) {
   const { data: history, isLoading } = useThreadMessages(threadId);
   const initialMessages: UIMessage[] = threadId ? (history?.messages ?? []) : [];
   const historyLoading = Boolean(threadId) && isLoading && !history;
-  const runtime = useCopilotRuntime({ agentName, threadId, modelKey, initialMessages });
+  const runtime = useCopilotRuntime({
+    agentName,
+    threadId,
+    modelKey,
+    initialMessages,
+    pageContextRef,
+  });
 
   const value = useMemo<RuntimeContextValue>(
     () => ({ runtime, historyLoading }),
