@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { coreAgentTools } from './backend/agent-tools/index.ts';
+import { coreAgentTools } from './agent-tools.ts';
 import type { ContributionRegistry } from './composition/registry.ts';
 import * as schema from './db/schema/index.ts';
 import { invalidateUserSessions } from './session/invalidate.ts';
