@@ -26,7 +26,7 @@ module.exports = {
       to: {
         path: '^packages/(core|identity|planner|copilot|integrations|knowledge|notifications|staffing)/src/(backend|db)/',
         pathNot:
-          '^packages/$1/src/|^packages/(core|identity|planner|staffing)/src/backend/agent-tools/',
+          '^packages/$1/src/|^packages/(core|identity|planner|staffing)/src/backend/agent-tools/|^packages/copilot/src/backend/(runtime\\.ts|workflows/_infra/input-schema-registry\\.ts)$',
       },
     },
     {
@@ -159,13 +159,14 @@ module.exports = {
       name: 'modules-no-copilot-direct',
       severity: 'error',
       comment:
-        'Feature and orchestrator modules consume the agent SDK (@seta/copilot-sdk), never @seta/copilot internals. Only the package main entry (src/index.ts) is allowed for orchestrators that need engine helpers like buildMastra/registerWorkflowInputSchema.',
+        'Feature and orchestrator modules consume the agent SDK (@seta/copilot-sdk), never @seta/copilot internals. The allowed entry points are the public subpath target files: src/index.ts, src/events/, src/rbac.ts, src/models.ts, src/register.ts, src/backend/runtime.ts (./runtime), and src/backend/workflows/_infra/input-schema-registry.ts (./workflows).',
       from: {
         path: '^packages/(identity|planner|integrations|knowledge|notifications|staffing)/src/',
       },
       to: {
         path: '^packages/copilot/src/',
-        pathNot: '^packages/copilot/src/(index|events)\\.ts$',
+        pathNot:
+          '^packages/copilot/src/(index\\.ts|events/|rbac\\.ts|models\\.ts|register\\.ts|backend/runtime\\.ts|backend/workflows/_infra/input-schema-registry\\.ts)',
       },
     },
     {
