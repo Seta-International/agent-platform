@@ -17,5 +17,5 @@ export interface CopilotToolSpec<I extends z.ZodTypeAny, O extends z.ZodTypeAny>
   output: O;
   rbac?: string;
   needsApproval?: boolean;
-  execute: (args: { context: z.infer<I> }, ctx: CopilotToolContext) => Promise<z.infer<O>>;
+  execute: (input: z.infer<I>, ctx: CopilotToolContext) => Promise<z.infer<O>>;
 }

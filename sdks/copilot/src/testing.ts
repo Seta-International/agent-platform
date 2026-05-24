@@ -1,6 +1,6 @@
 import { RequestContext } from '@mastra/core/request-context';
 import type { ToolExecutionContext } from '@mastra/core/tools';
-import type { CopilotRequestContext } from './index.ts';
+import type { CopilotRequestContext } from './request-context.ts';
 
 /**
  * Build a Mastra ToolExecutionContext seeded with an actor identity, for use

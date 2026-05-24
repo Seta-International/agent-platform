@@ -17,7 +17,10 @@ export function defineCopilotTool<I extends z.ZodTypeAny, O extends z.ZodTypeAny
     inputSchema: spec.input,
     outputSchema: spec.output,
     requestContextSchema: RequestContextSchema,
-    execute: spec.execute,
+    // Mastra's `execute` typing uses a conditional InferSchema<I> that collapses
+    // to `unknown` under a `z.ZodTypeAny` generic; the runtime contract matches
+    // exactly, so we widen here rather than pollute the authoring type.
+    execute: spec.execute as never,
   });
   if (spec.rbac) registerToolPermission(tool, spec.rbac);
   if (spec.needsApproval) Object.assign(tool, { needsApproval: true });
