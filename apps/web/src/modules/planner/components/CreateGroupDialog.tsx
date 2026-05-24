@@ -56,7 +56,7 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
   function submit(doLink = false) {
     const trimmed = name.trim();
     if (!trimmed) {
-      setError('Name is required.');
+      setError('Give your group a name.');
       return;
     }
     createGroup.mutate(
@@ -85,7 +85,7 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
             onOpenChange(false);
           }
         },
-        onError: (e) => setError(e instanceof Error ? e.message : 'Failed to create group.'),
+        onError: (e) => setError(e instanceof Error ? e.message : "Couldn't create the group."),
       },
     );
   }
@@ -112,9 +112,9 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
                 <div className="text-eyebrow uppercase tracking-wide text-ink-subtle">
                   New group · Planner
                 </div>
-                <DialogTitle>Create a group</DialogTitle>
+                <DialogTitle>New group</DialogTitle>
                 <p className="mt-1 text-sm text-ink-subtle">
-                  Groups own plans and define who can see them.
+                  Groups hold plans together and decide who can see them.
                 </p>
               </div>
             </div>
@@ -140,7 +140,7 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
                 placeholder="What does this group work on?"
                 className="block w-full min-h-[52px] resize-y rounded-md border border-hairline bg-canvas px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
               />
-              <p className="text-xs text-ink-subtle">Shown on the group page and in plan-lists.</p>
+              <p className="text-xs text-ink-subtle">Shown on the group page and in plan lists.</p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -232,11 +232,11 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
               </div>
             </div>
 
-            {/* IdP callout — clicking "Link group…" creates the group then opens the M365 link dialog */}
+            {/* IdP callout — clicking "Link…" creates the group then opens the M365 link dialog */}
             <div className="flex items-center gap-3 rounded-md border border-hairline bg-surface-1 px-3 py-2.5">
               <Link2 className="size-3.5 text-ink-muted" />
               <span className="flex-1 text-sm">
-                Link to an <b>IdP group</b> to sync members automatically
+                Link with a <b>Microsoft 365 group</b> to keep members in sync
               </span>
               <Button
                 size="sm"
@@ -244,7 +244,7 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
                 disabled={!name.trim() || createGroup.isPending}
                 onClick={() => submit(true)}
               >
-                Link group…
+                Link…
               </Button>
             </div>
 
@@ -257,7 +257,7 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
             {/* Members chip-input is deferred — identity.searchUsers API is not yet exposed to the
               planner module. Members can be added from the group page after creation. */}
             <p className="text-xs text-ink-subtle italic">
-              Add members from the group page after creation.
+              You can add members from the group page after you create it.
             </p>
           </div>
 

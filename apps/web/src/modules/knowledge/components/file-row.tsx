@@ -12,10 +12,10 @@ interface StatusConfig {
 
 const STATUS_CONFIG: Record<KnowledgeFile['status'], StatusConfig> = {
   uploading: { label: 'Uploading…', variant: 'secondary' },
-  parsing: { label: 'Parsing…', variant: 'secondary' },
+  parsing: { label: 'Reading…', variant: 'secondary' },
   embedding: { label: 'Indexing…', variant: 'secondary' },
   ready: { label: 'Ready', variant: 'success' },
-  failed: { label: 'Failed', variant: 'destructive' },
+  failed: { label: "Couldn't process", variant: 'destructive' },
 };
 
 function formatBytes(bytes: number): string {

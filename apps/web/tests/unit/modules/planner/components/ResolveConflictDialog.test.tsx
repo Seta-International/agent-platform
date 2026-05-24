@@ -34,7 +34,7 @@ describe('ResolveConflictDialog', () => {
         onOpenChange={() => {}}
       />,
     );
-    expect(screen.getByText('Resolve sync conflict')).toBeInTheDocument();
+    expect(screen.getByText('Pick which version to keep')).toBeInTheDocument();
     // Accessible name of each radio button is computed by the label text
     expect(screen.getAllByRole('radio', { name: /Use Seta/i }).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByRole('radio', { name: /Use M365/i }).length).toBeGreaterThanOrEqual(1);
@@ -50,7 +50,7 @@ describe('ResolveConflictDialog', () => {
         onOpenChange={() => {}}
       />,
     );
-    const resolveBtn = screen.getByRole('button', { name: 'Resolve' });
+    const resolveBtn = screen.getByRole('button', { name: 'Save choices' });
     expect(resolveBtn).toBeDisabled();
 
     // Pick one field only
@@ -96,7 +96,7 @@ describe('ResolveConflictDialog', () => {
         name: /Use M365/i,
       }),
     );
-    await user.click(screen.getByRole('button', { name: 'Resolve' }));
+    await user.click(screen.getByRole('button', { name: 'Save choices' }));
     await waitFor(() => expect(captured.length).toBe(1));
     expect(captured[0]).toMatchObject({
       decisions: expect.arrayContaining([
@@ -125,7 +125,7 @@ describe('ResolveConflictDialog', () => {
       />,
     );
     await user.click(screen.getByRole('radio', { name: /Use Seta/i }));
-    await user.click(screen.getByRole('button', { name: 'Resolve' }));
+    await user.click(screen.getByRole('button', { name: 'Save choices' }));
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
   });
 
@@ -145,7 +145,7 @@ describe('ResolveConflictDialog', () => {
       />,
     );
     await user.click(screen.getByRole('radio', { name: /Use Seta/i }));
-    await user.click(screen.getByRole('button', { name: 'Resolve' }));
+    await user.click(screen.getByRole('button', { name: 'Save choices' }));
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
   });
 });

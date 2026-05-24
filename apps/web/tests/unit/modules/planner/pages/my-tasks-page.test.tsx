@@ -200,13 +200,13 @@ describe('MyTasksPage', () => {
     );
     renderPage();
     expect(await screen.findByTestId('my-tasks-error')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
   });
 
   it('renders the EmptyState when every section is empty', async () => {
     server.use(http.get('*/api/planner/v1/my-tasks', () => HttpResponse.json(emptyResult())));
     renderPage();
-    expect(await screen.findByText(/nothing assigned/i)).toBeInTheDocument();
+    expect(await screen.findByText(/all caught up/i)).toBeInTheDocument();
   });
 
   it('renders subtitle "N open · M late · K due this week"', async () => {
@@ -298,7 +298,7 @@ describe('MyTasksPage', () => {
   it('selecting Priority pill calls onFiltersChange with { priority: 1 }', async () => {
     server.use(http.get('*/api/planner/v1/my-tasks', () => HttpResponse.json(emptyResult())));
     const { setFilters } = renderPage();
-    await screen.findByText(/nothing assigned/i);
+    await screen.findByText(/all caught up/i);
     await userEvent.click(screen.getByRole('button', { name: /priority/i }));
     await userEvent.click(await screen.findByText('Urgent'));
     expect(setFilters).toHaveBeenCalledWith(expect.objectContaining({ priority: 1 }));

@@ -55,9 +55,9 @@ export function WorkflowRunPage({ runId, rerunOpen = false }: WorkflowRunPagePro
     return (
       <div className="grid h-full place-items-center p-8 text-sm">
         <div className="space-y-2 text-center">
-          <p className="text-[var(--color-ink)]">Run not found.</p>
+          <p className="text-[var(--color-ink)]">We couldn&apos;t find that run.</p>
           <p className="text-xs text-[var(--color-ink-subtle)]">
-            It may have been deleted or you may not have access.
+            It may have been deleted, or you might not have access.
           </p>
         </div>
       </div>

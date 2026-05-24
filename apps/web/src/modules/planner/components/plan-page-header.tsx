@@ -147,25 +147,23 @@ export function PlanPageHeader({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               {showRefresh && (
-                <DropdownMenuItem onSelect={onRefreshSync}>Refresh sync</DropdownMenuItem>
+                <DropdownMenuItem onSelect={onRefreshSync}>Sync now</DropdownMenuItem>
               )}
               {showResolveConflicts && (
                 <DropdownMenuItem onSelect={onOpenConflictDialog}>
-                  {conflictCount != null
-                    ? `Resolve conflicts (${conflictCount})…`
-                    : 'Resolve conflicts…'}
+                  {conflictCount != null ? `Review changes (${conflictCount})…` : 'Review changes…'}
                 </DropdownMenuItem>
               )}
               {showOpenInM365 && linkUrl && (
                 <DropdownMenuItem asChild>
                   <a href={linkUrl} target="_blank" rel="noopener noreferrer">
-                    Open in M365 Planner
+                    Open in Microsoft Planner
                   </a>
                 </DropdownMenuItem>
               )}
               {showUnlink && (
                 <DropdownMenuItem onSelect={onUnlinkFromM365} className="text-semantic-danger">
-                  Unlink from M365…
+                  Unlink from Microsoft 365…
                 </DropdownMenuItem>
               )}
               {onExport && <DropdownMenuItem onSelect={onExport}>Export</DropdownMenuItem>}

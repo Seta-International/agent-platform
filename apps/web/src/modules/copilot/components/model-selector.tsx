@@ -54,7 +54,7 @@ export function ModelSelector({ value, onChange, variant = 'ghost' }: ModelSelec
         <button
           type="button"
           className={triggerClass}
-          aria-label="Choose model"
+          aria-label="Switch model"
           disabled={isLoading || models.length === 0}
         >
           <CurrentIcon className="size-3 text-ink-subtle" aria-hidden />
@@ -85,7 +85,7 @@ export function ModelSelector({ value, onChange, variant = 'ghost' }: ModelSelec
                   <span className="flex min-w-0 flex-col">
                     <span className="text-body-sm text-ink">{m.label}</span>
                     {m.supportsReasoning && m.tier !== 'auto' && (
-                      <span className="text-caption text-ink-subtle">Shows reasoning steps</span>
+                      <span className="text-caption text-ink-subtle">Shows its thinking</span>
                     )}
                   </span>
                 </DropdownMenuItem>

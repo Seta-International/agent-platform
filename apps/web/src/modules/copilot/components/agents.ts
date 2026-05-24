@@ -8,8 +8,8 @@ export interface AgentOption {
 }
 
 export const FALLBACK_AGENTS: ReadonlyArray<AgentOption> = [
-  { name: 'self', label: 'Self', description: 'Answers questions about your context' },
-  { name: 'supervisor', label: 'Supervisor', description: 'Routes to the right specialist' },
+  { name: 'self', label: 'Self', description: 'Answers questions about you and your work' },
+  { name: 'supervisor', label: 'Supervisor', description: 'Hands off to the right specialist' },
 ];
 
 export function agentLabel(name: AgentName, options: ReadonlyArray<AgentOption>): string {

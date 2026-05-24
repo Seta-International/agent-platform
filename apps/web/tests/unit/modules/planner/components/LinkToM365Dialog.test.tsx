@@ -28,8 +28,8 @@ const FAKE_M365_GROUPS = [
 describe('LinkToM365Dialog', () => {
   it('renders with title and search input', () => {
     wrap(<LinkToM365Dialog groupId={GROUP_ID} open onOpenChange={() => {}} />);
-    expect(screen.getByText('Link to a Microsoft 365 group')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('Search M365 groups...')).toBeInTheDocument();
+    expect(screen.getByText('Link with a Microsoft 365 group')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Search Microsoft 365 groups…')).toBeInTheDocument();
   });
 
   it('typing in search triggers searchM365Groups call', async () => {
@@ -45,7 +45,7 @@ describe('LinkToM365Dialog', () => {
       }),
     );
     wrap(<LinkToM365Dialog groupId={GROUP_ID} open onOpenChange={() => {}} />);
-    await user.type(screen.getByPlaceholderText('Search M365 groups...'), 'Eng');
+    await user.type(screen.getByPlaceholderText('Search Microsoft 365 groups…'), 'Eng');
     await waitFor(() => expect(searched).toBe(true));
     await waitFor(() => expect(screen.getByText('Engineering M365')).toBeInTheDocument());
     expect(screen.getByText('engineering')).toBeInTheDocument();
@@ -65,10 +65,10 @@ describe('LinkToM365Dialog', () => {
     );
     const onOpenChange = vi.fn();
     wrap(<LinkToM365Dialog groupId={GROUP_ID} open onOpenChange={onOpenChange} />);
-    await user.type(screen.getByPlaceholderText('Search M365 groups...'), 'Eng');
+    await user.type(screen.getByPlaceholderText('Search Microsoft 365 groups…'), 'Eng');
     await waitFor(() => expect(screen.getByText('Engineering M365')).toBeInTheDocument());
     await user.click(screen.getByText('Engineering M365'));
-    await user.click(screen.getByRole('button', { name: 'Link group' }));
+    await user.click(screen.getByRole('button', { name: 'Link' }));
     await waitFor(() => expect(captured.length).toBe(1));
     expect(captured[0]).toMatchObject({ external_id: 'ext-1' });
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
@@ -85,10 +85,10 @@ describe('LinkToM365Dialog', () => {
       ),
     );
     wrap(<LinkToM365Dialog groupId={GROUP_ID} open onOpenChange={() => {}} />);
-    await user.type(screen.getByPlaceholderText('Search M365 groups...'), 'Eng');
+    await user.type(screen.getByPlaceholderText('Search Microsoft 365 groups…'), 'Eng');
     await waitFor(() => expect(screen.getByText('Engineering M365')).toBeInTheDocument());
     await user.click(screen.getByText('Engineering M365'));
-    await user.click(screen.getByRole('button', { name: 'Link group' }));
+    await user.click(screen.getByRole('button', { name: 'Link' }));
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
   });
 
@@ -103,7 +103,7 @@ describe('LinkToM365Dialog', () => {
     );
     const onOpenChange = vi.fn();
     wrap(<LinkToM365Dialog groupId={GROUP_ID} open onOpenChange={onOpenChange} />);
-    await user.type(screen.getByPlaceholderText('Search M365 groups...'), 'eng');
+    await user.type(screen.getByPlaceholderText('Search Microsoft 365 groups…'), 'eng');
     await screen.findByText('Eng');
     await user.click(screen.getByRole('button', { name: /cancel/i }));
     expect(onOpenChange).toHaveBeenCalledWith(false);

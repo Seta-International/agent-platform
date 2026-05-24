@@ -39,14 +39,14 @@ describe('ChatEmbeddedHitl', () => {
     render(withQuery(<ChatEmbeddedHitl threadId="thread-x" />));
 
     await waitFor(() => expect(screen.getByText('Jane')).toBeInTheDocument());
-    expect(screen.getAllByRole('region', { name: /approval needed/i })).toHaveLength(1);
+    expect(screen.getAllByRole('region', { name: /your input needed/i })).toHaveLength(1);
   });
 
   it('renders nothing when no approvals match the thread', async () => {
     vi.spyOn(workflowsApi, 'listMyPendingApprovals').mockResolvedValue([APPROVAL_OTHER_THREAD]);
     render(withQuery(<ChatEmbeddedHitl threadId="thread-x" />));
     await waitFor(() =>
-      expect(screen.queryByRole('region', { name: /approval needed/i })).not.toBeInTheDocument(),
+      expect(screen.queryByRole('region', { name: /your input needed/i })).not.toBeInTheDocument(),
     );
   });
 
@@ -55,6 +55,6 @@ describe('ChatEmbeddedHitl', () => {
     render(withQuery(<ChatEmbeddedHitl threadId={undefined} />));
     // Allow the query to settle, then assert nothing renders
     await new Promise((r) => setTimeout(r, 30));
-    expect(screen.queryByRole('region', { name: /approval needed/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: /your input needed/i })).not.toBeInTheDocument();
   });
 });

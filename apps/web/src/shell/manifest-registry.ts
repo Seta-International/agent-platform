@@ -1,4 +1,4 @@
-import type { NavItem, NavManifest } from '@seta/module-sdk';
+import type { NavItem, NavManifest, NavSection } from '@seta/module-sdk';
 
 export interface SessionLike {
   role_summary: { roles: string[] };
@@ -23,11 +23,24 @@ export function visibleManifests(
   });
 }
 
-export function filterNavItems(items: ReadonlyArray<NavItem>, session: SessionLike): NavItem[] {
+function filterItemList(items: ReadonlyArray<NavItem>, session: SessionLike): NavItem[] {
   const out: NavItem[] = [];
   for (const item of items) {
     if (item.requires && !matches(item.requires, session)) continue;
-    out.push(item.children ? { ...item, children: filterNavItems(item.children, session) } : item);
+    out.push(item.children ? { ...item, children: filterItemList(item.children, session) } : item);
+  }
+  return out;
+}
+
+export function filterNavSections(
+  sections: ReadonlyArray<NavSection>,
+  session: SessionLike,
+): NavSection[] {
+  const out: NavSection[] = [];
+  for (const section of sections) {
+    const items = filterItemList(section.items, session);
+    if (items.length === 0) continue;
+    out.push({ label: section.label, items });
   }
   return out;
 }
@@ -39,7 +52,8 @@ export function activeNavId(
   let bestId: string | undefined;
   let bestLen = -1;
   for (const m of manifests) {
-    const candidates: NavItem[] = [...m.nav];
+    const candidates: NavItem[] = [];
+    for (const section of m.nav) candidates.push(...section.items);
     for (const item of candidates) {
       if (item.children) candidates.push(...item.children);
       if (!item.to) continue;

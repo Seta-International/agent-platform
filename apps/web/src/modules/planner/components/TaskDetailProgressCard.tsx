@@ -12,7 +12,7 @@ export function TaskDetailProgressCard({ task, planId }: Props) {
 
   return (
     <section className="card" aria-label="Progress">
-      <header style={head}>
+      <header className="flex items-baseline justify-between mb-1.5">
         <span className="t-sm subtle">Progress</span>
         <span className="mono t-xs subtle">percent_complete</span>
       </header>
@@ -27,7 +27,7 @@ export function TaskDetailProgressCard({ task, planId }: Props) {
         }
         disabled={task.is_deferred}
       />
-      <div style={deferredRow}>
+      <div className="mt-2.5 inline-flex items-center gap-2">
         <Switch
           id={`deferred-${task.id}`}
           aria-label="Deferred"
@@ -47,16 +47,3 @@ export function TaskDetailProgressCard({ task, planId }: Props) {
     </section>
   );
 }
-
-const head = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'baseline',
-  marginBottom: 6,
-};
-const deferredRow = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 8,
-  marginTop: 10,
-};

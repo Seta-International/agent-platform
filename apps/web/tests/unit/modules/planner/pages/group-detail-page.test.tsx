@@ -88,6 +88,8 @@ function buildSession(roles: string[]): SessionScopeProjection {
   return {
     user_id: 'u1',
     tenant_id: 't1',
+    tenant_name: 'Test Tenant',
+    tenant_slug: 'test',
     email: 'admin@example.com',
     display_name: 'Admin User',
     role_summary: { roles, cross_tenant_read: false },

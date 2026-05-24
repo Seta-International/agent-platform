@@ -9,16 +9,7 @@ import {
   GroupTile,
   SyncBadge,
 } from '@seta/shared-ui';
-import { Link } from '@tanstack/react-router';
-import {
-  ChevronLeft,
-  ChevronRight,
-  MoreHorizontal,
-  Pencil,
-  Plus,
-  Shield,
-  Users,
-} from 'lucide-react';
+import { ChevronRight, MoreHorizontal, Pencil, Plus, Shield, Users } from 'lucide-react';
 import { useState } from 'react';
 import { useRefreshGroupSync } from '../hooks/mutations/refresh-group-sync';
 import { useGroupSyncStatus } from '../hooks/queries/use-group-sync-status';
@@ -36,14 +27,8 @@ interface Props {
   onMenuAction: (action: 'archive' | 'delete') => void;
 }
 
-const createdDateFmt = new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric' });
-
-function formatCreatedDate(dateStr: string): string {
-  return createdDateFmt.format(new Date(dateStr));
-}
-
 function toSyncBadgeState(status: string | null | undefined): SyncState | null {
-  if (!status || status === 'pushing') return null; // SyncBadge has no pushing variant; hide during outbound sync
+  if (!status || status === 'pushing') return null;
   if (status === 'idle' || status === 'pulling' || status === 'error' || status === 'conflict') {
     return status as SyncState;
   }
@@ -58,7 +43,6 @@ export function GroupDetailHeader({
   onCreatePlanClick,
   onMenuAction,
 }: Props) {
-  const formattedDate = formatCreatedDate(group.created_at);
   const [linkOpen, setLinkOpen] = useState(false);
   const [resolveOpen, setResolveOpen] = useState(false);
 
@@ -72,147 +56,141 @@ export function GroupDetailHeader({
   const badgeState = isLinked ? toSyncBadgeState(rawSyncStatus) : null;
   const refresh = useRefreshGroupSync(group.id);
 
+  const breadcrumb = ['Planner', 'Groups'] as const;
+
   return (
     <>
-      <div className="border-b border-hairline px-7 pt-4 pb-0">
-        {/* Breadcrumb row */}
-        <div className="mb-3 flex items-center gap-2 text-xs text-ink-subtle">
-          <Link
-            to="/planner/groups"
-            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 hover:bg-surface-1"
-          >
-            <ChevronLeft className="size-3" />
-            Back to Groups
-          </Link>
-          <span>·</span>
-          <span>
-            Planner <ChevronRight className="inline size-2.5 text-ink-tertiary" />{' '}
-            <span className="text-primary">Groups</span>
-          </span>
-        </div>
-
-        {/* Main row */}
-        <div className="flex items-start gap-4 pb-4">
-          {/* Left: group tile */}
-          <GroupTile name={group.name} theme={group.theme} size={48} />
-
-          {/* Middle: name + metadata */}
-          <div className="flex-1 min-w-0">
-            {/* Line 1: title + rename + visibility */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-card-title font-semibold">{group.name}</h1>
-              {canManage && (
-                <button
-                  type="button"
-                  aria-label="Rename group"
-                  className="rounded p-0.5 text-ink-subtle hover:bg-surface-1 hover:text-ink"
-                  onClick={onRenameClick}
-                >
-                  <Pencil className="size-3.5" />
-                </button>
-              )}
-              {/* Visibility pill */}
-              <span className="inline-flex h-5 items-center gap-1.5 rounded-full bg-surface-1 px-2 text-xs">
-                {group.visibility === 'private' ? (
+      <header className="flex h-14 flex-none items-center justify-between gap-4 border-b border-hairline bg-canvas px-6">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <div className="flex-none">
+            <GroupTile name={group.name} theme={group.theme} size={32} />
+          </div>
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <nav
+              aria-label="Breadcrumb"
+              className="flex items-center gap-1.5 text-eyebrow uppercase tracking-[0.04em] text-ink-subtle"
+            >
+              {breadcrumb.map((crumb, i) => (
+                <span key={crumb} className="flex items-center gap-1.5">
+                  {i > 0 && <ChevronRight aria-hidden className="size-2.5 text-ink-tertiary" />}
+                  <span>{crumb}</span>
+                </span>
+              ))}
+            </nav>
+            <div className="flex min-w-0 items-baseline gap-3">
+              <h1 className="text-card-title m-0 truncate font-semibold tracking-tight text-ink">
+                {group.name}
+              </h1>
+              <div className="flex min-w-0 flex-none items-center gap-2 text-body-sm text-ink-subtle">
+                {canManage && (
+                  <button
+                    type="button"
+                    aria-label="Rename group"
+                    className="rounded p-0.5 text-ink-subtle hover:bg-surface-1 hover:text-ink"
+                    onClick={onRenameClick}
+                  >
+                    <Pencil className="size-3.5" />
+                  </button>
+                )}
+                <span className="inline-flex h-5 items-center gap-1.5 rounded-full bg-surface-1 px-2 text-xs">
+                  {group.visibility === 'private' ? (
+                    <>
+                      <Shield className="size-3 text-ink-subtle" aria-hidden="true" />
+                      Private
+                    </>
+                  ) : (
+                    <>
+                      <Users className="size-3 text-ink-subtle" aria-hidden="true" />
+                      Workspace
+                    </>
+                  )}
+                </span>
+                {group.description && (
+                  <span className="truncate">
+                    <span aria-hidden="true">·</span> {group.description}
+                  </span>
+                )}
+                {isLinked && badgeState && (
                   <>
-                    <Shield className="size-3 text-ink-subtle" aria-hidden="true" />
-                    Private
-                  </>
-                ) : (
-                  <>
-                    <Users className="size-3 text-ink-subtle" aria-hidden="true" />
-                    Workspace
+                    <span aria-hidden="true">·</span>
+                    {badgeState === 'error' ? (
+                      <button
+                        type="button"
+                        className="inline-flex items-center"
+                        onClick={() => refresh.mutate()}
+                        disabled={refresh.isPending}
+                      >
+                        <SyncBadge state="error" synced_at={syncedAt ?? null} />
+                      </button>
+                    ) : badgeState === 'conflict' ? (
+                      <button
+                        type="button"
+                        className="inline-flex items-center"
+                        onClick={() => setResolveOpen(true)}
+                      >
+                        <SyncBadge state="conflict" synced_at={syncedAt ?? null} />
+                      </button>
+                    ) : (
+                      <SyncBadge state={badgeState} synced_at={syncedAt ?? null} />
+                    )}
                   </>
                 )}
-              </span>
+              </div>
             </div>
-
-            {/* Line 2: description + created date + sync badge */}
-            <div className="mt-1 flex items-center gap-2 text-body-sm text-ink-subtle">
-              <span>{group.description ?? '—'}</span>
-              <span>·</span>
-              <span>Created {formattedDate}</span>
-              {isLinked && (
-                <>
-                  <span>·</span>
-                  {badgeState === 'error' ? (
-                    <button
-                      type="button"
-                      className="inline-flex items-center"
-                      onClick={() => refresh.mutate()}
-                      disabled={refresh.isPending}
-                    >
-                      <SyncBadge state="error" synced_at={syncedAt ?? null} />
-                    </button>
-                  ) : badgeState === 'conflict' ? (
-                    <button
-                      type="button"
-                      className="inline-flex items-center"
-                      onClick={() => setResolveOpen(true)}
-                    >
-                      <SyncBadge state="conflict" synced_at={syncedAt ?? null} />
-                    </button>
-                  ) : (
-                    <SyncBadge state={badgeState} synced_at={syncedAt ?? null} />
-                  )}
-                </>
-              )}
-            </div>
-            {isLinked && (
-              <p className="mt-1 text-body-sm text-ink-subtle" data-testid="m365-auto-mirror-info">
-                Plans in this group are mirrored to and from M365 Planner automatically. Native
-                plans you create here will be pushed to M365 as new Planner plans.
-              </p>
-            )}
-          </div>
-
-          {/* Right: action buttons */}
-          <div className="flex-shrink-0 flex items-center gap-2">
-            {canManage && (
-              <Button size="sm" variant="secondary" onClick={onInviteClick}>
-                <Users className="size-3" />
-                Invite
-              </Button>
-            )}
-            <Button size="sm" onClick={onCreatePlanClick}>
-              <Plus className="size-3" />
-              New plan
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  aria-label="More actions"
-                  className="inline-flex items-center justify-center rounded p-1 text-ink-subtle hover:bg-surface-1 hover:text-ink"
-                >
-                  <MoreHorizontal className="size-4" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <SyncControlsMenu
-                  groupId={group.id}
-                  externalSource={group.external_source}
-                  syncStatus={rawSyncStatus}
-                  canManage={canManage}
-                  onLinkClick={() => setLinkOpen(true)}
-                  onResolveClick={() => setResolveOpen(true)}
-                  onRefreshClick={() => refresh.mutate()}
-                  isRefreshing={refresh.isPending}
-                />
-                <DropdownMenuItem onSelect={() => onMenuAction('archive')}>
-                  Archive
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={() => onMenuAction('delete')}
-                  className="text-semantic-danger"
-                >
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
           </div>
         </div>
-      </div>
+        <div className="flex flex-none items-center gap-2">
+          {canManage && (
+            <Button size="sm" variant="secondary" onClick={onInviteClick}>
+              <Users className="size-3" />
+              Invite
+            </Button>
+          )}
+          <Button size="sm" onClick={onCreatePlanClick}>
+            <Plus className="size-3" />
+            New plan
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label="More actions"
+                className="inline-flex items-center justify-center rounded p-1 text-ink-subtle hover:bg-surface-1 hover:text-ink"
+              >
+                <MoreHorizontal className="size-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <SyncControlsMenu
+                groupId={group.id}
+                externalSource={group.external_source}
+                syncStatus={rawSyncStatus}
+                canManage={canManage}
+                onLinkClick={() => setLinkOpen(true)}
+                onResolveClick={() => setResolveOpen(true)}
+                onRefreshClick={() => refresh.mutate()}
+                isRefreshing={refresh.isPending}
+              />
+              <DropdownMenuItem onSelect={() => onMenuAction('archive')}>Archive</DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() => onMenuAction('delete')}
+                className="text-semantic-danger"
+              >
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </header>
+      {isLinked && (
+        <div
+          data-testid="m365-auto-mirror-info"
+          className="flex-none border-b border-hairline bg-surface-1 px-6 py-2 text-body-sm text-ink-subtle"
+        >
+          Plans in this group are mirrored to and from M365 Planner automatically. Native plans you
+          create here will be pushed to M365 as new Planner plans.
+        </div>
+      )}
 
       <LinkToM365Dialog groupId={group.id} open={linkOpen} onOpenChange={setLinkOpen} />
       <ResolveConflictDialog

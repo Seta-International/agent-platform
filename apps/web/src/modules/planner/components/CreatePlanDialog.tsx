@@ -32,7 +32,7 @@ export function CreatePlanDialog({ groupId, open, onOpenChange, onCreated }: Pro
   function submit() {
     const trimmed = name.trim();
     if (!trimmed) {
-      setError('Name is required.');
+      setError('Give your plan a name.');
       return;
     }
     createPlan.mutate(
@@ -43,7 +43,7 @@ export function CreatePlanDialog({ groupId, open, onOpenChange, onCreated }: Pro
           reset();
           onOpenChange(false);
         },
-        onError: (e) => setError(e instanceof Error ? e.message : 'Failed to create plan.'),
+        onError: (e) => setError(e instanceof Error ? e.message : "Couldn't create the plan."),
       },
     );
   }
@@ -58,11 +58,11 @@ export function CreatePlanDialog({ groupId, open, onOpenChange, onCreated }: Pro
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create a plan</DialogTitle>
+          <DialogTitle>New plan</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           <p className="text-body-sm text-ink-subtle">
-            A plan groups buckets and tasks for one stream of work.
+            One plan = one stream of work, with its own buckets and tasks.
           </p>
           <div className="space-y-1">
             <Label htmlFor="create-plan-name">Name</Label>

@@ -1,38 +1,22 @@
 import { DragDropContext, Draggable, Droppable, type DropResult } from '@hello-pangea/dnd';
+import type { BucketRow, PlanRow, TaskWithAssigneesRow } from '@seta/planner';
 import {
-  EmptyState,
   KanbanBoard,
   KanbanCard,
   KanbanColumn,
-  PLANNER_403_LIMIT_MESSAGES,
-  type PlanConflictDecision,
   PreviewBody,
   type PreviewBodyTask,
-  ResolvePlanConflictsDialog,
 } from '@seta/shared-ui';
 import { type HTMLAttributes, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
-import { BoardSkeleton } from '../components/board-skeleton';
 import { ConfirmDeleteBucketDialog } from '../components/ConfirmDeleteBucketDialog';
-import { PlanError } from '../components/plan-error';
-import { PlanFilterBar } from '../components/plan-filter-bar';
-import { PlanPageHeader } from '../components/plan-page-header';
-import { PlanSearchInput } from '../components/plan-search-input';
-import { PlanViewSwitcher } from '../components/plan-view-switcher';
 import { type BucketCard, VirtualizedBucketList } from '../components/virtualized-bucket-list';
 import { useCreateBucket } from '../hooks/mutations/create-bucket';
 import { useCreateTask } from '../hooks/mutations/create-task';
 import { useDeleteBucket } from '../hooks/mutations/delete-bucket';
 import { useMoveBucket } from '../hooks/mutations/move-bucket';
 import { useMoveTask } from '../hooks/mutations/move-task';
-import { useRefreshPlanSync } from '../hooks/mutations/refresh-plan-sync';
-import {
-  type ResolvePlanDecisions,
-  useResolvePlanConflicts,
-} from '../hooks/mutations/resolve-plan-conflicts';
 import { useUpdateBucket } from '../hooks/mutations/update-bucket';
-import { usePlanBoard } from '../hooks/queries/use-plan-board';
 import { useBoardKeyboard } from '../hooks/use-board-keyboard';
-import { useFilterOptions } from '../hooks/use-filter-options';
 import { formatDueShort } from '../lib/format-due-short';
 import { computeNextFocus } from '../state/compute-next-focus';
 import { computeTaskMove } from '../state/compute-task-move';
@@ -42,22 +26,14 @@ import { compareOrderHint, priorityLabel } from '../state/task-derived';
 import type { BoardFilters } from '../state/url-state';
 
 interface Props {
-  planId: string;
+  plan: PlanRow;
+  buckets: BucketRow[];
+  tasks: TaskWithAssigneesRow[];
   filters: BoardFilters;
   onFiltersChange: (f: BoardFilters) => void;
   onOpenTask: (taskId: string) => void;
-  view: 'board' | 'grid';
-  onViewChange: (v: 'board' | 'grid') => void;
   q?: string;
   onQChange?: (next: string) => void;
-  /** When provided, header shows "N assigned to you" count. */
-  currentUserId?: string;
-  /** When provided, header renders breadcrumb and overflow menu. */
-  groupName?: string;
-  canManage?: boolean;
-  onRenamePlan?: (name: string) => void;
-  onArchivePlan?: () => void;
-  onDeletePlan?: () => void;
 }
 
 const NO_BUCKET_DROPPABLE_ID = '__no_bucket__';
@@ -71,36 +47,26 @@ function statusForBucketName(name: string): 'muted' | 'primary' | 'warning' | 's
 }
 
 export function PlanPage({
-  planId,
+  plan,
+  buckets,
+  tasks,
   filters,
   onFiltersChange,
   onOpenTask,
-  view,
-  onViewChange,
   q = '',
   onQChange,
-  currentUserId,
-  groupName,
-  canManage,
-  onRenamePlan,
-  onArchivePlan,
-  onDeletePlan,
 }: Props) {
-  const boardQ = usePlanBoard(planId);
-  const filterOptions = useFilterOptions(boardQ.data);
+  const planId = plan.id;
   const moveTask = useMoveTask(planId);
   const moveBucket = useMoveBucket(planId);
   const createTask = useCreateTask(planId);
   const createBucket = useCreateBucket(planId);
   const deleteBucket = useDeleteBucket(planId);
   const updateBucket = useUpdateBucket(planId);
-  const refreshSync = useRefreshPlanSync(planId);
-  const resolveConflicts = useResolvePlanConflicts(planId);
   const savingIds = useSavingIds((s) => s.ids);
   const recentlyMoved = useRecentlyMovedTasks((s) => s.ids);
 
   const [focusedCardId, setFocusedCardId] = useState<string | null>(null);
-  const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
   const [pendingDeleteBucket, setPendingDeleteBucket] = useState<{
     id: string;
     name: string;
@@ -111,12 +77,11 @@ export function PlanPage({
 
   const tasksByBucket = useMemo(() => {
     const map = new Map<string | null, BucketCard[]>();
-    if (!boardQ.data) return map;
-    const sourceById = new Map(boardQ.data.tasks.map((t) => [t.id, t]));
+    const sourceById = new Map(tasks.map((t) => [t.id, t]));
     const assigneeIdSet = new Set(filters.assignee_ids);
     const labelIdSet = new Set(filters.label_ids);
     const skillTagSet = new Set(filters.skill_tags);
-    for (const t of boardQ.data.tasks) {
+    for (const t of tasks) {
       if (filters.assignee_ids.length && !t.assignees.some((a) => assigneeIdSet.has(a.user_id))) {
         continue;
       }
@@ -164,18 +129,18 @@ export function PlanPage({
       });
     }
     return map;
-  }, [boardQ.data, filters, savingIds, recentlyMoved, q]);
+  }, [tasks, filters, savingIds, recentlyMoved, q]);
 
-  // Build a flat bucket structure for computeNextFocus. Derived from boardQ.data.buckets so
-  // the order matches the rendered columns. Falls back to empty when data isn't loaded yet.
+  // Build a flat bucket structure for computeNextFocus. Derived from buckets so
+  // the order matches the rendered columns.
   const structure = useMemo(
     () => ({
-      buckets: (boardQ.data?.buckets ?? []).map((b) => ({
+      buckets: buckets.map((b) => ({
         id: b.id,
         cardIds: (tasksByBucket.get(b.id) ?? []).map((e) => e.card.id),
       })),
     }),
-    [boardQ.data?.buckets, tasksByBucket],
+    [buckets, tasksByBucket],
   );
 
   useEffect(() => {
@@ -188,23 +153,15 @@ export function PlanPage({
       if (focusedCardId) onOpenTask(focusedCardId);
     },
     onCreateTask: () => {
-      if (!boardQ.data) return;
-      const { plan: p, buckets: bs } = boardQ.data;
       const bucketId = focusedCardId
-        ? bs.find((b) => (tasksByBucket.get(b.id) ?? []).some((e) => e.card.id === focusedCardId))
-            ?.id
-        : bs[0]?.id;
-      if (bucketId) createTask.mutate({ plan_id: p.id, bucket_id: bucketId, title: 'New task' });
+        ? buckets.find((b) =>
+            (tasksByBucket.get(b.id) ?? []).some((e) => e.card.id === focusedCardId),
+          )?.id
+        : buckets[0]?.id;
+      if (bucketId) createTask.mutate({ plan_id: plan.id, bucket_id: bucketId, title: 'New task' });
     },
   });
 
-  if (boardQ.isPending) {
-    return <BoardSkeleton />;
-  }
-  if (boardQ.isError || !boardQ.data) {
-    return <PlanError onRetry={() => boardQ.refetch()} />;
-  }
-  const { plan, buckets, tasks } = boardQ.data;
   const hasActiveFilters =
     filters.assignee_ids.length > 0 ||
     filters.label_ids.length > 0 ||
@@ -260,88 +217,10 @@ export function PlanPage({
   }
 
   return (
-    <div className="plan-page">
-      <PlanPageHeader
-        planName={plan.name}
-        groupName={groupName}
-        groupId={plan.group_id}
-        bucketCount={buckets.length}
-        taskCount={tasks.length}
-        myTaskCount={
-          currentUserId
-            ? tasks.filter((t) => t.assignees.some((a) => a.user_id === currentUserId)).length
-            : undefined
-        }
-        canRename={canManage}
-        canManage={canManage}
-        onRename={onRenamePlan}
-        onArchive={canManage ? onArchivePlan : undefined}
-        onDelete={canManage ? onDeletePlan : undefined}
-        external_source={plan.external_source}
-        syncStatus={plan.sync_status}
-        externalSyncedAt={plan.external_synced_at}
-        externalId={plan.external_id}
-        conflictCount={null}
-        onRefreshSync={plan.external_source === 'm365' ? () => refreshSync.mutate() : undefined}
-        onOpenConflictDialog={
-          plan.external_source === 'm365' ? () => setConflictDialogOpen(true) : undefined
-        }
-      />
-      <div className="plan-toolbar">
-        <div className="plan-toolbar__left">
-          <PlanFilterBar
-            filters={filters}
-            onChange={onFiltersChange}
-            assigneeOptions={filterOptions.assigneeOptions}
-            labelOptions={filterOptions.labelOptions}
-            skillOptions={filterOptions.skillOptions}
-          />
-          <div className="plan-toolbar__divider" aria-hidden="true" />
-          <PlanViewSwitcher value={view} onChange={onViewChange} />
-        </div>
-        <div className="plan-toolbar__right">
-          {onQChange && <PlanSearchInput value={q} onChange={onQChange} />}
-        </div>
-      </div>
-
-      {plan.sync_status === 'error' && plan.last_error && (
-        <div
-          role="alert"
-          className="mx-7 mt-3 rounded border border-semantic-danger bg-semantic-danger-tint p-3 text-body-sm"
-          data-testid="plan-sync-error-banner"
-        >
-          <div className="font-medium">
-            Sync failed: {PLANNER_403_LIMIT_MESSAGES[plan.last_error] ?? plan.last_error}
-          </div>
-          <button
-            type="button"
-            className="mt-2 text-primary underline"
-            onClick={() => refreshSync.mutate()}
-            disabled={refreshSync.isPending}
-          >
-            Retry sync
-          </button>
-        </div>
-      )}
-      {plan.sync_status === 'conflict' && (
-        <div
-          className="mx-7 mt-3 rounded border border-semantic-warning bg-semantic-warning-tint p-3 text-body-sm"
-          data-testid="plan-sync-conflict-banner"
-        >
-          <div className="font-medium">Sync conflicts need resolution</div>
-          <button
-            type="button"
-            className="mt-2 text-primary underline"
-            onClick={() => setConflictDialogOpen(true)}
-          >
-            Resolve now
-          </button>
-        </div>
-      )}
-
+    <>
       {hasActiveFilters && totalVisible === 0 && (
         <div role="status" className="plan-no-results">
-          <p>No tasks match these filters.</p>
+          <p>No tasks match what you&apos;re filtering for.</p>
           <button
             type="button"
             onClick={() => {
@@ -354,136 +233,128 @@ export function PlanPage({
         </div>
       )}
 
-      {plan.sync_status === 'pulling' && tasks.length === 0 ? (
-        <div role="status" data-testid="plan-sync-pulling-empty">
-          <EmptyState
-            title="Syncing from M365 Planner…"
-            description="This may take a minute for large plans."
-          />
-        </div>
-      ) : (
-        <DragDropContext onDragEnd={onDragEnd}>
-          <Droppable droppableId="board" type="COLUMN" direction="horizontal">
-            {(provided) => (
-              <KanbanBoard
-                onAddBucket={() =>
-                  createBucket.mutate({
-                    name: 'New bucket',
-                    after_bucket_id: buckets[buckets.length - 1]?.id,
-                  })
-                }
-                rootDroppable={{
-                  ref: provided.innerRef,
-                  // Why: @hello-pangea/dnd uses string-indexed data-rfd-* keys that don't satisfy React's HTMLAttributes shape.
-                  rootProps: provided.droppableProps as unknown as HTMLAttributes<HTMLElement>,
-                  placeholder: provided.placeholder,
-                }}
-              >
-                {buckets.map((b, idx) => (
-                  <Draggable key={b.id} draggableId={b.id} index={idx}>
-                    {(dp, ds) => (
-                      <KanbanColumn
-                        name={b.name}
-                        count={(tasksByBucket.get(b.id) ?? []).length}
-                        status={statusForBucketName(b.name)}
-                        onCreateTask={(input) =>
-                          createTask.mutate({ plan_id: plan.id, bucket_id: b.id, ...input })
+      <DragDropContext onDragEnd={onDragEnd}>
+        <Droppable droppableId="board" type="COLUMN" direction="horizontal">
+          {(provided) => (
+            <KanbanBoard
+              onAddBucket={() =>
+                createBucket.mutate({
+                  name: 'New bucket',
+                  after_bucket_id: buckets[buckets.length - 1]?.id,
+                })
+              }
+              rootDroppable={{
+                ref: provided.innerRef,
+                // Why: @hello-pangea/dnd uses string-indexed data-rfd-* keys that don't satisfy React's HTMLAttributes shape.
+                rootProps: provided.droppableProps as unknown as HTMLAttributes<HTMLElement>,
+                placeholder: provided.placeholder,
+              }}
+            >
+              {buckets.map((b, idx) => (
+                <Draggable key={b.id} draggableId={b.id} index={idx}>
+                  {(dp, ds) => (
+                    <KanbanColumn
+                      name={b.name}
+                      count={(tasksByBucket.get(b.id) ?? []).length}
+                      status={statusForBucketName(b.name)}
+                      onCreateTask={(input) =>
+                        createTask.mutate({ plan_id: plan.id, bucket_id: b.id, ...input })
+                      }
+                      onRename={(newName) =>
+                        updateBucket.mutate({
+                          bucket_id: b.id,
+                          expected_version: b.version,
+                          patch: { name: newName },
+                        })
+                      }
+                      onDelete={() => {
+                        const count = (tasksByBucket.get(b.id) ?? []).length;
+                        if (count > 0) {
+                          setPendingDeleteBucket({
+                            id: b.id,
+                            name: b.name,
+                            count,
+                            version: b.version,
+                          });
+                        } else {
+                          deleteBucket.mutate({ bucket_id: b.id, expected_version: b.version });
                         }
-                        onRename={(newName) =>
-                          updateBucket.mutate({
-                            bucket_id: b.id,
-                            expected_version: b.version,
-                            patch: { name: newName },
-                          })
-                        }
-                        onDelete={() => {
-                          const count = (tasksByBucket.get(b.id) ?? []).length;
-                          if (count > 0) {
-                            setPendingDeleteBucket({
-                              id: b.id,
-                              name: b.name,
-                              count,
-                              version: b.version,
-                            });
-                          } else {
-                            deleteBucket.mutate({ bucket_id: b.id, expected_version: b.version });
-                          }
-                        }}
-                        draggableHandle={{
-                          ref: dp.innerRef,
-                          rootProps: dp.draggableProps,
-                          handleProps: dp.dragHandleProps ?? undefined,
-                          isDragging: ds.isDragging,
-                          extraStyle: dp.draggableProps.style,
-                        }}
-                        droppable={{}}
-                      >
-                        {(() => {
-                          const list = tasksByBucket.get(b.id) ?? [];
-                          if (list.length <= 50) {
-                            return (
-                              <Droppable droppableId={b.id} type="TASK">
-                                {(dp2, ds2) => (
-                                  <div
-                                    ref={dp2.innerRef}
-                                    {...dp2.droppableProps}
-                                    className={ds2.isDraggingOver ? 'is-over' : ''}
-                                  >
-                                    {list.map((entry, ci) => (
-                                      <Draggable
-                                        key={entry.card.id}
-                                        draggableId={entry.card.id}
-                                        index={ci}
-                                      >
-                                        {(dpc, dsc) => (
-                                          <KanbanCard
-                                            task={entry.card}
-                                            previewSlot={entry.previewSlot}
-                                            onOpen={() => onOpenTask(entry.card.id)}
-                                            selected={focusedCardId === entry.card.id}
-                                            draggable={{
-                                              // Compose dnd's innerRef with our cardRefs map so
-                                              // keyboard focus (focusedCardId effect) can call .focus().
-                                              ref: (el) => {
-                                                dpc.innerRef(el);
-                                                if (el) cardRefs.current.set(entry.card.id, el);
-                                                else cardRefs.current.delete(entry.card.id);
-                                              },
-                                              rootProps: dpc.draggableProps,
-                                              handleProps: dpc.dragHandleProps ?? undefined,
-                                              isDragging: dsc.isDragging,
-                                              extraStyle: dpc.draggableProps.style,
-                                            }}
-                                          />
-                                        )}
-                                      </Draggable>
-                                    ))}
-                                    {dp2.placeholder}
-                                  </div>
-                                )}
-                              </Droppable>
-                            );
-                          }
-                          // Virtualized buckets don't participate in keyboard navigation:
-                          // rows outside the overscan window aren't mounted, so cardRefs never
-                          // contains their elements and .focus() can't reach them.
+                      }}
+                      draggableHandle={{
+                        ref: dp.innerRef,
+                        rootProps: dp.draggableProps,
+                        handleProps: dp.dragHandleProps ?? undefined,
+                        isDragging: ds.isDragging,
+                        extraStyle: dp.draggableProps.style,
+                      }}
+                      droppable={{}}
+                    >
+                      {(() => {
+                        const list = tasksByBucket.get(b.id) ?? [];
+                        if (list.length <= 50) {
                           return (
-                            <VirtualizedBucketList
-                              bucketId={b.id}
-                              cards={list}
-                              onOpen={onOpenTask}
-                            />
+                            <Droppable droppableId={b.id} type="TASK">
+                              {(dp2, ds2) => (
+                                <div
+                                  ref={dp2.innerRef}
+                                  {...dp2.droppableProps}
+                                  className={[
+                                    'kanban-column__cards',
+                                    ds2.isDraggingOver && 'is-over',
+                                  ]
+                                    .filter(Boolean)
+                                    .join(' ')}
+                                >
+                                  {list.map((entry, ci) => (
+                                    <Draggable
+                                      key={entry.card.id}
+                                      draggableId={entry.card.id}
+                                      index={ci}
+                                    >
+                                      {(dpc, dsc) => (
+                                        <KanbanCard
+                                          task={entry.card}
+                                          previewSlot={entry.previewSlot}
+                                          onOpen={() => onOpenTask(entry.card.id)}
+                                          selected={focusedCardId === entry.card.id}
+                                          draggable={{
+                                            // Compose dnd's innerRef with our cardRefs map so
+                                            // keyboard focus (focusedCardId effect) can call .focus().
+                                            ref: (el) => {
+                                              dpc.innerRef(el);
+                                              if (el) cardRefs.current.set(entry.card.id, el);
+                                              else cardRefs.current.delete(entry.card.id);
+                                            },
+                                            rootProps: dpc.draggableProps,
+                                            handleProps: dpc.dragHandleProps ?? undefined,
+                                            isDragging: dsc.isDragging,
+                                            extraStyle: dpc.draggableProps.style,
+                                          }}
+                                        />
+                                      )}
+                                    </Draggable>
+                                  ))}
+                                  {dp2.placeholder}
+                                </div>
+                              )}
+                            </Droppable>
                           );
-                        })()}
-                      </KanbanColumn>
-                    )}
-                  </Draggable>
-                ))}
-              </KanbanBoard>
-            )}
-          </Droppable>
-        </DragDropContext>
-      )}
+                        }
+                        // Virtualized buckets don't participate in keyboard navigation:
+                        // rows outside the overscan window aren't mounted, so cardRefs never
+                        // contains their elements and .focus() can't reach them.
+                        return (
+                          <VirtualizedBucketList bucketId={b.id} cards={list} onOpen={onOpenTask} />
+                        );
+                      })()}
+                    </KanbanColumn>
+                  )}
+                </Draggable>
+              ))}
+            </KanbanBoard>
+          )}
+        </Droppable>
+      </DragDropContext>
       <ConfirmDeleteBucketDialog
         open={pendingDeleteBucket !== null}
         onOpenChange={(v) => {
@@ -499,22 +370,6 @@ export function PlanPage({
           );
         }}
       />
-      {plan.external_source === 'm365' && (
-        <ResolvePlanConflictsDialog
-          open={conflictDialogOpen}
-          onOpenChange={setConflictDialogOpen}
-          data={{ planId: plan.id, planLevelConflicts: [], taskConflicts: [] }}
-          onApply={async (decisions: PlanConflictDecision[]) => {
-            const apiDecisions: ResolvePlanDecisions = decisions.map((d) =>
-              d.kind === 'plan'
-                ? { kind: 'plan', field: d.field, choice: d.choice }
-                : { kind: 'task', task_id: d.taskId, field: d.field, choice: d.choice },
-            );
-            await resolveConflicts.mutateAsync(apiDecisions);
-            setConflictDialogOpen(false);
-          }}
-        />
-      )}
-    </div>
+    </>
   );
 }

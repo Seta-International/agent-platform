@@ -97,7 +97,7 @@ describe('CreateGroupDialog', () => {
     );
     wrap(<CreateGroupDialog open onOpenChange={() => {}} />);
 
-    const btn = screen.getByRole('button', { name: /Link group/i });
+    const btn = screen.getByRole('button', { name: /^Link…$/ });
     // Button is enabled when name is empty (disabled by the name check)
     await user.type(screen.getByLabelText(/Group name/i), 'Linked Group');
     expect(btn).not.toBeDisabled();
@@ -105,7 +105,7 @@ describe('CreateGroupDialog', () => {
     await user.click(btn);
     // After creation, LinkToM365Dialog should open
     await waitFor(() =>
-      expect(screen.getByText('Link to a Microsoft 365 group')).toBeInTheDocument(),
+      expect(screen.getByText('Link with a Microsoft 365 group')).toBeInTheDocument(),
     );
   });
 

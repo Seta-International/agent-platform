@@ -84,7 +84,7 @@ export function AddGroupMembersDialog({ groupId, open, onOpenChange }: Props) {
       {
         onSuccess: (result) => {
           if (result.status === 202) {
-            toast('Adding members in the background — the list will refresh shortly.');
+            toast('Adding members in the background — the list will update in a moment.');
             setTimeout(() => {
               void qc.refetchQueries({ queryKey: plannerKeys.groupMembers(groupId) });
             }, 3000);

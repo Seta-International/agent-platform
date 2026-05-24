@@ -33,10 +33,8 @@ export function TaskDetailExternalCard({ task, plan, onOpenConflictDialog }: Pro
 
   return (
     <section className="card" aria-label="External link">
-      <header className="t-sm subtle" style={{ marginBottom: 8 }}>
-        External
-      </header>
-      <div style={listStyle}>
+      <header className="t-sm subtle mb-2">External</header>
+      <div className="m-0 flex flex-col gap-1.5">
         <div className="t-sm">
           <span className="subtle">Source: </span>
           {isLinked ? (
@@ -58,12 +56,21 @@ export function TaskDetailExternalCard({ task, plan, onOpenConflictDialog }: Pro
           </div>
         )}
         {showResolveConflicts && onOpenConflictDialog && (
-          <button type="button" style={actionBtn} onClick={onOpenConflictDialog}>
+          <button
+            type="button"
+            className="inline-flex cursor-pointer items-center gap-1.5 self-start rounded-md border border-hairline-strong bg-transparent px-2.5 py-1.5 text-caption text-[var(--color-ink-strong)]"
+            onClick={onOpenConflictDialog}
+          >
             Resolve conflicts
           </button>
         )}
         {isLinked && linkUrl && (
-          <a href={linkUrl} target="_blank" rel="noopener noreferrer" style={anchorStyle}>
+          <a
+            href={linkUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="self-start text-caption text-[var(--color-accent)] underline"
+          >
             Open in M365 Planner
           </a>
         )}
@@ -71,29 +78,3 @@ export function TaskDetailExternalCard({ task, plan, onOpenConflictDialog }: Pro
     </section>
   );
 }
-
-const listStyle = {
-  display: 'flex',
-  flexDirection: 'column' as const,
-  gap: 6,
-  margin: 0,
-};
-const actionBtn = {
-  alignSelf: 'flex-start',
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 6,
-  padding: '6px 10px',
-  borderRadius: 6,
-  border: '1px solid var(--color-hairline-strong)',
-  background: 'transparent',
-  color: 'var(--color-ink-strong)',
-  fontSize: 12,
-  cursor: 'pointer',
-};
-const anchorStyle = {
-  alignSelf: 'flex-start',
-  fontSize: 12,
-  color: 'var(--color-accent)',
-  textDecoration: 'underline',
-};

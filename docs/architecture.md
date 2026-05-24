@@ -46,7 +46,7 @@ Versions are pinned in the root `package.json` and each workspace `package.json`
 apps/
 ├── server/   # Hono HTTP (dev: also runs dispatcher + worker pool via startBoth)
 ├── worker/   # graphile-worker pool + LISTEN/NOTIFY dispatcher (production split)
-├── cli/      # ops: migrate, seed, import-csv, embedding backfills
+├── cli/      # ops: migrate, seed, embedding backfills
 └── web/      # React 19 SPA — shell + per-module UI
 
 packages/
@@ -167,7 +167,7 @@ const rt = buildRuntime(env, { reg, pool, ...deps });
 |---|---|
 | `apps/server` | Hono HTTP. In production: HTTP only with enqueue-only `WorkerHandle`. In dev (`NODE_ENV !== 'production'`): `startBoth()` runs HTTP + dispatcher + worker pool in one process. |
 | `apps/worker` | Graphile-worker pool + LISTEN/NOTIFY dispatcher. **Only `apps/worker` runs the dispatcher in production** — exactly one instance across the fleet. |
-| `apps/cli` | Ops surface: `migrate`, `seed`, `import-csv`, embedding backfills. Never starts the dispatcher (dep-cruiser-enforced). |
+| `apps/cli` | Ops surface: `migrate`, `seed`, embedding backfills. Never starts the dispatcher (dep-cruiser-enforced). |
 
 The browser SPA at `apps/web` shares no Node composition with the others. The same registry concept drives the web shell — each web module exports a typed `navManifest` from `@seta/module-sdk` registered in `apps/web/src/shell/manifests.ts`.
 

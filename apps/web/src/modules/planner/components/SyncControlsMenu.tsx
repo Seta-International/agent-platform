@@ -35,20 +35,20 @@ export function SyncControlsMenu({
   return (
     <>
       {isNative && canManage && (
-        <DropdownMenuItem onSelect={onLinkClick}>Link to M365…</DropdownMenuItem>
+        <DropdownMenuItem onSelect={onLinkClick}>Link with Microsoft 365…</DropdownMenuItem>
       )}
       {!isNative && (
         <DropdownMenuItem onSelect={handleRefresh} disabled={refreshPending}>
-          {refreshPending ? 'Refreshing…' : 'Refresh sync'}
+          {refreshPending ? 'Syncing…' : 'Sync now'}
         </DropdownMenuItem>
       )}
       {!isNative && canManage && (
         <DropdownMenuItem onSelect={() => unlink.mutate()} disabled={unlink.isPending}>
-          {unlink.isPending ? 'Unlinking…' : 'Unlink from M365'}
+          {unlink.isPending ? 'Unlinking…' : 'Unlink from Microsoft 365'}
         </DropdownMenuItem>
       )}
       {!isNative && canManage && syncStatus === 'conflict' && (
-        <DropdownMenuItem onSelect={onResolveClick}>Resolve conflict…</DropdownMenuItem>
+        <DropdownMenuItem onSelect={onResolveClick}>Review changes…</DropdownMenuItem>
       )}
     </>
   );

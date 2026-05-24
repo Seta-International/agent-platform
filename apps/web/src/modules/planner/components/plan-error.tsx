@@ -36,12 +36,12 @@ export function PlanError({ error, onRetry, onBack }: Props) {
         {category === 'Network'
           ? 'Check your connection and try again.'
           : category === 'Permission'
-            ? 'Ask your tenant admin for access.'
+            ? 'Ask your admin for access.'
             : 'Something went wrong on our end.'}
       </p>
       <div className="mt-3 flex gap-2">
         <Button size="sm" onClick={onRetry}>
-          Retry
+          Try again
         </Button>
         {onBack && (
           <Button size="sm" variant="ghost" onClick={onBack}>

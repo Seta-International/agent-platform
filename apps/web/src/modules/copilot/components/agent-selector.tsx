@@ -24,7 +24,7 @@ export function AgentSelector({ value, onChange, variant = 'bordered' }: AgentSe
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button type="button" className={triggerClass} aria-label="Choose agent">
+        <button type="button" className={triggerClass} aria-label="Switch assistant">
           <span className="size-1.5 rounded-full bg-primary" aria-hidden />
           {current?.label ?? value}
           <ChevronDown className="size-3 text-ink-subtle" aria-hidden />

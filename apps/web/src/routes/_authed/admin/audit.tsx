@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { z } from 'zod';
-import { AdminAudit } from '@/modules/console/audit/pages/AdminAudit.tsx';
+import { AdminAudit } from '@/modules/admin/audit/pages/AdminAudit.tsx';
 
 const SORT_BYS = ['occurred_at', 'event_type'] as const;
 const SORT_DIRS = ['asc', 'desc'] as const;

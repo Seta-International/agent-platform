@@ -700,7 +700,7 @@ describe('applyPlannerEvent', () => {
       applyPlannerEvent(qc, syncStatusEvent(PLAN, 'idle', 'e-idle'));
       expect(toast).toHaveBeenCalledTimes(1);
       expect(toast).toHaveBeenCalledWith(
-        'Synced — 3 M365 users skipped. Ask an admin to provision them in Seta. (Settings → Users)',
+        'Synced — 3 Microsoft 365 users skipped. Ask an admin to add them here. (Settings → Users)',
       );
     });
 
@@ -730,14 +730,14 @@ describe('applyPlannerEvent', () => {
       applyPlannerEvent(qc, syncStatusEvent(P2, 'idle', 'e-idle-p2'));
       expect(toast).toHaveBeenCalledTimes(1);
       expect(toast).toHaveBeenCalledWith(
-        'Synced — 1 M365 user skipped. Ask an admin to provision them in Seta. (Settings → Users)',
+        'Synced — 1 Microsoft 365 user skipped. Ask an admin to add them here. (Settings → Users)',
       );
       vi.mocked(toast).mockClear();
       // Finish p1 — 2 skips
       applyPlannerEvent(qc, syncStatusEvent(PLAN, 'idle', 'e-idle-p1'));
       expect(toast).toHaveBeenCalledTimes(1);
       expect(toast).toHaveBeenCalledWith(
-        'Synced — 2 M365 users skipped. Ask an admin to provision them in Seta. (Settings → Users)',
+        'Synced — 2 Microsoft 365 users skipped. Ask an admin to add them here. (Settings → Users)',
       );
     });
 
@@ -746,7 +746,7 @@ describe('applyPlannerEvent', () => {
       applyPlannerEvent(qc, skippedEvent(PLAN, 't1', 'e-s1'));
       applyPlannerEvent(qc, syncStatusEvent(PLAN, 'idle', 'e-idle'));
       expect(toast).toHaveBeenCalledWith(
-        'Synced — 1 M365 user skipped. Ask an admin to provision them in Seta. (Settings → Users)',
+        'Synced — 1 Microsoft 365 user skipped. Ask an admin to add them here. (Settings → Users)',
       );
     });
 
@@ -757,7 +757,7 @@ describe('applyPlannerEvent', () => {
       applyPlannerEvent(qc, skippedEvent(PLAN, 't3', 'e-s3'));
       applyPlannerEvent(qc, syncStatusEvent(PLAN, 'idle', 'e-idle'));
       expect(toast).toHaveBeenCalledWith(
-        'Synced — 3 M365 users skipped. Ask an admin to provision them in Seta. (Settings → Users)',
+        'Synced — 3 Microsoft 365 users skipped. Ask an admin to add them here. (Settings → Users)',
       );
     });
   });

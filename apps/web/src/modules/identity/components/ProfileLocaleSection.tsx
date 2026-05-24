@@ -161,7 +161,7 @@ export function ProfileLocaleSection({
                 </Button>
               )}
             </div>
-            {whInvalid && <p className="text-xs text-destructive">Use HH:MM (24-hour)</p>}
+            {whInvalid && <p className="text-xs text-destructive">Use 24-hour time, like 09:00</p>}
           </div>
         ) : (
           wh && (

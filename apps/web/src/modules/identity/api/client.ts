@@ -1,6 +1,8 @@
 export interface SessionScopeProjection {
   user_id: string;
   tenant_id: string;
+  tenant_name: string;
+  tenant_slug: string;
   email: string;
   display_name: string;
   role_summary: { roles: string[]; cross_tenant_read: boolean };

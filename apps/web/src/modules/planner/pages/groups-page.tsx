@@ -8,6 +8,7 @@ import {
   DialogTitle,
   EmptyState,
   KbdHint,
+  PageChrome,
   Skeleton,
 } from '@seta/shared-ui';
 import { Cloud, Plus } from 'lucide-react';
@@ -55,7 +56,6 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
     return () => window.removeEventListener('keydown', onKey);
   }, [canCreateGroup]);
 
-  // Derive owner options from the data
   const ownerOptions = useMemo(() => {
     if (!q.data) return [];
     const seen = new Map<string, string>();
@@ -67,33 +67,32 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
     return Array.from(seen.entries()).map(([value, label]) => ({ value, label }));
   }, [q.data]);
 
-  // Loading skeleton — match the layout shape (header bar + toolbar + body)
   if (q.isPending) {
     return (
-      <div className="flex h-full flex-col">
-        <Skeleton className="h-20 w-full" data-testid="groups-page-skeleton" />
-        <Skeleton className="h-12 w-full mt-px" />
-        <div className="flex-1 p-6 space-y-3">
+      <PageChrome breadcrumb={['Planner']} title="Groups">
+        <div data-testid="groups-page-skeleton" className="space-y-3 p-6">
           <Skeleton className="h-12 w-full" />
           <Skeleton className="h-12 w-full" />
           <Skeleton className="h-12 w-full" />
         </div>
-      </div>
+      </PageChrome>
     );
   }
 
   if (q.isError) {
     return (
-      <div className="p-7">
-        <Alert variant="destructive">
-          <AlertDescription className="flex items-center justify-between gap-3">
-            <span>Couldn't load groups.</span>
-            <Button size="sm" variant="secondary" onClick={() => q.refetch()}>
-              Retry
-            </Button>
-          </AlertDescription>
-        </Alert>
-      </div>
+      <PageChrome breadcrumb={['Planner']} title="Groups">
+        <div className="p-6">
+          <Alert variant="destructive">
+            <AlertDescription className="flex items-center justify-between gap-3">
+              <span>Couldn't load groups.</span>
+              <Button size="sm" variant="secondary" onClick={() => q.refetch()}>
+                Retry
+              </Button>
+            </AlertDescription>
+          </Alert>
+        </div>
+      </PageChrome>
     );
   }
 
@@ -101,27 +100,28 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
 
   if (groups.length === 0) {
     return (
-      <div className="p-7">
-        <EmptyState
-          title="No groups yet"
-          description={
-            canCreateGroup
-              ? 'Create a group to organize plans and people.'
-              : 'Ask an admin to create a group and invite you to it.'
-          }
-          action={
-            canCreateGroup ? { label: 'New group', onClick: () => setCreateOpen(true) } : undefined
-          }
-        />
-        <CreateGroupDialog open={createOpen} onOpenChange={setCreateOpen} />
-      </div>
+      <PageChrome breadcrumb={['Planner']} title="Groups">
+        <div className="p-6">
+          <EmptyState
+            title="No groups yet"
+            description={
+              canCreateGroup
+                ? 'Create a group to organize plans and people.'
+                : 'Ask an admin to create a group and invite you to it.'
+            }
+            action={
+              canCreateGroup
+                ? { label: 'New group', onClick: () => setCreateOpen(true) }
+                : undefined
+            }
+          />
+          <CreateGroupDialog open={createOpen} onOpenChange={setCreateOpen} />
+        </div>
+      </PageChrome>
     );
   }
 
-  // Apply filters
   const showSourceFilter = groups.some((g) => g.external_source !== 'native');
-
-  // state-during-render: reset stale source filter when no M365 groups exist
   if (!showSourceFilter && source !== null) setSource(null);
 
   const filtered = groups.filter((g) => {
@@ -142,54 +142,57 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
   const syncedCount = groups.filter((g) => g.external_source !== 'native').length;
 
   return (
-    <div className="flex h-full flex-col">
-      <header className="relative border-b border-hairline px-7 py-5">
-        <h1 className="text-display-md">Groups</h1>
-        <p className="mt-1 text-body-sm text-ink-subtle">
-          {groups.length} {groups.length === 1 ? 'group' : 'groups'} · {totalPlans} plans ·{' '}
-          {totalMembers} members
-        </p>
-        {canCreateGroup ? (
-          <div className="absolute right-7 top-5 flex gap-2">
+    <PageChrome
+      breadcrumb={['Planner']}
+      title="Groups"
+      subtitle={`${groups.length} ${groups.length === 1 ? 'group' : 'groups'} · ${totalPlans} plans · ${totalMembers} members`}
+      actions={
+        canCreateGroup ? (
+          <>
             <Button size="sm" variant="secondary" onClick={() => setSyncFromIdPOpen(true)}>
               <Cloud className="size-3" /> Sync from IdP
             </Button>
             <Button size="sm" onClick={() => setCreateOpen(true)}>
               <Plus className="size-3" /> New group
             </Button>
-          </div>
-        ) : null}
-      </header>
-      <GroupsToolbar
-        view={view}
-        onViewChange={setView}
-        searchQuery={search}
-        onSearchChange={setSearch}
-        visibility={visibility}
-        onVisibilityChange={setVisibility}
-        source={source}
-        onSourceChange={setSource}
-        owner={owner}
-        onOwnerChange={setOwner}
-        ownerOptions={ownerOptions}
-        showSourceFilter={showSourceFilter}
-      />
-      <div className="flex-1 overflow-auto">
-        {view === 'list' ? <GroupsTable groups={filtered} /> : <GroupsGrid groups={filtered} />}
-      </div>
-      <footer className="flex h-11 flex-none items-center justify-between border-t border-hairline bg-canvas px-7 text-xs text-ink-muted">
-        <span>
-          Showing {filtered.length} of {groups.length}
-          {syncedCount > 0
-            ? ` · ${syncedCount} ${syncedCount === 1 ? 'group' : 'groups'} synced from IdP`
-            : ''}
-        </span>
-        {canCreateGroup ? (
-          <span className="inline-flex items-center gap-1 text-ink-subtle">
-            Press <KbdHint keys={['N']} /> to create a new group
+          </>
+        ) : undefined
+      }
+      toolbar={
+        <GroupsToolbar
+          view={view}
+          onViewChange={setView}
+          searchQuery={search}
+          onSearchChange={setSearch}
+          visibility={visibility}
+          onVisibilityChange={setVisibility}
+          source={source}
+          onSourceChange={setSource}
+          owner={owner}
+          onOwnerChange={setOwner}
+          ownerOptions={ownerOptions}
+          showSourceFilter={showSourceFilter}
+        />
+      }
+    >
+      <div className="flex h-full flex-col">
+        <div className="flex-1 overflow-auto">
+          {view === 'list' ? <GroupsTable groups={filtered} /> : <GroupsGrid groups={filtered} />}
+        </div>
+        <footer className="flex h-11 flex-none items-center justify-between border-t border-hairline bg-canvas px-6 text-xs text-ink-muted">
+          <span>
+            Showing {filtered.length} of {groups.length}
+            {syncedCount > 0
+              ? ` · ${syncedCount} ${syncedCount === 1 ? 'group' : 'groups'} synced from IdP`
+              : ''}
           </span>
-        ) : null}
-      </footer>
+          {canCreateGroup ? (
+            <span className="inline-flex items-center gap-1 text-ink-subtle">
+              Press <KbdHint keys={['N']} /> to create a new group
+            </span>
+          ) : null}
+        </footer>
+      </div>
       <CreateGroupDialog open={createOpen} onOpenChange={setCreateOpen} />
       <Dialog open={syncFromIdPOpen} onOpenChange={setSyncFromIdPOpen}>
         <DialogContent className="max-w-[440px]">
@@ -201,7 +204,7 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
               className="block h-9 w-full rounded-md border border-hairline bg-canvas px-3 text-sm"
               value={groupToLink ?? ''}
               onChange={(e) => setGroupToLink(e.target.value || null)}
-              aria-label="Select a Seta group"
+              aria-label="Select a group"
             >
               <option value="">— choose a group —</option>
               {groups
@@ -239,6 +242,6 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
           }}
         />
       )}
-    </div>
+    </PageChrome>
   );
 }

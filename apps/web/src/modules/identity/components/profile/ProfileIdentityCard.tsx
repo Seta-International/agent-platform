@@ -156,7 +156,10 @@ export function ProfileIdentityCard({
           </div>
 
           <div>
-            <FieldLabel label="Email" hint="Changing your email requires re-verification." />
+            <FieldLabel
+              label="Email"
+              hint="If you change this, you'll need to verify the new email."
+            />
             <div className="flex items-center gap-2">
               <Input value={profile.email} readOnly className="font-mono text-sm" />
             </div>
@@ -213,11 +216,13 @@ export function ProfileIdentityCard({
                     Edit
                   </Button>
                 ) : (
-                  <span className="text-xs text-ink-subtle">Admin-managed</span>
+                  <span className="text-xs text-ink-subtle">Set by your admin</span>
                 )}
               </div>
             )}
-            {whInvalid && <p className="mt-1 text-xs text-destructive">Use HH:MM (24-hour)</p>}
+            {whInvalid && (
+              <p className="mt-1 text-xs text-destructive">Use 24-hour time, like 09:00</p>
+            )}
           </div>
 
           <div className="flex justify-end pt-1">

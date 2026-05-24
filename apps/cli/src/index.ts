@@ -14,12 +14,12 @@ import { closePools, initPools } from '@seta/shared-db';
 import { Command } from 'commander';
 import pino from 'pino';
 import { runEmbedBackfill } from './commands/embed-backfill.ts';
-import { importCsvCommand } from './commands/import-csv.ts';
 import { integrationsMailSetCommand } from './commands/integrations-mail-set.ts';
 import { integrationsMailTestCommand } from './commands/integrations-mail-test.ts';
 import { migrateCommand } from './commands/migrate.ts';
 import { plannerCommand } from './commands/planner.ts';
 import { roleGrantCommand } from './commands/role-grant.ts';
+import { seedCommand } from './commands/seed.ts';
 import { tenantCreateCommand } from './commands/tenant-create.ts';
 import { userCreateCommand } from './commands/user-create.ts';
 import { userDeactivateCommand } from './commands/user-deactivate.ts';
@@ -239,25 +239,43 @@ program
   });
 
 program
-  .command('import-csv')
-  .description('Import users, plans, buckets, and tasks from a directory of CSV files')
-  .requiredOption('--tenant <slug-or-id>', 'Tenant slug or UUID')
-  .requiredOption('--dir <path>', 'Directory containing the six CSV files')
-  .requiredOption('--as <email>', 'Email of an existing org.admin user (acting session)')
-  .option('--password <password>', 'Password for created users (default: ChangeMe@2026)')
+  .command('seed')
+  .description(
+    'Load the SETA Future Org demo dataset (users, plans, buckets, tasks, timesheet). Auto-creates the tenant + admin if missing; idempotent on re-run.',
+  )
+  .option('--tenant <slug-or-id>', 'Tenant slug or UUID', 'setafutureorg')
+  .option('--tenant-name <name>', 'Tenant display name when bootstrapping (defaults to slug)')
+  .option('--dir <path>', 'Directory containing the CSV files', './data/planner')
+  .option(
+    '--admin-email <email>',
+    'Admin email — used as acting session, and created if the tenant is new',
+    'thang.tran@setafutureorg.onmicrosoft.com',
+  )
+  .option('--admin-name <name>', 'Admin display name when bootstrapping a new tenant')
+  .option('--password <password>', 'Password for created users', 'ChangeMe@2026')
   .option(
     '--only <modules>',
-    'Comma-separated subset of modules to run: users,planner,availability (default: all)',
+    'Comma-separated subset of phases to run: users,planner,availability (default: all)',
   )
   .action(
-    async (opts: { tenant: string; dir: string; as: string; password?: string; only?: string }) => {
+    async (opts: {
+      tenant: string;
+      tenantName?: string;
+      dir: string;
+      adminEmail: string;
+      adminName?: string;
+      password?: string;
+      only?: string;
+    }) => {
       try {
         // pnpm exec changes CWD to the package dir; INIT_CWD is the original invocation dir.
         const base = process.env.INIT_CWD ?? process.cwd();
-        await importCsvCommand({
+        await seedCommand({
           tenant: opts.tenant,
+          tenantName: opts.tenantName,
           dir: resolve(base, opts.dir),
-          as: opts.as,
+          adminEmail: opts.adminEmail,
+          adminName: opts.adminName,
           password: opts.password,
           only: opts.only,
         });

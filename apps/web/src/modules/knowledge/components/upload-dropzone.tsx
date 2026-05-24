@@ -10,9 +10,9 @@ export function UploadDropzone() {
     <Dropzone
       accept={ACCEPT}
       maxBytes={MAX_BYTES}
-      label="Drop a file or click to upload"
-      hint="PDF · DOCX · XLSX · CSV · TXT · MD  ·  max 50 MB"
-      tooLargeMessage="File exceeds the 50 MB limit. Please choose a smaller file."
+      label="Drop a file here, or click to choose one"
+      hint="PDF · DOCX · XLSX · CSV · TXT · MD  ·  up to 50 MB"
+      tooLargeMessage="That file is over 50 MB. Try a smaller one."
       isPending={upload.isPending}
       error={upload.isError ? String(upload.error) : null}
       onFile={(file) => upload.mutate(file)}

@@ -32,8 +32,8 @@ const VISIBILITY_OPTIONS = [
 ];
 
 const SOURCE_OPTIONS = [
-  { value: 'native' as const, label: 'Native' },
-  { value: 'm365' as const, label: 'M365' },
+  { value: 'native' as const, label: 'Internal' },
+  { value: 'm365' as const, label: 'Microsoft 365' },
 ];
 
 const VIEW_OPTIONS = [

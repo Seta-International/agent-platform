@@ -51,4 +51,37 @@ describe('PageChrome', () => {
     );
     expect(screen.getByText('body content')).toBeInTheDocument();
   });
+
+  it('renders leading slot before the title', () => {
+    render(
+      <PageChrome title="Engineering" leading={<span data-testid="leading-tile">tile</span>} />,
+    );
+    expect(screen.getByTestId('leading-tile')).toBeInTheDocument();
+  });
+
+  it('renders banner slot below the toolbar', () => {
+    render(
+      <PageChrome
+        title="Engineering"
+        banner={<div data-testid="sync-banner">Mirrored from M365</div>}
+      />,
+    );
+    expect(screen.getByTestId('sync-banner')).toBeInTheDocument();
+  });
+
+  it('renders chip nodes in the subtitle slot', () => {
+    render(
+      <PageChrome
+        title="Engineering"
+        subtitle={
+          <>
+            <span data-testid="vis-chip">Private</span>
+            <span>· 449 open tasks</span>
+          </>
+        }
+      />,
+    );
+    expect(screen.getByTestId('vis-chip')).toBeInTheDocument();
+    expect(screen.getByText(/449 open tasks/)).toBeInTheDocument();
+  });
 });

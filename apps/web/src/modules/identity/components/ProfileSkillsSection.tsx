@@ -82,7 +82,7 @@ export function ProfileSkillsSection({
       <CardContent className="space-y-4">
         <div className="flex flex-wrap gap-2">
           {skills.length === 0 && (
-            <span className="text-sm text-ink-muted">No skills yet; add one below.</span>
+            <span className="text-sm text-ink-muted">No skills yet — add one below.</span>
           )}
           {skills.map((s) => (
             <Badge key={s} variant="secondary" className="gap-0.5 pr-0.5">
@@ -102,7 +102,7 @@ export function ProfileSkillsSection({
 
         <div className="relative">
           <Input
-            placeholder="Type a skill, then Enter to add"
+            placeholder="Type a skill and press Enter"
             value={prefix}
             onChange={(e) => setPrefix(e.target.value)}
             onKeyDown={(e) => {

@@ -30,7 +30,7 @@ export function ProfileSettings() {
         <div className="text-xs text-ink-muted">Settings</div>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">Profile</h1>
         <p className="mt-1 text-sm text-ink-muted">
-          Your identity, availability, and notification preferences
+          Your name, when you&apos;re around, and how you hear from us.
         </p>
       </div>
 
@@ -82,15 +82,15 @@ export function ProfileSettings() {
 
                 <TabsContent value="security" className="mt-0">
                   <ComingSoonCard
-                    title="Security settings"
-                    body="Password change and session management are coming soon. Contact your admin to reset your password."
+                    title="Security"
+                    body="Password changes and session controls are coming soon. For now, ask your admin to reset your password."
                   />
                 </TabsContent>
 
                 <TabsContent value="notifications" className="mt-0">
                   <ComingSoonCard
-                    title="Notification preferences"
-                    body="Channel and digest controls are coming soon."
+                    title="Notifications"
+                    body="Pick how and when you hear from us. Coming soon."
                   />
                 </TabsContent>
               </>

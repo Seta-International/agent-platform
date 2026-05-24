@@ -52,7 +52,7 @@ function AuthedLayout() {
   return (
     <SessionProvider session={session}>
       <AppShell
-        workspace="Acme · Engineering"
+        workspace={session.tenant_name}
         modules={navModules}
         activeItemId={activeId}
         linkComponent={ShellLink}

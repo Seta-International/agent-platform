@@ -101,7 +101,7 @@ export function TaskDetailHeader({
             <span className="mono inline-flex items-center rounded bg-surface-2 px-1.5 py-0.5 text-caption text-ink-subtle">
               T-{taskNumber}
             </span>
-            <h1 className="text-card-title font-semibold">{title}</h1>
+            <span className="sr-only">{title}</span>
           </div>
           <div className="mt-1 text-xs text-ink-subtle">
             Created {formatRelative(createdAt)} by {creatorName} · Last updated{' '}

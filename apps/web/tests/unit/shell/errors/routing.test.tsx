@@ -34,7 +34,7 @@ describe('routing errors', () => {
   it('renders NotFound for unknown path', async () => {
     const router = buildRouter('/does-not-exist');
     render(<RouterProvider router={router} />);
-    expect(await screen.findByText(/404 — Page not found/i)).toBeInTheDocument();
+    expect(await screen.findByText(/We couldn't find that page/i)).toBeInTheDocument();
   });
 
   it('renders ServerError when route component throws', async () => {

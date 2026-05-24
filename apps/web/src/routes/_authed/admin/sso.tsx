@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { AdminSso } from '@/modules/console/sso/pages/AdminSso.tsx';
+import { AdminSso } from '@/modules/admin/sso/pages/AdminSso.tsx';
 
 export const Route = createFileRoute('/_authed/admin/sso')({
   validateSearch: (s: Record<string, unknown>) => ({

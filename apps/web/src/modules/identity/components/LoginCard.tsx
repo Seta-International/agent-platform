@@ -1,4 +1,4 @@
-import { Alert, AlertDescription, Button, cn, Input, Label, SetaMark } from '@seta/shared-ui';
+import { Alert, AlertDescription, Button, Input, Label, SetaMark } from '@seta/shared-ui';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useState } from 'react';
 import { signIn } from '@/lib/auth-client';
@@ -10,14 +10,15 @@ type Step =
   | { kind: 'sso'; email: string; callbackUrl: string; providerId: string };
 
 const ERROR_MESSAGES: Record<string, string> = {
-  not_pre_provisioned: 'Your email is not registered. Ask your admin to invite you.',
+  not_pre_provisioned: "We don't have an account for this email. Ask your admin to invite you.",
   tid_mismatch:
-    'Your Microsoft account is in a different organization than configured for this tenant.',
+    'This Microsoft account belongs to a different organization. Use the work account your organization set up here.',
   oid_conflict:
-    'This Seta account is already linked to a different Microsoft identity. Contact your admin.',
-  user_deactivated: 'Your account has been deactivated. Contact your admin.',
-  access_denied: 'Microsoft blocked the sign-in. Check with your IT team.',
-  LOCAL_PASSWORD_DISABLED: 'This tenant requires Microsoft Entra sign-in. Use your work account.',
+    'This account is linked to a different Microsoft login. Ask your admin to sort it out.',
+  user_deactivated: 'Your account is inactive. Contact your admin to reactivate it.',
+  access_denied: 'Microsoft blocked this sign-in. Check with your IT team.',
+  LOCAL_PASSWORD_DISABLED:
+    'Your organization signs in with Microsoft. Use your work account instead.',
 };
 
 export function LoginCard() {
@@ -33,9 +34,9 @@ export function LoginCard() {
   const [password, setPassword] = useState('');
 
   const initialError = search.error
-    ? (ERROR_MESSAGES[search.error] ?? 'Sign-in failed. Try again or contact support.')
+    ? (ERROR_MESSAGES[search.error] ?? 'Something went wrong. Try again, or contact your admin.')
     : search.reason === 'idle'
-      ? 'Your session expired. Please sign in again.'
+      ? "You've been signed out for inactivity. Sign in to continue."
       : null;
 
   const [error, setError] = useState<string | null>(initialError);
@@ -54,7 +55,7 @@ export function LoginCard() {
       }
       setStep({ kind: 'sso', email, callbackUrl: search.redirect ?? '/', providerId: provider_id });
     } catch {
-      setError('Could not check sign-in method. Try again.');
+      setError("We couldn't reach the sign-in service. Try again in a moment.");
     } finally {
       setSubmitting(false);
     }
@@ -70,9 +71,9 @@ export function LoginCard() {
       if (res.error) {
         if (res.error.status === 429) {
           setRateLimited(true);
-          setError('Too many attempts. Wait a moment and try again.');
+          setError('Too many attempts. Wait a minute, then try again.');
         } else {
-          setError(res.error.message || 'Invalid email or password.');
+          setError(res.error.message || "That email and password don't match. Try again.");
         }
         return;
       }
@@ -91,8 +92,6 @@ export function LoginCard() {
 
   return (
     <LoginShell>
-      <Stepper step={step.kind === 'email' ? 1 : 2} />
-
       {step.kind === 'email' && (
         <EmailStep
           email={email}
@@ -128,7 +127,6 @@ function LoginShell({ children }: { children: React.ReactNode }) {
     <div className="theme-light relative flex min-h-screen flex-col bg-surface-1 text-ink">
       <header className="flex items-center gap-xs px-lg pt-lg sm:px-xl">
         <SetaMark size={22} />
-        <span className="text-body-sm font-semibold text-ink">Seta</span>
       </header>
 
       <main className="flex flex-1 items-center justify-center px-lg py-xl sm:px-xl">
@@ -141,7 +139,7 @@ function LoginShell({ children }: { children: React.ReactNode }) {
       </main>
 
       <footer className="flex items-center justify-between px-lg py-md text-caption text-ink-subtle sm:px-xl">
-        <span suppressHydrationWarning>© {new Date().getFullYear()} Seta International</span>
+        <span suppressHydrationWarning>© {new Date().getFullYear()}</span>
         <div className="flex items-center gap-md">
           <a
             href="https://seta-international.vn/privacy"
@@ -162,46 +160,6 @@ function LoginShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Stepper({ step }: { step: 1 | 2 }) {
-  return (
-    <div className="mb-md flex items-center justify-center gap-xs">
-      <StepBadge n={1} label="Email" active={step === 1} done={step > 1} />
-      <span className="block h-px w-6 bg-hairline-strong" aria-hidden="true" />
-      <StepBadge n={2} label="Sign in" active={step === 2} done={false} />
-    </div>
-  );
-}
-
-function StepBadge({
-  n,
-  label,
-  active,
-  done,
-}: {
-  n: number;
-  label: string;
-  active: boolean;
-  done: boolean;
-}) {
-  return (
-    <div className="flex items-center gap-1.5">
-      <span
-        className={cn(
-          'inline-flex size-[18px] items-center justify-center rounded-full text-[10.5px] font-semibold leading-none transition-colors',
-          done && 'bg-primary text-on-primary',
-          active && !done && 'border border-primary-border bg-primary-tint text-primary',
-          !active && !done && 'bg-surface-2 text-ink-subtle',
-        )}
-      >
-        {done ? <CheckIcon /> : n}
-      </span>
-      <span className={cn('text-caption', active ? 'font-medium text-ink' : 'text-ink-subtle')}>
-        {label}
-      </span>
-    </div>
-  );
-}
-
 function EmailStep({
   email,
   onEmailChange,
@@ -217,9 +175,9 @@ function EmailStep({
 }) {
   return (
     <>
-      <h1 className="text-center text-card-title font-semibold text-ink">Sign in to Seta</h1>
+      <h1 className="text-center text-card-title font-semibold text-ink">Sign in</h1>
       <p className="mt-1 mb-md text-center text-body-sm text-ink-muted">
-        We&apos;ll route you to the right sign-in method for your tenant.
+        Enter your work email to continue.
       </p>
 
       <form
@@ -239,9 +197,6 @@ function EmailStep({
             required
           />
         </Field>
-        <p className="text-caption text-ink-subtle">
-          Use the email your tenant admin invited you with.
-        </p>
 
         {error ? (
           <Alert variant="destructive">
@@ -250,13 +205,13 @@ function EmailStep({
         ) : null}
 
         <Button type="submit" size="lg" className="w-full" disabled={submitting || !email}>
-          {submitting ? 'Checking…' : 'Continue'}
+          {submitting ? 'Continue…' : 'Continue'}
           {!submitting ? <ArrowRightIcon /> : null}
         </Button>
       </form>
 
       <p className="mt-md text-center text-caption text-ink-subtle">
-        Need an account? Ask your tenant admin.
+        Don&apos;t have access yet? Ask your admin to invite you.
       </p>
     </>
   );
@@ -283,10 +238,9 @@ function PasswordStep({
 }) {
   return (
     <>
-      <h1 className="text-center text-card-title font-semibold text-ink">Enter your password</h1>
-      <p className="mt-1 mb-md text-center text-body-sm text-ink-muted">
-        Use the password you set up for your Seta account.
-      </p>
+      <h1 className="mb-md text-center text-card-title font-semibold text-ink">
+        Enter your password
+      </h1>
 
       <form
         onSubmit={onSubmit}
@@ -302,7 +256,7 @@ function PasswordStep({
               href="mailto:support@seta-international.vn?subject=Password%20reset"
               className="text-caption font-medium text-primary hover:underline"
             >
-              Forgot?
+              Reset
             </a>
           }
         >
@@ -334,9 +288,9 @@ function PasswordStep({
       </form>
 
       <p className="mt-md text-center text-caption text-ink-subtle">
-        Different account?{' '}
+        Wrong account?{' '}
         <button type="button" onClick={onEdit} className="font-medium text-primary hover:underline">
-          Use another email
+          Start over
         </button>
       </p>
     </>
@@ -361,7 +315,10 @@ function SsoStep({
     try {
       const res = await signIn.social({ provider: 'microsoft', callbackURL: callbackUrl });
       if (res?.error) {
-        setError(ERROR_MESSAGES[res.error.message ?? ''] ?? 'Sign-in failed. Try again.');
+        setError(
+          ERROR_MESSAGES[res.error.message ?? ''] ??
+            'Something went wrong. Try again, or contact your admin.',
+        );
       }
     } finally {
       setSubmitting(false);
@@ -370,23 +327,13 @@ function SsoStep({
 
   return (
     <>
-      <h1 className="text-center text-card-title font-semibold text-ink">Welcome back</h1>
+      <h1 className="text-center text-card-title font-semibold text-ink">Sign in with Microsoft</h1>
       <p className="mt-1 mb-md text-center text-body-sm text-ink-muted">
-        Your tenant signs in with Microsoft Entra.
+        Your organization uses Microsoft to sign in.
       </p>
 
       <div className="flex flex-col gap-sm rounded-lg border border-hairline bg-canvas p-lg duration-200 animate-in fade-in">
         <EmailChip email={email} onEdit={onEdit} />
-
-        <Alert variant="info">
-          <AlertDescription className="flex items-start gap-1.5 text-body-sm leading-snug">
-            <ShieldIcon className="mt-0.5 size-3.5 shrink-0" />
-            <span>
-              Your tenant requires <b className="font-semibold">Entra SSO</b>. Password sign-in is
-              disabled.
-            </span>
-          </AlertDescription>
-        </Alert>
 
         {error && (
           <Alert variant="destructive">
@@ -402,16 +349,16 @@ function SsoStep({
           disabled={submitting}
         >
           <MicrosoftLogo />
-          {submitting ? 'Redirecting…' : 'Continue with Microsoft'}
+          {submitting ? 'Opening Microsoft…' : 'Continue with Microsoft'}
         </Button>
 
         <p className="text-center text-caption text-ink-subtle">
-          You&apos;ll be redirected to login.microsoftonline.com
+          You&apos;ll finish signing in on Microsoft.com.
         </p>
       </div>
 
       <p className="mt-md text-center text-caption text-ink-subtle">
-        Trouble signing in?{' '}
+        Can&apos;t get in?{' '}
         <a
           href="mailto:support@seta-international.vn"
           className="font-medium text-primary hover:underline"
@@ -449,7 +396,7 @@ function EmailChip({ email, onEdit }: { email: string; onEdit: () => void }) {
     <div className="flex items-center gap-2.5 rounded-md border border-hairline bg-surface-1 px-sm py-1.5">
       <EmailAvatar email={email} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <span className="text-[10.5px] uppercase tracking-wide text-ink-subtle">Signing in as</span>
+        <span className="text-[10.5px] uppercase tracking-wide text-ink-subtle">Signed in as</span>
         <span className="truncate font-mono text-caption font-medium text-ink">{email}</span>
       </div>
       <button
@@ -457,7 +404,7 @@ function EmailChip({ email, onEdit }: { email: string; onEdit: () => void }) {
         onClick={onEdit}
         className="rounded-xs px-1.5 py-0.5 text-caption text-ink-subtle transition-colors hover:bg-surface-2 hover:text-ink"
       >
-        Edit
+        Change
       </button>
     </div>
   );
@@ -501,23 +448,6 @@ function SystemStatus() {
   );
 }
 
-function CheckIcon() {
-  return (
-    <svg
-      viewBox="0 0 10 10"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.8}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="size-2.5"
-      aria-hidden="true"
-    >
-      <path d="M1.5 5.2L4 7.5L8.5 3" />
-    </svg>
-  );
-}
-
 function ArrowRightIcon() {
   return (
     <svg
@@ -531,23 +461,6 @@ function ArrowRightIcon() {
       aria-hidden="true"
     >
       <path d="M3 8h10M9 4l4 4-4 4" />
-    </svg>
-  );
-}
-
-function ShieldIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.6}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M8 1.5 3 3.5v4c0 3 2 5.5 5 6.5 3-1 5-3.5 5-6.5v-4L8 1.5Z" />
     </svg>
   );
 }

@@ -27,13 +27,18 @@ const NAV_MODULES: NavManifest[] = [
     requiredPermissions: [],
     useNavExtensions: noNavExtensions,
     nav: [
-      { id: 'copilot.chat', icon: Inbox, label: 'Chat', to: '/copilot/chat' },
       {
-        id: 'copilot.workflows',
-        icon: Workflow,
-        label: 'Workflows',
-        to: '/copilot/workflows',
-        badge: '12',
+        label: 'Workspace',
+        items: [
+          { id: 'copilot.chat', icon: Inbox, label: 'Chat', to: '/copilot/chat' },
+          {
+            id: 'copilot.workflows',
+            icon: Workflow,
+            label: 'Workflows',
+            to: '/copilot/workflows',
+            badge: '12',
+          },
+        ],
       },
     ],
   },
@@ -44,11 +49,24 @@ const NAV_MODULES: NavManifest[] = [
     requiredPermissions: [],
     useNavExtensions: noNavExtensions,
     nav: [
-      { id: 'planner.groups', icon: Users, label: 'Groups', to: '/planner/groups' },
-      { id: 'planner.plan.q3', label: 'Q3 Launch', to: '/planner/q3', indent: 1 },
-      { id: 'planner.plan.rel', label: 'Platform reliability', to: '/planner/rel', indent: 1 },
-      { id: 'planner.search', icon: Search, label: 'Search', to: '/planner/search' },
-      { id: 'planner.trash', icon: Archive, label: 'Trash', to: '/planner/trash' },
+      {
+        label: 'Work',
+        items: [{ id: 'planner.groups', icon: Users, label: 'Groups', to: '/planner/groups' }],
+      },
+      {
+        label: 'Recent',
+        items: [
+          { id: 'planner.plan.q3', label: 'Q3 Launch', to: '/planner/q3' },
+          { id: 'planner.plan.rel', label: 'Platform reliability', to: '/planner/rel' },
+        ],
+      },
+      {
+        label: 'Utility',
+        items: [
+          { id: 'planner.search', icon: Search, label: 'Search', to: '/planner/search' },
+          { id: 'planner.trash', icon: Archive, label: 'Trash', to: '/planner/trash' },
+        ],
+      },
     ],
   },
   {
@@ -58,16 +76,31 @@ const NAV_MODULES: NavManifest[] = [
     requiredPermissions: [],
     useNavExtensions: noNavExtensions,
     nav: [
-      { id: 'integrations.bindings', icon: Link2, label: 'Bindings', to: '/integrations/bindings' },
       {
-        id: 'integrations.conflicts',
-        icon: AlertTriangle,
-        label: 'Conflicts',
-        to: '/integrations/conflicts',
-        badge: '2',
-        badgeTone: 'warning',
+        label: 'Sync',
+        items: [
+          {
+            id: 'integrations.bindings',
+            icon: Link2,
+            label: 'Bindings',
+            to: '/integrations/bindings',
+          },
+          {
+            id: 'integrations.conflicts',
+            icon: AlertTriangle,
+            label: 'Conflicts',
+            to: '/integrations/conflicts',
+            badge: '2',
+            badgeTone: 'warning',
+          },
+        ],
       },
-      { id: 'integrations.health', icon: Shield, label: 'Health', to: '/integrations/health' },
+      {
+        label: 'Health',
+        items: [
+          { id: 'integrations.health', icon: Shield, label: 'Health', to: '/integrations/health' },
+        ],
+      },
     ],
   },
   {
@@ -77,11 +110,27 @@ const NAV_MODULES: NavManifest[] = [
     requiredPermissions: [],
     useNavExtensions: noNavExtensions,
     nav: [
-      { id: 'admin.users', icon: Users, label: 'Users', to: '/admin/users' },
-      { id: 'admin.projects', icon: Star, label: 'Projects', to: '/admin/projects', badge: '8' },
-      { id: 'admin.idp', icon: Shield, label: 'IdP mappings', to: '/admin/idp' },
-      { id: 'admin.audit', icon: Inbox, label: 'Audit log', to: '/admin/audit' },
-      { id: 'admin.settings', icon: Settings, label: 'Tenant settings', to: '/admin/settings' },
+      {
+        label: 'Identity & access',
+        items: [
+          { id: 'admin.users', icon: Users, label: 'Users', to: '/admin/users' },
+          { id: 'admin.idp', icon: Shield, label: 'IdP mappings', to: '/admin/idp' },
+        ],
+      },
+      {
+        label: 'Workspace',
+        items: [
+          {
+            id: 'admin.projects',
+            icon: Star,
+            label: 'Projects',
+            to: '/admin/projects',
+            badge: '8',
+          },
+          { id: 'admin.settings', icon: Settings, label: 'Tenant settings', to: '/admin/settings' },
+          { id: 'admin.audit', icon: Inbox, label: 'Audit log', to: '/admin/audit' },
+        ],
+      },
     ],
   },
 ];

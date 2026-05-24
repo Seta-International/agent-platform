@@ -4,10 +4,10 @@ export function NotFound() {
   return (
     <div className="grid min-h-[60vh] place-items-center">
       <EmptyState
-        title="404 — Page not found"
-        description="The URL you typed doesn't exist (or is no longer here)."
+        title="We couldn't find that page"
+        description="The link might be broken, or the page may have moved."
         action={{
-          label: 'Go home',
+          label: 'Take me home',
           onClick: () => {
             window.location.href = '/';
           },

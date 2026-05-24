@@ -118,7 +118,7 @@ describe('TaskDetailAssigneesCard', () => {
     for (const params of capturedParams) {
       expect(params.get('sign_in_method')).toBeNull();
     }
-    expect(screen.queryByText(/hidden — not in M365/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/hidden — not in\s+Microsoft 365/)).not.toBeInTheDocument();
   });
 
   it('sends sign_in_method=microsoft and shows hidden footer when plan is linked to M365', async () => {
@@ -189,7 +189,7 @@ describe('TaskDetailAssigneesCard', () => {
 
     await waitFor(() => expect(screen.getByText('Dora')).toBeInTheDocument());
     await waitFor(() =>
-      expect(screen.getByText(/2 users hidden — not in M365/)).toBeInTheDocument(),
+      expect(screen.getByText(/2 people hidden — not in\s+Microsoft 365/)).toBeInTheDocument(),
     );
 
     const microsoftCalls = capturedParams.filter((p) => p.get('sign_in_method') === 'microsoft');
@@ -228,7 +228,7 @@ describe('TaskDetailAssigneesCard', () => {
     await user.type(searchInput, 'd');
 
     await waitFor(() => expect(screen.getByText('Dora')).toBeInTheDocument());
-    expect(screen.queryByText(/hidden — not in M365/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/hidden — not in\s+Microsoft 365/)).not.toBeInTheDocument();
   });
 
   it('calls moveToTopOfMyList when "Move to top of my list" is clicked', async () => {

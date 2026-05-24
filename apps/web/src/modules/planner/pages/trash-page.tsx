@@ -37,7 +37,7 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
   if (q.isError) {
     return (
       <div role="alert" className="m-6">
-        Couldn't load trash.
+        Couldn&apos;t load trash.
       </div>
     );
   }
@@ -71,7 +71,7 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
     return (
       <EmptyState
         title="Trash is empty"
-        description={`Deleted groups, plans, and tasks land here for ${RETENTION_DAYS} days before permanent removal.`}
+        description={`Anything you delete sits here for ${RETENTION_DAYS} days, then it's gone for good.`}
       />
     );
   }
@@ -80,7 +80,7 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
     if (r.kind === 'task') {
       if (r.plan_id && trashedPlanIds.has(r.plan_id)) {
         const confirmed = window.confirm(
-          'This task belongs to a deleted plan. Restore the plan first?',
+          "This task's plan was deleted too. Restore the plan first?",
         );
         if (!confirmed) return;
         restorePlan.mutate({ plan_id: r.plan_id });
@@ -146,9 +146,11 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
           className="mt-4 rounded-md border border-semantic-danger bg-semantic-danger-tint p-4"
         >
           <h2 id="purge-title" className="font-medium">
-            Permanently delete "{confirmingPurge.name}"?
+            Permanently delete &ldquo;{confirmingPurge.name}&rdquo;?
           </h2>
-          <p className="mt-1 text-body-sm text-ink-subtle">This cannot be undone.</p>
+          <p className="mt-1 text-body-sm text-ink-subtle">
+            You won&apos;t be able to get this back.
+          </p>
           <div className="mt-3 flex gap-2">
             <Button size="sm" variant="ghost" onClick={() => setConfirmingPurge(null)}>
               Cancel

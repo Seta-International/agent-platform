@@ -1,17 +1,22 @@
-import type { NavItem, NavManifest } from '@seta/module-sdk';
+import type { NavManifest, NavSection } from '@seta/module-sdk';
 import { Archive, ClipboardList, Inbox, Search, Users } from 'lucide-react';
 import { useSession } from '@/modules/identity/components/SessionProvider.tsx';
 import { useRecentPlans } from './hooks/use-recent-plans.ts';
 
-function useRecentPlanNavItems(): NavItem[] {
+function useRecentPlanSections(): NavSection[] {
   const session = useSession();
   const { recents } = useRecentPlans(session.tenant_id);
-  return recents.map((r) => ({
-    id: `planner.recent.${r.planId}`,
-    label: r.planName,
-    to: `/planner/plans/${r.planId}`,
-    indent: 1,
-  }));
+  if (recents.length === 0) return [];
+  return [
+    {
+      label: 'Recent',
+      items: recents.map((r) => ({
+        id: `planner.recent.${r.planId}`,
+        label: r.planName,
+        to: `/planner/plans/${r.planId}`,
+      })),
+    },
+  ];
 }
 
 export const plannerNavManifest: NavManifest = {
@@ -20,16 +25,26 @@ export const plannerNavManifest: NavManifest = {
   icon: ClipboardList,
   requiredPermissions: [],
   nav: [
-    { id: 'planner.my-tasks', icon: Inbox, label: 'My tasks', to: '/planner/my-tasks' },
-    { id: 'planner.groups', icon: Users, label: 'Groups', to: '/planner/groups' },
     {
-      id: 'planner.search',
-      icon: Search,
-      label: 'Search',
-      disabled: true,
-      disabledHint: 'Task search ships with B5',
+      label: 'Work',
+      items: [
+        { id: 'planner.my-tasks', icon: Inbox, label: 'My tasks', to: '/planner/my-tasks' },
+        { id: 'planner.groups', icon: Users, label: 'Groups', to: '/planner/groups' },
+      ],
     },
-    { id: 'planner.trash', icon: Archive, label: 'Trash', to: '/planner/trash' },
+    {
+      label: 'Utility',
+      items: [
+        {
+          id: 'planner.search',
+          icon: Search,
+          label: 'Search',
+          disabled: true,
+          disabledHint: 'Search is coming soon',
+        },
+        { id: 'planner.trash', icon: Archive, label: 'Trash', to: '/planner/trash' },
+      ],
+    },
   ],
-  useNavExtensions: useRecentPlanNavItems,
+  useNavExtensions: useRecentPlanSections,
 };

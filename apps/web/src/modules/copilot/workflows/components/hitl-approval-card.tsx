@@ -28,7 +28,7 @@ export function HitlApprovalCard({ approval, canAct, onDecide, pending }: HitlAp
 
   return (
     <section
-      aria-label="Approval needed"
+      aria-label="Your input needed"
       className="rounded-lg border border-[var(--color-hairline-strong)] bg-[var(--color-surface)] p-4 shadow-lg"
     >
       <header className="mb-2 flex items-center gap-2">
@@ -37,7 +37,7 @@ export function HitlApprovalCard({ approval, canAct, onDecide, pending }: HitlAp
           className="inline-block size-2 rounded-full"
           style={{ background: 'var(--color-warning-ink)' }}
         />
-        <h3 className="text-sm font-medium">Approval needed</h3>
+        <h3 className="text-sm font-medium">Your call</h3>
         <span className="ml-auto text-xs text-[var(--color-ink-subtle)]">
           expires {new Date(approval.expiresAt).toLocaleString()}
         </span>
@@ -45,14 +45,15 @@ export function HitlApprovalCard({ approval, canAct, onDecide, pending }: HitlAp
 
       {proposed ? (
         <div className="mb-3 text-sm">
-          Assign <strong>{proposed.displayName ?? `user ${proposed.userId ?? '?'}`}</strong>?
+          Assign this to <strong>{proposed.displayName ?? `user ${proposed.userId ?? '?'}`}</strong>
+          ?
           {proposed.rationale ? (
             <div className="mt-1 text-xs text-[var(--color-ink-subtle)]">{proposed.rationale}</div>
           ) : null}
         </div>
       ) : (
         <div className="mb-3 text-sm text-[var(--color-ink-subtle)]">
-          The workflow is waiting on a decision. No candidate was proposed automatically.
+          Waiting on your decision. I don&apos;t have a suggestion this time.
         </div>
       )}
 
@@ -92,7 +93,7 @@ export function HitlApprovalCard({ approval, canAct, onDecide, pending }: HitlAp
       {modifyOpen ? (
         <div className="mt-3 space-y-2">
           <label className="block text-xs text-[var(--color-ink-subtle)]">
-            Override assignee id (uuid)
+            Assign to someone else (user ID)
             <input
               type="text"
               value={overrideId}
@@ -107,7 +108,7 @@ export function HitlApprovalCard({ approval, canAct, onDecide, pending }: HitlAp
             onClick={() => onDecide({ decision: 'modify', overrideUserId: overrideId, note })}
             className="rounded bg-[var(--color-primary)] px-3 py-1.5 text-sm text-white disabled:opacity-50"
           >
-            Confirm modify
+            Reassign
           </button>
         </div>
       ) : null}
@@ -129,14 +130,14 @@ export function HitlApprovalCard({ approval, canAct, onDecide, pending }: HitlAp
             onClick={() => onDecide({ decision: 'reject', note })}
             className="rounded bg-[var(--color-danger-ink)] px-3 py-1.5 text-sm text-white disabled:opacity-50"
           >
-            Confirm reject
+            Reject
           </button>
         </div>
       ) : null}
 
       {!canAct ? (
         <p className="mt-2 text-xs text-[var(--color-ink-subtle)]">
-          You don't have permission to act on this approval.
+          You don&apos;t have permission to decide this one.
         </p>
       ) : null}
     </section>

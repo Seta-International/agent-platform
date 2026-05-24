@@ -31,8 +31,8 @@ export function KnowledgePage() {
           ) : fileCount === 0 ? (
             <EmptyState
               icon={<BookOpen className="size-10" />}
-              title="No files uploaded yet"
-              description="Drag and drop or click above to upload your first document."
+              title="Nothing here yet"
+              description="Drop a document above to start building your knowledge base."
             />
           ) : (
             <ul className="space-y-2">

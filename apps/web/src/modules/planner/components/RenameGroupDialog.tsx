@@ -35,7 +35,7 @@ function RenameForm({ groupId, currentName, version, onDone }: FormProps) {
   function submit() {
     const trimmed = name.trim();
     if (!trimmed) {
-      setError('Name is required.');
+      setError('Give your group a name.');
       return;
     }
     if (trimmed === currentName) {
@@ -46,7 +46,7 @@ function RenameForm({ groupId, currentName, version, onDone }: FormProps) {
       { expected_version: version, patch: { name: trimmed } },
       {
         onSuccess: () => onDone(),
-        onError: (e) => setError(e instanceof Error ? e.message : 'Failed to rename group.'),
+        onError: (e) => setError(e instanceof Error ? e.message : "Couldn't rename the group."),
       },
     );
   }

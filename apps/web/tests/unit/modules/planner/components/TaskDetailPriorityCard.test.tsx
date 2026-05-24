@@ -20,12 +20,21 @@ function renderWithClient(node: ReactNode) {
 }
 
 describe('TaskDetailPriorityCard', () => {
-  it('renders the Priority label and the four stops with active selection', () => {
+  it('renders the Priority label and the four stops with active selection', async () => {
+    const { userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup();
     const task = makeTaskWithAssignees({ id: 't1', priority_number: 3 });
     renderWithClient(<TaskDetailPriorityCard task={task} planId="p1" />);
     expect(screen.getByText('Priority')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Important', pressed: true })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Urgent', pressed: false })).toBeInTheDocument();
+    // Trigger shows the current option's label.
+    const trigger = screen.getByRole('button', { name: 'Priority' });
+    expect(trigger).toHaveTextContent('Important');
+    // Opening the dropdown reveals all four options.
+    await user.click(trigger);
+    expect(await screen.findByRole('menuitem', { name: 'Urgent' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Important' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Medium' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Low' })).toBeInTheDocument();
   });
 
   it('sends priority_number only (no priority enum) when a stop is clicked', async () => {
@@ -41,7 +50,8 @@ describe('TaskDetailPriorityCard', () => {
 
     const task = makeTaskWithAssignees({ id: 't1', priority_number: 5, version: 3 });
     renderWithClient(<TaskDetailPriorityCard task={task} planId="p1" />);
-    await user.click(screen.getByRole('button', { name: 'Urgent' }));
+    await user.click(screen.getByRole('button', { name: 'Priority' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Urgent' }));
 
     const body = captured.mock.calls[0]?.[0] as { patch: Record<string, unknown> };
     expect(body.patch).toEqual({ priority_number: 1 });

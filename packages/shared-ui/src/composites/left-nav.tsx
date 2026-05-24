@@ -1,4 +1,4 @@
-import type { NavBadgeTone, NavItem, NavManifest } from '@seta/module-sdk';
+import type { NavBadgeTone, NavItem, NavManifest, NavSection } from '@seta/module-sdk';
 import { ChevronLeft, ChevronRight, LayoutDashboard } from 'lucide-react';
 import * as React from 'react';
 
@@ -201,7 +201,7 @@ function ModuleSection({
   Link,
 }: ModuleSectionProps) {
   const extensions = manifest.useNavExtensions();
-  const items: NavItem[] = [...manifest.nav, ...extensions];
+  const sections: NavSection[] = [...manifest.nav, ...extensions];
   const ModuleIcon = manifest.icon;
 
   return (
@@ -234,9 +234,23 @@ function ModuleSection({
 
       {isOpen && (
         <div id={`shell-nav-module-${manifest.id}`} className="pb-1.5 pt-0.5">
-          {items.map((item) => (
-            <NavItemRow key={item.id} item={item} active={activeItemId === item.id} Link={Link} />
-          ))}
+          {sections.map((section, sectionIdx) =>
+            section.items.length === 0 ? null : (
+              <div key={`${manifest.id}:${section.label}`} className={sectionIdx > 0 ? 'mt-2' : ''}>
+                <div className="mt-1 mb-0.5 px-[28px] text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
+                  {section.label}
+                </div>
+                {section.items.map((item) => (
+                  <NavItemRow
+                    key={item.id}
+                    item={item}
+                    active={activeItemId === item.id}
+                    Link={Link}
+                  />
+                ))}
+              </div>
+            ),
+          )}
         </div>
       )}
     </div>

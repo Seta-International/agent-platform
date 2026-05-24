@@ -14,8 +14,13 @@ const MODULES: NavManifest[] = [
     requiredPermissions: [],
     useNavExtensions: noNavExtensions,
     nav: [
-      { id: 'copilot.chat', icon: Inbox, label: 'Chat', disabled: true },
-      { id: 'copilot.workflows', icon: Workflow, label: 'Workflows', disabled: true },
+      {
+        label: 'Workspace',
+        items: [
+          { id: 'copilot.chat', icon: Inbox, label: 'Chat', disabled: true },
+          { id: 'copilot.workflows', icon: Workflow, label: 'Workflows', disabled: true },
+        ],
+      },
     ],
   },
   {
@@ -24,7 +29,12 @@ const MODULES: NavManifest[] = [
     icon: LayoutDashboard,
     requiredPermissions: [],
     useNavExtensions: noNavExtensions,
-    nav: [{ id: 'planner.groups', icon: Users, label: 'Groups', to: '/planner/groups' }],
+    nav: [
+      {
+        label: 'Work',
+        items: [{ id: 'planner.groups', icon: Users, label: 'Groups', to: '/planner/groups' }],
+      },
+    ],
   },
   {
     id: 'admin',
@@ -32,7 +42,12 @@ const MODULES: NavManifest[] = [
     icon: Building2,
     requiredPermissions: [],
     useNavExtensions: noNavExtensions,
-    nav: [{ id: 'admin.users', icon: Users, label: 'Users', to: '/admin/users' }],
+    nav: [
+      {
+        label: 'Identity & access',
+        items: [{ id: 'admin.users', icon: Users, label: 'Users', to: '/admin/users' }],
+      },
+    ],
   },
 ];
 

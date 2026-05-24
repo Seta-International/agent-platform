@@ -211,9 +211,9 @@ function MyTasksError({ onRetry }: { onRetry: () => void }) {
   return (
     <Alert variant="destructive" data-testid="my-tasks-error">
       <AlertDescription className="flex items-center justify-between gap-3">
-        <span>Couldn't load your tasks.</span>
+        <span>Couldn&apos;t load your tasks.</span>
         <Button size="sm" variant="secondary" onClick={onRetry}>
-          Retry
+          Try again
         </Button>
       </AlertDescription>
     </Alert>
@@ -225,8 +225,8 @@ function MyTasksEmpty({ onBrowse }: { onBrowse?: () => void }) {
     <div data-testid="my-tasks-empty">
       <EmptyState
         icon={<CheckCircle2 className="size-8" />}
-        title="Nothing assigned"
-        description="Browse plans to find work to pick up."
+        title="You&apos;re all caught up"
+        description="Nothing is assigned to you right now. Pick up something from a plan."
         action={onBrowse ? { label: 'Browse plans', onClick: onBrowse } : undefined}
       />
     </div>

@@ -8,6 +8,7 @@ interface CreateVars {
   bucket_id?: string;
   title: string;
   start_at?: string;
+  due_at?: string;
   priority_number?: 1 | 3 | 5 | 9;
   preview_type?: TaskPreviewType;
 }
@@ -35,7 +36,7 @@ export function useCreateTask(planId: string) {
         review_state: null,
         skill_tags: [],
         start_at: v.start_at ?? null,
-        due_at: null,
+        due_at: v.due_at ?? null,
         order_hint: null,
         assignee_priority: null,
         external_source: 'native',

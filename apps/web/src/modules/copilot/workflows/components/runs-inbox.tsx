@@ -19,14 +19,14 @@ export function RunsInbox({ definitionId = null }: RunsInboxProps) {
       <header className="flex items-center justify-between border-b border-[var(--color-hairline)] px-4 py-2">
         <h2 className="text-sm font-medium">Runs</h2>
         <label className="text-xs text-[var(--color-ink-subtle)]">
-          Scope&nbsp;
+          Show&nbsp;
           <select
             value={scope}
             onChange={(e) => setScope(e.target.value as WorkflowRunScope)}
             className="rounded border border-[var(--color-hairline)] bg-[var(--color-surface)] px-2 py-1 text-xs"
           >
             <option value="self">Mine</option>
-            <option value="tenant">Tenant</option>
+            <option value="tenant">Everyone</option>
           </select>
         </label>
       </header>
@@ -41,21 +41,21 @@ export function RunsInbox({ definitionId = null }: RunsInboxProps) {
           : null}
         {isError ? (
           <div className="p-4 text-sm">
-            <span className="text-[var(--color-danger-ink)]">Failed to load runs.</span>{' '}
+            <span className="text-[var(--color-danger-ink)]">Couldn&apos;t load runs.</span>{' '}
             <button
               type="button"
               onClick={() => refetch()}
               className="font-medium text-[var(--color-primary)] hover:underline"
             >
-              Retry
+              Try again
             </button>
           </div>
         ) : null}
         {!isLoading && data && rows.length === 0 ? (
           <div className="flex h-full items-center justify-center p-8 text-center text-sm text-[var(--color-ink-subtle)]">
             {definitionId
-              ? 'No runs for this definition in this scope.'
-              : 'No runs in this scope yet. Create a task to start one.'}
+              ? 'Nothing has run here yet.'
+              : 'Nothing has run yet. Create a task to kick one off.'}
           </div>
         ) : null}
         {rows.map((row) => (

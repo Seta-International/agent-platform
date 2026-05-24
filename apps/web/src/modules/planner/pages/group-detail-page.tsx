@@ -16,7 +16,6 @@ import { GroupDetailHeader } from '../components/GroupDetailHeader';
 import { GroupMembersTable } from '../components/GroupMembersTable';
 import { GroupPlansSection, THEME_HEX } from '../components/GroupPlansSection';
 import { GroupRail } from '../components/GroupRail';
-import { GroupStatRow } from '../components/GroupStatRow';
 import { RenameGroupDialog } from '../components/RenameGroupDialog';
 import { useSetMemberRole } from '../hooks/mutations/set-member-role';
 import { useGroup } from '../hooks/queries/use-group';
@@ -38,7 +37,7 @@ interface Props {
 
 function DetailSkeleton() {
   return (
-    <div className="flex flex-col gap-4 p-7" data-testid="skeleton-detail">
+    <div className="flex flex-col gap-4 p-6" data-testid="skeleton-detail">
       <Skeleton className="h-16 w-full" />
       <Skeleton className="h-14 w-full" />
       <Skeleton className="h-8 w-64" />
@@ -63,7 +62,7 @@ function ErrorState({ onRetry }: ErrorStateProps) {
         onClick={onRetry}
         className="text-sm text-primary underline hover:no-underline"
       >
-        Retry
+        Try again
       </button>
     </div>
   );
@@ -102,7 +101,7 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
     const err = groupQuery.error as { status?: number } | null;
     if (err?.status === 403) {
       void navigate({ to: '/planner/groups' });
-      toast.error('You no longer have access to this group.');
+      toast.error("You don't have access to this group anymore.");
       return null;
     }
     return <ErrorState onRetry={() => void groupQuery.refetch()} />;
@@ -119,7 +118,7 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
 
   function handleMenuAction(action: 'archive' | 'delete') {
     // Placeholder — full implementation in a follow-up PR
-    toast(`${action === 'archive' ? 'Archive' : 'Delete'} functionality coming soon.`);
+    toast(`${action === 'archive' ? 'Archiving' : 'Deleting'} groups is coming soon.`);
   }
 
   return (
@@ -132,20 +131,12 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
         onCreatePlanClick={() => setCreatePlanOpen(true)}
         onMenuAction={handleMenuAction}
       />
-      <div className="px-7">
-        <GroupStatRow
-          planCount={plans.length}
-          openTaskCount={plans.reduce((sum, p) => sum + (p.open_task_count ?? 0), 0)}
-          memberCount={members.length}
-          activityCount={activityQuery.isPending ? undefined : (activityQuery.data?.count ?? null)}
-        />
-      </div>
       <Tabs
         value={tab}
         onValueChange={(t) => onTabChange(t as GroupTab)}
         className="flex flex-1 min-h-0 flex-col"
       >
-        <TabsList className="border-b border-hairline px-7 justify-start gap-1 bg-transparent rounded-none">
+        <TabsList className="border-b border-hairline px-6 justify-start gap-1 bg-transparent rounded-none">
           <TabsTrigger value="plans">
             Plans <span className="ml-1.5 text-xs text-ink-subtle">{plans.length}</span>
           </TabsTrigger>
@@ -159,7 +150,7 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
         </TabsList>
 
         <TabsContent value="plans" className="flex-1 overflow-auto bg-surface-1">
-          <div className="mx-auto max-w-[1240px] px-7 py-6 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
+          <div className="mx-auto max-w-[1240px] px-6 py-6 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
             <GroupPlansSection
               groupName={group.name}
               plans={plans}
@@ -186,7 +177,7 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
         </TabsContent>
 
         <TabsContent value="members" className="flex-1 overflow-auto bg-surface-1">
-          <div className="mx-auto max-w-[1240px] px-7 py-6 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
+          <div className="mx-auto max-w-[1240px] px-6 py-6 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
             <GroupMembersTable
               group={group}
               members={members}
@@ -216,10 +207,8 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
         </TabsContent>
 
         {canManage ? (
-          <TabsContent value="settings" className="p-7">
-            <div className="text-sm text-ink-subtle">
-              Settings tab: actual form coming in a follow-up. PR2 only scaffolds the route.
-            </div>
+          <TabsContent value="settings" className="p-6">
+            <div className="text-sm text-ink-subtle">Group settings are coming soon.</div>
           </TabsContent>
         ) : null}
       </Tabs>

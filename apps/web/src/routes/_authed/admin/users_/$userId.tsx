@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { AdminUserDetail } from '@/modules/console/users/pages/AdminUserDetail.tsx';
+import { AdminUserDetail } from '@/modules/admin/users/pages/AdminUserDetail.tsx';
 
 export const Route = createFileRoute('/_authed/admin/users_/$userId')({
   component: function UserDetailPage() {

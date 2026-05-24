@@ -26,9 +26,9 @@ describe('TaskDetailHeader', () => {
     expect(screen.getByText('Q3 Launch')).toBeInTheDocument();
     expect(screen.getByText('In progress')).toBeInTheDocument();
     expect(screen.getByText('T-42')).toBeInTheDocument();
-    expect(
-      screen.getByRole('heading', { name: 'Wire telemetry plumbing', level: 1 }),
-    ).toBeInTheDocument();
+    // Title is no longer rendered as <h1> here — the editable input in the body owns it.
+    // The header keeps an sr-only span with the title for accessibility.
+    expect(screen.getByText('Wire telemetry plumbing')).toBeInTheDocument();
     expect(screen.getByText(/Created/)).toBeInTheDocument();
     expect(screen.getByText(/Last updated/)).toBeInTheDocument();
     expect(screen.getByText(/by Alice/)).toBeInTheDocument();

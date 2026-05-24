@@ -1,4 +1,5 @@
-import { GripVertical, MoreHorizontal, Plus } from 'lucide-react';
+// biome-ignore-all lint/a11y/noAutofocus: autoFocus is intentional UX on inline compose input after the user opens it.
+import { CalendarDays, GripVertical, MoreHorizontal, Plus } from 'lucide-react';
 import {
   type CSSProperties,
   type HTMLAttributes,
@@ -7,16 +8,18 @@ import {
   useRef,
   useState,
 } from 'react';
-import { DatePill } from '../task/date-pill';
-import { type PreviewType, PreviewTypeRadio } from '../task/preview-type-radio';
-import { PrioritySegmented } from '../task/priority-segmented';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../primitives/dropdown-menu';
 import { KbdHint } from './kbd-hint';
 
 export interface QuickCreateTaskInput {
   title: string;
-  start_at?: string;
+  due_at?: string;
   priority_number?: 1 | 3 | 5 | 9;
-  preview_type?: PreviewType;
 }
 
 export interface KanbanColumnProps {
@@ -42,8 +45,14 @@ export interface KanbanColumnProps {
   };
 }
 
+const PRIORITY_OPTIONS = [
+  { value: 1 as const, label: 'Urgent', dotClass: 'bg-semantic-danger' },
+  { value: 3 as const, label: 'Important', dotClass: 'bg-semantic-warning' },
+  { value: 5 as const, label: 'Medium', dotClass: 'bg-semantic-info' },
+  { value: 9 as const, label: 'Low', dotClass: 'bg-ink-tertiary' },
+];
+
 const DEFAULT_PRIORITY: 1 | 3 | 5 | 9 = 5;
-const DEFAULT_PREVIEW_TYPE: PreviewType = 'automatic';
 
 export function KanbanColumn({
   name,
@@ -58,10 +67,8 @@ export function KanbanColumn({
 }: KanbanColumnProps) {
   const [composing, setComposing] = useState(false);
   const [value, setValue] = useState('');
-  const [moreOpen, setMoreOpen] = useState(false);
-  const [startAt, setStartAt] = useState<string | null>(null);
+  const [dueAt, setDueAt] = useState<string | null>(null);
   const [priority, setPriority] = useState<1 | 3 | 5 | 9>(DEFAULT_PRIORITY);
-  const [previewType, setPreviewType] = useState<PreviewType>(DEFAULT_PREVIEW_TYPE);
   const [menuOpen, setMenuOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
@@ -82,10 +89,8 @@ export function KanbanColumn({
 
   function resetCompose() {
     setValue('');
-    setMoreOpen(false);
-    setStartAt(null);
+    setDueAt(null);
     setPriority(DEFAULT_PRIORITY);
-    setPreviewType(DEFAULT_PREVIEW_TYPE);
     setComposing(false);
   }
 
@@ -96,9 +101,8 @@ export function KanbanColumn({
       return;
     }
     const payload: QuickCreateTaskInput = { title: v };
-    if (startAt) payload.start_at = startAt;
+    if (dueAt) payload.due_at = dueAt;
     if (priority !== DEFAULT_PRIORITY) payload.priority_number = priority;
-    if (previewType !== DEFAULT_PREVIEW_TYPE) payload.preview_type = previewType;
     onCreateTask(payload);
     resetCompose();
   }
@@ -118,6 +122,8 @@ export function KanbanColumn({
     if (v && v !== name) onRename?.(v);
     setRenaming(false);
   }
+
+  const priorityOpt = PRIORITY_OPTIONS.find((o) => o.value === priority) ?? PRIORITY_OPTIONS[2];
 
   return (
     <section
@@ -283,39 +289,83 @@ export function KanbanColumn({
       {composing && (
         <div className="kanban-column__compose">
           <input
-            placeholder="Add a task…"
+            placeholder="Task title"
             value={value}
+            autoFocus
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') submit();
               if (e.key === 'Escape') resetCompose();
             }}
-            onBlur={() => {
-              if (!value.trim() && !moreOpen) setComposing(false);
-            }}
           />
-          <button
-            type="button"
-            className="kanban-column__more-options-toggle"
-            aria-expanded={moreOpen}
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => setMoreOpen((v) => !v)}
-          >
-            More options
-          </button>
-          {moreOpen && (
-            <div className="kanban-column__more-options">
-              <div className="kanban-column__more-options-row">
-                <DatePill kind="Start" value={startAt} onChange={setStartAt} clearable />
-              </div>
-              <div className="kanban-column__more-options-row">
-                <PrioritySegmented value={priority} onChange={setPriority} />
-              </div>
-              <div className="kanban-column__more-options-row">
-                <PreviewTypeRadio value={previewType} onChange={setPreviewType} />
-              </div>
+          <div className="kanban-column__compose-chips">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="kanban-column__compose-chip"
+                  aria-label="Priority"
+                  onMouseDown={(e) => e.preventDefault()}
+                >
+                  <span
+                    className={`inline-block size-2 rounded-sm ${priorityOpt?.dotClass ?? ''}`}
+                    aria-hidden
+                  />
+                  <span>{priorityOpt?.label ?? 'Priority'}</span>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {PRIORITY_OPTIONS.map((opt) => (
+                  <DropdownMenuItem
+                    key={opt.value}
+                    onSelect={() => setPriority(opt.value)}
+                    className="flex items-center gap-2"
+                  >
+                    <span
+                      className={`inline-block size-2 rounded-sm ${opt.dotClass}`}
+                      aria-hidden
+                    />
+                    {opt.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <label className="kanban-column__compose-chip kanban-column__compose-chip--input">
+              <CalendarDays className="size-3 text-ink-subtle" aria-hidden />
+              <input
+                type="date"
+                aria-label="Due"
+                value={dueAt ?? ''}
+                onChange={(e) => setDueAt(e.currentTarget.value || null)}
+                onMouseDown={(e) => e.stopPropagation()}
+              />
+            </label>
+          </div>
+          <div className="kanban-column__compose-footer">
+            <span className="kanban-column__compose-hint">
+              <KbdHint keys={['↵']} /> add
+            </span>
+            <div className="kanban-column__compose-actions">
+              <button
+                type="button"
+                className="kanban-column__compose-btn"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={resetCompose}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="kanban-column__compose-btn kanban-column__compose-btn--primary"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={submit}
+                disabled={!value.trim()}
+              >
+                Add
+              </button>
             </div>
-          )}
+          </div>
         </div>
       )}
     </section>

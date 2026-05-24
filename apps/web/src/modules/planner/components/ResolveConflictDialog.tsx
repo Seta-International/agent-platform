@@ -61,14 +61,13 @@ export function ResolveConflictDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-[480px]">
         <DialogHeader>
-          <DialogTitle>Resolve sync conflict</DialogTitle>
+          <DialogTitle>Pick which version to keep</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-5">
           {conflictFields.length === 0 ? (
             <p className="text-sm text-ink-subtle">
-              Conflict field details are not available. Use the "Refresh sync" action and reopen to
-              see fields.
+              Details aren&apos;t ready yet. Refresh the sync and try again.
             </p>
           ) : (
             conflictFields.map((cf) => (
@@ -89,14 +88,14 @@ export function ResolveConflictDialog({
             <AlertDescription>
               {resolve.error instanceof Error
                 ? resolve.error.message
-                : 'Failed to resolve conflict.'}
+                : "Couldn't save your choice."}
             </AlertDescription>
           </Alert>
         )}
 
         <div className="flex justify-end pt-2 border-t border-hairline mt-2">
           <Button onClick={handleResolve} disabled={!allDecided || resolve.isPending}>
-            Resolve
+            Save choices
           </Button>
         </div>
       </DialogContent>

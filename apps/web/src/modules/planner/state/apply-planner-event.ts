@@ -394,7 +394,7 @@ export function applyPlannerEvent(qc: QueryClient, event: StreamEvent): void {
         if (count > 0) {
           const noun = count === 1 ? 'user' : 'users';
           toast(
-            `Synced — ${count} M365 ${noun} skipped. Ask an admin to provision them in Seta. (Settings → Users)`,
+            `Synced — ${count} Microsoft 365 ${noun} skipped. Ask an admin to add them here. (Settings → Users)`,
           );
           skippedCounters[planId] = 0;
         }

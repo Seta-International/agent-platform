@@ -33,7 +33,7 @@ export function RunHeader({ run, onRerun }: RunHeaderProps) {
             onClick={onRerun}
             className="rounded border border-[var(--color-hairline)] px-2 py-1 text-sm hover:bg-[var(--color-surface-2)]"
           >
-            Replay from start
+            Run again
           </button>
         ) : null}
       </div>

@@ -16,7 +16,7 @@ pnpm dev                            # all apps via Turborepo
 
 Web client → http://localhost:5173 · API server → http://localhost:3000 · admin login `admin@sandbox.test` / `ChangeMe@2026`.
 
-A fresh DB has **no tenants and no users**; the login page rejects everything until `tenant-bootstrap.sh` runs. See [`docs/dev-quickstart.md`](docs/dev-quickstart.md) for `MEMBER_COUNT=N`, raw-CLI usage, the `pnpm db:import-csv` path for the SETA Future Org mock dataset, and an agent-ready prompt.
+A fresh DB has **no tenants and no users**; the login page rejects everything until `tenant-bootstrap.sh` runs. See [`docs/dev-quickstart.md`](docs/dev-quickstart.md) for `MEMBER_COUNT=N`, raw-CLI usage, the `pnpm db:seed` path for the SETA Future Org demo dataset, and an agent-ready prompt.
 
 ## Workspace
 

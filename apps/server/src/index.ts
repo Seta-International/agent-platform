@@ -6,20 +6,14 @@ import { emit, withEmit } from '@seta/core/events';
 import { createOutboxStore } from '@seta/core/outbox';
 import { registerCoreContributions } from '@seta/core/register';
 import { buildRuntime, runMigrations, type WorkerHandle } from '@seta/core/runtime';
-import { embeddingJobs, getEntraTenantId } from '@seta/identity';
 import { registerIdentityContributions } from '@seta/identity/register';
-import { createMailTransportConfigStore } from '@seta/integrations';
-import { integrationsDb } from '@seta/integrations/db';
 import { registerIntegrationsContributions } from '@seta/integrations/register';
-import { knowledgeJobs } from '@seta/knowledge/jobs';
 import { registerKnowledgeContributions } from '@seta/knowledge/register';
 import { registerNotificationsContributions } from '@seta/notifications/register';
-import { plannerEmbeddingJobs } from '@seta/planner';
 import { registerPlannerContributions } from '@seta/planner/register';
 import { createCrypto, createKeyProviderFromEnv, parseCryptoEnv } from '@seta/shared-crypto';
 import { closePools, getPool, initPools } from '@seta/shared-db';
-import { createMailer, resolveTransport } from '@seta/shared-mailer';
-import { createMailerSendTask } from '@seta/shared-mailer/queue';
+import { createMailer } from '@seta/shared-mailer';
 import { registerStaffingContributions } from '@seta/staffing/register';
 // MODULE_IMPORTS_END — generator inserts new register*Contributions imports above this comment.
 import pino from 'pino';
@@ -75,8 +69,6 @@ if (lag.length > 0) {
   process.exit(1);
 }
 
-const inDev = process.env.NODE_ENV !== 'production';
-
 // Forward reference: the mailer is wired after workers start so its addJob target
 // (the WorkerHandle) exists. The reference is set inside onServerStart before any
 // route handler can pull from the mailer.
@@ -87,28 +79,6 @@ const getMailer = (): import('@seta/shared-mailer').Mailer => {
 };
 
 const outboxStore = createOutboxStore({ db: coreDb() });
-const configStore = createMailTransportConfigStore({ db: integrationsDb() });
-
-const mailerSendTask = createMailerSendTask({
-  outboxStore,
-  resolveTransport: (tenantId) =>
-    resolveTransport(tenantId, {
-      env,
-      configStore: { findEnabled: (tid) => configStore.findEnabled(tid) },
-      lookupEntraTenantId: getEntraTenantId,
-      crypto: { decrypt: (b) => cryptoSvc.decrypt(b) },
-    }),
-  emit: (event) =>
-    withEmit(undefined, async () => {
-      await emit(event);
-    }),
-  log: log.child({ component: 'mailer.worker' }),
-});
-
-// In dev (NODE_ENV !== production) startBoth runs HTTP + dispatcher + worker pool in one
-// process — mirroring the previous single-process developer experience. In production
-// startServerRuntime runs HTTP only, with an enqueue-only WorkerHandle; apps/worker runs
-// the actual job handlers.
 // Build the copilot engine up front so subscriberBuilders contributed by
 // orchestrator modules (e.g. staffing) can be constructed against the live
 // Mastra instance before the dispatcher starts.
@@ -131,16 +101,6 @@ const rt = buildRuntime(env, {
     revokeSessionsOnDeactivationSubscriber() as import('@seta/shared-types').SubscriberDef,
     ...copilotSubscribers,
   ],
-  extraJobs: inDev
-    ? {
-        'mailer:send': async (payload) => {
-          await mailerSendTask(payload as never);
-        },
-        ...embeddingJobs,
-        ...knowledgeJobs,
-        ...plannerEmbeddingJobs,
-      }
-    : undefined,
   onServerStart: async ({ workers }) => {
     workerHandleRef = workers;
     const mailer = createMailer({
@@ -172,7 +132,7 @@ const rt = buildRuntime(env, {
   },
 });
 
-const { server, shutdown } = inDev ? await rt.startBoth() : await rt.startServerRuntime();
+const { server, shutdown } = await rt.startServerRuntime();
 server.on('listening', () => {
   const addr = server.address();
   if (addr && typeof addr === 'object') log.info({ port: addr.port }, 'server listening');

@@ -33,7 +33,7 @@ export function PlanCategoriesSettingsPage({ planId }: Props) {
   const isForbidden = q.error instanceof PlannerClientError && q.error.status === 403;
   useEffect(() => {
     if (!isForbidden) return;
-    toast.error('You no longer have access to edit categories for this plan.');
+    toast.error("You can't edit categories for this plan anymore.");
     void navigate({ to: '/planner/groups' });
   }, [isForbidden, navigate]);
 
@@ -91,8 +91,8 @@ export function PlanCategoriesSettingsPage({ planId }: Props) {
         </h1>
         <p className="mb-3 text-body-sm text-ink-subtle" data-testid="categories-sync-subhead">
           {planForGroup?.external_source === 'm365'
-            ? 'Synced to M365 Planner'
-            : 'Local to this plan'}
+            ? 'Synced with Microsoft Planner'
+            : 'Just for this plan'}
         </p>
         <PlanSettingsTabStrip
           activeTab="categories"
@@ -129,7 +129,7 @@ export function PlanCategoriesSettingsPage({ planId }: Props) {
                 .mutateAsync({ slots })
                 .then(() => toast.success('Categories saved'))
                 .catch((err) => {
-                  toast.error(err instanceof Error ? err.message : 'Failed to save categories');
+                  toast.error(err instanceof Error ? err.message : "Couldn't save categories");
                 });
             }}
           />
@@ -140,9 +140,8 @@ export function PlanCategoriesSettingsPage({ planId }: Props) {
             <strong className="block text-ink text-xs uppercase tracking-wide mb-1">
               Heads up
             </strong>
-            Categories without an attached label show as named category strings only — they won't
-            filter Seta tasks until you attach a label. Slots above 25 stay Seta-only; native labels
-            can hold any number.
+            Categories without a label show as plain names — they won&apos;t filter tasks until you
+            attach a label. Slots above 25 live only here; Microsoft labels can hold any number.
           </div>
         </div>
       </div>

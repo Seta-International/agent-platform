@@ -42,10 +42,10 @@ export function ConfirmDeletePlanDialog({
           <DialogTitle>Delete this plan?</DialogTitle>
           <DialogDescription asChild>
             <div className="space-y-2 text-body-sm text-ink-subtle">
-              <p>This will delete the plan permanently. All tasks in it will be moved to Trash.</p>
+              <p>The plan is gone for good. Its tasks move to Trash.</p>
               {isLinked && (
                 <p className="font-medium text-ink">
-                  It will also be deleted in Microsoft 365 Planner.
+                  This also deletes the matching plan in Microsoft Planner.
                 </p>
               )}
             </div>
@@ -62,7 +62,7 @@ export function ConfirmDeletePlanDialog({
               checked={acknowledged}
               onCheckedChange={(v) => setAcknowledged(v === true)}
             />
-            I understand this also deletes the M365 Planner plan.
+            I understand this also deletes the matching Microsoft Planner plan.
           </label>
         )}
 

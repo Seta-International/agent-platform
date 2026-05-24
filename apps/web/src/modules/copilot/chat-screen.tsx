@@ -81,7 +81,7 @@ function ReasoningPart({ text, status }: PartProps) {
             Thinking…
           </span>
         ) : (
-          'Thoughts'
+          'See my thinking'
         )}
       </summary>
       <div className="mt-2 whitespace-pre-wrap text-ink-muted">{text}</div>
@@ -162,7 +162,7 @@ function ConversationHeader({ title, threadId, onOpenMobileNav }: ConversationHe
 
   const onDelete = () => {
     if (!threadId) return;
-    if (!window.confirm('Delete this thread? This cannot be undone.')) return;
+    if (!window.confirm("Delete this chat? You won't be able to get it back.")) return;
     remove.mutate(threadId, {
       onSuccess: () => void navigate({ to: '/copilot/chat', search: { thread: undefined } }),
     });
@@ -174,7 +174,7 @@ function ConversationHeader({ title, threadId, onOpenMobileNav }: ConversationHe
         <button
           type="button"
           onClick={onOpenMobileNav}
-          aria-label="Open threads"
+          aria-label="Open chats"
           className="-ml-1 inline-flex size-8 items-center justify-center rounded-md text-ink-muted hover:bg-surface-2 hover:text-ink lg:hidden"
         >
           <Menu className="size-4" aria-hidden />
@@ -203,7 +203,7 @@ function ConversationHeader({ title, threadId, onOpenMobileNav }: ConversationHe
               type="button"
               onClick={() => canEdit && startEdit()}
               disabled={!canEdit}
-              aria-label="Rename thread"
+              aria-label="Rename chat"
               className="inline-flex size-6 items-center justify-center rounded-md text-ink-tertiary hover:bg-surface-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Pencil className="size-3.5" aria-hidden />
@@ -216,7 +216,7 @@ function ConversationHeader({ title, threadId, onOpenMobileNav }: ConversationHe
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              aria-label="Thread actions"
+              aria-label="Chat actions"
               disabled={!canEdit}
               className="inline-flex size-7 items-center justify-center rounded-md text-ink-muted hover:bg-surface-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -234,7 +234,7 @@ function ConversationHeader({ title, threadId, onOpenMobileNav }: ConversationHe
               className="gap-2 text-destructive focus:text-destructive"
             >
               <Trash2 className="size-3.5" aria-hidden />
-              Delete thread
+              Delete chat
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -323,7 +323,7 @@ export function ChatScreen({ threadId }: ChatScreenProps) {
   const { data: catalog } = useModelCatalog();
   const [modelKey, setModelKey] = usePersistentModelKey(catalog?.default);
   const threadTitle = useThreadTitle(threadId);
-  const headerTitle = threadId ? (threadTitle ?? 'Conversation') : 'New conversation';
+  const headerTitle = threadId ? (threadTitle ?? 'Untitled chat') : 'New chat';
   const { data: history, isLoading: historyLoading } = useThreadMessages(threadId);
   const initialMessages = threadId ? (history?.messages ?? []) : [];
   const waiting = Boolean(threadId) && historyLoading && !history;
@@ -368,7 +368,7 @@ export function ChatScreen({ threadId }: ChatScreenProps) {
       </Sheet>
       {waiting ? (
         <div className="flex min-w-0 flex-1 items-center justify-center text-caption text-ink-subtle">
-          Loading conversation…
+          Loading chat…
         </div>
       ) : (
         <ChatPane

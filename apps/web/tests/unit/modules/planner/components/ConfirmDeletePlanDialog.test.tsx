@@ -25,7 +25,7 @@ describe('ConfirmDeletePlanDialog', () => {
         onConfirm={() => {}}
       />,
     );
-    expect(screen.getByText(/All tasks in it will be moved to Trash/i)).toBeInTheDocument();
+    expect(screen.getByText(/Its tasks move to Trash/i)).toBeInTheDocument();
     expect(
       screen.queryByRole('checkbox', { name: /I understand this also deletes/i }),
     ).not.toBeInTheDocument();
@@ -43,10 +43,10 @@ describe('ConfirmDeletePlanDialog', () => {
       />,
     );
     expect(
-      screen.getByText(/It will also be deleted in Microsoft 365 Planner/i),
+      screen.getByText(/This also deletes the matching plan in Microsoft Planner/i),
     ).toBeInTheDocument();
     const checkbox = screen.getByRole('checkbox', {
-      name: /I understand this also deletes the M365 Planner plan/i,
+      name: /I understand this also deletes the matching Microsoft Planner plan/i,
     });
     expect(checkbox).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled();

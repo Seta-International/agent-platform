@@ -10,7 +10,7 @@ const DEFINITIONS: Definition[] = [
     id: 'copilot.new-task-skill-tag',
     name: 'new-task-skill-tag',
     module: 'copilot',
-    description: 'Proposes the best skill-matched assignee when a task is created',
+    description: 'Suggests who to assign each new task to, based on skills',
   },
 ];
 
@@ -23,7 +23,7 @@ export function DefinitionsList({ selectedId, onSelect }: DefinitionsListProps) 
   return (
     <aside className="hidden w-80 shrink-0 flex-col border-r border-[var(--color-hairline)] lg:flex">
       <header className="flex items-center justify-between border-b border-[var(--color-hairline)] px-4 py-2">
-        <h2 className="text-sm font-medium">Definitions</h2>
+        <h2 className="text-sm font-medium">Workflows</h2>
         {selectedId ? (
           <button
             type="button"

@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { AdminUsers } from '@/modules/console/users/pages/AdminUsers.tsx';
+import { AdminUsers } from '@/modules/admin/users/pages/AdminUsers.tsx';
 
 export interface AdminUsersSearch {
   q?: string;

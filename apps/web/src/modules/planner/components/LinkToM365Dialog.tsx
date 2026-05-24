@@ -59,9 +59,9 @@ export function LinkToM365Dialog({ groupId, open, onOpenChange }: Props) {
     >
       <DialogContent className="max-w-[520px]">
         <DialogHeader>
-          <DialogTitle>Link to a Microsoft 365 group</DialogTitle>
+          <DialogTitle>Link with a Microsoft 365 group</DialogTitle>
           <p className="mt-1 text-sm text-ink-subtle">
-            Syncs name, description, visibility, theme, and members from the M365 group.
+            Microsoft 365 will keep the name, description, visibility, color, and members in sync.
           </p>
         </DialogHeader>
 
@@ -69,7 +69,7 @@ export function LinkToM365Dialog({ groupId, open, onOpenChange }: Props) {
           <div className="relative">
             <Input
               autoFocus
-              placeholder="Search M365 groups..."
+              placeholder="Search Microsoft 365 groups…"
               value={query}
               onChange={(e) => {
                 setQuery(e.target.value);
@@ -84,9 +84,7 @@ export function LinkToM365Dialog({ groupId, open, onOpenChange }: Props) {
           </div>
 
           {search.data && groups.length === 0 && (
-            <p className="text-sm text-ink-subtle px-1">
-              No M365 groups found matching your search.
-            </p>
+            <p className="text-sm text-ink-subtle px-1">No matching groups in Microsoft 365.</p>
           )}
 
           {groups.length > 0 && (
@@ -112,7 +110,7 @@ export function LinkToM365Dialog({ groupId, open, onOpenChange }: Props) {
           {link.isError && (
             <Alert variant="destructive">
               <AlertDescription>
-                {link.error instanceof Error ? link.error.message : 'Failed to link group.'}
+                {link.error instanceof Error ? link.error.message : "Couldn't link the group."}
               </AlertDescription>
             </Alert>
           )}
@@ -123,7 +121,7 @@ export function LinkToM365Dialog({ groupId, open, onOpenChange }: Props) {
             Cancel
           </Button>
           <Button onClick={handleLink} disabled={!selectedId || link.isPending}>
-            {link.isPending ? 'Linking…' : 'Link group'}
+            {link.isPending ? 'Linking…' : 'Link'}
           </Button>
         </div>
       </DialogContent>

@@ -154,46 +154,85 @@ describe('<KanbanColumn> inline rename', () => {
 });
 
 describe('<KanbanColumn> quick-create submit', () => {
-  it('fires onCreateTask with title only when no extras are set', () => {
+  it('reveals the compose input on click and fires onCreateTask on Enter', () => {
     const onCreateTask = vi.fn();
-    col({ onCreateTask });
-    fireEvent.click(screen.getByTitle('Add a task (C)'));
-    fireEvent.change(screen.getByPlaceholderText('Add a task…'), { target: { value: 'My task' } });
-    fireEvent.keyDown(screen.getByPlaceholderText('Add a task…'), { key: 'Enter' });
-    expect(onCreateTask).toHaveBeenCalledWith({ title: 'My task' });
+    render(
+      <KanbanColumn
+        name="Todo"
+        count={0}
+        onCreateTask={onCreateTask}
+        droppable={{}}
+        draggableHandle={{}}
+      >
+        <span />
+      </KanbanColumn>,
+    );
+    fireEvent.click(screen.getByText('+ Add a task'));
+    const input = screen.getByPlaceholderText('Task title');
+    expect(input).toBeInTheDocument();
+    fireEvent.change(input, { target: { value: 'New' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onCreateTask).toHaveBeenCalledWith({ title: 'New' });
+    expect(screen.queryByPlaceholderText('Task title')).not.toBeInTheDocument();
   });
 
-  it('keeps the "More options" disclosure collapsed by default', () => {
-    const onCreateTask = vi.fn();
-    col({ onCreateTask });
-    fireEvent.click(screen.getByTitle('Add a task (C)'));
-    // The compose "More options" toggle button is present (identified by aria-expanded attribute)
-    expect(screen.getByText('More options')).toBeInTheDocument();
-    // But the expanded panel contents (DatePill, PrioritySegmented, PreviewTypeRadio) are not shown
-    expect(screen.queryByLabelText('Start')).not.toBeInTheDocument();
-    expect(screen.queryByRole('radiogroup', { name: /preview type/i })).not.toBeInTheDocument();
+  it('exposes Priority and Due chips inline (no "More options" disclosure)', () => {
+    render(
+      <KanbanColumn
+        name="Todo"
+        count={0}
+        onCreateTask={() => {}}
+        droppable={{}}
+        draggableHandle={{}}
+      >
+        <span />
+      </KanbanColumn>,
+    );
+    fireEvent.click(screen.getByText('+ Add a task'));
+    expect(screen.getByRole('button', { name: 'Priority' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Due')).toBeInTheDocument();
+    expect(screen.queryByText('More options')).not.toBeInTheDocument();
   });
 
-  it('expands "More options" and forwards start_at, priority_number, and preview_type', () => {
+  it('forwards due_at to onCreateTask', () => {
     const onCreateTask = vi.fn();
-    col({ onCreateTask });
-    fireEvent.click(screen.getByTitle('Add a task (C)'));
-    fireEvent.change(screen.getByPlaceholderText('Add a task…'), {
+    render(
+      <KanbanColumn
+        name="Todo"
+        count={0}
+        onCreateTask={onCreateTask}
+        droppable={{}}
+        draggableHandle={{}}
+      >
+        <span />
+      </KanbanColumn>,
+    );
+    fireEvent.click(screen.getByText('+ Add a task'));
+    fireEvent.change(screen.getByPlaceholderText('Task title'), {
       target: { value: 'With details' },
     });
-    // Expand the compose-area More options disclosure (has text content "More options")
-    fireEvent.click(screen.getByText('More options'));
-    // DatePill, PrioritySegmented, and PreviewTypeRadio are now visible
-    fireEvent.change(screen.getByLabelText('Start'), { target: { value: '2026-06-15' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Urgent' }));
-    fireEvent.click(screen.getByRole('radio', { name: 'Checklist' }));
-    fireEvent.keyDown(screen.getByPlaceholderText('Add a task…'), { key: 'Enter' });
+    fireEvent.change(screen.getByLabelText('Due'), { target: { value: '2026-06-15' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
     expect(onCreateTask).toHaveBeenCalledTimes(1);
-    expect(onCreateTask).toHaveBeenCalledWith({
-      title: 'With details',
-      start_at: '2026-06-15',
-      priority_number: 1,
-      preview_type: 'checklist',
-    });
+    expect(onCreateTask).toHaveBeenCalledWith({ title: 'With details', due_at: '2026-06-15' });
+  });
+
+  it('omits default-valued extras from the payload', () => {
+    const onCreateTask = vi.fn();
+    render(
+      <KanbanColumn
+        name="Todo"
+        count={0}
+        onCreateTask={onCreateTask}
+        droppable={{}}
+        draggableHandle={{}}
+      >
+        <span />
+      </KanbanColumn>,
+    );
+    fireEvent.click(screen.getByText('+ Add a task'));
+    fireEvent.change(screen.getByPlaceholderText('Task title'), { target: { value: 'Plain' } });
+    fireEvent.keyDown(screen.getByPlaceholderText('Task title'), { key: 'Enter' });
+    expect(onCreateTask).toHaveBeenCalledWith({ title: 'Plain' });
   });
 });

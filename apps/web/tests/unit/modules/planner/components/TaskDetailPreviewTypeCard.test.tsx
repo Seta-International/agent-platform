@@ -20,12 +20,22 @@ function renderWithClient(node: ReactNode) {
 }
 
 describe('TaskDetailPreviewTypeCard', () => {
-  it('renders the five options with the current value pre-selected', () => {
+  it('renders the five options with the current value pre-selected', async () => {
+    const { userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup();
     const task = makeTaskWithAssignees({ id: 't1', preview_type: 'checklist' });
     renderWithClient(<TaskDetailPreviewTypeCard task={task} planId="p1" />);
     expect(screen.getByText('Preview')).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: 'Checklist', checked: true })).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: 'Automatic', checked: false })).toBeInTheDocument();
+    // Trigger shows the current option's label.
+    const trigger = screen.getByRole('button', { name: 'Preview type' });
+    expect(trigger).toHaveTextContent('Checklist');
+    // Opening the dropdown reveals all five options as menu items.
+    await user.click(trigger);
+    expect(await screen.findByRole('menuitem', { name: /Automatic/ })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /None/ })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /Checklist/ })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /Description/ })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /Reference/ })).toBeInTheDocument();
   });
 
   it('sends preview_type when an option is clicked', async () => {
@@ -41,7 +51,8 @@ describe('TaskDetailPreviewTypeCard', () => {
 
     const task = makeTaskWithAssignees({ id: 't1', preview_type: 'automatic', version: 3 });
     renderWithClient(<TaskDetailPreviewTypeCard task={task} planId="p1" />);
-    await user.click(screen.getByRole('radio', { name: 'Reference' }));
+    await user.click(screen.getByRole('button', { name: 'Preview type' }));
+    await user.click(await screen.findByRole('menuitem', { name: /Reference/ }));
 
     expect(captured.mock.calls[0]?.[0]).toEqual({
       expected_version: 3,

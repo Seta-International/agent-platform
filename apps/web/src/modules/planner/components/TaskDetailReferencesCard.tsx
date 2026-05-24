@@ -14,10 +14,8 @@ export function TaskDetailReferencesCard({ task, planId }: Props) {
 
   return (
     <section className="card" aria-label="References">
-      <header className="t-sm subtle" style={{ marginBottom: 8 }}>
-        References
-      </header>
-      <div style={list}>
+      <header className="t-sm subtle mb-2">References</header>
+      <div className="flex flex-col gap-1.5">
         {task.references.map((r) => (
           <ReferenceRow
             key={r.id}
@@ -33,7 +31,7 @@ export function TaskDetailReferencesCard({ task, planId }: Props) {
           />
         ))}
       </div>
-      <div style={{ marginTop: 10 }}>
+      <div className="mt-2.5">
         <AddReferenceCombobox
           onAdd={(classified) =>
             add.mutate({
@@ -56,9 +54,3 @@ function hostOf(url: string): string {
     return url;
   }
 }
-
-const list = {
-  display: 'flex',
-  flexDirection: 'column' as const,
-  gap: 6,
-};
