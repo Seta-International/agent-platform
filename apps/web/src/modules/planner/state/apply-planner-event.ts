@@ -197,6 +197,8 @@ export function applyPlannerEvent(qc: QueryClient, event: StreamEvent): void {
           assignees: [],
           labels: [],
           checklist_summary: { total: 0, checked: 0 },
+          checklist_preview: [],
+          reference_preview: [],
         };
         return [...prev, fresh];
       });

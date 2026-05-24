@@ -53,6 +53,8 @@ export function useCreateTask(planId: string) {
         assignees: [],
         labels: [],
         checklist_summary: { total: 0, checked: 0 },
+        checklist_preview: [],
+        reference_preview: [],
       };
       qc.setQueryData<TaskWithAssigneesRow[]>(key, (prev) => [...(prev ?? []), optimistic]);
     },

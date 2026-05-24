@@ -24,7 +24,7 @@ interface Props {
   onCopyLink: () => void;
   onPrevious: () => void;
   onNext: () => void;
-  onMenuAction?: (action: 'duplicate' | 'archive' | 'delete') => void;
+  onDelete?: () => void;
 }
 
 function isEditableTarget(node: EventTarget | null): boolean {
@@ -49,7 +49,7 @@ export function TaskDetailHeader({
   onCopyLink,
   onPrevious,
   onNext,
-  onMenuAction,
+  onDelete,
 }: Props) {
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -118,31 +118,24 @@ export function TaskDetailHeader({
             <Copy className="size-3" />
             Copy link
           </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                aria-label="More actions"
-                className="inline-flex items-center justify-center rounded p-1 text-ink-subtle hover:bg-surface-1 hover:text-ink"
-              >
-                <MoreHorizontal className="size-4" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={() => onMenuAction?.('duplicate')}>
-                Duplicate
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => onMenuAction?.('archive')}>
-                Archive
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={() => onMenuAction?.('delete')}
-                className="text-semantic-danger"
-              >
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {onDelete && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="More actions"
+                  className="inline-flex items-center justify-center rounded p-1 text-ink-subtle hover:bg-surface-1 hover:text-ink"
+                >
+                  <MoreHorizontal className="size-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onSelect={() => onDelete()} className="text-semantic-danger">
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           <span aria-hidden="true" className="h-5 w-px bg-hairline" />
           <button
             type="button"

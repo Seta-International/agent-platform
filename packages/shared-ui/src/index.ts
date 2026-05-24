@@ -79,7 +79,6 @@ export * from './sync/m365-error-messages';
 // Task
 export * from './task/add-reference-combobox';
 export * from './task/mini-gantt';
-export * from './task/progress-slider';
 export * from './task/reference-row';
 // Theme
 export * from './theme/theme-provider';

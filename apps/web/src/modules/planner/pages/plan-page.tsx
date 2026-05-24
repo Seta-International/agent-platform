@@ -88,6 +88,7 @@ export function PlanPage({
         id: t.id,
         title: t.title,
         priority,
+        start_label: t.start_at ? formatDueShort(t.start_at) : undefined,
         due_label: t.due_at ? formatDueShort(t.due_at) : undefined,
         label: t.labels[0] ? { name: t.labels[0].name, color: t.labels[0].color } : undefined,
         assignees: t.assignees.map((a) => ({
@@ -103,6 +104,17 @@ export function PlanPage({
       };
       const previewTask: PreviewBodyTask = {
         description: t.description ?? undefined,
+        checklist: t.checklist_preview.map((c) => ({
+          id: c.id,
+          text: c.label,
+          done: c.checked,
+        })),
+        references: t.reference_preview.map((r) => ({
+          id: r.id,
+          type: r.type,
+          alias: r.alias,
+          host: r.host,
+        })),
       };
       const previewSlot: ReactNode = (
         <PreviewBody task={previewTask} variant={t.preview_type ?? 'automatic'} />

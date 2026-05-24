@@ -192,10 +192,29 @@ export interface GroupMemberRow {
   added_by: string;
 }
 
+export interface ChecklistPreviewItem {
+  id: string;
+  label: string;
+  checked: boolean;
+}
+
+export interface ReferencePreviewItem {
+  id: string;
+  url: string;
+  alias: string | null;
+  type: TaskReferenceType;
+  /** Hostname from `new URL(url).hostname`; '' when the URL fails to parse. */
+  host: string;
+}
+
 export interface TaskWithAssigneesRow extends TaskRow {
   assignees: AssigneeRow[];
   labels: LabelRow[];
   checklist_summary: { total: number; checked: number };
+  /** First 3 checklist items ordered by order_hint NULLS LAST, id. Empty when none. */
+  checklist_preview: ChecklistPreviewItem[];
+  /** First reference ordered by preview_priority NULLS LAST, id. Empty when none. */
+  reference_preview: ReferencePreviewItem[];
 }
 
 // Single-task detail shape — what /tasks/:id and getTask return. Lists keep the

@@ -11,7 +11,7 @@ import {
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { delay, HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { TaskDetailPage } from '../../../../../src/modules/planner/pages/task-detail-page';
 import {
   makePlan,
@@ -213,5 +213,110 @@ describe('TaskDetailPage', () => {
     fireEvent.keyDown(document.body, { key: 'k' });
     await new Promise((r) => setTimeout(r, 20));
     expect(router.state.location.pathname).toBe('/planner/plans/p1/tasks/t1');
+  });
+
+  it('page variant: More > Delete opens confirm dialog, then DELETEs and navigates back to the plan board', async () => {
+    const { userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup();
+    let deleteCalled = false;
+    let deleteBody: { expected_version?: number } | undefined;
+    server.use(
+      http.get('/api/planner/v1/tasks/t1', () =>
+        HttpResponse.json(buildTaskDetail({ id: 't1', title: 'Wire telemetry', version: 4 })),
+      ),
+      http.get('/api/planner/v1/plans/p1', () => HttpResponse.json(makePlan({ id: 'p1' }))),
+      http.get('/api/planner/v1/plans/p1/buckets', () => HttpResponse.json({ buckets: [] })),
+      http.get('/api/planner/v1/plans/p1/labels', () => HttpResponse.json({ labels: [] })),
+      http.get('/api/planner/v1/tasks', () => HttpResponse.json({ tasks: [] })),
+      http.delete('/api/planner/v1/tasks/t1', async ({ request }) => {
+        deleteCalled = true;
+        deleteBody = (await request.json()) as { expected_version: number };
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    const router = renderPage('t1', 'p1');
+    await screen.findByLabelText('Task title');
+
+    await user.click(screen.getByRole('button', { name: /more actions/i }));
+    await user.click(await screen.findByRole('menuitem', { name: /^delete$/i }));
+
+    // Confirm dialog opens with the task title quoted in its body
+    const dialog = await screen.findByRole('dialog');
+    expect(await screen.findByRole('heading', { name: /delete this task\?/i })).toBeInTheDocument();
+    const { within } = await import('@testing-library/react');
+    expect(within(dialog).getByText(/wire telemetry/i)).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole('button', { name: /delete task/i }));
+
+    await waitFor(() => {
+      expect(deleteCalled).toBe(true);
+    });
+    expect(deleteBody?.expected_version).toBe(4);
+
+    // Page variant navigates back to the plan board on success. We didn't
+    // register the plan board route in this harness, so the router's pending
+    // navigation surfaces as a pathname change rather than a rendered view —
+    // that's enough to prove the success branch fired.
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/planner/plans/p1');
+    });
+  });
+
+  it('modal variant: More > Delete confirms, DELETEs, and calls onDeleted', async () => {
+    const { userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup();
+    let deleteCalled = false;
+    const onDeleted = vi.fn();
+    server.use(
+      http.get('/api/planner/v1/tasks/t9', () =>
+        HttpResponse.json(buildTaskDetail({ id: 't9', title: 'Ship it', version: 2 })),
+      ),
+      http.get('/api/planner/v1/plans/p1', () => HttpResponse.json(makePlan({ id: 'p1' }))),
+      http.get('/api/planner/v1/plans/p1/buckets', () => HttpResponse.json({ buckets: [] })),
+      http.get('/api/planner/v1/plans/p1/labels', () => HttpResponse.json({ labels: [] })),
+      http.get('/api/planner/v1/tasks', () => HttpResponse.json({ tasks: [] })),
+      http.delete('/api/planner/v1/tasks/t9', () => {
+        deleteCalled = true;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const rootRoute = createRootRoute({ component: () => <Outlet /> });
+    const detailRoute = createRoute({
+      getParentRoute: () => rootRoute,
+      path: '/planner/plans/$planId/tasks/$taskId',
+      component: () => (
+        <TaskDetailPage planId="p1" taskId="t9" variant="modal" onDeleted={onDeleted} />
+      ),
+    });
+    const routeTree = rootRoute.addChildren([detailRoute]);
+    const router = createRouter({
+      routeTree,
+      history: createMemoryHistory({ initialEntries: ['/planner/plans/p1/tasks/t9'] }),
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    );
+
+    await screen.findByLabelText('Task title');
+
+    await user.click(screen.getByRole('button', { name: /more actions/i }));
+    await user.click(await screen.findByRole('menuitem', { name: /^delete$/i }));
+
+    expect(await screen.findByRole('heading', { name: /delete this task\?/i })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /delete task/i }));
+
+    await waitFor(() => {
+      expect(deleteCalled).toBe(true);
+    });
+    await waitFor(() => {
+      expect(onDeleted).toHaveBeenCalledTimes(1);
+    });
   });
 });

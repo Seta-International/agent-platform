@@ -64,6 +64,29 @@ describe('TaskDetailHeader', () => {
     expect(onNext).toHaveBeenCalledTimes(1);
   });
 
+  it('hides the More menu when onDelete is undefined', () => {
+    render(<TaskDetailHeader {...baseProps} />);
+    expect(screen.queryByRole('button', { name: /more actions/i })).not.toBeInTheDocument();
+  });
+
+  it('renders only a Delete item in the More menu when onDelete is wired', async () => {
+    const { userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup();
+    const onDelete = vi.fn();
+    render(<TaskDetailHeader {...baseProps} onDelete={onDelete} />);
+
+    await user.click(screen.getByRole('button', { name: /more actions/i }));
+
+    const deleteItem = await screen.findByRole('menuitem', { name: /^delete$/i });
+    expect(deleteItem).toBeInTheDocument();
+    // Duplicate and Archive were removed — they should NOT appear.
+    expect(screen.queryByRole('menuitem', { name: /duplicate/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /archive/i })).not.toBeInTheDocument();
+
+    await user.click(deleteItem);
+    expect(onDelete).toHaveBeenCalledTimes(1);
+  });
+
   it('does not hijack J/K while the user is typing in an input', async () => {
     const { userEvent } = await import('@testing-library/user-event');
     const user = userEvent.setup();

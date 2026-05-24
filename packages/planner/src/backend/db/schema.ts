@@ -171,7 +171,7 @@ export const tasks = planner.table(
     index('tasks_by_review_state')
       .on(t.tenant_id, t.review_state)
       .where(sql`review_state IS NOT NULL AND deleted_at IS NULL`),
-    check('tasks_percent_complete_range', sql`percent_complete BETWEEN 0 AND 100`),
+    check('tasks_percent_complete_planner', sql`percent_complete IN (0, 50, 100)`),
     check('tasks_priority_number_set', sql`priority_number IN (1,3,5,9)`),
     check(
       'tasks_preview_type_check',

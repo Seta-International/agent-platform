@@ -96,12 +96,55 @@ export async function getTask(input: {
     updated_at: r.updated_at.toISOString(),
   }));
 
+  // Detail rows widen the list DTO; derive the previews from the already-
+  // ordered full arrays so callers don't need a second fetch and the kanban
+  // card shape stays consistent across list/detail. Ordering rule matches
+  // list-tasks: hint NULLS LAST, then id as tiebreaker.
+  const checklist_preview = [...checklist]
+    .sort((a, b) => compareNullableHint(a.order_hint, b.order_hint) || compareString(a.id, b.id))
+    .slice(0, 3)
+    .map((c) => ({ id: c.id, label: c.label, checked: c.checked }));
+  const reference_preview = [...references]
+    .sort(
+      (a, b) =>
+        compareNullableHint(a.preview_priority, b.preview_priority) || compareString(a.id, b.id),
+    )
+    .slice(0, 1)
+    .map((r) => ({
+      id: r.id,
+      url: r.url,
+      alias: r.alias,
+      type: r.type,
+      host: safeHost(r.url),
+    }));
+
   return {
     ...taskRowToDto(row),
     assignees: assigneesByTaskId.get(row.id) ?? [],
     labels: labelsByTaskId.get(row.id) ?? [],
     checklist_summary,
+    checklist_preview,
+    reference_preview,
     checklist,
     references,
   };
+}
+
+function safeHost(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return '';
+  }
+}
+
+function compareNullableHint(a: string | null, b: string | null): number {
+  if (a === null && b === null) return 0;
+  if (a === null) return 1;
+  if (b === null) return -1;
+  return compareString(a, b);
+}
+
+function compareString(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
 }

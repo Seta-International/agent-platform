@@ -10,6 +10,8 @@ export interface KanbanCardTask {
   id: string;
   title: string;
   priority: 'urgent' | 'important' | 'medium' | 'low';
+  /** Short start-date label shown on the card. Pair with `due_label` for a range. */
+  start_label?: string;
   due_label?: string;
   label?: { name: string; color?: string };
   assignees: Array<{ user_id: string; display_name: string }>;
@@ -85,7 +87,13 @@ export function KanbanCard({ task, onOpen, selected, previewSlot, draggable }: K
       <div className="kanban-card__meta">
         <PriorityIcon level={task.priority} />
         {task.label && <LabelChip name={task.label.name} color={task.label.color} />}
-        {task.due_label && <span className="kanban-card__due">{task.due_label}</span>}
+        {(task.start_label || task.due_label) && (
+          <span className="kanban-card__due">
+            {task.start_label && task.due_label
+              ? `${task.start_label} → ${task.due_label}`
+              : (task.start_label ?? task.due_label)}
+          </span>
+        )}
         {task.checklist_summary && task.checklist_summary.total > 0 && (
           <ChecklistChip
             total={task.checklist_summary.total}

@@ -1,8 +1,16 @@
-import { Skeleton, toast } from '@seta/shared-ui';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  Skeleton,
+  toast,
+} from '@seta/shared-ui';
 import { useNavigate } from '@tanstack/react-router';
-import { ChevronRight } from 'lucide-react';
-import { type ReactNode, useEffect, useMemo } from 'react';
+import { ChevronRight, MoreHorizontal } from 'lucide-react';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { PlannerClientError } from '../api/planner-client';
+import { ConfirmDeleteTaskDialog } from '../components/ConfirmDeleteTaskDialog';
 import { PlanError } from '../components/plan-error';
 import { TaskDetailAssigneesCard } from '../components/TaskDetailAssigneesCard';
 import { TaskDetailChecklistCard } from '../components/TaskDetailChecklistCard';
@@ -16,6 +24,7 @@ import { TaskDetailProgressCard } from '../components/TaskDetailProgressCard';
 import { TaskDetailReferencesCard } from '../components/TaskDetailReferencesCard';
 import { TaskDetailScheduleCard } from '../components/TaskDetailScheduleCard';
 import { TaskTitleEditor } from '../components/TaskTitleEditor';
+import { useDeleteTask } from '../hooks/mutations/delete-task';
 import { useGroup } from '../hooks/queries/use-group';
 import { useGroupMembers } from '../hooks/queries/use-group-members';
 import { usePlanBoard } from '../hooks/queries/use-plan-board';
@@ -29,6 +38,12 @@ interface Props {
   variant?: 'page' | 'modal';
   /** Action slot rendered into the modal header — typically the maximize/close buttons. */
   modalHeaderActions?: ReactNode;
+  /**
+   * Modal variant only: invoked after a successful task delete so the host
+   * (e.g. `TaskDetailDialog`) can close the dialog and clear the URL state.
+   * The full-page variant navigates back to the plan board itself.
+   */
+  onDeleted?: () => void;
 }
 
 // Stable, monotonic-ish task number derived from the trailing UUID hex. The
@@ -40,10 +55,18 @@ function taskNumberFromId(id: string): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-export function TaskDetailPage({ planId, taskId, variant = 'page', modalHeaderActions }: Props) {
+export function TaskDetailPage({
+  planId,
+  taskId,
+  variant = 'page',
+  modalHeaderActions,
+  onDeleted,
+}: Props) {
   const navigate = useNavigate();
   const taskQ = useTaskDetail(taskId);
   const boardQ = usePlanBoard(planId);
+  const deleteTask = useDeleteTask(planId);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const plan = boardQ.data?.plan;
   const groupId = plan?.group_id;
@@ -100,6 +123,23 @@ export function TaskDetailPage({ planId, taskId, variant = 'page', modalHeaderAc
       params: { planId, taskId: id },
     });
 
+  function handleConfirmDelete() {
+    deleteTask.mutate(
+      { task_id: taskId, expected_version: task.version },
+      {
+        onSuccess: () => {
+          setDeleteOpen(false);
+          toast.success('Task moved to Trash.');
+          if (variant === 'modal') {
+            onDeleted?.();
+          } else {
+            void navigate({ to: '/planner/plans/$planId', params: { planId } });
+          }
+        },
+      },
+    );
+  }
+
   return (
     <div className="flex flex-col h-full">
       {variant === 'page' && (
@@ -120,6 +160,7 @@ export function TaskDetailPage({ planId, taskId, variant = 'page', modalHeaderAc
           }}
           onPrevious={() => prevTaskId && goToTask(prevTaskId)}
           onNext={() => nextTaskId && goToTask(nextTaskId)}
+          onDelete={() => setDeleteOpen(true)}
         />
       )}
       {variant === 'modal' && (
@@ -133,11 +174,37 @@ export function TaskDetailPage({ planId, taskId, variant = 'page', modalHeaderAc
               T-{taskNumberFromId(task.id)}
             </span>
           </div>
-          {modalHeaderActions && (
-            <div className="flex shrink-0 items-center gap-1">{modalHeaderActions}</div>
-          )}
+          <div className="flex shrink-0 items-center gap-1">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="More actions"
+                  className="inline-flex size-7 items-center justify-center rounded-md text-ink-muted hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
+                >
+                  <MoreHorizontal className="size-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onSelect={() => setDeleteOpen(true)}
+                  className="text-semantic-danger"
+                >
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {modalHeaderActions}
+          </div>
         </header>
       )}
+      <ConfirmDeleteTaskDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        taskTitle={task.title}
+        onConfirm={handleConfirmDelete}
+        pending={deleteTask.isPending}
+      />
       <div className="flex-1 overflow-auto bg-surface-1">
         <div
           className="mx-auto"

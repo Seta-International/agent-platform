@@ -42,6 +42,8 @@ function baseTask(over: Record<string, unknown> = {}) {
     assignees: [],
     labels: [],
     checklist_summary: { total: 0, checked: 0 },
+    checklist_preview: [],
+    reference_preview: [],
     ...over,
   };
 }

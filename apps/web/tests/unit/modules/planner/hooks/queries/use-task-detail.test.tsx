@@ -15,7 +15,7 @@ const TASK = {
   title: 'A task',
   description: 'desc',
   priority_number: 5,
-  percent_complete: 25,
+  percent_complete: 50,
   is_deferred: false,
   preview_type: 'automatic',
   review_state: null,
@@ -45,6 +45,10 @@ const TASK = {
   ],
   labels: [],
   checklist_summary: { total: 2, checked: 1 },
+  checklist_preview: [],
+  reference_preview: [],
+  checklist: [],
+  references: [],
 };
 
 const server = setupServer(http.get('*/api/planner/v1/tasks/t1', () => HttpResponse.json(TASK)));

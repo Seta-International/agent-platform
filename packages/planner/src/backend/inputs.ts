@@ -88,7 +88,7 @@ export const UpdateTaskPatchSchema = z
     bucket_id: z.string().uuid().nullable().optional(),
     start_at: z.string().datetime({ offset: true }).nullable().optional(),
     due_at: z.string().datetime({ offset: true }).nullable().optional(),
-    percent_complete: z.number().int().min(0).max(100).optional(),
+    percent_complete: z.union([z.literal(0), z.literal(50), z.literal(100)]).optional(),
     priority_number: z.union([z.literal(1), z.literal(3), z.literal(5), z.literal(9)]).optional(),
     is_deferred: z.boolean().optional(),
     preview_type: z
