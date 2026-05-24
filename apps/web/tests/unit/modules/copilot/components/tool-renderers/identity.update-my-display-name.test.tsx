@@ -34,6 +34,7 @@ describe('UpdateMyDisplayNameRenderer', () => {
   it('renders an InteractableCard in input-pending-approval state', async () => {
     renderInRouter(
       <UpdateMyDisplayNameRenderer
+        name="Update my display name"
         args={{
           displayName: 'Jane Q. Doe',
           expiresAt: new Date(Date.now() + 60_000).toISOString(),
@@ -42,13 +43,13 @@ describe('UpdateMyDisplayNameRenderer', () => {
         callId="call-1"
       />,
     );
-    expect(await screen.findByText('Change display name')).toBeInTheDocument();
-    expect(screen.getByText('identity.updateMyDisplayName')).toBeInTheDocument();
+    expect(await screen.findAllByText('Update my display name')).not.toHaveLength(0);
   });
 
   it('renders a tool-call OK pill when output-available', async () => {
     renderInRouter(
       <UpdateMyDisplayNameRenderer
+        name="Update my display name"
         args={{ displayName: 'Jane Q. Doe' }}
         state="output-available"
         callId="call-1"
