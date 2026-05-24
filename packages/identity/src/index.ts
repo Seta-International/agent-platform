@@ -98,5 +98,5 @@ export {
   type IdentityFailedLoginAlertThresholdReachedPayload,
 } from './events/failed-login-alert.ts';
 export type { IdentityEvent } from './events/index.ts';
-export type { TenantRoleSlug } from './roles.ts';
-export { A2_PERMISSIONS, type A2Permission, TENANT_ROLE_SLUGS } from './roles.ts';
+export type { TenantRoleSlug } from './rbac.ts';
+export { A2_PERMISSIONS, type A2Permission, TENANT_ROLE_SLUGS } from './rbac.ts';
