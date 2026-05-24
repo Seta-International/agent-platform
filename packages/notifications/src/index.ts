@@ -25,6 +25,10 @@ export {
   type Notification,
 } from './backend/domain/queries.ts';
 export { type RequestNotificationInput, requestNotification } from './backend/domain/request.ts';
+export {
+  NotificationsError,
+  requirePermission as requireNotificationsPermission,
+} from './backend/rbac.ts';
 export { NOTIFY_CHANNEL, notifierSubscriber } from './backend/subscribers/notifier.ts';
 export {
   NOTIFICATION_REQUESTED,
@@ -34,4 +38,10 @@ export {
   type NotificationRequestedPayload,
   type NotificationTenantPrefsChangedPayload,
 } from './events.ts';
-export { NOTIFICATIONS_WRITE_PERMISSION } from './rbac.ts';
+export {
+  NOTIFICATIONS_PERMISSIONS,
+  NOTIFICATIONS_ROLE_PERMISSIONS,
+  NOTIFICATIONS_ROLE_SLUGS,
+  type NotificationsPermission,
+  type NotificationsRoleSlug,
+} from './rbac.ts';

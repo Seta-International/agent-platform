@@ -1,14 +1,13 @@
 import type { SessionScope } from '@seta/core';
 import { emit, emitContext } from '@seta/core/events';
-import { hasPermission } from '@seta/shared-rbac';
 import { and, eq } from 'drizzle-orm';
 import {
   NOTIFICATION_TENANT_PREFS_CHANGED,
   NOTIFICATION_TENANT_PREFS_CHANGED_VERSION,
 } from '../../events.ts';
-import { NOTIFICATIONS_WRITE_PERMISSION } from '../../rbac.ts';
 import { notificationsDb } from '../db/client.ts';
 import { notificationPrefs } from '../db/schema/notification-prefs.ts';
+import { NotificationsError, requirePermission } from '../rbac.ts';
 import { findCategory, NOTIFICATION_CATEGORIES } from './categories.ts';
 
 export type NotificationPrefErrorCode = 'FORBIDDEN' | 'UNKNOWN_EVENT_TYPE' | 'NO_EMIT_CONTEXT';
@@ -22,19 +21,17 @@ export class NotificationPrefError extends Error {
   }
 }
 
-function requireNotificationsAdmin(session: SessionScope): void {
-  const allowed = hasPermission(
-    {
-      roles: session.role_summary.roles,
-      cross_tenant_read: session.role_summary.cross_tenant_read,
-    },
-    NOTIFICATIONS_WRITE_PERMISSION,
-  );
-  if (!allowed) {
-    throw new NotificationPrefError(
-      'FORBIDDEN',
-      `Missing permission: ${NOTIFICATIONS_WRITE_PERMISSION}`,
-    );
+function requireNotificationsAdmin(
+  session: SessionScope,
+  permission: 'notifications.preference.read' | 'notifications.preference.write',
+): void {
+  try {
+    requirePermission(session, permission);
+  } catch (err) {
+    if (err instanceof NotificationsError && err.code === 'FORBIDDEN') {
+      throw new NotificationPrefError('FORBIDDEN', err.message);
+    }
+    throw err;
   }
 }
 
@@ -53,7 +50,7 @@ export interface NotificationPrefMatrix {
 export async function listNotificationPrefs(input: {
   session: SessionScope;
 }): Promise<NotificationPrefMatrix> {
-  requireNotificationsAdmin(input.session);
+  requireNotificationsAdmin(input.session, 'notifications.preference.read');
 
   const stored = await notificationsDb()
     .select({
@@ -84,7 +81,7 @@ export async function setNotificationPref(input: {
   enabled: boolean;
   session: SessionScope;
 }): Promise<void> {
-  requireNotificationsAdmin(input.session);
+  requireNotificationsAdmin(input.session, 'notifications.preference.write');
 
   const cat = findCategory(input.event_type);
   if (!cat) {

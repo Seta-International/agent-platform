@@ -10,6 +10,10 @@ import { NOTIFICATIONS_PERMISSIONS } from './rbac.ts';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
+const NOTIFICATIONS_RBAC: Record<string, string> = Object.fromEntries(
+  NOTIFICATIONS_PERMISSIONS.map((p) => [p, p]),
+);
+
 const buildNotificationStreamHub: StreamHubBuilder = (deps) => {
   const hub = new NotificationStreamHub();
   return {
@@ -29,7 +33,7 @@ export function registerNotificationsContributions(reg: ContributionRegistry): v
     schema,
     migrationsDir: resolve(__dirname, '../drizzle/migrations'),
     events: NOTIFICATIONS_EVENTS,
-    rbac: NOTIFICATIONS_PERMISSIONS,
+    rbac: NOTIFICATIONS_RBAC,
     subscribers: [notifierSubscriber() as SubscriberDef],
     stream: buildNotificationStreamHub,
   });
