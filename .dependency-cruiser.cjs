@@ -1,13 +1,23 @@
-/** Dependency-cruiser config — module boundary gate. */
+/** Dependency-cruiser config — module boundary gate.
+ *
+ * Mirrors spec §7.1 of docs/superpowers/specs/2026-05-23-architectural-tightening-design.md.
+ * Adding a new feature module or shared package requires zero edits here:
+ * path prefixes do the discrimination (`packages/shared-*` is infra, anything
+ * else under `packages/` is module-or-SDK). The only literal-name allowlist
+ * that remains is `apps/(server|worker|cli)` for the runtime-importer set.
+ */
 module.exports = {
   forbidden: [
+    // 1. No circular imports — error, repo-wide.
     {
       name: 'no-circular',
-      severity: 'warn',
+      severity: 'error',
       comment: 'Circular imports tend to bite. Refactor to break the cycle.',
       from: {},
       to: { circular: true },
     },
+
+    // 2. Test files don't bleed into production.
     {
       name: 'not-to-test',
       severity: 'error',
@@ -15,59 +25,66 @@ module.exports = {
       from: { pathNot: '\\.(spec|test)\\.[jt]sx?$' },
       to: { path: '\\.(spec|test)\\.[jt]sx?$' },
     },
+
+    // 3. Cross-module imports go through public surface only. A module's
+    //    internals (src/backend, src/db) are private. The `pathNot` back-ref
+    //    on `^packages/$1/` keeps a module's own files able to reach its own
+    //    internals; everything else routes through the package root or
+    //    declared subpaths (/events, /rbac, /contracts, /agent-tools).
     {
       name: 'no-cross-module-internals',
       severity: 'error',
       comment:
-        "A feature module's internals (src/backend, src/db) are private. Cross-module imports must enter via the package root (src/index.ts), the /events subpath, or the /agent-tools subpath (which is a public surface for cross-module Mastra tool composition).",
-      from: {
-        path: '^packages/(core|identity|planner|copilot|integrations|knowledge|notifications|staffing)/src/',
-      },
+        "A feature module's internals (src/backend, src/db) are private. Cross-module imports must enter via the package root (src/index.ts) or a declared subpath (/events, /rbac, /contracts, /agent-tools).",
+      from: { path: '^packages/(?!shared-)([^/]+)/src/' },
       to: {
-        path: '^packages/(core|identity|planner|copilot|integrations|knowledge|notifications|staffing)/src/(backend|db)/',
-        pathNot:
-          '^packages/$1/src/|^packages/(core|identity|planner|staffing)/src/backend/agent-tools/|^packages/copilot/src/backend/(runtime\\.ts|workflows/_infra/input-schema-registry\\.ts)$',
+        path: '^packages/(?!shared-)([^/]+)/src/(backend|db)/',
+        pathNot: '^packages/$1/',
       },
     },
+
+    // 4. /backend is composed only by apps/server, apps/worker, apps/cli
+    //    (ops/admin surface), plus the module itself.
+    {
+      name: 'only-server-imports-backend',
+      severity: 'error',
+      comment:
+        "A module's /backend subpath is private to apps/server, apps/worker, apps/cli (ops/admin tool), and the module itself.",
+      from: {
+        path: '^(?:packages|apps)/([^/]+)/',
+        pathNot: '^apps/(server|worker|cli)/src/',
+      },
+      to: {
+        path: '^packages/(?!shared-)([^/]+)/src/backend/',
+        pathNot: '^packages/$1/',
+      },
+    },
+
+    // 5. Apps may not import each other.
     {
       name: 'no-app-to-app-imports',
-      severity: 'warn',
+      severity: 'error',
       comment: 'Apps must not import each other.',
       from: { path: '^apps/([^/]+)/' },
       to: { path: '^apps/([^/]+)/', pathNot: '^apps/$1/' },
     },
-    {
-      name: 'only-server-imports-backend',
-      severity: 'warn',
-      // apps/cli is an ops/admin tool that legitimately needs access to backend domain ops; it doesn't ship to end users.
-      comment:
-        "A module's /backend subpath is private to apps/server, apps/cli (ops/admin tool), and the module itself.",
-      from: {
-        path: '^(?:packages|apps)/([^/]+)/',
-        pathNot: '^apps/(server|cli)/src/',
-      },
-      to: {
-        path: '^packages/(core|identity|planner|copilot|integrations|knowledge|notifications|staffing)/src/backend/',
-        pathNot:
-          '^packages/$1/|^packages/(core|identity|planner|staffing)/src/backend/agent-tools/',
-      },
-    },
-    {
-      name: 'no-deep-shared-imports',
-      severity: 'warn',
-      comment: 'Outside shared/<x>, never reach into its internals.',
-      from: { pathNot: '^packages/shared-([^/]+)/' },
-      to: { path: '^packages/shared-([^/]+)/src/internals/' },
-    },
+
+    // 6. shared-* is pure infra and may not import feature modules.
     {
       name: 'shared-must-not-import-modules',
       severity: 'error',
       comment: 'shared/* may not import from feature modules. They are pure infrastructure.',
       from: { path: '^packages/shared-' },
-      to: {
-        path: '^packages/(core|identity|planner|copilot|integrations|knowledge|notifications|staffing)/',
-      },
+      to: { path: '^packages/(?!shared-)([^/]+)/' },
     },
+
+    // 7. shared-<a> may not import shared-<b>. Exemptions:
+    //    - shared-testing (the shared util) is always allowed.
+    //    - shared-mailer may import shared-crypto: typed EncryptedBlob crosses
+    //      so per-tenant SMTP passwords stay encrypted at the transport config
+    //      boundary. shared-crypto stays a pure leaf.
+    //    - shared-config is pure toolchain (tsconfig, eslint rules, vitest
+    //      knobs); every package may import it.
     {
       name: 'shared-cross-imports-restricted',
       severity: 'error',
@@ -75,101 +92,36 @@ module.exports = {
         'shared/<a> may not import from shared/<b>. shared/testing is the exception (it may import any shared/*; any shared/* may import shared/testing from test files).',
       from: {
         path: '^packages/shared-(?!testing)([^/]+)/',
-        pathNot: '(^|/)(__tests__|test)/',
+        pathNot: '(^|/)(tests)/',
       },
       to: {
         path: '^packages/shared-([^/]+)/',
-        // Exemptions:
-        //  - testing/$1 is always allowed (testing is the shared util)
-        //  - shared/mailer may import shared/crypto: typed EncryptedBlob crosses
-        //    the boundary so per-tenant SMTP passwords can be encrypted at the
-        //    transport-config boundary. shared/crypto stays a pure leaf.
-        //  - shared/config is pure toolchain (tsconfig, eslint rules, vitest
-        //    knobs); every package may import it.
-        pathNot: '^packages/shared-(testing|$1)/|^packages/shared-crypto/|^packages/shared-config/',
+        pathNot: '^packages/shared-(testing|$1)/|^packages/shared-(crypto|config)/',
       },
     },
+
+    // 8. Infra internals are private outside the owning shared package.
     {
-      name: 'apps-cli-no-dispatcher',
+      name: 'no-deep-shared-imports',
       severity: 'error',
-      comment: 'apps/cli is short-lived; never start the dispatcher there.',
-      from: { path: '^apps/cli/' },
-      to: { path: '^packages/core/src/runtime/dispatcher/' },
+      comment: 'Outside shared/<x>, never reach into its internals.',
+      from: { pathNot: '^packages/shared-([^/]+)/' },
+      to: { path: '^packages/shared-([^/]+)/src/internals/' },
     },
+
+    // 9. SDKs are pure contract packages. They may import shared-* infra but
+    //    must never import feature modules or apps.
     {
-      name: 'core-runtime-restricted',
+      name: 'sdks-no-module-imports',
       severity: 'error',
       comment:
-        '@seta/core/runtime (dispatcher + worker pool + bootstrap) is private to apps/server, apps/worker, and feature-module integration tests. Other importers must use the main @seta/core surface.',
-      from: {
-        pathNot:
-          '^(apps/(server|worker)/|packages/core/)|/(__tests__|tests)/|\\.(test|spec)\\.[jt]sx?$',
-      },
-      to: { path: '^packages/core/src/runtime/' },
+        'SDKs are pure contract packages. They may import shared-* infra but must never import feature modules or apps.',
+      from: { path: '^sdks/' },
+      to: { path: '^(packages/(?!shared-)([^/]+)/|apps/)' },
     },
-    {
-      name: 'no-orphan-modules',
-      severity: 'warn',
-      comment: 'Surfaces packages with no callers; useful while the tree is mostly placeholders.',
-      from: {
-        orphan: true,
-        pathNot:
-          '(^|/)(\\.|index\\.ts|.+\\.config\\.[cm]?[jt]s)$|^packages/shared-config/eslint/|(^|/)(__tests__|test)/|\\.(spec|test)\\.[jt]sx?$|/\\.storybook/|\\.stories\\.[jt]sx?$|(^|/)e2e/|^apps/web/src/lib/|(^|/)scripts/',
-      },
-      to: {},
-    },
-    {
-      name: 'identity-auth-import-restricted',
-      comment: 'Only @seta/core may import @seta/identity/auth (better-auth instance).',
-      severity: 'error',
-      from: { path: '^packages/(?!core/|identity/)' },
-      to: { path: 'packages/identity/src/backend/auth\\.ts$' },
-    },
-    {
-      name: 'identity-internals-blocked',
-      comment:
-        'Peer modules must use @seta/identity public surface (or the /agent-tools subpath), never src/backend or src/db.',
-      severity: 'error',
-      from: { path: '^packages/(planner|copilot|integrations)/src/' },
-      to: {
-        path: '^packages/identity/src/(backend|db)/',
-        pathNot: '^packages/identity/src/backend/agent-tools/',
-      },
-    },
-    {
-      name: 'identity-sso-internals-blocked',
-      comment:
-        'SSO/Graph helpers under packages/identity/src/sso/ and /backend/sso/ are internal — outside callers must use the public surface.',
-      severity: 'error',
-      from: { path: '^packages/(?!identity/)' },
-      to: { path: '^packages/identity/src/(sso|backend/sso)/' },
-    },
-    {
-      name: 'copilot-no-feature-imports',
-      severity: 'error',
-      comment:
-        'copilot is engine-only: it composes module-owned agent tools but must not pull in feature-module or orchestrator domain code. Cross-module imports must enter through /events (event-shape contracts) or /agent-tools (tool surface) subpaths.',
-      from: { path: '^packages/copilot/src/' },
-      to: {
-        path: '^packages/(identity|planner|integrations|knowledge|notifications|staffing)/',
-        pathNot:
-          '^packages/[^/]+/src/events/|^packages/[^/]+/src/backend/agent-tools/|^packages/[^/]+/src/agent-tools\\.ts$',
-      },
-    },
-    {
-      name: 'modules-no-copilot-direct',
-      severity: 'error',
-      comment:
-        'Feature and orchestrator modules consume the agent SDK (@seta/copilot-sdk), never @seta/copilot internals. The allowed entry points are the public subpath target files: src/index.ts, src/events/, src/rbac.ts, src/models.ts, src/register.ts, src/backend/runtime.ts (./runtime), and src/backend/workflows/_infra/input-schema-registry.ts (./workflows).',
-      from: {
-        path: '^packages/(identity|planner|integrations|knowledge|notifications|staffing)/src/',
-      },
-      to: {
-        path: '^packages/copilot/src/',
-        pathNot:
-          '^packages/copilot/src/(index\\.ts|events/|rbac\\.ts|models\\.ts|register\\.ts|backend/runtime\\.ts|backend/workflows/_infra/input-schema-registry\\.ts)',
-      },
-    },
+
+    // 10. copilot-sdk imports Mastra TYPES only (the package entry); no deeper
+    //     runtime modules.
     {
       name: 'copilot-sdk-no-mastra-runtime',
       severity: 'error',
@@ -178,13 +130,118 @@ module.exports = {
       from: { path: '^sdks/copilot/' },
       to: { path: '^node_modules/@mastra/(?!core/?$)' },
     },
+
+    // 11. copilot is engine-only. It composes module-owned agent tools at
+    //     session time via the contribution registry, never by direct import.
+    //     The only cross-module import allowed is the /events subpath
+    //     (event-shape contracts), in file or directory form.
+    {
+      name: 'copilot-no-feature-imports',
+      severity: 'error',
+      comment:
+        'copilot is engine-only: it composes module-owned agent tools at session time via the registry, never by direct import. The only cross-module import allowed is /events (event-shape contracts).',
+      from: { path: '^packages/copilot/src/' },
+      to: {
+        path: '^packages/(?!shared-|copilot/)([^/]+)/',
+        pathNot: '^packages/[^/]+/src/events(\\.ts$|/)',
+      },
+    },
+
+    // 12. Feature and orchestrator modules consume the agent SDK
+    //     (@seta/copilot-sdk), never @seta/copilot internals. The only
+    //     @seta/copilot subpaths a module may import are ./rbac and ./events.
+    //     Apps (apps/server, apps/cli) are exempt — `from:` matches only
+    //     packages.
+    {
+      name: 'modules-no-copilot-internals',
+      severity: 'error',
+      comment:
+        'Feature and orchestrator modules consume the agent SDK (@seta/copilot-sdk), never @seta/copilot internals. The only @seta/copilot subpaths a module may import are ./rbac and ./events.',
+      from: { path: '^packages/(?!shared-|copilot/)([^/]+)/src/' },
+      to: {
+        path: '^packages/copilot/src/',
+        pathNot: '^packages/copilot/src/(rbac|events)\\.ts$',
+      },
+    },
+
+    // 13. @seta/core/runtime (dispatcher + worker pool + bootstrap) is private
+    //     to apps/server, apps/worker, and integration tests.
+    {
+      name: 'core-runtime-restricted',
+      severity: 'error',
+      comment:
+        '@seta/core/runtime (dispatcher + worker pool + bootstrap) is private to apps/server, apps/worker, and feature-module integration tests. Other importers must use the main @seta/core surface.',
+      from: {
+        pathNot:
+          '^(apps/(server|worker)/|packages/core/)|/tests/|\\.(test|spec)\\.[jt]sx?$',
+      },
+      to: { path: '^packages/core/src/runtime/' },
+    },
+
+    // 14. apps/cli is short-lived; never start the dispatcher there.
+    {
+      name: 'apps-cli-no-dispatcher',
+      severity: 'error',
+      comment: 'apps/cli is short-lived; never start the dispatcher there.',
+      from: { path: '^apps/cli/' },
+      to: { path: '^packages/core/src/runtime/dispatcher/' },
+    },
+
+    // 15. apps/web and any -web package are browser code: they must not import
+    //     backend or db layers from any module.
+    {
+      name: 'web-no-backend-imports',
+      severity: 'error',
+      comment:
+        'apps/web and any -web package are browser code: they must not import backend or db layers from any module.',
+      from: { path: '^(apps/web/|packages/.+-web/)' },
+      to: { path: '^packages/(?!shared-|.+-web/)([^/]+)/src/(backend|db)/' },
+    },
+
+    // 16. shared-ui composites must not depend on @hello-pangea/dnd; the app
+    //     layer wires DnD via render slots.
     {
       name: 'shared-ui-no-dnd',
+      severity: 'error',
       comment:
         'Style monopoly: shared-ui composites must not depend on @hello-pangea/dnd; the app layer wires DnD via render slots.',
-      severity: 'error',
       from: { path: '^packages/shared-ui/src/' },
       to: { path: '^node_modules/@hello-pangea/dnd' },
+    },
+
+    // 17. Test layout — no legacy folder names. Belt-and-braces with
+    //     `pnpm lint:test-layout`.
+    {
+      name: 'no-legacy-test-folders',
+      severity: 'error',
+      comment:
+        'Test files belong in <package>/tests/{unit,integration,contract}/. Legacy __tests__/ and test/ folders are not permitted (also enforced by pnpm lint:test-layout).',
+      from: { path: '^(packages|apps|sdks)/[^/]+/.*/(__tests__|test)/' },
+      to: {},
+    },
+
+    // 18. No test files inside src/. They live under <package>/tests/.
+    {
+      name: 'no-tests-inside-src',
+      severity: 'error',
+      comment:
+        'Test files (*.test.ts, *.spec.ts) must not sit under src/. Move them under <package>/tests/{unit,integration,contract}/.',
+      from: { path: '^(packages|apps|sdks)/[^/]+/src/.+\\.(test|spec)\\.[jt]sx?$' },
+      to: {},
+    },
+
+    // Stays at `warn`: orphans during refactor are expected (factory output,
+    // placeholder modules without callers yet).
+    {
+      name: 'no-orphan-modules',
+      severity: 'warn',
+      comment: 'Surfaces packages with no callers; useful while the tree is mostly placeholders.',
+      from: {
+        orphan: true,
+        pathNot:
+          '(^|/)(\\.|index\\.ts|.+\\.config\\.[cm]?[jt]s)$|^packages/shared-config/eslint/|(^|/)(tests)/|\\.(spec|test)\\.[jt]sx?$|/\\.storybook/|\\.stories\\.[jt]sx?$|(^|/)e2e/|^apps/web/src/lib/|(^|/)scripts/',
+      },
+      to: {},
     },
   ],
   options: {
