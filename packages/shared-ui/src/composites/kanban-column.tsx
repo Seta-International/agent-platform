@@ -66,6 +66,8 @@ export function KanbanColumn({
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
   const headerRef = useRef<HTMLElement>(null);
+  const cancelledRef = useRef(false);
+  const committedRef = useRef(false);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -104,10 +106,14 @@ export function KanbanColumn({
   function openRename() {
     setMenuOpen(false);
     setRenameValue(name);
+    cancelledRef.current = false;
+    committedRef.current = false;
     setRenaming(true);
   }
 
   function commitRename() {
+    if (cancelledRef.current || committedRef.current) return;
+    committedRef.current = true;
     const v = renameValue.trim();
     if (v && v !== name) onRename?.(v);
     setRenaming(false);
@@ -142,7 +148,10 @@ export function KanbanColumn({
                 onChange={(e) => setRenameValue(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') commitRename();
-                  if (e.key === 'Escape') setRenaming(false);
+                  if (e.key === 'Escape') {
+                    cancelledRef.current = true;
+                    setRenaming(false);
+                  }
                 }}
                 onBlur={commitRename}
               />
@@ -207,14 +216,29 @@ export function KanbanColumn({
               Add task here
               <span className="kanban-column__menu-kbd">C</span>
             </button>
-            <button type="button" className="kanban-column__menu-item" disabled>
+            <button
+              type="button"
+              className="kanban-column__menu-item"
+              role="menuitem"
+              aria-disabled="true"
+            >
               Set color
             </button>
-            <button type="button" className="kanban-column__menu-item" disabled>
+            <button
+              type="button"
+              className="kanban-column__menu-item"
+              role="menuitem"
+              aria-disabled="true"
+            >
               Set WIP limit
             </button>
             <hr className="kanban-column__menu-sep" />
-            <button type="button" className="kanban-column__menu-item" disabled>
+            <button
+              type="button"
+              className="kanban-column__menu-item"
+              role="menuitem"
+              aria-disabled="true"
+            >
               Archive bucket
             </button>
             {onDelete && (

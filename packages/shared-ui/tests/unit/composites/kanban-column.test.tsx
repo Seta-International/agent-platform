@@ -138,4 +138,28 @@ describe('<KanbanColumn> inline rename', () => {
     expect(screen.getByText('Todo')).toBeInTheDocument();
     expect(screen.getByText('3')).toBeInTheDocument();
   });
+
+  it('calls onRename exactly once on Enter (no double-call from blur)', () => {
+    const onRename = vi.fn();
+    col({ onRename });
+    fireEvent.click(screen.getByTitle('More options'));
+    fireEvent.click(screen.getByRole('menuitem', { name: /rename bucket/i }));
+    const input = screen.getByRole('textbox');
+    fireEvent.change(input, { target: { value: 'Backlog' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    fireEvent.blur(input);
+    expect(onRename).toHaveBeenCalledOnce();
+    expect(onRename).toHaveBeenCalledWith('Backlog');
+  });
+});
+
+describe('<KanbanColumn> quick-create submit', () => {
+  it('fires onCreateTask with title only when no extras are set', () => {
+    const onCreateTask = vi.fn();
+    col({ onCreateTask });
+    fireEvent.click(screen.getByTitle('Add a task (C)'));
+    fireEvent.change(screen.getByPlaceholderText('Add a task…'), { target: { value: 'My task' } });
+    fireEvent.keyDown(screen.getByPlaceholderText('Add a task…'), { key: 'Enter' });
+    expect(onCreateTask).toHaveBeenCalledWith({ title: 'My task' });
+  });
 });
