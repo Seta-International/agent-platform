@@ -18,17 +18,18 @@ import { join } from 'node:path';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 
-const MODULES_CHECKED = ['identity', 'planner', 'copilot', 'notifications', 'staffing'];
+const MODULES_CHECKED = [
+  'identity',
+  'planner',
+  'copilot',
+  'notifications',
+  'staffing',
+  'core',
+  'integrations',
+  'knowledge',
+];
 
-// TODO: promote to MODULES_CHECKED as each module is normalized.
-//  - core: foundation tier; carries `composition/`, `middleware/`, `outbox/`,
-//    `rpc/`, `runtime/`, `session/`, `test-support.ts`, `db/` at src/ root.
-//    Pending its own canonicalization PR.
-//  - integrations: feature tier; carries `db/` and `m365/` at src/ root.
-//    Pending its own canonicalization PR.
-//  - knowledge: carries `backend/embed/` (should be `embeddings/`) and
-//    `backend/agent-tools.ts` (file at backend root). Pending normalization.
-const MODULES_DEFERRED = ['core', 'integrations', 'knowledge'];
+const MODULES_DEFERRED = []; // all feature modules normalized.
 
 const SRC_ALLOWLIST = new Set([
   'index.ts',
@@ -86,9 +87,7 @@ function checkModule(modName) {
     return;
   }
   const effectiveSrcAllowlist =
-    modName === 'core'
-      ? new Set([...SRC_ALLOWLIST, ...CORE_EXTRA_SRC_ALLOWLIST])
-      : SRC_ALLOWLIST;
+    modName === 'core' ? new Set([...SRC_ALLOWLIST, ...CORE_EXTRA_SRC_ALLOWLIST]) : SRC_ALLOWLIST;
   for (const entry of readdirSync(srcDir)) {
     if (!effectiveSrcAllowlist.has(entry)) {
       errors.push(`[${modName}] src/${entry} not in canonical src/ allowlist`);
