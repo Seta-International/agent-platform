@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
-import { integrationsDb } from '../../db/client.ts';
-import { mailTransportConfig } from '../../db/schema/index.ts';
+import { integrationsDb } from '../db/client.ts';
+import { mailTransportConfig } from '../db/schema/index.ts';
 import { INTEGRATIONS_PERMISSIONS, IntegrationsError, requirePermission } from '../rbac.ts';
 import type { MailTransportConfigRow } from './mail-transport-config-store.ts';
 

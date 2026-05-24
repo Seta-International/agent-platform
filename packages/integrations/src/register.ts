@@ -5,8 +5,8 @@ import { getEntraTenantId } from '@seta/identity';
 import type { Crypto } from '@seta/shared-crypto';
 import type { MailerEnv } from '@seta/shared-mailer';
 import { Hono } from 'hono';
+import * as schema from './backend/db/schema/index.ts';
 import { registerMailTransportRoutes } from './backend/http/index.ts';
-import * as schema from './db/schema/index.ts';
 import { buildM365Boot } from './m365/boot.ts';
 import { buildM365Subscribers } from './m365/subscribers.ts';
 

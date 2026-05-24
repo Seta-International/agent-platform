@@ -2,7 +2,7 @@ import { closePools, createDb, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { Pool } from 'pg';
-import * as integrationsSchema from '../../src/db/schema/index.ts';
+import * as integrationsSchema from '../../src/backend/db/schema/index.ts';
 
 export function withIntegrationsTestDb<T>(
   fn: (ctx: {

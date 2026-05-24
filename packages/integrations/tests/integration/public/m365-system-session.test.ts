@@ -3,7 +3,7 @@ import { markGroupSyncStatus } from '@seta/planner';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
-import { resetIntegrationsDb } from '../../../src/db/client.ts';
+import { resetIntegrationsDb } from '../../../src/backend/db/client.ts';
 import { buildSystemSession } from '../../../src/m365/system-session.ts';
 
 describe('system session — markGroupSyncStatus end-to-end', () => {

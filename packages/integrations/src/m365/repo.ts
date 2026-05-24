@@ -1,7 +1,7 @@
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import type * as schema from '../db/schema/index.ts';
-import { m365GroupLinks } from '../db/schema/index.ts';
+import type * as schema from '../backend/db/schema/index.ts';
+import { m365GroupLinks } from '../backend/db/schema/index.ts';
 
 export type Link = typeof m365GroupLinks.$inferSelect;
 export type SyncStatus = 'idle' | 'pulling' | 'pushing' | 'error' | 'conflict';

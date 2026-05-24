@@ -1,6 +1,6 @@
 import { eq, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { m365TenantConfig } from '../../db/schema/index.ts';
+import { m365TenantConfig } from '../db/schema/index.ts';
 
 export interface M365TenantConfigRow {
   tenantId: string;

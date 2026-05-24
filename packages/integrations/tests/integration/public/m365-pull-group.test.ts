@@ -3,7 +3,7 @@ import { findEntraOidByUserId, findUserByEntraOid } from '@seta/identity';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
-import { resetIntegrationsDb } from '../../../src/db/client.ts';
+import { resetIntegrationsDb } from '../../../src/backend/db/client.ts';
 import { runPullGroup } from '../../../src/m365/jobs/pull-group.ts';
 import { createM365GroupLinkRepo } from '../../../src/m365/repo.ts';
 import groupMembers from '../../helpers/fixtures/graph/group-members.json' with { type: 'json' };
@@ -123,7 +123,7 @@ describe('runPullGroup', () => {
 
           // Pre-create the m365_group_links row (linkGroupToM365 normally creates it, but the
           // pull job receives an already-linked group whose link row may not yet exist)
-          const db = (await import('../../../src/db/client.ts')).integrationsDb();
+          const db = (await import('../../../src/backend/db/client.ts')).integrationsDb();
           // Using db as never: dynamic import's inferred type doesn't align with NodePgDatabase generic
           const repo = createM365GroupLinkRepo({ db: db as never });
           await repo.upsert({
@@ -199,7 +199,7 @@ describe('runPullGroup', () => {
         initPools({ databaseUrl });
         try {
           const { tenantId, groupId } = await seedTenantAndGroup(pool);
-          const db = (await import('../../../src/db/client.ts')).integrationsDb();
+          const db = (await import('../../../src/backend/db/client.ts')).integrationsDb();
           const repo = createM365GroupLinkRepo({ db: db as never });
 
           // Establish a baseline snapshot that matches the current local name
@@ -269,7 +269,7 @@ describe('runPullGroup', () => {
         initPools({ databaseUrl });
         try {
           const { tenantId, groupId } = await seedTenantAndGroup(pool);
-          const db = (await import('../../../src/db/client.ts')).integrationsDb();
+          const db = (await import('../../../src/backend/db/client.ts')).integrationsDb();
           const repo = createM365GroupLinkRepo({ db: db as never });
           await repo.upsert({
             tenantId,
@@ -334,7 +334,7 @@ describe('runPullGroup', () => {
         initPools({ databaseUrl });
         try {
           const { tenantId, groupId } = await seedTenantAndGroup(pool);
-          const db = (await import('../../../src/db/client.ts')).integrationsDb();
+          const db = (await import('../../../src/backend/db/client.ts')).integrationsDb();
           const repo = createM365GroupLinkRepo({ db: db as never });
           await repo.upsert({
             tenantId,
@@ -424,7 +424,7 @@ describe('runPullGroup', () => {
         initPools({ databaseUrl });
         try {
           const { tenantId, groupId } = await seedTenantAndGroup(pool);
-          const db = (await import('../../../src/db/client.ts')).integrationsDb();
+          const db = (await import('../../../src/backend/db/client.ts')).integrationsDb();
           const repo = createM365GroupLinkRepo({ db: db as never });
 
           // Snapshot has "Engineering"; local was renamed to "Engineering Local";

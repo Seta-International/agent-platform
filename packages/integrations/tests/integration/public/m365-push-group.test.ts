@@ -2,7 +2,7 @@ import { resetCoreDb } from '@seta/core/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
-import { resetIntegrationsDb } from '../../../src/db/client.ts';
+import { resetIntegrationsDb } from '../../../src/backend/db/client.ts';
 import { runPushGroup } from '../../../src/m365/jobs/push-group.ts';
 import { createM365GroupLinkRepo } from '../../../src/m365/repo.ts';
 
@@ -95,7 +95,7 @@ describe('runPushGroup', () => {
           // Seed a group already renamed locally to 'Engineering Renamed'
           const { tenantId, groupId } = await seedTenantAndGroup(pool, 'Engineering Renamed');
 
-          const db = (await import('../../../src/db/client.ts')).integrationsDb();
+          const db = (await import('../../../src/backend/db/client.ts')).integrationsDb();
           const repo = createM365GroupLinkRepo({ db: db as never });
 
           // Snapshot records the old name — remote still has the old name
@@ -167,7 +167,7 @@ describe('runPushGroup', () => {
           // Local still has snapshot name 'Engineering' (no local change)
           const { tenantId, groupId } = await seedTenantAndGroup(pool, 'Engineering');
 
-          const db = (await import('../../../src/db/client.ts')).integrationsDb();
+          const db = (await import('../../../src/backend/db/client.ts')).integrationsDb();
           const repo = createM365GroupLinkRepo({ db: db as never });
 
           await repo.upsert({
@@ -241,7 +241,7 @@ describe('runPushGroup', () => {
           // Local was renamed to 'Engineering Local' — diverged from snapshot
           const { tenantId, groupId } = await seedTenantAndGroup(pool, 'Engineering Local');
 
-          const db = (await import('../../../src/db/client.ts')).integrationsDb();
+          const db = (await import('../../../src/backend/db/client.ts')).integrationsDb();
           const repo = createM365GroupLinkRepo({ db: db as never });
 
           await repo.upsert({

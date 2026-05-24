@@ -2,7 +2,7 @@ import { emit, withEmit } from '@seta/core/events';
 import type { EncryptedBlob } from '@seta/shared-crypto';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
-import { m365TenantConfig } from '../../db/schema/index.ts';
+import { m365TenantConfig } from '../db/schema/index.ts';
 import { INTEGRATIONS_PERMISSIONS, IntegrationsError, requirePermission } from '../rbac.ts';
 import type { Actor } from './get-mail-transport-config.ts';
 

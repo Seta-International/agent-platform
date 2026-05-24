@@ -10,8 +10,8 @@
     "./events": "./src/events/index.ts",
     "./http": "./src/backend/http/index.ts",
     "./register": "./src/register.ts",
-    "./db/schema": "./src/db/schema/index.ts",
-    "./db": "./src/db/client.ts",
+    "./db/schema": "./src/backend/db/schema/index.ts",
+    "./db": "./src/backend/db/client.ts",
     "./m365": "./src/m365/index.ts"
   },
   "scripts": {

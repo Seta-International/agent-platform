@@ -1,7 +1,7 @@
 import type { EncryptedBlob } from '@seta/shared-crypto';
 import { eq } from 'drizzle-orm';
-import { integrationsDb } from '../../db/client.ts';
-import { m365TenantConfig } from '../../db/schema/index.ts';
+import { integrationsDb } from '../db/client.ts';
+import { m365TenantConfig } from '../db/schema/index.ts';
 
 export interface DecryptedM365TenantConfig {
   entra_tenant_id: string;

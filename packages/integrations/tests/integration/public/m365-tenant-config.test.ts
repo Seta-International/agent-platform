@@ -3,10 +3,10 @@ import type { EncryptedBlob } from '@seta/shared-crypto';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
+import { resetIntegrationsDb } from '../../../src/backend/db/client.ts';
 import { createM365TenantConfigStore } from '../../../src/backend/domain/m365-tenant-config-store.ts';
 import { setM365TenantConfig } from '../../../src/backend/domain/set-m365-tenant-config.ts';
 import { INTEGRATIONS_PERMISSIONS } from '../../../src/backend/rbac.ts';
-import { resetIntegrationsDb } from '../../../src/db/client.ts';
 import { withIntegrationsTestDb } from '../../helpers/test-db.ts';
 
 const fakeBlob: EncryptedBlob = {
@@ -123,7 +123,7 @@ describe('setM365TenantConfig domain', () => {
       },
       async ({ pool, databaseUrl }) => {
         const { tenantId, actor } = await setup(pool, databaseUrl);
-        const db = (await import('../../../src/db/client.ts')).integrationsDb();
+        const db = (await import('../../../src/backend/db/client.ts')).integrationsDb();
         // `as never`: dynamic import's inferred db type isn't structurally assignable to NodePgDatabase here
         const store = createM365TenantConfigStore({ db: db as never });
         try {

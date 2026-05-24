@@ -1,6 +1,6 @@
 import { emit, withEmit } from '@seta/core/events';
 import { eq, sql } from 'drizzle-orm';
-import { mailTransportConfig } from '../../db/schema/index.ts';
+import { mailTransportConfig } from '../db/schema/index.ts';
 import { INTEGRATIONS_PERMISSIONS, IntegrationsError, requirePermission } from '../rbac.ts';
 import type { Actor } from './get-mail-transport-config.ts';
 

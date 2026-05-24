@@ -6,7 +6,7 @@ import {
   type SmtpTransportConfigEncrypted,
   type TransportConfigKind,
   type TransportConfigPayload,
-} from '../../db/schema/index.ts';
+} from '../db/schema/index.ts';
 
 export interface MailTransportConfigRow {
   tenantId: string;

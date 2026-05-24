@@ -3,11 +3,11 @@ import type { EncryptedBlob } from '@seta/shared-crypto';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
+import { resetIntegrationsDb } from '../../../src/backend/db/client.ts';
 import { disableMailTransportConfig } from '../../../src/backend/domain/disable-mail-transport-config.ts';
 import { getMailTransportConfig } from '../../../src/backend/domain/get-mail-transport-config.ts';
 import { setMailTransportConfig } from '../../../src/backend/domain/set-mail-transport-config.ts';
 import { INTEGRATIONS_PERMISSIONS } from '../../../src/backend/rbac.ts';
-import { resetIntegrationsDb } from '../../../src/db/client.ts';
 
 const fakeBlob: EncryptedBlob = {
   v: 1,
