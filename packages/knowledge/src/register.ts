@@ -1,6 +1,7 @@
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ContributionRegistry, StreamHubBuilder } from '@seta/core';
+import { knowledgeAgentTools } from './agent-tools.ts';
 import * as schema from './backend/db/schema.ts';
 import { KnowledgeStreamHub } from './backend/stream/hub.ts';
 import { KNOWLEDGE_EVENTS } from './events.ts';
@@ -24,6 +25,7 @@ export function registerKnowledgeContributions(reg: ContributionRegistry): void 
     migrationsDir: resolve(__dirname, '../drizzle/migrations'),
     events: KNOWLEDGE_EVENTS,
     rbac: KNOWLEDGE_PERMISSIONS,
+    agentTools: knowledgeAgentTools,
     stream: buildKnowledgeStreamHub,
   });
 }

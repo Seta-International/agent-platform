@@ -3,8 +3,8 @@ import { buildActorSession } from '@seta/identity';
 import { getPool } from '@seta/shared-db';
 import { resolveReranker } from '@seta/shared-retrieval';
 import { z } from 'zod';
-import { resolveEmbeddingProvider } from './embed/provider-resolver.ts';
-import { searchTenantKnowledge } from './retrieval/search-tenant-knowledge.ts';
+import { resolveEmbeddingProvider } from '../embed/provider-resolver.ts';
+import { searchTenantKnowledge } from '../retrieval/search-tenant-knowledge.ts';
 
 const STAGE1_TOPK = Number(process.env.RERANK_STAGE1_TOPK ?? 50);
 
