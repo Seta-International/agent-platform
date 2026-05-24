@@ -106,3 +106,25 @@ act push -e /tmp/act-tag-event.json -W .github/workflows/release.yml -j metadata
 ```
 
 See the `act` docs for matrix overrides and credential injection if you need to exercise the full pipeline.
+
+## Upgrading a split-mode deployment
+
+When you deploy Seta as separate ECS services per module (see `compose.split.example.yml` and `infra/opentofu/aws-ecs/examples/split-services/`), services upgrade independently and reach the new database schema at different times. The rules:
+
+### Deploy order
+
+1. **Run database migrations first**, from any one service or from a dedicated migrations container (`pnpm db:migrate`). All services share one Postgres; migrations are forward-only and checksummed per `packages/shared-db/src/migrate.ts` so re-running is idempotent.
+2. **Deploy consumer services before producer services** when a release adds new event payload fields. A consumer that ignores unknown fields can run against an older producer; the reverse is not always true.
+3. **Deploy `core` last** if `core` ships a schema change to `core.events` (rare). Consumer-side projections must understand any new columns before the dispatcher starts writing them.
+
+### Readiness gates across services
+
+Each service's `/health/ready` only checks its own dependencies (DB connectivity + dispatcher freshness). A service does **not** wait on peers. The ALB target group keeps draining old tasks until the new tasks pass their own readiness check.
+
+### Blue/green outline
+
+1. Bring up the new task set in a parallel ECS service with `desiredCount` matching the live one.
+2. Wait for all new tasks to pass `/health/ready`.
+3. Switch the ALB target group via a weighted listener rule (90/10 → 50/50 → 0/100, ~5 min between steps).
+4. Scale the old service to 0 once metrics are clean for 15 min.
+5. Roll back: reverse the listener weights. Migrations are forward-only and additive, so the old code keeps working against the new schema.
