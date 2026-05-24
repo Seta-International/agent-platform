@@ -2,6 +2,7 @@ import { resetCoreDb } from '@seta/core/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { _resetGraphCacheForTest } from '../../../src/backend/sso/graph.ts';
 import {
   createUser,
   enableSsoProvider,
@@ -10,7 +11,6 @@ import {
   recordSsoConsent,
   registerSsoProvider,
 } from '../../../src/index.ts';
-import { _resetGraphCacheForTest } from '../../../src/sso/graph.ts';
 
 const ENTRA_TID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
 const CLI_ACTOR = { type: 'cli' as const, user_id: null };

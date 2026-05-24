@@ -1,4 +1,4 @@
-import type { SsoProviderId } from '../../sso/config.ts';
+import type { SsoProviderId } from '../sso/config.ts';
 import { resolveSetaTenantFromEmail } from '../sso/tenant-resolution.ts';
 
 export interface DiscoverResult {

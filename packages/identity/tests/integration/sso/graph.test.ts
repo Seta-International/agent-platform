@@ -3,7 +3,7 @@ import {
   _resetGraphCacheForTest,
   graphGetDomains,
   graphListUsers,
-} from '../../../src/sso/graph.ts';
+} from '../../../src/backend/sso/graph.ts';
 
 describe('Microsoft Graph proxy', () => {
   const fetchMock = vi.fn();

@@ -1,6 +1,6 @@
 import pino from 'pino';
-import { entraSsoConfigured, parseIdentityEnv } from '../backend/env.ts';
-import { IdentityError } from '../backend/rbac.ts';
+import { entraSsoConfigured, parseIdentityEnv } from '../env.ts';
+import { IdentityError } from '../rbac.ts';
 
 const log = pino({ name: 'identity/sso/graph' });
 

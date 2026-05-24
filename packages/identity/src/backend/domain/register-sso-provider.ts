@@ -2,9 +2,9 @@ import { emit, withEmit } from '@seta/core/events';
 import { and, eq, ne, sql } from 'drizzle-orm';
 import { identityDb } from '../../db/index.ts';
 import { tenantSsoProviders } from '../../db/schema.ts';
-import type { MicrosoftEntraConfig, SsoProviderId } from '../../sso/config.ts';
-import { graphGetDomains } from '../../sso/graph.ts';
 import { IdentityError, requirePermission } from '../rbac.ts';
+import type { MicrosoftEntraConfig, SsoProviderId } from '../sso/config.ts';
+import { graphGetDomains } from '../sso/graph.ts';
 import { getProviderRow, type ProviderRow, toEmitActor, toEventActor } from '../sso/helpers.ts';
 import type { Actor } from './create-user.ts';
 
