@@ -1,5 +1,5 @@
 import { RequestContext } from '@mastra/core/request-context';
-import { buildMastra } from '@seta/copilot';
+import { buildMastra } from '@seta/copilot/runtime';
 import { hashRoleSummary, type SessionScope } from '@seta/core';
 import { createUser } from '@seta/identity';
 import { createTestTenantWithAdmin } from '@seta/identity/testing';

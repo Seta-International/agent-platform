@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { getMastra } from '@seta/copilot';
+import { getMastra } from '@seta/copilot/register';
 import type { ContributionRegistry } from '@seta/core';
 import { staffingAgentTools } from './backend/agent-tools/index.ts';
 import * as schema from './backend/db/schema.ts';

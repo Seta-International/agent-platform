@@ -1,4 +1,4 @@
-import { buildMastra } from '@seta/copilot';
+import { buildMastra } from '@seta/copilot/runtime';
 import type { PlannerTaskCreated } from '@seta/planner/events';
 import type { DomainEvent } from '@seta/shared-types';
 import { drizzle } from 'drizzle-orm/node-postgres';

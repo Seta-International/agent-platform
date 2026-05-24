@@ -14,6 +14,7 @@
   "dependencies": {
     "@microsoft/microsoft-graph-client": "^3.0.7",
     "@seta/copilot": "workspace:^",
+    "@seta/copilot-sdk": "workspace:^",
     "@seta/core": "workspace:^",
     "@seta/identity": "workspace:^",
     "@seta/integrations": "workspace:^",

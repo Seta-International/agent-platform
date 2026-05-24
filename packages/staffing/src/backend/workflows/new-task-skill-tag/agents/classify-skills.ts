@@ -1,5 +1,5 @@
 import { Agent } from '@mastra/core/agent';
-import { resolveModel } from '@seta/copilot';
+import { resolveModel } from '@seta/copilot/models';
 import { z } from 'zod';
 
 export const classifySkillsOutputSchema = z.object({

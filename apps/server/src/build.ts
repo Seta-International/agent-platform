@@ -1,5 +1,5 @@
-import type { SessionLike } from '@seta/copilot';
 import { registerCopilot, registerCopilotContributions } from '@seta/copilot/register';
+import type { SessionLike } from '@seta/copilot-sdk';
 import {
   buildHonoApp,
   type ContributionRegistry,
