@@ -22,7 +22,7 @@ export interface BuildRuntimeEnv {
 }
 
 export interface DispatcherSnapshot {
-  health(): { lastTickAt: Date; subscriptions: SubscriptionHealth[] };
+  health(): Promise<{ lastTickAt: Date; subscriptions: SubscriptionHealth[] }>;
 }
 
 export interface BuildServerAppArgs {
@@ -86,7 +86,7 @@ interface DispatcherWiring {
 }
 
 const STUB_DISPATCHER_SNAPSHOT: DispatcherSnapshot = {
-  health: () => ({ lastTickAt: new Date(), subscriptions: [] }),
+  health: async () => ({ lastTickAt: new Date(), subscriptions: [] }),
 };
 
 export function buildRuntime(env: BuildRuntimeEnv, deps: BuildRuntimeDeps): Runtime {
