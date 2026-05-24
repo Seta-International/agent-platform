@@ -1,4 +1,4 @@
-import { generateRandomPassword } from '../password/generate.ts';
+import { generateRandomPassword } from '../generate.ts';
 import { requirePermission } from '../rbac.ts';
 import type { Actor } from './create-user.ts';
 import { createUser } from './create-user.ts';

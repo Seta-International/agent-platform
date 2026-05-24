@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { argon2id } from '../../src/backend/password/argon2.ts';
+import { argon2id } from '../../src/backend/argon2.ts';
 
 describe('argon2id wrapper', () => {
   it('hashes and verifies a password roundtrip', async () => {

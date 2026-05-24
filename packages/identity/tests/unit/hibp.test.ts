@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { hibpCheck } from '../../src/backend/password/hibp.ts';
+import { hibpCheck } from '../../src/backend/hibp.ts';
 
 describe('hibpCheck', () => {
   const fetchMock = vi.fn();

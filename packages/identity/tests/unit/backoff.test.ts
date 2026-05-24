@@ -4,7 +4,7 @@ import { resetCoreDb } from '@seta/core/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
-import { computeBackoffSeconds, recordFailedAttempt } from '../../src/backend/password/backoff.ts';
+import { computeBackoffSeconds, recordFailedAttempt } from '../../src/backend/backoff.ts';
 import { registerIdentityContributions } from '../../src/register.ts';
 
 describe('progressive backoff', () => {

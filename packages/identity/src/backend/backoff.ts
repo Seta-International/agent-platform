@@ -3,9 +3,9 @@ import { sql } from 'drizzle-orm';
 import {
   IDENTITY_FAILED_LOGIN_ALERT_THRESHOLD_REACHED,
   IDENTITY_FAILED_LOGIN_ALERT_THRESHOLD_REACHED_VERSION,
-} from '../../events/failed-login-alert.ts';
-import { identityDb } from '../db/index.ts';
-import { mintPasswordResetUrlIfKnown } from '../domain/request-password-reset.ts';
+} from '../events/failed-login-alert.ts';
+import { identityDb } from './db/index.ts';
+import { mintPasswordResetUrlIfKnown } from './domain/request-password-reset.ts';
 
 // failures 1-2 = 0s, 3 = 1s, 4 = 5s, 5 = 30s, 6-10 = 1min, 11+ = 5min
 // Sliding 15-minute window per (lower(email), ip).

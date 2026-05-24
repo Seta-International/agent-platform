@@ -3,7 +3,7 @@ import { createUser, IdentityError, resetUserPasswordByAdmin } from '@seta/ident
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
-import { argon2id } from '../../../src/backend/password/argon2.ts';
+import { argon2id } from '../../../src/backend/argon2.ts';
 
 const CLI_ACTOR = { type: 'cli' as const, user_id: null };
 
