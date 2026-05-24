@@ -5,6 +5,7 @@ export {
   type AuditSortDir,
   queryAudit,
 } from './backend/audit.ts';
+export { captureException, registerErrorCapture } from './composition/error-capture.ts';
 export { buildHonoApp } from './composition/hono-app.ts';
 export {
   type AgentSpec,
