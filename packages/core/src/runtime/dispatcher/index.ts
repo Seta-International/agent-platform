@@ -1,10 +1,12 @@
 import { createDb } from '@seta/shared-db';
 import type { DomainEvent, SubscriberDef } from '@seta/shared-types';
+import { sql } from 'drizzle-orm';
 import type { Pool } from 'pg';
 import * as schema from '../../db/schema/index.ts';
 import type { BackoffOpts } from './drain.ts';
 import { dispatchTap } from './event-tap.ts';
 import { getFailureEntry } from './failure-state.ts';
+import { otelDispatcherMetrics, setDlqProvider } from './otel-metrics.ts';
 import { type SubscriberLoopHandle, startSubscriberLoop } from './subscriber-loop.ts';
 
 export type { SubscriberDef } from '@seta/shared-types';
@@ -58,11 +60,26 @@ export async function startDispatcher(opts: {
       console.error(msg ?? 'dispatcher error', obj);
     },
   };
-  const metrics = {
-    incr: (_name: string, _labels?: Record<string, string>) => {
-      // M1: no-op. Wired to OTel in a later milestone.
-    },
-  };
+  const metrics = otelDispatcherMetrics;
+
+  async function queryDeadLetter24h(): Promise<Map<string, number>> {
+    const result = await db.execute(sql`
+      SELECT subscription, COUNT(*)::int AS count
+        FROM core.subscription_dead_letter
+       WHERE dead_lettered_at >= NOW() - INTERVAL '24 hours'
+       GROUP BY subscription
+    `);
+    const rows = (result as unknown as { rows: Array<{ subscription: string; count: number }> })
+      .rows;
+    const map = new Map<string, number>();
+    for (const r of rows) map.set(r.subscription, r.count);
+    return map;
+  }
+
+  setDlqProvider(async () => {
+    const map = await queryDeadLetter24h();
+    return Array.from(map.entries(), ([subscription, count]) => ({ subscription, count }));
+  });
 
   async function tapTick(): Promise<void> {
     if (shuttingDown) return;
@@ -124,8 +141,9 @@ export async function startDispatcher(opts: {
       log,
       metrics,
       observer: {
-        onDrain: () => {
+        onDrain: ({ subscription, processed, durationMs }) => {
           lastTickAt = new Date();
+          metrics.recordDrain({ subscription, processed, durationMs });
         },
         onError: (args) => {
           log.error(args, 'subscriber loop drain error');
@@ -154,6 +172,7 @@ export async function startDispatcher(opts: {
 
   return {
     async health() {
+      const dlqByName = await queryDeadLetter24h();
       const subscriptions: SubscriptionHealth[] = [];
       for (const s of opts.subscribers) {
         const f = await getFailureEntry(db, s.subscription);
@@ -162,7 +181,7 @@ export async function startDispatcher(opts: {
           cursor: null,
           lastProcessedAt: null,
           inflightFailureAttempts: f?.attempts ?? 0,
-          deadLetterCount24h: 0,
+          deadLetterCount24h: dlqByName.get(s.subscription) ?? 0,
         });
       }
       return { lastTickAt, subscriptions };
@@ -189,6 +208,9 @@ export async function startDispatcher(opts: {
       if (tapInFlight) {
         await Promise.race([tapInFlight, new Promise<void>((r) => setTimeout(r, timeoutMs))]);
       }
+      // Drop the observable-gauge callback so the next dispatcher instance (e.g. the
+      // next test) wires its own. Without this, the SDK would call into a closed pool.
+      setDlqProvider(null);
       // Failure state is intentionally persisted across shutdowns. Tests that need to
       // reset it should call resetAllFailureState(db) directly.
     },
