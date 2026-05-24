@@ -2,6 +2,7 @@ import { AppShell, type ShellLinkProps } from '@seta/shared-ui';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link, Outlet, redirect, useRouterState } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
+import { CopilotProvider, CopilotSidePanel } from '@/modules/copilot';
 import { fetchMe } from '@/modules/identity/api/client.ts';
 import { SessionProvider } from '@/modules/identity/components/SessionProvider.tsx';
 import { UserMenu } from '@/modules/identity/components/UserMenu.tsx';
@@ -51,18 +52,21 @@ function AuthedLayout() {
 
   return (
     <SessionProvider session={session}>
-      <AppShell
-        workspace={session.tenant_name}
-        modules={navModules}
-        activeItemId={activeId}
-        linkComponent={ShellLink}
-        userMenu={<UserMenu />}
-        hideCopilot={pathname.startsWith('/copilot/')}
-        notificationCount={notificationCount}
-        onBellClick={() => setDrawerOpen(true)}
-      >
-        <Outlet />
-      </AppShell>
+      <CopilotProvider>
+        <AppShell
+          workspace={session.tenant_name}
+          modules={navModules}
+          activeItemId={activeId}
+          linkComponent={ShellLink}
+          userMenu={<UserMenu />}
+          hideCopilot={pathname.startsWith('/copilot/')}
+          notificationCount={notificationCount}
+          onBellClick={() => setDrawerOpen(true)}
+          copilotPanel={<CopilotSidePanel />}
+        >
+          <Outlet />
+        </AppShell>
+      </CopilotProvider>
       <NotificationDrawerContainer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
     </SessionProvider>
   );
