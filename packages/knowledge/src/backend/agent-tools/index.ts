@@ -34,7 +34,7 @@ export const searchTenantKnowledgeAgentTool = defineCopilotTool({
     'Search uploaded company documents (handbooks, policies, processes) by semantic similarity. Returns chunk text with filename and page hint for citation.',
   input: inputSchema,
   output: outputSchema,
-  rbac: 'knowledge.read',
+  rbac: 'knowledge.search.read',
   execute: async (input, ctx) => {
     const actor = actorFromContext(ctx);
     const session = await buildActorSession(actor);

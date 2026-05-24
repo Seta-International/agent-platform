@@ -19,6 +19,7 @@ export {
   type RequestKnowledgeUploadResult,
   requestKnowledgeUpload,
 } from './backend/domain/upload-url.ts';
+export { KnowledgeError, requirePermission as requireKnowledgePermission } from './backend/rbac.ts';
 export {
   type KnowledgeHit,
   type SearchTenantKnowledgeDeps,
@@ -33,5 +34,11 @@ export {
   type KnowledgeFileFailedPayload,
   type KnowledgeFileProcessedPayload,
 } from './events.ts';
-export { KNOWLEDGE_PERMISSIONS, type KnowledgePermission } from './rbac.ts';
+export {
+  KNOWLEDGE_PERMISSIONS,
+  KNOWLEDGE_ROLE_PERMISSIONS,
+  KNOWLEDGE_ROLE_SLUGS,
+  type KnowledgePermission,
+  type KnowledgeRoleSlug,
+} from './rbac.ts';
 export { registerKnowledgeContributions } from './register.ts';
