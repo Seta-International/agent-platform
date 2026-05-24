@@ -85,13 +85,23 @@ export async function parseKnowledgeFile(
   if (!UUID_RE.test(tenant_id)) throw new Error(`tenant_id must be a UUID, got ${tenant_id}`);
 
   try {
-    const fileRow = await deps.pool.query<{ s3_key: string; filename: string; status: string }>(
-      `SELECT s3_key, filename, status FROM knowledge.files
+    const fileRow = await deps.pool.query<{
+      s3_key: string;
+      filename: string;
+      status: string;
+      scan_status: string;
+    }>(
+      `SELECT s3_key, filename, status, scan_status FROM knowledge.files
         WHERE id = $1 AND tenant_id = $2`,
       [file_id, tenant_id],
     );
     if (fileRow.rows.length === 0) return; // file gone; nothing to parse
     if (fileRow.rows[0]?.status !== 'parsing') return; // already moved on; idempotent
+    if (fileRow.rows[0]?.scan_status !== 'clean') {
+      throw new Error(
+        `refusing to parse file ${file_id}: scan_status=${fileRow.rows[0]?.scan_status}`,
+      );
+    }
 
     const ext = fileRow.rows[0]?.filename.split('.').pop()?.toLowerCase() ?? '';
     const parser = PARSERS[ext];

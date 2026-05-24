@@ -11,8 +11,11 @@ import {
   type ParseKnowledgeFilePayload,
   parseKnowledgeFile,
 } from '../parse/parse-knowledge-file.ts';
+import { runScanUpload, type ScanUploadPayload } from './scan-upload.ts';
 
 const BUCKET = process.env.S3_BUCKET ?? 'seta-knowledge';
+const CLAMAV_HOST = process.env.CLAMAV_HOST ?? 'clamav';
+const CLAMAV_PORT = Number(process.env.CLAMAV_PORT ?? 3310);
 
 async function fetchS3Object(s3_key: string): Promise<Buffer> {
   const client = getS3Client();
@@ -24,6 +27,16 @@ async function fetchS3Object(s3_key: string): Promise<Buffer> {
 }
 
 export const knowledgeJobs: TaskList = {
+  scan_upload: async (payload, helpers) => {
+    await runScanUpload(payload as ScanUploadPayload, {
+      bucket: BUCKET,
+      clamavHost: CLAMAV_HOST,
+      clamavPort: CLAMAV_PORT,
+      enqueueParseJob: async (parsePayload) => {
+        await helpers.addJob('parse_knowledge_file', parsePayload);
+      },
+    });
+  },
   parse_knowledge_file: async (payload, helpers) => {
     const pool = getPool('worker');
     await parseKnowledgeFile(payload as ParseKnowledgeFilePayload, {

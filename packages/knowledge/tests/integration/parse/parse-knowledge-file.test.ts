@@ -37,8 +37,8 @@ describe('parseKnowledgeFile worker', () => {
       const fileId = await pool
         .query<{ id: string }>(
           `INSERT INTO knowledge.files
-             (tenant_id, uploaded_by, filename, mime_type, size_bytes, s3_key, status)
-           VALUES ($1, $2, 'note.txt', 'text/plain', 100, 'tenants/x/knowledge/1/note.txt', 'parsing')
+             (tenant_id, uploaded_by, filename, mime_type, size_bytes, s3_key, status, scan_status)
+           VALUES ($1, $2, 'note.txt', 'text/plain', 100, 'tenants/x/knowledge/1/note.txt', 'parsing', 'clean')
            RETURNING id`,
           [tenant_id, randomUUID()],
         )
@@ -70,8 +70,8 @@ describe('parseKnowledgeFile worker', () => {
       const fileId = await pool
         .query<{ id: string }>(
           `INSERT INTO knowledge.files
-             (tenant_id, uploaded_by, filename, mime_type, size_bytes, s3_key, status)
-           VALUES ($1, $2, 'broken.pdf', 'application/pdf', 1, 'tenants/x/knowledge/2/broken.pdf', 'parsing')
+             (tenant_id, uploaded_by, filename, mime_type, size_bytes, s3_key, status, scan_status)
+           VALUES ($1, $2, 'broken.pdf', 'application/pdf', 1, 'tenants/x/knowledge/2/broken.pdf', 'parsing', 'clean')
            RETURNING id`,
           [tenant_id, randomUUID()],
         )

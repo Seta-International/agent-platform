@@ -55,7 +55,7 @@ describe('knowledge RBAC', () => {
       await expect(
         markKnowledgeFileProcessed(
           { tenant_id: tenantId, file_id: '1' },
-          { session: viewer, enqueueParseJob: async () => {} },
+          { session: viewer, enqueueScanJob: async () => {} },
         ),
       ).rejects.toBeInstanceOf(KnowledgeError);
     }));

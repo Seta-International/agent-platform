@@ -36,6 +36,11 @@ export interface ScanUploadDeps {
   clamavHost: string;
   clamavPort: number;
   s3?: S3Client;
+  enqueueParseJob?: (payload: {
+    tenant_id: string;
+    file_id: string;
+    event_id: string;
+  }) => Promise<void>;
 }
 
 export async function runScanUpload(input: ScanUploadPayload, deps: ScanUploadDeps): Promise<void> {
@@ -77,9 +82,16 @@ export async function runScanUpload(input: ScanUploadPayload, deps: ScanUploadDe
 
     await db
       .update(files)
-      .set({ scan_status: 'clean', scan_at: new Date() })
+      .set({ scan_status: 'clean', scan_at: new Date(), status: 'parsing' })
       .where(eq(files.id, fileIdBig));
     await emitScanCompleted(input, 'clean');
+    if (deps.enqueueParseJob) {
+      await deps.enqueueParseJob({
+        tenant_id: input.tenant_id,
+        file_id: input.file_id,
+        event_id: crypto.randomUUID(),
+      });
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await db

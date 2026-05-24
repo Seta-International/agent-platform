@@ -11,18 +11,28 @@ export interface MarkProcessedInput {
 
 export interface MarkProcessedDeps {
   session: SessionScope;
-  enqueueParseJob: (payload: { tenant_id: string; file_id: string }) => Promise<void>;
+  enqueueScanJob: (payload: {
+    tenant_id: string;
+    file_id: string;
+    s3_key: string;
+  }) => Promise<void>;
 }
 
+/**
+ * Client signals upload-complete. The row stays in 'uploading' status until
+ * the scan_upload job clears the file and flips it to 'parsing'. Idempotent:
+ * re-deliveries of the same upload-complete signal find scan_status != 'pending'
+ * and skip the enqueue.
+ */
 export async function markKnowledgeFileProcessed(
   input: MarkProcessedInput,
   deps: MarkProcessedDeps,
 ): Promise<void> {
   requirePermission(deps.session, 'knowledge.file.write');
   const db = knowledgeDb();
-  const result = await db
-    .update(files)
-    .set({ status: 'parsing' })
+  const [row] = await db
+    .select({ s3_key: files.s3_key, scan_status: files.scan_status })
+    .from(files)
     .where(
       and(
         eq(files.tenant_id, input.tenant_id),
@@ -30,9 +40,14 @@ export async function markKnowledgeFileProcessed(
         eq(files.status, 'uploading'),
       ),
     )
-    .returning({ id: files.id });
+    .limit(1);
 
-  if (result.length > 0) {
-    await deps.enqueueParseJob({ tenant_id: input.tenant_id, file_id: input.file_id });
-  }
+  if (!row) return; // already past 'uploading' or doesn't exist; idempotent
+  if (row.scan_status !== 'pending') return; // scan already started; idempotent
+
+  await deps.enqueueScanJob({
+    tenant_id: input.tenant_id,
+    file_id: input.file_id,
+    s3_key: row.s3_key,
+  });
 }

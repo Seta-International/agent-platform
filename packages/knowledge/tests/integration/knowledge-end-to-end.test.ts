@@ -40,8 +40,8 @@ describe('Knowledge end-to-end', () => {
       const file_id = (
         await pool.query<{ id: string }>(
           `INSERT INTO knowledge.files
-             (tenant_id, uploaded_by, filename, mime_type, size_bytes, s3_key, status)
-           VALUES ($1, $2, 'handbook.txt', 'text/plain', 100, $3, 'parsing')
+             (tenant_id, uploaded_by, filename, mime_type, size_bytes, s3_key, status, scan_status)
+           VALUES ($1, $2, 'handbook.txt', 'text/plain', 100, $3, 'parsing', 'clean')
            RETURNING id`,
           [tenant_id, randomUUID(), s3_key],
         )

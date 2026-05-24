@@ -67,11 +67,8 @@ export function registerKnowledgeRoutes(app: Hono<SessionEnv>, deps: KnowledgeRo
       { tenant_id: scope.tenant_id, file_id },
       {
         session: scope,
-        enqueueParseJob: async (payload) => {
-          await deps.workers.addJob('parse_knowledge_file', {
-            ...payload,
-            event_id: crypto.randomUUID(),
-          });
+        enqueueScanJob: async (payload) => {
+          await deps.workers.addJob('scan_upload', payload);
         },
       },
     );
