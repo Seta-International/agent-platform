@@ -17,6 +17,7 @@ export {
   type StreamHubBuilder,
   type StreamHubHandle,
 } from './composition/registry.ts';
+export { requestIdMiddleware, requestIdStorage } from './composition/request-id.ts';
 export type { OutgoingEmailStatus, TransportKind } from './db/schema/index.ts';
 export {
   createSessionMiddleware,
