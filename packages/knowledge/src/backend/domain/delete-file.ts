@@ -1,8 +1,10 @@
 import { DeleteObjectCommand } from '@aws-sdk/client-s3';
+import type { SessionScope } from '@seta/core';
 import { getS3Client } from '@seta/shared-storage';
 import { and, eq } from 'drizzle-orm';
 import { knowledgeDb } from '../db/client.ts';
 import { chunks, embeddings, files } from '../db/schema.ts';
+import { requirePermission } from '../rbac.ts';
 
 export interface DeleteKnowledgeFileInput {
   tenant_id: string;
@@ -10,6 +12,7 @@ export interface DeleteKnowledgeFileInput {
 }
 
 export interface DeleteKnowledgeFileDeps {
+  session: SessionScope;
   /** Override for tests. */
   deleteS3Object?: (s3_key: string) => Promise<void>;
   bucket?: string;
@@ -17,8 +20,9 @@ export interface DeleteKnowledgeFileDeps {
 
 export async function deleteKnowledgeFile(
   input: DeleteKnowledgeFileInput,
-  deps: DeleteKnowledgeFileDeps = {},
+  deps: DeleteKnowledgeFileDeps,
 ): Promise<void> {
+  requirePermission(deps.session, 'knowledge.file.delete');
   const db = knowledgeDb();
 
   const fileRow = await db

@@ -4,6 +4,7 @@ import { resetKnowledgeDb } from '@seta/knowledge/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it, vi } from 'vitest';
+import { buildTestSession } from '../helpers/session.ts';
 
 const withDb = <T>(fn: (ctx: { pool: import('pg').Pool }) => Promise<T>) =>
   withTestDb(
@@ -29,9 +30,10 @@ describe('requestKnowledgeUpload', () => {
   it('inserts file row with status="uploading" and returns presigned URL + file_id', () =>
     withDb(async ({ pool }) => {
       const presign = vi.fn(async () => 'https://s3/signed?X');
+      const tenantId = '00000000-0000-0000-0000-000000000000';
       const result = await requestKnowledgeUpload(
         {
-          tenant_id: '00000000-0000-0000-0000-000000000000',
+          tenant_id: tenantId,
           uploaded_by: '00000000-0000-0000-0000-000000000099',
           filename: 'handbook.pdf',
           mime_type: 'application/pdf',
@@ -39,6 +41,7 @@ describe('requestKnowledgeUpload', () => {
         },
         {
           bucket: 'test-bucket',
+          session: buildTestSession({ tenant_id: tenantId }),
           presign: presign as never,
         },
       );
@@ -66,7 +69,7 @@ describe('requestKnowledgeUpload', () => {
             mime_type: 'application/x-msdownload',
             size_bytes: 1,
           },
-          { bucket: 'b', presign: (async () => '') as never },
+          { bucket: 'b', session: buildTestSession({}), presign: (async () => '') as never },
         ),
       ).rejects.toThrow(/file type not allowed/i);
     }));
@@ -82,7 +85,7 @@ describe('requestKnowledgeUpload', () => {
             mime_type: 'application/pdf',
             size_bytes: 51 * 1024 * 1024,
           },
-          { bucket: 'b', presign: (async () => '') as never },
+          { bucket: 'b', session: buildTestSession({}), presign: (async () => '') as never },
         ),
       ).rejects.toThrow(/size/i);
     }));

@@ -211,6 +211,7 @@ describe('POST /api/copilot/v1/knowledge/:id/processed', () => {
           },
           {
             bucket: 'test-bucket',
+            session,
             presign: async () => 'https://s3.example/presigned',
           },
         );
@@ -256,6 +257,7 @@ describe('GET /api/copilot/v1/knowledge', () => {
           },
           {
             bucket: 'test-bucket',
+            session,
             presign: async () => 'https://s3.example/presigned',
           },
         );
@@ -356,6 +358,7 @@ describe('DELETE /api/copilot/v1/knowledge/:id', () => {
           },
           {
             bucket: 'test-bucket',
+            session,
             presign: async () => 'https://s3.example/presigned',
           },
         );

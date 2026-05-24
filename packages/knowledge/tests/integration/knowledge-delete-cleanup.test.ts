@@ -5,6 +5,7 @@ import { resetKnowledgeDb } from '@seta/knowledge/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it, vi } from 'vitest';
+import { buildTestSession } from '../helpers/session.ts';
 
 const withDb = <T>(fn: (ctx: { pool: import('pg').Pool }) => Promise<T>) =>
   withTestDb(
@@ -79,7 +80,10 @@ describe('deleteKnowledgeFile cleanup', () => {
       ]);
 
       const deleteS3 = vi.fn(async () => {});
-      await deleteKnowledgeFile({ tenant_id, file_id }, { deleteS3Object: deleteS3 });
+      await deleteKnowledgeFile(
+        { tenant_id, file_id },
+        { session: buildTestSession({ tenant_id }), deleteS3Object: deleteS3 },
+      );
 
       expect(deleteS3).toHaveBeenCalledOnce();
 
@@ -100,9 +104,15 @@ describe('deleteKnowledgeFile cleanup', () => {
       const file_id = await seedFileWithChunks(pool, tenant_id, [{ text: 'x', page_hint: null }]);
 
       const deleteS3 = vi.fn(async () => {});
-      await deleteKnowledgeFile({ tenant_id, file_id }, { deleteS3Object: deleteS3 });
+      await deleteKnowledgeFile(
+        { tenant_id, file_id },
+        { session: buildTestSession({ tenant_id }), deleteS3Object: deleteS3 },
+      );
       await expect(
-        deleteKnowledgeFile({ tenant_id, file_id }, { deleteS3Object: deleteS3 }),
+        deleteKnowledgeFile(
+          { tenant_id, file_id },
+          { session: buildTestSession({ tenant_id }), deleteS3Object: deleteS3 },
+        ),
       ).resolves.toBeUndefined();
 
       expect(deleteS3).toHaveBeenCalledOnce();

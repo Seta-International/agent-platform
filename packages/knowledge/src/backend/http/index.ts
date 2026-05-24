@@ -49,7 +49,11 @@ export function registerKnowledgeRoutes(app: Hono<SessionEnv>, deps: KnowledgeRo
         mime_type: parsed.data.mime_type,
         size_bytes: parsed.data.size_bytes,
       },
-      { bucket: process.env.S3_BUCKET ?? 'seta-knowledge', presign: deps.presign },
+      {
+        bucket: process.env.S3_BUCKET ?? 'seta-knowledge',
+        session: scope,
+        presign: deps.presign,
+      },
     );
     return c.json(result);
   });
@@ -62,6 +66,7 @@ export function registerKnowledgeRoutes(app: Hono<SessionEnv>, deps: KnowledgeRo
     await markKnowledgeFileProcessed(
       { tenant_id: scope.tenant_id, file_id },
       {
+        session: scope,
         enqueueParseJob: async (payload) => {
           await deps.workers.addJob('parse_knowledge_file', {
             ...payload,
@@ -85,7 +90,7 @@ export function registerKnowledgeRoutes(app: Hono<SessionEnv>, deps: KnowledgeRo
     const scope = c.get('user');
     const file_id = c.req.param('id');
     if (!/^\d+$/.test(file_id)) return c.json({ error: 'invalid_id' }, 400);
-    await deleteKnowledgeFile({ tenant_id: scope.tenant_id, file_id });
+    await deleteKnowledgeFile({ tenant_id: scope.tenant_id, file_id }, { session: scope });
     return c.json({ ok: true });
   });
 }

@@ -1,6 +1,8 @@
+import type { SessionScope } from '@seta/core';
 import { and, eq } from 'drizzle-orm';
 import { knowledgeDb } from '../db/client.ts';
 import { files } from '../db/schema.ts';
+import { requirePermission } from '../rbac.ts';
 
 export interface MarkProcessedInput {
   tenant_id: string;
@@ -8,6 +10,7 @@ export interface MarkProcessedInput {
 }
 
 export interface MarkProcessedDeps {
+  session: SessionScope;
   enqueueParseJob: (payload: { tenant_id: string; file_id: string }) => Promise<void>;
 }
 
@@ -15,6 +18,7 @@ export async function markKnowledgeFileProcessed(
   input: MarkProcessedInput,
   deps: MarkProcessedDeps,
 ): Promise<void> {
+  requirePermission(deps.session, 'knowledge.file.write');
   const db = knowledgeDb();
   const result = await db
     .update(files)

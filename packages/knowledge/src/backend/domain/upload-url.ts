@@ -1,7 +1,9 @@
+import type { SessionScope } from '@seta/core';
 import { buildTenantKey, presignedUploadUrl } from '@seta/shared-storage';
 import { eq } from 'drizzle-orm';
 import { knowledgeDb } from '../db/client.ts';
 import { files } from '../db/schema.ts';
+import { requirePermission } from '../rbac.ts';
 
 const ALLOWED_EXTENSIONS = new Set(['pdf', 'docx', 'xlsx', 'csv', 'txt', 'md']);
 const MAX_BYTES = 50 * 1024 * 1024;
@@ -17,6 +19,7 @@ export interface RequestKnowledgeUploadInput {
 
 export interface RequestKnowledgeUploadDeps {
   bucket: string;
+  session: SessionScope;
   /** Override for tests. */
   presign?: typeof presignedUploadUrl;
 }
@@ -31,6 +34,7 @@ export async function requestKnowledgeUpload(
   input: RequestKnowledgeUploadInput,
   deps: RequestKnowledgeUploadDeps,
 ): Promise<RequestKnowledgeUploadResult> {
+  requirePermission(deps.session, 'knowledge.file.write');
   const ext = input.filename.split('.').pop()?.toLowerCase() ?? '';
   if (!ALLOWED_EXTENSIONS.has(ext)) {
     throw new Error(
