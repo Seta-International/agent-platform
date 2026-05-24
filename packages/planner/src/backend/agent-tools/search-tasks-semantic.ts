@@ -63,6 +63,7 @@ export function searchTasksSemanticTool(deps: SearchTasksSemanticToolDeps) {
 
   return defineCopilotTool({
     id: 'search_tasks_semantic',
+    name: 'Search Tasks (Semantic)',
     description:
       'Find tasks by semantic similarity over title, description, and skill tags. Returns ranked hits.',
     input: inputSchema,

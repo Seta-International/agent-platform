@@ -52,6 +52,7 @@ export type BuildTaskSkillQueueDeps = {
 export function makePlannerBuildTaskSkillQueueTool(deps: BuildTaskSkillQueueDeps) {
   return defineCopilotTool({
     id: 'planner_buildTaskSkillQueue',
+    name: 'Build Task Skill Queue',
     description: `
 Final step of the TaskAnalyzer pipeline.
 

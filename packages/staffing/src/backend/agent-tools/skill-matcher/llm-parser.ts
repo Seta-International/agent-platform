@@ -33,6 +33,7 @@ export type CandidateRaw = {
 
 export const skillMatcherLlmParserTool = defineCopilotTool({
   id: 'skillMatcher_llmParser',
+  name: 'Parse Skill Candidates',
   description: `
 Third tool in the SkillMatcher pipeline.
 

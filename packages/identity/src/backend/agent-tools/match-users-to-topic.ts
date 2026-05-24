@@ -67,6 +67,7 @@ export function matchUsersToTopicTool(deps: MatchUsersToTopicToolDeps) {
 
   return defineCopilotTool({
     id: 'match_users_to_topic',
+    name: 'Match Users To Topic',
     description:
       'Find users whose declared skills best match a given topic or skill area. Returns ranked candidates with user details and match scores.',
     input: inputSchema,

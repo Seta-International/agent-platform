@@ -19,6 +19,7 @@ const outputSchema = z.object({
 
 export const whoAmITool = defineCopilotTool({
   id: 'identity_whoAmI',
+  name: 'Look Up My Profile',
   description: "Returns the current user's profile (display name, email, tenant, availability).",
   input: z.object({}),
   output: outputSchema,

@@ -17,6 +17,7 @@ import { z } from 'zod';
 
 export const plannerExtractSkillsFromTaskTool = defineCopilotTool({
   id: 'planner_extractSkillsFromTask',
+  name: 'Extract Skills From Task',
   description: `
 Analyzes the title and description of a single task to extract required skills.
 

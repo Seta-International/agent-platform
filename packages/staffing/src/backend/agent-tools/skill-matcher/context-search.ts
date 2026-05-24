@@ -47,6 +47,7 @@ export type ContextSearchDeps = {
 export function makeSkillMatcherContextSearchTool(deps: ContextSearchDeps) {
   return defineCopilotTool({
     id: 'skillMatcher_contextSearch',
+    name: 'Skill Context Search',
     description: `
 Second tool in the SkillMatcher pipeline.
 

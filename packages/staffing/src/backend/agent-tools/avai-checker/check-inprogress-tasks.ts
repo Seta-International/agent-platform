@@ -42,6 +42,7 @@ export type CheckInProgressTasksDeps = {
 export function makeAvaiCheckerCheckInProgressTasksTool(deps: CheckInProgressTasksDeps) {
   return defineCopilotTool({
     id: 'avaiChecker_checkInProgressTasks',
+    name: 'Check In-Progress Tasks',
     description: `
 Second tool in the AvaiChecker pipeline.
 

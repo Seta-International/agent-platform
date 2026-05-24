@@ -29,6 +29,7 @@ const outputSchema = z.object({
 
 export const searchTenantKnowledgeAgentTool = defineCopilotTool({
   id: 'knowledge.search-tenant-knowledge',
+  name: 'Search Knowledge',
   description:
     'Search uploaded company documents (handbooks, policies, processes) by semantic similarity. Returns chunk text with filename and page hint for citation.',
   input: inputSchema,

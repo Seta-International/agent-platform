@@ -5,6 +5,7 @@ import { searchUsersBySkills } from '../domain/search-users-by-skills.ts';
 
 export const identitySearchUsersBySkillsTool = defineCopilotTool({
   id: 'identity_searchUsersBySkills',
+  name: 'Search Users By Skills',
   description: 'Rank group members by overlap against requested skills.',
   input: z.object({
     groupId: z.string().uuid().describe('The group ID to search within'),

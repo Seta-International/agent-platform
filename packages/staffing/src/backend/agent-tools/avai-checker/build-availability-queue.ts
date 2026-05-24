@@ -62,6 +62,7 @@ const UserAvailabilityResultSchema = z.object({
 export function makeAvaiCheckerBuildAvailabilityQueueTool(deps: BuildAvailabilityQueueDeps) {
   return defineCopilotTool({
     id: 'avaiChecker_buildAvailabilityQueue',
+    name: 'Build Availability Queue',
     description: `
 Final tool in the AvaiChecker pipeline (Tool 4).
 

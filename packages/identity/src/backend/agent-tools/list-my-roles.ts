@@ -4,6 +4,7 @@ import { listMyEffectivePermissions } from '../domain/list-my-effective-permissi
 
 export const listMyRolesTool = defineCopilotTool({
   id: 'identity_listMyRoles',
+  name: 'List My Roles',
   description: 'Returns the sorted union of permissions the current user effectively holds.',
   input: z.object({}),
   output: z.object({

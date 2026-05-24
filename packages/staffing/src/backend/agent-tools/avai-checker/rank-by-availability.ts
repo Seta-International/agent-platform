@@ -45,6 +45,7 @@ const UserInputSchema = z.object({
 
 export const avaiCheckerRankByAvailabilityTool = defineCopilotTool({
   id: 'avaiChecker_rankByAvailability',
+  name: 'Rank By Availability',
   description: `
 Third tool in the AvaiChecker pipeline.
 

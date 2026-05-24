@@ -11,6 +11,7 @@ type ExecutableTool<I, O> = {
 
 export const staffingRunNewTaskSkillTagTool = defineCopilotTool({
   id: 'staffing_runNewTaskSkillTag',
+  name: 'Tag New Tasks With Skills',
   description:
     'Start the new-task-skill-tag workflow for a task. Classifies skills, ranks candidates, and surfaces an in-app approval card. Returns the runId; do not wait for the approval inline.',
   input: z.object({

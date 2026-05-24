@@ -5,6 +5,7 @@ import { assignTask } from '../domain/assign-task.ts';
 
 export const plannerAssignTaskTool = defineCopilotTool({
   id: 'planner_assignTask',
+  name: 'Assign Task',
   description: 'Assign a user to a task.',
   input: z.object({
     taskId: z.string().uuid().describe('The task ID'),

@@ -6,6 +6,7 @@ import { getTask } from '../domain/get-task.ts';
 
 export const plannerGetTaskTool = defineCopilotTool({
   id: 'planner_getTask',
+  name: 'Look Up Task',
   description: 'Get a task by ID with its assignees, labels, and checklist summary.',
   input: z.object({
     taskId: z.string().uuid().describe('The task ID'),

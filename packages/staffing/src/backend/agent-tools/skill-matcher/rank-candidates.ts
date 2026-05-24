@@ -48,6 +48,7 @@ export type RankCandidatesDeps = {
 export function makeSkillMatcherRankCandidatesTool(deps: RankCandidatesDeps) {
   return defineCopilotTool({
     id: 'skillMatcher_rankCandidates',
+    name: 'Rank Skill Candidates',
     description: `
 Final tool in the SkillMatcher pipeline.
 

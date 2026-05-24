@@ -28,6 +28,7 @@ export function makeListMyThreadsTool(deps: {
 }) {
   return defineCopilotTool({
     id: 'copilot_listMyThreads',
+    name: 'List My Chat Threads',
     description: "Lists the current user's own chat threads (most recent first).",
     input: Input,
     output: Output,

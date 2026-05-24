@@ -56,6 +56,7 @@ export type CheckUserAvailabilityDeps = {
 export function makeAvaiCheckerCheckUserAvailabilityTool(deps: CheckUserAvailabilityDeps) {
   return defineCopilotTool({
     id: 'avaiChecker_checkUserAvailability',
+    name: 'Check User Availability',
     description: `
 First tool in the AvaiChecker pipeline.
 

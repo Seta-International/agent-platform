@@ -44,6 +44,7 @@ const STATUS_PRIORITY: Record<string, number> = {
 
 export const recommenderMergeAndRankTool = defineCopilotTool({
   id: 'recommender_mergeAndRank',
+  name: 'Merge And Rank Candidates',
   description: `
 Sole tool of the Recommender agent.
 

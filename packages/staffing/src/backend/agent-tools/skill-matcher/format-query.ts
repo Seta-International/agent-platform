@@ -16,6 +16,7 @@ export type FormatQueryDeps = Record<string, never>;
 export function makeSkillMatcherFormatQueryTool(_deps: FormatQueryDeps = {}) {
   return defineCopilotTool({
     id: 'skillMatcher_formatQuery',
+    name: 'Format Skill Query',
     description: `
 First tool in the SkillMatcher pipeline.
 

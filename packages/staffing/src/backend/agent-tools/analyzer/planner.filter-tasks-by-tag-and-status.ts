@@ -52,6 +52,7 @@ export type FilterTasksDeps = {
 export function makePlannerFilterTasksByTagAndStatusTool(deps: FilterTasksDeps) {
   return defineCopilotTool({
     id: 'planner_filterTasksByTagAndStatus',
+    name: 'Filter Tasks By Tag',
     description: `
 Queries the tasks table and returns tasks where:
   • skill_tags overlaps with the given tags (GIN && operator)
