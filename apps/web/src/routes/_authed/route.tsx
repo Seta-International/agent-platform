@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link, Outlet, redirect, useRouterState } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 import { CopilotProvider, CopilotSidePanel } from '@/modules/copilot';
+import { CopilotMobileSheet } from '@/modules/copilot/chat-experience/copilot-mobile-sheet';
+import { usePanelUI } from '@/modules/copilot/chat-experience/copilot-provider';
 import { fetchMe } from '@/modules/identity/api/client.ts';
 import { SessionProvider } from '@/modules/identity/components/SessionProvider.tsx';
 import { UserMenu } from '@/modules/identity/components/UserMenu.tsx';
@@ -31,7 +33,21 @@ export const Route = createFileRoute('/_authed')({
 
 function AuthedLayout() {
   const { session } = Route.useRouteContext();
+  return (
+    <SessionProvider session={session}>
+      <CopilotProvider>
+        <ShellWithPanel>
+          <Outlet />
+        </ShellWithPanel>
+      </CopilotProvider>
+    </SessionProvider>
+  );
+}
+
+function ShellWithPanel({ children }: { children: React.ReactNode }) {
+  const { session } = Route.useRouteContext();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const { panelOpen, setPanelOpen } = usePanelUI();
 
   const enabledQuery = useQuery({
     queryKey: ['shell', 'enabled-modules'],
@@ -51,23 +67,24 @@ function AuthedLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   return (
-    <SessionProvider session={session}>
-      <CopilotProvider>
-        <AppShell
-          workspace={session.tenant_name}
-          modules={navModules}
-          activeItemId={activeId}
-          linkComponent={ShellLink}
-          userMenu={<UserMenu />}
-          hideCopilot={pathname.startsWith('/copilot/')}
-          notificationCount={notificationCount}
-          onBellClick={() => setDrawerOpen(true)}
-          copilotPanel={<CopilotSidePanel />}
-        >
-          <Outlet />
-        </AppShell>
-      </CopilotProvider>
+    <>
+      <AppShell
+        workspace={session.tenant_name}
+        modules={navModules}
+        activeItemId={activeId}
+        linkComponent={ShellLink}
+        userMenu={<UserMenu />}
+        hideCopilot={pathname.startsWith('/copilot/')}
+        notificationCount={notificationCount}
+        onBellClick={() => setDrawerOpen(true)}
+        copilotPanel={<CopilotSidePanel />}
+        copilotOpen={panelOpen}
+        onCopilotOpenChange={setPanelOpen}
+        copilotMobileSlot={<CopilotMobileSheet />}
+      >
+        {children}
+      </AppShell>
       <NotificationDrawerContainer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
-    </SessionProvider>
+    </>
   );
 }
