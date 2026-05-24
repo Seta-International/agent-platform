@@ -2,7 +2,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ContributionRegistry, ErrorMapper } from '@seta/core';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
-import { identityAgentTools } from './backend/agent-tools/index.ts';
+import { identityAgentTools } from './agent-tools.ts';
 import * as schema from './backend/db/schema.ts';
 import {
   refreshUserProfileCreatedSubscriber,

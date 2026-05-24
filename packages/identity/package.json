@@ -6,7 +6,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./agent-tools": "./src/backend/agent-tools/index.ts",
+    "./agent-tools": "./src/agent-tools.ts",
     "./auth": "./src/backend/auth.ts",
     "./http": "./src/backend/http/index.ts",
     "./events": "./src/events/index.ts",
