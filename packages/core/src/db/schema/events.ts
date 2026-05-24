@@ -16,6 +16,8 @@ export const coreEvents = core.table('events', {
   causedByUserId: uuid('caused_by_user_id'),
   causedByEventId: uuid('caused_by_event_id'),
   traceId: text('trace_id'),
+  traceParent: text('trace_parent'),
+  traceState: text('trace_state'),
   actor: jsonb('actor').$type<{
     user_id: string;
     tenant_id: string;
