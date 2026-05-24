@@ -2,7 +2,7 @@ import { DragDropContext, Draggable, Droppable, type DropResult } from '@hello-p
 import type { TaskDetailRow } from '@seta/planner';
 import { Button, Checkbox } from '@seta/shared-ui';
 import { GripVertical, Plus } from 'lucide-react';
-import { type CSSProperties, type KeyboardEvent, useEffect, useRef, useState } from 'react';
+import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { useAddChecklistItem } from '../hooks/mutations/add-checklist-item';
 import { useRemoveChecklistItem } from '../hooks/mutations/remove-checklist-item';
 import { useUpdateChecklistItem } from '../hooks/mutations/update-checklist-item';
@@ -61,7 +61,7 @@ export function TaskDetailChecklistCard({ task, planId }: Props) {
 
   return (
     <section className="card" aria-label="Checklist">
-      <header style={head}>
+      <header className="mb-2">
         <span className="t-sm subtle">
           Checklist · {task.checklist_summary.checked}/{task.checklist_summary.total}
         </span>
@@ -70,20 +70,21 @@ export function TaskDetailChecklistCard({ task, planId }: Props) {
       <DragDropContext onDragEnd={onDragEnd}>
         <Droppable droppableId={`checklist-${task.id}`} type="CHECKLIST">
           {(dp) => (
-            <div ref={dp.innerRef} {...dp.droppableProps} style={list}>
+            <div ref={dp.innerRef} {...dp.droppableProps} className="flex flex-col gap-1">
               {task.checklist.map((it, idx) => (
                 <Draggable key={it.id} draggableId={it.id} index={idx}>
                   {(dpc) => (
                     <div
                       ref={dpc.innerRef}
                       {...dpc.draggableProps}
-                      style={{ ...itemRow, ...(dpc.draggableProps.style ?? {}) }}
+                      className="flex items-center gap-2 rounded-sm px-1 py-1.5"
+                      style={dpc.draggableProps.style ?? undefined}
                     >
                       <button
                         type="button"
                         aria-label="Drag handle"
                         {...dpc.dragHandleProps}
-                        style={handle}
+                        className="inline-flex cursor-grab items-center border-none bg-transparent p-0 text-ink-tertiary"
                       >
                         <GripVertical className="size-3.5" />
                       </button>
@@ -100,13 +101,7 @@ export function TaskDetailChecklistCard({ task, planId }: Props) {
                       />
                       <label
                         htmlFor={`chk-${it.id}`}
-                        className="t-sm"
-                        style={{
-                          flex: 1,
-                          textDecoration: it.checked ? 'line-through' : 'none',
-                          color: it.checked ? 'var(--color-ink-subtle)' : 'var(--color-ink)',
-                          cursor: 'pointer',
-                        }}
+                        className={`t-sm flex-1 cursor-pointer ${it.checked ? 'text-ink-subtle line-through' : 'text-ink'}`}
                       >
                         {it.label}
                       </label>
@@ -114,7 +109,7 @@ export function TaskDetailChecklistCard({ task, planId }: Props) {
                         type="button"
                         aria-label="Remove"
                         onClick={() => remove.mutate({ item_id: it.id })}
-                        style={removeBtn}
+                        className="cursor-pointer border-none bg-transparent px-1 py-0 text-[14px] leading-none text-ink-subtle"
                       >
                         ×
                       </button>
@@ -129,7 +124,7 @@ export function TaskDetailChecklistCard({ task, planId }: Props) {
       </DragDropContext>
 
       {adding ? (
-        <div style={addRow}>
+        <div className="mt-2">
           <input
             ref={inputRef}
             aria-label="New checklist item"
@@ -137,7 +132,7 @@ export function TaskDetailChecklistCard({ task, planId }: Props) {
             onChange={(e) => setDraft(e.currentTarget.value)}
             onKeyDown={onKeyDown}
             placeholder="New step"
-            style={input}
+            className="w-full rounded-sm border border-hairline bg-surface-1 px-2 py-1.5 text-body-sm text-ink"
           />
         </div>
       ) : (
@@ -149,47 +144,3 @@ export function TaskDetailChecklistCard({ task, planId }: Props) {
     </section>
   );
 }
-
-const head: CSSProperties = { marginBottom: 8 };
-const list: CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 4,
-};
-const itemRow: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 8,
-  padding: '6px 4px',
-  borderRadius: 4,
-};
-const handle: CSSProperties = {
-  cursor: 'grab',
-  background: 'transparent',
-  border: 'none',
-  color: 'var(--color-ink-tertiary)',
-  padding: 0,
-  display: 'inline-flex',
-  alignItems: 'center',
-};
-const removeBtn: CSSProperties = {
-  background: 'transparent',
-  border: 'none',
-  color: 'var(--color-ink-subtle)',
-  cursor: 'pointer',
-  padding: '0 4px',
-  fontSize: 14,
-  lineHeight: 1,
-};
-const addRow: CSSProperties = {
-  marginTop: 8,
-};
-const input: CSSProperties = {
-  width: '100%',
-  padding: '6px 8px',
-  borderRadius: 4,
-  border: '1px solid var(--color-hairline)',
-  background: 'var(--color-surface-1)',
-  color: 'var(--color-ink)',
-  fontSize: 13,
-};

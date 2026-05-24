@@ -15,7 +15,7 @@ describe('KanbanColumn', () => {
     expect(screen.getByTestId('card-list')).toBeInTheDocument();
   });
 
-  it('reveals the quick-create input on click and fires onCreateTask on Enter', () => {
+  it('reveals the compose input on click and fires onCreateTask on Enter', () => {
     const onCreateTask = vi.fn();
 
     render(
@@ -32,17 +32,17 @@ describe('KanbanColumn', () => {
 
     fireEvent.click(screen.getByText('+ Add a task'));
 
-    const input = screen.getByPlaceholderText('Add a task…');
+    const input = screen.getByPlaceholderText('Task title');
     expect(input).toBeInTheDocument();
 
     fireEvent.change(input, { target: { value: 'New' } });
     fireEvent.keyDown(input, { key: 'Enter' });
 
     expect(onCreateTask).toHaveBeenCalledWith({ title: 'New' });
-    expect(screen.queryByPlaceholderText('Add a task…')).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('Task title')).not.toBeInTheDocument();
   });
 
-  it('keeps the "More options" disclosure collapsed by default', () => {
+  it('exposes Priority and Due chips inline (no "More options" disclosure)', () => {
     render(
       <KanbanColumn
         name="Todo"
@@ -56,11 +56,13 @@ describe('KanbanColumn', () => {
     );
     fireEvent.click(screen.getByText('+ Add a task'));
 
-    expect(screen.queryByLabelText('Start')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Preview type' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Priority' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Due')).toBeInTheDocument();
+    // The legacy "More options" toggle is gone.
+    expect(screen.queryByText('More options')).not.toBeInTheDocument();
   });
 
-  it('expands "More options" and forwards start_at, priority_number, and preview_type', () => {
+  it('forwards due_at and priority_number to onCreateTask', () => {
     const onCreateTask = vi.fn();
     render(
       <KanbanColumn
@@ -75,23 +77,17 @@ describe('KanbanColumn', () => {
     );
 
     fireEvent.click(screen.getByText('+ Add a task'));
-    fireEvent.change(screen.getByPlaceholderText('Add a task…'), {
+    fireEvent.change(screen.getByPlaceholderText('Task title'), {
       target: { value: 'With details' },
     });
-    fireEvent.click(screen.getByText('More options'));
+    fireEvent.change(screen.getByLabelText('Due'), { target: { value: '2026-06-15' } });
 
-    fireEvent.change(screen.getByLabelText('Start'), { target: { value: '2026-06-15' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Urgent' }));
-    fireEvent.click(screen.getByRole('radio', { name: 'Checklist' }));
-
-    fireEvent.keyDown(screen.getByPlaceholderText('Add a task…'), { key: 'Enter' });
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
 
     expect(onCreateTask).toHaveBeenCalledTimes(1);
     expect(onCreateTask).toHaveBeenCalledWith({
       title: 'With details',
-      start_at: '2026-06-15',
-      priority_number: 1,
-      preview_type: 'checklist',
+      due_at: '2026-06-15',
     });
   });
 
@@ -110,11 +106,10 @@ describe('KanbanColumn', () => {
     );
 
     fireEvent.click(screen.getByText('+ Add a task'));
-    fireEvent.change(screen.getByPlaceholderText('Add a task…'), {
+    fireEvent.change(screen.getByPlaceholderText('Task title'), {
       target: { value: 'Plain' },
     });
-    fireEvent.click(screen.getByText('More options'));
-    fireEvent.keyDown(screen.getByPlaceholderText('Add a task…'), { key: 'Enter' });
+    fireEvent.keyDown(screen.getByPlaceholderText('Task title'), { key: 'Enter' });
 
     expect(onCreateTask).toHaveBeenCalledWith({ title: 'Plain' });
   });

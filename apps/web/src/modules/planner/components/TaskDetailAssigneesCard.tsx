@@ -20,7 +20,7 @@ import {
 } from '@seta/shared-ui';
 import { useQuery } from '@tanstack/react-query';
 import { GripVertical, Info, Plus, X, Zap } from 'lucide-react';
-import { type CSSProperties, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { listTenantUsers } from '../../identity/api/client';
 import { useAssignTask } from '../hooks/mutations/assign-task';
 import { useMoveToTopOfMyList } from '../hooks/mutations/move-to-top-of-my-list';
@@ -106,44 +106,43 @@ export function TaskDetailAssigneesCard({ task, planId, isLinkedToM365 = false }
 
   return (
     <section className="card" aria-label="Assignees">
-      <header style={head}>
+      <header className="mb-2">
         <span className="t-sm subtle">Assignees</span>
       </header>
 
       <DragDropContext onDragEnd={onDragEnd}>
         <Droppable droppableId={`assignees-${task.id}`} type="ASSIGNEES">
           {(dp) => (
-            <div ref={dp.innerRef} {...dp.droppableProps} style={list}>
+            <div ref={dp.innerRef} {...dp.droppableProps} className="flex flex-col gap-1">
               {task.assignees.map((a, idx) => (
                 <Draggable key={a.user_id} draggableId={a.user_id} index={idx}>
                   {(dpc) => (
                     <div
                       ref={dpc.innerRef}
                       {...dpc.draggableProps}
-                      style={{ ...row, ...(dpc.draggableProps.style ?? {}) }}
+                      className="flex items-center gap-2 rounded-sm px-1 py-1.5"
+                      style={dpc.draggableProps.style ?? undefined}
                     >
                       <button
                         type="button"
                         aria-label="Drag handle"
                         {...dpc.dragHandleProps}
-                        style={handle}
+                        className="cursor-grab border-none bg-transparent p-0 text-ink-tertiary"
                       >
                         <GripVertical className="size-3.5" />
                       </button>
                       <Avatar className="size-6">
                         <AvatarFallback>{initialsOf(a.display_name)}</AvatarFallback>
                       </Avatar>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div className="t-sm" style={{ color: 'var(--color-ink)' }}>
-                          {a.display_name}
-                        </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="t-sm text-ink">{a.display_name}</div>
                         <div className="t-xs subtle">{idx === 0 ? 'driver' : 'reviewer'}</div>
                       </div>
                       <button
                         type="button"
                         aria-label={`Remove ${a.display_name}`}
                         onClick={() => unassign.mutate({ task_id: task.id, user_id: a.user_id })}
-                        style={removeBtn}
+                        className="cursor-pointer border-none bg-transparent p-1 text-ink-subtle"
                       >
                         <X className="size-3" />
                       </button>
@@ -157,7 +156,7 @@ export function TaskDetailAssigneesCard({ task, planId, isLinkedToM365 = false }
         </Droppable>
       </DragDropContext>
 
-      <div style={addRow}>
+      <div className="mt-1.5">
         <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
           <PopoverTrigger asChild>
             <Button size="sm" variant="ghost" aria-label="Add assignee">
@@ -196,7 +195,7 @@ export function TaskDetailAssigneesCard({ task, planId, isLinkedToM365 = false }
                           setSearch('');
                         }}
                       >
-                        <span style={{ flex: 1 }}>{u.name}</span>
+                        <span className="flex-1">{u.name}</span>
                         <span className="t-xs subtle">{u.email}</span>
                       </CommandItem>
                     );
@@ -233,7 +232,7 @@ export function TaskDetailAssigneesCard({ task, planId, isLinkedToM365 = false }
       <button
         type="button"
         onClick={() => moveToTop.mutate({ task_id: task.id })}
-        style={moveTopBtn}
+        className="mt-2.5 inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-dashed border-primary-border bg-primary-tint px-2.5 py-1.5 text-caption font-semibold text-primary-ink"
       >
         <Zap className="size-3" />
         Move to top of my list
@@ -241,46 +240,3 @@ export function TaskDetailAssigneesCard({ task, planId, isLinkedToM365 = false }
     </section>
   );
 }
-
-const head: CSSProperties = { marginBottom: 8 };
-const list: CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 4,
-};
-const row: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 8,
-  padding: '6px 4px',
-  borderRadius: 4,
-};
-const handle: CSSProperties = {
-  cursor: 'grab',
-  background: 'transparent',
-  border: 'none',
-  color: 'var(--color-ink-tertiary)',
-  padding: 0,
-};
-const removeBtn: CSSProperties = {
-  background: 'transparent',
-  border: 'none',
-  color: 'var(--color-ink-subtle)',
-  cursor: 'pointer',
-  padding: 4,
-};
-const addRow: CSSProperties = { marginTop: 6 };
-const moveTopBtn: CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 6,
-  marginTop: 10,
-  padding: '6px 10px',
-  borderRadius: 6,
-  border: '1px dashed var(--color-primary-border)',
-  background: 'var(--color-primary-tint)',
-  color: 'var(--color-primary-ink)',
-  fontSize: 12,
-  fontWeight: 600,
-  cursor: 'pointer',
-};

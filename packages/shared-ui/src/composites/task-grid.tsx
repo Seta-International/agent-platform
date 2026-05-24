@@ -1,5 +1,18 @@
+// biome-ignore-all lint/a11y/useSemanticElements: CSS grid layout precludes <table>/<tr>/<th>; aria roles preserved for screen-reader semantics.
+// biome-ignore-all lint/a11y/useFocusableInteractive: rows are non-interactive containers; focus lives on inline-edit controls inside each cell.
+// biome-ignore-all lint/a11y/useAriaPropsSupportedByRole: aria-label on header div is overridden by the implicit row container; kept for axe + RTL queries.
+// biome-ignore-all lint/a11y/noAutofocus: autoFocus is essential UX on inline edit inputs; user invoked the editor and expects keyboard focus.
+import { ChevronDown, Pencil } from 'lucide-react';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
-import { Popover, PopoverContent, PopoverTrigger } from '../primitives/popover';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../primitives/dropdown-menu';
+import { AvatarStack } from './avatar-stack';
+import { LabelChip } from './label-chip';
+import { PriorityIcon } from './priority-icon';
 import { SyncBadge, type SyncState } from './sync-badge';
 
 export interface TaskGridRow {
@@ -29,11 +42,9 @@ export interface TaskGridProps {
   groupBy: GroupBy;
   selection: Set<string>;
   onSelectionChange: (next: Set<string>) => void;
-  /** Patch shape mirrors TaskGridRow keys the caller wants to update. */
   onCommitField?: (taskId: string, patch: Partial<TaskGridRow>) => void;
-  /** Buckets available when editing the bucket cell. If omitted, the cell is read-only. */
   bucketOptions?: ReadonlyArray<BucketOption>;
-  /** Open the task page for cells that cannot be edited inline (assignees, labels). */
+  /** Opens the modal/detail view for the task. Triggered by the title click. */
   onOpenTask?: (taskId: string) => void;
   columnOrder?: string[];
   columnWidths?: Record<string, number>;
@@ -41,11 +52,15 @@ export interface TaskGridProps {
   onColumnWidthsChange?: (next: Record<string, number>) => void;
 }
 
-const STATUS_OPTIONS: Array<{ value: TaskGridRow['status']; label: string }> = [
-  { value: 'not_started', label: 'Not started' },
-  { value: 'in_progress', label: 'In progress' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'deferred', label: 'Deferred' },
+const STATUS_OPTIONS: Array<{
+  value: TaskGridRow['status'];
+  label: string;
+  dotClass: string;
+}> = [
+  { value: 'not_started', label: 'Not started', dotClass: 'status-dot--muted' },
+  { value: 'in_progress', label: 'In progress', dotClass: 'status-dot--primary' },
+  { value: 'completed', label: 'Completed', dotClass: 'status-dot--success' },
+  { value: 'deferred', label: 'Deferred', dotClass: 'status-dot--warning' },
 ];
 
 const PRIORITY_OPTIONS: Array<{ value: TaskGridRow['priority']; label: string }> = [
@@ -54,6 +69,47 @@ const PRIORITY_OPTIONS: Array<{ value: TaskGridRow['priority']; label: string }>
   { value: 'medium', label: 'Medium' },
   { value: 'low', label: 'Low' },
 ];
+
+// Shared grid template so header and rows align perfectly.
+const GRID_TEMPLATE_COLS =
+  '[grid-template-columns:36px_minmax(220px,2.4fr)_140px_130px_130px_130px_110px_minmax(120px,1fr)]';
+
+function bucketStatusForName(name: string): 'muted' | 'primary' | 'warning' | 'success' {
+  const n = name.toLowerCase();
+  if (n.includes('progress')) return 'primary';
+  if (n.includes('review')) return 'warning';
+  if (n.includes('done') || n.includes('complete')) return 'success';
+  return 'muted';
+}
+
+function isOverdue(due: string | null): boolean {
+  if (!due) return false;
+  const d = new Date(due);
+  if (Number.isNaN(d.getTime())) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  d.setHours(0, 0, 0, 0);
+  return d < today;
+}
+
+function formatDue(due: string | null): string {
+  if (!due) return '';
+  const d = new Date(due);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function formatGroupHeader(
+  by: GroupBy,
+  key: string,
+): { label: string; status: 'muted' | 'primary' | 'warning' | 'success' } {
+  if (by === 'bucket') return { label: key, status: bucketStatusForName(key) };
+  if (by === 'priority') {
+    const opt = PRIORITY_OPTIONS.find((o) => o.value === key);
+    return { label: opt?.label ?? key, status: 'muted' };
+  }
+  return { label: key, status: 'muted' };
+}
 
 export function TaskGrid({
   rows,
@@ -87,144 +143,208 @@ export function TaskGrid({
     onSelectionChange(next);
   }
 
+  const headCellCls = 'text-[11px] font-medium uppercase tracking-[0.04em] text-ink-subtle min-w-0';
+
   return (
-    <table className="task-grid">
-      <thead>
-        <tr aria-label="Grid columns">
-          <th scope="col">
-            <span className="sr-only">Select</span>
-          </th>
-          <th scope="col">Title</th>
-          <th scope="col">Status</th>
-          <th scope="col">Bucket</th>
-          <th scope="col">Priority</th>
-          <th scope="col">Assignees</th>
-          <th scope="col">Due</th>
-          <th scope="col">Labels</th>
-        </tr>
-      </thead>
-      <tbody>
-        {[...groups.entries()].map(([groupName, groupRowList]) => (
-          <Fragment key={groupName}>
-            <tr className="task-grid__group-header">
-              <td colSpan={8}>
-                {groupName} <span className="task-grid__count">({groupRowList.length})</span>
-              </td>
-            </tr>
-            {groupRowList.map((r) => (
-              <tr key={r.id} aria-label={r.title}>
-                <td>
-                  <input
-                    type="checkbox"
-                    aria-label={`Select ${r.title}`}
-                    checked={selection.has(r.id)}
-                    onClick={(e) => toggleSelect(r.id, e.shiftKey)}
-                    onChange={() => {}}
-                  />
-                </td>
-                <td>
-                  {editing?.taskId === r.id && editing.field === 'title' ? (
-                    <TitleInput
-                      initialValue={r.title}
-                      onCommit={(value) => {
-                        onCommitField?.(r.id, { title: value });
-                        setEditing(null);
+    <div className={`flex flex-1 flex-col overflow-auto bg-surface-1 px-lg py-md`}>
+      <div
+        aria-label="Grid columns"
+        className={`grid ${GRID_TEMPLATE_COLS} mb-2 min-h-11 items-center gap-2 border-b border-hairline px-3`}
+      >
+        <div className={`${headCellCls} flex items-center justify-center`}>
+          <span className="sr-only">Select</span>
+        </div>
+        <div className={headCellCls}>Title</div>
+        <div className={headCellCls}>Status</div>
+        <div className={headCellCls}>Bucket</div>
+        <div className={headCellCls}>Priority</div>
+        <div className={headCellCls}>Assignees</div>
+        <div className={headCellCls}>Due</div>
+        <div className={`${headCellCls} pr-2`}>Labels</div>
+      </div>
+
+      {[...groups.entries()].map(([groupKey, groupRowList]) => {
+        const header = formatGroupHeader(groupBy, groupKey);
+        return (
+          <Fragment key={groupKey}>
+            <div className="mt-2 flex items-center gap-2 px-3 pb-2 pt-3 first:mt-0">
+              <span className={`status-dot status-dot--${header.status}`} aria-hidden />
+              <span className="text-body-sm font-semibold text-ink">{header.label}</span>
+              <span className="text-caption text-ink-subtle">{groupRowList.length}</span>
+            </div>
+
+            {groupRowList.map((r) => {
+              const overdue = isOverdue(r.due);
+              const isSelected = selection.has(r.id);
+              const isEditingTitle = editing?.taskId === r.id && editing.field === 'title';
+
+              return (
+                <div
+                  key={r.id}
+                  role="row"
+                  aria-label={r.title}
+                  aria-selected={isSelected}
+                  className={[
+                    'group grid items-center gap-2 px-3',
+                    GRID_TEMPLATE_COLS,
+                    'min-h-11 mb-1 rounded-md border bg-canvas transition-colors',
+                    isSelected
+                      ? 'border-primary shadow-[0_0_0_1px_var(--color-primary)]'
+                      : 'border-hairline hover:border-hairline-strong hover:shadow-sm',
+                  ].join(' ')}
+                >
+                  <div className="flex items-center justify-center">
+                    <input
+                      type="checkbox"
+                      aria-label={`Select ${r.title}`}
+                      checked={isSelected}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleSelect(r.id, e.shiftKey);
                       }}
-                      onCancel={() => setEditing(null)}
+                      onChange={() => {}}
                     />
-                  ) : (
-                    <span className="inline-flex items-center gap-2">
-                      <button
-                        type="button"
-                        aria-label={`Edit title: ${r.title}`}
-                        className="task-grid__title-trigger"
-                        onClick={() => setEditing({ taskId: r.id, field: 'title' })}
-                      >
-                        {r.title}
-                      </button>
-                      {r.external_source === 'm365' && (
-                        <SyncBadge
-                          state={r.sync_status ?? null}
-                          synced_at={r.external_synced_at ?? null}
-                          size="mini"
+                  </div>
+
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    {isEditingTitle ? (
+                      <TitleInput
+                        initialValue={r.title}
+                        onCommit={(value) => {
+                          if (value !== r.title) onCommitField?.(r.id, { title: value });
+                          setEditing(null);
+                        }}
+                        onCancel={() => setEditing(null)}
+                      />
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          aria-label={`Open ${r.title}`}
+                          className="min-w-0 flex-1 truncate border-0 bg-transparent p-0 text-left text-body-sm font-medium text-ink hover:text-primary hover:underline hover:underline-offset-2"
+                          onClick={() => onOpenTask?.(r.id)}
+                        >
+                          {r.title}
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`Rename ${r.title}`}
+                          className="inline-flex size-[22px] shrink-0 items-center justify-center rounded-sm text-ink-subtle opacity-0 transition-opacity hover:bg-surface-2 hover:text-ink group-hover:opacity-100"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditing({ taskId: r.id, field: 'title' });
+                          }}
+                        >
+                          <Pencil className="size-3" aria-hidden />
+                        </button>
+                        {r.external_source === 'm365' && (
+                          <SyncBadge
+                            state={r.sync_status ?? null}
+                            synced_at={r.external_synced_at ?? null}
+                            size="mini"
+                          />
+                        )}
+                      </>
+                    )}
+                  </div>
+
+                  <div className="flex min-w-0 items-center">
+                    <StatusCell
+                      label={`Edit status for ${r.title}`}
+                      value={r.status}
+                      onChange={(v) => onCommitField?.(r.id, { status: v })}
+                    />
+                  </div>
+
+                  <div className="flex min-w-0 items-center">
+                    {bucketOptions ? (
+                      <BucketCell
+                        label={`Edit bucket for ${r.title}`}
+                        value={r.bucket_id ?? ''}
+                        bucketName={r.bucket}
+                        options={bucketOptions}
+                        onChange={(v) =>
+                          onCommitField?.(r.id, {
+                            bucket_id: v === '' ? null : v,
+                            bucket: bucketOptions.find((b) => b.id === v)?.name ?? 'No bucket',
+                          })
+                        }
+                      />
+                    ) : (
+                      <BucketPill name={r.bucket} />
+                    )}
+                  </div>
+
+                  <div className="flex min-w-0 items-center">
+                    <PriorityCell
+                      label={`Edit priority for ${r.title}`}
+                      value={r.priority}
+                      onChange={(v) => onCommitField?.(r.id, { priority: v })}
+                    />
+                  </div>
+
+                  <div className="flex min-w-0 items-center">
+                    <button
+                      type="button"
+                      aria-label={`Edit assignees for ${r.title}`}
+                      onClick={() => onOpenTask?.(r.id)}
+                      className="inline-flex min-w-0 items-center gap-1 rounded-sm border-0 bg-transparent p-0 hover:opacity-80"
+                    >
+                      {r.assignees.length === 0 ? (
+                        <span className="text-caption text-ink-tertiary">—</span>
+                      ) : (
+                        <AvatarStack
+                          assignees={r.assignees.map((a) => ({
+                            user_id: a.id,
+                            display_name: a.name,
+                          }))}
                         />
                       )}
-                    </span>
-                  )}
-                </td>
-                <td>
-                  <SelectCell
-                    label={`Edit status for ${r.title}`}
-                    value={r.status}
-                    options={STATUS_OPTIONS}
-                    onChange={(v) => onCommitField?.(r.id, { status: v })}
-                    formatValue={(v) => v.replaceAll('_', ' ')}
-                  />
-                </td>
-                <td>
-                  {bucketOptions ? (
-                    <SelectCell
-                      label={`Edit bucket for ${r.title}`}
-                      value={r.bucket_id ?? ''}
-                      options={[
-                        { value: '', label: 'No bucket' },
-                        ...bucketOptions.map((b) => ({ value: b.id, label: b.name })),
-                      ]}
-                      onChange={(v) =>
-                        onCommitField?.(r.id, {
-                          bucket_id: v === '' ? null : v,
-                          bucket: bucketOptions.find((b) => b.id === v)?.name ?? 'No bucket',
-                        })
-                      }
-                      formatValue={() => r.bucket}
+                    </button>
+                  </div>
+
+                  <div className="flex min-w-0 items-center">
+                    <DueCell
+                      value={r.due}
+                      overdue={overdue}
+                      onChange={(v) => onCommitField?.(r.id, { due: v })}
+                      label={`Edit due date for ${r.title}`}
                     />
-                  ) : (
-                    r.bucket
-                  )}
-                </td>
-                <td>
-                  <SelectCell
-                    label={`Edit priority for ${r.title}`}
-                    value={r.priority}
-                    options={PRIORITY_OPTIONS}
-                    onChange={(v) => onCommitField?.(r.id, { priority: v })}
-                  />
-                </td>
-                <td>
-                  <button
-                    type="button"
-                    className="task-grid__cell-trigger"
-                    aria-label={`Edit assignees for ${r.title}`}
-                    onClick={() => onOpenTask?.(r.id)}
-                  >
-                    {r.assignees.length === 0 ? '—' : r.assignees.map((a) => a.name).join(', ')}
-                  </button>
-                </td>
-                <td>
-                  <DueCell
-                    value={r.due}
-                    onChange={(v) => onCommitField?.(r.id, { due: v })}
-                    label={`Edit due date for ${r.title}`}
-                  />
-                </td>
-                <td>
-                  <button
-                    type="button"
-                    className="task-grid__cell-trigger"
-                    aria-label={`Edit labels for ${r.title}`}
-                    onClick={() => onOpenTask?.(r.id)}
-                  >
-                    {r.labels.length === 0 ? '—' : r.labels.map((l) => l.name).join(', ')}
-                  </button>
-                </td>
-              </tr>
-            ))}
+                  </div>
+
+                  <div className="flex min-w-0 items-center gap-1 pr-2">
+                    <button
+                      type="button"
+                      aria-label={`Edit labels for ${r.title}`}
+                      onClick={() => onOpenTask?.(r.id)}
+                      className="inline-flex min-w-0 items-center gap-1 rounded-sm border-0 bg-transparent p-0 hover:opacity-80"
+                    >
+                      {r.labels.length === 0 ? (
+                        <span className="text-caption text-ink-tertiary">—</span>
+                      ) : (
+                        <>
+                          <LabelChip name={r.labels[0]?.name ?? ''} />
+                          {r.labels.length > 1 && (
+                            <span className="text-caption text-ink-subtle">
+                              +{r.labels.length - 1}
+                            </span>
+                          )}
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </Fragment>
-        ))}
-      </tbody>
-    </table>
+        );
+      })}
+    </div>
   );
 }
+
+const CHIP_CLS =
+  'inline-flex max-w-full items-center gap-1.5 rounded-full bg-surface-2 px-2 py-0.5 text-caption text-ink hover:bg-surface-1 hover:shadow-[inset_0_0_0_1px_var(--color-hairline)]';
 
 interface TitleInputProps {
   initialValue: string;
@@ -243,6 +363,8 @@ function TitleInput({ initialValue, onCommit, onCancel }: TitleInputProps) {
       type="text"
       defaultValue={initialValue}
       aria-label="Edit title"
+      autoFocus
+      className="w-full rounded-sm border border-primary bg-canvas px-1.5 py-1 text-body-sm text-ink outline-none"
       onKeyDown={(e) => {
         if (e.key === 'Enter') {
           committedRef.current = true;
@@ -260,57 +382,130 @@ function TitleInput({ initialValue, onCommit, onCancel }: TitleInputProps) {
   );
 }
 
-interface SelectCellProps<T extends string> {
+interface StatusCellProps {
   label: string;
-  value: T;
-  options: ReadonlyArray<{ value: T; label: string }>;
-  onChange: (next: T) => void;
-  formatValue?: (value: T) => string;
+  value: TaskGridRow['status'];
+  onChange: (next: TaskGridRow['status']) => void;
 }
 
-function SelectCell<T extends string>({
-  label,
-  value,
-  options,
-  onChange,
-  formatValue,
-}: SelectCellProps<T>) {
-  const [open, setOpen] = useState(false);
-  const current = options.find((o) => o.value === value);
-  const display = formatValue ? formatValue(value) : (current?.label ?? value);
+function StatusCell({ label, value, onChange }: StatusCellProps) {
+  const current = STATUS_OPTIONS.find((o) => o.value === value) ?? STATUS_OPTIONS[0];
+  if (!current) return null;
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button type="button" className="task-grid__cell-trigger" aria-label={label}>
-          {display}
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button type="button" className={CHIP_CLS} aria-label={label}>
+          <span className={`status-dot ${current.dotClass}`} aria-hidden />
+          <span className="truncate">{current.label}</span>
+          <ChevronDown className="size-3 shrink-0 text-ink-subtle" aria-hidden />
         </button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-44 p-1">
-        {options.map((o) => (
-          <button
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="min-w-[180px]">
+        {STATUS_OPTIONS.map((o) => (
+          <DropdownMenuItem
             key={o.value}
-            type="button"
-            className="flex w-full items-center justify-between rounded px-2 py-1.5 text-sm hover:bg-surface-2"
-            onClick={() => {
-              if (o.value !== value) onChange(o.value);
-              setOpen(false);
-            }}
+            onSelect={() => o.value !== value && onChange(o.value)}
+            className="flex items-center gap-2"
           >
-            <span>{o.label}</span>
-          </button>
+            <span className={`status-dot ${o.dotClass}`} aria-hidden />
+            {o.label}
+          </DropdownMenuItem>
         ))}
-      </PopoverContent>
-    </Popover>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+interface PriorityCellProps {
+  label: string;
+  value: TaskGridRow['priority'];
+  onChange: (next: TaskGridRow['priority']) => void;
+}
+
+function PriorityCell({ label, value, onChange }: PriorityCellProps) {
+  const current = PRIORITY_OPTIONS.find((o) => o.value === value) ?? PRIORITY_OPTIONS[2];
+  if (!current) return null;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button type="button" className={CHIP_CLS} aria-label={label}>
+          <PriorityIcon level={value} />
+          <span className="truncate">{current.label}</span>
+          <ChevronDown className="size-3 shrink-0 text-ink-subtle" aria-hidden />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="min-w-[180px]">
+        {PRIORITY_OPTIONS.map((o) => (
+          <DropdownMenuItem
+            key={o.value}
+            onSelect={() => o.value !== value && onChange(o.value)}
+            className="flex items-center gap-2"
+          >
+            <PriorityIcon level={o.value} />
+            {o.label}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+interface BucketCellProps {
+  label: string;
+  value: string;
+  bucketName: string;
+  options: ReadonlyArray<BucketOption>;
+  onChange: (next: string) => void;
+}
+
+function BucketCell({ label, value, bucketName, options, onChange }: BucketCellProps) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button type="button" className="border-0 bg-transparent p-0" aria-label={label}>
+          <BucketPill name={bucketName} />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="min-w-[200px]">
+        <DropdownMenuItem
+          onSelect={() => value !== '' && onChange('')}
+          className="flex items-center gap-2"
+        >
+          <span className="status-dot status-dot--muted" aria-hidden />
+          No bucket
+        </DropdownMenuItem>
+        {options.map((o) => (
+          <DropdownMenuItem
+            key={o.id}
+            onSelect={() => o.id !== value && onChange(o.id)}
+            className="flex items-center gap-2"
+          >
+            <span className={`status-dot status-dot--${bucketStatusForName(o.name)}`} aria-hidden />
+            {o.name}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function BucketPill({ name }: { name: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-2 px-2 py-0.5 text-caption text-ink">
+      <span className={`status-dot status-dot--${bucketStatusForName(name)}`} aria-hidden />
+      <span className="truncate">{name}</span>
+    </span>
   );
 }
 
 interface DueCellProps {
   value: string | null;
+  overdue: boolean;
   onChange: (next: string | null) => void;
   label: string;
 }
 
-function DueCell({ value, onChange, label }: DueCellProps) {
+function DueCell({ value, overdue, onChange, label }: DueCellProps) {
   const [editing, setEditing] = useState(false);
   if (editing) {
     return (
@@ -318,6 +513,8 @@ function DueCell({ value, onChange, label }: DueCellProps) {
         type="date"
         defaultValue={value ? value.slice(0, 10) : ''}
         aria-label={label}
+        autoFocus
+        className="rounded-sm border border-primary bg-canvas px-1.5 py-1 text-caption text-ink outline-none"
         onBlur={(e) => {
           const v = e.target.value;
           onChange(v ? new Date(v).toISOString() : null);
@@ -333,11 +530,11 @@ function DueCell({ value, onChange, label }: DueCellProps) {
     <button
       type="button"
       suppressHydrationWarning
-      className="task-grid__cell-trigger"
+      className={`${CHIP_CLS} ${overdue ? '!bg-semantic-danger-tint !text-semantic-danger' : ''}`}
       aria-label={label}
       onClick={() => setEditing(true)}
     >
-      {value ? new Date(value).toLocaleDateString() : '—'}
+      {value ? formatDue(value) : <span className="text-ink-tertiary">— set due</span>}
     </button>
   );
 }

@@ -1,32 +1,12 @@
-import {
-  EmptyState,
-  PLANNER_403_LIMIT_MESSAGES,
-  type PlanConflictDecision,
-  ResolvePlanConflictsDialog,
-  TaskGrid,
-  type TaskGridRow,
-} from '@seta/shared-ui';
-import { useMemo, useState } from 'react';
-import { GridSkeleton } from '../components/board-skeleton';
+import type { BucketRow, TaskWithAssigneesRow } from '@seta/planner';
+import { TaskGrid, type TaskGridRow } from '@seta/shared-ui';
+import { useMemo } from 'react';
 import { GridBulkActionFooter } from '../components/grid-bulk-action-footer';
-import { GridGroupBySelector } from '../components/grid-group-by-selector';
-import { PlanError } from '../components/plan-error';
-import { PlanFilterBar } from '../components/plan-filter-bar';
-import { PlanPageHeader } from '../components/plan-page-header';
-import { PlanSearchInput } from '../components/plan-search-input';
-import { PlanViewSwitcher } from '../components/plan-view-switcher';
 import { useCompleteTask } from '../hooks/mutations/complete-task';
 import { useMoveTask } from '../hooks/mutations/move-task';
-import { useRefreshPlanSync } from '../hooks/mutations/refresh-plan-sync';
 import { useReopenTask } from '../hooks/mutations/reopen-task';
-import {
-  type ResolvePlanDecisions,
-  useResolvePlanConflicts,
-} from '../hooks/mutations/resolve-plan-conflicts';
 import { useUpdateTask } from '../hooks/mutations/update-task';
-import { usePlanBoard } from '../hooks/queries/use-plan-board';
 import { useBulkActions } from '../hooks/use-bulk-actions';
-import { useFilterOptions } from '../hooks/use-filter-options';
 import { useGridColumnPrefs } from '../hooks/use-grid-column-prefs';
 import { useSelectedTaskIds } from '../state/selected-task-ids';
 import {
@@ -39,43 +19,23 @@ import type { BoardFilters, GroupBy } from '../state/url-state';
 
 interface Props {
   planId: string;
+  buckets: BucketRow[];
+  tasks: TaskWithAssigneesRow[];
   filters: BoardFilters;
-  onFiltersChange: (f: BoardFilters) => void;
   onOpenTask: (taskId: string) => void;
-  view: 'board' | 'grid';
-  onViewChange: (v: 'board' | 'grid') => void;
   groupBy: GroupBy;
-  onGroupByChange: (g: GroupBy) => void;
   q?: string;
-  onQChange?: (next: string) => void;
-  currentUserId?: string;
-  groupName?: string;
-  canManage?: boolean;
-  onRenamePlan?: (name: string) => void;
-  onArchivePlan?: () => void;
-  onDeletePlan?: () => void;
 }
 
 export function PlanGridPage({
   planId,
+  buckets,
+  tasks,
   filters,
-  onFiltersChange,
   onOpenTask,
-  onViewChange,
-  view,
   groupBy,
-  onGroupByChange,
   q = '',
-  onQChange,
-  currentUserId,
-  groupName,
-  canManage,
-  onRenamePlan,
-  onArchivePlan,
-  onDeletePlan,
 }: Props) {
-  const boardQ = usePlanBoard(planId);
-  const filterOptions = useFilterOptions(boardQ.data);
   const selectedIds = useSelectedTaskIds((s) => s.ids);
   const setSelectedIds = useSelectedTaskIds((s) => s.set);
   const clearSelection = useSelectedTaskIds((s) => s.clear);
@@ -84,17 +44,9 @@ export function PlanGridPage({
   const moveTask = useMoveTask(planId);
   const completeTask = useCompleteTask(planId);
   const reopenTask = useReopenTask(planId);
-  const refreshSync = useRefreshPlanSync(planId);
-  const resolveConflicts = useResolvePlanConflicts(planId);
   const bulk = useBulkActions(planId);
-  const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
 
   const { rows, tasksById, bucketOptions, assigneeOptions } = useMemo(() => {
-    if (!boardQ.data) {
-      return { rows: [], tasksById: new Map(), bucketOptions: [], assigneeOptions: [] };
-    }
-
-    const { tasks, buckets } = boardQ.data;
     const bucketById = new Map(buckets.map((b) => [b.id, b]));
     const taskMap = new Map(tasks.map((t) => [t.id, t]));
 
@@ -152,15 +104,7 @@ export function PlanGridPage({
       bucketOptions: bucketOpts,
       assigneeOptions: assigneeOpts,
     };
-  }, [boardQ.data, filters, q]);
-
-  if (boardQ.isPending) {
-    return <GridSkeleton />;
-  }
-  if (boardQ.isError || !boardQ.data) {
-    return <PlanError onRetry={() => boardQ.refetch()} />;
-  }
-  const { plan, buckets, tasks } = boardQ.data;
+  }, [buckets, tasks, filters, q]);
 
   function onCommitField(taskId: string, patch: Partial<TaskGridRow>) {
     const task = tasksById.get(taskId);
@@ -222,135 +166,31 @@ export function PlanGridPage({
   }
 
   return (
-    <div className="plan-grid-page">
-      <PlanPageHeader
-        planName={plan.name}
-        groupName={groupName}
-        groupId={plan.group_id}
-        bucketCount={buckets.length}
-        taskCount={tasks.length}
-        myTaskCount={
-          currentUserId
-            ? tasks.filter((t) => t.assignees.some((a) => a.user_id === currentUserId)).length
-            : undefined
-        }
-        canRename={canManage}
-        canManage={canManage}
-        onRename={onRenamePlan}
-        onArchive={canManage ? onArchivePlan : undefined}
-        onDelete={canManage ? onDeletePlan : undefined}
-        external_source={plan.external_source}
-        syncStatus={plan.sync_status}
-        externalSyncedAt={plan.external_synced_at}
-        externalId={plan.external_id}
-        conflictCount={null}
-        onRefreshSync={plan.external_source === 'm365' ? () => refreshSync.mutate() : undefined}
-        onOpenConflictDialog={
-          plan.external_source === 'm365' ? () => setConflictDialogOpen(true) : undefined
-        }
+    <>
+      <TaskGrid
+        rows={rows}
+        groupBy={groupBy}
+        selection={selectedIds}
+        onSelectionChange={setSelectedIds}
+        onCommitField={onCommitField}
+        bucketOptions={bucketOptions}
+        onOpenTask={onOpenTask}
+        columnOrder={prefs.order}
+        columnWidths={prefs.widths}
+        onColumnOrderChange={(order) => setPrefs((p) => ({ ...p, order }))}
+        onColumnWidthsChange={(widths) => setPrefs((p) => ({ ...p, widths }))}
       />
-      <div className="plan-toolbar">
-        <div className="plan-toolbar__left">
-          <PlanFilterBar
-            filters={filters}
-            onChange={onFiltersChange}
-            assigneeOptions={filterOptions.assigneeOptions}
-            labelOptions={filterOptions.labelOptions}
-            skillOptions={filterOptions.skillOptions}
-          />
-          <div className="plan-toolbar__divider" aria-hidden="true" />
-          <PlanViewSwitcher value={view} onChange={onViewChange} />
-          <GridGroupBySelector value={groupBy} onChange={onGroupByChange} />
-        </div>
-        <div className="plan-toolbar__right">
-          {onQChange && <PlanSearchInput value={q} onChange={onQChange} />}
-        </div>
-      </div>
-      {plan.sync_status === 'error' && plan.last_error && (
-        <div
-          role="alert"
-          className="mx-7 mt-3 rounded border border-semantic-danger bg-semantic-danger-tint p-3 text-body-sm"
-          data-testid="plan-sync-error-banner"
-        >
-          <div className="font-medium">
-            Sync didn&apos;t work: {PLANNER_403_LIMIT_MESSAGES[plan.last_error] ?? plan.last_error}
-          </div>
-          <button
-            type="button"
-            className="mt-2 text-primary underline"
-            onClick={() => refreshSync.mutate()}
-            disabled={refreshSync.isPending}
-          >
-            Try sync again
-          </button>
-        </div>
-      )}
-      {plan.sync_status === 'conflict' && (
-        <div
-          className="mx-7 mt-3 rounded border border-semantic-warning bg-semantic-warning-tint p-3 text-body-sm"
-          data-testid="plan-sync-conflict-banner"
-        >
-          <div className="font-medium">A few changes clashed — pick which version to keep</div>
-          <button
-            type="button"
-            className="mt-2 text-primary underline"
-            onClick={() => setConflictDialogOpen(true)}
-          >
-            Review changes
-          </button>
-        </div>
-      )}
-      {plan.sync_status === 'pulling' && tasks.length === 0 ? (
-        <div role="status" data-testid="plan-sync-pulling-empty">
-          <EmptyState
-            title="Bringing in your Microsoft Planner tasks…"
-            description="This can take a minute for large plans."
-          />
-        </div>
-      ) : (
-        <>
-          <TaskGrid
-            rows={rows}
-            groupBy={groupBy}
-            selection={selectedIds}
-            onSelectionChange={setSelectedIds}
-            onCommitField={onCommitField}
-            bucketOptions={bucketOptions}
-            onOpenTask={onOpenTask}
-            columnOrder={prefs.order}
-            columnWidths={prefs.widths}
-            onColumnOrderChange={(order) => setPrefs((p) => ({ ...p, order }))}
-            onColumnWidthsChange={(widths) => setPrefs((p) => ({ ...p, widths }))}
-          />
-          {selectedIds.size > 0 && (
-            <GridBulkActionFooter
-              count={selectedIds.size}
-              bucketOptions={bucketOptions}
-              assigneeOptions={assigneeOptions}
-              onMove={onMove}
-              onAssign={onAssign}
-              onSetDue={onSetDue}
-              onDelete={onDelete}
-            />
-          )}
-        </>
-      )}
-      {plan.external_source === 'm365' && (
-        <ResolvePlanConflictsDialog
-          open={conflictDialogOpen}
-          onOpenChange={setConflictDialogOpen}
-          data={{ planId: plan.id, planLevelConflicts: [], taskConflicts: [] }}
-          onApply={async (decisions: PlanConflictDecision[]) => {
-            const apiDecisions: ResolvePlanDecisions = decisions.map((d) =>
-              d.kind === 'plan'
-                ? { kind: 'plan', field: d.field, choice: d.choice }
-                : { kind: 'task', task_id: d.taskId, field: d.field, choice: d.choice },
-            );
-            await resolveConflicts.mutateAsync(apiDecisions);
-            setConflictDialogOpen(false);
-          }}
+      {selectedIds.size > 0 && (
+        <GridBulkActionFooter
+          count={selectedIds.size}
+          bucketOptions={bucketOptions}
+          assigneeOptions={assigneeOptions}
+          onMove={onMove}
+          onAssign={onAssign}
+          onSetDue={onSetDue}
+          onDelete={onDelete}
         />
       )}
-    </div>
+    </>
   );
 }

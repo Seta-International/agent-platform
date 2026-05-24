@@ -1,22 +1,8 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { useEffect, useState } from 'react';
 import { z } from 'zod';
-import { useSession } from '@/modules/identity/components/SessionProvider';
-import { ConfirmDeletePlanDialog } from '@/modules/planner/components/ConfirmDeletePlanDialog';
-import { useDeletePlan } from '@/modules/planner/hooks/mutations/delete-plan';
-import { useUpdatePlan } from '@/modules/planner/hooks/mutations/update-plan';
-import { useGroup } from '@/modules/planner/hooks/queries/use-group';
-import { usePlanBoard } from '@/modules/planner/hooks/queries/use-plan-board';
-import { useRecentPlans } from '@/modules/planner/hooks/use-recent-plans';
-import { PlanGridPage } from '@/modules/planner/pages/plan-grid-page';
-import { PlanPage } from '@/modules/planner/pages/plan-page';
-import {
-  parseFiltersFromSearch,
-  parseGroupBy,
-  parseSearchQuery,
-  parseViewMode,
-  serializeFiltersToSearch,
-} from '@/modules/planner/state/url-state';
+import { TaskDetailDialog } from '@/modules/planner/components/TaskDetailDialog';
+import { PlanBoardShell } from '@/modules/planner/pages/plan-board-shell';
+import { serializeFiltersToSearch } from '@/modules/planner/state/url-state';
 
 const searchSchema = z.object({
   view: z.enum(['board', 'grid']).optional(),
@@ -25,6 +11,8 @@ const searchSchema = z.object({
   'filter.label': z.string().optional(),
   'filter.skill': z.string().optional(),
   q: z.string().optional(),
+  /** Jira-style modal-over-board: when set, opens the task detail in a centered modal. */
+  selectedTask: z.string().uuid().optional(),
 });
 
 export const Route = createFileRoute('/_authed/planner/plans_/$planId')({
@@ -36,120 +24,43 @@ function PlanRoute() {
   const { planId } = Route.useParams();
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
-  const session = useSession();
-
-  const filters = parseFiltersFromSearch(search as Record<string, string | undefined>);
-  const view = parseViewMode(search.view);
-  const groupBy = parseGroupBy(search.groupBy);
-  const q = parseSearchQuery(search.q);
-  const onQChange = (next: string) =>
-    navigate({ search: (prev) => ({ ...prev, q: next ? next : undefined }) });
-
-  const boardQ = usePlanBoard(planId);
-  const plan = boardQ.data?.plan;
-  const groupId = plan?.group_id;
-  const groupQ = useGroup(groupId ?? '');
-  const updatePlan = useUpdatePlan(groupId ?? '', planId);
-  const deletePlan = useDeletePlan(groupId ?? '', planId);
-
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-
-  const { recordVisit, evict } = useRecentPlans(session.tenant_id);
-  const planName = plan?.name;
-  useEffect(() => {
-    if (planName) recordVisit(planId, planName);
-  }, [planId, planName, recordVisit]);
-  const errMsg = boardQ.error instanceof Error ? boardQ.error.message.toLowerCase() : '';
-  const isStale =
-    boardQ.isError &&
-    (errMsg.includes('404') ||
-      errMsg.includes('not found') ||
-      errMsg.includes('403') ||
-      errMsg.includes('forbidden') ||
-      errMsg.includes('permission'));
-  useEffect(() => {
-    if (isStale) evict(planId);
-  }, [isStale, planId, evict]);
-
-  const canManage =
-    session.role_summary.roles.includes('org.admin') ||
-    session.role_summary.roles.includes('tenant.admin') ||
-    (session.role_summary.roles.includes('planner.admin') &&
-      groupId !== undefined &&
-      session.accessible_group_ids.includes(groupId));
-
-  const onFiltersChange = (f: typeof filters) =>
-    navigate({ search: (prev) => ({ ...prev, ...serializeFiltersToSearch(f) }) });
-  const onViewChange = (v: 'board' | 'grid') =>
-    navigate({ search: (prev) => ({ ...prev, view: v === 'board' ? undefined : v }) });
-  const onOpenTask = (taskId: string) =>
-    void navigate({
-      to: '/planner/plans/$planId/tasks/$taskId',
-      params: { planId, taskId },
-    });
-
-  function onRenamePlan(name: string) {
-    if (!plan) return;
-    updatePlan.mutate({ expected_version: plan.version, patch: { name } });
-  }
-  function onDeletePlan() {
-    if (!plan) return;
-    setDeleteDialogOpen(true);
-  }
-
-  function handleConfirmDelete() {
-    if (!plan) return;
-    deletePlan.mutate({ expected_version: plan.version });
-    setDeleteDialogOpen(false);
-    void navigate({ to: '/planner/groups/$groupId', params: { groupId: plan.group_id } });
-  }
+  const selectedTaskId = search.selectedTask;
 
   return (
     <>
-      {view === 'board' ? (
-        <PlanPage
+      <PlanBoardShell
+        planId={planId}
+        search={search}
+        onQChange={(next) =>
+          navigate({ search: (prev) => ({ ...prev, q: next ? next : undefined }) })
+        }
+        onFiltersChange={(f) =>
+          navigate({ search: (prev) => ({ ...prev, ...serializeFiltersToSearch(f) }) })
+        }
+        onViewChange={(v) =>
+          navigate({ search: (prev) => ({ ...prev, view: v === 'board' ? undefined : v }) })
+        }
+        onGroupByChange={(g) =>
+          navigate({ search: (prev) => ({ ...prev, groupBy: g === 'bucket' ? undefined : g }) })
+        }
+        onOpenTask={(taskId) => navigate({ search: (prev) => ({ ...prev, selectedTask: taskId }) })}
+        onLeaveAfterDelete={(groupId) =>
+          void navigate({ to: '/planner/groups/$groupId', params: { groupId } })
+        }
+      />
+      {selectedTaskId && (
+        <TaskDetailDialog
           planId={planId}
-          view={view}
-          filters={filters}
-          onFiltersChange={onFiltersChange}
-          onViewChange={onViewChange}
-          onOpenTask={onOpenTask}
-          q={q}
-          onQChange={onQChange}
-          currentUserId={session.user_id}
-          groupName={groupQ.data?.name}
-          canManage={canManage}
-          onRenamePlan={onRenamePlan}
-          onDeletePlan={onDeletePlan}
-        />
-      ) : (
-        <PlanGridPage
-          planId={planId}
-          view={view}
-          filters={filters}
-          onFiltersChange={onFiltersChange}
-          onViewChange={onViewChange}
-          onOpenTask={onOpenTask}
-          groupBy={groupBy}
-          onGroupByChange={(g) =>
-            navigate({ search: (prev) => ({ ...prev, groupBy: g === 'bucket' ? undefined : g }) })
+          taskId={selectedTaskId}
+          onClose={() => navigate({ search: (prev) => ({ ...prev, selectedTask: undefined }) })}
+          onOpenFullPage={() =>
+            void navigate({
+              to: '/planner/plans/$planId/tasks/$taskId',
+              params: { planId, taskId: selectedTaskId },
+            })
           }
-          q={q}
-          onQChange={onQChange}
-          currentUserId={session.user_id}
-          groupName={groupQ.data?.name}
-          canManage={canManage}
-          onRenamePlan={onRenamePlan}
-          onDeletePlan={onDeletePlan}
         />
       )}
-      <ConfirmDeletePlanDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
-        externalSource={plan?.external_source === 'm365' ? 'm365' : 'native'}
-        onConfirm={handleConfirmDelete}
-        pending={deletePlan.isPending}
-      />
     </>
   );
 }

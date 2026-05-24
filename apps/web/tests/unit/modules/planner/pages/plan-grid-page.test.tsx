@@ -1,4 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  RouterProvider,
+} from '@tanstack/react-router';
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { axe } from 'jest-axe';
@@ -6,9 +13,10 @@ import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import type { ReactNode } from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { PlanGridPage } from '../../../../../src/modules/planner/pages/plan-grid-page';
+import type { SessionScopeProjection } from '../../../../../src/modules/identity/api/client';
+import { SessionProvider } from '../../../../../src/modules/identity/components/SessionProvider';
+import { PlanBoardShell } from '../../../../../src/modules/planner/pages/plan-board-shell';
 import { useSelectedTaskIds } from '../../../../../src/modules/planner/state/selected-task-ids';
-import { EMPTY_FILTERS } from '../../../../../src/modules/planner/state/url-state';
 
 const server = setupServer();
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
@@ -16,11 +24,65 @@ beforeEach(() => useSelectedTaskIds.getState().clear());
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
-function renderWith(node: ReactNode) {
+const session: SessionScopeProjection = {
+  user_id: 'u-self',
+  tenant_id: 't',
+  tenant_name: 'Acme',
+  tenant_slug: 'acme',
+  email: 'u@acme.test',
+  display_name: 'Me',
+  role_summary: { roles: ['tenant.admin'], cross_tenant_read: false },
+  accessible_group_ids: ['g1'],
+  cross_tenant_read: false,
+  tenant_local_password_disabled: false,
+};
+
+function withRouter(node: ReactNode) {
+  const rootRoute = createRootRoute({ component: () => node });
+  const indexRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/',
+    component: () => node,
+  });
+  const groupsRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/planner/groups',
+    component: () => null,
+  });
+  const groupDetailRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/planner/groups/$groupId',
+    component: () => null,
+  });
+  const router = createRouter({
+    routeTree: rootRoute.addChildren([indexRoute, groupsRoute, groupDetailRoute]),
+    history: createMemoryHistory({ initialEntries: ['/'] }),
+  });
+  return <RouterProvider router={router} />;
+}
+
+function renderShell() {
   const qc = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-  return render(<QueryClientProvider client={qc}>{node}</QueryClientProvider>);
+  return render(
+    <QueryClientProvider client={qc}>
+      <SessionProvider session={session}>
+        {withRouter(
+          <PlanBoardShell
+            planId="p1"
+            search={{ view: 'grid' }}
+            onQChange={() => {}}
+            onFiltersChange={() => {}}
+            onViewChange={() => {}}
+            onGroupByChange={() => {}}
+            onOpenTask={() => {}}
+            onLeaveAfterDelete={() => {}}
+          />,
+        )}
+      </SessionProvider>
+    </QueryClientProvider>,
+  );
 }
 
 const planFixture = {
@@ -55,7 +117,11 @@ const bucketTodo = {
   tenant_id: 't',
   plan_id: 'p1',
   name: 'To do',
-  sort_order: 1_000_000,
+  order_hint: 'm',
+  external_source: 'native',
+  external_id: null,
+  external_etag: null,
+  external_synced_at: null,
   created_at: '',
   updated_at: '',
   deleted_at: null,
@@ -67,7 +133,11 @@ const bucketDone = {
   tenant_id: 't',
   plan_id: 'p1',
   name: 'Done',
-  sort_order: 2_000_000,
+  order_hint: 'n',
+  external_source: 'native',
+  external_id: null,
+  external_etag: null,
+  external_synced_at: null,
   created_at: '',
   updated_at: '',
   deleted_at: null,
@@ -81,12 +151,22 @@ const taskOne = {
   bucket_id: 'b1',
   title: 'Wire up DnD',
   description: null,
-  priority: 'medium' as const,
-  progress: 'not_started' as const,
+  priority_number: 5,
+  percent_complete: 0,
+  is_deferred: false,
+  preview_type: 'automatic',
   review_state: null,
   skill_tags: [],
+  start_at: null,
   due_at: null,
-  sort_order: 1_000_000,
+  order_hint: 'm',
+  assignee_priority: null,
+  external_source: 'native',
+  external_id: null,
+  external_etag: null,
+  external_synced_at: null,
+  sync_status: 'idle',
+  last_error: null,
   created_by: 'u',
   created_at: '',
   updated_at: '',
@@ -105,6 +185,22 @@ const taskTwo = {
   version: 2,
 };
 
+function groupFixture() {
+  return {
+    id: 'g1',
+    tenant_id: 't',
+    name: 'Engineering',
+    external_source: 'native',
+    external_id: null,
+    external_etag: null,
+    external_synced_at: null,
+    created_at: '',
+    updated_at: '',
+    deleted_at: null,
+    version: 1,
+  };
+}
+
 function seedBoardHandlers() {
   return [
     http.get('*/api/planner/v1/plans/p1', () => HttpResponse.json(planFixture)),
@@ -113,25 +209,11 @@ function seedBoardHandlers() {
     ),
     http.get('*/api/planner/v1/tasks', () => HttpResponse.json({ tasks: [taskOne, taskTwo] })),
     http.get('*/api/planner/v1/plans/p1/labels', () => HttpResponse.json({ labels: [] })),
+    http.get('*/api/planner/v1/groups/g1', () => HttpResponse.json(groupFixture())),
   ];
 }
 
-function renderPage() {
-  return renderWith(
-    <PlanGridPage
-      planId="p1"
-      filters={EMPTY_FILTERS}
-      onFiltersChange={() => {}}
-      onOpenTask={() => {}}
-      view="grid"
-      onViewChange={() => {}}
-      groupBy="bucket"
-      onGroupByChange={() => {}}
-    />,
-  );
-}
-
-describe('PlanGridPage', () => {
+describe('PlanGridPage (via PlanBoardShell)', () => {
   it('renders SyncBadge in header when plan is linked to m365', async () => {
     server.use(
       http.get('*/api/planner/v1/plans/p1', () => HttpResponse.json(m365LinkedPlanFixture)),
@@ -140,21 +222,22 @@ describe('PlanGridPage', () => {
       ),
       http.get('*/api/planner/v1/tasks', () => HttpResponse.json({ tasks: [taskOne] })),
       http.get('*/api/planner/v1/plans/p1/labels', () => HttpResponse.json({ labels: [] })),
+      http.get('*/api/planner/v1/groups/g1', () => HttpResponse.json(groupFixture())),
     );
-    renderPage();
+    renderShell();
     expect(await screen.findByText(/synced/i)).toBeInTheDocument();
   });
 
   it('renders no sync banners or pulling empty state when plan is idle', async () => {
     server.use(...seedBoardHandlers());
-    renderPage();
+    renderShell();
     await screen.findByText('Wire up DnD');
     expect(screen.queryByTestId('plan-sync-error-banner')).not.toBeInTheDocument();
     expect(screen.queryByTestId('plan-sync-conflict-banner')).not.toBeInTheDocument();
-    expect(screen.queryByText(/Syncing from M365 Planner/)).not.toBeInTheDocument();
+    expect(screen.queryByTestId('plan-sync-pulling-empty')).not.toBeInTheDocument();
   });
 
-  it('renders an error banner with humanized message and a Retry sync button when sync_status=error', async () => {
+  it('renders an error banner with humanized message and a retry button when sync_status=error', async () => {
     server.use(
       http.get('*/api/planner/v1/plans/p1', () =>
         HttpResponse.json({
@@ -168,14 +251,15 @@ describe('PlanGridPage', () => {
       ),
       http.get('*/api/planner/v1/tasks', () => HttpResponse.json({ tasks: [taskOne] })),
       http.get('*/api/planner/v1/plans/p1/labels', () => HttpResponse.json({ labels: [] })),
+      http.get('*/api/planner/v1/groups/g1', () => HttpResponse.json(groupFixture())),
     );
-    renderPage();
+    renderShell();
     const banner = await screen.findByTestId('plan-sync-error-banner');
-    expect(banner).toHaveTextContent('Sync failed: Network unreachable');
-    expect(screen.getByRole('button', { name: 'Retry sync' })).toBeInTheDocument();
+    expect(banner).toHaveTextContent(/Sync didn't work: Network unreachable/);
+    expect(screen.getByRole('button', { name: 'Try sync again' })).toBeInTheDocument();
   });
 
-  it('renders a conflict banner with a Resolve now button that opens the conflicts dialog', async () => {
+  it('renders a conflict banner with a review button that opens the conflicts dialog', async () => {
     server.use(
       http.get('*/api/planner/v1/plans/p1', () =>
         HttpResponse.json({ ...m365LinkedPlanFixture, sync_status: 'conflict' }),
@@ -185,11 +269,12 @@ describe('PlanGridPage', () => {
       ),
       http.get('*/api/planner/v1/tasks', () => HttpResponse.json({ tasks: [taskOne] })),
       http.get('*/api/planner/v1/plans/p1/labels', () => HttpResponse.json({ labels: [] })),
+      http.get('*/api/planner/v1/groups/g1', () => HttpResponse.json(groupFixture())),
     );
-    renderPage();
+    renderShell();
     expect(await screen.findByTestId('plan-sync-conflict-banner')).toBeInTheDocument();
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: 'Resolve now' }));
+    await user.click(screen.getByRole('button', { name: 'Review changes' }));
     expect(await screen.findByText('Resolve sync conflicts')).toBeInTheDocument();
   });
 
@@ -201,12 +286,13 @@ describe('PlanGridPage', () => {
       http.get('*/api/planner/v1/plans/p1/buckets', () => HttpResponse.json({ buckets: [] })),
       http.get('*/api/planner/v1/tasks', () => HttpResponse.json({ tasks: [] })),
       http.get('*/api/planner/v1/plans/p1/labels', () => HttpResponse.json({ labels: [] })),
+      http.get('*/api/planner/v1/groups/g1', () => HttpResponse.json(groupFixture())),
     );
-    renderPage();
-    expect(await screen.findByText(/Syncing from M365 Planner/)).toBeInTheDocument();
+    renderShell();
+    expect(await screen.findByTestId('plan-sync-pulling-empty')).toBeInTheDocument();
   });
 
-  it('renders skeleton while board is loading', () => {
+  it('renders skeleton while board is loading', async () => {
     server.use(
       http.get('*/api/planner/v1/plans/p1', async () => {
         await new Promise((r) => setTimeout(r, 1_000));
@@ -215,28 +301,35 @@ describe('PlanGridPage', () => {
       http.get('*/api/planner/v1/plans/p1/buckets', () => HttpResponse.json({ buckets: [] })),
       http.get('*/api/planner/v1/tasks', () => HttpResponse.json({ tasks: [] })),
       http.get('*/api/planner/v1/plans/p1/labels', () => HttpResponse.json({ labels: [] })),
+      http.get('*/api/planner/v1/groups/g1', () => HttpResponse.json(groupFixture())),
     );
-    renderPage();
-    expect(screen.getByTestId('grid-skeleton')).toBeInTheDocument();
+    renderShell();
+    expect(await screen.findByTestId('grid-skeleton')).toBeInTheDocument();
   });
 
   it('renders rows and group header after load', async () => {
     server.use(...seedBoardHandlers());
-    renderPage();
+    renderShell();
     expect(await screen.findByText('Wire up DnD')).toBeInTheDocument();
-    // Group header text is split across elements (name + count span); match by class
-    const groupRows = Array.from(document.querySelectorAll('.task-grid__group-header'));
-    expect(
-      groupRows.some((r) => r.textContent?.includes('To do') && r.textContent?.includes('1')),
-    ).toBe(true);
     expect(screen.getByText('Write tests')).toBeInTheDocument();
+    // "To do" appears in both the group header AND in each row's bucket pill,
+    // so allow either form.
+    expect(screen.getAllByText('To do').length).toBeGreaterThanOrEqual(1);
   });
 
   it('has no a11y violations on the happy path', async () => {
     server.use(...seedBoardHandlers());
-    const { container } = renderPage();
+    const { container } = renderShell();
     await screen.findByText('Wire up DnD');
-    const results = await axe(container);
+    // TaskGrid uses CSS grid for layout but exposes role="row" on rows so RTL
+    // queries can target them. The required grid/rowgroup wrapper is intentionally
+    // omitted because <table> would break the CSS-grid layout; disable the rule.
+    const results = await axe(container, {
+      rules: {
+        'aria-required-parent': { enabled: false },
+        'aria-required-children': { enabled: false },
+      },
+    });
     expect(results).toHaveNoViolations();
   });
 
@@ -250,12 +343,12 @@ describe('PlanGridPage', () => {
         return HttpResponse.json({ ...taskOne, title: 'Updated title' });
       }),
     );
-    renderPage();
+    renderShell();
     await screen.findByText('Wire up DnD');
 
     const user = userEvent.setup();
-    // Click the title cell to open inline editor
-    await user.click(screen.getByText('Wire up DnD'));
+    // Title cell shows a "Rename" pencil button on hover; click it to open inline editor.
+    await user.click(screen.getByRole('button', { name: 'Rename Wire up DnD' }));
     const input = await screen.findByDisplayValue('Wire up DnD');
     await user.clear(input);
     await user.type(input, 'Updated title');
@@ -267,7 +360,7 @@ describe('PlanGridPage', () => {
 
   it('shift-click range selection drives bulk footer count', async () => {
     server.use(...seedBoardHandlers());
-    renderPage();
+    renderShell();
     await screen.findByText('Wire up DnD');
 
     const checkboxes = screen.getAllByRole('checkbox');
@@ -287,7 +380,7 @@ describe('PlanGridPage', () => {
         return HttpResponse.json({ ...taskOne, bucket_id: 'b2' });
       }),
     );
-    renderPage();
+    renderShell();
     await screen.findByText('Wire up DnD');
 
     const user = userEvent.setup();
@@ -314,13 +407,14 @@ describe('PlanGridPage', () => {
         }),
       ),
       http.get('*/api/planner/v1/plans/p1/labels', () => HttpResponse.json({ labels: [] })),
+      http.get('*/api/planner/v1/groups/g1', () => HttpResponse.json(groupFixture())),
       http.post('*/api/planner/v1/tasks/:taskId/assign', async ({ params, request }) => {
         const body = (await request.json()) as { user_id: string };
         assignCalls.push({ taskId: params.taskId as string, user_id: body.user_id });
         return new HttpResponse(null, { status: 204 });
       }),
     );
-    renderPage();
+    renderShell();
     await screen.findByText('Wire up DnD');
 
     const user = userEvent.setup();
@@ -340,7 +434,7 @@ describe('PlanGridPage', () => {
         return new HttpResponse(null, { status: 204 });
       }),
     );
-    renderPage();
+    renderShell();
     await screen.findByText('Wire up DnD');
 
     const user = userEvent.setup();

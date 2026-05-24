@@ -86,7 +86,7 @@ describe('TaskDetailPage', () => {
     );
     renderPage('t1', 'p1');
     expect(await screen.findByRole('alert')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
   });
 
   it('redirects to /planner/groups with a toast on permission revoke (403)', async () => {
@@ -110,9 +110,8 @@ describe('TaskDetailPage', () => {
     );
     renderPage('t1', 'p1');
 
-    expect(
-      await screen.findByRole('heading', { name: 'Wire telemetry', level: 1 }),
-    ).toBeInTheDocument();
+    // Title now lives in an editable input in the body (TaskTitleEditor), not an <h1>.
+    expect(await screen.findByLabelText('Task title')).toHaveValue('Wire telemetry');
 
     expect(screen.getByRole('region', { name: /description/i })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: /references/i })).toBeInTheDocument();
@@ -177,13 +176,17 @@ describe('TaskDetailPage', () => {
       </QueryClientProvider>,
     );
 
-    expect(await screen.findByRole('heading', { name: 'Second', level: 1 })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByLabelText('Task title')).toHaveValue('Second');
+    });
 
     fireEvent.keyDown(document.body, { key: 'j' });
     await waitFor(() => {
       expect(router.state.location.pathname).toBe('/planner/plans/p1/tasks/t3');
     });
-    await screen.findByRole('heading', { name: 'Third', level: 1 });
+    await waitFor(() => {
+      expect(screen.getByLabelText('Task title')).toHaveValue('Third');
+    });
 
     // On the last task, J is a no-op (nextTaskId is undefined).
     fireEvent.keyDown(document.body, { key: 'j' });
@@ -194,13 +197,17 @@ describe('TaskDetailPage', () => {
     await waitFor(() => {
       expect(router.state.location.pathname).toBe('/planner/plans/p1/tasks/t2');
     });
-    await screen.findByRole('heading', { name: 'Second', level: 1 });
+    await waitFor(() => {
+      expect(screen.getByLabelText('Task title')).toHaveValue('Second');
+    });
 
     fireEvent.keyDown(document.body, { key: 'k' });
     await waitFor(() => {
       expect(router.state.location.pathname).toBe('/planner/plans/p1/tasks/t1');
     });
-    await screen.findByRole('heading', { name: 'First', level: 1 });
+    await waitFor(() => {
+      expect(screen.getByLabelText('Task title')).toHaveValue('First');
+    });
 
     // On the first task, K is a no-op (prevTaskId is undefined).
     fireEvent.keyDown(document.body, { key: 'k' });

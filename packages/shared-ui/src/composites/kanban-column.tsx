@@ -1,4 +1,5 @@
-import { ChevronDown } from 'lucide-react';
+// biome-ignore-all lint/a11y/noAutofocus: autoFocus is intentional UX on inline compose input after the user opens it.
+import { CalendarDays } from 'lucide-react';
 import { type CSSProperties, type HTMLAttributes, type ReactNode, useState } from 'react';
 import {
   DropdownMenu,
@@ -6,16 +7,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../primitives/dropdown-menu';
-import { DatePill } from '../task/date-pill';
-import { PREVIEW_TYPES, type PreviewType } from '../task/preview-type-radio';
-import { PRIORITY_STOPS } from '../task/priority-segmented';
 import { KbdHint } from './kbd-hint';
 
 export interface QuickCreateTaskInput {
   title: string;
-  start_at?: string;
+  due_at?: string;
   priority_number?: 1 | 3 | 5 | 9;
-  preview_type?: PreviewType;
 }
 
 export interface KanbanColumnProps {
@@ -39,8 +36,14 @@ export interface KanbanColumnProps {
   };
 }
 
+const PRIORITY_OPTIONS = [
+  { value: 1 as const, label: 'Urgent', dotClass: 'bg-semantic-danger' },
+  { value: 3 as const, label: 'Important', dotClass: 'bg-semantic-warning' },
+  { value: 5 as const, label: 'Medium', dotClass: 'bg-semantic-info' },
+  { value: 9 as const, label: 'Low', dotClass: 'bg-ink-tertiary' },
+];
+
 const DEFAULT_PRIORITY: 1 | 3 | 5 | 9 = 5;
-const DEFAULT_PREVIEW_TYPE: PreviewType = 'automatic';
 
 export function KanbanColumn({
   name,
@@ -53,17 +56,13 @@ export function KanbanColumn({
 }: KanbanColumnProps) {
   const [composing, setComposing] = useState(false);
   const [value, setValue] = useState('');
-  const [moreOpen, setMoreOpen] = useState(false);
-  const [startAt, setStartAt] = useState<string | null>(null);
+  const [dueAt, setDueAt] = useState<string | null>(null);
   const [priority, setPriority] = useState<1 | 3 | 5 | 9>(DEFAULT_PRIORITY);
-  const [previewType, setPreviewType] = useState<PreviewType>(DEFAULT_PREVIEW_TYPE);
 
   function resetCompose() {
     setValue('');
-    setMoreOpen(false);
-    setStartAt(null);
+    setDueAt(null);
     setPriority(DEFAULT_PRIORITY);
-    setPreviewType(DEFAULT_PREVIEW_TYPE);
     setComposing(false);
   }
 
@@ -74,12 +73,13 @@ export function KanbanColumn({
       return;
     }
     const payload: QuickCreateTaskInput = { title: v };
-    if (startAt) payload.start_at = startAt;
+    if (dueAt) payload.due_at = dueAt;
     if (priority !== DEFAULT_PRIORITY) payload.priority_number = priority;
-    if (previewType !== DEFAULT_PREVIEW_TYPE) payload.preview_type = previewType;
     onCreateTask(payload);
     resetCompose();
   }
+
+  const priorityOpt = PRIORITY_OPTIONS.find((o) => o.value === priority) ?? PRIORITY_OPTIONS[2];
 
   return (
     <section
@@ -125,86 +125,83 @@ export function KanbanColumn({
       {composing && (
         <div className="kanban-column__compose">
           <input
-            placeholder="Add a task…"
+            placeholder="Task title"
             value={value}
+            autoFocus
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') submit();
               if (e.key === 'Escape') resetCompose();
             }}
-            onBlur={() => {
-              // Keep the disclosure open across blur events so a click on a control inside
-              // it doesn't tear down the panel before the click registers.
-              if (!value.trim() && !moreOpen) setComposing(false);
-            }}
           />
-          <button
-            type="button"
-            className="kanban-column__more-options-toggle"
-            aria-expanded={moreOpen}
-            // Why: mouseDown wins the race against the input's onBlur, which would otherwise
-            // tear down the compose panel before the click registers.
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => setMoreOpen((v) => !v)}
-          >
-            More options
-          </button>
-          {moreOpen && (
-            <div className="kanban-column__more-options">
-              <div className="kanban-column__more-options-row">
-                <span className="kanban-column__more-options-label">Start</span>
-                <DatePill kind="Start" value={startAt} onChange={setStartAt} clearable />
-              </div>
-              <div className="kanban-column__more-options-row">
-                <span className="kanban-column__more-options-label">Priority</span>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
-                      className="kanban-column__more-options-trigger"
-                      aria-label="Priority"
-                    >
-                      <span>
-                        {PRIORITY_STOPS.find((s) => s.value === priority)?.label ?? 'Priority'}
-                      </span>
-                      <ChevronDown className="size-3 text-ink-subtle" aria-hidden />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    {PRIORITY_STOPS.map((stop) => (
-                      <DropdownMenuItem key={stop.value} onSelect={() => setPriority(stop.value)}>
-                        {stop.label}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-              <div className="kanban-column__more-options-row">
-                <span className="kanban-column__more-options-label">Preview</span>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
-                      className="kanban-column__more-options-trigger"
-                      aria-label="Preview type"
-                    >
-                      <span>
-                        {PREVIEW_TYPES.find((o) => o.value === previewType)?.label ?? 'Preview'}
-                      </span>
-                      <ChevronDown className="size-3 text-ink-subtle" aria-hidden />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    {PREVIEW_TYPES.map((opt) => (
-                      <DropdownMenuItem key={opt.value} onSelect={() => setPreviewType(opt.value)}>
-                        {opt.label}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+          <div className="kanban-column__compose-chips">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="kanban-column__compose-chip"
+                  aria-label="Priority"
+                  onMouseDown={(e) => e.preventDefault()}
+                >
+                  <span
+                    className={`inline-block size-2 rounded-sm ${priorityOpt?.dotClass ?? ''}`}
+                    aria-hidden
+                  />
+                  <span>{priorityOpt?.label ?? 'Priority'}</span>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {PRIORITY_OPTIONS.map((opt) => (
+                  <DropdownMenuItem
+                    key={opt.value}
+                    onSelect={() => setPriority(opt.value)}
+                    className="flex items-center gap-2"
+                  >
+                    <span
+                      className={`inline-block size-2 rounded-sm ${opt.dotClass}`}
+                      aria-hidden
+                    />
+                    {opt.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <label className="kanban-column__compose-chip kanban-column__compose-chip--input">
+              <CalendarDays className="size-3 text-ink-subtle" aria-hidden />
+              <input
+                type="date"
+                aria-label="Due"
+                value={dueAt ?? ''}
+                onChange={(e) => setDueAt(e.currentTarget.value || null)}
+                onMouseDown={(e) => e.stopPropagation()}
+              />
+            </label>
+          </div>
+          <div className="kanban-column__compose-footer">
+            <span className="kanban-column__compose-hint">
+              <KbdHint keys={['↵']} /> add
+            </span>
+            <div className="kanban-column__compose-actions">
+              <button
+                type="button"
+                className="kanban-column__compose-btn"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={resetCompose}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="kanban-column__compose-btn kanban-column__compose-btn--primary"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={submit}
+                disabled={!value.trim()}
+              >
+                Add
+              </button>
             </div>
-          )}
+          </div>
         </div>
       )}
     </section>

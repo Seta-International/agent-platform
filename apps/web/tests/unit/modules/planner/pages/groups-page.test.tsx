@@ -190,7 +190,7 @@ describe('GroupsPage', () => {
     await user.click(newGroupBtn);
 
     // Dialog should open
-    expect(await screen.findByRole('dialog', { name: /Create a group/i })).toBeInTheDocument();
+    expect(await screen.findByRole('dialog', { name: /New group/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/Group name/i)).toBeInTheDocument();
   });
 
@@ -229,7 +229,7 @@ describe('GroupsPage', () => {
     await screen.findByRole('link', { name: 'Native Group' });
 
     await user.click(screen.getByRole('button', { name: /Source/i }));
-    await user.click(screen.getByRole('button', { name: 'Native' }));
+    await user.click(screen.getByRole('button', { name: 'Internal' }));
 
     await waitFor(() => expect(screen.queryByText('M365 Group')).not.toBeInTheDocument());
     expect(screen.getByText('Native Group')).toBeInTheDocument();
@@ -247,7 +247,7 @@ describe('GroupsPage', () => {
     await screen.findByRole('link', { name: 'Native Group' });
 
     await user.click(screen.getByRole('button', { name: /Source/i }));
-    await user.click(screen.getByRole('button', { name: 'M365' }));
+    await user.click(screen.getByRole('button', { name: 'Microsoft 365' }));
 
     await waitFor(() => expect(screen.queryByText('Native Group')).not.toBeInTheDocument());
     expect(screen.getByText('M365 Group')).toBeInTheDocument();
@@ -266,7 +266,7 @@ describe('GroupsPage', () => {
 
     // Apply a filter then clear it
     await user.click(screen.getByRole('button', { name: /Source/i }));
-    await user.click(screen.getByRole('button', { name: 'Native' }));
+    await user.click(screen.getByRole('button', { name: 'Internal' }));
     await waitFor(() => expect(screen.queryByText('M365 Group')).not.toBeInTheDocument());
 
     // Clear filter via "Any"

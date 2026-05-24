@@ -81,7 +81,7 @@ describe('PlanPageHeader — sync extensions', () => {
     const user = userEvent.setup();
     await screen.findByRole('heading', { name: 'Q3 Launch' });
     await user.click(screen.getByRole('button', { name: /plan actions/i }));
-    const item = await screen.findByRole('menuitem', { name: /refresh sync/i });
+    const item = await screen.findByRole('menuitem', { name: /sync now/i });
     await user.click(item);
     expect(onRefreshSync).toHaveBeenCalledTimes(1);
   });
@@ -103,7 +103,7 @@ describe('PlanPageHeader — sync extensions', () => {
     const user = userEvent.setup();
     await screen.findByRole('heading', { name: 'Q3 Launch' });
     await user.click(screen.getByRole('button', { name: /plan actions/i }));
-    const item = await screen.findByRole('menuitem', { name: /resolve conflicts \(3\)/i });
+    const item = await screen.findByRole('menuitem', { name: /review changes \(3\)/i });
     await user.click(item);
     expect(onOpenConflictDialog).toHaveBeenCalledTimes(1);
   });
@@ -124,7 +124,7 @@ describe('PlanPageHeader — sync extensions', () => {
     const user = userEvent.setup();
     await screen.findByRole('heading', { name: 'Q3 Launch' });
     await user.click(screen.getByRole('button', { name: /plan actions/i }));
-    const item = await screen.findByRole('menuitem', { name: /resolve conflicts/i });
+    const item = await screen.findByRole('menuitem', { name: /review changes/i });
     expect(item.textContent).not.toMatch(/\(\d+\)/);
   });
 
@@ -144,7 +144,7 @@ describe('PlanPageHeader — sync extensions', () => {
     const user = userEvent.setup();
     await screen.findByRole('heading', { name: 'Q3 Launch' });
     await user.click(screen.getByRole('button', { name: /plan actions/i }));
-    expect(screen.queryByRole('menuitem', { name: /resolve conflicts/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /review changes/i })).not.toBeInTheDocument();
   });
 
   it('shows "Open in M365 Planner" as an anchor with correct href', async () => {
@@ -162,7 +162,7 @@ describe('PlanPageHeader — sync extensions', () => {
     const user = userEvent.setup();
     await screen.findByRole('heading', { name: 'Q3 Launch' });
     await user.click(screen.getByRole('button', { name: /plan actions/i }));
-    const link = await screen.findByRole('menuitem', { name: /open in m365 planner/i });
+    const link = await screen.findByRole('menuitem', { name: /open in microsoft planner/i });
     expect(link.tagName.toLowerCase()).toBe('a');
     expect(link).toHaveAttribute(
       'href',
@@ -189,7 +189,7 @@ describe('PlanPageHeader — sync extensions', () => {
     const user = userEvent.setup();
     await screen.findByRole('heading', { name: 'Q3 Launch' });
     await user.click(screen.getByRole('button', { name: /plan actions/i }));
-    const item = await screen.findByRole('menuitem', { name: /unlink from m365/i });
+    const item = await screen.findByRole('menuitem', { name: /unlink from microsoft 365/i });
     await user.click(item);
     expect(onUnlink).toHaveBeenCalledTimes(1);
   });
@@ -211,6 +211,8 @@ describe('PlanPageHeader — sync extensions', () => {
     const user = userEvent.setup();
     await screen.findByRole('heading', { name: 'Q3 Launch' });
     await user.click(screen.getByRole('button', { name: /plan actions/i }));
-    expect(screen.queryByRole('menuitem', { name: /unlink from m365/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('menuitem', { name: /unlink from microsoft 365/i }),
+    ).not.toBeInTheDocument();
   });
 });

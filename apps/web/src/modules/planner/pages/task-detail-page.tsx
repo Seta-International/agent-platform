@@ -1,6 +1,7 @@
 import { Skeleton, toast } from '@seta/shared-ui';
 import { useNavigate } from '@tanstack/react-router';
-import { useEffect, useMemo } from 'react';
+import { ChevronRight } from 'lucide-react';
+import { type ReactNode, useEffect, useMemo } from 'react';
 import { PlannerClientError } from '../api/planner-client';
 import { PlanError } from '../components/plan-error';
 import { TaskDetailAssigneesCard } from '../components/TaskDetailAssigneesCard';
@@ -14,6 +15,7 @@ import { TaskDetailPriorityCard } from '../components/TaskDetailPriorityCard';
 import { TaskDetailProgressCard } from '../components/TaskDetailProgressCard';
 import { TaskDetailReferencesCard } from '../components/TaskDetailReferencesCard';
 import { TaskDetailScheduleCard } from '../components/TaskDetailScheduleCard';
+import { TaskTitleEditor } from '../components/TaskTitleEditor';
 import { useGroup } from '../hooks/queries/use-group';
 import { useGroupMembers } from '../hooks/queries/use-group-members';
 import { usePlanBoard } from '../hooks/queries/use-plan-board';
@@ -23,6 +25,10 @@ import { compareOrderHint } from '../state/task-derived';
 interface Props {
   planId: string;
   taskId: string;
+  /** "modal" replaces the standalone-page sticky header with a compact modal header. */
+  variant?: 'page' | 'modal';
+  /** Action slot rendered into the modal header — typically the maximize/close buttons. */
+  modalHeaderActions?: ReactNode;
 }
 
 // Stable, monotonic-ish task number derived from the trailing UUID hex. The
@@ -34,7 +40,7 @@ function taskNumberFromId(id: string): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-export function TaskDetailPage({ planId, taskId }: Props) {
+export function TaskDetailPage({ planId, taskId, variant = 'page', modalHeaderActions }: Props) {
   const navigate = useNavigate();
   const taskQ = useTaskDetail(taskId);
   const boardQ = usePlanBoard(planId);
@@ -96,24 +102,42 @@ export function TaskDetailPage({ planId, taskId }: Props) {
 
   return (
     <div className="flex flex-col h-full">
-      <TaskDetailHeader
-        taskNumber={taskNumberFromId(task.id)}
-        title={task.title}
-        groupName={groupQ.data?.name ?? ''}
-        planName={plan?.name ?? ''}
-        bucketName={bucketName}
-        createdAt={task.created_at}
-        updatedAt={task.updated_at}
-        creatorName={creatorName}
-        onBack={() => void navigate({ to: '/planner/plans/$planId', params: { planId } })}
-        onAskCopilot={() => toast('Copilot is coming soon.')}
-        onCopyLink={() => {
-          void navigator.clipboard.writeText(window.location.href);
-          toast('Link copied.');
-        }}
-        onPrevious={() => prevTaskId && goToTask(prevTaskId)}
-        onNext={() => nextTaskId && goToTask(nextTaskId)}
-      />
+      {variant === 'page' && (
+        <TaskDetailHeader
+          taskNumber={taskNumberFromId(task.id)}
+          title={task.title}
+          groupName={groupQ.data?.name ?? ''}
+          planName={plan?.name ?? ''}
+          bucketName={bucketName}
+          createdAt={task.created_at}
+          updatedAt={task.updated_at}
+          creatorName={creatorName}
+          onBack={() => void navigate({ to: '/planner/plans/$planId', params: { planId } })}
+          onAskCopilot={() => toast('Copilot is coming soon.')}
+          onCopyLink={() => {
+            void navigator.clipboard.writeText(window.location.href);
+            toast('Link copied.');
+          }}
+          onPrevious={() => prevTaskId && goToTask(prevTaskId)}
+          onNext={() => nextTaskId && goToTask(nextTaskId)}
+        />
+      )}
+      {variant === 'modal' && (
+        <header className="flex items-center justify-between gap-3 border-b border-hairline bg-canvas px-5 py-2.5">
+          <div className="flex min-w-0 items-center gap-1.5 text-caption text-ink-subtle">
+            <span className="truncate">{groupQ.data?.name ?? ''}</span>
+            <ChevronRight className="size-3 shrink-0 text-ink-tertiary" aria-hidden />
+            <span className="truncate text-primary">{plan?.name ?? ''}</span>
+            <ChevronRight className="size-3 shrink-0 text-ink-tertiary" aria-hidden />
+            <span className="mono inline-flex items-center rounded bg-surface-2 px-1.5 py-0.5 text-ink-muted">
+              T-{taskNumberFromId(task.id)}
+            </span>
+          </div>
+          {modalHeaderActions && (
+            <div className="flex shrink-0 items-center gap-1">{modalHeaderActions}</div>
+          )}
+        </header>
+      )}
       <div className="flex-1 overflow-auto bg-surface-1">
         <div
           className="mx-auto"
@@ -127,6 +151,7 @@ export function TaskDetailPage({ planId, taskId }: Props) {
           }}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
+            <TaskTitleEditor task={task} planId={planId} />
             <TaskDetailDescriptionCard task={task} planId={planId} />
             <TaskDetailReferencesCard task={task} planId={planId} />
             <TaskDetailChecklistCard task={task} planId={planId} />

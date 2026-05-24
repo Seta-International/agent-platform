@@ -29,7 +29,7 @@ function wrap(node: React.ReactNode) {
 }
 
 describe('SyncControlsMenu', () => {
-  it('native + canManage shows "Link to M365…" only', () => {
+  it('native + canManage shows "Link with Microsoft 365…" only', () => {
     wrap(
       <SyncControlsMenu
         groupId="g1"
@@ -40,12 +40,12 @@ describe('SyncControlsMenu', () => {
         onResolveClick={vi.fn()}
       />,
     );
-    expect(screen.getByText('Link to M365…')).toBeInTheDocument();
-    expect(screen.queryByText('Refresh sync')).not.toBeInTheDocument();
-    expect(screen.queryByText('Unlink from M365')).not.toBeInTheDocument();
+    expect(screen.getByText('Link with Microsoft 365…')).toBeInTheDocument();
+    expect(screen.queryByText('Sync now')).not.toBeInTheDocument();
+    expect(screen.queryByText('Unlink from Microsoft 365')).not.toBeInTheDocument();
   });
 
-  it('m365 + canManage shows Refresh and Unlink items', () => {
+  it('m365 + canManage shows Sync now and Unlink items', () => {
     wrap(
       <SyncControlsMenu
         groupId="g1"
@@ -56,12 +56,12 @@ describe('SyncControlsMenu', () => {
         onResolveClick={vi.fn()}
       />,
     );
-    expect(screen.getByText('Refresh sync')).toBeInTheDocument();
-    expect(screen.getByText('Unlink from M365')).toBeInTheDocument();
-    expect(screen.queryByText('Link to M365…')).not.toBeInTheDocument();
+    expect(screen.getByText('Sync now')).toBeInTheDocument();
+    expect(screen.getByText('Unlink from Microsoft 365')).toBeInTheDocument();
+    expect(screen.queryByText('Link with Microsoft 365…')).not.toBeInTheDocument();
   });
 
-  it('m365 + canManage + conflict status shows Resolve conflict item', () => {
+  it('m365 + canManage + conflict status shows Review changes item', () => {
     wrap(
       <SyncControlsMenu
         groupId="g1"
@@ -72,12 +72,12 @@ describe('SyncControlsMenu', () => {
         onResolveClick={vi.fn()}
       />,
     );
-    expect(screen.getByText('Refresh sync')).toBeInTheDocument();
-    expect(screen.getByText('Unlink from M365')).toBeInTheDocument();
-    expect(screen.getByText('Resolve conflict…')).toBeInTheDocument();
+    expect(screen.getByText('Sync now')).toBeInTheDocument();
+    expect(screen.getByText('Unlink from Microsoft 365')).toBeInTheDocument();
+    expect(screen.getByText('Review changes…')).toBeInTheDocument();
   });
 
-  it('m365 + canManage=false still shows Refresh sync (any member may refresh)', () => {
+  it('m365 + canManage=false still shows Sync now (any member may refresh)', () => {
     wrap(
       <SyncControlsMenu
         groupId="g1"
@@ -88,12 +88,12 @@ describe('SyncControlsMenu', () => {
         onResolveClick={vi.fn()}
       />,
     );
-    expect(screen.getByText('Refresh sync')).toBeInTheDocument();
-    expect(screen.queryByText('Unlink from M365')).not.toBeInTheDocument();
-    expect(screen.queryByText('Link to M365…')).not.toBeInTheDocument();
+    expect(screen.getByText('Sync now')).toBeInTheDocument();
+    expect(screen.queryByText('Unlink from Microsoft 365')).not.toBeInTheDocument();
+    expect(screen.queryByText('Link with Microsoft 365…')).not.toBeInTheDocument();
   });
 
-  it('clicking "Refresh sync" fires the mutation', async () => {
+  it('clicking "Sync now" fires the mutation', async () => {
     const user = userEvent.setup();
     let refreshCalled = false;
     server.use(
@@ -112,11 +112,11 @@ describe('SyncControlsMenu', () => {
         onResolveClick={vi.fn()}
       />,
     );
-    await user.click(screen.getByText('Refresh sync'));
+    await user.click(screen.getByText('Sync now'));
     await waitFor(() => expect(refreshCalled).toBe(true));
   });
 
-  it('clicking "Link to M365…" calls onLinkClick', async () => {
+  it('clicking "Link with Microsoft 365…" calls onLinkClick', async () => {
     const user = userEvent.setup();
     const onLinkClick = vi.fn();
     wrap(
@@ -129,7 +129,7 @@ describe('SyncControlsMenu', () => {
         onResolveClick={vi.fn()}
       />,
     );
-    await user.click(screen.getByText('Link to M365…'));
+    await user.click(screen.getByText('Link with Microsoft 365…'));
     expect(onLinkClick).toHaveBeenCalled();
   });
 });

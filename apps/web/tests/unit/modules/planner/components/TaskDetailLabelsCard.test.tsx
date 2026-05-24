@@ -200,7 +200,7 @@ describe('TaskDetailLabelsCard', () => {
       await waitFor(() =>
         expect(
           screen.getAllByText(
-            'Add a category slot in Plan Settings to sync this label to M365 Planner.',
+            'Assign this label to a category slot in Plan settings to send it to Microsoft Planner.',
           ).length,
         ).toBeGreaterThanOrEqual(1),
       );

@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { TaskGrid, type TaskGridRow } from '../../../src/composites/task-grid';
 
@@ -28,20 +29,33 @@ const rows: TaskGridRow[] = [
 ];
 
 describe('TaskGrid', () => {
-  it('renders rows and group headers when grouped by bucket', () => {
+  it('renders rows and a group header when grouped by bucket', () => {
     render(
       <TaskGrid rows={rows} groupBy="bucket" selection={new Set()} onSelectionChange={() => {}} />,
     );
     expect(screen.getByRole('row', { name: /A/i })).toBeInTheDocument();
     expect(screen.getByRole('row', { name: /B/i })).toBeInTheDocument();
-    const groupRows = screen
-      .getAllByRole('row')
-      .filter((row) => row.classList.contains('task-grid__group-header'));
-    expect(groupRows).toHaveLength(1);
-    expect(groupRows[0]).toHaveTextContent('Sprint (2)');
+    // "Sprint" now appears in the group header AND in each row's bucket pill.
+    expect(screen.getAllByText('Sprint').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('2')).toBeInTheDocument();
   });
 
-  it('opens an inline editor when title cell clicked', () => {
+  it('opens the task when title is clicked (modal/detail intent)', () => {
+    const onOpenTask = vi.fn();
+    render(
+      <TaskGrid
+        rows={rows}
+        groupBy="bucket"
+        selection={new Set()}
+        onSelectionChange={() => {}}
+        onOpenTask={onOpenTask}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Open A' }));
+    expect(onOpenTask).toHaveBeenCalledWith('t1');
+  });
+
+  it('opens an inline editor when the rename pencil is clicked', () => {
     const onCommit = vi.fn();
     render(
       <TaskGrid
@@ -52,7 +66,7 @@ describe('TaskGrid', () => {
         onCommitField={onCommit}
       />,
     );
-    fireEvent.click(screen.getByText('A'));
+    fireEvent.click(screen.getByRole('button', { name: 'Rename A' }));
     const input = screen.getByDisplayValue('A');
     fireEvent.change(input, { target: { value: 'A2' } });
     fireEvent.keyDown(input, { key: 'Enter' });
@@ -70,17 +84,17 @@ describe('TaskGrid', () => {
         onCommitField={onCommit}
       />,
     );
-    fireEvent.click(screen.getByText('A'));
+    fireEvent.click(screen.getByRole('button', { name: 'Rename A' }));
     const input = screen.getByDisplayValue('A');
     fireEvent.change(input, { target: { value: 'A3' } });
     fireEvent.keyDown(input, { key: 'Enter' });
-    // Simulate the blur that fires when the input unmounts after Enter
     fireEvent.blur(input);
     expect(onCommit.mock.calls.length).toBe(1);
   });
 
-  it('commits a new status when a status option is picked', () => {
+  it('commits a new status when a status option is picked', async () => {
     const onCommit = vi.fn();
+    const user = userEvent.setup();
     render(
       <TaskGrid
         rows={rows}
@@ -90,13 +104,14 @@ describe('TaskGrid', () => {
         onCommitField={onCommit}
       />,
     );
-    fireEvent.click(screen.getByRole('button', { name: /Edit status for A/i }));
-    fireEvent.click(screen.getByRole('button', { name: 'Completed' }));
+    await user.click(screen.getByRole('button', { name: 'Edit status for A' }));
+    await user.click(await screen.findByRole('menuitem', { name: /Completed/ }));
     expect(onCommit).toHaveBeenCalledWith('t1', { status: 'completed' });
   });
 
-  it('commits a new priority when a priority option is picked', () => {
+  it('commits a new priority when a priority option is picked', async () => {
     const onCommit = vi.fn();
+    const user = userEvent.setup();
     render(
       <TaskGrid
         rows={rows}
@@ -106,13 +121,14 @@ describe('TaskGrid', () => {
         onCommitField={onCommit}
       />,
     );
-    fireEvent.click(screen.getByRole('button', { name: /Edit priority for B/i }));
-    fireEvent.click(screen.getByRole('button', { name: 'Urgent' }));
+    await user.click(screen.getByRole('button', { name: 'Edit priority for B' }));
+    await user.click(await screen.findByRole('menuitem', { name: /Urgent/ }));
     expect(onCommit).toHaveBeenCalledWith('t2', { priority: 'urgent' });
   });
 
-  it('commits a new bucket when bucketOptions are provided', () => {
+  it('commits a new bucket when bucketOptions are provided', async () => {
     const onCommit = vi.fn();
+    const user = userEvent.setup();
     render(
       <TaskGrid
         rows={rows}
@@ -126,8 +142,8 @@ describe('TaskGrid', () => {
         ]}
       />,
     );
-    fireEvent.click(screen.getByRole('button', { name: /Edit bucket for A/i }));
-    fireEvent.click(screen.getByRole('button', { name: 'Backlog' }));
+    await user.click(screen.getByRole('button', { name: 'Edit bucket for A' }));
+    await user.click(await screen.findByRole('menuitem', { name: /Backlog/ }));
     expect(onCommit).toHaveBeenCalledWith('t1', { bucket_id: 'b2', bucket: 'Backlog' });
   });
 
@@ -142,7 +158,7 @@ describe('TaskGrid', () => {
         onOpenTask={onOpenTask}
       />,
     );
-    fireEvent.click(screen.getByRole('button', { name: /Edit assignees for A/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit assignees for A' }));
     expect(onOpenTask).toHaveBeenCalledWith('t1');
   });
 
@@ -165,7 +181,6 @@ describe('TaskGrid', () => {
       />,
     );
     expect(screen.getByLabelText('Sync pulling')).toBeInTheDocument();
-    // Only the m365 row gets a badge; the native row does not.
     expect(screen.queryAllByLabelText(/^Sync /).length).toBe(1);
   });
 
@@ -181,7 +196,7 @@ describe('TaskGrid', () => {
     render(
       <TaskGrid rows={rows} groupBy="bucket" selection={new Set()} onSelectionChange={onSelect} />,
     );
-    fireEvent.click(screen.getAllByRole('checkbox')[0]!); // select t1
+    fireEvent.click(screen.getAllByRole('checkbox')[0]!);
     fireEvent.click(screen.getAllByRole('checkbox')[1]!, { shiftKey: true });
     expect(onSelect).toHaveBeenLastCalledWith(new Set(['t1', 't2']));
   });

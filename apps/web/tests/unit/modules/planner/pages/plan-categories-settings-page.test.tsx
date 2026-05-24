@@ -87,7 +87,7 @@ describe('PlanCategoriesSettingsPage', () => {
     );
     renderPage('p1');
     expect(await screen.findByRole('alert')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
   });
 
   it('renders the tab strip with Categories active and the category editor', async () => {
@@ -107,8 +107,8 @@ describe('PlanCategoriesSettingsPage', () => {
     );
     renderPage('p1');
     const subhead = await screen.findByTestId('categories-sync-subhead');
-    // Default native fixture: subhead shows "Local to this plan".
-    expect(subhead.textContent).toMatch(/Local to this plan/);
+    // Default native fixture: subhead shows "Just for this plan".
+    expect(subhead.textContent).toMatch(/Just for this plan/);
   });
 
   it('renders the "Heads up" helper card', async () => {
@@ -116,7 +116,7 @@ describe('PlanCategoriesSettingsPage', () => {
       http.get('/api/planner/v1/plans/p1/categories', () => HttpResponse.json(CATEGORIES_RESPONSE)),
     );
     renderPage('p1');
-    expect(await screen.findByText(/Categories without an attached label/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Categories without a label/i)).toBeInTheDocument();
   });
 
   it('saves edited categories via the mutation', async () => {

@@ -238,7 +238,7 @@ describe('GroupDetailHeader', () => {
       />,
     );
     await user.click(await screen.findByRole('button', { name: /more/i }));
-    expect(screen.getByRole('menuitem', { name: /Link to M365/i })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /Link with Microsoft 365/i })).toBeInTheDocument();
   });
 
   it('shows "Refresh sync" menu item for m365 group', async () => {
@@ -251,7 +251,7 @@ describe('GroupDetailHeader', () => {
       />,
     );
     await user.click(await screen.findByRole('button', { name: /more/i }));
-    expect(screen.getByRole('menuitem', { name: /Refresh sync/i })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /Sync now/i })).toBeInTheDocument();
   });
 
   it('error state badge is clickable and calls refreshGroupSync', async () => {
@@ -290,6 +290,6 @@ describe('GroupDetailHeader', () => {
       <GroupDetailHeader {...baseProps} group={{ ...baseGroup, external_source: 'm365' }} />,
     );
     await user.click(await screen.findByRole('button', { name: /Conflict/i }));
-    expect(await screen.findByText('Resolve sync conflict')).toBeInTheDocument();
+    expect(await screen.findByText('Pick which version to keep')).toBeInTheDocument();
   });
 });

@@ -1,5 +1,6 @@
 import type { TaskWithAssigneesRow } from '@seta/planner';
 import { Button } from '@seta/shared-ui';
+import { Pencil } from 'lucide-react';
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { useUpdateTask } from '../hooks/mutations/update-task';
@@ -54,9 +55,7 @@ export function TaskDetailDescriptionCard({ task, planId }: Props) {
   if (editing) {
     return (
       <section className="card" aria-label="Description">
-        <header className="t-sm subtle" style={{ marginBottom: 8 }}>
-          Description
-        </header>
+        <header className="mb-2 text-body-sm text-ink-subtle">Description</header>
         <textarea
           ref={textareaRef}
           aria-label="Description"
@@ -64,12 +63,10 @@ export function TaskDetailDescriptionCard({ task, planId }: Props) {
           onChange={(e) => setDraft(e.currentTarget.value)}
           onKeyDown={onKeyDown}
           rows={8}
-          style={textarea}
+          className="w-full min-h-[140px] resize-y rounded-md border border-hairline bg-surface-1 p-2.5 text-body-sm text-ink"
         />
-        <div className="t-xs subtle" style={{ marginTop: 4 }}>
-          ⌘↵ to save · Esc to cancel
-        </div>
-        <div style={btnRow}>
+        <div className="mt-1 text-caption text-ink-subtle">⌘↵ to save · Esc to cancel</div>
+        <div className="mt-2 flex justify-end gap-1.5">
           <Button size="sm" variant="ghost" onClick={cancel}>
             Cancel
           </Button>
@@ -83,47 +80,27 @@ export function TaskDetailDescriptionCard({ task, planId }: Props) {
 
   return (
     <section className="card" aria-label="Description">
-      <header className="t-sm subtle" style={{ marginBottom: 8 }}>
-        Description
-      </header>
-      <button type="button" onClick={beginEdit} aria-label="Edit description" style={viewBtn}>
-        {task.description ? (
-          <div className="t-sm" style={{ lineHeight: 1.55, textAlign: 'left' }}>
-            <ReactMarkdown>{task.description}</ReactMarkdown>
-          </div>
-        ) : (
-          <span className="t-sm subtle">No description. Click to add.</span>
-        )}
+      <header className="mb-2 text-body-sm text-ink-subtle">Description</header>
+      <button
+        type="button"
+        onClick={beginEdit}
+        aria-label="Edit description"
+        className="group relative flex w-full items-start gap-2 rounded-md border border-hairline bg-canvas px-3 py-2 text-left transition-colors hover:border-hairline-strong hover:bg-surface-1"
+      >
+        <div className="min-h-[40px] flex-1">
+          {task.description ? (
+            <div className="text-body-sm leading-[1.55]">
+              <ReactMarkdown>{task.description}</ReactMarkdown>
+            </div>
+          ) : (
+            <span className="text-body-sm text-ink-subtle">No description. Click to add.</span>
+          )}
+        </div>
+        <Pencil
+          aria-hidden
+          className="size-4 shrink-0 text-ink-subtle opacity-0 transition-opacity group-hover:opacity-100"
+        />
       </button>
     </section>
   );
 }
-
-const textarea = {
-  width: '100%',
-  minHeight: 140,
-  padding: 10,
-  borderRadius: 6,
-  border: '1px solid var(--color-hairline)',
-  background: 'var(--color-surface-1)',
-  color: 'var(--color-ink)',
-  fontFamily: 'inherit',
-  fontSize: 13,
-  resize: 'vertical' as const,
-};
-const btnRow = {
-  display: 'flex',
-  gap: 6,
-  marginTop: 8,
-  justifyContent: 'flex-end',
-};
-const viewBtn = {
-  display: 'block',
-  width: '100%',
-  textAlign: 'left' as const,
-  background: 'transparent',
-  border: 'none',
-  padding: 0,
-  cursor: 'text',
-  color: 'inherit',
-};

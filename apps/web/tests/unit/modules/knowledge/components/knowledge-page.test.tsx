@@ -24,7 +24,7 @@ describe('KnowledgePage', () => {
 
     expect(screen.getByText('Knowledge')).toBeInTheDocument();
     // Wait for empty state
-    expect(await screen.findByText(/No files uploaded yet/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Nothing here yet/i)).toBeInTheDocument();
   });
 
   it('renders a file row when files are returned', async () => {
