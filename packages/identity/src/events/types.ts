@@ -1,7 +1,7 @@
 export type Uuid = string;
 
 export interface IdentityEventActor {
-  type: 'user' | 'cli' | 'superadmin' | 'sso';
+  type: 'user' | 'cli' | 'superadmin' | 'sso' | 'system';
   user_id: Uuid | null;
   ip?: string;
   user_agent?: string;

@@ -6,7 +6,7 @@ import { IdentityError, requirePermission } from '../rbac.ts';
 import { isValidEmail } from './_email.ts';
 
 export interface Actor {
-  type: 'user' | 'cli' | 'superadmin' | 'sso';
+  type: 'user' | 'cli' | 'superadmin' | 'sso' | 'system';
   user_id: string | null;
   ip?: string;
   user_agent?: string;
