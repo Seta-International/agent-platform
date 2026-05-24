@@ -164,4 +164,4 @@ export {
   PLANNER_ROLE_SLUGS,
   type PlannerPermission,
   type PlannerRoleSlug,
-} from './roles.ts';
+} from './rbac.ts';
