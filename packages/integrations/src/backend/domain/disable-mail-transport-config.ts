@@ -1,7 +1,7 @@
 import { emit, withEmit } from '@seta/core/events';
 import { eq, sql } from 'drizzle-orm';
 import { mailTransportConfig } from '../../db/schema/index.ts';
-import { INTEGRATIONS_PERMISSIONS, IntegrationsError } from '../rbac.ts';
+import { INTEGRATIONS_PERMISSIONS, IntegrationsError, requirePermission } from '../rbac.ts';
 import type { Actor } from './get-mail-transport-config.ts';
 
 export interface DisableMailTransportConfigArgs {
@@ -12,12 +12,7 @@ export interface DisableMailTransportConfigArgs {
 export async function disableMailTransportConfig(
   args: DisableMailTransportConfigArgs,
 ): Promise<void> {
-  if (!args.actor.permissions.has(INTEGRATIONS_PERMISSIONS.mailConfigure)) {
-    throw new IntegrationsError(
-      'FORBIDDEN',
-      `missing permission ${INTEGRATIONS_PERMISSIONS.mailConfigure}`,
-    );
-  }
+  requirePermission(args.actor, INTEGRATIONS_PERMISSIONS.mailConfigure);
   if (args.actor.tenantId !== args.tenantId)
     throw new IntegrationsError('FORBIDDEN', 'tenant mismatch');
 

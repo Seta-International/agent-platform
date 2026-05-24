@@ -5,7 +5,7 @@ import { renderTemplate } from '@seta/shared-mailer/render';
 import { eq, sql } from 'drizzle-orm';
 import { integrationsDb } from '../../db/client.ts';
 import { mailTransportConfig } from '../../db/schema/index.ts';
-import { INTEGRATIONS_PERMISSIONS, IntegrationsError } from '../rbac.ts';
+import { INTEGRATIONS_PERMISSIONS, IntegrationsError, requirePermission } from '../rbac.ts';
 import type { Actor } from './get-mail-transport-config.ts';
 import { createMailTransportConfigStore } from './mail-transport-config-store.ts';
 
@@ -31,12 +31,7 @@ export interface VerifyMailTransportResult {
 export async function verifyMailTransport(
   args: VerifyMailTransportArgs,
 ): Promise<VerifyMailTransportResult> {
-  if (!args.actor.permissions.has(INTEGRATIONS_PERMISSIONS.mailConfigure)) {
-    throw new IntegrationsError(
-      'FORBIDDEN',
-      `missing permission ${INTEGRATIONS_PERMISSIONS.mailConfigure}`,
-    );
-  }
+  requirePermission(args.actor, INTEGRATIONS_PERMISSIONS.mailConfigure);
   if (args.actor.tenantId !== args.tenantId)
     throw new IntegrationsError('FORBIDDEN', 'tenant mismatch');
 

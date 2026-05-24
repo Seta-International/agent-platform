@@ -45,7 +45,14 @@ export {
   INTEGRATIONS_PERMISSIONS,
   IntegrationsError,
   type IntegrationsPermission,
+  requirePermission as requireIntegrationsPermission,
 } from './backend/rbac.ts';
 export type { TransportConfigKind, TransportConfigPayload } from './db/schema/index.ts';
 export type { IntegrationsEvent } from './events/index.ts';
 export * as m365 from './m365/index.ts';
+export {
+  INTEGRATIONS_PERMISSIONS as INTEGRATIONS_PERMISSION_SLUGS,
+  INTEGRATIONS_ROLE_PERMISSIONS,
+  INTEGRATIONS_ROLE_SLUGS,
+  type IntegrationsRoleSlug,
+} from './rbac.ts';
