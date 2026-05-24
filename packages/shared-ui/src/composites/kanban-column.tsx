@@ -264,17 +264,6 @@ export function KanbanColumn({
         )}
       </header>
 
-      <div
-        ref={droppable.ref}
-        {...droppable.rootProps}
-        className={['kanban-column__list', droppable.isDraggingOver && 'kanban-column__list--over']
-          .filter(Boolean)
-          .join(' ')}
-      >
-        {children}
-        {droppable.placeholder}
-      </div>
-
       {!composing && onCreateTask && (
         <button
           type="button"
@@ -286,6 +275,7 @@ export function KanbanColumn({
           <KbdHint keys={['C']} className="ml-1" />
         </button>
       )}
+
       {composing && (
         <div className="kanban-column__compose">
           <input
@@ -368,6 +358,17 @@ export function KanbanColumn({
           </div>
         </div>
       )}
+
+      <div
+        ref={droppable.ref}
+        {...droppable.rootProps}
+        className={['kanban-column__list', droppable.isDraggingOver && 'kanban-column__list--over']
+          .filter(Boolean)
+          .join(' ')}
+      >
+        {children}
+        {droppable.placeholder}
+      </div>
     </section>
   );
 }
