@@ -1,5 +1,4 @@
-import { createTool } from '@mastra/core/tools';
-import { actorFromContext, RequestContextSchema, registerToolPermission } from '@seta/copilot-sdk';
+import { actorFromContext, defineCopilotTool } from '@seta/copilot-sdk';
 import { z } from 'zod';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -55,10 +54,9 @@ export type CheckUserAvailabilityDeps = {
 // ──────────────────────────────────────────────────────────────────────────────
 
 export function makeAvaiCheckerCheckUserAvailabilityTool(deps: CheckUserAvailabilityDeps) {
-  return registerToolPermission(
-    createTool({
-      id: 'avaiChecker_checkUserAvailability',
-      description: `
+  return defineCopilotTool({
+    id: 'avaiChecker_checkUserAvailability',
+    description: `
 First tool in the AvaiChecker pipeline.
 
 Queries the timesheet table for the given user_id to check their availability
@@ -75,52 +73,50 @@ Call this for each user_id received from the Orchestrator queue.
 Pass the result to avaiChecker_buildAvailabilityQueue.
       `.trim(),
 
-      inputSchema: z.object({
-        user_id: z
-          .string()
-          .uuid()
-          .describe('user_id from the Orchestrator queue payload (SkillMatcher output).'),
-        date: z
-          .string()
-          .regex(/^\d{4}-\d{2}-\d{2}$/)
-          .optional()
-          .describe('ISO date to check (YYYY-MM-DD). Defaults to today if not provided.'),
-      }),
-
-      // status mirrors identity.user_profile.availability_status enum.
-      outputSchema: z.object({
-        user_id: z.string(),
-        date: z.string(),
-        status: z.enum(['available', 'busy', 'ooo']),
-        note: z.string().nullable(), // leave type if on ooo, e.g. "annual", "sick"
-        is_available: z.boolean(),
-      }),
-
-      requestContextSchema: RequestContextSchema,
-
-      execute: async (input, ctx) => {
-        actorFromContext(ctx); // enforce authentication
-
-        const today = input.date ?? new Date().toISOString().slice(0, 10);
-
-        const leave = await deps.getActiveLeave({
-          userId: input.user_id,
-          date: today,
-        });
-
-        // Approved leave covering today → ooo; no record → available.
-        const status: 'available' | 'busy' | 'ooo' = leave ? 'ooo' : 'available';
-        const note: string | null = leave?.type ?? null;
-
-        return {
-          user_id: input.user_id,
-          date: today,
-          status,
-          note,
-          is_available: status === 'available',
-        };
-      },
+    input: z.object({
+      user_id: z
+        .string()
+        .uuid()
+        .describe('user_id from the Orchestrator queue payload (SkillMatcher output).'),
+      date: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/)
+        .optional()
+        .describe('ISO date to check (YYYY-MM-DD). Defaults to today if not provided.'),
     }),
-    'identity.user.read.any',
-  );
+
+    // status mirrors identity.user_profile.availability_status enum.
+    output: z.object({
+      user_id: z.string(),
+      date: z.string(),
+      status: z.enum(['available', 'busy', 'ooo']),
+      note: z.string().nullable(), // leave type if on ooo, e.g. "annual", "sick"
+      is_available: z.boolean(),
+    }),
+
+    rbac: 'identity.user.read.any',
+
+    execute: async (input, ctx) => {
+      actorFromContext(ctx); // enforce authentication
+
+      const today = input.date ?? new Date().toISOString().slice(0, 10);
+
+      const leave = await deps.getActiveLeave({
+        userId: input.user_id,
+        date: today,
+      });
+
+      // Approved leave covering today → ooo; no record → available.
+      const status: 'available' | 'busy' | 'ooo' = leave ? 'ooo' : 'available';
+      const note: string | null = leave?.type ?? null;
+
+      return {
+        user_id: input.user_id,
+        date: today,
+        status,
+        note,
+        is_available: status === 'available',
+      };
+    },
+  });
 }

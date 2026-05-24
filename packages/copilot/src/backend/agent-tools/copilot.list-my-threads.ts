@@ -1,5 +1,4 @@
-import { createTool } from '@mastra/core/tools';
-import { actorFromContext, RequestContextSchema, registerToolPermission } from '@seta/copilot-sdk';
+import { actorFromContext, defineCopilotTool } from '@seta/copilot-sdk';
 import { z } from 'zod';
 
 export type ListThreadsRow = {
@@ -27,22 +26,19 @@ const Output = z.object({
 export function makeListMyThreadsTool(deps: {
   listThreads: (q: { resourceId: string; limit: number }) => Promise<ListThreadsRow[]>;
 }) {
-  return registerToolPermission(
-    createTool({
-      id: 'copilot_listMyThreads',
-      description: "Lists the current user's own chat threads (most recent first).",
-      inputSchema: Input,
-      outputSchema: Output,
-      requestContextSchema: RequestContextSchema,
-      execute: async (input, ctx) => {
-        const actor = actorFromContext(ctx);
-        const threads = await deps.listThreads({
-          resourceId: actor.user_id,
-          limit: input.limit ?? 20,
-        });
-        return { threads };
-      },
-    }),
-    'copilot.thread.read.self',
-  );
+  return defineCopilotTool({
+    id: 'copilot_listMyThreads',
+    description: "Lists the current user's own chat threads (most recent first).",
+    input: Input,
+    output: Output,
+    rbac: 'copilot.thread.read.self',
+    execute: async (input, ctx) => {
+      const actor = actorFromContext(ctx);
+      const threads = await deps.listThreads({
+        resourceId: actor.user_id,
+        limit: input.limit ?? 20,
+      });
+      return { threads };
+    },
+  });
 }

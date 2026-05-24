@@ -1,5 +1,4 @@
-import { createTool } from '@mastra/core/tools';
-import { RequestContextSchema, registerToolPermission } from '@seta/copilot-sdk';
+import { defineCopilotTool } from '@seta/copilot-sdk';
 import { z } from 'zod';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -16,10 +15,9 @@ import { z } from 'zod';
 // No invented fields.
 // ──────────────────────────────────────────────────────────────────────────────
 
-export const plannerExtractSkillsFromTaskTool = registerToolPermission(
-  createTool({
-    id: 'planner_extractSkillsFromTask',
-    description: `
+export const plannerExtractSkillsFromTaskTool = defineCopilotTool({
+  id: 'planner_extractSkillsFromTask',
+  description: `
 Analyzes the title and description of a single task to extract required skills.
 
 Call this once per task from planner_filterTasksByTagAndStatus output.
@@ -35,50 +33,48 @@ How to use:
 Call this tool for EVERY task in the list before calling planner_buildTaskSkillQueue.
     `.trim(),
 
-    inputSchema: z.object({
-      // task_id, title, description come directly from TaskRow columns.
-      task_id: z.string().uuid().describe('The id column of the task row.'),
-      title: z.string().describe('The title column of the task row.'),
-      description: z
-        .string()
-        .nullable()
-        .describe('The description column of the task row. May be null.'),
-      skills: z
-        .array(z.string().min(1))
-        .min(1)
-        .max(15)
-        .describe(
-          'Skills you identified as required for this task based on title and description. ' +
-            'Be specific and concrete. Maximum 15 skills per task.',
-        ),
-    }),
-
-    outputSchema: z.object({
-      task_id: z.string(),
-      title: z.string(),
-      skills: z.array(z.string()),
-    }),
-
-    requestContextSchema: RequestContextSchema,
-
-    execute: async (input, _ctx) => {
-      // Normalise: trim whitespace and deduplicate while preserving order.
-      const seen = new Set<string>();
-      const skills: string[] = [];
-      for (const raw of input.skills) {
-        const s = raw.trim();
-        if (s && !seen.has(s.toLowerCase())) {
-          seen.add(s.toLowerCase());
-          skills.push(s);
-        }
-      }
-
-      return {
-        task_id: input.task_id,
-        title: input.title,
-        skills,
-      };
-    },
+  input: z.object({
+    // task_id, title, description come directly from TaskRow columns.
+    task_id: z.string().uuid().describe('The id column of the task row.'),
+    title: z.string().describe('The title column of the task row.'),
+    description: z
+      .string()
+      .nullable()
+      .describe('The description column of the task row. May be null.'),
+    skills: z
+      .array(z.string().min(1))
+      .min(1)
+      .max(15)
+      .describe(
+        'Skills you identified as required for this task based on title and description. ' +
+          'Be specific and concrete. Maximum 15 skills per task.',
+      ),
   }),
-  'planner.task.read',
-);
+
+  output: z.object({
+    task_id: z.string(),
+    title: z.string(),
+    skills: z.array(z.string()),
+  }),
+
+  rbac: 'planner.task.read',
+
+  execute: async (input, _ctx) => {
+    // Normalise: trim whitespace and deduplicate while preserving order.
+    const seen = new Set<string>();
+    const skills: string[] = [];
+    for (const raw of input.skills) {
+      const s = raw.trim();
+      if (s && !seen.has(s.toLowerCase())) {
+        seen.add(s.toLowerCase());
+        skills.push(s);
+      }
+    }
+
+    return {
+      task_id: input.task_id,
+      title: input.title,
+      skills,
+    };
+  },
+});

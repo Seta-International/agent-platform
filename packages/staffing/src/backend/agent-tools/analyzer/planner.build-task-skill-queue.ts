@@ -1,5 +1,4 @@
-import { createTool } from '@mastra/core/tools';
-import { actorFromContext, RequestContextSchema, registerToolPermission } from '@seta/copilot-sdk';
+import { actorFromContext, defineCopilotTool } from '@seta/copilot-sdk';
 import { z } from 'zod';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -51,10 +50,9 @@ export type BuildTaskSkillQueueDeps = {
 // ──────────────────────────────────────────────────────────────────────────────
 
 export function makePlannerBuildTaskSkillQueueTool(deps: BuildTaskSkillQueueDeps) {
-  return registerToolPermission(
-    createTool({
-      id: 'planner_buildTaskSkillQueue',
-      description: `
+  return defineCopilotTool({
+    id: 'planner_buildTaskSkillQueue',
+    description: `
 Final step of the TaskAnalyzer pipeline.
 
 Aggregates all task-skill pairs from planner_extractSkillsFromTask and pushes
@@ -65,51 +63,46 @@ Call this ONCE after planner_extractSkillsFromTask has been called for every
 task returned by planner_filterTasksByTagAndStatus.
       `.trim(),
 
-      inputSchema: z.object({
-        items: z
-          .array(TaskSkillItemSchema)
-          .min(1)
-          .describe(
-            'All task-skill pairs collected from planner_extractSkillsFromTask. ' +
-              'Include every task — do not omit tasks with few skills.',
-          ),
-      }),
-
-      outputSchema: z.object({
-        // Enqueue confirmation from the queue backend.
-        job_id: z.string().describe('Job ID assigned by the queue backend.'),
-        queue: z.string().describe('Queue name the job was pushed to.'),
-        enqueued_at: z.string().describe('ISO-8601 timestamp of enqueue.'),
-        // Summary for TrustLayer / logging.
-        item_count: z.number().int(),
-        total_skills_extracted: z.number().int(),
-      }),
-
-      requestContextSchema: RequestContextSchema,
-
-      execute: async (input, ctx) => {
-        const actor = actorFromContext(ctx);
-
-        const total_skills_extracted = input.items.reduce(
-          (sum, item) => sum + item.skills.length,
-          0,
-        );
-
-        // Push to Orchestrator queue — transport decided by the injected dep.
-        const result = await deps.enqueueForOrchestrator({
-          payload: input.items,
-          enqueuedBy: actor.user_id,
-        });
-
-        return {
-          job_id: result.job_id,
-          queue: result.queue,
-          enqueued_at: result.enqueued_at,
-          item_count: input.items.length,
-          total_skills_extracted,
-        };
-      },
+    input: z.object({
+      items: z
+        .array(TaskSkillItemSchema)
+        .min(1)
+        .describe(
+          'All task-skill pairs collected from planner_extractSkillsFromTask. ' +
+            'Include every task — do not omit tasks with few skills.',
+        ),
     }),
-    'planner.task.read',
-  );
+
+    output: z.object({
+      // Enqueue confirmation from the queue backend.
+      job_id: z.string().describe('Job ID assigned by the queue backend.'),
+      queue: z.string().describe('Queue name the job was pushed to.'),
+      enqueued_at: z.string().describe('ISO-8601 timestamp of enqueue.'),
+      // Summary for TrustLayer / logging.
+      item_count: z.number().int(),
+      total_skills_extracted: z.number().int(),
+    }),
+
+    rbac: 'planner.task.read',
+
+    execute: async (input, ctx) => {
+      const actor = actorFromContext(ctx);
+
+      const total_skills_extracted = input.items.reduce((sum, item) => sum + item.skills.length, 0);
+
+      // Push to Orchestrator queue — transport decided by the injected dep.
+      const result = await deps.enqueueForOrchestrator({
+        payload: input.items,
+        enqueuedBy: actor.user_id,
+      });
+
+      return {
+        job_id: result.job_id,
+        queue: result.queue,
+        enqueued_at: result.enqueued_at,
+        item_count: input.items.length,
+        total_skills_extracted,
+      };
+    },
+  });
 }

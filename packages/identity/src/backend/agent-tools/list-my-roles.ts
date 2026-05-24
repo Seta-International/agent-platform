@@ -1,19 +1,18 @@
-import { createTool } from '@mastra/core/tools';
-import { actorFromContext, RequestContextSchema, registerToolPermission } from '@seta/copilot-sdk';
+import { actorFromContext, defineCopilotTool } from '@seta/copilot-sdk';
 import { z } from 'zod';
 import { listMyEffectivePermissions } from '../domain/list-my-effective-permissions.ts';
 
-export const listMyRolesTool = registerToolPermission(
-  createTool({
-    id: 'identity_listMyRoles',
-    description: 'Returns the sorted union of permissions the current user effectively holds.',
-    inputSchema: z.object({}),
-    requestContextSchema: RequestContextSchema,
-    execute: async (_input, ctx) => {
-      const actor = actorFromContext(ctx);
-      const permissions = await listMyEffectivePermissions(actor);
-      return { permissions };
-    },
+export const listMyRolesTool = defineCopilotTool({
+  id: 'identity_listMyRoles',
+  description: 'Returns the sorted union of permissions the current user effectively holds.',
+  input: z.object({}),
+  output: z.object({
+    permissions: z.array(z.string()),
   }),
-  'identity.user.read.self',
-);
+  rbac: 'identity.user.read.self',
+  execute: async (_input, ctx) => {
+    const actor = actorFromContext(ctx);
+    const permissions = await listMyEffectivePermissions(actor);
+    return { permissions };
+  },
+});

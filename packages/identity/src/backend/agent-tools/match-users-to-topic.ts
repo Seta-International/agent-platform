@@ -1,5 +1,4 @@
-import { createTool } from '@mastra/core/tools';
-import { actorFromContext, RequestContextSchema, registerToolPermission } from '@seta/copilot-sdk';
+import { actorFromContext, defineCopilotTool } from '@seta/copilot-sdk';
 import type { EmbeddingProvider } from '@seta/shared-embeddings';
 import type { Reranker } from '@seta/shared-retrieval';
 import type { Pool } from 'pg';
@@ -66,50 +65,47 @@ export interface MatchUsersToTopicToolDeps {
 export function matchUsersToTopicTool(deps: MatchUsersToTopicToolDeps) {
   const resolveSession = deps.sessionProvider ?? buildActorSession;
 
-  return registerToolPermission(
-    createTool({
-      id: 'match_users_to_topic',
-      description:
-        'Find users whose declared skills best match a given topic or skill area. Returns ranked candidates with user details and match scores.',
-      inputSchema,
-      outputSchema,
-      requestContextSchema: RequestContextSchema,
-      execute: async (input, ctx) => {
-        const actor = actorFromContext(ctx);
-        const session = await resolveSession(actor);
+  return defineCopilotTool({
+    id: 'match_users_to_topic',
+    description:
+      'Find users whose declared skills best match a given topic or skill area. Returns ranked candidates with user details and match scores.',
+    input: inputSchema,
+    output: outputSchema,
+    rbac: 'identity.user.read',
+    execute: async (input, ctx) => {
+      const actor = actorFromContext(ctx);
+      const session = await resolveSession(actor);
 
-        const requestedLimit = input.limit ?? 10;
+      const requestedLimit = input.limit ?? 10;
 
-        // Stage 1: oversampled vector retrieval.
-        const stage1Limit = Math.max(requestedLimit * 3, STAGE1_TOPK);
-        const stage1 = await matchUsersToTopic(
-          {
-            topic: input.topic,
-            tenant_id: session.tenant_id,
-            limit: stage1Limit,
-            minScore: input.min_score,
-          },
-          { provider: deps.provider, pool: deps.pool },
-        );
+      // Stage 1: oversampled vector retrieval.
+      const stage1Limit = Math.max(requestedLimit * 3, STAGE1_TOPK);
+      const stage1 = await matchUsersToTopic(
+        {
+          topic: input.topic,
+          tenant_id: session.tenant_id,
+          limit: stage1Limit,
+          minScore: input.min_score,
+        },
+        { provider: deps.provider, pool: deps.pool },
+      );
 
-        // Stage 2: rerank stage-1 hits and truncate to the requested limit.
-        const reranked = await deps.reranker.rescore(input.topic, stage1, {
-          topN: requestedLimit,
-        });
+      // Stage 2: rerank stage-1 hits and truncate to the requested limit.
+      const reranked = await deps.reranker.rescore(input.topic, stage1, {
+        topN: requestedLimit,
+      });
 
-        const usedReranker = reranked[0]?.reranker ?? 'noop';
+      const usedReranker = reranked[0]?.reranker ?? 'noop';
 
-        return {
-          candidates: reranked.map((h) => ({
-            user: h.item,
-            match_score: h.score,
-            rerank_score: h.rerankScore,
-            source: 'vector' as const,
-          })),
-          reranker: usedReranker,
-        };
-      },
-    }),
-    'identity.user.read',
-  );
+      return {
+        candidates: reranked.map((h) => ({
+          user: h.item,
+          match_score: h.score,
+          rerank_score: h.rerankScore,
+          source: 'vector' as const,
+        })),
+        reranker: usedReranker,
+      };
+    },
+  });
 }

@@ -1,5 +1,4 @@
-import { createTool } from '@mastra/core/tools';
-import { actorFromContext, RequestContextSchema, registerToolPermission } from '@seta/copilot-sdk';
+import { actorFromContext, defineCopilotTool } from '@seta/copilot-sdk';
 import { z } from 'zod';
 
 export type FilteredTask = {
@@ -51,10 +50,9 @@ export type FilterTasksDeps = {
 // ──────────────────────────────────────────────────────────────────────────────
 
 export function makePlannerFilterTasksByTagAndStatusTool(deps: FilterTasksDeps) {
-  return registerToolPermission(
-    createTool({
-      id: 'planner_filterTasksByTagAndStatus',
-      description: `
+  return defineCopilotTool({
+    id: 'planner_filterTasksByTagAndStatus',
+    description: `
 Queries the tasks table and returns tasks where:
   • skill_tags overlaps with the given tags (GIN && operator)
   • progress matches the given status
@@ -71,75 +69,73 @@ Examples:
 After calling this tool, pass each task to planner_extractSkillsFromTask.
       `.trim(),
 
-      inputSchema: z.object({
-        tags: z
-          .array(z.string().min(1))
-          .min(1)
-          .describe(
-            'Skill tags to filter by. Uses GIN overlap (&&): returns tasks whose ' +
-              'skill_tags column contains ANY of these values.',
-          ),
-        status: z
-          .enum(['not_started', 'in_progress', 'completed', 'deferred'])
-          .default('not_started')
-          .describe(
-            'Maps to the progress column: ' +
-              '"not_started" = todo, "in_progress" = doing, ' +
-              '"completed" = done, "deferred" = on hold.',
-          ),
-        limit: z
-          .number()
-          .int()
-          .min(1)
-          .max(100)
-          .default(50)
-          .describe('Maximum number of tasks to return.'),
-      }),
-
-      // Output shape matches FilteredTask — caller maps DB fields to this shape.
-      outputSchema: z.object({
-        tasks: z.array(
-          z.object({
-            id: z.string(),
-            tenant_id: z.string(),
-            plan_id: z.string(),
-            bucket_id: z.string().nullable(),
-            title: z.string(),
-            description: z.string().nullable(),
-            priority: z.enum(['urgent', 'important', 'medium', 'low']),
-            progress: z.enum(['not_started', 'in_progress', 'completed', 'deferred']),
-            review_state: z.enum(['needs_review']).nullable(),
-            skill_tags: z.array(z.string()),
-            due_at: z.string().nullable(),
-            sort_order: z.number(),
-            created_by: z.string(),
-            created_at: z.string(),
-            updated_at: z.string(),
-            deleted_at: z.string().nullable(),
-            version: z.number(),
-          }),
+    input: z.object({
+      tags: z
+        .array(z.string().min(1))
+        .min(1)
+        .describe(
+          'Skill tags to filter by. Uses GIN overlap (&&): returns tasks whose ' +
+            'skill_tags column contains ANY of these values.',
         ),
-        total: z.number().int(),
-      }),
-
-      requestContextSchema: RequestContextSchema,
-
-      execute: async (input, ctx) => {
-        const actor = actorFromContext(ctx);
-
-        const tasks = await deps.filterTasks({
-          userId: actor.user_id,
-          skillTags: input.tags,
-          status: input.status ?? 'not_started',
-          limit: input.limit ?? 50,
-        });
-
-        return {
-          tasks,
-          total: tasks.length,
-        };
-      },
+      status: z
+        .enum(['not_started', 'in_progress', 'completed', 'deferred'])
+        .default('not_started')
+        .describe(
+          'Maps to the progress column: ' +
+            '"not_started" = todo, "in_progress" = doing, ' +
+            '"completed" = done, "deferred" = on hold.',
+        ),
+      limit: z
+        .number()
+        .int()
+        .min(1)
+        .max(100)
+        .default(50)
+        .describe('Maximum number of tasks to return.'),
     }),
-    'planner.task.read',
-  );
+
+    // Output shape matches FilteredTask — caller maps DB fields to this shape.
+    output: z.object({
+      tasks: z.array(
+        z.object({
+          id: z.string(),
+          tenant_id: z.string(),
+          plan_id: z.string(),
+          bucket_id: z.string().nullable(),
+          title: z.string(),
+          description: z.string().nullable(),
+          priority: z.enum(['urgent', 'important', 'medium', 'low']),
+          progress: z.enum(['not_started', 'in_progress', 'completed', 'deferred']),
+          review_state: z.enum(['needs_review']).nullable(),
+          skill_tags: z.array(z.string()),
+          due_at: z.string().nullable(),
+          sort_order: z.number(),
+          created_by: z.string(),
+          created_at: z.string(),
+          updated_at: z.string(),
+          deleted_at: z.string().nullable(),
+          version: z.number(),
+        }),
+      ),
+      total: z.number().int(),
+    }),
+
+    rbac: 'planner.task.read',
+
+    execute: async (input, ctx) => {
+      const actor = actorFromContext(ctx);
+
+      const tasks = await deps.filterTasks({
+        userId: actor.user_id,
+        skillTags: input.tags,
+        status: input.status ?? 'not_started',
+        limit: input.limit ?? 50,
+      });
+
+      return {
+        tasks,
+        total: tasks.length,
+      };
+    },
+  });
 }

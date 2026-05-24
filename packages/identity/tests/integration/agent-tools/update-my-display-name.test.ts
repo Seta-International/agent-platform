@@ -7,7 +7,7 @@ import { makeToolContext, withCopilotTestDb } from '../../helpers.ts';
 
 describe('identity_updateMyDisplayName tool', () => {
   it('declares requireApproval and persists the new display name on execute', async () => {
-    expect(updateMyDisplayNameTool.requireApproval).toBe(true);
+    expect((updateMyDisplayNameTool as { needsApproval?: boolean }).needsApproval).toBe(true);
     await withCopilotTestDb(async ({ pool }) => {
       const { admin_user_id } = await createTestTenantWithAdmin({ pool });
       await updateMyDisplayNameTool.execute!(

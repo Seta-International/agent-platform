@@ -1,5 +1,4 @@
-import { createTool } from '@mastra/core/tools';
-import { actorFromContext, RequestContextSchema, registerToolPermission } from '@seta/copilot-sdk';
+import { actorFromContext, defineCopilotTool } from '@seta/copilot-sdk';
 import { z } from 'zod';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -46,10 +45,9 @@ export type ContextSearchDeps = {
 // ──────────────────────────────────────────────────────────────────────────────
 
 export function makeSkillMatcherContextSearchTool(deps: ContextSearchDeps) {
-  return registerToolPermission(
-    createTool({
-      id: 'skillMatcher_contextSearch',
-      description: `
+  return defineCopilotTool({
+    id: 'skillMatcher_contextSearch',
+    description: `
 Second tool in the SkillMatcher pipeline.
 
 Embeds the query string (from skillMatcher_formatQuery) using
@@ -62,64 +60,62 @@ filtered by the similarity threshold (default 0.3).
 Pass the output chunks to skillMatcher_llmParser.
       `.trim(),
 
-      inputSchema: z.object({
-        task_id: z.string().uuid().describe('Passed through for correlation.'),
-        query: z.string().min(1).describe('Formatted query string from skillMatcher_formatQuery.'),
-        threshold: z
-          .number()
-          .min(0)
-          .max(1)
-          .default(0.3)
-          .describe(
-            'Minimum cosine similarity score to include a result. ' +
-              'Default 0.3 — lower values return more results with weaker matches.',
-          ),
-        top_k: z
-          .number()
-          .int()
-          .min(1)
-          .max(50)
-          .default(10)
-          .describe('Maximum number of results to return from the vector search.'),
-      }),
-
-      // Mirrors ChunkResult — no invented fields.
-      outputSchema: z.object({
-        task_id: z.string(),
-        chunks: z.array(
-          z.object({
-            user_id: z.string(),
-            text: z.string(),
-            similarity: z.number(),
-          }),
+    input: z.object({
+      task_id: z.string().uuid().describe('Passed through for correlation.'),
+      query: z.string().min(1).describe('Formatted query string from skillMatcher_formatQuery.'),
+      threshold: z
+        .number()
+        .min(0)
+        .max(1)
+        .default(0.3)
+        .describe(
+          'Minimum cosine similarity score to include a result. ' +
+            'Default 0.3 — lower values return more results with weaker matches.',
         ),
-        total_found: z.number().int(),
-      }),
-
-      requestContextSchema: RequestContextSchema,
-
-      execute: async (input, ctx) => {
-        const actor = actorFromContext(ctx);
-
-        // Step 1: embed the formatted query.
-        const vector = await deps.embed(input.query);
-
-        // Step 2: cosine similarity search on identity.user_skill_embeddings.
-        // The injected function handles the pgvector query and tenant isolation.
-        const chunks = await deps.searchByEmbedding({
-          vector,
-          tenantId: actor.user_id, // caller resolves actual tenant_id from user_id
-          threshold: input.threshold ?? 0.3,
-          topK: input.top_k ?? 10,
-        });
-
-        return {
-          task_id: input.task_id,
-          chunks,
-          total_found: chunks.length,
-        };
-      },
+      top_k: z
+        .number()
+        .int()
+        .min(1)
+        .max(50)
+        .default(10)
+        .describe('Maximum number of results to return from the vector search.'),
     }),
-    'identity.user.read.any',
-  );
+
+    // Mirrors ChunkResult — no invented fields.
+    output: z.object({
+      task_id: z.string(),
+      chunks: z.array(
+        z.object({
+          user_id: z.string(),
+          text: z.string(),
+          similarity: z.number(),
+        }),
+      ),
+      total_found: z.number().int(),
+    }),
+
+    rbac: 'identity.user.read.any',
+
+    execute: async (input, ctx) => {
+      const actor = actorFromContext(ctx);
+
+      // Step 1: embed the formatted query.
+      const vector = await deps.embed(input.query);
+
+      // Step 2: cosine similarity search on identity.user_skill_embeddings.
+      // The injected function handles the pgvector query and tenant isolation.
+      const chunks = await deps.searchByEmbedding({
+        vector,
+        tenantId: actor.user_id, // caller resolves actual tenant_id from user_id
+        threshold: input.threshold ?? 0.3,
+        topK: input.top_k ?? 10,
+      });
+
+      return {
+        task_id: input.task_id,
+        chunks,
+        total_found: chunks.length,
+      };
+    },
+  });
 }

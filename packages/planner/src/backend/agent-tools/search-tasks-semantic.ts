@@ -1,5 +1,4 @@
-import { createTool } from '@mastra/core/tools';
-import { actorFromContext, RequestContextSchema, registerToolPermission } from '@seta/copilot-sdk';
+import { actorFromContext, defineCopilotTool } from '@seta/copilot-sdk';
 import { buildActorSession } from '@seta/identity';
 import type { EmbeddingProvider } from '@seta/shared-embeddings';
 import type { Reranker } from '@seta/shared-retrieval';
@@ -62,55 +61,52 @@ export interface SearchTasksSemanticToolDeps {
 export function searchTasksSemanticTool(deps: SearchTasksSemanticToolDeps) {
   const resolveSession = deps.sessionProvider ?? buildActorSession;
 
-  return registerToolPermission(
-    createTool({
-      id: 'search_tasks_semantic',
-      description:
-        'Find tasks by semantic similarity over title, description, and skill tags. Returns ranked hits.',
-      inputSchema,
-      outputSchema,
-      requestContextSchema: RequestContextSchema,
-      execute: async (input, ctx) => {
-        const actor = actorFromContext(ctx);
-        const session = await resolveSession(actor);
+  return defineCopilotTool({
+    id: 'search_tasks_semantic',
+    description:
+      'Find tasks by semantic similarity over title, description, and skill tags. Returns ranked hits.',
+    input: inputSchema,
+    output: outputSchema,
+    rbac: 'planner.task.read',
+    execute: async (input, ctx) => {
+      const actor = actorFromContext(ctx);
+      const session = await resolveSession(actor);
 
-        const requestedLimit = input.limit ?? 10;
+      const requestedLimit = input.limit ?? 10;
 
-        // Stage 1: oversampled hybrid retrieval.
-        // group_ids filtering is deferred: the retrieval layer uses bigint[]
-        // but SessionScope.accessible_group_ids are UUIDs. Passing undefined here
-        // falls back to tenant-wide retrieval which is correct for v1.
-        // RBAC gate for the wider scope is also deferred to M3.3.
-        const stage1Limit = Math.max(requestedLimit * 3, STAGE1_TOPK);
-        const stage1 = await searchTasks(
-          {
-            query: input.query,
-            tenant_id: session.tenant_id,
-            limit: stage1Limit,
-            group_ids: undefined,
-          },
-          { provider: deps.provider, pool: deps.pool },
-        );
+      // Stage 1: oversampled hybrid retrieval.
+      // group_ids filtering is deferred: the retrieval layer uses bigint[]
+      // but SessionScope.accessible_group_ids are UUIDs. Passing undefined here
+      // falls back to tenant-wide retrieval which is correct for v1.
+      // RBAC gate for the wider scope is also deferred to M3.3.
+      const stage1Limit = Math.max(requestedLimit * 3, STAGE1_TOPK);
+      const stage1 = await searchTasks(
+        {
+          query: input.query,
+          tenant_id: session.tenant_id,
+          limit: stage1Limit,
+          group_ids: undefined,
+        },
+        { provider: deps.provider, pool: deps.pool },
+      );
 
-        // Stage 2: rerank stage-1 hits and truncate to the requested limit.
-        const reranked = await deps.reranker.rescore(input.query, stage1, {
-          topN: requestedLimit,
-        });
+      // Stage 2: rerank stage-1 hits and truncate to the requested limit.
+      const reranked = await deps.reranker.rescore(input.query, stage1, {
+        topN: requestedLimit,
+      });
 
-        const usedReranker = reranked[0]?.reranker ?? 'noop';
+      const usedReranker = reranked[0]?.reranker ?? 'noop';
 
-        return {
-          hits: reranked.map((h) => ({
-            task: { task_id: h.item.task_id, title: h.item.title },
-            score: h.score,
-            rerank_score: h.rerankScore,
-            snippet: h.item.title,
-            source: h.source,
-          })),
-          reranker: usedReranker,
-        };
-      },
-    }),
-    'planner.task.read',
-  );
+      return {
+        hits: reranked.map((h) => ({
+          task: { task_id: h.item.task_id, title: h.item.title },
+          score: h.score,
+          rerank_score: h.rerankScore,
+          snippet: h.item.title,
+          source: h.source,
+        })),
+        reranker: usedReranker,
+      };
+    },
+  });
 }

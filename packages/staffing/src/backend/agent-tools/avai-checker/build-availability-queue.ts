@@ -1,5 +1,4 @@
-import { createTool } from '@mastra/core/tools';
-import { actorFromContext, RequestContextSchema, registerToolPermission } from '@seta/copilot-sdk';
+import { actorFromContext, defineCopilotTool } from '@seta/copilot-sdk';
 import { z } from 'zod';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -61,10 +60,9 @@ const UserAvailabilityResultSchema = z.object({
 // ──────────────────────────────────────────────────────────────────────────────
 
 export function makeAvaiCheckerBuildAvailabilityQueueTool(deps: BuildAvailabilityQueueDeps) {
-  return registerToolPermission(
-    createTool({
-      id: 'avaiChecker_buildAvailabilityQueue',
-      description: `
+  return defineCopilotTool({
+    id: 'avaiChecker_buildAvailabilityQueue',
+    description: `
 Final tool in the AvaiChecker pipeline (Tool 4).
 
 Receives the ranked user list from avaiChecker_rankByAvailability and pushes
@@ -77,48 +75,46 @@ into the results field here without reordering.
 Call this ONCE after avaiChecker_rankByAvailability completes.
       `.trim(),
 
-      inputSchema: z.object({
-        results: z
-          .array(UserAvailabilityResultSchema)
-          .min(1)
-          .describe(
-            'One entry per user. Combine the outputs of ' +
-              'avaiChecker_checkUserAvailability and avaiChecker_checkInProgressTasks ' +
-              'for each user_id before passing here.',
-          ),
-      }),
-
-      outputSchema: z.object({
-        // Enqueue confirmation.
-        job_id: z.string(),
-        queue: z.string(),
-        enqueued_at: z.string(),
-        // Summary for TrustLayer / logging.
-        user_count: z.number().int(),
-        // Full payload echoed back — order preserved from Tool 3.
-        payload: z.array(UserAvailabilityResultSchema),
-      }),
-
-      requestContextSchema: RequestContextSchema,
-
-      execute: async (input, ctx) => {
-        const actor = actorFromContext(ctx);
-
-        // Push to Orchestrator queue — order from Tool 3 preserved.
-        const enqueue = await deps.enqueueForOrchestrator({
-          results: input.results,
-          enqueuedBy: actor.user_id,
-        });
-
-        return {
-          job_id: enqueue.job_id,
-          queue: enqueue.queue,
-          enqueued_at: enqueue.enqueued_at,
-          user_count: input.results.length,
-          payload: input.results,
-        };
-      },
+    input: z.object({
+      results: z
+        .array(UserAvailabilityResultSchema)
+        .min(1)
+        .describe(
+          'One entry per user. Combine the outputs of ' +
+            'avaiChecker_checkUserAvailability and avaiChecker_checkInProgressTasks ' +
+            'for each user_id before passing here.',
+        ),
     }),
-    'planner.task.read',
-  );
+
+    output: z.object({
+      // Enqueue confirmation.
+      job_id: z.string(),
+      queue: z.string(),
+      enqueued_at: z.string(),
+      // Summary for TrustLayer / logging.
+      user_count: z.number().int(),
+      // Full payload echoed back — order preserved from Tool 3.
+      payload: z.array(UserAvailabilityResultSchema),
+    }),
+
+    rbac: 'planner.task.read',
+
+    execute: async (input, ctx) => {
+      const actor = actorFromContext(ctx);
+
+      // Push to Orchestrator queue — order from Tool 3 preserved.
+      const enqueue = await deps.enqueueForOrchestrator({
+        results: input.results,
+        enqueuedBy: actor.user_id,
+      });
+
+      return {
+        job_id: enqueue.job_id,
+        queue: enqueue.queue,
+        enqueued_at: enqueue.enqueued_at,
+        user_count: input.results.length,
+        payload: input.results,
+      };
+    },
+  });
 }

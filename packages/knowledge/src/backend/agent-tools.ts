@@ -1,10 +1,4 @@
-import { createTool } from '@mastra/core/tools';
-import {
-  actorFromContext,
-  type CopilotTool,
-  RequestContextSchema,
-  registerToolPermission,
-} from '@seta/copilot-sdk';
+import { actorFromContext, type CopilotTool, defineCopilotTool } from '@seta/copilot-sdk';
 import { buildActorSession } from '@seta/identity';
 import { getPool } from '@seta/shared-db';
 import { resolveReranker } from '@seta/shared-retrieval';
@@ -33,45 +27,42 @@ const outputSchema = z.object({
   reranker: z.enum(['cohere', 'llm-judge', 'noop', 'fallback']),
 });
 
-export const searchTenantKnowledgeAgentTool = registerToolPermission(
-  createTool({
-    id: 'knowledge.search-tenant-knowledge',
-    description:
-      'Search uploaded company documents (handbooks, policies, processes) by semantic similarity. Returns chunk text with filename and page hint for citation.',
-    inputSchema,
-    outputSchema,
-    requestContextSchema: RequestContextSchema,
-    execute: async (input, ctx) => {
-      const actor = actorFromContext(ctx);
-      const session = await buildActorSession(actor);
-      const provider = resolveEmbeddingProvider();
-      const pool = getPool('worker');
-      const reranker = resolveReranker();
-      const requestedLimit = input.limit ?? 5;
-      const stage1Limit = Math.max(requestedLimit * 3, STAGE1_TOPK);
+export const searchTenantKnowledgeAgentTool = defineCopilotTool({
+  id: 'knowledge.search-tenant-knowledge',
+  description:
+    'Search uploaded company documents (handbooks, policies, processes) by semantic similarity. Returns chunk text with filename and page hint for citation.',
+  input: inputSchema,
+  output: outputSchema,
+  rbac: 'knowledge.read',
+  execute: async (input, ctx) => {
+    const actor = actorFromContext(ctx);
+    const session = await buildActorSession(actor);
+    const provider = resolveEmbeddingProvider();
+    const pool = getPool('worker');
+    const reranker = resolveReranker();
+    const requestedLimit = input.limit ?? 5;
+    const stage1Limit = Math.max(requestedLimit * 3, STAGE1_TOPK);
 
-      const stage1 = await searchTenantKnowledge(
-        { query: input.query, tenant_id: session.tenant_id, limit: stage1Limit },
-        { provider, pool },
-      );
+    const stage1 = await searchTenantKnowledge(
+      { query: input.query, tenant_id: session.tenant_id, limit: stage1Limit },
+      { provider, pool },
+    );
 
-      const reranked = await reranker.rescore(input.query, stage1, { topN: requestedLimit });
-      const usedReranker = reranked[0]?.reranker ?? 'noop';
+    const reranked = await reranker.rescore(input.query, stage1, { topN: requestedLimit });
+    const usedReranker = reranked[0]?.reranker ?? 'noop';
 
-      return {
-        hits: reranked.map((h) => ({
-          file_id: h.item.file_id,
-          filename: h.item.filename,
-          page_hint: h.item.page_hint,
-          chunk_text: h.item.chunk_text,
-          score: h.score,
-          rerank_score: h.rerankScore,
-        })),
-        reranker: usedReranker,
-      };
-    },
-  }),
-  'knowledge.read',
-);
+    return {
+      hits: reranked.map((h) => ({
+        file_id: h.item.file_id,
+        filename: h.item.filename,
+        page_hint: h.item.page_hint,
+        chunk_text: h.item.chunk_text,
+        score: h.score,
+        rerank_score: h.rerankScore,
+      })),
+      reranker: usedReranker,
+    };
+  },
+});
 
 export const knowledgeAgentTools: CopilotTool[] = [searchTenantKnowledgeAgentTool];

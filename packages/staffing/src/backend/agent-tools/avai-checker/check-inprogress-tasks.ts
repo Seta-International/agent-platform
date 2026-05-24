@@ -1,5 +1,4 @@
-import { createTool } from '@mastra/core/tools';
-import { actorFromContext, RequestContextSchema, registerToolPermission } from '@seta/copilot-sdk';
+import { actorFromContext, defineCopilotTool } from '@seta/copilot-sdk';
 import { z } from 'zod';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -41,10 +40,9 @@ export type CheckInProgressTasksDeps = {
 // ──────────────────────────────────────────────────────────────────────────────
 
 export function makeAvaiCheckerCheckInProgressTasksTool(deps: CheckInProgressTasksDeps) {
-  return registerToolPermission(
-    createTool({
-      id: 'avaiChecker_checkInProgressTasks',
-      description: `
+  return defineCopilotTool({
+    id: 'avaiChecker_checkInProgressTasks',
+    description: `
 Second tool in the AvaiChecker pipeline.
 
 Queries the planner.tasks table for tasks currently assigned to the given
@@ -55,42 +53,40 @@ Call this for the same user_id used in avaiChecker_checkUserAvailability.
 Pass the result to avaiChecker_buildAvailabilityQueue.
       `.trim(),
 
-      inputSchema: z.object({
-        user_id: z.string().uuid().describe('user_id from the Orchestrator queue payload.'),
-      }),
-
-      // Output mirrors planner.tasks columns — no invented fields.
-      outputSchema: z.object({
-        user_id: z.string(),
-        in_progress_tasks: z.array(
-          z.object({
-            id: z.string(),
-            title: z.string(),
-            priority: z.enum(['urgent', 'important', 'medium', 'low']),
-            due_at: z.string().nullable(),
-            plan_id: z.string(),
-          }),
-        ),
-        task_count: z.number().int(),
-      }),
-
-      requestContextSchema: RequestContextSchema,
-
-      execute: async (input, ctx) => {
-        actorFromContext(ctx); // enforce authentication
-
-        const tasks = await deps.getInProgressTasks({
-          userId: input.user_id,
-          filters: { assignee_id: input.user_id, progress: 'in_progress' },
-        });
-
-        return {
-          user_id: input.user_id,
-          in_progress_tasks: tasks,
-          task_count: tasks.length,
-        };
-      },
+    input: z.object({
+      user_id: z.string().uuid().describe('user_id from the Orchestrator queue payload.'),
     }),
-    'planner.task.read',
-  );
+
+    // Output mirrors planner.tasks columns — no invented fields.
+    output: z.object({
+      user_id: z.string(),
+      in_progress_tasks: z.array(
+        z.object({
+          id: z.string(),
+          title: z.string(),
+          priority: z.enum(['urgent', 'important', 'medium', 'low']),
+          due_at: z.string().nullable(),
+          plan_id: z.string(),
+        }),
+      ),
+      task_count: z.number().int(),
+    }),
+
+    rbac: 'planner.task.read',
+
+    execute: async (input, ctx) => {
+      actorFromContext(ctx); // enforce authentication
+
+      const tasks = await deps.getInProgressTasks({
+        userId: input.user_id,
+        filters: { assignee_id: input.user_id, progress: 'in_progress' },
+      });
+
+      return {
+        user_id: input.user_id,
+        in_progress_tasks: tasks,
+        task_count: tasks.length,
+      };
+    },
+  });
 }
