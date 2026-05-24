@@ -36,6 +36,8 @@ export type BuildServerAppDeps = {
   workers: WorkerHandle;
   readinessSnapshot?: () => { lastTickAt: Date };
   streams: ReadonlyMap<string, StreamHubHandle>;
+  /** Origins the browser is allowed to make credentialed requests from. */
+  corsOrigins?: string[];
   /**
    * Optional pre-built copilot engine. apps/server constructs it earlier so it
    * can hand the Mastra instance to subscriberBuilders before the dispatcher
@@ -95,7 +97,7 @@ export function buildServerApp(
     listRoleGrants,
   });
 
-  const app = buildHonoApp(reg) as unknown as Hono<SessionEnv>;
+  const app = buildHonoApp(reg, { corsOrigins: deps.corsOrigins }) as unknown as Hono<SessionEnv>;
 
   // /discover first so it matches before better-auth's wildcard catches the prefix
   registerDiscoverRoute(app);

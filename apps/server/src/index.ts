@@ -163,6 +163,7 @@ const rt = buildRuntime(env, {
       workers,
       readinessSnapshot: () => dispatcher.health(),
       streams,
+      corsOrigins: env.CORS_ORIGINS,
       copilot,
     });
     return app;
