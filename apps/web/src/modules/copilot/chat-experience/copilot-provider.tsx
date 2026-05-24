@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- provider component and its selector hooks are co-located; splitting them would force every consumer through an extra re-export shim */
 import { AssistantRuntimeProvider } from '@assistant-ui/react';
 import { useLocation, useNavigate } from '@tanstack/react-router';
 import type { UIMessage } from 'ai';
