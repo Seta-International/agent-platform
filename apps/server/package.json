@@ -13,6 +13,9 @@
   },
   "dependencies": {
     "@microsoft/microsoft-graph-client": "^3.0.7",
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/auto-instrumentations-node": "^0.76.0",
+    "@opentelemetry/sdk-node": "^0.218.0",
     "@seta/copilot": "workspace:^",
     "@seta/copilot-sdk": "workspace:^",
     "@seta/core": "workspace:^",
