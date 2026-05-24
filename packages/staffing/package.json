@@ -9,7 +9,7 @@
     "./register": "./src/register.ts",
     "./events": "./src/events.ts",
     "./rbac": "./src/rbac.ts",
-    "./agent-tools": "./src/backend/agent-tools/index.ts"
+    "./agent-tools": "./src/agent-tools.ts"
   },
   "scripts": {
     "lint": "eslint . --no-error-on-unmatched-pattern",

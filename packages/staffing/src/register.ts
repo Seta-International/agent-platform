@@ -2,7 +2,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getMastra } from '@seta/copilot/register';
 import type { ContributionRegistry } from '@seta/core';
-import { staffingAgentTools } from './backend/agent-tools/index.ts';
+import { staffingAgentTools } from './agent-tools.ts';
 import * as schema from './backend/db/schema.ts';
 import { makeOnPlannerTaskCreatedSubscriber } from './backend/subscribers/on-planner-task-created.ts';
 import { staffingWorkflows } from './backend/workflows/index.ts';
