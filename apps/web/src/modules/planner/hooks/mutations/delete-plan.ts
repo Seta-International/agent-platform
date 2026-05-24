@@ -1,6 +1,7 @@
 import type { PlanRow } from '@seta/planner';
 import { plannerClient } from '../../api/planner-client';
 import { plannerKeys } from '../../state/query-keys';
+import { parseConflictVersion, patchPlanVersion } from '../../state/version-reconcile';
 import { useOptimisticMutation } from '../use-optimistic-mutation';
 
 export function useDeletePlan(groupId: string, planId: string) {
@@ -21,5 +22,9 @@ export function useDeletePlan(groupId: string, planId: string) {
     savingId: () => planId,
     invalidate: () => [plannerKeys.groupPlans(groupId), plannerKeys.trash()],
     errorMessage: () => "Couldn't delete plan.",
+    onConflict: (err, _vars, qc) => {
+      const v = parseConflictVersion(err);
+      if (v !== undefined) patchPlanVersion(qc, planId, v);
+    },
   });
 }

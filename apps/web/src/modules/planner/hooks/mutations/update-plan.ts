@@ -1,6 +1,7 @@
 import type { PlanRow } from '@seta/planner';
 import { plannerClient } from '../../api/planner-client';
 import { plannerKeys } from '../../state/query-keys';
+import { parseConflictVersion, patchPlanVersion } from '../../state/version-reconcile';
 import { useOptimisticMutation } from '../use-optimistic-mutation';
 
 export function useUpdatePlan(groupId: string, planId: string) {
@@ -28,5 +29,9 @@ export function useUpdatePlan(groupId: string, planId: string) {
     savingId: () => planId,
     invalidate: () => [plannerKeys.plan(planId), plannerKeys.groupPlans(groupId)],
     errorMessage: () => "Couldn't save plan changes.",
+    onConflict: (err, _vars, qc) => {
+      const v = parseConflictVersion(err);
+      if (v !== undefined) patchPlanVersion(qc, planId, v);
+    },
   });
 }

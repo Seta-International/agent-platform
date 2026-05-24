@@ -1,6 +1,7 @@
 import type { BucketRow } from '@seta/planner';
 import { plannerClient } from '../../api/planner-client';
 import { plannerKeys } from '../../state/query-keys';
+import { parseConflictVersion, patchBucketVersion } from '../../state/version-reconcile';
 import { useOptimisticMutation } from '../use-optimistic-mutation';
 
 export function useUpdateBucket(planId: string, bucketId: string) {
@@ -12,5 +13,9 @@ export function useUpdateBucket(planId: string, bucketId: string) {
     savingId: () => bucketId,
     invalidate: () => [plannerKeys.plan(planId)],
     errorMessage: () => "Couldn't save bucket changes.",
+    onConflict: (err, _vars, qc) => {
+      const v = parseConflictVersion(err);
+      if (v !== undefined) patchBucketVersion(qc, planId, bucketId, v);
+    },
   });
 }

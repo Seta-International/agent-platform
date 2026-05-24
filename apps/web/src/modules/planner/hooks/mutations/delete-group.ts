@@ -1,6 +1,7 @@
 import type { GroupRow } from '@seta/planner';
 import { plannerClient } from '../../api/planner-client';
 import { plannerKeys } from '../../state/query-keys';
+import { parseConflictVersion, patchGroupVersion } from '../../state/version-reconcile';
 import { useOptimisticMutation } from '../use-optimistic-mutation';
 
 export function useDeleteGroup(groupId: string) {
@@ -19,5 +20,9 @@ export function useDeleteGroup(groupId: string) {
     savingId: () => groupId,
     invalidate: () => [plannerKeys.myGroups(), plannerKeys.trash()],
     errorMessage: () => "Couldn't delete group.",
+    onConflict: (err, _vars, qc) => {
+      const v = parseConflictVersion(err);
+      if (v !== undefined) patchGroupVersion(qc, groupId, v);
+    },
   });
 }

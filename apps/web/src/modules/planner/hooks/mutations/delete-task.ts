@@ -1,6 +1,7 @@
 import type { TaskWithAssigneesRow } from '@seta/planner';
 import { plannerClient } from '../../api/planner-client';
 import { plannerKeys } from '../../state/query-keys';
+import { parseConflictVersion, patchTaskVersion } from '../../state/version-reconcile';
 import { useOptimisticMutation } from '../use-optimistic-mutation';
 
 interface DeleteVars {
@@ -24,7 +25,11 @@ export function useDeleteTask(planId: string) {
     invalidate: () => [plannerKeys.trash()],
     errorMessage: (err) =>
       (err as { status?: number }).status === 409
-        ? 'Someone else changed this task.'
+        ? 'Someone else changed this task — refreshed.'
         : "Couldn't delete task.",
+    onConflict: (err, vars, qc) => {
+      const v = parseConflictVersion(err);
+      if (v !== undefined) patchTaskVersion(qc, planId, vars.task_id, v);
+    },
   });
 }

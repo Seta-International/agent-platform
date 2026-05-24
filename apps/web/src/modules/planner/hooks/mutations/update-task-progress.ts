@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { plannerClient } from '../../api/planner-client';
 import { plannerKeys } from '../../state/query-keys';
+import { parseConflictVersion, patchTaskVersion } from '../../state/version-reconcile';
 
 /**
  * Planner mirrors Microsoft Planner: percent_complete is restricted to
@@ -32,6 +33,10 @@ export function useUpdateTaskProgress(planId: string) {
     onSuccess: (_data, v) => {
       qc.invalidateQueries({ queryKey: plannerKeys.task(v.task_id) });
       qc.invalidateQueries({ queryKey: plannerKeys.plan(planId) });
+    },
+    onError: (err, vars) => {
+      const v = parseConflictVersion(err);
+      if (v !== undefined) patchTaskVersion(qc, planId, vars.task_id, v);
     },
   });
 }

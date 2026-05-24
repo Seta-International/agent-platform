@@ -1,6 +1,7 @@
 import type { TaskRow, TaskWithAssigneesRow } from '@seta/planner';
 import { plannerClient } from '../../api/planner-client';
 import { plannerKeys } from '../../state/query-keys';
+import { parseConflictVersion, patchTaskVersion } from '../../state/version-reconcile';
 import { useOptimisticMutation } from '../use-optimistic-mutation';
 
 interface UpdateVars {
@@ -68,5 +69,9 @@ export function useUpdateTask(planId: string) {
     savingId: (v) => v.task_id,
     invalidate: (v) => [plannerKeys.taskEvents(v.task_id)],
     errorMessage: () => "Couldn't save changes.",
+    onConflict: (err, vars, qc) => {
+      const v = parseConflictVersion(err);
+      if (v !== undefined) patchTaskVersion(qc, planId, vars.task_id, v);
+    },
   });
 }
