@@ -27,6 +27,13 @@ export const files = knowledge.table(
     status: text('status', {
       enum: ['uploading', 'parsing', 'embedding', 'ready', 'failed'],
     }).notNull(),
+    scan_status: text('scan_status', {
+      enum: ['pending', 'scanning', 'clean', 'infected', 'error'],
+    })
+      .notNull()
+      .default('pending'),
+    scan_at: timestamp('scan_at', { withTimezone: true }),
+    scan_detail: text('scan_detail'),
     error_reason: text('error_reason'),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     processed_at: timestamp('processed_at', { withTimezone: true }),

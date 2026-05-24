@@ -44,6 +44,9 @@ describe('knowledge.files', () => {
         'error_reason',
         'created_at',
         'processed_at',
+        'scan_status',
+        'scan_at',
+        'scan_detail',
       ]);
     }));
 });
