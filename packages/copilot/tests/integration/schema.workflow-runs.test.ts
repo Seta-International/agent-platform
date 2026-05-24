@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { workflowApprovals } from '../../src/db/schema.workflow-approvals.ts';
-import { workflowRunEventsSeen } from '../../src/db/schema.workflow-events-seen.ts';
-import { workflowRuns } from '../../src/db/schema.workflow-runs.ts';
+import { workflowApprovals } from '../../src/backend/db/schema.workflow-approvals.ts';
+import { workflowRunEventsSeen } from '../../src/backend/db/schema.workflow-events-seen.ts';
+import { workflowRuns } from '../../src/backend/db/schema.workflow-runs.ts';
 
 describe('copilot.workflow_runs table', () => {
   it('exposes the columns the lifecycle hook writes', () => {
