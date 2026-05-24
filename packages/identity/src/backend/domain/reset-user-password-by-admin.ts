@@ -1,7 +1,7 @@
 import { emit, withEmit } from '@seta/core/events';
 import { and, eq } from 'drizzle-orm';
-import { account } from '../../db/schema.ts';
-import { argon2id } from '../password/argon2.ts';
+import { argon2id } from '../argon2.ts';
+import { account } from '../db/schema.ts';
 import { IdentityError, requirePermission } from '../rbac.ts';
 import type { Actor } from './create-user.ts';
 

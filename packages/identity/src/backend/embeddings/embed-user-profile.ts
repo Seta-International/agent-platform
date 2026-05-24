@@ -1,8 +1,8 @@
 import { ensureTenantPartition } from '@seta/shared-db';
 import { type EmbeddingProvider, embedMany, sourceHash } from '@seta/shared-embeddings';
 import type { Pool } from 'pg';
-import { buildUserProfileSource } from '../../embeddings/source.ts';
 import { getUserProfileForEmbedding } from '../domain/get-user-profile-for-embedding.ts';
+import { buildUserProfileSource } from './source.ts';
 
 export interface EmbedUserProfilePayload {
   tenant_id: string;

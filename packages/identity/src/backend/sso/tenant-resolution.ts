@@ -1,7 +1,7 @@
 import { and, eq, sql } from 'drizzle-orm';
-import { identityDb } from '../../db/index.ts';
-import { tenantSsoProviders } from '../../db/schema.ts';
-import type { MicrosoftEntraConfig, SsoProviderId } from '../../sso/config.ts';
+import { identityDb } from '../db/index.ts';
+import { tenantSsoProviders } from '../db/schema.ts';
+import type { MicrosoftEntraConfig, SsoProviderId } from './config.ts';
 
 export interface ResolvedSetaTenant {
   tenant_id: string;

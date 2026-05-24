@@ -1,6 +1,6 @@
 import { and, eq, isNull } from 'drizzle-orm';
-import { account, user } from '../../db/auth-tables.ts';
-import { identityDb } from '../../db/index.ts';
+import { account, user } from '../db/auth-tables.ts';
+import { identityDb } from '../db/index.ts';
 
 /**
  * Translates a Seta user_id to the user's Entra Object ID.

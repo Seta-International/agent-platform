@@ -1,8 +1,8 @@
 import { withEmit } from '@seta/core/events';
 import { and, eq, isNull } from 'drizzle-orm';
-import { groups } from '../../db/schema.ts';
 import { emitPlannerGroupUpdated } from '../../events/emit-helpers.ts';
 import type { GroupFieldKey } from '../../events/types.ts';
+import { groups } from '../db/schema.ts';
 import type { GroupRow } from '../dto.ts';
 import type { UpdateGroupPatch } from '../inputs.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';

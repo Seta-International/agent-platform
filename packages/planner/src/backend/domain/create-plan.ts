@@ -2,12 +2,12 @@ import type { SessionScope } from '@seta/core';
 import { withEmit } from '@seta/core/events';
 import { requestNotification } from '@seta/notifications';
 import { and, eq, isNull } from 'drizzle-orm';
-import { groups, plans } from '../../db/schema.ts';
 import { emitPlannerPlanCreated } from '../../events/emit-helpers.ts';
+import { groups, plans } from '../db/schema.ts';
 import type { PlanRow } from '../dto.ts';
 import type { CreatePlanInput } from '../inputs.ts';
-import { resolveGroupMemberIds } from '../notifications/recipients.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
+import { resolveGroupMemberIds } from './recipients.ts';
 
 type PlanDbRow = typeof plans.$inferSelect;
 

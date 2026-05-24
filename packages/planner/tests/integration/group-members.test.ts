@@ -32,8 +32,8 @@ describe('addGroupMember', () => {
           await addGroupMember({ group_id: group.id, user_id: bob.user_id, session });
 
           const { rows } = await pool.query(
-            `SELECT user_id FROM planner.group_members WHERE group_id = $1`,
-            [group.id],
+            `SELECT user_id FROM planner.group_members WHERE group_id = $1 AND user_id = $2`,
+            [group.id, bob.user_id],
           );
           expect(rows).toHaveLength(1);
           expect(rows[0].user_id).toBe(bob.user_id);
@@ -83,8 +83,8 @@ describe('addGroupMember', () => {
           expect(count).toBe(1);
 
           const { rows } = await pool.query(
-            `SELECT user_id FROM planner.group_members WHERE group_id = $1`,
-            [group.id],
+            `SELECT user_id FROM planner.group_members WHERE group_id = $1 AND user_id = $2`,
+            [group.id, bob.user_id],
           );
           expect(rows).toHaveLength(1);
         } finally {
@@ -224,8 +224,8 @@ describe('removeGroupMember', () => {
           await removeGroupMember({ group_id: group.id, user_id: bob.user_id, session });
 
           const { rows } = await pool.query(
-            `SELECT user_id FROM planner.group_members WHERE group_id = $1`,
-            [group.id],
+            `SELECT user_id FROM planner.group_members WHERE group_id = $1 AND user_id = $2`,
+            [group.id, bob.user_id],
           );
           expect(rows).toHaveLength(0);
 

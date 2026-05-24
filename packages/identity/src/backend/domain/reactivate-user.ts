@@ -1,6 +1,6 @@
 import { withEmit } from '@seta/core/events';
 import { eq } from 'drizzle-orm';
-import { user } from '../../db/schema.ts';
+import { user } from '../db/schema.ts';
 import { IdentityError, requirePermission } from '../rbac.ts';
 import type { Actor } from './create-user.ts';
 import { requireUserExists } from './helpers.ts';

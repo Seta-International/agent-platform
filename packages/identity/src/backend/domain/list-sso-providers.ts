@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
-import { identityDb } from '../../db/index.ts';
-import { tenantSsoProviders } from '../../db/schema.ts';
-import type { MicrosoftEntraConfig, SsoProviderId } from '../../sso/config.ts';
+import { identityDb } from '../db/index.ts';
+import { tenantSsoProviders } from '../db/schema.ts';
+import type { MicrosoftEntraConfig, SsoProviderId } from '../sso/config.ts';
 import type { ProviderRow } from '../sso/helpers.ts';
 
 export async function listSsoProviders(tenantId: string): Promise<ReadonlyArray<ProviderRow>> {

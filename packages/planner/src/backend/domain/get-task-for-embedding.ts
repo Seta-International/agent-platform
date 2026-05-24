@@ -1,6 +1,6 @@
 import { and, eq, isNull } from 'drizzle-orm';
-import { plannerDb } from '../../db/index.ts';
-import { tasks } from '../../db/schema.ts';
+import { plannerDb } from '../db/index.ts';
+import { tasks } from '../db/schema.ts';
 
 export interface GetTaskForEmbeddingInput {
   tenant_id: string;

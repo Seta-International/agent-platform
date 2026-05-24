@@ -3,7 +3,7 @@ import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
-import { plannerDb } from '../../src/db/index.ts';
+import { plannerDb } from '../../src/backend/db/index.ts';
 
 describe('groups schema migration', () => {
   it('has all expected sync columns on planner.groups', async () => {

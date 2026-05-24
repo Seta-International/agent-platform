@@ -2,10 +2,10 @@ import type { SessionScope } from '@seta/core';
 import { withEmit } from '@seta/core/events';
 import { requestNotification } from '@seta/notifications';
 import { and, eq, isNull } from 'drizzle-orm';
-import { groups, plans } from '../../db/schema.ts';
 import { emitPlannerPlanDeleted } from '../../events/emit-helpers.ts';
-import { resolveGroupMemberIds } from '../notifications/recipients.ts';
+import { groups, plans } from '../db/schema.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
+import { resolveGroupMemberIds } from './recipients.ts';
 
 export async function deletePlan(input: {
   plan_id: string;

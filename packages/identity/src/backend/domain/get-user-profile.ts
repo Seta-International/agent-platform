@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
-import { identityDb } from '../../db/index.ts';
-import { user, userProfile } from '../../db/schema.ts';
+import { identityDb } from '../db/index.ts';
+import { user, userProfile } from '../db/schema.ts';
 
 export interface UserProfile {
   user_id: string;

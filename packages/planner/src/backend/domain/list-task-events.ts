@@ -1,9 +1,9 @@
 // -- cross-schema-read: list-task-events.ts reads core.events for the activity feed (architecture §F.4.1).
 import type { SessionScope } from '@seta/core';
 import { eq, sql } from 'drizzle-orm';
-import { plannerDb } from '../../db/index.ts';
-import { plans, tasks } from '../../db/schema.ts';
 import type { PlannerEvent } from '../../events/types.ts';
+import { plannerDb } from '../db/index.ts';
+import { plans, tasks } from '../db/schema.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 import { groupFilterFor } from '../read-helpers.ts';
 

@@ -5,9 +5,9 @@ import { searchTasksSemanticTool } from '@seta/planner/agent-tools';
 import type { EmbeddingProvider } from '@seta/shared-embeddings';
 import { resolveReranker } from '@seta/shared-retrieval';
 import type { Pool } from 'pg';
+import { makeListMyThreadsTool } from '../agent-tools/copilot.list-my-threads.ts';
 import { resolveEmbeddingProvider } from '../embedding-provider.ts';
 import { ROUTER_INSTRUCTIONS, SELF_INSTRUCTIONS } from '../instructions.ts';
-import { makeListMyThreadsTool } from '../tools/copilot.list-my-threads.ts';
 import type { AgentSpec, AgentSpecs } from './specs.ts';
 
 const reranker = resolveReranker();

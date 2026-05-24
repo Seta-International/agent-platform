@@ -1,6 +1,6 @@
 import type { SessionScope } from '@seta/core';
 import { and, eq, gte, inArray, isNull, lt, sql } from 'drizzle-orm';
-import { plannerDb } from '../../db/index.ts';
+import { plannerDb } from '../db/index.ts';
 import {
   assigneeProjection,
   checklistItems,
@@ -9,7 +9,7 @@ import {
   taskAssignments,
   taskLabels,
   tasks,
-} from '../../db/schema.ts';
+} from '../db/schema.ts';
 import type { AssigneeRow, LabelRow, TaskWithAssigneesRow } from '../dto.ts';
 import { requirePermission } from '../rbac.ts';
 import { groupFilterFor } from '../read-helpers.ts';

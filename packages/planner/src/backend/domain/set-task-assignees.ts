@@ -1,8 +1,8 @@
 import type { SessionScope } from '@seta/core';
 import { withEmit } from '@seta/core/events';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
-import { plans, taskAssignments, tasks } from '../../db/schema.ts';
 import { emitPlannerTaskAssigned, emitPlannerTaskUnassigned } from '../../events/emit-helpers.ts';
+import { plans, taskAssignments, tasks } from '../db/schema.ts';
 import type { SetTaskAssigneesInput } from '../inputs.ts';
 import { withSpan } from '../observability.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';

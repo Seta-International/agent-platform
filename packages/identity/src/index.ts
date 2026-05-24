@@ -85,18 +85,18 @@ export {
   backfillUserProfiles,
 } from './backend/embeddings/backfill/backfill-user-profiles.ts';
 export { embeddingJobs } from './backend/embeddings/register-jobs.ts';
+export type { UserProfileSourceInput } from './backend/embeddings/source.ts';
+export { buildUserProfileSource } from './backend/embeddings/source.ts';
 export { IdentityError } from './backend/rbac.ts';
+export type { MicrosoftEntraConfig, SsoProviderId } from './backend/sso/config.ts';
 export { buildAdminConsentUrl } from './backend/sso/consent-url.ts';
 export type { ProviderRow as SsoProviderRow } from './backend/sso/helpers.ts';
 export { requireProviderRow } from './backend/sso/helpers.ts';
-export type { UserProfileSourceInput } from './embeddings/source.ts';
-export { buildUserProfileSource } from './embeddings/source.ts';
 export {
   IDENTITY_FAILED_LOGIN_ALERT_THRESHOLD_REACHED,
   IDENTITY_FAILED_LOGIN_ALERT_THRESHOLD_REACHED_VERSION,
   type IdentityFailedLoginAlertThresholdReachedPayload,
 } from './events/failed-login-alert.ts';
 export type { IdentityEvent } from './events/index.ts';
-export type { TenantRoleSlug } from './roles.ts';
-export { A2_PERMISSIONS, type A2Permission, TENANT_ROLE_SLUGS } from './roles.ts';
-export type { MicrosoftEntraConfig, SsoProviderId } from './sso/config.ts';
+export type { TenantRoleSlug } from './rbac.ts';
+export { A2_PERMISSIONS, type A2Permission, TENANT_ROLE_SLUGS } from './rbac.ts';

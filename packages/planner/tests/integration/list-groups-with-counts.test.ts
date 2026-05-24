@@ -55,11 +55,12 @@ describe('listGroupsWithCounts', () => {
 
           expect(a).toBeDefined();
           expect(a?.plan_count).toBe(2);
-          expect(a?.member_count).toBe(2);
+          expect(a?.member_count).toBe(3);
 
-          // Members preview: first 3 by added_at — alpha has 2 (bob, carol)
-          expect(a?.members_preview).toHaveLength(2);
+          // Members preview: first 3 by added_at — alpha has admin (auto-owner), bob, carol
+          expect(a?.members_preview).toHaveLength(3);
           const previewIds = new Set(a?.members_preview.map((p) => p.user_id));
+          expect(previewIds.has(seeded.admin.user_id)).toBe(true);
           expect(previewIds.has(bob.user_id)).toBe(true);
           expect(previewIds.has(carol.user_id)).toBe(true);
           expect(a?.members_preview.every((p) => typeof p.display_name === 'string')).toBe(true);
@@ -75,7 +76,7 @@ describe('listGroupsWithCounts', () => {
 
           expect(b).toBeDefined();
           expect(b?.plan_count).toBe(0);
-          expect(b?.member_count).toBe(0);
+          expect(b?.member_count).toBe(1);
 
           expect(c).toBeDefined();
           expect(c?.plan_count).toBe(0); // soft-deleted plan excluded

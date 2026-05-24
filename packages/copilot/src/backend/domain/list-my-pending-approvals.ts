@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { copilotDb } from '../../db/index.ts';
+import { copilotDb } from '../db/index.ts';
 import type { SessionLike } from '../types.ts';
 
 export interface WorkflowApprovalRow {

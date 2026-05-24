@@ -1,7 +1,7 @@
 import { withEmit } from '@seta/core/events';
 import { and, eq, isNull } from 'drizzle-orm';
-import { groupMembers, groups } from '../../db/schema.ts';
 import { emitPlannerGroupMemberRemoved } from '../../events/emit-helpers.ts';
+import { groupMembers, groups } from '../db/schema.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 import { isM365SystemActor, type PlannerSessionScope } from './_actor.ts';
 

@@ -1,8 +1,8 @@
 import { withEmit } from '@seta/core/events';
 import { and, eq, isNull } from 'drizzle-orm';
-import { plans, tasks } from '../../db/schema.ts';
 import { emitPlannerTaskSyncStatusChanged } from '../../events/emit-helpers.ts';
 import type { PlanSyncStatus } from '../../events/types.ts';
+import { plans, tasks } from '../db/schema.ts';
 import type { MarkTaskSyncStatusInput } from '../inputs.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 import { isM365SystemActor, type PlannerSessionScope } from './_actor.ts';

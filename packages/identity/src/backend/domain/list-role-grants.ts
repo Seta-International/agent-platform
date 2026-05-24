@@ -1,6 +1,6 @@
 import { and, eq, isNull } from 'drizzle-orm';
-import { identityDb } from '../../db/index.ts';
-import { roleGrants, user } from '../../db/schema.ts';
+import { identityDb } from '../db/index.ts';
+import { roleGrants, user } from '../db/schema.ts';
 import { IdentityError } from '../rbac.ts';
 
 export interface ActiveRoleGrant {

@@ -1,8 +1,8 @@
 import type { SessionScope } from '@seta/core';
 import { withEmit } from '@seta/core/events';
 import { and, eq, isNull } from 'drizzle-orm';
-import { groups } from '../../db/schema.ts';
 import { emitPlannerGroupDeleted } from '../../events/emit-helpers.ts';
+import { groups } from '../db/schema.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 
 export async function deleteGroup(input: {

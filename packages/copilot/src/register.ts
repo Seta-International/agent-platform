@@ -5,9 +5,9 @@ import type { ContributionRegistry } from '@seta/core';
 import type { Hono } from 'hono';
 import type { Pool } from 'pg';
 import { createAgentFactory } from './backend/agent-factory.ts';
+import * as schema from './backend/db/schema.ts';
 import { registerCopilotRoutes } from './backend/routes.ts';
 import { buildMastra } from './backend/runtime.ts';
-import * as schema from './db/schema.ts';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 

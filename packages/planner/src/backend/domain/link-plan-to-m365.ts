@@ -1,9 +1,9 @@
 import type { SessionScope } from '@seta/core';
 import { withEmit } from '@seta/core/events';
 import { and, eq, isNull } from 'drizzle-orm';
-import { groups, plans } from '../../db/schema.ts';
 import { emitPlannerPlanUpdated } from '../../events/emit-helpers.ts';
 import type { PlanFieldKey } from '../../events/types.ts';
+import { groups, plans } from '../db/schema.ts';
 import type { PlanRow } from '../dto.ts';
 import type { LinkPlanToM365Input } from '../inputs.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';

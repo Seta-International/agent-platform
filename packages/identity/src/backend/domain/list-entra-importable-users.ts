@@ -1,7 +1,7 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
-import { identityDb } from '../../db/index.ts';
-import { user } from '../../db/schema.ts';
-import { graphListUsers } from '../../sso/graph.ts';
+import { identityDb } from '../db/index.ts';
+import { user } from '../db/schema.ts';
+import { graphListUsers } from '../sso/graph.ts';
 import { requireProviderRow } from '../sso/helpers.ts';
 
 export interface EntraImportableUser {

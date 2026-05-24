@@ -1,8 +1,8 @@
 import type { SessionScope } from '@seta/core';
 import { withEmit } from '@seta/core/events';
 import { and, eq, isNull } from 'drizzle-orm';
-import { labels, plans } from '../../db/schema.ts';
 import { emitPlannerLabelUpdated } from '../../events/emit-helpers.ts';
+import { labels, plans } from '../db/schema.ts';
 import type { LabelRow } from '../dto.ts';
 import type { UpdateLabelPatch } from '../inputs.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';

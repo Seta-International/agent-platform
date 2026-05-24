@@ -5,7 +5,7 @@ import {
   PLANNER_ROLE_SLUGS,
   type PlannerPermission,
   type PlannerRoleSlug,
-} from '../roles.ts';
+} from '../rbac.ts';
 import { isM365SystemActor } from './domain/_actor.ts';
 
 export type PlannerErrorCode =

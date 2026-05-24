@@ -3,11 +3,11 @@ import { fileURLToPath } from 'node:url';
 import type { ContributionRegistry, ErrorMapper } from '@seta/core';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { plannerAgentTools } from './backend/agent-tools/index.ts';
+import * as schema from './backend/db/schema.ts';
 import { buildPlannerRoutes } from './backend/http/index.ts';
 import { PlannerError } from './backend/rbac.ts';
 import { buildPlannerBoardStreamHub } from './backend/stream/index.ts';
 import { plannerSubscribers } from './backend/subscribers/index.ts';
-import * as schema from './db/schema.ts';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 

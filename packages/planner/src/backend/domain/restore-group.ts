@@ -1,8 +1,8 @@
 import type { SessionScope } from '@seta/core';
 import { withEmit } from '@seta/core/events';
 import { eq } from 'drizzle-orm';
-import { groups } from '../../db/schema.ts';
 import { emitPlannerGroupRestored } from '../../events/emit-helpers.ts';
+import { groups } from '../db/schema.ts';
 import type { GroupRow } from '../dto.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 import { groupRowToDto } from './_group-dto.ts';

@@ -1,8 +1,8 @@
 import { ensureTenantPartition } from '@seta/shared-db';
 import { sourceHash } from '@seta/shared-embeddings';
 import type { Pool } from 'pg';
-import { buildUserProfileSource } from '../../../embeddings/source.ts';
 import { listUsersForBackfill } from '../../domain/list-users-for-embedding-backfill.ts';
+import { buildUserProfileSource } from '../source.ts';
 import {
   type BatchInputRow,
   type BatchResultRow,

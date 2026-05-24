@@ -1,8 +1,8 @@
 import type { SessionScope } from '@seta/core';
 import { withEmit } from '@seta/core/events';
 import { eq } from 'drizzle-orm';
-import { plans } from '../../db/schema.ts';
 import { emitPlannerPlanRestored } from '../../events/emit-helpers.ts';
+import { plans } from '../db/schema.ts';
 import type { PlanRow } from '../dto.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 

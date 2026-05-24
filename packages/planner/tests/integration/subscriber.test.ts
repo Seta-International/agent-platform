@@ -4,13 +4,13 @@ import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { describe, expect, it } from 'vitest';
+import * as schema from '../../src/backend/db/schema.ts';
 import {
   applyDeactivated,
   applyEmailChanged,
   applyProfileUpdated,
   applyUserCreated,
 } from '../../src/backend/subscribers/identity-projection.ts';
-import * as schema from '../../src/db/schema.ts';
 import { assignTask, createGroup, createPlan, createTask } from '../../src/index.ts';
 import { readEvents, seedTenant } from '../helpers.ts';
 

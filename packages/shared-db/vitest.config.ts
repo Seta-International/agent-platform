@@ -4,7 +4,7 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     ...dbTestDefaults,
-    include: ['__tests__/**/*.test.ts'],
-    globalSetup: ['./test/global-setup.ts'],
+    include: ['tests/**/*.test.ts'],
+    globalSetup: ['./tests/global-setup.ts'],
   },
 });

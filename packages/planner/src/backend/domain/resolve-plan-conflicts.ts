@@ -1,9 +1,9 @@
 import type { SessionScope } from '@seta/core';
 import { withEmit } from '@seta/core/events';
 import { and, eq, isNull } from 'drizzle-orm';
-import { plans } from '../../db/schema.ts';
 import { emitPlannerPlanConflictResolved } from '../../events/emit-helpers.ts';
 import type { PlannerConflictDecision } from '../../events/types.ts';
+import { plans } from '../db/schema.ts';
 import type { ResolvePlanConflictsInput } from '../inputs.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 

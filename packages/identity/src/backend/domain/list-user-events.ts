@@ -1,5 +1,5 @@
 import { type SQL, sql } from 'drizzle-orm';
-import { identityDb } from '../../db/index.ts';
+import { identityDb } from '../db/index.ts';
 import { IdentityError, requirePermission } from '../rbac.ts';
 import { ACTIVITY_SUBJECT_PATHS } from './activity-subject-paths.ts';
 import type { Actor } from './create-user.ts';

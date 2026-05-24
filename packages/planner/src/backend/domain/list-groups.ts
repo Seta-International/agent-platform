@@ -1,7 +1,7 @@
 import type { SessionScope } from '@seta/core';
 import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
-import { plannerDb } from '../../db/index.ts';
-import { groups } from '../../db/schema.ts';
+import { plannerDb } from '../db/index.ts';
+import { groups } from '../db/schema.ts';
 import type { GroupRow } from '../dto.ts';
 import { requirePermission } from '../rbac.ts';
 import { groupFilterFor } from '../read-helpers.ts';

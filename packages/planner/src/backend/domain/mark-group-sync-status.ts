@@ -1,6 +1,6 @@
 import { withEmit } from '@seta/core/events';
 import { and, eq, isNull } from 'drizzle-orm';
-import { groups } from '../../db/schema.ts';
+import { groups } from '../db/schema.ts';
 import type { MarkGroupSyncStatusInput } from '../inputs.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 import { isM365SystemActor, type PlannerSessionScope } from './_actor.ts';

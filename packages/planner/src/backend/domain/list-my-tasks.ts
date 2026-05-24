@@ -1,7 +1,7 @@
 import type { SessionScope } from '@seta/core';
 import { and, eq, isNull, sql } from 'drizzle-orm';
-import { plannerDb } from '../../db/index.ts';
-import { plans, taskAssignments, tasks } from '../../db/schema.ts';
+import { plannerDb } from '../db/index.ts';
+import { plans, taskAssignments, tasks } from '../db/schema.ts';
 import type { MyTasksResult, TaskPriorityNumber, TaskWithPlan } from '../dto.ts';
 import type { ListMyTasksInput } from '../inputs.ts';
 import { withSpan } from '../observability.ts';

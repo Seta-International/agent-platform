@@ -118,6 +118,16 @@ export type {
   TaskWithAssigneesRow,
   TaskWithPlan,
 } from './backend/dto.ts';
+export { backfillTasks } from './backend/embeddings/backfill.ts';
+export { fitsInWindow, MAX_SOURCE_TOKENS } from './backend/embeddings/chunking.ts';
+export {
+  type EmbedTaskDeps,
+  type EmbedTaskPayload,
+  embedTask,
+} from './backend/embeddings/embed-task.ts';
+export { plannerEmbeddingJobs } from './backend/embeddings/register-worker.ts';
+export type { TaskSourceInput } from './backend/embeddings/source.ts';
+export { buildTaskSource } from './backend/embeddings/source.ts';
 export type {
   AddChecklistItemInput,
   AddTaskReferenceInput,
@@ -144,6 +154,7 @@ export type {
   UpdatePlanPatch,
   UpdateTaskPatch,
 } from './backend/inputs.ts';
+export { plannerMembershipJobs } from './backend/jobs/bulk-add-group-members.ts';
 export type { PlannerErrorCode } from './backend/rbac.ts';
 export { PlannerError, requirePermission } from './backend/rbac.ts';
 export type {
@@ -151,17 +162,10 @@ export type {
   SearchTasksInput,
 } from './backend/retrieval/search-tasks.ts';
 export { searchTasks } from './backend/retrieval/search-tasks.ts';
-export { plannerMembershipJobs } from './backend/workers/bulk-add-group-members.ts';
-export { backfillTasks } from './embeddings/backfill.ts';
-export { fitsInWindow, MAX_SOURCE_TOKENS } from './embeddings/chunking.ts';
-export { type EmbedTaskDeps, type EmbedTaskPayload, embedTask } from './embeddings/embed-task.ts';
-export { plannerEmbeddingJobs } from './embeddings/register-worker.ts';
-export type { TaskSourceInput } from './embeddings/source.ts';
-export { buildTaskSource } from './embeddings/source.ts';
 export type { PlannerEvent, PlannerEventActor } from './events/index.ts';
 export {
   PLANNER_PERMISSIONS,
   PLANNER_ROLE_SLUGS,
   type PlannerPermission,
   type PlannerRoleSlug,
-} from './roles.ts';
+} from './rbac.ts';

@@ -3,12 +3,12 @@ import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { APIError, createAuthMiddleware, isAPIError } from 'better-auth/api';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
-import * as schema from '../db/schema.ts';
+import { argon2id } from './argon2.ts';
+import { computeBackoffSeconds, recordFailedAttempt } from './backoff.ts';
+import * as schema from './db/schema.ts';
 import { linkSsoAccount } from './domain/link-sso-account.ts';
 import { entraSsoConfigured, parseIdentityEnv } from './env.ts';
-import { argon2id } from './password/argon2.ts';
-import { computeBackoffSeconds, recordFailedAttempt } from './password/backoff.ts';
-import { hibpCheck } from './password/hibp.ts';
+import { hibpCheck } from './hibp.ts';
 import { stashSsoContext, takeSsoContext } from './sso/profile-context.ts';
 import { resolveSetaTenantFromEmail, validateEntraTid } from './sso/tenant-resolution.ts';
 

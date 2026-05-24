@@ -1,6 +1,6 @@
 import { and, eq, ilike, isNull, or } from 'drizzle-orm';
-import { plannerDb } from '../../db/index.ts';
-import { assigneeProjection, groupMembers, groups } from '../../db/schema.ts';
+import { plannerDb } from '../db/index.ts';
+import { assigneeProjection, groupMembers, groups } from '../db/schema.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 import type { PlannerSessionScope } from './_actor.ts';
 

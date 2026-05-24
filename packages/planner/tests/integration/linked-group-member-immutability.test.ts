@@ -90,8 +90,8 @@ describe('linked-group member immutability', () => {
           ).resolves.toBeUndefined();
 
           const { rows } = await pool.query(
-            'SELECT user_id FROM planner.group_members WHERE group_id = $1',
-            [g.id],
+            'SELECT user_id FROM planner.group_members WHERE group_id = $1 AND user_id = $2',
+            [g.id, other.user_id],
           );
           expect(rows).toHaveLength(1);
         } finally {
@@ -191,8 +191,8 @@ describe('linked-group member immutability', () => {
           ).resolves.toBeUndefined();
 
           const { rows } = await pool.query(
-            'SELECT user_id FROM planner.group_members WHERE group_id = $1',
-            [g.id],
+            'SELECT user_id FROM planner.group_members WHERE group_id = $1 AND user_id = $2',
+            [g.id, other.user_id],
           );
           expect(rows).toHaveLength(0);
         } finally {

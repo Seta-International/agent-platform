@@ -1,6 +1,6 @@
 import { and, eq, sql } from 'drizzle-orm';
-import { copilotDb } from '../db/index.ts';
-import { rateLimits } from '../db/schema.ts';
+import { copilotDb } from './db/index.ts';
+import { rateLimits } from './db/schema.ts';
 
 export class RateLimitError extends Error {
   constructor(
