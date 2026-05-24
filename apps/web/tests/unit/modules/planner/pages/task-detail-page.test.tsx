@@ -120,7 +120,7 @@ describe('TaskDetailPage', () => {
     expect(screen.getByRole('region', { name: /^progress$/i })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: /^priority$/i })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: /^schedule$/i })).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: /preview type/i })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: /show on card/i })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: /assignees/i })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: /labels/i })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: /external/i })).toBeInTheDocument();

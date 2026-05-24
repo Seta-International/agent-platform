@@ -205,29 +205,21 @@ export function TaskDetailPage({
         onConfirm={handleConfirmDelete}
         pending={deleteTask.isPending}
       />
-      <div className="flex-1 overflow-auto bg-surface-1">
+      <div className="min-h-0 flex-1 overflow-y-auto bg-surface-1">
         <div
-          className="mx-auto"
-          style={{
-            maxWidth: 1180,
-            padding: '20px 28px 40px',
-            display: 'grid',
-            gridTemplateColumns: '1fr 320px',
-            gap: 22,
-            alignItems: 'flex-start',
-          }}
+          className="mx-auto grid grid-cols-[minmax(0,1fr)_320px] gap-[22px] px-7 pt-5 pb-10"
+          style={{ maxWidth: 1180 }}
         >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
+          <main className="flex min-w-0 flex-col gap-4">
             <TaskTitleEditor task={task} planId={planId} />
             <TaskDetailDescriptionCard task={task} planId={planId} />
             <TaskDetailReferencesCard task={task} planId={planId} />
             <TaskDetailChecklistCard task={task} planId={planId} />
-          </div>
-          <aside style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <TaskDetailProgressCard task={task} planId={planId} />
-            <TaskDetailPriorityCard task={task} planId={planId} />
-            <TaskDetailScheduleCard task={task} planId={planId} />
-            <TaskDetailPreviewTypeCard task={task} planId={planId} />
+          </main>
+          <aside
+            className="sticky top-0 flex max-h-[80vh] flex-col gap-3.5 self-start overflow-y-auto pr-1"
+            aria-label="Task properties"
+          >
             <TaskDetailAssigneesCard
               task={task}
               planId={planId}
@@ -238,6 +230,10 @@ export function TaskDetailPage({
               planId={planId}
               isLinkedToM365={plan?.external_source === 'm365'}
             />
+            <TaskDetailScheduleCard task={task} planId={planId} />
+            <TaskDetailPriorityCard task={task} planId={planId} />
+            <TaskDetailProgressCard task={task} planId={planId} />
+            <TaskDetailPreviewTypeCard task={task} planId={planId} />
             <TaskDetailExternalCard
               task={task}
               plan={

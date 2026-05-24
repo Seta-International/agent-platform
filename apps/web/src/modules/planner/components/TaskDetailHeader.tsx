@@ -92,18 +92,17 @@ export function TaskDetailHeader({
               <span className="text-primary">{bucketName}</span>
             </>
           )}
+          <ChevronRight className="size-2.5 text-ink-tertiary" aria-hidden="true" />
+          <span className="mono inline-flex items-center rounded bg-surface-2 px-1.5 py-0.5 text-ink-muted">
+            T-{taskNumber}
+          </span>
         </nav>
       </div>
 
       <div className="flex items-start gap-4">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="mono inline-flex items-center rounded bg-surface-2 px-1.5 py-0.5 text-caption text-ink-subtle">
-              T-{taskNumber}
-            </span>
-            <span className="sr-only">{title}</span>
-          </div>
-          <div className="mt-1 text-xs text-ink-subtle">
+          <span className="sr-only">{title}</span>
+          <div className="text-xs text-ink-subtle">
             Created {formatRelative(createdAt)} by {creatorName} · Last updated{' '}
             {formatRelative(updatedAt)}
           </div>

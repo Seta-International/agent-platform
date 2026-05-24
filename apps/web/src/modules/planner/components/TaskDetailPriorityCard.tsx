@@ -31,9 +31,8 @@ export function TaskDetailPriorityCard({ task, planId }: Props) {
 
   return (
     <section className="card" aria-label="Priority">
-      <header className="flex items-baseline justify-between mb-1.5">
+      <header className="mb-1.5">
         <span className="t-sm subtle">Priority</span>
-        <span className="mono t-xs subtle">priority_number</span>
       </header>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

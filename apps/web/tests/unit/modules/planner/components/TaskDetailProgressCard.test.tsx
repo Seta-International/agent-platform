@@ -109,7 +109,7 @@ describe('TaskDetailProgressCard', () => {
 
     const task = makeTaskWithAssignees({ id: 't1', is_deferred: false, version: 3 });
     renderWithClient(<TaskDetailProgressCard task={task} planId="p1" />);
-    await user.click(screen.getByRole('switch', { name: /Deferred/i }));
+    await user.click(screen.getByRole('switch', { name: /put task on hold/i }));
 
     const body = captured.mock.calls[0]?.[0] as { patch: Record<string, unknown> };
     expect(body.patch).toEqual({ is_deferred: true });

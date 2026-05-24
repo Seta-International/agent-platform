@@ -30,10 +30,9 @@ export function TaskDetailPreviewTypeCard({ task, planId }: Props) {
   const current = PREVIEW_OPTIONS.find((o) => o.value === task.preview_type) ?? DEFAULT_PREVIEW;
 
   return (
-    <section className="card" aria-label="Preview type">
-      <header className="flex items-baseline justify-between mb-1.5">
-        <span className="t-sm subtle">Preview</span>
-        <span className="mono t-xs subtle">preview_type</span>
+    <section className="card" aria-label="Show on card">
+      <header className="mb-1.5">
+        <span className="t-sm subtle">Show on card</span>
       </header>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

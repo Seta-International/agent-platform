@@ -129,10 +129,10 @@ export function TaskDetailProgressCard({ task, planId }: Props) {
           );
         })}
       </div>
-      <div className="mt-2.5 inline-flex items-center gap-2">
+      <div className="mt-2.5 flex items-start gap-2">
         <Switch
-          id={`deferred-${task.id}`}
-          aria-label="Deferred"
+          id={`hold-${task.id}`}
+          aria-label="Put task on hold"
           checked={task.is_deferred}
           onCheckedChange={(is_deferred) =>
             update.mutate({
@@ -142,8 +142,9 @@ export function TaskDetailProgressCard({ task, planId }: Props) {
             })
           }
         />
-        <label htmlFor={`deferred-${task.id}`} className="t-xs subtle">
-          Deferred
+        <label htmlFor={`hold-${task.id}`} className="flex flex-col">
+          <span className="t-sm text-ink">On hold</span>
+          <span className="t-xs subtle">Pause this task and hide it from active views.</span>
         </label>
       </div>
     </section>
