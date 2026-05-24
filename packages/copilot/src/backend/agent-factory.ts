@@ -27,10 +27,31 @@ export interface SessionAgents {
   specs(): AgentSpecs;
 }
 
+export interface ToolCatalogEntry {
+  id: string;
+  name: string;
+  description: string;
+}
+
 export interface AgentFactory {
   (session: SessionLike): SessionAgents;
   specs: AgentSpecs;
   names: string[];
+  toolCatalog: ReadonlyArray<ToolCatalogEntry>;
+}
+
+function buildToolCatalog(tools: ReadonlyArray<CopilotTool>): ToolCatalogEntry[] {
+  const entries: ToolCatalogEntry[] = [];
+  for (const t of tools) {
+    const meta = t as { id?: string; description?: string; displayName?: string };
+    if (!meta.id) continue;
+    entries.push({
+      id: meta.id,
+      name: meta.displayName ?? meta.id,
+      description: meta.description ?? '',
+    });
+  }
+  return entries;
 }
 
 function toolsRecord(tools: ReadonlyArray<CopilotTool>): Record<string, CopilotTool> {
@@ -108,5 +129,6 @@ export function createAgentFactory(deps: AgentFactoryDeps): AgentFactory {
 
   factory.specs = specs;
   factory.names = listAgentNames(specs);
+  factory.toolCatalog = buildToolCatalog(deps.agentTools);
   return factory;
 }

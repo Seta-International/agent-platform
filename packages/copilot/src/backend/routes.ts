@@ -405,6 +405,12 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
     return c.json({ agents, default: agents[0]?.name ?? null });
   });
 
+  app.get('/api/copilot/v1/tools', async (c) => {
+    const check = checkPerm(c.get('session') as SessionLike | undefined, 'copilot.chat.use');
+    if (!check.ok) return c.json(check.denied.body, check.denied.status);
+    return c.json({ tools: deps.factory.toolCatalog });
+  });
+
   app.get('/api/copilot/v1/models', async (c) => {
     const check = checkPerm(c.get('session') as SessionLike | undefined, 'copilot.chat.use');
     if (!check.ok) return c.json(check.denied.body, check.denied.status);
