@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildUserProfileSource,
   type UserProfileSourceInput,
-} from '../../../src/embeddings/source.ts';
+} from '../../../src/backend/embeddings/source.ts';
 
 describe('buildUserProfileSource', () => {
   it('renders the full profile sentence', () => {
