@@ -4,7 +4,7 @@
 export type { AgentToolFactory, AgentToolFactoryDeps } from './agent-tool-factory.ts';
 
 export { defineCopilotTool } from './define-copilot-tool.ts';
-
+export * from './hitl/index.ts';
 export { registerToolPermission, requiredPermissionFor } from './rbac.ts';
 export {
   CopilotRegistry,
