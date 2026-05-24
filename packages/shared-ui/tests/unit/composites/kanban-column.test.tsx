@@ -162,4 +162,38 @@ describe('<KanbanColumn> quick-create submit', () => {
     fireEvent.keyDown(screen.getByPlaceholderText('Add a task…'), { key: 'Enter' });
     expect(onCreateTask).toHaveBeenCalledWith({ title: 'My task' });
   });
+
+  it('keeps the "More options" disclosure collapsed by default', () => {
+    const onCreateTask = vi.fn();
+    col({ onCreateTask });
+    fireEvent.click(screen.getByTitle('Add a task (C)'));
+    // The compose "More options" toggle button is present (identified by aria-expanded attribute)
+    expect(screen.getByText('More options')).toBeInTheDocument();
+    // But the expanded panel contents (DatePill, PrioritySegmented, PreviewTypeRadio) are not shown
+    expect(screen.queryByLabelText('Start')).not.toBeInTheDocument();
+    expect(screen.queryByRole('radiogroup', { name: /preview type/i })).not.toBeInTheDocument();
+  });
+
+  it('expands "More options" and forwards start_at, priority_number, and preview_type', () => {
+    const onCreateTask = vi.fn();
+    col({ onCreateTask });
+    fireEvent.click(screen.getByTitle('Add a task (C)'));
+    fireEvent.change(screen.getByPlaceholderText('Add a task…'), {
+      target: { value: 'With details' },
+    });
+    // Expand the compose-area More options disclosure (has text content "More options")
+    fireEvent.click(screen.getByText('More options'));
+    // DatePill, PrioritySegmented, and PreviewTypeRadio are now visible
+    fireEvent.change(screen.getByLabelText('Start'), { target: { value: '2026-06-15' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Urgent' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Checklist' }));
+    fireEvent.keyDown(screen.getByPlaceholderText('Add a task…'), { key: 'Enter' });
+    expect(onCreateTask).toHaveBeenCalledTimes(1);
+    expect(onCreateTask).toHaveBeenCalledWith({
+      title: 'With details',
+      start_at: '2026-06-15',
+      priority_number: 1,
+      preview_type: 'checklist',
+    });
+  });
 });
