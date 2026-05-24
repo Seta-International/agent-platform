@@ -234,7 +234,9 @@ module.exports = {
     },
 
     // Stays at `warn`: orphans during refactor are expected (factory output,
-    // placeholder modules without callers yet).
+    // placeholder modules without callers yet). Additionally exempt
+    // `setup-db-test.ts` — vitest configs reference it by URL path
+    // (`fileURLToPath`), not by import, so depcruise sees no edge.
     {
       name: 'no-orphan-modules',
       severity: 'warn',
@@ -242,7 +244,7 @@ module.exports = {
       from: {
         orphan: true,
         pathNot:
-          '(^|/)(\\.|index\\.ts|.+\\.config\\.[cm]?[jt]s)$|^packages/shared-config/eslint/|(^|/)(tests)/|\\.(spec|test)\\.[jt]sx?$|/\\.storybook/|\\.stories\\.[jt]sx?$|(^|/)e2e/|^apps/web/src/lib/|(^|/)scripts/',
+          '(^|/)(\\.|index\\.ts|.+\\.config\\.[cm]?[jt]s)$|^packages/shared-config/(eslint|vitest)/|(^|/)(tests)/|\\.(spec|test)\\.[jt]sx?$|/\\.storybook/|\\.stories\\.[jt]sx?$|(^|/)e2e/|^apps/web/src/lib/|(^|/)scripts/',
       },
       to: {},
     },
