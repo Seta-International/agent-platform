@@ -1,4 +1,12 @@
-import { type CSSProperties, type HTMLAttributes, type ReactNode, useState } from 'react';
+import { GripVertical, MoreHorizontal, Plus } from 'lucide-react';
+import {
+  type CSSProperties,
+  type HTMLAttributes,
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { DatePill } from '../task/date-pill';
 import { type PreviewType, PreviewTypeRadio } from '../task/preview-type-radio';
 import { PrioritySegmented } from '../task/priority-segmented';
@@ -17,6 +25,8 @@ export interface KanbanColumnProps {
   status?: 'muted' | 'primary' | 'warning' | 'success';
   children: ReactNode;
   onCreateTask?: (input: QuickCreateTaskInput) => void;
+  onRename?: (name: string) => void;
+  onDelete?: () => void;
   droppable: {
     ref?: (el: HTMLElement | null) => void;
     rootProps?: HTMLAttributes<HTMLElement>;
@@ -41,6 +51,8 @@ export function KanbanColumn({
   status,
   children,
   onCreateTask,
+  onRename,
+  onDelete,
   droppable,
   draggableHandle,
 }: KanbanColumnProps) {
@@ -50,6 +62,21 @@ export function KanbanColumn({
   const [startAt, setStartAt] = useState<string | null>(null);
   const [priority, setPriority] = useState<1 | 3 | 5 | 9>(DEFAULT_PRIORITY);
   const [previewType, setPreviewType] = useState<PreviewType>(DEFAULT_PREVIEW_TYPE);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState('');
+  const headerRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (headerRef.current && !headerRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [menuOpen]);
 
   function resetCompose() {
     setValue('');
@@ -74,6 +101,18 @@ export function KanbanColumn({
     resetCompose();
   }
 
+  function openRename() {
+    setMenuOpen(false);
+    setRenameValue(name);
+    setRenaming(true);
+  }
+
+  function commitRename() {
+    const v = renameValue.trim();
+    if (v && v !== name) onRename?.(v);
+    setRenaming(false);
+  }
+
   return (
     <section
       ref={draggableHandle.ref}
@@ -84,13 +123,115 @@ export function KanbanColumn({
         .join(' ')}
       aria-label={`Bucket: ${name}`}
     >
-      <header className="kanban-column__header">
-        {/* Drag handle is a neutral div so @hello-pangea/dnd's role="button" lands on a div, not header */}
-        <div className="kanban-column__drag-handle" {...draggableHandle.handleProps}>
+      <header ref={headerRef} className="kanban-column__header">
+        {/* Disable DnD handle props on the drag area while the rename input is active so
+            mousedown on the input doesn't start a column drag. */}
+        <div
+          className="kanban-column__drag-handle"
+          {...(!renaming ? draggableHandle.handleProps : {})}
+        >
+          <GripVertical size={12} className="kanban-column__grip" aria-hidden="true" />
           <span className={`status-dot status-dot--${status ?? 'muted'}`} aria-hidden="true" />
-          <span className="kanban-column__name">{name}</span>
-          <span className="kanban-column__count">{count}</span>
+          {renaming ? (
+            <>
+              <input
+                className="kanban-column__rename-input"
+                // biome-ignore lint/a11y/noAutofocus: intentional UX — inline rename needs immediate focus
+                autoFocus
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') commitRename();
+                  if (e.key === 'Escape') setRenaming(false);
+                }}
+                onBlur={commitRename}
+              />
+              <KbdHint keys={['↵']} />
+            </>
+          ) : (
+            <>
+              <span className="kanban-column__name">{name}</span>
+              <span className="kanban-column__count">{count}</span>
+            </>
+          )}
         </div>
+
+        {!renaming && (
+          <div className="kanban-column__header-actions">
+            {onCreateTask && (
+              <button
+                type="button"
+                className="kanban-column__action-btn"
+                title="Add task (C)"
+                onClick={() => setComposing(true)}
+              >
+                <Plus size={12} />
+              </button>
+            )}
+            <button
+              type="button"
+              className={[
+                'kanban-column__action-btn',
+                menuOpen && 'kanban-column__action-btn--active',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              title="More options"
+              onClick={() => setMenuOpen((v) => !v)}
+            >
+              <MoreHorizontal size={12} />
+            </button>
+          </div>
+        )}
+
+        {menuOpen && (
+          <div className="kanban-column__menu" role="menu">
+            <button
+              type="button"
+              className="kanban-column__menu-item"
+              role="menuitem"
+              onClick={openRename}
+            >
+              Rename bucket
+              <span className="kanban-column__menu-kbd">R</span>
+            </button>
+            <button
+              type="button"
+              className="kanban-column__menu-item"
+              role="menuitem"
+              onClick={() => {
+                setMenuOpen(false);
+                setComposing(true);
+              }}
+            >
+              Add task here
+              <span className="kanban-column__menu-kbd">C</span>
+            </button>
+            <button type="button" className="kanban-column__menu-item" disabled>
+              Set color
+            </button>
+            <button type="button" className="kanban-column__menu-item" disabled>
+              Set WIP limit
+            </button>
+            <hr className="kanban-column__menu-sep" />
+            <button type="button" className="kanban-column__menu-item" disabled>
+              Archive bucket
+            </button>
+            {onDelete && (
+              <button
+                type="button"
+                className="kanban-column__menu-item kanban-column__menu-item--danger"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onDelete();
+                }}
+              >
+                Delete bucket
+              </button>
+            )}
+          </div>
+        )}
       </header>
 
       <div
@@ -126,8 +267,6 @@ export function KanbanColumn({
               if (e.key === 'Escape') resetCompose();
             }}
             onBlur={() => {
-              // Keep the disclosure open across blur events so a click on a control inside
-              // it doesn't tear down the panel before the click registers.
               if (!value.trim() && !moreOpen) setComposing(false);
             }}
           />
@@ -135,8 +274,6 @@ export function KanbanColumn({
             type="button"
             className="kanban-column__more-options-toggle"
             aria-expanded={moreOpen}
-            // Why: mouseDown wins the race against the input's onBlur, which would otherwise
-            // tear down the compose panel before the click registers.
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => setMoreOpen((v) => !v)}
           >
