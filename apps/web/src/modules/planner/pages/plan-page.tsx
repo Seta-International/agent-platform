@@ -12,6 +12,7 @@ import {
 } from '@seta/shared-ui';
 import { type HTMLAttributes, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { BoardSkeleton } from '../components/board-skeleton';
+import { ConfirmDeleteBucketDialog } from '../components/ConfirmDeleteBucketDialog';
 import { PlanError } from '../components/plan-error';
 import { PlanFilterBar } from '../components/plan-filter-bar';
 import { PlanPageHeader } from '../components/plan-page-header';
@@ -20,6 +21,7 @@ import { PlanViewSwitcher } from '../components/plan-view-switcher';
 import { type BucketCard, VirtualizedBucketList } from '../components/virtualized-bucket-list';
 import { useCreateBucket } from '../hooks/mutations/create-bucket';
 import { useCreateTask } from '../hooks/mutations/create-task';
+import { useDeleteBucket } from '../hooks/mutations/delete-bucket';
 import { useMoveBucket } from '../hooks/mutations/move-bucket';
 import { useMoveTask } from '../hooks/mutations/move-task';
 import { useRefreshPlanSync } from '../hooks/mutations/refresh-plan-sync';
@@ -27,6 +29,7 @@ import {
   type ResolvePlanDecisions,
   useResolvePlanConflicts,
 } from '../hooks/mutations/resolve-plan-conflicts';
+import { useUpdateBucket } from '../hooks/mutations/update-bucket';
 import { usePlanBoard } from '../hooks/queries/use-plan-board';
 import { useBoardKeyboard } from '../hooks/use-board-keyboard';
 import { useFilterOptions } from '../hooks/use-filter-options';
@@ -89,6 +92,8 @@ export function PlanPage({
   const moveBucket = useMoveBucket(planId);
   const createTask = useCreateTask(planId);
   const createBucket = useCreateBucket(planId);
+  const deleteBucket = useDeleteBucket(planId);
+  const updateBucket = useUpdateBucket(planId);
   const refreshSync = useRefreshPlanSync(planId);
   const resolveConflicts = useResolvePlanConflicts(planId);
   const savingIds = useSavingIds((s) => s.ids);
@@ -96,6 +101,12 @@ export function PlanPage({
 
   const [focusedCardId, setFocusedCardId] = useState<string | null>(null);
   const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
+  const [pendingDeleteBucket, setPendingDeleteBucket] = useState<{
+    id: string;
+    name: string;
+    count: number;
+    version: number;
+  } | null>(null);
   const cardRefs = useRef<Map<string, HTMLElement>>(new Map());
 
   const tasksByBucket = useMemo(() => {
@@ -378,6 +389,26 @@ export function PlanPage({
                         onCreateTask={(input) =>
                           createTask.mutate({ plan_id: plan.id, bucket_id: b.id, ...input })
                         }
+                        onRename={(newName) =>
+                          updateBucket.mutate({
+                            bucket_id: b.id,
+                            expected_version: b.version,
+                            patch: { name: newName },
+                          })
+                        }
+                        onDelete={() => {
+                          const count = (tasksByBucket.get(b.id) ?? []).length;
+                          if (count > 0) {
+                            setPendingDeleteBucket({
+                              id: b.id,
+                              name: b.name,
+                              count,
+                              version: b.version,
+                            });
+                          } else {
+                            deleteBucket.mutate({ bucket_id: b.id, expected_version: b.version });
+                          }
+                        }}
                         draggableHandle={{
                           ref: dp.innerRef,
                           rootProps: dp.draggableProps,
@@ -453,6 +484,21 @@ export function PlanPage({
           </Droppable>
         </DragDropContext>
       )}
+      <ConfirmDeleteBucketDialog
+        open={pendingDeleteBucket !== null}
+        onOpenChange={(v) => {
+          if (!v) setPendingDeleteBucket(null);
+        }}
+        bucketName={pendingDeleteBucket?.name ?? ''}
+        pending={deleteBucket.isPending}
+        onConfirm={() => {
+          if (!pendingDeleteBucket) return;
+          deleteBucket.mutate(
+            { bucket_id: pendingDeleteBucket.id, expected_version: pendingDeleteBucket.version },
+            { onSuccess: () => setPendingDeleteBucket(null) },
+          );
+        }}
+      />
       {plan.external_source === 'm365' && (
         <ResolvePlanConflictsDialog
           open={conflictDialogOpen}
