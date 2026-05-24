@@ -4,9 +4,9 @@ import { findEntraOidByUserId, findUserByEntraOid } from '@seta/identity';
 import type { Crypto, EncryptedBlob } from '@seta/shared-crypto';
 import type { TaskList } from 'graphile-worker';
 import { Hono } from 'hono';
-import { integrationsDb } from '../backend/db/client.ts';
-import { registerIntegrationsM365Routes } from '../backend/http/m365-routes.ts';
-import { getM365TenantConfig } from '../index.ts';
+import { integrationsDb } from '../db/client.ts';
+import { getM365TenantConfig } from '../domain/get-m365-tenant-config.ts';
+import { registerIntegrationsM365Routes } from '../http/m365-routes.ts';
 import * as m365 from './index.ts';
 
 export interface M365BootDeps {

@@ -1,7 +1,7 @@
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import type * as schema from '../../backend/db/schema/index.ts';
-import { m365PlanLinks, m365ResourceEtags } from '../../backend/db/schema/index.ts';
+import type * as schema from '../../db/schema/index.ts';
+import { m365PlanLinks, m365ResourceEtags } from '../../db/schema/index.ts';
 
 export type PlanLink = typeof m365PlanLinks.$inferSelect;
 export type ResourceEtag = typeof m365ResourceEtags.$inferSelect;

@@ -6,8 +6,8 @@ import {
   buildDbCredsProvider,
   type M365Creds,
   M365NotConfiguredError,
-} from '../../../src/m365/auth.ts';
-import { buildGraphClient } from '../../../src/m365/client.ts';
+} from '../../../src/backend/m365/auth.ts';
+import { buildGraphClient } from '../../../src/backend/m365/client.ts';
 
 const fakeCreds: M365Creds = {
   entraTenantId: 'entra-tenant-id',

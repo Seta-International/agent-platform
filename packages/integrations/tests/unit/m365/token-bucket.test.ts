@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { _resetBucketsForTesting, acquireToken } from '../../../src/m365/token-bucket.ts';
+import { _resetBucketsForTesting, acquireToken } from '../../../src/backend/m365/token-bucket.ts';
 
 describe('token bucket', () => {
   beforeEach(() => {

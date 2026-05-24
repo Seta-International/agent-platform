@@ -18,7 +18,7 @@ import { join } from 'node:path';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 
-const MODULES_CHECKED = ['identity', 'planner', 'copilot', 'notifications', 'staffing'];
+const MODULES_CHECKED = ['identity', 'planner', 'copilot', 'notifications', 'staffing', 'integrations', 'knowledge'];
 
 // TODO: promote to MODULES_CHECKED as each module is normalized.
 //  - core: foundation tier; carries `composition/`, `middleware/`, `outbox/`,
@@ -59,6 +59,8 @@ const BACKEND_DIR_ALLOWLIST = new Set([
   'sso',
   'agents',
   'agent-tools',
+  'm365', // integrations-owned external connector
+  'scan', // knowledge-owned upload AV scanner
 ]);
 
 const errors = [];

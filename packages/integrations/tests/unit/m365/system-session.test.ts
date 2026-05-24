@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildSystemSession } from '../../../src/m365/system-session.ts';
+import { buildSystemSession } from '../../../src/backend/m365/system-session.ts';
 
 describe('buildSystemSession', () => {
   it('sets tenant_id from argument', () => {

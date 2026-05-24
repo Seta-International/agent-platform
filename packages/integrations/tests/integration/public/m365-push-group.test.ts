@@ -3,8 +3,8 @@ import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { resetIntegrationsDb } from '../../../src/backend/db/client.ts';
-import { runPushGroup } from '../../../src/m365/jobs/push-group.ts';
-import { createM365GroupLinkRepo } from '../../../src/m365/repo.ts';
+import { runPushGroup } from '../../../src/backend/m365/jobs/push-group.ts';
+import { createM365GroupLinkRepo } from '../../../src/backend/m365/repo.ts';
 
 // Extends the pull-group GraphLike with patch support
 interface GraphRequest {

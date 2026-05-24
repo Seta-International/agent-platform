@@ -3,7 +3,10 @@ import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { describe, expect, it } from 'vitest';
 import type * as schema from '../../src/backend/db/schema/index.ts';
 import { m365PlanLinks } from '../../src/backend/db/schema/index.ts';
-import { createM365PlanLinkRepo, createM365ResourceEtagRepo } from '../../src/m365/plans/repo.ts';
+import {
+  createM365PlanLinkRepo,
+  createM365ResourceEtagRepo,
+} from '../../src/backend/m365/plans/repo.ts';
 import { withIntegrationsTestDb } from '../helpers/test-db.ts';
 
 const TENANT = '11111111-1111-1111-1111-111111111111';

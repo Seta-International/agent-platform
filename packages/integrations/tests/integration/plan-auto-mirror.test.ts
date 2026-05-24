@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { RunAutoMirrorDeps } from '../../src/m365/plans/auto-mirror.ts';
-import { runAutoMirror } from '../../src/m365/plans/auto-mirror.ts';
-import type { PlansGraph } from '../../src/m365/plans/graph.ts';
-import { createM365PlanLinkRepo } from '../../src/m365/plans/repo.ts';
-import { createM365GroupLinkRepo } from '../../src/m365/repo.ts';
+import type { RunAutoMirrorDeps } from '../../src/backend/m365/plans/auto-mirror.ts';
+import { runAutoMirror } from '../../src/backend/m365/plans/auto-mirror.ts';
+import type { PlansGraph } from '../../src/backend/m365/plans/graph.ts';
+import { createM365PlanLinkRepo } from '../../src/backend/m365/plans/repo.ts';
+import { createM365GroupLinkRepo } from '../../src/backend/m365/repo.ts';
 import { withIntegrationsTestDb } from '../helpers/test-db.ts';
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';

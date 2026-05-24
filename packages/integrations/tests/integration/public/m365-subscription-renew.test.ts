@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { runRenewSubscription } from '../../../src/m365/jobs/subscription-renew.ts';
-import { createM365SubscriptionsRepo } from '../../../src/m365/repo-subscriptions.ts';
+import { runRenewSubscription } from '../../../src/backend/m365/jobs/subscription-renew.ts';
+import { createM365SubscriptionsRepo } from '../../../src/backend/m365/repo-subscriptions.ts';
 import { withIntegrationsTestDb } from '../../helpers/test-db.ts';
 
 const TWENTY_EIGHT_DAYS_MS = 28 * 24 * 60 * 60 * 1000;

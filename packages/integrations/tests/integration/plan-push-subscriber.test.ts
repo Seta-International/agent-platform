@@ -6,9 +6,9 @@ import { makeWorkerUtils } from 'graphile-worker';
 import type { Pool } from 'pg';
 import { describe, expect, it } from 'vitest';
 import { resetIntegrationsDb } from '../../src/backend/db/client.ts';
-import { createM365PlanLinkRepo } from '../../src/m365/plans/repo.ts';
-import { createM365GroupLinkRepo } from '../../src/m365/repo.ts';
-import { buildM365Subscribers } from '../../src/m365/subscribers.ts';
+import { createM365PlanLinkRepo } from '../../src/backend/m365/plans/repo.ts';
+import { createM365GroupLinkRepo } from '../../src/backend/m365/repo.ts';
+import { buildM365Subscribers } from '../../src/backend/m365/subscribers.ts';
 
 const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000';
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createM365GroupLinkRepo } from '../../../src/m365/repo.ts';
+import { createM365GroupLinkRepo } from '../../../src/backend/m365/repo.ts';
 import { withIntegrationsTestDb } from '../../helpers/test-db.ts';
 
 describe('m365GroupLinkRepo CRUD round-trip', () => {

@@ -1,9 +1,9 @@
 import { vi } from 'vitest';
-import type { GraphTask, GraphTaskDetails } from '../../src/m365/jobs/_graph-types.ts';
-import type { PlannerPushSurface, RunPlanPushDeps } from '../../src/m365/jobs/plan-push.ts';
-import type { PlansGraphWrite } from '../../src/m365/plans/graph.ts';
-import type { M365PlanLinkRepo, M365ResourceEtagRepo } from '../../src/m365/plans/repo.ts';
-import { buildSystemSession } from '../../src/m365/system-session.ts';
+import type { GraphTask, GraphTaskDetails } from '../../src/backend/m365/jobs/_graph-types.ts';
+import type { PlannerPushSurface, RunPlanPushDeps } from '../../src/backend/m365/jobs/plan-push.ts';
+import type { PlansGraphWrite } from '../../src/backend/m365/plans/graph.ts';
+import type { M365PlanLinkRepo, M365ResourceEtagRepo } from '../../src/backend/m365/plans/repo.ts';
+import { buildSystemSession } from '../../src/backend/m365/system-session.ts';
 
 export const TENANT_ID = '11111111-1111-1111-1111-111111111111';
 export const GROUP_ID = '22222222-2222-2222-2222-222222222222';

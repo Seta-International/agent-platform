@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { runPlanPull } from '../../src/m365/jobs/plan-pull.ts';
-import { createM365PlanLinkRepo, createM365ResourceEtagRepo } from '../../src/m365/plans/repo.ts';
-import { createM365GroupLinkRepo } from '../../src/m365/repo.ts';
+import { runPlanPull } from '../../src/backend/m365/jobs/plan-pull.ts';
+import {
+  createM365PlanLinkRepo,
+  createM365ResourceEtagRepo,
+} from '../../src/backend/m365/plans/repo.ts';
+import { createM365GroupLinkRepo } from '../../src/backend/m365/repo.ts';
 import { withIntegrationsTestDb } from '../helpers/test-db.ts';
 import {
   buildDeps,

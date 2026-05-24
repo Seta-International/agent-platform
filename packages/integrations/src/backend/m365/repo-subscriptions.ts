@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import type * as schema from '../backend/db/schema/index.ts';
-import { m365Subscriptions } from '../backend/db/schema/index.ts';
+import type * as schema from '../db/schema/index.ts';
+import { m365Subscriptions } from '../db/schema/index.ts';
 
 export type M365SubscriptionRow = typeof m365Subscriptions.$inferSelect;
 export type M365SubscriptionInsert = {

@@ -3,8 +3,8 @@ import type {
   GraphLikeRead,
   GraphLikeWrite,
   GraphTask,
-} from '../../../src/m365/jobs/_graph-types.ts';
-import { createPlansGraph, createPlansGraphWrite } from '../../../src/m365/plans/graph.ts';
+} from '../../../src/backend/m365/jobs/_graph-types.ts';
+import { createPlansGraph, createPlansGraphWrite } from '../../../src/backend/m365/plans/graph.ts';
 
 function makeStub(routes: Record<string, () => unknown>) {
   const calls: string[] = [];

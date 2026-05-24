@@ -3,8 +3,8 @@ import { describe, expect, it, vi } from 'vitest';
 import type {
   PullCategoryMappingDeps,
   PullCategoryMappingInput,
-} from '../../../src/m365/plans/category-mapping.ts';
-import { pullCategoryMapping } from '../../../src/m365/plans/category-mapping.ts';
+} from '../../../src/backend/m365/plans/category-mapping.ts';
+import { pullCategoryMapping } from '../../../src/backend/m365/plans/category-mapping.ts';
 
 // Minimal stub — only fields the implementation passes through to deps.
 const session: PlannerSessionScope = {

@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { createM365PlanLinkRepo, createM365ResourceEtagRepo } from '../../src/m365/plans/repo.ts';
+import {
+  createM365PlanLinkRepo,
+  createM365ResourceEtagRepo,
+} from '../../src/backend/m365/plans/repo.ts';
 import { withIntegrationsTestDb } from '../helpers/test-db.ts';
 
 describe('m365_resource_etags migration', () => {

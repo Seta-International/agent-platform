@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import type {
   AssigneeResolveContext,
   AssigneeResolverDeps,
-} from '../../../src/m365/plans/assignee-resolver.ts';
-import { createAssigneeResolver } from '../../../src/m365/plans/assignee-resolver.ts';
+} from '../../../src/backend/m365/plans/assignee-resolver.ts';
+import { createAssigneeResolver } from '../../../src/backend/m365/plans/assignee-resolver.ts';
 
 const ctx: AssigneeResolveContext = { tenantId: 'T', planId: 'P', taskId: 'TASK1' };
 

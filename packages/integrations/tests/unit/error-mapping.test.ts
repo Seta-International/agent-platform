@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { mapPlanner403, PLANNER_403_LIMIT_MESSAGES } from '../../src/m365/plans/error-mapping.ts';
+import {
+  mapPlanner403,
+  PLANNER_403_LIMIT_MESSAGES,
+} from '../../src/backend/m365/plans/error-mapping.ts';
 
 describe('mapPlanner403', () => {
   it('returns null for non-403 errors', () => {

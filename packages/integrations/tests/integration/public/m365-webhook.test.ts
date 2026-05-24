@@ -1,7 +1,7 @@
 import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
-import type { BuildWebhookRouterDeps } from '../../../src/m365/webhook.ts';
-import { buildWebhookRouter } from '../../../src/m365/webhook.ts';
+import type { BuildWebhookRouterDeps } from '../../../src/backend/m365/webhook.ts';
+import { buildWebhookRouter } from '../../../src/backend/m365/webhook.ts';
 
 function makeEnqueueMock() {
   return vi.fn<BuildWebhookRouterDeps['enqueuePullJob']>().mockResolvedValue(undefined);

@@ -10,7 +10,7 @@ import {
 } from '@seta/planner';
 import type { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
-import * as m365 from '../../m365/index.ts';
+import * as m365 from '../m365/index.ts';
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
 

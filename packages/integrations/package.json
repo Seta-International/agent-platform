@@ -12,7 +12,7 @@
     "./register": "./src/register.ts",
     "./db/schema": "./src/backend/db/schema/index.ts",
     "./db": "./src/backend/db/client.ts",
-    "./m365": "./src/m365/index.ts"
+    "./m365": "./src/backend/m365/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

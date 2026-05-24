@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveDict, resolveField } from '../../../src/m365/lww.ts';
+import { resolveDict, resolveField } from '../../../src/backend/m365/lww.ts';
 
 describe('resolveField', () => {
   it('noop when local === remote', () => {
@@ -47,7 +47,7 @@ describe('resolveField', () => {
 
 describe('resolveMembers', () => {
   it('adds, removes, role-changes correctly with simple sets', async () => {
-    const { resolveMembers } = await import('../../../src/m365/lww.ts');
+    const { resolveMembers } = await import('../../../src/backend/m365/lww.ts');
     const result = resolveMembers({
       remote: [
         { entra_oid: 'a', role: 'owner' },
@@ -70,7 +70,7 @@ describe('resolveMembers', () => {
   });
 
   it('flags conflict when both sides added same member with different roles', async () => {
-    const { resolveMembers } = await import('../../../src/m365/lww.ts');
+    const { resolveMembers } = await import('../../../src/backend/m365/lww.ts');
     // snapshot has no member 'x'. Remote adds 'x' as 'owner'. Local adds 'x' as 'member'.
     const result = resolveMembers({
       remote: [{ entra_oid: 'x', role: 'owner' }],
@@ -86,7 +86,7 @@ describe('resolveMembers', () => {
   });
 
   it('noop when remote and local are identical to snapshot', async () => {
-    const { resolveMembers } = await import('../../../src/m365/lww.ts');
+    const { resolveMembers } = await import('../../../src/backend/m365/lww.ts');
     const result = resolveMembers({
       remote: [
         { entra_oid: 'a', role: 'owner' },

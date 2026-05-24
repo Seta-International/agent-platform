@@ -1,16 +1,19 @@
 import { describe, expect, it, vi } from 'vitest';
-import { runPlanPull } from '../../src/m365/jobs/plan-pull.ts';
-import planTitleConflictFixture from '../../src/m365/plans/__fixtures__/incremental-walk-with-plan-title-conflict.json' with {
+import { runPlanPull } from '../../src/backend/m365/jobs/plan-pull.ts';
+import planTitleConflictFixture from '../../src/backend/m365/plans/__fixtures__/incremental-walk-with-plan-title-conflict.json' with {
   type: 'json',
 };
-import conflictFixture from '../../src/m365/plans/__fixtures__/incremental-walk-with-task-title-conflict.json' with {
+import conflictFixture from '../../src/backend/m365/plans/__fixtures__/incremental-walk-with-task-title-conflict.json' with {
   type: 'json',
 };
-import remoteWinsFixture from '../../src/m365/plans/__fixtures__/incremental-walk-with-task-title-remote-wins.json' with {
+import remoteWinsFixture from '../../src/backend/m365/plans/__fixtures__/incremental-walk-with-task-title-remote-wins.json' with {
   type: 'json',
 };
-import { createM365PlanLinkRepo, createM365ResourceEtagRepo } from '../../src/m365/plans/repo.ts';
-import { createM365GroupLinkRepo } from '../../src/m365/repo.ts';
+import {
+  createM365PlanLinkRepo,
+  createM365ResourceEtagRepo,
+} from '../../src/backend/m365/plans/repo.ts';
+import { createM365GroupLinkRepo } from '../../src/backend/m365/repo.ts';
 import { withIntegrationsTestDb } from '../helpers/test-db.ts';
 import {
   buildDeps,

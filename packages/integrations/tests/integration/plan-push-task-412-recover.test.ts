@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import { runPlanPush } from '../../src/m365/jobs/plan-push.ts';
+import { runPlanPush } from '../../src/backend/m365/jobs/plan-push.ts';
 import type {
   M365PlanLinkRepo,
   M365ResourceEtagRepo,
   PlanLink,
   ResourceEtag,
   ResourceType,
-} from '../../src/m365/plans/repo.ts';
+} from '../../src/backend/m365/plans/repo.ts';
 import {
   buildFakeGraph,
   buildPlannerPushMocks,

@@ -6,7 +6,7 @@ import {
   buildPlanPatch,
   buildTaskDetailsPatch,
   buildTaskPatch,
-} from '../../src/m365/plans/push-builders.ts';
+} from '../../src/backend/m365/plans/push-builders.ts';
 
 describe('buildPlanPatch', () => {
   it('returns empty body when title not in changedFields', () => {

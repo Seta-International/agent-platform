@@ -1,7 +1,7 @@
 import type { Group } from '@microsoft/microsoft-graph-types';
 import { describe, expect, it } from 'vitest';
-import type { MemberRef } from '../../../src/m365/lww.ts';
-import { snapshotFromGraph } from '../../../src/m365/snapshot.ts';
+import type { MemberRef } from '../../../src/backend/m365/lww.ts';
+import { snapshotFromGraph } from '../../../src/backend/m365/snapshot.ts';
 
 const members: MemberRef[] = [
   { entra_oid: 'aaa-111', role: 'owner' },

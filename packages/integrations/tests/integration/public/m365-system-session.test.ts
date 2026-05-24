@@ -4,7 +4,7 @@ import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { resetIntegrationsDb } from '../../../src/backend/db/client.ts';
-import { buildSystemSession } from '../../../src/m365/system-session.ts';
+import { buildSystemSession } from '../../../src/backend/m365/system-session.ts';
 
 describe('system session — markGroupSyncStatus end-to-end', () => {
   it('system session can mark sync status for a linked group on the tenant', async () => {

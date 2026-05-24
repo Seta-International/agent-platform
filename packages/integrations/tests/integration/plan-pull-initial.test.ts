@@ -1,14 +1,17 @@
 import type { PlannerSessionScope } from '@seta/planner';
 import { describe, expect, it, vi } from 'vitest';
-import type { PlannerPullSurface, RunPlanPullDeps } from '../../src/m365/jobs/plan-pull.ts';
-import { runPlanPull } from '../../src/m365/jobs/plan-pull.ts';
-import fixture from '../../src/m365/plans/__fixtures__/initial-pull-plan-with-2-buckets-4-tasks.json' with {
+import type { PlannerPullSurface, RunPlanPullDeps } from '../../src/backend/m365/jobs/plan-pull.ts';
+import { runPlanPull } from '../../src/backend/m365/jobs/plan-pull.ts';
+import fixture from '../../src/backend/m365/plans/__fixtures__/initial-pull-plan-with-2-buckets-4-tasks.json' with {
   type: 'json',
 };
-import type { PlansGraph } from '../../src/m365/plans/graph.ts';
-import { createM365PlanLinkRepo, createM365ResourceEtagRepo } from '../../src/m365/plans/repo.ts';
-import { createM365GroupLinkRepo } from '../../src/m365/repo.ts';
-import { buildSystemSession } from '../../src/m365/system-session.ts';
+import type { PlansGraph } from '../../src/backend/m365/plans/graph.ts';
+import {
+  createM365PlanLinkRepo,
+  createM365ResourceEtagRepo,
+} from '../../src/backend/m365/plans/repo.ts';
+import { createM365GroupLinkRepo } from '../../src/backend/m365/repo.ts';
+import { buildSystemSession } from '../../src/backend/m365/system-session.ts';
 import { withIntegrationsTestDb } from '../helpers/test-db.ts';
 
 const TENANT_ID = '11111111-1111-1111-1111-111111111111';

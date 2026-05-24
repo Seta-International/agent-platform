@@ -42,6 +42,7 @@ export {
   type VerifyMailTransportResult,
   verifyMailTransport,
 } from './backend/domain/verify-mail-transport.ts';
+export * as m365 from './backend/m365/index.ts';
 export {
   INTEGRATIONS_PERMISSIONS,
   IntegrationsError,
@@ -49,7 +50,6 @@ export {
   requirePermission as requireIntegrationsPermission,
 } from './backend/rbac.ts';
 export type { IntegrationsEvent } from './events/index.ts';
-export * as m365 from './m365/index.ts';
 export {
   INTEGRATIONS_PERMISSIONS as INTEGRATIONS_PERMISSION_SLUGS,
   INTEGRATIONS_ROLE_PERMISSIONS,

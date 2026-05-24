@@ -1,10 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
-import { runPlanPull } from '../../src/m365/jobs/plan-pull.ts';
-import fixture from '../../src/m365/plans/__fixtures__/incremental-walk-with-3-updates-and-1-deletion.json' with {
+import { runPlanPull } from '../../src/backend/m365/jobs/plan-pull.ts';
+import fixture from '../../src/backend/m365/plans/__fixtures__/incremental-walk-with-3-updates-and-1-deletion.json' with {
   type: 'json',
 };
-import { createM365PlanLinkRepo, createM365ResourceEtagRepo } from '../../src/m365/plans/repo.ts';
-import { createM365GroupLinkRepo } from '../../src/m365/repo.ts';
+import {
+  createM365PlanLinkRepo,
+  createM365ResourceEtagRepo,
+} from '../../src/backend/m365/plans/repo.ts';
+import { createM365GroupLinkRepo } from '../../src/backend/m365/repo.ts';
 import { withIntegrationsTestDb } from '../helpers/test-db.ts';
 import {
   buildDeps,

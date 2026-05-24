@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import type { KnownEtags, LocalPlanState, RemoteState } from '../../../src/m365/plans/walker.ts';
-import { walk } from '../../../src/m365/plans/walker.ts';
+import type {
+  KnownEtags,
+  LocalPlanState,
+  RemoteState,
+} from '../../../src/backend/m365/plans/walker.ts';
+import { walk } from '../../../src/backend/m365/plans/walker.ts';
 
 const baseLocal: LocalPlanState = {
   plan: { id: 'P-1', title: 'A' },

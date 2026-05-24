@@ -7,8 +7,8 @@ import type { MailerEnv } from '@seta/shared-mailer';
 import { Hono } from 'hono';
 import * as schema from './backend/db/schema/index.ts';
 import { registerMailTransportRoutes } from './backend/http/index.ts';
-import { buildM365Boot } from './m365/boot.ts';
-import { buildM365Subscribers } from './m365/subscribers.ts';
+import { buildM365Boot } from './backend/m365/boot.ts';
+import { buildM365Subscribers } from './backend/m365/subscribers.ts';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 

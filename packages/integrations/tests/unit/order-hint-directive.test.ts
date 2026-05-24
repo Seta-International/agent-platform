@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { directiveBetween } from '../../src/m365/plans/order-hint-directive.ts';
+import { directiveBetween } from '../../src/backend/m365/plans/order-hint-directive.ts';
 
 describe('directiveBetween', () => {
   it.each([

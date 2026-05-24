@@ -4,8 +4,8 @@ import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { resetIntegrationsDb } from '../../../src/backend/db/client.ts';
-import { runPullGroup } from '../../../src/m365/jobs/pull-group.ts';
-import { createM365GroupLinkRepo } from '../../../src/m365/repo.ts';
+import { runPullGroup } from '../../../src/backend/m365/jobs/pull-group.ts';
+import { createM365GroupLinkRepo } from '../../../src/backend/m365/repo.ts';
 import groupMembers from '../../helpers/fixtures/graph/group-members.json' with { type: 'json' };
 import groupsInitial from '../../helpers/fixtures/graph/groups-initial.json' with { type: 'json' };
 

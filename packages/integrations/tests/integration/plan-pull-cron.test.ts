@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { runPlanPullCron } from '../../src/m365/jobs/plan-pull-cron.ts';
-import { createM365PlanLinkRepo } from '../../src/m365/plans/repo.ts';
+import { runPlanPullCron } from '../../src/backend/m365/jobs/plan-pull-cron.ts';
+import { createM365PlanLinkRepo } from '../../src/backend/m365/plans/repo.ts';
 import { withIntegrationsTestDb } from '../helpers/test-db.ts';
 
 const TENANT_A = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
