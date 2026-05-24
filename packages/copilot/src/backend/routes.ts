@@ -68,6 +68,49 @@ function lastUserText(messages: UIMessage[]): string {
   return '';
 }
 
+type PageContextPart = {
+  type: 'data-page-context';
+  id?: string;
+  data: { kind: string; id: string; label: string; summary?: string };
+};
+
+function isPageContextPart(p: unknown): p is PageContextPart {
+  if (!p || typeof p !== 'object') return false;
+  const part = p as { type?: unknown; data?: unknown };
+  if (part.type !== 'data-page-context') return false;
+  const d = part.data as { kind?: unknown; id?: unknown; label?: unknown } | undefined;
+  return (
+    !!d && typeof d.kind === 'string' && typeof d.id === 'string' && typeof d.label === 'string'
+  );
+}
+
+function injectContextPrefix(messages: UIMessage[]): UIMessage[] {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (!m || m.role !== 'user') continue;
+    const ctx = (m.parts ?? []).find(isPageContextPart);
+    if (!ctx) return messages;
+    const prefix = ctx.data.summary
+      ? `[Context: ${ctx.data.kind}#${ctx.data.id} — "${ctx.data.label}"\nSummary: ${ctx.data.summary}]\n\n`
+      : `[Context: ${ctx.data.kind}#${ctx.data.id} — "${ctx.data.label}"]\n\n`;
+    const originalParts = m.parts ?? [];
+    let injected = false;
+    const nextParts = originalParts.map((p) => {
+      if (!injected && p.type === 'text') {
+        injected = true;
+        return { ...p, text: `${prefix}${(p as { text: string }).text}` };
+      }
+      return p;
+    });
+    if (!injected) {
+      nextParts.unshift({ type: 'text', text: prefix.trimEnd() } as never);
+    }
+    const cloned = { ...m, parts: nextParts } as UIMessage;
+    return messages.map((mm, idx) => (idx === i ? cloned : mm));
+  }
+  return messages;
+}
+
 export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotRouteDeps): void {
   app.post('/api/copilot/v1/chat/:agentName', async (c) => {
     const session = c.get('session') as SessionLike | undefined;
@@ -94,7 +137,8 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
     }
 
     const messages = parsed.data.messages as UIMessage[];
-    const userText = lastUserText(messages);
+    const effectiveMessages = injectContextPrefix(messages);
+    const userText = lastUserText(effectiveMessages);
 
     try {
       await reserveTurn({
@@ -135,7 +179,7 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
     });
 
     const result = await agent.stream(
-      messages as never,
+      effectiveMessages as never,
       {
         ...(parsed.data.id
           ? { memory: { thread: parsed.data.id, resource: resourceId } }
@@ -146,7 +190,7 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
     );
 
     const uiStream = createUIMessageStream({
-      originalMessages: messages,
+      originalMessages: effectiveMessages,
       execute: async ({ writer }) => {
         const stream = toAISdkStream(result as never, {
           from: 'agent',
@@ -209,7 +253,12 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
     output?: unknown;
     errorText?: string;
   };
-  type UIMessagePart = TextUIPart | ReasoningUIPart | ToolUIPart;
+  type DataPageContextPart = {
+    type: 'data-page-context';
+    id: string;
+    data: { kind: string; id: string; label: string; summary?: string };
+  };
+  type UIMessagePart = TextUIPart | ReasoningUIPart | ToolUIPart | DataPageContextPart;
   type UIMessageLike = { id: string; role: 'user' | 'assistant'; parts: UIMessagePart[] };
 
   // Mastra stores tool calls as `{ type:'tool-invocation', toolInvocation }`; ai@6 wants
@@ -253,6 +302,27 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
       if (state === 'output-available') part.output = i.result;
       if (state === 'output-error') part.errorText = (i.errorText as string) ?? 'tool failed';
       return part;
+    }
+    if (type === 'data-page-context') {
+      const r = raw as { id?: unknown; data?: unknown };
+      const d = r.data as
+        | { kind?: unknown; id?: unknown; label?: unknown; summary?: unknown }
+        | undefined;
+      if (
+        !d ||
+        typeof d.kind !== 'string' ||
+        typeof d.id !== 'string' ||
+        typeof d.label !== 'string'
+      ) {
+        return null;
+      }
+      const summary = typeof d.summary === 'string' ? d.summary : undefined;
+      const id = typeof r.id === 'string' ? r.id : `${d.kind}-${d.id}`;
+      return {
+        type: 'data-page-context' as const,
+        id,
+        data: { kind: d.kind, id: d.id, label: d.label, ...(summary ? { summary } : {}) },
+      };
     }
     return null;
   }
