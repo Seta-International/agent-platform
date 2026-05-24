@@ -3,13 +3,16 @@ import { plannerClient } from '../../api/planner-client';
 import { plannerKeys } from '../../state/query-keys';
 import { useOptimisticMutation } from '../use-optimistic-mutation';
 
-export function useUpdateBucket(planId: string, bucketId: string) {
-  return useOptimisticMutation<{ expected_version: number; patch: { name?: string } }, BucketRow>({
-    mutationFn: (v) => plannerClient.updateBucket({ bucket_id: bucketId, ...v }),
+export function useUpdateBucket(planId: string) {
+  return useOptimisticMutation<
+    { bucket_id: string; expected_version: number; patch: { name?: string } },
+    BucketRow
+  >({
+    mutationFn: (v) => plannerClient.updateBucket(v),
     snapshot: () => [],
     applyOptimistic: () => {},
     onServerOk: () => {},
-    savingId: () => bucketId,
+    savingId: (v) => v.bucket_id,
     invalidate: () => [plannerKeys.plan(planId)],
     errorMessage: () => "Couldn't save bucket changes.",
   });
