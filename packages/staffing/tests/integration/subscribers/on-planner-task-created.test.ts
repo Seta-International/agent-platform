@@ -1,13 +1,19 @@
-import { buildMastra } from '@seta/copilot/runtime';
+import { buildAgentFromSpec, buildMastra, mockLanguageModel } from '@seta/copilot/testing';
 import type { PlannerTaskCreated } from '@seta/planner/events';
 import type { DomainEvent } from '@seta/shared-types';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import type { Pool } from 'pg';
 import { describe, expect, it, vi } from 'vitest';
 import { onPlannerTaskCreated } from '../../../src/backend/subscribers/on-planner-task-created.ts';
-import { classifySkillsAgent } from '../../../src/backend/workflows/new-task-skill-tag/agents/classify-skills.ts';
+import { classifySkillsSpec } from '../../../src/backend/workflows/new-task-skill-tag/agents/classify-skills.ts';
 import { registerNewTaskSkillTagWorkflow } from '../../../src/backend/workflows/new-task-skill-tag/index.ts';
 import { withCopilotTestDb } from '../../helpers.ts';
+
+function registerClassifySkillsMock(mastra: ReturnType<typeof buildMastra>) {
+  const agent = buildAgentFromSpec(classifySkillsSpec, { model: mockLanguageModel() });
+  mastra.addAgent(agent);
+  return agent;
+}
 
 function buildPlannerTaskCreatedEvent(opts: {
   tenant_id: string;
@@ -69,13 +75,13 @@ async function waitForLifecycleFlush(): Promise<void> {
 describe('onPlannerTaskCreated subscriber', () => {
   it('starts a workflow run on planner.task.created', async () => {
     await withCopilotTestDb(async ({ pool, databaseUrl }) => {
+      const mastra = buildMastra({ pool, databaseUrl });
+      await mastra.getStorage()!.init();
+      const classifySkillsAgent = registerClassifySkillsMock(mastra);
       vi.spyOn(classifySkillsAgent, 'generate').mockResolvedValue({
         object: { requiredSkills: ['x'] },
         error: undefined,
       } as unknown as Awaited<ReturnType<typeof classifySkillsAgent.generate>>);
-
-      const mastra = buildMastra({ pool, databaseUrl });
-      await mastra.getStorage()!.init();
       registerNewTaskSkillTagWorkflow(mastra);
       await mastra.startWorkers();
 
@@ -102,13 +108,13 @@ describe('onPlannerTaskCreated subscriber', () => {
 
   it('is idempotent — second delivery of same event_id does not create a duplicate', async () => {
     await withCopilotTestDb(async ({ pool, databaseUrl }) => {
+      const mastra = buildMastra({ pool, databaseUrl });
+      await mastra.getStorage()!.init();
+      const classifySkillsAgent = registerClassifySkillsMock(mastra);
       vi.spyOn(classifySkillsAgent, 'generate').mockResolvedValue({
         object: { requiredSkills: ['x'] },
         error: undefined,
       } as unknown as Awaited<ReturnType<typeof classifySkillsAgent.generate>>);
-
-      const mastra = buildMastra({ pool, databaseUrl });
-      await mastra.getStorage()!.init();
       registerNewTaskSkillTagWorkflow(mastra);
       await mastra.startWorkers();
 

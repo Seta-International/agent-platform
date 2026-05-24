@@ -1,7 +1,8 @@
+import { buildAgentFromSpec, mockLanguageModel, resolveModel } from '@seta/copilot/testing';
 import { describe, expect, it, vi } from 'vitest';
 import {
-  classifySkillsAgent,
   classifySkillsOutputSchema,
+  classifySkillsSpec,
 } from '../../../../src/backend/workflows/new-task-skill-tag/agents/classify-skills.ts';
 
 const outputSchema = classifySkillsOutputSchema;
@@ -10,7 +11,10 @@ const llmDescribe = process.env.OPENAI_API_KEY ? describe : describe.skip;
 
 llmDescribe('classify-skills agent (real LLM)', () => {
   it('returns 3-7 lowercase skill tags for database task', async () => {
-    const result = await classifySkillsAgent.generate(
+    const agent = buildAgentFromSpec(classifySkillsSpec, {
+      model: resolveModel(undefined, { tierHint: 'fast' }).model,
+    });
+    const result = await agent.generate(
       [
         {
           role: 'user',
@@ -30,13 +34,16 @@ llmDescribe('classify-skills agent (real LLM)', () => {
     expect(Array.isArray(output.requiredSkills)).toBe(true);
     expect(output.requiredSkills.length).toBeGreaterThanOrEqual(3);
     expect(output.requiredSkills.length).toBeLessThanOrEqual(7);
-    output.requiredSkills.forEach((skill) => {
+    output.requiredSkills.forEach((skill: string) => {
       expect(skill).toMatch(/^[a-z0-9-]+$/);
     });
   });
 
   it('returns 3-7 lowercase skill tags for frontend task', async () => {
-    const result = await classifySkillsAgent.generate(
+    const agent = buildAgentFromSpec(classifySkillsSpec, {
+      model: resolveModel(undefined, { tierHint: 'fast' }).model,
+    });
+    const result = await agent.generate(
       [
         {
           role: 'user',
@@ -56,7 +63,7 @@ llmDescribe('classify-skills agent (real LLM)', () => {
     expect(Array.isArray(output.requiredSkills)).toBe(true);
     expect(output.requiredSkills.length).toBeGreaterThanOrEqual(3);
     expect(output.requiredSkills.length).toBeLessThanOrEqual(7);
-    output.requiredSkills.forEach((skill) => {
+    output.requiredSkills.forEach((skill: string) => {
       expect(skill).toMatch(/^[a-z0-9-]+$/);
     });
   });
@@ -64,20 +71,18 @@ llmDescribe('classify-skills agent (real LLM)', () => {
 
 describe('classify-skills agent (deterministic mock)', () => {
   it('returns mocked structured output', async () => {
+    const agent = buildAgentFromSpec(classifySkillsSpec, { model: mockLanguageModel() });
     const mockOutput = {
       object: { requiredSkills: ['postgres', 'sql-tuning', 'observability'] },
       error: undefined,
-    } as unknown as Awaited<ReturnType<typeof classifySkillsAgent.generate>>;
-    const spy = vi.spyOn(classifySkillsAgent, 'generate').mockResolvedValue(mockOutput);
+    } as unknown as Awaited<ReturnType<typeof agent.generate>>;
+    const spy = vi.spyOn(agent, 'generate').mockResolvedValue(mockOutput);
 
-    const result = await classifySkillsAgent.generate(
-      [{ role: 'user', content: 'Any task description' }],
-      {
-        structuredOutput: {
-          schema: outputSchema,
-        },
+    const result = await agent.generate([{ role: 'user', content: 'Any task description' }], {
+      structuredOutput: {
+        schema: outputSchema,
       },
-    );
+    });
 
     const output = result.object;
     expect(output.requiredSkills).toEqual(['postgres', 'sql-tuning', 'observability']);

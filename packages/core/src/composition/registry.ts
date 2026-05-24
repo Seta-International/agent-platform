@@ -1,4 +1,9 @@
-import type { CopilotTool, WorkflowBuilder } from '@seta/copilot-sdk';
+import type {
+  AgentToolFactory,
+  CopilotTool,
+  SubscriberBuilder,
+  WorkflowContribution,
+} from '@seta/copilot-sdk';
 import type { SubscriberDef } from '@seta/shared-types';
 import type { Task, TaskList } from 'graphile-worker';
 import type { Hono } from 'hono';
@@ -52,12 +57,24 @@ export interface ModuleContribution {
   events?: Record<string, z.ZodSchema>;
   rbac?: Record<string, string>;
   subscribers?: SubscriberDef[];
+  /**
+   * Deferred-construction subscribers — invoked by the copilot engine post-Mastra
+   * build so the resulting `SubscriberDef`s can hold a Mastra reference. Engine
+   * merges them into the runtime's dispatcher list alongside `subscribers`.
+   */
+  subscriberBuilders?: SubscriberBuilder[];
   jobs?: TaskList;
   routes?: RouteContribution;
   stream?: StreamHubBuilder;
   agentTools?: CopilotTool[];
+  /**
+   * Tools whose construction requires shared runtime deps (embedding provider,
+   * pg pool, reranker). Copilot instantiates each factory once with those deps
+   * and merges the resulting tool into the agent-tool pool.
+   */
+  agentToolFactories?: AgentToolFactory[];
   agentSpecs?: AgentSpec[];
-  workflows?: WorkflowBuilder[];
+  workflows?: WorkflowContribution[];
   errorMapper?: ErrorMapper;
 }
 
@@ -71,8 +88,10 @@ export interface ContributionRegistry {
     routes: ReadonlyArray<{ module: string; mountAt: string; build: RouteContribution['build'] }>;
     streamHubBuilders: ReadonlyArray<{ module: string; builder: StreamHubBuilder }>;
     agentTools: ReadonlyArray<CopilotTool>;
+    agentToolFactories: ReadonlyArray<{ module: string; factory: AgentToolFactory }>;
     agentSpecs: ReadonlyArray<AgentSpec>;
-    workflowBuilders: ReadonlyArray<{ module: string; builder: WorkflowBuilder }>;
+    workflowContributions: ReadonlyArray<{ module: string; contribution: WorkflowContribution }>;
+    subscriberBuilders: ReadonlyArray<{ module: string; builder: SubscriberBuilder }>;
     errorMappers: ReadonlyArray<{ module: string; mapper: ErrorMapper }>;
     rbacByModule: ReadonlyMap<string, Record<string, string>>;
     eventsByModule: ReadonlyMap<string, Record<string, z.ZodSchema>>;
@@ -87,8 +106,10 @@ export function createContributionRegistry(): ContributionRegistry {
   const routes: { module: string; mountAt: string; build: RouteContribution['build'] }[] = [];
   const streamHubBuilders: { module: string; builder: StreamHubBuilder }[] = [];
   const agentTools: CopilotTool[] = [];
+  const agentToolFactories: { module: string; factory: AgentToolFactory }[] = [];
   const agentSpecs: AgentSpec[] = [];
-  const workflowBuilders: { module: string; builder: WorkflowBuilder }[] = [];
+  const workflowContributions: { module: string; contribution: WorkflowContribution }[] = [];
+  const subscriberBuilders: { module: string; builder: SubscriberBuilder }[] = [];
   const errorMappers: { module: string; mapper: ErrorMapper }[] = [];
   const rbacByModule = new Map<string, Record<string, string>>();
   const eventsByModule = new Map<string, Record<string, z.ZodSchema>>();
@@ -128,6 +149,11 @@ export function createContributionRegistry(): ContributionRegistry {
         agentTools.push(tool);
       }
     }
+    if (c.agentToolFactories) {
+      for (const factory of c.agentToolFactories) {
+        agentToolFactories.push({ module: c.name, factory });
+      }
+    }
     if (c.agentSpecs) {
       for (const spec of c.agentSpecs) {
         if (seenAgentSpecIds.has(spec.id)) throw new Error(`duplicate agent spec id: ${spec.id}`);
@@ -136,7 +162,12 @@ export function createContributionRegistry(): ContributionRegistry {
       }
     }
     if (c.workflows) {
-      for (const builder of c.workflows) workflowBuilders.push({ module: c.name, builder });
+      for (const contribution of c.workflows)
+        workflowContributions.push({ module: c.name, contribution });
+    }
+    if (c.subscriberBuilders) {
+      for (const builder of c.subscriberBuilders)
+        subscriberBuilders.push({ module: c.name, builder });
     }
     if (c.errorMapper) errorMappers.push({ module: c.name, mapper: c.errorMapper });
     if (c.rbac) {
@@ -159,8 +190,10 @@ export function createContributionRegistry(): ContributionRegistry {
       routes,
       streamHubBuilders,
       agentTools,
+      agentToolFactories,
       agentSpecs,
-      workflowBuilders,
+      workflowContributions,
+      subscriberBuilders,
       errorMappers,
       rbacByModule,
       eventsByModule,

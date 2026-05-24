@@ -1,13 +1,19 @@
 import { createStep } from '@mastra/core/workflows';
-import { classifySkillsAgent, classifySkillsOutputSchema } from '../agents/classify-skills.ts';
+import { CLASSIFY_SKILLS_AGENT_ID, classifySkillsOutputSchema } from '../agents/classify-skills.ts';
 import { stateAfterClassifySchema, stateAfterLoadSchema } from '../state-schema.ts';
 
 export const classifySkillsStep = createStep({
   id: 'classify-skills',
   inputSchema: stateAfterLoadSchema,
   outputSchema: stateAfterClassifySchema,
-  execute: async ({ inputData }) => {
-    const result = await classifySkillsAgent.generate(
+  execute: async ({ inputData, mastra }) => {
+    const agent = mastra?.getAgent(CLASSIFY_SKILLS_AGENT_ID);
+    if (!agent) {
+      throw new Error(
+        `classify-skills agent not registered with Mastra (id=${CLASSIFY_SKILLS_AGENT_ID})`,
+      );
+    }
+    const result = await agent.generate(
       [
         {
           role: 'user',

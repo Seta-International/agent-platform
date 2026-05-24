@@ -8,9 +8,9 @@ import { UserMenu } from '@/modules/identity/components/UserMenu.tsx';
 import { NotificationDrawerContainer } from '@/modules/notifications/components/NotificationDrawerContainer.tsx';
 import { useNotificationStream } from '@/modules/notifications/hooks/useNotificationStream.ts';
 import { useUnreadCount } from '@/modules/notifications/hooks/useUnreadCount.ts';
-import { fetchEnabledModules } from '@/shell/enabled-modules.ts';
 import { activeNavId, visibleManifests } from '@/shell/manifest-registry.ts';
 import { ALL_MANIFESTS } from '@/shell/manifests.ts';
+import { fetchEnabledModules } from '../../shell/enabled-modules.ts';
 
 function ShellLink({ href, ...rest }: ShellLinkProps) {
   // TanStack Router's typed `to` is strictly enumerated; cast preserves intellisense at call sites

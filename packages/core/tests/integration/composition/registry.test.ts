@@ -93,17 +93,20 @@ describe('reg.module', () => {
     }).toThrow(/duplicate permission slug: shared\.read/);
   });
 
-  it('collects workflow builders in registration order', () => {
+  it('collects workflow contributions in registration order', () => {
     const reg = createContributionRegistry();
     const b1 = vi.fn();
     const b2 = vi.fn();
     const b3 = vi.fn();
-    reg.module({ name: 'copilot', schema: {}, migrationsDir: '/a', workflows: [b1, b2] });
-    reg.module({ name: 'planner', schema: {}, migrationsDir: '/b', workflows: [b3] });
-    expect(reg.collected.workflowBuilders).toEqual([
-      { module: 'copilot', builder: b1 },
-      { module: 'copilot', builder: b2 },
-      { module: 'planner', builder: b3 },
+    const c1 = { build: b1 };
+    const c2 = { build: b2 };
+    const c3 = { build: b3 };
+    reg.module({ name: 'copilot', schema: {}, migrationsDir: '/a', workflows: [c1, c2] });
+    reg.module({ name: 'planner', schema: {}, migrationsDir: '/b', workflows: [c3] });
+    expect(reg.collected.workflowContributions).toEqual([
+      { module: 'copilot', contribution: c1 },
+      { module: 'copilot', contribution: c2 },
+      { module: 'planner', contribution: c3 },
     ]);
   });
 

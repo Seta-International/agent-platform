@@ -44,7 +44,9 @@ module.exports = {
     },
 
     // 4. /backend is composed only by apps/server, apps/worker, apps/cli
-    //    (ops/admin surface), plus the module itself.
+    //    (ops/admin surface), plus the module itself. apps/(server|worker|cli)
+    //    are exempt across their whole tree — src/ and tests/ both — so app
+    //    integration tests can exercise module backends.
     {
       name: 'only-server-imports-backend',
       severity: 'error',
@@ -52,7 +54,7 @@ module.exports = {
         "A module's /backend subpath is private to apps/server, apps/worker, apps/cli (ops/admin tool), and the module itself.",
       from: {
         path: '^(?:packages|apps)/([^/]+)/',
-        pathNot: '^apps/(server|worker|cli)/src/',
+        pathNot: '^apps/(server|worker|cli)/',
       },
       to: {
         path: '^packages/(?!shared-)([^/]+)/src/backend/',
@@ -133,16 +135,18 @@ module.exports = {
 
     // 11. copilot is engine-only. It composes module-owned agent tools at
     //     session time via the contribution registry, never by direct import.
-    //     The only cross-module import allowed is the /events subpath
-    //     (event-shape contracts), in file or directory form.
+    //     The only feature-module cross-import allowed is the /events subpath
+    //     (event-shape contracts), in file or directory form. `core` is
+    //     foundation tier (every module imports it) and is excluded from the
+    //     `to:` path; `shared-*` is infra.
     {
       name: 'copilot-no-feature-imports',
       severity: 'error',
       comment:
-        'copilot is engine-only: it composes module-owned agent tools at session time via the registry, never by direct import. The only cross-module import allowed is /events (event-shape contracts).',
+        'copilot is engine-only: it composes module-owned agent tools at session time via the registry, never by direct import. The only feature-module cross-import allowed is /events (event-shape contracts). @seta/core is foundation tier and may be imported freely.',
       from: { path: '^packages/copilot/src/' },
       to: {
-        path: '^packages/(?!shared-|copilot/)([^/]+)/',
+        path: '^packages/(?!shared-|copilot/|core/)([^/]+)/',
         pathNot: '^packages/[^/]+/src/events(\\.ts$|/)',
       },
     },
@@ -172,8 +176,7 @@ module.exports = {
       comment:
         '@seta/core/runtime (dispatcher + worker pool + bootstrap) is private to apps/server, apps/worker, and feature-module integration tests. Other importers must use the main @seta/core surface.',
       from: {
-        pathNot:
-          '^(apps/(server|worker)/|packages/core/)|/tests/|\\.(test|spec)\\.[jt]sx?$',
+        pathNot: '^(apps/(server|worker)/|packages/core/)|/tests/|\\.(test|spec)\\.[jt]sx?$',
       },
       to: { path: '^packages/core/src/runtime/' },
     },

@@ -8,10 +8,7 @@
     ".": "./src/index.ts",
     "./events": "./src/events/index.ts",
     "./rbac": "./src/rbac.ts",
-    "./models": "./src/models.ts",
     "./register": "./src/register.ts",
-    "./runtime": "./src/backend/runtime.ts",
-    "./workflows": "./src/backend/workflows/_infra/input-schema-registry.ts",
     "./testing": "./src/testing/fixtures.ts"
   },
   "scripts": {

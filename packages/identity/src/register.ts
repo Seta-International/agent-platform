@@ -2,7 +2,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ContributionRegistry, ErrorMapper } from '@seta/core';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
-import { identityAgentTools } from './agent-tools.ts';
+import { identityAgentTools, matchUsersToTopicTool } from './agent-tools.ts';
 import * as schema from './backend/db/schema.ts';
 import {
   refreshUserProfileCreatedSubscriber,
@@ -27,6 +27,7 @@ export function registerIdentityContributions(reg: ContributionRegistry): void {
     schema,
     migrationsDir: resolve(__dirname, '../drizzle'),
     agentTools: identityAgentTools,
+    agentToolFactories: [matchUsersToTopicTool],
     subscribers: [
       refreshUserProfileCreatedSubscriber,
       refreshUserProfileUpdatedSubscriber,

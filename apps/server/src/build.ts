@@ -1,4 +1,8 @@
-import { registerCopilot, registerCopilotContributions } from '@seta/copilot/register';
+import {
+  type CopilotHandle,
+  registerCopilot,
+  registerCopilotContributions,
+} from '@seta/copilot/register';
 import type { SessionLike } from '@seta/copilot-sdk';
 import {
   buildHonoApp,
@@ -32,6 +36,13 @@ export type BuildServerAppDeps = {
   workers: WorkerHandle;
   readinessSnapshot?: () => { lastTickAt: Date };
   streams: ReadonlyMap<string, StreamHubHandle>;
+  /**
+   * Optional pre-built copilot engine. apps/server constructs it earlier so it
+   * can hand the Mastra instance to subscriberBuilders before the dispatcher
+   * starts. The smoke test omits this; buildServerApp then builds the engine
+   * itself for a self-contained HTTP-only test.
+   */
+  copilot?: CopilotHandle;
 };
 
 export type BuiltServerApp = {
@@ -112,7 +123,8 @@ export function buildServerApp(
   // copilot route checks session itself via c.get('session') and returns 401 if
   // absent; /health intentionally has no check and stays public. The bridge
   // middleware below populates c.var.session from better-auth.
-  const copilot = registerCopilot({ pool: deps.pool, databaseUrl: deps.databaseUrl, reg });
+  const copilot =
+    deps.copilot ?? registerCopilot({ pool: deps.pool, databaseUrl: deps.databaseUrl, reg });
   app.use('/api/copilot/*', createCopilotSessionBridge({ listRoleGrants }));
   copilot.attach(app as unknown as Hono);
 

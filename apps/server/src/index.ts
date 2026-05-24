@@ -1,3 +1,4 @@
+import { registerCopilot } from '@seta/copilot/register';
 import { createContributionRegistry } from '@seta/core';
 import { coreDb } from '@seta/core/db';
 import { emit, withEmit } from '@seta/core/events';
@@ -100,6 +101,18 @@ const mailerSendTask = createMailerSendTask({
 // process — mirroring the previous single-process developer experience. In production
 // startServerRuntime runs HTTP only, with an enqueue-only WorkerHandle; apps/worker runs
 // the actual job handlers.
+// Build the copilot engine up front so subscriberBuilders contributed by
+// orchestrator modules (e.g. staffing) can be constructed against the live
+// Mastra instance before the dispatcher starts.
+const copilot = registerCopilot({
+  pool: getPool('worker'),
+  databaseUrl: env.DATABASE_URL,
+  reg,
+});
+const copilotSubscribers = reg.collected.subscriberBuilders.map(({ builder }) =>
+  builder({ mastra: copilot.mastra }),
+);
+
 const rt = buildRuntime(env, {
   reg,
   pool: getPool('worker'),
@@ -107,6 +120,7 @@ const rt = buildRuntime(env, {
     failedLoginAlertSubscriber({
       getMailer,
     }) as import('@seta/shared-types').SubscriberDef,
+    ...copilotSubscribers,
   ],
   extraJobs: inDev
     ? {
@@ -142,6 +156,7 @@ const rt = buildRuntime(env, {
       workers,
       readinessSnapshot: () => dispatcher.health(),
       streams,
+      copilot,
     });
     return app;
   },

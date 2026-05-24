@@ -1,14 +1,20 @@
 import { RequestContext } from '@mastra/core/request-context';
-import { buildMastra } from '@seta/copilot/runtime';
+import { buildAgentFromSpec, buildMastra, mockLanguageModel } from '@seta/copilot/testing';
 import { hashRoleSummary, type SessionScope } from '@seta/core';
 import { createUser } from '@seta/identity';
 import { createTestTenantWithAdmin } from '@seta/identity/testing';
 import { addGroupMember, createGroup, createPlan, createTask } from '@seta/planner';
 import type { Pool } from 'pg';
 import { describe, expect, it, vi } from 'vitest';
-import { classifySkillsAgent } from '../../../../src/backend/workflows/new-task-skill-tag/agents/classify-skills.ts';
+import { classifySkillsSpec } from '../../../../src/backend/workflows/new-task-skill-tag/agents/classify-skills.ts';
 import { registerNewTaskSkillTagWorkflow } from '../../../../src/backend/workflows/new-task-skill-tag/index.ts';
 import { withCopilotTestDb } from '../../../helpers.ts';
+
+function registerClassifySkillsMock(mastra: ReturnType<typeof buildMastra>) {
+  const agent = buildAgentFromSpec(classifySkillsSpec, { model: mockLanguageModel() });
+  mastra.addAgent(agent);
+  return agent;
+}
 
 const NEW_TASK_WORKFLOW_ID = 'copilot.new-task-skill-tag';
 
@@ -108,14 +114,14 @@ async function waitForLifecycleFlush(): Promise<void> {
 describe('copilot.new-task-skill-tag workflow', () => {
   it('runs through to await-approval and suspends', async () => {
     await withCopilotTestDb(async ({ pool, databaseUrl }) => {
+      const seeded = await seedTenantWithCandidate(pool, ['postgres', 'sse']);
+      const mastra = buildMastra({ pool, databaseUrl });
+      await mastra.getStorage()!.init();
+      const classifySkillsAgent = registerClassifySkillsMock(mastra);
       vi.spyOn(classifySkillsAgent, 'generate').mockResolvedValue({
         object: { requiredSkills: ['postgres', 'sse', 'typescript'] },
         error: undefined,
       } as unknown as Awaited<ReturnType<typeof classifySkillsAgent.generate>>);
-
-      const seeded = await seedTenantWithCandidate(pool, ['postgres', 'sse']);
-      const mastra = buildMastra({ pool, databaseUrl });
-      await mastra.getStorage()!.init();
       registerNewTaskSkillTagWorkflow(mastra);
       await mastra.startWorkers();
 
@@ -157,14 +163,14 @@ describe('copilot.new-task-skill-tag workflow', () => {
 
   it('on resume with approve, calls planner.assignTask and completes successfully', async () => {
     await withCopilotTestDb(async ({ pool, databaseUrl }) => {
+      const seeded = await seedTenantWithCandidate(pool, ['postgres']);
+      const mastra = buildMastra({ pool, databaseUrl });
+      await mastra.getStorage()!.init();
+      const classifySkillsAgent = registerClassifySkillsMock(mastra);
       vi.spyOn(classifySkillsAgent, 'generate').mockResolvedValue({
         object: { requiredSkills: ['postgres'] },
         error: undefined,
       } as unknown as Awaited<ReturnType<typeof classifySkillsAgent.generate>>);
-
-      const seeded = await seedTenantWithCandidate(pool, ['postgres']);
-      const mastra = buildMastra({ pool, databaseUrl });
-      await mastra.getStorage()!.init();
       registerNewTaskSkillTagWorkflow(mastra);
       await mastra.startWorkers();
 
@@ -214,14 +220,14 @@ describe('copilot.new-task-skill-tag workflow', () => {
 
   it('on resume with reject, does not assign and ends with decision=reject', async () => {
     await withCopilotTestDb(async ({ pool, databaseUrl }) => {
+      const seeded = await seedTenantWithCandidate(pool, ['postgres']);
+      const mastra = buildMastra({ pool, databaseUrl });
+      await mastra.getStorage()!.init();
+      const classifySkillsAgent = registerClassifySkillsMock(mastra);
       vi.spyOn(classifySkillsAgent, 'generate').mockResolvedValue({
         object: { requiredSkills: ['postgres'] },
         error: undefined,
       } as unknown as Awaited<ReturnType<typeof classifySkillsAgent.generate>>);
-
-      const seeded = await seedTenantWithCandidate(pool, ['postgres']);
-      const mastra = buildMastra({ pool, databaseUrl });
-      await mastra.getStorage()!.init();
       registerNewTaskSkillTagWorkflow(mastra);
       await mastra.startWorkers();
 

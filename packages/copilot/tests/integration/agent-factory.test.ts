@@ -1,6 +1,9 @@
 import { coreAgentTools } from '@seta/core/agent-tools';
-import { identityAgentTools } from '@seta/identity/agent-tools';
-import { plannerAgentTools } from '@seta/planner/agent-tools';
+import { identityAgentTools, matchUsersToTopicTool } from '@seta/identity/agent-tools';
+import { plannerAgentTools, searchTasksSemanticTool } from '@seta/planner/agent-tools';
+import type { EmbeddingProvider } from '@seta/shared-embeddings';
+import { resolveReranker } from '@seta/shared-retrieval';
+import type { Pool } from 'pg';
 import { describe, expect, it } from 'vitest';
 import { createAgentFactory } from '../../src/backend/agent-factory.ts';
 import { buildMastra } from '../../src/backend/runtime.ts';
@@ -26,6 +29,27 @@ const baseSession = (overrides: Partial<TestSession> = {}): TestSession => ({
   ...overrides,
 });
 
+// In production, copilot's registerCopilot constructs factory tools with
+// real deps. Tests skip registerCopilot and call createAgentFactory directly,
+// so they build factory tools the same way registerCopilot would.
+function buildAllAgentTools(pool: Pool) {
+  const stubProvider: EmbeddingProvider = {
+    modelId: 'test/mock',
+    dimensions: 0,
+    embed: async () => {
+      throw new Error('embedding provider not exercised in this test');
+    },
+  };
+  const factoryDeps = { provider: stubProvider, pool, reranker: resolveReranker() };
+  return [
+    ...coreAgentTools,
+    ...identityAgentTools,
+    ...plannerAgentTools,
+    matchUsersToTopicTool(factoryDeps),
+    searchTasksSemanticTool(factoryDeps),
+  ];
+}
+
 describe('createAgentFactory', () => {
   it('returns the same Agent bag for two sessions with identical role bundles', async () => {
     await withCopilotTestDb(async ({ pool, databaseUrl }) => {
@@ -34,7 +58,7 @@ describe('createAgentFactory', () => {
       const factory = createAgentFactory({
         mastra,
         pool,
-        agentTools: [...coreAgentTools, ...identityAgentTools, ...plannerAgentTools],
+        agentTools: buildAllAgentTools(pool),
       });
       const a = factory(baseSession({ user_id: 'u1' }) as never).get('self');
       const b = factory(baseSession({ user_id: 'u2' }) as never).get('self');
@@ -49,7 +73,7 @@ describe('createAgentFactory', () => {
       const factory = createAgentFactory({
         mastra,
         pool,
-        agentTools: [...coreAgentTools, ...identityAgentTools, ...plannerAgentTools],
+        agentTools: buildAllAgentTools(pool),
       });
       const a = factory(
         baseSession({
@@ -72,7 +96,7 @@ describe('createAgentFactory', () => {
       const factory = createAgentFactory({
         mastra,
         pool,
-        agentTools: [...coreAgentTools, ...identityAgentTools, ...plannerAgentTools],
+        agentTools: buildAllAgentTools(pool),
       });
       const bag = factory(baseSession() as never);
       expect(bag.names().sort()).toEqual(factory.names.slice().sort());
@@ -93,7 +117,7 @@ describe('createAgentFactory', () => {
       const factory = createAgentFactory({
         mastra,
         pool,
-        agentTools: [...coreAgentTools, ...identityAgentTools, ...plannerAgentTools],
+        agentTools: buildAllAgentTools(pool),
       });
       const selfSpec = factory.specs.find((s) => s.name === 'self');
       const toolIds = selfSpec?.tools.map((t) => (t as { id?: string }).id) ?? [];

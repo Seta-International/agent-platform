@@ -330,7 +330,7 @@ export function MailTransport() {
             Send test
           </Button>
         </div>
-        {verify.data && verify.data.ok && (
+        {verify.data?.ok && (
           <Alert>
             <AlertDescription>
               Sent. Message ID: {verify.data.transport_message_id ?? '—'}

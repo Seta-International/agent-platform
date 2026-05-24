@@ -14,11 +14,16 @@
   },
   "devDependencies": {
     "@seta/shared-config": "workspace:^",
+    "@types/pg": "^8.20.0",
     "typescript": "^6.0.3",
     "vitest": "^4.1.7"
   },
   "dependencies": {
     "@mastra/core": "^1.36.0",
+    "@seta/shared-embeddings": "workspace:^",
+    "@seta/shared-retrieval": "workspace:^",
+    "@seta/shared-types": "workspace:^",
+    "pg": "^8.21.0",
     "zod": "^4.4.3"
   }
 }

@@ -1,16 +1,9 @@
 import type { Mastra } from '@mastra/core';
 import type { CopilotTool } from '@seta/copilot-sdk';
-import { matchUsersToTopicTool } from '@seta/identity/agent-tools';
-import { searchTasksSemanticTool } from '@seta/planner/agent-tools';
-import type { EmbeddingProvider } from '@seta/shared-embeddings';
-import { resolveReranker } from '@seta/shared-retrieval';
 import type { Pool } from 'pg';
 import { makeListMyThreadsTool } from '../agent-tools/copilot.list-my-threads.ts';
-import { resolveEmbeddingProvider } from '../embedding-provider.ts';
 import { ROUTER_INSTRUCTIONS, SELF_INSTRUCTIONS } from '../instructions.ts';
 import type { AgentSpec, AgentSpecs } from './specs.ts';
-
-const reranker = resolveReranker();
 
 type MastraStorageThreadRow = {
   id: string;
@@ -27,20 +20,6 @@ type MastraMemoryStore = {
 };
 
 type MastraStorageWithStores = { stores?: { memory?: MastraMemoryStore } };
-
-function makeLazyProvider(): EmbeddingProvider {
-  let inner: EmbeddingProvider | undefined;
-  const get = (): EmbeddingProvider => (inner ??= resolveEmbeddingProvider());
-  return {
-    get modelId() {
-      return get().modelId;
-    },
-    get dimensions() {
-      return get().dimensions;
-    },
-    embed: (...args) => get().embed(...args),
-  };
-}
 
 function indexById(tools: ReadonlyArray<CopilotTool>): Map<string, CopilotTool> {
   const bag = new Map<string, CopilotTool>();
@@ -73,7 +52,6 @@ export function buildAgentCatalog(deps: {
   pool: Pool;
   agentTools: ReadonlyArray<CopilotTool>;
 }): AgentSpecs {
-  const provider = makeLazyProvider();
   const byId = indexById(deps.agentTools);
 
   const listMyThreads = makeListMyThreadsTool({
@@ -97,15 +75,18 @@ export function buildAgentCatalog(deps: {
     description: 'Answers questions about your account, roles, and recent threads',
     instructions: SELF_INSTRUCTIONS,
     tools: [
+      // core + identity are foundation tier — always present.
       ...pickById(byId, [
         'core_serverTime',
         'identity_whoAmI',
         'identity_listMyRoles',
         'identity_updateMyDisplayName',
+        'match_users_to_topic',
       ]),
+      // Cross-module tools from optional modules are picked softly so the
+      // catalog still builds in deployments that don't enable that module.
+      ...pickByIdSoft(byId, ['search_tasks_semantic']),
       listMyThreads,
-      searchTasksSemanticTool({ provider, pool: deps.pool, reranker }),
-      matchUsersToTopicTool({ provider, pool: deps.pool, reranker }),
     ],
     defaultTier: 'fast',
   };

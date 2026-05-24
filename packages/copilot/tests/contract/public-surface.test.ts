@@ -17,10 +17,7 @@ const EXPECTED_EXPORT_SUBPATHS = new Set<string>([
   '.',
   './events',
   './rbac',
-  './models',
   './register',
-  './runtime',
-  './workflows',
   './testing',
 ]);
 
