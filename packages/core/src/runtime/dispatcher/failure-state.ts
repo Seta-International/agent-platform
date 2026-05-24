@@ -1,42 +1,40 @@
-export interface FailureEntry {
-  eventId: string;
-  attempts: number;
-  firstFailedAt: Date;
-  lastError: Error;
-  nextRetryAt: number;
-}
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import type * as schema from '../../db/schema/index.ts';
+import {
+  bumpFailureStateDb,
+  clearFailureStateDb,
+  type FailureEntry,
+  getFailureEntryDb,
+  resetAllFailureStateDb,
+} from './failure-state-store.ts';
 
-const state = new Map<string, FailureEntry>();
+export type { FailureEntry } from './failure-state-store.ts';
 
 export function bumpFailureState(
+  db: NodePgDatabase<typeof schema>,
   subscription: string,
   eventId: string,
   err: unknown,
   opts: { baseMs: number; maxMs: number },
-): number {
-  const existing = state.get(subscription);
-  const attempts = existing?.eventId === eventId ? existing.attempts + 1 : 1;
-  const firstFailedAt = existing?.eventId === eventId ? existing.firstFailedAt : new Date();
-  const delay = Math.min(opts.maxMs, opts.baseMs * 2 ** (attempts - 1));
-  state.set(subscription, {
-    eventId,
-    attempts,
-    firstFailedAt,
-    lastError: err instanceof Error ? err : new Error(String(err)),
-    nextRetryAt: Date.now() + delay,
-  });
-  return attempts;
+): Promise<number> {
+  return bumpFailureStateDb(db, subscription, eventId, err, opts);
 }
 
-export function clearFailureState(subscription: string, eventId: string): void {
-  const e = state.get(subscription);
-  if (e?.eventId === eventId) state.delete(subscription);
+export function clearFailureState(
+  db: NodePgDatabase<typeof schema>,
+  subscription: string,
+  eventId: string,
+): Promise<void> {
+  return clearFailureStateDb(db, subscription, eventId);
 }
 
-export function getFailureEntry(subscription: string): FailureEntry | undefined {
-  return state.get(subscription);
+export function getFailureEntry(
+  db: NodePgDatabase<typeof schema>,
+  subscription: string,
+): Promise<FailureEntry | undefined> {
+  return getFailureEntryDb(db, subscription);
 }
 
-export function resetAllFailureState(): void {
-  state.clear();
+export function resetAllFailureState(db: NodePgDatabase<typeof schema>): Promise<void> {
+  return resetAllFailureStateDb(db);
 }

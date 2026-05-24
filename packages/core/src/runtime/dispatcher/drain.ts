@@ -38,7 +38,7 @@ export async function drainOne(
   log: DrainLogger,
   metrics: DrainMetrics,
 ): Promise<{ processed: number; halted: boolean }> {
-  const entry = getFailureEntry(sub.subscription);
+  const entry = await getFailureEntry(db, sub.subscription);
   if (entry && entry.nextRetryAt > Date.now()) return { processed: 0, halted: true };
 
   return db.transaction(async (outerTx) => {
@@ -149,16 +149,19 @@ export async function drainOne(
             lastProcessedAt: new Date(),
           })
           .where(eq(coreSubscriptionCursors.subscription, sub.subscription));
-        clearFailureState(sub.subscription, evt.id);
+        await clearFailureState(outerTx, sub.subscription, evt.id);
         processed += 1;
       } catch (err) {
-        const attempt = bumpFailureState(sub.subscription, evt.id, err, backoff);
+        const attempt = await bumpFailureState(outerTx, sub.subscription, evt.id, err, backoff);
         log.error(
           { subscription: sub.subscription, eventId: evt.id, attempt, err },
           'subscriber failure',
         );
         metrics.incr('dispatcher.subscriber_failures', { subscription: sub.subscription });
         if (attempt >= backoff.maxAttempts) {
+          // Re-read the post-bump row so firstFailedAt reflects the original failure time
+          // (bumpFailureState preserves it on same-event retries).
+          const failureRow = await getFailureEntry(outerTx, sub.subscription);
           await outerTx.insert(coreSubscriptionDeadLetter).values({
             subscription: sub.subscription,
             eventId: evt.id,
@@ -166,7 +169,7 @@ export async function drainOne(
             attempts: attempt,
             lastError: err instanceof Error ? err.message : String(err),
             payload: evt.payload as Record<string, unknown>,
-            firstFailedAt: getFailureEntry(sub.subscription)?.firstFailedAt ?? new Date(),
+            firstFailedAt: failureRow?.firstFailedAt ?? new Date(),
           });
           await outerTx
             .update(coreSubscriptionCursors)
@@ -180,7 +183,7 @@ export async function drainOne(
             })
             .where(eq(coreSubscriptionCursors.subscription, sub.subscription));
           metrics.incr('dispatcher.dead_letter', { subscription: sub.subscription });
-          clearFailureState(sub.subscription, evt.id);
+          await clearFailureState(outerTx, sub.subscription, evt.id);
         } else {
           return { processed, halted: true };
         }

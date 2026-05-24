@@ -34,7 +34,10 @@ export type BuildServerAppDeps = {
   pool: Pool;
   databaseUrl: string;
   workers: WorkerHandle;
-  readinessSnapshot?: () => { lastTickAt: Date };
+  readinessSnapshot?: () => Promise<{
+    lastTickAt: Date;
+    subscriptions: Array<{ subscription: string; deadLetterCount24h: number }>;
+  }>;
   streams: ReadonlyMap<string, StreamHubHandle>;
   /** Origins the browser is allowed to make credentialed requests from. */
   corsOrigins?: string[];
@@ -114,10 +117,26 @@ export function buildServerApp(
   registerObservabilityRoutes(app);
   if (deps.readinessSnapshot) {
     const snapshot = deps.readinessSnapshot;
-    app.get('/health/ready', (c) => {
-      const h = snapshot();
+    const dlqThreshold = Number(process.env.DLQ_ALERT_THRESHOLD ?? 100);
+    app.get('/health/ready', async (c) => {
+      const h = await snapshot();
       const fresh = Date.now() - h.lastTickAt.getTime() < 30_000;
-      return c.json({ ok: fresh, lastTickAt: h.lastTickAt, identity: 'wired' }, fresh ? 200 : 503);
+      const overThreshold = h.subscriptions.some((s) => s.deadLetterCount24h > dlqThreshold);
+      if (!fresh) {
+        return c.json({ ok: false, lastTickAt: h.lastTickAt, reason: 'stale' }, 503);
+      }
+      if (overThreshold) {
+        return c.json(
+          {
+            ok: false,
+            lastTickAt: h.lastTickAt,
+            reason: 'dlq_threshold',
+            subscriptions: h.subscriptions,
+          },
+          503,
+        );
+      }
+      return c.json({ ok: true, lastTickAt: h.lastTickAt, identity: 'wired' });
     });
   }
 

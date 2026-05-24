@@ -4,7 +4,7 @@ import type { Pool } from 'pg';
 import * as schema from '../../db/schema/index.ts';
 import { type BackoffOpts, drainOne } from './drain.ts';
 import { dispatchTap } from './event-tap.ts';
-import { getFailureEntry, resetAllFailureState } from './failure-state.ts';
+import { getFailureEntry } from './failure-state.ts';
 
 export type { SubscriberDef } from '@seta/shared-types';
 export { addEventTap, type EventTapHandler, type EventTapPredicate } from './event-tap.ts';
@@ -18,7 +18,7 @@ export interface SubscriptionHealth {
 }
 
 export interface DispatcherHandle {
-  health(): { lastTickAt: Date; subscriptions: SubscriptionHealth[] };
+  health(): Promise<{ lastTickAt: Date; subscriptions: SubscriptionHealth[] }>;
   shutdown(timeoutMs?: number): Promise<void>;
 }
 
@@ -138,20 +138,19 @@ export async function startDispatcher(opts: {
   await tick();
 
   return {
-    health() {
-      return {
-        lastTickAt,
-        subscriptions: opts.subscribers.map((s) => {
-          const f = getFailureEntry(s.subscription);
-          return {
-            subscription: s.subscription,
-            cursor: null,
-            lastProcessedAt: null,
-            inflightFailureAttempts: f?.attempts ?? 0,
-            deadLetterCount24h: 0,
-          };
-        }),
-      };
+    async health() {
+      const subscriptions: SubscriptionHealth[] = [];
+      for (const s of opts.subscribers) {
+        const f = await getFailureEntry(db, s.subscription);
+        subscriptions.push({
+          subscription: s.subscription,
+          cursor: null,
+          lastProcessedAt: null,
+          inflightFailureAttempts: f?.attempts ?? 0,
+          deadLetterCount24h: 0,
+        });
+      }
+      return { lastTickAt, subscriptions };
     },
     async shutdown(timeoutMs = 15_000) {
       shuttingDown = true;
@@ -174,7 +173,8 @@ export async function startDispatcher(opts: {
       if (inFlight) {
         await Promise.race([inFlight, new Promise<void>((r) => setTimeout(r, timeoutMs))]);
       }
-      resetAllFailureState();
+      // Failure state is intentionally persisted across shutdowns. Tests that need to
+      // reset it should call resetAllFailureState(db) directly.
     },
   };
 }
