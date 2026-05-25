@@ -19,30 +19,6 @@ import {
 import { buildConfirmNotDuplicateCard } from './steps/confirm-not-duplicate.ts';
 import { applyDupDecision, findDupCandidates } from './workflow.ts';
 
-/**
- * Mastra workflow for `dedupOnCreate` — real createStep chain.
- *
- * Two-step shape:
- *   1. `dedupOnCreate.search` — derives session from requestContext,
- *      runs findDupCandidates (read-only vector + keyword search), passes
- *      classification + candidates + normalized draft forward.
- *   2. `dedupOnCreate.decide` (HITL) — on first invocation, if no duplicates
- *      it applies create-new directly; if duplicates exist it suspends with
- *      the ApprovalCard. On resume, applyDupDecision routes to create-new /
- *      link-as-related / link-as-subtask / cancel.
- *
- * Reached two ways:
- *   - Chat path: planner_createTask tool wraps the same orchestration
- *     functions (findDupCandidates + applyDupDecision) — that path keeps
- *     its existing UX in PR1.
- *   - REST/batch path: POST /api/copilot/v1/workflows/runs/dedupOnCreate/start
- *     (PR1 Task 8) drives this workflow for programmatic callers (future
- *     MS-Planner sync, scheduled cleanup jobs).
- *
- * Session NEVER appears in the inputSchema (LLM-visible) — derives from
- * requestContext server-side. Enforced by assertNoSessionField.
- */
-
 const DEFAULT_THRESHOLDS = { likelyDup: 0.18, maybeDup: 0.3 };
 
 let lazyProvider: EmbeddingProvider | undefined;

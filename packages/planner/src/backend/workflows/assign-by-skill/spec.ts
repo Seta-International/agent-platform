@@ -18,31 +18,6 @@ import {
 } from './schemas.ts';
 import { applyAssignDecision, runSuggestAssignee } from './workflow.ts';
 
-/**
- * Mastra workflow for `assignBySkill` — real createStep chain.
- *
- * Two-step shape:
- *   1. `assignBySkill.compute` — derives session from requestContext,
- *      delegates to runSuggestAssignee for the candidate ranking pipeline,
- *      passes the rendered ApprovalCard forward.
- *   2. `assignBySkill.suggest` (HITL) — suspends with the card on first
- *      invocation; on resume calls applyAssignDecision (which writes via
- *      planner_assignTask domain function and emits planner.task.assigned).
- *
- * Reached two ways:
- *   - Chat path: planner_suggestAssignee tool wraps the same orchestration
- *     functions (runSuggestAssignee + applyAssignDecision) directly — that
- *     path keeps its existing UX in PR1.
- *   - REST/button path: POST /api/copilot/v1/workflows/runs/assignBySkill/start
- *     (PR1 Task 8) drives this workflow; the lifecycle hook writes
- *     copilot.workflow_runs + workflow_approvals rows; users decide via
- *     /workflows/approvals/:id/decide.
- *
- * Session NEVER appears in the inputSchema (LLM-visible) — it derives from
- * requestContext server-side via sessionFromRequestContext. Enforced by
- * assertNoSessionField at registration time.
- */
-
 let lazyProvider: EmbeddingProvider | undefined;
 function getProvider(): EmbeddingProvider {
   if (lazyProvider) return lazyProvider;
