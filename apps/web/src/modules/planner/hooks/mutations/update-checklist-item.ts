@@ -1,5 +1,6 @@
 import type { ChecklistItemRow, TaskDetailRow, TaskWithAssigneesRow } from '@seta/planner';
 import { plannerClient } from '../../api/planner-client';
+import { sortChecklist } from '../../components/checklist-reorder';
 import { plannerKeys } from '../../state/query-keys';
 import { useOptimisticMutation } from '../use-optimistic-mutation';
 
@@ -25,14 +26,18 @@ export function useUpdateChecklistItem(planId: string, taskId: string) {
       { key: singleKey, prev: qc.getQueryData(singleKey) },
     ],
     applyOptimistic: (v, qc) => {
-      qc.setQueryData<ChecklistItemRow[]>(checklistKey, (prev) =>
-        prev ? prev.map((item) => (item.id === v.item_id ? { ...item, ...v.patch } : item)) : prev,
-      );
+      const reorder = v.patch.order_hint !== undefined;
+      qc.setQueryData<ChecklistItemRow[]>(checklistKey, (prev) => {
+        if (!prev) return prev;
+        const next = prev.map((item) => (item.id === v.item_id ? { ...item, ...v.patch } : item));
+        return reorder ? sortChecklist(next) : next;
+      });
       qc.setQueryData<TaskDetailRow>(singleKey, (task) => {
         if (!task) return task;
-        const nextChecklist = task.checklist.map((item) =>
+        const mapped = task.checklist.map((item) =>
           item.id === v.item_id ? { ...item, ...v.patch } : item,
         );
+        const nextChecklist = reorder ? sortChecklist(mapped) : mapped;
         const summary =
           v.patch.checked !== undefined ? recomputeSummary(nextChecklist) : task.checklist_summary;
         return { ...task, checklist: nextChecklist, checklist_summary: summary };
@@ -48,18 +53,18 @@ export function useUpdateChecklistItem(planId: string, taskId: string) {
         });
       }
     },
-    onServerOk: (server, _v, qc) => {
-      qc.setQueryData<ChecklistItemRow[]>(checklistKey, (prev) =>
-        prev ? prev.map((item) => (item.id === server.id ? server : item)) : prev,
-      );
-      qc.setQueryData<TaskDetailRow>(singleKey, (task) =>
-        task
-          ? {
-              ...task,
-              checklist: task.checklist.map((item) => (item.id === server.id ? server : item)),
-            }
-          : task,
-      );
+    onServerOk: (server, v, qc) => {
+      const reorder = v.patch.order_hint !== undefined;
+      qc.setQueryData<ChecklistItemRow[]>(checklistKey, (prev) => {
+        if (!prev) return prev;
+        const next = prev.map((item) => (item.id === server.id ? server : item));
+        return reorder ? sortChecklist(next) : next;
+      });
+      qc.setQueryData<TaskDetailRow>(singleKey, (task) => {
+        if (!task) return task;
+        const mapped = task.checklist.map((item) => (item.id === server.id ? server : item));
+        return { ...task, checklist: reorder ? sortChecklist(mapped) : mapped };
+      });
     },
     savingId: () => undefined,
     invalidate: () => [plannerKeys.taskEvents(taskId)],

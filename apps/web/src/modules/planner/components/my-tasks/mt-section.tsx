@@ -1,6 +1,8 @@
+import { Draggable, Droppable } from '@hello-pangea/dnd';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { ChevronDown } from 'lucide-react';
-import { useState } from 'react';
-import { PlanGroup, type PlanGroupData } from './plan-group';
+import { useRef, useState } from 'react';
+import { MtTaskRow, type MyTasksRowTask } from './mt-task-row';
 import type { SectionKey, SectionTone } from './types';
 
 export type { SectionKey, SectionTone } from './types';
@@ -12,7 +14,7 @@ export interface MyTasksSection {
   count: number;
   open: boolean;
   hint?: string;
-  groups: ReadonlyArray<PlanGroupData>;
+  tasks: ReadonlyArray<MyTasksRowTask>;
 }
 
 interface Props {
@@ -43,16 +45,41 @@ const TONE_DOT: Record<SectionTone, string> = {
   success: 'dot--success',
 };
 
+// Shared grid template — every row + the section column-header strip must use this so
+// columns visually line up. 8 cells: drag, title+status, plan, priority, progress, due, labels, assignees.
+export const MT_GRID_COLS =
+  'grid-cols-[24px_minmax(0,1fr)_140px_90px_130px_100px_110px_120px]' as const;
+
+// virtualization kicks in once rows would noticeably affect layout cost;
+// below this threshold the non-virtual path keeps DOM simple for tests and a11y
+const VIRTUAL_THRESHOLD = 20;
+
 export function MtSection({ section }: Props) {
   const [open, setOpen] = useState(section.open);
+  const taskCount = section.tasks.length;
+  const droppableId = `mt:${section.key}`;
+  const virtualize = open && taskCount >= VIRTUAL_THRESHOLD;
+  const parentRef = useRef<HTMLDivElement | null>(null);
+  // TanStack Virtual returns functions that can't be safely memoized — React Compiler skips this hook
+  // eslint-disable-next-line react-hooks/incompatible-library
+  const virtualizer = useVirtualizer({
+    count: taskCount,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 40,
+    overscan: 6,
+  });
 
   return (
-    <section data-testid="mt-section" data-section={section.key} className="mt-3.5">
+    <section
+      data-testid="mt-section"
+      data-section={section.key}
+      className="border-b border-hairline last:border-b-0"
+    >
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="w-full flex items-center gap-2.5 pt-1.5 px-1 pb-2.5 border-b border-hairline bg-transparent text-left"
+        className="w-full flex items-center gap-2.5 px-7 py-3 bg-transparent text-left hover:bg-surface-1 transition-colors"
       >
         <ChevronDown
           size={12}
@@ -70,13 +97,113 @@ export function MtSection({ section }: Props) {
         </span>
         {section.hint && <span className="text-[11px] text-ink-subtle">· {section.hint}</span>}
         <div className="flex-1" />
-        {open && <span className="text-[11px] text-ink-subtle">Sorted by your priority</span>}
+        {open && taskCount > 0 && (
+          <span className="text-[11px] text-ink-subtle">Sorted by your priority</span>
+        )}
       </button>
 
-      {open &&
-        section.groups.map((g, i) => (
-          <PlanGroup key={g.plan.id} sectionKey={section.key} group={g} first={i === 0} />
-        ))}
+      {open && taskCount > 0 && (
+        <>
+          <div
+            data-testid="mt-section-columns"
+            className={
+              `sticky top-0 z-10 grid ${MT_GRID_COLS} ` +
+              'gap-3 px-7 py-2.5 text-[10.5px] font-medium uppercase tracking-wider ' +
+              'text-ink-subtle border-b border-hairline bg-canvas'
+            }
+          >
+            <span />
+            <span>Task</span>
+            <span>Plan</span>
+            <span>Priority</span>
+            <span>Progress</span>
+            <span>Due</span>
+            <span>Labels</span>
+            <span>Assignees</span>
+          </div>
+
+          {virtualize ? (
+            <Droppable
+              droppableId={droppableId}
+              type="MT_TASK"
+              mode="virtual"
+              renderClone={(provided, _snapshot, rubric) => {
+                const t = section.tasks[rubric.source.index];
+                if (!t) return <div ref={provided.innerRef} {...provided.draggableProps} />;
+                return (
+                  <div
+                    ref={provided.innerRef}
+                    {...provided.draggableProps}
+                    style={provided.draggableProps.style}
+                  >
+                    <MtTaskRow task={t} dragHandleProps={provided.dragHandleProps ?? undefined} />
+                  </div>
+                );
+              }}
+            >
+              {(dp) => (
+                <div
+                  ref={(node) => {
+                    dp.innerRef(node);
+                    parentRef.current = node;
+                  }}
+                  {...dp.droppableProps}
+                  data-testid="mt-section-virtualized"
+                  style={{ maxHeight: 520, overflow: 'auto', position: 'relative' }}
+                >
+                  <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
+                    {virtualizer.getVirtualItems().map((vi) => {
+                      const t = section.tasks[vi.index];
+                      if (!t) return null;
+                      return (
+                        <div
+                          key={t.id}
+                          data-task-row
+                          style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            width: '100%',
+                            transform: `translateY(${vi.start}px)`,
+                          }}
+                        >
+                          <Draggable draggableId={t.id} index={vi.index}>
+                            {(dpc) => (
+                              <div ref={dpc.innerRef} {...dpc.draggableProps}>
+                                <MtTaskRow
+                                  task={t}
+                                  dragHandleProps={dpc.dragHandleProps ?? undefined}
+                                />
+                              </div>
+                            )}
+                          </Draggable>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </Droppable>
+          ) : (
+            <Droppable droppableId={droppableId} type="MT_TASK">
+              {(dp) => (
+                <div ref={dp.innerRef} {...dp.droppableProps}>
+                  {section.tasks.map((t, i) => (
+                    <Draggable key={t.id} draggableId={t.id} index={i}>
+                      {(dpc) => (
+                        <div ref={dpc.innerRef} {...dpc.draggableProps}>
+                          <MtTaskRow task={t} dragHandleProps={dpc.dragHandleProps ?? undefined} />
+                        </div>
+                      )}
+                    </Draggable>
+                  ))}
+                  {dp.placeholder}
+                </div>
+              )}
+            </Droppable>
+          )}
+        </>
+      )}
     </section>
   );
 }

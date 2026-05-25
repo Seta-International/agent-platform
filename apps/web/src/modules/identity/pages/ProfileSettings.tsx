@@ -1,4 +1,12 @@
-import { Card, Skeleton, Tabs, TabsContent, TabsList, TabsTrigger } from '@seta/shared-ui';
+import {
+  Card,
+  PageChrome,
+  Skeleton,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@seta/shared-ui';
 import { useEffect, useState } from 'react';
 import { fetchProfile, type ProfileDto, patchProfile } from '../api/client.ts';
 import { ProfileAvailabilitySection } from '../components/ProfileAvailabilitySection.tsx';
@@ -25,17 +33,11 @@ export function ProfileSettings() {
   }, []);
 
   return (
-    <div className="flex flex-col min-h-0">
-      <div className="px-7 py-5 border-b border-hairline bg-canvas">
-        <div className="text-xs text-ink-muted">Settings</div>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight">Profile</h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          Your name, when you&apos;re around, and how you hear from us.
-        </p>
-      </div>
-
-      <Tabs defaultValue="profile" className="flex flex-col flex-1 min-h-0">
-        <div className="px-7 border-b border-hairline bg-canvas">
+    <Tabs defaultValue="profile" className="flex min-h-0 flex-1 flex-col">
+      <PageChrome
+        breadcrumb={['Settings']}
+        title="Profile"
+        toolbar={
           <TabsList className="border-b-0">
             <TabsTrigger value="profile">Profile</TabsTrigger>
             <TabsTrigger value="skills">Skills</TabsTrigger>
@@ -43,15 +45,15 @@ export function ProfileSettings() {
             <TabsTrigger value="security">Security</TabsTrigger>
             <TabsTrigger value="notifications">Notifications</TabsTrigger>
           </TabsList>
-        </div>
-
-        <div className="flex-1 overflow-auto bg-surface-1">
-          <div className="mx-auto max-w-[720px] px-6 py-7">
+        }
+      >
+        <div className="bg-surface-1 min-h-full">
+          <div className="page-container space-y-5">
             {!profile ? (
-              <div className="flex flex-col gap-5">
+              <>
                 <Skeleton className="h-64 w-full" />
                 <Skeleton className="h-40 w-full" />
-              </div>
+              </>
             ) : (
               <>
                 <TabsContent value="profile" className="mt-0 flex flex-col gap-5">
@@ -97,7 +99,7 @@ export function ProfileSettings() {
             )}
           </div>
         </div>
-      </Tabs>
-    </div>
+      </PageChrome>
+    </Tabs>
   );
 }

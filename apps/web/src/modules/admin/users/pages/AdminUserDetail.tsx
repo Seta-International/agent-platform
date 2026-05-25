@@ -63,7 +63,7 @@ export function AdminUserDetail({ userId }: { userId: string }) {
       </div>
 
       <div className="bg-surface-1 flex-1 overflow-auto">
-        <div className="mx-auto max-w-[1180px] grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-7 px-7 py-7 items-start">
+        <div className="page-container grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-7 items-start">
           <main className="min-w-0">
             <UserDetailTabsContent
               detail={detail}

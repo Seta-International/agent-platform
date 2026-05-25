@@ -12,7 +12,7 @@ export function AdminNotificationPrefs() {
       title="Notifications"
       subtitle="Choose what your team gets notified about, and where."
     >
-      <div className="mx-auto max-w-[880px] space-y-4 p-6">
+      <div className="page-container space-y-4">
         {error && (
           <Alert variant="destructive">
             <AlertDescription>

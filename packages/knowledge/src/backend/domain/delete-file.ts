@@ -1,9 +1,16 @@
 import { DeleteObjectCommand } from '@aws-sdk/client-s3';
+import type { PgVector } from '@mastra/pg';
 import type { SessionScope } from '@seta/core';
 import { getS3Client } from '@seta/shared-storage';
 import { and, eq } from 'drizzle-orm';
 import { knowledgeDb } from '../db/client.ts';
-import { chunks, embeddings, files } from '../db/schema.ts';
+import { chunks, files } from '../db/schema.ts';
+import {
+  ensureKnowledgeVectorIndex,
+  getKnowledgeVectorStore,
+  KNOWLEDGE_VECTOR_INDEX,
+  knowledgeVectorId,
+} from '../embeddings/vector-store.ts';
 import { requirePermission } from '../rbac.ts';
 
 export interface DeleteKnowledgeFileInput {
@@ -16,6 +23,8 @@ export interface DeleteKnowledgeFileDeps {
   /** Override for tests. */
   deleteS3Object?: (s3_key: string) => Promise<void>;
   bucket?: string;
+  pgVector?: PgVector;
+  databaseUrl?: string;
 }
 
 export async function deleteKnowledgeFile(
@@ -32,11 +41,33 @@ export async function deleteKnowledgeFile(
     .limit(1);
   if (fileRow.length === 0) return;
 
-  await db
-    .delete(embeddings)
-    .where(
-      and(eq(embeddings.tenant_id, input.tenant_id), eq(embeddings.file_id, BigInt(input.file_id))),
-    );
+  const chunkRows = await db
+    .select({ chunk_ordinal: chunks.chunk_ordinal })
+    .from(chunks)
+    .where(and(eq(chunks.tenant_id, input.tenant_id), eq(chunks.file_id, BigInt(input.file_id))));
+
+  if (chunkRows.length > 0) {
+    const pgVector =
+      deps.pgVector ??
+      (deps.databaseUrl
+        ? getKnowledgeVectorStore(deps.databaseUrl)
+        : getKnowledgeVectorStore(
+            process.env.DATABASE_URL ??
+              (() => {
+                throw new Error('DATABASE_URL required for knowledge.delete-file');
+              })(),
+          ));
+    await ensureKnowledgeVectorIndex(pgVector);
+    for (const row of chunkRows) {
+      await pgVector
+        .deleteVector({
+          indexName: KNOWLEDGE_VECTOR_INDEX,
+          id: knowledgeVectorId(input.tenant_id, input.file_id, row.chunk_ordinal),
+        })
+        .catch(() => {});
+    }
+  }
+
   await db
     .delete(chunks)
     .where(and(eq(chunks.tenant_id, input.tenant_id), eq(chunks.file_id, BigInt(input.file_id))));
@@ -55,7 +86,6 @@ export async function deleteKnowledgeFile(
     const client = getS3Client();
     await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: s3Key }));
   } catch (err) {
-    // DB rows are gone — S3 orphan can be reaped by lifecycle policy. Log but don't throw.
     console.error(`failed to delete S3 object ${s3Key}:`, err);
   }
 }

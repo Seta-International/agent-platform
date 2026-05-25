@@ -12,11 +12,26 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { delay, HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import type { SessionScopeProjection } from '@/modules/identity/api/client';
+import { SessionProvider } from '../../../../../src/modules/identity/components/SessionProvider';
 import { TaskDetailPage } from '../../../../../src/modules/planner/pages/task-detail-page';
 import {
   makePlan,
   makeTaskWithAssignees,
 } from '../../../../../src/modules/planner/testing/fixtures';
+
+const fxSession: SessionScopeProjection = {
+  user_id: 'u-self',
+  tenant_id: 't',
+  tenant_name: 'Acme',
+  tenant_slug: 'acme',
+  email: 'self@acme.test',
+  display_name: 'Me',
+  role_summary: { roles: ['tenant.admin'], cross_tenant_read: false },
+  accessible_group_ids: ['g1'],
+  cross_tenant_read: false,
+  tenant_local_password_disabled: false,
+};
 
 const server = setupServer();
 beforeAll(() => server.listen({ onUnhandledRequest: 'bypass' }));
@@ -60,7 +75,9 @@ function renderPage(taskId: string, planId: string, opts: RenderOptions = {}) {
   });
   render(
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <SessionProvider session={fxSession}>
+        <RouterProvider router={router} />
+      </SessionProvider>
     </QueryClientProvider>,
   );
   return router;
@@ -172,7 +189,9 @@ describe('TaskDetailPage', () => {
     });
     render(
       <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
+        <SessionProvider session={fxSession}>
+          <RouterProvider router={router} />
+        </SessionProvider>
       </QueryClientProvider>,
     );
 
@@ -300,7 +319,9 @@ describe('TaskDetailPage', () => {
     });
     render(
       <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
+        <SessionProvider session={fxSession}>
+          <RouterProvider router={router} />
+        </SessionProvider>
       </QueryClientProvider>,
     );
 

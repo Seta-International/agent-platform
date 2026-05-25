@@ -1,12 +1,17 @@
 import type { ChecklistItemRow, TaskDetailRow } from '@seta/planner';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import type { ReactNode } from 'react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { computeReorderHint } from '../../../../../src/modules/planner/components/checklist-reorder';
+import {
+  computeReorderHint,
+  sortChecklist,
+} from '../../../../../src/modules/planner/components/checklist-reorder';
 import { TaskDetailChecklistCard } from '../../../../../src/modules/planner/components/TaskDetailChecklistCard';
+import { useUpdateChecklistItem } from '../../../../../src/modules/planner/hooks/mutations/update-checklist-item';
+import { plannerKeys } from '../../../../../src/modules/planner/state/query-keys';
 import { makeTaskWithAssignees } from '../../../../../src/modules/planner/testing/fixtures';
 
 const server = setupServer();
@@ -124,5 +129,68 @@ describe('computeReorderHint', () => {
   it('returns null when source and destination are the same', () => {
     const items = [item({ id: 'a', order_hint: 'a0' })];
     expect(computeReorderHint(items, 0, 0)).toBeNull();
+  });
+});
+
+describe('sortChecklist', () => {
+  it('sorts by order_hint with nulls last and id as tiebreaker', () => {
+    const items = [
+      item({ id: 'b', order_hint: 'a2' }),
+      item({ id: 'a', order_hint: 'a1' }),
+      item({ id: 'd', order_hint: null }),
+      item({ id: 'c', order_hint: null }),
+    ];
+    expect(sortChecklist(items).map((it) => it.id)).toEqual(['a', 'b', 'c', 'd']);
+  });
+});
+
+describe('useUpdateChecklistItem (reorder)', () => {
+  it('re-sorts the cached task.checklist when order_hint changes (drag-and-drop)', async () => {
+    const taskId = 't1';
+    const planId = 'p1';
+    const items = [
+      item({ id: 'c1', label: 'one', order_hint: 'a0' }),
+      item({ id: 'c2', label: 'two', order_hint: 'a1' }),
+      item({ id: 'c3', label: 'three', order_hint: 'a2' }),
+    ];
+    const detail = makeDetail(items);
+    const newHint = 'a3'; // place c1 at the end
+
+    server.use(
+      http.patch('/api/planner/v1/checklist-items/c1', () =>
+        HttpResponse.json(item({ id: 'c1', label: 'one', order_hint: newHint })),
+      ),
+    );
+
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    qc.setQueryData(plannerKeys.task(taskId), detail);
+
+    let api: ReturnType<typeof useUpdateChecklistItem> | undefined;
+    function Harness() {
+      api = useUpdateChecklistItem(planId, taskId);
+      return null;
+    }
+
+    render(
+      <QueryClientProvider client={qc}>
+        <Harness />
+      </QueryClientProvider>,
+    );
+
+    await act(async () => {
+      api!.mutate({ item_id: 'c1', patch: { order_hint: newHint } });
+    });
+
+    // Optimistic: c1 should move to the end immediately.
+    const afterOptimistic = qc.getQueryData<TaskDetailRow>(plannerKeys.task(taskId));
+    expect(afterOptimistic?.checklist.map((it) => it.id)).toEqual(['c2', 'c3', 'c1']);
+
+    // After server ack: order is still correct.
+    await waitFor(() => {
+      const after = qc.getQueryData<TaskDetailRow>(plannerKeys.task(taskId));
+      expect(after?.checklist.map((it) => it.id)).toEqual(['c2', 'c3', 'c1']);
+    });
   });
 });

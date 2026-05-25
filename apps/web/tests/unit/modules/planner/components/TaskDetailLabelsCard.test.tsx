@@ -92,6 +92,85 @@ describe('TaskDetailLabelsCard', () => {
     expect(screen.queryByText(/cat /)).not.toBeInTheDocument();
   });
 
+  describe('inline create', () => {
+    it('shows a "Create" item when typed name has no exact match', async () => {
+      const { userEvent } = await import('@testing-library/user-event');
+      const user = userEvent.setup();
+      const task = makeTask([]);
+      renderWithClient(<TaskDetailLabelsCard task={task} planId="p1" />, []);
+      await user.click(screen.getByRole('button', { name: /Add label/i }));
+      const input = screen.getByLabelText(/Filter labels/i);
+      await user.type(input, 'shiny');
+      await waitFor(() =>
+        expect(screen.getByRole('option', { name: /Create.*shiny/i })).toBeInTheDocument(),
+      );
+    });
+
+    it('does NOT show a "Create" item when the typed name exactly matches an existing label', async () => {
+      const { userEvent } = await import('@testing-library/user-event');
+      const user = userEvent.setup();
+      const task = makeTask([]);
+      renderWithClient(<TaskDetailLabelsCard task={task} planId="p1" />, [
+        label({ id: 'la', name: 'alpha' }),
+      ]);
+      await user.click(screen.getByRole('button', { name: /Add label/i }));
+      const input = screen.getByLabelText(/Filter labels/i);
+      await user.type(input, 'alpha');
+      // existing label still selectable
+      await waitFor(() => expect(screen.getByText('alpha')).toBeInTheDocument());
+      expect(screen.queryByRole('option', { name: /Create.*alpha/i })).toBeNull();
+    });
+
+    it('POSTs createLabel then applyLabel when the create item is selected', async () => {
+      const { userEvent } = await import('@testing-library/user-event');
+      const user = userEvent.setup();
+
+      const createCalls: Array<Record<string, unknown>> = [];
+      const applyCalls: Array<{ taskId: string; body: Record<string, unknown> }> = [];
+
+      server.use(
+        http.post('/api/planner/v1/plans/p1/labels', async ({ request }) => {
+          const body = (await request.json()) as Record<string, unknown>;
+          createCalls.push(body);
+          return HttpResponse.json({
+            id: 'new-label-id',
+            tenant_id: 't',
+            plan_id: 'p1',
+            name: body.name,
+            color: body.color,
+            category_slot: null,
+            created_at: new Date().toISOString(),
+            deleted_at: null,
+          });
+        }),
+        http.post('/api/planner/v1/tasks/:taskId/labels', async ({ request, params }) => {
+          applyCalls.push({
+            taskId: String(params.taskId),
+            body: (await request.json()) as Record<string, unknown>,
+          });
+          return new HttpResponse(null, { status: 204 });
+        }),
+      );
+
+      const task = makeTask([]);
+      renderWithClient(<TaskDetailLabelsCard task={task} planId="p1" />, []);
+      await user.click(screen.getByRole('button', { name: /Add label/i }));
+      const input = screen.getByLabelText(/Filter labels/i);
+      await user.type(input, 'shiny');
+
+      const createItem = await screen.findByRole('option', { name: /Create.*shiny/i });
+      await user.click(createItem);
+
+      await waitFor(() => expect(createCalls.length).toBe(1));
+      expect(createCalls[0]).toMatchObject({ name: 'shiny' });
+      expect(typeof createCalls[0]?.color).toBe('string');
+
+      await waitFor(() => expect(applyCalls.length).toBe(1));
+      expect(applyCalls[0]?.taskId).toBe('t1');
+      expect(applyCalls[0]?.body).toMatchObject({ label_id: 'new-label-id' });
+    });
+  });
+
   describe('isLinkedToM365=false (default behavior)', () => {
     it('shows slot-less labels as enabled items with no "Local only" badge', async () => {
       const { userEvent } = await import('@testing-library/user-event');

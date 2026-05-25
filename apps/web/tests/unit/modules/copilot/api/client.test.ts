@@ -30,18 +30,43 @@ describe('copilotApi', () => {
         });
       }),
     );
-    await copilotApi.resolveApproval('self', {
+    await copilotApi.resolveApproval({
       runId: 'run-1',
       toolCallId: 'call-1',
       approved: true,
       threadId: 't-1',
     });
-    expect(calls[0]?.url).toBe('/api/copilot/v1/chat/self/approve');
+    expect(calls[0]?.url).toBe('/api/copilot/v1/chat/approve');
     expect(JSON.parse(String(calls[0]?.init.body))).toEqual({
       runId: 'run-1',
       toolCallId: 'call-1',
       approved: true,
       threadId: 't-1',
+    });
+  });
+
+  it('resolveApproval forwards resumeData when provided (multi-option HITL)', async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init: RequestInit) => {
+        calls.push({ url, init });
+        return new Response('data: [DONE]\n\n', {
+          headers: { 'content-type': 'text/event-stream' },
+        });
+      }),
+    );
+    await copilotApi.resolveApproval({
+      runId: 'run-1',
+      toolCallId: 'call-1',
+      approved: true,
+      resumeData: { kind: 'link', existingId: 'task-7', mode: 'related' },
+    });
+    expect(JSON.parse(String(calls[0]?.init.body))).toMatchObject({
+      runId: 'run-1',
+      toolCallId: 'call-1',
+      approved: true,
+      resumeData: { kind: 'link', existingId: 'task-7', mode: 'related' },
     });
   });
 });

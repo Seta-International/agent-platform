@@ -4,6 +4,7 @@ import { getPool } from '@seta/shared-db';
 import { resolveReranker } from '@seta/shared-retrieval';
 import { z } from 'zod';
 import { resolveEmbeddingProvider } from '../embeddings/provider-resolver.ts';
+import { getKnowledgeVectorStore } from '../embeddings/vector-store.ts';
 import { searchTenantKnowledge } from '../retrieval/search-tenant-knowledge.ts';
 
 const STAGE1_TOPK = Number(process.env.RERANK_STAGE1_TOPK ?? 50);
@@ -40,13 +41,16 @@ export const searchTenantKnowledgeAgentTool = defineCopilotTool({
     const session = await buildActorSession(actor);
     const provider = resolveEmbeddingProvider();
     const pool = getPool('worker');
+    const databaseUrl = process.env.DATABASE_URL;
+    if (!databaseUrl) throw new Error('DATABASE_URL required for knowledge search');
+    const pgVector = getKnowledgeVectorStore(databaseUrl);
     const reranker = resolveReranker();
     const requestedLimit = input.limit ?? 5;
     const stage1Limit = Math.max(requestedLimit * 3, STAGE1_TOPK);
 
     const stage1 = await searchTenantKnowledge(
       { query: input.query, tenant_id: session.tenant_id, limit: stage1Limit },
-      { provider, pool },
+      { provider, pgVector, pool },
     );
 
     const reranked = await reranker.rescore(input.query, stage1, { topN: requestedLimit });

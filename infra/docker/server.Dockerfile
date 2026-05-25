@@ -5,8 +5,11 @@
 # ============================================================================
 FROM node:24-alpine AS base
 
+# `git` is needed in the deps stage because the root package.json prepare
+# script runs `lefthook install`, which shells out to git even though we
+# don't actually want hooks installed in the image.
 RUN corepack enable \
- && apk add --no-cache tini
+ && apk add --no-cache tini git
 
 WORKDIR /repo
 
@@ -24,8 +27,14 @@ COPY turbo.json ./
 
 COPY apps/server/package.json apps/server/package.json
 COPY apps/cli/package.json    apps/cli/package.json
+COPY apps/worker/package.json apps/worker/package.json
 COPY apps/web/package.json    apps/web/package.json
 COPY packages/                packages/
+COPY sdks/                    sdks/
+
+# LEFTHOOK=0 short-circuits the `prepare: lefthook install` script so we
+# don't end up with a stray hook config in the image.
+ENV LEFTHOOK=0
 
 RUN --mount=type=cache,id=pnpm-store-server,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile
@@ -41,10 +50,12 @@ FROM deps AS sources
 
 COPY apps/server/  apps/server/
 COPY apps/cli/     apps/cli/
+COPY apps/worker/  apps/worker/
 
 # Typecheck-only — fail the image build if the TS doesn't pass.
 RUN pnpm --filter=@seta/server exec tsc --noEmit \
- && pnpm --filter=@seta/cli    exec tsc --noEmit
+ && pnpm --filter=@seta/cli    exec tsc --noEmit \
+ && pnpm --filter=@seta/worker exec tsc --noEmit
 
 # ============================================================================
 # Stage 4 — prune
@@ -60,12 +71,14 @@ RUN pnpm --filter=@seta/server exec tsc --noEmit \
 FROM sources AS prune
 
 RUN pnpm deploy --filter=@seta/server --prod --ignore-scripts /out/apps/server \
- && pnpm deploy --filter=@seta/cli    --prod --ignore-scripts /out/apps/cli
+ && pnpm deploy --filter=@seta/cli    --prod --ignore-scripts /out/apps/cli \
+ && pnpm deploy --filter=@seta/worker --prod --ignore-scripts /out/apps/worker
 
 # Copy source files into the deploy tree (pnpm deploy ships `files`, but
 # these workspace apps don't declare `files`, so we explicitly include src/).
 RUN cp -R apps/server/src /out/apps/server/src \
- && cp -R apps/cli/src    /out/apps/cli/src
+ && cp -R apps/cli/src    /out/apps/cli/src \
+ && cp -R apps/worker/src /out/apps/worker/src
 
 # ============================================================================
 # Stage 5 — runtime
@@ -86,6 +99,7 @@ WORKDIR /app
 
 COPY --from=prune --chown=10001:10001 /out/apps/server /app/apps/server
 COPY --from=prune --chown=10001:10001 /out/apps/cli    /app/apps/cli
+COPY --from=prune --chown=10001:10001 /out/apps/worker /app/apps/worker
 COPY --chown=10001:10001 infra/docker/entrypoint.sh    /entrypoint.sh
 
 RUN chmod +x /entrypoint.sh

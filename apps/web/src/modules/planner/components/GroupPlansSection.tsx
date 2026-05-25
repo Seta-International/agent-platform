@@ -1,6 +1,6 @@
 import type { PlanWithRollupsRow } from '@seta/planner';
 import { Plus } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Paginator } from './Paginator';
 import { PlanCard } from './PlanCard';
 
@@ -44,11 +44,6 @@ export function GroupPlansSection({
 
   const total = plans.length;
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
-
-  // Clamp page index when list shrinks
-  useEffect(() => {
-    if (pageIndex > pageCount - 1) setPageIndex(pageCount - 1);
-  }, [pageCount, pageIndex]);
 
   if (total === 0 && !canCreatePlan) {
     return (

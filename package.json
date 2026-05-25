@@ -2,7 +2,7 @@
   "name": "seta-agent-platform",
   "private": true,
   "scripts": {
-    "prepare": "lefthook install",
+    "prepare": "test -d .git && lefthook install || true",
     "build": "turbo run build",
     "dev": "turbo run dev",
     "typecheck": "turbo run typecheck",

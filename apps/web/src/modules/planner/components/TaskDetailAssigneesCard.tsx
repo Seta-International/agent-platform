@@ -22,11 +22,13 @@ import { useQuery } from '@tanstack/react-query';
 import { GripVertical, Info, Plus, X, Zap } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { listTenantUsers } from '../../identity/api/client';
+import { useSession } from '../../identity/components/SessionProvider';
 import { useAssignTask } from '../hooks/mutations/assign-task';
 import { useMoveToTopOfMyList } from '../hooks/mutations/move-to-top-of-my-list';
 import { useReorderTaskAssignees } from '../hooks/mutations/reorder-task-assignees';
 import { useUnassignTask } from '../hooks/mutations/unassign-task';
 import { computeAssigneeReorder } from './assignee-reorder';
+import { SuggestAssigneeButton } from './SuggestAssigneeButton';
 
 interface Props {
   task: TaskWithAssigneesRow;
@@ -81,7 +83,7 @@ function useUserSearch(search: string, enabled: boolean, isLinkedToM365: boolean
         offset: 0,
         ...(isLinkedToM365 ? { sign_in_method: 'microsoft' as const } : {}),
       }),
-    enabled: enabled && debounced.length >= 1,
+    enabled,
   });
 }
 
@@ -90,15 +92,18 @@ function useUnfilteredUserCount(search: string, enabled: boolean) {
   return useQuery({
     queryKey: ['identity', 'admin-users', { search: debounced, sign_in_method: null }],
     queryFn: () => listTenantUsers({ search: debounced, limit: 8, offset: 0 }),
-    enabled: enabled && debounced.length >= 1,
+    enabled,
   });
 }
 
 export function TaskDetailAssigneesCard({ task, planId, isLinkedToM365 = false }: Props) {
+  const session = useSession();
   const reorder = useReorderTaskAssignees();
   const moveToTop = useMoveToTopOfMyList();
   const assign = useAssignTask(planId);
   const unassign = useUnassignTask(planId);
+
+  const isCurrentUserAssigned = task.assignees.some((a) => a.user_id === session.user_id);
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -120,8 +125,11 @@ export function TaskDetailAssigneesCard({ task, planId, isLinkedToM365 = false }
 
   return (
     <section className="card" aria-label="Assignees">
-      <header className="mb-2">
+      <header className="mb-2 flex items-center justify-between gap-2">
         <span className="t-sm subtle">Assignees</span>
+        {task.assignees.length === 0 && (
+          <SuggestAssigneeButton taskId={task.id} taskTitle={task.title} />
+        )}
       </header>
 
       <DragDropContext onDragEnd={onDragEnd}>
@@ -260,14 +268,16 @@ export function TaskDetailAssigneesCard({ task, planId, isLinkedToM365 = false }
         </Popover>
       </div>
 
-      <button
-        type="button"
-        onClick={() => moveToTop.mutate({ task_id: task.id })}
-        className="mt-2.5 inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-dashed border-primary-border bg-primary-tint px-2.5 py-1.5 text-caption font-semibold text-primary-ink"
-      >
-        <Zap className="size-3" />
-        Move to top of my list
-      </button>
+      {isCurrentUserAssigned && (
+        <button
+          type="button"
+          onClick={() => moveToTop.mutate({ task_id: task.id })}
+          className="mt-2.5 inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-dashed border-primary-border bg-primary-tint px-2.5 py-1.5 text-caption font-semibold text-primary-ink"
+        >
+          <Zap className="size-3" />
+          Move to top of my list
+        </button>
+      )}
     </section>
   );
 }

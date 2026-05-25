@@ -1,0 +1,16 @@
+group_id,name,description,theme
+gr01,Platform Engineering,"Core platform, infra reviews, capacity planning.",blue
+gr02,Frontend Guild,"Web shell, design system, accessibility.",teal
+gr03,Backend Guild,"Service architecture, APIs, data plane.",green
+gr04,Mobile Team,"iOS, Android, React Native delivery.",purple
+gr05,AI / ML Lab,"Research, modelling, evaluation, MLOps.",pink
+gr06,DevOps & SRE,"CI/CD, Kubernetes, reliability, observability.",orange
+gr07,Security & Compliance,"AppSec, IAM, audits, SOC2/ISO.",red
+gr08,Product & Design,"Roadmap, UX research, prototypes.",teal
+gr09,QA Engineering,"Test automation, perf, exploratory.",green
+gr10,Data Engineering,"Pipelines, warehouse, analytics.",purple
+gr11,Leadership & PMO,"Cross-cutting governance, portfolio.",blue
+gr12,Client Atlas Squad,Atlas project delivery.,orange
+gr13,Client Beta Squad,Beta project delivery.,pink
+gr14,Client Helios Squad,Helios project delivery.,red
+gr15,Client Nova Squad,Nova project delivery.,purple

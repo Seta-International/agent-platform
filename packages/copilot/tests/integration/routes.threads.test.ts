@@ -70,7 +70,7 @@ function makeApp(args: {
     await next();
   });
   registerCopilotRoutes(app, {
-    factory: (() => ({})) as never,
+    supervisor: { stream: async () => ({}) } as never,
     mastra: args.mastra as never,
     pool: args.pool,
   });
@@ -134,7 +134,11 @@ describe('threads routes', () => {
       await (storage as { init: () => Promise<void> }).init();
 
       const app = new Hono<{ Variables: { session: TestSession } }>();
-      registerCopilotRoutes(app, { factory: (() => ({})) as never, mastra: mastra as never, pool });
+      registerCopilotRoutes(app, {
+        supervisor: { stream: async () => ({}) } as never,
+        mastra: mastra as never,
+        pool,
+      });
       const res = await app.request('/api/copilot/v1/threads');
       expect(res.status).toBe(401);
     });

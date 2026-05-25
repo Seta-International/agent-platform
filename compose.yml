@@ -95,6 +95,34 @@ services:
     tmpfs:
       - /tmp
 
+  worker:
+    image: ${SETA_IMAGE_SERVER:-ghcr.io/seta-io/seta-server:${SETA_VERSION:-latest}}
+    restart: unless-stopped
+    command: ["worker"]
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      DATABASE_URL: ${DATABASE_URL}
+      EVENTS_RETENTION_DAYS: ${EVENTS_RETENTION_DAYS:-30}
+      SETA_MODULES: ${SETA_MODULES:-*}
+      MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
+      MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      CLAMAV_HOST: ${CLAMAV_HOST:-clamav}
+      CLAMAV_PORT: ${CLAMAV_PORT:-3310}
+      KNOWLEDGE_AV_REQUIRED: ${KNOWLEDGE_AV_REQUIRED:-true}
+    networks:
+      - seta-internal
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrator:
+        condition: service_completed_successfully
+      clamav:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp
+
   postgres:
     image: pgvector/pgvector:pg17-trixie
     restart: unless-stopped

@@ -11,6 +11,10 @@
     "./http": "./src/backend/http/index.ts",
     "./events": "./src/events/index.ts",
     "./internal/activity-subject-paths": "./src/backend/domain/activity-subject-paths.ts",
+    "./agent-tools/register": {
+      "types": "./src/backend/agent-tools/register.ts",
+      "default": "./src/backend/agent-tools/register.ts"
+    },
     "./register": "./src/register.ts",
     "./testing": "./src/testing/index.ts"
   },
@@ -39,6 +43,7 @@
   },
   "dependencies": {
     "@mastra/core": "^1.36.0",
+    "@mastra/pg": "^1.11.1",
     "@node-rs/argon2": "^2.0.2",
     "@seta/copilot-sdk": "workspace:^",
     "@seta/shared-embeddings": "workspace:^",

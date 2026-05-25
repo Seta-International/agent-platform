@@ -11,6 +11,8 @@ import {
   CopilotProvider,
   useCopilotRuntimeContext,
   useCopilotSelection,
+  usePageContext,
+  usePanelUI,
 } from '@/modules/copilot/chat-experience/copilot-provider';
 
 const wrapper = ({ children }: { children: React.ReactNode }) => {
@@ -54,5 +56,39 @@ describe('CopilotProvider runtime', () => {
   it('exposes a non-null runtime via useCopilotRuntimeContext', () => {
     const { result } = renderHook(() => useCopilotRuntimeContext(), { wrapper });
     expect(result.current.runtime).toBeDefined();
+  });
+});
+
+describe('CopilotProvider page-context', () => {
+  it('starts with null pageContext and lets callers set/clear it', () => {
+    const { result } = renderHook(() => usePageContext(), { wrapper });
+    expect(result.current.pageContext).toBeNull();
+    act(() => result.current.setPageContext({ kind: 'planner.task', id: 't1', label: 'X' }));
+    expect(result.current.pageContext?.id).toBe('t1');
+    act(() => result.current.setPageContext(null));
+    expect(result.current.pageContext).toBeNull();
+  });
+
+  it('tracks per-(threadId, contextId) suppression and clears when threadId changes', () => {
+    const { result } = renderHook(() => ({ sel: useCopilotSelection(), pc: usePageContext() }), {
+      wrapper,
+    });
+
+    act(() => result.current.sel.actions.setThreadId('thread-A'));
+    act(() => result.current.pc.setPageContext({ kind: 'planner.task', id: 't1', label: 'X' }));
+    act(() => result.current.pc.suppressFor('t1'));
+    expect(result.current.pc.suppressedFor).toBe('t1');
+
+    act(() => result.current.sel.actions.setThreadId('thread-B'));
+    expect(result.current.pc.suppressedFor).toBeNull();
+  });
+});
+
+describe('CopilotProvider panel UI', () => {
+  it('starts closed and updates open state', () => {
+    const { result } = renderHook(() => usePanelUI(), { wrapper });
+    expect(result.current.panelOpen).toBe(false);
+    act(() => result.current.setPanelOpen(true));
+    expect(result.current.panelOpen).toBe(true);
   });
 });

@@ -1,11 +1,12 @@
 import { toAISdkStream } from '@mastra/ai-sdk';
 import type { Mastra } from '@mastra/core';
+import type { Agent } from '@mastra/core/agent';
 import { RequestContext } from '@mastra/core/request-context';
+import { CopilotRegistry } from '@seta/copilot-sdk';
 import { createUIMessageStream, createUIMessageStreamResponse, type UIMessage } from 'ai';
 import type { Context, Hono } from 'hono';
 import type { Pool } from 'pg';
 import { z } from 'zod';
-import type { AgentFactory } from './agent-factory.ts';
 import { cancelWorkflowRun } from './domain/cancel-workflow-run.ts';
 import { decideApproval } from './domain/decide-approval.ts';
 import { getWorkflowRun } from './domain/get-workflow-run.ts';
@@ -22,6 +23,14 @@ import { issueSseToken } from './workflows/_infra/auth-token.ts';
 import { getWorkflowInputSchema } from './workflows/_infra/input-schema-registry.ts';
 import { mountInboxSse } from './workflows/_infra/sse-inbox.ts';
 import { mountRunSse } from './workflows/_infra/sse-run.ts';
+
+// Disable proxy buffering (Vite dev http-proxy, nginx, etc.) so SSE chunks reach
+// the client as they're written; without this, the entire stream is buffered and
+// the assistant's reply appears all-at-once at the end.
+const NO_BUFFER_HEADERS = {
+  'X-Accel-Buffering': 'no',
+  'Cache-Control': 'no-cache, no-transform',
+} as const;
 
 function handleDomainError(c: Context<CopilotRouteEnv>, err: unknown): Response {
   if (err && typeof err === 'object' && 'code' in err) {
@@ -45,7 +54,7 @@ const ChatBody = z.object({
 });
 
 export type CopilotRouteDeps = {
-  factory: AgentFactory;
+  supervisor: Agent;
   mastra: unknown;
   pool: Pool;
 };
@@ -68,21 +77,57 @@ function lastUserText(messages: UIMessage[]): string {
   return '';
 }
 
+type PageContextPart = {
+  type: 'data-page-context';
+  id?: string;
+  data: { kind: string; id: string; label: string; summary?: string };
+};
+
+function isPageContextPart(p: unknown): p is PageContextPart {
+  if (!p || typeof p !== 'object') return false;
+  const part = p as { type?: unknown; data?: unknown };
+  if (part.type !== 'data-page-context') return false;
+  const d = part.data as { kind?: unknown; id?: unknown; label?: unknown } | undefined;
+  return (
+    !!d && typeof d.kind === 'string' && typeof d.id === 'string' && typeof d.label === 'string'
+  );
+}
+
+function injectContextPrefix(messages: UIMessage[]): UIMessage[] {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (!m || m.role !== 'user') continue;
+    const ctx = (m.parts ?? []).find(isPageContextPart);
+    if (!ctx) return messages;
+    const prefix = ctx.data.summary
+      ? `[Context: ${ctx.data.kind}#${ctx.data.id} — "${ctx.data.label}"\nSummary: ${ctx.data.summary}]\n\n`
+      : `[Context: ${ctx.data.kind}#${ctx.data.id} — "${ctx.data.label}"]\n\n`;
+    const originalParts = m.parts ?? [];
+    let injected = false;
+    const nextParts = originalParts.map((p) => {
+      if (!injected && p.type === 'text') {
+        injected = true;
+        return { ...p, text: `${prefix}${(p as { text: string }).text}` };
+      }
+      return p;
+    });
+    if (!injected) {
+      nextParts.unshift({ type: 'text', text: prefix.trimEnd() } as never);
+    }
+    const cloned = { ...m, parts: nextParts } as UIMessage;
+    return messages.map((mm, idx) => (idx === i ? cloned : mm));
+  }
+  return messages;
+}
+
 export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotRouteDeps): void {
-  app.post('/api/copilot/v1/chat/:agentName', async (c) => {
+  app.post('/api/copilot/v1/chat', async (c) => {
     const session = c.get('session') as SessionLike | undefined;
     if (!session) {
       return c.json({ error: 'unauthorized', message: 'session required' }, 401);
     }
     if (!session.effective_permissions.has('copilot.chat.use')) {
       return c.json({ error: 'forbidden', message: 'copilot.chat.use required' }, 403);
-    }
-
-    const agentName = c.req.param('agentName');
-    const session_agents = deps.factory(session);
-    const agent = session_agents.get(agentName);
-    if (!agent) {
-      return c.json({ error: 'not_found', message: 'unknown agent' }, 404);
     }
 
     const parsed = ChatBody.safeParse(await c.req.json().catch(() => ({})));
@@ -94,7 +139,8 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
     }
 
     const messages = parsed.data.messages as UIMessage[];
-    const userText = lastUserText(messages);
+    const effectiveMessages = injectContextPrefix(messages);
+    const userText = lastUserText(effectiveMessages);
 
     try {
       await reserveTurn({
@@ -112,13 +158,12 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
       throw e;
     }
 
-    const spec = session_agents.specs().find((s) => s.name === agentName);
     const resourceId = parsed.data.resourceId ?? session.user_id;
 
     let modelOverride: ReturnType<typeof resolveModel>['model'] | undefined;
     try {
       modelOverride = resolveModel(parsed.data.model, {
-        tierHint: spec?.defaultTier,
+        tierHint: 'balanced',
         lastUserText: userText,
       }).model;
     } catch (e) {
@@ -134,8 +179,8 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
       user_id: session.user_id,
     });
 
-    const result = await agent.stream(
-      messages as never,
+    const result = await deps.supervisor.stream(
+      effectiveMessages as never,
       {
         ...(parsed.data.id
           ? { memory: { thread: parsed.data.id, resource: resourceId } }
@@ -146,7 +191,7 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
     );
 
     const uiStream = createUIMessageStream({
-      originalMessages: messages,
+      originalMessages: effectiveMessages,
       execute: async ({ writer }) => {
         const stream = toAISdkStream(result as never, {
           from: 'agent',
@@ -164,7 +209,7 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
         }
       },
     });
-    return createUIMessageStreamResponse({ stream: uiStream });
+    return createUIMessageStreamResponse({ stream: uiStream, headers: NO_BUFFER_HEADERS });
   });
 
   type ThreadRow = {
@@ -209,7 +254,12 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
     output?: unknown;
     errorText?: string;
   };
-  type UIMessagePart = TextUIPart | ReasoningUIPart | ToolUIPart;
+  type DataPageContextPart = {
+    type: 'data-page-context';
+    id: string;
+    data: { kind: string; id: string; label: string; summary?: string };
+  };
+  type UIMessagePart = TextUIPart | ReasoningUIPart | ToolUIPart | DataPageContextPart;
   type UIMessageLike = { id: string; role: 'user' | 'assistant'; parts: UIMessagePart[] };
 
   // Mastra stores tool calls as `{ type:'tool-invocation', toolInvocation }`; ai@6 wants
@@ -253,6 +303,27 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
       if (state === 'output-available') part.output = i.result;
       if (state === 'output-error') part.errorText = (i.errorText as string) ?? 'tool failed';
       return part;
+    }
+    if (type === 'data-page-context') {
+      const r = raw as { id?: unknown; data?: unknown };
+      const d = r.data as
+        | { kind?: unknown; id?: unknown; label?: unknown; summary?: unknown }
+        | undefined;
+      if (
+        !d ||
+        typeof d.kind !== 'string' ||
+        typeof d.id !== 'string' ||
+        typeof d.label !== 'string'
+      ) {
+        return null;
+      }
+      const summary = typeof d.summary === 'string' ? d.summary : undefined;
+      const id = typeof r.id === 'string' ? r.id : `${d.kind}-${d.id}`;
+      return {
+        type: 'data-page-context' as const,
+        id,
+        data: { kind: d.kind, id: d.id, label: d.label, ...(summary ? { summary } : {}) },
+      };
     }
     return null;
   }
@@ -391,24 +462,25 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
     return c.json({ ok: true });
   });
 
-  app.get('/api/copilot/v1/agents', async (c) => {
-    const check = checkPerm(c.get('session') as SessionLike | undefined, 'copilot.chat.use');
-    if (!check.ok) return c.json(check.denied.body, check.denied.status);
-    const agents = deps.factory.specs
-      .filter((s) => s.userVisible !== false)
-      .map((s) => ({
-        name: s.name,
-        label: s.label,
-        description: s.description,
-        delegates: s.delegates ?? [],
-      }));
-    return c.json({ agents, default: agents[0]?.name ?? null });
-  });
-
   app.get('/api/copilot/v1/tools', async (c) => {
     const check = checkPerm(c.get('session') as SessionLike | undefined, 'copilot.chat.use');
     if (!check.ok) return c.json(check.denied.body, check.denied.status);
-    return c.json({ tools: deps.factory.toolCatalog });
+    const snap = CopilotRegistry.snapshot();
+    const seen = new Set<string>();
+    const tools: Array<{ id: string; name: string; description: string }> = [];
+    for (const s of snap.specialists) {
+      for (const [id, tool] of Object.entries(s.tools)) {
+        if (seen.has(id)) continue;
+        seen.add(id);
+        const meta = tool as { description?: string; displayName?: string };
+        tools.push({
+          id,
+          name: meta.displayName ?? id,
+          description: meta.description ?? '',
+        });
+      }
+    }
+    return c.json({ tools });
   });
 
   app.get('/api/copilot/v1/models', async (c) => {
@@ -457,22 +529,23 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
     toolCallId: z.string().min(1),
     approved: z.boolean(),
     threadId: z.string().optional(),
+    /**
+     * Custom resume payload to hand to the suspended tool's `execute` as
+     * `ctx.agent.resumeData`. When present (and approved=true), the server
+     * calls `resumeStream(resumeData, opts)` directly so the tool can branch
+     * on the user's pick — e.g. the dedup workflow's "Related to #N" /
+     * "Sub-task of #N" alternatives. Omit for plain approve/decline.
+     */
+    resumeData: z.unknown().optional(),
   });
 
-  app.post('/api/copilot/v1/chat/:agentName/approve', async (c) => {
+  app.post('/api/copilot/v1/chat/approve', async (c) => {
     const session = c.get('session') as SessionLike | undefined;
     if (!session) {
       return c.json({ error: 'unauthorized', message: 'session required' }, 401);
     }
     if (!session.effective_permissions.has('copilot.chat.use')) {
       return c.json({ error: 'forbidden', message: 'copilot.chat.use required' }, 403);
-    }
-
-    const agentName = c.req.param('agentName');
-    const sessionAgents = deps.factory(session);
-    const agent = sessionAgents.get(agentName);
-    if (!agent) {
-      return c.json({ error: 'not_found', message: 'unknown agent' }, 404);
     }
 
     const parsed = ApproveBody.safeParse(await c.req.json().catch(() => ({})));
@@ -501,13 +574,23 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
 
     let result: unknown;
     try {
-      result = parsed.data.approved
-        ? await (agent as { approveToolCall: (o: never) => Promise<unknown> }).approveToolCall(
-            resumeOpts,
-          )
-        : await (agent as { declineToolCall: (o: never) => Promise<unknown> }).declineToolCall(
-            resumeOpts,
-          );
+      if (!parsed.data.approved) {
+        result = await (
+          deps.supervisor as unknown as { declineToolCall: (o: never) => Promise<unknown> }
+        ).declineToolCall(resumeOpts);
+      } else if (parsed.data.resumeData !== undefined) {
+        // Custom resume payload — bypass approveToolCall's hard-coded
+        // { approved: true } and hand the tool exactly what the user picked.
+        result = await (
+          deps.supervisor as unknown as {
+            resumeStream: (data: unknown, o: never) => Promise<unknown>;
+          }
+        ).resumeStream(parsed.data.resumeData, resumeOpts);
+      } else {
+        result = await (
+          deps.supervisor as unknown as { approveToolCall: (o: never) => Promise<unknown> }
+        ).approveToolCall(resumeOpts);
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       return c.json({ error: 'resume_failed', message: msg }, 500);
@@ -531,7 +614,7 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
         }
       },
     });
-    return createUIMessageStreamResponse({ stream: uiStream });
+    return createUIMessageStreamResponse({ stream: uiStream, headers: NO_BUFFER_HEADERS });
   });
 
   mountInboxSse(app as unknown as Hono, { pool: deps.pool });

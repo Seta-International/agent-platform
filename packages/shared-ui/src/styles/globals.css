@@ -19,6 +19,16 @@ select:focus-visible,
   outline: none;
 }
 
+/* Canonical page container — centers content at the shared page width
+   and applies the shared page padding. Combine with grid/flex utilities
+   on the same element for layouts (e.g. main + rail). */
+.page-container {
+  margin-inline: auto;
+  width: 100%;
+  max-width: var(--max-width-page);
+  padding: var(--page-padding);
+}
+
 ::-webkit-scrollbar       { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: var(--color-canvas); }
 ::-webkit-scrollbar-thumb { background: var(--color-surface-3); border-radius: var(--radius-md); }
@@ -48,6 +58,7 @@ select:focus-visible,
 /* KanbanCard */
 .kanban-card {
   position: relative;
+  width: 100%;
   background: var(--color-canvas);
   border: 1px solid var(--color-hairline);
   border-radius: 6px;
@@ -89,8 +100,8 @@ select:focus-visible,
 
 .kanban-column            { flex: 0 0 280px; display: flex; flex-direction: column; gap: var(--spacing-xs); }
 .kanban-column--dragging  { opacity: 0.9; }
-.kanban-column__header    { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-xs); padding: var(--spacing-xxs) 6px; }
-.kanban-column__drag-handle { display: flex; align-items: center; gap: var(--spacing-xs); flex: 1; min-width: 0; cursor: grab; }
+.kanban-column__header    { position: relative; display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-xs); padding: var(--spacing-xxs) 6px; }
+.kanban-column__drag-handle { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; cursor: grab; }
 .kanban-column__drag-handle:active { cursor: grabbing; }
 .kanban-column__name      { font-size: var(--text-body-sm); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .kanban-column__count     { font-size: var(--font-size-xs); color: var(--color-ink-subtle); }
@@ -115,6 +126,52 @@ select:focus-visible,
 .kanban-column__compose-btn:disabled          { opacity: 0.5; cursor: not-allowed; }
 .kanban-column__compose-btn--primary          { background: var(--color-primary); color: #fff; }
 .kanban-column__compose-btn--primary:hover    { background: var(--color-primary); filter: brightness(0.95); color: #fff; }
+
+/* Drag grip icon */
+.kanban-column__grip { color: var(--color-ink-tertiary); flex-shrink: 0; }
+
+/* Header action buttons (+ and ...) */
+.kanban-column__header-actions { display: flex; gap: 2px; flex-shrink: 0; }
+.kanban-column__action-btn {
+  width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 4px; background: transparent; cursor: pointer;
+  color: var(--color-ink-subtle);
+}
+.kanban-column__action-btn:hover { background: var(--color-surface-3); color: var(--color-ink); }
+.kanban-column__action-btn--active { background: var(--color-surface-3); color: var(--color-ink); }
+
+/* Dropdown menu */
+.kanban-column__menu {
+  position: absolute; top: 100%; right: 0; z-index: 50;
+  background: var(--color-canvas); border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-lg);
+  padding: 4px; min-width: 200px;
+}
+.kanban-column__menu-item {
+  display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+  height: 28px; border-radius: 5px; cursor: pointer; font-size: 13px;
+  color: var(--color-ink); background: transparent; width: 100%;
+  border: 0; text-align: left;
+}
+.kanban-column__menu-item:hover:not(:disabled) { background: var(--color-surface-2); }
+.kanban-column__menu-item--danger              { color: var(--color-danger); }
+.kanban-column__menu-item--danger:hover        { background: var(--color-danger-tint); }
+.kanban-column__menu-item:disabled             { opacity: 0.45; cursor: not-allowed; pointer-events: none; }
+.kanban-column__menu-sep                       { height: 1px; background: var(--color-hairline); margin: 4px 6px; }
+.kanban-column__menu-kbd {
+  margin-left: auto; font-size: 11px; color: var(--color-ink-subtle);
+  background: var(--color-surface-2); padding: 1px 4px;
+  border-radius: 3px; border: 1px solid var(--color-hairline);
+}
+
+/* Inline rename input */
+.kanban-column__rename-input {
+  flex: 1; border: 1.5px solid var(--color-primary); border-radius: 4px;
+  padding: 2px 6px; font-size: 13px; font-weight: 600;
+  background: var(--color-canvas); color: var(--color-ink);
+  box-shadow: 0 0 0 3px var(--color-primary-tint);
+  outline: none; font-family: inherit;
+}
 
 .status-dot           { display: inline-block; flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%; }
 .status-dot--muted    { background: var(--color-ink-subtle); }

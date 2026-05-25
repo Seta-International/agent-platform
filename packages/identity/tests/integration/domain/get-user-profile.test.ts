@@ -41,6 +41,7 @@ describe('getUserProfile', () => {
           expect(profile?.availability_status).toBe('available');
           expect(profile?.timezone).toBe('UTC');
           expect(profile?.skills).toEqual([]);
+          expect(profile?.bio).toBeNull();
         } finally {
           resetCoreDb();
           await closePools();

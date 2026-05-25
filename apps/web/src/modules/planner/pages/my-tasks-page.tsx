@@ -1,5 +1,5 @@
 import { DragDropContext, type DropResult } from '@hello-pangea/dnd';
-import type { MyTasksResult, TaskWithPlan } from '@seta/planner';
+import type { MyTasksResult } from '@seta/planner';
 import { Alert, AlertDescription, Button, EmptyState, PageChrome, Skeleton } from '@seta/shared-ui';
 import { useNavigate } from '@tanstack/react-router';
 import { generateKeyBetween } from 'fractional-indexing';
@@ -9,31 +9,14 @@ import { MtSection, type MyTasksSection } from '../components/my-tasks/mt-sectio
 import type { MyTasksRowTask } from '../components/my-tasks/mt-task-row';
 import { MyTasksGrid } from '../components/my-tasks/my-tasks-grid';
 import { MyTasksToolbar, type PlanOption } from '../components/my-tasks/my-tasks-toolbar';
-import type { PlanGroupData } from '../components/my-tasks/plan-group';
 import { useSetAssigneePriority } from '../hooks/mutations/use-set-assignee-priority';
+import { useMyGroups } from '../hooks/queries/use-my-groups';
 import { useMyTasks } from '../hooks/queries/use-my-tasks';
 import { findNeighbors, SECTION_SPECS, type SectionSpec } from '../lib/my-tasks-sections';
 import type { MyTasksFilters } from '../state/query-keys';
 
-function groupTasksByPlan(tasks: ReadonlyArray<TaskWithPlan>): PlanGroupData[] {
-  const byPlan = new Map<string, { plan: TaskWithPlan['plan']; tasks: MyTasksRowTask[] }>();
-  for (const t of tasks) {
-    const existing = byPlan.get(t.plan.id);
-    if (existing) {
-      existing.tasks.push(t as MyTasksRowTask);
-    } else {
-      byPlan.set(t.plan.id, { plan: t.plan, tasks: [t as MyTasksRowTask] });
-    }
-  }
-  return Array.from(byPlan.values()).map(({ plan, tasks: groupTasks }) => ({
-    plan: { id: plan.id, name: plan.name, color: '#0047FF' },
-    group: { id: plan.group_id, name: '' },
-    tasks: groupTasks,
-  }));
-}
-
 function mapSection(spec: SectionSpec, data: MyTasksResult): MyTasksSection {
-  const tasks = data[spec.bucket];
+  const tasks = data[spec.bucket] as ReadonlyArray<MyTasksRowTask>;
   return {
     key: spec.key,
     label: spec.label,
@@ -41,7 +24,7 @@ function mapSection(spec: SectionSpec, data: MyTasksResult): MyTasksSection {
     count: tasks.length,
     open: spec.defaultOpen,
     hint: spec.hint,
-    groups: groupTasksByPlan(tasks),
+    tasks,
   };
 }
 
@@ -68,6 +51,7 @@ interface Props {
 
 export function MyTasksPage({ filters, onFiltersChange }: Props) {
   const q = useMyTasks(filters);
+  const groupsQ = useMyGroups();
   const setPrio = useSetAssigneePriority();
   const navigate = useNavigate();
 
@@ -88,7 +72,7 @@ export function MyTasksPage({ filters, onFiltersChange }: Props) {
 
   const groupOptions: PlanOption[] = useMemo(() => {
     if (!q.data) return [];
-    const seen = new Set<string>();
+    const usedIds = new Set<string>();
     for (const arr of [
       q.data.late,
       q.data.dueThisWeek,
@@ -98,11 +82,12 @@ export function MyTasksPage({ filters, onFiltersChange }: Props) {
     ]) {
       for (const t of arr) {
         const gid = t.plan.group_id;
-        if (gid) seen.add(gid);
+        if (gid) usedIds.add(gid);
       }
     }
-    return Array.from(seen).map((id) => ({ id, name: id }));
-  }, [q.data]);
+    const nameById = new Map((groupsQ.data ?? []).map((g) => [g.id, g.name] as const));
+    return Array.from(usedIds).map((id) => ({ id, name: nameById.get(id) ?? id }));
+  }, [q.data, groupsQ.data]);
 
   function handleDragEnd(result: DropResult) {
     if (!result.destination || !q.data) return;
@@ -165,17 +150,23 @@ export function MyTasksPage({ filters, onFiltersChange }: Props) {
         </PageBody>
       )}
       {hasData && total > 0 && q.data && filters.view === 'grid' && (
-        <PageBody>
-          <MyTasksGrid data={q.data} />
-        </PageBody>
+        <div className="flex h-full flex-col">
+          <div className="flex-1 overflow-auto">
+            <MyTasksGrid data={q.data} />
+          </div>
+          <MyTasksFooter data={q.data} total={total} />
+        </div>
       )}
       {hasData && total > 0 && q.data && filters.view !== 'grid' && (
         <DragDropContext onDragEnd={handleDragEnd}>
-          <PageBody>
-            {SECTION_SPECS.map((spec) => (
-              <MtSection key={spec.key} section={mapSection(spec, q.data)} />
-            ))}
-          </PageBody>
+          <div className="flex h-full flex-col">
+            <div className="flex-1 overflow-auto">
+              {SECTION_SPECS.map((spec) => (
+                <MtSection key={spec.key} section={mapSection(spec, q.data)} />
+              ))}
+            </div>
+            <MyTasksFooter data={q.data} total={total} />
+          </div>
         </DragDropContext>
       )}
     </PageChrome>
@@ -183,10 +174,22 @@ export function MyTasksPage({ filters, onFiltersChange }: Props) {
 }
 
 function PageBody({ children }: { children: React.ReactNode }) {
+  return <div className="page-container">{children}</div>;
+}
+
+function MyTasksFooter({ data, total }: { data: MyTasksResult; total: number }) {
+  const open =
+    data.late.length + data.dueThisWeek.length + data.inProgress.length + data.notStarted.length;
   return (
-    <div className="bg-surface-1 px-6 py-2 pb-8 min-h-full">
-      <div className="max-w-[1180px] mx-auto flex flex-col gap-2">{children}</div>
-    </div>
+    <footer className="flex h-11 flex-none items-center justify-between border-t border-hairline bg-canvas px-6 text-xs text-ink-muted">
+      <span>
+        {open} open · {data.late.length} late · {data.dueThisWeek.length} due this week ·{' '}
+        {data.recentlyCompleted.length} recently completed
+      </span>
+      <span className="text-ink-subtle">
+        {total} {total === 1 ? 'task' : 'tasks'} assigned to you
+      </span>
+    </footer>
   );
 }
 

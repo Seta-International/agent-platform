@@ -59,6 +59,8 @@ function fxTask(over: Partial<TaskWithPlan> = {}): TaskWithPlan {
     deleted_at: null,
     version: 1,
     plan: { id: 'p-q3', name: 'Q3 Launch', group_id: 'g1' },
+    assignees: [],
+    labels: [],
     ...over,
   };
 }
@@ -134,7 +136,7 @@ describe('findNeighbors', () => {
       ],
     } as MyTasksResult;
     // After A is removed, tasks = [B, C]; destination.index=2 means after C
-    expect(findNeighbors(data, 'mt:late:p', 'A', 2)).toEqual({ prev: 'c', next: null });
+    expect(findNeighbors(data, 'mt:late', 'A', 2)).toEqual({ prev: 'c', next: null });
   });
 
   it('drag backward (src=2 → dest=0) excludes the dragged task before indexing', () => {
@@ -162,7 +164,36 @@ describe('findNeighbors', () => {
       ],
     } as MyTasksResult;
     // After C is removed, tasks = [A, B]; destination.index=0 means before A
-    expect(findNeighbors(data, 'mt:late:p', 'C', 0)).toEqual({ prev: null, next: 'a' });
+    expect(findNeighbors(data, 'mt:late', 'C', 0)).toEqual({ prev: null, next: 'a' });
+  });
+
+  it('reorders across plans within the same section (MS Planner-style flat sort)', () => {
+    // A (plan p1) | B (plan p2) | C (plan p1) — drag B (idx=1) to idx=0
+    const data = {
+      ...emptyResult(),
+      late: [
+        fxTask({
+          id: 'A',
+          plan_id: 'p1',
+          assignee_priority: 'a',
+          plan: { id: 'p1', name: 'P1', group_id: 'g' },
+        }),
+        fxTask({
+          id: 'B',
+          plan_id: 'p2',
+          assignee_priority: 'b',
+          plan: { id: 'p2', name: 'P2', group_id: 'g' },
+        }),
+        fxTask({
+          id: 'C',
+          plan_id: 'p1',
+          assignee_priority: 'c',
+          plan: { id: 'p1', name: 'P1', group_id: 'g' },
+        }),
+      ],
+    } as MyTasksResult;
+    // After B is removed, tasks = [A, C]; idx=0 means before A
+    expect(findNeighbors(data, 'mt:late', 'B', 0)).toEqual({ prev: null, next: 'a' });
   });
 
   it('malformed droppableId returns null/null', () => {
@@ -173,7 +204,7 @@ describe('findNeighbors', () => {
   });
 
   it('unknown section returns null/null', () => {
-    expect(findNeighbors({} as MyTasksResult, 'mt:bogus:p', 't', 0)).toEqual({
+    expect(findNeighbors({} as MyTasksResult, 'mt:bogus', 't', 0)).toEqual({
       prev: null,
       next: null,
     });
@@ -221,7 +252,8 @@ describe('MyTasksPage', () => {
       ),
     );
     renderPage();
-    expect(await screen.findByText(/6 open · 2 late · 1 due this week/)).toBeInTheDocument();
+    // exact text — disambiguates the header subtitle from the new footer status bar
+    expect(await screen.findByText('6 open · 2 late · 1 due this week')).toBeInTheDocument();
   });
 
   it('renders 5 sections in fixed order: late, week, in_progress, not_started, done', async () => {

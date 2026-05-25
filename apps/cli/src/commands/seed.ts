@@ -18,7 +18,17 @@ import { tenantCreateCommand } from './tenant-create.ts';
 
 const log = pino({ name: 'cli/seed' });
 
-const KNOWN_ROLES = new Set(['org.admin', 'planner.contributor', 'planner.viewer']);
+const KNOWN_ROLES = new Set([
+  'org.admin',
+  'planner.admin',
+  'planner.contributor',
+  'planner.viewer',
+]);
+const VALID_GROUP_THEMES = new Set(['teal', 'purple', 'green', 'blue', 'pink', 'orange', 'red']);
+type GroupTheme = 'teal' | 'purple' | 'green' | 'blue' | 'pink' | 'orange' | 'red';
+function coerceGroupTheme(raw: string): GroupTheme {
+  return VALID_GROUP_THEMES.has(raw) ? (raw as GroupTheme) : 'blue';
+}
 
 export interface SeedOpts {
   tenant: string;
@@ -123,25 +133,62 @@ export async function seedCommand(opts: SeedOpts): Promise<void> {
     let usersSkipped = 0;
 
     for (const row of csvs.users) {
+      // Resolve or create the DB user. The profile + role grant steps run
+      // regardless so previously-bootstrapped users (e.g. the admin) still
+      // pick up bio/timezone/working_hours from the CSV.
+      let user_id: string;
       try {
-        const { user_id } = await createUser(
+        const created = await createUser(
           { tenant_id: tenantId, email: row.email, name: row.name, password },
           { type: 'cli', user_id: null },
         );
-        idMap.set(row.user_id, user_id);
+        user_id = created.user_id;
         usersCreated++;
+      } catch {
+        try {
+          user_id = await resolveUserIdByEmail(tenantId, row.email);
+        } catch (err) {
+          log.warn(
+            { csv_user_id: row.user_id, email: row.email, err },
+            'createUser failed and no existing user, skipping',
+          );
+          usersSkipped++;
+          continue;
+        }
+        usersSkipped++;
+      }
+      idMap.set(row.user_id, user_id);
 
-        const skills = splitIds(row.skills);
+      const skills = splitIds(row.skills);
+      const workingHours =
+        row.working_hours_start && row.working_hours_end
+          ? { start: row.working_hours_start, end: row.working_hours_end }
+          : null;
+      const availability =
+        row.availability_status === 'available' ||
+        row.availability_status === 'busy' ||
+        row.availability_status === 'ooo'
+          ? row.availability_status
+          : undefined;
+      try {
         await updateUserProfile(
           user_id,
           {
             skills: skills.length > 0 ? skills : undefined,
             role: row.role || null,
+            bio: row.bio ? row.bio : null,
+            timezone: row.timezone || undefined,
+            working_hours: workingHours,
+            availability_status: availability,
           },
           { type: 'cli', user_id: null },
         );
+      } catch (err) {
+        log.warn({ csv_user_id: row.user_id, err }, 'updateUserProfile failed');
+      }
 
-        if (row.rbac_role && KNOWN_ROLES.has(row.rbac_role)) {
+      if (row.rbac_role && KNOWN_ROLES.has(row.rbac_role)) {
+        try {
           await grantRole(
             {
               user_id,
@@ -152,24 +199,14 @@ export async function seedCommand(opts: SeedOpts): Promise<void> {
             },
             { type: 'cli', user_id: null },
           );
-        } else if (row.rbac_role) {
-          log.warn(
-            { csv_user_id: row.user_id, rbac_role: row.rbac_role },
-            'unknown role slug, skipping grant',
-          );
-        }
-      } catch (err) {
-        // User may already exist — look up existing UUID so assignee links still work.
-        try {
-          const existingId = await resolveUserIdByEmail(tenantId, row.email);
-          idMap.set(row.user_id, existingId);
         } catch {
-          log.warn(
-            { csv_user_id: row.user_id, email: row.email, err },
-            'createUser failed, skipping',
-          );
+          // Already granted — idempotent skip
         }
-        usersSkipped++;
+      } else if (row.rbac_role) {
+        log.warn(
+          { csv_user_id: row.user_id, rbac_role: row.rbac_role },
+          'unknown role slug, skipping grant',
+        );
       }
     }
     process.stdout.write(
@@ -192,54 +229,100 @@ export async function seedCommand(opts: SeedOpts): Promise<void> {
   if (!modules.has('planner')) {
     process.stdout.write(`${JSON.stringify({ phase: 'planner', skipped: true })}\n`);
   } else {
-    // Phase 3 — Create SETA Future group (idempotent: reuse existing if name already taken)
-    log.info('phase 3: creating group');
-    let group: { id: string; name: string };
-    try {
-      group = await createGroup({ tenant_id: tenantId, name: 'SETA Future', session });
-    } catch {
-      const existing = (await listGroups({ session })).find((g) => g.name === 'SETA Future');
-      if (!existing) throw new Error('createGroup failed and "SETA Future" group not found');
-      group = existing;
-      log.info({ group_id: existing.id }, 'phase 3: reusing existing group');
-    }
-    process.stdout.write(`${JSON.stringify({ phase: 'group', id: group.id, name: group.name })}\n`);
+    // Phase 3 — Create groups from groups.csv (idempotent: reuse existing by name)
+    log.info('phase 3: creating groups');
+    const existingGroups = await listGroups({ session });
+    const existingByName = new Map(existingGroups.map((g) => [g.name, g]));
+    const groupMap = new Map<string, string>(); // csvGroupId → db uuid
+    let groupsCreated = 0;
+    let groupsReused = 0;
 
-    // Phase 4 — Add group members (deduplicated union of all plan_members)
-    log.info('phase 4: adding group members');
-    const uniqueMemberCsvIds = [...new Set(csvs.planMembers.map((r) => r.member_id))];
-    let membersAdded = 0;
-    let membersSkipped = 0;
-
-    for (const csvId of uniqueMemberCsvIds) {
-      const userId = idMap.get(csvId);
-      if (!userId) {
-        log.warn({ csv_member_id: csvId }, 'member not in users.csv, skipping');
-        membersSkipped++;
+    for (const row of csvs.groups) {
+      const existing = existingByName.get(row.name);
+      if (existing) {
+        groupMap.set(row.group_id, existing.id);
+        groupsReused++;
         continue;
       }
       try {
-        await addGroupMember({ group_id: group.id, user_id: userId, session });
-        membersAdded++;
+        const group = await createGroup({
+          tenant_id: tenantId,
+          name: row.name,
+          description: row.description || undefined,
+          theme: coerceGroupTheme(row.theme),
+          session,
+        });
+        groupMap.set(row.group_id, group.id);
+        groupsCreated++;
       } catch (err) {
-        log.warn({ csv_member_id: csvId, err }, 'addGroupMember failed, skipping');
-        membersSkipped++;
+        log.warn({ csv_group_id: row.group_id, name: row.name, err }, 'createGroup failed');
+      }
+    }
+    process.stdout.write(
+      `${JSON.stringify({ phase: 'groups', created: groupsCreated, reused: groupsReused })}\n`,
+    );
+
+    // Phase 4 — Add group members by deriving (group → users) from plans + plan_members.
+    // A user joins every group whose plans they're a member of.
+    log.info('phase 4: adding group members');
+    const planToGroup = new Map<string, string>(); // csvPlanId → csvGroupId
+    for (const p of csvs.plans) {
+      if (p.group_id) planToGroup.set(p.plan_id, p.group_id);
+    }
+    const groupMembers = new Map<string, Set<string>>(); // csvGroupId → set of csvUserIds
+    for (const m of csvs.planMembers) {
+      const gid = planToGroup.get(m.plan_id);
+      if (!gid) continue;
+      if (!groupMembers.has(gid)) groupMembers.set(gid, new Set());
+      groupMembers.get(gid)?.add(m.member_id);
+    }
+
+    let membersAdded = 0;
+    let membersSkipped = 0;
+    for (const [csvGroupId, members] of groupMembers) {
+      const dbGroupId = groupMap.get(csvGroupId);
+      if (!dbGroupId) {
+        log.warn({ csv_group_id: csvGroupId }, 'group not created, skipping member adds');
+        continue;
+      }
+      for (const csvUserId of members) {
+        const userId = idMap.get(csvUserId);
+        if (!userId) {
+          membersSkipped++;
+          continue;
+        }
+        try {
+          await addGroupMember({ group_id: dbGroupId, user_id: userId, session });
+          membersAdded++;
+        } catch {
+          // Already a member — idempotent skip
+          membersSkipped++;
+        }
       }
     }
     process.stdout.write(
       `${JSON.stringify({ phase: 'members', added: membersAdded, skipped: membersSkipped })}\n`,
     );
 
-    // Phase 5 — Create plans
+    // Phase 5 — Create plans under their assigned group
     log.info('phase 5: creating plans');
     const planMap = new Map<string, string>(); // csvPlanId → db uuid
     let plansCreated = 0;
     let plansSkipped = 0;
 
     for (const row of csvs.plans) {
+      const dbGroupId = groupMap.get(row.group_id);
+      if (!dbGroupId) {
+        log.warn(
+          { csv_plan_id: row.plan_id, csv_group_id: row.group_id },
+          'plan group not found, skipping plan',
+        );
+        plansSkipped++;
+        continue;
+      }
       try {
         const plan = await createPlan({
-          group_id: group.id,
+          group_id: dbGroupId,
           name: row.title || 'Untitled Plan',
           session,
         });

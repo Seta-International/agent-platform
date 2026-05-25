@@ -244,6 +244,8 @@ export interface TaskReferenceRow {
 
 export interface TaskWithPlan extends TaskRow {
   plan: { id: string; name: string; group_id: string };
+  assignees: AssigneeRow[];
+  labels: LabelRow[];
 }
 
 export interface MyTasksResult {

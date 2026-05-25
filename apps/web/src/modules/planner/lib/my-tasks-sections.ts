@@ -43,6 +43,8 @@ export const SECTION_SPECS: ReadonlyArray<SectionSpec> = [
   },
 ];
 
+// droppableId is `mt:<sectionKey>` — reorder is section-scoped, not plan-scoped
+// (matches MS Planner's flat "Assigned to me" sort).
 export function findNeighbors(
   data: MyTasksResult,
   droppableId: string,
@@ -50,12 +52,11 @@ export function findNeighbors(
   index: number,
 ): { prev: string | null; next: string | null } {
   const parts = droppableId.split(':');
-  if (parts.length !== 3) return { prev: null, next: null };
+  if (parts.length !== 2 || parts[0] !== 'mt') return { prev: null, next: null };
   const sectionKey = parts[1] as SectionKey;
-  const planId = parts[2];
   const spec = SECTION_SPECS.find((s) => s.key === sectionKey);
   if (!spec) return { prev: null, next: null };
-  const tasks = data[spec.bucket].filter((t) => t.plan.id === planId && t.id !== taskId);
+  const tasks = data[spec.bucket].filter((t) => t.id !== taskId);
   return {
     prev: tasks[index - 1]?.assignee_priority ?? null,
     next: tasks[index]?.assignee_priority ?? null,

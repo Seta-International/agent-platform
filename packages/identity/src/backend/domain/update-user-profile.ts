@@ -14,6 +14,7 @@ export interface UpdateUserProfilePatch {
   working_hours?: { start: string; end: string } | null;
   skills?: ReadonlyArray<string>;
   role?: string | null;
+  bio?: string | null;
 }
 
 export async function updateUserProfile(
@@ -39,6 +40,15 @@ export async function updateUserProfile(
           new Set(patch.skills.map((s) => s.toLowerCase().trim()).filter((s) => s.length > 0)),
         ).sort()
       : undefined;
+
+  const normalizedBio =
+    patch.bio === undefined
+      ? undefined
+      : patch.bio === null
+        ? null
+        : patch.bio.trim().length === 0
+          ? null
+          : patch.bio.trim();
 
   const diffBefore: Record<string, unknown> = {};
   const diffAfter: Record<string, unknown> = {};
@@ -83,6 +93,10 @@ export async function updateUserProfile(
     diffBefore.role = before.role ?? null;
     diffAfter.role = patch.role ?? null;
   }
+  if (normalizedBio !== undefined && normalizedBio !== (before.bio ?? null)) {
+    diffBefore.bio = before.bio ?? null;
+    diffAfter.bio = normalizedBio;
+  }
 
   if (Object.keys(diffAfter).length === 0) return before;
 
@@ -111,6 +125,7 @@ export async function updateUserProfile(
       if (patch.working_hours !== undefined) profilePatch.working_hours = patch.working_hours;
       if (normalizedSkills !== undefined) profilePatch.skills = normalizedSkills;
       if (patch.role !== undefined) profilePatch.role = patch.role;
+      if (normalizedBio !== undefined) profilePatch.bio = normalizedBio;
 
       if (Object.keys(profilePatch).length > 1) {
         await tx.update(userProfile).set(profilePatch).where(eq(userProfile.user_id, userId));

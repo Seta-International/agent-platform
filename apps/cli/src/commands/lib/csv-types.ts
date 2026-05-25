@@ -6,10 +6,23 @@ export interface UserCsvRow {
   role: string;
   rbac_role: string;
   skills: string;
+  bio: string;
+  availability_status: string;
+  timezone: string;
+  working_hours_start: string;
+  working_hours_end: string;
+}
+
+export interface GroupCsvRow {
+  group_id: string;
+  name: string;
+  description: string;
+  theme: string;
 }
 
 export interface PlanCsvRow {
   plan_id: string;
+  group_id: string;
   title: string;
   description: string;
   tags: string;
@@ -54,6 +67,7 @@ export interface TimesheetCsvRow {
 
 export interface ParsedCsvs {
   users: UserCsvRow[];
+  groups: GroupCsvRow[];
   plans: PlanCsvRow[];
   buckets: BucketCsvRow[];
   planMembers: PlanMemberCsvRow[];

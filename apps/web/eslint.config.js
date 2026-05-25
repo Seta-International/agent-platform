@@ -72,6 +72,13 @@ export default defineConfig([
                 { to: { type: 'module', captured: { module: 'identity' } } },
               ],
             },
+            {
+              from: { type: 'module', captured: { module: 'admin' } },
+              allow: [
+                { to: { type: '@seta/shared-ui' } },
+                { to: { type: 'module', captured: { module: 'notifications' } } },
+              ],
+            },
             { from: { type: 'module' }, allow: [{ to: { type: '@seta/shared-ui' } }] },
           ],
         },

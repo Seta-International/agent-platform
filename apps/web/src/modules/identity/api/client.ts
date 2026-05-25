@@ -28,6 +28,7 @@ export interface ProfileDto {
   timezone: string;
   working_hours: { start: string; end: string } | null;
   skills: string[];
+  bio: string | null;
   updated_at: string;
   deactivated_at: string | null;
 }
@@ -39,6 +40,7 @@ export interface ProfilePatch {
   timezone?: string;
   working_hours?: { start: string; end: string } | null;
   skills?: string[];
+  bio?: string | null;
 }
 
 export type SaveProfile = (patch: ProfilePatch) => Promise<ProfileDto>;

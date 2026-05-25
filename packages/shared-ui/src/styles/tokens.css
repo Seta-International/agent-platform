@@ -67,6 +67,12 @@
   --max-width-conversation: 45rem;
   --max-width-message-bubble: 33.75rem;
 
+  /* Canonical page width + padding. Top-level page bodies use these
+     (via the `.page-container` utility in globals.css) so every screen
+     centers on the same column. Update once, sweep everywhere. */
+  --max-width-page: 73.75rem; /* 1180px */
+  --page-padding:    24px;    /* matches Tailwind's p-6 */
+
   --radius-xs:   4px;
   --radius-sm:   6px;
   --radius-md:   8px;

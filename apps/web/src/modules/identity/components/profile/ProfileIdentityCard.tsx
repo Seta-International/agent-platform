@@ -12,6 +12,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  Textarea,
 } from '@seta/shared-ui';
 import { Calendar, Check, ChevronsUpDown } from 'lucide-react';
 import { useState } from 'react';
@@ -98,6 +99,7 @@ export function ProfileIdentityCard({
 }) {
   const [name, setName] = useState(profile.display_name);
   const [tz, setTz] = useState(profile.timezone);
+  const [bio, setBio] = useState(profile.bio ?? '');
   const [whStart, setWhStart] = useState(profile.working_hours?.start ?? '');
   const [whEnd, setWhEnd] = useState(profile.working_hours?.end ?? '');
   const [editingHours, setEditingHours] = useState(false);
@@ -109,7 +111,8 @@ export function ProfileIdentityCard({
     (wh ? whStart !== wh.start || whEnd !== wh.end : Boolean(whStart) || Boolean(whEnd));
   const whInvalid =
     canEditWorkingHours && (whStart || whEnd) && !(whStart.match(HHMM_RE) && whEnd.match(HHMM_RE));
-  const dirty = name !== profile.display_name || tz !== profile.timezone || whDirty;
+  const bioDirty = bio !== (profile.bio ?? '');
+  const dirty = name !== profile.display_name || tz !== profile.timezone || bioDirty || whDirty;
 
   async function save() {
     if (!dirty || whInvalid) return;
@@ -118,6 +121,7 @@ export function ProfileIdentityCard({
       const patch: Parameters<SaveProfile>[0] = {};
       if (name !== profile.display_name) patch.display_name = name;
       if (tz !== profile.timezone) patch.timezone = tz;
+      if (bioDirty) patch.bio = bio;
       if (canEditWorkingHours) {
         const bothBlank = !whStart && !whEnd;
         const valid = whStart.match(HHMM_RE) && whEnd.match(HHMM_RE);
@@ -153,6 +157,19 @@ export function ProfileIdentityCard({
           <div>
             <FieldLabel label="Name" />
             <Input value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+
+          <div>
+            <FieldLabel label="Bio" hint={`${bio.length} / 500`} />
+            <Textarea
+              aria-label="Bio"
+              value={bio}
+              maxLength={500}
+              rows={4}
+              placeholder="Add a short bio so teammates know who you are."
+              onChange={(e) => setBio(e.target.value)}
+              className="resize-none"
+            />
           </div>
 
           <div>

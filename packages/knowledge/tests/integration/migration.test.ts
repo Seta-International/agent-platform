@@ -73,20 +73,3 @@ it('creates knowledge.chunks (LIST partitioned)', async () => {
     ]);
   });
 });
-
-it('creates knowledge.embeddings (LIST partitioned, halfvec)', async () => {
-  await withDb(async ({ pool }) => {
-    const part = await pool.query<{ partstrat: string }>(`
-      SELECT partstrat::text FROM pg_partitioned_table
-       WHERE partrelid = 'knowledge.embeddings'::regclass
-    `);
-    expect(part.rows[0]?.partstrat).toBe('l');
-
-    const halfvec = await pool.query<{ data_type: string }>(`
-      SELECT data_type FROM information_schema.columns
-       WHERE table_schema = 'knowledge' AND table_name = 'embeddings'
-         AND column_name = 'embedding'
-    `);
-    expect(halfvec.rows[0]?.data_type).toBe('USER-DEFINED');
-  });
-});

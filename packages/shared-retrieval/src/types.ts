@@ -1,13 +1,13 @@
 /**
  * A single result returned by a Retriever. The score is normalized 0..1 within
- * one query's results — comparable across FTS, vector, and hybrid sources via
- * Reciprocal Rank Fusion.
+ * one query's results — for vector retrieval this is `1 - cosine_distance` from
+ * Mastra's PgVector.
  */
 export interface RetrievalHit<TItem> {
   item: TItem;
   score: number;
   rank: number;
-  source: 'fts' | 'vector' | 'hybrid';
+  source: 'vector';
 }
 
 /**

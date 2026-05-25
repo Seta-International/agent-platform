@@ -26,11 +26,21 @@ export const copilotApi = {
     const out = await fetchJson('/api/copilot/v1/threads', undefined, ThreadsResponse);
     return out.threads;
   },
-  async resolveApproval(
-    agentName: string,
-    body: { runId: string; toolCallId: string; approved: boolean; threadId?: string },
-  ): Promise<void> {
-    const res = await fetch(`/api/copilot/v1/chat/${encodeURIComponent(agentName)}/approve`, {
+  async resolveApproval(body: {
+    runId: string;
+    toolCallId: string;
+    approved: boolean;
+    threadId?: string;
+    /**
+     * Optional custom resume payload. When set (and approved=true), the
+     * server hands this directly to the suspended tool's `ctx.agent.resumeData`
+     * instead of the default `{approved: true}` — used by tools like
+     * `planner_createTask` that expose multiple approval choices (e.g. the
+     * dedup card's Create-new / Related to #N / Sub-task of #N picks).
+     */
+    resumeData?: unknown;
+  }): Promise<void> {
+    const res = await fetch('/api/copilot/v1/chat/approve', {
       method: 'POST',
       credentials: 'include',
       headers: { 'content-type': 'application/json' },

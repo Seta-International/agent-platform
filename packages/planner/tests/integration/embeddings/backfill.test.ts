@@ -1,5 +1,13 @@
+import { PgVector } from '@mastra/pg';
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, ensureTenantPartition, initPools } from '@seta/shared-db';
+import {
+  ensurePlannerVectorIndex,
+  PLANNER_VECTOR_INDEX,
+  PLANNER_VECTOR_NAMESPACE,
+  type TaskVectorMetadata,
+  taskVectorId,
+} from '@seta/planner';
+import { closePools, initPools } from '@seta/shared-db';
 import { sourceHash } from '@seta/shared-embeddings';
 import { withTestDb } from '@seta/shared-testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -11,7 +19,9 @@ import {
 import { buildTaskSource } from '../../../src/backend/embeddings/source.ts';
 import { seedTaskForTest } from '../../helpers/seed.ts';
 
-function withDb<T>(fn: (ctx: { pool: import('pg').Pool }) => Promise<T>): Promise<T> {
+function withDb<T>(
+  fn: (ctx: { pool: import('pg').Pool; pgVector: PgVector }) => Promise<T>,
+): Promise<T> {
   return withTestDb(
     {
       templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
@@ -20,14 +30,32 @@ function withDb<T>(fn: (ctx: { pool: import('pg').Pool }) => Promise<T>): Promis
     async ({ pool, databaseUrl }) => {
       resetCoreDb();
       initPools({ databaseUrl });
+      const pgVector = new PgVector({
+        id: 'planner-task-embeddings-test',
+        connectionString: databaseUrl,
+        schemaName: PLANNER_VECTOR_NAMESPACE,
+      });
       try {
-        return await fn({ pool });
+        return await fn({ pool, pgVector });
       } finally {
+        await pgVector.disconnect().catch(() => {});
         resetCoreDb();
         await closePools();
       }
     },
   );
+}
+
+async function listVectors(pgVector: PgVector, tenantId: string): Promise<TaskVectorMetadata[]> {
+  const rows = await pgVector.query({
+    indexName: PLANNER_VECTOR_INDEX,
+    filter: { tenant_id: { $eq: tenantId } },
+    topK: 1000,
+  });
+  return rows
+    .map((r) => r.metadata as TaskVectorMetadata | undefined)
+    .filter((m): m is TaskVectorMetadata => m != null)
+    .sort((a, b) => a.task_id.localeCompare(b.task_id));
 }
 
 function makeFakeBatch(dimensions = 1536): {
@@ -59,7 +87,7 @@ function makeFakeBatch(dimensions = 1536): {
     const inputs = pending.get(batchId) ?? [];
     return inputs.map((row) => ({
       custom_id: row.custom_id,
-      vector: new Array<number>(dimensions).fill(0),
+      vector: new Array<number>(dimensions).fill(1 / Math.sqrt(dimensions)),
     }));
   };
 
@@ -72,7 +100,7 @@ describe('backfillTasks', () => {
   });
 
   it('embeds non-deleted tasks via batch path (soft-deleted excluded)', async () => {
-    await withDb(async ({ pool }) => {
+    await withDb(async ({ pool, pgVector }) => {
       const { submitBatch, pollUntilDone } = makeFakeBatch(1536);
 
       const t1 = await seedTaskForTest(pool, {
@@ -97,53 +125,38 @@ describe('backfillTasks', () => {
       await backfillTasks({
         tenant_id: t1.tenant_id,
         pool,
+        pgVector,
         apiKey: 'test-key',
         model: 'text-embedding-3-small',
         submitBatch: submitBatch as never,
         pollUntilDone: pollUntilDone as never,
       });
 
-      const rows = await pool.query<{
-        task_id: string;
-        plan_id: string;
-        chunk_text: string;
-        source_hash: string;
-      }>(
-        `SELECT task_id, plan_id, chunk_text, source_hash
-           FROM planner.task_embeddings
-          WHERE tenant_id = $1
-          ORDER BY task_id`,
-        [t1.tenant_id],
-      );
-
-      expect(rows.rows).toHaveLength(2);
-
-      const taskIds = rows.rows.map((r) => r.task_id);
-      expect(taskIds).toContain(t1.task_id);
-      expect(taskIds).toContain(t2.task_id);
+      const metas = await listVectors(pgVector, t1.tenant_id);
+      expect(metas).toHaveLength(2);
 
       const planByTask = new Map([
         [t1.task_id, t1.plan_id],
         [t2.task_id, t2.plan_id],
       ]);
 
-      for (const row of rows.rows) {
-        expect(row.plan_id).toBe(planByTask.get(row.task_id));
+      for (const meta of metas) {
+        expect(planByTask.get(meta.task_id)).toBe(meta.plan_id);
 
-        const isT1 = row.task_id === t1.task_id;
+        const isT1 = meta.task_id === t1.task_id;
         const expectedSource = buildTaskSource(
           isT1
             ? { title: 'Task one', description: 'First live task', skill_tags: ['ts'] }
             : { title: 'Task two', description: 'Second live task', skill_tags: ['go'] },
         );
-        expect(row.chunk_text).toBe(expectedSource);
-        expect(row.source_hash).toBe(sourceHash(expectedSource));
+        expect(meta.chunk_text).toBe(expectedSource);
+        expect(meta.source_hash).toBe(sourceHash(expectedSource));
       }
     });
   });
 
   it('hash gate: skips already-current rows, only submits stale ones', async () => {
-    await withDb(async ({ pool }) => {
+    await withDb(async ({ pool, pgVector }) => {
       const { submitBatch, pollUntilDone, submittedInputs } = makeFakeBatch(1536);
 
       const t1 = await seedTaskForTest(pool, {
@@ -165,34 +178,29 @@ describe('backfillTasks', () => {
       });
       const hash1 = sourceHash(source1);
 
-      await ensureTenantPartition(pool, {
-        parent: 'planner.task_embeddings',
-        embeddingColumn: 'embedding',
-        tenantId: t1.tenant_id,
-        opclass: 'halfvec_cosine_ops',
-        hnsw: { m: 16, efConstruction: 200 },
-      });
-
-      const fakeVec = new Array<number>(1536).fill(0);
-      await pool.query(
-        `INSERT INTO planner.task_embeddings
-           (tenant_id, task_id, plan_id, chunk_text, source_hash, embedding, model_id, embedded_at)
-         VALUES ($1, $2, $3, $4, $5, $6::halfvec, $7, now())
-         ON CONFLICT DO NOTHING`,
-        [
-          t1.tenant_id,
-          t1.task_id,
-          t1.plan_id,
-          source1,
-          hash1,
-          `[${fakeVec.join(',')}]`,
-          'openai:text-embedding-3-small',
+      await ensurePlannerVectorIndex(pgVector);
+      const fakeVec = new Array<number>(1536).fill(1 / Math.sqrt(1536));
+      await pgVector.upsert({
+        indexName: PLANNER_VECTOR_INDEX,
+        vectors: [fakeVec],
+        metadata: [
+          {
+            tenant_id: t1.tenant_id,
+            task_id: t1.task_id,
+            plan_id: t1.plan_id,
+            chunk_text: source1,
+            source_hash: hash1,
+            model_id: 'openai:text-embedding-3-small',
+            embedded_at: new Date().toISOString(),
+          } satisfies TaskVectorMetadata,
         ],
-      );
+        ids: [taskVectorId(t1.tenant_id, t1.task_id)],
+      });
 
       await backfillTasks({
         tenant_id: t1.tenant_id,
         pool,
+        pgVector,
         apiKey: 'test-key',
         model: 'text-embedding-3-small',
         submitBatch: submitBatch as never,
@@ -207,7 +215,7 @@ describe('backfillTasks', () => {
   });
 
   it('backfill skips tasks whose source exceeds MAX_SOURCE_TOKENS', async () => {
-    await withDb(async ({ pool }) => {
+    await withDb(async ({ pool, pgVector }) => {
       const { submitBatch, pollUntilDone, submittedInputs } = makeFakeBatch(1536);
 
       const shortTask = await seedTaskForTest(pool, {
@@ -225,18 +233,15 @@ describe('backfillTasks', () => {
       await backfillTasks({
         tenant_id: shortTask.tenant_id,
         pool,
+        pgVector,
         apiKey: 'test-key',
         model: 'text-embedding-3-small',
         submitBatch: submitBatch as never,
         pollUntilDone: pollUntilDone as never,
       });
 
-      const rows = await pool.query<{ task_id: string }>(
-        `SELECT task_id FROM planner.task_embeddings
-          WHERE tenant_id = $1 ORDER BY task_id`,
-        [shortTask.tenant_id],
-      );
-      expect(rows.rows.map((r) => r.task_id)).toEqual([shortTask.task_id]);
+      const metas = await listVectors(pgVector, shortTask.tenant_id);
+      expect(metas.map((m) => m.task_id)).toEqual([shortTask.task_id]);
 
       const submittedIds = submittedInputs.flat().map((r) => r.custom_id);
       expect(submittedIds).toContain(shortTask.task_id);
@@ -245,7 +250,7 @@ describe('backfillTasks', () => {
   });
 
   it('empty tenant: returns without calling submitBatch', async () => {
-    await withDb(async ({ pool }) => {
+    await withDb(async ({ pool, pgVector }) => {
       const { submitBatch, pollUntilDone, submittedInputs } = makeFakeBatch(1536);
 
       const seeded = await seedTaskForTest(pool, {
@@ -258,6 +263,7 @@ describe('backfillTasks', () => {
       await backfillTasks({
         tenant_id: seeded.tenant_id,
         pool,
+        pgVector,
         apiKey: 'test-key',
         model: 'text-embedding-3-small',
         submitBatch: submitBatch as never,

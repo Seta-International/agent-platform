@@ -16,7 +16,6 @@ import {
   type MyTasksSection,
 } from '../../../../../../src/modules/planner/components/my-tasks/mt-section';
 import type { MyTasksRowTask } from '../../../../../../src/modules/planner/components/my-tasks/mt-task-row';
-import type { PlanGroupData } from '../../../../../../src/modules/planner/components/my-tasks/plan-group';
 
 afterEach(() => cleanup());
 
@@ -50,17 +49,10 @@ function fxTask(over: Partial<MyTasksRowTask> = {}): MyTasksRowTask {
     deleted_at: null,
     version: 1,
     plan: { id: 'p-q3', name: 'Q3 Launch', group_id: 'g1' },
+    assignees: [],
+    labels: [],
   };
   return { ...base, ...over };
-}
-
-function fxGroup(over: Partial<PlanGroupData> = {}): PlanGroupData {
-  return {
-    plan: { id: 'p-q3', name: 'Q3 Launch', color: '#0047FF' },
-    group: { id: 'g1', name: 'Engineering' },
-    tasks: [fxTask()],
-    ...over,
-  };
 }
 
 function fxSection(over: Partial<MyTasksSection> = {}): MyTasksSection {
@@ -70,7 +62,7 @@ function fxSection(over: Partial<MyTasksSection> = {}): MyTasksSection {
     tone: 'danger',
     count: 1,
     open: true,
-    groups: [fxGroup()],
+    tasks: [fxTask()],
     ...over,
   };
 }
@@ -117,26 +109,55 @@ describe('MtSection', () => {
     expect(await screen.findByText(/last 14 days/)).toBeInTheDocument();
   });
 
-  it('renders one PlanGroup per group when open', async () => {
+  it('renders a single column-header strip per section (Task/Plan/Priority/Progress/Due/Labels/Assignees)', async () => {
+    renderInRouter(<MtSection section={fxSection({ open: true })} />);
+    const cols = await screen.findByTestId('mt-section-columns');
+    expect(cols.textContent).toContain('Task');
+    expect(cols.textContent).toContain('Plan');
+    expect(cols.textContent).toContain('Priority');
+    expect(cols.textContent).toContain('Progress');
+    expect(cols.textContent).toContain('Due');
+    expect(cols.textContent).toContain('Labels');
+    expect(cols.textContent).toContain('Assignees');
+  });
+
+  it('hides the column-header strip when section has zero tasks', async () => {
+    renderInRouter(<MtSection section={fxSection({ open: true, count: 0, tasks: [] })} />);
+    await screen.findByText('Late');
+    expect(screen.queryByTestId('mt-section-columns')).toBeNull();
+  });
+
+  it('renders one row per task when open', async () => {
     renderInRouter(
       <MtSection
         section={fxSection({
-          groups: [
-            fxGroup({ plan: { id: 'p-a', name: 'Plan A', color: '#0047FF' } }),
-            fxGroup({ plan: { id: 'p-b', name: 'Plan B', color: '#0047FF' } }),
-          ],
+          count: 2,
+          tasks: [fxTask({ id: 't1', title: 'Alpha' }), fxTask({ id: 't2', title: 'Beta' })],
         })}
       />,
     );
-    expect(await screen.findByText('Plan A')).toBeInTheDocument();
-    expect(screen.getByText('Plan B')).toBeInTheDocument();
+    expect(await screen.findByText('Alpha')).toBeInTheDocument();
+    expect(screen.getByText('Beta')).toBeInTheDocument();
   });
 
-  it('clicking the header toggles open/closed and hides groups when closed', async () => {
-    renderInRouter(<MtSection section={fxSection({ open: true, groups: [fxGroup()] })} />);
-    expect(await screen.findByText('Q3 Launch')).toBeInTheDocument();
+  it('wraps tasks in a section-scoped Droppable (droppableId is `mt:<sectionKey>`)', async () => {
+    renderInRouter(
+      <MtSection section={fxSection({ key: 'late', tasks: [fxTask({ title: 'Alpha row' })] })} />,
+    );
+    await screen.findByText('Alpha row');
+    const droppable = document.querySelector('[data-rfd-droppable-id]');
+    expect(droppable?.getAttribute('data-rfd-droppable-id')).toBe('mt:late');
+  });
+
+  it('clicking the header toggles open/closed and hides tasks when closed', async () => {
+    renderInRouter(
+      <MtSection
+        section={fxSection({ open: true, tasks: [fxTask({ id: 't1', title: 'Alpha row' })] })}
+      />,
+    );
+    expect(await screen.findByText('Alpha row')).toBeInTheDocument();
     fireEvent.click(screen.getByText('Late'));
-    expect(screen.queryByText('Q3 Launch')).not.toBeInTheDocument();
+    expect(screen.queryByText('Alpha row')).not.toBeInTheDocument();
   });
 
   it('hides "Sorted by your priority" when closed', async () => {
