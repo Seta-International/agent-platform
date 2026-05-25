@@ -1,15 +1,9 @@
-/**
- * Integration tests for the match_users_to_topic Mastra tool.
- *
- * Embeddings are seeded via embedUserProfile (same package, no boundary violation).
- * Session resolution is bypassed via an injected sessionProvider.
- */
-
 import { RequestContext } from '@mastra/core/request-context';
+import { PgVector } from '@mastra/pg';
 import { createContributionRegistry, runMigrations } from '@seta/core';
 import { registerCoreContributions } from '@seta/core/register';
 import { resetCoreDb } from '@seta/core/testing';
-import { createUser, updateUserProfile } from '@seta/identity';
+import { createUser, IDENTITY_VECTOR_NAMESPACE, updateUserProfile } from '@seta/identity';
 import { matchUsersToTopicTool } from '@seta/identity/agent-tools';
 import { closePools, initPools } from '@seta/shared-db';
 import { NoopReranker } from '@seta/shared-retrieval';
@@ -17,7 +11,7 @@ import { FakeEmbeddingProvider, withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { embedUserProfile } from '../../../src/backend/embeddings/embed-user-profile.ts';
 
-const withDb = <T>(fn: (ctx: { pool: import('pg').Pool }) => Promise<T>) =>
+const withDb = <T>(fn: (ctx: { pool: import('pg').Pool; pgVector: PgVector }) => Promise<T>) =>
   withTestDb(
     {
       templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
@@ -33,9 +27,15 @@ const withDb = <T>(fn: (ctx: { pool: import('pg').Pool }) => Promise<T>) =>
       await runMigrations(reg, { pool: pool as Parameters<typeof runMigrations>[1]['pool'] });
 
       initPools({ databaseUrl });
+      const pgVector = new PgVector({
+        id: 'identity-user-profile-embeddings-test',
+        connectionString: databaseUrl,
+        schemaName: IDENTITY_VECTOR_NAMESPACE,
+      });
       try {
-        return await fn({ pool });
+        return await fn({ pool, pgVector });
       } finally {
+        await pgVector.disconnect().catch(() => {});
         resetCoreDb();
         await closePools();
       }
@@ -59,7 +59,7 @@ function makeSessionProvider(tenantId: string) {
 
 describe('matchUsersToTopicTool', () => {
   it('returns candidates with user fields, match_score, source', () =>
-    withDb(async ({ pool }) => {
+    withDb(async ({ pool, pgVector }) => {
       const provider = new FakeEmbeddingProvider();
 
       const tenantId = crypto.randomUUID();
@@ -87,12 +87,12 @@ describe('matchUsersToTopicTool', () => {
 
       await embedUserProfile(
         { tenant_id: tenantId, user_id: userId, event_id: 'test-e1' },
-        { pool, provider },
+        { provider, pgVector },
       );
 
       const tool = matchUsersToTopicTool({
         provider,
-        pool,
+        pgVector,
         reranker: new NoopReranker(),
         sessionProvider: makeSessionProvider(tenantId),
       });
@@ -110,8 +110,6 @@ describe('matchUsersToTopicTool', () => {
       const c = candidates[0]!;
       expect(c.user.user_id).toBe(userId);
       expect(c.user.display_name).toBe('Alice');
-      // FakeEmbeddingProvider uses hash-based vectors, not semantic ones.
-      // Cosine similarity may be slightly negative; verify range, not sign.
       expect(c.match_score).toBeGreaterThan(-1);
       expect(c.match_score).toBeLessThanOrEqual(1);
       expect(c.rerank_score).toBeGreaterThanOrEqual(-1);
@@ -119,7 +117,7 @@ describe('matchUsersToTopicTool', () => {
     }));
 
   it('respects limit', () =>
-    withDb(async ({ pool }) => {
+    withDb(async ({ pool, pgVector }) => {
       const provider = new FakeEmbeddingProvider();
 
       const tenantId = crypto.randomUUID();
@@ -146,13 +144,13 @@ describe('matchUsersToTopicTool', () => {
         );
         await embedUserProfile(
           { tenant_id: tenantId, user_id: userId, event_id: `test-limit-${i}` },
-          { pool, provider },
+          { provider, pgVector },
         );
       }
 
       const tool = matchUsersToTopicTool({
         provider,
-        pool,
+        pgVector,
         reranker: new NoopReranker(),
         sessionProvider: makeSessionProvider(tenantId),
       });

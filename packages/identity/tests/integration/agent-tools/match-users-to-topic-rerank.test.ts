@@ -1,14 +1,9 @@
-/**
- * Integration tests for two-stage retrieval (vector + rerank) in match_users_to_topic.
- *
- * Uses NoopReranker so the test is deterministic; verifies that the reranker tag
- * surfaces in the result and that the limit is respected after stage-2 truncation.
- */
-
 import { RequestContext } from '@mastra/core/request-context';
+import { PgVector } from '@mastra/pg';
 import { createContributionRegistry, runMigrations } from '@seta/core';
 import { registerCoreContributions } from '@seta/core/register';
 import { resetCoreDb } from '@seta/core/testing';
+import { IDENTITY_VECTOR_NAMESPACE } from '@seta/identity';
 import { matchUsersToTopicTool } from '@seta/identity/agent-tools';
 import { closePools, initPools } from '@seta/shared-db';
 import { NoopReranker } from '@seta/shared-retrieval';
@@ -17,7 +12,7 @@ import { describe, expect, it } from 'vitest';
 import { embedUserProfile } from '../../../src/backend/embeddings/embed-user-profile.ts';
 import { seedUserWithSkillsForTest } from '../../helpers/seed-user.ts';
 
-const withDb = <T>(fn: (ctx: { pool: import('pg').Pool }) => Promise<T>) =>
+const withDb = <T>(fn: (ctx: { pool: import('pg').Pool; pgVector: PgVector }) => Promise<T>) =>
   withTestDb(
     {
       templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
@@ -33,9 +28,15 @@ const withDb = <T>(fn: (ctx: { pool: import('pg').Pool }) => Promise<T>) =>
       await runMigrations(reg, { pool: pool as Parameters<typeof runMigrations>[1]['pool'] });
 
       initPools({ databaseUrl });
+      const pgVector = new PgVector({
+        id: 'identity-user-profile-embeddings-test',
+        connectionString: databaseUrl,
+        schemaName: IDENTITY_VECTOR_NAMESPACE,
+      });
       try {
-        return await fn({ pool });
+        return await fn({ pool, pgVector });
       } finally {
+        await pgVector.disconnect().catch(() => {});
         resetCoreDb();
         await closePools();
       }
@@ -59,7 +60,7 @@ function makeSessionProvider(tenantId: string) {
 
 describe('match_users_to_topic + rerank wiring', () => {
   it('passes hits through the configured reranker and surfaces the reranker tag in the result', () =>
-    withDb(async ({ pool }) => {
+    withDb(async ({ pool, pgVector }) => {
       const provider = new FakeEmbeddingProvider();
       const reranker = new NoopReranker();
 
@@ -69,12 +70,12 @@ describe('match_users_to_topic + rerank wiring', () => {
 
       await embedUserProfile(
         { tenant_id, user_id, event_id: 'rerank-user-e1' },
-        { pool, provider },
+        { provider, pgVector },
       );
 
       const tool = matchUsersToTopicTool({
         provider,
-        pool,
+        pgVector,
         reranker,
         sessionProvider: makeSessionProvider(tenant_id),
       });
@@ -94,13 +95,12 @@ describe('match_users_to_topic + rerank wiring', () => {
 
       expect(candidates).toHaveLength(1);
       expect(candidates[0]?.user.user_id).toBe(user_id);
-      // FakeEmbeddingProvider scores may be slightly negative; verify valid range.
       expect(candidates[0]?.rerank_score).toBeGreaterThanOrEqual(-1);
       expect(usedReranker).toBe('noop');
     }));
 
   it('respects limit after stage-2 truncation', () =>
-    withDb(async ({ pool }) => {
+    withDb(async ({ pool, pgVector }) => {
       const provider = new FakeEmbeddingProvider();
       const reranker = new NoopReranker();
 
@@ -109,7 +109,7 @@ describe('match_users_to_topic + rerank wiring', () => {
 
       await embedUserProfile(
         { tenant_id, user_id: first.user_id, event_id: 'rerank-limit-1' },
-        { pool, provider },
+        { provider, pgVector },
       );
 
       for (let i = 2; i <= 4; i++) {
@@ -119,13 +119,13 @@ describe('match_users_to_topic + rerank wiring', () => {
         });
         await embedUserProfile(
           { tenant_id, user_id, event_id: `rerank-limit-${i}` },
-          { pool, provider },
+          { provider, pgVector },
         );
       }
 
       const tool = matchUsersToTopicTool({
         provider,
-        pool,
+        pgVector,
         reranker,
         sessionProvider: makeSessionProvider(tenant_id),
       });

@@ -4,6 +4,7 @@ import { user, userProfile } from '../db/schema.ts';
 
 export interface UserProfileForEmbedding {
   name: string;
+  email: string;
   role: string;
   skills: string[];
 }
@@ -17,6 +18,7 @@ export async function getUserProfileForEmbedding(input: {
   const [row] = await identityDb()
     .select({
       name: user.name,
+      email: user.email,
       role: userProfile.role,
       skills: userProfile.skills,
     })
@@ -33,6 +35,7 @@ export async function getUserProfileForEmbedding(input: {
   if (!row) return null;
   return {
     name: row.name,
+    email: row.email,
     role: row.role ?? ROLE_FALLBACK,
     skills: row.skills,
   };

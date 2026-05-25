@@ -87,6 +87,16 @@ export {
 export { embeddingJobs } from './backend/embeddings/register-jobs.ts';
 export type { UserProfileSourceInput } from './backend/embeddings/source.ts';
 export { buildUserProfileSource } from './backend/embeddings/source.ts';
+export {
+  ensureIdentityVectorIndex,
+  getIdentityVectorStore,
+  IDENTITY_VECTOR_DIMENSION,
+  IDENTITY_VECTOR_INDEX,
+  IDENTITY_VECTOR_NAMESPACE,
+  resetIdentityVectorStore,
+  type UserProfileVectorMetadata,
+  userProfileVectorId,
+} from './backend/embeddings/vector-store.ts';
 export { IdentityError } from './backend/rbac.ts';
 export type { MicrosoftEntraConfig, SsoProviderId } from './backend/sso/config.ts';
 export { buildAdminConsentUrl } from './backend/sso/consent-url.ts';

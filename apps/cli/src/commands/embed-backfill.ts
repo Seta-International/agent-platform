@@ -1,4 +1,7 @@
-import { backfillUserProfiles as defaultBackfillUserProfiles } from '@seta/identity';
+import {
+  backfillUserProfiles as defaultBackfillUserProfiles,
+  getIdentityVectorStore,
+} from '@seta/identity';
 import { backfillTasks as defaultBackfillTasks, getPlannerVectorStore } from '@seta/planner';
 import { getPool, type Pool } from '@seta/shared-db';
 
@@ -44,8 +47,17 @@ export async function runEmbedBackfill(
 
   if (args.module === 'identity') {
     const pool = deps.pool ?? getPool('worker');
+    const databaseUrl = env.DATABASE_URL;
+    if (!databaseUrl) throw new Error('DATABASE_URL required for identity embed backfill');
+    const pgVector = getIdentityVectorStore(databaseUrl);
     const backfill = deps.backfillUserProfiles ?? defaultBackfillUserProfiles;
-    await backfill({ tenant_id: args.tenant, pool, apiKey: env.OPENAI_API_KEY, model });
+    await backfill({
+      tenant_id: args.tenant,
+      pool,
+      pgVector,
+      apiKey: env.OPENAI_API_KEY,
+      model,
+    });
     return;
   }
 

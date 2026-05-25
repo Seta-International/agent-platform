@@ -1,18 +1,6 @@
-/**
- * End-to-end CDC integration test for the identity user-profile embedding pipeline.
- *
- * Strategy:
- *  1. Seed a user with skills in the DB.
- *  2. Build an identity.user.profile.updated DomainEvent that changes skills.
- *  3. Invoke the refreshUserProfileUpdatedSubscriber handler with a fake ctx whose
- *     tx.execute intercepts the graphile_worker.add_job call, extracts the
- *     embed_user_profile payload, and immediately runs embedUserProfile synchronously.
- *  4. Assert that identity.user_profile_embeddings has a row for the user.
- *
- * This verifies the full CDC→embedding pipeline intent without wiring a real
- * graphile-worker queue (which would require a separate worker process).
- */
+import { PgVector } from '@mastra/pg';
 import { resetCoreDb } from '@seta/core/testing';
+import { IDENTITY_VECTOR_INDEX, IDENTITY_VECTOR_NAMESPACE } from '@seta/identity';
 import { closePools, initPools } from '@seta/shared-db';
 import { FakeEmbeddingProvider, withTestDb } from '@seta/shared-testing';
 import { PgDialect } from 'drizzle-orm/pg-core';
@@ -23,7 +11,9 @@ import { seedUserWithSkillsForTest } from '../../helpers/seed-user.ts';
 
 const pgDialect = new PgDialect();
 
-function withDb<T>(fn: (ctx: { pool: import('pg').Pool }) => Promise<T>): Promise<T> {
+function withDb<T>(
+  fn: (ctx: { pool: import('pg').Pool; pgVector: PgVector }) => Promise<T>,
+): Promise<T> {
   return withTestDb(
     {
       templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
@@ -32,9 +22,15 @@ function withDb<T>(fn: (ctx: { pool: import('pg').Pool }) => Promise<T>): Promis
     async ({ pool, databaseUrl }) => {
       resetCoreDb();
       initPools({ databaseUrl });
+      const pgVector = new PgVector({
+        id: 'identity-user-profile-embeddings-test',
+        connectionString: databaseUrl,
+        schemaName: IDENTITY_VECTOR_NAMESPACE,
+      });
       try {
-        return await fn({ pool });
+        return await fn({ pool, pgVector });
       } finally {
+        await pgVector.disconnect().catch(() => {});
         resetCoreDb();
         await closePools();
       }
@@ -42,10 +38,6 @@ function withDb<T>(fn: (ctx: { pool: import('pg').Pool }) => Promise<T>): Promis
   );
 }
 
-/**
- * Build a minimal DomainEvent<UserProfileUpdatedPayload> that changes skills.
- * The refreshUserProfileUpdatedSubscriber only enqueues when skills appear in `after`.
- */
 function makeProfileUpdatedEvent(opts: { tenantId: string; userId: string; eventId: string }) {
   return {
     id: opts.eventId,
@@ -64,18 +56,8 @@ function makeProfileUpdatedEvent(opts: { tenantId: string; userId: string; event
   };
 }
 
-/**
- * Build a fake ctx.tx that intercepts graphile_worker.add_job calls.
- *
- * Instead of inserting into the worker queue it materialises the SQL via
- * PgDialect.sqlToQuery(), extracts the embed_user_profile payload from
- * params[1], and immediately runs embedUserProfile synchronously.
- *
- * For the refresh-user-profile subscriber the positional params are:
- *   ['embed_user_profile', payloadJson, NULL, NULL, 10, jobKey, NULL, NULL, 'replace']
- */
-function makeSyncEmbedCtx(opts: { pool: import('pg').Pool; provider: FakeEmbeddingProvider }) {
-  const { pool, provider } = opts;
+function makeSyncEmbedCtx(opts: { pgVector: PgVector; provider: FakeEmbeddingProvider }) {
+  const { pgVector, provider } = opts;
 
   return {
     tx: {
@@ -86,31 +68,28 @@ function makeSyncEmbedCtx(opts: { pool: import('pg').Pool; provider: FakeEmbeddi
           return { rows: [] };
         }
 
-        // params[1] is the payload JSON string (second positional arg after the job name).
         const rawPayload = params[1];
         const jobPayload =
           typeof rawPayload === 'string'
             ? (JSON.parse(rawPayload) as { tenant_id: string; user_id: string; event_id: string })
             : (rawPayload as { tenant_id: string; user_id: string; event_id: string });
 
-        await embedUserProfile(jobPayload, { pool, provider });
+        await embedUserProfile(jobPayload, { provider, pgVector });
         return { rows: [] };
       },
     },
   };
 }
 
-describe('CDC end-to-end: identity.user.profile.updated → user_profile_embeddings row', () => {
+describe('CDC end-to-end: identity.user.profile.updated → user_profile vector row', () => {
   it('subscriber handler produces an embedding row for a user with skills', async () => {
-    await withDb(async ({ pool }) => {
+    await withDb(async ({ pool, pgVector }) => {
       const provider = new FakeEmbeddingProvider();
 
-      // 1. Seed a real user with skills in the DB.
       const seeded = await seedUserWithSkillsForTest(pool, {
         skills: ['typescript', 'postgres'],
       });
 
-      // 2. Build the CDC event.
       const eventId = crypto.randomUUID();
       const event = makeProfileUpdatedEvent({
         tenantId: seeded.tenant_id,
@@ -118,18 +97,18 @@ describe('CDC end-to-end: identity.user.profile.updated → user_profile_embeddi
         eventId,
       });
 
-      // 3. Invoke subscriber with a ctx that immediately embeds on add_job.
-      const ctx = makeSyncEmbedCtx({ pool, provider });
+      const ctx = makeSyncEmbedCtx({ pgVector, provider });
       await refreshUserProfileUpdatedSubscriber.handler(event as never, ctx as never);
 
-      // 4. Assert the embedding row exists.
-      const { rows } = await pool.query(
-        `SELECT user_id, source_hash FROM identity.user_profile_embeddings
-          WHERE tenant_id = $1 AND user_id = $2`,
-        [seeded.tenant_id, seeded.user_id],
-      );
+      const rows = await pgVector.query({
+        indexName: IDENTITY_VECTOR_INDEX,
+        filter: {
+          tenant_id: { $eq: seeded.tenant_id },
+          user_id: { $eq: seeded.user_id },
+        },
+        topK: 1,
+      });
       expect(rows).toHaveLength(1);
-      expect((rows[0] as { user_id: string }).user_id).toBe(seeded.user_id);
     });
   });
 });

@@ -1,17 +1,12 @@
 import { CopilotRegistry } from '@seta/copilot-sdk';
-import { getPool } from '@seta/shared-db';
 import type { EmbeddingProvider } from '@seta/shared-embeddings';
 import { OpenAIEmbeddingProvider } from '@seta/shared-embeddings';
 import { resolveReranker } from '@seta/shared-retrieval';
-import type { Pool } from 'pg';
 import { listMyRolesTool } from './list-my-roles.ts';
 import { matchUsersToTopicTool } from './match-users-to-topic.ts';
 import { updateMyDisplayNameTool } from './update-my-display-name.ts';
 import { whoAmITool } from './who-am-i.ts';
 
-// Lazy proxy around OpenAIEmbeddingProvider: defers reading OPENAI_API_KEY
-// until the first .embed() call so the module can be registered in test
-// environments that don't set OPENAI_API_KEY.
 function makeLazyEmbeddingProvider(): EmbeddingProvider {
   let inner: EmbeddingProvider | undefined;
   const get = (): EmbeddingProvider => {
@@ -35,30 +30,16 @@ function makeLazyEmbeddingProvider(): EmbeddingProvider {
   };
 }
 
-// Lazy Pool proxy: defers getPool('worker') until the first query so the module
-// can be imported at registration time before initPools() is called (e.g. in tests
-// that only verify the registry, not the DB).
-function makeLazyPool(): Pool {
-  let inner: Pool | undefined;
-  const get = (): Pool => (inner ??= getPool('worker'));
-  return new Proxy({} as Pool, {
-    get(_target, prop) {
-      return (get() as never)[prop as keyof Pool];
-    },
-  });
-}
-
-// Build match_users_to_topic at module load with identity-owned deps.
-// Both the embedding provider and pool are lazy so OPENAI_API_KEY and
-// initPools() are only required when a semantic search actually executes,
-// not at registration time.
 const matchUsersToTopic = matchUsersToTopicTool({
   provider: makeLazyEmbeddingProvider(),
-  pool: makeLazyPool(),
   reranker: resolveReranker(),
+  get databaseUrl(): string {
+    const url = process.env.DATABASE_URL;
+    if (!url) throw new Error('DATABASE_URL required for identity semantic search');
+    return url;
+  },
 });
 
-// People domain — read-only directory & lookup of others.
 CopilotRegistry.registerSpecialist({
   domain: 'people',
   id: 'identity',
@@ -73,7 +54,6 @@ CopilotRegistry.registerSpecialist({
   },
 });
 
-// Self domain — current user's own profile + preferences (writes with HITL).
 CopilotRegistry.registerSpecialist({
   domain: 'self',
   id: 'self',
