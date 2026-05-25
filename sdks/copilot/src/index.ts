@@ -17,6 +17,7 @@ export {
   type SpecialistSpec,
   type WorkflowSpec,
 } from './registry.ts';
+export { assertNoSessionField } from './registry-assertions.ts';
 export type {
   AuthenticatedUserActor,
   CopilotRequestContext,
