@@ -1,7 +1,13 @@
+import type { PgVector } from '@mastra/pg';
 import { emit, withEmit } from '@seta/core/events';
-import { ensureTenantPartition } from '@seta/shared-db';
 import { type EmbeddingProvider, embedMany } from '@seta/shared-embeddings';
 import type { Pool } from 'pg';
+import {
+  ensureKnowledgeVectorIndex,
+  KNOWLEDGE_VECTOR_INDEX,
+  type KnowledgeChunkVectorMetadata,
+  knowledgeVectorId,
+} from './vector-store.ts';
 
 export interface EmbedKnowledgeChunksPayload {
   tenant_id: string;
@@ -11,6 +17,7 @@ export interface EmbedKnowledgeChunksPayload {
 
 export interface EmbedKnowledgeChunksDeps {
   pool: Pool;
+  pgVector: PgVector;
   provider: EmbeddingProvider;
 }
 
@@ -23,20 +30,25 @@ export async function embedKnowledgeChunks(
   const { tenant_id, file_id } = payload;
 
   try {
-    const chunks = await deps.pool.query<{ chunk_ordinal: number; chunk_text: string }>(
-      `SELECT chunk_ordinal, chunk_text FROM knowledge.chunks
+    const fileRow = await deps.pool.query<{ filename: string }>(
+      `SELECT filename FROM knowledge.files WHERE id = $1 AND tenant_id = $2`,
+      [file_id, tenant_id],
+    );
+    const filename = fileRow.rows[0]?.filename;
+    if (!filename) throw new Error('file row not found for embed');
+
+    const chunks = await deps.pool.query<{
+      chunk_ordinal: number;
+      chunk_text: string;
+      page_hint: string | null;
+    }>(
+      `SELECT chunk_ordinal, chunk_text, page_hint FROM knowledge.chunks
         WHERE tenant_id = $1 AND file_id = $2 ORDER BY chunk_ordinal`,
       [tenant_id, file_id],
     );
     if (chunks.rows.length === 0) throw new Error('no chunks found for file');
 
-    await ensureTenantPartition(deps.pool, {
-      parent: 'knowledge.embeddings',
-      embeddingColumn: 'embedding',
-      tenantId: tenant_id,
-      opclass: 'halfvec_cosine_ops',
-      hnsw: { m: 16, efConstruction: 200 },
-    });
+    await ensureKnowledgeVectorIndex(deps.pgVector);
 
     const vectors = await embedMany(
       deps.provider,
@@ -44,54 +56,32 @@ export async function embedKnowledgeChunks(
       { batchSize: BATCH_SIZE },
     );
 
-    const client = await deps.pool.connect();
-    try {
-      await client.query('BEGIN');
+    const embeddedAt = new Date().toISOString();
+    const ids = chunks.rows.map((c) => knowledgeVectorId(tenant_id, file_id, c.chunk_ordinal));
+    const metadata: KnowledgeChunkVectorMetadata[] = chunks.rows.map((c) => ({
+      tenant_id,
+      file_id,
+      chunk_ordinal: c.chunk_ordinal,
+      chunk_text: c.chunk_text,
+      filename,
+      page_hint: c.page_hint,
+      model_id: deps.provider.modelId,
+      embedded_at: embeddedAt,
+    }));
 
-      await client.query(`DELETE FROM knowledge.embeddings WHERE tenant_id = $1 AND file_id = $2`, [
-        tenant_id,
-        file_id,
-      ]);
+    await deps.pgVector.upsert({
+      indexName: KNOWLEDGE_VECTOR_INDEX,
+      vectors,
+      metadata,
+      ids,
+    });
 
-      const placeholders = chunks.rows
-        .map((_, i) => {
-          const base = 2 + i * 3;
-          return `($1, $2, $${base + 1}, $${base + 2}::halfvec, $${base + 3}, now())`;
-        })
-        .join(', ');
-      const params: unknown[] = [tenant_id, file_id];
-      for (let i = 0; i < chunks.rows.length; i += 1) {
-        params.push(
-          chunks.rows[i]?.chunk_ordinal,
-          `[${vectors[i]?.join(',')}]`,
-          deps.provider.modelId,
-        );
-      }
-      await client.query(
-        `INSERT INTO knowledge.embeddings
-           (tenant_id, file_id, chunk_ordinal, embedding, model_id, embedded_at)
-           VALUES ${placeholders}`,
-        params,
-      );
-
-      await client.query(
-        `UPDATE knowledge.files
-            SET status = 'ready', processed_at = now(), error_reason = NULL
-          WHERE id = $1 AND tenant_id = $2`,
-        [file_id, tenant_id],
-      );
-
-      await client.query('COMMIT');
-    } catch (err) {
-      try {
-        await client.query('ROLLBACK');
-      } catch {
-        // connection dead — original error in `err` is the actionable one
-      }
-      throw err;
-    } finally {
-      client.release();
-    }
+    await deps.pool.query(
+      `UPDATE knowledge.files
+          SET status = 'ready', processed_at = now(), error_reason = NULL
+        WHERE id = $1 AND tenant_id = $2`,
+      [file_id, tenant_id],
+    );
 
     await withEmit({ actor: { userId: 'system', tenantId: tenant_id } }, async () => {
       await emit({

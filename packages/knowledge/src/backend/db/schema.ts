@@ -1,4 +1,3 @@
-import { halfvec } from '@seta/shared-db';
 import { desc } from 'drizzle-orm';
 import {
   bigint,
@@ -49,19 +48,6 @@ export const chunks = knowledge.table(
     chunk_ordinal: integer('chunk_ordinal').notNull(),
     chunk_text: text('chunk_text').notNull(),
     page_hint: text('page_hint'),
-  },
-  (t) => [primaryKey({ columns: [t.tenant_id, t.file_id, t.chunk_ordinal] })],
-);
-
-export const embeddings = knowledge.table(
-  'embeddings',
-  {
-    tenant_id: uuid('tenant_id').notNull(),
-    file_id: bigint('file_id', { mode: 'bigint' }).notNull(),
-    chunk_ordinal: integer('chunk_ordinal').notNull(),
-    embedding: halfvec('embedding', { dimensions: 1536 }).notNull(),
-    model_id: text('model_id').notNull(),
-    embedded_at: timestamp('embedded_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [primaryKey({ columns: [t.tenant_id, t.file_id, t.chunk_ordinal] })],
 );

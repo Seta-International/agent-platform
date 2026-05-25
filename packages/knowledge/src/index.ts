@@ -19,6 +19,21 @@ export {
   type RequestKnowledgeUploadResult,
   requestKnowledgeUpload,
 } from './backend/domain/upload-url.ts';
+export {
+  type EmbedKnowledgeChunksDeps,
+  type EmbedKnowledgeChunksPayload,
+  embedKnowledgeChunks,
+} from './backend/embeddings/embed-knowledge-chunks.ts';
+export {
+  ensureKnowledgeVectorIndex,
+  getKnowledgeVectorStore,
+  KNOWLEDGE_VECTOR_DIMENSION,
+  KNOWLEDGE_VECTOR_INDEX,
+  KNOWLEDGE_VECTOR_NAMESPACE,
+  type KnowledgeChunkVectorMetadata,
+  knowledgeVectorId,
+  resetKnowledgeVectorStore,
+} from './backend/embeddings/vector-store.ts';
 export { KnowledgeError, requirePermission as requireKnowledgePermission } from './backend/rbac.ts';
 export {
   type KnowledgeHit,

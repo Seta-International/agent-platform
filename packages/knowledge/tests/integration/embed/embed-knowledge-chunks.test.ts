@@ -1,12 +1,18 @@
 import { randomUUID } from 'node:crypto';
+import { PgVector } from '@mastra/pg';
 import { resetCoreDb } from '@seta/core/testing';
+import {
+  KNOWLEDGE_VECTOR_INDEX,
+  KNOWLEDGE_VECTOR_NAMESPACE,
+  type KnowledgeChunkVectorMetadata,
+} from '@seta/knowledge';
 import { resetKnowledgeDb } from '@seta/knowledge/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { FakeEmbeddingProvider, withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { embedKnowledgeChunks } from '../../../src/backend/embeddings/embed-knowledge-chunks.ts';
 
-const withDb = <T>(fn: (ctx: { pool: import('pg').Pool }) => Promise<T>) =>
+const withDb = <T>(fn: (ctx: { pool: import('pg').Pool; pgVector: PgVector }) => Promise<T>) =>
   withTestDb(
     {
       templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
@@ -16,9 +22,15 @@ const withDb = <T>(fn: (ctx: { pool: import('pg').Pool }) => Promise<T>) =>
       resetCoreDb();
       resetKnowledgeDb();
       initPools({ databaseUrl });
+      const pgVector = new PgVector({
+        id: 'knowledge-chunks-test',
+        connectionString: databaseUrl,
+        schemaName: KNOWLEDGE_VECTOR_NAMESPACE,
+      });
       try {
-        return await fn({ pool });
+        return await fn({ pool, pgVector });
       } finally {
+        await pgVector.disconnect().catch(() => {});
         resetCoreDb();
         resetKnowledgeDb();
         await closePools();
@@ -27,8 +39,8 @@ const withDb = <T>(fn: (ctx: { pool: import('pg').Pool }) => Promise<T>) =>
   );
 
 describe('embedKnowledgeChunks worker', () => {
-  it('embeds all chunks for a file → flips to ready → emits processed event', async () => {
-    await withDb(async ({ pool }) => {
+  it('embeds all chunks for a file, flips to ready, emits processed event', async () => {
+    await withDb(async ({ pool, pgVector }) => {
       const tenant_id = randomUUID();
       const provider = new FakeEmbeddingProvider({ dimensions: 1536 });
 
@@ -39,17 +51,18 @@ describe('embedKnowledgeChunks worker', () => {
 
       await embedKnowledgeChunks(
         { tenant_id, file_id, event_id: randomUUID() },
-        { pool, provider },
+        { pool, pgVector, provider },
       );
 
-      const embeddings = await pool.query(
-        `SELECT chunk_ordinal FROM knowledge.embeddings
-          WHERE tenant_id = $1 AND file_id = $2 ORDER BY chunk_ordinal`,
-        [tenant_id, file_id],
-      );
-      expect(embeddings.rows.map((r: { chunk_ordinal: number }) => r.chunk_ordinal)).toEqual([
-        0, 1,
-      ]);
+      const rows = await pgVector.query({
+        indexName: KNOWLEDGE_VECTOR_INDEX,
+        filter: { tenant_id: { $eq: tenant_id }, file_id: { $eq: file_id } },
+        topK: 100,
+      });
+      const ordinals = rows
+        .map((r) => (r.metadata as Partial<KnowledgeChunkVectorMetadata>).chunk_ordinal)
+        .sort();
+      expect(ordinals).toEqual([0, 1]);
 
       const status = await pool.query<{ status: string }>(
         `SELECT status FROM knowledge.files WHERE id = $1`,
@@ -67,7 +80,7 @@ describe('embedKnowledgeChunks worker', () => {
   });
 
   it('flips to failed and emits processed-failed event on provider error', async () => {
-    await withDb(async ({ pool }) => {
+    await withDb(async ({ pool, pgVector }) => {
       const tenant_id = randomUUID();
       const file_id = await seedFileWithChunks(pool, tenant_id, [{ text: 'x', page_hint: null }]);
       const failingProvider = {
@@ -79,7 +92,7 @@ describe('embedKnowledgeChunks worker', () => {
       };
       await embedKnowledgeChunks(
         { tenant_id, file_id, event_id: randomUUID() },
-        { pool, provider: failingProvider as never },
+        { pool, pgVector, provider: failingProvider as never },
       );
 
       const status = await pool.query<{ status: string; error_reason: string | null }>(

@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
+import { PgVector } from '@mastra/pg';
 import { resetCoreDb } from '@seta/core/testing';
+import { KNOWLEDGE_VECTOR_NAMESPACE } from '@seta/knowledge';
 import { resetKnowledgeDb } from '@seta/knowledge/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { FakeEmbeddingProvider, withTestDb } from '@seta/shared-testing';
@@ -7,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { embedKnowledgeChunks } from '../../../src/backend/embeddings/embed-knowledge-chunks.ts';
 import { searchTenantKnowledge } from '../../../src/backend/retrieval/search-tenant-knowledge.ts';
 
-const withDb = <T>(fn: (ctx: { pool: import('pg').Pool }) => Promise<T>) =>
+const withDb = <T>(fn: (ctx: { pool: import('pg').Pool; pgVector: PgVector }) => Promise<T>) =>
   withTestDb(
     {
       templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
@@ -17,9 +19,15 @@ const withDb = <T>(fn: (ctx: { pool: import('pg').Pool }) => Promise<T>) =>
       resetCoreDb();
       resetKnowledgeDb();
       initPools({ databaseUrl });
+      const pgVector = new PgVector({
+        id: 'knowledge-chunks-test',
+        connectionString: databaseUrl,
+        schemaName: KNOWLEDGE_VECTOR_NAMESPACE,
+      });
       try {
-        return await fn({ pool });
+        return await fn({ pool, pgVector });
       } finally {
+        await pgVector.disconnect().catch(() => {});
         resetCoreDb();
         resetKnowledgeDb();
         await closePools();
@@ -77,7 +85,7 @@ async function seedFileWithChunks(
 
 describe('searchTenantKnowledge retriever', () => {
   it('returns chunk hits with file citation metadata', async () => {
-    await withDb(async ({ pool }) => {
+    await withDb(async ({ pool, pgVector }) => {
       const tenant_id = randomUUID();
       const provider = new FakeEmbeddingProvider({ dimensions: 1536 });
 
@@ -88,12 +96,12 @@ describe('searchTenantKnowledge retriever', () => {
 
       await embedKnowledgeChunks(
         { tenant_id, file_id, event_id: randomUUID() },
-        { pool, provider },
+        { pool, pgVector, provider },
       );
 
       const hits = await searchTenantKnowledge(
         { query: 'terraform infrastructure', tenant_id, limit: 10 },
-        { provider, pool },
+        { provider, pgVector, pool },
       );
 
       expect(hits.length).toBeGreaterThanOrEqual(1);
@@ -108,7 +116,7 @@ describe('searchTenantKnowledge retriever', () => {
   });
 
   it('respects tenant isolation', async () => {
-    await withDb(async ({ pool }) => {
+    await withDb(async ({ pool, pgVector }) => {
       const tenant_a = randomUUID();
       const tenant_b = randomUUID();
       const provider = new FakeEmbeddingProvider({ dimensions: 1536 });
@@ -122,20 +130,20 @@ describe('searchTenantKnowledge retriever', () => {
 
       await embedKnowledgeChunks(
         { tenant_id: tenant_a, file_id: file_a, event_id: randomUUID() },
-        { pool, provider },
+        { pool, pgVector, provider },
       );
       await embedKnowledgeChunks(
         { tenant_id: tenant_b, file_id: file_b, event_id: randomUUID() },
-        { pool, provider },
+        { pool, pgVector, provider },
       );
 
       const hitsA = await searchTenantKnowledge(
         { query: 'security policy', tenant_id: tenant_a, limit: 10 },
-        { provider, pool },
+        { provider, pgVector, pool },
       );
       const hitsB = await searchTenantKnowledge(
         { query: 'onboarding document', tenant_id: tenant_b, limit: 10 },
-        { provider, pool },
+        { provider, pgVector, pool },
       );
 
       expect(hitsA.every((h) => h.item.filename === 'policies-a.pdf')).toBe(true);
