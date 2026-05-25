@@ -2,7 +2,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ContributionRegistry, ErrorMapper } from '@seta/core';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
-import { plannerAgentTools, searchTasksSemanticTool } from './agent-tools.ts';
+import { plannerAgentTools, plannerFindSimilarTasksTool } from './agent-tools.ts';
 import * as schema from './backend/db/schema.ts';
 import { buildPlannerRoutes } from './backend/http/index.ts';
 import { PlannerError } from './backend/rbac.ts';
@@ -44,7 +44,7 @@ export function registerPlannerContributions(reg: ContributionRegistry): void {
     schema,
     migrationsDir: resolve(__dirname, '../drizzle'),
     agentTools: plannerAgentTools,
-    agentToolFactories: [searchTasksSemanticTool],
+    agentToolFactories: [plannerFindSimilarTasksTool],
     subscribers: plannerSubscribers(),
     routes: { mountAt: '/', build: buildPlannerRoutes },
     stream: buildPlannerBoardStreamHub,

@@ -10,6 +10,4 @@ export {
   plannerFindSimilarTasksTool,
   plannerGetOpenTaskCountTool,
   plannerGetTaskTool,
-  type SearchTasksSemanticToolDeps,
-  searchTasksSemanticTool,
 } from './backend/agent-tools/index.ts';
