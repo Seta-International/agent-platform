@@ -39,7 +39,7 @@ const withDb = <T>(fn: (ctx: { pool: import('pg').Pool; pgVector: PgVector }) =>
   );
 
 async function seedUserWithSkills(
-  pool: import('pg').Pool,
+  _pool: import('pg').Pool,
   pgVector: PgVector,
   provider: FakeEmbeddingProvider,
   opts: { tenantId: string; name: string; emailSlug: string; skills: string[]; eventId: string },

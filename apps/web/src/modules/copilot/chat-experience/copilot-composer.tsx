@@ -25,6 +25,10 @@ export function CopilotComposer({ compact = false }: CopilotComposerProps) {
     setValue('');
   };
 
+  // One-shot pending prompt from external callers (e.g. planner "Suggest
+  // assignee" button). Only autoSend mode is wired today; non-autoSend can
+  // be added later by routing through aui.composer().setText (the local
+  // `value` mirror is updated by aui via the ChatComposer onChange).
   useEffect(() => {
     if (!pendingPrompt || isRunning) return;
     const { text, autoSend } = pendingPrompt;
@@ -34,7 +38,7 @@ export function CopilotComposer({ compact = false }: CopilotComposerProps) {
       aui.composer().send();
       return;
     }
-    setValue(text);
+    aui.composer().setText(text);
   }, [pendingPrompt, isRunning, aui, setPendingPrompt]);
 
   return (

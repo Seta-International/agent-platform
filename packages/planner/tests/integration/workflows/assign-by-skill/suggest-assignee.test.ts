@@ -77,8 +77,9 @@ describe('buildSuggestAssigneeCard', () => {
       session: { tenantId: 't', userId: 'u' },
       toolCallId: 'tc_2',
     });
-    const item = card.details[0]!.kind === 'candidateList' ? card.details[0].items[0]! : null;
-    expect(item?.secondary).toContain('history: 4 similar');
+    const block = card.details[0];
+    if (!block || block.kind !== 'candidateList') throw new Error('expected candidateList block');
+    expect(block.items[0]!.secondary).toContain('history: 4 similar');
   });
 
   it('empty pool yields no-candidates copy and an empty alternates list', () => {
