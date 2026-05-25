@@ -83,7 +83,7 @@ function useUserSearch(search: string, enabled: boolean, isLinkedToM365: boolean
         offset: 0,
         ...(isLinkedToM365 ? { sign_in_method: 'microsoft' as const } : {}),
       }),
-    enabled: enabled && debounced.length >= 1,
+    enabled,
   });
 }
 
@@ -92,7 +92,7 @@ function useUnfilteredUserCount(search: string, enabled: boolean) {
   return useQuery({
     queryKey: ['identity', 'admin-users', { search: debounced, sign_in_method: null }],
     queryFn: () => listTenantUsers({ search: debounced, limit: 8, offset: 0 }),
-    enabled: enabled && debounced.length >= 1,
+    enabled,
   });
 }
 

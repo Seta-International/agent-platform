@@ -69,6 +69,36 @@ describe('TaskDetailAssigneesCard', () => {
     expect(screen.getByText('Carol')).toBeInTheDocument();
   });
 
+  it('lists initial users when the picker is first opened with an empty search', async () => {
+    const { userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup();
+    server.use(
+      http.get('/api/identity/v1/users', () =>
+        HttpResponse.json({
+          rows: [
+            {
+              user_id: 'u9',
+              email: 'dora@x',
+              name: 'Dora',
+              status: 'active',
+              role_slugs: [],
+              sign_in_methods: [],
+              last_seen_at: null,
+              created_at: '',
+            },
+          ],
+          total: 1,
+        }),
+      ),
+    );
+
+    const task = withAssignees([]);
+    renderWithClient(<TaskDetailAssigneesCard task={task} planId="p1" />);
+    await user.click(screen.getByRole('button', { name: /Add assignee/i }));
+
+    await waitFor(() => expect(screen.getByText('Dora')).toBeInTheDocument());
+  });
+
   it('opens the user combobox and lists matches from listAdminUsers', async () => {
     const { userEvent } = await import('@testing-library/user-event');
     const user = userEvent.setup();
