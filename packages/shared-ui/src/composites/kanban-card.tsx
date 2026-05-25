@@ -23,6 +23,7 @@ export interface KanbanCardTask {
   external_synced_at?: string | null;
   /** Compact checklist progress shown on the card meta row when total > 0. */
   checklist_summary?: { total: number; checked: number };
+  isCompleted?: boolean;
 }
 
 export interface KanbanCardProps {
@@ -81,7 +82,9 @@ export function KanbanCard({ task, onOpen, selected, previewSlot, draggable }: K
             title="Blocked"
           />
         )}
-        {task.title}
+        <span className={task.isCompleted ? 'line-through opacity-50' : undefined}>
+          {task.title}
+        </span>
       </div>
       {previewSlot}
       <div className="kanban-card__meta">
