@@ -17,6 +17,7 @@ export const rateLimits = copilot.table(
   }),
 );
 
+export * from './schema.tenant-settings.ts';
 export * from './schema.workflow-approvals.ts';
 export * from './schema.workflow-events-seen.ts';
 export * from './schema.workflow-runs.ts';
