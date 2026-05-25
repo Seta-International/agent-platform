@@ -1,9 +1,6 @@
 import { CopilotRegistry } from '@seta/copilot-sdk';
-import { getPool } from '@seta/shared-db';
 import type { EmbeddingProvider } from '@seta/shared-embeddings';
 import { OpenAIEmbeddingProvider } from '@seta/shared-embeddings';
-import { resolveReranker } from '@seta/shared-retrieval';
-import type { Pool } from 'pg';
 import { plannerAssignTaskTool } from './assign-task.ts';
 import { plannerGetTaskTool } from './get-task.ts';
 import { searchTasksSemanticTool } from './search-tasks-semantic.ts';
@@ -35,27 +32,17 @@ function makeLazyEmbeddingProvider(): EmbeddingProvider {
   };
 }
 
-// Lazy Pool proxy: defers getPool('worker') until the first query so the module
-// can be imported at registration time before initPools() is called (e.g. in tests
-// that only verify the registry, not the DB).
-function makeLazyPool(): Pool {
-  let inner: Pool | undefined;
-  const get = (): Pool => (inner ??= getPool('worker'));
-  return new Proxy({} as Pool, {
-    get(_target, prop) {
-      return (get() as never)[prop as keyof Pool];
-    },
-  });
-}
-
-// Build search_tasks_semantic at module load with planner-owned deps.
-// Both the embedding provider and pool are lazy so OPENAI_API_KEY and
-// initPools() are only required when a semantic search actually executes,
-// not at registration time.
+// Build search_tasks_semantic at module load with a lazy databaseUrl getter so
+// DATABASE_URL is only required when a search actually executes — preserving the
+// prior behavior where the module registers cleanly in tests that never wire DB
+// env. The factory's execute() reads `databaseUrl` once per call.
 const searchTasksSemantic = searchTasksSemanticTool({
   provider: makeLazyEmbeddingProvider(),
-  pool: makeLazyPool(),
-  reranker: resolveReranker(),
+  get databaseUrl(): string {
+    const url = process.env.DATABASE_URL;
+    if (!url) throw new Error('DATABASE_URL required for planner semantic search');
+    return url;
+  },
 });
 
 CopilotRegistry.registerSpecialist({

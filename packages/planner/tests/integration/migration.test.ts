@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { registerPlannerContributions } from '../../src/register.ts';
 
 describe('planner migrations', () => {
-  it('creates planner.task_embeddings as a partitioned parent with the expected columns', async () => {
+  it('drops the legacy planner.task_embeddings table (Mastra PgVector owns the replacement in schema planner_rag)', async () => {
     await withTestDb(
       {
         templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
@@ -17,47 +17,13 @@ describe('planner migrations', () => {
         registerPlannerContributions(reg);
         await runMigrations(reg, { pool });
 
-        const cols = await pool.query<{ column_name: string }>(`
-          SELECT column_name FROM information_schema.columns
-           WHERE table_schema = 'planner' AND table_name = 'task_embeddings'
-           ORDER BY ordinal_position
+        const exists = await pool.query<{ exists: boolean }>(`
+          SELECT EXISTS (
+            SELECT 1 FROM information_schema.tables
+             WHERE table_schema = 'planner' AND table_name = 'task_embeddings'
+          ) AS exists
         `);
-        expect(cols.rows.map((r) => r.column_name)).toEqual([
-          'tenant_id',
-          'task_id',
-          'plan_id',
-          'chunk_text',
-          'source_hash',
-          'embedding',
-          'model_id',
-          'embedded_at',
-        ]);
-
-        const part = await pool.query<{ partstrat: string }>(`
-          SELECT partstrat::text FROM pg_partitioned_table
-           WHERE partrelid = 'planner.task_embeddings'::regclass
-        `);
-        expect(part.rows[0]?.partstrat).toBe('l');
-
-        const pk = await pool.query<{ attname: string }>(`
-          SELECT a.attname
-            FROM pg_index i
-            JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
-           WHERE i.indrelid = 'planner.task_embeddings'::regclass
-             AND i.indisprimary
-           ORDER BY array_position(i.indkey, a.attnum)
-        `);
-        expect(pk.rows.map((r) => r.attname)).toEqual(['tenant_id', 'task_id']);
-
-        const idx = await pool.query<{ indexname: string; indexdef: string }>(`
-          SELECT indexname, indexdef
-            FROM pg_indexes
-           WHERE schemaname = 'planner'
-             AND tablename = 'task_embeddings'
-             AND indexname = 'task_embeddings_plan_idx'
-        `);
-        expect(idx.rows).toHaveLength(1);
-        expect(idx.rows[0]?.indexdef).toContain('(tenant_id, plan_id)');
+        expect(exists.rows[0]?.exists).toBe(false);
       },
     );
   });

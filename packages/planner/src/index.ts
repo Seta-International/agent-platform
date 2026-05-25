@@ -128,6 +128,16 @@ export {
 export { plannerEmbeddingJobs } from './backend/embeddings/register-worker.ts';
 export type { TaskSourceInput } from './backend/embeddings/source.ts';
 export { buildTaskSource } from './backend/embeddings/source.ts';
+export {
+  ensurePlannerVectorIndex,
+  getPlannerVectorStore,
+  PLANNER_VECTOR_DIMENSION,
+  PLANNER_VECTOR_INDEX,
+  PLANNER_VECTOR_NAMESPACE,
+  resetPlannerVectorStore,
+  type TaskVectorMetadata,
+  taskVectorId,
+} from './backend/embeddings/vector-store.ts';
 export type {
   AddChecklistItemInput,
   AddTaskReferenceInput,
@@ -162,6 +172,8 @@ export { PlannerError, requirePermission } from './backend/rbac.ts';
 export type {
   SearchTasksDeps,
   SearchTasksInput,
+  SearchTasksResult,
+  TaskRetrievalItem,
 } from './backend/retrieval/search-tasks.ts';
 export { searchTasks } from './backend/retrieval/search-tasks.ts';
 export type { PlannerEvent, PlannerEventActor } from './events/index.ts';

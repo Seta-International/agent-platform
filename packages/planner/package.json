@@ -40,6 +40,8 @@
   },
   "dependencies": {
     "@mastra/core": "^1.36.0",
+    "@mastra/pg": "^1.11.1",
+    "@mastra/rag": "^2.2.1",
     "@opentelemetry/api": "^1.9.1",
     "@seta/copilot-sdk": "workspace:^",
     "@seta/notifications": "workspace:^",

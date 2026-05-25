@@ -1,12 +1,11 @@
+import type { PgVector } from '@mastra/pg';
 import { actorFromContext, defineCopilotTool } from '@seta/copilot-sdk';
 import { buildActorSession } from '@seta/identity';
 import type { EmbeddingProvider } from '@seta/shared-embeddings';
-import type { Reranker } from '@seta/shared-retrieval';
-import type { Pool } from 'pg';
+import { resolveReranker } from '@seta/shared-retrieval';
 import { z } from 'zod';
+import { getPlannerVectorStore } from '../embeddings/vector-store.ts';
 import { searchTasks } from '../retrieval/search-tasks.ts';
-
-const STAGE1_TOPK = Number(process.env.RERANK_STAGE1_TOPK ?? 50);
 
 const inputSchema = z.object({
   query: z.string().min(1).max(500).describe('Natural language search query'),
@@ -36,17 +35,26 @@ const outputSchema = z.object({
       score: z.number(),
       rerank_score: z.number(),
       snippet: z.string(),
-      source: z.enum(['fts', 'vector', 'hybrid']),
+      source: z.literal('vector'),
     }),
   ),
   /** Which reranker actually ran — surfaces precision tier to the agent. */
   reranker: z.enum(['cohere', 'llm-judge', 'noop', 'fallback']),
 });
 
+/**
+ * Factory deps for the search_tasks_semantic tool.
+ *
+ * Tests inject `pgVector` directly so they can wire a per-database instance.
+ * Production wiring (copilot's registerCopilot) supplies `databaseUrl` and the
+ * factory lazily resolves the planner-owned PgVector singleton.
+ */
 export interface SearchTasksSemanticToolDeps {
   provider: EmbeddingProvider;
-  pool: Pool;
-  reranker: Reranker;
+  /** Production path: copilot supplies a connection string. */
+  databaseUrl?: string;
+  /** Test path: a pre-built PgVector wired to the test container. */
+  pgVector?: PgVector;
   /**
    * Optional override for deriving a session from an actor.
    * Defaults to buildActorSession. Injected in tests to avoid
@@ -58,8 +66,16 @@ export interface SearchTasksSemanticToolDeps {
   }>;
 }
 
+/**
+ * Build the search_tasks_semantic agent tool.
+ *
+ * Stage-1 retrieval is delegated to Mastra's PgVector (cosine HNSW). Stage-2
+ * reranking is resolved internally via `resolveReranker()` so the caller no
+ * longer needs to pass a reranker dep.
+ */
 export function searchTasksSemanticTool(deps: SearchTasksSemanticToolDeps) {
   const resolveSession = deps.sessionProvider ?? buildActorSession;
+  const reranker = resolveReranker();
 
   return defineCopilotTool({
     id: 'search_tasks_semantic',
@@ -73,33 +89,32 @@ export function searchTasksSemanticTool(deps: SearchTasksSemanticToolDeps) {
       const actor = actorFromContext(ctx);
       const session = await resolveSession(actor);
 
+      const pgVector =
+        deps.pgVector ??
+        (deps.databaseUrl
+          ? getPlannerVectorStore(deps.databaseUrl)
+          : (() => {
+              throw new Error(
+                'search_tasks_semantic: either pgVector or databaseUrl must be supplied',
+              );
+            })());
+
       const requestedLimit = input.limit ?? 10;
 
-      // Stage 1: oversampled hybrid retrieval.
-      // group_ids filtering is deferred: the retrieval layer uses bigint[]
-      // but SessionScope.accessible_group_ids are UUIDs. Passing undefined here
-      // falls back to tenant-wide retrieval which is correct for v1.
-      // RBAC gate for the wider scope is also deferred to M3.3.
-      const stage1Limit = Math.max(requestedLimit * 3, STAGE1_TOPK);
-      const stage1 = await searchTasks(
+      // group_ids filtering is deferred: SessionScope.accessible_group_ids are
+      // UUIDs while the legacy retrieval API used bigint[]. Tenant-wide search
+      // is correct for v1; RBAC gate for the wider scope lands in M3.3.
+      const { hits, reranker: usedReranker } = await searchTasks(
         {
           query: input.query,
           tenant_id: session.tenant_id,
-          limit: stage1Limit,
-          group_ids: undefined,
+          limit: requestedLimit,
         },
-        { provider: deps.provider, pool: deps.pool },
+        { provider: deps.provider, pgVector, reranker },
       );
 
-      // Stage 2: rerank stage-1 hits and truncate to the requested limit.
-      const reranked = await deps.reranker.rescore(input.query, stage1, {
-        topN: requestedLimit,
-      });
-
-      const usedReranker = reranked[0]?.reranker ?? 'noop';
-
       return {
-        hits: reranked.map((h) => ({
+        hits: hits.map((h) => ({
           task: { task_id: h.item.task_id, title: h.item.title },
           score: h.score,
           rerank_score: h.rerankScore,

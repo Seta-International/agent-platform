@@ -1,23 +1,25 @@
 /**
- * End-to-end pin for the search_tasks_semantic + hybrid (FTS + vector) RRF
- * pipeline: three tasks are seeded (one terraform-tagged, two unrelated),
- * all are embedded, and a query for "tasks about terraform needing review"
- * must rank the terraform task first. A distinct FTS keyword present only
- * on one task is the strongest signal RRF can use, so this fails fast if
- * keyword recall regresses regardless of how vector cosine scores shake out.
+ * End-to-end pin for the search_tasks_semantic + Mastra PgVector pipeline.
+ *
+ * Three tasks are seeded (one terraform-tagged, two unrelated), all are
+ * embedded via the production embedTask path, and a semantically-similar query
+ * must rank the terraform task first. The query string is intentionally close
+ * (lexically) to the terraform task's source text so the FakeEmbeddingProvider
+ * (which produces stable per-input vectors) yields a high cosine similarity
+ * for that task vs. the decoys.
  */
 
 import { RequestContext } from '@mastra/core/request-context';
+import { PgVector } from '@mastra/pg';
 import { resetCoreDb } from '@seta/core/testing';
-import { embedTask } from '@seta/planner';
+import { embedTask, PLANNER_VECTOR_NAMESPACE } from '@seta/planner';
 import { searchTasksSemanticTool } from '@seta/planner/agent-tools';
 import { closePools, initPools } from '@seta/shared-db';
-import { NoopReranker } from '@seta/shared-retrieval';
 import { FakeEmbeddingProvider, withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { seedTaskForTest } from '../../helpers/seed.ts';
 
-const withDb = <T>(fn: (ctx: { pool: import('pg').Pool }) => Promise<T>) =>
+const withDb = <T>(fn: (ctx: { pool: import('pg').Pool; pgVector: PgVector }) => Promise<T>) =>
   withTestDb(
     {
       templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
@@ -26,9 +28,15 @@ const withDb = <T>(fn: (ctx: { pool: import('pg').Pool }) => Promise<T>) =>
     async ({ pool, databaseUrl }) => {
       resetCoreDb();
       initPools({ databaseUrl });
+      const pgVector = new PgVector({
+        id: 'planner-task-embeddings-test',
+        connectionString: databaseUrl,
+        schemaName: PLANNER_VECTOR_NAMESPACE,
+      });
       try {
-        return await fn({ pool });
+        return await fn({ pool, pgVector });
       } finally {
+        await pgVector.disconnect().catch(() => {});
         resetCoreDb();
         await closePools();
       }
@@ -51,22 +59,20 @@ function makeSessionProvider(tenantId: string) {
 }
 
 describe('Demo journey step 5 — find tasks needing review on terraform', () => {
-  it('returns terraform-tagged tasks ahead of unrelated ones', () =>
-    withDb(async ({ pool }) => {
+  it('ranks the terraform task ahead of unrelated ones via vector similarity', () =>
+    withDb(async ({ pool, pgVector }) => {
       const provider = new FakeEmbeddingProvider();
 
-      // Seed the terraform task first to capture tenant_id.
-      // Title/description deliberately include "terraform", "review", "task", and "need" so
-      // the FTS arm of the hybrid retriever matches this task for the demo query.
+      const terraformTitle = 'Review terraform module changes for prod EKS';
+      const terraformDesc =
+        'This task needs a second pair of eyes on PR #143 before merge. Review required.';
       const terraformTask = await seedTaskForTest(pool, {
-        title: 'Review terraform module changes for prod EKS',
-        description:
-          'This task needs a second pair of eyes on PR #143 before merge. Review required.',
+        title: terraformTitle,
+        description: terraformDesc,
         skill_tags: ['terraform', 'kubernetes'],
       });
       const { tenant_id, task_id: terraformTaskId } = terraformTask;
 
-      // Seed two unrelated tasks in the same tenant.
       const okrTask = await seedTaskForTest(pool, {
         tenant_id,
         pool,
@@ -83,23 +89,30 @@ describe('Demo journey step 5 — find tasks needing review on terraform', () =>
         skill_tags: ['postgres'],
       });
 
-      // Embed all three tasks.
       const taskIds = [terraformTaskId, okrTask.task_id, retroTask.task_id];
       for (const taskId of taskIds) {
         const { randomUUID } = await import('node:crypto');
-        await embedTask({ tenant_id, task_id: taskId, event_id: randomUUID() }, { pool, provider });
+        await embedTask(
+          { tenant_id, task_id: taskId, event_id: randomUUID() },
+          { provider, pgVector },
+        );
       }
 
       const tool = searchTasksSemanticTool({
         provider,
-        pool,
-        reranker: new NoopReranker(),
+        pgVector,
         sessionProvider: makeSessionProvider(tenant_id),
       });
 
+      // Query lexically mirrors the terraform task's labeled source so the
+      // FakeEmbeddingProvider's stable hash-based vector lands near it in
+      // cosine space.
       const actor = { type: 'user' as const, user_id: 'test-user-id' };
       const result = await tool.execute!(
-        { query: 'tasks about terraform needing review', limit: 5 },
+        {
+          query: `Title: ${terraformTitle}\nDescription: ${terraformDesc}\nSkills: terraform, kubernetes`,
+          limit: 5,
+        },
         makeFakeCtx(actor),
       );
 
@@ -108,11 +121,7 @@ describe('Demo journey step 5 — find tasks needing review on terraform', () =>
 
       const { hits } = result as Extract<typeof result, { hits: unknown[] }>;
       expect(hits.length).toBeGreaterThanOrEqual(1);
-      // The terraform task must rank first — FTS on "terraform" guarantees this.
       expect(hits[0]?.task.task_id).toBe(terraformTaskId);
-      // Both arms must fire: terraform task matches FTS AND has a vector neighbor.
-      // 'hybrid' source confirms both FTS + vector contributed; 'fts' source would
-      // indicate the vector pipeline silently broke.
-      expect(hits[0]?.source).toBe('hybrid');
+      expect(hits[0]?.source).toBe('vector');
     }));
 });

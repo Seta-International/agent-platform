@@ -87,6 +87,7 @@ export function registerCopilot(deps: {
   const factoryDeps: AgentToolFactoryDeps = {
     provider: makeLazyEmbeddingProvider(),
     pool: deps.pool,
+    databaseUrl: deps.databaseUrl,
     reranker: resolveReranker(),
   };
   const builtFactoryTools: CopilotTool[] = deps.reg.collected.agentToolFactories.map(
