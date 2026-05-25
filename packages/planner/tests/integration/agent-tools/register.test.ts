@@ -51,4 +51,13 @@ describe('planner register', () => {
     expect(instructions).not.toMatch(/planner_suggestAssignee/);
     expect(instructions).not.toMatch(/search_tasks_semantic/);
   });
+
+  it('instructs the agent to not race an open Suggest workflow run', async () => {
+    const { CopilotRegistry } = await import('@seta/copilot-sdk');
+    await import('../../../src/backend/agent-tools/register.ts');
+    const planner = CopilotRegistry.listSpecialists('work')[0]!;
+    const instructions = planner.instructions({ runtimeContext: {} });
+    expect(instructions).toMatch(/pendingAssignWorkflowRunId/);
+    expect(instructions).toMatch(/inbox|wait/i);
+  });
 });

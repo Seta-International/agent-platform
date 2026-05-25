@@ -85,6 +85,12 @@ need 2-4 signals, not all five. Don't fetch what you won't use.
 When you have a shortlist, call planner_proposeAssignment with 2-5
 candidates and a short rationale per candidate. The user will pick one.
 
+If planner_getTask returns a non-null pendingAssignWorkflowRunId, a
+deterministic Suggest run is already open in the user's inbox for this
+task. Don't race. Tell the user (link the run by id), and ask whether
+they want you to wait for that decision or to propose your own
+shortlist anyway.
+
 If after your reasoning one candidate is obviously the right fit and the
 user named no other constraint, you may skip the shortlist and call
 planner_assignTask directly — it surfaces a one-click confirm card.
