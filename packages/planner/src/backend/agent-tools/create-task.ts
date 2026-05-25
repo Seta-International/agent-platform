@@ -1,111 +1,74 @@
-import type { PgVector } from '@mastra/pg';
-import { ApprovalCardSchema, actorFromContext, defineCopilotTool } from '@seta/copilot-sdk';
+import {
+  type ApprovalCard,
+  ApprovalCardSchema,
+  actorFromContext,
+  defineCopilotTool,
+} from '@seta/copilot-sdk';
 import { buildActorSession } from '@seta/identity';
-import type { EmbeddingProvider } from '@seta/shared-embeddings';
-import { resolveReranker } from '@seta/shared-retrieval';
 import { z } from 'zod';
-import { getPlannerVectorStore } from '../embeddings/vector-store.ts';
-import {
-  DedupOutputSchema,
-  LinkModeSchema,
-  TaskDraftSchema,
-} from '../workflows/dedup-on-create/schemas.ts';
-import { buildConfirmNotDuplicateCard } from '../workflows/dedup-on-create/steps/confirm-not-duplicate.ts';
-import {
-  applyDupDecision,
-  type DupAction,
-  findDupCandidates,
-} from '../workflows/dedup-on-create/workflow.ts';
+import { DedupOutputSchema, TaskDraftSchema } from '../workflows/dedup-on-create/schemas.ts';
+import { applyDupDecision } from '../workflows/dedup-on-create/workflow.ts';
 
-export interface PlannerCreateTaskDeps {
-  provider: EmbeddingProvider;
-  databaseUrl?: string;
-  pgVector?: PgVector;
-  thresholds?: { likelyDup: number; maybeDup: number };
-}
-
-const DEFAULT_THRESHOLDS = { likelyDup: 0.18, maybeDup: 0.3 };
-
-const DupActionSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('create-new') }),
-  z.object({ kind: z.literal('link'), existingId: z.string().uuid(), mode: LinkModeSchema }),
-  z.object({ kind: z.literal('cancel') }),
-]);
+const ResumeSchema = z.object({ action: z.enum(['confirm', 'cancel']) });
 
 /**
- * planner_createTask — single-call create with built-in dedup.
- *
- * 1. Validate the draft.
- * 2. Run findDupCandidates (read-only) inside execute.
- * 3. If no-match → create the task immediately and return.
- * 4. Otherwise → ctx.agent.suspend(ApprovalCard). The client renders the card
- *    with candidates + Related/Sub-task alternates. User responds with a
- *    DupAction; Mastra resumes execute with `ctx.agent.resumeData`.
- * 5. Resume path → applyDupDecision routes to createTaskStep /
- *    linkToExisting / cancelled.
+ * planner_createTask — thin confirm-and-create. Dedup is the agent's
+ * responsibility: the playbook tells the specialist to call
+ * planner_findSimilarTasks first. If the user still wants to create, the
+ * agent calls this tool, which surfaces a confirm card and writes on resume.
  */
-export function plannerCreateTaskTool(deps: PlannerCreateTaskDeps) {
-  const reranker = resolveReranker();
-  const thresholds = deps.thresholds ?? DEFAULT_THRESHOLDS;
-  const resolvePgVector = (): PgVector => {
-    if (deps.pgVector) return deps.pgVector;
-    if (!deps.databaseUrl) {
-      throw new Error('planner_createTask: pgVector or databaseUrl required');
-    }
-    return getPlannerVectorStore(deps.databaseUrl);
-  };
+export interface PlannerCreateTaskDeps {
+  // Kept for API parity with previous shape; the runtime no longer needs these.
+  provider?: unknown;
+  databaseUrl?: unknown;
+}
 
+export function plannerCreateTaskTool(_deps?: PlannerCreateTaskDeps) {
   return defineCopilotTool({
     id: 'planner_createTask',
     name: 'Create Task',
     description:
-      'Create a task. Internally runs the dedupOnCreate workflow: searches for ' +
-      'similar tasks; if a likely duplicate is found, suspends with a candidate ' +
-      'list so the user can pick Create-new / Related / Sub-task / Cancel.',
+      'Create a task. Surfaces a confirm card with the proposed task; user clicks to commit. ' +
+      'Check for duplicates first by calling planner_findSimilarTasks (per the specialist playbook).',
     input: TaskDraftSchema,
     output: DedupOutputSchema,
     suspendSchema: ApprovalCardSchema,
-    resumeSchema: DupActionSchema,
+    resumeSchema: ResumeSchema,
     rbac: 'planner.task.create',
     execute: async (draft, ctx) => {
       const actor = actorFromContext(ctx);
       const session = await buildActorSession(actor);
-      const resumeData = ctx.agent?.resumeData;
+      const resumeData = ctx.agent?.resumeData as z.infer<typeof ResumeSchema> | undefined;
 
-      if (resumeData) {
+      if (resumeData?.action === 'confirm') {
         return applyDupDecision({
           draft: TaskDraftSchema.parse(draft),
-          action: resumeData satisfies DupAction,
-          session,
-        });
-      }
-
-      const {
-        classification,
-        candidates,
-        draft: normalized,
-      } = await findDupCandidates(
-        { draft, session: { tenantId: session.tenant_id, userId: actor.user_id } },
-        { provider: deps.provider, pgVector: resolvePgVector(), reranker, thresholds },
-      );
-
-      if (classification === 'no-match') {
-        return applyDupDecision({
-          draft: normalized,
           action: { kind: 'create-new' },
           session,
         });
       }
+      if (resumeData?.action === 'cancel') return { kind: 'cancelled' as const };
 
-      const card = buildConfirmNotDuplicateCard({
-        classification,
-        candidates,
-        draft: normalized,
-        session: { tenantId: session.tenant_id, userId: actor.user_id },
+      const card: ApprovalCard = {
         toolCallId: ctx.agent?.toolCallId ?? 'unknown',
-      });
+        intent: 'Create this task',
+        riskBadge: 'write',
+        summary: `Create "${draft.title}"`,
+        details: draft.description
+          ? [{ kind: 'text', body: draft.description }]
+          : [{ kind: 'text', body: '(no description)' }],
+        primary: { label: 'Create', argsPatch: { action: 'confirm' } },
+        alternates: [],
+        decline: { label: 'Cancel' },
+        meta: {
+          tenantId: session.tenant_id,
+          userId: actor.user_id,
+          agentPath: ['supervisor', 'work', 'planner'],
+          toolId: 'planner_createTask',
+          ts: new Date().toISOString(),
+        },
+      };
       await ctx.agent?.suspend?.(card);
-      // Unreachable in practice — Mastra throws/returns after suspend.
       return undefined;
     },
   });
