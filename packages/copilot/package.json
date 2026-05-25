@@ -6,7 +6,6 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./agent-reads": "./src/agent-reads.ts",
     "./events": "./src/events/index.ts",
     "./rbac": "./src/rbac.ts",
     "./register": "./src/register.ts",

@@ -3,11 +3,12 @@ import { fileURLToPath } from 'node:url';
 import type { Mastra } from '@mastra/core';
 import { Agent } from '@mastra/core/agent';
 import type { AnyWorkflow } from '@mastra/core/workflows';
-import { CopilotRegistry } from '@seta/copilot-sdk';
+import { CopilotRegistry, registerPendingAssignReader } from '@seta/copilot-sdk';
 import type { AgentSpec, ContributionRegistry } from '@seta/core';
 import type { Hono } from 'hono';
 import type { Pool } from 'pg';
 import * as schema from './backend/db/schema.ts';
+import { getPendingAssignRunIdForTask } from './backend/domain/get-pending-assign-run-for-task.ts';
 import { initCopilotRegistry } from './backend/init-registry.ts';
 import { type ModelTier, resolveModel } from './backend/model-registry.ts';
 import { registerCopilotRoutes } from './backend/routes.ts';
@@ -67,6 +68,7 @@ export function registerCopilot(deps: {
     mastra.addWorkflow(spec.workflow as AnyWorkflow, spec.id);
     registerWorkflowInputSchema(spec.id, spec.inputSchema);
   }
+  registerPendingAssignReader(getPendingAssignRunIdForTask);
   void mastra.startWorkers();
 
   const supervisor = buildSupervisorTree({ mastra });

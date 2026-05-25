@@ -43,7 +43,6 @@
     "@mastra/pg": "^1.11.1",
     "@mastra/rag": "^2.2.1",
     "@opentelemetry/api": "^1.9.1",
-    "@seta/copilot": "workspace:^",
     "@seta/copilot-sdk": "workspace:^",
     "@seta/notifications": "workspace:^",
     "@seta/shared-embeddings": "workspace:^",

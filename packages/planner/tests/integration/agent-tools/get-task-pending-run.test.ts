@@ -1,10 +1,32 @@
 import { randomUUID } from 'node:crypto';
+import { registerPendingAssignReader } from '@seta/copilot-sdk';
 import { hashRoleSummary, type SessionScope } from '@seta/core';
 import { createTestTenantWithAdmin } from '@seta/identity/testing';
 import { createGroup, createPlan, createTask } from '@seta/planner';
 import { plannerGetTaskTool } from '@seta/planner/agent-tools';
+import type { Pool } from 'pg';
 import { describe, expect, it } from 'vitest';
 import { makeToolContext, withCopilotTestDb } from '../agent-tools-helpers.ts';
+
+// In production registerCopilot() registers the reader (it lives in
+// packages/copilot/src/backend/domain). Here we register an inline reader
+// bound to the per-test pool that withCopilotTestDb hands us — same SQL
+// contract, no relative cross-package import.
+function bindReader(pool: Pool): void {
+  registerPendingAssignReader(async ({ taskId, tenantId }) => {
+    const { rows } = await pool.query<{ run_id: string }>(
+      `SELECT run_id FROM copilot.workflow_runs
+        WHERE workflow_id = 'planner.assignBySkill'
+          AND status = 'paused'
+          AND tenant_id = $1::uuid
+          AND input_summary @> jsonb_build_object('taskId', $2::text)
+        ORDER BY started_at DESC
+        LIMIT 1`,
+      [tenantId, taskId],
+    );
+    return rows[0]?.run_id ?? null;
+  });
+}
 
 function buildAdminSession(opts: {
   tenant_id: string;
@@ -46,6 +68,7 @@ async function seedPausedAssignRun(
 describe('planner_getTask — pendingAssignWorkflowRunId', () => {
   it('is null when no Suggest run is open for the task', async () => {
     await withCopilotTestDb(async ({ pool }) => {
+      bindReader(pool);
       const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
       const session = buildAdminSession({
         tenant_id,
@@ -74,6 +97,7 @@ describe('planner_getTask — pendingAssignWorkflowRunId', () => {
 
   it('returns the run_id when a paused planner.assignBySkill run exists for the task', async () => {
     await withCopilotTestDb(async ({ pool }) => {
+      bindReader(pool);
       const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
       const session = buildAdminSession({
         tenant_id,
@@ -107,6 +131,7 @@ describe('planner_getTask — pendingAssignWorkflowRunId', () => {
 
   it('does not leak run_ids from a different tenant', async () => {
     await withCopilotTestDb(async ({ pool }) => {
+      bindReader(pool);
       const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
       const session = buildAdminSession({
         tenant_id,
@@ -142,6 +167,7 @@ describe('planner_getTask — pendingAssignWorkflowRunId', () => {
 
   it('ignores non-paused runs (running / success)', async () => {
     await withCopilotTestDb(async ({ pool }) => {
+      bindReader(pool);
       const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
       const session = buildAdminSession({
         tenant_id,

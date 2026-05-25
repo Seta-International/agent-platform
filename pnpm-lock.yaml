@@ -965,9 +965,6 @@ importers:
       '@opentelemetry/api':
         specifier: ^1.9.1
         version: 1.9.1
-      '@seta/copilot':
-        specifier: workspace:^
-        version: link:../copilot
       '@seta/copilot-sdk':
         specifier: workspace:^
         version: link:../../sdks/copilot

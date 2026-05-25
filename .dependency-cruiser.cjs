@@ -172,19 +172,18 @@ module.exports = {
 
     // 12. Feature and orchestrator modules consume the agent SDK
     //     (@seta/copilot-sdk), never @seta/copilot internals. The only
-    //     @seta/copilot subpaths a module may import are ./rbac, ./events,
-    //     and ./agent-reads (the curated cross-schema read surface).
+    //     @seta/copilot subpaths a module may import are ./rbac and ./events.
     //     Apps (apps/server, apps/cli) are exempt — `from:` matches only
     //     packages.
     {
       name: 'modules-no-copilot-internals',
       severity: 'error',
       comment:
-        'Feature and orchestrator modules consume the agent SDK (@seta/copilot-sdk), never @seta/copilot internals. Permitted @seta/copilot subpaths from a module: ./rbac, ./events, ./agent-reads.',
+        'Feature and orchestrator modules consume the agent SDK (@seta/copilot-sdk), never @seta/copilot internals. The only @seta/copilot subpaths a module may import are ./rbac and ./events.',
       from: { path: '^packages/(?!shared-|copilot/)([^/]+)/src/' },
       to: {
         path: '^packages/copilot/src/',
-        pathNot: '^packages/copilot/src/(rbac|events|agent-reads)(/|\\.ts$)',
+        pathNot: '^packages/copilot/src/(rbac|events)(/|\\.ts$)',
       },
     },
 

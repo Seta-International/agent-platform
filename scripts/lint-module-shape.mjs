@@ -41,6 +41,7 @@ const SRC_ALLOWLIST = new Set([
   'register.ts',
   'models.ts',
   'agent-tools.ts',
+  'agent-reads.ts',
   'testing',
   'testing.ts',
   'backend',
