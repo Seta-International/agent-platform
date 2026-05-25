@@ -30,19 +30,15 @@ function buildSpecialistAgent(spec: SpecialistSpec, memory: Memory | undefined):
 function buildDomainSupervisor(domain: Domain, memory: Memory | undefined): Agent {
   const snapshot = CopilotRegistry.snapshot();
   const specialists = snapshot.specialists.filter((s) => s.domain === domain);
-  const workflows = snapshot.workflows.filter((w) => w.domain === domain);
   const agents: Record<string, Agent> = {};
   for (const s of specialists) agents[s.id] = buildSpecialistAgent(s, memory);
-  const wfMap: Record<string, unknown> = {};
-  for (const w of workflows) wfMap[w.id] = w.workflow;
   return new Agent({
     id: `${domain}-supervisor`,
     name: `${domain}-supervisor`,
-    description: `Coordinates ${domain} specialists and workflows`,
+    description: `Coordinates ${domain} specialists`,
     instructions: generateDomainPrompt(domain, snapshot),
     model: resolveModel('auto', { tierHint: 'balanced' }).model as never,
     agents: agents as never,
-    workflows: wfMap as never,
     ...(memory ? { memory } : {}),
   });
 }

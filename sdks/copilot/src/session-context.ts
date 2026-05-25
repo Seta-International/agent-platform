@@ -6,12 +6,6 @@ export interface CopilotSession {
   userId: string;
 }
 
-/**
- * Accepts a `RequestContext<unknown>` (the shape Mastra workflow steps see) and
- * casts internally — callers shouldn't have to parameterize `RequestContext`
- * with `CopilotRequestContext` at every step. Same posture as
- * `actorFromContext`, which also accepts an untyped `requestContext`.
- */
 export async function sessionFromRequestContext(
   requestContext: RequestContext,
 ): Promise<CopilotSession> {

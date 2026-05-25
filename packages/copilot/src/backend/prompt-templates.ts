@@ -32,23 +32,21 @@ export function generateTopRoutingPrompt(snapshot: Snapshot): string {
 
 export function generateDomainPrompt(domain: Domain, snapshot: Snapshot): string {
   const specs = snapshot.specialists.filter((s) => s.domain === domain);
-  const wfs = snapshot.workflows.filter((w) => w.domain === domain);
   const lines = [
-    `You coordinate ${DOMAIN_LABEL[domain]} requests using specialized agents and workflows.`,
+    `You coordinate ${DOMAIN_LABEL[domain]} requests using specialized agents.`,
     '',
     'Available specialists:',
   ];
   for (const s of specs) lines.push(`- ${s.id}: ${s.description}`);
-  if (wfs.length > 0) {
-    lines.push('', 'Available workflows (deterministic multi-step):');
-    for (const w of wfs) lines.push(`- ${w.id}: ${w.description}`);
-  }
   lines.push(
     '',
     'Delegation strategy:',
-    '- For single-module requests, delegate to the owning specialist.',
-    '- For known multi-step flows, call the workflow directly.',
+    '- Delegate to the matching specialist for the request.',
     '- Specialists can read across modules via shared read tools — prefer one delegation hop.',
+    '',
+    'Workflows are reachable via REST/UI triggers (the workflow-approvals inbox),',
+    'not from chat. If a user asks for a deterministic ranked list, tell them to',
+    'use the out-of-chat trigger; do not try to invoke a workflow yourself.',
   );
   return lines.join('\n');
 }
