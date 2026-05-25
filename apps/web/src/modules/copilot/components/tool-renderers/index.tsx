@@ -7,6 +7,7 @@ import { DelegateRenderer } from './delegate';
 import { ListMyRolesRenderer } from './identity.list-my-roles';
 import { UpdateMyDisplayNameRenderer } from './identity.update-my-display-name';
 import { WhoAmIRenderer } from './identity.who-am-i';
+import { PlannerCreateTaskRenderer } from './planner.create-task';
 
 function toReadState(
   props: ToolCallMessagePartProps,
@@ -28,6 +29,7 @@ const DEDICATED_TOOL_IDS = new Set([
   'identity_whoAmI',
   'identity_listMyRoles',
   'identity_updateMyDisplayName',
+  'planner_createTask',
 ]);
 
 const DELEGATE_TARGETS: ReadonlyArray<{ name: string; label: string }> = [
@@ -101,6 +103,32 @@ function UpdateMyDisplayNameRegistration({ name }: { name: string }) {
   return null;
 }
 
+function PlannerCreateTaskRegistration({ name }: { name: string }) {
+  useAssistantToolUI({
+    toolName: 'planner_createTask',
+    render: (props) => {
+      const interrupt = (
+        props as {
+          interrupt?: {
+            payload?: Parameters<typeof PlannerCreateTaskRenderer>[0]['approval'];
+          };
+        }
+      ).interrupt;
+      return (
+        <PlannerCreateTaskRenderer
+          name={name}
+          args={props.args as Record<string, unknown>}
+          state={toWriteState(props)}
+          output={props.result ?? undefined}
+          callId={props.toolCallId}
+          approval={interrupt?.payload}
+        />
+      );
+    },
+  });
+  return null;
+}
+
 function DelegateRegistration({ name, label }: { name: string; label: string }) {
   useAssistantToolUI({
     toolName: `agent-${name}`,
@@ -146,6 +174,7 @@ export function ToolUIRegistry() {
       <WhoAmIRegistration name={nameFor('identity_whoAmI')} />
       <ListMyRolesRegistration name={nameFor('identity_listMyRoles')} />
       <UpdateMyDisplayNameRegistration name={nameFor('identity_updateMyDisplayName')} />
+      <PlannerCreateTaskRegistration name={nameFor('planner_createTask')} />
       {tools
         .filter((t) => !DEDICATED_TOOL_IDS.has(t.id))
         .map((t) => (

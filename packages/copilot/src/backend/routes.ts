@@ -529,6 +529,14 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
     toolCallId: z.string().min(1),
     approved: z.boolean(),
     threadId: z.string().optional(),
+    /**
+     * Custom resume payload to hand to the suspended tool's `execute` as
+     * `ctx.agent.resumeData`. When present (and approved=true), the server
+     * calls `resumeStream(resumeData, opts)` directly so the tool can branch
+     * on the user's pick — e.g. the dedup workflow's "Related to #N" /
+     * "Sub-task of #N" alternatives. Omit for plain approve/decline.
+     */
+    resumeData: z.unknown().optional(),
   });
 
   app.post('/api/copilot/v1/chat/approve', async (c) => {
@@ -566,13 +574,23 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
 
     let result: unknown;
     try {
-      result = parsed.data.approved
-        ? await (
-            deps.supervisor as unknown as { approveToolCall: (o: never) => Promise<unknown> }
-          ).approveToolCall(resumeOpts)
-        : await (
-            deps.supervisor as unknown as { declineToolCall: (o: never) => Promise<unknown> }
-          ).declineToolCall(resumeOpts);
+      if (!parsed.data.approved) {
+        result = await (
+          deps.supervisor as unknown as { declineToolCall: (o: never) => Promise<unknown> }
+        ).declineToolCall(resumeOpts);
+      } else if (parsed.data.resumeData !== undefined) {
+        // Custom resume payload — bypass approveToolCall's hard-coded
+        // { approved: true } and hand the tool exactly what the user picked.
+        result = await (
+          deps.supervisor as unknown as {
+            resumeStream: (data: unknown, o: never) => Promise<unknown>;
+          }
+        ).resumeStream(parsed.data.resumeData, resumeOpts);
+      } else {
+        result = await (
+          deps.supervisor as unknown as { approveToolCall: (o: never) => Promise<unknown> }
+        ).approveToolCall(resumeOpts);
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       return c.json({ error: 'resume_failed', message: msg }, 500);

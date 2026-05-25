@@ -42,6 +42,12 @@ export interface ResolveApprovalArgs {
   approved: boolean;
   /** Thread id known from the URL, when the user was already on a thread page. */
   knownThreadId?: string;
+  /**
+   * Optional custom resume payload, forwarded to the suspended tool as
+   * `ctx.agent.resumeData`. Used by multi-option HITL flows (e.g. dedup)
+   * where a binary approve/decline isn't expressive enough.
+   */
+  resumeData?: unknown;
 }
 
 export async function resolveApproval(args: ResolveApprovalArgs): Promise<void> {
@@ -50,6 +56,7 @@ export async function resolveApproval(args: ResolveApprovalArgs): Promise<void> 
     toolCallId: args.toolCallId,
     approved: args.approved,
     ...(args.knownThreadId ? { threadId: args.knownThreadId } : {}),
+    ...(args.resumeData !== undefined ? { resumeData: args.resumeData } : {}),
   });
   const resolvedThreadId = await refetchTopmostThreadId(args.queryClient, args.knownThreadId);
   if (resolvedThreadId) {
