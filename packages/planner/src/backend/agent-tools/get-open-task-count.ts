@@ -1,4 +1,4 @@
-import type { CrossModuleReadToolSpec } from '@seta/copilot-sdk';
+import { type CrossModuleReadToolSpec, defineCrossModuleReadAsTool } from '@seta/copilot-sdk';
 import { and, count, eq, isNull, lt } from 'drizzle-orm';
 import { z } from 'zod';
 import { plannerDb } from '../db/index.ts';
@@ -51,3 +51,18 @@ export const plannerGetOpenTaskCountSpec: CrossModuleReadToolSpec<
     return { openCount: Number(row?.n ?? 0) };
   },
 };
+
+/**
+ * LLM-visible Mastra tool wrapper that derives `session` from `requestContext`.
+ * Specialists register this on their `tools` record; the underlying `*Spec`
+ * remains the source of truth for non-LLM callers (the assignBySkill workflow).
+ */
+export const plannerGetOpenTaskCountTool = defineCrossModuleReadAsTool({
+  id: plannerGetOpenTaskCountSpec.id,
+  name: 'Open Task Count',
+  description: plannerGetOpenTaskCountSpec.description,
+  inputSchema,
+  outputSchema,
+  rbac: plannerGetOpenTaskCountSpec.rbac,
+  execute: plannerGetOpenTaskCountSpec.execute,
+});

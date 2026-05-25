@@ -3,6 +3,8 @@ import { listMyRolesTool } from './list-my-roles.ts';
 import { updateMyDisplayNameTool } from './update-my-display-name.ts';
 import { whoAmITool } from './who-am-i.ts';
 
+export { identityGetAvailabilityTool } from './get-availability-for-user.ts';
+export { identityGetTimezoneTool } from './get-timezone-for-user.ts';
 export { listMyRolesTool } from './list-my-roles.ts';
 export {
   type MatchUsersToTopicToolDeps,

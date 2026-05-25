@@ -1,4 +1,4 @@
-import type { CrossModuleReadToolSpec } from '@seta/copilot-sdk';
+import { type CrossModuleReadToolSpec, defineCrossModuleReadAsTool } from '@seta/copilot-sdk';
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { identityDb } from '../db/index.ts';
@@ -57,3 +57,18 @@ export const identityGetAvailabilitySpec: CrossModuleReadToolSpec<
     };
   },
 };
+
+/**
+ * LLM-visible Mastra tool wrapper that derives `session` from `requestContext`.
+ * Specialists register this on their `tools` record; the underlying `*Spec`
+ * remains the source of truth for non-LLM callers.
+ */
+export const identityGetAvailabilityTool = defineCrossModuleReadAsTool({
+  id: identityGetAvailabilitySpec.id,
+  name: 'Get Availability',
+  description: identityGetAvailabilitySpec.description,
+  inputSchema,
+  outputSchema,
+  rbac: identityGetAvailabilitySpec.rbac,
+  execute: identityGetAvailabilitySpec.execute,
+});

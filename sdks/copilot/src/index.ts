@@ -2,7 +2,7 @@
 // no runtime imports of @seta/copilot, no Hono.
 
 export type { AgentToolFactory, AgentToolFactoryDeps } from './agent-tool-factory.ts';
-
+export { defineCrossModuleReadAsTool } from './cross-module-read-as-tool.ts';
 export { defineCopilotTool } from './define-copilot-tool.ts';
 export * from './hitl/index.ts';
 export { registerToolPermission, requiredPermissionFor } from './rbac.ts';
