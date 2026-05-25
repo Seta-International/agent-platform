@@ -16,9 +16,9 @@ export function useUpdateBucket(planId: string) {
     savingId: (v) => v.bucket_id,
     invalidate: () => [plannerKeys.plan(planId)],
     errorMessage: () => "Couldn't save bucket changes.",
-    onConflict: (err, _vars, qc) => {
+    onConflict: (err, vars, qc) => {
       const v = parseConflictVersion(err);
-      if (v !== undefined) patchBucketVersion(qc, planId, bucketId, v);
+      if (v !== undefined) patchBucketVersion(qc, planId, vars.bucket_id, v);
     },
   });
 }

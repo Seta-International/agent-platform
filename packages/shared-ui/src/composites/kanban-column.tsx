@@ -148,7 +148,6 @@ export function KanbanColumn({
             <>
               <input
                 className="kanban-column__rename-input"
-                // biome-ignore lint/a11y/noAutofocus: intentional UX — inline rename needs immediate focus
                 autoFocus
                 value={renameValue}
                 onChange={(e) => setRenameValue(e.target.value)}
