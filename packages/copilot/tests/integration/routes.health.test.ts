@@ -12,8 +12,12 @@ describe('GET /api/copilot/v1/health', () => {
     await withCopilotTestDb(async ({ pool, databaseUrl }) => {
       const mastra = buildMastra({ pool, databaseUrl });
       const app = new Hono<TestEnv>();
-      const fakeFactory = Object.assign(() => ({}) as never, { specs: [], names: [] });
-      registerCopilotRoutes(app, { factory: fakeFactory as never, mastra: mastra as never, pool });
+      const fakeSupervisor = { stream: async () => ({}) } as never;
+      registerCopilotRoutes(app, {
+        supervisor: fakeSupervisor,
+        mastra: mastra as never,
+        pool,
+      });
       const res = await app.request('/api/copilot/v1/health');
       expect(res.status).toBe(200);
       const body = (await res.json()) as {

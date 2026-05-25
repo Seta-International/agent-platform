@@ -12,9 +12,9 @@ type TestSession = {
   role_summary: { roles: string[]; cross_tenant_read: boolean };
 };
 
-const fakeAgent = {
+const fakeSupervisor = {
   stream: async () => ({}) as never,
-};
+} as never;
 
 const fakeMastra = { getStorage: () => null } as never;
 const fakePool = {
@@ -22,15 +22,6 @@ const fakePool = {
     throw new Error('no pool in unit test');
   },
 } as unknown as Pool;
-const fakeSessionAgents = {
-  get: (name: string) => (name === 'router' ? fakeAgent : undefined),
-  names: () => ['router'],
-  specs: () => [{ name: 'router', label: 'R', description: 'r', instructions: '', tools: [] }],
-};
-const fakeFactory = Object.assign(() => fakeSessionAgents, {
-  specs: [{ name: 'router', label: 'R', description: 'r', instructions: '', tools: [] }],
-  names: ['router'],
-}) as never;
 
 const v6UserMessage = (text: string) => ({
   id: 'm-1',
@@ -38,11 +29,11 @@ const v6UserMessage = (text: string) => ({
   parts: [{ type: 'text' as const, text }],
 });
 
-describe('POST /api/copilot/v1/chat/:agentName', () => {
+describe('POST /api/copilot/v1/chat', () => {
   it('returns 401 when no session', async () => {
     const app = new Hono<{ Variables: { session: TestSession } }>();
-    registerCopilotRoutes(app, { factory: fakeFactory, mastra: fakeMastra, pool: fakePool });
-    const res = await app.request('/api/copilot/v1/chat/router', {
+    registerCopilotRoutes(app, { supervisor: fakeSupervisor, mastra: fakeMastra, pool: fakePool });
+    const res = await app.request('/api/copilot/v1/chat', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ messages: [v6UserMessage('hi')] }),
@@ -61,36 +52,13 @@ describe('POST /api/copilot/v1/chat/:agentName', () => {
       });
       await next();
     });
-    registerCopilotRoutes(app, { factory: fakeFactory, mastra: fakeMastra, pool: fakePool });
-    const res = await app.request('/api/copilot/v1/chat/router', {
+    registerCopilotRoutes(app, { supervisor: fakeSupervisor, mastra: fakeMastra, pool: fakePool });
+    const res = await app.request('/api/copilot/v1/chat', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ messages: [v6UserMessage('hi')] }),
     });
     expect(res.status).toBe(403);
-  });
-
-  it('returns 404 for unknown agent name', async () => {
-    await withCopilotTestDb(async ({ pool }) => {
-      const { admin_user_id, tenant_id } = await createTestTenantWithAdmin({ pool });
-      const app = new Hono<{ Variables: { session: TestSession } }>();
-      app.use('*', async (c, next) => {
-        c.set('session', {
-          tenant_id,
-          user_id: admin_user_id,
-          effective_permissions: new Set(['copilot.chat.use']),
-          role_summary: { roles: ['org.admin'], cross_tenant_read: false },
-        });
-        await next();
-      });
-      registerCopilotRoutes(app, { factory: fakeFactory, mastra: fakeMastra, pool: fakePool });
-      const res = await app.request('/api/copilot/v1/chat/unknown', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ messages: [v6UserMessage('hi')] }),
-      });
-      expect(res.status).toBe(404);
-    });
   });
 
   it('returns 400 for invalid body', async () => {
@@ -106,8 +74,12 @@ describe('POST /api/copilot/v1/chat/:agentName', () => {
         });
         await next();
       });
-      registerCopilotRoutes(app, { factory: fakeFactory, mastra: fakeMastra, pool: fakePool });
-      const res = await app.request('/api/copilot/v1/chat/router', {
+      registerCopilotRoutes(app, {
+        supervisor: fakeSupervisor,
+        mastra: fakeMastra,
+        pool: fakePool,
+      });
+      const res = await app.request('/api/copilot/v1/chat', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ messages: [] }),
@@ -120,25 +92,13 @@ describe('POST /api/copilot/v1/chat/:agentName', () => {
     await withCopilotTestDb(async ({ pool }) => {
       const { admin_user_id, tenant_id } = await createTestTenantWithAdmin({ pool });
 
-      // Recording factory whose agent.stream captures the messages it receives.
       const captured: { messages?: unknown[] } = {};
-      const recordingAgent = {
+      const recordingSupervisor = {
         stream: async (messages: unknown[]) => {
           captured.messages = messages;
           return {} as never;
         },
-      };
-      const recordingSessionAgents = {
-        get: (name: string) => (name === 'router' ? recordingAgent : undefined),
-        names: () => ['router'],
-        specs: () => [
-          { name: 'router', label: 'R', description: 'r', instructions: '', tools: [] },
-        ],
-      };
-      const recordingFactory = Object.assign(() => recordingSessionAgents, {
-        specs: [{ name: 'router', label: 'R', description: 'r', instructions: '', tools: [] }],
-        names: ['router'],
-      }) as never;
+      } as never;
 
       const app = new Hono<{ Variables: { session: TestSession } }>();
       app.use('*', async (c, next) => {
@@ -151,12 +111,12 @@ describe('POST /api/copilot/v1/chat/:agentName', () => {
         await next();
       });
       registerCopilotRoutes(app, {
-        factory: recordingFactory,
+        supervisor: recordingSupervisor,
         mastra: fakeMastra,
         pool: fakePool,
       });
 
-      const res = await app.request('/api/copilot/v1/chat/router', {
+      const res = await app.request('/api/copilot/v1/chat', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -271,7 +231,7 @@ describe('GET /api/copilot/v1/threads/:id (data-page-context round-trip)', () =>
         await next();
       });
       registerCopilotRoutes(app, {
-        factory: (() => ({})) as never,
+        supervisor: fakeSupervisor,
         mastra: mastra as never,
         pool,
       });

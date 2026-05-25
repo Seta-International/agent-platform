@@ -1,11 +1,12 @@
 import { toAISdkStream } from '@mastra/ai-sdk';
 import type { Mastra } from '@mastra/core';
+import type { Agent } from '@mastra/core/agent';
 import { RequestContext } from '@mastra/core/request-context';
+import { CopilotRegistry } from '@seta/copilot-sdk';
 import { createUIMessageStream, createUIMessageStreamResponse, type UIMessage } from 'ai';
 import type { Context, Hono } from 'hono';
 import type { Pool } from 'pg';
 import { z } from 'zod';
-import type { AgentFactory } from './agent-factory.ts';
 import { cancelWorkflowRun } from './domain/cancel-workflow-run.ts';
 import { decideApproval } from './domain/decide-approval.ts';
 import { getWorkflowRun } from './domain/get-workflow-run.ts';
@@ -53,7 +54,7 @@ const ChatBody = z.object({
 });
 
 export type CopilotRouteDeps = {
-  factory: AgentFactory;
+  supervisor: Agent;
   mastra: unknown;
   pool: Pool;
 };
@@ -120,20 +121,13 @@ function injectContextPrefix(messages: UIMessage[]): UIMessage[] {
 }
 
 export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotRouteDeps): void {
-  app.post('/api/copilot/v1/chat/:agentName', async (c) => {
+  app.post('/api/copilot/v1/chat', async (c) => {
     const session = c.get('session') as SessionLike | undefined;
     if (!session) {
       return c.json({ error: 'unauthorized', message: 'session required' }, 401);
     }
     if (!session.effective_permissions.has('copilot.chat.use')) {
       return c.json({ error: 'forbidden', message: 'copilot.chat.use required' }, 403);
-    }
-
-    const agentName = c.req.param('agentName');
-    const session_agents = deps.factory(session);
-    const agent = session_agents.get(agentName);
-    if (!agent) {
-      return c.json({ error: 'not_found', message: 'unknown agent' }, 404);
     }
 
     const parsed = ChatBody.safeParse(await c.req.json().catch(() => ({})));
@@ -164,13 +158,12 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
       throw e;
     }
 
-    const spec = session_agents.specs().find((s) => s.name === agentName);
     const resourceId = parsed.data.resourceId ?? session.user_id;
 
     let modelOverride: ReturnType<typeof resolveModel>['model'] | undefined;
     try {
       modelOverride = resolveModel(parsed.data.model, {
-        tierHint: spec?.defaultTier,
+        tierHint: 'balanced',
         lastUserText: userText,
       }).model;
     } catch (e) {
@@ -186,7 +179,7 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
       user_id: session.user_id,
     });
 
-    const result = await agent.stream(
+    const result = await deps.supervisor.stream(
       effectiveMessages as never,
       {
         ...(parsed.data.id
@@ -469,24 +462,25 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
     return c.json({ ok: true });
   });
 
-  app.get('/api/copilot/v1/agents', async (c) => {
-    const check = checkPerm(c.get('session') as SessionLike | undefined, 'copilot.chat.use');
-    if (!check.ok) return c.json(check.denied.body, check.denied.status);
-    const agents = deps.factory.specs
-      .filter((s) => s.userVisible !== false)
-      .map((s) => ({
-        name: s.name,
-        label: s.label,
-        description: s.description,
-        delegates: s.delegates ?? [],
-      }));
-    return c.json({ agents, default: agents[0]?.name ?? null });
-  });
-
   app.get('/api/copilot/v1/tools', async (c) => {
     const check = checkPerm(c.get('session') as SessionLike | undefined, 'copilot.chat.use');
     if (!check.ok) return c.json(check.denied.body, check.denied.status);
-    return c.json({ tools: deps.factory.toolCatalog });
+    const snap = CopilotRegistry.snapshot();
+    const seen = new Set<string>();
+    const tools: Array<{ id: string; name: string; description: string }> = [];
+    for (const s of snap.specialists) {
+      for (const [id, tool] of Object.entries(s.tools)) {
+        if (seen.has(id)) continue;
+        seen.add(id);
+        const meta = tool as { description?: string; displayName?: string };
+        tools.push({
+          id,
+          name: meta.displayName ?? id,
+          description: meta.description ?? '',
+        });
+      }
+    }
+    return c.json({ tools });
   });
 
   app.get('/api/copilot/v1/models', async (c) => {
@@ -537,20 +531,13 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
     threadId: z.string().optional(),
   });
 
-  app.post('/api/copilot/v1/chat/:agentName/approve', async (c) => {
+  app.post('/api/copilot/v1/chat/approve', async (c) => {
     const session = c.get('session') as SessionLike | undefined;
     if (!session) {
       return c.json({ error: 'unauthorized', message: 'session required' }, 401);
     }
     if (!session.effective_permissions.has('copilot.chat.use')) {
       return c.json({ error: 'forbidden', message: 'copilot.chat.use required' }, 403);
-    }
-
-    const agentName = c.req.param('agentName');
-    const sessionAgents = deps.factory(session);
-    const agent = sessionAgents.get(agentName);
-    if (!agent) {
-      return c.json({ error: 'not_found', message: 'unknown agent' }, 404);
     }
 
     const parsed = ApproveBody.safeParse(await c.req.json().catch(() => ({})));
@@ -580,12 +567,12 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
     let result: unknown;
     try {
       result = parsed.data.approved
-        ? await (agent as { approveToolCall: (o: never) => Promise<unknown> }).approveToolCall(
-            resumeOpts,
-          )
-        : await (agent as { declineToolCall: (o: never) => Promise<unknown> }).declineToolCall(
-            resumeOpts,
-          );
+        ? await (
+            deps.supervisor as unknown as { approveToolCall: (o: never) => Promise<unknown> }
+          ).approveToolCall(resumeOpts)
+        : await (
+            deps.supervisor as unknown as { declineToolCall: (o: never) => Promise<unknown> }
+          ).declineToolCall(resumeOpts);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       return c.json({ error: 'resume_failed', message: msg }, 500);
