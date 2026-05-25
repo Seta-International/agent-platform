@@ -31,7 +31,7 @@ import { computeAssigneeReorder } from './assignee-reorder';
 import { SuggestAssigneeButton } from './SuggestAssigneeButton';
 
 interface Props {
-  task: TaskWithAssigneesRow;
+  task: TaskWithAssigneesRow & { pending_assign_workflow_run_id?: string | null };
   planId: string;
   isLinkedToM365?: boolean;
 }
@@ -128,7 +128,11 @@ export function TaskDetailAssigneesCard({ task, planId, isLinkedToM365 = false }
       <header className="mb-2 flex items-center justify-between gap-2">
         <span className="t-sm subtle">Assignees</span>
         {task.assignees.length === 0 && (
-          <SuggestAssigneeButton taskId={task.id} taskTitle={task.title} />
+          <SuggestAssigneeButton
+            taskId={task.id}
+            taskTitle={task.title}
+            pendingAssignWorkflowRunId={task.pending_assign_workflow_run_id ?? null}
+          />
         )}
       </header>
 

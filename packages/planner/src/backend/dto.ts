@@ -227,6 +227,9 @@ export interface TaskWithAssigneesRow extends TaskRow {
 export interface TaskDetailRow extends TaskWithAssigneesRow {
   checklist: ChecklistItemRow[];
   references: TaskReferenceRow[];
+  // Set by the REST handler — null unless a planner.assignBySkill
+  // workflow run is suspended for this task in the same tenant.
+  pending_assign_workflow_run_id?: string | null;
 }
 
 export interface TaskReferenceRow {
