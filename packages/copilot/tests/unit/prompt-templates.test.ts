@@ -1,6 +1,6 @@
 import { CopilotRegistry } from '@seta/copilot-sdk';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { generateDomainPrompt, generateTopRoutingPrompt } from '../src/backend/prompt-templates';
+import { generateDomainPrompt, generateTopRoutingPrompt } from '../../src/backend/prompt-templates';
 
 describe('prompt-templates', () => {
   beforeEach(() => CopilotRegistry.__resetForTests());

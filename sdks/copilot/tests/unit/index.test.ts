@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import * as sdk from '../src/index';
+import * as sdk from '../../src/index';
 
 describe('sdk index re-exports', () => {
   it('exports registry primitives', () => {

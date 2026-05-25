@@ -1,6 +1,6 @@
 import { CopilotRegistry } from '@seta/copilot-sdk';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { buildSupervisorTree } from '../src/backend/supervisor-tree';
+import { buildSupervisorTree } from '../../src/backend/supervisor-tree';
 
 type SubAgentRecord = Record<string, unknown>;
 function staticAgents(agent: unknown): SubAgentRecord {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ApprovalCardSchema } from '../../src/hitl/card';
+import { ApprovalCardSchema } from '../../../src/hitl/card';
 
 describe('ApprovalCardSchema', () => {
   it('parses a candidate-list card', () => {

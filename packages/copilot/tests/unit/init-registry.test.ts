@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 // these side-effect registrations run exactly once for the whole test process;
 // we must NOT call __resetForTests() before asserting on specialists because that
 // would clear what the cached modules already registered.
-import { initCopilotRegistry } from '../src/backend/init-registry';
+import { initCopilotRegistry } from '../../src/backend/init-registry';
 
 describe('initCopilotRegistry', () => {
   it('freezes the registry exactly once and imports module-side-effect registrations (planner, identity, self, meta)', () => {

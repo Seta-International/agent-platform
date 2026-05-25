@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { CopilotRegistry, RegistryFrozenError, RegistryNotFrozenError } from '../src/registry';
+import { CopilotRegistry, RegistryFrozenError, RegistryNotFrozenError } from '../../src/registry';
 
 describe('CopilotRegistry', () => {
   beforeEach(() => CopilotRegistry.__resetForTests());
