@@ -4,8 +4,10 @@
 // '@seta/planner/agent-tools' at this file.
 export {
   identitySearchUsersBySkillsTool,
+  type PlannerFindSimilarTasksToolDeps,
   plannerAgentTools,
   plannerAssignTaskTool,
+  plannerFindSimilarTasksTool,
   plannerGetTaskTool,
   type SearchTasksSemanticToolDeps,
   searchTasksSemanticTool,

@@ -4,6 +4,10 @@ import { plannerGetTaskTool } from './get-task.ts';
 import { identitySearchUsersBySkillsTool } from './search-users-by-skills.ts';
 
 export { plannerAssignTaskTool } from './assign-task.ts';
+export {
+  type PlannerFindSimilarTasksToolDeps,
+  plannerFindSimilarTasksTool,
+} from './find-similar-tasks.ts';
 export { plannerGetTaskTool } from './get-task.ts';
 export {
   type SearchTasksSemanticToolDeps,
