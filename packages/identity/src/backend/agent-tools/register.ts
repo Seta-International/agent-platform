@@ -2,6 +2,8 @@ import { CopilotRegistry } from '@seta/copilot-sdk';
 import type { EmbeddingProvider } from '@seta/shared-embeddings';
 import { OpenAIEmbeddingProvider } from '@seta/shared-embeddings';
 import { resolveReranker } from '@seta/shared-retrieval';
+import { identityGetAvailabilitySpec } from './get-availability-for-user.ts';
+import { identityGetTimezoneSpec } from './get-timezone-for-user.ts';
 import { listMyRolesTool } from './list-my-roles.ts';
 import { matchUsersToTopicTool } from './match-users-to-topic.ts';
 import { buildSearchUsersBySkillVectorSpec } from './search-users-by-skill-vector.ts';
@@ -81,3 +83,5 @@ CopilotRegistry.registerCrossModuleReadTool(
     },
   }),
 );
+CopilotRegistry.registerCrossModuleReadTool(identityGetTimezoneSpec);
+CopilotRegistry.registerCrossModuleReadTool(identityGetAvailabilitySpec);
