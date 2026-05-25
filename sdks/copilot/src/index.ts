@@ -8,7 +8,9 @@ export * from './hitl/index.ts';
 export { registerToolPermission, requiredPermissionFor } from './rbac.ts';
 export {
   CopilotRegistry,
+  type CrossModuleReadCtx,
   type CrossModuleReadToolSpec,
+  type CrossModuleSession,
   type Domain,
   RegistryFrozenError,
   RegistryNotFrozenError,

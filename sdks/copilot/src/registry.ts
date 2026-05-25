@@ -12,14 +12,24 @@ export interface SpecialistSpec {
   workflows?: Record<string, unknown>;
 }
 
-export interface CrossModuleReadToolSpec {
+export interface CrossModuleSession {
+  tenant_id: string;
+  user_id: string;
+}
+
+export interface CrossModuleReadCtx<I = unknown> {
+  session: CrossModuleSession;
+  input: I;
+}
+
+export interface CrossModuleReadToolSpec<I = unknown, O = unknown> {
   id: string;
   description: string;
   inputSchema: z.ZodTypeAny;
   outputSchema: z.ZodTypeAny;
   rbac: string;
   availableTo: 'all-specialists' | string[];
-  execute: (input: { session: unknown }) => Promise<unknown>;
+  execute: (ctx: CrossModuleReadCtx<I>) => Promise<O>;
 }
 
 export interface WorkflowSpec {
@@ -46,7 +56,7 @@ export class RegistryNotFrozenError extends Error {
 const state = {
   frozen: false,
   specialists: [] as SpecialistSpec[],
-  crossReadTools: [] as CrossModuleReadToolSpec[],
+  crossReadTools: [] as CrossModuleReadToolSpec<unknown, unknown>[],
   workflows: [] as WorkflowSpec[],
 };
 
@@ -56,10 +66,10 @@ export const CopilotRegistry = {
     if (!spec.description) throw new Error(`Specialist ${spec.id} missing description`);
     state.specialists.push(spec);
   },
-  registerCrossModuleReadTool(spec: CrossModuleReadToolSpec): void {
+  registerCrossModuleReadTool<I, O>(spec: CrossModuleReadToolSpec<I, O>): void {
     if (state.frozen) throw new RegistryFrozenError();
     if (!spec.rbac) throw new Error(`Cross-module read tool ${spec.id} missing rbac`);
-    state.crossReadTools.push(spec);
+    state.crossReadTools.push(spec as CrossModuleReadToolSpec<unknown, unknown>);
   },
   registerWorkflow(spec: WorkflowSpec): void {
     if (state.frozen) throw new RegistryFrozenError();

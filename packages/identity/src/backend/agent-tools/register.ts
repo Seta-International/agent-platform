@@ -4,6 +4,7 @@ import { OpenAIEmbeddingProvider } from '@seta/shared-embeddings';
 import { resolveReranker } from '@seta/shared-retrieval';
 import { listMyRolesTool } from './list-my-roles.ts';
 import { matchUsersToTopicTool } from './match-users-to-topic.ts';
+import { buildSearchUsersBySkillVectorSpec } from './search-users-by-skill-vector.ts';
 import { updateMyDisplayNameTool } from './update-my-display-name.ts';
 import { whoAmITool } from './who-am-i.ts';
 
@@ -30,13 +31,18 @@ function makeLazyEmbeddingProvider(): EmbeddingProvider {
   };
 }
 
+const lazyProvider = makeLazyEmbeddingProvider();
+function readDatabaseUrl(): string {
+  const url = process.env.DATABASE_URL;
+  if (!url) throw new Error('DATABASE_URL required for identity semantic search');
+  return url;
+}
+
 const matchUsersToTopic = matchUsersToTopicTool({
-  provider: makeLazyEmbeddingProvider(),
+  provider: lazyProvider,
   reranker: resolveReranker(),
   get databaseUrl(): string {
-    const url = process.env.DATABASE_URL;
-    if (!url) throw new Error('DATABASE_URL required for identity semantic search');
-    return url;
+    return readDatabaseUrl();
   },
 });
 
@@ -66,3 +72,12 @@ CopilotRegistry.registerSpecialist({
     identity_updateMyDisplayName: updateMyDisplayNameTool,
   },
 });
+
+CopilotRegistry.registerCrossModuleReadTool(
+  buildSearchUsersBySkillVectorSpec({
+    provider: lazyProvider,
+    get databaseUrl(): string {
+      return readDatabaseUrl();
+    },
+  }),
+);
