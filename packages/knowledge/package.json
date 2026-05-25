@@ -10,6 +10,7 @@
     "./events": "./src/events.ts",
     "./rbac": "./src/rbac.ts",
     "./agent-tools": "./src/agent-tools.ts",
+    "./agent-tools/register": "./src/backend/agent-tools/register.ts",
     "./db/schema": "./src/backend/db/schema.ts",
     "./db": "./src/backend/db/client.ts",
     "./http": "./src/backend/http/index.ts",
