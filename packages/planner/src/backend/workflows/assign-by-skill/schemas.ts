@@ -34,6 +34,13 @@ export const AssignBySkillOutputSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('assigned'), taskId: z.string(), userId: z.string() }),
   z.object({ kind: z.literal('left-unassigned'), taskId: z.string() }),
   z.object({ kind: z.literal('declined') }),
+  // INV-1: task got assigned via another path (workflow inbox, another chat session)
+  // between the suspend and the resume; don't double-write.
+  z.object({
+    kind: z.literal('superseded'),
+    taskId: z.string(),
+    currentAssigneeId: z.string(),
+  }),
 ]);
 export type AssignBySkillOutput = z.infer<typeof AssignBySkillOutputSchema>;
 
