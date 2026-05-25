@@ -22,9 +22,20 @@ import { Plus, X } from 'lucide-react';
 import { useState } from 'react';
 import { plannerClient } from '../api/planner-client';
 import { useApplyLabel } from '../hooks/mutations/apply-label';
+import { useCreateLabel } from '../hooks/mutations/create-label';
 import { useUnapplyLabel } from '../hooks/mutations/unapply-label';
 import { usePlanCategories } from '../hooks/queries/use-plan-categories';
 import { plannerKeys } from '../state/query-keys';
+
+// Mirrors the keyword palette LabelChip understands; cycling by name hash so
+// the same label name picks the same swatch every time.
+const LABEL_COLORS = ['blue', 'green', 'amber', 'red', 'purple', 'teal'] as const;
+
+function pickLabelColor(name: string): string {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = ((h << 5) - h + name.charCodeAt(i)) | 0;
+  return LABEL_COLORS[Math.abs(h) % LABEL_COLORS.length] ?? LABEL_COLORS[0];
+}
 
 interface Props {
   task: TaskWithAssigneesRow;
@@ -35,6 +46,7 @@ interface Props {
 export function TaskDetailLabelsCard({ task, planId, isLinkedToM365 = false }: Props) {
   const apply = useApplyLabel(planId);
   const unapply = useUnapplyLabel(planId);
+  const create = useCreateLabel(planId);
   const planLabelsQuery = useQuery({
     queryKey: plannerKeys.planLabels(planId),
     queryFn: () => plannerClient.listLabels(planId),
@@ -43,6 +55,7 @@ export function TaskDetailLabelsCard({ task, planId, isLinkedToM365 = false }: P
   const categoriesQuery = usePlanCategories(planId);
 
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [search, setSearch] = useState('');
 
   const categoryLabel = task.labels.find((l) => l.category_slot != null) ?? null;
   const categoryDescription = categoryLabel
@@ -53,6 +66,29 @@ export function TaskDetailLabelsCard({ task, planId, isLinkedToM365 = false }: P
   const availableLabels: LabelRow[] = (planLabelsQuery.data ?? []).filter(
     (l) => !appliedIds.has(l.id) && l.category_slot == null,
   );
+
+  const trimmedSearch = search.trim();
+  const hasExactMatch = (planLabelsQuery.data ?? []).some(
+    (l) => l.name.toLowerCase() === trimmedSearch.toLowerCase(),
+  );
+  // M365-linked plans only sync category-slot labels, so we hide the create
+  // affordance there — a fresh slot-less label would land disabled anyway.
+  const canCreate = !isLinkedToM365 && trimmedSearch.length > 0 && !hasExactMatch;
+
+  const handleCreateAndApply = async () => {
+    const name = trimmedSearch;
+    if (!name) return;
+    const color = pickLabelColor(name);
+    const created = await create.mutateAsync({ name, color });
+    apply.mutate({
+      task_id: task.id,
+      label_id: created.id,
+      label_name: created.name,
+      label_color: created.color,
+    });
+    setPickerOpen(false);
+    setSearch('');
+  };
 
   return (
     <section className="card" aria-label="Labels">
@@ -84,9 +120,16 @@ export function TaskDetailLabelsCard({ task, planId, isLinkedToM365 = false }: P
           </PopoverTrigger>
           <PopoverContent align="start" className="w-72 p-0">
             <Command>
-              <CommandInput aria-label="Filter labels" placeholder="Filter labels" />
+              <CommandInput
+                aria-label="Filter labels"
+                placeholder="Filter or create label"
+                value={search}
+                onValueChange={setSearch}
+              />
               <CommandList>
-                <CommandEmpty>No labels.</CommandEmpty>
+                <CommandEmpty>
+                  {canCreate ? null : isLinkedToM365 ? 'No labels.' : 'Type to create a label.'}
+                </CommandEmpty>
                 <CommandGroup>
                   <TooltipProvider delayDuration={0}>
                     {availableLabels.map((l) =>
@@ -124,6 +167,20 @@ export function TaskDetailLabelsCard({ task, planId, isLinkedToM365 = false }: P
                       ),
                     )}
                   </TooltipProvider>
+                  {canCreate ? (
+                    <CommandItem
+                      key="__create__"
+                      value={`__create__${trimmedSearch}`}
+                      onSelect={() => {
+                        void handleCreateAndApply();
+                      }}
+                    >
+                      <Plus className="size-3" />
+                      <span>
+                        Create <span className="font-medium">&ldquo;{trimmedSearch}&rdquo;</span>
+                      </span>
+                    </CommandItem>
+                  ) : null}
                 </CommandGroup>
               </CommandList>
             </Command>
