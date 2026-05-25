@@ -1,10 +1,3 @@
-/**
- * Integration tests for the search_tasks_semantic Mastra tool.
- *
- * Tests call tool.execute() directly without agent wiring, using an injected
- * sessionProvider so we can skip the live identity / RBAC stores.
- */
-
 import { RequestContext } from '@mastra/core/request-context';
 import { PgVector } from '@mastra/pg';
 import { resetCoreDb } from '@seta/core/testing';
@@ -39,11 +32,6 @@ const withDb = <T>(fn: (ctx: { pool: import('pg').Pool; pgVector: PgVector }) =>
     },
   );
 
-/**
- * Build a fake Mastra ToolExecutionContext whose requestContext holds a valid actor.
- * The tool's actorFromContext reads ctx.requestContext.get('actor'), and the Mastra
- * requestContextSchema validation reads ctx.requestContext.all to check the actor field.
- */
 function makeFakeCtx(actor: { type: 'user'; user_id: string }) {
   const rc = new RequestContext<{ actor: typeof actor }>();
   rc.set('actor', actor);
@@ -90,8 +78,6 @@ describe('searchTasksSemanticTool', () => {
       expect(hits).toHaveLength(1);
       const hit = hits[0]!;
       expect(hit.task.task_id).toBe(seeded.task_id);
-      // Cosine similarity (1 − distance) drifts a few hundredths off [0, 1]
-      // for mostly-orthogonal pairs after pgvector's float32 storage cast.
       const EPS = 0.05;
       expect(hit.score).toBeGreaterThanOrEqual(-EPS);
       expect(hit.score).toBeLessThanOrEqual(1 + EPS);

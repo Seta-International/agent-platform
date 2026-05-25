@@ -12,7 +12,6 @@ import {
   type TaskVectorMetadata,
 } from '../embeddings/vector-store.ts';
 
-/** Stage-1 oversampling — fetch this many hits from PgVector before rerank. */
 const STAGE1_TOPK = Number(process.env.RERANK_STAGE1_TOPK ?? 50);
 
 export interface TaskRetrievalItem {
@@ -35,21 +34,11 @@ export interface SearchTasksDeps {
 
 export interface SearchTasksResult {
   hits: RerankedHit<TaskRetrievalItem>[];
-  /** Which reranker actually scored these — surfaces precision tier to callers. */
   reranker: 'cohere' | 'llm-judge' | 'noop' | 'fallback';
 }
 
 const defaultCache = new EmbedQueryCache({ maxEntries: 100, ttlMs: 5 * 60_000 });
 
-/**
- * Stage-1 vector search via Mastra's PgVector + stage-2 rerank.
- *
- * Returns oversample × topN candidates from cosine similarity (score in [0,1]
- * = 1 − cosine_distance), then runs them through the project's Reranker for
- * precision lift. If the query embedding fails, returns { hits: [] } —
- * callers that previously expected FTS fallback are now responsible for any
- * graceful-degradation messaging at the UI layer.
- */
 export async function searchTasks(
   input: SearchTasksInput,
   deps: SearchTasksDeps,
@@ -82,9 +71,6 @@ export async function searchTasks(
     .map((row, i) => {
       const md = row.metadata as Partial<TaskVectorMetadata> | undefined;
       if (!md?.task_id) return null;
-      // chunk_text always begins with "Title: …" (see buildTaskSource). We
-      // only need a display string; the agent-tool surface fills in `snippet`
-      // from `item.title`, so we expose the first line as the title.
       const title =
         (md.chunk_text ?? '')
           .split('\n', 1)[0]

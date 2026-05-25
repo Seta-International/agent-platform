@@ -6,9 +6,6 @@ import { plannerGetTaskTool } from './get-task.ts';
 import { searchTasksSemanticTool } from './search-tasks-semantic.ts';
 import { identitySearchUsersBySkillsTool } from './search-users-by-skills.ts';
 
-// Lazy proxy around OpenAIEmbeddingProvider: defers reading OPENAI_API_KEY
-// until the first .embed() call so the module can be registered in test
-// environments that don't set OPENAI_API_KEY.
 function makeLazyEmbeddingProvider(): EmbeddingProvider {
   let inner: EmbeddingProvider | undefined;
   const get = (): EmbeddingProvider => {
@@ -32,10 +29,6 @@ function makeLazyEmbeddingProvider(): EmbeddingProvider {
   };
 }
 
-// Build search_tasks_semantic at module load with a lazy databaseUrl getter so
-// DATABASE_URL is only required when a search actually executes — preserving the
-// prior behavior where the module registers cleanly in tests that never wire DB
-// env. The factory's execute() reads `databaseUrl` once per call.
 const searchTasksSemantic = searchTasksSemanticTool({
   provider: makeLazyEmbeddingProvider(),
   get databaseUrl(): string {

@@ -68,8 +68,6 @@ describe('searchTasks', () => {
       const hit = hits.find((h) => h.item.task_id === task.task_id);
       expect(hit).toBeDefined();
       expect(hit!.source).toBe('vector');
-      // Cosine similarity is `1 − distance`. For mostly-orthogonal pairs the
-      // float32 cast pgvector applies can drift by a few hundredths off zero.
       const EPS = 0.05;
       expect(hit!.score).toBeGreaterThanOrEqual(-EPS);
       expect(hit!.score).toBeLessThanOrEqual(1 + EPS);

@@ -28,9 +28,7 @@ export interface BackfillTasksOptions {
   pgVector: PgVector;
   apiKey: string;
   model: 'text-embedding-3-small' | 'text-embedding-3-large';
-  /** Injectable for tests — defaults to the real submitBatch */
   submitBatch?: typeof defaultSubmit;
-  /** Injectable for tests — defaults to the real pollUntilDone */
   pollUntilDone?: typeof defaultPoll;
 }
 
@@ -42,15 +40,6 @@ interface TaskRow {
   skill_tags: string[];
 }
 
-/**
- * Drain a tenant's planner.tasks into the Mastra-owned vector store via the
- * OpenAI Batch API.
- *
- * Sequence:
- * 1. Ensure the Mastra PgVector index exists (idempotent).
- * 2. Page through live tasks (keyset cursor, PAGE_SIZE=1000).
- * 3. For each page: hash-gate (PgVector metadata filter) → submit batch → poll → upsert.
- */
 export async function backfillTasks(opts: BackfillTasksOptions): Promise<void> {
   const {
     tenant_id,
@@ -100,9 +89,6 @@ export async function backfillTasks(opts: BackfillTasksOptions): Promise<void> {
       })
       .filter((s) => fitsInWindow(s.source));
 
-    // Hash-gate: fetch existing source_hash per task in this page via the
-    // metadata filter API. PgVector returns up to topK rows whose metadata
-    // matches the filter (no vector similarity).
     const pageIds = sourced.map((s) => s.id);
     const existing = pageIds.length
       ? await pgVector.query({

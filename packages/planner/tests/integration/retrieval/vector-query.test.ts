@@ -13,18 +13,6 @@ import { NoopReranker } from '@seta/shared-retrieval';
 import { FakeEmbeddingProvider, withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 
-/**
- * Integration test for the Mastra PgVector-backed task retrieval path.
- *
- * Seeds vectors directly via pgVector.upsert (bypassing the embed-task worker)
- * and asserts that:
- *   - cosine similarity scores land in [0, 1]
- *   - the nearest-neighbor task ranks #1
- *   - rerank_score is also bounded in [0, 1] for NoopReranker (which passes the
- *     stage-1 cosine score through unchanged)
- *   - tenant isolation: cross-tenant vectors do not leak through the metadata filter.
- */
-
 const withDb = <T>(fn: (ctx: { pgVector: PgVector }) => Promise<T>) =>
   withTestDb(
     {
@@ -137,10 +125,6 @@ describe('Mastra PgVector retrieval', () => {
       expect(hits[0]!.item.task_id).toBe(t1Id);
       expect(hits[0]!.rank).toBe(1);
       expect(hits.every((h) => h.source === 'vector')).toBe(true);
-      // Cosine similarity is `1 − cosine_distance`. For unit-norm vectors the
-      // theoretical range is [-1, 1]; in practice planner embeddings cluster
-      // in [0, 1] but mostly-orthogonal pairs may drift by ~1e-2 due to the
-      // half-precision storage cast pgvector applies internally.
       const EPS = 0.05;
       for (const h of hits) {
         expect(h.score).toBeGreaterThanOrEqual(-EPS);
@@ -148,8 +132,6 @@ describe('Mastra PgVector retrieval', () => {
         expect(h.rerankScore).toBeGreaterThanOrEqual(-EPS);
         expect(h.rerankScore).toBeLessThanOrEqual(1 + EPS);
       }
-      // The nearest-neighbor (querying for the exact stored chunk text) should
-      // be at the high end of the cosine range.
       expect(hits[0]!.score).toBeGreaterThan(0.9);
       expect(reranker).toBe('noop');
     }));

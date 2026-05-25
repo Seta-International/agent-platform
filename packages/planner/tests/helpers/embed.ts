@@ -20,12 +20,6 @@ export interface EmbedTaskForTestOptions {
   pgVector: PgVector;
 }
 
-/**
- * Test helper: seed a single task chunk into the Mastra-owned vector store
- * without going through the full embedTask CDC pipeline. Used by retrieval and
- * agent-tool integration tests that need pre-seeded vectors but don't exercise
- * the hash-gate / observability paths.
- */
 export async function embedTaskForTest(opts: EmbedTaskForTestOptions): Promise<void> {
   const { tenant_id, task_id, plan_id, title, description, skill_tags, provider, pgVector } = opts;
 

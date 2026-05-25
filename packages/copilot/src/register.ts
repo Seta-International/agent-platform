@@ -31,9 +31,6 @@ export type CopilotHandle = {
   mastra: Mastra;
 };
 
-// Lazy proxy around `resolveEmbeddingProvider`: defers reading OPENAI_API_KEY
-// until the first `.embed()` call so apps/tests that never trigger semantic
-// search don't pay the boot-time env requirement.
 function makeLazyEmbeddingProvider(): EmbeddingProvider {
   let inner: EmbeddingProvider | undefined;
   const get = (): EmbeddingProvider => (inner ??= resolveEmbeddingProvider());
@@ -48,9 +45,6 @@ function makeLazyEmbeddingProvider(): EmbeddingProvider {
   };
 }
 
-// Construct a Mastra Agent from a module-contributed spec. Used by registerCopilot
-// for production wiring and by the testing subpath for integration tests that
-// build their own Mastra; tests override `model` to swap in a mock.
 export function buildAgentFromSpec(spec: AgentSpec, opts: { model?: unknown } = {}): Agent {
   const model =
     opts.model ??
@@ -82,8 +76,6 @@ export function registerCopilot(deps: {
   }
   void mastra.startWorkers();
 
-  // Embedding provider resolution is deferred: tests that don't exercise
-  // semantic-search tools must not require OPENAI_API_KEY at boot.
   const factoryDeps: AgentToolFactoryDeps = {
     provider: makeLazyEmbeddingProvider(),
     pool: deps.pool,

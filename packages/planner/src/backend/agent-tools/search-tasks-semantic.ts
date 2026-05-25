@@ -38,41 +38,19 @@ const outputSchema = z.object({
       source: z.literal('vector'),
     }),
   ),
-  /** Which reranker actually ran — surfaces precision tier to the agent. */
   reranker: z.enum(['cohere', 'llm-judge', 'noop', 'fallback']),
 });
 
-/**
- * Factory deps for the search_tasks_semantic tool.
- *
- * Tests inject `pgVector` directly so they can wire a per-database instance.
- * Production wiring (copilot's registerCopilot) supplies `databaseUrl` and the
- * factory lazily resolves the planner-owned PgVector singleton.
- */
 export interface SearchTasksSemanticToolDeps {
   provider: EmbeddingProvider;
-  /** Production path: copilot supplies a connection string. */
   databaseUrl?: string;
-  /** Test path: a pre-built PgVector wired to the test container. */
   pgVector?: PgVector;
-  /**
-   * Optional override for deriving a session from an actor.
-   * Defaults to buildActorSession. Injected in tests to avoid
-   * hitting the live identity / RBAC stores.
-   */
   sessionProvider?: (actor: { user_id: string }) => Promise<{
     tenant_id: string;
     accessible_group_ids: ReadonlyArray<string>;
   }>;
 }
 
-/**
- * Build the search_tasks_semantic agent tool.
- *
- * Stage-1 retrieval is delegated to Mastra's PgVector (cosine HNSW). Stage-2
- * reranking is resolved internally via `resolveReranker()` so the caller no
- * longer needs to pass a reranker dep.
- */
 export function searchTasksSemanticTool(deps: SearchTasksSemanticToolDeps) {
   const resolveSession = deps.sessionProvider ?? buildActorSession;
   const reranker = resolveReranker();
@@ -101,9 +79,6 @@ export function searchTasksSemanticTool(deps: SearchTasksSemanticToolDeps) {
 
       const requestedLimit = input.limit ?? 10;
 
-      // group_ids filtering is deferred: SessionScope.accessible_group_ids are
-      // UUIDs while the legacy retrieval API used bigint[]. Tenant-wide search
-      // is correct for v1; RBAC gate for the wider scope lands in M3.3.
       const { hits, reranker: usedReranker } = await searchTasks(
         {
           query: input.query,

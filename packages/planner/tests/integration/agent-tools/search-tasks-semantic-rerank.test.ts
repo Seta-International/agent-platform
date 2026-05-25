@@ -1,12 +1,3 @@
-/**
- * Integration tests for the rerank wiring in search_tasks_semantic.
- *
- * resolveReranker() returns NoopReranker in the test env (no Cohere API key,
- * no LLM judge configured), so the test is deterministic; verifies that the
- * reranker tag surfaces in the result and that the limit is respected after
- * stage-2 truncation.
- */
-
 import { RequestContext } from '@mastra/core/request-context';
 import { PgVector } from '@mastra/pg';
 import { resetCoreDb } from '@seta/core/testing';

@@ -85,9 +85,6 @@ function makeFakeBatch(dimensions = 1536): {
     batchId: string,
   ): Promise<BatchResultRow[]> => {
     const inputs = pending.get(batchId) ?? [];
-    // Fake provider returns a non-zero unit-ish vector so PgVector's halfvec/
-    // vector cast accepts it. A constant vector is fine for ranking-agnostic
-    // backfill tests — we only assert metadata round-trip, not similarity.
     return inputs.map((row) => ({
       custom_id: row.custom_id,
       vector: new Array<number>(dimensions).fill(1 / Math.sqrt(dimensions)),

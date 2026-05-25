@@ -1,15 +1,3 @@
-/**
- * End-to-end CDC integration test.
- *
- * Strategy:
- *  1. Seed a task in the DB.
- *  2. Build a planner.task.created DomainEvent for that task.
- *  3. Invoke the handleTaskCreated subscriber handler with a fake ctx whose
- *     tx.execute intercepts the graphile_worker.add_job call, extracts the
- *     planner.embed_task payload, and immediately runs embedTask synchronously.
- *  4. Assert that the Mastra-owned vector store has a row for the task with
- *     the expected plan_id metadata.
- */
 import { PgVector } from '@mastra/pg';
 import { resetCoreDb } from '@seta/core/testing';
 import {
@@ -91,12 +79,6 @@ function makeTaskCreatedEvent(opts: { tenantId: string; taskId: string; eventId:
   };
 }
 
-/**
- * Build a fake ctx.tx that intercepts graphile_worker.add_job calls.
- *
- * For the task-embedding subscriber the params are
- * ['planner.embed_task', payloadJson, 10, jobKey, 'replace'].
- */
 function makeSyncEmbedCtx(opts: { pgVector: PgVector; provider: FakeEmbeddingProvider }) {
   const { pgVector, provider } = opts;
 

@@ -32,8 +32,6 @@ export default async function (): Promise<() => Promise<void>> {
   process.env.SETA_TEST_PG_BASE = handle.baseUrl;
   process.env.SETA_TEST_PG_TEMPLATE = TEMPLATE;
   process.env.BETTER_AUTH_SECRET ??= 'test'.padEnd(32, '_');
-  // Default to the no-op reranker in tests so the search_tasks_semantic tool
-  // doesn't try to call Cohere / an LLM judge (both unconfigured here).
   process.env.RERANKER_PROVIDER ??= 'none';
 
   return async () => {

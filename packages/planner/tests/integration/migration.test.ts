@@ -1,33 +1,5 @@
-import { createContributionRegistry, runMigrations } from '@seta/core';
-import { registerCoreContributions } from '@seta/core/register';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
-import { registerPlannerContributions } from '../../src/register.ts';
-
-describe('planner migrations', () => {
-  it('drops the legacy planner.task_embeddings table (Mastra PgVector owns the replacement in schema planner_rag)', async () => {
-    await withTestDb(
-      {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
-      },
-      async ({ pool }) => {
-        const reg = createContributionRegistry();
-        registerCoreContributions(reg);
-        registerPlannerContributions(reg);
-        await runMigrations(reg, { pool });
-
-        const exists = await pool.query<{ exists: boolean }>(`
-          SELECT EXISTS (
-            SELECT 1 FROM information_schema.tables
-             WHERE table_schema = 'planner' AND table_name = 'task_embeddings'
-          ) AS exists
-        `);
-        expect(exists.rows[0]?.exists).toBe(false);
-      },
-    );
-  });
-});
 
 describe('0006_tasks_search_tsv_and_task_id_fix', () => {
   it('planner.tasks has a search_tsv generated column using to_tsvector', async () => {

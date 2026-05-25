@@ -1,14 +1,3 @@
-/**
- * End-to-end pin for the search_tasks_semantic + Mastra PgVector pipeline.
- *
- * Three tasks are seeded (one terraform-tagged, two unrelated), all are
- * embedded via the production embedTask path, and a semantically-similar query
- * must rank the terraform task first. The query string is intentionally close
- * (lexically) to the terraform task's source text so the FakeEmbeddingProvider
- * (which produces stable per-input vectors) yields a high cosine similarity
- * for that task vs. the decoys.
- */
-
 import { RequestContext } from '@mastra/core/request-context';
 import { PgVector } from '@mastra/pg';
 import { resetCoreDb } from '@seta/core/testing';
@@ -104,9 +93,6 @@ describe('Demo journey step 5 — find tasks needing review on terraform', () =>
         sessionProvider: makeSessionProvider(tenant_id),
       });
 
-      // Query lexically mirrors the terraform task's labeled source so the
-      // FakeEmbeddingProvider's stable hash-based vector lands near it in
-      // cosine space.
       const actor = { type: 'user' as const, user_id: 'test-user-id' };
       const result = await tool.execute!(
         {

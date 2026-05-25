@@ -58,10 +58,6 @@ async function fetchVector(
     });
     return rows[0]?.metadata as TaskVectorMetadata | undefined;
   } catch (err) {
-    // The Mastra-owned table is created lazily on first upsert. Tests that
-    // exercise the "skip embed" paths never trigger the create, so reads can
-    // race ahead of the table — treat a missing relation as "no row" rather
-    // than a hard failure.
     const message = err instanceof Error ? err.message : String(err);
     if (message.includes('does not exist')) return undefined;
     throw err;
@@ -262,8 +258,6 @@ describe('embedTask', () => {
         { provider, pgVector },
       );
 
-      // Mutate the title (one of EMBEDDED_FIELDS) so the source hash changes
-      // and embedTask re-embeds.
       await pool.query(`UPDATE planner.tasks SET title = $1 WHERE id = $2`, [
         'second',
         seeded.task_id,
