@@ -173,28 +173,33 @@ The third tier exists for two reasons:
 
 ## 6. Request flow
 
+In chat, the specialist agent **reasons** over its primitive tool palette and
+decides which signals to fetch for the request in front of it. The workflow
+registry exists for the REST surface (`/workflows/runs/:id/start`) and the
+workflow inbox; the chat agent never invokes a workflow directly — workflows
+are not in any specialist's tool record.
+
 ```mermaid
 sequenceDiagram
     participant User
     participant Top as Top supervisor
     participant Dom as Work supervisor
     participant Spec as Planner specialist
-    participant Tool as planner_suggestAssignee
-    participant Mod as planner.suggestAssignee
+    participant Reads as Read tools (search_users_by_skills,<br/>planner_findSimilarTasks, identity_getTimezone, …)
+    participant Propose as planner_proposeAssignment (HITL)
 
     User->>Top: Who can take TASK-101
-    Top->>Top: route decision work
-    Top->>Dom: delegate
-    Dom->>Dom: specialist vs workflow
-    Dom->>Spec: delegate
-    Spec->>Tool: planner_suggestAssignee taskId
-    Tool->>Mod: rank candidates by skill+history+load+tz
-    Mod-->>Tool: top-5 candidates
-    Note over Tool: ctx.agent.suspend(card)
-    Tool-->>User: HITL approval card (Top-5)
-    User->>Tool: Approve Devon (resumeData)
-    Tool->>Mod: apply assignment
-    Mod-->>User: confirmation
+    Top->>Dom: delegate (work)
+    Dom->>Spec: delegate (planner)
+    Spec->>Spec: reason about which signals matter
+    Spec->>Reads: 2-4 read tool calls (skill / similar work / load / tz)
+    Reads-->>Spec: signal data
+    Spec->>Propose: planner_proposeAssignment(taskId, candidates[], summary)
+    Note over Propose: ctx.agent.suspend(ApprovalCard)
+    Propose-->>User: candidate list + per-candidate rationale
+    User->>Propose: Pick Devon (resumeData)
+    Propose->>Propose: INV-1 guard then assignTask
+    Propose-->>User: confirmation
 ```
 
 ## 7. Specialist composition
@@ -294,40 +299,52 @@ The `mastra_*` tables are owned by Mastra; their DDL is not edited by hand. They
 
 ## 11. Planner specialist registration
 
+The planner specialist's `instructions` is a **playbook** that names the
+signals available and tells the LLM when each is material. It does not
+script a fixed pipeline. The cross-module reads (open task count, timezone,
+availability) are promoted to specialist tools via `defineCrossModuleReadAsTool`
+so the LLM can call them directly while session is still derived from
+`requestContext`.
+
 ```ts
-// packages/planner/src/backend/agent-tools/register.ts
+// packages/planner/src/backend/agent-tools/register.ts (shape)
 CopilotRegistry.registerSpecialist({
   domain: 'work',
   id: 'planner',
   description:
-    'Manages tasks, buckets, plans, and assignments in the planner module. ' +
-    'Handles task lookup, semantic search, dedup-aware creation, and assignment.',
-  instructions: () =>
-    'You are the planner specialist. Use planner_getTask to read tasks, ' +
-    'search_tasks_semantic to find tasks by text, planner_createTask to create ' +
-    '(it runs vector dedup and prompts via HITL if similar tasks exist), ' +
-    'search_users_by_skills to find people. ' +
-    'For "who should take this on" or "find someone for task X" use planner_suggestAssignee ' +
-    '(HITL — surfaces top-5 candidates by skill+history+load+tz). Otherwise use ' +
-    'planner_assignTask (HITL) when the user already named the assignee. ' +
-    'Never answer if a tool can answer for you.',
+    'Plans, tasks, buckets, assignments. Reads across identity for skill, ' +
+    'timezone, and availability when assignment decisions need those signals.',
+  instructions: () => `… reasoning playbook (see register.ts) …`,
   tools: {
-    planner_assignTask: plannerAssignTaskTool,
-    planner_createTask: plannerCreateTask,
-    planner_getTask: plannerGetTaskTool,
-    planner_suggestAssignee: plannerSuggestAssignee,
-    search_tasks_semantic: searchTasksSemantic,
-    search_users_by_skills: identitySearchUsersBySkillsTool,
+    // Read tools (the agent picks which to call per-request)
+    planner_getTask,
+    planner_findSimilarTasks,
+    search_users_by_skills,
+    planner_getOpenTaskCountForUser,    // promoted via defineCrossModuleReadAsTool
+    identity_getTimezoneForUser,        // promoted via defineCrossModuleReadAsTool
+    identity_getAvailabilityForUser,    // promoted via defineCrossModuleReadAsTool
+    // Write tools (HITL)
+    planner_createTask,                 // thin confirm-and-create
+    planner_assignTask,                 // one-click confirm
+    planner_proposeAssignment,          // 2-5 candidates with rationale
   },
 });
 
+// Workflows live in the registry for the REST + audit surface only — they
+// are NOT in any specialist's tool record.
 CopilotRegistry.registerWorkflow(dedupOnCreateWorkflowSpec);
 CopilotRegistry.registerWorkflow(assignBySkillWorkflowSpec);
 
+// Original spec stays registered for non-LLM callers (workflows, REST).
 CopilotRegistry.registerCrossModuleReadTool(plannerGetOpenTaskCountSpec);
 ```
 
-`identity` mirrors this shape: it registers the `identity` specialist (people domain), the `self` specialist (self domain), and three cross-module read tools (`identity_searchUsersBySkillVector`, `identity_getTimezone`, `identity_getAvailability`).
+No `session` field appears in any LLM-visible input schema. Tools and workflow
+steps derive session from `requestContext` via `actorFromContext` /
+`sessionFromRequestContext`. Registering a workflow whose `inputSchema` has a
+top-level `session` field throws at boot (`assertNoSessionField`).
+
+`identity` mirrors this shape: it registers the `identity` specialist (people domain), the `self` specialist (self domain), and three cross-module read tools (`identity_searchUsersBySkillVector`, `identity_getTimezoneForUser`, `identity_getAvailabilityForUser`).
 
 ### Registry boot order
 
@@ -358,11 +375,14 @@ Tool definitions reside in `packages/planner/src/backend/agent-tools/`. Each too
 | Tool ID | File | Wraps | RBAC | HITL shape |
 |---|---|---|---|---|
 | `planner_getTask` | `get-task.ts` | `getTask` | `planner.task.read` | none |
-| `search_tasks_semantic` | `search-tasks-semantic.ts` | `searchTasksSemantic` | `planner.task.read` | none |
+| `planner_findSimilarTasks` | `find-similar-tasks.ts` | `findSimilarTasks` (vector + assignee enrich + scope filter) | `planner.task.read` | none |
 | `search_users_by_skills` | `search-users-by-skills.ts` | `searchUsersBySkills` (identity) | `identity.user.read` | none |
-| `planner_createTask` | `create-task.ts` | `createTask` + dedup check | `planner.task.create` | `ctx.agent.suspend(card)` when similar tasks exist |
+| `planner_getOpenTaskCountForUser` | `get-open-task-count.ts` | spec promoted via `defineCrossModuleReadAsTool` | `planner.task.read.tenant` | none |
+| `identity_getTimezoneForUser` | `@seta/identity/agent-tools` | spec promoted via `defineCrossModuleReadAsTool` | `identity.user.read` | none |
+| `identity_getAvailabilityForUser` | `@seta/identity/agent-tools` | spec promoted via `defineCrossModuleReadAsTool` | `identity.user.read` | none |
+| `planner_createTask` | `create-task.ts` | thin confirm-and-create over `createTask` domain | `planner.task.create` | `ctx.agent.suspend(confirm card)` |
 | `planner_assignTask` | `assign-task.ts` | `assignTask` | `planner.task.assign` | `needsApproval: true` |
-| `planner_suggestAssignee` | `suggest-assignee.ts` | `suggestAssignee` + `assignTask` | `planner.task.assign` | `ctx.agent.suspend(Top-5 card)` → `assignTask` on resume |
+| `planner_proposeAssignment` | `propose-assignment.ts` | agent-reasoned candidate list + INV-1 guard + `assignTask` | `planner.task.assign` | `ctx.agent.suspend(candidate list card)` → `assignTask` on resume |
 
 `defineCopilotTool` is the authoring helper — it wraps `@mastra/core/tools.createTool`, registers the RBAC slug, attaches `needsApproval` when set, and surfaces a friendly `displayName` for the UI:
 
@@ -422,7 +442,10 @@ Each domain supervisor is itself an `Agent` whose `agents` field is the speciali
 
 ## 14. Workflows alongside specialists
 
-Workflows are first-class registrations, not derived from specialist tools. Each module's `register.ts` calls `CopilotRegistry.registerWorkflow(spec)` once per workflow.
+Workflows live in the registry for the REST surface and audit, not the chat
+path. The chat agent does not see them — workflows are absent from every
+specialist's tool record. Each module's `register.ts` calls
+`CopilotRegistry.registerWorkflow(spec)` once per workflow.
 
 ```ts
 // packages/planner/src/backend/workflows/assign-by-skill/spec.ts
@@ -444,6 +467,13 @@ At boot, the platform wires Mastra's pubsub channels `workflows` and `workflows-
 - Creates a row in `copilot.workflow_approvals` when a `hitlSteps` step suspends.
 
 The chat path uses the agent-tool HITL contract (suspend + `chat/approve`). Programmatic workflow runs use the workflow HITL endpoints (`/workflows/approvals/:id/decide`, `/workflows/runs/:id/rerun`, `/workflows/runs/:id/replay-from-step`, `/workflows/runs/:id/cancel`). Both produce identical audit trails because the lifecycle hook is on the Mastra publish path, not the API path.
+
+The deterministic `assignBySkill` ranking is still reachable from the workflow
+inbox (the "Suggest" button on a task card kicks off a workflow run via REST).
+The chat path reaches the same outcome through specialist reasoning + the
+`planner_proposeAssignment` HITL tool. The two surfaces share the
+`AssignBySkillOutputSchema` discriminated union (`assigned` / `superseded` /
+`left-unassigned` / `declined`).
 
 ## 15. Cross-module read tools
 
