@@ -5,6 +5,7 @@ import type { EmbeddingProvider } from '@seta/shared-embeddings';
 import { resolveReranker } from '@seta/shared-retrieval';
 import { z } from 'zod';
 import { assignTask } from '../domain/assign-task.ts';
+import { getTask } from '../domain/get-task.ts';
 import { getPlannerVectorStore } from '../embeddings/vector-store.ts';
 import {
   AssignBySkillOutputSchema,
@@ -68,6 +69,13 @@ export function plannerSuggestAssigneeTool(deps: PlannerSuggestAssigneeDeps) {
       const resumeData = ctx.agent?.resumeData as AssignDecision | undefined;
 
       if (resumeData) {
+        if (resumeData.action === 'assign') {
+          const current = await getTask({ task_id: input.taskId, session });
+          const currentAssigneeId = current.assignees[0]?.user_id ?? null;
+          if (currentAssigneeId && currentAssigneeId !== resumeData.assigneeUserId) {
+            return { kind: 'superseded' as const, taskId: input.taskId, currentAssigneeId };
+          }
+        }
         return applyAssignDecision(
           {
             taskId: input.taskId,
