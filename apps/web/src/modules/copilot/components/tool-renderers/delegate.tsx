@@ -14,7 +14,6 @@ interface DelegateOutput {
 }
 
 interface Props {
-  parentAgentName: string;
   targetName: string;
   targetLabel: string;
   args: Record<string, unknown>;
@@ -37,7 +36,6 @@ function summary(args: Record<string, unknown>, output: unknown): string | undef
 }
 
 export function DelegateRenderer({
-  parentAgentName,
   targetName,
   targetLabel,
   args,
@@ -56,12 +54,8 @@ export function DelegateRenderer({
     if (!runId || !toolCallId) return;
     setPending(approved ? 'approve' : 'reject');
     try {
-      // The approval is on the PARENT agent's delegate tool. Mastra cascades the
-      // resume down through every suspended sub-agent automatically, so the same
-      // call shape works regardless of how deep the delegation chain is.
       await resolveApproval({
         queryClient,
-        parentAgentName,
         runId,
         toolCallId,
         approved,

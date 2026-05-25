@@ -37,7 +37,6 @@ async function refetchTopmostThreadId(
 
 export interface ResolveApprovalArgs {
   queryClient: QueryClient;
-  parentAgentName: string;
   runId: string;
   toolCallId: string;
   approved: boolean;
@@ -46,7 +45,7 @@ export interface ResolveApprovalArgs {
 }
 
 export async function resolveApproval(args: ResolveApprovalArgs): Promise<void> {
-  await copilotApi.resolveApproval(args.parentAgentName, {
+  await copilotApi.resolveApproval({
     runId: args.runId,
     toolCallId: args.toolCallId,
     approved: args.approved,

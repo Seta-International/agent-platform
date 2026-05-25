@@ -26,11 +26,13 @@ export const copilotApi = {
     const out = await fetchJson('/api/copilot/v1/threads', undefined, ThreadsResponse);
     return out.threads;
   },
-  async resolveApproval(
-    agentName: string,
-    body: { runId: string; toolCallId: string; approved: boolean; threadId?: string },
-  ): Promise<void> {
-    const res = await fetch(`/api/copilot/v1/chat/${encodeURIComponent(agentName)}/approve`, {
+  async resolveApproval(body: {
+    runId: string;
+    toolCallId: string;
+    approved: boolean;
+    threadId?: string;
+  }): Promise<void> {
+    const res = await fetch('/api/copilot/v1/chat/approve', {
       method: 'POST',
       credentials: 'include',
       headers: { 'content-type': 'application/json' },

@@ -11,24 +11,20 @@ import {
   useRef,
   useState,
 } from 'react';
-import { useAgentCatalog } from '../hooks/use-agent-catalog';
 import { useApprovalResolvedEvent } from '../hooks/use-approval-events';
 import { useCopilotRuntime } from '../hooks/use-copilot-runtime';
 import { useModelCatalog } from '../hooks/use-model-catalog';
 import { useThreadMessages } from '../hooks/use-thread-messages';
 
 const MODEL_STORAGE_KEY = 'seta.copilot.model';
-const AGENT_STORAGE_KEY = 'seta.copilot.agent';
 
 export interface CopilotSelection {
   threadId: string | undefined;
-  agentName: string;
   modelKey: string;
 }
 
 export interface CopilotSelectionActions {
   setThreadId: (id: string | undefined) => void;
-  setAgentName: (name: string) => void;
   setModelKey: (key: string) => void;
 }
 
@@ -78,22 +74,13 @@ function writeStored(key: string, value: string) {
 }
 
 export function CopilotProvider({ children }: { children: React.ReactNode }) {
-  const { defaultName: defaultAgent } = useAgentCatalog();
   const { data: catalog } = useModelCatalog();
   const defaultModel = catalog?.default ?? 'auto';
 
   const [threadId, setThreadIdState] = useState<string | undefined>(undefined);
-  const [agentName, setAgentNameState] = useState<string>(() =>
-    readStored(AGENT_STORAGE_KEY, defaultAgent),
-  );
   const [modelKey, setModelKeyState] = useState<string>(() =>
     readStored(MODEL_STORAGE_KEY, defaultModel),
   );
-
-  const setAgentName = useCallback((next: string) => {
-    setAgentNameState(next);
-    writeStored(AGENT_STORAGE_KEY, next);
-  }, []);
 
   const setModelKey = useCallback((next: string) => {
     setModelKeyState(next);
@@ -106,10 +93,10 @@ export function CopilotProvider({ children }: { children: React.ReactNode }) {
 
   const selectionValue = useMemo<SelectionContextValue>(
     () => ({
-      selection: { threadId, agentName, modelKey },
-      actions: { setThreadId, setAgentName, setModelKey },
+      selection: { threadId, modelKey },
+      actions: { setThreadId, setModelKey },
     }),
-    [threadId, agentName, modelKey, setThreadId, setAgentName, setModelKey],
+    [threadId, modelKey, setThreadId, setModelKey],
   );
 
   const [pageContext, setPageContextState] = useState<PageContext | null>(null);
@@ -232,7 +219,6 @@ function CopilotRuntimeHost({ children }: { children: React.ReactNode }) {
       // seeded with the real messages instead of an empty array.
       key={`${selection.threadId ?? 'new'}::${approvalEvent.revision}::${historyReady ? 'ready' : 'pending'}`}
       threadId={selection.threadId}
-      agentName={selection.agentName}
       modelKey={selection.modelKey}
       initialMessages={initialMessages}
       historyLoading={!historyReady}
@@ -245,7 +231,6 @@ function CopilotRuntimeHost({ children }: { children: React.ReactNode }) {
 
 function CopilotRuntimeHostInner({
   threadId,
-  agentName,
   modelKey,
   initialMessages,
   historyLoading,
@@ -253,7 +238,6 @@ function CopilotRuntimeHostInner({
   children,
 }: {
   threadId: string | undefined;
-  agentName: string;
   modelKey: string;
   initialMessages: UIMessage[];
   historyLoading: boolean;
@@ -264,7 +248,6 @@ function CopilotRuntimeHostInner({
   children: React.ReactNode;
 }) {
   const runtime = useCopilotRuntime({
-    agentName,
     threadId,
     modelKey,
     initialMessages,
