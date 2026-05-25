@@ -1,525 +1,516 @@
-# Copilot agent architecture
+# Agent system (copilot)
 
-The copilot is a hierarchical supervisor over module-owned specialists and workflows. Every user request enters one top-level Mastra `Agent`, gets routed to a **domain supervisor**, which delegates to a **module specialist** or invokes a **deterministic workflow**. Writes are gated by HITL approval cards. Modules contribute specialists, cross-module reads, and workflows through a typed registry — no hand-edited supervisor wiring.
+Seta's agent system is structured around a **supervisor agent** that routes user requests to domain-scoped **specialists**, each composed from a curated subset of tools surfaced by feature modules. Every write tool is gated by an explicit human-in-the-loop approval; every action is audited through the same event bus as the rest of the platform.
 
-This document is the single source of truth for the copilot system's shape. When this doc and the code disagree, the doc is the bug — fix it here.
+This document explains the design by tracing one realistic workload — planner assignment assistance for a product manager — from user pain point through to implementation. The planner is used as the running example because most feature-module specialists will follow the same arc.
 
-For repo-wide architecture, see [`architecture.md`](architecture.md). This file expands its [§9 Agent system](architecture.md#9-agent-system-copilot) into the operational detail you need to build, change, or debug the agent layer.
+**Related documents.** [`architecture.md`](./architecture.md) describes the surrounding platform shape (modules, event bus, identity). [`tech-stack.md`](./tech-stack.md) records the rationale for Mastra, AI SDK v6, and assistant-ui. [`creating-modules.md`](./creating-modules.md) is the module-author guide.
+
+> **Scope note.** The supervisor and the `self` specialist ship today (`packages/copilot/src/backend/agents/catalog.ts`). The planner specialist used as the worked example is the next specialist on the roadmap; every tool, event, and module surface referenced below already exists in the codebase.
+
+---
 
 ## Contents
 
-1. [Topology](#1-topology)
-2. [Domains](#2-domains)
-3. [Registry contract — `@seta/copilot-sdk`](#3-registry-contract--setacopilot-sdk)
-4. [Tools — write vs. read vs. cross-module](#4-tools--write-vs-read-vs-cross-module)
-5. [Workflows](#5-workflows)
-6. [HITL — approval card contract](#6-hitl--approval-card-contract)
-7. [Retrieval — vectors via Mastra primitives](#7-retrieval--vectors-via-mastra-primitives)
-8. [Runtime safety, observability, audit](#8-runtime-safety-observability-audit)
-9. [Adding a module](#9-adding-a-module)
-10. [Adding a workflow](#10-adding-a-workflow)
-11. [Operational rules](#11-operational-rules)
-12. [References](#12-references)
-
----
-
-## 1. Topology
-
-A request travels through at most three Mastra agents:
-
-```
-                        ┌────────────────────────────────┐
-                        │  Top Supervisor (~4 domains)   │
-                        │  Work · People · Self · Meta   │
-                        └──────────────┬─────────────────┘
-                                       │ delegate
-              ┌────────────────────────┼────────────────────────┐
-              ▼                        ▼                        ▼
-    ┌──────────────────┐   ┌────────────────────┐   ┌────────────────────┐
-    │ Work Supervisor  │   │ People Supervisor  │   │  Self Supervisor   │
-    │                  │   │                    │   │                    │
-    │ sub-agents:      │   │ sub-agents:        │   │ sub-agents:        │
-    │  • planner       │   │  • identity        │   │  • self            │
-    │  • (timesheet…)  │   │  • (hr…)           │   │                    │
-    │                  │   │                    │   │ Meta Supervisor    │
-    │ workflows:       │   │ workflows:         │   │  intro/capability  │
-    │  • dedupOnCreate │   │  (future)          │   │  read-only         │
-    │  • assignBySkill │   │                    │   │                    │
-    └──────────────────┘   └────────────────────┘   └────────────────────┘
-                                       │ delegate
-                                       ▼
-                            ┌────────────────────┐
-                            │  Module specialist │
-                            │  (e.g. planner)    │
-                            │                    │
-                            │ own tools          │
-                            │ + cross-module     │
-                            │   read tools       │
-                            └────────────────────┘
-```
-
-**Three load-bearing rules:**
-
-1. **Module specialists own their writes, share reads.** Writes (`requireApproval: true`) live on the owning module's specialist. Read tools that other specialists need are published to a shared cross-module read registry (RBAC-filtered, RBAC re-checked at the callee).
-2. **Multi-step deterministic flows are Mastra workflows, not agent reasoning.** Dedup, skill-match, capacity-check, etc., are workflows registered on the relevant domain supervisor via `workflows: {...}`.
-3. **Module-owned registration.** `@seta/copilot-sdk` exposes `registerSpecialist`, `registerCrossModuleReadTool`, `registerWorkflow`. Adding a module means dropping these calls in its `agent-tools/register.ts`. Top-supervisor and domain-supervisor prompts are **generated from the registry** — never hand-edited.
-
-**Why 2-level, not flat:** a single supervisor over N specialists scales to N ≈ 8–10 before the routing prompt bloats and routing accuracy degrades. The hierarchy keeps each level's option set bounded as new modules (timesheet, pmo, finance, hr, …) land.
-
-**Why specialists hold cross-module reads:** a planner question that needs timesheet capacity + identity skills should not require the supervisor to bounce between three specialists. One delegation hop, then the specialist composes reads locally.
-
----
-
-## 2. Domains
-
-The top supervisor's universe. Each domain is registered indirectly: when a module's `register.ts` calls `registerSpecialist({ domain, ... })`, that domain appears in the supervisor tree at next boot.
-
-| Domain | Owns | Currently live |
-|---|---|---|
-| **Work** | planner, pmo, timesheet, milestones, deliverables | ✅ planner |
-| **People** | identity, hr, org-chart, roles, permissions | ✅ identity |
-| **Self** | current user's profile, prefs, notifications | ✅ self |
-| **Meta** | copilot intro, system capability listing, tenant config | ✅ meta (read-only) |
-| **Knowledge** | RAG over wiki/docs (deferred) | ⬜ |
-| **Finance** | invoicing, budgets, expenses (deferred) | ⬜ |
-
-**Mapping is declared by the module**, not centralized:
-
-```ts
-// packages/planner/src/backend/agent-tools/register.ts
-CopilotRegistry.registerSpecialist({
-  domain: 'work',
-  id: 'planner',
-  description: 'Manages tasks, buckets, plans, and assignments',
-  instructions: () => '...',
-  tools: { /* planner's tools */ },
-});
-```
-
-Adding a `finance` module later → top-supervisor's routing prompt gains a `Finance` line at next boot, no other code change.
-
----
-
-## 3. Registry contract — `@seta/copilot-sdk`
-
-The SDK is the only allowed handoff between modules and the copilot engine. Modules **never** import the engine; the engine **never** imports modules. Both speak to the registry.
-
-### 3.1 Primitives
-
-```ts
-// 1. Specialist — a Mastra sub-agent attached to a domain
-CopilotRegistry.registerSpecialist({
-  domain: 'work' | 'people' | 'self' | 'meta',
-  id: 'planner',
-  description: 'Manages tasks, buckets, plans, and assignments',
-  instructions: ({ runtimeContext }) => '...',
-  model: '__GATEWAY_OPENAI_MODEL_MINI__',
-  tools: { plannerListMyTasks, plannerAssignTask, /* ...own tools */ },
-  workflows: { /* optional: workflows owned by this specialist */ },
-})
-
-// 2. Cross-module read tool — a read another specialist may consume
-CopilotRegistry.registerCrossModuleReadTool({
-  id: 'timesheet_getMyCapacityThisWeek',
-  description: 'Returns hours-available this week for the calling user',
-  inputSchema: z.object({}),
-  outputSchema: z.object({ hoursAvailable: z.number(), hoursBooked: z.number() }),
-  rbac: 'timesheet:read:self',
-  availableTo: 'all-specialists', // or ['planner', 'pmo']
-  execute: async ({ session }) => { /* ... */ },
-})
-
-// 3. Workflow — a Mastra workflow registered as a tool on a domain supervisor
-CopilotRegistry.registerWorkflow({
-  domain: 'work',
-  id: 'dedupOnCreate',
-  description: 'Vector-search similar tasks before creating; HITL confirms',
-  inputSchema: TaskDraftSchema,
-  outputSchema: DedupOutputSchema,
-  workflow: dedupOnCreateWorkflow,
-  hitlSteps: ['confirmNotDuplicate'],
-})
-
-// 4. Standard write/read tool — unchanged pattern
-defineCopilotTool({ id, name, description, input, output, rbac, needsApproval, execute })
-```
-
-### 3.2 Lifecycle
-
-```
-app boot
-   │
-   ├─► import "@seta/planner/agent-tools/register"    ← side-effect: register*()
-   ├─► import "@seta/identity/agent-tools/register"   ← side-effect
-   ├─► import "./agent-tools/register-meta"           ← side-effect
-   │
-   └─► initCopilotRegistry()  ─►  CopilotRegistry.freeze()
-                                          │
-              first request ─►  buildSupervisorTree()  ─►  cached Agent
-                                          │
-                                          └─►  uses snapshot of frozen registry
-```
-
-The registry is **append-only at boot, frozen at startup, read-only at request time**. Calling `register*` after freeze throws `RegistryFrozenError`. Calling `snapshot()` before freeze throws `RegistryNotFrozenError`. Boot-time order is enforced by:
-- Eslint rule: `register*` only at module top-level (no dynamic calls).
-- depcruise rule: modules import only via `@seta/copilot-sdk`, never each other's tools.
-
-### 3.3 `defineCopilotTool` is a wrapper over `@mastra/core/tools.createTool`
-
-```ts
-// sdks/copilot/src/define-copilot-tool.ts
-export function defineCopilotTool(spec: CopilotToolSpec) {
-  return createTool({
-    id: spec.id,
-    description: spec.description,
-    inputSchema: spec.input,
-    outputSchema: spec.output,
-    requireApproval: spec.needsApproval ?? false,  // Mastra-native key
-    execute: async (ctx) => {
-      await enforceRbac(spec.rbac, ctx.runtimeContext);
-      const result = await spec.execute(ctx);
-      await audit.write({ tool: spec.id, /* ... */ });
-      return result;
-    },
-  });
-}
-```
-
-This means approval propagates through the supervisor chain natively via Mastra's `tool-call-approval` stream event. There is **no custom approval bus**.
-
-### 3.4 Hard invariants (CI-enforced)
-
-| Invariant | Enforcement |
+| Part | Subject |
 |---|---|
-| Write tool sets `needsApproval: true` | `pnpm lint:rbac-coverage` (rule extension) |
-| Specialist has non-empty `description` | runtime throw at `registerSpecialist` |
-| Cross-module read tool has non-empty `rbac` | runtime throw at `registerCrossModuleReadTool` |
-| Module imports another module's tool function | depcruise rule `no-direct-cross-module-tool-import` |
-| Tool id matches `<module>_<action>` | `defineCopilotTool` constructor check |
-| `register*` only at module top-level | eslint rule |
+| [A. Pain point](#part-a--pain-point) | Personas, current-tool gaps |
+| [B. Use case](#part-b--use-case) | Target user story and required capabilities |
+| [C. Design](#part-c--design) | Supervisor / specialist architecture, HITL boundary, memory model, observability |
+| [D. Implementation](#part-d--implementation) | Specialist spec, tool definitions, supervisor wiring, web surface, end-to-end run |
+| [E. Production concerns](#part-e--production-concerns) | Failure modes, latency and cost budgets, extension criteria |
 
 ---
 
-## 4. Tools — write vs. read vs. cross-module
+## Agent system at a glance
 
-Three tool categories, three behaviors:
+```mermaid
+flowchart LR
+    User[User in assistant-ui]
+    Sup[Supervisor agent]
+    SpecA[Specialist — self]
+    SpecB[Specialist — planner]
+    Tools[Module-owned tools]
+    Mods[Feature modules — planner, identity, knowledge, ...]
+    PG[(Postgres — copilot schema + module schemas)]
+    LLM[LLM provider]
+    HITL{Human approval}
 
-| Category | Defined via | HITL? | Visible to |
+    User --> Sup
+    Sup --> SpecA
+    Sup --> SpecB
+    SpecA --> Tools
+    SpecB --> Tools
+    Tools --> HITL
+    HITL --> Mods
+    Mods --> PG
+    SpecA -. memory .- PG
+    SpecB -. memory .- PG
+    Sup --> LLM
+    SpecA --> LLM
+    SpecB --> LLM
+```
+
+| Layer | Responsibility |
+|---|---|
+| User-facing chat | Message stream, tool-call cards, approval cards rendered by assistant-ui |
+| Agent HTTP | A single route bridges the AI SDK v6 stream protocol to Mastra |
+| Supervisor | A small routing agent that selects the appropriate specialist |
+| Specialist | Domain-scoped Mastra agent composed from approximately fifteen tools and a domain-specific system prompt |
+| Tools | Thin adapters over module domain functions, owned by the source module |
+| HITL gate | Pauses every write tool for explicit user approval before execution |
+| Modules | Perform the actual reads and mutations through their public surfaces |
+| Memory | Threads, messages, and traces persisted to the `copilot` Postgres schema, managed by Mastra |
+| Audit | Every tool call is recorded in `core.events` alongside domain events |
+
+The rest of this document explains *why* this shape — starting from a concrete user pain — and *how* it is built. Code locations for each layer are listed in §19.
+
+---
+
+# Part A — Pain point
+
+## 1. Affected personas
+
+| Persona | Recurring workload |
+|---|---|
+| **Product Manager** | Weekly status compilation, re-prioritisation, and ad-hoc capacity queries across multiple ICs. Frequent context switches between board views, chat, and email. |
+| **Tech Lead / IC** | Task hygiene (closing stale items, updating status), interrupt-driven status reporting for stakeholders. |
+| **Engineering Manager** | Assigning new work to individuals with matching skills and available capacity. Frequently defaults to familiarity heuristics, under-utilising newer team members. |
+
+These workloads are information-retrieval and coordination problems mediated through chat, dashboards, and email. The latency and lossiness of these channels is the cost being optimised.
+
+## 2. Gap analysis
+
+| Existing tool | Limitation for the workloads above |
+|---|---|
+| Jira / Linear filter views | Surface items by attribute. Cannot answer intent-shaped queries such as "who is free next week with the skills required for a Stripe webhook integration". |
+| Team chat | High latency, lossy, recipient must be online. |
+| Spreadsheets | Snapshot in time; immediately stale. |
+| General-purpose LLM chat (ChatGPT, Claude.ai) | No access to tenant data, no write authority, no audit. |
+| LLM with retrieval over docs | Read-only. Cannot assign, update status, or notify. |
+
+The gap is a per-tenant agent that can read the planner, search team members by skill, propose assignments, and apply them after a one-click human approval — with the resulting action audited and the assignee notified through the existing event channels.
+
+---
+
+# Part B — Use case
+
+## 3. Target user story
+
+```mermaid
+journey
+    title PM plans the week with the planner specialist
+    section Open copilot
+      Open Seta and open the copilot panel: 5: User
+      Ask what is on my plate this week: 5: User
+      Agent returns 7 open tasks grouped by status: 5: Agent
+    section Triage
+      Ask which tasks are blocked: 5: User
+      Agent returns blocked items with blocker text: 5: Agent
+      Ask who can take TASK-101 requiring Stripe webhooks: 5: User
+      Agent searches users by skill and proposes 3 candidates: 5: Agent
+      User selects an assignee and approves: 5: User
+      Agent assigns, notifies assignee, records audit: 5: Agent
+    section Close
+      Close copilot panel: 5: User
+```
+
+The target end-to-end duration is approximately five minutes for the full interaction, compared with the 60–90 minutes typically required when the same workflow is performed manually across chat, board views, and email.
+
+## 4. Required capabilities
+
+| Capability | Source module | Side effect | Permission slug |
 |---|---|---|---|
-| **Module write** | `defineCopilotTool({ needsApproval: true })` | yes | the owning specialist only |
-| **Module read** | `defineCopilotTool()` | no | the owning specialist only |
-| **Cross-module read** | `registerCrossModuleReadTool({ rbac, availableTo })` | no | every specialist allowed by `availableTo`, RBAC re-checked per call |
-
-**Why the asymmetry on writes**: every state-changing operation belongs to one module. If two specialists could both call `planner_assignTask`, the audit trail and ownership story breaks. Reads are cheap and cross-module composition is the common case ("planner specialist needs timesheet capacity"), so reads are shared.
-
-**Naming**: `<module>_<action>`. Examples: `planner_assignTask`, `identity_whoAmI`, `timesheet_getCapacityThisWeek`.
-
-**RBAC**: every tool declares an `rbac` string. The wrapper calls `enforceRbac` before `execute`. The session in `requestContext` carries `effective_permissions: ReadonlySet<string>` populated by the session middleware (see `architecture.md` §8).
+| List my tasks | `planner` | read | `planner.task.read` |
+| Fetch task detail (blockers, dependencies) | `planner` | read | `planner.task.read` |
+| Semantic search across tasks | `planner` (embedding index) | read | `planner.task.read` |
+| Search users by skill | `identity` (user profile) | read | `identity.user.read` |
+| Propose assignment (requires approval) | `planner` | write to `planner.tasks.assignee_id` | `planner.task.assign` |
+| Notify assignee | `notifications` (event-driven projection) | write (via subscriber) | governed by event |
+| Audit every action | `core.events` | write (via outbox) | automatic |
 
 ---
 
-## 5. Workflows
+# Part C — Design
 
-Workflows are deterministic, replayable, auditable orchestrations registered with `registerWorkflow`. Use a workflow when:
+## 5. Architectural alternatives
 
-- The job has **3+ ordered steps**.
-- At least one step is a side-effect (DB write, external call).
-- You want **HITL at a specific step**, not at the top.
-- You want to **A/B tune** thresholds/weights without changing code.
-- You want to **replay** a past run for debugging or eval.
-
-Use a tool (and let the agent reason its way through) when the job is one operation or the ordering is genuinely free-form.
-
-### 5.1 Anatomy
-
-```ts
-// packages/<module>/src/backend/workflows/<name>/spec.ts
-export const myWorkflow = createWorkflow({
-  id: 'planner.dedup-on-create',
-  inputSchema, outputSchema,
-})
-  .then({ id: 'normalize', execute: normalizeStep })
-  .then({ id: 'fetchCandidates', execute: searchStep })
-  .then({ id: 'classify', execute: classifyStep })
-  .then({ id: 'confirmNotDuplicate', execute: hitlStep })   // requireApproval inside
-  .then({ id: 'apply', execute: applyStep })
-  .commit();
-
-export const myWorkflowSpec = {
-  domain: 'work',
-  id: 'dedupOnCreate',
-  description: 'Vector-search similar tasks before creating; HITL confirms',
-  inputSchema, outputSchema,
-  workflow: myWorkflow,
-  hitlSteps: ['confirmNotDuplicate'],
-};
-```
-
-### 5.2 Live examples
-
-| Workflow | Domain | Trigger | HITL step | Output |
+| Design | Tool catalogue per agent | Prompt cache behaviour | Routing quality | Selected |
 |---|---|---|---|---|
-| `dedupOnCreate` | work | every copilot-driven task creation | `confirmNotDuplicate` | `created` / `linked` (comment/related/sub-task) / `cancelled` |
-| `assignBySkill` | work | chat "find someone for #142", in-chat post-create push, planner UI button | `suggestAssignee` | `assigned` / `left-unassigned` / `declined` |
+| Single agent with the full tool catalogue | Grows past 50 entries as modules are added | Tool schemas in system prompt invalidate the cache on every catalogue change | Degrades as catalogue grows | No |
+| One agent per tool (router-only composition) | One tool per agent | Minimal prompt, optimal cache | No surface for domain reasoning | No |
+| **Supervisor + specialists** | Approximately 15 tools per specialist; supervisor delegates | Specialist prompt caches per session and rarely changes | Supervisor selects specialist by description; specialist selects tool by description | **Yes** |
 
-### 5.3 Persistence
+## 6. Supervisor request flow
 
-Workflow runs persist in `copilot.workflow_runs` (`run_id`, `workflow_id`, `tenant_id`, `started_by`, `started_via`, `input_summary`, `status`, `suspend_reason`, timestamps). Suspended runs (waiting on HITL) survive process restarts. TTL: `copilot.tenant_settings.approval_ttl_hours` (default 72h, then auto-decline).
+```mermaid
+sequenceDiagram
+    participant User
+    participant Sup as Supervisor
+    participant Spec as Planner specialist
+    participant Tool as planner_assignTask
+    participant Mod as planner.assignTask
+
+    User->>Sup: Who can take TASK-101
+    Sup->>Sup: route decision planner
+    Sup->>Spec: delegate message and context
+    Spec->>Tool: identity_searchUsersBySkills
+    Tool-->>Spec: 3 candidates
+    Spec->>User: proposes 3 candidates streamed
+    User->>Spec: Assign to Devon
+    Spec->>Tool: planner_assignTask taskId devonId
+    Note over Tool: needsApproval is true
+    Tool-->>User: HITL approval card
+    User->>Tool: Approve
+    Tool->>Mod: assignTask with session
+    Mod-->>User: confirmation
+```
+
+## 7. Specialist composition
+
+A specialist is a Mastra `Agent` instance composed from a domain-specific system prompt, a tool subset resolved by ID at boot, a memory store, a model tier, and an LRU runtime cache:
+
+| Ingredient | Source | Scope |
+|---|---|---|
+| System prompt | `agent-specs.ts` `instructions` field | Per specialist |
+| Tool set | `agent-specs.ts` `tools` field (resolved at boot by ID) | Per specialist |
+| Memory store | `@mastra/pg` `PostgresStore({ schemaName: 'copilot' })` | Shared store, per-thread scope |
+| Model tier | `defaultTier: 'fast' \| 'smart'` (request override permitted) | Per specialist |
+| Runtime cache | LRU keyed on the resolved role set hash | Shared across specialists |
+
+## 8. Tool catalogue and RBAC binding
+
+The planner specialist composes tools owned by four modules. Tool IDs are globally unique; the contribution registry validates resolution at boot.
+
+| Tool ID | Owning module | Side effect | Permission |
+|---|---|---|---|
+| `planner_getTask` | `planner` | read | `planner.task.read` |
+| `search_tasks_semantic` | `planner` | read | `planner.task.read` |
+| `planner_assignTask` | `planner` | write | `planner.task.assign` |
+| `identity_searchUsersBySkills` | `identity` | read | `identity.user.read` |
+| `match_users_to_topic` | `staffing` | read | `staffing.match.read` |
+| `core_serverTime` | `core` | read | (none) |
+
+The user's `effective_permissions` set, established at session creation, gates which tools are visible to the specialist at runtime. A tool whose RBAC slug the user does not hold is filtered out before the catalogue is bound to the agent.
+
+## 9. Human-in-the-loop boundary
+
+All write tools set `needsApproval: true`. AI SDK v6 pauses the tool call; assistant-ui renders an Interactable approval card derived from the tool's input schema; the user accepts (optionally after editing arguments) or rejects.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Proposed: agent calls write tool
+    Proposed --> AwaitingApproval: needsApproval = true
+    AwaitingApproval --> Executed: user approves
+    AwaitingApproval --> Rejected: user rejects
+    Executed --> [*]: result streamed back to agent
+    Rejected --> [*]: rejection streamed back to agent
+```
+
+| Property | Behaviour |
+|---|---|
+| Read tools | Execute directly without approval |
+| Write tools | Always require approval — no per-tool override |
+| Approval surface | Form rendered from input schema; arguments are editable before approval |
+| Rejection | Streamed back as a tool error; agent may re-plan |
+| Audit | Both proposed and executed calls are persisted to `core.events` |
+
+The approval boundary is a trust contract, not a UX option: agent-driven mutations always present the proposed action to the user before commit.
+
+## 10. Memory model
+
+```mermaid
+flowchart TB
+    subgraph Working[Working memory — per turn]
+      W[LLM context window — recent turns and tool results]
+    end
+    subgraph Session[Session memory — per thread]
+      S[mastra_messages and mastra_threads in copilot schema]
+    end
+    subgraph LongTerm[Long-term memory — cross-thread]
+      L[mastra_traces and audit in core.events]
+    end
+    W --> S
+    S --> L
+```
+
+| Layer | Lifetime | Storage | Contents |
+|---|---|---|---|
+| Working | One turn | LLM context window | Recent messages, current tool results |
+| Session | Per thread | `copilot.mastra_messages`, `copilot.mastra_threads` (managed by Mastra) | Full conversation history including tool calls |
+| Long-term | Subject to event retention | `core.events` | Tool execution audits and emitted domain events |
+
+The `mastra_*` tables are owned by Mastra; their DDL is not edited by hand. They reside in the `copilot` schema so that backup and migration operations cover them with the rest of the platform. Audit is not a separate subsystem — the long-term layer above is `core.events`, persisted in the same transaction as the domain mutation, queried by event type or tool metadata.
 
 ---
 
-## 6. HITL — approval card contract
+# Part D — Implementation
 
-Every write tool sets `requireApproval: true`. No inline confirmations. No out-of-band approval surfaces (no Slack, no email — in-app only in v1). The surface is the assistant-ui Interactable card rendered from the shared `ApprovalCard` schema.
-
-### 6.1 Schema (`sdks/copilot/src/hitl/card.ts`)
+## 11. Planner specialist specification
 
 ```ts
-type ApprovalCard = {
-  toolCallId: string         // for resume
-  intent: string             // human-readable "Assign task #142 to Alice"
-  riskBadge: 'write' | 'destructive' | 'external'
-  summary: string            // one-liner
-  details: ApprovalDetailBlock[]   // typed blocks the UI knows how to render
-  primary:   { label: string; argsPatch?: object }            // → approveToolCall
-  alternates: Array<{ label: string; argsPatch: object }>     // → approve with modifiedArgs
-  decline:   { label: string }                                // → declineToolCall
-  meta: { tenantId, userId, agentPath, toolId, ts }
+// packages/copilot/src/backend/agents/catalog.ts (extended)
+const planner: AgentSpec = {
+  name: 'planner',
+  label: 'Planner',
+  description: 'Reads, searches, and assigns planner tasks. Proposes mutations; the user approves.',
+  instructions: PLANNER_INSTRUCTIONS,
+  tools: pickById(byId, [
+    'planner_getTask',
+    'search_tasks_semantic',
+    'planner_assignTask',
+    'identity_searchUsersBySkills',
+    'core_serverTime',
+  ]),
+  defaultTier: 'smart',
+};
+
+const supervisor: AgentSpec = {
+  // ...
+  delegates: ['self', 'planner'],
+};
+
+return [self, planner, supervisor];
+```
+
+### Tool resolution at boot
+
+```mermaid
+flowchart LR
+    A[Module register fn] -->|agentTools array| B[ContributionRegistry]
+    B -->|flatten| C[Tool catalogue by ID]
+    C -->|buildAgentCatalog| D[indexById produces Map]
+    D -->|pickById on planner tools| E[planner spec tools]
+    E -->|buildMastra| F[Mastra Agent instance]
+```
+
+| Failure condition | Boot outcome |
+|---|---|
+| Tool ID typo (`planner_assingTask`) | Throws `tool not registered` |
+| Tool removed from a module | Throws `tool not registered` |
+| Module disabled in `SETA_MODULES` | `pickByIdSoft` permits specialist to build without the tool; specialist runs degraded |
+| Permission slug mismatch | Rejected by contribution registry validation |
+
+## 12. Planner tool definitions
+
+Tool definitions reside in `packages/planner/src/backend/agent-tools/`. Each tool is a thin adapter over a `domain/*.ts` function — the agent execution path and the HTTP execution path call the same business logic.
+
+| Tool ID | File | Wraps | RBAC | needsApproval |
+|---|---|---|---|---|
+| `planner_getTask` | `get-task.ts` | `getTask` | `planner.task.read` | false |
+| `search_tasks_semantic` | `search-tasks-semantic.ts` | `searchTasksSemantic` | `planner.task.read` | false |
+| `planner_assignTask` | `assign-task.ts` | `assignTask` | `planner.task.assign` | **true** |
+| `identity_searchUsersBySkills` | `search-users-by-skills.ts` | `searchUsersBySkills` | `identity.user.read` | false |
+
+The `planner_assignTask` definition illustrates the production shape — a `defineCopilotTool` call that binds `id`, `description`, input/output schemas, `rbac`, and `needsApproval` in a single declaration, with `execute` resolving the session from runtime context before delegating to the domain function:
+
+```ts
+export const plannerAssignTaskTool = defineCopilotTool({
+  id: 'planner_assignTask',
+  name: 'Assign Task',
+  description: 'Assign a user to a task.',
+  input: z.object({
+    taskId: z.string().uuid().describe('The task ID'),
+    assigneeUserId: z.string().uuid().describe('The user ID to assign'),
+  }),
+  output: z.object({ assignment: z.object({ taskId: z.string(), assigneeUserId: z.string() }) }),
+  rbac: 'planner.task.assign',
+  needsApproval: true,
+  execute: async (input, ctx) => {
+    const session = await buildActorSession(actorFromContext(ctx));
+    await assignTask({ task_id: input.taskId, user_id: input.assigneeUserId, session });
+    return { assignment: { taskId: input.taskId, assigneeUserId: input.assigneeUserId } };
+  },
+});
+```
+
+## 13. Supervisor wiring
+
+```ts
+// packages/copilot/src/backend/agents/catalog.ts
+export function buildAgentCatalog(deps: {
+  mastra: Mastra;
+  pool: Pool;
+  agentTools: ReadonlyArray<CopilotTool>;
+}): AgentSpecs {
+  const byId = indexById(deps.agentTools);
+  // ... self, planner specifications ...
+  const supervisor: AgentSpec = {
+    name: 'supervisor',
+    label: 'Supervisor',
+    description: 'Routes the user request to the appropriate specialist.',
+    instructions: ROUTER_INSTRUCTIONS,
+    tools: pickByIdSoft(byId, ['staffing_runNewTaskSkillTag']),
+    delegates: ['self', 'planner'],
+    defaultTier: 'fast',
+  };
+  return [self, planner, supervisor];
 }
-
-type ApprovalDetailBlock =
-  | { kind: 'text'; body: string }
-  | { kind: 'kvTable'; rows: Array<{ k: string; v: string }> }
-  | { kind: 'candidateList'; items: CandidateRow[] }   // used by dedup + assignment
-  | { kind: 'diff'; before: unknown; after: unknown }
-  | { kind: 'confirmationChecklist'; items: string[] }
 ```
 
-`details` is a **closed union** so the renderer stays simple — each kind has a typed React component in `apps/web/src/modules/copilot/workflows/components/`.
-
-### 6.2 Propagation
-
-A tool with `requireApproval` suspends regardless of how deep in the delegation chain it sits. The top supervisor's `fullStream` emits a `tool-call-approval` event with `{ toolName, args, toolCallId, runId, agentPath: ['supervisor','work','planner'] }`. The web client surfaces the card; the user's choice resumes the run via:
-
-```ts
-await topSupervisor.approveToolCall({ runId, toolCallId, modifiedArgs? })
-// or
-await topSupervisor.declineToolCall({ runId, toolCallId })
-```
-
-`modifiedArgs` is how alternates work — for assignment, the top suggestion is `assigneeId: aliceId`; picking Bob sends `argsPatch: { assigneeId: bobId }` and Mastra resumes with the patched args. No custom resume protocol.
-
-### 6.3 Routing
-
-| Trigger | Approval lands in |
+| Boot-time validation | Effect |
 |---|---|
-| Chat-initiated workflow | the chat thread that triggered it |
-| Workflow API (e.g. planner UI button) | a "Pending approvals" rail in the chat panel |
-| Group/multi-user workflows | initiating user only (delegation deferred) |
+| Every entry in `tools[]` resolves through `byId` | Pass or fail |
+| Every entry in `delegates[]` is the name of a specification in the returned list | Pass or fail |
+| Every tool RBAC slug is registered in a module's `rbac` declaration | Pass or fail |
+| Specification `name` fields are unique | Pass or fail |
 
-### 6.4 Audit
+## 14. Web surface
 
-Every approval, decline, modifiedArgs, and TTL expiry writes a row to `core.events` (alongside domain events — the unified audit history). Includes the full args + actor + agent path.
+The chat panel is anchored to the right edge of the application shell. The Interactable approval card is rendered inline within the conversation, derived from the tool's input schema.
 
----
-
-## 7. Retrieval — vectors via Mastra primitives
-
-We do **not** hand-roll vector search. Every retrieval tool is built on Mastra's `createVectorQueryTool` against `@mastra/pg`'s `PgVector` backend.
-
-### 7.1 What gets embedded
-
-Embeddings are a **derived index** for fuzzy/semantic lookup only. Postgres is the source of truth. Anything that admits an exact match (IDs, enums, dates, RBAC, status flags, exact skill tags) stays in SQL.
-
-| Source | Embedded content | Table |
-|---|---|---|
-| **Task** | `title \n\n description \n\n skill_tags joined` | `planner.task_embeddings` |
-| **User profile** | `displayName \n\n role \n\n skills joined \n\n bio` | `identity.user_profile_embeddings` |
-
-Tables follow the [§10 partition + HNSW pattern](architecture.md#10-embeddings-and-retrieval). Sync is event-driven via the outbox + `source_hash` change detection (idempotent, model upgrades re-embed via `model_id` filter).
-
-### 7.2 Query pattern — always hybrid, never pure vector
-
-```ts
-const taskDedupSearch = createVectorQueryTool({
-  vectorStoreName: 'pg',
-  indexName: 'planner_task_embeddings',
-  model: embeddingProvider,           // from @seta/shared-embeddings
-  enableFilter: true,
-  reranker: {
-    model: '__GATEWAY_OPENAI_MODEL_MINI__',
-    options: {
-      weights: { semantic: 0.55, vector: 0.30, position: 0.15 },  // per-tenant tunable
-      topK: 5,
-    },
-  },
-});
-
-await taskDedupSearch.execute({
-  queryText: draft.title + '\n\n' + draft.description,
-  topK: 20,
-  filter: {
-    tenant_id: session.tenantId,
-    status: { $ne: 'archived' },
-    created_at: { $gt: ninetyDaysAgoISO },
-  },
-});
+```
+┌────────────────────────────────────────────────────────────┐
+│ Copilot                                  [Planner ▾]  [×]  │
+├────────────────────────────────────────────────────────────┤
+│ User:    who can pick up TASK-101 - Stripe webhooks?       │
+│ Planner: candidates - Devon, Aki, Sam                      │
+│                                                            │
+│ ┌────────────────────────────────────────────────────────┐ │
+│ │ Approval required: planner_assignTask                  │ │
+│ │ taskId         TASK-101                                │ │
+│ │ assigneeUserId Devon                                   │ │
+│ │                       [ Reject ]   [ Approve  ⏎ ]      │ │
+│ └────────────────────────────────────────────────────────┘ │
+│                                                            │
+│ [ Compose message...                                   ↵ ] │
+└────────────────────────────────────────────────────────────┘
 ```
 
-The metadata filter is pushed into the same pgvector round-trip. The reranker is per-tenant tunable via `copilot.tenant_settings.dedup_weights`. We don't write our own scoring formula.
-
-### 7.3 Relational + vector are merged in workflow code, not in the tool
-
-For skill-match assignment, the workflow runs two parallel branches: a relational fast path (exact `skills && task.skill_tags` overlap) and a vector enrichment (`userSkillSearch`). The branches merge by `user_id`. The vector tool is a building block; the workflow is the composer.
-
-### 7.4 Deferred RAG primitives (M3 Knowledge slice)
-
-When the Knowledge domain lands:
-- `createGraphRAGTool` over `copilot.tenant_knowledge_embeddings` for wiki/doc Q&A — **use this, don't reinvent**.
-- `MDocument` + `createDocumentChunkerTool` for the ingestion pipeline — **use these, don't reinvent**.
-
----
-
-## 8. Runtime safety, observability, audit
-
-### 8.1 Delegation guards
-
-`onDelegationStart` and `onDelegationComplete` hooks wrap every domain supervisor:
-
-- **Depth cap**: bail past delegation depth 4 (top → domain → specialist → workflow is the sane max).
-- **Loop detection**: bail if the same agent is visited twice in a single run.
-- **Per-tenant max-steps budget**: bail with a structured error to the user when exceeded.
-
-### 8.2 Observability
-
-Per [Mastra metrics guidance](https://mastra.ai/docs/observability/metrics/overview):
-
-| Metric | Dimensions |
+| UI element | Source library |
 |---|---|
-| Latency | top supervisor / domain supervisor / specialist / workflow step / tool |
-| Token cost | same dimensions, per tenant |
-| Approval funnel | card-issued → approved / declined / TTL-expired, per workflow + tenant |
-| Dedup quality | candidates-shown → user-action (Create new / Comment / Related / Sub-task / Cancel) |
-| Assignment quality | suggestion-rank → user-pick distribution |
+| Panel shell | `@assistant-ui/react` |
+| Message stream | `@ai-sdk/react` `useChat` with `@assistant-ui/react-ai-sdk` adapter |
+| Tool-call card | `@assistant-ui/react` `<ToolCallContentPart>` |
+| Approval card | assistant-ui Interactable, parameterised by the tool input schema |
+| Markdown rendering | `@assistant-ui/react-markdown` |
+| Specialist selector | Local component reading `userVisible` from the agent catalogue |
 
-Traces export to OpenTelemetry; dashboards in Grafana.
+The panel communicates with the backend through a single Hono route (`/api/copilot/chat`); the route uses `@mastra/ai-sdk` to bridge Mastra's stream protocol to AI SDK v6's stream protocol.
 
-### 8.3 Audit
+## 15. End-to-end execution
 
-Every write-tool approval/decline/TTL-expiry and every workflow start/complete/fail writes to `core.events` (via `withEmit`). One unified history with domain events.
+The full path from user approval to assignee notification:
 
-### 8.4 Eval suite
+```mermaid
+sequenceDiagram
+    participant UI as assistant-ui
+    participant API as POST /api/copilot/chat
+    participant Sup as Supervisor
+    participant Pln as Planner specialist
+    participant Tool as planner_assignTask
+    participant Dom as planner.assignTask
+    participant DB as Postgres
+    participant Disp as Dispatcher
+    participant Sub as notifications subscriber
+    participant Devon as Assignee SSE
 
-Three layers (run on PR + nightly):
+    UI->>API: POST chat with approval intent
+    API->>Sup: delegate message
+    Sup->>Pln: delegate message
+    Pln->>Tool: planner_assignTask taskId assigneeUserId
+    Note over Tool: approval card already accepted upstream
+    Tool->>Dom: assignTask with session
+    Dom->>DB: BEGIN UPDATE planner.tasks INSERT core.events COMMIT
+    DB-->>Disp: pg_notify events
+    Disp->>Sub: planner.task.assigned
+    Sub->>DB: INSERT notifications.notice
+    Sub->>Devon: SSE new notification
+    Dom-->>Tool: assignment result
+    Tool-->>Pln: stream tool result
+    Pln-->>UI: TASK-101 assigned to Devon
+```
 
-| Layer | What | Pass bar |
+The p95 latency budget for this flow is approximately 1.2 s from approval click to the confirmation message, with an additional ~150 ms for the SSE notification to reach the assignee.
+
+---
+
+# Part E — Production concerns
+
+## 16. Failure modes
+
+| Failure | Detection | Recovery |
 |---|---|---|
-| **Tool** | unit + integration against real Postgres (testcontainers) | green |
-| **Workflow** | golden-trace replays + threshold-tuning vs labeled corpus | green; dedup P≥0.90, R≥0.80 |
-| **Agent** | routing evals (50 prompts) + e2e evals (20 chat flows) | routing ≥95%, e2e ≥90% |
+| LLM provider unavailable | Provider error returned to the tool layer; AI SDK v6 retries on transient errors | Model registry fails over to the backup provider in the same tier |
+| Tool implementation raises an unexpected exception | Mastra captures the exception and streams a tool error to the agent | Agent receives the error in context and re-plans or surfaces it to the user |
+| User rejects approval | AI SDK v6 streams the rejection as a tool result | Agent receives the rejection and suggests alternatives |
+| Dispatcher lag increases | `/health/ready` reports backlog | Scale `apps/worker`; investigate slow subscribers |
+| Long-running tool blocks the specialist | Mastra timeout (default 60 s) | Tool returns timeout; agent re-plans |
+| Stale agent cache after an RBAC change | LRU keyed on role-set hash | Permission change invalidates the cache entry on the next request |
+| Mastra memory store unreachable at boot | Readiness probe red; boot fails | Cluster does not accept traffic — fail fast |
+| Embedding job backlog | `embed_<entity>` job count in observability | Scale workers; throttle source; defer backfill |
+
+## 17. Latency and cost budget
+
+Per-turn p95 budget for the planner specialist:
+
+| Stage | Latency | Token cost (smart tier) | Notes |
+|---|---|---|---|
+| Supervisor route | 150 ms | ~150 in, ~30 out | Fast tier model |
+| Specialist plan | 500 ms | ~800 in, ~200 out | Smart tier; tool schemas in prompt |
+| `search_tasks_semantic` | 250 ms | — | Stage 1 RRF + Stage 2 Cohere rerank |
+| `identity_searchUsersBySkills` | 80 ms | — | Indexed query |
+| `planner_assignTask` (post-approval) | 50 ms | — | Single transaction |
+| Summary stream back to UI | 200 ms | ~300 in, ~150 out | Smart tier |
+| **Total per turn** | **~1.2 s** | **~2 k tokens** | |
+
+| Cost lever | Effect |
+|---|---|
+| Drop specialist to `fast` tier | ~40 % cost reduction, ~30 % latency reduction, modest reduction in assignment reasoning quality |
+| Disable rerank (`stage2: 'none'`) | ~150 ms saved; recall@10 drops 8–12 % |
+| Cap thread context to last N messages | Linear reduction in token cost |
+| Provider prompt caching (AI SDK v6) | First turn unaffected; subsequent turns benefit from cache hits |
+
+## 18. Extension criteria — when to add a specialist
+
+```mermaid
+flowchart TD
+    A[New use case identified] --> B{Existing specialist covers it}
+    B -->|yes| C[Add the tool to that specialist]
+    B -->|no| D{Scoped to a single domain}
+    D -->|yes| E[New specialist in that domain]
+    D -->|no, multi-module| F[New orchestrator-tier agent in staffing]
+    C --> G{Specialist tool count above 15}
+    G -->|yes| H[Split into two specialists]
+    G -->|no| I[Complete]
+    E --> J[Add to supervisor delegates]
+    F --> J
+    H --> J
+```
+
+| Precondition before merging a new specialist |
+|---|
+| All capabilities have a public function in the owning module |
+| Each capability has a tool wrapper in that module's `agent-tools/` |
+| Write tools set `needsApproval: true` |
+| RBAC slugs are registered in `<module>/src/rbac.ts` |
+| Specialist `tools[]` contains no more than 15 entries |
+| Specialist `description` reads as a job title rather than a feature list |
+| Supervisor `delegates[]` includes the new specialist |
+| At least one integration test exercises the supervisor → specialist → tool → database path |
+| Latency and cost budget recorded in §17 |
+
+## 19. Code locations
+
+| Concept | File |
+|---|---|
+| Tool contract (no runtime dependency on `@mastra/*`) | `sdks/copilot/src/index.ts` |
+| `defineCopilotTool` definition | `sdks/copilot/src/index.ts` |
+| Agent specifications and catalogue assembly | `packages/copilot/src/backend/agents/catalog.ts` |
+| `AgentSpec` type | `packages/copilot/src/backend/agents/specs.ts` |
+| Supervisor and specialist system prompts | `packages/copilot/src/backend/instructions.ts` |
+| Mastra build, memory wiring, LRU cache | `packages/copilot/src/backend/runtime.ts`, `agent-factory.ts` |
+| Model tier registry | `packages/copilot/src/backend/model-registry.ts` |
+| RBAC tool filter | `packages/copilot/src/backend/rbac-filter.ts` |
+| Reference planner tools | `packages/planner/src/backend/agent-tools/` |
+| Chat HTTP route | `packages/copilot/src/backend/routes.ts` |
+| Mastra source (API reference) | `/Users/canh/Projects/Seta/mastra/` (sibling checkout) |
+| Mastra playground (UX reference for chat and uploads) | `/Users/canh/Projects/Seta/mastra/packages/playground-ui/` |
 
 ---
 
-## 9. Adding a module
+## Related documents
 
-1. Scaffold via `pnpm gen module <name>` (see [`creating-modules.md`](creating-modules.md)).
-2. Build the module's domain code as usual (drizzle schema, public-surface functions, events, subscribers).
-3. Author copilot tools in `packages/<name>/src/backend/agent-tools/`:
-   - One file per tool (e.g. `assign-task.ts`, `get-task.ts`).
-   - Each tool wraps a public-surface function. Writes set `needsApproval: true`.
-4. Create `packages/<name>/src/backend/agent-tools/register.ts`:
-
-   ```ts
-   import { CopilotRegistry } from '@seta/copilot-sdk';
-   import { myTool1, myTool2, myWriteTool } from './...';
-
-   CopilotRegistry.registerSpecialist({
-     domain: 'work',                       // pick from Work | People | Self | Meta
-     id: '<module>',
-     description: '...',                   // shown to the supervisor for routing
-     instructions: () => '...',            // sub-agent's own prompt
-     tools: { my_tool1: myTool1, my_tool2: myTool2, my_writeTool: myWriteTool },
-   });
-   ```
-
-5. Export the side-effect entry from `package.json`:
-
-   ```json
-   "./agent-tools/register": {
-     "types": "./src/backend/agent-tools/register.ts",
-     "default": "./src/backend/agent-tools/register.ts"
-   }
-   ```
-
-6. Add the side-effect import to `packages/copilot/src/backend/init-registry.ts`:
-
-   ```ts
-   import '@seta/<module>/agent-tools/register';
-   ```
-
-7. (If you expose reads other specialists need) call `CopilotRegistry.registerCrossModuleReadTool({...})` for each — RBAC is **required**.
-8. Run `pnpm typecheck && pnpm lint && pnpm test`. The CI invariants from §3.4 will catch missing approvals, missing RBAC, naming violations, and direct cross-module tool imports.
-
-No edit to `packages/copilot/` is needed. The supervisor tree picks up the new specialist at next boot.
-
----
-
-## 10. Adding a workflow
-
-1. Decide the domain (Work / People / Self / Meta).
-2. Author shared schemas in `packages/<module>/src/backend/workflows/<name>/schemas.ts` (zod).
-3. Author each step as its own file under `steps/`. Steps are plain async functions taking typed inputs, returning typed outputs.
-4. Compose them in `workflow.ts` using `createWorkflow(...).then(...).commit()`.
-5. Export a spec in `spec.ts`:
-
-   ```ts
-   export const myWorkflowSpec = {
-     domain: 'work',
-     id: 'myWorkflow',
-     description: 'What this does in one sentence',
-     inputSchema, outputSchema,
-     workflow: myWorkflow,
-     hitlSteps: ['confirmStep'],
-   };
-   ```
-
-6. Register in `agent-tools/register.ts`:
-
-   ```ts
-   import { myWorkflowSpec } from '../workflows/<name>/spec';
-   CopilotRegistry.registerWorkflow(myWorkflowSpec);
-   ```
-
-7. (If users trigger the workflow from outside chat — e.g. a planner UI button) call the generic `POST /api/workflows/:workflowId/run` endpoint with `{ inputData, requestContext }`. The HITL card surfaces in the chat panel via the same `tool-call-approval` stream.
-
----
-
-## 11. Operational rules
-
-- **One-shot replacements, no dual versions.** No `_v2` tool names, no transition flags, no compatibility shims. Each PR cuts over fully and deletes the predecessor.
-- **HITL on every write tool — non-negotiable.** Auto-approval and bypass flags are rejected on review.
-- **The bus is the outbox.** State change + event row commit in one transaction via `core.emit()` inside `withEmit`. No separate publish path.
-- **No cross-schema foreign keys.** `planner.tasks.assignee_id` is `uuid` with no FK to `identity.user.id`. Consistency is event-driven.
-- **No cross-module data-handle sharing.** A module never hands its Drizzle client to another. Mutation crosses the boundary only through public-surface calls (RBAC re-checked at the callee) or domain events.
-- **Specialists ≤ ~15 tools.** Past that, split the module's responsibilities or extract a sub-workflow. Tool schemas live in the system prompt; overflow burns cache hits and worsens model tool selection.
-- **Per-supervisor instruction budget ≈ 4 KB.** CI counts; over budget triggers a domain split.
-
----
-
-## 12. References
-
-- **Spec**: `docs/superpowers/specs/2026-05-25-supervisor-refactor-umbrella-design.md` — the design that this architecture implements.
-- **Plans**:
-  - `docs/superpowers/plans/2026-05-25-supervisor-refactor-pr1-foundation.md`
-  - `docs/superpowers/plans/2026-05-25-supervisor-refactor-pr2-dedup.md`
-  - `docs/superpowers/plans/2026-05-25-supervisor-refactor-pr3-assign.md`
-- **Mastra docs**:
-  - [Supervisor agents](https://mastra.ai/docs/agents/supervisor-agents)
-  - [Agent approval propagation](https://mastra.ai/docs/agents/agent-approval)
-  - [`createVectorQueryTool`](https://mastra.ai/reference/tools/vector-query-tool)
-  - [`createGraphRAGTool`](https://mastra.ai/reference/tools/graph-rag-tool)
-  - [`createTool`](https://mastra.ai/reference/tools/create-tool)
-- **Mastra source**: `../mastra/` (sibling checkout) — authoritative for `@mastra/core` API names + behaviors.
-- **Sibling docs**:
-  - [`architecture.md`](architecture.md) — repo-wide architecture; §9 high-level overview of this system.
-  - [`creating-modules.md`](creating-modules.md) — how to scaffold a new module.
+- [`architecture.md`](./architecture.md) — surrounding platform shape.
+- [`tech-stack.md`](./tech-stack.md) — rationale for Mastra, AI SDK v6, assistant-ui.
+- [`creating-modules.md`](./creating-modules.md) — adding a module and its agent tools.

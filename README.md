@@ -63,13 +63,18 @@ A fresh DB has **no tenants and no users**; the login page rejects everything un
 
 ## Documentation
 
-- [`docs/architecture.md`](docs/architecture.md) — implementation shape (single source of truth)
-- [`docs/creating-modules.md`](docs/creating-modules.md) — add a module + agent tool
-- [`docs/dev-quickstart.md`](docs/dev-quickstart.md) — first tenant + accounts
-- [`docs/hosting/`](docs/hosting/) — self-host: docker compose, AWS, scaling, upgrading
-- [`DESIGN.md`](DESIGN.md) — design tokens and front-end style guide
-- [`CLAUDE.md`](CLAUDE.md) — contributor guidance for AI agents (also `AGENTS.md`)
-- [`CONTRIBUTING.md`](CONTRIBUTING.md) — how to contribute
+| Document | Read it for |
+|---|---|
+| [`docs/architecture.md`](docs/architecture.md) | Implementation shape — single source of truth; the system overview diagram is at the top |
+| [`docs/copilot-architecture.md`](docs/copilot-architecture.md) | Agent system — supervisor/specialist design walked through a concrete planner use case |
+| [`docs/tech-stack.md`](docs/tech-stack.md) | Why each dependency was chosen, the alternatives considered, and when to reconsider |
+| [`docs/creating-modules.md`](docs/creating-modules.md) | Add a module — fast path (~30 min) to full path with UI + write tool + tests |
+| [`docs/hosting/aws.md`](docs/hosting/aws.md) | AWS production deployment — staging + prod, sizing, security, observability, runbooks, FinOps |
+| [`docs/hosting/`](docs/hosting/) | Self-host index — docker compose, AWS, scaling, upgrading, DR |
+| [`docs/dev-quickstart.md`](docs/dev-quickstart.md) | First tenant and accounts on a fresh DB |
+| [`DESIGN.md`](DESIGN.md) | Design tokens and front-end style guide |
+| [`CLAUDE.md`](CLAUDE.md) | Contributor guidance for AI agents (also `AGENTS.md`) |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | How to contribute |
 
 ## License
 
