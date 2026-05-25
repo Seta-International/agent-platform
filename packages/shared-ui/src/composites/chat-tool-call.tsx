@@ -33,7 +33,10 @@ export function ChatToolCall({
 }: ChatToolCallProps) {
   const [open, setOpen] = React.useState(false);
   const expandable = payload != null;
-  const trailing = status === 'ok' ? summary : (STATUS_LABEL[status] ?? summary);
+  // Prefer the call's own summary on every status — the status dot already
+  // tells the user "ok / failed / running"; the summary is the substantive
+  // explanation. Fall back to the generic label when no summary is supplied.
+  const trailing = summary ?? STATUS_LABEL[status];
   return (
     <div
       className={cn('my-1 flex flex-col gap-1 first:mt-0 last:mb-0', className)}

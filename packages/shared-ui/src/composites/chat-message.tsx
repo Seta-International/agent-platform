@@ -31,7 +31,7 @@ export function ChatMessage({
       </div>
     );
   }
-  const eyebrow = [author, timestamp ? formatClock(timestamp) : null].filter(Boolean).join(' · ');
+  const clock = timestamp ? formatClock(timestamp) : null;
   return (
     <div
       data-variant="agent"
@@ -41,9 +41,11 @@ export function ChatMessage({
         className,
       )}
     >
-      {eyebrow && (
+      {(author || clock) && (
         <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-subtle">
-          {eyebrow}
+          {author && <span>{author}</span>}
+          {author && clock && <span aria-hidden> · </span>}
+          {clock && <span>{clock}</span>}
         </div>
       )}
       <div className="text-body-sm text-ink [&_p]:my-0">{children}</div>
