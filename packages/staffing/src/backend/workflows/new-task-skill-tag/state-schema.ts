@@ -18,6 +18,7 @@ export const candidateSchema = z.object({
   displayName: z.string(),
   matchedSkills: z.array(z.string()),
   score: z.number(),
+  availabilityStatus: z.enum(['available', 'busy', 'ooo']).optional(),
 });
 
 export const proposedSchema = z.object({
@@ -61,6 +62,8 @@ export const stateAfterClassifySchema = stateAfterLoadSchema.extend({
 export const stateAfterCandidatesSchema = stateAfterClassifySchema.extend({
   candidates: z.array(candidateSchema),
 });
+
+export const stateAfterAvailabilitySchema = stateAfterCandidatesSchema;
 
 export const stateAfterProposeSchema = stateAfterCandidatesSchema.extend({
   proposed: proposedSchema.nullable(),

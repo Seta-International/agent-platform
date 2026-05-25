@@ -96,7 +96,14 @@ export function buildAgentCatalog(deps: {
     label: 'Supervisor',
     description: 'Routes to the right specialist for the job',
     instructions: ROUTER_INSTRUCTIONS,
-    tools: pickByIdSoft(byId, ['staffing_runNewTaskSkillTag']),
+    tools: pickByIdSoft(byId, [
+      'search_tasks_semantic',
+      'match_users_to_topic',
+      'planner_getTask',
+      'planner_extractSkillsFromTask',
+      'identity_searchUsersBySkills',
+      'staffing_runNewTaskSkillTag',
+    ]),
     delegates: ['self'],
     defaultTier: 'fast',
   };

@@ -2,6 +2,7 @@ import { createWorkflow } from '@mastra/core/workflows/evented';
 import { workflowInputSchema, workflowOutputSchema } from './state-schema.ts';
 import { assignStep } from './steps/assign.ts';
 import { awaitApprovalStep } from './steps/await-approval.ts';
+import { checkAvailabilityStep } from './steps/check-availability.ts';
 import { classifySkillsStep } from './steps/classify-skills.ts';
 import { findCandidatesStep } from './steps/find-candidates.ts';
 import { loadTaskStep } from './steps/load-task.ts';
@@ -17,6 +18,7 @@ export const newTaskSkillTagWorkflow = createWorkflow({
   .then(loadTaskStep)
   .then(classifySkillsStep)
   .then(findCandidatesStep)
+  .then(checkAvailabilityStep)
   .then(proposeAssigneeStep)
   .then(awaitApprovalStep)
   .then(assignStep)

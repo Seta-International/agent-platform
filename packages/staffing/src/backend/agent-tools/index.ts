@@ -1,4 +1,5 @@
 import type { CopilotTool } from '@seta/copilot-sdk';
+import { plannerExtractSkillsFromTaskTool } from './analyzer/planner.extract-skills-from-task.ts';
 import { staffingRunNewTaskSkillTagTool } from './run-new-task-skill-tag.ts';
 
 export * from './analyzer/index.ts';
@@ -7,4 +8,7 @@ export * from './recommender/index.ts';
 export * from './run-new-task-skill-tag.ts';
 export * from './skill-matcher/index.ts';
 
-export const staffingAgentTools: CopilotTool[] = [staffingRunNewTaskSkillTagTool];
+export const staffingAgentTools: CopilotTool[] = [
+  staffingRunNewTaskSkillTagTool,
+  plannerExtractSkillsFromTaskTool,
+];
