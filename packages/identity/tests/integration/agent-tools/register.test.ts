@@ -16,5 +16,16 @@ describe('identity register', () => {
 
     const self = CopilotRegistry.listSpecialists('self')[0]!;
     expect(Object.keys(self.tools)).toContain('identity_updateMyDisplayName');
+
+    const reads = CopilotRegistry.listCrossModuleReadTools()
+      .map((t) => t.id)
+      .sort();
+    expect(reads).toEqual(
+      [
+        'identity_getAvailabilityForUser',
+        'identity_getTimezoneForUser',
+        'identity_searchUsersBySkillVector',
+      ].sort(),
+    );
   });
 });
