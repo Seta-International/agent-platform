@@ -1,4 +1,4 @@
-import type { ChecklistItemRow, TaskWithAssigneesRow } from '@seta/planner';
+import type { ChecklistItemRow, TaskDetailRow, TaskWithAssigneesRow } from '@seta/planner';
 import { plannerClient } from '../../api/planner-client';
 import { plannerKeys } from '../../state/query-keys';
 import { useOptimisticMutation } from '../use-optimistic-mutation';
@@ -24,19 +24,25 @@ export function useRemoveChecklistItem(planId: string, taskId: string) {
       { key: singleKey, prev: qc.getQueryData(singleKey) },
     ],
     applyOptimistic: (v, qc) => {
-      qc.setQueryData<ChecklistItemRow[]>(checklistKey, (prev) => {
-        if (!prev) return prev;
-        const updated = prev.filter((item) => item.id !== v.item_id);
-        const summary = recomputeSummary(updated);
-        qc.setQueryData<TaskWithAssigneesRow[]>(listKey, (tasks) =>
-          tasks
-            ? tasks.map((t) => (t.id === taskId ? { ...t, checklist_summary: summary } : t))
-            : tasks,
+      qc.setQueryData<ChecklistItemRow[]>(checklistKey, (prev) =>
+        prev ? prev.filter((item) => item.id !== v.item_id) : prev,
+      );
+      qc.setQueryData<TaskDetailRow>(singleKey, (task) => {
+        if (!task) return task;
+        const nextChecklist = task.checklist.filter((item) => item.id !== v.item_id);
+        return {
+          ...task,
+          checklist: nextChecklist,
+          checklist_summary: recomputeSummary(nextChecklist),
+        };
+      });
+      qc.setQueryData<TaskWithAssigneesRow[]>(listKey, (tasks) => {
+        if (!tasks) return tasks;
+        const detail = qc.getQueryData<TaskDetailRow>(singleKey);
+        if (!detail) return tasks;
+        return tasks.map((t) =>
+          t.id === taskId ? { ...t, checklist_summary: detail.checklist_summary } : t,
         );
-        qc.setQueryData<TaskWithAssigneesRow>(singleKey, (task) =>
-          task ? { ...task, checklist_summary: summary } : task,
-        );
-        return updated;
       });
     },
     onServerOk: () => {},

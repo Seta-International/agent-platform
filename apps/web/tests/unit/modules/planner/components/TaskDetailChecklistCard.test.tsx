@@ -90,7 +90,7 @@ describe('TaskDetailChecklistCard', () => {
     );
 
     renderWithClient(<TaskDetailChecklistCard task={makeDetail([])} planId="p1" />);
-    await user.click(screen.getByRole('button', { name: /Add item/i }));
+    // Input is now always visible (no "Add item" gate).
     const input = screen.getByRole('textbox', { name: /New checklist item/i });
     await user.type(input, 'new step{Enter}');
     expect(captured.mock.calls[0]?.[0]).toMatchObject({ label: 'new step' });

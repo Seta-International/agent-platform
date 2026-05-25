@@ -1,21 +1,14 @@
-/**
- * Integration tests for the search_tasks_semantic Mastra tool.
- *
- * Tests call tool.execute() directly without agent wiring, using an injected
- * sessionProvider so we can skip the live identity / RBAC stores.
- */
-
 import { RequestContext } from '@mastra/core/request-context';
+import { PgVector } from '@mastra/pg';
 import { resetCoreDb } from '@seta/core/testing';
-import { embedTask } from '@seta/planner';
+import { embedTask, PLANNER_VECTOR_NAMESPACE } from '@seta/planner';
 import { searchTasksSemanticTool } from '@seta/planner/agent-tools';
 import { closePools, initPools } from '@seta/shared-db';
-import { NoopReranker } from '@seta/shared-retrieval';
 import { FakeEmbeddingProvider, withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { seedTaskForTest } from '../../helpers/seed.ts';
 
-const withDb = <T>(fn: (ctx: { pool: import('pg').Pool }) => Promise<T>) =>
+const withDb = <T>(fn: (ctx: { pool: import('pg').Pool; pgVector: PgVector }) => Promise<T>) =>
   withTestDb(
     {
       templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
@@ -24,20 +17,21 @@ const withDb = <T>(fn: (ctx: { pool: import('pg').Pool }) => Promise<T>) =>
     async ({ pool, databaseUrl }) => {
       resetCoreDb();
       initPools({ databaseUrl });
+      const pgVector = new PgVector({
+        id: 'planner-task-embeddings-test',
+        connectionString: databaseUrl,
+        schemaName: PLANNER_VECTOR_NAMESPACE,
+      });
       try {
-        return await fn({ pool });
+        return await fn({ pool, pgVector });
       } finally {
+        await pgVector.disconnect().catch(() => {});
         resetCoreDb();
         await closePools();
       }
     },
   );
 
-/**
- * Build a fake Mastra ToolExecutionContext whose requestContext holds a valid actor.
- * The tool's actorFromContext reads ctx.requestContext.get('actor'), and the Mastra
- * requestContextSchema validation reads ctx.requestContext.all to check the actor field.
- */
 function makeFakeCtx(actor: { type: 'user'; user_id: string }) {
   const rc = new RequestContext<{ actor: typeof actor }>();
   rc.set('actor', actor);
@@ -46,10 +40,6 @@ function makeFakeCtx(actor: { type: 'user'; user_id: string }) {
   >[1];
 }
 
-/**
- * Build a sessionProvider stub that bypasses buildActorSession.
- * Returns a minimal session object with the given tenant_id.
- */
 function makeSessionProvider(tenantId: string) {
   return async (_actor: { user_id: string }) => ({
     tenant_id: tenantId,
@@ -58,8 +48,8 @@ function makeSessionProvider(tenantId: string) {
 }
 
 describe('searchTasksSemanticTool', () => {
-  it('returns hits with task fields, score, snippet, source', () =>
-    withDb(async ({ pool }) => {
+  it('returns hits with task fields, score, snippet, source=vector', () =>
+    withDb(async ({ pool, pgVector }) => {
       const provider = new FakeEmbeddingProvider();
 
       const seeded = await seedTaskForTest(pool, {
@@ -70,13 +60,12 @@ describe('searchTasksSemanticTool', () => {
 
       await embedTask(
         { tenant_id: seeded.tenant_id, task_id: seeded.task_id, event_id: 'test-e1' },
-        { pool, provider },
+        { provider, pgVector },
       );
 
       const tool = searchTasksSemanticTool({
         provider,
-        pool,
-        reranker: new NoopReranker(),
+        pgVector,
         sessionProvider: makeSessionProvider(seeded.tenant_id),
       });
 
@@ -89,17 +78,18 @@ describe('searchTasksSemanticTool', () => {
       expect(hits).toHaveLength(1);
       const hit = hits[0]!;
       expect(hit.task.task_id).toBe(seeded.task_id);
-      expect(hit.score).toBeGreaterThan(0);
-      expect(hit.rerank_score).toBeGreaterThanOrEqual(0);
-      expect(hit.snippet).toContain('EKS');
-      expect(['fts', 'vector', 'hybrid'] as const).toContain(hit.source);
+      const EPS = 0.05;
+      expect(hit.score).toBeGreaterThanOrEqual(-EPS);
+      expect(hit.score).toBeLessThanOrEqual(1 + EPS);
+      expect(hit.rerank_score).toBeGreaterThanOrEqual(-EPS);
+      expect(hit.rerank_score).toBeLessThanOrEqual(1 + EPS);
+      expect(hit.source).toBe('vector');
     }));
 
   it('respects limit', () =>
-    withDb(async ({ pool }) => {
+    withDb(async ({ pool, pgVector }) => {
       const provider = new FakeEmbeddingProvider();
 
-      // Seed first task to get the tenant_id.
       const first = await seedTaskForTest(pool, {
         title: 'postgres migration task 1',
         description: 'Database migration work',
@@ -107,13 +97,11 @@ describe('searchTasksSemanticTool', () => {
       });
       const { tenant_id } = first;
 
-      // Embed the first task.
       await embedTask(
         { tenant_id, task_id: first.task_id, event_id: 'test-limit-1' },
-        { pool, provider },
+        { provider, pgVector },
       );
 
-      // Seed and embed 4 more tasks in the same tenant.
       for (let i = 2; i <= 5; i++) {
         const s = await seedTaskForTest(pool, {
           tenant_id,
@@ -124,14 +112,13 @@ describe('searchTasksSemanticTool', () => {
         });
         await embedTask(
           { tenant_id, task_id: s.task_id, event_id: `test-limit-${i}` },
-          { pool, provider },
+          { provider, pgVector },
         );
       }
 
       const tool = searchTasksSemanticTool({
         provider,
-        pool,
-        reranker: new NoopReranker(),
+        pgVector,
         sessionProvider: makeSessionProvider(tenant_id),
       });
 

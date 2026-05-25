@@ -4,27 +4,33 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  formatRelative,
   KbdHint,
 } from '@seta/shared-ui';
-import { ChevronLeft, ChevronRight, Copy, MoreHorizontal, Sparkles } from 'lucide-react';
-import { useEffect } from 'react';
+import {
+  ArrowRightLeft,
+  ChevronLeft,
+  ChevronRight,
+  Copy,
+  MoreHorizontal,
+  Sparkles,
+} from 'lucide-react';
+import { type ReactNode, useEffect } from 'react';
 
 interface Props {
   taskNumber: number;
-  title: string;
   groupName: string;
   planName: string;
   bucketName: string | null;
-  createdAt: string;
-  updatedAt: string;
-  creatorName: string;
+  /** Editable title slot (TaskTitleEditor) — rendered prominently below the breadcrumb. */
+  titleSlot: ReactNode;
   onBack: () => void;
   onAskCopilot: () => void;
   onCopyLink: () => void;
   onPrevious: () => void;
   onNext: () => void;
-  onMenuAction?: (action: 'duplicate' | 'archive' | 'delete') => void;
+  onDuplicate?: () => void;
+  onMove?: () => void;
+  onDelete?: () => void;
 }
 
 function isEditableTarget(node: EventTarget | null): boolean {
@@ -37,19 +43,18 @@ function isEditableTarget(node: EventTarget | null): boolean {
 
 export function TaskDetailHeader({
   taskNumber,
-  title,
   groupName,
   planName,
   bucketName,
-  createdAt,
-  updatedAt,
-  creatorName,
+  titleSlot,
   onBack,
   onAskCopilot,
   onCopyLink,
   onPrevious,
   onNext,
-  onMenuAction,
+  onDuplicate,
+  onMove,
+  onDelete,
 }: Props) {
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -92,22 +97,15 @@ export function TaskDetailHeader({
               <span className="text-primary">{bucketName}</span>
             </>
           )}
+          <ChevronRight className="size-2.5 text-ink-tertiary" aria-hidden="true" />
+          <span className="mono inline-flex items-center rounded bg-surface-2 px-1.5 py-0.5 text-ink-muted">
+            T-{taskNumber}
+          </span>
         </nav>
       </div>
 
       <div className="flex items-start gap-4">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="mono inline-flex items-center rounded bg-surface-2 px-1.5 py-0.5 text-caption text-ink-subtle">
-              T-{taskNumber}
-            </span>
-            <span className="sr-only">{title}</span>
-          </div>
-          <div className="mt-1 text-xs text-ink-subtle">
-            Created {formatRelative(createdAt)} by {creatorName} · Last updated{' '}
-            {formatRelative(updatedAt)}
-          </div>
-        </div>
+        <div className="min-w-0 flex-1">{titleSlot}</div>
 
         <div className="flex items-center gap-2">
           <Button size="sm" variant="secondary" onClick={onAskCopilot}>
@@ -118,31 +116,38 @@ export function TaskDetailHeader({
             <Copy className="size-3" />
             Copy link
           </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                aria-label="More actions"
-                className="inline-flex items-center justify-center rounded p-1 text-ink-subtle hover:bg-surface-1 hover:text-ink"
-              >
-                <MoreHorizontal className="size-4" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={() => onMenuAction?.('duplicate')}>
-                Duplicate
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => onMenuAction?.('archive')}>
-                Archive
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={() => onMenuAction?.('delete')}
-                className="text-semantic-danger"
-              >
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {(onDuplicate || onMove || onDelete) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="More actions"
+                  className="inline-flex items-center justify-center rounded p-1 text-ink-subtle hover:bg-surface-1 hover:text-ink"
+                >
+                  <MoreHorizontal className="size-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {onDuplicate && (
+                  <DropdownMenuItem onSelect={() => onDuplicate()}>
+                    <Copy className="size-3.5" />
+                    Duplicate
+                  </DropdownMenuItem>
+                )}
+                {onMove && (
+                  <DropdownMenuItem onSelect={() => onMove()}>
+                    <ArrowRightLeft className="size-3.5" />
+                    Move…
+                  </DropdownMenuItem>
+                )}
+                {onDelete && (
+                  <DropdownMenuItem onSelect={() => onDelete()} className="text-semantic-danger">
+                    Delete
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           <span aria-hidden="true" className="h-5 w-px bg-hairline" />
           <button
             type="button"

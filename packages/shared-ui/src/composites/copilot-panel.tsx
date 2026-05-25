@@ -1,7 +1,5 @@
-import { Sparkles, X } from 'lucide-react';
 import * as React from 'react';
 import { cn } from '../lib/cn';
-import { KbdHint } from './kbd-hint';
 
 export interface CopilotPanelProps {
   onClose?: () => void;
@@ -13,8 +11,8 @@ export interface CopilotPanelProps {
   children?: React.ReactNode;
 }
 
-const DEFAULT_WIDTH = 360;
-const DEFAULT_MIN = 300;
+const DEFAULT_WIDTH = 380;
+const DEFAULT_MIN = 320;
 const DEFAULT_MAX = 720;
 
 function readStoredWidth(key: string | null | undefined, fallback: number): number {
@@ -25,8 +23,13 @@ function readStoredWidth(key: string | null | undefined, fallback: number): numb
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+/**
+ * Resizable docked container for the copilot side panel.
+ * Renders only the chrome (resize rail + width persistence); children own their header,
+ * conversation, and composer so the panel reads as a single designed surface rather than
+ * two stacked toolbars.
+ */
 export function CopilotPanel({
-  onClose,
   defaultWidth = DEFAULT_WIDTH,
   minWidth = DEFAULT_MIN,
   maxWidth = DEFAULT_MAX,
@@ -102,7 +105,7 @@ export function CopilotPanel({
       aria-label="Copilot"
       style={{ width }}
       className={cn(
-        'relative flex h-full flex-none flex-col border-l border-hairline bg-surface-1',
+        'relative flex h-full flex-none flex-col border-l border-hairline bg-canvas',
         className,
       )}
     >
@@ -123,54 +126,8 @@ export function CopilotPanel({
           className="block h-10 w-0.5 rounded-full bg-transparent transition-colors group-hover:bg-primary-border group-focus-visible:bg-primary"
         />
       </div>
-
-      <header className="flex h-12 flex-none items-center justify-between border-b border-hairline px-4">
-        <div className="flex items-center gap-2">
-          <span className="inline-flex size-5 items-center justify-center rounded-md bg-primary-tint text-primary">
-            <Sparkles className="size-3" aria-hidden />
-          </span>
-          <span className="text-body-sm font-semibold text-ink">Copilot</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <KbdHint keys={['⌘\\']} />
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close copilot panel"
-            title="Close"
-            className="inline-flex size-6 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
-          >
-            <X className="size-3.5" aria-hidden />
-          </button>
-        </div>
-      </header>
-
-      {children ?? <CopilotPlaceholder />}
+      {children}
     </aside>
-  );
-}
-
-function CopilotPlaceholder() {
-  return (
-    <div className="flex flex-1 flex-col">
-      <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-        <div className="mb-3 inline-flex size-9 items-center justify-center rounded-full bg-primary-tint text-primary">
-          <Sparkles className="size-4" aria-hidden />
-        </div>
-        <h2 className="text-body-sm font-semibold text-ink">Copilot is on its way</h2>
-        <p className="mt-1.5 max-w-xs text-caption leading-[1.5] text-ink-muted">
-          Chat, workflow runs, and HITL approvals will live here. Read tools run inline; writes
-          always pause for your confirmation.
-        </p>
-      </div>
-
-      <div className="flex-none border-t border-hairline p-3">
-        <div className="flex h-9 items-center gap-2 rounded-md border border-hairline-strong bg-canvas px-3 text-caption text-ink-tertiary">
-          <Sparkles className="size-3.5 text-ink-tertiary" aria-hidden />
-          <span>Ask copilot…</span>
-        </div>
-      </div>
-    </div>
   );
 }
 

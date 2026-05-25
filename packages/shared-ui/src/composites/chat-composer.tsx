@@ -1,7 +1,6 @@
 import { Send } from 'lucide-react';
 import { type KeyboardEvent, type ReactNode, useLayoutEffect, useRef } from 'react';
 import { cn } from '../lib/cn';
-import { KbdHint } from './kbd-hint';
 
 const MAX_TEXTAREA_HEIGHT_PX = 160;
 
@@ -35,7 +34,6 @@ export function ChatComposer({
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = 'auto';
-    // height must be reset to 'auto' first so scrollHeight reflects actual content
     Object.assign(el.style, {
       height: `${Math.min(el.scrollHeight, MAX_TEXTAREA_HEIGHT_PX)}px`,
     });
@@ -49,12 +47,12 @@ export function ChatComposer({
     }
   };
   return (
-    <div className={cn('border-t border-hairline bg-canvas px-4 py-4 md:px-6 md:py-5', className)}>
+    <div className={cn('border-t border-hairline bg-canvas px-3 py-3 md:px-4 md:py-4', className)}>
       <div className="mx-auto max-w-conversation">
-        <div className="rounded-xl border border-hairline bg-canvas p-3 shadow-sm transition-[background-color,border-color] duration-150 focus-within:border-hairline-strong focus-within:bg-surface-1">
+        <div className="rounded-xl border border-hairline bg-canvas px-3 pt-2.5 pb-2 shadow-sm transition-[border-color,background-color,box-shadow] duration-150 focus-within:border-primary-border focus-within:bg-surface-1 focus-within:shadow-[0_0_0_3px_var(--color-primary-tint)]">
           <textarea
             ref={textareaRef}
-            className="block w-full resize-none overflow-y-auto bg-transparent text-body-sm leading-[1.4] placeholder:text-ink-subtle focus:outline-none focus-visible:outline-none"
+            className="block w-full resize-none overflow-y-auto bg-transparent text-body-sm leading-[1.45] placeholder:text-ink-subtle focus:outline-none focus-visible:outline-none"
             rows={1}
             value={value}
             onChange={(e) => onChange(e.target.value)}
@@ -62,31 +60,21 @@ export function ChatComposer({
             placeholder={placeholder ?? 'Message your assistant…'}
             disabled={disabled || pending}
           />
-          <div className="mt-2.5 flex items-center justify-between gap-3">
-            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-caption">
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-1 text-caption">
               {toolbar}
               {permissionHint && <span className="text-ink-subtle">{permissionHint}</span>}
             </div>
-            <div className="flex shrink-0 items-center gap-2 text-caption text-ink-subtle">
-              <span className="hidden items-center gap-1 sm:inline-flex">
-                <KbdHint keys={['⏎']} /> send
-              </span>
-              <span aria-hidden className="hidden sm:inline">
-                ·
-              </span>
-              <span className="hidden items-center gap-1 sm:inline-flex">
-                <KbdHint keys={['⇧⏎']} /> new line
-              </span>
-              <button
-                type="button"
-                onClick={() => !disabled && !pending && value.trim() && onSubmit()}
-                disabled={disabled || pending || !value.trim()}
-                aria-label="Send"
-                className="ml-1 inline-flex size-7 items-center justify-center rounded-md bg-primary text-white disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Send className="size-3.5" aria-hidden />
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => !disabled && !pending && value.trim() && onSubmit()}
+              disabled={disabled || pending || !value.trim()}
+              aria-label="Send"
+              title="Send  ⏎"
+              className="inline-flex size-7 flex-none items-center justify-center rounded-md bg-primary text-on-primary transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Send className="size-3.5" aria-hidden />
+            </button>
           </div>
         </div>
       </div>

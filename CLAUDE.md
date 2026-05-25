@@ -63,4 +63,4 @@ Declared via `"setaTier"` in `package.json` (informational, not a separate enfor
 
 - **HITL on every write tool.** AI SDK v6 `needsApproval: true` + assistant-ui Interactable confirmation card, wired via `registerToolPermission` from `@seta/copilot-sdk`. Read tools execute directly.
 - **Subscribers must be idempotent**, keyed on `event_id`. At-least-once delivery; per-aggregate ordering only.
-- **≤ ~15 tools per agent** assembled at session time. Past the cap, spin up a new specialist agent and route to it. Soft rule, reviewer-enforced.
+- **Production-grade only, never quick hacks.** Diagnose the root cause and ship the optimized solution; "small patch now, real fix later" is rejected on review.

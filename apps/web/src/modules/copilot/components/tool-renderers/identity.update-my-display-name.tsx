@@ -31,7 +31,6 @@ export function UpdateMyDisplayNameRenderer({
     try {
       await resolveApproval({
         queryClient,
-        parentAgentName: 'self',
         runId,
         toolCallId: toolCallId ?? callId,
         approved,

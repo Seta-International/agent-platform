@@ -1,6 +1,7 @@
 import type { TaskRow, TaskWithAssigneesRow } from '@seta/planner';
 import { plannerClient } from '../../api/planner-client';
 import { plannerKeys } from '../../state/query-keys';
+import { parseConflictVersion, patchTaskVersion } from '../../state/version-reconcile';
 import { useOptimisticMutation } from '../use-optimistic-mutation';
 
 interface MoveVars {
@@ -9,6 +10,14 @@ interface MoveVars {
   bucket_id?: string | null;
   before_id?: string;
   after_id?: string;
+  /**
+   * Cross-plan move: target plan id. When provided and different from
+   * `planId`, both the source and target plan task lists are invalidated so
+   * each board refreshes from the server (which strips plan-scoped labels).
+   * Optimistic in-place edits are skipped in this case because the task is
+   * no longer part of the current plan board.
+   */
+  new_plan_id?: string;
 }
 
 export function useMoveTask(planId: string) {
@@ -17,6 +26,10 @@ export function useMoveTask(planId: string) {
     mutationFn: (v) => plannerClient.moveTask(v),
     snapshot: (_v, qc) => [{ key, prev: qc.getQueryData(key) }],
     applyOptimistic: (v, qc) => {
+      // Cross-plan move: skip optimistic re-ordering — the task leaves the
+      // current board entirely. Server-side label strip + version bump will
+      // be picked up by the post-success invalidation.
+      if (v.new_plan_id !== undefined && v.new_plan_id !== planId) return;
       qc.setQueryData<TaskWithAssigneesRow[]>(key, (prev) => {
         if (!prev) return prev;
         const moved = prev.find((t) => t.id === v.task_id);
@@ -48,7 +61,10 @@ export function useMoveTask(planId: string) {
         return [...outOfTarget, ...head, updated, ...tail];
       });
     },
-    onServerOk: (server, _v, qc) => {
+    onServerOk: (server, v, qc) => {
+      // Cross-plan move: don't merge into the source board — the task no
+      // longer belongs there. The invalidate() step below clears it.
+      if (v.new_plan_id !== undefined && v.new_plan_id !== planId) return;
       qc.setQueryData<TaskWithAssigneesRow[]>(key, (prev) =>
         prev
           ? prev.map((t) =>
@@ -66,11 +82,23 @@ export function useMoveTask(planId: string) {
       );
     },
     savingId: (v) => v.task_id,
-    invalidate: () => [],
+    invalidate: (v) => {
+      // Cross-plan move: invalidate BOTH boards so the source removes the
+      // task and the target picks it up (with labels dropped).
+      if (v.new_plan_id !== undefined && v.new_plan_id !== planId) {
+        const targetKey = plannerKeys.planTasks(v.new_plan_id, { plan_id: v.new_plan_id });
+        return [key, targetKey, plannerKeys.task(v.task_id)];
+      }
+      return [];
+    },
     errorMessage: (err) =>
       (err as { status?: number }).status === 409
         ? 'Someone else moved this — refreshed.'
         : "Couldn't move task.",
+    onConflict: (err, vars, qc) => {
+      const v = parseConflictVersion(err);
+      if (v !== undefined) patchTaskVersion(qc, planId, vars.task_id, v);
+    },
   });
 }
 

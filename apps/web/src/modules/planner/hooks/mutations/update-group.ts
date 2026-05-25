@@ -1,6 +1,7 @@
 import type { GroupRow } from '@seta/planner';
 import { plannerClient } from '../../api/planner-client';
 import { plannerKeys } from '../../state/query-keys';
+import { parseConflictVersion, patchGroupVersion } from '../../state/version-reconcile';
 import { useOptimisticMutation } from '../use-optimistic-mutation';
 
 export function useUpdateGroup(groupId: string) {
@@ -28,5 +29,9 @@ export function useUpdateGroup(groupId: string) {
       err && typeof err === 'object' && (err as { status?: number }).status === 409
         ? 'Someone else updated this — refreshed.'
         : "Couldn't save group changes.",
+    onConflict: (err, _vars, qc) => {
+      const v = parseConflictVersion(err);
+      if (v !== undefined) patchGroupVersion(qc, groupId, v);
+    },
   });
 }

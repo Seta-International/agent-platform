@@ -404,6 +404,131 @@ describe('listTasks', () => {
     );
   });
 
+  it('populates checklist_preview (first 3 by order_hint) and reference_preview (first 1 by preview_priority)', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+      },
+      async ({ pool, databaseUrl }) => {
+        resetCoreDb();
+        initPools({ databaseUrl });
+        try {
+          const seeded = await seedTenant(pool);
+          const session = seeded.adminSession;
+          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+
+          // Task with no checklist / no references — both previews must be [].
+          await createTask({ plan_id: plan.id, title: 'Bare', session });
+
+          // Task with 4 checklist items so we can prove the 3-item cap and the
+          // order_hint NULLS LAST ordering. addChecklistItem auto-generates a
+          // monotonically increasing order_hint, so create them in a controlled
+          // sequence: first, third, second, fourth.
+          const previewTask = await createTask({
+            plan_id: plan.id,
+            title: 'With previews',
+            session,
+          });
+          const first = await addChecklistItem({
+            task_id: previewTask.id,
+            label: 'first',
+            session,
+          });
+          const third = await addChecklistItem({
+            task_id: previewTask.id,
+            label: 'third',
+            session,
+          });
+          const second = await addChecklistItem({
+            task_id: previewTask.id,
+            label: 'second',
+            after_item_id: first.id,
+            session,
+          });
+          const fourth = await addChecklistItem({
+            task_id: previewTask.id,
+            label: 'fourth',
+            session,
+          });
+          await updateChecklistItem({ item_id: first.id, patch: { checked: true }, session });
+
+          // Two references; addTaskReference doesn't set preview_priority, so
+          // both are NULL and the tie breaks on id (ascending). Stamp explicit
+          // priorities so the ordering is deterministic and the test asserts
+          // the documented "preview_priority NULLS LAST, id" rule.
+          const ref1 = await addTaskReference({
+            task_id: previewTask.id,
+            url: 'https://primary.example.test/doc',
+            alias: 'primary',
+            type: 'web',
+            session,
+          });
+          const ref2 = await addTaskReference({
+            task_id: previewTask.id,
+            url: 'https://secondary.example.test/doc',
+            type: 'word',
+            session,
+          });
+          // ref1 wins on a lexicographically smaller priority string.
+          await pool.query(
+            `UPDATE planner.task_references SET preview_priority = $1 WHERE id = $2`,
+            ['a', ref1.id],
+          );
+          await pool.query(
+            `UPDATE planner.task_references SET preview_priority = $1 WHERE id = $2`,
+            ['b', ref2.id],
+          );
+
+          const result = await listTasks({ filters: { plan_id: plan.id }, session });
+          const bare = result.tasks.find((t) => t.title === 'Bare');
+          const preview = result.tasks.find((t) => t.title === 'With previews');
+          expect(bare).toBeDefined();
+          expect(preview).toBeDefined();
+
+          // Empty-state contract: arrays present, always.
+          expect(bare!.checklist_preview).toEqual([]);
+          expect(bare!.reference_preview).toEqual([]);
+
+          // First 3 by order_hint NULLS LAST, id tiebreaker. The four items
+          // were inserted as first → third → after-first → fourth; the
+          // domain helper assigns order_hints so the effective order is
+          // first, second, third, fourth. fourth must NOT appear.
+          expect(preview!.checklist_preview).toHaveLength(3);
+          expect(preview!.checklist_preview.map((c) => c.label)).toEqual([
+            'first',
+            'second',
+            'third',
+          ]);
+          expect(preview!.checklist_preview[0]).toEqual({
+            id: first.id,
+            label: 'first',
+            checked: true,
+          });
+          expect(preview!.checklist_preview.find((c) => c.id === fourth.id)).toBeUndefined();
+          // Compiler-only sanity that the tiebreaker id field is populated.
+          expect(preview!.checklist_preview[1]!.id).toBe(second.id);
+          expect(preview!.checklist_preview[2]!.id).toBe(third.id);
+
+          // First reference by preview_priority NULLS LAST, id tiebreaker. The
+          // domain helper assigns priorities in insertion order, so ref1 wins.
+          expect(preview!.reference_preview).toHaveLength(1);
+          expect(preview!.reference_preview[0]).toEqual({
+            id: ref1.id,
+            url: 'https://primary.example.test/doc',
+            alias: 'primary',
+            type: 'web',
+            host: 'primary.example.test',
+          });
+        } finally {
+          resetCoreDb();
+          await closePools();
+        }
+      },
+    );
+  });
+
   it('group-scope filter: viewer only sees tasks from accessible groups', async () => {
     await withTestDb(
       {

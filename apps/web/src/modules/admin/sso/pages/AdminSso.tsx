@@ -72,7 +72,7 @@ export function AdminSso({ status, error }: AdminSsoProps) {
         </Button>
       }
     >
-      <div className="mx-auto max-w-[880px] space-y-4 p-6">
+      <div className="page-container space-y-4">
         {status === 'consent_granted' && (
           <Alert>
             <AlertDescription>

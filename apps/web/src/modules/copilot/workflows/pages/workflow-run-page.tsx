@@ -1,14 +1,21 @@
+import { Button, PageChrome } from '@seta/shared-ui';
 import { useNavigate } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
 import { HitlApprovalCard } from '../components/hitl-approval-card.tsx';
 import { RerunSideSheet } from '../components/rerun-side-sheet.tsx';
-import { RunHeader } from '../components/run-header.tsx';
 import { RunRightPanel } from '../components/run-right-panel.tsx';
+import { RunStatusPill } from '../components/run-status-pill.tsx';
 import { WorkflowGraph } from '../components/workflow-graph.tsx';
 import { useDecideApproval } from '../hooks/use-decide-approval.ts';
 import { usePendingApprovals } from '../hooks/use-pending-approvals.ts';
 import { useWorkflowRun } from '../hooks/use-workflow-run.ts';
 import { useWorkflowRunSnapshot } from '../hooks/use-workflow-run-snapshot.ts';
+
+const TERMINAL = new Set(['success', 'failed', 'tripwire', 'canceled']);
+
+function workflowLabel(workflowId: string): string {
+  return workflowId.replace(/^.*\./, '');
+}
 
 export interface WorkflowRunPageProps {
   runId: string;
@@ -49,29 +56,51 @@ export function WorkflowRunPage({ runId, rerunOpen = false }: WorkflowRunPagePro
   };
 
   if (runQuery.isLoading) {
-    return <div className="p-8 text-sm text-[var(--color-ink-subtle)]">Loading run…</div>;
+    return (
+      <PageChrome breadcrumb={['Copilot', 'Workflows']} title="Loading run…">
+        <div className="p-8 text-sm text-ink-subtle">Loading run…</div>
+      </PageChrome>
+    );
   }
   if (!runQuery.data) {
     return (
-      <div className="grid h-full place-items-center p-8 text-sm">
-        <div className="space-y-2 text-center">
-          <p className="text-[var(--color-ink)]">We couldn&apos;t find that run.</p>
-          <p className="text-xs text-[var(--color-ink-subtle)]">
-            It may have been deleted, or you might not have access.
-          </p>
+      <PageChrome breadcrumb={['Copilot', 'Workflows']} title="Run not found">
+        <div className="grid h-full place-items-center p-8 text-sm">
+          <div className="space-y-2 text-center">
+            <p className="text-ink">We couldn&apos;t find that run.</p>
+            <p className="text-xs text-ink-subtle">
+              It may have been deleted, or you might not have access.
+            </p>
+          </div>
         </div>
-      </div>
+      </PageChrome>
     );
   }
 
   const run = runQuery.data;
   const myApproval = approvalsQuery.data?.find((a) => a.runId === runId) ?? null;
+  const terminal = TERMINAL.has(run.status);
 
   return (
-    <div className="flex h-full flex-col">
-      <RunHeader run={run} onRerun={openRerun} />
-      <div className="flex flex-1 overflow-hidden">
-        <main className="relative flex-1 overflow-hidden bg-[var(--color-surface-2)]">
+    <PageChrome
+      breadcrumb={['Copilot', 'Workflows']}
+      title={<span className="font-mono">{workflowLabel(run.workflowId)}</span>}
+      subtitle={
+        <>
+          <span className="font-mono text-xs">Run {run.runId.slice(0, 7)}</span>
+          <RunStatusPill status={run.status} />
+        </>
+      }
+      actions={
+        terminal ? (
+          <Button size="sm" variant="secondary" onClick={openRerun}>
+            Run again
+          </Button>
+        ) : undefined
+      }
+    >
+      <div className="flex h-full flex-1 overflow-hidden">
+        <main className="relative flex-1 overflow-hidden bg-surface-2">
           <WorkflowGraph
             snapshot={snapshotQuery.data}
             run={{
@@ -110,6 +139,6 @@ export function WorkflowRunPage({ runId, rerunOpen = false }: WorkflowRunPagePro
         priorInputSummary={run.inputSummary}
         onClose={closeSheet}
       />
-    </div>
+    </PageChrome>
   );
 }

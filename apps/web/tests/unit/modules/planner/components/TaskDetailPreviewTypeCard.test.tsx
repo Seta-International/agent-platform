@@ -25,7 +25,7 @@ describe('TaskDetailPreviewTypeCard', () => {
     const user = userEvent.setup();
     const task = makeTaskWithAssignees({ id: 't1', preview_type: 'checklist' });
     renderWithClient(<TaskDetailPreviewTypeCard task={task} planId="p1" />);
-    expect(screen.getByText('Preview')).toBeInTheDocument();
+    expect(screen.getByText('Show on card')).toBeInTheDocument();
     // Trigger shows the current option's label.
     const trigger = screen.getByRole('button', { name: 'Preview type' });
     expect(trigger).toHaveTextContent('Checklist');

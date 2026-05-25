@@ -28,10 +28,7 @@ function makeApp(
     await next();
   });
   registerCopilotRoutes(app, {
-    factory: (() => ({
-      get: () => null,
-      specs: () => [],
-    })) as never,
+    supervisor: { stream: async () => ({}) } as never,
     mastra,
     pool,
   });

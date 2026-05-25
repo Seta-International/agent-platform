@@ -1,10 +1,11 @@
+import type { PgVector } from '@mastra/pg';
 import { actorFromContext, defineCopilotTool } from '@seta/copilot-sdk';
 import type { EmbeddingProvider } from '@seta/shared-embeddings';
 import type { Reranker } from '@seta/shared-retrieval';
-import type { Pool } from 'pg';
 import { z } from 'zod';
 import { buildActorSession } from '../domain/build-actor-session.ts';
 import { matchUsersToTopic } from '../domain/match-users-to-topic.ts';
+import { getIdentityVectorStore } from '../embeddings/vector-store.ts';
 
 const STAGE1_TOPK = Number(process.env.RERANK_STAGE1_TOPK ?? 50);
 
@@ -43,19 +44,14 @@ const outputSchema = z.object({
       source: z.literal('vector'),
     }),
   ),
-  /** Which reranker actually ran — surfaces precision tier to the agent. */
   reranker: z.enum(['cohere', 'llm-judge', 'noop', 'fallback']),
 });
 
 export interface MatchUsersToTopicToolDeps {
   provider: EmbeddingProvider;
-  pool: Pool;
   reranker: Reranker;
-  /**
-   * Optional override for deriving a session from an actor.
-   * Defaults to buildActorSession. Injected in tests to avoid
-   * hitting the live identity / RBAC stores.
-   */
+  databaseUrl?: string;
+  pgVector?: PgVector;
   sessionProvider?: (actor: { user_id: string }) => Promise<{
     tenant_id: string;
     accessible_group_ids: ReadonlyArray<string>;
@@ -77,10 +73,19 @@ export function matchUsersToTopicTool(deps: MatchUsersToTopicToolDeps) {
       const actor = actorFromContext(ctx);
       const session = await resolveSession(actor);
 
-      const requestedLimit = input.limit ?? 10;
+      const pgVector =
+        deps.pgVector ??
+        (deps.databaseUrl
+          ? getIdentityVectorStore(deps.databaseUrl)
+          : (() => {
+              throw new Error(
+                'match_users_to_topic: either pgVector or databaseUrl must be supplied',
+              );
+            })());
 
-      // Stage 1: oversampled vector retrieval.
+      const requestedLimit = input.limit ?? 10;
       const stage1Limit = Math.max(requestedLimit * 3, STAGE1_TOPK);
+
       const stage1 = await matchUsersToTopic(
         {
           topic: input.topic,
@@ -88,10 +93,9 @@ export function matchUsersToTopicTool(deps: MatchUsersToTopicToolDeps) {
           limit: stage1Limit,
           minScore: input.min_score,
         },
-        { provider: deps.provider, pool: deps.pool },
+        { provider: deps.provider, pgVector },
       );
 
-      // Stage 2: rerank stage-1 hits and truncate to the requested limit.
       const reranked = await deps.reranker.rescore(input.topic, stage1, {
         topN: requestedLimit,
       });

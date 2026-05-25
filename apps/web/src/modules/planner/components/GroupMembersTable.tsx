@@ -3,18 +3,20 @@ import {
   Avatar,
   AvatarFallback,
   cn,
+  DataTable,
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@seta/shared-ui';
+import type { ColumnDef } from '@tanstack/react-table';
+import { useMemo } from 'react';
 
 interface Props {
   group: GroupRow; // for external_source check
   members: ReadonlyArray<GroupMemberRow>;
   canManageRoles: boolean; // tenant.admin | org.admin | planner.admin | group owner
   onRoleChange: (input: { user_id: string; role: 'owner' | 'member' }) => void;
-  // Removing members is out of scope for PR2 — handled in a future enhancement
 }
 
 function initials(name: string): string {
@@ -47,7 +49,7 @@ function RoleControl({ member, canEdit, isLinkedGroup, externalId, onChange }: R
       <select
         value={member.role}
         aria-label={`Change role for ${member.display_name}`}
-        className="h-7 w-28 rounded border border-hairline bg-canvas px-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+        className="h-8 w-28 rounded border border-hairline bg-canvas px-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
         onChange={(e) => onChange(e.target.value as 'owner' | 'member')}
       >
         <option value="owner">Owner</option>
@@ -56,7 +58,6 @@ function RoleControl({ member, canEdit, isLinkedGroup, externalId, onChange }: R
     );
   }
 
-  // Read-only pill. For linked groups (M365), wrap in a tooltip explaining why.
   const pill = (
     <span
       className={cn(
@@ -98,45 +99,79 @@ function RoleControl({ member, canEdit, isLinkedGroup, externalId, onChange }: R
 }
 
 export function GroupMembersTable({ group, members, canManageRoles, onRoleChange }: Props) {
+  const canEditRoles = canManageRoles && group.external_source === 'native';
+  const isLinkedGroup = group.external_source !== 'native';
+  const externalId = group.external_id;
+
+  const columns = useMemo<ColumnDef<GroupMemberRow>[]>(
+    () => [
+      {
+        accessorKey: 'display_name',
+        header: 'Member',
+        cell: ({ row }) => (
+          <div className="flex items-center gap-2.5">
+            <Avatar className="size-8 shrink-0">
+              <AvatarFallback className="text-[11px] font-semibold">
+                {initials(row.original.display_name)}
+              </AvatarFallback>
+            </Avatar>
+            <span className="font-medium text-ink">{row.original.display_name}</span>
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'email',
+        header: 'Email',
+        cell: ({ getValue }) => <span className="text-ink-subtle">{String(getValue() ?? '')}</span>,
+      },
+      {
+        accessorKey: 'role',
+        header: 'Role',
+        enableSorting: false,
+        cell: ({ row }) => (
+          <RoleControl
+            member={row.original}
+            canEdit={canEditRoles}
+            isLinkedGroup={isLinkedGroup}
+            externalId={externalId}
+            onChange={(role) => onRoleChange({ user_id: row.original.user_id, role })}
+          />
+        ),
+      },
+      {
+        accessorKey: 'added_at',
+        header: 'Added',
+        cell: ({ getValue }) => (
+          <span className="whitespace-nowrap text-ink-subtle">
+            {shortDate(String(getValue() ?? ''))}
+          </span>
+        ),
+      },
+    ],
+    [canEditRoles, isLinkedGroup, externalId, onRoleChange],
+  );
+
   return (
     <TooltipProvider>
-      <div className="overflow-auto">
-        <table className="w-full text-sm">
-          <thead className="sticky top-0 bg-canvas">
-            <tr className="border-b border-hairline text-left text-eyebrow uppercase tracking-wide text-ink-subtle">
-              <th className="px-4 py-2 font-medium">Member</th>
-              <th className="px-4 py-2 font-medium">Email</th>
-              <th className="px-4 py-2 font-medium">Role</th>
-              <th className="px-4 py-2 font-medium">Added</th>
-            </tr>
-          </thead>
-          <tbody>
-            {members.map((m) => (
-              <tr key={m.user_id} className="border-b border-hairline-tertiary">
-                <td className="px-4 py-2.5">
-                  <div className="flex items-center gap-2">
-                    <Avatar className="size-7 shrink-0">
-                      <AvatarFallback>{initials(m.display_name)}</AvatarFallback>
-                    </Avatar>
-                    <span className="font-medium">{m.display_name}</span>
-                  </div>
-                </td>
-                <td className="px-4 py-2.5 text-ink-subtle">{m.email}</td>
-                <td className="px-4 py-2.5">
-                  <RoleControl
-                    member={m}
-                    canEdit={canManageRoles && group.external_source === 'native'}
-                    isLinkedGroup={group.external_source !== 'native'}
-                    externalId={group.external_id}
-                    onChange={(role) => onRoleChange({ user_id: m.user_id, role })}
-                  />
-                </td>
-                <td className="px-4 py-2.5 text-ink-subtle">{shortDate(m.added_at)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <section className="rounded-lg border border-hairline bg-canvas overflow-hidden">
+        <div className="[&_>div]:space-y-0 [&_>div>div:first-child]:px-4 [&_>div>div:first-child]:pt-3 [&_>div>div:first-child]:pb-3 [&_>div>div:first-child]:border-b [&_>div>div:first-child]:border-hairline">
+          <DataTable
+            mode="client"
+            data={members as GroupMemberRow[]}
+            columns={columns}
+            enableGlobalFilter
+            globalFilterPlaceholder="Search members…"
+            enableColumnVisibility={false}
+            density="comfortable"
+            pagination={{ defaultPageSize: 10, pageSizeOptions: [10, 25, 50, 100] }}
+            emptyState={
+              <div className="px-4 py-12 text-center text-body-sm text-ink-subtle">
+                No members in this group yet.
+              </div>
+            }
+          />
+        </div>
+      </section>
     </TooltipProvider>
   );
 }

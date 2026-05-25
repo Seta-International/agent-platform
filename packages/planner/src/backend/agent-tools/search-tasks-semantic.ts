@@ -1,12 +1,11 @@
+import type { PgVector } from '@mastra/pg';
 import { actorFromContext, defineCopilotTool } from '@seta/copilot-sdk';
 import { buildActorSession } from '@seta/identity';
 import type { EmbeddingProvider } from '@seta/shared-embeddings';
-import type { Reranker } from '@seta/shared-retrieval';
-import type { Pool } from 'pg';
+import { resolveReranker } from '@seta/shared-retrieval';
 import { z } from 'zod';
+import { getPlannerVectorStore } from '../embeddings/vector-store.ts';
 import { searchTasks } from '../retrieval/search-tasks.ts';
-
-const STAGE1_TOPK = Number(process.env.RERANK_STAGE1_TOPK ?? 50);
 
 const inputSchema = z.object({
   query: z.string().min(1).max(500).describe('Natural language search query'),
@@ -36,22 +35,16 @@ const outputSchema = z.object({
       score: z.number(),
       rerank_score: z.number(),
       snippet: z.string(),
-      source: z.enum(['fts', 'vector', 'hybrid']),
+      source: z.literal('vector'),
     }),
   ),
-  /** Which reranker actually ran — surfaces precision tier to the agent. */
   reranker: z.enum(['cohere', 'llm-judge', 'noop', 'fallback']),
 });
 
 export interface SearchTasksSemanticToolDeps {
   provider: EmbeddingProvider;
-  pool: Pool;
-  reranker: Reranker;
-  /**
-   * Optional override for deriving a session from an actor.
-   * Defaults to buildActorSession. Injected in tests to avoid
-   * hitting the live identity / RBAC stores.
-   */
+  databaseUrl?: string;
+  pgVector?: PgVector;
   sessionProvider?: (actor: { user_id: string }) => Promise<{
     tenant_id: string;
     accessible_group_ids: ReadonlyArray<string>;
@@ -60,6 +53,7 @@ export interface SearchTasksSemanticToolDeps {
 
 export function searchTasksSemanticTool(deps: SearchTasksSemanticToolDeps) {
   const resolveSession = deps.sessionProvider ?? buildActorSession;
+  const reranker = resolveReranker();
 
   return defineCopilotTool({
     id: 'search_tasks_semantic',
@@ -73,33 +67,29 @@ export function searchTasksSemanticTool(deps: SearchTasksSemanticToolDeps) {
       const actor = actorFromContext(ctx);
       const session = await resolveSession(actor);
 
+      const pgVector =
+        deps.pgVector ??
+        (deps.databaseUrl
+          ? getPlannerVectorStore(deps.databaseUrl)
+          : (() => {
+              throw new Error(
+                'search_tasks_semantic: either pgVector or databaseUrl must be supplied',
+              );
+            })());
+
       const requestedLimit = input.limit ?? 10;
 
-      // Stage 1: oversampled hybrid retrieval.
-      // group_ids filtering is deferred: the retrieval layer uses bigint[]
-      // but SessionScope.accessible_group_ids are UUIDs. Passing undefined here
-      // falls back to tenant-wide retrieval which is correct for v1.
-      // RBAC gate for the wider scope is also deferred to M3.3.
-      const stage1Limit = Math.max(requestedLimit * 3, STAGE1_TOPK);
-      const stage1 = await searchTasks(
+      const { hits, reranker: usedReranker } = await searchTasks(
         {
           query: input.query,
           tenant_id: session.tenant_id,
-          limit: stage1Limit,
-          group_ids: undefined,
+          limit: requestedLimit,
         },
-        { provider: deps.provider, pool: deps.pool },
+        { provider: deps.provider, pgVector, reranker },
       );
 
-      // Stage 2: rerank stage-1 hits and truncate to the requested limit.
-      const reranked = await deps.reranker.rescore(input.query, stage1, {
-        topN: requestedLimit,
-      });
-
-      const usedReranker = reranked[0]?.reranker ?? 'noop';
-
       return {
-        hits: reranked.map((h) => ({
+        hits: hits.map((h) => ({
           task: { task_id: h.item.task_id, title: h.item.title },
           score: h.score,
           rerank_score: h.rerankScore,

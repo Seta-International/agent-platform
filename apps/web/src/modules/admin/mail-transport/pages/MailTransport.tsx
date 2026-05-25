@@ -154,7 +154,7 @@ export function MailTransport() {
           : 'Not set up yet'
       }
     >
-      <div className="mx-auto max-w-[880px] space-y-4 p-6">
+      <div className="page-container space-y-4">
         {error && (
           <Alert variant="destructive">
             <AlertDescription>{(error as Error).message}</AlertDescription>

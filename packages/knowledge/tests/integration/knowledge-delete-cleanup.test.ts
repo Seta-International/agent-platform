@@ -1,13 +1,14 @@
 import { randomUUID } from 'node:crypto';
+import { PgVector } from '@mastra/pg';
 import { resetCoreDb } from '@seta/core/testing';
-import { deleteKnowledgeFile } from '@seta/knowledge';
+import { deleteKnowledgeFile, KNOWLEDGE_VECTOR_NAMESPACE } from '@seta/knowledge';
 import { resetKnowledgeDb } from '@seta/knowledge/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it, vi } from 'vitest';
 import { buildTestSession } from '../helpers/session.ts';
 
-const withDb = <T>(fn: (ctx: { pool: import('pg').Pool }) => Promise<T>) =>
+const withDb = <T>(fn: (ctx: { pool: import('pg').Pool; pgVector: PgVector }) => Promise<T>) =>
   withTestDb(
     {
       templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
@@ -17,9 +18,15 @@ const withDb = <T>(fn: (ctx: { pool: import('pg').Pool }) => Promise<T>) =>
       resetCoreDb();
       resetKnowledgeDb();
       initPools({ databaseUrl });
+      const pgVector = new PgVector({
+        id: 'knowledge-chunks-test',
+        connectionString: databaseUrl,
+        schemaName: KNOWLEDGE_VECTOR_NAMESPACE,
+      });
       try {
-        return await fn({ pool });
+        return await fn({ pool, pgVector });
       } finally {
+        await pgVector.disconnect().catch(() => {});
         resetCoreDb();
         resetKnowledgeDb();
         await closePools();
@@ -37,7 +44,7 @@ async function seedFileWithChunks(
   const { rows: existing } = await pool.query<{ exists: boolean }>(
     `SELECT EXISTS (
        SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-        WHERE c.relname = $1 AND n.nspname = 'copilot'
+        WHERE c.relname = $1 AND n.nspname = 'knowledge'
      ) AS exists`,
     [childName],
   );
@@ -71,8 +78,8 @@ async function seedFileWithChunks(
 }
 
 describe('deleteKnowledgeFile cleanup', () => {
-  it('removes the file row, chunks, embeddings, and S3 object', async () => {
-    await withDb(async ({ pool }) => {
+  it('removes the file row, chunks, and S3 object', async () => {
+    await withDb(async ({ pool, pgVector }) => {
       const tenant_id = randomUUID();
       const file_id = await seedFileWithChunks(pool, tenant_id, [
         { text: 'chunk one', page_hint: 'p.1' },
@@ -82,7 +89,7 @@ describe('deleteKnowledgeFile cleanup', () => {
       const deleteS3 = vi.fn(async () => {});
       await deleteKnowledgeFile(
         { tenant_id, file_id },
-        { session: buildTestSession({ tenant_id }), deleteS3Object: deleteS3 },
+        { session: buildTestSession({ tenant_id }), deleteS3Object: deleteS3, pgVector },
       );
 
       expect(deleteS3).toHaveBeenCalledOnce();
@@ -99,19 +106,19 @@ describe('deleteKnowledgeFile cleanup', () => {
   });
 
   it('is idempotent — double delete does not throw', async () => {
-    await withDb(async ({ pool }) => {
+    await withDb(async ({ pool, pgVector }) => {
       const tenant_id = randomUUID();
       const file_id = await seedFileWithChunks(pool, tenant_id, [{ text: 'x', page_hint: null }]);
 
       const deleteS3 = vi.fn(async () => {});
       await deleteKnowledgeFile(
         { tenant_id, file_id },
-        { session: buildTestSession({ tenant_id }), deleteS3Object: deleteS3 },
+        { session: buildTestSession({ tenant_id }), deleteS3Object: deleteS3, pgVector },
       );
       await expect(
         deleteKnowledgeFile(
           { tenant_id, file_id },
-          { session: buildTestSession({ tenant_id }), deleteS3Object: deleteS3 },
+          { session: buildTestSession({ tenant_id }), deleteS3Object: deleteS3, pgVector },
         ),
       ).resolves.toBeUndefined();
 

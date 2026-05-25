@@ -90,7 +90,7 @@ describe('native-parity schema migration', () => {
     );
   });
 
-  it('tasks_percent_complete_range CHECK rejects values outside 0..100', async () => {
+  it('tasks_percent_complete_planner CHECK rejects values outside {0, 50, 100}', async () => {
     await withTestDb(
       {
         templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
@@ -114,7 +114,10 @@ describe('native-parity schema migration', () => {
 
           await expect(
             pool.query(`UPDATE planner.tasks SET percent_complete = 101 WHERE id = $1`, [task.id]),
-          ).rejects.toThrow(/tasks_percent_complete_range/);
+          ).rejects.toThrow(/tasks_percent_complete_planner/);
+          await expect(
+            pool.query(`UPDATE planner.tasks SET percent_complete = 25 WHERE id = $1`, [task.id]),
+          ).rejects.toThrow(/tasks_percent_complete_planner/);
         } finally {
           resetCoreDb();
           await closePools();

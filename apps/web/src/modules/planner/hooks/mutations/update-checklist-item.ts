@@ -1,4 +1,4 @@
-import type { ChecklistItemRow, TaskWithAssigneesRow } from '@seta/planner';
+import type { ChecklistItemRow, TaskDetailRow, TaskWithAssigneesRow } from '@seta/planner';
 import { plannerClient } from '../../api/planner-client';
 import { plannerKeys } from '../../state/query-keys';
 import { useOptimisticMutation } from '../use-optimistic-mutation';
@@ -8,12 +8,8 @@ interface UpdateChecklistVars {
   patch: { label?: string; checked?: boolean; order_hint?: string };
 }
 
-function recomputeChecked(items: ChecklistItemRow[]): { total: number; checked: number } {
+function recomputeSummary(items: ChecklistItemRow[]): { total: number; checked: number } {
   return { total: items.length, checked: items.filter((i) => i.checked).length };
-}
-
-function patchSummary(task: TaskWithAssigneesRow, items: ChecklistItemRow[]): TaskWithAssigneesRow {
-  return { ...task, checklist_summary: recomputeChecked(items) };
 }
 
 export function useUpdateChecklistItem(planId: string, taskId: string) {
@@ -29,25 +25,40 @@ export function useUpdateChecklistItem(planId: string, taskId: string) {
       { key: singleKey, prev: qc.getQueryData(singleKey) },
     ],
     applyOptimistic: (v, qc) => {
-      qc.setQueryData<ChecklistItemRow[]>(checklistKey, (prev) => {
-        if (!prev) return prev;
-        const updated = prev.map((item) =>
+      qc.setQueryData<ChecklistItemRow[]>(checklistKey, (prev) =>
+        prev ? prev.map((item) => (item.id === v.item_id ? { ...item, ...v.patch } : item)) : prev,
+      );
+      qc.setQueryData<TaskDetailRow>(singleKey, (task) => {
+        if (!task) return task;
+        const nextChecklist = task.checklist.map((item) =>
           item.id === v.item_id ? { ...item, ...v.patch } : item,
         );
-        if (v.patch.checked !== undefined) {
-          qc.setQueryData<TaskWithAssigneesRow[]>(listKey, (tasks) =>
-            tasks ? tasks.map((t) => (t.id === taskId ? patchSummary(t, updated) : t)) : tasks,
-          );
-          qc.setQueryData<TaskWithAssigneesRow>(singleKey, (task) =>
-            task ? patchSummary(task, updated) : task,
-          );
-        }
-        return updated;
+        const summary =
+          v.patch.checked !== undefined ? recomputeSummary(nextChecklist) : task.checklist_summary;
+        return { ...task, checklist: nextChecklist, checklist_summary: summary };
       });
+      if (v.patch.checked !== undefined) {
+        qc.setQueryData<TaskWithAssigneesRow[]>(listKey, (tasks) => {
+          if (!tasks) return tasks;
+          const detail = qc.getQueryData<TaskDetailRow>(singleKey);
+          if (!detail) return tasks;
+          return tasks.map((t) =>
+            t.id === taskId ? { ...t, checklist_summary: detail.checklist_summary } : t,
+          );
+        });
+      }
     },
     onServerOk: (server, _v, qc) => {
       qc.setQueryData<ChecklistItemRow[]>(checklistKey, (prev) =>
         prev ? prev.map((item) => (item.id === server.id ? server : item)) : prev,
+      );
+      qc.setQueryData<TaskDetailRow>(singleKey, (task) =>
+        task
+          ? {
+              ...task,
+              checklist: task.checklist.map((item) => (item.id === server.id ? server : item)),
+            }
+          : task,
       );
     },
     savingId: () => undefined,

@@ -1,18 +1,10 @@
-/**
- * End-to-end CDC integration test.
- *
- * Strategy:
- *  1. Seed a task in the DB.
- *  2. Build a planner.task.created DomainEvent for that task.
- *  3. Invoke the handleTaskCreated subscriber handler with a fake ctx whose
- *     tx.execute intercepts the graphile_worker.add_job call, extracts the
- *     planner.embed_task payload, and immediately runs embedTask synchronously.
- *  4. Assert that planner.task_embeddings has a row for the task.
- *
- * This verifies the full CDC→embedding pipeline intent without wiring a real
- * graphile-worker queue (which would require a separate worker process).
- */
+import { PgVector } from '@mastra/pg';
 import { resetCoreDb } from '@seta/core/testing';
+import {
+  PLANNER_VECTOR_INDEX,
+  PLANNER_VECTOR_NAMESPACE,
+  type TaskVectorMetadata,
+} from '@seta/planner';
 import { closePools, initPools } from '@seta/shared-db';
 import { FakeEmbeddingProvider, withTestDb } from '@seta/shared-testing';
 import { PgDialect } from 'drizzle-orm/pg-core';
@@ -23,7 +15,9 @@ import { seedTaskForTest } from '../helpers/seed.ts';
 
 const pgDialect = new PgDialect();
 
-function withDb<T>(fn: (ctx: { pool: import('pg').Pool }) => Promise<T>): Promise<T> {
+function withDb<T>(
+  fn: (ctx: { pool: import('pg').Pool; pgVector: PgVector }) => Promise<T>,
+): Promise<T> {
   return withTestDb(
     {
       templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
@@ -32,9 +26,15 @@ function withDb<T>(fn: (ctx: { pool: import('pg').Pool }) => Promise<T>): Promis
     async ({ pool, databaseUrl }) => {
       resetCoreDb();
       initPools({ databaseUrl });
+      const pgVector = new PgVector({
+        id: 'planner-task-embeddings-test',
+        connectionString: databaseUrl,
+        schemaName: PLANNER_VECTOR_NAMESPACE,
+      });
       try {
-        return await fn({ pool });
+        return await fn({ pool, pgVector });
       } finally {
+        await pgVector.disconnect().catch(() => {});
         resetCoreDb();
         await closePools();
       }
@@ -79,14 +79,8 @@ function makeTaskCreatedEvent(opts: { tenantId: string; taskId: string; eventId:
   };
 }
 
-/**
- * Build a fake ctx.tx that intercepts graphile_worker.add_job calls.
- *
- * For the task-embedding subscriber the params are
- * ['planner.embed_task', payloadJson, 10, jobKey, 'replace'].
- */
-function makeSyncEmbedCtx(opts: { pool: import('pg').Pool; provider: FakeEmbeddingProvider }) {
-  const { pool, provider } = opts;
+function makeSyncEmbedCtx(opts: { pgVector: PgVector; provider: FakeEmbeddingProvider }) {
+  const { pgVector, provider } = opts;
 
   return {
     tx: {
@@ -103,16 +97,16 @@ function makeSyncEmbedCtx(opts: { pool: import('pg').Pool; provider: FakeEmbeddi
             ? (JSON.parse(rawPayload) as { tenant_id: string; task_id: string; event_id: string })
             : (rawPayload as { tenant_id: string; task_id: string; event_id: string });
 
-        await embedTask(jobPayload, { pool, provider });
+        await embedTask(jobPayload, { provider, pgVector });
         return { rows: [] };
       },
     },
   };
 }
 
-describe('CDC end-to-end: planner.task.created → task_embeddings row', () => {
-  it('handleTaskCreated produces an embedding row for a seeded task', async () => {
-    await withDb(async ({ pool }) => {
+describe('CDC end-to-end: planner.task.created → Mastra vector store row', () => {
+  it('handleTaskCreated produces a vector row for a seeded task', async () => {
+    await withDb(async ({ pool, pgVector }) => {
       const provider = new FakeEmbeddingProvider();
 
       const seeded = await seedTaskForTest(pool, {
@@ -128,16 +122,20 @@ describe('CDC end-to-end: planner.task.created → task_embeddings row', () => {
         eventId,
       });
 
-      const ctx = makeSyncEmbedCtx({ pool, provider });
+      const ctx = makeSyncEmbedCtx({ pgVector, provider });
       await handleTaskCreated(event as never, ctx as never);
 
-      const { rows } = await pool.query(
-        `SELECT plan_id FROM planner.task_embeddings
-          WHERE tenant_id = $1 AND task_id = $2`,
-        [seeded.tenant_id, seeded.task_id],
-      );
+      const rows = await pgVector.query({
+        indexName: PLANNER_VECTOR_INDEX,
+        filter: {
+          tenant_id: { $eq: seeded.tenant_id },
+          task_id: { $eq: seeded.task_id },
+        },
+        topK: 1,
+      });
       expect(rows).toHaveLength(1);
-      expect((rows[0] as { plan_id: string }).plan_id).toBe(seeded.plan_id);
+      const meta = rows[0]!.metadata as TaskVectorMetadata;
+      expect(meta.plan_id).toBe(seeded.plan_id);
     });
   });
 });

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import type { ReactNode } from 'react';
@@ -20,14 +20,34 @@ function renderWithClient(node: ReactNode) {
 }
 
 describe('TaskDetailProgressCard', () => {
-  it('renders the Progress label and the percent_complete value', () => {
-    const task = makeTaskWithAssignees({ id: 't1', percent_complete: 42 });
+  it('renders the Progress label and three radio options', () => {
+    const task = makeTaskWithAssignees({ id: 't1', percent_complete: 0 });
     renderWithClient(<TaskDetailProgressCard task={task} planId="p1" />);
     expect(screen.getByText('Progress')).toBeInTheDocument();
-    expect(screen.getByText('42')).toBeInTheDocument();
+    const group = screen.getByRole('radiogroup', { name: /Progress/i });
+    const radios = within(group).getAllByRole('radio');
+    expect(radios).toHaveLength(3);
+    expect(radios[0]).toHaveTextContent('Not started');
+    expect(radios[1]).toHaveTextContent('In progress');
+    expect(radios[2]).toHaveTextContent('Completed');
   });
 
-  it('sends percent_complete only (no progress enum) when the slider changes', async () => {
+  it('marks the option matching the current percent as aria-checked=true', () => {
+    const task = makeTaskWithAssignees({ id: 't1', percent_complete: 50 });
+    renderWithClient(<TaskDetailProgressCard task={task} planId="p1" />);
+    const inProgress = screen.getByRole('radio', { name: /In progress/i });
+    expect(inProgress).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: /Not started/i })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
+    expect(screen.getByRole('radio', { name: /Completed/i })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
+  });
+
+  it('sends percent_complete: 50 when "In progress" is clicked', async () => {
     const { userEvent } = await import('@testing-library/user-event');
     const user = userEvent.setup();
     const captured = vi.fn<(body: Record<string, unknown>) => void>();
@@ -40,13 +60,40 @@ describe('TaskDetailProgressCard', () => {
 
     const task = makeTaskWithAssignees({ id: 't1', percent_complete: 0, version: 3 });
     renderWithClient(<TaskDetailProgressCard task={task} planId="p1" />);
-    const slider = screen.getByRole('slider', { name: /Percent complete/i });
-    slider.focus();
-    await user.keyboard('{ArrowRight}');
+    await user.click(screen.getByRole('radio', { name: /In progress/i }));
 
     const body = captured.mock.calls[0]?.[0] as { patch: Record<string, unknown> };
-    expect(body.patch).toHaveProperty('percent_complete');
-    expect(body.patch).not.toHaveProperty('progress');
+    expect(body).toEqual({
+      expected_version: 3,
+      patch: { percent_complete: 50 },
+    });
+  });
+
+  it('sends percent_complete: 100 when "Completed" is clicked', async () => {
+    const { userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup();
+    const captured = vi.fn<(body: Record<string, unknown>) => void>();
+    server.use(
+      http.patch('/api/planner/v1/tasks/t1', async ({ request }) => {
+        captured((await request.json()) as Record<string, unknown>);
+        return HttpResponse.json({ id: 't1', version: 4 });
+      }),
+    );
+
+    const task = makeTaskWithAssignees({ id: 't1', percent_complete: 50, version: 3 });
+    renderWithClient(<TaskDetailProgressCard task={task} planId="p1" />);
+    await user.click(screen.getByRole('radio', { name: /Completed/i }));
+
+    const body = captured.mock.calls[0]?.[0] as { patch: Record<string, unknown> };
+    expect(body.patch).toEqual({ percent_complete: 100 });
+  });
+
+  it('disables every radio when the task is deferred', () => {
+    const task = makeTaskWithAssignees({ id: 't1', percent_complete: 50, is_deferred: true });
+    renderWithClient(<TaskDetailProgressCard task={task} planId="p1" />);
+    for (const radio of screen.getAllByRole('radio')) {
+      expect(radio).toBeDisabled();
+    }
   });
 
   it('sends is_deferred when the deferred toggle flips', async () => {
@@ -62,7 +109,7 @@ describe('TaskDetailProgressCard', () => {
 
     const task = makeTaskWithAssignees({ id: 't1', is_deferred: false, version: 3 });
     renderWithClient(<TaskDetailProgressCard task={task} planId="p1" />);
-    await user.click(screen.getByRole('switch', { name: /Deferred/i }));
+    await user.click(screen.getByRole('switch', { name: /put task on hold/i }));
 
     const body = captured.mock.calls[0]?.[0] as { patch: Record<string, unknown> };
     expect(body.patch).toEqual({ is_deferred: true });

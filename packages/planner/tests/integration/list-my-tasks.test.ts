@@ -56,7 +56,7 @@ describe('listMyTasks', () => {
         await updateTask({
           task_id: t1.id,
           expected_version: t1.version,
-          patch: { due_at: past, percent_complete: 30 },
+          patch: { due_at: past, percent_complete: 50 },
           session,
         });
         await assignTask({ task_id: t1.id, user_id: session.user_id, session });

@@ -566,7 +566,15 @@ export async function emitPlannerTaskMoved(args: {
   tenant_id: Uuid;
   group_id: Uuid;
   task_id: Uuid;
+  /**
+   * The task's plan at the time of emission. For cross-plan moves callers
+   * pass the target (new) plan id and additionally distinguish the source
+   * via `from_plan_id`. For in-plan moves `from_plan_id`/`to_plan_id` may
+   * be omitted and default to `plan_id`.
+   */
   plan_id: Uuid;
+  from_plan_id?: Uuid;
+  to_plan_id?: Uuid;
   before: PlannerTaskMoved['payload']['before'];
   after: PlannerTaskMoved['payload']['after'];
   version_before: number;
@@ -583,6 +591,8 @@ export async function emitPlannerTaskMoved(args: {
       group_id: args.group_id,
       task_id: args.task_id,
       plan_id: args.plan_id,
+      from_plan_id: args.from_plan_id ?? args.plan_id,
+      to_plan_id: args.to_plan_id ?? args.plan_id,
       before: args.before,
       after: args.after,
       version_before: args.version_before,

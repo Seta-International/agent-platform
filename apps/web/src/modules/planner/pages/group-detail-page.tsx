@@ -136,12 +136,24 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
         onValueChange={(t) => onTabChange(t as GroupTab)}
         className="flex flex-1 min-h-0 flex-col"
       >
-        <TabsList className="border-b border-hairline px-6 justify-start gap-1 bg-transparent rounded-none">
-          <TabsTrigger value="plans">
-            Plans <span className="ml-1.5 text-xs text-ink-subtle">{plans.length}</span>
+        <TabsList className="flex border-b border-hairline px-6 justify-start gap-1 bg-canvas rounded-none">
+          <TabsTrigger
+            value="plans"
+            className="group gap-2 data-[state=active]:[&>span]:bg-primary-tint data-[state=active]:[&>span]:text-primary-ink"
+          >
+            Plans
+            <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-surface-2 px-1.5 text-[11px] font-medium text-ink-muted transition-colors">
+              {plans.length}
+            </span>
           </TabsTrigger>
-          <TabsTrigger value="members">
-            Members <span className="ml-1.5 text-xs text-ink-subtle">{members.length}</span>
+          <TabsTrigger
+            value="members"
+            className="group gap-2 data-[state=active]:[&>span]:bg-primary-tint data-[state=active]:[&>span]:text-primary-ink"
+          >
+            Members
+            <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-surface-2 px-1.5 text-[11px] font-medium text-ink-muted transition-colors">
+              {members.length}
+            </span>
           </TabsTrigger>
           <TabsTrigger value="activity">Activity</TabsTrigger>
           <TabsTrigger value="labels">Labels</TabsTrigger>
@@ -150,7 +162,7 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
         </TabsList>
 
         <TabsContent value="plans" className="flex-1 overflow-auto bg-surface-1">
-          <div className="mx-auto max-w-[1240px] px-6 py-6 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
+          <div className="page-container grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
             <GroupPlansSection
               groupName={group.name}
               plans={plans}
@@ -177,7 +189,7 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
         </TabsContent>
 
         <TabsContent value="members" className="flex-1 overflow-auto bg-surface-1">
-          <div className="mx-auto max-w-[1240px] px-6 py-6 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
+          <div className="page-container grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
             <GroupMembersTable
               group={group}
               members={members}

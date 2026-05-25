@@ -27,7 +27,24 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/api': { target: 'http://localhost:3000', changeOrigin: true },
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        // SSE pass-through: drop any framing/encoding from upstream that would let
+        // http-proxy accumulate chunks, and signal proxies to disable buffering so
+        // assistant tokens stream progressively instead of arriving all at once.
+        configure: (proxy) => {
+          proxy.on('proxyRes', (proxyRes) => {
+            const ct = proxyRes.headers['content-type'];
+            if (typeof ct === 'string' && ct.includes('text/event-stream')) {
+              delete proxyRes.headers['content-encoding'];
+              delete proxyRes.headers['content-length'];
+              proxyRes.headers['cache-control'] = 'no-cache, no-transform';
+              proxyRes.headers['x-accel-buffering'] = 'no';
+            }
+          });
+        },
+      },
     },
   },
 });

@@ -90,18 +90,21 @@ export interface GroupActivityResult {
   items: ReadonlyArray<GroupActivityItem>;
 }
 
-export type PlanStatus = 'on-track' | 'at-risk' | 'off-track';
-
 export interface PlanWithRollupsRow extends PlanRow {
   task_count: number;
+  /** Tasks that are not yet 100% complete and not deferred. */
   open_task_count: number;
+  /** MS Planner 3-state progress buckets: percent_complete = 0. */
+  not_started_count: number;
+  /** MS Planner 3-state progress buckets: percent_complete = 50. */
+  in_progress_count: number;
+  /** MS Planner 3-state progress buckets: percent_complete = 100. */
+  completed_count: number;
   /** Average percent_complete across non-deleted tasks, 0..1. Null when plan has no tasks. */
   percent_complete: number | null;
   /** Latest task due_at across non-deleted tasks. Null when no tasks have due dates. */
   latest_due_at: string | null;
   owner_display_name: string | null;
-  /** Derived from progress vs time-to-due; null when neither is known. */
-  status: PlanStatus | null;
 }
 
 export interface BucketRow {
@@ -192,10 +195,29 @@ export interface GroupMemberRow {
   added_by: string;
 }
 
+export interface ChecklistPreviewItem {
+  id: string;
+  label: string;
+  checked: boolean;
+}
+
+export interface ReferencePreviewItem {
+  id: string;
+  url: string;
+  alias: string | null;
+  type: TaskReferenceType;
+  /** Hostname from `new URL(url).hostname`; '' when the URL fails to parse. */
+  host: string;
+}
+
 export interface TaskWithAssigneesRow extends TaskRow {
   assignees: AssigneeRow[];
   labels: LabelRow[];
   checklist_summary: { total: number; checked: number };
+  /** First 3 checklist items ordered by order_hint NULLS LAST, id. Empty when none. */
+  checklist_preview: ChecklistPreviewItem[];
+  /** First reference ordered by preview_priority NULLS LAST, id. Empty when none. */
+  reference_preview: ReferencePreviewItem[];
 }
 
 // Single-task detail shape — what /tasks/:id and getTask return. Lists keep the
@@ -222,6 +244,8 @@ export interface TaskReferenceRow {
 
 export interface TaskWithPlan extends TaskRow {
   plan: { id: string; name: string; group_id: string };
+  assignees: AssigneeRow[];
+  labels: LabelRow[];
 }
 
 export interface MyTasksResult {

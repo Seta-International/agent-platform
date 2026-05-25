@@ -1,8 +1,8 @@
 import { DragDropContext, Draggable, Droppable, type DropResult } from '@hello-pangea/dnd';
 import type { TaskDetailRow } from '@seta/planner';
-import { Button, Checkbox } from '@seta/shared-ui';
+import { Checkbox } from '@seta/shared-ui';
 import { GripVertical, Plus } from 'lucide-react';
-import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
+import { type KeyboardEvent, useRef, useState } from 'react';
 import { useAddChecklistItem } from '../hooks/mutations/add-checklist-item';
 import { useRemoveChecklistItem } from '../hooks/mutations/remove-checklist-item';
 import { useUpdateChecklistItem } from '../hooks/mutations/update-checklist-item';
@@ -18,21 +18,22 @@ export function TaskDetailChecklistCard({ task, planId }: Props) {
   const update = useUpdateChecklistItem(planId, task.id);
   const remove = useRemoveChecklistItem(planId, task.id);
 
-  const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (adding) inputRef.current?.focus();
-  }, [adding]);
-
   const onSubmitDraft = () => {
     const label = draft.trim();
-    if (!label) {
-      setAdding(false);
-      return;
-    }
-    add.mutate({ label }, { onSuccess: () => setDraft('') });
+    if (!label) return;
+    // Trello/Planner-style loop: clear the field and keep focus for the next item.
+    add.mutate(
+      { label },
+      {
+        onSuccess: () => {
+          setDraft('');
+          inputRef.current?.focus();
+        },
+      },
+    );
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -41,8 +42,8 @@ export function TaskDetailChecklistCard({ task, planId }: Props) {
       onSubmitDraft();
     } else if (e.key === 'Escape') {
       e.preventDefault();
-      setAdding(false);
       setDraft('');
+      inputRef.current?.blur();
     }
   };
 
@@ -123,24 +124,21 @@ export function TaskDetailChecklistCard({ task, planId }: Props) {
         </Droppable>
       </DragDropContext>
 
-      {adding ? (
-        <div className="mt-2">
-          <input
-            ref={inputRef}
-            aria-label="New checklist item"
-            value={draft}
-            onChange={(e) => setDraft(e.currentTarget.value)}
-            onKeyDown={onKeyDown}
-            placeholder="New step"
-            className="w-full rounded-sm border border-hairline bg-surface-1 px-2 py-1.5 text-body-sm text-ink"
-          />
-        </div>
-      ) : (
-        <Button size="sm" variant="ghost" onClick={() => setAdding(true)}>
-          <Plus className="size-3" />
-          Add item
-        </Button>
-      )}
+      <div className="mt-2 flex items-center gap-2 rounded-sm border border-hairline bg-surface-1 px-2 py-1.5 focus-within:border-primary">
+        <Plus className="size-3.5 shrink-0 text-ink-tertiary" aria-hidden />
+        <input
+          ref={inputRef}
+          aria-label="New checklist item"
+          value={draft}
+          onChange={(e) => setDraft(e.currentTarget.value)}
+          onKeyDown={onKeyDown}
+          placeholder="Add an item"
+          className="flex-1 border-0 bg-transparent text-body-sm text-ink outline-none placeholder:text-ink-subtle"
+        />
+        <span className="t-xs subtle shrink-0" aria-hidden>
+          ↵ to add
+        </span>
+      </div>
     </section>
   );
 }

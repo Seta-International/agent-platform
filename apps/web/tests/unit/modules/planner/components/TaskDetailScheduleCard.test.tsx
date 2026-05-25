@@ -31,27 +31,6 @@ describe('TaskDetailScheduleCard', () => {
     expect(screen.getByLabelText('Due')).toHaveValue('2026-08-17');
   });
 
-  it('renders a summary line with day-range and ISO week', () => {
-    const task = makeTaskWithAssignees({
-      id: 't1',
-      start_at: '2026-08-10',
-      due_at: '2026-08-17',
-    });
-    renderWithClient(<TaskDetailScheduleCard task={task} planId="p1" />);
-    expect(screen.getByText(/8-day range/)).toBeInTheDocument();
-    expect(screen.getByText(/week/)).toBeInTheDocument();
-  });
-
-  it('renders a MiniGantt when both dates are set', () => {
-    const task = makeTaskWithAssignees({
-      id: 't1',
-      start_at: '2026-08-10',
-      due_at: '2026-08-17',
-    });
-    renderWithClient(<TaskDetailScheduleCard task={task} planId="p1" />);
-    expect(screen.getByRole('img', { name: /Schedule/ })).toBeInTheDocument();
-  });
-
   it('sends start_at on change', async () => {
     const { userEvent } = await import('@testing-library/user-event');
     const user = userEvent.setup();

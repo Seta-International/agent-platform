@@ -18,6 +18,7 @@ export type WorkflowRunStartedVia = 'event' | 'chat' | 'rerun';
 export interface WorkflowRunFilters {
   status?: ReadonlyArray<WorkflowRunStatus>;
   startedVia?: ReadonlyArray<WorkflowRunStartedVia>;
+  workflowId?: string;
   dateFrom?: Date;
   dateTo?: Date;
   search?: string;
@@ -113,6 +114,9 @@ export async function listWorkflowRuns(
       .map((v) => sql`${v}`)
       .reduce((acc, c, i) => (i === 0 ? c : sql`${acc}, ${c}`), sql``);
     conditions.push(sql`started_via = ANY(ARRAY[${viaSql}])`);
+  }
+  if (filters.workflowId) {
+    conditions.push(sql`workflow_id = ${filters.workflowId}`);
   }
   if (filters.dateFrom) {
     conditions.push(sql`started_at >= ${filters.dateFrom}::timestamptz`);

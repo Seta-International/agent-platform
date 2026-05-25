@@ -19,6 +19,7 @@ export { deleteGroup } from './backend/domain/delete-group.ts';
 export { deleteLabel } from './backend/domain/delete-label.ts';
 export { deletePlan } from './backend/domain/delete-plan.ts';
 export { deleteTask } from './backend/domain/delete-task.ts';
+export { duplicateTask } from './backend/domain/duplicate-task.ts';
 export { getGroup } from './backend/domain/get-group.ts';
 export { getGroupActivity } from './backend/domain/get-group-activity.ts';
 export { getPlan } from './backend/domain/get-plan.ts';
@@ -106,7 +107,6 @@ export type {
   LabelRow,
   MyTasksResult,
   PlanRow,
-  PlanStatus,
   PlanWithRollupsRow,
   TaskDetailRow,
   TaskExternalSource,
@@ -128,6 +128,16 @@ export {
 export { plannerEmbeddingJobs } from './backend/embeddings/register-worker.ts';
 export type { TaskSourceInput } from './backend/embeddings/source.ts';
 export { buildTaskSource } from './backend/embeddings/source.ts';
+export {
+  ensurePlannerVectorIndex,
+  getPlannerVectorStore,
+  PLANNER_VECTOR_DIMENSION,
+  PLANNER_VECTOR_INDEX,
+  PLANNER_VECTOR_NAMESPACE,
+  resetPlannerVectorStore,
+  type TaskVectorMetadata,
+  taskVectorId,
+} from './backend/embeddings/vector-store.ts';
 export type {
   AddChecklistItemInput,
   AddTaskReferenceInput,
@@ -137,6 +147,8 @@ export type {
   CreateLabelInput,
   CreatePlanInput,
   CreateTaskInput,
+  DuplicateTaskInput,
+  DuplicateTaskOptions,
   GetPlanChartDataInput,
   ListMyTasksInput,
   ListPlanTasksByDateRangeInput,
@@ -160,6 +172,8 @@ export { PlannerError, requirePermission } from './backend/rbac.ts';
 export type {
   SearchTasksDeps,
   SearchTasksInput,
+  SearchTasksResult,
+  TaskRetrievalItem,
 } from './backend/retrieval/search-tasks.ts';
 export { searchTasks } from './backend/retrieval/search-tasks.ts';
 export type { PlannerEvent, PlannerEventActor } from './events/index.ts';

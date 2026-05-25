@@ -9,6 +9,7 @@ const patchSchema = z.object({
   ooo_until: z.string().datetime().nullable().optional(),
   timezone: z.string().min(1).optional(),
   skills: z.array(z.string()).optional(),
+  bio: z.string().max(500).nullable().optional(),
 });
 
 export function registerProfileRoutes(app: Hono<SessionEnv>): void {

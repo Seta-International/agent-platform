@@ -25,13 +25,25 @@ describe('PlanCard', () => {
     expect(screen.getByText('62%')).toBeInTheDocument();
   });
 
-  it('renders status pill for on-track status', () => {
-    render(<PlanCard plan={basePlan} status="on-track" />);
-    expect(screen.getByText('On track')).toBeInTheDocument();
+  it('renders the MS Planner 3-state legend when bucket counts are provided', () => {
+    render(<PlanCard plan={basePlan} notStartedCount={3} inProgressCount={5} completedCount={2} />);
+    expect(screen.getByText('Not started')).toBeInTheDocument();
+    expect(screen.getByText('In progress')).toBeInTheDocument();
+    expect(screen.getByText('Completed')).toBeInTheDocument();
+    expect(screen.getByText('3')).toBeInTheDocument();
+    expect(screen.getByText('5')).toBeInTheDocument();
+    expect(screen.getByText('2')).toBeInTheDocument();
   });
 
-  it('does not render a status pill when status is null', () => {
-    render(<PlanCard plan={basePlan} status={null} />);
+  it('does not render the legend when no bucket counts are provided', () => {
+    render(<PlanCard plan={basePlan} />);
+    expect(screen.queryByText('Not started')).not.toBeInTheDocument();
+    expect(screen.queryByText('In progress')).not.toBeInTheDocument();
+    expect(screen.queryByText('Completed')).not.toBeInTheDocument();
+  });
+
+  it('does not render the on-track / at-risk / off-track pills (MS Planner has no plan status)', () => {
+    render(<PlanCard plan={basePlan} progressPct={0.5} />);
     expect(screen.queryByText('On track')).not.toBeInTheDocument();
     expect(screen.queryByText('At risk')).not.toBeInTheDocument();
     expect(screen.queryByText('Off track')).not.toBeInTheDocument();

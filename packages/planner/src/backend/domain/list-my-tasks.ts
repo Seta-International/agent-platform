@@ -6,6 +6,7 @@ import type { MyTasksResult, TaskPriorityNumber, TaskWithPlan } from '../dto.ts'
 import type { ListMyTasksInput } from '../inputs.ts';
 import { withSpan } from '../observability.ts';
 import { taskRowToDto } from './_task-dto.ts';
+import { fetchAssigneesAndLabels } from './_task-supplementary.ts';
 
 const PRIORITY_MAP: Record<'urgent' | 'important' | 'medium' | 'low', TaskPriorityNumber> = {
   urgent: 1,
@@ -95,6 +96,11 @@ async function listMyTasksImpl(
     .innerJoin(plans, eq(plans.id, tasks.plan_id))
     .where(and(...conditions));
 
+  const { assigneesByTaskId, labelsByTaskId } = await fetchAssigneesAndLabels(
+    db,
+    rows.map((r) => r.task.id),
+  );
+
   const result: MyTasksResult = {
     late: [],
     dueThisWeek: [],
@@ -108,6 +114,8 @@ async function listMyTasksImpl(
     const withPlan: TaskWithPlan = {
       ...dto,
       plan: { id: r.plan_id, name: r.plan_name, group_id: r.plan_group_id },
+      assignees: assigneesByTaskId.get(r.task.id) ?? [],
+      labels: labelsByTaskId.get(r.task.id) ?? [],
     };
 
     const isDeferred = dto.is_deferred;

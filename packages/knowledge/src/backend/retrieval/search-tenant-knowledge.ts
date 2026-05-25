@@ -1,7 +1,13 @@
+import type { PgVector } from '@mastra/pg';
 import type { EmbeddingProvider } from '@seta/shared-embeddings';
 import type { RetrievalHit } from '@seta/shared-retrieval';
 import { EmbedQueryCache } from '@seta/shared-retrieval';
 import type { Pool } from 'pg';
+import {
+  ensureKnowledgeVectorIndex,
+  KNOWLEDGE_VECTOR_INDEX,
+  type KnowledgeChunkVectorMetadata,
+} from '../embeddings/vector-store.ts';
 
 export interface SearchTenantKnowledgeInput {
   query: string;
@@ -11,6 +17,7 @@ export interface SearchTenantKnowledgeInput {
 
 export interface SearchTenantKnowledgeDeps {
   provider: EmbeddingProvider;
+  pgVector: PgVector;
   pool: Pool;
   embedQueryCache?: EmbedQueryCache;
 }
@@ -23,7 +30,6 @@ export interface KnowledgeHit {
   chunk_text: string;
 }
 
-const HNSW_EF_SEARCH = Number(process.env.HNSW_EF_SEARCH ?? 100);
 const defaultCache = new EmbedQueryCache({ maxEntries: 100, ttlMs: 5 * 60_000 });
 
 export async function searchTenantKnowledge(
@@ -31,58 +37,44 @@ export async function searchTenantKnowledge(
   deps: SearchTenantKnowledgeDeps,
 ): Promise<RetrievalHit<KnowledgeHit>[]> {
   const cache = deps.embedQueryCache ?? defaultCache;
+  await ensureKnowledgeVectorIndex(deps.pgVector);
+
   const qVec = await cache.get(deps.provider.modelId, input.query, async () => {
     const [v] = await deps.provider.embed([input.query]);
     return v as number[];
   });
 
-  const client = await deps.pool.connect();
-  try {
-    await client.query('BEGIN');
-    try {
-      // SET LOCAL is transaction-scoped; the BEGIN above is required for the value
-      // to apply and not leak to the pool.
-      await client.query(`SET LOCAL hnsw.ef_search = ${HNSW_EF_SEARCH}`);
+  const readyFiles = await deps.pool.query<{ id: string }>(
+    `SELECT id FROM knowledge.files WHERE tenant_id = $1 AND status = 'ready'`,
+    [input.tenant_id],
+  );
+  const readyFileIds = new Set(readyFiles.rows.map((r) => String(r.id)));
+  if (readyFileIds.size === 0) return [];
 
-      const rows = await client.query<{
-        file_id: string;
-        filename: string;
-        page_hint: string | null;
-        chunk_ordinal: number;
-        chunk_text: string;
-      }>(
-        `SELECT e.file_id, f.filename, c.page_hint, e.chunk_ordinal, c.chunk_text
-           FROM knowledge.embeddings e
-           JOIN knowledge.chunks c
-             ON c.tenant_id = e.tenant_id AND c.file_id = e.file_id AND c.chunk_ordinal = e.chunk_ordinal
-           JOIN knowledge.files f
-             ON f.id = e.file_id AND f.tenant_id = e.tenant_id
-          WHERE e.tenant_id = $1
-            AND f.status = 'ready'
-          ORDER BY e.embedding <=> $2::halfvec
-          LIMIT $3`,
-        [input.tenant_id, `[${qVec.join(',')}]`, input.limit],
-      );
+  const rows = await deps.pgVector.query({
+    indexName: KNOWLEDGE_VECTOR_INDEX,
+    queryVector: qVec,
+    topK: input.limit,
+    filter: { tenant_id: { $eq: input.tenant_id } },
+  });
 
-      await client.query('COMMIT');
-
-      return rows.rows.map((r, i) => ({
-        item: {
-          file_id: String(r.file_id),
-          filename: r.filename,
-          page_hint: r.page_hint,
-          chunk_ordinal: r.chunk_ordinal,
-          chunk_text: r.chunk_text,
-        },
-        score: 1 / (1 + i),
-        rank: i + 1,
-        source: 'vector',
-      }));
-    } catch (err) {
-      await client.query('ROLLBACK');
-      throw err;
-    }
-  } finally {
-    client.release();
+  const hits: RetrievalHit<KnowledgeHit>[] = [];
+  for (const row of rows) {
+    const md = row.metadata as Partial<KnowledgeChunkVectorMetadata> | undefined;
+    if (!md?.file_id || md.chunk_ordinal == null) continue;
+    if (!readyFileIds.has(md.file_id)) continue;
+    hits.push({
+      item: {
+        file_id: md.file_id,
+        filename: md.filename ?? '',
+        page_hint: md.page_hint ?? null,
+        chunk_ordinal: md.chunk_ordinal,
+        chunk_text: md.chunk_text ?? '',
+      },
+      score: row.score,
+      rank: hits.length + 1,
+      source: 'vector',
+    });
   }
+  return hits;
 }

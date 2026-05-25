@@ -67,6 +67,12 @@
   --max-width-conversation: 45rem;
   --max-width-message-bubble: 33.75rem;
 
+  /* Canonical page width + padding. Top-level page bodies use these
+     (via the `.page-container` utility in globals.css) so every screen
+     centers on the same column. Update once, sweep everywhere. */
+  --max-width-page: 73.75rem; /* 1180px */
+  --page-padding:    24px;    /* matches Tailwind's p-6 */
+
   --radius-xs:   4px;
   --radius-sm:   6px;
   --radius-md:   8px;
@@ -166,6 +172,24 @@
   --color-group-theme-pink:   #c0367f;
   --color-group-theme-orange: #b86e00;
   --color-group-theme-red:    #c53030;
+
+  /* Task priority palette — single source of truth for chips, dots, icons.
+     Tuned for clear separation at small dot sizes in both light and dark UIs. */
+  --color-priority-urgent:         #f87171;
+  --color-priority-urgent-tint:    color-mix(in oklch, #f87171 18%, transparent);
+  --color-priority-urgent-ink:     #fecaca;
+
+  --color-priority-important:      #fb923c;
+  --color-priority-important-tint: color-mix(in oklch, #fb923c 18%, transparent);
+  --color-priority-important-ink:  #fed7aa;
+
+  --color-priority-medium:         #38bdf8;
+  --color-priority-medium-tint:    color-mix(in oklch, #38bdf8 14%, transparent);
+  --color-priority-medium-ink:     #bae6fd;
+
+  --color-priority-low:            #94a3b8;
+  --color-priority-low-tint:       color-mix(in oklch, #94a3b8 12%, transparent);
+  --color-priority-low-ink:        #cbd5e1;
 }
 
 .theme-light {
@@ -208,4 +232,21 @@
   --color-info:          #1d6fca;
   --color-info-tint:     #e8f0fd;
   --color-info-ink:      #103d72;
+
+  /* Light-theme priority palette — slightly darker/saturated for better contrast on white. */
+  --color-priority-urgent:         #dc2626;
+  --color-priority-urgent-tint:    #fdecec;
+  --color-priority-urgent-ink:     #7f1d1d;
+
+  --color-priority-important:      #ea580c;
+  --color-priority-important-tint: #fdebd9;
+  --color-priority-important-ink:  #7c2d12;
+
+  --color-priority-medium:         #0284c7;
+  --color-priority-medium-tint:    #e3f1fb;
+  --color-priority-medium-ink:     #075985;
+
+  --color-priority-low:            #64748b;
+  --color-priority-low-tint:       #eef0f3;
+  --color-priority-low-ink:        #334155;
 }

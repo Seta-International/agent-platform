@@ -8,6 +8,10 @@
     ".": "./src/index.ts",
     "./agent-tools": "./src/agent-tools.ts",
     "./register": "./src/register.ts",
+    "./agent-tools/register": {
+      "types": "./src/backend/agent-tools/register.ts",
+      "default": "./src/backend/agent-tools/register.ts"
+    },
     "./events": "./src/events/index.ts",
     "./http": "./src/backend/http/index.ts",
     "./stream": "./src/backend/stream/index.ts"
@@ -36,6 +40,8 @@
   },
   "dependencies": {
     "@mastra/core": "^1.36.0",
+    "@mastra/pg": "^1.11.1",
+    "@mastra/rag": "^2.2.1",
     "@opentelemetry/api": "^1.9.1",
     "@seta/copilot-sdk": "workspace:^",
     "@seta/notifications": "workspace:^",

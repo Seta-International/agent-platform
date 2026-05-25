@@ -1,4 +1,4 @@
-import type { TaskWithPlan } from '@seta/planner';
+import type { AssigneeRow, LabelRow, TaskWithPlan } from '@seta/planner';
 import {
   createMemoryHistory,
   createRootRoute,
@@ -16,6 +16,30 @@ import {
 } from '../../../../../../src/modules/planner/components/my-tasks/mt-task-row';
 
 afterEach(() => cleanup());
+
+function fxLabel(name: string, color = 'blue'): LabelRow {
+  return {
+    id: `lbl-${name}`,
+    tenant_id: 't',
+    plan_id: 'p-q3',
+    name,
+    color,
+    category_slot: null,
+    created_at: '2026-01-01T00:00:00.000Z',
+    deleted_at: null,
+  };
+}
+
+function fxAssignee(user_id: string, display_name: string): AssigneeRow {
+  return {
+    user_id,
+    display_name,
+    email: `${user_id}@example.com`,
+    availability_status: 'available',
+    ooo_until: null,
+    deactivated_at: null,
+  };
+}
 
 function fxTask(over: Partial<MyTasksRowTask> = {}): MyTasksRowTask {
   const base: TaskWithPlan = {
@@ -47,6 +71,8 @@ function fxTask(over: Partial<MyTasksRowTask> = {}): MyTasksRowTask {
     deleted_at: null,
     version: 1,
     plan: { id: 'p-q3', name: 'Q3 Launch', group_id: 'g1' },
+    assignees: [],
+    labels: [],
   };
   return { ...base, ...over };
 }
@@ -72,25 +98,33 @@ function renderInRouter(ui: ReactNode, initialPath = '/') {
 }
 
 describe('MtTaskRow', () => {
-  it('renders id, title, priority, percent, status, due, labels, avatars', async () => {
+  it('renders title, plan, priority, percent, status, due, labels, avatars', async () => {
     renderInRouter(
       <MtTaskRow
         task={fxTask({
           priority_number: 1,
           percent_complete: 60,
           is_deferred: false,
-          labels: [{ name: 'backend' }],
-          assignees: [{ user_id: 'u1', display_name: 'Jane Doe' }],
+          labels: [fxLabel('backend')],
+          assignees: [fxAssignee('u1', 'Jane Doe')],
         })}
       />,
     );
-    expect(await screen.findByText('T-1294')).toBeInTheDocument();
-    expect(screen.getByText('Fix login retry storm')).toBeInTheDocument();
+    expect(await screen.findByText('Fix login retry storm')).toBeInTheDocument();
+    expect(screen.getByTestId('task-plan').textContent).toContain('Q3 Launch');
     expect(screen.getByText('Urgent')).toBeInTheDocument();
     expect(screen.getByText('60%')).toBeInTheDocument();
     expect(screen.getByText('In Progress')).toBeInTheDocument();
     expect(screen.getByText(/Aug 12/)).toBeInTheDocument();
     expect(screen.getByTestId('avatar-stack')).toBeInTheDocument();
+  });
+
+  it('does not render the raw task id as visible text (MS Planner alignment)', async () => {
+    renderInRouter(<MtTaskRow task={fxTask({ id: 'T-1294' })} />);
+    await screen.findByText('Fix login retry storm');
+    expect(screen.queryByText('T-1294')).toBeNull();
+    // id is still exposed for tooling/tests via data-task-id
+    expect(document.querySelector('[data-task-id="T-1294"]')).not.toBeNull();
   });
 
   it.each([
@@ -126,7 +160,7 @@ describe('MtTaskRow', () => {
     renderInRouter(
       <MtTaskRow
         task={fxTask({
-          labels: [{ name: 'a' }, { name: 'b' }, { name: 'c' }, { name: 'd' }],
+          labels: [fxLabel('a'), fxLabel('b'), fxLabel('c'), fxLabel('d')],
         })}
       />,
     );

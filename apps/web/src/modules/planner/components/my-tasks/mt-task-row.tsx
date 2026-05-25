@@ -2,28 +2,17 @@ import type { DraggableProvidedDragHandleProps } from '@hello-pangea/dnd';
 import type { TaskWithPlan } from '@seta/planner';
 import { AvatarStack, LabelChip, SyncBadge } from '@seta/shared-ui';
 import { Link } from '@tanstack/react-router';
-import { Calendar, GripVertical } from 'lucide-react';
+import { Calendar, GripVertical, Layout } from 'lucide-react';
 import { deriveTaskStatus } from '../../lib/derive-task-status';
 import { PriorityChip } from './priority-chip';
 import { ProgressBar } from './progress-bar';
 import { StatusInline } from './status-inline';
 
-export type MyTasksRowLabelColor = 'blue' | 'green' | 'amber' | 'red' | 'purple' | 'teal';
-
-export interface MyTasksRowLabel {
-  name: string;
-  color?: MyTasksRowLabelColor;
-}
-
-export interface MyTasksRowAssignee {
-  user_id: string;
-  display_name: string;
-}
-
+// `assignees` and `labels` are required on TaskWithPlan (backend joins them).
+// `daysLate` is an optional view-side override used by tests/storybook to pin the
+// "Xd late" output without freezing the system clock.
 export interface MyTasksRowTask extends TaskWithPlan {
-  labels?: ReadonlyArray<MyTasksRowLabel>;
   daysLate?: number;
-  assignees?: ReadonlyArray<MyTasksRowAssignee>;
 }
 
 interface Props {
@@ -59,9 +48,10 @@ export function MtTaskRow({ task, dragHandleProps }: Props) {
       data-task-row=""
       data-task-id={task.id}
       className={
-        'grid grid-cols-[24px_60px_minmax(0,1fr)_90px_130px_100px_110px_120px] ' +
-        'gap-3 items-center px-6 pr-3.5 py-2.5 ' +
-        'border-t border-hairline-tertiary text-[13px] no-underline text-ink relative'
+        'group/row grid grid-cols-[24px_minmax(0,1fr)_140px_90px_130px_100px_110px_120px] ' +
+        'gap-3 items-center px-7 py-2 min-h-10 ' +
+        'border-b border-hairline-tertiary text-[13px] no-underline text-ink relative ' +
+        'hover:bg-surface-1 transition-colors'
       }
     >
       <button
@@ -75,33 +65,38 @@ export function MtTaskRow({ task, dragHandleProps }: Props) {
           e.preventDefault();
         }}
         {...(dragHandleProps ?? {})}
-        className="inline-flex items-center cursor-grab opacity-60 bg-transparent border-0 p-0"
+        className="inline-flex items-center cursor-grab opacity-0 group-hover/row:opacity-60 bg-transparent border-0 p-0"
       >
         <GripVertical size={12} className="text-ink-tertiary" />
       </button>
 
-      <span className="font-mono text-[11px] text-ink-subtle bg-surface-2 px-1.5 py-0.5 rounded-xs justify-self-start">
-        {task.id}
-      </span>
-
-      <div className="min-w-0 flex flex-col gap-[3px]">
+      <div className="min-w-0 flex items-center gap-2">
         <span className="font-medium whitespace-nowrap overflow-hidden text-ellipsis">
           {task.title}
         </span>
-        <div className="flex items-center gap-2">
-          <StatusInline status={status} />
-          {task.external_source === 'm365' && (
-            <SyncBadge
-              state={task.sync_status ?? null}
-              synced_at={task.external_synced_at ?? null}
-              size="mini"
-            />
-          )}
-          {daysLate !== undefined && daysLate > 0 ? (
-            <span className="text-[11px] text-danger font-medium">· {daysLate}d late</span>
-          ) : null}
-        </div>
+        <span className="text-ink-tertiary text-[11px]">·</span>
+        <StatusInline status={status} />
+        {task.external_source === 'm365' && (
+          <SyncBadge
+            state={task.sync_status ?? null}
+            synced_at={task.external_synced_at ?? null}
+            size="mini"
+          />
+        )}
+        {daysLate !== undefined && daysLate > 0 ? (
+          <span className="text-[11px] text-danger font-medium whitespace-nowrap">
+            · {daysLate}d late
+          </span>
+        ) : null}
       </div>
+
+      <span
+        data-testid="task-plan"
+        className="inline-flex items-center gap-1.5 text-ink-muted text-[12.5px] min-w-0"
+      >
+        <Layout size={11} className="text-primary shrink-0" aria-hidden />
+        <span className="truncate">{task.plan.name}</span>
+      </span>
 
       <PriorityChip prio={task.priority_number} />
 
@@ -119,13 +114,13 @@ export function MtTaskRow({ task, dragHandleProps }: Props) {
       </span>
 
       <div data-testid="task-labels" className="flex gap-1 flex-nowrap overflow-hidden">
-        {(task.labels ?? []).slice(0, 2).map((l) => (
-          <LabelChip key={l.name} name={l.name} color={l.color ?? 'blue'} />
+        {task.labels.slice(0, 2).map((l) => (
+          <LabelChip key={l.id} name={l.name} color={l.color} />
         ))}
       </div>
 
       <div data-testid="avatar-stack" className="flex justify-start">
-        <AvatarStack assignees={task.assignees ?? []} max={2} />
+        <AvatarStack assignees={task.assignees} max={2} />
       </div>
     </Link>
   );

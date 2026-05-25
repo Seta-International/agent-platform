@@ -19,17 +19,28 @@ select:focus-visible,
   outline: none;
 }
 
+/* Canonical page container — centers content at the shared page width
+   and applies the shared page padding. Combine with grid/flex utilities
+   on the same element for layouts (e.g. main + rail). */
+.page-container {
+  margin-inline: auto;
+  width: 100%;
+  max-width: var(--max-width-page);
+  padding: var(--page-padding);
+}
+
 ::-webkit-scrollbar       { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: var(--color-canvas); }
 ::-webkit-scrollbar-thumb { background: var(--color-surface-3); border-radius: var(--radius-md); }
 ::-webkit-scrollbar-thumb:hover { background: var(--color-surface-4); }
 
-/* PriorityIcon */
+/* PriorityIcon — colors sourced from the shared priority palette in tokens.css.
+   Keep changes here in sync with packages/shared-ui/src/lib/priority.ts. */
 .priority-icon { display: inline-block; width: 12px; height: 12px; border-radius: 2px; }
-.priority-icon--urgent    { background: var(--color-danger); }
-.priority-icon--important { background: var(--color-warning); }
-.priority-icon--medium    { background: var(--color-info); }
-.priority-icon--low       { background: var(--color-ink-subtle); }
+.priority-icon--urgent    { background: var(--color-priority-urgent); }
+.priority-icon--important { background: var(--color-priority-important); }
+.priority-icon--medium    { background: var(--color-priority-medium); }
+.priority-icon--low       { background: var(--color-priority-low); }
 
 /* LabelChip */
 .label-chip { display: inline-flex; align-items: center; padding: 1px 6px; border-radius: var(--radius-sm); font-size: var(--font-size-xs); font-weight: 500; }
@@ -75,6 +86,8 @@ select:focus-visible,
 .kanban-card__meta          { display: flex; align-items: center; gap: var(--spacing-xxs); font-size: var(--font-size-xs); color: var(--color-ink-muted); }
 .kanban-card__due           { color: var(--color-ink-subtle); }
 .kanban-card__saving-dot    { position: absolute; top: var(--spacing-xxs); right: var(--spacing-xxs); width: 8px; height: 8px; border-radius: 50%; background: var(--color-ink-subtle); }
+.kanban-card__checklist-chip { display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; font-variant-numeric: tabular-nums; color: var(--color-ink-muted); background: var(--color-surface-2); border-radius: 999px; font-size: var(--font-size-xs); }
+.kanban-card__checklist-chip--complete { color: var(--color-success); background: color-mix(in srgb, var(--color-success) 12%, transparent); }
 
 .avatar-stack               { display: inline-flex; margin-left: auto; }
 .avatar-stack__avatar       { width: 22px; height: 22px; border-radius: 50%; font-size: 10px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 0 0 2px var(--color-canvas); }
@@ -199,6 +212,60 @@ select:focus-visible,
   cursor: pointer;
 }
 .kanban-board__add-bucket:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.kanban-board__add-bucket-compose {
+  flex: 0 0 auto;
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  background: var(--color-canvas);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-xs);
+  box-shadow: 0 0 0 3px var(--color-primary-tint);
+  align-self: flex-start;
+}
+.kanban-board__add-bucket-compose input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-sm);
+  outline: 0;
+  background: transparent;
+  color: var(--color-ink);
+  font-size: var(--text-body-sm);
+}
+.kanban-board__add-bucket-compose input:focus { border-color: var(--color-primary); }
+.kanban-board__add-bucket-compose-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+.kanban-board__add-bucket-compose-btn {
+  height: 28px;
+  padding: 0 12px;
+  font-size: var(--text-body-sm);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary);
+  color: #fff;
+  cursor: pointer;
+}
+.kanban-board__add-bucket-compose-btn:hover { filter: brightness(0.95); }
+.kanban-board__add-bucket-compose-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.kanban-board__add-bucket-compose-cancel {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: var(--color-ink-subtle);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+.kanban-board__add-bucket-compose-cancel:hover { background: var(--color-surface-2); color: var(--color-ink); }
 
 /* TaskGrid — minimal shared bits; the rest lives in Tailwind classes on the component. */
 .task-grid__cell .status-dot { flex: 0 0 auto; }

@@ -44,6 +44,8 @@ function fxTask(over: Partial<TaskWithPlan> = {}): TaskWithPlan {
     deleted_at: null,
     version: 1,
     plan: { id: 'p-q3', name: 'Q3 Launch', group_id: 'g1' },
+    assignees: [],
+    labels: [],
     ...over,
   };
 }
@@ -150,12 +152,12 @@ describe('MyTasksGrid', () => {
       />,
     );
     await screen.findByText('Beta');
-    let cells = Array.from(document.querySelectorAll('tbody tr td:first-child a')).map(
+    let cells = Array.from(document.querySelectorAll('tbody tr td:nth-child(2) a')).map(
       (a) => a.textContent,
     );
     expect(cells).toEqual(['Beta', 'Alpha']);
     await userEvent.click(screen.getByText('Task'));
-    cells = Array.from(document.querySelectorAll('tbody tr td:first-child a')).map(
+    cells = Array.from(document.querySelectorAll('tbody tr td:nth-child(2) a')).map(
       (a) => a.textContent,
     );
     expect(cells).toEqual(['Alpha', 'Beta']);

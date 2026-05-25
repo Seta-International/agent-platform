@@ -88,7 +88,7 @@ export const UpdateTaskPatchSchema = z
     bucket_id: z.string().uuid().nullable().optional(),
     start_at: z.string().datetime({ offset: true }).nullable().optional(),
     due_at: z.string().datetime({ offset: true }).nullable().optional(),
-    percent_complete: z.number().int().min(0).max(100).optional(),
+    percent_complete: z.union([z.literal(0), z.literal(50), z.literal(100)]).optional(),
     priority_number: z.union([z.literal(1), z.literal(3), z.literal(5), z.literal(9)]).optional(),
     is_deferred: z.boolean().optional(),
     preview_type: z
@@ -185,6 +185,18 @@ export interface MoveTaskInput {
   bucket_id?: string | null;
   before_id?: string;
   after_id?: string;
+  /**
+   * Cross-plan move: target plan id. When provided and different from the
+   * task's current plan, the task is relocated to the target plan. The
+   * `bucket_id` (if any) must belong to the target plan; otherwise the task
+   * is appended to the target plan's tail (no bucket).
+   *
+   * Per Microsoft Planner parity, plan-scoped associations (labels) are
+   * dropped on cross-plan move; assignees, checklist items, references,
+   * description, dates, priority, percent_complete, and preview_type are
+   * preserved.
+   */
+  new_plan_id?: string;
 }
 
 export interface MoveBucketInput {
@@ -192,6 +204,25 @@ export interface MoveBucketInput {
   bucket_id: string;
   before_id?: string;
   after_id?: string;
+}
+
+/**
+ * Field toggles mirroring Microsoft Planner's "Copy task" dialog. When a flag
+ * is omitted, the engine default applies (description + checklist on; others
+ * off). The new task always lands in the same bucket as the source.
+ */
+export interface DuplicateTaskOptions {
+  include_description?: boolean;
+  include_checklist?: boolean;
+  include_assignees?: boolean;
+  include_labels?: boolean;
+  include_references?: boolean;
+  include_dates?: boolean;
+}
+
+export interface DuplicateTaskInput {
+  task_id: string;
+  options?: DuplicateTaskOptions;
 }
 
 export interface AddTaskReferenceInput {

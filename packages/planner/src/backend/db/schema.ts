@@ -1,4 +1,3 @@
-import { halfvec } from '@seta/shared-db';
 import { sql } from 'drizzle-orm';
 import {
   boolean,
@@ -171,7 +170,7 @@ export const tasks = planner.table(
     index('tasks_by_review_state')
       .on(t.tenant_id, t.review_state)
       .where(sql`review_state IS NOT NULL AND deleted_at IS NULL`),
-    check('tasks_percent_complete_range', sql`percent_complete BETWEEN 0 AND 100`),
+    check('tasks_percent_complete_planner', sql`percent_complete IN (0, 50, 100)`),
     check('tasks_priority_number_set', sql`priority_number IN (1,3,5,9)`),
     check(
       'tasks_preview_type_check',
@@ -300,22 +299,4 @@ export const assigneeProjection = planner.table(
       .notNull(),
   },
   (t) => [index('assignee_projection_by_tenant_active').on(t.tenant_id, t.deactivated_at)],
-);
-
-export const taskEmbeddings = planner.table(
-  'task_embeddings',
-  {
-    tenant_id: uuid('tenant_id').notNull(),
-    task_id: uuid('task_id').notNull(),
-    plan_id: uuid('plan_id').notNull(),
-    chunk_text: text('chunk_text').notNull(),
-    source_hash: text('source_hash').notNull(),
-    embedding: halfvec('embedding', { dimensions: 1536 }).notNull(),
-    model_id: text('model_id').notNull(),
-    embedded_at: timestamp('embedded_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => [
-    primaryKey({ columns: [t.tenant_id, t.task_id] }),
-    index('task_embeddings_plan_idx').on(t.tenant_id, t.plan_id),
-  ],
 );

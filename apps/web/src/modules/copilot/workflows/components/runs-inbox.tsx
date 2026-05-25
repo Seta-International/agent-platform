@@ -1,3 +1,4 @@
+import { Button } from '@seta/shared-ui';
 import { useState } from 'react';
 import { useWorkflowRuns } from '../hooks/use-workflow-runs.ts';
 import type { WorkflowRunScope } from '../state/query-keys.ts';
@@ -9,21 +10,22 @@ export interface RunsInboxProps {
 
 export function RunsInbox({ definitionId = null }: RunsInboxProps) {
   const [scope, setScope] = useState<WorkflowRunScope>('self');
-  const { data, isLoading, isError, refetch } = useWorkflowRuns({ scope });
-  const rows = definitionId
-    ? (data?.rows.filter((r) => r.workflowId === definitionId) ?? [])
-    : (data?.rows ?? []);
+  const { data, isLoading, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } =
+    useWorkflowRuns({ scope, workflowId: definitionId });
+
+  const rows = data?.pages.flatMap((p) => p.rows) ?? [];
+  const totalLoaded = rows.length;
 
   return (
     <section className="flex h-full flex-col">
-      <header className="flex items-center justify-between border-b border-[var(--color-hairline)] px-4 py-2">
-        <h2 className="text-sm font-medium">Runs</h2>
-        <label className="text-xs text-[var(--color-ink-subtle)]">
-          Show&nbsp;
+      <header className="flex h-11 flex-none items-center justify-between border-b border-hairline px-4 text-[11px] font-medium uppercase tracking-wider text-ink-subtle">
+        <span>Runs</span>
+        <label className="inline-flex items-center gap-1.5 text-xs font-normal normal-case tracking-normal text-ink-subtle">
+          Show
           <select
             value={scope}
             onChange={(e) => setScope(e.target.value as WorkflowRunScope)}
-            className="rounded border border-[var(--color-hairline)] bg-[var(--color-surface)] px-2 py-1 text-xs"
+            className="h-7 rounded-md border border-hairline bg-canvas px-2 text-xs"
           >
             <option value="self">Mine</option>
             <option value="tenant">Everyone</option>
@@ -35,24 +37,24 @@ export function RunsInbox({ definitionId = null }: RunsInboxProps) {
           ? ['s0', 's1', 's2', 's3', 's4', 's5'].map((k) => (
               <div
                 key={k}
-                className="h-12 animate-pulse border-b border-[var(--color-hairline-tertiary)] bg-[var(--color-surface-2)]"
+                className="h-12 animate-pulse border-b border-hairline-tertiary bg-surface-2"
               />
             ))
           : null}
         {isError ? (
           <div className="p-4 text-sm">
-            <span className="text-[var(--color-danger-ink)]">Couldn&apos;t load runs.</span>{' '}
+            <span className="text-destructive">Couldn&apos;t load runs.</span>{' '}
             <button
               type="button"
               onClick={() => refetch()}
-              className="font-medium text-[var(--color-primary)] hover:underline"
+              className="font-medium text-primary hover:underline"
             >
               Try again
             </button>
           </div>
         ) : null}
         {!isLoading && data && rows.length === 0 ? (
-          <div className="flex h-full items-center justify-center p-8 text-center text-sm text-[var(--color-ink-subtle)]">
+          <div className="flex h-full items-center justify-center p-8 text-center text-sm text-ink-subtle">
             {definitionId
               ? 'Nothing has run here yet.'
               : 'Nothing has run yet. Create a task to kick one off.'}
@@ -62,6 +64,25 @@ export function RunsInbox({ definitionId = null }: RunsInboxProps) {
           <RunsInboxRow key={row.runId} row={row} />
         ))}
       </div>
+      {data && rows.length > 0 ? (
+        <footer className="flex h-11 flex-none items-center justify-between border-t border-hairline bg-canvas px-4 text-xs text-ink-muted">
+          <span>
+            {totalLoaded} {totalLoaded === 1 ? 'run' : 'runs'} loaded
+          </span>
+          {hasNextPage ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => void fetchNextPage()}
+              disabled={isFetchingNextPage}
+            >
+              {isFetchingNextPage ? 'Loading…' : 'Load more'}
+            </Button>
+          ) : (
+            <span className="text-ink-subtle">No more runs</span>
+          )}
+        </footer>
+      ) : null}
     </section>
   );
 }

@@ -10,28 +10,26 @@ export interface ListUsersForBackfillInput {
 export interface UserBackfillRow {
   user_id: string;
   name: string;
+  email: string;
   role: string;
   skills: string[];
 }
 
 const ROLE_FALLBACK = 'team member';
 
-/**
- * Keyset-paginated read of active users with non-empty skills for the embedding
- * backfill pipeline. Deactivated users and users without skills are excluded
- * because the embed_user_profile worker also skips them.
- */
 export async function listUsersForBackfill(
   input: ListUsersForBackfillInput,
 ): Promise<UserBackfillRow[]> {
   const result = await input.pool.query<{
     user_id: string;
     name: string;
+    email: string;
     role: string | null;
     skills: string[];
   }>(
     `SELECT u.id AS user_id,
             u.name AS name,
+            u.email AS email,
             p.role AS role,
             p.skills
        FROM identity."user" u
@@ -47,6 +45,7 @@ export async function listUsersForBackfill(
   return result.rows.map((r) => ({
     user_id: r.user_id,
     name: r.name,
+    email: r.email,
     role: r.role ?? ROLE_FALLBACK,
     skills: r.skills,
   }));

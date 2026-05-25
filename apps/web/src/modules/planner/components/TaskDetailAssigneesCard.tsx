@@ -22,6 +22,7 @@ import { useQuery } from '@tanstack/react-query';
 import { GripVertical, Info, Plus, X, Zap } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { listTenantUsers } from '../../identity/api/client';
+import { useSession } from '../../identity/components/SessionProvider';
 import { useAssignTask } from '../hooks/mutations/assign-task';
 import { useMoveToTopOfMyList } from '../hooks/mutations/move-to-top-of-my-list';
 import { useReorderTaskAssignees } from '../hooks/mutations/reorder-task-assignees';
@@ -41,6 +42,20 @@ function initialsOf(name: string): string {
     .map((p) => p.charAt(0))
     .join('')
     .toUpperCase();
+}
+
+function hueFromUserId(userId: string): number {
+  let h = 0;
+  for (let i = 0; i < userId.length; i++) h = (h * 31 + userId.charCodeAt(i)) >>> 0;
+  return h % 360;
+}
+
+function userAvatarStyle(userId: string) {
+  const hue = hueFromUserId(userId);
+  return {
+    background: `hsl(${hue} 60% 88%)`,
+    color: `hsl(${hue} 40% 22%)`,
+  };
 }
 
 function useDebounced<T>(value: T, ms: number): T {
@@ -81,10 +96,13 @@ function useUnfilteredUserCount(search: string, enabled: boolean) {
 }
 
 export function TaskDetailAssigneesCard({ task, planId, isLinkedToM365 = false }: Props) {
+  const session = useSession();
   const reorder = useReorderTaskAssignees();
   const moveToTop = useMoveToTopOfMyList();
   const assign = useAssignTask(planId);
   const unassign = useUnassignTask(planId);
+
+  const isCurrentUserAssigned = task.assignees.some((a) => a.user_id === session.user_id);
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -164,7 +182,7 @@ export function TaskDetailAssigneesCard({ task, planId, isLinkedToM365 = false }
               Add assignee
             </Button>
           </PopoverTrigger>
-          <PopoverContent align="start" className="w-72 p-0">
+          <PopoverContent align="start" className="w-80 p-0">
             <Command shouldFilter={false}>
               <CommandInput
                 aria-label="Search users"
@@ -194,9 +212,26 @@ export function TaskDetailAssigneesCard({ task, planId, isLinkedToM365 = false }
                           setPickerOpen(false);
                           setSearch('');
                         }}
+                        className="flex items-center gap-2.5"
                       >
-                        <span className="flex-1">{u.name}</span>
-                        <span className="t-xs subtle">{u.email}</span>
+                        <span
+                          aria-hidden
+                          className="inline-flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
+                          style={userAvatarStyle(u.user_id)}
+                        >
+                          {initialsOf(u.name)}
+                        </span>
+                        <span className="flex min-w-0 flex-1 flex-col">
+                          <span className="truncate text-body-sm leading-tight text-ink">
+                            {u.name}
+                          </span>
+                          <span className="truncate text-caption leading-tight text-ink-subtle">
+                            {u.email}
+                          </span>
+                        </span>
+                        {already && (
+                          <span className="shrink-0 text-caption text-ink-subtle">Added</span>
+                        )}
                       </CommandItem>
                     );
                   })}
@@ -229,14 +264,16 @@ export function TaskDetailAssigneesCard({ task, planId, isLinkedToM365 = false }
         </Popover>
       </div>
 
-      <button
-        type="button"
-        onClick={() => moveToTop.mutate({ task_id: task.id })}
-        className="mt-2.5 inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-dashed border-primary-border bg-primary-tint px-2.5 py-1.5 text-caption font-semibold text-primary-ink"
-      >
-        <Zap className="size-3" />
-        Move to top of my list
-      </button>
+      {isCurrentUserAssigned && (
+        <button
+          type="button"
+          onClick={() => moveToTop.mutate({ task_id: task.id })}
+          className="mt-2.5 inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-dashed border-primary-border bg-primary-tint px-2.5 py-1.5 text-caption font-semibold text-primary-ink"
+        >
+          <Zap className="size-3" />
+          Move to top of my list
+        </button>
+      )}
     </section>
   );
 }

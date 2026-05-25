@@ -7,6 +7,7 @@ import {
   embedKnowledgeChunks,
 } from '../embeddings/embed-knowledge-chunks.ts';
 import { resolveEmbeddingProvider } from '../embeddings/provider-resolver.ts';
+import { getKnowledgeVectorStore } from '../embeddings/vector-store.ts';
 import {
   type ParseKnowledgeFilePayload,
   parseKnowledgeFile,
@@ -54,6 +55,13 @@ export const knowledgeJobs: TaskList = {
   embed_knowledge_chunks: async (payload, _helpers) => {
     const provider = resolveEmbeddingProvider();
     const pool = getPool('worker');
-    await embedKnowledgeChunks(payload as EmbedKnowledgeChunksPayload, { pool, provider });
+    const databaseUrl = process.env.DATABASE_URL;
+    if (!databaseUrl) throw new Error('DATABASE_URL required for knowledge embed worker');
+    const pgVector = getKnowledgeVectorStore(databaseUrl);
+    await embedKnowledgeChunks(payload as EmbedKnowledgeChunksPayload, {
+      pool,
+      pgVector,
+      provider,
+    });
   },
 };

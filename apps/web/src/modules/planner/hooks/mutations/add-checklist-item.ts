@@ -1,4 +1,4 @@
-import type { ChecklistItemRow, TaskWithAssigneesRow } from '@seta/planner';
+import type { ChecklistItemRow, TaskDetailRow, TaskWithAssigneesRow } from '@seta/planner';
 import { plannerClient } from '../../api/planner-client';
 import { plannerKeys } from '../../state/query-keys';
 import { useOptimisticMutation } from '../use-optimistic-mutation';
@@ -8,7 +8,7 @@ interface AddChecklistVars {
   after_item_id?: string;
 }
 
-function bumpTotal(task: TaskWithAssigneesRow): TaskWithAssigneesRow {
+function bumpSummary(task: TaskWithAssigneesRow): TaskWithAssigneesRow {
   return {
     ...task,
     checklist_summary: { ...task.checklist_summary, total: task.checklist_summary.total + 1 },
@@ -48,9 +48,22 @@ export function useAddChecklistItem(planId: string, taskId: string) {
       };
       qc.setQueryData<ChecklistItemRow[]>(checklistKey, (prev) => [...(prev ?? []), tempItem]);
       qc.setQueryData<TaskWithAssigneesRow[]>(listKey, (prev) =>
-        prev ? prev.map((t) => (t.id === taskId ? bumpTotal(t) : t)) : prev,
+        prev ? prev.map((t) => (t.id === taskId ? bumpSummary(t) : t)) : prev,
       );
-      qc.setQueryData<TaskWithAssigneesRow>(singleKey, (prev) => (prev ? bumpTotal(prev) : prev));
+      // TaskDetailChecklistCard reads task.checklist from the TaskDetailRow under
+      // singleKey — appending here is what makes the new item appear live.
+      qc.setQueryData<TaskDetailRow>(singleKey, (prev) =>
+        prev
+          ? {
+              ...prev,
+              checklist: [...prev.checklist, tempItem],
+              checklist_summary: {
+                ...prev.checklist_summary,
+                total: prev.checklist_summary.total + 1,
+              },
+            }
+          : prev,
+      );
     },
     onServerOk: (server, _v, qc) => {
       qc.setQueryData<ChecklistItemRow[]>(checklistKey, (prev) => {
@@ -58,6 +71,15 @@ export function useAddChecklistItem(planId: string, taskId: string) {
         const tempIdx = prev.findIndex((item) => item.id.startsWith('temp-'));
         if (tempIdx === -1) return [...prev, server];
         return prev.map((item, i) => (i === tempIdx ? server : item));
+      });
+      qc.setQueryData<TaskDetailRow>(singleKey, (prev) => {
+        if (!prev) return prev;
+        const tempIdx = prev.checklist.findIndex((item) => item.id.startsWith('temp-'));
+        const nextChecklist =
+          tempIdx === -1
+            ? [...prev.checklist, server]
+            : prev.checklist.map((item, i) => (i === tempIdx ? server : item));
+        return { ...prev, checklist: nextChecklist };
       });
     },
     savingId: () => undefined,

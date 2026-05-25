@@ -1,18 +1,29 @@
 import type { PlanRow } from '@seta/planner';
-import { Avatar, AvatarFallback, StatusPill } from '@seta/shared-ui';
-
-export type PlanStatus = 'on-track' | 'at-risk' | 'off-track';
+import {
+  Avatar,
+  AvatarFallback,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@seta/shared-ui';
 
 interface PlanCardProps {
   plan: PlanRow;
-  status?: PlanStatus | null; // PR2: null/undefined → no status pill rendered
-  progressPct?: number | null; // 0..1, optional
-  taskCount?: number; // optional
-  openTaskCount?: number; // optional
-  dueDate?: string | null; // ISO; rendered as short date or "—"
-  ownerDisplayName?: string | null; // optional
-  themeColor?: string; // hex, used for color rail and progress bar; default '#0047FF'
-  onClick?: () => void; // navigates to plan board — caller wires
+  /** 0..1, optional. Average percent_complete across the plan's tasks. */
+  progressPct?: number | null;
+  taskCount?: number;
+  openTaskCount?: number;
+  /** MS Planner 3-state buckets — percent_complete = 0. */
+  notStartedCount?: number;
+  /** MS Planner 3-state buckets — percent_complete = 50. */
+  inProgressCount?: number;
+  /** MS Planner 3-state buckets — percent_complete = 100. */
+  completedCount?: number;
+  dueDate?: string | null;
+  ownerDisplayName?: string | null;
+  themeColor?: string;
+  onClick?: () => void;
 }
 
 function initials(name: string): string {
@@ -43,81 +54,170 @@ function subtextParts(
   return parts.join(' · ');
 }
 
+// MS Planner 3-state colors. Completed = green, In progress = amber, Not started = neutral.
+const COLOR_COMPLETED = 'var(--color-semantic-success, #1f8a4c)';
+const COLOR_IN_PROGRESS = 'var(--color-semantic-warning, #c2750a)';
+const COLOR_NOT_STARTED = 'var(--color-ink-tertiary, #9aa0a6)';
+
+interface StackedBarProps {
+  notStarted: number;
+  inProgress: number;
+  completed: number;
+}
+
+function StackedBar({ notStarted, inProgress, completed }: StackedBarProps) {
+  const total = notStarted + inProgress + completed;
+  if (total === 0) {
+    return <div className="h-1.5 rounded-full bg-surface-2" aria-hidden />;
+  }
+  const completedPct = (completed / total) * 100;
+  const inProgressPct = (inProgress / total) * 100;
+  return (
+    <div className="h-1.5 rounded-full bg-surface-2 overflow-hidden flex" aria-hidden>
+      <div style={{ width: `${completedPct}%`, background: COLOR_COMPLETED }} />
+      <div style={{ width: `${inProgressPct}%`, background: COLOR_IN_PROGRESS, opacity: 0.85 }} />
+    </div>
+  );
+}
+
+interface StateChipProps {
+  label: string;
+  count: number;
+  color: string;
+}
+
+function StateChip({ label, count, color }: StateChipProps) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span
+          role="img"
+          aria-label={`${label}: ${count}`}
+          className="inline-flex items-center gap-1 cursor-default"
+        >
+          <span
+            aria-hidden
+            className="inline-block size-1.5 rounded-full"
+            style={{ background: color }}
+          />
+          <span className="text-[11px] font-medium text-ink tabular-nums" aria-hidden>
+            {count}
+          </span>
+          <span className="sr-only">{label}</span>
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="top">
+        {label}: {count}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 export function PlanCard({
   plan,
-  status,
   progressPct,
   taskCount,
   openTaskCount,
+  notStartedCount,
+  inProgressCount,
+  completedCount,
   dueDate,
   ownerDisplayName,
   themeColor = '#0047FF',
   onClick,
 }: PlanCardProps) {
   const subtext = subtextParts(taskCount, openTaskCount, dueDate);
-
-  // Use the mockup vocabulary directly — kind names map 1:1 to StatusPill which
-  // already renders "On track" / "At risk" / "Off track" copy.
-  const pillKind =
-    status === 'on-track' ? 'on-track' : status === 'at-risk' ? 'at-risk' : 'off-track';
+  const hasBuckets =
+    notStartedCount !== undefined || inProgressCount !== undefined || completedCount !== undefined;
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="relative cursor-pointer rounded-lg border border-hairline bg-canvas p-4 text-left w-full hover:border-hairline-strong hover:shadow-sm transition"
-    >
-      {/* Color rail */}
-      <div
-        className="absolute left-0 top-3 bottom-3 w-[3px] rounded-r"
-        style={{ background: themeColor }}
-      />
+    <TooltipProvider delayDuration={200}>
+      <button
+        type="button"
+        onClick={onClick}
+        className="group relative cursor-pointer rounded-lg border border-hairline bg-canvas p-3.5 text-left w-full hover:border-hairline-strong hover:shadow-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+      >
+        {/* Color rail */}
+        <div
+          className="absolute left-0 top-3 bottom-3 w-[3px] rounded-r"
+          style={{ background: themeColor }}
+        />
 
-      {/* Top row: name + status pill */}
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <p className="text-base font-semibold text-ink truncate">{plan.name}</p>
-          {subtext != null && <p className="text-xs text-ink-subtle mt-0.5">{subtext}</p>}
-        </div>
-        {status != null && (
-          <div className="shrink-0">
-            <StatusPill kind={pillKind} />
+        <div className="pl-1.5">
+          {/* Title + subtext */}
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-ink truncate group-hover:text-primary transition-colors">
+              {plan.name}
+            </p>
+            {subtext != null && (
+              <p className="text-[11px] text-ink-subtle mt-0.5 truncate">{subtext}</p>
+            )}
           </div>
-        )}
-      </div>
 
-      {/* Progress section */}
-      {progressPct != null && (
-        <div className="mt-3">
-          <div className="flex items-center justify-between text-xs text-ink-subtle">
-            <span>Progress</span>
-            <span>{Math.round(progressPct * 100)}%</span>
-          </div>
-          <div className="h-1.5 rounded-full bg-surface-2 overflow-hidden mt-1">
-            <div
-              style={{ width: `${progressPct * 100}%`, background: themeColor, height: '100%' }}
-            />
-          </div>
-        </div>
-      )}
+          {/* Progress + stacked breakdown */}
+          {(progressPct != null || hasBuckets) && (
+            <div className="mt-3">
+              {progressPct != null && (
+                <div className="flex items-center justify-between text-[11px] text-ink-subtle mb-1">
+                  <span>Progress</span>
+                  <span className="font-semibold text-ink tabular-nums">
+                    {Math.round(progressPct * 100)}%
+                  </span>
+                </div>
+              )}
+              {hasBuckets ? (
+                <StackedBar
+                  notStarted={notStartedCount ?? 0}
+                  inProgress={inProgressCount ?? 0}
+                  completed={completedCount ?? 0}
+                />
+              ) : progressPct != null ? (
+                // Fallback: classic single-tone progress bar when no bucket data is available.
+                <div className="h-1.5 rounded-full bg-surface-2 overflow-hidden">
+                  <div
+                    style={{
+                      width: `${progressPct * 100}%`,
+                      background: themeColor,
+                      height: '100%',
+                    }}
+                  />
+                </div>
+              ) : null}
+              {hasBuckets && (
+                <div className="mt-2 flex items-center gap-3">
+                  <StateChip
+                    label="Not started"
+                    count={notStartedCount ?? 0}
+                    color={COLOR_NOT_STARTED}
+                  />
+                  <StateChip
+                    label="In progress"
+                    count={inProgressCount ?? 0}
+                    color={COLOR_IN_PROGRESS}
+                  />
+                  <StateChip
+                    label="Completed"
+                    count={completedCount ?? 0}
+                    color={COLOR_COMPLETED}
+                  />
+                </div>
+              )}
+            </div>
+          )}
 
-      {/* Bottom row: owner */}
-      <div className="mt-3 flex items-center justify-between">
-        <div>
+          {/* Owner row */}
           {ownerDisplayName != null && (
-            <div className="flex items-center gap-1.5">
-              <Avatar className="size-6 shrink-0">
-                <AvatarFallback className="text-[10px] font-semibold">
+            <div className="mt-3 flex items-center gap-1.5">
+              <Avatar className="size-5 shrink-0">
+                <AvatarFallback className="text-[9px] font-semibold">
                   {initials(ownerDisplayName)}
                 </AvatarFallback>
               </Avatar>
-              <span className="text-xs text-ink-subtle">{ownerDisplayName}</span>
+              <span className="text-[11px] text-ink-subtle truncate">{ownerDisplayName}</span>
             </div>
           )}
         </div>
-        {/* Right: reserved for AvatarStack (PR3+) */}
-        <div />
-      </div>
-    </button>
+      </button>
+    </TooltipProvider>
   );
 }

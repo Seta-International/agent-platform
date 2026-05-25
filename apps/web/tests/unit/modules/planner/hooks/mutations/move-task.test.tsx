@@ -42,6 +42,8 @@ function baseTask(over: Record<string, unknown> = {}) {
     assignees: [],
     labels: [],
     checklist_summary: { total: 0, checked: 0 },
+    checklist_preview: [],
+    reference_preview: [],
     ...over,
   };
 }
@@ -77,10 +79,13 @@ describe('useMoveTask', () => {
     expect(tasks[0]!.version).toBe(4);
   });
 
-  it('rolls back + does not advance version on 409 CONFLICT', async () => {
+  it('rolls back the move on 409 CONFLICT and reconciles cached version to the server value so the next attempt sends a fresh expected_version', async () => {
     server.use(
       http.post('/api/planner/v1/tasks/t1/move', () =>
-        HttpResponse.json({ error: 'CONFLICT', current_version: 5 }, { status: 409 }),
+        HttpResponse.json(
+          { error: 'CONFLICT', message: 'Version mismatch', details: { current_version: 5 } },
+          { status: 409 },
+        ),
       ),
     );
     const { qc, Wrapper } = setup();
@@ -92,7 +97,9 @@ describe('useMoveTask', () => {
     const tasks = qc.getQueryData<Array<{ bucket_id: string; version: number }>>(
       plannerKeys.planTasks('p1', { plan_id: 'p1' }),
     )!;
+    // Optimistic move rolled back, but version reconciled forward so the user
+    // can immediately retry the drag without hitting the same 409.
     expect(tasks[0]!.bucket_id).toBe('b1');
-    expect(tasks[0]!.version).toBe(3);
+    expect(tasks[0]!.version).toBe(5);
   });
 });

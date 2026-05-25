@@ -1,4 +1,5 @@
 import type { TaskWithAssigneesRow } from '@seta/planner';
+import { toast } from '@seta/shared-ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { generateKeyBetween } from 'fractional-indexing';
 import { plannerClient } from '../../api/planner-client';
@@ -26,8 +27,14 @@ export function useMoveToTopOfMyList() {
       const value = generateKeyBetween(null, lowestHint(cached));
       return plannerClient.setAssigneePriority({ task_id: v.task_id, value });
     },
-    onSuccess: () => {
+    onSuccess: (_data, v) => {
       qc.invalidateQueries({ queryKey: plannerKeys.myAssigned() });
+      qc.invalidateQueries({ queryKey: plannerKeys.task(v.task_id) });
+      toast.success('Moved to top of your list.');
+    },
+    onError: (err) => {
+      const message = err instanceof Error ? err.message : 'Could not move task to top.';
+      toast.error(message);
     },
   });
 }

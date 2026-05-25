@@ -175,6 +175,8 @@ const taskOne = {
   assignees: [],
   labels: [],
   checklist_summary: { total: 0, checked: 0 },
+  checklist_preview: [],
+  reference_preview: [],
 };
 
 const taskTwo = {

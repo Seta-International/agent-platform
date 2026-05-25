@@ -1,4 +1,6 @@
+import { PgVector } from '@mastra/pg';
 import { resetCoreDb } from '@seta/core/testing';
+import { IDENTITY_VECTOR_INDEX, IDENTITY_VECTOR_NAMESPACE } from '@seta/identity';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -9,10 +11,9 @@ import {
 } from '../../../../src/backend/embeddings/backfill/backfill-user-profiles.ts';
 import { seedUserWithSkillsForTest } from '../../../helpers/seed-user.ts';
 
-// ---------------------------------------------------------------------------
-// Test DB wrapper
-// ---------------------------------------------------------------------------
-function withDb<T>(fn: (ctx: { pool: import('pg').Pool }) => Promise<T>): Promise<T> {
+function withDb<T>(
+  fn: (ctx: { pool: import('pg').Pool; pgVector: PgVector }) => Promise<T>,
+): Promise<T> {
   return withTestDb(
     {
       templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
@@ -21,19 +22,21 @@ function withDb<T>(fn: (ctx: { pool: import('pg').Pool }) => Promise<T>): Promis
     async ({ pool, databaseUrl }) => {
       resetCoreDb();
       initPools({ databaseUrl });
+      const pgVector = new PgVector({
+        id: 'identity-user-profile-embeddings-test',
+        connectionString: databaseUrl,
+        schemaName: IDENTITY_VECTOR_NAMESPACE,
+      });
       try {
-        return await fn({ pool });
+        return await fn({ pool, pgVector });
       } finally {
+        await pgVector.disconnect().catch(() => {});
         resetCoreDb();
         await closePools();
       }
     },
   );
 }
-
-// ---------------------------------------------------------------------------
-// Fake batch helpers
-// ---------------------------------------------------------------------------
 
 function makeFakeBatch(dimensions = 1536): {
   submitBatch: (
@@ -64,16 +67,24 @@ function makeFakeBatch(dimensions = 1536): {
     const inputs = pending.get(batchId) ?? [];
     return inputs.map((row) => ({
       custom_id: row.custom_id,
-      vector: new Array<number>(dimensions).fill(0),
+      vector: new Array<number>(dimensions).fill(1 / Math.sqrt(dimensions)),
     }));
   };
 
   return { submitBatch, pollUntilDone, submittedInputs };
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
+async function listUserIds(pgVector: PgVector, tenantId: string): Promise<string[]> {
+  const rows = await pgVector.query({
+    indexName: IDENTITY_VECTOR_INDEX,
+    filter: { tenant_id: { $eq: tenantId } },
+    topK: 1000,
+  });
+  return rows
+    .map((r) => (r.metadata as { user_id?: string } | undefined)?.user_id)
+    .filter((id): id is string => typeof id === 'string')
+    .sort();
+}
 
 describe('backfillUserProfiles', () => {
   beforeEach(() => {
@@ -81,7 +92,7 @@ describe('backfillUserProfiles', () => {
   });
 
   it('embeds active users with non-empty skills', async () => {
-    await withDb(async ({ pool }) => {
+    await withDb(async ({ pool, pgVector }) => {
       const { submitBatch, pollUntilDone } = makeFakeBatch(1536);
 
       const u1 = await seedUserWithSkillsForTest(pool, { skills: ['typescript', 'postgres'] });
@@ -93,32 +104,24 @@ describe('backfillUserProfiles', () => {
       await backfillUserProfiles({
         tenant_id: u1.tenant_id,
         pool,
+        pgVector,
         apiKey: 'test-key',
         model: 'text-embedding-3-small',
         submitBatch: submitBatch as never,
         pollUntilDone: pollUntilDone as never,
       });
 
-      const rows = await pool.query<{ user_id: string; source_hash: string }>(
-        `SELECT user_id, source_hash
-           FROM identity.user_profile_embeddings
-          WHERE tenant_id = $1
-          ORDER BY user_id`,
-        [u1.tenant_id],
-      );
-
-      expect(rows.rows).toHaveLength(2);
-      const userIds = rows.rows.map((r) => r.user_id);
-      expect(userIds).toContain(u1.user_id);
-      expect(userIds).toContain(u2.user_id);
+      const ids = await listUserIds(pgVector, u1.tenant_id);
+      expect(ids).toHaveLength(2);
+      expect(ids).toContain(u1.user_id);
+      expect(ids).toContain(u2.user_id);
     });
   });
 
   it('skips users with empty skills', async () => {
-    await withDb(async ({ pool }) => {
+    await withDb(async ({ pool, pgVector }) => {
       const { submitBatch, pollUntilDone, submittedInputs } = makeFakeBatch(1536);
 
-      // One user with skills, one without.
       const u1 = await seedUserWithSkillsForTest(pool, { skills: ['typescript'] });
       const u2 = await seedUserWithSkillsForTest(pool, {
         tenant_id: u1.tenant_id,
@@ -128,21 +131,17 @@ describe('backfillUserProfiles', () => {
       await backfillUserProfiles({
         tenant_id: u1.tenant_id,
         pool,
+        pgVector,
         apiKey: 'test-key',
         model: 'text-embedding-3-small',
         submitBatch: submitBatch as never,
         pollUntilDone: pollUntilDone as never,
       });
 
-      const rows = await pool.query<{ user_id: string }>(
-        `SELECT user_id FROM identity.user_profile_embeddings WHERE tenant_id = $1`,
-        [u1.tenant_id],
-      );
-      const embeddedIds = rows.rows.map((r) => r.user_id);
-      expect(embeddedIds).toContain(u1.user_id);
-      expect(embeddedIds).not.toContain(u2.user_id);
+      const ids = await listUserIds(pgVector, u1.tenant_id);
+      expect(ids).toContain(u1.user_id);
+      expect(ids).not.toContain(u2.user_id);
 
-      // Only u1's id should have been submitted.
       const allIds = submittedInputs.flat().map((r) => r.custom_id);
       expect(allIds).toContain(u1.user_id);
       expect(allIds).not.toContain(u2.user_id);
@@ -150,7 +149,7 @@ describe('backfillUserProfiles', () => {
   });
 
   it('skips deactivated users', async () => {
-    await withDb(async ({ pool }) => {
+    await withDb(async ({ pool, pgVector }) => {
       const { submitBatch, pollUntilDone, submittedInputs } = makeFakeBatch(1536);
 
       const u1 = await seedUserWithSkillsForTest(pool, { skills: ['typescript'] });
@@ -159,7 +158,6 @@ describe('backfillUserProfiles', () => {
         skills: ['go'],
       });
 
-      // Deactivate u2.
       await pool.query(`UPDATE identity."user" SET deactivated_at = now() WHERE id = $1`, [
         u2.user_id,
       ]);
@@ -167,19 +165,16 @@ describe('backfillUserProfiles', () => {
       await backfillUserProfiles({
         tenant_id: u1.tenant_id,
         pool,
+        pgVector,
         apiKey: 'test-key',
         model: 'text-embedding-3-small',
         submitBatch: submitBatch as never,
         pollUntilDone: pollUntilDone as never,
       });
 
-      const rows = await pool.query<{ user_id: string }>(
-        `SELECT user_id FROM identity.user_profile_embeddings WHERE tenant_id = $1`,
-        [u1.tenant_id],
-      );
-      const embeddedIds = rows.rows.map((r) => r.user_id);
-      expect(embeddedIds).toContain(u1.user_id);
-      expect(embeddedIds).not.toContain(u2.user_id);
+      const ids = await listUserIds(pgVector, u1.tenant_id);
+      expect(ids).toContain(u1.user_id);
+      expect(ids).not.toContain(u2.user_id);
 
       const allIds = submittedInputs.flat().map((r) => r.custom_id);
       expect(allIds).not.toContain(u2.user_id);
@@ -187,15 +182,15 @@ describe('backfillUserProfiles', () => {
   });
 
   it('hash gate: second run with no profile changes makes no batch calls', async () => {
-    await withDb(async ({ pool }) => {
+    await withDb(async ({ pool, pgVector }) => {
       const { submitBatch, pollUntilDone, submittedInputs } = makeFakeBatch(1536);
 
       const u1 = await seedUserWithSkillsForTest(pool, { skills: ['typescript'] });
 
-      // First run — should embed.
       await backfillUserProfiles({
         tenant_id: u1.tenant_id,
         pool,
+        pgVector,
         apiKey: 'test-key',
         model: 'text-embedding-3-small',
         submitBatch: submitBatch as never,
@@ -203,7 +198,6 @@ describe('backfillUserProfiles', () => {
       });
       expect(submittedInputs).toHaveLength(1);
 
-      // Second run — profile unchanged, hash gate should skip.
       const {
         submitBatch: submit2,
         pollUntilDone: poll2,
@@ -212,6 +206,7 @@ describe('backfillUserProfiles', () => {
       await backfillUserProfiles({
         tenant_id: u1.tenant_id,
         pool,
+        pgVector,
         apiKey: 'test-key',
         model: 'text-embedding-3-small',
         submitBatch: submit2 as never,

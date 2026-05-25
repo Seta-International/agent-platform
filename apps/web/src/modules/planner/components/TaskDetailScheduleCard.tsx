@@ -1,7 +1,7 @@
 import type { TaskWithAssigneesRow } from '@seta/planner';
-import { MiniGantt } from '@seta/shared-ui';
-import { differenceInCalendarDays, getISOWeek, parseISO } from 'date-fns';
+import { parseISO } from 'date-fns';
 import { CalendarDays, X } from 'lucide-react';
+import { useId } from 'react';
 import { useUpdateTaskSchedule } from '../hooks/mutations/update-task-schedule';
 
 interface Props {
@@ -14,6 +14,22 @@ function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+// The DB stores start_at/due_at as full timestamptz ISO strings, but
+// <input type="date"> only accepts/emits YYYY-MM-DD. Convert at the boundary
+// so the picker actually reflects the saved value, and saves round-trip
+// through the strict `.datetime({ offset: true })` schema on the backend.
+function toDateInputValue(iso: string | null): string {
+  if (!iso) return '';
+  return iso.slice(0, 10);
+}
+
+function fromDateInputValue(value: string): string | null {
+  if (!value) return null;
+  // Anchor at UTC midnight so the value the user picked is the same day in any
+  // timezone the server formats it back in.
+  return `${value}T00:00:00.000Z`;
+}
+
 export function TaskDetailScheduleCard({ task, planId, today }: Props) {
   const update = useUpdateTaskSchedule(planId);
   const todayDate = today ?? todayIso();
@@ -22,8 +38,6 @@ export function TaskDetailScheduleCard({ task, planId, today }: Props) {
     !!todayDate &&
     parseISO(task.due_at) < parseISO(todayDate) &&
     !task.is_deferred;
-
-  const summary = buildSummary(task.start_at, task.due_at);
 
   return (
     <section className="card" aria-label="Schedule">
@@ -49,12 +63,6 @@ export function TaskDetailScheduleCard({ task, planId, today }: Props) {
           }
         />
       </div>
-      {summary && <div className="t-xs subtle mt-2">{summary}</div>}
-      {task.start_at && task.due_at && (
-        <div className="mt-2">
-          <MiniGantt start={task.start_at} due={task.due_at} today={todayDate} title={task.title} />
-        </div>
-      )}
     </section>
   );
 }
@@ -68,6 +76,8 @@ interface DateFieldProps {
 }
 
 function DateField({ label, value, ariaLabel, danger, onChange }: DateFieldProps) {
+  const dateValue = toDateInputValue(value);
+  const inputId = useId();
   return (
     <div
       className={`flex items-center gap-2 rounded-md border px-3 py-2 text-body-sm ${
@@ -80,23 +90,25 @@ function DateField({ label, value, ariaLabel, danger, onChange }: DateFieldProps
         className={`size-3.5 ${danger ? 'text-semantic-danger' : 'text-ink-subtle'}`}
         aria-hidden
       />
-      <span
+      <label
+        htmlFor={inputId}
         className={`text-caption font-medium ${danger ? 'text-semantic-danger' : 'text-ink-subtle'}`}
       >
         {label}
-      </span>
+      </label>
       <input
+        id={inputId}
         type="date"
         aria-label={ariaLabel}
-        value={value ?? ''}
-        onChange={(e) => onChange(e.currentTarget.value || null)}
+        value={dateValue}
+        onChange={(e) => onChange(fromDateInputValue(e.currentTarget.value))}
         className="mono flex-1 bg-transparent text-body-sm text-ink outline-none"
       />
-      {value && (
+      {dateValue && (
         <button
           type="button"
           onClick={() => onChange(null)}
-          aria-label={`Clear ${label}`}
+          aria-label={`Reset ${ariaLabel.toLowerCase()} date`}
           className="text-ink-subtle hover:text-ink"
         >
           <X className="size-3.5" />
@@ -104,11 +116,4 @@ function DateField({ label, value, ariaLabel, danger, onChange }: DateFieldProps
       )}
     </div>
   );
-}
-
-function buildSummary(start: string | null, due: string | null): string | null {
-  if (!start || !due) return null;
-  const days = differenceInCalendarDays(parseISO(due), parseISO(start)) + 1;
-  const week = getISOWeek(parseISO(start));
-  return `${days}-day range · spans week ${week}`;
 }

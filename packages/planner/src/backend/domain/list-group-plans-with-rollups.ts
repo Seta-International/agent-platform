@@ -48,6 +48,10 @@ export async function listGroupPlansWithRollups(input: {
       version: plans.version,
       task_count: sql<number>`(SELECT COUNT(*)::int FROM planner.tasks WHERE plan_id = "planner"."plans"."id" AND deleted_at IS NULL)`,
       open_task_count: sql<number>`(SELECT COUNT(*)::int FROM planner.tasks WHERE plan_id = "planner"."plans"."id" AND deleted_at IS NULL AND percent_complete < 100 AND is_deferred = false)`,
+      // MS Planner 3-state progress buckets (0 / 50 / 100), across non-deleted tasks.
+      not_started_count: sql<number>`(SELECT COUNT(*)::int FROM planner.tasks WHERE plan_id = "planner"."plans"."id" AND deleted_at IS NULL AND percent_complete = 0)`,
+      in_progress_count: sql<number>`(SELECT COUNT(*)::int FROM planner.tasks WHERE plan_id = "planner"."plans"."id" AND deleted_at IS NULL AND percent_complete = 50)`,
+      completed_count: sql<number>`(SELECT COUNT(*)::int FROM planner.tasks WHERE plan_id = "planner"."plans"."id" AND deleted_at IS NULL AND percent_complete = 100)`,
       // Average percent_complete across non-deleted tasks, 0..1. Returns null when plan has no tasks.
       percent_complete_avg: sql<
         number | null
@@ -85,36 +89,12 @@ export async function listGroupPlansWithRollups(input: {
       version: r.version,
       task_count: taskCount,
       open_task_count: openCount,
+      not_started_count: Number(r.not_started_count),
+      in_progress_count: Number(r.in_progress_count),
+      completed_count: Number(r.completed_count),
       percent_complete: pct,
       latest_due_at: latestDue,
       owner_display_name: r.owner_display_name ?? null,
-      status: deriveStatus({ percentComplete: pct, latestDue, now: new Date() }),
     };
   });
-}
-
-/**
- * Lightweight status heuristic — does not write to DB. The mockup shows On track / At risk /
- * Off track pills; we derive from progress vs time-to-due. No explicit plan_status field exists
- * yet (would require a schema change), so this is a read-time computation.
- */
-function deriveStatus(input: {
-  percentComplete: number | null;
-  latestDue: string | null;
-  now: Date;
-}): 'on-track' | 'at-risk' | 'off-track' | null {
-  if (input.percentComplete === null || input.latestDue === null) return null;
-  const due = new Date(input.latestDue).getTime();
-  const now = input.now.getTime();
-  if (due <= now) {
-    return input.percentComplete >= 1 ? 'on-track' : 'off-track';
-  }
-  // No created_at/start_at to anchor expected progress; use a simple rule:
-  // - days-to-due <= 3 and progress < 80% → at-risk
-  // - days-to-due <= 7 and progress < 50% → at-risk
-  // - otherwise on-track
-  const days = (due - now) / 86_400_000;
-  if (days <= 3 && input.percentComplete < 0.8) return 'at-risk';
-  if (days <= 7 && input.percentComplete < 0.5) return 'at-risk';
-  return 'on-track';
 }

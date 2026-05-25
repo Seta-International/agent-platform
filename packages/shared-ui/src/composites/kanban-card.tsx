@@ -1,4 +1,6 @@
-import type { ButtonHTMLAttributes, CSSProperties, ReactNode } from 'react';
+// biome-ignore-all lint/a11y/useSemanticElements: cannot use <button> — @hello-pangea/dnd blocks drag on native interactive elements, so the card uses div + role="button" with keyboard activation.
+import { CheckSquare } from 'lucide-react';
+import type { CSSProperties, HTMLAttributes, KeyboardEvent, ReactNode } from 'react';
 import { AvatarStack } from './avatar-stack';
 import { LabelChip } from './label-chip';
 import { PriorityIcon } from './priority-icon';
@@ -8,6 +10,8 @@ export interface KanbanCardTask {
   id: string;
   title: string;
   priority: 'urgent' | 'important' | 'medium' | 'low';
+  /** Short start-date label shown on the card. Pair with `due_label` for a range. */
+  start_label?: string;
   due_label?: string;
   label?: { name: string; color?: string };
   assignees: Array<{ user_id: string; display_name: string }>;
@@ -17,6 +21,8 @@ export interface KanbanCardTask {
   external_source?: 'native' | 'm365';
   sync_status?: SyncState | null;
   external_synced_at?: string | null;
+  /** Compact checklist progress shown on the card meta row when total > 0. */
+  checklist_summary?: { total: number; checked: number };
 }
 
 export interface KanbanCardProps {
@@ -27,9 +33,9 @@ export interface KanbanCardProps {
   previewSlot?: ReactNode;
   /** Render slots fed by the app layer's @hello-pangea/dnd wiring. shared-ui stays DnD-agnostic. */
   draggable: {
-    ref?: (el: HTMLButtonElement | null) => void;
-    rootProps?: ButtonHTMLAttributes<HTMLButtonElement>;
-    handleProps?: ButtonHTMLAttributes<HTMLButtonElement>;
+    ref?: (el: HTMLDivElement | null) => void;
+    rootProps?: HTMLAttributes<HTMLDivElement>;
+    handleProps?: HTMLAttributes<HTMLDivElement>;
     isDragging?: boolean;
     extraStyle?: CSSProperties;
   };
@@ -45,15 +51,25 @@ export function KanbanCard({ task, onOpen, selected, previewSlot, draggable }: K
     .filter(Boolean)
     .join(' ');
 
+  function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
+    if (!onOpen) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onOpen();
+    }
+  }
+
   return (
-    <button
+    <div
       ref={draggable.ref}
       {...draggable.rootProps}
       {...draggable.handleProps}
-      type="button"
+      role="button"
+      tabIndex={0}
       className={className}
       style={draggable.extraStyle}
       onClick={onOpen}
+      onKeyDown={onKeyDown}
       aria-label={`Task: ${task.title}`}
     >
       <div className="kanban-card__title">
@@ -71,7 +87,19 @@ export function KanbanCard({ task, onOpen, selected, previewSlot, draggable }: K
       <div className="kanban-card__meta">
         <PriorityIcon level={task.priority} />
         {task.label && <LabelChip name={task.label.name} color={task.label.color} />}
-        {task.due_label && <span className="kanban-card__due">{task.due_label}</span>}
+        {(task.start_label || task.due_label) && (
+          <span className="kanban-card__due">
+            {task.start_label && task.due_label
+              ? `${task.start_label} → ${task.due_label}`
+              : (task.start_label ?? task.due_label)}
+          </span>
+        )}
+        {task.checklist_summary && task.checklist_summary.total > 0 && (
+          <ChecklistChip
+            total={task.checklist_summary.total}
+            checked={task.checklist_summary.checked}
+          />
+        )}
         <AvatarStack assignees={task.assignees} />
       </div>
       {task.saving && (
@@ -90,6 +118,20 @@ export function KanbanCard({ task, onOpen, selected, previewSlot, draggable }: K
           />
         </span>
       )}
-    </button>
+    </div>
+  );
+}
+
+function ChecklistChip({ total, checked }: { total: number; checked: number }) {
+  const complete = checked >= total;
+  return (
+    <span
+      role="img"
+      aria-label={`Checklist ${checked} of ${total} done`}
+      className={`kanban-card__checklist-chip ${complete ? 'kanban-card__checklist-chip--complete' : ''}`}
+    >
+      <CheckSquare className="size-3" aria-hidden />
+      {checked}/{total}
+    </span>
   );
 }

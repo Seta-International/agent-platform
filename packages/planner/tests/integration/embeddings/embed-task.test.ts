@@ -1,4 +1,11 @@
+import { PgVector } from '@mastra/pg';
 import { resetCoreDb } from '@seta/core/testing';
+import {
+  PLANNER_VECTOR_INDEX,
+  PLANNER_VECTOR_NAMESPACE,
+  type TaskVectorMetadata,
+  taskVectorId,
+} from '@seta/planner';
 import { closePools, initPools } from '@seta/shared-db';
 import { sourceHash } from '@seta/shared-embeddings';
 import { FakeEmbeddingProvider, withTestDb } from '@seta/shared-testing';
@@ -11,7 +18,9 @@ function makeSpy(base: FakeEmbeddingProvider) {
   return vi.spyOn(base, 'embed');
 }
 
-function withDb<T>(fn: (ctx: { pool: import('pg').Pool }) => Promise<T>): Promise<T> {
+function withDb<T>(
+  fn: (ctx: { pool: import('pg').Pool; pgVector: PgVector }) => Promise<T>,
+): Promise<T> {
   return withTestDb(
     {
       templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
@@ -20,9 +29,15 @@ function withDb<T>(fn: (ctx: { pool: import('pg').Pool }) => Promise<T>): Promis
     async ({ pool, databaseUrl }) => {
       resetCoreDb();
       initPools({ databaseUrl });
+      const pgVector = new PgVector({
+        id: 'planner-task-embeddings-test',
+        connectionString: databaseUrl,
+        schemaName: PLANNER_VECTOR_NAMESPACE,
+      });
       try {
-        return await fn({ pool });
+        return await fn({ pool, pgVector });
       } finally {
+        await pgVector.disconnect().catch(() => {});
         resetCoreDb();
         await closePools();
       }
@@ -30,13 +45,32 @@ function withDb<T>(fn: (ctx: { pool: import('pg').Pool }) => Promise<T>): Promis
   );
 }
 
+async function fetchVector(
+  pgVector: PgVector,
+  tenantId: string,
+  taskId: string,
+): Promise<TaskVectorMetadata | undefined> {
+  try {
+    const rows = await pgVector.query({
+      indexName: PLANNER_VECTOR_INDEX,
+      filter: { tenant_id: { $eq: tenantId }, task_id: { $eq: taskId } },
+      topK: 1,
+    });
+    return rows[0]?.metadata as TaskVectorMetadata | undefined;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (message.includes('does not exist')) return undefined;
+    throw err;
+  }
+}
+
 describe('embedTask', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
 
-  it('inserts a single row for a short task (single-vector)', async () => {
-    await withDb(async ({ pool }) => {
+  it('upserts a single vector for a short task', async () => {
+    await withDb(async ({ pool, pgVector }) => {
       const provider = new FakeEmbeddingProvider();
       const seeded = await seedTaskForTest(pool, {
         title: 'short',
@@ -46,33 +80,28 @@ describe('embedTask', () => {
 
       await embedTask(
         { tenant_id: seeded.tenant_id, task_id: seeded.task_id, event_id: 'e1' },
-        { pool, provider },
+        { provider, pgVector },
       );
 
-      const rows = await pool.query(
-        `SELECT plan_id, source_hash, model_id
-           FROM planner.task_embeddings
-          WHERE tenant_id = $1 AND task_id = $2`,
-        [seeded.tenant_id, seeded.task_id],
-      );
-
-      expect(rows.rows).toHaveLength(1);
-      const row = rows.rows[0] as { plan_id: string; source_hash: string; model_id: string };
-      expect(row.plan_id).toBe(seeded.plan_id);
-      expect(row.source_hash).toMatch(/^[0-9a-f]{64}$/);
-      expect(row.model_id).toBe(provider.modelId);
+      const meta = await fetchVector(pgVector, seeded.tenant_id, seeded.task_id);
+      expect(meta).toBeDefined();
+      expect(meta!.plan_id).toBe(seeded.plan_id);
+      expect(meta!.source_hash).toMatch(/^[0-9a-f]{64}$/);
+      expect(meta!.model_id).toBe(provider.modelId);
 
       const source = buildTaskSource({
         title: 'short',
         description: 'few tokens',
         skill_tags: ['x'],
       });
-      expect(row.source_hash).toBe(sourceHash(source));
+      expect(meta!.source_hash).toBe(sourceHash(source));
+      expect(meta!.tenant_id).toBe(seeded.tenant_id);
+      expect(meta!.task_id).toBe(seeded.task_id);
     });
   });
 
   it('hash gate: embed is called only once for two identical calls', async () => {
-    await withDb(async ({ pool }) => {
+    await withDb(async ({ pool, pgVector }) => {
       const provider = new FakeEmbeddingProvider();
       const embedSpy = makeSpy(provider);
 
@@ -83,7 +112,7 @@ describe('embedTask', () => {
       });
 
       const payload = { tenant_id: seeded.tenant_id, task_id: seeded.task_id, event_id: 'e2' };
-      const deps = { pool, provider };
+      const deps = { provider, pgVector };
 
       await embedTask(payload, deps);
       await embedTask(payload, deps);
@@ -92,8 +121,8 @@ describe('embedTask', () => {
     });
   });
 
-  it('deletion path: 0 rows after soft-delete + embed call', async () => {
-    await withDb(async ({ pool }) => {
+  it('deletion path: vector row removed after soft-delete + embed call', async () => {
+    await withDb(async ({ pool, pgVector }) => {
       const provider = new FakeEmbeddingProvider();
 
       const seeded = await seedTaskForTest(pool, {
@@ -102,30 +131,24 @@ describe('embedTask', () => {
         skill_tags: [],
       });
       const payload = { tenant_id: seeded.tenant_id, task_id: seeded.task_id, event_id: 'e3' };
-      await embedTask(payload, { pool, provider });
+      await embedTask(payload, { provider, pgVector });
 
-      const before = await pool.query(
-        `SELECT COUNT(*)::int AS n FROM planner.task_embeddings WHERE tenant_id = $1 AND task_id = $2`,
-        [seeded.tenant_id, seeded.task_id],
-      );
-      expect((before.rows[0] as { n: number }).n).toBeGreaterThan(0);
+      const before = await fetchVector(pgVector, seeded.tenant_id, seeded.task_id);
+      expect(before).toBeDefined();
 
       await pool.query(`UPDATE planner.tasks SET deleted_at = now() WHERE id = $1`, [
         seeded.task_id,
       ]);
 
-      await embedTask(payload, { pool, provider });
+      await embedTask(payload, { provider, pgVector });
 
-      const after = await pool.query(
-        `SELECT COUNT(*)::int AS n FROM planner.task_embeddings WHERE tenant_id = $1 AND task_id = $2`,
-        [seeded.tenant_id, seeded.task_id],
-      );
-      expect((after.rows[0] as { n: number }).n).toBe(0);
+      const after = await fetchVector(pgVector, seeded.tenant_id, seeded.task_id);
+      expect(after).toBeUndefined();
     });
   });
 
   it('skip-input-too-long: skips embedding when source exceeds MAX_SOURCE_TOKENS', async () => {
-    await withDb(async ({ pool }) => {
+    await withDb(async ({ pool, pgVector }) => {
       const provider = new FakeEmbeddingProvider();
       const embedSpy = vi.spyOn(provider, 'embed');
 
@@ -139,21 +162,18 @@ describe('embedTask', () => {
 
       await embedTask(
         { tenant_id: seeded.tenant_id, task_id: seeded.task_id, event_id: 'e1' },
-        { pool, provider },
+        { provider, pgVector },
       );
 
       expect(embedSpy).not.toHaveBeenCalled();
 
-      const rows = await pool.query(
-        `SELECT 1 FROM planner.task_embeddings WHERE tenant_id = $1 AND task_id = $2`,
-        [seeded.tenant_id, seeded.task_id],
-      );
-      expect(rows.rowCount).toBe(0);
+      const meta = await fetchVector(pgVector, seeded.tenant_id, seeded.task_id);
+      expect(meta).toBeUndefined();
     });
   });
 
   it('skip-keeps-stale-row: previously-embedded row stays when source grows past the limit', async () => {
-    await withDb(async ({ pool }) => {
+    await withDb(async ({ pool, pgVector }) => {
       const provider = new FakeEmbeddingProvider();
 
       const seeded = await seedTaskForTest(pool, {
@@ -164,16 +184,13 @@ describe('embedTask', () => {
 
       await embedTask(
         { tenant_id: seeded.tenant_id, task_id: seeded.task_id, event_id: 'e1' },
-        { pool, provider },
+        { provider, pgVector },
       );
 
-      const before = await pool.query<{ source_hash: string; embedded_at: Date }>(
-        `SELECT source_hash, embedded_at FROM planner.task_embeddings
-          WHERE tenant_id = $1 AND task_id = $2`,
-        [seeded.tenant_id, seeded.task_id],
-      );
-      expect(before.rowCount).toBe(1);
-      const beforeRow = before.rows[0]!;
+      const before = await fetchVector(pgVector, seeded.tenant_id, seeded.task_id);
+      expect(before).toBeDefined();
+      const beforeHash = before!.source_hash;
+      const beforeAt = before!.embedded_at;
 
       const longDesc = Array.from({ length: 1100 }, () => 'word').join(' ');
       await pool.query(`UPDATE planner.tasks SET description = $1 WHERE id = $2`, [
@@ -183,22 +200,18 @@ describe('embedTask', () => {
 
       await embedTask(
         { tenant_id: seeded.tenant_id, task_id: seeded.task_id, event_id: 'e2' },
-        { pool, provider },
+        { provider, pgVector },
       );
 
-      const after = await pool.query<{ source_hash: string; embedded_at: Date }>(
-        `SELECT source_hash, embedded_at FROM planner.task_embeddings
-          WHERE tenant_id = $1 AND task_id = $2`,
-        [seeded.tenant_id, seeded.task_id],
-      );
-      expect(after.rowCount).toBe(1);
-      expect(after.rows[0]!.source_hash).toBe(beforeRow.source_hash);
-      expect(after.rows[0]!.embedded_at.getTime()).toBe(beforeRow.embedded_at.getTime());
+      const after = await fetchVector(pgVector, seeded.tenant_id, seeded.task_id);
+      expect(after).toBeDefined();
+      expect(after!.source_hash).toBe(beforeHash);
+      expect(after!.embedded_at).toBe(beforeAt);
     });
   });
 
   it('skip-recovers-when-shrunk: re-embeds once the source falls back under the limit', async () => {
-    await withDb(async ({ pool }) => {
+    await withDb(async ({ pool, pgVector }) => {
       const provider = new FakeEmbeddingProvider();
 
       const longDesc = Array.from({ length: 1100 }, () => 'word').join(' ');
@@ -210,13 +223,10 @@ describe('embedTask', () => {
 
       await embedTask(
         { tenant_id: seeded.tenant_id, task_id: seeded.task_id, event_id: 'e1' },
-        { pool, provider },
+        { provider, pgVector },
       );
-      let rows = await pool.query(
-        `SELECT 1 FROM planner.task_embeddings WHERE tenant_id = $1 AND task_id = $2`,
-        [seeded.tenant_id, seeded.task_id],
-      );
-      expect(rows.rowCount).toBe(0);
+      const skipped = await fetchVector(pgVector, seeded.tenant_id, seeded.task_id);
+      expect(skipped).toBeUndefined();
 
       await pool.query(`UPDATE planner.tasks SET description = $1 WHERE id = $2`, [
         'now fits',
@@ -225,54 +235,46 @@ describe('embedTask', () => {
 
       await embedTask(
         { tenant_id: seeded.tenant_id, task_id: seeded.task_id, event_id: 'e2' },
-        { pool, provider },
+        { provider, pgVector },
       );
 
-      rows = await pool.query(
-        `SELECT source_hash, model_id FROM planner.task_embeddings
-          WHERE tenant_id = $1 AND task_id = $2`,
-        [seeded.tenant_id, seeded.task_id],
-      );
-      expect(rows.rowCount).toBe(1);
+      const after = await fetchVector(pgVector, seeded.tenant_id, seeded.task_id);
+      expect(after).toBeDefined();
+      expect(after!.model_id).toBe(provider.modelId);
     });
   });
 
-  it('lazy partition: per-tenant partition is created on first embed', async () => {
-    await withDb(async ({ pool }) => {
+  it('deterministic vector_id: upsert replaces prior chunk for the same (tenant, task) pair', async () => {
+    await withDb(async ({ pool, pgVector }) => {
       const provider = new FakeEmbeddingProvider();
       const seeded = await seedTaskForTest(pool, {
-        title: 'partition test',
-        description: null,
+        title: 'initial',
+        description: 'first version',
         skill_tags: [],
       });
 
-      const slug = seeded.tenant_id.replaceAll('-', '_');
-      const partitionName = `task_embeddings_${slug}`;
-
-      const before = await pool.query<{ exists: boolean }>(
-        `SELECT EXISTS (
-           SELECT 1 FROM pg_class c
-             JOIN pg_namespace n ON n.oid = c.relnamespace
-            WHERE c.relname = $1 AND n.nspname = 'planner'
-         ) AS exists`,
-        [partitionName],
+      await embedTask(
+        { tenant_id: seeded.tenant_id, task_id: seeded.task_id, event_id: 'e1' },
+        { provider, pgVector },
       );
-      expect(before.rows[0]?.exists).toBe(false);
+
+      await pool.query(`UPDATE planner.tasks SET title = $1 WHERE id = $2`, [
+        'second',
+        seeded.task_id,
+      ]);
 
       await embedTask(
-        { tenant_id: seeded.tenant_id, task_id: seeded.task_id, event_id: 'e5' },
-        { pool, provider },
+        { tenant_id: seeded.tenant_id, task_id: seeded.task_id, event_id: 'e2' },
+        { provider, pgVector },
       );
 
-      const after = await pool.query<{ exists: boolean }>(
-        `SELECT EXISTS (
-           SELECT 1 FROM pg_class c
-             JOIN pg_namespace n ON n.oid = c.relnamespace
-            WHERE c.relname = $1 AND n.nspname = 'planner'
-         ) AS exists`,
-        [partitionName],
-      );
-      expect(after.rows[0]?.exists).toBe(true);
+      const all = await pgVector.query({
+        indexName: PLANNER_VECTOR_INDEX,
+        filter: { tenant_id: { $eq: seeded.tenant_id }, task_id: { $eq: seeded.task_id } },
+        topK: 10,
+      });
+      expect(all).toHaveLength(1);
+      expect(all[0]!.id).toBe(taskVectorId(seeded.tenant_id, seeded.task_id));
     });
   });
 });
