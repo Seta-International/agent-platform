@@ -1,8 +1,9 @@
 import type { BucketRow, TaskWithAssigneesRow } from '@seta/planner';
 import { TaskGrid, type TaskGridRow } from '@seta/shared-ui';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { GridBulkActionFooter } from '../components/grid-bulk-action-footer';
 import { useCompleteTask } from '../hooks/mutations/complete-task';
+import { useCreateTask } from '../hooks/mutations/create-task';
 import { useMoveTask } from '../hooks/mutations/move-task';
 import { useReopenTask } from '../hooks/mutations/reopen-task';
 import { useUpdateTask } from '../hooks/mutations/update-task';
@@ -45,7 +46,9 @@ export function PlanGridPage({
   const moveTask = useMoveTask(planId);
   const completeTask = useCompleteTask(planId);
   const reopenTask = useReopenTask(planId);
+  const createTask = useCreateTask(planId);
   const bulk = useBulkActions(planId);
+  const [addingBucketId, setAddingBucketId] = useState<string | null | undefined>(undefined);
 
   const { rows, tasksById, bucketOptions, assigneeOptions } = useMemo(() => {
     const bucketById = new Map(buckets.map((b) => [b.id, b]));
@@ -183,6 +186,19 @@ export function PlanGridPage({
     clearSelection();
   }
 
+  function handleAddTask(title: string, bucketId: string | null) {
+    if (title === '__open__') {
+      setAddingBucketId(bucketId);
+      return;
+    }
+    createTask.mutate({ plan_id: planId, bucket_id: bucketId ?? undefined, title });
+    setAddingBucketId(undefined);
+  }
+
+  function handleCancelAdd() {
+    setAddingBucketId(undefined);
+  }
+
   return (
     <>
       <TaskGrid
@@ -197,6 +213,9 @@ export function PlanGridPage({
         columnWidths={prefs.widths}
         onColumnOrderChange={(order) => setPrefs((p) => ({ ...p, order }))}
         onColumnWidthsChange={(widths) => setPrefs((p) => ({ ...p, widths }))}
+        addingBucketId={addingBucketId}
+        onAddTask={handleAddTask}
+        onCancelAdd={handleCancelAdd}
       />
       {selectedIds.size > 0 && (
         <GridBulkActionFooter

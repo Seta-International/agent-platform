@@ -50,6 +50,10 @@ export interface TaskGridProps {
   columnWidths?: Record<string, number>;
   onColumnOrderChange?: (next: string[]) => void;
   onColumnWidthsChange?: (next: Record<string, number>) => void;
+  /** bucket_id being added to; null = no bucket; undefined = not adding */
+  addingBucketId?: string | null;
+  onAddTask?: (title: string, bucketId: string | null) => void;
+  onCancelAdd?: () => void;
 }
 
 const STATUS_OPTIONS: Array<{
@@ -119,6 +123,9 @@ export function TaskGrid({
   onCommitField,
   bucketOptions,
   onOpenTask,
+  addingBucketId,
+  onAddTask,
+  onCancelAdd,
 }: TaskGridProps) {
   const groups = useMemo(() => groupRows(rows, groupBy), [rows, groupBy]);
   const [editing, setEditing] = useState<{ taskId: string; field: keyof TaskGridRow } | null>(null);
@@ -165,6 +172,7 @@ export function TaskGrid({
 
       {[...groups.entries()].map(([groupKey, groupRowList]) => {
         const header = formatGroupHeader(groupBy, groupKey);
+        const groupBucketId = groupRowList[0]?.bucket_id ?? null;
         return (
           <Fragment key={groupKey}>
             <div className="mt-2 flex items-center gap-2 px-3 pb-2 pt-3 first:mt-0">
@@ -336,9 +344,46 @@ export function TaskGrid({
                 </div>
               );
             })}
+
+            {groupBy === 'bucket' &&
+              (addingBucketId === groupBucketId ? (
+                <AddTaskRow
+                  bucketId={groupBucketId}
+                  onCommit={(title) => onAddTask?.(title, groupBucketId)}
+                  onCancel={() => onCancelAdd?.()}
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => onAddTask?.('__open__', groupBucketId)}
+                  className="mb-1 flex w-full items-center gap-1.5 rounded-md px-3 py-2 text-body-sm text-ink-subtle hover:bg-surface-2 hover:text-ink"
+                >
+                  <span className="text-base leading-none">+</span> Add a task
+                </button>
+              ))}
           </Fragment>
         );
       })}
+
+      {groupBy === 'bucket' && (
+        <div className="mt-2">
+          {addingBucketId === null ? (
+            <AddTaskRow
+              bucketId={null}
+              onCommit={(title) => onAddTask?.(title, null)}
+              onCancel={() => onCancelAdd?.()}
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => onAddTask?.('__open__', null)}
+              className="flex w-full items-center gap-1.5 rounded-md px-3 py-2 text-body-sm text-ink-subtle hover:bg-surface-2 hover:text-ink"
+            >
+              <span className="text-base leading-none">+</span> Add a task
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -536,6 +581,58 @@ function DueCell({ value, overdue, onChange, label }: DueCellProps) {
     >
       {value ? formatDue(value) : <span className="text-ink-tertiary">— set due</span>}
     </button>
+  );
+}
+
+interface AddTaskRowProps {
+  bucketId: string | null;
+  onCommit: (title: string) => void;
+  onCancel: () => void;
+}
+
+function AddTaskRow({ onCommit, onCancel }: AddTaskRowProps) {
+  const committedRef = useRef(false);
+  useEffect(() => {
+    committedRef.current = false;
+  }, []);
+
+  return (
+    <div
+      className={[
+        'grid items-center gap-2 px-3',
+        GRID_TEMPLATE_COLS,
+        'min-h-11 mb-1 rounded-md border border-primary bg-canvas shadow-[0_0_0_1px_var(--color-primary)]',
+      ].join(' ')}
+    >
+      <div />
+      <input
+        type="text"
+        placeholder="Task name"
+        aria-label="New task title"
+        autoFocus
+        className="col-span-7 w-full rounded-sm border-0 bg-transparent px-1.5 py-1 text-body-sm text-ink outline-none placeholder:text-ink-tertiary"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            const value = (e.target as HTMLInputElement).value.trim();
+            if (value) {
+              committedRef.current = true;
+              onCommit(value);
+            }
+          }
+          if (e.key === 'Escape') {
+            committedRef.current = true;
+            onCancel();
+          }
+        }}
+        onBlur={(e) => {
+          if (!committedRef.current) {
+            const value = e.target.value.trim();
+            if (value) onCommit(value);
+            else onCancel();
+          }
+        }}
+      />
+    </div>
   );
 }
 
