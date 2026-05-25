@@ -31,6 +31,9 @@ module.exports = {
     //    on `^packages/$1/` keeps a module's own files able to reach its own
     //    internals; everything else routes through the package root or
     //    declared subpaths (/events, /rbac, /contracts, /agent-tools).
+    //    /agent-tools/register.ts is a public side-effect subpath exported by
+    //    package.json; copilot's init-registry imports it to trigger module
+    //    registration before registry freeze.
     {
       name: 'no-cross-module-internals',
       severity: 'error',
@@ -39,7 +42,23 @@ module.exports = {
       from: { path: '^packages/(?!shared-)([^/]+)/src/' },
       to: {
         path: '^packages/(?!shared-)([^/]+)/src/(backend|db)/',
-        pathNot: '^packages/$1/',
+        pathNot: '^packages/$1/|/agent-tools/register\\.ts$',
+      },
+    },
+
+    // 3.5. Modules must not import another module's agent tool functions directly.
+    //      Cross-module tool access goes through CopilotRegistry via @seta/copilot-sdk.
+    //      The /agent-tools/register.ts side-effect subpath and /agent-tools/index.ts
+    //      collection re-export are permitted public surfaces.
+    {
+      name: 'no-direct-cross-module-tool-import',
+      severity: 'error',
+      comment:
+        "Modules must not import another module's agent tool function directly. Cross-module tool access goes through CopilotRegistry via @seta/copilot-sdk.",
+      from: { path: '^packages/(?!shared-)([^/]+)/src/' },
+      to: {
+        path: '^packages/(?!shared-)([^/]+)/src/backend/agent-tools/',
+        pathNot: '^packages/$1/|/agent-tools/(register|index)\\.ts$',
       },
     },
 
@@ -58,7 +77,7 @@ module.exports = {
       },
       to: {
         path: '^packages/(?!shared-)([^/]+)/src/backend/',
-        pathNot: '^packages/$1/',
+        pathNot: '^packages/$1/|/agent-tools/register\\.ts$',
       },
     },
 
@@ -147,7 +166,7 @@ module.exports = {
       from: { path: '^packages/copilot/src/' },
       to: {
         path: '^packages/(?!shared-|copilot/|core/)([^/]+)/',
-        pathNot: '^packages/[^/]+/src/events(\\.ts$|/)',
+        pathNot: '^packages/[^/]+/src/events(\\.ts$|/)|/agent-tools/register\\.ts$',
       },
     },
 
