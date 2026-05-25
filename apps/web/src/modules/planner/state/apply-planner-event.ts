@@ -341,6 +341,10 @@ export function applyPlannerEvent(qc: QueryClient, event: StreamEvent): void {
     case 'planner.checklist_item.updated':
     case 'planner.checklist_item.removed':
       if (taskId) {
+        // TaskDetailChecklistCard renders task.checklist from the TaskDetailRow
+        // under plannerKeys.task — refreshing only taskChecklist leaves the
+        // visible list stale (e.g. after a reorder).
+        qc.invalidateQueries({ queryKey: plannerKeys.task(taskId) });
         qc.invalidateQueries({ queryKey: plannerKeys.taskChecklist(taskId) });
         qc.invalidateQueries({ queryKey: plannerKeys.taskEvents(taskId) });
       }
