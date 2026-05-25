@@ -86,7 +86,8 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
     roles.includes('org.admin') ||
     roles.includes('tenant.admin') ||
     roles.includes('planner.admin');
-  const members = membersQuery.data ?? [];
+  const members = membersQuery.data?.members ?? [];
+  const memberTotal = membersQuery.data?.total ?? members.length;
   const isOwner = members.some((m) => m.user_id === session.user_id && m.role === 'owner');
   const canManage = isAdmin || isOwner;
   const canCreatePlan = canManage;
@@ -152,7 +153,7 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
           >
             Members
             <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-surface-2 px-1.5 text-[11px] font-medium text-ink-muted transition-colors">
-              {members.length}
+              {memberTotal}
             </span>
           </TabsTrigger>
           <TabsTrigger value="activity">Activity</TabsTrigger>
@@ -179,6 +180,7 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
             <GroupRail
               group={group}
               members={members}
+              totalMemberCount={memberTotal}
               canManage={canManage}
               onAddMember={() => setAddMembersOpen(true)}
               activityItems={
@@ -193,12 +195,18 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
             <GroupMembersTable
               group={group}
               members={members}
+              total={memberTotal}
               canManageRoles={canManageRoles}
               onRoleChange={(v) => setMemberRoleMutation.mutate(v)}
+              onLoadMore={
+                membersQuery.hasNextPage ? () => void membersQuery.fetchNextPage() : undefined
+              }
+              isLoadingMore={membersQuery.isFetchingNextPage}
             />
             <GroupRail
               group={group}
               members={members}
+              totalMemberCount={memberTotal}
               canManage={canManage}
               onAddMember={() => setAddMembersOpen(true)}
               activityItems={

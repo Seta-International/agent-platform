@@ -2,6 +2,7 @@ import type { GroupMemberRow, GroupRow } from '@seta/planner';
 import {
   Avatar,
   AvatarFallback,
+  Button,
   cn,
   DataTable,
   Tooltip,
@@ -13,10 +14,13 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { useMemo } from 'react';
 
 interface Props {
-  group: GroupRow; // for external_source check
+  group: GroupRow;
   members: ReadonlyArray<GroupMemberRow>;
-  canManageRoles: boolean; // tenant.admin | org.admin | planner.admin | group owner
+  total: number;
+  canManageRoles: boolean;
   onRoleChange: (input: { user_id: string; role: 'owner' | 'member' }) => void;
+  onLoadMore?: () => void;
+  isLoadingMore?: boolean;
 }
 
 function initials(name: string): string {
@@ -98,7 +102,15 @@ function RoleControl({ member, canEdit, isLinkedGroup, externalId, onChange }: R
   return pill;
 }
 
-export function GroupMembersTable({ group, members, canManageRoles, onRoleChange }: Props) {
+export function GroupMembersTable({
+  group,
+  members,
+  total,
+  canManageRoles,
+  onRoleChange,
+  onLoadMore,
+  isLoadingMore,
+}: Props) {
   const canEditRoles = canManageRoles && group.external_source === 'native';
   const isLinkedGroup = group.external_source !== 'native';
   const externalId = group.external_id;
@@ -151,6 +163,8 @@ export function GroupMembersTable({ group, members, canManageRoles, onRoleChange
     [canEditRoles, isLinkedGroup, externalId, onRoleChange],
   );
 
+  const hasMore = onLoadMore !== undefined && members.length < total;
+
   return (
     <TooltipProvider>
       <section className="rounded-lg border border-hairline bg-canvas overflow-hidden">
@@ -163,7 +177,7 @@ export function GroupMembersTable({ group, members, canManageRoles, onRoleChange
             globalFilterPlaceholder="Search members…"
             enableColumnVisibility={false}
             density="comfortable"
-            pagination={{ defaultPageSize: 10, pageSizeOptions: [10, 25, 50, 100] }}
+            pagination={{ defaultPageSize: 20, pageSizeOptions: [20, 50, 100] }}
             emptyState={
               <div className="px-4 py-12 text-center text-body-sm text-ink-subtle">
                 No members in this group yet.
@@ -171,6 +185,19 @@ export function GroupMembersTable({ group, members, canManageRoles, onRoleChange
             }
           />
         </div>
+        {hasMore && (
+          <div className="flex justify-center border-t border-hairline px-4 py-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onLoadMore}
+              disabled={isLoadingMore}
+              className="text-ink-subtle"
+            >
+              {isLoadingMore ? 'Loading…' : `Load more (${members.length} of ${total} shown)`}
+            </Button>
+          </div>
+        )}
       </section>
     </TooltipProvider>
   );

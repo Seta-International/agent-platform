@@ -14,6 +14,7 @@ import {
   priorityLabel,
   priorityNumber,
   progressLabel,
+  progressLabelPatch,
 } from '../state/task-derived';
 import type { BoardFilters, GroupBy } from '../state/url-state';
 
@@ -106,7 +107,7 @@ export function PlanGridPage({
     };
   }, [buckets, tasks, filters, q]);
 
-  function onCommitField(taskId: string, patch: Partial<TaskGridRow>) {
+  async function onCommitField(taskId: string, patch: Partial<TaskGridRow>) {
     const task = tasksById.get(taskId);
     if (!task) return;
     const expected_version = task.version;
@@ -119,11 +120,28 @@ export function PlanGridPage({
       percent_complete: task.percent_complete,
       is_deferred: task.is_deferred,
     });
-    if (patch.status !== undefined) {
-      if (patch.status === 'completed' && currentStatus !== 'completed') {
+    if (patch.status !== undefined && patch.status !== currentStatus) {
+      const target = patch.status;
+      if (target === 'completed') {
         completeTask.mutate({ task_id: taskId, expected_version });
-      } else if (patch.status !== 'completed' && currentStatus === 'completed') {
-        reopenTask.mutate({ task_id: taskId, expected_version });
+      } else if (currentStatus === 'completed') {
+        // Reopen emits task.reopened and lands at not_started. If the user
+        // picked in_progress or deferred, follow up with updateTask using the
+        // version returned by reopen.
+        const reopened = await reopenTask.mutateAsync({ task_id: taskId, expected_version });
+        if (target !== 'not_started') {
+          updateTask.mutate({
+            task_id: taskId,
+            expected_version: reopened.version,
+            patch: progressLabelPatch(target),
+          });
+        }
+      } else {
+        updateTask.mutate({
+          task_id: taskId,
+          expected_version,
+          patch: progressLabelPatch(target),
+        });
       }
       return;
     }

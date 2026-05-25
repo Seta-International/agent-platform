@@ -43,7 +43,7 @@ export function useAssignTask(planId: string) {
     },
     onServerOk: () => {},
     savingId: (v) => v.task_id,
-    invalidate: (v) => [plannerKeys.task(v.task_id), plannerKeys.taskEvents(v.task_id)],
+    invalidate: (v) => [plannerKeys.task(v.task_id), plannerKeys.taskEvents(v.task_id), listKey],
     errorMessage: () => "Couldn't assign.",
   });
 }

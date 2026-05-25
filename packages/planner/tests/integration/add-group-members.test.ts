@@ -37,7 +37,7 @@ describe('addGroupMembers (bulk)', () => {
           session: seeded.adminSession,
         });
 
-        const members = await listGroupMembers({
+        const { members } = await listGroupMembers({
           group_id: group.id,
           session: seeded.adminSession,
         });

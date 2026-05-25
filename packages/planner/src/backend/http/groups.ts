@@ -144,7 +144,11 @@ export function registerPlannerGroupsRoutes(app: Hono<SessionEnv>, deps: Planner
 
   app.get('/api/planner/v1/groups/:id/members', async (c) => {
     const session = c.get('user');
-    return c.json({ members: await listGroupMembers({ group_id: c.req.param('id'), session }) });
+    const limitStr = c.req.query('limit');
+    const offsetStr = c.req.query('offset');
+    const limit = limitStr ? Math.min(Math.max(Number.parseInt(limitStr, 10), 1), 100) : 100;
+    const offset = offsetStr ? Math.max(Number.parseInt(offsetStr, 10), 0) : 0;
+    return c.json(await listGroupMembers({ group_id: c.req.param('id'), limit, offset, session }));
   });
 
   app.get('/api/planner/v1/groups/:id/activity', async (c) => {
@@ -180,7 +184,7 @@ export function registerPlannerGroupsRoutes(app: Hono<SessionEnv>, deps: Planner
     if (members.length <= 25) {
       await addGroupMembers({ group_id: groupId, members, session });
       const updated = await listGroupMembers({ group_id: groupId, session });
-      return c.json({ members: updated }, 201);
+      return c.json({ members: updated.members, total: updated.total }, 201);
     }
 
     await workers.addJob('planner.bulk_add_group_members', {

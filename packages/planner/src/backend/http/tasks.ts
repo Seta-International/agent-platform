@@ -49,6 +49,9 @@ const updateTaskSchema = z.object({
     priority_number: z.union([z.literal(1), z.literal(3), z.literal(5), z.literal(9)]).optional(),
     percent_complete: z.union([z.literal(0), z.literal(50), z.literal(100)]).optional(),
     is_deferred: z.boolean().optional(),
+    preview_type: z
+      .enum(['automatic', 'noPreview', 'checklist', 'description', 'reference'])
+      .optional(),
     start_at: z.string().nullable().optional(),
     due_at: z.string().nullable().optional(),
     skill_tags: z.array(z.string()).optional(),

@@ -124,7 +124,7 @@ export async function runPullGroup(
     const localGroup = await getGroup({ group_id, session });
 
     // Step 7: Load local members and build MemberRef[] with entra_oid
-    const localMemberRows = await listGroupMembers({ group_id, session });
+    const { members: localMemberRows } = await listGroupMembers({ group_id, session });
     const localMemberRefs: MemberRef[] = [];
     for (const m of localMemberRows) {
       const oid = await findEntraOidByUserId({ user_id: m.user_id, tenant_id });

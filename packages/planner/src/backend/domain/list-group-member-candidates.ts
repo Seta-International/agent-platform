@@ -35,7 +35,7 @@ export async function listGroupMemberCandidates(input: {
     });
   }
 
-  const cap = Math.min(input.limit ?? 20, 50);
+  const cap = Math.min(input.limit ?? 300, 300);
   // Escape LIKE special characters so user input is treated as literal text.
   const search = input.search ? input.search.replace(/[\\%_]/g, '\\$&') : undefined;
 

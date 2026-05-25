@@ -293,8 +293,9 @@ describe('listGroupMembers', () => {
           });
           await addGroupMember({ group_id: group.id, user_id: alice.user_id, session });
 
-          const members = await listGroupMembers({ group_id: group.id, session });
+          const { members, total } = await listGroupMembers({ group_id: group.id, session });
           expect(members).toHaveLength(2);
+          expect(total).toBe(2);
           const aliceMember = members.find((m) => m.user_id === alice.user_id);
           expect(aliceMember?.display_name).toBe('Alice');
           expect(aliceMember?.email).toBe('alice@example.test');

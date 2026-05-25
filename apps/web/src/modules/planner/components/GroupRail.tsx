@@ -14,6 +14,7 @@ import type { ReactNode } from 'react';
 interface Props {
   group: GroupRow;
   members: ReadonlyArray<GroupMemberRow>;
+  totalMemberCount?: number;
   canManage: boolean;
   onAddMember: () => void;
   shownMemberCount?: number;
@@ -98,13 +99,15 @@ function PropertyRow({ label, value }: PropertyRowProps) {
 export function GroupRail({
   group,
   members,
+  totalMemberCount,
   canManage,
   onAddMember,
   shownMemberCount = 7,
   activityItems,
 }: Props) {
+  const memberCount = totalMemberCount ?? members.length;
   const visibleMembers = members.slice(0, shownMemberCount);
-  const hasMore = members.length > shownMemberCount;
+  const hasMore = memberCount > shownMemberCount;
 
   return (
     <aside className="flex flex-col gap-3 w-80">
@@ -114,7 +117,7 @@ export function GroupRail({
           <div className="mb-2 flex items-baseline justify-between">
             <h3 className="text-eyebrow uppercase tracking-wide text-ink-subtle">
               Members{' '}
-              <span className="ml-1 text-xs normal-case text-ink-subtle">{members.length}</span>
+              <span className="ml-1 text-xs normal-case text-ink-subtle">{memberCount}</span>
             </h3>
             {canManage ? (
               <Button
@@ -163,7 +166,7 @@ export function GroupRail({
           </div>
           {hasMore ? (
             <Button size="sm" variant="ghost" className="mt-1 h-6 px-1.5 text-ink-subtle">
-              See all {members.length} members <ChevronRight className="size-3" />
+              See all {memberCount} members <ChevronRight className="size-3" />
             </Button>
           ) : null}
         </CardContent>

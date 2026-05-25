@@ -132,11 +132,18 @@ async function restoreGroup(input: { group_id: string }): Promise<GroupRow> {
   })) as GroupRow;
 }
 
-async function listGroupMembers(group_id: string): Promise<GroupMemberRow[]> {
-  const r = (await request<{ members: GroupMemberRow[] }>(
-    `/api/planner/v1/groups/${group_id}/members`,
-  )) ?? { members: [] };
-  return r.members;
+async function listGroupMembers(
+  group_id: string,
+  opts?: { limit?: number; offset?: number },
+): Promise<{ members: GroupMemberRow[]; total: number }> {
+  const q = new URLSearchParams();
+  if (opts?.limit !== undefined) q.set('limit', String(opts.limit));
+  if (opts?.offset !== undefined) q.set('offset', String(opts.offset));
+  const qs = q.toString();
+  const r = (await request<{ members: GroupMemberRow[]; total: number }>(
+    `/api/planner/v1/groups/${group_id}/members${qs ? `?${qs}` : ''}`,
+  )) ?? { members: [], total: 0 };
+  return r;
 }
 
 async function listGroupMemberCandidates(input: {

@@ -138,7 +138,7 @@ export function TaskDetailPage({
   const task = taskQ.data;
   const bucketName = boardQ.data?.buckets.find((b) => b.id === task.bucket_id)?.name ?? null;
   const creatorName =
-    membersQ.data?.find((m) => m.user_id === task.created_by)?.display_name ?? 'Unknown';
+    membersQ.data?.members.find((m) => m.user_id === task.created_by)?.display_name ?? 'Unknown';
 
   const goToTask = (id: string) =>
     void navigate({

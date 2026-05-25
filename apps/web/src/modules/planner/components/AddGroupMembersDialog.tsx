@@ -22,7 +22,7 @@ import { plannerKeys } from '../state/query-keys';
 
 interface Props {
   groupId: string;
-  existingMembers: GroupMemberRow[];
+  existingMembers: ReadonlyArray<GroupMemberRow>;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -62,7 +62,7 @@ export function AddGroupMembersDialog({ groupId, open, onOpenChange }: Props) {
       plannerClient.listGroupMemberCandidates({
         group_id: groupId,
         search: debouncedSearch || undefined,
-        limit: 20,
+        limit: 300,
       }),
     enabled: open,
   });
