@@ -804,6 +804,13 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
     requestContext.set('tenant_id', session.tenant_id);
     try {
       const run = await workflow.createRun();
+      // Store Mastra's intrinsic workflow id (e.g. `planner.assignBySkill`), not the
+      // URL alias (e.g. `assignBySkill`). Mastra's snapshot storage and our domain
+      // helpers (getPendingAssignRunIdForTask, etc.) key by the intrinsic id.
+      const projectedWorkflowId =
+        typeof (workflow as { id?: unknown }).id === 'string'
+          ? (workflow as { id: string }).id
+          : workflowId;
       // Project the row synchronously so a GET on the returned runId never 404s,
       // even if the user opens the deep link before Mastra's async workflow.start
       // pubsub event reaches the lifecycle hook. The async path's INSERT is then
@@ -812,7 +819,7 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
         kind: 'run-started',
         runId: run.runId,
         eventSeq: -1,
-        workflowId,
+        workflowId: projectedWorkflowId,
         tenantId: session.tenant_id,
         startedBy: session.user_id,
         startedVia: 'event',
@@ -831,12 +838,16 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
         const message = err instanceof Error ? err.message : String(err);
         const rawCode = (err as { code?: unknown } | null)?.code;
         const code = typeof rawCode === 'string' ? rawCode : 'workflow_start_failed';
-        console.error('[copilot.workflow.start]', { runId: run.runId, workflowId, err });
+        console.error('[copilot.workflow.start]', {
+          runId: run.runId,
+          workflowId: projectedWorkflowId,
+          err,
+        });
         void onLifecycleEvent(deps.pool, {
           kind: 'run-failed',
           runId: run.runId,
           eventSeq: -2,
-          workflowId,
+          workflowId: projectedWorkflowId,
           tenantId: session.tenant_id,
           occurredAt: new Date(),
           durationMs: Date.now() - startedAt,

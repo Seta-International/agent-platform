@@ -1,4 +1,10 @@
-import { createStep, createWorkflow } from '@mastra/core/workflows';
+import { createStep } from '@mastra/core/workflows';
+// IMPORTANT: use the evented engine — it's the only path that publishes
+// workflow.start / workflow.suspend / workflow.end events on the `workflows`
+// pubsub topic, which copilot's lifecycle hook projects into copilot.workflow_runs
+// and copilot.workflow_approvals. The default engine runs inline and never
+// emits those events, leaving runs stuck in the projected `running` state.
+import { createWorkflow } from '@mastra/core/workflows/evented';
 import type { PgVector } from '@mastra/pg';
 import {
   ApprovalCardSchema,

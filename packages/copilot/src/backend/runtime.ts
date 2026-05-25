@@ -25,10 +25,24 @@ export function buildMastra(deps: CopilotRuntimeDeps): Mastra {
 function wireLifecycleHook(mastra: Mastra, pool: Pool): void {
   const handle = async (raw: unknown): Promise<void> => {
     if (!raw || typeof raw !== 'object') return;
-    const adapted = adaptMastraEvent(
-      raw as { type: string; runId: string; data?: Record<string, unknown> },
-    );
-    if (!adapted) return;
+    const typed = raw as { type: string; runId: string; data?: Record<string, unknown> };
+    const adapted = adaptMastraEvent(typed);
+    if (!adapted) {
+      // Surface any lifecycle event we couldn't translate so future Mastra
+      // wire-format changes don't silently break the projection again.
+      if (typed.type?.startsWith('workflow.') && !typed.type.startsWith('workflow.step')) {
+        console.warn('[copilot.workflow.lifecycle-hook] dropped untranslatable event', {
+          type: typed.type,
+          runId: typed.runId,
+          hasRc: typed.data?.requestContext !== undefined,
+          rcKeys:
+            typed.data?.requestContext && typeof typed.data.requestContext === 'object'
+              ? Object.keys(typed.data.requestContext as object)
+              : null,
+        });
+      }
+      return;
+    }
     try {
       await onLifecycleEvent(pool, adapted);
     } catch (err) {

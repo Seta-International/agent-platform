@@ -17,7 +17,7 @@ function bindReader(pool: Pool): void {
     const { rows } = await pool.query<{ run_id: string }>(
       `SELECT run_id FROM copilot.workflow_runs
         WHERE workflow_id = 'planner.assignBySkill'
-          AND status = 'paused'
+          AND status IN ('running', 'paused')
           AND tenant_id = $1::uuid
           AND input_summary @> jsonb_build_object('taskId', $2::text)
         ORDER BY started_at DESC
@@ -165,7 +165,46 @@ describe('planner_getTask — pendingAssignWorkflowRunId', () => {
     });
   });
 
-  it('ignores non-paused runs (running / success)', async () => {
+  it('surfaces in-flight running runs (not just paused)', async () => {
+    await withCopilotTestDb(async ({ pool }) => {
+      bindReader(pool);
+      const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
+      const session = buildAdminSession({
+        tenant_id,
+        user_id: admin_user_id,
+        email: 'admin@demo.local',
+      });
+      await pool.query(
+        `INSERT INTO planner.assignee_projection
+         (user_id, tenant_id, display_name, email, skills, availability_status, timezone)
+         VALUES ($1, $2, 'Admin', 'admin@demo.local', ARRAY[]::text[], 'available', 'UTC')
+         ON CONFLICT (user_id) DO NOTHING`,
+        [admin_user_id, tenant_id],
+      );
+      const group = await createGroup({ tenant_id, name: 'G', session });
+      const plan = await createPlan({ group_id: group.id, name: 'P', session });
+      const task = await createTask({ plan_id: plan.id, title: 'T', session });
+
+      const runId = randomUUID();
+      await pool.query(
+        `INSERT INTO copilot.workflow_runs
+           (run_id, workflow_id, tenant_id, started_by, started_via,
+            input_summary, status, started_at)
+         VALUES ($1, 'planner.assignBySkill', $2, $3, 'event',
+                 $4::jsonb, 'running', now())`,
+        [runId, tenant_id, admin_user_id, JSON.stringify({ taskId: task.id })],
+      );
+
+      const result = (await plannerGetTaskTool.execute!(
+        { taskId: task.id },
+        makeToolContext({ user_id: admin_user_id }),
+      )) as { task: { pendingAssignWorkflowRunId: string | null } };
+
+      expect(result.task.pendingAssignWorkflowRunId).toBe(runId);
+    });
+  });
+
+  it('ignores terminal runs (success / failed / canceled)', async () => {
     await withCopilotTestDb(async ({ pool }) => {
       bindReader(pool);
       const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });

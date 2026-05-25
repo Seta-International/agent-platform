@@ -65,7 +65,17 @@ export function registerCopilot(deps: {
   initCopilotRegistry();
 
   for (const spec of CopilotRegistry.snapshot().workflows) {
-    mastra.addWorkflow(spec.workflow as AnyWorkflow, spec.id);
+    const wf = spec.workflow as AnyWorkflow;
+    // Register under both keys: the spec alias (e.g. `assignBySkill`) for the
+    // REST API path `/workflows/runs/:alias/start`, and the workflow's intrinsic
+    // id (e.g. `planner.assignBySkill`) — the latter is what Mastra's snapshot
+    // storage and our workflow_runs.workflow_id column use, so cancel/rerun/replay
+    // paths that look up `mastra.getWorkflow(row.workflow_id)` need it too.
+    mastra.addWorkflow(wf, spec.id);
+    const intrinsicId = (wf as { id?: unknown }).id;
+    if (typeof intrinsicId === 'string' && intrinsicId !== spec.id) {
+      mastra.addWorkflow(wf, intrinsicId);
+    }
     registerWorkflowInputSchema(spec.id, spec.inputSchema);
   }
   registerPendingAssignReader(getPendingAssignRunIdForTask);

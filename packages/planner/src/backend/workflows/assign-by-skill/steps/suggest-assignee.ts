@@ -49,14 +49,19 @@ export function buildSuggestAssigneeCard(input: SuggestAssigneeInput): ApprovalC
       ? `Top suggestion: ${top.displayName} (score ${top.finalScore.toFixed(2)})`
       : 'No candidates found — leave unassigned for now?',
     details: [{ kind: 'candidateList', items }],
+    // argsPatch matches AssignDecisionSchema verbatim so the inbox decide path
+    // can forward it to run.resume() without translation.
     primary: top
-      ? { label: `Assign to ${top.displayName}`, argsPatch: { assigneeUserId: top.userId } }
+      ? {
+          label: `Assign to ${top.displayName}`,
+          argsPatch: { action: 'assign', assigneeUserId: top.userId },
+        }
       : { label: 'No candidates' },
     alternates: rest.map((c) => ({
       label: `Assign to ${c.displayName}`,
-      argsPatch: { assigneeUserId: c.userId },
+      argsPatch: { action: 'assign', assigneeUserId: c.userId },
     })),
-    decline: { label: 'Leave unassigned' },
+    decline: { label: 'Leave unassigned', argsPatch: { action: 'leave-unassigned' } },
     meta: {
       tenantId: input.session.tenantId,
       userId: input.session.userId,

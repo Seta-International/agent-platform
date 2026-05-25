@@ -29,7 +29,14 @@ export const ApprovalCardSchema = z.object({
   alternates: z.array(
     z.object({ label: z.string(), argsPatch: z.record(z.string(), z.unknown()) }),
   ),
-  decline: z.object({ label: z.string() }),
+  // `argsPatch` is the resume payload to forward when the user picks decline /
+  // primary / an alternate. By making it the same shape on every action, the
+  // generic inbox approve/reject path can resume the workflow without having
+  // to know about the workflow's specific resumeSchema discriminator.
+  decline: z.object({
+    label: z.string(),
+    argsPatch: z.record(z.string(), z.unknown()).optional(),
+  }),
   meta: z.object({
     tenantId: z.string(),
     userId: z.string(),

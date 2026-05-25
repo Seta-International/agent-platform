@@ -12,11 +12,14 @@ export async function getPendingAssignRunIdForTask(
   opts: GetPendingAssignRunIdForTaskOpts,
 ): Promise<string | null> {
   const db = copilotDb();
+  // Include `running` as well as `paused`: a run that's mid-compute is still
+  // user-visible work in progress and should surface the "Suggest in progress
+  // — view" link on the task card; otherwise the toast is the only entry point.
   const result = await db.execute(sql`
     SELECT run_id
       FROM copilot.workflow_runs
      WHERE workflow_id = ${ASSIGN_BY_SKILL_MASTRA_ID}
-       AND status = 'paused'
+       AND status IN ('running', 'paused')
        AND tenant_id = ${opts.tenantId}
        AND input_summary @> jsonb_build_object('taskId', ${opts.taskId}::text)
      ORDER BY started_at DESC

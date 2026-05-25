@@ -149,6 +149,20 @@ async function onRunSuspended(client: PoolClient, evt: RunSuspendedEvent): Promi
       WHERE run_id = $1`,
     [evt.runId, evt.suspendReason],
   );
+  // If the adapter couldn't read tenant/approver from requestContext (e.g. a
+  // Mastra version that doesn't echo it on suspend), recover from the seeded
+  // row — workflow_runs is populated synchronously by the /start handler.
+  let { tenantId, approverUserId } = evt;
+  if (!tenantId || !approverUserId) {
+    const r = await client.query<{ tenant_id: string; started_by: string }>(
+      `SELECT tenant_id, started_by FROM copilot.workflow_runs WHERE run_id = $1`,
+      [evt.runId],
+    );
+    const row = r.rows[0];
+    if (!row) return;
+    if (!tenantId) tenantId = row.tenant_id;
+    if (!approverUserId) approverUserId = row.started_by;
+  }
   const ins = await client.query<{ approval_id: string }>(
     `INSERT INTO copilot.workflow_approvals
        (approval_id, run_id, step_id, proposed_payload,
@@ -162,7 +176,7 @@ async function onRunSuspended(client: PoolClient, evt: RunSuspendedEvent): Promi
       evt.runId,
       evt.stepId,
       JSON.stringify(evt.proposedPayload),
-      evt.approverUserId,
+      approverUserId,
       evt.fallbackApproverUserId,
       evt.surfaceCanvas,
       evt.surfaceChatThreadId,
@@ -176,12 +190,12 @@ async function onRunSuspended(client: PoolClient, evt: RunSuspendedEvent): Promi
   await insertOutboxEvent(client, {
     eventType: 'copilot.workflow.approval.requested',
     aggregateId: evt.runId,
-    tenantId: evt.tenantId,
+    tenantId,
     payload: {
       approval_id: approvalId,
       workflow_id: evt.workflowId,
-      tenant_id: evt.tenantId,
-      approver_user_id: evt.approverUserId,
+      tenant_id: tenantId,
+      approver_user_id: approverUserId,
       proposed_payload: evt.proposedPayload,
       expires_at: evt.expiresAt.toISOString(),
       surface: [
@@ -271,18 +285,50 @@ export interface RawMastraEvent {
   data?: Record<string, unknown>;
 }
 
+/**
+ * Read a key from a Mastra request-context value that may arrive in either of
+ * two shapes depending on the emitting event:
+ *  - serialized plain object (workflow.start uses `requestContext.toJSON()`)
+ *  - live `RequestContext` class instance (workflow.suspend / .end / etc. spread
+ *    the live object — see mastra workflow-event-processor/index.ts:1607)
+ *
+ * Returns undefined when the key isn't present. Reading is intentionally
+ * forgiving: a missing/typeless value just bubbles up as undefined so the
+ * branch-level null guard can decide whether to drop the event.
+ */
+function readRc(rc: unknown, key: string): unknown {
+  if (!rc || typeof rc !== 'object') return undefined;
+  const maybeGet = (rc as { get?: unknown }).get;
+  if (typeof maybeGet === 'function') {
+    try {
+      return (maybeGet as (k: string) => unknown).call(rc, key);
+    } catch {
+      // fall through to direct property access
+    }
+  }
+  return (rc as Record<string, unknown>)[key];
+}
+
 export function adaptMastraEvent(raw: RawMastraEvent): MastraLifecycleEvent | null {
+  // workflow_run_events_seen has run_id NOT NULL, and every dispatch target
+  // keys on runId. Mastra occasionally publishes lifecycle-shaped events
+  // without a run-level runId (e.g. nested-workflow framing). Drop those —
+  // they don't correspond to a row we'd ever project.
+  if (typeof raw.runId !== 'string' || raw.runId.length === 0) return null;
   const data = raw.data ?? {};
   const occurredAt = new Date();
   const workflowId = typeof data.workflowId === 'string' ? data.workflowId : '';
-  const rc = (data.requestContext ?? {}) as Record<string, unknown>;
+  const rc = data.requestContext;
   // Keys match the codebase convention seeded by every caller of RequestContext.set:
   // `tenant_id` (snake) and `actor` ({ user_id }). See sdks/copilot/src/session-context.ts.
-  const tenantId = typeof rc.tenant_id === 'string' ? rc.tenant_id : '';
-  const actor = (rc.actor ?? {}) as { user_id?: unknown };
+  const tenantIdRaw = readRc(rc, 'tenant_id');
+  const tenantId = typeof tenantIdRaw === 'string' ? tenantIdRaw : '';
+  const actorRaw = readRc(rc, 'actor');
+  const actor = (actorRaw ?? {}) as { user_id?: unknown };
   const startedBy = typeof actor.user_id === 'string' ? actor.user_id : '';
+  const startedViaRaw = readRc(rc, 'started_via');
   const startedVia =
-    rc.started_via === 'chat' || rc.started_via === 'rerun' ? rc.started_via : 'event';
+    startedViaRaw === 'chat' || startedViaRaw === 'rerun' ? startedViaRaw : 'event';
 
   switch (raw.type) {
     case 'workflow.start': {
@@ -296,9 +342,18 @@ export function adaptMastraEvent(raw: RawMastraEvent): MastraLifecycleEvent | nu
         tenantId,
         startedBy,
         startedVia,
-        parentThreadId: typeof rc.parent_thread_id === 'string' ? rc.parent_thread_id : null,
-        parentRunId: typeof rc.parent_run_id === 'string' ? rc.parent_run_id : null,
-        sourceEventId: typeof rc.source_event_id === 'string' ? rc.source_event_id : null,
+        parentThreadId: ((): string | null => {
+          const v = readRc(rc, 'parent_thread_id');
+          return typeof v === 'string' ? v : null;
+        })(),
+        parentRunId: ((): string | null => {
+          const v = readRc(rc, 'parent_run_id');
+          return typeof v === 'string' ? v : null;
+        })(),
+        sourceEventId: ((): string | null => {
+          const v = readRc(rc, 'source_event_id');
+          return typeof v === 'string' ? v : null;
+        })(),
         inputSummary: prevResult?.output ?? {},
         occurredAt,
       };
@@ -357,10 +412,35 @@ export function adaptMastraEvent(raw: RawMastraEvent): MastraLifecycleEvent | nu
       };
     }
     case 'workflow.suspend': {
-      const stepId = typeof data.stepId === 'string' ? data.stepId : 'await-approval';
+      // Mastra's evented engine doesn't echo a single `stepId` field on the
+      // suspend event — it provides `resumeSteps: string[]` (the step ids that
+      // can be resumed for this suspension). Use the first; fall back to
+      // `data.stepId` for older Mastras and 'await-approval' as a last resort.
+      const resumeSteps = Array.isArray(data.resumeSteps) ? (data.resumeSteps as unknown[]) : null;
+      const firstResumeStep = resumeSteps?.find((s): s is string => typeof s === 'string') ?? null;
+      const stepId =
+        firstResumeStep ?? (typeof data.stepId === 'string' ? data.stepId : 'await-approval');
+      // The actual suspend payload (the ApprovalCard the workflow passed to
+      // `suspend(card)`) lands on `data.prevResult.suspendPayload` in the
+      // event Mastra publishes — *not* on `data.proposedPayload` (Mastra never
+      // sets that). Fall back to `data.stepResults[stepId].suspendPayload`
+      // for older Mastras / snapshot-style shapes.
+      const prevResult = (data.prevResult ?? {}) as { suspendPayload?: unknown };
+      const stepResults = (data.stepResults ?? {}) as Record<string, unknown>;
+      const stepEntry = firstResumeStep ? (stepResults[firstResumeStep] as unknown) : undefined;
+      const proposedFromSuspend =
+        prevResult.suspendPayload ??
+        (stepEntry && typeof stepEntry === 'object'
+          ? ((stepEntry as { suspendPayload?: unknown; payload?: unknown }).suspendPayload ??
+            (stepEntry as { payload?: unknown }).payload)
+          : undefined);
       const suspendReason =
         typeof data.suspendReason === 'string' ? data.suspendReason : 'hitl_pending';
-      const proposedPayload = data.proposedPayload ?? {};
+      const proposedPayload = data.proposedPayload ?? proposedFromSuspend ?? {};
+      // Approver defaults to the rc actor; if both rc parsing and the explicit
+      // field fail we leave it empty and let onRunSuspended fill it in from
+      // workflow_runs.started_by (it always has the seeded value). Same idea
+      // for tenantId — populated at dispatch time when missing.
       const approverUserId =
         typeof data.approverUserId === 'string' ? data.approverUserId : startedBy;
       const fallbackApproverUserId =
@@ -372,7 +452,6 @@ export function adaptMastraEvent(raw: RawMastraEvent): MastraLifecycleEvent | nu
         typeof data.expiresAt === 'string'
           ? new Date(data.expiresAt)
           : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-      if (!approverUserId) return null;
       return {
         kind: 'run-suspended',
         runId: raw.runId,

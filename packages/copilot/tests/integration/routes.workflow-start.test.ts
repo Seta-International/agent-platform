@@ -20,12 +20,14 @@ function makeMastra(opts: {
   start?: ReturnType<typeof vi.fn>;
   runId?: string;
   unknownWorkflow?: boolean;
+  /** Mastra-intrinsic workflow id (defaults to a `planner.<alias>` shape mirroring real wiring). */
+  intrinsicId?: string;
 }): Mastra {
   return {
-    getWorkflow: (id: string) => {
+    getWorkflow: (alias: string) => {
       if (opts.unknownWorkflow) return undefined;
       return {
-        id,
+        id: opts.intrinsicId ?? `planner.${alias}`,
         createRun: async () => ({
           runId: opts.runId ?? randomUUID(),
           start: opts.start ?? vi.fn().mockResolvedValue(undefined),
@@ -76,7 +78,7 @@ describe('POST /api/copilot/v1/workflows/runs/:workflowId/start', () => {
       // Row is projected synchronously so the inbox deep-link never 404s, even
       // before Mastra's async workflow.start pubsub event reaches the hook.
       const row = await pool.query(
-        `SELECT tenant_id, started_by, started_via, status FROM copilot.workflow_runs WHERE run_id = $1`,
+        `SELECT workflow_id, tenant_id, started_by, started_via, status FROM copilot.workflow_runs WHERE run_id = $1`,
         [runId],
       );
       expect(row.rowCount).toBe(1);
@@ -86,6 +88,9 @@ describe('POST /api/copilot/v1/workflows/runs/:workflowId/start', () => {
         started_via: 'event',
         status: 'running',
       });
+      // Stored under Mastra's intrinsic workflow id, not the REST alias, so
+      // snapshot lookups and getPendingAssignRunIdForTask see the same id.
+      expect((row.rows[0] as { workflow_id: string }).workflow_id).toBe('planner.assignBySkill');
     });
   });
 

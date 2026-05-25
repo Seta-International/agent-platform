@@ -18,7 +18,13 @@ function sessionWith(perms: string[], tenantId = randomUUID(), userId = randomUU
 
 async function seedSuspendedRun(
   pool: import('pg').Pool,
-  args: { runId: string; tenantId: string; approverUserId: string; surfaceCanvas?: boolean },
+  args: {
+    runId: string;
+    tenantId: string;
+    approverUserId: string;
+    surfaceCanvas?: boolean;
+    stepId?: string;
+  },
 ): Promise<void> {
   await onLifecycleEvent(pool, {
     kind: 'run-started',
@@ -41,7 +47,7 @@ async function seedSuspendedRun(
     workflowId: 'copilot.x',
     tenantId: args.tenantId,
     occurredAt: new Date(),
-    stepId: 'await-approval',
+    stepId: args.stepId ?? 'copilot.x.suggest',
     suspendReason: 'hitl_pending',
     proposedPayload: { userId: '77777777-7777-7777-7777-777777777777' },
     approverUserId: args.approverUserId,
@@ -104,7 +110,7 @@ describe('decideApproval', () => {
         step: string;
         resumeData: { decision: string };
       };
-      expect(resumeArg.step).toBe('await-approval');
+      expect(resumeArg.step).toBe('copilot.x.suggest');
       expect(resumeArg.resumeData.decision).toBe('approve');
 
       const row = await pool.query<{ status: string; decided_by: string }>(
@@ -122,6 +128,145 @@ describe('decideApproval', () => {
       expect(outbox.rowCount).toBe(1);
       expect(outbox.rows[0]!.payload.decision).toBe('approve');
       expect(outbox.rows[0]!.payload.decided_by).toBe(me.user_id);
+    });
+  });
+
+  it('translates approve/reject into workflow resumeData via the card argsPatch', async () => {
+    // The inbox decide path must forward an ApprovalCard's argsPatch as the
+    // workflow resumeData; otherwise Mastra's resumeSchema rejects and Approve
+    // 500s. Verifies primary.argsPatch (approve), decline.argsPatch (reject),
+    // and alternate.argsPatch matched by overrideUserId (modify).
+    const cardPayload = {
+      intent: 'Assign task',
+      summary: 'top: Alice',
+      primary: { label: 'Assign to Alice', argsPatch: { action: 'assign', assigneeUserId: 'u-1' } },
+      alternates: [
+        { label: 'Assign to Bob', argsPatch: { action: 'assign', assigneeUserId: 'u-2' } },
+      ],
+      decline: { label: 'Leave unassigned', argsPatch: { action: 'leave-unassigned' } },
+    };
+    await withCopilotTestDb(async ({ pool }) => {
+      const me = sessionWith(['copilot.workflow.run.read.self', 'copilot.workflow.approve']);
+
+      // approve → primary.argsPatch
+      const runApprove = randomUUID();
+      await pool.query(
+        `INSERT INTO copilot.workflow_runs (run_id, workflow_id, tenant_id, started_by, started_via, input_summary, status, started_at)
+         VALUES ($1, 'planner.assignBySkill', $2, $3, 'event', '{}'::jsonb, 'paused', now())`,
+        [runApprove, me.tenant_id, me.user_id],
+      );
+      const approvalIdApprove = randomUUID();
+      await pool.query(
+        `INSERT INTO copilot.workflow_approvals
+           (approval_id, run_id, step_id, proposed_payload, approver_user_id,
+            fallback_approver_user_id, surface_canvas, surface_chat_thread_id,
+            status, expires_at, created_at)
+         VALUES ($1, $2, 'assignBySkill.suggest', $3::jsonb, $4, NULL, true, NULL,
+                 'pending', now() + interval '1 day', now())`,
+        [approvalIdApprove, runApprove, JSON.stringify(cardPayload), me.user_id],
+      );
+
+      const resumeApprove = vi.fn().mockResolvedValue(undefined);
+      await decideApproval({
+        session: me,
+        approvalId: approvalIdApprove,
+        decision: 'approve',
+        mastra: makeMastra(resumeApprove),
+      });
+      expect(resumeApprove.mock.calls[0]![0].resumeData).toEqual({
+        action: 'assign',
+        assigneeUserId: 'u-1',
+      });
+
+      // modify(overrideUserId) → matching alternate.argsPatch
+      const runModify = randomUUID();
+      await pool.query(
+        `INSERT INTO copilot.workflow_runs (run_id, workflow_id, tenant_id, started_by, started_via, input_summary, status, started_at)
+         VALUES ($1, 'planner.assignBySkill', $2, $3, 'event', '{}'::jsonb, 'paused', now())`,
+        [runModify, me.tenant_id, me.user_id],
+      );
+      const approvalIdModify = randomUUID();
+      await pool.query(
+        `INSERT INTO copilot.workflow_approvals
+           (approval_id, run_id, step_id, proposed_payload, approver_user_id,
+            fallback_approver_user_id, surface_canvas, surface_chat_thread_id,
+            status, expires_at, created_at)
+         VALUES ($1, $2, 'assignBySkill.suggest', $3::jsonb, $4, NULL, true, NULL,
+                 'pending', now() + interval '1 day', now())`,
+        [approvalIdModify, runModify, JSON.stringify(cardPayload), me.user_id],
+      );
+      const resumeModify = vi.fn().mockResolvedValue(undefined);
+      await decideApproval({
+        session: me,
+        approvalId: approvalIdModify,
+        decision: 'modify',
+        overrideUserId: 'u-2',
+        mastra: makeMastra(resumeModify),
+      });
+      expect(resumeModify.mock.calls[0]![0].resumeData).toEqual({
+        action: 'assign',
+        assigneeUserId: 'u-2',
+      });
+
+      // reject → decline.argsPatch
+      const runReject = randomUUID();
+      await pool.query(
+        `INSERT INTO copilot.workflow_runs (run_id, workflow_id, tenant_id, started_by, started_via, input_summary, status, started_at)
+         VALUES ($1, 'planner.assignBySkill', $2, $3, 'event', '{}'::jsonb, 'paused', now())`,
+        [runReject, me.tenant_id, me.user_id],
+      );
+      const approvalIdReject = randomUUID();
+      await pool.query(
+        `INSERT INTO copilot.workflow_approvals
+           (approval_id, run_id, step_id, proposed_payload, approver_user_id,
+            fallback_approver_user_id, surface_canvas, surface_chat_thread_id,
+            status, expires_at, created_at)
+         VALUES ($1, $2, 'assignBySkill.suggest', $3::jsonb, $4, NULL, true, NULL,
+                 'pending', now() + interval '1 day', now())`,
+        [approvalIdReject, runReject, JSON.stringify(cardPayload), me.user_id],
+      );
+      const resumeReject = vi.fn().mockResolvedValue(undefined);
+      await decideApproval({
+        session: me,
+        approvalId: approvalIdReject,
+        decision: 'reject',
+        mastra: makeMastra(resumeReject),
+      });
+      expect(resumeReject.mock.calls[0]![0].resumeData).toEqual({
+        action: 'leave-unassigned',
+      });
+    });
+  });
+
+  it("omits step when the projected stepId is the legacy 'await-approval' placeholder", async () => {
+    // Older adapter versions stored a placeholder when Mastra's suspend event
+    // didn't echo a stepId. Passing that placeholder to run.resume() throws
+    // because no such step exists in the workflow. Let Mastra auto-resolve the
+    // suspended step from the snapshot in that case.
+    await withCopilotTestDb(async ({ pool }) => {
+      const me = sessionWith(['copilot.workflow.run.read.self', 'copilot.workflow.approve']);
+      const runId = randomUUID();
+      await seedSuspendedRun(pool, {
+        runId,
+        tenantId: me.tenant_id,
+        approverUserId: me.user_id,
+        stepId: 'await-approval',
+      });
+      const [pending] = await listMyPendingApprovals({ session: me });
+      const resume = vi.fn().mockResolvedValue(undefined);
+      await decideApproval({
+        session: me,
+        approvalId: pending!.approvalId,
+        decision: 'approve',
+        mastra: makeMastra(resume),
+      });
+      expect(resume).toHaveBeenCalledTimes(1);
+      const arg = resume.mock.calls[0]![0] as {
+        step?: string;
+        resumeData: { decision: string };
+      };
+      expect(arg.step).toBeUndefined();
+      expect(arg.resumeData.decision).toBe('approve');
     });
   });
 

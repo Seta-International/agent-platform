@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Background,
   BackgroundVariant,
@@ -11,6 +11,7 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import { workflowsApi } from '../api/workflows.ts';
 import { buildWorkflowGraph } from '../lib/build-graph.ts';
+import { workflowsQueryKeys } from '../state/query-keys.ts';
 import { AfterNode } from './after-node.tsx';
 import { ConditionNode } from './condition-node.tsx';
 import { ControlNode } from './control-node.tsx';
@@ -75,10 +76,16 @@ function WorkflowGraphInner({ snapshot, run, onReplay }: WorkflowGraphProps) {
     setEdges(initialEdges);
   }, [initialNodes, initialEdges, setNodes, setEdges]);
 
+  const qc = useQueryClient();
   const cancel = useMutation({
     mutationFn: () => workflowsApi.cancelRun(run.runId),
     onMutate: () => setCancelling(true),
-    onError: () => setCancelling(false),
+    onSettled: () => setCancelling(false),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: workflowsQueryKeys.run(run.runId) });
+      void qc.invalidateQueries({ queryKey: workflowsQueryKeys.runSnapshot(run.runId) });
+      void qc.invalidateQueries({ queryKey: workflowsQueryKeys.pendingApprovals() });
+    },
   });
 
   const running = run.status === 'running' || run.status === 'paused';

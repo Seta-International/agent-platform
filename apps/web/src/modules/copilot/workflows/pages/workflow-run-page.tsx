@@ -17,6 +17,39 @@ function workflowLabel(workflowId: string): string {
   return workflowId.replace(/^.*\./, '');
 }
 
+/**
+ * Best-effort recovery of the ApprovalCard from the workflow snapshot when the
+ * projection's workflow_approvals.proposed_payload is empty (legacy rows from
+ * before the adapter was fixed). Mastra stores the suspend payload at
+ * `snapshot.result.suspendPayload` (top-level for the most recently suspended
+ * step) and under `snapshot.context[stepId].suspendPayload`. Either contains
+ * the full card; primary first, then any suspended step.
+ */
+function cardFromSnapshot(snapshot: unknown): unknown {
+  if (!snapshot || typeof snapshot !== 'object') return undefined;
+  const snap = snapshot as {
+    result?: { suspendPayload?: unknown };
+    context?: Record<string, { suspendPayload?: unknown }>;
+    suspendedPaths?: Record<string, unknown>;
+  };
+  if (snap.result?.suspendPayload && typeof snap.result.suspendPayload === 'object') {
+    return snap.result.suspendPayload;
+  }
+  const suspendedStepId = snap.suspendedPaths ? Object.keys(snap.suspendedPaths)[0] : undefined;
+  if (suspendedStepId && snap.context?.[suspendedStepId]?.suspendPayload) {
+    return snap.context[suspendedStepId].suspendPayload;
+  }
+  // Fallback: scan context for any entry with a suspendPayload.
+  if (snap.context) {
+    for (const entry of Object.values(snap.context)) {
+      if (entry?.suspendPayload && typeof entry.suspendPayload === 'object') {
+        return entry.suspendPayload;
+      }
+    }
+  }
+  return undefined;
+}
+
 export interface WorkflowRunPageProps {
   runId: string;
   rerunOpen?: boolean;
@@ -116,6 +149,12 @@ export function WorkflowRunPage({ runId, rerunOpen = false }: WorkflowRunPagePro
               <div className="pointer-events-auto w-full max-w-xl">
                 <HitlApprovalCard
                   approval={myApproval}
+                  // Snapshot fallback: legacy approval rows have empty
+                  // proposed_payload because the adapter wasn't extracting the
+                  // suspend payload. The Mastra snapshot still has the full card
+                  // under .result.suspendPayload (and .context[step].suspendPayload),
+                  // so the UI can recover the candidate list from there.
+                  proposedPayloadFallback={cardFromSnapshot(snapshotQuery.data)}
                   canAct
                   pending={decide.isPending}
                   onDecide={(args) => decide.mutate({ approvalId: myApproval.approvalId, ...args })}

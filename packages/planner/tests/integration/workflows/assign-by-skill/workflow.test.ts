@@ -131,7 +131,10 @@ describe('runSuggestAssignee + applyAssignDecision', () => {
         expect(loaded.taskId).toBe(task.id);
         expect(candidates.length).toBeGreaterThan(0);
         expect(candidates[0]!.userId).toBe(alice.user_id);
-        expect(card.primary.argsPatch).toEqual({ assigneeUserId: alice.user_id });
+        expect(card.primary.argsPatch).toEqual({
+          action: 'assign',
+          assigneeUserId: alice.user_id,
+        });
         expect(card.summary).toContain('Alice');
 
         const out = await applyAssignDecision(

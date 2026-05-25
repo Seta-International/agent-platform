@@ -6,6 +6,9 @@ export const COPILOT_PERMISSIONS = [
   'copilot.workflow.run.read.tenant',
   'copilot.workflow.run.read.instance',
   'copilot.workflow.run.execute.self',
+  'copilot.workflow.run.cancel.self',
+  'copilot.workflow.run.cancel.tenant',
+  'copilot.workflow.run.cancel.instance',
   'copilot.workflow.approve',
 ] as const;
 

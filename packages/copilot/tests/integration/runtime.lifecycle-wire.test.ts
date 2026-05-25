@@ -92,6 +92,67 @@ describe('lifecycle hook wiring', () => {
     });
   });
 
+  it('handles workflow.suspend when requestContext is a live class instance (not toJSON)', async () => {
+    // Mastra's evented engine spreads the live RequestContext into workflow.suspend
+    // event data (see workflow-event-processor:1607), unlike workflow.start which
+    // calls .toJSON(). The adapter must read both shapes.
+    await withCopilotTestDb(async ({ pool, databaseUrl }) => {
+      const mastra = buildMastra({ pool, databaseUrl });
+      await mastra.getStorage()!.init();
+
+      const runId = randomUUID();
+      const tenantId = randomUUID();
+      const startedBy = randomUUID();
+
+      await mastra.pubsub.publish('workflows', {
+        type: 'workflow.start',
+        runId,
+        data: {
+          workflowId: 'copilot.test.noop',
+          runId,
+          requestContext: rcPayload({ tenantId, startedBy }),
+          prevResult: { status: 'success', output: {} },
+        },
+      });
+      await new Promise((r) => setTimeout(r, 50));
+
+      // Now publish workflow.suspend with the live RequestContext object — the
+      // exact shape Mastra produces internally for evented suspend.
+      const liveRc = new RequestContext();
+      liveRc.set('actor', { type: 'user', user_id: startedBy });
+      liveRc.set('tenant_id', tenantId);
+      await mastra.pubsub.publish('workflows', {
+        type: 'workflow.suspend',
+        runId,
+        data: {
+          workflowId: 'copilot.test.noop',
+          requestContext: liveRc,
+          stepId: 'await-approval',
+          suspendReason: 'hitl_pending',
+          proposedPayload: { task: 'demo' },
+          approverUserId: startedBy,
+          expiresAt: new Date(Date.now() + 86400000).toISOString(),
+        },
+      });
+      await new Promise((r) => setTimeout(r, 100));
+
+      const run = await pool.query(
+        `SELECT status, suspend_reason FROM copilot.workflow_runs WHERE run_id = $1`,
+        [runId],
+      );
+      expect(run.rows[0]!.status).toBe('paused');
+      expect(run.rows[0]!.suspend_reason).toBe('hitl_pending');
+
+      const approval = await pool.query(
+        `SELECT step_id, status, approver_user_id FROM copilot.workflow_approvals WHERE run_id = $1`,
+        [runId],
+      );
+      expect(approval.rowCount).toBe(1);
+      expect(approval.rows[0]!.status).toBe('pending');
+      expect(approval.rows[0]!.approver_user_id).toBe(startedBy);
+    });
+  });
+
   it('ignores workflow.step.* events on the workflows topic', async () => {
     await withCopilotTestDb(async ({ pool, databaseUrl }) => {
       const mastra = buildMastra({ pool, databaseUrl });
