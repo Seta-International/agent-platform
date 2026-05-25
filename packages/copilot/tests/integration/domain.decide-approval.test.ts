@@ -135,13 +135,19 @@ describe('decideApproval', () => {
     // The inbox decide path must forward an ApprovalCard's argsPatch as the
     // workflow resumeData; otherwise Mastra's resumeSchema rejects and Approve
     // 500s. Verifies primary.argsPatch (approve), decline.argsPatch (reject),
-    // and alternate.argsPatch matched by overrideUserId (modify).
+    // and the modify path substituting overrideUserIds into primary.argsPatch.
     const cardPayload = {
       intent: 'Assign task',
       summary: 'top: Alice',
-      primary: { label: 'Assign to Alice', argsPatch: { action: 'assign', assigneeUserId: 'u-1' } },
+      primary: {
+        label: 'Assign to Alice',
+        argsPatch: { action: 'assign', assigneeUserIds: ['u-1'] },
+      },
       alternates: [
-        { label: 'Assign to Bob', argsPatch: { action: 'assign', assigneeUserId: 'u-2' } },
+        {
+          label: 'Assign to Bob',
+          argsPatch: { action: 'assign', assigneeUserIds: ['u-2'] },
+        },
       ],
       decline: { label: 'Leave unassigned', argsPatch: { action: 'leave-unassigned' } },
     };
@@ -175,10 +181,10 @@ describe('decideApproval', () => {
       });
       expect(resumeApprove.mock.calls[0]![0].resumeData).toEqual({
         action: 'assign',
-        assigneeUserId: 'u-1',
+        assigneeUserIds: ['u-1'],
       });
 
-      // modify(overrideUserId) → matching alternate.argsPatch
+      // modify(overrideUserIds) → primary.argsPatch with assigneeUserIds replaced
       const runModify = randomUUID();
       await pool.query(
         `INSERT INTO copilot.workflow_runs (run_id, workflow_id, tenant_id, started_by, started_via, input_summary, status, started_at)
@@ -200,12 +206,14 @@ describe('decideApproval', () => {
         session: me,
         approvalId: approvalIdModify,
         decision: 'modify',
-        overrideUserId: 'u-2',
+        overrideUserIds: ['u-1', 'u-2'],
         mastra: makeMastra(resumeModify),
       });
+      // modify substitutes the user-composed assignee set into primary.argsPatch,
+      // preserving the action discriminator from primary.
       expect(resumeModify.mock.calls[0]![0].resumeData).toEqual({
         action: 'assign',
-        assigneeUserId: 'u-2',
+        assigneeUserIds: ['u-1', 'u-2'],
       });
 
       // reject → decline.argsPatch

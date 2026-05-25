@@ -117,7 +117,7 @@ function fetchCallerTimezone(
  * decision into a structured output for `withEmit` audit / metrics.
  */
 export type AssignDecisionInput =
-  | { action: 'assign'; assigneeUserId: string }
+  | { action: 'assign'; assigneeUserIds: string[] }
   | { action: 'leave-unassigned' }
   | { action: 'decline' };
 
@@ -133,7 +133,7 @@ export async function applyAssignDecision(
     assignTask: (i: { task_id: string; user_id: string; session: SessionScope }) => Promise<void>;
   },
 ): Promise<
-  | { kind: 'assigned'; taskId: string; userId: string }
+  | { kind: 'assigned'; taskId: string; userIds: string[] }
   | { kind: 'left-unassigned'; taskId: string }
   | { kind: 'declined' }
 > {
@@ -141,10 +141,18 @@ export async function applyAssignDecision(
   if (input.decision.action === 'leave-unassigned') {
     return { kind: 'left-unassigned', taskId: input.taskId };
   }
-  await deps.assignTask({
-    task_id: input.taskId,
-    user_id: input.decision.assigneeUserId,
-    session: input.session,
-  });
-  return { kind: 'assigned', taskId: input.taskId, userId: input.decision.assigneeUserId };
+  // Sequential to keep per-row audit ordering deterministic — assignTask emits
+  // one planner.task.assigned event per call.
+  for (const userId of input.decision.assigneeUserIds) {
+    await deps.assignTask({
+      task_id: input.taskId,
+      user_id: userId,
+      session: input.session,
+    });
+  }
+  return {
+    kind: 'assigned',
+    taskId: input.taskId,
+    userIds: input.decision.assigneeUserIds,
+  };
 }

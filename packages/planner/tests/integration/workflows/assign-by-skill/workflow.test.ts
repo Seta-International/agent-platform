@@ -133,19 +133,19 @@ describe('runSuggestAssignee + applyAssignDecision', () => {
         expect(candidates[0]!.userId).toBe(alice.user_id);
         expect(card.primary.argsPatch).toEqual({
           action: 'assign',
-          assigneeUserId: alice.user_id,
+          assigneeUserIds: [alice.user_id],
         });
         expect(card.summary).toContain('Alice');
 
         const out = await applyAssignDecision(
           {
             taskId: task.id,
-            decision: { action: 'assign', assigneeUserId: alice.user_id },
+            decision: { action: 'assign', assigneeUserIds: [alice.user_id] },
             session,
           },
           { assignTask: plannerAssignTask },
         );
-        expect(out).toEqual({ kind: 'assigned', taskId: task.id, userId: alice.user_id });
+        expect(out).toEqual({ kind: 'assigned', taskId: task.id, userIds: [alice.user_id] });
 
         const { rows } = await pool.query(
           `SELECT * FROM planner.task_assignments WHERE task_id = $1 AND user_id = $2`,
@@ -174,6 +174,51 @@ describe('runSuggestAssignee + applyAssignDecision', () => {
         },
       );
       expect(out.kind).toBe('left-unassigned');
+    }));
+
+  it('decision = assign with multiple userIds writes one row per user', () =>
+    withCopilotTestDb(async ({ pool }) => {
+      const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
+      const session = admin({ tenant_id, user_id: admin_user_id, email: 'a@d.local' });
+      const group = await createGroup({ tenant_id, name: 'G', session });
+      const plan = await createPlan({ group_id: group.id, name: 'P', session });
+      const task = await createTask({
+        plan_id: plan.id,
+        title: 'Pair on auth',
+        description: 'Two engineers',
+        skill_tags: ['react'],
+        session,
+      });
+      const u1 = await createUser(
+        { tenant_id, email: 'one@d.local', name: 'One', password: 'ChangeMe@2026' },
+        { type: 'user', user_id: admin_user_id },
+      );
+      const u2 = await createUser(
+        { tenant_id, email: 'two@d.local', name: 'Two', password: 'ChangeMe@2026' },
+        { type: 'user', user_id: admin_user_id },
+      );
+
+      const out = await applyAssignDecision(
+        {
+          taskId: task.id,
+          decision: { action: 'assign', assigneeUserIds: [u1.user_id, u2.user_id] },
+          session,
+        },
+        { assignTask: plannerAssignTask },
+      );
+      expect(out).toEqual({
+        kind: 'assigned',
+        taskId: task.id,
+        userIds: [u1.user_id, u2.user_id],
+      });
+
+      const { rows } = await pool.query(
+        `SELECT user_id FROM planner.task_assignments WHERE task_id = $1 ORDER BY user_id`,
+        [task.id],
+      );
+      expect(rows.map((r: { user_id: string }) => r.user_id).sort()).toEqual(
+        [u1.user_id, u2.user_id].sort(),
+      );
     }));
 
   it('decision = decline returns declined', () =>

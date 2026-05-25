@@ -14,7 +14,7 @@ export function useDecideApproval(runId: string) {
     mutationFn: (args: { approvalId: string } & DecideApprovalBody) =>
       workflowsApi.decideApproval(args.approvalId, {
         decision: args.decision,
-        overrideUserId: args.overrideUserId,
+        overrideUserIds: args.overrideUserIds,
         note: args.note,
       }),
     onSuccess: invalidateRun,

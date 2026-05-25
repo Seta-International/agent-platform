@@ -31,15 +31,19 @@ export type CandidateUser = z.infer<typeof CandidateUserSchema>;
  * distinction matters for telemetry (active opt-out vs. dismissal).
  */
 export const AssignBySkillOutputSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('assigned'), taskId: z.string(), userId: z.string() }),
+  z.object({
+    kind: z.literal('assigned'),
+    taskId: z.string(),
+    userIds: z.array(z.string()).min(1),
+  }),
   z.object({ kind: z.literal('left-unassigned'), taskId: z.string() }),
   z.object({ kind: z.literal('declined') }),
-  // INV-1: task got assigned via another path (workflow inbox, another chat session)
-  // between the suspend and the resume; don't double-write.
+  // INV-1: task already has assignees from another path (workflow inbox,
+  // another chat session) between the suspend and the resume; don't double-write.
   z.object({
     kind: z.literal('superseded'),
     taskId: z.string(),
-    currentAssigneeId: z.string(),
+    currentAssigneeIds: z.array(z.string()),
   }),
 ]);
 export type AssignBySkillOutput = z.infer<typeof AssignBySkillOutputSchema>;
@@ -51,7 +55,7 @@ export type AssignBySkillOutput = z.infer<typeof AssignBySkillOutputSchema>;
 export const AssignDecisionSchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('assign'),
-    assigneeUserId: z.string().uuid(),
+    assigneeUserIds: z.array(z.string().uuid()).min(1),
   }),
   z.object({ action: z.literal('leave-unassigned') }),
   z.object({ action: z.literal('decline') }),

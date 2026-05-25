@@ -695,7 +695,11 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
   app.post('/api/copilot/v1/workflows/approvals/:approvalId/decide', async (c) => {
     const session = c.get('session') as SessionLike | undefined;
     if (!session) return c.json({ error: 'unauthorized', message: 'session required' }, 401);
-    let body: { decision: 'approve' | 'reject' | 'modify'; overrideUserId?: string; note?: string };
+    let body: {
+      decision: 'approve' | 'reject' | 'modify';
+      overrideUserIds?: string[];
+      note?: string;
+    };
     try {
       body = (await c.req.json()) as typeof body;
     } catch {
@@ -707,12 +711,20 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
         400,
       );
     }
+    if (body.overrideUserIds !== undefined) {
+      if (
+        !Array.isArray(body.overrideUserIds) ||
+        body.overrideUserIds.some((id) => typeof id !== 'string')
+      ) {
+        return c.json({ error: 'invalid_body', message: 'overrideUserIds must be string[]' }, 400);
+      }
+    }
     try {
       const result = await decideApproval({
         session,
         approvalId: c.req.param('approvalId'),
         decision: body.decision,
-        overrideUserId: body.overrideUserId,
+        overrideUserIds: body.overrideUserIds,
         note: body.note,
         mastra: deps.mastra as Mastra,
       });

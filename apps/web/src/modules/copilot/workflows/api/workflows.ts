@@ -34,7 +34,7 @@ export interface ListRunsOpts {
 
 export interface DecideApprovalBody {
   decision: 'approve' | 'reject' | 'modify';
-  overrideUserId?: string;
+  overrideUserIds?: string[];
   note?: string;
 }
 

@@ -56,8 +56,8 @@ describe('buildSuggestAssigneeCard', () => {
     expect(ApprovalCardSchema.parse(card)).toBeTruthy();
     // argsPatch IS the resumeData shape (AssignDecisionSchema), so the inbox
     // decide path can forward it to run.resume() without translation.
-    expect(card.primary.argsPatch).toEqual({ action: 'assign', assigneeUserId: 'u1' });
-    expect(card.alternates[0]!.argsPatch).toEqual({ action: 'assign', assigneeUserId: 'u2' });
+    expect(card.primary.argsPatch).toEqual({ action: 'assign', assigneeUserIds: ['u1'] });
+    expect(card.alternates[0]!.argsPatch).toEqual({ action: 'assign', assigneeUserIds: ['u2'] });
     expect(card.decline.label).toBe('Leave unassigned');
     expect(card.decline.argsPatch).toEqual({ action: 'leave-unassigned' });
     expect(card.summary).toContain('Alice');

@@ -11,14 +11,18 @@ describe('assign-by-skill schemas', () => {
       AssignBySkillOutputSchema.parse({
         kind: 'assigned',
         taskId: 't1',
-        userId: 'u1',
+        userIds: ['u1', 'u2'],
       }),
-    ).toEqual({ kind: 'assigned', taskId: 't1', userId: 'u1' });
+    ).toEqual({ kind: 'assigned', taskId: 't1', userIds: ['u1', 'u2'] });
     expect(AssignBySkillOutputSchema.parse({ kind: 'left-unassigned', taskId: 't1' })).toEqual({
       kind: 'left-unassigned',
       taskId: 't1',
     });
     expect(AssignBySkillOutputSchema.parse({ kind: 'declined' })).toEqual({ kind: 'declined' });
+    // assigned requires at least one user
+    expect(() =>
+      AssignBySkillOutputSchema.parse({ kind: 'assigned', taskId: 't1', userIds: [] }),
+    ).toThrow();
   });
 
   it('candidate finalScore must be in [0, 1]', () => {
@@ -40,13 +44,22 @@ describe('assign-by-skill schemas', () => {
   });
 
   it('decision accepts assign / leave-unassigned / decline', () => {
-    expect(
-      AssignDecisionSchema.parse({ action: 'assign', assigneeUserId: crypto.randomUUID() }),
-    ).toMatchObject({ action: 'assign' });
+    const a = crypto.randomUUID();
+    const b = crypto.randomUUID();
+    expect(AssignDecisionSchema.parse({ action: 'assign', assigneeUserIds: [a] })).toEqual({
+      action: 'assign',
+      assigneeUserIds: [a],
+    });
+    expect(AssignDecisionSchema.parse({ action: 'assign', assigneeUserIds: [a, b] })).toEqual({
+      action: 'assign',
+      assigneeUserIds: [a, b],
+    });
     expect(AssignDecisionSchema.parse({ action: 'leave-unassigned' })).toEqual({
       action: 'leave-unassigned',
     });
     expect(AssignDecisionSchema.parse({ action: 'decline' })).toEqual({ action: 'decline' });
+    // empty assignee list is invalid — that's a 'leave-unassigned' decision instead
+    expect(() => AssignDecisionSchema.parse({ action: 'assign', assigneeUserIds: [] })).toThrow();
     expect(() => AssignDecisionSchema.parse({ action: 'assign' })).toThrow();
   });
 });

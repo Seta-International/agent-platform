@@ -7,7 +7,13 @@ export interface DecideApprovalOpts {
   session: SessionLike;
   approvalId: string;
   decision: 'approve' | 'reject' | 'modify';
-  overrideUserId?: string;
+  /**
+   * For 'modify' decisions: the assignee set the user composed in the UI. The
+   * workflow's primary.argsPatch is taken as the template and its
+   * `assigneeUserIds` field is replaced with this array. A planner task can
+   * have multiple assignees, so this is plural by contract.
+   */
+  overrideUserIds?: string[];
   note?: string;
   mastra: Mastra;
 }
@@ -41,23 +47,18 @@ interface ApprovalCardLike {
 function resumeDataFromDecision(
   ctx: ApprovalDecisionContext,
   decision: 'approve' | 'reject' | 'modify',
-  overrideUserId: string | undefined,
+  overrideUserIds: string[] | undefined,
 ): Record<string, unknown> | undefined {
   const card = (ctx.proposedPayload ?? null) as ApprovalCardLike | null;
   if (!card) return undefined;
   if (decision === 'approve') return card.primary?.argsPatch;
   if (decision === 'reject') return card.decline?.argsPatch;
-  // modify: prefer the alternate whose argsPatch.assigneeUserId matches the
-  // override; fall back to substituting it into primary.argsPatch.
-  if (decision === 'modify' && overrideUserId) {
-    const match = card.alternates?.find(
-      (a) =>
-        a.argsPatch &&
-        (a.argsPatch as { assigneeUserId?: unknown }).assigneeUserId === overrideUserId,
-    );
-    if (match?.argsPatch) return match.argsPatch;
+  // modify: substitute the user-composed assignee set into primary.argsPatch.
+  // The UI can compose any subset of (or addition to) the candidate pool, so we
+  // don't try to match an alternate — we always template off primary.
+  if (decision === 'modify' && overrideUserIds && overrideUserIds.length > 0) {
     if (card.primary?.argsPatch) {
-      return { ...card.primary.argsPatch, assigneeUserId: overrideUserId };
+      return { ...card.primary.argsPatch, assigneeUserIds: overrideUserIds };
     }
   }
   return undefined;
@@ -120,7 +121,7 @@ export async function decideApproval(opts: DecideApprovalOpts): Promise<DecideAp
           : 'approved';
     const decisionPayload = {
       decision: opts.decision,
-      ...(opts.overrideUserId !== undefined ? { override_user_id: opts.overrideUserId } : {}),
+      ...(opts.overrideUserIds !== undefined ? { override_user_ids: opts.overrideUserIds } : {}),
       ...(opts.note !== undefined ? { note: opts.note } : {}),
     };
     await tx.execute(sql`
@@ -171,10 +172,10 @@ export async function decideApproval(opts: DecideApprovalOpts): Promise<DecideAp
   // reading the ApprovalCard's argsPatch fields. Falls back to a passthrough
   // shape so older approvals (or workflows that don't carry argsPatch) at
   // least surface the decision instead of erroring.
-  const fromCard = resumeDataFromDecision(ctx, opts.decision, opts.overrideUserId);
+  const fromCard = resumeDataFromDecision(ctx, opts.decision, opts.overrideUserIds);
   const resumeData: Record<string, unknown> = fromCard ?? {
     decision: opts.decision,
-    ...(opts.overrideUserId !== undefined ? { override_user_id: opts.overrideUserId } : {}),
+    ...(opts.overrideUserIds !== undefined ? { override_user_ids: opts.overrideUserIds } : {}),
   };
   if (opts.note !== undefined && resumeData.note === undefined) {
     resumeData.note = opts.note;

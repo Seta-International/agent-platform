@@ -9,7 +9,19 @@ const APPROVAL_FOR_THREAD: WorkflowApprovalRow = {
   approvalId: 'a1',
   runId: 'r1',
   stepId: 'await-approval',
-  proposedPayload: { displayName: 'Jane', userId: 'u-9', rationale: 'top match' },
+  proposedPayload: {
+    intent: 'Assign task to a teammate',
+    summary: 'top: Jane',
+    primary: { label: 'Assign to Jane', argsPatch: { assigneeUserIds: ['u-9'] } },
+    alternates: [],
+    decline: { label: 'Leave unassigned' },
+    details: [
+      {
+        kind: 'candidateList',
+        items: [{ id: 'u-9', label: 'Jane', secondary: 'top match', score: 0.9 }],
+      },
+    ],
+  },
   approverUserId: 'u-1',
   surfaceCanvas: true,
   surfaceChatThreadId: 'thread-x',
@@ -38,7 +50,7 @@ describe('ChatEmbeddedHitl', () => {
 
     render(withQuery(<ChatEmbeddedHitl threadId="thread-x" />));
 
-    await waitFor(() => expect(screen.getByText('Jane')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByText('Jane').length).toBeGreaterThan(0));
     expect(screen.getAllByRole('region', { name: /your input needed/i })).toHaveLength(1);
   });
 

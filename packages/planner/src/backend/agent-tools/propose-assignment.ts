@@ -69,12 +69,12 @@ function buildCard(
     primary: top
       ? {
           label: `Assign to ${top.userId}`,
-          argsPatch: { assigneeUserId: top.userId },
+          argsPatch: { action: 'assign', assigneeUserIds: [top.userId] },
         }
       : { label: 'No candidates' },
     alternates: rest.map((c) => ({
       label: `Assign to ${c.userId}`,
-      argsPatch: { assigneeUserId: c.userId },
+      argsPatch: { action: 'assign', assigneeUserIds: [c.userId] },
     })),
     decline: { label: 'Leave unassigned' },
     meta: {
@@ -112,9 +112,18 @@ export const plannerProposeAssignmentTool = defineCopilotTool({
     if (resumeData) {
       if (resumeData.action === 'assign') {
         const current = await getTask({ task_id: input.taskId, session });
-        const currentAssigneeId = current.assignees[0]?.user_id ?? null;
-        if (currentAssigneeId && currentAssigneeId !== resumeData.assigneeUserId) {
-          return { kind: 'superseded' as const, taskId: input.taskId, currentAssigneeId };
+        const currentAssigneeIds = current.assignees.map((a) => a.user_id);
+        const requested = new Set(resumeData.assigneeUserIds);
+        const drifted =
+          currentAssigneeIds.length > 0 &&
+          (currentAssigneeIds.length !== requested.size ||
+            currentAssigneeIds.some((id) => !requested.has(id)));
+        if (drifted) {
+          return {
+            kind: 'superseded' as const,
+            taskId: input.taskId,
+            currentAssigneeIds,
+          };
         }
       }
       return applyAssignDecision(
