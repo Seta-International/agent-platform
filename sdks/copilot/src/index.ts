@@ -23,6 +23,7 @@ export type {
 } from './request-context.ts';
 export { actorFromContext, RequestContextSchema } from './request-context.ts';
 export type { SessionLike } from './session.ts';
+export { type CopilotSession, sessionFromRequestContext } from './session-context.ts';
 export type { SubscriberBuilder, SubscriberBuilderDeps } from './subscriber-builder.ts';
 export type {
   CopilotTool,
