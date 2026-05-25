@@ -5,14 +5,7 @@ interface Definition {
   description: string;
 }
 
-const DEFINITIONS: Definition[] = [
-  {
-    id: 'copilot.new-task-skill-tag',
-    name: 'new-task-skill-tag',
-    module: 'copilot',
-    description: 'Suggests who to assign each new task to, based on skills',
-  },
-];
+const DEFINITIONS: Definition[] = [];
 
 export interface DefinitionsListProps {
   selectedId: string | null;
