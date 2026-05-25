@@ -6,10 +6,10 @@ import {
 } from '../../../../src/backend/workflows/dedup-on-create/schemas.ts';
 
 describe('dedup schemas', () => {
-  it('LinkMode accepts comment | related | sub-task', () => {
-    expect(LinkModeSchema.parse('comment')).toBe('comment');
+  it('LinkMode accepts related | sub-task', () => {
     expect(LinkModeSchema.parse('related')).toBe('related');
     expect(LinkModeSchema.parse('sub-task')).toBe('sub-task');
+    expect(() => LinkModeSchema.parse('comment')).toThrow();
     expect(() => LinkModeSchema.parse('merge')).toThrow();
   });
 
@@ -31,9 +31,13 @@ describe('dedup schemas', () => {
       taskId: 't1',
     });
     expect(
-      DedupOutputSchema.parse({ kind: 'linked', existingId: 'e1', mode: 'comment' }),
-    ).toMatchObject({ kind: 'linked', existingId: 'e1', mode: 'comment' });
+      DedupOutputSchema.parse({ kind: 'created', taskId: 't1', linkedTo: 'e1' }),
+    ).toMatchObject({ kind: 'created', taskId: 't1', linkedTo: 'e1' });
+    expect(
+      DedupOutputSchema.parse({ kind: 'sub-task-added', existingId: 'e1', checklistItemId: 'c1' }),
+    ).toMatchObject({ kind: 'sub-task-added', existingId: 'e1', checklistItemId: 'c1' });
     expect(DedupOutputSchema.parse({ kind: 'cancelled' })).toEqual({ kind: 'cancelled' });
     expect(() => DedupOutputSchema.parse({ kind: 'created' })).toThrow();
+    expect(() => DedupOutputSchema.parse({ kind: 'linked', existingId: 'e1' })).toThrow();
   });
 });
