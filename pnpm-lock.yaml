@@ -488,6 +488,9 @@ importers:
       '@seta/copilot-sdk':
         specifier: workspace:^
         version: link:../../sdks/copilot
+      '@seta/knowledge':
+        specifier: workspace:^
+        version: link:../knowledge
       '@seta/planner':
         specifier: workspace:^
         version: link:../planner
