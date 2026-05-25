@@ -779,6 +779,37 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
     }
   });
 
+  app.post('/api/copilot/v1/workflows/runs/:workflowId/start', async (c) => {
+    const session = c.get('session') as SessionLike | undefined;
+    if (!session) return c.json({ error: 'unauthorized', message: 'session required' }, 401);
+    const workflowId = c.req.param('workflowId');
+    const workflow = (deps.mastra as Mastra).getWorkflow(workflowId);
+    if (!workflow) {
+      return c.json({ error: 'not_found', message: `unknown workflow id: ${workflowId}` }, 404);
+    }
+    const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+    if (body && typeof body === 'object' && Object.hasOwn(body, 'session')) {
+      return c.json(
+        {
+          error: 'invalid_input',
+          message:
+            "request body must not contain a 'session' field — session derives from the authenticated request",
+        },
+        400,
+      );
+    }
+    const requestContext = new RequestContext();
+    requestContext.set('actor', { type: 'user' as const, user_id: session.user_id });
+    requestContext.set('tenant_id', session.tenant_id);
+    try {
+      const run = await workflow.createRun();
+      void run.start({ inputData: body, requestContext } as never);
+      return c.json({ runId: run.runId });
+    } catch (err) {
+      return handleDomainError(c, err);
+    }
+  });
+
   app.get('/api/copilot/v1/workflows/:workflowId/input-schema', async (c) => {
     const session = c.get('session') as SessionLike | undefined;
     if (!session) return c.json({ error: 'unauthorized', message: 'session required' }, 401);
