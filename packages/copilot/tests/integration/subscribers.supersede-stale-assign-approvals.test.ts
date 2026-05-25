@@ -14,7 +14,7 @@ async function seedSuspendedAssignRun(
   await pool.query(
     `INSERT INTO copilot.workflow_runs
       (run_id, workflow_id, tenant_id, started_by, started_via, input_summary, status)
-     VALUES ($1, 'assignBySkill', $2, $3, 'rest', $4::jsonb, 'suspended')`,
+     VALUES ($1, 'planner.assignBySkill', $2, $3, 'event', $4::jsonb, 'paused')`,
     [runId, args.tenantId, randomUUID(), JSON.stringify({ taskId: args.taskId })],
   );
   await pool.query(

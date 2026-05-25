@@ -23,7 +23,7 @@ export async function supersedeStaleAssignApprovals(
            decided_at = now()
       FROM copilot.workflow_runs AS r
      WHERE a.run_id = r.run_id
-       AND r.workflow_id = 'assignBySkill'
+       AND r.workflow_id = 'planner.assignBySkill'
        AND r.input_summary @> jsonb_build_object('taskId', ${taskId}::text)
        AND a.status = 'pending'
   `);

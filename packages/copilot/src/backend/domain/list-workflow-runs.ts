@@ -32,6 +32,8 @@ export interface ListWorkflowRunsOpts {
   limit?: number;
 }
 
+export type ApprovalDecisionKind = 'pending' | 'approved' | 'rejected' | 'superseded' | 'cancelled';
+
 export interface WorkflowRunRow {
   runId: string;
   workflowId: string;
@@ -45,6 +47,10 @@ export interface WorkflowRunRow {
   startedAt: Date;
   finishedAt: Date | null;
   durationMs: number | null;
+  // Most recent approval's status + reason. Null when the run has never
+  // surfaced an approval (e.g. workflow has no HITL step).
+  latestApprovalKind: ApprovalDecisionKind | null;
+  latestApprovalReason: string | null;
 }
 
 export interface ListWorkflowRunsResult {
@@ -72,6 +78,8 @@ interface RawRow {
   started_at: Date;
   finished_at: Date | null;
   duration_ms: number | null;
+  latest_approval_kind: string | null;
+  latest_approval_reason: string | null;
 }
 
 export async function listWorkflowRuns(
@@ -91,11 +99,11 @@ export async function listWorkflowRuns(
 
   switch (opts.scope) {
     case 'self':
-      conditions.push(sql`tenant_id = ${tenantId}::uuid AND started_by = ${userId}::uuid`);
+      conditions.push(sql`r.tenant_id = ${tenantId}::uuid AND r.started_by = ${userId}::uuid`);
       break;
     case 'group':
     case 'tenant':
-      conditions.push(sql`tenant_id = ${tenantId}::uuid`);
+      conditions.push(sql`r.tenant_id = ${tenantId}::uuid`);
       break;
     case 'instance':
       break;
@@ -106,52 +114,56 @@ export async function listWorkflowRuns(
     const statusSql = statusList
       .map((s) => sql`${s}`)
       .reduce((acc, c, i) => (i === 0 ? c : sql`${acc}, ${c}`), sql``);
-    conditions.push(sql`status = ANY(ARRAY[${statusSql}])`);
+    conditions.push(sql`r.status = ANY(ARRAY[${statusSql}])`);
   }
   if (filters.startedVia && filters.startedVia.length > 0) {
     const viaList = filters.startedVia as string[];
     const viaSql = viaList
       .map((v) => sql`${v}`)
       .reduce((acc, c, i) => (i === 0 ? c : sql`${acc}, ${c}`), sql``);
-    conditions.push(sql`started_via = ANY(ARRAY[${viaSql}])`);
+    conditions.push(sql`r.started_via = ANY(ARRAY[${viaSql}])`);
   }
   if (filters.workflowId) {
-    conditions.push(sql`workflow_id = ${filters.workflowId}`);
+    conditions.push(sql`r.workflow_id = ${filters.workflowId}`);
   }
   if (filters.dateFrom) {
-    conditions.push(sql`started_at >= ${filters.dateFrom}::timestamptz`);
+    conditions.push(sql`r.started_at >= ${filters.dateFrom}::timestamptz`);
   }
   if (filters.dateTo) {
-    conditions.push(sql`started_at <= ${filters.dateTo}::timestamptz`);
+    conditions.push(sql`r.started_at <= ${filters.dateTo}::timestamptz`);
   }
   if (filters.search) {
     const like = `%${filters.search}%`;
     const prefix = `${filters.search}%`;
     conditions.push(
-      sql`(run_id::text LIKE ${prefix} OR input_summary->>'taskTitle' ILIKE ${like})`,
+      sql`(r.run_id::text LIKE ${prefix} OR r.input_summary->>'taskTitle' ILIKE ${like})`,
     );
   }
 
   const cursor = opts.cursor ? parseCursor(opts.cursor) : null;
   if (cursor) {
     conditions.push(
-      sql`(started_at, run_id) < (${new Date(cursor.startedAt)}::timestamptz, ${cursor.runId}::uuid)`,
+      sql`(r.started_at, r.run_id) < (${new Date(cursor.startedAt)}::timestamptz, ${cursor.runId}::uuid)`,
     );
   }
 
-  const whereClause =
-    conditions.length === 0
-      ? sql``
-      : sql`WHERE ${conditions.reduce((acc, c, i) => (i === 0 ? c : sql`${acc} AND ${c}`), sql``)}`;
-
   const db = copilotDb();
   const result = await db.execute(sql`
-    SELECT run_id, workflow_id, tenant_id, started_by, started_via,
-           status, suspend_reason, error_summary, input_summary,
-           started_at, finished_at, duration_ms
-      FROM copilot.workflow_runs
-      ${whereClause}
-     ORDER BY started_at DESC, run_id DESC
+    SELECT r.run_id, r.workflow_id, r.tenant_id, r.started_by, r.started_via,
+           r.status, r.suspend_reason, r.error_summary, r.input_summary,
+           r.started_at, r.finished_at, r.duration_ms,
+           latest.status AS latest_approval_kind,
+           latest.decision_payload->>'reason' AS latest_approval_reason
+      FROM copilot.workflow_runs AS r
+      LEFT JOIN LATERAL (
+        SELECT a.status, a.decision_payload
+          FROM copilot.workflow_approvals AS a
+         WHERE a.run_id = r.run_id
+         ORDER BY a.created_at DESC
+         LIMIT 1
+      ) AS latest ON TRUE
+      ${conditions.length === 0 ? sql`` : sql`WHERE ${conditions.reduce((acc, c, i) => (i === 0 ? c : sql`${acc} AND ${c}`), sql``)}`}
+     ORDER BY r.started_at DESC, r.run_id DESC
      LIMIT ${limit + 1}
   `);
 
@@ -175,7 +187,20 @@ export async function listWorkflowRuns(
   };
 }
 
+const KNOWN_APPROVAL_KINDS = new Set<ApprovalDecisionKind>([
+  'pending',
+  'approved',
+  'rejected',
+  'superseded',
+  'cancelled',
+]);
+
 function toCamel(r: RawRow): WorkflowRunRow {
+  const rawKind = r.latest_approval_kind;
+  const latestApprovalKind =
+    rawKind != null && KNOWN_APPROVAL_KINDS.has(rawKind as ApprovalDecisionKind)
+      ? (rawKind as ApprovalDecisionKind)
+      : null;
   return {
     runId: r.run_id,
     workflowId: r.workflow_id,
@@ -194,6 +219,8 @@ function toCamel(r: RawRow): WorkflowRunRow {
           ? r.finished_at
           : new Date(r.finished_at as string),
     durationMs: r.duration_ms,
+    latestApprovalKind,
+    latestApprovalReason: r.latest_approval_reason,
   };
 }
 

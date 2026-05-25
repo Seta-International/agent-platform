@@ -14,6 +14,15 @@ export type WorkflowRunStatus = z.infer<typeof WorkflowRunStatus>;
 export const WorkflowRunStartedVia = z.enum(['event', 'chat', 'rerun']);
 export type WorkflowRunStartedVia = z.infer<typeof WorkflowRunStartedVia>;
 
+export const ApprovalDecisionKind = z.enum([
+  'pending',
+  'approved',
+  'rejected',
+  'superseded',
+  'cancelled',
+]);
+export type ApprovalDecisionKind = z.infer<typeof ApprovalDecisionKind>;
+
 export const WorkflowRunRow = z.object({
   runId: z.string(),
   workflowId: z.string(),
@@ -27,6 +36,8 @@ export const WorkflowRunRow = z.object({
   startedAt: z.string(),
   finishedAt: z.string().nullable(),
   durationMs: z.number().nullable(),
+  latestApprovalKind: ApprovalDecisionKind.nullable().default(null),
+  latestApprovalReason: z.string().nullable().default(null),
 });
 export type WorkflowRunRow = z.infer<typeof WorkflowRunRow>;
 

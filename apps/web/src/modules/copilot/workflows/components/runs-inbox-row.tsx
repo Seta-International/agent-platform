@@ -1,3 +1,4 @@
+import { cn } from '@seta/shared-ui';
 import { Link } from '@tanstack/react-router';
 import type { WorkflowRunRow } from '../api/schemas.ts';
 import { relativeTime } from '../lib/relative-time.ts';
@@ -28,15 +29,26 @@ function formatDuration(ms: number | null): string | null {
   return `${m}m ${s}s`;
 }
 
+function humanizeSupersedeReason(reason: string | null): string {
+  if (reason === 'task-assigned-elsewhere') return 'assigned elsewhere';
+  return reason ?? 'previously closed';
+}
+
 export function RunsInboxRow({ row }: { row: WorkflowRunRow }) {
   const label = rowLabel(row.inputSummary);
   const duration = formatDuration(row.durationMs);
   const runIdShort = row.runId.slice(0, 8);
+  const isSuperseded = row.latestApprovalKind === 'superseded';
   return (
     <Link
       to="/copilot/workflows/runs/$runId"
       params={{ runId: row.runId }}
-      className="flex items-center gap-3 border-b border-[var(--color-hairline-tertiary)] px-4 py-2.5 text-sm hover:bg-[var(--color-surface-2)]"
+      data-testid="runs-inbox-row"
+      data-decision-kind={row.latestApprovalKind ?? undefined}
+      className={cn(
+        'flex items-center gap-3 border-b border-[var(--color-hairline-tertiary)] px-4 py-2.5 text-sm hover:bg-[var(--color-surface-2)]',
+        isSuperseded && 'opacity-60',
+      )}
     >
       <RunStatusPill status={row.status} />
       <span className="flex flex-1 min-w-0 flex-col">
@@ -46,7 +58,11 @@ export function RunsInboxRow({ row }: { row: WorkflowRunRow }) {
         </span>
         <span className="font-mono text-xs text-[var(--color-ink-subtle)]">{runIdShort}</span>
       </span>
-      {row.status === 'paused' ? (
+      {isSuperseded ? (
+        <span className="text-xs font-medium uppercase tracking-wide text-[var(--color-ink-subtle)]">
+          Superseded — {humanizeSupersedeReason(row.latestApprovalReason)}
+        </span>
+      ) : row.status === 'paused' ? (
         <span className="text-xs font-medium uppercase tracking-wide text-[var(--color-warning-ink)]">
           HITL
         </span>

@@ -66,5 +66,9 @@ export async function getWorkflowRun(opts: GetWorkflowRunOpts): Promise<Workflow
           ? r.finished_at
           : new Date(r.finished_at),
     durationMs: r.duration_ms,
+    // get-workflow-run returns a single-row view; the inbox-derived
+    // latestApproval* fields are populated only by list-workflow-runs.
+    latestApprovalKind: null,
+    latestApprovalReason: null,
   };
 }

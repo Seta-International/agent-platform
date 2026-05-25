@@ -199,4 +199,41 @@ describe('listWorkflowRuns', () => {
       );
     });
   });
+
+  it('surfaces the latest approval decision (superseded + reason)', async () => {
+    await withCopilotTestDb(async ({ pool }) => {
+      const me = sessionWith(['copilot.workflow.run.read.self']);
+      const runId = await seedRun(pool, {
+        tenantId: me.tenant_id,
+        startedBy: me.user_id,
+        workflowId: 'planner.assignBySkill',
+      });
+      await pool.query(
+        `INSERT INTO copilot.workflow_approvals
+           (approval_id, run_id, step_id, proposed_payload,
+            approver_user_id, status, decision_payload, expires_at, decided_at)
+         VALUES (gen_random_uuid(), $1, 'assignBySkill.suggest', '{}'::jsonb,
+                 $2, 'superseded',
+                 jsonb_build_object('reason','task-assigned-elsewhere'),
+                 now() + interval '1 hour', now())`,
+        [runId, me.user_id],
+      );
+
+      const result = await listWorkflowRuns({ session: me, scope: 'self' });
+      const row = result.rows.find((r) => r.runId === runId);
+      expect(row).toBeDefined();
+      expect(row!.latestApprovalKind).toBe('superseded');
+      expect(row!.latestApprovalReason).toBe('task-assigned-elsewhere');
+    });
+  });
+
+  it('returns null latestApproval* when the run has no approvals yet', async () => {
+    await withCopilotTestDb(async ({ pool }) => {
+      const me = sessionWith(['copilot.workflow.run.read.self']);
+      await seedRun(pool, { tenantId: me.tenant_id, startedBy: me.user_id });
+      const result = await listWorkflowRuns({ session: me, scope: 'self' });
+      expect(result.rows[0]!.latestApprovalKind).toBeNull();
+      expect(result.rows[0]!.latestApprovalReason).toBeNull();
+    });
+  });
 });
