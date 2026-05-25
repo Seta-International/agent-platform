@@ -4,6 +4,7 @@ import { OpenAIEmbeddingProvider } from '@seta/shared-embeddings';
 import { dedupOnCreateWorkflowSpec } from '../workflows/dedup-on-create/spec.ts';
 import { plannerAssignTaskTool } from './assign-task.ts';
 import { plannerCreateTaskTool } from './create-task.ts';
+import { plannerGetOpenTaskCountSpec } from './get-open-task-count.ts';
 import { plannerGetTaskTool } from './get-task.ts';
 import { searchTasksSemanticTool } from './search-tasks-semantic.ts';
 import { identitySearchUsersBySkillsTool } from './search-users-by-skills.ts';
@@ -74,3 +75,5 @@ CopilotRegistry.registerSpecialist({
 });
 
 CopilotRegistry.registerWorkflow(dedupOnCreateWorkflowSpec);
+
+CopilotRegistry.registerCrossModuleReadTool(plannerGetOpenTaskCountSpec);
