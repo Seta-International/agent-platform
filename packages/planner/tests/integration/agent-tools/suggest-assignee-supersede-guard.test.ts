@@ -105,12 +105,9 @@ describe('planner_suggestAssignee — supersede guard on resume (INV-1)', () => 
       });
 
       const tool = plannerSuggestAssigneeTool({ provider: fakeProvider, databaseUrl });
-      const ctx = makeToolContext({ user_id: admin_user_id }) as ReturnType<
-        typeof makeToolContext
-      > & {
-        agent: { resumeData: { action: 'assign'; assigneeUserId: string } };
-      };
-      ctx.agent = {
+      const ctx = makeToolContext({ user_id: admin_user_id });
+      // biome-ignore lint/suspicious/noExplicitAny: agent.resumeData isn't on the typed context
+      (ctx as any).agent = {
         resumeData: { action: 'assign', assigneeUserId: loser.user_id },
       };
 
@@ -161,12 +158,9 @@ describe('planner_suggestAssignee — supersede guard on resume (INV-1)', () => 
       const task = await createTask({ plan_id: plan.id, title: 'free', session });
 
       const tool = plannerSuggestAssigneeTool({ provider: fakeProvider, databaseUrl });
-      const ctx = makeToolContext({ user_id: admin_user_id }) as ReturnType<
-        typeof makeToolContext
-      > & {
-        agent: { resumeData: { action: 'assign'; assigneeUserId: string } };
-      };
-      ctx.agent = { resumeData: { action: 'assign', assigneeUserId: target.user_id } };
+      const ctx = makeToolContext({ user_id: admin_user_id });
+      // biome-ignore lint/suspicious/noExplicitAny: agent.resumeData isn't on the typed context
+      (ctx as any).agent = { resumeData: { action: 'assign', assigneeUserId: target.user_id } };
 
       const result = (await tool.execute!({ taskId: task.id }, ctx)) as AssignBySkillOutput;
       expect(result).toEqual({ kind: 'assigned', taskId: task.id, userId: target.user_id });
