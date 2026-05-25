@@ -51,6 +51,7 @@ FROM deps AS sources
 COPY apps/server/  apps/server/
 COPY apps/cli/     apps/cli/
 COPY apps/worker/  apps/worker/
+COPY data/         data/
 
 # Typecheck-only — fail the image build if the TS doesn't pass.
 RUN pnpm --filter=@seta/server exec tsc --noEmit \
@@ -78,7 +79,8 @@ RUN pnpm deploy --filter=@seta/server --prod --ignore-scripts /out/apps/server \
 # these workspace apps don't declare `files`, so we explicitly include src/).
 RUN cp -R apps/server/src /out/apps/server/src \
  && cp -R apps/cli/src    /out/apps/cli/src \
- && cp -R apps/worker/src /out/apps/worker/src
+ && cp -R apps/worker/src /out/apps/worker/src \
+ && cp -R data            /out/apps/cli/data
 
 # ============================================================================
 # Stage 5 — runtime
