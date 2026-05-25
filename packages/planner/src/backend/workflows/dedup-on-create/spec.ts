@@ -1,56 +1,162 @@
 import { createStep, createWorkflow } from '@mastra/core/workflows';
-import type { WorkflowSpec } from '@seta/copilot-sdk';
+import type { PgVector } from '@mastra/pg';
+import {
+  ApprovalCardSchema,
+  sessionFromRequestContext,
+  type WorkflowSpec,
+} from '@seta/copilot-sdk';
+import { buildActorSession } from '@seta/identity';
+import { type EmbeddingProvider, OpenAIEmbeddingProvider } from '@seta/shared-embeddings';
+import { resolveReranker } from '@seta/shared-retrieval';
 import { z } from 'zod';
-import { DedupOutputSchema, TaskDraftSchema } from './schemas.ts';
+import { getPlannerVectorStore } from '../../embeddings/vector-store.ts';
+import {
+  ClassificationSchema,
+  DedupOutputSchema,
+  LinkModeSchema,
+  TaskDraftSchema,
+} from './schemas.ts';
+import { buildConfirmNotDuplicateCard } from './steps/confirm-not-duplicate.ts';
 import { applyDupDecision, findDupCandidates } from './workflow.ts';
 
 /**
- * Mastra workflow shell for `dedupOnCreate` — registered on the Work
- * supervisor for spec compliance (§7) and audit/replay via copilot.workflow_runs.
+ * Mastra workflow for `dedupOnCreate` — real createStep chain.
  *
- * The user-facing HITL entry point is the `planner_createTask` agent tool,
- * which surfaces the candidate-list card via `ctx.agent.suspend()`. This
- * workflow is the programmatic batch entry point: it runs the same dedup
- * search but does *not* prompt the user — if a likely duplicate is found,
- * it returns `cancelled` so the caller can defer to interactive flow.
+ * Two-step shape:
+ *   1. `dedupOnCreate.search` — derives session from requestContext,
+ *      runs findDupCandidates (read-only vector + keyword search), passes
+ *      classification + candidates + normalized draft forward.
+ *   2. `dedupOnCreate.decide` (HITL) — on first invocation, if no duplicates
+ *      it applies create-new directly; if duplicates exist it suspends with
+ *      the ApprovalCard. On resume, applyDupDecision routes to create-new /
+ *      link-as-related / link-as-subtask / cancel.
+ *
+ * Reached two ways:
+ *   - Chat path: planner_createTask tool wraps the same orchestration
+ *     functions (findDupCandidates + applyDupDecision) — that path keeps
+ *     its existing UX in PR1.
+ *   - REST/batch path: POST /api/copilot/v1/workflows/runs/dedupOnCreate/start
+ *     (PR1 Task 8) drives this workflow for programmatic callers (future
+ *     MS-Planner sync, scheduled cleanup jobs).
+ *
+ * Session NEVER appears in the inputSchema (LLM-visible) — derives from
+ * requestContext server-side. Enforced by assertNoSessionField.
  */
-const dedupStep = createStep({
-  id: 'dedupOnCreate.run',
-  inputSchema: z.object({
-    draft: TaskDraftSchema,
-    session: z.object({ tenantId: z.string(), userId: z.string() }),
-  }),
+
+const DEFAULT_THRESHOLDS = { likelyDup: 0.18, maybeDup: 0.3 };
+
+let lazyProvider: EmbeddingProvider | undefined;
+function getProvider(): EmbeddingProvider {
+  if (lazyProvider) return lazyProvider;
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error('OPENAI_API_KEY required for dedupOnCreate workflow');
+  const model = (process.env.EMBED_MODEL ?? 'text-embedding-3-small') as
+    | 'text-embedding-3-small'
+    | 'text-embedding-3-large';
+  lazyProvider = new OpenAIEmbeddingProvider({ apiKey, model });
+  return lazyProvider;
+}
+
+function getPgVector(): PgVector {
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) throw new Error('DATABASE_URL required for dedupOnCreate workflow');
+  return getPlannerVectorStore(databaseUrl);
+}
+
+const DupActionSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('create-new') }),
+  z.object({ kind: z.literal('link'), existingId: z.string().uuid(), mode: LinkModeSchema }),
+  z.object({ kind: z.literal('cancel') }),
+]);
+
+const SearchOutputSchema = z.object({
+  classification: ClassificationSchema,
+  candidates: z.array(z.unknown()),
+  draft: TaskDraftSchema,
+});
+
+const searchStep = createStep({
+  id: 'dedupOnCreate.search',
+  inputSchema: TaskDraftSchema,
+  outputSchema: SearchOutputSchema,
+  execute: async ({ inputData, requestContext }) => {
+    const session = await sessionFromRequestContext(requestContext);
+    const result = await findDupCandidates(
+      {
+        draft: inputData,
+        session: { tenantId: session.tenantId, userId: session.userId },
+      },
+      {
+        provider: getProvider(),
+        pgVector: getPgVector(),
+        reranker: resolveReranker(),
+        thresholds: DEFAULT_THRESHOLDS,
+      },
+    );
+    return {
+      classification: result.classification,
+      candidates: result.candidates,
+      draft: result.draft,
+    };
+  },
+});
+
+const decideStep = createStep({
+  id: 'dedupOnCreate.decide',
+  inputSchema: SearchOutputSchema,
   outputSchema: DedupOutputSchema,
-  execute: async () => {
-    // This workflow shell exists for spec compliance + registration discovery
-    // (§7). Live execution flows through the planner_createTask tool, which
-    // wires the EmbeddingProvider + PgVector deps + suspends for HITL. Calling
-    // this shell directly always returns 'cancelled'.
-    void findDupCandidates;
-    void applyDupDecision;
-    return { kind: 'cancelled' } as const;
+  suspendSchema: ApprovalCardSchema,
+  resumeSchema: DupActionSchema,
+  execute: async ({ inputData, resumeData, suspend, requestContext, runId }) => {
+    const { userId } = await sessionFromRequestContext(requestContext);
+    const fullSession = await buildActorSession({ user_id: userId });
+
+    if (resumeData) {
+      return applyDupDecision({
+        draft: inputData.draft,
+        action: resumeData,
+        session: fullSession,
+      });
+    }
+
+    // No-match: no duplicate, no HITL needed — create directly.
+    if (inputData.classification === 'no-match') {
+      return applyDupDecision({
+        draft: inputData.draft,
+        action: { kind: 'create-new' },
+        session: fullSession,
+      });
+    }
+
+    const card = buildConfirmNotDuplicateCard({
+      classification: inputData.classification,
+      // biome-ignore lint/suspicious/noExplicitAny: candidates passed through opaquely between steps
+      candidates: inputData.candidates as any,
+      draft: inputData.draft,
+      session: { tenantId: fullSession.tenant_id, userId },
+      toolCallId: `workflow:${runId}`,
+    });
+    return suspend(card);
   },
 });
 
 export const dedupOnCreateWorkflow = createWorkflow({
   id: 'planner.dedupOnCreate',
-  inputSchema: z.object({
-    draft: TaskDraftSchema,
-    session: z.object({ tenantId: z.string(), userId: z.string() }),
-  }),
+  inputSchema: TaskDraftSchema,
   outputSchema: DedupOutputSchema,
 })
-  .then(dedupStep)
+  .then(searchStep)
+  .then(decideStep)
   .commit();
 
 export const dedupOnCreateWorkflowSpec: WorkflowSpec = {
   domain: 'work',
   id: 'dedupOnCreate',
   description:
-    'Vector-search similar tasks before creating; the planner_createTask tool ' +
-    'drives the HITL flow when a likely duplicate is found.',
+    'Vector-search similar tasks before creating; HITL approval picks ' +
+    'create-new / link-as-related / link-as-sub-task / cancel.',
   inputSchema: TaskDraftSchema,
   outputSchema: DedupOutputSchema,
   workflow: dedupOnCreateWorkflow,
-  hitlSteps: ['dedupOnCreate.run'],
+  hitlSteps: ['dedupOnCreate.decide'],
 };
