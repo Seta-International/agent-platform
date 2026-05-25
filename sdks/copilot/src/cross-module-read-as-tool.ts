@@ -1,3 +1,4 @@
+import type { RequestContext } from '@mastra/core/request-context';
 import type { z } from 'zod';
 import { defineCopilotTool } from './define-copilot-tool.ts';
 import type { CrossModuleReadToolSpec } from './registry.ts';
@@ -26,7 +27,10 @@ export function defineCrossModuleReadAsTool<I extends z.ZodTypeAny, O extends z.
     output: spec.outputSchema,
     rbac: spec.rbac,
     execute: async (input, ctx) => {
-      const { tenantId, userId } = await sessionFromRequestContext(ctx.requestContext);
+      if (!ctx.requestContext) throw new Error('unauthenticated');
+      const { tenantId, userId } = await sessionFromRequestContext(
+        ctx.requestContext as RequestContext,
+      );
       return spec.execute({
         session: { tenant_id: tenantId, user_id: userId },
         input: input as z.infer<I>,

@@ -8,6 +8,7 @@ export {
   type PlannerFindSimilarTasksToolDeps,
   plannerFindSimilarTasksTool,
 } from './find-similar-tasks.ts';
+export { plannerGetOpenTaskCountTool } from './get-open-task-count.ts';
 export { plannerGetTaskTool } from './get-task.ts';
 export {
   type SearchTasksSemanticToolDeps,

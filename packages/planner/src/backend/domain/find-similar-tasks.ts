@@ -48,6 +48,7 @@ export async function findSimilarTasks(
       provider: deps.provider,
       pgVector: deps.pgVector,
       reranker: {
+        providerId: 'noop' as const,
         rescore: async (_q, hits) =>
           hits.map((h) => ({ ...h, rerankScore: h.score, reranker: 'noop' as const })),
       },

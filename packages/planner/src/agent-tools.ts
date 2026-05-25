@@ -8,6 +8,7 @@ export {
   plannerAgentTools,
   plannerAssignTaskTool,
   plannerFindSimilarTasksTool,
+  plannerGetOpenTaskCountTool,
   plannerGetTaskTool,
   type SearchTasksSemanticToolDeps,
   searchTasksSemanticTool,
