@@ -5,6 +5,7 @@ docs/superpowers
 # Local Claude Code config (per-machine, not shared)
 .claude/settings.local.json
 .claude/worktrees/
+.claude/*.lock
 
 # Dependencies
 node_modules
