@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
-import { copilotDb } from '../db/index.ts';
-import { tenantSettings } from '../db/schema.tenant-settings.ts';
+import { copilotDb } from './db/index.ts';
+import { tenantSettings } from './db/schema.tenant-settings.ts';
 
 export interface TenantSettings {
   dedupWeights: { semantic: number; vector: number; position: number };

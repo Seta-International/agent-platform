@@ -21,11 +21,11 @@ const dedupStep = createStep({
     session: z.object({ tenantId: z.string(), userId: z.string() }),
   }),
   outputSchema: DedupOutputSchema,
-  execute: async ({ inputData, mastra: _mastra }) => {
-    // The workflow runs *without* HITL. It cannot embed/search without the
-    // EmbeddingProvider + PgVector deps, which the tool layer wires up at
-    // request time. Callers must use the tool for live execution; this shell
-    // exists so the workflow is discoverable + registered.
+  execute: async () => {
+    // This workflow shell exists for spec compliance + registration discovery
+    // (§7). Live execution flows through the planner_createTask tool, which
+    // wires the EmbeddingProvider + PgVector deps + suspends for HITL. Calling
+    // this shell directly always returns 'cancelled'.
     void findDupCandidates;
     void applyDupDecision;
     return { kind: 'cancelled' } as const;

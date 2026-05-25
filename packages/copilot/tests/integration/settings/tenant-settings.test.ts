@@ -4,7 +4,7 @@ import { tenantSettings } from '../../../src/backend/db/schema.tenant-settings.t
 import {
   DEFAULT_TENANT_SETTINGS,
   getTenantSettings,
-} from '../../../src/backend/settings/tenant-settings.ts';
+} from '../../../src/backend/tenant-settings.ts';
 import { withCopilotTestDb } from '../../helpers.ts';
 
 describe('getTenantSettings', () => {
