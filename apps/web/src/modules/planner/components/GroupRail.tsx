@@ -17,6 +17,7 @@ interface Props {
   totalMemberCount?: number;
   canManage: boolean;
   onAddMember: () => void;
+  onSeeAllMembers?: () => void;
   shownMemberCount?: number;
   /** Recent items from getGroupActivity; `null` while loading. */
   activityItems?: ReadonlyArray<GroupActivityItem> | null;
@@ -102,6 +103,7 @@ export function GroupRail({
   totalMemberCount,
   canManage,
   onAddMember,
+  onSeeAllMembers,
   shownMemberCount = 7,
   activityItems,
 }: Props) {
@@ -165,7 +167,12 @@ export function GroupRail({
             ))}
           </div>
           {hasMore ? (
-            <Button size="sm" variant="ghost" className="mt-1 h-6 px-1.5 text-ink-subtle">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="mt-1 h-6 px-1.5 text-ink-subtle"
+              onClick={onSeeAllMembers}
+            >
               See all {memberCount} members <ChevronRight className="size-3" />
             </Button>
           ) : null}

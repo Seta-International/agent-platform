@@ -183,6 +183,7 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
               totalMemberCount={memberTotal}
               canManage={canManage}
               onAddMember={() => setAddMembersOpen(true)}
+              onSeeAllMembers={() => onTabChange('members')}
               activityItems={
                 activityQuery.isPending ? undefined : (activityQuery.data?.items ?? null)
               }
