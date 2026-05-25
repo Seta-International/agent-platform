@@ -28,6 +28,7 @@ import { useMoveToTopOfMyList } from '../hooks/mutations/move-to-top-of-my-list'
 import { useReorderTaskAssignees } from '../hooks/mutations/reorder-task-assignees';
 import { useUnassignTask } from '../hooks/mutations/unassign-task';
 import { computeAssigneeReorder } from './assignee-reorder';
+import { SuggestAssigneeButton } from './SuggestAssigneeButton';
 
 interface Props {
   task: TaskWithAssigneesRow;
@@ -124,8 +125,11 @@ export function TaskDetailAssigneesCard({ task, planId, isLinkedToM365 = false }
 
   return (
     <section className="card" aria-label="Assignees">
-      <header className="mb-2">
+      <header className="mb-2 flex items-center justify-between gap-2">
         <span className="t-sm subtle">Assignees</span>
+        {task.assignees.length === 0 && (
+          <SuggestAssigneeButton taskId={task.id} taskTitle={task.title} />
+        )}
       </header>
 
       <DragDropContext onDragEnd={onDragEnd}>

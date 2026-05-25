@@ -58,6 +58,13 @@ interface PageContextValue {
 interface PanelUIValue {
   panelOpen: boolean;
   setPanelOpen: (next: boolean) => void;
+  /**
+   * Set by callers (e.g. planner "Suggest assignee" button) to deliver a
+   * one-shot prompt into the open chat. Composer reads and clears it on the
+   * next render so reopening the panel doesn't re-fire.
+   */
+  pendingPrompt: { text: string; autoSend: boolean } | null;
+  setPendingPrompt: (next: { text: string; autoSend: boolean } | null) => void;
 }
 
 const PageContextContext = createContext<PageContextValue | null>(null);
@@ -110,6 +117,10 @@ export function CopilotProvider({ children }: { children: React.ReactNode }) {
       ? storedSuppression.contextId
       : null;
   const [panelOpen, setPanelOpenState] = useState<boolean>(false);
+  const [pendingPrompt, setPendingPromptState] = useState<{
+    text: string;
+    autoSend: boolean;
+  } | null>(null);
 
   const setPageContext = useCallback((next: PageContext | null) => {
     setPageContextState((prev) => {
@@ -134,6 +145,10 @@ export function CopilotProvider({ children }: { children: React.ReactNode }) {
   );
   const clearSuppression = useCallback(() => setStoredSuppression(null), []);
   const setPanelOpen = useCallback((next: boolean) => setPanelOpenState(next), []);
+  const setPendingPrompt = useCallback(
+    (next: { text: string; autoSend: boolean } | null) => setPendingPromptState(next),
+    [],
+  );
 
   const pageCtxValue = useMemo<PageContextValue>(
     () => ({ pageContext, setPageContext, suppressedFor, suppressFor, clearSuppression }),
@@ -141,8 +156,8 @@ export function CopilotProvider({ children }: { children: React.ReactNode }) {
   );
 
   const panelUIValue = useMemo<PanelUIValue>(
-    () => ({ panelOpen, setPanelOpen }),
-    [panelOpen, setPanelOpen],
+    () => ({ panelOpen, setPanelOpen, pendingPrompt, setPendingPrompt }),
+    [panelOpen, setPanelOpen, pendingPrompt, setPendingPrompt],
   );
 
   return (
