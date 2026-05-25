@@ -1,4 +1,5 @@
 import type { z } from 'zod';
+import { assertNoSessionField } from './registry-assertions.ts';
 
 export type Domain = 'work' | 'people' | 'self' | 'meta';
 
@@ -73,6 +74,7 @@ export const CopilotRegistry = {
   },
   registerWorkflow(spec: WorkflowSpec): void {
     if (state.frozen) throw new RegistryFrozenError();
+    assertNoSessionField(spec.inputSchema, spec.id);
     state.workflows.push(spec);
   },
   freeze(): void {
