@@ -25,7 +25,7 @@ describe('prompt-templates', () => {
     expect(p).toMatch(/Work/);
     expect(p).toMatch(/People/);
     expect(p).not.toMatch(/Finance/);
-    expect(p).not.toMatch(/Knowledge/);
+    expect(p).not.toMatch(/Self/);
   });
 
   it('generateDomainPrompt lists specialists with their descriptions', () => {

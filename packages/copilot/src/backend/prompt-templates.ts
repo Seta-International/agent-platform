@@ -7,6 +7,7 @@ const DOMAIN_LABEL: Record<Domain, string> = {
   people: 'People',
   self: 'Self',
   meta: 'Meta',
+  knowledge: 'Knowledge',
 };
 
 const DOMAIN_BLURB: Record<Domain, string> = {
@@ -14,6 +15,8 @@ const DOMAIN_BLURB: Record<Domain, string> = {
   people: 'Users, roles, permissions, org structure',
   self: 'Current user profile, preferences, notifications',
   meta: 'About this assistant: capabilities, status, settings',
+  knowledge:
+    'Company documents, policies, handbooks, internal knowledge base — search uploaded files by semantic similarity',
 };
 
 export function generateTopRoutingPrompt(snapshot: Snapshot): string {

@@ -1,7 +1,7 @@
 import type { z } from 'zod';
 import { assertNoSessionField } from './registry-assertions.ts';
 
-export type Domain = 'work' | 'people' | 'self' | 'meta';
+export type Domain = 'work' | 'people' | 'self' | 'meta' | 'knowledge';
 
 export interface SpecialistSpec {
   domain: Domain;
