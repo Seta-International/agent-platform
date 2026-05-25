@@ -1,190 +1,241 @@
 bucket_id,plan_id,name
-b001,p001,To Do
-b002,p001,In Progress
-b003,p002,To Do
-b004,p001,Done
-b005,p003,To Do
-b006,p003,Done
-b007,p004,To Do
-b008,p004,Done
-b009,p005,To Do
-b010,p005,Done
-b011,p006,To Do
-b012,p006,Done
-b013,p002,In Progress
-b014,p002,Done
-b015,p003,In Progress
-b016,p004,In Progress
-b017,p005,In Progress
-b018,p006,In Progress
-b019,p007,To Do
-b020,p007,In Progress
-b021,p007,Blocked
-b022,p007,Done
-b023,p008,Backlog
-b024,p008,Sprint 1
-b025,p008,Sprint 2
-b026,p008,Done
-b027,p009,To Do
-b028,p009,In Progress
-b029,p009,In Review
-b030,p009,Done
-b031,p010,To Do
-b032,p010,In Progress
-b033,p010,In Review
-b034,p010,Done
-b035,p011,To Do
-b036,p011,In Progress
-b037,p011,In Review
-b038,p011,Done
-b039,p012,To Do
-b040,p012,In Progress
-b041,p012,In Review
-b042,p012,Done
-b043,p013,To Do
-b044,p013,In Progress
-b045,p013,Blocked
-b046,p013,Done
-b047,p014,To Do
-b048,p014,In Progress
-b049,p014,Blocked
-b050,p014,Done
-b051,p015,Backlog
-b052,p015,Sprint 1
-b053,p015,Sprint 2
-b054,p015,Done
-b055,p016,To Do
-b056,p016,In Progress
-b057,p016,Blocked
-b058,p016,Done
-b059,p017,To Do
-b060,p017,In Progress
-b061,p017,Done
-b062,p018,To Do
-b063,p018,In Progress
-b064,p018,Blocked
-b065,p018,Done
-b066,p019,Backlog
-b067,p019,Sprint 1
-b068,p019,Sprint 2
-b069,p019,Done
-b070,p020,To Do
-b071,p020,In Progress
-b072,p020,Done
-b073,p021,To Do
-b074,p021,In Progress
-b075,p021,Done
-b076,p022,Backlog
-b077,p022,Sprint 1
-b078,p022,Sprint 2
-b079,p022,Done
-b080,p023,To Do
-b081,p023,In Progress
-b082,p023,Blocked
-b083,p023,Done
-b084,p024,To Do
-b085,p024,In Progress
-b086,p024,Blocked
-b087,p024,Done
-b088,p025,To Do
-b089,p025,In Progress
-b090,p025,In Review
-b091,p025,Done
-b092,p026,To Do
-b093,p026,In Progress
-b094,p026,Blocked
-b095,p026,Done
-b096,p027,To Do
-b097,p027,In Progress
-b098,p027,Blocked
-b099,p027,Done
-b100,p028,To Do
-b101,p028,In Progress
-b102,p028,Blocked
-b103,p028,Done
-b104,p029,To Do
-b105,p029,In Progress
-b106,p029,Blocked
-b107,p029,Done
-b108,p030,To Do
-b109,p030,In Progress
-b110,p030,Blocked
-b111,p030,Done
-b112,p031,Backlog
-b113,p031,Sprint 1
-b114,p031,Sprint 2
-b115,p031,Done
-b116,p032,To Do
-b117,p032,In Progress
-b118,p032,Blocked
-b119,p032,Done
-b120,p033,Backlog
-b121,p033,Sprint 1
-b122,p033,Sprint 2
-b123,p033,Done
-b124,p034,To Do
-b125,p034,In Progress
-b126,p034,Done
-b127,p035,Backlog
-b128,p035,Sprint 1
-b129,p035,Sprint 2
-b130,p035,Done
-b131,p036,To Do
-b132,p036,In Progress
-b133,p036,In Review
-b134,p036,Done
-b135,p037,To Do
-b136,p037,In Progress
-b137,p037,Blocked
-b138,p037,Done
-b139,p038,To Do
-b140,p038,In Progress
-b141,p038,Done
-b142,p039,Backlog
-b143,p039,Sprint 1
-b144,p039,Sprint 2
-b145,p039,Done
-b146,p040,To Do
-b147,p040,In Progress
-b148,p040,In Review
-b149,p040,Done
-b150,p041,To Do
-b151,p041,In Progress
-b152,p041,In Review
-b153,p041,Done
-b154,p042,To Do
-b155,p042,In Progress
-b156,p042,In Review
-b157,p042,Done
-b158,p043,To Do
-b159,p043,In Progress
-b160,p043,Blocked
-b161,p043,Done
-b162,p044,To Do
-b163,p044,In Progress
-b164,p044,In Review
-b165,p044,Done
-b166,p045,To Do
-b167,p045,In Progress
-b168,p045,In Review
-b169,p045,Done
-b170,p046,Backlog
-b171,p046,Sprint 1
-b172,p046,Sprint 2
-b173,p046,Done
-b174,p047,Backlog
-b175,p047,Sprint 1
-b176,p047,Sprint 2
-b177,p047,Done
-b178,p048,Backlog
-b179,p048,Sprint 1
-b180,p048,Sprint 2
-b181,p048,Done
-b182,p049,To Do
-b183,p049,In Progress
-b184,p049,In Review
-b185,p049,Done
-b186,p050,To Do
-b187,p050,In Progress
-b188,p050,In Review
-b189,p050,Done
+b001,p001,Scope
+b002,p001,Architecture
+b003,p001,Implementation
+b004,p001,Validation
+b005,p001,Release
+b006,p002,Discovery
+b007,p002,Design
+b008,p002,Development
+b009,p002,QA
+b010,p002,Release
+b011,p003,Inventory
+b012,p003,Architecture
+b013,p003,Hardening
+b014,p003,Validation
+b015,p003,Documentation
+b016,p004,Inventory
+b017,p004,Refactor
+b018,p004,Testing
+b019,p004,Documentation
+b020,p005,Research
+b021,p005,Data Prep
+b022,p005,Modeling
+b023,p005,Evaluation
+b024,p005,Productionization
+b025,p006,Investigation
+b026,p006,Design
+b027,p006,Implementation
+b028,p006,Validation
+b029,p006,Runbook
+b030,p007,Scope
+b031,p007,Architecture
+b032,p007,Implementation
+b033,p007,Validation
+b034,p007,Release
+b035,p008,Scope
+b036,p008,Design
+b037,p008,Development
+b038,p008,Testing
+b039,p008,Release
+b040,p009,Discovery
+b041,p009,Design
+b042,p009,Development
+b043,p009,QA
+b044,p009,Release
+b045,p010,Scope
+b046,p010,Architecture
+b047,p010,Implementation
+b048,p010,Validation
+b049,p010,Release
+b050,p011,Audit
+b051,p011,Threat Model
+b052,p011,Remediation
+b053,p011,Verification
+b054,p011,Documentation
+b055,p012,Inventory
+b056,p012,Architecture
+b057,p012,Hardening
+b058,p012,Validation
+b059,p012,Documentation
+b060,p013,Scope
+b061,p013,Architecture
+b062,p013,Implementation
+b063,p013,Validation
+b064,p013,Release
+b065,p014,Inventory
+b066,p014,Refactor
+b067,p014,Testing
+b068,p014,Documentation
+b069,p015,Discovery
+b070,p015,Design
+b071,p015,Development
+b072,p015,QA
+b073,p015,Release
+b074,p016,Inventory
+b075,p016,Refactor
+b076,p016,Testing
+b077,p016,Documentation
+b078,p017,Discovery
+b079,p017,Design
+b080,p017,Development
+b081,p017,QA
+b082,p017,Release
+b083,p018,Scope
+b084,p018,Architecture
+b085,p018,Implementation
+b086,p018,Validation
+b087,p018,Release
+b088,p019,Scope
+b089,p019,Architecture
+b090,p019,Implementation
+b091,p019,Validation
+b092,p019,Release
+b093,p020,Scope
+b094,p020,Design
+b095,p020,Development
+b096,p020,Testing
+b097,p020,Release
+b098,p021,Discovery
+b099,p021,Design
+b100,p021,Development
+b101,p021,QA
+b102,p021,Release
+b103,p022,Discovery
+b104,p022,Definition
+b105,p022,Validation
+b106,p022,Delivery
+b107,p023,Scope
+b108,p023,Architecture
+b109,p023,Implementation
+b110,p023,Validation
+b111,p023,Release
+b112,p024,Scope
+b113,p024,Architecture
+b114,p024,Implementation
+b115,p024,Validation
+b116,p024,Release
+b117,p025,Discovery
+b118,p025,Design
+b119,p025,Development
+b120,p025,QA
+b121,p025,Release
+b122,p026,Inventory
+b123,p026,Refactor
+b124,p026,Testing
+b125,p026,Documentation
+b126,p027,Discovery
+b127,p027,Design
+b128,p027,Development
+b129,p027,QA
+b130,p027,Release
+b131,p028,Audit
+b132,p028,Threat Model
+b133,p028,Remediation
+b134,p028,Verification
+b135,p028,Documentation
+b136,p029,Inventory
+b137,p029,Architecture
+b138,p029,Hardening
+b139,p029,Validation
+b140,p029,Documentation
+b141,p030,Scope
+b142,p030,Architecture
+b143,p030,Implementation
+b144,p030,Validation
+b145,p030,Release
+b146,p031,Inventory
+b147,p031,Refactor
+b148,p031,Testing
+b149,p031,Documentation
+b150,p032,Inventory
+b151,p032,Architecture
+b152,p032,Hardening
+b153,p032,Validation
+b154,p032,Documentation
+b155,p033,Discovery
+b156,p033,Definition
+b157,p033,Validation
+b158,p033,Delivery
+b159,p034,Discovery
+b160,p034,Design
+b161,p034,Development
+b162,p034,QA
+b163,p034,Release
+b164,p035,Research
+b165,p035,Data Prep
+b166,p035,Modeling
+b167,p035,Evaluation
+b168,p035,Productionization
+b169,p036,Research
+b170,p036,Data Prep
+b171,p036,Modeling
+b172,p036,Evaluation
+b173,p036,Productionization
+b174,p037,Discovery
+b175,p037,Definition
+b176,p037,Validation
+b177,p037,Delivery
+b178,p038,Scope
+b179,p038,Architecture
+b180,p038,Implementation
+b181,p038,Validation
+b182,p038,Release
+b183,p039,Research
+b184,p039,Data Prep
+b185,p039,Modeling
+b186,p039,Evaluation
+b187,p039,Productionization
+b188,p040,Discovery
+b189,p040,Definition
+b190,p040,Validation
+b191,p040,Delivery
+b192,p041,Investigation
+b193,p041,Design
+b194,p041,Implementation
+b195,p041,Validation
+b196,p041,Runbook
+b197,p042,Scope
+b198,p042,Architecture
+b199,p042,Implementation
+b200,p042,Validation
+b201,p042,Release
+b202,p043,Inventory
+b203,p043,Refactor
+b204,p043,Testing
+b205,p043,Documentation
+b206,p044,Scope
+b207,p044,Architecture
+b208,p044,Implementation
+b209,p044,Validation
+b210,p044,Release
+b211,p045,Discovery
+b212,p045,Design
+b213,p045,Development
+b214,p045,QA
+b215,p045,Release
+b216,p046,Scope
+b217,p046,Architecture
+b218,p046,Implementation
+b219,p046,Validation
+b220,p046,Release
+b221,p047,Discovery
+b222,p047,Design
+b223,p047,Development
+b224,p047,QA
+b225,p047,Release
+b226,p048,Inventory
+b227,p048,Architecture
+b228,p048,Hardening
+b229,p048,Validation
+b230,p048,Documentation
+b231,p049,Research
+b232,p049,Data Prep
+b233,p049,Modeling
+b234,p049,Evaluation
+b235,p049,Productionization
+b236,p050,Investigation
+b237,p050,Design
+b238,p050,Implementation
+b239,p050,Validation
+b240,p050,Runbook

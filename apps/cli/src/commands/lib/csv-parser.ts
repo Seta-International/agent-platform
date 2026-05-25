@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { parse } from 'csv-parse/sync';
 import type {
   BucketCsvRow,
+  GroupCsvRow,
   ParsedCsvs,
   PlanCsvRow,
   PlanMemberCsvRow,
@@ -24,6 +25,7 @@ function parseFile<T>(dir: string, filename: string): T[] {
 export function parseCsvs(dir: string): ParsedCsvs {
   return {
     users: parseFile<UserCsvRow>(dir, 'users.csv'),
+    groups: parseFile<GroupCsvRow>(dir, 'groups.csv'),
     plans: parseFile<PlanCsvRow>(dir, 'plans.csv'),
     buckets: parseFile<BucketCsvRow>(dir, 'buckets.csv'),
     planMembers: parseFile<PlanMemberCsvRow>(dir, 'plan_members.csv'),
