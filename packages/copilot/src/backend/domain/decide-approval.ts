@@ -204,7 +204,7 @@ export async function decideApproval(opts: DecideApprovalOpts): Promise<DecideAp
         UPDATE copilot.workflow_runs
            SET status = 'canceled',
                finished_at = now(),
-               error_summary = ${'resume_failed: ' + message}
+               error_summary = ${`resume_failed: ${message}`}
          WHERE run_id = ${ctx.runId}
            AND status IN ('paused', 'running')
       `);
