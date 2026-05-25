@@ -10,6 +10,7 @@ import { initCopilotRegistry } from './backend/init-registry.ts';
 import { type ModelTier, resolveModel } from './backend/model-registry.ts';
 import { registerCopilotRoutes } from './backend/routes.ts';
 import { buildMastra } from './backend/runtime.ts';
+import { copilotSubscribers } from './backend/subscribers/index.ts';
 import { buildSupervisorTree } from './backend/supervisor-tree.ts';
 import { registerWorkflowInputSchema } from './backend/workflows/_infra/input-schema-registry.ts';
 
@@ -20,6 +21,7 @@ export function registerCopilotContributions(reg: ContributionRegistry): void {
     name: 'copilot',
     schema,
     migrationsDir: resolve(__dirname, '../drizzle'),
+    subscribers: copilotSubscribers(),
   });
 }
 
