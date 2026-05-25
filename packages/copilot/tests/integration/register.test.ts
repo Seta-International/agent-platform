@@ -27,4 +27,26 @@ describe('registerCopilot', () => {
       expect(['ok', 'degraded']).toContain(body.status);
     });
   });
+
+  it('attaches CopilotRegistry workflows to the Mastra runtime under their public id', async () => {
+    await withCopilotTestDb(async ({ pool, databaseUrl }) => {
+      const reg = createContributionRegistry();
+      registerCoreContributions(reg);
+      registerIdentityContributions(reg);
+      registerPlannerContributions(reg);
+      const handle = registerCopilot({ pool, databaseUrl, reg });
+
+      // The REST endpoint POST /workflows/runs/:workflowId/start calls
+      // mastra.getWorkflow(workflowId) with the WorkflowSpec.id ('assignBySkill'),
+      // not the inner Mastra createWorkflow id ('planner.assignBySkill').
+      const wf = (handle.mastra as unknown as { getWorkflow: (id: string) => unknown }).getWorkflow(
+        'assignBySkill',
+      );
+      expect(wf).toBeDefined();
+      const dedup = (
+        handle.mastra as unknown as { getWorkflow: (id: string) => unknown }
+      ).getWorkflow('dedupOnCreate');
+      expect(dedup).toBeDefined();
+    });
+  });
 });

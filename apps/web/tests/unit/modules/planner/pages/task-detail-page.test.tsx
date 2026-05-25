@@ -12,6 +12,23 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { delay, HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+
+vi.mock('@/modules/copilot/chat-experience/copilot-provider', () => ({
+  usePageContext: () => ({
+    pageContext: null,
+    setPageContext: vi.fn(),
+    suppressedFor: null,
+    suppressFor: vi.fn(),
+    clearSuppression: vi.fn(),
+  }),
+  usePanelUI: () => ({
+    panelOpen: false,
+    setPanelOpen: vi.fn(),
+    pendingPrompt: null,
+    setPendingPrompt: vi.fn(),
+  }),
+}));
+
 import type { SessionScopeProjection } from '@/modules/identity/api/client';
 import { SessionProvider } from '../../../../../src/modules/identity/components/SessionProvider';
 import { TaskDetailPage } from '../../../../../src/modules/planner/pages/task-detail-page';

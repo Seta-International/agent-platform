@@ -1,3 +1,4 @@
+import { getPendingAssignRunIdForTask } from '@seta/copilot/agent-reads';
 import { actorFromContext, defineCopilotTool } from '@seta/copilot-sdk';
 import { buildActorSession } from '@seta/identity';
 import { z } from 'zod';
@@ -59,6 +60,7 @@ export const plannerGetTaskTool = defineCopilotTool({
         total: z.number(),
         checked: z.number(),
       }),
+      pendingAssignWorkflowRunId: z.string().uuid().nullable(),
     }),
   }),
   rbac: 'planner.task.read',
@@ -66,10 +68,16 @@ export const plannerGetTaskTool = defineCopilotTool({
     const actor = actorFromContext(ctx);
     const session = await buildActorSession(actor);
 
-    const taskRow = await getTask({
-      task_id: input.taskId,
-      session,
-    });
+    const [taskRow, pendingAssignWorkflowRunId] = await Promise.all([
+      getTask({
+        task_id: input.taskId,
+        session,
+      }),
+      getPendingAssignRunIdForTask({
+        taskId: input.taskId,
+        tenantId: session.tenant_id,
+      }),
+    ]);
 
     const plan = await getPlan({
       plan_id: taskRow.plan_id,
@@ -128,6 +136,7 @@ export const plannerGetTaskTool = defineCopilotTool({
           deletedAt: l.deleted_at,
         })),
         checklistSummary: taskRow.checklist_summary,
+        pendingAssignWorkflowRunId,
       },
     };
   },

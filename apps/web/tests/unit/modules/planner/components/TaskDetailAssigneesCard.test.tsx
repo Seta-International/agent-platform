@@ -5,6 +5,16 @@ import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import type { ReactNode } from 'react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+
+vi.mock('@/modules/copilot/chat-experience/copilot-provider', () => ({
+  usePanelUI: () => ({
+    panelOpen: false,
+    setPanelOpen: vi.fn(),
+    pendingPrompt: null,
+    setPendingPrompt: vi.fn(),
+  }),
+}));
+
 import type { SessionScopeProjection } from '@/modules/identity/api/client';
 import { SessionProvider } from '../../../../../src/modules/identity/components/SessionProvider';
 import { computeAssigneeReorder } from '../../../../../src/modules/planner/components/assignee-reorder';

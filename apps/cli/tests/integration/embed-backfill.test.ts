@@ -9,7 +9,7 @@ describe('embed-backfill CLI', () => {
       { module: 'planner', tenant: '00000000-0000-0000-0000-000000000000' },
       {
         backfillTasks: backfillTasks as never,
-        env: { OPENAI_API_KEY: 'k' },
+        env: { OPENAI_API_KEY: 'k', DATABASE_URL: 'postgres://test/db' },
         pool: fakePool as never,
       },
     );
@@ -29,7 +29,7 @@ describe('embed-backfill CLI', () => {
       { module: 'identity', tenant: '00000000-0000-0000-0000-000000000000' },
       {
         backfillUserProfiles: backfillUserProfiles as never,
-        env: { OPENAI_API_KEY: 'k' },
+        env: { OPENAI_API_KEY: 'k', DATABASE_URL: 'postgres://test/db' },
         pool: fakePool as never,
       },
     );
@@ -61,7 +61,11 @@ describe('embed-backfill CLI', () => {
       { module: 'planner', tenant: 'tt' },
       {
         backfillTasks: backfillTasks as never,
-        env: { OPENAI_API_KEY: 'k', EMBED_MODEL: 'text-embedding-3-large' },
+        env: {
+          OPENAI_API_KEY: 'k',
+          EMBED_MODEL: 'text-embedding-3-large',
+          DATABASE_URL: 'postgres://test/db',
+        },
         pool: fakePool as never,
       },
     );

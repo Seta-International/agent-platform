@@ -2,6 +2,8 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Mastra } from '@mastra/core';
 import { Agent } from '@mastra/core/agent';
+import type { AnyWorkflow } from '@mastra/core/workflows';
+import { CopilotRegistry } from '@seta/copilot-sdk';
 import type { AgentSpec, ContributionRegistry } from '@seta/core';
 import type { Hono } from 'hono';
 import type { Pool } from 'pg';
@@ -59,9 +61,14 @@ export function registerCopilot(deps: {
       registerWorkflowInputSchema(contribution.id, contribution.inputSchema);
     }
   }
+  initCopilotRegistry();
+
+  for (const spec of CopilotRegistry.snapshot().workflows) {
+    mastra.addWorkflow(spec.workflow as AnyWorkflow, spec.id);
+    registerWorkflowInputSchema(spec.id, spec.inputSchema);
+  }
   void mastra.startWorkers();
 
-  initCopilotRegistry();
   const supervisor = buildSupervisorTree({ mastra });
 
   return {
