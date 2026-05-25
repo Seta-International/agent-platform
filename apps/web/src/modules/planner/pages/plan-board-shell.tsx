@@ -12,8 +12,6 @@ import { GridGroupBySelector } from '@/modules/planner/components/grid-group-by-
 import { PlanError } from '@/modules/planner/components/plan-error';
 import { PlanFilterBar } from '@/modules/planner/components/plan-filter-bar';
 import { PlanPageHeader } from '@/modules/planner/components/plan-page-header';
-import { PlanSearchInput } from '@/modules/planner/components/plan-search-input';
-import { PlanViewSwitcher } from '@/modules/planner/components/plan-view-switcher';
 import { useDeletePlan } from '@/modules/planner/hooks/mutations/delete-plan';
 import { useRefreshPlanSync } from '@/modules/planner/hooks/mutations/refresh-plan-sync';
 import {
@@ -34,6 +32,8 @@ import {
   parseSearchQuery,
   parseViewMode,
 } from '@/modules/planner/state/url-state';
+import { PlanSearchInput } from '../components/plan-search-input';
+import { PlanViewSwitcher } from '../components/plan-view-switcher';
 
 export interface PlanBoardShellSearch {
   view?: 'board' | 'grid';

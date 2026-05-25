@@ -2,7 +2,7 @@
 // transition. No caller session; the scan is gated by file_id ownership in
 // the row itself.
 import type { Readable } from 'node:stream';
-import { DeleteObjectCommand, GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, GetObjectCommand, type S3Client } from '@aws-sdk/client-s3';
 import { emit, withEmit } from '@seta/core/events';
 import { eq } from 'drizzle-orm';
 import { fileTypeFromBuffer } from 'file-type';
@@ -35,7 +35,7 @@ export interface ScanUploadDeps {
   bucket: string;
   clamavHost: string;
   clamavPort: number;
-  s3?: S3Client;
+  s3: S3Client;
   enqueueParseJob?: (payload: {
     tenant_id: string;
     file_id: string;
@@ -45,7 +45,7 @@ export interface ScanUploadDeps {
 
 export async function runScanUpload(input: ScanUploadPayload, deps: ScanUploadDeps): Promise<void> {
   const db = knowledgeDb();
-  const s3 = deps.s3 ?? new S3Client({});
+  const s3 = deps.s3;
   const fileIdBig = BigInt(input.file_id);
 
   await db.update(files).set({ scan_status: 'scanning' }).where(eq(files.id, fileIdBig));

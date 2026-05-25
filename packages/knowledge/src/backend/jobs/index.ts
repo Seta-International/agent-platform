@@ -33,6 +33,7 @@ export const knowledgeJobs: TaskList = {
       bucket: BUCKET,
       clamavHost: CLAMAV_HOST,
       clamavPort: CLAMAV_PORT,
+      s3: getS3Client(),
       enqueueParseJob: async (parsePayload) => {
         await helpers.addJob('parse_knowledge_file', parsePayload);
       },
