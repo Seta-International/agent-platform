@@ -25,11 +25,11 @@ describe('planner register', () => {
     const workflows = CopilotRegistry.listWorkflows('work');
     const dedup = workflows.find((w) => w.id === 'dedupOnCreate');
     expect(dedup).toBeDefined();
-    expect(dedup?.hitlSteps).toContain('dedupOnCreate.run');
+    expect(dedup?.hitlSteps).toContain('dedupOnCreate.decide');
 
     const assign = workflows.find((w) => w.id === 'assignBySkill');
     expect(assign).toBeDefined();
-    expect(assign?.hitlSteps).toContain('assignBySkill.run');
+    expect(assign?.hitlSteps).toContain('assignBySkill.suggest');
 
     const reads = CopilotRegistry.listCrossModuleReadTools().map((t) => t.id);
     expect(reads).toContain('planner_getOpenTaskCountForUser');
