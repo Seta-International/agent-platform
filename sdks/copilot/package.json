@@ -15,6 +15,7 @@
   "devDependencies": {
     "@seta/shared-config": "workspace:^",
     "@types/pg": "^8.20.0",
+    "ai": "^6.0.188",
     "typescript": "^6.0.3",
     "vitest": "^4.1.7"
   },
