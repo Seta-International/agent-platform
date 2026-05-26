@@ -11,8 +11,8 @@ describe('progressive backoff', () => {
   it('returns 0 for first two attempts, escalates per schedule, caps at 5 minutes', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         const reg = createContributionRegistry();
@@ -46,8 +46,8 @@ describe('progressive backoff', () => {
   it('treats unknown_email same as known (anti-enumeration)', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         const reg = createContributionRegistry();
@@ -74,8 +74,8 @@ describe('failed-login alert threshold', () => {
   it('emits the alert event on the exact 5th failure within 15 minutes', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         const reg = createContributionRegistry();
@@ -103,8 +103,8 @@ describe('failed-login alert threshold', () => {
   it('does not re-emit on the 6th, 7th, … failures within the same hour', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         const reg = createContributionRegistry();
@@ -132,8 +132,8 @@ describe('failed-login alert threshold', () => {
   it('rate-limits via failed_login_alerts_sent: seeding a recent send blocks a fresh threshold cross', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         const reg = createContributionRegistry();
@@ -165,8 +165,8 @@ describe('failed-login alert threshold', () => {
   it('unknown email still emits but with reset_url=null', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         const reg = createContributionRegistry();

@@ -38,8 +38,8 @@ describe('getEntraTenantId', () => {
   it('returns the entra_tenant_id when SSO is registered and enabled', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         const { tenantId, entraTid } = await seedProvider(pool, databaseUrl, { enabled: true });
@@ -56,8 +56,8 @@ describe('getEntraTenantId', () => {
   it('returns null when no SSO is registered for the tenant', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ databaseUrl }) => {
         resetCoreDb();
@@ -75,8 +75,8 @@ describe('getEntraTenantId', () => {
   it('returns null when the provider exists but is disabled', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         const { tenantId } = await seedProvider(pool, databaseUrl, { enabled: false });

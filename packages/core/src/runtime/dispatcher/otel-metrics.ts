@@ -3,19 +3,19 @@ import type { DrainMetrics } from './drain.ts';
 
 const meter = metrics.getMeter('@seta/core/dispatcher');
 
-const failuresCounter = meter.createCounter('seta_dispatcher_subscriber_failures', {
+const failuresCounter = meter.createCounter('platform_dispatcher_subscriber_failures', {
   description: 'Subscriber handler exceptions, before retry/DLQ decision',
 });
 
-const processedCounter = meter.createCounter('seta_dispatcher_events_processed', {
+const processedCounter = meter.createCounter('platform_dispatcher_events_processed', {
   description: 'Events successfully handed to a subscriber and committed',
 });
 
-const dlqCounter = meter.createCounter('seta_dispatcher_dead_letter_total', {
+const dlqCounter = meter.createCounter('platform_dispatcher_dead_letter_total', {
   description: 'Events moved to the dead-letter table after maxAttempts',
 });
 
-const drainHistogram = meter.createHistogram('seta_dispatcher_drain_duration_ms', {
+const drainHistogram = meter.createHistogram('platform_dispatcher_drain_duration_ms', {
   description: 'Wallclock duration of one drainOne() call, per subscription',
   unit: 'ms',
 });
@@ -32,7 +32,7 @@ export function setDlqProvider(
 }
 
 meter
-  .createObservableGauge('seta_dispatcher_dead_letter_24h', {
+  .createObservableGauge('platform_dispatcher_dead_letter_24h', {
     description: 'Dead-letter row count per subscription over the last 24 hours',
   })
   .addCallback(async (result) => {

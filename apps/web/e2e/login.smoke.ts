@@ -1,9 +1,9 @@
 // requires apps/server reachable + demo tenant seeded
 import { strict as assert } from 'node:assert';
 
-const baseUrl = process.env.SETA_SERVER_URL ?? 'http://localhost:3000';
-const email = process.env.SETA_ADMIN_EMAIL ?? 'admin@demo.local';
-const password = process.env.SETA_ADMIN_PASSWORD ?? 'ChangeMe@2026';
+const baseUrl = process.env.PLATFORM_SERVER_URL ?? 'http://localhost:3000';
+const email = process.env.PLATFORM_ADMIN_EMAIL ?? 'admin@demo.local';
+const password = process.env.PLATFORM_ADMIN_PASSWORD ?? 'ChangeMe@2026';
 
 async function main() {
   const signIn = await fetch(`${baseUrl}/api/identity/v1/auth/sign-in/email`, {

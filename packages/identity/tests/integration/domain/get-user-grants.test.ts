@@ -14,8 +14,8 @@ describe('getUserGrants', () => {
   it('returns active grants only, including id and granted_via', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         resetCoreDb();
@@ -73,8 +73,8 @@ describe('getUserGrants', () => {
   it('returns granted_by_user_id and granted_by_name when grantor is a known user', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         resetCoreDb();
@@ -139,8 +139,8 @@ describe('getUserGrants', () => {
   it('returns null granted_by fields when granted_by is null (CLI/system grants)', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         resetCoreDb();

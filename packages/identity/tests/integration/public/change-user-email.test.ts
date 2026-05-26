@@ -11,8 +11,8 @@ describe('@seta/identity changeUserEmail', () => {
   it('admin path: updates email, emits email.changed with reason admin', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         resetCoreDb();
@@ -73,8 +73,8 @@ describe('@seta/identity changeUserEmail', () => {
   it('admin path: refuses when user has SSO account row', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         resetCoreDb();
@@ -120,8 +120,8 @@ describe('@seta/identity changeUserEmail', () => {
   it('sso_sync path: works even when user has microsoft account row, emits reason sso_sync', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         resetCoreDb();
@@ -175,8 +175,8 @@ describe('@seta/identity changeUserEmail', () => {
   it('no-op when new_email matches existing (case-insensitive): zero events emitted', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         resetCoreDb();

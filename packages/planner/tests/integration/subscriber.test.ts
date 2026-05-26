@@ -14,8 +14,8 @@ import {
 import { assignTask, createGroup, createPlan, createTask } from '../../src/index.ts';
 import { readEvents, seedTenant } from '../helpers.ts';
 
-const BASE_URL = process.env.SETA_TEST_PG_BASE as string;
-const TEMPLATE = process.env.SETA_TEST_PG_TEMPLATE as string;
+const BASE_URL = process.env.PLATFORM_TEST_PG_BASE as string;
+const TEMPLATE = process.env.PLATFORM_TEST_PG_TEMPLATE as string;
 
 // ---------------------------------------------------------------------------
 // applyUserCreated

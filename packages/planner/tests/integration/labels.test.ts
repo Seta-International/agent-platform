@@ -22,8 +22,8 @@ describe('createLabel', () => {
   it('creates label and emits planner.label.created', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         resetCoreDb();
@@ -68,8 +68,8 @@ describe('createLabel', () => {
   it('throws NOT_FOUND for missing plan', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         resetCoreDb();
@@ -103,8 +103,8 @@ describe('updateLabel', () => {
   it('changes name only and emits before/after name', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         resetCoreDb();
@@ -151,8 +151,8 @@ describe('updateLabel', () => {
   it('changes both name and color and emits both in before/after', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         resetCoreDb();
@@ -196,8 +196,8 @@ describe('updateLabel', () => {
   it('no-op patch returns existing label without event', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         resetCoreDb();
@@ -241,8 +241,8 @@ describe('deleteLabel', () => {
   it('soft-deletes label, removes task_labels rows, and emits planner.label.deleted', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         resetCoreDb();
@@ -310,8 +310,8 @@ describe('applyLabel', () => {
   it('applies label to task and emits planner.label.applied', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         resetCoreDb();
@@ -358,8 +358,8 @@ describe('applyLabel', () => {
   it('is idempotent (second apply produces no additional event)', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         resetCoreDb();
@@ -394,8 +394,8 @@ describe('applyLabel', () => {
   it('throws VALIDATION when label belongs to a different plan', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         resetCoreDb();
@@ -436,8 +436,8 @@ describe('unapplyLabel', () => {
   it('removes label from task and emits planner.label.unapplied', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         resetCoreDb();
@@ -484,8 +484,8 @@ describe('unapplyLabel', () => {
   it('is idempotent (unapply when not applied produces no event)', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         resetCoreDb();

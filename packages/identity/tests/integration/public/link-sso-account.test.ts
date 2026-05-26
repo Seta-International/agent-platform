@@ -14,8 +14,8 @@ describe('@seta/identity linkSsoAccount', () => {
   it('linked: pre-provisioned user, no prior account row → outcome linked, emits sso_linked', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         resetCoreDb();
@@ -69,8 +69,8 @@ describe('@seta/identity linkSsoAccount', () => {
   it('rejected_not_pre_provisioned: no matching user → no sso_* events', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         resetCoreDb();
@@ -113,8 +113,8 @@ describe('@seta/identity linkSsoAccount', () => {
   it('rejected_deactivated: deactivated user → emits sso_revoked with user_deactivated', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         resetCoreDb();
@@ -172,8 +172,8 @@ describe('@seta/identity linkSsoAccount', () => {
   it('matched: existing account row with same entra_oid → outcome matched, no new sso_linked', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         resetCoreDb();
@@ -260,8 +260,8 @@ describe('@seta/identity linkSsoAccount', () => {
   it('rejected_oid_conflict: existing account row with different entra_oid → no events', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         resetCoreDb();
@@ -321,8 +321,8 @@ describe('@seta/identity linkSsoAccount', () => {
   it('linked + email sync: stored email has mixed case → normalised on link, email.changed emitted', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         resetCoreDb();
@@ -387,8 +387,8 @@ describe('@seta/identity linkSsoAccount', () => {
   it('linked + name sync: sso name differs → user name updated, both sso_linked and profile.updated emitted', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         resetCoreDb();

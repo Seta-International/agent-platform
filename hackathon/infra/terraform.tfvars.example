@@ -1,0 +1,53 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Copy this file to terraform.tfvars and fill in every required value.
+# NEVER commit terraform.tfvars — it contains secrets.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Stack
+name   = "platform-hackathon"
+region = "ap-southeast-1"
+
+tags = {
+  Project     = "platform"
+  Environment = "hackathon"
+  Owner       = "your-name"
+}
+
+# ── Compute ───────────────────────────────────────────────────────────────────
+instance_type      = "t4g.small"       # ARM64, ~18-22 USD/month in ap-southeast-1
+ebs_volume_size_gb = 40
+
+# Ubuntu 24.04 LTS ARM64 in ap-southeast-1
+# Check latest at: https://cloud-images.ubuntu.com/locator/ec2/
+ami_id = "ami-0497a974f8d5dcef8"
+
+# SSH key pair name (must already exist in ap-southeast-1 console)
+key_name = "your-key-pair-name"
+
+# ── Networking ────────────────────────────────────────────────────────────────
+# Restrict SSH to your office/VPN IP only. Do NOT use 0.0.0.0/0.
+allowed_ssh_cidrs = ["YOUR_OFFICE_IP/32"]
+
+# ── App ───────────────────────────────────────────────────────────────────────
+app_version = "latest"
+domain       = "demo.your-domain.com"
+acme_email   = "your-email@example.com"
+
+# Required secrets — generate strong random values:
+#   postgres_password:  openssl rand -hex 16
+#   better_auth_secret: openssl rand -hex 32
+postgres_password  = "REPLACE_WITH_STRONG_PASSWORD"
+better_auth_secret = "REPLACE_WITH_32_CHAR_HEX_SECRET"
+
+# OpenAI — set hard cap in OpenAI dashboard to limit daily spend
+openai_api_key = "sk-..."
+copilot_model  = "" # e.g. openai/gpt-4o-mini — leave empty to disable copilot
+
+# ── Jaeger traces UI ─────────────────────────────────────────────────────────
+# Accessible at https://traces.<domain>  (BasicAuth, never public)
+jaeger_auth_user     = "admin"
+jaeger_auth_password = "REPLACE_WITH_STRONG_PASSWORD"
+
+# ── Backup ────────────────────────────────────────────────────────────────────
+backup_retention_days       = 14
+ebs_snapshot_retention_days = 7

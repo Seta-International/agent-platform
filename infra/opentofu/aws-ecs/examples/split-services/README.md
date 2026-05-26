@@ -10,10 +10,10 @@ Everything in `single-service`, plus:
 
 - AWS Private CA (short-lived mode) for east-west mTLS.
 - Per-module ECS services:
-  - `seta-gateway` — `SETA_MODULES=identity,core` (owns the bus dispatcher).
-  - `seta-planner` — `SETA_MODULES=planner`.
-  - `seta-copilot` — `SETA_MODULES=copilot`.
-  - `seta-integrations` — `SETA_MODULES=integrations`.
+  - `seta-gateway` — `PLATFORM_MODULES=identity,core` (owns the bus dispatcher).
+  - `seta-planner` — `PLATFORM_MODULES=planner`.
+  - `seta-copilot` — `PLATFORM_MODULES=copilot`.
+  - `seta-integrations` — `PLATFORM_MODULES=integrations`.
 - Cloud Map namespace `seta.local` for service discovery.
 - Per-service security groups allowing only Service Connect east-west traffic.
 

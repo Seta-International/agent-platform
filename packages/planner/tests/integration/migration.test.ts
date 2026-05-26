@@ -5,8 +5,8 @@ describe('0006_tasks_search_tsv_and_task_id_fix', () => {
   it('planner.tasks has a search_tsv generated column using to_tsvector', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool }) => {
         const res = await pool.query<{ generation_expression: string }>(`
@@ -25,8 +25,8 @@ describe('0006_tasks_search_tsv_and_task_id_fix', () => {
   it('GIN index tasks_search_tsv_gin_idx exists on planner.tasks(search_tsv)', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool }) => {
         const res = await pool.query<{ indexname: string; indexdef: string }>(`
@@ -45,8 +45,8 @@ describe('0006_tasks_search_tsv_and_task_id_fix', () => {
   it('search_tsv matches plainto_tsquery after task insert', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool }) => {
         const tenantId = '11111111-1111-1111-1111-111111111111';

@@ -480,7 +480,7 @@ export const plannerNavManifest: NavManifest = {
 
 ## 15. Deployment
 
-The production target is AWS ECS Fargate (HTTP service + dispatcher/worker service), RDS Postgres Multi-AZ with pgvector, S3 + CloudFront for the web bundle, Secrets Manager for environment secrets. A single multi-stage Dockerfile produces both `seta-server` and `seta-web` images; the same image runs self-hosted via `docker compose`. Mode-selectable runtime via `SETA_MODULES` supports per-module deployment. Full topology, sizing, hardening, observability, runbooks, and FinOps in [`hosting/aws.md`](./hosting/aws.md); single-VM self-host in [`hosting/docker-compose.md`](./hosting/docker-compose.md).
+The production target is AWS ECS Fargate (HTTP service + dispatcher/worker service), RDS Postgres Multi-AZ with pgvector, S3 + CloudFront for the web bundle, Secrets Manager for environment secrets. A single multi-stage Dockerfile produces both `platform-server` and `platform-web` images; the same image runs self-hosted via `docker compose`. Mode-selectable runtime via `PLATFORM_MODULES` supports per-module deployment. Full topology, sizing, hardening, observability, runbooks, and FinOps in [`hosting/aws.md`](./hosting/aws.md); single-VM self-host in [`hosting/docker-compose.md`](./hosting/docker-compose.md).
 
 Full topology, sizing, security, runbooks, FinOps: [`hosting/aws.md`](./hosting/aws.md).
 
@@ -522,7 +522,7 @@ The architecture imposes the following constraints. Each is a deliberate exchang
 
 | Trade-off | Rationale | Revisit condition |
 |---|---|---|
-| Modular monolith — modules cannot scale independently below the `SETA_MODULES` split | A single image, backup, and SLO is materially cheaper to operate than N services within the target scale envelope | Sustained writer CPU exceeds 70 % at `db.r6g.16xlarge` with the highest-load module already isolated |
+| Modular monolith — modules cannot scale independently below the `PLATFORM_MODULES` split | A single image, backup, and SLO is materially cheaper to operate than N services within the target scale envelope | Sustained writer CPU exceeds 70 % at `db.r6g.16xlarge` with the highest-load module already isolated |
 | Single database — schema migrations require coordination across modules | Cross-schema invariants remain enforceable and one backup/restore covers the entire system | A module's migration cadence diverges from the rest by more than an order of magnitude |
 | At-least-once event delivery — subscribers must be idempotent | Exactly-once semantics are unattainable across distributed systems without latency or coordination cost the workload does not justify | A use case requires exactly-once semantics that idempotency keys cannot satisfy |
 | Per-aggregate event ordering only — no global order | Global ordering imposes a throughput ceiling incompatible with the target tenant density | A use case requires global ordering and cannot be reformulated to shard differently |
@@ -536,13 +536,13 @@ The architecture imposes the following constraints. Each is a deliberate exchang
 
 | Question | Answer |
 |---|---|
-| **Why a modular monolith rather than microservices?** | Microservices provide independent deploy at the cost of HTTP between every domain. Schema-level isolation enforced by dep-cruiser provides the same boundary guarantees without the inter-service network surface. The `SETA_MODULES` environment variable supports splitting modules across services when scaling pressure justifies it. |
+| **Why a modular monolith rather than microservices?** | Microservices provide independent deploy at the cost of HTTP between every domain. Schema-level isolation enforced by dep-cruiser provides the same boundary guarantees without the inter-service network surface. The `PLATFORM_MODULES` environment variable supports splitting modules across services when scaling pressure justifies it. |
 | **Why Postgres for the event bus rather than Kafka or SQS?** | An external broker cannot participate in the source-of-truth transaction. The outbox-in-Postgres pattern eliminates lost-event and phantom-event failure modes by construction. The throughput ceiling of the chosen approach exceeds the system's scale targets. |
 | **Is Prisma supported as an alternative to Drizzle?** | No. Drizzle's `pgSchema('<name>')` plus `schemaFilter` directives are central to module boundary enforcement; Prisma does not model schema-scoped clients at parity. |
 | **Is MongoDB supported?** | No. The system depends on `LISTEN/NOTIFY`, deferred-constraint triggers, table partitioning, and pgvector — all Postgres-specific capabilities. |
 | **Can the AI SDK v6 substitute for Mastra?** | No. AI SDK v6 provides the LLM client and tool-call protocol; Mastra provides agent composition, memory, and workflow primitives. The two are complementary. |
 | **How are agents added independently of modules?** | Agents are not module-independent. Tools are owned by modules; cross-module agents are composed in orchestrator-tier packages (for example, `staffing`). |
-| **What is the scale ceiling?** | The targets in §3 describe the validated envelope. Above this, the trade-offs in §17 begin to apply; mitigation involves the `SETA_MODULES` split, read replicas, and isolating the highest-load module onto a dedicated database. |
+| **What is the scale ceiling?** | The targets in §3 describe the validated envelope. Above this, the trade-offs in §17 begin to apply; mitigation involves the `PLATFORM_MODULES` split, read replicas, and isolating the highest-load module onto a dedicated database. |
 | **Is the supervisor / specialist pattern documented separately?** | Yes — see [`copilot-architecture.md`](./copilot-architecture.md). |
 
 ---

@@ -150,7 +150,7 @@ describe('plan push: task PATCH happy path', () => {
         tenant_id: TENANT_ID,
         plan_id: PLAN_ID,
         resource_type: 'task',
-        seta_id: TASK_ID,
+        platform_id: TASK_ID,
         changed_fields: ['title'],
       },
       deps,

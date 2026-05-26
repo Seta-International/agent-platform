@@ -2,7 +2,7 @@
 # Web (React bundle) is served at the apex. API (Hono) is served at /api/* and /health/*.
 #
 # TLS: the websecure entrypoint has `tls: {}` so any router on it serves HTTPS.
-# When ACME is configured (SETA_TLS_MODE=letsencrypt), Traefik issues real certs
+# When ACME is configured (PLATFORM_TLS_MODE=letsencrypt), Traefik issues real certs
 # via the letsencrypt resolver. In self-signed mode (smoke / local), Traefik
 # auto-generates a default self-signed cert at startup — no resolver needed.
 #
@@ -11,7 +11,36 @@
 # to its default self-signed cert.
 
 http:
+  middlewares:
+    jaeger-auth:
+      basicAuth:
+        usersFile: /etc/traefik/jaeger-auth
+        realm: "Seta Traces"
+
   routers:
+    # ── Local HTTP (no TLS) — for Docker smoke tests on port 7080 ────────────
+    local-api:
+      rule: "PathPrefix(`/api`) || PathPrefix(`/health`)"
+      entryPoints:
+        - localhttp
+      service: api
+      priority: 100
+    local-web:
+      rule: "PathPrefix(`/`)"
+      entryPoints:
+        - localhttp
+      service: web
+
+    # ── Production HTTPS routers ──────────────────────────────────────────────
+    traces:
+      rule: "Host(`traces.DOMAIN_PLACEHOLDER`)"
+      entryPoints:
+        - websecure
+      service: traces
+      middlewares:
+        - jaeger-auth
+      tls:
+        certResolver: letsencrypt
     api:
       rule: "PathPrefix(`/api`) || PathPrefix(`/health`)"
       entryPoints:
@@ -27,6 +56,10 @@ http:
       tls: {}
 
   services:
+    traces:
+      loadBalancer:
+        servers:
+          - url: "http://jaeger:16686"
     api:
       loadBalancer:
         servers:

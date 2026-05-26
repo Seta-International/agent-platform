@@ -32,7 +32,7 @@ for arg in "$@"; do
   esac
 done
 
-VERSION="${SETA_VERSION:-v0.0.0-local}"
+VERSION="${PLATFORM_VERSION:-v0.0.0-local}"
 SERVER_IMG="seta-server:${VERSION}"
 WEB_IMG="seta-web:${VERSION}"
 

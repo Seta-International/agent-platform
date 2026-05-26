@@ -101,8 +101,8 @@ async function withSetup<T>(
 ) {
   return withTestDb(
     {
-      templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-      baseUrl: process.env.SETA_TEST_PG_BASE as string,
+      templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+      baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
     },
     async ({ pool, databaseUrl }) => {
       resetCoreDb();
@@ -178,7 +178,7 @@ describe('plan-push subscribers', () => {
         tenant_id: tenantId,
         plan_id: planId,
         resource_type: 'task',
-        seta_id: taskId,
+        platform_id: taskId,
         changed_fields: ['title'],
       });
     });

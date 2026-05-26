@@ -182,8 +182,8 @@ describe('GET /api/integrations/m365/groups/search', () => {
 });
 
 const dbEnv = () => ({
-  templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-  baseUrl: process.env.SETA_TEST_PG_BASE as string,
+  templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+  baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
 });
 
 async function seedTenant(pool: Pool, slug: string) {

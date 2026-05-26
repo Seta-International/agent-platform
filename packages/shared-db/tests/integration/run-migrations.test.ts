@@ -22,8 +22,8 @@ function writeMigration(dir: string, name: string, body: string): string {
 }
 
 const env = {
-  template: () => process.env.SETA_TEST_PG_TEMPLATE,
-  base: () => process.env.SETA_TEST_PG_BASE,
+  template: () => process.env.PLATFORM_TEST_PG_TEMPLATE,
+  base: () => process.env.PLATFORM_TEST_PG_BASE,
 };
 
 describe('runMigrations', () => {
@@ -40,7 +40,7 @@ describe('runMigrations', () => {
       async ({ pool }) => {
         await runMigrations({ pool, modules: [{ name: 'mod_a', dir }] });
         const { rows } = await pool.query(
-          `SELECT module, filename FROM core.__seta_migrations ORDER BY filename`,
+          `SELECT module, filename FROM core.__platform_migrations ORDER BY filename`,
         );
         expect(rows).toEqual([{ module: 'mod_a', filename: '0001_create_thing.sql' }]);
         const tbl = await pool.query(`SELECT to_regclass('mod_a.thing') AS reg`);
@@ -63,7 +63,7 @@ describe('runMigrations', () => {
         await runMigrations({ pool, modules: [{ name: 'mod_a', dir }] });
         await runMigrations({ pool, modules: [{ name: 'mod_a', dir }] });
         const { rows } = await pool.query(
-          `SELECT count(*)::int AS n FROM core.__seta_migrations WHERE filename='0001_create_thing.sql'`,
+          `SELECT count(*)::int AS n FROM core.__platform_migrations WHERE filename='0001_create_thing.sql'`,
         );
         expect(rows[0]?.n).toBe(1);
       },
@@ -116,7 +116,7 @@ describe('runMigrations', () => {
           ],
         });
         const { rows } = await pool.query(
-          `SELECT module, filename FROM core.__seta_migrations ORDER BY applied_at, filename`,
+          `SELECT module, filename FROM core.__platform_migrations ORDER BY applied_at, filename`,
         );
         expect(rows.map((r) => `${r.module}/${r.filename}`)).toEqual([
           'mod_a/0001_a_one.sql',

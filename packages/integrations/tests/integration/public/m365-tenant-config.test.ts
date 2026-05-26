@@ -118,8 +118,8 @@ describe('setM365TenantConfig domain', () => {
   it('admin can set config and retrieve via store', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         const { tenantId, actor } = await setup(pool, databaseUrl);
@@ -157,8 +157,8 @@ describe('setM365TenantConfig domain', () => {
   it('rejects when actor lacks permission', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         const { tenantId } = await setup(pool, databaseUrl);
@@ -188,8 +188,8 @@ describe('setM365TenantConfig domain', () => {
   it('rejects when entra_tenant_id is not a valid UUID', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         const { tenantId, actor } = await setup(pool, databaseUrl);

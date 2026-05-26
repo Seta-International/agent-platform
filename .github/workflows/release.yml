@@ -15,7 +15,7 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  ORG: ${{ vars.SETA_GH_ORG || github.repository_owner }}
+  ORG: ${{ vars.PLATFORM_GH_ORG || github.repository_owner }}
 
 jobs:
   metadata:
@@ -203,7 +203,7 @@ jobs:
 
   ecr-mirror:
     name: Mirror seta-server to ECR
-    if: vars.SETA_AWS_MIRROR == 'true'
+    if: vars.PLATFORM_AWS_MIRROR == 'true'
     needs: [metadata, build, sign]
     runs-on: ubuntu-latest
     permissions:
@@ -215,15 +215,15 @@ jobs:
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@d979d5b3a71173a29b74b5b88418bfda9437d885 # v6.1.1
         with:
-          role-to-assume: ${{ vars.SETA_AWS_ROLE_ARN }}
-          aws-region: ${{ vars.SETA_AWS_REGION }}
+          role-to-assume: ${{ vars.PLATFORM_AWS_ROLE_ARN }}
+          aws-region: ${{ vars.PLATFORM_AWS_REGION }}
           role-session-name: gha-release-${{ github.run_id }}
 
       - name: Log in to ECR
         shell: bash
         run: |
-          aws ecr get-login-password --region "${{ vars.SETA_AWS_REGION }}" \
-            | docker login --username AWS --password-stdin "$(echo '${{ vars.SETA_ECR_SERVER_URI }}' | cut -d/ -f1)"
+          aws ecr get-login-password --region "${{ vars.PLATFORM_AWS_REGION }}" \
+            | docker login --username AWS --password-stdin "$(echo '${{ vars.PLATFORM_ECR_SERVER_URI }}' | cut -d/ -f1)"
 
       - name: Log in to GHCR (pull source)
         uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4
@@ -239,7 +239,7 @@ jobs:
         shell: bash
         env:
           SRC: ${{ env.REGISTRY }}/${{ needs.metadata.outputs.org_lc }}/seta-server@${{ needs.build.outputs.server_digest }}
-          DST_BASE: ${{ vars.SETA_ECR_SERVER_URI }}
+          DST_BASE: ${{ vars.PLATFORM_ECR_SERVER_URI }}
           V: ${{ needs.metadata.outputs.version }}
           MINOR: ${{ needs.metadata.outputs.minor }}
           MAJOR: ${{ needs.metadata.outputs.major }}
@@ -254,7 +254,7 @@ jobs:
 
   web-s3:
     name: Sync web bundle to S3 + invalidate CloudFront
-    if: vars.SETA_AWS_MIRROR == 'true'
+    if: vars.PLATFORM_AWS_MIRROR == 'true'
     needs: [metadata, build, sign]
     runs-on: ubuntu-latest
     permissions:
@@ -278,14 +278,14 @@ jobs:
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@d979d5b3a71173a29b74b5b88418bfda9437d885 # v6.1.1
         with:
-          role-to-assume: ${{ vars.SETA_AWS_ROLE_ARN }}
-          aws-region: ${{ vars.SETA_AWS_REGION }}
+          role-to-assume: ${{ vars.PLATFORM_AWS_ROLE_ARN }}
+          aws-region: ${{ vars.PLATFORM_AWS_REGION }}
           role-session-name: gha-release-${{ github.run_id }}
 
       - name: Sync to S3 (versioned prefix)
         shell: bash
         env:
-          BUCKET: ${{ vars.SETA_S3_WEB_BUCKET }}
+          BUCKET: ${{ vars.PLATFORM_S3_WEB_BUCKET }}
           V: ${{ needs.metadata.outputs.version }}
         run: |
           set -euo pipefail
@@ -300,7 +300,7 @@ jobs:
       - name: Invalidate CloudFront
         shell: bash
         env:
-          DIST: ${{ vars.SETA_CF_DISTRIBUTION_ID }}
+          DIST: ${{ vars.PLATFORM_CF_DISTRIBUTION_ID }}
           V: ${{ needs.metadata.outputs.version }}
         run: |
           aws cloudfront create-invalidation \

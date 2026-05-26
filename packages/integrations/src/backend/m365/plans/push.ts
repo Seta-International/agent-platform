@@ -134,7 +134,7 @@ interface PushJobPayload {
   tenant_id: string;
   plan_id: string;
   resource_type: ResourceType;
-  seta_id: string;
+  platform_id: string;
   changed_fields: string[];
 }
 
@@ -142,7 +142,7 @@ interface PushDeleteJobPayload {
   tenant_id: string;
   plan_id: string;
   resource_type: 'plan' | 'bucket' | 'task';
-  seta_id: string;
+  platform_id: string;
 }
 
 interface PushCreatePlanJobPayload {
@@ -199,7 +199,7 @@ async function enqueueUpdate(
     tenant_id: tenantId,
     plan_id: planId,
     resource_type: resourceType,
-    seta_id: setaId,
+    platform_id: setaId,
     changed_fields: changedFields,
   } satisfies PushJobPayload);
 }
@@ -216,7 +216,7 @@ async function enqueueDelete(
     tenant_id: tenantId,
     plan_id: planId,
     resource_type: resourceType,
-    seta_id: setaId,
+    platform_id: setaId,
   } satisfies PushDeleteJobPayload);
 }
 

@@ -44,8 +44,8 @@ describe('resolveSetaTenantFromEmail', () => {
   it('returns row for matching domain when enabled', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         const { tenantId, entraTid } = await setup(pool, databaseUrl, {
@@ -68,8 +68,8 @@ describe('resolveSetaTenantFromEmail', () => {
   it('returns null when no row matches', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         await setup(pool, databaseUrl, { enabled: true, domains: ['acme.com'] });
@@ -87,8 +87,8 @@ describe('resolveSetaTenantFromEmail', () => {
   it('skips disabled rows even if domain matches', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         await setup(pool, databaseUrl, { enabled: false, domains: ['acme.com'] });
@@ -106,8 +106,8 @@ describe('resolveSetaTenantFromEmail', () => {
   it('returns null for malformed email (no @ or empty domain)', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         await setup(pool, databaseUrl, { enabled: true, domains: ['acme.com'] });

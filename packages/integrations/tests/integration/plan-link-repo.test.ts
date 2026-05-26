@@ -21,7 +21,7 @@ describe('m365_resource_etags migration', () => {
         'tenant_id',
         'plan_link_id',
         'resource_type',
-        'seta_id',
+        'platform_id',
         'external_id',
         'etag',
         'last_synced_fields',

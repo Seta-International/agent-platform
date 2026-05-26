@@ -4,9 +4,9 @@
 # asserts the public endpoints respond, tears down.
 #
 # Env overrides:
-#   SETA_IMAGE_SERVER (default: seta-server:local)
-#   SETA_IMAGE_WEB    (default: seta-web:local)
-#   SETA_SMOKE_DOMAIN (default: localhost)
+#   PLATFORM_IMAGE_SERVER (default: seta-server:local)
+#   PLATFORM_IMAGE_WEB    (default: seta-web:local)
+#   PLATFORM_SMOKE_DOMAIN (default: localhost)
 #
 # Requires: docker compose v2, curl.
 set -euo pipefail
@@ -15,9 +15,9 @@ here="$(cd "$(dirname "$0")" && pwd)"
 repo_root="$(cd "$here/.." && pwd)"
 cd "$repo_root"
 
-SETA_IMAGE_SERVER="${SETA_IMAGE_SERVER:-seta-server:local}"
-SETA_IMAGE_WEB="${SETA_IMAGE_WEB:-seta-web:local}"
-SETA_SMOKE_DOMAIN="${SETA_SMOKE_DOMAIN:-localhost}"
+PLATFORM_IMAGE_SERVER="${PLATFORM_IMAGE_SERVER:-seta-server:local}"
+PLATFORM_IMAGE_WEB="${PLATFORM_IMAGE_WEB:-seta-web:local}"
+PLATFORM_SMOKE_DOMAIN="${PLATFORM_SMOKE_DOMAIN:-localhost}"
 
 cleanup() {
   echo "--- smoke: tearing down ---"
@@ -29,15 +29,15 @@ trap cleanup EXIT
 echo "--- smoke: rendering .env.smoke ---"
 cp .env.example .env.smoke
 {
-  echo "SETA_IMAGE_SERVER=$SETA_IMAGE_SERVER"
-  echo "SETA_IMAGE_WEB=$SETA_IMAGE_WEB"
-  echo "SETA_DOMAIN=$SETA_SMOKE_DOMAIN"
-  echo "SETA_ACME_EMAIL=smoke@example.invalid"
-  echo "SETA_TLS_MODE=self-signed"
+  echo "PLATFORM_IMAGE_SERVER=$PLATFORM_IMAGE_SERVER"
+  echo "PLATFORM_IMAGE_WEB=$PLATFORM_IMAGE_WEB"
+  echo "PLATFORM_DOMAIN=$PLATFORM_SMOKE_DOMAIN"
+  echo "PLATFORM_ACME_EMAIL=smoke@example.invalid"
+  echo "PLATFORM_TLS_MODE=self-signed"
   echo "POSTGRES_PASSWORD=smoke-postgres-pw"
   echo "DATABASE_URL=postgres://seta:smoke-postgres-pw@postgres:5432/seta"
   echo "BETTER_AUTH_SECRET=$(printf 'smoke-secret-%032d' 0)"
-  echo "PUBLIC_URL=https://$SETA_SMOKE_DOMAIN"
+  echo "PUBLIC_URL=https://$PLATFORM_SMOKE_DOMAIN"
 } >> .env.smoke
 
 echo "--- smoke: docker compose up -d ---"
@@ -55,14 +55,14 @@ bash scripts/lib/compose-wait.sh compose.yml server healthy 60
 echo "--- smoke: waiting for proxy running ---"
 bash scripts/lib/compose-wait.sh compose.yml proxy running 30
 
-echo "--- smoke: probing https://$SETA_SMOKE_DOMAIN/ ---"
+echo "--- smoke: probing https://$PLATFORM_SMOKE_DOMAIN/ ---"
 curl --fail --silent --show-error --insecure --max-time 10 \
   --output /dev/null --write-out 'web: HTTP %{http_code}\n' \
-  "https://$SETA_SMOKE_DOMAIN/"
+  "https://$PLATFORM_SMOKE_DOMAIN/"
 
-echo "--- smoke: probing https://$SETA_SMOKE_DOMAIN/health/live ---"
+echo "--- smoke: probing https://$PLATFORM_SMOKE_DOMAIN/health/live ---"
 curl --fail --silent --show-error --insecure --max-time 10 \
   --output /dev/null --write-out 'api: HTTP %{http_code}\n' \
-  "https://$SETA_SMOKE_DOMAIN/health/live"
+  "https://$PLATFORM_SMOKE_DOMAIN/health/live"
 
 echo "--- smoke: PASS ---"

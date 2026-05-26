@@ -12,7 +12,7 @@ export const m365ResourceEtags = integrations.table(
       .notNull()
       .references(() => m365PlanLinks.id, { onDelete: 'cascade' }),
     resourceType: text('resource_type').notNull(),
-    setaId: text('seta_id').notNull(),
+    setaId: text('platform_id').notNull(),
     externalId: text('external_id').notNull(),
     etag: text('etag').notNull(),
     lastSyncedFields: jsonb('last_synced_fields').notNull().default(sql`'{}'::jsonb`),

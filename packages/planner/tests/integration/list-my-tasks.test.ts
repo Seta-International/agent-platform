@@ -14,8 +14,8 @@ import {
 import { seedTenant } from '../helpers.ts';
 
 const dbCfg = () => ({
-  templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-  baseUrl: process.env.SETA_TEST_PG_BASE as string,
+  templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+  baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
 });
 
 describe('listMyTasks', () => {

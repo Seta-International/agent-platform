@@ -1,56 +1,56 @@
 # Configuration reference
 
-Every environment variable the `seta-server` and `seta-web` images read is listed here. The source of truth is `.env.example` at the repo root — if a variable is in `.env.example`, it must be documented on this page. `pnpm docs:hosting:check` enforces.
+Every environment variable the `platform-server` and `platform-web` images read is listed here. The source of truth is `.env.example` at the repo root — if a variable is in `.env.example`, it must be documented on this page. `pnpm docs:hosting:check` enforces.
 
 Each entry shows: required/optional, type, default, and a short paragraph of meaning. For values that depend on deployment shape (single-VPS vs. split modules), the entry calls that out explicitly.
 
 ## Image versions
 
-Compose-level variables. They are interpolated into `compose.yml` to choose the image to pull. The running `seta-server` and `seta-web` do not read them.
+Compose-level variables. They are interpolated into `compose.yml` to choose the image to pull. The running `platform-server` and `platform-web` do not read them.
 
-### SETA_VERSION
+### PLATFORM_VERSION
 
 Required. String. Default: `latest`.
 
-Image tag pulled for both `seta-server` and `seta-web`. Pin to a specific semver (`v1.2.3`) in production; `latest` is only acceptable for first-try installs. Tag scheme is documented in [`upgrading.md`](upgrading.md).
+Image tag pulled for both `platform-server` and `platform-web`. Pin to a specific semver (`v1.2.3`) in production; `latest` is only acceptable for first-try installs. Tag scheme follows `vX.Y.Z` (immutable), `vX.Y`, `vX`, `latest`.
 
-### SETA_IMAGE_SERVER
+### PLATFORM_IMAGE_SERVER
 
-Optional. String. Default: `ghcr.io/seta-io/seta-server:${SETA_VERSION}`.
+Optional. String. Default: `ghcr.io/Seta-International/platform-server:${PLATFORM_VERSION}`.
 
-Full image reference for the API + workers container. Override when testing a fork or a local build (`docker build -t seta-server:local -f infra/docker/server.Dockerfile . && SETA_IMAGE_SERVER=seta-server:local docker compose up`).
+Full image reference for the API + workers container. Override when testing a fork or a local build (`docker build -t platform-server:local -f infra/docker/server.Dockerfile . && PLATFORM_IMAGE_SERVER=platform-server:local docker compose up`).
 
-### SETA_IMAGE_WEB
+### PLATFORM_IMAGE_WEB
 
-Optional. String. Default: `ghcr.io/seta-io/seta-web:${SETA_VERSION}`.
+Optional. String. Default: `ghcr.io/Seta-International/platform-web:${PLATFORM_VERSION}`.
 
 Full image reference for the static web bundle. Override to point at a fork.
 
 ## Public surface (Traefik + TLS)
 
-### SETA_DOMAIN
+### PLATFORM_DOMAIN
 
 Required. String. Default: `localhost`.
 
-Public hostname users hit. Used for Traefik routing rules and the ACME certificate SAN. Must resolve to this host's public IP for Let's Encrypt HTTP-01 to succeed (port 80 must be reachable from the internet). For local testing, keep `localhost` and set `SETA_TLS_MODE=self-signed`.
+Public hostname users hit. Used for Traefik routing rules and the ACME certificate SAN. Must resolve to this host's public IP for Let's Encrypt HTTP-01 to succeed (port 80 must be reachable from the internet). For local testing, keep `localhost` and set `PLATFORM_TLS_MODE=self-signed`.
 
 ### PUBLIC_URL
 
-Required. URL. Default: `https://${SETA_DOMAIN}`.
+Required. URL. Default: `https://${PLATFORM_DOMAIN}`.
 
 Read by the server (better-auth `baseURL` and `trustedOrigins`). Must match the externally-visible scheme and host; a mismatch breaks cookie and CORS flows.
 
-### SETA_ACME_EMAIL
+### PLATFORM_ACME_EMAIL
 
-Required when `SETA_TLS_MODE=letsencrypt`. String. Default: `admin@example.com`.
+Required when `PLATFORM_TLS_MODE=letsencrypt`. String. Default: `admin@example.com`.
 
 Email Traefik registers with Let's Encrypt. Used for expiry warnings only; not exposed publicly.
 
-### SETA_TLS_MODE
+### PLATFORM_TLS_MODE
 
 Required. Enum: `letsencrypt` | `self-signed`. Default: `letsencrypt`.
 
-- `letsencrypt` — Traefik runs ACME HTTP-01 against `SETA_DOMAIN`. Requires port 80 reachable from the public internet.
+- `letsencrypt` — Traefik runs ACME HTTP-01 against `PLATFORM_DOMAIN`. Requires port 80 reachable from the public internet.
 - `self-signed` — Traefik mints a self-signed cert at boot. Used by the smoke test and local-domain deploys; browsers will warn. Use `curl -k` to verify.
 
 ## Postgres
@@ -91,7 +91,7 @@ Standard Node.js environment switch. Affects assert-style invariants, log verbos
 
 Optional. Int. Default: `3000`.
 
-In-container listen port for `seta-server`. Traefik routes to this; never expose publicly.
+In-container listen port for `platform-server`. Traefik routes to this; never expose publicly.
 
 ### BETTER_AUTH_SECRET
 
@@ -141,11 +141,11 @@ Conditional. String. No default.
 
 REQUIRED alongside `CRYPTO_KMS_KEY_ARN`. Identifies the AWS region the KMS key lives in so the SDK can route the request without a separate config file. Standard AWS region code (e.g. `us-east-1`, `eu-west-1`).
 
-### SETA_MODULES
+### PLATFORM_MODULES
 
 Optional. String. Default: `*`.
 
-Comma-separated list of modules to load in this process, or `*` for all. The default `*` is the supported single-process monolith deploy. Valid module names: `core`, `identity`, `planner`, `copilot`, `integrations`. Split-mode deploys (one process per module) are described in [`scaling.md`](scaling.md). The Hono RPC transport and peer-addressing env vars that split-mode requires land with the dispatch shim — until then, leave this as `*`.
+Comma-separated list of modules to load in this process, or `*` for all. The default `*` is the supported single-process monolith deploy. Valid module names: `core`, `identity`, `planner`, `copilot`, `integrations`. Leave this as `*` for the supported single-process monolith.
 
 ## Optional integrations
 

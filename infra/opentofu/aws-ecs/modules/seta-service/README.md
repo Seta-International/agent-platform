@@ -13,7 +13,7 @@ Provisions one ECS Fargate service for a `seta-server` process — task definiti
 | `vpc_id` | string | VPC ID. |
 | `private_subnet_ids` | list(string) | Subnets the tasks run in. |
 | `image_uri` | string | Full image reference (GHCR or ECR). |
-| `seta_modules` | string | Value of the `SETA_MODULES` env var for this process (`*` or comma list). |
+| `platform_modules` | string | Value of the `PLATFORM_MODULES` env var for this process (`*` or comma list). |
 | `cpu` | number | Fargate task CPU units (e.g. 1024). |
 | `memory` | number | Fargate task memory in MiB. |
 | `desired_count` | number | Initial service replica count. |

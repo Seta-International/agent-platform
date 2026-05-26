@@ -109,7 +109,7 @@ This document records each choice, the alternatives evaluated, and the condition
 |---|---|
 | **Why this** | Schemas are the boundary tool we need: each module owns one, dep-cruiser + raw-SQL lint forbid cross-schema reads, projections live in the consumer's own schema. `pgvector`, `LISTEN/NOTIFY`, `jsonb`, deferred-constraint triggers, partitioning — all in the base. |
 | **Alternatives** | **MySQL** (rejected: weaker `jsonb`, no `LISTEN/NOTIFY`, no first-class vector extension). **CockroachDB** (rejected: no `LISTEN/NOTIFY`, no pgvector, distributed semantics we don't need). **MongoDB** (rejected: no relational integrity, no SQL, no boundary tool). **Two DBs (OLTP + vector)** (rejected: doubles backup, doubles failover, splits tenant identity). |
-| **Trade-offs accepted** | • Single-writer scaling ceiling — we lift it via read replicas + the `SETA_MODULES` split before it bites • Major-version upgrades coordinate every module |
+| **Trade-offs accepted** | • Single-writer scaling ceiling — we lift it via read replicas + the `PLATFORM_MODULES` split before it bites • Major-version upgrades coordinate every module |
 | **Reconsider when** | Sustained writer CPU > 70 % at 16xlarge **and** the hot module is identifiable enough to move to its own cluster. |
 
 ---
@@ -265,7 +265,7 @@ This document records each choice, the alternatives evaluated, and the condition
 
 | | |
 |---|---|
-| **Why this** | Containers without cluster ops. Task definitions are declarative, IAM scoping is per-task, autoscaling is built in. The `SETA_MODULES` env var lets us split modules into separate services on the same image without code changes. |
+| **Why this** | Containers without cluster ops. Task definitions are declarative, IAM scoping is per-task, autoscaling is built in. The `PLATFORM_MODULES` env var lets us split modules into separate services on the same image without code changes. |
 | **Alternatives** | **EKS** (rejected: Kubernetes is the wrong abstraction at our scale; the operational cost is real). **Lambda** (rejected: 15-min limit, no `LISTEN/NOTIFY` listener pattern). **App Runner** (rejected: opaque, no per-service IAM, no Service Connect). **ECS on EC2** (rejected: EC2 fleet management we'd rather skip). |
 | **Trade-offs accepted** | • Cold-start can be 20-40 s — kept warm by minimum task count • Pricing is per-second-billed CPU/mem — fine for steady-state, expensive for bursty • No true scale-to-zero |
 | **Reconsider when** | We need ms-level scale-to-zero **or** > 10k concurrent tasks where EKS economics flip. |

@@ -6,7 +6,7 @@ export default defineConfig({
   out: './drizzle/migrations',
   schemaFilter: ['knowledge'],
   dbCredentials: {
-    url: process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/seta_dev',
+    url: process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/platform_dev',
   },
   verbose: true,
   strict: true,

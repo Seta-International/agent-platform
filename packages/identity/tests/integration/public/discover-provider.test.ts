@@ -4,8 +4,8 @@ import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { discoverProvider } from '../../../src/index.ts';
 
-const TEMPLATE_DB_NAME = process.env.SETA_TEST_PG_TEMPLATE!;
-const BASE_URL = process.env.SETA_TEST_PG_BASE!;
+const TEMPLATE_DB_NAME = process.env.PLATFORM_TEST_PG_TEMPLATE!;
+const BASE_URL = process.env.PLATFORM_TEST_PG_BASE!;
 
 async function seedProvider(
   pool: import('pg').Pool,

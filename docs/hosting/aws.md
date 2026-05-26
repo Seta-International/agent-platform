@@ -76,11 +76,11 @@ flowchart LR
 flowchart LR
     Internet[Internet]
     WAF[WAF + ALB — api.domain]
-    Srv[ECS service — seta-server Fargate]
+    Srv[ECS service — platform-server Fargate]
     Wrk[ECS service — seta-worker Fargate, dispatcher singleton]
     RDS[(RDS Postgres Multi-AZ + pgvector)]
     KnowS3[(S3 — seta-knowledge, seta-audit)]
-    WebS3[(S3 — seta-web bundle)]
+    WebS3[(S3 — platform-web bundle)]
     CF[CloudFront — app.domain]
     Plane[Secrets Manager · KMS · ECR · CloudWatch · Route53]
 
@@ -96,7 +96,7 @@ flowchart LR
     Wrk -.- Plane
 ```
 
-The split-services variant (per-module ECS service via `SETA_MODULES`) is documented in [`scaling.md`](./scaling.md). The single-service layout above is the default.
+The single-service layout above is the default.
 
 ---
 
@@ -112,7 +112,7 @@ Three scale tiers, calibrated to user counts and request rates.
 
 | Service | Autoscaling signal | Min | Max | Scale-out cooldown |
 |---|---|---|---|---|
-| `seta-server` | ALB `RequestCountPerTarget` > 100 OR avg CPU > 70 % | tier min | tier max | 60 s |
+| `platform-server` | ALB `RequestCountPerTarget` > 100 OR avg CPU > 70 % | tier min | tier max | 60 s |
 | `seta-worker` (dispatcher) | Pinned to **1 task** — never scales | 1 | 1 | n/a |
 | `seta-worker` (pool, Scale tier) | Job backlog (`graphile_worker.job_count`) > 100 | 1 | 4 | 120 s |
 
@@ -168,10 +168,10 @@ Starter tier uses the NAT gateway in each AZ; Growth and Scale rely on VPC endpo
 
 Both runtimes share one container image, distinguished by environment variables.
 
-| Service | Image | Command | `SETA_MODULES` | Notes |
+| Service | Image | Command | `PLATFORM_MODULES` | Notes |
 |---|---|---|---|---|
-| `seta-server` | `seta-server:<tag>` | `node /app/apps/server/dist/index.js` | `*` (or comma list for split topology) | HTTP only; enqueue-only worker handle |
-| `seta-worker` | `seta-server:<tag>` (same image) | `node /app/apps/worker/dist/index.js` | `*` | Dispatcher + worker pool |
+| `platform-server` | `platform-server:<tag>` | `node /app/apps/server/dist/index.js` | `*` (or comma list for split topology) | HTTP only; enqueue-only worker handle |
+| `seta-worker` | `platform-server:<tag>` (same image) | `node /app/apps/worker/dist/index.js` | `*` | Dispatcher + worker pool |
 
 ### Task definition essentials
 
@@ -179,13 +179,13 @@ Both runtimes share one container image, distinguished by environment variables.
 |---|---|
 | `taskRoleArn` | Per-environment role, scoped per §10 |
 | `executionRoleArn` | `AmazonECSTaskExecutionRolePolicy` + Secrets Manager read for the per-env secret |
-| `stopTimeout` | 60 s for `seta-server`, 120 s for `seta-worker` (job drain) |
-| `healthCheck` | `seta-server`: `wget -qO- http://localhost:3000/health/ready` |
+| `stopTimeout` | 60 s for `platform-server`, 120 s for `seta-worker` (job drain) |
+| `healthCheck` | `platform-server`: `wget -qO- http://localhost:3000/health/ready` |
 | `essential containers` | Single app container; optional OTEL collector sidecar |
 
 ### Graceful shutdown
 
-`seta-server` accepts in-flight requests for up to 30 s after SIGTERM, then exits. `seta-worker` drains running jobs for up to 90 s, releases the dispatcher LISTEN connection, then exits. The ALB deregistration delay is set to 30 s (server) and 120 s (worker) to match.
+`platform-server` accepts in-flight requests for up to 30 s after SIGTERM, then exits. `seta-worker` drains running jobs for up to 90 s, releases the dispatcher LISTEN connection, then exits. The ALB deregistration delay is set to 30 s (server) and 120 s (worker) to match.
 
 ---
 
@@ -230,11 +230,11 @@ The Scale tier adds one in-region read replica for analytical queries (audit exp
 | Bucket | Purpose | Lifecycle | Encryption |
 |---|---|---|---|
 | `seta-knowledge-<env>` | Tenant knowledge file uploads | Intelligent Tiering after 30 days | SSE-KMS, environment CMK |
-| `seta-web-<env>` | Compiled web bundle served via CloudFront | Versioning on; non-current expiration 7 days | SSE-S3 |
+| `platform-web-<env>` | Compiled web bundle served via CloudFront | Versioning on; non-current expiration 7 days | SSE-S3 |
 | `seta-audit-<env>` | Long-term audit exports from `core.events` | Glacier Instant Retrieval after 90 days, Glacier Deep Archive after 1 year | SSE-KMS |
 | `seta-otel-<env>` (optional) | OTEL export archive | Expire after 30 days | SSE-S3 |
 
-### CloudFront for `seta-web`
+### CloudFront for `platform-web`
 
 | Setting | Value |
 |---|---|
@@ -279,7 +279,7 @@ Keys are environment-scoped (no key shared between staging and production). Key 
 |---|---|
 | 1 | Generate a new secret value with `openssl rand -hex 32` |
 | 2 | Update `seta/<env>/auth` in Secrets Manager (the `BETTER_AUTH_SECRET` field) |
-| 3 | Force a new ECS deployment of `seta-server` (rolling) |
+| 3 | Force a new ECS deployment of `platform-server` (rolling) |
 | 4 | All in-flight sessions invalidate; users re-authenticate |
 | 5 | Confirm zero auth errors in CloudWatch within 5 minutes |
 
@@ -293,10 +293,10 @@ Schedule rotation outside business hours; communicate to users in advance.
 
 | Role | Used by | Permissions |
 |---|---|---|
-| `seta-<env>-task-server` | ECS `seta-server` tasks | Read `seta/<env>/*` secrets; read/write `seta-knowledge-<env>` and `seta-audit-<env>`; write CloudWatch Logs; publish CloudWatch Metrics |
+| `seta-<env>-task-server` | ECS `platform-server` tasks | Read `seta/<env>/*` secrets; read/write `seta-knowledge-<env>` and `seta-audit-<env>`; write CloudWatch Logs; publish CloudWatch Metrics |
 | `seta-<env>-task-worker` | ECS `seta-worker` tasks | Same as server task role plus enqueue/dequeue against the database (covered by `DATABASE_URL` privileges, not IAM) |
 | `seta-<env>-task-execution` | ECS task agent (image pull, secret fetch, log shipping) | ECR pull on the Seta repository; Secrets Manager `GetSecretValue` for `seta/<env>/*`; CloudWatch Logs `CreateLogStream`, `PutLogEvents` |
-| `seta-<env>-deploy` | GitHub Actions OIDC | ECR push for `seta-server` repository; S3 sync into `seta-web-<env>`; CloudFront `CreateInvalidation` on the env distribution; ECS `UpdateService` and `RegisterTaskDefinition` |
+| `seta-<env>-deploy` | GitHub Actions OIDC | ECR push for `platform-server` repository; S3 sync into `platform-web-<env>`; CloudFront `CreateInvalidation` on the env distribution; ECS `UpdateService` and `RegisterTaskDefinition` |
 
 ### GitHub Actions OIDC trust policy
 
@@ -337,9 +337,9 @@ The production role cannot be assumed from `main` pushes even if the workflow is
 | Source | Destination | Port | Reason |
 |---|---|---|---|
 | `0.0.0.0/0` | ALB | 443 | Public HTTPS |
-| ALB | `seta-server` tasks | 3000 | App traffic |
-| `seta-server`, `seta-worker` tasks | RDS | 5432 | Database |
-| `seta-server`, `seta-worker` tasks | VPC endpoints | 443 | AWS API calls |
+| ALB | `platform-server` tasks | 3000 | App traffic |
+| `platform-server`, `seta-worker` tasks | RDS | 5432 | Database |
+| `platform-server`, `seta-worker` tasks | VPC endpoints | 443 | AWS API calls |
 | `seta-worker` tasks | Internet via NAT (Starter only) | 443 | LLM provider, Microsoft Graph |
 
 ### WAF configuration
@@ -385,8 +385,8 @@ The collector forwards to a backend of the operator's choice (managed CloudWatch
 
 | Service | SLI | Target |
 |---|---|---|
-| `seta-server` HTTP | Successful (`200–299` or `4xx` business response) over total | 99.9 % monthly |
-| `seta-server` HTTP | p95 latency | < 250 ms warm |
+| `platform-server` HTTP | Successful (`200–299` or `4xx` business response) over total | 99.9 % monthly |
+| `platform-server` HTTP | p95 latency | < 250 ms warm |
 | Agent first token | p95 from request to first SSE byte | < 1.5 s |
 | Event dispatcher | Per-subscriber lag p95 | < 200 ms |
 | Background jobs | Time-to-process p95 | < 60 s |
@@ -434,7 +434,7 @@ sequenceDiagram
 
 ### Migration gate
 
-`pnpm db:migrate` runs as a one-off ECS RunTask before the service update. Both `seta-server` and `seta-worker` fail their readiness check at boot if the `schema_migrations` table is behind the version embedded in the image. This produces fail-fast on a botched migration rather than partial cutover.
+`pnpm db:migrate` runs as a one-off ECS RunTask before the service update. Both `platform-server` and `seta-worker` fail their readiness check at boot if the `schema_migrations` table is behind the version embedded in the image. This produces fail-fast on a botched migration rather than partial cutover.
 
 ### Image signing
 
@@ -448,8 +448,8 @@ Images are signed with `cosign` via keyless signing (OIDC). The ECS task definit
 
 | Step | Action |
 |---|---|
-| 1 | Identify the previous task definition revision: `aws ecs describe-services --cluster seta-<env> --services seta-server` |
-| 2 | Update the service to the previous revision: `aws ecs update-service --cluster seta-<env> --service seta-server --task-definition seta-server:<prev-rev> --force-new-deployment` |
+| 1 | Identify the previous task definition revision: `aws ecs describe-services --cluster seta-<env> --services platform-server` |
+| 2 | Update the service to the previous revision: `aws ecs update-service --cluster seta-<env> --service platform-server --task-definition platform-server:<prev-rev> --force-new-deployment` |
 | 3 | Repeat for `seta-worker` |
 | 4 | Watch ALB target health and CloudWatch error rate for 10 min |
 | 5 | If the rollback was due to a migration, also restore from PITR (§13.6) before re-deploying |
@@ -474,7 +474,7 @@ AWS triggers AZ failover automatically when the writer becomes unreachable. No o
 | 1 | Check `Events` on the RDS instance in the console |
 | 2 | Confirm the writer is in the surviving AZ |
 | 3 | Confirm `RDSReplicaLag = 0` |
-| 4 | Confirm `seta-server` and `seta-worker` reach `/health/ready` |
+| 4 | Confirm `platform-server` and `seta-worker` reach `/health/ready` |
 | 5 | Investigate root cause via AWS Health Dashboard |
 
 ### 13.4 Dispatcher stuck or duplicated
@@ -509,7 +509,7 @@ The deployment configuration (`maximumPercent: 100`, `minimumHealthyPercent: 0`)
 | 2 | `aws rds restore-db-instance-to-point-in-time --source-db-instance-identifier seta-<env> --target-db-instance-identifier seta-<env>-restore-<timestamp> --restore-time <ISO8601>` |
 | 3 | Once the restored instance is `available`, capture its endpoint |
 | 4 | Update the `DATABASE_URL` in Secrets Manager to point at the restored endpoint |
-| 5 | Force new deployment of `seta-server` and `seta-worker` |
+| 5 | Force new deployment of `platform-server` and `seta-worker` |
 | 6 | Verify `/health/ready` green and a representative tenant's data is intact |
 | 7 | When confidence is established, rename the restored instance to the canonical identifier and delete the original |
 
@@ -607,7 +607,5 @@ A DR drill that exceeds the RTO is treated as an incident; remediation is planne
 ## See also
 
 - [`docker-compose.md`](./docker-compose.md) — single-VM self-host reference.
-- [`scaling.md`](./scaling.md) — the `SETA_MODULES` split-services variant.
-- [`upgrading.md`](./upgrading.md) — version-to-version migration discipline and image signature verification.
 - [`disaster-recovery.md`](./disaster-recovery.md) — DR playbook detail.
 - `infra/opentofu/aws-ecs/README.md` — the executable form of everything above.

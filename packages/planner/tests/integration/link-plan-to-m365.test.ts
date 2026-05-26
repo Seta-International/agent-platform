@@ -6,8 +6,8 @@ import { createGroup, createPlan, linkGroupToM365, linkPlanToM365 } from '../../
 import { readEvents, seedTenant } from '../helpers.ts';
 
 const HARNESS = {
-  templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-  baseUrl: process.env.SETA_TEST_PG_BASE as string,
+  templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+  baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
 };
 
 describe('linkPlanToM365', () => {

@@ -58,7 +58,7 @@ export async function runMigrations(opts: {
         const body = readFileSync(fullPath, 'utf-8');
         const checksum = sha256(body);
         const prior = await client.query<{ checksum: string }>(
-          `SELECT checksum FROM ${ledgerSchema}.__seta_migrations WHERE module=$1 AND filename=$2`,
+          `SELECT checksum FROM ${ledgerSchema}.__platform_migrations WHERE module=$1 AND filename=$2`,
           [mod.name, file],
         );
         if (prior.rows[0]) {
@@ -73,7 +73,7 @@ export async function runMigrations(opts: {
         }
         await client.query(body);
         await client.query(
-          `INSERT INTO ${ledgerSchema}.__seta_migrations (module, filename, checksum) VALUES ($1, $2, $3)`,
+          `INSERT INTO ${ledgerSchema}.__platform_migrations (module, filename, checksum) VALUES ($1, $2, $3)`,
           [mod.name, file, checksum],
         );
       }
@@ -92,7 +92,7 @@ export async function runMigrations(opts: {
 async function ensureLedger(client: PoolClient, schema: string): Promise<void> {
   await client.query(`CREATE SCHEMA IF NOT EXISTS ${schema}`);
   await client.query(`
-    CREATE TABLE IF NOT EXISTS ${schema}.__seta_migrations (
+    CREATE TABLE IF NOT EXISTS ${schema}.__platform_migrations (
       module     text NOT NULL,
       filename   text NOT NULL,
       checksum   text NOT NULL,

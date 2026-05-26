@@ -34,7 +34,7 @@ export function createRegistry(opts: CreateRegistryOpts): RuntimeRegistry {
       const url = opts.peerUrls[m];
       if (url) return { kind: 'remote', baseUrl: url };
       throw new Error(
-        `Module ${m} is neither loaded nor reachable (no SETA_PEERS_${m.toUpperCase()})`,
+        `Module ${m} is neither loaded nor reachable (no PLATFORM_PEERS_${m.toUpperCase()})`,
       );
     },
   };

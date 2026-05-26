@@ -8,8 +8,8 @@ describe('runMigrations(reg)', () => {
   it('applies all core migrations against a fresh DB and is idempotent', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ databaseUrl, pool }) => {
         await pool.query(`DROP SCHEMA IF EXISTS core CASCADE`);
@@ -21,13 +21,13 @@ describe('runMigrations(reg)', () => {
         await runMigrations(reg, { pool: getPool('worker') });
 
         const { rows } = await getPool('web').query(
-          `SELECT count(*)::int AS n FROM core.__seta_migrations WHERE module='core'`,
+          `SELECT count(*)::int AS n FROM core.__platform_migrations WHERE module='core'`,
         );
         expect(rows[0]?.n).toBeGreaterThanOrEqual(3);
 
         await runMigrations(reg, { pool: getPool('worker') });
         const { rows: rows2 } = await getPool('web').query(
-          `SELECT count(*)::int AS n FROM core.__seta_migrations WHERE module='core'`,
+          `SELECT count(*)::int AS n FROM core.__platform_migrations WHERE module='core'`,
         );
         expect(rows2[0]?.n).toBe(rows[0]?.n);
       },

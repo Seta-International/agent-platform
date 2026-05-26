@@ -24,7 +24,7 @@ The plan is fully written: see _internal design notes_ . Each task in that plan 
                                 ▼
                        ┌───────────────────┐
                        │  ECS: seta-gateway│
-                       │  SETA_MODULES=    │
+                       │  PLATFORM_MODULES=    │
                        │   identity,core   │
                        └────────┬──────────┘
                                 │  Service Connect (mTLS via PCA)
@@ -44,7 +44,7 @@ The plan is fully written: see _internal design notes_ . Each task in that plan 
 S3 + CloudFront (seta-web) ────► app.<domain>
 ```
 
-For the single-service variant, the per-module ECS services collapse into one; the same code runs with `SETA_MODULES=*`.
+For the single-service variant, the per-module ECS services collapse into one; the same code runs with `PLATFORM_MODULES=*`.
 
 ## Layout
 
@@ -61,7 +61,7 @@ infra/opentofu/aws-ecs/
     seta-private-ca/            # AWS Private CA for east-west mTLS (opt-in)
     seta-rds-pgvector/          # Aurora Postgres + pgvector RunTask bootstrap
   examples/
-    single-service/             # one ECS service, SETA_MODULES=*  ← default
+    single-service/             # one ECS service, PLATFORM_MODULES=*  ← default
     split-services/             # one ECS service per loaded module
 ```
 

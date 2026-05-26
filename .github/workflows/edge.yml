@@ -13,7 +13,7 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  ORG: ${{ vars.SETA_GH_ORG || github.repository_owner }}
+  ORG: ${{ vars.PLATFORM_GH_ORG || github.repository_owner }}
 
 jobs:
   build:

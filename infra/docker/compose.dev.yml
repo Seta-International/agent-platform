@@ -48,7 +48,7 @@ services:
       - jaeger
 
   jaeger:
-    image: jaegertracing/all-in-one:1.62.0
+    image: jaegertracing/jaeger:2.6.0
     container_name: seta-ap-jaeger-dev
     ports:
       - "16696:16686" # Jaeger UI

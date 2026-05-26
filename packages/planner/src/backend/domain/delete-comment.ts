@@ -2,28 +2,10 @@ import type { SessionScope } from '@seta/core';
 import { withEmit } from '@seta/core/events';
 import { and, eq, isNull } from 'drizzle-orm';
 import { emitPlannerCommentDeleted } from '../../events/emit-helpers.ts';
-import {
-  PLANNER_ROLE_PERMISSIONS,
-  PLANNER_ROLE_SLUGS,
-  type PlannerPermission,
-  type PlannerRoleSlug,
-} from '../../rbac.ts';
 import { groupMembers, plans, taskComments, tasks } from '../db/schema.ts';
 import type { DeleteCommentInput } from '../inputs.ts';
 import { withSpan } from '../observability.ts';
-import { PlannerError } from '../rbac.ts';
-
-function sessionHasPlannerPermission(session: SessionScope, perm: PlannerPermission): boolean {
-  for (const role of session.role_summary.roles) {
-    if (
-      (PLANNER_ROLE_SLUGS as readonly string[]).includes(role) &&
-      PLANNER_ROLE_PERMISSIONS[role as PlannerRoleSlug].includes(perm)
-    ) {
-      return true;
-    }
-  }
-  return false;
-}
+import { PlannerError, requirePermission } from '../rbac.ts';
 
 export async function deleteComment(
   input: DeleteCommentInput & { session: SessionScope },
@@ -62,10 +44,13 @@ async function deleteCommentImpl(
       if (!plan) throw new PlannerError('NOT_FOUND', 'Parent plan not found');
 
       const isAuthor = existing.author_id === input.session.user_id;
-      const hasAnyDelete = sessionHasPlannerPermission(
-        input.session,
-        'planner.task.comment.delete.any',
-      );
+      let hasAnyDelete = false;
+      try {
+        requirePermission(input.session, 'planner.task.comment.delete.any');
+        hasAnyDelete = true;
+      } catch {
+        // not an admin — fall through to author/owner check
+      }
 
       let isGroupOwner = false;
       if (!isAuthor && !hasAnyDelete) {

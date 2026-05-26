@@ -1,5 +1,5 @@
 export interface SsoProfileContext {
-  seta_tenant_id: string;
+  platform_tenant_id: string;
   tid: string;
   email: string;
   name: string;

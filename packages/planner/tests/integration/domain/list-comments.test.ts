@@ -9,8 +9,8 @@ import { listComments } from '../../../src/backend/domain/list-comments.ts';
 import { seedTenantAndTask } from '../../helpers.ts';
 
 const dbEnv = () => ({
-  templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-  baseUrl: process.env.SETA_TEST_PG_BASE as string,
+  templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+  baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
 });
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));

@@ -8,7 +8,7 @@ const __dirname = fileURLToPath(new URL('.', import.meta.url));
 let handle: Awaited<ReturnType<typeof startPgContainer>> | null = null;
 
 export default async function (): Promise<() => Promise<void>> {
-  const TEMPLATE = 'seta_template_notifications';
+  const TEMPLATE = 'platform_template_notifications';
   handle = await startPgContainer();
   await ensureTemplateDb(handle, TEMPLATE);
   initPools({ databaseUrl: `${handle.baseUrl}/${TEMPLATE}` });
@@ -24,8 +24,8 @@ export default async function (): Promise<() => Promise<void>> {
   await closePools();
   await markAsTemplate(handle, TEMPLATE);
 
-  process.env.SETA_TEST_PG_BASE = handle.baseUrl;
-  process.env.SETA_TEST_PG_TEMPLATE = TEMPLATE;
+  process.env.PLATFORM_TEST_PG_BASE = handle.baseUrl;
+  process.env.PLATFORM_TEST_PG_TEMPLATE = TEMPLATE;
   return async () => {
     await handle?.stop();
   };

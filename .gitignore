@@ -51,6 +51,8 @@ apps/web/src/routeTree.gen.ts
 
 # Traefik ACME storage (per-deploy state, never committed)
 infra/traefik/acme.json
+# Traefik BasicAuth credentials (generated locally, never committed)
+infra/traefik/jaeger-auth
 
 # OpenTofu / Terraform
 **/.terraform/

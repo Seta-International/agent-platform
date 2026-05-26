@@ -1,6 +1,6 @@
 # Community platforms
 
-Seta is not officially supported on Coolify, Dokploy, Kamal, or other compose-wrapping deployment platforms. The published Docker images (`ghcr.io/seta-io/seta-server`, `ghcr.io/seta-io/seta-web`) are standard OCI artifacts and *will* run on any of these — but we do not test against them, will not accept bug reports specific to them, and will not adapt our compose file to platform-specific conventions. This page exists so you can make an informed choice.
+Seta is not officially supported on Coolify, Dokploy, Kamal, or other compose-wrapping deployment platforms. The published Docker images (`ghcr.io/Seta-International/platform-server`, `ghcr.io/Seta-International/platform-web`) are standard OCI artifacts and *will* run on any of these — but we do not test against them, will not accept bug reports specific to them, and will not adapt our compose file to platform-specific conventions. This page exists so you can make an informed choice.
 
 ## What "not supported" means here
 
@@ -19,12 +19,12 @@ Seta is not officially supported on Coolify, Dokploy, Kamal, or other compose-wr
 - Coolify's compose support handles `pull_policy: always` and `depends_on` cleanly.
 - The `migrator` one-shot pattern works as a Coolify "Run Command" in the resource UI.
 - Persistent volumes: declare them in `compose.yml`; Coolify provisions backing storage.
-- Coolify ships its own Traefik. Remove Seta's `proxy` service and let Coolify route to `seta-web` and `seta-server` directly.
+- Coolify ships its own Traefik. Remove Seta's `proxy` service and let Coolify route to `platform-web` and `platform-server` directly.
 
 ## Dokploy
 
 - Similar story; Caddy handles TLS.
-- Watch for memory limits — Dokploy's defaults are tight. Raise to ≥1 GB for `seta-server`.
+- Watch for memory limits — Dokploy's defaults are tight. Raise to ≥1 GB for `platform-server`.
 - Migrations: invoke `migrate` via Dokploy's command runner against the `server` service.
 
 ## Kamal

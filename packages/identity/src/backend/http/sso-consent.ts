@@ -9,7 +9,7 @@ import {
   requireProviderRow,
 } from '../../index.ts';
 
-const STATE_COOKIE = 'seta_sso_consent_state';
+const STATE_COOKIE = 'platform_sso_consent_state';
 const STATE_COOKIE_MAXAGE = 60 * 10;
 
 function sign(payload: string): string {

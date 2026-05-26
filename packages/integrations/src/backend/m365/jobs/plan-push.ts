@@ -28,7 +28,7 @@ export interface RunPlanPushInput {
   tenant_id: string;
   plan_id: string;
   resource_type: ResourceType;
-  seta_id: string;
+  platform_id: string;
   changed_fields: string[];
 }
 
@@ -207,7 +207,7 @@ async function emitFieldConflict(
       tenant_id: input.tenant_id,
       plan_id: input.plan_id,
       resource_type: input.resource_type,
-      seta_id: input.seta_id,
+      platform_id: input.platform_id,
       conflicts,
     },
   });
@@ -349,9 +349,9 @@ async function runPlanResource(
   link: { id: string; externalId: string },
   session: PlannerSessionScope,
 ): Promise<DispatchOutcome> {
-  const etagRow = await loadEtag(deps, link, 'plan', input.seta_id);
+  const etagRow = await loadEtag(deps, link, 'plan', input.platform_id);
   if (!etagRow) return 'ok';
-  const local = await deps.planner.readPlan({ plan_id: input.seta_id, session });
+  const local = await deps.planner.readPlan({ plan_id: input.platform_id, session });
   const snapshot = snapshotPlan(etagRow.lastSyncedFields);
 
   const result = await patchWithRetry(
@@ -382,13 +382,13 @@ async function runPlanResource(
     tenantId: input.tenant_id,
     planLinkId: link.id,
     resourceType: 'plan',
-    setaId: input.seta_id,
+    setaId: input.platform_id,
     externalId: etagRow.externalId,
     etag: result.etag,
     lastSyncedFields: { title: result.object.title },
   });
   await deps.planner.updatePlan({
-    plan_id: input.seta_id,
+    plan_id: input.platform_id,
     patch: { external_etag: result.etag, external_synced_at: new Date().toISOString() },
     session,
   });
@@ -401,9 +401,9 @@ async function runPlanDetails(
   link: { id: string; externalId: string },
   session: PlannerSessionScope,
 ): Promise<DispatchOutcome> {
-  const etagRow = await loadEtag(deps, link, 'planDetails', input.seta_id);
+  const etagRow = await loadEtag(deps, link, 'planDetails', input.platform_id);
   if (!etagRow) return 'ok';
-  const local = await deps.planner.readPlanDetails({ plan_id: input.seta_id, session });
+  const local = await deps.planner.readPlanDetails({ plan_id: input.platform_id, session });
   const snapshot = snapshotPlanDetails(etagRow.lastSyncedFields);
 
   const result = await patchWithRetry(
@@ -434,7 +434,7 @@ async function runPlanDetails(
     tenantId: input.tenant_id,
     planLinkId: link.id,
     resourceType: 'planDetails',
-    setaId: input.seta_id,
+    setaId: input.platform_id,
     externalId: etagRow.externalId,
     etag: result.etag,
     lastSyncedFields: { categoryDescriptions: result.object.categoryDescriptions ?? {} },
@@ -448,9 +448,9 @@ async function runBucket(
   link: { id: string; externalId: string },
   session: PlannerSessionScope,
 ): Promise<DispatchOutcome> {
-  const etagRow = await loadEtag(deps, link, 'bucket', input.seta_id);
+  const etagRow = await loadEtag(deps, link, 'bucket', input.platform_id);
   if (!etagRow) return 'ok';
-  const local = await deps.planner.readBucket({ bucket_id: input.seta_id, session });
+  const local = await deps.planner.readBucket({ bucket_id: input.platform_id, session });
   const snapshot = snapshotBucket(etagRow.lastSyncedFields);
 
   const result = await patchWithRetry(
@@ -484,13 +484,13 @@ async function runBucket(
     tenantId: input.tenant_id,
     planLinkId: link.id,
     resourceType: 'bucket',
-    setaId: input.seta_id,
+    setaId: input.platform_id,
     externalId: etagRow.externalId,
     etag: result.etag,
     lastSyncedFields: { name: result.object.name, orderHint: result.object.orderHint },
   });
   await deps.planner.updateBucket({
-    bucket_id: input.seta_id,
+    bucket_id: input.platform_id,
     patch: {
       external_etag: result.etag,
       external_synced_at: new Date().toISOString(),
@@ -507,9 +507,9 @@ async function runTask(
   link: { id: string; externalId: string },
   session: PlannerSessionScope,
 ): Promise<DispatchOutcome> {
-  const etagRow = await loadEtag(deps, link, 'task', input.seta_id);
+  const etagRow = await loadEtag(deps, link, 'task', input.platform_id);
   if (!etagRow) return 'ok';
-  const local = await deps.planner.readTask({ task_id: input.seta_id, session });
+  const local = await deps.planner.readTask({ task_id: input.platform_id, session });
   const snapshot = snapshotTask(etagRow.lastSyncedFields);
 
   // orderHint moves through bucketTaskBoardTaskFormat, not /tasks. Split it out
@@ -552,7 +552,7 @@ async function runTask(
   );
 
   if (result.status === 'conflict') {
-    await maybeEmitConflict(deps, input, result.conflicts ?? [], session, input.seta_id);
+    await maybeEmitConflict(deps, input, result.conflicts ?? [], session, input.platform_id);
     return 'conflict';
   }
 
@@ -574,13 +574,13 @@ async function runTask(
       tenantId: input.tenant_id,
       planLinkId: link.id,
       resourceType: 'task',
-      setaId: input.seta_id,
+      setaId: input.platform_id,
       externalId: etagRow.externalId,
       etag: result.etag,
       lastSyncedFields: snapshotFields,
     });
     await deps.planner.updateTask({
-      task_id: input.seta_id,
+      task_id: input.platform_id,
       patch: { external_etag: result.etag, external_synced_at: new Date().toISOString() },
       session,
     });
@@ -608,9 +608,9 @@ async function runTaskDetails(
   link: { id: string; externalId: string },
   session: PlannerSessionScope,
 ): Promise<DispatchOutcome> {
-  const etagRow = await loadEtag(deps, link, 'taskDetails', input.seta_id);
+  const etagRow = await loadEtag(deps, link, 'taskDetails', input.platform_id);
   if (!etagRow) return 'ok';
-  const local = await deps.planner.readTaskDetails({ task_id: input.seta_id, session });
+  const local = await deps.planner.readTaskDetails({ task_id: input.platform_id, session });
   const snapshot = snapshotTaskDetails(etagRow.lastSyncedFields);
 
   const result = await patchWithRetry(
@@ -639,7 +639,7 @@ async function runTaskDetails(
   );
 
   if (result.status === 'conflict') {
-    await maybeEmitConflict(deps, input, result.conflicts ?? [], session, input.seta_id);
+    await maybeEmitConflict(deps, input, result.conflicts ?? [], session, input.platform_id);
     return 'conflict';
   }
   if (result.status === 'noop' || !result.object || !result.etag) return 'ok';
@@ -648,7 +648,7 @@ async function runTaskDetails(
     tenantId: input.tenant_id,
     planLinkId: link.id,
     resourceType: 'taskDetails',
-    setaId: input.seta_id,
+    setaId: input.platform_id,
     externalId: etagRow.externalId,
     etag: result.etag,
     lastSyncedFields: {
@@ -667,9 +667,9 @@ async function runBoardFormat(
   link: { id: string; externalId: string },
   session: PlannerSessionScope,
 ): Promise<DispatchOutcome> {
-  const etagRow = await loadEtag(deps, link, 'bucketTaskBoardTaskFormat', input.seta_id);
+  const etagRow = await loadEtag(deps, link, 'bucketTaskBoardTaskFormat', input.platform_id);
   if (!etagRow) return 'ok';
-  const local = await deps.planner.readTaskOrderHint({ task_id: input.seta_id, session });
+  const local = await deps.planner.readTaskOrderHint({ task_id: input.platform_id, session });
   const snapshot = snapshotBoardFormat(etagRow.lastSyncedFields);
 
   const result = await patchWithRetry(
@@ -697,7 +697,7 @@ async function runBoardFormat(
   );
 
   if (result.status === 'conflict') {
-    await maybeEmitConflict(deps, input, result.conflicts ?? [], session, input.seta_id);
+    await maybeEmitConflict(deps, input, result.conflicts ?? [], session, input.platform_id);
     return 'conflict';
   }
   if (result.status === 'noop' || !result.object || !result.etag) return 'ok';
@@ -706,7 +706,7 @@ async function runBoardFormat(
     tenantId: input.tenant_id,
     planLinkId: link.id,
     resourceType: 'bucketTaskBoardTaskFormat',
-    setaId: input.seta_id,
+    setaId: input.platform_id,
     externalId: etagRow.externalId,
     etag: result.etag,
     lastSyncedFields: { orderHint: result.object.orderHint },
@@ -714,7 +714,7 @@ async function runBoardFormat(
   // The Graph echo for orderHint is the canonical short form (e.g. "7A$6").
   // Persist it back to Seta so the local UI matches the server-canonical hint.
   await deps.planner.updateTask({
-    task_id: input.seta_id,
+    task_id: input.platform_id,
     patch: { order_hint: result.object.orderHint },
     session,
   });

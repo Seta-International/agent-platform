@@ -6,8 +6,8 @@ import { addGroupMembers, createGroup, listGroupMembers } from '../../src/index.
 import { buildSession, countEvents, seedTenant } from '../helpers.ts';
 
 const DB = () => ({
-  templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-  baseUrl: process.env.SETA_TEST_PG_BASE as string,
+  templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+  baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
 });
 
 describe('addGroupMembers (bulk)', () => {

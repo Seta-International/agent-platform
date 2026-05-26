@@ -24,8 +24,8 @@ describe('moveTask — cross-plan', () => {
     async () => {
       await withTestDb(
         {
-          templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-          baseUrl: process.env.SETA_TEST_PG_BASE as string,
+          templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+          baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
         },
         async ({ pool, databaseUrl }) => {
           resetCoreDb();
@@ -199,8 +199,8 @@ describe('moveTask — cross-plan', () => {
   it('cross-plan move with explicit target bucket lands in that bucket', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         resetCoreDb();
@@ -269,8 +269,8 @@ describe('moveTask — cross-plan', () => {
   it('cross-plan move rejects bucket from a different (non-target) plan', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         resetCoreDb();
@@ -337,8 +337,8 @@ describe('moveTask — cross-plan', () => {
   it('passing new_plan_id equal to current plan_id falls back to in-plan move (no label strip)', async () => {
     await withTestDb(
       {
-        templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.SETA_TEST_PG_BASE as string,
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
         resetCoreDb();

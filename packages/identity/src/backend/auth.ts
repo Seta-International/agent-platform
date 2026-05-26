@@ -125,7 +125,7 @@ export const auth = betterAuth({
             const email = rawEmail.toLowerCase();
             const name = profile.name ?? profile.preferred_username ?? email.split('@')[0] ?? email;
             stashSsoContext(oid, {
-              seta_tenant_id: seta.tenant_id,
+              platform_tenant_id: seta.tenant_id,
               tid: profile.tid,
               email,
               name,
@@ -171,7 +171,7 @@ export const auth = betterAuth({
 
           const result = await linkSsoAccount(
             {
-              tenant_id: ctx.seta_tenant_id,
+              tenant_id: ctx.platform_tenant_id,
               provider_id: 'microsoft-entra-id',
               email: ctx.email,
               name: ctx.name,

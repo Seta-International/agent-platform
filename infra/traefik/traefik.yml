@@ -22,6 +22,10 @@ entryPoints:
     address: ":443"
     http:
       tls: {}    # entrypoint-level TLS; per-router config in dynamic/routes.yml decides cert source
+  # Plain HTTP entrypoint for local smoke-tests (no TLS, no redirect).
+  # Port 7080 is not opened in the EC2 security group so it is inert on prod.
+  localhttp:
+    address: ":5173"
 
 providers:
   file:
@@ -31,7 +35,7 @@ providers:
 certificatesResolvers:
   letsencrypt:
     acme:
-      email: "${SETA_ACME_EMAIL}"
+      email: "${PLATFORM_ACME_EMAIL}"
       storage: /letsencrypt/acme.json
       httpChallenge:
         entryPoint: web

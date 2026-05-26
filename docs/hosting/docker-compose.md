@@ -13,7 +13,7 @@ This is the supported self-host install path. End-to-end clock time on a fresh U
 
 1. Clone the repo at the version tag you want to install:
    ```bash
-   git clone --depth 1 --branch v0.1.0 https://github.com/seta-io/agent-platform.git seta && cd seta
+   git clone --depth 1 --branch v0.1.0 https://github.com/Seta-International/agent-platform.git seta && cd seta
    ```
 
 2. Copy the env template and edit the required values:
@@ -22,7 +22,7 @@ This is the supported self-host install path. End-to-end clock time on a fresh U
    chmod 600 .env
    $EDITOR .env
    ```
-   Required edits (see [`configuration.md`](configuration.md) for the full list): `SETA_DOMAIN`, `SETA_ACME_EMAIL`, `POSTGRES_PASSWORD`, `BETTER_AUTH_SECRET`. For first-try local installs, leave `SETA_TLS_MODE=self-signed` and `SETA_DOMAIN=localhost`.
+   Required edits (see [`configuration.md`](configuration.md) for the full list): `PLATFORM_DOMAIN`, `PLATFORM_ACME_EMAIL`, `POSTGRES_PASSWORD`, `BETTER_AUTH_SECRET`. For first-try local installs, leave `PLATFORM_TLS_MODE=self-signed` and `PLATFORM_DOMAIN=localhost`.
 
 3. Pull and start the stack:
    ```bash
@@ -40,7 +40,7 @@ This is the supported self-host install path. End-to-end clock time on a fresh U
    docker compose run --rm server seed
    ```
 
-6. Open `https://${SETA_DOMAIN}` and log in with the bootstrap credentials printed to the `server` logs:
+6. Open `https://${PLATFORM_DOMAIN}` and log in with the bootstrap credentials printed to the `server` logs:
    ```bash
    docker compose logs server | grep -i 'bootstrap'
    ```
@@ -50,20 +50,20 @@ This is the supported self-host install path. End-to-end clock time on a fresh U
 | Service | Image | Role |
 |---|---|---|
 | `proxy` | `traefik:v3` | Reverse proxy, Let's Encrypt or self-signed TLS, port 443. |
-| `web` | `${SETA_IMAGE_WEB}` | Static React bundle, served by `proxy`. |
-| `server` | `${SETA_IMAGE_SERVER}` | API + workers, default `SETA_MODULES=*`. |
-| `migrator` | `${SETA_IMAGE_SERVER}` | One-shot `seta-server migrate`. `depends_on: postgres healthy`. |
+| `web` | `${PLATFORM_IMAGE_WEB}` | Static React bundle, served by `proxy`. |
+| `server` | `${PLATFORM_IMAGE_SERVER}` | API + workers, default `PLATFORM_MODULES=*`. |
+| `migrator` | `${PLATFORM_IMAGE_SERVER}` | One-shot `platform-server migrate`. `depends_on: postgres healthy`. |
 | `postgres` | `pgvector/pgvector:pg17-trixie` | Persistent named volume. |
 
 ## Verifying the install
 
 - `docker compose ps` — all services `running`/`healthy`; `migrator` `exited (0)`.
-- `curl -sfk https://${SETA_DOMAIN}/healthz` — returns `{"status":"ok"}`. (`-k` for `self-signed`.)
+- `curl -sfk https://${PLATFORM_DOMAIN}/healthz` — returns `{"status":"ok"}`. (`-k` for `self-signed`.)
 - Log in with the bootstrap user from step 6 above.
 
 ## Common first-install issues
 
-- **Let's Encrypt rate-limited.** Cause: testing repeatedly against the same domain. Fix: temporarily set `SETA_TLS_MODE=self-signed` in `.env`, restart `proxy`.
+- **Let's Encrypt rate-limited.** Cause: testing repeatedly against the same domain. Fix: temporarily set `PLATFORM_TLS_MODE=self-signed` in `.env`, restart `proxy`.
 - **Postgres pull is slow.** Pre-pull: `docker pull pgvector/pgvector:pg17-trixie`.
 - **Bootstrap credentials not in logs.** `migrator` must succeed before first `server` start. Rerun `docker compose run --rm migrator`, then `docker compose restart server`.
 - **Permission denied binding to :443.** Run Docker as root, or use rootless Docker with `cap_add: NET_BIND_SERVICE`.
@@ -72,5 +72,3 @@ This is the supported self-host install path. End-to-end clock time on a fresh U
 ## Next steps
 
 - Tune any env var → [`configuration.md`](configuration.md).
-- Plan your upgrade strategy → [`upgrading.md`](upgrading.md).
-- Outgrowing one VPS → [`scaling.md`](scaling.md).

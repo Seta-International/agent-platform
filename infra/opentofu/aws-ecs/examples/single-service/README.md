@@ -1,6 +1,6 @@
 # Example: single-service (monolith on ECS)
 
-Deploys Seta as **one** ECS Fargate service running `seta-server` with `SETA_MODULES=*`. The same image as the OSS self-host. Best fit for: production deployments that do not yet need per-module scaling.
+Deploys Seta as **one** ECS Fargate service running `seta-server` with `PLATFORM_MODULES=*`. The same image as the OSS self-host. Best fit for: production deployments that do not yet need per-module scaling.
 
 **Status:** stub — full HCL ships in the Layer 4 follow-up PR.
 
@@ -8,7 +8,7 @@ Deploys Seta as **one** ECS Fargate service running `seta-server` with `SETA_MOD
 
 - VPC + one public subnet + one private subnet across two AZs (one NAT gateway in AZ-a; flip to per-AZ NAT for higher availability — variable).
 - ALB on `api.<domain>` with ACM cert.
-- One ECS Fargate service (`SETA_MODULES=*`) behind the ALB.
+- One ECS Fargate service (`PLATFORM_MODULES=*`) behind the ALB.
 - Aurora Postgres Serverless v2 with `pgvector`.
 - S3 + CloudFront for the `seta-web` bundle on `app.<domain>` (toggle via `var.enable_web_tier`).
 - One Secrets Manager entry per environment for the DSN.

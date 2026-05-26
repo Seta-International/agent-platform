@@ -12,8 +12,8 @@ import { searchTenantKnowledge } from '../../../src/backend/retrieval/search-ten
 const withDb = <T>(fn: (ctx: { pool: import('pg').Pool; pgVector: PgVector }) => Promise<T>) =>
   withTestDb(
     {
-      templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-      baseUrl: process.env.SETA_TEST_PG_BASE as string,
+      templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+      baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
     },
     async ({ pool, databaseUrl }) => {
       resetCoreDb();

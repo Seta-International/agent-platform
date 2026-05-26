@@ -8,7 +8,7 @@
 # Architecture:
 #   - proxy (Traefik v3) owns port 443 (and 80 for ACME redirect).
 #   - web serves the React bundle.
-#   - server runs the Hono API + workers (SETA_MODULES=* = all-in-one).
+#   - server runs the Hono API + workers (PLATFORM_MODULES=* = all-in-one).
 #   - postgres is pgvector/pg17.
 #   - migrator is a one-shot that runs Drizzle migrations and exits.
 #
@@ -27,25 +27,40 @@ networks:
 volumes:
   postgres-data:
   traefik-acme:
+  jaeger-data:
 
 services:
+  jaeger:
+    image: jaegertracing/jaeger:2.6.0
+    restart: unless-stopped
+    user: "0"
+    command: ["--config", "/etc/jaeger/config.yml"]
+    volumes:
+      - ./infra/jaeger/config.yml:/etc/jaeger/config.yml:ro
+      - jaeger-data:/badger
+    networks:
+      - seta-internal
+      - seta-edge
+
   proxy:
     image: traefik:v3.1
     restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
+      - "5173:5173"  # local smoke-test HTTP (blocked by EC2 security group on prod)
     volumes:
       - ./infra/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
       - ./infra/traefik/dynamic:/etc/traefik/dynamic:ro
+      - ./infra/traefik/jaeger-auth:/etc/traefik/jaeger-auth:ro
       - traefik-acme:/letsencrypt
     environment:
-      SETA_ACME_EMAIL: ${SETA_ACME_EMAIL}
+      PLATFORM_ACME_EMAIL: ${PLATFORM_ACME_EMAIL}
     networks:
       - seta-edge
 
   web:
-    image: ${SETA_IMAGE_WEB:-ghcr.io/seta-io/seta-web:${SETA_VERSION:-latest}}
+    image: ${PLATFORM_IMAGE_WEB:-ghcr.io/Seta-International/platform-web:${PLATFORM_VERSION:-latest}}
     restart: unless-stopped
     networks:
       - seta-edge
@@ -56,7 +71,7 @@ services:
       - /var/run
 
   server:
-    image: ${SETA_IMAGE_SERVER:-ghcr.io/seta-io/seta-server:${SETA_VERSION:-latest}}
+    image: ${PLATFORM_IMAGE_SERVER:-ghcr.io/Seta-International/platform-server:${PLATFORM_VERSION:-latest}}
     restart: unless-stopped
     command: ["serve"]
     environment:
@@ -66,7 +81,7 @@ services:
       PUBLIC_URL: ${PUBLIC_URL}
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
       EVENTS_RETENTION_DAYS: ${EVENTS_RETENTION_DAYS:-30}
-      SETA_MODULES: ${SETA_MODULES:-*}
+      PLATFORM_MODULES: ${PLATFORM_MODULES:-*}
       MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
       MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
@@ -74,7 +89,7 @@ services:
       SESSION_COOKIE_SAMESITE: ${SESSION_COOKIE_SAMESITE:-strict}
       CLAMAV_HOST: ${CLAMAV_HOST:-clamav}
       CLAMAV_PORT: ${CLAMAV_PORT:-3310}
-      KNOWLEDGE_AV_REQUIRED: ${KNOWLEDGE_AV_REQUIRED:-true}
+      KNOWLEDGE_AV_REQUIRED: ${KNOWLEDGE_AV_REQUIRED:-false}
       CRYPTO_KEY_PROVIDER: ${CRYPTO_KEY_PROVIDER:-env}
       CRYPTO_KMS_KEY_ARN: ${CRYPTO_KMS_KEY_ARN:-}
       CRYPTO_LOCAL_MASTER_KEY: ${CRYPTO_LOCAL_MASTER_KEY:-}
@@ -89,8 +104,6 @@ services:
         condition: service_healthy
       migrator:
         condition: service_completed_successfully
-      clamav:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:'+(process.env.PORT||3000)+'/health/live',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
       interval: 10s
@@ -102,20 +115,20 @@ services:
       - /tmp
 
   worker:
-    image: ${SETA_IMAGE_SERVER:-ghcr.io/seta-io/seta-server:${SETA_VERSION:-latest}}
+    image: ${PLATFORM_IMAGE_SERVER:-ghcr.io/Seta-International/platform-server:${PLATFORM_VERSION:-latest}}
     restart: unless-stopped
     command: ["worker"]
     environment:
       NODE_ENV: ${NODE_ENV:-production}
       DATABASE_URL: ${DATABASE_URL}
       EVENTS_RETENTION_DAYS: ${EVENTS_RETENTION_DAYS:-30}
-      SETA_MODULES: ${SETA_MODULES:-*}
+      PLATFORM_MODULES: ${PLATFORM_MODULES:-*}
       MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
       MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       CLAMAV_HOST: ${CLAMAV_HOST:-clamav}
       CLAMAV_PORT: ${CLAMAV_PORT:-3310}
-      KNOWLEDGE_AV_REQUIRED: ${KNOWLEDGE_AV_REQUIRED:-true}
+      KNOWLEDGE_AV_REQUIRED: ${KNOWLEDGE_AV_REQUIRED:-false}
       CRYPTO_KEY_PROVIDER: ${CRYPTO_KEY_PROVIDER:-env}
       CRYPTO_KMS_KEY_ARN: ${CRYPTO_KMS_KEY_ARN:-}
       CRYPTO_LOCAL_MASTER_KEY: ${CRYPTO_LOCAL_MASTER_KEY:-}
@@ -129,8 +142,6 @@ services:
         condition: service_healthy
       migrator:
         condition: service_completed_successfully
-      clamav:
-        condition: service_healthy
     read_only: true
     tmpfs:
       - /tmp
@@ -153,12 +164,12 @@ services:
       retries: 10
 
   migrator:
-    image: ${SETA_IMAGE_SERVER:-ghcr.io/seta-io/seta-server:${SETA_VERSION:-latest}}
+    image: ${PLATFORM_IMAGE_SERVER:-ghcr.io/Seta-International/platform-server:${PLATFORM_VERSION:-latest}}
     command: ["migrate"]
     environment:
       DATABASE_URL: ${DATABASE_URL}
       EVENTS_RETENTION_DAYS: ${EVENTS_RETENTION_DAYS:-30}
-      SETA_MODULES: ${SETA_MODULES:-*}
+      PLATFORM_MODULES: ${PLATFORM_MODULES:-*}
       CRYPTO_KEY_PROVIDER: ${CRYPTO_KEY_PROVIDER:-env}
       CRYPTO_KMS_KEY_ARN: ${CRYPTO_KMS_KEY_ARN:-}
       CRYPTO_LOCAL_MASTER_KEY: ${CRYPTO_LOCAL_MASTER_KEY:-}
@@ -175,14 +186,3 @@ services:
     tmpfs:
       - /tmp
 
-  clamav:
-    image: clamav/clamav:1.4
-    restart: unless-stopped
-    networks:
-      - seta-internal
-    healthcheck:
-      test: ["CMD", "clamdcheck.sh"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 180s

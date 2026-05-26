@@ -18,8 +18,8 @@ export function withCoreTestDb<T>(
 ): Promise<T> {
   return withTestDb(
     {
-      templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-      baseUrl: process.env.SETA_TEST_PG_BASE as string,
+      templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+      baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
     },
     async ({ pool, databaseUrl }) => {
       // shared/db's pool registry is what coreDb() / withEmit reach for. Wire it to the

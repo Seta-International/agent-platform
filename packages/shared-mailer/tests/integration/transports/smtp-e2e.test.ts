@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createSmtpTransport } from '../../../src/transports/smtp.ts';
 
-const MAILHOG = process.env.SETA_MAILHOG_URL ?? '';
+const MAILHOG = process.env.PLATFORM_MAILHOG_URL ?? '';
 const run = MAILHOG ? describe : describe.skip;
 
 run('smtp transport — mailhog e2e', () => {

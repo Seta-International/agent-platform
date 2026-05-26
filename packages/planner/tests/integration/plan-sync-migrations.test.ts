@@ -6,8 +6,8 @@ import { describe, expect, it } from 'vitest';
 import { plannerDb } from '../../src/backend/db/index.ts';
 
 const HARNESS = {
-  templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-  baseUrl: process.env.SETA_TEST_PG_BASE as string,
+  templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+  baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
 };
 
 describe('plan sync schema migration', () => {

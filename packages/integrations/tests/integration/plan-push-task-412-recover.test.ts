@@ -162,7 +162,7 @@ describe('plan push: task 412 recover', () => {
         tenant_id: TENANT_ID,
         plan_id: PLAN_ID,
         resource_type: 'task',
-        seta_id: TASK_ID,
+        platform_id: TASK_ID,
         changed_fields: ['title'],
       },
       deps,
@@ -213,7 +213,7 @@ describe('plan push: task 412 actual conflict', () => {
         tenant_id: TENANT_ID,
         plan_id: PLAN_ID,
         resource_type: 'task',
-        seta_id: TASK_ID,
+        platform_id: TASK_ID,
         changed_fields: ['title'],
       },
       deps,
@@ -229,7 +229,7 @@ describe('plan push: task 412 actual conflict', () => {
         payload: expect.objectContaining({
           tenant_id: TENANT_ID,
           plan_id: PLAN_ID,
-          seta_id: TASK_ID,
+          platform_id: TASK_ID,
           conflicts: [
             expect.objectContaining({
               field: 'title',
@@ -268,7 +268,7 @@ describe('plan push: 403 limit code', () => {
         tenant_id: TENANT_ID,
         plan_id: PLAN_ID,
         resource_type: 'task',
-        seta_id: TASK_ID,
+        platform_id: TASK_ID,
         changed_fields: ['title'],
       },
       deps,

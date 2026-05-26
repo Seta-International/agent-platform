@@ -1,5 +1,5 @@
 import { Check, Clock, Sparkles } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { WorkflowApprovalRow } from '../api/schemas.ts';
 
 // Subset of the @seta/copilot-sdk ApprovalCard shape we render. We accept
@@ -145,9 +145,11 @@ export function HitlApprovalCard({
 
   const [selected, setSelected] = useState<Set<string>>(primarySet);
   // If the proposal changes (e.g. SSE update), re-baseline the selection.
-  useEffect(() => {
+  const prevPrimaryIds = useRef(primaryIds);
+  if (prevPrimaryIds.current !== primaryIds) {
+    prevPrimaryIds.current = primaryIds;
     setSelected(new Set(primaryIds));
-  }, [primaryIds]);
+  }
 
   const [rejectOpen, setRejectOpen] = useState(false);
   const [note, setNote] = useState('');

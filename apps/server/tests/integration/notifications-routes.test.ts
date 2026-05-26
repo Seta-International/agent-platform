@@ -63,8 +63,8 @@ async function seedNotification(opts: {
 async function withTest<T>(fn: (ctx: { pool: Pool }) => Promise<T>): Promise<T> {
   return withTestDb(
     {
-      templateDbName: process.env.SETA_TEST_PG_TEMPLATE as string,
-      baseUrl: process.env.SETA_TEST_PG_BASE as string,
+      templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+      baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
     },
     async ({ pool, databaseUrl }) => {
       resetCoreDb();
