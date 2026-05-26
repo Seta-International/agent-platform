@@ -1,0 +1,23 @@
+# Prometheus configuration for the local dev stack (infra/docker/compose.dev.yml).
+# Server and worker run as host processes (pnpm dev); this config reaches them
+# via host.docker.internal since they are not in the Docker network.
+#
+# Server metrics port: 9464 (OTEL_PROMETHEUS_PORT default in apps/server)
+# Worker metrics port: 9465 (OTEL_PROMETHEUS_PORT default in apps/worker)
+
+global:
+  scrape_interval: 10s
+  evaluation_interval: 10s
+
+scrape_configs:
+  - job_name: seta-server
+    static_configs:
+      - targets: ['host.docker.internal:9464']
+        labels:
+          service: seta-server
+
+  - job_name: seta-worker
+    static_configs:
+      - targets: ['host.docker.internal:9465']
+        labels:
+          service: seta-worker
