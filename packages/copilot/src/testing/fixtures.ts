@@ -16,3 +16,5 @@ export { buildAgentFromSpec } from '../register.ts';
 export function mockLanguageModel(): unknown {
   return new MockLanguageModelV3();
 }
+
+export { resetCopilotDb } from '../backend/db/index.ts';
