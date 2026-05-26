@@ -3,10 +3,19 @@ import type { z } from 'zod';
 import { registerToolPermission } from './rbac.ts';
 import { RequestContextSchema } from './request-context.ts';
 import type { CopilotTool, CopilotToolSpec } from './tool.ts';
+import { wrapExecute } from './wrap-execute.ts';
 
 /**
  * Author an agent tool against the copilot SDK contract. One call replaces
  * the `createTool({ ... }) + registerToolPermission(tool, perm)` pair.
+ *
+ * Every tool authored through this factory is wrapped with:
+ *   - an execution timeout (read 30s / write 60s defaults, or
+ *     `spec.executionTimeoutMs` capped by COPILOT_TOOL_TIMEOUT_MAX_MS);
+ *   - a composed `AbortSignal` injected into ctx.abortSignal — forward this
+ *     into every fetch / DB / vector query so resources release on timeout;
+ *   - a per-(tenant, tool) circuit breaker that fails fast after 3
+ *     consecutive timeouts or unhandled exceptions.
  */
 export function defineCopilotTool<
   I extends z.ZodTypeAny,
@@ -22,6 +31,14 @@ export function defineCopilotTool<
   // Do NOT `Object.assign(tool, { needsApproval })` after the fact — Mastra
   // only reads `needsApproval` on Vercel/AI-SDK tools (isVercelTool() returns
   // false for Mastra Tool instances, see mastra/packages/core/src/tools/toolchecks.ts).
+  const wrapped = wrapExecute(
+    {
+      id: spec.id,
+      needsApproval: spec.needsApproval,
+      executionTimeoutMs: spec.executionTimeoutMs,
+    },
+    spec.execute as never,
+  );
   const tool = createTool({
     id: spec.id,
     description: spec.description,
@@ -38,7 +55,7 @@ export function defineCopilotTool<
     // Mastra's `execute` typing uses a conditional InferSchema<I> that collapses
     // to `unknown` under a `z.ZodTypeAny` generic; the runtime contract matches
     // exactly, so we widen here rather than pollute the authoring type.
-    execute: spec.execute as never,
+    execute: wrapped as never,
   });
   if (spec.rbac) registerToolPermission(tool, spec.rbac);
   // displayName has no Mastra equivalent — it is consumed only by our own
