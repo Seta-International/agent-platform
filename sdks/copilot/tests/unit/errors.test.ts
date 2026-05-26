@@ -1,42 +1,53 @@
 import { describe, expect, it } from 'vitest';
-import { ToolBreakerOpenError, ToolExecutionTimeoutError } from '../../src/errors';
+import {
+  CopilotToolError,
+  ToolBreakerOpenError,
+  ToolExecutionTimeoutError,
+} from '../../src/errors';
+
+describe('CopilotToolError', () => {
+  it('sets .message to userMessage so Mastra only sees the safe string', () => {
+    const e = new CopilotToolError({
+      code: 'NOT_FOUND',
+      retryable: false,
+      userMessage: 'Resource not found.',
+      internalDetail: 'row id=abc-123 missing from planner.tasks',
+      toolId: 'planner_getTask',
+    });
+    expect(e.message).toBe('Resource not found.');
+    expect(e.userMessage).toBe('Resource not found.');
+    expect(e.internalDetail).toBe('row id=abc-123 missing from planner.tasks');
+    expect(e.code).toBe('NOT_FOUND');
+    expect(e.retryable).toBe(false);
+    expect(e.toolId).toBe('planner_getTask');
+    expect(e.name).toBe('CopilotToolError');
+    expect(e).toBeInstanceOf(Error);
+  });
+});
 
 describe('ToolExecutionTimeoutError', () => {
-  it('carries toolId, timeoutMs, fixed code, and serializes to a tool-result-friendly payload', () => {
-    const err = new ToolExecutionTimeoutError('planner.searchTasksSemantic', 30_000);
-    expect(err).toBeInstanceOf(Error);
-    expect(err.name).toBe('ToolExecutionTimeoutError');
-    expect(err.code).toBe('tool_execution_timeout');
-    expect(err.toolId).toBe('planner.searchTasksSemantic');
-    expect(err.timeoutMs).toBe(30_000);
-    expect(err.message).toContain('planner.searchTasksSemantic');
-    expect(err.message).toContain('30000');
-    expect(err.toJSON()).toEqual({
-      ok: false,
-      code: 'tool_execution_timeout',
-      message: err.message,
-      toolId: 'planner.searchTasksSemantic',
-      timeoutMs: 30_000,
-    });
+  it('extends CopilotToolError with code TIMEOUT', () => {
+    const e = new ToolExecutionTimeoutError('planner_getTask', 30_000);
+    expect(e).toBeInstanceOf(CopilotToolError);
+    expect(e.code).toBe('TIMEOUT');
+    expect(e.retryable).toBe(true);
+    expect(e.toolId).toBe('planner_getTask');
+    expect(e.timeoutMs).toBe(30_000);
+    expect(e.message).toBe(e.userMessage);
+    expect(e.name).toBe('ToolExecutionTimeoutError');
   });
 });
 
 describe('ToolBreakerOpenError', () => {
-  it('carries toolId, openUntil ISO string, fixed code, and serializes', () => {
-    const openUntil = Date.parse('2026-05-26T10:00:00.000Z');
-    const err = new ToolBreakerOpenError('planner.assignTask', openUntil);
-    expect(err).toBeInstanceOf(Error);
-    expect(err.name).toBe('ToolBreakerOpenError');
-    expect(err.code).toBe('tool_breaker_open');
-    expect(err.toolId).toBe('planner.assignTask');
-    expect(err.openUntil).toBe(openUntil);
-    expect(err.message).toContain('planner.assignTask');
-    expect(err.toJSON()).toEqual({
-      ok: false,
-      code: 'tool_breaker_open',
-      message: err.message,
-      toolId: 'planner.assignTask',
-      openUntil: '2026-05-26T10:00:00.000Z',
-    });
+  it('extends CopilotToolError with code CIRCUIT_OPEN', () => {
+    const openUntil = Date.now() + 60_000;
+    const e = new ToolBreakerOpenError('planner_getTask', openUntil);
+    expect(e).toBeInstanceOf(CopilotToolError);
+    expect(e.code).toBe('CIRCUIT_OPEN');
+    expect(e.retryable).toBe(true);
+    expect(e.toolId).toBe('planner_getTask');
+    expect(e.openUntil).toBe(openUntil);
+    expect(e.message).toBe(e.userMessage);
+    expect(e.name).toBe('ToolBreakerOpenError');
   });
 });

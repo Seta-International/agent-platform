@@ -48,7 +48,7 @@ describe('defineCopilotTool — timeout integration', () => {
     await vi.advanceTimersByTimeAsync(30_000);
     await expect(p).rejects.toBeInstanceOf(ToolExecutionTimeoutError);
     await expect(p).rejects.toMatchObject({
-      code: 'tool_execution_timeout',
+      code: 'TIMEOUT',
       toolId: 'planner.searchTasksSemantic',
       timeoutMs: 30_000,
     });
