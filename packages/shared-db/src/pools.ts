@@ -31,7 +31,6 @@ export function initPools(cfg: PoolsConfig): Pools {
     web: new Pool({
       connectionString: cfg.databaseUrl,
       max: cfg.webMax ?? 15,
-      min: 2,
       connectionTimeoutMillis: 5_000,
       idleTimeoutMillis: 10_000,
       statement_timeout: webStmt,
@@ -39,7 +38,6 @@ export function initPools(cfg: PoolsConfig): Pools {
     worker: new Pool({
       connectionString: cfg.databaseUrl,
       max: cfg.workerMax ?? 20,
-      min: 2,
       connectionTimeoutMillis: 10_000,
       idleTimeoutMillis: 30_000,
       statement_timeout: workerStmt,
@@ -47,7 +45,6 @@ export function initPools(cfg: PoolsConfig): Pools {
     mastraState: new Pool({
       connectionString: cfg.databaseUrl,
       max: cfg.mastraStateMax ?? 5,
-      min: 1,
       connectionTimeoutMillis: 5_000,
       idleTimeoutMillis: 10_000,
       statement_timeout: webStmt,
