@@ -68,7 +68,9 @@ CopilotRegistry.registerSpecialist({
   description: "Manages the current user's profile, preferences, and notifications.",
   instructions: () =>
     'You manage the current user. Use identity_whoAmI to read profile, ' +
-    'identity_updateMyDisplayName (HITL) to rename. Always confirm before writes.',
+    'identity_updateMyDisplayName to rename — it surfaces a one-click approval card. ' +
+    'Call write tools directly when the user states intent; do NOT ask for ' +
+    'confirmation in chat first, the framework handles approval via the card.',
   tools: {
     identity_whoAmI: whoAmITool,
     identity_updateMyDisplayName: updateMyDisplayNameTool,
