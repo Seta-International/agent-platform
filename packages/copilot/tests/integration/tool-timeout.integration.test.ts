@@ -56,11 +56,11 @@ describe('tool execution timeout — integration smoke', () => {
     if (settled.ok) throw new Error('unreachable');
     expect(settled.err).toBeInstanceOf(ToolExecutionTimeoutError);
     const err = settled.err as ToolExecutionTimeoutError;
-    expect(err.toJSON()).toMatchObject({
-      code: 'tool_execution_timeout',
-      toolId: 'test.hanging',
-      timeoutMs: 500,
-    });
+    expect(err.code).toBe('TIMEOUT');
+    expect(err.toolId).toBe('test.hanging');
+    expect(err.timeoutMs).toBe(500);
+    expect(err.retryable).toBe(true);
+    expect(err.message).toBe(err.userMessage);
     expect(elapsed).toBeGreaterThanOrEqual(500);
     expect(elapsed).toBeLessThan(2_000);
   });
