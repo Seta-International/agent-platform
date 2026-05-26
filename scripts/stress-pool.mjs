@@ -72,7 +72,7 @@ try {
   const warmup = await fetch(`${SERVER_URL}/health/live`);
   if (!warmup.ok) throw new Error(`server returned ${warmup.status}`);
   console.log('  server reachable — starting stress...\n');
-} catch (err) {
+} catch (_err) {
   console.error(`\n  ERROR: cannot reach ${SERVER_URL}/health/live`);
   console.error(`  Is the server running? Start it with: pnpm --filter @seta/server dev\n`);
   process.exit(1);
@@ -90,4 +90,3 @@ console.log(`
   max time  : ${maxMs}ms
   rps       : ${(completed / DURATION_S).toFixed(1)}
 `);
-
