@@ -10,6 +10,12 @@
 
 **Spec:** `docs/superpowers/specs/2026-05-26-connection-pool-hardening-design.md`
 
+> **⚠️ Metrics backend not yet in stack.**
+> `infra/jaeger/config.yml` only has a `traces` pipeline — OTEL gauges and histograms will not appear in Jaeger.
+> The OTEL instrumentation added in Task 1 is correct and will emit metrics, but they need a consumer.
+> **Follow-up required (separate ticket):** Add Prometheus + Grafana to `compose.yml` with a `PrometheusMetricReader` in the OTEL SDK, or configure AWS CloudWatch Container Insights (OTLP-native) for production.
+> Until that work is done, AC item 1 and 2 (Jaeger visibility) cannot be verified end-to-end.
+
 ---
 
 ## File Map
