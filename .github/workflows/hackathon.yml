@@ -86,11 +86,17 @@ jobs:
           AWS_REGION:            ${{ env.AWS_REGION }}
           AWS_ACCESS_KEY_ID:     ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
+          APP_DOMAIN:            ${{ vars.APP_DOMAIN }}
+          POSTGRES_PASSWORD:     ${{ secrets.POSTGRES_PASSWORD }}
+          BETTER_AUTH_SECRET:    ${{ secrets.BETTER_AUTH_SECRET }}
+          CRYPTO_MASTER_KEY:     ${{ secrets.CRYPTO_LOCAL_MASTER_KEY }}
+          OPENAI_API_KEY:        ${{ secrets.OPENAI_API_KEY }}
+          ACME_EMAIL:            ${{ vars.ACME_EMAIL }}
         with:
           host:     ${{ vars.EC2_HOST }}
           username: ${{ vars.EC2_USER }}
           key:      ${{ secrets.EC2_SSH_PRIVATE_KEY }}
-          envs:     ECR_REGISTRY,ECR_REPOSITORY,IMAGE_TAG,AWS_REGION,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY
+          envs:     ECR_REGISTRY,ECR_REPOSITORY,IMAGE_TAG,AWS_REGION,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,APP_DOMAIN,POSTGRES_PASSWORD,BETTER_AUTH_SECRET,CRYPTO_MASTER_KEY,OPENAI_API_KEY,ACME_EMAIL
           script: |
             set -euo pipefail
             echo "=== Deploying tag: $IMAGE_TAG ==="
@@ -101,11 +107,37 @@ jobs:
             SERVER_IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY:server-$IMAGE_TAG"
             WEB_IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY:web-$IMAGE_TAG"
 
-            sed -i "s|PLATFORM_IMAGE_SERVER=.*|PLATFORM_IMAGE_SERVER=$SERVER_IMAGE|" /opt/seta/.env
-            sed -i "s|PLATFORM_IMAGE_WEB=.*|PLATFORM_IMAGE_WEB=$WEB_IMAGE|"         /opt/seta/.env
+            # Write /opt/seta/.env from GitHub secrets + variables
+            mkdir -p /opt/seta
+            cat > /opt/seta/.env <<EOF
+            NODE_ENV=production
+            PLATFORM_IMAGE_SERVER=$SERVER_IMAGE
+            PLATFORM_IMAGE_WEB=$WEB_IMAGE
+            PLATFORM_MODULES=*
+            PLATFORM_DOMAIN=$APP_DOMAIN
+            PLATFORM_ACME_EMAIL=$ACME_EMAIL
+            PLATFORM_TLS_MODE=letsencrypt
+            DATABASE_URL=postgres://seta:${POSTGRES_PASSWORD}@postgres:5432/seta
+            POSTGRES_USER=seta
+            POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+            POSTGRES_DB=seta
+            PORT=3000
+            PUBLIC_URL=https://$APP_DOMAIN
+            BETTER_AUTH_SECRET=$BETTER_AUTH_SECRET
+            SESSION_COOKIE_SAMESITE=strict
+            CORS_ORIGINS=https://$APP_DOMAIN
+            OPENAI_API_KEY=$OPENAI_API_KEY
+            CRYPTO_KEY_PROVIDER=env
+            CRYPTO_LOCAL_MASTER_KEY=$CRYPTO_MASTER_KEY
+            EVENTS_RETENTION_DAYS=30
+            DLQ_ALERT_THRESHOLD=100
+            KNOWLEDGE_AV_REQUIRED=false
+            MAILER_DEFAULT_TRANSPORT=dev-stub
+            MAILER_DEFAULT_SENDER=noreply@$APP_DOMAIN
+            EOF
+            chmod 600 /opt/seta/.env
 
             cd /opt/platform
-            # Sync compose.yml and traefik configs from repo
             REPO_RAW="https://raw.githubusercontent.com/Seta-International/agent-platform/main"
             curl -fsSL "$REPO_RAW/compose.yml" -o compose.yml
 
