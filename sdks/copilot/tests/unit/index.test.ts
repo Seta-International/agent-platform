@@ -7,6 +7,10 @@ describe('sdk index re-exports', () => {
     expect(typeof sdk.CopilotRegistry.registerSpecialist).toBe('function');
     expect(typeof sdk.CopilotRegistry.freeze).toBe('function');
   });
+
+  it('exports CopilotToolError', () => {
+    expect(typeof sdk.CopilotToolError).toBe('function');
+  });
 });
 
 describe('barrel exports for tool-execution timeout', () => {

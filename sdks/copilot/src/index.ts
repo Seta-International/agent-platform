@@ -22,7 +22,12 @@ export {
 } from './circuit-breaker.ts';
 export { defineCrossModuleReadAsTool } from './cross-module-read-as-tool.ts';
 export { defineCopilotTool } from './define-copilot-tool.ts';
-export { ToolBreakerOpenError, ToolExecutionTimeoutError } from './errors.ts';
+export {
+  CopilotToolError,
+  type CopilotToolErrorCode,
+  ToolBreakerOpenError,
+  ToolExecutionTimeoutError,
+} from './errors.ts';
 export {
   __resetExecutionPolicyForTests,
   type ExecutionPolicy,
