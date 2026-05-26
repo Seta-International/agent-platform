@@ -118,6 +118,31 @@ resource "aws_iam_role_policy" "backup_s3" {
   })
 }
 
+resource "aws_iam_role_policy" "ecr_pull" {
+  name = "${local.prefix}-ecr-pull"
+  role = aws_iam_role.ec2.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = ["ecr:GetAuthorizationToken"]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage",
+          "ecr:BatchCheckLayerAvailability"
+        ]
+        Resource = "arn:aws:ecr:${var.region}:*:repository/${var.ecr_repository}"
+      }
+    ]
+  })
+}
+
 resource "aws_iam_instance_profile" "ec2" {
   name = "${local.prefix}-ec2-profile"
   role = aws_iam_role.ec2.name
@@ -186,7 +211,9 @@ resource "aws_instance" "app" {
   }
 
   user_data = templatefile("${path.module}/user_data.sh", {
-    app_version          = var.app_version
+    ecr_registry         = var.ecr_registry
+    ecr_repository       = var.ecr_repository
+    aws_region           = var.region
     domain               = var.domain
     acme_email           = var.acme_email
     postgres_password    = var.postgres_password
@@ -194,7 +221,6 @@ resource "aws_instance" "app" {
     openai_api_key       = var.openai_api_key
     copilot_model        = var.copilot_model
     backup_bucket        = aws_s3_bucket.backup.bucket
-    aws_region           = var.region
     jaeger_auth_user     = var.jaeger_auth_user
     jaeger_auth_password = var.jaeger_auth_password
   })

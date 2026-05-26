@@ -9,13 +9,13 @@ concurrency:
 
 permissions:
   contents: write
-  packages: write
   id-token: write
   attestations: write
 
 env:
-  REGISTRY: ghcr.io
-  ORG: ${{ vars.PLATFORM_GH_ORG || github.repository_owner }}
+  ECR_REGISTRY:   ${{ vars.ECR_REGISTRY }}
+  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+  AWS_REGION:     ${{ vars.AWS_REGION }}
 
 jobs:
   metadata:
@@ -66,24 +66,32 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.1.1
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ env.AWS_REGION }}
+
       - name: Build & push
         id: build
         uses: ./.github/actions/build-images
         with:
           image: ${{ matrix.image.name }}
           dockerfile: ${{ matrix.image.dockerfile }}
+          ecr-registry: ${{ env.ECR_REGISTRY }}
           tags: |
-            ${{ env.REGISTRY }}/${{ needs.metadata.outputs.org_lc }}/${{ matrix.image.name }}:${{ needs.metadata.outputs.version }}
-            ${{ env.REGISTRY }}/${{ needs.metadata.outputs.org_lc }}/${{ matrix.image.name }}:${{ needs.metadata.outputs.minor }}
-            ${{ env.REGISTRY }}/${{ needs.metadata.outputs.org_lc }}/${{ matrix.image.name }}:${{ needs.metadata.outputs.major }}
-            ${{ env.REGISTRY }}/${{ needs.metadata.outputs.org_lc }}/${{ matrix.image.name }}:latest
+            ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ matrix.image.name == 'seta-server' && 'server' || 'web' }}-${{ needs.metadata.outputs.version }}
+            ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ matrix.image.name == 'seta-server' && 'server' || 'web' }}-${{ needs.metadata.outputs.minor }}
+            ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ matrix.image.name == 'seta-server' && 'server' || 'web' }}-${{ needs.metadata.outputs.major }}
+            ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ matrix.image.name == 'seta-server' && 'server' || 'web' }}-latest
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.version=${{ needs.metadata.outputs.version }}
             org.opencontainers.image.title=${{ matrix.image.name }}
           push: true
-          cache-ref: ${{ env.REGISTRY }}/${{ needs.metadata.outputs.org_lc }}/${{ matrix.image.name }}:buildcache
+          cache-ref: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ matrix.image.name == 'seta-server' && 'server' || 'web' }}-buildcache
 
       - name: Collect digest per image
         id: collect
@@ -100,12 +108,21 @@ jobs:
     needs: [metadata, build]
     runs-on: ubuntu-latest
     steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.1.1
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ env.AWS_REGION }}
+
       - name: Pull and run health subcommand
         shell: bash
         run: |
           set -euo pipefail
-          IMG="${{ env.REGISTRY }}/${{ needs.metadata.outputs.org_lc }}/seta-server@${{ needs.build.outputs.server_digest }}"
+          IMG="${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:server-${{ needs.metadata.outputs.version }}"
           echo "smoke target: $IMG"
+          aws ecr get-login-password --region "${{ env.AWS_REGION }}" \
+            | docker login --username AWS --password-stdin "${{ env.ECR_REGISTRY }}"
           docker pull "$IMG"
           docker run --rm "$IMG" health
 
@@ -114,10 +131,17 @@ jobs:
     needs: [metadata, build]
     runs-on: ubuntu-latest
     steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.1.1
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ env.AWS_REGION }}
+
       - name: Scan seta-server (gating)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ needs.metadata.outputs.org_lc }}/seta-server@${{ needs.build.outputs.server_digest }}
+          image-ref: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:server-${{ needs.metadata.outputs.version }}
           format: table
           severity: CRITICAL,HIGH
           exit-code: '1'
@@ -128,7 +152,7 @@ jobs:
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         continue-on-error: true
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ needs.metadata.outputs.org_lc }}/seta-web@${{ needs.build.outputs.web_digest }}
+          image-ref: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:web-${{ needs.metadata.outputs.version }}
           format: table
           severity: CRITICAL,HIGH
           exit-code: '1'
@@ -141,26 +165,28 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
       id-token: write
     strategy:
       fail-fast: true
       matrix:
         image:
-          - { name: seta-server, digest_ref: server_digest }
-          - { name: seta-web,    digest_ref: web_digest }
+          - { name: seta-server, prefix: server, digest_ref: server_digest }
+          - { name: seta-web,    prefix: web,    digest_ref: web_digest }
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Install cosign
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
 
-      - name: Log in to GHCR
-        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.1.1
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
+          aws-access-key-id:     ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2.1.5
 
       - name: Resolve digest
         id: digest
@@ -177,80 +203,27 @@ jobs:
         env:
           COSIGN_EXPERIMENTAL: '1'
         run: |
-          IMG="${{ env.REGISTRY }}/${{ needs.metadata.outputs.org_lc }}/${{ matrix.image.name }}@${{ steps.digest.outputs.value }}"
+          IMG="${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ matrix.image.prefix }}-${{ needs.metadata.outputs.version }}"
           cosign sign --yes "$IMG"
 
       - name: Generate SPDX SBOM and attest
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
         with:
-          image: ${{ env.REGISTRY }}/${{ needs.metadata.outputs.org_lc }}/${{ matrix.image.name }}@${{ steps.digest.outputs.value }}
+          image: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ matrix.image.prefix }}-${{ needs.metadata.outputs.version }}
           format: spdx-json
           output-file: sbom-${{ matrix.image.name }}.spdx.json
           upload-artifact: true
-          registry-username: ${{ github.actor }}
-          registry-password: ${{ github.token }}
 
       - name: Attest SBOM with cosign
         shell: bash
         env:
           COSIGN_EXPERIMENTAL: '1'
         run: |
-          IMG="${{ env.REGISTRY }}/${{ needs.metadata.outputs.org_lc }}/${{ matrix.image.name }}@${{ steps.digest.outputs.value }}"
+          IMG="${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ matrix.image.prefix }}-${{ needs.metadata.outputs.version }}"
           cosign attest --yes \
             --predicate "sbom-${{ matrix.image.name }}.spdx.json" \
             --type spdxjson \
             "$IMG"
-
-  ecr-mirror:
-    name: Mirror seta-server to ECR
-    if: vars.PLATFORM_AWS_MIRROR == 'true'
-    needs: [metadata, build, sign]
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@d979d5b3a71173a29b74b5b88418bfda9437d885 # v6.1.1
-        with:
-          role-to-assume: ${{ vars.PLATFORM_AWS_ROLE_ARN }}
-          aws-region: ${{ vars.PLATFORM_AWS_REGION }}
-          role-session-name: gha-release-${{ github.run_id }}
-
-      - name: Log in to ECR
-        shell: bash
-        run: |
-          aws ecr get-login-password --region "${{ vars.PLATFORM_AWS_REGION }}" \
-            | docker login --username AWS --password-stdin "$(echo '${{ vars.PLATFORM_ECR_SERVER_URI }}' | cut -d/ -f1)"
-
-      - name: Log in to GHCR (pull source)
-        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
-
-      - name: Set up Buildx (for multi-arch copy)
-        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4
-
-      - name: Copy manifest list from GHCR to ECR
-        shell: bash
-        env:
-          SRC: ${{ env.REGISTRY }}/${{ needs.metadata.outputs.org_lc }}/seta-server@${{ needs.build.outputs.server_digest }}
-          DST_BASE: ${{ vars.PLATFORM_ECR_SERVER_URI }}
-          V: ${{ needs.metadata.outputs.version }}
-          MINOR: ${{ needs.metadata.outputs.minor }}
-          MAJOR: ${{ needs.metadata.outputs.major }}
-        run: |
-          set -euo pipefail
-          docker buildx imagetools create \
-            --tag "${DST_BASE}:${V}" \
-            --tag "${DST_BASE}:${MINOR}" \
-            --tag "${DST_BASE}:${MAJOR}" \
-            --tag "${DST_BASE}:latest" \
-            "${SRC}"
 
   web-s3:
     name: Sync web bundle to S3 + invalidate CloudFront
@@ -328,15 +301,15 @@ jobs:
         run: |
           set -euo pipefail
           cat > release-notes.md <<EOF
-          ## Images
+          ## Images (ECR)
 
-          - \`ghcr.io/${{ needs.metadata.outputs.org_lc }}/seta-server:${VERSION}\` (digest: \`${SERVER_DIGEST}\`)
-          - \`ghcr.io/${{ needs.metadata.outputs.org_lc }}/seta-web:${VERSION}\` (digest: \`${WEB_DIGEST}\`)
+          - \`${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:server-${VERSION}\` (digest: \`${SERVER_DIGEST}\`)
+          - \`${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:web-${VERSION}\` (digest: \`${WEB_DIGEST}\`)
 
           ## Verification
 
           \`\`\`
-          cosign verify ghcr.io/${{ needs.metadata.outputs.org_lc }}/seta-server:${VERSION} \\
+          cosign verify ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:server-${VERSION} \\
             --certificate-identity-regexp='^https://github.com/${{ github.repository }}/\\.github/workflows/release\\.yml@refs/tags/v.*\$' \\
             --certificate-oidc-issuer='https://token.actions.githubusercontent.com'
           \`\`\`

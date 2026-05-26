@@ -43,9 +43,8 @@ systemctl enable --now docker
 mkdir -p /opt/platform
 cat > /opt/seta/.env <<'ENV'
 NODE_ENV=production
-PLATFORM_VERSION=${app_version}
-PLATFORM_IMAGE_SERVER=ghcr.io/Seta-International/seta-server:${app_version}
-PLATFORM_IMAGE_WEB=ghcr.io/Seta-International/seta-web:${app_version}
+PLATFORM_IMAGE_SERVER=${ecr_registry}/${ecr_repository}:server-latest
+PLATFORM_IMAGE_WEB=${ecr_registry}/${ecr_repository}:web-latest
 PLATFORM_MODULES=*
 PLATFORM_DOMAIN=${domain}
 PLATFORM_ACME_EMAIL=${acme_email}
@@ -99,20 +98,22 @@ printf '%s:%s\n' "${jaeger_auth_user}" "$JAEGER_HASH" \
   > /opt/platform/infra/traefik/jaeger-auth
 chmod 600 /opt/platform/infra/traefik/jaeger-auth
 
-# ── 5. Pull images + start stack ─────────────────────────────────────────────
+# ── 5. Login to ECR then pull images + start stack ──────────────────────────
 cd /opt/platform
-docker compose --env-file .env pull --quiet
-docker compose --env-file .env up -d
+aws ecr get-login-password --region ${aws_region} \
+  | docker login --username AWS --password-stdin ${ecr_registry}
+docker compose --env-file /opt/seta/.env pull --quiet
+docker compose --env-file /opt/seta/.env up -d
 
 # ── 6. Wait for Postgres then run migrations ──────────────────────────────────
 echo "Waiting for postgres to be healthy..."
 for i in $(seq 1 30); do
-  docker compose --env-file .env exec -T postgres \
+  docker compose --env-file /opt/seta/.env exec -T postgres \
     pg_isready -U seta -d seta -q && break
   sleep 3
 done
 
-docker compose --env-file .env run --rm migrator
+docker compose --env-file /opt/seta/.env run --rm migrator
 
 echo "=== Stack up and migrated ==="
 

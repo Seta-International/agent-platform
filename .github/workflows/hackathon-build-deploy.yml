@@ -1,0 +1,116 @@
+name: Hackathon — Build & Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Image tag (default: short SHA of HEAD)'
+        required: false
+        default: ''
+
+concurrency:
+  group: hackathon-deploy
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION:     ap-southeast-1
+  ECR_REGISTRY:   283236068517.dkr.ecr.ap-southeast-1.amazonaws.com
+  ECR_REPOSITORY: hackathon-asset
+
+jobs:
+  build-and-deploy:
+    name: Build → ECR → EC2
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - name: Compute image tag
+        id: tag
+        run: |
+          INPUT="${{ github.event.inputs.tag }}"
+          SHA="${GITHUB_SHA::12}"
+          echo "value=${INPUT:-$SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.1.1
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2.1.5
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4.0.0
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v4.1.0
+
+      - name: Build & push seta-server
+        uses: docker/build-push-action@v7.2.0
+        with:
+          context: .
+          file:      infra/docker/server.Dockerfile
+          platforms: linux/arm64
+          push: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:server-${{ steps.tag.outputs.value }}
+            ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:server-latest
+          cache-from: type=registry,ref=${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:server-buildcache
+          cache-to:   type=registry,ref=${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:server-buildcache,mode=max
+
+      - name: Build & push seta-web
+        uses: docker/build-push-action@v7.2.0
+        with:
+          context: .
+          file:      infra/docker/web.Dockerfile
+          platforms: linux/arm64
+          push: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:web-${{ steps.tag.outputs.value }}
+            ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:web-latest
+          cache-from: type=registry,ref=${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:web-buildcache
+          cache-to:   type=registry,ref=${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:web-buildcache,mode=max
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          ECR_REGISTRY:          ${{ env.ECR_REGISTRY }}
+          ECR_REPOSITORY:        ${{ env.ECR_REPOSITORY }}
+          IMAGE_TAG:             ${{ steps.tag.outputs.value }}
+          AWS_REGION:            ${{ env.AWS_REGION }}
+          AWS_ACCESS_KEY_ID:     ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
+        with:
+          host:     ${{ vars.EC2_HOST }}
+          username: ${{ vars.EC2_USER }}
+          key:      ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          envs:     ECR_REGISTRY,ECR_REPOSITORY,IMAGE_TAG,AWS_REGION,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY
+          script: |
+            set -euo pipefail
+            echo "=== Deploying tag: $IMAGE_TAG ==="
+
+            aws ecr get-login-password --region "$AWS_REGION" \
+              | docker login --username AWS --password-stdin "$ECR_REGISTRY"
+
+            SERVER_IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY:server-$IMAGE_TAG"
+            WEB_IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY:web-$IMAGE_TAG"
+
+            sed -i "s|PLATFORM_IMAGE_SERVER=.*|PLATFORM_IMAGE_SERVER=$SERVER_IMAGE|" /opt/seta/.env
+            sed -i "s|PLATFORM_IMAGE_WEB=.*|PLATFORM_IMAGE_WEB=$WEB_IMAGE|"         /opt/seta/.env
+
+            cd /opt/platform
+            # Sync compose.yml and traefik configs from repo
+            REPO_RAW="https://raw.githubusercontent.com/Seta-International/agent-platform/main"
+            curl -fsSL "$REPO_RAW/compose.yml" -o compose.yml
+
+            docker compose --env-file /opt/seta/.env pull server web worker
+            docker compose --env-file /opt/seta/.env up -d --no-deps --remove-orphans server web worker
+            docker compose --env-file /opt/seta/.env run --rm migrator
+
+            echo "=== Deploy complete: $IMAGE_TAG ==="

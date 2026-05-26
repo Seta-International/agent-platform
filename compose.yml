@@ -60,7 +60,7 @@ services:
       - seta-edge
 
   web:
-    image: ${PLATFORM_IMAGE_WEB:-ghcr.io/Seta-International/platform-web:${PLATFORM_VERSION:-latest}}
+    image: ${PLATFORM_IMAGE_WEB:-${ECR_REGISTRY}/${ECR_REPOSITORY}:web-${PLATFORM_VERSION:-latest}}
     restart: unless-stopped
     networks:
       - seta-edge
@@ -71,7 +71,7 @@ services:
       - /var/run
 
   server:
-    image: ${PLATFORM_IMAGE_SERVER:-ghcr.io/Seta-International/platform-server:${PLATFORM_VERSION:-latest}}
+    image: ${PLATFORM_IMAGE_SERVER:-${ECR_REGISTRY}/${ECR_REPOSITORY}:server-${PLATFORM_VERSION:-latest}}
     restart: unless-stopped
     command: ["serve"]
     environment:
@@ -96,6 +96,7 @@ services:
       CRYPTO_LOCAL_KEYS: ${CRYPTO_LOCAL_KEYS:-}
       CRYPTO_LOCAL_PRIMARY_KID: ${CRYPTO_LOCAL_PRIMARY_KID:-}
       AWS_REGION: ${AWS_REGION:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     networks:
       - seta-edge
       - seta-internal
@@ -115,7 +116,7 @@ services:
       - /tmp
 
   worker:
-    image: ${PLATFORM_IMAGE_SERVER:-ghcr.io/Seta-International/platform-server:${PLATFORM_VERSION:-latest}}
+    image: ${PLATFORM_IMAGE_SERVER:-${ECR_REGISTRY}/${ECR_REPOSITORY}:server-${PLATFORM_VERSION:-latest}}
     restart: unless-stopped
     command: ["worker"]
     environment:
@@ -135,6 +136,7 @@ services:
       CRYPTO_LOCAL_KEYS: ${CRYPTO_LOCAL_KEYS:-}
       CRYPTO_LOCAL_PRIMARY_KID: ${CRYPTO_LOCAL_PRIMARY_KID:-}
       AWS_REGION: ${AWS_REGION:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     networks:
       - seta-internal
     depends_on:
@@ -164,7 +166,7 @@ services:
       retries: 10
 
   migrator:
-    image: ${PLATFORM_IMAGE_SERVER:-ghcr.io/Seta-International/platform-server:${PLATFORM_VERSION:-latest}}
+    image: ${PLATFORM_IMAGE_SERVER:-${ECR_REGISTRY}/${ECR_REPOSITORY}:server-${PLATFORM_VERSION:-latest}}
     command: ["migrate"]
     environment:
       DATABASE_URL: ${DATABASE_URL}

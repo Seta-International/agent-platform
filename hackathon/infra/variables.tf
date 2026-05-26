@@ -62,10 +62,14 @@ variable "allowed_https_cidrs" {
 
 # ── App ───────────────────────────────────────────────────────────────────────
 
-variable "app_version" {
-  description = "Docker image tag to pull from ghcr.io/Seta-International/seta-server and seta-web."
+variable "ecr_registry" {
+  description = "ECR registry hostname (e.g. YOUR_ACCOUNT_ID.dkr.ecr.YOUR_REGION.amazonaws.com)."
   type        = string
-  default     = "latest"
+}
+
+variable "ecr_repository" {
+  description = "ECR repository name that holds the server and web images."
+  type        = string
 }
 
 variable "domain" {
