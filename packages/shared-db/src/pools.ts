@@ -38,7 +38,10 @@ export function initPools(cfg: PoolsConfig): Pools {
     worker: new Pool({
       connectionString: cfg.databaseUrl,
       max: cfg.workerMax ?? 20,
-      connectionTimeoutMillis: 10_000,
+      // No connectionTimeoutMillis: graphile-worker holds connections for the
+      // duration of each job (concurrency slots). A timeout here would kill
+      // the process when the pool is under load. Jobs use statement_timeout
+      // to bound individual queries instead.
       idleTimeoutMillis: 30_000,
       statement_timeout: workerStmt,
     }),
