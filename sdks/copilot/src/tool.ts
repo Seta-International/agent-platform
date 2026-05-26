@@ -44,10 +44,13 @@ export interface CopilotToolSpec<
         ctx?: { requestContext?: Record<string, unknown>; workspace?: unknown },
       ) => boolean | Promise<boolean>);
   /**
-   * Schema for the payload sent when the tool calls `ctx.agent.suspend(payload)`
-   * (or `ctx.workflow.suspend(...)`). Use this to surface a typed HITL card to
-   * the client — Mastra validates the payload against this schema before
-   * emitting the `tool-call-approval` stream chunk.
+   * Schema for the payload of `ctx.agent.suspend(payload)` /
+   * `ctx.workflow.suspend(payload)`. Mastra validates the suspended payload
+   * against this schema before pausing execution. (Note: this does not by
+   * itself cause Mastra to emit a `tool-call-approval` chunk — that chunk is
+   * emitted by the per-tool approval gate, set via `needsApproval: true` on
+   * this spec, which `defineCopilotTool` translates to Mastra's native
+   * `requireApproval` field.)
    */
   suspendSchema?: S;
   /**
