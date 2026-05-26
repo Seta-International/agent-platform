@@ -16,9 +16,9 @@ permissions:
   contents: read
 
 env:
-  AWS_REGION:     ap-southeast-1
-  ECR_REGISTRY:   283236068517.dkr.ecr.ap-southeast-1.amazonaws.com
-  ECR_REPOSITORY: hackathon-asset
+  AWS_REGION:     ${{ vars.AWS_REGION }}
+  ECR_REGISTRY:   ${{ vars.ECR_REGISTRY }}
+  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
 
 jobs:
   build-and-deploy:
