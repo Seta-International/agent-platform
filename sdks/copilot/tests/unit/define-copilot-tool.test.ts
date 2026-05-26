@@ -53,6 +53,19 @@ describe('defineCopilotTool', () => {
     expect(ra).toBe(predicate);
   });
 
+  it('accepts a numeric executionTimeoutMs and produces a Mastra tool with displayName intact', () => {
+    const tool = defineCopilotTool({
+      id: 'x_slow',
+      name: 'Slow Tool',
+      description: 'Takes a while.',
+      input: z.object({}),
+      output: z.object({ ok: z.boolean() }),
+      executionTimeoutMs: 120_000,
+      execute: async () => ({ ok: true }),
+    });
+    expect((tool as unknown as { displayName?: string }).displayName).toBe('Slow Tool');
+  });
+
   it('passes suspendSchema + resumeSchema through to the Mastra tool', () => {
     const suspendSchema = z.object({ card: z.string() });
     const resumeSchema = z.object({ choice: z.enum(['a', 'b']) });
