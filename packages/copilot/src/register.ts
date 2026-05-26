@@ -82,6 +82,12 @@ export function registerCopilot(deps: {
   void mastra.startWorkers();
 
   const supervisor = buildSupervisorTree({ mastra });
+  // Register the supervisor on Mastra so its agent instance gets the `#mastra`
+  // back-reference. Without this, `agent.resumeStream()` (called by the chat
+  // /approve route to resume a HITL-gated tool) throws
+  // AGENT_RESUME_NO_SNAPSHOT_FOUND because `this.#mastra?.getStorage()`
+  // returns undefined and the agentic-loop workflow snapshot can't be loaded.
+  mastra.addAgent(supervisor);
 
   return {
     attach(app) {

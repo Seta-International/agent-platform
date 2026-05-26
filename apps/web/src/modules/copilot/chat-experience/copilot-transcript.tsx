@@ -49,14 +49,24 @@ function ReasoningPart({ text, status }: PartProps) {
 interface ChainOfThoughtProps {
   running: boolean;
   count: number;
+  indices: readonly number[];
   children: ReactNode;
 }
 
-function ChainOfThought({ running, count, children }: ChainOfThoughtProps) {
+function ChainOfThought({ running, count, indices, children }: ChainOfThoughtProps) {
+  // Keep the group expanded while any inner tool-call is awaiting user approval
+  // (Mastra-native `requireApproval` HITL gate). Otherwise the agent flipping to
+  // 'complete' collapses the group and hides the approval card until the user
+  // expands it manually.
+  const hasPendingAction = useAuiState((s) => {
+    if (!indices.length) return false;
+    const content = s.message.content as ReadonlyArray<{ status?: { type?: string } }>;
+    return indices.some((i) => content[i]?.status?.type === 'requires-action');
+  });
   return (
     <details
       className="group/cot my-2 rounded-lg border border-hairline bg-surface-2 px-3 py-2 text-caption"
-      open={running}
+      open={running || hasPendingAction}
     >
       <summary className="cursor-pointer select-none list-none text-ink-subtle">
         <span className="inline-flex items-center gap-1.5">
@@ -196,8 +206,9 @@ function makeAssistantMessage(authorLabel: string) {
     switch (part.type) {
       case 'group-thought': {
         const running = part.status?.type === 'running';
+        const indices = part.indices ?? [];
         return (
-          <ChainOfThought running={running} count={part.indices?.length ?? 0}>
+          <ChainOfThought running={running} count={indices.length} indices={indices}>
             {children}
           </ChainOfThought>
         );
