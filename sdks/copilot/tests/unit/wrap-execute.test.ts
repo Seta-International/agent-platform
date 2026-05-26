@@ -2,7 +2,11 @@ import { RequestContext } from '@mastra/core/request-context';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { __resetBreakerEmitterForTests } from '../../src/breaker-events';
 import { __resetBreakersForTests } from '../../src/circuit-breaker';
-import { ToolBreakerOpenError, ToolExecutionTimeoutError } from '../../src/errors';
+import {
+  CopilotToolError,
+  ToolBreakerOpenError,
+  ToolExecutionTimeoutError,
+} from '../../src/errors';
 import { __resetExecutionPolicyForTests } from '../../src/execution-policy';
 import { wrapExecute } from '../../src/wrap-execute';
 
@@ -154,7 +158,7 @@ describe('wrapExecute', () => {
       throw new Error('boom');
     });
     for (let i = 0; i < 3; i++) {
-      await expect(wrapped({}, ctxFor(TENANT_A))).rejects.toThrow('boom');
+      await expect(wrapped({}, ctxFor(TENANT_A))).rejects.toBeInstanceOf(CopilotToolError);
     }
     const calls = vi.fn();
     const probe = wrapExecute({ id: 't_throws', needsApproval: false }, async () => {
@@ -209,7 +213,7 @@ describe('wrapExecute', () => {
       throw new Error('boom');
     });
     for (let i = 0; i < 3; i++) {
-      await expect(failing({}, ctxFor(TENANT_A))).rejects.toThrow('boom');
+      await expect(failing({}, ctxFor(TENANT_A))).rejects.toBeInstanceOf(CopilotToolError);
     }
     // Advance past the open window (default 60s) so the breaker is half-open.
     vi.advanceTimersByTime(60_000);
@@ -217,8 +221,8 @@ describe('wrapExecute', () => {
     const ok = wrapExecute({ id: 't_recover', needsApproval: false }, async () => ({ ok: true }));
     await expect(ok({}, ctxFor(TENANT_A))).resolves.toEqual({ ok: true });
     // Two more failures must not re-open immediately (counter was reset).
-    await expect(failing({}, ctxFor(TENANT_A))).rejects.toThrow('boom');
-    await expect(failing({}, ctxFor(TENANT_A))).rejects.toThrow('boom');
+    await expect(failing({}, ctxFor(TENANT_A))).rejects.toBeInstanceOf(CopilotToolError);
+    await expect(failing({}, ctxFor(TENANT_A))).rejects.toBeInstanceOf(CopilotToolError);
     await expect(ok({}, ctxFor(TENANT_A))).resolves.toEqual({ ok: true });
   });
 
@@ -227,6 +231,8 @@ describe('wrapExecute', () => {
       ok: true,
     }));
     const rc = new RequestContext();
-    await expect(wrapped({}, { requestContext: rc } as never)).rejects.toThrow(/tenant id/i);
+    await expect(wrapped({}, { requestContext: rc } as never)).rejects.toMatchObject({
+      internalDetail: expect.stringMatching(/tenant id/i),
+    });
   });
 });
