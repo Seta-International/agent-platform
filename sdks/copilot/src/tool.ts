@@ -27,7 +27,22 @@ export interface CopilotToolSpec<
   input: I;
   output: O;
   rbac?: string;
-  needsApproval?: boolean;
+  /**
+   * Whether the tool requires explicit user approval before execution. Pass a
+   * boolean for static behaviour, or an async predicate evaluated per-call to
+   * gate conditionally (e.g. only require approval for non-dry-run inputs).
+   *
+   * The value is passed through unchanged to `createTool({ requireApproval })`.
+   * Mastra's tool-builder reads `Tool.requireApproval` (see
+   * `mastra/packages/core/src/tools/types.ts:529` and `tool.ts:130`); the
+   * agent loop emits a `tool-call-approval` stream chunk on each gated call.
+   */
+  needsApproval?:
+    | boolean
+    | ((
+        input: z.infer<I>,
+        ctx?: { requestContext?: Record<string, unknown>; workspace?: unknown },
+      ) => boolean | Promise<boolean>);
   /**
    * Schema for the payload sent when the tool calls `ctx.agent.suspend(payload)`
    * (or `ctx.workflow.suspend(...)`). Use this to surface a typed HITL card to
