@@ -9,6 +9,7 @@ import type { Hono } from 'hono';
 import type { Pool } from 'pg';
 import * as schema from './backend/db/schema.ts';
 import { getPendingAssignRunIdForTask } from './backend/domain/get-pending-assign-run-for-task.ts';
+import { initClassifier } from './backend/domain-classifier.ts';
 import { initCopilotRegistry } from './backend/init-registry.ts';
 import { type ModelTier, resolveModel } from './backend/model-registry.ts';
 import { registerCopilotRoutes } from './backend/routes.ts';
@@ -63,6 +64,7 @@ export function registerCopilot(deps: {
     }
   }
   initCopilotRegistry();
+  void initClassifier();
 
   for (const spec of CopilotRegistry.snapshot().workflows) {
     const wf = spec.workflow as AnyWorkflow;
@@ -81,11 +83,16 @@ export function registerCopilot(deps: {
   registerPendingAssignReader(getPendingAssignRunIdForTask);
   void mastra.startWorkers();
 
-  const supervisor = buildSupervisorTree({ mastra });
+  const { topSupervisor, domainAgents } = buildSupervisorTree({ mastra });
 
   return {
     attach(app) {
-      registerCopilotRoutes(app as never, { supervisor, mastra, pool: deps.pool });
+      registerCopilotRoutes(app as never, {
+        supervisor: topSupervisor,
+        domainAgents,
+        mastra,
+        pool: deps.pool,
+      });
     },
     mastra,
   };
