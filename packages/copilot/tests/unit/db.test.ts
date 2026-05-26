@@ -1,39 +1,49 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Mock shared-db so no real Pool is needed
+// Stable Pool reference — must not change between getPool() calls or the
+// pool-identity cache invalidates on every access.
+const mockPool = { connect: vi.fn(), on: vi.fn() };
 vi.mock('@seta/shared-db', () => ({
-  getPool: vi.fn(() => ({ connect: vi.fn(), on: vi.fn() })),
+  getPool: vi.fn(() => mockPool),
 }));
 
-// Mock drizzle so it returns a stable object per call
-const mockDrizzleInstance = { _tag: 'drizzle' };
+let drizzleCallCount = 0;
 vi.mock('drizzle-orm/node-postgres', () => ({
-  drizzle: vi.fn(() => mockDrizzleInstance),
+  drizzle: vi.fn(() => ({ _tag: 'drizzle', n: ++drizzleCallCount })),
 }));
 
 describe('copilotDb caching', () => {
   beforeEach(async () => {
-    // Reset call counts and the cached instance between tests
     vi.clearAllMocks();
+    drizzleCallCount = 0;
     const { resetCopilotDb } = await import('../../src/backend/db/index.ts');
     resetCopilotDb();
   });
 
   it('returns the same instance on repeated calls', async () => {
     const { copilotDb } = await import('../../src/backend/db/index.ts');
-    const a = copilotDb();
-    const b = copilotDb();
-    expect(a).toBe(b);
+    expect(copilotDb()).toBe(copilotDb());
   });
 
-  it('resetCopilotDb clears the cache — next call returns a new instance', async () => {
+  it('resetCopilotDb clears the cache — next call rebuilds drizzle', async () => {
     const { copilotDb, resetCopilotDb } = await import('../../src/backend/db/index.ts');
     const { drizzle } = await import('drizzle-orm/node-postgres');
     const a = copilotDb();
     resetCopilotDb();
     const b = copilotDb();
     expect(drizzle).toHaveBeenCalledTimes(2);
-    // Both are the mock instance but drizzle() called again after reset
-    expect(a).toBe(b);
+    expect(a).not.toBe(b);
+  });
+
+  it('rebuilds when getPool returns a different Pool (post init/close cycle)', async () => {
+    const sharedDb = await import('@seta/shared-db');
+    const { copilotDb } = await import('../../src/backend/db/index.ts');
+    const { drizzle } = await import('drizzle-orm/node-postgres');
+    const a = copilotDb();
+    const newPool = { connect: vi.fn(), on: vi.fn() };
+    vi.mocked(sharedDb.getPool).mockReturnValueOnce(newPool as never);
+    const b = copilotDb();
+    expect(drizzle).toHaveBeenCalledTimes(2);
+    expect(a).not.toBe(b);
   });
 });
