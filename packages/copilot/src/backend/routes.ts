@@ -179,6 +179,7 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
       type: 'user' as const,
       user_id: session.user_id,
     });
+    requestContext.set('tenant_id', session.tenant_id);
 
     const result = await deps.supervisor.stream(
       effectiveMessages as never,
@@ -562,6 +563,7 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
       type: 'user' as const,
       user_id: session.user_id,
     });
+    requestContext.set('tenant_id', session.tenant_id);
 
     const resourceId = session.user_id;
     const resumeOpts = {
