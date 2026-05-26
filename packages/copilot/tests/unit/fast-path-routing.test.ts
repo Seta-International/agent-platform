@@ -41,7 +41,9 @@ const domainAgents = {
 describe('selectAgent', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('full 3-hop when no threadId', async () => {
+  // ─── No threadId ──────────────────────────────────────────────────────────
+
+  it('no threadId → topAgent, no cache write, classifier never called', async () => {
     const { agent, shouldWriteCache } = await selectAgent({
       threadId: undefined,
       userText: USER_TEXT,
@@ -51,10 +53,12 @@ describe('selectAgent', () => {
     });
     expect(agent).toBe(topAgent);
     expect(shouldWriteCache).toBe(false);
+    expect(classifyDomain).not.toHaveBeenCalled();
   });
 
-  it('cache hit + classifier agrees → domain agent, no write', async () => {
-    vi.mocked(classifyDomain).mockResolvedValue({ domain: 'work', confidence: 0.92 });
+  // ─── Cache hit ────────────────────────────────────────────────────────────
+
+  it('cache hit → returns cached domain agent immediately, classifier NOT called', async () => {
     const { agent, shouldWriteCache } = await selectAgent({
       threadId: THREAD_ID,
       userText: USER_TEXT,
@@ -64,36 +68,66 @@ describe('selectAgent', () => {
     });
     expect(agent).toBe(domainAgents.work);
     expect(shouldWriteCache).toBe(false);
+    // Cache is the source of truth — no embedding round-trip needed
+    expect(classifyDomain).not.toHaveBeenCalled();
   });
 
-  it('cache hit + classifier disagrees → new domain agent, write cache', async () => {
-    vi.mocked(classifyDomain).mockResolvedValue({ domain: 'knowledge', confidence: 0.88 });
-    const { agent, shouldWriteCache, cacheWriteDomain } = await selectAgent({
-      threadId: THREAD_ID,
-      userText: 'search policy documents',
-      topAgent,
-      domainAgents,
-      lookup: withCache('work'),
-    });
-    expect(agent).toBe(domainAgents.knowledge);
-    expect(shouldWriteCache).toBe(true);
-    expect(cacheWriteDomain).toBe('knowledge');
-  });
-
-  it('cache hit + classifier low confidence → trust cache, no write', async () => {
-    vi.mocked(classifyDomain).mockResolvedValue(null);
+  it('cache hit on people domain → people agent, classifier NOT called', async () => {
     const { agent, shouldWriteCache } = await selectAgent({
       threadId: THREAD_ID,
-      userText: USER_TEXT,
+      userText: 'who is available this week',
       topAgent,
       domainAgents,
       lookup: withCache('people'),
     });
     expect(agent).toBe(domainAgents.people);
     expect(shouldWriteCache).toBe(false);
+    expect(classifyDomain).not.toHaveBeenCalled();
   });
 
-  it('cache miss + classifier confident → domain agent, write cache', async () => {
+  it('cache hit on knowledge domain → knowledge agent, classifier NOT called', async () => {
+    const { agent } = await selectAgent({
+      threadId: THREAD_ID,
+      userText: 'search policy documents',
+      topAgent,
+      domainAgents,
+      lookup: withCache('knowledge'),
+    });
+    expect(agent).toBe(domainAgents.knowledge);
+    expect(classifyDomain).not.toHaveBeenCalled();
+  });
+
+  it('cache hit but domain not in domainAgents → falls back to topAgent, classifier NOT called', async () => {
+    const { agent, shouldWriteCache } = await selectAgent({
+      threadId: THREAD_ID,
+      userText: USER_TEXT,
+      topAgent,
+      domainAgents: {},
+      lookup: withCache('work'),
+    });
+    expect(agent).toBe(topAgent);
+    expect(shouldWriteCache).toBe(false);
+    expect(classifyDomain).not.toHaveBeenCalled();
+  });
+
+  // ─── Cache miss + classifier confident ────────────────────────────────────
+
+  it('cache miss + classifier confident → domain agent, writes cache', async () => {
+    vi.mocked(classifyDomain).mockResolvedValue({ domain: 'work', confidence: 0.92 });
+    const { agent, shouldWriteCache, cacheWriteDomain } = await selectAgent({
+      threadId: THREAD_ID,
+      userText: USER_TEXT,
+      topAgent,
+      domainAgents,
+      lookup: noCache(),
+    });
+    expect(agent).toBe(domainAgents.work);
+    expect(shouldWriteCache).toBe(true);
+    expect(cacheWriteDomain).toBe('work');
+    expect(classifyDomain).toHaveBeenCalledOnce();
+  });
+
+  it('cache miss + classifier confident on self → self agent, writes cache', async () => {
     vi.mocked(classifyDomain).mockResolvedValue({ domain: 'self', confidence: 0.81 });
     const { agent, shouldWriteCache, cacheWriteDomain } = await selectAgent({
       threadId: THREAD_ID,
@@ -107,7 +141,35 @@ describe('selectAgent', () => {
     expect(cacheWriteDomain).toBe('self');
   });
 
-  it('cache miss + classifier uncertain → full 3-hop, no write', async () => {
+  it('cache miss + classifier at exactly threshold (0.75) → classifies', async () => {
+    vi.mocked(classifyDomain).mockResolvedValue({ domain: 'meta', confidence: 0.75 });
+    const { agent, shouldWriteCache } = await selectAgent({
+      threadId: THREAD_ID,
+      userText: 'what can you do',
+      topAgent,
+      domainAgents,
+      lookup: noCache(),
+    });
+    expect(agent).toBe(domainAgents.meta);
+    expect(shouldWriteCache).toBe(true);
+  });
+
+  it('cache miss + classifier confident but domain missing in map → topAgent, no write', async () => {
+    vi.mocked(classifyDomain).mockResolvedValue({ domain: 'meta', confidence: 0.95 });
+    const { agent, shouldWriteCache } = await selectAgent({
+      threadId: THREAD_ID,
+      userText: 'what can you do',
+      topAgent,
+      domainAgents: {},
+      lookup: noCache(),
+    });
+    expect(agent).toBe(topAgent);
+    expect(shouldWriteCache).toBe(false);
+  });
+
+  // ─── Cache miss + classifier uncertain ────────────────────────────────────
+
+  it('cache miss + classifier returns null → topAgent (full 3-hop), no write', async () => {
     vi.mocked(classifyDomain).mockResolvedValue(null);
     const { agent, shouldWriteCache } = await selectAgent({
       threadId: THREAD_ID,
@@ -118,17 +180,19 @@ describe('selectAgent', () => {
     });
     expect(agent).toBe(topAgent);
     expect(shouldWriteCache).toBe(false);
+    expect(classifyDomain).toHaveBeenCalledOnce();
   });
 
-  it('falls back to topAgent when domainAgents missing the resolved domain', async () => {
-    vi.mocked(classifyDomain).mockResolvedValue({ domain: 'meta', confidence: 0.95 });
-    const { agent } = await selectAgent({
+  it('cache miss + classifier throws → topAgent (graceful fallback), no write', async () => {
+    vi.mocked(classifyDomain).mockRejectedValue(new Error('openai down'));
+    const { agent, shouldWriteCache } = await selectAgent({
       threadId: THREAD_ID,
-      userText: 'what can you do',
+      userText: USER_TEXT,
       topAgent,
-      domainAgents: {},
+      domainAgents,
       lookup: noCache(),
     });
     expect(agent).toBe(topAgent);
+    expect(shouldWriteCache).toBe(false);
   });
 });
