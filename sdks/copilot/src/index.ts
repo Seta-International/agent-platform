@@ -9,8 +9,25 @@ export {
   registerPendingAssignReader,
 } from './agent-reads.ts';
 export type { AgentToolFactory, AgentToolFactoryDeps } from './agent-tool-factory.ts';
+export {
+  __resetBreakerEmitterForTests,
+  type BreakerEventEmitter,
+  type BreakerOpenedEvent,
+  setBreakerEventEmitter,
+} from './breaker-events.ts';
+export {
+  __resetBreakersForTests,
+  type BreakerConfig,
+  setBreakerConfig,
+} from './circuit-breaker.ts';
 export { defineCrossModuleReadAsTool } from './cross-module-read-as-tool.ts';
 export { defineCopilotTool } from './define-copilot-tool.ts';
+export { ToolBreakerOpenError, ToolExecutionTimeoutError } from './errors.ts';
+export {
+  __resetExecutionPolicyForTests,
+  type ExecutionPolicy,
+  setExecutionPolicy,
+} from './execution-policy.ts';
 export * from './hitl/index.ts';
 export { registerToolPermission, requiredPermissionFor } from './rbac.ts';
 export {
