@@ -39,3 +39,19 @@ describe('parseAgentEnv — tool execution timeout fields', () => {
     }
   });
 });
+
+describe('parseAgentEnv — memory fields', () => {
+  it('defaults AGENT_MEMORY_LAST_MESSAGES to 20', () => {
+    const env = parseAgentEnv({});
+    expect(env.AGENT_MEMORY_LAST_MESSAGES).toBe(20);
+  });
+
+  it('coerces AGENT_MEMORY_LAST_MESSAGES from string', () => {
+    const env = parseAgentEnv({ AGENT_MEMORY_LAST_MESSAGES: '40' });
+    expect(env.AGENT_MEMORY_LAST_MESSAGES).toBe(40);
+  });
+
+  it('rejects zero for AGENT_MEMORY_LAST_MESSAGES', () => {
+    expect(() => parseAgentEnv({ AGENT_MEMORY_LAST_MESSAGES: '0' })).toThrow();
+  });
+});

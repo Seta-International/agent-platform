@@ -17,6 +17,9 @@ const Env = z.object({
   AGENT_TOOL_TIMEOUT_MAX_MS: z.coerce.number().int().positive().default(300_000),
   AGENT_TOOL_BREAKER_FAILURE_THRESHOLD: z.coerce.number().int().positive().default(3),
   AGENT_TOOL_BREAKER_OPEN_MS: z.coerce.number().int().positive().default(60_000),
+
+  // Memory configuration
+  AGENT_MEMORY_LAST_MESSAGES: z.coerce.number().int().positive().default(20),
 });
 
 export type AgentEnv = z.infer<typeof Env>;
