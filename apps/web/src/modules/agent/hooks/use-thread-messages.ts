@@ -15,7 +15,7 @@ async function fetchMessages(
   page = 0,
   perPage = 50,
 ): Promise<ThreadMessagesResponse> {
-  const url = `/api/copilot/v1/threads/${encodeURIComponent(threadId)}?page=${page}&perPage=${perPage}`;
+  const url = `/api/agent/v1/threads/${encodeURIComponent(threadId)}?page=${page}&perPage=${perPage}`;
   const res = await fetch(url, { credentials: 'include' });
   if (!res.ok) throw new Error(`thread messages ${res.status}`);
   return (await res.json()) as ThreadMessagesResponse;

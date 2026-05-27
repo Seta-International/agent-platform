@@ -15,7 +15,7 @@ interface CatalogResponse {
 }
 
 async function fetchCatalog(): Promise<CatalogResponse> {
-  const res = await fetch('/api/copilot/v1/models', { credentials: 'include' });
+  const res = await fetch('/api/agent/v1/models', { credentials: 'include' });
   if (!res.ok) throw new Error(`models ${res.status}`);
   return (await res.json()) as CatalogResponse;
 }

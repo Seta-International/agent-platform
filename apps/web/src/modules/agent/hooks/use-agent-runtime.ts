@@ -31,7 +31,7 @@ export function useAgentRuntime(opts: UseAgentRuntimeOpts) {
   const transport = useMemo(() => {
     // eslint-disable-next-line react-hooks/refs -- readBody captures modelRef and is only invoked when the transport sends; safe.
     return new AssistantChatTransport({
-      api: '/api/copilot/v1/chat',
+      api: '/api/agent/v1/chat',
       credentials: 'include',
       body: readBody,
     });

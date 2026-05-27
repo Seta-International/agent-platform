@@ -23,7 +23,7 @@ async function fetchJson<T>(
 
 export const agentApi = {
   async listThreads(): Promise<ThreadSummary[]> {
-    const out = await fetchJson('/api/copilot/v1/threads', undefined, ThreadsResponse);
+    const out = await fetchJson('/api/agent/v1/threads', undefined, ThreadsResponse);
     return out.threads;
   },
   async resolveApproval(body: {
@@ -40,7 +40,7 @@ export const agentApi = {
      */
     resumeData?: unknown;
   }): Promise<void> {
-    const res = await fetch('/api/copilot/v1/chat/approve', {
+    const res = await fetch('/api/agent/v1/chat/approve', {
       method: 'POST',
       credentials: 'include',
       headers: { 'content-type': 'application/json' },
@@ -68,14 +68,14 @@ export const agentApi = {
     }
   },
   async renameThread(id: string, title: string) {
-    await fetchJson(`/api/copilot/v1/threads/${encodeURIComponent(id)}`, {
+    await fetchJson(`/api/agent/v1/threads/${encodeURIComponent(id)}`, {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ title }),
     });
   },
   async deleteThread(id: string) {
-    await fetchJson(`/api/copilot/v1/threads/${encodeURIComponent(id)}`, {
+    await fetchJson(`/api/agent/v1/threads/${encodeURIComponent(id)}`, {
       method: 'DELETE',
     });
   },
