@@ -1,84 +1,60 @@
-import type { TaskPreviewType, TaskRow, TaskWithAssigneesRow } from '@seta/planner';
-import { plannerClient } from '../../api/planner-client';
+import { toast } from '@seta/shared-ui';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { plannerKeys } from '../../state/query-keys';
-import { useOptimisticMutation } from '../use-optimistic-mutation';
 
 interface CreateVars {
   plan_id: string;
   bucket_id?: string;
   title: string;
+  description?: string;
   start_at?: string;
   due_at?: string;
   priority_number?: 1 | 3 | 5 | 9;
-  preview_type?: TaskPreviewType;
 }
 
+interface StartResponse {
+  runId: string;
+}
+
+/**
+ * Creates a task via the dedupOnCreate workflow. The workflow checks for
+ * duplicates before creating — if duplicates are found, a HITL approval
+ * card appears in the inbox.
+ */
 export function useCreateTask(planId: string) {
-  const key = plannerKeys.planTasks(planId, { plan_id: planId });
-  return useOptimisticMutation<CreateVars, TaskRow>({
-    mutationFn: (v) => plannerClient.createTask(v),
-    snapshot: (_v, qc) => [{ key, prev: qc.getQueryData(key) }],
-    applyOptimistic: (v, qc) => {
-      const now = new Date().toISOString();
-      // crypto.randomUUID is available in modern browsers and Node 19+; fall back for older envs.
-      const tempId = `temp-${typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Math.random().toString(36).slice(2)}`;
-      const optimistic: TaskWithAssigneesRow = {
-        id: tempId,
-        tenant_id: '',
-        plan_id: v.plan_id,
-        bucket_id: v.bucket_id ?? null,
-        title: v.title,
-        description: null,
-        priority_number: v.priority_number ?? 5,
-        percent_complete: 0,
-        is_deferred: false,
-        preview_type: v.preview_type ?? 'automatic',
-        review_state: null,
-        skill_tags: [],
-        start_at: v.start_at ?? null,
-        due_at: v.due_at ?? null,
-        order_hint: null,
-        assignee_priority: null,
-        external_source: 'native',
-        external_id: null,
-        external_etag: null,
-        external_synced_at: null,
-        sync_status: 'idle',
-        last_error: null,
-        created_by: '',
-        created_at: now,
-        updated_at: now,
-        deleted_at: null,
-        version: 0,
-        assignees: [],
-        labels: [],
-        checklist_summary: { total: 0, checked: 0 },
-        checklist_preview: [],
-        reference_preview: [],
-      };
-      qc.setQueryData<TaskWithAssigneesRow[]>(key, (prev) => [...(prev ?? []), optimistic]);
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: CreateVars): Promise<StartResponse> => {
+      const res = await fetch('/api/agent/v1/workflows/runs/dedupOnCreate/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: v.title,
+          description: v.description,
+          plan_id: v.plan_id,
+          bucket_id: v.bucket_id,
+        }),
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { message?: string };
+        throw new Error(body.message ?? `Failed to create task (${res.status})`);
+      }
+      return (await res.json()) as StartResponse;
     },
-    onServerOk: (server, _v, qc) => {
-      // Replace the first temp row with the real server row; keeps assignees/labels/checklist_summary
-      // from the optimistic entry (which are empty arrays/object — the server also returns none).
-      qc.setQueryData<TaskWithAssigneesRow[]>(key, (prev) =>
-        prev
-          ? prev.map((t) =>
-              t.id.startsWith('temp-')
-                ? {
-                    ...t,
-                    ...server,
-                    assignees: t.assignees,
-                    labels: t.labels,
-                    checklist_summary: t.checklist_summary,
-                  }
-                : t,
-            )
-          : prev,
-      );
+    onSuccess: () => {
+      toast.success('Task creation started', {
+        description: 'Checking for duplicates…',
+      });
+      // Refresh task list after workflow likely completes (fast path ~2-3s)
+      setTimeout(() => {
+        qc.invalidateQueries({ queryKey: plannerKeys.planTasks(planId, { plan_id: planId }) });
+      }, 3000);
     },
-    savingId: () => undefined,
-    invalidate: () => [],
-    errorMessage: () => "Couldn't create task.",
+    onError: (err) => {
+      toast.error("Couldn't create task", {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    },
   });
 }

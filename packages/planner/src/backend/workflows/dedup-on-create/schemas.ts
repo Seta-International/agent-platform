@@ -43,5 +43,10 @@ export const DedupOutputSchema = z.discriminatedUnion('kind', [
     checklistItemId: z.string(),
   }),
   z.object({ kind: z.literal('cancelled') }),
+  // Workflow triggered — the dedupOnCreate workflow is running async.
+  z.object({
+    kind: z.literal('workflow-started'),
+    runId: z.string(),
+  }),
 ]);
 export type DedupOutput = z.infer<typeof DedupOutputSchema>;
