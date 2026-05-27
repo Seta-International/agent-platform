@@ -1,5 +1,12 @@
 // biome-ignore-all lint/a11y/noAutofocus: autoFocus is intentional UX on inline compose input after the user opens it.
-import { CalendarDays, GripVertical, MoreHorizontal, Plus } from 'lucide-react';
+import {
+  CalendarDays,
+  ChevronDown,
+  ChevronRight,
+  GripVertical,
+  MoreHorizontal,
+  Plus,
+} from 'lucide-react';
 import {
   type CSSProperties,
   type HTMLAttributes,
@@ -27,6 +34,7 @@ export interface KanbanColumnProps {
   count: number;
   status?: 'muted' | 'primary' | 'warning' | 'success';
   children: ReactNode;
+  completedTasks?: { count: number; children: ReactNode };
   onCreateTask?: (input: QuickCreateTaskInput) => void;
   onRename?: (name: string) => void;
   onDelete?: () => void;
@@ -59,6 +67,7 @@ export function KanbanColumn({
   count,
   status,
   children,
+  completedTasks,
   onCreateTask,
   onRename,
   onDelete,
@@ -70,6 +79,7 @@ export function KanbanColumn({
   const [dueAt, setDueAt] = useState<string | null>(null);
   const [priority, setPriority] = useState<1 | 3 | 5 | 9>(DEFAULT_PRIORITY);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [completedExpanded, setCompletedExpanded] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
   const headerRef = useRef<HTMLElement>(null);
@@ -368,6 +378,27 @@ export function KanbanColumn({
         {children}
         {droppable.placeholder}
       </div>
+
+      {completedTasks && completedTasks.count > 0 && (
+        <div className="mt-1">
+          <button
+            type="button"
+            className="flex w-full items-center gap-1 rounded px-2 py-1 text-xs text-ink-tertiary hover:bg-surface-raised"
+            onClick={() => setCompletedExpanded((v) => !v)}
+            aria-expanded={completedExpanded}
+          >
+            {completedExpanded ? (
+              <ChevronDown size={12} aria-hidden="true" />
+            ) : (
+              <ChevronRight size={12} aria-hidden="true" />
+            )}
+            Completed ({completedTasks.count})
+          </button>
+          {completedExpanded && (
+            <div className="mt-1 flex flex-col gap-2 px-1">{completedTasks.children}</div>
+          )}
+        </div>
+      )}
     </section>
   );
 }

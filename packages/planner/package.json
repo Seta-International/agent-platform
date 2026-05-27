@@ -14,7 +14,8 @@
     },
     "./events": "./src/events/index.ts",
     "./http": "./src/backend/http/index.ts",
-    "./stream": "./src/backend/stream/index.ts"
+    "./stream": "./src/backend/stream/index.ts",
+    "./testing": "./src/testing/index.ts"
   },
   "scripts": {
     "lint": "eslint . --no-error-on-unmatched-pattern",

@@ -75,12 +75,14 @@ export function PlanPage({
   } | null>(null);
   const cardRefs = useRef<Map<string, HTMLElement>>(new Map());
 
-  const tasksByBucket = useMemo(() => {
-    const map = new Map<string | null, BucketCard[]>();
+  const { activeByBucket, completedByBucket } = useMemo(() => {
+    const active = new Map<string | null, BucketCard[]>();
+    const completed = new Map<string | null, BucketCard[]>();
     const sourceById = new Map(tasks.map((t) => [t.id, t]));
     const assigneeIdSet = new Set(filters.assignee_ids);
     const labelIdSet = new Set(filters.label_ids);
     const skillTagSet = new Set(filters.skill_tags);
+
     for (const t of tasks) {
       if (filters.assignee_ids.length && !t.assignees.some((a) => assigneeIdSet.has(a.user_id))) {
         continue;
@@ -94,6 +96,7 @@ export function PlanPage({
       if (q && !t.title.toLowerCase().includes(q.toLowerCase())) {
         continue;
       }
+
       const priority = priorityLabel(t.priority_number);
       const card = {
         id: t.id,
@@ -130,18 +133,34 @@ export function PlanPage({
       const previewSlot: ReactNode = (
         <PreviewBody task={previewTask} variant={t.preview_type ?? 'automatic'} />
       );
-      const arr = map.get(t.bucket_id) ?? [];
-      arr.push({ card, previewSlot });
-      map.set(t.bucket_id, arr);
+
+      if (t.percent_complete === 100) {
+        const arr = completed.get(t.bucket_id) ?? [];
+        arr.push({ card: { ...card, isCompleted: true }, previewSlot });
+        completed.set(t.bucket_id, arr);
+      } else {
+        const arr = active.get(t.bucket_id) ?? [];
+        arr.push({ card, previewSlot });
+        active.set(t.bucket_id, arr);
+      }
     }
-    for (const [, arr] of map) {
+
+    for (const [, arr] of active) {
       arr.sort((a, b) => {
         const ta = sourceById.get(a.card.id);
         const tb = sourceById.get(b.card.id);
         return compareOrderHint(ta?.order_hint ?? null, tb?.order_hint ?? null);
       });
     }
-    return map;
+    for (const [, arr] of completed) {
+      arr.sort((a, b) => {
+        const ta = sourceById.get(a.card.id);
+        const tb = sourceById.get(b.card.id);
+        return compareOrderHint(ta?.order_hint ?? null, tb?.order_hint ?? null);
+      });
+    }
+
+    return { activeByBucket: active, completedByBucket: completed };
   }, [tasks, filters, savingIds, recentlyMoved, q]);
 
   // Build a flat bucket structure for computeNextFocus. Derived from buckets so
@@ -150,10 +169,10 @@ export function PlanPage({
     () => ({
       buckets: buckets.map((b) => ({
         id: b.id,
-        cardIds: (tasksByBucket.get(b.id) ?? []).map((e) => e.card.id),
+        cardIds: (activeByBucket.get(b.id) ?? []).map((e) => e.card.id),
       })),
     }),
-    [buckets, tasksByBucket],
+    [buckets, activeByBucket],
   );
 
   useEffect(() => {
@@ -168,7 +187,7 @@ export function PlanPage({
     onCreateTask: () => {
       const bucketId = focusedCardId
         ? buckets.find((b) =>
-            (tasksByBucket.get(b.id) ?? []).some((e) => e.card.id === focusedCardId),
+            (activeByBucket.get(b.id) ?? []).some((e) => e.card.id === focusedCardId),
           )?.id
         : buckets[0]?.id;
       if (bucketId) createTask.mutate({ plan_id: plan.id, bucket_id: bucketId, title: 'New task' });
@@ -180,7 +199,9 @@ export function PlanPage({
     filters.label_ids.length > 0 ||
     filters.skill_tags.length > 0 ||
     q.length > 0;
-  const totalVisible = Array.from(tasksByBucket.values()).reduce((acc, l) => acc + l.length, 0);
+  const totalVisible =
+    Array.from(activeByBucket.values()).reduce((acc, l) => acc + l.length, 0) +
+    Array.from(completedByBucket.values()).reduce((acc, l) => acc + l.length, 0);
 
   function onDragEnd(r: DropResult) {
     if (!r.destination) return;
@@ -209,7 +230,7 @@ export function PlanPage({
 
     const targetBucketId =
       r.destination.droppableId === NO_BUCKET_DROPPABLE_ID ? null : r.destination.droppableId;
-    const inTarget = (tasksByBucket.get(targetBucketId) ?? [])
+    const inTarget = (activeByBucket.get(targetBucketId) ?? [])
       .filter((e) => e.card.id !== r.draggableId)
       .map((e) => ({ id: e.card.id }));
     const task = tasks.find((t) => t.id === r.draggableId);
@@ -268,7 +289,7 @@ export function PlanPage({
                   {(dp, ds) => (
                     <KanbanColumn
                       name={b.name}
-                      count={(tasksByBucket.get(b.id) ?? []).length}
+                      count={(activeByBucket.get(b.id) ?? []).length}
                       status={statusForBucketName(b.name)}
                       onCreateTask={(input) =>
                         createTask.mutate({ plan_id: plan.id, bucket_id: b.id, ...input })
@@ -281,7 +302,9 @@ export function PlanPage({
                         })
                       }
                       onDelete={() => {
-                        const count = (tasksByBucket.get(b.id) ?? []).length;
+                        const count =
+                          (activeByBucket.get(b.id) ?? []).length +
+                          (completedByBucket.get(b.id) ?? []).length;
                         if (count > 0) {
                           setPendingDeleteBucket({
                             id: b.id,
@@ -301,9 +324,29 @@ export function PlanPage({
                         extraStyle: dp.draggableProps.style,
                       }}
                       droppable={{}}
+                      completedTasks={(() => {
+                        const cList = completedByBucket.get(b.id) ?? [];
+                        if (cList.length === 0) return undefined;
+                        return {
+                          count: cList.length,
+                          children: (
+                            <>
+                              {cList.map((entry) => (
+                                <KanbanCard
+                                  key={entry.card.id}
+                                  task={entry.card}
+                                  previewSlot={entry.previewSlot}
+                                  onOpen={() => onOpenTask(entry.card.id)}
+                                  draggable={{}}
+                                />
+                              ))}
+                            </>
+                          ),
+                        };
+                      })()}
                     >
                       {(() => {
-                        const list = tasksByBucket.get(b.id) ?? [];
+                        const list = activeByBucket.get(b.id) ?? [];
                         if (list.length <= 50) {
                           return (
                             <Droppable droppableId={b.id} type="TASK">

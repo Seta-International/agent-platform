@@ -1,11 +1,12 @@
 export class ToolExecutionTimeoutError extends Error {
   readonly code = 'tool_execution_timeout' as const;
-  constructor(
-    public readonly toolId: string,
-    public readonly timeoutMs: number,
-  ) {
+  readonly toolId: string;
+  readonly timeoutMs: number;
+  constructor(toolId: string, timeoutMs: number) {
     super(`Tool '${toolId}' exceeded ${timeoutMs}ms execution timeout`);
     this.name = 'ToolExecutionTimeoutError';
+    this.toolId = toolId;
+    this.timeoutMs = timeoutMs;
   }
   toJSON(): {
     ok: false;
@@ -26,12 +27,13 @@ export class ToolExecutionTimeoutError extends Error {
 
 export class ToolBreakerOpenError extends Error {
   readonly code = 'tool_breaker_open' as const;
-  constructor(
-    public readonly toolId: string,
-    public readonly openUntil: number,
-  ) {
+  readonly toolId: string;
+  readonly openUntil: number;
+  constructor(toolId: string, openUntil: number) {
     super(`Tool '${toolId}' circuit breaker is open until ${new Date(openUntil).toISOString()}`);
     this.name = 'ToolBreakerOpenError';
+    this.toolId = toolId;
+    this.openUntil = openUntil;
   }
   toJSON(): {
     ok: false;

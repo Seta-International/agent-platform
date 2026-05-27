@@ -28,3 +28,5 @@ export async function createTestTenantWithAdmin(opts: {
   );
   return { tenant_id, admin_user_id: user_id };
 }
+
+export { resetIdentityDb } from '../backend/db/index.ts';
