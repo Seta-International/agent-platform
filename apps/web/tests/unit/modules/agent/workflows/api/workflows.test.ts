@@ -44,15 +44,13 @@ describe('workflowsApi', () => {
   });
 
   it('decideApproval POSTs body and parses response', async () => {
-    const fetchMock = vi.fn(async () =>
-      mockJsonResponse({ runId: 'run-1', decision: 'approve' as const, resumed: true }),
-    );
+    const fetchMock = vi.fn(async () => mockJsonResponse({ runId: 'run-1', resumed: true }));
     vi.stubGlobal('fetch', fetchMock);
 
     const out = await workflowsApi.decideApproval('appr-1', { decision: 'approve' });
 
     expect(out.runId).toBe('run-1');
-    expect(out.decision).toBe('approve');
+    expect(out.resumed).toBe(true);
     const firstCall = fetchMock.mock.calls[0] as unknown as [string, RequestInit] | undefined;
     expect(firstCall?.[1].method).toBe('POST');
     expect(JSON.parse(String(firstCall?.[1].body))).toEqual({ decision: 'approve' });
