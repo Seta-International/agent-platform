@@ -75,7 +75,11 @@ describe('identity_getTimezoneForUser', () => {
     withDb(async ({ pool }) => {
       const { tenantId, userId } = await seedUserProfile(pool, { timezone: 'Asia/Ho_Chi_Minh' });
       const out = await identityGetTimezoneSpec.execute({
-        session: { tenant_id: tenantId, user_id: userId },
+        session: {
+          tenant_id: tenantId,
+          user_id: userId,
+          role_summary: { roles: ['org.admin'], cross_tenant_read: false },
+        },
         input: { userId },
       });
       expect(out.timezone).toBe('Asia/Ho_Chi_Minh');
@@ -85,7 +89,11 @@ describe('identity_getTimezoneForUser', () => {
     withDb(async ({ pool }) => {
       const { tenantId } = await seedUserProfile(pool);
       const out = await identityGetTimezoneSpec.execute({
-        session: { tenant_id: tenantId, user_id: crypto.randomUUID() },
+        session: {
+          tenant_id: tenantId,
+          user_id: crypto.randomUUID(),
+          role_summary: { roles: ['org.admin'], cross_tenant_read: false },
+        },
         input: { userId: crypto.randomUUID() },
       });
       expect(out.timezone).toBe('UTC');
@@ -102,7 +110,11 @@ describe('identity_getAvailabilityForUser', () => {
         working_hours: { start: '09:00', end: '17:00' },
       });
       const out = await identityGetAvailabilitySpec.execute({
-        session: { tenant_id: tenantId, user_id: userId },
+        session: {
+          tenant_id: tenantId,
+          user_id: userId,
+          role_summary: { roles: ['org.admin'], cross_tenant_read: false },
+        },
         input: { userId },
       });
       expect(out.availability_status).toBe('ooo');
@@ -114,7 +126,11 @@ describe('identity_getAvailabilityForUser', () => {
     withDb(async ({ pool }) => {
       const { tenantId } = await seedUserProfile(pool);
       const out = await identityGetAvailabilitySpec.execute({
-        session: { tenant_id: tenantId, user_id: crypto.randomUUID() },
+        session: {
+          tenant_id: tenantId,
+          user_id: crypto.randomUUID(),
+          role_summary: { roles: ['org.admin'], cross_tenant_read: false },
+        },
         input: { userId: crypto.randomUUID() },
       });
       expect(out.availability_status).toBe('available');

@@ -16,6 +16,7 @@ export interface SpecialistSpec {
 export interface CrossModuleSession {
   tenant_id: string;
   user_id: string;
+  role_summary: { readonly roles: readonly string[]; readonly cross_tenant_read: boolean };
 }
 
 export interface CrossModuleReadCtx<I = unknown> {

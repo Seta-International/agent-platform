@@ -75,6 +75,7 @@ describe('POST /api/copilot/v1/workflows/runs/:workflowId/start', () => {
       expect(arg.inputData).toEqual({ taskId: '00000000-0000-0000-0000-000000000001' });
       expect(arg.requestContext.get('actor')).toEqual({ type: 'user', user_id: s.user_id });
       expect(arg.requestContext.get('tenant_id')).toBe(s.tenant_id);
+      expect(arg.requestContext.get('role_summary')).toEqual(s.role_summary);
       // Row is projected synchronously so the inbox deep-link never 404s, even
       // before Mastra's async workflow.start pubsub event reaches the hook.
       const row = await pool.query(

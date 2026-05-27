@@ -88,7 +88,11 @@ describe('planner_getOpenTaskCountForUser cross-module read', () => {
       await pool.query(`UPDATE planner.tasks SET deleted_at = now() WHERE id = $1`, [deleted.id]);
 
       const out = await plannerGetOpenTaskCountSpec.execute({
-        session: { tenant_id, user_id: admin_user_id },
+        session: {
+          tenant_id,
+          user_id: admin_user_id,
+          role_summary: { roles: ['org.admin'], cross_tenant_read: false },
+        },
         input: { userId: assignee.user_id },
       });
 
@@ -128,7 +132,11 @@ describe('planner_getOpenTaskCountForUser cross-module read', () => {
       await assignTask({ task_id: taskA.id, user_id: a.user_id, session: sessionA });
 
       const out = await plannerGetOpenTaskCountSpec.execute({
-        session: { tenant_id: tenantB.tenant_id, user_id: tenantB.admin_user_id },
+        session: {
+          tenant_id: tenantB.tenant_id,
+          user_id: tenantB.admin_user_id,
+          role_summary: { roles: ['org.admin'], cross_tenant_read: false },
+        },
         input: { userId: a.user_id },
       });
 

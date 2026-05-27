@@ -121,4 +121,15 @@ export type CopilotEvent =
       type: 'copilot.tenant_knowledge.failed';
       aggregate_id: string;
       data: { tenant_id: string; file_id: string; error_reason: string };
+    }
+  | {
+      type: 'copilot.tool.breaker_opened';
+      aggregate_id: string; // toolId
+      data: {
+        tool_id: string;
+        tenant_id: string;
+        failure_count: number;
+        opened_at: string; // ISO 8601
+        reason: 'timeout' | 'exception';
+      };
     };

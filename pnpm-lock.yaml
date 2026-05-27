@@ -1504,6 +1504,9 @@ importers:
       '@seta/shared-embeddings':
         specifier: workspace:^
         version: link:../../packages/shared-embeddings
+      '@seta/shared-rbac':
+        specifier: workspace:^
+        version: link:../../packages/shared-rbac
       '@seta/shared-retrieval':
         specifier: workspace:^
         version: link:../../packages/shared-retrieval
@@ -1523,6 +1526,9 @@ importers:
       '@types/pg':
         specifier: ^8.20.0
         version: 8.20.0
+      ai:
+        specifier: ^6.0.188
+        version: 6.0.188(zod@4.4.3)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
