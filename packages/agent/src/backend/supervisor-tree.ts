@@ -82,8 +82,10 @@ function buildMemory(opts: {
         indexConfig: {
           type: 'hnsw',
           metric: 'dotproduct',
-          m: 16,
-          efConstruction: 64,
+          hnsw: {
+            m: 16,
+            efConstruction: 64,
+          },
         },
       },
       workingMemory: {
