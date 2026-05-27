@@ -203,6 +203,7 @@ function ModuleSection({
   const extensions = manifest.useNavExtensions();
   const sections: NavSection[] = [...manifest.nav, ...extensions];
   const ModuleIcon = manifest.icon;
+  const isAgent = manifest.id === 'agent';
 
   return (
     <div className="mb-0.5">
@@ -221,10 +222,22 @@ function ModuleSection({
           aria-hidden
         />
         <ModuleIcon
-          className={cn('size-3.5', moduleActive ? 'text-primary' : 'text-ink-muted')}
+          className={cn(
+            'size-3.5',
+            isAgent ? 'text-violet-500' : moduleActive ? 'text-primary' : 'text-ink-muted',
+          )}
           aria-hidden
         />
-        <span className={cn('flex-1', moduleActive ? 'text-ink' : 'text-ink-muted')}>
+        <span
+          className={cn(
+            'flex-1',
+            isAgent
+              ? 'bg-gradient-to-r from-violet-500 to-blue-600 bg-clip-text text-transparent'
+              : moduleActive
+                ? 'text-ink'
+                : 'text-ink-muted',
+          )}
+        >
           {manifest.label}
         </span>
         {!isOpen && moduleActive && (

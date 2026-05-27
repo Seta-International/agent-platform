@@ -16,7 +16,7 @@ describe('workflowsApi', () => {
     await workflowsApi.listRuns({ scope: 'self', cursor: 'abc', limit: 25 });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    const firstCall = fetchMock.mock.calls[0] as [string, RequestInit?] | undefined;
+    const firstCall = fetchMock.mock.calls[0] as unknown as [string, RequestInit?] | undefined;
     const callUrl = String(firstCall?.[0]);
     expect(callUrl).toContain('/api/copilot/v1/workflows/runs?');
     expect(callUrl).toContain('scope=self');
@@ -30,7 +30,7 @@ describe('workflowsApi', () => {
 
     await workflowsApi.listRuns({ scope: 'self', workflowId: 'agent.new-task-skill-tag' });
 
-    const callUrl = String((fetchMock.mock.calls[0] as [string])[0]);
+    const callUrl = String((fetchMock.mock.calls[0] as unknown as [string])[0]);
     expect(callUrl).toContain('workflowId=agent.new-task-skill-tag');
   });
 
@@ -53,7 +53,7 @@ describe('workflowsApi', () => {
 
     expect(out.runId).toBe('run-1');
     expect(out.decision).toBe('approve');
-    const firstCall = fetchMock.mock.calls[0] as [string, RequestInit] | undefined;
+    const firstCall = fetchMock.mock.calls[0] as unknown as [string, RequestInit] | undefined;
     expect(firstCall?.[1].method).toBe('POST');
     expect(JSON.parse(String(firstCall?.[1].body))).toEqual({ decision: 'approve' });
   });
@@ -64,7 +64,7 @@ describe('workflowsApi', () => {
 
     await workflowsApi.cancelRun('run-1');
 
-    const firstCall = fetchMock.mock.calls[0] as [string, RequestInit] | undefined;
+    const firstCall = fetchMock.mock.calls[0] as unknown as [string, RequestInit] | undefined;
     expect(String(firstCall?.[0])).toContain('/api/copilot/v1/workflows/runs/run-1/cancel');
     expect(firstCall?.[1].method).toBe('POST');
   });
@@ -76,7 +76,7 @@ describe('workflowsApi', () => {
     const out = await workflowsApi.replayFromStep('r1', 'step-b', { x: 2 });
 
     expect(out.newRunId).toBe('new-run-1');
-    const firstCall = fetchMock.mock.calls[0] as [string, RequestInit] | undefined;
+    const firstCall = fetchMock.mock.calls[0] as unknown as [string, RequestInit] | undefined;
     expect(String(firstCall?.[0])).toContain('/workflows/runs/r1/replay-from-step');
     expect(firstCall?.[1].method).toBe('POST');
     expect(JSON.parse(String(firstCall?.[1].body))).toEqual({

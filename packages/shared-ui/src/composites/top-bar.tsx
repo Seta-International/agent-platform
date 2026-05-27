@@ -128,15 +128,14 @@ export function TopBar({
             className={cn(
               'relative inline-flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-body-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus focus-visible:ring-offset-2 focus-visible:ring-offset-canvas',
               agentOpen
-                ? 'border-primary-border bg-primary-tint text-primary-ink'
-                : 'border-transparent text-ink-muted hover:bg-surface-2 hover:text-ink',
+                ? 'border-primary-border bg-primary-tint'
+                : 'border-transparent hover:bg-surface-2',
             )}
           >
-            <Sparkles
-              className={cn('size-3.5', agentOpen ? 'text-primary' : 'text-ink-muted')}
-              aria-hidden
-            />
-            <span className="hidden sm:inline">Agent</span>
+            <Sparkles className="size-3.5 text-violet-500" aria-hidden />
+            <span className="hidden bg-gradient-to-r from-violet-500 to-blue-600 bg-clip-text text-transparent sm:inline">
+              Agent
+            </span>
             {agentAlert && (
               <span
                 className="absolute right-1.5 top-1 inline-block size-1.5 rounded-full bg-semantic-warning ring-2 ring-canvas"

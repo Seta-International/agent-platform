@@ -31,8 +31,10 @@ export function SuggestAssigneeButton({ taskId, taskTitle, pendingAssignWorkflow
         data-testid="suggest-in-progress-link"
       >
         <Button size="sm" variant="secondary" type="button">
-          <Loader2 className="size-3 animate-spin" />
-          Suggest in progress — view
+          <Loader2 className="size-3 animate-spin text-violet-500" />
+          <span className="bg-gradient-to-r from-violet-500 to-blue-600 bg-clip-text text-transparent">
+            Suggesting... View status
+          </span>
         </Button>
       </Link>
     );
@@ -67,11 +69,13 @@ export function SuggestAssigneeButton({ taskId, taskTitle, pendingAssignWorkflow
       type="button"
     >
       {start.isPending ? (
-        <Loader2 className="size-3 animate-spin" />
+        <Loader2 className="size-3 animate-spin text-violet-500" />
       ) : (
-        <Sparkles className="size-3" />
+        <Sparkles className="size-3 text-violet-500" />
       )}
-      Suggest
+      <span className="bg-gradient-to-r from-violet-500 to-blue-600 bg-clip-text text-transparent">
+        Suggest
+      </span>
     </Button>
   );
 }

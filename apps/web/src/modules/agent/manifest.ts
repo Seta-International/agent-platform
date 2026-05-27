@@ -3,7 +3,7 @@ import { BookOpen, MessageSquare, Sparkles, Workflow } from 'lucide-react';
 
 export const agentNavManifest: NavManifest = {
   id: 'agent',
-  label: 'Agent',
+  label: 'Agent Studio',
   icon: Sparkles,
   requiredPermissions: [],
   useNavExtensions: noNavExtensions,
