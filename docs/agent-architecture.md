@@ -212,7 +212,7 @@ A specialist is a Mastra `Agent` built dynamically at boot from a `SpecialistSpe
 | System prompt | `SpecialistSpec.instructions(ctx)` — invoked at agent build time | Per specialist |
 | Tool record | `SpecialistSpec.tools: Record<string, AgentTool>` | Per specialist |
 | Workflows | `SpecialistSpec.workflows?` (rarely set on the specialist; usually registered at the domain level) | Per specialist |
-| Memory store | `@mastra/pg` `PostgresStore({ schemaName: 'agent' })`, wrapped in `Memory({ semanticRecall: false, generateTitle: true })` | Shared store, per-thread scope |
+| Memory store | `@mastra/pg` `PostgresStore({ schemaName: 'agent' })`, wrapped in `Memory` with sliding window, semantic recall, and working memory | Shared store, per-user resource scope |
 | Model | `resolveModel('auto', { tierHint: 'fast' })` at the specialist layer (`balanced` at the supervisor layers) | Per agent |
 
 The four domains are fixed because the top router prompt is parameterised over them. Adding a new domain is a deliberate change — adding a new specialist or workflow in an existing domain is not.
@@ -291,7 +291,7 @@ flowchart TB
 
 The `mastra_*` tables are owned by Mastra; their DDL is not edited by hand. They reside in the `agent` schema so that backup and migration operations cover them with the rest of the platform. The thread/message API used by the UI is exposed through `GET /api/agent/v1/threads`, `GET /api/agent/v1/threads/:id`, `PATCH /api/agent/v1/threads/:id`, and `DELETE /api/agent/v1/threads/:id`; the route maps Mastra's stored `tool-invocation` parts to AI SDK v6's `tool-<name>` parts at read time.
 
-`Memory` is configured with `semanticRecall: false` today — long-term recall of prior turns is not yet wired up. The hook for it (`generateTitle: true`) is on, so threads acquire titles automatically.
+`Memory` uses a sliding window of `AGENT_MEMORY_LAST_MESSAGES` (default 20) recent messages per turn. Semantic recall (`scope: 'resource'`, `topK: 5`) embeds each incoming message and retrieves the most relevant past messages across all of the user's threads via a `PgVector` HNSW index in the `agent` schema. Working memory (`scope: 'resource'`) maintains a per-user Markdown profile (timezone, communication style, current focus) in `agent.mastra_resources`, injected into every turn. Thread titles are generated automatically (`generateTitle: true`).
 
 ---
 
