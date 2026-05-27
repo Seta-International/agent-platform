@@ -165,7 +165,25 @@ Client secret for the Entra application referenced by `MICROSOFT_CLIENT_ID`. Tre
 
 Optional. URL. No default.
 
-OTLP HTTP endpoint for traces, metrics, and logs. When unset, telemetry is dropped locally. Point at your own collector (e.g. `http://otel-collector:4318`) to enable observability. The production compose stack does NOT ship a collector — that's a `compose.dev.yml` convenience only.
+OTLP HTTP endpoint for traces. When unset, traces are dropped locally; metrics are still scraped by Prometheus. Point at your own collector (e.g. `http://otel-collector:4318`) to enable trace export. The compose stack ships Jaeger as the default traces backend — set this to `http://jaeger:4318`.
+
+### OTEL_PROMETHEUS_PORT
+
+Optional. Integer. Default: `9464`.
+
+Port on which each app container exposes the Prometheus `/metrics` endpoint. Override if 9464 conflicts with another service on your host. The bundled `prometheus` service scrapes this port on both `server` and `worker`.
+
+### GRAFANA_ADMIN_PASSWORD
+
+Optional. String. Default: `admin`.
+
+Initial password for the Grafana `admin` account. Change this before exposing Grafana publicly. The compose stack mounts `infra/grafana/provisioning/` and pre-provisions Prometheus as the default datasource.
+
+### GRAFANA_ROOT_URL
+
+Optional. URL. No default.
+
+Root URL Grafana uses for absolute links and redirects when served behind a reverse proxy (e.g. `https://metrics.example.com`). Matches the `metrics.<domain>` Traefik router.
 
 ## Sync-check contract
 

@@ -49,12 +49,9 @@ describe('workflow engine selection (evented vs default)', () => {
 
       const publishes: Array<{ topic: string; type?: string }> = [];
       protoRef = Object.getPrototypeOf(mastra.pubsub) as typeof protoRef;
-      // biome-ignore lint/style/noNonNullAssertion: just assigned
       originalProtoPublish = protoRef!.publish;
-      // biome-ignore lint/style/noNonNullAssertion: just assigned
       protoRef!.publish = async function (topic, event) {
         publishes.push({ topic, type: event?.type });
-        // biome-ignore lint/style/noNonNullAssertion: closure-captured
         return originalProtoPublish!.call(this, topic, event);
       };
 
