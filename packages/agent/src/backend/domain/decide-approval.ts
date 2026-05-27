@@ -161,7 +161,10 @@ export async function decideApproval(opts: DecideApprovalOpts): Promise<DecideAp
     getWorkflow: (id: string) =>
       | {
           createRun: (opts: { runId: string }) => Promise<{
-            resume: (args: { step?: string; resumeData: Record<string, unknown> }) => Promise<void>;
+            resume: (args: {
+              step?: string | string[];
+              resumeData: Record<string, unknown>;
+            }) => Promise<void>;
           }>;
         }
       | undefined;
@@ -188,9 +191,12 @@ export async function decideApproval(opts: DecideApprovalOpts): Promise<DecideAp
   // adapter versions stored the 'await-approval' placeholder, and passing a
   // non-existent step makes Mastra's resume throw — let it auto-resolve from
   // the snapshot's suspendedPaths in that case.
-  const resumeOpts: { step?: string; resumeData: Record<string, unknown> } =
+  // IMPORTANT: pass step as an array to prevent Mastra from splitting on '.'
+  // (step IDs like 'assignBySkill.suggest' would be incorrectly treated as
+  // nested workflow paths if passed as a plain string).
+  const resumeOpts: { step?: string[]; resumeData: Record<string, unknown> } =
     ctx.stepId && ctx.stepId !== 'await-approval'
-      ? { step: ctx.stepId, resumeData }
+      ? { step: [ctx.stepId], resumeData }
       : { resumeData };
   try {
     await run.resume(resumeOpts);

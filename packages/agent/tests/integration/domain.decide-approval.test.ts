@@ -107,10 +107,10 @@ describe('decideApproval', () => {
       expect(r).toEqual({ runId, resumed: true });
       expect(resume).toHaveBeenCalledTimes(1);
       const resumeArg = resume.mock.calls[0]![0] as {
-        step: string;
+        step: string[];
         resumeData: { decision: string };
       };
-      expect(resumeArg.step).toBe('agent.x.suggest');
+      expect(resumeArg.step).toEqual(['agent.x.suggest']);
       expect(resumeArg.resumeData.decision).toBe('approve');
 
       const row = await pool.query<{ status: string; decided_by: string }>(
