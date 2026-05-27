@@ -65,7 +65,6 @@ export const PendingApprovalsResponse = z.array(WorkflowApprovalRow);
 export const DecideApprovalResponse = z.object({
   runId: z.string(),
   approvalId: z.string().optional(),
-  decision: z.enum(['approve', 'reject', 'modify']),
   resumed: z.boolean().optional(),
 });
 export type DecideApprovalResponse = z.infer<typeof DecideApprovalResponse>;

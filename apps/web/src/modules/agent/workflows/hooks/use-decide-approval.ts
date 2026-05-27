@@ -17,7 +17,14 @@ export function useDecideApproval(runId: string) {
         overrideUserIds: args.overrideUserIds,
         note: args.note,
       }),
-    onSuccess: invalidateRun,
+    onSuccess: (_data, args) => {
+      invalidateRun();
+      const label =
+        args.decision === 'reject'
+          ? 'Decision applied — task left unassigned.'
+          : 'Decision applied — workflow is continuing.';
+      toast.success('Decision applied', { description: label });
+    },
     onError: (err: unknown) => {
       const status = (err as { status?: number } | null)?.status;
       const code = (err as { code?: string } | null)?.code;

@@ -1,6 +1,6 @@
 import { Button, toast } from '@seta/shared-ui';
-import { Link, useNavigate } from '@tanstack/react-router';
-import { Loader2, Sparkles } from 'lucide-react';
+import { Link } from '@tanstack/react-router';
+import { Loader2, MoveUpRight, Sparkles } from 'lucide-react';
 import { useStartAssignBySkill } from '../api/start-assign-by-skill';
 
 interface Props {
@@ -19,7 +19,6 @@ interface Props {
  * link to that run instead of starting a second one.
  */
 export function SuggestAssigneeButton({ taskId, taskTitle, pendingAssignWorkflowRunId }: Props) {
-  const navigate = useNavigate();
   const start = useStartAssignBySkill();
 
   if (pendingAssignWorkflowRunId) {
@@ -33,8 +32,9 @@ export function SuggestAssigneeButton({ taskId, taskTitle, pendingAssignWorkflow
         <Button size="sm" variant="secondary" type="button">
           <Loader2 className="size-3 animate-spin text-violet-500" />
           <span className="bg-gradient-to-r from-violet-500 to-blue-600 bg-clip-text text-transparent">
-            Suggesting... View status
+            View workflow
           </span>
+          <MoveUpRight className="size-3 text-violet-500" />
         </Button>
       </Link>
     );
@@ -42,15 +42,9 @@ export function SuggestAssigneeButton({ taskId, taskTitle, pendingAssignWorkflow
 
   const onClick = () =>
     start.mutate(taskId, {
-      onSuccess: ({ runId }) => {
+      onSuccess: () => {
         toast.success('Suggest started', {
           description: `Ranking candidates for "${taskTitle}".`,
-          action: {
-            label: 'Open in inbox',
-            onClick: () => {
-              void navigate({ to: '/agent/workflows/runs/$runId', params: { runId } });
-            },
-          },
         });
       },
       onError: (err) =>

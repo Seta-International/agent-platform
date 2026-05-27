@@ -3,16 +3,12 @@ import '@seta/shared-ui/styles/fonts.css';
 import './styles/globals.css';
 
 import { ThemeProvider, Toaster } from '@seta/shared-ui';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider } from '@tanstack/react-router';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-
-import { createAppRouter } from './router';
+import { queryClient, router } from './router-instance';
 import { ErrorBoundary } from './shell/errors/error-boundary';
-
-const queryClient = new QueryClient();
-const router = createAppRouter(queryClient);
 
 const rootElement = document.getElementById('root');
 if (!rootElement) throw new Error('Root element #root not found');
