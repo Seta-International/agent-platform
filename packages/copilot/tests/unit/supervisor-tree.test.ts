@@ -23,9 +23,9 @@ describe('buildSupervisorTree', () => {
       tools: {},
     });
     CopilotRegistry.freeze();
-    const top = buildSupervisorTree();
-    expect(top.id).toBe('top-supervisor');
-    expect(Object.keys(staticAgents(top))).toEqual(['work']);
+    const { topSupervisor, domainAgents } = buildSupervisorTree();
+    expect(topSupervisor.id).toBe('top-supervisor');
+    expect(Object.keys(domainAgents)).toEqual(['work']);
   });
 
   it('domain supervisor exposes registered specialists as sub-agents', () => {
@@ -44,8 +44,8 @@ describe('buildSupervisorTree', () => {
       tools: {},
     });
     CopilotRegistry.freeze();
-    const top = buildSupervisorTree();
-    const work = staticAgents(top).work;
+    const { domainAgents } = buildSupervisorTree();
+    const work = domainAgents.work;
     expect(Object.keys(staticAgents(work)).sort()).toEqual(['planner', 'pmo']);
   });
 });

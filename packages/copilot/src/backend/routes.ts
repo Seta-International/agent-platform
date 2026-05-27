@@ -18,6 +18,8 @@ import { rerunWorkflow } from './domain/rerun-workflow.ts';
 import { copilotEnv } from './env.ts';
 import { listModels, ModelNotFoundError, resolveModel } from './model-registry.ts';
 import { RateLimitError, reserveTurn } from './rate-limit.ts';
+import { readRoutingCache, writeRoutingCache } from './routing-cache.ts';
+import { selectAgent } from './routing-fast-path.ts';
 import type { SessionLike } from './types.ts';
 import { issueSseToken } from './workflows/_infra/auth-token.ts';
 import { getWorkflowInputSchema } from './workflows/_infra/input-schema-registry.ts';
@@ -56,6 +58,7 @@ const ChatBody = z.object({
 
 export type CopilotRouteDeps = {
   supervisor: Agent;
+  domainAgents: Record<string, Agent>;
   mastra: unknown;
   pool: Pool;
 };
@@ -175,20 +178,46 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
     }
 
     const requestContext = new RequestContext();
-    requestContext.set('actor', { type: 'user' as const, user_id: session.user_id });
+    requestContext.set('actor', {
+      type: 'user' as const,
+      user_id: session.user_id,
+    });
     requestContext.set('tenant_id', session.tenant_id);
     requestContext.set('role_summary', session.role_summary);
 
-    const result = await deps.supervisor.stream(
+    const threadId = parsed.data.id;
+    const storage = getMemoryStore();
+
+    const lookup =
+      threadId && storage
+        ? await readRoutingCache(storage as never, threadId)
+        : { cache: null, threadTitle: null, existingMetadata: {} };
+
+    const { agent, shouldWriteCache, cacheWriteDomain } = await selectAgent({
+      threadId,
+      userText,
+      topAgent: deps.supervisor,
+      domainAgents: deps.domainAgents,
+      lookup,
+    });
+
+    const result = await agent.stream(
       effectiveMessages as never,
       {
-        ...(parsed.data.id
-          ? { memory: { thread: parsed.data.id, resource: resourceId } }
+        ...(threadId
+          ? { memory: { thread: threadId, resource: resourceId } }
           : { memory: { resource: resourceId } }),
         requestContext,
         ...(modelOverride ? { model: modelOverride as never } : {}),
       } as never,
     );
+
+    if (shouldWriteCache && cacheWriteDomain && threadId && storage) {
+      void writeRoutingCache(storage as never, threadId, cacheWriteDomain, {
+        existingMetadata: lookup.existingMetadata,
+        threadTitle: lookup.threadTitle,
+      });
+    }
 
     const uiStream = createUIMessageStream({
       originalMessages: effectiveMessages,
@@ -557,7 +586,10 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
     }
 
     const requestContext = new RequestContext();
-    requestContext.set('actor', { type: 'user' as const, user_id: session.user_id });
+    requestContext.set('actor', {
+      type: 'user' as const,
+      user_id: session.user_id,
+    });
     requestContext.set('tenant_id', session.tenant_id);
     requestContext.set('role_summary', session.role_summary);
 

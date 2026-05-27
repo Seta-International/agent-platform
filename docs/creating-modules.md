@@ -311,6 +311,51 @@ The LLM reads tool descriptions to decide which tool to call. Poor descriptions 
 | Set `needsApproval: true` on every write tool | Convention; reviewed at PR time |
 | Resolve session via `actorFromContext` + `buildActorSession` | Identity is never trusted from input |
 
+### Tool execution timeout & cancellation
+
+Every tool authored via `defineCopilotTool` is automatically wrapped with:
+
+| Behaviour | Default | Override |
+|---|---|---|
+| Read-tool deadline | 30 s | `COPILOT_TOOL_TIMEOUT_READ_MS` |
+| Write-tool deadline (`needsApproval: true`) | 60 s | `COPILOT_TOOL_TIMEOUT_WRITE_MS` |
+| Per-tool override (capped by `COPILOT_TOOL_TIMEOUT_MAX_MS`, default 300 s) | — | `executionTimeoutMs` on the spec |
+| Circuit breaker | 3 consecutive failures → open 60 s | `COPILOT_TOOL_BREAKER_*` |
+
+When the deadline passes, the wrapper aborts a composed `AbortSignal` that
+is exposed to your tool via `ctx.abortSignal`. The agent receives a
+structured `tool_execution_timeout` error.
+
+**You MUST forward `ctx.abortSignal` into every I/O call inside `execute`:**
+
+```ts
+defineCopilotTool({
+  id: 'knowledge.semanticSearch',
+  // ...
+  execute: async ({ query }, ctx) => {
+    // fetch honours the signal — connection is released on abort
+    const res = await fetch(`/embed?q=${encodeURIComponent(query)}`, {
+      signal: ctx.abortSignal,
+    });
+    // pg helpers that accept a signal will cancel the in-flight query
+    return retriever.search({ query }, { signal: ctx.abortSignal });
+  },
+});
+```
+
+A tool that ignores `ctx.abortSignal` will still time out from the agent's
+perspective — but resources held by the tool (DB connections, in-flight
+HTTP) leak until upstream gives up on its own. Always forward the signal.
+
+For tools that genuinely need longer than 60 s, set
+`executionTimeoutMs: 120_000` on the spec. For multi-minute work, refactor
+into a workflow instead — workflows have first-class suspend / resume and
+do not block an agent turn.
+
+The breaker is per-`(tenant, tool)`; one noisy tenant cannot starve another.
+When it opens, the engine emits a `copilot.tool.breaker_opened` event
+through the existing outbox (no new tables, no migration).
+
 ---
 
 ## 6. Register the module (fast path)
