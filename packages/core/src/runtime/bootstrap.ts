@@ -36,6 +36,11 @@ export interface BuildRuntimeDeps {
   reg: ContributionRegistry;
   pool: Pool;
   /**
+   * Structured logger (e.g. a pino child). When provided, dispatcher and worker
+   * subsystems use it instead of falling back to console.*.
+   */
+  log?: import('./dispatcher/index.ts').DrainLogger;
+  /**
    * Extra subscribers beyond reg.collected.subscribers. apps/server appends
    * failedLoginAlertSubscriber which depends on the mailer being wired first.
    */
@@ -106,9 +111,13 @@ export function buildRuntime(env: BuildRuntimeEnv, deps: BuildRuntimeDeps): Runt
       ...Object.fromEntries(deps.reg.collected.jobs),
       ...(deps.extraJobs ?? {}),
     };
-    wiring.workers = await startWorkerPool({ pool: deps.pool, jobs });
+    wiring.workers = await startWorkerPool({ pool: deps.pool, jobs, log: deps.log });
     if (deps.onWorkerStart) await deps.onWorkerStart({ workers: wiring.workers });
-    wiring.dispatcher = await startDispatcher({ pool: deps.pool, subscribers: subs });
+    wiring.dispatcher = await startDispatcher({
+      pool: deps.pool,
+      subscribers: subs,
+      log: deps.log,
+    });
   }
 
   async function startHttpServer(): Promise<ServerRuntime> {

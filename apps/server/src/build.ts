@@ -48,6 +48,11 @@ export type BuildServerAppDeps = {
    * itself for a self-contained HTTP-only test.
    */
   copilot?: CopilotHandle;
+  /** Structured logger (e.g. pino) passed down to route builders and the copilot engine. */
+  log?: {
+    error: (obj: unknown, msg?: string) => void;
+    warn: (obj: unknown, msg?: string) => void;
+  };
 };
 
 export type BuiltServerApp = {
@@ -145,7 +150,8 @@ export function buildServerApp(
   // absent; /health intentionally has no check and stays public. The bridge
   // middleware below populates c.var.session from better-auth.
   const copilot =
-    deps.copilot ?? registerCopilot({ pool: deps.pool, databaseUrl: deps.databaseUrl, reg });
+    deps.copilot ??
+    registerCopilot({ pool: deps.pool, databaseUrl: deps.databaseUrl, reg, log: deps.log });
   app.use('/api/copilot/*', createCopilotSessionBridge({ listRoleGrants }));
   copilot.attach(app as unknown as Hono);
 
@@ -165,6 +171,7 @@ export function buildServerApp(
       pool: deps.pool,
       workers: deps.workers,
       streams: streamsView,
+      log: deps.log,
     });
     app.route(route.mountAt, subApp as unknown as Hono<SessionEnv>);
   }

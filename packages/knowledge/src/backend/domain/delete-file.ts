@@ -25,6 +25,9 @@ export interface DeleteKnowledgeFileDeps {
   bucket?: string;
   pgVector?: PgVector;
   databaseUrl?: string;
+  log?: {
+    error: (obj: unknown, msg?: string) => void;
+  };
 }
 
 export async function deleteKnowledgeFile(
@@ -86,6 +89,13 @@ export async function deleteKnowledgeFile(
     const client = getS3Client();
     await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: s3Key }));
   } catch (err) {
-    console.error(`failed to delete S3 object ${s3Key}:`, err);
+    if (deps.log) {
+      deps.log.error(
+        { subsystem: 'knowledge.delete-file', s3Key, bucket, err },
+        'failed to delete S3 object',
+      );
+    } else {
+      console.error(`failed to delete S3 object ${s3Key}:`, err);
+    }
   }
 }

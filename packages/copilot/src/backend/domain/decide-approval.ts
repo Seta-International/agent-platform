@@ -16,6 +16,9 @@ export interface DecideApprovalOpts {
   overrideUserIds?: string[];
   note?: string;
   mastra: Mastra;
+  log?: {
+    error: (obj: unknown, msg?: string) => void;
+  };
 }
 
 export interface DecideApprovalResult {
@@ -209,7 +212,14 @@ export async function decideApproval(opts: DecideApprovalOpts): Promise<DecideAp
            AND status IN ('paused', 'running')
       `);
     } catch (cancelErr) {
-      console.error('[copilot.decide-approval.cancel-on-resume-fail]', cancelErr);
+      if (opts.log) {
+        opts.log.error(
+          { subsystem: 'copilot.decide-approval', runId: ctx.runId, err: cancelErr },
+          'cancel-on-resume-fail update failed',
+        );
+      } else {
+        console.error('[copilot.decide-approval.cancel-on-resume-fail]', cancelErr);
+      }
     }
     // For Reject the user wanted the run to end, and canceling it does exactly
     // that — return success even though resume failed. For Approve/Modify the

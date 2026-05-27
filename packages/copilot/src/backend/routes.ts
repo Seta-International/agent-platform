@@ -58,6 +58,10 @@ export type CopilotRouteDeps = {
   supervisor: Agent;
   mastra: unknown;
   pool: Pool;
+  log?: {
+    error: (obj: unknown, msg?: string) => void;
+    warn: (obj: unknown, msg?: string) => void;
+  };
 };
 
 export type CopilotRouteEnv = { Variables: { session: SessionLike } };
@@ -727,6 +731,7 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
         overrideUserIds: body.overrideUserIds,
         note: body.note,
         mastra: deps.mastra as Mastra,
+        log: deps.log,
       });
       return c.json(result);
     } catch (err) {
@@ -850,11 +855,24 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
         const message = err instanceof Error ? err.message : String(err);
         const rawCode = (err as { code?: unknown } | null)?.code;
         const code = typeof rawCode === 'string' ? rawCode : 'workflow_start_failed';
-        console.error('[copilot.workflow.start]', {
-          runId: run.runId,
-          workflowId: projectedWorkflowId,
-          err,
-        });
+        if (deps.log) {
+          deps.log.error(
+            {
+              subsystem: 'copilot.workflow.start',
+              runId: run.runId,
+              workflowId: projectedWorkflowId,
+              tenantId: session.tenant_id,
+              err,
+            },
+            'workflow start failed',
+          );
+        } else {
+          console.error('[copilot.workflow.start]', {
+            runId: run.runId,
+            workflowId: projectedWorkflowId,
+            err,
+          });
+        }
         void onLifecycleEvent(deps.pool, {
           kind: 'run-failed',
           runId: run.runId,
@@ -865,7 +883,14 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
           durationMs: Date.now() - startedAt,
           error: { code, message },
         }).catch((projErr) => {
-          console.error('[copilot.workflow.start.project-fail]', projErr);
+          if (deps.log) {
+            deps.log.error(
+              { subsystem: 'copilot.workflow.start', runId: run.runId, err: projErr },
+              'failed to project run-failed event',
+            );
+          } else {
+            console.error('[copilot.workflow.start.project-fail]', projErr);
+          }
         });
       });
       return c.json({ runId: run.runId });

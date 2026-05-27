@@ -24,6 +24,7 @@ export interface BackoffOpts {
 
 export interface DrainLogger {
   error: (obj: unknown, msg?: string) => void;
+  warn: (obj: unknown, msg?: string) => void;
 }
 export interface DrainMetrics {
   incr: (name: string, labels?: Record<string, string>) => void;

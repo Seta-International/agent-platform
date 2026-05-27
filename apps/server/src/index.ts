@@ -31,7 +31,7 @@ const log = pino({
 });
 const env = parseEnv(process.env);
 
-initPools({ databaseUrl: env.DATABASE_URL });
+initPools({ databaseUrl: env.DATABASE_URL, log: log.child({ subsystem: 'shared-db' }) });
 
 const cryptoEnv = parseCryptoEnv(process.env);
 const keyProvider = await createKeyProviderFromEnv(cryptoEnv);
@@ -86,6 +86,7 @@ const copilot = registerCopilot({
   pool: getPool('worker'),
   databaseUrl: env.DATABASE_URL,
   reg,
+  log: log.child({ subsystem: 'copilot' }),
 });
 const copilotSubscribers = reg.collected.subscriberBuilders.map(({ builder }) =>
   builder({ mastra: copilot.mastra }),
@@ -94,6 +95,7 @@ const copilotSubscribers = reg.collected.subscriberBuilders.map(({ builder }) =>
 const rt = buildRuntime(env, {
   reg,
   pool: getPool('worker'),
+  log: log.child({ subsystem: 'core.runtime' }),
   extraSubscribers: [
     failedLoginAlertSubscriber({
       getMailer,
@@ -127,6 +129,7 @@ const rt = buildRuntime(env, {
       streams,
       corsOrigins: env.CORS_ORIGINS,
       copilot,
+      log: log.child({ subsystem: 'server' }),
     });
     return app;
   },
