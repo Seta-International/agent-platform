@@ -46,7 +46,7 @@ describe('useAgentContext', () => {
         />
       </Probe>,
     );
-    expect(snap?.id).toBe('t1');
+    expect((snap as Snap)?.id).toBe('t1');
     unmount();
     // remount probe alone — fresh provider, no emitter ⇒ null
     render(
@@ -74,6 +74,6 @@ describe('useAgentContext', () => {
         />
       </Probe>,
     );
-    expect(snap?.kind).toBe('planner.task');
+    expect((snap as Snap)?.kind).toBe('planner.task');
   });
 });
