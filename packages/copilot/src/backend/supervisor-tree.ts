@@ -5,6 +5,11 @@ import { CopilotRegistry, type Domain, type SpecialistSpec } from '@seta/copilot
 import { resolveModel } from './model-registry.ts';
 import { generateDomainPrompt, generateTopRoutingPrompt } from './prompt-templates.ts';
 
+export type SupervisorTree = {
+  topSupervisor: Agent;
+  domainAgents: Record<string, Agent>;
+};
+
 function buildMemory(mastra: Mastra | undefined): Memory | undefined {
   const storage = mastra?.getStorage();
   if (!storage) return undefined;
@@ -43,12 +48,12 @@ function buildDomainSupervisor(domain: Domain, memory: Memory | undefined): Agen
   });
 }
 
-export function buildSupervisorTree(opts: { mastra?: Mastra } = {}): Agent {
+export function buildSupervisorTree(opts: { mastra?: Mastra } = {}): SupervisorTree {
   const snapshot = CopilotRegistry.snapshot();
   const memory = buildMemory(opts.mastra);
   const domainAgents: Record<string, Agent> = {};
   for (const d of snapshot.domains) domainAgents[d] = buildDomainSupervisor(d as Domain, memory);
-  return new Agent({
+  const topSupervisor = new Agent({
     id: 'top-supervisor',
     name: 'Supervisor',
     description: 'Top-level router. Routes every request to one domain.',
@@ -57,4 +62,5 @@ export function buildSupervisorTree(opts: { mastra?: Mastra } = {}): Agent {
     agents: domainAgents as never,
     ...(memory ? { memory } : {}),
   });
+  return { topSupervisor, domainAgents };
 }
