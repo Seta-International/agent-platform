@@ -15,7 +15,7 @@ import { makeToolContext, withAgentTestDb } from '../agent-tools-helpers.ts';
 function bindReader(pool: Pool): void {
   registerPendingAssignReader(async ({ taskId, tenantId }) => {
     const { rows } = await pool.query<{ run_id: string }>(
-      `SELECT run_id FROM copilot.workflow_runs
+      `SELECT run_id FROM agent.workflow_runs
         WHERE workflow_id = 'planner.assignBySkill'
           AND status IN ('running', 'paused')
           AND tenant_id = $1::uuid
@@ -55,7 +55,7 @@ async function seedPausedAssignRun(
 ): Promise<string> {
   const runId = randomUUID();
   await pool.query(
-    `INSERT INTO copilot.workflow_runs
+    `INSERT INTO agent.workflow_runs
        (run_id, workflow_id, tenant_id, started_by, started_via,
         input_summary, status, started_at)
      VALUES ($1, 'planner.assignBySkill', $2, $3, 'event',
@@ -187,7 +187,7 @@ describe('planner_getTask — pendingAssignWorkflowRunId', () => {
 
       const runId = randomUUID();
       await pool.query(
-        `INSERT INTO copilot.workflow_runs
+        `INSERT INTO agent.workflow_runs
            (run_id, workflow_id, tenant_id, started_by, started_via,
             input_summary, status, started_at)
          VALUES ($1, 'planner.assignBySkill', $2, $3, 'event',
@@ -226,7 +226,7 @@ describe('planner_getTask — pendingAssignWorkflowRunId', () => {
 
       // a finished run for the same task should not surface as pending
       await pool.query(
-        `INSERT INTO copilot.workflow_runs
+        `INSERT INTO agent.workflow_runs
            (run_id, workflow_id, tenant_id, started_by, started_via,
             input_summary, status, started_at, finished_at)
          VALUES ($1, 'planner.assignBySkill', $2, $3, 'event',

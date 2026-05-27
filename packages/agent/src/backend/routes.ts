@@ -271,7 +271,7 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
             actualTokensOut: usage.actualTokensOut,
           });
         } catch (err) {
-          console.error('[copilot.rate-limit.commit.failed]', {
+          console.error('[agent.rate-limit.commit.failed]', {
             tenantId: session.tenant_id,
             userId: session.user_id,
             err,

@@ -12,7 +12,7 @@ describe('agent migrations', () => {
 
       const cleanupIdx = await pool.query<{ indexname: string }>(`
         SELECT indexname FROM pg_indexes
-        WHERE schemaname = 'copilot'
+        WHERE schemaname = 'agent'
           AND indexname = 'rl_cleanup_window'
       `);
       expect(cleanupIdx.rows).toHaveLength(1);

@@ -9,7 +9,7 @@ function mockJsonResponse(body: unknown, status = 200): Response {
 }
 
 describe('workflowsApi', () => {
-  it('listRuns calls /api/copilot/v1/workflows/runs with scope + cursor + limit', async () => {
+  it('listRuns calls /api/agent/v1/workflows/runs with scope + cursor + limit', async () => {
     const fetchMock = vi.fn(async () => mockJsonResponse({ rows: [], nextCursor: null }));
     vi.stubGlobal('fetch', fetchMock);
 
@@ -18,7 +18,7 @@ describe('workflowsApi', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const firstCall = fetchMock.mock.calls[0] as unknown as [string, RequestInit?] | undefined;
     const callUrl = String(firstCall?.[0]);
-    expect(callUrl).toContain('/api/copilot/v1/workflows/runs?');
+    expect(callUrl).toContain('/api/agent/v1/workflows/runs?');
     expect(callUrl).toContain('scope=self');
     expect(callUrl).toContain('cursor=abc');
     expect(callUrl).toContain('limit=25');
@@ -63,7 +63,7 @@ describe('workflowsApi', () => {
     await workflowsApi.cancelRun('run-1');
 
     const firstCall = fetchMock.mock.calls[0] as unknown as [string, RequestInit] | undefined;
-    expect(String(firstCall?.[0])).toContain('/api/copilot/v1/workflows/runs/run-1/cancel');
+    expect(String(firstCall?.[0])).toContain('/api/agent/v1/workflows/runs/run-1/cancel');
     expect(firstCall?.[1].method).toBe('POST');
   });
 

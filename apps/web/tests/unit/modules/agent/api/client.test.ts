@@ -36,7 +36,7 @@ describe('agentApi', () => {
       approved: true,
       threadId: 't-1',
     });
-    expect(calls[0]?.url).toBe('/api/copilot/v1/chat/approve');
+    expect(calls[0]?.url).toBe('/api/agent/v1/chat/approve');
     expect(JSON.parse(String(calls[0]?.init.body))).toEqual({
       runId: 'run-1',
       toolCallId: 'call-1',
