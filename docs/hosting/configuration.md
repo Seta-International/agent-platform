@@ -145,7 +145,7 @@ REQUIRED alongside `CRYPTO_KMS_KEY_ARN`. Identifies the AWS region the KMS key l
 
 Optional. String. Default: `*`.
 
-Comma-separated list of modules to load in this process, or `*` for all. The default `*` is the supported single-process monolith deploy. Valid module names: `core`, `identity`, `planner`, `copilot`, `integrations`. Leave this as `*` for the supported single-process monolith.
+Comma-separated list of modules to load in this process, or `*` for all. The default `*` is the supported single-process monolith deploy. Valid module names: `core`, `identity`, `planner`, `agent`, `integrations`. Leave this as `*` for the supported single-process monolith.
 
 ## Optional integrations
 

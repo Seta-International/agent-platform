@@ -159,7 +159,7 @@ This document records each choice, the alternatives evaluated, and the condition
 
 | | |
 |---|---|
-| **Why this** | Composes our module-owned tools and specs into agents at boot, validates references at composition time (typo fails boot, not runtime), and ships a Postgres-backed memory store we can scope to the `copilot` schema. BYO LLM provider — we keep Cohere + OpenAI + Anthropic as separate concerns. |
+| **Why this** | Composes our module-owned tools and specs into agents at boot, validates references at composition time (typo fails boot, not runtime), and ships a Postgres-backed memory store we can scope to the `agent` schema. BYO LLM provider — we keep Cohere + OpenAI + Anthropic as separate concerns. |
 | **Alternatives** | **LangGraph / LangChain** (rejected: Python-first, heavyweight, opinionated state). **CrewAI** (rejected: Python, role-based orchestration not what we need). **AutoGen** (rejected: research code, weak production story). **Vercel AI SDK alone** (rejected: no agent/memory/workflow primitives — we'd build them ourselves). |
 | **Trade-offs accepted** | • Mastra is < 2 years old — APIs still move • Memory APIs evolve faster than core; we pin `@mastra/memory` carefully |
 | **Reconsider when** | Mastra governance falters **or** the SDK's tool-execution model diverges from AI SDK v6's `needsApproval` in a way that breaks our HITL contract. |
@@ -337,6 +337,6 @@ This document records each choice, the alternatives evaluated, and the condition
 ## See also
 
 - [`architecture.md`](./architecture.md) — how these pieces compose into the system shape.
-- [`copilot-architecture.md`](./copilot-architecture.md) — Mastra + AI SDK v6 + assistant-ui in motion.
+- [`agent-architecture.md`](./agent-architecture.md) — Mastra + AI SDK v6 + assistant-ui in motion.
 - [`creating-modules.md`](./creating-modules.md) — Hono routes, Drizzle schemas, agent tools in practice.
 - [`hosting/aws.md`](./hosting/aws.md) — ECS Fargate + OpenTofu deployed.

@@ -1,10 +1,10 @@
 # Architecture
 
-Seta is a multi-tenant, AI-first work-management platform implemented as a modular monolith. A single Postgres database, a single composition library, and multiple Node runtimes share one image; each module owns a Postgres schema, a public TypeScript surface, and an optional set of agent tools that the copilot engine composes into Mastra agents at boot.
+Seta is a multi-tenant, AI-first work-management platform implemented as a modular monolith. A single Postgres database, a single composition library, and multiple Node runtimes share one image; each module owns a Postgres schema, a public TypeScript surface, and an optional set of agent tools that the agent engine composes into Mastra agents at boot.
 
 This document is the single source of truth for the implementation shape. When the code and this document disagree, the document is treated as the bug — the code is corrected to match.
 
-**Related documents.** [`tech-stack.md`](./tech-stack.md) records why each dependency was chosen. [`copilot-architecture.md`](./copilot-architecture.md) covers the agent system in depth. [`creating-modules.md`](./creating-modules.md) is the module-author guide. [`hosting/aws.md`](./hosting/aws.md) covers production deployment.
+**Related documents.** [`tech-stack.md`](./tech-stack.md) records why each dependency was chosen. [`agent-architecture.md`](./agent-architecture.md) covers the agent system in depth. [`creating-modules.md`](./creating-modules.md) is the module-author guide. [`hosting/aws.md`](./hosting/aws.md) covers production deployment.
 
 ---
 
@@ -12,10 +12,10 @@ This document is the single source of truth for the implementation shape. When t
 
 ```mermaid
 flowchart LR
-    Browser[Browser — React SPA — planner UI and copilot chat]
+    Browser[Browser — React SPA — planner UI and agent chat]
 
     subgraph Runtime[Same image, two processes]
-      Server[apps server — Hono HTTP and Copilot engine]
+      Server[apps server — Hono HTTP and Agent engine]
       Worker[apps worker — dispatcher and job pool]
     end
 
@@ -52,7 +52,7 @@ The picture compresses every architectural commitment that follows:
 | **Modules in-process** | Cross-module calls are typed function calls, not HTTP. The boundary is the schema and the public surface, not the network. |
 | **One Postgres, many schemas** | Module data, the event outbox, embedding tables (pgvector), and agent memory all live in the same database. One backup, one failover, one SLO. |
 | **Outbox + LISTEN/NOTIFY** | State mutation and event emission share a transaction; the worker dispatcher fans events to subscribers with at-least-once delivery. |
-| **Copilot inside the server runtime** | The agent engine composes module-owned tools at boot. Read tools execute directly; write tools pause for explicit user approval. |
+| **Agent inside the server runtime** | The agent engine composes module-owned tools at boot. Read tools execute directly; write tools pause for explicit user approval. |
 | **External boundaries** | Only LLM providers and Microsoft 365 are outside the database; everything else is one transactional store. |
 
 Each of these is unpacked in the sections below.
@@ -141,13 +141,13 @@ packages/
 ├── integrations/     # M365 boot, mail-transport config, MCP clients
 ├── knowledge/        # tenant knowledge corpus, RAG pipeline
 ├── notifications/    # in-app + email prefs, SSE hub
-├── copilot/          # engine-only: Mastra runtime + agent factory
+├── agent/          # engine-only: Mastra runtime + agent factory
 ├── staffing/         # orchestrator: cross-module workflows
 └── shared-*/         # infra: config, db, rbac, types, ui, crypto, mailer,
                       #        storage, embeddings, retrieval, testing
 
 sdks/
-├── copilot/   # @seta/copilot-sdk — agent-tool contract (pure types)
+├── agent/   # @seta/agent-sdk — agent-tool contract (pure types)
 └── module/    # @seta/module-sdk — frontend nav contract
 
 infra/
@@ -208,7 +208,7 @@ Three path layers — enforced by dep-cruiser, no maintained allowlist:
 | **module** | `packages/<name>/` | Cross-module imports go through the public surface only |
 | **runtime** | `apps/*` | Apps don't import each other |
 
-On top of the path layer, each module declares a `"setaTier"` in `package.json` — informational metadata naming its role: **foundation** (`core`, `identity`) depended on by every module; **feature** (`planner`, `integrations`, `knowledge`, `notifications`) domain-owning modules; **orchestrator** (`staffing`) composing multiple feature modules; **engine** (`copilot`) composing tools and specs into a Mastra runtime.
+On top of the path layer, each module declares a `"setaTier"` in `package.json` — informational metadata naming its role: **foundation** (`core`, `identity`) depended on by every module; **feature** (`planner`, `integrations`, `knowledge`, `notifications`) domain-owning modules; **orchestrator** (`staffing`) composing multiple feature modules; **engine** (`agent`) composing tools and specs into a Mastra runtime.
 
 ---
 
@@ -234,7 +234,7 @@ packages/<module>/
         ├── http/               # Hono sub-app + zod request schemas
         ├── stream/             # SSE hub (when fanning events to clients)
         ├── workflows/          # Mastra workflow builders
-        ├── agent-tools.ts      # CopilotTool[] surfaced to copilot
+        ├── agent-tools.ts      # AgentTool[] surfaced to agent
         ├── agent-specs.ts      # AgentSpec[] for orchestrator-style agents
         └── db/
             ├── schema.ts       # Drizzle pgSchema('<module>')
@@ -310,7 +310,7 @@ reg.module({
   routes:    { mountAt: '/api/planner/v1', build },   // optional
   stream:    buildStreamHub,                          // optional
 
-  agentTools,                // CopilotTool[]     — composed into agents
+  agentTools,                // AgentTool[]     — composed into agents
   agentSpecs,                // AgentSpec[]       — orchestrator personas
   workflows,                 // WorkflowBuilder[] — Mastra workflows
 
@@ -410,15 +410,15 @@ sequenceDiagram
 
 ---
 
-## 12. Agent system (copilot)
+## 12. Agent system
 
-`@seta/copilot` is engine-only. It composes module-owned agent tools and specs into Mastra agents via the contribution registry; it does **not** import any feature or orchestrator module (enforced by dep-cruiser rule `copilot-no-feature-imports`). The supervisor / specialist design, HITL contract, memory model, planner walkthrough, and code locations are in [`copilot-architecture.md`](./copilot-architecture.md).
+`@seta/agent` is engine-only. It composes module-owned agent tools and specs into Mastra agents via the contribution registry; it does **not** import any feature or orchestrator module (enforced by dep-cruiser rule `agent-no-feature-imports`). The supervisor / specialist design, HITL contract, memory model, planner walkthrough, and code locations are in [`agent-architecture.md`](./agent-architecture.md).
 
 ---
 
 ## 13. Embeddings & retrieval
 
-Embeddings live in the **owning module's schema** as sibling tables, never in `copilot`.
+Embeddings live in the **owning module's schema** as sibling tables, never in `agent`.
 
 ```mermaid
 flowchart LR
@@ -543,7 +543,7 @@ The architecture imposes the following constraints. Each is a deliberate exchang
 | **Can the AI SDK v6 substitute for Mastra?** | No. AI SDK v6 provides the LLM client and tool-call protocol; Mastra provides agent composition, memory, and workflow primitives. The two are complementary. |
 | **How are agents added independently of modules?** | Agents are not module-independent. Tools are owned by modules; cross-module agents are composed in orchestrator-tier packages (for example, `staffing`). |
 | **What is the scale ceiling?** | The targets in §3 describe the validated envelope. Above this, the trade-offs in §17 begin to apply; mitigation involves the `PLATFORM_MODULES` split, read replicas, and isolating the highest-load module onto a dedicated database. |
-| **Is the supervisor / specialist pattern documented separately?** | Yes — see [`copilot-architecture.md`](./copilot-architecture.md). |
+| **Is the supervisor / specialist pattern documented separately?** | Yes — see [`agent-architecture.md`](./agent-architecture.md). |
 
 ---
 
@@ -559,17 +559,17 @@ The fastest path to understanding any subsystem:
 | Reference feature module | `packages/planner/` |
 | Reference orchestrator | `packages/staffing/` |
 | Composition in practice | `apps/server/src/index.ts` + `apps/worker/src/index.ts` |
-| Agent-tool contract | `sdks/copilot/src/index.ts` |
+| Agent-tool contract | `sdks/agent/src/index.ts` |
 | Frontend nav contract | `sdks/module/src/index.ts` |
 
-For Mastra internals (when wiring copilot), consult the Mastra source checkout at `../mastra/` instead of inferring from npm types.
+For Mastra internals (when wiring the agent engine), consult the Mastra source checkout at `../mastra/` instead of inferring from npm types.
 
 ---
 
 ## See also
 
 - [`tech-stack.md`](./tech-stack.md) — why each library is here.
-- [`copilot-architecture.md`](./copilot-architecture.md) — the agent system in depth via a planner walkthrough.
+- [`agent-architecture.md`](./agent-architecture.md) — the agent system in depth via a planner walkthrough.
 - [`creating-modules.md`](./creating-modules.md) — add a module + agent tool + UI.
 - [`dev-quickstart.md`](./dev-quickstart.md) — first tenant on a fresh DB.
 - [`hosting/aws.md`](./hosting/aws.md) — production deployment.

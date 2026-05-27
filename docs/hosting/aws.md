@@ -546,7 +546,7 @@ PITR loses changes after the restore target time — communicate downtime expect
 | WAF | ~$8 | ~$8 | ~$15 |
 | **Total** | **~$355** | **~$830** | **~$3,200** |
 
-LLM provider costs are not included; they vary with workload and are managed at the agent layer (see [`copilot-architecture.md`](../copilot-architecture.md) §17).
+LLM provider costs are not included; they vary with workload and are managed at the agent layer (see [`agent-architecture.md`](../agent-architecture.md) §17).
 
 ### Discount strategy
 

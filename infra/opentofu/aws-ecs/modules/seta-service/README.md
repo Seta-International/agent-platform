@@ -8,7 +8,7 @@ Provisions one ECS Fargate service for a `seta-server` process — task definiti
 
 | Variable | Type | Description |
 |---|---|---|
-| `name` | string | Service name suffix (e.g. `gateway`, `planner`, `copilot`). |
+| `name` | string | Service name suffix (e.g. `gateway`, `planner`, `agent`). |
 | `cluster_arn` | string | ECS cluster ARN this service runs in. |
 | `vpc_id` | string | VPC ID. |
 | `private_subnet_ids` | list(string) | Subnets the tasks run in. |

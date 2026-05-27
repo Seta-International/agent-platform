@@ -28,7 +28,7 @@ flowchart LR
     Srv[apps server]
     Wrk[apps worker]
     Web[apps web]
-    Cop[copilot]
+    Cop[agent]
     PG[(timesheet schema)]
     Bus[(core.events)]
 
@@ -51,7 +51,7 @@ What a module contributes through one `reg.module({...})` call:
 | `schema` + `migrationsDir` | Migration runner; Drizzle codegen |
 | `events` (zod payload schemas) | Bus, audit, subscribers in peer modules |
 | `rbac` (permission slugs) | Identity, session-scope checks, tool RBAC filter |
-| `agentTools` | Copilot tool catalogue |
+| `agentTools` | Agent tool catalogue |
 | `routes` (optional) | `apps/server` HTTP mount |
 | `subscribers`, `jobs`, `workflows` (optional) | `apps/worker` dispatcher + pool |
 | `stream` (optional) | SSE hub, consumed by web companion |
@@ -261,7 +261,7 @@ Agent tools live in `src/backend/agent-tools/<verb-entity>.ts` and are aggregate
 `packages/timesheet/src/backend/agent-tools/log-entry.ts`:
 
 ```ts
-export const timesheetLogEntryTool = defineCopilotTool({
+export const timesheetLogEntryTool = defineAgentTool({
   id: 'timesheet_logEntry',
   name: 'Log Timesheet Entry',
   description: 'Log a timesheet entry for the current user. Hours are decimal (for example "1.5").',
@@ -284,7 +284,7 @@ export const timesheetLogEntryTool = defineCopilotTool({
 });
 ```
 
-Aggregate in `agent-tools.ts`: `export const timesheetAgentTools: CopilotTool[] = [timesheetLogEntryTool];`
+Aggregate in `agent-tools.ts`: `export const timesheetAgentTools: AgentTool[] = [timesheetLogEntryTool];`
 
 ### Tool description grammar
 
@@ -306,14 +306,14 @@ The LLM reads tool descriptions to decide which tool to call. Poor descriptions 
 
 | Rule | Enforced by |
 |---|---|
-| Import from `@seta/copilot-sdk`, never `@seta/copilot` | dep-cruiser (`copilot-no-feature-imports`) |
-| Use `defineCopilotTool`, not `createTool` from `@mastra/core/tools` | SDK wrapper attaches RBAC and approval flag |
+| Import from `@seta/agent-sdk`, never `@seta/agent` internals | dep-cruiser (`agent-no-feature-imports`) |
+| Use `defineAgentTool`, not `createTool` from `@mastra/core/tools` | SDK wrapper attaches RBAC and approval flag |
 | Set `needsApproval: true` on every write tool | Convention; reviewed at PR time |
 | Resolve session via `actorFromContext` + `buildActorSession` | Identity is never trusted from input |
 
 ### Tool execution timeout & cancellation
 
-Every tool authored via `defineCopilotTool` is automatically wrapped with:
+Every tool authored via `defineAgentTool` is automatically wrapped with:
 
 | Behaviour | Default | Override |
 |---|---|---|
@@ -329,7 +329,7 @@ structured `tool_execution_timeout` error.
 **You MUST forward `ctx.abortSignal` into every I/O call inside `execute`:**
 
 ```ts
-defineCopilotTool({
+defineAgentTool({
   id: 'knowledge.semanticSearch',
   // ...
   execute: async ({ query }, ctx) => {
@@ -353,7 +353,7 @@ into a workflow instead — workflows have first-class suspend / resume and
 do not block an agent turn.
 
 The breaker is per-`(tenant, tool)`; one noisy tenant cannot starve another.
-When it opens, the engine emits a `copilot.tool.breaker_opened` event
+When it opens, the engine emits a `agent.tool.breaker_opened` event
 through the existing outbox (no new tables, no migration).
 
 ---
@@ -561,7 +561,7 @@ Most feature modules do not need their own specialist. The supervisor selects to
 ### Local agent testing
 
 ```bash
-pnpm copilot:repl --tool timesheet_logEntry
+pnpm agent:repl --tool timesheet_logEntry
 ```
 
 The REPL composes the tool against a fake session and prompts for arguments; responses are streamed as the agent would receive them. Use this to validate descriptions and schemas before opening a PR.
@@ -611,7 +611,7 @@ pnpm test:e2e   # if the web companion changed
 | End-to-end tests (if web changed) | `pnpm test:e2e` | all green |
 | Boot smoke check | `pnpm --filter @seta/server dev` | server reaches `/health/ready` 200 |
 
-The boundary gate (`pnpm lint`) catches the most common new-module mistakes: cross-module internal imports, accidental imports from `@seta/copilot` instead of `@seta/copilot-sdk`, `shared-*` reaching into a feature module.
+The boundary gate (`pnpm lint`) catches the most common new-module mistakes: cross-module internal imports, accidental imports from `@seta/agent` internals instead of `@seta/agent-sdk`, `shared-*` reaching into a feature module.
 
 ---
 
@@ -623,6 +623,6 @@ The boundary gate (`pnpm lint`) catches the most common new-module mistakes: cro
 | Boundary rules dep-cruiser enforces | [`architecture.md`](./architecture.md) §6 |
 | Reference feature module | `packages/planner/` |
 | Reference orchestrator module | `packages/staffing/` |
-| Tool contract definition | `sdks/copilot/src/index.ts` |
+| Tool contract definition | `sdks/agent/src/index.ts` |
 | Web nav contract definition | `sdks/module/src/index.ts` |
-| Agent system design | [`copilot-architecture.md`](./copilot-architecture.md) |
+| Agent system design | [`agent-architecture.md`](./agent-architecture.md) |

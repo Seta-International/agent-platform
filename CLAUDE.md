@@ -27,7 +27,7 @@ For `@mastra/core` API names, consult the sibling checkout at `../mastra/` inste
 
 ## Enforced architectural rules (CI-gated)
 
-1. **`pnpm depcruise`** — cross-module imports must go through `packages/<module>/src/index.ts` or the `/events`, `/rbac`, `/contracts`, `/agent-tools` subpaths. `shared-*` may not import from feature modules. `copilot` is engine-only and may not import any feature or orchestrator module (`copilot-no-feature-imports`).
+1. **`pnpm depcruise`** — cross-module imports must go through `packages/<module>/src/index.ts` or the `/events`, `/rbac`, `/contracts`, `/agent-tools` subpaths. `shared-*` may not import from feature modules. `agent` is engine-only and may not import any feature or orchestrator module (`agent-no-feature-imports`).
 2. **`pnpm lint:raw-sql`** — rejects `FROM <other_module>.` / `JOIN <other_module>.` outside `packages/core/src/{audit,events}/`.
 3. **`pnpm lint:styles`** — rejects `.css`, `tailwind.config.*`, `@theme/@layer/@apply` outside `packages/shared-ui/` (one shim allowed at `apps/web/src/styles/globals.css`).
 4. **Drizzle schema scoping** — each `drizzle.config.ts` sets `schemaFilter: ['<module>']`; cross-schema reads fail at codegen.
@@ -47,7 +47,7 @@ Enforced by `.dependency-cruiser.cjs`:
 Declared via `"setaTier"` in `package.json` (informational, not a separate enforced layer):
 - **foundation** — depended on by every module (`core`, `identity`).
 - **orchestrator** — composes multiple feature modules (`staffing`). Typically schemaless; workflow state lives in `copilot.workflow_runs`.
-- **engine** — `copilot` only. Composes module-owned agent tools/specs into a Mastra runtime.
+- **engine** — `agent` only. Composes module-owned agent tools/specs into a Mastra runtime.
 
 ## Project-specific workflow
 
@@ -61,6 +61,6 @@ Declared via `"setaTier"` in `package.json` (informational, not a separate enfor
 
 ## Conventions worth knowing
 
-- **HITL on every write tool.** AI SDK v6 `needsApproval: true` + assistant-ui Interactable confirmation card, wired via `registerToolPermission` from `@seta/copilot-sdk`. Read tools execute directly.
+- **HITL on every write tool.** AI SDK v6 `needsApproval: true` + assistant-ui Interactable confirmation card, wired via `registerToolPermission` from `@seta/agent-sdk`. Read tools execute directly.
 - **Subscribers must be idempotent**, keyed on `event_id`. At-least-once delivery; per-aggregate ordering only.
 - **Production-grade only, never quick hacks.** Diagnose the root cause and ship the optimized solution; "small patch now, real fix later" is rejected on review.

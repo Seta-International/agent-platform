@@ -62,7 +62,7 @@ graph TB
 
 ### Data Layer & Multi-Schema Architecture
 
-Every feature module owns **one Postgres schema** (`planner`, `identity`, `knowledge`, `copilot`, …). Cross-schema foreign keys are **prohibited** — module boundaries are crossed only through the event outbox or typed public-surface function calls. Vector embeddings (`pgvector`) live as per-tenant tables within each module's schema — no separate vector database needed.
+Every feature module owns **one Postgres schema** (`planner`, `identity`, `knowledge`, `agent`, …). Cross-schema foreign keys are **prohibited** — module boundaries are crossed only through the event outbox or typed public-surface function calls. Vector embeddings (`pgvector`) live as per-tenant tables within each module's schema — no separate vector database needed.
 
 ```mermaid
 flowchart LR
@@ -192,7 +192,7 @@ The frontend (`apps/web`) is a React 19 SPA built with TanStack Router, TanStack
 
 ### Mastra Agent Core
 
-The agent engine (`packages/copilot/`) is built on [Mastra](https://mastra.ai) and composes a **three-tier supervisor tree** at boot:
+The agent engine (`packages/agent/`) is built on [Mastra](https://mastra.ai) and composes a **three-tier supervisor tree** at boot:
 
 ```mermaid
 flowchart TB
@@ -241,7 +241,7 @@ flowchart TB
 | What you get for free | Detail |
 |---|---|
 | **Intent routing** | Top supervisor picks domain; domain supervisor picks specialist or workflow |
-| **Persistent memory** | Threads and messages in `copilot` schema via `@mastra/pg` |
+| **Persistent memory** | Threads and messages in `agent` schema via `@mastra/pg` |
 | **HITL gate** | Every write tool surfaces an approval card before executing |
 | **Audit trail** | Every tool call, approval, and workflow step recorded in `core.events` and `copilot.workflow_runs` |
 | **Rate limiting** | Per-tenant/user token budget; returns HTTP 429 with `Retry-After` |
@@ -265,7 +265,7 @@ flowchart LR
     subgraph Runtime["Runtime (auto-wired at boot)"]
       Srv["apps/server\nHTTP routes · agent tools"]
       Wrk["apps/worker\nsubscribers · jobs"]
-      Cop["packages/copilot\nspecialist tree"]
+      Cop["packages/agent\nspecialist tree"]
       Web["apps/web\nnav shell"]
     end
 
@@ -285,7 +285,7 @@ flowchart LR
 
 ### Extension Point 1 — Agent Persona & System Prompt
 
-A specialist is a named agent persona scoped to one domain. Register it in your module's `register.ts` via `CopilotRegistry.registerSpecialist()`. The `instructions` field is your system prompt; the `domain` field controls which supervisor tree branch it lives under.
+A specialist is a named agent persona scoped to one domain. Register it in your module's `register.ts` via `AgentRegistry.registerSpecialist()`. The `instructions` field is your system prompt; the `domain` field controls which supervisor tree branch it lives under.
 
 **Where to work:** `packages/<your-module>/src/register.ts`
 
@@ -304,7 +304,7 @@ Adding a specialist to an existing domain requires **no changes** to the top rou
 
 ### Extension Point 2 — Custom Tools (Function Calling)
 
-Tools are the primitives your specialist calls to read data or propose actions. They live in `packages/<your-module>/src/backend/agent-tools/` and are authored with `defineCopilotTool` from `@seta/copilot-sdk`.
+Tools are the primitives your specialist calls to read data or propose actions. They live in `packages/<your-module>/src/backend/agent-tools/` and are authored with `defineAgentTool` from `@seta/agent-sdk`.
 
 ```mermaid
 flowchart LR
@@ -356,7 +356,7 @@ flowchart TB
     end
 
     subgraph L3["Level 3 — Specialist"]
-      ToolDesc["defineCopilotTool({ description })\n(your imperative-verb description)"]
+      ToolDesc["defineAgentTool({ description })\n(your imperative-verb description)"]
     end
 
     Msg --> L1
@@ -383,7 +383,7 @@ graph TD
     Events["events.ts — Zod payload schemas"]
     RBAC["rbac.ts — permission slugs"]
     Reg["register.ts — ContributionRegistry.module()"]
-    AT["agent-tools.ts — aggregated CopilotTool[]"]
+    AT["agent-tools.ts — aggregated AgentTool[]"]
     Drizzle["drizzle/migrations/ — generated, never hand-edited"]
 
     Root --> Src & Drizzle
@@ -403,13 +403,13 @@ Every user message travels through a deterministic chain: the HTTP route validat
 
 | Step | What happens |
 |---|---|
-| **1. Intent Parsing** | User sends a message to `POST /api/copilot/v1/chat`. The route injects page context, validates the session, and calls `reserveTurn` to deduct the token budget. |
+| **1. Intent Parsing** | User sends a message to `POST /api/agent/v1/chat`. The route injects page context, validates the session, and calls `reserveTurn` to deduct the token budget. |
 | **2. Domain Routing** | The top supervisor reads the message and delegates to exactly one domain (`work`, `people`, `self`, `knowledge`, or `meta`). |
 | **3. Specialist Selection** | The domain supervisor picks the right specialist or triggers a deterministic workflow. |
 | **4. Context Loading (RAG)** | The specialist calls read tools or semantic search tools to load relevant context. |
 | **5. Orchestrator Processing** | The specialist reasons over the fetched signals and decides which action to propose. |
 | **6. HITL Gate** | Write tools call `ctx.agent.suspend(card)` or set `needsApproval: true`. The stream pauses; an approval card renders in the chat UI. |
-| **7. User Approval** | The user approves. The client posts `POST /api/copilot/v1/chat/approve` with optional `resumeData`. |
+| **7. User Approval** | The user approves. The client posts `POST /api/agent/v1/chat/approve` with optional `resumeData`. |
 | **8. Tool Execution** | The domain function runs inside `withEmit(session, ...)`: the DB write and domain event commit in one transaction. |
 | **9. Response Generation** | The agent receives the tool result, generates a confirmation message, and streams it back. |
 | **10. Event Fan-out** | `LISTEN/NOTIFY` wakes the worker; subscribers process the event idempotently (notifications, audit, integrations). |
@@ -419,7 +419,7 @@ Every user message travels through a deterministic chain: the HTTP route validat
 ```mermaid
 sequenceDiagram
     participant User as User (Chat UI)
-    participant HTTP as POST /api/copilot/v1/chat
+    participant HTTP as POST /api/agent/v1/chat
     participant Top as Top Supervisor
     participant Dom as Domain Supervisor
     participant Spec as Specialist Agent
@@ -548,7 +548,7 @@ Commit style — imperative mood: `feat: add sales pipeline agent tool`
 
 | Package | Purpose |
 |---|---|
-| [`apps/web`](apps/web) | React 19 SPA — planner, copilot chat, console admin |
+| [`apps/web`](apps/web) | React 19 SPA — planner, agent chat, console admin |
 | [`apps/server`](apps/server) | Hono API; dev also runs the dispatcher + worker pool |
 | [`apps/worker`](apps/worker) | Production graphile-worker pool + LISTEN/NOTIFY dispatcher |
 | [`apps/cli`](apps/cli) | Operational CLI — migrate, seed, provision, embedding backfill |
@@ -557,10 +557,10 @@ Commit style — imperative mood: `feat: add sales pipeline agent tool`
 | [`packages/planner`](packages/planner) | Plans, buckets, tasks; Microsoft Planner sync |
 | [`packages/knowledge`](packages/knowledge) | Tenant knowledge corpus + RAG pipeline |
 | [`packages/notifications`](packages/notifications) | In-app + email prefs, SSE hub |
-| [`packages/copilot`](packages/copilot) | Mastra engine + agent factory (engine-only; no feature imports) |
+| [`packages/agent`](packages/agent) | Mastra engine + agent factory (engine-only; no feature imports) |
 | [`packages/staffing`](packages/staffing) | Orchestrator: cross-module workflows |
 | [`packages/shared-ui`](packages/shared-ui) | Design system — tokens, primitives, the only `.css` |
-| [`sdks/copilot`](sdks/copilot) | `@seta/copilot-sdk` — agent-tool authoring contract |
+| [`sdks/agent`](sdks/agent) | `@seta/agent-sdk` — agent-tool authoring contract |
 | [`sdks/module`](sdks/module) | `@seta/module-sdk` — frontend nav-manifest contract |
 
 ## Scripts
