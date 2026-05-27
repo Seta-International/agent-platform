@@ -42,6 +42,8 @@ function taskWithPlan(over: Partial<TaskWithPlan>): TaskWithPlan {
     deleted_at: null,
     version: 1,
     plan: { id: 'p', name: 'Plan', group_id: 'g' },
+    assignees: [],
+    labels: [],
     ...over,
   };
 }

@@ -9,8 +9,9 @@ vi.mock('@tanstack/react-router', () => ({
 
 import { AgentProvider, usePageContext } from '@/modules/agent/chat-experience/agent-provider';
 import { useAgentContext } from '@/modules/agent/hooks/use-agent-context';
+import type { PageContext } from '@/modules/agent/lib/page-context-types';
 
-type Snap = ReturnType<typeof usePageContext>['pageContext'];
+type Snap = PageContext | null;
 
 function Probe({ children }: { children: React.ReactNode }) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
