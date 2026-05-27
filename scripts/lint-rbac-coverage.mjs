@@ -86,7 +86,7 @@ for (const mod of MODULES) {
 const WRITE_RBAC = /['"][^'"]*\.(?:write|delete)(?:\.|['"])/;
 const TOOL_DIRS = [
   ...MODULES.map((m) => `packages/${m}/src/backend/agent-tools`),
-  'packages/copilot/src/backend/agent-tools',
+  'packages/agent/src/backend/agent-tools',
 ];
 
 for (const dir of TOOL_DIRS) {
@@ -101,7 +101,7 @@ for (const dir of TOOL_DIRS) {
     if (entry === 'index.ts' || entry === 'register.ts' || entry.startsWith('register-')) continue;
     const full = join(dir, entry);
     const src = await readFile(full, 'utf8');
-    if (!/defineCopilotTool\s*\(/.test(src)) continue;
+    if (!/defineAgentTool\s*\(/.test(src)) continue;
     const rbacMatch = src.match(/rbac:\s*(['"][^'"]+['"])/);
     if (!rbacMatch || !WRITE_RBAC.test(rbacMatch[1])) continue;
     if (!/needsApproval:\s*true/.test(src)) {

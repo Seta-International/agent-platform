@@ -27,7 +27,7 @@ MODULES=(
 )
 
 # All known schemas (extend as new modules land).
-ALL_SCHEMAS_RE='identity|core|copilot|integrations|planner|knowledge|notifications|staffing'
+ALL_SCHEMAS_RE='identity|core|agent|integrations|planner|knowledge|notifications|staffing'
 
 violations=""
 

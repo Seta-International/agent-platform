@@ -16,7 +16,7 @@ import { useApprovalResolvedEvent } from '../hooks/use-approval-events';
 import { useModelCatalog } from '../hooks/use-model-catalog';
 import { useThreadMessages } from '../hooks/use-thread-messages';
 
-const MODEL_STORAGE_KEY = 'seta.copilot.model';
+const MODEL_STORAGE_KEY = 'seta.agent.model';
 
 export interface AgentSelection {
   threadId: string | undefined;

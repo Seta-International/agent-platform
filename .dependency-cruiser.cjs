@@ -32,7 +32,7 @@ module.exports = {
     //    internals; everything else routes through the package root or
     //    declared subpaths (/events, /rbac, /contracts, /agent-tools).
     //    /agent-tools/register.ts is a public side-effect subpath exported by
-    //    package.json; copilot's init-registry imports it to trigger module
+    //    package.json; agent's init-registry imports it to trigger module
     //    registration before registry freeze.
     {
       name: 'no-cross-module-internals',
@@ -47,14 +47,14 @@ module.exports = {
     },
 
     // 3.5. Modules must not import another module's agent tool functions directly.
-    //      Cross-module tool access goes through CopilotRegistry via @seta/copilot-sdk.
+    //      Cross-module tool access goes through AgentRegistry via @seta/agent-sdk.
     //      The /agent-tools/register.ts side-effect subpath and /agent-tools/index.ts
     //      collection re-export are permitted public surfaces.
     {
       name: 'no-direct-cross-module-tool-import',
       severity: 'error',
       comment:
-        "Modules must not import another module's agent tool function directly. Cross-module tool access goes through CopilotRegistry via @seta/copilot-sdk.",
+        "Modules must not import another module's agent tool function directly. Cross-module tool access goes through AgentRegistry via @seta/agent-sdk.",
       from: { path: '^packages/(?!shared-)([^/]+)/src/' },
       to: {
         path: '^packages/(?!shared-)([^/]+)/src/backend/agent-tools/',
@@ -141,49 +141,49 @@ module.exports = {
       to: { path: '^(packages/(?!shared-)([^/]+)/|apps/)' },
     },
 
-    // 10. copilot-sdk imports Mastra TYPES only (the package entry); no deeper
+    // 10. agent-sdk imports Mastra TYPES only (the package entry); no deeper
     //     runtime modules.
     {
-      name: 'copilot-sdk-no-mastra-runtime',
+      name: 'agent-sdk-no-mastra-runtime',
       severity: 'error',
       comment:
-        '@seta/copilot-sdk is a pure contract package. It may import Mastra types (the @mastra/core module entry) but must not import deeper runtime modules.',
-      from: { path: '^sdks/copilot/' },
+        '@seta/agent-sdk is a pure contract package. It may import Mastra types (the @mastra/core module entry) but must not import deeper runtime modules.',
+      from: { path: '^sdks/agent/' },
       to: { path: '^node_modules/@mastra/(?!core/?$)' },
     },
 
-    // 11. copilot is engine-only. It composes module-owned agent tools at
+    // 11. agent is engine-only. It composes module-owned agent tools at
     //     session time via the contribution registry, never by direct import.
     //     The only feature-module cross-import allowed is the /events subpath
     //     (event-shape contracts), in file or directory form. `core` is
     //     foundation tier (every module imports it) and is excluded from the
     //     `to:` path; `shared-*` is infra.
     {
-      name: 'copilot-no-feature-imports',
+      name: 'agent-no-feature-imports',
       severity: 'error',
       comment:
-        'copilot is engine-only: it composes module-owned agent tools at session time via the registry, never by direct import. The only feature-module cross-import allowed is /events (event-shape contracts). @seta/core is foundation tier and may be imported freely.',
-      from: { path: '^packages/copilot/src/' },
+        'agent is engine-only: it composes module-owned agent tools at session time via the registry, never by direct import. The only feature-module cross-import allowed is /events (event-shape contracts). @seta/core is foundation tier and may be imported freely.',
+      from: { path: '^packages/agent/src/' },
       to: {
-        path: '^packages/(?!shared-|copilot/|core/)([^/]+)/',
+        path: '^packages/(?!shared-|agent/|core/)([^/]+)/',
         pathNot: '^packages/[^/]+/src/events(\\.ts$|/)|/agent-tools/register\\.ts$',
       },
     },
 
     // 12. Feature and orchestrator modules consume the agent SDK
-    //     (@seta/copilot-sdk), never @seta/copilot internals. The only
-    //     @seta/copilot subpaths a module may import are ./rbac and ./events.
+    //     (@seta/agent-sdk), never @seta/agent internals. The only
+    //     @seta/agent subpaths a module may import are ./rbac and ./events.
     //     Apps (apps/server, apps/cli) are exempt — `from:` matches only
     //     packages.
     {
-      name: 'modules-no-copilot-internals',
+      name: 'modules-no-agent-internals',
       severity: 'error',
       comment:
-        'Feature and orchestrator modules consume the agent SDK (@seta/copilot-sdk), never @seta/copilot internals. The only @seta/copilot subpaths a module may import are ./rbac and ./events.',
-      from: { path: '^packages/(?!shared-|copilot/)([^/]+)/src/' },
+        'Feature and orchestrator modules consume the agent SDK (@seta/agent-sdk), never @seta/agent internals. The only @seta/agent subpaths a module may import are ./rbac and ./events.',
+      from: { path: '^packages/(?!shared-|agent/)([^/]+)/src/' },
       to: {
-        path: '^packages/copilot/src/',
-        pathNot: '^packages/copilot/src/(rbac|events)(/|\\.ts$)',
+        path: '^packages/agent/src/',
+        pathNot: '^packages/agent/src/(rbac|events)(/|\.ts$)',
       },
     },
 

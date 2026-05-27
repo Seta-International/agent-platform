@@ -40,7 +40,7 @@ describe('AgentProvider', () => {
     });
     expect(result.current.selection.modelKey).toBe('balanced-default');
     expect(result.current.selection.threadId).toBe('thread-123');
-    expect(window.localStorage.getItem('seta.copilot.model')).toBe('balanced-default');
+    expect(window.localStorage.getItem('seta.agent.model')).toBe('balanced-default');
   });
 
   it('throws when useAgentSelection is used outside provider', () => {

@@ -31,7 +31,7 @@ describe('workflowsApi', () => {
     await workflowsApi.listRuns({ scope: 'self', workflowId: 'agent.new-task-skill-tag' });
 
     const callUrl = String((fetchMock.mock.calls[0] as [string])[0]);
-    expect(callUrl).toContain('workflowId=copilot.new-task-skill-tag');
+    expect(callUrl).toContain('workflowId=agent.new-task-skill-tag');
   });
 
   it('getRun returns null on 404', async () => {

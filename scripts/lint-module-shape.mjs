@@ -21,7 +21,7 @@ const ROOT = new URL('..', import.meta.url).pathname;
 const MODULES_CHECKED = [
   'identity',
   'planner',
-  'copilot',
+  'agent',
   'notifications',
   'staffing',
   'core',
