@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { buildWorkflowGraph } from '@/modules/agent/workflows/lib/build-graph.ts';
 import {
   conditionalSnapshot,
   foreachSnapshot,
@@ -9,8 +10,7 @@ import {
   sleepSnapshot,
   unknownTypeSnapshot,
   waitForEventSnapshot,
-} from '@/modules/agent/workflows/lib/__fixtures__/snapshots.ts';
-import { buildWorkflowGraph } from '@/modules/agent/workflows/lib/build-graph.ts';
+} from './__fixtures__/snapshots.ts';
 
 describe('buildWorkflowGraph', () => {
   it('returns empty arrays when snapshot has no steps', () => {
