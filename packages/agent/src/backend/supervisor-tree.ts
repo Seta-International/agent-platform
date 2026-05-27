@@ -74,6 +74,7 @@ function buildMemory(opts: {
     embedder,
     options: {
       ...baseOpts,
+      generateTitle: true,
       semanticRecall: {
         topK: 5,
         messageRange: 2,

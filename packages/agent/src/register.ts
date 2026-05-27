@@ -109,7 +109,10 @@ export function registerAgent(deps: {
   registerPendingAssignReader(getPendingAssignRunIdForTask);
   void mastra.startWorkers();
 
-  const { topSupervisor, domainAgents } = buildSupervisorTree({ mastra });
+  const { topSupervisor, domainAgents } = buildSupervisorTree({
+    mastra,
+    databaseUrl: deps.databaseUrl,
+  });
   // Register the supervisor on Mastra so its agent instance gets the `#mastra`
   // back-reference. Without this, `agent.resumeStream()` (called by the chat
   // /approve route to resume a HITL-gated tool) throws
