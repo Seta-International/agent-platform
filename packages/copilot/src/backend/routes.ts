@@ -17,7 +17,7 @@ import { replayWorkflowFromStep } from './domain/replay-workflow-from-step.ts';
 import { rerunWorkflow } from './domain/rerun-workflow.ts';
 import { copilotEnv } from './env.ts';
 import { listModels, ModelNotFoundError, resolveModel } from './model-registry.ts';
-import { RateLimitError, reserveTurn } from './rate-limit.ts';
+import { commitActualTokens, RateLimitError, reserveTurn } from './rate-limit.ts';
 import { readRoutingCache, writeRoutingCache } from './routing-cache.ts';
 import { selectAgent } from './routing-fast-path.ts';
 import type { SessionLike } from './types.ts';
@@ -124,6 +124,23 @@ function injectContextPrefix(messages: UIMessage[]): UIMessage[] {
   return messages;
 }
 
+function finiteTokenCount(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+async function readActualUsage(
+  result: unknown,
+): Promise<{ actualTokensIn: number; actualTokensOut: number } | null> {
+  const usageLike = result as { totalUsage?: PromiseLike<unknown>; usage?: PromiseLike<unknown> };
+  const usage = await (usageLike.totalUsage ?? usageLike.usage ?? Promise.resolve(null));
+  if (!usage || typeof usage !== 'object') return null;
+  const raw = usage as Record<string, unknown>;
+  const actualTokensIn = finiteTokenCount(raw.inputTokens);
+  const actualTokensOut = finiteTokenCount(raw.outputTokens);
+  if (actualTokensIn === null || actualTokensOut === null) return null;
+  return { actualTokensIn, actualTokensOut };
+}
+
 export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotRouteDeps): void {
   app.post('/api/copilot/v1/chat', async (c) => {
     const session = c.get('session') as SessionLike | undefined;
@@ -145,12 +162,14 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
     const messages = parsed.data.messages as UIMessage[];
     const effectiveMessages = injectContextPrefix(messages);
     const userText = lastUserText(effectiveMessages);
+    const estimatedTokensIn = Math.min(2_000, Math.max(50, userText.length * 4));
 
+    let reservation: Awaited<ReturnType<typeof reserveTurn>>;
     try {
-      await reserveTurn({
+      reservation = await reserveTurn({
         tenantId: session.tenant_id,
         userId: session.user_id,
-        estimatedTokens: Math.min(2_000, Math.max(50, userText.length * 4)),
+        estimatedTokens: estimatedTokensIn,
         turnLimit: copilotEnv.COPILOT_RATE_LIMIT_TURNS_PER_MIN,
         tpmLimit: copilotEnv.COPILOT_RATE_LIMIT_TPM,
       });
@@ -233,6 +252,24 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
           }
         } finally {
           reader.releaseLock();
+        }
+        const usage = await readActualUsage(result);
+        if (!usage) return;
+        try {
+          await commitActualTokens({
+            tenantId: session.tenant_id,
+            userId: session.user_id,
+            reservationWindowStart: reservation.windowStart,
+            estimatedTokensIn,
+            actualTokensIn: usage.actualTokensIn,
+            actualTokensOut: usage.actualTokensOut,
+          });
+        } catch (err) {
+          console.error('[copilot.rate-limit.commit.failed]', {
+            tenantId: session.tenant_id,
+            userId: session.user_id,
+            err,
+          });
         }
       },
     });

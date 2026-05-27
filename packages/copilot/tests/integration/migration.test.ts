@@ -9,6 +9,13 @@ describe('copilot migrations', () => {
       );
       const names = rows.rows.map((r) => r.table_name);
       expect(names).toContain('rate_limits');
+
+      const cleanupIdx = await pool.query<{ indexname: string }>(`
+        SELECT indexname FROM pg_indexes
+        WHERE schemaname = 'copilot'
+          AND indexname = 'rl_cleanup_window'
+      `);
+      expect(cleanupIdx.rows).toHaveLength(1);
     });
   });
 });

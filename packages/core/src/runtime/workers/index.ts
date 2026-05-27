@@ -19,6 +19,7 @@ export interface StartWorkerPoolOpts {
   pool: Pool;
   jobs?: TaskList;
   crontab?: string;
+  extraCrontab?: string;
 }
 
 export interface WorkerHandle {
@@ -46,13 +47,14 @@ export async function startWorkerPool(opts: StartWorkerPoolOpts): Promise<Worker
       .map(([name, task]) => [name, withErrorCapture(task)]),
   );
 
-  const crontab = (
-    opts.crontab ??
-    `
+  const defaultCrontab = `
 0 3 * * * partition_manager_tick
 */5 * * * * subscription_dlq_alerter
-`
-  ).trim();
+`;
+  const crontab = [opts.crontab ?? defaultCrontab, opts.extraCrontab]
+    .filter((value): value is string => !!value && value.trim().length > 0)
+    .join('\n')
+    .trim();
 
   const runner: Runner = await run({
     pgPool: opts.pool,

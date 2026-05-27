@@ -64,6 +64,7 @@ export interface ModuleContribution {
    */
   subscriberBuilders?: SubscriberBuilder[];
   jobs?: TaskList;
+  crontab?: string;
   routes?: RouteContribution;
   stream?: StreamHubBuilder;
   agentTools?: CopilotTool[];
@@ -85,6 +86,7 @@ export interface ContributionRegistry {
     migrationDirs: ReadonlyArray<{ module: string; dir: string }>;
     subscribers: ReadonlyArray<SubscriberDef>;
     jobs: ReadonlyMap<string, JobHandler>;
+    crontabs: ReadonlyArray<{ module: string; crontab: string }>;
     routes: ReadonlyArray<{ module: string; mountAt: string; build: RouteContribution['build'] }>;
     streamHubBuilders: ReadonlyArray<{ module: string; builder: StreamHubBuilder }>;
     agentTools: ReadonlyArray<CopilotTool>;
@@ -103,6 +105,7 @@ export function createContributionRegistry(): ContributionRegistry {
   const migrationDirs: { module: string; dir: string }[] = [];
   const subscribers: SubscriberDef[] = [];
   const jobs = new Map<string, JobHandler>();
+  const crontabs: { module: string; crontab: string }[] = [];
   const routes: { module: string; mountAt: string; build: RouteContribution['build'] }[] = [];
   const streamHubBuilders: { module: string; builder: StreamHubBuilder }[] = [];
   const agentTools: CopilotTool[] = [];
@@ -129,6 +132,7 @@ export function createContributionRegistry(): ContributionRegistry {
         jobs.set(taskName, handler);
       }
     }
+    if (c.crontab) crontabs.push({ module: c.name, crontab: c.crontab });
     if (c.routes) {
       // Route handlers register absolute paths internally, so the mountAt is
       // typically '/' — modules with absolute paths inside the contributed Hono
@@ -187,6 +191,7 @@ export function createContributionRegistry(): ContributionRegistry {
       migrationDirs,
       subscribers,
       jobs,
+      crontabs,
       routes,
       streamHubBuilders,
       agentTools,
