@@ -9,6 +9,9 @@ export interface NodeBaseData extends Record<string, unknown> {
 
 export interface DefaultNodeData extends NodeBaseData {
   description: string;
+  stepInput?: unknown;
+  stepOutput?: unknown;
+  stepError?: unknown;
   runStatus?: string;
   originalPayload?: unknown;
   onReplay?: (args: { stepId: string; originalPayload: unknown }) => void;
@@ -56,8 +59,15 @@ interface WalkResult {
   inHeads: string[];
 }
 
+interface StepContextEntry {
+  status?: string;
+  payload?: unknown;
+  output?: unknown;
+  error?: unknown;
+}
+
 interface WalkCtx {
-  context: Record<string, { status?: string } | undefined>;
+  context: Record<string, StepContextEntry | undefined>;
 }
 
 function makeNode<D extends AnyNodeData>(
@@ -73,12 +83,16 @@ function walkOne(step: SerializedStep, ctx: WalkCtx): WalkResult {
     case 'step': {
       const inner = (step as { step?: { id?: string; description?: string } }).step ?? {};
       const id = inner.id ?? 'unknown';
+      const ctxEntry = ctx.context[id];
       return {
         nodes: [
           makeNode<DefaultNodeData>(id, 'default-node', {
             stepId: id,
             description: inner.description ?? '',
-            status: ctx.context[id]?.status ?? 'pending',
+            status: ctxEntry?.status ?? 'pending',
+            stepInput: ctxEntry?.payload,
+            stepOutput: ctxEntry?.output,
+            stepError: ctxEntry?.error,
           }),
         ],
         edges: [],
@@ -299,7 +313,7 @@ export function buildWorkflowGraph(snapshot: unknown): {
 } {
   const snap = (snapshot ?? {}) as {
     serializedStepGraph?: SerializedStep[];
-    context?: Record<string, { status?: string } | undefined>;
+    context?: Record<string, StepContextEntry | undefined>;
   };
   const ctx: WalkCtx = { context: snap.context ?? {} };
   const steps = snap.serializedStepGraph ?? [];

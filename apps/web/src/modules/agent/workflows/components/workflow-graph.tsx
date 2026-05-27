@@ -48,23 +48,32 @@ const nodeTypes = {
 function WorkflowGraphInner({ snapshot, run, onReplay }: WorkflowGraphProps) {
   const { nodes: initialNodes, edges: initialEdges } = useMemo(() => {
     const { nodes: rawNodes, edges } = buildWorkflowGraph(snapshot);
-    const snapContext = (snapshot as { context?: Record<string, { payload?: unknown }> } | null)
-      ?.context;
-    const enriched = onReplay
-      ? rawNodes.map((n) =>
-          n.type === 'default-node'
+    const snapContext = (
+      snapshot as {
+        context?: Record<string, { payload?: unknown; output?: unknown; error?: unknown }>;
+      } | null
+    )?.context;
+    const enriched = rawNodes.map((n) => {
+      if (n.type !== 'default-node') return n;
+      const stepId = (n.data as { stepId: string }).stepId;
+      const ctxEntry = snapContext?.[stepId];
+      return {
+        ...n,
+        data: {
+          ...n.data,
+          stepInput: ctxEntry?.payload,
+          stepOutput: ctxEntry?.output,
+          stepError: ctxEntry?.error,
+          ...(onReplay
             ? {
-                ...n,
-                data: {
-                  ...n.data,
-                  runStatus: run.status,
-                  originalPayload: snapContext?.[(n.data as { stepId: string }).stepId]?.payload,
-                  onReplay,
-                },
+                runStatus: run.status,
+                originalPayload: ctxEntry?.payload,
+                onReplay,
               }
-            : n,
-        )
-      : rawNodes;
+            : {}),
+        },
+      };
+    });
     return { nodes: enriched, edges };
   }, [snapshot, run.status, onReplay]);
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);

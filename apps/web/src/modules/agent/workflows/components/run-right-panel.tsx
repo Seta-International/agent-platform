@@ -2,16 +2,14 @@ import {
   Badge,
   Button,
   EmptyState,
-  Input,
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from '@seta/shared-ui';
-import { Check, ChevronRight, Copy, FileJson, Inbox } from 'lucide-react';
+import { Check, ChevronRight, Copy, FileJson } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { WorkflowRunRow } from '../api/schemas.ts';
-import type { WorkflowRunStreamEvent } from '../hooks/use-workflow-run.ts';
 
 interface SnapshotShape {
   status?: string;
@@ -20,45 +18,14 @@ interface SnapshotShape {
 
 export interface RunRightPanelProps {
   run: WorkflowRunRow;
-  streamEvents: WorkflowRunStreamEvent[];
+  streamEvents: unknown[];
   snapshot?: unknown;
-}
-
-type ChipTone = 'success' | 'destructive' | 'warning' | 'default' | 'secondary';
-
-const LIFECYCLE_LABEL: Record<string, { label: string; tone: ChipTone }> = {
-  'run-started': { label: 'Started', tone: 'default' },
-  'run-completed': { label: 'Completed', tone: 'success' },
-  'run-failed': { label: 'Failed', tone: 'destructive' },
-  'run-tripwired': { label: 'Tripwired', tone: 'destructive' },
-  'run-canceled': { label: 'Canceled', tone: 'destructive' },
-  'run-suspended': { label: 'Suspended', tone: 'warning' },
-  'run-resumed': { label: 'Resumed', tone: 'default' },
-};
-
-function chipToneFor(kind: string): ChipTone {
-  if (kind in LIFECYCLE_LABEL) return LIFECYCLE_LABEL[kind]?.tone ?? 'secondary';
-  if (kind.includes('step') && kind.includes('completed')) return 'success';
-  if (kind.includes('error') || kind.includes('failed')) return 'destructive';
-  if (kind.includes('suspended') || kind.includes('paused')) return 'warning';
-  return 'secondary';
 }
 
 function isEmptyValue(v: unknown): boolean {
   if (v === null || v === undefined) return true;
   if (typeof v === 'object' && v !== null && Object.keys(v as object).length === 0) return true;
   return false;
-}
-
-function payloadPreview(payload: unknown): string {
-  if (payload === null || payload === undefined) return '';
-  if (typeof payload === 'string') return payload;
-  try {
-    const s = JSON.stringify(payload);
-    return s.length > 120 ? `${s.slice(0, 117)}…` : s;
-  } catch {
-    return String(payload);
-  }
 }
 
 function CopyButton({ text }: { text: string }) {
@@ -131,206 +98,172 @@ function JsonBlock({ value, emptyTitle, emptyDescription }: JsonBlockProps) {
   );
 }
 
-interface LogRowProps {
-  event: WorkflowRunStreamEvent;
+interface StepContextEntry {
+  status?: string;
+  payload?: unknown;
+  output?: unknown;
+  error?: unknown;
 }
 
-function LogRow({ event }: LogRowProps) {
+function stepStatusTone(
+  status: string | undefined,
+): 'success' | 'destructive' | 'warning' | 'secondary' {
+  if (!status || status === 'pending') return 'secondary';
+  if (status === 'success') return 'success';
+  if (status === 'failed') return 'destructive';
+  if (status === 'suspended' || status === 'paused') return 'warning';
+  return 'secondary';
+}
+
+interface StepRowProps {
+  stepId: string;
+  entry: StepContextEntry;
+}
+
+function StepRow({ stepId, entry }: StepRowProps) {
   const [open, setOpen] = useState(false);
-  const tone = chipToneFor(event.kind);
-  const preview = payloadPreview(event.payload);
-  const hasPayload = event.payload !== null && event.payload !== undefined;
-  const pretty = hasPayload
-    ? (() => {
-        try {
-          return JSON.stringify(event.payload, null, 2);
-        } catch {
-          return String(event.payload);
-        }
-      })()
-    : '';
+  const statusLabel = entry.status ?? 'pending';
+  const tone = stepStatusTone(entry.status);
+  const hasOutput = !isEmptyValue(entry.output);
+  const hasError = !isEmptyValue(entry.error);
+  const hasPayload = !isEmptyValue(entry.payload);
+  const hasData = hasOutput || hasError || hasPayload;
+
+  const dataLabel = hasError ? 'Error' : hasOutput ? 'Output' : hasPayload ? 'Input' : null;
+  const dataValue = hasError ? entry.error : hasOutput ? entry.output : entry.payload;
+
+  const prettyData = useMemo(() => {
+    if (!dataValue) return '';
+    try {
+      return JSON.stringify(dataValue, null, 2);
+    } catch {
+      return String(dataValue);
+    }
+  }, [dataValue]);
 
   return (
     <li className="border-b border-hairline-tertiary last:border-b-0">
       <button
         type="button"
-        onClick={() => hasPayload && setOpen((v) => !v)}
-        disabled={!hasPayload}
-        aria-expanded={hasPayload ? open : undefined}
-        className="flex w-full items-start gap-2 px-3 py-2 text-left transition-colors hover:bg-surface-1 disabled:cursor-default disabled:hover:bg-transparent"
+        onClick={() => hasData && setOpen((v) => !v)}
+        disabled={!hasData}
+        aria-expanded={hasData ? open : undefined}
+        className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-surface-1 disabled:cursor-default disabled:hover:bg-transparent"
       >
         <ChevronRight
           aria-hidden
-          className={`mt-1 size-3 flex-none text-ink-tertiary transition-transform ${
+          className={`size-3 flex-none text-ink-tertiary transition-transform ${
             open ? 'rotate-90' : ''
-          } ${hasPayload ? '' : 'invisible'}`}
+          } ${hasData ? '' : 'invisible'}`}
         />
-        <span className="w-8 flex-none pt-0.5 font-mono text-[11px] text-ink-tertiary tabular-nums">
-          {event.seq}
-        </span>
-        <Badge variant={tone} className="flex-none">
-          {event.kind}
+        <span className="min-w-0 flex-1 truncate font-mono text-[11.5px] text-ink">{stepId}</span>
+        <Badge variant={tone} className="flex-none text-[10px]">
+          {statusLabel}
         </Badge>
-        <span className="min-w-0 flex-1 truncate pt-0.5 font-mono text-[11.5px] text-ink-muted">
-          {preview}
-        </span>
+        {dataLabel && <span className="flex-none text-[10px] text-ink-tertiary">{dataLabel}</span>}
       </button>
-      {open && hasPayload ? (
-        <pre className="m-0 max-h-72 overflow-auto border-t border-hairline-tertiary bg-surface-1 px-3 py-2 font-mono text-[11px] leading-[1.5] text-ink">
-          {pretty}
+      {open && hasData ? (
+        <pre className="m-0 max-h-64 overflow-auto border-t border-hairline-tertiary bg-surface-1 px-3 py-2 font-mono text-[11px] leading-[1.5] text-ink">
+          {prettyData}
         </pre>
       ) : null}
     </li>
   );
 }
 
-interface LogsTabProps {
-  events: WorkflowRunStreamEvent[];
-  liveRun: boolean;
+interface CurrentRunTabProps {
+  run: WorkflowRunRow;
+  snapshot: SnapshotShape | null;
 }
 
-function LogsTab({ events, liveRun }: LogsTabProps) {
-  const [search, setSearch] = useState('');
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return events;
-    return events.filter((e) => {
-      if (e.kind.toLowerCase().includes(q)) return true;
-      return payloadPreview(e.payload).toLowerCase().includes(q);
-    });
-  }, [events, search]);
+function CurrentRunTab({ run, snapshot }: CurrentRunTabProps) {
+  const workflowInput = snapshot?.context?.['input'] ?? run.inputSummary ?? null;
+
+  const steps = useMemo<[string, StepContextEntry][]>(() => {
+    if (!snapshot?.context) return [];
+    return Object.entries(snapshot.context)
+      .filter(([key]) => key !== 'input')
+      .map(([key, val]) => [key, (val ?? {}) as StepContextEntry]);
+  }, [snapshot?.context]);
+
+  const [inputOpen, setInputOpen] = useState(true);
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex h-11 flex-none items-center justify-between gap-2 border-b border-hairline px-3">
-        <Input
-          type="search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Filter by kind or payload…"
-          aria-label="Filter logs"
-          className="h-7 flex-1 text-xs"
-        />
-        <span className="text-[11px] tabular-nums text-ink-subtle">
-          {filtered.length}/{events.length}
-        </span>
-      </div>
-      {events.length === 0 ? (
-        <div className="p-6">
-          <EmptyState
-            icon={<Inbox className="size-5" />}
-            title={liveRun ? 'Waiting for events…' : 'No events recorded'}
-            description={
-              liveRun
-                ? 'Events will stream in here as the run progresses.'
-                : 'This run completed without emitting any stream events.'
-            }
+    <div className="flex h-full flex-col overflow-auto">
+      {/* Input section */}
+      <section className="flex-none border-b border-hairline">
+        <button
+          type="button"
+          onClick={() => setInputOpen((v) => !v)}
+          className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-surface-1"
+        >
+          <ChevronRight
+            aria-hidden
+            className={`size-3 flex-none text-ink-tertiary transition-transform ${inputOpen ? 'rotate-90' : ''}`}
           />
+          <span className="text-[11px] font-medium uppercase tracking-wider text-ink-subtle">
+            Input
+          </span>
+        </button>
+        {inputOpen && (
+          <div className="max-h-48 overflow-auto border-t border-hairline-tertiary">
+            {isEmptyValue(workflowInput) ? (
+              <p className="px-4 py-3 text-xs text-ink-subtle">No input payload.</p>
+            ) : (
+              <pre className="m-0 whitespace-pre bg-surface-1 px-3 py-2 font-mono text-[11px] leading-[1.5] text-ink">
+                {(() => {
+                  try {
+                    return JSON.stringify(workflowInput, null, 2);
+                  } catch {
+                    return String(workflowInput);
+                  }
+                })()}
+              </pre>
+            )}
+          </div>
+        )}
+      </section>
+
+      {/* Steps section */}
+      <section className="flex-1">
+        <div className="flex h-9 items-center px-3 text-[11px] font-medium uppercase tracking-wider text-ink-subtle">
+          Steps{steps.length > 0 ? ` (${steps.length})` : ''}
         </div>
-      ) : filtered.length === 0 ? (
-        <div className="p-6 text-center text-xs text-ink-subtle">No events match that filter.</div>
-      ) : (
-        <ul className="flex-1 overflow-auto">
-          {filtered.map((e) => (
-            <LogRow key={e.seq} event={e} />
-          ))}
-        </ul>
-      )}
+        {steps.length === 0 ? (
+          <div className="px-4 pb-4">
+            <EmptyState
+              icon={<FileJson className="size-5" />}
+              title="No steps yet"
+              description="Steps will appear here as the run progresses."
+            />
+          </div>
+        ) : (
+          <ul>
+            {steps.map(([stepId, entry]) => (
+              <StepRow key={stepId} stepId={stepId} entry={entry} />
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   );
 }
 
-interface EventsTabProps {
-  events: WorkflowRunStreamEvent[];
-}
-
-function EventsTab({ events }: EventsTabProps) {
-  const lifecycle = useMemo(() => events.filter((e) => e.kind.startsWith('run-')), [events]);
-  if (lifecycle.length === 0) {
-    return (
-      <div className="p-6">
-        <EmptyState
-          icon={<Inbox className="size-5" />}
-          title="No lifecycle events yet"
-          description="Run-level events (started, suspended, completed, …) will appear here."
-        />
-      </div>
-    );
-  }
-  return (
-    <ol className="relative px-4 py-3">
-      <span aria-hidden className="absolute bottom-3 left-[19px] top-3 w-px bg-hairline-tertiary" />
-      {lifecycle.map((e) => {
-        const meta = LIFECYCLE_LABEL[e.kind] ?? { label: e.kind, tone: 'secondary' as ChipTone };
-        return (
-          <li key={e.seq} className="relative flex items-start gap-3 py-1.5 pl-1">
-            <span
-              aria-hidden
-              className={`relative z-10 mt-1.5 size-2 flex-none rounded-full ${dotClass(meta.tone)} ring-2 ring-canvas`}
-            />
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <span className="text-body-sm font-medium text-ink">{meta.label}</span>
-                <span className="font-mono text-[10px] text-ink-tertiary">#{e.seq}</span>
-              </div>
-              <p className="truncate font-mono text-[11px] text-ink-subtle">{e.kind}</p>
-            </div>
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
-
-function dotClass(tone: ChipTone): string {
-  switch (tone) {
-    case 'success':
-      return 'bg-semantic-success';
-    case 'destructive':
-      return 'bg-semantic-danger';
-    case 'warning':
-      return 'bg-semantic-warning';
-    case 'default':
-      return 'bg-primary';
-    default:
-      return 'bg-ink-tertiary';
-  }
-}
-
-const ACTIVE_RUN_STATUSES = new Set(['pending', 'running', 'paused']);
-
-export function RunRightPanel({ run, streamEvents, snapshot }: RunRightPanelProps) {
+export function RunRightPanel({ run, snapshot }: RunRightPanelProps) {
   const snap = (snapshot ?? null) as SnapshotShape | null;
-  const liveRun = ACTIVE_RUN_STATUSES.has(run.status);
   return (
-    <aside className="hidden w-[380px] shrink-0 flex-col border-l border-hairline bg-canvas lg:flex">
-      <Tabs defaultValue="logs" className="flex h-full min-h-0 flex-col">
+    <aside className="flex w-[380px] shrink-0 flex-col border-l border-hairline bg-canvas">
+      <Tabs defaultValue="current-run" className="flex h-full min-h-0 flex-col">
         <TabsList className="h-11 flex-none gap-0 px-3">
-          <TabsTrigger value="logs" className="px-3 py-2 text-xs">
-            Logs
-          </TabsTrigger>
-          <TabsTrigger value="events" className="px-3 py-2 text-xs">
-            Events
-          </TabsTrigger>
-          <TabsTrigger value="input" className="px-3 py-2 text-xs">
-            Input
+          <TabsTrigger value="current-run" className="px-3 py-2 text-xs">
+            Current Run
           </TabsTrigger>
           <TabsTrigger value="state" className="px-3 py-2 text-xs">
             State
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="logs" className="mt-0 min-h-0 flex-1 overflow-hidden">
-          <LogsTab events={streamEvents} liveRun={liveRun} />
-        </TabsContent>
-        <TabsContent value="events" className="mt-0 min-h-0 flex-1 overflow-auto">
-          <EventsTab events={streamEvents} />
-        </TabsContent>
-        <TabsContent value="input" className="mt-0 min-h-0 flex-1 overflow-hidden">
-          <JsonBlock
-            value={run.inputSummary}
-            emptyTitle="No input"
-            emptyDescription="This run was triggered without an input payload."
-          />
+        <TabsContent value="current-run" className="mt-0 min-h-0 flex-1 overflow-hidden">
+          <CurrentRunTab run={run} snapshot={snap} />
         </TabsContent>
         <TabsContent value="state" className="mt-0 min-h-0 flex-1 overflow-hidden">
           <JsonBlock
