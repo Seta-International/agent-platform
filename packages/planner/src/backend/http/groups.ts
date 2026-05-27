@@ -23,6 +23,9 @@ import {
 
 interface PlannerGroupsDeps {
   workers: WorkerHandle;
+  log?: {
+    error: (obj: unknown, msg?: string) => void;
+  };
 }
 
 const createSchema = z.object({
@@ -167,7 +170,14 @@ export function registerPlannerGroupsRoutes(app: Hono<SessionEnv>, deps: Planner
         }),
       );
     } catch (err) {
-      console.error('[group-activity] failed', err);
+      if (deps.log) {
+        deps.log.error(
+          { subsystem: 'planner.group-activity', groupId: c.req.param('id'), err },
+          'group activity fetch failed',
+        );
+      } else {
+        console.error('[group-activity] failed', err);
+      }
       throw err;
     }
   });

@@ -51,7 +51,7 @@ FROM deps AS sources
 COPY apps/server/  apps/server/
 COPY apps/cli/     apps/cli/
 COPY apps/worker/  apps/worker/
-COPY data/         data/
+COPY hackathon/data/ data/
 
 # Typecheck-only — fail the image build if the TS doesn't pass.
 RUN pnpm --filter=@seta/server exec tsc --noEmit \

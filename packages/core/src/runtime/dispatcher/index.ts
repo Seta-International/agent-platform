@@ -3,13 +3,14 @@ import type { DomainEvent, SubscriberDef } from '@seta/shared-types';
 import { sql } from 'drizzle-orm';
 import type { Pool } from 'pg';
 import * as schema from '../../db/schema/index.ts';
-import type { BackoffOpts } from './drain.ts';
+import type { BackoffOpts, DrainLogger } from './drain.ts';
 import { dispatchTap } from './event-tap.ts';
 import { getFailureEntry } from './failure-state.ts';
 import { otelDispatcherMetrics, setDlqProvider } from './otel-metrics.ts';
 import { type SubscriberLoopHandle, startSubscriberLoop } from './subscriber-loop.ts';
 
 export type { SubscriberDef } from '@seta/shared-types';
+export type { DrainLogger } from './drain.ts';
 export { addEventTap, type EventTapHandler, type EventTapPredicate } from './event-tap.ts';
 
 export interface SubscriptionHealth {
@@ -30,6 +31,7 @@ export async function startDispatcher(opts: {
   subscribers: SubscriberDef[];
   backoff?: Partial<BackoffOpts>;
   pollIntervalMs?: number;
+  log?: DrainLogger;
 }): Promise<DispatcherHandle> {
   const backoff: BackoffOpts = {
     baseMs: opts.backoff?.baseMs ?? 1_000,
@@ -54,11 +56,9 @@ export async function startDispatcher(opts: {
   // same event forever.
   let lastTapOccurredAtText = '1970-01-01 00:00:00+00';
 
-  const log = {
-    error: (obj: unknown, msg?: string) => {
-      // M1: console logging; replaced with pino in apps/server wiring.
-      console.error(msg ?? 'dispatcher error', obj);
-    },
+  const log: DrainLogger = opts.log ?? {
+    error: (obj: unknown, msg?: string) => console.error(msg ?? 'dispatcher error', obj),
+    warn: (obj: unknown, msg?: string) => console.warn(msg ?? 'dispatcher warn', obj),
   };
   const metrics = otelDispatcherMetrics;
 

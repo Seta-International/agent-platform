@@ -20,6 +20,7 @@ export interface StartWorkerPoolOpts {
   jobs?: TaskList;
   crontab?: string;
   extraCrontab?: string;
+  log?: import('./dlq-alerter.ts').DlqAlerterLogger;
 }
 
 export interface WorkerHandle {
@@ -37,7 +38,7 @@ export async function startWorkerPool(opts: StartWorkerPoolOpts): Promise<Worker
       await partitionManagerTick();
     },
     subscription_dlq_alerter: async () => {
-      await subscriptionDlqAlerter();
+      await subscriptionDlqAlerter(opts.log);
     },
     ...(opts.jobs ?? {}),
   };

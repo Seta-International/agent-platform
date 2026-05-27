@@ -6,6 +6,9 @@ export interface SweepDeps {
   pool: Pool;
   mastra: Mastra;
   batchSize?: number;
+  log?: {
+    error: (obj: unknown, msg?: string) => void;
+  };
 }
 
 export interface SweepResult {
@@ -81,7 +84,19 @@ export async function sweepWorkflowApprovals(deps: SweepDeps): Promise<SweepResu
     try {
       await run.resume({ step: row.step_id, resumeData: { decision: 'timeout' } });
     } catch (err) {
-      console.error('[copilot.workflow.sweeper.resume]', row.run_id, err);
+      if (deps.log) {
+        deps.log.error(
+          {
+            subsystem: 'copilot.workflow.sweeper',
+            runId: row.run_id,
+            tenantId: row.tenant_id,
+            err,
+          },
+          'sweeper resume failed',
+        );
+      } else {
+        console.error('[copilot.workflow.sweeper.resume]', row.run_id, err);
+      }
       // Continue sweeping the rest — the resume-retry job (Task 22) reconciles.
     }
   }

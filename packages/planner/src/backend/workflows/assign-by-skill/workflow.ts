@@ -28,7 +28,11 @@ export interface AssignBySkillDeps extends CandidatePoolDeps {
 
 export interface RunSuggestAssigneeInput {
   taskId: string;
-  session: { tenantId: string; userId: string };
+  session: {
+    tenantId: string;
+    userId: string;
+    roleSummary: { roles: string[]; cross_tenant_read: boolean };
+  };
   toolCallId: string;
 }
 
@@ -54,9 +58,10 @@ export async function runSuggestAssignee(
 ): Promise<SuggestAssigneeOutput> {
   const tenantId = input.session.tenantId;
   const callerUserId = input.session.userId;
+  const callerRoleSummary = input.session.roleSummary;
 
   const task = await loadTask({ tenantId, taskId: input.taskId });
-  const pool = await candidatePool({ tenantId, callerUserId, task }, deps);
+  const pool = await candidatePool({ tenantId, callerUserId, callerRoleSummary, task }, deps);
 
   const preRanked = preRank(pool).slice(0, PRE_RANK_TOP_K);
   const enriched =
@@ -65,6 +70,7 @@ export async function runSuggestAssignee(
       : await enrichWithLoadAndCapacity({
           tenantId,
           callerUserId,
+          callerRoleSummary,
           candidates: preRanked,
         });
 

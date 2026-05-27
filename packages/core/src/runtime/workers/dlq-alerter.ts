@@ -1,7 +1,11 @@
 import { sql } from 'drizzle-orm';
 import { coreDb } from '../../db/client.ts';
 
-export async function subscriptionDlqAlerter(): Promise<void> {
+export interface DlqAlerterLogger {
+  warn: (obj: unknown, msg?: string) => void;
+}
+
+export async function subscriptionDlqAlerter(log?: DlqAlerterLogger): Promise<void> {
   const db = coreDb();
   const recent = await db.execute(sql`
     SELECT subscription, count(*)::int AS n
@@ -10,10 +14,12 @@ export async function subscriptionDlqAlerter(): Promise<void> {
     GROUP BY subscription
   `);
   for (const row of recent.rows ?? []) {
-    console.warn(
-      `[dispatcher] dead-letter alert: subscription=${row.subscription as string} count=${
-        row.n as number
-      }`,
-    );
+    const subscription = row.subscription as string;
+    const count = row.n as number;
+    if (log) {
+      log.warn({ subsystem: 'core.dispatcher.dlq', subscription, count }, 'dead-letter alert');
+    } else {
+      console.warn(`[dispatcher] dead-letter alert: subscription=${subscription} count=${count}`);
+    }
   }
 }

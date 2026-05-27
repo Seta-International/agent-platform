@@ -17,6 +17,10 @@ export interface RouteBuildDeps {
   pool: Pool;
   workers: WorkerHandle;
   streams: ReadonlyMap<string, unknown>;
+  log?: {
+    error: (obj: unknown, msg?: string) => void;
+    warn: (obj: unknown, msg?: string) => void;
+  };
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: Hono's env generic is invariant; route builders return Hono<SessionEnv> and we collect them via this widened any.

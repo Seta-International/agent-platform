@@ -51,13 +51,14 @@ export async function candidatePool(
   input: {
     tenantId: string;
     callerUserId: string;
+    callerRoleSummary: { roles: string[]; cross_tenant_read: boolean };
     task: LoadedTask;
   },
   deps?: CandidatePoolDeps,
 ): Promise<PoolCandidate[]> {
   const [exactRows, vectorOut, historyOut] = await Promise.all([
     fetchExactOverlap(input.tenantId, input.task),
-    fetchVectorHits(input.tenantId, input.callerUserId, input.task),
+    fetchVectorHits(input.tenantId, input.callerUserId, input.callerRoleSummary, input.task),
     deps
       ? fetchTaskHistoryHits({ tenantId: input.tenantId, task: input.task }, deps)
       : Promise.resolve([]),
@@ -181,6 +182,7 @@ async function fetchExactOverlap(
 async function fetchVectorHits(
   tenantId: string,
   callerUserId: string,
+  callerRoleSummary: { roles: string[]; cross_tenant_read: boolean },
   task: LoadedTask,
 ): Promise<Array<{ userId: string; score: number }>> {
   const tool = findVectorTool();
@@ -198,7 +200,7 @@ async function fetchVectorHits(
 
   try {
     const out = await tool.execute({
-      session: { tenant_id: tenantId, user_id: callerUserId },
+      session: { tenant_id: tenantId, user_id: callerUserId, role_summary: callerRoleSummary },
       input: { queryText, topK: 20, minScore: 0 },
     });
     return out.hits;
