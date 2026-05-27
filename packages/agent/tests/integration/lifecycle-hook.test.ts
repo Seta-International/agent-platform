@@ -31,7 +31,7 @@ describe('onLifecycleEvent — idempotency', () => {
     await withAgentTestDb(async ({ pool }) => {
       await onLifecycleEvent(pool, baseRunStarted());
       const rows = await pool.query(
-        `SELECT run_id, status, source_event_id FROM copilot.workflow_runs WHERE run_id = $1`,
+        `SELECT run_id, status, source_event_id FROM agent.workflow_runs WHERE run_id = $1`,
         [FIXED_RUN_ID],
       );
       expect(rows.rowCount).toBe(1);
@@ -44,7 +44,7 @@ describe('onLifecycleEvent — idempotency', () => {
       await onLifecycleEvent(pool, baseRunStarted());
       await onLifecycleEvent(pool, baseRunStarted());
       const cnt = await pool.query(
-        `SELECT count(*)::int AS n FROM copilot.workflow_run_events_seen WHERE run_id = $1`,
+        `SELECT count(*)::int AS n FROM agent.workflow_run_events_seen WHERE run_id = $1`,
         [FIXED_RUN_ID],
       );
       expect(cnt.rows[0]!.n).toBe(1);
@@ -59,7 +59,7 @@ describe('onLifecycleEvent — idempotency', () => {
       // but still records a seen row for seq 2
       await onLifecycleEvent(pool, baseRunStarted({ runId, eventSeq: 2 }));
       const cnt = await pool.query(
-        `SELECT count(*)::int AS n FROM copilot.workflow_run_events_seen WHERE run_id = $1`,
+        `SELECT count(*)::int AS n FROM agent.workflow_run_events_seen WHERE run_id = $1`,
         [runId],
       );
       expect(cnt.rows[0]!.n).toBe(2);
@@ -96,7 +96,7 @@ describe('onLifecycleEvent — run-suspended', () => {
       });
 
       const r = await pool.query(
-        `SELECT status, suspend_reason FROM copilot.workflow_runs WHERE run_id = $1`,
+        `SELECT status, suspend_reason FROM agent.workflow_runs WHERE run_id = $1`,
         [runId],
       );
       expect(r.rows[0]!.status).toBe('paused');
@@ -104,7 +104,7 @@ describe('onLifecycleEvent — run-suspended', () => {
 
       const a = await pool.query(
         `SELECT status, approver_user_id, surface_canvas, expires_at
-           FROM copilot.workflow_approvals WHERE run_id = $1`,
+           FROM agent.workflow_approvals WHERE run_id = $1`,
         [runId],
       );
       expect(a.rowCount).toBe(1);
@@ -144,7 +144,7 @@ describe('onLifecycleEvent — run-suspended', () => {
       await onLifecycleEvent(pool, suspendEvt);
 
       const a = await pool.query(
-        `SELECT count(*)::int AS n FROM copilot.workflow_approvals WHERE run_id = $1`,
+        `SELECT count(*)::int AS n FROM agent.workflow_approvals WHERE run_id = $1`,
         [runId],
       );
       expect(a.rows[0]!.n).toBe(1);
@@ -280,7 +280,7 @@ describe('onLifecycleEvent — terminal branches', () => {
         occurredAt: new Date('2026-05-21T00:02:00Z'),
       });
       const r = await pool.query(
-        `SELECT status, suspend_reason FROM copilot.workflow_runs WHERE run_id = $1`,
+        `SELECT status, suspend_reason FROM agent.workflow_runs WHERE run_id = $1`,
         [runId],
       );
       expect(r.rows[0]!.status).toBe('running');
@@ -337,7 +337,7 @@ describe('onLifecycleEvent — terminal branches', () => {
               };
       await onLifecycleEvent(pool, terminal);
       const r = await pool.query(
-        `SELECT status, finished_at, duration_ms, error_summary FROM copilot.workflow_runs WHERE run_id = $1`,
+        `SELECT status, finished_at, duration_ms, error_summary FROM agent.workflow_runs WHERE run_id = $1`,
         [runId],
       );
       expect(r.rows[0]!.status).toBe(expectedStatus);

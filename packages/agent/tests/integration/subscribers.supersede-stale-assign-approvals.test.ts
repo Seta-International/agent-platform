@@ -12,13 +12,13 @@ async function seedSuspendedAssignRun(
   const runId = randomUUID();
   const approvalId = randomUUID();
   await pool.query(
-    `INSERT INTO copilot.workflow_runs
+    `INSERT INTO agent.workflow_runs
       (run_id, workflow_id, tenant_id, started_by, started_via, input_summary, status)
      VALUES ($1, 'planner.assignBySkill', $2, $3, 'event', $4::jsonb, 'paused')`,
     [runId, args.tenantId, randomUUID(), JSON.stringify({ taskId: args.taskId })],
   );
   await pool.query(
-    `INSERT INTO copilot.workflow_approvals
+    `INSERT INTO agent.workflow_approvals
       (approval_id, run_id, step_id, proposed_payload, approver_user_id, status, expires_at)
      VALUES ($1, $2, 'assignBySkill.suggest', $3::jsonb, $4, 'pending', now() + interval '1 hour')`,
     [approvalId, runId, JSON.stringify({ candidates: [] }), randomUUID()],
@@ -55,7 +55,7 @@ describe('supersedeStaleAssignApprovals', () => {
         tx: tx as unknown as Parameters<typeof supersedeStaleAssignApprovals>[1]['tx'],
       });
       const row = await pool.query(
-        `SELECT status, decision_payload FROM copilot.workflow_approvals WHERE approval_id = $1`,
+        `SELECT status, decision_payload FROM agent.workflow_approvals WHERE approval_id = $1`,
         [approvalId],
       );
       expect(row.rows[0].status).toBe('superseded');
@@ -78,7 +78,7 @@ describe('supersedeStaleAssignApprovals', () => {
         tx: tx as unknown as Parameters<typeof supersedeStaleAssignApprovals>[1]['tx'],
       });
       const row = await pool.query(
-        `SELECT status FROM copilot.workflow_approvals WHERE approval_id = $1`,
+        `SELECT status FROM agent.workflow_approvals WHERE approval_id = $1`,
         [untouched],
       );
       expect(row.rows[0].status).toBe('pending');
@@ -99,7 +99,7 @@ describe('supersedeStaleAssignApprovals', () => {
         tx: tx as unknown as Parameters<typeof supersedeStaleAssignApprovals>[1]['tx'],
       });
       const row = await pool.query(
-        `SELECT status FROM copilot.workflow_approvals WHERE approval_id = $1`,
+        `SELECT status FROM agent.workflow_approvals WHERE approval_id = $1`,
         [approvalId],
       );
       expect(row.rows[0].status).toBe('superseded');

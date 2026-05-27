@@ -88,7 +88,7 @@ describe('planner_getTask — pendingAssignWorkflowRunId', () => {
 
       const result = (await plannerGetTaskTool.execute!(
         { taskId: task.id },
-        makeToolContext({ user_id: admin_user_id }),
+        makeToolContext({ user_id: admin_user_id, tenant_id }),
       )) as { task: { pendingAssignWorkflowRunId: string | null } };
 
       expect(result.task.pendingAssignWorkflowRunId).toBeNull();
@@ -122,7 +122,7 @@ describe('planner_getTask — pendingAssignWorkflowRunId', () => {
 
       const result = (await plannerGetTaskTool.execute!(
         { taskId: task.id },
-        makeToolContext({ user_id: admin_user_id }),
+        makeToolContext({ user_id: admin_user_id, tenant_id }),
       )) as { task: { pendingAssignWorkflowRunId: string | null } };
 
       expect(result.task.pendingAssignWorkflowRunId).toBe(runId);
@@ -158,7 +158,7 @@ describe('planner_getTask — pendingAssignWorkflowRunId', () => {
 
       const result = (await plannerGetTaskTool.execute!(
         { taskId: task.id },
-        makeToolContext({ user_id: admin_user_id }),
+        makeToolContext({ user_id: admin_user_id, tenant_id }),
       )) as { task: { pendingAssignWorkflowRunId: string | null } };
 
       expect(result.task.pendingAssignWorkflowRunId).toBeNull();
@@ -197,7 +197,7 @@ describe('planner_getTask — pendingAssignWorkflowRunId', () => {
 
       const result = (await plannerGetTaskTool.execute!(
         { taskId: task.id },
-        makeToolContext({ user_id: admin_user_id }),
+        makeToolContext({ user_id: admin_user_id, tenant_id }),
       )) as { task: { pendingAssignWorkflowRunId: string | null } };
 
       expect(result.task.pendingAssignWorkflowRunId).toBe(runId);
@@ -236,7 +236,7 @@ describe('planner_getTask — pendingAssignWorkflowRunId', () => {
 
       const result = (await plannerGetTaskTool.execute!(
         { taskId: task.id },
-        makeToolContext({ user_id: admin_user_id }),
+        makeToolContext({ user_id: admin_user_id, tenant_id }),
       )) as { task: { pendingAssignWorkflowRunId: string | null } };
 
       expect(result.task.pendingAssignWorkflowRunId).toBeNull();

@@ -29,7 +29,7 @@ export async function getWorkflowRun(opts: GetWorkflowRunOpts): Promise<Workflow
     SELECT run_id, workflow_id, tenant_id, started_by, started_via,
            status, suspend_reason, error_summary, input_summary,
            started_at, finished_at, duration_ms
-      FROM copilot.workflow_runs
+      FROM agent.workflow_runs
      WHERE run_id = ${opts.runId}
      LIMIT 1
   `);

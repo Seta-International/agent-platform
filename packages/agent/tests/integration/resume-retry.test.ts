@@ -54,13 +54,13 @@ async function seedDecidedButStillPaused(
   });
   const approvalId = (
     await pool.query<{ approval_id: string }>(
-      `SELECT approval_id FROM copilot.workflow_approvals WHERE run_id = $1`,
+      `SELECT approval_id FROM agent.workflow_approvals WHERE run_id = $1`,
       [args.runId],
     )
   ).rows[0]!.approval_id;
   const payload = args.decisionPayload ?? { decision: 'approve' };
   await pool.query(
-    `UPDATE copilot.workflow_approvals
+    `UPDATE agent.workflow_approvals
         SET status = 'approved', decided_at = $1, decision_payload = $2::jsonb
       WHERE run_id = $3`,
     [args.decidedAt, JSON.stringify(payload), args.runId],
@@ -110,7 +110,7 @@ describe('resumeRetry', () => {
         tenantId: randomUUID(),
         decidedAt: new Date(Date.now() - 5 * 60 * 1000),
       });
-      await pool.query(`UPDATE copilot.workflow_runs SET status = 'running' WHERE run_id = $1`, [
+      await pool.query(`UPDATE agent.workflow_runs SET status = 'running' WHERE run_id = $1`, [
         runId,
       ]);
       const resume = vi.fn().mockResolvedValue(undefined);
@@ -133,7 +133,7 @@ describe('resumeRetry', () => {
       for (let i = 0; i < 3; i++) await resumeRetry({ pool, mastra });
 
       const r = await pool.query<{ status: string; error_summary: string | null }>(
-        `SELECT status, error_summary FROM copilot.workflow_runs WHERE run_id = $1`,
+        `SELECT status, error_summary FROM agent.workflow_runs WHERE run_id = $1`,
         [runId],
       );
       expect(r.rows[0]!.status).toBe('failed');

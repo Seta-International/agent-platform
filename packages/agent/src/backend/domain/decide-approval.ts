@@ -90,8 +90,8 @@ export async function decideApproval(opts: DecideApprovalOpts): Promise<DecideAp
              a.approver_user_id, a.fallback_approver_user_id,
              a.surface_canvas, a.status, a.proposed_payload,
              r.tenant_id, r.workflow_id
-        FROM copilot.workflow_approvals a
-        JOIN copilot.workflow_runs r ON r.run_id = a.run_id
+        FROM agent.workflow_approvals a
+        JOIN agent.workflow_runs r ON r.run_id = a.run_id
        WHERE a.approval_id = ${opts.approvalId}
        FOR UPDATE OF a
     `);
@@ -128,7 +128,7 @@ export async function decideApproval(opts: DecideApprovalOpts): Promise<DecideAp
       ...(opts.note !== undefined ? { note: opts.note } : {}),
     };
     await tx.execute(sql`
-      UPDATE copilot.workflow_approvals
+      UPDATE agent.workflow_approvals
          SET status = ${decisionStatus},
              decision_payload = ${JSON.stringify(decisionPayload)}::jsonb,
              decided_by = ${opts.session.user_id},
@@ -204,7 +204,7 @@ export async function decideApproval(opts: DecideApprovalOpts): Promise<DecideAp
     const message = err instanceof Error ? err.message : String(err);
     try {
       await agentDb().execute(sql`
-        UPDATE copilot.workflow_runs
+        UPDATE agent.workflow_runs
            SET status = 'canceled',
                finished_at = now(),
                error_summary = ${`resume_failed: ${message}`}

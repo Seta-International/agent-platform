@@ -31,8 +31,8 @@ export async function sweepWorkflowApprovals(deps: SweepDeps): Promise<SweepResu
     await client.query('BEGIN');
     const res = await client.query<ExpiredRow>(
       `SELECT a.approval_id, a.run_id, a.step_id, r.workflow_id, r.tenant_id
-         FROM copilot.workflow_approvals a
-         JOIN copilot.workflow_runs r ON r.run_id = a.run_id
+         FROM agent.workflow_approvals a
+         JOIN agent.workflow_runs r ON r.run_id = a.run_id
         WHERE a.status = 'pending' AND a.expires_at < now()
         ORDER BY a.expires_at ASC
         LIMIT $1
@@ -44,7 +44,7 @@ export async function sweepWorkflowApprovals(deps: SweepDeps): Promise<SweepResu
     for (const row of claimed) {
       const decisionPayload = { decision: 'timeout' };
       await client.query(
-        `UPDATE copilot.workflow_approvals
+        `UPDATE agent.workflow_approvals
             SET status = 'expired',
                 decision_payload = $2::jsonb,
                 decided_at = now()

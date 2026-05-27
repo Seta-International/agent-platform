@@ -34,9 +34,10 @@ const withDb = <T>(fn: (ctx: { pool: Pool; pgVector: PgVector }) => Promise<T>) 
     },
   );
 
-function makeFakeCtx(actor: { type: 'user'; user_id: string }) {
+function makeFakeCtx(actor: { type: 'user'; user_id: string }, tenantId: string) {
   const rc = new RequestContext<{ actor: typeof actor; tenant_id: string }>();
   rc.set('actor', actor);
+  rc.set('tenant_id', tenantId);
   return rc;
 }
 
@@ -85,7 +86,7 @@ describe('plannerFindSimilarTasksTool', () => {
         sessionProvider: makeSessionProvider(seeded.tenant_id),
       });
       const ctx = {
-        requestContext: makeFakeCtx({ type: 'user', user_id: 'tester' }),
+        requestContext: makeFakeCtx({ type: 'user', user_id: 'tester' }, seeded.tenant_id),
       } as unknown as Parameters<
         NonNullable<ReturnType<typeof plannerFindSimilarTasksTool>['execute']>
       >[1];
@@ -131,7 +132,7 @@ describe('plannerFindSimilarTasksTool', () => {
         sessionProvider: makeSessionProvider(seeded.tenant_id),
       });
       const ctx = {
-        requestContext: makeFakeCtx({ type: 'user', user_id: 'tester' }),
+        requestContext: makeFakeCtx({ type: 'user', user_id: 'tester' }, seeded.tenant_id),
       } as unknown as Parameters<
         NonNullable<ReturnType<typeof plannerFindSimilarTasksTool>['execute']>
       >[1];

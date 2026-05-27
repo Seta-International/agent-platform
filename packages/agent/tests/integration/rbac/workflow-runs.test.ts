@@ -143,7 +143,7 @@ describe('RBAC boundary: approval power separation', () => {
       });
       const approvalId = (
         await pool.query<{ approval_id: string }>(
-          `SELECT approval_id FROM copilot.workflow_approvals WHERE run_id = $1`,
+          `SELECT approval_id FROM agent.workflow_approvals WHERE run_id = $1`,
           [runId],
         )
       ).rows[0]!.approval_id;
@@ -173,7 +173,7 @@ describe('RBAC boundary: step-in rule', () => {
       });
       const approvalId = (
         await pool.query<{ approval_id: string }>(
-          `SELECT approval_id FROM copilot.workflow_approvals WHERE run_id = $1`,
+          `SELECT approval_id FROM agent.workflow_approvals WHERE run_id = $1`,
           [runId],
         )
       ).rows[0]!.approval_id;
@@ -201,7 +201,7 @@ describe('RBAC boundary: step-in rule', () => {
       });
       const approvalId = (
         await pool.query<{ approval_id: string }>(
-          `SELECT approval_id FROM copilot.workflow_approvals WHERE run_id = $1`,
+          `SELECT approval_id FROM agent.workflow_approvals WHERE run_id = $1`,
           [runId],
         )
       ).rows[0]!.approval_id;

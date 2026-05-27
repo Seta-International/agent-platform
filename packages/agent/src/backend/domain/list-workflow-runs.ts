@@ -154,10 +154,10 @@ export async function listWorkflowRuns(
            r.started_at, r.finished_at, r.duration_ms,
            latest.status AS latest_approval_kind,
            latest.decision_payload->>'reason' AS latest_approval_reason
-      FROM copilot.workflow_runs AS r
+      FROM agent.workflow_runs AS r
       LEFT JOIN LATERAL (
         SELECT a.status, a.decision_payload
-          FROM copilot.workflow_approvals AS a
+          FROM agent.workflow_approvals AS a
          WHERE a.run_id = r.run_id
          ORDER BY a.created_at DESC
          LIMIT 1

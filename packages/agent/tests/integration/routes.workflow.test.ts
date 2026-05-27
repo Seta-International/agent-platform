@@ -172,7 +172,7 @@ describe('POST /api/agent/v1/workflows/approvals/:id/decide', () => {
       await seed(pool, { runId, tenantId: me.tenant_id, startedBy: me.user_id, suspended: true });
       const approvalId = (
         await pool.query<{ approval_id: string }>(
-          `SELECT approval_id FROM copilot.workflow_approvals WHERE run_id = $1`,
+          `SELECT approval_id FROM agent.workflow_approvals WHERE run_id = $1`,
           [runId],
         )
       ).rows[0]!.approval_id;

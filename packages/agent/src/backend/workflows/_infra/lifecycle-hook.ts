@@ -62,7 +62,7 @@ export async function onLifecycleEvent(pool: Pool, evt: MastraLifecycleEvent): P
   try {
     await client.query('BEGIN');
     const seen = await client.query(
-      `INSERT INTO copilot.workflow_run_events_seen (run_id, event_seq)
+      `INSERT INTO agent.workflow_run_events_seen (run_id, event_seq)
        VALUES ($1, $2)
        ON CONFLICT DO NOTHING
        RETURNING run_id`,
@@ -104,7 +104,7 @@ async function dispatch(client: PoolClient, evt: MastraLifecycleEvent): Promise<
 
 async function onRunStarted(client: PoolClient, evt: RunStartedEvent): Promise<void> {
   await client.query(
-    `INSERT INTO copilot.workflow_runs
+    `INSERT INTO agent.workflow_runs
        (run_id, workflow_id, tenant_id, started_by, started_via,
         parent_thread_id, parent_run_id, source_event_id,
         input_summary, status, started_at)
@@ -144,7 +144,7 @@ async function insertOutboxEvent(
 
 async function onRunSuspended(client: PoolClient, evt: RunSuspendedEvent): Promise<void> {
   await client.query(
-    `UPDATE copilot.workflow_runs
+    `UPDATE agent.workflow_runs
         SET status = 'paused', suspend_reason = $2
       WHERE run_id = $1`,
     [evt.runId, evt.suspendReason],
@@ -155,7 +155,7 @@ async function onRunSuspended(client: PoolClient, evt: RunSuspendedEvent): Promi
   let { tenantId, approverUserId } = evt;
   if (!tenantId || !approverUserId) {
     const r = await client.query<{ tenant_id: string; started_by: string }>(
-      `SELECT tenant_id, started_by FROM copilot.workflow_runs WHERE run_id = $1`,
+      `SELECT tenant_id, started_by FROM agent.workflow_runs WHERE run_id = $1`,
       [evt.runId],
     );
     const row = r.rows[0];
@@ -164,7 +164,7 @@ async function onRunSuspended(client: PoolClient, evt: RunSuspendedEvent): Promi
     if (!approverUserId) approverUserId = row.started_by;
   }
   const ins = await client.query<{ approval_id: string }>(
-    `INSERT INTO copilot.workflow_approvals
+    `INSERT INTO agent.workflow_approvals
        (approval_id, run_id, step_id, proposed_payload,
         approver_user_id, fallback_approver_user_id,
         surface_canvas, surface_chat_thread_id,
@@ -207,7 +207,7 @@ async function onRunSuspended(client: PoolClient, evt: RunSuspendedEvent): Promi
 }
 async function onRunResumed(client: PoolClient, evt: RunResumedEvent): Promise<void> {
   await client.query(
-    `UPDATE copilot.workflow_runs
+    `UPDATE agent.workflow_runs
         SET status = 'running', suspend_reason = NULL
       WHERE run_id = $1`,
     [evt.runId],
@@ -221,7 +221,7 @@ async function terminate(
   errorSummary: string | null,
 ): Promise<void> {
   await client.query(
-    `UPDATE copilot.workflow_runs
+    `UPDATE agent.workflow_runs
         SET status = $2, finished_at = $3, duration_ms = $4, error_summary = $5
       WHERE run_id = $1`,
     [evt.runId, status, evt.occurredAt, evt.durationMs, errorSummary],
@@ -233,7 +233,7 @@ async function onRunCompleted(client: PoolClient, evt: RunCompletedEvent): Promi
   // Fetch identity columns from the run row — terminal events on 'workflows-finish' may arrive
   // without requestContext (evented runtime doesn't echo it back on finish).
   const r = await client.query<{ started_by: string; tenant_id: string }>(
-    `SELECT started_by, tenant_id FROM copilot.workflow_runs WHERE run_id = $1`,
+    `SELECT started_by, tenant_id FROM agent.workflow_runs WHERE run_id = $1`,
     [evt.runId],
   );
   if (!r.rows[0]) return;
@@ -257,7 +257,7 @@ async function onRunFailed(client: PoolClient, evt: RunFailedEvent): Promise<voi
   // Fetch identity columns from the run row — terminal events on 'workflows-finish' may arrive
   // without requestContext (evented runtime doesn't echo it back on finish).
   const r = await client.query<{ started_by: string; tenant_id: string }>(
-    `SELECT started_by, tenant_id FROM copilot.workflow_runs WHERE run_id = $1`,
+    `SELECT started_by, tenant_id FROM agent.workflow_runs WHERE run_id = $1`,
     [evt.runId],
   );
   if (!r.rows[0]) return;

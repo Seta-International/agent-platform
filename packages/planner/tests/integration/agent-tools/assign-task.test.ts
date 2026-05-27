@@ -77,7 +77,7 @@ describe('planner_assignTask tool', () => {
 
       const result = (await plannerAssignTaskTool.execute!(
         { taskId: task.id, assigneeUserId: assigneeResult.user_id },
-        makeToolContext({ user_id: admin_user_id }),
+        makeToolContext({ user_id: admin_user_id, tenant_id }),
       )) as {
         assignment: {
           taskId: string;
@@ -154,9 +154,9 @@ describe('planner_assignTask tool', () => {
       await expect(
         plannerAssignTaskTool.execute!(
           { taskId: task.id, assigneeUserId: admin_user_id },
-          makeToolContext({ user_id: contributorResult.user_id }),
+          makeToolContext({ user_id: contributorResult.user_id, tenant_id }),
         ),
-      ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      ).rejects.toMatchObject({ code: 'PERMISSION_DENIED' });
     });
   });
 });

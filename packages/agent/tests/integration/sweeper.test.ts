@@ -66,7 +66,7 @@ describe('sweepWorkflowApprovals', () => {
       expect(result.expired).toBe(1);
 
       const a = await pool.query<{ status: string }>(
-        `SELECT status FROM copilot.workflow_approvals WHERE run_id = $1`,
+        `SELECT status FROM agent.workflow_approvals WHERE run_id = $1`,
         [runId],
       );
       expect(a.rows[0]!.status).toBe('expired');

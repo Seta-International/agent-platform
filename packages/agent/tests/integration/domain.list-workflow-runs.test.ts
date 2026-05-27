@@ -206,7 +206,7 @@ describe('listWorkflowRuns', () => {
         workflowId: 'planner.assignBySkill',
       });
       await pool.query(
-        `INSERT INTO copilot.workflow_approvals
+        `INSERT INTO agent.workflow_approvals
            (approval_id, run_id, step_id, proposed_payload,
             approver_user_id, status, decision_payload, expires_at, decided_at)
          VALUES (gen_random_uuid(), $1, 'assignBySkill.suggest', '{}'::jsonb,

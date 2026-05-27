@@ -98,7 +98,7 @@ describe('identity_searchUsersBySkills tool', () => {
           skills: ['TypeScript', 'React'],
           limit: 5,
         },
-        makeToolContext({ user_id: admin_user_id }),
+        makeToolContext({ user_id: admin_user_id, tenant_id }),
       )) as {
         candidates: Array<{
           userId: string;
@@ -188,7 +188,7 @@ describe('identity_searchUsersBySkills tool', () => {
           skills: ['TypeScript'],
           limit: 2,
         },
-        makeToolContext({ user_id: admin_user_id }),
+        makeToolContext({ user_id: admin_user_id, tenant_id }),
       )) as {
         candidates: Array<{
           userId: string;
@@ -210,7 +210,7 @@ describe('identity_searchUsersBySkills tool', () => {
 
   it('throws when group does not exist', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const { admin_user_id } = await createTestTenantWithAdmin({ pool });
+      const { admin_user_id, tenant_id } = await createTestTenantWithAdmin({ pool });
       await expect(
         identitySearchUsersBySkillsTool.execute!(
           {
@@ -218,7 +218,7 @@ describe('identity_searchUsersBySkills tool', () => {
             skills: ['TypeScript'],
             limit: 5,
           },
-          makeToolContext({ user_id: admin_user_id }),
+          makeToolContext({ user_id: admin_user_id, tenant_id }),
         ),
       ).rejects.toThrow();
     });

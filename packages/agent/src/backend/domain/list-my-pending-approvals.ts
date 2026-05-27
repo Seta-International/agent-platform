@@ -33,7 +33,7 @@ export async function listMyPendingApprovals(opts: {
     SELECT approval_id, run_id, step_id, proposed_payload,
            approver_user_id, surface_canvas, surface_chat_thread_id,
            expires_at, created_at
-      FROM copilot.workflow_approvals
+      FROM agent.workflow_approvals
      WHERE approver_user_id = ${opts.session.user_id}
        AND status = 'pending'
      ORDER BY created_at DESC

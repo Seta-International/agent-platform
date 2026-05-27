@@ -14,14 +14,14 @@ export async function supersedeStaleAssignApprovals(
 ): Promise<void> {
   const taskId = event.payload.task_id;
   await ctx.tx.execute(sql`
-    UPDATE copilot.workflow_approvals AS a
+    UPDATE agent.workflow_approvals AS a
        SET status = 'superseded',
            decision_payload = jsonb_build_object(
              'reason', 'task-assigned-elsewhere',
              'eventId', ${event.id}::text
            ),
            decided_at = now()
-      FROM copilot.workflow_runs AS r
+      FROM agent.workflow_runs AS r
      WHERE a.run_id = r.run_id
        AND r.workflow_id = 'planner.assignBySkill'
        AND r.input_summary @> jsonb_build_object('taskId', ${taskId}::text)

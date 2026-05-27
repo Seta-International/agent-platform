@@ -114,7 +114,7 @@ describe('decideApproval', () => {
       expect(resumeArg.resumeData.decision).toBe('approve');
 
       const row = await pool.query<{ status: string; decided_by: string }>(
-        `SELECT status, decided_by FROM copilot.workflow_approvals WHERE approval_id = $1`,
+        `SELECT status, decided_by FROM agent.workflow_approvals WHERE approval_id = $1`,
         [pending!.approvalId],
       );
       expect(row.rows[0]!.status).toBe('approved');
@@ -157,13 +157,13 @@ describe('decideApproval', () => {
       // approve → primary.argsPatch
       const runApprove = randomUUID();
       await pool.query(
-        `INSERT INTO copilot.workflow_runs (run_id, workflow_id, tenant_id, started_by, started_via, input_summary, status, started_at)
+        `INSERT INTO agent.workflow_runs (run_id, workflow_id, tenant_id, started_by, started_via, input_summary, status, started_at)
          VALUES ($1, 'planner.assignBySkill', $2, $3, 'event', '{}'::jsonb, 'paused', now())`,
         [runApprove, me.tenant_id, me.user_id],
       );
       const approvalIdApprove = randomUUID();
       await pool.query(
-        `INSERT INTO copilot.workflow_approvals
+        `INSERT INTO agent.workflow_approvals
            (approval_id, run_id, step_id, proposed_payload, approver_user_id,
             fallback_approver_user_id, surface_canvas, surface_chat_thread_id,
             status, expires_at, created_at)
@@ -187,13 +187,13 @@ describe('decideApproval', () => {
       // modify(overrideUserIds) → primary.argsPatch with assigneeUserIds replaced
       const runModify = randomUUID();
       await pool.query(
-        `INSERT INTO copilot.workflow_runs (run_id, workflow_id, tenant_id, started_by, started_via, input_summary, status, started_at)
+        `INSERT INTO agent.workflow_runs (run_id, workflow_id, tenant_id, started_by, started_via, input_summary, status, started_at)
          VALUES ($1, 'planner.assignBySkill', $2, $3, 'event', '{}'::jsonb, 'paused', now())`,
         [runModify, me.tenant_id, me.user_id],
       );
       const approvalIdModify = randomUUID();
       await pool.query(
-        `INSERT INTO copilot.workflow_approvals
+        `INSERT INTO agent.workflow_approvals
            (approval_id, run_id, step_id, proposed_payload, approver_user_id,
             fallback_approver_user_id, surface_canvas, surface_chat_thread_id,
             status, expires_at, created_at)
@@ -219,13 +219,13 @@ describe('decideApproval', () => {
       // reject → decline.argsPatch
       const runReject = randomUUID();
       await pool.query(
-        `INSERT INTO copilot.workflow_runs (run_id, workflow_id, tenant_id, started_by, started_via, input_summary, status, started_at)
+        `INSERT INTO agent.workflow_runs (run_id, workflow_id, tenant_id, started_by, started_via, input_summary, status, started_at)
          VALUES ($1, 'planner.assignBySkill', $2, $3, 'event', '{}'::jsonb, 'paused', now())`,
         [runReject, me.tenant_id, me.user_id],
       );
       const approvalIdReject = randomUUID();
       await pool.query(
-        `INSERT INTO copilot.workflow_approvals
+        `INSERT INTO agent.workflow_approvals
            (approval_id, run_id, step_id, proposed_payload, approver_user_id,
             fallback_approver_user_id, surface_canvas, surface_chat_thread_id,
             status, expires_at, created_at)
@@ -300,7 +300,7 @@ describe('decideApproval', () => {
       await seedSuspendedRun(pool, { runId, tenantId: stranger.tenant_id, approverUserId: other });
       const approvalId = (
         await pool.query<{ approval_id: string }>(
-          `SELECT approval_id FROM copilot.workflow_approvals WHERE run_id = $1`,
+          `SELECT approval_id FROM agent.workflow_approvals WHERE run_id = $1`,
           [runId],
         )
       ).rows[0]!.approval_id;
@@ -329,7 +329,7 @@ describe('decideApproval', () => {
       });
       const approvalId = (
         await pool.query<{ approval_id: string }>(
-          `SELECT approval_id FROM copilot.workflow_approvals WHERE run_id = $1`,
+          `SELECT approval_id FROM agent.workflow_approvals WHERE run_id = $1`,
           [runId],
         )
       ).rows[0]!.approval_id;
@@ -358,7 +358,7 @@ describe('decideApproval', () => {
       });
       const approvalId = (
         await pool.query<{ approval_id: string }>(
-          `SELECT approval_id FROM copilot.workflow_approvals WHERE run_id = $1`,
+          `SELECT approval_id FROM agent.workflow_approvals WHERE run_id = $1`,
           [runId],
         )
       ).rows[0]!.approval_id;
@@ -381,7 +381,7 @@ describe('decideApproval', () => {
       await seedSuspendedRun(pool, { runId, tenantId: me.tenant_id, approverUserId: me.user_id });
       const approvalId = (
         await pool.query<{ approval_id: string }>(
-          `SELECT approval_id FROM copilot.workflow_approvals WHERE run_id = $1`,
+          `SELECT approval_id FROM agent.workflow_approvals WHERE run_id = $1`,
           [runId],
         )
       ).rows[0]!.approval_id;
@@ -406,7 +406,7 @@ describe('decideApproval', () => {
       });
       const approvalId = (
         await pool.query<{ approval_id: string }>(
-          `SELECT approval_id FROM copilot.workflow_approvals WHERE run_id = $1`,
+          `SELECT approval_id FROM agent.workflow_approvals WHERE run_id = $1`,
           [runId],
         )
       ).rows[0]!.approval_id;

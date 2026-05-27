@@ -10,9 +10,13 @@ import type { AgentRequestContext } from './request-context.ts';
 export function makeToolContext(actor: {
   user_id: string;
   type?: 'user';
+  tenant_id?: string;
 }): ToolExecutionContext<unknown, unknown, AgentRequestContext> {
   const rc = new RequestContext<AgentRequestContext>();
   rc.set('actor', { type: actor.type ?? 'user', user_id: actor.user_id });
+  if (actor.tenant_id) {
+    rc.set('tenant_id', actor.tenant_id);
+  }
   return {
     requestContext: rc,
     toolCallId: 'test-call',

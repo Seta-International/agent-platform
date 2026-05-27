@@ -30,8 +30,8 @@ export async function resumeRetry(deps: ResumeRetryDeps): Promise<ResumeRetryRes
     `SELECT a.approval_id, a.run_id, a.step_id, r.workflow_id, r.tenant_id,
             a.decision_payload,
             COALESCE((a.decision_payload->>'retry_count')::int, 0) AS retry_count
-       FROM copilot.workflow_approvals a
-       JOIN copilot.workflow_runs r ON r.run_id = a.run_id
+       FROM agent.workflow_approvals a
+       JOIN agent.workflow_runs r ON r.run_id = a.run_id
       WHERE a.status IN ('approved','rejected','modified')
         AND r.status = 'paused'
         AND a.decided_at < now() - ($1::int * interval '1 millisecond')
@@ -61,7 +61,7 @@ export async function resumeRetry(deps: ResumeRetryDeps): Promise<ResumeRetryRes
       const nextRetry = row.retry_count + 1;
       if (nextRetry >= MAX_RETRIES) {
         await deps.pool.query(
-          `UPDATE copilot.workflow_runs
+          `UPDATE agent.workflow_runs
               SET status = 'failed',
                   finished_at = now(),
                   error_summary = 'resume_failed: ' || $2
@@ -71,7 +71,7 @@ export async function resumeRetry(deps: ResumeRetryDeps): Promise<ResumeRetryRes
       } else {
         const nextPayload = { ...row.decision_payload, retry_count: nextRetry };
         await deps.pool.query(
-          `UPDATE copilot.workflow_approvals
+          `UPDATE agent.workflow_approvals
               SET decision_payload = $2::jsonb
             WHERE approval_id = $1`,
           [row.approval_id, JSON.stringify(nextPayload)],

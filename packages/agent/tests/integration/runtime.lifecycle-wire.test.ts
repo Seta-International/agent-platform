@@ -38,7 +38,7 @@ describe('lifecycle hook wiring', () => {
       await new Promise((r) => setTimeout(r, 100));
 
       const r = await pool.query(
-        `SELECT workflow_id, tenant_id, started_by, started_via, status FROM copilot.workflow_runs WHERE run_id = $1`,
+        `SELECT workflow_id, tenant_id, started_by, started_via, status FROM agent.workflow_runs WHERE run_id = $1`,
         [runId],
       );
       expect(r.rowCount).toBe(1);
@@ -84,7 +84,7 @@ describe('lifecycle hook wiring', () => {
       await new Promise((r) => setTimeout(r, 100));
 
       const r = await pool.query(
-        `SELECT status, duration_ms FROM copilot.workflow_runs WHERE run_id = $1`,
+        `SELECT status, duration_ms FROM agent.workflow_runs WHERE run_id = $1`,
         [runId],
       );
       expect(r.rows[0]!.status).toBe('success');
@@ -137,14 +137,14 @@ describe('lifecycle hook wiring', () => {
       await new Promise((r) => setTimeout(r, 100));
 
       const run = await pool.query(
-        `SELECT status, suspend_reason FROM copilot.workflow_runs WHERE run_id = $1`,
+        `SELECT status, suspend_reason FROM agent.workflow_runs WHERE run_id = $1`,
         [runId],
       );
       expect(run.rows[0]!.status).toBe('paused');
       expect(run.rows[0]!.suspend_reason).toBe('hitl_pending');
 
       const approval = await pool.query(
-        `SELECT step_id, status, approver_user_id FROM copilot.workflow_approvals WHERE run_id = $1`,
+        `SELECT step_id, status, approver_user_id FROM agent.workflow_approvals WHERE run_id = $1`,
         [runId],
       );
       expect(approval.rowCount).toBe(1);
@@ -165,7 +165,7 @@ describe('lifecycle hook wiring', () => {
       });
       await new Promise((r) => setTimeout(r, 50));
       const r = await pool.query(
-        `SELECT count(*)::int AS n FROM copilot.workflow_runs WHERE run_id = $1`,
+        `SELECT count(*)::int AS n FROM agent.workflow_runs WHERE run_id = $1`,
         [runId],
       );
       expect(r.rows[0]!.n).toBe(0);

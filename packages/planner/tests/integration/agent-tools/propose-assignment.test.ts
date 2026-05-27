@@ -90,7 +90,7 @@ describe('planner_proposeAssignment', () => {
 
       // First call: suspend with the card
       const suspended: unknown[] = [];
-      const suspendCtx = makeToolContext({ user_id: admin_user_id });
+      const suspendCtx = makeToolContext({ user_id: admin_user_id, tenant_id });
       // biome-ignore lint/suspicious/noExplicitAny: agent isn't on typed context
       (suspendCtx as any).agent = {
         toolCallId: 'tc-1',
@@ -117,19 +117,19 @@ describe('planner_proposeAssignment', () => {
       const card = suspended[0] as {
         details: Array<{ kind: string; items?: Array<{ id: string }> }>;
         summary: string;
-        primary: { argsPatch?: { assigneeUserId: string } };
+        primary: { argsPatch?: { assigneeUserIds: string[] } };
       };
       expect(card.details[0]?.kind).toBe('candidateList');
       expect(card.details[0]?.items).toHaveLength(3);
       expect(card.summary).toMatch(/strong skill overlap/);
-      expect(card.primary.argsPatch?.assigneeUserId).toBe(candidates[0]!.user_id);
+      expect(card.primary.argsPatch?.assigneeUserIds?.[0]).toBe(candidates[0]!.user_id);
 
       // Second call: resume → assign winning candidate
-      const resumeCtx = makeToolContext({ user_id: admin_user_id });
+      const resumeCtx = makeToolContext({ user_id: admin_user_id, tenant_id });
       // biome-ignore lint/suspicious/noExplicitAny: agent isn't on typed context
       (resumeCtx as any).agent = {
         toolCallId: 'tc-1',
-        resumeData: { action: 'assign', assigneeUserId: candidates[1]!.user_id },
+        resumeData: { action: 'assign', assigneeUserIds: [candidates[1]!.user_id] },
       };
       const finalResult = (await tool.execute!(
         {
@@ -146,7 +146,7 @@ describe('planner_proposeAssignment', () => {
       expect(finalResult).toMatchObject({
         kind: 'assigned',
         taskId: task.id,
-        userId: candidates[1]!.user_id,
+        userIds: [candidates[1]!.user_id],
       });
     });
   });
@@ -193,11 +193,11 @@ describe('planner_proposeAssignment', () => {
       // simulate: workflow inbox assigned `winner` between suspend and resume
       await assignTask({ task_id: task.id, user_id: winner.user_id, session });
 
-      const ctx = makeToolContext({ user_id: admin_user_id });
+      const ctx = makeToolContext({ user_id: admin_user_id, tenant_id });
       // biome-ignore lint/suspicious/noExplicitAny: agent isn't on typed context
       (ctx as any).agent = {
         toolCallId: 'tc-2',
-        resumeData: { action: 'assign', assigneeUserId: loser.user_id },
+        resumeData: { action: 'assign', assigneeUserIds: [loser.user_id] },
       };
       const result = (await plannerProposeAssignmentTool.execute!(
         {
@@ -213,15 +213,15 @@ describe('planner_proposeAssignment', () => {
       expect(result).toMatchObject({
         kind: 'superseded',
         taskId: task.id,
-        currentAssigneeId: winner.user_id,
+        currentAssigneeIds: [winner.user_id],
       });
     });
   });
 
   it('rejects fewer than 2 candidates at schema validation', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const { admin_user_id } = await createTestTenantWithAdmin({ pool });
-      const ctx = makeToolContext({ user_id: admin_user_id });
+      const { admin_user_id, tenant_id } = await createTestTenantWithAdmin({ pool });
+      const ctx = makeToolContext({ user_id: admin_user_id, tenant_id });
       const result = (await plannerProposeAssignmentTool.execute!(
         {
           taskId: randomUUID(),

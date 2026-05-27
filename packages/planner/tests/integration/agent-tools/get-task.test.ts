@@ -56,7 +56,7 @@ describe('planner_getTask tool', () => {
 
       const result = (await plannerGetTaskTool.execute!(
         { taskId: task.id },
-        makeToolContext({ user_id: admin_user_id }),
+        makeToolContext({ user_id: admin_user_id, tenant_id }),
       )) as {
         task: {
           taskId: string;
@@ -83,11 +83,11 @@ describe('planner_getTask tool', () => {
 
   it('throws when task does not exist', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const { admin_user_id } = await createTestTenantWithAdmin({ pool });
+      const { admin_user_id, tenant_id } = await createTestTenantWithAdmin({ pool });
       await expect(
         plannerGetTaskTool.execute!(
           { taskId: crypto.randomUUID() },
-          makeToolContext({ user_id: admin_user_id }),
+          makeToolContext({ user_id: admin_user_id, tenant_id }),
         ),
       ).rejects.toThrow();
     });

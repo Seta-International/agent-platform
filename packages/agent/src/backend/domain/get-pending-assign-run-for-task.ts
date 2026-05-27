@@ -17,7 +17,7 @@ export async function getPendingAssignRunIdForTask(
   // — view" link on the task card; otherwise the toast is the only entry point.
   const result = await db.execute(sql`
     SELECT run_id
-      FROM copilot.workflow_runs
+      FROM agent.workflow_runs
      WHERE workflow_id = ${ASSIGN_BY_SKILL_MASTRA_ID}
        AND status IN ('running', 'paused')
        AND tenant_id = ${opts.tenantId}
