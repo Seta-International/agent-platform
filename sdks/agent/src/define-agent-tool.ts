@@ -11,7 +11,7 @@ import { wrapExecute } from './wrap-execute.ts';
  *
  * Every tool authored through this factory is wrapped with:
  *   - an execution timeout (read 30s / write 60s defaults, or
- *     `spec.executionTimeoutMs` capped by COPILOT_TOOL_TIMEOUT_MAX_MS);
+ *     `spec.executionTimeoutMs` capped by AGENT_TOOL_TIMEOUT_MAX_MS);
  *   - a composed `AbortSignal` injected into ctx.abortSignal — forward this
  *     into every fetch / DB / vector query so resources release on timeout;
  *   - a per-(tenant, tool) circuit breaker that fails fast after 3

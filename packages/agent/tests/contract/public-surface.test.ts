@@ -33,7 +33,7 @@ const FORBIDDEN_VALUES = [
   'listModels',
   'resolveModel',
   'ModelNotFoundError',
-  'COPILOT_PERMISSIONS',
+  'AGENT_PERMISSIONS',
 ];
 
 describe('@seta/agent public surface', () => {

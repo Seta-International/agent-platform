@@ -25,7 +25,7 @@ flowchart LR
       ModSchemas[(Module schemas — planner, identity, ...)]
       Outbox[(core.events outbox + audit)]
       Vec[(pgvector tables — per module, per tenant)]
-      Cop[(copilot schema — threads, memory, traces)]
+      Cop[(agent schema — threads, memory, traces)]
     end
 
     LLM[LLM providers — OpenAI, Anthropic, Cohere]

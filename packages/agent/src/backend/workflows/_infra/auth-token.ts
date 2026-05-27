@@ -1,6 +1,6 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 
-const SECRET = process.env.COPILOT_SSE_TOKEN_SECRET ?? randomBytes(32).toString('hex');
+const SECRET = process.env.AGENT_SSE_TOKEN_SECRET ?? randomBytes(32).toString('hex');
 const TTL_MS = 5 * 60 * 1000;
 
 export function issueSseToken(payload: { userId: string; tenantId: string }): string {

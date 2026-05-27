@@ -42,7 +42,7 @@ flowchart LR
     XRead[Cross-module read tools]
     HITL{Human approval}
     Mods[Feature modules]
-    PG[(Postgres — copilot + module schemas)]
+    PG[(Postgres — agent + module schemas)]
     LLM[LLM provider]
 
     User --> Top
@@ -81,11 +81,11 @@ flowchart LR
 | Specialist | Domain-scoped Mastra `Agent` composed from a tool record + a domain-specific system prompt |
 | Tools | Thin adapters over module domain functions, owned by the source module |
 | Cross-module read tools | Read-only contracts a module exposes for any specialist to call without a cross-module import |
-| Workflows | Deterministic multi-step flows registered with the domain; emit lifecycle events into `copilot.workflow_runs` |
+| Workflows | Deterministic multi-step flows registered with the domain; emit lifecycle events into `agent.workflow_runs` |
 | HITL gate | Pauses every write tool and every approving workflow step for explicit user decision |
 | Modules | Perform the actual reads and mutations through their public surfaces |
 | Memory | Threads, messages, and traces persisted to the `agent` Postgres schema, managed by Mastra |
-| Audit | Workflow lifecycle, approvals, and domain events recorded across `core.events`, `copilot.workflow_runs`, and `copilot.workflow_approvals` |
+| Audit | Workflow lifecycle, approvals, and domain events recorded across `core.events`, `agent.workflow_runs`, and `agent.workflow_approvals` |
 
 The rest of this document explains *why* this shape — starting from a concrete user pain — and *how* it is built. Code locations for each layer are listed in §19.
 
@@ -151,7 +151,7 @@ The target end-to-end duration is approximately five minutes for the full intera
 | Suggest assignee by skill + history + load + tz (HITL card) | `planner` (calls cross-module reads from `identity`) | proposes write | `planner.task.assign` |
 | Apply chosen assignment | `planner` | write to `planner.tasks.assignee_id` | `planner.task.assign` |
 | Notify assignee | `notifications` (event-driven projection) | write (via subscriber) | governed by event |
-| Audit every action | `core.events` + `copilot.workflow_runs` | write (via outbox + lifecycle hook) | automatic |
+| Audit every action | `core.events` + `agent.workflow_runs` | write (via outbox + lifecycle hook) | automatic |
 
 ---
 
@@ -212,7 +212,7 @@ A specialist is a Mastra `Agent` built dynamically at boot from a `SpecialistSpe
 | System prompt | `SpecialistSpec.instructions(ctx)` — invoked at agent build time | Per specialist |
 | Tool record | `SpecialistSpec.tools: Record<string, AgentTool>` | Per specialist |
 | Workflows | `SpecialistSpec.workflows?` (rarely set on the specialist; usually registered at the domain level) | Per specialist |
-| Memory store | `@mastra/pg` `PostgresStore({ schemaName: 'copilot' })`, wrapped in `Memory({ semanticRecall: false, generateTitle: true })` | Shared store, per-thread scope |
+| Memory store | `@mastra/pg` `PostgresStore({ schemaName: 'agent' })`, wrapped in `Memory({ semanticRecall: false, generateTitle: true })` | Shared store, per-thread scope |
 | Model | `resolveModel('auto', { tierHint: 'fast' })` at the specialist layer (`balanced` at the supervisor layers) | Per agent |
 
 The four domains are fixed because the top router prompt is parameterised over them. Adding a new domain is a deliberate change — adding a new specialist or workflow in an existing domain is not.
@@ -251,16 +251,16 @@ stateDiagram-v2
     Rejected --> [*]: rejection streamed back to agent
 ```
 
-**Workflow-step approvals.** A workflow declares `hitlSteps: string[]` on its `WorkflowSpec`. The lifecycle hook writes a row into `copilot.workflow_approvals` when one of those steps suspends; users decide via `POST /api/agent/v1/workflows/approvals/:approvalId/decide` (decision `approve | reject | modify`, with optional `overrideUserId` and `note`).
+**Workflow-step approvals.** A workflow declares `hitlSteps: string[]` on its `WorkflowSpec`. The lifecycle hook writes a row into `agent.workflow_approvals` when one of those steps suspends; users decide via `POST /api/agent/v1/workflows/approvals/:approvalId/decide` (decision `approve | reject | modify`, with optional `overrideUserId` and `note`).
 
 | Property | Behaviour |
 |---|---|
 | Read tools | Execute directly without approval |
 | Write tools | Always require approval — either `needsApproval` or a typed `suspend()` card |
 | Approval surface | Card schema is either the tool input schema (`needsApproval`) or the `suspendSchema` payload |
-| Rejection | Streamed back as a tool error (agent path) or persisted to `copilot.workflow_approvals` (workflow path); the agent may re-plan |
+| Rejection | Streamed back as a tool error (agent path) or persisted to `agent.workflow_approvals` (workflow path); the agent may re-plan |
 | Replay & rerun | Workflows support `rerun` (new run, same input or override) and `replayFromStep` (continue from a specific step) |
-| Audit | Tool calls and workflow lifecycle events both land in `core.events`; workflow runs are also materialised in `copilot.workflow_runs` with idempotency in `copilot.workflow_run_events_seen` |
+| Audit | Tool calls and workflow lifecycle events both land in `core.events`; workflow runs are also materialised in `agent.workflow_runs` with idempotency in `agent.workflow_run_events_seen` |
 
 The approval boundary is a trust contract, not a UX option: agent-driven mutations always present the proposed action to the user before commit.
 
@@ -272,11 +272,11 @@ flowchart TB
       W[LLM context window — recent turns and tool results]
     end
     subgraph Session[Session memory — per thread]
-      S[mastra_messages and mastra_threads in copilot schema]
+      S[mastra_messages and mastra_threads in agent schema]
     end
     subgraph LongTerm[Long-term memory — cross-thread]
       L1[core.events — audit + domain events]
-      L2[copilot.workflow_runs — workflow lifecycle]
+      L2[agent.workflow_runs — workflow lifecycle]
     end
     W --> S
     S --> L1
@@ -286,8 +286,8 @@ flowchart TB
 | Layer | Lifetime | Storage | Contents |
 |---|---|---|---|
 | Working | One turn | LLM context window | Recent messages, current tool results |
-| Session | Per thread | `copilot.mastra_messages`, `copilot.mastra_threads` (Mastra-managed) | Full conversation history including tool calls and suspended approvals |
-| Long-term | Subject to event retention | `core.events`, `copilot.workflow_runs`, `copilot.workflow_approvals` | Tool execution audits, emitted domain events, workflow lifecycle, approval decisions |
+| Session | Per thread | `agent.mastra_messages`, `agent.mastra_threads` (Mastra-managed) | Full conversation history including tool calls and suspended approvals |
+| Long-term | Subject to event retention | `core.events`, `agent.workflow_runs`, `agent.workflow_approvals` | Tool execution audits, emitted domain events, workflow lifecycle, approval decisions |
 
 The `mastra_*` tables are owned by Mastra; their DDL is not edited by hand. They reside in the `agent` schema so that backup and migration operations cover them with the rest of the platform. The thread/message API used by the UI is exposed through `GET /api/agent/v1/threads`, `GET /api/agent/v1/threads/:id`, `PATCH /api/agent/v1/threads/:id`, and `DELETE /api/agent/v1/threads/:id`; the route maps Mastra's stored `tool-invocation` parts to AI SDK v6's `tool-<name>` parts at read time.
 
@@ -462,9 +462,9 @@ export const assignBySkillWorkflowSpec: WorkflowSpec = {
 
 At boot, the platform wires Mastra's pubsub channels `workflows` and `workflows-finish` to a single lifecycle hook (`workflows/_infra/lifecycle-hook.ts`) that:
 
-- Inserts/updates a row in `copilot.workflow_runs` for the run (status, step, started/finished).
-- Records a row in `copilot.workflow_run_events_seen` keyed on `(runId, eventId)` for idempotency.
-- Creates a row in `copilot.workflow_approvals` when a `hitlSteps` step suspends.
+- Inserts/updates a row in `agent.workflow_runs` for the run (status, step, started/finished).
+- Records a row in `agent.workflow_run_events_seen` keyed on `(runId, eventId)` for idempotency.
+- Creates a row in `agent.workflow_approvals` when a `hitlSteps` step suspends.
 
 The chat path uses the agent-tool HITL contract (suspend + `chat/approve`). Programmatic workflow runs use the workflow HITL endpoints (`/workflows/approvals/:id/decide`, `/workflows/runs/:id/rerun`, `/workflows/runs/:id/replay-from-step`, `/workflows/runs/:id/cancel`). Both produce identical audit trails because the lifecycle hook is on the Mastra publish path, not the API path.
 
@@ -547,7 +547,7 @@ The route surface (all under `/api/agent/v1`):
 | GET | `workflows/sse-token` | Issue a short-lived token for SSE auth |
 | SSE | `workflows/runs/:id/events`, `workflows/inbox` | Live run events and per-user inbox (mounted by `mountRunSse` / `mountInboxSse`) |
 
-The chat route also performs two boundary transformations: (1) page-context injection — a `data-page-context` UI message part is folded into a `[Context: kind#id — "label"]` prefix on the most recent user text, so the agent gets the right anchor without the model having to interpret the part directly; and (2) rate limiting — `reserveTurn` debits a per-tenant/user budget (`copilot.rate_limits` table) before invoking the model, returning HTTP 429 with `Retry-After` if the budget is exhausted.
+The chat route also performs two boundary transformations: (1) page-context injection — a `data-page-context` UI message part is folded into a `[Context: kind#id — "label"]` prefix on the most recent user text, so the agent gets the right anchor without the model having to interpret the part directly; and (2) rate limiting — `reserveTurn` debits a per-tenant/user budget (`agent.rate_limits` table) before invoking the model, returning HTTP 429 with `Retry-After` if the budget is exhausted.
 
 ## 17. End-to-end execution
 
@@ -595,11 +595,11 @@ The p95 latency budget for this flow is approximately 1.2 s from approval click 
 |---|---|---|
 | LLM provider unavailable | Provider error returned to the tool layer; AI SDK v6 retries on transient errors | Model registry falls back via `resolveModel('auto', …)` to another model in the same tier |
 | Tool implementation raises an unexpected exception | Mastra captures the exception and streams a tool error to the agent | Agent receives the error in context and re-plans or surfaces it to the user |
-| User rejects approval | AI SDK v6 streams the rejection as a tool result; workflow path writes to `copilot.workflow_approvals` | Agent receives the rejection and suggests alternatives |
+| User rejects approval | AI SDK v6 streams the rejection as a tool result; workflow path writes to `agent.workflow_approvals` | Agent receives the rejection and suggests alternatives |
 | Dispatcher lag increases | `/health/ready` reports backlog | Scale `apps/worker`; investigate slow subscribers |
 | Long-running tool blocks the specialist | Mastra timeout | Tool returns timeout; agent re-plans |
-| Workflow run stuck in suspended state | `copilot.workflow_approvals` row aging | `POST /workflows/runs/:id/cancel` or `replay-from-step` once unblocked |
-| Workflow lifecycle event missed | Lifecycle hook is idempotent on `(runId, eventId)` in `copilot.workflow_run_events_seen` | Duplicate emit safely no-ops; missed events recovered on next pubsub message or by re-snapshotting |
+| Workflow run stuck in suspended state | `agent.workflow_approvals` row aging | `POST /workflows/runs/:id/cancel` or `replay-from-step` once unblocked |
+| Workflow lifecycle event missed | Lifecycle hook is idempotent on `(runId, eventId)` in `agent.workflow_run_events_seen` | Duplicate emit safely no-ops; missed events recovered on next pubsub message or by re-snapshotting |
 | Rate-limit budget exhausted | `reserveTurn` throws `RateLimitError`; route returns HTTP 429 with `Retry-After` | UI surfaces the wait |
 | Mastra memory store unreachable at boot | `PostgresStore.ping`/`init` fails in `/api/agent/v1/health` | Cluster does not accept traffic — fail fast |
 | Embedding job backlog | `embed_<entity>` job count in observability | Scale workers; throttle source; defer backfill |
@@ -673,7 +673,7 @@ flowchart TD
 | Module side-effect imports + `freeze()` | `packages/agent/src/backend/init-registry.ts` |
 | Agent top-level registration (Mastra build, agents, workflows, routes) | `packages/agent/src/register.ts` |
 | Model registry (`fast \| balanced \| reasoning`) | `packages/agent/src/backend/model-registry.ts` |
-| Rate limit (`copilot.rate_limits`) | `packages/agent/src/backend/rate-limit.ts` |
+| Rate limit (`agent.rate_limits`) | `packages/agent/src/backend/rate-limit.ts` |
 | Chat + workflow HTTP routes | `packages/agent/src/backend/routes.ts` |
 | Workflow lifecycle hook | `packages/agent/src/backend/workflows/_infra/lifecycle-hook.ts` |
 | Workflow input-schema registry | `packages/agent/src/backend/workflows/_infra/input-schema-registry.ts` |

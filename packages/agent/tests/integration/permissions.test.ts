@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { COPILOT_PERMISSIONS } from '../../src/rbac.ts';
+import { AGENT_PERMISSIONS } from '../../src/rbac.ts';
 
-describe('COPILOT_PERMISSIONS', () => {
+describe('AGENT_PERMISSIONS', () => {
   it('contains chat + thread + workflow self-read permissions', () => {
-    expect(COPILOT_PERMISSIONS).toEqual(
+    expect(AGENT_PERMISSIONS).toEqual(
       expect.arrayContaining([
         'agent.chat.use',
         'agent.thread.read.self',
@@ -14,7 +14,7 @@ describe('COPILOT_PERMISSIONS', () => {
   });
 
   it('contains the four new workflow run + approval permissions', () => {
-    expect(COPILOT_PERMISSIONS).toEqual(
+    expect(AGENT_PERMISSIONS).toEqual(
       expect.arrayContaining([
         'agent.workflow.run.read.tenant',
         'agent.workflow.run.read.instance',

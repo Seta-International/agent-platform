@@ -60,7 +60,7 @@ Go to **Settings → Secrets and variables → Actions** and add:
 | `TF_VAR_POSTGRES_PASSWORD` | `openssl rand -hex 16` |
 | `TF_VAR_BETTER_AUTH_SECRET` | `openssl rand -hex 32` |
 | `TF_VAR_OPENAI_API_KEY` | `sk-...` |
-| `TF_VAR_COPILOT_MODEL` | e.g. `openai/gpt-4o-mini` |
+| `TF_VAR_AGENT_MODEL` | e.g. `openai/gpt-4o-mini` |
 | `TF_VAR_JAEGER_AUTH_PASSWORD` | strong password for traces UI |
 
 ### Trigger the workflow

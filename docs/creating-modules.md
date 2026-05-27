@@ -317,10 +317,10 @@ Every tool authored via `defineAgentTool` is automatically wrapped with:
 
 | Behaviour | Default | Override |
 |---|---|---|
-| Read-tool deadline | 30 s | `COPILOT_TOOL_TIMEOUT_READ_MS` |
-| Write-tool deadline (`needsApproval: true`) | 60 s | `COPILOT_TOOL_TIMEOUT_WRITE_MS` |
-| Per-tool override (capped by `COPILOT_TOOL_TIMEOUT_MAX_MS`, default 300 s) | — | `executionTimeoutMs` on the spec |
-| Circuit breaker | 3 consecutive failures → open 60 s | `COPILOT_TOOL_BREAKER_*` |
+| Read-tool deadline | 30 s | `AGENT_TOOL_TIMEOUT_READ_MS` |
+| Write-tool deadline (`needsApproval: true`) | 60 s | `AGENT_TOOL_TIMEOUT_WRITE_MS` |
+| Per-tool override (capped by `AGENT_TOOL_TIMEOUT_MAX_MS`, default 300 s) | — | `executionTimeoutMs` on the spec |
+| Circuit breaker | 3 consecutive failures → open 60 s | `AGENT_TOOL_BREAKER_*` |
 
 When the deadline passes, the wrapper aborts a composed `AbortSignal` that
 is exposed to your tool via `ctx.abortSignal`. The agent receives a

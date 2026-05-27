@@ -42,7 +42,7 @@ better_auth_secret = "REPLACE_WITH_32_CHAR_HEX_SECRET"
 
 # OpenAI — set hard cap in OpenAI dashboard to limit daily spend
 openai_api_key = "sk-..."
-copilot_model  = "" # e.g. openai/gpt-4o-mini — leave empty to disable copilot
+agent_model  = "" # e.g. openai/gpt-4o-mini — leave empty to disable agent
 
 # ── Jaeger traces UI ─────────────────────────────────────────────────────────
 # Accessible at https://traces.<domain>  (BasicAuth, never public)

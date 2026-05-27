@@ -174,8 +174,8 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
         tenantId: session.tenant_id,
         userId: session.user_id,
         estimatedTokens: estimatedTokensIn,
-        turnLimit: agentEnv.COPILOT_RATE_LIMIT_TURNS_PER_MIN,
-        tpmLimit: agentEnv.COPILOT_RATE_LIMIT_TPM,
+        turnLimit: agentEnv.AGENT_RATE_LIMIT_TURNS_PER_MIN,
+        tpmLimit: agentEnv.AGENT_RATE_LIMIT_TPM,
       });
     } catch (e) {
       if (e instanceof RateLimitError) {
@@ -558,7 +558,7 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
   });
 
   app.get('/api/agent/v1/health', async (c) => {
-    const modelConfigured = Boolean(agentEnv.COPILOT_MODEL);
+    const modelConfigured = Boolean(agentEnv.AGENT_MODEL);
     let dbReachable = true;
     const storage = (deps.mastra as { getStorage: () => unknown }).getStorage();
     try {

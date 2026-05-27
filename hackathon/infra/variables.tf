@@ -95,14 +95,14 @@ variable "better_auth_secret" {
 }
 
 variable "openai_api_key" {
-  description = "OpenAI API key for copilot testing. Hard-cap spend in the OpenAI dashboard."
+  description = "OpenAI API key for agent testing. Hard-cap spend in the OpenAI dashboard."
   type        = string
   sensitive   = true
   default     = ""
 }
 
-variable "copilot_model" {
-  description = "Model identifier for the copilot module (e.g. openai/gpt-4o-mini). Leave empty to disable copilot chat."
+variable "agent_model" {
+  description = "Model identifier for the agent module (e.g. openai/gpt-4o-mini). Leave empty to disable agent chat."
   type        = string
   default     = ""
 }

@@ -61,7 +61,7 @@ export interface AgentToolSpec<
   resumeSchema?: R;
   /**
    * Override the default execution timeout (read 30s, write 60s). Capped by
-   * COPILOT_TOOL_TIMEOUT_MAX_MS (default 300s) so a typo cannot effectively
+   * AGENT_TOOL_TIMEOUT_MAX_MS (default 300s) so a typo cannot effectively
    * disable the timeout. Prefer the default — set this only when a tool
    * genuinely needs longer (e.g. a bulk embedding call). For multi-minute
    * work, refactor into a workflow instead.

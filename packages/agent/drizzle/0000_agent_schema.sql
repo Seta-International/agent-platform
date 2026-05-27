@@ -1,4 +1,4 @@
--- hand-written: squashed initial migration — replaces 0000-0009 (copilot schema renamed to agent)
+-- hand-written: squashed initial migration — replaces 0000-0009 (agent schema renamed to agent)
 CREATE SCHEMA IF NOT EXISTS agent;
 --> statement-breakpoint
 CREATE TABLE "agent"."workflow_runs" (

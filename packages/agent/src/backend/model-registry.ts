@@ -99,7 +99,7 @@ function parseCatalog(raw: string | undefined): ModelEntry[] | null {
   const out: ModelEntry[] = [];
   for (const id of ids) {
     const slash = id.indexOf('/');
-    if (slash < 0) throw new Error(`COPILOT_MODELS entry must be 'provider/model', got "${id}"`);
+    if (slash < 0) throw new Error(`AGENT_MODELS entry must be 'provider/model', got "${id}"`);
     const provider = id.slice(0, slash);
     const name = id.slice(slash + 1);
     if (provider === 'openai') {
@@ -119,7 +119,7 @@ function parseCatalog(raw: string | undefined): ModelEntry[] | null {
         resolve: () => new MockLanguageModelV3() as unknown as ReturnType<typeof openai>,
       });
     } else {
-      throw new Error(`Unsupported COPILOT_MODELS provider: ${provider} (supported: openai, mock)`);
+      throw new Error(`Unsupported AGENT_MODELS provider: ${provider} (supported: openai, mock)`);
     }
   }
   return out;
@@ -132,9 +132,9 @@ function loadCatalog(): { entries: ModelEntry[]; defaultKey: string } {
   if (cachedCatalog && cachedDefaultKey) {
     return { entries: cachedCatalog, defaultKey: cachedDefaultKey };
   }
-  const fromEnv = parseCatalog(agentEnv.COPILOT_MODELS);
-  const entries = fromEnv ?? parseCatalog(agentEnv.COPILOT_MODEL) ?? FALLBACK_CATALOG;
-  const defaultKey = agentEnv.COPILOT_MODEL_DEFAULT ?? 'auto';
+  const fromEnv = parseCatalog(agentEnv.AGENT_MODELS);
+  const entries = fromEnv ?? parseCatalog(agentEnv.AGENT_MODEL) ?? FALLBACK_CATALOG;
+  const defaultKey = agentEnv.AGENT_MODEL_DEFAULT ?? 'auto';
   cachedCatalog = entries;
   cachedDefaultKey = defaultKey;
   return { entries, defaultKey };

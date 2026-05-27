@@ -46,7 +46,7 @@ Enforced by `.dependency-cruiser.cjs`:
 
 Declared via `"setaTier"` in `package.json` (informational, not a separate enforced layer):
 - **foundation** — depended on by every module (`core`, `identity`).
-- **orchestrator** — composes multiple feature modules (`staffing`). Typically schemaless; workflow state lives in `copilot.workflow_runs`.
+- **orchestrator** — composes multiple feature modules (`staffing`). Typically schemaless; workflow state lives in `agent.workflow_runs`.
 - **engine** — `agent` only. Composes module-owned agent tools/specs into a Mastra runtime.
 
 ## Project-specific workflow

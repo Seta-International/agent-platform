@@ -219,7 +219,7 @@ resource "aws_instance" "app" {
     postgres_password    = var.postgres_password
     better_auth_secret   = var.better_auth_secret
     openai_api_key       = var.openai_api_key
-    copilot_model        = var.copilot_model
+    agent_model        = var.agent_model
     backup_bucket        = aws_s3_bucket.backup.bucket
     jaeger_auth_user     = var.jaeger_auth_user
     jaeger_auth_password = var.jaeger_auth_password

@@ -67,13 +67,13 @@ export function registerAgent(deps: {
   };
 }): AgentHandle {
   setExecutionPolicy({
-    readMs: agentEnv.COPILOT_TOOL_TIMEOUT_READ_MS,
-    writeMs: agentEnv.COPILOT_TOOL_TIMEOUT_WRITE_MS,
-    maxMs: agentEnv.COPILOT_TOOL_TIMEOUT_MAX_MS,
+    readMs: agentEnv.AGENT_TOOL_TIMEOUT_READ_MS,
+    writeMs: agentEnv.AGENT_TOOL_TIMEOUT_WRITE_MS,
+    maxMs: agentEnv.AGENT_TOOL_TIMEOUT_MAX_MS,
   });
   setBreakerConfig({
-    failureThreshold: agentEnv.COPILOT_TOOL_BREAKER_FAILURE_THRESHOLD,
-    openMs: agentEnv.COPILOT_TOOL_BREAKER_OPEN_MS,
+    failureThreshold: agentEnv.AGENT_TOOL_BREAKER_FAILURE_THRESHOLD,
+    openMs: agentEnv.AGENT_TOOL_BREAKER_OPEN_MS,
   });
   setBreakerEventEmitter(buildBreakerEmitter());
 

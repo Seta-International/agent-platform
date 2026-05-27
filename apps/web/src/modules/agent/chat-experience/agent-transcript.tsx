@@ -4,7 +4,7 @@ import { Sparkles } from 'lucide-react';
 import { type ReactNode, useCallback } from 'react';
 import { ThreadListRefresher } from '../components/thread-list-refresher';
 import { ToolUIRegistry } from '../components/tool-renderers';
-import { COPILOT_COPY } from '../i18n';
+import { AGENT_COPY } from '../i18n';
 import { ChatEmbeddedHitl } from '../workflows/components/chat-embedded-hitl';
 import { type PageContext, useAgentSelection, usePageContext } from './agent-provider';
 import { RenderContextBadge } from './render-context-badge';
@@ -130,7 +130,7 @@ function AgentEmpty({ title, body }: { title: string; body: string }) {
         <p className="mt-1.5 text-body-sm leading-[1.5] text-ink-subtle">{body}</p>
       </div>
       <div className="flex flex-wrap items-center justify-center gap-1.5">
-        {COPILOT_COPY.emptySuggestions.map((s) => (
+        {AGENT_COPY.emptySuggestions.map((s) => (
           <button
             key={s}
             type="button"
@@ -248,12 +248,10 @@ export function AgentTranscript() {
   const { pageContext } = usePageContext();
   const AssistantMessage = makeAssistantMessage(ASSISTANT_LABEL);
 
-  const emptyTitle = pageContext
-    ? `Ask about ${pageContext.label}`
-    : COPILOT_COPY.emptyThreads.title;
+  const emptyTitle = pageContext ? `Ask about ${pageContext.label}` : AGENT_COPY.emptyThreads.title;
   const emptyBody = pageContext
     ? `Ask agent anything about this ${pageContext.kind.split('.').pop() ?? 'item'}.`
-    : COPILOT_COPY.emptyThreads.body;
+    : AGENT_COPY.emptyThreads.body;
 
   return (
     <>

@@ -1,4 +1,4 @@
-export const COPILOT_PERMISSIONS = [
+export const AGENT_PERMISSIONS = [
   'agent.chat.use',
   'agent.thread.read.self',
   'agent.thread.write.self',
@@ -12,4 +12,4 @@ export const COPILOT_PERMISSIONS = [
   'agent.workflow.approve',
 ] as const;
 
-export type AgentPermission = (typeof COPILOT_PERMISSIONS)[number];
+export type AgentPermission = (typeof AGENT_PERMISSIONS)[number];

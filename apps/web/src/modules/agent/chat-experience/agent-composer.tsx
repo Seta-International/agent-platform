@@ -2,7 +2,7 @@ import { useAui, useAuiState } from '@assistant-ui/react';
 import { ChatComposer } from '@seta/shared-ui';
 import { useEffect, useState } from 'react';
 import { ModelSelector } from '../components/model-selector';
-import { COPILOT_COPY } from '../i18n';
+import { AGENT_COPY } from '../i18n';
 import { useAgentSelection, usePanelUI } from './agent-provider';
 
 interface AgentComposerProps {
@@ -47,7 +47,7 @@ export function AgentComposer({ compact = false }: AgentComposerProps) {
       onChange={setValue}
       onSubmit={submit}
       pending={isRunning}
-      placeholder={COPILOT_COPY.composerPlaceholder}
+      placeholder={AGENT_COPY.composerPlaceholder}
       toolbar={
         <ModelSelector
           value={selection.modelKey}

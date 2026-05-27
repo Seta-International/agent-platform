@@ -12,7 +12,7 @@ Everything in `single-service`, plus:
 - Per-module ECS services:
   - `seta-gateway` — `PLATFORM_MODULES=identity,core` (owns the bus dispatcher).
   - `seta-planner` — `PLATFORM_MODULES=planner`.
-  - `seta-copilot` — `PLATFORM_MODULES=copilot`.
+  - `seta-agent` — `PLATFORM_MODULES=agent`.
   - `seta-integrations` — `PLATFORM_MODULES=integrations`.
 - Cloud Map namespace `seta.local` for service discovery.
 - Per-service security groups allowing only Service Connect east-west traffic.

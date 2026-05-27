@@ -47,7 +47,7 @@ graph TB
         Schemas["Module Schemas\nplanner · identity · knowledge · …"]
         Outbox["core.events\nTransactional outbox + audit"]
         Vector["pgvector tables\nPer-tenant · per-module embeddings"]
-        Memory["copilot schema\nThreads · memory · workflow traces"]
+        Memory["agent schema\nThreads · memory · workflow traces"]
     end
 
     LLM["LLM Providers\nOpenAI · Anthropic · Cohere"]
@@ -111,7 +111,7 @@ flowchart LR
       ModSchemas[("Module schemas\nplanner · identity · …")]
       Outbox[("core.events\noutbox + audit")]
       Vec[("pgvector tables\nper-module · per-tenant")]
-      CopSchema[("copilot schema\nthreads · memory · traces")]
+      CopSchema[("agent schema\nthreads · memory · traces")]
     end
 
     LLM["LLM Providers\nOpenAI · Anthropic · Cohere"]
@@ -223,7 +223,7 @@ flowchart TB
 
     Tools["Module-owned Tools\n(read + HITL write)"]
     XRead["Cross-module Read Tools\n(any specialist can call)"]
-    PG[("Postgres\ncopilot schema")]
+    PG[("Postgres\nagent schema")]
     LLM["LLM Provider"]
 
     User --> Top
@@ -243,7 +243,7 @@ flowchart TB
 | **Intent routing** | Top supervisor picks domain; domain supervisor picks specialist or workflow |
 | **Persistent memory** | Threads and messages in `agent` schema via `@mastra/pg` |
 | **HITL gate** | Every write tool surfaces an approval card before executing |
-| **Audit trail** | Every tool call, approval, and workflow step recorded in `core.events` and `copilot.workflow_runs` |
+| **Audit trail** | Every tool call, approval, and workflow step recorded in `core.events` and `agent.workflow_runs` |
 | **Rate limiting** | Per-tenant/user token budget; returns HTTP 429 with `Retry-After` |
 | **Multi-model support** | Auto-selects from configured OpenAI / Anthropic models by tier hint |
 

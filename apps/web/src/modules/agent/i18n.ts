@@ -1,4 +1,4 @@
-export const COPILOT_COPY = {
+export const AGENT_COPY = {
   threadsTitle: 'Chat',
   newThread: 'New chat',
   searchThreads: 'Search chats…',
