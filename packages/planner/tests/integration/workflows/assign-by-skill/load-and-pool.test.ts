@@ -154,6 +154,7 @@ describe('loadTask + candidatePool', () => {
       const pool_ = await candidatePool({
         tenantId: tenant_id,
         callerUserId: admin_user_id,
+        callerRoleSummary: { roles: ['org.admin'], cross_tenant_read: false },
         task: t,
       });
 
@@ -220,6 +221,7 @@ describe('loadTask + candidatePool', () => {
       const pool_ = await candidatePool({
         tenantId: tenant_id,
         callerUserId: admin_user_id,
+        callerRoleSummary: { roles: ['org.admin'], cross_tenant_read: false },
         task: t,
       });
       const ids = pool_.map((c) => c.userId);
@@ -252,6 +254,7 @@ describe('loadTask + candidatePool', () => {
       const out = await candidatePool({
         tenantId: tenant_id,
         callerUserId: admin_user_id,
+        callerRoleSummary: { roles: ['org.admin'], cross_tenant_read: false },
         task: t,
       });
       expect(out).toEqual([]);

@@ -82,7 +82,11 @@ describe('identity_searchUsersBySkillVector cross-module read tool', () => {
 
       const spec = buildSearchUsersBySkillVectorSpec({ provider, pgVector });
       const out = await spec.execute({
-        session: { tenant_id: tenantId, user_id: userId },
+        session: {
+          tenant_id: tenantId,
+          user_id: userId,
+          role_summary: { roles: ['org.admin'], cross_tenant_read: false },
+        },
         input: { queryText: 'frontend developer with OAuth experience', topK: 5, minScore: 0 },
       });
 
@@ -115,7 +119,11 @@ describe('identity_searchUsersBySkillVector cross-module read tool', () => {
 
       const spec = buildSearchUsersBySkillVectorSpec({ provider, pgVector });
       const out = await spec.execute({
-        session: { tenant_id: tenantB, user_id: crypto.randomUUID() },
+        session: {
+          tenant_id: tenantB,
+          user_id: crypto.randomUUID(),
+          role_summary: { roles: ['org.admin'], cross_tenant_read: false },
+        },
         input: { queryText: 'rust systems', topK: 5 },
       });
 
@@ -144,7 +152,11 @@ describe('identity_searchUsersBySkillVector cross-module read tool', () => {
 
       const spec = buildSearchUsersBySkillVectorSpec({ provider, pgVector });
       const out = await spec.execute({
-        session: { tenant_id: tenantId, user_id: crypto.randomUUID() },
+        session: {
+          tenant_id: tenantId,
+          user_id: crypto.randomUUID(),
+          role_summary: { roles: ['org.admin'], cross_tenant_read: false },
+        },
         input: { queryText: 'python web', topK: 2, minScore: 0 },
       });
 

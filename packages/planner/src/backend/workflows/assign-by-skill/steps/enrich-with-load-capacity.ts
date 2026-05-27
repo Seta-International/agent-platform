@@ -28,6 +28,7 @@ function findReadTool<I = unknown, O = unknown>(id: string): ReadTool<I, O> | un
 export async function enrichWithLoadAndCapacity(input: {
   tenantId: string;
   callerUserId: string;
+  callerRoleSummary: { roles: string[]; cross_tenant_read: boolean };
   candidates: PoolCandidate[];
 }): Promise<EnrichedCandidate[]> {
   const loadTool = findReadTool<{ userId: string }, { openCount: number }>(
@@ -40,7 +41,11 @@ export async function enrichWithLoadAndCapacity(input: {
     'timesheet_getCapacityThisWeek',
   );
 
-  const session = { tenant_id: input.tenantId, user_id: input.callerUserId };
+  const session = {
+    tenant_id: input.tenantId,
+    user_id: input.callerUserId,
+    role_summary: input.callerRoleSummary,
+  };
 
   return Promise.all(
     input.candidates.map(async (c) => {
@@ -63,7 +68,11 @@ export async function enrichWithLoadAndCapacity(input: {
 // the whole enrichment pass (graceful degradation per spec §8.2).
 async function safeRead<I, O>(
   tool: ReadTool<I, O>,
-  session: { tenant_id: string; user_id: string },
+  session: {
+    tenant_id: string;
+    user_id: string;
+    role_summary: { roles: string[]; cross_tenant_read: boolean };
+  },
   input: I,
 ): Promise<O | null> {
   try {

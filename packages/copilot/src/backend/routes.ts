@@ -175,10 +175,9 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
     }
 
     const requestContext = new RequestContext();
-    requestContext.set('actor', {
-      type: 'user' as const,
-      user_id: session.user_id,
-    });
+    requestContext.set('actor', { type: 'user' as const, user_id: session.user_id });
+    requestContext.set('tenant_id', session.tenant_id);
+    requestContext.set('role_summary', session.role_summary);
 
     const result = await deps.supervisor.stream(
       effectiveMessages as never,
@@ -558,10 +557,9 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
     }
 
     const requestContext = new RequestContext();
-    requestContext.set('actor', {
-      type: 'user' as const,
-      user_id: session.user_id,
-    });
+    requestContext.set('actor', { type: 'user' as const, user_id: session.user_id });
+    requestContext.set('tenant_id', session.tenant_id);
+    requestContext.set('role_summary', session.role_summary);
 
     const resourceId = session.user_id;
     const resumeOpts = {
@@ -814,6 +812,7 @@ export function registerCopilotRoutes(app: Hono<CopilotRouteEnv>, deps: CopilotR
     const requestContext = new RequestContext();
     requestContext.set('actor', { type: 'user' as const, user_id: session.user_id });
     requestContext.set('tenant_id', session.tenant_id);
+    requestContext.set('role_summary', session.role_summary);
     try {
       const run = await workflow.createRun();
       // Store Mastra's intrinsic workflow id (e.g. `planner.assignBySkill`), not the

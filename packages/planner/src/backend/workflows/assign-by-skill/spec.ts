@@ -56,7 +56,11 @@ const computeStep = createStep({
     const { card } = await runSuggestAssignee(
       {
         taskId: inputData.taskId,
-        session: { tenantId: session.tenantId, userId: session.userId },
+        session: {
+          tenantId: session.tenantId,
+          userId: session.userId,
+          roleSummary: session.roleSummary,
+        },
         toolCallId: `workflow:${runId}`,
       },
       {

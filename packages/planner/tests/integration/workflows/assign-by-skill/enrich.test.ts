@@ -79,6 +79,7 @@ describe('enrichWithLoadAndCapacity', () => {
       const out = await enrichWithLoadAndCapacity({
         tenantId: tenant_id,
         callerUserId: admin_user_id,
+        callerRoleSummary: { roles: ['org.admin'], cross_tenant_read: false },
         candidates: [
           {
             userId: assignee.user_id,
@@ -103,6 +104,7 @@ describe('enrichWithLoadAndCapacity', () => {
       const out = await enrichWithLoadAndCapacity({
         tenantId: crypto.randomUUID(),
         callerUserId: crypto.randomUUID(),
+        callerRoleSummary: { roles: [], cross_tenant_read: false },
         candidates: [
           {
             userId: crypto.randomUUID(),

@@ -1504,6 +1504,9 @@ importers:
       '@seta/shared-embeddings':
         specifier: workspace:^
         version: link:../../packages/shared-embeddings
+      '@seta/shared-rbac':
+        specifier: workspace:^
+        version: link:../../packages/shared-rbac
       '@seta/shared-retrieval':
         specifier: workspace:^
         version: link:../../packages/shared-retrieval

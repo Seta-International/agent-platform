@@ -73,7 +73,11 @@ describe('assignBySkill graceful degradation', () => {
         const { card } = await runSuggestAssignee(
           {
             taskId: task.id,
-            session: { tenantId: tenant_id, userId: admin_user_id },
+            session: {
+              tenantId: tenant_id,
+              userId: admin_user_id,
+              roleSummary: { roles: ['org.admin'], cross_tenant_read: false },
+            },
             toolCallId: 'tc',
           },
           { provider: new FakeEmbeddingProvider(), pgVector, reranker: new NoopReranker() },
@@ -110,7 +114,11 @@ describe('assignBySkill graceful degradation', () => {
         const { candidates, card } = await runSuggestAssignee(
           {
             taskId: task.id,
-            session: { tenantId: tenant_id, userId: admin_user_id },
+            session: {
+              tenantId: tenant_id,
+              userId: admin_user_id,
+              roleSummary: { roles: ['org.admin'], cross_tenant_read: false },
+            },
             toolCallId: 'tc',
           },
           { provider: new FakeEmbeddingProvider(), pgVector, reranker: new NoopReranker() },
@@ -158,7 +166,11 @@ describe('assignBySkill graceful degradation', () => {
         const { candidates } = await runSuggestAssignee(
           {
             taskId: task.id,
-            session: { tenantId: tenant_id, userId: admin_user_id },
+            session: {
+              tenantId: tenant_id,
+              userId: admin_user_id,
+              roleSummary: { roles: ['org.admin'], cross_tenant_read: false },
+            },
             toolCallId: 'tc',
           },
           { provider: new FakeEmbeddingProvider(), pgVector, reranker: new NoopReranker() },

@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { defineCrossModuleReadAsTool } from '../../src/cross-module-read-as-tool.ts';
 
 describe('defineCrossModuleReadAsTool', () => {
-  it('derives session from requestContext and delegates to the underlying read', async () => {
+  it('derives session (including role_summary) from requestContext and delegates to the underlying read', async () => {
     const inputSchema = z.object({ userId: z.string() });
     const outputSchema = z.object({ count: z.number() });
     const calls: Array<{ session: unknown; input: unknown }> = [];
@@ -24,10 +24,16 @@ describe('defineCrossModuleReadAsTool', () => {
     const ctx = new RequestContext();
     ctx.set('actor', { type: 'user', user_id: 'u1' });
     ctx.set('tenant_id', 't1');
+    // org.admin passes the hasPermission check
+    ctx.set('role_summary', { roles: ['org.admin'], cross_tenant_read: false });
     const result = await tool.execute?.({ userId: 'u-target' }, { requestContext: ctx } as never);
     expect(result).toEqual({ count: 3 });
     expect(calls[0]).toEqual({
-      session: { tenant_id: 't1', user_id: 'u1' },
+      session: {
+        tenant_id: 't1',
+        user_id: 'u1',
+        role_summary: { roles: ['org.admin'], cross_tenant_read: false },
+      },
       input: { userId: 'u-target' },
     });
   });

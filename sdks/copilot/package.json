@@ -21,6 +21,7 @@
   "dependencies": {
     "@mastra/core": "^1.36.0",
     "@seta/shared-embeddings": "workspace:^",
+    "@seta/shared-rbac": "workspace:^",
     "@seta/shared-retrieval": "workspace:^",
     "@seta/shared-types": "workspace:^",
     "pg": "^8.21.0",
