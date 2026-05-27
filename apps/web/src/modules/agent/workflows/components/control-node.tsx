@@ -12,7 +12,7 @@ export function ControlNode({ data }: NodeProps<Node<ControlData>>) {
   return (
     <article
       aria-label={`${data.kind} ${data.stepId}`}
-      className="w-[140px] rounded-full border border-dashed bg-[var(--color-surface)] px-3 py-1"
+      className="w-[140px] rounded-full border border-dashed bg-[var(--color-surface-1)] px-3 py-1"
       style={{ borderColor: 'var(--color-hairline-strong)' }}
     >
       <Handle

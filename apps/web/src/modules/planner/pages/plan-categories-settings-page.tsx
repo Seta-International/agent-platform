@@ -77,9 +77,22 @@ export function PlanCategoriesSettingsPage({ planId }: Props) {
           )}
           <span>·</span>
           <span className="inline-flex items-center gap-1">
-            <span>Planner</span>
+            <Link
+              to="/planner/groups"
+              className="rounded px-1 py-0.5 hover:bg-surface-1 hover:text-ink"
+            >
+              Planner
+            </Link>
             <ChevronRight className="size-2.5 text-ink-tertiary" aria-hidden="true" />
-            {planName ? <span className="text-primary">{planName}</span> : null}
+            {planName ? (
+              <Link
+                to="/planner/plans/$planId"
+                params={{ planId }}
+                className="rounded px-1 py-0.5 hover:bg-surface-1 hover:text-ink"
+              >
+                {planName}
+              </Link>
+            ) : null}
             <ChevronRight className="size-2.5 text-ink-tertiary" aria-hidden="true" />
             <span>Settings</span>
             <ChevronRight className="size-2.5 text-ink-tertiary" aria-hidden="true" />

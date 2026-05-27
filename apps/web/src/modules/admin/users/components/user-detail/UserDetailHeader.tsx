@@ -75,7 +75,9 @@ export function UserDetailHeader({
         </Link>
         <span>·</span>
         <span className="inline-flex items-center gap-1">
-          <span>Admin</span>
+          <Link to="/admin/users" className="hover:underline">
+            Admin
+          </Link>
           <ChevronRight className="size-3 opacity-60" />
           <Link to="/admin/users" className="text-primary hover:underline">
             Users

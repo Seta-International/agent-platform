@@ -3,7 +3,7 @@ import * as React from 'react';
 import { cn } from '../lib/cn';
 
 export interface PageChromeProps {
-  breadcrumb?: ReadonlyArray<string>;
+  breadcrumb?: ReadonlyArray<React.ReactNode>;
   title: React.ReactNode;
   subtitle?: React.ReactNode;
   actions?: React.ReactNode;
@@ -39,7 +39,9 @@ export function PageChrome({
                 className="flex items-center gap-1.5 text-eyebrow uppercase tracking-[0.04em] text-ink-subtle"
               >
                 {breadcrumb.map((crumb, i) => (
-                  <React.Fragment key={crumb}>
+                  // eslint-disable-next-line react/no-array-index-key
+                  // biome-ignore lint/suspicious/noArrayIndexKey: breadcrumbs are positional labels with no stable id
+                  <React.Fragment key={i}>
                     {i > 0 && <ChevronRight aria-hidden className="size-2.5 text-ink-tertiary" />}
                     <span>{crumb}</span>
                   </React.Fragment>

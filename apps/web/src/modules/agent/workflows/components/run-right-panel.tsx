@@ -91,7 +91,7 @@ function JsonBlock({ value, emptyTitle, emptyDescription }: JsonBlockProps) {
         <span>{lineCount} lines</span>
         <CopyButton text={pretty} />
       </div>
-      <pre className="m-0 flex-1 overflow-auto whitespace-pre bg-surface-1 p-3 font-mono text-[11.5px] leading-[1.55] text-ink">
+      <pre className="m-0 flex-1 overflow-auto whitespace-pre-wrap break-all bg-surface-1 p-3 font-mono text-[11.5px] leading-[1.55] text-ink">
         {pretty}
       </pre>
     </div>
@@ -163,7 +163,7 @@ function StepRow({ stepId, entry }: StepRowProps) {
         {dataLabel && <span className="flex-none text-[10px] text-ink-tertiary">{dataLabel}</span>}
       </button>
       {open && hasData ? (
-        <pre className="m-0 max-h-64 overflow-auto border-t border-hairline-tertiary bg-surface-1 px-3 py-2 font-mono text-[11px] leading-[1.5] text-ink">
+        <pre className="m-0 max-h-64 overflow-auto whitespace-pre-wrap break-all border-t border-hairline-tertiary bg-surface-1 px-3 py-2 font-mono text-[11px] leading-[1.5] text-ink">
           {prettyData}
         </pre>
       ) : null}
@@ -177,12 +177,12 @@ interface CurrentRunTabProps {
 }
 
 function CurrentRunTab({ run, snapshot }: CurrentRunTabProps) {
-  const workflowInput = snapshot?.context?.['input'] ?? run.inputSummary ?? null;
+  const workflowInput = snapshot?.context?.input ?? run.inputSummary ?? null;
 
   const steps = useMemo<[string, StepContextEntry][]>(() => {
     if (!snapshot?.context) return [];
     return Object.entries(snapshot.context)
-      .filter(([key]) => key !== 'input')
+      .filter(([key]) => key !== 'input' && key !== '__state')
       .map(([key, val]) => [key, (val ?? {}) as StepContextEntry]);
   }, [snapshot?.context]);
 
@@ -210,7 +210,7 @@ function CurrentRunTab({ run, snapshot }: CurrentRunTabProps) {
             {isEmptyValue(workflowInput) ? (
               <p className="px-4 py-3 text-xs text-ink-subtle">No input payload.</p>
             ) : (
-              <pre className="m-0 whitespace-pre bg-surface-1 px-3 py-2 font-mono text-[11px] leading-[1.5] text-ink">
+              <pre className="m-0 whitespace-pre-wrap break-all bg-surface-1 px-3 py-2 font-mono text-[11px] leading-[1.5] text-ink">
                 {(() => {
                   try {
                     return JSON.stringify(workflowInput, null, 2);

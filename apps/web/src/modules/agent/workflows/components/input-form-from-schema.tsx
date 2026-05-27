@@ -189,7 +189,7 @@ export function InputFormFromSchema({
                 aria-label={labelFor(leaf)}
                 value={rawStr}
                 onChange={(e) => handleChange(leaf, e.target.value)}
-                className="block w-full rounded-md border border-[var(--color-hairline)] bg-[var(--color-surface)] px-2 py-1.5 text-sm"
+                className="block w-full rounded-md border border-[var(--color-hairline)] bg-[var(--color-surface-1)] px-2 py-1.5 text-sm"
               >
                 {!leaf.required && <option value="">—</option>}
                 {leaf.enumValues.map((v) => (
@@ -204,7 +204,7 @@ export function InputFormFromSchema({
                 aria-label={labelFor(leaf)}
                 value={rawStr}
                 onChange={(e) => handleChange(leaf, e.target.value)}
-                className="block w-full rounded-md border border-[var(--color-hairline)] bg-[var(--color-surface)] px-2 py-1.5 text-sm"
+                className="block w-full rounded-md border border-[var(--color-hairline)] bg-[var(--color-surface-1)] px-2 py-1.5 text-sm"
               >
                 <option value="false">false</option>
                 <option value="true">true</option>

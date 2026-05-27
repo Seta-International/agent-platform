@@ -27,6 +27,7 @@ export function useWorkflowRuns(opts: UseWorkflowRunsOpts) {
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
   });
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional – using primitives (scope, workflowId) instead of queryKey (new array ref each render) to avoid infinite SSE reconnect loop
   useEffect(() => {
     let cancelled = false;
     let es: EventSource | null = null;
@@ -54,7 +55,9 @@ export function useWorkflowRuns(opts: UseWorkflowRunsOpts) {
       cancelled = true;
       es?.close();
     };
-  }, [opts.scope, qc, queryKey]);
+    // Use primitive deps (scope, workflowId) instead of queryKey (new array ref
+    // each render) to avoid infinite SSE reconnection loop.
+  }, [opts.scope, workflowId, qc]);
 
   return query;
 }

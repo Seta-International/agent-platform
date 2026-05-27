@@ -45,6 +45,8 @@ const ComputeOutputSchema = z.object({
 
 const computeStep = createStep({
   id: 'assignBySkill.compute',
+  description:
+    'Ranks candidates by skill overlap, vector similarity, task history, load and timezone.',
   inputSchema: AssignBySkillInputSchema,
   outputSchema: ComputeOutputSchema,
   execute: async ({ inputData, requestContext, runId }) => {
@@ -71,6 +73,8 @@ const computeStep = createStep({
 
 const suggestStep = createStep({
   id: 'assignBySkill.suggest',
+  description:
+    'Presents the top candidate for human approval; suspends until a decision is received.',
   inputSchema: ComputeOutputSchema,
   outputSchema: AssignBySkillOutputSchema,
   suspendSchema: ApprovalCardSchema,

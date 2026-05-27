@@ -1,24 +1,13 @@
-import {
-  type ApprovalCard,
-  ApprovalCardSchema,
-  actorFromContext,
-  defineAgentTool,
-} from '@seta/agent-sdk';
-import { buildActorSession } from '@seta/identity';
-import { z } from 'zod';
+import { RequestContext } from '@mastra/core/request-context';
+import { actorFromContext, defineAgentTool } from '@seta/agent-sdk';
 import { DedupOutputSchema, TaskDraftSchema } from '../workflows/dedup-on-create/schemas.ts';
-import { applyDupDecision } from '../workflows/dedup-on-create/workflow.ts';
-
-const ResumeSchema = z.object({ action: z.enum(['confirm', 'cancel']) });
 
 /**
- * planner_createTask — thin confirm-and-create. Dedup is the agent's
- * responsibility: the playbook tells the specialist to call
- * planner_findSimilarTasks first. If the user still wants to create, the
- * agent calls this tool, which surfaces a confirm card and writes on resume.
+ * planner_createTask — triggers the dedupOnCreate workflow which handles
+ * duplicate detection, HITL approval (when duplicates are found), and task
+ * creation. The workflow appears in the Workflows UI for tracking.
  */
 export interface PlannerCreateTaskDeps {
-  // Kept for API parity with previous shape; the runtime no longer needs these.
   provider?: unknown;
   databaseUrl?: unknown;
 }
@@ -28,48 +17,56 @@ export function plannerCreateTaskTool(_deps?: PlannerCreateTaskDeps) {
     id: 'planner_createTask',
     name: 'Create Task',
     description:
-      'Create a task. Surfaces a confirm card with the proposed task; user clicks to commit. ' +
+      'Create a task via the dedupOnCreate workflow. The workflow checks for duplicates first; ' +
+      'if duplicates are found, it surfaces a HITL approval card in the inbox. ' +
       'Check for duplicates first by calling planner_findSimilarTasks (per the specialist playbook).',
     input: TaskDraftSchema,
     output: DedupOutputSchema,
-    suspendSchema: ApprovalCardSchema,
-    resumeSchema: ResumeSchema,
     rbac: 'planner.task.create',
     execute: async (draft, ctx) => {
       const actor = actorFromContext(ctx);
-      const session = await buildActorSession(actor);
-      const resumeData = ctx.agent?.resumeData as z.infer<typeof ResumeSchema> | undefined;
 
-      if (resumeData?.action === 'confirm') {
-        return applyDupDecision({
-          draft: TaskDraftSchema.parse(draft),
-          action: { kind: 'create-new' },
-          session,
-        });
+      // Access Mastra runtime to start the dedupOnCreate workflow
+      const mastra = ctx.mastra as
+        | {
+            getWorkflow: (id: string) =>
+              | {
+                  createRun: () => Promise<{
+                    runId: string;
+                    start: (opts: { inputData: unknown; requestContext: unknown }) => Promise<void>;
+                  }>;
+                }
+              | undefined;
+          }
+        | undefined;
+
+      if (!mastra) {
+        throw new Error('planner_createTask: Mastra runtime unavailable — cannot start workflow');
       }
-      if (resumeData?.action === 'cancel') return { kind: 'cancelled' as const };
 
-      const card: ApprovalCard = {
-        toolCallId: ctx.agent?.toolCallId ?? 'unknown',
-        intent: 'Create this task',
-        riskBadge: 'write',
-        summary: `Create "${draft.title}"`,
-        details: draft.description
-          ? [{ kind: 'text', body: draft.description }]
-          : [{ kind: 'text', body: '(no description)' }],
-        primary: { label: 'Create', argsPatch: { action: 'confirm' } },
-        alternates: [],
-        decline: { label: 'Cancel' },
-        meta: {
-          tenantId: session.tenant_id,
-          userId: actor.user_id,
-          agentPath: ['supervisor', 'work', 'planner'],
-          toolId: 'planner_createTask',
-          ts: new Date().toISOString(),
-        },
-      };
-      await ctx.agent?.suspend?.(card);
-      return undefined;
+      const workflow =
+        mastra.getWorkflow('dedupOnCreate') ?? mastra.getWorkflow('planner.dedupOnCreate');
+      if (!workflow) {
+        throw new Error('planner_createTask: dedupOnCreate workflow not registered');
+      }
+
+      const parsedDraft = TaskDraftSchema.parse(draft);
+      const run = await workflow.createRun();
+
+      // Build requestContext with actor info for the workflow steps
+      const requestContext = new RequestContext();
+      requestContext.set('actor', { type: 'user' as const, user_id: actor.user_id });
+      if (ctx.requestContext) {
+        const tenantId = ctx.requestContext.get('tenant_id');
+        if (tenantId) requestContext.set('tenant_id', tenantId);
+        const roleSummary = ctx.requestContext.get('role_summary');
+        if (roleSummary) requestContext.set('role_summary', roleSummary);
+      }
+
+      // Fire-and-forget: the workflow runs async and handles dedup + HITL via inbox
+      void run.start({ inputData: parsedDraft, requestContext });
+
+      return { kind: 'workflow-started' as const, runId: run.runId };
     },
   });
 }

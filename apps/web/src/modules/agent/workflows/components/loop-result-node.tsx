@@ -13,7 +13,7 @@ export function LoopResultNode({ data }: NodeProps<Node<LoopData>>) {
   return (
     <article
       aria-label={`Loop ${data.stepId} (${data.status})`}
-      className="w-[260px] rounded-lg border-2 border-dashed bg-[var(--color-surface)] px-3 py-2"
+      className="w-[260px] rounded-lg border-2 border-dashed bg-[var(--color-surface-1)] px-3 py-2"
       style={{ borderColor: 'var(--color-hairline-strong)' }}
     >
       <Handle

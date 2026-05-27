@@ -2,7 +2,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Background,
   BackgroundVariant,
-  MiniMap,
   ReactFlow,
   ReactFlowProvider,
   useEdgesState,
@@ -146,12 +145,12 @@ function WorkflowGraphInner({ snapshot, run, onReplay }: WorkflowGraphProps) {
         minZoom={0.4}
         maxZoom={1.5}
         proOptions={{ hideAttribution: true }}
-        nodesDraggable={false}
+        nodesDraggable
+        panOnDrag={[1, 2]}
         nodesConnectable={false}
         elementsSelectable
       >
         <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
-        <MiniMap pannable zoomable className="!bg-[var(--color-canvas)]" />
         <ZoomSlider />
       </ReactFlow>
     </div>

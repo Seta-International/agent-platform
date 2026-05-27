@@ -34,9 +34,9 @@ export async function replayWorkflowFromStep(
   const run = await workflow.createRun({ runId: parent.runId } as never);
   await (
     run as unknown as {
-      timeTravel: (p: { inputData: unknown; step: string }) => Promise<unknown>;
+      timeTravel: (p: { inputData: unknown; step: string | string[] }) => Promise<unknown>;
     }
-  ).timeTravel({ inputData: opts.payload, step: opts.stepId });
+  ).timeTravel({ inputData: opts.payload, step: [opts.stepId] });
   const newRunId = run.runId;
 
   const outboxPayload: Record<string, unknown> = {

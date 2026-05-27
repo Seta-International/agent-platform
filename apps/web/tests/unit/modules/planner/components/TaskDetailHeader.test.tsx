@@ -1,6 +1,43 @@
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  RouterProvider,
+} from '@tanstack/react-router';
 import { render, screen } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { TaskDetailHeader } from '../../../../../src/modules/planner/components/TaskDetailHeader';
+
+function renderInRouter(node: ReactNode) {
+  const rootRoute = createRootRoute({ component: () => node });
+  const indexRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/',
+    component: () => node,
+  });
+  const groupsRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/planner/groups',
+    component: () => null,
+  });
+  const groupDetailRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/planner/groups/$groupId',
+    component: () => null,
+  });
+  const planRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/planner/plans/$planId',
+    component: () => null,
+  });
+  const router = createRouter({
+    routeTree: rootRoute.addChildren([indexRoute, groupsRoute, groupDetailRoute, planRoute]),
+    history: createMemoryHistory({ initialEntries: ['/'] }),
+  });
+  return render(<RouterProvider router={router} />);
+}
 
 const baseProps = {
   taskNumber: 42,
@@ -17,7 +54,7 @@ const baseProps = {
 
 describe('TaskDetailHeader', () => {
   it('renders the back button, breadcrumb, T-ID badge, and titleSlot', () => {
-    render(<TaskDetailHeader {...baseProps} />);
+    renderInRouter(<TaskDetailHeader {...baseProps} />);
     expect(screen.getByRole('button', { name: /Back to board/i })).toBeInTheDocument();
     expect(screen.getByText('Engineering')).toBeInTheDocument();
     expect(screen.getByText('Q3 Launch')).toBeInTheDocument();
@@ -31,7 +68,7 @@ describe('TaskDetailHeader', () => {
   });
 
   it('renders the Ask agent, Copy link, and prev/next action group', () => {
-    render(<TaskDetailHeader {...baseProps} />);
+    renderInRouter(<TaskDetailHeader {...baseProps} />);
     expect(screen.getByRole('button', { name: /Ask agent/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Copy link/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Previous task/i })).toBeInTheDocument();
@@ -42,7 +79,7 @@ describe('TaskDetailHeader', () => {
     const { userEvent } = await import('@testing-library/user-event');
     const user = userEvent.setup();
     const onBack = vi.fn();
-    render(<TaskDetailHeader {...baseProps} onBack={onBack} />);
+    renderInRouter(<TaskDetailHeader {...baseProps} onBack={onBack} />);
     await user.click(screen.getByRole('button', { name: /Back to board/i }));
     expect(onBack).toHaveBeenCalled();
   });
@@ -52,7 +89,7 @@ describe('TaskDetailHeader', () => {
     const user = userEvent.setup();
     const onPrevious = vi.fn();
     const onNext = vi.fn();
-    render(<TaskDetailHeader {...baseProps} onPrevious={onPrevious} onNext={onNext} />);
+    renderInRouter(<TaskDetailHeader {...baseProps} onPrevious={onPrevious} onNext={onNext} />);
 
     await user.keyboard('k');
     expect(onPrevious).toHaveBeenCalledTimes(1);
@@ -61,7 +98,7 @@ describe('TaskDetailHeader', () => {
   });
 
   it('hides the More menu when onDelete is undefined', () => {
-    render(<TaskDetailHeader {...baseProps} />);
+    renderInRouter(<TaskDetailHeader {...baseProps} />);
     expect(screen.queryByRole('button', { name: /more actions/i })).not.toBeInTheDocument();
   });
 
@@ -69,7 +106,7 @@ describe('TaskDetailHeader', () => {
     const { userEvent } = await import('@testing-library/user-event');
     const user = userEvent.setup();
     const onDelete = vi.fn();
-    render(<TaskDetailHeader {...baseProps} onDelete={onDelete} />);
+    renderInRouter(<TaskDetailHeader {...baseProps} onDelete={onDelete} />);
 
     await user.click(screen.getByRole('button', { name: /more actions/i }));
 
@@ -88,7 +125,7 @@ describe('TaskDetailHeader', () => {
     const user = userEvent.setup();
     const onPrevious = vi.fn();
     const onNext = vi.fn();
-    render(
+    renderInRouter(
       <>
         <TaskDetailHeader {...baseProps} onPrevious={onPrevious} onNext={onNext} />
         <input aria-label="search" />

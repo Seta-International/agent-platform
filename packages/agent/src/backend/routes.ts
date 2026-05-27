@@ -20,6 +20,7 @@ import { listModels, ModelNotFoundError, resolveModel } from './model-registry.t
 import { commitActualTokens, RateLimitError, reserveTurn } from './rate-limit.ts';
 import { readRoutingCache, writeRoutingCache } from './routing-cache.ts';
 import { selectAgent } from './routing-fast-path.ts';
+import type { LifecycleDrainer } from './runtime.ts';
 import type { SessionLike } from './types.ts';
 import { issueSseToken } from './workflows/_infra/auth-token.ts';
 import { getWorkflowInputSchema } from './workflows/_infra/input-schema-registry.ts';
@@ -60,6 +61,7 @@ export type AgentRouteDeps = {
   supervisor: Agent;
   domainAgents: Record<string, Agent>;
   mastra: unknown;
+  drainer: LifecycleDrainer;
   pool: Pool;
   log?: {
     error: (obj: unknown, msg?: string) => void;
@@ -831,6 +833,13 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
         payload: raw.payload ?? {},
         mastra: deps.mastra as Mastra,
       });
+      // Drain pending lifecycle handler Promises before responding.
+      // EventEmitterPubSub fires async handlers via emitter.emit() which does
+      // not await their Promises — the DB projection update (workflow.suspend
+      // → SET status = 'paused', approval row insert) is still in-flight when
+      // timeTravel() returns. Draining here ensures the client sees a
+      // consistent snapshot on its first refetch after replay.
+      await deps.drainer.drain();
       return c.json(result);
     } catch (err) {
       return handleDomainError(c, err);
@@ -958,12 +967,20 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
   app.get('/api/agent/v1/workflows/definitions', async (c) => {
     const session = c.get('session') as SessionLike | undefined;
     if (!session) return c.json({ error: 'unauthorized', message: 'session required' }, 401);
-    const defs = AgentRegistry.snapshot().workflows.map((w) => ({
-      id: w.id,
-      domain: w.domain,
-      description: w.description,
-      hitlSteps: w.hitlSteps ?? [],
-    }));
+    const defs = AgentRegistry.snapshot().workflows.map((w) => {
+      // Use Mastra's intrinsic workflow id (e.g. 'planner.assignBySkill') as the
+      // definition id so it matches the workflow_id stored in workflow_runs.
+      const mastraId =
+        typeof (w.workflow as { id?: unknown }).id === 'string'
+          ? (w.workflow as { id: string }).id
+          : w.id;
+      return {
+        id: mastraId,
+        domain: w.domain,
+        description: w.description,
+        hitlSteps: w.hitlSteps ?? [],
+      };
+    });
     return c.json({ rows: defs });
   });
 

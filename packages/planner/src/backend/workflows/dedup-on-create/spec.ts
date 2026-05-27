@@ -52,6 +52,7 @@ const SearchOutputSchema = z.object({
 
 const searchStep = createStep({
   id: 'dedupOnCreate.search',
+  description: 'Embeds the new task and searches for near-duplicate tasks using vector similarity.',
   inputSchema: TaskDraftSchema,
   outputSchema: SearchOutputSchema,
   execute: async ({ inputData, requestContext }) => {
@@ -78,6 +79,8 @@ const searchStep = createStep({
 
 const decideStep = createStep({
   id: 'dedupOnCreate.decide',
+  description:
+    'Shows duplicate candidates to the user for review; suspends until a merge or keep decision is received.',
   inputSchema: SearchOutputSchema,
   outputSchema: DedupOutputSchema,
   suspendSchema: ApprovalCardSchema,

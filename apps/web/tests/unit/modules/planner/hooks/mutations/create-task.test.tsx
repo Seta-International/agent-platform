@@ -22,39 +22,13 @@ function setup() {
 }
 
 describe('useCreateTask', () => {
-  it('forwards start_at, priority_number, and preview_type when provided', async () => {
+  it('calls the dedupOnCreate workflow start endpoint with task draft', async () => {
     const captured = vi.fn();
     server.use(
-      http.post('/api/planner/v1/tasks', async ({ request }) => {
+      http.post('/api/agent/v1/workflows/runs/dedupOnCreate/start', async ({ request }) => {
         const body = (await request.json()) as Record<string, unknown>;
         captured(body);
-        return HttpResponse.json({
-          id: 't-new',
-          tenant_id: 't',
-          plan_id: 'p1',
-          bucket_id: 'b1',
-          title: body.title,
-          description: null,
-          priority_number: body.priority_number ?? 5,
-          percent_complete: 0,
-          is_deferred: false,
-          preview_type: body.preview_type ?? 'automatic',
-          review_state: null,
-          skill_tags: [],
-          start_at: body.start_at ?? null,
-          due_at: null,
-          order_hint: null,
-          assignee_priority: null,
-          external_source: 'native',
-          external_id: null,
-          external_etag: null,
-          external_synced_at: null,
-          created_by: 'u',
-          created_at: '',
-          updated_at: '',
-          deleted_at: null,
-          version: 1,
-        });
+        return HttpResponse.json({ runId: 'run-123' });
       }),
     );
     const { Wrapper } = setup();
@@ -64,19 +38,31 @@ describe('useCreateTask', () => {
       plan_id: 'p1',
       bucket_id: 'b1',
       title: 'Build it',
-      start_at: '2026-06-01',
-      priority_number: 1,
-      preview_type: 'checklist',
+      description: 'some desc',
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(captured).toHaveBeenCalledTimes(1);
     expect(captured.mock.calls[0]![0]).toMatchObject({
       title: 'Build it',
+      plan_id: 'p1',
       bucket_id: 'b1',
-      start_at: '2026-06-01',
-      priority_number: 1,
-      preview_type: 'checklist',
+      description: 'some desc',
     });
+  });
+
+  it('returns error when workflow start fails', async () => {
+    server.use(
+      http.post('/api/agent/v1/workflows/runs/dedupOnCreate/start', () => {
+        return HttpResponse.json({ message: 'OPENAI_API_KEY required' }, { status: 500 });
+      }),
+    );
+    const { Wrapper } = setup();
+    const { result } = renderHook(() => useCreateTask('p1'), { wrapper: Wrapper });
+
+    result.current.mutate({ plan_id: 'p1', title: 'Test' });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.error?.message).toContain('OPENAI_API_KEY required');
   });
 });

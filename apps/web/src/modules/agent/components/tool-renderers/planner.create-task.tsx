@@ -23,8 +23,9 @@ type DupAction =
   | { kind: 'cancel' };
 
 interface PlannerCreateTaskOutput {
-  kind?: 'created' | 'sub-task-added' | 'cancelled';
+  kind?: 'created' | 'sub-task-added' | 'cancelled' | 'workflow-started';
   taskId?: string;
+  runId?: string;
   linkedTo?: string;
   existingId?: string;
 }
@@ -54,6 +55,9 @@ function argsPatchToAction(patch: Record<string, unknown> | undefined): DupActio
 }
 
 function outputSummary(out: PlannerCreateTaskOutput): string {
+  if (out.kind === 'workflow-started') {
+    return `Dedup check started (run ${out.runId?.slice(0, 8) ?? '?'})`;
+  }
   if (out.kind === 'created') {
     return out.linkedTo ? `Created task linked to #${out.linkedTo.slice(0, 8)}` : 'Task created';
   }

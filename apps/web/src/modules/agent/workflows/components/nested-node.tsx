@@ -14,7 +14,7 @@ export function NestedNode({ data }: NodeProps<Node<NestedData>>) {
   return (
     <article
       aria-label={`Nested workflow ${data.workflowName} (${data.status})`}
-      className="w-[280px] rounded-md border-2 bg-[var(--color-surface)] px-3 py-2 shadow-sm"
+      className="w-[280px] rounded-md border-2 bg-[var(--color-surface-1)] px-3 py-2 shadow-sm"
       style={{
         borderColor: 'var(--color-hairline-strong)',
         boxShadow: 'inset 0 0 0 1px var(--color-hairline)',

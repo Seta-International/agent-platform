@@ -8,7 +8,7 @@ export function ConditionNode({ data }: NodeProps<Node<ConditionNodeData>>) {
   return (
     <article
       aria-label={`Condition ${data.stepId} (${data.status})`}
-      className="w-[180px] rounded-md border border-dashed bg-[var(--color-surface)] px-3 py-2 shadow-sm"
+      className="w-[180px] rounded-md border border-dashed bg-[var(--color-surface-1)] px-3 py-2 shadow-sm"
       style={{ borderColor: 'var(--color-hairline-strong)' }}
     >
       <Handle

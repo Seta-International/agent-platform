@@ -1,6 +1,8 @@
 import { Button, PageChrome } from '@seta/shared-ui';
-import { useNavigate } from '@tanstack/react-router';
-import { useCallback, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { Link, useNavigate } from '@tanstack/react-router';
+import { useCallback } from 'react';
+import { workflowsApi } from '../api/workflows.ts';
 import { HitlApprovalCard } from '../components/hitl-approval-card.tsx';
 import { RerunSideSheet } from '../components/rerun-side-sheet.tsx';
 import { RunRightPanel } from '../components/run-right-panel.tsx';
@@ -10,6 +12,7 @@ import { useDecideApproval } from '../hooks/use-decide-approval.ts';
 import { usePendingApprovals } from '../hooks/use-pending-approvals.ts';
 import { useWorkflowRun } from '../hooks/use-workflow-run.ts';
 import { useWorkflowRunSnapshot } from '../hooks/use-workflow-run-snapshot.ts';
+import { workflowsQueryKeys } from '../state/query-keys.ts';
 
 const TERMINAL = new Set(['success', 'failed', 'tripwire', 'canceled']);
 
@@ -57,18 +60,52 @@ export interface WorkflowRunPageProps {
 
 export function WorkflowRunPage({ runId, rerunOpen = false }: WorkflowRunPageProps) {
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const runQuery = useWorkflowRun(runId);
+  const workflowsBreadcrumb = [
+    <Link
+      key="agent"
+      to="/agent/workflows"
+      className="rounded px-1 py-0.5 hover:bg-surface-1 hover:text-ink"
+    >
+      Agent
+    </Link>,
+    <Link
+      key="workflows"
+      to="/agent/workflows"
+      className="rounded px-1 py-0.5 hover:bg-surface-1 hover:text-ink"
+    >
+      Workflows
+    </Link>,
+  ] as const;
   const snapshotQuery = useWorkflowRunSnapshot(runId);
   const approvalsQuery = usePendingApprovals();
   const decide = useDecideApproval(runId);
-  const [replayCtx, setReplayCtx] = useState<{
-    stepId: string;
-    originalPayload: unknown;
-  } | null>(null);
 
   const onReplay = useCallback(
-    (args: { stepId: string; originalPayload: unknown }) => setReplayCtx(args),
-    [],
+    async (args: { stepId: string; originalPayload: unknown }) => {
+      const out = await workflowsApi.replayFromStep(
+        runId,
+        args.stepId,
+        (args.originalPayload ?? {}) as Record<string, unknown>,
+      );
+      if (out.newRunId === runId) {
+        // timeTravel replays in-place — invalidate so the graph, status, and
+        // pending approvals all refresh from the freshly-committed DB state.
+        await Promise.all([
+          qc.invalidateQueries({ queryKey: workflowsQueryKeys.run(runId) }),
+          qc.invalidateQueries({ queryKey: workflowsQueryKeys.runSnapshot(runId) }),
+          qc.invalidateQueries({ queryKey: workflowsQueryKeys.pendingApprovals() }),
+        ]);
+      } else {
+        void navigate({
+          to: '/agent/workflows/runs/$runId',
+          params: { runId: out.newRunId },
+          search: {},
+        });
+      }
+    },
+    [runId, navigate, qc],
   );
 
   const openRerun = () =>
@@ -84,20 +121,19 @@ export function WorkflowRunPage({ runId, rerunOpen = false }: WorkflowRunPagePro
       search: {},
     });
   const closeSheet = () => {
-    if (replayCtx) setReplayCtx(null);
     if (rerunOpen) closeRerun();
   };
 
   if (runQuery.isLoading) {
     return (
-      <PageChrome breadcrumb={['Agent', 'Workflows']} title="Loading run…">
+      <PageChrome breadcrumb={workflowsBreadcrumb} title="Loading run…">
         <div className="p-8 text-sm text-ink-subtle">Loading run…</div>
       </PageChrome>
     );
   }
   if (!runQuery.data) {
     return (
-      <PageChrome breadcrumb={['Agent', 'Workflows']} title="Run not found">
+      <PageChrome breadcrumb={workflowsBreadcrumb} title="Run not found">
         <div className="grid h-full place-items-center p-8 text-sm">
           <div className="space-y-2 text-center">
             <p className="text-ink">We couldn&apos;t find that run.</p>
@@ -116,7 +152,7 @@ export function WorkflowRunPage({ runId, rerunOpen = false }: WorkflowRunPagePro
 
   return (
     <PageChrome
-      breadcrumb={['Agent', 'Workflows']}
+      breadcrumb={workflowsBreadcrumb}
       title={<span className="font-mono">{workflowLabel(run.workflowId)}</span>}
       subtitle={
         <>
@@ -127,7 +163,7 @@ export function WorkflowRunPage({ runId, rerunOpen = false }: WorkflowRunPagePro
       actions={
         terminal ? (
           <Button size="sm" variant="secondary" onClick={openRerun}>
-            Run again
+            Replay from start
           </Button>
         ) : undefined
       }
@@ -170,9 +206,8 @@ export function WorkflowRunPage({ runId, rerunOpen = false }: WorkflowRunPagePro
         />
       </div>
       <RerunSideSheet
-        open={rerunOpen || replayCtx !== null}
-        mode={replayCtx ? 'replay-from-step' : 'rerun'}
-        replayContext={replayCtx ?? undefined}
+        open={rerunOpen}
+        mode="rerun"
         runId={runId}
         workflowId={run.workflowId}
         priorInputSummary={run.inputSummary}

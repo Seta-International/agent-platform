@@ -6,6 +6,7 @@ import {
   DropdownMenuTrigger,
   KbdHint,
 } from '@seta/shared-ui';
+import { Link } from '@tanstack/react-router';
 import {
   ArrowRightLeft,
   ChevronLeft,
@@ -18,7 +19,9 @@ import { type ReactNode, useEffect } from 'react';
 
 interface Props {
   taskNumber: number;
+  groupId?: string;
   groupName: string;
+  planId?: string;
   planName: string;
   bucketName: string | null;
   /** Editable title slot (TaskTitleEditor) — rendered prominently below the breadcrumb. */
@@ -43,7 +46,9 @@ function isEditableTarget(node: EventTarget | null): boolean {
 
 export function TaskDetailHeader({
   taskNumber,
+  groupId,
   groupName,
+  planId,
   planName,
   bucketName,
   titleSlot,
@@ -86,11 +91,36 @@ export function TaskDetailHeader({
         </button>
         <span>·</span>
         <nav aria-label="Breadcrumb" className="flex items-center gap-1">
-          <span>Planner</span>
+          <Link
+            to="/planner/groups"
+            className="rounded px-1 py-0.5 hover:bg-surface-1 hover:text-ink"
+          >
+            Planner
+          </Link>
           <ChevronRight className="size-2.5 text-ink-tertiary" aria-hidden="true" />
-          <span>{groupName}</span>
+          {groupId ? (
+            <Link
+              to="/planner/groups/$groupId"
+              params={{ groupId }}
+              className="rounded px-1 py-0.5 hover:bg-surface-1 hover:text-ink"
+            >
+              {groupName}
+            </Link>
+          ) : (
+            <span>{groupName}</span>
+          )}
           <ChevronRight className="size-2.5 text-ink-tertiary" aria-hidden="true" />
-          <span>{planName}</span>
+          {planId ? (
+            <Link
+              to="/planner/plans/$planId"
+              params={{ planId }}
+              className="rounded px-1 py-0.5 hover:bg-surface-1 hover:text-ink"
+            >
+              {planName}
+            </Link>
+          ) : (
+            <span>{planName}</span>
+          )}
           {bucketName && (
             <>
               <ChevronRight className="size-2.5 text-ink-tertiary" aria-hidden="true" />

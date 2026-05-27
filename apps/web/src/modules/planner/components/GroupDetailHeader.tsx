@@ -9,6 +9,7 @@ import {
   GroupTile,
   SyncBadge,
 } from '@seta/shared-ui';
+import { Link } from '@tanstack/react-router';
 import { ChevronRight, MoreHorizontal, Pencil, Plus, Shield, Users } from 'lucide-react';
 import { useState } from 'react';
 import { useRefreshGroupSync } from '../hooks/mutations/refresh-group-sync';
@@ -56,7 +57,10 @@ export function GroupDetailHeader({
   const badgeState = isLinked ? toSyncBadgeState(rawSyncStatus) : null;
   const refresh = useRefreshGroupSync(group.id);
 
-  const breadcrumb = ['Planner', 'Groups'] as const;
+  const breadcrumb = [
+    { label: 'Planner', to: '/planner/groups' as const },
+    { label: 'Groups', to: '/planner/groups' as const },
+  ] as const;
 
   return (
     <>
@@ -71,9 +75,14 @@ export function GroupDetailHeader({
               className="flex items-center gap-1.5 text-eyebrow uppercase tracking-[0.04em] text-ink-subtle"
             >
               {breadcrumb.map((crumb, i) => (
-                <span key={crumb} className="flex items-center gap-1.5">
+                <span key={crumb.label} className="flex items-center gap-1.5">
                   {i > 0 && <ChevronRight aria-hidden className="size-2.5 text-ink-tertiary" />}
-                  <span>{crumb}</span>
+                  <Link
+                    to={crumb.to}
+                    className="rounded px-1 py-0.5 hover:bg-surface-1 hover:text-ink"
+                  >
+                    {crumb.label}
+                  </Link>
                 </span>
               ))}
             </nav>

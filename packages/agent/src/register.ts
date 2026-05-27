@@ -22,7 +22,7 @@ import { initAgentRegistry } from './backend/init-registry.ts';
 import { agentJobs } from './backend/jobs/rate-limit-cleanup.ts';
 import { type ModelTier, resolveModel } from './backend/model-registry.ts';
 import { registerAgentRoutes } from './backend/routes.ts';
-import { buildMastra } from './backend/runtime.ts';
+import { buildMastraFull } from './backend/runtime.ts';
 import { agentSubscribers } from './backend/subscribers/index.ts';
 import { buildSupervisorTree } from './backend/supervisor-tree.ts';
 import { registerWorkflowInputSchema } from './backend/workflows/_infra/input-schema-registry.ts';
@@ -77,7 +77,11 @@ export function registerAgent(deps: {
   });
   setBreakerEventEmitter(buildBreakerEmitter());
 
-  const mastra = buildMastra({ pool: deps.pool, databaseUrl: deps.databaseUrl, log: deps.log });
+  const { mastra, drainer } = buildMastraFull({
+    pool: deps.pool,
+    databaseUrl: deps.databaseUrl,
+    log: deps.log,
+  });
 
   for (const spec of deps.reg.collected.agentSpecs) {
     mastra.addAgent(buildAgentFromSpec(spec));
@@ -126,6 +130,7 @@ export function registerAgent(deps: {
         supervisor: topSupervisor,
         domainAgents,
         mastra,
+        drainer,
         pool: deps.pool,
         log: deps.log,
       });

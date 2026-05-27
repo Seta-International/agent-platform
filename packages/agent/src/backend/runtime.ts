@@ -14,7 +14,51 @@ export type AgentRuntimeDeps = {
   log?: Logger;
 };
 
+/**
+ * Tracks in-flight lifecycle handler Promises so callers can await full
+ * projection consistency before responding (e.g. the replay-from-step route
+ * must wait for `workflow.suspend` → `UPDATE … SET status = 'paused'` before
+ * returning, otherwise the client refetches stale data).
+ *
+ * Background: `EventEmitterPubSub.publish` calls `emitter.emit()`, which
+ * invokes async handlers synchronously but never awaits their Promises.
+ * `LifecycleDrainer.wrap` captures each handler's Promise so `drain()` can
+ * await them all before the HTTP response is sent.
+ */
+export class LifecycleDrainer {
+  readonly #pending = new Set<Promise<void>>();
+
+  /** Wraps an async handler, registering its Promise so drain() can await it. */
+  wrap(fn: (raw: unknown) => Promise<void>): (raw: unknown) => void {
+    return (raw: unknown) => {
+      const p = fn(raw).finally(() => this.#pending.delete(p));
+      this.#pending.add(p);
+    };
+  }
+
+  /**
+   * Resolves once all in-flight lifecycle handler Promises have settled.
+   * Safe to call when the set is empty (resolves immediately).
+   * The while-loop handles the edge case where a handler enqueues another
+   * handler during its own execution.
+   */
+  async drain(): Promise<void> {
+    while (this.#pending.size > 0) {
+      await Promise.allSettled([...this.#pending]);
+    }
+  }
+}
+
+/** Convenience wrapper for tests — returns only the Mastra instance. */
 export function buildMastra(deps: AgentRuntimeDeps): Mastra {
+  return buildMastraFull(deps).mastra;
+}
+
+/** Production entry-point — returns both the Mastra instance and the drainer. */
+export function buildMastraFull(deps: AgentRuntimeDeps): {
+  mastra: Mastra;
+  drainer: LifecycleDrainer;
+} {
   const storage = new PostgresStore({
     id: 'agent-store',
     schemaName: 'agent',
@@ -24,11 +68,12 @@ export function buildMastra(deps: AgentRuntimeDeps): Mastra {
     storage,
     logger: false,
   });
-  wireLifecycleHook(mastra, deps.pool, deps.log);
-  return mastra;
+  const drainer = wireLifecycleHook(mastra, deps.pool, deps.log);
+  return { mastra, drainer };
 }
 
-function wireLifecycleHook(mastra: Mastra, pool: Pool, log?: Logger): void {
+function wireLifecycleHook(mastra: Mastra, pool: Pool, log?: Logger): LifecycleDrainer {
+  const drainer = new LifecycleDrainer();
   const handle = async (raw: unknown): Promise<void> => {
     if (!raw || typeof raw !== 'object') return;
     const typed = raw as { type: string; runId: string; data?: Record<string, unknown> };
@@ -67,7 +112,9 @@ function wireLifecycleHook(mastra: Mastra, pool: Pool, log?: Logger): void {
       }
     }
   };
+  const wrapped = drainer.wrap(handle);
   // EventEmitterPubSub.subscribe resolves synchronously in microseconds; void intentional.
-  void mastra.pubsub.subscribe('workflows', handle);
-  void mastra.pubsub.subscribe('workflows-finish', handle);
+  void mastra.pubsub.subscribe('workflows', wrapped);
+  void mastra.pubsub.subscribe('workflows-finish', wrapped);
+  return drainer;
 }

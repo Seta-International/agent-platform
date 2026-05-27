@@ -14,7 +14,7 @@ export interface DefaultNodeData extends NodeBaseData {
   stepError?: unknown;
   runStatus?: string;
   originalPayload?: unknown;
-  onReplay?: (args: { stepId: string; originalPayload: unknown }) => void;
+  onReplay?: (args: { stepId: string; originalPayload: unknown }) => Promise<void>;
 }
 
 export interface ConditionNodeData extends NodeBaseData {
@@ -24,14 +24,14 @@ export interface ConditionNodeData extends NodeBaseData {
 export type AnyNodeData = DefaultNodeData | ConditionNodeData | NodeBaseData;
 
 const NODE_WIDTHS: Record<string, number> = {
-  'default-node': 240,
+  'default-node': 280,
   'condition-node': 180,
   'loop-result-node': 260,
   'nested-node': 280,
   'after-node': 24,
   'control-node': 140,
 };
-const NODE_HEIGHT = 76;
+const NODE_HEIGHT = 100;
 
 const EDGE_DEFAULTS = {
   type: 'default' as const,

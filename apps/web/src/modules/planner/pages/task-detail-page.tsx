@@ -245,7 +245,9 @@ export function TaskDetailPage({
       {variant === 'page' && (
         <TaskDetailHeader
           taskNumber={taskNumberFromId(task.id)}
+          groupId={groupId}
           groupName={groupQ.data?.name ?? ''}
+          planId={planId}
           planName={plan?.name ?? ''}
           bucketName={bucketName}
           titleSlot={<TaskTitleEditor task={task} planId={planId} />}

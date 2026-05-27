@@ -149,6 +149,16 @@ async function onRunSuspended(client: PoolClient, evt: RunSuspendedEvent): Promi
       WHERE run_id = $1`,
     [evt.runId, evt.suspendReason],
   );
+  // Supersede any existing pending approval for this run (e.g. from a prior
+  // HITL cycle that was never decided, or a previous execution that completed
+  // without the approval being resolved). This keeps at most one pending
+  // approval per run at any given time.
+  await client.query(
+    `UPDATE agent.workflow_approvals
+        SET status = 'superseded', decided_at = NOW()
+      WHERE run_id = $1 AND status = 'pending'`,
+    [evt.runId],
+  );
   // If the adapter couldn't read tenant/approver from requestContext (e.g. a
   // Mastra version that doesn't echo it on suspend), recover from the seeded
   // row — workflow_runs is populated synchronously by the /start handler.
@@ -225,6 +235,13 @@ async function terminate(
         SET status = $2, finished_at = $3, duration_ms = $4, error_summary = $5
       WHERE run_id = $1`,
     [evt.runId, status, evt.occurredAt, evt.durationMs, errorSummary],
+  );
+  // Cancel any pending approvals so they don't resurface if the run is replayed.
+  await client.query(
+    `UPDATE agent.workflow_approvals
+        SET status = 'superseded', decided_at = NOW()
+      WHERE run_id = $1 AND status = 'pending'`,
+    [evt.runId],
   );
 }
 
@@ -362,7 +379,7 @@ export function adaptMastraEvent(raw: RawMastraEvent): MastraLifecycleEvent | nu
       return {
         kind: 'run-resumed',
         runId: raw.runId,
-        eventSeq: hashEventSeq(raw.type, raw.runId, ''),
+        eventSeq: hashEventSeq(raw.type, raw.runId, '', occurredAt),
         workflowId,
         tenantId,
         occurredAt,
@@ -372,7 +389,7 @@ export function adaptMastraEvent(raw: RawMastraEvent): MastraLifecycleEvent | nu
       return {
         kind: 'run-canceled',
         runId: raw.runId,
-        eventSeq: hashEventSeq(raw.type, raw.runId, ''),
+        eventSeq: hashEventSeq(raw.type, raw.runId, '', occurredAt),
         workflowId,
         tenantId,
         occurredAt,
@@ -385,7 +402,7 @@ export function adaptMastraEvent(raw: RawMastraEvent): MastraLifecycleEvent | nu
       return {
         kind: 'run-completed',
         runId: raw.runId,
-        eventSeq: hashEventSeq(raw.type, raw.runId, ''),
+        eventSeq: hashEventSeq(raw.type, raw.runId, '', occurredAt),
         workflowId,
         tenantId,
         occurredAt,
@@ -400,7 +417,7 @@ export function adaptMastraEvent(raw: RawMastraEvent): MastraLifecycleEvent | nu
       return {
         kind: 'run-failed',
         runId: raw.runId,
-        eventSeq: hashEventSeq(raw.type, raw.runId, ''),
+        eventSeq: hashEventSeq(raw.type, raw.runId, '', occurredAt),
         workflowId,
         tenantId,
         occurredAt,
@@ -455,7 +472,7 @@ export function adaptMastraEvent(raw: RawMastraEvent): MastraLifecycleEvent | nu
       return {
         kind: 'run-suspended',
         runId: raw.runId,
-        eventSeq: hashEventSeq(raw.type, raw.runId, stepId),
+        eventSeq: hashEventSeq(raw.type, raw.runId, stepId, occurredAt),
         workflowId,
         tenantId,
         occurredAt,
@@ -474,8 +491,20 @@ export function adaptMastraEvent(raw: RawMastraEvent): MastraLifecycleEvent | nu
   }
 }
 
-function hashEventSeq(type: string, runId: string, suffix: string): number {
-  const s = `${type}::${runId}::${suffix}`;
+/**
+ * Produces a stable integer key for the workflow_run_events_seen dedup table.
+ *
+ * Rules:
+ * - `workflow.start` uses only (type, runId) — the /start route inserts eventSeq
+ *   -1 directly; the EventEmitter path lands here and gets the same deterministic
+ *   hash regardless of wall clock, so both paths collide on dedup as intended.
+ * - All other event types incorporate the processing timestamp (ms). This ensures
+ *   that the same logical event (e.g. workflow.suspend) can be re-processed on a
+ *   replay or an additional HITL cycle without being silently dropped.
+ */
+function hashEventSeq(type: string, runId: string, suffix: string, occurredAt?: Date): number {
+  const ts = type === 'workflow.start' ? '' : `::${(occurredAt ?? new Date()).getTime()}`;
+  const s = `${type}::${runId}::${suffix}${ts}`;
   let h = 5381;
   for (let i = 0; i < s.length; i++) {
     h = (h * 33) ^ s.charCodeAt(i);
