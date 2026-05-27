@@ -8,12 +8,21 @@ import { getPlannerVectorStore } from '../embeddings/vector-store.ts';
 
 export const plannerFindSimilarTasksInputSchema = z.object({
   text: z.string().min(3).max(500),
-  scope: z.enum(['recent-week', 'recent-month', 'all-open', 'all']).default('recent-month'),
+  completionStatus: z
+    .enum(['open', 'completed', 'any'])
+    .default('open')
+    .describe('"open" (default) = incomplete tasks; "completed" = done; "any" = all statuses'),
+  createdWithin: z
+    .enum(['week', 'month', 'any'])
+    .default('any')
+    .describe('"any" (default) = no date limit; "week" = last 7 days; "month" = last 30 days'),
+  onlyWithReviewState: z
+    .boolean()
+    .default(false)
+    .describe(
+      'true only when the user explicitly says "need review" or "flagged for review". Default false.',
+    ),
   limit: z.number().int().min(1).max(20).default(10),
-  reviewState: z
-    .enum(['needs_review'])
-    .optional()
-    .describe('Filter to only tasks flagged for review'),
 });
 
 export const plannerFindSimilarTasksOutputSchema = z.object({
@@ -67,13 +76,20 @@ export function plannerFindSimilarTasksTool(deps: PlannerFindSimilarTasksToolDep
               );
             })());
 
+      const now = new Date();
       return findSimilarTasks(
         {
           tenant_id: session.tenant_id,
           text: input.text,
-          scope: input.scope,
+          completionStatus: input.completionStatus,
+          createdAfter:
+            input.createdWithin === 'week'
+              ? new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+              : input.createdWithin === 'month'
+                ? new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+                : undefined,
+          onlyWithReviewState: input.onlyWithReviewState,
           limit: input.limit,
-          reviewState: input.reviewState,
         },
         { provider: deps.provider, pgVector },
       );

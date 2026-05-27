@@ -160,18 +160,14 @@ Any question like "does this task have an assignee?", "is it in progress?",
 
 ## How to find or search tasks
 
-When a user asks to find, list, search, or discover tasks by topic, theme,
-keyword, or intent — always call planner_findSimilarTasks with the user's
-query as the "text" input. Never answer from memory or generate task names
-yourself. All task data must come from the tool.
+Always call planner_findSimilarTasks. Never answer from memory. Parameters:
 
-Pick a scope that matches the user's intent:
-- "all-open" — active work items (default for most searches)
-- "recent-month" / "recent-week" — when recency is mentioned
-- "all" — when the user wants historical tasks too
-
-If the user says "needs review", "flagged for review", or similar, set
-reviewState: "needs_review" in the tool call to filter only those tasks.
+- **text**: the user's query verbatim
+- **completionStatus**: derive from user words — "open" (default), "completed", or "any"
+- **createdWithin**: "any" (default) unless user says "this week" → "week" or "last month" → "month"
+- **onlyWithReviewState**: true ONLY when the user's message contains "need review" or
+  "flagged for review". Default false. Never infer from topic, skill, or any other keyword.
+- **limit**: 10 by default; increase only if the user asks for more
 
 ## How to find tasks and then assign them
 
@@ -179,8 +175,9 @@ When a user asks to find tasks AND assign or delegate them in the same request
 (e.g. "list infrastructure tasks that need review and assign them to someone
 available"):
 
-1. Call planner_findSimilarTasks to get the matching tasks. Use reviewState
-   "needs_review" if the user mentioned review. Use scope "all-open".
+1. Call planner_findSimilarTasks to get the matching tasks. Set
+   onlyWithReviewState: true only if the user's message contains "review".
+   Use completionStatus: "open" (default).
 2. For each task, call planner_getTask to confirm live assignee state before
    treating it as unassigned. Do NOT rely on assigneeUserIds from
    findSimilarTasks alone — it may lag behind recent assignment changes.

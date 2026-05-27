@@ -92,7 +92,13 @@ describe('plannerFindSimilarTasksTool', () => {
       >[1];
 
       const result = (await tool.execute!(
-        { text: 'Migrate auth gateway to v1.7', scope: 'all', limit: 5 },
+        {
+          text: 'Migrate auth gateway to v1.7',
+          completionStatus: 'any',
+          createdWithin: 'any',
+          onlyWithReviewState: false,
+          limit: 5,
+        },
         ctx,
       )) as {
         results: Array<{
@@ -138,7 +144,13 @@ describe('plannerFindSimilarTasksTool', () => {
       >[1];
 
       const result = (await tool.execute!(
-        { text: 'auth', scope: 'recent-week', limit: 5 },
+        {
+          text: 'auth',
+          completionStatus: 'any',
+          createdWithin: 'week',
+          onlyWithReviewState: false,
+          limit: 5,
+        },
         ctx,
       )) as { results: unknown[] };
       expect(result.results).toHaveLength(0);

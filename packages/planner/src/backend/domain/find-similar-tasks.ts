@@ -1,18 +1,25 @@
 import type { PgVector } from '@mastra/pg';
 import type { EmbeddingProvider } from '@seta/shared-embeddings';
-import { and, eq, gte, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, eq, gte, inArray, isNotNull, isNull, lte, sql } from 'drizzle-orm';
 import { plannerDb } from '../db/index.ts';
 import { plans, taskAssignments, tasks } from '../db/schema.ts';
 import { searchTasks } from '../retrieval/search-tasks.ts';
 
-export type FindSimilarTasksScope = 'recent-week' | 'recent-month' | 'all-open' | 'all';
+/** Whether to filter by completion state. */
+export type CompletionStatus = 'open' | 'completed' | 'any';
 
 export interface FindSimilarTasksInput {
   tenant_id: string;
   text: string;
-  scope: FindSimilarTasksScope;
+  /** Filter by completion: "open" = incomplete, "completed" = 100%, "any" = no filter. Default "open". */
+  completionStatus?: CompletionStatus;
+  /** Only include tasks created after this date. Omit for no time constraint. */
+  createdAfter?: Date;
+  /** Only include tasks created before this date. Omit for no time constraint. */
+  createdBefore?: Date;
+  /** true = restrict to tasks that have any review state set (IS NOT NULL). Default false. */
+  onlyWithReviewState?: boolean;
   limit: number;
-  reviewState?: 'needs_review';
 }
 
 export interface FindSimilarTasksDeps {
@@ -30,12 +37,6 @@ export interface FindSimilarTasksResult {
   reviewState: 'needs_review' | null;
   skillTags: string[];
   createdAt: string;
-}
-
-function scopeBoundary(scope: FindSimilarTasksScope, now: Date): Date | null {
-  if (scope === 'recent-week') return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-  if (scope === 'recent-month') return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-  return null;
 }
 
 export async function findSimilarTasks(
@@ -62,16 +63,18 @@ export async function findSimilarTasks(
   if (stage1.hits.length === 0) return { results: [] };
 
   const taskIds = stage1.hits.map((h) => h.item.task_id);
-  const since = scopeBoundary(input.scope, new Date());
 
   const conditions = [
     eq(tasks.tenant_id, input.tenant_id),
     inArray(tasks.id, taskIds),
     isNull(tasks.deleted_at),
   ];
-  if (since) conditions.push(gte(tasks.created_at, since));
-  if (input.scope === 'all-open') conditions.push(sql`${tasks.percent_complete} < 100`);
-  if (input.reviewState === 'needs_review') conditions.push(isNotNull(tasks.review_state));
+  if (input.createdAfter) conditions.push(gte(tasks.created_at, input.createdAfter));
+  if (input.createdBefore) conditions.push(lte(tasks.created_at, input.createdBefore));
+  const cs = input.completionStatus ?? 'open';
+  if (cs === 'open') conditions.push(sql`${tasks.percent_complete} < 100`);
+  if (cs === 'completed') conditions.push(sql`${tasks.percent_complete} = 100`);
+  if (input.onlyWithReviewState) conditions.push(isNotNull(tasks.review_state));
 
   const rows = await plannerDb()
     .select({
