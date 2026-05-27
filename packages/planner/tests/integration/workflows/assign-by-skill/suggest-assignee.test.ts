@@ -1,4 +1,4 @@
-import { ApprovalCardSchema } from '@seta/copilot-sdk';
+import { ApprovalCardSchema } from '@seta/agent-sdk';
 import { describe, expect, it } from 'vitest';
 import type { CandidateUser } from '../../../../src/backend/workflows/assign-by-skill/schemas.ts';
 import { buildSuggestAssigneeCard } from '../../../../src/backend/workflows/assign-by-skill/steps/suggest-assignee.ts';

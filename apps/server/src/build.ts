@@ -1,9 +1,5 @@
-import {
-  type CopilotHandle,
-  registerCopilot,
-  registerCopilotContributions,
-} from '@seta/copilot/register';
-import type { SessionLike } from '@seta/copilot-sdk';
+import { type AgentHandle, registerAgent, registerAgentContributions } from '@seta/agent/register';
+import type { SessionLike } from '@seta/agent-sdk';
 import {
   buildHonoApp,
   type ContributionRegistry,
@@ -42,13 +38,13 @@ export type BuildServerAppDeps = {
   /** Origins the browser is allowed to make credentialed requests from. */
   corsOrigins?: string[];
   /**
-   * Optional pre-built copilot engine. apps/server constructs it earlier so it
+   * Optional pre-built agent engine. apps/server constructs it earlier so it
    * can hand the Mastra instance to subscriberBuilders before the dispatcher
    * starts. The smoke test omits this; buildServerApp then builds the engine
    * itself for a self-contained HTTP-only test.
    */
-  copilot?: CopilotHandle;
-  /** Structured logger (e.g. pino) passed down to route builders and the copilot engine. */
+  agent?: AgentHandle;
+  /** Structured logger (e.g. pino) passed down to route builders and the agent engine. */
   log?: {
     error: (obj: unknown, msg?: string) => void;
     warn: (obj: unknown, msg?: string) => void;
@@ -60,15 +56,15 @@ export type BuiltServerApp = {
   reg: ContributionRegistry;
 };
 
-// Bridges better-auth's session into the SessionLike shape that copilot routes
+// Bridges better-auth's session into the SessionLike shape that agent routes
 // consume (c.var.session). When there's no authenticated user, c.var.session is
-// left unset and the copilot route returns 401 — except /health, which carries
+// left unset and the agent route returns 401 — except /health, which carries
 // no session check. effective_permissions is computed via the identity public
 // surface so both modules agree on the permission catalog.
-type CopilotBridgeEnv = { Variables: { session: SessionLike } };
+type AgentBridgeEnv = { Variables: { session: SessionLike } };
 
-function createCopilotSessionBridge(deps: { listRoleGrants: typeof listRoleGrants }) {
-  return createMiddleware<CopilotBridgeEnv>(async (c, next) => {
+function createAgentSessionBridge(deps: { listRoleGrants: typeof listRoleGrants }) {
+  return createMiddleware<AgentBridgeEnv>(async (c, next) => {
     const authSession = await auth.api.getSession({ headers: c.req.raw.headers });
     if (authSession?.user) {
       const { user } = authSession;
@@ -90,9 +86,9 @@ function createCopilotSessionBridge(deps: { listRoleGrants: typeof listRoleGrant
 }
 
 export function registerAppContributions(reg: ContributionRegistry): void {
-  // Caller owns core + identity registration; copilot is registered here so the
+  // Caller owns core + identity registration; agent is registered here so the
   // build helper stays self-contained for tests.
-  registerCopilotContributions(reg);
+  registerAgentContributions(reg);
 }
 
 export function buildServerApp(
@@ -145,15 +141,15 @@ export function buildServerApp(
     });
   }
 
-  // Copilot routes are mounted BEFORE the global session gate. Each protected
-  // copilot route checks session itself via c.get('session') and returns 401 if
+  // Agent routes are mounted BEFORE the global session gate. Each protected
+  // agent route checks session itself via c.get('session') and returns 401 if
   // absent; /health intentionally has no check and stays public. The bridge
   // middleware below populates c.var.session from better-auth.
-  const copilot =
-    deps.copilot ??
-    registerCopilot({ pool: deps.pool, databaseUrl: deps.databaseUrl, reg, log: deps.log });
-  app.use('/api/copilot/*', createCopilotSessionBridge({ listRoleGrants }));
-  copilot.attach(app as unknown as Hono);
+  const agent =
+    deps.agent ??
+    registerAgent({ pool: deps.pool, databaseUrl: deps.databaseUrl, reg, log: deps.log });
+  app.use('/api/agent/*', createAgentSessionBridge({ listRoleGrants }));
+  agent.attach(app as unknown as Hono);
 
   // Session middleware gates everything registered after this point
   app.use('*', sessionMiddleware);

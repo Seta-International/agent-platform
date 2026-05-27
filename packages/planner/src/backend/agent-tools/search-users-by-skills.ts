@@ -1,9 +1,9 @@
-import { actorFromContext, defineCopilotTool } from '@seta/copilot-sdk';
+import { actorFromContext, defineAgentTool } from '@seta/agent-sdk';
 import { buildActorSession } from '@seta/identity';
 import { z } from 'zod';
 import { searchUsersBySkills } from '../domain/search-users-by-skills.ts';
 
-export const identitySearchUsersBySkillsTool = defineCopilotTool({
+export const identitySearchUsersBySkillsTool = defineAgentTool({
   id: 'identity_searchUsersBySkills',
   name: 'Search Users By Skills',
   description: 'Rank group members by overlap against requested skills.',

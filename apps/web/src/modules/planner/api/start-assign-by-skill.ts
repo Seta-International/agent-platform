@@ -9,7 +9,7 @@ export function useStartAssignBySkill() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (taskId: string): Promise<StartResponse> => {
-      const res = await fetch('/api/copilot/v1/workflows/runs/assignBySkill/start', {
+      const res = await fetch('/api/agent/v1/workflows/runs/assignBySkill/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ taskId }),

@@ -21,8 +21,8 @@ import { AppShell } from './app-shell';
 
 const NAV_MODULES: NavManifest[] = [
   {
-    id: 'copilot',
-    label: 'Copilot',
+    id: 'agent',
+    label: 'Agent',
     icon: Sparkles,
     requiredPermissions: [],
     useNavExtensions: noNavExtensions,
@@ -30,12 +30,12 @@ const NAV_MODULES: NavManifest[] = [
       {
         label: 'Workspace',
         items: [
-          { id: 'copilot.chat', icon: Inbox, label: 'Chat', to: '/copilot/chat' },
+          { id: 'agent.chat', icon: Inbox, label: 'Chat', to: '/agent/chat' },
           {
-            id: 'copilot.workflows',
+            id: 'agent.workflows',
             icon: Workflow,
             label: 'Workflows',
-            to: '/copilot/workflows',
+            to: '/agent/workflows',
             badge: '12',
           },
         ],
@@ -177,8 +177,8 @@ export const Default: Story = {
       <div className="p-6">
         <h1 className="text-card-title font-semibold text-ink">Audit log</h1>
         <p className="mt-2 text-body-sm text-ink-muted">
-          Page content goes here. The shell wires up the topbar, sidebar accordion, copilot toggle,
-          and resizable copilot panel.
+          Page content goes here. The shell wires up the topbar, sidebar accordion, agent toggle,
+          and resizable agent panel.
         </p>
       </div>
     ),
@@ -192,11 +192,11 @@ export const PlannerActive: Story = {
   },
 };
 
-export const CopilotOpen: Story = {
+export const AgentOpen: Story = {
   args: {
     ...Default.args,
-    defaultCopilotOpen: true,
-    copilotAlert: true,
+    defaultAgentOpen: true,
+    agentAlert: true,
   },
 };
 

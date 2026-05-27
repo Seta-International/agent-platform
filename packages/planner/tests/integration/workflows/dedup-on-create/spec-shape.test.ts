@@ -1,4 +1,4 @@
-import { assertNoSessionField } from '@seta/copilot-sdk';
+import { assertNoSessionField } from '@seta/agent-sdk';
 import { describe, expect, it } from 'vitest';
 import {
   dedupOnCreateWorkflow,

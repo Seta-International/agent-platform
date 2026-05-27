@@ -1,9 +1,9 @@
-import { actorFromContext, defineCopilotTool } from '@seta/copilot-sdk';
+import { actorFromContext, defineAgentTool } from '@seta/agent-sdk';
 import { buildActorSession } from '@seta/identity';
 import { z } from 'zod';
 import { listComments } from '../domain/list-comments.ts';
 
-export const plannerListCommentsTool = defineCopilotTool({
+export const plannerListCommentsTool = defineAgentTool({
   id: 'planner_listComments',
   name: 'List Task Comments',
   description: 'List comments on a planner task, newest first.',

@@ -1,9 +1,9 @@
-import { actorFromContext, defineCopilotTool } from '@seta/copilot-sdk';
+import { actorFromContext, defineAgentTool } from '@seta/agent-sdk';
 import { buildActorSession } from '@seta/identity';
 import { z } from 'zod';
 import { createComment } from '../domain/create-comment.ts';
 
-export const plannerPostCommentTool = defineCopilotTool({
+export const plannerPostCommentTool = defineAgentTool({
   id: 'planner_postComment',
   name: 'Post Task Comment',
   description: 'Post a plain-text comment on a planner task.',

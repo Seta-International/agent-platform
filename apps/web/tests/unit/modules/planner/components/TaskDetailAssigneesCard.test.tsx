@@ -6,7 +6,7 @@ import { setupServer } from 'msw/node';
 import type { ReactNode } from 'react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/modules/copilot/chat-experience/copilot-provider', () => ({
+vi.mock('@/modules/agent/chat-experience/agent-provider', () => ({
   usePanelUI: () => ({
     panelOpen: false,
     setPanelOpen: vi.fn(),

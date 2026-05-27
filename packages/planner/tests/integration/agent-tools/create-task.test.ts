@@ -4,7 +4,7 @@ import { createTestTenantWithAdmin } from '@seta/identity/testing';
 import { createGroup, createPlan } from '@seta/planner';
 import { describe, expect, it } from 'vitest';
 import { plannerCreateTaskTool } from '../../../src/backend/agent-tools/create-task.ts';
-import { makeToolContext, withCopilotTestDb } from '../agent-tools-helpers.ts';
+import { makeToolContext, withAgentTestDb } from '../agent-tools-helpers.ts';
 
 function buildAdminSession(opts: {
   tenant_id: string;
@@ -29,7 +29,7 @@ function buildAdminSession(opts: {
 
 describe('planner_createTask — thin confirm-and-create', () => {
   it('suspends with a confirm card on first call', async () => {
-    await withCopilotTestDb(async ({ pool }) => {
+    await withAgentTestDb(async ({ pool }) => {
       const { admin_user_id } = await createTestTenantWithAdmin({ pool });
       const tool = plannerCreateTaskTool();
       const suspended: unknown[] = [];
@@ -60,7 +60,7 @@ describe('planner_createTask — thin confirm-and-create', () => {
   });
 
   it('creates the task on resume=confirm', async () => {
-    await withCopilotTestDb(async ({ pool }) => {
+    await withAgentTestDb(async ({ pool }) => {
       const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
       const session = buildAdminSession({
         tenant_id,
@@ -94,7 +94,7 @@ describe('planner_createTask — thin confirm-and-create', () => {
   });
 
   it('returns cancelled on resume=cancel', async () => {
-    await withCopilotTestDb(async ({ pool }) => {
+    await withAgentTestDb(async ({ pool }) => {
       const { admin_user_id } = await createTestTenantWithAdmin({ pool });
       const tool = plannerCreateTaskTool();
       const ctx = makeToolContext({ user_id: admin_user_id });

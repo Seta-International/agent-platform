@@ -1,4 +1,4 @@
-import { CopilotRegistry } from '@seta/copilot-sdk';
+import { AgentRegistry } from '@seta/agent-sdk';
 import type { EmbeddingProvider } from '@seta/shared-embeddings';
 import { OpenAIEmbeddingProvider } from '@seta/shared-embeddings';
 import { resolveReranker } from '@seta/shared-retrieval';
@@ -48,7 +48,7 @@ const matchUsersToTopic = matchUsersToTopicTool({
   },
 });
 
-CopilotRegistry.registerSpecialist({
+AgentRegistry.registerSpecialist({
   domain: 'people',
   id: 'identity',
   description: 'Looks up users, roles, and finds people by topic. Read-only across the directory.',
@@ -62,7 +62,7 @@ CopilotRegistry.registerSpecialist({
   },
 });
 
-CopilotRegistry.registerSpecialist({
+AgentRegistry.registerSpecialist({
   domain: 'self',
   id: 'self',
   description: "Manages the current user's profile, preferences, and notifications.",
@@ -77,7 +77,7 @@ CopilotRegistry.registerSpecialist({
   },
 });
 
-CopilotRegistry.registerCrossModuleReadTool(
+AgentRegistry.registerCrossModuleReadTool(
   buildSearchUsersBySkillVectorSpec({
     provider: lazyProvider,
     get databaseUrl(): string {
@@ -85,5 +85,5 @@ CopilotRegistry.registerCrossModuleReadTool(
     },
   }),
 );
-CopilotRegistry.registerCrossModuleReadTool(identityGetTimezoneSpec);
-CopilotRegistry.registerCrossModuleReadTool(identityGetAvailabilitySpec);
+AgentRegistry.registerCrossModuleReadTool(identityGetTimezoneSpec);
+AgentRegistry.registerCrossModuleReadTool(identityGetAvailabilitySpec);

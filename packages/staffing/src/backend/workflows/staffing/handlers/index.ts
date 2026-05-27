@@ -18,7 +18,7 @@ import {
 //
 // Usage in apps/server/src/index.ts:
 //
-//   import { makeStaffingTaskList } from '@seta/copilot';
+//   import { makeStaffingTaskList } from '@seta/agent';
 //
 //   const workers = await startWorkerPool({
 //     pool: getPool('worker'),

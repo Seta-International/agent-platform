@@ -1,4 +1,4 @@
-import { defineCopilotTool } from '@seta/copilot-sdk';
+import { defineAgentTool } from '@seta/agent-sdk';
 import { z } from 'zod';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -15,7 +15,7 @@ import { z } from 'zod';
 // No invented fields.
 // ──────────────────────────────────────────────────────────────────────────────
 
-export const plannerExtractSkillsFromTaskTool = defineCopilotTool({
+export const plannerExtractSkillsFromTaskTool = defineAgentTool({
   id: 'planner_extractSkillsFromTask',
   name: 'Extract Skills From Task',
   description: `

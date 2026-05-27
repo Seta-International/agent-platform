@@ -10,7 +10,7 @@ import {
 import { useNavigate } from '@tanstack/react-router';
 import { ArrowRightLeft, ChevronRight, Copy, MoreHorizontal } from 'lucide-react';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
-import { useCopilotContext } from '@/modules/copilot';
+import { useAgentContext } from '@/modules/agent';
 import { useSession } from '@/modules/identity/components/SessionProvider';
 import { PlannerClientError } from '../api/planner-client';
 import { ConfirmDeleteTaskDialog } from '../components/ConfirmDeleteTaskDialog';
@@ -126,7 +126,7 @@ export function TaskDetailPage({
     void navigate({ to: '/planner/groups' });
   }, [isForbidden, navigate]);
 
-  useCopilotContext({
+  useAgentContext({
     kind: 'planner.task',
     id: taskId,
     label: taskQ.data?.title ?? 'Task',
@@ -250,7 +250,7 @@ export function TaskDetailPage({
           bucketName={bucketName}
           titleSlot={<TaskTitleEditor task={task} planId={planId} />}
           onBack={() => void navigate({ to: '/planner/plans/$planId', params: { planId } })}
-          onAskCopilot={() => toast('Copilot is coming soon.')}
+          onAskAgent={() => toast('Agent is coming soon.')}
           onCopyLink={() => {
             void navigator.clipboard.writeText(window.location.href);
             toast('Link copied.');

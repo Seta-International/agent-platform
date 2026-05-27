@@ -85,7 +85,7 @@ async function seedTenant(pool: import('pg').Pool, slug: string) {
   return { tenantId, adminUserId: adminResult.user_id, adminEmail };
 }
 
-describe('GET /api/copilot/v1/knowledge — role check', () => {
+describe('GET /api/agent/v1/knowledge — role check', () => {
   it('returns 403 when user is not org.admin', async () => {
     await withTestDb(dbEnv(), async ({ databaseUrl }) => {
       resetCoreDb();
@@ -100,7 +100,7 @@ describe('GET /api/copilot/v1/knowledge — role check', () => {
           roles: ['org.member'],
         });
         const app = buildTestApp(session);
-        const res = await app.request('/api/copilot/v1/knowledge');
+        const res = await app.request('/api/agent/v1/knowledge');
         expect(res.status).toBe(403);
         const body = (await res.json()) as { error: string };
         expect(body.error).toBe('FORBIDDEN');
@@ -113,7 +113,7 @@ describe('GET /api/copilot/v1/knowledge — role check', () => {
   });
 });
 
-describe('POST /api/copilot/v1/knowledge/upload-url', () => {
+describe('POST /api/agent/v1/knowledge/upload-url', () => {
   it('returns 200 with upload_url and file_id on valid input', async () => {
     await withTestDb(dbEnv(), async ({ pool, databaseUrl }) => {
       resetCoreDb();
@@ -129,7 +129,7 @@ describe('POST /api/copilot/v1/knowledge/upload-url', () => {
         });
         const app = buildTestApp(session);
 
-        const res = await app.request('/api/copilot/v1/knowledge/upload-url', {
+        const res = await app.request('/api/agent/v1/knowledge/upload-url', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
@@ -170,7 +170,7 @@ describe('POST /api/copilot/v1/knowledge/upload-url', () => {
           roles: ['org.member'],
         });
         const app = buildTestApp(session);
-        const res = await app.request('/api/copilot/v1/knowledge/upload-url', {
+        const res = await app.request('/api/agent/v1/knowledge/upload-url', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ filename: 'x.pdf', mime_type: 'application/pdf', size_bytes: 1 }),
@@ -185,7 +185,7 @@ describe('POST /api/copilot/v1/knowledge/upload-url', () => {
   });
 });
 
-describe('POST /api/copilot/v1/knowledge/:id/processed', () => {
+describe('POST /api/agent/v1/knowledge/:id/processed', () => {
   it('returns 200 after flipping status to parsing', async () => {
     await withTestDb(dbEnv(), async ({ pool, databaseUrl }) => {
       resetCoreDb();
@@ -217,7 +217,7 @@ describe('POST /api/copilot/v1/knowledge/:id/processed', () => {
         );
 
         const app = buildTestApp(session);
-        const res = await app.request(`/api/copilot/v1/knowledge/${uploaded.file_id}/processed`, {
+        const res = await app.request(`/api/agent/v1/knowledge/${uploaded.file_id}/processed`, {
           method: 'POST',
         });
         expect(res.status).toBe(200);
@@ -232,7 +232,7 @@ describe('POST /api/copilot/v1/knowledge/:id/processed', () => {
   });
 });
 
-describe('GET /api/copilot/v1/knowledge', () => {
+describe('GET /api/agent/v1/knowledge', () => {
   it('returns files array for admin', async () => {
     await withTestDb(dbEnv(), async ({ pool, databaseUrl }) => {
       resetCoreDb();
@@ -263,7 +263,7 @@ describe('GET /api/copilot/v1/knowledge', () => {
         );
 
         const app = buildTestApp(session);
-        const res = await app.request('/api/copilot/v1/knowledge');
+        const res = await app.request('/api/agent/v1/knowledge');
         expect(res.status).toBe(200);
         const body = (await res.json()) as { files: unknown[] };
         expect(Array.isArray(body.files)).toBe(true);
@@ -277,7 +277,7 @@ describe('GET /api/copilot/v1/knowledge', () => {
   });
 });
 
-describe('POST /api/copilot/v1/knowledge/:id/processed — bad id', () => {
+describe('POST /api/agent/v1/knowledge/:id/processed — bad id', () => {
   it('returns 400 when :id is not numeric', async () => {
     await withTestDb(dbEnv(), async ({ databaseUrl }) => {
       resetCoreDb();
@@ -291,7 +291,7 @@ describe('POST /api/copilot/v1/knowledge/:id/processed — bad id', () => {
           display_name: 'Admin',
         });
         const app = buildTestApp(session);
-        const res = await app.request('/api/copilot/v1/knowledge/foo/processed', {
+        const res = await app.request('/api/agent/v1/knowledge/foo/processed', {
           method: 'POST',
         });
         expect(res.status).toBe(400);
@@ -306,7 +306,7 @@ describe('POST /api/copilot/v1/knowledge/:id/processed — bad id', () => {
   });
 });
 
-describe('DELETE /api/copilot/v1/knowledge/:id — bad id', () => {
+describe('DELETE /api/agent/v1/knowledge/:id — bad id', () => {
   it('returns 400 when :id is not numeric', async () => {
     await withTestDb(dbEnv(), async ({ databaseUrl }) => {
       resetCoreDb();
@@ -320,7 +320,7 @@ describe('DELETE /api/copilot/v1/knowledge/:id — bad id', () => {
           display_name: 'Admin',
         });
         const app = buildTestApp(session);
-        const res = await app.request('/api/copilot/v1/knowledge/foo', { method: 'DELETE' });
+        const res = await app.request('/api/agent/v1/knowledge/foo', { method: 'DELETE' });
         expect(res.status).toBe(400);
         const body = (await res.json()) as { error: string };
         expect(body.error).toBe('invalid_id');
@@ -333,7 +333,7 @@ describe('DELETE /api/copilot/v1/knowledge/:id — bad id', () => {
   });
 });
 
-describe('DELETE /api/copilot/v1/knowledge/:id', () => {
+describe('DELETE /api/agent/v1/knowledge/:id', () => {
   it('returns 200 after deleting a file row', async () => {
     await withTestDb(dbEnv(), async ({ pool, databaseUrl }) => {
       resetCoreDb();
@@ -364,7 +364,7 @@ describe('DELETE /api/copilot/v1/knowledge/:id', () => {
         );
 
         const app = buildTestApp(session);
-        const res = await app.request(`/api/copilot/v1/knowledge/${uploaded.file_id}`, {
+        const res = await app.request(`/api/agent/v1/knowledge/${uploaded.file_id}`, {
           method: 'DELETE',
         });
         expect(res.status).toBe(200);
@@ -392,7 +392,7 @@ describe('DELETE /api/copilot/v1/knowledge/:id', () => {
           roles: ['org.member'],
         });
         const app = buildTestApp(session);
-        const res = await app.request(`/api/copilot/v1/knowledge/42`, { method: 'DELETE' });
+        const res = await app.request(`/api/agent/v1/knowledge/42`, { method: 'DELETE' });
         expect(res.status).toBe(403);
       } finally {
         resetCoreDb();

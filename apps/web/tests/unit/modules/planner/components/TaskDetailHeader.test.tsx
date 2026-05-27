@@ -9,7 +9,7 @@ const baseProps = {
   bucketName: 'In progress',
   titleSlot: <h1>Wire telemetry plumbing</h1>,
   onBack: vi.fn(),
-  onAskCopilot: vi.fn(),
+  onAskAgent: vi.fn(),
   onCopyLink: vi.fn(),
   onPrevious: vi.fn(),
   onNext: vi.fn(),
@@ -30,9 +30,9 @@ describe('TaskDetailHeader', () => {
     expect(screen.queryByText(/Last updated/)).not.toBeInTheDocument();
   });
 
-  it('renders the Ask copilot, Copy link, and prev/next action group', () => {
+  it('renders the Ask agent, Copy link, and prev/next action group', () => {
     render(<TaskDetailHeader {...baseProps} />);
-    expect(screen.getByRole('button', { name: /Ask copilot/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Ask agent/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Copy link/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Previous task/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Next task/i })).toBeInTheDocument();

@@ -22,12 +22,11 @@ test('Suggest button posts to REST and surfaces the run via the inbox toast', as
   // Capture the workflow-start POST so we can assert the contract.
   const startReq = page.waitForRequest(
     (r) =>
-      r.url().endsWith('/api/copilot/v1/workflows/runs/assignBySkill/start') &&
-      r.method() === 'POST',
+      r.url().endsWith('/api/agent/v1/workflows/runs/assignBySkill/start') && r.method() === 'POST',
   );
   const startResp = page.waitForResponse(
     (r) =>
-      r.url().endsWith('/api/copilot/v1/workflows/runs/assignBySkill/start') &&
+      r.url().endsWith('/api/agent/v1/workflows/runs/assignBySkill/start') &&
       r.request().method() === 'POST',
   );
 
@@ -45,7 +44,7 @@ test('Suggest button posts to REST and surfaces the run via the inbox toast', as
   const inboxLink = page.getByRole('button', { name: /Open in inbox/i });
   await expect(inboxLink).toBeVisible();
   await inboxLink.click();
-  await page.waitForURL(new RegExp(`/copilot/workflows/runs/${body.runId}`));
+  await page.waitForURL(new RegExp(`/agent/workflows/runs/${body.runId}`));
 });
 
 test('task card shows the in-progress link when a Suggest run is already pending', async ({

@@ -1,4 +1,4 @@
-import type { ApprovalCard, CandidateRow } from '@seta/copilot-sdk';
+import type { ApprovalCard, CandidateRow } from '@seta/agent-sdk';
 import type { CandidateUser } from '../schemas.ts';
 
 export interface SuggestAssigneeInput {

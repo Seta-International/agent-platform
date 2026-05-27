@@ -1,4 +1,4 @@
-import { getPendingAssignRunIdForTask } from '@seta/copilot-sdk';
+import { getPendingAssignRunIdForTask } from '@seta/agent-sdk';
 import type { SessionEnv } from '@seta/core';
 import type { Hono } from 'hono';
 import { z } from 'zod';

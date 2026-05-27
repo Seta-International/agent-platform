@@ -1,4 +1,4 @@
-import { CopilotRegistry, type CrossModuleReadToolSpec } from '@seta/copilot-sdk';
+import { AgentRegistry, type CrossModuleReadToolSpec } from '@seta/agent-sdk';
 import { hashRoleSummary, type SessionScope } from '@seta/core';
 import { createUser } from '@seta/identity';
 import { createTestTenantWithAdmin } from '@seta/identity/testing';
@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { candidatePool } from '../../../../src/backend/workflows/assign-by-skill/steps/candidate-pool.ts';
 import { loadTask } from '../../../../src/backend/workflows/assign-by-skill/steps/load-task.ts';
-import { withCopilotTestDb } from '../../agent-tools-helpers.ts';
+import { withAgentTestDb } from '../../agent-tools-helpers.ts';
 
 function adminSession(opts: { tenant_id: string; user_id: string; email: string }): SessionScope {
   const role_summary = { roles: ['org.admin'], cross_tenant_read: false };
@@ -64,19 +64,19 @@ function registerFakeVectorTool(
     availableTo: 'all-specialists',
     execute: async () => ({ hits: [...hitsByQuery] }),
   };
-  CopilotRegistry.registerCrossModuleReadTool(spec);
+  AgentRegistry.registerCrossModuleReadTool(spec);
 }
 
 describe('loadTask + candidatePool', () => {
   beforeEach(() => {
-    CopilotRegistry.__resetForTests();
+    AgentRegistry.__resetForTests();
   });
   afterEach(() => {
-    CopilotRegistry.__resetForTests();
+    AgentRegistry.__resetForTests();
   });
 
   it('loadTask returns title, description, skill_tags', async () => {
-    await withCopilotTestDb(async ({ pool }) => {
+    await withAgentTestDb(async ({ pool }) => {
       const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
       const session = adminSession({
         tenant_id,
@@ -103,7 +103,7 @@ describe('loadTask + candidatePool', () => {
   });
 
   it('candidatePool merges SQL exact-overlap and vector hits by userId', async () => {
-    await withCopilotTestDb(async ({ pool }) => {
+    await withAgentTestDb(async ({ pool }) => {
       const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
       const session = adminSession({
         tenant_id,
@@ -138,7 +138,7 @@ describe('loadTask + candidatePool', () => {
         { userId: aliceId, score: 0.85 },
         { userId: bobId, score: 0.72 },
       ]);
-      CopilotRegistry.freeze();
+      AgentRegistry.freeze();
 
       const group = await createGroup({ tenant_id, name: 'G', session });
       const plan = await createPlan({ group_id: group.id, name: 'P', session });
@@ -173,7 +173,7 @@ describe('loadTask + candidatePool', () => {
   });
 
   it('excludes deactivated and OOO users from SQL branch', async () => {
-    await withCopilotTestDb(async ({ pool }) => {
+    await withAgentTestDb(async ({ pool }) => {
       const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
       const session = adminSession({
         tenant_id,
@@ -206,7 +206,7 @@ describe('loadTask + candidatePool', () => {
         [ooo],
       );
 
-      CopilotRegistry.freeze();
+      AgentRegistry.freeze();
 
       const group = await createGroup({ tenant_id, name: 'G', session });
       const plan = await createPlan({ group_id: group.id, name: 'P', session });
@@ -231,7 +231,7 @@ describe('loadTask + candidatePool', () => {
   });
 
   it('returns [] when no skill_tags and no vector tool registered', async () => {
-    await withCopilotTestDb(async ({ pool }) => {
+    await withAgentTestDb(async ({ pool }) => {
       const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
       const session = adminSession({
         tenant_id,
@@ -240,7 +240,7 @@ describe('loadTask + candidatePool', () => {
       });
       await seedProjection(pool, tenant_id, admin_user_id, 'Admin', 'admin@d.local');
 
-      CopilotRegistry.freeze();
+      AgentRegistry.freeze();
 
       const group = await createGroup({ tenant_id, name: 'G', session });
       const plan = await createPlan({ group_id: group.id, name: 'P', session });

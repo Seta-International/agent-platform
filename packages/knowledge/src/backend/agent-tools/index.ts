@@ -1,4 +1,4 @@
-import { actorFromContext, type CopilotTool, defineCopilotTool } from '@seta/copilot-sdk';
+import { type AgentTool, actorFromContext, defineAgentTool } from '@seta/agent-sdk';
 import { buildActorSession } from '@seta/identity';
 import { getPool } from '@seta/shared-db';
 import { resolveReranker } from '@seta/shared-retrieval';
@@ -28,7 +28,7 @@ const outputSchema = z.object({
   reranker: z.enum(['cohere', 'llm-judge', 'noop', 'fallback']),
 });
 
-export const searchTenantKnowledgeAgentTool = defineCopilotTool({
+export const searchTenantKnowledgeAgentTool = defineAgentTool({
   id: 'knowledge.search-tenant-knowledge',
   name: 'Search Knowledge',
   description:
@@ -70,4 +70,4 @@ export const searchTenantKnowledgeAgentTool = defineCopilotTool({
   },
 });
 
-export const knowledgeAgentTools: CopilotTool[] = [searchTenantKnowledgeAgentTool];
+export const knowledgeAgentTools: AgentTool[] = [searchTenantKnowledgeAgentTool];

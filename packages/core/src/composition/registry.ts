@@ -1,9 +1,9 @@
 import type {
+  AgentTool,
   AgentToolFactory,
-  CopilotTool,
   SubscriberBuilder,
   WorkflowContribution,
-} from '@seta/copilot-sdk';
+} from '@seta/agent-sdk';
 import type { SubscriberDef } from '@seta/shared-types';
 import type { Task, TaskList } from 'graphile-worker';
 import type { Hono } from 'hono';
@@ -62,7 +62,7 @@ export interface ModuleContribution {
   rbac?: Record<string, string>;
   subscribers?: SubscriberDef[];
   /**
-   * Deferred-construction subscribers — invoked by the copilot engine post-Mastra
+   * Deferred-construction subscribers — invoked by the agent engine post-Mastra
    * build so the resulting `SubscriberDef`s can hold a Mastra reference. Engine
    * merges them into the runtime's dispatcher list alongside `subscribers`.
    */
@@ -71,10 +71,10 @@ export interface ModuleContribution {
   crontab?: string;
   routes?: RouteContribution;
   stream?: StreamHubBuilder;
-  agentTools?: CopilotTool[];
+  agentTools?: AgentTool[];
   /**
    * Tools whose construction requires shared runtime deps (embedding provider,
-   * pg pool, reranker). Copilot instantiates each factory once with those deps
+   * pg pool, reranker). Agent instantiates each factory once with those deps
    * and merges the resulting tool into the agent-tool pool.
    */
   agentToolFactories?: AgentToolFactory[];
@@ -93,7 +93,7 @@ export interface ContributionRegistry {
     crontabs: ReadonlyArray<{ module: string; crontab: string }>;
     routes: ReadonlyArray<{ module: string; mountAt: string; build: RouteContribution['build'] }>;
     streamHubBuilders: ReadonlyArray<{ module: string; builder: StreamHubBuilder }>;
-    agentTools: ReadonlyArray<CopilotTool>;
+    agentTools: ReadonlyArray<AgentTool>;
     agentToolFactories: ReadonlyArray<{ module: string; factory: AgentToolFactory }>;
     agentSpecs: ReadonlyArray<AgentSpec>;
     workflowContributions: ReadonlyArray<{ module: string; contribution: WorkflowContribution }>;
@@ -112,7 +112,7 @@ export function createContributionRegistry(): ContributionRegistry {
   const crontabs: { module: string; crontab: string }[] = [];
   const routes: { module: string; mountAt: string; build: RouteContribution['build'] }[] = [];
   const streamHubBuilders: { module: string; builder: StreamHubBuilder }[] = [];
-  const agentTools: CopilotTool[] = [];
+  const agentTools: AgentTool[] = [];
   const agentToolFactories: { module: string; factory: AgentToolFactory }[] = [];
   const agentSpecs: AgentSpec[] = [];
   const workflowContributions: { module: string; contribution: WorkflowContribution }[] = [];

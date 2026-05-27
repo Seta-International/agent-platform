@@ -1,4 +1,4 @@
-import type { ApprovalCard, CandidateRow } from '@seta/copilot-sdk';
+import type { ApprovalCard, CandidateRow } from '@seta/agent-sdk';
 import type { Candidate, Classification, TaskDraft } from '../schemas.ts';
 
 export interface ConfirmNotDuplicateInput {

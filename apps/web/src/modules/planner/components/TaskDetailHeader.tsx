@@ -24,7 +24,7 @@ interface Props {
   /** Editable title slot (TaskTitleEditor) — rendered prominently below the breadcrumb. */
   titleSlot: ReactNode;
   onBack: () => void;
-  onAskCopilot: () => void;
+  onAskAgent: () => void;
   onCopyLink: () => void;
   onPrevious: () => void;
   onNext: () => void;
@@ -48,7 +48,7 @@ export function TaskDetailHeader({
   bucketName,
   titleSlot,
   onBack,
-  onAskCopilot,
+  onAskAgent,
   onCopyLink,
   onPrevious,
   onNext,
@@ -108,9 +108,9 @@ export function TaskDetailHeader({
         <div className="min-w-0 flex-1">{titleSlot}</div>
 
         <div className="flex items-center gap-2">
-          <Button size="sm" variant="secondary" onClick={onAskCopilot}>
+          <Button size="sm" variant="secondary" onClick={onAskAgent}>
             <Sparkles className="size-3" />
-            Ask copilot
+            Ask agent
           </Button>
           <Button size="sm" variant="secondary" onClick={onCopyLink}>
             <Copy className="size-3" />

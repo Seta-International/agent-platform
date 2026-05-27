@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { knowledgeApi } from '../api/client';
 
 export const knowledgeQueryKeys = {
-  list: () => ['copilot', 'knowledge', 'list'] as const,
+  list: () => ['agent', 'knowledge', 'list'] as const,
 };
 
 export function useKnowledgeFiles() {

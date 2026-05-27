@@ -141,7 +141,7 @@ describe('rpc shim — public surface', () => {
     expect(reg.isLocal('identity')).toBe(true);
     expect(reg.isLocal('planner')).toBe(false);
     expect(reg.getPeerUrl('planner')).toBe('http://planner:4001');
-    expect(() => reg.requireRoute('copilot')).toThrow(/copilot/);
+    expect(() => reg.requireRoute('agent')).toThrow(/agent/);
   });
 
   it('createModuleClient — in-proc path runs handler', async () => {

@@ -4,7 +4,7 @@ import { createTestTenantWithAdmin } from '@seta/identity/testing';
 import { assignTask, createGroup, createPlan, createTask } from '@seta/planner';
 import { describe, expect, it } from 'vitest';
 import { plannerGetOpenTaskCountSpec } from '../../../src/backend/agent-tools/get-open-task-count.ts';
-import { withCopilotTestDb } from '../agent-tools-helpers.ts';
+import { withAgentTestDb } from '../agent-tools-helpers.ts';
 
 function buildAdminSession(opts: {
   tenant_id: string;
@@ -45,7 +45,7 @@ async function seedProjection(
 
 describe('planner_getOpenTaskCountForUser cross-module read', () => {
   it('returns count of open tasks (percent_complete < 100, not deleted) assigned to user', async () => {
-    await withCopilotTestDb(async ({ pool }) => {
+    await withAgentTestDb(async ({ pool }) => {
       const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
       const session = buildAdminSession({
         tenant_id,
@@ -101,7 +101,7 @@ describe('planner_getOpenTaskCountForUser cross-module read', () => {
   });
 
   it('is tenant-scoped: ignores tasks from another tenant for the same user_id', async () => {
-    await withCopilotTestDb(async ({ pool }) => {
+    await withAgentTestDb(async ({ pool }) => {
       const tenantA = await createTestTenantWithAdmin({ pool, slug: 'tenant-a' });
       const tenantB = await createTestTenantWithAdmin({ pool, slug: 'tenant-b' });
       const sessionA = buildAdminSession({

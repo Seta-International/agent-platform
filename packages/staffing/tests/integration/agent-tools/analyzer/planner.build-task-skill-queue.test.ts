@@ -1,4 +1,4 @@
-import { requiredPermissionFor } from '@seta/copilot-sdk';
+import { requiredPermissionFor } from '@seta/agent-sdk';
 import { describe, expect, it, vi } from 'vitest';
 import { makePlannerBuildTaskSkillQueueTool } from '../../../../src/backend/agent-tools/analyzer/planner.build-task-skill-queue.ts';
 import { makeToolContext } from '../../../helpers.ts';

@@ -7,7 +7,7 @@ export const boundariesConfig: Linter.Config[] = [
     settings: {
       'boundaries/elements': [
         { type: 'app', pattern: 'apps/*' },
-        { type: 'module', pattern: 'packages/{core,identity,planner,copilot,integrations}/*' },
+        { type: 'module', pattern: 'packages/{core,identity,planner,agent,integrations}/*' },
         { type: 'shared', pattern: 'packages/shared-*' },
         { type: 'sdk', pattern: 'sdks/*' },
       ],

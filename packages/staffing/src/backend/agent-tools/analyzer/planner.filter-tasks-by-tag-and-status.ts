@@ -1,4 +1,4 @@
-import { actorFromContext, defineCopilotTool } from '@seta/copilot-sdk';
+import { actorFromContext, defineAgentTool } from '@seta/agent-sdk';
 import { z } from 'zod';
 
 export type FilteredTask = {
@@ -50,7 +50,7 @@ export type FilterTasksDeps = {
 // ──────────────────────────────────────────────────────────────────────────────
 
 export function makePlannerFilterTasksByTagAndStatusTool(deps: FilterTasksDeps) {
-  return defineCopilotTool({
+  return defineAgentTool({
     id: 'planner_filterTasksByTagAndStatus',
     name: 'Filter Tasks By Tag',
     description: `

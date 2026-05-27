@@ -1,4 +1,4 @@
-import { actorFromContext, defineCopilotTool } from '@seta/copilot-sdk';
+import { actorFromContext, defineAgentTool } from '@seta/agent-sdk';
 import { z } from 'zod';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -40,7 +40,7 @@ export type CheckInProgressTasksDeps = {
 // ──────────────────────────────────────────────────────────────────────────────
 
 export function makeAvaiCheckerCheckInProgressTasksTool(deps: CheckInProgressTasksDeps) {
-  return defineCopilotTool({
+  return defineAgentTool({
     id: 'avaiChecker_checkInProgressTasks',
     name: 'Check In-Progress Tasks',
     description: `

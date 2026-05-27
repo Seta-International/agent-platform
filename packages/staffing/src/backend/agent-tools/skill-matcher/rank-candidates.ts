@@ -1,4 +1,4 @@
-import { actorFromContext, defineCopilotTool } from '@seta/copilot-sdk';
+import { actorFromContext, defineAgentTool } from '@seta/agent-sdk';
 import { z } from 'zod';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -46,7 +46,7 @@ export type RankCandidatesDeps = {
 // ──────────────────────────────────────────────────────────────────────────────
 
 export function makeSkillMatcherRankCandidatesTool(deps: RankCandidatesDeps) {
-  return defineCopilotTool({
+  return defineAgentTool({
     id: 'skillMatcher_rankCandidates',
     name: 'Rank Skill Candidates',
     description: `

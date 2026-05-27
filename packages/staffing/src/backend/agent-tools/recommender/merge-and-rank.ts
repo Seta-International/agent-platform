@@ -1,4 +1,4 @@
-import { defineCopilotTool } from '@seta/copilot-sdk';
+import { defineAgentTool } from '@seta/agent-sdk';
 import { z } from 'zod';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -42,7 +42,7 @@ const STATUS_PRIORITY: Record<string, number> = {
 // missing side (graceful degradation when sets don't fully overlap).
 // ──────────────────────────────────────────────────────────────────────────────
 
-export const recommenderMergeAndRankTool = defineCopilotTool({
+export const recommenderMergeAndRankTool = defineAgentTool({
   id: 'recommender_mergeAndRank',
   name: 'Merge And Rank Candidates',
   description: `

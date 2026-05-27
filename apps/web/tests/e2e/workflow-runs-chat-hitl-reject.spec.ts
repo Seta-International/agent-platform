@@ -23,7 +23,7 @@ test('chat-embedded HITL: ask supervisor → approval card appears in thread →
   const taskId = await page.getAttribute('[data-task-id]', 'data-task-id');
   expect(taskId).toBeTruthy();
 
-  await page.goto('/copilot/chat');
+  await page.goto('/agent/chat');
   await page.getByPlaceholder(/Ask anything|Message/).fill(`Find an assignee for task ${taskId}.`);
   await page.keyboard.press('Enter');
 

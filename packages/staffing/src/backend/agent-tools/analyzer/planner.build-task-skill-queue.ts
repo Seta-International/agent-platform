@@ -1,4 +1,4 @@
-import { actorFromContext, defineCopilotTool } from '@seta/copilot-sdk';
+import { actorFromContext, defineAgentTool } from '@seta/agent-sdk';
 import { z } from 'zod';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -50,7 +50,7 @@ export type BuildTaskSkillQueueDeps = {
 // ──────────────────────────────────────────────────────────────────────────────
 
 export function makePlannerBuildTaskSkillQueueTool(deps: BuildTaskSkillQueueDeps) {
-  return defineCopilotTool({
+  return defineAgentTool({
     id: 'planner_buildTaskSkillQueue',
     name: 'Build Task Skill Queue',
     description: `

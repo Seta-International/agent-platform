@@ -1,14 +1,10 @@
-import {
-  actorFromContext,
-  defineCopilotTool,
-  getPendingAssignRunIdForTask,
-} from '@seta/copilot-sdk';
+import { actorFromContext, defineAgentTool, getPendingAssignRunIdForTask } from '@seta/agent-sdk';
 import { buildActorSession } from '@seta/identity';
 import { z } from 'zod';
 import { getPlan } from '../domain/get-plan.ts';
 import { getTask } from '../domain/get-task.ts';
 
-export const plannerGetTaskTool = defineCopilotTool({
+export const plannerGetTaskTool = defineAgentTool({
   id: 'planner_getTask',
   name: 'Look Up Task',
   description: 'Get a task by ID with its assignees, labels, and checklist summary.',

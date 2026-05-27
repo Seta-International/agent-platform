@@ -12,7 +12,7 @@ interface Props {
 
 /**
  * Out-of-chat trigger for the assignBySkill workflow (spec §4.2).
- * POSTs to /api/copilot/v1/workflows/runs/assignBySkill/start and surfaces
+ * POSTs to /api/agent/v1/workflows/runs/assignBySkill/start and surfaces
  * the run via the workflow-approvals inbox — never via the chat panel.
  *
  * When a run is already pending for this task (spec §5.8), renders a deep
@@ -25,7 +25,7 @@ export function SuggestAssigneeButton({ taskId, taskTitle, pendingAssignWorkflow
   if (pendingAssignWorkflowRunId) {
     return (
       <Link
-        to="/copilot/workflows/runs/$runId"
+        to="/agent/workflows/runs/$runId"
         params={{ runId: pendingAssignWorkflowRunId }}
         aria-label="View pending Suggest run"
         data-testid="suggest-in-progress-link"
@@ -46,7 +46,7 @@ export function SuggestAssigneeButton({ taskId, taskTitle, pendingAssignWorkflow
           action: {
             label: 'Open in inbox',
             onClick: () => {
-              void navigate({ to: '/copilot/workflows/runs/$runId', params: { runId } });
+              void navigate({ to: '/agent/workflows/runs/$runId', params: { runId } });
             },
           },
         });

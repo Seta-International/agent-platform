@@ -1,4 +1,4 @@
-import type { CopilotTool } from '@seta/copilot-sdk';
+import type { AgentTool } from '@seta/agent-sdk';
 import { plannerAssignTaskTool } from './assign-task.ts';
 import { plannerGetTaskTool } from './get-task.ts';
 import { plannerListCommentsTool } from './list-comments.ts';
@@ -20,10 +20,10 @@ export { identitySearchUsersBySkillsTool } from './search-users-by-skills.ts';
  * Tools contributed to the agent registry at module-registration time.
  *
  * plannerFindSimilarTasksTool is a factory that needs runtime deps (provider,
- * pool), so it's instantiated by the copilot agent catalog at build time
+ * pool), so it's instantiated by the agent catalog at build time
  * rather than pre-registered here.
  */
-export const plannerAgentTools: CopilotTool[] = [
+export const plannerAgentTools: AgentTool[] = [
   plannerAssignTaskTool,
   plannerGetTaskTool,
   plannerListCommentsTool,

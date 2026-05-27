@@ -1,4 +1,4 @@
-import { actorFromContext, defineCopilotTool } from '@seta/copilot-sdk';
+import { actorFromContext, defineAgentTool } from '@seta/agent-sdk';
 import { z } from 'zod';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -60,7 +60,7 @@ const UserAvailabilityResultSchema = z.object({
 // ──────────────────────────────────────────────────────────────────────────────
 
 export function makeAvaiCheckerBuildAvailabilityQueueTool(deps: BuildAvailabilityQueueDeps) {
-  return defineCopilotTool({
+  return defineAgentTool({
     id: 'avaiChecker_buildAvailabilityQueue',
     name: 'Build Availability Queue',
     description: `

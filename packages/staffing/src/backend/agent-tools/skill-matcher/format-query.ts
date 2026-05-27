@@ -1,4 +1,4 @@
-import { defineCopilotTool } from '@seta/copilot-sdk';
+import { defineAgentTool } from '@seta/agent-sdk';
 import { z } from 'zod';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -14,7 +14,7 @@ import { z } from 'zod';
 export type FormatQueryDeps = Record<string, never>;
 
 export function makeSkillMatcherFormatQueryTool(_deps: FormatQueryDeps = {}) {
-  return defineCopilotTool({
+  return defineAgentTool({
     id: 'skillMatcher_formatQuery',
     name: 'Format Skill Query',
     description: `

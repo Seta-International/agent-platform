@@ -2,9 +2,9 @@ import { AppShell, type ShellLinkProps } from '@seta/shared-ui';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link, Outlet, redirect, useRouterState } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
-import { CopilotProvider, CopilotSidePanel } from '@/modules/copilot';
-import { CopilotMobileSheet } from '@/modules/copilot/chat-experience/copilot-mobile-sheet';
-import { usePanelUI } from '@/modules/copilot/chat-experience/copilot-provider';
+import { AgentProvider, AgentSidePanel } from '@/modules/agent';
+import { AgentMobileSheet } from '@/modules/agent/chat-experience/agent-mobile-sheet';
+import { usePanelUI } from '@/modules/agent/chat-experience/agent-provider';
 import { fetchMe } from '@/modules/identity/api/client.ts';
 import { SessionProvider } from '@/modules/identity/components/SessionProvider.tsx';
 import { UserMenu } from '@/modules/identity/components/UserMenu.tsx';
@@ -35,11 +35,11 @@ function AuthedLayout() {
   const { session } = Route.useRouteContext();
   return (
     <SessionProvider session={session}>
-      <CopilotProvider>
+      <AgentProvider>
         <ShellWithPanel>
           <Outlet />
         </ShellWithPanel>
-      </CopilotProvider>
+      </AgentProvider>
     </SessionProvider>
   );
 }
@@ -74,13 +74,13 @@ function ShellWithPanel({ children }: { children: React.ReactNode }) {
         activeItemId={activeId}
         linkComponent={ShellLink}
         userMenu={<UserMenu />}
-        hideCopilot={pathname.startsWith('/copilot/')}
+        hideAgent={pathname.startsWith('/agent/')}
         notificationCount={notificationCount}
         onBellClick={() => setDrawerOpen(true)}
-        copilotPanel={<CopilotSidePanel onClose={() => setPanelOpen(false)} />}
-        copilotOpen={panelOpen}
-        onCopilotOpenChange={setPanelOpen}
-        copilotMobileSlot={<CopilotMobileSheet />}
+        agentPanel={<AgentSidePanel onClose={() => setPanelOpen(false)} />}
+        agentOpen={panelOpen}
+        onAgentOpenChange={setPanelOpen}
+        agentMobileSlot={<AgentMobileSheet />}
       >
         {children}
       </AppShell>

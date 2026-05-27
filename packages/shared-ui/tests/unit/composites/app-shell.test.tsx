@@ -8,8 +8,8 @@ import { AppShell } from '../../../src/composites/app-shell';
 
 const MODULES: NavManifest[] = [
   {
-    id: 'copilot',
-    label: 'Copilot',
+    id: 'agent',
+    label: 'Agent',
     icon: Sparkles,
     requiredPermissions: [],
     useNavExtensions: noNavExtensions,
@@ -17,8 +17,8 @@ const MODULES: NavManifest[] = [
       {
         label: 'Workspace',
         items: [
-          { id: 'copilot.chat', icon: Inbox, label: 'Chat', disabled: true },
-          { id: 'copilot.workflows', icon: Workflow, label: 'Workflows', disabled: true },
+          { id: 'agent.chat', icon: Inbox, label: 'Chat', disabled: true },
+          { id: 'agent.workflows', icon: Workflow, label: 'Workflows', disabled: true },
         ],
       },
     ],
@@ -67,10 +67,7 @@ describe('AppShell', () => {
       'aria-expanded',
       'true',
     );
-    expect(screen.getByRole('button', { name: 'Copilot' })).toHaveAttribute(
-      'aria-expanded',
-      'false',
-    );
+    expect(screen.getByRole('button', { name: 'Agent' })).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getByText('Groups')).toBeInTheDocument();
   });
 
@@ -99,31 +96,31 @@ describe('AppShell', () => {
     expect(screen.getByText('Workspace')).toBeInTheDocument();
   });
 
-  it('toggles the copilot panel via the topbar button', async () => {
+  it('toggles the agent panel via the topbar button', async () => {
     const user = userEvent.setup();
     renderShell();
 
-    expect(screen.queryByRole('complementary', { name: /Copilot/i })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /Show copilot panel/i }));
-    expect(screen.getByRole('complementary', { name: /Copilot/i })).toBeInTheDocument();
+    expect(screen.queryByRole('complementary', { name: /Agent/i })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Show agent panel/i }));
+    expect(screen.getByRole('complementary', { name: /Agent/i })).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /Hide copilot panel/i }));
-    expect(screen.queryByRole('complementary', { name: /Copilot/i })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Hide agent panel/i }));
+    expect(screen.queryByRole('complementary', { name: /Agent/i })).not.toBeInTheDocument();
   });
 
-  it('toggles the copilot panel with the ⌘\\ shortcut', async () => {
+  it('toggles the agent panel with the ⌘\\ shortcut', async () => {
     const user = userEvent.setup();
     renderShell();
 
-    expect(screen.queryByRole('complementary', { name: /Copilot/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('complementary', { name: /Agent/i })).not.toBeInTheDocument();
     await user.keyboard('{Meta>}\\{/Meta}');
-    expect(screen.getByRole('complementary', { name: /Copilot/i })).toBeInTheDocument();
+    expect(screen.getByRole('complementary', { name: /Agent/i })).toBeInTheDocument();
     await user.keyboard('{Meta>}\\{/Meta}');
-    expect(screen.queryByRole('complementary', { name: /Copilot/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('complementary', { name: /Agent/i })).not.toBeInTheDocument();
   });
 
   it('renders disabled nav items as non-link spans with a tooltip', () => {
-    renderShell('copilot.chat');
+    renderShell('agent.chat');
     const chat = screen.getByText('Chat').closest('span[aria-disabled]');
     expect(chat).toHaveAttribute('aria-disabled', 'true');
     expect(chat).toHaveAttribute('title', 'Coming soon');

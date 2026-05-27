@@ -1,4 +1,4 @@
-import { actorFromContext, defineCopilotTool } from '@seta/copilot-sdk';
+import { actorFromContext, defineAgentTool } from '@seta/agent-sdk';
 import { z } from 'zod';
 import { whoAmI } from '../domain/who-am-i.ts';
 
@@ -17,7 +17,7 @@ const outputSchema = z.object({
   deactivated_at: z.date().nullable(),
 });
 
-export const whoAmITool = defineCopilotTool({
+export const whoAmITool = defineAgentTool({
   id: 'identity_whoAmI',
   name: 'Look Up My Profile',
   description: "Returns the current user's profile (display name, email, tenant, availability).",

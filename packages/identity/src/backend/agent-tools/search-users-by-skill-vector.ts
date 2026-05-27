@@ -1,5 +1,5 @@
 import type { PgVector } from '@mastra/pg';
-import type { CrossModuleReadToolSpec } from '@seta/copilot-sdk';
+import type { CrossModuleReadToolSpec } from '@seta/agent-sdk';
 import type { EmbeddingProvider } from '@seta/shared-embeddings';
 import { z } from 'zod';
 import { matchUsersToTopic } from '../domain/match-users-to-topic.ts';

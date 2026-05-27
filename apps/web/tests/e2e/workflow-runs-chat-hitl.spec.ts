@@ -24,7 +24,7 @@ test('chat-embedded HITL: ask supervisor → approval card appears in thread →
   expect(taskId).toBeTruthy();
 
   // Ask the supervisor to find an assignee.
-  await page.goto('/copilot/chat');
+  await page.goto('/agent/chat');
   await page.getByPlaceholder(/Ask anything|Message/).fill(`Find an assignee for task ${taskId}.`);
   await page.keyboard.press('Enter');
 
@@ -48,6 +48,6 @@ test('chat-embedded HITL only renders for the current thread', async ({ page }) 
   await page.click('button[type=submit]');
 
   // Open a different thread (any other existing thread).
-  await page.goto('/copilot/chat?thread=other-thread-id');
+  await page.goto('/agent/chat?thread=other-thread-id');
   await expect(page.getByRole('region', { name: /approval needed/i })).toHaveCount(0);
 });

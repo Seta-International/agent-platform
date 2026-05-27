@@ -3,7 +3,7 @@ import * as React from 'react';
 
 import { cn } from '../lib/cn';
 import { Sheet, SheetContent } from '../primitives/sheet';
-import { CopilotPanel } from './copilot-panel';
+import { AgentPanel } from './agent-panel';
 import { LeftNav, type ShellLinkComponent } from './left-nav';
 import { TopBar } from './top-bar';
 
@@ -19,15 +19,15 @@ export interface AppShellProps {
   sessionFooter?: React.ReactNode;
   defaultSidebarCollapsed?: boolean;
 
-  copilotPanel?: React.ReactNode;
-  copilotAlert?: boolean;
-  defaultCopilotOpen?: boolean;
-  /** When provided, AppShell becomes controlled for the copilot panel. */
-  copilotOpen?: boolean;
-  onCopilotOpenChange?: (open: boolean) => void;
+  agentPanel?: React.ReactNode;
+  agentAlert?: boolean;
+  defaultAgentOpen?: boolean;
+  /** When provided, AppShell becomes controlled for the agent panel. */
+  agentOpen?: boolean;
+  onAgentOpenChange?: (open: boolean) => void;
   /** Slot rendered outside the desktop aside, used by the mobile FAB. */
-  copilotMobileSlot?: React.ReactNode;
-  hideCopilot?: boolean;
+  agentMobileSlot?: React.ReactNode;
+  hideAgent?: boolean;
   notificationCount?: number;
   onBellClick?: () => void;
 
@@ -45,27 +45,27 @@ export function AppShell({
   linkComponent,
   sessionFooter,
   defaultSidebarCollapsed = false,
-  copilotPanel,
-  copilotAlert = false,
-  defaultCopilotOpen = false,
-  copilotOpen: controlledCopilotOpen,
-  onCopilotOpenChange,
-  copilotMobileSlot,
-  hideCopilot = false,
+  agentPanel,
+  agentAlert = false,
+  defaultAgentOpen = false,
+  agentOpen: controlledAgentOpen,
+  onAgentOpenChange,
+  agentMobileSlot,
+  hideAgent = false,
   notificationCount = 0,
   onBellClick,
   children,
   className,
 }: AppShellProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(defaultSidebarCollapsed);
-  const [internalCopilotOpen, setInternalCopilotOpen] = React.useState(defaultCopilotOpen);
-  const copilotOpen = controlledCopilotOpen ?? internalCopilotOpen;
-  const setCopilotOpen = React.useCallback(
+  const [internalAgentOpen, setInternalAgentOpen] = React.useState(defaultAgentOpen);
+  const agentOpen = controlledAgentOpen ?? internalAgentOpen;
+  const setAgentOpen = React.useCallback(
     (next: boolean) => {
-      if (controlledCopilotOpen === undefined) setInternalCopilotOpen(next);
-      onCopilotOpenChange?.(next);
+      if (controlledAgentOpen === undefined) setInternalAgentOpen(next);
+      onAgentOpenChange?.(next);
     },
-    [controlledCopilotOpen, onCopilotOpenChange],
+    [controlledAgentOpen, onAgentOpenChange],
   );
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
 
@@ -74,9 +74,9 @@ export function AppShell({
       const mod = e.metaKey || e.ctrlKey;
       if (!mod) return;
       if (e.key === '\\') {
-        if (hideCopilot) return;
+        if (hideAgent) return;
         e.preventDefault();
-        setCopilotOpen(!copilotOpen);
+        setAgentOpen(!agentOpen);
       } else if (e.key === 'b' || e.key === 'B') {
         if (e.shiftKey) return;
         e.preventDefault();
@@ -85,7 +85,7 @@ export function AppShell({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [hideCopilot, copilotOpen, setCopilotOpen]);
+  }, [hideAgent, agentOpen, setAgentOpen]);
 
   return (
     <div
@@ -99,10 +99,10 @@ export function AppShell({
         onWorkspaceClick={onWorkspaceClick}
         userMenu={userMenu}
         onSearchOpen={onSearchOpen}
-        copilotOpen={copilotOpen}
-        copilotAlert={copilotAlert}
-        onCopilotToggle={() => setCopilotOpen(!copilotOpen)}
-        hideCopilotButton={hideCopilot}
+        agentOpen={agentOpen}
+        agentAlert={agentAlert}
+        onAgentToggle={() => setAgentOpen(!agentOpen)}
+        hideAgentButton={hideAgent}
         notificationCount={notificationCount}
         onBellClick={onBellClick}
         onMobileNavOpen={() => setMobileNavOpen(true)}
@@ -138,9 +138,9 @@ export function AppShell({
         <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto bg-canvas">
           {children}
         </main>
-        {!hideCopilot && copilotOpen && <CopilotPanel>{copilotPanel}</CopilotPanel>}
+        {!hideAgent && agentOpen && <AgentPanel>{agentPanel}</AgentPanel>}
       </div>
-      {copilotMobileSlot}
+      {agentMobileSlot}
     </div>
   );
 }

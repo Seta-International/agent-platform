@@ -29,8 +29,8 @@
   },
   "dependencies": {
     "@mastra/core": "^1.36.0",
-    "@seta/copilot": "workspace:^",
-    "@seta/copilot-sdk": "workspace:^",
+    "@seta/agent": "workspace:^",
+    "@seta/agent-sdk": "workspace:^",
     "@seta/core": "workspace:^",
     "@seta/identity": "workspace:^",
     "@seta/planner": "workspace:^",

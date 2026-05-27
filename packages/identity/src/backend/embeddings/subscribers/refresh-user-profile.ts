@@ -74,7 +74,7 @@ async function enqueueEmbedUserProfile(
 // ── Subscriber definitions ───────────────────────────────────────────────────
 
 export const refreshUserProfileCreatedSubscriber: SubscriberDef = {
-  subscription: 'copilot.embeddings.refresh-user-profile.created',
+  subscription: 'agent.embeddings.refresh-user-profile.created',
   event: 'identity.user.created',
   eventVersion: 1,
   handler: async (event, ctx) => {
@@ -88,7 +88,7 @@ export const refreshUserProfileCreatedSubscriber: SubscriberDef = {
 };
 
 export const refreshUserProfileUpdatedSubscriber: SubscriberDef = {
-  subscription: 'copilot.embeddings.refresh-user-profile.updated',
+  subscription: 'agent.embeddings.refresh-user-profile.updated',
   event: 'identity.user.profile.updated',
   eventVersion: 1,
   handler: async (event, ctx) => {
@@ -104,7 +104,7 @@ export const refreshUserProfileUpdatedSubscriber: SubscriberDef = {
 };
 
 export const refreshUserProfileDeactivatedSubscriber: SubscriberDef = {
-  subscription: 'copilot.embeddings.refresh-user-profile.deactivated',
+  subscription: 'agent.embeddings.refresh-user-profile.deactivated',
   event: 'identity.user.deactivated',
   eventVersion: 1,
   handler: async (event, ctx) => {

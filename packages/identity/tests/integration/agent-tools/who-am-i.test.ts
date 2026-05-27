@@ -1,12 +1,12 @@
-import { requiredPermissionFor } from '@seta/copilot-sdk';
+import { requiredPermissionFor } from '@seta/agent-sdk';
 import { whoAmITool } from '@seta/identity/agent-tools';
 import { createTestTenantWithAdmin } from '@seta/identity/testing';
 import { describe, expect, it } from 'vitest';
-import { makeToolContext, withCopilotTestDb } from '../../helpers.ts';
+import { makeToolContext, withAgentTestDb } from '../../helpers.ts';
 
 describe('identity_whoAmI tool', () => {
   it("returns the caller's profile", async () => {
-    await withCopilotTestDb(async ({ pool }) => {
+    await withAgentTestDb(async ({ pool }) => {
       const { admin_user_id } = await createTestTenantWithAdmin({ pool });
       const out = (await whoAmITool.execute!({}, makeToolContext({ user_id: admin_user_id }))) as {
         user_id: string;

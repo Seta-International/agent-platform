@@ -1,4 +1,4 @@
-import { defineCopilotTool } from '@seta/copilot-sdk';
+import { defineAgentTool } from '@seta/agent-sdk';
 import { z } from 'zod';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -31,7 +31,7 @@ export type CandidateRaw = {
 // execute() deduplicates by user_id — later entry wins (higher similarity).
 // ──────────────────────────────────────────────────────────────────────────────
 
-export const skillMatcherLlmParserTool = defineCopilotTool({
+export const skillMatcherLlmParserTool = defineAgentTool({
   id: 'skillMatcher_llmParser',
   name: 'Parse Skill Candidates',
   description: `

@@ -1,4 +1,4 @@
-import { CopilotRegistry, type CrossModuleReadToolSpec } from '@seta/copilot-sdk';
+import { AgentRegistry, type CrossModuleReadToolSpec } from '@seta/agent-sdk';
 import { and, eq, gt, isNull, ne, or, sql } from 'drizzle-orm';
 import { plannerDb } from '../../../db/index.ts';
 import { assigneeProjection } from '../../../db/schema.ts';
@@ -29,7 +29,7 @@ interface VectorSearchOutput {
 function findVectorTool():
   | CrossModuleReadToolSpec<VectorSearchInput, VectorSearchOutput>
   | undefined {
-  return CopilotRegistry.listCrossModuleReadTools().find(
+  return AgentRegistry.listCrossModuleReadTools().find(
     (t) => t.id === 'identity_searchUsersBySkillVector',
   ) as CrossModuleReadToolSpec<VectorSearchInput, VectorSearchOutput> | undefined;
 }

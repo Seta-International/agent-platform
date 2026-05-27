@@ -1,13 +1,9 @@
 import { createStep } from '@mastra/core/workflows';
 // Use the evented engine so workflow.start / .suspend / .end land on the
-// `workflows` pubsub topic that copilot's lifecycle hook projects.
+// `workflows` pubsub topic that agent's lifecycle hook projects.
 import { createWorkflow } from '@mastra/core/workflows/evented';
 import type { PgVector } from '@mastra/pg';
-import {
-  ApprovalCardSchema,
-  sessionFromRequestContext,
-  type WorkflowSpec,
-} from '@seta/copilot-sdk';
+import { ApprovalCardSchema, sessionFromRequestContext, type WorkflowSpec } from '@seta/agent-sdk';
 import { buildActorSession } from '@seta/identity';
 import { type EmbeddingProvider, OpenAIEmbeddingProvider } from '@seta/shared-embeddings';
 import { resolveReranker } from '@seta/shared-retrieval';

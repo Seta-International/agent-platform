@@ -1,4 +1,4 @@
-import type { ApprovalCard } from '@seta/copilot-sdk';
+import type { ApprovalCard } from '@seta/agent-sdk';
 import type { SessionScope } from '@seta/core';
 import type { CandidateUser } from './schemas.ts';
 import {
@@ -22,7 +22,7 @@ export const DEFAULT_ASSIGN_WEIGHTS: RankWeights = {
 };
 
 export interface AssignBySkillDeps extends CandidatePoolDeps {
-  /** Per-tenant scoring weights; defaults match copilot.tenant_settings DEFAULT_TENANT_SETTINGS. */
+  /** Per-tenant scoring weights; defaults match agent.tenant_settings DEFAULT_TENANT_SETTINGS. */
   weights?: RankWeights;
 }
 

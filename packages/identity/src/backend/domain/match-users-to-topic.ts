@@ -1,4 +1,4 @@
-// rbac: system-only — called from copilot agent tools and staffing pipelines; tenant scope enforced by caller.
+// rbac: system-only — called from agent tools and staffing pipelines; tenant scope enforced by caller.
 import type { PgVector } from '@mastra/pg';
 import type { EmbeddingProvider } from '@seta/shared-embeddings';
 import { EmbedQueryCache, type RetrievalHit } from '@seta/shared-retrieval';

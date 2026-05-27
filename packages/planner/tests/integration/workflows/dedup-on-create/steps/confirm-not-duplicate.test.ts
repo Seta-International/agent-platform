@@ -1,4 +1,4 @@
-import { ApprovalCardSchema } from '@seta/copilot-sdk';
+import { ApprovalCardSchema } from '@seta/agent-sdk';
 import { describe, expect, it } from 'vitest';
 import { buildConfirmNotDuplicateCard } from '../../../../../src/backend/workflows/dedup-on-create/steps/confirm-not-duplicate.ts';
 

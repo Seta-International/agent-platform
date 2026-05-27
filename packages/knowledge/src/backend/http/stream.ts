@@ -10,7 +10,7 @@ export function registerKnowledgeStreamRoutes(
   app: Hono<SessionEnv>,
   hub: KnowledgeStreamHub,
 ): void {
-  app.get('/api/copilot/v1/knowledge/stream', async (c) => {
+  app.get('/api/agent/v1/knowledge/stream', async (c) => {
     const scope = c.get('user');
     if (!scope.role_summary.roles.includes('org.admin')) {
       throw new IdentityError('FORBIDDEN', 'tenant_admin required');

@@ -45,7 +45,7 @@
     "@mastra/core": "^1.36.0",
     "@mastra/pg": "^1.11.1",
     "@node-rs/argon2": "^2.0.2",
-    "@seta/copilot-sdk": "workspace:^",
+    "@seta/agent-sdk": "workspace:^",
     "@seta/shared-embeddings": "workspace:^",
     "@seta/shared-mailer": "workspace:^",
     "@seta/shared-retrieval": "workspace:^",

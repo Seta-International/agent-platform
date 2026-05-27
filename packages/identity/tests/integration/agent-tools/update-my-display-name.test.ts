@@ -1,14 +1,14 @@
-import { requiredPermissionFor } from '@seta/copilot-sdk';
+import { requiredPermissionFor } from '@seta/agent-sdk';
 import { getUserProfile } from '@seta/identity';
 import { updateMyDisplayNameTool } from '@seta/identity/agent-tools';
 import { createTestTenantWithAdmin } from '@seta/identity/testing';
 import { describe, expect, it } from 'vitest';
-import { makeToolContext, withCopilotTestDb } from '../../helpers.ts';
+import { makeToolContext, withAgentTestDb } from '../../helpers.ts';
 
 describe('identity_updateMyDisplayName tool', () => {
   it('declares requireApproval and persists the new display name on execute', async () => {
     expect((updateMyDisplayNameTool as { requireApproval?: boolean }).requireApproval).toBe(true);
-    await withCopilotTestDb(async ({ pool }) => {
+    await withAgentTestDb(async ({ pool }) => {
       const { admin_user_id } = await createTestTenantWithAdmin({ pool });
       await updateMyDisplayNameTool.execute!(
         { displayName: 'New Name' },

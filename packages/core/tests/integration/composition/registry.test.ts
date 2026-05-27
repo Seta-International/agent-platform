@@ -101,11 +101,11 @@ describe('reg.module', () => {
     const c1 = { build: b1 };
     const c2 = { build: b2 };
     const c3 = { build: b3 };
-    reg.module({ name: 'copilot', schema: {}, migrationsDir: '/a', workflows: [c1, c2] });
+    reg.module({ name: 'agent', schema: {}, migrationsDir: '/a', workflows: [c1, c2] });
     reg.module({ name: 'planner', schema: {}, migrationsDir: '/b', workflows: [c3] });
     expect(reg.collected.workflowContributions).toEqual([
-      { module: 'copilot', contribution: c1 },
-      { module: 'copilot', contribution: c2 },
+      { module: 'agent', contribution: c1 },
+      { module: 'agent', contribution: c2 },
       { module: 'planner', contribution: c3 },
     ]);
   });

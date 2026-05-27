@@ -1,5 +1,5 @@
 import './otel.ts'; // MUST be first; see otel.ts header comment.
-import { registerCopilot } from '@seta/copilot/register';
+import { registerAgent } from '@seta/agent/register';
 import { createContributionRegistry, requestIdStorage } from '@seta/core';
 import { coreDb } from '@seta/core/db';
 import { emit, withEmit } from '@seta/core/events';
@@ -79,17 +79,17 @@ const getMailer = (): import('@seta/shared-mailer').Mailer => {
 };
 
 const outboxStore = createOutboxStore({ db: coreDb() });
-// Build the copilot engine up front so subscriberBuilders contributed by
+// Build the agent engine up front so subscriberBuilders contributed by
 // orchestrator modules (e.g. staffing) can be constructed against the live
 // Mastra instance before the dispatcher starts.
-const copilot = registerCopilot({
+const agent = registerAgent({
   pool: getPool('worker'),
   databaseUrl: env.DATABASE_URL,
   reg,
-  log: log.child({ subsystem: 'copilot' }),
+  log: log.child({ subsystem: 'agent' }),
 });
-const copilotSubscribers = reg.collected.subscriberBuilders.map(({ builder }) =>
-  builder({ mastra: copilot.mastra }),
+const agentSubscribers = reg.collected.subscriberBuilders.map(({ builder }) =>
+  builder({ mastra: agent.mastra }),
 );
 
 const rt = buildRuntime(env, {
@@ -101,7 +101,7 @@ const rt = buildRuntime(env, {
       getMailer,
     }) as import('@seta/shared-types').SubscriberDef,
     revokeSessionsOnDeactivationSubscriber() as import('@seta/shared-types').SubscriberDef,
-    ...copilotSubscribers,
+    ...agentSubscribers,
   ],
   onServerStart: async ({ workers }) => {
     workerHandleRef = workers;
@@ -128,7 +128,7 @@ const rt = buildRuntime(env, {
       readinessSnapshot: () => dispatcher.health(),
       streams,
       corsOrigins: env.CORS_ORIGINS,
-      copilot,
+      agent,
       log: log.child({ subsystem: 'server' }),
     });
     return app;

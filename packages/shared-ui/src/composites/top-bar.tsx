@@ -10,10 +10,10 @@ export interface TopBarProps {
   onWorkspaceClick?: () => void;
   userMenu?: React.ReactNode;
   onSearchOpen?: () => void;
-  copilotOpen?: boolean;
-  copilotAlert?: boolean;
-  onCopilotToggle?: () => void;
-  hideCopilotButton?: boolean;
+  agentOpen?: boolean;
+  agentAlert?: boolean;
+  onAgentToggle?: () => void;
+  hideAgentButton?: boolean;
   notificationCount?: number;
   onBellClick?: () => void;
   onMobileNavOpen?: () => void;
@@ -25,10 +25,10 @@ export function TopBar({
   onWorkspaceClick,
   userMenu,
   onSearchOpen,
-  copilotOpen = false,
-  copilotAlert = false,
-  onCopilotToggle,
-  hideCopilotButton = false,
+  agentOpen = false,
+  agentAlert = false,
+  onAgentToggle,
+  hideAgentButton = false,
   notificationCount = 0,
   onBellClick,
   onMobileNavOpen,
@@ -118,26 +118,26 @@ export function TopBar({
           )}
         </button>
 
-        {!hideCopilotButton && (
+        {!hideAgentButton && (
           <button
             type="button"
-            onClick={onCopilotToggle}
-            aria-pressed={copilotOpen}
-            aria-label={copilotOpen ? 'Hide copilot panel' : 'Show copilot panel'}
-            title={copilotOpen ? 'Hide copilot panel' : 'Show copilot panel'}
+            onClick={onAgentToggle}
+            aria-pressed={agentOpen}
+            aria-label={agentOpen ? 'Hide agent panel' : 'Show agent panel'}
+            title={agentOpen ? 'Hide agent panel' : 'Show agent panel'}
             className={cn(
               'relative inline-flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-body-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus focus-visible:ring-offset-2 focus-visible:ring-offset-canvas',
-              copilotOpen
+              agentOpen
                 ? 'border-primary-border bg-primary-tint text-primary-ink'
                 : 'border-transparent text-ink-muted hover:bg-surface-2 hover:text-ink',
             )}
           >
             <Sparkles
-              className={cn('size-3.5', copilotOpen ? 'text-primary' : 'text-ink-muted')}
+              className={cn('size-3.5', agentOpen ? 'text-primary' : 'text-ink-muted')}
               aria-hidden
             />
-            <span className="hidden sm:inline">Copilot</span>
-            {copilotAlert && (
+            <span className="hidden sm:inline">Agent</span>
+            {agentAlert && (
               <span
                 className="absolute right-1.5 top-1 inline-block size-1.5 rounded-full bg-semantic-warning ring-2 ring-canvas"
                 aria-hidden

@@ -1,4 +1,4 @@
-import { defineCopilotTool } from '@seta/copilot-sdk';
+import { defineAgentTool } from '@seta/agent-sdk';
 import { z } from 'zod';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -43,7 +43,7 @@ const UserInputSchema = z.object({
   in_progress_tasks: z.array(InProgressTaskInputSchema),
 });
 
-export const avaiCheckerRankByAvailabilityTool = defineCopilotTool({
+export const avaiCheckerRankByAvailabilityTool = defineAgentTool({
   id: 'avaiChecker_rankByAvailability',
   name: 'Rank By Availability',
   description: `

@@ -1,5 +1,5 @@
 import { PgVector } from '@mastra/pg';
-import { CopilotRegistry, type CrossModuleReadToolSpec } from '@seta/copilot-sdk';
+import { AgentRegistry, type CrossModuleReadToolSpec } from '@seta/agent-sdk';
 import { hashRoleSummary, type SessionScope } from '@seta/core';
 import { createUser } from '@seta/identity';
 import { createTestTenantWithAdmin } from '@seta/identity/testing';
@@ -19,7 +19,7 @@ import {
   applyAssignDecision,
   runSuggestAssignee,
 } from '../../../../src/backend/workflows/assign-by-skill/workflow.ts';
-import { withCopilotTestDb } from '../../agent-tools-helpers.ts';
+import { withAgentTestDb } from '../../agent-tools-helpers.ts';
 
 function admin(opts: { tenant_id: string; user_id: string; email: string }): SessionScope {
   const role_summary = { roles: ['org.admin'], cross_tenant_read: false };
@@ -74,15 +74,15 @@ function registerFakeVectorTool(hits: ReadonlyArray<{ userId: string; score: num
     availableTo: 'all-specialists',
     execute: async () => ({ hits: [...hits] }),
   };
-  CopilotRegistry.registerCrossModuleReadTool(spec);
+  AgentRegistry.registerCrossModuleReadTool(spec);
 }
 
 describe('runSuggestAssignee + applyAssignDecision', () => {
-  beforeEach(() => CopilotRegistry.__resetForTests());
-  afterEach(() => CopilotRegistry.__resetForTests());
+  beforeEach(() => AgentRegistry.__resetForTests());
+  afterEach(() => AgentRegistry.__resetForTests());
 
   it('end-to-end: builds a ranked card, then assigns on approve', () =>
-    withCopilotTestDb(async ({ pool, databaseUrl }) => {
+    withAgentTestDb(async ({ pool, databaseUrl }) => {
       const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
       const session = admin({ tenant_id, user_id: admin_user_id, email: 'a@d.local' });
       await seedProjection(pool, tenant_id, admin_user_id, 'Admin', 'a@d.local');
@@ -96,8 +96,8 @@ describe('runSuggestAssignee + applyAssignDecision', () => {
       });
 
       registerFakeVectorTool([]);
-      CopilotRegistry.registerCrossModuleReadTool(plannerGetOpenTaskCountSpec);
-      CopilotRegistry.freeze();
+      AgentRegistry.registerCrossModuleReadTool(plannerGetOpenTaskCountSpec);
+      AgentRegistry.freeze();
 
       const group = await createGroup({ tenant_id, name: 'G', session });
       const plan = await createPlan({ group_id: group.id, name: 'P', session });
@@ -162,7 +162,7 @@ describe('runSuggestAssignee + applyAssignDecision', () => {
     }));
 
   it('decision = leave-unassigned does not assign', () =>
-    withCopilotTestDb(async ({ pool }) => {
+    withAgentTestDb(async ({ pool }) => {
       const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
       const session = admin({ tenant_id, user_id: admin_user_id, email: 'a@d.local' });
       const out = await applyAssignDecision(
@@ -181,7 +181,7 @@ describe('runSuggestAssignee + applyAssignDecision', () => {
     }));
 
   it('decision = assign with multiple userIds writes one row per user', () =>
-    withCopilotTestDb(async ({ pool }) => {
+    withAgentTestDb(async ({ pool }) => {
       const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
       const session = admin({ tenant_id, user_id: admin_user_id, email: 'a@d.local' });
       const group = await createGroup({ tenant_id, name: 'G', session });
@@ -226,7 +226,7 @@ describe('runSuggestAssignee + applyAssignDecision', () => {
     }));
 
   it('decision = decline returns declined', () =>
-    withCopilotTestDb(async ({ pool }) => {
+    withAgentTestDb(async ({ pool }) => {
       const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
       const session = admin({ tenant_id, user_id: admin_user_id, email: 'a@d.local' });
       const out = await applyAssignDecision(

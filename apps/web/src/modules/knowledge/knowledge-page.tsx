@@ -17,7 +17,7 @@ export function KnowledgePage() {
       : `${fileCount} ${fileCount === 1 ? 'file' : 'files'}`;
 
   return (
-    <PageChrome breadcrumb={['Copilot']} title="Knowledge" subtitle={subtitle}>
+    <PageChrome breadcrumb={['Agent']} title="Knowledge" subtitle={subtitle}>
       <div className="bg-surface-1 px-4 py-6 pb-10 sm:px-6 min-h-full">
         <div className="mx-auto flex max-w-3xl flex-col gap-6">
           <UploadDropzone />

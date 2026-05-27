@@ -36,7 +36,7 @@ export type KnowledgeRouteDeps = {
 };
 
 export function registerKnowledgeRoutes(app: Hono<SessionEnv>, deps: KnowledgeRouteDeps): void {
-  app.post('/api/copilot/v1/knowledge/upload-url', async (c) => {
+  app.post('/api/agent/v1/knowledge/upload-url', async (c) => {
     requireOrgAdmin(c);
     const scope = c.get('user');
     const parsed = uploadSchema.safeParse(await c.req.json().catch(() => ({})));
@@ -58,7 +58,7 @@ export function registerKnowledgeRoutes(app: Hono<SessionEnv>, deps: KnowledgeRo
     return c.json(result);
   });
 
-  app.post('/api/copilot/v1/knowledge/:id/processed', async (c) => {
+  app.post('/api/agent/v1/knowledge/:id/processed', async (c) => {
     requireOrgAdmin(c);
     const scope = c.get('user');
     const file_id = c.req.param('id');
@@ -75,14 +75,14 @@ export function registerKnowledgeRoutes(app: Hono<SessionEnv>, deps: KnowledgeRo
     return c.json({ ok: true });
   });
 
-  app.get('/api/copilot/v1/knowledge', async (c) => {
+  app.get('/api/agent/v1/knowledge', async (c) => {
     requireOrgAdmin(c);
     const scope = c.get('user');
     const files = await listKnowledgeFiles({ tenant_id: scope.tenant_id, limit: 100 });
     return c.json({ files });
   });
 
-  app.delete('/api/copilot/v1/knowledge/:id', async (c) => {
+  app.delete('/api/agent/v1/knowledge/:id', async (c) => {
     requireOrgAdmin(c);
     const scope = c.get('user');
     const file_id = c.req.param('id');

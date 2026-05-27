@@ -1,5 +1,5 @@
 import { PgVector } from '@mastra/pg';
-import { CopilotRegistry } from '@seta/copilot-sdk';
+import { AgentRegistry } from '@seta/agent-sdk';
 import { hashRoleSummary, type SessionScope } from '@seta/core';
 import { createUser } from '@seta/identity';
 import { createTestTenantWithAdmin } from '@seta/identity/testing';
@@ -8,7 +8,7 @@ import { NoopReranker } from '@seta/shared-retrieval';
 import { FakeEmbeddingProvider } from '@seta/shared-testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { runSuggestAssignee } from '../../../../src/backend/workflows/assign-by-skill/workflow.ts';
-import { withCopilotTestDb } from '../../agent-tools-helpers.ts';
+import { withAgentTestDb } from '../../agent-tools-helpers.ts';
 
 function admin(opts: { tenant_id: string; user_id: string; email: string }): SessionScope {
   const role_summary = { roles: ['org.admin'], cross_tenant_read: false };
@@ -45,15 +45,15 @@ async function seedProjection(
 }
 
 describe('assignBySkill graceful degradation', () => {
-  beforeEach(() => CopilotRegistry.__resetForTests());
-  afterEach(() => CopilotRegistry.__resetForTests());
+  beforeEach(() => AgentRegistry.__resetForTests());
+  afterEach(() => AgentRegistry.__resetForTests());
 
   it('task with no skill_tags but rich description still produces a card (vector + history carry)', () =>
-    withCopilotTestDb(async ({ pool, databaseUrl }) => {
+    withAgentTestDb(async ({ pool, databaseUrl }) => {
       const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
       const session = admin({ tenant_id, user_id: admin_user_id, email: 'a@d.local' });
       await seedProjection(pool, tenant_id, admin_user_id, 'Admin', 'a@d.local');
-      CopilotRegistry.freeze();
+      AgentRegistry.freeze();
 
       const group = await createGroup({ tenant_id, name: 'G', session });
       const plan = await createPlan({ group_id: group.id, name: 'P', session });
@@ -90,11 +90,11 @@ describe('assignBySkill graceful degradation', () => {
     }));
 
   it('no embedded users + no cross-module reads → empty card, no crash', () =>
-    withCopilotTestDb(async ({ pool, databaseUrl }) => {
+    withAgentTestDb(async ({ pool, databaseUrl }) => {
       const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
       const session = admin({ tenant_id, user_id: admin_user_id, email: 'a@d.local' });
       await seedProjection(pool, tenant_id, admin_user_id, 'Admin', 'a@d.local');
-      CopilotRegistry.freeze();
+      AgentRegistry.freeze();
 
       const group = await createGroup({ tenant_id, name: 'G', session });
       const plan = await createPlan({ group_id: group.id, name: 'P', session });
@@ -133,7 +133,7 @@ describe('assignBySkill graceful degradation', () => {
     }));
 
   it('user has exact-overlap skills but no embedding row → still surfaces', () =>
-    withCopilotTestDb(async ({ pool, databaseUrl }) => {
+    withAgentTestDb(async ({ pool, databaseUrl }) => {
       const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
       const session = admin({ tenant_id, user_id: admin_user_id, email: 'a@d.local' });
       await seedProjection(pool, tenant_id, admin_user_id, 'Admin', 'a@d.local');
@@ -146,7 +146,7 @@ describe('assignBySkill graceful degradation', () => {
       await seedProjection(pool, tenant_id, rustacean.user_id, 'Rusty', 'r@d.local', {
         skills: ['rust'],
       });
-      CopilotRegistry.freeze();
+      AgentRegistry.freeze();
 
       const group = await createGroup({ tenant_id, name: 'G', session });
       const plan = await createPlan({ group_id: group.id, name: 'P', session });

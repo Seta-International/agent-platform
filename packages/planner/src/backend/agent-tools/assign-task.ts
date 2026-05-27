@@ -1,9 +1,9 @@
-import { actorFromContext, defineCopilotTool } from '@seta/copilot-sdk';
+import { actorFromContext, defineAgentTool } from '@seta/agent-sdk';
 import { buildActorSession } from '@seta/identity';
 import { z } from 'zod';
 import { assignTask } from '../domain/assign-task.ts';
 
-export const plannerAssignTaskTool = defineCopilotTool({
+export const plannerAssignTaskTool = defineAgentTool({
   id: 'planner_assignTask',
   name: 'Assign Task',
   description: 'Assign a user to a task.',

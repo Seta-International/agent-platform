@@ -2,8 +2,8 @@ import {
   type ApprovalCard,
   ApprovalCardSchema,
   actorFromContext,
-  defineCopilotTool,
-} from '@seta/copilot-sdk';
+  defineAgentTool,
+} from '@seta/agent-sdk';
 import { buildActorSession } from '@seta/identity';
 import { z } from 'zod';
 import { assignTask } from '../domain/assign-task.ts';
@@ -93,7 +93,7 @@ function buildCard(
  * declines. Resumes guarded by INV-1: if the task was assigned between suspend
  * and resume, return `superseded` rather than double-writing.
  */
-export const plannerProposeAssignmentTool = defineCopilotTool({
+export const plannerProposeAssignmentTool = defineAgentTool({
   id: 'planner_proposeAssignment',
   name: 'Propose Assignment',
   description:

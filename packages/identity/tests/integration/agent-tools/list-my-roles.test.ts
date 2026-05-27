@@ -1,12 +1,12 @@
-import { requiredPermissionFor } from '@seta/copilot-sdk';
+import { requiredPermissionFor } from '@seta/agent-sdk';
 import { listMyRolesTool } from '@seta/identity/agent-tools';
 import { createTestTenantWithAdmin } from '@seta/identity/testing';
 import { describe, expect, it } from 'vitest';
-import { makeToolContext, withCopilotTestDb } from '../../helpers.ts';
+import { makeToolContext, withAgentTestDb } from '../../helpers.ts';
 
 describe('identity_listMyRoles tool', () => {
   it('returns at least one effective permission for an admin', async () => {
-    await withCopilotTestDb(async ({ pool }) => {
+    await withAgentTestDb(async ({ pool }) => {
       const { admin_user_id } = await createTestTenantWithAdmin({ pool });
       const out = (await listMyRolesTool.execute!(
         {},

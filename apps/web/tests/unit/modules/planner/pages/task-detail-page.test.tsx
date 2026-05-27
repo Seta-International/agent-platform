@@ -13,7 +13,7 @@ import { delay, HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/modules/copilot/chat-experience/copilot-provider', () => ({
+vi.mock('@/modules/agent/chat-experience/agent-provider', () => ({
   usePageContext: () => ({
     pageContext: null,
     setPageContext: vi.fn(),

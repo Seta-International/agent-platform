@@ -8,10 +8,10 @@ test('contributor cannot select tenant scope in the runs inbox', async ({ page }
   await page.fill('[name=password]', 'demo-pass');
   await page.click('button[type=submit]');
 
-  await page.goto('/copilot/workflows');
+  await page.goto('/agent/workflows');
   const scope = page.getByLabel(/Scope/);
   await scope.click();
-  // Tenant must be absent for a contributor (lacks copilot.workflow.run.read.tenant).
+  // Tenant must be absent for a contributor (lacks agent.workflow.run.read.tenant).
   await expect(page.getByRole('option', { name: /tenant/i })).toHaveCount(0);
 });
 
@@ -21,7 +21,7 @@ test('ops viewer can see an approval but cannot decide it', async ({ page }) => 
   await page.fill('[name=password]', 'demo-pass');
   await page.click('button[type=submit]');
 
-  await page.goto('/copilot/workflows');
+  await page.goto('/agent/workflows');
   // Pick any paused run.
   await page.locator('[aria-label="status: paused"]').first().click();
   const approve = page.getByRole('button', { name: 'Approve' });
@@ -36,6 +36,6 @@ test('cross-tenant run drilldown surfaces Not found rather than the run', async 
   await page.click('button[type=submit]');
 
   // Hardcoded other-tenant run id, seeded as part of the demo fixtures.
-  await page.goto('/copilot/workflows/runs/00000000-0000-0000-0000-deadbeef0001');
+  await page.goto('/agent/workflows/runs/00000000-0000-0000-0000-deadbeef0001');
   await expect(page.getByText(/Run not found|cannot view/i)).toBeVisible();
 });

@@ -1,5 +1,5 @@
-import { requiredPermissionFor } from '@seta/copilot-sdk';
-import { makeToolContext } from '@seta/copilot-sdk/testing';
+import { requiredPermissionFor } from '@seta/agent-sdk';
+import { makeToolContext } from '@seta/agent-sdk/testing';
 import { serverTimeTool } from '@seta/core/agent-tools';
 import { describe, expect, it } from 'vitest';
 
@@ -9,7 +9,7 @@ describe('core_serverTime tool', () => {
     expect((out as { iso: string }).iso).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
-  it('is registered with permission copilot.chat.use', () => {
-    expect(requiredPermissionFor(serverTimeTool)).toBe('copilot.chat.use');
+  it('is registered with permission agent.chat.use', () => {
+    expect(requiredPermissionFor(serverTimeTool)).toBe('agent.chat.use');
   });
 });

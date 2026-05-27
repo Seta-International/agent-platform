@@ -12,7 +12,7 @@ interface StatusEvent {
 export function useKnowledgeFileStream(): void {
   const qc = useQueryClient();
   useEffect(() => {
-    const es = new EventSource('/api/copilot/v1/knowledge/stream', { withCredentials: true });
+    const es = new EventSource('/api/agent/v1/knowledge/stream', { withCredentials: true });
     es.addEventListener('status', (ev) => {
       const payload = JSON.parse((ev as MessageEvent).data) as StatusEvent;
       qc.setQueryData<KnowledgeFile[]>(knowledgeQueryKeys.list(), (prev) =>

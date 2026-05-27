@@ -1,4 +1,4 @@
-import { actorFromContext, defineCopilotTool } from '@seta/copilot-sdk';
+import { actorFromContext, defineAgentTool } from '@seta/agent-sdk';
 import { z } from 'zod';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -45,7 +45,7 @@ export type ContextSearchDeps = {
 // ──────────────────────────────────────────────────────────────────────────────
 
 export function makeSkillMatcherContextSearchTool(deps: ContextSearchDeps) {
-  return defineCopilotTool({
+  return defineAgentTool({
     id: 'skillMatcher_contextSearch',
     name: 'Skill Context Search',
     description: `

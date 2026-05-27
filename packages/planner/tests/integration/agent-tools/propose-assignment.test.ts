@@ -6,7 +6,7 @@ import { assignTask, createGroup, createPlan, createTask } from '@seta/planner';
 import { describe, expect, it } from 'vitest';
 import { plannerProposeAssignmentTool } from '../../../src/backend/agent-tools/propose-assignment.ts';
 import type { AssignBySkillOutput } from '../../../src/backend/workflows/assign-by-skill/schemas.ts';
-import { makeToolContext, withCopilotTestDb } from '../agent-tools-helpers.ts';
+import { makeToolContext, withAgentTestDb } from '../agent-tools-helpers.ts';
 
 function buildAdminSession(opts: {
   tenant_id: string;
@@ -44,7 +44,7 @@ async function seedProjection(
 
 describe('planner_proposeAssignment', () => {
   it('suspends with a candidateList card and assigns on resume', async () => {
-    await withCopilotTestDb(async ({ pool }) => {
+    await withAgentTestDb(async ({ pool }) => {
       const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
       const session = buildAdminSession({
         tenant_id,
@@ -152,7 +152,7 @@ describe('planner_proposeAssignment', () => {
   });
 
   it('returns superseded if task was assigned between suspend and resume (INV-1)', async () => {
-    await withCopilotTestDb(async ({ pool }) => {
+    await withAgentTestDb(async ({ pool }) => {
       const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
       const session = buildAdminSession({
         tenant_id,
@@ -219,7 +219,7 @@ describe('planner_proposeAssignment', () => {
   });
 
   it('rejects fewer than 2 candidates at schema validation', async () => {
-    await withCopilotTestDb(async ({ pool }) => {
+    await withAgentTestDb(async ({ pool }) => {
       const { admin_user_id } = await createTestTenantWithAdmin({ pool });
       const ctx = makeToolContext({ user_id: admin_user_id });
       const result = (await plannerProposeAssignmentTool.execute!(

@@ -2,8 +2,8 @@ import {
   type ApprovalCard,
   ApprovalCardSchema,
   actorFromContext,
-  defineCopilotTool,
-} from '@seta/copilot-sdk';
+  defineAgentTool,
+} from '@seta/agent-sdk';
 import { buildActorSession } from '@seta/identity';
 import { z } from 'zod';
 import { DedupOutputSchema, TaskDraftSchema } from '../workflows/dedup-on-create/schemas.ts';
@@ -24,7 +24,7 @@ export interface PlannerCreateTaskDeps {
 }
 
 export function plannerCreateTaskTool(_deps?: PlannerCreateTaskDeps) {
-  return defineCopilotTool({
+  return defineAgentTool({
     id: 'planner_createTask',
     name: 'Create Task',
     description:

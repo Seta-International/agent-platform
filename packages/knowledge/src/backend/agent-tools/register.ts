@@ -1,10 +1,10 @@
 // Side-effect-only module: importing it registers the knowledge specialist
-// with CopilotRegistry. apps/server and apps/worker pull this in via
-// packages/copilot/src/backend/init-registry.ts before freeze().
-import { CopilotRegistry } from '@seta/copilot-sdk';
+// with AgentRegistry. apps/server and apps/worker pull this in via
+// packages/agent/src/backend/init-registry.ts before freeze().
+import { AgentRegistry } from '@seta/agent-sdk';
 import { searchTenantKnowledgeAgentTool } from './index.ts';
 
-CopilotRegistry.registerSpecialist({
+AgentRegistry.registerSpecialist({
   domain: 'knowledge',
   id: 'knowledge',
   description:

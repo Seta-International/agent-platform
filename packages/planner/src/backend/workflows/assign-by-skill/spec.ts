@@ -1,16 +1,12 @@
 import { createStep } from '@mastra/core/workflows';
 // IMPORTANT: use the evented engine — it's the only path that publishes
 // workflow.start / workflow.suspend / workflow.end events on the `workflows`
-// pubsub topic, which copilot's lifecycle hook projects into copilot.workflow_runs
-// and copilot.workflow_approvals. The default engine runs inline and never
+// pubsub topic, which agent's lifecycle hook projects into agent.workflow_runs
+// and agent.workflow_approvals. The default engine runs inline and never
 // emits those events, leaving runs stuck in the projected `running` state.
 import { createWorkflow } from '@mastra/core/workflows/evented';
 import type { PgVector } from '@mastra/pg';
-import {
-  ApprovalCardSchema,
-  sessionFromRequestContext,
-  type WorkflowSpec,
-} from '@seta/copilot-sdk';
+import { ApprovalCardSchema, sessionFromRequestContext, type WorkflowSpec } from '@seta/agent-sdk';
 import { buildActorSession } from '@seta/identity';
 import { type EmbeddingProvider, OpenAIEmbeddingProvider } from '@seta/shared-embeddings';
 import { resolveReranker } from '@seta/shared-retrieval';

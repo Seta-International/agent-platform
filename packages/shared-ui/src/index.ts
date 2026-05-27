@@ -1,5 +1,6 @@
 // Board
 export * from './board/preview-card';
+export * from './composites/agent-panel';
 // Composites
 export * from './composites/app-shell';
 export * from './composites/avatar-stack';
@@ -12,7 +13,6 @@ export * from './composites/chat-tool-call';
 export * from './composites/chat-transcript';
 export * from './composites/coming-soon';
 export * from './composites/command-palette';
-export * from './composites/copilot-panel';
 export * from './composites/data-table';
 export * from './composites/dropzone';
 export * from './composites/empty-state';

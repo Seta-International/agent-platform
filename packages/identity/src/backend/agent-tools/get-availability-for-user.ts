@@ -1,4 +1,4 @@
-import { type CrossModuleReadToolSpec, defineCrossModuleReadAsTool } from '@seta/copilot-sdk';
+import { type CrossModuleReadToolSpec, defineCrossModuleReadAsTool } from '@seta/agent-sdk';
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { identityDb } from '../db/index.ts';

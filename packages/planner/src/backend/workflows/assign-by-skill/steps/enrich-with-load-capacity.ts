@@ -1,4 +1,4 @@
-import { CopilotRegistry, type CrossModuleReadToolSpec } from '@seta/copilot-sdk';
+import { AgentRegistry, type CrossModuleReadToolSpec } from '@seta/agent-sdk';
 import type { PoolCandidate } from './candidate-pool.ts';
 
 export interface EnrichedCandidate extends PoolCandidate {
@@ -10,7 +10,7 @@ export interface EnrichedCandidate extends PoolCandidate {
 type ReadTool<I, O> = CrossModuleReadToolSpec<I, O>;
 
 function findReadTool<I = unknown, O = unknown>(id: string): ReadTool<I, O> | undefined {
-  return CopilotRegistry.listCrossModuleReadTools().find((t) => t.id === id) as
+  return AgentRegistry.listCrossModuleReadTools().find((t) => t.id === id) as
     | ReadTool<I, O>
     | undefined;
 }

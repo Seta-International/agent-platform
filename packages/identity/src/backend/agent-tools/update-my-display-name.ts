@@ -1,8 +1,8 @@
-import { actorFromContext, defineCopilotTool } from '@seta/copilot-sdk';
+import { actorFromContext, defineAgentTool } from '@seta/agent-sdk';
 import { z } from 'zod';
 import { updateMyDisplayName } from '../domain/update-my-display-name.ts';
 
-export const updateMyDisplayNameTool = defineCopilotTool({
+export const updateMyDisplayNameTool = defineAgentTool({
   id: 'identity_updateMyDisplayName',
   name: 'Update My Display Name',
   description: 'Renames the current user. Requires explicit user approval before applying.',

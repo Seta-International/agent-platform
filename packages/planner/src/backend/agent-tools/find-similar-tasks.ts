@@ -1,5 +1,5 @@
 import type { PgVector } from '@mastra/pg';
-import { actorFromContext, defineCopilotTool } from '@seta/copilot-sdk';
+import { actorFromContext, defineAgentTool } from '@seta/agent-sdk';
 import { buildActorSession } from '@seta/identity';
 import type { EmbeddingProvider } from '@seta/shared-embeddings';
 import { z } from 'zod';
@@ -37,7 +37,7 @@ export interface PlannerFindSimilarTasksToolDeps {
 
 export function plannerFindSimilarTasksTool(deps: PlannerFindSimilarTasksToolDeps) {
   const resolveSession = deps.sessionProvider ?? buildActorSession;
-  return defineCopilotTool({
+  return defineAgentTool({
     id: 'planner_findSimilarTasks',
     name: 'Find Similar Tasks',
     description:

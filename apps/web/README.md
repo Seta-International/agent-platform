@@ -3,7 +3,7 @@
 The Seta web client — React 19, TanStack Router, AI SDK v6 paired with
 assistant-ui, and `@seta/shared-ui` for every primitive. The only
 front end for the platform; ships planner views (board, grid, sheet)
-and the copilot chat surface.
+and the agent chat surface.
 
 ## Scripts
 

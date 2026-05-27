@@ -1,4 +1,4 @@
-import { type CrossModuleReadToolSpec, defineCrossModuleReadAsTool } from '@seta/copilot-sdk';
+import { type CrossModuleReadToolSpec, defineCrossModuleReadAsTool } from '@seta/agent-sdk';
 import { and, count, eq, isNull, lt } from 'drizzle-orm';
 import { z } from 'zod';
 import { plannerDb } from '../db/index.ts';
@@ -20,7 +20,7 @@ export type GetOpenTaskCountOutput = z.infer<typeof outputSchema>;
  * in the caller's tenant. "Open" = not soft-deleted and percent_complete < 100.
  *
  * Consumed by planner.assignBySkill (load signal) and `should I take this on`
- * style copilot self-summary flows.
+ * style agent self-summary flows.
  */
 export const plannerGetOpenTaskCountSpec: CrossModuleReadToolSpec<
   GetOpenTaskCountInput,

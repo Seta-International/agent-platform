@@ -1,5 +1,5 @@
 import type { PgVector } from '@mastra/pg';
-import { actorFromContext, defineCopilotTool } from '@seta/copilot-sdk';
+import { actorFromContext, defineAgentTool } from '@seta/agent-sdk';
 import type { EmbeddingProvider } from '@seta/shared-embeddings';
 import type { Reranker } from '@seta/shared-retrieval';
 import { z } from 'zod';
@@ -61,7 +61,7 @@ export interface MatchUsersToTopicToolDeps {
 export function matchUsersToTopicTool(deps: MatchUsersToTopicToolDeps) {
   const resolveSession = deps.sessionProvider ?? buildActorSession;
 
-  return defineCopilotTool({
+  return defineAgentTool({
     id: 'match_users_to_topic',
     name: 'Match Users To Topic',
     description:

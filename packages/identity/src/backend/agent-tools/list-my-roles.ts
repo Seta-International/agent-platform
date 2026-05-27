@@ -1,8 +1,8 @@
-import { actorFromContext, defineCopilotTool } from '@seta/copilot-sdk';
+import { actorFromContext, defineAgentTool } from '@seta/agent-sdk';
 import { z } from 'zod';
 import { listMyEffectivePermissions } from '../domain/list-my-effective-permissions.ts';
 
-export const listMyRolesTool = defineCopilotTool({
+export const listMyRolesTool = defineAgentTool({
   id: 'identity_listMyRoles',
   name: 'List My Roles',
   description: 'Returns the sorted union of permissions the current user effectively holds.',

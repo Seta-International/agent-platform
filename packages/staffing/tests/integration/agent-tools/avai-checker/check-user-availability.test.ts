@@ -1,4 +1,4 @@
-import { requiredPermissionFor } from '@seta/copilot-sdk';
+import { requiredPermissionFor } from '@seta/agent-sdk';
 import { describe, expect, it, vi } from 'vitest';
 import {
   type LeaveRecord,

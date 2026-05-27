@@ -2,7 +2,7 @@
 
 The Seta API server — Hono HTTP entry point, event dispatcher, and
 graphile-worker host. Composes every domain module (`@seta/identity`,
-`@seta/planner`, `@seta/copilot`, `@seta/integrations`) through their
+`@seta/planner`, `@seta/agent`, `@seta/integrations`) through their
 public surfaces and registration hooks.
 
 ## Scripts

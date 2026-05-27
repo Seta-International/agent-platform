@@ -1,4 +1,4 @@
-import { CopilotRegistry } from '@seta/copilot-sdk';
+import { AgentRegistry } from '@seta/agent-sdk';
 import { identityGetAvailabilityTool, identityGetTimezoneTool } from '@seta/identity/agent-tools';
 import type { EmbeddingProvider } from '@seta/shared-embeddings';
 import { OpenAIEmbeddingProvider } from '@seta/shared-embeddings';
@@ -56,7 +56,7 @@ const plannerFindSimilarTasks = plannerFindSimilarTasksTool({
   },
 });
 
-CopilotRegistry.registerSpecialist({
+AgentRegistry.registerSpecialist({
   domain: 'work',
   id: 'planner',
   description:
@@ -139,7 +139,7 @@ text channel as you go — they should be able to follow your thinking.`,
   },
 });
 
-CopilotRegistry.registerWorkflow(dedupOnCreateWorkflowSpec);
-CopilotRegistry.registerWorkflow(assignBySkillWorkflowSpec);
+AgentRegistry.registerWorkflow(dedupOnCreateWorkflowSpec);
+AgentRegistry.registerWorkflow(assignBySkillWorkflowSpec);
 
-CopilotRegistry.registerCrossModuleReadTool(plannerGetOpenTaskCountSpec);
+AgentRegistry.registerCrossModuleReadTool(plannerGetOpenTaskCountSpec);

@@ -1,4 +1,4 @@
-import { actorFromContext, defineCopilotTool } from '@seta/copilot-sdk';
+import { actorFromContext, defineAgentTool } from '@seta/agent-sdk';
 import { z } from 'zod';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -54,7 +54,7 @@ export type CheckUserAvailabilityDeps = {
 // ──────────────────────────────────────────────────────────────────────────────
 
 export function makeAvaiCheckerCheckUserAvailabilityTool(deps: CheckUserAvailabilityDeps) {
-  return defineCopilotTool({
+  return defineAgentTool({
     id: 'avaiChecker_checkUserAvailability',
     name: 'Check User Availability',
     description: `

@@ -8,7 +8,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { buildServerApp, registerAppContributions } from '../../src/build.ts';
 
 describe('apps/server smoke', () => {
-  it('mounts copilot routes and serves /api/copilot/v1/health', async () => {
+  it('mounts agent routes and serves /api/agent/v1/health', async () => {
     await withTestDb(
       {
         templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -30,7 +30,7 @@ describe('apps/server smoke', () => {
             streams: new Map(),
           });
 
-          const res = await app.request('/api/copilot/v1/health');
+          const res = await app.request('/api/agent/v1/health');
           expect(res.status).toBe(200);
 
           const body = (await res.json()) as {

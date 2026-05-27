@@ -1,4 +1,4 @@
-import { registerCopilotContributions } from '@seta/copilot/register';
+import { registerAgentContributions } from '@seta/agent/register';
 import { createContributionRegistry, runMigrations } from '@seta/core';
 import { registerCoreContributions } from '@seta/core/register';
 import { registerIdentityContributions } from '@seta/identity/register';
@@ -21,7 +21,7 @@ export async function migrateCommand(): Promise<void> {
   registerNotificationsContributions(reg);
   registerPlannerContributions(reg);
   registerStaffingContributions(reg);
-  registerCopilotContributions(reg);
+  registerAgentContributions(reg);
   await runMigrations(reg, { pool: getPool('worker') });
   log.info('migrations applied');
 }
