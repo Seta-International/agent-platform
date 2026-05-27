@@ -1,0 +1,56 @@
+{
+  "name": "@seta/agent",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Agent module — Mastra agents, AI SDK v6 tool wrappers, and human-in-the-loop approval flow for write actions.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./events": "./src/events/index.ts",
+    "./rbac": "./src/rbac.ts",
+    "./register": "./src/register.ts",
+    "./testing": "./src/testing/fixtures.ts"
+  },
+  "scripts": {
+    "lint": "eslint . --no-error-on-unmatched-pattern",
+    "typecheck": "tsc -b --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:generate": "drizzle-kit generate"
+  },
+  "devDependencies": {
+    "@seta/core": "workspace:^",
+    "@seta/identity": "workspace:^",
+    "@seta/shared-config": "workspace:^",
+    "@seta/shared-db": "workspace:^",
+    "@seta/shared-rbac": "workspace:^",
+    "@seta/shared-testing": "workspace:^",
+    "@seta/shared-types": "workspace:^",
+    "@types/node": "^25.9.1",
+    "@types/pg": "^8.20.0",
+    "drizzle-kit": "^0.31.10",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.7"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "^3.0.64",
+    "@mastra/ai-sdk": "^1.4.3",
+    "@mastra/core": "^1.36.0",
+    "@mastra/memory": "^1.19.0",
+    "@mastra/pg": "^1.11.1",
+    "@seta/agent-sdk": "workspace:^",
+    "@seta/knowledge": "workspace:^",
+    "@seta/planner": "workspace:^",
+    "@seta/shared-embeddings": "workspace:^",
+    "@seta/shared-retrieval": "workspace:^",
+    "@seta/shared-storage": "workspace:^",
+    "ai": "^6.0.188",
+    "drizzle-orm": "^0.45.2",
+    "graphile-worker": "^0.16.6",
+    "hono": "^4.12.21",
+    "lru-cache": "^11.5.0",
+    "pg": "^8.21.0",
+    "pino": "^10.3.1",
+    "zod": "^4.4.3"
+  }
+}

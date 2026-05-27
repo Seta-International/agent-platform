@@ -1,0 +1,135 @@
+export type AgentEvent =
+  | {
+      type: 'agent.thread.created';
+      aggregate_id: string;
+      data: { thread_id: string; user_id: string; tenant_id: string };
+    }
+  | {
+      type: 'agent.message.user.sent';
+      aggregate_id: string;
+      data: { thread_id: string; message_id: string };
+    }
+  | {
+      type: 'agent.message.agent.completed';
+      aggregate_id: string;
+      data: { thread_id: string; message_id: string; tokens_in: number; tokens_out: number };
+    }
+  | {
+      type: 'agent.tool.invoked';
+      aggregate_id: string;
+      data: { thread_id: string; tool_name: string; call_id: string };
+    }
+  | {
+      type: 'agent.tool.completed';
+      aggregate_id: string;
+      data: {
+        thread_id: string;
+        tool_name: string;
+        call_id: string;
+        duration_ms: number;
+        status: 'ok' | 'error';
+      };
+    }
+  | {
+      type: 'agent.hitl.requested';
+      aggregate_id: string;
+      data: { thread_id: string; call_id: string; tool_name: string; expires_at: string };
+    }
+  | {
+      type: 'agent.hitl.approved';
+      aggregate_id: string;
+      data: { thread_id: string; call_id: string; resolved_by_user_id: string };
+    }
+  | {
+      type: 'agent.hitl.rejected';
+      aggregate_id: string;
+      data: { thread_id: string; call_id: string; resolved_by_user_id: string; note?: string };
+    }
+  | {
+      type: 'agent.hitl.expired';
+      aggregate_id: string;
+      data: { thread_id: string; call_id: string };
+    }
+  | {
+      type: 'agent.delegate';
+      aggregate_id: string;
+      data: { thread_id: string; from_agent: string; to_agent: string };
+    }
+  | {
+      type: 'agent.workflow.run.completed';
+      aggregate_id: string;
+      data: {
+        workflow_id: string;
+        tenant_id: string;
+        started_by: string;
+        duration_ms: number;
+        outcome: 'success' | 'rejected';
+        summary: unknown;
+      };
+    }
+  | {
+      type: 'agent.workflow.run.failed';
+      aggregate_id: string;
+      data: {
+        workflow_id: string;
+        tenant_id: string;
+        started_by: string;
+        duration_ms: number;
+        error: { code: string; message: string };
+      };
+    }
+  | {
+      type: 'agent.workflow.approval.requested';
+      aggregate_id: string;
+      data: {
+        approval_id: string;
+        workflow_id: string;
+        tenant_id: string;
+        approver_user_id: string;
+        proposed_payload: unknown;
+        expires_at: string;
+        surface: Array<'canvas' | 'chat'>;
+      };
+    }
+  | {
+      type: 'agent.workflow.approval.decided';
+      aggregate_id: string;
+      data: {
+        approval_id: string;
+        decision: 'approve' | 'reject' | 'modify' | 'timeout';
+        decided_by?: string;
+        note?: string;
+        decided_at: string;
+      };
+    }
+  | {
+      type: 'agent.workflow.run.rerun_requested';
+      aggregate_id: string;
+      data: {
+        parent_run_id: string;
+        workflow_id: string;
+        tenant_id: string;
+        requested_by: string;
+      };
+    }
+  | {
+      type: 'agent.tenant_knowledge.processed';
+      aggregate_id: string;
+      data: { tenant_id: string; file_id: string };
+    }
+  | {
+      type: 'agent.tenant_knowledge.failed';
+      aggregate_id: string;
+      data: { tenant_id: string; file_id: string; error_reason: string };
+    }
+  | {
+      type: 'agent.tool.breaker_opened';
+      aggregate_id: string; // toolId
+      data: {
+        tool_id: string;
+        tenant_id: string;
+        failure_count: number;
+        opened_at: string; // ISO 8601
+        reason: 'timeout' | 'exception';
+      };
+    };
