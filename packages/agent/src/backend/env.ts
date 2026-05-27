@@ -11,7 +11,6 @@ const Env = z.object({
   AGENT_RATE_LIMIT_TURNS_PER_MIN: z.coerce.number().int().positive().default(10),
 
   // Tool execution timeout + circuit breaker
-  // (see docs/superpowers/specs/2026-05-26-tool-execution-timeout-design.md)
   AGENT_TOOL_TIMEOUT_READ_MS: z.coerce.number().int().positive().default(30_000),
   AGENT_TOOL_TIMEOUT_WRITE_MS: z.coerce.number().int().positive().default(60_000),
   AGENT_TOOL_TIMEOUT_MAX_MS: z.coerce.number().int().positive().default(300_000),

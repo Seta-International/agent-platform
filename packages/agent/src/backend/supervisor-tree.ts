@@ -1,7 +1,10 @@
 import type { Mastra } from '@mastra/core';
 import { Agent } from '@mastra/core/agent';
+import { ModelRouterEmbeddingModel } from '@mastra/core/llm';
 import { Memory } from '@mastra/memory';
+import { PgVector } from '@mastra/pg';
 import { AgentRegistry, type Domain, type SpecialistSpec } from '@seta/agent-sdk';
+import { agentEnv } from './env.ts';
 import { resolveModel } from './model-registry.ts';
 import { generateDomainPrompt, generateTopRoutingPrompt } from './prompt-templates.ts';
 
@@ -10,15 +13,90 @@ export type SupervisorTree = {
   domainAgents: Record<string, Agent>;
 };
 
-function buildMemory(mastra: Mastra | undefined): Memory | undefined {
-  const storage = mastra?.getStorage();
+// ---------------------------------------------------------------------------
+// Working memory template
+// ---------------------------------------------------------------------------
+const WORKING_MEMORY_TEMPLATE = `# User Context
+- Timezone:
+- Communication style: [e.g. Brief, Detailed]
+- Current focus: [active project or initiative]
+- Preferred task view: [e.g. board, list]
+- Notes: [anything else worth remembering]`;
+
+// ---------------------------------------------------------------------------
+// PgVector singleton — same lazy-init pattern as getIdentityVectorStore
+// ---------------------------------------------------------------------------
+let cachedRecallVector: { store: PgVector; databaseUrl: string } | null = null;
+
+function getRecallVector(databaseUrl: string): PgVector {
+  if (cachedRecallVector?.databaseUrl === databaseUrl) return cachedRecallVector.store;
+  if (cachedRecallVector) {
+    void cachedRecallVector.store.disconnect().catch(() => {});
+  }
+  const store = new PgVector({
+    id: 'agent-recall',
+    connectionString: databaseUrl,
+    schemaName: 'agent',
+  });
+  cachedRecallVector = { store, databaseUrl };
+  return store;
+}
+
+// ---------------------------------------------------------------------------
+// Memory factory
+// ---------------------------------------------------------------------------
+function buildMemory(opts: {
+  mastra: Mastra | undefined;
+  databaseUrl?: string;
+}): Memory | undefined {
+  const storage = opts.mastra?.getStorage();
   if (!storage) return undefined;
+
+  const baseOpts = {
+    lastMessages: agentEnv.AGENT_MEMORY_LAST_MESSAGES,
+    generateTitle: true as const,
+  };
+
+  if (!opts.databaseUrl) {
+    // No vector store available — sliding window only
+    return new Memory({
+      storage: storage as never,
+      options: { ...baseOpts, semanticRecall: false },
+    });
+  }
+
+  const vector = getRecallVector(opts.databaseUrl);
+  const embedder = new ModelRouterEmbeddingModel('openai/text-embedding-3-small');
+
   return new Memory({
     storage: storage as never,
-    options: { semanticRecall: false, generateTitle: true },
+    vector,
+    embedder,
+    options: {
+      ...baseOpts,
+      semanticRecall: {
+        topK: 5,
+        messageRange: 2,
+        scope: 'resource',
+        indexConfig: {
+          type: 'hnsw',
+          metric: 'dotproduct',
+          m: 16,
+          efConstruction: 64,
+        },
+      },
+      workingMemory: {
+        enabled: true,
+        scope: 'resource',
+        template: WORKING_MEMORY_TEMPLATE,
+      },
+    },
   });
 }
 
+// ---------------------------------------------------------------------------
+// Agent builders
+// ---------------------------------------------------------------------------
 function buildSpecialistAgent(spec: SpecialistSpec, memory: Memory | undefined): Agent {
   return new Agent({
     id: `${spec.domain}-${spec.id}`,
@@ -48,9 +126,11 @@ function buildDomainSupervisor(domain: Domain, memory: Memory | undefined): Agen
   });
 }
 
-export function buildSupervisorTree(opts: { mastra?: Mastra } = {}): SupervisorTree {
+export function buildSupervisorTree(
+  opts: { mastra?: Mastra; databaseUrl?: string } = {},
+): SupervisorTree {
   const snapshot = AgentRegistry.snapshot();
-  const memory = buildMemory(opts.mastra);
+  const memory = buildMemory({ mastra: opts.mastra, databaseUrl: opts.databaseUrl });
   const domainAgents: Record<string, Agent> = {};
   for (const d of snapshot.domains) domainAgents[d] = buildDomainSupervisor(d as Domain, memory);
   const topSupervisor = new Agent({

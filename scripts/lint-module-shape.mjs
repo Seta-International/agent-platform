@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 // Enforces the canonical module shape from
-// docs/superpowers/specs/2026-05-23-architectural-tightening-design.md §4.
 //
 // Walks every `packages/<m>/` in MODULES_CHECKED and asserts:
 //   - every entry directly under `src/` is in SRC_ALLOWLIST (files and

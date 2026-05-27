@@ -1,6 +1,5 @@
 /** Dependency-cruiser config — module boundary gate.
  *
- * Mirrors spec §7.1 of docs/superpowers/specs/2026-05-23-architectural-tightening-design.md.
  * Adding a new feature module or shared package requires zero edits here:
  * path prefixes do the discrimination (`packages/shared-*` is infra, anything
  * else under `packages/` is module-or-SDK). The only literal-name allowlist
