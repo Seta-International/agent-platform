@@ -183,7 +183,7 @@ module.exports = {
       from: { path: '^packages/(?!shared-|agent/)([^/]+)/src/' },
       to: {
         path: '^packages/agent/src/',
-        pathNot: '^packages/agent/src/(rbac|events)(/|\.ts$)',
+        pathNot: '^packages/agent/src/(rbac|events)(/|.ts$)',
       },
     },
 
@@ -263,7 +263,7 @@ module.exports = {
       from: {
         orphan: true,
         pathNot:
-          '(^|/)(\\.|index\\.ts|.+\\.config\\.[cm]?[jt]s)$|^packages/shared-config/(eslint|vitest)/|(^|/)(tests)/|\\.(spec|test)\\.[jt]sx?$|/\\.storybook/|\\.stories\\.[jt]sx?$|(^|/)e2e/|^apps/web/src/lib/|(^|/)scripts/',
+          '(^|/)(\\.|index\\.ts|.+\\.config\\.[cm]?[jt]s)$|^packages/shared-config/(eslint|vitest)/|(^|/)(tests)/|\\.(spec|test)\\.[jt]sx?$|/\\.storybook/|\\.stories\\.[jt]sx?$|(^|/)e2e/|^apps/web/src/(lib|routes)/|(^|/)scripts/',
       },
       to: {},
     },

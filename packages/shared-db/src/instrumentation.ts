@@ -56,7 +56,7 @@ export function instrumentPool(pool: Pool, poolName: string): void {
 
   function wrapped(): Promise<PoolClient>;
   function wrapped(cb: ConnectCallback): void;
-  function wrapped(cb?: ConnectCallback): Promise<PoolClient> | void {
+  function wrapped(cb?: ConnectCallback): Promise<PoolClient> | undefined {
     const start = performance.now();
     if (typeof cb === 'function') {
       origConnect((err, client, release) => {

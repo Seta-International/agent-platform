@@ -24,23 +24,25 @@ export async function selectAgent(opts: SelectAgentOpts): Promise<SelectAgentRes
     return { agent: topAgent, shouldWriteCache: false };
   }
 
-  // Cache hit: short-circuit immediately, no classifier call needed
-  if (lookup.cache) {
-    const agent = domainAgents[lookup.cache.domain] ?? topAgent;
+  const classifierResult = await classifyDomain(userText);
+  const cached = lookup.cache;
+
+  if (cached) {
+    const classifierDisagrees =
+      classifierResult !== null && classifierResult.domain !== cached.domain;
+
+    if (classifierDisagrees) {
+      const newDomain = classifierResult.domain;
+      const agent = domainAgents[newDomain] ?? topAgent;
+      return { agent, shouldWriteCache: true, cacheWriteDomain: newDomain };
+    }
+
+    const agent = domainAgents[cached.domain] ?? topAgent;
     return { agent, shouldWriteCache: false };
   }
 
-  // Cache miss: run classifier, guarded against API failures
-  let classifierResult: Awaited<ReturnType<typeof classifyDomain>> = null;
-  try {
-    classifierResult = await classifyDomain(userText);
-  } catch {
-    return { agent: topAgent, shouldWriteCache: false };
-  }
-
   if (classifierResult) {
-    const agent = domainAgents[classifierResult.domain];
-    if (!agent) return { agent: topAgent, shouldWriteCache: false };
+    const agent = domainAgents[classifierResult.domain] ?? topAgent;
     return { agent, shouldWriteCache: true, cacheWriteDomain: classifierResult.domain };
   }
 
