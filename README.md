@@ -1,16 +1,18 @@
 # Seta Agentic Platform
 
+> **Architecture Reference:** For the complete implementation details and design principles, see [`docs/architecture.md`](docs/architecture.md). This is the single source of truth for the platform's implementation shape.
+
 ## 1. System Overview & Repo Structure
 
 ### What is Seta Agentic Platform?
 
-Seta Agentic Platform is an open-source, AI-first, multi-tenant enterprise platform foundation—conceptually similar to next-gen ERP or SAP architectures, but built specifically for the agentic era.
+Seta Agentic Platform is an open-source, AI-first, multi-tenant enterprise platform foundation. It's conceptually similar to next-gen ERP or SAP architectures, but built specifically for the agentic era.
 
-The defining characteristic: every business module in the Seta Agentic Platform embeds an Agentic Agent directly within its operational boundaries. Rather than acting as a simple QA chatbot, the agent reads current system state, reasons across domains, proposes concrete transactional actions, and—upon explicit human authorization—executes those mutations directly.
+The defining characteristic is simple. Every business module in the Seta Agentic Platform embeds an Agentic Agent directly within its operational boundaries. Rather than acting as a simple QA chatbot, the agent reads current system state, reasons across domains, and proposes concrete transactional actions. Upon explicit human authorization, it executes those mutations directly.
 
 ### Layered Architecture
 
-The platform architecture is partitioned into four decoupled, specialized tiers to ensure horizontal scalability and strict isolation of concerns:
+The platform architecture is organized into four decoupled tiers. This design ensures horizontal scalability and clear separation of concerns:
 
 ```mermaid
 graph TD
@@ -40,10 +42,10 @@ graph TD
     Background -->|Read / Write| Storage
 ```
 
-- **SPA** (`apps/web/`): Built on React 19, Vite, and TanStack Router. It manages the core UI layout shell, handles dynamic injection of custom module components, and registers client-side navigation manifolds.
-- **Server** (`apps/server/`): A high-performance Hono HTTP server acting as the gateway. It handles request authentication, enforces RBAC middleware checks, orchestrates REST APIs, and runs the Mastra core specialist supervisors.
-- **Worker** (`apps/worker/`): A resource-isolated process powered by graphile-worker. It processes offloaded async database tasks, generates text vector embeddings, handles calendar sync, and runs asynchronous workflow steps.
-- **Database** (Postgres 16): Houses standard relational application data (schemas for Core, Identity, Planner, and your custom module) alongside a dedicated pgvector HNSW index for high-speed semantic similarity matching.
+- **SPA** (`apps/web/`): Built on React 19, Vite, and TanStack Router. It manages the core UI layout shell, handles dynamic injection of custom module components, and registers client-side navigation.
+- **Server** (`apps/server/`): A high-performance Hono HTTP server acting as the gateway. It handles request authentication, enforces RBAC middleware checks, orchestrates REST APIs, and runs the Mastra agent core.
+- **Worker** (`apps/worker/`): A resource-isolated process powered by graphile-worker. It processes async database tasks, generates text vector embeddings, handles calendar sync, and runs asynchronous workflow steps.
+- **Database** (Postgres 16): Stores standard relational application data with schemas for Core, Identity, Planner, and your custom modules. It also includes a dedicated pgvector HNSW index for fast semantic similarity search.
 
 ### Core Agent Engine (Mastra Integration)
 
@@ -54,32 +56,47 @@ The platform backend wraps and configures key modules from the Mastra runtime:
 - Short-term memory and long-term context indexing via `@mastra/memory` and `@mastra/pg`
 - System response auditing and testing via `@mastra/evals`
 
-The platform architecture remains open to improvements. While Mastra is configured by default, you can implement or plug in alternative agent frameworks if their business case demands it.
+The platform architecture remains flexible. While Mastra is configured by default, you can implement or plug in alternative agent frameworks if your use case requires it.
 
 ### Folder Directory Layout
 
 ```
 ├── apps/
-│   ├── web/          ← the React SPA (entire frontend: module views, app shell, navigation)
-│   ├── server/       ← the API server and AI agent host (auth, RBAC, Mastra runtime)
-│   ├── worker/       ← the async job processor (embeddings, workflows, background sync)
-│   └── cli/          ← developer tooling for scaffolding and infrastructure
+│   ├── web/          the React SPA (entire frontend: module views, app shell, navigation)
+│   ├── server/       the API server and AI agent host (auth, RBAC, Mastra runtime)
+│   ├── worker/       the async job processor (embeddings, workflows, background sync)
+│   └── cli/          developer tooling for scaffolding and infrastructure
 │
 ├── packages/
-│   ├── core/         ← the event bus and RBAC foundation that everything depends on
-│   ├── identity/     ← the auth, multi-tenancy, and user profile system
-│   ├── planner/      ← ✅ REFERENCE MODULE — the canonical example of a business module
-│   ├── agent/        ← the assembled Mastra agent (supervisor + all registered specialists)
-│   ├── ...
-│   └── your-module/  ← 🔴 BUILD HERE
+│   ├── core/         the event bus and RBAC foundation that everything depends on
+│   ├── identity/     the auth, multi-tenancy, and user profile system
+│   ├── planner/      REFERENCE MODULE: the canonical example of a business module
+│   ├── agent/        the assembled Mastra agent (supervisor + all registered specialists)
+│   ├── knowledge/    knowledge base and document management
+│   ├── staffing/     resource allocation and team management
+│   ├── notifications/ multi-channel notification system
+│   ├── integrations/ external system integrations (M365, etc.)
+│   ├── shared-*/     shared infrastructure packages (db, rbac, ui, crypto, storage, etc.)
+│   └── your-module/  BUILD YOUR CUSTOM MODULE HERE
 │
 ├── sdks/
-│   ├── agent/        ← the SDK for authoring agent tools with HITL support
-│   └── module/       ← the SDK for plugging your module UI into the app shell
+│   ├── agent/        the SDK for authoring agent tools with HITL support
+│   └── module/       the SDK for plugging your module UI into the app shell
 │
-├── ...
-└── hackathon/data/   ← 🎯 pre-seeded CSV datasets for local development
+└── docs/
+    ├── architecture.md        system architecture and design principles
+    ├── agent-architecture.md  in-depth agent system design
+    ├── creating-modules.md    guide for building new modules
+    ├── dev-quickstart.md      local development setup
+    └── hosting/               deployment guides (AWS, Docker, etc.)
 ```
+
+**Related Documentation:**
+- **[`docs/architecture.md`](docs/architecture.md)**: Complete system architecture and design principles (SSOT)
+- **[`docs/agent-architecture.md`](docs/agent-architecture.md)**: Deep dive into the three-tier supervisor agent system
+- **[`docs/creating-modules.md`](docs/creating-modules.md)**: Module authoring guide with `pnpm gen module`
+- **[`docs/dev-quickstart.md`](docs/dev-quickstart.md)**: Local development setup and first-run instructions
+- **[`AGENTS.md`](AGENTS.md)**: Contract for AI coding agents working in this repo
 
 ---
 
@@ -118,8 +135,7 @@ flowchart TD
 
 ### Detailed Implementation Flow (Case Study: Planner)
 
-The step-by-step execution of a real system request. This diagram maps how the Server, Specialist Agent, Database, and Worker interact when resolving a multi-faceted business inquiry:
-"Check if there's a task similar to 'Stripe webhook integration', and if not, assign someone with the right skills to take it."
+This shows the step-by-step execution of a real system request. The diagram illustrates how the Server, Specialist Agent, Database, and Worker interact when resolving a multi-faceted business inquiry. For example: "Check if there's a task similar to 'Stripe webhook integration', and if not, assign someone with the right skills to take it."
 
 ### 2a. Request Ingestion & Delegation Routing
 
@@ -222,7 +238,7 @@ graph TD
     Docker -->|Secure Asset Sync| S3
 ```
 
-##4 Development Pipeline
+## 4. Development Pipeline
 
 1. **Fork & Configure:** Fork the repository to your team workspace and configure production secrets (database URLs, LLM API keys, and session tokens).
 2. **Build & Push to ECR:** Build the root multi-stage Dockerfile (frontend static assets build and backend compilation bundle) and push the image to your dedicated AWS ECR repository.
