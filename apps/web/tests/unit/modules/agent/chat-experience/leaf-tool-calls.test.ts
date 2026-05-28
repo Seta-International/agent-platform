@@ -1,5 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { agentLabel, extractLeafToolCalls } from '@/modules/agent/chat-experience/leaf-tool-calls';
+import {
+  agentLabel,
+  extractLeafToolCalls,
+  humanizeToolName,
+} from '@/modules/agent/chat-experience/leaf-tool-calls';
+
+describe('humanizeToolName', () => {
+  it('humanizes snake_case + camelCase tool ids into Title Case', () => {
+    expect(humanizeToolName('identity_whoAmI')).toBe('Identity Who Am I');
+    expect(humanizeToolName('search_users_by_skills')).toBe('Search Users By Skills');
+    expect(humanizeToolName('updateWorkingMemory')).toBe('Update Working Memory');
+    expect(humanizeToolName('planner_getOpenTaskCountForUser')).toBe(
+      'Planner Get Open Task Count For User',
+    );
+  });
+  it('falls back for missing/empty input', () => {
+    expect(humanizeToolName(undefined)).toBe('Tool');
+    expect(humanizeToolName('')).toBe('Tool');
+  });
+});
 
 describe('agentLabel', () => {
   it('humanizes a hyphenated agent id and strips the -supervisor suffix', () => {

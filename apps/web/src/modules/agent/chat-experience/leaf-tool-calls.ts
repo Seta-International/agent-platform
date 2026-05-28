@@ -8,6 +8,22 @@ export function agentLabel(id: unknown): string {
     .join(' ');
 }
 
+// Turns a wire tool id (`identity_whoAmI`, `search_users_by_skills`) into a
+// readable Title Case label (`Identity Who Am I`, `Search Users By Skills`) for
+// display. Splits on underscores/hyphens and camelCase humps.
+export function humanizeToolName(name: unknown): string {
+  if (typeof name !== 'string' || name.length === 0) return 'Tool';
+  const words = name
+    .replace(/[_-]+/g, ' ')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (words.length === 0) return name;
+  return words.map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+}
+
 export interface LeafToolCall {
   toolCallId: string;
   name: string;

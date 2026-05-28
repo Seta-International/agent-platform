@@ -1,7 +1,7 @@
 import { useAuiState } from '@assistant-ui/react';
 import { ChatToolCall } from '@seta/shared-ui';
 import { type ReactNode, useMemo, useState } from 'react';
-import { extractLeafToolCalls } from './leaf-tool-calls';
+import { extractLeafToolCalls, humanizeToolName } from './leaf-tool-calls';
 
 export interface ChainOfThoughtProps {
   running: boolean;
@@ -64,7 +64,7 @@ export function ChainOfThought({ running, count, indices, children }: ChainOfTho
           {leafRows.map((r) => (
             <ChatToolCall
               key={r.toolCallId}
-              name={r.name}
+              name={humanizeToolName(r.name)}
               status={r.status}
               summary={`via ${r.via}`}
             />

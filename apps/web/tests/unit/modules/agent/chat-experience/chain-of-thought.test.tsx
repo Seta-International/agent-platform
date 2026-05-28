@@ -29,7 +29,7 @@ describe('ChainOfThought', () => {
         <div>delegate-row</div>
       </ChainOfThought>,
     );
-    expect(screen.getByText('planner_createTask')).toBeInTheDocument();
+    expect(screen.getByText('Planner Create Task')).toBeInTheDocument();
     expect(screen.getByText('via Planner')).toBeInTheDocument();
     expect(screen.getByText('delegate-row')).toBeInTheDocument();
   });
