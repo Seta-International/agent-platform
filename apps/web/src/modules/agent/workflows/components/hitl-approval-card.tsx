@@ -251,8 +251,13 @@ export function HitlApprovalCard({
           {/* Candidate list with checkbox multi-select */}
           {candidates.length > 0 ? (
             <fieldset disabled={disabled} className="space-y-0.5">
-              <legend className="mb-1.5 text-eyebrow uppercase text-ink-subtle">
-                Possible duplicates — select to link
+              <legend className="mb-1.5 flex w-full items-center justify-between text-eyebrow uppercase text-ink-subtle">
+                <span>Possible duplicates — select to link</span>
+                {selectedLinks.size > 0 ? (
+                  <span className="font-mono text-caption normal-case tracking-normal text-ink-tertiary">
+                    {selectedLinks.size} selected
+                  </span>
+                ) : null}
               </legend>
               <ul className="space-y-0.5">
                 {candidates.map((c, idx) => {
@@ -260,7 +265,7 @@ export function HitlApprovalCard({
                   return (
                     <li key={c.id}>
                       <label
-                        className={`flex cursor-pointer items-center gap-2.5 rounded-md border px-2.5 py-1.5 transition ${
+                        className={`flex cursor-pointer items-center gap-2.5 rounded-md border px-2 py-1.5 transition ${
                           isSelected
                             ? 'border-primary-border bg-primary-tint/60'
                             : 'border-transparent hover:bg-surface-2'
@@ -283,16 +288,19 @@ export function HitlApprovalCard({
                         >
                           {isSelected ? <Check className="size-3" strokeWidth={3} /> : null}
                         </span>
-                        <span className="min-w-0 flex-1 truncate text-body-sm">
-                          <span className="font-mono text-caption text-ink-subtle">
-                            #{c.id.slice(0, 8)}
-                          </span>{' '}
-                          — {c.label}
-                        </span>
-                        {typeof c.score === 'number' ? (
-                          <span className="shrink-0 font-mono text-caption tabular-nums text-ink-subtle">
-                            {c.score.toFixed(2)}
+                        <CandidateAvatar id={c.id} label={c.label} />
+                        <div className="min-w-0 flex-1">
+                          <span className="truncate text-body-sm font-medium text-ink">
+                            {c.label}
                           </span>
+                        </div>
+                        {typeof c.score === 'number' ? (
+                          <div className="flex shrink-0 items-center gap-1.5">
+                            <ConfidenceBar score={c.score} />
+                            <span className="w-9 text-right font-mono text-caption tabular-nums text-ink-subtle">
+                              {c.score.toFixed(2)}
+                            </span>
+                          </div>
                         ) : null}
                       </label>
                     </li>

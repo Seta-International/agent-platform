@@ -78,7 +78,7 @@ export function WorkflowRunPage({ runId }: WorkflowRunPageProps) {
   ] as const;
   const snapshotQuery = useWorkflowRunSnapshot(runId);
   const approvalsQuery = usePendingApprovals();
-  const decide = useDecideApproval(runId);
+  const decide = useDecideApproval(runId, { workflowHint: runQuery.data?.workflowId });
 
   const onReplay = useCallback(
     async (args: { stepId: string; originalPayload: unknown }) => {

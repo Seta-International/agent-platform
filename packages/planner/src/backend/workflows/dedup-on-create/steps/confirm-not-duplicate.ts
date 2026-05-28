@@ -9,8 +9,6 @@ export interface ConfirmNotDuplicateInput {
   toolCallId: string;
 }
 
-const shortId = (id: string): string => id.slice(0, 8);
-
 /**
  * Builds the HITL ApprovalCard with exactly 3 options:
  * - Leave it (primary) — keep the task as-is
@@ -25,15 +23,15 @@ export function buildConfirmNotDuplicateCard(input: ConfirmNotDuplicateInput): A
 
   const items: CandidateRow[] = input.candidates.map((c) => ({
     id: c.taskId,
-    label: `#${shortId(c.taskId)} — ${c.title}`,
+    label: c.title,
     score: c.score,
   }));
 
-  // Per-candidate alternate: "Link to #XXXX" (mark as related)
+  // Per-candidate alternate: "Link to <title>" (mark as related)
   const alternates: ApprovalCard['alternates'] = [];
   for (const c of input.candidates) {
     alternates.push({
-      label: `Link to #${shortId(c.taskId)}`,
+      label: `Link to "${c.title}"`,
       argsPatch: { kind: 'link', existingId: c.taskId },
     });
   }
