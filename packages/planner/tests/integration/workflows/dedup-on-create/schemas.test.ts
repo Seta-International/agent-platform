@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   DedupOutputSchema,
+  DupActionSchema,
   LinkModeSchema,
   TaskDraftSchema,
 } from '../../../../src/backend/workflows/dedup-on-create/schemas.ts';
@@ -26,18 +27,35 @@ describe('dedup schemas', () => {
   });
 
   it('DedupOutput is a discriminated union over kind', () => {
-    expect(DedupOutputSchema.parse({ kind: 'created', taskId: 't1' })).toEqual({
-      kind: 'created',
+    expect(DedupOutputSchema.parse({ kind: 'kept', taskId: 't1' })).toEqual({
+      kind: 'kept',
       taskId: 't1',
     });
+    expect(DedupOutputSchema.parse({ kind: 'linked', taskId: 't1', linkedTo: 'e1' })).toMatchObject(
+      { kind: 'linked', taskId: 't1', linkedTo: 'e1' },
+    );
+    expect(DedupOutputSchema.parse({ kind: 'deleted', taskId: 't1' })).toMatchObject({
+      kind: 'deleted',
+      taskId: 't1',
+    });
+    expect(DedupOutputSchema.parse({ kind: 'workflow-started', runId: 'r1' })).toEqual({
+      kind: 'workflow-started',
+      runId: 'r1',
+    });
+    // 'kept' requires taskId
+    expect(() => DedupOutputSchema.parse({ kind: 'kept' })).toThrow();
+    // Old kinds no longer valid
+    expect(() => DedupOutputSchema.parse({ kind: 'created', taskId: 't1' })).toThrow();
+    expect(() => DedupOutputSchema.parse({ kind: 'cancelled' })).toThrow();
+  });
+
+  it('DupAction is a discriminated union: link / delete / leave', () => {
+    expect(DupActionSchema.parse({ kind: 'leave' })).toEqual({ kind: 'leave' });
+    expect(DupActionSchema.parse({ kind: 'delete' })).toEqual({ kind: 'delete' });
     expect(
-      DedupOutputSchema.parse({ kind: 'created', taskId: 't1', linkedTo: 'e1' }),
-    ).toMatchObject({ kind: 'created', taskId: 't1', linkedTo: 'e1' });
-    expect(
-      DedupOutputSchema.parse({ kind: 'sub-task-added', existingId: 'e1', checklistItemId: 'c1' }),
-    ).toMatchObject({ kind: 'sub-task-added', existingId: 'e1', checklistItemId: 'c1' });
-    expect(DedupOutputSchema.parse({ kind: 'cancelled' })).toEqual({ kind: 'cancelled' });
-    expect(() => DedupOutputSchema.parse({ kind: 'created' })).toThrow();
-    expect(() => DedupOutputSchema.parse({ kind: 'linked', existingId: 'e1' })).toThrow();
+      DupActionSchema.parse({ kind: 'link', existingId: '00000000-0000-0000-0000-000000000000' }),
+    ).toMatchObject({ kind: 'link', existingId: '00000000-0000-0000-0000-000000000000' });
+    expect(() => DupActionSchema.parse({ kind: 'create-new' })).toThrow();
+    expect(() => DupActionSchema.parse({ kind: 'cancel' })).toThrow();
   });
 });

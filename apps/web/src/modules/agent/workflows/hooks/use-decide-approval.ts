@@ -15,6 +15,8 @@ export function useDecideApproval(runId: string) {
       workflowsApi.decideApproval(args.approvalId, {
         decision: args.decision,
         overrideUserIds: args.overrideUserIds,
+        alternateIndex: args.alternateIndex,
+        alternateIndices: args.alternateIndices,
         note: args.note,
       }),
     onSuccess: (_data, args) => {

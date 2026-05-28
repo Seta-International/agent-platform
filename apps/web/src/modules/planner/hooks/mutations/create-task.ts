@@ -12,44 +12,68 @@ interface CreateVars {
   priority_number?: 1 | 3 | 5 | 9;
 }
 
-interface StartResponse {
-  runId: string;
+interface TaskResponse {
+  id: string;
+  title: string;
+  version: number;
 }
 
 /**
- * Creates a task via the dedupOnCreate workflow. The workflow checks for
- * duplicates before creating — if duplicates are found, a HITL approval
- * card appears in the inbox.
+ * Creates a task immediately via the planner API, then triggers the
+ * dedupOnCreate workflow in background. If duplicates are found, a HITL
+ * card appears in the Inbox with Link / Delete / Leave options.
  */
 export function useCreateTask(planId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (v: CreateVars): Promise<StartResponse> => {
-      const res = await fetch('/api/agent/v1/workflows/runs/dedupOnCreate/start', {
+    mutationFn: async (v: CreateVars): Promise<{ task: TaskResponse; runId?: string }> => {
+      // Step 1: Create the task immediately
+      const createRes = await fetch('/api/planner/v1/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: v.title,
-          description: v.description,
           plan_id: v.plan_id,
           bucket_id: v.bucket_id,
+          title: v.title,
+          description: v.description,
         }),
         credentials: 'include',
       });
-      if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { message?: string };
-        throw new Error(body.message ?? `Failed to create task (${res.status})`);
+      if (!createRes.ok) {
+        const body = (await createRes.json().catch(() => ({}))) as { message?: string };
+        throw new Error(body.message ?? `Failed to create task (${createRes.status})`);
       }
-      return (await res.json()) as StartResponse;
+      const task = (await createRes.json()) as TaskResponse;
+
+      // Step 2: Start dedup workflow in background
+      let runId: string | undefined;
+      try {
+        const dedupRes = await fetch('/api/agent/v1/workflows/runs/planner.dedupOnCreate/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            taskId: task.id,
+            title: v.title,
+            description: v.description ?? '',
+            plan_id: v.plan_id,
+          }),
+          credentials: 'include',
+        });
+        if (dedupRes.ok) {
+          const dedupData = (await dedupRes.json()) as { runId: string };
+          runId = dedupData.runId;
+        }
+      } catch {
+        // Dedup check failed silently — task is still created
+      }
+
+      return { task, runId };
     },
     onSuccess: () => {
-      toast.success('Task creation started', {
-        description: 'Checking for duplicates…',
+      toast.success('Task created', {
+        description: 'Checking for duplicates in background…',
       });
-      // Refresh task list after workflow likely completes (fast path ~2-3s)
-      setTimeout(() => {
-        qc.invalidateQueries({ queryKey: plannerKeys.planTasks(planId, { plan_id: planId }) });
-      }, 3000);
+      qc.invalidateQueries({ queryKey: plannerKeys.planTasks(planId, { plan_id: planId }) });
     },
     onError: (err) => {
       toast.error("Couldn't create task", {

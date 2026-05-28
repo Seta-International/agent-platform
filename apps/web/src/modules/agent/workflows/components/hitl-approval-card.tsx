@@ -15,15 +15,16 @@ interface ApprovalCardShape {
   intent?: string;
   summary?: string;
   details?: Array<{ kind: string; items?: CandidateRowShape[] }>;
-  primary?: { label: string; argsPatch?: { assigneeUserIds?: string[] } };
-  alternates?: Array<{ label: string; argsPatch?: { assigneeUserIds?: string[] } }>;
-  decline?: { label: string };
+  primary?: { label: string; argsPatch?: Record<string, unknown> };
+  alternates?: Array<{ label: string; argsPatch?: Record<string, unknown> }>;
+  decline?: { label: string; argsPatch?: Record<string, unknown> };
 }
 
 export type HitlDecisionInput =
   | { decision: 'approve' }
   | { decision: 'reject'; note?: string }
-  | { decision: 'modify'; overrideUserIds: string[]; note?: string };
+  | { decision: 'modify'; overrideUserIds: string[]; note?: string }
+  | { decision: 'approve'; alternateIndices: number[] };
 
 export interface HitlApprovalCardProps {
   approval: WorkflowApprovalRow;
@@ -47,6 +48,17 @@ function asCard(payload: unknown): ApprovalCardShape | null {
 function candidateListFrom(card: ApprovalCardShape): CandidateRowShape[] {
   const block = card.details?.find((d) => d.kind === 'candidateList');
   return block?.items ?? [];
+}
+
+/**
+ * Detects dedup-style cards: alternates have `kind: 'link'` in argsPatch,
+ * as opposed to staffing cards that have `assigneeUserIds`.
+ */
+function isDedupCard(card: ApprovalCardShape): boolean {
+  return (
+    (card.alternates ?? []).some((a) => (a.argsPatch as { kind?: string })?.kind === 'link') ||
+    (card.primary?.argsPatch as { kind?: string })?.kind === 'leave'
+  );
 }
 
 function initialsOf(label: string): string {
@@ -138,17 +150,17 @@ export function HitlApprovalCard({
   const card = asCard(approval.proposedPayload) ?? asCard(proposedPayloadFallback);
   const candidates = useMemo(() => (card ? candidateListFrom(card) : []), [card]);
   const primaryIds = useMemo(
-    () => card?.primary?.argsPatch?.assigneeUserIds ?? [],
+    () => (card?.primary?.argsPatch?.assigneeUserIds as string[] | undefined) ?? [],
     [card?.primary?.argsPatch?.assigneeUserIds],
   );
-  const primarySet = useMemo(() => new Set(primaryIds), [primaryIds]);
+  const primarySet = useMemo(() => new Set<string>(primaryIds), [primaryIds]);
 
   const [selected, setSelected] = useState<Set<string>>(primarySet);
   // If the proposal changes (e.g. SSE update), re-baseline the selection.
   const prevPrimaryIds = useRef(primaryIds);
   if (prevPrimaryIds.current !== primaryIds) {
     prevPrimaryIds.current = primaryIds;
-    setSelected(new Set(primaryIds));
+    setSelected(new Set<string>(primaryIds));
   }
 
   const [rejectOpen, setRejectOpen] = useState(false);
@@ -203,6 +215,147 @@ export function HitlApprovalCard({
         .filter((c): c is CandidateRowShape => Boolean(c)),
     [selected, candidates],
   );
+
+  const [selectedLinks, setSelectedLinks] = useState<Set<number>>(new Set());
+
+  // --- Dedup card: render Link / Delete / Leave buttons ---
+  if (card && isDedupCard(card)) {
+    function toggleLink(idx: number) {
+      setSelectedLinks((prev) => {
+        const next = new Set(prev);
+        if (next.has(idx)) next.delete(idx);
+        else next.add(idx);
+        return next;
+      });
+    }
+
+    return (
+      <section
+        aria-label="Duplicate check"
+        className="overflow-hidden rounded-xl border-[1.5px] border-primary-border bg-canvas shadow-[0_0_0_4px_var(--color-primary-tint),0_10px_24px_-14px_rgb(0_0_0/0.25)]"
+      >
+        <header className="flex items-start gap-2.5 border-b border-primary-border bg-primary-tint px-3.5 py-2">
+          <Sparkles className="mt-[3px] size-3.5 shrink-0 text-primary" aria-hidden />
+          <h3 className="line-clamp-2 flex-1 text-body-sm font-semibold text-primary-ink">
+            {cardIntent}
+          </h3>
+          <span
+            className={`inline-flex shrink-0 items-center gap-1 font-mono text-caption tabular-nums ${countdownToneClass[remaining.tier]}`}
+            aria-live={remaining.tier === 'urgent' ? 'polite' : 'off'}
+          >
+            <Clock className="size-3" aria-hidden />
+            {remaining.label}
+          </span>
+        </header>
+
+        <div className="px-3.5 py-3">
+          {card.summary ? (
+            <p className="mb-2 text-body-sm text-ink-subtle">{card.summary}</p>
+          ) : null}
+
+          {/* Candidate list with checkbox multi-select */}
+          {candidates.length > 0 ? (
+            <fieldset disabled={disabled} className="space-y-0.5">
+              <legend className="mb-1.5 text-eyebrow uppercase text-ink-subtle">
+                Possible duplicates — select to link
+              </legend>
+              <ul className="space-y-0.5">
+                {candidates.map((c, idx) => {
+                  const isSelected = selectedLinks.has(idx);
+                  return (
+                    <li key={c.id}>
+                      <label
+                        className={`flex cursor-pointer items-center gap-2.5 rounded-md border px-2.5 py-1.5 transition ${
+                          isSelected
+                            ? 'border-primary-border bg-primary-tint/60'
+                            : 'border-transparent hover:bg-surface-2'
+                        } ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
+                      >
+                        <input
+                          type="checkbox"
+                          className="sr-only"
+                          checked={isSelected}
+                          onChange={() => toggleLink(idx)}
+                          disabled={disabled}
+                        />
+                        <span
+                          aria-hidden
+                          className={`grid size-4 shrink-0 place-items-center rounded border transition ${
+                            isSelected
+                              ? 'border-primary bg-primary text-on-primary'
+                              : 'border-hairline-strong bg-canvas'
+                          }`}
+                        >
+                          {isSelected ? <Check className="size-3" strokeWidth={3} /> : null}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate text-body-sm">
+                          <span className="font-mono text-caption text-ink-subtle">
+                            #{c.id.slice(0, 8)}
+                          </span>{' '}
+                          — {c.label}
+                        </span>
+                        {typeof c.score === 'number' ? (
+                          <span className="shrink-0 font-mono text-caption tabular-nums text-ink-subtle">
+                            {c.score.toFixed(2)}
+                          </span>
+                        ) : null}
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+            </fieldset>
+          ) : null}
+
+          {/* 3 action buttons in one row */}
+          <div className="mt-3.5 flex items-center gap-2">
+            <button
+              type="button"
+              disabled={selectedLinks.size === 0 || disabled}
+              onClick={() => {
+                if (selectedLinks.size > 0) {
+                  onDecide({ decision: 'approve', alternateIndices: [...selectedLinks] });
+                }
+              }}
+              className="rounded-md border border-hairline bg-surface-1 px-3 py-1.5 text-body-sm font-medium hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {pending
+                ? 'Linking…'
+                : `Link ticket${selectedLinks.size > 1 ? `s (${selectedLinks.size})` : ''}`}
+            </button>
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => onDecide({ decision: 'reject' })}
+                className="rounded-md border border-hairline bg-surface-1 px-3 py-1.5 text-body-sm font-medium text-danger-ink hover:bg-danger-tint disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Delete this ticket
+              </button>
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => onDecide({ decision: 'approve' })}
+                className="rounded-md border border-hairline bg-surface-1 px-3 py-1.5 text-body-sm font-medium hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Leave it
+              </button>
+            </div>
+          </div>
+
+          {!canAct ? (
+            <p className="mt-3 rounded-md bg-surface-2 px-2.5 py-1.5 text-caption text-ink-subtle">
+              You don&apos;t have permission to decide this one.
+            </p>
+          ) : expired ? (
+            <p className="mt-3 rounded-md bg-danger-tint px-2.5 py-1.5 text-caption text-danger-ink">
+              This approval has expired. Cancel the run and try again.
+            </p>
+          ) : null}
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section
@@ -315,7 +468,7 @@ export function HitlApprovalCard({
             {isDirty ? (
               <button
                 type="button"
-                onClick={() => setSelected(new Set(primaryIds))}
+                onClick={() => setSelected(new Set<string>(primaryIds))}
                 className="ml-1 text-primary-ink hover:underline"
               >
                 Reset to top match

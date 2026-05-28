@@ -1,11 +1,17 @@
 import { RequestContext } from '@mastra/core/request-context';
 import { actorFromContext, defineAgentTool } from '@seta/agent-sdk';
-import { DedupOutputSchema, TaskDraftSchema } from '../workflows/dedup-on-create/schemas.ts';
+import { buildActorSession } from '@seta/identity';
+import { createTask } from '../domain/create-task.ts';
+import {
+  type DedupInput,
+  DedupOutputSchema,
+  TaskDraftSchema,
+} from '../workflows/dedup-on-create/schemas.ts';
 
 /**
- * planner_createTask — triggers the dedupOnCreate workflow which handles
- * duplicate detection, HITL approval (when duplicates are found), and task
- * creation. The workflow appears in the Workflows UI for tracking.
+ * planner_createTask — creates the task immediately, then triggers the
+ * dedupOnCreate workflow to check for duplicates. If duplicates are found,
+ * a HITL card appears with 3 options: Link / Delete / Leave.
  */
 export interface PlannerCreateTaskDeps {
   provider?: unknown;
@@ -17,20 +23,31 @@ export function plannerCreateTaskTool(_deps?: PlannerCreateTaskDeps) {
     id: 'planner_createTask',
     name: 'Create Task',
     description:
-      'Create a task via the dedupOnCreate workflow. The workflow checks for duplicates first; ' +
-      'if duplicates are found, it surfaces a HITL approval card in the inbox. ' +
-      'Check for duplicates first by calling planner_findSimilarTasks (per the specialist playbook).',
+      'Create a task immediately, then run the dedupOnCreate workflow to check for duplicates. ' +
+      'If duplicates are found, a HITL approval card appears with options: Link / Delete / Leave.',
     input: TaskDraftSchema,
     output: DedupOutputSchema,
     rbac: 'planner.task.create',
     execute: async (draft, ctx) => {
       const actor = actorFromContext(ctx);
-      console.log('[agent-tool.createTask] ← called', {
-        userId: actor.user_id,
-        title: (draft as { title?: string }).title,
+
+      // Step 1: Create the task immediately
+      const parsedDraft = TaskDraftSchema.parse(draft);
+      if (!parsedDraft.plan_id) {
+        throw new Error('planner_createTask: plan_id is required');
+      }
+
+      const session = await buildActorSession({ user_id: actor.user_id });
+      const task = await createTask({
+        session,
+        plan_id: parsedDraft.plan_id,
+        bucket_id: parsedDraft.bucket_id,
+        title: parsedDraft.title,
+        description: parsedDraft.description,
+        skill_tags: parsedDraft.skill_tags,
       });
 
-      // Access Mastra runtime to start the dedupOnCreate workflow
+      // Step 2: Start the dedupOnCreate workflow in background
       const mastra = ctx.mastra as
         | {
             getWorkflow: (id: string) =>
@@ -45,19 +62,18 @@ export function plannerCreateTaskTool(_deps?: PlannerCreateTaskDeps) {
         | undefined;
 
       if (!mastra) {
-        throw new Error('planner_createTask: Mastra runtime unavailable — cannot start workflow');
+        return { kind: 'kept' as const, taskId: task.id };
       }
 
       const workflow =
         mastra.getWorkflow('dedupOnCreate') ?? mastra.getWorkflow('planner.dedupOnCreate');
       if (!workflow) {
-        throw new Error('planner_createTask: dedupOnCreate workflow not registered');
+        return { kind: 'kept' as const, taskId: task.id };
       }
 
-      const parsedDraft = TaskDraftSchema.parse(draft);
       const run = await workflow.createRun();
 
-      // Build requestContext with actor info for the workflow steps
+      // Build requestContext with actor info + thread_id for HITL in chat
       const requestContext = new RequestContext();
       requestContext.set('actor', { type: 'user' as const, user_id: actor.user_id });
       if (ctx.requestContext) {
@@ -67,13 +83,16 @@ export function plannerCreateTaskTool(_deps?: PlannerCreateTaskDeps) {
         if (roleSummary) requestContext.set('role_summary', roleSummary);
       }
 
-      // Fire-and-forget: the workflow runs async and handles dedup + HITL via inbox
-      void run.start({ inputData: parsedDraft, requestContext });
-
-      console.log('[agent-tool.createTask] → workflow started', {
-        runId: run.runId,
+      const dedupInput: DedupInput = {
+        taskId: task.id,
         title: parsedDraft.title,
-      });
+        description: parsedDraft.description ?? '',
+        plan_id: parsedDraft.plan_id,
+      };
+
+      // Fire-and-forget: workflow handles dedup + HITL
+      void run.start({ inputData: dedupInput, requestContext });
+
       return { kind: 'workflow-started' as const, runId: run.runId };
     },
   });

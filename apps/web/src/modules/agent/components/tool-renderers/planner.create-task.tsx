@@ -17,17 +17,13 @@ interface ApprovalCardLike {
   decline?: { label: string };
 }
 
-type DupAction =
-  | { kind: 'create-new' }
-  | { kind: 'link'; existingId: string; mode: 'related' | 'sub-task' }
-  | { kind: 'cancel' };
+type DupAction = { kind: 'link'; existingIds: string[] } | { kind: 'delete' } | { kind: 'leave' };
 
 interface PlannerCreateTaskOutput {
-  kind?: 'created' | 'sub-task-added' | 'cancelled' | 'workflow-started';
+  kind?: 'kept' | 'linked' | 'deleted' | 'workflow-started';
   taskId?: string;
   runId?: string;
   linkedTo?: string;
-  existingId?: string;
 }
 
 export interface PlannerCreateTaskRendererProps {
@@ -39,32 +35,15 @@ export interface PlannerCreateTaskRendererProps {
   approval?: ApprovalCardLike | null;
 }
 
-function argsPatchToAction(patch: Record<string, unknown> | undefined): DupAction {
-  if (!patch) return { kind: 'cancel' };
-  const action = patch.action;
-  if (action === 'create-new') return { kind: 'create-new' };
-  if (action === 'cancel') return { kind: 'cancel' };
-  if (
-    action === 'link' &&
-    typeof patch.existingId === 'string' &&
-    (patch.mode === 'related' || patch.mode === 'sub-task')
-  ) {
-    return { kind: 'link', existingId: patch.existingId, mode: patch.mode };
-  }
-  return { kind: 'cancel' };
-}
-
 function outputSummary(out: PlannerCreateTaskOutput): string {
   if (out.kind === 'workflow-started') {
     return `Dedup check started (run ${out.runId?.slice(0, 8) ?? '?'})`;
   }
-  if (out.kind === 'created') {
-    return out.linkedTo ? `Created task linked to #${out.linkedTo.slice(0, 8)}` : 'Task created';
+  if (out.kind === 'kept') return 'Task kept';
+  if (out.kind === 'linked') {
+    return `Task linked to #${out.linkedTo?.slice(0, 8) ?? '?'}`;
   }
-  if (out.kind === 'sub-task-added') {
-    return `Added as sub-task of #${out.existingId?.slice(0, 8) ?? '?'}`;
-  }
-  if (out.kind === 'cancelled') return 'Cancelled';
+  if (out.kind === 'deleted') return 'Task deleted (duplicate)';
   return 'Done';
 }
 
@@ -80,15 +59,24 @@ export function PlannerCreateTaskRenderer({
   const search = useSearch({ strict: false }) as { thread?: string };
   const threadId = search.thread;
   const [pendingLabel, setPendingLabel] = useState<string | null>(null);
+  const [selectedLinks, setSelectedLinks] = useState<Set<number>>(new Set());
 
   if (state === 'input-pending-approval') {
     const card = approval ?? null;
     const items = card?.details?.find((d) => d.kind === 'candidateList')?.items ?? [];
-    const primary = card?.primary ?? { label: 'Create new', argsPatch: { action: 'create-new' } };
     const alternates = card?.alternates ?? [];
-    const decline = card?.decline ?? { label: 'Cancel' };
+    const decline = card?.decline ?? { label: 'Delete this ticket' };
     const summary = card?.summary ?? 'A similar task may already exist.';
-    const intent = card?.intent ?? `Create task: "${String(args.title ?? '')}"`;
+    const intent = card?.intent ?? `Duplicate check: "${String(args.title ?? '')}"`;
+
+    function toggleLink(idx: number) {
+      setSelectedLinks((prev) => {
+        const next = new Set(prev);
+        if (next.has(idx)) next.delete(idx);
+        else next.add(idx);
+        return next;
+      });
+    }
 
     const dispatch = async (label: string, action: DupAction) => {
       const { runId, toolCallId } = splitApprovalId(card?.id);
@@ -99,7 +87,7 @@ export function PlannerCreateTaskRenderer({
           queryClient,
           runId,
           toolCallId: toolCallId ?? callId,
-          approved: action.kind !== 'cancel',
+          approved: action.kind !== 'delete',
           resumeData: action,
           ...(threadId ? { knownThreadId: threadId } : {}),
         });
@@ -108,19 +96,28 @@ export function PlannerCreateTaskRenderer({
       }
     };
 
+    const handleLink = () => {
+      if (selectedLinks.size === 0) return;
+      const ids = [...selectedLinks]
+        .map((idx) => {
+          const alt = alternates[idx];
+          return (alt?.argsPatch as { existingId?: string })?.existingId ?? '';
+        })
+        .filter(Boolean);
+      if (ids.length > 0) {
+        void dispatch('Link ticket', { kind: 'link', existingIds: ids });
+      }
+    };
+
     return (
       <ChatHitlCard
         title={name}
         toolName={name}
         permissionHint="Requires planner.task.create"
-        onApprove={() => void dispatch(primary.label, argsPatchToAction(primary.argsPatch))}
-        onReject={() => void dispatch(decline.label, { kind: 'cancel' })}
+        onApprove={() => void dispatch('Leave it', { kind: 'leave' })}
+        onReject={() => void dispatch(decline.label, { kind: 'delete' })}
         pending={
-          pendingLabel === primary.label
-            ? 'approve'
-            : pendingLabel === decline.label
-              ? 'reject'
-              : null
+          pendingLabel === 'Leave it' ? 'approve' : pendingLabel === decline.label ? 'reject' : null
         }
       >
         <div className="space-y-3 text-body-sm">
@@ -129,37 +126,99 @@ export function PlannerCreateTaskRenderer({
             <div className="mt-1 font-medium">{intent}</div>
           </div>
           {items.length > 0 && (
-            <ul className="space-y-1 rounded-md border border-hairline bg-surface-1 p-3">
-              {items.map((it) => (
-                <li key={it.id} className="text-body-sm">
-                  <span className="font-mono text-caption text-ink-subtle">
-                    #{it.id.slice(0, 8)}
-                  </span>{' '}
-                  — {it.label}
-                  {typeof it.score === 'number' && (
-                    <span className="ml-2 text-caption text-ink-subtle">
-                      score {it.score.toFixed(2)}
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
+            <fieldset className="space-y-0.5">
+              <legend className="mb-1.5 text-eyebrow uppercase text-ink-subtle">
+                Possible duplicates — select to link
+              </legend>
+              <ul className="space-y-0.5">
+                {items.map((it, idx) => {
+                  const isSelected = selectedLinks.has(idx);
+                  return (
+                    <li key={it.id}>
+                      <label
+                        className={`flex cursor-pointer items-center gap-2.5 rounded-md border px-2.5 py-1.5 transition ${
+                          isSelected
+                            ? 'border-primary-border bg-primary-tint/60'
+                            : 'border-transparent hover:bg-surface-2'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          className="sr-only"
+                          checked={isSelected}
+                          onChange={() => toggleLink(idx)}
+                          disabled={pendingLabel !== null}
+                        />
+                        <span
+                          aria-hidden
+                          className={`grid size-4 shrink-0 place-items-center rounded border transition ${
+                            isSelected
+                              ? 'border-primary bg-primary text-on-primary'
+                              : 'border-hairline-strong bg-canvas'
+                          }`}
+                        >
+                          {isSelected ? (
+                            <svg
+                              className="size-3"
+                              viewBox="0 0 12 12"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              aria-hidden="true"
+                            >
+                              <path d="M2 6l3 3 5-5" />
+                            </svg>
+                          ) : null}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate">
+                          <span className="font-mono text-caption text-ink-subtle">
+                            #{it.id.slice(0, 8)}
+                          </span>{' '}
+                          — {it.label}
+                        </span>
+                        {typeof it.score === 'number' && (
+                          <span className="shrink-0 font-mono text-caption tabular-nums text-ink-subtle">
+                            {it.score.toFixed(2)}
+                          </span>
+                        )}
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+            </fieldset>
           )}
-          {alternates.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {alternates.map((a) => (
-                <button
-                  key={a.label}
-                  type="button"
-                  disabled={pendingLabel !== null}
-                  onClick={() => void dispatch(a.label, argsPatchToAction(a.argsPatch))}
-                  className="rounded border border-hairline bg-surface-1 px-2.5 py-1 text-caption hover:bg-surface-2 disabled:opacity-50"
-                >
-                  {pendingLabel === a.label ? 'Working…' : a.label}
-                </button>
-              ))}
+          {/* 3 buttons: Link left, Delete + Leave right */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={selectedLinks.size === 0 || pendingLabel !== null}
+              onClick={handleLink}
+              className="rounded border border-hairline bg-surface-1 px-2.5 py-1 text-caption font-medium hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {pendingLabel === 'Link ticket'
+                ? 'Linking…'
+                : `Link ticket${selectedLinks.size > 1 ? `s (${selectedLinks.size})` : ''}`}
+            </button>
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                type="button"
+                disabled={pendingLabel !== null}
+                onClick={() => void dispatch(decline.label, { kind: 'delete' })}
+                className="rounded border border-hairline bg-surface-1 px-2.5 py-1 text-caption font-medium text-danger-ink hover:bg-danger-tint disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {pendingLabel === decline.label ? 'Deleting…' : 'Delete this ticket'}
+              </button>
+              <button
+                type="button"
+                disabled={pendingLabel !== null}
+                onClick={() => void dispatch('Leave it', { kind: 'leave' })}
+                className="rounded border border-hairline bg-surface-1 px-2.5 py-1 text-caption font-medium hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {pendingLabel === 'Leave it' ? 'Working…' : 'Leave it'}
+              </button>
             </div>
-          )}
+          </div>
         </div>
       </ChatHitlCard>
     );

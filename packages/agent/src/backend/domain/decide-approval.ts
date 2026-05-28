@@ -15,6 +15,15 @@ export interface DecideApprovalOpts {
    * have multiple assignees, so this is plural by contract.
    */
   overrideUserIds?: string[];
+  /**
+   * For 'approve' decisions on alternates: indices into the card's
+   * `alternates[]` array. When a single index is set, uses
+   * `alternates[N].argsPatch` as resumeData. When multiple indices are set,
+   * merges their `existingId` fields into an `existingIds` array with
+   * `kind: 'link'`.
+   */
+  alternateIndex?: number;
+  alternateIndices?: number[];
   note?: string;
   mastra: Mastra;
   /**
@@ -61,14 +70,31 @@ function resumeDataFromDecision(
   ctx: ApprovalDecisionContext,
   decision: 'approve' | 'reject' | 'modify',
   overrideUserIds: string[] | undefined,
+  alternateIndex: number | undefined,
+  alternateIndices: number[] | undefined,
 ): Record<string, unknown> | undefined {
   const card = (ctx.proposedPayload ?? null) as ApprovalCardLike | null;
   if (!card) return undefined;
-  if (decision === 'approve') return card.primary?.argsPatch;
+  if (decision === 'approve') {
+    // Multi-select: merge existingId from each alternate into existingIds array
+    const indices = alternateIndices ?? (alternateIndex !== undefined ? [alternateIndex] : []);
+    if (indices.length > 0 && card.alternates) {
+      const existingIds: string[] = [];
+      for (const idx of indices) {
+        const alt = card.alternates[idx];
+        if (alt?.argsPatch) {
+          const id = (alt.argsPatch as { existingId?: string }).existingId;
+          if (id) existingIds.push(id);
+        }
+      }
+      if (existingIds.length > 0) {
+        return { kind: 'link', existingIds };
+      }
+    }
+    return card.primary?.argsPatch;
+  }
   if (decision === 'reject') return card.decline?.argsPatch;
   // modify: substitute the user-composed assignee set into primary.argsPatch.
-  // The UI can compose any subset of (or addition to) the candidate pool, so we
-  // don't try to match an alternate — we always template off primary.
   if (decision === 'modify' && overrideUserIds && overrideUserIds.length > 0) {
     if (card.primary?.argsPatch) {
       return { ...card.primary.argsPatch, assigneeUserIds: overrideUserIds };
@@ -227,7 +253,13 @@ export async function decideApproval(opts: DecideApprovalOpts): Promise<DecideAp
   // reading the ApprovalCard's argsPatch fields. Falls back to a passthrough
   // shape so older approvals (or workflows that don't carry argsPatch) at
   // least surface the decision instead of erroring.
-  const fromCard = resumeDataFromDecision(ctx, opts.decision, opts.overrideUserIds);
+  const fromCard = resumeDataFromDecision(
+    ctx,
+    opts.decision,
+    opts.overrideUserIds,
+    opts.alternateIndex,
+    opts.alternateIndices,
+  );
   const resumeData: Record<string, unknown> = fromCard ?? {
     decision: opts.decision,
     ...(opts.overrideUserIds !== undefined ? { override_user_ids: opts.overrideUserIds } : {}),

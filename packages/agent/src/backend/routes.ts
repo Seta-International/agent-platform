@@ -838,6 +838,8 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
     let body: {
       decision: 'approve' | 'reject' | 'modify';
       overrideUserIds?: string[];
+      alternateIndex?: number;
+      alternateIndices?: number[];
       note?: string;
     };
     try {
@@ -859,12 +861,33 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
         return c.json({ error: 'invalid_body', message: 'overrideUserIds must be string[]' }, 400);
       }
     }
+    if (body.alternateIndex !== undefined) {
+      if (typeof body.alternateIndex !== 'number' || body.alternateIndex < 0) {
+        return c.json(
+          { error: 'invalid_body', message: 'alternateIndex must be a non-negative number' },
+          400,
+        );
+      }
+    }
+    if (body.alternateIndices !== undefined) {
+      if (
+        !Array.isArray(body.alternateIndices) ||
+        body.alternateIndices.some((i) => typeof i !== 'number' || i < 0)
+      ) {
+        return c.json(
+          { error: 'invalid_body', message: 'alternateIndices must be non-negative number[]' },
+          400,
+        );
+      }
+    }
     try {
       const result = await decideApproval({
         session,
         approvalId: c.req.param('approvalId'),
         decision: body.decision,
         overrideUserIds: body.overrideUserIds,
+        alternateIndex: body.alternateIndex,
+        alternateIndices: body.alternateIndices,
         note: body.note,
         mastra: deps.mastra as Mastra,
         chatHitlDeciders: deps.chatHitlDeciders,
