@@ -1,6 +1,6 @@
 import { toAISdkStream } from '@mastra/ai-sdk';
 import type { Mastra } from '@mastra/core';
-import type { Agent } from '@mastra/core/agent';
+import type { Agent, DelegationStartContext } from '@mastra/core/agent';
 import { RequestContext } from '@mastra/core/request-context';
 import {
   AgentRegistry,
@@ -345,6 +345,12 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
           : { memory: { resource: resourceId } }),
         requestContext,
         ...(modelOverride ? { model: modelOverride as never } : {}),
+        delegation: {
+          includeSubAgentToolResultsInModelContext: true,
+          onDelegationStart: ({ params }: DelegationStartContext) => ({
+            params: { ...params, maxSteps: Math.max(params.maxSteps ?? 0, 20) },
+          }),
+        },
       } as never,
     );
 
