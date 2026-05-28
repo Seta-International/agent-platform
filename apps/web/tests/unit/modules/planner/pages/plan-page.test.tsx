@@ -366,15 +366,14 @@ describe('PlanPage (via PlanBoardShell)', () => {
     const captured = vi.fn();
     server.use(
       ...seedBoardHandlers(),
-      http.post('*/api/planner/v1/tasks', async ({ request }) => {
-        const body = (await request.json()) as { title: string; bucket_id?: string };
+      http.post('*/api/agent/v1/workflows/runs/dedupOnCreate/start', async ({ request }) => {
+        const body = (await request.json()) as {
+          title: string;
+          bucket_id?: string;
+          plan_id?: string;
+        };
         captured(body);
-        return HttpResponse.json({
-          ...taskOne,
-          id: 't-new',
-          title: body.title,
-          bucket_id: body.bucket_id ?? null,
-        });
+        return HttpResponse.json({ run_id: 'run-dedup-1' });
       }),
     );
     renderShell();

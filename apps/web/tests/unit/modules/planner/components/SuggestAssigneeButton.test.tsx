@@ -40,7 +40,7 @@ describe('SuggestAssigneeButton', () => {
     );
     const link = screen.getByTestId('suggest-in-progress-link');
     expect(link).toBeInTheDocument();
-    expect(screen.getByText(/Suggest in progress/i)).toBeInTheDocument();
+    expect(screen.getByText(/View workflow/i)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Suggest assignee/i })).not.toBeInTheDocument();
   });
 });
