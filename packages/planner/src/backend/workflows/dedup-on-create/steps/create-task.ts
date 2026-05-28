@@ -11,11 +11,6 @@ export async function createTaskStep(input: CreateTaskStepInput): Promise<{ task
   if (!input.draft.plan_id) {
     throw new Error('createTaskStep: draft.plan_id is required to create a task');
   }
-  console.log('[dedup.createTask] → inserting task into DB', {
-    planId: input.draft.plan_id,
-    title: input.draft.title,
-    bucketId: input.draft.bucket_id ?? null,
-  });
   const task = await createTask({
     session: input.session,
     plan_id: input.draft.plan_id,
@@ -24,6 +19,5 @@ export async function createTaskStep(input: CreateTaskStepInput): Promise<{ task
     description: input.draft.description,
     skill_tags: input.draft.skill_tags,
   });
-  console.log('[dedup.createTask] ✓ task persisted', { taskId: task.id });
   return { taskId: task.id };
 }
