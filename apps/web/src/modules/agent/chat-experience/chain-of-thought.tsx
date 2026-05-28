@@ -1,6 +1,6 @@
 import { useAuiState } from '@assistant-ui/react';
 import { ChatToolCall } from '@seta/shared-ui';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useMemo, useState } from 'react';
 import { extractLeafToolCalls } from './leaf-tool-calls';
 
 export interface ChainOfThoughtProps {
@@ -21,9 +21,12 @@ export function ChainOfThought({ running, count, indices, children }: ChainOfTho
     const content = s.message.content as ReadonlyArray<{ status?: { type?: string } }>;
     return indices.some((i) => content[i]?.status?.type === 'requires-action');
   });
-  const leafRows = useAuiState((s) =>
-    extractLeafToolCalls(s.message.content as ReadonlyArray<unknown>),
-  );
+  // Select the stable `content` reference (not a freshly-built array) so useAuiState's
+  // equality check doesn't fire every render; derive the rows with useMemo. Returning
+  // `extractLeafToolCalls(...)` straight from the selector creates a new array each call,
+  // which assistant-ui reads as a perpetual change → "Maximum update depth exceeded".
+  const content = useAuiState((s) => s.message.content as ReadonlyArray<unknown>);
+  const leafRows = useMemo(() => extractLeafToolCalls(content), [content]);
   const stepCount = count + leafRows.length;
   const forcedOpen = running || hasPendingAction;
   const open = forcedOpen || manualOpen;
