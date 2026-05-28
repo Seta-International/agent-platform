@@ -448,7 +448,25 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
     id: string;
     data: { kind: string; id: string; label: string; summary?: string };
   };
-  type UIMessagePart = TextUIPart | ReasoningUIPart | ToolUIPart | DataPageContextPart;
+  // Reconstructs the live `tool-agent` data part on reload so the same
+  // `extractLeafToolCalls` frontend path renders a delegated sub-agent's leaf
+  // tool calls. Mirrors the AI SDK v6 `data-<name>` wire convention used by
+  // `data-page-context`; the frontend reads it as `{ type:'data', name:'tool-agent', data }`.
+  type DataToolAgentPart = {
+    type: 'data-tool-agent';
+    id: string;
+    data: {
+      id: string;
+      toolCalls: { toolCallId: string; toolName: string }[];
+      toolResults: { toolCallId: string; isError: boolean }[];
+    };
+  };
+  type UIMessagePart =
+    | TextUIPart
+    | ReasoningUIPart
+    | ToolUIPart
+    | DataPageContextPart
+    | DataToolAgentPart;
   type UIMessageLike = { id: string; role: 'user' | 'assistant'; parts: UIMessagePart[] };
 
   // Mastra stores tool calls as `{ type:'tool-invocation', toolInvocation }`; ai@6 wants
@@ -462,7 +480,44 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
     errorText?: unknown;
   };
 
-  function mastraPartToUIPart(raw: unknown): UIMessagePart | null {
+  // Mastra nests a delegated sub-agent's leaf tool calls inside the delegate
+  // `tool-invocation` result as `subAgentToolResults: { toolCallId, toolName, result }[]`
+  // (no per-call error flag — a returned result is a success). Rebuild the `tool-agent`
+  // data part the live stream emits so leaf rows render on reload too.
+  function leafDataPart(
+    delegateToolCallId: string,
+    delegateToolName: string,
+    result: unknown,
+  ): DataToolAgentPart | null {
+    if (!result || typeof result !== 'object') return null;
+    const leaves = (result as { subAgentToolResults?: unknown }).subAgentToolResults;
+    if (!Array.isArray(leaves) || leaves.length === 0) return null;
+    const agentSlug = delegateToolName.startsWith('agent-')
+      ? delegateToolName.slice('agent-'.length)
+      : delegateToolName;
+    const toolCalls: { toolCallId: string; toolName: string }[] = [];
+    const toolResults: { toolCallId: string; isError: boolean }[] = [];
+    for (let n = 0; n < leaves.length; n++) {
+      const leaf = leaves[n];
+      if (!leaf || typeof leaf !== 'object') continue;
+      const l = leaf as { toolCallId?: unknown; toolName?: unknown; isError?: unknown };
+      const callId =
+        typeof l.toolCallId === 'string' && l.toolCallId.length > 0
+          ? l.toolCallId
+          : `${delegateToolCallId}-leaf-${n}`;
+      const name = typeof l.toolName === 'string' && l.toolName.length > 0 ? l.toolName : 'tool';
+      toolCalls.push({ toolCallId: callId, toolName: name });
+      toolResults.push({ toolCallId: callId, isError: l.isError === true });
+    }
+    if (toolCalls.length === 0) return null;
+    return {
+      type: 'data-tool-agent',
+      id: `${delegateToolCallId}-leaves`,
+      data: { id: agentSlug, toolCalls, toolResults },
+    };
+  }
+
+  function mastraPartToUIPart(raw: unknown): UIMessagePart | UIMessagePart[] | null {
     if (!raw || typeof raw !== 'object') return null;
     const type = (raw as { type?: unknown }).type;
     if (type === 'text') {
@@ -491,7 +546,8 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
       };
       if (state === 'output-available') part.output = i.result;
       if (state === 'output-error') part.errorText = (i.errorText as string) ?? 'tool failed';
-      return part;
+      const leaves = leafDataPart(i.toolCallId, i.toolName, i.result);
+      return leaves ? [part, leaves] : part;
     }
     if (type === 'data-page-context') {
       const r = raw as { id?: unknown; data?: unknown };
@@ -527,7 +583,9 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
     const parts: UIMessagePart[] = [];
     for (const raw of stored.parts) {
       const p = mastraPartToUIPart(raw);
-      if (p) parts.push(p);
+      if (!p) continue;
+      if (Array.isArray(p)) parts.push(...p);
+      else parts.push(p);
     }
     if (parts.length === 0) return null;
     return { id: m.id ?? `msg-${idx}`, role, parts };

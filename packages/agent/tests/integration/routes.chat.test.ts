@@ -318,3 +318,124 @@ describe('GET /api/agent/v1/threads/:id (data-page-context round-trip)', () => {
     });
   });
 });
+
+describe('GET /api/agent/v1/threads/:id (sub-agent leaf tool calls)', () => {
+  it('reconstructs a data-tool-agent part from a delegate tool-invocation', async () => {
+    await withAgentTestDb(async ({ pool, databaseUrl }) => {
+      const { admin_user_id, tenant_id } = await createTestTenantWithAdmin({ pool });
+      const { buildMastra } = await import('../../src/backend/runtime.ts');
+      const mastra = buildMastra({ pool, databaseUrl });
+      const storage = mastra.getStorage() as unknown as {
+        init: () => Promise<void>;
+        stores: {
+          memory: {
+            saveThread: (args: {
+              thread: {
+                id: string;
+                resourceId: string;
+                title?: string;
+                createdAt: Date;
+                updatedAt: Date;
+                metadata?: Record<string, unknown>;
+              };
+            }) => Promise<unknown>;
+            saveMessages: (args: { messages: unknown[] }) => Promise<unknown>;
+          };
+        };
+      };
+      await storage.init();
+
+      const threadId = 'thread-leaf-1';
+      const now = new Date();
+      await storage.stores.memory.saveThread({
+        thread: {
+          id: threadId,
+          resourceId: admin_user_id,
+          title: 'with delegate',
+          createdAt: now,
+          updatedAt: now,
+          metadata: {},
+        },
+      });
+      await storage.stores.memory.saveMessages({
+        messages: [
+          {
+            id: 'msg-leaf-1',
+            threadId,
+            resourceId: admin_user_id,
+            role: 'assistant',
+            createdAt: now,
+            content: {
+              format: 2,
+              parts: [
+                {
+                  type: 'tool-invocation',
+                  toolInvocation: {
+                    toolCallId: 'delegate-1',
+                    toolName: 'agent-planner',
+                    state: 'result',
+                    args: { prompt: 'do it' },
+                    result: {
+                      text: '',
+                      subAgentToolResults: [
+                        { toolCallId: 'leaf-1', toolName: 'planner_createTask', result: {} },
+                        { toolCallId: 'leaf-2', toolName: 'identity_whoAmI', result: {} },
+                      ],
+                    },
+                  },
+                },
+                { type: 'text', text: 'done' },
+              ],
+            },
+          },
+        ],
+      });
+
+      const app = new Hono<{ Variables: { session: TestSession } }>();
+      app.use('*', async (c, next) => {
+        c.set('session', {
+          tenant_id,
+          user_id: admin_user_id,
+          effective_permissions: new Set([
+            'agent.chat.use',
+            'agent.thread.read.self',
+            'agent.thread.write.self',
+          ]),
+          role_summary: { roles: ['org.admin'], cross_tenant_read: false },
+        });
+        await next();
+      });
+      registerAgentRoutes(app, {
+        supervisor: fakeSupervisor,
+        mastra: mastra as never,
+        pool,
+      });
+
+      const res = await app.request(`/api/agent/v1/threads/${threadId}`);
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        messages: Array<{
+          parts: Array<{
+            type: string;
+            data?: {
+              id: string;
+              toolCalls: Array<{ toolCallId: string; toolName: string }>;
+              toolResults: Array<{ toolCallId: string; isError: boolean }>;
+            };
+          }>;
+        }>;
+      };
+      const m = body.messages.find((msg) => msg.parts.some((p) => p.type === 'data-tool-agent'));
+      expect(m).toBeDefined();
+      // The delegate row itself is still present alongside the reconstructed leaf part.
+      expect(m?.parts.some((p) => p.type === 'tool-agent-planner')).toBe(true);
+      const leaf = m?.parts.find((p) => p.type === 'data-tool-agent');
+      expect(leaf?.data?.id).toBe('planner');
+      expect(leaf?.data?.toolCalls.map((c) => c.toolName)).toEqual([
+        'planner_createTask',
+        'identity_whoAmI',
+      ]);
+      expect(leaf?.data?.toolResults.every((r) => r.isError === false)).toBe(true);
+    });
+  });
+});
