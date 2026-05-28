@@ -26,7 +26,15 @@ export async function applyUserCreated(
       ooo_until: null,
       deactivated_at: null,
     })
-    .onConflictDoNothing();
+    .onConflictDoUpdate({
+      target: assigneeProjection.user_id,
+      set: {
+        tenant_id: e.payload.after.tenant_id,
+        display_name: e.payload.after.name,
+        email: e.payload.after.email,
+        projection_built_at: new Date(),
+      },
+    });
 }
 
 export async function applyProfileUpdated(

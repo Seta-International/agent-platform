@@ -16,6 +16,7 @@ export async function searchUsersBySkills(input: {
   group_id: string;
   skills: string[];
   limit: number;
+  exclude_user_ids?: string[];
   session: SessionScope;
 }): Promise<CandidateRow[]> {
   requirePermission(input.session, 'planner.group.member.read', input.group_id);
@@ -54,7 +55,9 @@ export async function searchUsersBySkills(input: {
     .where(eq(groupMembers.group_id, input.group_id));
 
   const candidates: CandidateRow[] = [];
+  const excluded = new Set(input.exclude_user_ids ?? []);
   for (const row of rows) {
+    if (excluded.has(row.user_id)) continue;
     const userSkills = row.skills ?? [];
     const normalizedInputSkills = input.skills.map((s) => s.toLowerCase());
     const matched = userSkills.filter((skill) =>

@@ -138,6 +138,91 @@ describe('applyUserCreated', () => {
       },
     );
   });
+
+  it('preserves profile fields when profile update is processed before user created', async () => {
+    await withTestDb(
+      { templateDbName: TEMPLATE, baseUrl: BASE_URL },
+      async ({ pool, databaseUrl }) => {
+        resetCoreDb();
+        initPools({ databaseUrl });
+        try {
+          const tenantId = crypto.randomUUID();
+          const userId = crypto.randomUUID();
+
+          await pool.query(`INSERT INTO core.tenants (id, name, slug) VALUES ($1, $2, $3)`, [
+            tenantId,
+            'Evt Tenant 3',
+            `evt-${tenantId.slice(0, 8)}`,
+          ]);
+
+          const db = drizzle(pool, { schema });
+          await db.transaction(async (tx) => {
+            const profileTx = tx as unknown as Parameters<typeof applyProfileUpdated>[1]['tx'];
+            const createTx = tx as unknown as Parameters<typeof applyUserCreated>[1]['tx'];
+            await applyProfileUpdated(
+              {
+                id: crypto.randomUUID(),
+                occurredAt: new Date(),
+                tenantId,
+                aggregateType: 'identity.user',
+                aggregateId: userId,
+                eventType: 'identity.user.profile.updated',
+                eventVersion: 1,
+                payload: {
+                  actor: { type: 'cli', user_id: null },
+                  user_id: userId,
+                  before: { skills: [] },
+                  after: {
+                    skills: ['aws', 'kubernetes'],
+                    availability_status: 'busy',
+                    timezone: 'Asia/Ho_Chi_Minh',
+                  },
+                },
+              },
+              { tx: profileTx },
+            );
+            await applyUserCreated(
+              {
+                id: crypto.randomUUID(),
+                occurredAt: new Date(),
+                tenantId,
+                aggregateType: 'identity.user',
+                aggregateId: userId,
+                eventType: 'identity.user.created',
+                eventVersion: 1,
+                payload: {
+                  actor: { type: 'cli', user_id: null },
+                  after: {
+                    user_id: userId,
+                    tenant_id: tenantId,
+                    email: 'out-of-order@example.test',
+                    name: 'Out Of Order',
+                    created_via: 'admin',
+                  },
+                },
+              },
+              { tx: createTx },
+            );
+          });
+
+          const { rows } = await pool.query(
+            `SELECT display_name, email, skills, availability_status, timezone
+               FROM planner.assignee_projection WHERE user_id = $1`,
+            [userId],
+          );
+          expect(rows).toHaveLength(1);
+          expect(rows[0].display_name).toBe('Out Of Order');
+          expect(rows[0].email).toBe('out-of-order@example.test');
+          expect(rows[0].skills).toEqual(['aws', 'kubernetes']);
+          expect(rows[0].availability_status).toBe('busy');
+          expect(rows[0].timezone).toBe('Asia/Ho_Chi_Minh');
+        } finally {
+          resetCoreDb();
+          await closePools();
+        }
+      },
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------

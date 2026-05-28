@@ -1,7 +1,22 @@
 import { actorFromContext, defineAgentTool } from '@seta/agent-sdk';
-import { buildActorSession } from '@seta/identity';
+import { buildActorSession, getUserProfile } from '@seta/identity';
 import { z } from 'zod';
-import { searchUsersBySkills } from '../domain/search-users-by-skills.ts';
+import { getTask } from '../domain/get-task.ts';
+import { listGroupMembers } from '../domain/list-group-members.ts';
+
+interface SkillCandidate {
+  userId: string;
+  displayName: string;
+  matchedSkills: string[];
+  score: number;
+}
+
+function matchSkills(userSkills: readonly string[], requestedSkills: readonly string[]): string[] {
+  const available = new Set(userSkills.map((s) => s.toLowerCase()));
+  return requestedSkills
+    .map((skill) => skill.toLowerCase())
+    .filter((skill) => available.has(skill));
+}
 
 export const identitySearchUsersBySkillsTool = defineAgentTool({
   id: 'identity_searchUsersBySkills',
@@ -13,6 +28,11 @@ export const identitySearchUsersBySkillsTool = defineAgentTool({
     'When no group is in context, call this tool once per accessible group from the session and merge results.',
   input: z.object({
     groupId: z.string().uuid().describe('The group ID to search within'),
+    taskId: z
+      .string()
+      .uuid()
+      .optional()
+      .describe('Optional task ID; current assignees are excluded from candidates'),
     skills: z.array(z.string().min(1)).min(1).describe('Skills to match against'),
     limit: z
       .number()
@@ -36,21 +56,47 @@ export const identitySearchUsersBySkillsTool = defineAgentTool({
   execute: async (input, ctx) => {
     const actor = actorFromContext(ctx);
     const session = await buildActorSession(actor);
+    const excludeUserIds = new Set<string>([actor.user_id]);
+    if (input.taskId) {
+      const task = await getTask({ task_id: input.taskId, session });
+      for (const assignee of task.assignees) excludeUserIds.add(assignee.user_id);
+    }
 
-    const rows = await searchUsersBySkills({
+    const firstPage = await listGroupMembers({
       group_id: input.groupId,
-      skills: input.skills,
-      limit: input.limit ?? 5,
+      limit: 100,
       session,
     });
+    const members = [...firstPage.members];
+    for (let offset = members.length; offset < firstPage.total; offset += 100) {
+      const page = await listGroupMembers({
+        group_id: input.groupId,
+        limit: 100,
+        offset,
+        session,
+      });
+      members.push(...page.members);
+    }
+
+    const candidates: SkillCandidate[] = [];
+    for (const member of members) {
+      if (excludeUserIds.has(member.user_id)) continue;
+      const profile = await getUserProfile(member.user_id);
+      if (!profile || profile.tenant_id !== session.tenant_id || profile.deactivated_at) continue;
+      const matchedSkills = matchSkills(profile.skills, input.skills);
+      if (matchedSkills.length === 0) continue;
+      candidates.push({
+        userId: profile.user_id,
+        displayName: profile.display_name,
+        matchedSkills,
+        score: matchedSkills.length,
+      });
+    }
+
+    candidates.sort((a, b) => b.score - a.score);
 
     return {
-      candidates: rows.map((r) => ({
-        userId: r.userId,
-        displayName: r.displayName,
-        matchedSkills: r.matchedSkills,
-        score: r.score,
-      })),
+      candidates: candidates.slice(0, input.limit ?? 5),
     };
   },
 });
