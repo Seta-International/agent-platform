@@ -1,20 +1,11 @@
 import { type DataMessagePartComponent, useAuiState } from '@assistant-ui/react';
 import { ChatMarkdown } from '@seta/shared-ui';
+import { agentLabel } from './leaf-tool-calls';
 
 interface AgentStreamDataShape {
   id?: unknown;
   text?: unknown;
   status?: unknown;
-}
-
-function agentLabel(id: unknown): string {
-  if (typeof id !== 'string' || id.length === 0) return 'sub-agent';
-  return id
-    .replace(/-supervisor$/, '')
-    .split('-')
-    .filter(Boolean)
-    .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
-    .join(' ');
 }
 
 export const AgentStreamPart: DataMessagePartComponent = ({ data, status }) => {
