@@ -1082,14 +1082,38 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
     requestContext.set('tenant_id', session.tenant_id);
     requestContext.set('role_summary', session.role_summary);
     try {
-      const run = await workflow.createRun();
-      // Store Mastra's intrinsic workflow id (e.g. `planner.assignBySkill`), not the
-      // URL alias (e.g. `assignBySkill`). Mastra's snapshot storage and our domain
-      // helpers (getPendingAssignRunIdForTask, etc.) key by the intrinsic id.
+      // Resolve Mastra's intrinsic workflow id (e.g. `planner.assignBySkill`)
+      // up front — both the dedupe lookup (registry is keyed by mastra id) and
+      // the lifecycle projection downstream use it.
       const projectedWorkflowId =
         typeof (workflow as { id?: unknown }).id === 'string'
           ? (workflow as { id: string }).id
           : workflowId;
+
+      // Domain-scoped idempotency. A workflow can declare a dedupeKey in its
+      // spec (e.g. planner.assignBySkill keys on taskId per spec §5.8). When
+      // an in-flight run already exists for the same key, return that runId
+      // instead of starting a duplicate. This prevents UI races and parallel-
+      // tab duplication, and keeps the at-most-one-pending invariant that the
+      // chat-flow mutex also enforces.
+      const spec = AgentRegistry.findWorkflowSpecByMastraId(projectedWorkflowId);
+      if (spec?.dedupeKey) {
+        const existingRunId = await spec.dedupeKey(body, {
+          tenant_id: session.tenant_id,
+          user_id: session.user_id,
+          role_summary: session.role_summary,
+        });
+        if (existingRunId) {
+          console.log('[workflow.start] → dedupe hit, reusing run', {
+            runId: existingRunId,
+            workflowId: projectedWorkflowId,
+            userId: session.user_id,
+          });
+          return c.json({ runId: existingRunId });
+        }
+      }
+
+      const run = await workflow.createRun();
       // Project the row synchronously so a GET on the returned runId never 404s,
       // even if the user opens the deep link before Mastra's async workflow.start
       // pubsub event reaches the lifecycle hook. The async path's INSERT is then

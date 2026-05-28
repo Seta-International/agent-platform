@@ -34,6 +34,24 @@ export interface CrossModuleReadToolSpec<I = unknown, O = unknown> {
   execute: (ctx: CrossModuleReadCtx<I>) => Promise<O>;
 }
 
+/**
+ * Optional dedupe hook the engine consults before creating a new run.
+ *
+ * Returning a runId tells the engine "an in-flight run for this input already
+ * exists; reuse it instead of starting a second one". Used to make the
+ * `/workflows/runs/:workflowId/start` endpoint idempotent for workflows whose
+ * domain contract is "at most one pending proposal per <key>" (e.g.
+ * planner.assignBySkill, which is at most one per task).
+ *
+ * The hook is invoked with the raw request body — implementations must parse
+ * it (via inputSchema or otherwise) and decide on null when the shape isn't
+ * recognisable.
+ */
+export type WorkflowDedupeKey = (
+  input: unknown,
+  session: CrossModuleSession,
+) => Promise<string | null>;
+
 export interface WorkflowSpec {
   domain: Domain;
   id: string;
@@ -42,6 +60,7 @@ export interface WorkflowSpec {
   outputSchema: z.ZodTypeAny;
   workflow: unknown;
   hitlSteps?: string[];
+  dedupeKey?: WorkflowDedupeKey;
 }
 
 export class RegistryFrozenError extends Error {
@@ -89,6 +108,17 @@ export const AgentRegistry = {
   },
   listWorkflows(domain: Domain): WorkflowSpec[] {
     return state.workflows.filter((w) => w.domain === domain);
+  },
+  /**
+   * Look up a workflow spec by the intrinsic Mastra workflow id
+   * (e.g. `planner.assignBySkill`). Matches via `(spec.workflow as {id}).id`
+   * so callers don't have to know which alias the route received.
+   */
+  findWorkflowSpecByMastraId(mastraId: string): WorkflowSpec | undefined {
+    return state.workflows.find((w) => {
+      const id = (w.workflow as { id?: unknown } | null)?.id;
+      return typeof id === 'string' && id === mastraId;
+    });
   },
   listCrossModuleReadTools(): CrossModuleReadToolSpec[] {
     return state.crossReadTools.slice();

@@ -6,7 +6,12 @@ import { createStep } from '@mastra/core/workflows';
 // emits those events, leaving runs stuck in the projected `running` state.
 import { createWorkflow } from '@mastra/core/workflows/evented';
 import type { PgVector } from '@mastra/pg';
-import { ApprovalCardSchema, sessionFromRequestContext, type WorkflowSpec } from '@seta/agent-sdk';
+import {
+  ApprovalCardSchema,
+  getPendingAssignRunIdForTask,
+  sessionFromRequestContext,
+  type WorkflowSpec,
+} from '@seta/agent-sdk';
 import { buildActorSession } from '@seta/identity';
 import { type EmbeddingProvider, OpenAIEmbeddingProvider } from '@seta/shared-embeddings';
 import { resolveReranker } from '@seta/shared-retrieval';
@@ -109,4 +114,16 @@ export const assignBySkillWorkflowSpec: WorkflowSpec = {
   outputSchema: AssignBySkillOutputSchema,
   workflow: assignBySkillWorkflow,
   hitlSteps: ['assignBySkill.suggest'],
+  // Domain contract (spec §5.8): at most one pending assignment proposal per
+  // task at a time. Enforced server-side so duplicate /start requests
+  // (double-clicks, parallel tabs, retried POSTs) return the in-flight runId
+  // instead of spawning a second workflow run.
+  dedupeKey: async (input, session) => {
+    const parsed = AssignBySkillInputSchema.safeParse(input);
+    if (!parsed.success) return null;
+    return getPendingAssignRunIdForTask({
+      taskId: parsed.data.taskId,
+      tenantId: session.tenant_id,
+    });
+  },
 };

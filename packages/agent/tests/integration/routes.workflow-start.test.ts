@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import type { Mastra } from '@mastra/core';
+import { AgentRegistry, type WorkflowSpec } from '@seta/agent-sdk';
 import { Hono } from 'hono';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 import type { AgentRouteEnv } from '../../src/backend/routes.ts';
 import { registerAgentRoutes } from '../../src/backend/routes.ts';
 import type { SessionLike } from '../../src/backend/types.ts';
@@ -159,6 +161,79 @@ describe('POST /api/agent/v1/workflows/runs/:workflowId/start', () => {
       expect(res.status).toBe(400);
       expect((await res.json()).error).toBe('invalid_input');
       expect(start).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('dedupeKey enforcement', () => {
+    afterEach(() => {
+      AgentRegistry.__resetForTests();
+    });
+
+    function registerDedupeSpec(mastraId: string, existingRunId: string | null): void {
+      const spec: WorkflowSpec = {
+        domain: 'work',
+        id: 'assignBySkill',
+        description: 'test',
+        inputSchema: z.object({ taskId: z.string() }),
+        outputSchema: z.object({}),
+        workflow: { id: mastraId },
+        dedupeKey: async () => existingRunId,
+      };
+      AgentRegistry.registerWorkflow(spec);
+      AgentRegistry.freeze();
+    }
+
+    it('returns the in-flight runId without creating a new run when dedupeKey resolves', async () => {
+      await withAgentTestDb(async ({ pool }) => {
+        const existingRunId = randomUUID();
+        registerDedupeSpec('planner.assignBySkill', existingRunId);
+        const s = session();
+        const start = vi.fn().mockResolvedValue(undefined);
+        const createRun = vi.fn();
+        const mastra = {
+          getWorkflow: () => ({ id: 'planner.assignBySkill', createRun }),
+        } as unknown as Mastra;
+        // Wire createRun separately so we can assert it wasn't called.
+        createRun.mockResolvedValue({ runId: randomUUID(), start });
+        const app = makeApp(s, mastra, pool);
+
+        const res = await app.request('/api/agent/v1/workflows/runs/assignBySkill/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ taskId: '00000000-0000-0000-0000-000000000001' }),
+        });
+
+        expect(res.status).toBe(200);
+        expect(await res.json()).toEqual({ runId: existingRunId });
+        expect(createRun).not.toHaveBeenCalled();
+        expect(start).not.toHaveBeenCalled();
+        // No new workflow_runs row projected for the dedupe-short-circuited request.
+        const rows = await pool.query(
+          `SELECT count(*)::int AS n FROM agent.workflow_runs WHERE tenant_id = $1`,
+          [s.tenant_id],
+        );
+        expect(rows.rows[0]?.n).toBe(0);
+      });
+    });
+
+    it('starts a fresh run when dedupeKey resolves to null', async () => {
+      await withAgentTestDb(async ({ pool }) => {
+        registerDedupeSpec('planner.assignBySkill', null);
+        const s = session();
+        const runId = randomUUID();
+        const start = vi.fn().mockResolvedValue(undefined);
+        const app = makeApp(s, makeMastra({ start, runId }), pool);
+
+        const res = await app.request('/api/agent/v1/workflows/runs/assignBySkill/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ taskId: '00000000-0000-0000-0000-000000000001' }),
+        });
+
+        expect(res.status).toBe(200);
+        expect(await res.json()).toEqual({ runId });
+        expect(start).toHaveBeenCalledTimes(1);
+      });
     });
   });
 });
