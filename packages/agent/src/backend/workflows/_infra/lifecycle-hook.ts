@@ -58,6 +58,14 @@ export type MastraLifecycleEvent =
   | RunCanceledEvent;
 
 export async function onLifecycleEvent(pool: Pool, evt: MastraLifecycleEvent): Promise<void> {
+  console.log(`[workflow.lifecycle] ${evt.kind}`, {
+    runId: evt.runId,
+    workflowId: evt.workflowId,
+    ...(evt.kind === 'run-started' ? { startedBy: evt.startedBy, startedVia: evt.startedVia } : {}),
+    ...(evt.kind === 'run-suspended' ? { stepId: evt.stepId, reason: evt.suspendReason } : {}),
+    ...(evt.kind === 'run-completed' ? { outcome: evt.outcome, durationMs: evt.durationMs } : {}),
+    ...(evt.kind === 'run-failed' ? { error: evt.error.message, durationMs: evt.durationMs } : {}),
+  });
   const client = await pool.connect();
   try {
     await client.query('BEGIN');

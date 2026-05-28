@@ -56,6 +56,9 @@ const searchStep = createStep({
   inputSchema: TaskDraftSchema,
   outputSchema: SearchOutputSchema,
   execute: async ({ inputData, requestContext }) => {
+    console.log('[dedup.search] ← starting vector search', {
+      title: inputData.title,
+    });
     const session = await sessionFromRequestContext(requestContext);
     const result = await findDupCandidates(
       {
@@ -69,6 +72,12 @@ const searchStep = createStep({
         thresholds: DEFAULT_THRESHOLDS,
       },
     );
+    console.log('[dedup.search] → classification result', {
+      classification: result.classification,
+      candidateCount: result.candidates.length,
+      topScore: result.candidates[0]?.score ?? null,
+      topTitle: result.candidates[0]?.title?.slice(0, 60) ?? null,
+    });
     return {
       classification: result.classification,
       candidates: result.candidates,
@@ -90,6 +99,13 @@ const decideStep = createStep({
     const fullSession = await buildActorSession({ user_id: userId });
 
     if (resumeData) {
+      console.log('[dedup.decide] ← user decision (HITL resume)', {
+        runId,
+        action: resumeData.kind,
+        ...(resumeData.kind === 'link'
+          ? { existingId: resumeData.existingId, mode: resumeData.mode }
+          : {}),
+      });
       return applyDupDecision({
         draft: inputData.draft,
         action: resumeData,
@@ -99,6 +115,10 @@ const decideStep = createStep({
 
     // No-match: no duplicate, no HITL needed — create directly.
     if (inputData.classification === 'no-match') {
+      console.log('[dedup.decide] → no-match, creating task directly', {
+        runId,
+        title: inputData.draft.title,
+      });
       return applyDupDecision({
         draft: inputData.draft,
         action: { kind: 'create-new' },
@@ -106,6 +126,11 @@ const decideStep = createStep({
       });
     }
 
+    console.log('[dedup.decide] → duplicates found, suspending for HITL', {
+      runId,
+      classification: inputData.classification,
+      candidateCount: inputData.candidates.length,
+    });
     const card = buildConfirmNotDuplicateCard({
       classification: inputData.classification,
       // biome-ignore lint/suspicious/noExplicitAny: candidates passed through opaquely between steps
