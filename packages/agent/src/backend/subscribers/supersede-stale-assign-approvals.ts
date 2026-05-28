@@ -13,6 +13,8 @@ export async function supersedeStaleAssignApprovals(
   ctx: SubscriberCtx,
 ): Promise<void> {
   const taskId = event.payload.task_id;
+
+  // Supersede evented workflow (assignBySkill) approvals
   await ctx.tx.execute(sql`
     UPDATE agent.workflow_approvals AS a
        SET status = 'superseded',
@@ -25,6 +27,22 @@ export async function supersedeStaleAssignApprovals(
      WHERE a.run_id = r.run_id
        AND r.workflow_id = 'planner.assignBySkill'
        AND r.input_summary @> jsonb_build_object('taskId', ${taskId}::text)
+       AND a.status = 'pending'
+  `);
+
+  // Supersede chat-flow HITL approvals (synthetic __chat_hitl:planner_proposeAssignment)
+  await ctx.tx.execute(sql`
+    UPDATE agent.workflow_approvals AS a
+       SET status = 'superseded',
+           decision_payload = jsonb_build_object(
+             'reason', 'task-assigned-elsewhere',
+             'eventId', ${event.id}::text
+           ),
+           decided_at = now()
+      FROM agent.workflow_runs AS r
+     WHERE a.run_id = r.run_id
+       AND r.workflow_id = '__chat_hitl:planner_proposeAssignment'
+       AND a.proposed_payload @> jsonb_build_object('primary', jsonb_build_object('argsPatch', jsonb_build_object('taskId', ${taskId}::text)))
        AND a.status = 'pending'
   `);
 }

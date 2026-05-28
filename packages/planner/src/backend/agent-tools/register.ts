@@ -147,6 +147,14 @@ the next turn retains context without the user having to repeat it.
 recently discussed in this thread and use that taskId. Never abort because the
 taskId was not re-stated.
 
+**Working memory updates**: After each tool call that discusses a specific task
+or proposes a candidate, update the Conversation Entities section of working
+memory:
+- Set "Last discussed task" to the taskId and title
+- Set "Last proposed candidate" when you call proposeAssignment
+- Append to "Rejected candidates" when the user skips/declines
+- Keep "Recent tasks in thread" updated with the last 5 tasks discussed
+
 If planner_getTask returns a non-null pendingAssignWorkflowRunId, a background
 Suggest run is already open for this task. Tell the user and ask whether they
 want to wait for that result or get your inline shortlist instead.

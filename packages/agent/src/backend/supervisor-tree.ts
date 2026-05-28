@@ -21,7 +21,14 @@ const WORKING_MEMORY_TEMPLATE = `# User Context
 - Communication style: [e.g. Brief, Detailed]
 - Current focus: [active project or initiative]
 - Preferred task view: [e.g. board, list]
-- Notes: [anything else worth remembering]`;
+- Notes: [anything else worth remembering]
+
+# Conversation Entities
+- Last discussed task: [taskId | title]
+- Last proposed candidate: [userId | displayName]
+- Pending decision: [taskId → userId | null]
+- Rejected candidates: [taskId → userId[] | empty]
+- Recent tasks in thread: [taskId1 | title1, taskId2 | title2, ...]`;
 
 // ---------------------------------------------------------------------------
 // PgVector singleton — same lazy-init pattern as getIdentityVectorStore
@@ -78,7 +85,7 @@ function buildMemory(opts: {
       semanticRecall: {
         topK: 5,
         messageRange: 2,
-        scope: 'resource',
+        scope: 'thread',
         indexConfig: {
           type: 'hnsw',
           metric: 'dotproduct',

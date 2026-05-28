@@ -128,9 +128,36 @@ function injectContextPrefix(messages: UIMessage[]): UIMessage[] {
     if (!m || m.role !== 'user') continue;
     const ctx = (m.parts ?? []).find(isPageContextPart);
     if (!ctx) return messages;
+
+    // Disambiguation: check if a different entity was discussed in recent
+    // assistant messages. If so, add a hint so the agent knows page context
+    // may conflict with conversation context.
+    let disambiguationHint = '';
+    const pageEntityId = ctx.data.id;
+    for (let j = i - 1; j >= Math.max(0, i - 6); j--) {
+      const prev = messages[j];
+      if (!prev || prev.role !== 'assistant') continue;
+      const prevText = (prev.parts ?? [])
+        .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
+        .map((p) => p.text)
+        .join(' ');
+      // Check if a different task/entity ID was mentioned in recent assistant turns
+      const uuidPattern = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+      const mentionedIds = prevText.match(uuidPattern) ?? [];
+      const differentEntityDiscussed = mentionedIds.some((id) => id !== pageEntityId);
+      if (differentEntityDiscussed) {
+        disambiguationHint =
+          "\nNote: The user's current page shows this entity, but their recent conversation " +
+          "may reference a different entity. If the user's message is ambiguous, prefer the " +
+          'entity from the conversation context unless they explicitly reference "this task" ' +
+          'or "the one on screen".\n';
+        break;
+      }
+    }
+
     const prefix = ctx.data.summary
-      ? `[Context: ${ctx.data.kind}#${ctx.data.id} — "${ctx.data.label}"\nSummary: ${ctx.data.summary}]\n\n`
-      : `[Context: ${ctx.data.kind}#${ctx.data.id} — "${ctx.data.label}"]\n\n`;
+      ? `[Context: ${ctx.data.kind}#${ctx.data.id} — "${ctx.data.label}"\nSummary: ${ctx.data.summary}]${disambiguationHint}\n\n`
+      : `[Context: ${ctx.data.kind}#${ctx.data.id} — "${ctx.data.label}"]${disambiguationHint}\n\n`;
     const originalParts = m.parts ?? [];
     let injected = false;
     const nextParts = originalParts.map((p) => {

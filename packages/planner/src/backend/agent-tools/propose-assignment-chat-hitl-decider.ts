@@ -75,13 +75,19 @@ export const plannerProposeAssignmentChatHitlDecider: ChatHitlDecider = async (
 
   const session = await buildActorSession({ user_id: opts.session.user_id });
 
-  // INV-1: if the task was assigned between card creation and user decision,
-  // don't double-write. Mirror the drift check in propose-assignment.ts.
   const assignDecision = decisionFromCard(card, opts.decision, opts.overrideUserIds);
   if (assignDecision.action === 'assign') {
     const current = await getTask({ task_id: taskId, session });
     const currentAssigneeIds = current.assignees.map((a) => a.user_id);
     const requested = new Set(assignDecision.assigneeUserIds);
+
+    // Skip drift guard when user explicitly approved the card's primary or
+    // alternate selection. The card was built from live data at proposal time
+    // and the user is confirming that exact suggestion — requiring an exact
+    // match with current state causes false positives when the task was
+    // reassigned between proposal and approval (which is already handled by
+    // the supersede subscriber). Only block if the task has been assigned to
+    // *exactly* the same set (true no-op).
     const alreadyAssigned =
       currentAssigneeIds.length > 0 &&
       currentAssigneeIds.length === requested.size &&

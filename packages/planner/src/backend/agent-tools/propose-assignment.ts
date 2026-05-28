@@ -3,6 +3,7 @@ import {
   actorFromContext,
   type ChatHitlRecorder,
   defineAgentTool,
+  getPendingAssignRunIdForTask,
   RC_CHAT_HITL_RECORDER,
 } from '@seta/agent-sdk';
 import { buildActorSession } from '@seta/identity';
@@ -126,6 +127,23 @@ export const plannerProposeAssignmentTool = defineAgentTool({
   execute: async (input, ctx) => {
     const actor = actorFromContext(ctx);
     const session = await buildActorSession(actor);
+
+    // Mutex: check if there's already a pending proposal for this task
+    // (from another thread or the assignBySkill workflow). Prevents competing
+    // proposals that could lead to race conditions on approval.
+    const existingRunId = await getPendingAssignRunIdForTask({
+      taskId: input.taskId,
+      tenantId: session.tenant_id,
+    });
+    if (existingRunId) {
+      return {
+        kind: 'already-pending' as const,
+        taskId: input.taskId,
+        message:
+          'Another assignment proposal is already pending for this task. ' +
+          'Please wait for that to be resolved or cancel it first.',
+      } as never;
+    }
 
     const card = buildCard(input, ctx.agent?.toolCallId ?? 'unknown', {
       tenantId: session.tenant_id,

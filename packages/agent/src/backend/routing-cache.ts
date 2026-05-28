@@ -1,6 +1,6 @@
 import type { Domain } from '@seta/agent-sdk';
 
-const CACHE_TTL_MS = 30 * 60 * 1000;
+const CACHE_TTL_MS = 5 * 60 * 1000;
 const VALID_DOMAINS = new Set<string>(['work', 'people', 'self', 'meta', 'knowledge']);
 
 export type RoutingCache = {

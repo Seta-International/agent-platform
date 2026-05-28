@@ -8,6 +8,7 @@ import {
   ToolExecutionTimeoutError,
 } from './errors.ts';
 import { resolveTimeoutMs } from './execution-policy.ts';
+import { compressToolResult } from './result-compressor.ts';
 
 type WrappableCtx = ToolExecutionContext<unknown, unknown, Record<string, unknown>>;
 
@@ -143,7 +144,7 @@ async function executeWithTimeoutAndBreaker<I, O>(
       throw new ToolExecutionTimeoutError(spec.id, timeoutMs);
     }
     breaker.recordSuccess();
-    return result;
+    return compressToolResult(result) as O | undefined;
   } catch (err) {
     if (timeoutController.signal.aborted) {
       breaker.recordFailure('timeout');
