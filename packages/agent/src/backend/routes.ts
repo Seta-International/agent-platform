@@ -170,6 +170,13 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
     const userText = lastUserText(effectiveMessages);
     const estimatedTokensIn = Math.min(2_000, Math.max(50, userText.length * 4));
 
+    console.log('[agent.chat] ← request', {
+      userId: session.user_id,
+      threadId: parsed.data.id ?? '(new)',
+      userText: userText.slice(0, 120),
+      messageCount: messages.length,
+    });
+
     let reservation: Awaited<ReturnType<typeof reserveTurn>>;
     try {
       reservation = await reserveTurn({
@@ -224,6 +231,12 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
       topAgent: deps.supervisor,
       domainAgents: deps.domainAgents,
       lookup,
+    });
+
+    console.log('[agent.chat] → routed to agent', {
+      agentId: (agent as { id?: string }).id ?? 'unknown',
+      threadId: threadId ?? '(new)',
+      cachedDomain: cacheWriteDomain ?? '(none)',
     });
 
     const result = await agent.stream(
@@ -616,6 +629,15 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
       );
     }
 
+    console.log('[agent.chat.approve] ← HITL decision', {
+      runId: parsed.data.runId,
+      toolCallId: parsed.data.toolCallId,
+      approved: parsed.data.approved,
+      hasResumeData: parsed.data.resumeData !== undefined,
+      resumeDataKind: (parsed.data.resumeData as { kind?: string } | undefined)?.kind ?? null,
+      userId: session.user_id,
+    });
+
     const requestContext = new RequestContext();
     requestContext.set('actor', {
       type: 'user' as const,
@@ -870,6 +892,11 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
       return c.json({ error: 'not_found', message: `unknown workflow id: ${workflowId}` }, 404);
     }
     const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+    console.log('[workflow.start] ← request', {
+      workflowId,
+      userId: session.user_id,
+      inputKeys: Object.keys(body ?? {}),
+    });
     if (body && typeof body === 'object' && Object.hasOwn(body, 'session')) {
       return c.json(
         {
@@ -957,6 +984,11 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
             console.error('[agent.workflow.start.project-fail]', projErr);
           }
         });
+      });
+      console.log('[workflow.start] → run created', {
+        runId: run.runId,
+        workflowId: projectedWorkflowId,
+        userId: session.user_id,
       });
       return c.json({ runId: run.runId });
     } catch (err) {

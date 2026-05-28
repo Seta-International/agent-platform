@@ -24,11 +24,16 @@ export async function linkToExisting(
   input: LinkToExistingInput,
 ): Promise<Extract<DedupOutput, { kind: 'created' | 'sub-task-added' }>> {
   if (input.mode === 'sub-task') {
+    console.log('[dedup.linkToExisting] → adding as sub-task (checklist item)', {
+      existingTaskId: input.existingId,
+      label: input.draft.title,
+    });
     const item = await addChecklistItem({
       task_id: input.existingId,
       label: input.draft.title,
       session: input.session,
     });
+    console.log('[dedup.linkToExisting] ✓ checklist item added', { itemId: item.id });
     return { kind: 'sub-task-added', existingId: input.existingId, checklistItemId: item.id };
   }
 
@@ -36,6 +41,10 @@ export async function linkToExisting(
   if (!input.draft.plan_id) {
     throw new Error('linkToExisting(related): draft.plan_id is required to create the new task');
   }
+  console.log('[dedup.linkToExisting] → creating task + adding reference link', {
+    existingTaskId: input.existingId,
+    title: input.draft.title,
+  });
   const newTask = await createTask({
     session: input.session,
     plan_id: input.draft.plan_id,
@@ -50,6 +59,10 @@ export async function linkToExisting(
     alias: `Related: original task ${input.existingId.slice(0, 8)}`,
     type: 'link',
     session: input.session,
+  });
+  console.log('[dedup.linkToExisting] ✓ task created + reference added', {
+    newTaskId: newTask.id,
+    linkedTo: input.existingId,
   });
   return { kind: 'created', taskId: newTask.id, linkedTo: input.existingId };
 }

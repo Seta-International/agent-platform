@@ -25,6 +25,10 @@ export function plannerCreateTaskTool(_deps?: PlannerCreateTaskDeps) {
     rbac: 'planner.task.create',
     execute: async (draft, ctx) => {
       const actor = actorFromContext(ctx);
+      console.log('[agent-tool.createTask] ← called', {
+        userId: actor.user_id,
+        title: (draft as { title?: string }).title,
+      });
 
       // Access Mastra runtime to start the dedupOnCreate workflow
       const mastra = ctx.mastra as
@@ -66,6 +70,10 @@ export function plannerCreateTaskTool(_deps?: PlannerCreateTaskDeps) {
       // Fire-and-forget: the workflow runs async and handles dedup + HITL via inbox
       void run.start({ inputData: parsedDraft, requestContext });
 
+      console.log('[agent-tool.createTask] → workflow started', {
+        runId: run.runId,
+        title: parsedDraft.title,
+      });
       return { kind: 'workflow-started' as const, runId: run.runId };
     },
   });

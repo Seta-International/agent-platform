@@ -24,6 +24,11 @@ export async function searchSimilar(
   input: SearchSimilarInput,
   deps: SearchSimilarDeps,
 ): Promise<SearchSimilarOutput> {
+  console.log('[dedup.searchSimilar] querying vector store', {
+    tenantId: input.tenantId,
+    queryLength: input.queryText.length,
+    topK: input.topK ?? 5,
+  });
   const { hits } = await searchTasks(
     {
       query: input.queryText,
@@ -38,5 +43,9 @@ export async function searchSimilar(
     score: h.rerankScore,
     status: 'open',
   }));
+  console.log('[dedup.searchSimilar] ✓ found candidates', {
+    hitCount: hits.length,
+    scores: candidates.map((c) => c.score.toFixed(3)),
+  });
   return { candidates };
 }
