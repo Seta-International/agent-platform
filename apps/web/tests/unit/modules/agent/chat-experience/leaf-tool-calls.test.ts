@@ -84,6 +84,6 @@ describe('extractLeafToolCalls', () => {
       }),
     ]);
     expect(rows).toHaveLength(1);
-    expect(rows[0].status).toBe('ok');
+    expect(rows[0]?.status).toBe('ok');
   });
 });

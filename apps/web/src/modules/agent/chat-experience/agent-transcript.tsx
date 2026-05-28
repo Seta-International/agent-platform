@@ -1,12 +1,13 @@
 import { MessagePrimitive, ThreadPrimitive, useAui, useAuiState } from '@assistant-ui/react';
 import { ChatMarkdown, ChatMessage, ChatTranscript } from '@seta/shared-ui';
 import { Sparkles } from 'lucide-react';
-import { type ReactNode, useCallback, useState } from 'react';
+import { type ReactNode, useCallback } from 'react';
 import { ThreadListRefresher } from '../components/thread-list-refresher';
 import { ToolUIRegistry } from '../components/tool-renderers';
 import { AGENT_COPY } from '../i18n';
 import { ChatEmbeddedHitl } from '../workflows/components/chat-embedded-hitl';
 import { type PageContext, useAgentSelection, usePageContext } from './agent-provider';
+import { ChainOfThought } from './chain-of-thought';
 import { RenderContextBadge } from './render-context-badge';
 
 const ASSISTANT_LABEL = 'Agent';
@@ -42,59 +43,6 @@ function ReasoningPart({ text, status }: PartProps) {
         <span className="mr-1.5 inline-block size-1.5 animate-pulse rounded-full bg-primary" />
       )}
       <span className="whitespace-pre-wrap">{text}</span>
-    </div>
-  );
-}
-
-interface ChainOfThoughtProps {
-  running: boolean;
-  count: number;
-  indices: readonly number[];
-  children: ReactNode;
-}
-
-function ChainOfThought({ running, count, indices, children }: ChainOfThoughtProps) {
-  const [manualOpen, setManualOpen] = useState(false);
-  // Keep the group expanded while any inner tool-call is awaiting user approval
-  // (Mastra-native `requireApproval` HITL gate). Otherwise the agent flipping to
-  // 'complete' collapses the group and hides the approval card until the user
-  // expands it manually.
-  const hasPendingAction = useAuiState((s) => {
-    if (!indices.length) return false;
-    const content = s.message.content as ReadonlyArray<{ status?: { type?: string } }>;
-    return indices.some((i) => content[i]?.status?.type === 'requires-action');
-  });
-  const forcedOpen = running || hasPendingAction;
-  const open = forcedOpen || manualOpen;
-  return (
-    <div className="my-2 rounded-lg border border-hairline bg-surface-2 px-3 py-2 text-caption">
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => setManualOpen((v) => !v)}
-        className="flex w-full cursor-pointer select-none items-center justify-between text-left text-ink-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
-      >
-        <span className="inline-flex items-center gap-1.5">
-          {running ? (
-            <>
-              <span className="inline-block size-1.5 animate-pulse rounded-full bg-primary" />
-              Thinking…
-            </>
-          ) : (
-            <>
-              <span className="inline-block size-1.5 rounded-full bg-semantic-success" />
-              Thought {count > 0 ? `· ${count} step${count > 1 ? 's' : ''}` : ''}
-            </>
-          )}
-          <span
-            aria-hidden
-            className={`ml-1 text-ink-tertiary transition-transform ${open ? 'rotate-90' : ''}`}
-          >
-            ›
-          </span>
-        </span>
-      </button>
-      {open && <div className="mt-2 space-y-1.5 border-l-2 border-hairline pl-3">{children}</div>}
     </div>
   );
 }
