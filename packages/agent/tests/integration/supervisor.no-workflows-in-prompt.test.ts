@@ -20,6 +20,9 @@ describe('domain supervisor — workflows hidden from LLM surface', () => {
     const snapshot = AgentRegistry.snapshot();
     const prompt = generateDomainPrompt('work', snapshot);
     expect(prompt).toMatch(/out-of-chat trigger|inbox/i);
-    expect(prompt).toMatch(/do not try to invoke a workflow/i);
+    // Wording was reworked to "Do not attempt to trigger them yourself" —
+    // match the intent (don't fire workflows from chat) rather than the
+    // exact phrase.
+    expect(prompt).toMatch(/do not (try|attempt) to (invoke|trigger)/i);
   });
 });

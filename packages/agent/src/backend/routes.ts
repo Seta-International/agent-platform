@@ -59,7 +59,6 @@ const ChatBody = z.object({
   id: z.string().optional(),
   messages: z.array(z.unknown()).min(1),
   trigger: z.enum(['submit-message', 'regenerate-message']).optional(),
-  resourceId: z.string().optional(),
   model: z.string().optional(),
 });
 
@@ -240,7 +239,10 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
       throw e;
     }
 
-    const resourceId = parsed.data.resourceId ?? session.user_id;
+    // Resource scope is always the authenticated user. Never honor a
+    // client-supplied value — Mastra uses this to scope working-memory and
+    // semantic recall, so a spoof would leak another user's context.
+    const resourceId = session.user_id;
 
     let modelOverride: ReturnType<typeof resolveModel>['model'] | undefined;
     try {
@@ -294,6 +296,18 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
     );
 
     const storage = getMemoryStore();
+
+    // Thread-ownership guard. If the client supplies an id that already exists
+    // on the server under a different user, refuse the send — otherwise Mastra
+    // would happily append the new turn to someone else's thread. A missing
+    // row is the legitimate "client minted a fresh uuid" case; let it through
+    // and Mastra will create the row under `session.user_id`.
+    if (threadId && storage) {
+      const existing = await storage.getThreadById({ threadId });
+      if (existing && existing.resourceId !== session.user_id) {
+        return c.json({ error: 'not_found', message: 'thread not found' }, 404);
+      }
+    }
 
     const lookup =
       threadId && storage
@@ -755,6 +769,21 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
     requestContext.set('role_summary', session.role_summary);
 
     const resourceId = session.user_id;
+
+    // Thread-ownership guard, mirroring POST /chat: refuse to resume a tool
+    // call targeted at someone else's thread. The approve flow is a write to
+    // memory.thread, so a spoofed id would let one user nudge another user's
+    // conversation forward.
+    if (parsed.data.threadId) {
+      const approveStorage = getMemoryStore();
+      if (approveStorage) {
+        const existing = await approveStorage.getThreadById({ threadId: parsed.data.threadId });
+        if (existing && existing.resourceId !== session.user_id) {
+          return c.json({ error: 'not_found', message: 'thread not found' }, 404);
+        }
+      }
+    }
+
     const resumeOpts = {
       runId: parsed.data.runId,
       toolCallId: parsed.data.toolCallId,

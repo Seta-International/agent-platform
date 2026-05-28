@@ -7,6 +7,33 @@ vi.mock('@tanstack/react-router', () => ({
   useLocation: () => ({ pathname: '/agent/chat' }),
 }));
 
+// Stub useThreadMessages so the provider's `historyReady` gate never blocks
+// the runtime host from rendering `{children}`. Without this, picking a
+// non-fresh threadId puts the host into its "Loading chat…" branch, which
+// unmounts the test hook before the state update is observable on
+// `result.current`. The selection state IS updating inside the provider —
+// you can see the GET to /threads/<id> fire — but the consumer hook is gone.
+vi.mock('@/modules/agent/hooks/use-thread-messages', async () => {
+  const actual = await vi.importActual<typeof import('@/modules/agent/hooks/use-thread-messages')>(
+    '@/modules/agent/hooks/use-thread-messages',
+  );
+  return {
+    ...actual,
+    useThreadMessages: () => ({
+      data: {
+        thread: { id: 't', title: null, updatedAt: null },
+        messages: [],
+        page: 0,
+        perPage: 0,
+        total: 0,
+        hasMore: false,
+      },
+      isLoading: false,
+      error: null,
+    }),
+  };
+});
+
 import {
   AgentProvider,
   useAgentRuntimeContext,
@@ -31,11 +58,17 @@ describe('AgentProvider', () => {
     expect(typeof result.current.selection.modelKey).toBe('string');
   });
 
-  it('updates selection via setters and persists to localStorage', () => {
+  it('updates selection via setters and persists to localStorage', async () => {
     window.localStorage.clear();
     const { result } = renderHook(() => useAgentSelection(), { wrapper });
-    act(() => {
+    // Use the React 19 async-act pattern so suspended fetches inside the
+    // provider (useModelCatalog / useThreadMessages) finish their abort
+    // settlement between calls, otherwise the second setter races the first
+    // commit and one of the updates appears to be lost.
+    await act(async () => {
       result.current.actions.setModelKey('balanced-default');
+    });
+    await act(async () => {
       result.current.actions.setThreadId('thread-123');
     });
     expect(result.current.selection.modelKey).toBe('balanced-default');
@@ -65,17 +98,23 @@ describe('AgentProvider page-context', () => {
     expect(result.current.pageContext).toBeNull();
   });
 
-  it('tracks per-(threadId, contextId) suppression and clears when threadId changes', () => {
+  it('tracks per-(threadId, contextId) suppression and clears when threadId changes', async () => {
     const { result } = renderHook(() => ({ sel: useAgentSelection(), pc: usePageContext() }), {
       wrapper,
     });
 
-    act(() => result.current.sel.actions.setThreadId('thread-A'));
-    act(() => result.current.pc.setPageContext({ kind: 'planner.task', id: 't1', label: 'X' }));
-    act(() => result.current.pc.suppressFor('t1'));
+    // The suppressFor callback closes over `threadId` and is re-created each
+    // render. Awaiting each act lets the new closure commit before the next
+    // call reads `result.current.pc.suppressFor`, otherwise we'd write the
+    // stale `threadId: undefined` into storedSuppression.
+    await act(async () => result.current.sel.actions.setThreadId('thread-A'));
+    await act(async () =>
+      result.current.pc.setPageContext({ kind: 'planner.task', id: 't1', label: 'X' }),
+    );
+    await act(async () => result.current.pc.suppressFor('t1'));
     expect(result.current.pc.suppressedFor).toBe('t1');
 
-    act(() => result.current.sel.actions.setThreadId('thread-B'));
+    await act(async () => result.current.sel.actions.setThreadId('thread-B'));
     expect(result.current.pc.suppressedFor).toBeNull();
   });
 });

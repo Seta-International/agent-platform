@@ -112,7 +112,9 @@ describe('replayWorkflowFromStep', () => {
         inputData?: unknown;
         step?: unknown;
       };
-      expect(callArg.step).toBe('b');
+      // Mastra's time-travel accepts the step locator as a path array; the
+      // domain wraps the single stepId before forwarding.
+      expect(callArg.step).toEqual(['b']);
       expect(callArg.inputData).toEqual({ x: 2 });
 
       const outbox = await pool.query<{ event_type: string; payload: Record<string, unknown> }>(
@@ -148,7 +150,7 @@ describe('replayWorkflowFromStep', () => {
       });
       expect(out.newRunId).toBeDefined();
       expect(timeTravel).toHaveBeenCalledWith(
-        expect.objectContaining({ step: 'gate', inputData: {} }),
+        expect.objectContaining({ step: ['gate'], inputData: {} }),
       );
     });
   });

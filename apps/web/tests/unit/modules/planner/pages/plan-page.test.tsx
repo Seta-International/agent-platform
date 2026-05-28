@@ -366,15 +366,23 @@ describe('PlanPage (via PlanBoardShell)', () => {
     const captured = vi.fn();
     server.use(
       ...seedBoardHandlers(),
-      http.post('*/api/agent/v1/workflows/runs/dedupOnCreate/start', async ({ request }) => {
+      // The mutation now goes through planner first to create the row, then
+      // kicks off the dedup workflow asynchronously. Capture the create-task
+      // call — that's what carries the user-supplied title and bucket.
+      http.post('*/api/planner/v1/tasks', async ({ request }) => {
         const body = (await request.json()) as {
           title: string;
           bucket_id?: string;
           plan_id?: string;
         };
         captured(body);
-        return HttpResponse.json({ run_id: 'run-dedup-1' });
+        return HttpResponse.json({ id: 'task-new', title: body.title, version: 1 });
       }),
+      // Stub the (best-effort) dedup workflow so the mutation can complete
+      // without 404ing on the unhandled request.
+      http.post('*/api/agent/v1/workflows/runs/planner.dedupOnCreate/start', () =>
+        HttpResponse.json({ runId: 'run-dedup-1' }),
+      ),
     );
     renderShell();
 
@@ -387,7 +395,7 @@ describe('PlanPage (via PlanBoardShell)', () => {
     await user.type(input, 'New task from test');
     await user.keyboard('{Enter}');
 
-    expect(captured).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(captured).toHaveBeenCalledTimes(1));
     expect(captured.mock.calls[0]![0]).toMatchObject({
       title: 'New task from test',
       bucket_id: 'b1',

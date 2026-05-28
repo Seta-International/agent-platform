@@ -1,4 +1,4 @@
-import { Check, Clock, Sparkles } from 'lucide-react';
+import { Check, Clock, Sparkles, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { WorkflowApprovalRow } from '../api/schemas.ts';
 
@@ -244,11 +244,6 @@ export function HitlApprovalCard({
         </header>
 
         <div className="px-3.5 py-3">
-          {card.summary ? (
-            <p className="mb-2 text-body-sm text-ink-subtle">{card.summary}</p>
-          ) : null}
-
-          {/* Candidate list with checkbox multi-select */}
           {candidates.length > 0 ? (
             <fieldset disabled={disabled} className="space-y-0.5">
               <legend className="mb-1.5 flex w-full items-center justify-between text-eyebrow uppercase text-ink-subtle">
@@ -265,7 +260,7 @@ export function HitlApprovalCard({
                   return (
                     <li key={c.id}>
                       <label
-                        className={`flex cursor-pointer items-center gap-2.5 rounded-md border px-2 py-1.5 transition ${
+                        className={`relative flex cursor-pointer items-start gap-2.5 rounded-md border px-2 py-2 transition ${
                           isSelected
                             ? 'border-primary-border bg-primary-tint/60'
                             : 'border-transparent hover:bg-surface-2'
@@ -280,7 +275,7 @@ export function HitlApprovalCard({
                         />
                         <span
                           aria-hidden
-                          className={`grid size-4 shrink-0 place-items-center rounded border transition ${
+                          className={`mt-px grid size-4 shrink-0 place-items-center rounded border transition ${
                             isSelected
                               ? 'border-primary bg-primary text-on-primary'
                               : 'border-hairline-strong bg-canvas'
@@ -288,17 +283,21 @@ export function HitlApprovalCard({
                         >
                           {isSelected ? <Check className="size-3" strokeWidth={3} /> : null}
                         </span>
-                        <CandidateAvatar id={c.id} label={c.label} />
                         <div className="min-w-0 flex-1">
-                          <span className="truncate text-body-sm font-medium text-ink">
+                          <span className="block text-body-sm font-medium leading-snug text-ink">
                             {c.label}
                           </span>
+                          {c.secondary ? (
+                            <span className="mt-0.5 block text-caption leading-snug text-ink-subtle">
+                              {c.secondary}
+                            </span>
+                          ) : null}
                         </div>
                         {typeof c.score === 'number' ? (
-                          <div className="flex shrink-0 items-center gap-1.5">
+                          <div className="mt-1 flex shrink-0 items-center gap-1.5">
                             <ConfidenceBar score={c.score} />
-                            <span className="w-9 text-right font-mono text-caption tabular-nums text-ink-subtle">
-                              {c.score.toFixed(2)}
+                            <span className="w-10 text-right font-mono text-caption tabular-nums text-ink-subtle">
+                              {Math.round(c.score * 100)}%
                             </span>
                           </div>
                         ) : null}
@@ -310,8 +309,7 @@ export function HitlApprovalCard({
             </fieldset>
           ) : null}
 
-          {/* 3 action buttons in one row */}
-          <div className="mt-3.5 flex items-center gap-2">
+          <div className="mt-3.5 flex flex-wrap items-center gap-1.5">
             <button
               type="button"
               disabled={selectedLinks.size === 0 || disabled}
@@ -320,30 +318,32 @@ export function HitlApprovalCard({
                   onDecide({ decision: 'approve', alternateIndices: [...selectedLinks] });
                 }
               }}
-              className="rounded-md border border-hairline bg-surface-1 px-3 py-1.5 text-body-sm font-medium hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-body-sm font-semibold text-on-primary shadow-sm transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:bg-surface-2 disabled:text-ink-subtle disabled:shadow-none"
             >
+              <Check className="size-3.5" aria-hidden />
               {pending
                 ? 'Linking…'
-                : `Link ticket${selectedLinks.size > 1 ? `s (${selectedLinks.size})` : ''}`}
+                : selectedLinks.size > 1
+                  ? `Link ${selectedLinks.size} tickets`
+                  : 'Link ticket'}
             </button>
-            <div className="ml-auto flex items-center gap-2">
-              <button
-                type="button"
-                disabled={disabled}
-                onClick={() => onDecide({ decision: 'reject' })}
-                className="rounded-md border border-hairline bg-surface-1 px-3 py-1.5 text-body-sm font-medium text-danger-ink hover:bg-danger-tint disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Delete this ticket
-              </button>
-              <button
-                type="button"
-                disabled={disabled}
-                onClick={() => onDecide({ decision: 'approve' })}
-                className="rounded-md border border-hairline bg-surface-1 px-3 py-1.5 text-body-sm font-medium hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Leave it
-              </button>
-            </div>
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => onDecide({ decision: 'approve' })}
+              className="rounded-md border border-hairline bg-surface-1 px-3 py-1.5 text-body-sm font-medium text-ink hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Keep as new task
+            </button>
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => onDecide({ decision: 'reject' })}
+              className="ml-auto inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-body-sm text-danger-ink hover:bg-danger-tint disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Trash2 className="size-3.5" aria-hidden />
+              Delete this ticket
+            </button>
           </div>
 
           {!canAct ? (
@@ -395,7 +395,7 @@ export function HitlApprovalCard({
                 return (
                   <li key={c.id}>
                     <label
-                      className={`flex cursor-pointer items-center gap-2.5 rounded-md border px-2 py-1.5 transition ${
+                      className={`relative flex cursor-pointer items-start gap-2.5 rounded-md border px-2 py-2 transition ${
                         isSelected
                           ? 'border-primary-border bg-primary-tint/60'
                           : 'border-transparent hover:bg-surface-2'
@@ -410,7 +410,7 @@ export function HitlApprovalCard({
                       />
                       <span
                         aria-hidden
-                        className={`grid size-4 shrink-0 place-items-center rounded border transition ${
+                        className={`mt-px grid size-4 shrink-0 place-items-center rounded border transition ${
                           isSelected
                             ? 'border-primary bg-primary text-on-primary'
                             : 'border-hairline-strong bg-canvas'
@@ -420,7 +420,7 @@ export function HitlApprovalCard({
                       </span>
                       <CandidateAvatar id={c.id} label={c.label} />
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-baseline gap-1.5">
+                        <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
                           <span className="truncate text-body-sm font-medium text-ink">
                             {c.label}
                           </span>
@@ -431,14 +431,16 @@ export function HitlApprovalCard({
                           ) : null}
                         </div>
                         {c.secondary ? (
-                          <div className="truncate text-caption text-ink-subtle">{c.secondary}</div>
+                          <div className="mt-0.5 text-caption leading-snug text-ink-subtle">
+                            {c.secondary}
+                          </div>
                         ) : null}
                       </div>
                       {typeof c.score === 'number' ? (
-                        <div className="flex shrink-0 items-center gap-1.5">
+                        <div className="mt-1 flex shrink-0 items-center gap-1.5">
                           <ConfidenceBar score={c.score} />
-                          <span className="w-9 text-right font-mono text-caption tabular-nums text-ink-subtle">
-                            {c.score.toFixed(2)}
+                          <span className="w-10 text-right font-mono text-caption tabular-nums text-ink-subtle">
+                            {Math.round(c.score * 100)}%
                           </span>
                         </div>
                       ) : null}

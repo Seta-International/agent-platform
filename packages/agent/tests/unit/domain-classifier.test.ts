@@ -31,10 +31,13 @@ describe('classifyDomain', () => {
     vi.clearAllMocks();
   });
 
-  it('returns null when classifier was never initialised', async () => {
+  it('returns null when classifier was never initialised and keywords miss', async () => {
     const { classifyDomain } = await import('../../src/backend/domain-classifier.ts');
     mockEmbed.mockResolvedValue({ embedding: unitVector(5, 0) });
-    const result = await classifyDomain('list my tasks');
+    // Use neutral text so the keyword-fallback safety net (added after this
+    // test was first written) also returns null. Otherwise "list my tasks"
+    // matches the `task` work-keyword and the fallback would route to `work`.
+    const result = await classifyDomain('something ambiguous');
     expect(result).toBeNull();
   });
 
@@ -80,7 +83,7 @@ describe('classifyDomain', () => {
       throw new Error('network error');
     });
     await initClassifier();
-    const result = await classifyDomain('list tasks');
+    const result = await classifyDomain('something ambiguous');
     expect(result).toBeNull();
   });
 
@@ -91,7 +94,7 @@ describe('classifyDomain', () => {
     mockEmbed.mockRejectedValue(new Error('no api key'));
     await initClassifier();
     mockEmbed.mockResolvedValue({ embedding: unitVector(5, 0) });
-    const result = await classifyDomain('list tasks');
+    const result = await classifyDomain('something ambiguous');
     expect(result).toBeNull();
   });
 });

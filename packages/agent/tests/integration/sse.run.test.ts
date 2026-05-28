@@ -121,7 +121,10 @@ describe('mountRunSse', () => {
         await call({ type: 'workflow.step.start', payload: { stepId: 'noop' } });
       })();
 
-      const text = await readUntil(res, (acc) => acc.includes('event: workflow.step.start'));
+      // The implementation emits `event: message` and embeds the original
+      // event type inside the JSON payload so `EventSource.onmessage` always
+      // fires (any other event name needs an explicit addEventListener).
+      const text = await readUntil(res, (acc) => acc.includes('"type":"workflow.step.start"'));
       await firePromise;
       expect(text).toContain('workflow.step.start');
       expect(text).toContain('noop');

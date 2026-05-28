@@ -31,6 +31,9 @@ function makeApp(
     supervisor: { stream: async () => ({}) } as never,
     mastra,
     pool,
+    // Tests don't go through the real lifecycle wiring, so nothing is ever
+    // enqueued; a no-op drain() preserves the production response contract.
+    drainer: { drain: async () => {} } as never,
   });
   return app;
 }
@@ -269,7 +272,7 @@ describe('POST /api/agent/v1/workflows/runs/:runId/replay-from-step', () => {
       const body = (await res.json()) as { newRunId: string };
       expect(body.newRunId).toBe(runId);
       expect(timeTravel).toHaveBeenCalledWith(
-        expect.objectContaining({ step: 'b', inputData: { x: 2 } }),
+        expect.objectContaining({ step: ['b'], inputData: { x: 2 } }),
       );
     });
   });

@@ -2,6 +2,7 @@ import { ChatThreadRail } from '@seta/shared-ui';
 import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useThreadList } from '../hooks/use-thread-list';
+import { useAgentSelection } from './agent-provider';
 
 interface AgentThreadRailProps {
   activeThreadId?: string;
@@ -17,6 +18,7 @@ export function AgentThreadRail({
   const [search, setSearch] = useState('');
   const navigate = useNavigate();
   const { groups } = useThreadList();
+  const { actions } = useAgentSelection();
 
   return (
     <ChatThreadRail
@@ -27,7 +29,8 @@ export function AgentThreadRail({
         onAfterNavigate?.();
       }}
       onNewThread={() => {
-        void navigate({ to: '/agent/chat', search: { thread: undefined } });
+        const id = actions.startFreshThread();
+        void navigate({ to: '/agent/chat', search: { thread: id }, replace: true });
         onAfterNavigate?.();
       }}
       searchValue={search}

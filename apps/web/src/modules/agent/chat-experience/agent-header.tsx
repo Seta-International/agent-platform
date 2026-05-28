@@ -26,7 +26,10 @@ function useTitleFor(threadId: string | undefined): string {
   const titleById = new Map(
     (groups ?? []).flatMap((g) => g.items.map((i) => [i.id, i.title] as const)),
   );
-  return titleById.get(threadId) ?? 'Untitled chat';
+  // Not found in the rail = either still loading, or a freshly-minted id whose
+  // Mastra row hasn't been created yet (no first message sent). Render "New
+  // chat" until either the title generation lands or the row appears.
+  return titleById.get(threadId) ?? 'New chat';
 }
 
 export function AgentHeader({
@@ -38,12 +41,18 @@ export function AgentHeader({
   const { selection, actions } = useAgentSelection();
   const threadId = selection.threadId;
   const title = useTitleFor(threadId);
+  const { groups } = useThreadList();
   const [draft, setDraft] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const rename = useRenameThread();
   const remove = useDeleteThread();
   const navigate = useNavigate();
-  const canEdit = Boolean(threadId);
+  // A freshly-minted client id isn't in the rail until the Mastra row is
+  // created on first send. Gate rename/delete on that signal so we don't fire
+  // PATCH/DELETE against an id the server doesn't know yet.
+  const existsOnServer =
+    !!threadId && (groups ?? []).some((g) => g.items.some((i) => i.id === threadId));
+  const canEdit = existsOnServer;
   const editing = draft !== null;
 
   useEffect(() => {
@@ -63,8 +72,8 @@ export function AgentHeader({
     if (!window.confirm("Delete this chat? You won't be able to get it back.")) return;
     remove.mutate(threadId, {
       onSuccess: () => {
-        actions.setThreadId(undefined);
-        void navigate({ to: '/agent/chat', search: { thread: undefined } });
+        const nextId = actions.startFreshThread();
+        void navigate({ to: '/agent/chat', search: { thread: nextId }, replace: true });
       },
     });
   };

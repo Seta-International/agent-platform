@@ -8,6 +8,12 @@ async function fetchThreadMetadata(
     `/api/agent/v1/threads/${encodeURIComponent(threadId)}?page=0&perPage=0`,
     { credentials: 'include' },
   );
+  if (res.status === 404) {
+    // Fresh client-minted id: the Mastra row will be created lazily on the
+    // first send. Synthesize empty metadata so AUI accepts the id as the
+    // current thread and uses it on outgoing requests.
+    return { status: 'regular', remoteId: threadId };
+  }
   if (!res.ok) {
     const err = (await res.json().catch(() => ({}))) as { message?: string };
     throw Object.assign(new Error(err.message ?? `fetch thread ${res.status}`), {

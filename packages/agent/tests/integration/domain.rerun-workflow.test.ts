@@ -1,10 +1,18 @@
 import { randomUUID } from 'node:crypto';
 import type { Mastra } from '@mastra/core';
+import { RequestContext } from '@mastra/core/request-context';
 import { describe, expect, it, vi } from 'vitest';
 import { rerunWorkflow } from '../../src/backend/domain/rerun-workflow.ts';
 import type { SessionLike } from '../../src/backend/types.ts';
 import { onLifecycleEvent } from '../../src/backend/workflows/_infra/lifecycle-hook.ts';
 import { withAgentTestDb } from '../helpers.ts';
+
+function makeRequestContext(session: SessionLike): RequestContext {
+  const ctx = new RequestContext();
+  ctx.set('actor', { type: 'user' as const, user_id: session.user_id });
+  ctx.set('tenant_id', session.tenant_id);
+  return ctx;
+}
 
 function sessionWith(perms: string[], tenantId = randomUUID(), userId = randomUUID()): SessionLike {
   return {
@@ -61,19 +69,23 @@ describe('rerunWorkflow', () => {
           session: viewer,
           runId,
           mastra: makeMastra(vi.fn()),
+          pool,
+          requestContext: makeRequestContext(viewer),
         }),
       ).rejects.toThrow(/forbidden|permission/i);
     });
   });
 
   it('returns null-ish (not_found) when parent does not exist', async () => {
-    await withAgentTestDb(async ({ pool: _pool }) => {
+    await withAgentTestDb(async ({ pool }) => {
       const me = sessionWith(['agent.workflow.run.read.self', 'agent.workflow.run.execute.self']);
       await expect(
         rerunWorkflow({
           session: me,
           runId: randomUUID(),
           mastra: makeMastra(vi.fn()),
+          pool,
+          requestContext: makeRequestContext(me),
         }),
       ).rejects.toThrow(/not_found/i);
     });
@@ -95,7 +107,13 @@ describe('rerunWorkflow', () => {
       const createRun = vi.fn(async () => ({ runId: newRunId, start }));
       const mastra = makeMastra(start, createRun);
 
-      const r = await rerunWorkflow({ session: me, runId: parentRunId, mastra });
+      const r = await rerunWorkflow({
+        session: me,
+        runId: parentRunId,
+        mastra,
+        pool,
+        requestContext: makeRequestContext(me),
+      });
       expect(r.newRunId).toBe(newRunId);
       expect(createRun).toHaveBeenCalledTimes(1);
       expect(start).toHaveBeenCalledTimes(1);
@@ -134,6 +152,8 @@ describe('rerunWorkflow', () => {
         runId: parentRunId,
         inputOverride: { customField: 'custom' },
         mastra,
+        pool,
+        requestContext: makeRequestContext(me),
       });
       const startArg = start.mock.calls[0]![0] as { inputData: Record<string, unknown> };
       expect(startArg.inputData.customField).toBe('custom');

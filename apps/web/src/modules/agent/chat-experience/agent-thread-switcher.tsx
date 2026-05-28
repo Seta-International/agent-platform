@@ -21,7 +21,7 @@ export function AgentThreadSwitcher({ onAfterSelect }: AgentThreadSwitcherProps)
     <>
       <DropdownMenuItem
         onSelect={() => {
-          actions.setThreadId(undefined);
+          actions.startFreshThread();
           onAfterSelect?.();
         }}
         className="gap-2"

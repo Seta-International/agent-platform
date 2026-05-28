@@ -88,6 +88,75 @@ describe('POST /api/agent/v1/chat', () => {
     });
   });
 
+  it('returns 404 when the supplied id belongs to another user', async () => {
+    await withAgentTestDb(async ({ pool, databaseUrl }) => {
+      const { admin_user_id, tenant_id } = await createTestTenantWithAdmin({ pool });
+      const { buildMastra } = await import('../../src/backend/runtime.ts');
+      const mastra = buildMastra({ pool, databaseUrl });
+      const storage = mastra.getStorage() as unknown as {
+        init: () => Promise<void>;
+        stores: {
+          memory: {
+            saveThread: (args: {
+              thread: {
+                id: string;
+                resourceId: string;
+                title?: string;
+                createdAt: Date;
+                updatedAt: Date;
+                metadata?: Record<string, unknown>;
+              };
+            }) => Promise<unknown>;
+          };
+        };
+      };
+      await storage.init();
+      const now = new Date();
+      const foreignThreadId = 'foreign-thread-1';
+      await storage.stores.memory.saveThread({
+        thread: {
+          id: foreignThreadId,
+          resourceId: 'someone-else',
+          title: 'not mine',
+          createdAt: now,
+          updatedAt: now,
+          metadata: {},
+        },
+      });
+
+      // The supervisor should never be called — failure mode is leaking
+      // another user's thread. Surface that loudly if the guard regresses.
+      const trippedSupervisor = {
+        stream: async () => {
+          throw new Error('supervisor.stream should not be reached when ownership check fires');
+        },
+      } as never;
+
+      const app = new Hono<{ Variables: { session: TestSession } }>();
+      app.use('*', async (c, next) => {
+        c.set('session', {
+          tenant_id,
+          user_id: admin_user_id,
+          effective_permissions: new Set(['agent.chat.use']),
+          role_summary: { roles: ['org.admin'], cross_tenant_read: false },
+        });
+        await next();
+      });
+      registerAgentRoutes(app, {
+        supervisor: trippedSupervisor,
+        mastra: mastra as never,
+        pool,
+      });
+
+      const res = await app.request('/api/agent/v1/chat', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ id: foreignThreadId, messages: [v6UserMessage('hijack')] }),
+      });
+      expect(res.status).toBe(404);
+    });
+  });
+
   it('injects a [Context: ...] prefix into the last user message when a data-page-context part is present', async () => {
     await withAgentTestDb(async ({ pool }) => {
       const { admin_user_id, tenant_id } = await createTestTenantWithAdmin({ pool });

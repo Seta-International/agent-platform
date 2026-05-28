@@ -13,19 +13,35 @@ import {
 } from 'react';
 import { useAgentRuntime } from '../hooks/use-agent-runtime';
 import { useApprovalResolvedEvent } from '../hooks/use-approval-events';
+import { useIsThreadFresh } from '../hooks/use-is-thread-fresh';
 import { useModelCatalog } from '../hooks/use-model-catalog';
-import { useThreadMessages } from '../hooks/use-thread-messages';
+import { ThreadMessagesError, useThreadMessages } from '../hooks/use-thread-messages';
+import { markThreadFresh, markThreadKnown } from '../lib/fresh-thread-store';
 
 const MODEL_STORAGE_KEY = 'seta.agent.model';
 
 export interface AgentSelection {
   threadId: string | undefined;
   modelKey: string;
+  /**
+   * True when `threadId` was minted client-side and the Mastra row hasn't been
+   * created yet. Consumers (e.g. `useThreadMessages`, the rail's edit/delete
+   * affordances) use this to skip server calls that would 404.
+   */
+  isThreadFresh: boolean;
 }
 
 export interface AgentSelectionActions {
   setThreadId: (id: string | undefined) => void;
   setModelKey: (key: string) => void;
+  /**
+   * Mint a fresh thread id and select it. The id is owned by the client so the
+   * URL, the AUI runtime, and the Mastra row all agree from the first send,
+   * which prevents the post-stream URL flip from remounting the runtime and
+   * killing the title-poll effects. Returns the new id so callers (e.g. the
+   * /agent/chat rail) can push it into the URL.
+   */
+  startFreshThread: () => string;
 }
 
 interface SelectionContextValue {
@@ -88,6 +104,10 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
   const [modelKey, setModelKeyState] = useState<string>(() =>
     readStored(MODEL_STORAGE_KEY, defaultModel),
   );
+  // Subscribes to the cross-cutting fresh-thread store (shared with the route
+  // `beforeLoad`). Re-renders the provider exactly when the freshness of the
+  // currently selected id changes.
+  const isThreadFresh = useIsThreadFresh(threadId);
 
   const setModelKey = useCallback((next: string) => {
     setModelKeyState(next);
@@ -96,14 +116,25 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
 
   const setThreadId = useCallback((next: string | undefined) => {
     setThreadIdState(next);
+    // A direct selection of an id means the caller believes the row exists on
+    // the server (e.g. clicking a row in the rail, an approval-driven switch).
+    // Clear it from the fresh set so consumers stop treating it as new.
+    if (next) markThreadKnown(next);
+  }, []);
+
+  const startFreshThread = useCallback(() => {
+    const id = crypto.randomUUID();
+    markThreadFresh(id);
+    setThreadIdState(id);
+    return id;
   }, []);
 
   const selectionValue = useMemo<SelectionContextValue>(
     () => ({
-      selection: { threadId, modelKey },
-      actions: { setThreadId, setModelKey },
+      selection: { threadId, modelKey, isThreadFresh },
+      actions: { setThreadId, setModelKey, startFreshThread },
     }),
-    [threadId, modelKey, setThreadId, setModelKey],
+    [threadId, modelKey, isThreadFresh, setThreadId, setModelKey, startFreshThread],
   );
 
   const [pageContext, setPageContextState] = useState<PageContext | null>(null);
@@ -223,9 +254,22 @@ function AgentRuntimeHost({ children }: { children: React.ReactNode }) {
   // messages are in hand. `useChatRuntime` snapshots `initialMessages` only on
   // first render, so without this gate clicking a thread before history loads
   // seeds the runtime with [] and the conversation never appears.
-  const { data: history, isLoading } = useThreadMessages(selection.threadId);
-  const historyReady = !selection.threadId || (!isLoading && Boolean(history));
-  const initialMessages: UIMessage[] = selection.threadId ? (history?.messages ?? []) : [];
+  //
+  // Fresh client-minted ids have no row on the server yet — skip the fetch and
+  // mount immediately with no history. We also defensively treat a 404 as
+  // "fresh" so a page reload that lost the sessionStorage entry still mounts
+  // an empty chat instead of looping on the loading placeholder.
+  const messagesEnabled = selection.threadId !== undefined && !selection.isThreadFresh;
+  const {
+    data: history,
+    isLoading,
+    error,
+  } = useThreadMessages(messagesEnabled ? selection.threadId : undefined);
+  const treatAsFresh =
+    selection.isThreadFresh || (error instanceof ThreadMessagesError && error.status === 404);
+  const historyReady = !selection.threadId || treatAsFresh || (!isLoading && Boolean(history));
+  const initialMessages: UIMessage[] =
+    messagesEnabled && !treatAsFresh ? (history?.messages ?? []) : [];
 
   // Do NOT include `historyReady` in the remount key.
   //
