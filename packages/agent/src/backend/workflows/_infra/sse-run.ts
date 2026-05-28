@@ -37,12 +37,14 @@ export function mountRunSse(app: Hono, deps: MountRunSseDeps): void {
       try {
         const watchResult = run.watch(async (evt: unknown) => {
           const e = evt as { type?: string; payload?: unknown; data?: unknown };
-          const eventName = typeof e?.type === 'string' ? e.type : 'message';
+          const eventType = typeof e?.type === 'string' ? e.type : 'unknown';
           const dataPayload = e?.payload ?? e?.data ?? e ?? {};
+          // Always use event: 'message' so EventSource.onmessage fires.
+          // Include `type` in the payload so the client can discriminate.
           await stream
             .writeSSE({
-              event: eventName,
-              data: JSON.stringify(dataPayload),
+              event: 'message',
+              data: JSON.stringify({ type: eventType, ...(dataPayload as object) }),
               id: String(Date.now()),
             })
             .catch(() => {});

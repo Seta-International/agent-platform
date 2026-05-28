@@ -179,12 +179,13 @@ interface CurrentRunTabProps {
 function CurrentRunTab({ run, snapshot }: CurrentRunTabProps) {
   const workflowInput = snapshot?.context?.input ?? run.inputSummary ?? null;
 
+  const snapshotContext = snapshot?.context;
   const steps = useMemo<[string, StepContextEntry][]>(() => {
-    if (!snapshot?.context) return [];
-    return Object.entries(snapshot.context)
+    if (!snapshotContext) return [];
+    return Object.entries(snapshotContext)
       .filter(([key]) => key !== 'input' && key !== '__state')
       .map(([key, val]) => [key, (val ?? {}) as StepContextEntry]);
-  }, [snapshot?.context]);
+  }, [snapshotContext]);
 
   const [inputOpen, setInputOpen] = useState(true);
 

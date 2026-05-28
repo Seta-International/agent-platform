@@ -802,13 +802,22 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
     const raw = (await c.req.json().catch(() => ({}))) as {
       inputOverride?: Record<string, unknown>;
     };
+    const requestContext = new RequestContext();
+    requestContext.set('actor', { type: 'user' as const, user_id: session.user_id });
+    requestContext.set('tenant_id', session.tenant_id);
+    requestContext.set('role_summary', session.role_summary);
     try {
       const result = await rerunWorkflow({
         session,
         runId: c.req.param('runId'),
         inputOverride: raw.inputOverride,
         mastra: deps.mastra as Mastra,
+        requestContext,
+        pool: deps.pool,
       });
+      // Drain pending lifecycle handler Promises before responding so the
+      // run-started DB projection is committed before the client navigates.
+      await deps.drainer.drain();
       return c.json(result);
     } catch (err) {
       return handleDomainError(c, err);

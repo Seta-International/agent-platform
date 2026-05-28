@@ -1,9 +1,13 @@
+import { Bell } from 'lucide-react';
 import type * as React from 'react';
+import { Button } from '../primitives/button';
 import { Popover, PopoverContent, PopoverTrigger } from '../primitives/popover';
 import {
   NotificationListItem,
   type NotificationListItemNotification,
 } from './notification-list-item';
+
+export type NotificationFilter = 'all' | 'unread';
 
 export interface NotificationPopoverProps {
   /** The element that triggers the popover (e.g. the bell button). */
@@ -17,6 +21,10 @@ export interface NotificationPopoverProps {
   onDismiss: (id: string) => void;
   isLoadingMore?: boolean;
   renderItem?: (n: NotificationListItemNotification) => React.ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  filter?: NotificationFilter;
+  onFilterChange?: (filter: NotificationFilter) => void;
 }
 
 export function NotificationPopover({
@@ -30,9 +38,13 @@ export function NotificationPopover({
   onDismiss,
   isLoadingMore = false,
   renderItem,
+  open,
+  onOpenChange,
+  filter = 'all',
+  onFilterChange,
 }: NotificationPopoverProps): React.ReactElement {
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       <PopoverContent
         align="end"
@@ -40,16 +52,36 @@ export function NotificationPopover({
         collisionPadding={8}
         className="flex w-[calc(100vw-16px)] flex-col p-0 sm:w-[400px]"
       >
-        <div className="flex shrink-0 items-center justify-between border-b border-hairline px-4 py-3">
-          <span className="text-body-sm font-semibold text-ink">Notifications</span>
-          <button
+        <div className="flex shrink-0 items-center gap-2 border-b border-hairline px-4 py-2">
+          <Bell className="size-4 shrink-0 text-ink-muted" aria-hidden />
+          <div className="flex items-center gap-0.5">
+            {(['all', 'unread'] as const).map((f) => (
+              <Button
+                key={f}
+                type="button"
+                size="sm"
+                variant={filter === f ? 'secondary' : 'ghost'}
+                onClick={() => onFilterChange?.(f)}
+              >
+                {f === 'all' ? 'All' : 'Unread'}
+                {f === 'unread' && unreadCount > 0 && (
+                  <span className="ml-0.5 rounded-full bg-primary px-1.5 py-px text-[10px] font-bold leading-none text-white">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </Button>
+            ))}
+          </div>
+          <Button
             type="button"
+            size="sm"
+            variant="ghost"
             disabled={unreadCount === 0}
             onClick={onMarkAll}
-            className="text-caption text-ink-muted hover:text-ink disabled:cursor-not-allowed disabled:text-ink-subtle"
+            className="ml-auto text-ink-muted"
           >
-            Mark all as read
-          </button>
+            Mark all read
+          </Button>
         </div>
         <div
           className="min-h-[160px] overflow-y-auto overscroll-contain"

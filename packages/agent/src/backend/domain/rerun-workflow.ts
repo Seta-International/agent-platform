@@ -1,7 +1,10 @@
 import type { Mastra } from '@mastra/core';
+import type { RequestContext } from '@mastra/core/request-context';
 import { sql } from 'drizzle-orm';
+import type { Pool } from 'pg';
 import { agentDb } from '../db/index.ts';
 import type { SessionLike } from '../types.ts';
+import { onLifecycleEvent } from '../workflows/_infra/lifecycle-hook.ts';
 import { getWorkflowRun } from './get-workflow-run.ts';
 
 export interface RerunWorkflowOpts {
@@ -9,6 +12,8 @@ export interface RerunWorkflowOpts {
   runId: string;
   inputOverride?: Record<string, unknown>;
   mastra: Mastra;
+  requestContext: RequestContext;
+  pool: Pool;
 }
 
 export interface RerunWorkflowResult {
@@ -34,7 +39,26 @@ export async function rerunWorkflow(opts: RerunWorkflowOpts): Promise<RerunWorkf
   };
 
   const run = await workflow.createRun({});
-  await run.start({ inputData });
+  // Eagerly project the run-started row so the client can fetch the run
+  // immediately after we return newRunId, regardless of async pubsub timing.
+  await onLifecycleEvent(opts.pool, {
+    kind: 'run-started',
+    runId: run.runId,
+    eventSeq: -1,
+    workflowId:
+      typeof (workflow as { id?: unknown }).id === 'string'
+        ? (workflow as { id: string }).id
+        : parent.workflowId,
+    tenantId: parent.tenantId,
+    startedBy: opts.session.user_id,
+    startedVia: 'rerun',
+    parentThreadId: null,
+    parentRunId: parent.runId,
+    sourceEventId: null,
+    inputSummary: inputData,
+    occurredAt: new Date(),
+  });
+  void (run.start({ inputData, requestContext: opts.requestContext } as never) as Promise<unknown>);
   const newRunId = run.runId;
 
   const outboxPayload: Record<string, unknown> = {

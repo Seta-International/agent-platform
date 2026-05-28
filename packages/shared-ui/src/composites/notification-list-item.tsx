@@ -1,4 +1,4 @@
-import { Check, X } from 'lucide-react';
+import { ChevronRight, X } from 'lucide-react';
 import type * as React from 'react';
 import { cn } from '../lib/cn';
 import { formatRelative } from '../lib/format-relative';
@@ -38,7 +38,7 @@ export function NotificationListItem({
 
   const middleContent = (
     <>
-      <div className="truncate text-body-sm font-medium text-ink">{title}</div>
+      <div className="line-clamp-2 text-body-sm font-medium text-ink">{title}</div>
       {body && <div className="line-clamp-2 text-caption text-ink-muted">{body}</div>}
       <div className="mt-1 text-caption text-ink-subtle">
         {formatRelative(new Date(notification.created_at))}
@@ -49,11 +49,13 @@ export function NotificationListItem({
   return (
     <div
       className={cn(
-        'group relative flex items-start gap-3 border-b border-hairline px-4 py-3',
+        'group relative flex items-start gap-3 border-b border-hairline px-4 py-3 transition-colors',
         isUnread && 'bg-surface-2',
+        onClick && 'cursor-pointer hover:bg-surface-1',
         className,
       )}
     >
+      {/* Unread accent bar */}
       {isUnread && (
         <span
           data-testid="notification-unread-indicator"
@@ -61,39 +63,55 @@ export function NotificationListItem({
           aria-hidden
         />
       )}
-      {icon && <div className="shrink-0 text-ink-muted">{icon}</div>}
+
+      {/* Icon slot */}
+      {icon && <div className="mt-0.5 shrink-0 text-ink-muted">{icon}</div>}
+
+      {/* Body — clickable when onClick is provided */}
       {onClick ? (
         <button
           type="button"
-          onClick={onClick}
-          className="min-w-0 flex-1 cursor-pointer rounded-md text-left hover:bg-surface-3 focus:outline-none focus:ring-1 focus:ring-primary"
+          onClick={() => {
+            if (isUnread) onMarkRead?.(notification.id);
+            onClick();
+          }}
+          className="group/body min-w-0 flex-1 cursor-pointer text-left focus:outline-none focus:ring-1 focus:ring-primary focus:rounded-sm"
         >
           {middleContent}
+          <div className="mt-1 flex items-center gap-0.5 text-caption text-primary opacity-0 transition-opacity group-hover/body:opacity-100">
+            <span>View</span>
+            <ChevronRight className="size-3" aria-hidden />
+          </div>
         </button>
       ) : (
         <div className="min-w-0 flex-1">{middleContent}</div>
       )}
-      <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-        {isUnread && onMarkRead && (
+
+      {/* Right-side controls */}
+      <div className="flex shrink-0 flex-col items-center gap-1.5 self-stretch justify-start pt-0.5">
+        {/* Unread dot — always visible for unread, click marks as read */}
+        {isUnread && onMarkRead ? (
           <button
             type="button"
             aria-label="Mark as read"
             title="Mark as read"
             onClick={() => onMarkRead(notification.id)}
-            className="inline-flex size-6 items-center justify-center rounded-md text-ink-muted hover:bg-surface-3 hover:text-ink"
-          >
-            <Check className="size-3.5" aria-hidden />
-          </button>
+            className="size-2 rounded-full bg-primary transition-opacity hover:opacity-70 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+          />
+        ) : (
+          <span className="size-2" aria-hidden />
         )}
+
+        {/* Dismiss — appears on hover */}
         {onDismiss && (
           <button
             type="button"
             aria-label="Dismiss"
             title="Dismiss"
             onClick={() => onDismiss(notification.id)}
-            className="inline-flex size-6 items-center justify-center rounded-md text-ink-muted hover:bg-surface-3 hover:text-ink"
+            className="inline-flex size-5 items-center justify-center rounded text-ink-subtle opacity-0 transition-opacity hover:bg-surface-3 hover:text-ink group-hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-1 focus:ring-primary"
           >
-            <X className="size-3.5" aria-hidden />
+            <X className="size-3" aria-hidden />
           </button>
         )}
       </div>

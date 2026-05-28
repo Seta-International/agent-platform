@@ -180,7 +180,18 @@ async function onRunSuspended(client: PoolClient, evt: RunSuspendedEvent): Promi
         surface_canvas, surface_chat_thread_id,
         status, expires_at, created_at)
      VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, 'pending', $8, $9)
-     ON CONFLICT DO NOTHING
+     ON CONFLICT (run_id, step_id) DO UPDATE
+       SET status               = 'pending',
+           proposed_payload     = EXCLUDED.proposed_payload,
+           approver_user_id     = EXCLUDED.approver_user_id,
+           fallback_approver_user_id = EXCLUDED.fallback_approver_user_id,
+           surface_canvas       = EXCLUDED.surface_canvas,
+           surface_chat_thread_id = EXCLUDED.surface_chat_thread_id,
+           expires_at           = EXCLUDED.expires_at,
+           created_at           = EXCLUDED.created_at,
+           decided_at           = NULL,
+           decided_by           = NULL,
+           decision_payload     = NULL
      RETURNING approval_id`,
     [
       evt.runId,

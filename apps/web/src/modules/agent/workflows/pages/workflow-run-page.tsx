@@ -1,10 +1,9 @@
 import { Button, PageChrome } from '@seta/shared-ui';
-import { useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { workflowsApi } from '../api/workflows.ts';
 import { HitlApprovalCard } from '../components/hitl-approval-card.tsx';
-import { RerunSideSheet } from '../components/rerun-side-sheet.tsx';
 import { RunRightPanel } from '../components/run-right-panel.tsx';
 import { RunStatusPill } from '../components/run-status-pill.tsx';
 import { WorkflowGraph } from '../components/workflow-graph.tsx';
@@ -55,10 +54,9 @@ function cardFromSnapshot(snapshot: unknown): unknown {
 
 export interface WorkflowRunPageProps {
   runId: string;
-  rerunOpen?: boolean;
 }
 
-export function WorkflowRunPage({ runId, rerunOpen = false }: WorkflowRunPageProps) {
+export function WorkflowRunPage({ runId }: WorkflowRunPageProps) {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const runQuery = useWorkflowRun(runId);
@@ -108,21 +106,16 @@ export function WorkflowRunPage({ runId, rerunOpen = false }: WorkflowRunPagePro
     [runId, navigate, qc],
   );
 
-  const openRerun = () =>
-    void navigate({
-      to: '/agent/workflows/runs/$runId',
-      params: { runId },
-      search: { rerun: '1' },
-    });
-  const closeRerun = () =>
-    void navigate({
-      to: '/agent/workflows/runs/$runId',
-      params: { runId },
-      search: {},
-    });
-  const closeSheet = () => {
-    if (rerunOpen) closeRerun();
-  };
+  const rerunMutation = useMutation({
+    mutationFn: () => workflowsApi.rerunRun(runId),
+    onSuccess: (out) => {
+      void navigate({
+        to: '/agent/workflows/runs/$runId',
+        params: { runId: out.newRunId },
+        search: {},
+      });
+    },
+  });
 
   if (runQuery.isLoading) {
     return (
@@ -162,8 +155,13 @@ export function WorkflowRunPage({ runId, rerunOpen = false }: WorkflowRunPagePro
       }
       actions={
         terminal ? (
-          <Button size="sm" variant="secondary" onClick={openRerun}>
-            Replay from start
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={rerunMutation.isPending}
+            onClick={() => rerunMutation.mutate()}
+          >
+            {rerunMutation.isPending ? 'Replaying…' : 'Replay from start'}
           </Button>
         ) : undefined
       }
@@ -205,14 +203,6 @@ export function WorkflowRunPage({ runId, rerunOpen = false }: WorkflowRunPagePro
           snapshot={snapshotQuery.data}
         />
       </div>
-      <RerunSideSheet
-        open={rerunOpen}
-        mode="rerun"
-        runId={runId}
-        workflowId={run.workflowId}
-        priorInputSummary={run.inputSummary}
-        onClose={closeSheet}
-      />
     </PageChrome>
   );
 }

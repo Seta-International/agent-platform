@@ -5,6 +5,11 @@ import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { NotificationPopoverContainer } from '../../../../../src/modules/notifications/components/NotificationPopoverContainer';
 
+vi.mock('@tanstack/react-router', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@tanstack/react-router')>();
+  return { ...actual, useLocation: vi.fn(() => ({ pathname: '/' })) };
+});
+
 vi.mock('../../../../../src/modules/notifications/api/client', () => ({
   notificationsClient: {
     list: vi.fn(async () => ({
@@ -38,7 +43,7 @@ describe('NotificationPopoverContainer', () => {
     render(<NotificationPopoverContainer />, { wrapper: wrap(qc) });
     await userEvent.click(screen.getByRole('button', { name: /notifications/i }));
     await waitFor(() => expect(screen.getByText('Hi')).toBeInTheDocument());
-    await userEvent.click(screen.getByRole('button', { name: /mark all as read/i }));
+    await userEvent.click(screen.getByRole('button', { name: /mark all read/i }));
     const { notificationsClient } = await import(
       '../../../../../src/modules/notifications/api/client'
     );

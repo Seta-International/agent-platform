@@ -3,21 +3,36 @@ import {
   type NotificationListItemNotification,
   NotificationPopover,
 } from '@seta/shared-ui';
+import { useLocation } from '@tanstack/react-router';
 import { Bell } from 'lucide-react';
-import type * as React from 'react';
+import * as React from 'react';
 import { useResolvePlannerNotification } from '../../planner/notifications/renderers';
 import { useDismiss, useMarkAllRead, useMarkRead } from '../hooks/mutations';
 import { useNotifications } from '../hooks/useNotifications';
 import { useUnreadCount } from '../hooks/useUnreadCount';
+import { useResolveAgentNotification } from '../renderers/agent-renderers';
 
 export function NotificationPopoverContainer(): React.ReactElement {
+  const [filter, setFilter] = React.useState<'all' | 'unread'>('all');
   const { items, hasNextPage, fetchNextPage, isFetchingNextPage } = useNotifications({
-    unread: false,
+    unread: filter === 'unread',
   });
   const { count } = useUnreadCount();
   const markRead = useMarkRead();
   const markAll = useMarkAllRead();
   const dismiss = useDismiss();
+  const [open, setOpen] = React.useState(false);
+  const location = useLocation();
+
+  // Close when the user navigates to a different page
+  const pathname = location.pathname;
+  const prevPathname = React.useRef(pathname);
+  React.useEffect(() => {
+    if (prevPathname.current !== pathname) {
+      prevPathname.current = pathname;
+      setOpen(false);
+    }
+  }, [pathname]);
 
   const trigger = (
     <button
@@ -29,15 +44,21 @@ export function NotificationPopoverContainer(): React.ReactElement {
       <Bell className="size-3.5" aria-hidden />
       {count > 0 && (
         <span
-          className="absolute right-0.5 top-0.5 inline-block size-1.5 rounded-full bg-primary"
+          className="absolute -right-1 -top-1 flex min-w-[16px] items-center justify-center rounded-full bg-primary px-0.5 py-px text-[10px] font-bold leading-none text-white"
           aria-hidden
-        />
+        >
+          {count > 9 ? '9+' : count}
+        </span>
       )}
     </button>
   );
 
   return (
     <NotificationPopover
+      open={open}
+      onOpenChange={setOpen}
+      filter={filter}
+      onFilterChange={setFilter}
       trigger={trigger}
       items={items}
       hasMore={hasNextPage}
@@ -69,7 +90,9 @@ function PopoverRow({
   onMarkRead: (id: string) => void;
   onDismiss: (id: string) => void;
 }): React.ReactElement {
-  const { icon, onClick } = useResolvePlannerNotification(notification);
+  const planner = useResolvePlannerNotification(notification);
+  const agent = useResolveAgentNotification(notification);
+  const { icon, onClick } = planner.icon ? planner : agent;
   return (
     <NotificationListItem
       notification={notification}

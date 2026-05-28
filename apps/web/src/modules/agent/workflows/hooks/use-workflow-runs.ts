@@ -57,6 +57,7 @@ export function useWorkflowRuns(opts: UseWorkflowRunsOpts) {
     };
     // Use primitive deps (scope, workflowId) instead of queryKey (new array ref
     // each render) to avoid infinite SSE reconnection loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opts.scope, workflowId, qc]);
 
   return query;

@@ -63,6 +63,13 @@ export const NOTIFICATION_CATEGORIES: readonly NotificationCategory[] = [
     default_email: false,
     email_available: false,
   },
+  {
+    event_type: 'agent.workflow.approval.requested',
+    label: 'Workflow approval needed',
+    default_in_app: true,
+    default_email: false,
+    email_available: false,
+  },
 ] as const;
 
 export function findCategory(eventType: string): NotificationCategory | undefined {

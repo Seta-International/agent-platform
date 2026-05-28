@@ -41,19 +41,39 @@ export function useWorkflowRun(runId: string) {
       es = new EventSource(url);
       es.onmessage = (ev) => {
         try {
-          const raw = JSON.parse(ev.data) as Omit<WorkflowRunStreamEvent, 'seq'>;
+          const raw = JSON.parse(ev.data) as Omit<WorkflowRunStreamEvent, 'seq'> & {
+            type?: string;
+          };
           setStreamEvents((prev) => [...prev, { ...raw, seq: prev.length }]);
-          const data = raw;
-          if (
-            data.kind === 'run-completed' ||
-            data.kind === 'run-failed' ||
-            data.kind === 'run-canceled' ||
-            data.kind === 'run-suspended' ||
-            data.kind === 'run-resumed'
-          ) {
+          const t = raw.type ?? '';
+          // Invalidate run + approvals on terminal / suspension state changes.
+          // Mastra WorkflowStreamEvent types use hyphens: workflow-finish, workflow-canceled, etc.
+          if (t === 'workflow-finish' || t === 'workflow-canceled' || t === 'workflow-paused') {
             qc.invalidateQueries({ queryKey: workflowsQueryKeys.run(runId) });
             qc.invalidateQueries({ queryKey: workflowsQueryKeys.runSnapshot(runId) });
             qc.invalidateQueries({ queryKey: workflowsQueryKeys.pendingApprovals() });
+            // The DB write (lifecycle hook) runs on a separate pubsub channel and
+            // may not have committed yet when the client refetches above.
+            // Re-invalidate after a short delay to pick up the committed state.
+            setTimeout(() => {
+              qc.invalidateQueries({ queryKey: workflowsQueryKeys.run(runId) });
+              qc.invalidateQueries({ queryKey: workflowsQueryKeys.runSnapshot(runId) });
+              qc.invalidateQueries({ queryKey: workflowsQueryKeys.pendingApprovals() });
+            }, 800);
+          } else if (t === 'workflow-step-suspended') {
+            // A HITL step suspended. The lifecycle hook writes status=paused +
+            // the approval row to the DB via the separate 'workflows' pubsub
+            // channel. Invalidate run + approvals with a delay to let that
+            // DB write commit before we refetch.
+            qc.invalidateQueries({ queryKey: workflowsQueryKeys.runSnapshot(runId) });
+            setTimeout(() => {
+              qc.invalidateQueries({ queryKey: workflowsQueryKeys.run(runId) });
+              qc.invalidateQueries({ queryKey: workflowsQueryKeys.runSnapshot(runId) });
+              qc.invalidateQueries({ queryKey: workflowsQueryKeys.pendingApprovals() });
+            }, 800);
+          } else if (t.startsWith('workflow-step')) {
+            // Refresh the snapshot as steps progress so the graph updates live.
+            qc.invalidateQueries({ queryKey: workflowsQueryKeys.runSnapshot(runId) });
           }
         } catch {
           // Ignore malformed payloads — server may send heartbeat events too.

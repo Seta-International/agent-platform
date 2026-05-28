@@ -5,6 +5,7 @@ import type { SubscriberDef } from '@seta/shared-types';
 import * as schema from './backend/db/schema/index.ts';
 import { NotificationStreamHub } from './backend/stream/hub.ts';
 import { notifierSubscriber } from './backend/subscribers/notifier.ts';
+import { workflowApprovalNotifierSubscriber } from './backend/subscribers/workflow-approval-notifier.ts';
 import { NOTIFICATIONS_EVENTS } from './events.ts';
 import { NOTIFICATIONS_PERMISSIONS } from './rbac.ts';
 
@@ -34,7 +35,10 @@ export function registerNotificationsContributions(reg: ContributionRegistry): v
     migrationsDir: resolve(__dirname, '../drizzle/migrations'),
     events: NOTIFICATIONS_EVENTS,
     rbac: NOTIFICATIONS_RBAC,
-    subscribers: [notifierSubscriber() as SubscriberDef],
+    subscribers: [
+      notifierSubscriber() as SubscriberDef,
+      workflowApprovalNotifierSubscriber() as SubscriberDef,
+    ],
     stream: buildNotificationStreamHub,
   });
 }

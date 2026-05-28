@@ -78,7 +78,7 @@ describe('NotificationPopover', () => {
       />,
     );
     await openPopover();
-    expect(screen.getByRole('button', { name: /mark all as read/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /mark all read/i })).toBeDisabled();
   });
 
   it('calls onMarkAll when the button is clicked', async () => {
@@ -96,7 +96,7 @@ describe('NotificationPopover', () => {
       />,
     );
     await openPopover();
-    await userEvent.click(screen.getByRole('button', { name: /mark all as read/i }));
+    await userEvent.click(screen.getByRole('button', { name: /mark all read/i }));
     expect(onMarkAll).toHaveBeenCalled();
   });
 
