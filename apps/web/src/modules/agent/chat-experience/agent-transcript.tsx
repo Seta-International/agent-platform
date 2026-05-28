@@ -1,7 +1,7 @@
 import { MessagePrimitive, ThreadPrimitive, useAui, useAuiState } from '@assistant-ui/react';
 import { ChatMarkdown, ChatMessage, ChatTranscript } from '@seta/shared-ui';
 import { Sparkles } from 'lucide-react';
-import { type ReactNode, useCallback } from 'react';
+import { type ReactNode, useCallback, useState } from 'react';
 import { ThreadListRefresher } from '../components/thread-list-refresher';
 import { ToolUIRegistry } from '../components/tool-renderers';
 import { AGENT_COPY } from '../i18n';
@@ -54,6 +54,7 @@ interface ChainOfThoughtProps {
 }
 
 function ChainOfThought({ running, count, indices, children }: ChainOfThoughtProps) {
+  const [manualOpen, setManualOpen] = useState(false);
   // Keep the group expanded while any inner tool-call is awaiting user approval
   // (Mastra-native `requireApproval` HITL gate). Otherwise the agent flipping to
   // 'complete' collapses the group and hides the approval card until the user
@@ -63,12 +64,16 @@ function ChainOfThought({ running, count, indices, children }: ChainOfThoughtPro
     const content = s.message.content as ReadonlyArray<{ status?: { type?: string } }>;
     return indices.some((i) => content[i]?.status?.type === 'requires-action');
   });
+  const forcedOpen = running || hasPendingAction;
+  const open = forcedOpen || manualOpen;
   return (
-    <details
-      className="group/cot my-2 rounded-lg border border-hairline bg-surface-2 px-3 py-2 text-caption"
-      open={running || hasPendingAction}
-    >
-      <summary className="cursor-pointer select-none list-none text-ink-subtle">
+    <div className="my-2 rounded-lg border border-hairline bg-surface-2 px-3 py-2 text-caption">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setManualOpen((v) => !v)}
+        className="flex w-full cursor-pointer select-none items-center justify-between text-left text-ink-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
+      >
         <span className="inline-flex items-center gap-1.5">
           {running ? (
             <>
@@ -83,14 +88,14 @@ function ChainOfThought({ running, count, indices, children }: ChainOfThoughtPro
           )}
           <span
             aria-hidden
-            className="ml-1 text-ink-tertiary transition-transform group-open/cot:rotate-90"
+            className={`ml-1 text-ink-tertiary transition-transform ${open ? 'rotate-90' : ''}`}
           >
             ›
           </span>
         </span>
-      </summary>
-      <div className="mt-2 space-y-1.5 border-l-2 border-hairline pl-3">{children}</div>
-    </details>
+      </button>
+      {open && <div className="mt-2 space-y-1.5 border-l-2 border-hairline pl-3">{children}</div>}
+    </div>
   );
 }
 
