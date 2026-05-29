@@ -38,6 +38,10 @@ export default async function (): Promise<() => Promise<void>> {
   process.env.PLATFORM_TEST_PG_TEMPLATE = TEMPLATE;
   process.env.BETTER_AUTH_SECRET ??= 'test'.padEnd(32, '_');
   process.env.AGENT_MODEL ??= 'mock/echo';
+  // buildServerApp builds the agent supervisor tree, whose memory embedder validates
+  // its provider key at construction. Tests make no real embedding calls, so a dummy
+  // key is enough.
+  process.env.OPENAI_API_KEY ??= 'test-key';
 
   return async () => {
     await handle?.stop();

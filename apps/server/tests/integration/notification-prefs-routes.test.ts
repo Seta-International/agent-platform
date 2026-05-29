@@ -1,5 +1,6 @@
 import { hashRoleSummary, type SessionEnv, type SessionScope } from '@seta/core';
 import { resetCoreDb } from '@seta/core/testing';
+import { NOTIFICATION_CATEGORIES } from '@seta/notifications';
 import { registerNotificationsRoutes } from '@seta/notifications/http';
 import { NotificationStreamHub } from '@seta/notifications/stream';
 import { resetNotificationsDb } from '@seta/notifications/testing';
@@ -65,7 +66,7 @@ async function withTest<T>(fn: (ctx: { pool: Pool }) => Promise<T>): Promise<T> 
 }
 
 describe('GET /api/notifications/v1/prefs', () => {
-  it('returns the matrix with 8 default rows for tenant admin', async () => {
+  it('returns the matrix with one default row per category for tenant admin', async () => {
     await withTest(async () => {
       const tenantId = crypto.randomUUID();
       const userId = crypto.randomUUID();
@@ -80,7 +81,7 @@ describe('GET /api/notifications/v1/prefs', () => {
           email_available: boolean;
         }>;
       };
-      expect(body.rows).toHaveLength(8);
+      expect(body.rows).toHaveLength(NOTIFICATION_CATEGORIES.length);
       expect(body.rows[0]).toMatchObject({
         in_app_enabled: true,
         email_enabled: false,
