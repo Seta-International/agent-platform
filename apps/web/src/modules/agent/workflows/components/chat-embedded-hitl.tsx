@@ -1,6 +1,7 @@
 import { useAui } from '@assistant-ui/react';
 import { useMutation } from '@tanstack/react-query';
 import { CheckCircle2, XCircle } from 'lucide-react';
+import { buildDecisionFollowupMessage } from '../../lib/decision-followup-message.ts';
 import type { WorkflowApprovalRow } from '../api/schemas.ts';
 import { type DecideApprovalBody, workflowsApi } from '../api/workflows.ts';
 import { useThreadPendingApprovals } from '../hooks/use-thread-pending-approvals.ts';
@@ -72,8 +73,16 @@ export function ChatEmbeddedHitl({ threadId }: ChatEmbeddedHitlProps) {
       // The card stays visible (decided state rendered below).
       // Trigger a new agent turn — the LLM sees full thread history and generates
       // a contextual follow-up in the user's language. Works for any HITL flow.
-      const label = DECISION_LABELS[variables.decision] ?? variables.decision;
-      aui.thread().append({ role: 'user', content: [{ type: 'text', text: label }] });
+      //
+      // The action was already executed server-side by the ChatHitlDecider (a
+      // domain call invisible to the conversation). We must therefore tell the
+      // agent the action is COMPLETE, otherwise it re-runs it and surfaces a
+      // second redundant approval card. See decision-followup-message.ts.
+      const decided = approvalsQuery.data?.find((a) => a.approvalId === variables.approvalId);
+      const text = decided
+        ? buildDecisionFollowupMessage(variables.decision, decided)
+        : (DECISION_LABELS[variables.decision] ?? variables.decision);
+      aui.thread().append({ role: 'user', content: [{ type: 'text', text }] });
     },
   });
 
