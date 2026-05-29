@@ -1,5 +1,6 @@
 import type { SessionScope } from '@seta/core';
 import { addTaskReference } from '../../../domain/add-task-reference.ts';
+import { getTask } from '../../../domain/get-task.ts';
 import type { DedupOutput } from '../schemas.ts';
 
 export interface LinkToExistingInput {
@@ -13,10 +14,11 @@ export interface LinkToExistingInput {
  * Adds a task_reference on the new task pointing to the existing task.
  */
 export async function linkToExisting(input: LinkToExistingInput): Promise<DedupOutput> {
+  const existing = await getTask({ task_id: input.existingId, session: input.session });
   await addTaskReference({
     task_id: input.taskId,
-    url: `seta://planner/tasks/${input.existingId}`,
-    alias: `Related: existing task ${input.existingId.slice(0, 8)}`,
+    url: `/planner/plans/${existing.plan_id}/tasks/${input.existingId}`,
+    alias: `Related: ${existing.title}`,
     type: 'link',
     session: input.session,
   });

@@ -20,7 +20,9 @@ describe('pools', () => {
   it('initPools sets safety timeouts on all pools', () => {
     const pools = initPools({ databaseUrl: 'postgres://x:y@127.0.0.1:1/none' });
     expect(pools.web.options.connectionTimeoutMillis).toBe(5_000);
-    expect(pools.worker.options.connectionTimeoutMillis).toBe(10_000);
+    // worker intentionally has no connectionTimeoutMillis — graphile-worker holds
+    // connections for each job's duration; a timeout would kill the process under load.
+    expect(pools.worker.options.connectionTimeoutMillis).toBeUndefined();
     expect(pools.mastraState.options.connectionTimeoutMillis).toBe(5_000);
     expect(pools.web.options.idleTimeoutMillis).toBe(10_000);
     expect(pools.worker.options.idleTimeoutMillis).toBe(30_000);

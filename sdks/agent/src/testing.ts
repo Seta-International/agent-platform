@@ -15,9 +15,9 @@ export function makeToolContext(actor: {
 }): ToolExecutionContext<unknown, unknown, AgentRequestContext> {
   const rc = new RequestContext<AgentRequestContext>();
   rc.set('actor', { type: actor.type ?? 'user', user_id: actor.user_id });
-  if (actor.tenant_id) {
-    rc.set('tenant_id', actor.tenant_id);
-  }
+  // Production always sets tenant_id (wrap-execute keys its circuit breaker on it),
+  // so the test helper mirrors that with a stable default when no tenant is supplied.
+  rc.set('tenant_id', actor.tenant_id ?? '00000000-0000-0000-0000-000000000000');
   return {
     requestContext: rc,
     toolCallId: 'test-call',

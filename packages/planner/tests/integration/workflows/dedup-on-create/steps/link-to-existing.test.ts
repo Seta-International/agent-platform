@@ -43,14 +43,14 @@ describe('linkToExisting', () => {
           expect(out.kind).toBe('linked');
           if (out.kind !== 'linked') throw new Error('unreachable');
           expect(out.taskId).toBe(newTask.id);
-          expect(out.linkedTo).toBe(existing.id);
+          expect(out.linkedTo).toEqual([existing.id]);
 
           const refs = await plannerDb()
             .select()
             .from(taskReferences)
             .where(eq(taskReferences.task_id, newTask.id));
           expect(refs).toHaveLength(1);
-          expect(refs[0]?.url).toBe(`seta://planner/tasks/${existing.id}`);
+          expect(refs[0]?.url).toBe(`/planner/plans/${plan.id}/tasks/${existing.id}`);
           expect(refs[0]?.type).toBe('link');
           expect(refs[0]?.alias).toContain('Related');
         } finally {

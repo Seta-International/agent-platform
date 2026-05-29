@@ -25,6 +25,7 @@ describe('<ChatComposer>', () => {
     render(
       <ChatComposer value="hi" onChange={() => undefined} onSubmit={() => undefined} pending />,
     );
-    expect(screen.getByRole('button', { name: /send/i })).toBeDisabled();
+    // While pending the submit button swaps to a loading spinner labelled "Loading".
+    expect(screen.getByRole('button', { name: /loading/i })).toBeDisabled();
   });
 });

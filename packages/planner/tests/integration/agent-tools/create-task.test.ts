@@ -1,7 +1,31 @@
 import { randomUUID } from 'node:crypto';
+import { hashRoleSummary, type SessionScope } from '@seta/core';
+import { createTestTenantWithAdmin } from '@seta/identity/testing';
+import { createGroup, createPlan } from '@seta/planner';
 import { describe, expect, it } from 'vitest';
 import { plannerCreateTaskTool } from '../../../src/backend/agent-tools/create-task.ts';
 import { makeToolContext, withAgentTestDb } from '../agent-tools-helpers.ts';
+
+function buildAdminSession(opts: {
+  tenant_id: string;
+  user_id: string;
+  email: string;
+}): SessionScope {
+  const role_summary = { roles: ['org.admin'], cross_tenant_read: false };
+  return {
+    session_id: crypto.randomUUID(),
+    user_id: opts.user_id,
+    tenant_id: opts.tenant_id,
+    email: opts.email,
+    display_name: 'Admin',
+    role_summary,
+    role_summary_hash: hashRoleSummary(role_summary),
+    accessible_group_ids: [],
+    cross_tenant_read: false,
+    built_at: new Date(),
+    invalidated_at: null,
+  };
+}
 
 function makeMockMastra(opts?: { workflowMissing?: boolean }) {
   const startCalls: { inputData: unknown; requestContext: unknown }[] = [];
@@ -25,12 +49,25 @@ function makeMockMastra(opts?: { workflowMissing?: boolean }) {
   };
 }
 
+async function seedPlan(pool: import('pg').Pool) {
+  const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
+  const session = buildAdminSession({
+    tenant_id,
+    user_id: admin_user_id,
+    email: 'admin@demo.local',
+  });
+  const group = await createGroup({ tenant_id, name: 'Test Group', session });
+  const plan = await createPlan({ group_id: group.id, name: 'Test Plan', session });
+  return { tenant_id, admin_user_id, plan };
+}
+
 describe('planner_createTask — triggers dedupOnCreate workflow', () => {
   it('starts the dedupOnCreate workflow and returns runId', async () => {
-    await withAgentTestDb(async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const { tenant_id, admin_user_id, plan } = await seedPlan(pool);
       const { mastra, mockRunId, startCalls } = makeMockMastra();
       const tool = plannerCreateTaskTool();
-      const ctx = makeToolContext({ user_id: randomUUID(), tenant_id: randomUUID() });
+      const ctx = makeToolContext({ user_id: admin_user_id, tenant_id });
       // biome-ignore lint/suspicious/noExplicitAny: inject mock mastra
       (ctx as any).mastra = mastra;
 
@@ -39,7 +76,7 @@ describe('planner_createTask — triggers dedupOnCreate workflow', () => {
           title: 'New task X',
           description: 'desc',
           skill_tags: [],
-          plan_id: undefined,
+          plan_id: plan.id,
           bucket_id: undefined,
         },
         ctx,
@@ -54,35 +91,39 @@ describe('planner_createTask — triggers dedupOnCreate workflow', () => {
     });
   });
 
-  it('throws when mastra is not available', async () => {
-    await withAgentTestDb(async () => {
+  it('keeps the created task when mastra is not available', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const { tenant_id, admin_user_id, plan } = await seedPlan(pool);
       const tool = plannerCreateTaskTool();
-      const ctx = makeToolContext({ user_id: randomUUID(), tenant_id: randomUUID() });
+      const ctx = makeToolContext({ user_id: admin_user_id, tenant_id });
       // No mastra on context
 
-      await expect(
-        tool.execute!(
-          { title: 't', description: '', skill_tags: [], plan_id: undefined, bucket_id: undefined },
-          ctx,
-        ),
-      ).rejects.toThrow('Mastra runtime unavailable');
+      const result = (await tool.execute!(
+        { title: 't', description: '', skill_tags: [], plan_id: plan.id, bucket_id: undefined },
+        ctx,
+      )) as { kind: string; taskId?: string };
+
+      expect(result.kind).toBe('kept');
+      expect(result.taskId).toEqual(expect.any(String));
     });
   });
 
-  it('throws when dedupOnCreate workflow is not registered', async () => {
-    await withAgentTestDb(async () => {
+  it('keeps the created task when dedupOnCreate workflow is not registered', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const { tenant_id, admin_user_id, plan } = await seedPlan(pool);
       const { mastra } = makeMockMastra({ workflowMissing: true });
       const tool = plannerCreateTaskTool();
-      const ctx = makeToolContext({ user_id: randomUUID(), tenant_id: randomUUID() });
+      const ctx = makeToolContext({ user_id: admin_user_id, tenant_id });
       // biome-ignore lint/suspicious/noExplicitAny: inject mock mastra
       (ctx as any).mastra = mastra;
 
-      await expect(
-        tool.execute!(
-          { title: 't', description: '', skill_tags: [], plan_id: undefined, bucket_id: undefined },
-          ctx,
-        ),
-      ).rejects.toThrow('dedupOnCreate workflow not registered');
+      const result = (await tool.execute!(
+        { title: 't', description: '', skill_tags: [], plan_id: plan.id, bucket_id: undefined },
+        ctx,
+      )) as { kind: string; taskId?: string };
+
+      expect(result.kind).toBe('kept');
+      expect(result.taskId).toEqual(expect.any(String));
     });
   });
 });

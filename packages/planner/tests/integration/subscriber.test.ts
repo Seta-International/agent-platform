@@ -155,6 +155,14 @@ describe('applyUserCreated', () => {
             `evt-${tenantId.slice(0, 8)}`,
           ]);
 
+          // identity.user is populated synchronously by the identity module; only the
+          // planner projection events can arrive out of order. applyProfileUpdated seeds
+          // the projection row from identity.user, so it must exist.
+          await pool.query(
+            `INSERT INTO identity."user" (id, name, email, tenant_id) VALUES ($1, $2, $3, $4)`,
+            [userId, 'Out Of Order', 'out-of-order@example.test', tenantId],
+          );
+
           const db = drizzle(pool, { schema });
           await db.transaction(async (tx) => {
             const profileTx = tx as unknown as Parameters<typeof applyProfileUpdated>[1]['tx'];

@@ -7,6 +7,7 @@ import { notificationsDb, resetNotificationsDb } from '../../src/backend/db/clie
 import { notificationPrefs } from '../../src/backend/db/schema/notification-prefs.ts';
 import {
   listNotificationPrefs,
+  NOTIFICATION_CATEGORIES,
   NotificationPrefError,
   setNotificationPref,
 } from '../../src/index.ts';
@@ -35,7 +36,7 @@ describe('listNotificationPrefs', () => {
       resetNotificationsDb();
       const session = makeAdminSession();
       const result = await listNotificationPrefs({ session });
-      expect(result.rows).toHaveLength(8);
+      expect(result.rows).toHaveLength(NOTIFICATION_CATEGORIES.length);
       expect(result.rows[0]).toMatchObject({
         event_type: 'planner.task.assigned',
         label: 'Task assigned',

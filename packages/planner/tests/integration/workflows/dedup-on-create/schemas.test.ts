@@ -31,9 +31,9 @@ describe('dedup schemas', () => {
       kind: 'kept',
       taskId: 't1',
     });
-    expect(DedupOutputSchema.parse({ kind: 'linked', taskId: 't1', linkedTo: 'e1' })).toMatchObject(
-      { kind: 'linked', taskId: 't1', linkedTo: 'e1' },
-    );
+    expect(
+      DedupOutputSchema.parse({ kind: 'linked', taskId: 't1', linkedTo: ['e1'] }),
+    ).toMatchObject({ kind: 'linked', taskId: 't1', linkedTo: ['e1'] });
     expect(DedupOutputSchema.parse({ kind: 'deleted', taskId: 't1' })).toMatchObject({
       kind: 'deleted',
       taskId: 't1',
@@ -53,8 +53,11 @@ describe('dedup schemas', () => {
     expect(DupActionSchema.parse({ kind: 'leave' })).toEqual({ kind: 'leave' });
     expect(DupActionSchema.parse({ kind: 'delete' })).toEqual({ kind: 'delete' });
     expect(
-      DupActionSchema.parse({ kind: 'link', existingId: '00000000-0000-0000-0000-000000000000' }),
-    ).toMatchObject({ kind: 'link', existingId: '00000000-0000-0000-0000-000000000000' });
+      DupActionSchema.parse({
+        kind: 'link',
+        existingIds: ['00000000-0000-0000-0000-000000000000'],
+      }),
+    ).toMatchObject({ kind: 'link', existingIds: ['00000000-0000-0000-0000-000000000000'] });
     expect(() => DupActionSchema.parse({ kind: 'create-new' })).toThrow();
     expect(() => DupActionSchema.parse({ kind: 'cancel' })).toThrow();
   });

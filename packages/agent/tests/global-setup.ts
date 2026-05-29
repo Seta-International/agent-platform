@@ -34,6 +34,9 @@ export default async function (): Promise<() => Promise<void>> {
   process.env.PLATFORM_TEST_PG_TEMPLATE = TEMPLATE;
   process.env.BETTER_AUTH_SECRET ??= 'test'.padEnd(32, '_');
   process.env.AGENT_MODEL ??= 'mock/echo';
+  // buildMemory constructs an embedding model that validates its provider key at
+  // build time. Tests never make real embedding calls, so a dummy key is enough.
+  process.env.OPENAI_API_KEY ??= 'test-key';
 
   return async () => {
     await handle?.stop();

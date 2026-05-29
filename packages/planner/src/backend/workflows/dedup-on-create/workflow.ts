@@ -56,11 +56,13 @@ export async function applyDupDecision(input: {
 
   // 'link' — add task_references on the new task pointing to selected existing ones
   const { addTaskReference } = await import('../../domain/add-task-reference.ts');
+  const { getTask } = await import('../../domain/get-task.ts');
   for (const existingId of input.action.existingIds) {
+    const existing = await getTask({ task_id: existingId, session: input.session });
     await addTaskReference({
       task_id: input.taskId,
-      url: `seta://planner/tasks/${existingId}`,
-      alias: `Related: existing task ${existingId.slice(0, 8)}`,
+      url: `/planner/plans/${existing.plan_id}/tasks/${existingId}`,
+      alias: `Related: ${existing.title}`,
       type: 'link',
       session: input.session,
     });

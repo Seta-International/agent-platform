@@ -44,8 +44,9 @@ const withDb = <T>(fn: (ctx: { pool: import('pg').Pool; pgVector: PgVector }) =>
   );
 
 function makeFakeCtx(actor: { type: 'user'; user_id: string }) {
-  const rc = new RequestContext<{ actor: typeof actor }>();
+  const rc = new RequestContext<{ actor: typeof actor; tenant_id: string }>();
   rc.set('actor', actor);
+  rc.set('tenant_id', '00000000-0000-0000-0000-000000000000');
   return { requestContext: rc } as unknown as Parameters<
     NonNullable<ReturnType<typeof matchUsersToTopicTool>['execute']>
   >[1];
