@@ -3,7 +3,9 @@ packages:
   - "packages/*"
   - "sdks/*"
 overrides:
-  # better-auth@1.6.11 imports kAPIErrorHeaderSymbol from better-call, which 1.3.5
+  # @better-auth/core@1.6.11 peer-requires better-call@1.3.5, but @better-auth/cli@1.4.21
+  # (no 1.6.x published) drags in better-call@1.1.8, which pnpm mis-links into core@1.6.11
+  # → "kAPIErrorHeaderSymbol" missing export crash at server boot. Force a single version.
   better-call: 1.3.5
 allowBuilds:
   '@prisma/client': true
