@@ -1,16 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@ai-sdk/openai', () => ({
-  openai: Object.assign(
-    vi.fn(() => ({})),
-    {
-      embedding: vi.fn().mockReturnValue({ modelId: 'text-embedding-3-small' }),
-    },
-  ),
-}));
-
 const mockEmbed = vi.fn();
-vi.mock('ai', () => ({ embed: mockEmbed }));
+vi.mock('@seta/shared-embeddings', () => ({
+  resolveEmbeddingProvider: () => ({ embed: mockEmbed }),
+}));
 
 const MOCK_DOMAINS = ['work', 'people', 'self', 'meta', 'knowledge'];
 vi.mock('@seta/agent-sdk', () => ({
@@ -33,7 +26,7 @@ describe('classifyDomain', () => {
 
   it('returns null when classifier was never initialised and keywords miss', async () => {
     const { classifyDomain } = await import('../../src/backend/domain-classifier.ts');
-    mockEmbed.mockResolvedValue({ embedding: unitVector(5, 0) });
+    mockEmbed.mockResolvedValue([unitVector(5, 0)]);
     // Use neutral text so the keyword-fallback safety net (added after this
     // test was first written) also returns null. Otherwise "list my tasks"
     // matches the `task` work-keyword and the fallback would route to `work`.
@@ -46,12 +39,10 @@ describe('classifyDomain', () => {
       '../../src/backend/domain-classifier.ts'
     );
     const domains = ['work', 'people', 'self', 'meta', 'knowledge'];
-    let callCount = 0;
-    mockEmbed.mockImplementation(async () => ({
-      embedding: unitVector(5, callCount++),
-    }));
+    mockEmbed.mockImplementation(async (texts: string[]) =>
+      texts.length === 1 ? [unitVector(5, 0)] : texts.map((_, i) => unitVector(5, i)),
+    );
     await initClassifier();
-    callCount = 0;
     const result = await classifyDomain('list my tasks');
     expect(result).not.toBeNull();
     expect(result!.domain).toBe(domains[0]);
@@ -62,12 +53,11 @@ describe('classifyDomain', () => {
     const { initClassifier, classifyDomain } = await import(
       '../../src/backend/domain-classifier.ts'
     );
-    let callCount = 0;
-    mockEmbed.mockImplementation(async () => {
-      callCount++;
-      if (callCount <= 5) return { embedding: unitVector(5, callCount - 1) };
-      return { embedding: [0.447, 0.447, 0.447, 0.447, 0.447] };
-    });
+    mockEmbed.mockImplementation(async (texts: string[]) =>
+      texts.length === 1
+        ? [[0.447, 0.447, 0.447, 0.447, 0.447]]
+        : texts.map((_, i) => unitVector(5, i)),
+    );
     await initClassifier();
     const result = await classifyDomain('do something');
     expect(result).toBeNull();
@@ -77,10 +67,9 @@ describe('classifyDomain', () => {
     const { initClassifier, classifyDomain } = await import(
       '../../src/backend/domain-classifier.ts'
     );
-    let callCount = 0;
-    mockEmbed.mockImplementation(async () => {
-      if (callCount++ < 5) return { embedding: unitVector(5, callCount - 1) };
-      throw new Error('network error');
+    mockEmbed.mockImplementation(async (texts: string[]) => {
+      if (texts.length === 1) throw new Error('network error');
+      return texts.map((_, i) => unitVector(5, i));
     });
     await initClassifier();
     const result = await classifyDomain('something ambiguous');
@@ -93,7 +82,7 @@ describe('classifyDomain', () => {
     );
     mockEmbed.mockRejectedValue(new Error('no api key'));
     await initClassifier();
-    mockEmbed.mockResolvedValue({ embedding: unitVector(5, 0) });
+    mockEmbed.mockResolvedValue([unitVector(5, 0)]);
     const result = await classifyDomain('something ambiguous');
     expect(result).toBeNull();
   });

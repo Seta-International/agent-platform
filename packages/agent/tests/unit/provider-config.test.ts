@@ -110,4 +110,14 @@ describe('validateModelEnv', () => {
       }),
     ).not.toThrow();
   });
+
+  it('validateModelEnv passes for the mock test profile', () => {
+    expect(() =>
+      validateModelEnv({
+        AGENT_MODELS: 'mock/echo',
+        EMBED_MODEL: 'openai/text-embedding-3-small',
+        OPENAI_API_KEY: 'k',
+      }),
+    ).not.toThrow();
+  });
 });

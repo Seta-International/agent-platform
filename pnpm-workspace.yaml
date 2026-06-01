@@ -2,6 +2,9 @@ packages:
   - "apps/*"
   - "packages/*"
   - "sdks/*"
+overrides:
+  # better-auth@1.6.11 imports kAPIErrorHeaderSymbol from better-call, which 1.3.5
+  better-call: 1.3.5
 allowBuilds:
   '@prisma/client': true
   better-sqlite3: true

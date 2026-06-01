@@ -22,6 +22,7 @@ import { agentEnv } from './backend/env.ts';
 import { initAgentRegistry } from './backend/init-registry.ts';
 import { agentJobs } from './backend/jobs/rate-limit-cleanup.ts';
 import { type ModelTier, resolveModel } from './backend/model-registry.ts';
+import { validateModelEnv } from './backend/provider-config.ts';
 import { registerAgentRoutes } from './backend/routes.ts';
 import { buildMastraFull } from './backend/runtime.ts';
 import { agentSubscribers } from './backend/subscribers/index.ts';
@@ -74,6 +75,7 @@ export function registerAgent(deps: {
    */
   chatHitlDeciders?: Record<string, ChatHitlDecider>;
 }): AgentHandle {
+  validateModelEnv(process.env);
   setExecutionPolicy({
     readMs: agentEnv.AGENT_TOOL_TIMEOUT_READ_MS,
     writeMs: agentEnv.AGENT_TOOL_TIMEOUT_WRITE_MS,

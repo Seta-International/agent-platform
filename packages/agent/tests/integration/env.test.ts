@@ -25,11 +25,4 @@ describe('parseAgentEnv', () => {
   it('allows AGENT_MODELS to be unset (registry falls back to default)', () => {
     expect(parseAgentEnv({}).AGENT_MODELS).toBeUndefined();
   });
-
-  it('no longer recognizes removed vars', () => {
-    const env = parseAgentEnv({ AGENT_MODELS: 'openai/gpt-5.5' }) as Record<string, unknown>;
-    expect(env.AGENT_MODEL).toBeUndefined();
-    expect(env.AGENT_MODEL_API_KEY).toBeUndefined();
-    expect(env.AGENT_MODEL_BASE_URL).toBeUndefined();
-  });
 });

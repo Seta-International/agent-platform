@@ -1,6 +1,5 @@
-import { openai } from '@ai-sdk/openai';
 import { AgentRegistry, type Domain } from '@seta/agent-sdk';
-import { embed } from 'ai';
+import { resolveEmbeddingProvider } from '@seta/shared-embeddings';
 
 const CONFIDENCE_THRESHOLD = 0.75;
 
@@ -34,14 +33,15 @@ function cosineSimilarity(a: number[], b: number[]): number {
 export async function initClassifier(): Promise<void> {
   try {
     const domains = AgentRegistry.snapshot().domains as Domain[];
-    const model = openai.embedding('text-embedding-3-small');
+    const entries = domains
+      .map((domain) => ({ domain, blurb: DOMAIN_BLURBS[domain] }))
+      .filter((e): e is { domain: Domain; blurb: string } => Boolean(e.blurb));
+    const embeddings = await resolveEmbeddingProvider().embed(entries.map((e) => e.blurb));
     const vectors = new Map<Domain, number[]>();
-    for (const domain of domains) {
-      const blurb = DOMAIN_BLURBS[domain];
-      if (!blurb) continue;
-      const { embedding } = await embed({ model, value: blurb });
-      vectors.set(domain, embedding);
-    }
+    entries.forEach((e, i) => {
+      const vec = embeddings[i];
+      if (vec) vectors.set(e.domain, vec);
+    });
     domainVectors = vectors;
   } catch (e) {
     disabled = true;
@@ -90,8 +90,11 @@ export async function classifyDomain(userText: string): Promise<ClassifierResult
     return domain ? { domain, confidence: 0.8 } : null;
   }
   try {
-    const model = openai.embedding('text-embedding-3-small');
-    const { embedding } = await embed({ model, value: userText });
+    const [embedding] = await resolveEmbeddingProvider().embed([userText]);
+    if (!embedding) {
+      const kwDomain = keywordClassify(userText);
+      return kwDomain ? { domain: kwDomain, confidence: 0.8 } : null;
+    }
     let bestDomain: Domain | null = null;
     let bestScore = -1;
     for (const [domain, vec] of domainVectors) {
