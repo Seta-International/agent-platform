@@ -36,6 +36,7 @@
     "@seta/planner": "workspace:^",
     "@seta/shared-db": "workspace:^",
     "@seta/shared-embeddings": "workspace:^",
+    "@seta/shared-orchestration": "workspace:*",
     "@seta/shared-rbac": "workspace:^",
     "@seta/shared-retrieval": "workspace:^",
     "@seta/shared-types": "workspace:^",
