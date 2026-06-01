@@ -1,8 +1,10 @@
-// Public surface of @seta/agent — workflow-run domain only.
-// Engine internals (buildMastra, model registry, workflow infra, observability)
-// are reachable on subpaths (./register, ./models) consumed by apps and
-// orchestrators. Contract types (SessionLike, WorkflowBuilder) live in
-// @seta/agent-sdk. Permissions on ./rbac. Events on ./events.
+// Public surface of @seta/agent — workflow-run domain + the model resolver.
+// Engine internals (buildMastra, workflow infra, observability) are reachable
+// on the ./register subpath consumed by apps. `resolveModel` is exported here so
+// the composition root (apps/server) can inject a model into orchestrator
+// adapters (orchestrator modules may not import the agent engine directly).
+// Contract types (SessionLike, WorkflowBuilder) live in @seta/agent-sdk.
+// Permissions on ./rbac. Events on ./events.
 
 export type { CancelWorkflowRunOpts } from './backend/domain/cancel-workflow-run.ts';
 export { cancelWorkflowRun } from './backend/domain/cancel-workflow-run.ts';
@@ -35,4 +37,5 @@ export { replayWorkflowFromStep } from './backend/domain/replay-workflow-from-st
 export type { RerunWorkflowOpts, RerunWorkflowResult } from './backend/domain/rerun-workflow.ts';
 export { rerunWorkflow } from './backend/domain/rerun-workflow.ts';
 
+export { ModelNotFoundError, resolveModel } from './backend/model-registry.ts';
 export { registerAgentContributions } from './register.ts';
