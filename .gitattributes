@@ -1,0 +1,6 @@
+# SQL migration files are hashed byte-for-byte by packages/shared-db/src/migrate.ts
+# to detect hand-edits. They MUST have stable LF line endings across platforms,
+# otherwise Windows checkouts (core.autocrlf=true) rewrite them to CRLF and the
+# checksum diverges from the LF hash recorded in core.__platform_migrations,
+# crashing server/worker boot with MigrationChecksumMismatch.
+*.sql text eol=lf
