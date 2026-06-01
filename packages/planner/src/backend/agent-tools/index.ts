@@ -14,6 +14,7 @@ export {
 export { plannerGetOpenTaskCountTool } from './get-open-task-count.ts';
 export { plannerGetTaskTool } from './get-task.ts';
 export { plannerListCommentsTool } from './list-comments.ts';
+export { plannerListTasksBySkillTagTool } from './list-tasks-by-skill-tag.ts';
 export { plannerPostCommentTool } from './post-comment.ts';
 export { identitySearchUsersBySkillsTool } from './search-users-by-skills.ts';
 export { plannerSetAssigneesTool } from './set-assignees.ts';
