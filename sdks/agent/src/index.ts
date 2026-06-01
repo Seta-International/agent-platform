@@ -66,12 +66,30 @@ export {
 } from './request-context.ts';
 export type { SessionLike } from './session.ts';
 export { type AgentSession, sessionFromRequestContext } from './session-context.ts';
+export {
+  DuplicateSpecializedAgentError,
+  SpecializedAgentFrozenError,
+  SpecializedAgentNotFrozenError,
+  SpecializedAgentRegistry,
+  type SpecializedAgentRunCtx,
+  type SpecializedAgentSpec,
+} from './specialized-agent.ts';
 export type { SubscriberBuilder, SubscriberBuilderDeps } from './subscriber-builder.ts';
 export type {
   AgentTool,
   AgentToolContext,
   AgentToolSpec,
 } from './tool.ts';
+export {
+  type AgentResult,
+  type Citation,
+  CitationSchema,
+  EMPTY_TRUST,
+  type TraceEntry,
+  TraceEntrySchema,
+  type TrustEnvelope,
+  TrustEnvelopeSchema,
+} from './trust.ts';
 export type { WorkflowBuilder } from './workflow-builder.ts';
 export type { WorkflowContribution } from './workflow-contribution.ts';
 export {
