@@ -1,6 +1,6 @@
 import { toAISdkStream } from '@mastra/ai-sdk';
 import type { Mastra } from '@mastra/core';
-import type { Agent } from '@mastra/core/agent';
+import type { Agent, DelegationStartContext } from '@mastra/core/agent';
 import type { MemoryConfig } from '@mastra/core/memory';
 import { RequestContext } from '@mastra/core/request-context';
 import type { Memory } from '@mastra/memory';
