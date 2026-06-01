@@ -5,7 +5,7 @@ import { createWorkflow } from '@mastra/core/workflows/evented';
 import type { PgVector } from '@mastra/pg';
 import { ApprovalCardSchema, sessionFromRequestContext, type WorkflowSpec } from '@seta/agent-sdk';
 import { buildActorSession } from '@seta/identity';
-import { type EmbeddingProvider, OpenAIEmbeddingProvider } from '@seta/shared-embeddings';
+import { type EmbeddingProvider, resolveEmbeddingProvider } from '@seta/shared-embeddings';
 import { resolveReranker } from '@seta/shared-retrieval';
 import { z } from 'zod';
 import { getPlannerVectorStore } from '../../embeddings/vector-store.ts';
@@ -25,16 +25,8 @@ import { applyDupDecision, findDupCandidates } from './workflow.ts';
 //   maybeDup   < 0.45  →  score > 0.55  (moderate duplicate signal)
 const DEFAULT_THRESHOLDS = { likelyDup: 0.35, maybeDup: 0.45 };
 
-let lazyProvider: EmbeddingProvider | undefined;
 function getProvider(): EmbeddingProvider {
-  if (lazyProvider) return lazyProvider;
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error('OPENAI_API_KEY required for dedupOnCreate workflow');
-  const model = (process.env.EMBED_MODEL ?? 'text-embedding-3-small') as
-    | 'text-embedding-3-small'
-    | 'text-embedding-3-large';
-  lazyProvider = new OpenAIEmbeddingProvider({ apiKey, model });
-  return lazyProvider;
+  return resolveEmbeddingProvider();
 }
 
 function getPgVector(): PgVector {

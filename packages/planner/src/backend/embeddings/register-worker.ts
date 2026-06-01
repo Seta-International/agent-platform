@@ -1,6 +1,6 @@
+import { resolveEmbeddingProvider } from '@seta/shared-embeddings';
 import type { TaskList } from 'graphile-worker';
 import { type EmbedTaskPayload, embedTask } from './embed-task.ts';
-import { resolveEmbeddingProvider } from './provider-resolver.ts';
 import { getPlannerVectorStore } from './vector-store.ts';
 
 export const plannerEmbeddingJobs: TaskList = {

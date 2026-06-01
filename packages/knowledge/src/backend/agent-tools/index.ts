@@ -1,9 +1,9 @@
 import { type AgentTool, actorFromContext, defineAgentTool } from '@seta/agent-sdk';
 import { buildActorSession } from '@seta/identity';
 import { getPool } from '@seta/shared-db';
+import { resolveEmbeddingProvider } from '@seta/shared-embeddings';
 import { resolveReranker } from '@seta/shared-retrieval';
 import { z } from 'zod';
-import { resolveEmbeddingProvider } from '../embeddings/provider-resolver.ts';
 import { getKnowledgeVectorStore } from '../embeddings/vector-store.ts';
 import { searchTenantKnowledge } from '../retrieval/search-tenant-knowledge.ts';
 

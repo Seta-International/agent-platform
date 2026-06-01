@@ -5,7 +5,7 @@ import {
   whoAmITool,
 } from '@seta/identity/agent-tools';
 import type { EmbeddingProvider } from '@seta/shared-embeddings';
-import { OpenAIEmbeddingProvider } from '@seta/shared-embeddings';
+import { resolveEmbeddingProvider } from '@seta/shared-embeddings';
 import { assignBySkillWorkflowSpec } from '../workflows/assign-by-skill/spec.ts';
 import { dedupOnCreateWorkflowSpec } from '../workflows/dedup-on-create/spec.ts';
 import { plannerAssignTaskTool } from './assign-task.ts';
@@ -17,30 +17,17 @@ import { plannerProposeAssignmentTool } from './propose-assignment.ts';
 import { identitySearchUsersBySkillsTool } from './search-users-by-skills.ts';
 import { plannerSetAssigneesTool } from './set-assignees.ts';
 
-function makeLazyEmbeddingProvider(): EmbeddingProvider {
-  let inner: EmbeddingProvider | undefined;
-  const get = (): EmbeddingProvider => {
-    if (inner) return inner;
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) throw new Error('OPENAI_API_KEY required for planner semantic search');
-    const model = (process.env.EMBED_MODEL ?? 'text-embedding-3-small') as
-      | 'text-embedding-3-small'
-      | 'text-embedding-3-large';
-    inner = new OpenAIEmbeddingProvider({ apiKey, model });
-    return inner;
-  };
-  return {
-    get modelId() {
-      return get().modelId;
-    },
-    get dimensions() {
-      return get().dimensions;
-    },
-    embed: (...args) => get().embed(...args),
-  };
-}
+// Lazy so a missing EMBED config doesn't break module load — only first use.
+const lazyProvider: EmbeddingProvider = {
+  get modelId() {
+    return resolveEmbeddingProvider().modelId;
+  },
+  get dimensions() {
+    return resolveEmbeddingProvider().dimensions;
+  },
+  embed: (texts) => resolveEmbeddingProvider().embed(texts),
+};
 
-const lazyProvider = makeLazyEmbeddingProvider();
 function readDatabaseUrl(): string {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error('DATABASE_URL required for planner runtime tools');

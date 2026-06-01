@@ -1,6 +1,6 @@
+import { resolveEmbeddingProvider } from '@seta/shared-embeddings';
 import type { TaskList } from 'graphile-worker';
 import { type EmbedUserProfilePayload, embedUserProfile } from './embed-user-profile.ts';
-import { resolveEmbeddingProvider } from './provider-resolver.ts';
 import { getIdentityVectorStore } from './vector-store.ts';
 
 export const embeddingJobs: TaskList = {

@@ -1,12 +1,12 @@
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { getPool } from '@seta/shared-db';
+import { resolveEmbeddingProvider } from '@seta/shared-embeddings';
 import { getS3Client } from '@seta/shared-storage';
 import type { TaskList } from 'graphile-worker';
 import {
   type EmbedKnowledgeChunksPayload,
   embedKnowledgeChunks,
 } from '../embeddings/embed-knowledge-chunks.ts';
-import { resolveEmbeddingProvider } from '../embeddings/provider-resolver.ts';
 import { getKnowledgeVectorStore } from '../embeddings/vector-store.ts';
 import {
   type ParseKnowledgeFilePayload,

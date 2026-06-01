@@ -13,7 +13,7 @@ import {
   type WorkflowSpec,
 } from '@seta/agent-sdk';
 import { buildActorSession } from '@seta/identity';
-import { type EmbeddingProvider, OpenAIEmbeddingProvider } from '@seta/shared-embeddings';
+import { type EmbeddingProvider, resolveEmbeddingProvider } from '@seta/shared-embeddings';
 import { resolveReranker } from '@seta/shared-retrieval';
 import { z } from 'zod';
 import { assignTask } from '../../domain/assign-task.ts';
@@ -25,16 +25,8 @@ import {
 } from './schemas.ts';
 import { applyAssignDecision, runSuggestAssignee } from './workflow.ts';
 
-let lazyProvider: EmbeddingProvider | undefined;
 function getProvider(): EmbeddingProvider {
-  if (lazyProvider) return lazyProvider;
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error('OPENAI_API_KEY required for assignBySkill workflow');
-  const model = (process.env.EMBED_MODEL ?? 'text-embedding-3-small') as
-    | 'text-embedding-3-small'
-    | 'text-embedding-3-large';
-  lazyProvider = new OpenAIEmbeddingProvider({ apiKey, model });
-  return lazyProvider;
+  return resolveEmbeddingProvider();
 }
 
 function getPgVector(): PgVector {

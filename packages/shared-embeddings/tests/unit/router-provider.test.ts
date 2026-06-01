@@ -1,7 +1,13 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { RouterEmbeddingProvider } from './router-provider.ts';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { RouterEmbeddingProvider } from '../../src/router-provider.ts';
 
 describe('RouterEmbeddingProvider', () => {
+  // The router validates its provider key at construction; tests never make a
+  // real embedding call, so a dummy key is enough.
+  beforeAll(() => {
+    process.env.OPENAI_API_KEY ??= 'test-key';
+  });
+
   it('exposes modelId as provider:model and dimensions from the known table', () => {
     const p = new RouterEmbeddingProvider('openai/text-embedding-3-small');
     expect(p.modelId).toBe('openai:text-embedding-3-small');
