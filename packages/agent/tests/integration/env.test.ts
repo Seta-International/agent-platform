@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { parseAgentEnv } from '../../src/backend/env.ts';
 
 describe('parseAgentEnv', () => {
-  it('returns defaults when only AGENT_MODEL is set', () => {
-    const env = parseAgentEnv({ AGENT_MODEL: 'openai/gpt-5.4' });
-    expect(env.AGENT_MODEL).toBe('openai/gpt-5.4');
-    expect(env.AGENT_MODEL_BASE_URL).toBeUndefined();
+  it('returns defaults with AGENT_MODELS set', () => {
+    const env = parseAgentEnv({ AGENT_MODELS: 'openai/gpt-5.5' });
+    expect(env.AGENT_MODELS).toBe('openai/gpt-5.5');
+    expect(env.AGENT_MODEL_DEFAULT).toBeUndefined();
     expect(env.AGENT_HITL_EXPIRY_SECONDS).toBe(300);
     expect(env.AGENT_RATE_LIMIT_TPM).toBe(60_000);
     expect(env.AGENT_RATE_LIMIT_TURNS_PER_MIN).toBe(10);
@@ -13,7 +13,6 @@ describe('parseAgentEnv', () => {
 
   it('coerces numeric envs', () => {
     const env = parseAgentEnv({
-      AGENT_MODEL: 'custom/m',
       AGENT_HITL_EXPIRY_SECONDS: '2',
       AGENT_RATE_LIMIT_TPM: '500',
       AGENT_RATE_LIMIT_TURNS_PER_MIN: '3',
@@ -23,14 +22,14 @@ describe('parseAgentEnv', () => {
     expect(env.AGENT_RATE_LIMIT_TURNS_PER_MIN).toBe(3);
   });
 
-  it('throws when AGENT_MODEL_BASE_URL is invalid', () => {
-    expect(() =>
-      parseAgentEnv({ AGENT_MODEL: 'custom/m', AGENT_MODEL_BASE_URL: 'not-a-url' }),
-    ).toThrow();
+  it('allows AGENT_MODELS to be unset (registry falls back to default)', () => {
+    expect(parseAgentEnv({}).AGENT_MODELS).toBeUndefined();
   });
 
-  it('allows AGENT_MODEL to be unset (catalog falls back)', () => {
-    const env = parseAgentEnv({});
+  it('no longer recognizes removed vars', () => {
+    const env = parseAgentEnv({ AGENT_MODELS: 'openai/gpt-5.5' }) as Record<string, unknown>;
     expect(env.AGENT_MODEL).toBeUndefined();
+    expect(env.AGENT_MODEL_API_KEY).toBeUndefined();
+    expect(env.AGENT_MODEL_BASE_URL).toBeUndefined();
   });
 });
