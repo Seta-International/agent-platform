@@ -40,6 +40,7 @@
     "@seta/shared-rbac": "workspace:^",
     "@seta/shared-retrieval": "workspace:^",
     "@seta/shared-types": "workspace:^",
+    "ai": "^6.0.191",
     "drizzle-orm": "^0.45.2",
     "graphile-worker": "^0.16.6",
     "pg": "^8.21.0",
