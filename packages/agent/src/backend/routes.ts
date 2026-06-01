@@ -1,6 +1,6 @@
 import { toAISdkStream } from '@mastra/ai-sdk';
 import type { Mastra } from '@mastra/core';
-import type { Agent } from '@mastra/core/agent';
+import type { Agent, DelegationStartContext } from '@mastra/core/agent';
 import type { MemoryConfig } from '@mastra/core/memory';
 import { RequestContext } from '@mastra/core/request-context';
 import type { Memory } from '@mastra/memory';
@@ -367,7 +367,7 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
           ? { memory: { thread: threadId, resource: resourceId } }
           : { memory: { resource: resourceId } }),
         requestContext,
-        ...(modelOverride ? { model: modelOverride as never } : {}),
+        ...(modelOverride ? { model: modelOverride } : {}),
         delegation: {
           includeSubAgentToolResultsInModelContext: true,
           onDelegationStart: ({ params }: DelegationStartContext) => ({
@@ -782,7 +782,7 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
   });
 
   app.get('/api/agent/v1/health', async (c) => {
-    const modelConfigured = Boolean(agentEnv.AGENT_MODEL);
+    const modelConfigured = listModels().models.length > 0;
     let dbReachable = true;
     const storage = (deps.mastra as { getStorage: () => unknown }).getStorage();
     try {
