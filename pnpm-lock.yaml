@@ -165,6 +165,9 @@ importers:
       '@seta/shared-mailer':
         specifier: workspace:^
         version: link:../../packages/shared-mailer
+      '@seta/shared-orchestration':
+        specifier: workspace:*
+        version: link:../../packages/shared-orchestration
       '@seta/shared-types':
         specifier: workspace:^
         version: link:../../packages/shared-types
