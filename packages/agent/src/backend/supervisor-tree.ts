@@ -2,7 +2,6 @@ import type { Mastra } from '@mastra/core';
 import { Agent } from '@mastra/core/agent';
 import { ModelRouterEmbeddingModel } from '@mastra/core/llm';
 import type { MemoryConfig, MemoryConfigInternal } from '@mastra/core/memory';
-import type { ToolAction } from '@mastra/core/tools';
 import { Memory } from '@mastra/memory';
 import { PgVector } from '@mastra/pg';
 import {
@@ -35,7 +34,7 @@ export type SupervisorTree = {
 
 // Subclassed so the LLM-write guard wraps the auto-installed updateWorkingMemory tool centrally.
 class GuardedMemory extends Memory {
-  public listTools(config?: MemoryConfigInternal): Record<string, ToolAction<any, any, any>> {
+  public listTools(config?: MemoryConfigInternal): ReturnType<Memory['listTools']> {
     const tools = super.listTools(config);
     if (tools.updateWorkingMemory) {
       tools.updateWorkingMemory = wrapUpdateWorkingMemoryTool(

@@ -54,13 +54,14 @@ export async function resolveTaskRef(
   const recentTasks = await loadRecentTasks(ctx);
 
   if (LAST_WORDS.has(ref)) {
-    if (recentTasks.length === 0) {
+    const task = recentTasks[0];
+    if (!task) {
       throw new TaskRefResolveError(
         `No recent tasks in this conversation to resolve "${rawRef}" against.`,
         [],
       );
     }
-    return { taskId: recentTasks[0]!.taskId, source: 'keyword' };
+    return { taskId: task.taskId, source: 'keyword' };
   }
 
   const ordinal = ORDINAL_WORDS[ref] ?? (/^\d+$/.test(ref) ? Number(ref) : null);
@@ -68,13 +69,14 @@ export async function resolveTaskRef(
     if (recentTasks.length === 0) {
       throw new TaskRefResolveError('No recent tasks in this conversation; search first.', []);
     }
-    if (ordinal < 1 || ordinal > recentTasks.length) {
+    const task = recentTasks[ordinal - 1];
+    if (!task) {
       throw new TaskRefResolveError(
         `No #${ordinal} in recent tasks (have ${recentTasks.length}).`,
         recentTasks,
       );
     }
-    return { taskId: recentTasks[ordinal - 1]!.taskId, source: 'ordinal' };
+    return { taskId: task.taskId, source: 'ordinal' };
   }
 
   throw new TaskRefResolveError(
