@@ -23,6 +23,7 @@ describe('planner register', () => {
         'planner_findSimilarTasks',
         'planner_getOpenTaskCountForUser',
         'planner_getTask',
+        'planner_listTasksBySkillTag',
         'planner_proposeAssignment',
         'planner_setAssignees',
         'search_users_by_skills',

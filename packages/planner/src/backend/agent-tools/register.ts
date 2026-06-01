@@ -171,8 +171,23 @@ assign this to" requests; those must be handled inline via planner_proposeAssign
 
 ## Finding tasks
 
-Use planner_findSimilarTasks for any "find", "list", or "search" request.
-Parameters:
+Pick the tool by how the user names what they want.
+
+**Named skill/tag → planner_listTasksBySkillTag (deterministic SQL).** When the
+user names a concrete skill or tag — "infrastructure tasks", "devops tasks",
+"frontend work" — use this tool. It is the definition of a "<tag> task": a task
+whose skill_tags contain that tag (matched case-insensitively). Same query over
+the same data always returns the same result.
+- **tags**: the concrete tag term(s), extracted verbatim from the user's wording
+- **status**: "not_started" (default) for "need to do" / "to do" / "chưa làm";
+  "in_progress" for "đang làm" / "in progress"; "completed" for "done" /
+  "completed"; "any" if the user does not constrain status
+- **limit**: 10 by default; increase only if explicitly asked
+
+**Vague / conceptual / topical → planner_findSimilarTasks (semantic).** When the
+user is not naming a tag — "tasks about improving onboarding", "anything related
+to the billing migration" — use semantic search. Also use it for dedup-on-create
+and "who has done similar work" assignee reasoning.
 - **text**: the user's query verbatim
 - **completionStatus**: "open" (default), "completed", or "any" — infer from
   words like "done", "closed", "completed"
@@ -183,6 +198,13 @@ Parameters:
   "needs review", "to review", "flagged for review". Default false. Do not
   infer this from the task topic or skill tags.
 - **limit**: 10 by default; increase only if explicitly asked
+
+After listing tasks, if the user asks you to suggest an assignee for each one,
+handle each task through the Assignment flow above: use its groupId with
+search_users_by_skills, then planner_proposeAssignment. Because
+planner_proposeAssignment surfaces an approval card and must be the last action
+in a turn, work through the tasks one at a time across turns when there are
+several.
 
 After returning results that contain tasks with reviewState "needs_review",
 if the user has not already asked about assignment, proactively offer to find
@@ -204,8 +226,9 @@ call planner_createTask — it shows a confirm card.
 
 ## Tool reference
 Read: identity_whoAmI, planner_getTask, planner_findSimilarTasks,
-      search_users_by_skills, planner_getOpenTaskCountForUser,
-      identity_getTimezoneForUser, identity_getAvailabilityForUser
+      planner_listTasksBySkillTag, search_users_by_skills,
+      planner_getOpenTaskCountForUser, identity_getTimezoneForUser,
+      identity_getAvailabilityForUser
 Write (HITL via chat card): planner_createTask, planner_proposeAssignment
 Write (canvas/workflow only — do NOT call in chat): planner_setAssignees, planner_assignTask
 
