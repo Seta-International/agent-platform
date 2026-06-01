@@ -63,7 +63,7 @@ describe('embed-backfill CLI', () => {
         backfillTasks: backfillTasks as never,
         env: {
           OPENAI_API_KEY: 'k',
-          EMBED_MODEL: 'text-embedding-3-large',
+          EMBED_MODEL: 'openai/text-embedding-3-large',
           DATABASE_URL: 'postgres://test/db',
         },
         pool: fakePool as never,
@@ -72,5 +72,20 @@ describe('embed-backfill CLI', () => {
     expect(backfillTasks).toHaveBeenCalledWith(
       expect.objectContaining({ model: 'text-embedding-3-large' }),
     );
+  });
+
+  it('rejects a non-openai EMBED_MODEL for batch backfill', async () => {
+    await expect(
+      runEmbedBackfill(
+        { module: 'planner', tenant: 't1' },
+        {
+          env: {
+            OPENAI_API_KEY: 'k',
+            DATABASE_URL: 'postgres://x',
+            EMBED_MODEL: 'cohere/embed-v3',
+          },
+        },
+      ),
+    ).rejects.toThrow(/OpenAI Batch API/);
   });
 });

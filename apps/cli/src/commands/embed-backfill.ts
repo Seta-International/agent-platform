@@ -25,9 +25,16 @@ export async function runEmbedBackfill(
 
   if (!env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY required');
 
-  const model =
-    (env.EMBED_MODEL as 'text-embedding-3-small' | 'text-embedding-3-large') ??
-    'text-embedding-3-small';
+  const embedModel = env.EMBED_MODEL ?? 'openai/text-embedding-3-small';
+  const slash = embedModel.indexOf('/');
+  const provider = slash > 0 ? embedModel.slice(0, slash) : '';
+  const modelName = slash > 0 ? embedModel.slice(slash + 1) : embedModel;
+  if (provider !== 'openai') {
+    throw new Error(
+      `embed-backfill uses the OpenAI Batch API; EMBED_MODEL must be an openai/* model, got "${embedModel}"`,
+    );
+  }
+  const model = modelName as 'text-embedding-3-small' | 'text-embedding-3-large';
 
   if (args.module === 'planner') {
     const pool = deps.pool ?? getPool('worker');
