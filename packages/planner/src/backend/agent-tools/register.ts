@@ -13,6 +13,7 @@ import { plannerCreateTaskTool } from './create-task.ts';
 import { plannerFindSimilarTasksTool } from './find-similar-tasks.ts';
 import { plannerGetOpenTaskCountSpec, plannerGetOpenTaskCountTool } from './get-open-task-count.ts';
 import { plannerGetTaskTool } from './get-task.ts';
+import { plannerListTasksBySkillTagTool } from './list-tasks-by-skill-tag.ts';
 import { plannerProposeAssignmentTool } from './propose-assignment.ts';
 import { identitySearchUsersBySkillsTool } from './search-users-by-skills.ts';
 import { plannerSetAssigneesTool } from './set-assignees.ts';
@@ -60,6 +61,8 @@ const plannerFindSimilarTasks = plannerFindSimilarTasksTool({
     return readDatabaseUrl();
   },
 });
+
+const plannerListTasksBySkillTags = plannerListTasksBySkillTagTool();
 
 AgentRegistry.registerSpecialist({
   domain: 'work',
@@ -214,6 +217,7 @@ Surface your reasoning as you go so the user can follow along.`,
     planner_createTask: plannerCreateTask,
     planner_getTask: plannerGetTaskTool,
     planner_findSimilarTasks: plannerFindSimilarTasks,
+    planner_listTasksBySkillTag: plannerListTasksBySkillTags,
     planner_proposeAssignment: plannerProposeAssignmentTool,
     search_users_by_skills: identitySearchUsersBySkillsTool,
     planner_getOpenTaskCountForUser: plannerGetOpenTaskCountTool,
