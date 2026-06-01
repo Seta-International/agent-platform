@@ -1,3 +1,15 @@
+export {
+  makeAvailability,
+  makeLlmSkillExtractor,
+  makeSkillSearch,
+  makeTaskReader,
+} from './backend/orchestration/adapters.ts';
+export {
+  buildStaffingOrchestrationRuntime,
+  type StaffingOrchestrationRuntime,
+  type StaffingPorts,
+} from './backend/orchestration/register.ts';
+export { StaffingRunStateRepository } from './backend/orchestration/run-state-repository.ts';
 export { STAFFING_EVENTS } from './events.ts';
 export {
   STAFFING_PERMISSIONS,
