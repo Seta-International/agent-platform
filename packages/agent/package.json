@@ -23,6 +23,7 @@
     "@seta/identity": "workspace:^",
     "@seta/shared-config": "workspace:^",
     "@seta/shared-db": "workspace:^",
+    "@seta/shared-orchestration": "workspace:^",
     "@seta/shared-rbac": "workspace:^",
     "@seta/shared-testing": "workspace:^",
     "@seta/shared-types": "workspace:^",

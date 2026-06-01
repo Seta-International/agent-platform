@@ -550,6 +550,9 @@ importers:
       '@seta/shared-db':
         specifier: workspace:^
         version: link:../shared-db
+      '@seta/shared-orchestration':
+        specifier: workspace:^
+        version: link:../shared-orchestration
       '@seta/shared-rbac':
         specifier: workspace:^
         version: link:../shared-rbac

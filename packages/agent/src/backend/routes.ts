@@ -27,6 +27,7 @@ import { replayWorkflowFromStep } from './domain/replay-workflow-from-step.ts';
 import { rerunWorkflow } from './domain/rerun-workflow.ts';
 import { agentEnv } from './env.ts';
 import { listModels, ModelNotFoundError, resolveModel } from './model-registry.ts';
+import { streamOrchestrationToUI } from './orchestration-chat-stream.ts';
 import { commitActualTokens, RateLimitError, reserveTurn } from './rate-limit.ts';
 import { readRoutingCache, writeRoutingCache } from './routing-cache.ts';
 import { selectAgent } from './routing-fast-path.ts';
@@ -99,6 +100,16 @@ export type AgentRouteDeps = {
    */
   entitiesMemory?: Memory;
   entitiesMemoryConfig?: MemoryConfig;
+  /**
+   * When present, the chat route runs this inline orchestration instead of the
+   * supervisor tree (AGENT_CHAT_RUNTIME=orchestration harness). Injected by the
+   * composition root (apps/server), the only layer that can bind staffing
+   * adapters to the engine. Absent => supervisor tree (default).
+   */
+  chatOrchestration?: (
+    runInput: { userText: string; taskId: string | null },
+    ctx: { tenantId: string; actorUserId: string },
+  ) => AsyncIterable<import('@seta/shared-orchestration').OrchestrationEvent>;
 };
 
 export type AgentRouteEnv = { Variables: { session: SessionLike } };
@@ -189,6 +200,16 @@ function injectContextPrefix(messages: UIMessage[]): UIMessage[] {
   return messages;
 }
 
+function pageContextTaskId(messages: UIMessage[]): string | null {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (!m || m.role !== 'user') continue;
+    const ctx = (m.parts ?? []).find(isPageContextPart);
+    if (ctx && ctx.data.kind === 'task') return ctx.data.id;
+  }
+  return null;
+}
+
 function finiteTokenCount(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
@@ -251,6 +272,25 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
         return c.json({ error: 'rate_limited', message: e.message }, 429);
       }
       throw e;
+    }
+
+    // Harness: route the whole turn through the inline orchestration when wired.
+    if (deps.chatOrchestration) {
+      const taskId = pageContextTaskId(effectiveMessages);
+      const orchestrate = deps.chatOrchestration;
+      const uiStream = createUIMessageStream({
+        originalMessages: effectiveMessages,
+        execute: async ({ writer }) => {
+          await streamOrchestrationToUI(
+            writer as unknown as import('./orchestration-chat-stream.ts').UiStreamWriter,
+            orchestrate(
+              { userText, taskId },
+              { tenantId: session.tenant_id, actorUserId: session.user_id },
+            ),
+          );
+        },
+      });
+      return createUIMessageStreamResponse({ stream: uiStream, headers: NO_BUFFER_HEADERS });
     }
 
     // Resource scope is always the authenticated user. Never honor a
