@@ -74,6 +74,16 @@ export function registerAgent(deps: {
    * See packages/agent/src/backend/routes.ts AgentRouteDeps.chatHitlDeciders.
    */
   chatHitlDeciders?: Record<string, ChatHitlDecider>;
+  /**
+   * When present, the chat route runs this inline orchestration instead of the
+   * supervisor tree (AGENT_CHAT_RUNTIME=orchestration harness). Injected by the
+   * server entry-point (the only layer that can bind staffing adapters to the
+   * engine). Absent => supervisor tree (default). See AgentRouteDeps.
+   */
+  chatOrchestration?: (
+    runInput: { userText: string; taskId: string | null },
+    ctx: { tenantId: string; actorUserId: string },
+  ) => AsyncIterable<import('@seta/shared-orchestration').OrchestrationEvent>;
 }): AgentHandle {
   validateModelEnv(process.env);
   setExecutionPolicy({
@@ -146,6 +156,7 @@ export function registerAgent(deps: {
         pool: deps.pool,
         log: deps.log,
         chatHitlDeciders: deps.chatHitlDeciders,
+        chatOrchestration: deps.chatOrchestration,
         entitiesMemory,
         entitiesMemoryConfig,
       });
