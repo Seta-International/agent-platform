@@ -1,7 +1,6 @@
 import { Agent } from '@mastra/core/agent';
 import { RequestContext } from '@mastra/core/request-context';
 import type { AgentResult, Citation, SpecializedAgentSpec } from '@seta/agent-sdk';
-import type { LanguageModel } from 'ai';
 import type { z } from 'zod';
 import type { TaskSummary } from '../ports.ts';
 import {
@@ -97,7 +96,7 @@ export function makeTaskAnalyzerAgent(deps: TaskAnalyzerDeps): SpecializedAgentS
           }
           return [];
         },
-        confidence: tasks ? (tasks.length ? 0.8 : 0.3) : skills && skills.length ? 0.8 : 0.4,
+        confidence: tasks ? (tasks.length ? 0.8 : 0.3) : skills?.length ? 0.8 : 0.4,
       });
 
       const result: Out = {};
