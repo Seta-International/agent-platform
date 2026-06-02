@@ -4,7 +4,7 @@
   "scripts": {
     "prepare": "test -d .git && lefthook install || true",
     "build": "turbo run build",
-    "dev": "turbo run dev",
+    "dev": "turbo run dev --ui tui",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "test:watch": "turbo run test:watch",
