@@ -32,7 +32,10 @@ function setup() {
   const qc = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-  qc.setQueryData(plannerKeys.groupMembers(GROUP_ID), [baseMember()]);
+  qc.setQueryData(plannerKeys.groupMembers(GROUP_ID), {
+    pages: [{ members: [baseMember()], total: 1 }],
+    pageParams: [0],
+  });
   function Wrapper({ children }: PropsWithChildren) {
     return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
   }
@@ -55,11 +58,11 @@ describe('useSetMemberRole', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-    const members = qc.getQueryData<Array<{ user_id: string; role: string }>>(
-      plannerKeys.groupMembers(GROUP_ID),
-    )!;
-    expect(members[0]!.user_id).toBe(USER_ID);
-    expect(members[0]!.role).toBe('owner');
+    const data = qc.getQueryData<{
+      pages: Array<{ members: Array<{ user_id: string; role: string }>; total: number }>;
+    }>(plannerKeys.groupMembers(GROUP_ID))!;
+    expect(data.pages[0]!.members[0]!.user_id).toBe(USER_ID);
+    expect(data.pages[0]!.members[0]!.role).toBe('owner');
   });
 
   it('calls the correct URL with the role in the request body', async () => {
@@ -97,10 +100,10 @@ describe('useSetMemberRole', () => {
 
     await waitFor(() => expect(result.current.isError).toBe(true));
 
-    const members = qc.getQueryData<Array<{ user_id: string; role: string }>>(
-      plannerKeys.groupMembers(GROUP_ID),
-    )!;
+    const data = qc.getQueryData<{
+      pages: Array<{ members: Array<{ user_id: string; role: string }> }>;
+    }>(plannerKeys.groupMembers(GROUP_ID))!;
     // Should be rolled back to original 'member' role
-    expect(members[0]!.role).toBe('member');
+    expect(data.pages[0]!.members[0]!.role).toBe('member');
   });
 });
