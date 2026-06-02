@@ -92,4 +92,44 @@ describe('runOrchestrationInline', () => {
     // Only the gate step ran, then final.
     expect(events.map((e) => e.kind)).toEqual(['step-start', 'step-done', 'final']);
   });
+
+  it('interleaves sub-step events emitted by an agent during its step', async () => {
+    const subEmitter: SpecializedAgentSpec<{ x: number }, { y: number }> = {
+      id: 'emitter',
+      description: 'emits two sub-steps then returns',
+      inputSchema: z.object({ x: z.number() }),
+      outputSchema: z.object({ y: z.number() }),
+      run: async (_input, ctx) => {
+        ctx.onEvent?.({ kind: 'step-start', stepId: 'sub', agentId: 'child' });
+        ctx.onEvent?.({ kind: 'step-done', stepId: 'sub', trust: EMPTY_TRUST });
+        return { result: { y: 42 }, trust: EMPTY_TRUST };
+      },
+    };
+    const repo = new InMemoryRunStateRepository();
+    const spec: OrchestrationSpec = {
+      id: 'o2',
+      steps: [{ id: 'orchestrate', agentId: 'emitter', input: (_s, runIn) => runIn }],
+      serializationKey: () => 'k',
+      onComplete: async () => {},
+    };
+
+    const events = await collect(
+      runOrchestrationInline('o2', { x: 1 }, CTX, {
+        repo,
+        getOrchestration: () => spec,
+        getAgent: (id) => (id === 'emitter' ? (subEmitter as SpecializedAgentSpec) : undefined),
+        newRunId: () => 'run-2',
+      }),
+    );
+
+    expect(events.map((e) => `${e.kind}:${'stepId' in e ? e.stepId : 'final'}`)).toEqual([
+      'step-start:orchestrate',
+      'step-start:sub',
+      'step-done:sub',
+      'step-done:orchestrate',
+      'final:final',
+    ]);
+    const final = events.at(-1) as { kind: 'final'; result: unknown };
+    expect(final.result).toEqual({ y: 42 });
+  });
 });

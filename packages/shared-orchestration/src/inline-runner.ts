@@ -44,10 +44,37 @@ export async function* runOrchestrationInline(
   for (let i = 0; i < spec.steps.length; i++) {
     const step = spec.steps[i]!;
     yield { kind: 'step-start', stepId: step.id, agentId: step.agentId };
-    const outcome = await executeStep(spec, run, i, ctx, {
+
+    // Sub-events the agent emits during this step are queued and yielded live.
+    const queue: OrchestrationEvent[] = [];
+    let wake: (() => void) | null = null;
+    let finished = false;
+    const onEvent = (e: OrchestrationEvent) => {
+      queue.push(e);
+      wake?.();
+      wake = null;
+    };
+
+    const execPromise = executeStep(spec, run, i, ctx, {
       repo: deps.repo,
       getAgent: deps.getAgent,
+      onEvent,
+    }).then((o) => {
+      finished = true;
+      wake?.();
+      wake = null;
+      return o;
     });
+
+    while (!finished || queue.length > 0) {
+      while (queue.length > 0) yield queue.shift()!;
+      if (finished) break;
+      await new Promise<void>((resolve) => {
+        wake = resolve;
+      });
+    }
+
+    const outcome = await execPromise;
     yield { kind: 'step-done', stepId: step.id, trust: outcome.trust };
     lastOutput = outcome.output;
     if (outcome.terminal) break;
