@@ -5,7 +5,9 @@ import {
   addGroupMember,
   addGroupMembers,
   createGroup,
+  createJoinRequest,
   deleteGroup,
+  discoverGroups,
   getGroup,
   getGroupActivity,
   linkGroupToM365,
@@ -13,8 +15,10 @@ import {
   listGroupMembers,
   listGroups,
   listGroupsWithCounts,
+  listJoinRequests,
   listMyAccessibleGroups,
   removeGroupMember,
+  resolveJoinRequest,
   restoreGroup,
   setMemberRole,
   unlinkGroupFromM365,
@@ -55,6 +59,8 @@ const bulkMembersSchema = z.object({
 });
 const setMemberRoleSchema = z.object({ role: z.enum(['owner', 'member']) });
 const linkM365Schema = z.object({ external_id: z.string().min(1) });
+const discoverQuerySchema = z.object({ q: z.string().min(1).max(200) });
+const resolveJoinRequestSchema = z.object({ action: z.enum(['approved', 'rejected']) });
 
 export function registerPlannerGroupsRoutes(app: Hono<SessionEnv>, deps: PlannerGroupsDeps): void {
   const { workers } = deps;
@@ -71,6 +77,16 @@ export function registerPlannerGroupsRoutes(app: Hono<SessionEnv>, deps: Planner
   app.get('/api/planner/v1/groups/mine', async (c) => {
     const session = c.get('user');
     return c.json({ groups: await listMyAccessibleGroups({ session }) });
+  });
+
+  // ── Workspace group discovery ──────────────────────────────────────────────
+  app.get('/api/planner/v1/groups/discover', async (c) => {
+    const session = c.get('user');
+    const parsed = discoverQuerySchema.safeParse({ q: c.req.query('q') ?? '' });
+    if (!parsed.success)
+      return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
+    const results = await discoverGroups({ q: parsed.data.q, session });
+    return c.json({ groups: results });
   });
 
   app.get('/api/planner/v1/groups/:id', async (c) => {
@@ -256,5 +272,37 @@ export function registerPlannerGroupsRoutes(app: Hono<SessionEnv>, deps: Planner
   app.post('/api/planner/v1/groups/:id/unlink', async (c) => {
     const session = c.get('user');
     return c.json(await unlinkGroupFromM365({ group_id: c.req.param('id'), session }));
+  });
+
+  // ── Join requests ──────────────────────────────────────────────────────────
+  app.post('/api/planner/v1/groups/:id/join-requests', async (c) => {
+    const session = c.get('user');
+    const result = await createJoinRequest({ group_id: c.req.param('id'), session });
+    return c.json(result, 201);
+  });
+
+  app.get('/api/planner/v1/groups/:id/join-requests', async (c) => {
+    const session = c.get('user');
+    const status = c.req.query('status') as 'pending' | 'approved' | 'rejected' | undefined;
+    const results = await listJoinRequests({
+      group_id: c.req.param('id'),
+      status,
+      session: session as never,
+    });
+    return c.json({ requests: results });
+  });
+
+  app.patch('/api/planner/v1/groups/:id/join-requests/:userId', async (c) => {
+    const session = c.get('user');
+    const parsed = resolveJoinRequestSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success)
+      return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
+    const result = await resolveJoinRequest({
+      group_id: c.req.param('id'),
+      user_id: c.req.param('userId'),
+      action: parsed.data.action,
+      session: session as never,
+    });
+    return c.json(result);
   });
 }
