@@ -91,7 +91,8 @@ export function registerPlannerGroupsRoutes(app: Hono<SessionEnv>, deps: Planner
 
   app.get('/api/planner/v1/groups/:id', async (c) => {
     const session = c.get('user');
-    return c.json(await getGroup({ group_id: c.req.param('id'), session }));
+    const include_deleted = c.req.query('include_deleted') === 'true';
+    return c.json(await getGroup({ group_id: c.req.param('id'), session, include_deleted }));
   });
 
   app.post('/api/planner/v1/groups', async (c) => {
