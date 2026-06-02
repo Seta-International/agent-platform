@@ -39,9 +39,13 @@ describe('addGroupMember', () => {
           expect(rows[0].user_id).toBe(bob.user_id);
 
           const events = await readEvents(pool, seeded.tenant_id, 'planner.group.member.added');
-          expect(events).toHaveLength(1);
+          // createGroup emits one event for the creator; filter to the bob-specific event
+          const bobEvents = events.filter(
+            (e) => (e.payload as { user_id: string }).user_id === bob.user_id,
+          );
+          expect(bobEvents).toHaveLength(1);
           // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
-          const payload = events[0]?.payload as any;
+          const payload = bobEvents[0]?.payload as any;
           expect(payload.group_id).toBe(group.id);
           expect(payload.user_id).toBe(bob.user_id);
           expect(payload.actor.user_id).toBe(session.user_id);
@@ -80,7 +84,8 @@ describe('addGroupMember', () => {
           await addGroupMember({ group_id: group.id, user_id: bob.user_id, session });
 
           const count = await countEvents(pool, seeded.tenant_id, 'planner.group.member.added');
-          expect(count).toBe(1);
+          // createGroup emits 1 event for the creator; addGroupMember(bob) adds 1 more (second call is no-op)
+          expect(count).toBe(2);
 
           const { rows } = await pool.query(
             `SELECT user_id FROM planner.group_members WHERE group_id = $1 AND user_id = $2`,

@@ -46,8 +46,8 @@ describe('addGroupMembers (bulk)', () => {
         expect(ids).toContain(bob.user_id);
 
         const eventCount = await countEvents(pool, seeded.tenant_id, 'planner.group.member.added');
-        // alice + bob (creator was auto-added at group creation, not re-added here)
-        expect(eventCount).toBe(2);
+        // creator (from createGroup) + alice + bob
+        expect(eventCount).toBe(3);
       } finally {
         resetCoreDb();
         await closePools();

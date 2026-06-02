@@ -1,4 +1,5 @@
 -- Backfill: create role grants for existing group members missing from identity.role_grants
+-- hand-written: cross-schema-read from identity.role_grants (backfill — one-time data repair)
 -- Limitation: cross-schema INSERT is permitted here; migration runner executes this in isolation.
 -- This is a one-time data repair — do not replicate this pattern in application code.
 INSERT INTO identity.role_grants (id, tenant_id, user_id, role_slug, scope_type, scope_id, granted_by, granted_via)
