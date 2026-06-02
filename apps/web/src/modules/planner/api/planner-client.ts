@@ -218,6 +218,16 @@ async function removeGroupMember(input: { group_id: string; user_id: string }): 
   });
 }
 
+async function removeGroupMembersBulk(input: {
+  group_id: string;
+  user_ids: string[];
+}): Promise<void> {
+  await request<void>(`/api/planner/v1/groups/${input.group_id}/members/bulk`, {
+    method: 'DELETE',
+    body: JSON.stringify({ user_ids: input.user_ids }),
+  });
+}
+
 async function setMemberRole(input: {
   group_id: string;
   user_id: string;
@@ -841,6 +851,7 @@ export const plannerClient = {
   addGroupMembersBulk,
   addGroupMember,
   removeGroupMember,
+  removeGroupMembersBulk,
   setMemberRole,
   discoverGroups,
   createJoinRequest,
