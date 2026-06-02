@@ -6,6 +6,7 @@ import type { z } from 'zod';
 import { makeOrchestratorTools } from './orchestrator.tools.ts';
 import type { TaskSummary } from './ports.ts';
 import {
+  type AvailabilityResult,
   OrchestratorInputSchema,
   type OrchestratorResult,
   OrchestratorResultSchema,
@@ -27,7 +28,14 @@ type SkillMatcherSpec = SpecializedAgentSpec<
   { taskId: string; candidates: RankedCandidate[] }
 >;
 type RecommenderSpec = SpecializedAgentSpec<
-  { taskId: string; skills: string[]; candidates: RankedCandidate[]; availability: never[] },
+  // availability matches the recommender's contract; the orchestrator always
+  // passes it empty (availability re-enable is out of scope here).
+  {
+    taskId: string;
+    skills: string[];
+    candidates: RankedCandidate[];
+    availability: AvailabilityResult[];
+  },
   { taskId: string; recommendations: Recommendation[] }
 >;
 

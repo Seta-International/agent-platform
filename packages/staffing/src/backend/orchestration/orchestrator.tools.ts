@@ -2,6 +2,7 @@ import type { SpecializedAgentRunCtx, SpecializedAgentSpec } from '@seta/agent-s
 import { defineAgentTool } from '@seta/agent-sdk';
 import { z } from 'zod';
 import {
+  type AvailabilityResult,
   type RankedCandidate,
   RankedCandidateSchema,
   type Recommendation,
@@ -19,7 +20,14 @@ type SkillMatcherSpec = SpecializedAgentSpec<
   { taskId: string; candidates: RankedCandidate[] }
 >;
 type RecommenderSpec = SpecializedAgentSpec<
-  { taskId: string; skills: string[]; candidates: RankedCandidate[]; availability: never[] },
+  // availability matches the recommender's contract; this orchestrator always
+  // passes it empty (availability re-enable is out of scope here).
+  {
+    taskId: string;
+    skills: string[];
+    candidates: RankedCandidate[];
+    availability: AvailabilityResult[];
+  },
   { taskId: string; recommendations: Recommendation[] }
 >;
 
