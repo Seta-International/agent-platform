@@ -52,6 +52,29 @@ export interface GroupWithCountsRow extends GroupRow {
   members_preview: ReadonlyArray<GroupMemberPreview>;
 }
 
+export type GroupJoinRequestStatus = 'pending' | 'approved' | 'rejected';
+
+export interface GroupJoinRequestRow {
+  group_id: string;
+  user_id: string;
+  status: GroupJoinRequestStatus;
+  requested_at: string;
+  resolved_at: string | null;
+  resolved_by: string | null;
+  // Denormalised for the GroupRail view — populated by listJoinRequests
+  display_name: string;
+  email: string;
+}
+
+export interface DiscoverGroupsItem {
+  id: string;
+  name: string;
+  description: string | null;
+  member_count: number;
+  owner_display_name: string | null;
+  owner_email: string | null;
+}
+
 export interface PlanRow {
   id: string;
   tenant_id: string;

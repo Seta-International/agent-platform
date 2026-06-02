@@ -23,7 +23,11 @@ export type PlannerErrorCode =
   | 'GROUP_NOT_LINKED'
   | 'PLAN_NOT_LINKED'
   | 'LABEL_NOT_SYNCABLE'
-  | 'ASSIGNEE_NOT_M365_SYNCABLE';
+  | 'ASSIGNEE_NOT_M365_SYNCABLE'
+  | 'JOIN_REQUEST_PRIVATE_GROUP'
+  | 'ALREADY_MEMBER'
+  | 'JOIN_REQUEST_DUPLICATE'
+  | 'JOIN_REQUEST_NOT_FOUND';
 
 export class PlannerError extends Error {
   readonly code: PlannerErrorCode;

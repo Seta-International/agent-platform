@@ -307,3 +307,20 @@ export interface ListCommentsInput {
   limit?: number;
   cursor?: string;
 }
+
+export interface CreateJoinRequestInput {
+  group_id: string;
+  session: import('@seta/core').SessionScope;
+}
+
+export interface ResolveJoinRequestInput {
+  group_id: string;
+  user_id: string;
+  action: 'approved' | 'rejected';
+  session: import('./domain/_actor.ts').PlannerSessionScope;
+}
+
+export interface DiscoverGroupsInput {
+  q: string;
+  session: import('@seta/core').SessionScope;
+}
