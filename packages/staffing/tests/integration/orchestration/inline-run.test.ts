@@ -86,9 +86,11 @@ describe('assigneeRecommendation inline run (e2e)', () => {
       const rt = buildStaffingOrchestrationRuntime({
         repo: new StaffingRunStateRepository(),
         resolveModel: resolveModelSeq([
-          // analyzer: structured-output gate → actionable with skills.
+          // analyzer: structured-output classify → recommend_assignee with skills.
           scriptedModel([
-            objectStep('{"actionable":true,"skills":["stripe","webhooks"],"reason":null}'),
+            objectStep(
+              '{"intent":"recommend_assignee","skills":["stripe","webhooks"],"tags":[],"reason":null}',
+            ),
           ]),
           // skillMatcher: call searchCandidates; run() ranks the hits (fallback).
           scriptedModel([
@@ -108,6 +110,7 @@ describe('assigneeRecommendation inline run (e2e)', () => {
               skillTags: [],
             }),
           },
+          taskSearch: { bySkillTags: async () => [] },
           skillSearch: {
             search: async () => [
               {
@@ -168,13 +171,16 @@ describe('assigneeRecommendation inline run (e2e)', () => {
       const rt = buildStaffingOrchestrationRuntime({
         repo: new StaffingRunStateRepository(),
         resolveModel: resolveModelSeq([
-          // analyzer: not an assignee-recommendation request → terminal.
-          scriptedModel([objectStep('{"actionable":false,"skills":[],"reason":"chit-chat"}')]),
+          // analyzer: not an assignee or task-search request → terminal (intent: none).
+          scriptedModel([
+            objectStep('{"intent":"none","skills":[],"tags":[],"reason":"chit-chat"}'),
+          ]),
           scriptedModel([STOP]),
           scriptedModel([STOP]),
         ]),
         ports: {
           taskReader: { load: async () => null },
+          taskSearch: { bySkillTags: async () => [] },
           skillSearch: { search: async () => [] },
           availability: {
             status: async () => ({ status: 'available' as const, note: null }),
