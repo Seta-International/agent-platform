@@ -46,6 +46,7 @@ export { listGroupMembers } from './backend/domain/list-group-members.ts';
 export { listGroupPlansWithRollups } from './backend/domain/list-group-plans-with-rollups.ts';
 export { listGroups } from './backend/domain/list-groups.ts';
 export { listGroupsWithCounts } from './backend/domain/list-groups-with-counts.ts';
+export { listJoinRequests } from './backend/domain/list-join-requests.ts';
 export { listLabels } from './backend/domain/list-labels.ts';
 export { listMyAccessibleGroups } from './backend/domain/list-my-accessible-groups.ts';
 export { listMyAssignedTasks } from './backend/domain/list-my-assigned-tasks.ts';
