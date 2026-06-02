@@ -12,6 +12,7 @@ export { countTasksByCategorySlot } from './backend/domain/count-tasks-by-catego
 export { createBucket } from './backend/domain/create-bucket.ts';
 export { createComment } from './backend/domain/create-comment.ts';
 export { createGroup } from './backend/domain/create-group.ts';
+export { createJoinRequest } from './backend/domain/create-join-request.ts';
 export { createLabel } from './backend/domain/create-label.ts';
 export { createPlan } from './backend/domain/create-plan.ts';
 export { createTask } from './backend/domain/create-task.ts';
@@ -109,6 +110,8 @@ export type {
   DiscoverGroupsItem,
   GroupActivityItem,
   GroupActivityResult,
+  GroupJoinRequestRow,
+  GroupJoinRequestStatus,
   GroupMemberRow,
   GroupRow,
   GroupSyncStatus,
@@ -154,6 +157,7 @@ export type {
   CreateBucketInput,
   CreateCommentInput,
   CreateGroupInput,
+  CreateJoinRequestInput,
   CreateLabelInput,
   CreatePlanInput,
   CreateTaskInput,
