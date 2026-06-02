@@ -105,8 +105,12 @@ async function listMyGroups(): Promise<GroupRow[]> {
   return r.groups;
 }
 
-async function getGroup(group_id: string): Promise<GroupRow> {
-  return (await request<GroupRow>(`/api/planner/v1/groups/${group_id}`)) as GroupRow;
+async function getGroup(
+  group_id: string,
+  opts: { includeDeleted?: boolean } = {},
+): Promise<GroupRow> {
+  const q = opts.includeDeleted ? '?include_deleted=true' : '';
+  return (await request<GroupRow>(`/api/planner/v1/groups/${group_id}${q}`)) as GroupRow;
 }
 
 async function getGroupActivity(
