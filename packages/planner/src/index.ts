@@ -21,6 +21,7 @@ export { deleteGroup } from './backend/domain/delete-group.ts';
 export { deleteLabel } from './backend/domain/delete-label.ts';
 export { deletePlan } from './backend/domain/delete-plan.ts';
 export { deleteTask } from './backend/domain/delete-task.ts';
+export { discoverGroups } from './backend/domain/discover-groups.ts';
 export { duplicateTask } from './backend/domain/duplicate-task.ts';
 export { getGroup } from './backend/domain/get-group.ts';
 export { getGroupActivity } from './backend/domain/get-group-activity.ts';
@@ -105,6 +106,7 @@ export type {
   ChecklistItemRow,
   CommentDto,
   CommentListResult,
+  DiscoverGroupsItem,
   GroupActivityItem,
   GroupActivityResult,
   GroupMemberRow,
@@ -156,6 +158,7 @@ export type {
   CreatePlanInput,
   CreateTaskInput,
   DeleteCommentInput,
+  DiscoverGroupsInput,
   DuplicateTaskInput,
   DuplicateTaskOptions,
   GetPlanChartDataInput,
