@@ -8,8 +8,7 @@
     ".": "./src/index.ts",
     "./register": "./src/register.ts",
     "./events": "./src/events.ts",
-    "./rbac": "./src/rbac.ts",
-    "./agent-tools": "./src/agent-tools.ts"
+    "./rbac": "./src/rbac.ts"
   },
   "scripts": {
     "lint": "eslint . --no-error-on-unmatched-pattern",
