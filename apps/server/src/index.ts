@@ -24,6 +24,7 @@ import {
   makeAvailability,
   makeSkillSearch,
   makeTaskReader,
+  makeTaskSearch,
   StaffingRunStateRepository,
 } from '@seta/staffing';
 import { registerStaffingContributions } from '@seta/staffing/register';
@@ -111,6 +112,7 @@ const staffingOrchestration = buildStaffingOrchestrationRuntime({
   resolveModel: () => resolveModel('auto', { tierHint: 'fast' }).model,
   ports: {
     taskReader: makeTaskReader(),
+    taskSearch: makeTaskSearch(),
     skillSearch: makeSkillSearch({
       provider: identityEmbeddingProvider,
       pgVector: getIdentityVectorStore(env.DATABASE_URL),
