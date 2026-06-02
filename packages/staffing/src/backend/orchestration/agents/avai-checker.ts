@@ -1,85 +1,90 @@
-import type { AgentResult, SpecializedAgentSpec, TrustEnvelope } from '@seta/agent-sdk';
+import { Agent } from '@mastra/core/agent';
+import { RequestContext } from '@mastra/core/request-context';
+import type { AgentResult, SpecializedAgentSpec } from '@seta/agent-sdk';
+import type { LanguageModel } from 'ai';
 import type { z } from 'zod';
 import type { AvailabilityPort } from '../ports.ts';
 import {
   AvaiCheckerInputSchema,
   AvaiCheckerOutputSchema,
   type AvailabilityResult,
-  OVERLOAD_THRESHOLD,
-  type RankedCandidate,
   STATUS_PRIORITY,
 } from '../schemas.ts';
+import { type MastraToolSignals, trustFromMastraResult } from '../trust.ts';
+import { makeAvaiCheckerTools } from './avai-checker.tools.ts';
+
+type Out = z.infer<typeof AvaiCheckerOutputSchema>;
+type In = z.infer<typeof AvaiCheckerInputSchema>;
 
 export interface AvaiCheckerDeps {
   availability: AvailabilityPort;
+  resolveModel: () => LanguageModel;
+  runAgent?: (args: { input: In; requestContext: RequestContext }) => Promise<MastraToolSignals>;
 }
 
-type Out = z.infer<typeof AvaiCheckerOutputSchema>;
+const INSTRUCTIONS = [
+  'You check availability for candidate users for a task.',
+  'ALWAYS call getAvailability with all candidate user ids.',
+].join(' ');
 
-export function makeAvaiCheckerAgent(
-  deps: AvaiCheckerDeps,
-): SpecializedAgentSpec<{ taskId: string; candidates: RankedCandidate[] }, Out> {
+export function makeAvaiCheckerAgent(deps: AvaiCheckerDeps): SpecializedAgentSpec<In, Out> {
+  const tools = makeAvaiCheckerTools({ availability: deps.availability });
+  const agent = new Agent({
+    id: 'staffing.avaiChecker',
+    name: 'Availability Checker',
+    instructions: INSTRUCTIONS,
+    model: deps.resolveModel() as never,
+    tools: tools as never,
+  });
+
   return {
     id: 'staffing.avaiChecker',
     description:
-      'Checks each candidate’s availability and in-progress load, then ranks by readiness.',
+      'Checks candidate availability (leave + in-progress overload) for a task (LLM-driven).',
     inputSchema: AvaiCheckerInputSchema,
     outputSchema: AvaiCheckerOutputSchema,
     run: async (input, ctx): Promise<AgentResult<Out>> => {
-      const rows = await Promise.all(
-        input.candidates.map(async (c) => {
-          const [status, count] = await Promise.all([
-            deps.availability.status(c.userId, ctx),
-            deps.availability.inProgressCount(c.userId, ctx),
-          ]);
-          return {
-            userId: c.userId,
-            name: c.name,
-            status: status.status,
-            inProgressCount: count,
-            overloaded: count >= OVERLOAD_THRESHOLD,
-          };
-        }),
-      );
+      const rc = new RequestContext();
+      rc.set('actor', { type: 'user', user_id: ctx.actorUserId });
+      rc.set('tenant_id', ctx.tenantId);
 
-      rows.sort((a, b) => {
-        if (a.overloaded !== b.overloaded) return a.overloaded ? 1 : -1; // overloaded last
-        return STATUS_PRIORITY[b.status] - STATUS_PRIORITY[a.status];
+      const res: MastraToolSignals = deps.runAgent
+        ? await deps.runAgent({ input, requestContext: rc })
+        : await (async () => {
+            const r = await agent.generate(
+              `taskId=${input.taskId}. Candidate user ids: ${input.candidates.map((c) => c.userId).join(', ')}.`,
+              { requestContext: rc, maxSteps: 4, abortSignal: ctx.abortSignal },
+            );
+            return {
+              toolCalls: r.toolCalls as MastraToolSignals['toolCalls'],
+              toolResults: r.toolResults as MastraToolSignals['toolResults'],
+            };
+          })();
+
+      const fromTool =
+        (
+          res.toolResults.find((t) => t.payload.toolName === 'getAvailability')?.payload.result as
+            | { availability?: AvailabilityResult[] }
+            | undefined
+        )?.availability ?? [];
+
+      const confidence =
+        fromTool.length === 0
+          ? 0
+          : fromTool.reduce((s, a) => s + STATUS_PRIORITY[a.status], 0) / (fromTool.length * 2);
+      const trust = trustFromMastraResult(res, {
+        citations: (tr) =>
+          tr.payload.toolName === 'getAvailability'
+            ? (
+                (tr.payload.result as { availability?: { userId: string }[] }).availability ?? []
+              ).map((a) => ({
+                kind: 'user' as const,
+                id: a.userId,
+              }))
+            : [],
+        confidence,
       });
-
-      const availability: AvailabilityResult[] = rows.map((r) => ({
-        userId: r.userId,
-        name: r.name,
-        status: r.status,
-        inProgressCount: r.inProgressCount,
-      }));
-
-      const overloaded = rows.filter((r) => r.overloaded).map((r) => r.userId);
-      const at = new Date().toISOString();
-      const trace = [
-        { step: 'availability', detail: `${rows.length} candidates checked`, at },
-        ...(overloaded.length
-          ? [
-              {
-                step: 'overload_guard',
-                detail: `overloaded (>=${OVERLOAD_THRESHOLD}): ${overloaded.join(', ')}`,
-                at,
-              },
-            ]
-          : []),
-      ];
-      const availableCount = rows.filter((r) => r.status === 'available' && !r.overloaded).length;
-      const trust: TrustEnvelope = {
-        reasoningTrace: trace,
-        evidenceCitations: rows.map((r) => ({
-          kind: 'user' as const,
-          id: r.userId,
-          label: r.name ?? undefined,
-        })),
-        confidenceScore: rows.length ? availableCount / rows.length : 0,
-      };
-
-      return { result: { taskId: input.taskId, availability }, trust };
+      return { result: { taskId: input.taskId, availability: fromTool }, trust };
     },
   };
 }

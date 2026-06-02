@@ -1,62 +1,63 @@
+import { RequestContext } from '@mastra/core/request-context';
 import { describe, expect, it } from 'vitest';
+import { makeAvaiCheckerTools } from '../../../../src/backend/orchestration/agents/avai-checker.tools.ts';
 import { makeAvaiCheckerAgent } from '../../../../src/backend/orchestration/agents/avai-checker.ts';
 import type { AvailabilityPort } from '../../../../src/backend/orchestration/ports.ts';
-import type { RankedCandidate } from '../../../../src/backend/orchestration/schemas.ts';
 
-const CTX = { tenantId: 't1', actorUserId: 'u1' };
-
-const cand = (userId: string, name: string): RankedCandidate => ({
-  userId,
-  name,
-  skills: ['x'],
-  role: null,
-  skillMatchCount: 1,
-  rank: 1,
-});
-
-function port(
-  data: Record<string, { status: 'available' | 'busy' | 'ooo'; count: number }>,
-): AvailabilityPort {
-  return {
-    status: async (userId) => ({ status: data[userId]?.status ?? 'busy', note: null }),
-    inProgressCount: async (userId) => data[userId]?.count ?? 0,
-  };
+function ctx() {
+  const rc = new RequestContext();
+  rc.set('tenant_id', 't1');
+  rc.set('actor', { type: 'user', user_id: 'a1' });
+  return { requestContext: rc } as never;
 }
+const availability: AvailabilityPort = {
+  async status() {
+    return { status: 'available', note: null };
+  },
+  async inProgressCount(userId) {
+    return userId === 'busy' ? 12 : 1;
+  },
+};
 
-describe('avaiChecker agent', () => {
-  it('orders available > busy > ooo', async () => {
-    const agent = makeAvaiCheckerAgent({
-      availability: port({
-        u1: { status: 'ooo', count: 0 },
-        u2: { status: 'available', count: 1 },
-        u3: { status: 'busy', count: 2 },
-      }),
-    });
-    const res = await agent.run(
-      { taskId: 'task-1', candidates: [cand('u1', 'A'), cand('u2', 'B'), cand('u3', 'C')] },
-      CTX,
-    );
-    const ids = (res.result as { availability: { userId: string }[] }).availability.map(
-      (a) => a.userId,
-    );
-    expect(ids).toEqual(['u2', 'u3', 'u1']);
+describe('avaiChecker', () => {
+  it('tool flags overload (>=10 in-progress) as busy', async () => {
+    const { getAvailability } = makeAvaiCheckerTools({ availability });
+    const out = (await getAvailability.execute({ userIds: ['busy', 'free'] } as never, ctx())) as {
+      availability: { userId: string; status: string; inProgressCount: number }[];
+    };
+    expect(out.availability.find((a) => a.userId === 'busy')?.status).toBe('busy');
   });
 
-  it('pushes overloaded users (>=10 in-progress) to the end regardless of status', async () => {
+  it('agent returns availability for the input candidates', async () => {
     const agent = makeAvaiCheckerAgent({
-      availability: port({
-        u1: { status: 'available', count: 12 }, // overloaded
-        u2: { status: 'busy', count: 1 },
+      availability,
+      resolveModel: () => ({}) as never,
+      runAgent: async () => ({
+        toolCalls: [{ payload: { toolName: 'getAvailability', args: {} } }],
+        toolResults: [
+          {
+            payload: {
+              toolName: 'getAvailability',
+              result: {
+                availability: [
+                  { userId: 'free', name: null, status: 'available', inProgressCount: 1 },
+                ],
+              },
+            },
+          },
+        ],
       }),
     });
     const res = await agent.run(
-      { taskId: 'task-1', candidates: [cand('u1', 'A'), cand('u2', 'B')] },
-      CTX,
+      {
+        taskId: 't-1',
+        candidates: [
+          { userId: 'free', name: null, skills: [], role: null, skillMatchCount: 0, rank: 1 },
+        ],
+      },
+      { tenantId: 't1', actorUserId: 'a1' },
     );
-    const ids = (res.result as { availability: { userId: string }[] }).availability.map(
-      (a) => a.userId,
-    );
-    expect(ids).toEqual(['u2', 'u1']);
-    expect(res.trust.reasoningTrace.some((t) => t.detail.includes('overloaded'))).toBe(true);
+    expect(res.result.availability[0]?.userId).toBe('free');
+    expect(res.trust.reasoningTrace.length).toBeGreaterThan(0);
   });
 });
