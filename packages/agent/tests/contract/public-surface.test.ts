@@ -11,6 +11,10 @@ const EXPECTED_NAMED_EXPORTS = new Set<string>([
   'replayWorkflowFromStep',
   'rerunWorkflow',
   'registerAgentContributions',
+  // model resolver — exported for the composition root to inject models into
+  // orchestrator adapters (orchestrator modules may not import the engine).
+  'resolveModel',
+  'ModelNotFoundError',
 ]);
 
 const EXPECTED_EXPORT_SUBPATHS = new Set<string>([
@@ -31,8 +35,6 @@ const FORBIDDEN_VALUES = [
   'bindOtel',
   'otel',
   'listModels',
-  'resolveModel',
-  'ModelNotFoundError',
   'AGENT_PERMISSIONS',
 ];
 
