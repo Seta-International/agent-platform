@@ -58,6 +58,17 @@ export const AnalyzerInputSchema = z.object({
 });
 export const AnalyzerOutputSchema = SkillRequirementSchema;
 
+// ---- taskAnalyzer (orchestrator-facing) ----
+export const TaskAnalyzerInputSchema = z.object({
+  query: z.string(),
+  taskId: z.string().nullable(),
+});
+export const TaskAnalyzerOutputSchema = z.object({
+  skills: z.array(z.string()).optional(),
+  tasks: z.array(TaskSummarySchema).optional(),
+});
+export type TaskAnalyzerOutput = z.infer<typeof TaskAnalyzerOutputSchema>;
+
 export const SkillMatcherInputSchema = z.object({
   taskId: z.string(),
   skills: z.array(z.string()),
