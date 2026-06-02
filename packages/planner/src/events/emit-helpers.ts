@@ -1104,3 +1104,25 @@ export async function emitPlannerCommentDeleted(args: {
     payload,
   });
 }
+
+export async function emitPlannerGroupJoinRequested(args: {
+  actor: PlannerEventActor;
+  group_id: string;
+  user_id: string;
+  tenant_id: string;
+}): Promise<{ eventId: string }> {
+  const { eventId } = await emit({
+    tenantId: args.tenant_id,
+    aggregateType: 'planner.group',
+    aggregateId: args.group_id,
+    eventType: 'planner.group.join.requested',
+    eventVersion: 1,
+    payload: {
+      actor: args.actor,
+      group_id: args.group_id,
+      user_id: args.user_id,
+      tenant_id: args.tenant_id,
+    },
+  });
+  return { eventId };
+}

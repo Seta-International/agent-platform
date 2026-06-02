@@ -157,6 +157,19 @@ export interface PlannerGroupMemberRoleChanged {
   };
 }
 
+export interface PlannerGroupJoinRequested {
+  event_type: 'planner.group.join.requested';
+  event_version: 1;
+  aggregate_type: 'planner.group';
+  aggregate_id: Uuid;
+  payload: {
+    actor: PlannerEventActor;
+    group_id: Uuid;
+    user_id: Uuid;
+    tenant_id: Uuid;
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Plans
 // ---------------------------------------------------------------------------
@@ -757,6 +770,7 @@ export type PlannerEvent =
   | PlannerGroupMemberAdded
   | PlannerGroupMemberRemoved
   | PlannerGroupMemberRoleChanged
+  | PlannerGroupJoinRequested
   | PlannerPlanCreated
   | PlannerPlanUpdated
   | PlannerPlanDeleted
