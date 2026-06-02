@@ -141,7 +141,7 @@ function EditForm({ group, onDone }: EditFormProps) {
         </div>
       </div>
 
-      <div className="space-y-1.5">
+      <div className="flex items-center gap-1.5">
         <Label>Visibility</Label>
         <SegmentedControl
           aria-label="Visibility"
@@ -152,7 +152,7 @@ function EditForm({ group, onDone }: EditFormProps) {
         />
       </div>
 
-      <div className="space-y-1.5">
+      <div className="flex items-center gap-1.5">
         <Label>Default role for new members</Label>
         <SegmentedControl
           aria-label="Default role"
