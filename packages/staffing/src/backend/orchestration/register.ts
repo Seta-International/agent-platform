@@ -16,10 +16,11 @@ import {
   makeSkillMatcherAgent,
 } from './agents/index.ts';
 import { assigneeRecommendationSpec } from './assignee-recommendation.ts';
-import type { AvailabilityPort, SkillSearchPort, TaskReaderPort } from './ports.ts';
+import type { AvailabilityPort, SkillSearchPort, TaskReaderPort, TaskSearchPort } from './ports.ts';
 
 export interface StaffingPorts {
   taskReader: TaskReaderPort;
+  taskSearch: TaskSearchPort;
   skillSearch: SkillSearchPort;
   availability: AvailabilityPort;
 }
@@ -53,7 +54,11 @@ export function buildStaffingOrchestrationRuntime(deps: {
   const { ports, resolveModel, repo } = deps;
 
   SpecializedAgentRegistry.register(
-    makeAnalyzerAgent({ taskReader: ports.taskReader, resolveModel }),
+    makeAnalyzerAgent({
+      taskReader: ports.taskReader,
+      taskSearch: ports.taskSearch,
+      resolveModel,
+    }),
   );
   SpecializedAgentRegistry.register(
     makeSkillMatcherAgent({ skillSearch: ports.skillSearch, resolveModel }),

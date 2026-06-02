@@ -5,11 +5,13 @@ import type {
   AvailabilityPort,
   SkillSearchPort,
   TaskReaderPort,
+  TaskSearchPort,
 } from '../../../src/backend/orchestration/ports.ts';
 import { buildStaffingOrchestrationRuntime } from '../../../src/backend/orchestration/register.ts';
 
 const fakePorts = {
   taskReader: { load: async () => null } satisfies TaskReaderPort,
+  taskSearch: { bySkillTags: async () => [] } satisfies TaskSearchPort,
   skillSearch: { search: async () => [] } satisfies SkillSearchPort,
   availability: {
     status: async () => ({ status: 'available' as const, note: null }),
