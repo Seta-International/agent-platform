@@ -1,11 +1,21 @@
 import type { z } from 'zod';
-import type { AgentResult } from './trust.ts';
+import type { AgentResult, TrustEnvelope } from './trust.ts';
+
+/** A sub-step surfaced by an agent that internally delegates to other agents
+ *  (e.g. an orchestrator). Mirrors the orchestration kernel's step events, but
+ *  declared here so the SDK has no dependency on `@seta/shared-orchestration`. */
+export type SubStepEvent =
+  | { kind: 'step-start'; stepId: string; agentId: string }
+  | { kind: 'step-done'; stepId: string; trust: TrustEnvelope };
 
 /** Session-derived context passed into a specialized agent's `run`. */
 export interface SpecializedAgentRunCtx {
   tenantId: string;
   actorUserId: string;
   abortSignal?: AbortSignal;
+  /** Optional sink for sub-step events emitted while this agent runs. The inline
+   *  runner provides it; the queued runner and direct callers leave it undefined. */
+  onEvent?: (event: SubStepEvent) => void;
 }
 
 /**

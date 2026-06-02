@@ -73,6 +73,7 @@ export {
   SpecializedAgentRegistry,
   type SpecializedAgentRunCtx,
   type SpecializedAgentSpec,
+  type SubStepEvent,
 } from './specialized-agent.ts';
 export type { SubscriberBuilder, SubscriberBuilderDeps } from './subscriber-builder.ts';
 export type {
