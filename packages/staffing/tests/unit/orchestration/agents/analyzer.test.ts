@@ -5,7 +5,7 @@ import type { TaskReaderPort } from '../../../../src/backend/orchestration/ports
 const ctx = { tenantId: 't1', actorUserId: 'a1' };
 const taskReader: TaskReaderPort = {
   async load(taskId) {
-    return { taskId, title: 'AWS script', description: 'inventory', groupId: '' };
+    return { taskId, title: 'AWS script', description: 'inventory', groupId: '', skillTags: [] };
   },
 };
 const agentWith = (extraction: { actionable: boolean; skills: string[]; reason: string | null }) =>

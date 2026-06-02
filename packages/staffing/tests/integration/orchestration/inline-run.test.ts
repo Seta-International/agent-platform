@@ -105,6 +105,7 @@ describe('assigneeRecommendation inline run (e2e)', () => {
               title: 'Stripe webhook',
               description: 'x',
               groupId: 'g1',
+              skillTags: [],
             }),
           },
           skillSearch: {
