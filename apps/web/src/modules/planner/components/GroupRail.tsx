@@ -8,8 +8,9 @@ import {
   cn,
   formatRelative,
 } from '@seta/shared-ui';
-import { ChevronRight, Plus, Shield, Users } from 'lucide-react';
+import { Check, ChevronRight, Plus, Shield, Users, X } from 'lucide-react';
 import type { ReactNode } from 'react';
+import type { GroupJoinRequestRow } from '../api/planner-client';
 
 interface Props {
   group: GroupRow;
@@ -21,6 +22,9 @@ interface Props {
   shownMemberCount?: number;
   /** Recent items from getGroupActivity; `null` while loading. */
   activityItems?: ReadonlyArray<GroupActivityItem> | null;
+  pendingRequests?: ReadonlyArray<GroupJoinRequestRow>;
+  onApproveRequest?: (userId: string) => void;
+  onRejectRequest?: (userId: string) => void;
 }
 
 function initials(name: string): string {
@@ -106,6 +110,9 @@ export function GroupRail({
   onSeeAllMembers,
   shownMemberCount = 7,
   activityItems,
+  pendingRequests,
+  onApproveRequest,
+  onRejectRequest,
 }: Props) {
   const memberCount = totalMemberCount ?? members.length;
   const visibleMembers = members.slice(0, shownMemberCount);
@@ -176,6 +183,50 @@ export function GroupRail({
               See all {memberCount} members <ChevronRight className="size-3" />
             </Button>
           ) : null}
+          {canManage && pendingRequests && pendingRequests.length > 0 && (
+            <div className="mt-3 border-t pt-3">
+              <p className="text-xs font-semibold text-ink-muted mb-2">Pending requests</p>
+              <ul className="flex flex-col gap-2">
+                {pendingRequests.map((req) => (
+                  <li key={req.user_id} className="flex items-center gap-2 text-sm">
+                    <Avatar className="size-6 shrink-0">
+                      <AvatarFallback className="text-[10px] font-semibold">
+                        {initials(req.display_name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium">{req.display_name}</p>
+                      <p className="truncate text-xs text-ink-subtle">{req.email}</p>
+                      <p className="text-xs text-ink-subtle">{shortDate(req.requested_at)}</p>
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="size-6"
+                        onClick={() => onApproveRequest?.(req.user_id)}
+                        title="Approve"
+                      >
+                        <Check className="size-3 text-green-600" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="size-6"
+                        onClick={() => onRejectRequest?.(req.user_id)}
+                        title="Reject"
+                      >
+                        <X className="size-3 text-red-500" />
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {canManage && pendingRequests && pendingRequests.length === 0 && (
+            <p className="mt-2 text-xs text-ink-subtle">No pending requests.</p>
+          )}
         </CardContent>
       </Card>
 

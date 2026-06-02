@@ -7,9 +7,11 @@ import {
   TabsTrigger,
   toast,
 } from '@seta/shared-ui';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { Navigate, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { SessionScopeProjection } from '@/modules/identity/api/client';
+import { listJoinRequests, resolveJoinRequest } from '../api/planner-client';
 import { AddGroupMembersDialog } from '../components/AddGroupMembersDialog';
 import { CreatePlanDialog } from '../components/CreatePlanDialog';
 import { GroupDetailHeader } from '../components/GroupDetailHeader';
@@ -92,6 +94,21 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
   const canManage = isAdmin || isOwner;
   const canCreatePlan = canManage;
   const canManageRoles = canManage;
+
+  const joinRequestsQuery = useQuery({
+    queryKey: ['planner', 'join-requests', groupId, 'pending'],
+    queryFn: () => listJoinRequests(groupId, 'pending'),
+    enabled: canManage,
+  });
+
+  const resolveRequestMutation = useMutation({
+    mutationFn: ({ userId, action }: { userId: string; action: 'approved' | 'rejected' }) =>
+      resolveJoinRequest(groupId, userId, action),
+    onSuccess: () => {
+      void joinRequestsQuery.refetch();
+      void membersQuery.refetch();
+    },
+  });
 
   if (groupQuery.isPending || membersQuery.isPending || plansQuery.isPending) {
     return <DetailSkeleton />;
@@ -187,6 +204,13 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
               activityItems={
                 activityQuery.isPending ? undefined : (activityQuery.data?.items ?? null)
               }
+              pendingRequests={canManage ? (joinRequestsQuery.data ?? []) : undefined}
+              onApproveRequest={(userId) =>
+                resolveRequestMutation.mutate({ userId, action: 'approved' })
+              }
+              onRejectRequest={(userId) =>
+                resolveRequestMutation.mutate({ userId, action: 'rejected' })
+              }
             />
           </div>
         </TabsContent>
@@ -212,6 +236,13 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
               onAddMember={() => setAddMembersOpen(true)}
               activityItems={
                 activityQuery.isPending ? undefined : (activityQuery.data?.items ?? null)
+              }
+              pendingRequests={canManage ? (joinRequestsQuery.data ?? []) : undefined}
+              onApproveRequest={(userId) =>
+                resolveRequestMutation.mutate({ userId, action: 'approved' })
+              }
+              onRejectRequest={(userId) =>
+                resolveRequestMutation.mutate({ userId, action: 'rejected' })
               }
             />
           </div>
