@@ -74,6 +74,7 @@ const BACKEND_DIR_ALLOWLIST = new Set([
   'sso',
   'agents',
   'agent-tools',
+  'orchestration', // staffing orchestrator-tier composition + agents + run state
   'm365', // integrations-owned external connector
   'scan', // knowledge-owned upload AV scanner
 ]);
