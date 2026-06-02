@@ -1,3 +1,4 @@
+import { emit } from '@seta/core/events';
 import type { DomainEvent, SubscriberCtx } from '@seta/shared-types';
 
 // Local payload types — no import from @seta/planner to preserve module boundary.
@@ -33,15 +34,37 @@ export async function applyMemberAdded(
   e: DomainEvent<MemberAddedPayload>,
   ctx: SubscriberCtx,
 ): Promise<void> {
-  // Idempotent upsert: ON CONFLICT DO NOTHING if a non-revoked grant already exists.
+  const grantId = crypto.randomUUID();
   await pgClient(ctx.tx).query(
     `INSERT INTO identity.role_grants
        (id, tenant_id, user_id, role_slug, scope_type, scope_id, granted_by, granted_via)
      VALUES
-       (gen_random_uuid(), $1, $2, 'planner.viewer', 'group', $3, $4, 'admin')
+       ($5, $1, $2, 'planner.viewer', 'group', $3, $4, 'admin')
      ON CONFLICT DO NOTHING`,
-    [e.tenantId, e.payload.user_id, e.payload.group_id, e.payload.actor.user_id ?? null],
+    [e.tenantId, e.payload.user_id, e.payload.group_id, e.payload.actor.user_id ?? null, grantId],
   );
+
+  // Emit so core.session-invalidate-by-grant flushes the member's stale session scope cache.
+  await emit({
+    tenantId: e.tenantId,
+    aggregateType: 'identity.user',
+    aggregateId: e.payload.user_id,
+    eventType: 'identity.role_grant.changed',
+    eventVersion: 1,
+    payload: {
+      actor: { type: e.payload.actor.type, user_id: e.payload.actor.user_id },
+      user_id: e.payload.user_id,
+      tenant_id: e.tenantId,
+      change: 'granted',
+      grant: {
+        grant_id: grantId,
+        role_slug: 'planner.viewer',
+        scope_type: 'group',
+        scope_id: e.payload.group_id,
+        granted_via: 'admin',
+      },
+    },
+  });
 }
 
 export async function applyMemberRemoved(
@@ -57,4 +80,19 @@ export async function applyMemberRemoved(
        AND revoked_at IS NULL`,
     [e.payload.actor.user_id ?? null, e.payload.user_id, e.payload.group_id],
   );
+
+  // Emit so core.session-invalidate-by-grant flushes the member's stale session scope cache.
+  await emit({
+    tenantId: e.tenantId,
+    aggregateType: 'identity.user',
+    aggregateId: e.payload.user_id,
+    eventType: 'identity.role_grant.changed',
+    eventVersion: 1,
+    payload: {
+      actor: { type: e.payload.actor.type, user_id: e.payload.actor.user_id },
+      user_id: e.payload.user_id,
+      tenant_id: e.tenantId,
+      change: 'revoked',
+    },
+  });
 }
