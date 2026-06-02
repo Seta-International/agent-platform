@@ -79,9 +79,9 @@ export function initPools(cfg: PoolsConfig): Pools {
   return pools;
 }
 
-export function getPool(name: 'web' | 'worker' | 'mastraState'): Pool {
+export function getPool(name?: 'web' | 'worker' | 'mastraState'): Pool {
   if (!pools) throw new Error('getPool called before initPools.');
-  return pools[name];
+  return pools[name ?? 'web'];
 }
 
 export function getPoolStats(): {

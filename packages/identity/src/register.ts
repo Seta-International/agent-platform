@@ -11,6 +11,10 @@ import {
 } from './backend/embeddings/subscribers/refresh-user-profile.ts';
 import { buildIdentityRoutes } from './backend/http/index.ts';
 import { IdentityError } from './backend/rbac.ts';
+import {
+  applyMemberAdded,
+  applyMemberRemoved,
+} from './backend/subscribers/planner-group-member.ts';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
@@ -32,6 +36,18 @@ export function registerIdentityContributions(reg: ContributionRegistry): void {
       refreshUserProfileCreatedSubscriber,
       refreshUserProfileUpdatedSubscriber,
       refreshUserProfileDeactivatedSubscriber,
+      {
+        event: 'planner.group.member.added',
+        eventVersion: 1,
+        subscription: 'identity.role-grants.planner-group-member.add',
+        handler: applyMemberAdded as import('@seta/shared-types').SubscriberDef['handler'],
+      },
+      {
+        event: 'planner.group.member.removed',
+        eventVersion: 1,
+        subscription: 'identity.role-grants.planner-group-member.remove',
+        handler: applyMemberRemoved as import('@seta/shared-types').SubscriberDef['handler'],
+      },
     ],
     routes: { mountAt: '/', build: buildIdentityRoutes },
     errorMapper: identityErrorMapper,
