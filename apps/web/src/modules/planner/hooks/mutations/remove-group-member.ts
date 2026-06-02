@@ -3,6 +3,11 @@ import { plannerClient } from '../../api/planner-client';
 import { plannerKeys } from '../../state/query-keys';
 import { useOptimisticMutation } from '../use-optimistic-mutation';
 
+interface PageShape {
+  pages: Array<{ members: GroupMemberRow[]; total: number }>;
+  pageParams: unknown[];
+}
+
 export function useRemoveGroupMember(groupId: string) {
   return useOptimisticMutation<{ user_id: string }, void>({
     mutationFn: (v) => plannerClient.removeGroupMember({ group_id: groupId, user_id: v.user_id }),
@@ -13,9 +18,17 @@ export function useRemoveGroupMember(groupId: string) {
       },
     ],
     applyOptimistic: (v, qc) => {
-      qc.setQueryData<GroupMemberRow[]>(plannerKeys.groupMembers(groupId), (prev) =>
-        (prev ?? []).filter((m) => m.user_id !== v.user_id),
-      );
+      qc.setQueryData<PageShape>(plannerKeys.groupMembers(groupId), (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          pages: old.pages.map((p) => ({
+            ...p,
+            members: p.members.filter((m) => m.user_id !== v.user_id),
+            total: p.total - 1,
+          })),
+        };
+      });
     },
     onServerOk: () => {},
     savingId: (v) => `${groupId}:${v.user_id}`,
