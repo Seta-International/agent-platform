@@ -16,14 +16,11 @@ import { useMemo, useState } from 'react';
 interface Props {
   group: GroupRow;
   members: ReadonlyArray<GroupMemberRow>;
-  total: number;
   canManageRoles: boolean;
   canRemoveMembers: boolean;
   onRoleChange: (input: { user_id: string; role: 'owner' | 'member' }) => void;
   onRemoveMember: (member: GroupMemberRow) => void;
   onRemoveMembers: (userIds: string[]) => void;
-  onLoadMore?: () => void;
-  isLoadingMore?: boolean;
 }
 
 function initials(name: string): string {
@@ -108,14 +105,11 @@ function RoleControl({ member, canEdit, isLinkedGroup, externalId, onChange }: R
 export function GroupMembersTable({
   group,
   members,
-  total,
   canManageRoles,
   canRemoveMembers,
   onRoleChange,
   onRemoveMember,
   onRemoveMembers,
-  onLoadMore,
-  isLoadingMore,
 }: Props) {
   const canEditRoles = canManageRoles && group.external_source === 'native';
   const canRemove = canRemoveMembers && group.external_source === 'native';
@@ -204,8 +198,6 @@ export function GroupMembersTable({
     [canEditRoles, canRemove, isLinkedGroup, externalId, onRoleChange, onRemoveMember],
   );
 
-  const hasMore = onLoadMore !== undefined && members.length < total;
-
   return (
     <TooltipProvider>
       <section className="rounded-lg border border-hairline bg-canvas overflow-hidden">
@@ -249,19 +241,6 @@ export function GroupMembersTable({
             }
           />
         </div>
-        {hasMore && (
-          <div className="flex justify-center border-t border-hairline px-4 py-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onLoadMore}
-              disabled={isLoadingMore}
-              className="text-ink-subtle"
-            >
-              {isLoadingMore ? 'Loading…' : `Load more (${members.length} of ${total} shown)`}
-            </Button>
-          </div>
-        )}
       </section>
     </TooltipProvider>
   );

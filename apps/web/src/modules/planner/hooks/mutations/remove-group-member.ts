@@ -4,8 +4,8 @@ import { plannerKeys } from '../../state/query-keys';
 import { useOptimisticMutation } from '../use-optimistic-mutation';
 
 interface PageShape {
-  pages: Array<{ members: GroupMemberRow[]; total: number }>;
-  pageParams: unknown[];
+  members: GroupMemberRow[];
+  total: number;
 }
 
 export function useRemoveGroupMember(groupId: string) {
@@ -22,11 +22,8 @@ export function useRemoveGroupMember(groupId: string) {
         if (!old) return old;
         return {
           ...old,
-          pages: old.pages.map((p) => ({
-            ...p,
-            members: p.members.filter((m) => m.user_id !== v.user_id),
-            total: p.total - 1,
-          })),
+          members: old.members.filter((m) => m.user_id !== v.user_id),
+          total: old.total - 1,
         };
       });
     },

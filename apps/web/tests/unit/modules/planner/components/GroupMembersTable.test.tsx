@@ -27,7 +27,6 @@ describe('GroupMembersTable', () => {
       <GroupMembersTable
         group={nativeGroup}
         members={[member({ display_name: 'Alice' })]}
-        total={1}
         canManageRoles
         canRemoveMembers={false}
         onRoleChange={vi.fn()}
@@ -48,7 +47,6 @@ describe('GroupMembersTable', () => {
       <GroupMembersTable
         group={nativeGroup}
         members={[member({ user_id: 'u1' })]}
-        total={1}
         canManageRoles
         canRemoveMembers={false}
         onRoleChange={vi.fn()}
@@ -64,7 +62,6 @@ describe('GroupMembersTable', () => {
       <GroupMembersTable
         group={nativeGroup}
         members={[member({ role: 'owner' })]}
-        total={1}
         canManageRoles={false}
         canRemoveMembers={false}
         onRoleChange={vi.fn()}
@@ -81,7 +78,6 @@ describe('GroupMembersTable', () => {
       <GroupMembersTable
         group={linkedGroup}
         members={[member()]}
-        total={1}
         canManageRoles
         canRemoveMembers={false}
         onRoleChange={vi.fn()}
@@ -99,7 +95,6 @@ describe('GroupMembersTable', () => {
       <GroupMembersTable
         group={nativeGroup}
         members={[member({ user_id: 'u1', role: 'member' })]}
-        total={1}
         canManageRoles
         canRemoveMembers={false}
         onRoleChange={onRoleChange}
@@ -120,7 +115,6 @@ describe('GroupMembersTable', () => {
       <GroupMembersTable
         group={linkedGroup}
         members={[member()]}
-        total={1}
         canManageRoles
         canRemoveMembers={false}
         onRoleChange={vi.fn()}
@@ -147,7 +141,6 @@ describe('GroupMembersTable', () => {
       <GroupMembersTable
         group={nativeGroup}
         members={[m]}
-        total={1}
         canManageRoles={false}
         canRemoveMembers
         onRoleChange={vi.fn()}
@@ -166,7 +159,6 @@ describe('GroupMembersTable', () => {
       <GroupMembersTable
         group={linkedGroup}
         members={[member()]}
-        total={1}
         canManageRoles={false}
         canRemoveMembers
         onRoleChange={vi.fn()}
@@ -185,7 +177,6 @@ describe('GroupMembersTable', () => {
       <GroupMembersTable
         group={nativeGroup}
         members={[m1, m2]}
-        total={2}
         canManageRoles={false}
         canRemoveMembers
         onRoleChange={vi.fn()}

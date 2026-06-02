@@ -229,16 +229,11 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
             <GroupMembersTable
               group={group}
               members={members}
-              total={memberTotal}
               canManageRoles={canManageRoles}
               canRemoveMembers={canManage}
               onRoleChange={(v) => setMemberRoleMutation.mutate(v)}
               onRemoveMember={(member) => setMemberToRemove(member)}
               onRemoveMembers={(userIds) => setMembersToRemove(userIds)}
-              onLoadMore={
-                membersQuery.hasNextPage ? () => void membersQuery.fetchNextPage() : undefined
-              }
-              isLoadingMore={membersQuery.isFetchingNextPage}
             />
             <GroupRail
               group={group}

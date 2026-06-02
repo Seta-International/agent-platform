@@ -43,7 +43,7 @@ export async function listGroupMembers(input: {
     throw new PlannerError('FORBIDDEN', 'No access to group', { group_id: input.group_id });
   }
 
-  const limit = Math.min(input.limit ?? 100, 100);
+  const limit = Math.min(input.limit ?? 500, 500);
   const offset = input.offset ?? 0;
 
   const [[countRow], rows] = await Promise.all([
