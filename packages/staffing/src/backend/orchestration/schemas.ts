@@ -104,3 +104,22 @@ export const STATUS_PRIORITY: Record<AvailabilityStatus, number> = {
   ooo: 0,
 };
 export const OVERLOAD_THRESHOLD = 10;
+
+// ---- orchestrator ----
+export const OrchestratorInputSchema = z.object({
+  userText: z.string(),
+  taskId: z.string().nullable(),
+});
+
+export const OrchestratorTaskResultSchema = z.object({
+  task: TaskSummarySchema,
+  recommendations: z.array(RecommendationSchema).optional(),
+});
+
+export const OrchestratorResultSchema = z.object({
+  skills: z.array(z.string()).optional(),
+  tasks: z.array(OrchestratorTaskResultSchema).optional(),
+  recommendations: z.array(RecommendationSchema).optional(),
+  message: z.string().optional(),
+});
+export type OrchestratorResult = z.infer<typeof OrchestratorResultSchema>;
