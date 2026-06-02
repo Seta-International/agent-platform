@@ -29,7 +29,10 @@ describe('GroupMembersTable', () => {
         members={[member({ display_name: 'Alice' })]}
         total={1}
         canManageRoles
+        canRemoveMembers={false}
         onRoleChange={vi.fn()}
+        onRemoveMember={vi.fn()}
+        onRemoveMembers={vi.fn()}
       />,
     );
     // Column headers — use columnheader role to avoid collision with <option> text
@@ -47,7 +50,10 @@ describe('GroupMembersTable', () => {
         members={[member({ user_id: 'u1' })]}
         total={1}
         canManageRoles
+        canRemoveMembers={false}
         onRoleChange={vi.fn()}
+        onRemoveMember={vi.fn()}
+        onRemoveMembers={vi.fn()}
       />,
     );
     expect(screen.getByRole('combobox', { name: /Change role/i })).toBeInTheDocument();
@@ -60,7 +66,10 @@ describe('GroupMembersTable', () => {
         members={[member({ role: 'owner' })]}
         total={1}
         canManageRoles={false}
+        canRemoveMembers={false}
         onRoleChange={vi.fn()}
+        onRemoveMember={vi.fn()}
+        onRemoveMembers={vi.fn()}
       />,
     );
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
@@ -74,7 +83,10 @@ describe('GroupMembersTable', () => {
         members={[member()]}
         total={1}
         canManageRoles
+        canRemoveMembers={false}
         onRoleChange={vi.fn()}
+        onRemoveMember={vi.fn()}
+        onRemoveMembers={vi.fn()}
       />,
     );
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
@@ -89,7 +101,10 @@ describe('GroupMembersTable', () => {
         members={[member({ user_id: 'u1', role: 'member' })]}
         total={1}
         canManageRoles
+        canRemoveMembers={false}
         onRoleChange={onRoleChange}
+        onRemoveMember={vi.fn()}
+        onRemoveMembers={vi.fn()}
       />,
     );
     await user.selectOptions(
@@ -107,7 +122,10 @@ describe('GroupMembersTable', () => {
         members={[member()]}
         total={1}
         canManageRoles
+        canRemoveMembers={false}
         onRoleChange={vi.fn()}
+        onRemoveMember={vi.fn()}
+        onRemoveMembers={vi.fn()}
       />,
     );
     const trigger = document.querySelector('[tabindex="0"]');
