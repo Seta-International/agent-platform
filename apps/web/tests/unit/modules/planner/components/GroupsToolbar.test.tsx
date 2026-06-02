@@ -18,6 +18,8 @@ const baseProps = {
     { value: 'u1', label: 'Jane Doe' },
     { value: 'u2', label: 'Mark Lee' },
   ],
+  status: null,
+  onStatusChange: vi.fn(),
 };
 
 describe('GroupsToolbar', () => {

@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 export type GroupsView = 'list' | 'grid';
 export type VisibilityFilter = 'private' | 'public';
 export type SourceFilter = 'native' | 'm365';
+export type StatusFilter = 'active' | 'archived';
 
 export interface OwnerOption {
   value: string;
@@ -24,6 +25,8 @@ export interface GroupsToolbarProps {
   onOwnerChange: (next: string | null) => void;
   ownerOptions: ReadonlyArray<OwnerOption>;
   showSourceFilter?: boolean;
+  status: StatusFilter | null;
+  onStatusChange: (next: StatusFilter | null) => void;
 }
 
 const VISIBILITY_OPTIONS = [
@@ -34,6 +37,11 @@ const VISIBILITY_OPTIONS = [
 const SOURCE_OPTIONS = [
   { value: 'native' as const, label: 'Internal' },
   { value: 'm365' as const, label: 'Microsoft 365' },
+];
+
+const STATUS_OPTIONS = [
+  { value: 'active' as const, label: 'Active' },
+  { value: 'archived' as const, label: 'Archived' },
 ];
 
 const VIEW_OPTIONS = [
@@ -54,6 +62,8 @@ export function GroupsToolbar({
   onOwnerChange,
   ownerOptions,
   showSourceFilter = false,
+  status,
+  onStatusChange,
 }: GroupsToolbarProps) {
   const [localSearch, setLocalSearch] = useState(searchQuery);
   const [prevSearchQuery, setPrevSearchQuery] = useState(searchQuery);
@@ -94,6 +104,13 @@ export function GroupsToolbar({
       )}
 
       <FilterPill label="Owner" value={owner} options={ownerOptions} onChange={onOwnerChange} />
+
+      <FilterPill
+        label="Status"
+        value={status}
+        options={STATUS_OPTIONS}
+        onChange={onStatusChange}
+      />
 
       {/* Separator */}
       <div className="mx-1 h-4 w-px bg-hairline" />

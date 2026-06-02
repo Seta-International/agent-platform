@@ -1,5 +1,10 @@
 import {
+  Button,
   ComingSoon,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
   Skeleton,
   Tabs,
   TabsContent,
@@ -14,11 +19,14 @@ import type { SessionScopeProjection } from '@/modules/identity/api/client';
 import { listJoinRequests, resolveJoinRequest } from '../api/planner-client';
 import { AddGroupMembersDialog } from '../components/AddGroupMembersDialog';
 import { CreatePlanDialog } from '../components/CreatePlanDialog';
+import { DeleteGroupDialog } from '../components/DeleteGroupDialog';
 import { GroupDetailHeader } from '../components/GroupDetailHeader';
 import { GroupMembersTable } from '../components/GroupMembersTable';
 import { GroupPlansSection, THEME_HEX } from '../components/GroupPlansSection';
 import { GroupRail } from '../components/GroupRail';
-import { RenameGroupDialog } from '../components/RenameGroupDialog';
+import { EditGroupDialog } from '../components/RenameGroupDialog';
+import { useDeleteGroup } from '../hooks/mutations/delete-group';
+import { useRestoreGroup } from '../hooks/mutations/restore-group';
 import { useSetMemberRole } from '../hooks/mutations/set-member-role';
 import { useGroup } from '../hooks/queries/use-group';
 import { useGroupActivity } from '../hooks/queries/use-group-activity';
@@ -77,10 +85,15 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
   const activityQuery = useGroupActivity(groupId, 7);
   const setMemberRoleMutation = useSetMemberRole(groupId);
   const navigate = useNavigate();
+  const deleteGroup = useDeleteGroup(groupId);
+  const restoreGroup = useRestoreGroup();
 
   const [createPlanOpen, setCreatePlanOpen] = useState(false);
-  const [renameOpen, setRenameOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [addMembersOpen, setAddMembersOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [archiveM365Open, setArchiveM365Open] = useState(false);
 
   // Capability checks
   const roles = session.role_summary.roles;
@@ -135,8 +148,57 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
   const themeColor = THEME_HEX[group.theme as keyof typeof THEME_HEX] ?? THEME_HEX.blue;
 
   function handleMenuAction(action: 'archive' | 'delete') {
-    // Placeholder — full implementation in a follow-up PR
-    toast(`${action === 'archive' ? 'Archiving' : 'Deleting'} groups is coming soon.`);
+    if (action === 'delete') {
+      setDeleteError(null);
+      setDeleteOpen(true);
+      return;
+    }
+    // Archive
+    if (group.external_source === 'm365') {
+      setArchiveM365Open(true);
+      return;
+    }
+    doArchive();
+  }
+
+  function doArchive() {
+    deleteGroup.mutate(
+      { expected_version: group.version },
+      {
+        onSuccess: () => {
+          toast('Group archived. You can restore it from the Archived filter.');
+          void navigate({ to: '/planner/groups' });
+        },
+        onError: (e) => toast.error(e instanceof Error ? e.message : "Couldn't archive the group."),
+      },
+    );
+  }
+
+  function doDelete() {
+    setDeleteError(null);
+    deleteGroup.mutate(
+      { expected_version: group.version },
+      {
+        onSuccess: () => {
+          setDeleteOpen(false);
+          toast('Group archived. You can restore it from the Archived filter.');
+          void navigate({ to: '/planner/groups' });
+        },
+        onError: (e) => {
+          setDeleteError(e instanceof Error ? e.message : "Couldn't delete the group.");
+        },
+      },
+    );
+  }
+
+  function doRestore() {
+    restoreGroup.mutate(
+      { group_id: groupId },
+      {
+        onSuccess: () => toast('Group restored'),
+        onError: (e) => toast.error(e instanceof Error ? e.message : "Couldn't restore the group."),
+      },
+    );
   }
 
   return (
@@ -144,11 +206,24 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
       <GroupDetailHeader
         group={group}
         canManage={canManage}
-        onRenameClick={() => setRenameOpen(true)}
+        onEditClick={() => setEditOpen(true)}
         onInviteClick={() => setAddMembersOpen(true)}
         onCreatePlanClick={() => setCreatePlanOpen(true)}
         onMenuAction={handleMenuAction}
       />
+      {group.deleted_at && (
+        <div className="flex flex-none items-center justify-between gap-4 border-b border-hairline bg-semantic-warning-tint px-6 py-2 text-body-sm text-semantic-warning">
+          <span>This group is archived.</span>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={doRestore}
+            disabled={restoreGroup.isPending}
+          >
+            Restore
+          </Button>
+        </div>
+      )}
       <Tabs
         value={tab}
         onValueChange={(t) => onTabChange(t as GroupTab)}
@@ -266,13 +341,41 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
       </Tabs>
 
       <CreatePlanDialog groupId={groupId} open={createPlanOpen} onOpenChange={setCreatePlanOpen} />
-      <RenameGroupDialog
-        groupId={groupId}
-        currentName={group.name}
-        version={group.version}
-        open={renameOpen}
-        onOpenChange={setRenameOpen}
+      <EditGroupDialog group={group} open={editOpen} onOpenChange={setEditOpen} />
+      <DeleteGroupDialog
+        group={group}
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        onConfirm={doDelete}
+        isPending={deleteGroup.isPending}
+        error={deleteError}
       />
+      <Dialog open={archiveM365Open} onOpenChange={setArchiveM365Open}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Archive M365-linked group?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-body-sm text-ink-subtle">
+              This group is linked to Microsoft 365. Archiving pauses sync here, but the group
+              remains in Microsoft 365.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setArchiveM365Open(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  setArchiveM365Open(false);
+                  doArchive();
+                }}
+              >
+                Archive anyway
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
       <AddGroupMembersDialog
         groupId={groupId}
         existingMembers={members}

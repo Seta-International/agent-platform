@@ -4,8 +4,16 @@ import { plannerKeys } from '../../state/query-keys';
 import { parseConflictVersion, patchGroupVersion } from '../../state/version-reconcile';
 import { useOptimisticMutation } from '../use-optimistic-mutation';
 
+type GroupPatch = {
+  name?: string;
+  description?: string | null;
+  theme?: 'teal' | 'purple' | 'green' | 'blue' | 'pink' | 'orange' | 'red';
+  visibility?: 'private' | 'public';
+  default_role?: 'owner' | 'member';
+};
+
 export function useUpdateGroup(groupId: string) {
-  return useOptimisticMutation<{ expected_version: number; patch: { name?: string } }, GroupRow>({
+  return useOptimisticMutation<{ expected_version: number; patch: GroupPatch }, GroupRow>({
     mutationFn: (v) => plannerClient.updateGroup({ group_id: groupId, ...v }),
     snapshot: (_v, qc) => [
       { key: plannerKeys.group(groupId), prev: qc.getQueryData(plannerKeys.group(groupId)) },

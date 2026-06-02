@@ -10,6 +10,7 @@ import {
   KbdHint,
   PageChrome,
   Skeleton,
+  toast,
 } from '@seta/shared-ui';
 import { useNavigate } from '@tanstack/react-router';
 import { Cloud, Plus, Search } from 'lucide-react';
@@ -19,6 +20,7 @@ import { GroupsGrid } from '../components/GroupsGrid';
 import { GroupsTable } from '../components/GroupsTable';
 import { GroupsToolbar } from '../components/GroupsToolbar';
 import { LinkToM365Dialog } from '../components/LinkToM365Dialog';
+import { useRestoreGroup } from '../hooks/mutations/restore-group';
 import { useGroupsWithCounts } from '../hooks/queries/use-groups-with-counts';
 
 interface Props {
@@ -27,12 +29,27 @@ interface Props {
 
 export function GroupsPage({ canCreateGroup = false }: Props) {
   const navigate = useNavigate();
-  const q = useGroupsWithCounts();
   const [view, setView] = useState<'list' | 'grid'>('list');
   const [search, setSearch] = useState('');
   const [visibility, setVisibility] = useState<'private' | 'public' | null>(null);
   const [source, setSource] = useState<'native' | 'm365' | null>(null);
   const [owner, setOwner] = useState<string | null>(null);
+  const [status, setStatus] = useState<'active' | 'archived' | null>(null);
+  const q = useGroupsWithCounts({ includeDeleted: status === 'archived' });
+  const restoreGroup = useRestoreGroup();
+
+  function handleRestore(groupId: string) {
+    restoreGroup.mutate(
+      { group_id: groupId },
+      {
+        onSuccess: () => {
+          toast('Group restored');
+          void q.refetch();
+        },
+        onError: (e) => toast.error(e instanceof Error ? e.message : "Couldn't restore the group."),
+      },
+    );
+  }
   const [createOpen, setCreateOpen] = useState(false);
   const [syncFromIdPOpen, setSyncFromIdPOpen] = useState(false);
   const [groupToLink, setGroupToLink] = useState<string | null>(null);
@@ -127,6 +144,12 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
   if (!showSourceFilter && source !== null) setSource(null);
 
   const filtered = groups.filter((g) => {
+    // Status: archived view shows only deleted rows; active/null shows only live rows
+    if (status === 'archived') {
+      if (!g.deleted_at) return false;
+    } else {
+      if (g.deleted_at) return false;
+    }
     if (visibility && g.visibility !== visibility) return false;
     if (source && g.external_source !== source) return false;
     if (owner && g.created_by !== owner) return false;
@@ -184,12 +207,24 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
           onOwnerChange={setOwner}
           ownerOptions={ownerOptions}
           showSourceFilter={showSourceFilter}
+          status={status}
+          onStatusChange={setStatus}
         />
       }
     >
       <div className="flex h-full flex-col">
         <div className="flex-1 overflow-auto">
-          {view === 'list' ? <GroupsTable groups={filtered} /> : <GroupsGrid groups={filtered} />}
+          {view === 'list' ? (
+            <GroupsTable
+              groups={filtered}
+              onRestore={status === 'archived' ? handleRestore : undefined}
+            />
+          ) : (
+            <GroupsGrid
+              groups={filtered}
+              onRestore={status === 'archived' ? handleRestore : undefined}
+            />
+          )}
         </div>
         <footer className="flex h-11 flex-none items-center justify-between border-t border-hairline bg-canvas px-6 text-xs text-ink-muted">
           <span>
