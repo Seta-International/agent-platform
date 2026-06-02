@@ -14,7 +14,7 @@ import {
 } from '@seta/shared-ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Navigate, useNavigate } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { SessionScopeProjection } from '@/modules/identity/api/client';
 import { listJoinRequests, resolveJoinRequest } from '../api/planner-client';
 import { AddGroupMembersDialog } from '../components/AddGroupMembersDialog';
@@ -94,6 +94,15 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [archiveM365Open, setArchiveM365Open] = useState(false);
+  const [restorePromptOpen, setRestorePromptOpen] = useState(false);
+  const hasAutoPrompted = useRef(false);
+
+  useEffect(() => {
+    if (groupQuery.data?.deleted_at && !hasAutoPrompted.current) {
+      hasAutoPrompted.current = true;
+      setRestorePromptOpen(true);
+    }
+  }, [groupQuery.data?.deleted_at]);
 
   // Capability checks
   const roles = session.role_summary.roles;
@@ -371,6 +380,32 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
                 }}
               >
                 Archive anyway
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={restorePromptOpen} onOpenChange={setRestorePromptOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>This group is archived</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-body-sm text-ink-subtle">
+              This group has been archived. Would you like to restore it so it becomes active again?
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setRestorePromptOpen(false)}>
+                View anyway
+              </Button>
+              <Button
+                onClick={() => {
+                  setRestorePromptOpen(false);
+                  doRestore();
+                }}
+                disabled={restoreGroup.isPending}
+              >
+                Restore group
               </Button>
             </div>
           </div>
