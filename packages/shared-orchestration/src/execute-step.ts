@@ -1,4 +1,4 @@
-import type { SpecializedAgentSpec, TrustEnvelope } from '@seta/agent-sdk';
+import type { SpecializedAgentSpec, SubStepEvent, TrustEnvelope } from '@seta/agent-sdk';
 import { EMPTY_TRUST } from '@seta/agent-sdk';
 import type { RunRecord, RunStateRepository } from './repository.ts';
 import type { OrchestrationSpec, RunCtx } from './types.ts';
@@ -12,6 +12,8 @@ export class UnknownSpecializedAgentError extends Error {
 export interface ExecuteStepDeps {
   repo: RunStateRepository;
   getAgent: (id: string) => SpecializedAgentSpec | undefined;
+  /** Optional sink forwarded into the agent's run ctx (inline runner only). */
+  onEvent?: (event: SubStepEvent) => void;
 }
 
 export interface StepOutcome {
@@ -53,7 +55,11 @@ export async function executeStep(
   const rawInput = step.input(run.state, run.input);
   const input = agent.inputSchema.parse(rawInput);
 
-  const res = await agent.run(input, { tenantId: ctx.tenantId, actorUserId: ctx.actorUserId });
+  const res = await agent.run(input, {
+    tenantId: ctx.tenantId,
+    actorUserId: ctx.actorUserId,
+    onEvent: deps.onEvent,
+  });
   agent.outputSchema.parse(res.result);
 
   await deps.repo.saveStep({
