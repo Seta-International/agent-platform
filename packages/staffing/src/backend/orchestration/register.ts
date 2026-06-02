@@ -10,12 +10,12 @@ import {
 } from '@seta/shared-orchestration';
 import type { LanguageModel } from 'ai';
 import {
-  makeAnalyzerAgent,
-  makeAvaiCheckerAgent,
   makeRecommenderAgent,
   makeSkillMatcherAgent,
+  makeTaskAnalyzerAgent,
 } from './agents/index.ts';
-import { assigneeRecommendationSpec } from './assignee-recommendation.ts';
+import { makeOrchestratorAgent } from './orchestrator.ts';
+import { orchestratorSpec } from './orchestrator-spec.ts';
 import type { AvailabilityPort, SkillSearchPort, TaskReaderPort, TaskSearchPort } from './ports.ts';
 
 export interface StaffingPorts {
@@ -42,9 +42,11 @@ export function __setStaffingRunIdForTests(fn: () => string): void {
 }
 
 /**
- * Registers the four staffing agents + the assigneeRecommendation orchestration
- * into the kernel registries, and returns the worker task list + inline runner.
- * The caller (apps/server) freezes the registries after calling this.
+ * Registers the orchestrator agent + its single-step orchestration into the
+ * kernel registries, and returns the worker task list + inline runner. The
+ * orchestrator owns the flow, delegating to the task-analysis and recommendation
+ * sub-agents through its tools. The caller (apps/server) freezes the registries
+ * after calling this.
  */
 export function buildStaffingOrchestrationRuntime(deps: {
   ports: StaffingPorts;
@@ -53,22 +55,24 @@ export function buildStaffingOrchestrationRuntime(deps: {
 }): StaffingOrchestrationRuntime {
   const { ports, resolveModel, repo } = deps;
 
-  SpecializedAgentRegistry.register(
-    makeAnalyzerAgent({
-      taskReader: ports.taskReader,
-      taskSearch: ports.taskSearch,
-      resolveModel,
-    }),
-  );
-  SpecializedAgentRegistry.register(
-    makeSkillMatcherAgent({ skillSearch: ports.skillSearch, resolveModel }),
-  );
-  SpecializedAgentRegistry.register(
-    makeAvaiCheckerAgent({ availability: ports.availability, resolveModel }),
-  );
-  SpecializedAgentRegistry.register(makeRecommenderAgent());
+  // Sub-agents are invoked through the orchestrator's tools (direct .run calls),
+  // not via the registry, so only the orchestrator agent is registered.
+  const taskAnalyzer = makeTaskAnalyzerAgent({
+    taskReader: ports.taskReader,
+    taskSearch: ports.taskSearch,
+    resolveModel,
+  });
+  const skillMatcher = makeSkillMatcherAgent({ skillSearch: ports.skillSearch, resolveModel });
+  const recommender = makeRecommenderAgent();
+  const orchestrator = makeOrchestratorAgent({
+    taskAnalyzer,
+    skillMatcher,
+    recommender,
+    resolveModel,
+  });
 
-  OrchestrationRegistry.register(assigneeRecommendationSpec);
+  SpecializedAgentRegistry.register(orchestrator);
+  OrchestrationRegistry.register(orchestratorSpec);
 
   const runnerDeps = {
     repo,
@@ -79,10 +83,7 @@ export function buildStaffingOrchestrationRuntime(deps: {
   const taskList = makeOrchestrationTaskList(runnerDeps);
 
   const runInline: StaffingOrchestrationRuntime['runInline'] = (runInput, ctx) =>
-    runOrchestrationInline('staffing.assigneeRecommendation', runInput, ctx, {
-      ...runnerDeps,
-      newRunId,
-    });
+    runOrchestrationInline('staffing.orchestrator', runInput, ctx, { ...runnerDeps, newRunId });
 
   return { taskList, runInline, repo };
 }

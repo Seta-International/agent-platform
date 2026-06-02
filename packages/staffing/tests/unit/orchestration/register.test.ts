@@ -25,7 +25,7 @@ afterEach(() => {
 });
 
 describe('buildStaffingOrchestrationRuntime', () => {
-  it('registers the four agents and the orchestration, and returns a runtime', () => {
+  it('registers the orchestrator agent + spec and returns a runtime', () => {
     const rt = buildStaffingOrchestrationRuntime({
       ports: fakePorts,
       resolveModel: () => ({}) as never,
@@ -34,9 +34,10 @@ describe('buildStaffingOrchestrationRuntime', () => {
     SpecializedAgentRegistry.freeze();
     OrchestrationRegistry.freeze();
 
-    expect(SpecializedAgentRegistry.get('staffing.analyzer')).toBeDefined();
-    expect(SpecializedAgentRegistry.get('staffing.recommender')).toBeDefined();
-    expect(OrchestrationRegistry.get('staffing.assigneeRecommendation')).toBeDefined();
+    expect(SpecializedAgentRegistry.get('staffing.orchestrator')).toBeDefined();
+    expect(OrchestrationRegistry.get('staffing.orchestrator')).toBeDefined();
+    expect(SpecializedAgentRegistry.get('staffing.analyzer')).toBeUndefined();
+    expect(OrchestrationRegistry.get('staffing.assigneeRecommendation')).toBeUndefined();
     expect(typeof rt.runInline).toBe('function');
     expect(rt.taskList[ORCH_JOBS.RUN_STEP]).toBeDefined();
   });
