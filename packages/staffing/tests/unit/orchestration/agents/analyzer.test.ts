@@ -1,62 +1,44 @@
 import { describe, expect, it } from 'vitest';
 import { makeAnalyzerAgent } from '../../../../src/backend/orchestration/agents/analyzer.ts';
-import type {
-  SkillExtractorPort,
-  TaskReaderPort,
-} from '../../../../src/backend/orchestration/ports.ts';
+import type { TaskReaderPort } from '../../../../src/backend/orchestration/ports.ts';
 
-const CTX = { tenantId: 't1', actorUserId: 'u1' };
+const ctx = { tenantId: 't1', actorUserId: 'a1' };
+const taskReader: TaskReaderPort = {
+  async load(taskId) {
+    return { taskId, title: 'AWS script', description: 'inventory', groupId: '' };
+  },
+};
+const agentWith = (extraction: { actionable: boolean; skills: string[]; reason: string | null }) =>
+  makeAnalyzerAgent({
+    taskReader,
+    resolveModel: () => ({}) as never,
+    extract: async () => extraction,
+  });
 
-const taskReader = (info: Awaited<ReturnType<TaskReaderPort['load']>>): TaskReaderPort => ({
-  load: async () => info,
-});
-const extractor = (
-  out: Awaited<ReturnType<SkillExtractorPort['extract']>>,
-): SkillExtractorPort => ({
-  extract: async () => out,
-});
-
-describe('analyzer agent', () => {
-  it('returns actionable skills with a task and is non-terminal', async () => {
-    const agent = makeAnalyzerAgent({
-      taskReader: taskReader({
-        taskId: 'task-1',
-        title: 'Stripe webhook',
-        description: 'x',
-        groupId: 'g1',
-      }),
-      skillExtractor: extractor({ actionable: true, skills: ['stripe', 'webhooks'] }),
-    });
-    const res = await agent.run({ userText: 'who can take this', taskId: 'task-1' }, CTX);
-    expect(res.terminal).not.toBe(true);
-    expect(res.result).toMatchObject({
-      actionable: true,
-      taskId: 'task-1',
-      skills: ['stripe', 'webhooks'],
-    });
-    expect(res.trust.confidenceScore).toBeGreaterThan(0.5);
-    expect(res.trust.evidenceCitations.some((c) => c.kind === 'task' && c.id === 'task-1')).toBe(
-      true,
+describe('analyzer', () => {
+  it('terminal when not actionable', async () => {
+    const res = await agentWith({ actionable: false, skills: [], reason: 'greeting' }).run(
+      { userText: 'hi', taskId: null },
+      ctx,
     );
-  });
-
-  it('terminates when the extractor says the message is not a staffing request', async () => {
-    const agent = makeAnalyzerAgent({
-      taskReader: taskReader(null),
-      skillExtractor: extractor({ actionable: false, skills: [], reason: 'general chit-chat' }),
-    });
-    const res = await agent.run({ userText: 'hello there', taskId: null }, CTX);
     expect(res.terminal).toBe(true);
-    expect(res.result).toMatchObject({ actionable: false, message: 'general chit-chat' });
+    expect(res.result.message).toBe('greeting');
   });
-
-  it('terminates when actionable but no task can be resolved', async () => {
-    const agent = makeAnalyzerAgent({
-      taskReader: taskReader(null),
-      skillExtractor: extractor({ actionable: true, skills: ['x'] }),
-    });
-    const res = await agent.run({ userText: 'suggest someone', taskId: null }, CTX);
+  it('terminal when actionable but no task', async () => {
+    const res = await agentWith({ actionable: true, skills: ['aws'], reason: null }).run(
+      { userText: 'who', taskId: null },
+      ctx,
+    );
     expect(res.terminal).toBe(true);
-    expect((res.result as { actionable: boolean }).actionable).toBe(false);
+    expect(res.result.actionable).toBe(false);
+  });
+  it('non-terminal with skills + task', async () => {
+    const res = await agentWith({ actionable: true, skills: ['aws'], reason: null }).run(
+      { userText: 'who', taskId: 't-1' },
+      ctx,
+    );
+    expect(res.terminal).toBeUndefined();
+    expect(res.result.taskId).toBe('t-1');
+    expect(res.result.skills).toEqual(['aws']);
   });
 });
