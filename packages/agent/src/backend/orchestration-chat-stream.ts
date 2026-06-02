@@ -58,22 +58,39 @@ function formatFinal(result: unknown): string {
  *  `{ type:'data', name:'orchestration-step', data }`. */
 export const ORCHESTRATION_STEP_PART = 'orchestration-step' as const;
 
+/** A persisted assistant-message part. Mirrors the shape the read path
+ *  (`mastraPartToUIPart` in routes.ts) reconstructs and the frontend renders:
+ *  one `data-orchestration-step` card per step, then the final answer text. */
+export type OrchestrationAssistantPart =
+  | {
+      type: `data-${typeof ORCHESTRATION_STEP_PART}`;
+      id: string;
+      data: { stepId: string; agentId?: string; status: 'done'; trust: unknown };
+    }
+  | { type: 'text'; text: string };
+
 /**
  * Maps an orchestration event stream onto AI SDK v6 UI stream chunks. Each step
  * is surfaced as a reconciled `data-orchestration-step` part carrying the full
  * TrustEnvelope (reasoning trace + citations + confidence) for the trace UI; the
  * final answer follows as one text part. Pure: the caller provides the writer
  * (the route wraps a createUIMessageStream writer; tests pass a fake).
+ *
+ * Returns the assistant-message parts (one done-card per step + the final text)
+ * so the caller can persist the turn to Mastra memory — without persistence the
+ * AUI remote-thread-list reconciles against an empty server and the streamed
+ * conversation "reloads and disappears" the moment it refreshes its thread list.
  */
 export async function streamOrchestrationToUI(
   writer: UiStreamWriter,
   events: AsyncIterable<OrchestrationEvent>,
   opts: { textId?: string } = {},
-): Promise<void> {
+): Promise<{ assistantParts: OrchestrationAssistantPart[] }> {
   const id = opts.textId ?? 'orchestration';
   // step-done carries no agentId; remember it from step-start so the done card
   // keeps the agent label.
   const agentByStep = new Map<string, string>();
+  const assistantParts: OrchestrationAssistantPart[] = [];
   let finalResult: unknown;
   for await (const ev of events) {
     if (ev.kind === 'step-start') {
@@ -84,22 +101,23 @@ export async function streamOrchestrationToUI(
         data: { stepId: ev.stepId, agentId: ev.agentId, status: 'running' },
       });
     } else if (ev.kind === 'step-done') {
-      writer.write({
-        type: `data-${ORCHESTRATION_STEP_PART}`,
-        id: ev.stepId,
-        data: {
-          stepId: ev.stepId,
-          agentId: agentByStep.get(ev.stepId),
-          status: 'done',
-          trust: ev.trust,
-        },
-      });
+      const data = {
+        stepId: ev.stepId,
+        agentId: agentByStep.get(ev.stepId),
+        status: 'done' as const,
+        trust: ev.trust,
+      };
+      writer.write({ type: `data-${ORCHESTRATION_STEP_PART}`, id: ev.stepId, data });
+      assistantParts.push({ type: `data-${ORCHESTRATION_STEP_PART}`, id: ev.stepId, data });
     } else if (ev.kind === 'final') {
       finalResult = ev.result;
     }
   }
   // The answer text part follows the timeline cards.
+  const finalText = formatFinal(finalResult);
   writer.write({ type: 'text-start', id });
-  writer.write({ type: 'text-delta', id, delta: formatFinal(finalResult) });
+  writer.write({ type: 'text-delta', id, delta: finalText });
   writer.write({ type: 'text-end', id });
+  assistantParts.push({ type: 'text', text: finalText });
+  return { assistantParts };
 }

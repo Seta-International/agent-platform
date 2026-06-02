@@ -27,7 +27,7 @@ import { replayWorkflowFromStep } from './domain/replay-workflow-from-step.ts';
 import { rerunWorkflow } from './domain/rerun-workflow.ts';
 import { agentEnv } from './env.ts';
 import { listModels, ModelNotFoundError, resolveModel } from './model-registry.ts';
-import { streamOrchestrationToUI } from './orchestration-chat-stream.ts';
+import { ORCHESTRATION_STEP_PART, streamOrchestrationToUI } from './orchestration-chat-stream.ts';
 import { commitActualTokens, RateLimitError, reserveTurn } from './rate-limit.ts';
 import { readRoutingCache, writeRoutingCache } from './routing-cache.ts';
 import { selectAgent } from './routing-fast-path.ts';
@@ -205,7 +205,9 @@ function pageContextTaskId(messages: UIMessage[]): string | null {
     const m = messages[i];
     if (!m || m.role !== 'user') continue;
     const ctx = (m.parts ?? []).find(isPageContextPart);
-    if (ctx && ctx.data.kind === 'task') return ctx.data.id;
+    // The planner task page sets page-context kind 'planner.task'; accept the
+    // bare 'task' too (used by API callers / tests).
+    if (ctx && (ctx.data.kind === 'task' || ctx.data.kind === 'planner.task')) return ctx.data.id;
   }
   return null;
 }
@@ -278,16 +280,96 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
     if (deps.chatOrchestration) {
       const taskId = pageContextTaskId(effectiveMessages);
       const orchestrate = deps.chatOrchestration;
+      const orchThreadId = parsed.data.id;
+      const orchStore = getMemoryStore();
+      // Original (un-prefixed) last user message — what the user actually typed,
+      // persisted as-is so reload shows clean text (no injected [Context] prefix).
+      const lastUserMessage = [...messages].reverse().find((m) => m.role === 'user');
+      const userCreatedAt = new Date();
+      // The orchestration harness has no LLM title-gen; derive a thread title
+      // from the user's (un-prefixed) question so the rail shows a real label.
+      const cleanUserText = (lastUserMessage?.parts ?? [])
+        .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
+        .map((p) => p.text)
+        .join(' ')
+        .trim();
+      const orchThreadTitle = (cleanUserText || userText).slice(0, 80) || 'New conversation';
+
+      // Create the thread row up front (mirrors the workflow-start path, which
+      // projects synchronously so a GET never 404s). The orchestration harness
+      // has no Mastra Agent.stream to persist for us; without a thread row the
+      // AUI remote-thread-list reconciles against an empty server and evicts the
+      // in-flight conversation — it "reloads and disappears" mid-stream. The
+      // ownership guard mirrors the supervisor path: never write onto another
+      // user's thread.
+      if (orchThreadId && orchStore) {
+        const existing = await orchStore.getThreadById({ threadId: orchThreadId });
+        if (existing && existing.resourceId !== session.user_id) {
+          return c.json({ error: 'not_found', message: 'thread not found' }, 404);
+        }
+        if (!existing) {
+          await orchStore.saveThread({
+            thread: {
+              id: orchThreadId,
+              resourceId: session.user_id,
+              title: orchThreadTitle,
+              createdAt: userCreatedAt,
+              updatedAt: userCreatedAt,
+              metadata: {},
+            },
+          });
+        }
+      }
+
       const uiStream = createUIMessageStream({
         originalMessages: effectiveMessages,
         execute: async ({ writer }) => {
-          await streamOrchestrationToUI(
+          const { assistantParts } = await streamOrchestrationToUI(
             writer as unknown as import('./orchestration-chat-stream.ts').UiStreamWriter,
             orchestrate(
               { userText, taskId },
               { tenantId: session.tenant_id, actorUserId: session.user_id },
             ),
           );
+          // Persist the user turn + assistant trace timeline so the conversation
+          // survives reload (GET /threads/:id rebuilds the cards + final answer).
+          if (!orchThreadId || !orchStore) return;
+          try {
+            const assistantCreatedAt = new Date(Math.max(Date.now(), userCreatedAt.getTime() + 1));
+            await orchStore.saveMessages({
+              messages: [
+                {
+                  id: lastUserMessage?.id ?? crypto.randomUUID(),
+                  threadId: orchThreadId,
+                  resourceId: session.user_id,
+                  role: 'user',
+                  createdAt: userCreatedAt,
+                  content: {
+                    format: 2,
+                    parts: lastUserMessage?.parts ?? [{ type: 'text', text: userText }],
+                  },
+                },
+                {
+                  id: crypto.randomUUID(),
+                  threadId: orchThreadId,
+                  resourceId: session.user_id,
+                  role: 'assistant',
+                  createdAt: assistantCreatedAt,
+                  content: { format: 2, parts: assistantParts },
+                },
+              ],
+            });
+          } catch (err) {
+            (deps.log?.error ?? console.error)(
+              {
+                subsystem: 'agent.chat',
+                event: 'orchestration.persist.failed',
+                threadId: orchThreadId,
+                err,
+              },
+              'failed to persist orchestration chat turn',
+            );
+          }
         },
       });
       return createUIMessageStreamResponse({ stream: uiStream, headers: NO_BUFFER_HEADERS });
@@ -483,6 +565,17 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
   type MemoryStore = {
     listThreads(args: ListThreadsArgs): Promise<{ threads: ThreadRow[] }>;
     getThreadById(q: { threadId: string; resourceId?: string }): Promise<ThreadRow | null>;
+    saveThread(q: {
+      thread: {
+        id: string;
+        resourceId: string;
+        title?: string;
+        createdAt: Date;
+        updatedAt: Date;
+        metadata?: Record<string, unknown>;
+      };
+    }): Promise<ThreadRow>;
+    saveMessages(q: { messages: unknown[] }): Promise<unknown>;
     updateThread(q: {
       id: string;
       title: string;
@@ -524,12 +617,20 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
       toolResults: { toolCallId: string; isError: boolean }[];
     };
   };
+  // Reconstructs the per-step trust-trace card the orchestration chat stream
+  // emits (see orchestration-chat-stream.ts) so the timeline renders on reload.
+  type DataOrchestrationStepPart = {
+    type: `data-${typeof ORCHESTRATION_STEP_PART}`;
+    id: string;
+    data: { stepId: string; agentId?: string; status: string; trust?: unknown };
+  };
   type UIMessagePart =
     | TextUIPart
     | ReasoningUIPart
     | ToolUIPart
     | DataPageContextPart
-    | DataToolAgentPart;
+    | DataToolAgentPart
+    | DataOrchestrationStepPart;
   type UIMessageLike = { id: string; role: 'user' | 'assistant'; parts: UIMessagePart[] };
 
   // Mastra stores tool calls as `{ type:'tool-invocation', toolInvocation }`; ai@6 wants
@@ -631,6 +732,22 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
         type: 'data-page-context' as const,
         id,
         data: { kind: d.kind, id: d.id, label: d.label, ...(summary ? { summary } : {}) },
+      };
+    }
+    if (type === `data-${ORCHESTRATION_STEP_PART}`) {
+      const r = raw as { id?: unknown; data?: unknown };
+      const d = r.data as { stepId?: unknown; agentId?: unknown; status?: unknown } | undefined;
+      if (!d || typeof d.stepId !== 'string' || typeof d.status !== 'string') return null;
+      const id = typeof r.id === 'string' ? r.id : d.stepId;
+      return {
+        type: `data-${ORCHESTRATION_STEP_PART}`,
+        id,
+        data: {
+          stepId: d.stepId,
+          ...(typeof d.agentId === 'string' ? { agentId: d.agentId } : {}),
+          status: d.status,
+          trust: (r.data as { trust?: unknown }).trust,
+        },
       };
     }
     return null;
