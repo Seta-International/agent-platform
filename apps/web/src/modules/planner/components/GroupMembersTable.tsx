@@ -214,7 +214,14 @@ export function GroupMembersTable({
             <span className="text-body-sm text-ink-subtle">
               {selectedIds.length} {selectedIds.length === 1 ? 'member' : 'members'} selected
             </span>
-            <Button variant="destructive" size="sm" onClick={() => onRemoveMembers(selectedIds)}>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => {
+                onRemoveMembers(selectedIds);
+                setRowSelection({});
+              }}
+            >
               Remove selected
             </Button>
             <Button variant="ghost" size="sm" onClick={() => setRowSelection({})}>
