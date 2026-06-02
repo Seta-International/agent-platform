@@ -2,11 +2,17 @@ import { resetCoreDb } from '@seta/core/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
-import { listTasksBySkillTag } from '../../src/backend/domain/list-tasks-by-skill-tag.ts';
-import { assignTask, createGroup, createPlan, createTask, updateTask } from '../../src/index.ts';
+import {
+  assignTask,
+  createGroup,
+  createPlan,
+  createTask,
+  listTasksBySkillTag,
+  updateTask,
+} from '../../src/index.ts';
 import { buildSession, seedTenant } from '../helpers.ts';
 
-const withDb = <T>(fn: Parameters<typeof withTestDb>[1]) =>
+const withDb = (fn: Parameters<typeof withTestDb>[1]) =>
   withTestDb(
     {
       templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,

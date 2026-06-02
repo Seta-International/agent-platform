@@ -63,6 +63,11 @@ export type {
 export { listTaskEvents } from './backend/domain/list-task-events.ts';
 export type { ListTasksFilters } from './backend/domain/list-tasks.ts';
 export { listTasks } from './backend/domain/list-tasks.ts';
+export type {
+  ListTasksBySkillTagInput,
+  ListTasksBySkillTagRow,
+} from './backend/domain/list-tasks-by-skill-tag.ts';
+export { listTasksBySkillTag } from './backend/domain/list-tasks-by-skill-tag.ts';
 export { markGroupSyncStatus } from './backend/domain/mark-group-sync-status.ts';
 export { markPlanSyncStatus } from './backend/domain/mark-plan-sync-status.ts';
 export { markTaskSyncStatus } from './backend/domain/mark-task-sync-status.ts';
