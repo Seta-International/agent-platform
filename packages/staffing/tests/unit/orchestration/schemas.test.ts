@@ -4,6 +4,7 @@ import {
   RankedCandidateSchema,
   RecommendationSchema,
   SkillRequirementSchema,
+  TaskSummarySchema,
 } from '../../../src/backend/orchestration/schemas.ts';
 
 describe('orchestration schemas', () => {
@@ -44,5 +45,27 @@ describe('orchestration schemas', () => {
       status: 'available',
     });
     expect(r.skillMatch).toEqual(['x']);
+  });
+  it('SkillRequirement accepts an optional tasks list (find_tasks result)', () => {
+    const r = SkillRequirementSchema.parse({
+      actionable: false,
+      skills: [],
+      tasks: [
+        {
+          taskId: 't1',
+          title: 'Provision cluster',
+          status: 'not_started',
+          skillTags: ['infrastructure'],
+        },
+      ],
+    });
+    expect(r.tasks).toHaveLength(1);
+    expect(r.tasks![0]!.status).toBe('not_started');
+  });
+
+  it('TaskSummary rejects an invalid status', () => {
+    expect(() =>
+      TaskSummarySchema.parse({ taskId: 't1', title: 'x', status: 'nope', skillTags: [] }),
+    ).toThrow();
   });
 });

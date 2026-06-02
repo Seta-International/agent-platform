@@ -3,6 +3,14 @@ import { z } from 'zod';
 export const AvailabilityStatus = z.enum(['available', 'busy', 'ooo']);
 export type AvailabilityStatus = z.infer<typeof AvailabilityStatus>;
 
+/** One task returned by the analyzer's find_tasks (terminal) branch. */
+export const TaskSummarySchema = z.object({
+  taskId: z.string(),
+  title: z.string(),
+  status: z.enum(['not_started', 'in_progress', 'completed']),
+  skillTags: z.array(z.string()),
+});
+
 /** analyzer output (also the self-gating signal: actionable=false => terminal). */
 export const SkillRequirementSchema = z.object({
   actionable: z.boolean(),
@@ -10,6 +18,9 @@ export const SkillRequirementSchema = z.object({
   title: z.string().optional(),
   skills: z.array(z.string()).default([]),
   message: z.string().optional(), // set when !actionable
+  // Present only on the find_tasks terminal result; match/recommend never read it,
+  // so adding it does not affect the assignee-recommendation pipeline.
+  tasks: z.array(TaskSummarySchema).optional(),
 });
 export type SkillRequirement = z.infer<typeof SkillRequirementSchema>;
 
