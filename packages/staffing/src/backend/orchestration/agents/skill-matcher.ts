@@ -1,4 +1,7 @@
-import type { AgentResult, Citation, SpecializedAgentSpec, TrustEnvelope } from '@seta/agent-sdk';
+import { Agent } from '@mastra/core/agent';
+import { RequestContext } from '@mastra/core/request-context';
+import type { AgentResult, Citation, SpecializedAgentSpec } from '@seta/agent-sdk';
+import type { LanguageModel } from 'ai';
 import type { z } from 'zod';
 import type { SkillSearchHit, SkillSearchPort } from '../ports.ts';
 import {
@@ -6,95 +9,120 @@ import {
   SkillMatcherInputSchema,
   SkillMatcherOutputSchema,
 } from '../schemas.ts';
+import { type MastraToolSignals, trustFromMastraResult } from '../trust.ts';
+import { makeSkillMatcherTools } from './skill-matcher.tools.ts';
+
+type Out = z.infer<typeof SkillMatcherOutputSchema>;
+type In = z.infer<typeof SkillMatcherInputSchema>;
 
 export interface SkillMatcherDeps {
   skillSearch: SkillSearchPort;
+  resolveModel: () => LanguageModel;
   topK?: number;
+  /** Test-only seam; production builds + runs a real Mastra Agent. */
+  runAgent?: (args: { input: In; requestContext: RequestContext }) => Promise<MastraToolSignals>;
 }
 
-type Out = z.infer<typeof SkillMatcherOutputSchema>;
+const INSTRUCTIONS = [
+  'You find and rank candidate users for a task by required skills.',
+  'ALWAYS call searchCandidates with the required skills, then call rankCandidates',
+  'with those hits and the required skills. Never invent people.',
+].join(' ');
 
-function countMatches(candidateSkills: string[], required: string[]): number {
-  const have = new Set(candidateSkills.map((s) => s.toLowerCase()));
-  return required.filter((r) => have.has(r.toLowerCase())).length;
+function toolResult(res: MastraToolSignals, name: string): unknown {
+  return res.toolResults.find((t) => t.payload.toolName === name)?.payload.result;
 }
 
-export function makeSkillMatcherAgent(
-  deps: SkillMatcherDeps,
-): SpecializedAgentSpec<{ taskId: string; skills: string[] }, Out> {
+export function makeSkillMatcherAgent(deps: SkillMatcherDeps): SpecializedAgentSpec<In, Out> {
+  const tools = makeSkillMatcherTools({ skillSearch: deps.skillSearch, topK: deps.topK });
+  const agent = new Agent({
+    id: 'staffing.skillMatcher',
+    name: 'Skill Matcher',
+    instructions: INSTRUCTIONS,
+    model: deps.resolveModel() as never,
+    tools: tools as never,
+  });
+
   return {
     id: 'staffing.skillMatcher',
-    description: 'Finds and ranks candidate users by skill overlap via vector search.',
+    description: 'Finds and ranks candidate users by skill overlap via vector search (LLM-driven).',
     inputSchema: SkillMatcherInputSchema,
     outputSchema: SkillMatcherOutputSchema,
     run: async (input, ctx): Promise<AgentResult<Out>> => {
-      const hits = await deps.skillSearch.search(
-        { skills: input.skills, topK: deps.topK ?? 10 },
-        ctx,
-      );
+      const rc = new RequestContext();
+      rc.set('actor', { type: 'user', user_id: ctx.actorUserId });
+      rc.set('tenant_id', ctx.tenantId);
 
-      // Merge hits per user: union skills, keep best similarity.
-      const byUser = new Map<
-        string,
-        { hit: SkillSearchHit; bestSim: number; skills: Set<string> }
-      >();
-      for (const h of hits) {
-        const prev = byUser.get(h.userId);
-        if (prev) {
-          for (const s of h.skills) prev.skills.add(s);
-          prev.bestSim = Math.max(prev.bestSim, h.similarity);
-        } else {
-          byUser.set(h.userId, { hit: h, bestSim: h.similarity, skills: new Set(h.skills) });
-        }
-      }
+      const res: MastraToolSignals = deps.runAgent
+        ? await deps.runAgent({ input, requestContext: rc })
+        : await (async () => {
+            const r = await agent.generate(
+              `taskId=${input.taskId}. Required skills: ${input.skills.join(', ')}. Find and rank candidates.`,
+              { requestContext: rc, maxSteps: 5, abortSignal: ctx.abortSignal },
+            );
+            return {
+              toolCalls: r.toolCalls as MastraToolSignals['toolCalls'],
+              toolResults: r.toolResults as MastraToolSignals['toolResults'],
+            };
+          })();
 
-      const merged = Array.from(byUser.values()).map((m) => {
-        const skills = Array.from(m.skills);
-        return {
-          userId: m.hit.userId,
-          name: m.hit.name,
-          skills,
-          role: m.hit.role,
-          skillMatchCount: countMatches(skills, input.skills),
-          bestSim: m.bestSim,
-        };
+      // Authoritative list = rankCandidates result; fall back to ranking the raw hits.
+      const ranked = (
+        toolResult(res, 'rankCandidates') as { candidates?: RankedCandidate[] } | undefined
+      )?.candidates;
+      const hits =
+        (toolResult(res, 'searchCandidates') as { hits?: SkillSearchHit[] } | undefined)?.hits ??
+        [];
+      const candidates = ranked ?? fallbackRank(hits, input.skills);
+
+      const trust = trustFromMastraResult(res, {
+        citations: (tr) => {
+          if (tr.payload.toolName !== 'searchCandidates') return [];
+          const hs = (tr.payload.result as { hits?: SkillSearchHit[] }).hits ?? [];
+          return hs.map<Citation>((h) => ({
+            kind: 'user',
+            id: h.userId,
+            label: h.name ?? undefined,
+            score: h.similarity,
+          }));
+        },
+        confidence: hits.reduce((mx, h) => Math.max(mx, h.similarity), 0),
       });
-
-      merged.sort((a, b) =>
-        b.skillMatchCount !== a.skillMatchCount
-          ? b.skillMatchCount - a.skillMatchCount
-          : b.bestSim - a.bestSim,
-      );
-
-      const candidates: RankedCandidate[] = merged.map((m, i) => ({
-        userId: m.userId,
-        name: m.name,
-        skills: m.skills,
-        role: m.role,
-        skillMatchCount: m.skillMatchCount,
-        rank: i + 1,
-      }));
-
-      const citations: Citation[] = hits.map((h) => ({
-        kind: 'user',
-        id: h.userId,
-        label: h.name ?? undefined,
-        score: h.similarity,
-      }));
-      const topSim = hits.reduce((mx, h) => Math.max(mx, h.similarity), 0);
-      const trust: TrustEnvelope = {
-        reasoningTrace: [
-          {
-            step: 'vector_search',
-            detail: `${hits.length} hits, ${candidates.length} candidates for ${input.skills.length} skills`,
-            at: new Date().toISOString(),
-          },
-        ],
-        evidenceCitations: citations,
-        confidenceScore: Math.max(0, Math.min(1, topSim)),
-      };
 
       return { result: { taskId: input.taskId, candidates }, trust };
     },
   };
+}
+
+function fallbackRank(hits: SkillSearchHit[], required: string[]): RankedCandidate[] {
+  const have = (skills: string[]) => new Set(skills.map((s) => s.toLowerCase()));
+  const byUser = new Map<string, { hit: SkillSearchHit; bestSim: number; skills: Set<string> }>();
+  for (const h of hits) {
+    const prev = byUser.get(h.userId);
+    if (prev) {
+      for (const s of h.skills) prev.skills.add(s);
+      prev.bestSim = Math.max(prev.bestSim, h.similarity);
+    } else byUser.set(h.userId, { hit: h, bestSim: h.similarity, skills: new Set(h.skills) });
+  }
+  const reqLower = required.map((r) => r.toLowerCase());
+  return Array.from(byUser.values())
+    .map((m) => {
+      const skills = Array.from(m.skills);
+      const hv = have(skills);
+      return {
+        hit: m.hit,
+        skills,
+        matches: reqLower.filter((r) => hv.has(r)).length,
+        bestSim: m.bestSim,
+      };
+    })
+    .sort((a, b) => (b.matches !== a.matches ? b.matches - a.matches : b.bestSim - a.bestSim))
+    .map((m, i) => ({
+      userId: m.hit.userId,
+      name: m.hit.name,
+      skills: m.skills,
+      role: m.hit.role,
+      skillMatchCount: m.matches,
+      rank: i + 1,
+    }));
 }
