@@ -19,37 +19,55 @@ interface TaskSummary {
   skillTags: string[];
 }
 
+interface OrchestratorResult {
+  skills?: string[];
+  tasks?: { task: TaskSummary; recommendations?: Recommendation[] }[];
+  recommendations?: Recommendation[];
+  message?: string;
+}
+
+function recLine(x: Recommendation, i: number): string {
+  return `${i + 1}. ${x.name ?? x.userId} — skills:${x.skillMatchCount} (${x.skillMatch.join(', ')}) · ${x.status}`;
+}
+
 function formatFinal(result: unknown): string {
-  const r = result as {
-    actionable?: boolean;
-    message?: string;
-    recommendations?: Recommendation[];
-    tasks?: TaskSummary[];
-  };
-  // find_tasks (terminal) result: a task list (possibly empty). Checked first —
-  // only this branch carries a `tasks` array; recommend results never do.
-  if (r && Array.isArray(r.tasks)) {
+  const r = (result ?? {}) as OrchestratorResult;
+
+  // find / find+recommend
+  if (Array.isArray(r.tasks)) {
     if (r.tasks.length === 0) return '\nNo matching tasks found.\n';
-    const lines = r.tasks
-      .slice(0, 20)
-      .map(
-        (t, i) =>
-          `${i + 1}. ${t.title} [${t.status}] — tags: ${t.skillTags.join(', ') || '(none)'}`,
-      );
-    return `\nTasks:\n${lines.join('\n')}\n`;
+    const withRecs = r.tasks.filter((t) => t.recommendations).length;
+    const lines = r.tasks.map((t, i) => {
+      const base = `${i + 1}. ${t.task.title} [${t.task.status}] — tags: ${t.task.skillTags.join(', ') || '(none)'}`;
+      if (!t.recommendations) return base;
+      const people =
+        t.recommendations
+          .slice(0, 3)
+          .map((x) => `${x.name ?? x.userId} (skills:${x.skillMatchCount})`)
+          .join('; ') || 'no suitable candidates';
+      return `${base}\n   → ${people}`;
+    });
+    const header =
+      withRecs > 0 && withRecs < r.tasks.length
+        ? `\nTasks (recommendations for the first ${withRecs} of ${r.tasks.length}):`
+        : '\nTasks:';
+    return `${header}\n${lines.join('\n')}\n`;
   }
-  if (r && r.actionable === false) {
-    return `\n${r.message ?? 'Nothing to recommend.'}\n`;
+
+  // recommend (single task)
+  if (Array.isArray(r.recommendations)) {
+    if (r.recommendations.length === 0) return '\nNo suitable candidates found.\n';
+    return `\nRecommended assignees:\n${r.recommendations.slice(0, 5).map(recLine).join('\n')}\n`;
   }
-  const recs = r?.recommendations ?? [];
-  if (recs.length === 0) return '\nNo suitable candidates found.\n';
-  const lines = recs
-    .slice(0, 5)
-    .map(
-      (x, i) =>
-        `${i + 1}. ${x.name ?? x.userId} — skills:${x.skillMatchCount} (${x.skillMatch.join(', ')}) · ${x.status}`,
-    );
-  return `\nRecommended assignees:\n${lines.join('\n')}\n`;
+
+  // describe skills
+  if (Array.isArray(r.skills)) {
+    return r.skills.length
+      ? `\nThis task requires: ${r.skills.join(', ')}\n`
+      : '\nNo specific skills are recorded for this task.\n';
+  }
+
+  return `\n${r.message ?? 'Nothing to show.'}\n`;
 }
 
 /** Wire name of the per-step trace data part the frontend renders as a timeline
@@ -94,6 +112,7 @@ export async function streamOrchestrationToUI(
   let finalResult: unknown;
   for await (const ev of events) {
     if (ev.kind === 'step-start') {
+      if (ev.stepId === 'orchestrate') continue; // outer wrapper; sub-agent cards carry the trace
       agentByStep.set(ev.stepId, ev.agentId);
       writer.write({
         type: `data-${ORCHESTRATION_STEP_PART}`,
@@ -101,6 +120,7 @@ export async function streamOrchestrationToUI(
         data: { stepId: ev.stepId, agentId: ev.agentId, status: 'running' },
       });
     } else if (ev.kind === 'step-done') {
+      if (ev.stepId === 'orchestrate') continue;
       const data = {
         stepId: ev.stepId,
         agentId: agentByStep.get(ev.stepId),
