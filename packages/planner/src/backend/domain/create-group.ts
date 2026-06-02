@@ -1,6 +1,6 @@
 import type { SessionScope } from '@seta/core';
 import { withEmit } from '@seta/core/events';
-import { emitPlannerGroupCreated } from '../../events/emit-helpers.ts';
+import { emitPlannerGroupCreated, emitPlannerGroupMemberAdded } from '../../events/emit-helpers.ts';
 import { groupMembers, groups } from '../db/schema.ts';
 import type { GroupRow } from '../dto.ts';
 import type { CreateGroupInput } from '../inputs.ts';
@@ -79,6 +79,15 @@ export async function createGroup(
           created_by: row.created_by,
         },
       });
+
+      for (const m of membersToInsert) {
+        await emitPlannerGroupMemberAdded({
+          actor: { type: 'user', user_id: input.session.user_id },
+          tenant_id: input.tenant_id,
+          group_id: row.id,
+          user_id: m.user_id,
+        });
+      }
     },
   );
 
