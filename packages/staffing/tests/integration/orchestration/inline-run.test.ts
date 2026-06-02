@@ -80,7 +80,7 @@ afterEach(() => {
 });
 
 describe('assigneeRecommendation inline run (e2e)', () => {
-  it('runs analyze→match→avai→recommend, persisting run + 4 traces', async () => {
+  it('runs analyze→match→recommend, persisting run + 3 traces (avai disabled)', async () => {
     await withAgentTestDb(async () => {
       __setStaffingRunIdForTests(() => RUN);
       const rt = buildStaffingOrchestrationRuntime({
@@ -156,12 +156,7 @@ describe('assigneeRecommendation inline run (e2e)', () => {
         .select()
         .from(orchestrationStepTrace)
         .where(eq(orchestrationStepTrace.run_id, RUN));
-      expect(traces.map((t) => t.step_id).sort()).toEqual([
-        'analyze',
-        'avai',
-        'match',
-        'recommend',
-      ]);
+      expect(traces.map((t) => t.step_id).sort()).toEqual(['analyze', 'match', 'recommend']);
     });
   });
 

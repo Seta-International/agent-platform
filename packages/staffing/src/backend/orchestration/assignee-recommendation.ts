@@ -1,9 +1,8 @@
 import type { OrchestrationSpec, RunState } from '@seta/shared-orchestration';
-import type { AvailabilityResult, RankedCandidate, SkillRequirement } from './schemas.ts';
+import type { RankedCandidate, SkillRequirement } from './schemas.ts';
 
 type AnalyzeOut = SkillRequirement;
 type MatchOut = { taskId: string; candidates: RankedCandidate[] };
-type AvaiOut = { taskId: string; availability: AvailabilityResult[] };
 
 const out = <T>(state: RunState, stepId: string): T => state.outputs[stepId] as T;
 
@@ -20,26 +19,21 @@ export const assigneeRecommendationSpec: OrchestrationSpec = {
         return { taskId: a.taskId, skills: a.skills };
       },
     },
-    {
-      id: 'avai',
-      agentId: 'staffing.avaiChecker',
-      input: (s) => {
-        const m = out<MatchOut>(s, 'match');
-        return { taskId: m.taskId, candidates: m.candidates };
-      },
-    },
+    // NOTE: step 'avai' (staffing.avaiChecker) temporarily disabled — agent is erroring.
+    // recommend runs with empty availability => recommender defaults every candidate to
+    // 'busy', so ranking falls back to skillMatchCount only. Re-add the step + restore the
+    // `availability: v.availability` wiring once avaiChecker is fixed.
     {
       id: 'recommend',
       agentId: 'staffing.recommender',
       input: (s) => {
         const a = out<AnalyzeOut>(s, 'analyze');
         const m = out<MatchOut>(s, 'match');
-        const v = out<AvaiOut>(s, 'avai');
         return {
           taskId: m.taskId,
           skills: a.skills,
           candidates: m.candidates,
-          availability: v.availability,
+          availability: [],
         };
       },
     },
