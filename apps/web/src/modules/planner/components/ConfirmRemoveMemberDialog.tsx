@@ -25,7 +25,15 @@ export function ConfirmRemoveMemberDialog({
 }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[480px]">
+      <DialogContent
+        className="max-w-[480px]"
+        onEscapeKeyDown={(e) => {
+          if (isPending) e.preventDefault();
+        }}
+        onInteractOutside={(e) => {
+          if (isPending) e.preventDefault();
+        }}
+      >
         <DialogHeader>
           <DialogTitle>Remove member?</DialogTitle>
           <DialogDescription>

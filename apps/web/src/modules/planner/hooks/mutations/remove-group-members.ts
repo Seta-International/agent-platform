@@ -15,6 +15,7 @@ export function useRemoveGroupMembers(groupId: string) {
       );
     },
     onError: () => {
+      void qc.invalidateQueries({ queryKey: plannerKeys.groupMembers(groupId) });
       toast.error("Couldn't remove members.");
     },
   });
