@@ -1,5 +1,6 @@
 import { Button, Input, PageChrome, Skeleton } from '@seta/shared-ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
 import { Search } from 'lucide-react';
 import { useState } from 'react';
 import { createJoinRequest, discoverGroups } from '../api/planner-client';
@@ -28,7 +29,15 @@ export function GroupDiscoverPage() {
   }
 
   return (
-    <PageChrome breadcrumb={['Planner', 'Groups']} title="Find a Workspace Group">
+    <PageChrome
+      breadcrumb={[
+        'Planner',
+        <Link key="groups" to="/planner/groups">
+          Groups
+        </Link>,
+      ]}
+      title="Find a Workspace Group"
+    >
       <div className="page-container max-w-2xl py-8">
         <h1 className="text-2xl font-semibold mb-6">Find a Workspace group</h1>
 
