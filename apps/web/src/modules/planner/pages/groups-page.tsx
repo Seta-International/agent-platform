@@ -11,7 +11,8 @@ import {
   PageChrome,
   Skeleton,
 } from '@seta/shared-ui';
-import { Cloud, Plus } from 'lucide-react';
+import { useNavigate } from '@tanstack/react-router';
+import { Cloud, Plus, Search } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { CreateGroupDialog } from '../components/CreateGroupDialog';
 import { GroupsGrid } from '../components/GroupsGrid';
@@ -25,6 +26,7 @@ interface Props {
 }
 
 export function GroupsPage({ canCreateGroup = false }: Props) {
+  const navigate = useNavigate();
   const q = useGroupsWithCounts();
   const [view, setView] = useState<'list' | 'grid'>('list');
   const [search, setSearch] = useState('');
@@ -147,16 +149,26 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
       title="Groups"
       subtitle={`${groups.length} ${groups.length === 1 ? 'group' : 'groups'} · ${totalPlans} plans · ${totalMembers} members`}
       actions={
-        canCreateGroup ? (
-          <>
-            <Button size="sm" variant="secondary" onClick={() => setSyncFromIdPOpen(true)}>
-              <Cloud className="size-3" /> Sync from IdP
-            </Button>
-            <Button size="sm" onClick={() => setCreateOpen(true)}>
-              <Plus className="size-3" /> New group
-            </Button>
-          </>
-        ) : undefined
+        <>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => void navigate({ to: '/planner/groups/discover' })}
+          >
+            <Search className="size-4 mr-2" />
+            Find a Workspace group
+          </Button>
+          {canCreateGroup ? (
+            <>
+              <Button size="sm" variant="secondary" onClick={() => setSyncFromIdPOpen(true)}>
+                <Cloud className="size-3" /> Sync from IdP
+              </Button>
+              <Button size="sm" onClick={() => setCreateOpen(true)}>
+                <Plus className="size-3" /> New group
+              </Button>
+            </>
+          ) : null}
+        </>
       }
       toolbar={
         <GroupsToolbar
