@@ -23,6 +23,26 @@ import type {
 
 type M365GroupSearchResult = { external_id: string; display_name: string; mail_nickname: string };
 
+export interface GroupJoinRequestRow {
+  group_id: string;
+  user_id: string;
+  status: 'pending' | 'approved' | 'rejected';
+  requested_at: string;
+  resolved_at: string | null;
+  resolved_by: string | null;
+  display_name: string;
+  email: string;
+}
+
+export interface DiscoverGroupsItem {
+  id: string;
+  name: string;
+  description: string | null;
+  member_count: number;
+  owner_display_name: string | null;
+  owner_email: string | null;
+}
+
 export type GroupSyncStatusResponse =
   | { sync_status: null }
   | { sync_status: GroupSyncStatus; synced_at: string | null; last_error: string | null };
@@ -207,6 +227,47 @@ async function setMemberRole(input: {
     method: 'PATCH',
     body: JSON.stringify({ role: input.role }),
   });
+}
+
+export async function discoverGroups(q: string): Promise<DiscoverGroupsItem[]> {
+  const r = await request<{ groups: DiscoverGroupsItem[] }>(
+    `/api/planner/v1/groups/discover?q=${encodeURIComponent(q)}`,
+  );
+  return r?.groups ?? [];
+}
+
+export async function createJoinRequest(group_id: string): Promise<GroupJoinRequestRow> {
+  return (await request<GroupJoinRequestRow>(`/api/planner/v1/groups/${group_id}/join-requests`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  })) as GroupJoinRequestRow;
+}
+
+export async function listJoinRequests(
+  group_id: string,
+  status?: 'pending' | 'approved' | 'rejected',
+): Promise<GroupJoinRequestRow[]> {
+  const qs = status ? `?status=${status}` : '';
+  const r = await request<{ requests: GroupJoinRequestRow[] }>(
+    `/api/planner/v1/groups/${group_id}/join-requests${qs}`,
+  );
+  return r?.requests ?? [];
+}
+
+export async function resolveJoinRequest(
+  group_id: string,
+  user_id: string,
+  action: 'approved' | 'rejected',
+): Promise<GroupJoinRequestRow> {
+  return (await request<GroupJoinRequestRow>(
+    `/api/planner/v1/groups/${group_id}/join-requests/${user_id}`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action }),
+    },
+  )) as GroupJoinRequestRow;
 }
 
 async function listPlans(
@@ -781,6 +842,10 @@ export const plannerClient = {
   addGroupMember,
   removeGroupMember,
   setMemberRole,
+  discoverGroups,
+  createJoinRequest,
+  listJoinRequests,
+  resolveJoinRequest,
   listPlans,
   listGroupPlansWithRollups,
   getPlan,
