@@ -72,6 +72,7 @@ export { removeGroupMember } from './backend/domain/remove-group-member.ts';
 export { removeTaskReference } from './backend/domain/remove-task-reference.ts';
 export { reopenTask } from './backend/domain/reopen-task.ts';
 export { resolveGroupConflict } from './backend/domain/resolve-group-conflict.ts';
+export { resolveJoinRequest } from './backend/domain/resolve-join-request.ts';
 export {
   type ResolvePlanConflictsDeps,
   type ResolvePlanConflictsResult,
@@ -173,6 +174,7 @@ export type {
   MoveBucketInput,
   MoveTaskInput,
   RemoveTaskReferenceInput,
+  ResolveJoinRequestInput,
   SetAssigneePriorityInput,
   SetCategoryDescriptionInput,
   SetCategoryDescriptionsInput,
