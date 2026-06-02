@@ -12,12 +12,32 @@ interface Recommendation {
   status: string;
 }
 
+interface TaskSummary {
+  taskId: string;
+  title: string;
+  status: string;
+  skillTags: string[];
+}
+
 function formatFinal(result: unknown): string {
   const r = result as {
     actionable?: boolean;
     message?: string;
     recommendations?: Recommendation[];
+    tasks?: TaskSummary[];
   };
+  // find_tasks (terminal) result: a task list (possibly empty). Checked first —
+  // only this branch carries a `tasks` array; recommend results never do.
+  if (r && Array.isArray(r.tasks)) {
+    if (r.tasks.length === 0) return '\nNo matching tasks found.\n';
+    const lines = r.tasks
+      .slice(0, 20)
+      .map(
+        (t, i) =>
+          `${i + 1}. ${t.title} [${t.status}] — tags: ${t.skillTags.join(', ') || '(none)'}`,
+      );
+    return `\nTasks:\n${lines.join('\n')}\n`;
+  }
   if (r && r.actionable === false) {
     return `\n${r.message ?? 'Nothing to recommend.'}\n`;
   }

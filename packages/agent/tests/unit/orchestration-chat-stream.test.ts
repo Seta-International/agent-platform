@@ -108,4 +108,59 @@ describe('streamOrchestrationToUI', () => {
       .join('');
     expect(text).toContain('I can only suggest assignees for a task.');
   });
+
+  it('renders a find_tasks result as a numbered task list', async () => {
+    const w = fakeWriter();
+    await streamOrchestrationToUI(
+      w as never,
+      events(
+        { kind: 'step-start', stepId: 'analyze', agentId: 'staffing.analyzer' },
+        {
+          kind: 'step-done',
+          stepId: 'analyze',
+          trust: { reasoningTrace: [], evidenceCitations: [], confidenceScore: 0.8 },
+        },
+        {
+          kind: 'final',
+          result: {
+            actionable: false,
+            skills: [],
+            tasks: [
+              {
+                taskId: 't1',
+                title: 'Provision cluster',
+                status: 'not_started',
+                skillTags: ['infrastructure', 'devops'],
+              },
+              {
+                taskId: 't2',
+                title: 'Patch nodes',
+                status: 'in_progress',
+                skillTags: ['infrastructure'],
+              },
+            ],
+          },
+        },
+      ),
+    );
+    const text = w.chunks
+      .filter((c) => c.type === 'text-delta')
+      .map((c) => c.delta)
+      .join('');
+    expect(text).toContain('1. Provision cluster [not_started] — tags: infrastructure, devops');
+    expect(text).toContain('2. Patch nodes [in_progress] — tags: infrastructure');
+  });
+
+  it('renders an empty find_tasks result as a not-found message', async () => {
+    const w = fakeWriter();
+    await streamOrchestrationToUI(
+      w as never,
+      events({ kind: 'final', result: { actionable: false, skills: [], tasks: [] } }),
+    );
+    const text = w.chunks
+      .filter((c) => c.type === 'text-delta')
+      .map((c) => c.delta)
+      .join('');
+    expect(text).toContain('No matching tasks found.');
+  });
 });
