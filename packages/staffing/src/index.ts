@@ -2,6 +2,7 @@ export {
   makeAvailability,
   makeSkillSearch,
   makeTaskReader,
+  makeTaskSearch,
 } from './backend/orchestration/adapters.ts';
 export {
   buildStaffingOrchestrationRuntime,

@@ -6,11 +6,26 @@ export interface TaskInfo {
   title: string;
   description: string | null;
   groupId: string;
+  /** The task's own skill_tags (authoritative skills source for the analyzer). */
+  skillTags: string[];
 }
 
 /** Reads a planner task (adapter wraps planner's public getTask). */
 export interface TaskReaderPort {
   load(taskId: string, ctx: SpecializedAgentRunCtx): Promise<TaskInfo | null>;
+}
+
+/** A task surfaced by a skill-tag search (find_tasks intent). */
+export interface TaskSummary {
+  taskId: string;
+  title: string;
+  status: 'not_started' | 'in_progress' | 'completed';
+  skillTags: string[];
+}
+
+/** Deterministic skill-tag task search (adapter wraps planner listTasksBySkillTag). */
+export interface TaskSearchPort {
+  bySkillTags(tags: string[], limit: number, ctx: SpecializedAgentRunCtx): Promise<TaskSummary[]>;
 }
 
 export interface SkillSearchHit {
