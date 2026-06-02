@@ -5,14 +5,12 @@ interface MemberAddedPayload {
   actor: { type: string; user_id: string | null };
   group_id: string;
   user_id: string;
-  tenant_id: string;
 }
 
 interface MemberRemovedPayload {
   actor: { type: string; user_id: string | null };
   group_id: string;
   user_id: string;
-  tenant_id: string;
 }
 
 /**
@@ -42,7 +40,7 @@ export async function applyMemberAdded(
      VALUES
        (gen_random_uuid(), $1, $2, 'planner.viewer', 'group', $3, $4, 'admin')
      ON CONFLICT DO NOTHING`,
-    [e.payload.tenant_id, e.payload.user_id, e.payload.group_id, e.payload.actor.user_id ?? null],
+    [e.tenantId, e.payload.user_id, e.payload.group_id, e.payload.actor.user_id ?? null],
   );
 }
 
