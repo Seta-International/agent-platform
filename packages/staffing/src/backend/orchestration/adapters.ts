@@ -1,13 +1,6 @@
 import { buildActorSession, matchUsersToTopic } from '@seta/identity';
 import { getTask, listTasks } from '@seta/planner';
-import { generateObject, type LanguageModel } from 'ai';
-import { z } from 'zod';
-import type {
-  AvailabilityPort,
-  SkillExtractorPort,
-  SkillSearchPort,
-  TaskReaderPort,
-} from './ports.ts';
+import type { AvailabilityPort, SkillSearchPort, TaskReaderPort } from './ports.ts';
 
 // ---- TaskReader: planner.getTask under an actor session ----
 export function makeTaskReader(): TaskReaderPort {
@@ -32,45 +25,6 @@ export function makeTaskReader(): TaskReaderPort {
   };
 }
 
-// ---- SkillExtractor: AI-SDK structured generation (the analyzer's LLM step) ----
-const ExtractionSchema = z.object({
-  actionable: z.boolean(),
-  skills: z.array(z.string()),
-  reason: z.string().optional(),
-});
-
-export interface LlmSkillExtractorDeps {
-  /**
-   * Resolves the language model for the extraction call. Injected by the
-   * composition root (apps/server) because orchestrator modules may not import
-   * the agent engine's model registry (depcruise: only @seta/agent-sdk + the
-   * ./rbac, ./events subpaths are reachable). Lazy so env is read at call time.
-   */
-  resolveModel: () => LanguageModel;
-}
-
-export function makeLlmSkillExtractor(deps: LlmSkillExtractorDeps): SkillExtractorPort {
-  return {
-    async extract({ userText, title, description }) {
-      const { object } = await generateObject({
-        model: deps.resolveModel(),
-        schema: ExtractionSchema,
-        prompt: [
-          'You gate and analyze chat messages for an assignee-recommendation pipeline.',
-          'Decide if the user is asking who should be assigned to / take / own a task.',
-          'If NOT such a request, return actionable=false with a short reason.',
-          'If it IS, return actionable=true and the concrete skills required for the task.',
-          '',
-          `User message: ${userText}`,
-          `Task title: ${title ?? '(none)'}`,
-          `Task description: ${description ?? '(none)'}`,
-        ].join('\n'),
-      });
-      return object;
-    },
-  };
-}
-
 // ---- SkillSearch: identity.matchUsersToTopic (vector) ----
 // provider + pgVector are the identity embedding provider + the identity user-
 // profile PgVector, injected by apps/server (Task 5). matchUsersToTopic queries
@@ -84,7 +38,10 @@ export function makeSkillSearch(deps: SkillSearchDeps): SkillSearchPort {
   return {
     async search({ skills, topK }, ctx) {
       const hits = await matchUsersToTopic(
-        { topic: skills.join(', '), tenant_id: ctx.tenantId, limit: topK },
+        // minScore 0.5 (matchUsersToTopic default) is too high for short skill
+        // phrases under text-embedding-3-small and returns no candidates; 0.3
+        // surfaces relevant profiles. Tune as needed.
+        { topic: skills.join(', '), tenant_id: ctx.tenantId, limit: topK, minScore: 0.3 },
         { provider: deps.provider, pgVector: deps.pgVector },
       );
       return hits.map((h) => ({

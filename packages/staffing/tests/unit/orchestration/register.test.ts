@@ -3,7 +3,6 @@ import { ORCH_JOBS, OrchestrationRegistry } from '@seta/shared-orchestration';
 import { afterEach, describe, expect, it } from 'vitest';
 import type {
   AvailabilityPort,
-  SkillExtractorPort,
   SkillSearchPort,
   TaskReaderPort,
 } from '../../../src/backend/orchestration/ports.ts';
@@ -11,9 +10,6 @@ import { buildStaffingOrchestrationRuntime } from '../../../src/backend/orchestr
 
 const fakePorts = {
   taskReader: { load: async () => null } satisfies TaskReaderPort,
-  skillExtractor: {
-    extract: async () => ({ actionable: false, skills: [] }),
-  } satisfies SkillExtractorPort,
   skillSearch: { search: async () => [] } satisfies SkillSearchPort,
   availability: {
     status: async () => ({ status: 'available' as const, note: null }),
@@ -28,7 +24,11 @@ afterEach(() => {
 
 describe('buildStaffingOrchestrationRuntime', () => {
   it('registers the four agents and the orchestration, and returns a runtime', () => {
-    const rt = buildStaffingOrchestrationRuntime({ ports: fakePorts, repo: {} as never });
+    const rt = buildStaffingOrchestrationRuntime({
+      ports: fakePorts,
+      resolveModel: () => ({}) as never,
+      repo: {} as never,
+    });
     SpecializedAgentRegistry.freeze();
     OrchestrationRegistry.freeze();
 

@@ -22,7 +22,7 @@ const availability: AvailabilityPort = {
 describe('avaiChecker', () => {
   it('tool flags overload (>=10 in-progress) as busy', async () => {
     const { getAvailability } = makeAvaiCheckerTools({ availability });
-    const out = (await getAvailability.execute({ userIds: ['busy', 'free'] } as never, ctx())) as {
+    const out = (await getAvailability.execute!({ userIds: ['busy', 'free'] } as never, ctx())) as {
       availability: { userId: string; status: string; inProgressCount: number }[];
     };
     expect(out.availability.find((a) => a.userId === 'busy')?.status).toBe('busy');

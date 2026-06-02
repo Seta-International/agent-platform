@@ -24,7 +24,7 @@ const skillSearch: SkillSearchPort = {
 describe('skill-matcher tools', () => {
   it('searchCandidates returns hits via the port (tenant from requestContext)', async () => {
     const { searchCandidates } = makeSkillMatcherTools({ skillSearch, topK: 10 });
-    const out = (await searchCandidates.execute({ skills: ['aws'] } as never, ctx())) as {
+    const out = (await searchCandidates.execute!({ skills: ['aws'] } as never, ctx())) as {
       hits: unknown[];
     };
     expect(out.hits).toHaveLength(3);
@@ -32,7 +32,7 @@ describe('skill-matcher tools', () => {
 
   it('rankCandidates merges per user and ranks by overlap then similarity', async () => {
     const { rankCandidates } = makeSkillMatcherTools({ skillSearch, topK: 10 });
-    const out = (await rankCandidates.execute(
+    const out = (await rankCandidates.execute!(
       {
         requiredSkills: ['aws'],
         hits: [

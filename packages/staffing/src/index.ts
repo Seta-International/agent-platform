@@ -1,6 +1,5 @@
 export {
   makeAvailability,
-  makeLlmSkillExtractor,
   makeSkillSearch,
   makeTaskReader,
 } from './backend/orchestration/adapters.ts';

@@ -8,6 +8,7 @@ import {
   type RunStateRepository,
   runOrchestrationInline,
 } from '@seta/shared-orchestration';
+import type { LanguageModel } from 'ai';
 import {
   makeAnalyzerAgent,
   makeAvaiCheckerAgent,
@@ -15,16 +16,10 @@ import {
   makeSkillMatcherAgent,
 } from './agents/index.ts';
 import { assigneeRecommendationSpec } from './assignee-recommendation.ts';
-import type {
-  AvailabilityPort,
-  SkillExtractorPort,
-  SkillSearchPort,
-  TaskReaderPort,
-} from './ports.ts';
+import type { AvailabilityPort, SkillSearchPort, TaskReaderPort } from './ports.ts';
 
 export interface StaffingPorts {
   taskReader: TaskReaderPort;
-  skillExtractor: SkillExtractorPort;
   skillSearch: SkillSearchPort;
   availability: AvailabilityPort;
 }
@@ -52,15 +47,20 @@ export function __setStaffingRunIdForTests(fn: () => string): void {
  */
 export function buildStaffingOrchestrationRuntime(deps: {
   ports: StaffingPorts;
+  resolveModel: () => LanguageModel;
   repo: RunStateRepository;
 }): StaffingOrchestrationRuntime {
-  const { ports, repo } = deps;
+  const { ports, resolveModel, repo } = deps;
 
   SpecializedAgentRegistry.register(
-    makeAnalyzerAgent({ taskReader: ports.taskReader, skillExtractor: ports.skillExtractor }),
+    makeAnalyzerAgent({ taskReader: ports.taskReader, resolveModel }),
   );
-  SpecializedAgentRegistry.register(makeSkillMatcherAgent({ skillSearch: ports.skillSearch }));
-  SpecializedAgentRegistry.register(makeAvaiCheckerAgent({ availability: ports.availability }));
+  SpecializedAgentRegistry.register(
+    makeSkillMatcherAgent({ skillSearch: ports.skillSearch, resolveModel }),
+  );
+  SpecializedAgentRegistry.register(
+    makeAvaiCheckerAgent({ availability: ports.availability, resolveModel }),
+  );
   SpecializedAgentRegistry.register(makeRecommenderAgent());
 
   OrchestrationRegistry.register(assigneeRecommendationSpec);

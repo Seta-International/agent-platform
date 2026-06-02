@@ -22,7 +22,6 @@ import { OrchestrationRegistry } from '@seta/shared-orchestration';
 import {
   buildStaffingOrchestrationRuntime,
   makeAvailability,
-  makeLlmSkillExtractor,
   makeSkillSearch,
   makeTaskReader,
   StaffingRunStateRepository,
@@ -109,11 +108,9 @@ const identityEmbeddingProvider: ReturnType<typeof resolveEmbeddingProvider> = {
 };
 const staffingOrchestration = buildStaffingOrchestrationRuntime({
   repo: new StaffingRunStateRepository(),
+  resolveModel: () => resolveModel('auto', { tierHint: 'fast' }).model,
   ports: {
     taskReader: makeTaskReader(),
-    skillExtractor: makeLlmSkillExtractor({
-      resolveModel: () => resolveModel('auto', { tierHint: 'fast' }).model,
-    }),
     skillSearch: makeSkillSearch({
       provider: identityEmbeddingProvider,
       pgVector: getIdentityVectorStore(env.DATABASE_URL),

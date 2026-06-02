@@ -13,20 +13,6 @@ export interface TaskReaderPort {
   load(taskId: string, ctx: SpecializedAgentRunCtx): Promise<TaskInfo | null>;
 }
 
-export interface SkillExtraction {
-  actionable: boolean;
-  skills: string[];
-  reason?: string;
-}
-
-/** The analyzer's LLM step: decide if this is a staffing request + extract skills. */
-export interface SkillExtractorPort {
-  extract(
-    args: { userText: string; title?: string; description?: string | null },
-    ctx: SpecializedAgentRunCtx,
-  ): Promise<SkillExtraction>;
-}
-
 export interface SkillSearchHit {
   userId: string;
   name: string | null;
