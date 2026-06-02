@@ -69,6 +69,7 @@ export { moveTask } from './backend/domain/move-task.ts';
 export { type RefreshPlanSyncDeps, refreshPlanSync } from './backend/domain/refresh-plan-sync.ts';
 export { removeChecklistItem } from './backend/domain/remove-checklist-item.ts';
 export { removeGroupMember } from './backend/domain/remove-group-member.ts';
+export { removeGroupMembers } from './backend/domain/remove-group-members.ts';
 export { removeTaskReference } from './backend/domain/remove-task-reference.ts';
 export { reopenTask } from './backend/domain/reopen-task.ts';
 export { resolveGroupConflict } from './backend/domain/resolve-group-conflict.ts';
