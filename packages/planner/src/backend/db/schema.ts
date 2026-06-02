@@ -303,6 +303,24 @@ export const taskComments = planner.table(
   ],
 );
 
+export const groupJoinRequests = planner.table(
+  'group_join_requests',
+  {
+    group_id: uuid('group_id').notNull(),
+    user_id: uuid('user_id').notNull(),
+    status: text('status').notNull().default('pending'),
+    requested_at: timestamp('requested_at', { withTimezone: true }).defaultNow().notNull(),
+    resolved_at: timestamp('resolved_at', { withTimezone: true }),
+    resolved_by: uuid('resolved_by'),
+  },
+  (t) => [
+    primaryKey({ columns: [t.group_id, t.user_id] }),
+    index('join_requests_by_group_pending').on(t.group_id, t.status),
+    index('join_requests_by_user').on(t.user_id),
+    check('join_requests_status_check', sql`status IN ('pending','approved','rejected')`),
+  ],
+);
+
 export const assigneeProjection = planner.table(
   'assignee_projection',
   {
