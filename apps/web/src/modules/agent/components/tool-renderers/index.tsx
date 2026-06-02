@@ -2,6 +2,7 @@ import type { ToolCallMessagePartProps } from '@assistant-ui/react';
 import { useAssistantDataUI, useAssistantToolUI } from '@assistant-ui/react';
 import { ChatToolCall } from '@seta/shared-ui';
 import { AgentStreamPart } from '../../chat-experience/agent-stream-part';
+import { OrchestrationStepPart } from '../../chat-experience/orchestration-step-part';
 import { useAgentCatalog, useToolCatalog } from '../../hooks/use-tool-catalog';
 import { ServerTimeRenderer } from './core.server-time';
 import { DelegateRenderer } from './delegate';
@@ -145,6 +146,14 @@ function AgentStreamRegistration() {
   return null;
 }
 
+function OrchestrationStepRegistration() {
+  // Matches `data-orchestration-step` emitted by the orchestration chat stream
+  // (ORCHESTRATION_STEP_PART in packages/agent). Renders the per-step trust
+  // trace timeline.
+  useAssistantDataUI({ name: 'orchestration-step', render: OrchestrationStepPart });
+  return null;
+}
+
 function DelegateRegistration({ name, label }: { name: string; label: string }) {
   useAssistantToolUI({
     toolName: `agent-${name}`,
@@ -193,6 +202,7 @@ export function ToolUIRegistry() {
   return (
     <>
       <AgentStreamRegistration />
+      <OrchestrationStepRegistration />
       <ServerTimeRegistration name={nameFor('core_serverTime')} />
       <WhoAmIRegistration name={nameFor('identity_whoAmI')} />
       <ListMyRolesRegistration name={nameFor('identity_listMyRoles')} />
