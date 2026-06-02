@@ -18,6 +18,7 @@ import {
   listJoinRequests,
   listMyAccessibleGroups,
   removeGroupMember,
+  removeGroupMembers,
   resolveJoinRequest,
   restoreGroup,
   setMemberRole,
@@ -58,6 +59,9 @@ const bulkMembersSchema = z.object({
     .max(500),
 });
 const setMemberRoleSchema = z.object({ role: z.enum(['owner', 'member']) });
+const bulkRemoveMembersSchema = z.object({
+  user_ids: z.array(z.string().uuid()).min(1).max(500),
+});
 const linkM365Schema = z.object({ external_id: z.string().min(1) });
 const discoverQuerySchema = z.object({ q: z.string().min(1).max(200) });
 const resolveJoinRequestSchema = z.object({ action: z.enum(['approved', 'rejected']) });
@@ -228,6 +232,19 @@ export function registerPlannerGroupsRoutes(app: Hono<SessionEnv>, deps: Planner
     if (!parsed.success)
       return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
     await addGroupMember({ group_id: c.req.param('id'), user_id: parsed.data.user_id, session });
+    return c.body(null, 204);
+  });
+
+  app.delete('/api/planner/v1/groups/:id/members/bulk', async (c) => {
+    const session = c.get('user');
+    const parsed = bulkRemoveMembersSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success)
+      return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
+    await removeGroupMembers({
+      group_id: c.req.param('id'),
+      user_ids: parsed.data.user_ids,
+      session,
+    });
     return c.body(null, 204);
   });
 
