@@ -2,6 +2,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
   SyncBadge,
   type SyncState,
@@ -19,7 +20,11 @@ interface Props {
   canRename?: boolean;
   canManage?: boolean;
   onRename?: (name: string) => void;
+  onDuplicate?: () => void;
+  onCopyShareLink?: () => void;
+  isArchived?: boolean;
   onArchive?: () => void;
+  onRestore?: () => void;
   onDelete?: () => void;
   onExport?: () => void;
   external_source?: 'native' | 'm365';
@@ -46,7 +51,11 @@ export function PlanPageHeader({
   canRename,
   canManage,
   onRename,
+  onDuplicate,
+  onCopyShareLink,
+  isArchived,
   onArchive,
+  onRestore,
   onDelete,
   onExport,
   external_source,
@@ -80,7 +89,9 @@ export function PlanPageHeader({
   const showOpenInM365 = isLinked && Boolean(linkUrl);
   const showUnlink = isLinked && canManage === true && Boolean(onUnlinkFromM365);
   const hasSyncItems = showRefresh || showResolveConflicts || showOpenInM365 || showUnlink;
-  const hasOverflow = Boolean(onArchive || onDelete || onExport) || hasSyncItems;
+  const hasOverflow =
+    Boolean(onDuplicate || onCopyShareLink || onArchive || onRestore || onDelete || onExport) ||
+    hasSyncItems;
 
   return (
     <header className="plan-page-header">
@@ -146,6 +157,15 @@ export function PlanPageHeader({
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              {canRename && onRename && (
+                <DropdownMenuItem onSelect={() => setEditing(true)}>Rename plan</DropdownMenuItem>
+              )}
+              {onDuplicate && (
+                <DropdownMenuItem onSelect={onDuplicate}>Duplicate plan</DropdownMenuItem>
+              )}
+              {onCopyShareLink && (
+                <DropdownMenuItem onSelect={onCopyShareLink}>Copy share link</DropdownMenuItem>
+              )}
               {showRefresh && (
                 <DropdownMenuItem onSelect={onRefreshSync}>Sync now</DropdownMenuItem>
               )}
@@ -167,10 +187,16 @@ export function PlanPageHeader({
                 </DropdownMenuItem>
               )}
               {onExport && <DropdownMenuItem onSelect={onExport}>Export</DropdownMenuItem>}
-              {onArchive && <DropdownMenuItem onSelect={onArchive}>Archive</DropdownMenuItem>}
+              {(onArchive || onRestore || onDelete) && <DropdownMenuSeparator />}
+              {!isArchived && onArchive && (
+                <DropdownMenuItem onSelect={onArchive}>Archive plan</DropdownMenuItem>
+              )}
+              {isArchived && onRestore && (
+                <DropdownMenuItem onSelect={onRestore}>Restore plan</DropdownMenuItem>
+              )}
               {onDelete && (
                 <DropdownMenuItem onSelect={onDelete} className="text-semantic-danger">
-                  Delete
+                  Delete plan
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>
