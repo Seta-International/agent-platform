@@ -21,6 +21,7 @@ import { useState } from 'react';
 import { useRestoreGroup } from '../hooks/mutations/restore-group';
 import { useRestorePlan } from '../hooks/mutations/restore-plan';
 import { useRestoreTask } from '../hooks/mutations/restore-task';
+import { useUnarchivePlan } from '../hooks/mutations/unarchive-plan';
 import { useTrash } from '../hooks/queries/use-trash';
 
 type TrashKind = 'group' | 'plan' | 'task';
@@ -70,6 +71,7 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
   const restoreTask = useRestoreTask();
   const restoreGroup = useRestoreGroup();
   const restorePlan = useRestorePlan();
+  const unarchivePlan = useUnarchivePlan();
   const [confirmingPurge, setConfirmingPurge] = useState<TrashRow | null>(null);
 
   if (q.isPending) {
@@ -103,6 +105,13 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
 
   const trashedPlanIds = new Set(q.data.plans.map((p) => p.id));
 
+  const archivedRows = q.data.archivedPlans.map((p) => ({
+    id: p.id,
+    name: p.name,
+    archived_at: p.archived_at,
+    group_id: p.group_id,
+  }));
+
   const rows: TrashRow[] = [
     ...q.data.groups.map((g) => ({
       kind: 'group' as const,
@@ -126,7 +135,7 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
     })),
   ];
 
-  if (rows.length === 0) {
+  if (rows.length === 0 && archivedRows.length === 0) {
     return (
       <PageChrome
         breadcrumb={['Planner']}
@@ -143,7 +152,8 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
     );
   }
 
-  const subtitle = `${rows.length} ${rows.length === 1 ? 'item' : 'items'} · auto-purged after ${RETENTION_DAYS} days`;
+  const totalRows = rows.length + archivedRows.length;
+  const subtitle = `${totalRows} ${totalRows === 1 ? 'item' : 'items'} · auto-purged after ${RETENTION_DAYS} days`;
 
   function onRestore(r: TrashRow) {
     if (r.kind === 'task') {
@@ -162,6 +172,50 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
 
   return (
     <PageChrome breadcrumb={['Planner']} title="Trash" subtitle={subtitle}>
+      {archivedRows.length > 0 && (
+        <div className="px-7 pt-6">
+          <h2 className="mb-3 text-sm font-semibold text-ink">Archived</h2>
+          <div role="table" aria-label="Archived plans" className="w-full">
+            <div
+              role="row"
+              className="sticky top-0 z-10 grid items-center gap-2 border-b border-hairline bg-canvas px-4 py-2.5 text-[11px] font-medium uppercase tracking-wider text-ink-subtle"
+              style={{ gridTemplateColumns: '1.7fr 160px 220px' }}
+            >
+              <div role="columnheader">Name</div>
+              <div role="columnheader">Archived</div>
+              <div role="columnheader" className="text-right">
+                <span className="sr-only">Actions</span>
+              </div>
+            </div>
+            <div role="rowgroup">
+              {archivedRows.map((r) => (
+                <div
+                  role="row"
+                  key={`archived:${r.id}`}
+                  className="grid items-center gap-2 border-b border-hairline-tertiary px-4 py-3 text-sm text-ink transition-colors hover:bg-surface-1"
+                  style={{ gridTemplateColumns: '1.7fr 160px 220px' }}
+                >
+                  <div role="cell" className="min-w-0 pr-4">
+                    <p className="truncate font-medium text-ink">{r.name}</p>
+                  </div>
+                  <div role="cell" className="text-xs text-ink-muted" suppressHydrationWarning>
+                    {r.archived_at ? formatRelative(r.archived_at) : '—'}
+                  </div>
+                  <div role="cell" className="flex justify-end gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => unarchivePlan.mutate({ plan_id: r.id })}
+                    >
+                      <RotateCcw className="size-3" aria-hidden /> Restore
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
       <div role="table" aria-label="Trash" className="w-full">
         <div
           role="row"
