@@ -19,6 +19,7 @@ export async function listGroupPlansWithRollups(input: {
     eq(plans.tenant_id, input.session.tenant_id),
     eq(plans.group_id, input.group_id),
     isNull(plans.deleted_at),
+    isNull(plans.archived_at),
   ];
 
   if (filter !== null) {
@@ -45,6 +46,7 @@ export async function listGroupPlansWithRollups(input: {
       created_at: plans.created_at,
       updated_at: plans.updated_at,
       deleted_at: plans.deleted_at,
+      archived_at: plans.archived_at,
       version: plans.version,
       task_count: sql<number>`(SELECT COUNT(*)::int FROM planner.tasks WHERE plan_id = "planner"."plans"."id" AND deleted_at IS NULL)`,
       open_task_count: sql<number>`(SELECT COUNT(*)::int FROM planner.tasks WHERE plan_id = "planner"."plans"."id" AND deleted_at IS NULL AND percent_complete < 100 AND is_deferred = false)`,
@@ -86,6 +88,7 @@ export async function listGroupPlansWithRollups(input: {
       created_at: r.created_at.toISOString(),
       updated_at: r.updated_at.toISOString(),
       deleted_at: r.deleted_at ? r.deleted_at.toISOString() : null,
+      archived_at: r.archived_at ? r.archived_at.toISOString() : null,
       version: r.version,
       task_count: taskCount,
       open_task_count: openCount,

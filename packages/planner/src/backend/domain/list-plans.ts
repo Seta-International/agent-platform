@@ -1,5 +1,5 @@
 import type { SessionScope } from '@seta/core';
-import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
 import { plannerDb } from '../db/index.ts';
 import { plans } from '../db/schema.ts';
 import type { PlanRow } from '../dto.ts';
@@ -11,6 +11,7 @@ type PlanDbRow = typeof plans.$inferSelect;
 export async function listPlans(input: {
   group_id?: string;
   include_deleted?: boolean;
+  include_archived?: boolean;
   session: SessionScope;
 }): Promise<PlanRow[]> {
   requirePermission(input.session, 'planner.plan.read');
@@ -24,9 +25,16 @@ export async function listPlans(input: {
     conditions.push(eq(plans.group_id, input.group_id));
   }
 
-  if (!input.include_deleted) {
+  if (input.include_archived) {
+    // Only archived (non-deleted) plans.
     conditions.push(isNull(plans.deleted_at));
+    conditions.push(isNotNull(plans.archived_at));
+  } else if (!input.include_deleted) {
+    // Default: active plans only.
+    conditions.push(isNull(plans.deleted_at));
+    conditions.push(isNull(plans.archived_at));
   }
+  // include_deleted=true: no filter on deleted_at or archived_at (show everything).
 
   if (filter !== null) {
     if (filter.length === 0) {
@@ -61,6 +69,7 @@ function rowToDto(row: PlanDbRow): PlanRow {
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
     deleted_at: row.deleted_at ? row.deleted_at.toISOString() : null,
+    archived_at: row.archived_at ? row.archived_at.toISOString() : null,
     version: row.version,
   };
 }

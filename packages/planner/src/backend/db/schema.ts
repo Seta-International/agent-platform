@@ -91,6 +91,7 @@ export const plans = planner.table(
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
     deleted_at: timestamp('deleted_at', { withTimezone: true }),
+    archived_at: timestamp('archived_at', { withTimezone: true }),
     version: integer('version').default(1).notNull(),
   },
   (t) => [
