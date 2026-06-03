@@ -148,12 +148,24 @@ function assemble(res: MastraToolSignals): OrchestratorResult {
   const [firstRec] = recs;
   if (firstRec) return { recommendations: firstRec.recommendations };
 
-  const skills = ta.find((o) => o.skills)?.skills;
-  if (skills) return { skills };
+  // taskAnalyzer's skills double as pipeline INPUT for skillMatcher. They are a
+  // terminal answer ONLY when the user asked just for skills — i.e. the recommend
+  // pipeline never started. If recommendation WAS attempted (skillMatcher /
+  // avaiChecker / recommender ran) but produced nothing, returning those skills
+  // would mis-answer "find an assignee" as "what skills does this need". Surface
+  // an honest failure instead.
+  const recommendAttempted = res.toolResults.some((t) =>
+    ['callSkillMatcher', 'callAvaiChecker', 'callRecommender'].includes(t.payload.toolName),
+  );
+  if (!recommendAttempted) {
+    const skills = ta.find((o) => o.skills)?.skills;
+    if (skills) return { skills };
+  }
 
   return {
-    message:
-      "I can describe a task's required skills, find tasks by area, or recommend people for a task.",
+    message: recommendAttempted
+      ? "I couldn't complete the recommendation for this task. Please try again."
+      : "I can describe a task's required skills, find tasks by area, or recommend people for a task.",
   };
 }
 

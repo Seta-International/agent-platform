@@ -59,6 +59,20 @@ describe('orchestrator assembly', () => {
     expect(res.result.skills).toBeUndefined();
   });
 
+  it('recommend attempted but no recommender result → message, not the intermediate skills', async () => {
+    // taskAnalyzer's skills are pipeline INPUT for skillMatcher, not the answer.
+    // If the recommend pipeline starts (skillMatcher ran) but yields no
+    // recommendation, we must NOT echo those skills as if the user asked
+    // "what skills" — surface an honest failure instead.
+    const agent = make([
+      { payload: { toolName: 'callTaskAnalyzer', result: { skills: ['aws'] } } },
+      { payload: { toolName: 'callSkillMatcher', result: { taskId: 't-1', candidates: [] } } },
+    ]);
+    const res = await agent.run({ userText: 'who should do this task', taskId: 't-1' }, ctx);
+    expect(res.result.skills).toBeUndefined();
+    expect(typeof res.result.message).toBe('string');
+  });
+
   it('find only: taskAnalyzer tasks → { tasks } each without recommendations', async () => {
     const agent = make([
       {

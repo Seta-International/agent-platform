@@ -64,7 +64,7 @@ export function buildStaffingOrchestrationRuntime(deps: {
     resolveModel,
   });
   const skillMatcher = makeSkillMatcherAgent({ skillSearch: ports.skillSearch, resolveModel });
-  const avaiChecker = makeAvaiCheckerAgent({ availability: ports.availability, resolveModel });
+  const avaiChecker = makeAvaiCheckerAgent({ availability: ports.availability });
   const recommender = makeRecommenderAgent();
   const orchestrator = makeOrchestratorAgent({
     taskAnalyzer,

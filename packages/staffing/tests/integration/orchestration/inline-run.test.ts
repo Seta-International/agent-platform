@@ -104,7 +104,8 @@ describe('orchestrator inline run (e2e)', () => {
   it('recommend path: taskAnalyzer → skillMatcher → avaiChecker → recommender, streams sub-cards, persists', async () => {
     await withAgentTestDb(async () => {
       __setStaffingRunIdForTests(() => RUN);
-      // Build-time models: [taskAnalyzer, skillMatcher, avaiChecker]; run-time: [orchestrator].
+      // Build-time models: [taskAnalyzer, skillMatcher]; avaiChecker is deterministic
+      // (no model); run-time: [orchestrator].
       const rt = buildStaffingOrchestrationRuntime({
         repo: new StaffingRunStateRepository(),
         resolveModel: resolveModelSeq([
@@ -112,19 +113,8 @@ describe('orchestrator inline run (e2e)', () => {
           scriptedModel([toolCallStep(0, 'fetchTaskData', { taskId: 'task-1' }), STOP]),
           // skillMatcher: searchCandidates; run() ranks the hits via fallback.
           scriptedModel([toolCallStep(0, 'searchCandidates', { skills: ['aws'] }), STOP]),
-          // avaiChecker: read both signals, then score (determineAvaiScore is pure — it scores the
-          // scripted items, which is why we pass them explicitly here).
-          scriptedModel([
-            toolCallStep(0, 'checkAvailability', { userIds: ['u1'] }),
-            toolCallStep(1, 'checkInprogressTasks', { userIds: ['u1'] }),
-            toolCallStep(2, 'determineAvaiScore', {
-              items: [
-                { userId: 'u1', userName: 'A', availability: 'available', taskInProgressCount: 0 },
-              ],
-            }),
-            STOP,
-          ]),
-          // orchestrator: chain the four delegations, then stop.
+          // orchestrator: chain the four delegations (callAvaiChecker runs the
+          // deterministic avaiChecker against the ports), then stop.
           scriptedModel([
             toolCallStep(0, 'callTaskAnalyzer', { query: 'who should do this', taskId: 'task-1' }),
             toolCallStep(1, 'callSkillMatcher', { taskId: 'task-1', skills: ['aws'] }),
@@ -192,8 +182,7 @@ describe('orchestrator inline run (e2e)', () => {
         repo: new StaffingRunStateRepository(),
         resolveModel: resolveModelSeq([
           scriptedModel([toolCallStep(0, 'fetchTaskData', { taskId: 'task-1' }), STOP]), // taskAnalyzer
-          scriptedModel([STOP]), // skillMatcher built but unused
-          scriptedModel([STOP]), // avaiChecker built but unused
+          scriptedModel([STOP]), // skillMatcher built but unused (avaiChecker is deterministic, no model)
           scriptedModel([
             toolCallStep(0, 'callTaskAnalyzer', {
               query: 'what skills does this need',
