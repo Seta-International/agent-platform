@@ -1,4 +1,4 @@
-import { buildActorSession, matchUsersToTopic } from '@seta/identity';
+import { buildActorSession, getUserProfile, matchUsersToTopic } from '@seta/identity';
 import { getTask, listTasks, listTasksBySkillTag } from '@seta/planner';
 import type { AvailabilityPort, SkillSearchPort, TaskReaderPort, TaskSearchPort } from './ports.ts';
 
@@ -84,11 +84,15 @@ export function makeSkillSearch(deps: SkillSearchDeps): SkillSearchPort {
 // ---- Availability: real in-progress count; leave is Phase-A default ----
 export function makeAvailability(): AvailabilityPort {
   return {
-    // Phase A: leave/timesheet is not modeled yet (matches the repo's existing
-    // getActiveLeave "Phase A: mock" note). Everyone reads as available until
-    // the timesheet source lands; this is a documented v1 limitation, not a stub-to-fill.
-    async status() {
-      return { status: 'available' as const, note: null };
+    // Real availability + display name from identity.user_profile via the identity
+    // public surface (no cross-schema read). A user with no profile row defaults to available.
+    async status(userId) {
+      const profile = await getUserProfile(userId);
+      return {
+        status: profile?.availability_status ?? 'available',
+        name: profile?.display_name ?? null,
+        note: null,
+      };
     },
     async inProgressCount(userId, ctx) {
       const session = await buildActorSession({ user_id: ctx.actorUserId });

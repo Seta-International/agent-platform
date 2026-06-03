@@ -44,11 +44,11 @@ export interface SkillSearchPort {
   ): Promise<SkillSearchHit[]>;
 }
 
-/** Availability signals (adapter wraps identity leave + planner in-progress count). */
+/** Availability signals (adapter wraps identity profile + planner in-progress count). */
 export interface AvailabilityPort {
   status(
     userId: string,
     ctx: SpecializedAgentRunCtx,
-  ): Promise<{ status: AvailabilityStatus; note: string | null }>;
+  ): Promise<{ status: AvailabilityStatus; name?: string | null; note: string | null }>;
   inProgressCount(userId: string, ctx: SpecializedAgentRunCtx): Promise<number>;
 }

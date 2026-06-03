@@ -2,7 +2,11 @@ import { randomUUID } from 'node:crypto';
 import { createUser } from '@seta/identity';
 import type { Pool } from 'pg';
 import { describe, expect, it } from 'vitest';
-import { makeTaskReader, makeTaskSearch } from '../../../src/backend/orchestration/adapters.ts';
+import {
+  makeAvailability,
+  makeTaskReader,
+  makeTaskSearch,
+} from '../../../src/backend/orchestration/adapters.ts';
 import { withAgentTestDb } from '../../helpers.ts';
 
 /**
@@ -105,5 +109,37 @@ describe('staffing orchestration adapters (real DB)', () => {
 
       const none = await makeTaskSearch().bySkillTags(['frontend'], 20, ctx);
       expect(none).toEqual([]);
+    }));
+
+  it('makeAvailability.status reads availability_status + display name from identity', () =>
+    withAgentTestDb(async ({ pool }) => {
+      const tenantId = randomUUID();
+      await pool.query(`INSERT INTO core.tenants (id, name, slug) VALUES ($1, $2, $3)`, [
+        tenantId,
+        `Org ${tenantId.slice(0, 8)}`,
+        `org-${tenantId.slice(0, 8)}`,
+      ]);
+      const u = await createUser(
+        {
+          tenant_id: tenantId,
+          email: `busy-${tenantId.slice(0, 8)}@example.test`,
+          name: 'Busy Bee',
+          password: 'correct-horse-battery-staple',
+          initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
+        },
+        { type: 'cli', user_id: null },
+      );
+      // Ensure a profile row exists with a known non-default status.
+      await pool.query(
+        `INSERT INTO identity.user_profile (user_id, tenant_id, availability_status)
+         VALUES ($1, $2, 'busy')
+         ON CONFLICT (user_id) DO UPDATE SET availability_status = 'busy'`,
+        [u.user_id, tenantId],
+      );
+
+      const ctx = { tenantId, actorUserId: u.user_id };
+      const s = await makeAvailability().status(u.user_id, ctx);
+      expect(s.status).toBe('busy');
+      expect(s.name).toBe('Busy Bee');
     }));
 });
