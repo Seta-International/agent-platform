@@ -3,6 +3,7 @@ import { formatRelative } from '@seta/shared-ui';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useEffect, useRef } from 'react';
 import { useGroupActivityFeed } from '../hooks/queries/use-group-activity-feed';
+import { buildActivityLabel } from '../lib/build-activity-label';
 
 interface Props {
   groupId: string;
@@ -30,10 +31,6 @@ function ActivityRow({ item }: { item: GroupActivityItem }) {
         .toUpperCase()
     : '?';
 
-  const label = [item.actor_display_name ?? 'Someone', item.verb, item.target_title]
-    .filter(Boolean)
-    .join(' ');
-
   return (
     <div className="flex items-start gap-3 py-4 border-b border-hairline">
       <div
@@ -43,7 +40,7 @@ function ActivityRow({ item }: { item: GroupActivityItem }) {
         {initials}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-body-sm text-ink">{label}</p>
+        <p className="text-body-sm text-ink">{buildActivityLabel(item)}</p>
         <p className="text-caption text-ink-subtle mt-0.5">{formatRelative(item.occurred_at)}</p>
       </div>
     </div>
