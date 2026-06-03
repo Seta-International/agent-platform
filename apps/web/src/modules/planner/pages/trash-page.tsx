@@ -15,9 +15,14 @@ import {
   formatRelative,
   PageChrome,
   Skeleton,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
 } from '@seta/shared-ui';
 import { CheckSquare, Layers, RotateCcw, Trash2, Users } from 'lucide-react';
 import { useState } from 'react';
+import { useDeleteArchivedPlan } from '../hooks/mutations/delete-archived-plan';
 import { useRestoreGroup } from '../hooks/mutations/restore-group';
 import { useRestorePlan } from '../hooks/mutations/restore-plan';
 import { useRestoreTask } from '../hooks/mutations/restore-task';
@@ -72,6 +77,7 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
   const restoreGroup = useRestoreGroup();
   const restorePlan = useRestorePlan();
   const unarchivePlan = useUnarchivePlan();
+  const deleteArchivedPlan = useDeleteArchivedPlan();
   const [confirmingPurge, setConfirmingPurge] = useState<TrashRow | null>(null);
 
   if (q.isPending) {
@@ -110,6 +116,7 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
     name: p.name,
     archived_at: p.archived_at,
     group_id: p.group_id,
+    version: p.version,
   }));
 
   const rows: TrashRow[] = [
@@ -135,26 +142,6 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
     })),
   ];
 
-  if (rows.length === 0 && archivedRows.length === 0) {
-    return (
-      <PageChrome
-        breadcrumb={['Planner']}
-        title="Trash"
-        subtitle={`Auto-purged after ${RETENTION_DAYS} days`}
-      >
-        <div className="p-6">
-          <EmptyState
-            title="Trash is empty"
-            description={`Anything you delete sits here for ${RETENTION_DAYS} days, then it's gone for good.`}
-          />
-        </div>
-      </PageChrome>
-    );
-  }
-
-  const totalRows = rows.length + archivedRows.length;
-  const subtitle = `${totalRows} ${totalRows === 1 ? 'item' : 'items'} · auto-purged after ${RETENTION_DAYS} days`;
-
   function onRestore(r: TrashRow) {
     if (r.kind === 'task') {
       if (r.plan_id && trashedPlanIds.has(r.plan_id)) {
@@ -171,110 +158,164 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
   }
 
   return (
-    <PageChrome breadcrumb={['Planner']} title="Trash" subtitle={subtitle}>
-      {archivedRows.length > 0 && (
-        <div className="px-7 pt-6">
-          <h2 className="mb-3 text-sm font-semibold text-ink">Archived</h2>
-          <div role="table" aria-label="Archived plans" className="w-full">
-            <div
-              role="row"
-              className="sticky top-0 z-10 grid items-center gap-2 border-b border-hairline bg-canvas px-4 py-2.5 text-[11px] font-medium uppercase tracking-wider text-ink-subtle"
-              style={{ gridTemplateColumns: '1.7fr 160px 220px' }}
-            >
-              <div role="columnheader">Name</div>
-              <div role="columnheader">Archived</div>
-              <div role="columnheader" className="text-right">
-                <span className="sr-only">Actions</span>
-              </div>
-            </div>
-            <div role="rowgroup">
-              {archivedRows.map((r) => (
-                <div
-                  role="row"
-                  key={`archived:${r.id}`}
-                  className="grid items-center gap-2 border-b border-hairline-tertiary px-4 py-3 text-sm text-ink transition-colors hover:bg-surface-1"
-                  style={{ gridTemplateColumns: '1.7fr 160px 220px' }}
-                >
-                  <div role="cell" className="min-w-0 pr-4">
-                    <p className="truncate font-medium text-ink">{r.name}</p>
-                  </div>
-                  <div role="cell" className="text-xs text-ink-muted" suppressHydrationWarning>
-                    {r.archived_at ? formatRelative(r.archived_at) : '—'}
-                  </div>
-                  <div role="cell" className="flex justify-end gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => unarchivePlan.mutate({ plan_id: r.id })}
-                    >
-                      <RotateCcw className="size-3" aria-hidden /> Restore
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+    <PageChrome breadcrumb={['Planner']} title="Trash">
+      <Tabs defaultValue="deleted" className="flex flex-col">
+        <div className="border-b border-hairline px-7 pt-4">
+          <TabsList>
+            <TabsTrigger value="deleted">
+              Deleted
+              {rows.length > 0 && (
+                <Badge variant="secondary" className="ml-1.5">
+                  {rows.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="archived">
+              Archived
+              {archivedRows.length > 0 && (
+                <Badge variant="secondary" className="ml-1.5">
+                  {archivedRows.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
         </div>
-      )}
-      <div role="table" aria-label="Trash" className="w-full">
-        <div
-          role="row"
-          className="sticky top-0 z-10 grid items-center gap-2 border-b border-hairline bg-canvas px-7 py-2.5 text-[11px] font-medium uppercase tracking-wider text-ink-subtle"
-          style={{ gridTemplateColumns: GRID_TEMPLATE }}
-        >
-          <div role="columnheader">Type</div>
-          <div role="columnheader">Name</div>
-          <div role="columnheader">Deleted</div>
-          <div role="columnheader">Retention</div>
-          <div role="columnheader" className="text-right">
-            <span className="sr-only">Actions</span>
-          </div>
-        </div>
-        <div role="rowgroup">
-          {rows.map((r) => {
-            const days = daysRemaining(r.deleted_at);
-            const meta = KIND_META[r.kind];
-            const Icon = meta.Icon;
-            return (
+
+        <TabsContent value="deleted" className="mt-0">
+          {rows.length === 0 ? (
+            <div className="p-6">
+              <EmptyState
+                title="No deleted items"
+                description={`Anything you delete sits here for ${RETENTION_DAYS} days, then it's gone for good.`}
+              />
+            </div>
+          ) : (
+            <div role="table" aria-label="Deleted items" className="w-full">
               <div
                 role="row"
-                key={`${r.kind}:${r.id}`}
-                className="grid items-center gap-2 border-b border-hairline-tertiary px-7 py-3 text-sm text-ink transition-colors hover:bg-surface-1"
+                className="sticky top-0 z-10 grid items-center gap-2 border-b border-hairline bg-canvas px-7 py-2.5 text-[11px] font-medium uppercase tracking-wider text-ink-subtle"
                 style={{ gridTemplateColumns: GRID_TEMPLATE }}
               >
-                <div role="cell" className="flex items-center gap-2 text-ink-subtle">
-                  <Icon className={`size-3.5 shrink-0 ${meta.iconClass}`} aria-hidden />
-                  <span className="text-xs">{meta.label}</span>
-                </div>
-                <div role="cell" className="min-w-0 pr-4">
-                  <p className="truncate font-medium text-ink">{r.name}</p>
-                </div>
-                <div role="cell" className="text-xs text-ink-muted" suppressHydrationWarning>
-                  {r.deleted_at ? formatRelative(r.deleted_at) : '—'}
-                </div>
-                <div role="cell">
-                  <DaysBadge days={days} />
-                </div>
-                <div role="cell" className="flex justify-end gap-1">
-                  <Button variant="ghost" size="sm" onClick={() => onRestore(r)}>
-                    <RotateCcw className="size-3" aria-hidden /> Restore
-                  </Button>
-                  {canPermanentlyDelete && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-semantic-danger hover:text-semantic-danger"
-                      onClick={() => setConfirmingPurge(r)}
-                    >
-                      <Trash2 className="size-3" aria-hidden /> Delete
-                    </Button>
-                  )}
+                <div role="columnheader">Type</div>
+                <div role="columnheader">Name</div>
+                <div role="columnheader">Deleted</div>
+                <div role="columnheader">Retention</div>
+                <div role="columnheader" className="text-right">
+                  <span className="sr-only">Actions</span>
                 </div>
               </div>
-            );
-          })}
-        </div>
-      </div>
+              <div role="rowgroup">
+                {rows.map((r) => {
+                  const days = daysRemaining(r.deleted_at);
+                  const meta = KIND_META[r.kind];
+                  const Icon = meta.Icon;
+                  return (
+                    <div
+                      role="row"
+                      key={`${r.kind}:${r.id}`}
+                      className="grid items-center gap-2 border-b border-hairline-tertiary px-7 py-3 text-sm text-ink transition-colors hover:bg-surface-1"
+                      style={{ gridTemplateColumns: GRID_TEMPLATE }}
+                    >
+                      <div role="cell" className="flex items-center gap-2 text-ink-subtle">
+                        <Icon className={`size-3.5 shrink-0 ${meta.iconClass}`} aria-hidden />
+                        <span className="text-xs">{meta.label}</span>
+                      </div>
+                      <div role="cell" className="min-w-0 pr-4">
+                        <p className="truncate font-medium text-ink">{r.name}</p>
+                      </div>
+                      <div role="cell" className="text-xs text-ink-muted" suppressHydrationWarning>
+                        {r.deleted_at ? formatRelative(r.deleted_at) : '—'}
+                      </div>
+                      <div role="cell">
+                        <DaysBadge days={days} />
+                      </div>
+                      <div role="cell" className="flex justify-end gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => onRestore(r)}>
+                          <RotateCcw className="size-3" aria-hidden /> Restore
+                        </Button>
+                        {canPermanentlyDelete && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-semantic-danger hover:text-semantic-danger"
+                            onClick={() => setConfirmingPurge(r)}
+                          >
+                            <Trash2 className="size-3" aria-hidden /> Delete
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="archived" className="mt-0">
+          {archivedRows.length === 0 ? (
+            <div className="p-6">
+              <EmptyState
+                title="No archived plans"
+                description="Archived plans will appear here."
+              />
+            </div>
+          ) : (
+            <div role="table" aria-label="Archived plans" className="w-full">
+              <div
+                role="row"
+                className="sticky top-0 z-10 grid items-center gap-2 border-b border-hairline bg-canvas px-7 py-2.5 text-[11px] font-medium uppercase tracking-wider text-ink-subtle"
+                style={{ gridTemplateColumns: '1.7fr 160px 220px' }}
+              >
+                <div role="columnheader">Name</div>
+                <div role="columnheader">Archived</div>
+                <div role="columnheader" className="text-right">
+                  <span className="sr-only">Actions</span>
+                </div>
+              </div>
+              <div role="rowgroup">
+                {archivedRows.map((r) => (
+                  <div
+                    role="row"
+                    key={`archived:${r.id}`}
+                    className="grid items-center gap-2 border-b border-hairline-tertiary px-7 py-3 text-sm text-ink transition-colors hover:bg-surface-1"
+                    style={{ gridTemplateColumns: '1.7fr 160px 220px' }}
+                  >
+                    <div role="cell" className="min-w-0 pr-4">
+                      <p className="truncate font-medium text-ink">{r.name}</p>
+                    </div>
+                    <div role="cell" className="text-xs text-ink-muted" suppressHydrationWarning>
+                      {r.archived_at ? formatRelative(r.archived_at) : '—'}
+                    </div>
+                    <div role="cell" className="flex justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => unarchivePlan.mutate({ plan_id: r.id })}
+                      >
+                        <RotateCcw className="size-3" aria-hidden /> Restore
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-semantic-danger hover:text-semantic-danger"
+                        onClick={() =>
+                          deleteArchivedPlan.mutate({
+                            plan_id: r.id,
+                            expected_version: r.version,
+                          })
+                        }
+                      >
+                        <Trash2 className="size-3" aria-hidden /> Delete
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
 
       <Dialog
         open={confirmingPurge !== null}
