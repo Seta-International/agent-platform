@@ -80,9 +80,13 @@ export function PlanPageHeader({
 }: Props) {
   const [editing, setEditing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const pendingRenameRef = useRef(false);
 
   useEffect(() => {
-    if (editing) inputRef.current?.select();
+    if (editing) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
   }, [editing]);
 
   function commit() {
@@ -167,9 +171,24 @@ export function PlanPageHeader({
                 ⋯
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent
+              align="end"
+              onCloseAutoFocus={(e) => {
+                if (pendingRenameRef.current) {
+                  e.preventDefault();
+                  pendingRenameRef.current = false;
+                  inputRef.current?.focus();
+                  inputRef.current?.select();
+                }
+              }}
+            >
               {canRename && onRename && (
-                <DropdownMenuItem onSelect={() => setEditing(true)}>
+                <DropdownMenuItem
+                  onSelect={() => {
+                    pendingRenameRef.current = true;
+                    setEditing(true);
+                  }}
+                >
                   <Pencil aria-hidden /> Rename plan
                 </DropdownMenuItem>
               )}
