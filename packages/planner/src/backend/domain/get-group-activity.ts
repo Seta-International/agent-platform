@@ -16,7 +16,9 @@ import { requirePermission } from '../rbac.ts';
 export async function getGroupActivity(input: {
   group_id: string;
   /** Window start (ISO). The count + items both respect this. */
-  since: string;
+  since?: string;
+  /** Opaque keyset cursor for feed pagination. */
+  cursor?: string;
   /** Cap on items returned for the rail. Count is taken from the same window. */
   limit?: number;
   session: SessionScope;
@@ -52,11 +54,25 @@ export async function getGroupActivity(input: {
     ...taskRows.map((r) => r.id),
   ];
 
+  // Decode cursor for feed path
+  let before_occurred_at: string | undefined;
+  let before_event_id: string | undefined;
+  if (input.cursor) {
+    const decoded = JSON.parse(atob(input.cursor)) as {
+      occurred_at: string;
+      event_id: string;
+    };
+    before_occurred_at = decoded.occurred_at;
+    before_event_id = decoded.event_id;
+  }
+
   // queryAudit returns { rows, total } where total is the count across the same filter set
   const audit = await queryAudit({
     tenant_id: input.session.tenant_id,
     aggregate_ids: aggregateIds,
-    from: input.since,
+    from: input.cursor ? undefined : input.since,
+    before_occurred_at,
+    before_event_id,
     limit,
     offset: 0,
     sort_by: 'occurred_at',
@@ -101,9 +117,23 @@ export async function getGroupActivity(input: {
     };
   });
 
+  const lastItem = items[items.length - 1];
+  const has_more = items.length === limit;
+  const next_cursor =
+    has_more && lastItem
+      ? btoa(
+          JSON.stringify({
+            occurred_at: lastItem.occurred_at,
+            event_id: lastItem.event_id,
+          }),
+        )
+      : undefined;
+
   return {
     count: audit.total,
     items,
+    next_cursor,
+    has_more,
   };
 }
 
