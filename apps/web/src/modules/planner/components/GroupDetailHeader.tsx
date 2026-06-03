@@ -22,7 +22,7 @@ import { SyncControlsMenu } from './SyncControlsMenu';
 interface Props {
   group: GroupRow;
   canManage: boolean;
-  onRenameClick: () => void;
+  onEditClick: () => void;
   onInviteClick: () => void;
   onCreatePlanClick: () => void;
   onMenuAction: (action: 'archive' | 'delete') => void;
@@ -39,7 +39,7 @@ function toSyncBadgeState(status: string | null | undefined): SyncState | null {
 export function GroupDetailHeader({
   group,
   canManage,
-  onRenameClick,
+  onEditClick,
   onInviteClick,
   onCreatePlanClick,
   onMenuAction,
@@ -91,12 +91,12 @@ export function GroupDetailHeader({
                 {group.name}
               </h1>
               <div className="flex min-w-0 flex-none items-center gap-2 text-body-sm text-ink-subtle">
-                {canManage && (
+                {canManage && !group.deleted_at && (
                   <button
                     type="button"
-                    aria-label="Rename group"
+                    aria-label="Edit group"
                     className="rounded p-0.5 text-ink-subtle hover:bg-surface-1 hover:text-ink"
-                    onClick={onRenameClick}
+                    onClick={onEditClick}
                   >
                     <Pencil className="size-3.5" />
                   </button>
@@ -149,16 +149,18 @@ export function GroupDetailHeader({
           </div>
         </div>
         <div className="flex flex-none items-center gap-2">
-          {canManage && (
+          {canManage && !group.deleted_at && (
             <Button size="sm" variant="secondary" onClick={onInviteClick}>
               <Users className="size-3" />
               Invite
             </Button>
           )}
-          <Button size="sm" onClick={onCreatePlanClick}>
-            <Plus className="size-3" />
-            New plan
-          </Button>
+          {!group.deleted_at && (
+            <Button size="sm" onClick={onCreatePlanClick}>
+              <Plus className="size-3" />
+              New plan
+            </Button>
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button

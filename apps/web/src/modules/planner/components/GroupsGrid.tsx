@@ -1,13 +1,14 @@
 import type { GroupWithCountsRow } from '@seta/planner';
-import { GroupTile } from '@seta/shared-ui';
+import { Badge, Button, GroupTile } from '@seta/shared-ui';
 import { Link } from '@tanstack/react-router';
 import { Shield, Users } from 'lucide-react';
 
 interface Props {
   groups: ReadonlyArray<GroupWithCountsRow>;
+  onRestore?: (groupId: string) => void;
 }
 
-export function GroupsGrid({ groups }: Props) {
+export function GroupsGrid({ groups, onRestore }: Props) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6">
       {groups.map((g) => (
@@ -18,10 +19,10 @@ export function GroupsGrid({ groups }: Props) {
           aria-label={g.name}
           className="rounded-lg border border-hairline bg-canvas p-4 hover:border-hairline-strong hover:shadow-sm transition block"
         >
-          {/* Top row: tile on left, sync-badge slot on right (empty in PR2) */}
+          {/* Top row: tile on left, archived badge slot on right */}
           <div className="flex items-start justify-between">
             <GroupTile size={36} name={g.name} theme={g.theme} />
-            <div />
+            {g.deleted_at ? <Badge variant="secondary">Archived</Badge> : <div />}
           </div>
 
           {/* Name */}
@@ -53,6 +54,22 @@ export function GroupsGrid({ groups }: Props) {
               )}
             </span>
           </div>
+          {onRestore && g.deleted_at && (
+            <div className="mt-3">
+              <Button
+                size="sm"
+                variant="secondary"
+                className="w-full"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onRestore(g.id);
+                }}
+              >
+                Restore
+              </Button>
+            </div>
+          )}
         </Link>
       ))}
     </div>

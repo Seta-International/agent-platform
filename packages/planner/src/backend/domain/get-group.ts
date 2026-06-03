@@ -11,6 +11,7 @@ import { groupRowToDto } from './_group-dto.ts';
 export async function getGroup(input: {
   group_id: string;
   session: SessionScope;
+  include_deleted?: boolean;
 }): Promise<GroupRow> {
   requirePermission(input.session, 'planner.group.read', input.group_id);
 
@@ -18,7 +19,7 @@ export async function getGroup(input: {
 
   const [row] = await db.select().from(groups).where(eq(groups.id, input.group_id)).limit(1);
 
-  if (!row || row.deleted_at !== null) {
+  if (!row || (row.deleted_at !== null && !input.include_deleted)) {
     throw new PlannerError('NOT_FOUND', 'Group not found', { group_id: input.group_id });
   }
 

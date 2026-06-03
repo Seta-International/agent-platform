@@ -92,7 +92,7 @@ const baseGroup = makeGroup({
 const baseProps = {
   group: baseGroup,
   canManage: true,
-  onRenameClick: vi.fn(),
+  onEditClick: vi.fn(),
   onInviteClick: vi.fn(),
   onCreatePlanClick: vi.fn(),
   onMenuAction: vi.fn(),
@@ -121,20 +121,20 @@ describe('GroupDetailHeader', () => {
     expect(screen.getByText('Workspace')).toBeInTheDocument();
   });
 
-  it('hides the Invite and rename pencil when canManage=false', async () => {
+  it('hides the Invite and edit pencil when canManage=false', async () => {
     renderInRouter(<GroupDetailHeader {...baseProps} canManage={false} />);
     await screen.findByRole('heading', { name: 'Engineering' });
     expect(screen.queryByRole('button', { name: /Invite/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Rename group/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Edit group/i })).not.toBeInTheDocument();
   });
 
-  it('calls onRenameClick when the rename pencil is clicked', async () => {
+  it('calls onEditClick when the edit pencil is clicked', async () => {
     const { userEvent } = await import('@testing-library/user-event');
     const user = userEvent.setup();
-    const onRenameClick = vi.fn();
-    renderInRouter(<GroupDetailHeader {...baseProps} onRenameClick={onRenameClick} />);
-    await user.click(await screen.findByRole('button', { name: /Rename group/i }));
-    expect(onRenameClick).toHaveBeenCalled();
+    const onEditClick = vi.fn();
+    renderInRouter(<GroupDetailHeader {...baseProps} onEditClick={onEditClick} />);
+    await user.click(await screen.findByRole('button', { name: /Edit group/i }));
+    expect(onEditClick).toHaveBeenCalled();
   });
 
   it('calls onCreatePlanClick when "New plan" is clicked', async () => {

@@ -1,10 +1,19 @@
 import type { GroupWithCountsRow } from '@seta/planner';
-import { Avatar, AvatarFallback, AvatarStack, formatRelative, GroupTile } from '@seta/shared-ui';
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarStack,
+  Badge,
+  Button,
+  formatRelative,
+  GroupTile,
+} from '@seta/shared-ui';
 import { Link } from '@tanstack/react-router';
 import { ChevronRight, RefreshCw, Shield, Users } from 'lucide-react';
 
 interface Props {
   groups: ReadonlyArray<GroupWithCountsRow>;
+  onRestore?: (groupId: string) => void;
 }
 
 function initialsOf(name: string): string {
@@ -16,7 +25,7 @@ function initialsOf(name: string): string {
     .toUpperCase();
 }
 
-export function GroupsTable({ groups }: Props) {
+export function GroupsTable({ groups, onRestore }: Props) {
   return (
     <div className="w-full overflow-x-auto">
       {/* Header row */}
@@ -54,6 +63,11 @@ export function GroupsTable({ groups }: Props) {
             <div className="min-w-0 pr-4">
               <p className="truncate font-medium text-ink">
                 {group.name}
+                {group.deleted_at && (
+                  <Badge variant="secondary" className="ml-1.5 align-middle">
+                    Archived
+                  </Badge>
+                )}
                 {group.external_source !== 'native' && (
                   <span
                     role="img"
@@ -113,9 +127,23 @@ export function GroupsTable({ groups }: Props) {
               {formatRelative(group.updated_at)}
             </div>
 
-            {/* Chevron */}
+            {/* Restore or chevron */}
             <div className="flex justify-end">
-              <ChevronRight className="size-3 text-ink-tertiary" aria-hidden="true" />
+              {onRestore && group.deleted_at ? (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onRestore(group.id);
+                  }}
+                >
+                  Restore
+                </Button>
+              ) : (
+                <ChevronRight className="size-3 text-ink-tertiary" aria-hidden="true" />
+              )}
             </div>
           </Link>
         ))}

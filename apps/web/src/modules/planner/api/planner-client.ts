@@ -87,9 +87,13 @@ async function listGroups(): Promise<GroupRow[]> {
   return r.groups;
 }
 
-async function listGroupsWithCounts(): Promise<GroupWithCountsRow[]> {
+async function listGroupsWithCounts(
+  opts: { includeDeleted?: boolean } = {},
+): Promise<GroupWithCountsRow[]> {
+  const q = new URLSearchParams({ withCounts: 'true' });
+  if (opts.includeDeleted) q.set('include_deleted', 'true');
   const r = (await request<{ groups: GroupWithCountsRow[] }>(
-    `/api/planner/v1/groups?withCounts=true`,
+    `/api/planner/v1/groups?${q.toString()}`,
   )) ?? { groups: [] };
   return r.groups;
 }
@@ -101,8 +105,12 @@ async function listMyGroups(): Promise<GroupRow[]> {
   return r.groups;
 }
 
-async function getGroup(group_id: string): Promise<GroupRow> {
-  return (await request<GroupRow>(`/api/planner/v1/groups/${group_id}`)) as GroupRow;
+async function getGroup(
+  group_id: string,
+  opts: { includeDeleted?: boolean } = {},
+): Promise<GroupRow> {
+  const q = opts.includeDeleted ? '?include_deleted=true' : '';
+  return (await request<GroupRow>(`/api/planner/v1/groups/${group_id}${q}`)) as GroupRow;
 }
 
 async function getGroupActivity(
@@ -133,7 +141,13 @@ async function createGroup(input: {
 async function updateGroup(input: {
   group_id: string;
   expected_version: number;
-  patch: { name?: string };
+  patch: {
+    name?: string;
+    description?: string | null;
+    theme?: 'teal' | 'purple' | 'green' | 'blue' | 'pink' | 'orange' | 'red';
+    visibility?: 'private' | 'public';
+    default_role?: 'owner' | 'member';
+  };
 }): Promise<GroupRow> {
   return (await request<GroupRow>(`/api/planner/v1/groups/${input.group_id}`, {
     method: 'PATCH',
