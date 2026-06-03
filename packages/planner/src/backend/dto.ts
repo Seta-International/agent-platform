@@ -111,6 +111,10 @@ export interface GroupActivityResult {
   /** Total events in the window (independent of `items.length`, which is capped by `limit`). */
   count: number;
   items: ReadonlyArray<GroupActivityItem>;
+  /** Opaque keyset cursor — present only on feed calls when more pages exist. */
+  next_cursor?: string;
+  /** True when items.length === limit, meaning there may be more pages. */
+  has_more: boolean;
 }
 
 export interface PlanWithRollupsRow extends PlanRow {
