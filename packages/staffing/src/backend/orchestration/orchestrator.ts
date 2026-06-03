@@ -12,6 +12,7 @@ import {
   OrchestratorResultSchema,
   type RankedCandidate,
   type Recommendation,
+  type TaskAnalyzerIntent,
   type TaskAnalyzerOutput,
 } from './schemas.ts';
 import { type MastraToolSignals, trustFromMastraResult } from './trust.ts';
@@ -20,26 +21,26 @@ type In = z.infer<typeof OrchestratorInputSchema>;
 type Out = OrchestratorResult;
 
 type TaskAnalyzerSpec = SpecializedAgentSpec<
-  { query: string; taskId: string | null },
+  { intent: TaskAnalyzerIntent; query: string; taskId: string | null },
   TaskAnalyzerOutput
 >;
 type SkillMatcherSpec = SpecializedAgentSpec<
-  { taskId: string; skills: string[] },
-  { taskId: string; candidates: RankedCandidate[] }
+  { taskId: string | null; skills: string[] },
+  { taskId: string | null; candidates: RankedCandidate[] }
 >;
 type AvaiCheckerSpec = SpecializedAgentSpec<
-  { taskId: string; candidates: RankedCandidate[] },
-  { taskId: string; availability: AvailabilityResult[] }
+  { taskId: string | null; candidates: RankedCandidate[] },
+  { taskId: string | null; availability: AvailabilityResult[] }
 >;
 type RecommenderSpec = SpecializedAgentSpec<
   // availability is now produced by the avaiChecker step and passed through.
   {
-    taskId: string;
+    taskId: string | null;
     skills: string[];
     candidates: RankedCandidate[];
     availability: AvailabilityResult[];
   },
-  { taskId: string; recommendations: Recommendation[] }
+  { taskId: string | null; recommendations: Recommendation[] }
 >;
 
 export interface OrchestratorDeps {
@@ -58,17 +59,27 @@ const RECOMMEND_TASK_CAP = 5;
 
 function instructions(cap: number): string {
   return [
-    'You are a staffing assistant. Decide which tools to call to answer the user.',
-    "Use callTaskAnalyzer to learn a task's required skills (pass the current taskId) or to",
-    'find tasks by area/skill (pass the user message as query).',
-    'When the user wants people recommended for a task, call in order: callSkillMatcher with the',
-    'skills from callTaskAnalyzer; then callAvaiChecker with those candidates; then callRecommender',
-    'with the candidates AND the availability returned by callAvaiChecker.',
+    'You are a staffing assistant. Decide which tools to call to answer the user, then stop.',
+    '',
+    'Get skills or tasks with callTaskAnalyzer, picking the intent that matches the request:',
+    '- intent=resolve_task_skills (with the current taskId): for "what skills does this task',
+    '  need", and to get a task\'s skills before recommending people FOR that task.',
+    '- intent=extract_named_skills: when the user asks for PEOPLE by skill they named, e.g.',
+    '  "who has aws and k8s skills" / "find someone who knows terraform". This returns those',
+    '  skills — it does NOT search tasks. Do not use find_tasks for a people question.',
+    '- intent=find_tasks: when the user wants to list TASKS by area/skill, e.g. "find infra tasks".',
+    '',
+    'To recommend people, after obtaining the skills, call in order: callSkillMatcher with those',
+    'skills; then callAvaiChecker with the returned candidates; then callRecommender with the',
+    'candidates AND the availability returned by callAvaiChecker. Pass the same taskId through all',
+    "three: the current task's id, the found task's id, or null when the request names no task",
+    '(e.g. "find users with aws and docker") — taskId is only a correlation label.',
+    '',
     'If the user only asks what skills a task needs, or only to list tasks, answer with the',
     'callTaskAnalyzer result and STOP — do not recommend people.',
     `When asked to find tasks AND recommend people, recommend for at most the first ${cap} tasks.`,
     'Never invent tasks, skills, or people.',
-  ].join(' ');
+  ].join('\n');
 }
 
 export function makeOrchestratorAgent(deps: OrchestratorDeps): SpecializedAgentSpec<In, Out> {
@@ -131,7 +142,7 @@ function results(res: MastraToolSignals, name: string): unknown[] {
 function assemble(res: MastraToolSignals): OrchestratorResult {
   const ta = results(res, 'callTaskAnalyzer') as TaskAnalyzerOutput[];
   const recs = results(res, 'callRecommender') as {
-    taskId: string;
+    taskId: string | null;
     recommendations: Recommendation[];
   }[];
 

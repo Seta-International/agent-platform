@@ -1,105 +1,186 @@
 import { describe, expect, it } from 'vitest';
 import { makeTaskAnalyzerAgent } from '../../../../src/backend/orchestration/agents/task-analyzer.ts';
 import type {
+  TaskInfo,
   TaskReaderPort,
   TaskSearchPort,
 } from '../../../../src/backend/orchestration/ports.ts';
 
 const ctx = { tenantId: 't1', actorUserId: 'a1' };
-const taskReader: TaskReaderPort = {
-  async load() {
-    return null;
-  },
-};
-const taskSearch: TaskSearchPort = {
-  async bySkillTags() {
-    return [];
-  },
-};
-const base = { taskReader, taskSearch, resolveModel: () => ({}) as never };
 
-describe('taskAnalyzer agent', () => {
-  it("returns a task's own skill_tags (fetchTaskData)", async () => {
+/** Port spies: count calls so we can assert which path the agent took. */
+function spyReader(task: TaskInfo | null) {
+  const calls: string[] = [];
+  const port: TaskReaderPort = {
+    async load(taskId) {
+      calls.push(taskId);
+      return task && { ...task, taskId };
+    },
+  };
+  return { port, calls };
+}
+function spySearch(tasks: Awaited<ReturnType<TaskSearchPort['bySkillTags']>>) {
+  const calls: string[][] = [];
+  const port: TaskSearchPort = {
+    async bySkillTags(tags) {
+      calls.push(tags);
+      return tasks.map((t) => ({ ...t, skillTags: tags }));
+    },
+  };
+  return { port, calls };
+}
+
+const TASK = (skillTags: string[]): TaskInfo => ({
+  taskId: 't-1',
+  title: 'AWS migration',
+  description: 'lift and shift',
+  groupId: 'g1',
+  skillTags,
+});
+
+describe('taskAnalyzer agent (intent-routed, deterministic)', () => {
+  it('extract_named_skills: extracts skills from the query ONLY — no task read, no task search', async () => {
+    const reader = spyReader(null);
+    const search = spySearch([]);
     const agent = makeTaskAnalyzerAgent({
-      ...base,
-      runAgent: async () => ({
-        toolCalls: [{ payload: { toolName: 'fetchTaskData', args: { taskId: 't-1' } } }],
-        toolResults: [
-          {
-            payload: {
-              toolName: 'fetchTaskData',
-              result: {
-                taskId: 't-1',
-                title: 'AWS',
-                description: 'x',
-                skillTags: ['aws', 'terraform'],
-                found: true,
-              },
-            },
-          },
-        ],
-      }),
+      taskReader: reader.port,
+      taskSearch: search.port,
+      resolveModel: () => ({}) as never,
+      extractTagsFromQuery: async () => ['aws', 'k8s'],
     });
-    const res = await agent.run({ query: 'what skills does this need', taskId: 't-1' }, ctx);
-    expect(res.result.skills).toEqual(['aws', 'terraform']);
+
+    const res = await agent.run(
+      { intent: 'extract_named_skills', query: 'who has skills in aws and k8s', taskId: 't-1' },
+      ctx,
+    );
+
+    expect(res.result.skills).toEqual(['aws', 'k8s']);
     expect(res.result.tasks).toBeUndefined();
+    // The whole point of the fix: this intent must NOT touch task data or search.
+    expect(reader.calls).toEqual([]);
+    expect(search.calls).toEqual([]);
   });
 
-  it('falls back to extractRequirement when the task has no skill_tags', async () => {
+  it('find_tasks: extracts tags then searches tasks — returns tasks, not skills', async () => {
+    const reader = spyReader(null);
+    const search = spySearch([
+      { taskId: 't9', title: 'Infra A', status: 'not_started', skillTags: [] },
+    ]);
     const agent = makeTaskAnalyzerAgent({
-      ...base,
-      runAgent: async () => ({
-        toolCalls: [
-          { payload: { toolName: 'fetchTaskData', args: { taskId: 't-1' } } },
-          { payload: { toolName: 'extractRequirement', args: {} } },
-        ],
-        toolResults: [
-          {
-            payload: {
-              toolName: 'fetchTaskData',
-              result: { taskId: 't-1', title: 'AWS', description: 'x', skillTags: [], found: true },
-            },
-          },
-          { payload: { toolName: 'extractRequirement', result: { skills: ['aws'] } } },
-        ],
-      }),
+      taskReader: reader.port,
+      taskSearch: search.port,
+      resolveModel: () => ({}) as never,
+      extractTagsFromQuery: async () => ['infrastructure'],
     });
-    const res = await agent.run({ query: 'what skills', taskId: 't-1' }, ctx);
-    expect(res.result.skills).toEqual(['aws']);
-  });
 
-  it('returns a task list (extractSkillTag + findTaskBySkillTag)', async () => {
-    const agent = makeTaskAnalyzerAgent({
-      ...base,
-      runAgent: async () => ({
-        toolCalls: [
-          { payload: { toolName: 'extractSkillTag', args: { query: 'find infra' } } },
-          { payload: { toolName: 'findTaskBySkillTag', args: { tags: ['infrastructure'] } } },
-        ],
-        toolResults: [
-          { payload: { toolName: 'extractSkillTag', result: { tags: ['infrastructure'] } } },
-          {
-            payload: {
-              toolName: 'findTaskBySkillTag',
-              result: {
-                tasks: [
-                  {
-                    taskId: 't9',
-                    title: 'Infra A',
-                    status: 'not_started',
-                    skillTags: ['infrastructure'],
-                  },
-                ],
-              },
-            },
-          },
-        ],
-      }),
-    });
-    const res = await agent.run({ query: 'find infrastructure tasks', taskId: null }, ctx);
+    const res = await agent.run(
+      { intent: 'find_tasks', query: 'find infrastructure tasks', taskId: null },
+      ctx,
+    );
+
     expect(res.result.tasks).toHaveLength(1);
     expect(res.result.tasks?.[0]?.title).toBe('Infra A');
     expect(res.result.skills).toBeUndefined();
+    expect(search.calls).toEqual([['infrastructure']]);
+    expect(reader.calls).toEqual([]);
     expect(res.trust.evidenceCitations.some((c) => c.id === 't9')).toBe(true);
+  });
+
+  it('find_tasks: empty tags → no search, empty task list', async () => {
+    const search = spySearch([]);
+    const agent = makeTaskAnalyzerAgent({
+      taskReader: spyReader(null).port,
+      taskSearch: search.port,
+      resolveModel: () => ({}) as never,
+      extractTagsFromQuery: async () => [],
+    });
+
+    const res = await agent.run({ intent: 'find_tasks', query: 'hello there', taskId: null }, ctx);
+
+    expect(res.result.tasks).toEqual([]);
+    expect(search.calls).toEqual([]); // never search with empty tags
+  });
+
+  it("resolve_task_skills: returns the task's own skill_tags — no extraction, no search", async () => {
+    const reader = spyReader(TASK(['aws', 'terraform']));
+    const search = spySearch([]);
+    let extractCalls = 0;
+    const agent = makeTaskAnalyzerAgent({
+      taskReader: reader.port,
+      taskSearch: search.port,
+      resolveModel: () => ({}) as never,
+      extractSkillsFromTask: async () => {
+        extractCalls += 1;
+        return ['ignored'];
+      },
+    });
+
+    const res = await agent.run(
+      { intent: 'resolve_task_skills', query: 'what skills does this need', taskId: 't-1' },
+      ctx,
+    );
+
+    expect(res.result.skills).toEqual(['aws', 'terraform']);
+    expect(res.result.tasks).toBeUndefined();
+    expect(reader.calls).toEqual(['t-1']);
+    expect(extractCalls).toBe(0); // task had its own tags → no LLM extraction
+    expect(search.calls).toEqual([]);
+  });
+
+  it('resolve_task_skills: falls back to extractRequirement when the task has no skill_tags', async () => {
+    const reader = spyReader(TASK([]));
+    let extractCalls = 0;
+    const agent = makeTaskAnalyzerAgent({
+      taskReader: reader.port,
+      taskSearch: spySearch([]).port,
+      resolveModel: () => ({}) as never,
+      extractSkillsFromTask: async () => {
+        extractCalls += 1;
+        return ['aws'];
+      },
+    });
+
+    const res = await agent.run(
+      { intent: 'resolve_task_skills', query: 'what skills', taskId: 't-1' },
+      ctx,
+    );
+
+    expect(res.result.skills).toEqual(['aws']);
+    expect(extractCalls).toBe(1);
+  });
+
+  it('resolve_task_skills: missing taskId → empty result (no crash)', async () => {
+    const reader = spyReader(TASK(['aws']));
+    const agent = makeTaskAnalyzerAgent({
+      taskReader: reader.port,
+      taskSearch: spySearch([]).port,
+      resolveModel: () => ({}) as never,
+    });
+
+    const res = await agent.run(
+      { intent: 'resolve_task_skills', query: 'what skills', taskId: null },
+      ctx,
+    );
+
+    expect(res.result.skills).toBeUndefined();
+    expect(res.result.tasks).toBeUndefined();
+    expect(reader.calls).toEqual([]); // nothing to load
+  });
+
+  it('resolve_task_skills: task not found → empty result', async () => {
+    const reader = spyReader(null);
+    const agent = makeTaskAnalyzerAgent({
+      taskReader: reader.port,
+      taskSearch: spySearch([]).port,
+      resolveModel: () => ({}) as never,
+    });
+
+    const res = await agent.run(
+      { intent: 'resolve_task_skills', query: 'what skills', taskId: 't-404' },
+      ctx,
+    );
+
+    expect(res.result.skills).toBeUndefined();
+    expect(reader.calls).toEqual(['t-404']);
   });
 });

@@ -1,108 +1,165 @@
-import { Agent } from '@mastra/core/agent';
-import { RequestContext } from '@mastra/core/request-context';
-import type { AgentResult, Citation, SpecializedAgentSpec } from '@seta/agent-sdk';
-import type { z } from 'zod';
-import type { TaskSummary } from '../ports.ts';
+import type {
+  AgentResult,
+  Citation,
+  SpecializedAgentRunCtx,
+  SpecializedAgentSpec,
+  TrustEnvelope,
+} from '@seta/agent-sdk';
+import { generateObject, type LanguageModel } from 'ai';
+import { z } from 'zod';
+import type { TaskReaderPort, TaskSearchPort, TaskSummary } from '../ports.ts';
 import {
   TaskAnalyzerInputSchema,
   type TaskAnalyzerOutput,
   TaskAnalyzerOutputSchema,
 } from '../schemas.ts';
-import { type MastraToolSignals, trustFromMastraResult } from '../trust.ts';
-import { makeTaskAnalyzerTools, type TaskAnalyzerToolDeps } from './task-analyzer.tools.ts';
 
 type In = z.infer<typeof TaskAnalyzerInputSchema>;
 type Out = TaskAnalyzerOutput;
 
-export interface TaskAnalyzerDeps extends TaskAnalyzerToolDeps {
-  /** Test-only seam; production builds + runs a real Mastra Agent. */
-  runAgent?: (args: { input: In; requestContext: RequestContext }) => Promise<MastraToolSignals>;
+/** Max tasks the find_tasks intent returns. */
+const FIND_TASKS_LIMIT = 20;
+
+export interface TaskAnalyzerDeps {
+  taskReader: TaskReaderPort;
+  taskSearch: TaskSearchPort;
+  /** Fast model used by the (LLM) extraction steps; resolved lazily, only when needed. */
+  resolveModel: () => LanguageModel;
+  /** Test seams; production runs structured-output LLM extraction. */
+  extractSkillsFromTask?: (args: {
+    title: string;
+    description: string | null;
+  }) => Promise<string[]>;
+  extractTagsFromQuery?: (args: { query: string }) => Promise<string[]>;
 }
 
-const INSTRUCTIONS = [
-  'You analyse a chat message about tasks and decide which tools to call.',
-  'If the user asks what skills/requirements a task needs: call fetchTaskData with the',
-  'current taskId; if its skillTags is empty, then call extractRequirement with the',
-  "task's title and description.",
-  'If the user wants to find/list tasks by an area or skill: call extractSkillTag with',
-  'the user message, then call findTaskBySkillTag with the returned tags.',
-  'Never invent tasks or skills; use only tool results.',
-].join(' ');
-
-function toolResult(res: MastraToolSignals, name: string): unknown {
-  return res.toolResults.find((t) => t.payload.toolName === name)?.payload.result;
-}
-
-export function makeTaskAnalyzerAgent(deps: TaskAnalyzerDeps): SpecializedAgentSpec<In, Out> {
-  const tools = makeTaskAnalyzerTools(deps);
-  const agent = new Agent({
-    id: 'staffing.taskAnalyzer',
-    name: 'Task Analyzer',
-    instructions: INSTRUCTIONS,
-    model: deps.resolveModel() as never,
-    tools: tools as never,
+/** Lowercase skill/area tags named in the user's query (LLM extraction). */
+async function extractTags(deps: TaskAnalyzerDeps, query: string, signal?: AbortSignal) {
+  if (deps.extractTagsFromQuery) return deps.extractTagsFromQuery({ query });
+  const { object } = await generateObject({
+    model: deps.resolveModel(),
+    schema: z.object({ tags: z.array(z.string()) }),
+    abortSignal: signal,
+    prompt: [
+      'Extract the lowercase skill or area tag(s) named in the user message.',
+      'Return an empty array if the message names no skills.',
+      `User message: ${query}`,
+    ].join('\n'),
   });
+  return object.tags;
+}
 
+/** Skills a task implies, inferred from its title + description (LLM extraction). */
+async function extractSkills(
+  deps: TaskAnalyzerDeps,
+  title: string,
+  description: string | null,
+  signal?: AbortSignal,
+) {
+  if (deps.extractSkillsFromTask) return deps.extractSkillsFromTask({ title, description });
+  const { object } = await generateObject({
+    model: deps.resolveModel(),
+    schema: z.object({ skills: z.array(z.string()) }),
+    abortSignal: signal,
+    prompt: [
+      'Extract a concise list of technical skill tags (lowercase, no duplicates)',
+      'required to do this task. Return only skills clearly implied by the text.',
+      `Title: ${title}`,
+      `Description: ${description ?? '(none)'}`,
+    ].join('\n'),
+  });
+  return object.skills;
+}
+
+function trust(
+  step: string,
+  detail: string,
+  citations: Citation[],
+  confidence: number,
+): TrustEnvelope {
+  return {
+    reasoningTrace: [{ step, detail, at: new Date().toISOString() }],
+    evidenceCitations: citations,
+    confidenceScore: Math.max(0, Math.min(1, confidence)),
+  };
+}
+
+/**
+ * Resolves a task's required skills, extracts the skills named in the user's
+ * query, or finds tasks by skill tag — selected by `intent`.
+ *
+ * Deterministic routing: the orchestrator (the router) owns the people-vs-task
+ * decision and passes `intent`, so this agent runs exactly ONE path instead of
+ * letting an LLM guess which tools to call (which previously fired all of
+ * fetch/extract/find at once for a "who has skill X" query). The extraction
+ * steps still use an LLM, but only the one the chosen intent needs.
+ */
+export function makeTaskAnalyzerAgent(deps: TaskAnalyzerDeps): SpecializedAgentSpec<In, Out> {
   return {
     id: 'staffing.taskAnalyzer',
-    description: "Resolves a task's required skills, or finds tasks by skill tag (LLM-driven).",
+    description:
+      "Resolves a task's required skills, extracts skills named in the query, or finds tasks by skill tag (intent-routed, deterministic).",
     inputSchema: TaskAnalyzerInputSchema,
     outputSchema: TaskAnalyzerOutputSchema,
-    run: async (input, ctx): Promise<AgentResult<Out>> => {
-      const rc = new RequestContext();
-      rc.set('actor', { type: 'user', user_id: ctx.actorUserId });
-      rc.set('tenant_id', ctx.tenantId);
+    run: async (input, ctx: SpecializedAgentRunCtx): Promise<AgentResult<Out>> => {
+      switch (input.intent) {
+        case 'extract_named_skills': {
+          // People-search input: just surface the skills the user named so the
+          // orchestrator can hand them to the skillMatcher. NO task read/search.
+          const skills = await extractTags(deps, input.query, ctx.abortSignal);
+          return {
+            result: { skills },
+            trust: trust(
+              'extract_named_skills',
+              `extracted ${skills.length} skill(s) from the query`,
+              [],
+              skills.length ? 0.8 : 0.3,
+            ),
+          };
+        }
 
-      const res: MastraToolSignals = deps.runAgent
-        ? await deps.runAgent({ input, requestContext: rc })
-        : await (async () => {
-            const r = await agent.generate(
-              [`User message: ${input.query}`, `Current taskId: ${input.taskId ?? '(none)'}`].join(
-                '\n',
-              ),
-              { requestContext: rc, maxSteps: 6, abortSignal: ctx.abortSignal },
-            );
+        case 'find_tasks': {
+          const tags = await extractTags(deps, input.query, ctx.abortSignal);
+          const tasks: TaskSummary[] = tags.length
+            ? await deps.taskSearch.bySkillTags(tags, FIND_TASKS_LIMIT, ctx)
+            : [];
+          return {
+            result: { tasks },
+            trust: trust(
+              'find_tasks',
+              `searched tasks by [${tags.join(', ')}] → ${tasks.length} task(s)`,
+              tasks.map((t) => ({ kind: 'task', id: t.taskId, label: t.title })),
+              tasks.length ? 0.8 : 0.3,
+            ),
+          };
+        }
+
+        case 'resolve_task_skills': {
+          if (!input.taskId) {
+            return { result: {}, trust: trust('resolve_task_skills', 'no taskId given', [], 0.2) };
+          }
+          const task = await deps.taskReader.load(input.taskId, ctx);
+          if (!task) {
             return {
-              toolCalls: r.toolCalls as MastraToolSignals['toolCalls'],
-              toolResults: r.toolResults as MastraToolSignals['toolResults'],
+              result: {},
+              trust: trust('resolve_task_skills', `task ${input.taskId} not found`, [], 0.2),
             };
-          })();
-
-      const fetched = toolResult(res, 'fetchTaskData') as
-        | { skillTags: string[]; found: boolean }
-        | undefined;
-      const extracted = toolResult(res, 'extractRequirement') as { skills: string[] } | undefined;
-      const found = toolResult(res, 'findTaskBySkillTag') as { tasks: TaskSummary[] } | undefined;
-
-      // Find-tasks path is authoritative when present; otherwise resolve skills:
-      // prefer the task's own tags, fall back to the LLM extraction.
-      const tasks = found?.tasks;
-      let skills: string[] | undefined;
-      if (!tasks) {
-        if (fetched?.found && fetched.skillTags.length > 0) skills = fetched.skillTags;
-        else if (extracted) skills = extracted.skills;
-        else if (fetched?.found) skills = [];
+          }
+          // Prefer the task's own tags; fall back to LLM inference only when empty.
+          const skills = task.skillTags.length
+            ? task.skillTags
+            : await extractSkills(deps, task.title, task.description, ctx.abortSignal);
+          return {
+            result: { skills },
+            trust: trust(
+              'resolve_task_skills',
+              `resolved ${skills.length} skill(s) for task ${task.taskId}`,
+              [{ kind: 'task', id: task.taskId, label: task.title }],
+              skills.length ? 0.8 : 0.4,
+            ),
+          };
+        }
       }
-
-      const trust = trustFromMastraResult(res, {
-        citations: (tr) => {
-          if (tr.payload.toolName === 'findTaskBySkillTag') {
-            const ts = (tr.payload.result as { tasks?: TaskSummary[] }).tasks ?? [];
-            return ts.map<Citation>((t) => ({ kind: 'task', id: t.taskId, label: t.title }));
-          }
-          if (tr.payload.toolName === 'fetchTaskData') {
-            const r = tr.payload.result as { taskId: string; title: string; found: boolean };
-            return r.found ? [{ kind: 'task', id: r.taskId, label: r.title }] : [];
-          }
-          return [];
-        },
-        confidence: tasks ? (tasks.length ? 0.8 : 0.3) : skills?.length ? 0.8 : 0.4,
-      });
-
-      const result: Out = {};
-      if (tasks) result.tasks = tasks;
-      if (skills) result.skills = skills;
-      return { result, trust };
     },
   };
 }

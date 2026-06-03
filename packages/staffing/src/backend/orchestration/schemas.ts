@@ -61,7 +61,23 @@ export const AnalyzerInputSchema = z.object({
 export const AnalyzerOutputSchema = SkillRequirementSchema;
 
 // ---- taskAnalyzer (orchestrator-facing) ----
+/**
+ * What the orchestrator (the router) wants from the taskAnalyzer. The analyzer
+ * does NOT guess this from the query — the orchestrator decides people-vs-task
+ * and sets the intent, so the analyzer runs exactly one deterministic path.
+ *   - resolve_task_skills : a specific task's required skills (needs taskId)
+ *   - find_tasks          : list tasks whose skill_tags match the query
+ *   - extract_named_skills: the skills the user named in the query (→ skills)
+ */
+export const TaskAnalyzerIntent = z.enum([
+  'resolve_task_skills',
+  'find_tasks',
+  'extract_named_skills',
+]);
+export type TaskAnalyzerIntent = z.infer<typeof TaskAnalyzerIntent>;
+
 export const TaskAnalyzerInputSchema = z.object({
+  intent: TaskAnalyzerIntent,
   query: z.string(),
   taskId: z.string().nullable(),
 });
@@ -71,32 +87,35 @@ export const TaskAnalyzerOutputSchema = z.object({
 });
 export type TaskAnalyzerOutput = z.infer<typeof TaskAnalyzerOutputSchema>;
 
+// Across the recommend pipeline `taskId` is only a correlation label (search is
+// by skills, availability is per-user). It is null for a task-less people search
+// ("find users with aws and docker") issued outside any task context.
 export const SkillMatcherInputSchema = z.object({
-  taskId: z.string(),
+  taskId: z.string().nullable(),
   skills: z.array(z.string()),
 });
 export const SkillMatcherOutputSchema = z.object({
-  taskId: z.string(),
+  taskId: z.string().nullable(),
   candidates: z.array(RankedCandidateSchema),
 });
 
 export const AvaiCheckerInputSchema = z.object({
-  taskId: z.string(),
+  taskId: z.string().nullable(),
   candidates: z.array(RankedCandidateSchema),
 });
 export const AvaiCheckerOutputSchema = z.object({
-  taskId: z.string(),
+  taskId: z.string().nullable(),
   availability: z.array(AvailabilityResultSchema),
 });
 
 export const RecommenderInputSchema = z.object({
-  taskId: z.string(),
+  taskId: z.string().nullable(),
   skills: z.array(z.string()),
   candidates: z.array(RankedCandidateSchema),
   availability: z.array(AvailabilityResultSchema),
 });
 export const RecommenderOutputSchema = z.object({
-  taskId: z.string(),
+  taskId: z.string().nullable(),
   recommendations: z.array(RecommendationSchema),
 });
 

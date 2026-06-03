@@ -104,19 +104,22 @@ describe('orchestrator inline run (e2e)', () => {
   it('recommend path: taskAnalyzer → skillMatcher → avaiChecker → recommender, streams sub-cards, persists', async () => {
     await withAgentTestDb(async () => {
       __setStaffingRunIdForTests(() => RUN);
-      // Build-time models: [taskAnalyzer, skillMatcher]; avaiChecker is deterministic
-      // (no model); run-time: [orchestrator].
+      // Build-time models: [skillMatcher]; taskAnalyzer + avaiChecker are
+      // deterministic (no model); run-time: [orchestrator].
       const rt = buildStaffingOrchestrationRuntime({
         repo: new StaffingRunStateRepository(),
         resolveModel: resolveModelSeq([
-          // taskAnalyzer: fetchTaskData (task has skillTags=['aws'] → no extractRequirement).
-          scriptedModel([toolCallStep(0, 'fetchTaskData', { taskId: 'task-1' }), STOP]),
           // skillMatcher: searchCandidates; run() ranks the hits via fallback.
           scriptedModel([toolCallStep(0, 'searchCandidates', { skills: ['aws'] }), STOP]),
-          // orchestrator: chain the four delegations (callAvaiChecker runs the
-          // deterministic avaiChecker against the ports), then stop.
+          // orchestrator: chain the four delegations. taskAnalyzer is deterministic
+          // (resolve_task_skills reads the task's skillTags=['aws'] via the port);
+          // callAvaiChecker runs the deterministic avaiChecker against the ports.
           scriptedModel([
-            toolCallStep(0, 'callTaskAnalyzer', { query: 'who should do this', taskId: 'task-1' }),
+            toolCallStep(0, 'callTaskAnalyzer', {
+              intent: 'resolve_task_skills',
+              query: 'who should do this',
+              taskId: 'task-1',
+            }),
             toolCallStep(1, 'callSkillMatcher', { taskId: 'task-1', skills: ['aws'] }),
             toolCallStep(2, 'callAvaiChecker', { taskId: 'task-1', candidates: [CANDIDATE] }),
             toolCallStep(3, 'callRecommender', {
@@ -181,10 +184,11 @@ describe('orchestrator inline run (e2e)', () => {
       const rt = buildStaffingOrchestrationRuntime({
         repo: new StaffingRunStateRepository(),
         resolveModel: resolveModelSeq([
-          scriptedModel([toolCallStep(0, 'fetchTaskData', { taskId: 'task-1' }), STOP]), // taskAnalyzer
-          scriptedModel([STOP]), // skillMatcher built but unused (avaiChecker is deterministic, no model)
+          // skillMatcher built but unused (taskAnalyzer + avaiChecker are deterministic, no model).
+          scriptedModel([STOP]),
           scriptedModel([
             toolCallStep(0, 'callTaskAnalyzer', {
+              intent: 'resolve_task_skills',
               query: 'what skills does this need',
               taskId: 'task-1',
             }),
@@ -214,6 +218,60 @@ describe('orchestrator inline run (e2e)', () => {
       expect(started.some((s: string) => s.startsWith('skillMatcher'))).toBe(false);
       expect(started.some((s: string) => s.startsWith('avaiChecker'))).toBe(false);
       expect(started.some((s: string) => s.startsWith('recommender'))).toBe(false);
+    });
+  });
+
+  it('task-less people search: recommends with a null taskId (Agent Studio, no task context)', async () => {
+    await withAgentTestDb(async () => {
+      __setStaffingRunIdForTests(() => RUN);
+      const rt = buildStaffingOrchestrationRuntime({
+        repo: new StaffingRunStateRepository(),
+        resolveModel: resolveModelSeq([
+          // skillMatcher: searchCandidates by the named skills; run() ranks via fallback.
+          scriptedModel([toolCallStep(0, 'searchCandidates', { skills: ['aws', 'docker'] }), STOP]),
+          // orchestrator: people-by-named-skills with NO task → taskId is null through
+          // the whole recommend chain (the taskId is only a correlation label).
+          scriptedModel([
+            toolCallStep(0, 'callSkillMatcher', { taskId: null, skills: ['aws', 'docker'] }),
+            toolCallStep(1, 'callAvaiChecker', { taskId: null, candidates: [CANDIDATE] }),
+            toolCallStep(2, 'callRecommender', {
+              taskId: null,
+              skills: ['aws', 'docker'],
+              candidates: [CANDIDATE],
+              availability: [
+                {
+                  userId: 'u1',
+                  name: 'A',
+                  status: 'available',
+                  inProgressCount: 0,
+                  availabilityScore: 1,
+                },
+              ],
+            }),
+            STOP,
+          ]),
+        ]),
+        ports: portsWith(),
+      });
+      SpecializedAgentRegistry.freeze();
+      OrchestrationRegistry.freeze();
+
+      const events = [];
+      for await (const e of rt.runInline(
+        { userText: 'tìm cho tôi user có skill aws và docker', taskId: null },
+        { tenantId: TENANT, actorUserId: ACTOR },
+      )) {
+        events.push(e);
+      }
+
+      const final = events.at(-1) as {
+        kind: 'final';
+        result: { recommendations?: { userId: string }[]; message?: string };
+      };
+      expect(final.kind).toBe('final');
+      // The bug: a task-less recommend used to fail with this message.
+      expect(final.result.message).toBeUndefined();
+      expect(final.result.recommendations?.[0]?.userId).toBe('u1');
     });
   });
 });
