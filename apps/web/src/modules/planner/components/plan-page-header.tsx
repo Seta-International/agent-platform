@@ -8,6 +8,17 @@ import {
   type SyncState,
 } from '@seta/shared-ui';
 import { Link } from '@tanstack/react-router';
+import {
+  Archive,
+  Copy,
+  ExternalLink,
+  Link as LinkIcon,
+  Pencil,
+  RefreshCw,
+  RotateCcw,
+  Unlink,
+  X,
+} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 interface Props {
@@ -158,45 +169,62 @@ export function PlanPageHeader({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               {canRename && onRename && (
-                <DropdownMenuItem onSelect={() => setEditing(true)}>Rename plan</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setEditing(true)}>
+                  <Pencil aria-hidden /> Rename plan
+                </DropdownMenuItem>
               )}
               {onDuplicate && (
-                <DropdownMenuItem onSelect={onDuplicate}>Duplicate plan</DropdownMenuItem>
+                <DropdownMenuItem onSelect={onDuplicate}>
+                  <Copy aria-hidden /> Duplicate plan
+                </DropdownMenuItem>
               )}
               {onCopyShareLink && (
-                <DropdownMenuItem onSelect={onCopyShareLink}>Copy share link</DropdownMenuItem>
+                <DropdownMenuItem onSelect={onCopyShareLink}>
+                  <LinkIcon aria-hidden /> Copy share link
+                </DropdownMenuItem>
               )}
               {showRefresh && (
-                <DropdownMenuItem onSelect={onRefreshSync}>Sync now</DropdownMenuItem>
+                <DropdownMenuItem onSelect={onRefreshSync}>
+                  <RefreshCw aria-hidden /> Sync now
+                </DropdownMenuItem>
               )}
               {showResolveConflicts && (
                 <DropdownMenuItem onSelect={onOpenConflictDialog}>
+                  <RefreshCw aria-hidden />
                   {conflictCount != null ? `Review changes (${conflictCount})…` : 'Review changes…'}
                 </DropdownMenuItem>
               )}
               {showOpenInM365 && linkUrl && (
                 <DropdownMenuItem asChild>
                   <a href={linkUrl} target="_blank" rel="noopener noreferrer">
-                    Open in Microsoft Planner
+                    <ExternalLink aria-hidden /> Open in Microsoft Planner
                   </a>
                 </DropdownMenuItem>
               )}
               {showUnlink && (
                 <DropdownMenuItem onSelect={onUnlinkFromM365} className="text-semantic-danger">
-                  Unlink from Microsoft 365…
+                  <Unlink aria-hidden /> Unlink from Microsoft 365…
                 </DropdownMenuItem>
               )}
-              {onExport && <DropdownMenuItem onSelect={onExport}>Export</DropdownMenuItem>}
+              {onExport && (
+                <DropdownMenuItem onSelect={onExport}>
+                  <ExternalLink aria-hidden /> Export
+                </DropdownMenuItem>
+              )}
               {(onArchive || onRestore || onDelete) && <DropdownMenuSeparator />}
               {!isArchived && onArchive && (
-                <DropdownMenuItem onSelect={onArchive}>Archive plan</DropdownMenuItem>
+                <DropdownMenuItem onSelect={onArchive}>
+                  <Archive aria-hidden /> Archive plan
+                </DropdownMenuItem>
               )}
               {isArchived && onRestore && (
-                <DropdownMenuItem onSelect={onRestore}>Restore plan</DropdownMenuItem>
+                <DropdownMenuItem onSelect={onRestore}>
+                  <RotateCcw aria-hidden /> Restore plan
+                </DropdownMenuItem>
               )}
               {onDelete && (
                 <DropdownMenuItem onSelect={onDelete} className="text-semantic-danger">
-                  Delete plan
+                  <X aria-hidden /> Delete plan
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>
