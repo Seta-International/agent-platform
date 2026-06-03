@@ -3,6 +3,7 @@ import {
   PLANNER_403_LIMIT_MESSAGES,
   type PlanConflictDecision,
   ResolvePlanConflictsDialog,
+  toast,
 } from '@seta/shared-ui';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
@@ -152,7 +153,9 @@ export function PlanBoardShell({
   }
 
   function handleCopyShareLink() {
-    void navigator.clipboard.writeText(window.location.href);
+    void navigator.clipboard.writeText(window.location.href).then(() => {
+      toast('Link copied to clipboard');
+    });
   }
 
   if (boardQ.isPending) {
