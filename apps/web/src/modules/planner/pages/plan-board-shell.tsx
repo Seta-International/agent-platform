@@ -4,6 +4,7 @@ import {
   type PlanConflictDecision,
   ResolvePlanConflictsDialog,
 } from '@seta/shared-ui';
+import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { useSession } from '@/modules/identity/components/SessionProvider';
 import { BoardSkeleton, GridSkeleton } from '@/modules/planner/components/board-skeleton';
@@ -12,7 +13,9 @@ import { GridGroupBySelector } from '@/modules/planner/components/grid-group-by-
 import { PlanError } from '@/modules/planner/components/plan-error';
 import { PlanFilterBar } from '@/modules/planner/components/plan-filter-bar';
 import { PlanPageHeader } from '@/modules/planner/components/plan-page-header';
+import { useArchivePlan } from '@/modules/planner/hooks/mutations/archive-plan';
 import { useDeletePlan } from '@/modules/planner/hooks/mutations/delete-plan';
+import { useDuplicatePlan } from '@/modules/planner/hooks/mutations/duplicate-plan';
 import { useRefreshPlanSync } from '@/modules/planner/hooks/mutations/refresh-plan-sync';
 import {
   type ResolvePlanDecisions,
@@ -78,8 +81,11 @@ export function PlanBoardShell({
   const plan = boardQ.data?.plan;
   const groupId = plan?.group_id;
   const groupQ = useGroup(groupId ?? '');
+  const navigate = useNavigate();
   const updatePlan = useUpdatePlan(groupId ?? '', planId);
   const deletePlan = useDeletePlan(groupId ?? '', planId);
+  const archivePlan = useArchivePlan(groupId ?? '', planId);
+  const duplicatePlan = useDuplicatePlan(groupId ?? '');
   const refreshSync = useRefreshPlanSync(planId);
   const resolveConflicts = useResolvePlanConflicts(planId);
 
@@ -125,6 +131,30 @@ export function PlanBoardShell({
     onLeaveAfterDelete(plan.group_id);
   }
 
+  function handleArchivePlan() {
+    if (!plan) return;
+    archivePlan.mutate(undefined, {
+      onSuccess: () => onLeaveAfterDelete(plan.group_id),
+    });
+  }
+
+  function handleDuplicatePlan() {
+    if (!plan) return;
+    duplicatePlan.mutate(
+      { plan_id: plan.id },
+      {
+        onSuccess: (newPlan) => {
+          if (newPlan)
+            void navigate({ to: '/planner/plans/$planId', params: { planId: newPlan.id } });
+        },
+      },
+    );
+  }
+
+  function handleCopyShareLink() {
+    void navigator.clipboard.writeText(window.location.href);
+  }
+
   if (boardQ.isPending) {
     return view === 'grid' ? <GridSkeleton /> : <BoardSkeleton />;
   }
@@ -156,7 +186,11 @@ export function PlanBoardShell({
         canRename={canManage}
         canManage={canManage}
         onRename={onRenamePlan}
-        onArchive={undefined}
+        onDuplicate={canManage ? handleDuplicatePlan : undefined}
+        onCopyShareLink={handleCopyShareLink}
+        isArchived={resolvedPlan.archived_at !== null}
+        onArchive={canManage && !resolvedPlan.archived_at ? handleArchivePlan : undefined}
+        onRestore={undefined}
         onDelete={canManage ? onDeletePlan : undefined}
         external_source={resolvedPlan.external_source}
         syncStatus={resolvedPlan.sync_status}
