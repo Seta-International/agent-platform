@@ -19,8 +19,8 @@ const candidates: RankedCandidate[] = [
   { userId: 'u2', name: 'B', skills: ['Terraform'], role: null, skillMatchCount: 1, rank: 2 },
 ];
 const availability: AvailabilityResult[] = [
-  { userId: 'u1', name: 'A', status: 'available', inProgressCount: 1 },
-  { userId: 'u2', name: 'B', status: 'busy', inProgressCount: 2 },
+  { userId: 'u1', name: 'A', status: 'available', inProgressCount: 1, availabilityScore: 0.79 },
+  { userId: 'u2', name: 'B', status: 'busy', inProgressCount: 2, availabilityScore: 0.22 },
 ];
 
 describe('recommender agent', () => {

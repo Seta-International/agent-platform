@@ -8,7 +8,6 @@ import {
   AvaiCheckerInputSchema,
   AvaiCheckerOutputSchema,
   type AvailabilityResult,
-  STATUS_PRIORITY,
 } from '../schemas.ts';
 import { type MastraToolSignals, trustFromMastraResult } from '../trust.ts';
 import { makeAvaiCheckerTools } from './avai-checker.tools.ts';
@@ -23,8 +22,10 @@ export interface AvaiCheckerDeps {
 }
 
 const INSTRUCTIONS = [
-  'You check availability for candidate users for a task.',
-  'ALWAYS call getAvailability with all candidate user ids.',
+  'You assess how available each candidate user is for a task.',
+  'ALWAYS call checkAvailability and checkInprogressTasks once each, with all candidate user ids.',
+  'Then merge the two result sets by userId and call determineAvaiScore once, passing one item per',
+  'user (userId, userName, availability, taskInProgressCount). Return its result.',
 ].join(' ');
 
 export function makeAvaiCheckerAgent(deps: AvaiCheckerDeps): SpecializedAgentSpec<In, Out> {
@@ -40,7 +41,7 @@ export function makeAvaiCheckerAgent(deps: AvaiCheckerDeps): SpecializedAgentSpe
   return {
     id: 'staffing.avaiChecker',
     description:
-      'Checks candidate availability (leave + in-progress overload) for a task (LLM-driven).',
+      'Scores candidate availability (status + in-progress workload) for a task (LLM-driven).',
     inputSchema: AvaiCheckerInputSchema,
     outputSchema: AvaiCheckerOutputSchema,
     run: async (input, ctx): Promise<AgentResult<Out>> => {
@@ -53,7 +54,7 @@ export function makeAvaiCheckerAgent(deps: AvaiCheckerDeps): SpecializedAgentSpe
         : await (async () => {
             const r = await agent.generate(
               `taskId=${input.taskId}. Candidate user ids: ${input.candidates.map((c) => c.userId).join(', ')}.`,
-              { requestContext: rc, maxSteps: 4, abortSignal: ctx.abortSignal },
+              { requestContext: rc, maxSteps: 6, abortSignal: ctx.abortSignal },
             );
             return {
               toolCalls: r.toolCalls as MastraToolSignals['toolCalls'],
@@ -63,24 +64,20 @@ export function makeAvaiCheckerAgent(deps: AvaiCheckerDeps): SpecializedAgentSpe
 
       const fromTool =
         (
-          res.toolResults.find((t) => t.payload.toolName === 'getAvailability')?.payload.result as
-            | { availability?: AvailabilityResult[] }
-            | undefined
+          res.toolResults.find((t) => t.payload.toolName === 'determineAvaiScore')?.payload
+            .result as { availability?: AvailabilityResult[] } | undefined
         )?.availability ?? [];
 
       const confidence =
         fromTool.length === 0
           ? 0
-          : fromTool.reduce((s, a) => s + STATUS_PRIORITY[a.status], 0) / (fromTool.length * 2);
+          : fromTool.reduce((s, a) => s + a.availabilityScore, 0) / fromTool.length;
       const trust = trustFromMastraResult(res, {
         citations: (tr) =>
-          tr.payload.toolName === 'getAvailability'
+          tr.payload.toolName === 'determineAvaiScore'
             ? (
                 (tr.payload.result as { availability?: { userId: string }[] }).availability ?? []
-              ).map((a) => ({
-                kind: 'user' as const,
-                id: a.userId,
-              }))
+              ).map((a) => ({ kind: 'user' as const, id: a.userId }))
             : [],
         confidence,
       });

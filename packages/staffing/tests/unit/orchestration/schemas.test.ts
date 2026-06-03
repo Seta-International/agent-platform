@@ -33,6 +33,7 @@ describe('orchestration schemas', () => {
         name: null,
         status: 'nope',
         inProgressCount: 0,
+        availabilityScore: 0.5,
       }),
     ).toThrow();
   });

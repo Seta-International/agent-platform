@@ -39,6 +39,7 @@ export const AvailabilityResultSchema = z.object({
   name: z.string().nullable(),
   status: AvailabilityStatus,
   inProgressCount: z.number().int(),
+  availabilityScore: z.number().min(0).max(1),
 });
 export type AvailabilityResult = z.infer<typeof AvailabilityResultSchema>;
 
@@ -103,7 +104,6 @@ export const STATUS_PRIORITY: Record<AvailabilityStatus, number> = {
   busy: 1,
   ooo: 0,
 };
-export const OVERLOAD_THRESHOLD = 10;
 
 // ---- orchestrator ----
 export const OrchestratorInputSchema = z.object({
