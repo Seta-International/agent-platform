@@ -115,10 +115,11 @@ async function getGroup(
 
 async function getGroupActivity(
   group_id: string,
-  opts: { since?: string; limit?: number } = {},
+  opts: { since?: string; cursor?: string; limit?: number } = {},
 ): Promise<GroupActivityResult> {
   const q = new URLSearchParams();
   if (opts.since) q.set('since', opts.since);
+  if (opts.cursor) q.set('cursor', opts.cursor);
   if (opts.limit !== undefined) q.set('limit', String(opts.limit));
   return (await request<GroupActivityResult>(
     `/api/planner/v1/groups/${group_id}/activity${q.toString() ? `?${q}` : ''}`,
