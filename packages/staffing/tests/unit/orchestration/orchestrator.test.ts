@@ -19,6 +19,7 @@ const make = (toolResults: { payload: { toolName: string; result: unknown } }[])
   makeOrchestratorAgent({
     taskAnalyzer: stub('staffing.taskAnalyzer'),
     skillMatcher: stub('staffing.skillMatcher'),
+    avaiChecker: stub('staffing.avaiChecker'),
     recommender: stub('staffing.recommender'),
     resolveModel: () => ({}) as never,
     runAgent: async () => ({ toolCalls: [], toolResults }),

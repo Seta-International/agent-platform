@@ -27,9 +27,12 @@ type SkillMatcherSpec = SpecializedAgentSpec<
   { taskId: string; skills: string[] },
   { taskId: string; candidates: RankedCandidate[] }
 >;
+type AvaiCheckerSpec = SpecializedAgentSpec<
+  { taskId: string; candidates: RankedCandidate[] },
+  { taskId: string; availability: AvailabilityResult[] }
+>;
 type RecommenderSpec = SpecializedAgentSpec<
-  // availability matches the recommender's contract; the orchestrator always
-  // passes it empty (availability re-enable is out of scope here).
+  // availability is now produced by the avaiChecker step and passed through.
   {
     taskId: string;
     skills: string[];
@@ -42,6 +45,7 @@ type RecommenderSpec = SpecializedAgentSpec<
 export interface OrchestratorDeps {
   taskAnalyzer: TaskAnalyzerSpec;
   skillMatcher: SkillMatcherSpec;
+  avaiChecker: AvaiCheckerSpec;
   recommender: RecommenderSpec;
   resolveModel: () => LanguageModel;
   /** Cap on how many found tasks the orchestrator recommends people for. */
@@ -57,9 +61,9 @@ function instructions(cap: number): string {
     'You are a staffing assistant. Decide which tools to call to answer the user.',
     "Use callTaskAnalyzer to learn a task's required skills (pass the current taskId) or to",
     'find tasks by area/skill (pass the user message as query).',
-    'Use callSkillMatcher then callRecommender ONLY when the user wants people recommended',
-    'for a task: pass the skills from callTaskAnalyzer to callSkillMatcher, then its candidates',
-    'to callRecommender.',
+    'When the user wants people recommended for a task, call in order: callSkillMatcher with the',
+    'skills from callTaskAnalyzer; then callAvaiChecker with those candidates; then callRecommender',
+    'with the candidates AND the availability returned by callAvaiChecker.',
     'If the user only asks what skills a task needs, or only to list tasks, answer with the',
     'callTaskAnalyzer result and STOP — do not recommend people.',
     `When asked to find tasks AND recommend people, recommend for at most the first ${cap} tasks.`,
@@ -86,6 +90,7 @@ export function makeOrchestratorAgent(deps: OrchestratorDeps): SpecializedAgentS
             const tools = makeOrchestratorTools({
               taskAnalyzer: deps.taskAnalyzer,
               skillMatcher: deps.skillMatcher,
+              avaiChecker: deps.avaiChecker,
               recommender: deps.recommender,
               ctx,
             });

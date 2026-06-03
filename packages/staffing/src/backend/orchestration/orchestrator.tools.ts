@@ -3,6 +3,7 @@ import { defineAgentTool } from '@seta/agent-sdk';
 import { z } from 'zod';
 import {
   type AvailabilityResult,
+  AvailabilityResultSchema,
   type RankedCandidate,
   RankedCandidateSchema,
   type Recommendation,
@@ -19,9 +20,12 @@ type SkillMatcherSpec = SpecializedAgentSpec<
   { taskId: string; skills: string[] },
   { taskId: string; candidates: RankedCandidate[] }
 >;
+type AvaiCheckerSpec = SpecializedAgentSpec<
+  { taskId: string; candidates: RankedCandidate[] },
+  { taskId: string; availability: AvailabilityResult[] }
+>;
 type RecommenderSpec = SpecializedAgentSpec<
-  // availability matches the recommender's contract; this orchestrator always
-  // passes it empty (availability re-enable is out of scope here).
+  // availability is now produced by the avaiChecker step and passed through.
   {
     taskId: string;
     skills: string[];
@@ -34,14 +38,15 @@ type RecommenderSpec = SpecializedAgentSpec<
 export interface OrchestratorToolDeps {
   taskAnalyzer: TaskAnalyzerSpec;
   skillMatcher: SkillMatcherSpec;
+  avaiChecker: AvaiCheckerSpec;
   recommender: RecommenderSpec;
   /** The orchestrator's run ctx: provides tenant/actor/abort + the onEvent sink. */
   ctx: SpecializedAgentRunCtx;
 }
 
-/** Build the three sub-agent delegation tools, bound to one orchestrator run. */
+/** Build the four sub-agent delegation tools, bound to one orchestrator run. */
 export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
-  const { taskAnalyzer, skillMatcher, recommender, ctx } = deps;
+  const { taskAnalyzer, skillMatcher, avaiChecker, recommender, ctx } = deps;
   // Sub-agents run with the same tenant/actor but WITHOUT the onEvent sink, so
   // only the orchestrator (here) emits the sub-step cards.
   const subCtx: SpecializedAgentRunCtx = {
@@ -87,25 +92,42 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
     },
   });
 
-  const callRecommender = defineAgentTool({
-    id: 'callRecommender',
-    name: 'Rank recommendations',
-    description: 'Produce the final ranked assignee recommendation from candidates.',
-    input: z.object({
-      taskId: z.string().min(1),
-      skills: z.array(z.string()),
-      candidates: z.array(RankedCandidateSchema),
-    }),
-    output: z.object({ taskId: z.string(), recommendations: z.array(RecommendationSchema) }),
-    execute: async ({ taskId, skills, candidates }) => {
-      const stepId = `recommender:${taskId}`;
-      ctx.onEvent?.({ kind: 'step-start', stepId, agentId: 'staffing.recommender' });
-      // availability out of scope (Plan non-goal): always empty.
-      const res = await recommender.run({ taskId, skills, candidates, availability: [] }, subCtx);
+  const callAvaiChecker = defineAgentTool({
+    id: 'callAvaiChecker',
+    name: 'Check availability',
+    description:
+      'Score how available each candidate is (status + in-progress load) for a task. Pass the candidates from callSkillMatcher.',
+    input: z.object({ taskId: z.string().min(1), candidates: z.array(RankedCandidateSchema) }),
+    output: z.object({ taskId: z.string(), availability: z.array(AvailabilityResultSchema) }),
+    execute: async ({ taskId, candidates }) => {
+      const stepId = `avaiChecker:${taskId}`;
+      ctx.onEvent?.({ kind: 'step-start', stepId, agentId: 'staffing.avaiChecker' });
+      const res = await avaiChecker.run({ taskId, candidates }, subCtx);
       ctx.onEvent?.({ kind: 'step-done', stepId, trust: res.trust });
       return res.result;
     },
   });
 
-  return { callTaskAnalyzer, callSkillMatcher, callRecommender };
+  const callRecommender = defineAgentTool({
+    id: 'callRecommender',
+    name: 'Rank recommendations',
+    description:
+      'Produce the final ranked assignee recommendation from candidates and their availability.',
+    input: z.object({
+      taskId: z.string().min(1),
+      skills: z.array(z.string()),
+      candidates: z.array(RankedCandidateSchema),
+      availability: z.array(AvailabilityResultSchema),
+    }),
+    output: z.object({ taskId: z.string(), recommendations: z.array(RecommendationSchema) }),
+    execute: async ({ taskId, skills, candidates, availability }) => {
+      const stepId = `recommender:${taskId}`;
+      ctx.onEvent?.({ kind: 'step-start', stepId, agentId: 'staffing.recommender' });
+      const res = await recommender.run({ taskId, skills, candidates, availability }, subCtx);
+      ctx.onEvent?.({ kind: 'step-done', stepId, trust: res.trust });
+      return res.result;
+    },
+  });
+
+  return { callTaskAnalyzer, callSkillMatcher, callAvaiChecker, callRecommender };
 }

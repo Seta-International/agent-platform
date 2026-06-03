@@ -10,6 +10,7 @@ import {
 } from '@seta/shared-orchestration';
 import type { LanguageModel } from 'ai';
 import {
+  makeAvaiCheckerAgent,
   makeRecommenderAgent,
   makeSkillMatcherAgent,
   makeTaskAnalyzerAgent,
@@ -63,10 +64,12 @@ export function buildStaffingOrchestrationRuntime(deps: {
     resolveModel,
   });
   const skillMatcher = makeSkillMatcherAgent({ skillSearch: ports.skillSearch, resolveModel });
+  const avaiChecker = makeAvaiCheckerAgent({ availability: ports.availability, resolveModel });
   const recommender = makeRecommenderAgent();
   const orchestrator = makeOrchestratorAgent({
     taskAnalyzer,
     skillMatcher,
+    avaiChecker,
     recommender,
     resolveModel,
   });

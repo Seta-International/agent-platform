@@ -101,10 +101,10 @@ async function runInline(rt: ReturnType<typeof buildStaffingOrchestrationRuntime
 }
 
 describe('orchestrator inline run (e2e)', () => {
-  it('recommend path: taskAnalyzer → skillMatcher → recommender, streams sub-cards, persists', async () => {
+  it('recommend path: taskAnalyzer → skillMatcher → avaiChecker → recommender, streams sub-cards, persists', async () => {
     await withAgentTestDb(async () => {
       __setStaffingRunIdForTests(() => RUN);
-      // Build-time models: [taskAnalyzer, skillMatcher]; run-time: [orchestrator].
+      // Build-time models: [taskAnalyzer, skillMatcher, avaiChecker]; run-time: [orchestrator].
       const rt = buildStaffingOrchestrationRuntime({
         repo: new StaffingRunStateRepository(),
         resolveModel: resolveModelSeq([
@@ -112,14 +112,36 @@ describe('orchestrator inline run (e2e)', () => {
           scriptedModel([toolCallStep(0, 'fetchTaskData', { taskId: 'task-1' }), STOP]),
           // skillMatcher: searchCandidates; run() ranks the hits via fallback.
           scriptedModel([toolCallStep(0, 'searchCandidates', { skills: ['aws'] }), STOP]),
-          // orchestrator: chain the three delegations, then stop.
+          // avaiChecker: read both signals, then score (determineAvaiScore is pure — it scores the
+          // scripted items, which is why we pass them explicitly here).
+          scriptedModel([
+            toolCallStep(0, 'checkAvailability', { userIds: ['u1'] }),
+            toolCallStep(1, 'checkInprogressTasks', { userIds: ['u1'] }),
+            toolCallStep(2, 'determineAvaiScore', {
+              items: [
+                { userId: 'u1', userName: 'A', availability: 'available', taskInProgressCount: 0 },
+              ],
+            }),
+            STOP,
+          ]),
+          // orchestrator: chain the four delegations, then stop.
           scriptedModel([
             toolCallStep(0, 'callTaskAnalyzer', { query: 'who should do this', taskId: 'task-1' }),
             toolCallStep(1, 'callSkillMatcher', { taskId: 'task-1', skills: ['aws'] }),
-            toolCallStep(2, 'callRecommender', {
+            toolCallStep(2, 'callAvaiChecker', { taskId: 'task-1', candidates: [CANDIDATE] }),
+            toolCallStep(3, 'callRecommender', {
               taskId: 'task-1',
               skills: ['aws'],
               candidates: [CANDIDATE],
+              availability: [
+                {
+                  userId: 'u1',
+                  name: 'A',
+                  status: 'available',
+                  inProgressCount: 0,
+                  availabilityScore: 1,
+                },
+              ],
             }),
             STOP,
           ]),
@@ -138,7 +160,7 @@ describe('orchestrator inline run (e2e)', () => {
       expect(final.kind).toBe('final');
       expect(final.result.recommendations?.[0]?.userId).toBe('u1');
 
-      // Live sub-step cards streamed (taskAnalyzer + skillMatcher:task-1 + recommender:task-1).
+      // Live sub-step cards streamed (taskAnalyzer + skillMatcher + avaiChecker + recommender).
       const started = events
         .filter(
           (e): e is Extract<OrchestrationEvent, { kind: 'step-start' }> => e.kind === 'step-start',
@@ -146,6 +168,7 @@ describe('orchestrator inline run (e2e)', () => {
         .map((e) => e.stepId);
       expect(started).toContain('taskAnalyzer');
       expect(started).toContain('skillMatcher:task-1');
+      expect(started).toContain('avaiChecker:task-1');
       expect(started).toContain('recommender:task-1');
 
       const [run] = await staffingDb()
@@ -170,6 +193,7 @@ describe('orchestrator inline run (e2e)', () => {
         resolveModel: resolveModelSeq([
           scriptedModel([toolCallStep(0, 'fetchTaskData', { taskId: 'task-1' }), STOP]), // taskAnalyzer
           scriptedModel([STOP]), // skillMatcher built but unused
+          scriptedModel([STOP]), // avaiChecker built but unused
           scriptedModel([
             toolCallStep(0, 'callTaskAnalyzer', {
               query: 'what skills does this need',
@@ -199,6 +223,7 @@ describe('orchestrator inline run (e2e)', () => {
         .map((e) => e.stepId);
       expect(started).toContain('taskAnalyzer');
       expect(started.some((s: string) => s.startsWith('skillMatcher'))).toBe(false);
+      expect(started.some((s: string) => s.startsWith('avaiChecker'))).toBe(false);
       expect(started.some((s: string) => s.startsWith('recommender'))).toBe(false);
     });
   });
