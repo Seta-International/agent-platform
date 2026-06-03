@@ -57,6 +57,7 @@ export function makePlan(over: Partial<PlanRow> = {}): PlanRow {
     created_at: '2026-05-01T00:00:00Z',
     updated_at: '2026-05-10T00:00:00Z',
     deleted_at: null,
+    archived_at: null,
     version: 1,
     ...over,
   };

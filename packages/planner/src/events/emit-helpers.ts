@@ -387,8 +387,8 @@ export async function emitPlannerPlanArchived(args: {
   tenant_id: Uuid;
   group_id: Uuid;
   plan_id: Uuid;
-  version_before: number;
-  archived_at: string;
+  version_before: PlannerPlanArchived['payload']['version_before'];
+  archived_at: PlannerPlanArchived['payload']['archived_at'];
 }): Promise<{ eventId: string }> {
   return emit({
     tenantId: args.tenant_id,
@@ -412,7 +412,7 @@ export async function emitPlannerPlanUnarchived(args: {
   tenant_id: Uuid;
   group_id: Uuid;
   plan_id: Uuid;
-  version_after: number;
+  version_after: PlannerPlanUnarchived['payload']['version_after'];
 }): Promise<void> {
   await emit({
     tenantId: args.tenant_id,

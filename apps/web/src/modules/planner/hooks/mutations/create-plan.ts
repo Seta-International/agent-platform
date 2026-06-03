@@ -33,6 +33,7 @@ export function useCreatePlan(groupId: string) {
           created_at: now,
           updated_at: now,
           deleted_at: null,
+          archived_at: null,
           version: 0,
         },
       ]);
