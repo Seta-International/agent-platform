@@ -37,15 +37,17 @@ describe('orchestration schemas', () => {
       }),
     ).toThrow();
   });
-  it('Recommendation carries skillMatch + status', () => {
+  it('Recommendation carries skillMatch + status + availabilityScore', () => {
     const r = RecommendationSchema.parse({
       userId: 'u1',
       name: 'A',
       skillMatch: ['x'],
       skillMatchCount: 1,
       status: 'available',
+      availabilityScore: 0.5,
     });
     expect(r.skillMatch).toEqual(['x']);
+    expect(r.availabilityScore).toBe(0.5);
   });
   it('SkillRequirement accepts an optional tasks list (find_tasks result)', () => {
     const r = SkillRequirementSchema.parse({

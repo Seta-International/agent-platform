@@ -6,7 +6,6 @@ import {
   type Recommendation,
   RecommenderInputSchema,
   RecommenderOutputSchema,
-  STATUS_PRIORITY,
 } from '../schemas.ts';
 
 type In = z.infer<typeof RecommenderInputSchema>;
@@ -30,17 +29,21 @@ export function makeRecommenderAgent(): SpecializedAgentSpec<In, Out> {
       );
 
       const recommendations: Recommendation[] = input.candidates
-        .map((c: RankedCandidate) => ({
-          userId: c.userId,
-          name: c.name,
-          skillMatch: matchedSkills(c.skills, input.skills),
-          skillMatchCount: c.skillMatchCount,
-          status: avaiByUser.get(c.userId)?.status ?? 'busy',
-        }))
+        .map((c: RankedCandidate) => {
+          const a = avaiByUser.get(c.userId);
+          return {
+            userId: c.userId,
+            name: c.name,
+            skillMatch: matchedSkills(c.skills, input.skills),
+            skillMatchCount: c.skillMatchCount,
+            status: a?.status ?? 'busy',
+            availabilityScore: a?.availabilityScore ?? 0,
+          };
+        })
         .sort((a, b) =>
           b.skillMatchCount !== a.skillMatchCount
             ? b.skillMatchCount - a.skillMatchCount
-            : STATUS_PRIORITY[b.status] - STATUS_PRIORITY[a.status],
+            : b.availabilityScore - a.availabilityScore,
         );
 
       const topMatch = recommendations[0]?.skillMatchCount ?? 0;

@@ -49,6 +49,7 @@ export const RecommendationSchema = z.object({
   skillMatch: z.array(z.string()),
   skillMatchCount: z.number().int(),
   status: AvailabilityStatus,
+  availabilityScore: z.number().min(0).max(1),
 });
 export type Recommendation = z.infer<typeof RecommendationSchema>;
 
@@ -98,12 +99,6 @@ export const RecommenderOutputSchema = z.object({
   taskId: z.string(),
   recommendations: z.array(RecommendationSchema),
 });
-
-export const STATUS_PRIORITY: Record<AvailabilityStatus, number> = {
-  available: 2,
-  busy: 1,
-  ooo: 0,
-};
 
 // ---- orchestrator ----
 export const OrchestratorInputSchema = z.object({
