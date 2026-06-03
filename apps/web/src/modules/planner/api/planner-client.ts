@@ -295,11 +295,17 @@ export async function resolveJoinRequest(
 }
 
 async function listPlans(
-  input: { group_id?: string; include_deleted?: boolean; withRollups?: boolean } = {},
+  input: {
+    group_id?: string;
+    include_deleted?: boolean;
+    include_archived?: boolean;
+    withRollups?: boolean;
+  } = {},
 ): Promise<PlanRow[]> {
   const q = new URLSearchParams();
   if (input.group_id) q.set('group_id', input.group_id);
   if (input.include_deleted) q.set('include_deleted', 'true');
+  if (input.include_archived) q.set('include_archived', 'true');
   if (input.withRollups) q.set('withRollups', 'true');
   const r = (await request<{ plans: PlanRow[] }>(
     `/api/planner/v1/plans${q.toString() ? `?${q}` : ''}`,
@@ -345,6 +351,24 @@ async function deletePlan(input: { plan_id: string; expected_version: number }):
 
 async function restorePlan(input: { plan_id: string }): Promise<PlanRow> {
   return (await request<PlanRow>(`/api/planner/v1/plans/${input.plan_id}/restore`, {
+    method: 'POST',
+  })) as PlanRow;
+}
+
+async function archivePlan(input: { plan_id: string }): Promise<PlanRow> {
+  return (await request<PlanRow>(`/api/planner/v1/plans/${input.plan_id}/archive`, {
+    method: 'POST',
+  })) as PlanRow;
+}
+
+async function unarchivePlan(input: { plan_id: string }): Promise<PlanRow> {
+  return (await request<PlanRow>(`/api/planner/v1/plans/${input.plan_id}/unarchive`, {
+    method: 'POST',
+  })) as PlanRow;
+}
+
+async function duplicatePlan(input: { plan_id: string }): Promise<PlanRow> {
+  return (await request<PlanRow>(`/api/planner/v1/plans/${input.plan_id}/duplicate`, {
     method: 'POST',
   })) as PlanRow;
 }
@@ -878,6 +902,9 @@ export const plannerClient = {
   updatePlan,
   deletePlan,
   restorePlan,
+  archivePlan,
+  unarchivePlan,
+  duplicatePlan,
   listLabels,
   createLabel,
   updateLabel,
