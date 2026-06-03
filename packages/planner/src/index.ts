@@ -5,6 +5,7 @@ export { addGroupMember } from './backend/domain/add-group-member.ts';
 export { addGroupMembers } from './backend/domain/add-group-members.ts';
 export { addTaskReference } from './backend/domain/add-task-reference.ts';
 export { applyLabel } from './backend/domain/apply-label.ts';
+export { archivePlan } from './backend/domain/archive-plan.ts';
 export { assignTask } from './backend/domain/assign-task.ts';
 export { attachLabelToCategorySlot } from './backend/domain/attach-label-to-category-slot.ts';
 export { completeTask } from './backend/domain/complete-task.ts';
@@ -23,6 +24,7 @@ export { deleteLabel } from './backend/domain/delete-label.ts';
 export { deletePlan } from './backend/domain/delete-plan.ts';
 export { deleteTask } from './backend/domain/delete-task.ts';
 export { discoverGroups } from './backend/domain/discover-groups.ts';
+export { duplicatePlan } from './backend/domain/duplicate-plan.ts';
 export { duplicateTask } from './backend/domain/duplicate-task.ts';
 export { getGroup } from './backend/domain/get-group.ts';
 export { getGroupActivity } from './backend/domain/get-group-activity.ts';
@@ -93,6 +95,7 @@ export {
   setTaskAssignees,
 } from './backend/domain/set-task-assignees.ts';
 export { unapplyLabel } from './backend/domain/unapply-label.ts';
+export { unarchivePlan } from './backend/domain/unarchive-plan.ts';
 export { unassignTask } from './backend/domain/unassign-task.ts';
 export { unlinkGroupFromM365 } from './backend/domain/unlink-group-from-m365.ts';
 export { unlinkPlanFromM365 } from './backend/domain/unlink-plan-from-m365.ts';

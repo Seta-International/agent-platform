@@ -2,11 +2,13 @@ import type { SessionEnv, WorkerHandle } from '@seta/core';
 import type { Hono } from 'hono';
 import { z } from 'zod';
 import {
+  archivePlan,
   countTasksByCategorySlot,
   createLabel,
   createPlan,
   deleteLabel,
   deletePlan,
+  duplicatePlan,
   getPlan,
   listGroupPlansWithRollups,
   listLabels,
@@ -15,6 +17,7 @@ import {
   resolvePlanConflicts,
   restorePlan,
   setCategoryDescriptions,
+  unarchivePlan,
   updateLabel,
   updatePlan,
 } from '../../index.ts';
@@ -101,6 +104,7 @@ export function registerPlannerPlansRoutes(app: Hono<SessionEnv>, deps: PlannerP
     const session = c.get('user');
     const group_id = c.req.query('group_id') ?? undefined;
     const include_deleted = c.req.query('include_deleted') === 'true';
+    const include_archived = c.req.query('include_archived') === 'true';
     const withRollups = c.req.query('withRollups') === 'true';
     if (withRollups) {
       if (!group_id) {
@@ -108,7 +112,9 @@ export function registerPlannerPlansRoutes(app: Hono<SessionEnv>, deps: PlannerP
       }
       return c.json({ plans: await listGroupPlansWithRollups({ group_id, session }) });
     }
-    return c.json({ plans: await listPlans({ group_id, include_deleted, session }) });
+    return c.json({
+      plans: await listPlans({ group_id, include_deleted, include_archived, session }),
+    });
   });
 
   app.get('/api/planner/v1/plans/:id', async (c) => {
@@ -158,6 +164,21 @@ export function registerPlannerPlansRoutes(app: Hono<SessionEnv>, deps: PlannerP
   app.post('/api/planner/v1/plans/:id/restore', async (c) => {
     const session = c.get('user');
     return c.json(await restorePlan({ plan_id: c.req.param('id'), session }));
+  });
+
+  app.post('/api/planner/v1/plans/:id/archive', async (c) => {
+    const session = c.get('user');
+    return c.json(await archivePlan({ plan_id: c.req.param('id'), session }));
+  });
+
+  app.post('/api/planner/v1/plans/:id/unarchive', async (c) => {
+    const session = c.get('user');
+    return c.json(await unarchivePlan({ plan_id: c.req.param('id'), session }));
+  });
+
+  app.post('/api/planner/v1/plans/:id/duplicate', async (c) => {
+    const session = c.get('user');
+    return c.json(await duplicatePlan({ plan_id: c.req.param('id'), session }), 201);
   });
 
   app.get('/api/planner/v1/plans/:id/labels', async (c) => {
