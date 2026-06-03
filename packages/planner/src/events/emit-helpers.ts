@@ -22,12 +22,14 @@ import type {
   PlannerLabelDeleted,
   PlannerLabelUnapplied,
   PlannerLabelUpdated,
+  PlannerPlanArchived,
   PlannerPlanCategoryDescriptionChanged,
   PlannerPlanConflictResolved,
   PlannerPlanCreated,
   PlannerPlanDeleted,
   PlannerPlanRestored,
   PlannerPlanSyncStatusChanged,
+  PlannerPlanUnarchived,
   PlannerPlanUpdated,
   PlannerTaskAssigned,
   PlannerTaskCompleted,
@@ -373,6 +375,54 @@ export async function emitPlannerPlanRestored(args: {
     eventVersion: 1,
     payload: {
       actor: args.actor,
+      group_id: args.group_id,
+      plan_id: args.plan_id,
+      version_after: args.version_after,
+    },
+  });
+}
+
+export async function emitPlannerPlanArchived(args: {
+  actor: PlannerEventActor;
+  tenant_id: Uuid;
+  group_id: Uuid;
+  plan_id: Uuid;
+  version_before: number;
+  archived_at: string;
+}): Promise<{ eventId: string }> {
+  return emit({
+    tenantId: args.tenant_id,
+    aggregateType: 'planner.plan',
+    aggregateId: args.plan_id,
+    eventType: 'planner.plan.archived',
+    eventVersion: 1,
+    payload: {
+      actor: args.actor,
+      tenant_id: args.tenant_id,
+      group_id: args.group_id,
+      plan_id: args.plan_id,
+      version_before: args.version_before,
+      archived_at: args.archived_at,
+    },
+  });
+}
+
+export async function emitPlannerPlanUnarchived(args: {
+  actor: PlannerEventActor;
+  tenant_id: Uuid;
+  group_id: Uuid;
+  plan_id: Uuid;
+  version_after: number;
+}): Promise<void> {
+  await emit({
+    tenantId: args.tenant_id,
+    aggregateType: 'planner.plan',
+    aggregateId: args.plan_id,
+    eventType: 'planner.plan.unarchived',
+    eventVersion: 1,
+    payload: {
+      actor: args.actor,
+      tenant_id: args.tenant_id,
       group_id: args.group_id,
       plan_id: args.plan_id,
       version_after: args.version_after,

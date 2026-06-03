@@ -286,6 +286,35 @@ export interface PlannerPlanRestored {
   };
 }
 
+export interface PlannerPlanArchived {
+  event_type: 'planner.plan.archived';
+  event_version: 1;
+  aggregate_type: 'planner.plan';
+  aggregate_id: Uuid;
+  payload: {
+    actor: PlannerEventActor;
+    tenant_id: Uuid;
+    group_id: Uuid;
+    plan_id: Uuid;
+    version_before: number;
+    archived_at: string;
+  };
+}
+
+export interface PlannerPlanUnarchived {
+  event_type: 'planner.plan.unarchived';
+  event_version: 1;
+  aggregate_type: 'planner.plan';
+  aggregate_id: Uuid;
+  payload: {
+    actor: PlannerEventActor;
+    tenant_id: Uuid;
+    group_id: Uuid;
+    plan_id: Uuid;
+    version_after: number;
+  };
+}
+
 export interface PlannerPlanCategoryDescriptionChanged {
   event_type: 'planner.plan.category-description-changed';
   event_version: 1;
@@ -775,6 +804,8 @@ export type PlannerEvent =
   | PlannerPlanUpdated
   | PlannerPlanDeleted
   | PlannerPlanRestored
+  | PlannerPlanArchived
+  | PlannerPlanUnarchived
   | PlannerPlanCategoryDescriptionChanged
   | PlannerBucketCreated
   | PlannerBucketUpdated
