@@ -265,8 +265,9 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
               <div
                 role="row"
                 className="sticky top-0 z-10 grid items-center gap-2 border-b border-hairline bg-canvas px-7 py-2.5 text-[11px] font-medium uppercase tracking-wider text-ink-subtle"
-                style={{ gridTemplateColumns: '1.7fr 160px 220px' }}
+                style={{ gridTemplateColumns: '120px 1.7fr 160px 220px' }}
               >
+                <div role="columnheader">Type</div>
                 <div role="columnheader">Name</div>
                 <div role="columnheader">Archived</div>
                 <div role="columnheader" className="text-right">
@@ -279,8 +280,12 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
                     role="row"
                     key={`archived:${r.id}`}
                     className="grid items-center gap-2 border-b border-hairline-tertiary px-7 py-3 text-sm text-ink transition-colors hover:bg-surface-1"
-                    style={{ gridTemplateColumns: '1.7fr 160px 220px' }}
+                    style={{ gridTemplateColumns: '120px 1.7fr 160px 220px' }}
                   >
+                    <div role="cell" className="flex items-center gap-2 text-ink-subtle">
+                      <Layers className="size-3.5 shrink-0 text-info" aria-hidden />
+                      <span className="text-xs">Plan</span>
+                    </div>
                     <div role="cell" className="min-w-0 pr-4">
                       <p className="truncate font-medium text-ink">{r.name}</p>
                     </div>
