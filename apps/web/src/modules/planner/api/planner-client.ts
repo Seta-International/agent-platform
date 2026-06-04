@@ -479,6 +479,7 @@ async function listTasks(
   if (filters.due_before) q.set('due_before', filters.due_before);
   if (filters.skill_tags?.length) q.set('skill_tags', filters.skill_tags.join(','));
   if (filters.include_deleted) q.set('include_deleted', 'true');
+  if (filters.no_date) q.set('no_date', 'true');
   if (filters.limit) q.set('limit', String(filters.limit));
   if (filters.cursor) q.set('cursor', filters.cursor);
   return (await request<{ tasks: TaskWithAssigneesRow[]; next_cursor?: string }>(
