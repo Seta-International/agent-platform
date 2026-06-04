@@ -1,5 +1,6 @@
 import type { z } from 'zod';
 import type { ChatHitlRecorder } from './hitl/chat-hitl.ts';
+import type { AgentMemoryHandle } from './request-context.ts';
 import type { AgentResult, TrustEnvelope } from './trust.ts';
 
 /** A sub-step surfaced by an agent that internally delegates to other agents
@@ -14,6 +15,17 @@ export interface SpecializedAgentRunCtx {
   tenantId: string;
   actorUserId: string;
   abortSignal?: AbortSignal;
+  /** The real chat thread id (inline chat runs only). Conversation-scoped
+   *  memory (entity recorder, task-ref resolver) keys on this — never on
+   *  Mastra's per-delegation thread ids. */
+  threadId?: string;
+  /** Thread-scoped conversation-entities memory handle. The orchestrator sets
+   *  RC_AGENT_MEMORY from this so SDK tools can record/resolve entities. */
+  entitiesMemory?: AgentMemoryHandle;
+  /** Resource-scoped userContext memory handle (the supervisor tree's
+   *  GuardedMemory). Read via getSystemMessage; written via the guarded
+   *  updateWorkingMemory tool. */
+  userMemory?: AgentMemoryHandle;
   /** Optional sink for sub-step events emitted while this agent runs. The inline
    *  runner provides it; the queued runner and direct callers leave it undefined. */
   onEvent?: (event: SubStepEvent) => void;

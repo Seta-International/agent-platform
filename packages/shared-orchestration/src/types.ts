@@ -1,4 +1,4 @@
-import type { ChatHitlRecorder, TrustEnvelope } from '@seta/agent-sdk';
+import type { AgentMemoryHandle, ChatHitlRecorder, TrustEnvelope } from '@seta/agent-sdk';
 import { z } from 'zod';
 
 /** Tenant/actor context for a run. */
@@ -7,6 +7,12 @@ export interface RunCtx {
   actorUserId: string;
   /** Optional recorder for in-thread HITL approval cards (chat inline runs only). */
   recordHitlApproval?: ChatHitlRecorder;
+  /** The real chat thread id (chat inline runs only). */
+  threadId?: string;
+  /** Thread-scoped conversation-entities memory handle (chat inline runs only). */
+  entitiesMemory?: AgentMemoryHandle;
+  /** Resource-scoped userContext memory handle (chat inline runs only). */
+  userMemory?: AgentMemoryHandle;
 }
 
 /** Accumulated state of a run: each completed step's output keyed by step id. */

@@ -60,6 +60,9 @@ export async function executeStep(
     actorUserId: ctx.actorUserId,
     onEvent: deps.onEvent,
     recordHitlApproval: ctx.recordHitlApproval,
+    threadId: ctx.threadId,
+    entitiesMemory: ctx.entitiesMemory,
+    userMemory: ctx.userMemory,
   });
   agent.outputSchema.parse(res.result);
 
