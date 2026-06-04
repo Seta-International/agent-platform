@@ -1,7 +1,7 @@
 import type { TaskWithAssigneesRow } from '@seta/planner';
 import { toast } from '@seta/shared-ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
@@ -12,7 +12,22 @@ import { EMPTY_FILTERS } from '../../../../../src/modules/planner/state/url-stat
 
 // Mock CalendarGrid to avoid FC/jsdom incompatibility.
 // Each test can read .mock.lastCall![0] to access the props passed to it.
-const mockCalendarGrid = vi.hoisted(() => vi.fn(() => <div data-testid="calendar-grid" />));
+type CalendarGridProps = {
+  tasks: TaskWithAssigneesRow[];
+  from: string;
+  to: string;
+  onOpenTask: (taskId: string) => void;
+  onRescheduleTask: (
+    task: TaskWithAssigneesRow,
+    newStart: Date | null,
+    newEnd: Date | null,
+    revert: () => void,
+  ) => Promise<void>;
+  onSelectDate?: (dateKey: string) => void;
+};
+const mockCalendarGrid = vi.hoisted(() =>
+  vi.fn((_props: CalendarGridProps) => <div data-testid="calendar-grid" />),
+);
 vi.mock('../../../../../src/modules/planner/components/calendar/calendar-grid', () => ({
   CalendarGrid: mockCalendarGrid,
 }));
@@ -159,7 +174,7 @@ describe('PlanCalendarPage', () => {
     );
     render(wrap(<PlanCalendarPage {...baseProps} />));
     await screen.findByTestId('calendar-grid');
-    const { tasks } = mockCalendarGrid.mock.lastCall![0] as { tasks: TaskWithAssigneesRow[] };
+    const { tasks } = mockCalendarGrid.mock.lastCall![0];
     expect(tasks).toHaveLength(1);
     expect(tasks[0]!.id).toBe('t1');
   });
@@ -181,14 +196,7 @@ describe('PlanCalendarPage', () => {
     render(wrap(<PlanCalendarPage {...baseProps} />));
     await screen.findByTestId('calendar-grid');
 
-    const { onRescheduleTask } = mockCalendarGrid.mock.lastCall![0] as {
-      onRescheduleTask: (
-        task: TaskWithAssigneesRow,
-        newStart: Date | null,
-        newEnd: Date | null,
-        revert: () => void,
-      ) => Promise<void>;
-    };
+    const { onRescheduleTask } = mockCalendarGrid.mock.lastCall![0];
     const revert = vi.fn();
     await act(async () => {
       await onRescheduleTask(
