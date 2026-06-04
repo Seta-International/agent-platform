@@ -414,6 +414,35 @@ sequenceDiagram
 
 `@seta/agent` is engine-only. It composes module-owned agent tools and specs into Mastra agents via the contribution registry; it does **not** import any feature or orchestrator module (enforced by dep-cruiser rule `agent-no-feature-imports`). The supervisor / specialist design, HITL contract, memory model, planner walkthrough, and code locations are in [`agent-architecture.md`](./agent-architecture.md).
 
+### Orchestration working memory
+
+With `AGENT_CHAT_RUNTIME=orchestration`, chat turns route inline through the staffing orchestrator (an agent-of-agents in `packages/staffing/`) instead of the supervisor tree. The orchestration chat runtime shares the supervisor path's two working-memory
+mechanisms; both reach the orchestrator as `AgentMemoryHandle`s on the run ctx
+(`RunCtx.threadId` / `entitiesMemory` / `userMemory`), wired by the chat route
+and forwarded through `executeStep` — the same plumbing precedent as
+`recordHitlApproval`.
+
+- **Thread-scoped conversation entities** (`ConversationEntitiesSchema`,
+  stored in `thread.metadata.workingMemory`): the orchestrator sets
+  `RC_THREAD_ID` + `RC_AGENT_MEMORY` on its `RequestContext`, so the SDK's
+  `recordEntityExposure` and `resolveTaskRef` run unmodified inside its
+  delegation tools. `callTaskAnalyzer` takes a `taskRef` (UUID or ordinal
+  "first"/"#2"/"last"), resolved deterministically against `recentTasks`
+  BEFORE the sub-agent call, and returns `resolvedTaskId` for the LLM to pass
+  downstream. Tools record exposure after each result (found tasks, discussed
+  task, proposed candidate). Entities are never injected into any prompt.
+- **Resource-scoped userContext** (`WorkingMemorySchema`, stored in
+  `agent.mastra_resources`): the orchestrator must NOT attach `Memory` to its
+  Mastra `Agent` (auto message persistence would collide with the manual
+  trace-timeline `saveMessages`), so it drives the shared GuardedMemory
+  instance through the public API instead — `getSystemMessage` renders the
+  userContext section appended to its instructions, and a guarded
+  `updateWorkingMemory` tool (same LLM-write guard as the supervisor) performs
+  the writes.
+
+Both mechanisms are best-effort: memory failures never break a staffing
+answer, and all of it no-ops on the queued runner (no chat thread).
+
 ---
 
 ## 13. Embeddings & retrieval
