@@ -55,6 +55,7 @@ export function PlanGridPage({
     const taskMap = new Map(tasks.map((t) => [t.id, t]));
 
     const gridRows: TaskGridRow[] = tasks.flatMap((t) => {
+      if (t.bucket_id === null) return [];
       if (
         filters.assignee_ids.length &&
         !t.assignees.some((a) => filters.assignee_ids.includes(a.user_id))

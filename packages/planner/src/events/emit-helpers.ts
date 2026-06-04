@@ -440,7 +440,7 @@ export async function emitPlannerBucketDeleted(args: {
   bucket_id: Uuid;
   plan_id: Uuid;
   version_before: number;
-  reflowed_task_ids: PlannerBucketDeleted['payload']['reflowed_task_ids'];
+  deleted_task_ids: PlannerBucketDeleted['payload']['deleted_task_ids'];
 }): Promise<void> {
   await emit({
     tenantId: args.tenant_id,
@@ -454,7 +454,7 @@ export async function emitPlannerBucketDeleted(args: {
       bucket_id: args.bucket_id,
       plan_id: args.plan_id,
       version_before: args.version_before,
-      reflowed_task_ids: args.reflowed_task_ids,
+      deleted_task_ids: args.deleted_task_ids,
     },
   });
 }

@@ -279,7 +279,7 @@ describe('moveBucket', () => {
 // ---------------------------------------------------------------------------
 
 describe('deleteBucket', () => {
-  it('soft-deletes bucket, version bumps, emits planner.bucket.deleted with empty reflowed_task_ids', async () => {
+  it('soft-deletes bucket, version bumps, emits planner.bucket.deleted with empty deleted_task_ids', async () => {
     await withTestDb(
       {
         templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -313,7 +313,7 @@ describe('deleteBucket', () => {
           expect(payload.plan_id).toBe(plan.id);
           expect(payload.group_id).toBe(group.id);
           expect(payload.version_before).toBe(1);
-          expect(payload.reflowed_task_ids).toEqual([]);
+          expect(payload.deleted_task_ids).toEqual([]);
           expect(payload.actor.user_id).toBe(session.user_id);
         } finally {
           resetCoreDb();
@@ -323,7 +323,7 @@ describe('deleteBucket', () => {
     );
   });
 
-  it('reflows live tasks to bucket_id=null and emits planner.task.moved for each', async () => {
+  it('soft-deletes live tasks and emits planner.task.deleted for each', async () => {
     await withTestDb(
       {
         templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -340,7 +340,6 @@ describe('deleteBucket', () => {
           const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
           const bucket = await createBucket({ plan_id: plan.id, name: 'Work', session });
 
-          // Insert two tasks directly via raw SQL since createTask is not yet implemented.
           const task1Id = crypto.randomUUID();
           const task2Id = crypto.randomUUID();
           await pool.query(
@@ -352,38 +351,39 @@ describe('deleteBucket', () => {
 
           await deleteBucket({ bucket_id: bucket.id, expected_version: 1, session });
 
-          // Tasks should now have bucket_id = null.
+          // Tasks should be soft-deleted (deleted_at set, bucket_id unchanged).
           const { rows: taskRows } = await pool.query(
-            `SELECT id, bucket_id, version FROM planner.tasks WHERE id = ANY($1) ORDER BY order_hint ASC`,
+            `SELECT id, bucket_id, deleted_at, version FROM planner.tasks WHERE id = ANY($1) ORDER BY order_hint ASC`,
             [[task1Id, task2Id]],
           );
           expect(taskRows).toHaveLength(2);
           for (const row of taskRows) {
-            expect(row.bucket_id).toBeNull();
+            expect(row.deleted_at).not.toBeNull();
+            expect(row.bucket_id).toBe(bucket.id);
             expect(row.version).toBe(2);
           }
 
-          // Check bucket.deleted event has both task ids.
+          // bucket.deleted event should list both task ids.
           const bucketEvents = await readEvents(pool, seeded.tenant_id, 'planner.bucket.deleted');
           expect(bucketEvents).toHaveLength(1);
           // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
           const bucketPayload = bucketEvents[0]?.payload as any;
-          expect(bucketPayload.reflowed_task_ids).toHaveLength(2);
-          expect(bucketPayload.reflowed_task_ids).toContain(task1Id);
-          expect(bucketPayload.reflowed_task_ids).toContain(task2Id);
+          expect(bucketPayload.deleted_task_ids).toHaveLength(2);
+          expect(bucketPayload.deleted_task_ids).toContain(task1Id);
+          expect(bucketPayload.deleted_task_ids).toContain(task2Id);
 
-          // Two planner.task.moved events.
-          const taskEvents = await readEvents(pool, seeded.tenant_id, 'planner.task.moved');
+          // Two planner.task.deleted events.
+          const taskEvents = await readEvents(pool, seeded.tenant_id, 'planner.task.deleted');
           expect(taskEvents).toHaveLength(2);
-          for (const ev of taskEvents) {
+          const taskEventIds = taskEvents.map((ev) => {
             // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
             const p = ev.payload as any;
-            expect(p.before.bucket_id).toBe(bucket.id);
-            expect(p.after.bucket_id).toBeNull();
-            expect(p.before.order_hint).toBe(p.after.order_hint);
             expect(p.version_before).toBe(1);
-            expect(p.version_after).toBe(2);
-          }
+            expect(p.deleted_at).toBeDefined();
+            return p.task_id as string;
+          });
+          expect(taskEventIds).toContain(task1Id);
+          expect(taskEventIds).toContain(task2Id);
         } finally {
           resetCoreDb();
           await closePools();
