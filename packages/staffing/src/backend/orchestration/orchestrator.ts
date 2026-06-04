@@ -24,6 +24,7 @@ import {
   type TaskAnalyzerOutput,
 } from './schemas.ts';
 import { type MastraToolSignals, trustFromMastraResult } from './trust.ts';
+import { loadUserContextSection, makeUpdateWorkingMemoryTool } from './working-memory.tools.ts';
 
 type In = z.infer<typeof OrchestratorInputSchema>;
 type Out = OrchestratorResult;
@@ -59,8 +60,14 @@ export interface OrchestratorDeps {
   resolveModel: () => LanguageModel;
   /** Cap on how many found tasks the orchestrator recommends people for. */
   recommendTaskCap?: number;
-  /** Test-only seam; production builds + runs a real Mastra Agent. */
-  runAgent?: (args: { input: In; requestContext: RequestContext }) => Promise<MastraToolSignals>;
+  /** Test-only seam; production builds + runs a real Mastra Agent. Receives the
+   *  fully assembled prompt + tool map so tests can assert wiring without an LLM. */
+  runAgent?: (args: {
+    input: In;
+    requestContext: RequestContext;
+    instructions: string;
+    tools: Record<string, unknown>;
+  }) => Promise<MastraToolSignals>;
 }
 
 const RECOMMEND_TASK_CAP = 5;
@@ -122,20 +129,27 @@ export function makeOrchestratorAgent(deps: OrchestratorDeps): SpecializedAgentS
       if (ctx.threadId) rc.set(RC_THREAD_ID, ctx.threadId);
       if (ctx.entitiesMemory) rc.set(RC_AGENT_MEMORY, ctx.entitiesMemory);
 
+      const tools: Record<string, unknown> = makeOrchestratorTools({
+        taskAnalyzer: deps.taskAnalyzer,
+        skillMatcher: deps.skillMatcher,
+        avaiChecker: deps.avaiChecker,
+        recommender: deps.recommender,
+        ctx,
+      });
+      const wmTool = makeUpdateWorkingMemoryTool(ctx);
+      if (wmTool) tools.updateWorkingMemory = wmTool;
+      const wmSection = await loadUserContextSection(ctx);
+      const agentInstructions = wmSection
+        ? `${instructions(cap)}\n\n${wmSection}`
+        : instructions(cap);
+
       const res: MastraToolSignals = deps.runAgent
-        ? await deps.runAgent({ input, requestContext: rc })
+        ? await deps.runAgent({ input, requestContext: rc, instructions: agentInstructions, tools })
         : await (async () => {
-            const tools = makeOrchestratorTools({
-              taskAnalyzer: deps.taskAnalyzer,
-              skillMatcher: deps.skillMatcher,
-              avaiChecker: deps.avaiChecker,
-              recommender: deps.recommender,
-              ctx,
-            });
             const agent = new Agent({
               id: 'staffing.orchestrator',
               name: 'Staffing Orchestrator',
-              instructions: instructions(cap),
+              instructions: agentInstructions,
               model: deps.resolveModel() as never,
               tools: tools as never,
             });

@@ -442,3 +442,43 @@ describe('orchestrator request-context wiring', () => {
     expect(rcSeen?.get(RC_AGENT_MEMORY)).toBeUndefined();
   });
 });
+
+describe('orchestrator resource working memory', () => {
+  function capture() {
+    let seen: { instructions: string; tools: Record<string, unknown> } | undefined;
+    const agent = makeOrchestratorAgent({
+      taskAnalyzer: stub('staffing.taskAnalyzer'),
+      skillMatcher: stub('staffing.skillMatcher'),
+      avaiChecker: stub('staffing.avaiChecker'),
+      recommender: stub('staffing.recommender'),
+      resolveModel: () => ({}) as never,
+      runAgent: async (args) => {
+        seen = { instructions: args.instructions, tools: args.tools };
+        return { toolCalls: [], toolResults: [], text: 'hi' };
+      },
+    });
+    return { agent, seen: () => seen };
+  }
+
+  it('appends the userContext section and exposes updateWorkingMemory when userMemory is present', async () => {
+    const { agent, seen } = capture();
+    const handle = {
+      memory: { getSystemMessage: async () => 'WM-SECTION' },
+      memoryConfig: {},
+    };
+    await agent.run(
+      { userText: 'hello', taskId: null },
+      { ...ctx, threadId: 'conv-1', userMemory: handle as never },
+    );
+    expect(seen()?.instructions).toContain('WM-SECTION');
+    expect(Object.keys(seen()?.tools ?? {})).toContain('updateWorkingMemory');
+  });
+
+  it('runs with the base instructions and no WM tool when userMemory is absent', async () => {
+    const { agent, seen } = capture();
+    await agent.run({ userText: 'hello', taskId: null }, ctx);
+    expect(seen()?.instructions).not.toContain('WM-SECTION');
+    expect(Object.keys(seen()?.tools ?? {})).not.toContain('updateWorkingMemory');
+    expect(Object.keys(seen()?.tools ?? {})).toContain('callTaskAnalyzer');
+  });
+});
