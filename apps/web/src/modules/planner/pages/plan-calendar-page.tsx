@@ -1,5 +1,4 @@
 import type { TaskWithAssigneesRow } from '@seta/planner';
-import { EmptyState } from '@seta/shared-ui';
 import { useEffect, useMemo } from 'react';
 import { GridSkeleton } from '../components/board-skeleton';
 import { CalendarGrid } from '../components/calendar/calendar-grid';
@@ -59,7 +58,6 @@ export function PlanCalendarPage({
   onRangeChange,
   onPageChange,
   onOpenTask,
-  onSwitchToBoard,
 }: PlanCalendarPageProps) {
   const hasRange = calFrom !== undefined && calTo !== undefined;
   useEffect(() => {
@@ -93,21 +91,13 @@ export function PlanCalendarPage({
         totalCount={total_count}
         onRangeChange={onRangeChange}
       />
-      {visibleTasks.length === 0 ? (
-        <EmptyState
-          title="No tasks scheduled in this range"
-          description="Tasks with a start or due date inside the selected range appear here."
-          action={{ label: 'Switch to Board', onClick: onSwitchToBoard }}
-        />
-      ) : (
-        <CalendarGrid
-          tasks={visibleTasks}
-          from={calFrom}
-          to={calTo}
-          todayKey={toDateKey(new Date())}
-          onOpenTask={onOpenTask}
-        />
-      )}
+      <CalendarGrid
+        tasks={visibleTasks}
+        from={calFrom}
+        to={calTo}
+        todayKey={toDateKey(new Date())}
+        onOpenTask={onOpenTask}
+      />
       <CalendarPagination
         page={calPage}
         totalCount={total_count}

@@ -86,14 +86,15 @@ describe('PlanCalendarPage', () => {
     expect(onOpenTask).toHaveBeenCalledWith('t1');
   });
 
-  it('shows the empty state when no tasks match (AC-10)', async () => {
+  it('shows the calendar grid even when no tasks match (AC-10)', async () => {
     server.use(
       http.get('/api/planner/v1/plans/p1/tasks/calendar', () =>
         HttpResponse.json({ tasks: [], total_count: 0 }),
       ),
     );
     render(wrap(<PlanCalendarPage {...baseProps} />));
-    expect(await screen.findByText('No tasks scheduled in this range')).toBeInTheDocument();
+    expect(await screen.findByTestId('calendar-grid')).toBeInTheDocument();
+    expect(screen.queryByText('No tasks scheduled in this range')).not.toBeInTheDocument();
   });
 
   it('paginates without touching the range (AC-7, AC-8)', async () => {
