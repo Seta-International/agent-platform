@@ -12,6 +12,7 @@ import type {
 } from '../dto.ts';
 import { requirePermission } from '../rbac.ts';
 import { groupFilterFor } from '../read-helpers.ts';
+import { decodeCursor, encodeCursor } from './_cursor.ts';
 import { taskRowToDto } from './_task-dto.ts';
 import { fetchAssigneesAndLabels } from './_task-supplementary.ts';
 
@@ -31,18 +32,6 @@ export interface ListTasksFilters {
   percent_complete_gte?: number;
   due_before?: string;
   include_deleted?: boolean;
-}
-
-function encodeCursor(updatedAt: string, id: string): string {
-  return Buffer.from(JSON.stringify({ u: updatedAt, i: id })).toString('base64');
-}
-
-function decodeCursor(c: string): { u: string; i: string } | null {
-  try {
-    return JSON.parse(Buffer.from(c, 'base64').toString('utf-8')) as { u: string; i: string };
-  } catch {
-    return null;
-  }
 }
 
 function safeHost(url: string): string {
