@@ -183,4 +183,22 @@ describe('taskAnalyzer agent (intent-routed, deterministic)', () => {
     expect(res.result.skills).toBeUndefined();
     expect(reader.calls).toEqual(['t-404']);
   });
+
+  it('resolve_task_skills: includes the task title for downstream card headers', async () => {
+    const reader = spyReader(TASK(['aws']));
+    const search = spySearch([]);
+    const agent = makeTaskAnalyzerAgent({
+      taskReader: reader.port,
+      taskSearch: search.port,
+      resolveModel: () => ({}) as never,
+    });
+
+    const res = await agent.run(
+      { intent: 'resolve_task_skills', query: 'what skills does this need', taskId: 't-1' },
+      ctx,
+    );
+
+    expect(res.result.title).toBe('AWS migration');
+    expect(res.result.skills).toEqual(['aws']);
+  });
 });

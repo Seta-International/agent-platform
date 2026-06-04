@@ -150,7 +150,7 @@ export function makeTaskAnalyzerAgent(deps: TaskAnalyzerDeps): SpecializedAgentS
             ? task.skillTags
             : await extractSkills(deps, task.title, task.description, ctx.abortSignal);
           return {
-            result: { skills },
+            result: { skills, title: task.title },
             trust: trust(
               'resolve_task_skills',
               `resolved ${skills.length} skill(s) for task ${task.taskId}`,

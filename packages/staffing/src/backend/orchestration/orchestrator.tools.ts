@@ -75,6 +75,7 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
     }),
     output: z.object({
       skills: z.array(z.string()).optional(),
+      title: z.string().optional(),
       tasks: z.array(TaskSummarySchema).optional(),
     }),
     execute: async ({ intent, query, taskId }) => {

@@ -83,6 +83,8 @@ export const TaskAnalyzerInputSchema = z.object({
 });
 export const TaskAnalyzerOutputSchema = z.object({
   skills: z.array(z.string()).optional(),
+  /** Task title on the resolve_task_skills path — used by the approval-card header. */
+  title: z.string().optional(),
   tasks: z.array(TaskSummarySchema).optional(),
 });
 export type TaskAnalyzerOutput = z.infer<typeof TaskAnalyzerOutputSchema>;
