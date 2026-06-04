@@ -82,7 +82,7 @@ export function registerAgent(deps: {
    */
   chatOrchestration?: (
     runInput: { userText: string; taskId: string | null },
-    ctx: { tenantId: string; actorUserId: string },
+    ctx: import('@seta/shared-orchestration').RunCtx,
   ) => AsyncIterable<import('@seta/shared-orchestration').OrchestrationEvent>;
 }): AgentHandle {
   validateModelEnv(process.env);

@@ -23,6 +23,7 @@ import { getWorkflowRunSnapshot } from './domain/get-workflow-run-snapshot.ts';
 import { insertChatHitlApproval } from './domain/insert-chat-hitl-approval.ts';
 import { listMyPendingApprovals } from './domain/list-my-pending-approvals.ts';
 import { listWorkflowRuns } from './domain/list-workflow-runs.ts';
+import { makeAssignApprovalRecorder } from './domain/make-assign-approval-recorder.ts';
 import { replayWorkflowFromStep } from './domain/replay-workflow-from-step.ts';
 import { rerunWorkflow } from './domain/rerun-workflow.ts';
 import { agentEnv } from './env.ts';
@@ -108,7 +109,7 @@ export type AgentRouteDeps = {
    */
   chatOrchestration?: (
     runInput: { userText: string; taskId: string | null },
-    ctx: { tenantId: string; actorUserId: string },
+    ctx: import('@seta/shared-orchestration').RunCtx,
   ) => AsyncIterable<import('@seta/shared-orchestration').OrchestrationEvent>;
 };
 
@@ -295,6 +296,19 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
         .trim();
       const orchThreadTitle = (cleanUserText || userText).slice(0, 80) || 'New conversation';
 
+      // In-thread HITL: lets the orchestrator record an approval card after a
+      // successful recommend flow (the recommend post-step). The supervisor
+      // path builds its recorder further down (see RC_CHAT_HITL_RECORDER); this
+      // branch returns before reaching it, so it needs its own. Idempotent per
+      // task — mutex with the evented assignBySkill and supervisor
+      // proposeAssignment paths.
+      const recordHitlApproval = makeAssignApprovalRecorder({
+        tenantId: session.tenant_id,
+        userId: session.user_id,
+        threadId: orchThreadId ?? null,
+        pool: deps.pool,
+      });
+
       // Create the thread row up front (mirrors the workflow-start path, which
       // projects synchronously so a GET never 404s). The orchestration harness
       // has no Mastra Agent.stream to persist for us; without a thread row the
@@ -328,7 +342,11 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
             writer as unknown as import('./orchestration-chat-stream.ts').UiStreamWriter,
             orchestrate(
               { userText, taskId },
-              { tenantId: session.tenant_id, actorUserId: session.user_id },
+              {
+                tenantId: session.tenant_id,
+                actorUserId: session.user_id,
+                recordHitlApproval,
+              },
             ),
           );
           // Persist the user turn + assistant trace timeline so the conversation
