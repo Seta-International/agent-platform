@@ -17,6 +17,9 @@ const APPROVAL: WorkflowApprovalRow = {
   approverUserId: 'u-1',
   surfaceCanvas: true,
   surfaceChatThreadId: null,
+  status: 'pending',
+  decisionPayload: null,
+  decidedAt: null,
   expiresAt: new Date(Date.now() + 60_000).toISOString(),
   createdAt: new Date().toISOString(),
 };

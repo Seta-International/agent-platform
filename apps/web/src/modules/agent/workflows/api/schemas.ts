@@ -18,8 +18,10 @@ export const ApprovalDecisionKind = z.enum([
   'pending',
   'approved',
   'rejected',
+  'modified',
   'superseded',
   'cancelled',
+  'expired',
 ]);
 export type ApprovalDecisionKind = z.infer<typeof ApprovalDecisionKind>;
 
@@ -55,12 +57,19 @@ export const WorkflowApprovalRow = z.object({
   approverUserId: z.string(),
   surfaceCanvas: z.boolean(),
   surfaceChatThreadId: z.string().nullable(),
+  // Decision fields are absent on the legacy my-pending-approvals response —
+  // defaults keep both endpoints parseable with one schema.
+  status: ApprovalDecisionKind.default('pending'),
+  decisionPayload: z.unknown().nullable().default(null),
+  decidedAt: z.string().nullable().default(null),
   expiresAt: z.string(),
   createdAt: z.string(),
 });
 export type WorkflowApprovalRow = z.infer<typeof WorkflowApprovalRow>;
 
 export const PendingApprovalsResponse = z.array(WorkflowApprovalRow);
+
+export const ThreadApprovalsResponse = z.array(WorkflowApprovalRow);
 
 export const DecideApprovalResponse = z.object({
   runId: z.string(),
