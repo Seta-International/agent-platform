@@ -19,6 +19,7 @@ import {
   listComments,
   listMyAssignedTasks,
   listMyTasks,
+  listPlanTasksByDateRange,
   listTaskEvents,
   listTasks,
   moveTask,
@@ -133,6 +134,13 @@ const commentBodySchema = z.object({
   body: z.string().min(1).max(4000),
 });
 
+const calendarQuerySchema = z.object({
+  from: z.string().datetime({ offset: true }),
+  to: z.string().datetime({ offset: true }),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  cursor: z.string().optional(),
+});
+
 const MY_TASKS_PRIORITY_MAP: Record<string, 'urgent' | 'important' | 'medium' | 'low'> = {
   '1': 'urgent',
   '3': 'important',
@@ -174,6 +182,7 @@ function parseListTasksQuery(query: Record<string, string | undefined>): {
     if (!Number.isNaN(n)) filters.percent_complete_gte = n;
   }
   if (query.due_before) filters.due_before = query.due_before;
+  if (query.no_date === 'true') filters.no_date = true;
   if (query.skill_tags) filters.skill_tags = query.skill_tags.split(',').filter(Boolean);
   if (query.include_deleted === 'true') filters.include_deleted = true;
 
@@ -189,6 +198,27 @@ export function registerPlannerTasksRoutes(app: Hono<SessionEnv>): void {
     const session = c.get('user');
     const { filters, limit, cursor } = parseListTasksQuery(c.req.query());
     return c.json(await listTasks({ filters, limit, cursor, session }));
+  });
+
+  app.get('/api/planner/v1/plans/:planId/tasks/calendar', async (c) => {
+    const session = c.get('user');
+    const parsed = calendarQuerySchema.safeParse(c.req.query());
+    if (!parsed.success)
+      return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
+    if (new Date(parsed.data.from).getTime() > new Date(parsed.data.to).getTime())
+      return c.json({ error: 'VALIDATION', message: '`from` must not be after `to`' }, 400);
+    return c.json(
+      await listPlanTasksByDateRange(
+        {
+          plan_id: c.req.param('planId'),
+          from: parsed.data.from,
+          to: parsed.data.to,
+          limit: parsed.data.limit,
+          cursor: parsed.data.cursor,
+        },
+        session,
+      ),
+    );
   });
 
   app.get('/api/planner/v1/tasks/mine', async (c) => {
