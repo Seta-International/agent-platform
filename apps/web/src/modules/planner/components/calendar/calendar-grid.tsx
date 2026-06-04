@@ -49,7 +49,11 @@ export function CalendarGrid({
 
   return (
     <div
-      className="flex min-h-0 flex-1 flex-col overflow-y-auto px-7 pb-4"
+      className={
+        isWeekMode
+          ? 'flex min-h-0 flex-1 flex-col overflow-hidden px-7 pb-4'
+          : 'flex min-h-0 flex-1 flex-col overflow-y-auto px-7 pb-4'
+      }
       data-testid="calendar-grid"
     >
       <FullCalendar
@@ -59,7 +63,8 @@ export function CalendarGrid({
         initialDate={from}
         firstDay={1}
         headerToolbar={false}
-        height="auto"
+        height={isWeekMode ? '100%' : 'auto'}
+        expandRows={isWeekMode}
         events={events}
         editable={true}
         eventContent={({ event }) => (
