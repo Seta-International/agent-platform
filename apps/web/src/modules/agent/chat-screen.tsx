@@ -16,9 +16,12 @@ export function ChatScreen({ threadId }: ChatScreenProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   // Sync route param → provider selection. Provider is the source of truth;
-  // /agent/chat keeps a search param for shareable links.
+  // /agent/chat keeps a search param for shareable links. The route's
+  // `beforeLoad` guarantees the param, but guard anyway: syncing `undefined`
+  // would re-mint a fresh id (provider invariant), re-trigger this effect, and
+  // loop.
   useEffect(() => {
-    if (threadId !== selection.threadId) actions.setThreadId(threadId);
+    if (threadId && threadId !== selection.threadId) actions.setThreadId(threadId);
   }, [threadId, selection.threadId, actions]);
 
   if (historyLoading) {

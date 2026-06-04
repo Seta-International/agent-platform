@@ -21,7 +21,15 @@ import { markThreadFresh, markThreadKnown } from '../lib/fresh-thread-store';
 const MODEL_STORAGE_KEY = 'seta.agent.model';
 
 export interface AgentSelection {
-  threadId: string | undefined;
+  /**
+   * Always a client-owned id. The provider mints a fresh uuid at mount and
+   * whenever the selection is cleared, so the AUI runtime is never mounted
+   * without one — if it were, assistant-ui would fall back to an internal
+   * `__LOCALID_*` id, send THAT to the server on the first message, and every
+   * server-side row keyed by thread id (Mastra thread, HITL approval rows)
+   * would land on an id no client query ever looks at.
+   */
+  threadId: string;
   modelKey: string;
   /**
    * True when `threadId` was minted client-side and the Mastra row hasn't been
@@ -32,6 +40,7 @@ export interface AgentSelection {
 }
 
 export interface AgentSelectionActions {
+  /** Select a server-known thread; `undefined` means "new conversation" and re-mints a fresh id. */
   setThreadId: (id: string | undefined) => void;
   setModelKey: (key: string) => void;
   /**
@@ -96,11 +105,23 @@ function writeStored(key: string, value: string) {
   window.localStorage.setItem(key, value);
 }
 
+/**
+ * Same mint-before-mount contract as the /agent/chat route's `beforeLoad`:
+ * own the id client-side so the URL, the AUI runtime, and the Mastra row all
+ * agree from the first send. `markThreadFresh` is idempotent, so the lazy
+ * useState initializer may safely run twice under StrictMode.
+ */
+function mintFreshThreadId(): string {
+  const id = crypto.randomUUID();
+  markThreadFresh(id);
+  return id;
+}
+
 export function AgentProvider({ children }: { children: React.ReactNode }) {
   const { data: catalog } = useModelCatalog();
   const defaultModel = catalog?.default ?? 'auto';
 
-  const [threadId, setThreadIdState] = useState<string | undefined>(undefined);
+  const [threadId, setThreadIdState] = useState<string>(mintFreshThreadId);
   const [modelKey, setModelKeyState] = useState<string>(() =>
     readStored(MODEL_STORAGE_KEY, defaultModel),
   );
@@ -115,16 +136,21 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const setThreadId = useCallback((next: string | undefined) => {
+    if (next === undefined) {
+      // "No thread" means "new conversation" — re-mint instead of clearing so
+      // the runtime is never left without a client-owned id (see AgentSelection).
+      setThreadIdState(mintFreshThreadId());
+      return;
+    }
     setThreadIdState(next);
     // A direct selection of an id means the caller believes the row exists on
     // the server (e.g. clicking a row in the rail, an approval-driven switch).
     // Clear it from the fresh set so consumers stop treating it as new.
-    if (next) markThreadKnown(next);
+    markThreadKnown(next);
   }, []);
 
   const startFreshThread = useCallback(() => {
-    const id = crypto.randomUUID();
-    markThreadFresh(id);
+    const id = mintFreshThreadId();
     setThreadIdState(id);
     return id;
   }, []);
@@ -259,7 +285,7 @@ function AgentRuntimeHost({ children }: { children: React.ReactNode }) {
   // mount immediately with no history. We also defensively treat a 404 as
   // "fresh" so a page reload that lost the sessionStorage entry still mounts
   // an empty chat instead of looping on the loading placeholder.
-  const messagesEnabled = selection.threadId !== undefined && !selection.isThreadFresh;
+  const messagesEnabled = !selection.isThreadFresh;
   const {
     data: history,
     isLoading,
@@ -267,7 +293,7 @@ function AgentRuntimeHost({ children }: { children: React.ReactNode }) {
   } = useThreadMessages(messagesEnabled ? selection.threadId : undefined);
   const treatAsFresh =
     selection.isThreadFresh || (error instanceof ThreadMessagesError && error.status === 404);
-  const historyReady = !selection.threadId || treatAsFresh || (!isLoading && Boolean(history));
+  const historyReady = treatAsFresh || (!isLoading && Boolean(history));
   const initialMessages: UIMessage[] =
     messagesEnabled && !treatAsFresh ? (history?.messages ?? []) : [];
 
@@ -294,7 +320,7 @@ function AgentRuntimeHost({ children }: { children: React.ReactNode }) {
   return (
     <AgentRuntimeHostInner
       // Remount only when the thread changes or an HITL approval resolves.
-      key={`${selection.threadId ?? 'new'}::${approvalEvent.revision}`}
+      key={`${selection.threadId}::${approvalEvent.revision}`}
       threadId={selection.threadId}
       modelKey={selection.modelKey}
       initialMessages={initialMessages}
@@ -314,7 +340,7 @@ function AgentRuntimeHostInner({
   pageContextRef,
   children,
 }: {
-  threadId: string | undefined;
+  threadId: string;
   modelKey: string;
   initialMessages: UIMessage[];
   historyLoading: boolean;

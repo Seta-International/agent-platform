@@ -51,11 +51,30 @@ const wrapper = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
 describe('AgentProvider', () => {
-  it('exposes default selection (undefined thread, default model)', () => {
+  it('mints a client-owned fresh thread id at mount (never undefined)', () => {
+    // The AUI runtime falls back to an internal `__LOCALID_*` id when mounted
+    // without a thread id; that id leaks to the server as the Mastra thread id
+    // and orphans HITL approval rows. The provider must own the id up front.
     const { result } = renderHook(() => useAgentSelection(), { wrapper });
-    expect(result.current.selection.threadId).toBeUndefined();
+    expect(result.current.selection.threadId).toMatch(UUID_RE);
+    expect(result.current.selection.isThreadFresh).toBe(true);
     expect(typeof result.current.selection.modelKey).toBe('string');
+  });
+
+  it('re-mints a fresh id when the selection is cleared instead of going undefined', async () => {
+    const { result } = renderHook(() => useAgentSelection(), { wrapper });
+    await act(async () => {
+      result.current.actions.setThreadId('thread-123');
+    });
+    expect(result.current.selection.threadId).toBe('thread-123');
+    await act(async () => {
+      result.current.actions.setThreadId(undefined);
+    });
+    expect(result.current.selection.threadId).toMatch(UUID_RE);
+    expect(result.current.selection.isThreadFresh).toBe(true);
   });
 
   it('updates selection via setters and persists to localStorage', async () => {

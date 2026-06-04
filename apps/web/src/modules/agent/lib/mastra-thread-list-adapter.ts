@@ -1,5 +1,6 @@
 import type { RemoteThreadListAdapter } from '@assistant-ui/react';
 import { agentApi } from '../api/client';
+import { isThreadFresh } from './fresh-thread-store';
 
 async function fetchThreadMetadata(
   threadId: string,
@@ -57,6 +58,10 @@ export const mastraThreadListAdapter: RemoteThreadListAdapter = {
   },
 
   async fetch(threadId) {
+    // Client-minted ids have no Mastra row until the first send — synthesize
+    // the metadata locally instead of paying a guaranteed-404 round trip
+    // (the provider mints one of these on every mount).
+    if (isThreadFresh(threadId)) return { status: 'regular', remoteId: threadId };
     return fetchThreadMetadata(threadId);
   },
 
