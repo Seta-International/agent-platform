@@ -109,6 +109,7 @@ export { updateTask } from './backend/domain/update-task.ts';
 export type {
   AssigneeRow,
   BucketRow,
+  CalendarTasksResult,
   ChartData,
   ChecklistItemRow,
   CommentDto,

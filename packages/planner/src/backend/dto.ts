@@ -258,6 +258,15 @@ export interface TaskWithAssigneesRow extends TaskRow {
   reference_preview: ReferencePreviewItem[];
 }
 
+/** Result of listPlanTasksByDateRange — the plan calendar's data contract. */
+export interface CalendarTasksResult {
+  tasks: TaskWithAssigneesRow[];
+  /** Present when another page exists; opaque keyset cursor. */
+  next_cursor?: string;
+  /** Count of ALL tasks matching the date-range filter, ignoring pagination. */
+  total_count: number;
+}
+
 // Single-task detail shape — what /tasks/:id and getTask return. Lists keep the
 // lighter TaskWithAssigneesRow (which exposes only a checklist count) so board
 // queries don't fan out per-task. Detail screens need the full ordered checklist

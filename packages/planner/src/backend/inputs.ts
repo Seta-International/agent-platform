@@ -279,8 +279,14 @@ export interface ListMyTasksInput {
 
 export interface ListPlanTasksByDateRangeInput {
   plan_id: string;
+  /** ISO 8601 instant (inclusive lower bound). */
   from: string;
+  /** ISO 8601 instant (inclusive upper bound). */
   to: string;
+  /** Page size; default 50, clamped to [1, 200]. */
+  limit?: number;
+  /** Opaque keyset cursor from a previous page's next_cursor. */
+  cursor?: string;
 }
 
 export interface GetPlanChartDataInput {

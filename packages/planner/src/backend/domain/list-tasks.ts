@@ -157,7 +157,7 @@ export async function fetchSupplementaryData(
   };
 }
 
-function stitchRow(
+export function stitchRow(
   base: Omit<
     TaskWithAssigneesRow,
     'assignees' | 'labels' | 'checklist_summary' | 'checklist_preview' | 'reference_preview'
