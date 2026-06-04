@@ -22,6 +22,7 @@ import { getWorkflowRun } from './domain/get-workflow-run.ts';
 import { getWorkflowRunSnapshot } from './domain/get-workflow-run-snapshot.ts';
 import { insertChatHitlApproval } from './domain/insert-chat-hitl-approval.ts';
 import { listMyPendingApprovals } from './domain/list-my-pending-approvals.ts';
+import { listThreadApprovals } from './domain/list-thread-approvals.ts';
 import { listWorkflowRuns } from './domain/list-workflow-runs.ts';
 import { makeAssignApprovalRecorder } from './domain/make-assign-approval-recorder.ts';
 import { replayWorkflowFromStep } from './domain/replay-workflow-from-step.ts';
@@ -1172,6 +1173,15 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
     const session = c.get('session') as SessionLike | undefined;
     if (!session) return c.json({ error: 'unauthorized', message: 'session required' }, 401);
     return c.json(await listMyPendingApprovals({ session }));
+  });
+
+  // All approvals (pending + decided) of one chat thread, addressed to the
+  // caller. The chat UI renders decided rows persistently from this — see
+  // listThreadApprovals for why deciding must not start a new agent turn.
+  app.get('/api/agent/v1/workflows/threads/:threadId/approvals', async (c) => {
+    const session = c.get('session') as SessionLike | undefined;
+    if (!session) return c.json({ error: 'unauthorized', message: 'session required' }, 401);
+    return c.json(await listThreadApprovals({ session, threadId: c.req.param('threadId') }));
   });
 
   app.post('/api/agent/v1/workflows/approvals/:approvalId/decide', async (c) => {
