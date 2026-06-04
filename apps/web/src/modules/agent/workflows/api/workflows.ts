@@ -5,6 +5,7 @@ import {
   ListWorkflowRunsResponse,
   PendingApprovalsResponse,
   SseTokenResponse,
+  ThreadApprovalsResponse,
   WorkflowRunRow,
 } from './schemas.ts';
 
@@ -73,6 +74,14 @@ export const workflowsApi = {
       credentials: 'include',
     });
     return jsonOrThrow(res, PendingApprovalsResponse);
+  },
+
+  async listThreadApprovals(threadId: string) {
+    const res = await fetch(
+      `/api/agent/v1/workflows/threads/${encodeURIComponent(threadId)}/approvals`,
+      { credentials: 'include' },
+    );
+    return jsonOrThrow(res, ThreadApprovalsResponse);
   },
 
   async decideApproval(approvalId: string, body: DecideApprovalBody) {
