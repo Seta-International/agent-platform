@@ -36,6 +36,8 @@ export function useCreateTask(planId: string) {
           bucket_id: v.bucket_id,
           title: v.title,
           description: v.description,
+          due_at: v.due_at,
+          priority_number: v.priority_number,
         }),
         credentials: 'include',
       });
@@ -73,7 +75,8 @@ export function useCreateTask(planId: string) {
       toast.success('Task created', {
         description: 'Checking for duplicates in background…',
       });
-      qc.invalidateQueries({ queryKey: plannerKeys.planTasks(planId, { plan_id: planId }) });
+      qc.invalidateQueries({ queryKey: [...plannerKeys.plan(planId), 'tasks'] });
+      qc.invalidateQueries({ queryKey: plannerKeys.planCalendar(planId) });
     },
     onError: (err) => {
       toast.error("Couldn't create task", {
