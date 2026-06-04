@@ -316,7 +316,7 @@ select:focus-visible,
 .plan-filter-bar__clear:hover { background: var(--color-surface-2); color: var(--color-ink); }
 
 /* PlanGridPage */
-.plan-grid-page { display: flex; flex-direction: column; gap: var(--spacing-md); }
+.plan-grid-page { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: var(--spacing-md); }
 
 .grid-bulk-action-footer {
   position: sticky;

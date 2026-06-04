@@ -5,11 +5,19 @@ interface Props {
   /** False for padding days outside the selected range — rendered dimmed. */
   inRange: boolean;
   isToday: boolean;
+  /** Week mode: date is shown in the grid header instead of each cell. */
+  hideDate?: boolean;
   /** Absent until plan 4 wires quick-create; cell is inert without it. */
   onSelectDate?: (dayKey: string) => void;
 }
 
-export function CalendarDayCell({ dayKey, inRange, isToday, onSelectDate }: Props) {
+export function CalendarDayCell({
+  dayKey,
+  inRange,
+  isToday,
+  hideDate = false,
+  onSelectDate,
+}: Props) {
   const dayNum = Number(dayKey.slice(8, 10));
   return (
     <button
@@ -24,14 +32,16 @@ export function CalendarDayCell({ dayKey, inRange, isToday, onSelectDate }: Prop
         !inRange && 'opacity-40',
       )}
     >
-      <span
-        className={cn(
-          'inline-flex size-6 items-center justify-center rounded-full text-caption',
-          isToday ? 'font-medium text-ink ring-2 ring-primary' : 'text-ink-muted',
-        )}
-      >
-        {dayNum}
-      </span>
+      {!hideDate && (
+        <span
+          className={cn(
+            'inline-flex size-6 items-center justify-center rounded-full text-caption',
+            isToday ? 'font-medium text-ink ring-2 ring-primary' : 'text-ink-muted',
+          )}
+        >
+          {dayNum}
+        </span>
+      )}
     </button>
   );
 }
