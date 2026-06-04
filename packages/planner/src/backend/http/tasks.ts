@@ -174,6 +174,7 @@ function parseListTasksQuery(query: Record<string, string | undefined>): {
     if (!Number.isNaN(n)) filters.percent_complete_gte = n;
   }
   if (query.due_before) filters.due_before = query.due_before;
+  if (query.no_date === 'true') filters.no_date = true;
   if (query.skill_tags) filters.skill_tags = query.skill_tags.split(',').filter(Boolean);
   if (query.include_deleted === 'true') filters.include_deleted = true;
 
