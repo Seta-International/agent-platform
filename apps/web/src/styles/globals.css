@@ -1,3 +1,14 @@
 @import '@seta/shared-ui/styles/tokens.css';
 @import '@seta/shared-ui/styles/fonts.css';
 @import '@seta/shared-ui/styles/globals.css';
+@import '@fullcalendar/core/index.css';
+@import '@fullcalendar/daygrid/index.css';
+
+:root {
+  --fc-border-color: var(--color-hairline);
+  --fc-today-bg-color: var(--color-surface-2);
+  --fc-event-bg-color: transparent;
+  --fc-event-border-color: transparent;
+  --fc-event-text-color: inherit;
+  --fc-daygrid-event-dot-width: 0px;
+}
