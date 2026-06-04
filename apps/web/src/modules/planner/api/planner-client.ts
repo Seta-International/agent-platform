@@ -514,6 +514,26 @@ async function listMyAssignedTasks(
   )) as { tasks: TaskWithAssigneesRow[]; next_cursor?: string };
 }
 
+async function listCalendarTasks(
+  planId: string,
+  from: string,
+  to: string,
+  opts: { limit?: number; cursor?: string } = {},
+): Promise<{ tasks: TaskWithAssigneesRow[]; next_cursor?: string; total_count: number }> {
+  const q = new URLSearchParams({ from, to });
+  if (opts.limit !== undefined) q.set('limit', String(opts.limit));
+  if (opts.cursor) q.set('cursor', opts.cursor);
+  return (await request<{
+    tasks: TaskWithAssigneesRow[];
+    next_cursor?: string;
+    total_count: number;
+  }>(`/api/planner/v1/plans/${planId}/tasks/calendar?${q}`)) as {
+    tasks: TaskWithAssigneesRow[];
+    next_cursor?: string;
+    total_count: number;
+  };
+}
+
 async function getTask(task_id: string): Promise<TaskDetailRow> {
   return (await request<TaskDetailRow>(`/api/planner/v1/tasks/${task_id}`)) as TaskDetailRow;
 }
@@ -917,6 +937,7 @@ export const plannerClient = {
   deleteBucket,
   listTasks,
   listMyAssignedTasks,
+  listCalendarTasks,
   getTask,
   createTask,
   updateTask,

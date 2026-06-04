@@ -29,7 +29,7 @@ import { useFilterOptions } from '@/modules/planner/hooks/use-filter-options';
 import { useRecentPlans } from '@/modules/planner/hooks/use-recent-plans';
 import { PlanGridPage } from '@/modules/planner/pages/plan-grid-page';
 import { PlanPage } from '@/modules/planner/pages/plan-page';
-import type { BoardFilters } from '@/modules/planner/state/url-state';
+import type { BoardFilters, ViewMode } from '@/modules/planner/state/url-state';
 import {
   parseFiltersFromSearch,
   parseGroupBy,
@@ -40,7 +40,7 @@ import { PlanSearchInput } from '../components/plan-search-input';
 import { PlanViewSwitcher } from '../components/plan-view-switcher';
 
 export interface PlanBoardShellSearch {
-  view?: 'board' | 'grid';
+  view?: ViewMode;
   groupBy?: 'bucket' | 'assignee' | 'priority' | 'due' | 'label';
   'filter.assignee'?: string;
   'filter.label'?: string;
@@ -54,7 +54,7 @@ interface Props {
   /** Navigation callbacks owned by the route so TanStack's typed router is happy. */
   onQChange: (next: string) => void;
   onFiltersChange: (next: BoardFilters) => void;
-  onViewChange: (next: 'board' | 'grid') => void;
+  onViewChange: (next: ViewMode) => void;
   onGroupByChange: (next: 'bucket' | 'assignee' | 'priority' | 'due' | 'label') => void;
   onOpenTask: (taskId: string) => void;
   onLeaveAfterDelete: (groupId: string) => void;

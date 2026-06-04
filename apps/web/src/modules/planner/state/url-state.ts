@@ -10,10 +10,10 @@ export const EMPTY_FILTERS: BoardFilters = {
   skill_tags: [],
 };
 
-export type ViewMode = 'board' | 'grid';
+export type ViewMode = 'board' | 'grid' | 'calendar';
 export type GroupBy = 'bucket' | 'assignee' | 'priority' | 'due' | 'label';
 
-const VIEW_MODES = ['board', 'grid'] as const;
+const VIEW_MODES = ['board', 'grid', 'calendar'] as const;
 const GROUP_BYS = ['bucket', 'assignee', 'priority', 'due', 'label'] as const;
 
 function splitCSV(s: string | undefined): string[] {
@@ -49,4 +49,11 @@ export function parseGroupBy(s: string | undefined): GroupBy {
 
 export function parseSearchQuery(s: string | undefined): string {
   return (s ?? '').trim();
+}
+
+const DATE_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Validates a calFrom/calTo URL value; undefined when absent or malformed. */
+export function parseDateKey(s: string | undefined): string | undefined {
+  return s !== undefined && DATE_KEY_RE.test(s) ? s : undefined;
 }

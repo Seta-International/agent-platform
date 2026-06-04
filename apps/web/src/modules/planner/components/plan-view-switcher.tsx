@@ -1,8 +1,9 @@
 import { LayoutGrid, Rows3 } from 'lucide-react';
+import type { ViewMode } from '../state/url-state';
 
 interface Props {
-  value: 'board' | 'grid';
-  onChange: (v: 'board' | 'grid') => void;
+  value: ViewMode;
+  onChange: (v: ViewMode) => void;
 }
 
 export function PlanViewSwitcher({ value, onChange }: Props) {

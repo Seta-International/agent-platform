@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  parseDateKey,
   parseFiltersFromSearch,
   parseGroupBy,
   parseViewMode,
@@ -40,5 +41,16 @@ describe('url-state', () => {
     expect(parseGroupBy(undefined)).toBe('bucket');
     expect(parseGroupBy('assignee')).toBe('assignee');
     expect(parseGroupBy('foo')).toBe('bucket');
+  });
+
+  it('parseViewMode accepts calendar', () => {
+    expect(parseViewMode('calendar')).toBe('calendar');
+  });
+
+  it('parseDateKey accepts YYYY-MM-DD only', () => {
+    expect(parseDateKey('2026-06-01')).toBe('2026-06-01');
+    expect(parseDateKey('2026-6-1')).toBeUndefined();
+    expect(parseDateKey('garbage')).toBeUndefined();
+    expect(parseDateKey(undefined)).toBeUndefined();
   });
 });

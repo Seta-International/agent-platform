@@ -38,4 +38,11 @@ describe('plannerKeys', () => {
       plannerKeys.myTasks({ priority: 5 }),
     );
   });
+
+  it('planCalendarTasks nests under planCalendar for prefix invalidation', () => {
+    const prefix = plannerKeys.planCalendar('p1');
+    const page = plannerKeys.planCalendarTasks('p1', '2026-06-01', '2026-06-30', 2);
+    expect(page.slice(0, prefix.length)).toEqual([...prefix]);
+    expect(page).toEqual([...prefix, '2026-06-01', '2026-06-30', 2]);
+  });
 });
