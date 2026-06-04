@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { wrapUpdateWorkingMemoryTool } from '../../src/backend/working-memory-guard.ts';
+import { wrapUpdateWorkingMemoryTool } from '../../src/working-memory-guard.ts';
 
 function fakeInnerTool() {
   const calls: Array<{ memory: string }> = [];

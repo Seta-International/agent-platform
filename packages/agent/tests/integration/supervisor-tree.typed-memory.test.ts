@@ -7,11 +7,11 @@ import {
   parseWorkingMemory,
   serializeEntities,
   serializeWorkingMemory,
+  wrapUpdateWorkingMemoryTool,
 } from '@seta/agent-sdk';
 import { describe, expect, it } from 'vitest';
 import { initAgentRegistry } from '../../src/backend/init-registry.ts';
 import { buildSupervisorTree } from '../../src/backend/supervisor-tree.ts';
-import { wrapUpdateWorkingMemoryTool } from '../../src/backend/working-memory-guard.ts';
 import { withAgentTestDb } from '../helpers.ts';
 
 const UUID_A = '66be2be2-394d-4184-b106-c412289fd1e1';

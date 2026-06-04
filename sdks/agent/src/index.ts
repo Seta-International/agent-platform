@@ -98,6 +98,7 @@ export {
 } from './trust.ts';
 export type { WorkflowBuilder } from './workflow-builder.ts';
 export type { WorkflowContribution } from './workflow-contribution.ts';
+export { wrapUpdateWorkingMemoryTool } from './working-memory-guard.ts';
 export {
   type ConversationEntities,
   ConversationEntitiesSchema,

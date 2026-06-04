@@ -1,4 +1,4 @@
-import { WorkingMemorySchema, WorkingMemoryUserContextSchema } from '@seta/agent-sdk';
+import { WorkingMemorySchema, WorkingMemoryUserContextSchema } from './working-memory-schema.ts';
 
 type InnerTool = {
   id?: string;

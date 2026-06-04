@@ -10,11 +10,11 @@ import {
   type Domain,
   type SpecialistSpec,
   WorkingMemorySchema,
+  wrapUpdateWorkingMemoryTool,
 } from '@seta/agent-sdk';
 import { agentEnv } from './env.ts';
 import { resolveModel } from './model-registry.ts';
 import { generateDomainPrompt, generateTopRoutingPrompt } from './prompt-templates.ts';
-import { wrapUpdateWorkingMemoryTool } from './working-memory-guard.ts';
 
 export type SupervisorTree = {
   topSupervisor: Agent;
