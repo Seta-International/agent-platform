@@ -76,6 +76,8 @@ function renderShell(searchOverrides: Record<string, string | undefined> = {}) {
             onGroupByChange={() => {}}
             onOpenTask={() => {}}
             onLeaveAfterDelete={() => {}}
+            onCalendarRangeChange={() => {}}
+            onCalendarPageChange={() => {}}
           />,
         )}
       </SessionProvider>

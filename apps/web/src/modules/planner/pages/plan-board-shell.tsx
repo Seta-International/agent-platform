@@ -27,10 +27,12 @@ import { useGroup } from '@/modules/planner/hooks/queries/use-group';
 import { usePlanBoard } from '@/modules/planner/hooks/queries/use-plan-board';
 import { useFilterOptions } from '@/modules/planner/hooks/use-filter-options';
 import { useRecentPlans } from '@/modules/planner/hooks/use-recent-plans';
+import { PlanCalendarPage } from '@/modules/planner/pages/plan-calendar-page';
 import { PlanGridPage } from '@/modules/planner/pages/plan-grid-page';
 import { PlanPage } from '@/modules/planner/pages/plan-page';
 import type { BoardFilters, ViewMode } from '@/modules/planner/state/url-state';
 import {
+  parseDateKey,
   parseFiltersFromSearch,
   parseGroupBy,
   parseSearchQuery,
@@ -40,12 +42,15 @@ import { PlanSearchInput } from '../components/plan-search-input';
 import { PlanViewSwitcher } from '../components/plan-view-switcher';
 
 export interface PlanBoardShellSearch {
-  view?: ViewMode;
+  view?: 'board' | 'grid' | 'calendar';
   groupBy?: 'bucket' | 'assignee' | 'priority' | 'due' | 'label';
   'filter.assignee'?: string;
   'filter.label'?: string;
   'filter.skill'?: string;
   q?: string;
+  calFrom?: string;
+  calTo?: string;
+  calPage?: number;
 }
 
 interface Props {
@@ -58,6 +63,8 @@ interface Props {
   onGroupByChange: (next: 'bucket' | 'assignee' | 'priority' | 'due' | 'label') => void;
   onOpenTask: (taskId: string) => void;
   onLeaveAfterDelete: (groupId: string) => void;
+  onCalendarRangeChange: (from: string, to: string, opts?: { replace?: boolean }) => void;
+  onCalendarPageChange: (page: number) => void;
 }
 
 export function PlanBoardShell({
@@ -69,6 +76,8 @@ export function PlanBoardShell({
   onGroupByChange,
   onOpenTask,
   onLeaveAfterDelete,
+  onCalendarRangeChange,
+  onCalendarPageChange,
 }: Props) {
   const session = useSession();
 
@@ -76,6 +85,9 @@ export function PlanBoardShell({
   const view = parseViewMode(search.view);
   const groupBy = parseGroupBy(search.groupBy);
   const q = parseSearchQuery(search.q);
+  const calFrom = parseDateKey(search.calFrom);
+  const calTo = parseDateKey(search.calTo);
+  const calPage = search.calPage && search.calPage >= 1 ? search.calPage : 1;
 
   const boardQ = usePlanBoard(planId);
   const filterOptions = useFilterOptions(boardQ.data);
@@ -159,7 +171,7 @@ export function PlanBoardShell({
   }
 
   if (boardQ.isPending) {
-    return view === 'grid' ? <GridSkeleton /> : <BoardSkeleton />;
+    return view === 'board' ? <BoardSkeleton /> : <GridSkeleton />;
   }
   if (boardQ.isError || !boardQ.data) {
     return <PlanError onRetry={() => boardQ.refetch()} />;
@@ -174,7 +186,7 @@ export function PlanBoardShell({
   const isPulling = resolvedPlan.sync_status === 'pulling' && tasks.length === 0;
 
   return (
-    <div className={view === 'grid' ? 'plan-grid-page' : 'plan-page'}>
+    <div className={view === 'board' ? 'plan-page' : 'plan-grid-page'}>
       <PlanPageHeader
         planName={resolvedPlan.name}
         groupName={groupName}
@@ -278,6 +290,19 @@ export function PlanBoardShell({
           onOpenTask={onOpenTask}
           q={q}
           onQChange={onQChange}
+        />
+      ) : view === 'calendar' ? (
+        <PlanCalendarPage
+          planId={planId}
+          calFrom={calFrom}
+          calTo={calTo}
+          calPage={calPage}
+          filters={filters}
+          q={q}
+          onRangeChange={onCalendarRangeChange}
+          onPageChange={onCalendarPageChange}
+          onOpenTask={onOpenTask}
+          onSwitchToBoard={() => onViewChange('board')}
         />
       ) : (
         <PlanGridPage

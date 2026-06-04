@@ -78,6 +78,8 @@ function renderShell() {
             onGroupByChange={() => {}}
             onOpenTask={() => {}}
             onLeaveAfterDelete={() => {}}
+            onCalendarRangeChange={() => {}}
+            onCalendarPageChange={() => {}}
           />,
         )}
       </SessionProvider>
@@ -444,5 +446,42 @@ describe('PlanGridPage (via PlanBoardShell)', () => {
     await user.click(await screen.findByRole('button', { name: 'Delete' }));
 
     expect(deleteCalls).toContain('t1');
+  });
+
+  it('renders the calendar view when view=calendar', async () => {
+    // Reuse this file's standard plan/buckets/tasks/labels handlers, plus:
+    server.use(
+      ...seedBoardHandlers(),
+      http.get('/api/planner/v1/plans/p1/tasks/calendar', () =>
+        HttpResponse.json({ tasks: [], total_count: 0 }),
+      ),
+    );
+
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={qc}>
+        <SessionProvider session={session}>
+          {withRouter(
+            <PlanBoardShell
+              planId="p1"
+              search={{ view: 'calendar', calFrom: '2026-06-01', calTo: '2026-06-30' }}
+              onQChange={() => {}}
+              onFiltersChange={() => {}}
+              onViewChange={() => {}}
+              onGroupByChange={() => {}}
+              onOpenTask={() => {}}
+              onLeaveAfterDelete={() => {}}
+              onCalendarRangeChange={() => {}}
+              onCalendarPageChange={() => {}}
+            />,
+          )}
+        </SessionProvider>
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByTestId('plan-calendar-page')).toBeInTheDocument();
+    expect(screen.getByLabelText('Calendar view')).toBeInTheDocument();
   });
 });

@@ -1,4 +1,4 @@
-import { LayoutGrid, Rows3 } from 'lucide-react';
+import { CalendarDays, LayoutGrid, Rows3 } from 'lucide-react';
 import type { ViewMode } from '../state/url-state';
 
 interface Props {
@@ -26,6 +26,15 @@ export function PlanViewSwitcher({ value, onChange }: Props) {
       >
         <Rows3 aria-hidden="true" className="size-3.5" />
         <span>Grid</span>
+      </button>
+      <button
+        type="button"
+        aria-pressed={value === 'calendar'}
+        aria-label="Calendar view"
+        onClick={() => onChange('calendar')}
+      >
+        <CalendarDays aria-hidden="true" className="size-3.5" />
+        <span>Calendar</span>
       </button>
     </div>
   );
