@@ -1,65 +1,42 @@
-import { useAui } from '@assistant-ui/react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import type { WorkflowApprovalRow } from '../api/schemas.ts';
 import { type DecideApprovalBody, workflowsApi } from '../api/workflows.ts';
-import { useThreadPendingApprovals } from '../hooks/use-thread-pending-approvals.ts';
+import { useThreadApprovals } from '../hooks/use-thread-approvals.ts';
+import { workflowsQueryKeys } from '../state/query-keys.ts';
+import { cardIntent, outcomeText, STATUS_LABELS } from './decided-approval.ts';
 import { HitlApprovalCard } from './hitl-approval-card.tsx';
 
 export interface ChatEmbeddedHitlProps {
   threadId: string | undefined;
 }
 
-const DECISION_LABELS: Record<string, string> = {
-  approve: 'Approved',
-  reject: 'Declined',
-  modify: 'Modified',
-};
-
-function intentFromPayload(payload: unknown): string | null {
-  if (!payload || typeof payload !== 'object') return null;
-  const p = payload as { intent?: unknown };
-  return typeof p.intent === 'string' ? p.intent : null;
-}
-
-interface DecidedRowProps {
-  decision: string;
-  approval: WorkflowApprovalRow;
-}
-
-function DecidedRow({ decision, approval }: DecidedRowProps) {
-  const label = DECISION_LABELS[decision] ?? decision;
-  const intent = intentFromPayload(approval.proposedPayload);
-  const isDecline = decision === 'reject';
+function DecidedRow({ approval }: { approval: WorkflowApprovalRow }) {
+  const label = STATUS_LABELS[approval.status] ?? approval.status;
+  const intent = cardIntent(approval.proposedPayload);
+  const positive = approval.status === 'approved' || approval.status === 'modified';
 
   return (
     <div className="flex items-start gap-2.5 rounded-lg border border-hairline bg-surface-1 px-3.5 py-2.5">
-      {isDecline ? (
-        <XCircle className="mt-px size-4 shrink-0 text-ink-subtle" aria-hidden />
-      ) : (
+      {positive ? (
         <CheckCircle2 className="mt-px size-4 shrink-0 text-semantic-success" aria-hidden />
+      ) : (
+        <XCircle className="mt-px size-4 shrink-0 text-ink-subtle" aria-hidden />
       )}
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-1.5 text-body-sm">
           <span className="font-medium text-ink">{label}.</span>
           {intent ? <span className="truncate text-ink-subtle">{intent}</span> : null}
         </div>
-        <p className="mt-0.5 flex items-center gap-1.5 text-caption text-ink-subtle">
-          Agent is responding
-          <span className="inline-flex gap-0.5" aria-hidden>
-            <span className="size-1 animate-bounce rounded-full bg-ink-subtle [animation-delay:0ms]" />
-            <span className="size-1 animate-bounce rounded-full bg-ink-subtle [animation-delay:150ms]" />
-            <span className="size-1 animate-bounce rounded-full bg-ink-subtle [animation-delay:300ms]" />
-          </span>
-        </p>
+        <p className="mt-0.5 text-caption text-ink-subtle">{outcomeText(approval)}</p>
       </div>
     </div>
   );
 }
 
 export function ChatEmbeddedHitl({ threadId }: ChatEmbeddedHitlProps) {
-  const approvalsQuery = useThreadPendingApprovals(threadId);
-  const aui = useAui();
+  const approvalsQuery = useThreadApprovals(threadId);
+  const queryClient = useQueryClient();
 
   const decide = useMutation({
     mutationFn: (args: { approvalId: string } & DecideApprovalBody) =>
@@ -68,34 +45,58 @@ export function ChatEmbeddedHitl({ threadId }: ChatEmbeddedHitlProps) {
         overrideUserIds: args.overrideUserIds,
         note: args.note,
       }),
-    onSuccess: (_res, variables) => {
-      // The card stays visible (decided state rendered below).
-      // Trigger a new agent turn — the LLM sees full thread history and generates
-      // a contextual follow-up in the user's language. Works for any HITL flow.
-      const label = DECISION_LABELS[variables.decision] ?? variables.decision;
-      aui.thread().append({ role: 'user', content: [{ type: 'text', text: label }] });
+    onSuccess: () => {
+      // Deliberately NO thread append here: the decision is already complete
+      // server-side (decide-approval ran the planner decider — assigns on
+      // approve, does nothing on reject). Appending a chat message would start
+      // a new agent turn and re-run the orchestrator pipeline.
+      if (threadId) {
+        void queryClient.invalidateQueries({
+          queryKey: workflowsQueryKeys.threadApprovals(threadId),
+        });
+      }
+      void queryClient.invalidateQueries({ queryKey: workflowsQueryKeys.pendingApprovals() });
     },
   });
 
   const approvals = approvalsQuery.data;
   if (!approvals || approvals.length === 0) return null;
 
-  const decidedApprovalId =
-    decide.isSuccess && decide.variables ? decide.variables.approvalId : null;
-  const decidedLabel = decide.variables
-    ? (DECISION_LABELS[decide.variables.decision] ?? decide.variables.decision)
-    : null;
+  // Bridge between decide success and the invalidated refetch landing: render
+  // the just-decided card as its decided row instead of the interactive card.
+  const justDecided =
+    decide.isSuccess && decide.variables
+      ? {
+          approvalId: decide.variables.approvalId,
+          status: (decide.variables.decision === 'approve'
+            ? 'approved'
+            : decide.variables.decision === 'modify'
+              ? 'modified'
+              : 'rejected') as WorkflowApprovalRow['status'],
+          decisionPayload: {
+            decision: decide.variables.decision,
+            ...(decide.variables.overrideUserIds
+              ? { override_user_ids: decide.variables.overrideUserIds }
+              : {}),
+          },
+        }
+      : null;
 
   return (
     <section className="space-y-3" aria-label="In-thread approvals">
       {approvals.map((approval) => {
-        // Replace only the card that was just decided with a compact confirmation row.
-        if (approval.approvalId === decidedApprovalId && decidedLabel) {
+        if (approval.status !== 'pending') {
+          return <DecidedRow key={approval.approvalId} approval={approval} />;
+        }
+        if (justDecided && justDecided.approvalId === approval.approvalId) {
           return (
             <DecidedRow
               key={approval.approvalId}
-              decision={decide.variables?.decision ?? 'approve'}
-              approval={approval}
+              approval={{
+                ...approval,
+                status: justDecided.status,
+                decisionPayload: justDecided.decisionPayload,
+              }}
             />
           );
         }
