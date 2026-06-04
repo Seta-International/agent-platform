@@ -1,8 +1,6 @@
 @import '@seta/shared-ui/styles/tokens.css';
 @import '@seta/shared-ui/styles/fonts.css';
 @import '@seta/shared-ui/styles/globals.css';
-@import '@fullcalendar/core/index.css';
-@import '@fullcalendar/daygrid/index.css';
 
 :root {
   --fc-border-color: var(--color-hairline);
