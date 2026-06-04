@@ -1,0 +1,55 @@
+<h2>Design — Architecture</h2>
+<p class="subtitle">What gets deleted, what gets rewritten, what stays. Plans 1 and 2 are completely untouched.</p>
+
+<div class="mockup">
+  <div class="mockup-header">Component tree after migration</div>
+  <div class="mockup-body" style="font-family:monospace;font-size:0.85rem;line-height:2">
+    <div style="color:var(--text-muted,#888)">PlanCalendarPage (plan 2 — modify)</div>
+    <div style="padding-left:1.5rem">
+      <div style="color:#e67e22">├── NoDateTasksBanner &nbsp;<span style="font-family:sans-serif;font-size:0.75rem;background:#fef3e2;color:#e67e22;padding:1px 6px;border-radius:4px">NEW (was plan 4)</span></div>
+      <div style="color:#27ae60">├── CalendarToolbar &nbsp;<span style="font-family:sans-serif;font-size:0.75rem;background:#e8f8f0;color:#27ae60;padding:1px 6px;border-radius:4px">UNCHANGED</span></div>
+      <div style="color:#2980b9">├── CalendarGrid &nbsp;<span style="font-family:sans-serif;font-size:0.75rem;background:#e8f2fb;color:#2980b9;padding:1px 6px;border-radius:4px">REWRITE — wraps FullCalendar</span></div>
+      <div style="padding-left:1.5rem;color:#555">
+        <div>└── &lt;FullCalendar&gt;</div>
+        <div style="padding-left:1.5rem">
+          <div>├── <strong>dayGridMonth</strong> / <strong>dayGridWeek</strong> views</div>
+          <div>├── eventContent → <span style="color:#8e44ad">TaskEventCard</span> &nbsp;<span style="font-family:sans-serif;font-size:0.75rem;background:#f4ecfb;color:#8e44ad;padding:1px 6px;border-radius:4px">NEW — replaces TaskSpanBar</span></div>
+          <div>├── dateClick → onSelectDate (quick-create)</div>
+          <div>└── eventDrop → reschedule mutation</div>
+        </div>
+      </div>
+      <div style="color:#e67e22">├── CalendarQuickCreate &nbsp;<span style="font-family:sans-serif;font-size:0.75rem;background:#fef3e2;color:#e67e22;padding:1px 6px;border-radius:4px">NEW (was plan 4)</span></div>
+      <div style="color:#27ae60">└── CalendarPagination &nbsp;<span style="font-family:sans-serif;font-size:0.75rem;background:#e8f8f0;color:#27ae60;padding:1px 6px;border-radius:4px">UNCHANGED</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="mockup" style="margin-top:1rem">
+  <div class="mockup-header">Files deleted vs rewritten vs new</div>
+  <div class="mockup-body">
+    <table style="width:100%;border-collapse:collapse;font-size:0.85rem">
+      <thead>
+        <tr style="border-bottom:2px solid var(--border,#e5e7eb)">
+          <th style="text-align:left;padding:6px 8px">Action</th>
+          <th style="text-align:left;padding:6px 8px">File</th>
+          <th style="text-align:left;padding:6px 8px">Reason</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="background:#fde8e8"><td style="padding:5px 8px">🗑 DELETE</td><td><code>calendar-lanes.ts</code></td><td>FC handles layout algorithm</td></tr>
+        <tr style="background:#fde8e8"><td style="padding:5px 8px">🗑 DELETE</td><td><code>calendar-week-row.tsx</code></td><td>FC renders rows internally</td></tr>
+        <tr style="background:#fde8e8"><td style="padding:5px 8px">🗑 DELETE</td><td><code>calendar-day-cell.tsx</code></td><td>FC renders day cells</td></tr>
+        <tr style="background:#fde8e8"><td style="padding:5px 8px">🗑 DELETE</td><td><code>task-span-bar.tsx</code></td><td>Replaced by TaskEventCard</td></tr>
+        <tr style="background:#e8f2fb"><td style="padding:5px 8px">✏️ REWRITE</td><td><code>calendar-grid.tsx</code></td><td>Thin FullCalendar wrapper</td></tr>
+        <tr style="background:#e8f2fb"><td style="padding:5px 8px">✏️ MODIFY</td><td><code>plan-calendar-page.tsx</code></td><td>Banner, reschedule handler, quick-create state</td></tr>
+        <tr style="background:#e8f2fb"><td style="padding:5px 8px">✏️ MODIFY</td><td><code>globals.css</code></td><td>Add FC CSS imports + token overrides</td></tr>
+        <tr style="background:#e8f8f0"><td style="padding:5px 8px">✨ NEW</td><td><code>task-event-card.tsx</code></td><td>FC eventContent renderer</td></tr>
+        <tr style="background:#e8f8f0"><td style="padding:5px 8px">✨ NEW</td><td><code>task-to-event.ts</code></td><td>Maps TaskWithAssigneesRow → FC EventInput</td></tr>
+        <tr style="background:#e8f8f0"><td style="padding:5px 8px">✨ NEW</td><td><code>no-date-tasks-banner.tsx</code></td><td>Amber strip for undated tasks</td></tr>
+        <tr style="background:#e8f8f0"><td style="padding:5px 8px">✨ NEW</td><td><code>calendar-quick-create.tsx</code></td><td>Floating card anchored to clicked date</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<p style="margin-top:1rem;font-size:0.875rem;color:var(--text-muted,#888)">Does this architecture look right so far?</p>

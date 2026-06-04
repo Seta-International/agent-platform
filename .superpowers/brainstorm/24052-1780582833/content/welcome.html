@@ -1,0 +1,32 @@
+<h2>FullCalendar Migration — Brainstorming</h2>
+<p class="subtitle">We're designing the replacement for the hand-rolled calendar in the Planner module. I'll show mockups and comparisons here as we go.</p>
+
+<div class="section">
+  <h3>Current implementation at a glance</h3>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:0.75rem">
+    <div style="background:var(--bg-card,#f8f9fa);border-radius:8px;padding:1rem">
+      <div class="label">Files we'd replace</div>
+      <ul style="margin:0.5rem 0 0;padding-left:1.25rem;font-size:0.9rem;line-height:1.8">
+        <li><code>calendar-grid.tsx</code></li>
+        <li><code>calendar-week-row.tsx</code></li>
+        <li><code>calendar-day-cell.tsx</code></li>
+        <li><code>task-span-bar.tsx</code></li>
+        <li><code>calendar-lanes.ts</code> (lane-packing algo)</li>
+      </ul>
+    </div>
+    <div style="background:var(--bg-card,#f8f9fa);border-radius:8px;padding:1rem">
+      <div class="label">Files we'd keep</div>
+      <ul style="margin:0.5rem 0 0;padding-left:1.25rem;font-size:0.9rem;line-height:1.8">
+        <li><code>use-calendar-tasks.ts</code> (data fetching)</li>
+        <li><code>calendar-dates.ts</code> (date utils)</li>
+        <li><code>plan-calendar-page.tsx</code> (data layer)</li>
+        <li>URL state (calFrom, calTo, calPage)</li>
+        <li>Filters (assignee, label, skill)</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <p style="color:var(--text-muted,#888);font-size:0.875rem">Asking clarifying questions in the terminal — visual questions will show up here.</p>
+</div>

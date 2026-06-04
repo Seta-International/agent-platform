@@ -1,0 +1,67 @@
+<h2>Three approaches to the FullCalendar migration</h2>
+<p class="subtitle">How tightly should FullCalendar own the UI? Choose how much control we hand over.</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>FC as view layer only — our toolbar stays (Recommended)</h3>
+      <p>Replace only <code>CalendarGrid</code> and its sub-components with a FullCalendar wrapper. The custom <code>CalendarToolbar</code> (Today / prev / next / Week–Month toggle), <code>CalendarPagination</code>, and URL state are untouched. <code>PlanCalendarPage</code> passes the current date range to FC via an imperative ref call. FC fires <code>eventDrop</code> → mutation and <code>dateClick</code> → quick-create.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul>
+          <li>Smallest blast radius — plans 1 &amp; 2 untouched</li>
+          <li>URL state stays as authoritative source of truth</li>
+          <li>Our toolbar design matches the rest of the app</li>
+          <li>Pagination logic stays unchanged</li>
+        </ul></div>
+        <div class="cons"><h4>Cons</h4><ul>
+          <li>Need to keep FC in sync via imperative <code>calendarRef</code> API</li>
+          <li>FC's own date-navigation must be disabled (<code>headerToolbar={false}</code>)</li>
+        </ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>FC owns navigation — replace toolbar too</h3>
+      <p>Remove our custom <code>CalendarToolbar</code> and <code>CalendarPagination</code>. Let FullCalendar render its own header. Override FC's CSS classes to match our design tokens. FC's <code>datesSet</code> callback updates the URL. FC's <code>viewDidMount</code> writes view mode to URL.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul>
+          <li>Less glue code for navigation sync</li>
+          <li>FC's toolbar gets keyboard nav / a11y for free</li>
+        </ul></div>
+        <div class="cons"><h4>Cons</h4><ul>
+          <li>Harder to match our exact toolbar design</li>
+          <li>FC toolbar CSS overrides fight <code>lint:styles</code> rule</li>
+          <li>Pagination now fights FC's own event rendering model</li>
+          <li>Browser back/forward can desync FC vs URL</li>
+        </ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Approach A + Day view</h3>
+      <p>Same as A (FC as view layer, our toolbar controls navigation), but also add a third view mode — <code>timeGridDay</code> — showing a single-day time-slot grid. Adds a "Day" button to the toolbar alongside Week / Month.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul>
+          <li>FullCalendar makes this nearly free to add</li>
+          <li>Richer experience for dense-task days</li>
+        </ul></div>
+        <div class="cons"><h4>Cons</h4><ul>
+          <li>Wider scope — tasks need <code>start</code>/<code>end</code> <em>times</em> for time-grid to be useful</li>
+          <li>Our tasks mostly have date-level precision, not time slots</li>
+          <li>Backend + URL state need a new <code>calDay</code> param</li>
+        </ul></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p style="margin-top:1.5rem;font-size:0.875rem;color:var(--text-muted,#888)">
+  <strong>My recommendation: A.</strong> It replaces exactly what needs replacing, preserves the URL-centric state model we built in plans 1–2, and keeps the blast radius small. Drag-and-drop works the same in all three options via FC's <code>eventDrop</code>.
+</p>
