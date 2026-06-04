@@ -4,7 +4,7 @@ import type { WorkflowApprovalRow } from '../api/schemas.ts';
 import { type DecideApprovalBody, workflowsApi } from '../api/workflows.ts';
 import { useThreadApprovals } from '../hooks/use-thread-approvals.ts';
 import { workflowsQueryKeys } from '../state/query-keys.ts';
-import { cardIntent, outcomeText, STATUS_LABELS } from './decided-approval.ts';
+import { cardIntent, cardToolId, outcomeText, STATUS_LABELS } from './decided-approval.ts';
 import { HitlApprovalCard } from './hitl-approval-card.tsx';
 
 export interface ChatEmbeddedHitlProps {
@@ -39,13 +39,13 @@ export function ChatEmbeddedHitl({ threadId }: ChatEmbeddedHitlProps) {
   const queryClient = useQueryClient();
 
   const decide = useMutation({
-    mutationFn: (args: { approvalId: string } & DecideApprovalBody) =>
+    mutationFn: (args: { approvalId: string; toolId: string | null } & DecideApprovalBody) =>
       workflowsApi.decideApproval(args.approvalId, {
         decision: args.decision,
         overrideUserIds: args.overrideUserIds,
         note: args.note,
       }),
-    onSuccess: () => {
+    onSuccess: (_data, args) => {
       // Deliberately NO thread append here: the decision is already complete
       // server-side (decide-approval ran the planner decider — assigns on
       // approve, does nothing on reject). Appending a chat message would start
@@ -56,6 +56,14 @@ export function ChatEmbeddedHitl({ threadId }: ChatEmbeddedHitlProps) {
         });
       }
       void queryClient.invalidateQueries({ queryKey: workflowsQueryKeys.pendingApprovals() });
+      // The chat-HITL decider already executed the underlying write before the
+      // decide call returned (e.g. planner assignTask), so the owning module's
+      // query cache is stale. Tool ids are namespaced `<module>_<action>` and
+      // every web module roots its query keys at ['<module>'] — invalidating
+      // that namespace refreshes whatever views the write touched (task detail
+      // assignees, boards, my-tasks) without coupling this module to them.
+      const moduleNs = args.toolId?.split('_')[0];
+      if (moduleNs) void queryClient.invalidateQueries({ queryKey: [moduleNs] });
     },
   });
 
@@ -106,7 +114,13 @@ export function ChatEmbeddedHitl({ threadId }: ChatEmbeddedHitlProps) {
             approval={approval}
             canAct
             pending={decide.isPending && decide.variables?.approvalId === approval.approvalId}
-            onDecide={(args) => decide.mutate({ approvalId: approval.approvalId, ...args })}
+            onDecide={(args) =>
+              decide.mutate({
+                approvalId: approval.approvalId,
+                toolId: cardToolId(approval.proposedPayload),
+                ...args,
+              })
+            }
           />
         );
       })}

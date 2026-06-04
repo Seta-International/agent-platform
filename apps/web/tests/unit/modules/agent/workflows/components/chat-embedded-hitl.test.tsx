@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { WorkflowApprovalRow } from '@/modules/agent/workflows/api/schemas.ts';
 import { workflowsApi } from '@/modules/agent/workflows/api/workflows.ts';
@@ -21,6 +22,7 @@ const PENDING_APPROVAL: WorkflowApprovalRow = {
         items: [{ id: 'u-9', label: 'Jane', secondary: 'top match', score: 0.9 }],
       },
     ],
+    meta: { toolId: 'planner_proposeAssignment' },
   },
   approverUserId: 'u-1',
   surfaceCanvas: true,
@@ -79,6 +81,29 @@ describe('ChatEmbeddedHitl', () => {
       expect(
         screen.queryByRole('region', { name: /in-thread approvals/i }),
       ).not.toBeInTheDocument(),
+    );
+  });
+
+  it("invalidates the deciding tool's module queries after a decision", async () => {
+    vi.spyOn(workflowsApi, 'listThreadApprovals').mockResolvedValue([PENDING_APPROVAL]);
+    vi.spyOn(workflowsApi, 'decideApproval').mockResolvedValue({ runId: 'r1' });
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidate = vi.spyOn(qc, 'invalidateQueries');
+    render(
+      <QueryClientProvider client={qc}>
+        <ChatEmbeddedHitl threadId="thread-x" />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /approve/i })).toBeEnabled());
+    await userEvent.click(screen.getByRole('button', { name: /approve/i }));
+
+    await waitFor(() => expect(workflowsApi.decideApproval).toHaveBeenCalled());
+    // The chat-HITL decider already executed the planner write server-side, so
+    // the planner read models (task detail assignees, boards) are stale.
+    await waitFor(() =>
+      expect(invalidate).toHaveBeenCalledWith(expect.objectContaining({ queryKey: ['planner'] })),
     );
   });
 

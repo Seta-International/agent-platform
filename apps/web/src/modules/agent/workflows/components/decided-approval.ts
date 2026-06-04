@@ -11,6 +11,7 @@ interface CardShape {
   intent?: string;
   details?: Array<{ kind: string; items?: CandidateItem[] }>;
   primary?: { argsPatch?: Record<string, unknown> };
+  meta?: { toolId?: unknown };
 }
 
 export const STATUS_LABELS: Record<string, string> = {
@@ -30,6 +31,12 @@ function asCard(payload: unknown): CardShape | null {
 export function cardIntent(payload: unknown): string | null {
   const intent = asCard(payload)?.intent;
   return typeof intent === 'string' ? intent : null;
+}
+
+/** The deciding tool's id (e.g. 'planner_proposeAssignment') from the card meta. */
+export function cardToolId(payload: unknown): string | null {
+  const toolId = asCard(payload)?.meta?.toolId;
+  return typeof toolId === 'string' ? toolId : null;
 }
 
 function stringArray(v: unknown): string[] {
