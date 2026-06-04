@@ -89,4 +89,12 @@ describe('orchestration schemas', () => {
     expect(r.candidates).toHaveLength(1);
     expect(r.candidates![0]!.skillMatchCount).toBe(2);
   });
+
+  it('OrchestratorResult accepts pendingApproval (HITL card recorded)', () => {
+    const r = OrchestratorResultSchema.parse({
+      recommendations: [],
+      pendingApproval: { approvalId: 'ap1', taskId: 't-1' },
+    });
+    expect(r.pendingApproval).toEqual({ approvalId: 'ap1', taskId: 't-1' });
+  });
 });

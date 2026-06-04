@@ -140,6 +140,8 @@ export const OrchestratorResultSchema = z.object({
   /** Top skill matches — terminal answer for a people search (no recommendation asked). */
   candidates: z.array(RankedCandidateSchema).optional(),
   recommendations: z.array(RecommendationSchema).optional(),
+  /** Set when an in-thread HITL approval card was recorded for this recommendation. */
+  pendingApproval: z.object({ approvalId: z.string(), taskId: z.string() }).optional(),
   message: z.string().optional(),
 });
 export type OrchestratorResult = z.infer<typeof OrchestratorResultSchema>;

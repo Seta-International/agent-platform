@@ -1,8 +1,14 @@
 import { Agent } from '@mastra/core/agent';
 import { RequestContext } from '@mastra/core/request-context';
-import type { AgentResult, Citation, SpecializedAgentSpec } from '@seta/agent-sdk';
+import type {
+  AgentResult,
+  Citation,
+  SpecializedAgentRunCtx,
+  SpecializedAgentSpec,
+} from '@seta/agent-sdk';
 import type { LanguageModel } from 'ai';
 import type { z } from 'zod';
+import { buildAssignApprovalCard } from './approval-card.ts';
 import { makeOrchestratorTools } from './orchestrator.tools.ts';
 import type { TaskSummary } from './ports.ts';
 import {
@@ -133,7 +139,7 @@ export function makeOrchestratorAgent(deps: OrchestratorDeps): SpecializedAgentS
             };
           })();
 
-      const result = assemble(res);
+      const result = await recordApprovalIfRecommended(assemble(res), res, ctx);
       const trust = trustFromMastraResult(res, {
         citations: (tr) => citationsFor(tr, result),
         confidence: confidenceFor(result),
@@ -199,6 +205,65 @@ function assemble(res: MastraToolSignals): OrchestratorResult {
       ? "I couldn't complete the recommendation for this task. Please try again."
       : "I can describe a task's required skills, find tasks by area, or recommend people for a task.",
   };
+}
+
+/** Deterministic HITL post-step: after a successful single-task recommend flow,
+ *  record the in-thread approval card so the user can one-click assign. NOT an
+ *  LLM tool by design — the card must always appear when the flow succeeds
+ *  (the avaiChecker stall regression is why the recommend path avoids
+ *  LLM-discretionary steps). Fail-open: a recorder error logs and falls back
+ *  to the plain recommendations answer. */
+async function recordApprovalIfRecommended(
+  result: OrchestratorResult,
+  res: MastraToolSignals,
+  ctx: SpecializedAgentRunCtx,
+): Promise<OrchestratorResult> {
+  if (!ctx.recordHitlApproval || !result.recommendations?.length) return result;
+  const [rec] = results(res, 'callRecommender') as { taskId: string | null }[];
+  const taskId = rec?.taskId ?? null;
+  if (!taskId) return result; // task-less recommend — nothing to assign
+  const ta = results(res, 'callTaskAnalyzer') as TaskAnalyzerOutput[];
+  const title = ta.find((o) => o.title)?.title ?? null;
+  const card = buildAssignApprovalCard({
+    taskId,
+    title,
+    recommendations: result.recommendations,
+    tenantId: ctx.tenantId,
+    userId: ctx.actorUserId,
+  });
+  ctx.onEvent?.({
+    kind: 'step-start',
+    stepId: 'proposeAssignment',
+    agentId: 'staffing.orchestrator',
+  });
+  try {
+    const { approvalId } = await ctx.recordHitlApproval(card);
+    ctx.onEvent?.({
+      kind: 'step-done',
+      stepId: 'proposeAssignment',
+      trust: {
+        reasoningTrace: [
+          {
+            step: 'proposeAssignment',
+            detail: `approval card recorded for task ${taskId}`,
+            at: new Date().toISOString(),
+          },
+        ],
+        evidenceCitations: [],
+        confidenceScore: 0.9,
+      },
+    });
+    return { ...result, pendingApproval: { approvalId, taskId } };
+  } catch (err) {
+    // Fail-open: the user still gets the plain recommendation list.
+    console.error('[staffing.orchestrator] HITL approval card failed; falling back', err);
+    ctx.onEvent?.({
+      kind: 'step-done',
+      stepId: 'proposeAssignment',
+      trust: { reasoningTrace: [], evidenceCitations: [], confidenceScore: 0.2 },
+    });
+    return result;
+  }
 }
 
 function citationsFor(
