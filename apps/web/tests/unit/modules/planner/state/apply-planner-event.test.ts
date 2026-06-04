@@ -623,7 +623,7 @@ describe('applyPlannerEvent', () => {
             bucket_id: 'b1',
             plan_id: PLAN,
             version_before: 1,
-            reflowed_task_ids: ['t1', 't2'],
+            deleted_task_ids: ['t1', 't2'],
           },
         }),
       );

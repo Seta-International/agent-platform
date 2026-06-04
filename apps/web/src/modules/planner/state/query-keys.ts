@@ -33,6 +33,7 @@ export const plannerKeys = {
     [...plannerKeys.group(id), 'candidates', search] as const,
   groupActivity: (id: string, days: number) =>
     [...plannerKeys.group(id), 'activity', days] as const,
+  groupActivityFeed: (id: string) => [...plannerKeys.group(id), 'activity-feed'] as const,
   groupPlans: (id: string) => [...plannerKeys.group(id), 'plans'] as const,
   groupPlansWithRollups: (id: string) =>
     [...plannerKeys.group(id), 'plans', 'withRollups'] as const,

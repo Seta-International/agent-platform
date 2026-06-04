@@ -79,7 +79,7 @@ describe('GroupRail', () => {
     expect(screen.getByText(/No activity in the last 7 days/)).toBeInTheDocument();
   });
 
-  it("'Recent activity' renders each item with actor + verb + relative time", () => {
+  it("'Recent activity' renders each item with structured label and relative time", () => {
     render(
       <GroupRail
         group={baseGroup}
@@ -95,13 +95,16 @@ describe('GroupRail', () => {
             occurred_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
             actor_user_id: 'u1',
             actor_display_name: 'Jane Doe',
+            target_user_id: null,
+            target_user_display_name: null,
+            before_state: null,
+            after_state: null,
+            changed_fields: null,
           },
         ]}
       />,
     );
-    expect(screen.getByText('Jane Doe')).toBeInTheDocument();
-    expect(screen.getByText('created task')).toBeInTheDocument();
-    expect(screen.getByText('Ship M3 spec')).toBeInTheDocument();
+    expect(screen.getByText('Jane Doe created task "Ship M3 spec"')).toBeInTheDocument();
   });
 
   it('Properties card shows Visibility/Source/Default role/Created', () => {

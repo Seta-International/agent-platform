@@ -1,7 +1,7 @@
 import type { SessionScope } from '@seta/core';
 import { withEmit } from '@seta/core/events';
 import { and, eq, isNull } from 'drizzle-orm';
-import { emitPlannerBucketDeleted, emitPlannerTaskMoved } from '../../events/emit-helpers.ts';
+import { emitPlannerBucketDeleted, emitPlannerTaskDeleted } from '../../events/emit-helpers.ts';
 import { buckets, plans, tasks } from '../db/schema.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 
@@ -52,33 +52,30 @@ export async function deleteBucket(input: {
         .set({ deleted_at: deletedAt, updated_at: deletedAt, version: existing.version + 1 })
         .where(eq(buckets.id, input.bucket_id));
 
-      // Snapshot live tasks before reflowing so we have their version and order_hint.
+      // Snapshot live tasks so we have their current version for the event payload.
       const liveTasks = await tx
-        .select({ id: tasks.id, order_hint: tasks.order_hint, version: tasks.version })
+        .select({ id: tasks.id, version: tasks.version })
         .from(tasks)
         .where(and(eq(tasks.bucket_id, input.bucket_id), isNull(tasks.deleted_at)));
 
-      // Reflow tasks to bucket_id = null.
-      const now = new Date();
-      const reflowedTaskIds: string[] = [];
+      // Soft-delete all tasks in the bucket.
+      const deletedTaskIds: string[] = [];
       for (const task of liveTasks) {
-        const [updated] = await tx
+        const [deleted] = await tx
           .update(tasks)
-          .set({ bucket_id: null, updated_at: now, version: task.version + 1 })
+          .set({ deleted_at: deletedAt, updated_at: deletedAt, version: task.version + 1 })
           .where(eq(tasks.id, task.id))
           .returning({ id: tasks.id });
-        if (updated) {
-          reflowedTaskIds.push(updated.id);
-          await emitPlannerTaskMoved({
+        if (deleted) {
+          deletedTaskIds.push(deleted.id);
+          await emitPlannerTaskDeleted({
             actor: { type: 'user', user_id: input.session.user_id },
             tenant_id: existing.tenant_id,
             task_id: task.id,
             plan_id: existing.plan_id,
             group_id: plan.group_id,
-            before: { bucket_id: existing.id, order_hint: task.order_hint },
-            after: { bucket_id: null, order_hint: task.order_hint },
             version_before: task.version,
-            version_after: task.version + 1,
+            deleted_at: deletedAt.toISOString(),
           });
         }
       }
@@ -90,7 +87,7 @@ export async function deleteBucket(input: {
         plan_id: existing.plan_id,
         group_id: plan.group_id,
         version_before: existing.version,
-        reflowed_task_ids: reflowedTaskIds,
+        deleted_task_ids: deletedTaskIds,
       });
     },
   );

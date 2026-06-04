@@ -380,7 +380,7 @@ export interface PlannerBucketDeleted {
     bucket_id: Uuid;
     plan_id: Uuid;
     version_before: number;
-    reflowed_task_ids: string[];
+    deleted_task_ids: string[];
   };
 }
 

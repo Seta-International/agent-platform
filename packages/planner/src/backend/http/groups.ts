@@ -178,14 +178,23 @@ export function registerPlannerGroupsRoutes(app: Hono<SessionEnv>, deps: Planner
   app.get('/api/planner/v1/groups/:id/activity', async (c) => {
     const session = c.get('user');
     const sinceParam = c.req.query('since');
+    const cursorParam = c.req.query('cursor');
     const limitParam = c.req.query('limit');
-    const since = sinceParam ?? new Date(Date.now() - 7 * 86_400_000).toISOString();
-    const limit = limitParam ? Math.min(Math.max(Number.parseInt(limitParam, 10), 1), 50) : 8;
+
+    // Feed path: cursor present or no since → use feed defaults
+    const isFeedCall = !!cursorParam || !sinceParam;
+    const defaultLimit = isFeedCall ? 30 : 8;
+    const limit = limitParam
+      ? Math.min(Math.max(Number.parseInt(limitParam, 10), 1), 50)
+      : defaultLimit;
+    const since = !isFeedCall ? sinceParam! : undefined;
+
     try {
       return c.json(
         await getGroupActivity({
           group_id: c.req.param('id'),
           since,
+          cursor: cursorParam ?? undefined,
           limit,
           session,
         }),

@@ -106,12 +106,26 @@ export interface GroupActivityItem {
   actor_user_id: string | null;
   /** Resolved from planner.assignee_projection; null when projection lookup misses. */
   actor_display_name: string | null;
+  /** For member/assignment events: the user the action was performed on. */
+  target_user_id: string | null;
+  /** Resolved display name for target_user_id; null when projection lookup misses. */
+  target_user_display_name: string | null;
+  /** Snapshot of relevant fields before the change (e.g. role, name). */
+  before_state: Record<string, unknown> | null;
+  /** Snapshot of relevant fields after the change. */
+  after_state: Record<string, unknown> | null;
+  /** Which fields changed — used for update events to build precise labels. */
+  changed_fields: string[] | null;
 }
 
 export interface GroupActivityResult {
   /** Total events in the window (independent of `items.length`, which is capped by `limit`). */
   count: number;
   items: ReadonlyArray<GroupActivityItem>;
+  /** Opaque keyset cursor — present only on feed calls when more pages exist. */
+  next_cursor?: string;
+  /** True when items.length === limit, meaning there may be more pages. */
+  has_more: boolean;
 }
 
 export interface PlanWithRollupsRow extends PlanRow {

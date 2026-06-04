@@ -18,6 +18,7 @@ import { Navigate, useNavigate } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import type { SessionScopeProjection } from '@/modules/identity/api/client';
 import { listJoinRequests, resolveJoinRequest } from '../api/planner-client';
+import { ActivityFeedTab } from '../components/ActivityFeedTab';
 import { AddGroupMembersDialog } from '../components/AddGroupMembersDialog';
 import { ConfirmRemoveMemberDialog } from '../components/ConfirmRemoveMemberDialog';
 import { ConfirmRemoveMembersDialog } from '../components/ConfirmRemoveMembersDialog';
@@ -339,8 +340,10 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
           </div>
         </TabsContent>
 
-        <TabsContent value="activity">
-          <ComingSoon feature="Activity" />
+        <TabsContent value="activity" className="flex-1 overflow-auto bg-surface-1">
+          <div className="page-container">
+            <ActivityFeedTab groupId={groupId} />
+          </div>
         </TabsContent>
         <TabsContent value="labels">
           <ComingSoon feature="Labels" />

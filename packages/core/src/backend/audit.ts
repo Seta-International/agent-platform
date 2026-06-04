@@ -28,6 +28,8 @@ export interface AuditQueryOpts {
   to?: string;
   limit: number;
   offset: number;
+  before_occurred_at?: string;
+  before_event_id?: string;
   sort_by?: AuditSortBy;
   sort_dir?: AuditSortDir;
 }
@@ -44,6 +46,8 @@ export async function queryAudit(
     to: toTs,
     limit,
     offset,
+    before_occurred_at,
+    before_event_id,
     sort_by = 'occurred_at',
     sort_dir = 'desc',
   } = opts;
@@ -67,6 +71,12 @@ export async function queryAudit(
         })()
       : sql``;
 
+  const cursorFilter =
+    before_occurred_at && before_event_id
+      ? sql`AND (occurred_at < ${before_occurred_at}::timestamptz
+               OR (occurred_at = ${before_occurred_at}::timestamptz AND event_id < ${before_event_id}::uuid))`
+      : sql``;
+
   const orderBy =
     sort_by === 'event_type'
       ? sort_dir === 'asc'
@@ -85,6 +95,7 @@ export async function queryAudit(
       ${aggregateIdsFilter}
       ${fromTs ? sql`AND occurred_at >= ${fromTs}::timestamptz` : sql``}
       ${toTs ? sql`AND occurred_at < ${toTs}::timestamptz` : sql``}
+      ${cursorFilter}
     ${orderBy}
     LIMIT ${limit} OFFSET ${offset}
   `);
@@ -98,6 +109,7 @@ export async function queryAudit(
       ${aggregateIdsFilter}
       ${fromTs ? sql`AND occurred_at >= ${fromTs}::timestamptz` : sql``}
       ${toTs ? sql`AND occurred_at < ${toTs}::timestamptz` : sql``}
+      ${cursorFilter}
   `);
 
   const total = (countRes.rows[0] as { n: number }).n;
