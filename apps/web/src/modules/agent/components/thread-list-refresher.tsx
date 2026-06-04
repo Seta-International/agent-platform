@@ -27,10 +27,13 @@ export function ThreadListRefresher({ threadId }: Props) {
     void queryClient.invalidateQueries({ queryKey: ['agent', 'threads'] });
     if (threadId) {
       void queryClient.invalidateQueries({ queryKey: ['agent', 'thread', threadId] });
+      // Chat-flow HITL: if the agent recorded an approval card this turn, the
+      // row is now committed. Invalidate so ChatEmbeddedHitl picks it up
+      // without waiting for the next focus event.
+      void queryClient.invalidateQueries({
+        queryKey: workflowsQueryKeys.threadApprovals(threadId),
+      });
     }
-    // Chat-flow HITL: if the agent called proposeAssignment (or any other
-    // chat-HITL tool), the approval row is now committed. Invalidate here so
-    // ChatEmbeddedHitl picks it up without waiting for the next focus event.
     void queryClient.invalidateQueries({ queryKey: workflowsQueryKeys.pendingApprovals() });
   }, [isRunning, queryClient, threadId]);
 
