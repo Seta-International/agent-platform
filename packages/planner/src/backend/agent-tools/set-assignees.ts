@@ -1,8 +1,12 @@
-import { actorFromContext, defineAgentTool, recordEntityExposure } from '@seta/agent-sdk';
+import {
+  actorFromContext,
+  defineAgentTool,
+  recordEntityExposure,
+  resolveTaskRef,
+} from '@seta/agent-sdk';
 import { buildActorSession } from '@seta/identity';
 import { z } from 'zod';
 import { setAssignees } from '../domain/set-assignees.ts';
-import { resolveTaskRef } from './resolve-task-ref.ts';
 
 export const plannerSetAssigneesTool = defineAgentTool({
   id: 'planner_setAssignees',

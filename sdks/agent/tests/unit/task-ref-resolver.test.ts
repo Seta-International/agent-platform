@@ -1,6 +1,6 @@
-import { EMPTY_ENTITIES, serializeEntities } from '@seta/agent-sdk';
 import { describe, expect, it, vi } from 'vitest';
-import { resolveTaskRef } from '../../../src/backend/agent-tools/resolve-task-ref.ts';
+import { resolveTaskRef } from '../../src/task-ref-resolver.ts';
+import { EMPTY_ENTITIES, serializeEntities } from '../../src/working-memory-schema.ts';
 
 const UUID_A = '66be2be2-394d-4184-b106-c412289fd1e1';
 const UUID_B = '499f9898-2133-4ba3-82b5-83d9fb1996fc';

@@ -1,8 +1,12 @@
-import { actorFromContext, defineAgentTool, recordEntityExposure } from '@seta/agent-sdk';
+import {
+  actorFromContext,
+  defineAgentTool,
+  recordEntityExposure,
+  resolveTaskRef,
+} from '@seta/agent-sdk';
 import { buildActorSession } from '@seta/identity';
 import { z } from 'zod';
 import { listComments } from '../domain/list-comments.ts';
-import { resolveTaskRef } from './resolve-task-ref.ts';
 
 export const plannerListCommentsTool = defineAgentTool({
   id: 'planner_listComments',

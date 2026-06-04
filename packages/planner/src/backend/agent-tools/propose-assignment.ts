@@ -6,11 +6,11 @@ import {
   getPendingAssignRunIdForTask,
   RC_CHAT_HITL_RECORDER,
   recordEntityExposure,
+  resolveTaskRef,
 } from '@seta/agent-sdk';
 import { buildActorSession } from '@seta/identity';
 import { z } from 'zod';
 import { AssignBySkillOutputSchema } from '../workflows/assign-by-skill/schemas.ts';
-import { resolveTaskRef } from './resolve-task-ref.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // planner_proposeAssignment — CHAT-FLOW ONLY HITL tool

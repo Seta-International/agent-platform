@@ -1,10 +1,5 @@
-import {
-  type AgentMemoryHandle,
-  parseEntities,
-  RC_AGENT_MEMORY,
-  RC_THREAD_ID,
-  type RecentTask,
-} from '@seta/agent-sdk';
+import { type AgentMemoryHandle, RC_AGENT_MEMORY, RC_THREAD_ID } from './request-context.ts';
+import { parseEntities, type RecentTask } from './working-memory-schema.ts';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -33,11 +28,11 @@ export type TaskRefResolution = {
 };
 
 export class TaskRefResolveError extends Error {
-  constructor(
-    message: string,
-    public readonly availableTasks: ReadonlyArray<RecentTask>,
-  ) {
+  readonly availableTasks: ReadonlyArray<RecentTask>;
+
+  constructor(message: string, availableTasks: ReadonlyArray<RecentTask>) {
     super(message);
+    this.availableTasks = availableTasks;
     this.name = 'TaskRefResolveError';
   }
 }

@@ -3,12 +3,12 @@ import {
   defineAgentTool,
   getPendingAssignRunIdForTask,
   recordEntityExposure,
+  resolveTaskRef,
 } from '@seta/agent-sdk';
 import { buildActorSession } from '@seta/identity';
 import { z } from 'zod';
 import { getPlan } from '../domain/get-plan.ts';
 import { getTask } from '../domain/get-task.ts';
-import { resolveTaskRef } from './resolve-task-ref.ts';
 
 export const plannerGetTaskTool = defineAgentTool({
   id: 'planner_getTask',

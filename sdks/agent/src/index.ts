@@ -76,6 +76,11 @@ export {
   type SubStepEvent,
 } from './specialized-agent.ts';
 export type { SubscriberBuilder, SubscriberBuilderDeps } from './subscriber-builder.ts';
+export {
+  resolveTaskRef,
+  type TaskRefResolution,
+  TaskRefResolveError,
+} from './task-ref-resolver.ts';
 export type {
   AgentTool,
   AgentToolContext,
