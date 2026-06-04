@@ -379,6 +379,77 @@ describe('POST /api/agent/v1/chat (orchestration runtime persistence)', () => {
       expect(typeof capturedCtx?.recordHitlApproval).toBe('function');
     });
   });
+
+  it('passes threadId + memory handles in the orchestration ctx', async () => {
+    await withAgentTestDb(async ({ pool, databaseUrl }) => {
+      const { admin_user_id, tenant_id } = await createTestTenantWithAdmin({ pool });
+      const { buildMastra } = await import('../../src/backend/runtime.ts');
+      const mastra = buildMastra({ pool, databaseUrl });
+      await (mastra.getStorage() as unknown as { init: () => Promise<void> }).init();
+
+      let capturedCtx: Record<string, unknown> | undefined;
+      async function* captureOrchestration(
+        _runInput: unknown,
+        ctx: unknown,
+      ): AsyncIterable<OrchestrationEvent> {
+        capturedCtx = ctx as Record<string, unknown>;
+        yield { kind: 'final', result: { message: 'ok' } };
+      }
+
+      // Identity-checkable stand-ins: the route must wrap THESE instances in
+      // { memory, memoryConfig } handles — it never calls into them here.
+      const fakeEntitiesMemory = { tag: 'entities' };
+      const fakeEntitiesConfig = { tag: 'entities-config' };
+      const fakeUserMemory = { tag: 'user' };
+      const fakeUserConfig = { tag: 'user-config' };
+
+      const app = new Hono<{ Variables: { session: TestSession } }>();
+      app.use('*', async (c, next) => {
+        c.set('session', {
+          tenant_id,
+          user_id: admin_user_id,
+          effective_permissions: new Set(['agent.chat.use', 'agent.thread.read.self']),
+          role_summary: { roles: ['org.admin'], cross_tenant_read: false },
+        });
+        await next();
+      });
+      registerAgentRoutes(app, {
+        supervisor: fakeSupervisor,
+        mastra: mastra as never,
+        pool,
+        chatOrchestration: (runInput, ctx) => captureOrchestration(runInput, ctx),
+        entitiesMemory: fakeEntitiesMemory as never,
+        entitiesMemoryConfig: fakeEntitiesConfig as never,
+        userMemory: fakeUserMemory as never,
+        userMemoryConfig: fakeUserConfig as never,
+      });
+
+      const res = await app.request('/api/agent/v1/chat', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          id: 'orch-mem-thread-1',
+          messages: [v6UserMessage('find infrastructure tasks')],
+        }),
+      });
+      expect(res.status).toBe(200);
+      await res.text();
+
+      expect(capturedCtx?.threadId).toBe('orch-mem-thread-1');
+      expect(
+        (capturedCtx?.entitiesMemory as { memory: unknown; memoryConfig: unknown }).memory,
+      ).toBe(fakeEntitiesMemory);
+      expect(
+        (capturedCtx?.entitiesMemory as { memory: unknown; memoryConfig: unknown }).memoryConfig,
+      ).toBe(fakeEntitiesConfig);
+      expect((capturedCtx?.userMemory as { memory: unknown; memoryConfig: unknown }).memory).toBe(
+        fakeUserMemory,
+      );
+      expect(
+        (capturedCtx?.userMemory as { memory: unknown; memoryConfig: unknown }).memoryConfig,
+      ).toBe(fakeUserConfig);
+    });
+  });
 });
 
 describe('GET /api/agent/v1/threads/:id (data-page-context round-trip)', () => {

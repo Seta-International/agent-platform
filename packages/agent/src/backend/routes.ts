@@ -103,6 +103,15 @@ export type AgentRouteDeps = {
   entitiesMemory?: Memory;
   entitiesMemoryConfig?: MemoryConfig;
   /**
+   * Resource-scoped userContext Memory (the supervisor tree's GuardedMemory) +
+   * its MemoryConfig. The orchestration chat branch passes both into the run
+   * ctx so the orchestrator can inject userContext into its prompt and expose
+   * the guarded updateWorkingMemory tool. Writes land in agent.mastra_resources.
+   * Optional because tests may construct routes without a configured Memory.
+   */
+  userMemory?: Memory;
+  userMemoryConfig?: MemoryConfig;
+  /**
    * When present, the chat route runs this inline orchestration instead of the
    * supervisor tree (AGENT_CHAT_RUNTIME=orchestration harness). Injected by the
    * composition root (apps/server), the only layer that can bind staffing
@@ -347,6 +356,20 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
                 tenantId: session.tenant_id,
                 actorUserId: session.user_id,
                 recordHitlApproval,
+                // Working-memory wiring (mirrors the supervisor path's
+                // RC_THREAD_ID / RC_AGENT_MEMORY injection further down):
+                // the orchestrator sets request-context keys from these so the
+                // entity recorder / task-ref resolver / userContext read all
+                // key on the real chat thread + the authenticated user.
+                threadId: orchThreadId,
+                entitiesMemory:
+                  deps.entitiesMemory && deps.entitiesMemoryConfig
+                    ? { memory: deps.entitiesMemory, memoryConfig: deps.entitiesMemoryConfig }
+                    : undefined,
+                userMemory:
+                  deps.userMemory && deps.userMemoryConfig
+                    ? { memory: deps.userMemory, memoryConfig: deps.userMemoryConfig }
+                    : undefined,
               },
             ),
           );
