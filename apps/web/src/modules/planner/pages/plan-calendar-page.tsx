@@ -1,12 +1,14 @@
 import type { TaskWithAssigneesRow } from '@seta/planner';
+import { toast } from '@seta/shared-ui';
 import { useEffect, useMemo } from 'react';
 import { GridSkeleton } from '../components/board-skeleton';
 import { CalendarGrid } from '../components/calendar/calendar-grid';
 import { CalendarPagination } from '../components/calendar/calendar-pagination';
 import { CalendarToolbar } from '../components/calendar/calendar-toolbar';
 import { PlanError } from '../components/plan-error';
+import { useUpdateTaskSchedule } from '../hooks/mutations/update-task-schedule';
 import { useCalendarTasks } from '../hooks/queries/use-calendar-tasks';
-import { currentMonthRange, toDateKey } from '../lib/calendar-dates';
+import { currentMonthRange } from '../lib/calendar-dates';
 import type { BoardFilters } from '../state/url-state';
 
 export interface PlanCalendarPageProps {
@@ -68,6 +70,7 @@ export function PlanCalendarPage({
   }, [hasRange, onRangeChange]);
 
   const query = useCalendarTasks(planId, calFrom ?? '', calTo ?? '', calPage);
+  const updateSchedule = useUpdateTaskSchedule(planId);
 
   const visibleTasks = useMemo(
     () => applyBoardFilters(query.data?.tasks ?? [], filters, q),
@@ -83,6 +86,30 @@ export function PlanCalendarPage({
 
   const { total_count, next_cursor } = query.data;
 
+  async function handleReschedule(
+    task: TaskWithAssigneesRow,
+    newStart: Date | null,
+    newEnd: Date | null,
+    revert: () => void,
+  ) {
+    try {
+      // FC all-day end is exclusive — subtract 1 day to recover the actual due date.
+      const due_at = newEnd
+        ? new Date(newEnd.getTime() - 86_400_000).toISOString()
+        : (newStart?.toISOString() ?? null);
+      const start_at = newStart && newEnd ? newStart.toISOString() : null;
+      await updateSchedule.mutateAsync({
+        task_id: task.id,
+        expected_version: task.version,
+        start_at,
+        due_at,
+      });
+    } catch {
+      revert();
+      toast.error('Failed to reschedule task. Please try again.');
+    }
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-testid="plan-calendar-page">
       <CalendarToolbar
@@ -95,8 +122,8 @@ export function PlanCalendarPage({
         tasks={visibleTasks}
         from={calFrom}
         to={calTo}
-        todayKey={toDateKey(new Date())}
         onOpenTask={onOpenTask}
+        onRescheduleTask={handleReschedule}
       />
       <CalendarPagination
         page={calPage}

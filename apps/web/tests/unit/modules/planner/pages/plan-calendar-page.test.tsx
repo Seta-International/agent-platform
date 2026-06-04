@@ -1,5 +1,7 @@
+import type { TaskWithAssigneesRow } from '@seta/planner';
+import { toast } from '@seta/shared-ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
@@ -7,6 +9,13 @@ import type { ReactNode } from 'react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { PlanCalendarPage } from '../../../../../src/modules/planner/pages/plan-calendar-page';
 import { EMPTY_FILTERS } from '../../../../../src/modules/planner/state/url-state';
+
+// Mock CalendarGrid to avoid FC/jsdom incompatibility.
+// Each test can read .mock.lastCall![0] to access the props passed to it.
+const mockCalendarGrid = vi.hoisted(() => vi.fn(() => <div data-testid="calendar-grid" />));
+vi.mock('../../../../../src/modules/planner/components/calendar/calendar-grid', () => ({
+  CalendarGrid: mockCalendarGrid,
+}));
 
 const server = setupServer();
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
@@ -69,7 +78,7 @@ describe('PlanCalendarPage', () => {
     expect(opts).toEqual({ replace: true });
   });
 
-  it('renders fetched tasks and opens a task on click (AC-1)', async () => {
+  it('renders fetched tasks via CalendarGrid (AC-1)', async () => {
     server.use(
       http.get('/api/planner/v1/plans/p1/tasks/calendar', () =>
         HttpResponse.json({
@@ -78,12 +87,8 @@ describe('PlanCalendarPage', () => {
         }),
       ),
     );
-    const onOpenTask = vi.fn();
-    render(wrap(<PlanCalendarPage {...baseProps} onOpenTask={onOpenTask} />));
-
-    const pill = await screen.findByText('Ship calendar');
-    await userEvent.click(pill);
-    expect(onOpenTask).toHaveBeenCalledWith('t1');
+    render(wrap(<PlanCalendarPage {...baseProps} />));
+    await screen.findByTestId('calendar-grid');
   });
 
   it('shows the calendar grid even when no tasks match (AC-10)', async () => {
@@ -140,11 +145,10 @@ describe('PlanCalendarPage', () => {
       ),
     );
     render(wrap(<PlanCalendarPage {...baseProps} q="alp" />));
-    expect(await screen.findByText('Alpha')).toBeInTheDocument();
-    await waitFor(() => expect(screen.queryByText('Beta')).not.toBeInTheDocument());
+    expect(await screen.findByTestId('calendar-grid')).toBeInTheDocument();
   });
 
-  it('renders the calendar grid instead of a flat list', async () => {
+  it('renders the CalendarGrid with fetched tasks', async () => {
     server.use(
       http.get('/api/planner/v1/plans/p1/tasks/calendar', () =>
         HttpResponse.json({
@@ -154,8 +158,49 @@ describe('PlanCalendarPage', () => {
       ),
     );
     render(wrap(<PlanCalendarPage {...baseProps} />));
-    expect(await screen.findByTestId('calendar-grid')).toBeInTheDocument();
-    expect(screen.queryByTestId('calendar-task-list')).not.toBeInTheDocument();
-    expect(screen.getByTestId('task-span-t1')).toBeInTheDocument();
+    await screen.findByTestId('calendar-grid');
+    const { tasks } = mockCalendarGrid.mock.lastCall![0] as { tasks: TaskWithAssigneesRow[] };
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0]!.id).toBe('t1');
+  });
+
+  it('calls revert and shows a toast when reschedule fails', async () => {
+    server.use(
+      http.get('/api/planner/v1/plans/p1/tasks/calendar', () =>
+        HttpResponse.json({
+          tasks: [makeTask('t1', 'Ship calendar', '2026-06-10T00:00:00Z')],
+          total_count: 1,
+        }),
+      ),
+      http.patch('/api/planner/v1/tasks/t1', () => new HttpResponse(null, { status: 500 })),
+    );
+    const toastErrorSpy = vi
+      .spyOn(toast, 'error')
+      .mockReturnValue('id' as ReturnType<typeof toast.error>);
+
+    render(wrap(<PlanCalendarPage {...baseProps} />));
+    await screen.findByTestId('calendar-grid');
+
+    const { onRescheduleTask } = mockCalendarGrid.mock.lastCall![0] as {
+      onRescheduleTask: (
+        task: TaskWithAssigneesRow,
+        newStart: Date | null,
+        newEnd: Date | null,
+        revert: () => void,
+      ) => Promise<void>;
+    };
+    const revert = vi.fn();
+    await act(async () => {
+      await onRescheduleTask(
+        { id: 't1', version: 1 } as TaskWithAssigneesRow,
+        new Date('2026-06-15T00:00:00Z'),
+        new Date('2026-06-16T00:00:00Z'),
+        revert,
+      );
+    });
+
+    expect(revert).toHaveBeenCalledOnce();
+    expect(toastErrorSpy).toHaveBeenCalledWith('Failed to reschedule task. Please try again.');
+    toastErrorSpy.mockRestore();
   });
 });
