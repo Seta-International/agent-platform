@@ -19,9 +19,19 @@ interface TaskSummary {
   skillTags: string[];
 }
 
+interface RankedCandidate {
+  userId: string;
+  name: string | null;
+  skills: string[];
+  role: string | null;
+  skillMatchCount: number;
+  rank: number;
+}
+
 interface OrchestratorResult {
   skills?: string[];
   tasks?: { task: TaskSummary; recommendations?: Recommendation[] }[];
+  candidates?: RankedCandidate[];
   recommendations?: Recommendation[];
   message?: string;
 }
@@ -58,6 +68,18 @@ function formatFinal(result: unknown): string {
   if (Array.isArray(r.recommendations)) {
     if (r.recommendations.length === 0) return '\nNo suitable candidates found.\n';
     return `\nRecommended assignees:\n${r.recommendations.slice(0, 5).map(recLine).join('\n')}\n`;
+  }
+
+  // people search (terminal at the skill matcher)
+  if (Array.isArray(r.candidates)) {
+    if (r.candidates.length === 0) return '\nNo matching users found.\n';
+    const lines = r.candidates
+      .slice(0, 5)
+      .map(
+        (c, i) =>
+          `${i + 1}. ${c.name ?? c.userId} — skills:${c.skillMatchCount} (${c.skills.join(', ')})${c.role ? ` · ${c.role}` : ''}`,
+      );
+    return `\nTop matching users:\n${lines.join('\n')}\n`;
   }
 
   // describe skills

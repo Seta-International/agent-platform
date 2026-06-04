@@ -88,8 +88,10 @@ export const TaskAnalyzerOutputSchema = z.object({
 export type TaskAnalyzerOutput = z.infer<typeof TaskAnalyzerOutputSchema>;
 
 // Across the recommend pipeline `taskId` is only a correlation label (search is
-// by skills, availability is per-user). It is null for a task-less people search
-// ("find users with aws and docker") issued outside any task context.
+// by skills, availability is per-user). It is null for a task-less request
+// ("recommend someone for aws and docker work") issued outside any task context.
+// A plain people search ("find users with aws and docker") is terminal here:
+// the matcher's candidates ARE the answer (OrchestratorResult.candidates).
 export const SkillMatcherInputSchema = z.object({
   taskId: z.string().nullable(),
   skills: z.array(z.string()),
@@ -133,6 +135,8 @@ export const OrchestratorTaskResultSchema = z.object({
 export const OrchestratorResultSchema = z.object({
   skills: z.array(z.string()).optional(),
   tasks: z.array(OrchestratorTaskResultSchema).optional(),
+  /** Top skill matches — terminal answer for a people search (no recommendation asked). */
+  candidates: z.array(RankedCandidateSchema).optional(),
   recommendations: z.array(RecommendationSchema).optional(),
   message: z.string().optional(),
 });

@@ -15,14 +15,17 @@ const stub = <I, O>(id: string): SpecializedAgentSpec<I, O> => ({
   run: async () => ({ result: {} as O, trust: EMPTY_TRUST }),
 });
 
-const make = (toolResults: { payload: { toolName: string; result: unknown } }[]) =>
+const make = (
+  toolResults: { payload: { toolName: string; result: unknown } }[],
+  toolCalls: { payload: { toolName: string; args?: unknown } }[] = [],
+) =>
   makeOrchestratorAgent({
     taskAnalyzer: stub('staffing.taskAnalyzer'),
     skillMatcher: stub('staffing.skillMatcher'),
     avaiChecker: stub('staffing.avaiChecker'),
     recommender: stub('staffing.recommender'),
     resolveModel: () => ({}) as never,
-    runAgent: async () => ({ toolCalls: [], toolResults }),
+    runAgent: async () => ({ toolCalls, toolResults }),
   });
 
 describe('orchestrator assembly', () => {
@@ -59,17 +62,82 @@ describe('orchestrator assembly', () => {
     expect(res.result.skills).toBeUndefined();
   });
 
-  it('recommend attempted but no recommender result → message, not the intermediate skills', async () => {
-    // taskAnalyzer's skills are pipeline INPUT for skillMatcher, not the answer.
-    // If the recommend pipeline starts (skillMatcher ran) but yields no
-    // recommendation, we must NOT echo those skills as if the user asked
-    // "what skills" — surface an honest failure instead.
+  it('people search: skillMatcher candidates with no downstream call → { candidates }', async () => {
+    // "find users with aws and docker" is terminal at skillMatcher: the user
+    // wants the top matches, not an assignee recommendation.
     const agent = make([
-      { payload: { toolName: 'callTaskAnalyzer', result: { skills: ['aws'] } } },
-      { payload: { toolName: 'callSkillMatcher', result: { taskId: 't-1', candidates: [] } } },
+      { payload: { toolName: 'callTaskAnalyzer', result: { skills: ['aws', 'docker'] } } },
+      {
+        payload: {
+          toolName: 'callSkillMatcher',
+          result: {
+            taskId: null,
+            candidates: [
+              {
+                userId: 'u1',
+                name: 'A',
+                skills: ['aws', 'docker'],
+                role: 'Backend Dev',
+                skillMatchCount: 2,
+                rank: 1,
+              },
+            ],
+          },
+        },
+      },
     ]);
+    const res = await agent.run({ userText: 'find users with aws and docker', taskId: null }, ctx);
+    expect(res.result.candidates?.[0]?.userId).toBe('u1');
+    expect(res.result.recommendations).toBeUndefined();
+    expect(res.result.skills).toBeUndefined();
+    expect(res.result.message).toBeUndefined();
+    // The candidates ARE the answer: they carry the evidence citations.
+    expect(res.trust.evidenceCitations).toEqual([{ kind: 'user', id: 'u1', label: 'A' }]);
+    expect(res.trust.confidenceScore).toBe(0.8);
+  });
+
+  it('people search with zero matches → { candidates: [] }, not the generic message', async () => {
+    const agent = make([
+      { payload: { toolName: 'callTaskAnalyzer', result: { skills: ['cobol'] } } },
+      { payload: { toolName: 'callSkillMatcher', result: { taskId: null, candidates: [] } } },
+    ]);
+    const res = await agent.run({ userText: 'find users with cobol', taskId: null }, ctx);
+    expect(res.result.candidates).toEqual([]);
+    expect(res.result.message).toBeUndefined();
+  });
+
+  it('recommend attempted (downstream called) but no recommender result → message, not candidates', async () => {
+    // taskAnalyzer's skills are pipeline INPUT for skillMatcher, not the answer.
+    // Once the recommend pipeline went past skillMatcher (avaiChecker called)
+    // but yielded no recommendation, we must NOT echo the intermediate skills
+    // or candidates as if the user asked a people search — honest failure.
+    const agent = make(
+      [
+        { payload: { toolName: 'callTaskAnalyzer', result: { skills: ['aws'] } } },
+        {
+          payload: {
+            toolName: 'callSkillMatcher',
+            result: {
+              taskId: 't-1',
+              candidates: [
+                {
+                  userId: 'u1',
+                  name: 'A',
+                  skills: ['aws'],
+                  role: null,
+                  skillMatchCount: 1,
+                  rank: 1,
+                },
+              ],
+            },
+          },
+        },
+      ],
+      [{ payload: { toolName: 'callAvaiChecker', args: { taskId: 't-1' } } }],
+    );
     const res = await agent.run({ userText: 'who should do this task', taskId: 't-1' }, ctx);
     expect(res.result.skills).toBeUndefined();
+    expect(res.result.candidates).toBeUndefined();
     expect(typeof res.result.message).toBe('string');
   });
 

@@ -69,11 +69,19 @@ function instructions(cap: number): string {
     '  skills — it does NOT search tasks. Do not use find_tasks for a people question.',
     '- intent=find_tasks: when the user wants to list TASKS by area/skill, e.g. "find infra tasks".',
     '',
-    'To recommend people, after obtaining the skills, call in order: callSkillMatcher with those',
-    'skills; then callAvaiChecker with the returned candidates; then callRecommender with the',
-    'candidates AND the availability returned by callAvaiChecker. Pass the same taskId through all',
-    "three: the current task's id, the found task's id, or null when the request names no task",
-    '(e.g. "find users with aws and docker") — taskId is only a correlation label.',
+    'PEOPLE SEARCH — the user just wants people who HAVE the skills, with no task to staff and',
+    'no "who should do it" question (e.g. "find users with aws and docker", "who has k8s',
+    'skills"): callTaskAnalyzer(extract_named_skills), then callSkillMatcher with those skills',
+    'and taskId=null, then STOP. The matcher candidates are the answer — do NOT call',
+    'callAvaiChecker or callRecommender for a people search.',
+    '',
+    'RECOMMEND AN ASSIGNEE — the user asks who SHOULD do a task or to pick the best person',
+    '(e.g. "who should do this task", "recommend someone for the auth work"): after obtaining',
+    'the skills, call in order: callSkillMatcher with those skills; then callAvaiChecker with',
+    'the returned candidates; then callRecommender with the candidates AND the availability',
+    "returned by callAvaiChecker. Pass the same taskId through all three: the current task's",
+    "id, the found task's id, or null when the request names no task — taskId is only a",
+    'correlation label.',
     '',
     'If the user only asks what skills a task needs, or only to list tasks, answer with the',
     'callTaskAnalyzer result and STOP — do not recommend people.',
@@ -127,7 +135,7 @@ export function makeOrchestratorAgent(deps: OrchestratorDeps): SpecializedAgentS
 
       const result = assemble(res);
       const trust = trustFromMastraResult(res, {
-        citations: (tr) => citationsFor(tr),
+        citations: (tr) => citationsFor(tr, result),
         confidence: confidenceFor(result),
       });
       return { result, trust };
@@ -159,28 +167,44 @@ function assemble(res: MastraToolSignals): OrchestratorResult {
   const [firstRec] = recs;
   if (firstRec) return { recommendations: firstRec.recommendations };
 
+  // Stopping at skillMatcher is the people-search terminal ("find users with
+  // aws and docker"): the candidates ARE the answer. It only counts as a stall
+  // when the pipeline went PAST the matcher — avaiChecker/recommender called
+  // (even unsuccessfully) means an assignee recommendation was attempted.
+  const downstreamAttempted = ['callAvaiChecker', 'callRecommender'].some(
+    (name) =>
+      res.toolCalls.some((c) => c.payload.toolName === name) ||
+      res.toolResults.some((t) => t.payload.toolName === name),
+  );
+  if (!downstreamAttempted) {
+    const [match] = results(res, 'callSkillMatcher') as {
+      taskId: string | null;
+      candidates: RankedCandidate[];
+    }[];
+    if (match) return { candidates: match.candidates };
+  }
+
   // taskAnalyzer's skills double as pipeline INPUT for skillMatcher. They are a
   // terminal answer ONLY when the user asked just for skills — i.e. the recommend
-  // pipeline never started. If recommendation WAS attempted (skillMatcher /
-  // avaiChecker / recommender ran) but produced nothing, returning those skills
-  // would mis-answer "find an assignee" as "what skills does this need". Surface
-  // an honest failure instead.
-  const recommendAttempted = res.toolResults.some((t) =>
-    ['callSkillMatcher', 'callAvaiChecker', 'callRecommender'].includes(t.payload.toolName),
-  );
-  if (!recommendAttempted) {
+  // pipeline never started. If recommendation WAS attempted but produced nothing,
+  // returning those skills would mis-answer "find an assignee" as "what skills
+  // does this need". Surface an honest failure instead.
+  if (!downstreamAttempted) {
     const skills = ta.find((o) => o.skills)?.skills;
     if (skills) return { skills };
   }
 
   return {
-    message: recommendAttempted
+    message: downstreamAttempted
       ? "I couldn't complete the recommendation for this task. Please try again."
       : "I can describe a task's required skills, find tasks by area, or recommend people for a task.",
   };
 }
 
-function citationsFor(tr: { payload: { toolName: string; result: unknown } }): Citation[] {
+function citationsFor(
+  tr: { payload: { toolName: string; result: unknown } },
+  result: OrchestratorResult,
+): Citation[] {
   if (tr.payload.toolName === 'callTaskAnalyzer') {
     const ts = (tr.payload.result as { tasks?: TaskSummary[] }).tasks ?? [];
     return ts.map<Citation>((t) => ({ kind: 'task', id: t.taskId, label: t.title }));
@@ -189,12 +213,19 @@ function citationsFor(tr: { payload: { toolName: string; result: unknown } }): C
     const rs = (tr.payload.result as { recommendations?: Recommendation[] }).recommendations ?? [];
     return rs.map<Citation>((r) => ({ kind: 'user', id: r.userId, label: r.name ?? undefined }));
   }
+  // Matcher candidates are evidence only when they ARE the answer (people-search
+  // terminal); in the recommend flow the recommender already cites those users.
+  if (tr.payload.toolName === 'callSkillMatcher' && result.candidates) {
+    const cs = (tr.payload.result as { candidates?: RankedCandidate[] }).candidates ?? [];
+    return cs.map<Citation>((c) => ({ kind: 'user', id: c.userId, label: c.name ?? undefined }));
+  }
   return [];
 }
 
 function confidenceFor(result: OrchestratorResult): number {
   if (result.recommendations?.length) return 0.8;
   if (result.tasks?.length) return 0.8;
+  if (result.candidates?.length) return 0.8;
   if (result.skills?.length) return 0.8;
   return 0.2;
 }

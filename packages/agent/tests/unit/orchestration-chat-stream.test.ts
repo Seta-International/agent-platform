@@ -57,6 +57,45 @@ describe('orchestration chat stream', () => {
     expect(w.text()).toContain('aws, terraform');
   });
 
+  it('renders people-search candidates as top matching users', async () => {
+    const w = new FakeWriter();
+    await streamOrchestrationToUI(
+      w,
+      evs({
+        kind: 'final',
+        result: {
+          candidates: [
+            {
+              userId: 'u1',
+              name: 'A',
+              skills: ['aws', 'docker'],
+              role: 'Backend Dev',
+              skillMatchCount: 2,
+              rank: 1,
+            },
+            {
+              userId: 'u2',
+              name: null,
+              skills: ['aws'],
+              role: null,
+              skillMatchCount: 1,
+              rank: 2,
+            },
+          ],
+        },
+      }),
+    );
+    expect(w.text()).toContain('Top matching users');
+    expect(w.text()).toContain('A — skills:2 (aws, docker) · Backend Dev');
+    expect(w.text()).toContain('u2 — skills:1 (aws)');
+  });
+
+  it('renders an empty people search as no matching users', async () => {
+    const w = new FakeWriter();
+    await streamOrchestrationToUI(w, evs({ kind: 'final', result: { candidates: [] } }));
+    expect(w.text()).toContain('No matching users found.');
+  });
+
   it('renders tasks with per-task recommendations and states the cap', async () => {
     const w = new FakeWriter();
     await streamOrchestrationToUI(

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   AvailabilityResultSchema,
+  OrchestratorResultSchema,
   RankedCandidateSchema,
   RecommendationSchema,
   SkillRequirementSchema,
@@ -70,5 +71,22 @@ describe('orchestration schemas', () => {
     expect(() =>
       TaskSummarySchema.parse({ taskId: 't1', title: 'x', status: 'nope', skillTags: [] }),
     ).toThrow();
+  });
+
+  it('OrchestratorResult accepts candidates (people-search terminal)', () => {
+    const r = OrchestratorResultSchema.parse({
+      candidates: [
+        {
+          userId: 'u1',
+          name: 'A',
+          skills: ['aws', 'docker'],
+          role: 'Backend Dev',
+          skillMatchCount: 2,
+          rank: 1,
+        },
+      ],
+    });
+    expect(r.candidates).toHaveLength(1);
+    expect(r.candidates![0]!.skillMatchCount).toBe(2);
   });
 });

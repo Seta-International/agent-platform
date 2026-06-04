@@ -89,13 +89,15 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
     },
   });
 
-  // taskId is the task being staffed, or null for a task-less people search
-  // ("find users with aws and docker"). It is only a correlation label here.
+  // taskId is the task being staffed, or null when no task is named (a people
+  // search, or a task-less recommend). It is only a correlation label here.
+  // For a plain people search ("find users with aws and docker") this is the
+  // FINAL step: the orchestrator answers with these candidates and stops.
   const callSkillMatcher = defineAgentTool({
     id: 'callSkillMatcher',
     name: 'Find candidate people',
     description:
-      'Find and rank candidate users by the required skills. Pass the current taskId, or null when the search is not tied to a task.',
+      'Find and rank candidate users by the required skills. Pass the current taskId, or null when the search is not tied to a task. For a plain people search ("find users with X") this is the FINAL step — answer with the returned candidates.',
     input: z.object({ taskId: z.string().nullable(), skills: z.array(z.string()).min(1) }),
     output: z.object({ taskId: z.string().nullable(), candidates: z.array(RankedCandidateSchema) }),
     execute: async ({ taskId, skills }) => {
