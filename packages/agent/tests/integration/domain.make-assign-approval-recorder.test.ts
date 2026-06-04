@@ -96,6 +96,71 @@ describe('makeAssignApprovalRecorder', () => {
     });
   });
 
+  it('rebinds the pending approval to the new thread when the same approver re-asks elsewhere', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const tenantId = randomUUID();
+      const userId = randomUUID();
+      const taskId = randomUUID();
+      const first = await makeAssignApprovalRecorder({
+        tenantId,
+        userId,
+        threadId: 'thread-1',
+        pool,
+      })(card(taskId, tenantId, userId));
+
+      // Same user asks about the same task from a brand-new chat thread.
+      const second = await makeAssignApprovalRecorder({
+        tenantId,
+        userId,
+        threadId: 'thread-2',
+        pool,
+      })(card(taskId, tenantId, userId));
+
+      expect(second.approvalId).toBe(first.approvalId);
+      expect(second.cardInThread).toBe(true);
+      const row = await pool.query(
+        `SELECT surface_chat_thread_id FROM agent.workflow_approvals WHERE approval_id = $1`,
+        [first.approvalId],
+      );
+      expect(row.rows[0]).toEqual({ surface_chat_thread_id: 'thread-2' });
+    });
+  });
+
+  it("does not rebind another approver's pending approval and flags the card as not in this thread", async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const tenantId = randomUUID();
+      const approver = randomUUID();
+      const otherUser = randomUUID();
+      const taskId = randomUUID();
+      const first = await makeAssignApprovalRecorder({
+        tenantId,
+        userId: approver,
+        threadId: 'thread-1',
+        pool,
+      })(card(taskId, tenantId, approver));
+
+      // A different user asks about the same task: the existing card stays in
+      // the approver's thread — claiming "card above" here would be a lie.
+      const second = await makeAssignApprovalRecorder({
+        tenantId,
+        userId: otherUser,
+        threadId: 'thread-2',
+        pool,
+      })(card(taskId, tenantId, otherUser));
+
+      expect(second.approvalId).toBe(first.approvalId);
+      expect(second.cardInThread).toBe(false);
+      const row = await pool.query(
+        `SELECT surface_chat_thread_id, approver_user_id FROM agent.workflow_approvals WHERE approval_id = $1`,
+        [first.approvalId],
+      );
+      expect(row.rows[0]).toEqual({
+        surface_chat_thread_id: 'thread-1',
+        approver_user_id: approver,
+      });
+    });
+  });
+
   it('throws PendingAssignmentExistsError when an evented run is pending without an approval row yet', async () => {
     await withAgentTestDb(async ({ pool }) => {
       const tenantId = randomUUID();

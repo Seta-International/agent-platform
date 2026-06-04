@@ -90,11 +90,11 @@ describe('orchestration schemas', () => {
     expect(r.candidates![0]!.skillMatchCount).toBe(2);
   });
 
-  it('OrchestratorResult accepts pendingApproval (HITL card recorded)', () => {
+  it('OrchestratorResult accepts pendingApproval (HITL card recorded; inThread defaults true)', () => {
     const r = OrchestratorResultSchema.parse({
       recommendations: [],
       pendingApproval: { approvalId: 'ap1', taskId: 't-1' },
     });
-    expect(r.pendingApproval).toEqual({ approvalId: 'ap1', taskId: 't-1' });
+    expect(r.pendingApproval).toEqual({ approvalId: 'ap1', taskId: 't-1', inThread: true });
   });
 });

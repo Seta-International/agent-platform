@@ -273,7 +273,9 @@ async function recordApprovalIfRecommended(
     agentId: 'staffing.orchestrator',
   });
   try {
-    const { approvalId } = await ctx.recordHitlApproval(card);
+    const { approvalId, cardInThread } = await ctx.recordHitlApproval(card);
+    // Absent means true: legacy recorders always bind the card to this thread.
+    const inThread = cardInThread !== false;
     ctx.onEvent?.({
       kind: 'step-done',
       stepId: 'proposeAssignment',
@@ -281,7 +283,9 @@ async function recordApprovalIfRecommended(
         reasoningTrace: [
           {
             step: 'proposeAssignment',
-            detail: `approval card recorded for task ${taskId}`,
+            detail: inThread
+              ? `approval card recorded for task ${taskId}`
+              : `existing pending proposal reused for task ${taskId} (card surfaces in another thread)`,
             at: new Date().toISOString(),
           },
         ],
@@ -289,7 +293,7 @@ async function recordApprovalIfRecommended(
         confidenceScore: 0.9,
       },
     });
-    return { ...result, pendingApproval: { approvalId, taskId } };
+    return { ...result, pendingApproval: { approvalId, taskId, inThread } };
   } catch (err) {
     // Fail-open: the user still gets the plain recommendation list.
     console.error('[staffing.orchestrator] HITL approval card failed; falling back', err);

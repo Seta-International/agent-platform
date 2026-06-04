@@ -35,22 +35,48 @@ function taskIdFromCard(card: ApprovalCard): string | null {
  */
 export function makeAssignApprovalRecorder(opts: MakeAssignApprovalRecorderOpts): ChatHitlRecorder {
   const { tenantId, userId, threadId, pool } = opts;
-  return async (card): Promise<ChatHitlApprovalIds> => {
+  return async (card): Promise<ChatHitlApprovalIds & { cardInThread: boolean }> => {
     const taskId = taskIdFromCard(card);
     if (taskId) {
       const existingRunId = await getPendingAssignRunIdForTask({ taskId, tenantId });
       if (existingRunId) {
-        const existing = await pool.query<{ approval_id: string }>(
-          `SELECT approval_id FROM agent.workflow_approvals
+        const existing = await pool.query<{
+          approval_id: string;
+          approver_user_id: string;
+          surface_chat_thread_id: string | null;
+        }>(
+          `SELECT approval_id, approver_user_id, surface_chat_thread_id
+             FROM agent.workflow_approvals
             WHERE run_id = $1 AND status = 'pending'
             ORDER BY created_at DESC LIMIT 1`,
           [existingRunId],
         );
-        const approvalId = existing.rows[0]?.approval_id;
-        if (approvalId) return { runId: existingRunId, approvalId };
+        const row = existing.rows[0];
+        if (row) {
+          // The pending card follows its approver: when the same user re-asks
+          // from a new thread, rebind the card there so "the approval card
+          // above" stays true. Another approver's card is never moved (it
+          // would become invisible to its approver) — the caller gets
+          // cardInThread=false and must not point at an in-thread card.
+          const sameApprover = row.approver_user_id === userId;
+          if (sameApprover && threadId && row.surface_chat_thread_id !== threadId) {
+            await pool.query(
+              `UPDATE agent.workflow_approvals
+                  SET surface_chat_thread_id = $2
+                WHERE approval_id = $1 AND status = 'pending'`,
+              [row.approval_id, threadId],
+            );
+          }
+          return {
+            runId: existingRunId,
+            approvalId: row.approval_id,
+            cardInThread: sameApprover && threadId != null,
+          };
+        }
         throw new PendingAssignmentExistsError(taskId);
       }
     }
-    return insertChatHitlApproval({ card, tenantId, userId, threadId, pool });
+    const ids = await insertChatHitlApproval({ card, tenantId, userId, threadId, pool });
+    return { ...ids, cardInThread: threadId != null };
   };
 }

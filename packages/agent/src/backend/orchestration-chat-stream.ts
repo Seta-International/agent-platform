@@ -33,7 +33,7 @@ interface OrchestratorResult {
   tasks?: { task: TaskSummary; recommendations?: Recommendation[] }[];
   candidates?: RankedCandidate[];
   recommendations?: Recommendation[];
-  pendingApproval?: { approvalId: string; taskId: string };
+  pendingApproval?: { approvalId: string; taskId: string; inThread?: boolean };
   message?: string;
 }
 
@@ -67,9 +67,14 @@ function formatFinal(result: unknown): string {
 
   // recommend (single task) with an in-thread approval card: the interactive
   // card above carries the full candidate detail; the text just points at it.
+  // When the reused approval lives in another thread (inThread === false)
+  // there is no card above — say so instead of pointing at one.
   if (r.pendingApproval && Array.isArray(r.recommendations)) {
     const [top] = r.recommendations;
     if (top) {
+      if (r.pendingApproval.inThread === false) {
+        return `\nAn assignment proposal for this task is already awaiting approval — no new card was created. Top match: ${top.name ?? top.userId}.\n`;
+      }
       return `\nAn assignee proposal is ready — review the approval card above. Top match: ${top.name ?? top.userId}.\n`;
     }
   }

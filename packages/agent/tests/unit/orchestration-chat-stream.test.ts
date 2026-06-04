@@ -169,4 +169,29 @@ describe('orchestration chat stream', () => {
     expect(w.text()).toContain('Alice');
     expect(w.text()).not.toContain('Recommended assignees');
   });
+
+  it('does not claim a card exists in this thread when the reused approval lives elsewhere', async () => {
+    const w = new FakeWriter();
+    await streamOrchestrationToUI(
+      w,
+      evs({
+        kind: 'final',
+        result: {
+          pendingApproval: { approvalId: 'ap1', taskId: 't-1', inThread: false },
+          recommendations: [
+            {
+              userId: 'u1',
+              name: 'Alice',
+              skillMatch: ['aws'],
+              skillMatchCount: 1,
+              status: 'available',
+            },
+          ],
+        },
+      }),
+    );
+    expect(w.text()).not.toContain('review the approval card above');
+    expect(w.text()).toContain('already awaiting approval');
+    expect(w.text()).toContain('Alice');
+  });
 });

@@ -48,10 +48,16 @@ export const RC_CHAT_HITL_RECORDER = '__seta_chat_hitl_recorder__';
  *
  * Returns the stable IDs of both rows so the tool can include them in its
  * output (useful for the agent to reference in its reply).
+ *
+ * `cardInThread` is false when the returned approval does NOT surface in the
+ * caller's chat thread — an idempotent recorder may reuse a pending approval
+ * that belongs to another approver (and therefore stays in that approver's
+ * thread). Callers must not tell the user to look for an in-thread card when
+ * it is false. Absent means true (legacy recorders always bind to the thread).
  */
 export type ChatHitlRecorder = (
   card: ApprovalCard,
-) => Promise<{ runId: string; approvalId: string }>;
+) => Promise<{ runId: string; approvalId: string; cardInThread?: boolean }>;
 
 /**
  * Registered per tool-ID in AgentRouteDeps.chatHitlDeciders.

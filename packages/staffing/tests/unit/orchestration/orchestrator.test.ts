@@ -293,7 +293,11 @@ describe('orchestrator HITL approval post-step', () => {
       { userText: 'who should do this task', taskId: 't-1' },
       { ...ctx, recordHitlApproval: recorder },
     );
-    expect(res.result.pendingApproval).toEqual({ approvalId: 'ap1', taskId: 't-1' });
+    expect(res.result.pendingApproval).toEqual({
+      approvalId: 'ap1',
+      taskId: 't-1',
+      inThread: true,
+    });
     expect(res.result.recommendations).toHaveLength(2);
     expect(calls).toHaveLength(1);
     const card = calls[0] as {
@@ -385,6 +389,20 @@ describe('orchestrator HITL approval post-step', () => {
     const res = await agent.run({ userText: 'who should do this task', taskId: 't-1' }, ctx);
     expect(res.result.pendingApproval).toBeUndefined();
     expect(res.result.recommendations).toHaveLength(2);
+  });
+
+  it('recorder reuses a card from another thread → pendingApproval.inThread is false', async () => {
+    const recorder = async () => ({ runId: 'wr1', approvalId: 'ap1', cardInThread: false });
+    const agent = make([ANALYZER_RESULT, REC_TOOL_RESULT]);
+    const res = await agent.run(
+      { userText: 'who should do this task', taskId: 't-1' },
+      { ...ctx, recordHitlApproval: recorder },
+    );
+    expect(res.result.pendingApproval).toEqual({
+      approvalId: 'ap1',
+      taskId: 't-1',
+      inThread: false,
+    });
   });
 
   it('recorder throws → fail-open: recommendations kept, no pendingApproval', async () => {

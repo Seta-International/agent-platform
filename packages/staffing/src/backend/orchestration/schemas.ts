@@ -140,8 +140,17 @@ export const OrchestratorResultSchema = z.object({
   /** Top skill matches — terminal answer for a people search (no recommendation asked). */
   candidates: z.array(RankedCandidateSchema).optional(),
   recommendations: z.array(RecommendationSchema).optional(),
-  /** Set when an in-thread HITL approval card was recorded for this recommendation. */
-  pendingApproval: z.object({ approvalId: z.string(), taskId: z.string() }).optional(),
+  /** Set when a HITL approval card exists for this recommendation. `inThread`
+   *  is false when the card lives in another thread (idempotent reuse of a
+   *  pending proposal recorded for a different approver) — the final answer
+   *  must not point at an in-thread card then. */
+  pendingApproval: z
+    .object({
+      approvalId: z.string(),
+      taskId: z.string(),
+      inThread: z.boolean().default(true),
+    })
+    .optional(),
   message: z.string().optional(),
 });
 export type OrchestratorResult = z.infer<typeof OrchestratorResultSchema>;
