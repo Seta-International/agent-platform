@@ -142,4 +142,19 @@ describe('PlanCalendarPage', () => {
     expect(await screen.findByText('Alpha')).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByText('Beta')).not.toBeInTheDocument());
   });
+
+  it('renders the calendar grid instead of a flat list', async () => {
+    server.use(
+      http.get('/api/planner/v1/plans/p1/tasks/calendar', () =>
+        HttpResponse.json({
+          tasks: [makeTask('t1', 'Ship calendar', '2026-06-10T00:00:00Z')],
+          total_count: 1,
+        }),
+      ),
+    );
+    render(wrap(<PlanCalendarPage {...baseProps} />));
+    expect(await screen.findByTestId('calendar-grid')).toBeInTheDocument();
+    expect(screen.queryByTestId('calendar-task-list')).not.toBeInTheDocument();
+    expect(screen.getByTestId('task-span-t1')).toBeInTheDocument();
+  });
 });

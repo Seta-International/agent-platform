@@ -2,12 +2,12 @@ import type { TaskWithAssigneesRow } from '@seta/planner';
 import { EmptyState } from '@seta/shared-ui';
 import { useEffect, useMemo } from 'react';
 import { GridSkeleton } from '../components/board-skeleton';
+import { CalendarGrid } from '../components/calendar/calendar-grid';
 import { CalendarPagination } from '../components/calendar/calendar-pagination';
 import { CalendarToolbar } from '../components/calendar/calendar-toolbar';
 import { PlanError } from '../components/plan-error';
 import { useCalendarTasks } from '../hooks/queries/use-calendar-tasks';
-import { currentMonthRange } from '../lib/calendar-dates';
-import { formatDueShort } from '../lib/format-due-short';
+import { currentMonthRange, toDateKey } from '../lib/calendar-dates';
 import type { BoardFilters } from '../state/url-state';
 
 export interface PlanCalendarPageProps {
@@ -100,25 +100,13 @@ export function PlanCalendarPage({
           action={{ label: 'Switch to Board', onClick: onSwitchToBoard }}
         />
       ) : (
-        <ul
-          className="flex flex-col gap-1 overflow-y-auto px-7 py-2"
-          data-testid="calendar-task-list"
-        >
-          {visibleTasks.map((t) => (
-            <li key={t.id}>
-              <button
-                type="button"
-                className="flex w-full items-center justify-between rounded border border-hairline bg-surface-1 px-3 py-2 text-left text-body-sm text-ink hover:bg-surface-2"
-                onClick={() => onOpenTask(t.id)}
-              >
-                <span className="truncate">{t.title}</span>
-                {t.due_at && (
-                  <span className="text-caption text-ink-muted">{formatDueShort(t.due_at)}</span>
-                )}
-              </button>
-            </li>
-          ))}
-        </ul>
+        <CalendarGrid
+          tasks={visibleTasks}
+          from={calFrom}
+          to={calTo}
+          todayKey={toDateKey(new Date())}
+          onOpenTask={onOpenTask}
+        />
       )}
       <CalendarPagination
         page={calPage}
