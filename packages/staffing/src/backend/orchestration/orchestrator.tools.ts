@@ -1,5 +1,5 @@
 import type { SpecializedAgentRunCtx, SpecializedAgentSpec } from '@seta/agent-sdk';
-import { defineAgentTool } from '@seta/agent-sdk';
+import { defineAgentTool, recordEntityExposure, resolveTaskRef } from '@seta/agent-sdk';
 import { z } from 'zod';
 import {
   type AvailabilityResult,
@@ -62,23 +62,34 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
     name: 'Analyze task',
     description: [
       'Get skills or tasks, per `intent`:',
-      "- resolve_task_skills: the current task's required skills (pass its taskId). Use for",
+      "- resolve_task_skills: the current task's required skills (pass its taskRef). Use for",
       '  "what skills does this task need" and to get skills before recommending people FOR a task.',
       '- extract_named_skills: the skills the user named in the message. Use when the user asks',
       '  for people by skill (e.g. "who has aws and k8s skills") — returns those skills, NOT tasks.',
       '- find_tasks: list tasks whose skill_tags match the message (e.g. "find infra tasks").',
+      '',
+      'taskRef is a task UUID, or an ordinal reference into the tasks already listed in this',
+      'conversation: "first"/"#1", "second"/"#2", ... "last". When the user refers to a task',
+      'from an earlier answer ("the first task", "that one"), pass the ordinal — NEVER invent',
+      "a UUID. The result's resolvedTaskId is the real UUID: pass THAT as taskId to",
+      'callSkillMatcher, callAvaiChecker and callRecommender.',
     ].join('\n'),
     input: z.object({
       intent: TaskAnalyzerIntentSchema,
       query: z.string(),
-      taskId: z.string().nullable(),
+      taskRef: z.string().nullable(),
     }),
     output: z.object({
+      resolvedTaskId: z.string().nullable(),
       skills: z.array(z.string()).optional(),
       title: z.string().optional(),
       tasks: z.array(TaskSummarySchema).optional(),
     }),
-    execute: async ({ intent, query, taskId }) => {
+    execute: async ({ intent, query, taskRef }, toolCtx) => {
+      // Resolve BEFORE emitting step-start: a failed resolution throws back to
+      // the LLM (same pattern as the planner tools) without leaving a dangling
+      // step card in the trace timeline.
+      const taskId = taskRef ? (await resolveTaskRef(toolCtx as never, taskRef)).taskId : null;
       ctx.onEvent?.({
         kind: 'step-start',
         stepId: 'taskAnalyzer',
@@ -86,7 +97,21 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
       });
       const res = await taskAnalyzer.run({ intent, query, taskId }, subCtx);
       ctx.onEvent?.({ kind: 'step-done', stepId: 'taskAnalyzer', trust: res.trust });
-      return res.result;
+      // Server-owned exposure tracking (thread-scoped working memory): the
+      // recorder no-ops without RC_AGENT_MEMORY/RC_THREAD_ID and swallows its
+      // own failures — never breaks the staffing answer.
+      if (intent === 'find_tasks' && res.result.tasks?.length) {
+        await recordEntityExposure(toolCtx as never, {
+          recentTasks: res.result.tasks.map((t) => ({ taskId: t.taskId, title: t.title })),
+        });
+      }
+      if (intent === 'resolve_task_skills' && taskId) {
+        await recordEntityExposure(toolCtx as never, {
+          lastDiscussedTaskId: taskId,
+          ...(res.result.title ? { recentTasks: [{ taskId, title: res.result.title }] } : {}),
+        });
+      }
+      return { resolvedTaskId: taskId, ...res.result };
     },
   });
 
@@ -144,11 +169,17 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
       taskId: z.string().nullable(),
       recommendations: z.array(RecommendationSchema),
     }),
-    execute: async ({ taskId, skills, candidates, availability }) => {
+    execute: async ({ taskId, skills, candidates, availability }, toolCtx) => {
       const stepId = `recommender:${taskId ?? 'adhoc'}`;
       ctx.onEvent?.({ kind: 'step-start', stepId, agentId: 'staffing.recommender' });
       const res = await recommender.run({ taskId, skills, candidates, availability }, subCtx);
       ctx.onEvent?.({ kind: 'step-done', stepId, trust: res.trust });
+      if (res.result.taskId && res.result.recommendations.length > 0) {
+        await recordEntityExposure(toolCtx as never, {
+          lastDiscussedTaskId: res.result.taskId,
+          lastProposedCandidateUserId: res.result.recommendations[0]?.userId ?? null,
+        });
+      }
       return res.result;
     },
   });

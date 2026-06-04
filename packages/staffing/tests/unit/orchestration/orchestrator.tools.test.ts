@@ -1,0 +1,212 @@
+import { RequestContext } from '@mastra/core/request-context';
+import {
+  EMPTY_ENTITIES,
+  EMPTY_TRUST,
+  parseEntities,
+  RC_AGENT_MEMORY,
+  RC_THREAD_ID,
+  type SpecializedAgentSpec,
+  serializeEntities,
+} from '@seta/agent-sdk';
+import { describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
+import { makeOrchestratorTools } from '../../../src/backend/orchestration/orchestrator.tools.ts';
+
+const UUID_A = '66be2be2-394d-4184-b106-c412289fd1e1';
+const UUID_B = '499f9898-2133-4ba3-82b5-83d9fb1996fc';
+// Recommendation userIds must be real UUIDs: ConversationEntitiesSchema
+// validates lastProposedCandidateUserId as uuid on the parse round-trip.
+const UUID_U = '0b54f3da-7be4-4d51-9b32-d0a63aa39c2b';
+
+// Fake thread-scoped memory handle — same seam the SDK's own entity-recorder
+// tests use. `read()` parses what the recorder wrote back.
+function memCtx(initialTasks: Array<{ taskId: string; title: string }> = []) {
+  const now = new Date().toISOString();
+  let stored: string | null = serializeEntities({
+    ...EMPTY_ENTITIES,
+    recentTasks: initialTasks.map((t) => ({ ...t, lastSeenAt: now })),
+  });
+  const memory = {
+    getWorkingMemory: vi.fn(async () => stored),
+    updateWorkingMemory: vi.fn(async ({ workingMemory }: { workingMemory: string }) => {
+      stored = workingMemory;
+    }),
+  };
+  const rc = new RequestContext();
+  rc.set('tenant_id', 't1');
+  rc.set('actor', { type: 'user', user_id: 'a1' });
+  rc.set(RC_THREAD_ID, 'conv-1');
+  rc.set(RC_AGENT_MEMORY, { memory, memoryConfig: {} });
+  return {
+    toolCtx: { requestContext: rc } as never,
+    memory,
+    read: () => parseEntities(stored),
+  };
+}
+
+// Sub-agent stub that records the inputs it was called with.
+function capturingStub<I, O>(id: string, result: O) {
+  const inputs: I[] = [];
+  const spec: SpecializedAgentSpec<I, O> = {
+    id,
+    description: '',
+    inputSchema: z.any() as z.ZodType<I>,
+    outputSchema: z.any() as z.ZodType<O>,
+    run: async (input) => {
+      inputs.push(input);
+      return { result, trust: EMPTY_TRUST };
+    },
+  };
+  return { spec, inputs };
+}
+
+function buildTools(overrides: { taskAnalyzerResult?: unknown; recommenderResult?: unknown } = {}) {
+  const taskAnalyzer = capturingStub<
+    { intent: string; query: string; taskId: string | null },
+    unknown
+  >('staffing.taskAnalyzer', overrides.taskAnalyzerResult ?? { skills: ['aws'] });
+  const skillMatcher = capturingStub('staffing.skillMatcher', { taskId: null, candidates: [] });
+  const avaiChecker = capturingStub('staffing.avaiChecker', { taskId: null, availability: [] });
+  const recommender = capturingStub(
+    'staffing.recommender',
+    overrides.recommenderResult ?? { taskId: null, recommendations: [] },
+  );
+  const tools = makeOrchestratorTools({
+    taskAnalyzer: taskAnalyzer.spec as never,
+    skillMatcher: skillMatcher.spec as never,
+    avaiChecker: avaiChecker.spec as never,
+    recommender: recommender.spec as never,
+    ctx: { tenantId: 't1', actorUserId: 'a1' },
+  });
+  return { tools, taskAnalyzer, skillMatcher, avaiChecker, recommender };
+}
+
+describe('callTaskAnalyzer taskRef resolution', () => {
+  it('resolves an ordinal taskRef against recentTasks and hands the UUID to the sub-agent', async () => {
+    const { toolCtx } = memCtx([
+      { taskId: UUID_A, title: 'A' },
+      { taskId: UUID_B, title: 'B' },
+    ]);
+    const { tools, taskAnalyzer } = buildTools({
+      taskAnalyzerResult: { skills: ['aws'], title: 'A' },
+    });
+    const out = (await tools.callTaskAnalyzer.execute!(
+      {
+        intent: 'resolve_task_skills',
+        query: 'assignee for the first task',
+        taskRef: 'first',
+      } as never,
+      toolCtx,
+    )) as { resolvedTaskId: string | null };
+    expect(taskAnalyzer.inputs[0]?.taskId).toBe(UUID_A);
+    expect(out.resolvedTaskId).toBe(UUID_A);
+  });
+
+  it('passes a UUID taskRef through unchanged', async () => {
+    const { toolCtx } = memCtx();
+    const { tools, taskAnalyzer } = buildTools();
+    await tools.callTaskAnalyzer.execute!(
+      { intent: 'resolve_task_skills', query: 'q', taskRef: UUID_B } as never,
+      toolCtx,
+    );
+    expect(taskAnalyzer.inputs[0]?.taskId).toBe(UUID_B);
+  });
+
+  it('passes null through when taskRef is null', async () => {
+    const { toolCtx, memory } = memCtx();
+    const { tools, taskAnalyzer } = buildTools();
+    await tools.callTaskAnalyzer.execute!(
+      { intent: 'extract_named_skills', query: 'who knows aws', taskRef: null } as never,
+      toolCtx,
+    );
+    expect(taskAnalyzer.inputs[0]?.taskId).toBeNull();
+    expect(memory.getWorkingMemory).not.toHaveBeenCalled();
+  });
+
+  it('rejects with the resolver error when the ordinal cannot resolve', async () => {
+    const { toolCtx } = memCtx([]); // empty conversation memory
+    const { tools, taskAnalyzer } = buildTools();
+    // defineAgentTool's wrapper (sdks/agent/src/wrap-execute.ts) remaps the
+    // TaskRefResolveError into an AgentToolError whose .message is the generic
+    // user-safe text; the resolver's message survives in .internalDetail.
+    await expect(
+      tools.callTaskAnalyzer.execute!(
+        { intent: 'resolve_task_skills', query: 'q', taskRef: 'first' } as never,
+        toolCtx,
+      ),
+    ).rejects.toMatchObject({
+      name: 'AgentToolError',
+      internalDetail: expect.stringMatching(/no recent tasks/i),
+    });
+    expect(taskAnalyzer.inputs).toHaveLength(0); // sub-agent never invoked
+  });
+});
+
+describe('entity recording', () => {
+  it('find_tasks records the returned tasks as recentTasks in batch order', async () => {
+    const { toolCtx, read } = memCtx();
+    const { tools } = buildTools({
+      taskAnalyzerResult: {
+        tasks: [
+          { taskId: UUID_A, title: 'Infra A', skillTags: ['aws'] },
+          { taskId: UUID_B, title: 'Infra B', skillTags: ['k8s'] },
+        ],
+      },
+    });
+    await tools.callTaskAnalyzer.execute!(
+      { intent: 'find_tasks', query: 'find infra tasks', taskRef: null } as never,
+      toolCtx,
+    );
+    expect(read().recentTasks.map((t) => t.taskId)).toEqual([UUID_A, UUID_B]);
+  });
+
+  it('resolve_task_skills records lastDiscussedTaskId (+ recentTasks when a title comes back)', async () => {
+    const { toolCtx, read } = memCtx([{ taskId: UUID_A, title: 'A' }]);
+    const { tools } = buildTools({
+      taskAnalyzerResult: { skills: ['aws'], title: 'A full title' },
+    });
+    await tools.callTaskAnalyzer.execute!(
+      { intent: 'resolve_task_skills', query: 'q', taskRef: 'first' } as never,
+      toolCtx,
+    );
+    const entities = read();
+    expect(entities.lastDiscussedTaskId).toBe(UUID_A);
+    expect(entities.recentTasks[0]).toMatchObject({ taskId: UUID_A, title: 'A full title' });
+  });
+
+  it('callRecommender records lastDiscussedTaskId + lastProposedCandidateUserId', async () => {
+    const { toolCtx, read } = memCtx();
+    const { tools } = buildTools({
+      recommenderResult: {
+        taskId: UUID_A,
+        recommendations: [
+          { userId: UUID_U, name: 'A', skillMatch: ['aws'], skillMatchCount: 1, status: 'free' },
+        ],
+      },
+    });
+    await tools.callRecommender.execute!(
+      { taskId: UUID_A, skills: ['aws'], candidates: [], availability: [] } as never,
+      toolCtx,
+    );
+    const entities = read();
+    expect(entities.lastDiscussedTaskId).toBe(UUID_A);
+    expect(entities.lastProposedCandidateUserId).toBe(UUID_U);
+  });
+
+  it('recording is a silent no-op when the memory handle is absent', async () => {
+    const rc = new RequestContext();
+    rc.set('tenant_id', 't1');
+    rc.set('actor', { type: 'user', user_id: 'a1' });
+    const toolCtx = { requestContext: rc } as never;
+    const { tools } = buildTools({
+      taskAnalyzerResult: { tasks: [{ taskId: UUID_A, title: 'A', skillTags: [] }] },
+    });
+    // Must not throw — workflow/cron contexts have no chat memory.
+    await expect(
+      tools.callTaskAnalyzer.execute!(
+        { intent: 'find_tasks', query: 'q', taskRef: null } as never,
+        toolCtx,
+      ),
+    ).resolves.toBeDefined();
+  });
+});

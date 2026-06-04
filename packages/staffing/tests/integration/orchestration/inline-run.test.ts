@@ -18,6 +18,10 @@ import { withAgentTestDb } from '../../helpers.ts';
 const TENANT = '00000000-0000-4000-8000-0000000000b9';
 const ACTOR = '00000000-0000-4000-8000-0000000000c9';
 const RUN = '00000000-0000-4000-8000-0000000000d9';
+// callTaskAnalyzer's taskRef must be a real UUID (or an in-conversation
+// ordinal — but the inline runner has no conversation memory to resolve
+// ordinals against). The taskReader port stub ignores the id it is given.
+const TASK_REF = '00000000-0000-4000-8000-0000000000e9';
 
 type Content = Record<string, unknown>;
 interface Step {
@@ -118,7 +122,7 @@ describe('orchestrator inline run (e2e)', () => {
             toolCallStep(0, 'callTaskAnalyzer', {
               intent: 'resolve_task_skills',
               query: 'who should do this',
-              taskId: 'task-1',
+              taskRef: TASK_REF,
             }),
             toolCallStep(1, 'callSkillMatcher', { taskId: 'task-1', skills: ['aws'] }),
             toolCallStep(2, 'callAvaiChecker', { taskId: 'task-1', candidates: [CANDIDATE] }),
@@ -190,7 +194,7 @@ describe('orchestrator inline run (e2e)', () => {
             toolCallStep(0, 'callTaskAnalyzer', {
               intent: 'resolve_task_skills',
               query: 'what skills does this need',
-              taskId: 'task-1',
+              taskRef: TASK_REF,
             }),
             STOP,
           ]),
