@@ -137,4 +137,36 @@ describe('orchestration chat stream', () => {
     expect(w.text()).toContain('A (skills:1)');
     expect(w.text()).toContain('first 1 of 2'); // cap stated
   });
+
+  it('renders a short pointer instead of the list when a pending approval card exists', async () => {
+    const w = new FakeWriter();
+    await streamOrchestrationToUI(
+      w,
+      evs({
+        kind: 'final',
+        result: {
+          pendingApproval: { approvalId: 'ap1', taskId: 't-1' },
+          recommendations: [
+            {
+              userId: 'u1',
+              name: 'Alice',
+              skillMatch: ['aws'],
+              skillMatchCount: 1,
+              status: 'available',
+            },
+            {
+              userId: 'u2',
+              name: 'Bob',
+              skillMatch: ['aws'],
+              skillMatchCount: 1,
+              status: 'busy',
+            },
+          ],
+        },
+      }),
+    );
+    expect(w.text()).toContain('review the approval card above');
+    expect(w.text()).toContain('Alice');
+    expect(w.text()).not.toContain('Recommended assignees');
+  });
 });

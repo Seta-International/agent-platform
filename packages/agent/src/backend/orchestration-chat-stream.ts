@@ -33,6 +33,7 @@ interface OrchestratorResult {
   tasks?: { task: TaskSummary; recommendations?: Recommendation[] }[];
   candidates?: RankedCandidate[];
   recommendations?: Recommendation[];
+  pendingApproval?: { approvalId: string; taskId: string };
   message?: string;
 }
 
@@ -62,6 +63,15 @@ function formatFinal(result: unknown): string {
         ? `\nTasks (recommendations for the first ${withRecs} of ${r.tasks.length}):`
         : '\nTasks:';
     return `${header}\n${lines.join('\n')}\n`;
+  }
+
+  // recommend (single task) with an in-thread approval card: the interactive
+  // card above carries the full candidate detail; the text just points at it.
+  if (r.pendingApproval && Array.isArray(r.recommendations)) {
+    const [top] = r.recommendations;
+    if (top) {
+      return `\nAn assignee proposal is ready — review the approval card above. Top match: ${top.name ?? top.userId}.\n`;
+    }
   }
 
   // recommend (single task)
