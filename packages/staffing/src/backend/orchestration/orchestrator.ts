@@ -136,6 +136,7 @@ export function makeOrchestratorAgent(deps: OrchestratorDeps): SpecializedAgentS
             return {
               toolCalls: r.toolCalls as MastraToolSignals['toolCalls'],
               toolResults: r.toolResults as MastraToolSignals['toolResults'],
+              text: r.text,
             };
           })();
 
@@ -199,6 +200,14 @@ function assemble(res: MastraToolSignals): OrchestratorResult {
     const skills = ta.find((o) => o.skills)?.skills;
     if (skills) return { skills };
   }
+
+  // A turn where the LLM called no tools at all is conversational — e.g. the
+  // "Approved"/"Declined" follow-up ChatEmbeddedHitl appends after a card
+  // decision, or a plain greeting. Answer with the LLM's own words. Turns
+  // where tools ran but produced nothing keep the honest hardcoded messages.
+  const noToolsRan = res.toolCalls.length === 0 && res.toolResults.length === 0;
+  const llmText = res.text?.trim();
+  if (noToolsRan && llmText) return { message: llmText };
 
   return {
     message: downstreamAttempted

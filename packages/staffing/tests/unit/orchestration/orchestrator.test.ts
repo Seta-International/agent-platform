@@ -18,6 +18,7 @@ const stub = <I, O>(id: string): SpecializedAgentSpec<I, O> => ({
 const make = (
   toolResults: { payload: { toolName: string; result: unknown } }[],
   toolCalls: { payload: { toolName: string; args?: unknown } }[] = [],
+  text?: string,
 ) =>
   makeOrchestratorAgent({
     taskAnalyzer: stub('staffing.taskAnalyzer'),
@@ -25,7 +26,7 @@ const make = (
     avaiChecker: stub('staffing.avaiChecker'),
     recommender: stub('staffing.recommender'),
     resolveModel: () => ({}) as never,
-    runAgent: async () => ({ toolCalls, toolResults }),
+    runAgent: async () => ({ toolCalls, toolResults, text }),
   });
 
 describe('orchestrator assembly', () => {
@@ -209,6 +210,30 @@ describe('orchestrator assembly', () => {
     const res = await agent.run({ userText: 'hi', taskId: null }, ctx);
     expect(typeof res.result.message).toBe('string');
     expect(res.result.skills).toBeUndefined();
+  });
+
+  it('no tools ran + LLM text → the text becomes the message (post-decision acks)', async () => {
+    const agent = make([], [], 'Noted — the assignment has been approved.');
+    const res = await agent.run({ userText: 'Approved', taskId: null }, ctx);
+    expect(res.result.message).toBe('Noted — the assignment has been approved.');
+  });
+
+  it('no tools and no text → the generic capability message', async () => {
+    const agent = make([]);
+    const res = await agent.run({ userText: 'hi', taskId: null }, ctx);
+    expect(res.result.message).toContain('I can describe');
+  });
+
+  it('tools ran but produced nothing → honest failure message, NOT the LLM text', async () => {
+    const agent = make(
+      [{ payload: { toolName: 'callTaskAnalyzer', result: {} } }],
+      [{ payload: { toolName: 'callAvaiChecker', args: {} } }],
+      'Some chatty LLM filler that must not leak.',
+    );
+    const res = await agent.run({ userText: 'who should do this task', taskId: 't-1' }, ctx);
+    expect(res.result.message).toBe(
+      "I couldn't complete the recommendation for this task. Please try again.",
+    );
   });
 });
 

@@ -3,6 +3,8 @@ import type { Citation, TrustEnvelope } from '@seta/agent-sdk';
 export interface MastraToolSignals {
   toolCalls: { payload: { toolName: string; args?: unknown } }[];
   toolResults: { payload: { toolName: string; result: unknown } }[];
+  /** The LLM's final turn text — assemble's message for no-tool (ack) turns. */
+  text?: string;
 }
 
 export interface TrustFromResultOpts {
