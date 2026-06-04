@@ -1,10 +1,12 @@
-import type { TrustEnvelope } from '@seta/agent-sdk';
+import type { ChatHitlRecorder, TrustEnvelope } from '@seta/agent-sdk';
 import { z } from 'zod';
 
 /** Tenant/actor context for a run. */
 export interface RunCtx {
   tenantId: string;
   actorUserId: string;
+  /** Optional recorder for in-thread HITL approval cards (chat inline runs only). */
+  recordHitlApproval?: ChatHitlRecorder;
 }
 
 /** Accumulated state of a run: each completed step's output keyed by step id. */

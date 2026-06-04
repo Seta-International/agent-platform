@@ -59,6 +59,7 @@ export async function executeStep(
     tenantId: ctx.tenantId,
     actorUserId: ctx.actorUserId,
     onEvent: deps.onEvent,
+    recordHitlApproval: ctx.recordHitlApproval,
   });
   agent.outputSchema.parse(res.result);
 
