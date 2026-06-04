@@ -1,10 +1,12 @@
 import { Agent } from '@mastra/core/agent';
 import { RequestContext } from '@mastra/core/request-context';
-import type {
-  AgentResult,
-  Citation,
-  SpecializedAgentRunCtx,
-  SpecializedAgentSpec,
+import {
+  type AgentResult,
+  type Citation,
+  RC_AGENT_MEMORY,
+  RC_THREAD_ID,
+  type SpecializedAgentRunCtx,
+  type SpecializedAgentSpec,
 } from '@seta/agent-sdk';
 import type { LanguageModel } from 'ai';
 import type { z } from 'zod';
@@ -108,6 +110,11 @@ export function makeOrchestratorAgent(deps: OrchestratorDeps): SpecializedAgentS
       const rc = new RequestContext();
       rc.set('actor', { type: 'user', user_id: ctx.actorUserId });
       rc.set('tenant_id', ctx.tenantId);
+      // Conversation-scoped memory wiring: the SDK entity recorder and
+      // task-ref resolver key on these two request-context entries. Absent
+      // (first turn before a thread id exists, queued runner) they no-op.
+      if (ctx.threadId) rc.set(RC_THREAD_ID, ctx.threadId);
+      if (ctx.entitiesMemory) rc.set(RC_AGENT_MEMORY, ctx.entitiesMemory);
 
       const res: MastraToolSignals = deps.runAgent
         ? await deps.runAgent({ input, requestContext: rc })

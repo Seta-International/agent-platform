@@ -1,4 +1,10 @@
-import { EMPTY_TRUST, type SpecializedAgentSpec } from '@seta/agent-sdk';
+import type { RequestContext } from '@mastra/core/request-context';
+import {
+  EMPTY_TRUST,
+  RC_AGENT_MEMORY,
+  RC_THREAD_ID,
+  type SpecializedAgentSpec,
+} from '@seta/agent-sdk';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { makeOrchestratorAgent } from '../../../src/backend/orchestration/orchestrator.ts';
@@ -392,5 +398,47 @@ describe('orchestrator HITL approval post-step', () => {
     );
     expect(res.result.pendingApproval).toBeUndefined();
     expect(res.result.recommendations).toHaveLength(2);
+  });
+});
+
+describe('orchestrator request-context wiring', () => {
+  it('sets RC_THREAD_ID and RC_AGENT_MEMORY when ctx provides them', async () => {
+    let rcSeen: RequestContext | undefined;
+    const handle = { memory: {} as never, memoryConfig: {} };
+    const agent = makeOrchestratorAgent({
+      taskAnalyzer: stub('staffing.taskAnalyzer'),
+      skillMatcher: stub('staffing.skillMatcher'),
+      avaiChecker: stub('staffing.avaiChecker'),
+      recommender: stub('staffing.recommender'),
+      resolveModel: () => ({}) as never,
+      runAgent: async ({ requestContext }) => {
+        rcSeen = requestContext;
+        return { toolCalls: [], toolResults: [], text: 'hi' };
+      },
+    });
+    await agent.run(
+      { userText: 'hello', taskId: null },
+      { ...ctx, threadId: 'conv-9', entitiesMemory: handle as never },
+    );
+    expect(rcSeen?.get(RC_THREAD_ID)).toBe('conv-9');
+    expect(rcSeen?.get(RC_AGENT_MEMORY)).toBe(handle);
+  });
+
+  it('leaves the keys unset when ctx has no thread/memory', async () => {
+    let rcSeen: RequestContext | undefined;
+    const agent = makeOrchestratorAgent({
+      taskAnalyzer: stub('staffing.taskAnalyzer'),
+      skillMatcher: stub('staffing.skillMatcher'),
+      avaiChecker: stub('staffing.avaiChecker'),
+      recommender: stub('staffing.recommender'),
+      resolveModel: () => ({}) as never,
+      runAgent: async ({ requestContext }) => {
+        rcSeen = requestContext;
+        return { toolCalls: [], toolResults: [], text: 'hi' };
+      },
+    });
+    await agent.run({ userText: 'hello', taskId: null }, ctx);
+    expect(rcSeen?.get(RC_THREAD_ID)).toBeUndefined();
+    expect(rcSeen?.get(RC_AGENT_MEMORY)).toBeUndefined();
   });
 });
