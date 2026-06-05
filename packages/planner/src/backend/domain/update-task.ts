@@ -1,6 +1,7 @@
 import type { SessionScope } from '@seta/core';
 import { withEmit } from '@seta/core/events';
 import { and, eq, isNull } from 'drizzle-orm';
+import sanitizeHtml from 'sanitize-html';
 import { emitPlannerTaskUpdated } from '../../events/emit-helpers.ts';
 import type { TaskChangedField, TaskMutableFields } from '../../events/types.ts';
 import { plans, tasks } from '../db/schema.ts';
@@ -13,9 +14,48 @@ import { taskRowToDto } from './_task-dto.ts';
 
 type TaskDbRow = typeof tasks.$inferSelect;
 
+const DESCRIPTION_SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
+  allowedTags: [
+    'p',
+    'br',
+    'strong',
+    'em',
+    'u',
+    'del',
+    'h1',
+    'h2',
+    'h3',
+    'ul',
+    'ol',
+    'li',
+    'a',
+    'code',
+    'pre',
+  ],
+  allowedAttributes: { a: ['href', 'rel'] },
+  transformTags: {
+    a: (_tagName, attribs) => ({
+      tagName: 'a',
+      attribs: { href: attribs.href ?? '#', rel: 'noopener noreferrer' },
+    }),
+  },
+};
+
+function sanitizeDescription(raw: string | null): {
+  description: string | null;
+  description_text: string | null;
+} {
+  if (raw === null) return { description: null, description_text: null };
+  const description = sanitizeHtml(raw, DESCRIPTION_SANITIZE_OPTIONS);
+  const description_text =
+    sanitizeHtml(description, { allowedTags: [], allowedAttributes: {} }) || null;
+  return { description, description_text };
+}
+
 const SIMPLE_FIELDS = [
   'title',
   'description',
+  'description_text',
   'bucket_id',
   'percent_complete',
   'priority_number',
@@ -130,6 +170,15 @@ async function updateTaskImpl(input: {
         updated_at: new Date(),
         version: existing.version + 1,
       };
+
+      // Sanitize description and derive description_text as a coupled pair.
+      if ((patch as Record<string, unknown>).description !== undefined) {
+        const { description, description_text } = sanitizeDescription(
+          (patch as Record<string, unknown>).description as string | null,
+        );
+        (patch as Record<string, unknown>).description = description;
+        (patch as Record<string, unknown>).description_text = description_text;
+      }
 
       for (const f of SIMPLE_FIELDS) {
         const v = (patch as Record<string, unknown>)[f];
