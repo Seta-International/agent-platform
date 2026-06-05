@@ -48,7 +48,7 @@ function sanitizeDescription(raw: string | null): {
   if (raw === null) return { description: null, description_text: null };
   const description = sanitizeHtml(raw, DESCRIPTION_SANITIZE_OPTIONS);
   const description_text =
-    sanitizeHtml(description, { allowedTags: [], allowedAttributes: {} }) || null;
+    sanitizeHtml(description, { allowedTags: [], allowedAttributes: {} }).trim() || null;
   return { description, description_text };
 }
 

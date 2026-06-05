@@ -218,4 +218,34 @@ describe('updateTask description sanitization', () => {
       }
     });
   });
+
+  it('sets description_text to null when description contains only whitespace', async () => {
+    await withTestDb(DB_OPTS, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      initPools({ databaseUrl });
+      try {
+        const seeded = await seedTenant(pool);
+        const session = seeded.adminSession;
+        const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'G', session });
+        const plan = await createPlan({ group_id: group.id, name: 'P', session });
+        const task = await createTask({ plan_id: plan.id, title: 'T', session });
+
+        await updateTask({
+          task_id: task.id,
+          expected_version: 1,
+          patch: { description: '<p>   </p>' },
+          session,
+        });
+
+        const { rows } = await pool.query(
+          'SELECT description_text FROM planner.tasks WHERE id = $1',
+          [task.id],
+        );
+        expect(rows[0].description_text).toBeNull();
+      } finally {
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
 });
