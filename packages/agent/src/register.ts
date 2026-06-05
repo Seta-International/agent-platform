@@ -17,16 +17,15 @@ import type { Pool } from 'pg';
 import { buildBreakerEmitter } from './backend/breaker-emitter.ts';
 import * as schema from './backend/db/schema.ts';
 import { getPendingAssignRunIdForTask } from './backend/domain/get-pending-assign-run-for-task.ts';
-import { initClassifier } from './backend/domain-classifier.ts';
 import { agentEnv } from './backend/env.ts';
 import { initAgentRegistry } from './backend/init-registry.ts';
 import { agentJobs } from './backend/jobs/rate-limit-cleanup.ts';
+import { buildEntitiesMemory, buildMemory } from './backend/memory.ts';
 import { type ModelTier, resolveModel } from './backend/model-registry.ts';
 import { validateModelEnv } from './backend/provider-config.ts';
 import { registerAgentRoutes } from './backend/routes.ts';
 import { buildMastraFull } from './backend/runtime.ts';
 import { agentSubscribers } from './backend/subscribers/index.ts';
-import { buildSupervisorTree } from './backend/supervisor-tree.ts';
 import { registerWorkflowInputSchema } from './backend/workflows/_infra/input-schema-registry.ts';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
@@ -75,12 +74,11 @@ export function registerAgent(deps: {
    */
   chatHitlDeciders?: Record<string, ChatHitlDecider>;
   /**
-   * When present, the chat route runs this inline orchestration instead of the
-   * supervisor tree (AGENT_CHAT_RUNTIME=orchestration harness). Injected by the
-   * server entry-point (the only layer that can bind staffing adapters to the
-   * engine). Absent => supervisor tree (default). See AgentRouteDeps.
+   * The chat runtime: every chat turn streams through this inline staffing
+   * orchestration. Injected by the server entry-point (the only layer that can
+   * bind staffing adapters to the engine). See AgentRouteDeps.chatOrchestration.
    */
-  chatOrchestration?: (
+  chatOrchestration: (
     runInput: { userText: string; taskId: string | null },
     ctx: import('@seta/shared-orchestration').RunCtx,
   ) => AsyncIterable<import('@seta/shared-orchestration').OrchestrationEvent>;
@@ -114,7 +112,6 @@ export function registerAgent(deps: {
     }
   }
   initAgentRegistry();
-  void initClassifier();
 
   for (const spec of AgentRegistry.snapshot().workflows) {
     const wf = spec.workflow as AnyWorkflow;
@@ -133,39 +130,25 @@ export function registerAgent(deps: {
   registerPendingAssignReader(getPendingAssignRunIdForTask);
   void mastra.startWorkers();
 
-  const {
-    topSupervisor,
-    domainAgents,
-    memory,
-    memoryConfig,
-    entitiesMemory,
-    entitiesMemoryConfig,
-  } = buildSupervisorTree({
-    mastra,
-    databaseUrl: deps.databaseUrl,
-  });
-  // Register the supervisor on Mastra so its agent instance gets the `#mastra`
-  // back-reference. Without this, `agent.resumeStream()` (called by the chat
-  // /approve route to resume a HITL-gated tool) throws
-  // AGENT_RESUME_NO_SNAPSHOT_FOUND because `this.#mastra?.getStorage()`
-  // returns undefined and the agentic-loop workflow snapshot can't be loaded.
-  mastra.addAgent(topSupervisor);
+  // Working-memory factories (previously built inside the supervisor tree):
+  // resource-scoped userContext (GuardedMemory) + thread-scoped conversation
+  // entities. The chat route hands both to the orchestration run ctx.
+  const userMem = buildMemory({ mastra, databaseUrl: deps.databaseUrl });
+  const entitiesMem = buildEntitiesMemory({ mastra });
 
   return {
     attach(app) {
       registerAgentRoutes(app as never, {
-        supervisor: topSupervisor,
-        domainAgents,
         mastra,
         drainer,
         pool: deps.pool,
         log: deps.log,
         chatHitlDeciders: deps.chatHitlDeciders,
         chatOrchestration: deps.chatOrchestration,
-        entitiesMemory,
-        entitiesMemoryConfig,
-        userMemory: memory,
-        userMemoryConfig: memoryConfig,
+        entitiesMemory: entitiesMem?.memory,
+        entitiesMemoryConfig: entitiesMem?.memoryConfig,
+        userMemory: userMem?.memory,
+        userMemoryConfig: userMem?.memoryConfig,
       });
     },
     mastra,
