@@ -724,12 +724,12 @@ describe('POST /api/agent/v1/chat (model override)', () => {
         userId: admin_user_id,
         tenantId: tenant_id,
       });
-      // 'openai/gpt-5.4' is in the model registry's built-in fallback catalog,
-      // so this resolves without AGENT_MODELS being set in the test env.
+      // global-setup pins AGENT_MODEL=mock/echo, so the test catalog is that
+      // single entry (AGENT_MODEL preempts the built-in fallback catalog).
       const res = await app.request('/api/agent/v1/chat', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ messages: [v6UserMessage('hi')], model: 'openai/gpt-5.4' }),
+        body: JSON.stringify({ messages: [v6UserMessage('hi')], model: 'mock/echo' }),
       });
       expect(res.status).toBe(200);
       await res.text();
