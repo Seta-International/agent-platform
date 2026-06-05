@@ -55,17 +55,3 @@ describe('parseAgentEnv — memory fields', () => {
     expect(() => parseAgentEnv({ AGENT_MEMORY_LAST_MESSAGES: '0' })).toThrow();
   });
 });
-
-describe('AGENT_CHAT_RUNTIME', () => {
-  it('defaults to supervisor', () => {
-    expect(parseAgentEnv({}).AGENT_CHAT_RUNTIME).toBe('supervisor');
-  });
-  it('accepts orchestration', () => {
-    expect(parseAgentEnv({ AGENT_CHAT_RUNTIME: 'orchestration' }).AGENT_CHAT_RUNTIME).toBe(
-      'orchestration',
-    );
-  });
-  it('rejects an unknown value', () => {
-    expect(() => parseAgentEnv({ AGENT_CHAT_RUNTIME: 'bogus' })).toThrow();
-  });
-});

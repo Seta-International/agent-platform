@@ -16,10 +16,6 @@ const Env = z.object({
 
   // Memory configuration
   AGENT_MEMORY_LAST_MESSAGES: z.coerce.number().int().positive().default(20),
-
-  // Chat runtime selector. 'supervisor' (default) = the three-tier supervisor
-  // tree. 'orchestration' = the inline staffing orchestration test harness.
-  AGENT_CHAT_RUNTIME: z.enum(['supervisor', 'orchestration']).default('supervisor'),
 });
 
 export type AgentEnv = z.infer<typeof Env>;
