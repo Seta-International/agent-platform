@@ -1,7 +1,7 @@
 import { Agent } from '@mastra/core/agent';
+import type { MastraModelConfig } from '@mastra/core/llm';
 import { RequestContext } from '@mastra/core/request-context';
 import type { AgentResult, Citation, SpecializedAgentSpec } from '@seta/agent-sdk';
-import type { LanguageModel } from 'ai';
 import type { z } from 'zod';
 import { pickModel } from '../model.ts';
 import type { SkillSearchHit, SkillSearchPort } from '../ports.ts';
@@ -18,7 +18,7 @@ type In = z.infer<typeof SkillMatcherInputSchema>;
 
 export interface SkillMatcherDeps {
   skillSearch: SkillSearchPort;
-  resolveModel: () => LanguageModel;
+  resolveModel: () => MastraModelConfig;
   topK?: number;
   /** Test-only seam; production builds + runs a real Mastra Agent. */
   runAgent?: (args: { input: In; requestContext: RequestContext }) => Promise<MastraToolSignals>;
@@ -56,7 +56,7 @@ export function makeSkillMatcherAgent(deps: SkillMatcherDeps): SpecializedAgentS
               id: 'staffing.skillMatcher',
               name: 'Skill Matcher',
               instructions: INSTRUCTIONS,
-              model: pickModel(ctx, deps.resolveModel) as never,
+              model: pickModel(ctx, deps.resolveModel),
               tools: tools as never,
             });
             const r = await agent.generate(

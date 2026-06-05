@@ -788,7 +788,7 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
   });
 
   app.get('/api/agent/v1/health', async (c) => {
-    const modelConfigured = Boolean(agentEnv.AGENT_MODEL);
+    const modelConfigured = listModels().models.length > 0;
     let dbReachable = true;
     const storage = (deps.mastra as { getStorage: () => unknown }).getStorage();
     try {

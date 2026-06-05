@@ -162,6 +162,9 @@ importers:
       '@seta/shared-db':
         specifier: workspace:^
         version: link:../../packages/shared-db
+      '@seta/shared-embeddings':
+        specifier: workspace:^
+        version: link:../../packages/shared-embeddings
       '@seta/shared-mailer':
         specifier: workspace:^
         version: link:../../packages/shared-mailer

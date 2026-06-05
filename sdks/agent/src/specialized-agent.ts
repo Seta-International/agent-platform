@@ -1,4 +1,4 @@
-import type { LanguageModel } from 'ai';
+import type { MastraModelConfig } from '@mastra/core/llm';
 import type { z } from 'zod';
 import type { ChatHitlRecorder } from './hitl/chat-hitl.ts';
 import type { AgentMemoryHandle } from './request-context.ts';
@@ -30,7 +30,7 @@ export interface SpecializedAgentRunCtx {
   /** Per-turn model override (chat inline runs only). Resolved by the chat
    *  route's model registry from the user's explicit model pick; absent ⇒ the
    *  runtime's boot-time default model. */
-  model?: LanguageModel;
+  model?: MastraModelConfig;
   /** Optional sink for sub-step events emitted while this agent runs. The inline
    *  runner provides it; the queued runner and direct callers leave it undefined. */
   onEvent?: (event: SubStepEvent) => void;

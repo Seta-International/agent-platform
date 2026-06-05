@@ -8,7 +8,7 @@ import { emit, withEmit } from '@seta/core/events';
 import { createOutboxStore } from '@seta/core/outbox';
 import { registerCoreContributions } from '@seta/core/register';
 import { buildRuntime, runMigrations, type WorkerHandle } from '@seta/core/runtime';
-import { getIdentityVectorStore, resolveEmbeddingProvider } from '@seta/identity';
+import { getIdentityVectorStore } from '@seta/identity';
 import { registerIdentityContributions } from '@seta/identity/register';
 import { registerIntegrationsContributions } from '@seta/integrations/register';
 import { registerKnowledgeContributions } from '@seta/knowledge/register';
@@ -17,6 +17,7 @@ import { plannerProposeAssignmentChatHitlDecider } from '@seta/planner/agent-too
 import { registerPlannerContributions } from '@seta/planner/register';
 import { createCrypto, createKeyProviderFromEnv, parseCryptoEnv } from '@seta/shared-crypto';
 import { closePools, getPool, initPools } from '@seta/shared-db';
+import { resolveEmbeddingProvider } from '@seta/shared-embeddings';
 import { createMailer } from '@seta/shared-mailer';
 import { OrchestrationRegistry } from '@seta/shared-orchestration';
 import {

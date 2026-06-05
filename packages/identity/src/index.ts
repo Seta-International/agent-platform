@@ -84,7 +84,6 @@ export {
   type BackfillUserProfilesOptions,
   backfillUserProfiles,
 } from './backend/embeddings/backfill/backfill-user-profiles.ts';
-export { resolveEmbeddingProvider } from './backend/embeddings/provider-resolver.ts';
 export { embeddingJobs } from './backend/embeddings/register-jobs.ts';
 export type { UserProfileSourceInput } from './backend/embeddings/source.ts';
 export { buildUserProfileSource } from './backend/embeddings/source.ts';

@@ -27,6 +27,7 @@
     "@seta/planner": "workspace:^",
     "@seta/shared-crypto": "workspace:^",
     "@seta/shared-db": "workspace:^",
+    "@seta/shared-embeddings": "workspace:^",
     "@seta/shared-mailer": "workspace:^",
     "@seta/shared-orchestration": "workspace:*",
     "@seta/shared-types": "workspace:^",

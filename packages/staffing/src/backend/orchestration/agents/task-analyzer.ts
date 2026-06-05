@@ -1,3 +1,5 @@
+import { Agent } from '@mastra/core/agent';
+import type { MastraModelConfig } from '@mastra/core/llm';
 import type {
   AgentResult,
   Citation,
@@ -5,7 +7,6 @@ import type {
   SpecializedAgentSpec,
   TrustEnvelope,
 } from '@seta/agent-sdk';
-import { generateObject, type LanguageModel } from 'ai';
 import { z } from 'zod';
 import { pickModel } from '../model.ts';
 import type { TaskReaderPort, TaskSearchPort, TaskSummary } from '../ports.ts';
@@ -25,7 +26,7 @@ export interface TaskAnalyzerDeps {
   taskReader: TaskReaderPort;
   taskSearch: TaskSearchPort;
   /** Fast model used by the (LLM) extraction steps; resolved lazily, only when needed. */
-  resolveModel: () => LanguageModel;
+  resolveModel: () => MastraModelConfig;
   /** Test seams; production runs structured-output LLM extraction. */
   extractSkillsFromTask?: (args: {
     title: string;
@@ -41,17 +42,24 @@ async function extractTags(
   ctx: Pick<SpecializedAgentRunCtx, 'model' | 'abortSignal'>,
 ) {
   if (deps.extractTagsFromQuery) return deps.extractTagsFromQuery({ query });
-  const { object } = await generateObject({
-    model: pickModel(ctx, deps.resolveModel),
-    schema: z.object({ tags: z.array(z.string()) }),
-    abortSignal: ctx.abortSignal,
-    prompt: [
+  // Built per call (not at factory time) so the per-turn model override in
+  // ctx.model takes effect. Structured output via Mastra (not raw generateObject)
+  // so the unified router model config resolves through the Mastra gateway.
+  const agent = new Agent({
+    id: 'staffing.taskAnalyzer.tagExtractor',
+    name: 'Task Analyzer tag extraction',
+    instructions: [
       'Extract the lowercase skill or area tag(s) named in the user message.',
       'Return an empty array if the message names no skills.',
-      `User message: ${query}`,
     ].join('\n'),
+    model: pickModel(ctx, deps.resolveModel),
   });
-  return object.tags;
+  const r = await agent.generate(`User message: ${query}`, {
+    structuredOutput: { schema: z.object({ tags: z.array(z.string()) }) },
+    abortSignal: ctx.abortSignal,
+  });
+  if (!r.object) throw new Error('tag extraction returned no structured output');
+  return r.object.tags;
 }
 
 /** Skills a task implies, inferred from its title + description (LLM extraction). */
@@ -62,18 +70,25 @@ async function extractSkills(
   ctx: Pick<SpecializedAgentRunCtx, 'model' | 'abortSignal'>,
 ) {
   if (deps.extractSkillsFromTask) return deps.extractSkillsFromTask({ title, description });
-  const { object } = await generateObject({
-    model: pickModel(ctx, deps.resolveModel),
-    schema: z.object({ skills: z.array(z.string()) }),
-    abortSignal: ctx.abortSignal,
-    prompt: [
+  // Per-call Agent for the same reasons as extractTags above.
+  const agent = new Agent({
+    id: 'staffing.taskAnalyzer.skillExtractor',
+    name: 'Task Analyzer skill extraction',
+    instructions: [
       'Extract a concise list of technical skill tags (lowercase, no duplicates)',
       'required to do this task. Return only skills clearly implied by the text.',
-      `Title: ${title}`,
-      `Description: ${description ?? '(none)'}`,
     ].join('\n'),
+    model: pickModel(ctx, deps.resolveModel),
   });
-  return object.skills;
+  const r = await agent.generate(
+    [`Title: ${title}`, `Description: ${description ?? '(none)'}`].join('\n'),
+    {
+      structuredOutput: { schema: z.object({ skills: z.array(z.string()) }) },
+      abortSignal: ctx.abortSignal,
+    },
+  );
+  if (!r.object) throw new Error('skill extraction returned no structured output');
+  return r.object.skills;
 }
 
 function trust(

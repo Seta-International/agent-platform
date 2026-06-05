@@ -1,3 +1,4 @@
+import type { MastraModelConfig } from '@mastra/core/llm';
 import { SpecializedAgentRegistry } from '@seta/agent-sdk';
 import {
   type AddJob,
@@ -8,7 +9,6 @@ import {
   type RunStateRepository,
   runOrchestrationInline,
 } from '@seta/shared-orchestration';
-import type { LanguageModel } from 'ai';
 import {
   makeAvaiCheckerAgent,
   makeRecommenderAgent,
@@ -51,7 +51,7 @@ export function __setStaffingRunIdForTests(fn: () => string): void {
  */
 export function buildStaffingOrchestrationRuntime(deps: {
   ports: StaffingPorts;
-  resolveModel: () => LanguageModel;
+  resolveModel: () => MastraModelConfig;
   repo: RunStateRepository;
 }): StaffingOrchestrationRuntime {
   const { ports, resolveModel, repo } = deps;

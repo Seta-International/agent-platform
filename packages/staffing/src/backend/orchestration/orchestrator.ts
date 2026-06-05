@@ -1,4 +1,5 @@
 import { Agent } from '@mastra/core/agent';
+import type { MastraModelConfig } from '@mastra/core/llm';
 import { RequestContext } from '@mastra/core/request-context';
 import {
   type AgentResult,
@@ -8,7 +9,6 @@ import {
   type SpecializedAgentRunCtx,
   type SpecializedAgentSpec,
 } from '@seta/agent-sdk';
-import type { LanguageModel } from 'ai';
 import type { z } from 'zod';
 import { buildAssignApprovalCard } from './approval-card.ts';
 import { pickModel } from './model.ts';
@@ -58,7 +58,7 @@ export interface OrchestratorDeps {
   skillMatcher: SkillMatcherSpec;
   avaiChecker: AvaiCheckerSpec;
   recommender: RecommenderSpec;
-  resolveModel: () => LanguageModel;
+  resolveModel: () => MastraModelConfig;
   /** Cap on how many found tasks the orchestrator recommends people for. */
   recommendTaskCap?: number;
   /** Test-only seam; production builds + runs a real Mastra Agent. Receives the
@@ -151,7 +151,7 @@ export function makeOrchestratorAgent(deps: OrchestratorDeps): SpecializedAgentS
               id: 'staffing.orchestrator',
               name: 'Staffing Orchestrator',
               instructions: agentInstructions,
-              model: pickModel(ctx, deps.resolveModel) as never,
+              model: pickModel(ctx, deps.resolveModel),
               tools: tools as never,
             });
             const r = await agent.generate(
