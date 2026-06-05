@@ -1,12 +1,12 @@
 # Agent system
 
-Seta's agent system is a **three-tier supervisor tree**: a top router selects a domain, a domain supervisor coordinates the specialists and workflows registered in that domain, and each specialist is a Mastra `Agent` composed from a curated tool record. Every write tool is gated by an explicit human-in-the-loop approval; every workflow step is audited and replayable through the same event bus as the rest of the platform.
+Seta's agent system is an **agent-of-agents orchestration**: every chat turn streams through the staffing orchestrator, which delegates to its sub-agents (taskAnalyzer / skillMatcher / avaiChecker / recommender) through tools and stops at the right terminal for the request. Agent-driven mutations are gated by an explicit human-in-the-loop approval card; every workflow step is audited and replayable through the same event bus as the rest of the platform.
 
 This document explains the design by tracing one realistic workload — planner assignment assistance for a product manager — from user pain point through to implementation. The planner is used as the running example because it exercises every layer the system offers: a specialist with read and HITL-gated write tools, a deterministic multi-step workflow (`assignBySkill`), and cross-module read tools owned by `identity`.
 
 **Related documents.** [`architecture.md`](./architecture.md) describes the surrounding platform shape (modules, event bus, identity). [`tech-stack.md`](./tech-stack.md) records the rationale for Mastra, AI SDK v6, and assistant-ui. [`creating-modules.md`](./creating-modules.md) is the module-author guide.
 
-> **Scope note.** Every layer described below — top router, domain supervisors, the `planner` / `identity` / `self` / `meta` specialists, the `assignBySkill` and `dedupOnCreate` workflows, and the cross-module read tools — is wired up in the codebase today. Code locations are listed in §19.
+> **Scope note.** Every layer described below — the staffing orchestrator and its sub-agents, the registered specialists backing the tool catalogue, the `assignBySkill` and `dedupOnCreate` workflows, and the cross-module read tools — is wired up in the codebase today. Code locations are listed in §21.
 
 ---
 
@@ -16,7 +16,7 @@ This document explains the design by tracing one realistic workload — planner 
 |---|---|
 | [A. Pain point](#part-a--pain-point) | Personas, current-tool gaps |
 | [B. Use case](#part-b--use-case) | Target user story and required capabilities |
-| [C. Design](#part-c--design) | Three-tier supervisor tree, registry, HITL boundary, memory, workflows, observability |
+| [C. Design](#part-c--design) | Orchestration runtime, registry, HITL boundary, memory, workflows, observability |
 | [D. Implementation](#part-d--implementation) | Specialist registration, tool definitions, workflow shells, web surface, end-to-end run |
 | [E. Production concerns](#part-e--production-concerns) | Failure modes, latency and cost budgets, extension criteria |
 
@@ -27,67 +27,50 @@ This document explains the design by tracing one realistic workload — planner 
 ```mermaid
 flowchart LR
     User[User in assistant-ui]
-    Top[Top supervisor]
-    DomW[Domain supervisor — work]
-    DomP[Domain supervisor — people]
-    DomS[Domain supervisor — self]
-    DomM[Domain supervisor — meta]
-    SpPlan[Specialist — planner]
-    SpId[Specialist — identity]
-    SpSelf[Specialist — self]
-    SpMeta[Specialist — meta]
+    Chat[POST /api/agent/v1/chat]
+    Orch[Staffing orchestrator]
+    TA[taskAnalyzer]
+    SM[skillMatcher]
+    AC[avaiChecker — deterministic]
+    RC[recommender — deterministic]
+    Card[HITL approval card]
     WfABS[Workflow — assignBySkill]
     WfDOC[Workflow — dedupOnCreate]
-    Tools[Module-owned tools]
-    XRead[Cross-module read tools]
-    HITL{Human approval}
     Mods[Feature modules]
     PG[(Postgres — agent + module schemas)]
     LLM[LLM provider]
 
-    User --> Top
-    Top --> DomW
-    Top --> DomP
-    Top --> DomS
-    Top --> DomM
-    DomW --> SpPlan
-    DomW --> WfABS
-    DomW --> WfDOC
-    DomP --> SpId
-    DomS --> SpSelf
-    DomM --> SpMeta
-    SpPlan --> Tools
-    SpPlan --> XRead
-    SpId --> XRead
-    Tools --> HITL
-    WfABS --> HITL
-    WfDOC --> HITL
-    HITL --> Mods
+    User --> Chat
+    Chat --> Orch
+    Orch --> TA
+    Orch --> SM
+    Orch --> AC
+    Orch --> RC
+    Orch --> Card
+    Card --> Mods
+    WfABS --> Mods
+    WfDOC --> Mods
     Mods --> PG
-    Top -. memory .- PG
-    DomW -. memory .- PG
-    SpPlan -. memory .- PG
-    Top --> LLM
-    DomW --> LLM
-    SpPlan --> LLM
+    Orch -. working memory .- PG
+    Orch --> LLM
+    TA --> LLM
+    SM --> LLM
 ```
 
 | Layer | Responsibility |
 |---|---|
-| User-facing chat | Message stream, tool-call cards, approval cards rendered by assistant-ui |
-| Agent HTTP | A single route bridges the AI SDK v6 stream protocol to Mastra |
-| Top supervisor | Routes the request to exactly one domain (`work` / `people` / `self` / `meta`) |
-| Domain supervisor | Coordinates specialists and workflows registered in that domain |
-| Specialist | Domain-scoped Mastra `Agent` composed from a tool record + a domain-specific system prompt |
-| Tools | Thin adapters over module domain functions, owned by the source module |
-| Cross-module read tools | Read-only contracts a module exposes for any specialist to call without a cross-module import |
-| Workflows | Deterministic multi-step flows registered with the domain; emit lifecycle events into `agent.workflow_runs` |
-| HITL gate | Pauses every write tool and every approving workflow step for explicit user decision |
+| User-facing chat | Message stream, orchestration step cards, approval cards rendered by assistant-ui |
+| Agent HTTP | A single route bridges the AI SDK v6 stream protocol to the inline orchestration runner |
+| Orchestrator | One agent-of-agents (`staffing.orchestrator`) that routes the request across its sub-agent tools and stops at the right terminal |
+| Sub-agents | `taskAnalyzer` / `skillMatcher` (LLM-driven) and `avaiChecker` / `recommender` (deterministic), invoked as orchestrator tools |
+| Tools | Thin adapters over module domain functions (ports bound in apps/server), owned by the source module |
+| Workflows | Deterministic multi-step flows on the REST surface; emit lifecycle events into `agent.workflow_runs` |
+| HITL gate | The orchestrator's deterministic post-step records a `workflow_approvals` card; the user decides via the decide endpoint |
 | Modules | Perform the actual reads and mutations through their public surfaces |
-| Memory | Threads, messages, and traces persisted to the `agent` Postgres schema, managed by Mastra |
+| Memory | Threads, messages, traces + two typed working memories persisted to the `agent` Postgres schema |
 | Audit | Workflow lifecycle, approvals, and domain events recorded across `core.events`, `agent.workflow_runs`, and `agent.workflow_approvals` |
 
-The rest of this document explains *why* this shape — starting from a concrete user pain — and *how* it is built. Code locations for each layer are listed in §19.
+The rest of this document explains *why* this shape — starting from a concrete user pain — and *how* it is built. Code locations for each layer are listed in §21.
 
 ---
 
@@ -132,7 +115,7 @@ journey
       Ask which tasks are blocked: 5: User
       Agent returns blocked items with blocker text: 5: Agent
       Ask who can take TASK-101 requiring Stripe webhooks: 5: User
-      Agent runs planner_proposeAssignment and shows top-5 candidates: 5: Agent
+      Agent runs planner_suggestAssignee and shows top-5 candidates: 5: Agent
       User picks an assignee and approves: 5: User
       Agent assigns, notifies assignee, records audit: 5: Agent
     section Close
@@ -163,48 +146,49 @@ The target end-to-end duration is approximately five minutes for the full intera
 |---|---|---|---|---|
 | Single agent with the full tool catalogue | Grows past 50 entries as modules are added | Tool schemas in system prompt invalidate the cache on every catalogue change | Degrades as catalogue grows | No |
 | One agent per tool (router-only composition) | One tool per agent | Minimal prompt, optimal cache | No surface for domain reasoning | No |
-| Two-tier supervisor → specialists | ~15 tools per specialist | Specialist prompt caches | Supervisor selects specialist directly | Was the previous design |
-| **Three-tier top → domain supervisor → specialist** | Specialist prompts stay small; domain supervisor adds workflow-vs-specialist routing | Both supervisor prompts cache; specialist tool record is the only thing that changes with module updates | Top router picks one of four fixed domains (high precision); domain supervisor picks a specialist or workflow within scope | **Yes** |
+| Supervisor tree (two- or three-tier router → specialists) | ~15 tools per specialist; supervisors add routing tiers | Supervisor and specialist prompts cache | Each routing hop is an extra LLM decision that can mis-route; chat quality bounded by the weakest tier | Was the previous design |
+| **Orchestrator agent-of-agents (sub-agents as tools)** | Orchestrator sees a small, fixed tool palette (one tool per sub-agent + memory); each sub-agent has a narrow single-purpose prompt | Orchestrator prompt is stable and caches; sub-agent prompts are tiny | One agent owns routing AND stop conditions; deterministic stages (avaiChecker, recommender) skip the LLM entirely | **Yes** |
 
-The third tier exists for two reasons:
+The orchestrator shape exists for two reasons:
 
-1. **Workflows live next to specialists.** A domain often has both an interactive specialist (planner) and one or more deterministic multi-step workflows (`assignBySkill`, `dedupOnCreate`) — the domain supervisor decides which is the right entry point for a given request.
-2. **Bounded routing surface.** Each agent in the tree picks from a small, stable set: the top supervisor picks one of four domains, the domain supervisor picks among a handful of specialists and workflows. Adding a new module rarely changes any prompt at all — it adds a leaf.
+1. **Deterministic where possible.** Availability checking and recommendation ranking are pure functions over fetched data — running them as deterministic sub-agents removes two LLM hops, their latency, and their failure modes.
+2. **One routing brain.** The orchestrator owns the people-vs-task intent decision and the terminal conditions (people-search stops at skillMatcher; recommend runs the full pipeline + approval card). There is no tier mismatch where a router and a specialist disagree about scope.
 
 ## 6. Request flow
 
-In chat, the specialist agent **reasons** over its primitive tool palette and
-decides which signals to fetch for the request in front of it. The workflow
-registry exists for the REST surface (`/workflows/runs/:id/start`) and the
-workflow inbox; the chat agent never invokes a workflow directly — workflows
-are not in any specialist's tool record.
+Every chat turn runs the inline staffing orchestration. The orchestrator owns
+the people-vs-task routing decision and the stop conditions; sub-agents are
+invoked through its tools. The workflow registry exists for the REST surface
+(`/workflows/runs/:id/start`) and the workflow inbox; chat never invokes a
+workflow directly.
 
 ```mermaid
 sequenceDiagram
     participant User
-    participant Top as Top supervisor
-    participant Dom as Work supervisor
-    participant Spec as Planner specialist
-    participant Reads as Read tools (search_users_by_skills,<br/>planner_findSimilarTasks, identity_getTimezoneForUser, …)
-    participant Propose as planner_proposeAssignment (HITL)
+    participant Route as POST /api/agent/v1/chat
+    participant Orch as staffing.orchestrator
+    participant TA as callTaskAnalyzer
+    participant SM as callSkillMatcher
+    participant AC as callAvaiChecker
+    participant RC as callRecommender
+    participant DB as workflow_approvals
 
-    User->>Top: Who can take TASK-101
-    Top->>Dom: delegate (work)
-    Dom->>Spec: delegate (planner)
-    Spec->>Spec: reason about which signals matter
-    Spec->>Reads: 2-4 read tool calls (skill / similar work / load / tz)
-    Reads-->>Spec: signal data
-    Spec->>Propose: planner_proposeAssignment(taskRef, candidates[], summary)
-    Note over Propose: ChatHitlRecorder writes workflow_approvals row<br/>(workflow_id = __chat_hitl:planner_proposeAssignment)
-    Propose-->>User: candidate list + per-candidate rationale
-    User->>Propose: Pick Devon (decide → approve)
-    Propose->>Propose: chatHitlDecider runs INV-1 guard then assignTask
-    Propose-->>User: confirmation
+    User->>Route: Who should take TASK-101
+    Route->>Orch: runInline({ userText, taskId }, RunCtx)
+    Orch->>TA: resolve_task_skills(taskRef)
+    TA-->>Orch: skills + resolvedTaskId
+    Orch->>SM: skills → ranked candidates
+    Orch->>AC: candidates → availability (deterministic)
+    Orch->>RC: candidates + availability → recommendations
+    Orch->>DB: deterministic post-step — record approval card
+    Orch-->>User: recommendations + pending approval card
+    User->>DB: POST /workflows/approvals/:id/decide (approve)
+    DB-->>User: assignment executed via chatHitlDecider
 ```
 
 ## 7. Specialist composition
 
-A specialist is a Mastra `Agent` built dynamically at boot from a `SpecialistSpec` (`@seta/agent-sdk`). Modules register their specialists at module load time via `AgentRegistry.registerSpecialist(...)`; the registry is frozen once before the supervisor tree is built.
+A specialist is a Mastra `Agent` built dynamically at boot from a `SpecialistSpec` (`@seta/agent-sdk`). Modules register their specialists at module load time via `AgentRegistry.registerSpecialist(...)`; the registry is frozen once at boot before the runtime is built.
 
 | Ingredient | Source | Scope |
 |---|---|---|
@@ -213,9 +197,9 @@ A specialist is a Mastra `Agent` built dynamically at boot from a `SpecialistSpe
 | Tool record | `SpecialistSpec.tools: Record<string, AgentTool>` | Per specialist |
 | Workflows | `SpecialistSpec.workflows?` (rarely set on the specialist; usually registered at the domain level) | Per specialist |
 | Memory store | `@mastra/pg` `PostgresStore({ schemaName: 'agent' })`, wrapped in `Memory` with sliding window, semantic recall, and working memory | Shared store, per-user resource scope |
-| Model | `resolveModel('auto', { tierHint: 'fast' })` at the specialist layer (`balanced` at the supervisor layers) | Per agent |
+| Model | `resolveModel('auto', { tierHint: 'fast' })` at boot; an explicit chat-picker choice overrides per turn via `RunCtx.model` | Per turn |
 
-The four domains are fixed because the top router prompt is parameterised over them. Adding a new domain is a deliberate change — adding a new specialist or workflow in an existing domain is not.
+Specialists registered via `AgentRegistry.registerSpecialist(...)` back the tool catalogue (`GET /api/agent/v1/tools`) and the REST workflow surface; the chat path itself is the staffing orchestration.
 
 ## 8. Tool catalogue and RBAC binding
 
@@ -223,51 +207,42 @@ The planner specialist composes tools owned by `planner` and `identity`. Tool ID
 
 | Tool ID | Owning module | Side effect | Permission | Author shape |
 |---|---|---|---|---|
-| `identity_whoAmI` | `identity` | read | `identity.user.read` | agent tool |
 | `planner_getTask` | `planner` | read | `planner.task.read` | agent tool |
-| `planner_createTask` | `planner` | write (dedup-aware) | `planner.task.create` | agent tool (executes; dedup workflow carries HITL) |
-| `planner_proposeAssignment` | `planner` | proposes write | `planner.task.assign` | agent tool (chat HITL via `ChatHitlRecorder`) |
+| `planner_createTask` | `planner` | write (dedup-aware) | `planner.task.create` | agent tool (HITL via suspend) |
+| `planner_suggestAssignee` | `planner` | proposes write | `planner.task.assign` | agent tool (HITL via suspend) |
 | `planner_assignTask` | `planner` | write | `planner.task.assign` | agent tool (`needsApproval`) |
-| `planner_setAssignees` | `planner` | write | `planner.task.assign` | agent tool (`needsApproval`) |
-| `planner_findSimilarTasks` | `planner` | read | `planner.task.read` | agent tool |
+| `search_tasks_semantic` | `planner` | read | `planner.task.read` | agent tool |
 | `search_users_by_skills` | `identity` | read | `identity.user.read` | agent tool |
-| `planner_getOpenTaskCountForUser` | `planner` | read | `planner.task.read` | cross-module read tool |
-| `identity_getTimezoneForUser` | `identity` | read | `identity.user.read` | cross-module read tool |
-| `identity_getAvailabilityForUser` | `identity` | read | `identity.user.read` | cross-module read tool |
+| `planner_getOpenTaskCount` | `planner` | read | `planner.task.read` | cross-module read tool |
+| `identity_getTimezone` | `identity` | read | `identity.user.read` | cross-module read tool |
+| `identity_getAvailability` | `identity` | read | `identity.user.read` | cross-module read tool |
 
 Each agent tool calls `registerToolPermission(tool, slug)` (done inside `defineAgentTool` when `rbac` is set). At the HTTP boundary the `agent.chat.use` permission gates access to the chat route; per-tool RBAC slugs are enforced inside each tool's `execute` against the resolved session, and per-workflow permissions are enforced inside domain functions for the workflow management endpoints. There is no separate runtime filter that hides tools from the model — the model sees the full specialist tool record, and unauthorised executions are rejected at the domain boundary.
 
 ## 9. Human-in-the-loop boundary
 
-HITL has three shapes today, all audited. Two govern the chat path; the third governs programmatic workflow runs.
+HITL has two shapes today, both audited and both persisted to `agent.workflow_approvals`:
 
-**Chat shape 1 — `needsApproval` tools (Mastra native approval).** A write tool sets `needsApproval: true` (e.g. `planner_assignTask`, `planner_setAssignees`). Mastra interrupts the tool call before `execute` runs and surfaces an accept/reject card derived from the input schema. The client posts the decision to `POST /api/agent/v1/chat/approve`; the route calls `approveToolCall` / `declineToolCall` on the top supervisor (or `resumeStream(resumeData)` when a custom resume payload is supplied) and streams the continuation back.
-
-**Chat shape 2 — `ChatHitlRecorder` tools.** A write tool that must show a richer, multi-candidate card (e.g. `planner_proposeAssignment`) deliberately does *not* call `ctx.agent.suspend()` — a suspended tool call never reaches the `'workflows'` pubsub channel, so no `agent.workflow_approvals` row would be written and the card would never appear. Instead the tool builds an `ApprovalCard` and calls the `ChatHitlRecorder` injected into `requestContext` (key `RC_CHAT_HITL_RECORDER`) by the chat route. The recorder writes `workflow_runs` + `workflow_approvals` in one transaction under a synthetic `workflow_id = '__chat_hitl:planner_proposeAssignment'`, and the tool returns `{ kind: 'pending-approval' }` so the turn completes. The user decides via the same decide-approval path as workflows; because the `workflow_id` carries the `__chat_hitl:` prefix, `decide-approval` dispatches to the registered `ChatHitlDecider` (`chatHitlDeciders`) for that tool, which executes the assignment directly (no Mastra resume).
+**Chat approvals (orchestrator post-step).** After a successful recommend flow, the orchestrator's deterministic post-step records an approval card (`makeAssignApprovalRecorder`, toolId `planner_proposeAssignment`) — no LLM decides whether the card exists. The web renders the card inline in the thread (`GET /workflows/threads/:threadId/approvals`) and posts the user's decision to `POST /api/agent/v1/workflows/approvals/:approvalId/decide`; the matching `chatHitlDecider` (wired in apps/server) executes the assignment through the planner domain function.
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Proposed: agent calls write tool
-    Proposed --> AwaitingApproval_native: needsApproval = true (Mastra interrupt)
-    Proposed --> AwaitingApproval_recorded: ChatHitlRecorder writes workflow_approvals row
-    AwaitingApproval_native --> Executed: chat/approve → approveToolCall / resumeStream
-    AwaitingApproval_native --> Rejected: chat/approve → declineToolCall
-    AwaitingApproval_recorded --> Executed: decide(approve) → ChatHitlDecider runs the action
-    AwaitingApproval_recorded --> Rejected: decide(reject)
-    Executed --> [*]: result streamed / recorded
-    Rejected --> [*]: rejection streamed / recorded
+    [*] --> Proposed: recommend flow succeeds
+    Proposed --> AwaitingApproval: post-step records workflow_approvals row
+    AwaitingApproval --> Executed: user approves (or modifies the assignee)
+    AwaitingApproval --> Rejected: user rejects
+    Executed --> [*]: chatHitlDecider runs assignTask; decided card persists
+    Rejected --> [*]: decided card persists; no mutation
 ```
-
-**Chat shape 0 — direct execution.** `planner_createTask` sets neither `needsApproval` nor a recorder: it executes `createTask` immediately, then fire-and-forgets the `dedupOnCreate` workflow, which carries its own `hitlSteps` approval if a duplicate is found.
 
 **Workflow-step approvals.** A workflow declares `hitlSteps: string[]` on its `WorkflowSpec`. The lifecycle hook writes a row into `agent.workflow_approvals` when one of those steps suspends; users decide via `POST /api/agent/v1/workflows/approvals/:approvalId/decide` (decision `approve | reject | modify`, with optional `overrideUserId` and `note`).
 
 | Property | Behaviour |
 |---|---|
 | Read tools | Execute directly without approval |
-| Write tools | Either gate via `needsApproval` (Mastra interrupt) or via a `ChatHitlRecorder` card; `planner_createTask` executes directly and defers HITL to its dedup workflow |
-| Approval surface | Card schema is either the tool input schema (`needsApproval`) or the `ApprovalCard` payload written by the recorder |
-| Rejection | `needsApproval` → streamed back as a tool decline; recorder/workflow → persisted to `agent.workflow_approvals`; the agent may re-plan |
+| Mutations | Always require approval — a pending `workflow_approvals` card decided by the user |
+| Approval surface | Card payload is typed per toolId (candidate rows, detail blocks, override picker) |
+| Rejection | Persisted to `agent.workflow_approvals` as a decided card; no mutation occurs |
 | Replay & rerun | Workflows support `rerun` (new run, same input or override) and `replayFromStep` (continue from a specific step) |
 | Audit | Tool calls and workflow lifecycle events both land in `core.events`; workflow runs are also materialised in `agent.workflow_runs` with idempotency in `agent.workflow_run_events_seen` |
 
@@ -362,15 +337,14 @@ flowchart LR
     A[buildMastra] --> B[Module register.ts imports]
     B --> C[AgentRegistry.register* side effects]
     C --> D[initAgentRegistry → freeze]
-    D --> E[buildSupervisorTree → snapshot]
-    E --> F[Per-domain Agent + top Agent]
+    D --> E[snapshot → tool catalogue + workflow surface]
 ```
 
-Side-effect imports in `packages/agent/src/backend/init-registry.ts` pull each module's `agent-tools/register.ts` so that every `AgentRegistry.register*` call happens before `freeze()`. After freeze, `snapshot()` is authoritative and `buildSupervisorTree` walks it to build the three-tier `Agent` graph.
+Side-effect imports in `packages/agent/src/backend/init-registry.ts` pull each module's `agent-tools/register.ts` so that every `AgentRegistry.register*` call happens before `freeze()`. After freeze, `snapshot()` is authoritative — it backs the tool catalogue (`GET /api/agent/v1/tools`) and the REST workflow surface.
 
 | Failure condition | Boot outcome |
 |---|---|
-| Module forgets to call `register.ts` | Specialist absent from snapshot; domain supervisor (and the top router) treats the domain as empty |
+| Module forgets to call `register.ts` | Specialist and its tools absent from the snapshot (missing from the catalogue and workflow surface) |
 | Specialist missing `description` | `registerSpecialist` throws at module load |
 | Workflow spec missing fields | `registerWorkflow` throws at module load |
 | Cross-module read tool missing `rbac` | `registerCrossModuleReadTool` throws at module load |
@@ -383,17 +357,15 @@ Tool definitions reside in `packages/planner/src/backend/agent-tools/`. Each too
 
 | Tool ID | File | Wraps | RBAC | HITL shape |
 |---|---|---|---|---|
-| `identity_whoAmI` | `@seta/identity/agent-tools` | returns the current session user's `user_id` | `identity.user.read` | none |
 | `planner_getTask` | `get-task.ts` | `getTask` | `planner.task.read` | none |
 | `planner_findSimilarTasks` | `find-similar-tasks.ts` | `findSimilarTasks` (vector + assignee enrich + scope filter) | `planner.task.read` | none |
 | `search_users_by_skills` | `search-users-by-skills.ts` | `searchUsersBySkills` (identity) | `identity.user.read` | none |
 | `planner_getOpenTaskCountForUser` | `get-open-task-count.ts` | spec promoted via `defineCrossModuleReadAsTool` | `planner.task.read.tenant` | none |
 | `identity_getTimezoneForUser` | `@seta/identity/agent-tools` | spec promoted via `defineCrossModuleReadAsTool` | `identity.user.read` | none |
 | `identity_getAvailabilityForUser` | `@seta/identity/agent-tools` | spec promoted via `defineCrossModuleReadAsTool` | `identity.user.read` | none |
-| `planner_createTask` | `create-task.ts` | `createTask` domain, then fire-and-forgets the `dedupOnCreate` workflow | `planner.task.create` | none on the tool itself; dedup workflow carries `hitlSteps` |
+| `planner_createTask` | `create-task.ts` | thin confirm-and-create over `createTask` domain | `planner.task.create` | `ctx.agent.suspend(confirm card)` |
 | `planner_assignTask` | `assign-task.ts` | `assignTask` | `planner.task.assign` | `needsApproval: true` |
-| `planner_setAssignees` | `set-assignees.ts` | `setAssignees` (replace full assignee list) | `planner.task.assign` | `needsApproval: true` |
-| `planner_proposeAssignment` | `propose-assignment.ts` | agent-reasoned candidate list → `ChatHitlRecorder`; INV-1 guard + `assignTask` run in the `ChatHitlDecider` on approval | `planner.task.assign` | `ChatHitlRecorder` card (synthetic `__chat_hitl:planner_proposeAssignment` approval) |
+| `planner_proposeAssignment` | `propose-assignment.ts` | agent-reasoned candidate list + INV-1 guard + `assignTask` | `planner.task.assign` | `ctx.agent.suspend(candidate list card)` → `assignTask` on resume |
 
 `defineAgentTool` is the authoring helper — it wraps `@mastra/core/tools.createTool`, registers the RBAC slug, attaches `needsApproval` when set, and surfaces a friendly `displayName` for the UI:
 
@@ -418,36 +390,36 @@ export const plannerAssignTaskTool = defineAgentTool({
 });
 ```
 
-The `planner_proposeAssignment` tool uses the richer multi-candidate shape, but deliberately *not* via `ctx.agent.suspend()` (a suspended agent-tool call never reaches the `'workflows'` pubsub channel, so no approval row would be written — see the comment in `propose-assignment.ts`). Instead it builds a 1–5 candidate `ApprovalCard` and calls the `ChatHitlRecorder` from `requestContext`, which writes a `workflow_approvals` row under the synthetic `workflow_id = '__chat_hitl:planner_proposeAssignment'`. The tool returns `{ kind: 'pending-approval' }`; when the user decides, the decide-approval path dispatches to the registered `ChatHitlDecider`, which runs the INV-1 guard and `assignTask` directly. The deterministic ranking on the REST/inbox path lives in the `assignBySkill` *workflow* (steps `assignBySkill.compute` / `assignBySkill.suggest`), which is a distinct surface — not a specialist tool.
+The `planner_suggestAssignee` tool uses the richer `suspendSchema` / `resumeSchema` shape: it computes the Top-5 candidates, calls `ctx.agent.suspend(card)` with an `ApprovalCard` payload, and on resume reads `ctx.agent.resumeData` to either apply the chosen assignment, defer, or surface an alternative ("Related to #N", "Sub-task of #N") from the dedup workflow.
 
-## 13. Supervisor tree wiring
+## 13. Chat runtime wiring
 
 ```ts
-// packages/agent/src/backend/supervisor-tree.ts (shape only)
-export function buildSupervisorTree(opts: { mastra?: Mastra } = {}): Agent {
-  const snapshot = AgentRegistry.snapshot();
-  const memory = buildMemory(opts.mastra);                  // shared Memory({ storage })
-  const domainAgents: Record<string, Agent> = {};
-  for (const d of snapshot.domains) {
-    domainAgents[d] = buildDomainSupervisor(d, memory);     // tier 2
-  }
-  return new Agent({                                         // tier 1 (top)
-    id: 'top-supervisor',
-    name: 'Supervisor',
-    instructions: generateTopRoutingPrompt(snapshot),
-    model: resolveModel('auto', { tierHint: 'balanced' }).model,
-    agents: domainAgents,
-    memory,
-  });
-}
+// apps/server/src/index.ts (shape only) — the composition root binds the
+// staffing runtime to the engine; packages/agent never imports staffing.
+const staffingOrchestration = buildStaffingOrchestrationRuntime({
+  repo: new StaffingRunStateRepository(),
+  resolveModel: () => resolveModel('auto', { tierHint: 'fast' }).model,
+  ports: { taskReader, taskSearch, skillSearch, availability },
+});
+const agent = registerAgent({
+  pool, databaseUrl, reg,
+  chatHitlDeciders: { planner_proposeAssignment: plannerProposeAssignmentChatHitlDecider },
+  chatOrchestration: staffingOrchestration.runInline,
+});
 ```
 
-Each domain supervisor is itself an `Agent` whose `agents` field is the specialists in that domain and whose `workflows` field is the workflows registered in that domain. The prompt for each tier is generated from the registry snapshot (`generateTopRoutingPrompt` / `generateDomainPrompt`), so adding a specialist or workflow updates the prompt automatically.
+`registerAgent` builds the two working-memory factories
+(`packages/agent/src/backend/memory.ts`) and hands them to the chat route:
+resource-scoped userContext (`GuardedMemory` — LLM writes go through the
+guarded `updateWorkingMemory` tool) and thread-scoped conversation entities
+(server-owned, never prompted). The chat route forwards both, plus
+`recordHitlApproval` and the per-turn `model` override, on the orchestration
+`RunCtx`.
 
 | Boot-time validation | Effect |
 |---|---|
 | `snapshot()` called without `freeze()` | `RegistryNotFrozenError` (fail fast at boot) |
-| Specialist `instructions(ctx)` throws | Bubbles up on agent construction |
 | Workflow `inputSchema` invalid | `registerWorkflowInputSchema` rejects on register |
 | Mastra storage unreachable | `PostgresStore` surfaces the error from `/api/agent/v1/health` |
 
@@ -477,14 +449,13 @@ At boot, the platform wires Mastra's pubsub channels `workflows` and `workflows-
 - Records a row in `agent.workflow_run_events_seen` keyed on `(runId, eventId)` for idempotency.
 - Creates a row in `agent.workflow_approvals` when a `hitlSteps` step suspends.
 
-The chat path uses the agent-tool HITL contract (suspend + `chat/approve`). Programmatic workflow runs use the workflow HITL endpoints (`/workflows/approvals/:id/decide`, `/workflows/runs/:id/rerun`, `/workflows/runs/:id/replay-from-step`, `/workflows/runs/:id/cancel`). Both produce identical audit trails because the lifecycle hook is on the Mastra publish path, not the API path.
+The chat path records its approval card through the orchestrator's deterministic post-step (`workflow_approvals` with toolId `planner_proposeAssignment`) and decides through the same workflow HITL endpoints as programmatic runs (`/workflows/approvals/:id/decide`, `/workflows/runs/:id/rerun`, `/workflows/runs/:id/replay-from-step`, `/workflows/runs/:id/cancel`). Both produce identical audit trails because the lifecycle hook is on the Mastra publish path, not the API path.
 
 The deterministic `assignBySkill` ranking is still reachable from the workflow
 inbox (the "Suggest" button on a task card kicks off a workflow run via REST).
-The chat path reaches the same outcome through specialist reasoning + the
-`planner_proposeAssignment` HITL tool. The two surfaces share the
-`AssignBySkillOutputSchema` discriminated union (`assigned` / `superseded` /
-`left-unassigned` / `declined`).
+The chat path reaches the same outcome through the orchestrator's
+skillMatcher → avaiChecker → recommender pipeline + the approval card. The
+two paths are mutexed per task: at most one pending assignment proposal.
 
 ## 15. Cross-module read tools
 
@@ -493,11 +464,11 @@ A module that wants to expose a read for any specialist to call — without forc
 ```ts
 // packages/planner/src/backend/agent-tools/get-open-task-count.ts (shape)
 export const plannerGetOpenTaskCountSpec: CrossModuleReadToolSpec = {
-  id: 'planner_getOpenTaskCountForUser',
+  id: 'planner_getOpenTaskCount',
   description: 'Count of open planner tasks assigned to a given user.',
   inputSchema: z.object({ userId: z.string().uuid() }),
-  outputSchema: z.object({ count: z.number().int().nonnegative() }),
-  rbac: 'planner.task.read.tenant',
+  outputSchema: z.object({ count: z.number().int().nonneg() }),
+  rbac: 'planner.task.read',
   availableTo: 'all-specialists',
   execute: async ({ session, input }) => { /* … */ },
 };
@@ -507,7 +478,7 @@ These tools differ from specialist tools in three ways: (1) they are owned by th
 
 ## 16. Web surface and HTTP routes
 
-The chat panel is anchored to the right edge of the application shell. The approval card is rendered inline within the conversation: for `needsApproval` tools it is derived from the input schema and decided via `chat/approve` (`approveToolCall` / `declineToolCall`); for `ChatHitlRecorder` tools the recorder-written `ApprovalCard` payload is rendered through the `ApprovalCard` UI contract (`sdks/agent/src/hitl/card.ts`), which supports candidate rows, detail blocks, and a chosen-action payload submitted to the decide-approval endpoint.
+The chat panel is anchored to the right edge of the application shell. The approval card is rendered inline within the conversation from the thread's workflow_approvals rows (`GET /workflows/threads/:threadId/approvals`) and decided via `POST /workflows/approvals/:id/decide`.
 
 ```
 ┌────────────────────────────────────────────────────────────┐
@@ -536,14 +507,13 @@ The chat panel is anchored to the right edge of the application shell. The appro
 | Tool-call card | `@assistant-ui/react` `<ToolCallContentPart>` |
 | Approval card | assistant-ui Interactable, parameterised by either the input schema or the typed suspend payload |
 | Markdown rendering | `@assistant-ui/react-markdown` |
-| Model selector | Reads `GET /api/agent/v1/models`; `auto` is the synthetic default that lets the server pick a tier |
+| Model selector | Reads `GET /api/agent/v1/models`; an explicit pick overrides the orchestration model per turn; Auto lets the runtime use its boot default |
 
 The route surface (all under `/api/agent/v1`):
 
 | Method | Path | Purpose |
 |---|---|---|
-| POST | `chat` | Stream a turn through the top supervisor (UI message stream → AI SDK v6 via `@mastra/ai-sdk.toAISdkStream`) |
-| POST | `chat/approve` | Approve / decline a suspended tool call; optional `resumeData` passthrough for typed cards |
+| POST | `chat` | Stream a turn through the inline staffing orchestration (UI message stream; per-step trust-trace data parts) |
 | GET | `threads` | List the user's threads |
 | GET / PATCH / DELETE | `threads/:id` | Read, rename, or delete a thread (translates Mastra `tool-invocation` parts to `tool-<name>` parts) |
 | GET | `tools` | Deduped catalogue of every specialist's tools |
@@ -562,39 +532,32 @@ The chat route also performs two boundary transformations: (1) page-context inje
 
 ## 17. End-to-end execution
 
-The full path from user approval to assignee notification, shown for a `needsApproval` write tool (`planner_assignTask`) resumed through `chat/approve`:
+The full path from user approval to assignee notification:
 
 ```mermaid
 sequenceDiagram
-    participant UI as assistant-ui
-    participant API as POST /api/agent/v1/chat/approve
-    participant Top as Top supervisor
-    participant Pln as Planner specialist
-    participant Tool as planner_assignTask (needsApproval)
-    participant Dom2 as planner.assignTask (domain)
+    participant UI as assistant-ui (chat-embedded HITL card)
+    participant API as POST /workflows/approvals/:id/decide
+    participant Dec as chatHitlDecider (planner_proposeAssignment)
+    participant Dom as planner.assignTask (domain)
     participant DB as Postgres
     participant Disp as Dispatcher
     participant Sub as notifications subscriber
     participant Devon as Assignee SSE
 
-    UI->>API: approve { runId, toolCallId }
-    API->>Top: approveToolCall(opts) (or resumeStream(resumeData) for a custom payload)
-    Top->>Pln: resume the interrupted tool call
-    Pln->>Tool: execute now runs
-    Tool->>Dom2: assignTask(taskId, userId)
-    Dom2->>DB: BEGIN UPDATE planner.tasks INSERT core.events COMMIT
+    UI->>API: decide { decision: approve | modify, overrideUserIds? }
+    API->>Dec: execute chat HITL decision
+    Dec->>Dom: assignTask(taskId, userId)
+    Dom->>DB: BEGIN UPDATE planner.tasks INSERT core.events COMMIT
     DB-->>Disp: pg_notify events
     Disp->>Sub: planner.task.assigned
     Sub->>DB: INSERT notifications.notice
     Sub->>Devon: SSE new notification
-    Dom2-->>Tool: assignment result
-    Tool-->>Pln: stream tool result
-    Pln-->>UI: TASK-101 assigned to Devon
+    Dec-->>API: decided row
+    API-->>UI: decided card re-rendered (persistent)
 ```
 
-For the `planner_proposeAssignment` candidate card the path differs: the user's decision posts to the workflow decide-approval endpoint, and the registered `ChatHitlDecider` runs the INV-1 guard and `assignTask` directly (no Mastra resume) before the same `planner.task.assigned` event → notification fan-out.
-
-The p95 latency budget for this flow is approximately 1.2 s from approval click to the confirmation message, with an additional ~150 ms for the SSE notification to reach the assignee.
+The approval decision is a single domain transaction; the SSE notification reaches the assignee ~150 ms after commit.
 
 ---
 
@@ -617,18 +580,18 @@ The p95 latency budget for this flow is approximately 1.2 s from approval click 
 
 ## 19. Latency and cost budget
 
-Per-turn p95 budget for a single planner turn that exercises both supervisors and the planner specialist:
+Per-turn p95 budget (estimates) for a recommend-assignee turn through the orchestration:
 
-| Stage | Latency | Token cost (balanced tier) | Notes |
+| Stage | Latency | Token cost (fast tier) | Notes |
 |---|---|---|---|
-| Top route | 120 ms | ~120 in, ~20 out | Balanced tier, four-domain choice |
-| Domain route | 150 ms | ~200 in, ~30 out | Balanced tier, picks specialist vs workflow |
-| Specialist plan | 450 ms | ~700 in, ~180 out | Fast tier; tool record in prompt |
-| `planner_findSimilarTasks` | 250 ms | — | Stage 1 RRF + Stage 2 Cohere rerank |
-| `search_users_by_skills` (or cross-module reads in workflow path) | 80 ms | — | Indexed query |
-| `planner_assignTask` (post-approval) | 50 ms | — | Single transaction |
-| Summary stream back to UI | 200 ms | ~300 in, ~120 out | Fast tier |
-| **Total per turn** | **~1.3 s** | **~1.7 k tokens** | |
+| Orchestrator plan (per tool hop) | 300-600 ms | ~900 in, ~150 out | Fast tier; tool palette + userContext in prompt |
+| taskAnalyzer extraction | 250 ms | ~250 in, ~40 out | generateObject, fast tier |
+| skillMatcher search + rank | 450 ms | ~500 in, ~120 out | Vector search + LLM ranking |
+| avaiChecker | 30 ms | — | Deterministic |
+| recommender | 10 ms | — | Deterministic |
+| Approval-card post-step | 30 ms | — | Single insert, idempotent per task |
+| Final answer stream | 200 ms | ~300 in, ~120 out | |
+| **Total per turn** | **~2-3 s** | **~2.5 k tokens** | Multi-hop agentic loop |
 
 | Cost lever | Effect |
 |---|---|
@@ -636,7 +599,7 @@ Per-turn p95 budget for a single planner turn that exercises both supervisors an
 | Promote a specialist to `balanced` or `reasoning` for harder reasoning | Linear cost increase, modest latency increase |
 | Disable rerank (`stage2: 'none'`) | ~150 ms saved; recall@10 drops 8–12 % |
 | Cap thread context to last N messages | Linear reduction in token cost |
-| Provider prompt caching (AI SDK v6) | First turn unaffected; subsequent turns benefit from cache hits, especially on the supervisor prompts |
+| Provider prompt caching (AI SDK v6) | First turn unaffected; subsequent turns benefit from cache hits, especially on the orchestrator prompt |
 
 ## 20. Extension criteria — when to add a specialist or a workflow
 
@@ -661,7 +624,7 @@ flowchart TD
 |---|
 | All capabilities have a public function in the owning module |
 | Each capability has a tool wrapper in that module's `agent-tools/` (specialist tools) or a `CrossModuleReadToolSpec` (cross-module reads) |
-| Write tools set `needsApproval: true` *or* surface an `ApprovalCard` via the `ChatHitlRecorder` (with a registered `ChatHitlDecider`) — never `ctx.agent.suspend()` in the chat path |
+| Write tools set `needsApproval: true` *or* call `ctx.agent.suspend(...)` with a typed `suspendSchema` |
 | Workflows declare every approving step in `hitlSteps[]` |
 | RBAC slugs are registered in `<module>/src/rbac.ts` and threaded through `defineAgentTool({ rbac })` |
 | Specialist tool record contains no more than ~15 entries; otherwise split or move reads to cross-module |
@@ -679,8 +642,10 @@ flowchart TD
 | HITL card schema (`ApprovalCard`, `CandidateRow`) | `sdks/agent/src/hitl/card.ts` |
 | Request context + session types | `sdks/agent/src/request-context.ts`, `sdks/agent/src/session.ts` |
 | Mastra runtime + lifecycle hook wiring | `packages/agent/src/backend/runtime.ts` |
-| Three-tier supervisor build | `packages/agent/src/backend/supervisor-tree.ts` |
-| Supervisor + domain prompts (generated from the registry snapshot) | `packages/agent/src/backend/prompt-templates.ts` |
+| Working-memory factories (GuardedMemory, entities) | `packages/agent/src/backend/memory.ts` |
+| Staffing orchestration runtime (orchestrator + sub-agents + ports) | `packages/staffing/src/backend/orchestration/` |
+| Orchestration kernel (executeStep, inline + queued runners, RunCtx) | `packages/shared-orchestration/src/` |
+| Orchestration chat stream (events → AI SDK v6 parts) | `packages/agent/src/backend/orchestration-chat-stream.ts` |
 | Module side-effect imports + `freeze()` | `packages/agent/src/backend/init-registry.ts` |
 | Agent top-level registration (Mastra build, agents, workflows, routes) | `packages/agent/src/register.ts` |
 | Model registry (`fast \| balanced \| reasoning`) | `packages/agent/src/backend/model-registry.ts` |
@@ -694,8 +659,8 @@ flowchart TD
 | Planner agent tools | `packages/planner/src/backend/agent-tools/` |
 | Planner workflows (`assignBySkill`, `dedupOnCreate`) | `packages/planner/src/backend/workflows/` |
 | Identity module registration | `packages/identity/src/backend/agent-tools/register.ts` |
-| Mastra source (API reference) | `/Users/canh/Projects/Seta/mastra/` (sibling checkout) |
-| Mastra playground (UX reference for chat and uploads) | `/Users/canh/Projects/Seta/mastra/packages/playground-ui/` |
+| Mastra source (API reference) | `../mastra/` (sibling checkout) |
+| Mastra playground (UX reference for chat and uploads) | `../mastra/packages/playground-ui/` |
 
 ---
 
