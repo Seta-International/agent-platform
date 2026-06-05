@@ -10,14 +10,10 @@ import {
   wrapUpdateWorkingMemoryTool,
 } from '@seta/agent-sdk';
 import { describe, expect, it } from 'vitest';
-import { initAgentRegistry } from '../../src/backend/init-registry.ts';
-import { buildSupervisorTree } from '../../src/backend/supervisor-tree.ts';
+import { buildEntitiesMemory, buildMemory } from '../../src/backend/memory.ts';
 import { withAgentTestDb } from '../helpers.ts';
 
 const UUID_A = '66be2be2-394d-4184-b106-c412289fd1e1';
-
-// initAgentRegistry is idempotent — safe to call at module scope so snapshot() works below.
-initAgentRegistry();
 
 describe('typed working memory: thread-scoped entities + resource-scoped userContext', () => {
   it('conversation entities are isolated per chat thread (no cross-conversation leak)', async () => {
@@ -25,8 +21,9 @@ describe('typed working memory: thread-scoped entities + resource-scoped userCon
       const storage = new PostgresStore({ id: 't-iso', schemaName: 'agent', pool });
       await storage.init();
       const mastra = new Mastra({ storage, logger: false });
-      const { entitiesMemory, entitiesMemoryConfig } = buildSupervisorTree({ mastra });
-      if (!entitiesMemory || !entitiesMemoryConfig) throw new Error('entities memory required');
+      const built = buildEntitiesMemory({ mastra });
+      if (!built) throw new Error('entities memory required');
+      const { memory: entitiesMemory, memoryConfig: entitiesMemoryConfig } = built;
 
       const resourceId = 'user-1';
       // Thread-scoped working memory lives in thread metadata → threads must exist.
@@ -73,8 +70,9 @@ describe('typed working memory: thread-scoped entities + resource-scoped userCon
       const storage = new PostgresStore({ id: 't-uc', schemaName: 'agent', pool });
       await storage.init();
       const mastra = new Mastra({ storage, logger: false });
-      const { memory, memoryConfig } = buildSupervisorTree({ mastra });
-      if (!memory || !memoryConfig) throw new Error('memory required');
+      const built = buildMemory({ mastra });
+      if (!built) throw new Error('memory required');
+      const { memory, memoryConfig } = built;
 
       const resourceId = 'user-1';
       await memory.updateWorkingMemory({
@@ -99,8 +97,9 @@ describe('typed working memory: thread-scoped entities + resource-scoped userCon
       const storage = new PostgresStore({ id: 't-guard', schemaName: 'agent', pool });
       await storage.init();
       const mastra = new Mastra({ storage, logger: false });
-      const { memory, memoryConfig } = buildSupervisorTree({ mastra });
-      if (!memory || !memoryConfig) throw new Error('memory required');
+      const built = buildMemory({ mastra });
+      if (!built) throw new Error('memory required');
+      const { memory, memoryConfig } = built;
 
       const resourceId = 'r-guard';
       const threadId = 't-guard';

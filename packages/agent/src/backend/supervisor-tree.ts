@@ -1,18 +1,9 @@
 import type { Mastra } from '@mastra/core';
 import { Agent } from '@mastra/core/agent';
-import { ModelRouterEmbeddingModel } from '@mastra/core/llm';
-import type { MemoryConfig, MemoryConfigInternal } from '@mastra/core/memory';
-import { Memory } from '@mastra/memory';
-import { PgVector } from '@mastra/pg';
-import {
-  AgentRegistry,
-  ConversationEntitiesSchema,
-  type Domain,
-  type SpecialistSpec,
-  WorkingMemorySchema,
-  wrapUpdateWorkingMemoryTool,
-} from '@seta/agent-sdk';
-import { agentEnv } from './env.ts';
+import type { MemoryConfig } from '@mastra/core/memory';
+import type { Memory } from '@mastra/memory';
+import { AgentRegistry, type Domain, type SpecialistSpec } from '@seta/agent-sdk';
+import { buildEntitiesMemory, buildMemory } from './memory.ts';
 import { resolveModel } from './model-registry.ts';
 import { generateDomainPrompt, generateTopRoutingPrompt } from './prompt-templates.ts';
 
@@ -32,122 +23,6 @@ export type SupervisorTree = {
   entitiesMemoryConfig?: MemoryConfig;
 };
 
-// Subclassed so the LLM-write guard wraps the auto-installed updateWorkingMemory tool centrally.
-class GuardedMemory extends Memory {
-  public listTools(config?: MemoryConfigInternal): ReturnType<Memory['listTools']> {
-    const tools = super.listTools(config);
-    if (tools.updateWorkingMemory) {
-      tools.updateWorkingMemory = wrapUpdateWorkingMemoryTool(
-        tools.updateWorkingMemory as never,
-      ) as never;
-    }
-    return tools;
-  }
-}
-
-// ---------------------------------------------------------------------------
-// PgVector singleton — same lazy-init pattern as getIdentityVectorStore
-// ---------------------------------------------------------------------------
-let cachedRecallVector: { store: PgVector; databaseUrl: string } | null = null;
-
-function getRecallVector(databaseUrl: string): PgVector {
-  if (cachedRecallVector?.databaseUrl === databaseUrl) return cachedRecallVector.store;
-  if (cachedRecallVector) {
-    void cachedRecallVector.store.disconnect().catch(() => {});
-  }
-  const store = new PgVector({
-    id: 'agent-recall',
-    connectionString: databaseUrl,
-    schemaName: 'agent',
-  });
-  cachedRecallVector = { store, databaseUrl };
-  return store;
-}
-
-// ---------------------------------------------------------------------------
-// Memory factory
-// ---------------------------------------------------------------------------
-function buildMemory(opts: {
-  mastra: Mastra | undefined;
-  databaseUrl?: string;
-}): { memory: Memory; memoryConfig: MemoryConfig } | undefined {
-  const storage = opts.mastra?.getStorage();
-  if (!storage) return undefined;
-
-  const baseOpts: Pick<MemoryConfig, 'lastMessages' | 'generateTitle' | 'workingMemory'> = {
-    lastMessages: agentEnv.AGENT_MEMORY_LAST_MESSAGES,
-    generateTitle: true,
-    workingMemory: {
-      enabled: true,
-      scope: 'resource',
-      schema: WorkingMemorySchema,
-    },
-  };
-
-  if (!opts.databaseUrl) {
-    const memoryConfig: MemoryConfig = { ...baseOpts, semanticRecall: false };
-    const memory = new GuardedMemory({
-      storage: storage as never,
-      options: memoryConfig,
-    });
-    return { memory, memoryConfig };
-  }
-
-  const vector = getRecallVector(opts.databaseUrl);
-  const embedder = new ModelRouterEmbeddingModel(
-    process.env.EMBED_MODEL ?? 'openai/text-embedding-3-small',
-  );
-  const memoryConfig: MemoryConfig = {
-    ...baseOpts,
-    semanticRecall: {
-      topK: 5,
-      messageRange: 2,
-      scope: 'thread',
-      indexConfig: {
-        type: 'hnsw',
-        metric: 'dotproduct',
-        hnsw: { m: 16, efConstruction: 64 },
-      },
-    },
-  };
-  const memory = new GuardedMemory({
-    storage: storage as never,
-    vector,
-    embedder,
-    options: memoryConfig,
-  });
-  return { memory, memoryConfig };
-}
-
-// ---------------------------------------------------------------------------
-// Conversation-entities memory factory
-//
-// Thread-scoped working memory holding server-owned task-ref state. A plain
-// Memory (not GuardedMemory) because it is never exposed to the model: no agent
-// holds it, so no updateWorkingMemory tool is generated from it. The recorder
-// and resolver call get/updateWorkingMemory on it directly, keyed on the real
-// chat thread id. Shares the same storage as the userContext memory; thread
-// scope writes to thread.metadata.workingMemory while resource scope writes to
-// mastra_resources, so the two never collide.
-// ---------------------------------------------------------------------------
-function buildEntitiesMemory(opts: {
-  mastra: Mastra | undefined;
-}): { memory: Memory; memoryConfig: MemoryConfig } | undefined {
-  const storage = opts.mastra?.getStorage();
-  if (!storage) return undefined;
-  const memoryConfig: MemoryConfig = {
-    lastMessages: false,
-    semanticRecall: false,
-    workingMemory: {
-      enabled: true,
-      scope: 'thread',
-      schema: ConversationEntitiesSchema,
-    },
-  };
-  const memory = new Memory({ storage: storage as never, options: memoryConfig });
-  return { memory, memoryConfig };
-}
-
 // ---------------------------------------------------------------------------
 // Agent builders
 // ---------------------------------------------------------------------------
@@ -157,7 +32,7 @@ function buildSpecialistAgent(spec: SpecialistSpec, memory: Memory | undefined):
     name: spec.id,
     description: spec.description,
     instructions: spec.instructions as never,
-    model: resolveModel('auto', { tierHint: 'fast' }).model,
+    model: resolveModel('auto', { tierHint: 'fast' }).model as never,
     tools: spec.tools as never,
     workflows: (spec.workflows ?? {}) as never,
     ...(memory ? { memory } : {}),
@@ -174,7 +49,7 @@ function buildDomainSupervisor(domain: Domain, memory: Memory | undefined): Agen
     name: `${domain}-supervisor`,
     description: `Coordinates ${domain} specialists`,
     instructions: generateDomainPrompt(domain, snapshot),
-    model: resolveModel('auto', { tierHint: 'balanced' }).model,
+    model: resolveModel('auto', { tierHint: 'balanced' }).model as never,
     agents: agents as never,
     ...(memory ? { memory } : {}),
   });
@@ -195,7 +70,7 @@ export function buildSupervisorTree(
     name: 'Supervisor',
     description: 'Top-level router. Routes every request to one domain.',
     instructions: generateTopRoutingPrompt(snapshot),
-    model: resolveModel('auto', { tierHint: 'balanced' }).model,
+    model: resolveModel('auto', { tierHint: 'balanced' }).model as never,
     agents: domainAgents as never,
     ...(memory ? { memory } : {}),
   });
