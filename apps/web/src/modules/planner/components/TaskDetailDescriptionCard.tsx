@@ -1,8 +1,7 @@
 import type { TaskWithAssigneesRow } from '@seta/planner';
-import { Button } from '@seta/shared-ui';
+import { Button, RichTextDisplay, RichTextEditor } from '@seta/shared-ui';
 import { Pencil } from 'lucide-react';
-import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
-import ReactMarkdown from 'react-markdown';
+import { useEffect, useState } from 'react';
 import { useUpdateTask } from '../hooks/mutations/update-task';
 
 interface Props {
@@ -14,11 +13,10 @@ export function TaskDetailDescriptionCard({ task, planId }: Props) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(task.description ?? '');
   const update = useUpdateTask(planId);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    if (editing) textareaRef.current?.focus();
-  }, [editing]);
+    if (!editing) setDraft(task.description ?? '');
+  }, [task.description, editing]);
 
   const beginEdit = () => {
     setDraft(task.description ?? '');
@@ -26,7 +24,7 @@ export function TaskDetailDescriptionCard({ task, planId }: Props) {
   };
 
   const save = () => {
-    const next = draft.trim() === '' ? null : draft;
+    const next = draft.trim() === '' || draft === '<p></p>' ? null : draft;
     if (next === (task.description ?? null)) {
       setEditing(false);
       return;
@@ -42,29 +40,11 @@ export function TaskDetailDescriptionCard({ task, planId }: Props) {
     setEditing(false);
   };
 
-  const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      cancel();
-    } else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-      e.preventDefault();
-      save();
-    }
-  };
-
   if (editing) {
     return (
       <section className="card" aria-label="Description">
         <header className="mb-2 text-body-sm text-ink-subtle">Description</header>
-        <textarea
-          ref={textareaRef}
-          aria-label="Description"
-          value={draft}
-          onChange={(e) => setDraft(e.currentTarget.value)}
-          onKeyDown={onKeyDown}
-          rows={8}
-          className="w-full min-h-[140px] resize-y rounded-md border border-hairline bg-surface-1 p-2.5 text-body-sm text-ink"
-        />
+        <RichTextEditor value={draft} onChange={setDraft} onSave={save} onCancel={cancel} />
         <div className="mt-1 text-caption text-ink-subtle">⌘↵ to save · Esc to cancel</div>
         <div className="mt-2 flex justify-end gap-1.5">
           <Button size="sm" variant="ghost" onClick={cancel}>
@@ -90,7 +70,7 @@ export function TaskDetailDescriptionCard({ task, planId }: Props) {
         <div className="min-h-[40px] flex-1">
           {task.description ? (
             <div className="text-body-sm leading-[1.55]">
-              <ReactMarkdown>{task.description}</ReactMarkdown>
+              <RichTextDisplay value={task.description} />
             </div>
           ) : (
             <span className="text-body-sm text-ink-subtle">No description. Click to add.</span>
