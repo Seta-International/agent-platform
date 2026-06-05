@@ -39,7 +39,7 @@ interface Props {
   className?: string;
 }
 
-const isHtml = (s: string) => /<[a-z][\s\S]*>/i.test(s);
+const isHtml = (s: string) => /<[a-z][a-z0-9]*[\s\S]*<\/[a-z]/i.test(s);
 
 export function RichTextDisplay({ value, className }: Props) {
   if (!value) return null;

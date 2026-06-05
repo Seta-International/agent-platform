@@ -25,4 +25,21 @@ describe('RichTextDisplay', () => {
     expect(container.querySelector('script')).toBeNull();
     expect(container.textContent).toContain('safe');
   });
+
+  it('treats text with angle-bracket words (non-HTML) as plain text', () => {
+    const { container } = render(<RichTextDisplay value="contact <user@example.com> for help" />);
+    // Should route through ReactMarkdown, not HTML path
+    expect(container.querySelector('[data-rich-text="html"]')).toBeNull();
+    expect(container.textContent).toContain('user@example.com');
+  });
+
+  it('renders nothing for null value', () => {
+    const { container } = render(<RichTextDisplay value={null} />);
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('renders nothing for undefined value', () => {
+    const { container } = render(<RichTextDisplay value={undefined} />);
+    expect(container.firstChild).toBeNull();
+  });
 });
