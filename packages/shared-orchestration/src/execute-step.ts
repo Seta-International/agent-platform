@@ -63,6 +63,7 @@ export async function executeStep(
     threadId: ctx.threadId,
     entitiesMemory: ctx.entitiesMemory,
     userMemory: ctx.userMemory,
+    model: ctx.model,
   });
   agent.outputSchema.parse(res.result);
 

@@ -1,4 +1,9 @@
-import type { AgentMemoryHandle, ChatHitlRecorder, TrustEnvelope } from '@seta/agent-sdk';
+import type {
+  AgentMemoryHandle,
+  ChatHitlRecorder,
+  SpecializedAgentRunCtx,
+  TrustEnvelope,
+} from '@seta/agent-sdk';
 import { z } from 'zod';
 
 /** Tenant/actor context for a run. */
@@ -13,6 +18,9 @@ export interface RunCtx {
   entitiesMemory?: AgentMemoryHandle;
   /** Resource-scoped userContext memory handle (chat inline runs only). */
   userMemory?: AgentMemoryHandle;
+  /** Per-turn model override (chat inline runs only) — forwarded into each
+   *  agent's run ctx; see SpecializedAgentRunCtx.model. */
+  model?: SpecializedAgentRunCtx['model'];
 }
 
 /** Accumulated state of a run: each completed step's output keyed by step id. */
