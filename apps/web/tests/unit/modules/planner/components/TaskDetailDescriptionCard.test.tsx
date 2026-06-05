@@ -7,6 +7,34 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import { TaskDetailDescriptionCard } from '../../../../../src/modules/planner/components/TaskDetailDescriptionCard';
 import { makeTaskWithAssignees } from '../../../../../src/modules/planner/testing/fixtures';
 
+vi.mock('@seta/shared-ui', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('@seta/shared-ui')>();
+  return {
+    ...mod,
+    RichTextEditor: ({
+      value,
+      onChange,
+      onCancel,
+    }: {
+      value: string;
+      onChange: (html: string) => void;
+      onSave?: () => void;
+      onCancel?: () => void;
+    }) => (
+      <div>
+        <textarea
+          aria-label="Description"
+          defaultValue={value}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') onCancel?.();
+          }}
+        />
+      </div>
+    ),
+  };
+});
+
 const server = setupServer();
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => server.resetHandlers());
