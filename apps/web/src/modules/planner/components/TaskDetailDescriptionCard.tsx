@@ -24,7 +24,8 @@ export function TaskDetailDescriptionCard({ task, planId }: Props) {
   };
 
   const save = () => {
-    const next = draft.trim() === '' || draft === '<p></p>' ? null : draft;
+    const textContent = draft.replace(/<[^>]*>/g, '').trim();
+    const next = !textContent ? null : draft;
     if (next === (task.description ?? null)) {
       setEditing(false);
       return;

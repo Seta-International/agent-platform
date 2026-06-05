@@ -55,7 +55,6 @@ function sanitizeDescription(raw: string | null): {
 const SIMPLE_FIELDS = [
   'title',
   'description',
-  'description_text',
   'bucket_id',
   'percent_complete',
   'priority_number',
@@ -172,12 +171,14 @@ async function updateTaskImpl(input: {
       };
 
       // Sanitize description and derive description_text as a coupled pair.
+      // description_text is NOT in SIMPLE_FIELDS — it is only ever written here.
+      let sanitizedDescriptionText: string | null | undefined;
       if ((patch as Record<string, unknown>).description !== undefined) {
         const { description, description_text } = sanitizeDescription(
           (patch as Record<string, unknown>).description as string | null,
         );
         (patch as Record<string, unknown>).description = description;
-        (patch as Record<string, unknown>).description_text = description_text;
+        sanitizedDescriptionText = description_text;
       }
 
       for (const f of SIMPLE_FIELDS) {
@@ -190,6 +191,18 @@ async function updateTaskImpl(input: {
         setFields[f] = v;
         changed.push(f);
         recordTaskFieldUpdated(f);
+      }
+
+      // Explicitly write description_text when description was sanitized.
+      if (sanitizedDescriptionText !== undefined) {
+        const exVal = existing.description_text;
+        if (JSON.stringify(exVal) !== JSON.stringify(sanitizedDescriptionText)) {
+          (before as Record<string, unknown>).description_text = exVal;
+          (after as Record<string, unknown>).description_text = sanitizedDescriptionText;
+          setFields.description_text = sanitizedDescriptionText;
+          changed.push('description_text');
+          recordTaskFieldUpdated('description_text');
+        }
       }
 
       for (const f of DATE_FIELDS) {
