@@ -1,6 +1,8 @@
 import DOMPurifyFactory from 'dompurify';
 import ReactMarkdown from 'react-markdown';
 
+import { cn } from '../lib/cn';
+
 // Bind DOMPurify to the current window so it works in both browser and
 // happy-dom / jsdom test environments where a global window is available.
 const DOMPurify = typeof window !== 'undefined' ? DOMPurifyFactory(window) : DOMPurifyFactory;
@@ -49,7 +51,7 @@ export function RichTextDisplay({ value, className }: Props) {
     return (
       <div
         data-rich-text="html"
-        className={className}
+        className={cn('rich-text text-body-sm text-ink', className)}
         // biome-ignore lint/security/noDangerouslySetInnerHtml: sanitized by DOMPurify
         dangerouslySetInnerHTML={{ __html: safe }}
       />
