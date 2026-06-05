@@ -139,6 +139,7 @@ export const tasks = planner.table(
     bucket_id: uuid('bucket_id'),
     title: text('title').notNull(),
     description: text('description'),
+    description_text: text('description_text'),
     priority_number: integer('priority_number').default(5).notNull(),
     percent_complete: integer('percent_complete').default(0).notNull(),
     is_deferred: boolean('is_deferred').default(false).notNull(),
