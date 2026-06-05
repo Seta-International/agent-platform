@@ -285,7 +285,7 @@ export function buildTaskPatch(input: BuildTaskPatchInput): BuildResult {
 export type GraphTaskDetailsPatchable = Pick<
   GraphTaskDetails,
   'description' | 'previewType' | 'checklist' | 'references'
->;
+> & { description_text?: string | null };
 
 export interface BuildTaskDetailsPatchInput {
   local: GraphTaskDetailsPatchable;
@@ -301,7 +301,7 @@ export function buildTaskDetailsPatch(input: BuildTaskDetailsPatchInput): BuildR
   const remote = input.remote ?? input.snapshot;
 
   resolveScalar<GraphTaskDetailsPatchable, string | null>(
-    { field: 'description', get: (x) => x.description ?? null },
+    { field: 'description_text', graphKey: 'description', get: (x) => x.description_text ?? null },
     input.local,
     input.snapshot,
     remote,

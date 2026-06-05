@@ -176,9 +176,12 @@ function snapshotTask(snap: unknown): GraphTaskPatchable {
 }
 
 function snapshotTaskDetails(snap: unknown): GraphTaskDetailsPatchable {
-  const s = (snap ?? {}) as Partial<GraphTaskDetailsPatchable>;
+  const s = (snap ?? {}) as Partial<GraphTaskDetailsPatchable> & { description?: string | null };
   return {
     description: s.description ?? null,
+    // Fall back to `description` for old snapshots that predate description_text.
+    description_text:
+      s.description_text !== undefined ? s.description_text : (s.description ?? null),
     previewType: s.previewType,
     checklist: s.checklist ?? {},
     references: s.references ?? {},
@@ -622,6 +625,7 @@ async function runTaskDetails(
         remote: remote
           ? {
               description: remote.description ?? null,
+              description_text: remote.description ?? null, // ← map remote.description to description_text
               previewType: remote.previewType,
               checklist: remote.checklist ?? {},
               references: remote.references ?? {},
@@ -653,6 +657,8 @@ async function runTaskDetails(
     etag: result.etag,
     lastSyncedFields: {
       description: result.object.description ?? null,
+      // Record what was synced to Graph as description_text for the LWW anchor.
+      description_text: result.object.description ?? null,
       previewType: result.object.previewType,
       checklist: result.object.checklist ?? {},
       references: result.object.references ?? {},

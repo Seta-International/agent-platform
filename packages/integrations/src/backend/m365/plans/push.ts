@@ -319,7 +319,7 @@ async function handleBucketDeleted(
 // review_state, is_deferred — Seta-only).
 const TASK_FIELD_MAP: Record<string, { graphField: string; target: 'task' | 'taskDetails' }> = {
   title: { graphField: 'title', target: 'task' },
-  description: { graphField: 'description', target: 'taskDetails' },
+  description_text: { graphField: 'description', target: 'taskDetails' },
   bucket_id: { graphField: 'bucketId', target: 'task' },
   priority_number: { graphField: 'priority', target: 'task' },
   percent_complete: { graphField: 'percentComplete', target: 'task' },
