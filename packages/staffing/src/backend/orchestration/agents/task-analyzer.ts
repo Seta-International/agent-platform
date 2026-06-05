@@ -7,6 +7,7 @@ import type {
 } from '@seta/agent-sdk';
 import { generateObject, type LanguageModel } from 'ai';
 import { z } from 'zod';
+import { pickModel } from '../model.ts';
 import type { TaskReaderPort, TaskSearchPort, TaskSummary } from '../ports.ts';
 import {
   TaskAnalyzerInputSchema,
@@ -34,12 +35,16 @@ export interface TaskAnalyzerDeps {
 }
 
 /** Lowercase skill/area tags named in the user's query (LLM extraction). */
-async function extractTags(deps: TaskAnalyzerDeps, query: string, signal?: AbortSignal) {
+async function extractTags(
+  deps: TaskAnalyzerDeps,
+  query: string,
+  ctx: Pick<SpecializedAgentRunCtx, 'model' | 'abortSignal'>,
+) {
   if (deps.extractTagsFromQuery) return deps.extractTagsFromQuery({ query });
   const { object } = await generateObject({
-    model: deps.resolveModel(),
+    model: pickModel(ctx, deps.resolveModel),
     schema: z.object({ tags: z.array(z.string()) }),
-    abortSignal: signal,
+    abortSignal: ctx.abortSignal,
     prompt: [
       'Extract the lowercase skill or area tag(s) named in the user message.',
       'Return an empty array if the message names no skills.',
@@ -54,13 +59,13 @@ async function extractSkills(
   deps: TaskAnalyzerDeps,
   title: string,
   description: string | null,
-  signal?: AbortSignal,
+  ctx: Pick<SpecializedAgentRunCtx, 'model' | 'abortSignal'>,
 ) {
   if (deps.extractSkillsFromTask) return deps.extractSkillsFromTask({ title, description });
   const { object } = await generateObject({
-    model: deps.resolveModel(),
+    model: pickModel(ctx, deps.resolveModel),
     schema: z.object({ skills: z.array(z.string()) }),
-    abortSignal: signal,
+    abortSignal: ctx.abortSignal,
     prompt: [
       'Extract a concise list of technical skill tags (lowercase, no duplicates)',
       'required to do this task. Return only skills clearly implied by the text.',
@@ -106,7 +111,7 @@ export function makeTaskAnalyzerAgent(deps: TaskAnalyzerDeps): SpecializedAgentS
         case 'extract_named_skills': {
           // People-search input: just surface the skills the user named so the
           // orchestrator can hand them to the skillMatcher. NO task read/search.
-          const skills = await extractTags(deps, input.query, ctx.abortSignal);
+          const skills = await extractTags(deps, input.query, ctx);
           return {
             result: { skills },
             trust: trust(
@@ -119,7 +124,7 @@ export function makeTaskAnalyzerAgent(deps: TaskAnalyzerDeps): SpecializedAgentS
         }
 
         case 'find_tasks': {
-          const tags = await extractTags(deps, input.query, ctx.abortSignal);
+          const tags = await extractTags(deps, input.query, ctx);
           const tasks: TaskSummary[] = tags.length
             ? await deps.taskSearch.bySkillTags(tags, FIND_TASKS_LIMIT, ctx)
             : [];
@@ -148,7 +153,7 @@ export function makeTaskAnalyzerAgent(deps: TaskAnalyzerDeps): SpecializedAgentS
           // Prefer the task's own tags; fall back to LLM inference only when empty.
           const skills = task.skillTags.length
             ? task.skillTags
-            : await extractSkills(deps, task.title, task.description, ctx.abortSignal);
+            : await extractSkills(deps, task.title, task.description, ctx);
           return {
             result: { skills, title: task.title },
             trust: trust(

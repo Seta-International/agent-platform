@@ -50,11 +50,13 @@ export interface OrchestratorToolDeps {
 export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
   const { taskAnalyzer, skillMatcher, avaiChecker, recommender, ctx } = deps;
   // Sub-agents run with the same tenant/actor but WITHOUT the onEvent sink, so
-  // only the orchestrator (here) emits the sub-step cards.
+  // only the orchestrator (here) emits the sub-step cards. The per-turn model
+  // override rides along so sub-agent LLM calls honor the user's pick.
   const subCtx: SpecializedAgentRunCtx = {
     tenantId: ctx.tenantId,
     actorUserId: ctx.actorUserId,
     abortSignal: ctx.abortSignal,
+    model: ctx.model,
   };
 
   const callTaskAnalyzer = defineAgentTool({

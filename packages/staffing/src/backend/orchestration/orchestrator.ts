@@ -11,6 +11,7 @@ import {
 import type { LanguageModel } from 'ai';
 import type { z } from 'zod';
 import { buildAssignApprovalCard } from './approval-card.ts';
+import { pickModel } from './model.ts';
 import { makeOrchestratorTools } from './orchestrator.tools.ts';
 import type { TaskSummary } from './ports.ts';
 import {
@@ -150,7 +151,7 @@ export function makeOrchestratorAgent(deps: OrchestratorDeps): SpecializedAgentS
               id: 'staffing.orchestrator',
               name: 'Staffing Orchestrator',
               instructions: agentInstructions,
-              model: deps.resolveModel() as never,
+              model: pickModel(ctx, deps.resolveModel) as never,
               tools: tools as never,
             });
             const r = await agent.generate(

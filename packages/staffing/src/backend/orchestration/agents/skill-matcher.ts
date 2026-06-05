@@ -3,6 +3,7 @@ import { RequestContext } from '@mastra/core/request-context';
 import type { AgentResult, Citation, SpecializedAgentSpec } from '@seta/agent-sdk';
 import type { LanguageModel } from 'ai';
 import type { z } from 'zod';
+import { pickModel } from '../model.ts';
 import type { SkillSearchHit, SkillSearchPort } from '../ports.ts';
 import {
   type RankedCandidate,
@@ -35,13 +36,6 @@ function toolResult(res: MastraToolSignals, name: string): unknown {
 
 export function makeSkillMatcherAgent(deps: SkillMatcherDeps): SpecializedAgentSpec<In, Out> {
   const tools = makeSkillMatcherTools({ skillSearch: deps.skillSearch, topK: deps.topK });
-  const agent = new Agent({
-    id: 'staffing.skillMatcher',
-    name: 'Skill Matcher',
-    instructions: INSTRUCTIONS,
-    model: deps.resolveModel() as never,
-    tools: tools as never,
-  });
 
   return {
     id: 'staffing.skillMatcher',
@@ -56,6 +50,15 @@ export function makeSkillMatcherAgent(deps: SkillMatcherDeps): SpecializedAgentS
       const res: MastraToolSignals = deps.runAgent
         ? await deps.runAgent({ input, requestContext: rc })
         : await (async () => {
+            // Built per run (not at factory time) so the per-turn model
+            // override in ctx.model takes effect.
+            const agent = new Agent({
+              id: 'staffing.skillMatcher',
+              name: 'Skill Matcher',
+              instructions: INSTRUCTIONS,
+              model: pickModel(ctx, deps.resolveModel) as never,
+              tools: tools as never,
+            });
             const r = await agent.generate(
               `taskId=${input.taskId}. Required skills: ${input.skills.join(', ')}. Find and rank candidates.`,
               { requestContext: rc, maxSteps: 5, abortSignal: ctx.abortSignal },
