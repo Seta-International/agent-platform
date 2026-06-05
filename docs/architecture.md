@@ -96,7 +96,7 @@ The shape below is calibrated for this envelope. Outside it, the trade-offs in �
 | Tenants per cluster | ~5,000 | per-tenant LIST-partitioned vector + per-tenant RBAC |
 | Users per tenant | ~10,000 | session-scoped permission cache |
 | HTTP p95 (warm) | < 150 ms | Hono + Drizzle + module sub-app |
-| Agent first token (p95) | < 1.5 s | supervisor route + warm Mastra agent |
+| Agent first token (p95) | < 1.5 s | chat orchestration route + warm Mastra agent |
 | Event dispatcher lag (p95) | < 200 ms | `LISTEN/NOTIFY` + 2 s poll fallback |
 | Retrieval p95 (top-50 + rerank) | < 250 ms | HNSW partition prune + Cohere rerank |
 | Cold start (ECS task) | < 45 s | minimum-task autoscaling keeps it off the hot path |
@@ -412,15 +412,19 @@ sequenceDiagram
 
 ## 12. Agent system
 
-`@seta/agent` is engine-only. It composes module-owned agent tools and specs into Mastra agents via the contribution registry; it does **not** import any feature or orchestrator module (enforced by dep-cruiser rule `agent-no-feature-imports`). The supervisor / specialist design, HITL contract, memory model, planner walkthrough, and code locations are in [`agent-architecture.md`](./agent-architecture.md).
+`@seta/agent` is engine-only. It composes module-owned agent tools and specs into Mastra agents via the contribution registry; it does **not** import any feature or orchestrator module (enforced by dep-cruiser rule `agent-no-feature-imports`). The agent registry, tool + RBAC contracts, workflow surface, HITL contract, memory model, and code locations are in [`agent-architecture.md`](./agent-architecture.md).
+
+### Chat runtime — staffing orchestration
+
+Every chat turn (`POST /api/agent/v1/chat`) streams through the inline staffing orchestration — an agent-of-agents in `packages/staffing/` (orchestrator delegating to taskAnalyzer / skillMatcher / avaiChecker / recommender through its tools). The composition root (`apps/server`) is the only layer that binds the staffing runtime to the engine: it injects `chatOrchestration: staffingOrchestration.runInline` into `registerAgent`. There is no runtime selector — the former three-tier supervisor tree was removed.
+
+An explicit pick in the chat model selector resolves through the engine's model registry (`packages/agent/src/backend/model-registry.ts`) and rides `RunCtx.model` into the orchestrator and every sub-agent LLM call for that turn. Auto (or no pick) uses the runtime's boot-time default (`resolveModel('auto', { tierHint: 'fast' })`). The catalog comes from `AGENT_MODELS`, falling back to `AGENT_MODEL`, then a built-in catalog.
+
+Chat HITL is the orchestrator's deterministic post-step: after a successful recommend flow it records a `workflow_approvals` card (`makeAssignApprovalRecorder`, toolId `planner_proposeAssignment`); the web renders it via `GET /workflows/threads/:threadId/approvals` and decides via `POST /workflows/approvals/:id/decide` (`chatHitlDeciders` wired in apps/server).
 
 ### Orchestration working memory
 
-With `AGENT_CHAT_RUNTIME=orchestration`, chat turns route inline through the staffing orchestrator (an agent-of-agents in `packages/staffing/`) instead of the supervisor tree. The orchestration chat runtime shares the supervisor path's two working-memory
-mechanisms; both reach the orchestrator as `AgentMemoryHandle`s on the run ctx
-(`RunCtx.threadId` / `entitiesMemory` / `userMemory`), wired by the chat route
-and forwarded through `executeStep` — the same plumbing precedent as
-`recordHitlApproval`.
+The chat runtime wires two working-memory mechanisms (factories in `packages/agent/src/backend/memory.ts`); both reach the orchestrator as `AgentMemoryHandle`s on the run ctx (`RunCtx.threadId` / `entitiesMemory` / `userMemory`), wired by the chat route and forwarded through `executeStep` — the same plumbing precedent as `recordHitlApproval` and `RunCtx.model`.
 
 - **Thread-scoped conversation entities** (`ConversationEntitiesSchema`,
   stored in `thread.metadata.workingMemory`): the orchestrator sets
@@ -434,10 +438,10 @@ and forwarded through `executeStep` — the same plumbing precedent as
 - **Resource-scoped userContext** (`WorkingMemorySchema`, stored in
   `agent.mastra_resources`): the orchestrator must NOT attach `Memory` to its
   Mastra `Agent` (auto message persistence would collide with the manual
-  trace-timeline `saveMessages`), so it drives the shared GuardedMemory
+  trace-timeline `saveMessages`), so it drives the shared `GuardedMemory`
   instance through the public API instead — `getSystemMessage` renders the
   userContext section appended to its instructions, and a guarded
-  `updateWorkingMemory` tool (same LLM-write guard as the supervisor) performs
+  `updateWorkingMemory` tool (the `GuardedMemory` LLM-write guard) performs
   the writes.
 
 Both mechanisms are best-effort: memory failures never break a staffing
@@ -572,7 +576,7 @@ The architecture imposes the following constraints. Each is a deliberate exchang
 | **Can the AI SDK v6 substitute for Mastra?** | No. AI SDK v6 provides the LLM client and tool-call protocol; Mastra provides agent composition, memory, and workflow primitives. The two are complementary. |
 | **How are agents added independently of modules?** | Agents are not module-independent. Tools are owned by modules; cross-module agents are composed in orchestrator-tier packages (for example, `staffing`). |
 | **What is the scale ceiling?** | The targets in §3 describe the validated envelope. Above this, the trade-offs in §17 begin to apply; mitigation involves the `PLATFORM_MODULES` split, read replicas, and isolating the highest-load module onto a dedicated database. |
-| **Is the supervisor / specialist pattern documented separately?** | Yes — see [`agent-architecture.md`](./agent-architecture.md). |
+| **Is the agent system documented separately?** | Yes — see [`agent-architecture.md`](./agent-architecture.md). |
 
 ---
 
