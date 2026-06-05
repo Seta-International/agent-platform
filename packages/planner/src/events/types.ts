@@ -10,6 +10,7 @@ export interface PlannerEventActor {
 export type TaskMutableFields = {
   title: string;
   description: string | null;
+  description_text: string | null;
   // Cross-plan move emits a `planner.task.updated` with `plan_id` in the
   // changed_fields list so subscribers can re-parent projections.
   plan_id: Uuid;
