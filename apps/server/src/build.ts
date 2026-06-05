@@ -41,7 +41,8 @@ export type BuildServerAppDeps = {
    * Optional pre-built agent engine. apps/server constructs it earlier so it
    * can hand the Mastra instance to subscriberBuilders before the dispatcher
    * starts. The smoke test omits this; buildServerApp then builds the engine
-   * itself for a self-contained HTTP-only test.
+   * itself for a self-contained HTTP-only test — with a stub chat runtime,
+   * since only the composition root (index.ts) can bind staffing adapters.
    */
   agent?: AgentHandle;
   /** Structured logger (e.g. pino) passed down to route builders and the agent engine. */
@@ -55,6 +56,18 @@ export type BuiltServerApp = {
   app: Hono<SessionEnv>;
   reg: ContributionRegistry;
 };
+
+// Chat runtime stand-in for engine instances built without the composition
+// root (deps.agent omitted, e.g. the HTTP smoke test). Real wiring lives in
+// index.ts: chatOrchestration: staffingOrchestration.runInline.
+async function* stubChatRuntimeNotWired(): AsyncIterable<
+  import('@seta/shared-orchestration').OrchestrationEvent
+> {
+  yield {
+    kind: 'final',
+    result: { message: 'Chat runtime is not configured on this server build.' },
+  };
+}
 
 // Bridges better-auth's session into the SessionLike shape that agent routes
 // consume (c.var.session). When there's no authenticated user, c.var.session is
@@ -147,7 +160,16 @@ export function buildServerApp(
   // middleware below populates c.var.session from better-auth.
   const agent =
     deps.agent ??
-    registerAgent({ pool: deps.pool, databaseUrl: deps.databaseUrl, reg, log: deps.log });
+    registerAgent({
+      pool: deps.pool,
+      databaseUrl: deps.databaseUrl,
+      reg,
+      log: deps.log,
+      // Self-contained HTTP-only build (no composition root): the staffing
+      // orchestration can't be wired here, so chat answers with an explicit
+      // not-configured message instead of crashing the whole app.
+      chatOrchestration: () => stubChatRuntimeNotWired(),
+    });
   app.use('/api/agent/*', createAgentSessionBridge({ listRoleGrants }));
   agent.attach(app as unknown as Hono);
 

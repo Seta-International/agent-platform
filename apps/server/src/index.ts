@@ -123,11 +123,6 @@ const staffingOrchestration = buildStaffingOrchestrationRuntime({
 SpecializedAgentRegistry.freeze();
 OrchestrationRegistry.freeze();
 
-// Chat runtime selector (harness): 'orchestration' routes every chat turn
-// through the inline staffing orchestration instead of the supervisor tree.
-// Composition root reads the raw env; unset/'supervisor' => default tree.
-const chatRuntime = process.env.AGENT_CHAT_RUNTIME ?? 'supervisor';
-
 // Build the agent engine up front so subscriberBuilders contributed by
 // orchestrator modules (e.g. staffing) can be constructed against the live
 // Mastra instance before the dispatcher starts.
@@ -143,10 +138,10 @@ const agent = registerAgent({
   chatHitlDeciders: {
     planner_proposeAssignment: plannerProposeAssignmentChatHitlDecider,
   },
-  // Harness: when AGENT_CHAT_RUNTIME=orchestration, the chat route runs the
-  // inline staffing orchestration instead of the supervisor tree (reversible
-  // by unsetting the flag).
-  chatOrchestration: chatRuntime === 'orchestration' ? staffingOrchestration.runInline : undefined,
+  // The chat runtime: every chat turn streams through the inline staffing
+  // orchestration. apps/server is the only layer that can bind the staffing
+  // runtime to the engine surface.
+  chatOrchestration: staffingOrchestration.runInline,
 });
 const agentSubscribers = reg.collected.subscriberBuilders.map(({ builder }) =>
   builder({ mastra: agent.mastra }),
