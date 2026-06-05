@@ -84,6 +84,10 @@ export * from './primitives/tabs';
 export * from './primitives/textarea';
 export * from './primitives/toast';
 export * from './primitives/tooltip';
+// Rich text
+export * from './rich-text/RichTextDisplay';
+export * from './rich-text/RichTextEditor';
+export * from './rich-text/RichTextToolbar';
 // Sync
 export * from './sync/m365-error-messages';
 // Task
