@@ -1,3 +1,4 @@
+import type { OrchestrationEvent } from '@seta/shared-orchestration';
 import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
 import { registerAgentRoutes } from '../../src/backend/routes.ts';
@@ -7,14 +8,17 @@ import { withAgentTestDb } from '../helpers.ts';
 
 type TestEnv = { Variables: { session: SessionLike } };
 
+async function* stubOrchestration(): AsyncIterable<OrchestrationEvent> {
+  yield { kind: 'final', result: { message: 'ok' } };
+}
+
 describe('GET /api/agent/v1/health', () => {
   it('returns status, model.configured, db.reachable', async () => {
     await withAgentTestDb(async ({ pool, databaseUrl }) => {
       const mastra = buildMastra({ pool, databaseUrl });
       const app = new Hono<TestEnv>();
-      const fakeSupervisor = { stream: async () => ({}) } as never;
       registerAgentRoutes(app, {
-        supervisor: fakeSupervisor,
+        chatOrchestration: () => stubOrchestration(),
         mastra: mastra as never,
         pool,
       });

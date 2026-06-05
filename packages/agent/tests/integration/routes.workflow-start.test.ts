@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Mastra } from '@mastra/core';
 import { AgentRegistry, type WorkflowSpec } from '@seta/agent-sdk';
+import type { OrchestrationEvent } from '@seta/shared-orchestration';
 import { Hono } from 'hono';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
@@ -8,6 +9,10 @@ import type { AgentRouteEnv } from '../../src/backend/routes.ts';
 import { registerAgentRoutes } from '../../src/backend/routes.ts';
 import type { SessionLike } from '../../src/backend/types.ts';
 import { withAgentTestDb } from '../helpers.ts';
+
+async function* stubOrchestration(): AsyncIterable<OrchestrationEvent> {
+  yield { kind: 'final', result: { message: 'ok' } };
+}
 
 function session(perms: string[] = []): SessionLike {
   return {
@@ -46,7 +51,7 @@ function makeApp(s: SessionLike | null, mastra: Mastra, pool: import('pg').Pool)
     await next();
   });
   registerAgentRoutes(app, {
-    supervisor: { stream: async () => ({}) } as never,
+    chatOrchestration: () => stubOrchestration(),
     mastra,
     pool,
   });

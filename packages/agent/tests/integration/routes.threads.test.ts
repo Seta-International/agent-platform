@@ -1,4 +1,5 @@
 import { createTestTenantWithAdmin } from '@seta/identity/testing';
+import type { OrchestrationEvent } from '@seta/shared-orchestration';
 import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
 import { registerAgentRoutes } from '../../src/backend/routes.ts';
@@ -11,6 +12,10 @@ type TestSession = {
   effective_permissions: ReadonlySet<string>;
   role_summary: { roles: string[]; cross_tenant_read: boolean };
 };
+
+async function* stubOrchestration(): AsyncIterable<OrchestrationEvent> {
+  yield { kind: 'final', result: { message: 'ok' } };
+}
 
 type StorageWithStores = {
   stores: {
@@ -66,7 +71,7 @@ function makeApp(args: {
     await next();
   });
   registerAgentRoutes(app, {
-    supervisor: { stream: async () => ({}) } as never,
+    chatOrchestration: () => stubOrchestration(),
     mastra: args.mastra as never,
     pool: args.pool,
   });
@@ -131,7 +136,7 @@ describe('threads routes', () => {
 
       const app = new Hono<{ Variables: { session: TestSession } }>();
       registerAgentRoutes(app, {
-        supervisor: { stream: async () => ({}) } as never,
+        chatOrchestration: () => stubOrchestration(),
         mastra: mastra as never,
         pool,
       });

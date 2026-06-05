@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Mastra } from '@mastra/core';
 import type { ApprovalCard } from '@seta/agent-sdk';
+import type { OrchestrationEvent } from '@seta/shared-orchestration';
 import { Hono } from 'hono';
 import { describe, expect, it, vi } from 'vitest';
 import { insertChatHitlApproval } from '../../src/backend/domain/insert-chat-hitl-approval.ts';
@@ -9,6 +10,10 @@ import { registerAgentRoutes } from '../../src/backend/routes.ts';
 import type { SessionLike } from '../../src/backend/types.ts';
 import { onLifecycleEvent } from '../../src/backend/workflows/_infra/lifecycle-hook.ts';
 import { withAgentTestDb } from '../helpers.ts';
+
+async function* stubOrchestration(): AsyncIterable<OrchestrationEvent> {
+  yield { kind: 'final', result: { message: 'ok' } };
+}
 
 function session(perms: string[], tenantId = randomUUID(), userId = randomUUID()): SessionLike {
   return {
@@ -30,7 +35,7 @@ function makeApp(
     await next();
   });
   registerAgentRoutes(app, {
-    supervisor: { stream: async () => ({}) } as never,
+    chatOrchestration: () => stubOrchestration(),
     mastra,
     pool,
     // Tests don't go through the real lifecycle wiring, so nothing is ever
