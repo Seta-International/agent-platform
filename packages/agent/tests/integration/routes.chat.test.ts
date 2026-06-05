@@ -13,16 +13,16 @@ type TestSession = {
   role_summary: { roles: string[]; cross_tenant_read: boolean };
 };
 
-const fakeSupervisor = {
-  stream: async () => ({}) as never,
-} as never;
-
 const fakeMastra = { getStorage: () => null } as never;
 const fakePool = {
   connect: async () => {
     throw new Error('no pool in unit test');
   },
 } as unknown as Pool;
+
+async function* stubOrchestration(): AsyncIterable<OrchestrationEvent> {
+  yield { kind: 'final', result: { message: 'ok' } };
+}
 
 const v6UserMessage = (text: string) => ({
   id: 'm-1',
@@ -33,7 +33,11 @@ const v6UserMessage = (text: string) => ({
 describe('POST /api/agent/v1/chat', () => {
   it('returns 401 when no session', async () => {
     const app = new Hono<{ Variables: { session: TestSession } }>();
-    registerAgentRoutes(app, { supervisor: fakeSupervisor, mastra: fakeMastra, pool: fakePool });
+    registerAgentRoutes(app, {
+      mastra: fakeMastra,
+      pool: fakePool,
+      chatOrchestration: () => stubOrchestration(),
+    });
     const res = await app.request('/api/agent/v1/chat', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -53,7 +57,11 @@ describe('POST /api/agent/v1/chat', () => {
       });
       await next();
     });
-    registerAgentRoutes(app, { supervisor: fakeSupervisor, mastra: fakeMastra, pool: fakePool });
+    registerAgentRoutes(app, {
+      mastra: fakeMastra,
+      pool: fakePool,
+      chatOrchestration: () => stubOrchestration(),
+    });
     const res = await app.request('/api/agent/v1/chat', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -76,9 +84,9 @@ describe('POST /api/agent/v1/chat', () => {
         await next();
       });
       registerAgentRoutes(app, {
-        supervisor: fakeSupervisor,
         mastra: fakeMastra,
         pool: fakePool,
+        chatOrchestration: () => stubOrchestration(),
       });
       const res = await app.request('/api/agent/v1/chat', {
         method: 'POST',
@@ -125,13 +133,13 @@ describe('POST /api/agent/v1/chat', () => {
         },
       });
 
-      // The supervisor should never be called — failure mode is leaking
-      // another user's thread. Surface that loudly if the guard regresses.
-      const trippedSupervisor = {
-        stream: async () => {
-          throw new Error('supervisor.stream should not be reached when ownership check fires');
-        },
-      } as never;
+      // The orchestration must never run — failure mode is leaking another
+      // user's thread. Surface that loudly if the guard regresses.
+      let orchestrationCalled = false;
+      async function* trippedOrchestration(): AsyncIterable<OrchestrationEvent> {
+        orchestrationCalled = true;
+        yield { kind: 'final', result: { message: 'should not happen' } };
+      }
 
       const app = new Hono<{ Variables: { session: TestSession } }>();
       app.use('*', async (c, next) => {
@@ -144,9 +152,9 @@ describe('POST /api/agent/v1/chat', () => {
         await next();
       });
       registerAgentRoutes(app, {
-        supervisor: trippedSupervisor,
         mastra: mastra as never,
         pool,
+        chatOrchestration: () => trippedOrchestration(),
       });
 
       const res = await app.request('/api/agent/v1/chat', {
@@ -155,20 +163,22 @@ describe('POST /api/agent/v1/chat', () => {
         body: JSON.stringify({ id: foreignThreadId, messages: [v6UserMessage('hijack')] }),
       });
       expect(res.status).toBe(404);
+      expect(orchestrationCalled).toBe(false);
     });
   });
 
-  it('injects a [Context: ...] prefix into the last user message when a data-page-context part is present', async () => {
+  it('injects a [Context: ...] prefix into the orchestration userText and extracts taskId', async () => {
     await withAgentTestDb(async ({ pool }) => {
       const { admin_user_id, tenant_id } = await createTestTenantWithAdmin({ pool });
 
-      const captured: { messages?: unknown[] } = {};
-      const recordingSupervisor = {
-        stream: async (messages: unknown[]) => {
-          captured.messages = messages;
-          return {} as never;
-        },
-      } as never;
+      let capturedInput: { userText: string; taskId: string | null } | undefined;
+      async function* captureOrchestration(runInput: {
+        userText: string;
+        taskId: string | null;
+      }): AsyncIterable<OrchestrationEvent> {
+        capturedInput = runInput;
+        yield { kind: 'final', result: { message: 'ok' } };
+      }
 
       const app = new Hono<{ Variables: { session: TestSession } }>();
       app.use('*', async (c, next) => {
@@ -181,9 +191,9 @@ describe('POST /api/agent/v1/chat', () => {
         await next();
       });
       registerAgentRoutes(app, {
-        supervisor: recordingSupervisor,
         mastra: fakeMastra,
         pool: fakePool,
+        chatOrchestration: (runInput) => captureOrchestration(runInput),
       });
 
       const res = await app.request('/api/agent/v1/chat', {
@@ -212,15 +222,11 @@ describe('POST /api/agent/v1/chat', () => {
         }),
       });
       expect(res.status).toBe(200);
-      const last = (captured.messages ?? []).at(-1) as
-        | { parts: Array<{ type: string; text?: string }> }
-        | undefined;
-      const text = (last?.parts ?? []).find((p) => p.type === 'text') as
-        | { text: string }
-        | undefined;
-      expect(text?.text).toBe(
+      await res.text();
+      expect(capturedInput?.userText).toBe(
         '[Context: planner.task#task-8f3e — "Q3 launch"\nSummary: Marketing checklist.]\n\nhelp me reorder this',
       );
+      expect(capturedInput?.taskId).toBe('task-8f3e');
     });
   });
 });
@@ -281,7 +287,6 @@ describe('POST /api/agent/v1/chat (orchestration runtime persistence)', () => {
         await next();
       });
       registerAgentRoutes(app, {
-        supervisor: fakeSupervisor,
         mastra: mastra as never,
         pool,
         chatOrchestration: () => fakeOrchestration(),
@@ -359,7 +364,6 @@ describe('POST /api/agent/v1/chat (orchestration runtime persistence)', () => {
         await next();
       });
       registerAgentRoutes(app, {
-        supervisor: fakeSupervisor,
         mastra: mastra as never,
         pool,
         chatOrchestration: (runInput, ctx) => captureOrchestration(runInput, ctx),
@@ -414,7 +418,6 @@ describe('POST /api/agent/v1/chat (orchestration runtime persistence)', () => {
         await next();
       });
       registerAgentRoutes(app, {
-        supervisor: fakeSupervisor,
         mastra: mastra as never,
         pool,
         chatOrchestration: (runInput, ctx) => captureOrchestration(runInput, ctx),
@@ -528,9 +531,9 @@ describe('GET /api/agent/v1/threads/:id (data-page-context round-trip)', () => {
         await next();
       });
       registerAgentRoutes(app, {
-        supervisor: fakeSupervisor,
         mastra: mastra as never,
         pool,
+        chatOrchestration: () => stubOrchestration(),
       });
 
       const res = await app.request(`/api/agent/v1/threads/${threadId}`);
@@ -634,9 +637,9 @@ describe('GET /api/agent/v1/threads/:id (sub-agent leaf tool calls)', () => {
         await next();
       });
       registerAgentRoutes(app, {
-        supervisor: fakeSupervisor,
         mastra: mastra as never,
         pool,
+        chatOrchestration: () => stubOrchestration(),
       });
 
       const res = await app.request(`/api/agent/v1/threads/${threadId}`);

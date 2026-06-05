@@ -1,17 +1,8 @@
-import { toAISdkStream } from '@mastra/ai-sdk';
 import type { Mastra } from '@mastra/core';
-import type { Agent, DelegationStartContext } from '@mastra/core/agent';
 import type { MemoryConfig } from '@mastra/core/memory';
 import { RequestContext } from '@mastra/core/request-context';
 import type { Memory } from '@mastra/memory';
-import {
-  AgentRegistry,
-  type ChatHitlDecider,
-  type ChatHitlRecorder,
-  RC_AGENT_MEMORY,
-  RC_CHAT_HITL_RECORDER,
-  RC_THREAD_ID,
-} from '@seta/agent-sdk';
+import { AgentRegistry, type ChatHitlDecider } from '@seta/agent-sdk';
 import { createUIMessageStream, createUIMessageStreamResponse, type UIMessage } from 'ai';
 import type { Context, Hono } from 'hono';
 import type { Pool } from 'pg';
@@ -20,7 +11,6 @@ import { cancelWorkflowRun } from './domain/cancel-workflow-run.ts';
 import { decideApproval } from './domain/decide-approval.ts';
 import { getWorkflowRun } from './domain/get-workflow-run.ts';
 import { getWorkflowRunSnapshot } from './domain/get-workflow-run-snapshot.ts';
-import { insertChatHitlApproval } from './domain/insert-chat-hitl-approval.ts';
 import { listMyPendingApprovals } from './domain/list-my-pending-approvals.ts';
 import { listThreadApprovals } from './domain/list-thread-approvals.ts';
 import { listWorkflowRuns } from './domain/list-workflow-runs.ts';
@@ -28,11 +18,9 @@ import { makeAssignApprovalRecorder } from './domain/make-assign-approval-record
 import { replayWorkflowFromStep } from './domain/replay-workflow-from-step.ts';
 import { rerunWorkflow } from './domain/rerun-workflow.ts';
 import { agentEnv } from './env.ts';
-import { listModels, ModelNotFoundError, resolveModel } from './model-registry.ts';
+import { listModels } from './model-registry.ts';
 import { ORCHESTRATION_STEP_PART, streamOrchestrationToUI } from './orchestration-chat-stream.ts';
-import { commitActualTokens, RateLimitError, reserveTurn } from './rate-limit.ts';
-import { readRoutingCache, writeRoutingCache } from './routing-cache.ts';
-import { selectAgent } from './routing-fast-path.ts';
+import { RateLimitError, reserveTurn } from './rate-limit.ts';
 import type { LifecycleDrainer } from './runtime.ts';
 import type { SessionLike } from './types.ts';
 import { issueSseToken } from './workflows/_infra/auth-token.ts';
@@ -70,8 +58,6 @@ const ChatBody = z.object({
 });
 
 export type AgentRouteDeps = {
-  supervisor: Agent;
-  domainAgents: Record<string, Agent>;
   mastra: unknown;
   drainer: LifecycleDrainer;
   pool: Pool;
@@ -112,12 +98,11 @@ export type AgentRouteDeps = {
   userMemory?: Memory;
   userMemoryConfig?: MemoryConfig;
   /**
-   * When present, the chat route runs this inline orchestration instead of the
-   * supervisor tree (AGENT_CHAT_RUNTIME=orchestration harness). Injected by the
-   * composition root (apps/server), the only layer that can bind staffing
-   * adapters to the engine. Absent => supervisor tree (default).
+   * The chat runtime: every chat turn streams through this inline staffing
+   * orchestration. Injected by the composition root (apps/server), the only
+   * layer that can bind staffing adapters to the engine.
    */
-  chatOrchestration?: (
+  chatOrchestration: (
     runInput: { userText: string; taskId: string | null },
     ctx: import('@seta/shared-orchestration').RunCtx,
   ) => AsyncIterable<import('@seta/shared-orchestration').OrchestrationEvent>;
@@ -223,23 +208,6 @@ function pageContextTaskId(messages: UIMessage[]): string | null {
   return null;
 }
 
-function finiteTokenCount(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
-async function readActualUsage(
-  result: unknown,
-): Promise<{ actualTokensIn: number; actualTokensOut: number } | null> {
-  const usageLike = result as { totalUsage?: PromiseLike<unknown>; usage?: PromiseLike<unknown> };
-  const usage = await (usageLike.totalUsage ?? usageLike.usage ?? Promise.resolve(null));
-  if (!usage || typeof usage !== 'object') return null;
-  const raw = usage as Record<string, unknown>;
-  const actualTokensIn = finiteTokenCount(raw.inputTokens);
-  const actualTokensOut = finiteTokenCount(raw.outputTokens);
-  if (actualTokensIn === null || actualTokensOut === null) return null;
-  return { actualTokensIn, actualTokensOut };
-}
-
 export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDeps): void {
   app.post('/api/agent/v1/chat', async (c) => {
     const session = c.get('session') as SessionLike | undefined;
@@ -270,9 +238,8 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
       messageCount: messages.length,
     });
 
-    let reservation: Awaited<ReturnType<typeof reserveTurn>>;
     try {
-      reservation = await reserveTurn({
+      await reserveTurn({
         tenantId: session.tenant_id,
         userId: session.user_id,
         estimatedTokens: estimatedTokensIn,
@@ -287,301 +254,123 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
       throw e;
     }
 
-    // Harness: route the whole turn through the inline orchestration when wired.
-    if (deps.chatOrchestration) {
-      const taskId = pageContextTaskId(effectiveMessages);
-      const orchestrate = deps.chatOrchestration;
-      const orchThreadId = parsed.data.id;
-      const orchStore = getMemoryStore();
-      // Original (un-prefixed) last user message — what the user actually typed,
-      // persisted as-is so reload shows clean text (no injected [Context] prefix).
-      const lastUserMessage = [...messages].reverse().find((m) => m.role === 'user');
-      const userCreatedAt = new Date();
-      // The orchestration harness has no LLM title-gen; derive a thread title
-      // from the user's (un-prefixed) question so the rail shows a real label.
-      const cleanUserText = (lastUserMessage?.parts ?? [])
-        .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
-        .map((p) => p.text)
-        .join(' ')
-        .trim();
-      const orchThreadTitle = (cleanUserText || userText).slice(0, 80) || 'New conversation';
+    const taskId = pageContextTaskId(effectiveMessages);
+    const orchestrate = deps.chatOrchestration;
+    const orchThreadId = parsed.data.id;
+    const orchStore = getMemoryStore();
+    // Original (un-prefixed) last user message — what the user actually typed,
+    // persisted as-is so reload shows clean text (no injected [Context] prefix).
+    const lastUserMessage = [...messages].reverse().find((m) => m.role === 'user');
+    const userCreatedAt = new Date();
+    // The orchestration harness has no LLM title-gen; derive a thread title
+    // from the user's (un-prefixed) question so the rail shows a real label.
+    const cleanUserText = (lastUserMessage?.parts ?? [])
+      .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
+      .map((p) => p.text)
+      .join(' ')
+      .trim();
+    const orchThreadTitle = (cleanUserText || userText).slice(0, 80) || 'New conversation';
 
-      // In-thread HITL: lets the orchestrator record an approval card after a
-      // successful recommend flow (the recommend post-step). The supervisor
-      // path builds its recorder further down (see RC_CHAT_HITL_RECORDER); this
-      // branch returns before reaching it, so it needs its own. Idempotent per
-      // task — mutex with the evented assignBySkill and supervisor
-      // proposeAssignment paths.
-      const recordHitlApproval = makeAssignApprovalRecorder({
-        tenantId: session.tenant_id,
-        userId: session.user_id,
-        threadId: orchThreadId ?? null,
-        pool: deps.pool,
-      });
-
-      // Create the thread row up front (mirrors the workflow-start path, which
-      // projects synchronously so a GET never 404s). The orchestration harness
-      // has no Mastra Agent.stream to persist for us; without a thread row the
-      // AUI remote-thread-list reconciles against an empty server and evicts the
-      // in-flight conversation — it "reloads and disappears" mid-stream. The
-      // ownership guard mirrors the supervisor path: never write onto another
-      // user's thread.
-      if (orchThreadId && orchStore) {
-        const existing = await orchStore.getThreadById({ threadId: orchThreadId });
-        if (existing && existing.resourceId !== session.user_id) {
-          return c.json({ error: 'not_found', message: 'thread not found' }, 404);
-        }
-        if (!existing) {
-          await orchStore.saveThread({
-            thread: {
-              id: orchThreadId,
-              resourceId: session.user_id,
-              title: orchThreadTitle,
-              createdAt: userCreatedAt,
-              updatedAt: userCreatedAt,
-              metadata: {},
-            },
-          });
-        }
-      }
-
-      const uiStream = createUIMessageStream({
-        originalMessages: effectiveMessages,
-        execute: async ({ writer }) => {
-          const { assistantParts } = await streamOrchestrationToUI(
-            writer as unknown as import('./orchestration-chat-stream.ts').UiStreamWriter,
-            orchestrate(
-              { userText, taskId },
-              {
-                tenantId: session.tenant_id,
-                actorUserId: session.user_id,
-                recordHitlApproval,
-                // Working-memory wiring (mirrors the supervisor path's
-                // RC_THREAD_ID / RC_AGENT_MEMORY injection further down):
-                // the orchestrator sets request-context keys from these so the
-                // entity recorder / task-ref resolver / userContext read all
-                // key on the real chat thread + the authenticated user.
-                threadId: orchThreadId,
-                entitiesMemory:
-                  deps.entitiesMemory && deps.entitiesMemoryConfig
-                    ? { memory: deps.entitiesMemory, memoryConfig: deps.entitiesMemoryConfig }
-                    : undefined,
-                userMemory:
-                  deps.userMemory && deps.userMemoryConfig
-                    ? { memory: deps.userMemory, memoryConfig: deps.userMemoryConfig }
-                    : undefined,
-              },
-            ),
-          );
-          // Persist the user turn + assistant trace timeline so the conversation
-          // survives reload (GET /threads/:id rebuilds the cards + final answer).
-          if (!orchThreadId || !orchStore) return;
-          try {
-            const assistantCreatedAt = new Date(Math.max(Date.now(), userCreatedAt.getTime() + 1));
-            await orchStore.saveMessages({
-              messages: [
-                {
-                  id: lastUserMessage?.id ?? crypto.randomUUID(),
-                  threadId: orchThreadId,
-                  resourceId: session.user_id,
-                  role: 'user',
-                  createdAt: userCreatedAt,
-                  content: {
-                    format: 2,
-                    parts: lastUserMessage?.parts ?? [{ type: 'text', text: userText }],
-                  },
-                },
-                {
-                  id: crypto.randomUUID(),
-                  threadId: orchThreadId,
-                  resourceId: session.user_id,
-                  role: 'assistant',
-                  createdAt: assistantCreatedAt,
-                  content: { format: 2, parts: assistantParts },
-                },
-              ],
-            });
-          } catch (err) {
-            (deps.log?.error ?? console.error)(
-              {
-                subsystem: 'agent.chat',
-                event: 'orchestration.persist.failed',
-                threadId: orchThreadId,
-                err,
-              },
-              'failed to persist orchestration chat turn',
-            );
-          }
-        },
-      });
-      return createUIMessageStreamResponse({ stream: uiStream, headers: NO_BUFFER_HEADERS });
-    }
-
-    // Resource scope is always the authenticated user. Never honor a
-    // client-supplied value — Mastra uses this to scope working-memory and
-    // semantic recall, so a spoof would leak another user's context.
-    const resourceId = session.user_id;
-
-    let modelOverride: ReturnType<typeof resolveModel>['model'] | undefined;
-    try {
-      modelOverride = resolveModel(parsed.data.model, {
-        tierHint: 'balanced',
-        lastUserText: userText,
-      }).model;
-    } catch (e) {
-      if (e instanceof ModelNotFoundError) {
-        return c.json({ error: 'unknown_model', message: e.message }, 400);
-      }
-      throw e;
-    }
-
-    const requestContext = new RequestContext();
-    requestContext.set('actor', {
-      type: 'user' as const,
-      user_id: session.user_id,
+    // In-thread HITL: lets the orchestrator record an approval card after a
+    // successful recommend flow (the recommend post-step). Idempotent per
+    // task — mutex with the evented assignBySkill path.
+    const recordHitlApproval = makeAssignApprovalRecorder({
+      tenantId: session.tenant_id,
+      userId: session.user_id,
+      threadId: orchThreadId ?? null,
+      pool: deps.pool,
     });
-    requestContext.set('tenant_id', session.tenant_id);
-    requestContext.set('role_summary', session.role_summary);
 
-    const threadId = parsed.data.id;
-    // Propagate the chat thread ID so lifecycle events and tools can read it.
-    // Conversation-scoped tool state (entity recorder, task-ref resolver) keys
-    // on this, not ctx.agent.threadId (randomized per sub-agent delegation).
-    if (threadId) requestContext.set(RC_THREAD_ID, threadId);
-
-    // Inject the ChatHitlRecorder so chat-flow tools can write approval rows
-    // without importing agent internals. See sdks/agent/src/hitl/chat-hitl.ts
-    // for the full explanation of why this is needed (lifecycle hook does not
-    // fire for agentic execution — only for evented Mastra workflows).
-    const recorder: ChatHitlRecorder = (card) =>
-      insertChatHitlApproval({
-        card,
-        tenantId: session.tenant_id,
-        userId: session.user_id,
-        threadId: threadId ?? null,
-        pool: deps.pool,
-      });
-    requestContext.set(RC_CHAT_HITL_RECORDER, recorder);
-
-    if (deps.entitiesMemory && deps.entitiesMemoryConfig) {
-      requestContext.set(RC_AGENT_MEMORY, {
-        memory: deps.entitiesMemory,
-        memoryConfig: deps.entitiesMemoryConfig,
-      });
-    }
-
-    deps.log?.warn(
-      {
-        subsystem: 'agent.chat',
-        event: 'chat.request',
-        threadId: threadId ?? null,
-        userId: session.user_id,
-        tenantId: session.tenant_id,
-        userText: userText.slice(0, 120),
-      },
-      'chat request received',
-    );
-
-    const storage = getMemoryStore();
-
-    // Thread-ownership guard. If the client supplies an id that already exists
-    // on the server under a different user, refuse the send — otherwise Mastra
-    // would happily append the new turn to someone else's thread. A missing
-    // row is the legitimate "client minted a fresh uuid" case; let it through
-    // and Mastra will create the row under `session.user_id`.
-    if (threadId && storage) {
-      const existing = await storage.getThreadById({ threadId });
+    // Create the thread row up front (mirrors the workflow-start path, which
+    // projects synchronously so a GET never 404s). The orchestration runtime
+    // has no Mastra Agent.stream to persist for us; without a thread row the
+    // AUI remote-thread-list reconciles against an empty server and evicts the
+    // in-flight conversation — it "reloads and disappears" mid-stream. The
+    // ownership guard: never write onto another user's thread.
+    if (orchThreadId && orchStore) {
+      const existing = await orchStore.getThreadById({ threadId: orchThreadId });
       if (existing && existing.resourceId !== session.user_id) {
         return c.json({ error: 'not_found', message: 'thread not found' }, 404);
       }
-    }
-
-    const lookup =
-      threadId && storage
-        ? await readRoutingCache(storage as never, threadId)
-        : { cache: null, threadTitle: null, existingMetadata: {} };
-
-    const { agent, shouldWriteCache, cacheWriteDomain } = await selectAgent({
-      threadId,
-      userText,
-      topAgent: deps.supervisor,
-      domainAgents: deps.domainAgents,
-      lookup,
-    });
-
-    console.log('[agent.chat] → routed to agent', {
-      agentId: (agent as { id?: string }).id ?? 'unknown',
-      threadId: threadId ?? '(new)',
-      cachedDomain: cacheWriteDomain ?? '(none)',
-    });
-    deps.log?.warn(
-      {
-        subsystem: 'agent.chat',
-        event: 'agent.selected',
-        threadId: threadId ?? null,
-        agentId: (agent as { id?: unknown }).id ?? 'unknown',
-      },
-      'agent selected for chat turn',
-    );
-
-    const result = await agent.stream(
-      effectiveMessages as never,
-      {
-        ...(threadId
-          ? { memory: { thread: threadId, resource: resourceId } }
-          : { memory: { resource: resourceId } }),
-        requestContext,
-        ...(modelOverride ? { model: modelOverride } : {}),
-        delegation: {
-          includeSubAgentToolResultsInModelContext: true,
-          onDelegationStart: ({ params }: DelegationStartContext) => ({
-            params: { ...params, maxSteps: Math.max(params.maxSteps ?? 0, 20) },
-          }),
-        },
-      } as never,
-    );
-
-    if (shouldWriteCache && cacheWriteDomain && threadId && storage) {
-      void writeRoutingCache(storage as never, threadId, cacheWriteDomain, {
-        existingMetadata: lookup.existingMetadata,
-        threadTitle: lookup.threadTitle,
-      });
+      if (!existing) {
+        await orchStore.saveThread({
+          thread: {
+            id: orchThreadId,
+            resourceId: session.user_id,
+            title: orchThreadTitle,
+            createdAt: userCreatedAt,
+            updatedAt: userCreatedAt,
+            metadata: {},
+          },
+        });
+      }
     }
 
     const uiStream = createUIMessageStream({
       originalMessages: effectiveMessages,
       execute: async ({ writer }) => {
-        const stream = toAISdkStream(result as never, {
-          from: 'agent',
-          version: 'v6',
-        }) as ReadableStream<unknown>;
-        const reader = stream.getReader();
+        const { assistantParts } = await streamOrchestrationToUI(
+          writer as unknown as import('./orchestration-chat-stream.ts').UiStreamWriter,
+          orchestrate(
+            { userText, taskId },
+            {
+              tenantId: session.tenant_id,
+              actorUserId: session.user_id,
+              recordHitlApproval,
+              // Working-memory wiring: the orchestrator sets request-context
+              // keys from these so the entity recorder / task-ref resolver /
+              // userContext read all key on the real chat thread + the
+              // authenticated user.
+              threadId: orchThreadId,
+              entitiesMemory:
+                deps.entitiesMemory && deps.entitiesMemoryConfig
+                  ? { memory: deps.entitiesMemory, memoryConfig: deps.entitiesMemoryConfig }
+                  : undefined,
+              userMemory:
+                deps.userMemory && deps.userMemoryConfig
+                  ? { memory: deps.userMemory, memoryConfig: deps.userMemoryConfig }
+                  : undefined,
+            },
+          ),
+        );
+        // Persist the user turn + assistant trace timeline so the conversation
+        // survives reload (GET /threads/:id rebuilds the cards + final answer).
+        if (!orchThreadId || !orchStore) return;
         try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            writer.write(value as never);
-          }
-        } finally {
-          reader.releaseLock();
-        }
-        const usage = await readActualUsage(result);
-        if (!usage) return;
-        try {
-          await commitActualTokens({
-            tenantId: session.tenant_id,
-            userId: session.user_id,
-            reservationWindowStart: reservation.windowStart,
-            estimatedTokensIn,
-            actualTokensIn: usage.actualTokensIn,
-            actualTokensOut: usage.actualTokensOut,
+          const assistantCreatedAt = new Date(Math.max(Date.now(), userCreatedAt.getTime() + 1));
+          await orchStore.saveMessages({
+            messages: [
+              {
+                id: lastUserMessage?.id ?? crypto.randomUUID(),
+                threadId: orchThreadId,
+                resourceId: session.user_id,
+                role: 'user',
+                createdAt: userCreatedAt,
+                content: {
+                  format: 2,
+                  parts: lastUserMessage?.parts ?? [{ type: 'text', text: userText }],
+                },
+              },
+              {
+                id: crypto.randomUUID(),
+                threadId: orchThreadId,
+                resourceId: session.user_id,
+                role: 'assistant',
+                createdAt: assistantCreatedAt,
+                content: { format: 2, parts: assistantParts },
+              },
+            ],
           });
         } catch (err) {
-          console.error('[agent.rate-limit.commit.failed]', {
-            tenantId: session.tenant_id,
-            userId: session.user_id,
-            err,
-          });
+          (deps.log?.error ?? console.error)(
+            {
+              subsystem: 'agent.chat',
+              event: 'orchestration.persist.failed',
+              threadId: orchThreadId,
+              err,
+            },
+            'failed to persist orchestration chat turn',
+          );
         }
       },
     });
@@ -981,7 +770,7 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
   });
 
   app.get('/api/agent/v1/health', async (c) => {
-    const modelConfigured = listModels().models.length > 0;
+    const modelConfigured = Boolean(agentEnv.AGENT_MODEL);
     let dbReachable = true;
     const storage = (deps.mastra as { getStorage: () => unknown }).getStorage();
     try {
@@ -1003,125 +792,6 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
       db: { reachable: dbReachable },
       mastra: { initialized: Boolean(storage) },
     });
-  });
-
-  const ApproveBody = z.object({
-    runId: z.string().min(1),
-    toolCallId: z.string().min(1),
-    approved: z.boolean(),
-    threadId: z.string().optional(),
-    /**
-     * Custom resume payload to hand to the suspended tool's `execute` as
-     * `ctx.agent.resumeData`. When present (and approved=true), the server
-     * calls `resumeStream(resumeData, opts)` directly so the tool can branch
-     * on the user's pick — e.g. the dedup workflow's "Related to #N" /
-     * "Sub-task of #N" alternatives. Omit for plain approve/decline.
-     */
-    resumeData: z.unknown().optional(),
-  });
-
-  app.post('/api/agent/v1/chat/approve', async (c) => {
-    const session = c.get('session') as SessionLike | undefined;
-    if (!session) {
-      return c.json({ error: 'unauthorized', message: 'session required' }, 401);
-    }
-    if (!session.effective_permissions.has('agent.chat.use')) {
-      return c.json({ error: 'forbidden', message: 'agent.chat.use required' }, 403);
-    }
-
-    const parsed = ApproveBody.safeParse(await c.req.json().catch(() => ({})));
-    if (!parsed.success) {
-      return c.json(
-        { error: 'validation_failed', message: 'bad body', details: parsed.error.format() },
-        400,
-      );
-    }
-
-    console.log('[agent.chat.approve] ← HITL decision', {
-      runId: parsed.data.runId,
-      toolCallId: parsed.data.toolCallId,
-      approved: parsed.data.approved,
-      hasResumeData: parsed.data.resumeData !== undefined,
-      resumeDataKind: (parsed.data.resumeData as { kind?: string } | undefined)?.kind ?? null,
-      userId: session.user_id,
-    });
-
-    const requestContext = new RequestContext();
-    requestContext.set('actor', {
-      type: 'user' as const,
-      user_id: session.user_id,
-    });
-    requestContext.set('tenant_id', session.tenant_id);
-    requestContext.set('role_summary', session.role_summary);
-
-    const resourceId = session.user_id;
-
-    // Thread-ownership guard, mirroring POST /chat: refuse to resume a tool
-    // call targeted at someone else's thread. The approve flow is a write to
-    // memory.thread, so a spoofed id would let one user nudge another user's
-    // conversation forward.
-    if (parsed.data.threadId) {
-      const approveStorage = getMemoryStore();
-      if (approveStorage) {
-        const existing = await approveStorage.getThreadById({ threadId: parsed.data.threadId });
-        if (existing && existing.resourceId !== session.user_id) {
-          return c.json({ error: 'not_found', message: 'thread not found' }, 404);
-        }
-      }
-    }
-
-    const resumeOpts = {
-      runId: parsed.data.runId,
-      toolCallId: parsed.data.toolCallId,
-      ...(parsed.data.threadId
-        ? { memory: { thread: parsed.data.threadId, resource: resourceId } }
-        : { memory: { resource: resourceId } }),
-      requestContext,
-    } as never;
-
-    let result: unknown;
-    try {
-      if (!parsed.data.approved) {
-        result = await (
-          deps.supervisor as unknown as { declineToolCall: (o: never) => Promise<unknown> }
-        ).declineToolCall(resumeOpts);
-      } else if (parsed.data.resumeData !== undefined) {
-        // Custom resume payload — bypass approveToolCall's hard-coded
-        // { approved: true } and hand the tool exactly what the user picked.
-        result = await (
-          deps.supervisor as unknown as {
-            resumeStream: (data: unknown, o: never) => Promise<unknown>;
-          }
-        ).resumeStream(parsed.data.resumeData, resumeOpts);
-      } else {
-        result = await (
-          deps.supervisor as unknown as { approveToolCall: (o: never) => Promise<unknown> }
-        ).approveToolCall(resumeOpts);
-      }
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      return c.json({ error: 'resume_failed', message: msg }, 500);
-    }
-
-    const uiStream = createUIMessageStream({
-      execute: async ({ writer }) => {
-        const stream = toAISdkStream(result as never, {
-          from: 'agent',
-          version: 'v6',
-        }) as ReadableStream<unknown>;
-        const reader = stream.getReader();
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            writer.write(value as never);
-          }
-        } finally {
-          reader.releaseLock();
-        }
-      },
-    });
-    return createUIMessageStreamResponse({ stream: uiStream, headers: NO_BUFFER_HEADERS });
   });
 
   mountInboxSse(app as unknown as Hono, { pool: deps.pool });
