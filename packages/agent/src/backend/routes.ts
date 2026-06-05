@@ -18,7 +18,7 @@ import { makeAssignApprovalRecorder } from './domain/make-assign-approval-record
 import { replayWorkflowFromStep } from './domain/replay-workflow-from-step.ts';
 import { rerunWorkflow } from './domain/rerun-workflow.ts';
 import { agentEnv } from './env.ts';
-import { listModels } from './model-registry.ts';
+import { listModels, ModelNotFoundError, resolveModel } from './model-registry.ts';
 import { ORCHESTRATION_STEP_PART, streamOrchestrationToUI } from './orchestration-chat-stream.ts';
 import { RateLimitError, reserveTurn } from './rate-limit.ts';
 import type { LifecycleDrainer } from './runtime.ts';
@@ -238,6 +238,23 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
       messageCount: messages.length,
     });
 
+    // Per-turn model override: an explicit picker choice resolves through the
+    // model registry and rides RunCtx.model into the orchestrator and every
+    // sub-agent LLM call. Absent or 'auto' ⇒ no override — the runtime's
+    // boot-time default (resolveModel('auto', { tierHint: 'fast' }) in
+    // apps/server) applies.
+    let modelOverride: ReturnType<typeof resolveModel>['model'] | undefined;
+    if (parsed.data.model && parsed.data.model !== 'auto') {
+      try {
+        modelOverride = resolveModel(parsed.data.model, { tierHint: 'fast' }).model;
+      } catch (e) {
+        if (e instanceof ModelNotFoundError) {
+          return c.json({ error: 'unknown_model', message: e.message }, 400);
+        }
+        throw e;
+      }
+    }
+
     try {
       await reserveTurn({
         tenantId: session.tenant_id,
@@ -330,6 +347,7 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
                 deps.userMemory && deps.userMemoryConfig
                   ? { memory: deps.userMemory, memoryConfig: deps.userMemoryConfig }
                   : undefined,
+              model: modelOverride,
             },
           ),
         );

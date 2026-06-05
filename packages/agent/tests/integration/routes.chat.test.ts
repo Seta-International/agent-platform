@@ -670,3 +670,93 @@ describe('GET /api/agent/v1/threads/:id (sub-agent leaf tool calls)', () => {
     });
   });
 });
+
+describe('POST /api/agent/v1/chat (model override)', () => {
+  function appWithCapture(opts: { userId: string; tenantId: string }) {
+    let capturedCtx: Record<string, unknown> | undefined;
+    async function* captureOrchestration(
+      _runInput: unknown,
+      ctx: unknown,
+    ): AsyncIterable<OrchestrationEvent> {
+      capturedCtx = ctx as Record<string, unknown>;
+      yield { kind: 'final', result: { message: 'ok' } };
+    }
+    const app = new Hono<{ Variables: { session: TestSession } }>();
+    app.use('*', async (c, next) => {
+      c.set('session', {
+        tenant_id: opts.tenantId,
+        user_id: opts.userId,
+        effective_permissions: new Set(['agent.chat.use']),
+        role_summary: { roles: ['org.admin'], cross_tenant_read: false },
+      });
+      await next();
+    });
+    registerAgentRoutes(app, {
+      mastra: fakeMastra,
+      pool: fakePool,
+      chatOrchestration: (runInput, ctx) => captureOrchestration(runInput, ctx),
+    });
+    return { app, capturedCtx: () => capturedCtx };
+  }
+
+  it('rejects an unknown model key with 400 unknown_model', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const { admin_user_id, tenant_id } = await createTestTenantWithAdmin({ pool });
+      const { app } = appWithCapture({ userId: admin_user_id, tenantId: tenant_id });
+      const res = await app.request('/api/agent/v1/chat', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          messages: [v6UserMessage('hi')],
+          model: 'openai/no-such-model-key',
+        }),
+      });
+      expect(res.status).toBe(400);
+      const body = (await res.json()) as { error: string };
+      expect(body.error).toBe('unknown_model');
+    });
+  });
+
+  it('passes the resolved model in ctx for an explicit pick', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const { admin_user_id, tenant_id } = await createTestTenantWithAdmin({ pool });
+      const { app, capturedCtx } = appWithCapture({
+        userId: admin_user_id,
+        tenantId: tenant_id,
+      });
+      // 'openai/gpt-5.4' is in the model registry's built-in fallback catalog,
+      // so this resolves without AGENT_MODELS being set in the test env.
+      const res = await app.request('/api/agent/v1/chat', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ messages: [v6UserMessage('hi')], model: 'openai/gpt-5.4' }),
+      });
+      expect(res.status).toBe(200);
+      await res.text();
+      expect(capturedCtx()?.model).toBeDefined();
+    });
+  });
+
+  it('leaves ctx.model undefined for auto and for no pick', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const { admin_user_id, tenant_id } = await createTestTenantWithAdmin({ pool });
+      for (const body of [
+        { messages: [v6UserMessage('hi')], model: 'auto' },
+        { messages: [v6UserMessage('hi')] },
+      ]) {
+        const { app, capturedCtx } = appWithCapture({
+          userId: admin_user_id,
+          tenantId: tenant_id,
+        });
+        const res = await app.request('/api/agent/v1/chat', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        expect(res.status).toBe(200);
+        await res.text();
+        expect(capturedCtx()?.model).toBeUndefined();
+      }
+    });
+  });
+});
