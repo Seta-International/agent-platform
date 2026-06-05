@@ -116,10 +116,15 @@ describe('CalendarGrid', () => {
     expect(onRescheduleTask).toHaveBeenCalledWith(t, newStart, newEnd, revert);
   });
 
-  it('passes dateStr to onSelectDate when dateClick fires', () => {
+  it('passes dateStr and mouse position to onSelectDate when dateClick fires', () => {
     const onSelectDate = vi.fn();
     render(<CalendarGrid {...baseProps} tasks={[]} onSelectDate={onSelectDate} />);
-    (lastFCProps.dateClick as (arg: { dateStr: string }) => void)({ dateStr: '2026-06-15' });
-    expect(onSelectDate).toHaveBeenCalledWith('2026-06-15');
+    (
+      lastFCProps.dateClick as (arg: {
+        dateStr: string;
+        jsEvent: { clientX: number; clientY: number };
+      }) => void
+    )({ dateStr: '2026-06-15', jsEvent: { clientX: 120, clientY: 80 } });
+    expect(onSelectDate).toHaveBeenCalledWith('2026-06-15', { x: 120, y: 80 });
   });
 });

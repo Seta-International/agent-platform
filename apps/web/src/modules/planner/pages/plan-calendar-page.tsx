@@ -76,7 +76,11 @@ export function PlanCalendarPage({
   const query = useCalendarTasks(planId, calFrom ?? '', calTo ?? '', calPage);
   const noDateQ = useNoDateTasks(planId);
   const updateSchedule = useUpdateTaskSchedule(planId);
-  const [quickCreateDate, setQuickCreateDate] = useState<string | null>(null);
+  const [quickCreate, setQuickCreate] = useState<{
+    date: string;
+    x: number;
+    y: number;
+  } | null>(null);
   // Reset the quick-create anchor whenever the displayed range changes using the
   // React-recommended prev-value-in-state pattern (avoids useEffect + setState).
   const [prevFrom, setPrevFrom] = useState(calFrom);
@@ -84,7 +88,7 @@ export function PlanCalendarPage({
   if (calFrom !== prevFrom || calTo !== prevTo) {
     setPrevFrom(calFrom);
     setPrevTo(calTo);
-    setQuickCreateDate(null);
+    setQuickCreate(null);
   }
 
   const visibleTasks = useMemo(
@@ -147,12 +151,12 @@ export function PlanCalendarPage({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-testid="plan-calendar-page">
-      {quickCreateDate && (
+      {quickCreate && (
         <button
           type="button"
           aria-label="Dismiss quick create"
           className="fixed inset-0 z-10 cursor-default"
-          onClick={() => setQuickCreateDate(null)}
+          onClick={() => setQuickCreate(null)}
         />
       )}
       <CalendarToolbar
@@ -172,17 +176,27 @@ export function PlanCalendarPage({
             Tasks with a start or due date inside the selected range appear here.
           </p>
           <div className="flex items-center gap-3">
-            <Button onClick={() => setQuickCreateDate(emptyStateDate)}>Create task</Button>
+            <Button
+              onClick={(e) =>
+                setQuickCreate({
+                  date: emptyStateDate,
+                  x: e.clientX,
+                  y: e.clientY,
+                })
+              }
+            >
+              Create task
+            </Button>
             <Button variant="ghost" onClick={onSwitchToBoard}>
               Switch to Board
             </Button>
           </div>
-          {quickCreateDate && (
+          {quickCreate && (
             <div className="absolute left-1/2 top-2/3 z-20 -translate-x-1/2">
               <CalendarQuickCreate
                 planId={planId}
-                dueDate={quickCreateDate}
-                onClose={() => setQuickCreateDate(null)}
+                dueDate={quickCreate.date}
+                onClose={() => setQuickCreate(null)}
               />
             </div>
           )}
@@ -194,15 +208,22 @@ export function PlanCalendarPage({
           to={calTo}
           onOpenTask={onOpenTask}
           onRescheduleTask={handleReschedule}
-          onSelectDate={setQuickCreateDate}
+          onSelectDate={(dateKey, pos) => setQuickCreate({ date: dateKey, ...pos })}
         />
       )}
-      {quickCreateDate && !showEmptyState && (
-        <div className="fixed left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2">
+      {quickCreate && !showEmptyState && (
+        <div
+          data-testid="quick-create-anchor"
+          className="fixed z-20"
+          style={{
+            left: Math.min(quickCreate.x + 4, window.innerWidth - 270),
+            top: Math.min(quickCreate.y + 4, window.innerHeight - 150),
+          }}
+        >
           <CalendarQuickCreate
             planId={planId}
-            dueDate={quickCreateDate}
-            onClose={() => setQuickCreateDate(null)}
+            dueDate={quickCreate.date}
+            onClose={() => setQuickCreate(null)}
           />
         </div>
       )}

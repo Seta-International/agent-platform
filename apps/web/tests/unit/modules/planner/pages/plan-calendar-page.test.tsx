@@ -23,7 +23,7 @@ type CalendarGridProps = {
     newEnd: Date | null,
     revert: () => void,
   ) => Promise<void>;
-  onSelectDate?: (dateKey: string) => void;
+  onSelectDate?: (dateKey: string, pos: { x: number; y: number }) => void;
 };
 const mockCalendarGrid = vi.hoisted(() =>
   vi.fn((props: CalendarGridProps) => (
@@ -31,7 +31,7 @@ const mockCalendarGrid = vi.hoisted(() =>
       <button
         type="button"
         data-testid="calendar-day-2026-06-12"
-        onClick={() => props.onSelectDate?.('2026-06-12')}
+        onClick={() => props.onSelectDate?.('2026-06-12', { x: 300, y: 200 })}
       >
         June 12
       </button>
@@ -177,6 +177,24 @@ describe('PlanCalendarPage', () => {
     await userEvent.click(screen.getByTestId('calendar-day-2026-06-12'));
     expect(screen.getByTestId('calendar-quick-create')).toBeInTheDocument();
     expect(screen.getByText(/due Jun 12/i)).toBeInTheDocument();
+  });
+
+  it('positions quick-create at the clicked cell coordinates', async () => {
+    server.use(
+      http.get('/api/planner/v1/plans/p1/tasks/calendar', () =>
+        HttpResponse.json({
+          tasks: [makeTask('t1', 'Ship calendar', '2026-06-10T00:00:00Z')],
+          total_count: 1,
+        }),
+      ),
+    );
+    render(wrap(<PlanCalendarPage {...baseProps} />));
+    await screen.findByTestId('calendar-grid');
+    await userEvent.click(screen.getByTestId('calendar-day-2026-06-12'));
+
+    // The mock fires onSelectDate with { x: 300, y: 200 }; popup offsets by +4.
+    const anchor = screen.getByTestId('quick-create-anchor');
+    expect(anchor).toHaveStyle({ left: '304px', top: '204px' });
   });
 
   it('paginates without touching the range (AC-7, AC-8)', async () => {

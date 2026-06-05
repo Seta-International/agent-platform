@@ -19,8 +19,8 @@ interface Props {
     newEnd: Date | null,
     revert: () => void,
   ) => void;
-  /** Wired to FC's dateClick. Plan 4 passes setQuickCreateDate here. */
-  onSelectDate?: (dateKey: string) => void;
+  /** Wired to FC's dateClick — receives the date key and the raw mouse position. */
+  onSelectDate?: (dateKey: string, pos: { x: number; y: number }) => void;
 }
 
 export function CalendarGrid({
@@ -79,7 +79,9 @@ export function CalendarGrid({
             revert,
           )
         }
-        dateClick={({ dateStr }) => onSelectDate?.(dateStr)}
+        dateClick={({ dateStr, jsEvent }) =>
+          onSelectDate?.(dateStr, { x: jsEvent.clientX, y: jsEvent.clientY })
+        }
       />
     </div>
   );
