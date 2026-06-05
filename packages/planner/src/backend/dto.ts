@@ -168,6 +168,7 @@ export interface TaskRow {
   bucket_id: string | null;
   title: string;
   description: string | null;
+  description_text: string | null;
   priority_number: TaskPriorityNumber;
   percent_complete: number;
   is_deferred: boolean;

@@ -21,6 +21,7 @@ function task(over: Partial<TaskWithPlan>): TaskWithPlan {
     bucket_id: null,
     title: '',
     description: null,
+    description_text: null,
     priority_number: 5,
     percent_complete: 0,
     is_deferred: false,

@@ -174,6 +174,7 @@ export function applyPlannerEvent(qc: QueryClient, event: StreamEvent): void {
           bucket_id: asString(after.bucket_id) ?? null,
           title: asString(after.title) ?? '',
           description: asString(after.description) ?? null,
+          description_text: asString(after.description_text) ?? null,
           priority_number: (priorityNumber === 1 ||
           priorityNumber === 3 ||
           priorityNumber === 5 ||

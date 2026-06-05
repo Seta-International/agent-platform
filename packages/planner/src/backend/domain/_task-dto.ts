@@ -11,6 +11,7 @@ export function taskRowToDto(row: TaskDbRow): TaskRow {
     bucket_id: row.bucket_id,
     title: row.title,
     description: row.description,
+    description_text: row.description_text,
     priority_number: row.priority_number as TaskPriorityNumber,
     percent_complete: row.percent_complete,
     is_deferred: row.is_deferred,

@@ -49,6 +49,7 @@ function fxTask(over: Partial<MyTasksRowTask> = {}): MyTasksRowTask {
     bucket_id: null,
     title: 'Fix login retry storm',
     description: null,
+    description_text: null,
     priority_number: 5,
     percent_complete: 0,
     is_deferred: false,
