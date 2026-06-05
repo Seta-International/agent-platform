@@ -3,13 +3,10 @@ import { useAssistantDataUI, useAssistantToolUI } from '@assistant-ui/react';
 import { ChatToolCall } from '@seta/shared-ui';
 import { AgentStreamPart } from '../../chat-experience/agent-stream-part';
 import { OrchestrationStepPart } from '../../chat-experience/orchestration-step-part';
-import { useAgentCatalog, useToolCatalog } from '../../hooks/use-tool-catalog';
+import { useToolCatalog } from '../../hooks/use-tool-catalog';
 import { ServerTimeRenderer } from './core.server-time';
-import { DelegateRenderer } from './delegate';
 import { ListMyRolesRenderer } from './identity.list-my-roles';
-import { UpdateMyDisplayNameRenderer } from './identity.update-my-display-name';
 import { WhoAmIRenderer } from './identity.who-am-i';
-import { PlannerCreateTaskRenderer } from './planner.create-task';
 
 function toReadState(
   props: ToolCallMessagePartProps,
@@ -19,37 +16,7 @@ function toReadState(
   return 'input-streaming';
 }
 
-function toWriteState(
-  props: ToolCallMessagePartProps,
-): 'input-streaming' | 'input-pending-approval' | 'output-available' | 'output-error' {
-  if (props.status.type === 'requires-action') return 'input-pending-approval';
-  return toReadState(props);
-}
-
-// Known delegate agent names — registered immediately so tool-call parts have a
-// renderer before the async /api/agent/v1/agents response arrives.
-// Includes both domain names (used by top supervisor: agent-work, agent-people …)
-// AND specialist IDs (used by domain supervisors when called directly:
-// agent-planner, agent-identity …).
-const KNOWN_DELEGATE_DOMAINS: ReadonlyArray<{ name: string; label: string }> = [
-  // Domain-level (top supervisor delegates to these)
-  { name: 'work', label: 'Work' },
-  { name: 'people', label: 'People' },
-  { name: 'self', label: 'Self' },
-  { name: 'meta', label: 'Meta' },
-  { name: 'knowledge', label: 'Knowledge' },
-  // Specialist-level (domain supervisors delegate to these)
-  { name: 'planner', label: 'Planner' },
-  { name: 'identity', label: 'Identity' },
-];
-
-const DEDICATED_TOOL_IDS = new Set([
-  'core_serverTime',
-  'identity_whoAmI',
-  'identity_listMyRoles',
-  'identity_updateMyDisplayName',
-  'planner_createTask',
-]);
+const DEDICATED_TOOL_IDS = new Set(['core_serverTime', 'identity_whoAmI', 'identity_listMyRoles']);
 
 function ServerTimeRegistration({ name }: { name: string }) {
   useAssistantToolUI({
@@ -96,52 +63,9 @@ function ListMyRolesRegistration({ name }: { name: string }) {
   return null;
 }
 
-function UpdateMyDisplayNameRegistration({ name }: { name: string }) {
-  useAssistantToolUI({
-    toolName: 'identity_updateMyDisplayName',
-    render: (props) => {
-      const interrupt = (props as { interrupt?: { payload?: { id?: string } } }).interrupt;
-      return (
-        <UpdateMyDisplayNameRenderer
-          name={name}
-          args={props.args as { displayName: string; expiresAt?: string }}
-          state={toWriteState(props)}
-          callId={props.toolCallId}
-          approval={interrupt?.payload}
-        />
-      );
-    },
-  });
-  return null;
-}
-
-function PlannerCreateTaskRegistration({ name }: { name: string }) {
-  useAssistantToolUI({
-    toolName: 'planner_createTask',
-    render: (props) => {
-      const interrupt = (
-        props as {
-          interrupt?: {
-            payload?: Parameters<typeof PlannerCreateTaskRenderer>[0]['approval'];
-          };
-        }
-      ).interrupt;
-      return (
-        <PlannerCreateTaskRenderer
-          name={name}
-          args={props.args as Record<string, unknown>}
-          state={toWriteState(props)}
-          output={props.result ?? undefined}
-          callId={props.toolCallId}
-          approval={interrupt?.payload}
-        />
-      );
-    },
-  });
-  return null;
-}
-
 function AgentStreamRegistration() {
+  // Renders historical `data-tool-agent` parts (sub-agent leaf tool calls from
+  // threads recorded before the orchestration cutover) and any future emitter.
   useAssistantDataUI({ name: 'tool-agent', render: AgentStreamPart });
   return null;
 }
@@ -151,26 +75,6 @@ function OrchestrationStepRegistration() {
   // (ORCHESTRATION_STEP_PART in packages/agent). Renders the per-step trust
   // trace timeline.
   useAssistantDataUI({ name: 'orchestration-step', render: OrchestrationStepPart });
-  return null;
-}
-
-function DelegateRegistration({ name, label }: { name: string; label: string }) {
-  useAssistantToolUI({
-    toolName: `agent-${name}`,
-    render: (props: ToolCallMessagePartProps<Record<string, unknown>, unknown>) => {
-      const interrupt = (props as { interrupt?: { payload?: { id?: string } } }).interrupt;
-      return (
-        <DelegateRenderer
-          targetName={name}
-          targetLabel={label}
-          args={props.args}
-          state={toWriteState(props)}
-          output={props.result ?? undefined}
-          approval={interrupt?.payload}
-        />
-      );
-    },
-  });
   return null;
 }
 
@@ -193,12 +97,6 @@ function GenericToolRegistration({ id, name }: { id: string; name: string }) {
 
 export function ToolUIRegistry() {
   const { tools, nameFor } = useToolCatalog();
-  const { agents } = useAgentCatalog();
-  // Merge static fallback + dynamic API results, deduplicating by name so the
-  // dynamic label (if different) takes precedence over the hardcoded one.
-  const knownNames = new Set(KNOWN_DELEGATE_DOMAINS.map((d) => d.name));
-  const extraAgents = agents.filter((a) => !knownNames.has(a.name));
-  const allDelegates = [...KNOWN_DELEGATE_DOMAINS, ...extraAgents];
   return (
     <>
       <AgentStreamRegistration />
@@ -206,16 +104,11 @@ export function ToolUIRegistry() {
       <ServerTimeRegistration name={nameFor('core_serverTime')} />
       <WhoAmIRegistration name={nameFor('identity_whoAmI')} />
       <ListMyRolesRegistration name={nameFor('identity_listMyRoles')} />
-      <UpdateMyDisplayNameRegistration name={nameFor('identity_updateMyDisplayName')} />
-      <PlannerCreateTaskRegistration name={nameFor('planner_createTask')} />
       {tools
         .filter((t) => !DEDICATED_TOOL_IDS.has(t.id))
         .map((t) => (
           <GenericToolRegistration key={t.id} id={t.id} name={t.name} />
         ))}
-      {allDelegates.map((a) => (
-        <DelegateRegistration key={a.name} name={a.name} label={a.label} />
-      ))}
     </>
   );
 }
