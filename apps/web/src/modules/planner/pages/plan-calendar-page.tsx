@@ -1,14 +1,17 @@
 import type { TaskWithAssigneesRow } from '@seta/planner';
-import { toast } from '@seta/shared-ui';
-import { useEffect, useMemo } from 'react';
+import { Button, toast } from '@seta/shared-ui';
+import { useEffect, useMemo, useState } from 'react';
 import { GridSkeleton } from '../components/board-skeleton';
 import { CalendarGrid } from '../components/calendar/calendar-grid';
 import { CalendarPagination } from '../components/calendar/calendar-pagination';
+import { CalendarQuickCreate } from '../components/calendar/calendar-quick-create';
 import { CalendarToolbar } from '../components/calendar/calendar-toolbar';
+import { NoDateTasksBanner } from '../components/calendar/no-date-tasks-banner';
 import { PlanError } from '../components/plan-error';
 import { useUpdateTaskSchedule } from '../hooks/mutations/update-task-schedule';
 import { useCalendarTasks } from '../hooks/queries/use-calendar-tasks';
-import { currentMonthRange } from '../lib/calendar-dates';
+import { useNoDateTasks } from '../hooks/queries/use-no-date-tasks';
+import { currentMonthRange, toDateKey } from '../lib/calendar-dates';
 import type { BoardFilters } from '../state/url-state';
 
 export interface PlanCalendarPageProps {
@@ -25,7 +28,7 @@ export interface PlanCalendarPageProps {
   onSwitchToBoard: () => void;
 }
 
-export function applyBoardFilters(
+function applyBoardFilters(
   tasks: TaskWithAssigneesRow[],
   filters: BoardFilters,
   q: string,
@@ -60,6 +63,7 @@ export function PlanCalendarPage({
   onRangeChange,
   onPageChange,
   onOpenTask,
+  onSwitchToBoard,
 }: PlanCalendarPageProps) {
   const hasRange = calFrom !== undefined && calTo !== undefined;
   useEffect(() => {
@@ -70,7 +74,18 @@ export function PlanCalendarPage({
   }, [hasRange, onRangeChange]);
 
   const query = useCalendarTasks(planId, calFrom ?? '', calTo ?? '', calPage);
+  const noDateQ = useNoDateTasks(planId);
   const updateSchedule = useUpdateTaskSchedule(planId);
+  const [quickCreateDate, setQuickCreateDate] = useState<string | null>(null);
+  // Reset the quick-create anchor whenever the displayed range changes using the
+  // React-recommended prev-value-in-state pattern (avoids useEffect + setState).
+  const [prevFrom, setPrevFrom] = useState(calFrom);
+  const [prevTo, setPrevTo] = useState(calTo);
+  if (calFrom !== prevFrom || calTo !== prevTo) {
+    setPrevFrom(calFrom);
+    setPrevTo(calTo);
+    setQuickCreateDate(null);
+  }
 
   const visibleTasks = useMemo(
     () => applyBoardFilters(query.data?.tasks ?? [], filters, q),
@@ -124,21 +139,73 @@ export function PlanCalendarPage({
     }
   }
 
+  const noDateTasks = noDateQ.data?.tasks ?? [];
+  const todayKey = toDateKey(new Date());
+  // AC-10: full empty state only when the range has no matches AND no undated tasks exist.
+  const showEmptyState = visibleTasks.length === 0 && noDateTasks.length === 0;
+  const emptyStateDate = todayKey >= calFrom && todayKey <= calTo ? todayKey : calFrom;
+
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-testid="plan-calendar-page">
+      {quickCreateDate && (
+        <button
+          type="button"
+          aria-label="Dismiss quick create"
+          className="fixed inset-0 z-10 cursor-default"
+          onClick={() => setQuickCreateDate(null)}
+        />
+      )}
       <CalendarToolbar
         from={calFrom}
         to={calTo}
         totalCount={total_count}
         onRangeChange={onRangeChange}
       />
-      <CalendarGrid
-        tasks={visibleTasks}
-        from={calFrom}
-        to={calTo}
-        onOpenTask={onOpenTask}
-        onRescheduleTask={handleReschedule}
-      />
+      <NoDateTasksBanner tasks={noDateTasks} onOpenTask={onOpenTask} />
+      {showEmptyState ? (
+        <div
+          className="relative flex flex-1 flex-col items-center justify-center gap-3 p-10 text-center"
+          data-testid="calendar-empty-state"
+        >
+          <h3 className="text-card-title text-ink">No tasks scheduled in this range</h3>
+          <p className="text-body-sm text-ink-subtle">
+            Tasks with a start or due date inside the selected range appear here.
+          </p>
+          <div className="flex items-center gap-3">
+            <Button onClick={() => setQuickCreateDate(emptyStateDate)}>Create task</Button>
+            <Button variant="ghost" onClick={onSwitchToBoard}>
+              Switch to Board
+            </Button>
+          </div>
+          {quickCreateDate && (
+            <div className="absolute left-1/2 top-2/3 z-20 -translate-x-1/2">
+              <CalendarQuickCreate
+                planId={planId}
+                dueDate={quickCreateDate}
+                onClose={() => setQuickCreateDate(null)}
+              />
+            </div>
+          )}
+        </div>
+      ) : (
+        <CalendarGrid
+          tasks={visibleTasks}
+          from={calFrom}
+          to={calTo}
+          onOpenTask={onOpenTask}
+          onRescheduleTask={handleReschedule}
+          onSelectDate={setQuickCreateDate}
+        />
+      )}
+      {quickCreateDate && !showEmptyState && (
+        <div className="fixed left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2">
+          <CalendarQuickCreate
+            planId={planId}
+            dueDate={quickCreateDate}
+            onClose={() => setQuickCreateDate(null)}
+          />
+        </div>
+      )}
       <CalendarPagination
         page={calPage}
         totalCount={total_count}

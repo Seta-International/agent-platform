@@ -6,12 +6,12 @@ import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import type { ReactNode } from 'react';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PlanCalendarPage } from '../../../../../src/modules/planner/pages/plan-calendar-page';
 import { EMPTY_FILTERS } from '../../../../../src/modules/planner/state/url-state';
 
 // Mock CalendarGrid to avoid FC/jsdom incompatibility.
-// Each test can read .mock.lastCall![0] to access the props passed to it.
+// Exposes onSelectDate via a test button so plan-4 quick-create tests can trigger it.
 type CalendarGridProps = {
   tasks: TaskWithAssigneesRow[];
   from: string;
@@ -26,7 +26,17 @@ type CalendarGridProps = {
   onSelectDate?: (dateKey: string) => void;
 };
 const mockCalendarGrid = vi.hoisted(() =>
-  vi.fn((_props: CalendarGridProps) => <div data-testid="calendar-grid" />),
+  vi.fn((props: CalendarGridProps) => (
+    <div data-testid="calendar-grid">
+      <button
+        type="button"
+        data-testid="calendar-day-2026-06-12"
+        onClick={() => props.onSelectDate?.('2026-06-12')}
+      >
+        June 12
+      </button>
+    </div>
+  )),
 );
 vi.mock('../../../../../src/modules/planner/components/calendar/calendar-grid', () => ({
   CalendarGrid: mockCalendarGrid,
@@ -74,6 +84,11 @@ const baseProps = {
 };
 
 describe('PlanCalendarPage', () => {
+  // Stub the no-date endpoint for every test so onUnhandledRequest:'error' never fires.
+  beforeEach(() => {
+    server.use(http.get('/api/planner/v1/tasks', () => HttpResponse.json({ tasks: [] })));
+  });
+
   it('pushes the current month into the URL when range params are missing (AC-8)', () => {
     const onRangeChange = vi.fn();
     render(
@@ -106,15 +121,62 @@ describe('PlanCalendarPage', () => {
     await screen.findByTestId('calendar-grid');
   });
 
-  it('shows the calendar grid even when no tasks match (AC-10)', async () => {
+  it('shows the grid when range is empty but unscheduled tasks exist', async () => {
+    server.use(
+      http.get('/api/planner/v1/plans/p1/tasks/calendar', () =>
+        HttpResponse.json({ tasks: [], total_count: 0 }),
+      ),
+      http.get('/api/planner/v1/tasks', () =>
+        HttpResponse.json({ tasks: [{ id: 'u1', title: 'Undated' }] }),
+      ),
+    );
+    render(wrap(<PlanCalendarPage {...baseProps} />));
+    expect(await screen.findByTestId('calendar-grid')).toBeInTheDocument();
+    expect(screen.queryByText('No tasks scheduled in this range')).not.toBeInTheDocument();
+  });
+
+  it('shows the empty state only when range AND banner are both empty (AC-10)', async () => {
     server.use(
       http.get('/api/planner/v1/plans/p1/tasks/calendar', () =>
         HttpResponse.json({ tasks: [], total_count: 0 }),
       ),
     );
     render(wrap(<PlanCalendarPage {...baseProps} />));
-    expect(await screen.findByTestId('calendar-grid')).toBeInTheDocument();
-    expect(screen.queryByText('No tasks scheduled in this range')).not.toBeInTheDocument();
+    expect(await screen.findByTestId('calendar-empty-state')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create task' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Switch to Board' })).toBeInTheDocument();
+    expect(screen.queryByTestId('calendar-grid')).not.toBeInTheDocument();
+  });
+
+  it('suppresses empty state when unscheduled tasks exist; banner shows instead', async () => {
+    server.use(
+      http.get('/api/planner/v1/plans/p1/tasks/calendar', () =>
+        HttpResponse.json({ tasks: [], total_count: 0 }),
+      ),
+      http.get('/api/planner/v1/tasks', () =>
+        HttpResponse.json({ tasks: [{ id: 'u1', title: 'Undated' }] }),
+      ),
+    );
+    render(wrap(<PlanCalendarPage {...baseProps} />));
+    expect(await screen.findByTestId('no-date-banner')).toBeInTheDocument();
+    expect(screen.queryByTestId('calendar-empty-state')).not.toBeInTheDocument();
+    expect(screen.getByTestId('calendar-grid')).toBeInTheDocument();
+  });
+
+  it('clicking a day opens quick-create prefilled for that date', async () => {
+    server.use(
+      http.get('/api/planner/v1/plans/p1/tasks/calendar', () =>
+        HttpResponse.json({
+          tasks: [makeTask('t1', 'Ship calendar', '2026-06-10T00:00:00Z')],
+          total_count: 1,
+        }),
+      ),
+    );
+    render(wrap(<PlanCalendarPage {...baseProps} />));
+    await screen.findByTestId('calendar-grid');
+    await userEvent.click(screen.getByTestId('calendar-day-2026-06-12'));
+    expect(screen.getByTestId('calendar-quick-create')).toBeInTheDocument();
+    expect(screen.getByText(/due Jun 12/i)).toBeInTheDocument();
   });
 
   it('paginates without touching the range (AC-7, AC-8)', async () => {
