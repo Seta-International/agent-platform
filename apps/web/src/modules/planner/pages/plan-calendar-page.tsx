@@ -93,11 +93,25 @@ export function PlanCalendarPage({
     revert: () => void,
   ) {
     try {
-      // FC all-day end is exclusive — subtract 1 day to recover the actual due date.
-      const due_at = newEnd
-        ? new Date(newEnd.getTime() - 86_400_000).toISOString()
-        : (newStart?.toISOString() ?? null);
-      const start_at = newStart && newEnd ? newStart.toISOString() : null;
+      // FullCalendar all-day events deliver local-midnight Date objects. Use local
+      // date parts to build a UTC-midnight ISO string so the date is not shifted by
+      // the user's UTC offset when .toISOString() would convert to the previous day.
+      const toUtcDay = (d: Date) =>
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T00:00:00.000Z`;
+
+      // FC all-day end is exclusive — step back 1 calendar day (setDate is DST-safe).
+      let due_at: string | null = null;
+      if (newEnd) {
+        const lastDay = new Date(newEnd);
+        lastDay.setDate(lastDay.getDate() - 1);
+        due_at = toUtcDay(lastDay);
+      } else if (newStart) {
+        due_at = toUtcDay(newStart);
+      }
+      // Only carry start_at forward if the task originally had one; dragging a
+      // due-only task should not silently add a start date.
+      const start_at = task.start_at && newStart && newEnd ? toUtcDay(newStart) : null;
+
       await updateSchedule.mutateAsync({
         task_id: task.id,
         expected_version: task.version,

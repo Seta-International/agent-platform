@@ -179,6 +179,43 @@ describe('PlanCalendarPage', () => {
     expect(tasks[0]!.id).toBe('t1');
   });
 
+  it('patches due_at without adding start_at on a due-only task', async () => {
+    let capturedBody: Record<string, unknown> | null = null;
+    server.use(
+      http.get('/api/planner/v1/plans/p1/tasks/calendar', () =>
+        HttpResponse.json({
+          tasks: [makeTask('t1', 'Ship calendar', '2026-06-10T00:00:00Z')],
+          total_count: 1,
+        }),
+      ),
+      http.patch('/api/planner/v1/tasks/t1', async ({ request }) => {
+        capturedBody = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json({ id: 't1', version: 2, due_at: '2026-06-20T00:00:00.000Z' });
+      }),
+    );
+
+    render(wrap(<PlanCalendarPage {...baseProps} />));
+    await screen.findByTestId('calendar-grid');
+
+    const { onRescheduleTask } = mockCalendarGrid.mock.lastCall![0];
+    // FC delivers local-midnight Dates; these happen to be UTC midnight in test env.
+    await act(async () => {
+      await onRescheduleTask(
+        makeTask('t1', 'Ship calendar', '2026-06-10T00:00:00Z') as TaskWithAssigneesRow,
+        new Date('2026-06-20T00:00:00Z'),
+        new Date('2026-06-21T00:00:00Z'),
+        vi.fn(),
+      );
+    });
+
+    const patch = (capturedBody as Record<string, unknown> | null)?.patch as
+      | Record<string, unknown>
+      | undefined;
+    expect(patch?.due_at).toBe('2026-06-20T00:00:00.000Z');
+    // Due-only task: start_at must not be silently added.
+    expect(patch?.start_at).toBeNull();
+  });
+
   it('calls revert and shows a toast when reschedule fails', async () => {
     server.use(
       http.get('/api/planner/v1/plans/p1/tasks/calendar', () =>
