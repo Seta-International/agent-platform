@@ -1,5 +1,9 @@
+import DOMPurifyFactory from 'dompurify';
 import type { CSSProperties } from 'react';
 import ReactMarkdown from 'react-markdown';
+
+const DOMPurify = typeof window !== 'undefined' ? DOMPurifyFactory(window) : DOMPurifyFactory;
+
 import { AvatarStack } from '../composites/avatar-stack';
 import { LabelChip } from '../composites/label-chip';
 import { PriorityIcon } from '../composites/priority-icon';
@@ -135,21 +139,17 @@ function stripTld(host: string): string {
 
 const isHtml = (s: string) => /<[a-z][a-z0-9]*[\s\S]*<\/[a-z]/i.test(s);
 
-function extractPlainText(html: string): string {
-  if (typeof document !== 'undefined') {
-    const div = document.createElement('div');
-    div.innerHTML = html;
-    return div.textContent ?? '';
-  }
-  return html
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
 function DescriptionBody({ markdown }: { markdown: string }) {
   if (isHtml(markdown)) {
-    return <div style={descClampStyle}>{extractPlainText(markdown)}</div>;
+    const safe = DOMPurify.sanitize(markdown);
+    return (
+      <div
+        className="rich-text"
+        style={descHtmlClampStyle}
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: sanitized by DOMPurify
+        dangerouslySetInnerHTML={{ __html: safe }}
+      />
+    );
   }
   return (
     <div style={descClampStyle}>
@@ -244,6 +244,13 @@ const refAliasStyle: CSSProperties = {
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   fontWeight: 500,
+};
+const descHtmlClampStyle: CSSProperties = {
+  fontSize: 12,
+  lineHeight: 1.5,
+  color: 'var(--color-ink-muted)',
+  maxHeight: '4.5em',
+  overflow: 'hidden',
 };
 const descClampStyle: CSSProperties = {
   fontSize: 12,
