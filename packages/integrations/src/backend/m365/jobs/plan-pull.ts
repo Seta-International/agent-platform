@@ -110,7 +110,8 @@ export interface PlannerPullSurface {
   }) => Promise<unknown>;
   updateTaskDetails: (input: {
     task_id: string;
-    description?: string | null;
+    description?: string | null; // sanitized HTML stored in DB
+    description_text?: string | null; // plain text; null when description is null
     preview_type?: string;
     references?: Array<{ url: string; alias?: string; type?: string }>;
     checklist?: Array<{ id?: string; title: string; checked: boolean; order_hint?: string }>;
@@ -552,9 +553,11 @@ export async function runPlanPull(input: RunPlanPullInput, deps: RunPlanPullDeps
             session,
           });
 
+          const graphDescription = taskDetails.description ?? null;
           await deps.planner.updateTaskDetails({
             task_id: setaTaskId,
-            description: taskDetails.description ?? null,
+            description: graphDescription ? `<p>${graphDescription}</p>` : null,
+            description_text: graphDescription,
             preview_type: taskDetails.previewType,
             references: Object.entries(taskDetails.references ?? {}).map(([url, r]) => ({
               url: decodeURIComponent(url),
