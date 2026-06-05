@@ -13,7 +13,13 @@ export function useBoardKeyboard(opts: BoardKeyboardOpts) {
     if (disabled) return;
     function onKey(e: KeyboardEvent) {
       const target = e.target as HTMLElement | null;
-      if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA') return;
+      if (
+        target?.tagName === 'INPUT' ||
+        target?.tagName === 'TEXTAREA' ||
+        target?.isContentEditable ||
+        document.querySelector('[role="dialog"][data-state="open"]')
+      )
+        return;
       switch (e.key) {
         case 'c':
         case 'C':
