@@ -2,6 +2,7 @@ import type { Editor } from '@tiptap/react';
 import {
   Bold,
   Code,
+  Code2,
   Heading1,
   Heading2,
   Italic,
@@ -164,6 +165,19 @@ export function RichTextToolbar({ editor }: Props) {
         aria-label="Inline code"
       >
         <Code className="size-3.5" />
+      </Button>
+
+      <Button
+        type="button"
+        size="sm"
+        variant={editor.isActive('codeBlock') ? 'secondary' : 'ghost'}
+        onClick={() => {
+          // biome-ignore lint/suspicious/noExplicitAny: Tiptap extension commands
+          (editor.chain().focus() as any).toggleCodeBlock().run();
+        }}
+        aria-label="Code block"
+      >
+        <Code2 className="size-3.5" />
       </Button>
 
       <Button

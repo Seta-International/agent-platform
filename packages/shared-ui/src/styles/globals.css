@@ -185,6 +185,9 @@ select:focus-visible,
 .rich-text p:first-child { margin-top: 0; }
 .rich-text p:last-child { margin-bottom: 0; }
 .rich-text a { color: var(--color-primary); text-decoration: underline; }
+.rich-text code { font-family: var(--font-mono); font-size: 0.875em; background: var(--color-surface-3); border: 1px solid var(--color-hairline-strong); border-radius: 3px; padding: 0.1em 0.35em; }
+.rich-text pre { font-family: var(--font-mono); font-size: var(--font-size-xs); line-height: 1.65; background: var(--color-surface-2); border: 1px solid var(--color-hairline-strong); border-radius: var(--radius-sm); padding: 0.75rem 1rem; overflow-x: auto; margin: 0.4rem 0; }
+.rich-text pre code { background: none; border: none; padding: 0; font-size: inherit; border-radius: 0; }
 
 .status-dot           { display: inline-block; flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%; }
 .status-dot--muted    { background: var(--color-ink-subtle); }
