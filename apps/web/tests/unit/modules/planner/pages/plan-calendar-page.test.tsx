@@ -201,7 +201,7 @@ describe('PlanCalendarPage', () => {
     // FC delivers local-midnight Dates; these happen to be UTC midnight in test env.
     await act(async () => {
       await onRescheduleTask(
-        makeTask('t1', 'Ship calendar', '2026-06-10T00:00:00Z') as TaskWithAssigneesRow,
+        makeTask('t1', 'Ship calendar', '2026-06-10T00:00:00Z') as unknown as TaskWithAssigneesRow,
         new Date('2026-06-20T00:00:00Z'),
         new Date('2026-06-21T00:00:00Z'),
         vi.fn(),
