@@ -108,13 +108,12 @@ describe('orchestrator inline run (e2e)', () => {
   it('recommend path: taskAnalyzer → skillMatcher → avaiChecker → recommender, streams sub-cards, persists', async () => {
     await withAgentTestDb(async () => {
       __setStaffingRunIdForTests(() => RUN);
-      // Build-time models: [skillMatcher]; taskAnalyzer + avaiChecker are
-      // deterministic (no model); run-time: [orchestrator].
+      // Models resolve lazily per run (pickModel): the orchestrator's Agent is
+      // built first at run start; skillMatcher's Agent only when delegated to.
+      // taskAnalyzer + avaiChecker are deterministic here (no model call).
       const rt = buildStaffingOrchestrationRuntime({
         repo: new StaffingRunStateRepository(),
         resolveModel: resolveModelSeq([
-          // skillMatcher: searchCandidates; run() ranks the hits via fallback.
-          scriptedModel([toolCallStep(0, 'searchCandidates', { skills: ['aws'] }), STOP]),
           // orchestrator: chain the four delegations. taskAnalyzer is deterministic
           // (resolve_task_skills reads the task's skillTags=['aws'] via the port);
           // callAvaiChecker runs the deterministic avaiChecker against the ports.
@@ -142,6 +141,8 @@ describe('orchestrator inline run (e2e)', () => {
             }),
             STOP,
           ]),
+          // skillMatcher: searchCandidates; run() ranks the hits via fallback.
+          scriptedModel([toolCallStep(0, 'searchCandidates', { skills: ['aws'] }), STOP]),
         ]),
         ports: portsWith(),
       });
@@ -188,8 +189,8 @@ describe('orchestrator inline run (e2e)', () => {
       const rt = buildStaffingOrchestrationRuntime({
         repo: new StaffingRunStateRepository(),
         resolveModel: resolveModelSeq([
-          // skillMatcher built but unused (taskAnalyzer + avaiChecker are deterministic, no model).
-          scriptedModel([STOP]),
+          // Only the orchestrator resolves a model — skillMatcher is never
+          // delegated to, so its (lazy) Agent is never built.
           scriptedModel([
             toolCallStep(0, 'callTaskAnalyzer', {
               intent: 'resolve_task_skills',
@@ -231,10 +232,9 @@ describe('orchestrator inline run (e2e)', () => {
       const rt = buildStaffingOrchestrationRuntime({
         repo: new StaffingRunStateRepository(),
         resolveModel: resolveModelSeq([
-          // skillMatcher: searchCandidates by the named skills; run() ranks via fallback.
-          scriptedModel([toolCallStep(0, 'searchCandidates', { skills: ['aws', 'docker'] }), STOP]),
-          // orchestrator: people-by-named-skills with NO task → taskId is null through
-          // the whole recommend chain (the taskId is only a correlation label).
+          // orchestrator (resolved first, at run start): people-by-named-skills
+          // with NO task → taskId is null through the whole recommend chain
+          // (the taskId is only a correlation label).
           scriptedModel([
             toolCallStep(0, 'callSkillMatcher', { taskId: null, skills: ['aws', 'docker'] }),
             toolCallStep(1, 'callAvaiChecker', { taskId: null, candidates: [CANDIDATE] }),
@@ -254,6 +254,8 @@ describe('orchestrator inline run (e2e)', () => {
             }),
             STOP,
           ]),
+          // skillMatcher: searchCandidates by the named skills; run() ranks via fallback.
+          scriptedModel([toolCallStep(0, 'searchCandidates', { skills: ['aws', 'docker'] }), STOP]),
         ]),
         ports: portsWith(),
       });
