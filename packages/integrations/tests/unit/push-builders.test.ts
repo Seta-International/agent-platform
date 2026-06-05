@@ -193,17 +193,19 @@ describe('buildTaskDetailsPatch', () => {
     const r = buildTaskDetailsPatch({
       local: {
         description: null,
+        description_text: null,
         previewType: undefined,
         checklist: {},
         references: {},
       },
       snapshot: {
         description: 'old',
+        description_text: 'old value',
         previewType: undefined,
         checklist: {},
         references: {},
       },
-      changedFields: ['description'],
+      changedFields: ['description_text'],
     });
     expect(r.body).toEqual({ description: null });
   });

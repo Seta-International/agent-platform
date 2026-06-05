@@ -303,6 +303,7 @@ export function buildPlannerPushMocks(
     readTask: vi.fn().mockResolvedValue(baseTask),
     readTaskDetails: vi.fn().mockResolvedValue({
       description: null,
+      description_text: null,
       previewType: undefined,
       checklist: {},
       references: {},
