@@ -133,7 +133,24 @@ function stripTld(host: string): string {
   return parts.slice(0, -1).join('.');
 }
 
+const isHtml = (s: string) => /<[a-z][a-z0-9]*[\s\S]*<\/[a-z]/i.test(s);
+
+function extractPlainText(html: string): string {
+  if (typeof document !== 'undefined') {
+    const div = document.createElement('div');
+    div.innerHTML = html;
+    return div.textContent ?? '';
+  }
+  return html
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function DescriptionBody({ markdown }: { markdown: string }) {
+  if (isHtml(markdown)) {
+    return <div style={descClampStyle}>{extractPlainText(markdown)}</div>;
+  }
   return (
     <div style={descClampStyle}>
       <ReactMarkdown

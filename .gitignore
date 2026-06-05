@@ -1,6 +1,7 @@
 # Private design & planning docs — kept locally for Claude to reference,
 # not published to the shared repo. CLAUDE.md stays tracked.
 docs/superpowers
+.superpowers/
 
 # Local Claude Code config (per-machine, not shared)
 .claude/settings.local.json
