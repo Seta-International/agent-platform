@@ -137,7 +137,7 @@ function stripTld(host: string): string {
   return parts.slice(0, -1).join('.');
 }
 
-const isHtml = (s: string) => /<[a-z][a-z0-9]*[\s\S]*<\/[a-z]/i.test(s);
+const isHtml = (s: string) => /<[a-z][a-z0-9]*[^<>]*>/i.test(s);
 
 function DescriptionBody({ markdown }: { markdown: string }) {
   if (isHtml(markdown)) {

@@ -24,7 +24,8 @@ export function TaskDetailDescriptionCard({ task, planId }: Props) {
   };
 
   const save = () => {
-    const textContent = draft.replace(/<[^>]*>/g, '').trim();
+    const doc = new DOMParser().parseFromString(draft, 'text/html');
+    const textContent = (doc.body.textContent ?? '').trim();
     const next = !textContent ? null : draft;
     if (next === (task.description ?? null)) {
       setEditing(false);
