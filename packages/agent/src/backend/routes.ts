@@ -314,7 +314,11 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
           thread: {
             id: orchThreadId,
             resourceId: session.user_id,
-            title: orchThreadTitle,
+            // Empty title when memory is attached so Mastra's generateTitle
+            // (gated on !thread.title) fills it; the non-memory path keeps the
+            // synchronous fallback title. The thread rail shows "New
+            // conversation" until the async title lands.
+            title: deps.userMemory ? '' : orchThreadTitle,
             createdAt: userCreatedAt,
             updatedAt: userCreatedAt,
             metadata: {},
@@ -356,29 +360,36 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
         if (!orchThreadId || !orchStore) return;
         try {
           const assistantCreatedAt = new Date(Math.max(Date.now(), userCreatedAt.getTime() + 1));
-          await orchStore.saveMessages({
-            messages: [
-              {
-                id: lastUserMessage?.id ?? crypto.randomUUID(),
-                threadId: orchThreadId,
-                resourceId: session.user_id,
-                role: 'user',
-                createdAt: userCreatedAt,
-                content: {
-                  format: 2,
-                  parts: lastUserMessage?.parts ?? [{ type: 'text', text: userText }],
-                },
-              },
-              {
-                id: crypto.randomUUID(),
-                threadId: orchThreadId,
-                resourceId: session.user_id,
-                role: 'assistant',
-                createdAt: assistantCreatedAt,
-                content: { format: 2, parts: assistantParts },
-              },
-            ],
-          });
+          const userMsg = {
+            id: lastUserMessage?.id ?? crypto.randomUUID(),
+            threadId: orchThreadId,
+            resourceId: session.user_id,
+            role: 'user' as const,
+            createdAt: userCreatedAt,
+            content: {
+              format: 2 as const,
+              parts: lastUserMessage?.parts ?? [{ type: 'text', text: userText }],
+            },
+          };
+          const assistantMsg = {
+            id: crypto.randomUUID(),
+            threadId: orchThreadId,
+            resourceId: session.user_id,
+            role: 'assistant' as const,
+            createdAt: assistantCreatedAt,
+            content: { format: 2 as const, parts: assistantParts },
+          };
+          // Persist via the Memory when present: it embeds + upserts the
+          // semanticRecall vectors so future turns can recall this exchange.
+          // The raw-store fallback covers runtimes without userMemory.
+          if (deps.userMemory) {
+            await deps.userMemory.saveMessages({
+              messages: [userMsg, assistantMsg] as never,
+              memoryConfig: deps.userMemoryConfig as never,
+            });
+          } else {
+            await orchStore.saveMessages({ messages: [userMsg, assistantMsg] });
+          }
         } catch (err) {
           (deps.log?.error ?? console.error)(
             {
