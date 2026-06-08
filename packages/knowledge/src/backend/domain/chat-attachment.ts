@@ -1,5 +1,5 @@
 import { buildTenantKey, presignedUploadUrl } from '@seta/shared-storage';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import { knowledgeDb } from '../db/client.ts';
 import { files } from '../db/schema.ts';
 import { type PurgeKnowledgeFileDeps, purgeKnowledgeFile } from './delete-file.ts';
@@ -215,6 +215,107 @@ export async function listThreadAttachments(input: {
     filename: r.filename,
     status: r.status as ThreadAttachment['status'],
   }));
+}
+
+/** Upload-complete signal: flip 'uploading' → 'uploaded'. Returns the row's
+ *  s3_key (so the caller can schedule the TTL delete) or null if not found. */
+export async function markChatAttachmentUploaded(input: {
+  tenant_id: string;
+  file_id: string;
+  uploaded_by: string;
+}): Promise<{ s3_key: string } | null> {
+  const db = knowledgeDb();
+  const [row] = await db
+    .update(files)
+    .set({ status: 'uploaded' })
+    .where(
+      and(
+        eq(files.tenant_id, input.tenant_id),
+        eq(files.id, BigInt(input.file_id)),
+        eq(files.uploaded_by, input.uploaded_by),
+        eq(files.origin, 'chat'),
+        eq(files.status, 'uploading'),
+      ),
+    )
+    .returning({ s3_key: files.s3_key });
+  return row ?? null;
+}
+
+/** Mark files consumed (their text is now in thread history). Idempotent: only
+ *  flips rows currently 'uploaded'. */
+export async function markAttachmentsConsumed(fileIds: string[]): Promise<void> {
+  if (fileIds.length === 0) return;
+  const db = knowledgeDb();
+  await db
+    .update(files)
+    .set({ status: 'consumed', consumed_at: new Date() })
+    .where(
+      and(
+        inArray(
+          files.id,
+          fileIds.map((id) => BigInt(id)),
+        ),
+        eq(files.status, 'uploaded'),
+      ),
+    );
+}
+
+export interface PendingThreadAttachment {
+  file_id: string;
+  filename: string;
+  mime_type: string;
+  s3_key: string;
+}
+
+/** The thread's not-yet-consumed ('uploaded') chat files, oldest first. */
+export async function listPendingThreadAttachments(input: {
+  tenant_id: string;
+  thread_id: string;
+}): Promise<PendingThreadAttachment[]> {
+  const db = knowledgeDb();
+  const rows = await db
+    .select({
+      id: files.id,
+      filename: files.filename,
+      mime_type: files.mime_type,
+      s3_key: files.s3_key,
+    })
+    .from(files)
+    .where(
+      and(
+        eq(files.tenant_id, input.tenant_id),
+        eq(files.thread_id, input.thread_id),
+        eq(files.origin, 'chat'),
+        eq(files.status, 'uploaded'),
+      ),
+    )
+    .orderBy(files.created_at);
+  return rows.map((r) => ({
+    file_id: String(r.id),
+    filename: r.filename,
+    mime_type: r.mime_type,
+    s3_key: r.s3_key,
+  }));
+}
+
+/** Total bytes of the thread's still-active ('uploading' or 'uploaded') chat files. */
+export async function threadPendingBytes(input: {
+  tenant_id: string;
+  thread_id: string;
+}): Promise<number> {
+  const db = knowledgeDb();
+  const rows = await db
+    .select({ size: files.size_bytes })
+    .from(files)
+    .where(
+      and(
+        eq(files.tenant_id, input.tenant_id),
+        eq(files.thread_id, input.thread_id),
+        eq(files.origin, 'chat'),
+        inArray(files.status, ['uploading', 'uploaded']),
+      ),
+    );
+  return rows.reduce((sum, r) => sum + Number(r.size), 0);
 }
 
 export interface DeleteChatAttachmentInput {
