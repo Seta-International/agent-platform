@@ -18,8 +18,7 @@ export interface DeleteKnowledgeFileInput {
   file_id: string;
 }
 
-export interface DeleteKnowledgeFileDeps {
-  session: SessionScope;
+export interface PurgeKnowledgeFileDeps {
   /** Override for tests. */
   deleteS3Object?: (s3_key: string) => Promise<void>;
   bucket?: string;
@@ -30,11 +29,16 @@ export interface DeleteKnowledgeFileDeps {
   };
 }
 
-export async function deleteKnowledgeFile(
+export interface DeleteKnowledgeFileDeps extends PurgeKnowledgeFileDeps {
+  session: SessionScope;
+}
+
+/** Deletes a file row + its chunks + its vectors + the S3 object. No
+ *  authorization — callers gate access (RBAC or ownership) before calling. */
+export async function purgeKnowledgeFile(
   input: DeleteKnowledgeFileInput,
-  deps: DeleteKnowledgeFileDeps,
+  deps: PurgeKnowledgeFileDeps,
 ): Promise<void> {
-  requirePermission(deps.session, 'knowledge.file.delete');
   const db = knowledgeDb();
 
   const fileRow = await db
@@ -98,4 +102,12 @@ export async function deleteKnowledgeFile(
       console.error(`failed to delete S3 object ${s3Key}:`, err);
     }
   }
+}
+
+export async function deleteKnowledgeFile(
+  input: DeleteKnowledgeFileInput,
+  deps: DeleteKnowledgeFileDeps,
+): Promise<void> {
+  requirePermission(deps.session, 'knowledge.file.delete');
+  await purgeKnowledgeFile(input, deps);
 }
