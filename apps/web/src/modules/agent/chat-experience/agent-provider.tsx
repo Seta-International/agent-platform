@@ -64,6 +64,26 @@ interface RuntimeContextValue {
   runtime: ReturnType<typeof useAgentRuntime>;
   /** True while the runtime is waiting on `useThreadMessages` for a selected thread. */
   historyLoading: boolean;
+  /** Last run error (e.g. the chat 413 context-overflow), parsed for display. */
+  runError: string | null;
+  /** Clear the last run error (e.g. when the user sends a new message). */
+  clearRunError: () => void;
+}
+
+/**
+ * The AI SDK transport throws `new Error(<response body text>)` on a non-ok
+ * response, so a JSON error body arrives as the error message. Extract the
+ * human-readable `message` field when present.
+ */
+function describeRunError(error: Error): string {
+  const raw = error.message;
+  try {
+    const body = JSON.parse(raw) as { message?: unknown };
+    if (typeof body.message === 'string' && body.message) return body.message;
+  } catch {
+    /* not JSON — fall through to the raw text */
+  }
+  return raw || 'Something went wrong. Please try again.';
 }
 
 const RuntimeContext = createContext<RuntimeContextValue | null>(null);
@@ -350,16 +370,21 @@ function AgentRuntimeHostInner({
   }>;
   children: React.ReactNode;
 }) {
+  const [runError, setRunError] = useState<string | null>(null);
+  const handleError = useCallback((error: Error) => setRunError(describeRunError(error)), []);
+  const clearRunError = useCallback(() => setRunError(null), []);
+
   const runtime = useAgentRuntime({
     threadId,
     modelKey,
     initialMessages,
     pageContextRef,
+    onError: handleError,
   });
 
   const value = useMemo<RuntimeContextValue>(
-    () => ({ runtime, historyLoading }),
-    [runtime, historyLoading],
+    () => ({ runtime, historyLoading, runError, clearRunError }),
+    [runtime, historyLoading, runError, clearRunError],
   );
 
   return (

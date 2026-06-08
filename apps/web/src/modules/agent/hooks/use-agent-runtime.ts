@@ -17,6 +17,13 @@ interface UseAgentRuntimeOpts {
    * re-creating the runtime.
    */
   pageContextRef?: { current: { ctx: PageContext | null; suppressedFor: string | null } };
+  /**
+   * Called when a run fails. The AI SDK transport throws `new Error(<response
+   * body text>)` on a non-ok response, so `error.message` is the raw JSON body
+   * (e.g. the chat 413 `{ "error": "context_overflow", "message": "…" }`).
+   * Callers parse it for display.
+   */
+  onError?: (error: Error) => void;
 }
 
 export function useAgentRuntime({
@@ -24,11 +31,20 @@ export function useAgentRuntime({
   modelKey,
   initialMessages,
   pageContextRef,
+  onError,
 }: UseAgentRuntimeOpts) {
   const modelRef = useRef(modelKey);
   useEffect(() => {
     modelRef.current = modelKey;
   }, [modelKey]);
+
+  // Read at error time so the runtime (created once) always calls the latest
+  // handler without remounting.
+  const onErrorRef = useRef(onError);
+  useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
+  const handleError = useCallback((error: Error) => onErrorRef.current?.(error), []);
 
   const readBody = useCallback(() => {
     const m = modelRef.current;
@@ -98,6 +114,7 @@ export function useAgentRuntime({
         transport,
         ...(initialMessages ? { messages: initialMessages } : {}),
         toCreateMessage,
+        onError: handleError,
       });
     },
   });
