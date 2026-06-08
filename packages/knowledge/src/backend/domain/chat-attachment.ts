@@ -34,6 +34,7 @@ export interface RequestChatAttachmentUploadResult {
   file_id: string;
   upload_url: string;
   s3_key: string;
+  warning?: string;
 }
 
 export async function requestChatAttachmentUpload(
@@ -103,7 +104,16 @@ export async function requestChatAttachmentUpload(
     expiresInSeconds: UPLOAD_URL_TTL_SECONDS,
   });
 
-  return { file_id: String(row.id), upload_url, s3_key: s3Key };
+  const warnBytes = Number(process.env.CHAT_ATTACHMENT_THREAD_SIZE_WARN_BYTES ?? 26_214_400);
+  const pendingBytes = await threadPendingBytes({
+    tenant_id: input.tenant_id,
+    thread_id: input.thread_id,
+  });
+  const warning =
+    pendingBytes > warnBytes
+      ? `This thread's attachments exceed ${Math.round(warnBytes / 1_048_576)} MB; large files may not fit the model context.`
+      : undefined;
+  return { file_id: String(row.id), upload_url, s3_key: s3Key, warning };
 }
 
 /** Upload-complete signal: flip 'uploading' → 'uploaded'. Returns the row's
