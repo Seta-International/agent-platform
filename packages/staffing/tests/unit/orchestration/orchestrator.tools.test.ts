@@ -60,7 +60,9 @@ function capturingStub<I, O>(id: string, result: O) {
   return { spec, inputs };
 }
 
-function buildTools(overrides: { taskAnalyzerResult?: unknown; recommenderResult?: unknown } = {}) {
+function buildTools(
+  overrides: { taskAnalyzerResult?: unknown; recommenderResult?: unknown; userText?: string } = {},
+) {
   const taskAnalyzer = capturingStub<
     { intent: string; query: string; taskId: string | null },
     unknown
@@ -71,14 +73,20 @@ function buildTools(overrides: { taskAnalyzerResult?: unknown; recommenderResult
     'staffing.recommender',
     overrides.recommenderResult ?? { taskId: null, recommendations: [] },
   );
+  const generalAnswer = capturingStub<{ query: string }, { answer: string }>(
+    'staffing.generalAnswer',
+    { answer: '' },
+  );
   const tools = makeOrchestratorTools({
     taskAnalyzer: taskAnalyzer.spec as never,
     skillMatcher: skillMatcher.spec as never,
     avaiChecker: avaiChecker.spec as never,
     recommender: recommender.spec as never,
+    generalAnswer: generalAnswer.spec as never,
+    userText: overrides.userText ?? '',
     ctx: { tenantId: 't1', actorUserId: 'a1' },
   });
-  return { tools, taskAnalyzer, skillMatcher, avaiChecker, recommender };
+  return { tools, taskAnalyzer, skillMatcher, avaiChecker, recommender, generalAnswer };
 }
 
 describe('callTaskAnalyzer taskRef resolution', () => {
@@ -208,5 +216,20 @@ describe('entity recording', () => {
         toolCtx,
       ),
     ).resolves.toBeDefined();
+  });
+});
+
+describe('callGeneralAnswer', () => {
+  it('passes the orchestrator userText verbatim to the general-answer sub-agent', async () => {
+    const userText =
+      'Context:\n<<<FILE: a.pdf>>>\nhello world\n<<<END a.pdf>>>\n\nwhat does it say?';
+    const { tools, generalAnswer } = buildTools({ userText });
+    // The tool ignores LLM-supplied args (empty input) and its toolCtx; it reads
+    // the captured userText. Pass empty stand-ins for both.
+    const out = (await tools.callGeneralAnswer.execute!({} as never, {} as never)) as {
+      answer: string;
+    };
+    expect(generalAnswer.inputs[0]?.query).toBe(userText);
+    expect(out).toEqual({ answer: '' });
   });
 });

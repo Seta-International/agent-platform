@@ -36,19 +36,26 @@ type RecommenderSpec = SpecializedAgentSpec<
   },
   { taskId: string | null; recommendations: Recommendation[] }
 >;
+type GeneralAnswerSpec = SpecializedAgentSpec<{ query: string }, { answer: string }>;
 
 export interface OrchestratorToolDeps {
   taskAnalyzer: TaskAnalyzerSpec;
   skillMatcher: SkillMatcherSpec;
   avaiChecker: AvaiCheckerSpec;
   recommender: RecommenderSpec;
+  generalAnswer: GeneralAnswerSpec;
+  /** The orchestrator's current user message — already carries any injected
+   *  `Context:` file block. Passed verbatim to the general-answer sub-agent so
+   *  the routing LLM cannot paraphrase or truncate the document into a tool arg. */
+  userText: string;
   /** The orchestrator's run ctx: provides tenant/actor/abort + the onEvent sink. */
   ctx: SpecializedAgentRunCtx;
 }
 
 /** Build the four sub-agent delegation tools, bound to one orchestrator run. */
 export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
-  const { taskAnalyzer, skillMatcher, avaiChecker, recommender, ctx } = deps;
+  const { taskAnalyzer, skillMatcher, avaiChecker, recommender, generalAnswer, userText, ctx } =
+    deps;
   // Sub-agents run with the same tenant/actor but WITHOUT the onEvent sink, so
   // only the orchestrator (here) emits the sub-step cards. The per-turn model
   // override rides along so sub-agent LLM calls honor the user's pick.
@@ -57,6 +64,15 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
     actorUserId: ctx.actorUserId,
     abortSignal: ctx.abortSignal,
     model: ctx.model,
+  };
+
+  // The general-answer sub-agent additionally needs thread memory (readOnly) so a
+  // follow-up about an already-consumed file can read the persisted Context from
+  // history. The staffing sub-agents deliberately run memory-free (subCtx).
+  const answerCtx: SpecializedAgentRunCtx = {
+    ...subCtx,
+    threadId: ctx.threadId,
+    userMemory: ctx.userMemory,
   };
 
   const callTaskAnalyzer = defineAgentTool({
@@ -186,5 +202,34 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
     },
   });
 
-  return { callTaskAnalyzer, callSkillMatcher, callAvaiChecker, callRecommender };
+  const callGeneralAnswer = defineAgentTool({
+    id: 'callGeneralAnswer',
+    name: 'Answer a general or document question',
+    description: [
+      "Answer the user's question directly, in prose. Use for a general question, a",
+      'conversational follow-up, or any question about an attached document (its text',
+      'is supplied to you automatically). Do NOT use for staffing requests (tasks,',
+      'skills, or finding/recommending people). Takes no arguments.',
+    ].join(' '),
+    input: z.object({}),
+    output: z.object({ answer: z.string() }),
+    execute: async () => {
+      ctx.onEvent?.({
+        kind: 'step-start',
+        stepId: 'generalAnswer',
+        agentId: 'staffing.generalAnswer',
+      });
+      const res = await generalAnswer.run({ query: userText }, answerCtx);
+      ctx.onEvent?.({ kind: 'step-done', stepId: 'generalAnswer', trust: res.trust });
+      return res.result;
+    },
+  });
+
+  return {
+    callTaskAnalyzer,
+    callSkillMatcher,
+    callAvaiChecker,
+    callRecommender,
+    callGeneralAnswer,
+  };
 }
