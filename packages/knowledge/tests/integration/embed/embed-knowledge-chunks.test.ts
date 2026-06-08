@@ -103,6 +103,32 @@ describe('embedKnowledgeChunks worker', () => {
       expect(status.rows[0]?.error_reason).toContain('provider down');
     });
   });
+
+  it('stamps thread_id and origin from the file row onto chunk metadata', async () => {
+    await withDb(async ({ pool, pgVector }) => {
+      const tenant_id = randomUUID();
+      const thread_id = randomUUID();
+      const provider = new FakeEmbeddingProvider({ dimensions: 1536 });
+
+      const file_id = await seedChatFileWithChunks(pool, tenant_id, thread_id, [
+        { text: 'attached chat doc chunk', page_hint: 'p.1' },
+      ]);
+
+      await embedKnowledgeChunks(
+        { tenant_id, file_id, event_id: randomUUID() },
+        { pool, pgVector, provider },
+      );
+
+      const rows = await pgVector.query({
+        indexName: KNOWLEDGE_VECTOR_INDEX,
+        filter: { tenant_id: { $eq: tenant_id }, file_id: { $eq: file_id } },
+        topK: 10,
+      });
+      const md = rows[0]?.metadata as Partial<KnowledgeChunkVectorMetadata> | undefined;
+      expect(md?.thread_id).toBe(thread_id);
+      expect(md?.origin).toBe('chat');
+    });
+  });
 });
 
 async function seedFileWithChunks(
@@ -134,6 +160,47 @@ async function seedFileWithChunks(
        VALUES ($1, $2, 't.txt', 'text/plain', 1, $3, 'embedding')
        RETURNING id`,
       [tenant_id, randomUUID(), `tenants/${tenant_id}/knowledge/${randomUUID()}/t.txt`],
+    )
+  ).rows[0]!.id;
+  for (let i = 0; i < chunks.length; i += 1) {
+    await pool.query(
+      `INSERT INTO knowledge.chunks (tenant_id, file_id, chunk_ordinal, chunk_text, page_hint)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [tenant_id, fileId, i, chunks[i]!.text, chunks[i]!.page_hint],
+    );
+  }
+  return fileId;
+}
+
+async function seedChatFileWithChunks(
+  pool: import('pg').Pool,
+  tenant_id: string,
+  thread_id: string,
+  chunks: { text: string; page_hint: string | null }[],
+): Promise<string> {
+  const slug = tenant_id.replaceAll('-', '_');
+  const childName = `chunks_${slug}`;
+  const { rows: existing } = await pool.query<{ exists: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE c.relname = $1 AND n.nspname = 'knowledge'
+     ) AS exists`,
+    [childName],
+  );
+  if (!existing[0]?.exists) {
+    await pool.query(
+      `CREATE TABLE knowledge.${childName}
+         PARTITION OF knowledge.chunks
+         FOR VALUES IN ('${tenant_id}'::uuid)`,
+    );
+  }
+  const fileId = (
+    await pool.query<{ id: string }>(
+      `INSERT INTO knowledge.files
+         (tenant_id, uploaded_by, filename, mime_type, size_bytes, s3_key, status, thread_id, origin)
+       VALUES ($1, $2, 'c.txt', 'text/plain', 1, $3, 'embedding', $4, 'chat')
+       RETURNING id`,
+      [tenant_id, randomUUID(), `tenants/${tenant_id}/chat/${randomUUID()}/c.txt`, thread_id],
     )
   ).rows[0]!.id;
   for (let i = 0; i < chunks.length; i += 1) {

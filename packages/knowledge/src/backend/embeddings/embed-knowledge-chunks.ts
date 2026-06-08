@@ -30,12 +30,18 @@ export async function embedKnowledgeChunks(
   const { tenant_id, file_id } = payload;
 
   try {
-    const fileRow = await deps.pool.query<{ filename: string }>(
-      `SELECT filename FROM knowledge.files WHERE id = $1 AND tenant_id = $2`,
-      [file_id, tenant_id],
-    );
+    const fileRow = await deps.pool.query<{
+      filename: string;
+      thread_id: string | null;
+      origin: 'knowledge_base' | 'chat';
+    }>(`SELECT filename, thread_id, origin FROM knowledge.files WHERE id = $1 AND tenant_id = $2`, [
+      file_id,
+      tenant_id,
+    ]);
     const filename = fileRow.rows[0]?.filename;
     if (!filename) throw new Error('file row not found for embed');
+    const thread_id = fileRow.rows[0]?.thread_id ?? null;
+    const origin = fileRow.rows[0]?.origin ?? 'knowledge_base';
 
     const chunks = await deps.pool.query<{
       chunk_ordinal: number;
@@ -67,6 +73,8 @@ export async function embedKnowledgeChunks(
       page_hint: c.page_hint,
       model_id: deps.provider.modelId,
       embedded_at: embeddedAt,
+      thread_id,
+      origin,
     }));
 
     await deps.pgVector.upsert({
