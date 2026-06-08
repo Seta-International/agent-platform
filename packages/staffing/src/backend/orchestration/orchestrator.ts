@@ -193,13 +193,33 @@ export function makeOrchestratorAgent(deps: OrchestratorDeps): SpecializedAgentS
               instructions: agentInstructions,
               model: pickModel(ctx, deps.resolveModel),
               tools: tools as never,
+              ...(ctx.userMemory ? { memory: ctx.userMemory.memory } : {}),
             });
             const r = await agent.generate(
               [
                 `User message: ${input.userText}`,
                 `Current taskId: ${input.taskId ?? '(none)'}`,
               ].join('\n'),
-              { requestContext: rc, maxSteps: 12, abortSignal: ctx.abortSignal },
+              {
+                requestContext: rc,
+                maxSteps: 12,
+                abortSignal: ctx.abortSignal,
+                // Restore supervisor parity: Mastra injects lastMessages history
+                // + semanticRecall and fires generateTitle. readOnly => it does
+                // NOT persist messages (our chat route persists via
+                // userMemory.saveMessages). workingMemory disabled here because
+                // the orchestrator still injects userContext manually via
+                // loadUserContextSection (no double handling).
+                ...(ctx.userMemory && ctx.threadId
+                  ? {
+                      memory: {
+                        thread: ctx.threadId,
+                        resource: ctx.actorUserId,
+                        options: { readOnly: true, workingMemory: { enabled: false } },
+                      },
+                    }
+                  : {}),
+              },
             );
             return {
               toolCalls: r.toolCalls as MastraToolSignals['toolCalls'],
