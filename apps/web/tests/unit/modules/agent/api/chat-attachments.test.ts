@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { chatAttachmentsApi } from '@/modules/agent/api/chat-attachments';
 
+interface ProgressEventLike {
+  lengthComputable: boolean;
+  loaded: number;
+  total: number;
+}
+
 afterEach(() => vi.restoreAllMocks());
 
 describe('chatAttachmentsApi', () => {
@@ -48,8 +54,10 @@ describe('chatAttachmentsApi', () => {
 
   it('putToS3 reports progress and resolves on 2xx', async () => {
     const events: number[] = [];
-    const xhr: any = {
-      upload: {},
+    const xhr = {
+      upload: {} as { onprogress?: (e: ProgressEventLike) => void },
+      status: 0,
+      onload: undefined as (() => void) | undefined,
       open() {},
       setRequestHeader() {},
       send() {
