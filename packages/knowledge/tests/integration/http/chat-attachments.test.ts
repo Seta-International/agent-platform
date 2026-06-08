@@ -105,46 +105,17 @@ describe('chat attachment routes', () => {
       initPools({ databaseUrl });
       try {
         const app = buildApp(null);
-        const res = await app.request(
-          '/api/agent/v1/knowledge/attachments?thread_id=' + randomUUID(),
-        );
-        expect(res.status).toBe(401);
-      } finally {
-        resetCoreDb();
-        resetKnowledgeDb();
-        await closePools();
-      }
-    });
-  });
-
-  it("lists a thread's attachments after upload", async () => {
-    await withTestDb(dbEnv(), async ({ databaseUrl }) => {
-      resetCoreDb();
-      resetKnowledgeDb();
-      initPools({ databaseUrl });
-      try {
-        const tenant_id = randomUUID();
-        const user_id = randomUUID();
-        const thread_id = randomUUID();
-        const app = buildApp({
-          tenant_id,
-          user_id,
-          effective_permissions: new Set(['knowledge.chat_attachment.write']),
-        });
-        await app.request('/api/agent/v1/knowledge/attachments/upload-url', {
+        const res = await app.request('/api/agent/v1/knowledge/attachments/upload-url', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
-            thread_id,
-            filename: 'doc.pdf',
+            thread_id: randomUUID(),
+            filename: 'x.pdf',
             mime_type: 'application/pdf',
             size_bytes: 1,
           }),
         });
-        const res = await app.request(`/api/agent/v1/knowledge/attachments?thread_id=${thread_id}`);
-        expect(res.status).toBe(200);
-        const body = (await res.json()) as { attachments: { filename: string }[] };
-        expect(body.attachments.map((a) => a.filename)).toContain('doc.pdf');
+        expect(res.status).toBe(401);
       } finally {
         resetCoreDb();
         resetKnowledgeDb();

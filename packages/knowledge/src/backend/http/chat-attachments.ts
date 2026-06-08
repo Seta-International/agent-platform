@@ -4,8 +4,6 @@ import { z } from 'zod';
 import {
   ChatAttachmentError,
   deleteChatAttachment,
-  getChatAttachmentStatus,
-  listThreadAttachments,
   markChatAttachmentUploaded,
   requestChatAttachmentUpload,
 } from '../domain/chat-attachment.ts';
@@ -102,29 +100,6 @@ export function registerChatAttachmentRoutes(
       );
     }
     return c.json({ ok: true });
-  });
-
-  app.get('/api/agent/v1/knowledge/attachments/:id', async (c) => {
-    const s = gate(c);
-    if (s instanceof Response) return s;
-    const file_id = c.req.param('id');
-    if (!/^\d+$/.test(file_id)) return c.json({ error: 'invalid_id' }, 400);
-    const status = await getChatAttachmentStatus({
-      tenant_id: s.tenant_id,
-      file_id,
-      uploaded_by: s.user_id,
-    });
-    if (!status) return c.json({ error: 'not_found' }, 404);
-    return c.json(status);
-  });
-
-  app.get('/api/agent/v1/knowledge/attachments', async (c) => {
-    const s = gate(c);
-    if (s instanceof Response) return s;
-    const thread_id = c.req.query('thread_id');
-    if (!thread_id) return c.json({ error: 'thread_id required' }, 400);
-    const attachments = await listThreadAttachments({ tenant_id: s.tenant_id, thread_id });
-    return c.json({ attachments });
   });
 
   app.delete('/api/agent/v1/knowledge/attachments/:id', async (c) => {

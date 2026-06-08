@@ -1,21 +1,15 @@
 export {
   ChatAttachmentError,
-  type ChatAttachmentStatus,
   type DeleteChatAttachmentInput,
   deleteChatAttachment,
-  getChatAttachmentStatus,
   listPendingThreadAttachments,
-  type MarkChatAttachmentProcessedDeps,
-  type MarkChatAttachmentProcessedInput,
   markAttachmentsConsumed,
-  markChatAttachmentProcessed,
   markChatAttachmentUploaded,
   type PendingThreadAttachment,
   type RequestChatAttachmentUploadDeps,
   type RequestChatAttachmentUploadInput,
   type RequestChatAttachmentUploadResult,
   requestChatAttachmentUpload,
-  type ThreadAttachment,
   threadPendingBytes,
 } from './backend/domain/chat-attachment.ts';
 export {

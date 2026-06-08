@@ -3,12 +3,10 @@ import { resetCoreDb } from '@seta/core/testing';
 import { resetKnowledgeDb } from '@seta/knowledge/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   ChatAttachmentError,
   deleteChatAttachment,
-  listThreadAttachments,
-  markChatAttachmentProcessed,
   requestChatAttachmentUpload,
 } from '../../src/backend/domain/chat-attachment.ts';
 
@@ -128,48 +126,7 @@ describe('chat attachment domain', () => {
     });
   });
 
-  it('mark-processed enqueues for the owner and no-ops for a non-owner', async () => {
-    await withTestDb(dbEnv(), async ({ databaseUrl }) => {
-      resetCoreDb();
-      resetKnowledgeDb();
-      initPools({ databaseUrl });
-      try {
-        const tenant_id = randomUUID();
-        const thread_id = randomUUID();
-        const uploaded_by = randomUUID();
-        const { file_id } = await requestChatAttachmentUpload(
-          {
-            tenant_id,
-            uploaded_by,
-            thread_id,
-            filename: 'a.pdf',
-            mime_type: 'application/pdf',
-            size_bytes: 1,
-          },
-          { bucket: 'test-bucket', presign: fakePresign },
-        );
-
-        const enqueue = vi.fn(async () => {});
-        await markChatAttachmentProcessed(
-          { tenant_id, file_id, uploaded_by: randomUUID() },
-          { enqueueScanJob: enqueue },
-        );
-        expect(enqueue).not.toHaveBeenCalled();
-
-        await markChatAttachmentProcessed(
-          { tenant_id, file_id, uploaded_by },
-          { enqueueScanJob: enqueue },
-        );
-        expect(enqueue).toHaveBeenCalledTimes(1);
-      } finally {
-        resetCoreDb();
-        resetKnowledgeDb();
-        await closePools();
-      }
-    });
-  });
-
-  it("lists a thread's attachments and deletes only the owner's file", async () => {
+  it("deletes only the owner's file", async () => {
     await withTestDb(dbEnv(), async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetKnowledgeDb();
@@ -189,9 +146,6 @@ describe('chat attachment domain', () => {
           },
           { bucket: 'test-bucket', presign: fakePresign },
         );
-
-        const list = await listThreadAttachments({ tenant_id, thread_id });
-        expect(list.map((a) => a.filename)).toContain('keep.pdf');
 
         // non-owner delete is a no-op
         await deleteChatAttachment(
