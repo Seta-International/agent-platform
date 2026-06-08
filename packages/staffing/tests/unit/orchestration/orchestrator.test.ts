@@ -242,6 +242,34 @@ describe('orchestrator assembly', () => {
       "I couldn't complete the recommendation for this task. Please try again.",
     );
   });
+
+  it('document question: callGeneralAnswer answer → { message } at 0.6 confidence', async () => {
+    const agent = make([
+      {
+        payload: {
+          toolName: 'callGeneralAnswer',
+          result: { answer: 'It is a Q3 budget report.' },
+        },
+      },
+    ]);
+    const res = await agent.run(
+      {
+        userText: 'Context:\n<<<FILE: a.pdf>>>\n...\n<<<END a.pdf>>>\n\nwhat is this?',
+        taskId: null,
+      },
+      ctx,
+    );
+    expect(res.result.message).toBe('It is a Q3 budget report.');
+    expect(res.result.skills).toBeUndefined();
+    expect(res.result.candidates).toBeUndefined();
+    expect(res.trust.confidenceScore).toBe(0.6);
+  });
+
+  it('empty general answer → falls through to the generic capability message', async () => {
+    const agent = make([{ payload: { toolName: 'callGeneralAnswer', result: { answer: '   ' } } }]);
+    const res = await agent.run({ userText: 'hmm', taskId: null }, ctx);
+    expect(res.result.message).toContain('I can describe');
+  });
 });
 
 describe('orchestrator HITL approval post-step', () => {

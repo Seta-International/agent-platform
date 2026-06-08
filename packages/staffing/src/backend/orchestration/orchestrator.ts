@@ -197,7 +197,7 @@ export function makeOrchestratorAgent(deps: OrchestratorDeps): SpecializedAgentS
       const result = await recordApprovalIfRecommended(assemble(res), res, ctx);
       const trust = trustFromMastraResult(res, {
         citations: (tr) => citationsFor(tr, result),
-        confidence: confidenceFor(result),
+        confidence: confidenceFor(result, res),
       });
       return { result, trust };
     },
@@ -254,6 +254,15 @@ function assemble(res: MastraToolSignals): OrchestratorResult {
     const skills = ta.find((o) => o.skills)?.skills;
     if (skills) return { skills };
   }
+
+  // A document / general question routes here: the general-answer sub-agent's
+  // prose IS the terminal answer. It runs only when the LLM called NO staffing
+  // tools, so the structured branches above never fire alongside it. An empty
+  // answer falls through to the honest capability message below.
+  const generalAnswer = (results(res, 'callGeneralAnswer') as { answer?: string }[]).find((g) =>
+    g.answer?.trim(),
+  )?.answer;
+  if (generalAnswer) return { message: generalAnswer.trim() };
 
   // A turn where the LLM called no tools at all is conversational — e.g. the
   // "Approved"/"Declined" follow-up ChatEmbeddedHitl appends after a card
@@ -354,10 +363,18 @@ function citationsFor(
   return [];
 }
 
-function confidenceFor(result: OrchestratorResult): number {
+function confidenceFor(result: OrchestratorResult, res?: MastraToolSignals): number {
   if (result.recommendations?.length) return 0.8;
   if (result.tasks?.length) return 0.8;
   if (result.candidates?.length) return 0.8;
   if (result.skills?.length) return 0.8;
+  // A surfaced general answer is a real (if unsourced) answer — rank it above the
+  // 0.2 honest-failure floor that bare `message` results carry.
+  if (
+    res &&
+    (results(res, 'callGeneralAnswer') as { answer?: string }[]).some((g) => g.answer?.trim())
+  ) {
+    return 0.6;
+  }
   return 0.2;
 }
