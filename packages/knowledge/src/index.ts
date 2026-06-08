@@ -1,7 +1,25 @@
 export {
+  ChatAttachmentError,
+  type ChatAttachmentStatus,
+  type DeleteChatAttachmentInput,
+  deleteChatAttachment,
+  getChatAttachmentStatus,
+  listThreadAttachments,
+  type MarkChatAttachmentProcessedDeps,
+  type MarkChatAttachmentProcessedInput,
+  markChatAttachmentProcessed,
+  type RequestChatAttachmentUploadDeps,
+  type RequestChatAttachmentUploadInput,
+  type RequestChatAttachmentUploadResult,
+  requestChatAttachmentUpload,
+  type ThreadAttachment,
+} from './backend/domain/chat-attachment.ts';
+export {
   type DeleteKnowledgeFileDeps,
   type DeleteKnowledgeFileInput,
   deleteKnowledgeFile,
+  type PurgeKnowledgeFileDeps,
+  purgeKnowledgeFile,
 } from './backend/domain/delete-file.ts';
 export {
   type KnowledgeFileSummary,
