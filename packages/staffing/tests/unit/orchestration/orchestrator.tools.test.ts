@@ -224,9 +224,19 @@ describe('callGeneralAnswer', () => {
     const userText =
       'Context:\n<<<FILE: a.pdf>>>\nhello world\n<<<END a.pdf>>>\n\nwhat does it say?';
     const { tools, generalAnswer } = buildTools({ userText });
-    // The tool ignores LLM-supplied args (empty input) and its toolCtx; it reads
-    // the captured userText. Pass empty stand-ins for both.
-    const out = (await tools.callGeneralAnswer.execute!({} as never, {} as never)) as {
+    // The tool ignores LLM-supplied args (empty input) and reads the captured
+    // userText from the closure. It still needs a real requestContext: the SDK's
+    // defineAgentTool wrapper (wrap-execute.ts) reads tenant_id off it before the
+    // body runs. Pass empty input, but a tenant-bearing toolCtx.
+    const rc = new RequestContext();
+    rc.set('tenant_id', 't1');
+    rc.set('actor', { type: 'user', user_id: 'a1' });
+    const out = (await tools.callGeneralAnswer.execute!(
+      {} as never,
+      {
+        requestContext: rc,
+      } as never,
+    )) as {
       answer: string;
     };
     expect(generalAnswer.inputs[0]?.query).toBe(userText);
