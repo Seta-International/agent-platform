@@ -1,7 +1,8 @@
 import { useAui, useAuiState } from '@assistant-ui/react';
-import { ChatComposer } from '@seta/shared-ui';
+import { attachmentsBlockSend, ChatComposer } from '@seta/shared-ui';
 import { useEffect, useState } from 'react';
 import { ModelSelector } from '../components/model-selector';
+import { useChatAttachments } from '../hooks/use-chat-attachments';
 import { AGENT_COPY } from '../i18n';
 import { useAgentSelection, usePanelUI } from './agent-provider';
 
@@ -15,14 +16,19 @@ export function AgentComposer({ compact = false }: AgentComposerProps) {
   const isRunning = useAuiState((s) => s.thread.isRunning);
   const { selection, actions } = useAgentSelection();
   const { pendingPrompt, setPendingPrompt } = usePanelUI();
+  const { attachments, attach, remove, reset } = useChatAttachments(selection.threadId);
 
   const submit = () => {
     if (!value.trim() || isRunning) return;
+    if (attachmentsBlockSend(attachments)) return;
     // Page-context attachment is wired in useAgentRuntime's toCreateMessage
     // override (assistant-ui v0.14.5 rejects arbitrary parts on composer.addAttachment).
     aui.composer().setText(value);
     aui.composer().send();
     setValue('');
+    // Files persist server-side keyed by thread_id; the orchestrator finds them
+    // on this and future turns. Clear the upload chips for the next message.
+    reset();
   };
 
   // One-shot pending prompt from external callers (e.g. planner "Suggest
@@ -48,6 +54,9 @@ export function AgentComposer({ compact = false }: AgentComposerProps) {
       onSubmit={submit}
       pending={isRunning}
       placeholder={AGENT_COPY.composerPlaceholder}
+      attachments={attachments}
+      onAttachFiles={attach}
+      onRemoveAttachment={remove}
       toolbar={
         <ModelSelector
           value={selection.modelKey}
