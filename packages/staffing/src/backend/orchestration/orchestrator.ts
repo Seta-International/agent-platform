@@ -9,10 +9,11 @@ import {
   type SpecializedAgentRunCtx,
   type SpecializedAgentSpec,
 } from '@seta/agent-sdk';
+import type { ThreadDocumentHit } from '@seta/knowledge';
 import type { z } from 'zod';
 import { buildAssignApprovalCard } from './approval-card.ts';
 import { pickModel } from './model.ts';
-import { makeOrchestratorTools } from './orchestrator.tools.ts';
+import { makeOrchestratorTools, makeSearchThreadDocumentsTool } from './orchestrator.tools.ts';
 import type { TaskSummary } from './ports.ts';
 import {
   type AvailabilityResult,
@@ -61,6 +62,19 @@ export interface OrchestratorDeps {
   resolveModel: () => MastraModelConfig;
   /** Cap on how many found tasks the orchestrator recommends people for. */
   recommendTaskCap?: number;
+  /** Chat-runtime only: lists this thread's uploaded attachments. Absent for
+   *  queued/cron callers — then no document tool is exposed. */
+  listThreadAttachments?: (a: {
+    tenantId: string;
+    threadId: string;
+  }) => Promise<{ file_id: string; filename: string; status: string }[]>;
+  /** Chat-runtime only: thread-scoped document retrieval for the doc tool. */
+  searchThreadDocuments?: (a: {
+    tenantId: string;
+    threadId: string;
+    query: string;
+    limit: number;
+  }) => Promise<ThreadDocumentHit[]>;
   /** Test-only seam; production builds + runs a real Mastra Agent. Receives the
    *  fully assembled prompt + tool map so tests can assert wiring without an LLM. */
   runAgent?: (args: {
@@ -139,10 +153,36 @@ export function makeOrchestratorAgent(deps: OrchestratorDeps): SpecializedAgentS
       });
       const wmTool = makeUpdateWorkingMemoryTool(ctx);
       if (wmTool) tools.updateWorkingMemory = wmTool;
+
+      // Chat document attachments: expose the doc tool + a directive note only
+      // when this thread has at least one fully-processed (ready) upload. No
+      // thread / no ready files / non-chat caller ⇒ staffing behavior unchanged.
+      let attachmentNote = '';
+      if (ctx.threadId && deps.listThreadAttachments && deps.searchThreadDocuments) {
+        const attachments = await deps
+          .listThreadAttachments({ tenantId: ctx.tenantId, threadId: ctx.threadId })
+          .catch(() => [] as { file_id: string; filename: string; status: string }[]);
+        const ready = attachments.filter((a) => a.status === 'ready');
+        if (ready.length > 0) {
+          const names = ready.map((a) => a.filename).join(', ');
+          attachmentNote =
+            `\n\nATTACHED DOCUMENTS — this conversation has uploaded files: ${names}. ` +
+            'When the user asks about the content of these documents, you MUST call ' +
+            'callSearchThreadDocuments with their question and answer ONLY from the returned ' +
+            'chunks, citing the filename and page hint. Do not use the staffing tools for ' +
+            'document questions.';
+          tools.callSearchThreadDocuments = makeSearchThreadDocumentsTool({
+            ctx,
+            search: deps.searchThreadDocuments,
+          });
+        }
+      }
+
       const wmSection = await loadUserContextSection(ctx);
-      const agentInstructions = wmSection
+      const baseInstructions = wmSection
         ? `${instructions(cap)}\n\n${wmSection}`
         : instructions(cap);
+      const agentInstructions = `${baseInstructions}${attachmentNote}`;
 
       const res: MastraToolSignals = deps.runAgent
         ? await deps.runAgent({ input, requestContext: rc, instructions: agentInstructions, tools })
@@ -227,6 +267,16 @@ function assemble(res: MastraToolSignals): OrchestratorResult {
   if (!downstreamAttempted) {
     const skills = ta.find((o) => o.skills)?.skills;
     if (skills) return { skills };
+  }
+
+  // Document Q&A over thread attachments: callSearchThreadDocuments ran, so the
+  // answer is the LLM's text grounded in the returned chunks (it cites filenames
+  // + page hints inline per the instruction note).
+  const docResults = results(res, 'callSearchThreadDocuments');
+  if (docResults.length > 0) {
+    const docText = res.text?.trim();
+    if (docText) return { message: docText };
+    return { message: 'I could not find anything about that in the attached documents.' };
   }
 
   // A turn where the LLM called no tools at all is conversational — e.g. the

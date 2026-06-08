@@ -500,3 +500,90 @@ describe('orchestrator resource working memory', () => {
     expect(Object.keys(seen()?.tools ?? {})).toContain('callTaskAnalyzer');
   });
 });
+
+describe('orchestrator thread document attachments', () => {
+  it('exposes callSearchThreadDocuments + note when the thread has ready attachments', async () => {
+    let seen: { instructions: string; tools: Record<string, unknown> } | undefined;
+    const agent = makeOrchestratorAgent({
+      taskAnalyzer: stub('staffing.taskAnalyzer'),
+      skillMatcher: stub('staffing.skillMatcher'),
+      avaiChecker: stub('staffing.avaiChecker'),
+      recommender: stub('staffing.recommender'),
+      resolveModel: () => ({}) as never,
+      listThreadAttachments: async () => [{ file_id: '1', filename: 'spec.pdf', status: 'ready' }],
+      searchThreadDocuments: async () => [],
+      runAgent: async (args) => {
+        seen = { instructions: args.instructions, tools: args.tools };
+        return {
+          toolCalls: [{ payload: { toolName: 'callSearchThreadDocuments' } }],
+          toolResults: [
+            {
+              payload: {
+                toolName: 'callSearchThreadDocuments',
+                result: {
+                  hits: [
+                    {
+                      file_id: '1',
+                      filename: 'spec.pdf',
+                      page_hint: 'p.2',
+                      chunk_text: '...',
+                      score: 0.9,
+                      rerank_score: 0.9,
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+          text: 'The spec says X (spec.pdf, p.2).',
+        };
+      },
+    });
+    const res = await agent.run(
+      { userText: 'what does the spec say about X', taskId: null },
+      { ...ctx, threadId: 'conv-1' },
+    );
+    expect(Object.keys(seen?.tools ?? {})).toContain('callSearchThreadDocuments');
+    expect(seen?.instructions).toContain('spec.pdf');
+    expect(res.result.message).toBe('The spec says X (spec.pdf, p.2).');
+  });
+
+  it('no doc tool / note when no attachment is ready', async () => {
+    let seen: { instructions: string; tools: Record<string, unknown> } | undefined;
+    const agent = makeOrchestratorAgent({
+      taskAnalyzer: stub('staffing.taskAnalyzer'),
+      skillMatcher: stub('staffing.skillMatcher'),
+      avaiChecker: stub('staffing.avaiChecker'),
+      recommender: stub('staffing.recommender'),
+      resolveModel: () => ({}) as never,
+      listThreadAttachments: async () => [
+        { file_id: '1', filename: 'spec.pdf', status: 'embedding' },
+      ],
+      searchThreadDocuments: async () => [],
+      runAgent: async (args) => {
+        seen = { instructions: args.instructions, tools: args.tools };
+        return { toolCalls: [], toolResults: [], text: 'hi' };
+      },
+    });
+    await agent.run({ userText: 'hello', taskId: null }, { ...ctx, threadId: 'conv-1' });
+    expect(Object.keys(seen?.tools ?? {})).not.toContain('callSearchThreadDocuments');
+    expect(seen?.instructions).not.toContain('ATTACHED DOCUMENTS');
+  });
+
+  it('no doc tool when deps are absent (non-chat callers)', async () => {
+    let seen: { tools: Record<string, unknown> } | undefined;
+    const agent = makeOrchestratorAgent({
+      taskAnalyzer: stub('staffing.taskAnalyzer'),
+      skillMatcher: stub('staffing.skillMatcher'),
+      avaiChecker: stub('staffing.avaiChecker'),
+      recommender: stub('staffing.recommender'),
+      resolveModel: () => ({}) as never,
+      runAgent: async (args) => {
+        seen = { tools: args.tools };
+        return { toolCalls: [], toolResults: [], text: 'hi' };
+      },
+    });
+    await agent.run({ userText: 'hello', taskId: null }, { ...ctx, threadId: 'conv-1' });
+    expect(Object.keys(seen?.tools ?? {})).not.toContain('callSearchThreadDocuments');
+  });
+});
