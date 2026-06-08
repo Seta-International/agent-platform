@@ -1,10 +1,11 @@
 import { MessagePrimitive, ThreadPrimitive, useAui, useAuiState } from '@assistant-ui/react';
 import { ChatMarkdown, ChatMessage, ChatTranscript } from '@seta/shared-ui';
-import { Sparkles } from 'lucide-react';
+import { Paperclip, Sparkles } from 'lucide-react';
 import { type ReactNode, useCallback } from 'react';
 import { ThreadListRefresher } from '../components/thread-list-refresher';
 import { ToolUIRegistry } from '../components/tool-renderers';
 import { AGENT_COPY } from '../i18n';
+import { parseContextAttachment } from '../lib/context-attachment';
 import { ChatEmbeddedHitl } from '../workflows/components/chat-embedded-hitl';
 import { type PageContext, useAgentSelection, usePageContext } from './agent-provider';
 import { ChainOfThought } from './chain-of-thought';
@@ -61,6 +62,25 @@ function ThinkingIndicator() {
 }
 
 function PlainTextPart({ text }: PartProps) {
+  // A persisted attachment rides as a `Context:` text part (so Mastra replays it
+  // on follow-ups); collapse the `<<<FILE:` sentinel into file chips so the user
+  // never sees the raw document text.
+  const filenames = parseContextAttachment(text);
+  if (filenames) {
+    return (
+      <div className="flex flex-wrap gap-1.5">
+        {filenames.map((name) => (
+          <span
+            key={name}
+            className="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-1 px-2 py-1 text-caption"
+          >
+            <Paperclip className="size-3" aria-hidden />
+            <span className="max-w-[12rem] truncate">{name}</span>
+          </span>
+        ))}
+      </div>
+    );
+  }
   return <span className="whitespace-pre-wrap">{text}</span>;
 }
 
