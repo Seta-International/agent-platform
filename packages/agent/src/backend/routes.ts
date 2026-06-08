@@ -22,6 +22,7 @@ import { listModels, ModelNotFoundError, resolveModel } from './model-registry.t
 import { ORCHESTRATION_STEP_PART, streamOrchestrationToUI } from './orchestration-chat-stream.ts';
 import { RateLimitError, reserveTurn } from './rate-limit.ts';
 import type { LifecycleDrainer } from './runtime.ts';
+import { generateThreadTitle } from './thread-title.ts';
 import type { SessionLike } from './types.ts';
 import { issueSseToken } from './workflows/_infra/auth-token.ts';
 import { getWorkflowInputSchema } from './workflows/_infra/input-schema-registry.ts';
@@ -304,20 +305,25 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
     // AUI remote-thread-list reconciles against an empty server and evicts the
     // in-flight conversation — it "reloads and disappears" mid-stream. The
     // ownership guard: never write onto another user's thread.
+    // Only the first turn of a thread creates the row; we LLM-title it after
+    // persisting (see the persist block below) only when we created it here.
+    let createdNewThread = false;
     if (orchThreadId && orchStore) {
       const existing = await orchStore.getThreadById({ threadId: orchThreadId });
       if (existing && existing.resourceId !== session.user_id) {
         return c.json({ error: 'not_found', message: 'thread not found' }, 404);
       }
       if (!existing) {
+        createdNewThread = true;
         await orchStore.saveThread({
           thread: {
             id: orchThreadId,
             resourceId: session.user_id,
-            // Empty title when memory is attached so Mastra's generateTitle
-            // (gated on !thread.title) fills it; the non-memory path keeps the
-            // synchronous fallback title. The thread rail shows "New
-            // conversation" until the async title lands.
+            // With memory attached we run the orchestrator readOnly (no Mastra
+            // auto-persist over our curated trace) — which also disables
+            // Mastra's generateTitle. So we seed an empty title here and fill
+            // it ourselves via generateThreadTitle after the turn persists. The
+            // non-memory path keeps the synchronous fallback title.
             title: deps.userMemory ? '' : orchThreadTitle,
             createdAt: userCreatedAt,
             updatedAt: userCreatedAt,
@@ -400,6 +406,30 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
             },
             'failed to persist orchestration chat turn',
           );
+        }
+        // Supervisor-parity auto-title: on the first turn of a memory-backed
+        // thread (seeded with an empty title above), generate an LLM title from
+        // the user's message and write it back. Best-effort — a failure leaves
+        // the deterministic fallback so the rail still shows a real label.
+        if (createdNewThread && deps.userMemory && orchStore) {
+          try {
+            const title = await generateThreadTitle({
+              userText: cleanUserText || userText,
+              model: modelOverride ?? resolveModel('auto', { tierHint: 'fast' }).model,
+              fallback: orchThreadTitle,
+            });
+            await orchStore.updateThread({ id: orchThreadId, title, metadata: {} });
+          } catch (err) {
+            (deps.log?.error ?? console.error)(
+              {
+                subsystem: 'agent.chat',
+                event: 'orchestration.title.failed',
+                threadId: orchThreadId,
+                err,
+              },
+              'failed to generate orchestration thread title',
+            );
+          }
         }
       },
     });
