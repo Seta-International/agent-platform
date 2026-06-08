@@ -10,10 +10,7 @@ import {
 } from '@seta/agent-sdk';
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import {
-  makeOrchestratorTools,
-  makeSearchThreadDocumentsTool,
-} from '../../../src/backend/orchestration/orchestrator.tools.ts';
+import { makeOrchestratorTools } from '../../../src/backend/orchestration/orchestrator.tools.ts';
 
 const UUID_A = '66be2be2-394d-4184-b106-c412289fd1e1';
 const UUID_B = '499f9898-2133-4ba3-82b5-83d9fb1996fc';
@@ -211,56 +208,5 @@ describe('entity recording', () => {
         toolCtx,
       ),
     ).resolves.toBeDefined();
-  });
-});
-
-describe('makeSearchThreadDocumentsTool', () => {
-  // defineAgentTool wraps execute in Mastra's createTool, which validates the
-  // tool ctx's requestContext (actor) and then wrap-execute reads tenant_id from
-  // it — so every direct .execute call needs a populated RequestContext, exactly
-  // like memCtx above. The tool itself reads tenant/thread from the CLOSURE ctx.
-  function toolCtx() {
-    const rc = new RequestContext();
-    rc.set('tenant_id', 't1');
-    rc.set('actor', { type: 'user', user_id: 'a1' });
-    return { requestContext: rc } as never;
-  }
-
-  it('calls search with ctx tenant/thread, returns hits, emits step events', async () => {
-    const events: { kind: string; stepId?: string }[] = [];
-    const ctx = {
-      tenantId: 't1',
-      actorUserId: 'a1',
-      threadId: 'th1',
-      onEvent: (e: { kind: string; stepId?: string }) => events.push(e),
-    } as never;
-    const search = vi.fn(async () => [
-      {
-        file_id: '1',
-        filename: 'a.pdf',
-        page_hint: 'p.1',
-        chunk_text: 'x',
-        score: 1,
-        rerank_score: 1,
-      },
-    ]);
-    const tool = makeSearchThreadDocumentsTool({ ctx, search });
-    const out = (await tool.execute!({ query: 'q', limit: 5 } as never, toolCtx())) as {
-      hits: unknown[];
-    };
-    expect(search).toHaveBeenCalledWith({ tenantId: 't1', threadId: 'th1', query: 'q', limit: 5 });
-    expect(out.hits).toHaveLength(1);
-    expect(events.map((e) => e.kind)).toEqual(['step-start', 'step-done']);
-  });
-
-  it('returns empty hits and never searches without a threadId', async () => {
-    const ctx = { tenantId: 't1', actorUserId: 'a1', onEvent: () => {} } as never;
-    const search = vi.fn(async () => []);
-    const tool = makeSearchThreadDocumentsTool({ ctx, search });
-    const out = (await tool.execute!({ query: 'q', limit: 5 } as never, toolCtx())) as {
-      hits: unknown[];
-    };
-    expect(search).not.toHaveBeenCalled();
-    expect(out.hits).toEqual([]);
   });
 });

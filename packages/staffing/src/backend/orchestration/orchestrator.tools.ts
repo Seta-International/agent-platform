@@ -1,6 +1,5 @@
 import type { SpecializedAgentRunCtx, SpecializedAgentSpec } from '@seta/agent-sdk';
 import { defineAgentTool, recordEntityExposure, resolveTaskRef } from '@seta/agent-sdk';
-import type { ThreadDocumentHit } from '@seta/knowledge';
 import { z } from 'zod';
 import {
   type AvailabilityResult,
@@ -188,69 +187,4 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
   });
 
   return { callTaskAnalyzer, callSkillMatcher, callAvaiChecker, callRecommender };
-}
-
-/** Thread-document search delegation tool. Bound to one orchestrator run: reads
- *  tenant + thread from ctx (NEVER from tool input, so the LLM can't probe other
- *  threads) and emits the same step cards as the staffing sub-agents. */
-export function makeSearchThreadDocumentsTool(deps: {
-  ctx: SpecializedAgentRunCtx;
-  search: (a: {
-    tenantId: string;
-    threadId: string;
-    query: string;
-    limit: number;
-  }) => Promise<ThreadDocumentHit[]>;
-}) {
-  const { ctx, search } = deps;
-  return defineAgentTool({
-    id: 'callSearchThreadDocuments',
-    name: 'Search attached documents',
-    description:
-      'Search the documents the user attached to THIS conversation by semantic similarity. ' +
-      'Returns chunk text with filename and page hint for citation. Use for any question ' +
-      'about the content of the attached files.',
-    input: z.object({
-      query: z.string().min(1).max(500),
-      limit: z.number().int().min(1).max(20).default(5),
-    }),
-    output: z.object({
-      hits: z.array(
-        z.object({
-          file_id: z.string(),
-          filename: z.string(),
-          page_hint: z.string().nullable(),
-          chunk_text: z.string(),
-          score: z.number(),
-          rerank_score: z.number(),
-        }),
-      ),
-    }),
-    execute: async ({ query, limit }) => {
-      const threadId = ctx.threadId;
-      if (!threadId) return { hits: [] };
-      ctx.onEvent?.({
-        kind: 'step-start',
-        stepId: 'searchThreadDocuments',
-        agentId: 'knowledge.threadDocuments',
-      });
-      const hits = await search({ tenantId: ctx.tenantId, threadId, query, limit: limit ?? 5 });
-      ctx.onEvent?.({
-        kind: 'step-done',
-        stepId: 'searchThreadDocuments',
-        trust: {
-          reasoningTrace: [
-            {
-              step: 'searchThreadDocuments',
-              detail: `${hits.length} chunk(s) from attached documents`,
-              at: new Date().toISOString(),
-            },
-          ],
-          evidenceCitations: [],
-          confidenceScore: hits.length ? 0.7 : 0.2,
-        },
-      });
-      return { hits };
-    },
-  });
 }
