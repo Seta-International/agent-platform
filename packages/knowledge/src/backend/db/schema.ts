@@ -34,10 +34,20 @@ export const files = knowledge.table(
     scan_at: timestamp('scan_at', { withTimezone: true }),
     scan_detail: text('scan_detail'),
     error_reason: text('error_reason'),
+    // Chat attachments: thread_id is the owning chat thread (NULL for the
+    // tenant knowledge base); origin distinguishes the two upload paths so
+    // KB search and thread search never bleed into each other.
+    thread_id: uuid('thread_id'),
+    origin: text('origin', { enum: ['knowledge_base', 'chat'] })
+      .notNull()
+      .default('knowledge_base'),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     processed_at: timestamp('processed_at', { withTimezone: true }),
   },
-  (t) => [index('files_by_tenant').on(t.tenant_id, desc(t.created_at))],
+  (t) => [
+    index('files_by_tenant').on(t.tenant_id, desc(t.created_at)),
+    index('files_by_thread').on(t.tenant_id, t.thread_id),
+  ],
 );
 
 export const chunks = knowledge.table(

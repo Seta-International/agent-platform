@@ -47,6 +47,8 @@ describe('knowledge.files', () => {
         'scan_status',
         'scan_at',
         'scan_detail',
+        'thread_id',
+        'origin',
       ]);
     }));
 });
