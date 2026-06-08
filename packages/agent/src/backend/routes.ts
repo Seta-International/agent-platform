@@ -107,6 +107,20 @@ export type AgentRouteDeps = {
     runInput: { userText: string; taskId: string | null },
     ctx: import('@seta/shared-orchestration').RunCtx,
   ) => AsyncIterable<import('@seta/shared-orchestration').OrchestrationEvent>;
+  /** Injected by apps/server from @seta/knowledge (the agent package may not
+   *  import feature modules). Reads + parses the thread's pending attachments,
+   *  enforcing the context budget. Returns a discriminated result. */
+  consumeThreadAttachments?: (input: {
+    tenantId: string;
+    threadId: string;
+    query: string;
+  }) => Promise<
+    | { kind: 'ok'; contextBlock: string; consumedFileIds: string[] }
+    | { kind: 'overflow'; requiredTokens: number; budgetTokens: number }
+    | { kind: 'error'; message: string }
+  >;
+  /** Marks files consumed after a successful turn. */
+  markAttachmentsConsumed?: (fileIds: string[]) => Promise<void>;
 };
 
 export type AgentRouteEnv = { Variables: { session: SessionLike } };
@@ -333,13 +347,44 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
       }
     }
 
+    let effectiveUserText = userText;
+    let consumedFileIds: string[] = [];
+    let contextParts: Array<{ type: 'text'; text: string }> = [];
+    if (orchThreadId && deps.consumeThreadAttachments) {
+      const r = await deps.consumeThreadAttachments({
+        tenantId: session.tenant_id,
+        threadId: orchThreadId,
+        query: userText,
+      });
+      if (r.kind === 'overflow') {
+        return c.json(
+          {
+            error: 'context_overflow',
+            message: `Attached file(s) need ~${r.requiredTokens} tokens but only ${r.budgetTokens} fit the model context. Remove a file or use a smaller one.`,
+          },
+          413,
+        );
+      }
+      if (r.kind === 'error') {
+        return c.json({ error: 'attachment_error', message: r.message }, 400);
+      }
+      if (r.contextBlock) {
+        effectiveUserText = `${r.contextBlock}\n\n${userText}`;
+        consumedFileIds = r.consumedFileIds;
+        // Persisted as a TEXT part so Mastra lastMessages/semanticRecall replay
+        // it on follow-ups; the web renderer collapses the `<<<FILE:` sentinel
+        // into a chip. (Plan 00 persists via userMemory.saveMessages.)
+        contextParts = [{ type: 'text', text: r.contextBlock }];
+      }
+    }
+
     const uiStream = createUIMessageStream({
       originalMessages: effectiveMessages,
       execute: async ({ writer }) => {
         const { assistantParts } = await streamOrchestrationToUI(
           writer as unknown as import('./orchestration-chat-stream.ts').UiStreamWriter,
           orchestrate(
-            { userText, taskId },
+            { userText: effectiveUserText, taskId },
             {
               tenantId: session.tenant_id,
               actorUserId: session.user_id,
@@ -374,7 +419,10 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
             createdAt: userCreatedAt,
             content: {
               format: 2 as const,
-              parts: lastUserMessage?.parts ?? [{ type: 'text', text: userText }],
+              parts: [
+                ...(lastUserMessage?.parts ?? [{ type: 'text', text: userText }]),
+                ...contextParts,
+              ],
             },
           };
           const assistantMsg = {
@@ -395,6 +443,9 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
             });
           } else {
             await orchStore.saveMessages({ messages: [userMsg, assistantMsg] });
+          }
+          if (consumedFileIds.length > 0 && deps.markAttachmentsConsumed) {
+            await deps.markAttachmentsConsumed(consumedFileIds);
           }
         } catch (err) {
           (deps.log?.error ?? console.error)(
