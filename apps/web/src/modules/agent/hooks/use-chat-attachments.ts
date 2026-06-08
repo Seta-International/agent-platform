@@ -1,23 +1,23 @@
 import type { ComposerAttachment } from '@seta/shared-ui';
-import { useCallback, useEffect, useState } from 'react';
-import { chatAttachmentsApi, toComposerStatus } from '../api/chat-attachments';
+import { useCallback, useState } from 'react';
+import { chatAttachmentsApi } from '../api/chat-attachments';
 
-interface AttachmentItem {
+interface Item {
   localId: string;
   fileId: string | null;
   filename: string;
   status: ComposerAttachment['status'];
+  progress: number;
 }
 
-const POLL_INTERVAL_MS = 2000;
-
-/** Owns the upload lifecycle for one chat thread: request url → PUT S3 →
- *  mark-processed → poll status until ready/failed. Returns composer-shaped
- *  attachments plus attach/remove/reset actions. */
+/** Owns the upload lifecycle for one chat thread: request url → PUT S3 (with
+ *  live progress) → mark-processed → uploaded. No status polling — the no-RAG
+ *  flow has no parsing/embedding stage. Exposes the last soft size warning. */
 export function useChatAttachments(threadId: string) {
-  const [items, setItems] = useState<AttachmentItem[]>([]);
+  const [items, setItems] = useState<Item[]>([]);
+  const [warning, setWarning] = useState<string | null>(null);
 
-  const patch = useCallback((localId: string, next: Partial<AttachmentItem>) => {
+  const patch = useCallback((localId: string, next: Partial<Item>) => {
     setItems((prev) => prev.map((it) => (it.localId === localId ? { ...it, ...next } : it)));
   }, []);
 
@@ -27,7 +27,7 @@ export function useChatAttachments(threadId: string) {
         const localId = crypto.randomUUID();
         setItems((prev) => [
           ...prev,
-          { localId, fileId: null, filename: file.name, status: 'uploading' },
+          { localId, fileId: null, filename: file.name, status: 'uploading', progress: 0 },
         ]);
         void (async () => {
           try {
@@ -37,9 +37,12 @@ export function useChatAttachments(threadId: string) {
               mime_type: file.type || 'application/octet-stream',
               size_bytes: file.size,
             });
-            await chatAttachmentsApi.putToS3(info.upload_url, file);
+            if (info.warning) setWarning(info.warning);
+            await chatAttachmentsApi.putToS3(info.upload_url, file, (p) =>
+              patch(localId, { progress: p }),
+            );
             await chatAttachmentsApi.markProcessed(info.file_id);
-            patch(localId, { fileId: info.file_id, status: 'processing' });
+            patch(localId, { fileId: info.file_id, status: 'uploaded', progress: 1 });
           } catch {
             patch(localId, { status: 'failed' });
           }
@@ -57,34 +60,17 @@ export function useChatAttachments(threadId: string) {
     });
   }, []);
 
-  const reset = useCallback(() => setItems([]), []);
-
-  // Poll every processing item until it resolves to ready/failed.
-  useEffect(() => {
-    const pending = items.filter((i) => i.status === 'processing' && i.fileId);
-    if (pending.length === 0) return;
-    const timer = setInterval(() => {
-      for (const it of pending) {
-        if (!it.fileId) continue;
-        void chatAttachmentsApi
-          .status(it.fileId)
-          .then((s) => {
-            const ui = toComposerStatus(s.status);
-            if (ui === 'ready' || ui === 'failed') patch(it.localId, { status: ui });
-          })
-          .catch(() => {
-            /* transient — keep polling */
-          });
-      }
-    }, POLL_INTERVAL_MS);
-    return () => clearInterval(timer);
-  }, [items, patch]);
+  const reset = useCallback(() => {
+    setItems([]);
+    setWarning(null);
+  }, []);
 
   const attachments: ComposerAttachment[] = items.map((it) => ({
     id: it.localId,
     filename: it.filename,
     status: it.status,
+    progress: it.progress,
   }));
 
-  return { attachments, attach, remove, reset };
+  return { attachments, attach, remove, reset, warning };
 }
