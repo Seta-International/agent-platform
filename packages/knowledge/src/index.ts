@@ -59,6 +59,11 @@ export {
 } from './backend/embeddings/vector-store.ts';
 export { KnowledgeError, requirePermission as requireKnowledgePermission } from './backend/rbac.ts';
 export {
+  type ConsumedAttachment,
+  ContextOverflowError,
+  consumeThreadAttachmentsAsText,
+} from './backend/retrieval/consume-thread-attachments.ts';
+export {
   type KnowledgeHit,
   type SearchTenantKnowledgeDeps,
   type SearchTenantKnowledgeInput,
