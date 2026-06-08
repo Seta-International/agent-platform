@@ -24,7 +24,7 @@ export const files = knowledge.table(
     size_bytes: bigint('size_bytes', { mode: 'bigint' }).notNull(),
     s3_key: text('s3_key').notNull().unique(),
     status: text('status', {
-      enum: ['uploading', 'parsing', 'embedding', 'ready', 'failed'],
+      enum: ['uploading', 'uploaded', 'consumed', 'parsing', 'embedding', 'ready', 'failed'],
     }).notNull(),
     scan_status: text('scan_status', {
       enum: ['pending', 'scanning', 'clean', 'infected', 'error'],
@@ -43,6 +43,7 @@ export const files = knowledge.table(
       .default('knowledge_base'),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     processed_at: timestamp('processed_at', { withTimezone: true }),
+    consumed_at: timestamp('consumed_at', { withTimezone: true }),
   },
   (t) => [
     index('files_by_tenant').on(t.tenant_id, desc(t.created_at)),
