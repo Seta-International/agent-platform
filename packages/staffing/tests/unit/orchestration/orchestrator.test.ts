@@ -531,4 +531,10 @@ describe('orchestrator resource working memory', () => {
     expect(Object.keys(seen()?.tools ?? {})).not.toContain('updateWorkingMemory');
     expect(Object.keys(seen()?.tools ?? {})).toContain('callTaskAnalyzer');
   });
+
+  it('base instructions mention the callGeneralAnswer document/general route', async () => {
+    const { agent, seen } = capture();
+    await agent.run({ userText: 'hello', taskId: null }, ctx);
+    expect(seen()?.instructions).toContain('callGeneralAnswer');
+  });
 });
