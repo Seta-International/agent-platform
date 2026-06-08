@@ -1,5 +1,6 @@
 import type { MastraModelConfig } from '@mastra/core/llm';
 import { SpecializedAgentRegistry } from '@seta/agent-sdk';
+import { listThreadAttachments, searchThreadDocuments } from '@seta/knowledge';
 import {
   type AddJob,
   makeOrchestrationTaskList,
@@ -72,6 +73,15 @@ export function buildStaffingOrchestrationRuntime(deps: {
     avaiChecker,
     recommender,
     resolveModel,
+    listThreadAttachments: (a) =>
+      listThreadAttachments({ tenant_id: a.tenantId, thread_id: a.threadId }),
+    searchThreadDocuments: (a) =>
+      searchThreadDocuments({
+        tenant_id: a.tenantId,
+        thread_id: a.threadId,
+        query: a.query,
+        limit: a.limit,
+      }),
   });
 
   SpecializedAgentRegistry.register(orchestrator);
