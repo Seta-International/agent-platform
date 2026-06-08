@@ -42,6 +42,16 @@ export {
   searchTenantKnowledge,
 } from './backend/retrieval/search-tenant-knowledge.ts';
 export {
+  type SearchThreadDocumentsInput,
+  searchThreadDocuments,
+  type ThreadDocumentHit,
+} from './backend/retrieval/search-thread-documents.ts';
+export {
+  type SearchThreadKnowledgeDeps,
+  type SearchThreadKnowledgeInput,
+  searchThreadKnowledge,
+} from './backend/retrieval/search-thread-knowledge.ts';
+export {
   KNOWLEDGE_DOCUMENT_SCAN_COMPLETED,
   KNOWLEDGE_DOCUMENT_SCAN_COMPLETED_VERSION,
   KNOWLEDGE_FILE_FAILED,
