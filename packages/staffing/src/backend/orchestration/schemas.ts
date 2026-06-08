@@ -154,3 +154,12 @@ export const OrchestratorResultSchema = z.object({
   message: z.string().optional(),
 });
 export type OrchestratorResult = z.infer<typeof OrchestratorResultSchema>;
+
+// ---- generalAnswer (document / general Q&A fallback) ----
+export const GeneralAnswerInputSchema = z.object({
+  query: z.string(),
+});
+export const GeneralAnswerOutputSchema = z.object({
+  answer: z.string(),
+});
+export type GeneralAnswerOutput = z.infer<typeof GeneralAnswerOutputSchema>;
