@@ -5,8 +5,8 @@ import { knowledgeDb } from '../db/client.ts';
 import { files } from '../db/schema.ts';
 import { requirePermission } from '../rbac.ts';
 
-const ALLOWED_EXTENSIONS = new Set(['pdf', 'docx', 'xlsx', 'csv', 'txt', 'md']);
-const MAX_BYTES = 50 * 1024 * 1024;
+export const ALLOWED_EXTENSIONS = new Set(['pdf', 'docx', 'xlsx', 'csv', 'txt', 'md']);
+export const MAX_BYTES = 50 * 1024 * 1024;
 const UPLOAD_URL_TTL_SECONDS = 15 * 60;
 
 export interface RequestKnowledgeUploadInput {
