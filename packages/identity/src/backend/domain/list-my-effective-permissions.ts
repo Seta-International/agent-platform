@@ -161,6 +161,7 @@ const IMPLICIT_USER_PERMISSIONS: readonly string[] = [
   'agent.workflow.run.read.self',
   'identity.user.read.self',
   'identity.user.write.self',
+  'knowledge.chat_attachment.write',
 ];
 
 export async function listMyEffectivePermissions(actor: Actor): Promise<string[]> {

@@ -3,6 +3,7 @@ export const KNOWLEDGE_PERMISSIONS = [
   'knowledge.file.write',
   'knowledge.file.delete',
   'knowledge.search.read',
+  'knowledge.chat_attachment.write',
 ] as const;
 export type KnowledgePermission = (typeof KNOWLEDGE_PERMISSIONS)[number];
 
