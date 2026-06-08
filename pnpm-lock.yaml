@@ -1504,6 +1504,9 @@ importers:
       '@seta/identity':
         specifier: workspace:^
         version: link:../identity
+      '@seta/knowledge':
+        specifier: workspace:*
+        version: link:../knowledge
       '@seta/planner':
         specifier: workspace:^
         version: link:../planner
