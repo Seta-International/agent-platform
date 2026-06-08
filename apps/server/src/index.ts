@@ -11,6 +11,11 @@ import { buildRuntime, runMigrations, type WorkerHandle } from '@seta/core/runti
 import { getIdentityVectorStore } from '@seta/identity';
 import { registerIdentityContributions } from '@seta/identity/register';
 import { registerIntegrationsContributions } from '@seta/integrations/register';
+import {
+  ContextOverflowError,
+  consumeThreadAttachmentsAsText,
+  markAttachmentsConsumed,
+} from '@seta/knowledge';
 import { registerKnowledgeContributions } from '@seta/knowledge/register';
 import { registerNotificationsContributions } from '@seta/notifications/register';
 import { plannerProposeAssignmentChatHitlDecider } from '@seta/planner/agent-tools';
@@ -143,6 +148,40 @@ const agent = registerAgent({
   // orchestration. apps/server is the only layer that can bind the staffing
   // runtime to the engine surface.
   chatOrchestration: staffingOrchestration.runInline,
+  // Chat attachments: apps/server is the only layer that can import the
+  // @seta/knowledge consume/mark functions into the engine surface.
+  consumeThreadAttachments: async ({ tenantId, threadId, query }) => {
+    try {
+      const r = await consumeThreadAttachmentsAsText({
+        tenant_id: tenantId,
+        thread_id: threadId,
+        query,
+        contextWindowTokens: Number(process.env.CHAT_ATTACHMENT_CONTEXT_WINDOW_TOKENS ?? 128_000),
+        reservedOutputTokens: Number(
+          process.env.CHAT_ATTACHMENT_CONTEXT_RESERVED_OUTPUT_TOKENS ?? 4_096,
+        ),
+        safetyRatio: Number(process.env.CHAT_ATTACHMENT_CONTEXT_SAFETY_RATIO ?? 0.9),
+      });
+      return {
+        kind: 'ok' as const,
+        contextBlock: r.contextBlock,
+        consumedFileIds: r.consumedFileIds,
+      };
+    } catch (e) {
+      if (e instanceof ContextOverflowError) {
+        return {
+          kind: 'overflow' as const,
+          requiredTokens: e.requiredTokens,
+          budgetTokens: e.budgetTokens,
+        };
+      }
+      return {
+        kind: 'error' as const,
+        message: e instanceof Error ? e.message : 'attachment failed',
+      };
+    }
+  },
+  markAttachmentsConsumed: (ids) => markAttachmentsConsumed(ids),
 });
 const agentSubscribers = reg.collected.subscriberBuilders.map(({ builder }) =>
   builder({ mastra: agent.mastra }),
