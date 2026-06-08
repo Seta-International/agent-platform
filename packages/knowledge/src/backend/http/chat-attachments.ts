@@ -6,12 +6,16 @@ import {
   deleteChatAttachment,
   getChatAttachmentStatus,
   listThreadAttachments,
-  markChatAttachmentProcessed,
+  markChatAttachmentUploaded,
   requestChatAttachmentUpload,
 } from '../domain/chat-attachment.ts';
 
 interface JobEnqueuer {
-  addJob: (taskName: string, payload: unknown) => Promise<void> | Promise<unknown>;
+  addJob: (
+    taskName: string,
+    payload: unknown,
+    spec?: { runAt?: Date },
+  ) => Promise<void> | Promise<unknown>;
 }
 
 type ChatAttachmentEnv = { Variables: { session: SessionLike } };
@@ -84,14 +88,19 @@ export function registerChatAttachmentRoutes(
     if (s instanceof Response) return s;
     const file_id = c.req.param('id');
     if (!/^\d+$/.test(file_id)) return c.json({ error: 'invalid_id' }, 400);
-    await markChatAttachmentProcessed(
-      { tenant_id: s.tenant_id, file_id, uploaded_by: s.user_id },
-      {
-        enqueueScanJob: async (payload) => {
-          await deps.workers.addJob('scan_upload', payload);
-        },
-      },
-    );
+    const row = await markChatAttachmentUploaded({
+      tenant_id: s.tenant_id,
+      file_id,
+      uploaded_by: s.user_id,
+    });
+    if (row) {
+      const ttlSeconds = Number(process.env.CHAT_ATTACHMENT_S3_TTL_SECONDS ?? 3600);
+      await deps.workers.addJob(
+        'chat_attachment_delete',
+        { s3_key: row.s3_key },
+        { runAt: new Date(Date.now() + ttlSeconds * 1000) },
+      );
+    }
     return c.json({ ok: true });
   });
 
