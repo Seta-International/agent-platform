@@ -31,39 +31,50 @@ describe('<ChatComposer>', () => {
 });
 
 describe('attachmentsBlockSend', () => {
-  it('blocks while any attachment is uploading or processing', () => {
-    expect(attachmentsBlockSend([{ id: '1', filename: 'a', status: 'processing' }])).toBe(true);
+  it('blocks while any attachment is uploading', () => {
     expect(attachmentsBlockSend([{ id: '1', filename: 'a', status: 'uploading' }])).toBe(true);
-    expect(attachmentsBlockSend([{ id: '1', filename: 'a', status: 'ready' }])).toBe(false);
+    expect(attachmentsBlockSend([{ id: '1', filename: 'a', status: 'uploaded' }])).toBe(false);
     expect(attachmentsBlockSend([])).toBe(false);
   });
 });
 
 describe('ChatComposer attachments', () => {
-  it('disables send while an attachment is processing', () => {
+  it('disables send while an attachment is uploading', () => {
     render(
       <ChatComposer
         value="hi"
         onChange={() => {}}
         onSubmit={vi.fn()}
-        attachments={[{ id: '1', filename: 'spec.pdf', status: 'processing' }]}
+        attachments={[{ id: '1', filename: 'spec.pdf', status: 'uploading' }]}
       />,
     );
     const send = screen.getByLabelText('Send') as HTMLButtonElement;
     expect(send.disabled).toBe(true);
   });
 
-  it('enables send when all attachments are ready and there is text', () => {
+  it('enables send when all attachments are uploaded and there is text', () => {
     render(
       <ChatComposer
         value="hi"
         onChange={() => {}}
         onSubmit={vi.fn()}
-        attachments={[{ id: '1', filename: 'spec.pdf', status: 'ready' }]}
+        attachments={[{ id: '1', filename: 'spec.pdf', status: 'uploaded' }]}
       />,
     );
     const send = screen.getByLabelText('Send') as HTMLButtonElement;
     expect(send.disabled).toBe(false);
+  });
+
+  it('shows the upload progress percent on an uploading chip', () => {
+    render(
+      <ChatComposer
+        value=""
+        onChange={() => {}}
+        onSubmit={() => {}}
+        attachments={[{ id: '1', filename: 'spec.pdf', status: 'uploading', progress: 0.4 }]}
+      />,
+    );
+    expect(screen.queryByText('40%')).not.toBeNull();
   });
 
   it('renders a chip and fires onRemoveAttachment', () => {
@@ -73,7 +84,7 @@ describe('ChatComposer attachments', () => {
         value=""
         onChange={() => {}}
         onSubmit={() => {}}
-        attachments={[{ id: '1', filename: 'spec.pdf', status: 'ready' }]}
+        attachments={[{ id: '1', filename: 'spec.pdf', status: 'uploaded' }]}
         onRemoveAttachment={onRemove}
       />,
     );

@@ -13,19 +13,19 @@ const MAX_TEXTAREA_HEIGHT_PX = 160;
 export interface ComposerAttachment {
   id: string;
   filename: string;
-  status: 'uploading' | 'processing' | 'ready' | 'failed';
+  status: 'uploading' | 'uploaded' | 'failed';
+  progress?: number;
 }
 
-/** Send is blocked while any attachment is still uploading or processing.
- *  Ready and failed attachments do not block (failed ones are removable). */
+/** Send is blocked while any attachment is still uploading.
+ *  Uploaded and failed attachments do not block (failed ones are removable). */
 export function attachmentsBlockSend(attachments: readonly ComposerAttachment[]): boolean {
-  return attachments.some((a) => a.status === 'uploading' || a.status === 'processing');
+  return attachments.some((a) => a.status === 'uploading');
 }
 
 const STATUS_LABEL: Record<ComposerAttachment['status'], string> = {
   uploading: 'Uploading…',
-  processing: 'Processing…',
-  ready: 'Ready',
+  uploaded: 'Ready',
   failed: 'Failed',
 };
 
@@ -100,13 +100,17 @@ export function ChatComposer({
                   title={STATUS_LABEL[a.status]}
                   className="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-1 px-2 py-1 text-caption"
                 >
-                  {a.status === 'uploading' || a.status === 'processing' ? (
+                  {a.status === 'uploading' ? (
                     <Loader2 className="size-3 animate-spin" aria-hidden />
                   ) : (
                     <Paperclip className="size-3" aria-hidden />
                   )}
                   <span className="max-w-[12rem] truncate">{a.filename}</span>
-                  <span className="text-ink-subtle">{STATUS_LABEL[a.status]}</span>
+                  <span className="text-ink-subtle">
+                    {a.status === 'uploading'
+                      ? `${Math.round((a.progress ?? 0) * 100)}%`
+                      : STATUS_LABEL[a.status]}
+                  </span>
                   {onRemoveAttachment && (
                     <button
                       type="button"
