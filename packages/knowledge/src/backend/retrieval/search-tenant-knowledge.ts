@@ -45,7 +45,8 @@ export async function searchTenantKnowledge(
   });
 
   const readyFiles = await deps.pool.query<{ id: string }>(
-    `SELECT id FROM knowledge.files WHERE tenant_id = $1 AND status = 'ready'`,
+    `SELECT id FROM knowledge.files
+      WHERE tenant_id = $1 AND status = 'ready' AND thread_id IS NULL`,
     [input.tenant_id],
   );
   const readyFileIds = new Set(readyFiles.rows.map((r) => String(r.id)));

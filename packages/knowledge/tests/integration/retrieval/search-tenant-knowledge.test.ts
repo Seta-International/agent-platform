@@ -150,4 +150,85 @@ describe('searchTenantKnowledge retriever', () => {
       expect(hitsB.every((h) => h.item.filename === 'policies-b.pdf')).toBe(true);
     });
   });
+
+  it('excludes chat-origin (thread-scoped) files from tenant KB results', async () => {
+    await withDb(async ({ pool, pgVector }) => {
+      const tenant_id = randomUUID();
+      const thread_id = randomUUID();
+      const provider = new FakeEmbeddingProvider({ dimensions: 1536 });
+
+      const kbFile = await seedFileWithChunks(pool, tenant_id, 'kb.pdf', [
+        { text: 'kubernetes cluster deployment policy', page_hint: 'p.1' },
+      ]);
+      const chatFile = await seedChatFileWithChunks(pool, tenant_id, thread_id, 'chat.pdf', [
+        { text: 'kubernetes cluster deployment policy', page_hint: 'p.1' },
+      ]);
+
+      await embedKnowledgeChunks(
+        { tenant_id, file_id: kbFile, event_id: randomUUID() },
+        { pool, pgVector, provider },
+      );
+      await embedKnowledgeChunks(
+        { tenant_id, file_id: chatFile, event_id: randomUUID() },
+        { pool, pgVector, provider },
+      );
+
+      const hits = await searchTenantKnowledge(
+        { query: 'kubernetes deployment', tenant_id, limit: 10 },
+        { provider, pgVector, pool },
+      );
+
+      expect(hits.length).toBeGreaterThanOrEqual(1);
+      expect(hits.every((h) => h.item.filename === 'kb.pdf')).toBe(true);
+      expect(hits.some((h) => h.item.filename === 'chat.pdf')).toBe(false);
+    });
+  });
 });
+
+async function seedChatFileWithChunks(
+  pool: import('pg').Pool,
+  tenant_id: string,
+  thread_id: string,
+  filename: string,
+  chunks: { text: string; page_hint: string | null }[],
+): Promise<string> {
+  const slug = tenant_id.replaceAll('-', '_');
+  const childName = `chunks_${slug}`;
+  const { rows: existing } = await pool.query<{ exists: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE c.relname = $1 AND n.nspname = 'knowledge'
+     ) AS exists`,
+    [childName],
+  );
+  if (!existing[0]?.exists) {
+    await pool.query(
+      `CREATE TABLE knowledge.${childName}
+         PARTITION OF knowledge.chunks
+         FOR VALUES IN ('${tenant_id}'::uuid)`,
+    );
+  }
+  const fileId = (
+    await pool.query<{ id: string }>(
+      `INSERT INTO knowledge.files
+         (tenant_id, uploaded_by, filename, mime_type, size_bytes, s3_key, status, thread_id, origin)
+       VALUES ($1, $2, $3, 'text/plain', 1, $4, 'embedding', $5, 'chat')
+       RETURNING id`,
+      [
+        tenant_id,
+        randomUUID(),
+        filename,
+        `tenants/${tenant_id}/chat/${randomUUID()}/${filename}`,
+        thread_id,
+      ],
+    )
+  ).rows[0]!.id;
+  for (let i = 0; i < chunks.length; i += 1) {
+    await pool.query(
+      `INSERT INTO knowledge.chunks (tenant_id, file_id, chunk_ordinal, chunk_text, page_hint)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [tenant_id, fileId, i, chunks[i]!.text, chunks[i]!.page_hint],
+    );
+  }
+  return fileId;
+}
