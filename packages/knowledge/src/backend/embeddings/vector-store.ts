@@ -13,6 +13,10 @@ export interface KnowledgeChunkVectorMetadata {
   page_hint: string | null;
   model_id: string;
   embedded_at: string;
+  // Thread-scoping: present on every chunk vector so retrieval can filter
+  // `{ tenant_id, thread_id }` in pgvector. thread_id is null for KB files.
+  thread_id: string | null;
+  origin: 'knowledge_base' | 'chat';
 }
 
 export function knowledgeVectorId(tenantId: string, fileId: string, chunkOrdinal: number): string {
