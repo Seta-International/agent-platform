@@ -11,6 +11,7 @@ import {
 } from '@seta/shared-orchestration';
 import {
   makeAvaiCheckerAgent,
+  makeGeneralAnswerAgent,
   makeRecommenderAgent,
   makeSkillMatcherAgent,
   makeTaskAnalyzerAgent,
@@ -66,11 +67,13 @@ export function buildStaffingOrchestrationRuntime(deps: {
   const skillMatcher = makeSkillMatcherAgent({ skillSearch: ports.skillSearch, resolveModel });
   const avaiChecker = makeAvaiCheckerAgent({ availability: ports.availability });
   const recommender = makeRecommenderAgent();
+  const generalAnswer = makeGeneralAnswerAgent({ resolveModel });
   const orchestrator = makeOrchestratorAgent({
     taskAnalyzer,
     skillMatcher,
     avaiChecker,
     recommender,
+    generalAnswer,
     resolveModel,
   });
 

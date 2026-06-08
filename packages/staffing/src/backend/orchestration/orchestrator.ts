@@ -52,12 +52,14 @@ type RecommenderSpec = SpecializedAgentSpec<
   },
   { taskId: string | null; recommendations: Recommendation[] }
 >;
+type GeneralAnswerSpec = SpecializedAgentSpec<{ query: string }, { answer: string }>;
 
 export interface OrchestratorDeps {
   taskAnalyzer: TaskAnalyzerSpec;
   skillMatcher: SkillMatcherSpec;
   avaiChecker: AvaiCheckerSpec;
   recommender: RecommenderSpec;
+  generalAnswer: GeneralAnswerSpec;
   resolveModel: () => MastraModelConfig;
   /** Cap on how many found tasks the orchestrator recommends people for. */
   recommendTaskCap?: number;
@@ -135,6 +137,8 @@ export function makeOrchestratorAgent(deps: OrchestratorDeps): SpecializedAgentS
         skillMatcher: deps.skillMatcher,
         avaiChecker: deps.avaiChecker,
         recommender: deps.recommender,
+        generalAnswer: deps.generalAnswer,
+        userText: input.userText,
         ctx,
       });
       const wmTool = makeUpdateWorkingMemoryTool(ctx);

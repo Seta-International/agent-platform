@@ -31,6 +31,7 @@ const make = (
     skillMatcher: stub('staffing.skillMatcher'),
     avaiChecker: stub('staffing.avaiChecker'),
     recommender: stub('staffing.recommender'),
+    generalAnswer: stub('staffing.generalAnswer'),
     resolveModel: () => ({}) as never,
     runAgent: async () => ({ toolCalls, toolResults, text }),
   });
@@ -428,6 +429,7 @@ describe('orchestrator request-context wiring', () => {
       skillMatcher: stub('staffing.skillMatcher'),
       avaiChecker: stub('staffing.avaiChecker'),
       recommender: stub('staffing.recommender'),
+      generalAnswer: stub('staffing.generalAnswer'),
       resolveModel: () => ({}) as never,
       runAgent: async ({ requestContext }) => {
         rcSeen = requestContext;
@@ -449,6 +451,7 @@ describe('orchestrator request-context wiring', () => {
       skillMatcher: stub('staffing.skillMatcher'),
       avaiChecker: stub('staffing.avaiChecker'),
       recommender: stub('staffing.recommender'),
+      generalAnswer: stub('staffing.generalAnswer'),
       resolveModel: () => ({}) as never,
       runAgent: async ({ requestContext }) => {
         rcSeen = requestContext;
@@ -469,6 +472,7 @@ describe('orchestrator resource working memory', () => {
       skillMatcher: stub('staffing.skillMatcher'),
       avaiChecker: stub('staffing.avaiChecker'),
       recommender: stub('staffing.recommender'),
+      generalAnswer: stub('staffing.generalAnswer'),
       resolveModel: () => ({}) as never,
       runAgent: async (args) => {
         seen = { instructions: args.instructions, tools: args.tools };
