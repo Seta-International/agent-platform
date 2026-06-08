@@ -12,6 +12,10 @@ import {
   type ParseKnowledgeFilePayload,
   parseKnowledgeFile,
 } from '../parse/parse-knowledge-file.ts';
+import {
+  type ChatAttachmentDeletePayload,
+  runChatAttachmentDelete,
+} from './chat-attachment-delete.ts';
 import { runScanUpload, type ScanUploadPayload } from './scan-upload.ts';
 
 const BUCKET = process.env.S3_BUCKET ?? 'seta-knowledge';
@@ -52,6 +56,9 @@ export const knowledgeJobs: TaskList = {
         });
       },
     });
+  },
+  chat_attachment_delete: async (payload, _helpers) => {
+    await runChatAttachmentDelete(payload as ChatAttachmentDeletePayload, { bucket: BUCKET });
   },
   embed_knowledge_chunks: async (payload, _helpers) => {
     const provider = resolveEmbeddingProvider();
