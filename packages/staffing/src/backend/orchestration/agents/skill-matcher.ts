@@ -4,7 +4,7 @@ import { RequestContext } from '@mastra/core/request-context';
 import type { AgentResult, Citation, SpecializedAgentSpec } from '@seta/agent-sdk';
 import type { z } from 'zod';
 import { pickModel } from '../model.ts';
-import type { SkillSearchHit, SkillSearchPort } from '../ports.ts';
+import type { SkillSearchHit, SkillSearchPort, TaskReaderPort } from '../ports.ts';
 import {
   type RankedCandidate,
   SkillMatcherInputSchema,
@@ -18,6 +18,8 @@ type In = z.infer<typeof SkillMatcherInputSchema>;
 
 export interface SkillMatcherDeps {
   skillSearch: SkillSearchPort;
+  /** Reads the task's current assignees so they are excluded from recommendations. */
+  taskReader: TaskReaderPort;
   resolveModel: () => MastraModelConfig;
   topK?: number;
   /** Test-only seam; production builds + runs a real Mastra Agent. */
@@ -76,18 +78,37 @@ export function makeSkillMatcherAgent(deps: SkillMatcherDeps): SpecializedAgentS
       const hits =
         (toolResult(res, 'searchCandidates') as { hits?: SkillSearchHit[] } | undefined)?.hits ??
         [];
-      const candidates = ranked ?? fallbackRank(hits, input.skills);
+      const ranked0 = ranked ?? fallbackRank(hits, input.skills);
+
+      // Deterministic exclusion: never recommend the requester to themselves, nor
+      // anyone already assigned to the task. Assignees are read only when a task is
+      // in context (people search has taskId=null). Fail-open on a reader error —
+      // the requester is still excluded. Ranks are renumbered to stay contiguous.
+      const excluded = new Set<string>([ctx.actorUserId]);
+      if (input.taskId) {
+        try {
+          const task = await deps.taskReader.load(input.taskId, ctx);
+          for (const id of task?.assigneeIds ?? []) excluded.add(id);
+        } catch {
+          /* keep going with requester-only exclusion */
+        }
+      }
+      const candidates = ranked0
+        .filter((c) => !excluded.has(c.userId))
+        .map((c, i) => ({ ...c, rank: i + 1 }));
 
       const trust = trustFromMastraResult(res, {
         citations: (tr) => {
           if (tr.payload.toolName !== 'searchCandidates') return [];
           const hs = (tr.payload.result as { hits?: SkillSearchHit[] }).hits ?? [];
-          return hs.map<Citation>((h) => ({
-            kind: 'user',
-            id: h.userId,
-            label: h.name ?? undefined,
-            score: h.similarity,
-          }));
+          return hs
+            .filter((h) => !excluded.has(h.userId))
+            .map<Citation>((h) => ({
+              kind: 'user',
+              id: h.userId,
+              label: h.name ?? undefined,
+              score: h.similarity,
+            }));
         },
         confidence: hits.reduce((mx, h) => Math.max(mx, h.similarity), 0),
       });

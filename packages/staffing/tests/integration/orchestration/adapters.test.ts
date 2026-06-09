@@ -92,6 +92,8 @@ describe('staffing orchestration adapters (real DB)', () => {
       expect(info!.taskId).toBe(taskId);
       expect(info!.title).toBe('Provision cluster');
       expect(info!.skillTags).toEqual(['infrastructure', 'devops']);
+      // No assignees seeded → the matcher exclusion set stays requester-only.
+      expect(info!.assigneeIds).toEqual([]);
     }));
 
   it('makeTaskSearch.bySkillTags filters case-insensitively via the domain function', () =>

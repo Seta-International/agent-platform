@@ -36,6 +36,7 @@ const TASK = (skillTags: string[]): TaskInfo => ({
   description: 'lift and shift',
   groupId: 'g1',
   skillTags,
+  assigneeIds: [],
 });
 
 describe('taskAnalyzer agent (intent-routed, deterministic)', () => {

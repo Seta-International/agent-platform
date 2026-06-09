@@ -18,6 +18,7 @@ export function makeTaskReader(): TaskReaderPort {
           // blank rather than firing a second query for an unused field.
           groupId: '',
           skillTags: t.skill_tags,
+          assigneeIds: t.assignees.map((a) => a.user_id),
         };
       } catch {
         return null;

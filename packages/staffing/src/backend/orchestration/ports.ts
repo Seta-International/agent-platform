@@ -8,6 +8,8 @@ export interface TaskInfo {
   groupId: string;
   /** The task's own skill_tags (authoritative skills source for the analyzer). */
   skillTags: string[];
+  /** user_ids already assigned to the task — excluded from assignee recommendations. */
+  assigneeIds: string[];
 }
 
 /** Reads a planner task (adapter wraps planner's public getTask). */
