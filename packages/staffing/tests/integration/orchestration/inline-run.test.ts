@@ -113,6 +113,7 @@ const portsWith = () => ({
       description: 'x',
       groupId: 'g1',
       skillTags: ['aws'],
+      assigneeIds: [],
     }),
   },
   taskSearch: { bySkillTags: async () => [], listAvailableTags: async () => [] },
