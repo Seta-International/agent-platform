@@ -49,6 +49,7 @@ describe('knowledge.files', () => {
         'scan_detail',
         'thread_id',
         'origin',
+        'consumed_at',
       ]);
     }));
 });

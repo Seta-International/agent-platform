@@ -54,22 +54,21 @@ describe('chatAttachmentsApi', () => {
 
   it('putToS3 reports progress and resolves on 2xx', async () => {
     const events: number[] = [];
-    const xhr = {
-      upload: {} as { onprogress?: (e: ProgressEventLike) => void },
-      status: 0,
-      onload: undefined as (() => void) | undefined,
-      open() {},
-      setRequestHeader() {},
+    // `new XMLHttpRequest()` needs a constructable stub — a class, not an arrow
+    // fn (biome would rewrite a plain `function` expression back into an arrow).
+    class FakeXHR {
+      upload: { onprogress?: (e: ProgressEventLike) => void } = {};
+      status = 0;
+      onload: (() => void) | undefined = undefined;
+      open() {}
+      setRequestHeader() {}
       send() {
         this.upload.onprogress?.({ lengthComputable: true, loaded: 5, total: 10 });
         this.status = 200;
         this.onload?.();
-      },
-    };
-    vi.stubGlobal(
-      'XMLHttpRequest',
-      vi.fn(() => xhr),
-    );
+      }
+    }
+    vi.stubGlobal('XMLHttpRequest', FakeXHR as unknown as typeof XMLHttpRequest);
     await chatAttachmentsApi.putToS3('https://s3/u', new File(['hello'], 'a.txt'), (p) =>
       events.push(p),
     );

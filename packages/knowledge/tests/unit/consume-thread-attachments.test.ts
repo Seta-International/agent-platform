@@ -48,8 +48,8 @@ describe('consumeThreadAttachmentsAsText', () => {
   });
 
   it('throws ContextOverflowError when the budget is exceeded', async () => {
-    // budget = floor(1000 * 0.9) - 100 - 0 = 800; make required huge
-    const small = { ...input, contextWindowTokens: 1_000, reservedOutputTokens: 100 };
+    // budget = floor(100 * 0.9) - 0 = 90; the two files render ~115 tokens > budget
+    const small = { ...input, contextWindowTokens: 100, reservedOutputTokens: 0 };
     const err = await consumeThreadAttachmentsAsText(small, baseDeps).catch((e) => e);
     expect(err).toBeInstanceOf(ContextOverflowError);
     expect(err.requiredTokens).toBeGreaterThan(err.budgetTokens);
