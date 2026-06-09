@@ -15,6 +15,7 @@ import {
   ContextOverflowError,
   consumeThreadAttachmentsAsText,
   markAttachmentsConsumed,
+  markAttachmentsFailed,
 } from '@seta/knowledge';
 import { registerKnowledgeContributions } from '@seta/knowledge/register';
 import { registerNotificationsContributions } from '@seta/notifications/register';
@@ -166,6 +167,7 @@ const agent = registerAgent({
         kind: 'ok' as const,
         contextBlock: r.contextBlock,
         consumedFileIds: r.consumedFileIds,
+        failedFileIds: r.failedFileIds,
       };
     } catch (e) {
       if (e instanceof ContextOverflowError) {
@@ -182,6 +184,7 @@ const agent = registerAgent({
     }
   },
   markAttachmentsConsumed: (ids) => markAttachmentsConsumed(ids),
+  markAttachmentsFailed: (ids) => markAttachmentsFailed(ids),
 });
 const agentSubscribers = reg.collected.subscriberBuilders.map(({ builder }) =>
   builder({ mastra: agent.mastra }),

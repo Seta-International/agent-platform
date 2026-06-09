@@ -7,6 +7,9 @@ import { describe, expect, it } from 'vitest';
 import {
   ChatAttachmentError,
   deleteChatAttachment,
+  listPendingThreadAttachments,
+  markAttachmentsFailed,
+  markChatAttachmentUploaded,
   requestChatAttachmentUpload,
 } from '../../src/backend/domain/chat-attachment.ts';
 
@@ -118,6 +121,48 @@ describe('chat attachment domain', () => {
             { bucket: 'test-bucket', presign: fakePresign, maxPerThread: 2 },
           ),
         ).rejects.toMatchObject({ code: 'LIMIT' });
+      } finally {
+        resetCoreDb();
+        resetKnowledgeDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('marks an uploaded file failed so it drops out of the pending list', async () => {
+    await withTestDb(dbEnv(), async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetKnowledgeDb();
+      initPools({ databaseUrl });
+      try {
+        const tenant_id = randomUUID();
+        const thread_id = randomUUID();
+        const uploaded_by = randomUUID();
+        const { file_id } = await requestChatAttachmentUpload(
+          {
+            tenant_id,
+            uploaded_by,
+            thread_id,
+            filename: 'broken.pdf',
+            mime_type: 'application/pdf',
+            size_bytes: 1,
+          },
+          { bucket: 'test-bucket', presign: fakePresign },
+        );
+        await markChatAttachmentUploaded({ tenant_id, file_id, uploaded_by });
+        // sanity: it is pending while 'uploaded'
+        expect(await listPendingThreadAttachments({ tenant_id, thread_id })).toHaveLength(1);
+
+        await markAttachmentsFailed([file_id], 'Invalid PDF structure.');
+
+        // no longer pending — future turns won't re-parse it
+        expect(await listPendingThreadAttachments({ tenant_id, thread_id })).toHaveLength(0);
+        const row = await pool.query<{ status: string; error_reason: string | null }>(
+          `SELECT status, error_reason FROM knowledge.files WHERE id = $1`,
+          [file_id],
+        );
+        expect(row.rows[0]?.status).toBe('failed');
+        expect(row.rows[0]?.error_reason).toBe('Invalid PDF structure.');
       } finally {
         resetCoreDb();
         resetKnowledgeDb();

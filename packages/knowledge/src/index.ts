@@ -4,6 +4,7 @@ export {
   deleteChatAttachment,
   listPendingThreadAttachments,
   markAttachmentsConsumed,
+  markAttachmentsFailed,
   markChatAttachmentUploaded,
   type PendingThreadAttachment,
   type RequestChatAttachmentUploadDeps,

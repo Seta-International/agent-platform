@@ -159,6 +159,26 @@ export async function markAttachmentsConsumed(fileIds: string[]): Promise<void> 
     );
 }
 
+/** Mark files failed (could not be fetched/parsed at consume time). Idempotent:
+ *  only flips rows currently 'uploaded'. Once 'failed' they drop out of
+ *  listPendingThreadAttachments, so later turns never re-parse them. */
+export async function markAttachmentsFailed(fileIds: string[], reason?: string): Promise<void> {
+  if (fileIds.length === 0) return;
+  const db = knowledgeDb();
+  await db
+    .update(files)
+    .set({ status: 'failed', error_reason: reason ?? 'attachment could not be read' })
+    .where(
+      and(
+        inArray(
+          files.id,
+          fileIds.map((id) => BigInt(id)),
+        ),
+        eq(files.status, 'uploaded'),
+      ),
+    );
+}
+
 export interface PendingThreadAttachment {
   file_id: string;
   filename: string;

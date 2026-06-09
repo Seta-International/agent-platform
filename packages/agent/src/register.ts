@@ -89,6 +89,7 @@ export function registerAgent(deps: {
    */
   consumeThreadAttachments?: import('./backend/routes.ts').AgentRouteDeps['consumeThreadAttachments'];
   markAttachmentsConsumed?: import('./backend/routes.ts').AgentRouteDeps['markAttachmentsConsumed'];
+  markAttachmentsFailed?: import('./backend/routes.ts').AgentRouteDeps['markAttachmentsFailed'];
 }): AgentHandle {
   validateModelEnv(process.env);
   setExecutionPolicy({
@@ -154,6 +155,7 @@ export function registerAgent(deps: {
         chatOrchestration: deps.chatOrchestration,
         consumeThreadAttachments: deps.consumeThreadAttachments,
         markAttachmentsConsumed: deps.markAttachmentsConsumed,
+        markAttachmentsFailed: deps.markAttachmentsFailed,
         entitiesMemory: entitiesMem?.memory,
         entitiesMemoryConfig: entitiesMem?.memoryConfig,
         userMemory: userMem?.memory,

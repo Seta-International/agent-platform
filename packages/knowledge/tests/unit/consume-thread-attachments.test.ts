@@ -44,7 +44,13 @@ describe('consumeThreadAttachmentsAsText', () => {
       ...baseDeps,
       listPending: async () => [],
     });
-    expect(out).toEqual({ contextBlock: '', files: [], consumedFileIds: [] });
+    expect(out).toEqual({
+      contextBlock: '',
+      files: [],
+      consumedFileIds: [],
+      failed: [],
+      failedFileIds: [],
+    });
   });
 
   it('throws ContextOverflowError when the budget is exceeded', async () => {
@@ -55,10 +61,47 @@ describe('consumeThreadAttachmentsAsText', () => {
     expect(err.requiredTokens).toBeGreaterThan(err.budgetTokens);
   });
 
-  it('rejects a file whose sniffed type is not allowed', async () => {
+  it('skips (not throws) a file whose sniffed type is not allowed', async () => {
     const deps = { ...baseDeps, sniff: async () => 'application/x-msdownload' };
-    await expect(consumeThreadAttachmentsAsText(input, deps)).rejects.toThrow(
-      /not allowed|disallowed/i,
-    );
+    const out = await consumeThreadAttachmentsAsText(input, deps);
+    expect(out.files).toEqual([]);
+    expect(out.failed.map((f) => f.filename)).toEqual(['a.txt', 'b.txt']);
+    expect(out.contextBlock).toMatch(/Unreadable attachments skipped/i);
+  });
+
+  it('skips a file that fails to parse and keeps the good one', async () => {
+    const deps = {
+      ...baseDeps,
+      parsers: {
+        txt: {
+          parse: async (b: Buffer) => {
+            const t = b.toString('utf8');
+            if (t.includes('beta')) throw new Error('Invalid PDF structure.');
+            return { sections: [{ text: t, page_hint: null }] };
+          },
+        },
+      } as never,
+    };
+    const out = await consumeThreadAttachmentsAsText(input, deps);
+    expect(out.contextBlock).toContain('alpha content');
+    expect(out.contextBlock).not.toContain('beta content');
+    expect(out.consumedFileIds).toEqual(['1']);
+    expect(out.failedFileIds).toEqual(['2']);
+    expect(out.failed[0]?.reason).toMatch(/Invalid PDF/);
+    expect(out.contextBlock).toMatch(/Unreadable attachments skipped: b\.txt/);
+  });
+
+  it('returns a notice-only block when every file fails, without throwing', async () => {
+    const deps = {
+      ...baseDeps,
+      fetchObject: async () => {
+        throw new Error('S3 NoSuchKey');
+      },
+    };
+    const out = await consumeThreadAttachmentsAsText(input, deps);
+    expect(out.files).toEqual([]);
+    expect(out.consumedFileIds).toEqual([]);
+    expect(out.failed).toHaveLength(2);
+    expect(out.contextBlock).toMatch(/Unreadable attachments skipped/i);
   });
 });

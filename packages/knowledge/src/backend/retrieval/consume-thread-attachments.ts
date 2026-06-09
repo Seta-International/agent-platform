@@ -30,6 +30,12 @@ export interface ConsumedAttachment {
   text: string;
 }
 
+export interface FailedAttachment {
+  file_id: string;
+  filename: string;
+  reason: string;
+}
+
 const DEFAULT_PARSERS: Record<string, Parser> = {
   pdf: pdfParser,
   docx: docxParser,
@@ -81,12 +87,17 @@ const defaultConsumeDeps: ConsumeDeps = {
   countTokens,
 };
 
-function formatContextBlock(files: ConsumedAttachment[]): string {
-  if (files.length === 0) return '';
+function formatContextBlock(files: ConsumedAttachment[], failed: FailedAttachment[]): string {
   const blocks = files
     .map((f) => `<<<FILE: ${f.filename}>>>\n${f.text}\n<<<END ${f.filename}>>>`)
     .join('\n\n');
-  return `Context:\n${blocks}`;
+  const notice = failed.length
+    ? `[Unreadable attachments skipped: ${failed
+        .map((f) => `${f.filename} (${f.reason})`)
+        .join('; ')}]`
+    : '';
+  const body = [blocks, notice].filter(Boolean).join('\n\n');
+  return body ? `Context:\n${body}` : '';
 }
 
 export interface ConsumeInput {
@@ -105,29 +116,49 @@ export interface ConsumeInput {
 export async function consumeThreadAttachmentsAsText(
   input: ConsumeInput,
   deps: ConsumeDeps = defaultConsumeDeps,
-): Promise<{ contextBlock: string; files: ConsumedAttachment[]; consumedFileIds: string[] }> {
+): Promise<{
+  contextBlock: string;
+  files: ConsumedAttachment[];
+  consumedFileIds: string[];
+  failed: FailedAttachment[];
+  failedFileIds: string[];
+}> {
   const pending = await deps.listPending({
     tenant_id: input.tenant_id,
     thread_id: input.thread_id,
   });
-  if (pending.length === 0) return { contextBlock: '', files: [], consumedFileIds: [] };
+  if (pending.length === 0)
+    return { contextBlock: '', files: [], consumedFileIds: [], failed: [], failedFileIds: [] };
 
   const files: ConsumedAttachment[] = [];
+  const failed: FailedAttachment[] = [];
+  // Per-file isolation: a fetch/sniff/parse failure on one file (e.g. a broken
+  // PDF, or its S3 object already TTL-deleted) skips just that file instead of
+  // failing the whole turn. The caller marks failed files 'failed' so they drop
+  // out of listPendingThreadAttachments and never re-poison later turns.
   for (const p of pending) {
-    const buf = await deps.fetchObject(p.s3_key);
-    const mime = await deps.sniff(buf);
-    if (mime && !ALLOWED_SNIFF_MIME.has(mime)) {
-      throw new Error(`file "${p.filename}" has a disallowed content type: ${mime}`);
+    try {
+      const buf = await deps.fetchObject(p.s3_key);
+      const mime = await deps.sniff(buf);
+      if (mime && !ALLOWED_SNIFF_MIME.has(mime)) {
+        throw new Error(`disallowed content type: ${mime}`);
+      }
+      const ext = p.filename.split('.').pop()?.toLowerCase() ?? '';
+      const parser = deps.parsers[ext];
+      if (!parser) throw new Error(`no parser for .${ext}`);
+      const parsed = await parser.parse(buf);
+      const text = parsed.sections.map((s) => s.text).join('\n\n');
+      files.push({ file_id: p.file_id, filename: p.filename, text });
+    } catch (e) {
+      failed.push({
+        file_id: p.file_id,
+        filename: p.filename,
+        reason: (e instanceof Error ? e.message : 'could not read file').slice(0, 100),
+      });
     }
-    const ext = p.filename.split('.').pop()?.toLowerCase() ?? '';
-    const parser = deps.parsers[ext];
-    if (!parser) throw new Error(`no parser for "${p.filename}" (.${ext})`);
-    const parsed = await parser.parse(buf);
-    const text = parsed.sections.map((s) => s.text).join('\n\n');
-    files.push({ file_id: p.file_id, filename: p.filename, text });
   }
 
-  const contextBlock = formatContextBlock(files);
+  const contextBlock = formatContextBlock(files, failed);
   const budget =
     Math.floor(input.contextWindowTokens * input.safetyRatio) -
     input.reservedOutputTokens -
@@ -135,5 +166,11 @@ export async function consumeThreadAttachmentsAsText(
   const required = deps.countTokens(`${contextBlock}\n\n${input.query}`);
   if (required > budget) throw new ContextOverflowError(required, budget);
 
-  return { contextBlock, files, consumedFileIds: files.map((f) => f.file_id) };
+  return {
+    contextBlock,
+    files,
+    consumedFileIds: files.map((f) => f.file_id),
+    failed,
+    failedFileIds: failed.map((f) => f.file_id),
+  };
 }

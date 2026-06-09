@@ -115,12 +115,14 @@ export type AgentRouteDeps = {
     threadId: string;
     query: string;
   }) => Promise<
-    | { kind: 'ok'; contextBlock: string; consumedFileIds: string[] }
+    | { kind: 'ok'; contextBlock: string; consumedFileIds: string[]; failedFileIds: string[] }
     | { kind: 'overflow'; requiredTokens: number; budgetTokens: number }
     | { kind: 'error'; message: string }
   >;
   /** Marks files consumed after a successful turn. */
   markAttachmentsConsumed?: (fileIds: string[]) => Promise<void>;
+  /** Marks files failed (unreadable) so they drop out of the pending list. */
+  markAttachmentsFailed?: (fileIds: string[]) => Promise<void>;
 };
 
 export type AgentRouteEnv = { Variables: { session: SessionLike } };
@@ -367,6 +369,11 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
       }
       if (r.kind === 'error') {
         return c.json({ error: 'attachment_error', message: r.message }, 400);
+      }
+      // Mark unreadable files 'failed' right away (before streaming) so a broken
+      // file never re-poisons later turns even if this turn errors downstream.
+      if (r.failedFileIds.length > 0 && deps.markAttachmentsFailed) {
+        await deps.markAttachmentsFailed(r.failedFileIds);
       }
       if (r.contextBlock) {
         effectiveUserText = `${r.contextBlock}\n\n${userText}`;
