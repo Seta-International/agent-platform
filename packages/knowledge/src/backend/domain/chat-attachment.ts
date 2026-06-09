@@ -2,6 +2,7 @@ import { buildTenantKey, presignedUploadUrl } from '@seta/shared-storage';
 import { and, eq, inArray } from 'drizzle-orm';
 import { knowledgeDb } from '../db/client.ts';
 import { files } from '../db/schema.ts';
+import { extractAttachmentText, fetchAttachmentObject } from '../parse/extract-attachment.ts';
 import { type PurgeKnowledgeFileDeps, purgeKnowledgeFile } from './delete-file.ts';
 import { ALLOWED_EXTENSIONS, MAX_BYTES } from './upload-url.ts';
 
@@ -159,9 +160,49 @@ export async function markAttachmentsConsumed(fileIds: string[]): Promise<void> 
     );
 }
 
-/** Mark files failed (could not be fetched/parsed at consume time). Idempotent:
- *  only flips rows currently 'uploaded'. Once 'failed' they drop out of
- *  listPendingThreadAttachments, so later turns never re-parse them. */
+export interface AssertReadableDeps {
+  fetchObject?: (s3_key: string) => Promise<Buffer>;
+  extract?: (buf: Buffer, filename: string) => Promise<string>;
+}
+
+/** Upload-time content gate: fetch the just-uploaded object and parse-probe it.
+ *  On a corrupt/unreadable file, mark it 'failed' and throw a VALIDATION error
+ *  so /processed returns 4xx and the upload never reaches 'uploaded'. No-op if
+ *  the row is not a still-'uploading' chat file owned by the caller. */
+export async function assertChatAttachmentReadable(
+  input: { tenant_id: string; file_id: string; uploaded_by: string },
+  deps: AssertReadableDeps = {},
+): Promise<void> {
+  const db = knowledgeDb();
+  const [row] = await db
+    .select({ s3_key: files.s3_key, filename: files.filename })
+    .from(files)
+    .where(
+      and(
+        eq(files.tenant_id, input.tenant_id),
+        eq(files.id, BigInt(input.file_id)),
+        eq(files.uploaded_by, input.uploaded_by),
+        eq(files.origin, 'chat'),
+        eq(files.status, 'uploading'),
+      ),
+    )
+    .limit(1);
+  if (!row) return; // not found / already finalized — idempotent
+  const fetchObject = deps.fetchObject ?? fetchAttachmentObject;
+  const extract = deps.extract ?? extractAttachmentText;
+  try {
+    await extract(await fetchObject(row.s3_key), row.filename);
+  } catch (e) {
+    const reason = (e instanceof Error ? e.message : 'could not read file').slice(0, 100);
+    await markAttachmentsFailed([input.file_id], reason);
+    throw new ChatAttachmentError('VALIDATION', `could not read "${row.filename}": ${reason}`);
+  }
+}
+
+/** Mark files failed (could not be fetched/parsed). Idempotent: only flips rows
+ *  still in flight ('uploading' at upload-time validation, or 'uploaded' at
+ *  consume time). Once 'failed' they drop out of listPendingThreadAttachments,
+ *  so later turns never re-parse them. */
 export async function markAttachmentsFailed(fileIds: string[], reason?: string): Promise<void> {
   if (fileIds.length === 0) return;
   const db = knowledgeDb();
@@ -174,7 +215,7 @@ export async function markAttachmentsFailed(fileIds: string[], reason?: string):
           files.id,
           fileIds.map((id) => BigInt(id)),
         ),
-        eq(files.status, 'uploaded'),
+        inArray(files.status, ['uploading', 'uploaded']),
       ),
     );
 }

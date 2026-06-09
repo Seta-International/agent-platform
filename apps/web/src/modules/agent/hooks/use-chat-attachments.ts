@@ -43,8 +43,10 @@ export function useChatAttachments(threadId: string) {
             );
             await chatAttachmentsApi.markProcessed(info.file_id);
             patch(localId, { fileId: info.file_id, status: 'uploaded', progress: 1 });
-          } catch {
+          } catch (e) {
             patch(localId, { status: 'failed' });
+            // Show why (e.g. an unreadable/corrupt file rejected at /processed).
+            setWarning(`${file.name}: ${e instanceof Error ? e.message : 'upload failed'}`);
           }
         })();
       }

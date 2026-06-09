@@ -2,6 +2,7 @@ import type { SessionLike } from '@seta/agent-sdk';
 import type { Context, Hono } from 'hono';
 import { z } from 'zod';
 import {
+  assertChatAttachmentReadable,
   ChatAttachmentError,
   deleteChatAttachment,
   markChatAttachmentUploaded,
@@ -26,6 +27,13 @@ export interface ChatAttachmentRouteDeps {
     contentType: string;
     expiresInSeconds: number;
   }) => Promise<string>;
+  /** Upload-time readability gate (parse-probe). Overridable so tests skip S3.
+   *  Defaults to assertChatAttachmentReadable (fetches from S3 + parses). */
+  assertReadable?: (input: {
+    tenant_id: string;
+    file_id: string;
+    uploaded_by: string;
+  }) => Promise<void>;
 }
 
 const PERM = 'knowledge.chat_attachment.write';
@@ -86,20 +94,28 @@ export function registerChatAttachmentRoutes(
     if (s instanceof Response) return s;
     const file_id = c.req.param('id');
     if (!/^\d+$/.test(file_id)) return c.json({ error: 'invalid_id' }, 400);
-    const row = await markChatAttachmentUploaded({
-      tenant_id: s.tenant_id,
-      file_id,
-      uploaded_by: s.user_id,
-    });
-    if (row) {
-      const ttlSeconds = Number(process.env.CHAT_ATTACHMENT_S3_TTL_SECONDS ?? 3600);
-      await deps.workers.addJob(
-        'chat_attachment_delete',
-        { s3_key: row.s3_key },
-        { runAt: new Date(Date.now() + ttlSeconds * 1000) },
-      );
+    try {
+      // Reject a corrupt/unreadable file here so the upload fails loudly instead
+      // of silently 413/400-ing at the first turn that tries to use it.
+      const assertReadable = deps.assertReadable ?? assertChatAttachmentReadable;
+      await assertReadable({ tenant_id: s.tenant_id, file_id, uploaded_by: s.user_id });
+      const row = await markChatAttachmentUploaded({
+        tenant_id: s.tenant_id,
+        file_id,
+        uploaded_by: s.user_id,
+      });
+      if (row) {
+        const ttlSeconds = Number(process.env.CHAT_ATTACHMENT_S3_TTL_SECONDS ?? 3600);
+        await deps.workers.addJob(
+          'chat_attachment_delete',
+          { s3_key: row.s3_key },
+          { runAt: new Date(Date.now() + ttlSeconds * 1000) },
+        );
+      }
+      return c.json({ ok: true });
+    } catch (err) {
+      return mapError(c, err);
     }
-    return c.json({ ok: true });
   });
 
   app.delete('/api/agent/v1/knowledge/attachments/:id', async (c) => {

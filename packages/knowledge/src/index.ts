@@ -1,4 +1,5 @@
 export {
+  assertChatAttachmentReadable,
   ChatAttachmentError,
   type DeleteChatAttachmentInput,
   deleteChatAttachment,

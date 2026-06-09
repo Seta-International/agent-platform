@@ -5,6 +5,7 @@ import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { Hono } from 'hono';
 import { describe, expect, it, vi } from 'vitest';
+import { ChatAttachmentError } from '../../../src/backend/domain/chat-attachment.ts';
 import { registerKnowledgeRoutes } from '../../../src/backend/http/index.ts';
 
 const dbEnv = () => ({
@@ -21,13 +22,23 @@ function buildApp(
     user_id: string;
     effective_permissions: Set<string>;
   } | null,
+  // Default: skip the S3 parse-probe in unit tests (no S3 here).
+  assertReadable: (i: {
+    tenant_id: string;
+    file_id: string;
+    uploaded_by: string;
+  }) => Promise<void> = async () => {},
 ) {
   const app = new Hono();
   app.use('*', async (c, next) => {
     if (session) c.set('session' as never, session as never);
     await next();
   });
-  registerKnowledgeRoutes(app as never, { workers: fakeWorkers, presign: fakePresign });
+  registerKnowledgeRoutes(app as never, {
+    workers: fakeWorkers,
+    presign: fakePresign,
+    assertReadable,
+  });
   return app;
 }
 
@@ -90,6 +101,35 @@ describe('chat attachment routes', () => {
           }),
         });
         expect(res.status).toBe(403);
+      } finally {
+        resetCoreDb();
+        resetKnowledgeDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('/processed returns 400 when the file is not readable', async () => {
+    await withTestDb(dbEnv(), async ({ databaseUrl }) => {
+      resetCoreDb();
+      resetKnowledgeDb();
+      initPools({ databaseUrl });
+      try {
+        const tenant_id = randomUUID();
+        const user_id = randomUUID();
+        // assertReadable rejects like a corrupt file would
+        const app = buildApp(member(tenant_id, user_id), async () => {
+          throw new ChatAttachmentError(
+            'VALIDATION',
+            'could not read "broken.pdf": Invalid PDF structure.',
+          );
+        });
+        const res = await app.request('/api/agent/v1/knowledge/attachments/42/processed', {
+          method: 'POST',
+        });
+        expect(res.status).toBe(400);
+        const body = (await res.json()) as { error: string; message: string };
+        expect(body.message).toMatch(/Invalid PDF/);
       } finally {
         resetCoreDb();
         resetKnowledgeDb();

@@ -34,6 +34,12 @@ export type KnowledgeRouteDeps = {
     contentType: string;
     expiresInSeconds: number;
   }) => Promise<string>;
+  /** Override the chat-attachment readability gate for testing (skips S3). */
+  assertReadable?: (input: {
+    tenant_id: string;
+    file_id: string;
+    uploaded_by: string;
+  }) => Promise<void>;
 };
 
 export function registerKnowledgeRoutes(app: Hono<SessionEnv>, deps: KnowledgeRouteDeps): void {

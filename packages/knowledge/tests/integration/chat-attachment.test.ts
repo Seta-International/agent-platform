@@ -5,6 +5,7 @@ import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import {
+  assertChatAttachmentReadable,
   ChatAttachmentError,
   deleteChatAttachment,
   listPendingThreadAttachments,
@@ -121,6 +122,85 @@ describe('chat attachment domain', () => {
             { bucket: 'test-bucket', presign: fakePresign, maxPerThread: 2 },
           ),
         ).rejects.toMatchObject({ code: 'LIMIT' });
+      } finally {
+        resetCoreDb();
+        resetKnowledgeDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('assertChatAttachmentReadable rejects a corrupt file and marks it failed', async () => {
+    await withTestDb(dbEnv(), async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetKnowledgeDb();
+      initPools({ databaseUrl });
+      try {
+        const tenant_id = randomUUID();
+        const thread_id = randomUUID();
+        const uploaded_by = randomUUID();
+        const { file_id } = await requestChatAttachmentUpload(
+          {
+            tenant_id,
+            uploaded_by,
+            thread_id,
+            filename: 'broken.pdf',
+            mime_type: 'application/pdf',
+            size_bytes: 10,
+          },
+          { bucket: 'test-bucket', presign: fakePresign },
+        );
+        // Inject S3 fetch returning a corrupt PDF; real extract (pdfParser) throws.
+        const err = await assertChatAttachmentReadable(
+          { tenant_id, file_id, uploaded_by },
+          { fetchObject: async () => Buffer.from('%PDF-1.4 totally broken') },
+        ).catch((e) => e);
+        expect(err).toBeInstanceOf(ChatAttachmentError);
+        expect((err as ChatAttachmentError).code).toBe('VALIDATION');
+        // marked failed → no longer pending
+        expect(await listPendingThreadAttachments({ tenant_id, thread_id })).toHaveLength(0);
+        const row = await pool.query<{ status: string }>(
+          `SELECT status FROM knowledge.files WHERE id = $1`,
+          [file_id],
+        );
+        expect(row.rows[0]?.status).toBe('failed');
+      } finally {
+        resetCoreDb();
+        resetKnowledgeDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('assertChatAttachmentReadable passes a readable file (no throw, stays uploading)', async () => {
+    await withTestDb(dbEnv(), async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetKnowledgeDb();
+      initPools({ databaseUrl });
+      try {
+        const tenant_id = randomUUID();
+        const thread_id = randomUUID();
+        const uploaded_by = randomUUID();
+        const { file_id } = await requestChatAttachmentUpload(
+          {
+            tenant_id,
+            uploaded_by,
+            thread_id,
+            filename: 'notes.txt',
+            mime_type: 'text/plain',
+            size_bytes: 5,
+          },
+          { bucket: 'test-bucket', presign: fakePresign },
+        );
+        await assertChatAttachmentReadable(
+          { tenant_id, file_id, uploaded_by },
+          { fetchObject: async () => Buffer.from('the meeting is friday') },
+        );
+        const row = await pool.query<{ status: string }>(
+          `SELECT status FROM knowledge.files WHERE id = $1`,
+          [file_id],
+        );
+        expect(row.rows[0]?.status).toBe('uploading'); // assert doesn't flip; /processed does
       } finally {
         resetCoreDb();
         resetKnowledgeDb();

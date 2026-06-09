@@ -43,7 +43,11 @@ export const chatAttachmentsApi = {
       method: 'POST',
       credentials: 'include',
     });
-    if (!res.ok) throw new Error(`attachment mark-processed failed: ${res.status}`);
+    if (!res.ok) {
+      // Surface the server's reason (e.g. "could not read X.pdf: Invalid PDF structure.")
+      const body = (await res.json().catch(() => null)) as { message?: string } | null;
+      throw new Error(body?.message ?? `attachment mark-processed failed: ${res.status}`);
+    }
   },
 
   async remove(fileId: string): Promise<void> {
