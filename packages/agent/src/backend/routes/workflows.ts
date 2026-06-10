@@ -179,6 +179,7 @@ export function mountWorkflowRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
     requestContext.set('actor', { type: 'user' as const, user_id: session.user_id });
     requestContext.set('tenant_id', session.tenant_id);
     requestContext.set('role_summary', session.role_summary);
+    requestContext.set('effective_permissions', session.effective_permissions);
     try {
       const result = await rerunWorkflow({
         session,
@@ -271,6 +272,7 @@ export function mountWorkflowRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
     requestContext.set('actor', { type: 'user' as const, user_id: session.user_id });
     requestContext.set('tenant_id', session.tenant_id);
     requestContext.set('role_summary', session.role_summary);
+    requestContext.set('effective_permissions', session.effective_permissions);
     try {
       // Resolve Mastra's intrinsic workflow id (e.g. `planner.assignBySkill`)
       // up front — both the dedupe lookup (registry is keyed by mastra id) and
@@ -289,6 +291,7 @@ export function mountWorkflowRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
         const existingRunId = await spec.dedupeKey(body, {
           tenant_id: session.tenant_id,
           user_id: session.user_id,
+          effective_permissions: session.effective_permissions,
           role_summary: session.role_summary,
         });
         if (existingRunId) {

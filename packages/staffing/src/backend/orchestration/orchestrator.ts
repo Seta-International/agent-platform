@@ -134,6 +134,7 @@ export function makeOrchestratorAgent(deps: OrchestratorDeps): SpecializedAgentS
       const rc = new RequestContext();
       rc.set('actor', { type: 'user', user_id: ctx.actorUserId });
       rc.set('tenant_id', ctx.tenantId);
+      rc.set('effective_permissions', ctx.effectivePermissions ?? new Set<string>());
       // Conversation-scoped memory wiring: the SDK entity recorder and
       // task-ref resolver key on these two request-context entries. Absent
       // (first turn before a thread id exists, queued runner) they no-op.

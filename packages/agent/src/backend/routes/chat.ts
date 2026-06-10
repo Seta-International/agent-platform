@@ -274,6 +274,7 @@ export function mountChatRoute(app: Hono<AgentRouteEnv>, deps: AgentRouteDeps): 
             {
               tenantId: session.tenant_id,
               actorUserId: session.user_id,
+              effectivePermissions: session.effective_permissions,
               recordHitlApproval,
               threadId: orchThreadId,
               entitiesMemory:

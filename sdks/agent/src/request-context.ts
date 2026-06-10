@@ -24,6 +24,7 @@ export interface AgentRequestContext {
   actor: { type: 'user'; user_id: string };
   tenant_id: string;
   role_summary: { roles: string[]; cross_tenant_read: boolean };
+  effective_permissions: ReadonlySet<string>;
   // Key matches RC_CHAT_HITL_RECORDER in hitl/chat-hitl.ts — typed here so
   // requestContext.get(RC_CHAT_HITL_RECORDER) is type-safe.
   __seta_chat_hitl_recorder__?: ChatHitlRecorder;

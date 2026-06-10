@@ -5,6 +5,7 @@ export interface AgentSession {
   tenantId: string;
   userId: string;
   roleSummary: { roles: string[]; cross_tenant_read: boolean };
+  effectivePermissions: ReadonlySet<string>;
 }
 
 export async function sessionFromRequestContext(
@@ -17,5 +18,6 @@ export async function sessionFromRequestContext(
     throw new Error('missing tenant_id in requestContext');
   }
   const roleSummary = typed.get('role_summary') ?? { roles: [], cross_tenant_read: false };
-  return { tenantId, userId: actor.user_id, roleSummary };
+  const effectivePermissions = typed.get('effective_permissions') ?? new Set<string>();
+  return { tenantId, userId: actor.user_id, roleSummary, effectivePermissions };
 }

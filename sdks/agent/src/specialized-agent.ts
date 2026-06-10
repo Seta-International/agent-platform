@@ -15,6 +15,10 @@ export type SubStepEvent =
 export interface SpecializedAgentRunCtx {
   tenantId: string;
   actorUserId: string;
+  /** Resolved permission set for the actor, threaded onto the agent's
+   *  RequestContext so cross-module read tools can re-check access. Empty when
+   *  the caller (queued runner, direct call) has no session. */
+  effectivePermissions?: ReadonlySet<string>;
   abortSignal?: AbortSignal;
   /** The real chat thread id (inline chat runs only). Conversation-scoped
    *  memory (entity recorder, task-ref resolver) keys on this — never on

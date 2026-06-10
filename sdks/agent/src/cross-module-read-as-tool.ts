@@ -1,5 +1,4 @@
 import type { RequestContext } from '@mastra/core/request-context';
-import { hasPermission } from '@seta/shared-rbac';
 import type { z } from 'zod';
 import { defineAgentTool } from './define-agent-tool.ts';
 import type { CrossModuleReadToolSpec } from './registry.ts';
@@ -32,16 +31,16 @@ export function defineCrossModuleReadAsTool<I extends z.ZodTypeAny, O extends z.
     rbac: spec.rbac,
     execute: async (input, ctx) => {
       if (!ctx.requestContext) throw new Error('unauthenticated');
-      const { tenantId, userId, roleSummary } = await sessionFromRequestContext(
-        ctx.requestContext as RequestContext,
-      );
-      if (!hasPermission({ roles: roleSummary.roles }, spec.rbac)) {
+      const { tenantId, userId, roleSummary, effectivePermissions } =
+        await sessionFromRequestContext(ctx.requestContext as RequestContext);
+      if (!effectivePermissions.has(spec.rbac)) {
         throw new Error(`forbidden: ${spec.rbac} required`);
       }
       return spec.execute({
         session: {
           tenant_id: tenantId,
           user_id: userId,
+          effective_permissions: effectivePermissions,
           role_summary: roleSummary,
         },
         input: input as z.infer<I>,
