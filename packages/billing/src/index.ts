@@ -1,3 +1,9 @@
+export {
+  getTenantUsage,
+  type PeriodUsage,
+  type TenantUsage,
+  type UsageBreakdownRow,
+} from './backend/domain/get-usage.ts';
 export { BillingError, requirePermission as requireBillingPermission } from './backend/rbac.ts';
 export { usageRecorderSubscriber } from './backend/subscribers/usage-recorder.ts';
 export {
