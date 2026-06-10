@@ -1,10 +1,14 @@
+import {
+  BILLING_USAGE_OBSERVED,
+  BILLING_USAGE_OBSERVED_VERSION,
+  type UsageFeature,
+} from '@seta/core/events';
 import { z } from 'zod';
 
-export const BILLING_USAGE_OBSERVED = 'billing.usage.observed' as const;
-export const BILLING_USAGE_OBSERVED_VERSION = 1 as const;
-
-/** Where the spend came from — drives dashboard breakdown. */
-export type UsageFeature = 'chat' | 'workflow' | 'subagent' | 'embedding';
+// The event name/version + the UsageFeature union live in @seta/core/events so
+// producers (agent, staffing, the embedding modules) can emit without importing
+// @seta/billing. Billing re-exports them and owns the payload validation below.
+export { BILLING_USAGE_OBSERVED, BILLING_USAGE_OBSERVED_VERSION, type UsageFeature };
 
 export interface BillingUsageObservedPayload {
   feature: UsageFeature;
