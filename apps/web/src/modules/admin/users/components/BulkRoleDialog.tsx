@@ -9,7 +9,7 @@ import {
   Label,
   toast,
 } from '@seta/shared-ui';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { bulkRoleAssign } from '../api/users-client.ts';
 import { TENANT_ROLE_SLUGS } from '../constants.ts';
 
@@ -26,17 +26,11 @@ export function BulkRoleDialog({
   onOpenChange: (open: boolean) => void;
   onDone: () => void;
 }) {
+  // BulkRoleBar mounts this dialog only while an action is active, so each open
+  // is a fresh mount — no reset effect needed.
   const [role, setRole] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-
-  // Reset the picker each time the dialog opens.
-  useEffect(() => {
-    if (open) {
-      setRole('');
-      setError(null);
-    }
-  }, [open]);
 
   const verb = action === 'grant' ? 'Grant' : 'Remove';
   const preposition = action === 'grant' ? 'to' : 'from';
