@@ -16,6 +16,10 @@ export const workflowApprovals = agent.table(
     surfaceCanvas: boolean('surface_canvas').notNull().default(true),
     // text, not uuid — thread IDs are arbitrary Mastra text strings (e.g. __LOCALID_* from assistant-ui)
     surfaceChatThreadId: text('surface_chat_thread_id'),
+    // Mastra agentic-resume parameters (chat HITL). Null for evented-workflow
+    // rows — their presence is the agentic-vs-workflow discriminator.
+    mastraRunId: text('mastra_run_id'),
+    toolCallId: text('tool_call_id'),
     status: text('status').notNull(),
     decisionPayload: jsonb('decision_payload'),
     decidedBy: uuid('decided_by'),
