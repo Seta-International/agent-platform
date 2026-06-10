@@ -87,9 +87,23 @@ describe('reg.module', () => {
 
   it('rejects duplicate RBAC permission slugs', () => {
     const reg = createContributionRegistry();
-    reg.module({ name: 'a', schema: {}, migrationsDir: '/a', rbac: { 'shared.read': 'Read' } });
+    reg.module({
+      name: 'a',
+      schema: {},
+      migrationsDir: '/a',
+      rbac: { module: 'a', permissions: [{ key: 'shared.read', description: 'Read' }], roles: [] },
+    });
     expect(() => {
-      reg.module({ name: 'b', schema: {}, migrationsDir: '/b', rbac: { 'shared.read': 'Read' } });
+      reg.module({
+        name: 'b',
+        schema: {},
+        migrationsDir: '/b',
+        rbac: {
+          module: 'b',
+          permissions: [{ key: 'shared.read', description: 'Read' }],
+          roles: [],
+        },
+      });
     }).toThrow(/duplicate permission slug: shared\.read/);
   });
 
@@ -122,7 +136,11 @@ describe('reg.module', () => {
       routes: { mountAt: '/', build: routeBuild },
       stream: streamBuilder,
       errorMapper: mapper,
-      rbac: { 'planner.read': 'Read planner' },
+      rbac: {
+        module: 'planner',
+        permissions: [{ key: 'planner.read', description: 'Read planner' }],
+        roles: [],
+      },
       events: { 'planner.task.created': {} as never },
     });
     expect(reg.collected.routes).toEqual([{ module: 'planner', mountAt: '/', build: routeBuild }]);
@@ -130,7 +148,9 @@ describe('reg.module', () => {
       { module: 'planner', builder: streamBuilder },
     ]);
     expect(reg.collected.errorMappers).toEqual([{ module: 'planner', mapper }]);
-    expect(reg.collected.rbacByModule.get('planner')).toEqual({ 'planner.read': 'Read planner' });
+    expect(reg.collected.rbacManifests.find((m) => m.module === 'planner')?.permissions).toEqual([
+      { key: 'planner.read', description: 'Read planner' },
+    ]);
     expect(reg.collected.eventsByModule.get('planner')).toBeDefined();
   });
 });
