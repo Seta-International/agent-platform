@@ -1,4 +1,5 @@
 import { getSessionScope, type SessionScope } from '@seta/core';
+import { resolveForRoles } from '../rbac-registry.ts';
 import { listRoleGrants } from './list-role-grants.ts';
 import { whoAmI } from './who-am-i.ts';
 
@@ -12,7 +13,7 @@ export async function buildActorSession(actor: { user_id: string }): Promise<Ses
   const profile = await whoAmI({ type: 'user', user_id: actor.user_id });
 
   return await getSessionScope(
-    { listRoleGrants },
+    { listRoleGrants, resolvePermissions: resolveForRoles },
     sessionId,
     actor.user_id,
     profile?.email ?? '',
