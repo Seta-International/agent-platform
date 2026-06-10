@@ -171,6 +171,9 @@ importers:
       '@seta/shared-orchestration':
         specifier: workspace:*
         version: link:../../packages/shared-orchestration
+      '@seta/shared-rbac':
+        specifier: workspace:^
+        version: link:../../packages/shared-rbac
       '@seta/shared-types':
         specifier: workspace:^
         version: link:../../packages/shared-types
