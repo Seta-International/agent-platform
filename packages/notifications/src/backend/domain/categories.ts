@@ -70,6 +70,13 @@ export const NOTIFICATION_CATEGORIES: readonly NotificationCategory[] = [
     default_email: false,
     email_available: false,
   },
+  {
+    event_type: 'billing.budget.threshold',
+    label: 'AI budget threshold reached',
+    default_in_app: true,
+    default_email: false,
+    email_available: false,
+  },
 ] as const;
 
 export function findCategory(eventType: string): NotificationCategory | undefined {
