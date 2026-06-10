@@ -5,11 +5,7 @@ import { knowledgeAgentTools } from './agent-tools.ts';
 import * as schema from './backend/db/schema.ts';
 import { KnowledgeStreamHub } from './backend/stream/hub.ts';
 import { KNOWLEDGE_EVENTS } from './events.ts';
-import { KNOWLEDGE_PERMISSIONS } from './rbac.ts';
-
-const KNOWLEDGE_RBAC: Record<string, string> = Object.fromEntries(
-  KNOWLEDGE_PERMISSIONS.map((p) => [p, p]),
-);
+import { knowledgeRbac } from './rbac.ts';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
@@ -28,7 +24,7 @@ export function registerKnowledgeContributions(reg: ContributionRegistry): void 
     schema,
     migrationsDir: resolve(__dirname, '../drizzle/migrations'),
     events: KNOWLEDGE_EVENTS,
-    rbac: KNOWLEDGE_RBAC,
+    rbac: knowledgeRbac,
     agentTools: knowledgeAgentTools,
     stream: buildKnowledgeStreamHub,
   });
