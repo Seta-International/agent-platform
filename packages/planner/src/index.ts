@@ -41,6 +41,7 @@ export { linkPlanToM365 } from './backend/domain/link-plan-to-m365.ts';
 export { listBuckets } from './backend/domain/list-buckets.ts';
 export { listChecklistItems } from './backend/domain/list-checklist-items.ts';
 export { listComments } from './backend/domain/list-comments.ts';
+export { listDistinctSkillTags } from './backend/domain/list-distinct-skill-tags.ts';
 export type { GroupMemberCandidate } from './backend/domain/list-group-member-candidates.ts';
 export { listGroupMemberCandidates } from './backend/domain/list-group-member-candidates.ts';
 export type { GroupMembersPage } from './backend/domain/list-group-members.ts';

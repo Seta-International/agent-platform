@@ -25,7 +25,14 @@ export interface TaskSummary {
 
 /** Deterministic skill-tag task search (adapter wraps planner listTasksBySkillTag). */
 export interface TaskSearchPort {
-  bySkillTags(tags: string[], limit: number, ctx: SpecializedAgentRunCtx): Promise<TaskSummary[]>;
+  bySkillTags(
+    tags: string[],
+    limit: number,
+    ctx: SpecializedAgentRunCtx,
+    completionStatus?: 'open' | 'completed' | 'any',
+  ): Promise<TaskSummary[]>;
+  /** All distinct lowercase skill tags used by non-deleted tasks in the caller's tenant. */
+  listAvailableTags(ctx: SpecializedAgentRunCtx): Promise<string[]>;
 }
 
 export interface SkillSearchHit {

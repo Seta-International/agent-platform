@@ -26,6 +26,9 @@ function spySearch(tasks: Awaited<ReturnType<TaskSearchPort['bySkillTags']>>) {
       calls.push(tags);
       return tasks.map((t) => ({ ...t, skillTags: tags }));
     },
+    async listAvailableTags() {
+      return [];
+    },
   };
   return { port, calls };
 }
@@ -50,7 +53,12 @@ describe('taskAnalyzer agent (intent-routed, deterministic)', () => {
     });
 
     const res = await agent.run(
-      { intent: 'extract_named_skills', query: 'who has skills in aws and k8s', taskId: 't-1' },
+      {
+        intent: 'extract_named_skills',
+        query: 'who has skills in aws and k8s',
+        taskId: 't-1',
+        completionStatus: 'any' as const,
+      },
       ctx,
     );
 
@@ -74,7 +82,12 @@ describe('taskAnalyzer agent (intent-routed, deterministic)', () => {
     });
 
     const res = await agent.run(
-      { intent: 'find_tasks', query: 'find infrastructure tasks', taskId: null },
+      {
+        intent: 'find_tasks',
+        query: 'find infrastructure tasks',
+        taskId: null,
+        completionStatus: 'any' as const,
+      },
       ctx,
     );
 
@@ -95,7 +108,15 @@ describe('taskAnalyzer agent (intent-routed, deterministic)', () => {
       extractTagsFromQuery: async () => [],
     });
 
-    const res = await agent.run({ intent: 'find_tasks', query: 'hello there', taskId: null }, ctx);
+    const res = await agent.run(
+      {
+        intent: 'find_tasks',
+        query: 'hello there',
+        taskId: null,
+        completionStatus: 'any' as const,
+      },
+      ctx,
+    );
 
     expect(res.result.tasks).toEqual([]);
     expect(search.calls).toEqual([]); // never search with empty tags
@@ -116,7 +137,12 @@ describe('taskAnalyzer agent (intent-routed, deterministic)', () => {
     });
 
     const res = await agent.run(
-      { intent: 'resolve_task_skills', query: 'what skills does this need', taskId: 't-1' },
+      {
+        intent: 'resolve_task_skills',
+        query: 'what skills does this need',
+        taskId: 't-1',
+        completionStatus: 'any' as const,
+      },
       ctx,
     );
 
@@ -141,7 +167,12 @@ describe('taskAnalyzer agent (intent-routed, deterministic)', () => {
     });
 
     const res = await agent.run(
-      { intent: 'resolve_task_skills', query: 'what skills', taskId: 't-1' },
+      {
+        intent: 'resolve_task_skills',
+        query: 'what skills',
+        taskId: 't-1',
+        completionStatus: 'any' as const,
+      },
       ctx,
     );
 
@@ -158,7 +189,12 @@ describe('taskAnalyzer agent (intent-routed, deterministic)', () => {
     });
 
     const res = await agent.run(
-      { intent: 'resolve_task_skills', query: 'what skills', taskId: null },
+      {
+        intent: 'resolve_task_skills',
+        query: 'what skills',
+        taskId: null,
+        completionStatus: 'any' as const,
+      },
       ctx,
     );
 
@@ -176,7 +212,12 @@ describe('taskAnalyzer agent (intent-routed, deterministic)', () => {
     });
 
     const res = await agent.run(
-      { intent: 'resolve_task_skills', query: 'what skills', taskId: 't-404' },
+      {
+        intent: 'resolve_task_skills',
+        query: 'what skills',
+        taskId: 't-404',
+        completionStatus: 'any' as const,
+      },
       ctx,
     );
 
@@ -194,7 +235,12 @@ describe('taskAnalyzer agent (intent-routed, deterministic)', () => {
     });
 
     const res = await agent.run(
-      { intent: 'resolve_task_skills', query: 'what skills does this need', taskId: 't-1' },
+      {
+        intent: 'resolve_task_skills',
+        query: 'what skills does this need',
+        taskId: 't-1',
+        completionStatus: 'any' as const,
+      },
       ctx,
     );
 

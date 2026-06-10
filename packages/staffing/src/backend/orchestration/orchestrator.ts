@@ -17,6 +17,7 @@ import { makeOrchestratorTools } from './orchestrator.tools.ts';
 import type { TaskSummary } from './ports.ts';
 import {
   type AvailabilityResult,
+  type CompletionStatus,
   OrchestratorInputSchema,
   type OrchestratorResult,
   OrchestratorResultSchema,
@@ -32,7 +33,12 @@ type In = z.infer<typeof OrchestratorInputSchema>;
 type Out = OrchestratorResult;
 
 type TaskAnalyzerSpec = SpecializedAgentSpec<
-  { intent: TaskAnalyzerIntent; query: string; taskId: string | null },
+  {
+    intent: TaskAnalyzerIntent;
+    query: string;
+    taskId: string | null;
+    completionStatus: CompletionStatus;
+  },
   TaskAnalyzerOutput
 >;
 type SkillMatcherSpec = SpecializedAgentSpec<
@@ -87,6 +93,9 @@ function instructions(cap: number): string {
     '  "who has aws and k8s skills" / "find someone who knows terraform". This returns those',
     '  skills — it does NOT search tasks. Do not use find_tasks for a people question.',
     '- intent=find_tasks: when the user wants to list TASKS by area/skill, e.g. "find infra tasks".',
+    '  Also pass completionStatus: "open" for incomplete tasks ("todo", "open", "not started",',
+    '  "pending", "not completed"); "completed" for done ("done", "finished", "completed");',
+    '  "any" when unspecified (default).',
     '',
     'DOCUMENT / GENERAL QUESTION — when the user asks a general question, a',
     'conversational follow-up, or anything about an attached document (its text is',

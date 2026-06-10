@@ -39,9 +39,13 @@ export interface TaskAnalyzerDeps {
 async function extractTags(
   deps: TaskAnalyzerDeps,
   query: string,
-  ctx: Pick<SpecializedAgentRunCtx, 'model' | 'abortSignal'>,
+  ctx: Pick<SpecializedAgentRunCtx, 'model' | 'abortSignal' | 'tenantId' | 'actorUserId'>,
 ) {
   if (deps.extractTagsFromQuery) return deps.extractTagsFromQuery({ query });
+  const knownTags = await deps.taskSearch.listAvailableTags(ctx);
+  const vocabLine = knownTags.length
+    ? `Known tag vocabulary — snap to the closest match when possible: ${knownTags.join(', ')}.`
+    : '';
   // Built per call (not at factory time) so the per-turn model override in
   // ctx.model takes effect. Structured output via Mastra (not raw generateObject)
   // so the unified router model config resolves through the Mastra gateway.
@@ -50,8 +54,11 @@ async function extractTags(
     name: 'Task Analyzer tag extraction',
     instructions: [
       'Extract the lowercase skill or area tag(s) named in the user message.',
+      vocabLine,
       'Return an empty array if the message names no skills.',
-    ].join('\n'),
+    ]
+      .filter(Boolean)
+      .join('\n'),
     model: pickModel(ctx, deps.resolveModel),
   });
   const r = await agent.generate(`User message: ${query}`, {
@@ -140,8 +147,9 @@ export function makeTaskAnalyzerAgent(deps: TaskAnalyzerDeps): SpecializedAgentS
 
         case 'find_tasks': {
           const tags = await extractTags(deps, input.query, ctx);
+          const cs = input.completionStatus === 'any' ? undefined : input.completionStatus;
           const tasks: TaskSummary[] = tags.length
-            ? await deps.taskSearch.bySkillTags(tags, FIND_TASKS_LIMIT, ctx)
+            ? await deps.taskSearch.bySkillTags(tags, FIND_TASKS_LIMIT, ctx, cs)
             : [];
           return {
             result: { tasks },

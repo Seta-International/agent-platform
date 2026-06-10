@@ -76,10 +76,15 @@ export const TaskAnalyzerIntent = z.enum([
 ]);
 export type TaskAnalyzerIntent = z.infer<typeof TaskAnalyzerIntent>;
 
+export const CompletionStatus = z.enum(['open', 'completed', 'any']);
+export type CompletionStatus = z.infer<typeof CompletionStatus>;
+
 export const TaskAnalyzerInputSchema = z.object({
   intent: TaskAnalyzerIntent,
   query: z.string(),
   taskId: z.string().nullable(),
+  /** Only used for find_tasks. "open" = not completed, "completed" = done, "any" = all (default). */
+  completionStatus: CompletionStatus.default('any'),
 });
 export const TaskAnalyzerOutputSchema = z.object({
   skills: z.array(z.string()).optional(),

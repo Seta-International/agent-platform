@@ -13,6 +13,8 @@ import { plannerCreateTaskTool } from './create-task.ts';
 import { plannerFindSimilarTasksTool } from './find-similar-tasks.ts';
 import { plannerGetOpenTaskCountSpec, plannerGetOpenTaskCountTool } from './get-open-task-count.ts';
 import { plannerGetTaskTool } from './get-task.ts';
+import { plannerListCommentsTool } from './list-comments.ts';
+import { plannerPostCommentTool } from './post-comment.ts';
 import { plannerProposeAssignmentTool } from './propose-assignment.ts';
 import { identitySearchUsersBySkillsTool } from './search-users-by-skills.ts';
 import { plannerSetAssigneesTool } from './set-assignees.ts';
@@ -188,9 +190,9 @@ call planner_createTask — it shows a confirm card.
 
 ## Tool reference
 Read: identity_whoAmI, planner_getTask, planner_findSimilarTasks,
-      search_users_by_skills, planner_getOpenTaskCountForUser,
+      planner_listComments, search_users_by_skills, planner_getOpenTaskCountForUser,
       identity_getTimezoneForUser, identity_getAvailabilityForUser
-Write (HITL via chat card): planner_createTask, planner_proposeAssignment
+Write (HITL via chat card): planner_createTask, planner_proposeAssignment, planner_postComment
 Write (canvas/workflow only — do NOT call in chat): planner_setAssignees, planner_assignTask
 
 Surface your reasoning as you go so the user can follow along.`,
@@ -201,6 +203,8 @@ Surface your reasoning as you go so the user can follow along.`,
     planner_createTask: plannerCreateTask,
     planner_getTask: plannerGetTaskTool,
     planner_findSimilarTasks: plannerFindSimilarTasks,
+    planner_listComments: plannerListCommentsTool,
+    planner_postComment: plannerPostCommentTool,
     planner_proposeAssignment: plannerProposeAssignmentTool,
     search_users_by_skills: identitySearchUsersBySkillsTool,
     planner_getOpenTaskCountForUser: plannerGetOpenTaskCountTool,

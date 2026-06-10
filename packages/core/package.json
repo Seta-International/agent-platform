@@ -7,6 +7,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./agent-tools": "./src/agent-tools.ts",
+    "./agent-tools/register": "./src/backend/agent-tools/register.ts",
     "./register": "./src/register.ts",
     "./events": "./src/events/index.ts",
     "./runtime": "./src/runtime/index.ts",

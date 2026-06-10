@@ -78,7 +78,7 @@ const portsWith = () => ({
       skillTags: ['aws'],
     }),
   },
-  taskSearch: { bySkillTags: async () => [] },
+  taskSearch: { bySkillTags: async () => [], listAvailableTags: async () => [] },
   skillSearch: {
     search: async () => [{ userId: 'u1', name: 'A', skills: ['aws'], role: null, similarity: 0.9 }],
   },

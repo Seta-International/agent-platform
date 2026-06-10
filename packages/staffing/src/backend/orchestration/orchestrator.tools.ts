@@ -4,6 +4,7 @@ import { z } from 'zod';
 import {
   type AvailabilityResult,
   AvailabilityResultSchema,
+  CompletionStatus,
   type RankedCandidate,
   RankedCandidateSchema,
   type Recommendation,
@@ -15,7 +16,12 @@ import {
 } from './schemas.ts';
 
 type TaskAnalyzerSpec = SpecializedAgentSpec<
-  { intent: TaskAnalyzerIntent; query: string; taskId: string | null },
+  {
+    intent: TaskAnalyzerIntent;
+    query: string;
+    taskId: string | null;
+    completionStatus: CompletionStatus;
+  },
   TaskAnalyzerOutput
 >;
 type SkillMatcherSpec = SpecializedAgentSpec<
@@ -85,6 +91,9 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
       '- extract_named_skills: the skills the user named in the message. Use when the user asks',
       '  for people by skill (e.g. "who has aws and k8s skills") — returns those skills, NOT tasks.',
       '- find_tasks: list tasks whose skill_tags match the message (e.g. "find infra tasks").',
+      '  Pass completionStatus: "open" for not-yet-done tasks ("todo", "open", "not started",',
+      '  "pending", "not completed"); "completed" for done tasks ("done", "finished",',
+      '  "completed"); "any" when unspecified (default).',
       '',
       'taskRef is a task UUID, or an ordinal reference into the tasks already listed in this',
       'conversation: "first"/"#1", "second"/"#2", ... "last". When the user refers to a task',
@@ -96,6 +105,9 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
       intent: TaskAnalyzerIntentSchema,
       query: z.string(),
       taskRef: z.string().nullable(),
+      completionStatus: CompletionStatus.default('any').describe(
+        'Only for find_tasks. "open" = not completed, "completed" = done, "any" = all (default).',
+      ),
     }),
     output: z.object({
       resolvedTaskId: z.string().nullable(),
@@ -103,7 +115,7 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
       title: z.string().optional(),
       tasks: z.array(TaskSummarySchema).optional(),
     }),
-    execute: async ({ intent, query, taskRef }, toolCtx) => {
+    execute: async ({ intent, query, taskRef, completionStatus }, toolCtx) => {
       // Resolve BEFORE emitting step-start: a failed resolution throws back to
       // the LLM (same pattern as the planner tools) without leaving a dangling
       // step card in the trace timeline.
@@ -113,7 +125,7 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
         stepId: 'taskAnalyzer',
         agentId: 'staffing.taskAnalyzer',
       });
-      const res = await taskAnalyzer.run({ intent, query, taskId }, subCtx);
+      const res = await taskAnalyzer.run({ intent, query, taskId, completionStatus }, subCtx);
       ctx.onEvent?.({ kind: 'step-done', stepId: 'taskAnalyzer', trust: res.trust });
       // Server-owned exposure tracking (thread-scoped working memory): the
       // recorder no-ops without RC_AGENT_MEMORY/RC_THREAD_ID and swallows its

@@ -1,5 +1,5 @@
 import { buildActorSession, getUserProfile, matchUsersToTopic } from '@seta/identity';
-import { getTask, listTasks, listTasksBySkillTag } from '@seta/planner';
+import { getTask, listDistinctSkillTags, listTasks, listTasksBySkillTag } from '@seta/planner';
 import type { AvailabilityPort, SkillSearchPort, TaskReaderPort, TaskSearchPort } from './ports.ts';
 
 // ---- TaskReader: planner.getTask under an actor session ----
@@ -31,12 +31,11 @@ const TASK_SEARCH_DEFAULT_LIMIT = 20;
 
 export function makeTaskSearch(): TaskSearchPort {
   return {
-    async bySkillTags(tags, limit, ctx) {
+    async bySkillTags(tags, limit, ctx, completionStatus) {
       const session = await buildActorSession({ user_id: ctx.actorUserId });
       const { results } = await listTasksBySkillTag({
         tags,
-        // status "any": the analyzer does not extract status in v1 (spec out-of-scope).
-        percentComplete: undefined,
+        completionStatus,
         // Clamp to the domain function's 1..50 contract; default 20 when unset.
         limit: Math.min(Math.max(limit || TASK_SEARCH_DEFAULT_LIMIT, 1), 50),
         session,
@@ -47,6 +46,10 @@ export function makeTaskSearch(): TaskSearchPort {
         status: r.status,
         skillTags: r.skillTags,
       }));
+    },
+    async listAvailableTags(ctx) {
+      const session = await buildActorSession({ user_id: ctx.actorUserId });
+      return listDistinctSkillTags({ session });
     },
   };
 }
@@ -63,11 +66,12 @@ export interface SkillSearchDeps {
 export function makeSkillSearch(deps: SkillSearchDeps): SkillSearchPort {
   return {
     async search({ skills, topK }, ctx) {
+      // Match the profile embedding format from buildUserProfileSource so cosine
+      // similarity is computed between semantically aligned texts. A bare
+      // skills.join(', ') query scores <0.2 against the rich profile paragraphs.
+      const topic = skills.length === 0 ? '' : `Core competencies include ${skills.join(', ')}.`;
       const hits = await matchUsersToTopic(
-        // minScore 0.5 (matchUsersToTopic default) is too high for short skill
-        // phrases under text-embedding-3-small and returns no candidates; 0.3
-        // surfaces relevant profiles. Tune as needed.
-        { topic: skills.join(', '), tenant_id: ctx.tenantId, limit: topK, minScore: 0.3 },
+        { topic, tenant_id: ctx.tenantId, limit: topK, minScore: 0.3 },
         { provider: deps.provider, pgVector: deps.pgVector },
       );
       return hits.map((h) => ({

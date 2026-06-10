@@ -159,27 +159,20 @@ describe('listTasksBySkillTag', () => {
           session,
         });
 
-        const todo = await listTasksBySkillTag({
+        const open = await listTasksBySkillTag({
           tags: ['infrastructure'],
-          percentComplete: 0,
+          completionStatus: 'open',
           limit: 10,
           session,
         });
-        expect(todo.results.map((r) => r.taskId)).toEqual([notStarted.id]);
-        expect(todo.results[0]!.status).toBe('not_started');
-
-        const doing = await listTasksBySkillTag({
-          tags: ['infrastructure'],
-          percentComplete: 50,
-          limit: 10,
-          session,
-        });
-        expect(doing.results.map((r) => r.taskId)).toEqual([inProgress.id]);
-        expect(doing.results[0]!.status).toBe('in_progress');
+        expect(open.results.map((r) => r.taskId)).toEqual(
+          expect.arrayContaining([notStarted.id, inProgress.id]),
+        );
+        expect(open.results).toHaveLength(2);
 
         const done = await listTasksBySkillTag({
           tags: ['infrastructure'],
-          percentComplete: 100,
+          completionStatus: 'completed',
           limit: 10,
           session,
         });

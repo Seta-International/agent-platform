@@ -8,8 +8,8 @@ import { groupFilterFor } from '../read-helpers.ts';
 export interface ListTasksBySkillTagInput {
   /** Skill tags to match (OR / overlap), case-insensitive. Must be non-empty. */
   tags: string[];
-  /** Exact percent_complete to match (0 | 50 | 100). Omit for no status filter ("any"). */
-  percentComplete?: 0 | 50 | 100;
+  /** "open" = incomplete (percent_complete < 100); "completed" = done; "any" = all. Default "any". */
+  completionStatus?: 'open' | 'completed' | 'any';
   /** Max rows to return. Caller is responsible for clamping. */
   limit: number;
   session: SessionScope;
@@ -44,6 +44,10 @@ export async function listTasksBySkillTag(
 
   const conditions = [eq(tasks.tenant_id, input.session.tenant_id), isNull(tasks.deleted_at)];
 
+  const cs = input.completionStatus ?? 'any';
+  if (cs === 'open') conditions.push(sql`${tasks.percent_complete} < 100`);
+  if (cs === 'completed') conditions.push(sql`${tasks.percent_complete} = 100`);
+
   if (groupFilter !== null) {
     conditions.push(
       inArray(
@@ -66,10 +70,6 @@ export async function listTasksBySkillTag(
   conditions.push(
     sql`EXISTS (SELECT 1 FROM unnest(${tasks.skill_tags}) AS st WHERE lower(st) = ANY(${loweredTags}))`,
   );
-
-  if (input.percentComplete !== undefined) {
-    conditions.push(eq(tasks.percent_complete, input.percentComplete));
-  }
 
   const rows = await db
     .select({
