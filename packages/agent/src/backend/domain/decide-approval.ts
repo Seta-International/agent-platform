@@ -68,6 +68,11 @@ export interface RecordApprovalDecisionOpts {
   decision: 'approve' | 'reject' | 'modify';
   overrideUserIds?: string[];
   note?: string;
+  /** When true (the /chat/resume route), require the row to be an agentic
+   *  native-suspend card (mastra_run_id set). Rejected INSIDE the transaction
+   *  before any write, so a misrouted evented row never records a decision it
+   *  can't resume. */
+  requireMastraRun?: boolean;
 }
 
 interface ApprovalCardLike {
@@ -189,6 +194,10 @@ export async function recordApprovalDecision(
       throw Object.assign(new Error('forbidden: not_authorized_for_approval'), {
         code: 'forbidden',
       });
+    }
+
+    if (opts.requireMastraRun && row.mastra_run_id == null) {
+      throw Object.assign(new Error('not_resumable'), { code: 'not_resumable' });
     }
 
     const decisionStatus =

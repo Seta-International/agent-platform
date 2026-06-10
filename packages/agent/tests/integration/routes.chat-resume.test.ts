@@ -360,4 +360,47 @@ describe('POST /api/agent/v1/chat/resume', () => {
       expect(second.status).toBe(409);
     });
   });
+
+  it('non-agentic (evented) row: 409 not_resumable, NO decision recorded, no resume call', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const tenantId = randomUUID();
+      const userId = randomUUID();
+      const me = sessionWith(tenantId, userId, ['agent.workflow.approve']);
+      // An evented/canvas approval has mastra_run_id NULL — submitting it to
+      // /chat/resume must be rejected INSIDE the transaction (no half-write).
+      const runId = randomUUID();
+      await pool.query(
+        `INSERT INTO agent.workflow_runs
+           (run_id, workflow_id, tenant_id, started_by, started_via, input_summary, status, started_at)
+         VALUES ($1, 'planner.assignBySkill', $2, $3, 'api', '{}'::jsonb, 'paused', now())`,
+        [runId, tenantId, userId],
+      );
+      const approvalId = randomUUID();
+      await pool.query(
+        `INSERT INTO agent.workflow_approvals
+           (approval_id, run_id, step_id, proposed_payload, approver_user_id,
+            fallback_approver_user_id, surface_canvas, surface_chat_thread_id,
+            mastra_run_id, tool_call_id, status, expires_at, created_at)
+         VALUES ($1, $2, 'assignBySkill.suggest', $3::jsonb, $4, NULL, true, NULL,
+                 NULL, NULL, 'pending', now() + interval '1 day', now())`,
+        [approvalId, runId, JSON.stringify(makeCard(['u1'], randomUUID())), userId],
+      );
+      const captured: CapturedResume[] = [];
+      const app = buildApp(me, makeFakeResume(captured));
+      const res = await app.request('/api/agent/v1/chat/resume', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ approvalId, decision: 'approve' }),
+      });
+      expect(res.status).toBe(409);
+      // Pre-commit guard: the decision was NOT recorded and nothing was emitted.
+      const row = await pool.query<{ status: string }>(
+        `SELECT status FROM agent.workflow_approvals WHERE approval_id = $1`,
+        [approvalId],
+      );
+      expect(row.rows[0]!.status).toBe('pending');
+      expect(await outboxCount(pool, runId)).toBe(0);
+      expect(captured).toHaveLength(0);
+    });
+  });
 });

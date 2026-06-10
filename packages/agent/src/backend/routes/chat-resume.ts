@@ -110,16 +110,17 @@ export function mountChatResumeRoute(app: Hono<AgentRouteEnv>, deps: AgentRouteD
         decision: body.decision,
         overrideUserIds: body.overrideUserIds,
         note: body.note,
+        // Reject a misrouted evented/canvas approval INSIDE the transaction
+        // (before any write) so a non-resumable row never records a decision.
+        requireMastraRun: true,
       });
     } catch (err) {
       return handleDomainError(c, err);
     }
 
+    // requireMastraRun guarantees this is set; narrow the type for the resume call.
     if (ctx.mastraRunId == null) {
-      return c.json(
-        { error: 'not_resumable', message: 'approval is not a native-suspend chat card' },
-        409,
-      );
+      return c.json({ error: 'not_resumable', message: 'approval is not resumable' }, 409);
     }
 
     const resume = mapDecisionToResumeData(ctx.proposedPayload as ApprovalCard | null, {

@@ -239,6 +239,7 @@ export function handleDomainError(c: Context<AgentRouteEnv>, err: unknown): Resp
     if (code === 'forbidden') return c.json({ error: 'forbidden', message }, 403);
     if (code === 'not_found') return c.json({ error: 'not_found', message }, 404);
     if (code === 'already_decided') return c.json({ error: 'already_decided', message }, 409);
+    if (code === 'not_resumable') return c.json({ error: 'not_resumable', message }, 409);
     if (code === 'invalid_cursor') return c.json({ error: 'invalid_cursor', message }, 400);
   }
   throw err;
