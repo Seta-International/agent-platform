@@ -8,14 +8,22 @@ import {
   type SessionEnv,
   type StreamHubHandle,
 } from '@seta/core';
+import { makeRbacCheck, setRbacCheck } from '@seta/core/rpc';
 import type { WorkerHandle } from '@seta/core/runtime';
-import { listMyEffectivePermissions, listRoleGrants } from '@seta/identity';
+import { listRoleGrants } from '@seta/identity';
 import { auth } from '@seta/identity/auth';
 import { registerKnowledgeRoutes, registerKnowledgeStreamRoutes } from '@seta/knowledge/http';
 import type { KnowledgeStreamHub } from '@seta/knowledge/stream';
 import { registerNotificationsRoutes } from '@seta/notifications/http';
 import { NotificationStreamHub } from '@seta/notifications/stream';
 import { getPool } from '@seta/shared-db';
+import {
+  buildRegistry,
+  IMPLICIT_PERMISSIONS,
+  INVENTORY,
+  inventoryToManifests,
+  resolvePermissions,
+} from '@seta/shared-rbac';
 import type { Context, Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
@@ -72,11 +80,14 @@ async function* stubChatRuntimeNotWired(): AsyncIterable<
 // Bridges better-auth's session into the SessionLike shape that agent routes
 // consume (c.var.session). When there's no authenticated user, c.var.session is
 // left unset and the agent route returns 401 — except /health, which carries
-// no session check. effective_permissions is computed via the identity public
-// surface so both modules agree on the permission catalog.
+// no session check. effective_permissions is resolved via the shared rbac
+// registry so all callers use the same permission catalog.
 type AgentBridgeEnv = { Variables: { session: SessionLike } };
 
-function createAgentSessionBridge(deps: { listRoleGrants: typeof listRoleGrants }) {
+function createAgentSessionBridge(deps: {
+  listRoleGrants: typeof listRoleGrants;
+  resolve: (roles: readonly string[]) => ReadonlySet<string>;
+}) {
   return createMiddleware<AgentBridgeEnv>(async (c, next) => {
     const authSession = await auth.api.getSession({ headers: c.req.raw.headers });
     if (authSession?.user) {
@@ -86,11 +97,10 @@ function createAgentSessionBridge(deps: { listRoleGrants: typeof listRoleGrants 
         roles: Array.from(new Set(grants.map((g) => g.role_slug))).sort(),
         cross_tenant_read: grants.some((g) => g.role_slug === 'org.viewer'),
       };
-      const perms = await listMyEffectivePermissions({ type: 'user', user_id: user.id });
       c.set('session', {
         tenant_id,
         user_id: user.id,
-        effective_permissions: new Set(perms),
+        effective_permissions: deps.resolve(role_summary.roles),
         role_summary,
       });
     }
@@ -108,10 +118,16 @@ export function buildServerApp(
   reg: ContributionRegistry,
   deps: BuildServerAppDeps,
 ): BuiltServerApp {
+  const rbacRegistry = buildRegistry(inventoryToManifests(INVENTORY));
+  const resolve = (roles: readonly string[]): ReadonlySet<string> =>
+    resolvePermissions(rbacRegistry, roles, IMPLICIT_PERMISSIONS);
+  setRbacCheck(makeRbacCheck(rbacRegistry, IMPLICIT_PERMISSIONS));
+
   const sessionMiddleware = createSessionMiddleware({
     getSession: ({ headers }) => auth.api.getSession({ headers }),
     signOut: ({ headers }) => auth.api.signOut({ headers }).then(() => undefined),
     listRoleGrants,
+    resolvePermissions: resolve,
   });
 
   const app = buildHonoApp(reg, { corsOrigins: deps.corsOrigins }) as unknown as Hono<SessionEnv>;
@@ -170,7 +186,7 @@ export function buildServerApp(
       // not-configured message instead of crashing the whole app.
       chatOrchestration: () => stubChatRuntimeNotWired(),
     });
-  app.use('/api/agent/*', createAgentSessionBridge({ listRoleGrants }));
+  app.use('/api/agent/*', createAgentSessionBridge({ listRoleGrants, resolve }));
   agent.attach(app as unknown as Hono);
 
   // Session middleware gates everything registered after this point
