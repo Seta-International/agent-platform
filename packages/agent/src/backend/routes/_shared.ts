@@ -1,6 +1,5 @@
 import type { MemoryConfig } from '@mastra/core/memory';
 import type { Memory } from '@mastra/memory';
-import type { ChatHitlDecider } from '@seta/agent-sdk';
 import type { Context } from 'hono';
 import type { Pool } from 'pg';
 import { ORCHESTRATION_STEP_PART } from '../orchestration-chat-stream.ts';
@@ -21,19 +20,6 @@ export type AgentRouteDeps = {
     error: (obj: unknown, msg?: string) => void;
     warn: (obj: unknown, msg?: string) => void;
   };
-  /**
-   * Per-tool-ID handlers for chat-flow HITL decisions.
-   *
-   * When a chat-flow tool uses ChatHitlRecorder to create a workflow_approvals
-   * row (synthetic workflow_id = '__chat_hitl:<toolId>'), the decide-approval
-   * endpoint calls the matching handler here to execute the domain action
-   * directly — no Mastra workflow resume is needed or possible for chat HITL.
-   *
-   * Keyed by toolId (e.g. 'planner_proposeAssignment'). Populated by the
-   * server entry-point, which is the only layer allowed to import from both
-   * packages/agent (engine) and feature modules like packages/planner.
-   */
-  chatHitlDeciders?: Record<string, ChatHitlDecider>;
   /**
    * Thread-scoped conversation-entities Memory + its MemoryConfig. Injected
    * into requestContext under RC_AGENT_MEMORY by the chat route so tools can do

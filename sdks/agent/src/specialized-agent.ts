@@ -1,6 +1,5 @@
 import type { MastraModelConfig } from '@mastra/core/llm';
 import type { z } from 'zod';
-import type { ChatHitlRecorder } from './hitl/chat-hitl.ts';
 import type { AgentMemoryHandle } from './request-context.ts';
 import type { AgentResult, TrustEnvelope } from './trust.ts';
 
@@ -40,10 +39,6 @@ export interface SpecializedAgentRunCtx {
   /** Optional sink for sub-step events emitted while this agent runs. The inline
    *  runner provides it; the queued runner and direct callers leave it undefined. */
   onEvent?: (event: SubStepEvent) => void;
-  /** Optional recorder for in-thread HITL approval cards. The chat route's
-   *  inline orchestration provides it; queued runners and direct callers leave
-   *  it undefined. */
-  recordHitlApproval?: ChatHitlRecorder;
 }
 
 /**

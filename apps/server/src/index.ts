@@ -20,7 +20,6 @@ import {
 import { registerKnowledgeContributions } from '@seta/knowledge/register';
 import { registerNotificationsContributions } from '@seta/notifications/register';
 import { assignTask } from '@seta/planner';
-import { plannerProposeAssignmentChatHitlDecider } from '@seta/planner/agent-tools';
 import { registerPlannerContributions } from '@seta/planner/register';
 import { createCrypto, createKeyProviderFromEnv, parseCryptoEnv } from '@seta/shared-crypto';
 import { closePools, getPool, initPools } from '@seta/shared-db';
@@ -141,9 +140,8 @@ const staffingOrchestration = buildStaffingOrchestrationRuntime({
     }),
     availability: makeAvailability(),
     userProfileLookup: makeUserProfileLookup(),
-    // Binds the staffing assign port to planner's public assignTask surface —
-    // the same capability plannerProposeAssignmentChatHitlDecider performs on a
-    // chat approval. RBAC is re-checked inside assignTask at the planner callee.
+    // Binds the staffing assign port to planner's public assignTask surface.
+    // RBAC is re-checked inside assignTask at the planner callee.
     assign: {
       async assign({ taskId, assigneeUserIds, actorUserId }) {
         const session = await buildActorSession({ user_id: actorUserId });
@@ -168,13 +166,6 @@ const agent = registerAgent({
   // Mastra and the per-turn orchestrator Mastra share one physical store.
   mastraStorage,
   log: log.child({ subsystem: 'agent' }),
-  // Chat-flow HITL deciders: called by decide-approval when the approval was
-  // created by a chat-flow tool (workflow_id starts with '__chat_hitl:').
-  // Wired here because this is the only layer that can import from both the
-  // agent engine (packages/agent) and feature modules (packages/planner).
-  chatHitlDeciders: {
-    planner_proposeAssignment: plannerProposeAssignmentChatHitlDecider,
-  },
   // The chat runtime: every chat turn streams through the staffing
   // orchestration's streaming entrypoint. apps/server is the only layer that
   // can bind the staffing runtime to the engine surface.

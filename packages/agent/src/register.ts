@@ -6,7 +6,6 @@ import type { MastraCompositeStore } from '@mastra/core/storage';
 import type { AnyWorkflow } from '@mastra/core/workflows';
 import {
   AgentRegistry,
-  type ChatHitlDecider,
   registerPendingAssignReader,
   setBreakerConfig,
   setBreakerEventEmitter,
@@ -78,13 +77,6 @@ export function registerAgent(deps: {
     error: (obj: unknown, msg?: string) => void;
     warn: (obj: unknown, msg?: string) => void;
   };
-  /**
-   * Per-tool-ID handlers for chat-flow HITL decisions.
-   * Populated by the server entry-point (apps/server/src/index.ts) — the only
-   * layer that can import from both the agent engine and feature modules.
-   * See packages/agent/src/backend/routes.ts AgentRouteDeps.chatHitlDeciders.
-   */
-  chatHitlDeciders?: Record<string, ChatHitlDecider>;
   /**
    * The chat runtime: every chat turn streams through this inline staffing
    * orchestration. Injected by the server entry-point (the only layer that can
@@ -170,7 +162,6 @@ export function registerAgent(deps: {
         drainer,
         pool: deps.pool,
         log: deps.log,
-        chatHitlDeciders: deps.chatHitlDeciders,
         chatOrchestration: deps.chatOrchestration,
         resumeOrchestration: deps.resumeOrchestration,
         consumeThreadAttachments: deps.consumeThreadAttachments,

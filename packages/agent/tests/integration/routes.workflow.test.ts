@@ -4,7 +4,7 @@ import type { ApprovalCard } from '@seta/agent-sdk';
 import type { OrchestrationEvent } from '@seta/shared-orchestration';
 import { Hono } from 'hono';
 import { describe, expect, it, vi } from 'vitest';
-import { insertChatHitlApproval } from '../../src/backend/domain/insert-chat-hitl-approval.ts';
+import { writeChatApprovalRow } from '../../src/backend/domain/write-chat-approval-row.ts';
 import type { AgentRouteEnv } from '../../src/backend/routes.ts';
 import { registerAgentRoutes } from '../../src/backend/routes.ts';
 import type { SessionLike } from '../../src/backend/types.ts';
@@ -496,8 +496,10 @@ describe('GET /api/agent/v1/workflows/threads/:threadId/approvals', () => {
   it('returns the thread approvals including decision fields', async () => {
     await withAgentTestDb(async ({ pool }) => {
       const me = session(['agent.workflow.run.read.self']);
-      await insertChatHitlApproval({
+      await writeChatApprovalRow({
         card: hitlCard(me.tenant_id, me.user_id),
+        mastraRunId: randomUUID(),
+        toolCallId: randomUUID(),
         tenantId: me.tenant_id,
         userId: me.user_id,
         threadId: 'thread-1',

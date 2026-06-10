@@ -1,7 +1,6 @@
 import type {
   AgentMemoryHandle,
   ApprovalCard,
-  ChatHitlRecorder,
   SpecializedAgentRunCtx,
   TrustEnvelope,
 } from '@seta/agent-sdk';
@@ -14,8 +13,6 @@ export interface RunCtx {
   /** Resolved permission set for the actor — forwarded into each agent's run
    *  ctx so cross-module read tools enforce access. Empty for queued runs. */
   effectivePermissions?: ReadonlySet<string>;
-  /** Optional recorder for in-thread HITL approval cards (chat inline runs only). */
-  recordHitlApproval?: ChatHitlRecorder;
   /** The real chat thread id (chat inline runs only). */
   threadId?: string;
   /** Thread-scoped conversation-entities memory handle (chat inline runs only). */

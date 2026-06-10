@@ -15,7 +15,6 @@ import { plannerGetOpenTaskCountSpec, plannerGetOpenTaskCountTool } from './get-
 import { plannerGetTaskTool } from './get-task.ts';
 import { plannerListCommentsTool } from './list-comments.ts';
 import { plannerPostCommentTool } from './post-comment.ts';
-import { plannerProposeAssignmentTool } from './propose-assignment.ts';
 import { identitySearchUsersBySkillsTool } from './search-users-by-skills.ts';
 import { plannerSetAssigneesTool } from './set-assignees.ts';
 
@@ -205,7 +204,6 @@ Surface your reasoning as you go so the user can follow along.`,
     planner_findSimilarTasks: plannerFindSimilarTasks,
     planner_listComments: plannerListCommentsTool,
     planner_postComment: plannerPostCommentTool,
-    planner_proposeAssignment: plannerProposeAssignmentTool,
     search_users_by_skills: identitySearchUsersBySkillsTool,
     planner_getOpenTaskCountForUser: plannerGetOpenTaskCountTool,
     identity_getTimezoneForUser: identityGetTimezoneTool,

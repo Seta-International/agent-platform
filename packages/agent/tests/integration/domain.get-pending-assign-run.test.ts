@@ -91,16 +91,16 @@ describe('getPendingAssignRunIdForTask', () => {
     });
   });
 
-  it('returns the runId for a chat-HITL run whose approval payload carries the taskId', async () => {
+  it('returns the runId for a native-suspend chat run whose approval payload carries the taskId', async () => {
     await withAgentTestDb(async ({ pool }) => {
       const tenantId = randomUUID();
       const taskId = randomUUID();
       const runId = await seedRun({
         pool,
         tenantId,
-        workflowId: '__chat_hitl:planner_proposeAssignment',
+        workflowId: 'staffing.orchestrator',
         status: 'paused',
-        inputSummary: { tool_id: 'planner_proposeAssignment', thread_id: randomUUID() },
+        inputSummary: { taskId, thread_id: randomUUID() },
       });
       await seedApproval({
         pool,

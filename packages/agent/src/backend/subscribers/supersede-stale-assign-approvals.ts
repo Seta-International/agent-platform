@@ -30,7 +30,7 @@ export async function supersedeStaleAssignApprovals(
        AND a.status = 'pending'
   `);
 
-  // Supersede chat-flow HITL approvals (synthetic __chat_hitl:planner_proposeAssignment)
+  // Supersede native-suspend chat HITL approvals (staffing.orchestrator runs)
   await ctx.tx.execute(sql`
     UPDATE agent.workflow_approvals AS a
        SET status = 'superseded',
@@ -41,7 +41,7 @@ export async function supersedeStaleAssignApprovals(
            decided_at = now()
       FROM agent.workflow_runs AS r
      WHERE a.run_id = r.run_id
-       AND r.workflow_id = '__chat_hitl:planner_proposeAssignment'
+       AND r.workflow_id = 'staffing.orchestrator'
        AND a.proposed_payload @> jsonb_build_object('primary', jsonb_build_object('argsPatch', jsonb_build_object('taskId', ${taskId}::text)))
        AND a.status = 'pending'
   `);

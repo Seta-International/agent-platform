@@ -2,7 +2,6 @@ import type { MemoryConfig } from '@mastra/core/memory';
 import type { RequestContext } from '@mastra/core/request-context';
 import type { Memory } from '@mastra/memory';
 import { z } from 'zod';
-import type { ChatHitlRecorder } from './hitl/chat-hitl.ts';
 
 export const RequestContextSchema = z.object({
   actor: z.object({
@@ -16,18 +15,12 @@ export const RequestContextSchema = z.object({
  * request. `actor` is validated by Mastra via `requestContextSchema`; the
  * remaining fields are set imperatively by the route layer before the
  * agent/workflow step runs.
- *
- * __seta_chat_hitl_recorder__ is injected by the chat route for tools that
- * write a workflow_approvals row directly (chat-flow HITL). See chat-hitl.ts.
  */
 export interface AgentRequestContext {
   actor: { type: 'user'; user_id: string };
   tenant_id: string;
   role_summary: { roles: string[]; cross_tenant_read: boolean };
   effective_permissions: ReadonlySet<string>;
-  // Key matches RC_CHAT_HITL_RECORDER in hitl/chat-hitl.ts — typed here so
-  // requestContext.get(RC_CHAT_HITL_RECORDER) is type-safe.
-  __seta_chat_hitl_recorder__?: ChatHitlRecorder;
   // Key matches RC_AGENT_MEMORY — typed here so requestContext.get(RC_AGENT_MEMORY)
   // is type-safe in tool execute bodies.
   __seta_agent_memory__?: AgentMemoryHandle;

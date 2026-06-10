@@ -47,8 +47,7 @@ export const AssignBySkillOutputSchema = z.discriminatedUnion('kind', [
   }),
   // Chat-flow HITL: the tool wrote an approval card to the DB and returned
   // immediately (no Mastra suspension). The agent should tell the user to
-  // review the card above. Decision is handled by the decide-approval endpoint
-  // which calls the registered ChatHitlDecider (no workflow resume needed).
+  // review the card above.
   z.object({
     kind: z.literal('pending-approval'),
     taskId: z.string(),

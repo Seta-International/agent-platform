@@ -60,7 +60,6 @@ export async function executeStep(
     actorUserId: ctx.actorUserId,
     effectivePermissions: ctx.effectivePermissions,
     onEvent: deps.onEvent,
-    recordHitlApproval: ctx.recordHitlApproval,
     threadId: ctx.threadId,
     entitiesMemory: ctx.entitiesMemory,
     userMemory: ctx.userMemory,

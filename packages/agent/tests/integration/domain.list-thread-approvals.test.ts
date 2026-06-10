@@ -2,8 +2,8 @@ import { randomUUID } from 'node:crypto';
 import type { ApprovalCard } from '@seta/agent-sdk';
 import type { Pool } from 'pg';
 import { describe, expect, it } from 'vitest';
-import { insertChatHitlApproval } from '../../src/backend/domain/insert-chat-hitl-approval.ts';
 import { listThreadApprovals } from '../../src/backend/domain/list-thread-approvals.ts';
+import { writeChatApprovalRow } from '../../src/backend/domain/write-chat-approval-row.ts';
 import type { SessionLike } from '../../src/backend/types.ts';
 import { withAgentTestDb } from '../helpers.ts';
 
@@ -48,8 +48,10 @@ async function seedApproval(
   pool: Pool,
   args: { tenantId: string; userId: string; threadId: string | null },
 ): Promise<{ approvalId: string }> {
-  const ids = await insertChatHitlApproval({
+  const ids = await writeChatApprovalRow({
     card: card(randomUUID(), args.tenantId, args.userId),
+    mastraRunId: randomUUID(),
+    toolCallId: randomUUID(),
     tenantId: args.tenantId,
     userId: args.userId,
     threadId: args.threadId,

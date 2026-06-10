@@ -160,7 +160,6 @@ export function mountWorkflowRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
         alternateIndices: body.alternateIndices,
         note: body.note,
         mastra: deps.mastra as Mastra,
-        chatHitlDeciders: deps.chatHitlDeciders,
         log: deps.log,
       });
       return c.json(result);

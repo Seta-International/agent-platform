@@ -1,5 +1,4 @@
 import type { Mastra } from '@mastra/core';
-import { CHAT_HITL_WORKFLOW_ID_PREFIX, type ChatHitlDecider } from '@seta/agent-sdk';
 import { sql } from 'drizzle-orm';
 import { agentDb } from '../db/index.ts';
 import type { SessionLike } from '../types.ts';
@@ -26,15 +25,6 @@ export interface DecideApprovalOpts {
   alternateIndices?: number[];
   note?: string;
   mastra: Mastra;
-  /**
-   * Per-tool-ID handlers for chat-flow HITL decisions.
-   *
-   * When workflow_id starts with CHAT_HITL_WORKFLOW_ID_PREFIX the approval was
-   * created by a chat-flow tool via ChatHitlRecorder. In that case there is no
-   * Mastra workflow to resume — instead, the matching decider here executes the
-   * domain action directly. Populated by AgentRouteDeps.chatHitlDeciders.
-   */
-  chatHitlDeciders?: Record<string, ChatHitlDecider>;
   log?: {
     error: (obj: unknown, msg?: string) => void;
   };
@@ -274,43 +264,6 @@ export async function decideApproval(opts: DecideApprovalOpts): Promise<DecideAp
         }
       | undefined;
   };
-
-  // ── Chat-flow HITL path ──────────────────────────────────────────────────
-  // Approvals with workflow_id starting with CHAT_HITL_WORKFLOW_ID_PREFIX were
-  // created by a tool calling ChatHitlRecorder (not by the evented-workflow
-  // lifecycle hook). There is no Mastra workflow run to resume. Instead, the
-  // registered ChatHitlDecider for the tool executes the domain action directly.
-  if (ctx.workflowId.startsWith(CHAT_HITL_WORKFLOW_ID_PREFIX)) {
-    const toolId = ctx.workflowId.slice(CHAT_HITL_WORKFLOW_ID_PREFIX.length);
-    const decider = opts.chatHitlDeciders?.[toolId];
-    if (decider) {
-      await decider({
-        decision: opts.decision,
-        proposedPayload: ctx.proposedPayload,
-        overrideUserIds: opts.overrideUserIds,
-        note: opts.note,
-        session: { user_id: opts.session.user_id, tenant_id: opts.session.tenant_id },
-      });
-    } else if (opts.log) {
-      opts.log.error(
-        { subsystem: 'agent.decide-approval', toolId, runId: ctx.runId },
-        'no ChatHitlDecider registered for tool — decision recorded but action not executed',
-      );
-    } else {
-      console.error(
-        '[agent.decide-approval] no ChatHitlDecider for',
-        toolId,
-        '— decision recorded but action not executed',
-      );
-    }
-    // Mark the synthetic run as completed so it doesn't appear in active-runs views.
-    await agentDb().execute(sql`
-      UPDATE agent.workflow_runs
-         SET status = 'success', finished_at = now()
-       WHERE run_id = ${ctx.runId}
-    `);
-    return { runId: ctx.runId, resumed: false };
-  }
 
   // ── Evented-workflow HITL path ───────────────────────────────────────────
   const workflow = mastraTyped.getWorkflow(ctx.workflowId);

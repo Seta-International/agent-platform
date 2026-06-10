@@ -16,13 +16,13 @@ import { getPendingAssignRunIdForTask } from './get-pending-assign-run-for-task.
 // into the agent.workflow_runs + agent.workflow_approvals read-model rows so
 // the frontend's pending-approvals poll renders the card.
 //
-// Unlike the retired `__chat_hitl:<toolId>` writer this row carries:
+// This row carries:
 //   • workflow_id = 'staffing.orchestrator' (the agentic run's logical id)
 //   • mastra_run_id + tool_call_id — the agentic-resume parameters Task 7 uses
 //     to `mastra.getAgent().resume()`. Their presence is the
 //     agentic-vs-evented-workflow discriminator on the approval row.
 //
-// Idempotent per task, mirroring make-assign-approval-recorder's mutex: if a
+// Idempotent per task: if a
 // pending assignment proposal already exists for the task, the existing
 // approval is returned (no competing card) and — for the same approver — the
 // card follows them to a new thread.
