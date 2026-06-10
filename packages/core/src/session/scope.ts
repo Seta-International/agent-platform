@@ -160,6 +160,17 @@ export function evictHotByUser(userId: string): number {
   return n;
 }
 
+export function evictHotByTenant(tenantId: string): number {
+  let n = 0;
+  for (const [k, v] of hot.entries()) {
+    if (v && v.tenant_id === tenantId) {
+      hot.delete(k);
+      n++;
+    }
+  }
+  return n;
+}
+
 export function _clearHotForTest(): void {
   hot.clear();
 }

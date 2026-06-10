@@ -83,6 +83,18 @@ export interface IdentityRoleGrantChanged {
   };
 }
 
+export interface IdentityRolePermissionsChanged {
+  event_type: 'identity.role_permissions.changed';
+  event_version: 1;
+  aggregate_type: 'identity.tenant';
+  aggregate_id: Uuid;
+  payload: {
+    actor: IdentityEventActor;
+    tenant_id: Uuid;
+    role_slug: string;
+  };
+}
+
 export interface IdentitySsoProviderRegistered {
   event_type: 'identity.sso_provider.registered';
   event_version: 1;
@@ -209,6 +221,7 @@ export type IdentityEvent =
   | IdentityUserProfileUpdated
   | IdentityUserDeactivated
   | IdentityRoleGrantChanged
+  | IdentityRolePermissionsChanged
   | IdentitySsoProviderRegistered
   | IdentitySsoProviderConsentGranted
   | IdentitySsoProviderEnabled

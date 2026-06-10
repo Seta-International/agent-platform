@@ -6,6 +6,7 @@ import {
   createOverlayStore,
   createSessionMiddleware,
   type ErrorMapper,
+  type OverlayStore,
   type SessionEnv,
   type StreamHubHandle,
 } from '@seta/core';
@@ -54,6 +55,13 @@ export type BuildServerAppDeps = {
    * since only the composition root (index.ts) can bind staffing adapters.
    */
   agent?: AgentHandle;
+  /**
+   * Shared per-tenant role-permission overlay projection. The composition root
+   * passes the same instance the RolePermissionsChanged subscriber refreshes so
+   * edits take effect process-wide. Omitted by the smoke test, which builds its
+   * own self-contained store.
+   */
+  overlayStore?: OverlayStore;
   /** Structured logger (e.g. pino) passed down to route builders and the agent engine. */
   log?: {
     error: (obj: unknown, msg?: string) => void;
@@ -120,7 +128,7 @@ export function buildServerApp(
   deps: BuildServerAppDeps,
 ): BuiltServerApp {
   const rbacRegistry = buildRegistry(inventoryToManifests(INVENTORY));
-  const overlayStore = createOverlayStore({ load: listTenantRoleOverlays });
+  const overlayStore = deps.overlayStore ?? createOverlayStore({ load: listTenantRoleOverlays });
   const resolve = async (
     roles: readonly string[],
     tenantId: string,
