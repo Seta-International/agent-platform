@@ -61,7 +61,12 @@ function capturingStub<I, O>(id: string, result: O) {
 }
 
 function buildTools(
-  overrides: { taskAnalyzerResult?: unknown; recommenderResult?: unknown; userText?: string } = {},
+  overrides: {
+    taskAnalyzerResult?: unknown;
+    recommenderResult?: unknown;
+    generalAnswerResult?: { answer: string };
+    userText?: string;
+  } = {},
 ) {
   const taskAnalyzer = capturingStub<
     { intent: string; query: string; taskId: string | null },
@@ -75,10 +80,10 @@ function buildTools(
   );
   const generalAnswer = capturingStub<{ query: string }, { answer: string }>(
     'staffing.generalAnswer',
-    { answer: '' },
+    overrides.generalAnswerResult ?? { answer: '' },
   );
   const profileCalls: Array<{ name: string; limit?: number }> = [];
-  const tools = makeOrchestratorTools({
+  const { tools, captured } = makeOrchestratorTools({
     taskAnalyzer: taskAnalyzer.spec as never,
     skillMatcher: skillMatcher.spec as never,
     avaiChecker: avaiChecker.spec as never,
@@ -96,6 +101,7 @@ function buildTools(
   });
   return {
     tools,
+    captured,
     taskAnalyzer,
     skillMatcher,
     avaiChecker,
@@ -278,5 +284,26 @@ describe('staffing_answerQuestion', () => {
     };
     expect(generalAnswer.inputs[0]?.query).toBe(userText);
     expect(out).toEqual({ answer: '' });
+  });
+
+  it('captures the non-empty answer so assembly survives a dropped tool result', async () => {
+    const { tools, captured } = buildTools({
+      generalAnswerResult: { answer: '  Agentic AI is goal-directed and tool-using.  ' },
+    });
+    const rc = new RequestContext();
+    rc.set('tenant_id', 't1');
+    rc.set('actor', { type: 'user', user_id: 'a1' });
+    await tools.callGeneralAnswer.execute!({} as never, { requestContext: rc } as never);
+    // Trimmed and stored on the side-channel, independent of res.toolResults.
+    expect(captured.generalAnswer).toBe('Agentic AI is goal-directed and tool-using.');
+  });
+
+  it('does not capture an empty answer (lets assembly fall through to the disclaimer)', async () => {
+    const { tools, captured } = buildTools({ generalAnswerResult: { answer: '   ' } });
+    const rc = new RequestContext();
+    rc.set('tenant_id', 't1');
+    rc.set('actor', { type: 'user', user_id: 'a1' });
+    await tools.callGeneralAnswer.execute!({} as never, { requestContext: rc } as never);
+    expect(captured.generalAnswer).toBeUndefined();
   });
 });

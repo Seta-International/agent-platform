@@ -18,7 +18,7 @@ import {
 import type { OrchestrationEvent } from '@seta/shared-orchestration';
 import type { z } from 'zod';
 import { pickModel } from './model.ts';
-import { makeOrchestratorTools } from './orchestrator.tools.ts';
+import { makeOrchestratorTools, type OrchestratorCaptured } from './orchestrator.tools.ts';
 import type { AssignPort, TaskSummary, UserProfilePort } from './ports.ts';
 import {
   type AvailabilityResult,
@@ -96,6 +96,7 @@ export interface OrchestratorDeps {
     requestContext: RequestContext;
     instructions: string;
     tools: Record<string, unknown>;
+    captured: OrchestratorCaptured;
   }) => Promise<MastraToolSignals>;
   /** Test-only seam mirroring runAgent for the streaming chat path. Returns a
    *  minimal MastraModelOutput-shaped object: an async-iterable fullStream that
@@ -247,6 +248,9 @@ interface BuiltOrchestrator {
   /** Billing pricing-table key for the model this turn was built with; the
    *  fallback when the provider echo isn't fully qualified. */
   modelKey: string;
+  /** Side-channel the general-answer tool writes at execute time, so assembly
+   *  recovers the answer even when a reasoning model drops it from toolResults. */
+  captured: OrchestratorCaptured;
 }
 
 async function buildOrchestrator(
@@ -262,7 +266,7 @@ async function buildOrchestrator(
   if (ctx.threadId) rc.set(RC_THREAD_ID, ctx.threadId);
   if (ctx.entitiesMemory) rc.set(RC_AGENT_MEMORY, ctx.entitiesMemory);
 
-  const tools: Record<string, unknown> = makeOrchestratorTools({
+  const { tools: builtTools, captured } = makeOrchestratorTools({
     taskAnalyzer: deps.taskAnalyzer,
     skillMatcher: deps.skillMatcher,
     avaiChecker: deps.avaiChecker,
@@ -273,6 +277,7 @@ async function buildOrchestrator(
     userText: input.userText,
     ctx,
   });
+  const tools: Record<string, unknown> = { ...builtTools };
   const wmTool = makeUpdateWorkingMemoryTool(ctx);
   if (wmTool) tools.updateWorkingMemory = wmTool;
 
@@ -353,6 +358,7 @@ async function buildOrchestrator(
     instructions,
     tools,
     modelKey: modelKeyOf(model),
+    captured,
   };
 }
 
@@ -362,11 +368,12 @@ async function buildOrchestrator(
 function finalizeOrchestratorResult(
   res: MastraToolSignals,
   _ctx: SpecializedAgentRunCtx,
+  captured: OrchestratorCaptured,
 ): AgentResult<Out> {
-  const result = assemble(res);
+  const result = assemble(res, captured);
   const trust = trustFromMastraResult(res, {
     citations: (tr) => citationsFor(tr, result),
-    confidence: confidenceFor(result, res),
+    confidence: confidenceFor(result, res, captured),
   });
   return { result, trust };
 }
@@ -387,6 +394,7 @@ export function makeOrchestratorAgent(deps: OrchestratorDeps): SpecializedAgentS
             requestContext: built.rc,
             instructions: built.instructions,
             tools: built.tools,
+            captured: built.captured,
           })
         : await (async () => {
             // Emit LLM text-delta tokens that arrive BEFORE the first tool call
@@ -416,7 +424,7 @@ export function makeOrchestratorAgent(deps: OrchestratorDeps): SpecializedAgentS
               text: r.text,
             };
           })();
-      return finalizeOrchestratorResult(res, ctx);
+      return finalizeOrchestratorResult(res, ctx, built.captured);
     },
   };
 }
@@ -438,6 +446,7 @@ async function* drainOrchestrationStream(
   queue: OrchestrationEvent[],
   provideStream: () => Promise<DrainableStream>,
   fallbackModelKey: string,
+  captured: OrchestratorCaptured,
 ): AsyncIterable<OrchestrationEvent> {
   let finished = false;
   const stream = await provideStream();
@@ -483,7 +492,7 @@ async function* drainOrchestrationStream(
           fallbackModelKey,
         },
       );
-      const { result } = finalizeOrchestratorResult(res, runCtx);
+      const { result } = finalizeOrchestratorResult(res, runCtx, captured);
       return result;
     } finally {
       finished = true;
@@ -563,6 +572,7 @@ export function makeChatOrchestrationStreamer(deps: OrchestratorDeps) {
       queue,
       provideStream,
       built.modelKey,
+      built.captured,
     );
   };
 }
@@ -622,6 +632,7 @@ export function makeChatOrchestrationResumer(deps: OrchestratorDeps) {
       queue,
       provideStream,
       built.modelKey,
+      built.captured,
     );
   };
 }
@@ -630,7 +641,7 @@ function results(res: MastraToolSignals, name: string): unknown[] {
   return res.toolResults.filter((t) => t.payload.toolName === name).map((t) => t.payload.result);
 }
 
-function assemble(res: MastraToolSignals): OrchestratorResult {
+function assemble(res: MastraToolSignals, captured: OrchestratorCaptured): OrchestratorResult {
   const ta = results(res, 'staffing_analyzeTasks') as TaskAnalyzerOutput[];
   const recs = results(res, 'staffing_rankRecommendations') as {
     taskId: string | null;
@@ -688,12 +699,15 @@ function assemble(res: MastraToolSignals): OrchestratorResult {
 
   // A document / general question routes here: the general-answer sub-agent's
   // prose IS the terminal answer. It runs only when the LLM called NO staffing
-  // tools, so the structured branches above never fire alongside it. An empty
-  // answer falls through to the honest capability message below.
-  const generalAnswer = (results(res, 'staffing_answerQuestion') as { answer?: string }[]).find(
-    (g) => g.answer?.trim(),
-  )?.answer;
-  if (generalAnswer) return { message: generalAnswer.trim() };
+  // tools, so the structured branches above never fire alongside it. Prefer the
+  // execute-time capture (reasoning models drop the entry from res.toolResults);
+  // fall back to the round-tripped result. An empty answer falls through to the
+  // honest capability message below.
+  const generalAnswer =
+    captured.generalAnswer ??
+    (results(res, 'staffing_answerQuestion') as { answer?: string }[]).find((g) => g.answer?.trim())
+      ?.answer;
+  if (generalAnswer?.trim()) return { message: generalAnswer.trim() };
 
   // A turn where the LLM called no tools at all is conversational — e.g. the
   // "Approved"/"Declined" follow-up ChatEmbeddedHitl appends after a card
@@ -731,17 +745,25 @@ function citationsFor(
   return [];
 }
 
-function confidenceFor(result: OrchestratorResult, res?: MastraToolSignals): number {
+function confidenceFor(
+  result: OrchestratorResult,
+  res?: MastraToolSignals,
+  captured?: OrchestratorCaptured,
+): number {
   if (result.recommendations?.length) return 0.8;
   if (result.tasks?.length) return 0.8;
   if (result.candidates?.length) return 0.8;
   if (result.skills?.length) return 0.8;
   if (result.userProfiles?.length) return 0.9;
   // A surfaced general answer is a real (if unsourced) answer — rank it above the
-  // 0.2 honest-failure floor that bare `message` results carry.
+  // 0.2 honest-failure floor that bare `message` results carry. Same dual source
+  // as assemble(): execute-time capture first, round-tripped toolResults second.
   if (
-    res &&
-    (results(res, 'staffing_answerQuestion') as { answer?: string }[]).some((g) => g.answer?.trim())
+    captured?.generalAnswer?.trim() ||
+    (res &&
+      (results(res, 'staffing_answerQuestion') as { answer?: string }[]).some((g) =>
+        g.answer?.trim(),
+      ))
   ) {
     return 0.6;
   }

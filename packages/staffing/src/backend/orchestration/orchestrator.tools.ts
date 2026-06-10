@@ -65,7 +65,20 @@ export interface OrchestratorToolDeps {
   ctx: SpecializedAgentRunCtx;
 }
 
-/** Build the five sub-agent delegation tools, bound to one orchestrator run. */
+/** Side-channel for sub-agent results the orchestrator must recover even when the
+ *  routing LLM's returned tool signals drop them. Reasoning models (e.g. gpt-5.5)
+ *  sometimes execute the general-answer tool — billed, events fired — yet omit the
+ *  entry from the generate result's `toolResults`; relying solely on
+ *  `res.toolResults` then mis-answers a real document/general answer as the
+ *  capability disclaimer. The tool writes its answer here at execute time so
+ *  assembly never loses it. */
+export interface OrchestratorCaptured {
+  /** Trimmed prose from the general-answer tool, set only when non-empty. */
+  generalAnswer?: string;
+}
+
+/** Build the sub-agent delegation tools bound to one orchestrator run, plus the
+ *  `captured` side-channel that survives a reasoning model dropping tool results. */
 export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
   const {
     taskAnalyzer,
@@ -78,6 +91,7 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
     userText,
     ctx,
   } = deps;
+  const captured: OrchestratorCaptured = {};
   // Sub-agents run with the same tenant/actor but WITHOUT the onEvent sink, so
   // only the orchestrator (here) emits the sub-step cards. The per-turn model
   // override rides along so sub-agent LLM calls honor the user's pick.
@@ -263,6 +277,10 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
         agentId: 'staffing.generalAnswer',
       });
       const res = await generalAnswer.run({ query: userText }, answerCtx);
+      // Capture here, not from the LLM's round-tripped toolResults: reasoning
+      // models drop the entry and the answer would be lost to the disclaimer.
+      const answer = res.result.answer?.trim();
+      if (answer) captured.generalAnswer = answer;
       ctx.onEvent?.({ kind: 'step-done', stepId: 'generalAnswer', trust: res.trust });
       return res.result;
     },
@@ -319,12 +337,15 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
   });
 
   return {
-    staffing_analyzeTasks,
-    staffing_matchCandidatesBySkill,
-    staffing_checkCandidateAvailability,
-    staffing_rankRecommendations,
-    staffing_answerQuestion,
-    staffing_lookupUserProfile,
-    proposeAssignment,
+    tools: {
+      staffing_analyzeTasks,
+      staffing_matchCandidatesBySkill,
+      staffing_checkCandidateAvailability,
+      staffing_rankRecommendations,
+      staffing_answerQuestion,
+      staffing_lookupUserProfile,
+      proposeAssignment,
+    },
+    captured,
   };
 }

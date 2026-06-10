@@ -285,6 +285,33 @@ describe('orchestrator assembly', () => {
     const res = await agent.run({ userText: 'hmm', taskId: null }, ctx);
     expect(res.result.message).toContain('I can describe');
   });
+
+  it('reasoning model drops the tool result: captured general answer still surfaces', async () => {
+    // gpt-5.5 reproduction. callGeneralAnswer executes (writing captured.generalAnswer
+    // exactly as the real tool does), but the reasoning model's returned toolResults
+    // omits the entry while toolCalls is non-empty, so the turn is not "conversational".
+    // Without capture-at-execute this fell through to the honest capability disclaimer
+    // even though a full answer was generated (and billed).
+    const agent = makeOrchestratorAgent({
+      taskAnalyzer: stub('staffing.taskAnalyzer'),
+      skillMatcher: stub('staffing.skillMatcher'),
+      avaiChecker: stub('staffing.avaiChecker'),
+      recommender: stub('staffing.recommender'),
+      generalAnswer: stub('staffing.generalAnswer'),
+      resolveModel: () => ({}) as never,
+      runAgent: async ({ captured }) => {
+        captured.generalAnswer = 'The document explains agentic AI architectures.';
+        return {
+          toolCalls: [{ payload: { toolName: 'callGeneralAnswer', args: {} } }],
+          toolResults: [],
+          text: '',
+        };
+      },
+    });
+    const res = await agent.run({ userText: 'summary file này', taskId: null }, ctx);
+    expect(res.result.message).toBe('The document explains agentic AI architectures.');
+    expect(res.trust.confidenceScore).toBe(0.6);
+  });
 });
 
 describe('orchestrator request-context wiring', () => {
