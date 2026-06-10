@@ -15,6 +15,13 @@
       "when": 1781067671484,
       "tag": "0001_conscious_moondragon",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781068615867,
+      "tag": "0002_nifty_nocturne",
+      "breakpoints": true
     }
   ]
 }
