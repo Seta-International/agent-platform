@@ -84,7 +84,7 @@ export interface OrchestratorDeps {
 
 const RECOMMEND_TASK_CAP = 5;
 
-function instructions(cap: number): string {
+function instructionsText(cap: number): string {
   return [
     'You are a staffing assistant.',
     'For multi-step tasks (finding people for a task, recommending an assignee, looking up a',
@@ -142,6 +142,87 @@ function instructions(cap: number): string {
   ].join('\n');
 }
 
+interface BuiltOrchestrator {
+  agent: Agent;
+  rc: RequestContext;
+  message: string;
+  /** Shared run options for generate()/stream(): memory wiring, maxSteps, abort. */
+  runOptions: Record<string, unknown>;
+  /** Exposed for the runAgent test seam (asserts wiring without an LLM). */
+  instructions: string;
+  tools: Record<string, unknown>;
+}
+
+async function buildOrchestrator(
+  deps: OrchestratorDeps,
+  input: In,
+  ctx: SpecializedAgentRunCtx,
+  cap: number,
+): Promise<BuiltOrchestrator> {
+  const rc = new RequestContext();
+  rc.set('actor', { type: 'user', user_id: ctx.actorUserId });
+  rc.set('tenant_id', ctx.tenantId);
+  rc.set('effective_permissions', ctx.effectivePermissions ?? new Set<string>());
+  if (ctx.threadId) rc.set(RC_THREAD_ID, ctx.threadId);
+  if (ctx.entitiesMemory) rc.set(RC_AGENT_MEMORY, ctx.entitiesMemory);
+
+  const tools: Record<string, unknown> = makeOrchestratorTools({
+    taskAnalyzer: deps.taskAnalyzer,
+    skillMatcher: deps.skillMatcher,
+    avaiChecker: deps.avaiChecker,
+    recommender: deps.recommender,
+    generalAnswer: deps.generalAnswer,
+    userProfileLookup: deps.userProfileLookup,
+    userText: input.userText,
+    ctx,
+  });
+  const wmTool = makeUpdateWorkingMemoryTool(ctx);
+  if (wmTool) tools.updateWorkingMemory = wmTool;
+
+  const wmSection = await loadUserContextSection(ctx);
+  const instructions = wmSection
+    ? `${instructionsText(cap)}\n\n${wmSection}`
+    : instructionsText(cap);
+
+  const agent = new Agent({
+    id: 'staffing.orchestrator',
+    name: 'Staffing Orchestrator',
+    instructions,
+    model: pickModel(ctx, deps.resolveModel),
+    tools: tools as never,
+    ...(ctx.userMemory ? { memory: ctx.userMemory.memory } : {}),
+    inputProcessors: [new TokenLimiterProcessor({ limit: 100_000 })],
+  });
+
+  const message = [
+    `User message: ${input.userText}`,
+    `Current taskId: ${input.taskId ?? '(none)'}`,
+  ].join('\n');
+
+  const runOptions: Record<string, unknown> = {
+    requestContext: rc,
+    maxSteps: 12,
+    abortSignal: ctx.abortSignal,
+    // Restore supervisor parity: Mastra injects lastMessages history
+    // + semanticRecall and fires generateTitle. readOnly => it does
+    // NOT persist messages (our chat route persists via
+    // userMemory.saveMessages). workingMemory disabled here because
+    // the orchestrator still injects userContext manually via
+    // loadUserContextSection (no double handling).
+    ...(ctx.userMemory && ctx.threadId
+      ? {
+          memory: {
+            thread: ctx.threadId,
+            resource: `${ctx.tenantId}:${ctx.actorUserId}`,
+            options: { readOnly: true, workingMemory: { enabled: false } },
+          },
+        }
+      : {}),
+  };
+
+  return { agent, rc, message, runOptions, instructions, tools };
+}
+
 /** Shared post-LLM step: assemble the structured result, record the deterministic
  *  HITL approval card if a single-task recommend succeeded, and derive the trust
  *  envelope. Used by both the generate() (queued) and stream() (chat) paths. */
@@ -166,94 +247,38 @@ export function makeOrchestratorAgent(deps: OrchestratorDeps): SpecializedAgentS
     inputSchema: OrchestratorInputSchema,
     outputSchema: OrchestratorResultSchema,
     run: async (input, ctx): Promise<AgentResult<Out>> => {
-      const rc = new RequestContext();
-      rc.set('actor', { type: 'user', user_id: ctx.actorUserId });
-      rc.set('tenant_id', ctx.tenantId);
-      rc.set('effective_permissions', ctx.effectivePermissions ?? new Set<string>());
-      // Conversation-scoped memory wiring: the SDK entity recorder and
-      // task-ref resolver key on these two request-context entries. Absent
-      // (first turn before a thread id exists, queued runner) they no-op.
-      if (ctx.threadId) rc.set(RC_THREAD_ID, ctx.threadId);
-      if (ctx.entitiesMemory) rc.set(RC_AGENT_MEMORY, ctx.entitiesMemory);
-
-      const tools: Record<string, unknown> = makeOrchestratorTools({
-        taskAnalyzer: deps.taskAnalyzer,
-        skillMatcher: deps.skillMatcher,
-        avaiChecker: deps.avaiChecker,
-        recommender: deps.recommender,
-        generalAnswer: deps.generalAnswer,
-        userProfileLookup: deps.userProfileLookup,
-        userText: input.userText,
-        ctx,
-      });
-      const wmTool = makeUpdateWorkingMemoryTool(ctx);
-      if (wmTool) tools.updateWorkingMemory = wmTool;
-
-      const wmSection = await loadUserContextSection(ctx);
-      const baseInstructions = wmSection
-        ? `${instructions(cap)}\n\n${wmSection}`
-        : instructions(cap);
-      const agentInstructions = baseInstructions;
-
+      const built = await buildOrchestrator(deps, input, ctx, cap);
       const res: MastraToolSignals = deps.runAgent
-        ? await deps.runAgent({ input, requestContext: rc, instructions: agentInstructions, tools })
+        ? await deps.runAgent({
+            input,
+            requestContext: built.rc,
+            instructions: built.instructions,
+            tools: built.tools,
+          })
         : await (async () => {
-            const agent = new Agent({
-              id: 'staffing.orchestrator',
-              name: 'Staffing Orchestrator',
-              instructions: agentInstructions,
-              model: pickModel(ctx, deps.resolveModel),
-              tools: tools as never,
-              ...(ctx.userMemory ? { memory: ctx.userMemory.memory } : {}),
-              inputProcessors: [new TokenLimiterProcessor({ limit: 100_000 })],
-            });
             // Emit LLM text-delta tokens that arrive BEFORE the first tool call
             // so the user sees an acknowledgment while tools are executing.
             let firstToolSeen = false;
-            const r = await agent.generate(
-              [
-                `User message: ${input.userText}`,
-                `Current taskId: ${input.taskId ?? '(none)'}`,
-              ].join('\n'),
-              {
-                requestContext: rc,
-                maxSteps: 12,
-                abortSignal: ctx.abortSignal,
-                onChunk: (chunk) => {
-                  if (
-                    chunk.type === 'tool-call' ||
-                    chunk.type === 'tool-call-input-streaming-end'
-                  ) {
-                    firstToolSeen = true;
-                  }
-                  if (!firstToolSeen && chunk.type === 'text-delta') {
-                    ctx.onEvent?.({ kind: 'text', text: (chunk.payload as { text: string }).text });
-                  }
-                },
-                // Restore supervisor parity: Mastra injects lastMessages history
-                // + semanticRecall and fires generateTitle. readOnly => it does
-                // NOT persist messages (our chat route persists via
-                // userMemory.saveMessages). workingMemory disabled here because
-                // the orchestrator still injects userContext manually via
-                // loadUserContextSection (no double handling).
-                ...(ctx.userMemory && ctx.threadId
-                  ? {
-                      memory: {
-                        thread: ctx.threadId,
-                        resource: `${ctx.tenantId}:${ctx.actorUserId}`,
-                        options: { readOnly: true, workingMemory: { enabled: false } },
-                      },
-                    }
-                  : {}),
+            const r = await built.agent.generate(built.message, {
+              ...built.runOptions,
+              onChunk: (chunk) => {
+                if (
+                  chunk.type === 'tool-call' ||
+                  chunk.type === 'tool-call-input-streaming-end'
+                ) {
+                  firstToolSeen = true;
+                }
+                if (!firstToolSeen && chunk.type === 'text-delta') {
+                  ctx.onEvent?.({ kind: 'text', text: (chunk.payload as { text: string }).text });
+                }
               },
-            );
+            });
             return {
               toolCalls: r.toolCalls as MastraToolSignals['toolCalls'],
               toolResults: r.toolResults as MastraToolSignals['toolResults'],
               text: r.text,
             };
           })();
-
       return finalizeOrchestratorResult(res, ctx);
     },
   };
