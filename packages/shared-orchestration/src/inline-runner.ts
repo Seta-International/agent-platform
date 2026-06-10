@@ -42,7 +42,8 @@ export async function* runOrchestrationInline(
 
   let lastOutput: unknown;
   for (let i = 0; i < spec.steps.length; i++) {
-    const step = spec.steps[i]!;
+    const step = spec.steps[i];
+    if (!step) continue;
     yield { kind: 'step-start', stepId: step.id, agentId: step.agentId };
 
     // Sub-events the agent emits during this step are queued and yielded live.
@@ -67,7 +68,10 @@ export async function* runOrchestrationInline(
     });
 
     while (!finished || queue.length > 0) {
-      while (queue.length > 0) yield queue.shift()!;
+      while (queue.length > 0) {
+        const ev = queue.shift();
+        if (ev !== undefined) yield ev;
+      }
       if (finished) break;
       await new Promise<void>((resolve) => {
         wake = resolve;
