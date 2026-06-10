@@ -80,6 +80,9 @@ importers:
       '@seta/shared-mailer':
         specifier: workspace:^
         version: link:../../packages/shared-mailer
+      '@seta/shared-rbac':
+        specifier: workspace:^
+        version: link:../../packages/shared-rbac
       '@seta/staffing':
         specifier: workspace:^
         version: link:../../packages/staffing

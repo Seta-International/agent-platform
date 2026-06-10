@@ -7,6 +7,7 @@ import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
+import { resolveTestPermissions } from '../helpers/rbac.ts';
 
 function buildSession(userId: string, tenantId: string): SessionScope {
   const role_summary = { roles: ['org.admin'], cross_tenant_read: false };
@@ -18,6 +19,7 @@ function buildSession(userId: string, tenantId: string): SessionScope {
     display_name: 'X',
     role_summary,
     role_summary_hash: hashRoleSummary(role_summary),
+    permissions: resolveTestPermissions(role_summary.roles),
     accessible_group_ids: [],
     cross_tenant_read: false,
     built_at: new Date(),
