@@ -1,8 +1,14 @@
 import { Alert, AlertDescription, Card, PageChrome, Skeleton } from '@seta/shared-ui';
 import { useQuery } from '@tanstack/react-query';
-import { getTenantUsage, type TenantUsage } from '../api/billing-client.ts';
+import {
+  getModelPricing,
+  getTenantUsage,
+  type ModelPriceRow,
+  type TenantUsage,
+} from '../api/billing-client.ts';
 
 const usageKey = ['admin', 'billing-usage'] as const;
+const pricingKey = ['admin', 'billing-pricing'] as const;
 
 function pct(spend: number, limit: number | null): number | null {
   if (limit == null || limit <= 0) return null;
@@ -45,6 +51,11 @@ export function BillingUsage() {
   const { data, isLoading, error } = useQuery<TenantUsage>({
     queryKey: usageKey,
     queryFn: () => getTenantUsage(),
+  });
+
+  const pricing = useQuery<ModelPriceRow[]>({
+    queryKey: pricingKey,
+    queryFn: () => getModelPricing(),
   });
 
   return (
@@ -95,6 +106,39 @@ export function BillingUsage() {
                     <tr>
                       <td className="py-2 text-ink-muted" colSpan={3}>
                         No usage yet this month.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </Card>
+            <Card className="p-5">
+              <div className="font-medium text-ink">Model pricing (platform)</div>
+              <div className="mt-1 text-body-sm text-ink-muted">
+                Global per-token prices used to compute cost. Operator-managed.
+              </div>
+              <table className="mt-3 w-full text-body-sm">
+                <thead>
+                  <tr className="text-left text-ink-muted">
+                    <th className="py-1">Model</th>
+                    <th className="py-1 text-right">Input / token</th>
+                    <th className="py-1 text-right">Output / token</th>
+                    <th className="py-1 text-right">Currency</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(pricing.data ?? []).map((r) => (
+                    <tr key={r.modelKey} className="border-t border-hairline">
+                      <td className="py-1">{r.modelKey}</td>
+                      <td className="py-1 text-right">{r.in}</td>
+                      <td className="py-1 text-right">{r.out}</td>
+                      <td className="py-1 text-right">{r.currency}</td>
+                    </tr>
+                  ))}
+                  {(pricing.data?.length ?? 0) === 0 && (
+                    <tr>
+                      <td className="py-2 text-ink-muted" colSpan={4}>
+                        No model prices configured.
                       </td>
                     </tr>
                   )}

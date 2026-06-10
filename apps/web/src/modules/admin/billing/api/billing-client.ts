@@ -28,3 +28,17 @@ export async function getTenantUsage(): Promise<TenantUsage> {
   const res = await fetch('/api/billing/v1/usage', { credentials: 'include' });
   return (await jsonOrThrow(res)) as TenantUsage;
 }
+
+export interface ModelPriceRow {
+  modelKey: string;
+  in: number;
+  out: number;
+  currency: string;
+  updatedAt: string;
+}
+
+export async function getModelPricing(): Promise<ModelPriceRow[]> {
+  const res = await fetch('/api/billing/v1/pricing', { credentials: 'include' });
+  const body = (await jsonOrThrow(res)) as { pricing: ModelPriceRow[] };
+  return body.pricing;
+}
