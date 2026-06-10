@@ -13,7 +13,12 @@ export async function buildActorSession(actor: { user_id: string }): Promise<Ses
   const profile = await whoAmI({ type: 'user', user_id: actor.user_id });
 
   return await getSessionScope(
-    { listRoleGrants, resolvePermissions: resolveForRoles },
+    {
+      listRoleGrants,
+      // Spec 2: agent-tool actor sessions resolve seed-only; the per-tenant
+      // permission overlay is deferred for this RPC actor path (see build.ts).
+      resolvePermissions: async (roles) => resolveForRoles(roles),
+    },
     sessionId,
     actor.user_id,
     profile?.email ?? '',

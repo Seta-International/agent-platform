@@ -3,6 +3,7 @@ import type { SessionLike } from '@seta/agent-sdk';
 import {
   buildHonoApp,
   type ContributionRegistry,
+  createOverlayStore,
   createSessionMiddleware,
   type ErrorMapper,
   type SessionEnv,
@@ -10,7 +11,7 @@ import {
 } from '@seta/core';
 import { makeRbacCheck, setRbacCheck } from '@seta/core/rpc';
 import type { WorkerHandle } from '@seta/core/runtime';
-import { listRoleGrants } from '@seta/identity';
+import { listRoleGrants, listTenantRoleOverlays } from '@seta/identity';
 import { auth } from '@seta/identity/auth';
 import { registerKnowledgeRoutes, registerKnowledgeStreamRoutes } from '@seta/knowledge/http';
 import type { KnowledgeStreamHub } from '@seta/knowledge/stream';
@@ -86,7 +87,7 @@ type AgentBridgeEnv = { Variables: { session: SessionLike } };
 
 function createAgentSessionBridge(deps: {
   listRoleGrants: typeof listRoleGrants;
-  resolve: (roles: readonly string[]) => ReadonlySet<string>;
+  resolve: (roles: readonly string[], tenantId: string) => Promise<ReadonlySet<string>>;
 }) {
   return createMiddleware<AgentBridgeEnv>(async (c, next) => {
     const authSession = await auth.api.getSession({ headers: c.req.raw.headers });
@@ -100,7 +101,7 @@ function createAgentSessionBridge(deps: {
       c.set('session', {
         tenant_id,
         user_id: user.id,
-        effective_permissions: deps.resolve(role_summary.roles),
+        effective_permissions: await deps.resolve(role_summary.roles, tenant_id),
         role_summary,
       });
     }
@@ -119,8 +120,13 @@ export function buildServerApp(
   deps: BuildServerAppDeps,
 ): BuiltServerApp {
   const rbacRegistry = buildRegistry(inventoryToManifests(INVENTORY));
-  const resolve = (roles: readonly string[]): ReadonlySet<string> =>
-    resolvePermissions(rbacRegistry, roles, IMPLICIT_PERMISSIONS);
+  const overlayStore = createOverlayStore({ load: listTenantRoleOverlays });
+  const resolve = async (
+    roles: readonly string[],
+    tenantId: string,
+  ): Promise<ReadonlySet<string>> =>
+    resolvePermissions(rbacRegistry, roles, IMPLICIT_PERMISSIONS, await overlayStore.get(tenantId));
+  // Spec 2: RPC actor overlay deferred — agent-tool RPC checks resolve from seed roles only.
   setRbacCheck(makeRbacCheck(rbacRegistry, IMPLICIT_PERMISSIONS));
 
   const sessionMiddleware = createSessionMiddleware({

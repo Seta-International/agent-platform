@@ -35,6 +35,7 @@ export { listMyEffectivePermissions } from './backend/domain/list-my-effective-p
 export type { ActiveRoleGrant, RoleGrantsResult } from './backend/domain/list-role-grants.ts';
 export { listRoleGrants } from './backend/domain/list-role-grants.ts';
 export { listSsoProviders } from './backend/domain/list-sso-providers.ts';
+export { listTenantRoleOverlays } from './backend/domain/list-tenant-role-overlays.ts';
 export type {
   ActivityRole,
   ActivityRow,
