@@ -179,6 +179,9 @@ const agent = registerAgent({
   // orchestration's streaming entrypoint. apps/server is the only layer that
   // can bind the staffing runtime to the engine surface.
   chatOrchestration: staffingOrchestration.runStream,
+  // Native-suspend HITL resume: POST /chat/resume re-enters the suspended
+  // proposeAssignment composite via resumeStream. Same composition-root binding.
+  resumeOrchestration: staffingOrchestration.runResume,
   // Chat attachments: apps/server is the only layer that can import the
   // @seta/knowledge consume/mark functions into the engine surface.
   consumeThreadAttachments: async ({ tenantId, threadId, query }) => {

@@ -62,6 +62,24 @@ export type AgentRouteDeps = {
     runInput: { userText: string; taskId: string | null },
     ctx: import('@seta/shared-orchestration').RunCtx,
   ) => AsyncIterable<import('@seta/shared-orchestration').OrchestrationEvent>;
+  /**
+   * Resumes a suspended native-suspend agentic chat-HITL run. Injected by the
+   * composition root (apps/server) as the staffing runtime's `runResume`. The
+   * structural type avoids an `agent → staffing` import (depcruise-forbidden);
+   * staffing's concrete `runResume` is structurally assignable.
+   */
+  resumeOrchestration?: (
+    resume: {
+      decision: 'approve' | 'reject' | 'modify';
+      overrideUserIds?: string[];
+      alternateIndices?: number[];
+      note?: string;
+    },
+    ctx: import('@seta/shared-orchestration').RunCtx & {
+      mastraRunId: string;
+      toolCallId?: string;
+    },
+  ) => AsyncIterable<import('@seta/shared-orchestration').OrchestrationEvent>;
   /** Injected by apps/server from @seta/knowledge (the agent package may not
    *  import feature modules). Reads + parses the thread's pending attachments,
    *  enforcing the context budget. Returns a discriminated result. */

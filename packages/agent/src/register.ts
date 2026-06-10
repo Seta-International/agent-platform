@@ -95,6 +95,12 @@ export function registerAgent(deps: {
     ctx: import('@seta/shared-orchestration').RunCtx,
   ) => AsyncIterable<import('@seta/shared-orchestration').OrchestrationEvent>;
   /**
+   * Resume runtime for native-suspend agentic chat-HITL runs. Injected by the
+   * server entry-point as the staffing runtime's `runResume`. See
+   * AgentRouteDeps.resumeOrchestration.
+   */
+  resumeOrchestration?: import('./backend/routes.ts').AgentRouteDeps['resumeOrchestration'];
+  /**
    * Chat-attachment consume/mark functions, injected by the server entry-point
    * from @seta/knowledge (the only layer that can import a feature module into
    * the engine). See AgentRouteDeps.consumeThreadAttachments / markAttachmentsConsumed.
@@ -166,6 +172,7 @@ export function registerAgent(deps: {
         log: deps.log,
         chatHitlDeciders: deps.chatHitlDeciders,
         chatOrchestration: deps.chatOrchestration,
+        resumeOrchestration: deps.resumeOrchestration,
         consumeThreadAttachments: deps.consumeThreadAttachments,
         markAttachmentsConsumed: deps.markAttachmentsConsumed,
         markAttachmentsFailed: deps.markAttachmentsFailed,
