@@ -265,6 +265,9 @@ importers:
       '@seta/planner':
         specifier: workspace:^
         version: link:../../packages/planner
+      '@seta/shared-rbac':
+        specifier: workspace:^
+        version: link:../../packages/shared-rbac
       '@seta/shared-ui':
         specifier: workspace:^
         version: link:../../packages/shared-ui
@@ -1627,6 +1630,9 @@ importers:
 
   sdks/module:
     dependencies:
+      '@seta/shared-rbac':
+        specifier: workspace:^
+        version: link:../../packages/shared-rbac
       react:
         specifier: ^19.0.0
         version: 19.2.6

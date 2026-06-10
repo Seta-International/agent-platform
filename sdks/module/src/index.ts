@@ -1,3 +1,4 @@
+import type { PermissionKey } from '@seta/shared-rbac';
 import type { ComponentType, SVGProps } from 'react';
 
 export type NavIcon = ComponentType<SVGProps<SVGSVGElement>>;
@@ -9,7 +10,7 @@ export interface NavItem {
   label: string;
   to?: string;
   icon?: NavIcon;
-  requires?: string[];
+  requires?: PermissionKey[];
   children?: NavItem[];
   indent?: number;
   disabled?: boolean;
@@ -28,7 +29,7 @@ export interface NavManifest {
   id: string;
   label: string;
   icon: NavIcon;
-  requiredPermissions: string[];
+  requiredPermissions: PermissionKey[];
   /**
    * Sections grouping nav items inside this module. Every manifest must declare
    * at least one section; single-section modules pass a single entry.

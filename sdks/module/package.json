@@ -19,5 +19,8 @@
   },
   "peerDependencies": {
     "react": "^19.0.0"
+  },
+  "dependencies": {
+    "@seta/shared-rbac": "workspace:^"
   }
 }

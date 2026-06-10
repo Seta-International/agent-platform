@@ -1,15 +1,11 @@
 import type { NavItem, NavManifest, NavSection } from '@seta/module-sdk';
 
 export interface SessionLike {
-  role_summary: { roles: string[] };
+  permissions: ReadonlySet<string>;
 }
 
-function matches(required: string[], session: SessionLike): boolean {
-  if (required.length === 0) return true;
-  for (const r of required) {
-    if (session.role_summary.roles.includes(r)) return true;
-  }
-  return false;
+function matches(required: readonly string[], session: SessionLike): boolean {
+  return required.length === 0 || required.some((p) => session.permissions.has(p));
 }
 
 export function visibleManifests(

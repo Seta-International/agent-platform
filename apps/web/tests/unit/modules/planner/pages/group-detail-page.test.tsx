@@ -93,6 +93,7 @@ function buildSession(roles: string[]): SessionScopeProjection {
     email: 'admin@example.com',
     display_name: 'Admin User',
     role_summary: { roles, cross_tenant_read: false },
+    permissions: [],
     accessible_group_ids: ['g1'],
     cross_tenant_read: false,
     tenant_local_password_disabled: false,
