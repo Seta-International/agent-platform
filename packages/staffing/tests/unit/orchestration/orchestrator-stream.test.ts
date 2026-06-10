@@ -1,4 +1,3 @@
-import type { RequestContext } from '@mastra/core/request-context';
 import { EMPTY_TRUST, type SpecializedAgentSpec } from '@seta/agent-sdk';
 import type { OrchestrationEvent } from '@seta/shared-orchestration';
 import { describe, expect, it } from 'vitest';
