@@ -15,6 +15,7 @@ const session: PlannerSessionScope = {
   display_name: 'Test User',
   role_summary: { roles: [], cross_tenant_read: false },
   role_summary_hash: 'hash',
+  permissions: new Set<string>(),
   accessible_group_ids: [],
   cross_tenant_read: false,
   built_at: new Date(),
