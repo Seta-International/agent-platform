@@ -65,6 +65,7 @@ const BACKEND_DIR_ALLOWLIST = new Set([
   'subscribers',
   'jobs',
   'http',
+  'routes', // agent engine: focused Hono route sub-files (routes.ts composition root)
   'stream',
   'workflows',
   'db',
