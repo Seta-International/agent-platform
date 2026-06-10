@@ -4,6 +4,7 @@ import type {
   SubscriberBuilder,
   WorkflowContribution,
 } from '@seta/agent-sdk';
+import type { ModuleRbacManifest } from '@seta/shared-rbac';
 import type { SubscriberDef } from '@seta/shared-types';
 import type { Task, TaskList } from 'graphile-worker';
 import type { Hono } from 'hono';
@@ -59,7 +60,7 @@ export interface ModuleContribution {
   schema: Record<string, unknown>;
   migrationsDir: string;
   events?: Record<string, z.ZodSchema>;
-  rbac?: Record<string, string>;
+  rbac?: ModuleRbacManifest;
   subscribers?: SubscriberDef[];
   /**
    * Deferred-construction subscribers — invoked by the agent engine post-Mastra
@@ -99,7 +100,7 @@ export interface ContributionRegistry {
     workflowContributions: ReadonlyArray<{ module: string; contribution: WorkflowContribution }>;
     subscriberBuilders: ReadonlyArray<{ module: string; builder: SubscriberBuilder }>;
     errorMappers: ReadonlyArray<{ module: string; mapper: ErrorMapper }>;
-    rbacByModule: ReadonlyMap<string, Record<string, string>>;
+    rbacManifests: ReadonlyArray<ModuleRbacManifest>;
     eventsByModule: ReadonlyMap<string, Record<string, z.ZodSchema>>;
   };
 }
@@ -118,7 +119,7 @@ export function createContributionRegistry(): ContributionRegistry {
   const workflowContributions: { module: string; contribution: WorkflowContribution }[] = [];
   const subscriberBuilders: { module: string; builder: SubscriberBuilder }[] = [];
   const errorMappers: { module: string; mapper: ErrorMapper }[] = [];
-  const rbacByModule = new Map<string, Record<string, string>>();
+  const rbacManifests: ModuleRbacManifest[] = [];
   const eventsByModule = new Map<string, Record<string, z.ZodSchema>>();
   const seenToolIds = new Set<string>();
   const seenAgentSpecIds = new Set<string>();
@@ -179,11 +180,11 @@ export function createContributionRegistry(): ContributionRegistry {
     }
     if (c.errorMapper) errorMappers.push({ module: c.name, mapper: c.errorMapper });
     if (c.rbac) {
-      for (const slug of Object.keys(c.rbac)) {
-        if (seenPermissionSlugs.has(slug)) throw new Error(`duplicate permission slug: ${slug}`);
-        seenPermissionSlugs.add(slug);
+      for (const p of c.rbac.permissions) {
+        if (seenPermissionSlugs.has(p.key)) throw new Error(`duplicate permission slug: ${p.key}`);
+        seenPermissionSlugs.add(p.key);
       }
-      rbacByModule.set(c.name, c.rbac);
+      rbacManifests.push(c.rbac);
     }
     if (c.events) eventsByModule.set(c.name, c.events);
   }
@@ -204,7 +205,7 @@ export function createContributionRegistry(): ContributionRegistry {
       workflowContributions,
       subscriberBuilders,
       errorMappers,
-      rbacByModule,
+      rbacManifests,
       eventsByModule,
     },
   };
