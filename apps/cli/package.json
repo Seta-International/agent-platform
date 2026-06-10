@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@seta/agent": "workspace:^",
+    "@seta/billing": "workspace:^",
     "@seta/core": "workspace:^",
     "@seta/identity": "workspace:^",
     "@seta/integrations": "workspace:^",

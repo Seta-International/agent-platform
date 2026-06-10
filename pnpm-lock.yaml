@@ -53,6 +53,9 @@ importers:
       '@seta/agent':
         specifier: workspace:^
         version: link:../../packages/agent
+      '@seta/billing':
+        specifier: workspace:^
+        version: link:../../packages/billing
       '@seta/core':
         specifier: workspace:^
         version: link:../../packages/core
