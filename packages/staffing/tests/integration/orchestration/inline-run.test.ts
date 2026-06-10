@@ -1,3 +1,4 @@
+import { InMemoryStore } from '@mastra/core/storage';
 import { SpecializedAgentRegistry } from '@seta/agent-sdk';
 import { type OrchestrationEvent, OrchestrationRegistry } from '@seta/shared-orchestration';
 import { MockLanguageModelV3 } from 'ai/test';
@@ -150,6 +151,7 @@ describe('orchestrator inline run (e2e)', () => {
       // built first at run start; skillMatcher's Agent only when delegated to.
       // taskAnalyzer + avaiChecker are deterministic here (no model call).
       const rt = buildStaffingOrchestrationRuntime({
+        mastraStorage: new InMemoryStore(),
         repo: new StaffingRunStateRepository(),
         resolveModel: resolveModelSeq([
           // orchestrator: chain the four delegations. taskAnalyzer is deterministic
@@ -225,6 +227,7 @@ describe('orchestrator inline run (e2e)', () => {
     await withAgentTestDb(async () => {
       __setStaffingRunIdForTests(() => RUN);
       const rt = buildStaffingOrchestrationRuntime({
+        mastraStorage: new InMemoryStore(),
         repo: new StaffingRunStateRepository(),
         resolveModel: resolveModelSeq([
           // Only the orchestrator resolves a model — skillMatcher is never
@@ -267,6 +270,7 @@ describe('orchestrator inline run (e2e)', () => {
   it('runStream recommend path: streams OrchestrationEvents ending in final, no DB persistence', async () => {
     await withAgentTestDb(async () => {
       const rt = buildStaffingOrchestrationRuntime({
+        mastraStorage: new InMemoryStore(),
         repo: new StaffingRunStateRepository(),
         resolveModel: resolveModelSeq([
           // orchestrator: driven via Agent.stream() → doStream; same delegation
@@ -334,6 +338,7 @@ describe('orchestrator inline run (e2e)', () => {
     await withAgentTestDb(async () => {
       __setStaffingRunIdForTests(() => RUN);
       const rt = buildStaffingOrchestrationRuntime({
+        mastraStorage: new InMemoryStore(),
         repo: new StaffingRunStateRepository(),
         resolveModel: resolveModelSeq([
           // orchestrator (resolved first, at run start): people-by-named-skills

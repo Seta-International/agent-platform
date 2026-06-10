@@ -2,6 +2,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Mastra } from '@mastra/core';
 import { Agent } from '@mastra/core/agent';
+import type { MastraStorage } from '@mastra/core/storage';
 import type { AnyWorkflow } from '@mastra/core/workflows';
 import {
   AgentRegistry,
@@ -24,7 +25,7 @@ import { buildEntitiesMemory, buildMemory } from './backend/memory.ts';
 import { type ModelTier, resolveModel } from './backend/model-registry.ts';
 import { validateModelEnv } from './backend/provider-config.ts';
 import { registerAgentRoutes } from './backend/routes.ts';
-import { buildMastraFull } from './backend/runtime.ts';
+import { buildMastraFull, createAgentMastraStorage } from './backend/runtime.ts';
 import { agentSubscribers } from './backend/subscribers/index.ts';
 import { registerWorkflowInputSchema } from './backend/workflows/_infra/input-schema-registry.ts';
 import { agentRbac } from './rbac.ts';
@@ -60,10 +61,19 @@ export function buildAgentFromSpec(spec: AgentSpec, opts: { model?: unknown } = 
   });
 }
 
+export { createAgentMastraStorage } from './backend/runtime.ts';
+
 export function registerAgent(deps: {
   pool: Pool;
   databaseUrl: string;
   reg: ContributionRegistry;
+  /**
+   * Pre-built store, forwarded to buildMastraFull so the engine Mastra reuses
+   * the same instance the staffing orchestrator's per-turn Mastra wraps —
+   * cross-instance native-suspend resume requires ONE shared store. Built once
+   * at the composition root via createAgentMastraStorage.
+   */
+  mastraStorage?: MastraStorage;
   log?: {
     error: (obj: unknown, msg?: string) => void;
     warn: (obj: unknown, msg?: string) => void;
@@ -109,6 +119,7 @@ export function registerAgent(deps: {
     pool: deps.pool,
     databaseUrl: deps.databaseUrl,
     log: deps.log,
+    storage: deps.mastraStorage,
   });
 
   for (const spec of deps.reg.collected.agentSpecs) {

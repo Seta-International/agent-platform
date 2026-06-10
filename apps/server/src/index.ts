@@ -1,6 +1,6 @@
 import './otel.ts'; // MUST be first; see otel.ts header comment.
 import { resolveModel } from '@seta/agent';
-import { registerAgent } from '@seta/agent/register';
+import { createAgentMastraStorage, registerAgent } from '@seta/agent/register';
 import { SpecializedAgentRegistry } from '@seta/agent-sdk';
 import { createContributionRegistry, createOverlayStore, requestIdStorage } from '@seta/core';
 import { coreDb } from '@seta/core/db';
@@ -122,8 +122,15 @@ const identityEmbeddingProvider: ReturnType<typeof resolveEmbeddingProvider> = {
   },
   embed: (...args) => resolveEmbeddingProvider().embed(...args),
 };
+// ONE shared Mastra store for both the engine runtime and the staffing
+// orchestrator's per-turn Mastra. Cross-Mastra-instance native-suspend resume
+// requires both wrap the SAME physical store; the engine's Mastra is built from
+// getPool('worker'), so the orchestrator must share that exact pool.
+const mastraStorage = createAgentMastraStorage({ pool: getPool('worker') });
+
 const staffingOrchestration = buildStaffingOrchestrationRuntime({
   repo: new StaffingRunStateRepository(),
+  mastraStorage,
   resolveModel: () => resolveModel('auto', { tierHint: 'fast' }).model,
   ports: {
     taskReader: makeTaskReader(),
@@ -157,6 +164,9 @@ const agent = registerAgent({
   pool: getPool('worker'),
   databaseUrl: env.DATABASE_URL,
   reg,
+  // Reuse the SAME store instance the staffing orchestrator wraps so the engine
+  // Mastra and the per-turn orchestrator Mastra share one physical store.
+  mastraStorage,
   log: log.child({ subsystem: 'agent' }),
   // Chat-flow HITL deciders: called by decide-approval when the approval was
   // created by a chat-flow tool (workflow_id starts with '__chat_hitl:').

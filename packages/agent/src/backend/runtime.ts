@@ -1,4 +1,5 @@
 import { Mastra } from '@mastra/core';
+import type { MastraStorage } from '@mastra/core/storage';
 import { PostgresStore } from '@mastra/pg';
 import type { Pool } from 'pg';
 import { adaptMastraEvent, onLifecycleEvent } from './workflows/_infra/lifecycle-hook.ts';
@@ -12,7 +13,29 @@ export type AgentRuntimeDeps = {
   pool: Pool;
   databaseUrl: string;
   log?: Logger;
+  /**
+   * Pre-built store to wrap the runtime Mastra in. When provided, the runtime
+   * reuses this instance instead of constructing its own PostgresStore — so the
+   * engine Mastra and the staffing orchestrator's per-turn Mastra can share ONE
+   * physical store (required for cross-Mastra-instance native-suspend resume).
+   * Built at the composition root via createAgentMastraStorage.
+   */
+  storage?: MastraStorage;
 };
+
+/**
+ * Builds the store the agent runtime uses (PostgresStore, schema `agent`).
+ * Exposed so the composition root can construct ONE store and hand the same
+ * instance to both this engine runtime and the staffing orchestrator's per-turn
+ * Mastra — cross-instance native-suspend resume requires a shared store.
+ */
+export function createAgentMastraStorage(deps: { pool: Pool }): MastraStorage {
+  return new PostgresStore({
+    id: 'agent-store',
+    schemaName: 'agent',
+    pool: deps.pool,
+  });
+}
 
 /**
  * Tracks in-flight lifecycle handler Promises so callers can await full
@@ -59,11 +82,7 @@ export function buildMastraFull(deps: AgentRuntimeDeps): {
   mastra: Mastra;
   drainer: LifecycleDrainer;
 } {
-  const storage = new PostgresStore({
-    id: 'agent-store',
-    schemaName: 'agent',
-    pool: deps.pool,
-  });
+  const storage = deps.storage ?? createAgentMastraStorage({ pool: deps.pool });
   const mastra = new Mastra({
     storage,
     logger: false,

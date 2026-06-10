@@ -1,7 +1,9 @@
+import { Mastra } from '@mastra/core';
 import { Agent } from '@mastra/core/agent';
 import type { MastraModelConfig } from '@mastra/core/llm';
 import { TokenLimiterProcessor } from '@mastra/core/processors';
 import { RequestContext } from '@mastra/core/request-context';
+import type { MastraStorage } from '@mastra/core/storage';
 import {
   type AgentResult,
   type Citation,
@@ -71,6 +73,14 @@ export interface OrchestratorDeps {
   generalAnswer: GeneralAnswerSpec;
   userProfileLookup: UserProfilePort;
   resolveModel: () => MastraModelConfig;
+  /**
+   * Store the per-turn Mastra wraps the orchestrator agent in so its
+   * native-suspend snapshot persists. Injected from the composition root via
+   * the staffing runtime deps; shared with the engine Mastra for cross-instance
+   * resume. The test seams (runAgent/streamAgent) bypass the wrapped agent, so
+   * fixtures default this to an InMemoryStore.
+   */
+  mastraStorage: MastraStorage;
   /** Cap on how many found tasks the orchestrator recommends people for. */
   recommendTaskCap?: number;
   /** Test-only seam; production builds + runs a real Mastra Agent. Receives the
@@ -160,6 +170,9 @@ function instructionsText(cap: number): string {
 
 interface BuiltOrchestrator {
   agent: Agent;
+  /** Storage-backed Mastra the agent is bound to. Task 7's resume path reuses
+   *  buildOrchestrator and calls built.agent.resumeStream against this handle. */
+  mastra: Mastra;
   rc: RequestContext;
   message: string;
   /** Shared run options for generate()/stream(): memory wiring, maxSteps, abort. */
@@ -210,6 +223,17 @@ async function buildOrchestrator(
     inputProcessors: [new TokenLimiterProcessor({ limit: 100_000 })],
   });
 
+  // Wrap the per-turn agent in a storage-backed Mastra so .stream() persists its
+  // native-suspend snapshot — a later resumeStream (Task 7) reloads it from the
+  // SAME store. The store is injected (staffing owns no storage); the engine
+  // Mastra shares this one instance so cross-Mastra-instance resume works.
+  const mastra = new Mastra({
+    agents: { 'staffing.orchestrator': agent },
+    storage: deps.mastraStorage,
+    logger: false,
+  });
+  const boundAgent = mastra.getAgent('staffing.orchestrator');
+
   const message = [
     `User message: ${input.userText}`,
     `Current taskId: ${input.taskId ?? '(none)'}`,
@@ -236,7 +260,7 @@ async function buildOrchestrator(
       : {}),
   };
 
-  return { agent, rc, message, runOptions, instructions, tools };
+  return { agent: boundAgent, mastra, rc, message, runOptions, instructions, tools };
 }
 
 /** Shared post-LLM step: assemble the structured result, record the deterministic

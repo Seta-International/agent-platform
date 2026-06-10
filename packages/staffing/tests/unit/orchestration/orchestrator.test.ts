@@ -1,4 +1,5 @@
 import type { RequestContext } from '@mastra/core/request-context';
+import { InMemoryStore } from '@mastra/core/storage';
 import {
   EMPTY_TRUST,
   RC_AGENT_MEMORY,
@@ -34,6 +35,7 @@ const make = (
     generalAnswer: stub('staffing.generalAnswer'),
     userProfileLookup: { findByName: async () => [] },
     resolveModel: () => ({}) as never,
+    mastraStorage: new InMemoryStore(),
     runAgent: async () => ({ toolCalls, toolResults, text }),
   });
 
@@ -461,6 +463,7 @@ describe('orchestrator request-context wiring', () => {
       generalAnswer: stub('staffing.generalAnswer'),
       userProfileLookup: { findByName: async () => [] },
       resolveModel: () => ({}) as never,
+      mastraStorage: new InMemoryStore(),
       runAgent: async ({ requestContext }) => {
         rcSeen = requestContext;
         return { toolCalls: [], toolResults: [], text: 'hi' };
@@ -484,6 +487,7 @@ describe('orchestrator request-context wiring', () => {
       generalAnswer: stub('staffing.generalAnswer'),
       userProfileLookup: { findByName: async () => [] },
       resolveModel: () => ({}) as never,
+      mastraStorage: new InMemoryStore(),
       runAgent: async ({ requestContext }) => {
         rcSeen = requestContext;
         return { toolCalls: [], toolResults: [], text: 'hi' };
@@ -506,6 +510,7 @@ describe('orchestrator resource working memory', () => {
       generalAnswer: stub('staffing.generalAnswer'),
       userProfileLookup: { findByName: async () => [] },
       resolveModel: () => ({}) as never,
+      mastraStorage: new InMemoryStore(),
       runAgent: async (args) => {
         seen = { instructions: args.instructions, tools: args.tools };
         return { toolCalls: [], toolResults: [], text: 'hi' };

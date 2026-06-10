@@ -1,4 +1,5 @@
 import type { MastraModelConfig } from '@mastra/core/llm';
+import type { MastraStorage } from '@mastra/core/storage';
 import { SpecializedAgentRegistry } from '@seta/agent-sdk';
 import {
   type AddJob,
@@ -67,8 +68,15 @@ export function buildStaffingOrchestrationRuntime(deps: {
   ports: StaffingPorts;
   resolveModel: () => MastraModelConfig;
   repo: RunStateRepository;
+  /**
+   * Store the per-turn orchestrator Mastra wraps so its native-suspend snapshot
+   * persists (Task 7's resume reloads it). Injected at the composition root —
+   * staffing does NOT own storage (and cannot import @mastra/pg). The same
+   * instance is shared with the agent engine so cross-Mastra resume works.
+   */
+  mastraStorage: MastraStorage;
 }): StaffingOrchestrationRuntime {
-  const { ports, resolveModel, repo } = deps;
+  const { ports, resolveModel, repo, mastraStorage } = deps;
 
   // Sub-agents are invoked through the orchestrator's tools (direct .run calls),
   // not via the registry, so only the orchestrator agent is registered.
@@ -89,6 +97,7 @@ export function buildStaffingOrchestrationRuntime(deps: {
     generalAnswer,
     userProfileLookup: ports.userProfileLookup,
     resolveModel,
+    mastraStorage,
   });
 
   SpecializedAgentRegistry.register(orchestrator);
@@ -112,6 +121,7 @@ export function buildStaffingOrchestrationRuntime(deps: {
     recommender,
     generalAnswer,
     resolveModel,
+    mastraStorage,
   });
 
   return { taskList, runInline, runStream: streamChat, repo };

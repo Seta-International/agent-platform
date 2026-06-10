@@ -1,3 +1,4 @@
+import { InMemoryStore } from '@mastra/core/storage';
 import { EMPTY_TRUST, type SpecializedAgentSpec } from '@seta/agent-sdk';
 import type { OrchestrationEvent } from '@seta/shared-orchestration';
 import { describe, expect, it } from 'vitest';
@@ -55,6 +56,7 @@ describe('makeChatOrchestrationStreamer', () => {
       recommender: stub('staffing.recommender'),
       generalAnswer: stub('staffing.generalAnswer'),
       resolveModel: () => ({}) as never,
+      mastraStorage: new InMemoryStore(),
       streamAgent: () => fakeStreamThrowing(),
     });
 
@@ -74,6 +76,7 @@ describe('makeChatOrchestrationStreamer', () => {
       recommender: stub('staffing.recommender'),
       generalAnswer: stub('staffing.generalAnswer'),
       resolveModel: () => ({}) as never,
+      mastraStorage: new InMemoryStore(),
       // The seam captures the onEvent the entrypoint wired into the tools' ctx.
       streamAgent: ({ requestContext }) => {
         // onEvent is read off the request context bridge set by the entrypoint.
