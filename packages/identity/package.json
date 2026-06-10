@@ -15,6 +15,7 @@
       "types": "./src/backend/agent-tools/register.ts",
       "default": "./src/backend/agent-tools/register.ts"
     },
+    "./rbac": "./src/rbac.ts",
     "./register": "./src/register.ts",
     "./testing": "./src/testing/index.ts"
   },

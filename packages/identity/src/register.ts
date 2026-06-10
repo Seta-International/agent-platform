@@ -15,6 +15,7 @@ import {
   applyMemberAdded,
   applyMemberRemoved,
 } from './backend/subscribers/planner-group-member.ts';
+import { identityRbac } from './rbac.ts';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
@@ -29,6 +30,7 @@ export function registerIdentityContributions(reg: ContributionRegistry): void {
   reg.module({
     name: 'identity',
     schema,
+    rbac: identityRbac,
     migrationsDir: resolve(__dirname, '../drizzle'),
     agentTools: identityAgentTools,
     agentToolFactories: [matchUsersToTopicTool],
