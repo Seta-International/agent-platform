@@ -2,6 +2,7 @@ import './otel.ts'; // MUST be first; see otel.ts header comment.
 import { resolveModel } from '@seta/agent';
 import { createAgentMastraStorage, registerAgent } from '@seta/agent/register';
 import { SpecializedAgentRegistry } from '@seta/agent-sdk';
+import { registerBillingContributions } from '@seta/billing/register';
 import { createContributionRegistry, createOverlayStore, requestIdStorage } from '@seta/core';
 import { coreDb } from '@seta/core/db';
 import { emit, withEmit } from '@seta/core/events';
@@ -75,6 +76,7 @@ const getWorkers = (): WorkerHandle => {
 
 const reg = createContributionRegistry();
 registerCoreContributions(reg);
+registerBillingContributions(reg);
 registerIdentityContributions(reg);
 registerIntegrationsContributions(reg, {
   cryptoSvc,
