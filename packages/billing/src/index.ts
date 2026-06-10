@@ -4,6 +4,13 @@ export {
   type TenantUsage,
   type UsageBreakdownRow,
 } from './backend/domain/get-usage.ts';
+export {
+  getModelPrice,
+  listModelPrices,
+  type ModelPriceRow,
+  setModelPrice,
+  type UnitPrice,
+} from './backend/domain/model-pricing.ts';
 export { BillingError, requirePermission as requireBillingPermission } from './backend/rbac.ts';
 export { usageRecorderSubscriber } from './backend/subscribers/usage-recorder.ts';
 export {
