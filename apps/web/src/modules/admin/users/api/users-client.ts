@@ -98,6 +98,31 @@ export async function revokeGrant(grantId: string): Promise<void> {
   if (!res.ok) throw new Error(`revoke failed: ${res.status}`);
 }
 
+export interface BulkRoleResult {
+  granted: number;
+  revoked: number;
+  skipped: number;
+  failed: { user_id: string; reason: string }[];
+}
+
+export async function bulkRoleAssign(body: {
+  user_ids: string[];
+  role_slug: string;
+  action: 'grant' | 'revoke';
+}): Promise<BulkRoleResult> {
+  const res = await fetch('/api/identity/v1/users/bulk-role-grants', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok)
+    throw new Error(
+      ((await res.json()) as { error?: string }).error ?? `bulk failed: ${res.status}`,
+    );
+  return res.json() as Promise<BulkRoleResult>;
+}
+
 export async function deactivateAdminUser(
   userId: string,
   action: 'deactivate' | 'reactivate',
