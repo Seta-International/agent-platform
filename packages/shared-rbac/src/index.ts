@@ -2,6 +2,7 @@ export type { PermissionKey } from './generated/permission-keys.ts';
 export { ALL_PERMISSIONS } from './generated/permission-keys.ts';
 export type { StatementSpec } from './inventory.ts';
 export {
+  ASSIGNABLE_ROLES,
   EDITABLE_ROLES,
   FOUNDATION_ROLES,
   IMPLICIT_PERMISSIONS,

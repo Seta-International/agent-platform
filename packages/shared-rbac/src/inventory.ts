@@ -414,6 +414,12 @@ export const EDITABLE_ROLES: string[] = INVENTORY.flatMap((m) => m.roles.map((r)
   .filter((slug) => !(FOUNDATION_ROLES as readonly string[]).includes(slug))
   .filter((slug) => !(SYSTEM_ROLES as readonly string[]).includes(slug));
 
+const MODULE_ROLE_SLUGS = INVENTORY.flatMap((m) => m.roles.map((r) => r.slug)).filter(
+  (slug) => !(SYSTEM_ROLES as readonly string[]).includes(slug),
+);
+// Foundation roles a human admin may grant (tenant.admin is the implicit wildcard, not offered).
+export const ASSIGNABLE_ROLES: string[] = ['org.admin', 'org.viewer', ...MODULE_ROLE_SLUGS];
+
 export function inventoryToManifests(
   inv: readonly StatementSpec[] = INVENTORY,
 ): ModuleRbacManifest[] {
