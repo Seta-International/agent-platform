@@ -5,6 +5,7 @@ import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { describe, expect, it } from 'vitest';
 import { budgetCounters } from '../../src/backend/db/schema/budget-counters.ts';
 import { usageLedger } from '../../src/backend/db/schema/usage-ledger.ts';
+import { setModelPrice } from '../../src/backend/domain/model-pricing.ts';
 import { usageRecorderSubscriber } from '../../src/backend/subscribers/usage-recorder.ts';
 import {
   BILLING_USAGE_OBSERVED,
@@ -59,6 +60,47 @@ describe('usage recorder', () => {
       expect(counters).toHaveLength(2); // one day, one month
       for (const c of counters) expect(Number(c.spend)).toBeCloseTo(0.00625, 10);
       expect(counters.map((c) => c.periodType).sort()).toEqual(['day', 'month']);
+    });
+  });
+
+  it('prices a usage event from the model_pricing table', async () => {
+    await withBillingTestDb(async ({ pool, db }) => {
+      const tenantId = crypto.randomUUID();
+      // Price a model that is NOT in the seed, so cost is unambiguously from this row.
+      await setModelPrice({ modelKey: 'openai/gpt-5.4-mini', in: 0.000001, out: 0.000002 });
+
+      await withDispatcher(
+        { subscribers: [usageRecorderSubscriber() as never], pool },
+        async () => {
+          await withEmit({ actor: { userId: 'system', tenantId } }, async () => {
+            await emit<BillingUsageObservedPayload>({
+              tenantId,
+              aggregateType: 'billing.usage',
+              aggregateId: tenantId,
+              eventType: BILLING_USAGE_OBSERVED,
+              eventVersion: BILLING_USAGE_OBSERVED_VERSION,
+              payload: {
+                feature: 'chat',
+                provider: 'openai',
+                model_key: 'openai/gpt-5.4-mini',
+                tokens_in: 1000,
+                tokens_out: 500,
+                caused_by_user_id: null,
+              },
+            });
+          });
+
+          await waitFor(async () => {
+            const rows = await db.select().from(usageLedger);
+            return rows.length === 1;
+          });
+        },
+      );
+
+      const [row] = await db.select().from(usageLedger);
+      // 1000*0.000001 + 500*0.000002 = 0.001 + 0.001 = 0.002
+      expect(Number(row.cost)).toBeCloseTo(0.002, 10);
+      expect(Number(row.unitPriceIn)).toBeCloseTo(0.000001, 10);
     });
   });
 

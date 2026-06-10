@@ -6,11 +6,11 @@ import {
   type BillingUsageObservedPayload,
 } from '../../events.ts';
 import { periodKeys } from '../../period.ts';
-import { priceFor } from '../../pricing.ts';
 import { budgetAlerts } from '../db/schema/budget-alerts.ts';
 import { budgetCounters } from '../db/schema/budget-counters.ts';
 import { tenantBudgets } from '../db/schema/tenant-budgets.ts';
 import { usageLedger } from '../db/schema/usage-ledger.ts';
+import { getModelPrice } from '../domain/model-pricing.ts';
 
 /**
  * Side-effects for budget alerting, injected so the recorder stays decoupled from
@@ -122,7 +122,11 @@ async function handle(
   alertDeps: RecorderAlertDeps | undefined,
 ): Promise<void> {
   const p = event.payload;
-  const price = priceFor(p.model_key);
+  const priceRow = await getModelPrice(p.model_key);
+  if (!priceRow) {
+    console.warn('[billing.pricing.unknown-model]', { modelKey: p.model_key });
+  }
+  const price = priceRow ?? { in: 0, out: 0 };
   const cost = p.tokens_in * price.in + p.tokens_out * price.out;
   const { day, month } = periodKeys(event.occurredAt);
 
