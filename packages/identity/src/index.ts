@@ -110,6 +110,11 @@ export {
 } from './events/failed-login-alert.ts';
 export type { IdentityEvent } from './events/index.ts';
 export {
+  IDENTITY_ROLE_PERMISSIONS_CHANGED,
+  IDENTITY_ROLE_PERMISSIONS_CHANGED_VERSION,
+  type IdentityRolePermissionsChangedPayload,
+} from './events/role-permissions-changed.ts';
+export {
   IDENTITY_USER_DEACTIVATED,
   IDENTITY_USER_DEACTIVATED_VERSION,
   type IdentityUserDeactivatedPayload,

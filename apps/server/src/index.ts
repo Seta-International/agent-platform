@@ -2,13 +2,13 @@ import './otel.ts'; // MUST be first; see otel.ts header comment.
 import { resolveModel } from '@seta/agent';
 import { registerAgent } from '@seta/agent/register';
 import { SpecializedAgentRegistry } from '@seta/agent-sdk';
-import { createContributionRegistry, requestIdStorage } from '@seta/core';
+import { createContributionRegistry, createOverlayStore, requestIdStorage } from '@seta/core';
 import { coreDb } from '@seta/core/db';
 import { emit, withEmit } from '@seta/core/events';
 import { createOutboxStore } from '@seta/core/outbox';
 import { registerCoreContributions } from '@seta/core/register';
 import { buildRuntime, runMigrations, type WorkerHandle } from '@seta/core/runtime';
-import { getIdentityVectorStore } from '@seta/identity';
+import { getIdentityVectorStore, listTenantRoleOverlays } from '@seta/identity';
 import { registerIdentityContributions } from '@seta/identity/register';
 import { registerIntegrationsContributions } from '@seta/integrations/register';
 import {
@@ -40,6 +40,7 @@ import pino from 'pino';
 import { buildServerApp, registerAppContributions } from './build.ts';
 import { parseEnv } from './env.ts';
 import { failedLoginAlertSubscriber } from './subscribers/failed-login-alert.ts';
+import { refreshRoleOverlaySubscriber } from './subscribers/refresh-role-overlay.ts';
 import { revokeSessionsOnDeactivationSubscriber } from './subscribers/revoke-sessions-on-deactivation.ts';
 
 const log = pino({
@@ -82,6 +83,11 @@ registerPlannerContributions(reg);
 registerStaffingContributions(reg);
 // MODULE_REGISTRATIONS_END — generator inserts new register*Contributions(reg) calls above this comment.
 registerAppContributions(reg);
+
+// Single per-tenant role-permission overlay projection shared by the HTTP
+// permission resolver (buildServerApp) and the RolePermissionsChanged
+// subscriber that refreshes it, so admin edits take effect process-wide.
+const overlayStore = createOverlayStore({ load: listTenantRoleOverlays });
 
 const lag = await runMigrations(reg, { pool: getPool('worker'), assertCaughtUpOnly: true });
 if (lag.length > 0) {
@@ -204,6 +210,7 @@ const rt = buildRuntime(env, {
       getMailer,
     }) as import('@seta/shared-types').SubscriberDef,
     revokeSessionsOnDeactivationSubscriber() as import('@seta/shared-types').SubscriberDef,
+    refreshRoleOverlaySubscriber({ overlayStore }) as import('@seta/shared-types').SubscriberDef,
     ...agentSubscribers,
   ],
   onServerStart: async ({ workers }) => {
@@ -232,6 +239,7 @@ const rt = buildRuntime(env, {
       streams,
       corsOrigins: env.CORS_ORIGINS,
       agent,
+      overlayStore,
       log: log.child({ subsystem: 'server' }),
     });
     return app;
