@@ -15,6 +15,11 @@ function pct(spend: number, limit: number | null): number | null {
   return Math.min(100, Math.round((spend / limit) * 100));
 }
 
+/** Prices are stored per-token; show them per 1M tokens (the industry convention). */
+function per1M(perToken: number): string {
+  return Number((perToken * 1_000_000).toFixed(4)).toString();
+}
+
 function PeriodCard({
   title,
   spend,
@@ -115,14 +120,14 @@ export function BillingUsage() {
             <Card className="p-5">
               <div className="font-medium text-ink">Model pricing (platform)</div>
               <div className="mt-1 text-body-sm text-ink-muted">
-                Global per-token prices used to compute cost. Operator-managed.
+                Global prices used to compute cost, shown per 1M tokens. Operator-managed.
               </div>
               <table className="mt-3 w-full text-body-sm">
                 <thead>
                   <tr className="text-left text-ink-muted">
                     <th className="py-1">Model</th>
-                    <th className="py-1 text-right">Input / token</th>
-                    <th className="py-1 text-right">Output / token</th>
+                    <th className="py-1 text-right">Input / 1M tokens</th>
+                    <th className="py-1 text-right">Output / 1M tokens</th>
                     <th className="py-1 text-right">Currency</th>
                   </tr>
                 </thead>
@@ -130,8 +135,8 @@ export function BillingUsage() {
                   {(pricing.data ?? []).map((r) => (
                     <tr key={r.modelKey} className="border-t border-hairline">
                       <td className="py-1">{r.modelKey}</td>
-                      <td className="py-1 text-right">{r.in}</td>
-                      <td className="py-1 text-right">{r.out}</td>
+                      <td className="py-1 text-right">{per1M(r.in)}</td>
+                      <td className="py-1 text-right">{per1M(r.out)}</td>
                       <td className="py-1 text-right">{r.currency}</td>
                     </tr>
                   ))}
