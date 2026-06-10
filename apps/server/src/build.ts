@@ -76,7 +76,7 @@ export type BuiltServerApp = {
 
 // Chat runtime stand-in for engine instances built without the composition
 // root (deps.agent omitted, e.g. the HTTP smoke test). Real wiring lives in
-// index.ts: chatOrchestration: staffingOrchestration.runInline.
+// index.ts: chatOrchestration: staffingOrchestration.runStream.
 async function* stubChatRuntimeNotWired(): AsyncIterable<
   import('@seta/shared-orchestration').OrchestrationEvent
 > {

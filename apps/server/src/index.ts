@@ -203,7 +203,7 @@ const rt = buildRuntime(env, {
   pool: getPool('worker'),
   log: log.child({ subsystem: 'core.runtime' }),
   // The orchestration kernel's queued runner (production async path). The chat
-  // harness uses staffingOrchestration.runInline instead; same registries.
+  // harness uses staffingOrchestration.runStream instead; same registries.
   extraJobs: {
     ...staffingOrchestration.taskList,
   },
