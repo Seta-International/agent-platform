@@ -1,7 +1,8 @@
 import type { SpecializedAgentRunCtx, SpecializedAgentSpec } from '@seta/agent-sdk';
 import { defineAgentTool, recordEntityExposure, resolveTaskRef } from '@seta/agent-sdk';
 import { z } from 'zod';
-import type { UserProfilePort } from './ports.ts';
+import type { AssignPort, UserProfilePort } from './ports.ts';
+import { makeProposeAssignmentTool } from './propose-assignment.tool.ts';
 import {
   type AvailabilityResult,
   AvailabilityResultSchema,
@@ -54,6 +55,8 @@ export interface OrchestratorToolDeps {
   recommender: RecommenderSpec;
   generalAnswer: GeneralAnswerSpec;
   userProfileLookup: UserProfilePort;
+  /** Performs the assignment a proposeAssignment approval confirms. */
+  assign: AssignPort;
   /** The orchestrator's current user message — already carries any injected
    *  `Context:` file block. Passed verbatim to the general-answer sub-agent so
    *  the routing LLM cannot paraphrase or truncate the document into a tool arg. */
@@ -71,6 +74,7 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
     recommender,
     generalAnswer,
     userProfileLookup,
+    assign,
     userText,
     ctx,
   } = deps;
@@ -272,6 +276,20 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
     },
   });
 
+  // The deterministic single-task recommend → approve → assign composite. It runs
+  // the (resolve_task_skills → match → availability → recommend) pipeline as code
+  // and suspends with the approval card, replacing the LLM-stepped recommend chain
+  // for the single-task case. The match/availability/recommend tools above are kept
+  // for the MULTI-task find+recommend and the people-search paths.
+  const proposeAssignment = makeProposeAssignmentTool({
+    taskAnalyzer,
+    skillMatcher,
+    avaiChecker,
+    recommender,
+    assign,
+    ctx,
+  });
+
   return {
     callTaskAnalyzer,
     callSkillMatcher,
@@ -279,5 +297,6 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
     callRecommender,
     callGeneralAnswer,
     callUserProfileLookup,
+    proposeAssignment,
   };
 }

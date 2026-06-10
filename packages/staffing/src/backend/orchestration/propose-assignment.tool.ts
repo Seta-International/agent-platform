@@ -1,0 +1,191 @@
+import type { SpecializedAgentRunCtx, SpecializedAgentSpec } from '@seta/agent-sdk';
+import { defineAgentTool, resolveTaskRef } from '@seta/agent-sdk';
+import { z } from 'zod';
+import { buildAssignApprovalCard } from './approval-card.ts';
+import type { AssignPort } from './ports.ts';
+import type {
+  AvailabilityResult,
+  RankedCandidate,
+  Recommendation,
+  TaskAnalyzerIntent,
+  TaskAnalyzerOutput,
+} from './schemas.ts';
+
+type TaskAnalyzerSpec = SpecializedAgentSpec<
+  { intent: TaskAnalyzerIntent; query: string; taskId: string | null },
+  TaskAnalyzerOutput
+>;
+type SkillMatcherSpec = SpecializedAgentSpec<
+  { taskId: string | null; skills: string[] },
+  { taskId: string | null; candidates: RankedCandidate[] }
+>;
+type AvaiCheckerSpec = SpecializedAgentSpec<
+  { taskId: string | null; candidates: RankedCandidate[] },
+  { taskId: string | null; availability: AvailabilityResult[] }
+>;
+type RecommenderSpec = SpecializedAgentSpec<
+  {
+    taskId: string | null;
+    skills: string[];
+    candidates: RankedCandidate[];
+    availability: AvailabilityResult[];
+  },
+  { taskId: string | null; recommendations: Recommendation[] }
+>;
+
+export interface ProposeAssignmentDeps {
+  taskAnalyzer: TaskAnalyzerSpec;
+  skillMatcher: SkillMatcherSpec;
+  avaiChecker: AvaiCheckerSpec;
+  recommender: RecommenderSpec;
+  /** Performs the assignment once the approval card is approved. */
+  assign: AssignPort;
+  /** The orchestrator's run ctx: tenant/actor/abort + the onEvent sink. */
+  ctx: SpecializedAgentRunCtx;
+}
+
+const ResumeSchema = z.object({
+  decision: z.enum(['approve', 'reject', 'modify']),
+  overrideUserIds: z.array(z.string()).optional(),
+  alternateIndices: z.array(z.number()).optional(),
+  note: z.string().optional(),
+});
+
+const SuspendSchema = z.object({ card: z.unknown() });
+
+const InputSchema = z.object({ taskId: z.string(), title: z.string().nullable() });
+
+const OutputSchema = z.object({
+  assigned: z.boolean(),
+  recommendations: z.array(z.unknown()).optional(),
+});
+
+/**
+ * The deterministic single-task recommend → approve → assign composite. Runs the
+ * recommend pipeline AS CODE (no LLM steps), suspends with the approval card via
+ * Mastra native suspend, and on resume performs the assignment. Replaces the
+ * LLM-stepped recommend chain plus the `recordApprovalIfRecommended` post-step.
+ *
+ * Stateless across resume by design: resume may run in a DIFFERENT process (page
+ * reload) where any in-memory state is gone. The assignee set on resume comes
+ * ONLY from `resume.overrideUserIds` (populated by the resume endpoint from the
+ * persisted approval-card row), never from in-process memory.
+ */
+export function makeProposeAssignmentTool(deps: ProposeAssignmentDeps) {
+  const { taskAnalyzer, skillMatcher, avaiChecker, recommender, assign, ctx } = deps;
+
+  // Sub-agents run with the same tenant/actor but WITHOUT the onEvent sink, so
+  // only the composite (here) emits the sub-step cards. The per-turn model
+  // override rides along so sub-agent LLM calls honor the user's pick.
+  const subCtx: SpecializedAgentRunCtx = {
+    tenantId: ctx.tenantId,
+    actorUserId: ctx.actorUserId,
+    abortSignal: ctx.abortSignal,
+    model: ctx.model,
+  };
+
+  return defineAgentTool({
+    id: 'proposeAssignment',
+    name: 'Propose an assignee',
+    description: [
+      'Recommend the best assignee for a single task and ask the user to confirm the',
+      'assignment. Pass the task: taskId is a task UUID, or an ordinal reference into the',
+      'tasks already listed in this conversation ("first"/"#1", "second"/"#2", "last").',
+      'Use this for "who should do this task" / "recommend someone for <task>". It runs the',
+      'recommend pipeline and pauses for the user to approve before assigning.',
+    ].join('\n'),
+    input: InputSchema,
+    output: OutputSchema,
+    suspendSchema: SuspendSchema,
+    resumeSchema: ResumeSchema,
+    execute: async ({ taskId: taskRef, title }, toolCtx) => {
+      // The agentic suspend/resume accessors (spike-confirmed): ctx.agent.suspend
+      // and ctx.agent.resumeData. `agent` is typed optional but is always present
+      // for an agentic tool invocation.
+      const agent = toolCtx.agent;
+      const resume = agent?.resumeData;
+
+      // ── Resume pass: short-circuit. No pipeline re-run. ──
+      if (resume) {
+        if (resume.decision === 'reject') return { assigned: false };
+        const assigneeUserIds = resume.overrideUserIds ?? [];
+        // Defensive no-op: the resume endpoint always populates overrideUserIds
+        // from the persisted card on a non-reject decision; if it is somehow
+        // absent there is nothing to assign.
+        if (assigneeUserIds.length === 0) return { assigned: false };
+        // Re-resolve the taskRef the same way (cheap, deterministic) so the
+        // assign targets the right task even cross-process.
+        const resolvedTaskId = (await resolveTaskRef(toolCtx as never, taskRef)).taskId;
+        await assign.assign({
+          taskId: resolvedTaskId,
+          assigneeUserIds,
+          tenantId: ctx.tenantId,
+          actorUserId: ctx.actorUserId,
+        });
+        return { assigned: true };
+      }
+
+      // ── First pass: resolve the task, run the recommend pipeline, suspend. ──
+      const taskId = (await resolveTaskRef(toolCtx as never, taskRef)).taskId;
+
+      // resolve_task_skills (taskAnalyzer) — its result carries skills + title.
+      ctx.onEvent?.({
+        kind: 'step-start',
+        stepId: 'taskAnalyzer',
+        agentId: 'staffing.taskAnalyzer',
+      });
+      const analyzed = await taskAnalyzer.run(
+        { intent: 'resolve_task_skills', query: title ?? '', taskId },
+        subCtx,
+      );
+      ctx.onEvent?.({ kind: 'step-done', stepId: 'taskAnalyzer', trust: analyzed.trust });
+      const skills = analyzed.result.skills ?? [];
+      const cardTitle = analyzed.result.title ?? title;
+
+      // skillMatcher
+      const matchStepId = `skillMatcher:${taskId}`;
+      ctx.onEvent?.({ kind: 'step-start', stepId: matchStepId, agentId: 'staffing.skillMatcher' });
+      const matched = await skillMatcher.run({ taskId, skills }, subCtx);
+      ctx.onEvent?.({ kind: 'step-done', stepId: matchStepId, trust: matched.trust });
+
+      // avaiChecker
+      const avaiStepId = `avaiChecker:${taskId}`;
+      ctx.onEvent?.({ kind: 'step-start', stepId: avaiStepId, agentId: 'staffing.avaiChecker' });
+      const avai = await avaiChecker.run({ taskId, candidates: matched.result.candidates }, subCtx);
+      ctx.onEvent?.({ kind: 'step-done', stepId: avaiStepId, trust: avai.trust });
+
+      // recommender
+      const recStepId = `recommender:${taskId}`;
+      ctx.onEvent?.({ kind: 'step-start', stepId: recStepId, agentId: 'staffing.recommender' });
+      const recommended = await recommender.run(
+        {
+          taskId,
+          skills,
+          candidates: matched.result.candidates,
+          availability: avai.result.availability,
+        },
+        subCtx,
+      );
+      ctx.onEvent?.({ kind: 'step-done', stepId: recStepId, trust: recommended.trust });
+
+      const recommendations = recommended.result.recommendations;
+      if (recommendations.length === 0) {
+        // Nothing to propose — surface the empty recommend without suspending.
+        return { assigned: false, recommendations: [] };
+      }
+
+      const card = buildAssignApprovalCard({
+        taskId,
+        title: cardTitle,
+        recommendations,
+        tenantId: ctx.tenantId,
+        userId: ctx.actorUserId,
+      });
+      // Mastra unwinds execution at suspend(); nothing past this runs on the
+      // suspending pass. The explicit `return undefined` only satisfies the
+      // output type — it is never produced in the real runtime.
+      await agent?.suspend({ card });
+      return undefined;
+    },
+  });
+}

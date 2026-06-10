@@ -12,6 +12,10 @@ import { makeOrchestratorAgent } from '../../../src/backend/orchestration/orches
 
 const ctx = { tenantId: 't1', actorUserId: 'a1' };
 
+// proposeAssignment's assign port — never exercised here: every test drives the
+// orchestrator via the runAgent seam, so the composite tool is bypassed.
+const noopAssign = { assign: async () => {} };
+
 // Sub-agent stubs are never called: every test uses the runAgent seam, so the
 // orchestrator's real tools (which would call these) are bypassed.
 const stub = <I, O>(id: string): SpecializedAgentSpec<I, O> => ({
@@ -34,6 +38,7 @@ const make = (
     recommender: stub('staffing.recommender'),
     generalAnswer: stub('staffing.generalAnswer'),
     userProfileLookup: { findByName: async () => [] },
+    assign: noopAssign,
     resolveModel: () => ({}) as never,
     mastraStorage: new InMemoryStore(),
     runAgent: async () => ({ toolCalls, toolResults, text }),
@@ -275,182 +280,6 @@ describe('orchestrator assembly', () => {
   });
 });
 
-describe('orchestrator HITL approval post-step', () => {
-  const ANALYZER_RESULT = {
-    payload: {
-      toolName: 'callTaskAnalyzer',
-      result: { skills: ['aws'], title: 'AWS migration' },
-    },
-  };
-  const REC_TOOL_RESULT = {
-    payload: {
-      toolName: 'callRecommender',
-      result: {
-        taskId: 't-1',
-        recommendations: [
-          {
-            userId: 'u1',
-            name: 'Alice',
-            skillMatch: ['aws'],
-            skillMatchCount: 1,
-            status: 'available',
-            availabilityScore: 0.9,
-          },
-          {
-            userId: 'u2',
-            name: 'Bob',
-            skillMatch: ['aws'],
-            skillMatchCount: 1,
-            status: 'busy',
-            availabilityScore: 0.3,
-          },
-        ],
-      },
-    },
-  };
-
-  function fakeRecorder() {
-    const calls: unknown[] = [];
-    const recorder = async (card: unknown) => {
-      calls.push(card);
-      return { runId: 'wr1', approvalId: 'ap1' };
-    };
-    return { calls, recorder };
-  }
-
-  it('recommend with a real taskId + recorder → records the card and sets pendingApproval', async () => {
-    const { calls, recorder } = fakeRecorder();
-    const agent = make([ANALYZER_RESULT, REC_TOOL_RESULT]);
-    const res = await agent.run(
-      { userText: 'who should do this task', taskId: 't-1' },
-      { ...ctx, recordHitlApproval: recorder },
-    );
-    expect(res.result.pendingApproval).toEqual({
-      approvalId: 'ap1',
-      taskId: 't-1',
-      inThread: true,
-    });
-    expect(res.result.recommendations).toHaveLength(2);
-    expect(calls).toHaveLength(1);
-    const card = calls[0] as {
-      intent: string;
-      primary: { argsPatch?: Record<string, unknown> };
-      meta: { toolId: string };
-    };
-    expect(card.intent).toBe('Assign "AWS migration"');
-    expect(card.primary.argsPatch).toEqual({
-      action: 'assign',
-      assigneeUserIds: ['u1'],
-      taskId: 't-1',
-    });
-    expect(card.meta.toolId).toBe('planner_proposeAssignment');
-  });
-
-  it('task-less recommend (recommender taskId null) → no card, no pendingApproval', async () => {
-    const { calls, recorder } = fakeRecorder();
-    const recResult = REC_TOOL_RESULT.payload.result;
-    const agent = make([
-      { payload: { toolName: 'callTaskAnalyzer', result: { skills: ['aws'] } } },
-      { payload: { toolName: 'callRecommender', result: { ...recResult, taskId: null } } },
-    ]);
-    const res = await agent.run(
-      { userText: 'recommend someone for aws work', taskId: null },
-      { ...ctx, recordHitlApproval: recorder },
-    );
-    expect(res.result.pendingApproval).toBeUndefined();
-    expect(res.result.recommendations).toHaveLength(2);
-    expect(calls).toHaveLength(0);
-  });
-
-  it('people search (candidates terminal) → recorder not called', async () => {
-    const { calls, recorder } = fakeRecorder();
-    const agent = make([
-      { payload: { toolName: 'callTaskAnalyzer', result: { skills: ['aws'] } } },
-      {
-        payload: {
-          toolName: 'callSkillMatcher',
-          result: {
-            taskId: null,
-            candidates: [
-              { userId: 'u1', name: 'A', skills: ['aws'], role: null, skillMatchCount: 1, rank: 1 },
-            ],
-          },
-        },
-      },
-    ]);
-    const res = await agent.run(
-      { userText: 'find users with aws', taskId: null },
-      { ...ctx, recordHitlApproval: recorder },
-    );
-    expect(res.result.candidates).toHaveLength(1);
-    expect(res.result.pendingApproval).toBeUndefined();
-    expect(calls).toHaveLength(0);
-  });
-
-  it('find+recommend tasks path → recorder not called (single-task scope only)', async () => {
-    const { calls, recorder } = fakeRecorder();
-    const agent = make([
-      {
-        payload: {
-          toolName: 'callTaskAnalyzer',
-          result: {
-            tasks: [
-              { taskId: 't9', title: 'Infra A', status: 'not_started', skillTags: ['infra'] },
-            ],
-          },
-        },
-      },
-      {
-        payload: {
-          toolName: 'callRecommender',
-          result: { ...REC_TOOL_RESULT.payload.result, taskId: 't9' },
-        },
-      },
-    ]);
-    const res = await agent.run(
-      { userText: 'find infra tasks and recommend people', taskId: null },
-      { ...ctx, recordHitlApproval: recorder },
-    );
-    expect(res.result.tasks).toHaveLength(1);
-    expect(res.result.pendingApproval).toBeUndefined();
-    expect(calls).toHaveLength(0);
-  });
-
-  it('no recorder in ctx → result unchanged (queued runner / non-chat callers)', async () => {
-    const agent = make([ANALYZER_RESULT, REC_TOOL_RESULT]);
-    const res = await agent.run({ userText: 'who should do this task', taskId: 't-1' }, ctx);
-    expect(res.result.pendingApproval).toBeUndefined();
-    expect(res.result.recommendations).toHaveLength(2);
-  });
-
-  it('recorder reuses a card from another thread → pendingApproval.inThread is false', async () => {
-    const recorder = async () => ({ runId: 'wr1', approvalId: 'ap1', cardInThread: false });
-    const agent = make([ANALYZER_RESULT, REC_TOOL_RESULT]);
-    const res = await agent.run(
-      { userText: 'who should do this task', taskId: 't-1' },
-      { ...ctx, recordHitlApproval: recorder },
-    );
-    expect(res.result.pendingApproval).toEqual({
-      approvalId: 'ap1',
-      taskId: 't-1',
-      inThread: false,
-    });
-  });
-
-  it('recorder throws → fail-open: recommendations kept, no pendingApproval', async () => {
-    const recorder = async () => {
-      throw new Error('db down');
-    };
-    const agent = make([ANALYZER_RESULT, REC_TOOL_RESULT]);
-    const res = await agent.run(
-      { userText: 'who should do this task', taskId: 't-1' },
-      { ...ctx, recordHitlApproval: recorder },
-    );
-    expect(res.result.pendingApproval).toBeUndefined();
-    expect(res.result.recommendations).toHaveLength(2);
-  });
-});
-
 describe('orchestrator request-context wiring', () => {
   it('sets RC_THREAD_ID and RC_AGENT_MEMORY when ctx provides them', async () => {
     let rcSeen: RequestContext | undefined;
@@ -461,7 +290,11 @@ describe('orchestrator request-context wiring', () => {
       avaiChecker: stub('staffing.avaiChecker'),
       recommender: stub('staffing.recommender'),
       generalAnswer: stub('staffing.generalAnswer'),
+<<<<<<< HEAD
       userProfileLookup: { findByName: async () => [] },
+=======
+      assign: noopAssign,
+>>>>>>> ca4993da (feat(staffing): proposeAssignment composite tool with deterministic suspend)
       resolveModel: () => ({}) as never,
       mastraStorage: new InMemoryStore(),
       runAgent: async ({ requestContext }) => {
@@ -485,7 +318,11 @@ describe('orchestrator request-context wiring', () => {
       avaiChecker: stub('staffing.avaiChecker'),
       recommender: stub('staffing.recommender'),
       generalAnswer: stub('staffing.generalAnswer'),
+<<<<<<< HEAD
       userProfileLookup: { findByName: async () => [] },
+=======
+      assign: noopAssign,
+>>>>>>> ca4993da (feat(staffing): proposeAssignment composite tool with deterministic suspend)
       resolveModel: () => ({}) as never,
       mastraStorage: new InMemoryStore(),
       runAgent: async ({ requestContext }) => {
@@ -508,7 +345,11 @@ describe('orchestrator resource working memory', () => {
       avaiChecker: stub('staffing.avaiChecker'),
       recommender: stub('staffing.recommender'),
       generalAnswer: stub('staffing.generalAnswer'),
+<<<<<<< HEAD
       userProfileLookup: { findByName: async () => [] },
+=======
+      assign: noopAssign,
+>>>>>>> ca4993da (feat(staffing): proposeAssignment composite tool with deterministic suspend)
       resolveModel: () => ({}) as never,
       mastraStorage: new InMemoryStore(),
       runAgent: async (args) => {

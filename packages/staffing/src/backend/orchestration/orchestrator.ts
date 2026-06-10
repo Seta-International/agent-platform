@@ -14,10 +14,9 @@ import {
 } from '@seta/agent-sdk';
 import type { OrchestrationEvent } from '@seta/shared-orchestration';
 import type { z } from 'zod';
-import { buildAssignApprovalCard } from './approval-card.ts';
 import { pickModel } from './model.ts';
 import { makeOrchestratorTools } from './orchestrator.tools.ts';
-import type { TaskSummary, UserProfilePort } from './ports.ts';
+import type { AssignPort, TaskSummary, UserProfilePort } from './ports.ts';
 import {
   type AvailabilityResult,
   type CompletionStatus,
@@ -72,6 +71,9 @@ export interface OrchestratorDeps {
   recommender: RecommenderSpec;
   generalAnswer: GeneralAnswerSpec;
   userProfileLookup: UserProfilePort;
+  /** Performs the assignment a proposeAssignment approval confirms. Threaded
+   *  into the composite tool. */
+  assign: AssignPort;
   resolveModel: () => MastraModelConfig;
   /**
    * Store the per-turn Mastra wraps the orchestrator agent in so its
@@ -153,13 +155,19 @@ function instructionsText(cap: number): string {
     'and taskId=null, then STOP. The matcher candidates are the answer — do NOT call',
     'callAvaiChecker or callRecommender for a people search.',
     '',
-    'RECOMMEND AN ASSIGNEE — the user asks who SHOULD do a task or to pick the best person',
-    '(e.g. "who should do this task", "recommend someone for the auth work"): after obtaining',
-    'the skills, call in order: callSkillMatcher with those skills; then callAvaiChecker with',
-    'the returned candidates; then callRecommender with the candidates AND the availability',
-    "returned by callAvaiChecker. Pass the same taskId through all three: callTaskAnalyzer's",
-    'resolvedTaskId, or null when the request names no task — taskId is only a correlation',
-    'label.',
+    'RECOMMEND AN ASSIGNEE for ONE task — the user asks who SHOULD do a specific task or to',
+    'pick the best person for it (e.g. "who should do this task", "recommend someone for the',
+    'auth work"): call proposeAssignment(taskId) ONCE and STOP. taskId is the task UUID, or an',
+    'ordinal reference into tasks already listed in this conversation ("first"/"#1", "last") —',
+    'never invent a UUID. proposeAssignment runs the whole recommend pipeline itself and pauses',
+    'for the user to confirm the assignment; do NOT call callSkillMatcher/callAvaiChecker/',
+    'callRecommender yourself for a single-task recommend.',
+    '',
+    'RECOMMEND FOR MULTIPLE FOUND TASKS — when the user asks to find tasks AND recommend people',
+    'for them, you cannot use proposeAssignment (it is single-task). For each found task, after',
+    'obtaining its skills, call in order: callSkillMatcher with those skills; then callAvaiChecker',
+    'with the returned candidates; then callRecommender with the candidates AND the availability',
+    "returned by callAvaiChecker. Pass that task's resolvedTaskId through all three.",
     '',
     'If the user only asks what skills a task needs, or only to list tasks, answer with the',
     'callTaskAnalyzer result and STOP — do not recommend people.',
@@ -202,6 +210,7 @@ async function buildOrchestrator(
     recommender: deps.recommender,
     generalAnswer: deps.generalAnswer,
     userProfileLookup: deps.userProfileLookup,
+    assign: deps.assign,
     userText: input.userText,
     ctx,
   });
@@ -263,14 +272,14 @@ async function buildOrchestrator(
   return { agent: boundAgent, mastra, rc, message, runOptions, instructions, tools };
 }
 
-/** Shared post-LLM step: assemble the structured result, record the deterministic
- *  HITL approval card if a single-task recommend succeeded, and derive the trust
- *  envelope. Used by both the generate() (queued) and stream() (chat) paths. */
-async function finalizeOrchestratorResult(
+/** Shared post-LLM step: assemble the structured result and derive the trust
+ *  envelope. The single-task HITL approval card is now produced by the
+ *  proposeAssignment composite tool (deterministic suspend), not a post-step. */
+function finalizeOrchestratorResult(
   res: MastraToolSignals,
-  ctx: SpecializedAgentRunCtx,
-): Promise<AgentResult<Out>> {
-  const result = await recordApprovalIfRecommended(assemble(res), res, ctx);
+  _ctx: SpecializedAgentRunCtx,
+): AgentResult<Out> {
+  const result = assemble(res);
   const trust = trustFromMastraResult(res, {
     citations: (tr) => citationsFor(tr, result),
     confidence: confidenceFor(result, res),
@@ -477,69 +486,6 @@ function assemble(res: MastraToolSignals): OrchestratorResult {
       ? "I couldn't complete the recommendation for this task. Please try again."
       : "I can describe a task's required skills, find tasks by area, or recommend people for a task.",
   };
-}
-
-/** Deterministic HITL post-step: after a successful single-task recommend flow,
- *  record the in-thread approval card so the user can one-click assign. NOT an
- *  LLM tool by design — the card must always appear when the flow succeeds
- *  (the avaiChecker stall regression is why the recommend path avoids
- *  LLM-discretionary steps). Fail-open: a recorder error logs and falls back
- *  to the plain recommendations answer. */
-async function recordApprovalIfRecommended(
-  result: OrchestratorResult,
-  res: MastraToolSignals,
-  ctx: SpecializedAgentRunCtx,
-): Promise<OrchestratorResult> {
-  if (!ctx.recordHitlApproval || !result.recommendations?.length) return result;
-  const [rec] = results(res, 'callRecommender') as { taskId: string | null }[];
-  const taskId = rec?.taskId ?? null;
-  if (!taskId) return result; // task-less recommend — nothing to assign
-  const ta = results(res, 'callTaskAnalyzer') as TaskAnalyzerOutput[];
-  const title = ta.find((o) => o.title)?.title ?? null;
-  const card = buildAssignApprovalCard({
-    taskId,
-    title,
-    recommendations: result.recommendations,
-    tenantId: ctx.tenantId,
-    userId: ctx.actorUserId,
-  });
-  ctx.onEvent?.({
-    kind: 'step-start',
-    stepId: 'proposeAssignment',
-    agentId: 'staffing.orchestrator',
-  });
-  try {
-    const { approvalId, cardInThread } = await ctx.recordHitlApproval(card);
-    // Absent means true: legacy recorders always bind the card to this thread.
-    const inThread = cardInThread !== false;
-    ctx.onEvent?.({
-      kind: 'step-done',
-      stepId: 'proposeAssignment',
-      trust: {
-        reasoningTrace: [
-          {
-            step: 'proposeAssignment',
-            detail: inThread
-              ? `approval card recorded for task ${taskId}`
-              : `existing pending proposal reused for task ${taskId} (card surfaces in another thread)`,
-            at: new Date().toISOString(),
-          },
-        ],
-        evidenceCitations: [],
-        confidenceScore: 0.9,
-      },
-    });
-    return { ...result, pendingApproval: { approvalId, taskId, inThread } };
-  } catch (err) {
-    // Fail-open: the user still gets the plain recommendation list.
-    console.error('[staffing.orchestrator] HITL approval card failed; falling back', err);
-    ctx.onEvent?.({
-      kind: 'step-done',
-      stepId: 'proposeAssignment',
-      trust: { reasoningTrace: [], evidenceCitations: [], confidenceScore: 0.2 },
-    });
-    return result;
-  }
 }
 
 function citationsFor(

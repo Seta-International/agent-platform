@@ -55,6 +55,7 @@ describe('makeChatOrchestrationStreamer', () => {
       avaiChecker: stub('staffing.avaiChecker'),
       recommender: stub('staffing.recommender'),
       generalAnswer: stub('staffing.generalAnswer'),
+      assign: { assign: async () => {} },
       resolveModel: () => ({}) as never,
       mastraStorage: new InMemoryStore(),
       streamAgent: () => fakeStreamThrowing(),
@@ -75,6 +76,7 @@ describe('makeChatOrchestrationStreamer', () => {
       avaiChecker: stub('staffing.avaiChecker'),
       recommender: stub('staffing.recommender'),
       generalAnswer: stub('staffing.generalAnswer'),
+      assign: { assign: async () => {} },
       resolveModel: () => ({}) as never,
       mastraStorage: new InMemoryStore(),
       // The seam captures the onEvent the entrypoint wired into the tools' ctx.

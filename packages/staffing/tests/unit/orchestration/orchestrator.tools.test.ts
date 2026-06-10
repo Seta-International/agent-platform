@@ -84,6 +84,7 @@ function buildTools(
     recommender: recommender.spec as never,
     generalAnswer: generalAnswer.spec as never,
     userProfileLookup: { findByName: async () => [] },
+    assign: { assign: async () => {} },
     userText: overrides.userText ?? '',
     ctx: { tenantId: 't1', actorUserId: 'a1' },
   });

@@ -96,6 +96,7 @@ export function buildStaffingOrchestrationRuntime(deps: {
     recommender,
     generalAnswer,
     userProfileLookup: ports.userProfileLookup,
+    assign: ports.assign,
     resolveModel,
     mastraStorage,
   });
@@ -120,6 +121,7 @@ export function buildStaffingOrchestrationRuntime(deps: {
     avaiChecker,
     recommender,
     generalAnswer,
+    assign: ports.assign,
     resolveModel,
     mastraStorage,
   });
