@@ -7,13 +7,9 @@ import { NotificationStreamHub } from './backend/stream/hub.ts';
 import { notifierSubscriber } from './backend/subscribers/notifier.ts';
 import { workflowApprovalNotifierSubscriber } from './backend/subscribers/workflow-approval-notifier.ts';
 import { NOTIFICATIONS_EVENTS } from './events.ts';
-import { NOTIFICATIONS_PERMISSIONS } from './rbac.ts';
+import { notificationsRbac } from './rbac.ts';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
-
-const NOTIFICATIONS_RBAC: Record<string, string> = Object.fromEntries(
-  NOTIFICATIONS_PERMISSIONS.map((p) => [p, p]),
-);
 
 const buildNotificationStreamHub: StreamHubBuilder = (deps) => {
   const hub = new NotificationStreamHub();
@@ -34,7 +30,7 @@ export function registerNotificationsContributions(reg: ContributionRegistry): v
     schema,
     migrationsDir: resolve(__dirname, '../drizzle/migrations'),
     events: NOTIFICATIONS_EVENTS,
-    rbac: NOTIFICATIONS_RBAC,
+    rbac: notificationsRbac,
     subscribers: [
       notifierSubscriber() as SubscriberDef,
       workflowApprovalNotifierSubscriber() as SubscriberDef,
