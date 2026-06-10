@@ -3,7 +3,11 @@ import { EMPTY_TRUST, type SpecializedAgentSpec } from '@seta/agent-sdk';
 import type { OrchestrationEvent } from '@seta/shared-orchestration';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { makeChatOrchestrationStreamer } from '../../../src/backend/orchestration/orchestrator.ts';
+import {
+  makeChatOrchestrationResumer,
+  makeChatOrchestrationStreamer,
+  type ResumeDecision,
+} from '../../../src/backend/orchestration/orchestrator.ts';
 
 const ctx = { tenantId: 't1', actorUserId: 'a1' };
 
@@ -155,5 +159,58 @@ describe('makeChatOrchestrationStreamer', () => {
     expect(approval.mastraRunId).toBe('run-uuid-1');
     expect(approval.toolCallId).toBe('tc-1');
     expect(events.some((e) => e.kind === 'final')).toBe(false);
+  });
+});
+
+describe('makeChatOrchestrationResumer', () => {
+  it('resumes by runId with the decision and yields the continuation', async () => {
+    const captured: { resume?: ResumeDecision; runId?: string; toolCallId?: string } = {};
+    const resumeChat = makeChatOrchestrationResumer({
+      taskAnalyzer: stub('staffing.taskAnalyzer'),
+      skillMatcher: stub('staffing.skillMatcher'),
+      avaiChecker: stub('staffing.avaiChecker'),
+      recommender: stub('staffing.recommender'),
+      generalAnswer: stub('staffing.generalAnswer'),
+      assign: { assign: async () => {} },
+      resolveModel: () => ({}) as never,
+      mastraStorage: new InMemoryStore(),
+      // Resume seam: stands in for built.agent.resumeStream — captures the resume
+      // coordinates and drives the drain via the supplied onEvent.
+      resumeAgent: ({ resume, runId, toolCallId, onEvent }) => {
+        captured.resume = resume;
+        captured.runId = runId;
+        captured.toolCallId = toolCallId;
+        return {
+          fullStream: (async function* () {
+            onEvent({
+              kind: 'step-start',
+              stepId: 'proposeAssignment',
+              agentId: 'staffing.recommender',
+            });
+            onEvent({ kind: 'step-done', stepId: 'proposeAssignment', trust: EMPTY_TRUST });
+            yield { type: 'finish' };
+          })(),
+          toolCalls: Promise.resolve([] as never),
+          toolResults: Promise.resolve([] as never),
+          text: Promise.resolve('Assigned u1 to t-1.'),
+        };
+      },
+    });
+
+    const resume: ResumeDecision = { decision: 'approve', overrideUserIds: ['u1'] };
+    const events: OrchestrationEvent[] = [];
+    for await (const e of resumeChat(resume, {
+      tenantId: 't1',
+      actorUserId: 'a1',
+      mastraRunId: 'run-uuid-9',
+      toolCallId: 'tc-9',
+    })) {
+      events.push(e);
+    }
+
+    expect(captured.runId).toBe('run-uuid-9');
+    expect(captured.toolCallId).toBe('tc-9');
+    expect(captured.resume).toEqual(resume);
+    expect(events.map((e) => e.kind)).toEqual(['step-start', 'step-done', 'final']);
   });
 });

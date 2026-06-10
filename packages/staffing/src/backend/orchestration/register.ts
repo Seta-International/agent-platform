@@ -17,7 +17,12 @@ import {
   makeSkillMatcherAgent,
   makeTaskAnalyzerAgent,
 } from './agents/index.ts';
-import { makeChatOrchestrationStreamer, makeOrchestratorAgent } from './orchestrator.ts';
+import {
+  makeChatOrchestrationResumer,
+  makeChatOrchestrationStreamer,
+  makeOrchestratorAgent,
+  type ResumeDecision,
+} from './orchestrator.ts';
 import { orchestratorSpec } from './orchestrator-spec.ts';
 import type {
   AssignPort,
@@ -46,6 +51,12 @@ export interface StaffingOrchestrationRuntime {
   runStream: (
     runInput: { userText: string; taskId: string | null },
     ctx: RunCtx,
+  ) => AsyncIterable<OrchestrationEvent>;
+  /** Resumes a suspended native-suspend orchestrator run (the chat-HITL approval
+   *  continuation). Injected by the app as the agent route's resumeOrchestration. */
+  runResume: (
+    resume: ResumeDecision,
+    ctx: RunCtx & { mastraRunId: string; toolCallId?: string },
   ) => AsyncIterable<OrchestrationEvent>;
   repo: RunStateRepository;
 }
@@ -89,7 +100,7 @@ export function buildStaffingOrchestrationRuntime(deps: {
   const avaiChecker = makeAvaiCheckerAgent({ availability: ports.availability });
   const recommender = makeRecommenderAgent();
   const generalAnswer = makeGeneralAnswerAgent({ resolveModel });
-  const orchestrator = makeOrchestratorAgent({
+  const orchestratorDeps = {
     taskAnalyzer,
     skillMatcher,
     avaiChecker,
@@ -99,7 +110,8 @@ export function buildStaffingOrchestrationRuntime(deps: {
     assign: ports.assign,
     resolveModel,
     mastraStorage,
-  });
+  };
+  const orchestrator = makeOrchestratorAgent(orchestratorDeps);
 
   SpecializedAgentRegistry.register(orchestrator);
   OrchestrationRegistry.register(orchestratorSpec);
@@ -115,18 +127,10 @@ export function buildStaffingOrchestrationRuntime(deps: {
   const runInline: StaffingOrchestrationRuntime['runInline'] = (runInput, ctx) =>
     runOrchestrationInline('staffing.orchestrator', runInput, ctx, { ...runnerDeps, newRunId });
 
-  const streamChat = makeChatOrchestrationStreamer({
-    taskAnalyzer,
-    skillMatcher,
-    avaiChecker,
-    recommender,
-    generalAnswer,
-    assign: ports.assign,
-    resolveModel,
-    mastraStorage,
-  });
+  const streamChat = makeChatOrchestrationStreamer(orchestratorDeps);
+  const resumeChat = makeChatOrchestrationResumer(orchestratorDeps);
 
-  return { taskList, runInline, runStream: streamChat, repo };
+  return { taskList, runInline, runStream: streamChat, runResume: resumeChat, repo };
 }
 
 export type { AddJob };

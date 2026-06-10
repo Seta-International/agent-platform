@@ -109,7 +109,49 @@ export interface OrchestratorDeps {
     toolResults: Promise<MastraToolSignals['toolResults']>;
     text: Promise<string | undefined>;
   };
+  /** Test-only seam mirroring streamAgent for the RESUME chat path. Stands in for
+   *  `built.agent.resumeStream(resume, { runId, requestContext })` so tests can
+   *  assert the resume coordinates + forwarded events without a real Mastra
+   *  snapshot. Production omits this and a real Agent.resumeStream() is used. */
+  resumeAgent?: (args: {
+    resume: ResumeDecision;
+    runId: string;
+    toolCallId?: string;
+    requestContext: RequestContext;
+    onEvent: (e: OrchestrationEvent) => void;
+  }) => {
+    fullStream: AsyncIterable<unknown>;
+    toolCalls: Promise<MastraToolSignals['toolCalls']>;
+    toolResults: Promise<MastraToolSignals['toolResults']>;
+    text: Promise<string | undefined>;
+  };
 }
+
+/** The proposeAssignment composite's ResumeSchema shape — the decision the
+ *  approval card resolves to. Forwarded verbatim into resumeStream. */
+export type ResumeDecision = {
+  decision: 'approve' | 'reject' | 'modify';
+  overrideUserIds?: string[];
+  alternateIndices?: number[];
+  note?: string;
+};
+
+/** A run ctx PLUS the resume coordinates: the Mastra runId of the suspended run
+ *  and (optionally) the suspended tool's call id. A single suspension resolves
+ *  without toolCallId (spike-confirmed); it disambiguates only concurrent
+ *  suspensions. */
+export type ResumeCtx = SpecializedAgentRunCtx & {
+  mastraRunId: string;
+  toolCallId?: string;
+};
+
+/** Shape of an awaited Mastra stream/resumeStream result the drain reads. */
+type DrainableStream = {
+  fullStream: AsyncIterable<unknown>;
+  toolCalls: Promise<MastraToolSignals['toolCalls']>;
+  toolResults: Promise<MastraToolSignals['toolResults']>;
+  text: Promise<string | undefined>;
+};
 
 const RECOMMEND_TASK_CAP = 5;
 
@@ -334,6 +376,95 @@ export function makeOrchestratorAgent(deps: OrchestratorDeps): SpecializedAgentS
   };
 }
 
+/**
+ * Shared drain-and-yield plumbing for both the forward (Agent.stream) and resume
+ * (Agent.resumeStream) chat paths. Drives the awaited Mastra stream to
+ * completion while forwarding the tools' `onEvent` sub-step events live through a
+ * queue, detects native suspend (proposeAssignment → ctx.agent.suspend) and
+ * surfaces it as an `approval` event, and finally yields the assembled `final`
+ * result for a completed run. `provideStream` is invoked with the wired sink so a
+ * test seam can drive `onEvent`; the production builder bridges it onto the RC.
+ */
+async function* drainOrchestrationStream(
+  runCtx: SpecializedAgentRunCtx,
+  onEvent: (e: OrchestrationEvent) => void,
+  getWake: () => (() => void) | null,
+  setWake: (w: (() => void) | null) => void,
+  queue: OrchestrationEvent[],
+  provideStream: () => Promise<DrainableStream>,
+): AsyncIterable<OrchestrationEvent> {
+  let finished = false;
+  const stream = await provideStream();
+
+  // Native suspend (proposeAssignment calls ctx.agent.suspend) abandons the tool
+  // continuation: the stream ends at the suspend chunk with no result to
+  // finalize. We surface an `approval` event instead of `final` and leave the run
+  // paused for the resume entrypoint. A dedicated flag (not an `undefined`
+  // result) signals this so the caller never mistakes a normal run for it.
+  let suspended = false;
+  const done = (async () => {
+    try {
+      // Draining fullStream drives the LLM + tool execution to completion.
+      for await (const chunk of stream.fullStream) {
+        const c = chunk as { type?: string; runId?: string; payload?: Record<string, unknown> };
+        if (c.type === 'tool-call-suspended') {
+          suspended = true;
+          const card = (c.payload?.suspendPayload as { card: ApprovalCard }).card;
+          onEvent({
+            kind: 'approval',
+            card,
+            mastraRunId: c.runId as string,
+            toolCallId: c.payload?.toolCallId as string,
+          });
+        }
+      }
+      if (suspended) return undefined;
+      const res: MastraToolSignals = {
+        toolCalls: await stream.toolCalls,
+        toolResults: await stream.toolResults,
+        text: await stream.text,
+      };
+      const { result } = finalizeOrchestratorResult(res, runCtx);
+      return result;
+    } finally {
+      finished = true;
+      getWake()?.();
+      setWake(null);
+    }
+  })();
+
+  while (!finished || queue.length > 0) {
+    while (queue.length > 0) {
+      const ev = queue.shift();
+      if (ev !== undefined) yield ev;
+    }
+    if (finished) break;
+    await new Promise<void>((resolve) => {
+      setWake(resolve);
+    });
+  }
+
+  const result = await done;
+  if (!suspended) yield { kind: 'final', result };
+}
+
+/** Builds the queue + wake plumbing the drain shares; returns the wired sink. */
+function makeEventSink(): {
+  queue: OrchestrationEvent[];
+  onEvent: (e: OrchestrationEvent) => void;
+  getWake: () => (() => void) | null;
+  setWake: (w: (() => void) | null) => void;
+} {
+  const queue: OrchestrationEvent[] = [];
+  let wake: (() => void) | null = null;
+  const onEvent = (e: OrchestrationEvent) => {
+    queue.push(e);
+    wake?.();
+    wake = null;
+  };
+  return { queue, onEvent, getWake: () => wake, setWake: (w) => (wake = w) };
+}
+
 /** Streaming chat entrypoint. Emits the same OrchestrationEvent protocol the
  *  inline runner did, but drives the orchestrator via Agent.stream() so Phase 2
  *  can add ctx.suspend. The orchestrator's tools fire ctx.onEvent as they run;
@@ -344,15 +475,7 @@ export function makeChatOrchestrationStreamer(deps: OrchestratorDeps) {
     input: In,
     ctx: SpecializedAgentRunCtx,
   ): AsyncIterable<OrchestrationEvent> {
-    const queue: OrchestrationEvent[] = [];
-    let wake: (() => void) | null = null;
-    let finished = false;
-    const onEvent = (e: OrchestrationEvent) => {
-      queue.push(e);
-      wake?.();
-      wake = null;
-    };
-
+    const { queue, onEvent, getWake, setWake } = makeEventSink();
     const runCtx: SpecializedAgentRunCtx = { ...ctx, onEvent };
     const built = await buildOrchestrator(deps, input, runCtx, cap);
     if (deps.streamAgent) {
@@ -360,68 +483,71 @@ export function makeChatOrchestrationStreamer(deps: OrchestratorDeps) {
       (built.rc as unknown as { __onEvent: typeof onEvent }).__onEvent = onEvent;
     }
 
-    // Agent.stream() is async; await it so stream.fullStream is accessible.
-    const stream = deps.streamAgent
-      ? deps.streamAgent({
-          input,
-          requestContext: built.rc,
-          instructions: built.instructions,
-          tools: built.tools,
-        })
-      : ((await built.agent.stream(built.message, built.runOptions)) as unknown as ReturnType<
-          NonNullable<OrchestratorDeps['streamAgent']>
-        >);
+    const provideStream = async (): Promise<DrainableStream> =>
+      deps.streamAgent
+        ? deps.streamAgent({
+            input,
+            requestContext: built.rc,
+            instructions: built.instructions,
+            tools: built.tools,
+          })
+        : ((await built.agent.stream(
+            built.message,
+            built.runOptions,
+          )) as unknown as DrainableStream);
 
-    // Native suspend (proposeAssignment calls ctx.agent.suspend) abandons the
-    // tool continuation: the stream ends at the suspend chunk with no result to
-    // finalize. We surface an `approval` event instead of `final` and leave the
-    // run paused for Task 7's resume. A dedicated flag (not an `undefined`
-    // result) signals this so the caller never mistakes a normal run for it.
-    let suspended = false;
-    const done = (async () => {
-      try {
-        // Draining fullStream drives the LLM + tool execution to completion.
-        for await (const chunk of stream.fullStream) {
-          const c = chunk as { type?: string; runId?: string; payload?: Record<string, unknown> };
-          if (c.type === 'tool-call-suspended') {
-            suspended = true;
-            const card = (c.payload?.suspendPayload as { card: ApprovalCard }).card;
-            onEvent({
-              kind: 'approval',
-              card,
-              mastraRunId: c.runId as string,
-              toolCallId: c.payload?.toolCallId as string,
-            });
-          }
-        }
-        if (suspended) return undefined;
-        const res: MastraToolSignals = {
-          toolCalls: await stream.toolCalls,
-          toolResults: await stream.toolResults,
-          text: await stream.text,
-        };
-        const { result } = finalizeOrchestratorResult(res, runCtx);
-        return result;
-      } finally {
-        finished = true;
-        (wake as (() => void) | null)?.();
-        wake = null;
-      }
-    })();
+    yield* drainOrchestrationStream(runCtx, onEvent, getWake, setWake, queue, provideStream);
+  };
+}
 
-    while (!finished || queue.length > 0) {
-      while (queue.length > 0) {
-        const ev = queue.shift();
-        if (ev !== undefined) yield ev;
-      }
-      if (finished) break;
-      await new Promise<void>((resolve) => {
-        wake = resolve;
-      });
+/** Resume chat entrypoint. Mirrors makeChatOrchestrationStreamer but RESUMES a
+ *  suspended run instead of starting one: it rebuilds the orchestrator agent on
+ *  the shared storage-backed Mastra (so the persisted native-suspend snapshot
+ *  reloads by runId) and calls Agent.resumeStream with the approval decision.
+ *  The composite re-enters its execute, performs the assignment, and the
+ *  orchestrator narrates; the same drain forwards any sub-step/approval events
+ *  and yields the assembled `final` outcome. buildOrchestrator is reconstructed
+ *  with an EMPTY userText — on resume the LLM continues from the snapshot, not a
+ *  new user message; what matters is that the agent + its tools (esp.
+ *  proposeAssignment with the assign port) are rebuilt identically by id. */
+export function makeChatOrchestrationResumer(deps: OrchestratorDeps) {
+  const cap = deps.recommendTaskCap ?? RECOMMEND_TASK_CAP;
+  return async function* streamResumed(
+    resume: ResumeDecision,
+    ctx: ResumeCtx,
+  ): AsyncIterable<OrchestrationEvent> {
+    const { queue, onEvent, getWake, setWake } = makeEventSink();
+    const runCtx: SpecializedAgentRunCtx = { ...ctx, onEvent };
+    const built = await buildOrchestrator(deps, { userText: '', taskId: null }, runCtx, cap);
+    if (deps.resumeAgent) {
+      (built.rc as unknown as { __onEvent: typeof onEvent }).__onEvent = onEvent;
     }
 
-    const result = await done;
-    if (!suspended) yield { kind: 'final', result };
+    const provideStream = async (): Promise<DrainableStream> =>
+      deps.resumeAgent
+        ? deps.resumeAgent({
+            resume,
+            runId: ctx.mastraRunId,
+            ...(ctx.toolCallId ? { toolCallId: ctx.toolCallId } : {}),
+            requestContext: built.rc,
+            onEvent,
+          })
+        : ((await (
+            built.agent as unknown as {
+              resumeStream: (
+                resumeData: ResumeDecision,
+                opts: { runId: string; toolCallId?: string; requestContext: RequestContext },
+              ) => Promise<DrainableStream>;
+            }
+          ).resumeStream(resume, {
+            runId: ctx.mastraRunId,
+            // Single suspension → toolCallId optional (spike-confirmed). Pass it
+            // only when present to disambiguate concurrent suspensions.
+            ...(ctx.toolCallId ? { toolCallId: ctx.toolCallId } : {}),
+            requestContext: built.rc,
+          })) as DrainableStream);
+
+    yield* drainOrchestrationStream(runCtx, onEvent, getWake, setWake, queue, provideStream);
   };
 }
 
