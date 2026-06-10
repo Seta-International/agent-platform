@@ -40,6 +40,7 @@ export {
 export { runMigrations } from './runtime/migrations.ts';
 export type { WorkerHandle } from './runtime/workers/index.ts';
 export { invalidateUserSessions } from './session/invalidate.ts';
+export { createOverlayStore, type OverlayStore } from './session/overlay-store.ts';
 export {
   computeAccessibleGroups,
   getSessionScope,

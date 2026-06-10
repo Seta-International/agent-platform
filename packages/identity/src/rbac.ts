@@ -12,7 +12,7 @@ export const identityStatement = {
     'email.change',
   ],
   'identity.sso': ['read', 'write'],
-  'identity.role': ['grant'],
+  'identity.role': ['grant', 'read', 'write'],
   'identity.role_grant': ['read', 'write'],
   'identity.password': ['disable_local'],
   'identity.concept_map': ['read', 'write'],
@@ -24,7 +24,7 @@ const roleStatements = {
   'identity.admin': {
     'identity.user': ['read.any', 'write', 'deactivate', 'invite', 'email.change'],
     'identity.sso': ['read', 'write'],
-    'identity.role': ['grant'],
+    'identity.role': ['grant', 'read', 'write'],
     'identity.role_grant': ['read', 'write'],
     'identity.password': ['disable_local'],
     'identity.concept_map': ['read', 'write'],
