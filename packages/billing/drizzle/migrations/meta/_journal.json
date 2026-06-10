@@ -22,6 +22,13 @@
       "when": 1781068615867,
       "tag": "0002_nifty_nocturne",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1781075460333,
+      "tag": "0003_uneven_scalphunter",
+      "breakpoints": true
     }
   ]
 }
