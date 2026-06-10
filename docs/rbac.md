@@ -125,12 +125,12 @@ sequenceDiagram
   participant FE as Frontend
   participant BE as Backend
   U->>FE: navigate / click
-  FE->>FE: passesGate? (mirror, UX only)
+  FE->>FE: passesGate - mirror, UX only
   FE->>BE: request
-  BE->>BE: resolution: can(perm)?
-  BE->>BE: scope: group/owner check?
+  BE->>BE: resolution - holds permission?
+  BE->>BE: scope - group / owner check
   BE-->>U: allow / 403
-  Note over FE,BE: Frontend can be stale/tampered;<br/>backend re-checks regardless
+  Note over FE,BE: Frontend may be stale or tampered - backend re-checks regardless
 ```
 
 **Fail-closed everywhere:**
