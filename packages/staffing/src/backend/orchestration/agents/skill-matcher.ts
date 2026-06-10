@@ -46,6 +46,7 @@ export function makeSkillMatcherAgent(deps: SkillMatcherDeps): SpecializedAgentS
       const rc = new RequestContext();
       rc.set('actor', { type: 'user', user_id: ctx.actorUserId });
       rc.set('tenant_id', ctx.tenantId);
+      rc.set('effective_permissions', ctx.effectivePermissions ?? new Set<string>());
 
       const res: MastraToolSignals = deps.runAgent
         ? await deps.runAgent({ input, requestContext: rc })

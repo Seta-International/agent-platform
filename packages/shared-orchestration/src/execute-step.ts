@@ -58,6 +58,7 @@ export async function executeStep(
   const res = await agent.run(input, {
     tenantId: ctx.tenantId,
     actorUserId: ctx.actorUserId,
+    effectivePermissions: ctx.effectivePermissions,
     onEvent: deps.onEvent,
     recordHitlApproval: ctx.recordHitlApproval,
     threadId: ctx.threadId,

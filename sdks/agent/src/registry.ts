@@ -16,6 +16,10 @@ export interface SpecialistSpec {
 export interface CrossModuleSession {
   tenant_id: string;
   user_id: string;
+  /** Resolved permission set, supplied by callers that have a session (e.g. the
+   *  cross-module read-as-tool). Optional so workflow-internal constructors that
+   *  predate session-permission threading still type-check. */
+  effective_permissions?: ReadonlySet<string>;
   role_summary: { readonly roles: readonly string[]; readonly cross_tenant_read: boolean };
 }
 

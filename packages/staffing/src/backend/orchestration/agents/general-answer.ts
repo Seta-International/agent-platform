@@ -34,6 +34,7 @@ export function makeGeneralAnswerAgent(deps: GeneralAnswerDeps): SpecializedAgen
       const rc = new RequestContext();
       rc.set('actor', { type: 'user', user_id: ctx.actorUserId });
       rc.set('tenant_id', ctx.tenantId);
+      rc.set('effective_permissions', ctx.effectivePermissions ?? new Set<string>());
 
       const out = deps.runAgent
         ? await deps.runAgent({ input, requestContext: rc })

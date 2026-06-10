@@ -10,6 +10,9 @@ import { z } from 'zod';
 export interface RunCtx {
   tenantId: string;
   actorUserId: string;
+  /** Resolved permission set for the actor — forwarded into each agent's run
+   *  ctx so cross-module read tools enforce access. Empty for queued runs. */
+  effectivePermissions?: ReadonlySet<string>;
   /** Optional recorder for in-thread HITL approval cards (chat inline runs only). */
   recordHitlApproval?: ChatHitlRecorder;
   /** The real chat thread id (chat inline runs only). */
