@@ -13,6 +13,8 @@ import { createCrypto, createKeyProviderFromEnv, parseCryptoEnv } from '@seta/sh
 import { closePools, initPools } from '@seta/shared-db';
 import { Command } from 'commander';
 import pino from 'pino';
+import { billingPricingListCommand } from './commands/billing-pricing-list.ts';
+import { billingPricingSetCommand } from './commands/billing-pricing-set.ts';
 import { runEmbedBackfill } from './commands/embed-backfill.ts';
 import { integrationsMailSetCommand } from './commands/integrations-mail-set.ts';
 import { integrationsMailTestCommand } from './commands/integrations-mail-test.ts';
@@ -295,6 +297,37 @@ program
   .action(async (opts: { module: string; tenant: string }) => {
     try {
       await runEmbedBackfill({ module: opts.module, tenant: opts.tenant });
+    } finally {
+      await closePools();
+    }
+  });
+
+program
+  .command('billing-pricing-list')
+  .description('List global model prices')
+  .action(async () => {
+    try {
+      await billingPricingListCommand();
+    } finally {
+      await closePools();
+    }
+  });
+
+program
+  .command('billing-pricing-set')
+  .description('Set the global unit price for a model (operator)')
+  .argument('<modelKey>', 'model key, e.g. openai/gpt-5.4-mini')
+  .requiredOption('--in <usdPerToken>', 'USD per input token', (v) => Number.parseFloat(v))
+  .requiredOption('--out <usdPerToken>', 'USD per output token', (v) => Number.parseFloat(v))
+  .option('--currency <code>', 'currency code (default USD)')
+  .action(async (modelKey: string, opts: { in: number; out: number; currency?: string }) => {
+    try {
+      await billingPricingSetCommand({
+        modelKey,
+        in: opts.in,
+        out: opts.out,
+        currency: opts.currency,
+      });
     } finally {
       await closePools();
     }
