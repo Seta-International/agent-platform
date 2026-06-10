@@ -3,12 +3,14 @@
 //
 // Walks each module's src/backend/domain/ for exported functions. Any function
 // whose name starts with a mutation verb (i.e. NOT a read prefix and not in the
-// allowlist) must appear in a file that references requirePermission(...).
+// allowlist) must appear in a file that gates on a permission — either
+// requirePermission(...) (re-resolves grants for an actor) or can(session, ...)
+// (checks the already-resolved, overlay-aware session permission set).
 //
 // Heuristic is intentionally simple: the check is per-file, not per-function —
-// one requirePermission() call in the file covers every exported mutation
-// declared in that same file. Reviewers catch the rare false-pass; the
-// alternative (full AST flow analysis) is not worth the dependency cost.
+// one gate call in the file covers every exported mutation declared in that same
+// file. Reviewers catch the rare false-pass; the alternative (full AST flow
+// analysis) is not worth the dependency cost.
 //
 // Allowlist comment escape hatches (added to a file, before any exports):
 //   // rbac: user-self-scoped     → user mutates only their own row, gated by user_id
@@ -61,7 +63,7 @@ for (const mod of MODULES) {
 
     if (ALLOWLIST_COMMENTS.some((c) => src.includes(c))) continue;
 
-    const fileCallsRequirePermission = /\brequirePermission\s*\(/.test(src);
+    const fileGatesPermission = /\brequirePermission\s*\(|\bcan\s*\(/.test(src);
 
     const re = /export\s+(?:async\s+)?function\s+([a-zA-Z0-9_]+)/g;
     for (const m of src.matchAll(re)) {
@@ -74,9 +76,9 @@ for (const mod of MODULES) {
         // word-boundary prefix: "get" matches getX, "list" matches listX, but not "geta..."
         continue;
       }
-      if (!fileCallsRequirePermission) {
+      if (!fileGatesPermission) {
         violations.push(
-          `${full}: exported mutation '${name}' has no requirePermission() call in its file`,
+          `${full}: exported mutation '${name}' has no requirePermission()/can() gate in its file`,
         );
       }
     }
