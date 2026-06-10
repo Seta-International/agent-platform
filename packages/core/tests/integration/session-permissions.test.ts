@@ -36,7 +36,7 @@ it('populates permissions via the injected resolver', async () => {
                 },
               ],
             }),
-            resolvePermissions: (roles) =>
+            resolvePermissions: async (roles) =>
               new Set(roles.includes('knowledge.viewer') ? ['knowledge.file.read'] : []),
           },
           sessionId,
@@ -45,6 +45,58 @@ it('populates permissions via the injected resolver', async () => {
           'U',
         );
         expect([...scope.permissions]).toEqual(['knowledge.file.read']);
+      } finally {
+        await closePools();
+        resetCoreDb();
+      }
+    },
+  );
+});
+
+it('applies the tenant overlay during resolution', async () => {
+  await withTestDb(
+    {
+      templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+      baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
+    },
+    async ({ pool, databaseUrl }) => {
+      const reg = createContributionRegistry();
+      registerCoreContributions(reg);
+      await runMigrations(reg, { pool });
+      resetCoreDb();
+      initPools({ databaseUrl });
+      try {
+        const overlayTenantId = crypto.randomUUID();
+        _clearHotForTest();
+        const scope = await getSessionScope(
+          {
+            listRoleGrants: async () => ({
+              tenant_id: overlayTenantId,
+              grants: [
+                {
+                  role_slug: 'knowledge.viewer',
+                  scope_type: 'tenant',
+                  scope_id: null,
+                  granted_at: new Date(),
+                },
+              ],
+            }),
+            resolvePermissions: async (roles, tenantId) =>
+              new Set(
+                tenantId === overlayTenantId && roles.includes('knowledge.viewer')
+                  ? ['knowledge.file.read', 'knowledge.file.write']
+                  : [],
+              ),
+          },
+          `sess-${crypto.randomUUID()}`,
+          crypto.randomUUID(),
+          'u@x.test',
+          'U',
+        );
+        expect([...scope.permissions].sort()).toEqual([
+          'knowledge.file.read',
+          'knowledge.file.write',
+        ]);
       } finally {
         await closePools();
         resetCoreDb();
