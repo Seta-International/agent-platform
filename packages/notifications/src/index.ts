@@ -38,10 +38,4 @@ export {
   type NotificationRequestedPayload,
   type NotificationTenantPrefsChangedPayload,
 } from './events.ts';
-export {
-  NOTIFICATIONS_PERMISSIONS,
-  NOTIFICATIONS_ROLE_PERMISSIONS,
-  NOTIFICATIONS_ROLE_SLUGS,
-  type NotificationsPermission,
-  type NotificationsRoleSlug,
-} from './rbac.ts';
+export { NOTIFICATIONS_PERMISSIONS, type NotificationsPermission } from './rbac.ts';

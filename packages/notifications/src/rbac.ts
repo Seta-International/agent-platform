@@ -29,12 +29,3 @@ export const notificationsRbac = toManifest(
 export type NotificationsPermission = (typeof notificationsRbac.permissions)[number]['key'];
 
 export const NOTIFICATIONS_PERMISSIONS = notificationsRbac.permissions.map((p) => p.key);
-
-export const NOTIFICATIONS_ROLE_SLUGS = notificationsRbac.roles.map((r) => r.slug) as Array<
-  'notifications.member' | 'notifications.viewer'
->;
-export type NotificationsRoleSlug = (typeof NOTIFICATIONS_ROLE_SLUGS)[number];
-
-export const NOTIFICATIONS_ROLE_PERMISSIONS = Object.fromEntries(
-  notificationsRbac.roles.map((r) => [r.slug, r.permissions]),
-) as Record<NotificationsRoleSlug, string[]>;

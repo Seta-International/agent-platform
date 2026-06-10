@@ -3,14 +3,23 @@ import { hashRoleSummary, type SessionScope } from '@seta/core';
 import { createUser } from '@seta/identity';
 import { createTestTenantWithAdmin } from '@seta/identity/testing';
 import { createGroup, createPlan, createTask } from '@seta/planner';
+import {
+  buildRegistry,
+  IMPLICIT_PERMISSIONS,
+  INVENTORY,
+  inventoryToManifests,
+  resolvePermissions,
+} from '@seta/shared-rbac';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { candidatePool } from '../../../../src/backend/workflows/assign-by-skill/steps/candidate-pool.ts';
 import { loadTask } from '../../../../src/backend/workflows/assign-by-skill/steps/load-task.ts';
 import { withAgentTestDb } from '../../agent-tools-helpers.ts';
 
+const _registry = buildRegistry(inventoryToManifests(INVENTORY));
 function adminSession(opts: { tenant_id: string; user_id: string; email: string }): SessionScope {
-  const role_summary = { roles: ['org.admin'], cross_tenant_read: false };
+  const roles = ['org.admin'];
+  const role_summary = { roles, cross_tenant_read: false };
   return {
     session_id: crypto.randomUUID(),
     user_id: opts.user_id,
@@ -19,6 +28,7 @@ function adminSession(opts: { tenant_id: string; user_id: string; email: string 
     display_name: 'Admin',
     role_summary,
     role_summary_hash: hashRoleSummary(role_summary),
+    permissions: resolvePermissions(_registry, roles, IMPLICIT_PERMISSIONS),
     accessible_group_ids: [],
     cross_tenant_read: false,
     built_at: new Date(),

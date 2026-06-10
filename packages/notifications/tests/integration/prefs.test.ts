@@ -1,6 +1,13 @@
 import type { SessionScope } from '@seta/core';
 import { coreEvents } from '@seta/core/db/schema';
 import { withEmit } from '@seta/core/events';
+import {
+  buildRegistry,
+  IMPLICIT_PERMISSIONS,
+  INVENTORY,
+  inventoryToManifests,
+  resolvePermissions,
+} from '@seta/shared-rbac';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { notificationsDb, resetNotificationsDb } from '../../src/backend/db/client.ts';
@@ -13,15 +20,23 @@ import {
 } from '../../src/index.ts';
 import { withNotificationsTestDb } from './test-helpers.ts';
 
+const _registry = buildRegistry(inventoryToManifests(INVENTORY));
+function permsFor(roles: string[]): ReadonlySet<string> {
+  return resolvePermissions(_registry, roles, IMPLICIT_PERMISSIONS);
+}
+
 function makeAdminSession(overrides: Partial<SessionScope> = {}): SessionScope {
+  const roles = overrides.role_summary?.roles ?? ['tenant.admin'];
+  const role_summary = overrides.role_summary ?? { roles, cross_tenant_read: false };
   return {
     session_id: crypto.randomUUID(),
     user_id: crypto.randomUUID(),
     tenant_id: crypto.randomUUID(),
     email: 'admin@example.com',
     display_name: 'Admin',
-    role_summary: { roles: ['tenant.admin'], cross_tenant_read: false },
+    role_summary,
     role_summary_hash: 'h',
+    permissions: permsFor(role_summary.roles),
     accessible_group_ids: [],
     cross_tenant_read: false,
     built_at: new Date(),

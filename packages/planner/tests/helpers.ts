@@ -1,8 +1,20 @@
 import { hashRoleSummary, type SessionScope } from '@seta/core';
 import { createUser } from '@seta/identity';
+import {
+  buildRegistry,
+  IMPLICIT_PERMISSIONS,
+  INVENTORY,
+  inventoryToManifests,
+  resolvePermissions,
+} from '@seta/shared-rbac';
 import type { Pool } from 'pg';
 import { createGroup, createPlan, createTask } from '../src/index.ts';
 import type { PlannerRoleSlug } from '../src/rbac.ts';
+
+const _registry = buildRegistry(inventoryToManifests(INVENTORY));
+function permsFor(roles: string[]): ReadonlySet<string> {
+  return resolvePermissions(_registry, roles, IMPLICIT_PERMISSIONS);
+}
 
 export interface SeedUser {
   name: string;
@@ -110,8 +122,9 @@ export function buildSession(opts: {
   accessible_group_ids?: string[];
   cross_tenant_read?: boolean;
 }): SessionScope {
+  const roles = opts.roles ?? [];
   const role_summary = {
-    roles: opts.roles ?? [],
+    roles,
     cross_tenant_read: opts.cross_tenant_read ?? false,
   };
   return {
@@ -122,6 +135,7 @@ export function buildSession(opts: {
     display_name: opts.display_name ?? 'Test User',
     role_summary,
     role_summary_hash: hashRoleSummary(role_summary),
+    permissions: permsFor(roles),
     accessible_group_ids: opts.accessible_group_ids ?? [],
     cross_tenant_read: role_summary.cross_tenant_read,
     built_at: new Date(),

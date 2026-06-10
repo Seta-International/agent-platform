@@ -138,7 +138,3 @@ export const PLANNER_ROLE_SLUGS = plannerRbac.roles.map((r) => r.slug) as Array<
   'planner.admin' | 'planner.contributor' | 'planner.viewer' | 'system.integrations.m365'
 >;
 export type PlannerRoleSlug = (typeof PLANNER_ROLE_SLUGS)[number];
-
-export const PLANNER_ROLE_PERMISSIONS = Object.fromEntries(
-  plannerRbac.roles.map((r) => [r.slug, r.permissions]),
-) as Record<PlannerRoleSlug, PlannerPermission[]>;

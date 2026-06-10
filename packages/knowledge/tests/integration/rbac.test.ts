@@ -6,8 +6,8 @@ import { describe, expect, it } from 'vitest';
 import { deleteKnowledgeFile } from '../../src/backend/domain/delete-file.ts';
 import { markKnowledgeFileProcessed } from '../../src/backend/domain/mark-processed.ts';
 import { requestKnowledgeUpload } from '../../src/backend/domain/upload-url.ts';
-import { KnowledgeError } from '../../src/backend/rbac.ts';
-import { buildTestSession } from '../helpers/session.ts';
+import { KnowledgeError, requirePermission } from '../../src/backend/rbac.ts';
+import { buildTestSession, permsFor } from '../helpers/session.ts';
 
 const withDb = <T>(fn: () => Promise<T>) =>
   withTestDb(
@@ -105,4 +105,52 @@ describe('knowledge RBAC', () => {
       );
       expect(result.file_id).toMatch(/^\d+$/);
     }));
+
+  describe('fine-grained resolution via resolved permissions', () => {
+    it('knowledge.viewer can read but not write', () => {
+      const tenantId = crypto.randomUUID();
+      const userId = crypto.randomUUID();
+      const session = {
+        session_id: crypto.randomUUID(),
+        user_id: userId,
+        tenant_id: tenantId,
+        email: 'viewer@example.test',
+        display_name: 'Viewer',
+        role_summary: { roles: ['knowledge.viewer'], cross_tenant_read: false },
+        role_summary_hash: 'h',
+        permissions: permsFor(['knowledge.viewer']),
+        accessible_group_ids: [] as string[],
+        cross_tenant_read: false,
+        built_at: new Date(),
+        invalidated_at: null,
+      };
+
+      expect(() => requirePermission(session, 'knowledge.file.read')).not.toThrow();
+      expect(() => requirePermission(session, 'knowledge.file.write')).toThrow(KnowledgeError);
+      expect(() => requirePermission(session, 'knowledge.file.delete')).toThrow(KnowledgeError);
+    });
+
+    it('knowledge.member can read, write, and delete', () => {
+      const tenantId = crypto.randomUUID();
+      const userId = crypto.randomUUID();
+      const session = {
+        session_id: crypto.randomUUID(),
+        user_id: userId,
+        tenant_id: tenantId,
+        email: 'member@example.test',
+        display_name: 'Member',
+        role_summary: { roles: ['knowledge.member'], cross_tenant_read: false },
+        role_summary_hash: 'h',
+        permissions: permsFor(['knowledge.member']),
+        accessible_group_ids: [] as string[],
+        cross_tenant_read: false,
+        built_at: new Date(),
+        invalidated_at: null,
+      };
+
+      expect(() => requirePermission(session, 'knowledge.file.read')).not.toThrow();
+      expect(() => requirePermission(session, 'knowledge.file.write')).not.toThrow();
+      expect(() => requirePermission(session, 'knowledge.file.delete')).not.toThrow();
+    });
+  });
 });
