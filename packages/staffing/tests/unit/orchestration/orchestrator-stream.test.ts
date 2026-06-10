@@ -33,7 +33,38 @@ function fakeStream(
   };
 }
 
+/** A fake stream whose fullStream throws after one yield. */
+function fakeStreamThrowing() {
+  return {
+    fullStream: (async function* () {
+      yield { type: 'step-start' };
+      throw new Error('LLM error');
+    })(),
+    toolCalls: Promise.resolve([] as never),
+    toolResults: Promise.resolve([] as never),
+    text: Promise.resolve(undefined),
+  };
+}
+
 describe('makeChatOrchestrationStreamer', () => {
+  it('propagates fullStream errors instead of hanging', async () => {
+    const streamChat = makeChatOrchestrationStreamer({
+      taskAnalyzer: stub('staffing.taskAnalyzer'),
+      skillMatcher: stub('staffing.skillMatcher'),
+      avaiChecker: stub('staffing.avaiChecker'),
+      recommender: stub('staffing.recommender'),
+      generalAnswer: stub('staffing.generalAnswer'),
+      resolveModel: () => ({}) as never,
+      streamAgent: () => fakeStreamThrowing(),
+    });
+
+    await expect(async () => {
+      for await (const _ of streamChat({ userText: 'test', taskId: null }, ctx)) {
+        void _;
+      }
+    }).rejects.toThrow('LLM error');
+  });
+
   it('forwards sub-step events live then yields a final result', async () => {
     let sink!: (e: OrchestrationEvent) => void;
     const streamChat = makeChatOrchestrationStreamer({

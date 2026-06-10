@@ -321,8 +321,10 @@ export function makeChatOrchestrationStreamer(deps: OrchestratorDeps) {
 
     const runCtx: SpecializedAgentRunCtx = { ...ctx, onEvent };
     const built = await buildOrchestrator(deps, input, runCtx, cap);
-    // Test seam bridge: expose the sink so a fake streamAgent can drive it.
-    (built.rc as unknown as { __onEvent: typeof onEvent }).__onEvent = onEvent;
+    if (deps.streamAgent) {
+      // Test seam bridge: expose the sink so a fake streamAgent can drive it.
+      (built.rc as unknown as { __onEvent: typeof onEvent }).__onEvent = onEvent;
+    }
 
     const stream = deps.streamAgent
       ? deps.streamAgent({
@@ -336,20 +338,23 @@ export function makeChatOrchestrationStreamer(deps: OrchestratorDeps) {
         >);
 
     const done = (async () => {
-      // Draining fullStream drives the LLM + tool execution to completion.
-      for await (const _chunk of stream.fullStream) {
-        void _chunk;
+      try {
+        // Draining fullStream drives the LLM + tool execution to completion.
+        for await (const _chunk of stream.fullStream) {
+          void _chunk;
+        }
+        const res: MastraToolSignals = {
+          toolCalls: await stream.toolCalls,
+          toolResults: await stream.toolResults,
+          text: await stream.text,
+        };
+        const { result } = await finalizeOrchestratorResult(res, runCtx);
+        return result;
+      } finally {
+        finished = true;
+        (wake as (() => void) | null)?.();
+        wake = null;
       }
-      const res: MastraToolSignals = {
-        toolCalls: await stream.toolCalls,
-        toolResults: await stream.toolResults,
-        text: await stream.text,
-      };
-      const { result } = await finalizeOrchestratorResult(res, runCtx);
-      finished = true;
-      (wake as (() => void) | null)?.();
-      wake = null;
-      return result;
     })();
 
     while (!finished || queue.length > 0) {
