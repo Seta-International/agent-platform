@@ -1,5 +1,5 @@
 import { buildRegistry } from '@seta/shared-rbac';
-import { describe, expect, it } from 'vitest';
+import { expect, it } from 'vitest';
 import { makeRbacCheck } from '../../src/rpc/rbac.ts';
 
 const reg = buildRegistry([

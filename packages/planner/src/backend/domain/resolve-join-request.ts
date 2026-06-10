@@ -57,6 +57,7 @@ export async function resolveJoinRequest(
           ),
         )
         .returning();
+      // biome-ignore lint/style/noNonNullAssertion: .returning() always returns a row when updating one record
       updated = row!;
     },
   );

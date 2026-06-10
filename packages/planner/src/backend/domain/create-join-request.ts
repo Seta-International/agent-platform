@@ -88,12 +88,14 @@ export async function createJoinRequest(
             ),
           )
           .returning();
+        // biome-ignore lint/style/noNonNullAssertion: .returning() always returns a row when inserting one record
         inserted = row!;
       } else {
         const [row] = await tx
           .insert(groupJoinRequests)
           .values({ group_id: input.group_id, user_id: input.session.user_id })
           .returning();
+        // biome-ignore lint/style/noNonNullAssertion: .returning() always returns a row when inserting one record
         inserted = row!;
       }
 

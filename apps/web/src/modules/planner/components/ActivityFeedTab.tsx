@@ -149,7 +149,7 @@ export function ActivityFeedTab({ groupId }: Props) {
                   )}
                 </div>
               ) : (
-                <ActivityRow item={items[virtualRow.index]!} />
+                <ActivityRow item={items[virtualRow.index] as GroupActivityItem} />
               )}
             </div>
           );

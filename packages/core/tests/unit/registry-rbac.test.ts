@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { expect, it } from 'vitest';
 import { createContributionRegistry } from '../../src/composition/registry.ts';
 
 it('collects rbac manifests', () => {
