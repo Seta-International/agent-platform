@@ -15,7 +15,10 @@ export type ListRoleGrants = (
   userId: string,
 ) => Promise<{ tenant_id: string; grants: ReadonlyArray<RoleGrant> }>;
 
-export type ResolvePermissions = (roles: readonly string[]) => ReadonlySet<string>;
+export type ResolvePermissions = (
+  roles: readonly string[],
+  tenantId: string,
+) => Promise<ReadonlySet<string>>;
 
 export interface SessionScope {
   session_id: string;
@@ -75,6 +78,10 @@ export async function getSessionScope(
     .where(eq(sessionScopeCache.session_id, sessionId))
     .limit(1);
   if (cached && !cached.invalidated_at) {
+    const permissions = await deps.resolvePermissions(
+      (cached.role_summary as { roles: string[] }).roles,
+      cached.tenant_id,
+    );
     const scope: SessionScope = {
       session_id: cached.session_id,
       tenant_id: cached.tenant_id,
@@ -87,7 +94,7 @@ export async function getSessionScope(
       invalidated_at: cached.invalidated_at,
       email,
       display_name: displayName,
-      permissions: deps.resolvePermissions((cached.role_summary as { roles: string[] }).roles),
+      permissions,
     };
     hot.set(sessionId, scope);
     return scope;
@@ -95,6 +102,7 @@ export async function getSessionScope(
 
   const { tenant_id, grants } = await deps.listRoleGrants(userId);
   const role_summary = rollup(grants);
+  const permissions = await deps.resolvePermissions(role_summary.roles, tenant_id);
   const scope: SessionScope = {
     session_id: sessionId,
     user_id: userId,
@@ -107,7 +115,7 @@ export async function getSessionScope(
     cross_tenant_read: role_summary.cross_tenant_read,
     built_at: new Date(),
     invalidated_at: null,
-    permissions: deps.resolvePermissions(role_summary.roles),
+    permissions,
   };
 
   await coreDb()
