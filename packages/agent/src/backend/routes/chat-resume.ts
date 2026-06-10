@@ -56,7 +56,7 @@ export function mapDecisionToResumeData(
   // approve: take the assignee set from the chosen alternate (if any) else primary.
   const idx = body.alternateIndices?.[0];
   if (idx !== undefined && card?.alternates?.[idx]) {
-    const alt = card.alternates[idx]!.argsPatch as { assigneeUserIds?: unknown };
+    const alt = card.alternates[idx]?.argsPatch as { assigneeUserIds?: unknown };
     const overrideUserIds = Array.isArray(alt.assigneeUserIds)
       ? (alt.assigneeUserIds as string[])
       : [];
