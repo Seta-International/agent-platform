@@ -1,5 +1,5 @@
 import { type NavManifest, noNavExtensions } from '@seta/module-sdk';
-import { Bell, FileClock, Mail, Settings, Shield, Sliders, Users } from 'lucide-react';
+import { Bell, FileClock, Mail, Settings, Shield, ShieldCheck, Sliders, Users } from 'lucide-react';
 
 export const adminNavManifest: NavManifest = {
   id: 'admin',
@@ -24,6 +24,13 @@ export const adminNavManifest: NavManifest = {
           label: 'SSO',
           to: '/admin/sso',
           requires: ['identity.sso.read'],
+        },
+        {
+          id: 'admin.role-access',
+          icon: ShieldCheck,
+          label: 'Role access',
+          to: '/admin/role-access',
+          requires: ['identity.role.read'],
         },
       ],
     },
