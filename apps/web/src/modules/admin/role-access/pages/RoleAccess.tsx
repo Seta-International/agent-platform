@@ -95,96 +95,86 @@ function MatrixTable({ roles, canWrite }: { roles: MatrixRole[]; canWrite: boole
   const roleHasOverride = (role: MatrixRole) => role.cells.some((c) => c.overridden);
 
   return (
-    <section className="overflow-hidden rounded-lg border border-hairline bg-canvas">
-      <header className="flex items-center justify-between gap-4 border-b border-hairline-tertiary px-5 py-3.5">
-        <p className="m-0 text-body-sm text-ink-subtle">
-          Each column is a role. A{' '}
-          <span className="inline-flex items-center gap-1 align-middle">
-            <span className="inline-block size-1.5 rounded-full bg-primary" /> dot
-          </span>{' '}
-          marks a permission changed from its default.
-        </p>
-      </header>
-
-      <Table>
-        <TableHeader>
-          <TableRow className="hover:bg-transparent">
-            <TableHead className="sticky left-0 z-10 bg-canvas align-bottom">
-              <span className="text-eyebrow uppercase text-ink-tertiary">Permission</span>
-            </TableHead>
-            {roles.map((role) => (
-              <TableHead
-                key={role.slug}
-                className="min-w-40 border-l border-hairline-tertiary py-3 align-bottom"
-              >
-                <div className="flex flex-col gap-1.5">
+    <Table>
+      <TableHeader className="bg-canvas [&_tr]:border-b [&_tr]:border-hairline">
+        <TableRow className="hover:bg-transparent">
+          <TableHead className="sticky left-0 z-10 bg-canvas align-bottom">
+            <span className="text-eyebrow uppercase text-ink-tertiary">Permission</span>
+          </TableHead>
+          {roles.map((role) => (
+            <TableHead
+              key={role.slug}
+              className="min-w-40 border-l border-hairline-tertiary py-3 align-bottom"
+            >
+              <div className="flex flex-col gap-0.5">
+                <div className="flex items-center gap-1.5">
                   <span className="text-body-sm font-semibold tracking-tight text-ink">
                     {roleShort(role.slug)}
-                  </span>
-                  <span className="font-mono text-caption font-normal text-ink-tertiary">
-                    {role.slug}
                   </span>
                   {canWrite && (
                     <Button
                       variant="ghost"
-                      size="sm"
+                      size="icon"
                       aria-label={`Reset ${role.slug} to defaults`}
-                      className="-ml-2 h-7 w-fit gap-1.5 px-2 text-caption text-ink-muted disabled:opacity-40"
+                      className="size-5 text-ink-tertiary transition-opacity disabled:pointer-events-none disabled:opacity-0"
                       disabled={!roleHasOverride(role) || reset.isPending}
                       onClick={() => reset.mutate(role.slug)}
                     >
                       <RotateCcw className="size-3" aria-hidden />
-                      Reset
                     </Button>
                   )}
                 </div>
-              </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {keys.map(({ key, description }) => (
-            <TableRow key={key}>
-              <TableCell className="sticky left-0 z-10 bg-canvas py-2.5">
-                <div className="flex flex-col">
-                  <span className="text-body-sm text-ink">{description}</span>
-                  {description !== key && (
-                    <span className="font-mono text-caption text-ink-tertiary">{key}</span>
-                  )}
-                </div>
-              </TableCell>
-              {roles.map((role) => {
-                const cell = cellOf(role, key);
-                if (!cell)
-                  return (
-                    <TableCell key={role.slug} className="border-l border-hairline-tertiary" />
-                  );
-                return (
-                  <TableCell key={role.slug} className="border-l border-hairline-tertiary py-2.5">
-                    <div className="relative inline-flex">
-                      <Checkbox
-                        checked={cell.effective}
-                        disabled={!canWrite || setPerm.isPending}
-                        aria-label={`${roleShort(role.slug)} — ${key}`}
-                        onCheckedChange={(v) =>
-                          setPerm.mutate({ role: role.slug, permission: key, enabled: v === true })
-                        }
-                      />
-                      {cell.overridden && (
-                        <span
-                          className="absolute -right-1.5 -top-1.5 size-2 rounded-full border border-canvas bg-primary"
-                          title="Changed from default"
-                          aria-hidden
-                        />
-                      )}
-                    </div>
-                  </TableCell>
-                );
-              })}
-            </TableRow>
+                <span className="font-mono text-caption font-normal text-ink-tertiary">
+                  {role.slug}
+                </span>
+              </div>
+            </TableHead>
           ))}
-        </TableBody>
-      </Table>
-    </section>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {keys.map(({ key, description }) => (
+          <TableRow
+            key={key}
+            className="border-b border-hairline-tertiary transition-colors hover:bg-surface-2"
+          >
+            <TableCell className="sticky left-0 z-10 bg-canvas py-2.5">
+              <div className="flex flex-col">
+                <span className="text-body-sm text-ink">{description}</span>
+                {description !== key && (
+                  <span className="font-mono text-caption text-ink-tertiary">{key}</span>
+                )}
+              </div>
+            </TableCell>
+            {roles.map((role) => {
+              const cell = cellOf(role, key);
+              if (!cell)
+                return <TableCell key={role.slug} className="border-l border-hairline-tertiary" />;
+              return (
+                <TableCell key={role.slug} className="border-l border-hairline-tertiary py-2.5">
+                  <div className="relative inline-flex">
+                    <Checkbox
+                      checked={cell.effective}
+                      disabled={!canWrite || setPerm.isPending}
+                      aria-label={`${roleShort(role.slug)} — ${key}`}
+                      onCheckedChange={(v) =>
+                        setPerm.mutate({ role: role.slug, permission: key, enabled: v === true })
+                      }
+                    />
+                    {cell.overridden && (
+                      <span
+                        className="absolute -right-1.5 -top-1.5 size-2 rounded-full border border-canvas bg-primary"
+                        title="Changed from default"
+                        aria-hidden
+                      />
+                    )}
+                  </div>
+                </TableCell>
+              );
+            })}
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   );
 }

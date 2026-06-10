@@ -1,3 +1,4 @@
+import { PageChrome } from '@seta/shared-ui';
 import { useEffect, useState } from 'react';
 import { listProviders } from '@/modules/admin/sso/api/sso-client.ts';
 import { ImportFromEntraDialog } from '@/modules/admin/sso/components/ImportFromEntraDialog.tsx';
@@ -40,33 +41,34 @@ export function AdminUsers() {
   }, [refreshKey]);
 
   return (
-    <div className="space-y-4 px-7 py-6">
-      <div>
-        <div className="text-xs text-ink-muted">Admin</div>
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold tracking-tight">Users</h1>
-          <div className="flex items-center gap-2">
-            <ImportFromEntraDialog enabled={hasActiveEntra} onImported={bump} />
-            <CreateUserDialog onCreated={bump} triggerLabel="Invite user" />
-          </div>
-        </div>
-      </div>
-      <AdminUsersTable
-        refreshKey={refreshKey}
-        selected={selected}
-        onToggle={onToggle}
-        onTogglePage={onTogglePage}
-      />
-      {selected.size > 0 && (
-        <BulkRoleBar
+    <PageChrome
+      breadcrumb={['Admin']}
+      title="Users"
+      actions={
+        <>
+          <ImportFromEntraDialog enabled={hasActiveEntra} onImported={bump} />
+          <CreateUserDialog onCreated={bump} triggerLabel="Invite user" />
+        </>
+      }
+    >
+      <div className="page-container space-y-4">
+        <AdminUsersTable
+          refreshKey={refreshKey}
           selected={selected}
-          onClear={() => setSelected(new Set())}
-          onDone={() => {
-            setSelected(new Set());
-            bump();
-          }}
+          onToggle={onToggle}
+          onTogglePage={onTogglePage}
         />
-      )}
-    </div>
+        {selected.size > 0 && (
+          <BulkRoleBar
+            selected={selected}
+            onClear={() => setSelected(new Set())}
+            onDone={() => {
+              setSelected(new Set());
+              bump();
+            }}
+          />
+        )}
+      </div>
+    </PageChrome>
   );
 }
