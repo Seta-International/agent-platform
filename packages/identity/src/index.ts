@@ -1,5 +1,7 @@
 export { ASSIGNABLE_ROLES } from '@seta/shared-rbac';
 export { buildActorSession } from './backend/domain/build-actor-session.ts';
+export type { BulkRoleInput, BulkRoleResult } from './backend/domain/bulk-grant-role.ts';
+export { bulkGrantRole, bulkRevokeRole } from './backend/domain/bulk-grant-role.ts';
 export type { ChangeUserEmailInput } from './backend/domain/change-user-email.ts';
 export { changeUserEmail } from './backend/domain/change-user-email.ts';
 export type { Actor, CreateUserInput, CreateUserInviteOpts } from './backend/domain/create-user.ts';
