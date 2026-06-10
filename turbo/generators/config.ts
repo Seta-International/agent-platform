@@ -36,6 +36,11 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
     return 'pnpm install complete';
   });
 
+  plop.setActionType('runGenRbac', () => {
+    execSync('pnpm gen:rbac', { stdio: 'inherit' });
+    return 'regenerated permission keys';
+  });
+
   // The entry-point `modify` actions append each new import directly above the
   // marker comment, which leaves the import block out of alphabetical order and
   // trips Biome's organizeImports assist. Re-sort just those files so a fresh
@@ -276,6 +281,7 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
         { type: 'organizeEntryImports' },
         { type: 'addWorkspaceDeps' },
         { type: 'runPnpmInstall' },
+        { type: 'runGenRbac' },
       );
 
       return actions;

@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import type { ContributionRegistry } from '@seta/core';
 import * as schema from './backend/db/schema.ts';
 import { {{constantCase name}}_EVENTS } from './events.ts';
-import { {{constantCase name}}_PERMISSIONS } from './rbac.ts';
+import { {{camelCase name}}Rbac } from './rbac.ts';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
@@ -13,6 +13,6 @@ export function register{{pascalCase name}}Contributions(reg: ContributionRegist
     schema,
     migrationsDir: resolve(__dirname, '../drizzle/migrations'),
     events: {{constantCase name}}_EVENTS,
-    rbac: {{constantCase name}}_PERMISSIONS,
+    rbac: {{camelCase name}}Rbac,
   });
 }
