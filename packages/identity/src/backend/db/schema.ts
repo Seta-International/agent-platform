@@ -35,6 +35,19 @@ export const roleGrants = identity.table('role_grants', {
   revoked_by: uuid('revoked_by'),
 });
 
+export const rolePermissionOverlays = identity.table(
+  'role_permission_overlays',
+  {
+    tenant_id: uuid('tenant_id').notNull(),
+    role_slug: text('role_slug').notNull(),
+    permission_key: text('permission_key').notNull(),
+    effect: text('effect', { enum: ['grant', 'revoke'] }).notNull(),
+    updated_by: uuid('updated_by'),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.tenant_id, t.role_slug, t.permission_key] })],
+);
+
 export const failedLoginAttempts = identity.table('failed_login_attempts', {
   id: uuid('id').primaryKey().defaultRandom(),
   email: text('email').notNull(),
