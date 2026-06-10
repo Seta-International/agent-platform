@@ -3,12 +3,21 @@ import { resetCoreDb } from '@seta/core/testing';
 import { createUser, IdentityError } from '@seta/identity';
 import { resetKnowledgeDb } from '@seta/knowledge/testing';
 import { closePools, initPools } from '@seta/shared-db';
+import {
+  buildRegistry,
+  IMPLICIT_PERMISSIONS,
+  INVENTORY,
+  inventoryToManifests,
+  resolvePermissions,
+} from '@seta/shared-rbac';
 import { withTestDb } from '@seta/shared-testing';
 import { Hono } from 'hono';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { describe, expect, it, vi } from 'vitest';
 import { requestKnowledgeUpload } from '../../../src/backend/domain/upload-url.ts';
 import { registerKnowledgeRoutes } from '../../../src/backend/http/index.ts';
+
+const _registry = buildRegistry(inventoryToManifests(INVENTORY));
 
 function handleKnowledgeError(
   err: Error,
@@ -29,7 +38,8 @@ function buildSession(opts: {
   display_name: string;
   roles?: string[];
 }): SessionScope {
-  const role_summary = { roles: opts.roles ?? ['org.admin'], cross_tenant_read: false };
+  const roles = opts.roles ?? ['org.admin'];
+  const role_summary = { roles, cross_tenant_read: false };
   return {
     session_id: crypto.randomUUID(),
     user_id: opts.user_id,
@@ -38,6 +48,7 @@ function buildSession(opts: {
     display_name: opts.display_name,
     role_summary,
     role_summary_hash: hashRoleSummary(role_summary),
+    permissions: resolvePermissions(_registry, roles, IMPLICIT_PERMISSIONS),
     accessible_group_ids: [],
     cross_tenant_read: false,
     built_at: new Date(),

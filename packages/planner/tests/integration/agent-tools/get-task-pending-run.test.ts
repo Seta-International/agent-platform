@@ -4,9 +4,18 @@ import { hashRoleSummary, type SessionScope } from '@seta/core';
 import { createTestTenantWithAdmin } from '@seta/identity/testing';
 import { createGroup, createPlan, createTask } from '@seta/planner';
 import { plannerGetTaskTool } from '@seta/planner/agent-tools';
+import {
+  buildRegistry,
+  IMPLICIT_PERMISSIONS,
+  INVENTORY,
+  inventoryToManifests,
+  resolvePermissions,
+} from '@seta/shared-rbac';
 import type { Pool } from 'pg';
 import { describe, expect, it } from 'vitest';
 import { makeToolContext, withAgentTestDb } from '../agent-tools-helpers.ts';
+
+const _registry = buildRegistry(inventoryToManifests(INVENTORY));
 
 // In production registerAgent() registers the reader (it lives in
 // packages/agent/src/backend/domain). Here we register an inline reader
@@ -33,7 +42,8 @@ function buildAdminSession(opts: {
   user_id: string;
   email: string;
 }): SessionScope {
-  const role_summary = { roles: ['org.admin'], cross_tenant_read: false };
+  const roles = ['org.admin'];
+  const role_summary = { roles, cross_tenant_read: false };
   return {
     session_id: randomUUID(),
     user_id: opts.user_id,
@@ -42,6 +52,7 @@ function buildAdminSession(opts: {
     display_name: 'Admin',
     role_summary,
     role_summary_hash: hashRoleSummary(role_summary),
+    permissions: resolvePermissions(_registry, roles, IMPLICIT_PERMISSIONS),
     accessible_group_ids: [],
     cross_tenant_read: false,
     built_at: new Date(),

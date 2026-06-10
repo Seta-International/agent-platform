@@ -22,12 +22,3 @@ export const knowledgeRbac = toManifest('knowledge', knowledgeStatement, roleSta
 export type KnowledgePermission = (typeof knowledgeRbac.permissions)[number]['key'];
 
 export const KNOWLEDGE_PERMISSIONS = knowledgeRbac.permissions.map((p) => p.key);
-
-export const KNOWLEDGE_ROLE_SLUGS = knowledgeRbac.roles.map((r) => r.slug) as Array<
-  'knowledge.member' | 'knowledge.viewer'
->;
-export type KnowledgeRoleSlug = (typeof KNOWLEDGE_ROLE_SLUGS)[number];
-
-export const KNOWLEDGE_ROLE_PERMISSIONS = Object.fromEntries(
-  knowledgeRbac.roles.map((r) => [r.slug, r.permissions]),
-) as Record<KnowledgeRoleSlug, string[]>;

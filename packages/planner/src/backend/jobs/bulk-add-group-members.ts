@@ -1,4 +1,11 @@
 import { hashRoleSummary } from '@seta/core';
+import {
+  buildRegistry,
+  IMPLICIT_PERMISSIONS,
+  INVENTORY,
+  inventoryToManifests,
+  resolvePermissions,
+} from '@seta/shared-rbac';
 import type { TaskList } from 'graphile-worker';
 import { addGroupMember } from '../domain/add-group-member.ts';
 
@@ -9,12 +16,15 @@ export type BulkAddGroupMembersPayload = {
   actor_tenant_id: string;
 };
 
+const _registry = buildRegistry(inventoryToManifests(INVENTORY));
+
 // Permission was validated at enqueue time; use an org.admin synthetic session
 // so the RBAC check in addGroupMember passes without storing the full session scope.
 export const plannerMembershipJobs: TaskList = {
   'planner.bulk_add_group_members': async (rawPayload) => {
     const payload = rawPayload as BulkAddGroupMembersPayload;
-    const role_summary = { roles: ['org.admin'] as string[], cross_tenant_read: false };
+    const roles = ['org.admin'] as string[];
+    const role_summary = { roles, cross_tenant_read: false };
     const session = {
       session_id: crypto.randomUUID(),
       user_id: payload.actor_user_id,
@@ -23,6 +33,7 @@ export const plannerMembershipJobs: TaskList = {
       display_name: '',
       role_summary,
       role_summary_hash: hashRoleSummary(role_summary),
+      permissions: resolvePermissions(_registry, roles, IMPLICIT_PERMISSIONS),
       accessible_group_ids: [] as readonly string[],
       cross_tenant_read: false,
       built_at: new Date(),
