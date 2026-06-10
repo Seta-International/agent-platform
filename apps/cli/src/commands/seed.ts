@@ -13,6 +13,13 @@ import {
   listPlans,
   listTasks,
 } from '@seta/planner';
+import {
+  buildRegistry,
+  IMPLICIT_PERMISSIONS,
+  INVENTORY,
+  inventoryToManifests,
+  resolvePermissions,
+} from '@seta/shared-rbac';
 import { sql } from 'drizzle-orm';
 import pino from 'pino';
 import { mapPriorityNumber, mapStatusFields, parseCsvs, splitIds } from './lib/csv-parser.ts';
@@ -76,6 +83,8 @@ async function resolveUserIdByEmail(tenantId: string, email: string): Promise<st
   return id;
 }
 
+const rbacRegistry = buildRegistry(inventoryToManifests(INVENTORY));
+
 async function buildAdminSession(tenantId: string, adminEmail: string): Promise<SessionScope> {
   const userId = await resolveUserIdByEmail(tenantId, adminEmail);
   const { grants } = await listRoleGrants(userId);
@@ -87,6 +96,7 @@ async function buildAdminSession(tenantId: string, adminEmail: string): Promise<
     email: adminEmail,
     display_name: adminEmail,
     role_summary,
+    permissions: resolvePermissions(rbacRegistry, role_summary.roles, IMPLICIT_PERMISSIONS),
     role_summary_hash: hashRoleSummary(role_summary),
     accessible_group_ids: computeAccessibleGroups(grants),
     cross_tenant_read: role_summary.cross_tenant_read,

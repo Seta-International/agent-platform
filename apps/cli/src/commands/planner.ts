@@ -9,6 +9,13 @@ import {
   createPlan,
   createTask,
 } from '@seta/planner';
+import {
+  buildRegistry,
+  IMPLICIT_PERMISSIONS,
+  INVENTORY,
+  inventoryToManifests,
+  resolvePermissions,
+} from '@seta/shared-rbac';
 import type { Command } from 'commander';
 import { sql } from 'drizzle-orm';
 import { resolveTenantId, UUID_RE } from './lib/tenant-resolve.ts';
@@ -25,6 +32,8 @@ async function resolveUserIdByEmail(tenantId: string, email: string): Promise<st
   return id;
 }
 
+const rbacRegistry = buildRegistry(inventoryToManifests(INVENTORY));
+
 async function buildActorSession(tenantId: string, actorEmail: string): Promise<SessionScope> {
   const userId = await resolveUserIdByEmail(tenantId, actorEmail);
   const { grants } = await listRoleGrants(userId);
@@ -36,6 +45,7 @@ async function buildActorSession(tenantId: string, actorEmail: string): Promise<
     email: actorEmail,
     display_name: actorEmail,
     role_summary,
+    permissions: resolvePermissions(rbacRegistry, role_summary.roles, IMPLICIT_PERMISSIONS),
     role_summary_hash: hashRoleSummary(role_summary),
     accessible_group_ids: computeAccessibleGroups(grants),
     cross_tenant_read: role_summary.cross_tenant_read,

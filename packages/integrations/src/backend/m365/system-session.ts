@@ -1,10 +1,23 @@
 import type { PlannerSessionScope } from '@seta/planner';
+import {
+  buildRegistry,
+  IMPLICIT_PERMISSIONS,
+  INVENTORY,
+  inventoryToManifests,
+  resolvePermissions,
+} from '@seta/shared-rbac';
 
 const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000';
 const SYSTEM_SESSION_ID = '00000000-0000-0000-0000-00000000m365';
 const SYSTEM_EMAIL = 'system+integrations.m365@seta.internal';
 const SYSTEM_DISPLAY_NAME = 'M365 Sync System';
 const SYSTEM_ROLE_SUMMARY_HASH = 'system-integrations-m365';
+
+const SYSTEM_PERMISSIONS = resolvePermissions(
+  buildRegistry(inventoryToManifests(INVENTORY)),
+  ['system.integrations.m365'],
+  IMPLICIT_PERMISSIONS,
+);
 
 export function buildSystemSession(tenantId: string): PlannerSessionScope {
   return {
@@ -18,6 +31,7 @@ export function buildSystemSession(tenantId: string): PlannerSessionScope {
       cross_tenant_read: false,
     },
     role_summary_hash: SYSTEM_ROLE_SUMMARY_HASH,
+    permissions: SYSTEM_PERMISSIONS,
     accessible_group_ids: [],
     cross_tenant_read: false,
     built_at: new Date(),
