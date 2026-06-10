@@ -1,6 +1,11 @@
 import { createMiddleware } from 'hono/factory';
 import { isIdleExpired } from '../session/idle.ts';
-import { getSessionScope, type ListRoleGrants, type SessionScope } from '../session/scope.ts';
+import {
+  getSessionScope,
+  type ListRoleGrants,
+  type ResolvePermissions,
+  type SessionScope,
+} from '../session/scope.ts';
 
 export type SessionEnv = { Variables: { user: SessionScope } };
 
@@ -17,6 +22,7 @@ export interface SessionMiddlewareDeps {
   } | null>;
   signOut: (req: { headers: Headers }) => Promise<void>;
   listRoleGrants: ListRoleGrants;
+  resolvePermissions: ResolvePermissions;
 }
 
 export function createSessionMiddleware(deps: SessionMiddlewareDeps) {
@@ -42,7 +48,7 @@ export function createSessionMiddleware(deps: SessionMiddlewareDeps) {
     }
 
     const scope = await getSessionScope(
-      { listRoleGrants: deps.listRoleGrants },
+      { listRoleGrants: deps.listRoleGrants, resolvePermissions: deps.resolvePermissions },
       session.session.id,
       session.user.id,
       session.user.email,
