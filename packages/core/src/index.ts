@@ -5,6 +5,14 @@ export {
   type AuditSortDir,
   queryAudit,
 } from './backend/audit.ts';
+export {
+  BudgetExceededError,
+  type BudgetGuard,
+  type BudgetPeriod,
+  type BudgetStatus,
+  checkBudget,
+  registerBudgetGuard,
+} from './billing/budget-guard.ts';
 export { captureException, registerErrorCapture } from './composition/error-capture.ts';
 export { buildHonoApp } from './composition/hono-app.ts';
 export {
