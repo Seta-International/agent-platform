@@ -6,6 +6,7 @@ export interface SessionScopeProjection {
   email: string;
   display_name: string;
   role_summary: { roles: string[]; cross_tenant_read: boolean };
+  permissions: string[];
   accessible_group_ids: ReadonlyArray<string>;
   cross_tenant_read: boolean;
   tenant_local_password_disabled: boolean;
