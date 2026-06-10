@@ -1,3 +1,4 @@
+export { ASSIGNABLE_ROLES } from '@seta/shared-rbac';
 export { buildActorSession } from './backend/domain/build-actor-session.ts';
 export type { ChangeUserEmailInput } from './backend/domain/change-user-email.ts';
 export { changeUserEmail } from './backend/domain/change-user-email.ts';
@@ -129,5 +130,4 @@ export {
   IDENTITY_USER_DEACTIVATED_VERSION,
   type IdentityUserDeactivatedPayload,
 } from './events/user-deactivated.ts';
-export type { TenantRoleSlug } from './rbac.ts';
-export { A2_PERMISSIONS, type A2Permission, TENANT_ROLE_SLUGS } from './rbac.ts';
+export { A2_PERMISSIONS, type A2Permission } from './rbac.ts';
