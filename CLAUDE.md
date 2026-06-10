@@ -5,6 +5,7 @@ Contract for coding agents (Claude Code, Codex, any `AGENTS.md`-aware tool) work
 ## Reference docs
 
 - [`docs/architecture.md`](docs/architecture.md) — single source of truth for the implementation shape.
+- [`docs/rbac.md`](docs/rbac.md) — how access control works, conceptually (for contributors + agents; no code).
 - [`docs/creating-modules.md`](docs/creating-modules.md) — add a new module + agent tool via `pnpm gen module`.
 - [`docs/dev-quickstart.md`](docs/dev-quickstart.md) — first tenant and accounts on a fresh DB.
 - [`docs/hosting/`](docs/hosting/) — self-host (docker compose, AWS, scaling, upgrading).
