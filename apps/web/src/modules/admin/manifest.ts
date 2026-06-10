@@ -1,5 +1,15 @@
 import { type NavManifest, noNavExtensions } from '@seta/module-sdk';
-import { Bell, FileClock, Mail, Settings, Shield, ShieldCheck, Sliders, Users } from 'lucide-react';
+import {
+  Bell,
+  FileClock,
+  Gauge,
+  Mail,
+  Settings,
+  Shield,
+  ShieldCheck,
+  Sliders,
+  Users,
+} from 'lucide-react';
 
 export const adminNavManifest: NavManifest = {
   id: 'admin',
@@ -62,6 +72,13 @@ export const adminNavManifest: NavManifest = {
           label: 'Organization',
           to: '/admin/tenant',
           requires: ['core.tenant.read'],
+        },
+        {
+          id: 'admin.billing',
+          icon: Gauge,
+          label: 'AI Usage',
+          to: '/admin/billing',
+          requires: ['billing.read'],
         },
         {
           id: 'admin.audit',
