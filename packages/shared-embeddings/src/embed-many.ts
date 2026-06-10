@@ -1,4 +1,4 @@
-import type { EmbeddingProvider } from './provider.ts';
+import type { EmbeddingProvider, EmbeddingUsageResult } from './provider.ts';
 
 export interface EmbedManyOptions {
   /** Items per provider call. */
@@ -30,28 +30,44 @@ export async function embedMany(
   texts: string[],
   opts: EmbedManyOptions = {},
 ): Promise<number[][]> {
+  return (await embedManyWithUsage(provider, texts, opts)).vectors;
+}
+
+/**
+ * Like embedMany(), but also returns the model's total reported token usage
+ * summed across batches — used by the billing usage capture at embedding
+ * call-sites. Vectors are returned in input order.
+ */
+export async function embedManyWithUsage(
+  provider: EmbeddingProvider,
+  texts: string[],
+  opts: EmbedManyOptions = {},
+): Promise<EmbeddingUsageResult> {
+  if (texts.length === 0) return { vectors: [], tokens: 0 };
   const cfg = { ...DEFAULTS, ...opts };
-  const out: number[][] = new Array(texts.length);
+  const vectors: number[][] = new Array(texts.length);
+  let tokens = 0;
 
   for (let offset = 0; offset < texts.length; offset += cfg.batchSize) {
     const batch = texts.slice(offset, offset + cfg.batchSize);
-    const vectors = await embedBatchWithRetry(provider, batch, cfg);
+    const res = await embedBatchWithRetry(provider, batch, cfg);
+    tokens += res.tokens;
     for (let i = 0; i < batch.length; i += 1) {
-      out[offset + i] = vectors[i] as number[];
+      vectors[offset + i] = res.vectors[i] as number[];
     }
   }
-  return out;
+  return { vectors, tokens };
 }
 
 async function embedBatchWithRetry(
   provider: EmbeddingProvider,
   batch: string[],
   cfg: Required<EmbedManyOptions>,
-): Promise<number[][]> {
+): Promise<EmbeddingUsageResult> {
   let lastErr: unknown;
   for (let attempt = 1; attempt <= cfg.maxAttempts; attempt += 1) {
     try {
-      return await provider.embed(batch);
+      return await provider.embedWithUsage(batch);
     } catch (err) {
       lastErr = err;
       if (attempt < cfg.maxAttempts) {

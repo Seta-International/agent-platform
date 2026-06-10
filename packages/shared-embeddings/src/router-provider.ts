@@ -1,5 +1,5 @@
 import { EMBEDDING_MODELS, ModelRouterEmbeddingModel } from '@mastra/core/llm';
-import type { EmbeddingProvider } from './provider.ts';
+import type { EmbeddingProvider, EmbeddingUsageResult } from './provider.ts';
 
 /** Embedding provider backed by Mastra's model router. Accepts "provider/model". */
 export class RouterEmbeddingProvider implements EmbeddingProvider {
@@ -26,9 +26,13 @@ export class RouterEmbeddingProvider implements EmbeddingProvider {
     this.router = new ModelRouterEmbeddingModel(modelString);
   }
 
+  async embedWithUsage(texts: string[]): Promise<EmbeddingUsageResult> {
+    if (texts.length === 0) return { vectors: [], tokens: 0 };
+    const { embeddings, usage } = await this.router.doEmbed({ values: texts });
+    return { vectors: embeddings as number[][], tokens: usage?.tokens ?? 0 };
+  }
+
   async embed(texts: string[]): Promise<number[][]> {
-    if (texts.length === 0) return [];
-    const { embeddings } = await this.router.doEmbed({ values: texts });
-    return embeddings as number[][];
+    return (await this.embedWithUsage(texts)).vectors;
   }
 }

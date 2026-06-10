@@ -126,6 +126,7 @@ const identityEmbeddingProvider: ReturnType<typeof resolveEmbeddingProvider> = {
     return resolveEmbeddingProvider().dimensions;
   },
   embed: (...args) => resolveEmbeddingProvider().embed(...args),
+  embedWithUsage: (...args) => resolveEmbeddingProvider().embedWithUsage(...args),
 };
 // ONE shared Mastra store for both the engine runtime and the staffing
 // orchestrator's per-turn Mastra. Cross-Mastra-instance native-suspend resume

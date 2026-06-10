@@ -9,6 +9,9 @@ describe('EmbeddingProvider type', () => {
       async embed(texts: string[]) {
         return texts.map(() => [0, 0, 0]);
       },
+      async embedWithUsage(texts: string[]) {
+        return { vectors: texts.map(() => [0, 0, 0]), tokens: texts.length };
+      },
     };
 
     expect(fake.modelId).toBe('fake:test');

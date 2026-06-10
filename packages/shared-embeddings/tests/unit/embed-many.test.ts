@@ -2,10 +2,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { embedMany } from '../../src/embed-many.ts';
 import type { EmbeddingProvider } from '../../src/index.ts';
 
+// embedMany now delegates to embedWithUsage, so the call-tracking impl is wired
+// through embedWithUsage; embed delegates to it too (matching the real provider).
 const fakeProvider = (impl: (texts: string[]) => Promise<number[][]>): EmbeddingProvider => ({
   modelId: 'fake:test',
   dimensions: 3,
   embed: impl,
+  embedWithUsage: async (texts) => ({ vectors: await impl(texts), tokens: texts.length }),
 });
 
 describe('embedMany', () => {

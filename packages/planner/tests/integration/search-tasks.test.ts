@@ -104,6 +104,9 @@ describe('searchTasks', () => {
         embed: async () => {
           throw new Error('provider unavailable');
         },
+        embedWithUsage: async () => {
+          throw new Error('provider unavailable');
+        },
       };
 
       const { hits, reranker } = await searchTasks(

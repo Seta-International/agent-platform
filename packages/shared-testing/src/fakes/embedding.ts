@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { EmbeddingProvider } from '@seta/shared-embeddings';
+import type { EmbeddingProvider, EmbeddingUsageResult } from '@seta/shared-embeddings';
 
 export interface FakeEmbeddingProviderOptions {
   dimensions?: number;
@@ -22,6 +22,13 @@ export class FakeEmbeddingProvider implements EmbeddingProvider {
 
   async embed(texts: string[]): Promise<number[][]> {
     return texts.map((t) => this.vectorize(t));
+  }
+
+  async embedWithUsage(texts: string[]): Promise<EmbeddingUsageResult> {
+    // Deterministic ~4-chars-per-token estimate so usage-capture tests see a
+    // stable, non-zero token count for non-empty input.
+    const tokens = texts.reduce((sum, t) => sum + Math.max(1, Math.ceil(t.length / 4)), 0);
+    return { vectors: texts.map((t) => this.vectorize(t)), tokens: texts.length ? tokens : 0 };
   }
 
   private vectorize(text: string): number[] {

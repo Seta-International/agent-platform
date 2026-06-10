@@ -28,6 +28,7 @@ const lazyProvider: EmbeddingProvider = {
     return resolveEmbeddingProvider().dimensions;
   },
   embed: (texts) => resolveEmbeddingProvider().embed(texts),
+  embedWithUsage: (texts) => resolveEmbeddingProvider().embedWithUsage(texts),
 };
 
 function readDatabaseUrl(): string {
