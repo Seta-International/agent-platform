@@ -5,7 +5,8 @@
   "description": "Pure role and permission primitives — role catalog, permission constants, and capability resolution.",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./generated": "./src/generated/permission-keys.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
