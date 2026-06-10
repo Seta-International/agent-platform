@@ -19,7 +19,14 @@ export {
 } from './errors.ts';
 
 export { withIdempotency } from './idempotency.ts';
-export { type RpcActor, RpcActorSchema, rbacCheck } from './rbac.ts';
+export {
+  makeRbacCheck,
+  type RbacCheck,
+  type RpcActor,
+  RpcActorSchema,
+  rbacCheck,
+  setRbacCheck,
+} from './rbac.ts';
 export {
   type CreateRegistryOpts,
   createRegistry,

@@ -13,9 +13,20 @@ import {
   rbacCheck,
   W3C_TRACEPARENT,
 } from '@seta/core/rpc';
+import {
+  buildRegistry,
+  IMPLICIT_PERMISSIONS,
+  INVENTORY,
+  inventoryToManifests,
+} from '@seta/shared-rbac';
 import { Hono } from 'hono';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
+import { makeRbacCheck, setRbacCheck } from '../../../src/rpc/rbac.ts';
+
+beforeAll(() =>
+  setRbacCheck(makeRbacCheck(buildRegistry(inventoryToManifests(INVENTORY)), IMPLICIT_PERMISSIONS)),
+);
 
 const SECRET = '0123456789abcdef0123456789abcdef-pad-to-32+';
 
