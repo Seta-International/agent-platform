@@ -15,6 +15,7 @@ import {
   type TaskAnalyzerOutput,
   TaskAnalyzerOutputSchema,
 } from '../schemas.ts';
+import { modelKeyOf, recordGenerateUsage } from '../usage.ts';
 
 type In = z.infer<typeof TaskAnalyzerInputSchema>;
 type Out = TaskAnalyzerOutput;
@@ -49,6 +50,7 @@ async function extractTags(
   // Built per call (not at factory time) so the per-turn model override in
   // ctx.model takes effect. Structured output via Mastra (not raw generateObject)
   // so the unified router model config resolves through the Mastra gateway.
+  const model = pickModel(ctx, deps.resolveModel);
   const agent = new Agent({
     id: 'staffing.taskAnalyzer.tagExtractor',
     name: 'Task Analyzer tag extraction',
@@ -59,11 +61,17 @@ async function extractTags(
     ]
       .filter(Boolean)
       .join('\n'),
-    model: pickModel(ctx, deps.resolveModel),
+    model,
   });
   const r = await agent.generate(`User message: ${query}`, {
     structuredOutput: { schema: z.object({ tags: z.array(z.string()) }) },
     abortSignal: ctx.abortSignal,
+  });
+  await recordGenerateUsage(r, {
+    tenantId: ctx.tenantId,
+    causedByUserId: ctx.actorUserId ?? null,
+    feature: 'subagent',
+    fallbackModelKey: modelKeyOf(model),
   });
   if (!r.object) throw new Error('tag extraction returned no structured output');
   return r.object.tags;
@@ -74,10 +82,11 @@ async function extractSkills(
   deps: TaskAnalyzerDeps,
   title: string,
   description: string | null,
-  ctx: Pick<SpecializedAgentRunCtx, 'model' | 'abortSignal'>,
+  ctx: Pick<SpecializedAgentRunCtx, 'model' | 'abortSignal' | 'tenantId' | 'actorUserId'>,
 ) {
   if (deps.extractSkillsFromTask) return deps.extractSkillsFromTask({ title, description });
   // Per-call Agent for the same reasons as extractTags above.
+  const model = pickModel(ctx, deps.resolveModel);
   const agent = new Agent({
     id: 'staffing.taskAnalyzer.skillExtractor',
     name: 'Task Analyzer skill extraction',
@@ -85,7 +94,7 @@ async function extractSkills(
       'Extract a concise list of technical skill tags (lowercase, no duplicates)',
       'required to do this task. Return only skills clearly implied by the text.',
     ].join('\n'),
-    model: pickModel(ctx, deps.resolveModel),
+    model,
   });
   const r = await agent.generate(
     [`Title: ${title}`, `Description: ${description ?? '(none)'}`].join('\n'),
@@ -94,6 +103,12 @@ async function extractSkills(
       abortSignal: ctx.abortSignal,
     },
   );
+  await recordGenerateUsage(r, {
+    tenantId: ctx.tenantId,
+    causedByUserId: ctx.actorUserId ?? null,
+    feature: 'subagent',
+    fallbackModelKey: modelKeyOf(model),
+  });
   if (!r.object) throw new Error('skill extraction returned no structured output');
   return r.object.skills;
 }

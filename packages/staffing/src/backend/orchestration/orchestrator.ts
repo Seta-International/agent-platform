@@ -33,6 +33,7 @@ import {
   type UserProfileResult,
 } from './schemas.ts';
 import { type MastraToolSignals, trustFromMastraResult } from './trust.ts';
+import { modelKeyOf, recordGenerateUsage } from './usage.ts';
 import { loadUserContextSection, makeUpdateWorkingMemoryTool } from './working-memory.tools.ts';
 
 type In = z.infer<typeof OrchestratorInputSchema>;
@@ -153,6 +154,9 @@ type DrainableStream = {
   toolCalls: Promise<MastraToolSignals['toolCalls']>;
   toolResults: Promise<MastraToolSignals['toolResults']>;
   text: Promise<string | undefined>;
+  /** Mastra resolves token usage once the stream completes. Optional so the
+   *  test streamAgent seam (which omits it) still satisfies the type. */
+  usage?: Promise<{ inputTokens?: number; outputTokens?: number } | undefined>;
 };
 
 const RECOMMEND_TASK_CAP = 5;
@@ -240,6 +244,9 @@ interface BuiltOrchestrator {
   /** Exposed for the runAgent test seam (asserts wiring without an LLM). */
   instructions: string;
   tools: Record<string, unknown>;
+  /** Billing pricing-table key for the model this turn was built with; the
+   *  fallback when the provider echo isn't fully qualified. */
+  modelKey: string;
 }
 
 async function buildOrchestrator(
@@ -274,11 +281,12 @@ async function buildOrchestrator(
     ? `${instructionsText(cap)}\n\n${wmSection}`
     : instructionsText(cap);
 
+  const model = pickModel(ctx, deps.resolveModel);
   const agent = new Agent({
     id: 'staffing.orchestrator',
     name: 'Staffing Orchestrator',
     instructions,
-    model: pickModel(ctx, deps.resolveModel),
+    model,
     tools: tools as never,
     ...(ctx.userMemory ? { memory: ctx.userMemory.memory } : {}),
     inputProcessors: [new TokenLimiterProcessor({ limit: 100_000 })],
@@ -336,7 +344,16 @@ async function buildOrchestrator(
       : {}),
   };
 
-  return { agent: boundAgent, mastra, rc, message, runOptions, instructions, tools };
+  return {
+    agent: boundAgent,
+    mastra,
+    rc,
+    message,
+    runOptions,
+    instructions,
+    tools,
+    modelKey: modelKeyOf(model),
+  };
 }
 
 /** Shared post-LLM step: assemble the structured result and derive the trust
@@ -386,6 +403,13 @@ export function makeOrchestratorAgent(deps: OrchestratorDeps): SpecializedAgentS
                 }
               },
             });
+            // Bill the orchestrator's own LLM spend (sub-agents bill separately).
+            await recordGenerateUsage(r, {
+              tenantId: ctx.tenantId,
+              causedByUserId: ctx.actorUserId ?? null,
+              feature: 'chat',
+              fallbackModelKey: built.modelKey,
+            });
             return {
               toolCalls: r.toolCalls as MastraToolSignals['toolCalls'],
               toolResults: r.toolResults as MastraToolSignals['toolResults'],
@@ -413,6 +437,7 @@ async function* drainOrchestrationStream(
   setWake: (w: (() => void) | null) => void,
   queue: OrchestrationEvent[],
   provideStream: () => Promise<DrainableStream>,
+  fallbackModelKey: string,
 ): AsyncIterable<OrchestrationEvent> {
   let finished = false;
   const stream = await provideStream();
@@ -445,6 +470,19 @@ async function* drainOrchestrationStream(
         toolResults: await stream.toolResults,
         text: await stream.text,
       };
+      // Bill the orchestrator's own streamed LLM spend (the production path;
+      // sub-agents bill from their own generate()). Best-effort, never blocks
+      // the result. response is omitted so the configured fallback key is used.
+      const usage = stream.usage ? await stream.usage : undefined;
+      await recordGenerateUsage(
+        { usage },
+        {
+          tenantId: runCtx.tenantId,
+          causedByUserId: runCtx.actorUserId ?? null,
+          feature: 'chat',
+          fallbackModelKey,
+        },
+      );
       const { result } = finalizeOrchestratorResult(res, runCtx);
       return result;
     } finally {
@@ -517,7 +555,15 @@ export function makeChatOrchestrationStreamer(deps: OrchestratorDeps) {
             built.runOptions,
           )) as unknown as DrainableStream);
 
-    yield* drainOrchestrationStream(runCtx, onEvent, getWake, setWake, queue, provideStream);
+    yield* drainOrchestrationStream(
+      runCtx,
+      onEvent,
+      getWake,
+      setWake,
+      queue,
+      provideStream,
+      built.modelKey,
+    );
   };
 }
 
@@ -568,7 +614,15 @@ export function makeChatOrchestrationResumer(deps: OrchestratorDeps) {
             requestContext: built.rc,
           })) as DrainableStream);
 
-    yield* drainOrchestrationStream(runCtx, onEvent, getWake, setWake, queue, provideStream);
+    yield* drainOrchestrationStream(
+      runCtx,
+      onEvent,
+      getWake,
+      setWake,
+      queue,
+      provideStream,
+      built.modelKey,
+    );
   };
 }
 

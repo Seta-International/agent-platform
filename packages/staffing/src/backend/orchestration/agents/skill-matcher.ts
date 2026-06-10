@@ -11,6 +11,7 @@ import {
   SkillMatcherOutputSchema,
 } from '../schemas.ts';
 import { type MastraToolSignals, trustFromMastraResult } from '../trust.ts';
+import { modelKeyOf, recordGenerateUsage } from '../usage.ts';
 import { makeSkillMatcherTools } from './skill-matcher.tools.ts';
 
 type Out = z.infer<typeof SkillMatcherOutputSchema>;
@@ -55,17 +56,24 @@ export function makeSkillMatcherAgent(deps: SkillMatcherDeps): SpecializedAgentS
         : await (async () => {
             // Built per run (not at factory time) so the per-turn model
             // override in ctx.model takes effect.
+            const model = pickModel(ctx, deps.resolveModel);
             const agent = new Agent({
               id: 'staffing.skillMatcher',
               name: 'Skill Matcher',
               instructions: INSTRUCTIONS,
-              model: pickModel(ctx, deps.resolveModel),
+              model,
               tools: tools as never,
             });
             const r = await agent.generate(
               `taskId=${input.taskId}. Required skills: ${input.skills.join(', ')}. Find and rank candidates.`,
               { requestContext: rc, maxSteps: 5, abortSignal: ctx.abortSignal },
             );
+            await recordGenerateUsage(r, {
+              tenantId: ctx.tenantId,
+              causedByUserId: ctx.actorUserId ?? null,
+              feature: 'subagent',
+              fallbackModelKey: modelKeyOf(model),
+            });
             return {
               toolCalls: r.toolCalls as MastraToolSignals['toolCalls'],
               toolResults: r.toolResults as MastraToolSignals['toolResults'],

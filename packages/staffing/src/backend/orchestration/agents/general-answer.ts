@@ -5,6 +5,7 @@ import type { AgentResult, SpecializedAgentSpec } from '@seta/agent-sdk';
 import type { z } from 'zod';
 import { pickModel } from '../model.ts';
 import { GeneralAnswerInputSchema, GeneralAnswerOutputSchema } from '../schemas.ts';
+import { modelKeyOf, recordGenerateUsage } from '../usage.ts';
 
 type In = z.infer<typeof GeneralAnswerInputSchema>;
 type Out = z.infer<typeof GeneralAnswerOutputSchema>;
@@ -41,11 +42,12 @@ export function makeGeneralAnswerAgent(deps: GeneralAnswerDeps): SpecializedAgen
         : await (async () => {
             // Built per run (not at factory time) so the per-turn model override
             // in ctx.model takes effect.
+            const model = pickModel(ctx, deps.resolveModel);
             const agent = new Agent({
               id: 'staffing.generalAnswer',
               name: 'General Answer',
               instructions: INSTRUCTIONS,
-              model: pickModel(ctx, deps.resolveModel),
+              model,
               ...(ctx.userMemory ? { memory: ctx.userMemory.memory } : {}),
             });
             const r = await agent.generate(input.query, {
@@ -64,6 +66,12 @@ export function makeGeneralAnswerAgent(deps: GeneralAnswerDeps): SpecializedAgen
                     },
                   }
                 : {}),
+            });
+            await recordGenerateUsage(r, {
+              tenantId: ctx.tenantId,
+              causedByUserId: ctx.actorUserId ?? null,
+              feature: 'chat',
+              fallbackModelKey: modelKeyOf(model),
             });
             return { text: r.text };
           })();
