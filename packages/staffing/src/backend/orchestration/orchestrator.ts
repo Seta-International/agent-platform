@@ -14,7 +14,7 @@ import type { z } from 'zod';
 import { buildAssignApprovalCard } from './approval-card.ts';
 import { pickModel } from './model.ts';
 import { makeOrchestratorTools } from './orchestrator.tools.ts';
-import type { TaskSummary } from './ports.ts';
+import type { TaskSummary, UserProfilePort } from './ports.ts';
 import {
   type AvailabilityResult,
   type CompletionStatus,
@@ -25,6 +25,7 @@ import {
   type Recommendation,
   type TaskAnalyzerIntent,
   type TaskAnalyzerOutput,
+  type UserProfileResult,
 } from './schemas.ts';
 import { type MastraToolSignals, trustFromMastraResult } from './trust.ts';
 import { loadUserContextSection, makeUpdateWorkingMemoryTool } from './working-memory.tools.ts';
@@ -67,6 +68,7 @@ export interface OrchestratorDeps {
   avaiChecker: AvaiCheckerSpec;
   recommender: RecommenderSpec;
   generalAnswer: GeneralAnswerSpec;
+  userProfileLookup: UserProfilePort;
   resolveModel: () => MastraModelConfig;
   /** Cap on how many found tasks the orchestrator recommends people for. */
   recommendTaskCap?: number;
@@ -96,6 +98,11 @@ function instructions(cap: number): string {
     '  Also pass completionStatus: "open" for incomplete tasks ("todo", "open", "not started",',
     '  "pending", "not completed"); "completed" for done ("done", "finished", "completed");',
     '  "any" when unspecified (default).',
+    '',
+    "PERSON PROFILE LOOKUP — when the user asks about a specific named individual's skills,",
+    'role, or profile (e.g. "list skills of Alice", "what does Tuấn know", "show Bob\'s skills"),',
+    "call callUserProfileLookup with that person's name and STOP. Do NOT use callTaskAnalyzer",
+    'or callSkillMatcher for this — those are for task-based skill searches.',
     '',
     'DOCUMENT / GENERAL QUESTION — when the user asks a general question, a',
     'conversational follow-up, or anything about an attached document (its text is',
@@ -156,6 +163,7 @@ export function makeOrchestratorAgent(deps: OrchestratorDeps): SpecializedAgentS
         avaiChecker: deps.avaiChecker,
         recommender: deps.recommender,
         generalAnswer: deps.generalAnswer,
+        userProfileLookup: deps.userProfileLookup,
         userText: input.userText,
         ctx,
       });
@@ -274,6 +282,12 @@ function assemble(res: MastraToolSignals): OrchestratorResult {
     if (skills) return { skills };
   }
 
+  // Profile lookup: terminal answer for "list skills of <name>".
+  const profileHits = (
+    results(res, 'callUserProfileLookup') as { profiles?: UserProfileResult[] }[]
+  ).flatMap((r) => r.profiles ?? []);
+  if (profileHits.length > 0) return { userProfiles: profileHits };
+
   // A document / general question routes here: the general-answer sub-agent's
   // prose IS the terminal answer. It runs only when the LLM called NO staffing
   // tools, so the structured branches above never fire alongside it. An empty
@@ -387,6 +401,7 @@ function confidenceFor(result: OrchestratorResult, res?: MastraToolSignals): num
   if (result.tasks?.length) return 0.8;
   if (result.candidates?.length) return 0.8;
   if (result.skills?.length) return 0.8;
+  if (result.userProfiles?.length) return 0.9;
   // A surfaced general answer is a real (if unsourced) answer — rank it above the
   // 0.2 honest-failure floor that bare `message` results carry.
   if (

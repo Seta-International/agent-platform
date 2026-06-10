@@ -51,6 +51,19 @@ export interface SkillSearchPort {
   ): Promise<SkillSearchHit[]>;
 }
 
+export interface UserProfileHit {
+  userId: string;
+  name: string;
+  role: string | null;
+  skills: string[];
+  availability: AvailabilityStatus;
+}
+
+/** Looks up a user's profile by display-name substring (adapter wraps identity listUsers). */
+export interface UserProfilePort {
+  findByName(name: string, ctx: SpecializedAgentRunCtx): Promise<UserProfileHit[]>;
+}
+
 /** Availability signals (adapter wraps identity profile + planner in-progress count). */
 export interface AvailabilityPort {
   status(

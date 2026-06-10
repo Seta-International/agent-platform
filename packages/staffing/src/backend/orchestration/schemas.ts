@@ -139,12 +139,23 @@ export const OrchestratorTaskResultSchema = z.object({
   recommendations: z.array(RecommendationSchema).optional(),
 });
 
+export const UserProfileResultSchema = z.object({
+  userId: z.string(),
+  name: z.string(),
+  role: z.string().nullable(),
+  skills: z.array(z.string()),
+  availability: AvailabilityStatus,
+});
+export type UserProfileResult = z.infer<typeof UserProfileResultSchema>;
+
 export const OrchestratorResultSchema = z.object({
   skills: z.array(z.string()).optional(),
   tasks: z.array(OrchestratorTaskResultSchema).optional(),
   /** Top skill matches — terminal answer for a people search (no recommendation asked). */
   candidates: z.array(RankedCandidateSchema).optional(),
   recommendations: z.array(RecommendationSchema).optional(),
+  /** One or more profile hits — terminal answer for a named-person skills lookup. */
+  userProfiles: z.array(UserProfileResultSchema).optional(),
   /** Set when a HITL approval card exists for this recommendation. `inThread`
    *  is false when the card lives in another thread (idempotent reuse of a
    *  pending proposal recorded for a different approver) — the final answer

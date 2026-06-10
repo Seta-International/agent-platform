@@ -32,6 +32,7 @@ import {
   makeSkillSearch,
   makeTaskReader,
   makeTaskSearch,
+  makeUserProfileLookup,
   StaffingRunStateRepository,
 } from '@seta/staffing';
 import { registerStaffingContributions } from '@seta/staffing/register';
@@ -131,6 +132,7 @@ const staffingOrchestration = buildStaffingOrchestrationRuntime({
       pgVector: getIdentityVectorStore(env.DATABASE_URL),
     }),
     availability: makeAvailability(),
+    userProfileLookup: makeUserProfileLookup(),
   },
 });
 SpecializedAgentRegistry.freeze();

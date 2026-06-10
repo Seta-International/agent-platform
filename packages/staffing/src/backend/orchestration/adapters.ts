@@ -1,6 +1,12 @@
-import { buildActorSession, getUserProfile, matchUsersToTopic } from '@seta/identity';
+import { buildActorSession, getUserProfile, listUsers, matchUsersToTopic } from '@seta/identity';
 import { getTask, listDistinctSkillTags, listTasks, listTasksBySkillTag } from '@seta/planner';
-import type { AvailabilityPort, SkillSearchPort, TaskReaderPort, TaskSearchPort } from './ports.ts';
+import type {
+  AvailabilityPort,
+  SkillSearchPort,
+  TaskReaderPort,
+  TaskSearchPort,
+  UserProfilePort,
+} from './ports.ts';
 
 // ---- TaskReader: planner.getTask under an actor session ----
 export function makeTaskReader(): TaskReaderPort {
@@ -81,6 +87,28 @@ export function makeSkillSearch(deps: SkillSearchDeps): SkillSearchPort {
         role: null,
         similarity: h.score,
       }));
+    },
+  };
+}
+
+// ---- UserProfileLookup: identity listUsers (name search) + getUserProfile ----
+export function makeUserProfileLookup(): UserProfilePort {
+  return {
+    async findByName(name, ctx) {
+      const { rows } = await listUsers(ctx.tenantId, { search: name, limit: 5, offset: 0 });
+      const profiles = await Promise.all(
+        rows.map(async (r) => {
+          const p = await getUserProfile(r.user_id);
+          return {
+            userId: r.user_id,
+            name: r.name,
+            role: p?.role ?? null,
+            skills: (p?.skills as string[]) ?? [],
+            availability: p?.availability_status ?? ('available' as const),
+          };
+        }),
+      );
+      return profiles;
     },
   };
 }

@@ -18,13 +18,20 @@ import {
 } from './agents/index.ts';
 import { makeOrchestratorAgent } from './orchestrator.ts';
 import { orchestratorSpec } from './orchestrator-spec.ts';
-import type { AvailabilityPort, SkillSearchPort, TaskReaderPort, TaskSearchPort } from './ports.ts';
+import type {
+  AvailabilityPort,
+  SkillSearchPort,
+  TaskReaderPort,
+  TaskSearchPort,
+  UserProfilePort,
+} from './ports.ts';
 
 export interface StaffingPorts {
   taskReader: TaskReaderPort;
   taskSearch: TaskSearchPort;
   skillSearch: SkillSearchPort;
   availability: AvailabilityPort;
+  userProfileLookup: UserProfilePort;
 }
 
 export interface StaffingOrchestrationRuntime {
@@ -74,6 +81,7 @@ export function buildStaffingOrchestrationRuntime(deps: {
     avaiChecker,
     recommender,
     generalAnswer,
+    userProfileLookup: ports.userProfileLookup,
     resolveModel,
   });
 

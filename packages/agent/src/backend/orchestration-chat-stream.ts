@@ -28,11 +28,20 @@ interface RankedCandidate {
   rank: number;
 }
 
+interface UserProfileResult {
+  userId: string;
+  name: string;
+  role: string | null;
+  skills: string[];
+  availability: string;
+}
+
 interface OrchestratorResult {
   skills?: string[];
   tasks?: { task: TaskSummary; recommendations?: Recommendation[] }[];
   candidates?: RankedCandidate[];
   recommendations?: Recommendation[];
+  userProfiles?: UserProfileResult[];
   pendingApproval?: { approvalId: string; taskId: string; inThread?: boolean };
   message?: string;
 }
@@ -95,6 +104,20 @@ function formatFinal(result: unknown): string {
           `${i + 1}. ${c.name ?? c.userId} — skills:${c.skillMatchCount} (${c.skills.join(', ')})${c.role ? ` · ${c.role}` : ''}`,
       );
     return `\nTop matching users:\n${lines.join('\n')}\n`;
+  }
+
+  // person profile lookup
+  if (Array.isArray(r.userProfiles)) {
+    if (r.userProfiles.length === 0) return '\nNo matching person found.\n';
+    const lines = r.userProfiles.map((p) => {
+      const role = p.role ? ` · ${p.role}` : '';
+      const avail = p.availability !== 'available' ? ` · ${p.availability}` : '';
+      const skills = p.skills.length
+        ? `\n   Skills: ${p.skills.join(', ')}`
+        : '\n   Skills: (none)';
+      return `${p.name}${role}${avail}${skills}`;
+    });
+    return `\nProfile${r.userProfiles.length > 1 ? 's' : ''}:\n${lines.join('\n')}\n`;
   }
 
   // describe skills

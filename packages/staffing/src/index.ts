@@ -3,6 +3,7 @@ export {
   makeSkillSearch,
   makeTaskReader,
   makeTaskSearch,
+  makeUserProfileLookup,
 } from './backend/orchestration/adapters.ts';
 export {
   buildStaffingOrchestrationRuntime,

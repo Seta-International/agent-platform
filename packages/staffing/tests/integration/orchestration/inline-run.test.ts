@@ -86,6 +86,7 @@ const portsWith = () => ({
     status: async () => ({ status: 'available' as const, note: null }),
     inProgressCount: async () => 0,
   },
+  userProfileLookup: { findByName: async () => [] },
 });
 
 afterEach(() => {

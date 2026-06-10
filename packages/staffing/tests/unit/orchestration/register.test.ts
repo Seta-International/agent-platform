@@ -6,6 +6,7 @@ import type {
   SkillSearchPort,
   TaskReaderPort,
   TaskSearchPort,
+  UserProfilePort,
 } from '../../../src/backend/orchestration/ports.ts';
 import { buildStaffingOrchestrationRuntime } from '../../../src/backend/orchestration/register.ts';
 
@@ -20,6 +21,7 @@ const fakePorts = {
     status: async () => ({ status: 'available' as const, note: null }),
     inProgressCount: async () => 0,
   } satisfies AvailabilityPort,
+  userProfileLookup: { findByName: async () => [] } satisfies UserProfilePort,
 };
 
 afterEach(() => {

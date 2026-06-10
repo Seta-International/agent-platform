@@ -32,6 +32,7 @@ const make = (
     avaiChecker: stub('staffing.avaiChecker'),
     recommender: stub('staffing.recommender'),
     generalAnswer: stub('staffing.generalAnswer'),
+    userProfileLookup: { findByName: async () => [] },
     resolveModel: () => ({}) as never,
     runAgent: async () => ({ toolCalls, toolResults, text }),
   });
@@ -458,6 +459,7 @@ describe('orchestrator request-context wiring', () => {
       avaiChecker: stub('staffing.avaiChecker'),
       recommender: stub('staffing.recommender'),
       generalAnswer: stub('staffing.generalAnswer'),
+      userProfileLookup: { findByName: async () => [] },
       resolveModel: () => ({}) as never,
       runAgent: async ({ requestContext }) => {
         rcSeen = requestContext;
@@ -480,6 +482,7 @@ describe('orchestrator request-context wiring', () => {
       avaiChecker: stub('staffing.avaiChecker'),
       recommender: stub('staffing.recommender'),
       generalAnswer: stub('staffing.generalAnswer'),
+      userProfileLookup: { findByName: async () => [] },
       resolveModel: () => ({}) as never,
       runAgent: async ({ requestContext }) => {
         rcSeen = requestContext;
@@ -501,6 +504,7 @@ describe('orchestrator resource working memory', () => {
       avaiChecker: stub('staffing.avaiChecker'),
       recommender: stub('staffing.recommender'),
       generalAnswer: stub('staffing.generalAnswer'),
+      userProfileLookup: { findByName: async () => [] },
       resolveModel: () => ({}) as never,
       runAgent: async (args) => {
         seen = { instructions: args.instructions, tools: args.tools };

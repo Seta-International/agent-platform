@@ -1,9 +1,11 @@
 import type { SpecializedAgentRunCtx, SpecializedAgentSpec } from '@seta/agent-sdk';
 import { defineAgentTool, recordEntityExposure, resolveTaskRef } from '@seta/agent-sdk';
 import { z } from 'zod';
+import type { UserProfilePort } from './ports.ts';
 import {
   type AvailabilityResult,
   AvailabilityResultSchema,
+  AvailabilityStatus,
   CompletionStatus,
   type RankedCandidate,
   RankedCandidateSchema,
@@ -13,6 +15,7 @@ import {
   TaskAnalyzerIntent as TaskAnalyzerIntentSchema,
   type TaskAnalyzerOutput,
   TaskSummarySchema,
+  UserProfileResultSchema,
 } from './schemas.ts';
 
 type TaskAnalyzerSpec = SpecializedAgentSpec<
@@ -50,6 +53,7 @@ export interface OrchestratorToolDeps {
   avaiChecker: AvaiCheckerSpec;
   recommender: RecommenderSpec;
   generalAnswer: GeneralAnswerSpec;
+  userProfileLookup: UserProfilePort;
   /** The orchestrator's current user message — already carries any injected
    *  `Context:` file block. Passed verbatim to the general-answer sub-agent so
    *  the routing LLM cannot paraphrase or truncate the document into a tool arg. */
@@ -58,10 +62,18 @@ export interface OrchestratorToolDeps {
   ctx: SpecializedAgentRunCtx;
 }
 
-/** Build the four sub-agent delegation tools, bound to one orchestrator run. */
+/** Build the five sub-agent delegation tools, bound to one orchestrator run. */
 export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
-  const { taskAnalyzer, skillMatcher, avaiChecker, recommender, generalAnswer, userText, ctx } =
-    deps;
+  const {
+    taskAnalyzer,
+    skillMatcher,
+    avaiChecker,
+    recommender,
+    generalAnswer,
+    userProfileLookup,
+    userText,
+    ctx,
+  } = deps;
   // Sub-agents run with the same tenant/actor but WITHOUT the onEvent sink, so
   // only the orchestrator (here) emits the sub-step cards. The per-turn model
   // override rides along so sub-agent LLM calls honor the user's pick.
@@ -237,11 +249,35 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
     },
   });
 
+  const callUserProfileLookup = defineAgentTool({
+    id: 'callUserProfileLookup',
+    name: 'Look up a person profile',
+    description:
+      'Look up a specific person\'s skills, role, and availability by their display name. Use when the user asks about a named individual\'s skills or profile (e.g. "list skills of Alice", "what does Bob know", "show Tuấn\'s profile").',
+    input: z.object({ name: z.string().describe("The person's display name to search for.") }),
+    output: z.object({ profiles: z.array(UserProfileResultSchema) }),
+    execute: async ({ name }) => {
+      ctx.onEvent?.({
+        kind: 'step-start',
+        stepId: 'userProfileLookup',
+        agentId: 'staffing.userProfileLookup',
+      });
+      const profiles = await userProfileLookup.findByName(name, subCtx);
+      ctx.onEvent?.({
+        kind: 'step-done',
+        stepId: 'userProfileLookup',
+        trust: { reasoningTrace: [], evidenceCitations: [], confidenceScore: 0.9 },
+      });
+      return { profiles };
+    },
+  });
+
   return {
     callTaskAnalyzer,
     callSkillMatcher,
     callAvaiChecker,
     callRecommender,
     callGeneralAnswer,
+    callUserProfileLookup,
   };
 }
