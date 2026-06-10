@@ -34,6 +34,33 @@ function fakeStream(
   };
 }
 
+/** A fake Agent.stream() result that natively suspends: emits the composite's
+ *  step events, then surfaces a `tool-call-suspended` chunk (spike-confirmed
+ *  shape) and resolves the awaitables to the suspended sentinels. */
+function fakeSuspendingStream(onEvent: (e: OrchestrationEvent) => void, card: unknown) {
+  return {
+    fullStream: (async function* () {
+      onEvent({ kind: 'step-start', stepId: 'proposeAssignment', agentId: 'staffing.recommender' });
+      onEvent({ kind: 'step-done', stepId: 'proposeAssignment', trust: EMPTY_TRUST });
+      yield {
+        type: 'tool-call-suspended',
+        runId: 'run-uuid-1',
+        from: 'AGENT',
+        payload: {
+          toolCallId: 'tc-1',
+          toolName: 'proposeAssignment',
+          suspendPayload: { card },
+          args: {},
+          resumeSchema: {},
+        },
+      };
+    })(),
+    toolCalls: Promise.resolve([] as never),
+    toolResults: Promise.resolve([] as never),
+    text: Promise.resolve(''),
+  };
+}
+
 /** A fake stream whose fullStream throws after one yield. */
 function fakeStreamThrowing() {
   return {
@@ -97,5 +124,36 @@ describe('makeChatOrchestrationStreamer', () => {
     expect(events.map((e) => e.kind)).toEqual(['step-start', 'step-done', 'final']);
     const final = events.at(-1) as Extract<OrchestrationEvent, { kind: 'final' }>;
     expect((final.result as { skills?: string[] }).skills).toEqual(['aws']);
+  });
+
+  it('emits an approval event and no final on native suspend', async () => {
+    const card = { kind: 'staffing.assignment', taskId: 't-1', candidate: { userId: 'u-1' } };
+    const streamChat = makeChatOrchestrationStreamer({
+      taskAnalyzer: stub('staffing.taskAnalyzer'),
+      skillMatcher: stub('staffing.skillMatcher'),
+      avaiChecker: stub('staffing.avaiChecker'),
+      recommender: stub('staffing.recommender'),
+      generalAnswer: stub('staffing.generalAnswer'),
+      assign: { assign: async () => {} },
+      resolveModel: () => ({}) as never,
+      mastraStorage: new InMemoryStore(),
+      streamAgent: ({ requestContext }) => {
+        const sink = (requestContext as unknown as { __onEvent: (e: OrchestrationEvent) => void })
+          .__onEvent;
+        return fakeSuspendingStream(sink, card);
+      },
+    });
+
+    const events: OrchestrationEvent[] = [];
+    for await (const e of streamChat({ userText: 'who should do t-1', taskId: 't-1' }, ctx)) {
+      events.push(e);
+    }
+
+    expect(events.map((e) => e.kind)).toEqual(['step-start', 'step-done', 'approval']);
+    const approval = events.at(-1) as Extract<OrchestrationEvent, { kind: 'approval' }>;
+    expect(approval.card).toEqual(card);
+    expect(approval.mastraRunId).toBe('run-uuid-1');
+    expect(approval.toolCallId).toBe('tc-1');
+    expect(events.some((e) => e.kind === 'final')).toBe(false);
   });
 });

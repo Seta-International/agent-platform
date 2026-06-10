@@ -6,6 +6,7 @@ import { RequestContext } from '@mastra/core/request-context';
 import type { MastraCompositeStore } from '@mastra/core/storage';
 import {
   type AgentResult,
+  type ApprovalCard,
   type Citation,
   RC_AGENT_MEMORY,
   RC_THREAD_ID,
@@ -371,12 +372,29 @@ export function makeChatOrchestrationStreamer(deps: OrchestratorDeps) {
           NonNullable<OrchestratorDeps['streamAgent']>
         >);
 
+    // Native suspend (proposeAssignment calls ctx.agent.suspend) abandons the
+    // tool continuation: the stream ends at the suspend chunk with no result to
+    // finalize. We surface an `approval` event instead of `final` and leave the
+    // run paused for Task 7's resume. A dedicated flag (not an `undefined`
+    // result) signals this so the caller never mistakes a normal run for it.
+    let suspended = false;
     const done = (async () => {
       try {
         // Draining fullStream drives the LLM + tool execution to completion.
-        for await (const _chunk of stream.fullStream) {
-          void _chunk;
+        for await (const chunk of stream.fullStream) {
+          const c = chunk as { type?: string; runId?: string; payload?: Record<string, unknown> };
+          if (c.type === 'tool-call-suspended') {
+            suspended = true;
+            const card = (c.payload?.suspendPayload as { card: ApprovalCard }).card;
+            onEvent({
+              kind: 'approval',
+              card,
+              mastraRunId: c.runId as string,
+              toolCallId: c.payload?.toolCallId as string,
+            });
+          }
         }
+        if (suspended) return undefined;
         const res: MastraToolSignals = {
           toolCalls: await stream.toolCalls,
           toolResults: await stream.toolResults,
@@ -403,7 +421,7 @@ export function makeChatOrchestrationStreamer(deps: OrchestratorDeps) {
     }
 
     const result = await done;
-    yield { kind: 'final', result };
+    if (!suspended) yield { kind: 'final', result };
   };
 }
 
