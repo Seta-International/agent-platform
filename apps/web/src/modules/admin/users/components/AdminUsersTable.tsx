@@ -3,6 +3,7 @@ import {
   AvatarFallback,
   Badge,
   Button,
+  Checkbox,
   DataTable,
   FilterPill,
   formatRelative,
@@ -144,23 +145,23 @@ export function AdminUsersTable({
         id: 'select',
         header: () => {
           const pageIds = rows.map((r) => r.user_id);
-          const allOn = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
+          const selectedCount = pageIds.filter((id) => selected.has(id)).length;
+          const checked: boolean | 'indeterminate' =
+            selectedCount === 0 ? false : selectedCount === pageIds.length ? true : 'indeterminate';
           return (
-            <input
-              type="checkbox"
+            <Checkbox
               aria-label="Select page"
-              checked={allOn}
-              onChange={(e) => onTogglePage(pageIds, e.target.checked)}
+              checked={pageIds.length === 0 ? false : checked}
+              onCheckedChange={(v) => onTogglePage(pageIds, v === true)}
               onClick={(e) => e.stopPropagation()}
             />
           );
         },
         cell: ({ row }) => (
-          <input
-            type="checkbox"
+          <Checkbox
             aria-label="Select row"
             checked={selected.has(row.original.user_id)}
-            onChange={(e) => onToggle(row.original.user_id, e.target.checked)}
+            onCheckedChange={(v) => onToggle(row.original.user_id, v === true)}
             onClick={(e) => e.stopPropagation()}
           />
         ),
