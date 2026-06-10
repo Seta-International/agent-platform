@@ -1,7 +1,7 @@
 import { createUIMessageStream, createUIMessageStreamResponse, type UIMessage } from 'ai';
 import type { Hono } from 'hono';
 import { z } from 'zod';
-import { makeAssignApprovalRecorder } from '../domain/make-assign-approval-recorder.ts';
+import { writeChatApprovalRow } from '../domain/write-chat-approval-row.ts';
 import { agentEnv } from '../env.ts';
 import { ModelNotFoundError, resolveModel } from '../model-registry.ts';
 import { streamOrchestrationToUI } from '../orchestration-chat-stream.ts';
@@ -193,13 +193,22 @@ export function mountChatRoute(app: Hono<AgentRouteEnv>, deps: AgentRouteDeps): 
     const orchThreadTitle = (cleanUserText || userText).slice(0, 80) || 'New conversation';
 
     const tenantSettings = await getTenantSettings(session.tenant_id);
-    const recordHitlApproval = makeAssignApprovalRecorder({
-      tenantId: session.tenant_id,
-      userId: session.user_id,
-      threadId: orchThreadId ?? null,
-      pool: deps.pool,
-      approvalTtlHours: tenantSettings.approvalTtlHours,
-    });
+    // Native-suspend HITL: when the orchestration run suspends, project the
+    // approval read-model row so the pending-approvals poll renders the card.
+    const onApproval = async (
+      ev: Extract<import('@seta/shared-orchestration').OrchestrationEvent, { kind: 'approval' }>,
+    ): Promise<void> => {
+      await writeChatApprovalRow({
+        card: ev.card,
+        mastraRunId: ev.mastraRunId,
+        toolCallId: ev.toolCallId,
+        threadId: orchThreadId ?? null,
+        tenantId: session.tenant_id,
+        userId: session.user_id,
+        pool: deps.pool,
+        approvalTtlHours: tenantSettings.approvalTtlHours,
+      });
+    };
 
     // Create the thread row up front so a GET on the returned threadId never 404s
     // mid-stream. The ownership guard: never write onto another user's thread.
@@ -275,7 +284,6 @@ export function mountChatRoute(app: Hono<AgentRouteEnv>, deps: AgentRouteDeps): 
               tenantId: session.tenant_id,
               actorUserId: session.user_id,
               effectivePermissions: session.effective_permissions,
-              recordHitlApproval,
               threadId: orchThreadId,
               entitiesMemory:
                 deps.entitiesMemory && deps.entitiesMemoryConfig
@@ -288,6 +296,7 @@ export function mountChatRoute(app: Hono<AgentRouteEnv>, deps: AgentRouteDeps): 
               model: modelOverride,
             },
           ),
+          { onApproval },
         );
         // Persist the user turn + assistant trace timeline so the conversation
         // survives reload (GET /threads/:id rebuilds the cards + final answer).

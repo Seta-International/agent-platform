@@ -40,6 +40,26 @@ async function* evs(...e: OrchestrationEvent[]) {
 
 const TRUST = { reasoningTrace: [], evidenceCitations: [], confidenceScore: 0 };
 
+function approvalCard() {
+  return {
+    toolCallId: 'tc-1',
+    intent: 'Assign',
+    riskBadge: 'write' as const,
+    summary: 's',
+    details: [],
+    primary: { label: 'Assign', argsPatch: { taskId: 't-1' } },
+    alternates: [],
+    decline: { label: 'No' },
+    meta: {
+      tenantId: 'ten',
+      userId: 'usr',
+      agentPath: ['staffing', 'orchestrator'],
+      toolId: 'planner_proposeAssignment',
+      ts: new Date().toISOString(),
+    },
+  };
+}
+
 describe('orchestration chat stream', () => {
   it('renders skills-only and suppresses the outer orchestrate card', async () => {
     const w = new FakeWriter();
@@ -193,5 +213,29 @@ describe('orchestration chat stream', () => {
     expect(w.text()).not.toContain('review the approval card above');
     expect(w.text()).toContain('already awaiting approval');
     expect(w.text()).toContain('Alice');
+  });
+
+  it('awaits onApproval on an approval event before the turn closes', async () => {
+    const w = new FakeWriter();
+    const seen: Array<{ card: unknown; mastraRunId: string; toolCallId: string }> = [];
+    const card = approvalCard();
+    await streamOrchestrationToUI(
+      w,
+      evs(
+        { kind: 'step-start', stepId: 'recommender', agentId: 'staffing.recommender' },
+        { kind: 'step-done', stepId: 'recommender', trust: TRUST },
+        { kind: 'approval', card, mastraRunId: 'run-abc', toolCallId: 'tc-1' },
+      ),
+      {
+        onApproval: async (ev) => {
+          seen.push({ card: ev.card, mastraRunId: ev.mastraRunId, toolCallId: ev.toolCallId });
+        },
+      },
+    );
+    expect(seen).toEqual([{ card, mastraRunId: 'run-abc', toolCallId: 'tc-1' }]);
+    // A suspended (final-less) turn still writes the final text part as today,
+    // and emits no approval-specific UI part yet.
+    expect(w.chunks.some((c) => c.type === 'text-end')).toBe(true);
+    expect(w.chunks.some((c) => c.type === 'data-approval')).toBe(false);
   });
 });

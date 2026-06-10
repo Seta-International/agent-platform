@@ -3,6 +3,7 @@ import { agentDb } from '../db/index.ts';
 
 const ASSIGN_BY_SKILL_MASTRA_ID = 'planner.assignBySkill';
 const CHAT_HITL_PROPOSE_ID = '__chat_hitl:planner_proposeAssignment';
+const STAFFING_ORCHESTRATOR_ID = 'staffing.orchestrator';
 
 export interface GetPendingAssignRunIdForTaskOpts {
   taskId: string;
@@ -20,11 +21,14 @@ export interface GetPendingAssignRunIdForTaskOpts {
  *     here (else the assignees-card button stays as "Suggest" until the
  *     workflow has suspended, and a second click silently spawns a duplicate
  *     run).
- *   • Chat-flow `__chat_hitl:planner_proposeAssignment` runs — the synthetic
- *     workflow_runs row carries `{tool_id, thread_id}` only, so the taskId is
- *     reachable only through `workflow_approvals.proposed_payload`. Both rows
- *     are inserted atomically by insert-chat-hitl-approval.ts, so the JOIN
- *     is correct (and the approval is necessary as the taskId carrier).
+ *   • Chat-flow `__chat_hitl:planner_proposeAssignment` runs (transitional) —
+ *     the synthetic workflow_runs row carries `{tool_id, thread_id}` only, so
+ *     the taskId is reachable only through `workflow_approvals.proposed_payload`.
+ *     Both rows are inserted atomically by insert-chat-hitl-approval.ts.
+ *   • Native-suspend `staffing.orchestrator` runs — write-chat-approval-row.ts
+ *     stores the taskId in both `input_summary` and the approval's
+ *     `proposed_payload`. We match via the approval JOIN (mirroring the chat
+ *     branch) so the row is only a mutex hit once its approval card is readable.
  */
 export async function getPendingAssignRunIdForTask(
   opts: GetPendingAssignRunIdForTaskOpts,
@@ -42,7 +46,7 @@ export async function getPendingAssignRunIdForTask(
       SELECT r.run_id, r.started_at
         FROM agent.workflow_runs r
         JOIN agent.workflow_approvals a ON a.run_id = r.run_id
-       WHERE r.workflow_id = ${CHAT_HITL_PROPOSE_ID}
+       WHERE r.workflow_id IN (${CHAT_HITL_PROPOSE_ID}, ${STAFFING_ORCHESTRATOR_ID})
          AND r.status IN ('running', 'paused')
          AND r.tenant_id = ${opts.tenantId}
          AND a.status = 'pending'

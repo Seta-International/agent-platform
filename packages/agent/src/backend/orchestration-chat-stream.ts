@@ -162,7 +162,14 @@ export type OrchestrationAssistantPart =
 export async function streamOrchestrationToUI(
   writer: UiStreamWriter,
   events: AsyncIterable<OrchestrationEvent>,
-  opts: { textId?: string } = {},
+  opts: {
+    textId?: string;
+    /** Invoked when the run suspends for HITL. Awaited inside the loop so the
+     *  approval read-model row commits BEFORE the turn closes — the existing
+     *  pending-approvals poll then renders the card. No UI part is emitted here;
+     *  a later phase adds a `data-approval` part. */
+    onApproval?: (e: Extract<OrchestrationEvent, { kind: 'approval' }>) => Promise<void>;
+  } = {},
 ): Promise<{ assistantParts: OrchestrationAssistantPart[] }> {
   const id = opts.textId ?? 'orchestration';
   // step-done carries no agentId; remember it from step-start so the done card
@@ -207,6 +214,11 @@ export async function streamOrchestrationToUI(
       };
       writer.write({ type: `data-${ORCHESTRATION_STEP_PART}`, id: ev.stepId, data });
       assistantParts.push({ type: `data-${ORCHESTRATION_STEP_PART}`, id: ev.stepId, data });
+    } else if (ev.kind === 'approval') {
+      // Commit the approval read-model row before the turn closes; the existing
+      // poll renders the card. A suspended turn emits no `final`, so this is the
+      // only place the row gets written for this turn.
+      await opts.onApproval?.(ev);
     } else if (ev.kind === 'final') {
       finalResult = ev.result;
     }
