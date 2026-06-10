@@ -68,7 +68,7 @@ describe('session scope cache', () => {
           const sessionId = `test-session-${crypto.randomUUID()}`;
 
           const scope1 = await getSessionScope(
-            { listRoleGrants },
+            { listRoleGrants, resolvePermissions: () => new Set() },
             sessionId,
             user_id,
             'a@d.local',
@@ -86,7 +86,7 @@ describe('session scope cache', () => {
 
           _clearHotForTest();
           const scope2 = await getSessionScope(
-            { listRoleGrants },
+            { listRoleGrants, resolvePermissions: () => new Set() },
             sessionId,
             user_id,
             'a@d.local',

@@ -47,7 +47,13 @@ describe('invalidation subscribers drain identity events', () => {
           );
           const sessionId = `sess-${crypto.randomUUID()}`;
           _clearHotForTest();
-          await getSessionScope({ listRoleGrants }, sessionId, user_id, 'a@d.local', 'A');
+          await getSessionScope(
+            { listRoleGrants, resolvePermissions: () => new Set() },
+            sessionId,
+            user_id,
+            'a@d.local',
+            'A',
+          );
 
           await grantRole(
             {

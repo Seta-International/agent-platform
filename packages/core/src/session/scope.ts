@@ -15,6 +15,8 @@ export type ListRoleGrants = (
   userId: string,
 ) => Promise<{ tenant_id: string; grants: ReadonlyArray<RoleGrant> }>;
 
+export type ResolvePermissions = (roles: readonly string[]) => ReadonlySet<string>;
+
 export interface SessionScope {
   session_id: string;
   user_id: string;
@@ -23,6 +25,7 @@ export interface SessionScope {
   display_name: string;
   role_summary: { roles: string[]; cross_tenant_read: boolean };
   role_summary_hash: string;
+  permissions: ReadonlySet<string>;
   accessible_group_ids: ReadonlyArray<string>;
   cross_tenant_read: boolean;
   built_at: Date;
@@ -57,7 +60,7 @@ export function computeAccessibleGroups(grants: ReadonlyArray<RoleGrant>): Reado
 }
 
 export async function getSessionScope(
-  deps: { listRoleGrants: ListRoleGrants },
+  deps: { listRoleGrants: ListRoleGrants; resolvePermissions: ResolvePermissions },
   sessionId: string,
   userId: string,
   email: string,
@@ -84,6 +87,7 @@ export async function getSessionScope(
       invalidated_at: cached.invalidated_at,
       email,
       display_name: displayName,
+      permissions: deps.resolvePermissions((cached.role_summary as { roles: string[] }).roles),
     };
     hot.set(sessionId, scope);
     return scope;
@@ -103,6 +107,7 @@ export async function getSessionScope(
     cross_tenant_read: role_summary.cross_tenant_read,
     built_at: new Date(),
     invalidated_at: null,
+    permissions: deps.resolvePermissions(role_summary.roles),
   };
 
   await coreDb()
