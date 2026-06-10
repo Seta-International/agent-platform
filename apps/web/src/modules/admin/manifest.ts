@@ -5,33 +5,64 @@ export const adminNavManifest: NavManifest = {
   id: 'admin',
   label: 'Admin',
   icon: Settings,
-  requiredPermissions: ['org.admin', 'identity.admin'],
+  requiredPermissions: ['identity.user.read.any'],
   useNavExtensions: noNavExtensions,
   nav: [
     {
       label: 'Identity & access',
       items: [
-        { id: 'admin.users', icon: Users, label: 'Users', to: '/admin/users' },
-        { id: 'admin.sso', icon: Shield, label: 'SSO', to: '/admin/sso' },
+        {
+          id: 'admin.users',
+          icon: Users,
+          label: 'Users',
+          to: '/admin/users',
+          requires: ['identity.user.read.any'],
+        },
+        {
+          id: 'admin.sso',
+          icon: Shield,
+          label: 'SSO',
+          to: '/admin/sso',
+          requires: ['identity.sso.read'],
+        },
       ],
     },
     {
       label: 'Communication',
       items: [
-        { id: 'admin.mail-transport', icon: Mail, label: 'Mail transport', to: '/admin/mail' },
+        {
+          id: 'admin.mail-transport',
+          icon: Mail,
+          label: 'Mail transport',
+          to: '/admin/mail',
+          requires: ['integrations.mail.read'],
+        },
         {
           id: 'admin.notifications',
           icon: Bell,
           label: 'Notifications',
           to: '/admin/notifications',
+          requires: ['notifications.category.read'],
         },
       ],
     },
     {
       label: 'Workspace',
       items: [
-        { id: 'admin.tenant', icon: Sliders, label: 'Organization', to: '/admin/tenant' },
-        { id: 'admin.audit', icon: FileClock, label: 'Audit log', to: '/admin/audit' },
+        {
+          id: 'admin.tenant',
+          icon: Sliders,
+          label: 'Organization',
+          to: '/admin/tenant',
+          requires: ['core.tenant.read'],
+        },
+        {
+          id: 'admin.audit',
+          icon: FileClock,
+          label: 'Audit log',
+          to: '/admin/audit',
+          requires: ['core.audit.read'],
+        },
       ],
     },
   ],

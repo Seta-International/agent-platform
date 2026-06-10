@@ -24,7 +24,7 @@ const manifests: NavManifest[] = [
             id: 'planner.trash',
             label: 'Trash',
             to: '/planner/trash',
-            requires: ['planner.admin'],
+            requires: ['planner.trash.read'],
           },
         ],
       },
@@ -34,7 +34,7 @@ const manifests: NavManifest[] = [
     id: 'admin',
     label: 'Admin',
     icon: Box,
-    requiredPermissions: ['org.admin', 'identity.admin'],
+    requiredPermissions: ['identity.user.read.any'],
     useNavExtensions: noNavExtensions,
     nav: [
       {
@@ -45,10 +45,26 @@ const manifests: NavManifest[] = [
   },
 ];
 
-const adminSession: SessionLike = { role_summary: { roles: ['org.admin', 'planner.admin'] } };
-const regularSession: SessionLike = { role_summary: { roles: [] } };
+const s = (perms: string[]): SessionLike => ({ permissions: new Set(perms) });
+const adminSession = s(['identity.user.read.any', 'planner.trash.read']);
+const regularSession = s([]);
 
 describe('visibleManifests', () => {
+  it('gates manifests by permission', () => {
+    const m = [
+      {
+        id: 'admin',
+        requiredPermissions: ['identity.user.read.any'],
+        label: '',
+        icon: (() => null) as never,
+        nav: [],
+        useNavExtensions: () => [],
+      } as never,
+    ];
+    expect(visibleManifests(m, s(['identity.user.read.any']), new Set(['admin']))).toHaveLength(1);
+    expect(visibleManifests(m, s([]), new Set(['admin']))).toHaveLength(0);
+  });
+
   it('hides admin section from non-admin users', () => {
     const visible = visibleManifests(
       manifests,
@@ -75,7 +91,7 @@ describe('filterNavSections', () => {
     expect(sections.map((s) => s.items.map((i) => i.id))).toEqual([['planner.my-tasks']]);
   });
 
-  it('includes guarded items when user has the role', () => {
+  it('includes guarded items when user has the permission', () => {
     const sections = filterNavSections(manifests[0]!.nav, adminSession);
     expect(sections.map((s) => s.items.map((i) => i.id))).toEqual([
       ['planner.my-tasks', 'planner.trash'],
@@ -86,7 +102,7 @@ describe('filterNavSections', () => {
     const guarded: NavManifest['nav'] = [
       {
         label: 'Restricted',
-        items: [{ id: 'x.secret', label: 'Secret', to: '/x', requires: ['root'] }],
+        items: [{ id: 'x.secret', label: 'Secret', to: '/x', requires: ['core.audit.read'] }],
       },
       {
         label: 'Public',

@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { useSession } from '@/modules/identity/components/SessionProvider';
+import { usePermission } from '@/modules/identity/components/Can.tsx';
 import { TrashPage } from '@/modules/planner/pages/trash-page';
 
 export const Route = createFileRoute('/_authed/planner/trash')({
@@ -7,9 +7,6 @@ export const Route = createFileRoute('/_authed/planner/trash')({
 });
 
 function TrashRoute() {
-  const session = useSession();
-  const canPermanentlyDelete =
-    session.role_summary.roles.includes('org.admin') ||
-    session.role_summary.roles.includes('tenant.admin');
+  const canPermanentlyDelete = usePermission('planner.trash.empty');
   return <TrashPage canPermanentlyDelete={canPermanentlyDelete} />;
 }

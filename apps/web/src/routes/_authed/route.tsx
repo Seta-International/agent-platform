@@ -56,7 +56,7 @@ function ShellWithPanel({ children }: { children: React.ReactNode }) {
 
   const navModules = useMemo(() => {
     const enabled = new Set(enabledQuery.data?.enabled ?? ALL_MANIFESTS.map((m) => m.id));
-    return visibleManifests(ALL_MANIFESTS, session, enabled);
+    return visibleManifests(ALL_MANIFESTS, { permissions: new Set(session.permissions) }, enabled);
   }, [enabledQuery.data, session]);
 
   const activeId = activeNavId(navModules, pathname);
