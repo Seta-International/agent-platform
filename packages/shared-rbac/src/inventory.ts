@@ -349,7 +349,7 @@ export const INVENTORY: StatementSpec[] = [
         'email.change',
       ],
       'identity.sso': ['read', 'write'],
-      'identity.role': ['grant'],
+      'identity.role': ['grant', 'read', 'write'],
       'identity.role_grant': ['read', 'write'],
       'identity.password': ['disable_local'],
       'identity.concept_map': ['read', 'write'],
@@ -369,6 +369,8 @@ export const INVENTORY: StatementSpec[] = [
           'identity.sso.read',
           'identity.sso.write',
           'identity.role.grant',
+          'identity.role.read',
+          'identity.role.write',
           'identity.role_grant.read',
           'identity.role_grant.write',
           'identity.password.disable_local',
@@ -406,6 +408,11 @@ export const IMPLICIT_PERMISSIONS: readonly string[] = [
 // Foundation roles resolved specially by resolve.ts (not declared in any module statement):
 // org.admin / tenant.admin = wildcard; org.viewer = all '.read' actions + cross_tenant_read.
 export const FOUNDATION_ROLES = ['org.admin', 'tenant.admin', 'org.viewer'] as const;
+
+const SYSTEM_ROLES = ['system.integrations.m365'] as const;
+export const EDITABLE_ROLES: string[] = INVENTORY.flatMap((m) => m.roles.map((r) => r.slug))
+  .filter((slug) => !(FOUNDATION_ROLES as readonly string[]).includes(slug))
+  .filter((slug) => !(SYSTEM_ROLES as readonly string[]).includes(slug));
 
 export function inventoryToManifests(
   inv: readonly StatementSpec[] = INVENTORY,

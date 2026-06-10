@@ -24,6 +24,8 @@ export type PermissionKey =
   | 'identity.concept_map.write'
   | 'identity.password.disable_local'
   | 'identity.role.grant'
+  | 'identity.role.read'
+  | 'identity.role.write'
   | 'identity.role_grant.read'
   | 'identity.role_grant.write'
   | 'identity.sso.read'
@@ -122,6 +124,8 @@ export const ALL_PERMISSIONS: readonly PermissionKey[] = [
   'identity.concept_map.write',
   'identity.password.disable_local',
   'identity.role.grant',
+  'identity.role.read',
+  'identity.role.write',
   'identity.role_grant.read',
   'identity.role_grant.write',
   'identity.sso.read',
