@@ -11,6 +11,7 @@ import { budgetCounters } from '../db/schema/budget-counters.ts';
 import { tenantBudgets } from '../db/schema/tenant-budgets.ts';
 import { usageLedger } from '../db/schema/usage-ledger.ts';
 import { getModelPrice } from '../domain/model-pricing.ts';
+import { budgetAlertNotificationId } from '../notification-id.ts';
 
 /**
  * Side-effects for budget alerting, injected so the recorder stays decoupled from
@@ -100,7 +101,9 @@ async function maybeAlert(
         event_type: 'billing.budget.threshold',
         user_ids: admins,
         // Period-stable id: dedupes at the notifier across the whole period too.
-        source_event_id: `budget:${tenantId}:${periodType}:${periodKey}:${threshold}`,
+        // Must be a UUID — notifications.source_event_id is uuid-typed; a raw
+        // string is rejected and the alert is silently lost.
+        source_event_id: budgetAlertNotificationId(tenantId, periodType, periodKey, threshold),
         payload: {
           title:
             threshold >= 100 ? `AI ${human} budget reached` : `AI ${human} budget at ${threshold}%`,

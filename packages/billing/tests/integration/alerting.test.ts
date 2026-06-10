@@ -45,13 +45,18 @@ describe('budget alerting', () => {
       // Daily cap so 80% = 0.0008, 100% = 0.001.
       await db.insert(tenantBudgets).values({ tenantId: TENANT, dailyLimit: '0.001' });
 
-      const notified: Array<{ source_event_id: string; threshold: number; user_ids: string[] }> =
-        [];
+      const notified: Array<{
+        source_event_id: string;
+        period_type: string;
+        threshold: number;
+        user_ids: string[];
+      }> = [];
       const deps: RecorderAlertDeps = {
         listTenantAdmins: async () => [ADMIN],
         notify: async (input) => {
           notified.push({
             source_event_id: input.source_event_id,
+            period_type: String(input.payload.period_type),
             threshold: Number(input.payload.threshold),
             user_ids: input.user_ids,
           });
@@ -84,9 +89,38 @@ describe('budget alerting', () => {
         },
       );
 
-      const dayNotifs = notified.filter((n) => n.source_event_id.includes(':day:'));
+      const dayNotifs = notified.filter((n) => n.period_type === 'day');
       expect(dayNotifs.map((n) => n.threshold).sort((a, b) => a - b)).toEqual([80, 100]);
       for (const n of dayNotifs) expect(n.user_ids).toEqual([ADMIN]);
+    });
+  });
+
+  it('notifies with a UUID source_event_id (notifications.source_event_id is uuid-typed)', async () => {
+    // Regression: billing used to pass a synthetic string `budget:<tenant>:day:...`
+    // as source_event_id. The notifier inserts that into a uuid column, so the
+    // insert was rejected and the in-app alert was silently never created.
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+    await withBillingTestDb(async ({ pool, db }) => {
+      await db.insert(tenantBudgets).values({ tenantId: TENANT, dailyLimit: '0.001' });
+
+      const ids: string[] = [];
+      const deps: RecorderAlertDeps = {
+        listTenantAdmins: async () => [ADMIN],
+        notify: async (input) => {
+          ids.push(input.source_event_id);
+        },
+      };
+
+      await withDispatcher(
+        { subscribers: [usageRecorderSubscriber(deps) as never], pool },
+        async () => {
+          await emitUsage(85); // crosses 80% (day)
+          await waitFor(async () => (await db.select().from(usageLedger)).length === 1);
+        },
+      );
+
+      expect(ids.length).toBeGreaterThan(0);
+      for (const id of ids) expect(id).toMatch(UUID_RE);
     });
   });
 
