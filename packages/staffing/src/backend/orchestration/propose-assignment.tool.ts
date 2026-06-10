@@ -194,9 +194,12 @@ export function makeProposeAssignmentTool(deps: ProposeAssignmentDeps) {
         tenantId: ctx.tenantId,
         userId: ctx.actorUserId,
       });
+      if (typeof agent?.suspend !== 'function') {
+        throw new Error('proposeAssignment: ctx.agent.suspend unavailable');
+      }
       // Mastra unwinds (throws) at suspend() on the suspending pass — nothing
       // past it runs (spike-confirmed). The return is unreachable but types the tool.
-      await agent!.suspend({ card });
+      await agent.suspend({ card });
       return { assigned: false };
     },
   });

@@ -82,13 +82,16 @@ describe('proposeAssignment composite tool', () => {
     // double mirrors that — records the card, then throws.
     const suspend = vi.fn(async (payload: unknown) => {
       suspended = payload as { card?: unknown };
-      throw new Error('__suspend__');
     });
-    // wrapExecute maps the thrown signal to an AgentToolError, so assert it
-    // rejects (not a specific message) — the card payload is what we verify.
-    await expect(
-      tool.execute!({ taskId: TASK_ID, title: 'AWS migration' } as never, firstPassCtx(suspend)),
-    ).rejects.toBeDefined();
+    // In the real runtime Mastra's suspend() abandons the execute continuation
+    // (probe-confirmed: it neither throws nor runs post-suspend code). A unit
+    // double can't model "abandon", so it resolves; the contract we verify is
+    // that the pipeline ran and suspend was called once with the right card.
+    const out = await tool.execute!(
+      { taskId: TASK_ID, title: 'AWS migration' } as never,
+      firstPassCtx(suspend),
+    );
+    expect(out).toEqual({ assigned: false });
     expect(suspend).toHaveBeenCalledTimes(1);
     expect(recommender.inputs).toHaveLength(1);
     const card = suspended?.card as { primary: { argsPatch: Record<string, unknown> } };
