@@ -9,6 +9,7 @@
     "./backend": "./src/backend/index.ts",
     "./events": "./src/events/index.ts",
     "./http": "./src/backend/http/index.ts",
+    "./rbac": "./src/rbac.ts",
     "./register": "./src/register.ts",
     "./db/schema": "./src/backend/db/schema/index.ts",
     "./db": "./src/backend/db/client.ts",
