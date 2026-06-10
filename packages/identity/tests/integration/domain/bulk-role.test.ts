@@ -40,7 +40,7 @@ describe('bulkGrantRole', () => {
       const { tenant_id, admin, users } = await seedTenantWithUsers(pool, 3);
       // pre-grant users[0]
       await identityDb().insert(roleGrants).values({
-        user_id: users[0],
+        user_id: users[0]!,
         tenant_id,
         role_slug: 'knowledge.viewer',
         scope_type: 'tenant',
@@ -94,7 +94,7 @@ describe('bulkRevokeRole', () => {
       // grant users[0] and users[1] (users[2] holds nothing)
       await bulkGrantRole(
         {
-          user_ids: [users[0], users[1]],
+          user_ids: users.slice(0, 2),
           tenant_id,
           role_slug: 'knowledge.viewer',
           scope_type: 'tenant',
