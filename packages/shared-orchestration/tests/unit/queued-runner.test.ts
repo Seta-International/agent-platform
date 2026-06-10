@@ -97,7 +97,7 @@ describe('makeOrchestrationTaskList handler', () => {
       actorUserId: 'u1',
       input: { x: 1 },
     });
-    repo['runs'] ?? null; // no-op to keep types happy
+    repo.runs ?? null; // no-op to keep types happy
     const onComplete = vi.fn(async () => {});
     const spec = twoStepSpec(onComplete);
     const addJob = vi.fn(async () => {});

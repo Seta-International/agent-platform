@@ -1,5 +1,5 @@
 import { INVENTORY, inventoryToManifests } from '@seta/shared-rbac';
-import { describe, expect, it } from 'vitest';
+import { expect, it } from 'vitest';
 import { identityRbac } from '../../src/rbac.ts';
 
 it('identity manifest matches its inventory slice', () => {

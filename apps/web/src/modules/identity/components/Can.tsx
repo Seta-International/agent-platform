@@ -9,5 +9,5 @@ export function usePermission(permission: PermissionKey): boolean {
 }
 
 export function Can({ permission, children }: { permission: PermissionKey; children: ReactNode }) {
-  return usePermission(permission) ? <>{children}</> : null;
+  return usePermission(permission) ? children : null;
 }

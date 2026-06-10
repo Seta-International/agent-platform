@@ -1,5 +1,5 @@
 import { INVENTORY, inventoryToManifests } from '@seta/shared-rbac';
-import { describe, expect, it } from 'vitest';
+import { expect, it } from 'vitest';
 import { knowledgeRbac } from '../../src/rbac.ts';
 
 it('knowledge manifest matches its inventory slice', () => {

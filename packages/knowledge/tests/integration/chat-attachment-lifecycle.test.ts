@@ -84,7 +84,7 @@ describe('chat attachment lifecycle', () => {
   it('threadPendingBytes sums uploading + uploaded, excludes consumed', () =>
     withDb(async () => {
       const a = await upload('a.txt', 10);
-      const b = await upload('b.txt', 20);
+      const _b = await upload('b.txt', 20);
       await markChatAttachmentUploaded({
         tenant_id: TENANT,
         file_id: a.file_id,

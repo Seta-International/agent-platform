@@ -187,6 +187,7 @@ export function registerPlannerGroupsRoutes(app: Hono<SessionEnv>, deps: Planner
     const limit = limitParam
       ? Math.min(Math.max(Number.parseInt(limitParam, 10), 1), 50)
       : defaultLimit;
+    // biome-ignore lint/style/noNonNullAssertion: sinceParam is required when isFeedCall is false (validated by the route schema)
     const since = !isFeedCall ? sinceParam! : undefined;
 
     try {
