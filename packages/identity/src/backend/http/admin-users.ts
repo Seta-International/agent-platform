@@ -2,6 +2,7 @@ import type { SessionEnv } from '@seta/core';
 import type { Context, Hono } from 'hono';
 import { z } from 'zod';
 import {
+  ASSIGNABLE_ROLES,
   createUser,
   deactivateUser,
   getUserGrants,
@@ -16,7 +17,6 @@ import {
   resetUserPasswordByAdmin,
   revokeRole,
   revokeUserSession,
-  TENANT_ROLE_SLUGS,
   updateUserProfile,
 } from '../../index.ts';
 
@@ -149,7 +149,7 @@ export function registerAdminUsersRoutes(app: Hono<SessionEnv>): void {
     if (!parsed.success) return c.json({ error: 'invalid' }, 400);
     if (parsed.data.scope_type === 'group')
       return c.json({ error: 'group_scope_ui_deferred' }, 400);
-    if (!(TENANT_ROLE_SLUGS as readonly string[]).includes(parsed.data.role_slug))
+    if (!ASSIGNABLE_ROLES.includes(parsed.data.role_slug))
       return c.json({ error: 'unknown_role' }, 400);
     const result = await grantRole(
       {

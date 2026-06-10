@@ -50,21 +50,6 @@ export const IDENTITY_ROLE_PERMISSIONS = Object.fromEntries(
   identityRbac.roles.map((r) => [r.slug, r.permissions]),
 ) as Record<IdentityRoleSlug, string[]>;
 
-export const TENANT_ROLE_SLUGS = [
-  'org.admin',
-  'org.viewer',
-  'identity.admin',
-  'identity.viewer',
-  'agent.admin',
-  'agent.contributor',
-  'agent.viewer',
-  'integrations.admin',
-  'integrations.viewer',
-  'planner.admin',
-] as const;
-
-export type TenantRoleSlug = (typeof TENANT_ROLE_SLUGS)[number];
-
 export const A2_PERMISSIONS = [
   'identity.sso.read',
   'identity.sso.write',

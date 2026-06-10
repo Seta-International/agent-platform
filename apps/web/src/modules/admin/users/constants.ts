@@ -1,14 +1,5 @@
-export const TENANT_ROLE_SLUGS = [
-  'org.admin',
-  'org.viewer',
-  'identity.admin',
-  'identity.viewer',
-  'agent.admin',
-  'agent.contributor',
-  'agent.viewer',
-  'integrations.admin',
-  'integrations.viewer',
-  'planner.admin',
-] as const;
+import type { ASSIGNABLE_ROLES } from '@seta/shared-rbac';
 
-export type TenantRoleSlug = (typeof TENANT_ROLE_SLUGS)[number];
+export { ASSIGNABLE_ROLES as TENANT_ROLE_SLUGS } from '@seta/shared-rbac';
+
+export type TenantRoleSlug = (typeof ASSIGNABLE_ROLES)[number];
