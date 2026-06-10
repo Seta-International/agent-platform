@@ -146,13 +146,44 @@ function wireLifecycleHook(mastra: Mastra, pool: Pool, log?: Logger): LifecycleD
     try {
       await onLifecycleEvent(pool, adapted);
     } catch (err) {
-      // Surface to logs; never re-throw to Mastra — its publish path is fire-and-forget and a throw would
-      // crash the EventEmitterPubSub listener chain for unrelated subscribers.
+      // Surface to logs; never re-throw to Mastra — its publish path is fire-and-forget and a throw
+      // would crash the EventEmitterPubSub listener chain for unrelated subscribers.
       if (log) {
-        log.error({ subsystem: 'agent.lifecycle-hook', err }, 'lifecycle event handler failed');
+        log.error(
+          { subsystem: 'agent.lifecycle-hook', err, runId: adapted.runId, kind: adapted.kind },
+          'lifecycle event handler failed; enqueuing dead-letter retry',
+        );
       } else {
-        console.error('[agent.workflow.lifecycle-hook]', err);
+        console.error('[agent.workflow.lifecycle-hook] failed, enqueuing DLQ job', {
+          runId: adapted.runId,
+          kind: adapted.kind,
+          err,
+        });
       }
+      // Dead-letter: enqueue for retry with graphile-worker's exponential backoff.
+      // jobKey = runId:kind:eventSeq provides idempotency — duplicate failures for the
+      // same event don't create duplicate jobs.
+      const jobKey = `${adapted.runId}:${adapted.kind}:${adapted.eventSeq}`;
+      pool
+        .query(
+          `SELECT graphile_worker.add_job(
+             identifier   => $1,
+             payload      => $2::json,
+             max_attempts => $3,
+             job_key      => $4
+           )`,
+          ['agent_lifecycle_retry', JSON.stringify(adapted), 6, jobKey],
+        )
+        .catch((dlqErr) => {
+          if (log) {
+            log.error(
+              { subsystem: 'agent.lifecycle-hook', err: dlqErr, runId: adapted.runId },
+              'failed to enqueue dead-letter lifecycle retry',
+            );
+          } else {
+            console.error('[agent.workflow.lifecycle-hook] DLQ enqueue failed', dlqErr);
+          }
+        });
     }
   };
   const wrapped = drainer.wrap(handle);

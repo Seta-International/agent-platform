@@ -1,5 +1,6 @@
 import { getPool } from '@seta/shared-db';
 import type { TaskList } from 'graphile-worker';
+import { retryLifecycleEvent } from './lifecycle-retry.ts';
 
 export async function cleanupExpiredRateLimitBuckets(): Promise<void> {
   await getPool('worker').query(`
@@ -11,5 +12,8 @@ export async function cleanupExpiredRateLimitBuckets(): Promise<void> {
 export const agentJobs: TaskList = {
   agent_rate_limits_cleanup: async () => {
     await cleanupExpiredRateLimitBuckets();
+  },
+  agent_lifecycle_retry: async (payload) => {
+    await retryLifecycleEvent(payload as Record<string, unknown>);
   },
 };
