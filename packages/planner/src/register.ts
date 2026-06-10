@@ -8,6 +8,7 @@ import { buildPlannerRoutes } from './backend/http/index.ts';
 import { PlannerError } from './backend/rbac.ts';
 import { buildPlannerBoardStreamHub } from './backend/stream/index.ts';
 import { plannerSubscribers } from './backend/subscribers/index.ts';
+import { plannerRbac } from './rbac.ts';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
@@ -43,6 +44,7 @@ export function registerPlannerContributions(reg: ContributionRegistry): void {
     name: 'planner',
     schema,
     migrationsDir: resolve(__dirname, '../drizzle'),
+    rbac: plannerRbac,
     agentTools: plannerAgentTools,
     agentToolFactories: [plannerFindSimilarTasksTool],
     subscribers: plannerSubscribers(),
