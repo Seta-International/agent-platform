@@ -72,13 +72,20 @@ interface RuntimeContextValue {
 
 /**
  * The AI SDK transport throws `new Error(<response body text>)` on a non-ok
- * response, so a JSON error body arrives as the error message. Extract the
- * human-readable `message` field when present.
+ * response, so a JSON error body arrives as the error message. Map the known
+ * error codes to clear, actionable copy; otherwise surface the server `message`.
  */
-function describeRunError(error: Error): string {
+export function describeRunError(error: Error): string {
   const raw = error.message;
   try {
-    const body = JSON.parse(raw) as { message?: unknown };
+    const body = JSON.parse(raw) as { error?: unknown; period?: unknown; message?: unknown };
+    // The hard budget gate (HTTP 402) — make it unmistakable and tell the user
+    // when service resumes, instead of the terse "Tenant AI budget exceeded".
+    if (body.error === 'budget_exceeded') {
+      const scope = body.period === 'month' ? 'monthly' : 'daily';
+      const resumes = body.period === 'month' ? 'next month' : 'tomorrow';
+      return `Your organization has reached its ${scope} AI budget, so new messages are paused until ${resumes} or until an admin raises the limit.`;
+    }
     if (typeof body.message === 'string' && body.message) return body.message;
   } catch {
     /* not JSON — fall through to the raw text */

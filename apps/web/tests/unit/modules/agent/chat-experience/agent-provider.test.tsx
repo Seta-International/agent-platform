@@ -36,6 +36,7 @@ vi.mock('@/modules/agent/hooks/use-thread-messages', async () => {
 
 import {
   AgentProvider,
+  describeRunError,
   useAgentRuntimeContext,
   useAgentSelection,
   usePageContext,
@@ -144,5 +145,42 @@ describe('AgentProvider panel UI', () => {
     expect(result.current.panelOpen).toBe(false);
     act(() => result.current.setPanelOpen(true));
     expect(result.current.panelOpen).toBe(true);
+  });
+});
+
+describe('describeRunError', () => {
+  it('gives a clear daily-budget message for a 402 budget_exceeded (day)', () => {
+    const err = new Error(
+      JSON.stringify({
+        error: 'budget_exceeded',
+        period: 'day',
+        message: 'Tenant AI budget exceeded',
+      }),
+    );
+    const msg = describeRunError(err);
+    expect(msg.toLowerCase()).toContain('daily');
+    expect(msg.toLowerCase()).toContain('budget');
+    // Not the terse raw server message.
+    expect(msg).not.toBe('Tenant AI budget exceeded');
+  });
+
+  it('gives a clear monthly-budget message for a 402 budget_exceeded (month)', () => {
+    const err = new Error(
+      JSON.stringify({
+        error: 'budget_exceeded',
+        period: 'month',
+        message: 'Tenant AI budget exceeded',
+      }),
+    );
+    expect(describeRunError(err).toLowerCase()).toContain('monthly');
+  });
+
+  it('still surfaces a plain JSON message for non-budget errors', () => {
+    const err = new Error(JSON.stringify({ message: 'Attached file too large' }));
+    expect(describeRunError(err)).toBe('Attached file too large');
+  });
+
+  it('falls back to the raw text for a non-JSON error', () => {
+    expect(describeRunError(new Error('network down'))).toBe('network down');
   });
 });
