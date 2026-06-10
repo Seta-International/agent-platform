@@ -1,7 +1,7 @@
-import { hasPermission } from '@seta/shared-rbac';
 import { and, eq, isNull } from 'drizzle-orm';
 import { identityDb } from './db/index.ts';
 import { roleGrants } from './db/schema.ts';
+import { resolveForRoles } from './rbac-registry.ts';
 
 export class IdentityError extends Error {
   constructor(
@@ -29,9 +29,8 @@ export async function requirePermission(
       ),
     );
 
-  const allowed = hasPermission(
-    { roles: grants.map((g) => g.role_slug), cross_tenant_read: false },
-    permission,
-  );
-  if (!allowed) throw new IdentityError('FORBIDDEN', `Missing permission: ${permission}`);
+  const perms = resolveForRoles(grants.map((g) => g.role_slug));
+  if (!perms.has(permission)) {
+    throw new IdentityError('FORBIDDEN', `Missing permission: ${permission}`);
+  }
 }
