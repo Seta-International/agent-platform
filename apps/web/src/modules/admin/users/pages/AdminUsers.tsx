@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { listProviders } from '@/modules/admin/sso/api/sso-client.ts';
 import { ImportFromEntraDialog } from '@/modules/admin/sso/components/ImportFromEntraDialog.tsx';
 import { AdminUsersTable } from '../components/AdminUsersTable.tsx';
+import { BulkRoleBar } from '../components/BulkRoleBar.tsx';
 import { CreateUserDialog } from '../components/CreateUserDialog.tsx';
 
 export function AdminUsers() {
@@ -56,6 +57,16 @@ export function AdminUsers() {
         onToggle={onToggle}
         onTogglePage={onTogglePage}
       />
+      {selected.size > 0 && (
+        <BulkRoleBar
+          selected={selected}
+          onClear={() => setSelected(new Set())}
+          onDone={() => {
+            setSelected(new Set());
+            bump();
+          }}
+        />
+      )}
     </div>
   );
 }
