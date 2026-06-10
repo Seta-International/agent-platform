@@ -7,6 +7,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./agent-tools": "./src/agent-tools.ts",
+    "./rbac": "./src/rbac.ts",
     "./register": "./src/register.ts",
     "./agent-tools/register": {
       "types": "./src/backend/agent-tools/register.ts",
