@@ -10,6 +10,7 @@ import {
   type SpecializedAgentRunCtx,
   type SpecializedAgentSpec,
 } from '@seta/agent-sdk';
+import type { OrchestrationEvent } from '@seta/shared-orchestration';
 import type { z } from 'zod';
 import { buildAssignApprovalCard } from './approval-card.ts';
 import { pickModel } from './model.ts';
@@ -80,6 +81,21 @@ export interface OrchestratorDeps {
     instructions: string;
     tools: Record<string, unknown>;
   }) => Promise<MastraToolSignals>;
+  /** Test-only seam mirroring runAgent for the streaming chat path. Returns a
+   *  minimal MastraModelOutput-shaped object: an async-iterable fullStream that
+   *  drives execution, plus awaitable toolCalls/toolResults/text. Production
+   *  omits this and a real Agent.stream() is used. */
+  streamAgent?: (args: {
+    input: In;
+    requestContext: RequestContext;
+    instructions: string;
+    tools: Record<string, unknown>;
+  }) => {
+    fullStream: AsyncIterable<unknown>;
+    toolCalls: Promise<MastraToolSignals['toolCalls']>;
+    toolResults: Promise<MastraToolSignals['toolResults']>;
+    text: Promise<string | undefined>;
+  };
 }
 
 const RECOMMEND_TASK_CAP = 5;
@@ -281,6 +297,74 @@ export function makeOrchestratorAgent(deps: OrchestratorDeps): SpecializedAgentS
           })();
       return finalizeOrchestratorResult(res, ctx);
     },
+  };
+}
+
+/** Streaming chat entrypoint. Emits the same OrchestrationEvent protocol the
+ *  inline runner did, but drives the orchestrator via Agent.stream() so Phase 2
+ *  can add ctx.suspend. The orchestrator's tools fire ctx.onEvent as they run;
+ *  those events are forwarded live, then the final assembled result follows. */
+export function makeChatOrchestrationStreamer(deps: OrchestratorDeps) {
+  const cap = deps.recommendTaskCap ?? RECOMMEND_TASK_CAP;
+  return async function* streamChat(
+    input: In,
+    ctx: SpecializedAgentRunCtx,
+  ): AsyncIterable<OrchestrationEvent> {
+    const queue: OrchestrationEvent[] = [];
+    let wake: (() => void) | null = null;
+    let finished = false;
+    const onEvent = (e: OrchestrationEvent) => {
+      queue.push(e);
+      wake?.();
+      wake = null;
+    };
+
+    const runCtx: SpecializedAgentRunCtx = { ...ctx, onEvent };
+    const built = await buildOrchestrator(deps, input, runCtx, cap);
+    // Test seam bridge: expose the sink so a fake streamAgent can drive it.
+    (built.rc as unknown as { __onEvent: typeof onEvent }).__onEvent = onEvent;
+
+    const stream = deps.streamAgent
+      ? deps.streamAgent({
+          input,
+          requestContext: built.rc,
+          instructions: built.instructions,
+          tools: built.tools,
+        })
+      : (built.agent.stream(built.message, built.runOptions) as unknown as ReturnType<
+          NonNullable<OrchestratorDeps['streamAgent']>
+        >);
+
+    const done = (async () => {
+      // Draining fullStream drives the LLM + tool execution to completion.
+      for await (const _chunk of stream.fullStream) {
+        void _chunk;
+      }
+      const res: MastraToolSignals = {
+        toolCalls: await stream.toolCalls,
+        toolResults: await stream.toolResults,
+        text: await stream.text,
+      };
+      const { result } = await finalizeOrchestratorResult(res, runCtx);
+      finished = true;
+      (wake as (() => void) | null)?.();
+      wake = null;
+      return result;
+    })();
+
+    while (!finished || queue.length > 0) {
+      while (queue.length > 0) {
+        const ev = queue.shift();
+        if (ev !== undefined) yield ev;
+      }
+      if (finished) break;
+      await new Promise<void>((resolve) => {
+        wake = resolve;
+      });
+    }
+
+    const result = await done;
+    yield { kind: 'final', result };
   };
 }
 
