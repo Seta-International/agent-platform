@@ -32,7 +32,7 @@ export function BulkRoleBar({
         <BulkRoleDialog
           action={action}
           userIds={userIds}
-          open={action !== null}
+          open={true}
           onOpenChange={(open) => {
             if (!open) setAction(null);
           }}
