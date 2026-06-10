@@ -7,13 +7,3 @@ export function passesGate(gate: VisibilityGate, session: SessionScope): boolean
   if ('predicate' in gate) return gate.predicate(session);
   return false;
 }
-
-// Minimal first-pass: org.admin and tenant.admin grant all permissions.
-// Per-permission resolution lands when the permission registry is defined.
-export function hasPermission(
-  ctx: { roles: readonly string[]; cross_tenant_read?: boolean },
-  permission: string,
-): boolean {
-  void permission;
-  return ctx.roles.some((r) => r === 'org.admin' || r === 'tenant.admin');
-}

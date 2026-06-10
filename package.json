@@ -20,6 +20,7 @@
     "format:check": "biome format .",
     "depcruise": "depcruise apps packages sdks --config .dependency-cruiser.cjs",
     "gen": "turbo gen run",
+    "gen:rbac": "tsx scripts/gen-rbac.ts",
     "db:up": "docker compose -f infra/docker/compose.dev.yml up -d",
     "db:down": "docker compose -f infra/docker/compose.dev.yml down",
     "db:migrate": "pnpm -F @seta/cli exec tsx src/index.ts migrate",
