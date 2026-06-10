@@ -1,4 +1,5 @@
 import type { PgVector } from '@mastra/pg';
+import { BudgetExceededError, checkBudget } from '@seta/core';
 import { emitUsageObserved } from '@seta/core/events';
 import { type EmbeddingProvider, embedManyWithUsage, sourceHash } from '@seta/shared-embeddings';
 import { getUserProfileForEmbedding } from '../domain/get-user-profile-for-embedding.ts';
@@ -61,6 +62,12 @@ export async function embedUserProfile(
     topK: 1,
   });
   if (existing[0]?.metadata?.source_hash === hash) return;
+
+  // Coarse budget gate: token count is unknown before the embed, so this only
+  // blocks when the tenant is already over the line. Aborts the job; it retries
+  // next period or after the operator raises the limit.
+  const budget = await checkBudget(tenant_id);
+  if (budget.blocked) throw new BudgetExceededError(budget.reason ?? 'month');
 
   const { vectors, tokens } = await embedManyWithUsage(provider, [source]);
   const [vector] = vectors;

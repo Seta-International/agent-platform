@@ -1,4 +1,5 @@
 import type { PgVector } from '@mastra/pg';
+import { BudgetExceededError, checkBudget } from '@seta/core';
 import { emitUsageObserved } from '@seta/core/events';
 import type { EmbeddingProvider } from '@seta/shared-embeddings';
 import {
@@ -48,6 +49,12 @@ export async function searchTasks(
   const cache = deps.embedQueryCache ?? defaultCache;
 
   await ensurePlannerVectorIndex(pgVector);
+
+  // Coarse budget gate before the (cache-missing) embed. Placed outside the
+  // try below so it propagates to the route's 402 mapper rather than being
+  // swallowed into the empty-result fallback.
+  const budget = await checkBudget(input.tenant_id);
+  if (budget.blocked) throw new BudgetExceededError(budget.reason ?? 'month');
 
   let queryVector: number[];
   try {

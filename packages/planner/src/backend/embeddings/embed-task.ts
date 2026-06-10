@@ -1,4 +1,5 @@
 import type { PgVector } from '@mastra/pg';
+import { BudgetExceededError, checkBudget } from '@seta/core';
 import { emitUsageObserved } from '@seta/core/events';
 import {
   countTokens,
@@ -78,6 +79,11 @@ export async function embedTask(payload: EmbedTaskPayload, deps: EmbedTaskDeps):
     topK: 1,
   });
   if (existing[0]?.metadata?.source_hash === hash) return;
+
+  // Coarse budget gate: blocks only when the tenant is already over the cap.
+  // Aborts the job; it retries next period or after a limit raise.
+  const budget = await checkBudget(tenant_id);
+  if (budget.blocked) throw new BudgetExceededError(budget.reason ?? 'month');
 
   const { vectors, tokens } = await embedManyWithUsage(provider, [source]);
   const [vector] = vectors;

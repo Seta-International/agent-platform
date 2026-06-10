@@ -1,4 +1,5 @@
 import type { PgVector } from '@mastra/pg';
+import { BudgetExceededError, checkBudget } from '@seta/core';
 import { emit, emitUsageObserved, withEmit } from '@seta/core/events';
 import { type EmbeddingProvider, embedManyWithUsage } from '@seta/shared-embeddings';
 import type { Pool } from 'pg';
@@ -55,6 +56,11 @@ export async function embedKnowledgeChunks(
     if (chunks.rows.length === 0) throw new Error('no chunks found for file');
 
     await ensureKnowledgeVectorIndex(deps.pgVector);
+
+    // Coarse budget gate: blocks indexing only when the tenant is already over
+    // the cap. Aborts the job; it retries next period or after a limit raise.
+    const budget = await checkBudget(tenant_id);
+    if (budget.blocked) throw new BudgetExceededError(budget.reason ?? 'month');
 
     const { vectors, tokens } = await embedManyWithUsage(
       deps.provider,

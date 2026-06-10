@@ -1,3 +1,4 @@
+import { checkBudget } from '@seta/core';
 import type { OrchestrationEvent } from '@seta/shared-orchestration';
 import { createUIMessageStream, createUIMessageStreamResponse, type UIMessage } from 'ai';
 import type { Hono } from 'hono';
@@ -163,6 +164,17 @@ export function mountChatRoute(app: Hono<AgentRouteEnv>, deps: AgentRouteDeps): 
         }
         throw e;
       }
+    }
+
+    // Hard budget gate: block the turn before any LLM/stream spend if the tenant
+    // has hit its daily/monthly cap. Returns 402 directly (not thrown) so it never
+    // surfaces mid-stream; the billing error mapper covers other (embed) paths.
+    const budget = await checkBudget(session.tenant_id);
+    if (budget.blocked) {
+      return c.json(
+        { error: 'budget_exceeded', period: budget.reason, message: 'Tenant AI budget exceeded' },
+        402,
+      );
     }
 
     try {
