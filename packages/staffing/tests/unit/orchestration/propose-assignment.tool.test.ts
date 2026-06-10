@@ -61,16 +61,6 @@ function rc() {
   return requestContext;
 }
 
-// Real Mastra suspend() unwinds execution (throws an internal signal) — code past
-// the suspend call never runs. The fake mirrors that: it records the payload then
-// throws a sentinel so execute() never returns past suspend (which would otherwise
-// hit compressToolResult(undefined)). The test catches the sentinel.
-class SuspendSignal extends Error {
-  constructor(readonly payload: unknown) {
-    super('suspended');
-  }
-}
-
 // Agentic ctx: ctx.agent.suspend / ctx.agent.resumeData (spike-confirmed shape).
 function firstPassCtx(suspend: (p: unknown) => Promise<unknown>) {
   return { agent: { suspend, resumeData: undefined }, requestContext: rc() } as never;
@@ -89,14 +79,15 @@ describe('proposeAssignment composite tool', () => {
     let suspended: { card?: unknown } | undefined;
     const suspend = vi.fn(async (payload: unknown) => {
       suspended = payload as { card?: unknown };
-      throw new SuspendSignal(payload);
+      return undefined;
     });
-    // execute() never returns past suspend in the real runtime — the sentinel
-    // unwinds it (wrapExecute re-wraps unknown throws, so we assert it rejects
-    // rather than completes, and that suspend got the card).
-    await expect(
-      tool.execute!({ taskId: TASK_ID, title: 'AWS migration' } as never, firstPassCtx(suspend)),
-    ).rejects.toBeDefined();
+    // Cooperative suspend: it records the payload and resolves to void, so
+    // execute() resolves (to undefined) rather than rejecting.
+    const out = await tool.execute!(
+      { taskId: TASK_ID, title: 'AWS migration' } as never,
+      firstPassCtx(suspend),
+    );
+    expect(out).toBeUndefined();
     expect(suspend).toHaveBeenCalledTimes(1);
     expect(recommender.inputs).toHaveLength(1);
     const card = suspended?.card as { primary: { argsPatch: Record<string, unknown> } };

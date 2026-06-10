@@ -382,7 +382,7 @@ export function makeChatOrchestrationStreamer(deps: OrchestratorDeps) {
           toolResults: await stream.toolResults,
           text: await stream.text,
         };
-        const { result } = await finalizeOrchestratorResult(res, runCtx);
+        const { result } = finalizeOrchestratorResult(res, runCtx);
         return result;
       } finally {
         finished = true;

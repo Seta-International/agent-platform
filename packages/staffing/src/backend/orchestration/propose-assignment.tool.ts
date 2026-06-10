@@ -1,5 +1,5 @@
 import type { SpecializedAgentRunCtx, SpecializedAgentSpec } from '@seta/agent-sdk';
-import { defineAgentTool, resolveTaskRef } from '@seta/agent-sdk';
+import { defineAgentTool, recordEntityExposure, resolveTaskRef } from '@seta/agent-sdk';
 import { z } from 'zod';
 import { buildAssignApprovalCard } from './approval-card.ts';
 import type { AssignPort } from './ports.ts';
@@ -141,6 +141,15 @@ export function makeProposeAssignmentTool(deps: ProposeAssignmentDeps) {
       ctx.onEvent?.({ kind: 'step-done', stepId: 'taskAnalyzer', trust: analyzed.trust });
       const skills = analyzed.result.skills ?? [];
       const cardTitle = analyzed.result.title ?? title;
+      // Server-owned exposure tracking (thread-scoped working memory): the
+      // recorder no-ops without RC_AGENT_MEMORY/RC_THREAD_ID and swallows its
+      // own failures — never breaks the staffing answer.
+      await recordEntityExposure(toolCtx as never, {
+        lastDiscussedTaskId: taskId,
+        ...(analyzed.result.title
+          ? { recentTasks: [{ taskId, title: analyzed.result.title }] }
+          : {}),
+      });
 
       // skillMatcher
       const matchStepId = `skillMatcher:${taskId}`;
@@ -173,6 +182,10 @@ export function makeProposeAssignmentTool(deps: ProposeAssignmentDeps) {
         // Nothing to propose — surface the empty recommend without suspending.
         return { assigned: false, recommendations: [] };
       }
+      await recordEntityExposure(toolCtx as never, {
+        lastDiscussedTaskId: taskId,
+        lastProposedCandidateUserId: recommendations[0]?.userId ?? null,
+      });
 
       const card = buildAssignApprovalCard({
         taskId,
@@ -181,11 +194,9 @@ export function makeProposeAssignmentTool(deps: ProposeAssignmentDeps) {
         tenantId: ctx.tenantId,
         userId: ctx.actorUserId,
       });
-      // Mastra unwinds execution at suspend(); nothing past this runs on the
-      // suspending pass. The explicit `return undefined` only satisfies the
-      // output type — it is never produced in the real runtime.
-      await agent?.suspend({ card });
-      return undefined;
+      // suspend() records the payload and resolves to void; returning its result
+      // is the canonical cooperative-suspend pattern.
+      return (await agent!.suspend({ card })) as undefined;
     },
   });
 }
