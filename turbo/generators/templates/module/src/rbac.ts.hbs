@@ -1,3 +1,22 @@
-export const {{constantCase name}}_PERMISSIONS: Record<string, string> = {} as const;
+import { toManifest, type Statement } from '@seta/shared-rbac';
 
-export type {{pascalCase name}}Permission = keyof typeof {{constantCase name}}_PERMISSIONS;
+// TODO(rbac): These permissions MUST also be added to the single source of truth,
+// packages/shared-rbac/src/inventory.ts (the INVENTORY array). The runtime resolver,
+// the gen:rbac codegen, and identity all build from INVENTORY; this module statement
+// is parity-checked against its INVENTORY slice. After editing BOTH (keep them
+// identical — same resources, actions, role permissions, and role descriptions),
+// run `pnpm gen:rbac` and add a parity test (copy packages/knowledge/tests/unit/rbac-parity.test.ts).
+// See packages/knowledge/src/rbac.ts for a complete example.
+export const {{camelCase name}}Statement = {
+  '{{name}}.example': ['read'],
+} as const satisfies Statement;
+
+const roleStatements = {
+  '{{name}}.viewer': { '{{name}}.example': ['read'] },
+} as const satisfies Record<string, Statement>;
+
+export const {{camelCase name}}Rbac = toManifest('{{name}}', {{camelCase name}}Statement, roleStatements, {
+  '{{name}}.viewer': 'Read-only access',
+});
+
+export type {{pascalCase name}}Permission = (typeof {{camelCase name}}Rbac.permissions)[number]['key'];

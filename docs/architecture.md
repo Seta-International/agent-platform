@@ -383,7 +383,20 @@ There is no separate publish path. `core.emit()` throws outside an `emitContext`
 
 `@seta/identity` wraps better-auth (local password + Entra OIDC) over `identity.user`, `identity.session`, `identity.account`, `identity.verification` (better-auth's tables) plus a sibling `identity.user_profile` for app-specific fields (skills, availability, working_hours, timezone).
 
-Sessions land in request context via a Hono middleware provided by `@seta/core`. Every public-surface function takes a `session: SessionScope` carrying `tenant_id`, `user_id`, `role_summary` (`{ roles, cross_tenant_read }`), `accessible_group_ids`, and `cross_tenant_read`. There is no flattened permission set and no method on the scope itself. RBAC is enforced by each module's standalone `requirePermission(session, slug, groupId?)` function, which throws that module's own error class (e.g. `PlannerError('FORBIDDEN', ...)`) when the caller lacks the permission.
+Sessions land in request context via a Hono middleware provided by `@seta/core`. Every public-surface function takes a `session: SessionScope` carrying `tenant_id`, `user_id`, `role_summary` (`{ roles, cross_tenant_read }`), `accessible_group_ids`, `cross_tenant_read`, and a resolved `permissions: ReadonlySet<string>`. The permission set is computed at session-build time from the user's roles via the shared resolver (`@seta/shared-rbac`) and recomputed on cache hydration — it is not persisted.
+
+### RBAC resolution engine
+
+All enforcement resolves through one shared `@seta/shared-rbac` registry. `INVENTORY` (in `packages/shared-rbac/src/inventory.ts`) is the single source of truth for canonical permission strings and seed role→permission maps. The server composition root, `pnpm gen:rbac`, and `@seta/identity` all build the registry from it via `inventoryToManifests(INVENTORY)`. Each module also declares a typed `statement` in its `src/rbac.ts` (built into a `ModuleRbacManifest` via `toManifest(...)`) and its statement is parity-tested against its `INVENTORY` slice. Although better-auth is a dependency, the RBAC layer uses plain typed statements and `toManifest` — not `createAccessControl` — keeping declarations free of unused role objects.
+
+Special resolution rules:
+- `org.admin` and `tenant.admin` resolve to the full permission set (wildcard).
+- `org.viewer` resolves to every `.read` permission.
+- `IMPLICIT_PERMISSIONS` (a fixed baseline list in `shared-rbac`) is unioned for every authenticated user.
+
+Backend enforcement uses `can(session, permission)`. Module `requirePermission` wrappers remain for typed errors and module-specific scope checks (e.g. planner group-scope, M365 system-actor guard) — not for resolution.
+
+A generated `PermissionKey` union (`@seta/shared-rbac/generated`, produced by `pnpm gen:rbac`, drift-guarded by a test) is shared backend↔frontend. The frontend gates nav entries, route guards, and `<Can>`/`usePermission` on the resolved permission set delivered via `GET /api/identity/v1/me`.
 
 ### Login → permission check
 
@@ -393,6 +406,7 @@ sequenceDiagram
     participant Hono as apps server
     participant Auth as better-auth
     participant DB as identity schema
+    participant RBAC as shared-rbac resolver
     participant Mod as planner.assignTask
 
     Browser->>Hono: POST /api/auth/sign-in
@@ -401,9 +415,11 @@ sequenceDiagram
     DB-->>Browser: Set-Cookie session
     Browser->>Hono: POST /api/planner/v1/assign
     Hono->>Auth: getSession from cookie
-    Auth->>DB: load session and permissions
-    Hono->>Mod: assignTask with session
-    Mod->>Mod: requirePermission session planner.task.assign
+    Auth->>DB: load session + roles
+    Hono->>RBAC: resolve permissions from roles
+    RBAC-->>Hono: permissions: ReadonlySet<string>
+    Hono->>Mod: assignTask with session (incl. permissions)
+    Mod->>Mod: can(session, 'planner.task.assign')
 ```
 
 **SSO is admin pre-provisioning only.** No just-in-time provisioning. First SSO login links to an existing pre-provisioned user; unknown subjects are rejected.
