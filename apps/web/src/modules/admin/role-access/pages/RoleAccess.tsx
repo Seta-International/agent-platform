@@ -128,6 +128,7 @@ function MatrixTable({ roles, canWrite }: { roles: MatrixRole[]; canWrite: boole
                     <Button
                       variant="ghost"
                       size="sm"
+                      aria-label={`Reset ${role.slug} to defaults`}
                       className="-ml-2 h-7 w-fit gap-1.5 px-2 text-caption text-ink-muted disabled:opacity-40"
                       disabled={!roleHasOverride(role) || reset.isPending}
                       onClick={() => reset.mutate(role.slug)}
