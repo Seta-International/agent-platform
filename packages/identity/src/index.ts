@@ -12,6 +12,8 @@ export { enableSsoProvider } from './backend/domain/enable-sso-provider.ts';
 export { findEntraOidByUserId } from './backend/domain/find-entra-oid-by-user-id.ts';
 export { findUserByEntraOid } from './backend/domain/find-user-by-entra-oid.ts';
 export { getEntraTenantId } from './backend/domain/get-entra-tenant-id.ts';
+export type { MatrixCell, MatrixRole } from './backend/domain/get-role-access-matrix.ts';
+export { getRoleAccessMatrix } from './backend/domain/get-role-access-matrix.ts';
 export type { UserGrant } from './backend/domain/get-user-grants.ts';
 export { getUserGrants } from './backend/domain/get-user-grants.ts';
 export type { UserProfile } from './backend/domain/get-user-profile.ts';
@@ -69,6 +71,10 @@ export {
   type RequestPasswordResetArgs,
   requestPasswordReset,
 } from './backend/domain/request-password-reset.ts';
+export {
+  type ResetRoleToDefaultsInput,
+  resetRoleToDefaults,
+} from './backend/domain/reset-role-to-defaults.ts';
 export type { ResetPasswordByAdminInput } from './backend/domain/reset-user-password-by-admin.ts';
 export { resetUserPasswordByAdmin } from './backend/domain/reset-user-password-by-admin.ts';
 export { revokeRole } from './backend/domain/revoke-role.ts';
@@ -76,6 +82,10 @@ export type { RevokeUserSessionInput } from './backend/domain/revoke-user-sessio
 export { revokeUserSession } from './backend/domain/revoke-user-session.ts';
 export { searchSkills } from './backend/domain/search-skills.ts';
 export { setLocalPasswordDisabled } from './backend/domain/set-local-password-disabled.ts';
+export {
+  type SetRolePermissionInput,
+  setRolePermission,
+} from './backend/domain/set-role-permission.ts';
 export type { UpdateMyDisplayNameInput } from './backend/domain/update-my-display-name.ts';
 export { updateMyDisplayName } from './backend/domain/update-my-display-name.ts';
 export type { UpdateUserProfilePatch } from './backend/domain/update-user-profile.ts';
