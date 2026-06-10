@@ -91,7 +91,7 @@ export function buildMemory(opts: {
     semanticRecall: {
       topK: 5,
       messageRange: 2,
-      scope: 'resource',
+      scope: 'thread',
       indexConfig: {
         type: 'hnsw',
         metric: 'dotproduct',
