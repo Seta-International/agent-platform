@@ -439,7 +439,7 @@ describe('GET /api/agent/v1/threads/:id (data-page-context round-trip)', () => {
       await storage.stores.memory.saveThread({
         thread: {
           id: threadId,
-          resourceId: admin_user_id,
+          resourceId: `${tenant_id}:${admin_user_id}`,
           title: 'with context',
           createdAt: now,
           updatedAt: now,
@@ -451,7 +451,7 @@ describe('GET /api/agent/v1/threads/:id (data-page-context round-trip)', () => {
           {
             id: 'msg-ctx-1',
             threadId,
-            resourceId: admin_user_id,
+            resourceId: `${tenant_id}:${admin_user_id}`,
             role: 'user',
             createdAt: now,
             content: {
@@ -534,7 +534,7 @@ describe('GET /api/agent/v1/threads/:id (sub-agent leaf tool calls)', () => {
       await storage.stores.memory.saveThread({
         thread: {
           id: threadId,
-          resourceId: admin_user_id,
+          resourceId: `${tenant_id}:${admin_user_id}`,
           title: 'with delegate',
           createdAt: now,
           updatedAt: now,
@@ -546,7 +546,7 @@ describe('GET /api/agent/v1/threads/:id (sub-agent leaf tool calls)', () => {
           {
             id: 'msg-leaf-1',
             threadId,
-            resourceId: admin_user_id,
+            resourceId: `${tenant_id}:${admin_user_id}`,
             role: 'assistant',
             createdAt: now,
             content: {
