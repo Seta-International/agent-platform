@@ -607,6 +607,12 @@ importers:
       '@seta/core':
         specifier: workspace:^
         version: link:../core
+      '@seta/identity':
+        specifier: workspace:^
+        version: link:../identity
+      '@seta/notifications':
+        specifier: workspace:^
+        version: link:../notifications
       '@seta/shared-db':
         specifier: workspace:^
         version: link:../shared-db

@@ -6,6 +6,8 @@ import {
   type ErrorMapper,
   registerBudgetGuard,
 } from '@seta/core';
+import { listTenantAdminUserIds } from '@seta/identity';
+import { requestNotification } from '@seta/notifications';
 import type { SubscriberDef } from '@seta/shared-types';
 import { createBillingBudgetGuard } from './backend/budget-guard.ts';
 import * as schema from './backend/db/schema/index.ts';
@@ -29,7 +31,12 @@ export function registerBillingContributions(reg: ContributionRegistry): void {
     schema,
     migrationsDir: resolve(__dirname, '../drizzle/migrations'),
     events: BILLING_EVENTS,
-    subscribers: [usageRecorderSubscriber() as SubscriberDef],
+    subscribers: [
+      usageRecorderSubscriber({
+        listTenantAdmins: listTenantAdminUserIds,
+        notify: requestNotification,
+      }) as SubscriberDef,
+    ],
     errorMapper: billingErrorMapper,
   });
 
