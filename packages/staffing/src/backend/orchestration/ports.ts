@@ -72,3 +72,14 @@ export interface AvailabilityPort {
   ): Promise<{ status: AvailabilityStatus; name?: string | null; note: string | null }>;
   inProgressCount(userId: string, ctx: SpecializedAgentRunCtx): Promise<number>;
 }
+
+/** Performs the assignment a proposeAssignment card approves. Wired by the app
+ *  to planner's public assignTask surface (RBAC re-checked at the callee). */
+export interface AssignPort {
+  assign(opts: {
+    taskId: string;
+    assigneeUserIds: string[];
+    tenantId: string;
+    actorUserId: string;
+  }): Promise<void>;
+}

@@ -8,7 +8,7 @@ import { emit, withEmit } from '@seta/core/events';
 import { createOutboxStore } from '@seta/core/outbox';
 import { registerCoreContributions } from '@seta/core/register';
 import { buildRuntime, runMigrations, type WorkerHandle } from '@seta/core/runtime';
-import { getIdentityVectorStore, listTenantRoleOverlays } from '@seta/identity';
+import { buildActorSession, getIdentityVectorStore, listTenantRoleOverlays } from '@seta/identity';
 import { registerIdentityContributions } from '@seta/identity/register';
 import { registerIntegrationsContributions } from '@seta/integrations/register';
 import {
@@ -19,6 +19,7 @@ import {
 } from '@seta/knowledge';
 import { registerKnowledgeContributions } from '@seta/knowledge/register';
 import { registerNotificationsContributions } from '@seta/notifications/register';
+import { assignTask } from '@seta/planner';
 import { plannerProposeAssignmentChatHitlDecider } from '@seta/planner/agent-tools';
 import { registerPlannerContributions } from '@seta/planner/register';
 import { createCrypto, createKeyProviderFromEnv, parseCryptoEnv } from '@seta/shared-crypto';
@@ -133,6 +134,17 @@ const staffingOrchestration = buildStaffingOrchestrationRuntime({
     }),
     availability: makeAvailability(),
     userProfileLookup: makeUserProfileLookup(),
+    // Binds the staffing assign port to planner's public assignTask surface —
+    // the same capability plannerProposeAssignmentChatHitlDecider performs on a
+    // chat approval. RBAC is re-checked inside assignTask at the planner callee.
+    assign: {
+      async assign({ taskId, assigneeUserIds, actorUserId }) {
+        const session = await buildActorSession({ user_id: actorUserId });
+        for (const userId of assigneeUserIds) {
+          await assignTask({ task_id: taskId, user_id: userId, session });
+        }
+      },
+    },
   },
 });
 SpecializedAgentRegistry.freeze();

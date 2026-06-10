@@ -123,6 +123,7 @@ const portsWith = () => ({
     inProgressCount: async () => 0,
   },
   userProfileLookup: { findByName: async () => [] },
+  assign: { assign: async () => {} },
 });
 
 afterEach(() => {

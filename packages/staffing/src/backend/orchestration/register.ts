@@ -19,6 +19,7 @@ import {
 import { makeChatOrchestrationStreamer, makeOrchestratorAgent } from './orchestrator.ts';
 import { orchestratorSpec } from './orchestrator-spec.ts';
 import type {
+  AssignPort,
   AvailabilityPort,
   SkillSearchPort,
   TaskReaderPort,
@@ -32,6 +33,7 @@ export interface StaffingPorts {
   skillSearch: SkillSearchPort;
   availability: AvailabilityPort;
   userProfileLookup: UserProfilePort;
+  assign: AssignPort;
 }
 
 export interface StaffingOrchestrationRuntime {
