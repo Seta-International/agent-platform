@@ -44,9 +44,7 @@ function extractId(item: unknown): string | null {
  */
 export function compressToolResult<T>(result: T): T | CompressedResult {
   const serialized = JSON.stringify(result);
-  // JSON.stringify(undefined) is undefined (e.g. a suspended tool returns void);
-  // nothing to compress.
-  if (serialized === undefined || serialized.length <= TOKEN_CHAR_THRESHOLD) return result;
+  if (serialized.length <= TOKEN_CHAR_THRESHOLD) return result;
 
   // Only compress array results or objects with an `items` / `results` array
   let items: unknown[] | null = null;

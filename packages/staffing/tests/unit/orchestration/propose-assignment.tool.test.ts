@@ -77,17 +77,18 @@ describe('proposeAssignment composite tool', () => {
   it('first call: runs the pipeline and suspends with the assign card', async () => {
     const { tool, recommender } = build();
     let suspended: { card?: unknown } | undefined;
+    // Real Mastra suspend() UNWINDS (throws) on the suspending pass (spike-confirmed):
+    // it records the payload, then execute() rejects rather than returning. The
+    // double mirrors that — records the card, then throws.
     const suspend = vi.fn(async (payload: unknown) => {
       suspended = payload as { card?: unknown };
-      return undefined;
+      throw new Error('__suspend__');
     });
-    // Cooperative suspend: it records the payload and resolves to void, so
-    // execute() resolves (to undefined) rather than rejecting.
-    const out = await tool.execute!(
-      { taskId: TASK_ID, title: 'AWS migration' } as never,
-      firstPassCtx(suspend),
-    );
-    expect(out).toBeUndefined();
+    // wrapExecute maps the thrown signal to an AgentToolError, so assert it
+    // rejects (not a specific message) — the card payload is what we verify.
+    await expect(
+      tool.execute!({ taskId: TASK_ID, title: 'AWS migration' } as never, firstPassCtx(suspend)),
+    ).rejects.toBeDefined();
     expect(suspend).toHaveBeenCalledTimes(1);
     expect(recommender.inputs).toHaveLength(1);
     const card = suspended?.card as { primary: { argsPatch: Record<string, unknown> } };

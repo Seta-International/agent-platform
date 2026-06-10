@@ -194,9 +194,10 @@ export function makeProposeAssignmentTool(deps: ProposeAssignmentDeps) {
         tenantId: ctx.tenantId,
         userId: ctx.actorUserId,
       });
-      // suspend() records the payload and resolves to void; returning its result
-      // is the canonical cooperative-suspend pattern.
-      return (await agent!.suspend({ card })) as undefined;
+      // Mastra unwinds (throws) at suspend() on the suspending pass — nothing
+      // past it runs (spike-confirmed). The return is unreachable but types the tool.
+      await agent!.suspend({ card });
+      return { assigned: false };
     },
   });
 }
