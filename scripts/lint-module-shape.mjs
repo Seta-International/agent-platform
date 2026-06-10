@@ -50,6 +50,7 @@ const SRC_ALLOWLIST = new Set([
 // every other module. Putting them under backend/ would imply "backend-only" semantics
 // they don't have. Keep them at src/ root and extend the allowlist accordingly.
 const CORE_EXTRA_SRC_ALLOWLIST = new Set([
+  'billing',
   'composition',
   'middleware',
   'outbox',
