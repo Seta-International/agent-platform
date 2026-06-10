@@ -27,6 +27,7 @@ import { registerAgentRoutes } from './backend/routes.ts';
 import { buildMastraFull } from './backend/runtime.ts';
 import { agentSubscribers } from './backend/subscribers/index.ts';
 import { registerWorkflowInputSchema } from './backend/workflows/_infra/input-schema-registry.ts';
+import { agentRbac } from './rbac.ts';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
@@ -35,6 +36,7 @@ export function registerAgentContributions(reg: ContributionRegistry): void {
     name: 'agent',
     schema,
     migrationsDir: resolve(__dirname, '../drizzle'),
+    rbac: agentRbac,
     subscribers: agentSubscribers(),
     jobs: agentJobs,
     crontab: '* * * * * agent_rate_limits_cleanup',
