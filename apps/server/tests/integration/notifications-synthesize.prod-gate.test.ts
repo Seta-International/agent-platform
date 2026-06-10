@@ -3,6 +3,7 @@ import { registerNotificationsRoutes } from '@seta/notifications/http';
 import { NotificationStreamHub } from '@seta/notifications/stream';
 import { Hono } from 'hono';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { resolveTestPermissions } from '../helpers/rbac.ts';
 
 describe('POST /api/notifications/v1/__dev/synthesize (prod)', () => {
   const originalNodeEnv = process.env.NODE_ENV;
@@ -25,6 +26,7 @@ describe('POST /api/notifications/v1/__dev/synthesize (prod)', () => {
       display_name: 'X',
       role_summary,
       role_summary_hash: hashRoleSummary(role_summary),
+      permissions: resolveTestPermissions(role_summary.roles),
       accessible_group_ids: [],
       cross_tenant_read: false,
       built_at: new Date(),
