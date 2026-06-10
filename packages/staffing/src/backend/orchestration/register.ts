@@ -1,5 +1,5 @@
 import type { MastraModelConfig } from '@mastra/core/llm';
-import type { MastraStorage } from '@mastra/core/storage';
+import type { MastraCompositeStore } from '@mastra/core/storage';
 import { SpecializedAgentRegistry } from '@seta/agent-sdk';
 import {
   type AddJob,
@@ -74,7 +74,7 @@ export function buildStaffingOrchestrationRuntime(deps: {
    * staffing does NOT own storage (and cannot import @mastra/pg). The same
    * instance is shared with the agent engine so cross-Mastra resume works.
    */
-  mastraStorage: MastraStorage;
+  mastraStorage: MastraCompositeStore;
 }): StaffingOrchestrationRuntime {
   const { ports, resolveModel, repo, mastraStorage } = deps;
 

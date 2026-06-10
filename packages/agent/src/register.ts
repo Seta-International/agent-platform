@@ -2,7 +2,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Mastra } from '@mastra/core';
 import { Agent } from '@mastra/core/agent';
-import type { MastraStorage } from '@mastra/core/storage';
+import type { MastraCompositeStore } from '@mastra/core/storage';
 import type { AnyWorkflow } from '@mastra/core/workflows';
 import {
   AgentRegistry,
@@ -73,7 +73,7 @@ export function registerAgent(deps: {
    * cross-instance native-suspend resume requires ONE shared store. Built once
    * at the composition root via createAgentMastraStorage.
    */
-  mastraStorage?: MastraStorage;
+  mastraStorage?: MastraCompositeStore;
   log?: {
     error: (obj: unknown, msg?: string) => void;
     warn: (obj: unknown, msg?: string) => void;

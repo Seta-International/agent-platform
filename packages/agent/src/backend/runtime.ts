@@ -1,5 +1,5 @@
 import { Mastra } from '@mastra/core';
-import type { MastraStorage } from '@mastra/core/storage';
+import type { MastraCompositeStore } from '@mastra/core/storage';
 import { PostgresStore } from '@mastra/pg';
 import type { Pool } from 'pg';
 import { adaptMastraEvent, onLifecycleEvent } from './workflows/_infra/lifecycle-hook.ts';
@@ -20,7 +20,7 @@ export type AgentRuntimeDeps = {
    * physical store (required for cross-Mastra-instance native-suspend resume).
    * Built at the composition root via createAgentMastraStorage.
    */
-  storage?: MastraStorage;
+  storage?: MastraCompositeStore;
 };
 
 /**
@@ -29,7 +29,7 @@ export type AgentRuntimeDeps = {
  * instance to both this engine runtime and the staffing orchestrator's per-turn
  * Mastra — cross-instance native-suspend resume requires a shared store.
  */
-export function createAgentMastraStorage(deps: { pool: Pool }): MastraStorage {
+export function createAgentMastraStorage(deps: { pool: Pool }): MastraCompositeStore {
   return new PostgresStore({
     id: 'agent-store',
     schemaName: 'agent',

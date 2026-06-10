@@ -3,7 +3,7 @@ import { Agent } from '@mastra/core/agent';
 import type { MastraModelConfig } from '@mastra/core/llm';
 import { TokenLimiterProcessor } from '@mastra/core/processors';
 import { RequestContext } from '@mastra/core/request-context';
-import type { MastraStorage } from '@mastra/core/storage';
+import type { MastraCompositeStore } from '@mastra/core/storage';
 import {
   type AgentResult,
   type Citation,
@@ -82,7 +82,7 @@ export interface OrchestratorDeps {
    * resume. The test seams (runAgent/streamAgent) bypass the wrapped agent, so
    * fixtures default this to an InMemoryStore.
    */
-  mastraStorage: MastraStorage;
+  mastraStorage: MastraCompositeStore;
   /** Cap on how many found tasks the orchestrator recommends people for. */
   recommendTaskCap?: number;
   /** Test-only seam; production builds + runs a real Mastra Agent. Receives the
