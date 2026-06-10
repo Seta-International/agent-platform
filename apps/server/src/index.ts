@@ -153,10 +153,10 @@ const agent = registerAgent({
   chatHitlDeciders: {
     planner_proposeAssignment: plannerProposeAssignmentChatHitlDecider,
   },
-  // The chat runtime: every chat turn streams through the inline staffing
-  // orchestration. apps/server is the only layer that can bind the staffing
-  // runtime to the engine surface.
-  chatOrchestration: staffingOrchestration.runInline,
+  // The chat runtime: every chat turn streams through the staffing
+  // orchestration's streaming entrypoint. apps/server is the only layer that
+  // can bind the staffing runtime to the engine surface.
+  chatOrchestration: staffingOrchestration.runStream,
   // Chat attachments: apps/server is the only layer that can import the
   // @seta/knowledge consume/mark functions into the engine surface.
   consumeThreadAttachments: async ({ tenantId, threadId, query }) => {
