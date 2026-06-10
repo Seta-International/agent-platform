@@ -18,6 +18,7 @@
     "@opentelemetry/exporter-prometheus": "^0.218.0",
     "@opentelemetry/sdk-node": "^0.218.0",
     "@seta/agent": "workspace:^",
+    "@seta/billing": "workspace:^",
     "@seta/core": "workspace:^",
     "@seta/identity": "workspace:^",
     "@seta/integrations": "workspace:^",
