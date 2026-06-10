@@ -36,6 +36,28 @@ function toolCallStep(k: number, toolName: string, input: unknown): Step {
     finishReason: 'tool-calls',
   };
 }
+// doStream mirrors doGenerate: same call counter, same Step sequence converted
+// to AI SDK v6 stream parts so the streaming orchestrator path is exercised.
+function stepToStreamParts(s: Step) {
+  const parts: Record<string, unknown>[] = [{ type: 'stream-start', warnings: [] }];
+  for (const c of s.content) {
+    if (c.type === 'tool-call') {
+      parts.push({
+        type: 'tool-call',
+        toolCallId: (c as Record<string, unknown>).toolCallId,
+        toolName: (c as Record<string, unknown>).toolName,
+        input: (c as Record<string, unknown>).input,
+      });
+    } else if (c.type === 'text') {
+      parts.push({ type: 'text-start', id: '0' });
+      parts.push({ type: 'text-delta', id: '0', delta: (c as Record<string, unknown>).text });
+      parts.push({ type: 'text-end', id: '0' });
+    }
+  }
+  parts.push({ type: 'finish', usage, finishReason: s.finishReason });
+  return parts;
+}
+
 function scriptedModel(steps: Step[]) {
   let call = -1;
   return new MockLanguageModelV3({
@@ -48,6 +70,20 @@ function scriptedModel(steps: Step[]) {
         usage,
         content: s.content,
         warnings: [],
+      } as never;
+    },
+    doStream: async () => {
+      call += 1;
+      const s = steps[Math.min(call, steps.length - 1)] ?? STOP;
+      const parts = stepToStreamParts(s);
+      return {
+        stream: new ReadableStream({
+          start(controller) {
+            for (const p of parts) controller.enqueue(p);
+            controller.close();
+          },
+        }),
+        rawCall: { rawPrompt: null, rawSettings: {} },
       } as never;
     },
   });
@@ -224,6 +260,72 @@ describe('orchestrator inline run (e2e)', () => {
       expect(started.some((s: string) => s.startsWith('skillMatcher'))).toBe(false);
       expect(started.some((s: string) => s.startsWith('avaiChecker'))).toBe(false);
       expect(started.some((s: string) => s.startsWith('recommender'))).toBe(false);
+    });
+  });
+
+  it('runStream recommend path: streams OrchestrationEvents ending in final, no DB persistence', async () => {
+    await withAgentTestDb(async () => {
+      const rt = buildStaffingOrchestrationRuntime({
+        repo: new StaffingRunStateRepository(),
+        resolveModel: resolveModelSeq([
+          // orchestrator: driven via Agent.stream() → doStream; same delegation
+          // sequence as the inline recommend test.
+          scriptedModel([
+            toolCallStep(0, 'callTaskAnalyzer', {
+              intent: 'resolve_task_skills',
+              query: 'who should do this',
+              taskRef: TASK_REF,
+            }),
+            toolCallStep(1, 'callSkillMatcher', { taskId: 'task-1', skills: ['aws'] }),
+            toolCallStep(2, 'callAvaiChecker', { taskId: 'task-1', candidates: [CANDIDATE] }),
+            toolCallStep(3, 'callRecommender', {
+              taskId: 'task-1',
+              skills: ['aws'],
+              candidates: [CANDIDATE],
+              availability: [
+                {
+                  userId: 'u1',
+                  name: 'A',
+                  status: 'available',
+                  inProgressCount: 0,
+                  availabilityScore: 1,
+                },
+              ],
+            }),
+            STOP,
+          ]),
+          // skillMatcher: still uses doGenerate (sub-agents call .generate()).
+          scriptedModel([toolCallStep(0, 'searchCandidates', { skills: ['aws'] }), STOP]),
+        ]),
+        ports: portsWith(),
+      });
+      SpecializedAgentRegistry.freeze();
+      OrchestrationRegistry.freeze();
+
+      const events: OrchestrationEvent[] = [];
+      for await (const e of rt.runStream(
+        { userText: 'go', taskId: 'task-1' },
+        { tenantId: TENANT, actorUserId: ACTOR },
+      )) {
+        events.push(e);
+      }
+
+      const final = events.at(-1) as {
+        kind: 'final';
+        result: { recommendations?: { userId: string }[] };
+      };
+      expect(final.kind).toBe('final');
+      expect(final.result.recommendations?.[0]?.userId).toBe('u1');
+
+      const started = events
+        .filter(
+          (e): e is Extract<OrchestrationEvent, { kind: 'step-start' }> => e.kind === 'step-start',
+        )
+        .map((e) => e.stepId);
+      expect(started).toContain('taskAnalyzer');
+      expect(started).toContain('skillMatcher:task-1');
+      expect(started).toContain('avaiChecker:task-1');
+      expect(started).toContain('recommender:task-1');
     });
   });
 

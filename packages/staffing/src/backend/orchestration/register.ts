@@ -16,7 +16,7 @@ import {
   makeSkillMatcherAgent,
   makeTaskAnalyzerAgent,
 } from './agents/index.ts';
-import { makeOrchestratorAgent } from './orchestrator.ts';
+import { makeChatOrchestrationStreamer, makeOrchestratorAgent } from './orchestrator.ts';
 import { orchestratorSpec } from './orchestrator-spec.ts';
 import type {
   AvailabilityPort,
@@ -37,6 +37,10 @@ export interface StaffingPorts {
 export interface StaffingOrchestrationRuntime {
   taskList: ReturnType<typeof makeOrchestrationTaskList>;
   runInline: (
+    runInput: { userText: string; taskId: string | null },
+    ctx: RunCtx,
+  ) => AsyncIterable<OrchestrationEvent>;
+  runStream: (
     runInput: { userText: string; taskId: string | null },
     ctx: RunCtx,
   ) => AsyncIterable<OrchestrationEvent>;
@@ -99,7 +103,16 @@ export function buildStaffingOrchestrationRuntime(deps: {
   const runInline: StaffingOrchestrationRuntime['runInline'] = (runInput, ctx) =>
     runOrchestrationInline('staffing.orchestrator', runInput, ctx, { ...runnerDeps, newRunId });
 
-  return { taskList, runInline, repo };
+  const streamChat = makeChatOrchestrationStreamer({
+    taskAnalyzer,
+    skillMatcher,
+    avaiChecker,
+    recommender,
+    generalAnswer,
+    resolveModel,
+  });
+
+  return { taskList, runInline, runStream: streamChat, repo };
 }
 
 export type { AddJob };

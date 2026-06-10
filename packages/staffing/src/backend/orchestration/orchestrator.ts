@@ -326,6 +326,7 @@ export function makeChatOrchestrationStreamer(deps: OrchestratorDeps) {
       (built.rc as unknown as { __onEvent: typeof onEvent }).__onEvent = onEvent;
     }
 
+    // Agent.stream() is async; await it so stream.fullStream is accessible.
     const stream = deps.streamAgent
       ? deps.streamAgent({
           input,
@@ -333,7 +334,7 @@ export function makeChatOrchestrationStreamer(deps: OrchestratorDeps) {
           instructions: built.instructions,
           tools: built.tools,
         })
-      : (built.agent.stream(built.message, built.runOptions) as unknown as ReturnType<
+      : ((await built.agent.stream(built.message, built.runOptions)) as unknown as ReturnType<
           NonNullable<OrchestratorDeps['streamAgent']>
         >);
 
