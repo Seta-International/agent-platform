@@ -7,6 +7,10 @@ import { extractAttachmentText, fetchAttachmentObject } from '../parse/extract-a
 import { type PurgeKnowledgeFileDeps, purgeKnowledgeFile } from './delete-file.ts';
 import { ALLOWED_EXTENSIONS, MAX_BYTES } from './upload-url.ts';
 
+// rbac: system-only — chat attachment mutations are gated at the HTTP route
+// (knowledge.chat_attachment.write, see http/chat-attachments.ts) and the
+// agent engine consumes/marks them mid-turn without a caller session.
+
 const UPLOAD_URL_TTL_SECONDS = 15 * 60;
 const DEFAULT_MAX_PER_THREAD = 10;
 

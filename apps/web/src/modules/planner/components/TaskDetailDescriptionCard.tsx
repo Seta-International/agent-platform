@@ -14,6 +14,14 @@ export function TaskDetailDescriptionCard({ task, planId }: Props) {
   const [draft, setDraft] = useState(task.description ?? '');
   const update = useUpdateTask(planId);
 
+  // Keep the draft in sync with external updates while not editing, by adjusting
+  // state during render rather than in an effect (avoids cascading renders).
+  const [syncedDescription, setSyncedDescription] = useState(task.description);
+  if (!editing && task.description !== syncedDescription) {
+    setSyncedDescription(task.description);
+    setDraft(task.description ?? '');
+  }
+
   const beginEdit = () => {
     setDraft(task.description ?? '');
     setEditing(true);
