@@ -131,6 +131,7 @@ export const INVENTORY: StatementSpec[] = [
       'agent.config': ['read', 'write'],
       'agent.rate_limit': ['read'],
       'agent.specialist': ['use'],
+      'agent.meta': ['read.self'],
     },
     roles: [
       {
@@ -211,6 +212,7 @@ export const INVENTORY: StatementSpec[] = [
       'planner.bucket': ['read', 'create', 'update', 'delete'],
       'planner.task': [
         'read',
+        'read.tenant',
         'create',
         'update',
         'assign',
@@ -255,6 +257,7 @@ export const INVENTORY: StatementSpec[] = [
           'planner.bucket.update',
           'planner.bucket.delete',
           'planner.task.read',
+          'planner.task.read.tenant',
           'planner.task.create',
           'planner.task.update',
           'planner.task.assign',
@@ -285,6 +288,7 @@ export const INVENTORY: StatementSpec[] = [
           'planner.bucket.update',
           'planner.bucket.delete',
           'planner.task.read',
+          'planner.task.read.tenant',
           'planner.task.create',
           'planner.task.update',
           'planner.task.assign',
@@ -304,6 +308,7 @@ export const INVENTORY: StatementSpec[] = [
           'planner.plan.read',
           'planner.bucket.read',
           'planner.task.read',
+          'planner.task.read.tenant',
           'planner.task.comment.read',
           'planner.task.comment.create',
           'planner.group.refresh',
@@ -334,6 +339,7 @@ export const INVENTORY: StatementSpec[] = [
     module: 'identity',
     statement: {
       'identity.user': [
+        'read',
         'read.any',
         'read.self',
         'write',
@@ -385,11 +391,13 @@ export const INVENTORY: StatementSpec[] = [
 
 export const IMPLICIT_PERMISSIONS: readonly string[] = [
   'agent.chat.use',
+  'agent.meta.read.self',
   'agent.thread.read.self',
   'agent.thread.write.self',
   'agent.workflow.approve',
   'agent.workflow.run.cancel.self',
   'agent.workflow.run.read.self',
+  'identity.user.read',
   'identity.user.read.self',
   'identity.user.write.self',
   'knowledge.chat_attachment.write',
