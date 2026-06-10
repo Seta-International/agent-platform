@@ -1,6 +1,6 @@
 import type { PgVector } from '@mastra/pg';
-import { emit, withEmit } from '@seta/core/events';
-import { type EmbeddingProvider, embedMany } from '@seta/shared-embeddings';
+import { emit, emitUsageObserved, withEmit } from '@seta/core/events';
+import { type EmbeddingProvider, embedManyWithUsage } from '@seta/shared-embeddings';
 import type { Pool } from 'pg';
 import {
   ensureKnowledgeVectorIndex,
@@ -56,11 +56,22 @@ export async function embedKnowledgeChunks(
 
     await ensureKnowledgeVectorIndex(deps.pgVector);
 
-    const vectors = await embedMany(
+    const { vectors, tokens } = await embedManyWithUsage(
       deps.provider,
       chunks.rows.map((c) => c.chunk_text),
       { batchSize: BATCH_SIZE },
     );
+    // Pricing keys use "provider/model"; the provider id is "provider:model".
+    const modelKey = deps.provider.modelId.replace(':', '/');
+    await emitUsageObserved({
+      tenantId: tenant_id,
+      feature: 'embedding',
+      provider: modelKey.split('/')[0] ?? 'unknown',
+      modelKey,
+      tokensIn: tokens,
+      tokensOut: 0,
+      causedByUserId: null, // background indexing has no direct actor
+    });
 
     const embeddedAt = new Date().toISOString();
     const ids = chunks.rows.map((c) => knowledgeVectorId(tenant_id, file_id, c.chunk_ordinal));

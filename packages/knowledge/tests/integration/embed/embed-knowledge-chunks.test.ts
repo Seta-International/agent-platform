@@ -89,6 +89,9 @@ describe('embedKnowledgeChunks worker', () => {
         embed: async () => {
           throw new Error('provider down');
         },
+        embedWithUsage: async () => {
+          throw new Error('provider down');
+        },
       };
       await embedKnowledgeChunks(
         { tenant_id, file_id, event_id: randomUUID() },

@@ -106,7 +106,7 @@ describe('embedUserProfile', () => {
   it('hash gate: embed is called only once for two identical calls', async () => {
     await withDb(async ({ pool, pgVector }) => {
       const provider = new FakeEmbeddingProvider();
-      const embedSpy = vi.spyOn(provider, 'embed');
+      const embedSpy = vi.spyOn(provider, 'embedWithUsage');
       const { tenant_id, user_id } = await seedUser(pool);
 
       await pool.query(`UPDATE identity.user_profile SET skills = $1 WHERE user_id = $2`, [

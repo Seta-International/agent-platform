@@ -1,4 +1,5 @@
 import type { PgVector } from '@mastra/pg';
+import { emitUsageObserved } from '@seta/core/events';
 import type { EmbeddingProvider } from '@seta/shared-embeddings';
 import {
   EmbedQueryCache,
@@ -51,8 +52,21 @@ export async function searchTasks(
   let queryVector: number[];
   try {
     queryVector = await cache.get(provider.modelId, input.query, async () => {
-      const [vec] = await provider.embed([input.query]);
-      return vec as number[];
+      // Only a cache miss reaches the model, so usage is emitted exactly when a
+      // real embedding call is billed. Pricing keys use "provider/model"; the
+      // provider id is "provider:model".
+      const { vectors, tokens } = await provider.embedWithUsage([input.query]);
+      const modelKey = provider.modelId.replace(':', '/');
+      await emitUsageObserved({
+        tenantId: input.tenant_id,
+        feature: 'embedding',
+        provider: modelKey.split('/')[0] ?? 'unknown',
+        modelKey,
+        tokensIn: tokens,
+        tokensOut: 0,
+        causedByUserId: null,
+      });
+      return vectors[0] as number[];
     });
   } catch {
     return { hits: [], reranker: 'fallback' };

@@ -15,7 +15,7 @@ import { buildTaskSource } from '../../../src/backend/embeddings/source.ts';
 import { seedTaskForTest } from '../../helpers/seed.ts';
 
 function makeSpy(base: FakeEmbeddingProvider) {
-  return vi.spyOn(base, 'embed');
+  return vi.spyOn(base, 'embedWithUsage');
 }
 
 function withDb<T>(
@@ -150,7 +150,7 @@ describe('embedTask', () => {
   it('skip-input-too-long: skips embedding when source exceeds MAX_SOURCE_TOKENS', async () => {
     await withDb(async ({ pool, pgVector }) => {
       const provider = new FakeEmbeddingProvider();
-      const embedSpy = vi.spyOn(provider, 'embed');
+      const embedSpy = vi.spyOn(provider, 'embedWithUsage');
 
       const longDesc = Array.from({ length: 1100 }, () => 'word').join(' ');
 

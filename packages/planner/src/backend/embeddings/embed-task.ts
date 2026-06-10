@@ -1,8 +1,9 @@
 import type { PgVector } from '@mastra/pg';
+import { emitUsageObserved } from '@seta/core/events';
 import {
   countTokens,
   type EmbeddingProvider,
-  embedMany,
+  embedManyWithUsage,
   sourceHash,
 } from '@seta/shared-embeddings';
 import pino from 'pino';
@@ -78,8 +79,21 @@ export async function embedTask(payload: EmbedTaskPayload, deps: EmbedTaskDeps):
   });
   if (existing[0]?.metadata?.source_hash === hash) return;
 
-  const [vector] = await embedMany(provider, [source]);
+  const { vectors, tokens } = await embedManyWithUsage(provider, [source]);
+  const [vector] = vectors;
   if (!vector) throw new Error('embedMany returned no vector');
+
+  // Pricing keys use "provider/model"; the provider id is "provider:model".
+  const modelKey = provider.modelId.replace(':', '/');
+  await emitUsageObserved({
+    tenantId: tenant_id,
+    feature: 'embedding',
+    provider: modelKey.split('/')[0] ?? 'unknown',
+    modelKey,
+    tokensIn: tokens,
+    tokensOut: 0,
+    causedByUserId: null,
+  });
 
   const metadata: TaskVectorMetadata = {
     tenant_id,
