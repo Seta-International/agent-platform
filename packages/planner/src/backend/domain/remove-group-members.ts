@@ -1,6 +1,9 @@
 import type { PlannerSessionScope } from './_actor.ts';
 import { removeGroupMember } from './remove-group-member.ts';
 
+// rbac: delegates — forwards to removeGroupMember, which owns the
+// requirePermission('planner.group.member.write') check.
+
 export async function removeGroupMembers(input: {
   group_id: string;
   user_ids: string[];

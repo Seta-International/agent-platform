@@ -1,7 +1,7 @@
 import type { TaskWithAssigneesRow } from '@seta/planner';
 import { Button, RichTextDisplay, RichTextEditor } from '@seta/shared-ui';
 import { Pencil } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useUpdateTask } from '../hooks/mutations/update-task';
 
 interface Props {
@@ -14,9 +14,13 @@ export function TaskDetailDescriptionCard({ task, planId }: Props) {
   const [draft, setDraft] = useState(task.description ?? '');
   const update = useUpdateTask(planId);
 
-  useEffect(() => {
-    if (!editing) setDraft(task.description ?? '');
-  }, [task.description, editing]);
+  // Keep the draft in sync with external updates while not editing, by adjusting
+  // state during render rather than in an effect (avoids cascading renders).
+  const [syncedDescription, setSyncedDescription] = useState(task.description);
+  if (!editing && task.description !== syncedDescription) {
+    setSyncedDescription(task.description);
+    setDraft(task.description ?? '');
+  }
 
   const beginEdit = () => {
     setDraft(task.description ?? '');
