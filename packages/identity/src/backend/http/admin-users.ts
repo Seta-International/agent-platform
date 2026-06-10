@@ -3,6 +3,8 @@ import type { Context, Hono } from 'hono';
 import { z } from 'zod';
 import {
   ASSIGNABLE_ROLES,
+  bulkGrantRole,
+  bulkRevokeRole,
   createUser,
   deactivateUser,
   getUserGrants,
@@ -29,6 +31,14 @@ const createSchema = z.object({
 
 const grantSchema = z.object({
   role_slug: z.string(),
+  scope_type: z.enum(['tenant', 'group']).default('tenant'),
+  scope_id: z.string().nullable().optional(),
+});
+
+const bulkSchema = z.object({
+  user_ids: z.array(z.string().uuid()).min(1).max(500),
+  role_slug: z.string(),
+  action: z.enum(['grant', 'revoke']),
   scope_type: z.enum(['tenant', 'group']).default('tenant'),
   scope_id: z.string().nullable().optional(),
 });
@@ -161,6 +171,35 @@ export function registerAdminUsersRoutes(app: Hono<SessionEnv>): void {
       },
       { type: 'user', user_id: scope.user_id },
     );
+    return c.json(result);
+  });
+
+  app.post('/api/identity/v1/users/bulk-role-grants', async (c) => {
+    requireAdmin(c);
+    const scope = c.get('user');
+    const parsed = bulkSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) return c.json({ error: 'invalid', details: parsed.error.flatten() }, 400);
+    if (parsed.data.scope_type === 'group')
+      return c.json({ error: 'group_scope_ui_deferred' }, 400);
+    if (!ASSIGNABLE_ROLES.includes(parsed.data.role_slug))
+      return c.json({ error: 'unknown_role' }, 400);
+    const input = {
+      user_ids: parsed.data.user_ids,
+      tenant_id: scope.tenant_id,
+      role_slug: parsed.data.role_slug,
+      scope_type: 'tenant' as const,
+      scope_id: null,
+    };
+    const actor = {
+      type: 'user' as const,
+      user_id: scope.user_id,
+      ip: c.req.header('x-forwarded-for')?.split(',')[0]?.trim(),
+      user_agent: c.req.header('user-agent'),
+    };
+    const result =
+      parsed.data.action === 'grant'
+        ? await bulkGrantRole(input, actor)
+        : await bulkRevokeRole(input, actor);
     return c.json(result);
   });
 
