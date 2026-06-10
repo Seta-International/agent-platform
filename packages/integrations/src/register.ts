@@ -9,6 +9,7 @@ import * as schema from './backend/db/schema/index.ts';
 import { registerMailTransportRoutes } from './backend/http/index.ts';
 import { buildM365Boot } from './backend/m365/boot.ts';
 import { buildM365Subscribers } from './backend/m365/subscribers.ts';
+import { integrationsRbac } from './rbac.ts';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
@@ -57,6 +58,7 @@ export function registerIntegrationsContributions(
     name: 'integrations',
     schema,
     migrationsDir: resolve(__dirname, '../drizzle/migrations'),
+    rbac: integrationsRbac,
     subscribers: buildM365Subscribers(),
     ...(m365Boot ? { jobs: m365Boot.jobs } : {}),
     ...(routes ? { routes } : {}),
