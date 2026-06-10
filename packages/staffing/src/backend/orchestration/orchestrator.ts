@@ -142,6 +142,21 @@ function instructions(cap: number): string {
   ].join('\n');
 }
 
+/** Shared post-LLM step: assemble the structured result, record the deterministic
+ *  HITL approval card if a single-task recommend succeeded, and derive the trust
+ *  envelope. Used by both the generate() (queued) and stream() (chat) paths. */
+async function finalizeOrchestratorResult(
+  res: MastraToolSignals,
+  ctx: SpecializedAgentRunCtx,
+): Promise<AgentResult<Out>> {
+  const result = await recordApprovalIfRecommended(assemble(res), res, ctx);
+  const trust = trustFromMastraResult(res, {
+    citations: (tr) => citationsFor(tr, result),
+    confidence: confidenceFor(result, res),
+  });
+  return { result, trust };
+}
+
 export function makeOrchestratorAgent(deps: OrchestratorDeps): SpecializedAgentSpec<In, Out> {
   const cap = deps.recommendTaskCap ?? RECOMMEND_TASK_CAP;
   return {
@@ -239,12 +254,7 @@ export function makeOrchestratorAgent(deps: OrchestratorDeps): SpecializedAgentS
             };
           })();
 
-      const result = await recordApprovalIfRecommended(assemble(res), res, ctx);
-      const trust = trustFromMastraResult(res, {
-        citations: (tr) => citationsFor(tr, result),
-        confidence: confidenceFor(result, res),
-      });
-      return { result, trust };
+      return finalizeOrchestratorResult(res, ctx);
     },
   };
 }
