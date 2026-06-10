@@ -25,8 +25,6 @@ import type { Pool } from 'pg';
 // Both writes are in a single transaction so a partial failure leaves no orphans.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const APPROVAL_TTL_HOURS = 24;
-
 export interface InsertChatHitlApprovalOpts {
   card: ApprovalCard;
   tenantId: string;
@@ -34,6 +32,8 @@ export interface InsertChatHitlApprovalOpts {
   /** The current chat thread ID from requestContext — null if not in a thread. */
   threadId: string | null;
   pool: Pool;
+  /** Hours until the approval expires. Defaults to 72 (matching evented workflows). */
+  approvalTtlHours?: number;
 }
 
 export interface ChatHitlApprovalIds {
@@ -48,9 +48,9 @@ export interface ChatHitlApprovalIds {
 export async function insertChatHitlApproval(
   opts: InsertChatHitlApprovalOpts,
 ): Promise<ChatHitlApprovalIds> {
-  const { card, tenantId, userId, threadId, pool } = opts;
+  const { card, tenantId, userId, threadId, pool, approvalTtlHours = 72 } = opts;
   const workflowId = `${CHAT_HITL_WORKFLOW_ID_PREFIX}${card.meta.toolId}`;
-  const expiresAt = new Date(Date.now() + APPROVAL_TTL_HOURS * 60 * 60 * 1000);
+  const expiresAt = new Date(Date.now() + approvalTtlHours * 60 * 60 * 1000);
 
   const client = await pool.connect();
   try {

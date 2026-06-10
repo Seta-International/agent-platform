@@ -131,5 +131,6 @@ export type AgentEvent =
         failure_count: number;
         opened_at: string; // ISO 8601
         reason: 'timeout' | 'exception';
+        last_error?: string;
       };
     };

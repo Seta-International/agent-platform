@@ -10,6 +10,7 @@ export interface BreakerOpenedEvent {
   failure_count: number;
   opened_at: string; // ISO 8601 timestamp
   reason: 'timeout' | 'exception';
+  last_error?: string;
 }
 
 export type BreakerEventEmitter = (event: BreakerOpenedEvent) => void | Promise<void>;

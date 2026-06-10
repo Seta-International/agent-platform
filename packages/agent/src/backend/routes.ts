@@ -22,6 +22,7 @@ import { listModels, ModelNotFoundError, resolveModel } from './model-registry.t
 import { ORCHESTRATION_STEP_PART, streamOrchestrationToUI } from './orchestration-chat-stream.ts';
 import { RateLimitError, reserveTurn } from './rate-limit.ts';
 import type { LifecycleDrainer } from './runtime.ts';
+import { getTenantSettings } from './tenant-settings.ts';
 import { generateThreadTitle } from './thread-title.ts';
 import type { SessionLike } from './types.ts';
 import { issueSseToken } from './workflows/_infra/auth-token.ts';
@@ -308,11 +309,13 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
     // In-thread HITL: lets the orchestrator record an approval card after a
     // successful recommend flow (the recommend post-step). Idempotent per
     // task — mutex with the evented assignBySkill path.
+    const tenantSettings = await getTenantSettings(session.tenant_id);
     const recordHitlApproval = makeAssignApprovalRecorder({
       tenantId: session.tenant_id,
       userId: session.user_id,
       threadId: orchThreadId ?? null,
       pool: deps.pool,
+      approvalTtlHours: tenantSettings.approvalTtlHours,
     });
 
     // Create the thread row up front (mirrors the workflow-start path, which
@@ -326,7 +329,7 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
     let createdNewThread = false;
     if (orchThreadId && orchStore) {
       const existing = await orchStore.getThreadById({ threadId: orchThreadId });
-      if (existing && existing.resourceId !== session.user_id) {
+      if (existing && existing.resourceId !== `${session.tenant_id}:${session.user_id}`) {
         return c.json({ error: 'not_found', message: 'thread not found' }, 404);
       }
       if (!existing) {
@@ -334,7 +337,7 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
         await orchStore.saveThread({
           thread: {
             id: orchThreadId,
-            resourceId: session.user_id,
+            resourceId: `${session.tenant_id}:${session.user_id}`,
             // With memory attached we run the orchestrator readOnly (no Mastra
             // auto-persist over our curated trace) — which also disables
             // Mastra's generateTitle. So we seed an empty title here and fill
@@ -421,7 +424,7 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
           const userMsg = {
             id: lastUserMessage?.id ?? crypto.randomUUID(),
             threadId: orchThreadId,
-            resourceId: session.user_id,
+            resourceId: `${session.tenant_id}:${session.user_id}`,
             role: 'user' as const,
             createdAt: userCreatedAt,
             content: {
@@ -435,7 +438,7 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
           const assistantMsg = {
             id: crypto.randomUUID(),
             threadId: orchThreadId,
-            resourceId: session.user_id,
+            resourceId: `${session.tenant_id}:${session.user_id}`,
             role: 'assistant' as const,
             createdAt: assistantCreatedAt,
             content: { format: 2 as const, parts: assistantParts },
@@ -754,7 +757,7 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
     const storage = getMemoryStore();
     if (!storage) return c.json({ threads: [] });
     const { threads } = await storage.listThreads({
-      filter: { resourceId: check.session.user_id },
+      filter: { resourceId: `${check.session.tenant_id}:${check.session.user_id}` },
       perPage: 100,
     });
     return c.json({
@@ -771,7 +774,7 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
     if (!check.ok) return c.json(check.denied.body, check.denied.status);
     const storage = getMemoryStore();
     const thread = storage ? await storage.getThreadById({ threadId: c.req.param('id') }) : null;
-    if (!thread || thread.resourceId !== check.session.user_id) {
+    if (!thread || thread.resourceId !== `${check.session.tenant_id}:${check.session.user_id}`) {
       return c.json({ error: 'not_found', message: 'thread not found' }, 404);
     }
     const pageRaw = c.req.query('page');
@@ -799,7 +802,7 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
     if (!check.ok) return c.json(check.denied.body, check.denied.status);
     const storage = getMemoryStore();
     const thread = storage ? await storage.getThreadById({ threadId: c.req.param('id') }) : null;
-    if (!thread || thread.resourceId !== check.session.user_id) {
+    if (!thread || thread.resourceId !== `${check.session.tenant_id}:${check.session.user_id}`) {
       return c.json({ error: 'not_found', message: 'thread not found' }, 404);
     }
     const body = (await c.req.json().catch(() => ({}))) as { title?: string };
@@ -818,7 +821,7 @@ export function registerAgentRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDe
     if (!check.ok) return c.json(check.denied.body, check.denied.status);
     const storage = getMemoryStore();
     const thread = storage ? await storage.getThreadById({ threadId: c.req.param('id') }) : null;
-    if (!thread || thread.resourceId !== check.session.user_id) {
+    if (!thread || thread.resourceId !== `${check.session.tenant_id}:${check.session.user_id}`) {
       return c.json({ error: 'not_found', message: 'thread not found' }, 404);
     }
     if (storage) await storage.deleteThread({ threadId: thread.id });

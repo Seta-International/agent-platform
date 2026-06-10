@@ -19,6 +19,7 @@ export interface MakeAssignApprovalRecorderOpts {
   /** Chat thread the card surfaces in — null outside a thread. */
   threadId: string | null;
   pool: Pool;
+  approvalTtlHours?: number;
 }
 
 function taskIdFromCard(card: ApprovalCard): string | null {
@@ -34,7 +35,7 @@ function taskIdFromCard(card: ApprovalCard): string | null {
  * path's planner_proposeAssignment tool performs before recording.
  */
 export function makeAssignApprovalRecorder(opts: MakeAssignApprovalRecorderOpts): ChatHitlRecorder {
-  const { tenantId, userId, threadId, pool } = opts;
+  const { tenantId, userId, threadId, pool, approvalTtlHours } = opts;
   return async (card): Promise<ChatHitlApprovalIds & { cardInThread: boolean }> => {
     const taskId = taskIdFromCard(card);
     if (taskId) {
@@ -76,7 +77,14 @@ export function makeAssignApprovalRecorder(opts: MakeAssignApprovalRecorderOpts)
         throw new PendingAssignmentExistsError(taskId);
       }
     }
-    const ids = await insertChatHitlApproval({ card, tenantId, userId, threadId, pool });
+    const ids = await insertChatHitlApproval({
+      card,
+      tenantId,
+      userId,
+      threadId,
+      pool,
+      approvalTtlHours,
+    });
     return { ...ids, cardInThread: threadId != null };
   };
 }

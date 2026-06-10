@@ -110,6 +110,19 @@ export const dedupOnCreateWorkflow = createWorkflow({
   id: 'planner.dedupOnCreate',
   inputSchema: DedupInputSchema,
   outputSchema: DedupOutputSchema,
+  retryConfig: { attempts: 2, delay: 1000 },
+  options: {
+    onError: ({ runId, workflowId, error, requestContext, logger }) => {
+      const tenantId = requestContext.get('tenant_id') as string | undefined;
+      logger.error('workflow failed', {
+        runId,
+        workflowId,
+        tenantId,
+        errorName: error?.name,
+        errorMessage: error?.message,
+      });
+    },
+  },
 })
   .then(searchStep)
   .then(decideStep)

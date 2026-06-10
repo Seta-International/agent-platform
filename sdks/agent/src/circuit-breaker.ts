@@ -27,7 +27,7 @@ export interface BreakerHandle {
   /** Epoch ms when the breaker's open window ends; 0 when closed. */
   readonly openUntil: number;
   recordSuccess(): void;
-  recordFailure(reason: BreakerFailureReason): void;
+  recordFailure(reason: BreakerFailureReason, error?: unknown): void;
 }
 
 const states = new Map<string, BreakerState>();
@@ -67,7 +67,7 @@ export function getBreaker(toolId: string, tenantId: string): BreakerHandle {
       state.consecutiveFailures = 0;
       state.openUntil = 0;
     },
-    recordFailure(reason: BreakerFailureReason): void {
+    recordFailure(reason: BreakerFailureReason, error?: unknown): void {
       const wasOpen = state.openUntil > Date.now();
       state.consecutiveFailures += 1;
 
@@ -83,6 +83,8 @@ export function getBreaker(toolId: string, tenantId: string): BreakerHandle {
           failure_count: state.consecutiveFailures,
           opened_at: new Date(Date.now()).toISOString(),
           reason,
+          last_error:
+            error instanceof Error ? error.message : error != null ? String(error) : undefined,
         });
       }
     },

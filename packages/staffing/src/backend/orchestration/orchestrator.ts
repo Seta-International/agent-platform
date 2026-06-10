@@ -1,5 +1,6 @@
 import { Agent } from '@mastra/core/agent';
 import type { MastraModelConfig } from '@mastra/core/llm';
+import { TokenLimiterProcessor } from '@mastra/core/processors';
 import { RequestContext } from '@mastra/core/request-context';
 import {
   type AgentResult,
@@ -167,6 +168,7 @@ export function makeOrchestratorAgent(deps: OrchestratorDeps): SpecializedAgentS
               model: pickModel(ctx, deps.resolveModel),
               tools: tools as never,
               ...(ctx.userMemory ? { memory: ctx.userMemory.memory } : {}),
+              inputProcessors: [new TokenLimiterProcessor({ limit: 100_000 })],
             });
             const r = await agent.generate(
               [
@@ -187,7 +189,7 @@ export function makeOrchestratorAgent(deps: OrchestratorDeps): SpecializedAgentS
                   ? {
                       memory: {
                         thread: ctx.threadId,
-                        resource: ctx.actorUserId,
+                        resource: `${ctx.tenantId}:${ctx.actorUserId}`,
                         options: { readOnly: true, workingMemory: { enabled: false } },
                       },
                     }
