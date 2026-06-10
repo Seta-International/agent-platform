@@ -25,7 +25,7 @@ import { buildEntitiesMemory, buildMemory } from './backend/memory.ts';
 import { type ModelTier, resolveModel } from './backend/model-registry.ts';
 import { validateModelEnv } from './backend/provider-config.ts';
 import { registerAgentRoutes } from './backend/routes.ts';
-import { buildMastraFull, createAgentMastraStorage } from './backend/runtime.ts';
+import { buildMastraFull } from './backend/runtime.ts';
 import { agentSubscribers } from './backend/subscribers/index.ts';
 import { registerWorkflowInputSchema } from './backend/workflows/_infra/input-schema-registry.ts';
 import { agentRbac } from './rbac.ts';
