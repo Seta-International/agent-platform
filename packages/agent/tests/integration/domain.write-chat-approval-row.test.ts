@@ -2,7 +2,10 @@ import { randomUUID } from 'node:crypto';
 import type { ApprovalCard } from '@seta/agent-sdk';
 import { describe, expect, it } from 'vitest';
 import { getPendingAssignRunIdForTask } from '../../src/backend/domain/get-pending-assign-run-for-task.ts';
-import { writeChatApprovalRow } from '../../src/backend/domain/write-chat-approval-row.ts';
+import {
+  PendingAssignmentExistsError,
+  writeChatApprovalRow,
+} from '../../src/backend/domain/write-chat-approval-row.ts';
 import { withAgentTestDb } from '../helpers.ts';
 
 function card(taskId: string, tenantId: string, userId: string): ApprovalCard {
@@ -206,6 +209,34 @@ describe('writeChatApprovalRow', () => {
         surface_chat_thread_id: 'thread-1',
         approver_user_id: approver,
       });
+    });
+  });
+
+  it('throws PendingAssignmentExistsError when an evented run is pending without an approval row yet', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const tenantId = randomUUID();
+      const userId = randomUUID();
+      const taskId = randomUUID();
+      // An assignBySkill run that has started but not yet reached its HITL
+      // suspend step: run row exists, approval row does not.
+      await pool.query(
+        `INSERT INTO agent.workflow_runs
+           (run_id, workflow_id, tenant_id, started_by, started_via, input_summary, status)
+         VALUES (gen_random_uuid(), 'planner.assignBySkill', $1, $2, 'event', $3::jsonb, 'running')`,
+        [tenantId, randomUUID(), JSON.stringify({ taskId })],
+      );
+
+      await expect(
+        writeChatApprovalRow({
+          card: card(taskId, tenantId, userId),
+          mastraRunId: 'mastra-run-race',
+          toolCallId: 'tool-call-race',
+          threadId: 'thread-race',
+          tenantId,
+          userId,
+          pool,
+        }),
+      ).rejects.toBeInstanceOf(PendingAssignmentExistsError);
     });
   });
 });
