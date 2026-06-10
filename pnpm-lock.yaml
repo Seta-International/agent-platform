@@ -141,6 +141,9 @@ importers:
       '@seta/agent-sdk':
         specifier: workspace:^
         version: link:../../sdks/agent
+      '@seta/billing':
+        specifier: workspace:^
+        version: link:../../packages/billing
       '@seta/core':
         specifier: workspace:^
         version: link:../../packages/core
@@ -583,6 +586,55 @@ importers:
       '@types/node':
         specifier: ^25.9.1
         version: 25.9.1
+      '@types/pg':
+        specifier: ^8.20.0
+        version: 8.20.0
+      drizzle-kit:
+        specifier: ^0.31.10
+        version: 0.31.10
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.7
+        version: 4.1.7(@opentelemetry/api@1.9.1)(@types/node@25.9.1)(@vitest/coverage-v8@4.1.7)(happy-dom@20.9.0)(msw@2.14.6(@types/node@25.9.1)(typescript@6.0.3))(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.3)(yaml@2.9.0))
+
+  packages/billing:
+    dependencies:
+      '@seta/core':
+        specifier: workspace:^
+        version: link:../core
+      '@seta/shared-db':
+        specifier: workspace:^
+        version: link:../shared-db
+      '@seta/shared-rbac':
+        specifier: workspace:^
+        version: link:../shared-rbac
+      '@seta/shared-types':
+        specifier: workspace:^
+        version: link:../shared-types
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(@opentelemetry/api@1.9.1)(@prisma/client@5.22.0)(@types/pg@8.20.0)(better-sqlite3@12.10.0)(kysely@0.28.17)(pg@8.21.0)
+      hono:
+        specifier: ^4.12.23
+        version: 4.12.23
+      pg:
+        specifier: ^8.21.0
+        version: 8.21.0
+      pino:
+        specifier: ^10.3.1
+        version: 10.3.1
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@seta/shared-config':
+        specifier: workspace:^
+        version: link:../shared-config
+      '@seta/shared-testing':
+        specifier: workspace:^
+        version: link:../shared-testing
       '@types/pg':
         specifier: ^8.20.0
         version: 8.20.0

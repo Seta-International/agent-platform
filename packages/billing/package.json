@@ -1,0 +1,39 @@
+{
+  "name": "@seta/billing",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Billing — per-tenant AI usage ledger, cost attribution, budget caps and alerting.",
+  "type": "module",
+  "setaTier": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./register": "./src/register.ts",
+    "./events": "./src/events.ts",
+    "./db/schema": "./src/backend/db/schema/index.ts",
+    "./db": "./src/backend/db/client.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "db:generate": "drizzle-kit generate"
+  },
+  "devDependencies": {
+    "@seta/shared-config": "workspace:^",
+    "@seta/shared-testing": "workspace:^",
+    "@types/pg": "^8.20.0",
+    "drizzle-kit": "^0.31.10",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.7"
+  },
+  "dependencies": {
+    "@seta/core": "workspace:^",
+    "@seta/shared-db": "workspace:^",
+    "@seta/shared-rbac": "workspace:^",
+    "@seta/shared-types": "workspace:^",
+    "drizzle-orm": "^0.45.2",
+    "hono": "^4.12.23",
+    "pg": "^8.21.0",
+    "pino": "^10.3.1",
+    "zod": "^4.4.3"
+  }
+}
