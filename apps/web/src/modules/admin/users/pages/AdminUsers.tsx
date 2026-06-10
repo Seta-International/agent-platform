@@ -7,7 +7,25 @@ import { CreateUserDialog } from '../components/CreateUserDialog.tsx';
 export function AdminUsers() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [hasActiveEntra, setHasActiveEntra] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const bump = () => setRefreshKey((k) => k + 1);
+
+  const onToggle = (id: string, on: boolean) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  const onTogglePage = (ids: string[], on: boolean) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      for (const id of ids) {
+        if (on) next.add(id);
+        else next.delete(id);
+      }
+      return next;
+    });
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: refreshKey is a manual trigger; incrementing it forces a re-fetch
   useEffect(() => {
@@ -32,7 +50,12 @@ export function AdminUsers() {
           </div>
         </div>
       </div>
-      <AdminUsersTable refreshKey={refreshKey} />
+      <AdminUsersTable
+        refreshKey={refreshKey}
+        selected={selected}
+        onToggle={onToggle}
+        onTogglePage={onTogglePage}
+      />
     </div>
   );
 }

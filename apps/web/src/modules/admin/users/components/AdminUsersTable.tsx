@@ -27,7 +27,19 @@ function initials(name: string): string {
     .join('');
 }
 
-export function AdminUsersTable({ refreshKey }: { refreshKey: number }) {
+interface AdminUsersTableProps {
+  refreshKey: number;
+  selected: Set<string>;
+  onToggle: (id: string, on: boolean) => void;
+  onTogglePage: (ids: string[], on: boolean) => void;
+}
+
+export function AdminUsersTable({
+  refreshKey,
+  selected,
+  onToggle,
+  onTogglePage,
+}: AdminUsersTableProps) {
   const navigate = useNavigate();
   const search = AdminUsersRoute.useSearch();
   // The search input is local + debounced before pushing to the URL.
@@ -129,6 +141,31 @@ export function AdminUsersTable({ refreshKey }: { refreshKey: number }) {
   const columns = useMemo<ColumnDef<AdminUserListRow>[]>(
     () => [
       {
+        id: 'select',
+        header: () => {
+          const pageIds = rows.map((r) => r.user_id);
+          const allOn = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
+          return (
+            <input
+              type="checkbox"
+              aria-label="Select page"
+              checked={allOn}
+              onChange={(e) => onTogglePage(pageIds, e.target.checked)}
+              onClick={(e) => e.stopPropagation()}
+            />
+          );
+        },
+        cell: ({ row }) => (
+          <input
+            type="checkbox"
+            aria-label="Select row"
+            checked={selected.has(row.original.user_id)}
+            onChange={(e) => onToggle(row.original.user_id, e.target.checked)}
+            onClick={(e) => e.stopPropagation()}
+          />
+        ),
+      },
+      {
         id: 'name',
         header: 'Name',
         cell: ({ row }) => (
@@ -184,7 +221,7 @@ export function AdminUsersTable({ refreshKey }: { refreshKey: number }) {
         ),
       },
     ],
-    [],
+    [rows, selected, onToggle, onTogglePage],
   );
 
   return (
