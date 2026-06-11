@@ -15,7 +15,7 @@ import { plannerGetOpenTaskCountSpec, plannerGetOpenTaskCountTool } from './get-
 import { plannerGetTaskTool } from './get-task.ts';
 import { plannerListCommentsTool } from './list-comments.ts';
 import { plannerPostCommentTool } from './post-comment.ts';
-import { identitySearchUsersBySkillsTool } from './search-users-by-skills.ts';
+import { plannerSearchGroupMembersBySkillsTool } from './search-users-by-skills.ts';
 import { plannerSetAssigneesTool } from './set-assignees.ts';
 
 // Lazy so a missing EMBED config doesn't break module load — only first use.
@@ -106,7 +106,7 @@ of skill fit. Also call planner_getTask to get the current assignees — exclude
 anyone already assigned.
 
 Then choose the signals that matter for this specific request:
-- **search_users_by_skills** — who has the required skills (groupId from task)
+- **planner_searchGroupMembersBySkills** — who has the required skills (groupId from task)
 - **planner_findSimilarTasks** — who has done similar work before (useful for
   "again" / "like last time" requests or follow-up tasks)
 - **planner_getOpenTaskCountForUser** — current workload (relevant when urgency
@@ -120,7 +120,7 @@ Most decisions need 2-4 of these signals. Pick the ones that actually change
 the answer for this task. Fetch what you will use; skip what you won't.
 
 Each candidate in planner_proposeAssignment requires a **displayName** — use
-the displayName returned by search_users_by_skills, or the displayName from
+the displayName returned by planner_searchGroupMembersBySkills, or the displayName from
 planner_getTask assignees. Never pass a raw userId as the displayName field.
 
 planner_proposeAssignment surfaces an interactive approval card. Call it as the
@@ -175,7 +175,7 @@ suitable assignees for those tasks.
 
 ## Finding members by skill
 
-Use search_users_by_skills. Never generate names from memory.
+Use planner_searchGroupMembersBySkills. Never generate names from memory.
 
 When the request includes a task or plan context, extract its groupId and call
 once. When there is no task in context, search each group the user can access
@@ -189,7 +189,7 @@ call planner_createTask — it shows a confirm card.
 
 ## Tool reference
 Read: identity_whoAmI, planner_getTask, planner_findSimilarTasks,
-      planner_listComments, search_users_by_skills, planner_getOpenTaskCountForUser,
+      planner_listComments, planner_searchGroupMembersBySkills, planner_getOpenTaskCountForUser,
       identity_getTimezoneForUser, identity_getAvailabilityForUser
 Write (HITL via chat card): planner_createTask, planner_proposeAssignment, planner_postComment
 Write (canvas/workflow only — do NOT call in chat): planner_setAssignees, planner_assignTask
@@ -204,7 +204,7 @@ Surface your reasoning as you go so the user can follow along.`,
     planner_findSimilarTasks: plannerFindSimilarTasks,
     planner_listComments: plannerListCommentsTool,
     planner_postComment: plannerPostCommentTool,
-    search_users_by_skills: identitySearchUsersBySkillsTool,
+    planner_searchGroupMembersBySkills: plannerSearchGroupMembersBySkillsTool,
     planner_getOpenTaskCountForUser: plannerGetOpenTaskCountTool,
     identity_getTimezoneForUser: identityGetTimezoneTool,
     identity_getAvailabilityForUser: identityGetAvailabilityTool,

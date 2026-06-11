@@ -3,7 +3,7 @@ import { hashRoleSummary, type SessionScope } from '@seta/core';
 import { createUser, updateUserProfile } from '@seta/identity';
 import { createTestTenantWithAdmin } from '@seta/identity/testing';
 import { addGroupMember, assignTask, createGroup, createPlan, createTask } from '@seta/planner';
-import { identitySearchUsersBySkillsTool } from '@seta/planner/agent-tools';
+import { plannerSearchGroupMembersBySkillsTool } from '@seta/planner/agent-tools';
 import {
   buildRegistry,
   IMPLICIT_PERMISSIONS,
@@ -38,7 +38,7 @@ function buildAdminSession(opts: {
   };
 }
 
-describe('identity_searchUsersBySkills tool', () => {
+describe('planner_searchGroupMembersBySkills tool', () => {
   it('returns group members ranked by skill overlap', async () => {
     await withAgentTestDb(async ({ pool }) => {
       const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
@@ -118,7 +118,7 @@ describe('identity_searchUsersBySkills tool', () => {
       await addGroupMember({ group_id: group.id, user_id: bob.user_id, session });
       await addGroupMember({ group_id: group.id, user_id: charlie.user_id, session });
 
-      const result = (await identitySearchUsersBySkillsTool.execute!(
+      const result = (await plannerSearchGroupMembersBySkillsTool.execute!(
         {
           groupId: group.id,
           skills: ['TypeScript', 'React'],
@@ -224,7 +224,7 @@ describe('identity_searchUsersBySkills tool', () => {
       await addGroupMember({ group_id: group.id, user_id: bob.user_id, session });
       await addGroupMember({ group_id: group.id, user_id: charlie.user_id, session });
 
-      const result = (await identitySearchUsersBySkillsTool.execute!(
+      const result = (await plannerSearchGroupMembersBySkillsTool.execute!(
         {
           groupId: group.id,
           skills: ['TypeScript'],
@@ -294,7 +294,7 @@ describe('identity_searchUsersBySkills tool', () => {
       await addGroupMember({ group_id: group.id, user_id: bob.user_id, session });
       await assignTask({ task_id: task.id, user_id: alice.user_id, session });
 
-      const result = (await identitySearchUsersBySkillsTool.execute!(
+      const result = (await plannerSearchGroupMembersBySkillsTool.execute!(
         {
           groupId: group.id,
           taskId: task.id,
@@ -348,7 +348,7 @@ describe('identity_searchUsersBySkills tool', () => {
       const group = await createGroup({ tenant_id, name: 'Engineering', session });
       await addGroupMember({ group_id: group.id, user_id: alice.user_id, session });
 
-      const result = (await identitySearchUsersBySkillsTool.execute!(
+      const result = (await plannerSearchGroupMembersBySkillsTool.execute!(
         {
           groupId: group.id,
           skills: ['AWS'],
@@ -376,7 +376,7 @@ describe('identity_searchUsersBySkills tool', () => {
   });
 
   it('is registered with permission planner.group.member.read', () => {
-    expect(requiredPermissionFor(identitySearchUsersBySkillsTool)).toBe(
+    expect(requiredPermissionFor(plannerSearchGroupMembersBySkillsTool)).toBe(
       'planner.group.member.read',
     );
   });
@@ -385,7 +385,7 @@ describe('identity_searchUsersBySkills tool', () => {
     await withAgentTestDb(async ({ pool }) => {
       const { admin_user_id, tenant_id } = await createTestTenantWithAdmin({ pool });
       await expect(
-        identitySearchUsersBySkillsTool.execute!(
+        plannerSearchGroupMembersBySkillsTool.execute!(
           {
             groupId: crypto.randomUUID(),
             skills: ['TypeScript'],

@@ -18,14 +18,16 @@ function matchSkills(userSkills: readonly string[], requestedSkills: readonly st
     .filter((skill) => available.has(skill));
 }
 
-export const identitySearchUsersBySkillsTool = defineAgentTool({
-  id: 'identity_searchUsersBySkills',
-  name: 'Search Users By Skills',
+export const plannerSearchGroupMembersBySkillsTool = defineAgentTool({
+  id: 'planner_searchGroupMembersBySkills',
+  name: 'Search Group Members By Skills',
   description:
-    'Find and rank members who have the requested skills. Use for: (1) answering ' +
-    '"who knows X / who has Y skill" queries; (2) building a shortlist when assigning a task. ' +
-    'Requires a groupId — use the group from the current task or plan context. ' +
-    'When no group is in context, call this tool once per accessible group from the session and merge results.',
+    'Find and rank group members whose skills exactly match the requested skill tags.\n\n' +
+    'Use for: building a candidate shortlist for task assignment within a specific group; ' +
+    '"who in this group knows docker?"; "find backend developers in group X".\n' +
+    'Do NOT use for broad topic or semantic search — use identity_matchUsersByTopic instead.\n\n' +
+    'Requires groupId — always resolvable from a task or plan result; call planner_getTask first ' +
+    'if no group is in context.',
   input: z.object({
     groupId: z.string().uuid().describe('The group ID to search within'),
     taskId: z
