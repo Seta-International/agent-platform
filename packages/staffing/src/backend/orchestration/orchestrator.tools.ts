@@ -6,7 +6,6 @@ import { makeProposeAssignmentTool } from './propose-assignment.tool.ts';
 import {
   type AvailabilityResult,
   AvailabilityResultSchema,
-  AvailabilityStatus,
   CompletionStatus,
   type RankedCandidate,
   RankedCandidateSchema,

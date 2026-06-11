@@ -290,11 +290,8 @@ describe('orchestrator request-context wiring', () => {
       avaiChecker: stub('staffing.avaiChecker'),
       recommender: stub('staffing.recommender'),
       generalAnswer: stub('staffing.generalAnswer'),
-<<<<<<< HEAD
       userProfileLookup: { findByName: async () => [] },
-=======
       assign: noopAssign,
->>>>>>> ca4993da (feat(staffing): proposeAssignment composite tool with deterministic suspend)
       resolveModel: () => ({}) as never,
       mastraStorage: new InMemoryStore(),
       runAgent: async ({ requestContext }) => {
@@ -318,11 +315,8 @@ describe('orchestrator request-context wiring', () => {
       avaiChecker: stub('staffing.avaiChecker'),
       recommender: stub('staffing.recommender'),
       generalAnswer: stub('staffing.generalAnswer'),
-<<<<<<< HEAD
       userProfileLookup: { findByName: async () => [] },
-=======
       assign: noopAssign,
->>>>>>> ca4993da (feat(staffing): proposeAssignment composite tool with deterministic suspend)
       resolveModel: () => ({}) as never,
       mastraStorage: new InMemoryStore(),
       runAgent: async ({ requestContext }) => {
@@ -345,11 +339,8 @@ describe('orchestrator resource working memory', () => {
       avaiChecker: stub('staffing.avaiChecker'),
       recommender: stub('staffing.recommender'),
       generalAnswer: stub('staffing.generalAnswer'),
-<<<<<<< HEAD
       userProfileLookup: { findByName: async () => [] },
-=======
       assign: noopAssign,
->>>>>>> ca4993da (feat(staffing): proposeAssignment composite tool with deterministic suspend)
       resolveModel: () => ({}) as never,
       mastraStorage: new InMemoryStore(),
       runAgent: async (args) => {
