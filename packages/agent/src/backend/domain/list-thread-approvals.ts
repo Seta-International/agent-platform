@@ -10,6 +10,7 @@ export interface ThreadApprovalRow {
   approverUserId: string;
   surfaceCanvas: boolean;
   surfaceChatThreadId: string | null;
+  agentic: boolean;
   status: string;
   decisionPayload: unknown;
   decidedAt: Date | null;
@@ -38,6 +39,7 @@ export async function listThreadApprovals(opts: {
     approver_user_id: string;
     surface_canvas: boolean;
     surface_chat_thread_id: string | null;
+    mastra_run_id: string | null;
     status: string;
     decision_payload: unknown;
     decided_at: Date | string | null;
@@ -48,7 +50,7 @@ export async function listThreadApprovals(opts: {
   const result = await db.execute(sql`
     SELECT approval_id, run_id, step_id, proposed_payload,
            approver_user_id, surface_canvas, surface_chat_thread_id,
-           status, decision_payload, decided_at, expires_at, created_at
+           mastra_run_id, status, decision_payload, decided_at, expires_at, created_at
       FROM agent.workflow_approvals
      WHERE approver_user_id = ${opts.session.user_id}
        AND surface_chat_thread_id = ${opts.threadId}
@@ -63,6 +65,7 @@ export async function listThreadApprovals(opts: {
     approverUserId: r.approver_user_id,
     surfaceCanvas: r.surface_canvas,
     surfaceChatThreadId: r.surface_chat_thread_id,
+    agentic: r.mastra_run_id != null,
     status: r.status,
     decisionPayload: r.decision_payload ?? null,
     decidedAt:

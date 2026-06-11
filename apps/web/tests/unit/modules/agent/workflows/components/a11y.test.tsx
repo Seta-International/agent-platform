@@ -17,6 +17,7 @@ const APPROVAL: WorkflowApprovalRow = {
   approverUserId: 'u-1',
   surfaceCanvas: true,
   surfaceChatThreadId: null,
+  agentic: false,
   status: 'pending',
   decisionPayload: null,
   decidedAt: null,

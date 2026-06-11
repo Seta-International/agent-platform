@@ -27,6 +27,7 @@ const PENDING_APPROVAL: WorkflowApprovalRow = {
   approverUserId: 'u-1',
   surfaceCanvas: true,
   surfaceChatThreadId: 'thread-x',
+  agentic: false,
   status: 'pending',
   decisionPayload: null,
   decidedAt: null,

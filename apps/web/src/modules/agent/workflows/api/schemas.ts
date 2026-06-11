@@ -57,6 +57,8 @@ export const WorkflowApprovalRow = z.object({
   approverUserId: z.string(),
   surfaceCanvas: z.boolean(),
   surfaceChatThreadId: z.string().nullable(),
+  // True when the row is an agentic native-suspend card (resume via /chat/resume).
+  agentic: z.boolean().default(false),
   // Decision fields are absent on the legacy my-pending-approvals response —
   // defaults keep both endpoints parseable with one schema.
   status: ApprovalDecisionKind.default('pending'),

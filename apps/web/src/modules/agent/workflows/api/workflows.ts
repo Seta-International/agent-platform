@@ -41,6 +41,14 @@ export interface DecideApprovalBody {
   note?: string;
 }
 
+export interface ResumeChatBody {
+  approvalId: string;
+  decision: 'approve' | 'reject' | 'modify';
+  overrideUserIds?: string[];
+  alternateIndices?: number[];
+  note?: string;
+}
+
 export const workflowsApi = {
   async listRuns(opts: ListRunsOpts) {
     const qs = new URLSearchParams({ scope: opts.scope });
@@ -95,6 +103,20 @@ export const workflowsApi = {
       },
     );
     return jsonOrThrow(res, DecideApprovalResponse);
+  },
+
+  // POST /chat/resume returns an SSE stream (the resumed turn). For Plan C a 200
+  // confirms the decision was recorded + the resume started; the streamed
+  // continuation reconciles into the thread on the next refresh (Plan D2 inlines it).
+  async resumeChat(body: ResumeChatBody): Promise<void> {
+    const res = await fetch('/api/agent/v1/chat/resume', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    // Success body is the SSE stream — leave it unconsumed; only surface errors.
+    if (!res.ok) await jsonOrThrow(res);
   },
 
   async cancelRun(runId: string): Promise<void> {

@@ -10,6 +10,7 @@ export interface WorkflowApprovalRow {
   approverUserId: string;
   surfaceCanvas: boolean;
   surfaceChatThreadId: string | null;
+  agentic: boolean;
   expiresAt: Date;
   createdAt: Date;
 }
@@ -25,6 +26,7 @@ export async function listMyPendingApprovals(opts: {
     approver_user_id: string;
     surface_canvas: boolean;
     surface_chat_thread_id: string | null;
+    mastra_run_id: string | null;
     expires_at: Date | string;
     created_at: Date | string;
   }
@@ -32,7 +34,7 @@ export async function listMyPendingApprovals(opts: {
   const result = await db.execute(sql`
     SELECT approval_id, run_id, step_id, proposed_payload,
            approver_user_id, surface_canvas, surface_chat_thread_id,
-           expires_at, created_at
+           mastra_run_id, expires_at, created_at
       FROM agent.workflow_approvals
      WHERE approver_user_id = ${opts.session.user_id}
        AND status = 'pending'
@@ -47,6 +49,7 @@ export async function listMyPendingApprovals(opts: {
     approverUserId: r.approver_user_id,
     surfaceCanvas: r.surface_canvas,
     surfaceChatThreadId: r.surface_chat_thread_id,
+    agentic: r.mastra_run_id != null,
     expiresAt: r.expires_at instanceof Date ? r.expires_at : new Date(r.expires_at),
     createdAt: r.created_at instanceof Date ? r.created_at : new Date(r.created_at),
   }));

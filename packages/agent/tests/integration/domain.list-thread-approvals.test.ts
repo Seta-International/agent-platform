@@ -98,6 +98,27 @@ describe('listThreadApprovals', () => {
     });
   });
 
+  it('serializes agentic=true for native-suspend rows and false when mastra_run_id is null', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const tenantId = randomUUID();
+      const userId = randomUUID();
+      const me = sessionFor(userId, tenantId);
+
+      const agentic = await seedApproval(pool, { tenantId, userId, threadId: 'thread-1' });
+      const evented = await seedApproval(pool, { tenantId, userId, threadId: 'thread-1' });
+      await pool.query(
+        `UPDATE agent.workflow_approvals SET mastra_run_id = NULL WHERE approval_id = $1`,
+        [evented.approvalId],
+      );
+
+      const rows = await listThreadApprovals({ session: me, threadId: 'thread-1' });
+      const byId = new Map(rows.map((r) => [r.approvalId, r] as const));
+
+      expect(byId.get(agentic.approvalId)!.agentic).toBe(true);
+      expect(byId.get(evented.approvalId)!.agentic).toBe(false);
+    });
+  });
+
   it('excludes other threads and approvals addressed to other users', async () => {
     await withAgentTestDb(async ({ pool }) => {
       const tenantId = randomUUID();

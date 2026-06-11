@@ -19,6 +19,11 @@ describe('WorkflowApprovalRow', () => {
     expect(row.status).toBe('pending');
     expect(row.decisionPayload).toBeNull();
     expect(row.decidedAt).toBeNull();
+    expect(row.agentic).toBe(false);
+  });
+
+  it('parses an explicit agentic flag', () => {
+    expect(WorkflowApprovalRow.parse({ ...base, agentic: true }).agentic).toBe(true);
   });
 
   it('parses decided rows including the modified status', () => {
