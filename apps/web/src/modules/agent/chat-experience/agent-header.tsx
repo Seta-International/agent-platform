@@ -12,6 +12,7 @@ import { useThreadList } from '../hooks/use-thread-list';
 import { useDeleteThread, useRenameThread } from '../hooks/use-thread-mutations';
 import { useAgentSelection } from './agent-provider';
 import { AgentThreadSwitcher } from './agent-thread-switcher';
+import { DensityToggle } from './density-toggle';
 
 interface AgentHeaderProps {
   compact?: boolean;
@@ -139,6 +140,7 @@ export function AgentHeader({
       </div>
 
       <div className="flex flex-none items-center gap-1">
+        <DensityToggle />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
