@@ -15,13 +15,9 @@ import { buildBillingRoutes } from './backend/http/index.ts';
 import { BillingError } from './backend/rbac.ts';
 import { usageRecorderSubscriber } from './backend/subscribers/usage-recorder.ts';
 import { BILLING_EVENTS } from './events.ts';
-import { BILLING_PERMISSIONS } from './rbac.ts';
+import { billingRbac } from './rbac.ts';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
-
-const BILLING_RBAC: Record<string, string> = Object.fromEntries(
-  BILLING_PERMISSIONS.map((p) => [p, p]),
-);
 
 /**
  * Maps billing's domain errors to HTTP responses:
@@ -47,7 +43,7 @@ export function registerBillingContributions(reg: ContributionRegistry): void {
     schema,
     migrationsDir: resolve(__dirname, '../drizzle/migrations'),
     events: BILLING_EVENTS,
-    rbac: BILLING_RBAC,
+    rbac: billingRbac,
     routes: { mountAt: '/', build: buildBillingRoutes },
     subscribers: [
       usageRecorderSubscriber({

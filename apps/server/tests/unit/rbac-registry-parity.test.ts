@@ -1,4 +1,5 @@
 import { agentRbac } from '@seta/agent/rbac';
+import { billingRbac } from '@seta/billing/rbac';
 import { identityRbac } from '@seta/identity/rbac';
 import { integrationsRbac } from '@seta/integrations/rbac';
 import { knowledgeRbac } from '@seta/knowledge/rbac';
@@ -15,6 +16,7 @@ import { describe, expect, it } from 'vitest';
 // never gets a manifest — this fails before anything resolves the wrong set.
 describe('rbac registry parity', () => {
   const moduleManifests = [
+    billingRbac,
     knowledgeRbac,
     notificationsRbac,
     integrationsRbac,

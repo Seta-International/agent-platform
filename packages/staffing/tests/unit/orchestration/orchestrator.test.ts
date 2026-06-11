@@ -298,11 +298,14 @@ describe('orchestrator assembly', () => {
       avaiChecker: stub('staffing.avaiChecker'),
       recommender: stub('staffing.recommender'),
       generalAnswer: stub('staffing.generalAnswer'),
+      userProfileLookup: { findByName: async () => [] },
+      assign: noopAssign,
       resolveModel: () => ({}) as never,
+      mastraStorage: new InMemoryStore(),
       runAgent: async ({ captured }) => {
         captured.generalAnswer = 'The document explains agentic AI architectures.';
         return {
-          toolCalls: [{ payload: { toolName: 'callGeneralAnswer', args: {} } }],
+          toolCalls: [{ payload: { toolName: 'staffing_answerQuestion', args: {} } }],
           toolResults: [],
           text: '',
         };

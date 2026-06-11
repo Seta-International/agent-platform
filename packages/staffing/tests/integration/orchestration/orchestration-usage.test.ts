@@ -1,3 +1,4 @@
+import { InMemoryStore } from '@mastra/core/storage';
 import { SpecializedAgentRegistry } from '@seta/agent-sdk';
 import { OrchestrationRegistry } from '@seta/shared-orchestration';
 import { MockLanguageModelV3 } from 'ai/test';
@@ -70,7 +71,7 @@ const portsWith = () => ({
       assigneeIds: [],
     }),
   },
-  taskSearch: { bySkillTags: async () => [] },
+  taskSearch: { bySkillTags: async () => [], listAvailableTags: async () => [] },
   skillSearch: {
     search: async () => [{ userId: 'u1', name: 'A', skills: ['aws'], role: null, similarity: 0.9 }],
   },
@@ -78,6 +79,8 @@ const portsWith = () => ({
     status: async () => ({ status: 'available' as const, note: null }),
     inProgressCount: async () => 0,
   },
+  userProfileLookup: { findByName: async () => [] },
+  assign: { assign: async () => {} },
 });
 
 afterEach(() => {
@@ -91,17 +94,24 @@ describe('orchestration usage capture', () => {
       __setStaffingRunIdForTests(() => RUN);
       const rt = buildStaffingOrchestrationRuntime({
         repo: new StaffingRunStateRepository(),
+        mastraStorage: new InMemoryStore(),
         resolveModel: resolveModelSeq([
           // orchestrator: chain the four delegations (feature=chat).
           scriptedModel([
-            toolCallStep(0, 'callTaskAnalyzer', {
+            toolCallStep(0, 'staffing_analyzeTasks', {
               intent: 'resolve_task_skills',
               query: 'who should do this',
               taskRef: TASK_REF,
             }),
-            toolCallStep(1, 'callSkillMatcher', { taskId: 'task-1', skills: ['aws'] }),
-            toolCallStep(2, 'callAvaiChecker', { taskId: 'task-1', candidates: [CANDIDATE] }),
-            toolCallStep(3, 'callRecommender', {
+            toolCallStep(1, 'staffing_matchCandidatesBySkill', {
+              taskId: 'task-1',
+              skills: ['aws'],
+            }),
+            toolCallStep(2, 'staffing_checkCandidateAvailability', {
+              taskId: 'task-1',
+              candidates: [CANDIDATE],
+            }),
+            toolCallStep(3, 'staffing_rankRecommendations', {
               taskId: 'task-1',
               skills: ['aws'],
               candidates: [CANDIDATE],
@@ -118,7 +128,7 @@ describe('orchestration usage capture', () => {
             STOP,
           ]),
           // skillMatcher (feature=subagent): searchCandidates, then run() ranks.
-          scriptedModel([toolCallStep(0, 'searchCandidates', { skills: ['aws'] }), STOP]),
+          scriptedModel([toolCallStep(0, 'staffing_searchCandidates', { skills: ['aws'] }), STOP]),
         ]),
         ports: portsWith(),
       });

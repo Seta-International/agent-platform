@@ -17,6 +17,7 @@ export type PermissionKey =
   | 'agent.workflow.run.read.instance'
   | 'agent.workflow.run.read.self'
   | 'agent.workflow.run.read.tenant'
+  | 'billing.read'
   | 'core.audit.read'
   | 'core.tenant.read'
   | 'core.tenant.write'
@@ -117,6 +118,7 @@ export const ALL_PERMISSIONS: readonly PermissionKey[] = [
   'agent.workflow.run.read.instance',
   'agent.workflow.run.read.self',
   'agent.workflow.run.read.tenant',
+  'billing.read',
   'core.audit.read',
   'core.tenant.read',
   'core.tenant.write',

@@ -293,7 +293,7 @@ describe('staffing_answerQuestion', () => {
     const rc = new RequestContext();
     rc.set('tenant_id', 't1');
     rc.set('actor', { type: 'user', user_id: 'a1' });
-    await tools.callGeneralAnswer.execute!({} as never, { requestContext: rc } as never);
+    await tools.staffing_answerQuestion.execute!({} as never, { requestContext: rc } as never);
     // Trimmed and stored on the side-channel, independent of res.toolResults.
     expect(captured.generalAnswer).toBe('Agentic AI is goal-directed and tool-using.');
   });
@@ -303,7 +303,7 @@ describe('staffing_answerQuestion', () => {
     const rc = new RequestContext();
     rc.set('tenant_id', 't1');
     rc.set('actor', { type: 'user', user_id: 'a1' });
-    await tools.callGeneralAnswer.execute!({} as never, { requestContext: rc } as never);
+    await tools.staffing_answerQuestion.execute!({} as never, { requestContext: rc } as never);
     expect(captured.generalAnswer).toBeUndefined();
   });
 });

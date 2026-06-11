@@ -103,7 +103,9 @@ describe('skillMatcher agent', () => {
       taskReader: noAssignees,
       resolveModel: () => ({}) as never,
       runAgent: async () => ({
-        toolCalls: [{ payload: { toolName: 'staffing_searchCandidates', args: { skills: ['aws'] } } }],
+        toolCalls: [
+          { payload: { toolName: 'staffing_searchCandidates', args: { skills: ['aws'] } } },
+        ],
         toolResults: [
           {
             payload: {
@@ -136,7 +138,9 @@ describe('skillMatcher agent', () => {
       taskReader: taskReaderWith(['u2']),
       resolveModel: () => ({}) as never,
       runAgent: async () => ({
-        toolCalls: [{ payload: { toolName: 'staffing_searchCandidates', args: { skills: ['aws'] } } }],
+        toolCalls: [
+          { payload: { toolName: 'staffing_searchCandidates', args: { skills: ['aws'] } } },
+        ],
         toolResults: [
           ranked([
             { userId: 'u2', name: 'B' },
@@ -171,7 +175,9 @@ describe('skillMatcher agent', () => {
       },
       resolveModel: () => ({}) as never,
       runAgent: async () => ({
-        toolCalls: [{ payload: { toolName: 'staffing_searchCandidates', args: { skills: ['aws'] } } }],
+        toolCalls: [
+          { payload: { toolName: 'staffing_searchCandidates', args: { skills: ['aws'] } } },
+        ],
         toolResults: [
           ranked([
             { userId: 'a1', name: 'Me' },

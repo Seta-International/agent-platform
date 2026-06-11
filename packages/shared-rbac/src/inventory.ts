@@ -9,6 +9,20 @@ export interface StatementSpec {
 
 export const INVENTORY: StatementSpec[] = [
   {
+    module: 'billing',
+    statement: {
+      billing: ['read'],
+    },
+    roles: [
+      {
+        slug: 'billing.viewer',
+        description: 'Read tenant AI usage, budgets, and pricing',
+        permissions: ['billing.read'],
+      },
+    ],
+    descriptions: { 'billing.read': 'Read tenant AI usage, budgets, and pricing' },
+  },
+  {
     module: 'knowledge',
     statement: {
       'knowledge.file': ['read', 'write', 'delete'],
