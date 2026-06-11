@@ -29,10 +29,14 @@ const outputSchema = z.object({
 });
 
 export const searchTenantKnowledgeAgentTool = defineAgentTool({
-  id: 'knowledge.search-tenant-knowledge',
-  name: 'Search Knowledge',
+  id: 'knowledge_searchDocuments',
+  name: 'Search Documents',
   description:
-    'Search uploaded company documents (handbooks, policies, processes) by semantic similarity. Returns chunk text with filename and page hint for citation.',
+    'Search uploaded company documents (handbooks, policies, processes) by semantic similarity.\n\n' +
+    'Use for: "what does our leave policy say?"; "find the onboarding handbook section about X"; ' +
+    '"does our security policy cover Y?".\n' +
+    'Do NOT use to find tasks or people — use planner_findSimilarTasks or identity_matchUsersByTopic instead.\n\n' +
+    'Returns chunk text with filename and page hint for citation.',
   input: inputSchema,
   output: outputSchema,
   rbac: 'knowledge.search.read',
