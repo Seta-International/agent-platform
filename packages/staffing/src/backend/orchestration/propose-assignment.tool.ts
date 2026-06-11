@@ -12,7 +12,7 @@ import type {
 } from './schemas.ts';
 
 type TaskAnalyzerSpec = SpecializedAgentSpec<
-  { intent: TaskAnalyzerIntent; query: string; taskId: string | null },
+  { intent: TaskAnalyzerIntent; query: string; taskId: string | null; completionStatus: 'any' },
   TaskAnalyzerOutput
 >;
 type SkillMatcherSpec = SpecializedAgentSpec<
@@ -135,7 +135,7 @@ export function makeProposeAssignmentTool(deps: ProposeAssignmentDeps) {
         agentId: 'staffing.taskAnalyzer',
       });
       const analyzed = await taskAnalyzer.run(
-        { intent: 'resolve_task_skills', query: title ?? '', taskId },
+        { intent: 'resolve_task_skills', query: title ?? '', taskId, completionStatus: 'any' },
         subCtx,
       );
       ctx.onEvent?.({ kind: 'step-done', stepId: 'taskAnalyzer', trust: analyzed.trust });
