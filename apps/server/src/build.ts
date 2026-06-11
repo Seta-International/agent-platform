@@ -77,13 +77,36 @@ export type BuiltServerApp = {
 // Chat runtime stand-in for engine instances built without the composition
 // root (deps.agent omitted, e.g. the HTTP smoke test). Real wiring lives in
 // index.ts: chatOrchestration: staffingOrchestration.runStream.
-async function* stubChatRuntimeNotWired(): AsyncIterable<
-  import('@seta/shared-orchestration').OrchestrationEvent
-> {
-  yield {
-    kind: 'final',
-    result: { message: 'Chat runtime is not configured on this server build.' },
-  };
+function stubChatRuntimeNotWired(): Promise<import('@seta/shared-orchestration').ChatStreamRun> {
+  const message = 'Chat runtime is not configured on this server build.';
+  const fullStream = new ReadableStream({
+    start(controller) {
+      controller.enqueue({ type: 'text-start', runId: 'r', from: 'AGENT', payload: { id: 't' } });
+      controller.enqueue({
+        type: 'text-delta',
+        runId: 'r',
+        from: 'AGENT',
+        payload: { id: 't', text: message },
+      });
+      controller.enqueue({ type: 'text-end', runId: 'r', from: 'AGENT', payload: { id: 't' } });
+      controller.enqueue({
+        type: 'finish',
+        runId: 'r',
+        from: 'AGENT',
+        payload: { stepResult: { reason: 'stop' }, output: { usage: {} } },
+      });
+      controller.close();
+    },
+  });
+  return Promise.resolve({
+    output: {
+      fullStream,
+    } as unknown as import('@seta/shared-orchestration').ChatStreamRun['output'],
+    finalize: async () => ({
+      result: { message },
+      trust: { reasoningTrace: [], evidenceCitations: [], confidenceScore: 1 },
+    }),
+  });
 }
 
 // Bridges better-auth's session into the SessionLike shape that agent routes

@@ -1,10 +1,45 @@
 import { randomUUID } from 'node:crypto';
-import type { OrchestrationEvent } from '@seta/shared-orchestration';
+import { ReadableStream } from 'node:stream/web';
+import type { ChatStreamRun } from '@seta/shared-orchestration';
 import { Hono } from 'hono';
 import type { Pool } from 'pg';
 import { describe, expect, it } from 'vitest';
 import { registerAgentRoutes } from '../../src/backend/routes.ts';
 import { withAgentTestDb } from '../helpers.ts';
+
+const TRUST = { reasoningTrace: [], evidenceCitations: [], confidenceScore: 0.8 };
+
+function fakeOutput(textChunks: string[] = []) {
+  const chunks: unknown[] = [];
+  if (textChunks.length) {
+    chunks.push({ type: 'text-start', runId: 'r', from: 'AGENT', payload: { id: 't' } });
+    for (const t of textChunks) {
+      chunks.push({ type: 'text-delta', runId: 'r', from: 'AGENT', payload: { id: 't', text: t } });
+    }
+    chunks.push({ type: 'text-end', runId: 'r', from: 'AGENT', payload: { id: 't' } });
+  }
+  chunks.push({
+    type: 'finish',
+    runId: 'r',
+    from: 'AGENT',
+    payload: { stepResult: { reason: 'stop' }, output: { usage: {} } },
+  });
+  return {
+    fullStream: new ReadableStream({
+      start(controller) {
+        for (const c of chunks) controller.enqueue(c);
+        controller.close();
+      },
+    }),
+  };
+}
+
+function fakeChatRun(opts: { text?: string[]; result?: unknown } = {}): ChatStreamRun {
+  return {
+    output: fakeOutput(opts.text) as unknown as ChatStreamRun['output'],
+    finalize: async () => ({ result: opts.result ?? { message: 'assigned' }, trust: TRUST }),
+  };
+}
 
 type TestSession = {
   tenant_id: string;
@@ -102,14 +137,12 @@ type CapturedResume = {
 /** Fake resumeOrchestration that records (resume, ctx) and yields a final event.
  *  The agent test must not depend on staffing. */
 function makeFakeResume(captured: CapturedResume[]) {
-  return (
+  return async (
     resume: CapturedResume['resume'],
     ctx: { mastraRunId: string; toolCallId?: string; threadId?: string },
-  ): AsyncIterable<OrchestrationEvent> => {
+  ): Promise<ChatStreamRun> => {
     captured.push({ resume, ctx });
-    return (async function* () {
-      yield { kind: 'final', result: { message: 'assigned' } } as OrchestrationEvent;
-    })();
+    return fakeChatRun();
   };
 }
 
@@ -127,10 +160,7 @@ function buildApp(
   registerAgentRoutes(app, {
     mastra: fakeMastra,
     pool: fakePool,
-    chatOrchestration: () =>
-      (async function* () {
-        yield { kind: 'final', result: {} } as OrchestrationEvent;
-      })(),
+    chatOrchestration: async () => fakeChatRun(),
     resumeOrchestration,
   });
   return app;

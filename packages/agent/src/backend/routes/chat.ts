@@ -1,4 +1,4 @@
-import type { OrchestrationEvent } from '@seta/shared-orchestration';
+import { toAISdkStream } from '@mastra/ai-sdk';
 import { createUIMessageStream, createUIMessageStreamResponse, type UIMessage } from 'ai';
 import type { Hono } from 'hono';
 import { z } from 'zod';
@@ -8,7 +8,7 @@ import {
 } from '../domain/write-chat-approval-row.ts';
 import { agentEnv } from '../env.ts';
 import { ModelNotFoundError, resolveModel } from '../model-registry.ts';
-import { streamOrchestrationToUI } from '../orchestration-chat-stream.ts';
+import { type ApprovalEvent, pumpOrchestrationStream } from '../orchestration-ui-stream.ts';
 import { RateLimitError, reserveTurn } from '../rate-limit.ts';
 import { getTenantSettings } from '../tenant-settings.ts';
 import { generateThreadTitle } from '../thread-title.ts';
@@ -199,9 +199,7 @@ export function mountChatRoute(app: Hono<AgentRouteEnv>, deps: AgentRouteDeps): 
     const tenantSettings = await getTenantSettings(session.tenant_id);
     // Native-suspend HITL: when the orchestration run suspends, project the
     // approval read-model row so the pending-approvals poll renders the card.
-    const onApproval = async (
-      ev: Extract<OrchestrationEvent, { kind: 'approval' }>,
-    ): Promise<void> => {
+    const onApproval = async (ev: ApprovalEvent): Promise<void> => {
       try {
         await writeChatApprovalRow({
           card: ev.card,
@@ -299,27 +297,36 @@ export function mountChatRoute(app: Hono<AgentRouteEnv>, deps: AgentRouteDeps): 
     const uiStream = createUIMessageStream({
       originalMessages: effectiveMessages,
       execute: async ({ writer }) => {
-        const { assistantParts } = await streamOrchestrationToUI(
-          writer as unknown as import('../orchestration-chat-stream.ts').UiStreamWriter,
-          orchestrate(
-            { userText: effectiveUserText, taskId },
-            {
-              tenantId: session.tenant_id,
-              actorUserId: session.user_id,
-              effectivePermissions: session.effective_permissions,
-              threadId: orchThreadId,
-              entitiesMemory:
-                deps.entitiesMemory && deps.entitiesMemoryConfig
-                  ? { memory: deps.entitiesMemory, memoryConfig: deps.entitiesMemoryConfig }
-                  : undefined,
-              userMemory:
-                deps.userMemory && deps.userMemoryConfig
-                  ? { memory: deps.userMemory, memoryConfig: deps.userMemoryConfig }
-                  : undefined,
-              model: modelOverride,
-            },
-          ),
-          { onApproval },
+        const run = await orchestrate(
+          { userText: effectiveUserText, taskId },
+          {
+            tenantId: session.tenant_id,
+            actorUserId: session.user_id,
+            effectivePermissions: session.effective_permissions,
+            threadId: orchThreadId,
+            entitiesMemory:
+              deps.entitiesMemory && deps.entitiesMemoryConfig
+                ? { memory: deps.entitiesMemory, memoryConfig: deps.entitiesMemoryConfig }
+                : undefined,
+            userMemory:
+              deps.userMemory && deps.userMemoryConfig
+                ? { memory: deps.userMemory, memoryConfig: deps.userMemoryConfig }
+                : undefined,
+            model: modelOverride,
+          },
+        );
+        const aiParts = toAISdkStream(run.output, {
+          from: 'agent',
+          version: 'v6',
+          sendReasoning: true,
+          sendStart: true,
+          sendFinish: true,
+          onError: (e: unknown) => String(e),
+        });
+        const { assistantParts } = await pumpOrchestrationStream(
+          writer as unknown as import('../orchestration-ui-stream.ts').UiStreamWriter,
+          aiParts as AsyncIterable<{ type: string; delta?: string; data?: unknown }>,
+          { finalize: run.finalize, onApproval },
         );
         // Persist the user turn + assistant trace timeline so the conversation
         // survives reload (GET /threads/:id rebuilds the cards + final answer).

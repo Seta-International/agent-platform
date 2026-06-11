@@ -1,5 +1,6 @@
+import { ReadableStream } from 'node:stream/web';
 import { createTestTenantWithAdmin } from '@seta/identity/testing';
-import type { OrchestrationEvent } from '@seta/shared-orchestration';
+import type { ChatStreamRun } from '@seta/shared-orchestration';
 import { Hono } from 'hono';
 import type { Pool } from 'pg';
 import { describe, expect, it } from 'vitest';
@@ -20,8 +21,41 @@ const fakePool = {
   },
 } as unknown as Pool;
 
-async function* stubOrchestration(): AsyncIterable<OrchestrationEvent> {
-  yield { kind: 'final', result: { message: 'ok' } };
+const TRUST = { reasoningTrace: [], evidenceCitations: [], confidenceScore: 0.8 };
+
+/** A minimal MastraModelOutput stand-in: `toAISdkStream({ from:'agent' })` reads
+ *  only `.fullStream` (a web ReadableStream of Mastra chunks). We emit the text
+ *  start/delta/end + finish chunks the AgentStream→AI-SDK-v6 transformer expects. */
+function fakeOutput(textChunks: string[] = []) {
+  const chunks: unknown[] = [];
+  if (textChunks.length) {
+    chunks.push({ type: 'text-start', runId: 'r', from: 'AGENT', payload: { id: 't' } });
+    for (const t of textChunks) {
+      chunks.push({ type: 'text-delta', runId: 'r', from: 'AGENT', payload: { id: 't', text: t } });
+    }
+    chunks.push({ type: 'text-end', runId: 'r', from: 'AGENT', payload: { id: 't' } });
+  }
+  chunks.push({
+    type: 'finish',
+    runId: 'r',
+    from: 'AGENT',
+    payload: { stepResult: { reason: 'stop' }, output: { usage: {} } },
+  });
+  return {
+    fullStream: new ReadableStream({
+      start(controller) {
+        for (const c of chunks) controller.enqueue(c);
+        controller.close();
+      },
+    }),
+  };
+}
+
+function fakeChatRun(opts: { text?: string[]; result?: unknown } = {}): ChatStreamRun {
+  return {
+    output: fakeOutput(opts.text) as unknown as ChatStreamRun['output'],
+    finalize: async () => ({ result: opts.result ?? { message: 'ok' }, trust: TRUST }),
+  };
 }
 
 const v6UserMessage = (text: string) => ({
@@ -36,7 +70,7 @@ describe('POST /api/agent/v1/chat', () => {
     registerAgentRoutes(app, {
       mastra: fakeMastra,
       pool: fakePool,
-      chatOrchestration: () => stubOrchestration(),
+      chatOrchestration: async () => fakeChatRun(),
     });
     const res = await app.request('/api/agent/v1/chat', {
       method: 'POST',
@@ -60,7 +94,7 @@ describe('POST /api/agent/v1/chat', () => {
     registerAgentRoutes(app, {
       mastra: fakeMastra,
       pool: fakePool,
-      chatOrchestration: () => stubOrchestration(),
+      chatOrchestration: async () => fakeChatRun(),
     });
     const res = await app.request('/api/agent/v1/chat', {
       method: 'POST',
@@ -86,7 +120,7 @@ describe('POST /api/agent/v1/chat', () => {
       registerAgentRoutes(app, {
         mastra: fakeMastra,
         pool: fakePool,
-        chatOrchestration: () => stubOrchestration(),
+        chatOrchestration: async () => fakeChatRun(),
       });
       const res = await app.request('/api/agent/v1/chat', {
         method: 'POST',
@@ -136,10 +170,10 @@ describe('POST /api/agent/v1/chat', () => {
       // The orchestration must never run — failure mode is leaking another
       // user's thread. Surface that loudly if the guard regresses.
       let orchestrationCalled = false;
-      async function* trippedOrchestration(): AsyncIterable<OrchestrationEvent> {
+      const trippedOrchestration = async (): Promise<ChatStreamRun> => {
         orchestrationCalled = true;
-        yield { kind: 'final', result: { message: 'should not happen' } };
-      }
+        return fakeChatRun();
+      };
 
       const app = new Hono<{ Variables: { session: TestSession } }>();
       app.use('*', async (c, next) => {
@@ -154,7 +188,7 @@ describe('POST /api/agent/v1/chat', () => {
       registerAgentRoutes(app, {
         mastra: mastra as never,
         pool,
-        chatOrchestration: () => trippedOrchestration(),
+        chatOrchestration: trippedOrchestration,
       });
 
       const res = await app.request('/api/agent/v1/chat', {
@@ -172,13 +206,13 @@ describe('POST /api/agent/v1/chat', () => {
       const { admin_user_id, tenant_id } = await createTestTenantWithAdmin({ pool });
 
       let capturedInput: { userText: string; taskId: string | null } | undefined;
-      async function* captureOrchestration(runInput: {
+      const captureOrchestration = async (runInput: {
         userText: string;
         taskId: string | null;
-      }): AsyncIterable<OrchestrationEvent> {
+      }): Promise<ChatStreamRun> => {
         capturedInput = runInput;
-        yield { kind: 'final', result: { message: 'ok' } };
-      }
+        return fakeChatRun();
+      };
 
       const app = new Hono<{ Variables: { session: TestSession } }>();
       app.use('*', async (c, next) => {
@@ -193,7 +227,7 @@ describe('POST /api/agent/v1/chat', () => {
       registerAgentRoutes(app, {
         mastra: fakeMastra,
         pool: fakePool,
-        chatOrchestration: (runInput) => captureOrchestration(runInput),
+        chatOrchestration: captureOrchestration,
       });
 
       const res = await app.request('/api/agent/v1/chat', {
@@ -236,45 +270,34 @@ describe('POST /api/agent/v1/chat (orchestration runtime persistence)', () => {
   // but must ALSO persist the turn to Mastra memory — otherwise the AUI
   // remote-thread-list reconciles against an empty server and the conversation
   // "reloads and disappears". See routes.ts chatOrchestration branch.
-  async function* fakeOrchestration(): AsyncIterable<OrchestrationEvent> {
-    yield { kind: 'step-start', stepId: 'analyze', agentId: 'staffing.analyzer' };
-    yield {
-      kind: 'step-done',
-      stepId: 'analyze',
-      trust: { reasoningTrace: [], evidenceCitations: [], confidenceScore: 0.8 },
-    };
-    yield { kind: 'step-start', stepId: 'match', agentId: 'staffing.skillMatcher' };
-    yield {
-      kind: 'step-done',
-      stepId: 'match',
-      trust: {
-        reasoningTrace: [{ step: 'rank', detail: '1 candidate', at: '2026-01-01T00:00:00Z' }],
-        evidenceCitations: [{ kind: 'user', id: 'u1', label: 'Alice' }],
-        confidenceScore: 0.9,
+  const recommendationsResult = {
+    recommendations: [
+      {
+        userId: 'u1',
+        name: 'Alice',
+        skillMatch: ['stripe'],
+        skillMatchCount: 1,
+        status: 'busy',
       },
-    };
-    yield {
-      kind: 'final',
-      result: {
-        recommendations: [
-          {
-            userId: 'u1',
-            name: 'Alice',
-            skillMatch: ['stripe'],
-            skillMatchCount: 1,
-            status: 'busy',
-          },
-        ],
-      },
-    };
-  }
+    ],
+  };
 
-  it('persists the user turn + assistant trace timeline so it survives reload', async () => {
+  it('persists the user turn + assistant answer + result/trust cards so it survives reload', async () => {
     await withAgentTestDb(async ({ pool, databaseUrl }) => {
       const { admin_user_id, tenant_id } = await createTestTenantWithAdmin({ pool });
       const { buildMastra } = await import('../../src/backend/runtime.ts');
       const mastra = buildMastra({ pool, databaseUrl });
-      await (mastra.getStorage() as unknown as { init: () => Promise<void> }).init();
+      const storage = mastra.getStorage() as unknown as {
+        init: () => Promise<void>;
+        stores: {
+          memory: {
+            listMessages: (q: {
+              threadId: string;
+            }) => Promise<{ messages: Array<{ role?: string; content?: unknown }> }>;
+          };
+        };
+      };
+      await storage.init();
 
       const app = new Hono<{ Variables: { session: TestSession } }>();
       app.use('*', async (c, next) => {
@@ -289,7 +312,8 @@ describe('POST /api/agent/v1/chat (orchestration runtime persistence)', () => {
       registerAgentRoutes(app, {
         mastra: mastra as never,
         pool,
-        chatOrchestration: () => fakeOrchestration(),
+        chatOrchestration: async () =>
+          fakeChatRun({ text: ['Recommended: Alice.'], result: recommendationsResult }),
       });
 
       const threadId = 'orch-thread-1';
@@ -311,8 +335,7 @@ describe('POST /api/agent/v1/chat (orchestration runtime persistence)', () => {
       const listed = (await list.json()) as { threads: Array<{ id: string }> };
       expect(listed.threads.some((t) => t.id === threadId)).toBe(true);
 
-      // The persisted messages reconstruct the user turn + the assistant
-      // timeline (data-orchestration-step parts) + the final answer text.
+      // The persisted user turn round-trips through GET (text part intact).
       const got = await app.request(`/api/agent/v1/threads/${threadId}`);
       expect(got.status).toBe(200);
       const body = (await got.json()) as {
@@ -325,15 +348,22 @@ describe('POST /api/agent/v1/chat (orchestration runtime persistence)', () => {
       expect(
         user?.parts.some((p) => p.type === 'text' && p.text === 'Who should take this task'),
       ).toBe(true);
-      const assistant = body.messages.find((m) => m.role === 'assistant');
+
+      // The persisted assistant message carries the streamed prose plus the
+      // reconciled data-result / data-trust cards (read straight from storage —
+      // the GET projection drops the result/trust data parts on purpose).
+      const stored = await storage.stores.memory.listMessages({ threadId });
+      const assistant = stored.messages.find((m) => m.role === 'assistant');
       expect(assistant).toBeDefined();
-      const stepParts = assistant?.parts.filter((p) => p.type === 'data-orchestration-step') ?? [];
-      expect(stepParts.map((p) => (p.data as { stepId: string }).stepId)).toEqual([
-        'analyze',
-        'match',
-      ]);
-      const text = assistant?.parts.find((p) => p.type === 'text')?.text ?? '';
-      expect(text).toContain('Alice');
+      const parts = (assistant?.content as { parts?: Array<{ type: string; data?: unknown }> })
+        .parts;
+      const textPart = parts?.find((p) => p.type === 'text') as { text?: string } | undefined;
+      expect(textPart?.text).toContain('Alice');
+      const resultPart = parts?.find((p) => p.type === 'data-result');
+      expect(
+        (resultPart?.data as { recommendations: Array<{ name: string }> }).recommendations[0]!.name,
+      ).toBe('Alice');
+      expect(parts?.some((p) => p.type === 'data-trust')).toBe(true);
     });
   });
 
@@ -345,13 +375,13 @@ describe('POST /api/agent/v1/chat (orchestration runtime persistence)', () => {
       await (mastra.getStorage() as unknown as { init: () => Promise<void> }).init();
 
       let capturedCtx: Record<string, unknown> | undefined;
-      async function* captureOrchestration(
+      const captureOrchestration = async (
         _runInput: unknown,
         ctx: unknown,
-      ): AsyncIterable<OrchestrationEvent> {
+      ): Promise<ChatStreamRun> => {
         capturedCtx = ctx as Record<string, unknown>;
-        yield { kind: 'final', result: { message: 'ok' } };
-      }
+        return fakeChatRun();
+      };
 
       // Identity-checkable stand-ins: the route must wrap THESE instances in
       // { memory, memoryConfig } handles — it never calls into them here.
@@ -373,7 +403,7 @@ describe('POST /api/agent/v1/chat (orchestration runtime persistence)', () => {
       registerAgentRoutes(app, {
         mastra: mastra as never,
         pool,
-        chatOrchestration: (runInput, ctx) => captureOrchestration(runInput, ctx),
+        chatOrchestration: captureOrchestration,
         entitiesMemory: fakeEntitiesMemory as never,
         entitiesMemoryConfig: fakeEntitiesConfig as never,
         userMemory: fakeUserMemory as never,
@@ -486,7 +516,7 @@ describe('GET /api/agent/v1/threads/:id (data-page-context round-trip)', () => {
       registerAgentRoutes(app, {
         mastra: mastra as never,
         pool,
-        chatOrchestration: () => stubOrchestration(),
+        chatOrchestration: async () => fakeChatRun(),
       });
 
       const res = await app.request(`/api/agent/v1/threads/${threadId}`);
@@ -592,7 +622,7 @@ describe('GET /api/agent/v1/threads/:id (sub-agent leaf tool calls)', () => {
       registerAgentRoutes(app, {
         mastra: mastra as never,
         pool,
-        chatOrchestration: () => stubOrchestration(),
+        chatOrchestration: async () => fakeChatRun(),
       });
 
       const res = await app.request(`/api/agent/v1/threads/${threadId}`);
@@ -627,13 +657,13 @@ describe('GET /api/agent/v1/threads/:id (sub-agent leaf tool calls)', () => {
 describe('POST /api/agent/v1/chat (model override)', () => {
   function appWithCapture(opts: { userId: string; tenantId: string }) {
     let capturedCtx: Record<string, unknown> | undefined;
-    async function* captureOrchestration(
+    const captureOrchestration = async (
       _runInput: unknown,
       ctx: unknown,
-    ): AsyncIterable<OrchestrationEvent> {
+    ): Promise<ChatStreamRun> => {
       capturedCtx = ctx as Record<string, unknown>;
-      yield { kind: 'final', result: { message: 'ok' } };
-    }
+      return fakeChatRun();
+    };
     const app = new Hono<{ Variables: { session: TestSession } }>();
     app.use('*', async (c, next) => {
       c.set('session', {
@@ -647,7 +677,7 @@ describe('POST /api/agent/v1/chat (model override)', () => {
     registerAgentRoutes(app, {
       mastra: fakeMastra,
       pool: fakePool,
-      chatOrchestration: (runInput, ctx) => captureOrchestration(runInput, ctx),
+      chatOrchestration: captureOrchestration,
     });
     return { app, capturedCtx: () => capturedCtx };
   }

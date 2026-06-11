@@ -47,7 +47,7 @@ export type AgentRouteDeps = {
   chatOrchestration: (
     runInput: { userText: string; taskId: string | null },
     ctx: import('@seta/shared-orchestration').RunCtx,
-  ) => AsyncIterable<import('@seta/shared-orchestration').OrchestrationEvent>;
+  ) => Promise<import('@seta/shared-orchestration').ChatStreamRun>;
   /**
    * Resumes a suspended native-suspend agentic chat-HITL run. Injected by the
    * composition root (apps/server) as the staffing runtime's `runResume`. The
@@ -65,7 +65,7 @@ export type AgentRouteDeps = {
       mastraRunId: string;
       toolCallId?: string;
     },
-  ) => AsyncIterable<import('@seta/shared-orchestration').OrchestrationEvent>;
+  ) => Promise<import('@seta/shared-orchestration').ChatStreamRun>;
   /** Injected by apps/server from @seta/knowledge (the agent package may not
    *  import feature modules). Reads + parses the thread's pending attachments,
    *  enforcing the context budget. Returns a discriminated result. */

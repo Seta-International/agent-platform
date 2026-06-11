@@ -85,7 +85,7 @@ export function registerAgent(deps: {
   chatOrchestration: (
     runInput: { userText: string; taskId: string | null },
     ctx: import('@seta/shared-orchestration').RunCtx,
-  ) => AsyncIterable<import('@seta/shared-orchestration').OrchestrationEvent>;
+  ) => Promise<import('@seta/shared-orchestration').ChatStreamRun>;
   /**
    * Resume runtime for native-suspend agentic chat-HITL runs. Injected by the
    * server entry-point as the staffing runtime's `runResume`. See

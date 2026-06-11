@@ -1,9 +1,10 @@
+import { toAISdkStream } from '@mastra/ai-sdk';
 import type { ApprovalCard } from '@seta/agent-sdk';
 import { createUIMessageStream, createUIMessageStreamResponse } from 'ai';
 import type { Hono } from 'hono';
 import { z } from 'zod';
 import { recordApprovalDecision } from '../domain/decide-approval.ts';
-import { streamOrchestrationToUI } from '../orchestration-chat-stream.ts';
+import { pumpOrchestrationStream } from '../orchestration-ui-stream.ts';
 import {
   type AgentRouteDeps,
   type AgentRouteEnv,
@@ -137,15 +138,25 @@ export function mountChatResumeRoute(app: Hono<AgentRouteEnv>, deps: AgentRouteD
 
     const uiStream = createUIMessageStream({
       execute: async ({ writer }) => {
-        await streamOrchestrationToUI(
-          writer as unknown as import('../orchestration-chat-stream.ts').UiStreamWriter,
-          resumeOrchestration(resume, {
-            tenantId: session.tenant_id,
-            actorUserId: session.user_id,
-            threadId,
-            mastraRunId,
-            toolCallId,
-          }),
+        const run = await resumeOrchestration(resume, {
+          tenantId: session.tenant_id,
+          actorUserId: session.user_id,
+          threadId,
+          mastraRunId,
+          toolCallId,
+        });
+        const aiParts = toAISdkStream(run.output, {
+          from: 'agent',
+          version: 'v6',
+          sendReasoning: true,
+          sendStart: true,
+          sendFinish: true,
+          onError: (e: unknown) => String(e),
+        });
+        await pumpOrchestrationStream(
+          writer as unknown as import('../orchestration-ui-stream.ts').UiStreamWriter,
+          aiParts as AsyncIterable<{ type: string; delta?: string; data?: unknown }>,
+          { finalize: run.finalize, onApproval: async () => {} },
         );
       },
     });
