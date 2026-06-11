@@ -2,6 +2,7 @@ import { useAuiState } from '@assistant-ui/react';
 import { ChatToolCall } from '@seta/shared-ui';
 import { type ReactNode, useMemo, useState } from 'react';
 import { extractLeafToolCalls, humanizeToolName } from './leaf-tool-calls';
+import { useDensity } from './use-density';
 
 export interface ChainOfThoughtProps {
   running: boolean;
@@ -11,7 +12,9 @@ export interface ChainOfThoughtProps {
 }
 
 export function ChainOfThought({ running, count, indices, children }: ChainOfThoughtProps) {
-  const [manualOpen, setManualOpen] = useState(false);
+  const { density } = useDensity();
+  // null = follow the density default; true/false = an explicit user toggle.
+  const [manualOverride, setManualOverride] = useState<boolean | null>(null);
   // Keep the group expanded while any inner tool-call is awaiting user approval
   // (Mastra-native `requireApproval` HITL gate). Otherwise the agent flipping to
   // 'complete' collapses the group and hides the approval card until the user
@@ -29,13 +32,14 @@ export function ChainOfThought({ running, count, indices, children }: ChainOfTho
   const leafRows = useMemo(() => extractLeafToolCalls(content), [content]);
   const stepCount = count + leafRows.length;
   const forcedOpen = running || hasPendingAction;
-  const open = forcedOpen || manualOpen;
+  const defaultOpen = density === 'detailed';
+  const open = forcedOpen || (manualOverride ?? defaultOpen);
   return (
     <div className="my-2 rounded-lg border border-hairline bg-surface-2 px-3 py-2 text-caption">
       <button
         type="button"
         aria-expanded={open}
-        onClick={() => setManualOpen((v) => !v)}
+        onClick={() => setManualOverride((prev) => !(prev ?? defaultOpen))}
         className="flex w-full cursor-pointer select-none items-center justify-between text-left text-ink-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
       >
         <span className="inline-flex items-center gap-1.5">

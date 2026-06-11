@@ -38,12 +38,19 @@ function TextPart({ text, status }: PartProps) {
 
 function ReasoningPart({ text, status }: PartProps) {
   const running = status.type === 'running';
+  if (text.length === 0 && !running) return null;
   return (
-    <div className="my-1 text-caption text-ink-muted">
+    <div
+      aria-live="polite"
+      className="my-1 flex gap-2 border-l-2 border-hairline pl-3 text-caption text-ink-subtle"
+    >
       {running && (
-        <span className="mr-1.5 inline-block size-1.5 animate-pulse rounded-full bg-primary" />
+        <span
+          aria-hidden
+          className="mt-1 inline-block size-1.5 shrink-0 animate-pulse rounded-full bg-primary/70"
+        />
       )}
-      <span className="whitespace-pre-wrap">{text}</span>
+      <span className="whitespace-pre-wrap italic leading-relaxed">{text}</span>
     </div>
   );
 }

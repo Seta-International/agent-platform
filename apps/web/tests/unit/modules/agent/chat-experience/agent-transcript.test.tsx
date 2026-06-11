@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 let thoughtStatus = 'complete';
 
@@ -55,8 +55,11 @@ vi.mock('@/modules/agent/components/thread-list-refresher', () => ({
 }));
 
 import { AgentTranscript } from '@/modules/agent/chat-experience/agent-transcript';
+import { DensityProvider } from '@/modules/agent/chat-experience/use-density';
 
 describe('AgentTranscript thought group', () => {
+  beforeEach(() => localStorage.clear());
+
   it('can be expanded from the summary after the thought finishes running', async () => {
     const user = userEvent.setup();
     thoughtStatus = 'running';
@@ -82,6 +85,20 @@ describe('AgentTranscript thought group', () => {
       'true',
     );
     expect(screen.getByText('Collected reasoning')).toBeVisible();
+  });
+
+  it('keeps a completed thought expanded in detailed density', () => {
+    localStorage.setItem('seta.agent.density', 'detailed');
+    thoughtStatus = 'complete';
+    render(
+      <DensityProvider>
+        <AgentTranscript />
+      </DensityProvider>,
+    );
+    expect(screen.getByRole('button', { name: /Thought/ })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
   });
 
   it('opens a completed thought when the user clicks the thought card', async () => {
