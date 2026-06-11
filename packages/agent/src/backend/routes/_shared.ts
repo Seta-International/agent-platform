@@ -2,7 +2,6 @@ import type { MemoryConfig } from '@mastra/core/memory';
 import type { Memory } from '@mastra/memory';
 import type { Context } from 'hono';
 import type { Pool } from 'pg';
-import { ORCHESTRATION_STEP_PART } from '../orchestration-chat-stream.ts';
 import type { LifecycleDrainer } from '../runtime.ts';
 import type { SessionLike } from '../types.ts';
 
@@ -166,19 +165,18 @@ export type DataToolAgentPart = {
     toolResults: { toolCallId: string; isError: boolean }[];
   };
 };
-// Reconstructs the per-step trust-trace card the orchestration chat stream emits.
-export type DataOrchestrationStepPart = {
-  type: `data-${typeof ORCHESTRATION_STEP_PART}`;
-  id: string;
-  data: { stepId: string; agentId?: string; status: string; trust?: unknown };
-};
+// Reconstructs the structured-result + trust cards the native chat stream
+// persists, so they survive a thread reload.
+export type DataResultPart = { type: 'data-result'; id: 'result'; data: unknown };
+export type DataTrustPart = { type: 'data-trust'; id: 'trust'; data: unknown };
 export type UIMessagePart =
   | TextUIPart
   | ReasoningUIPart
   | ToolUIPart
   | DataPageContextPart
   | DataToolAgentPart
-  | DataOrchestrationStepPart;
+  | DataResultPart
+  | DataTrustPart;
 export type UIMessageLike = { id: string; role: 'user' | 'assistant'; parts: UIMessagePart[] };
 
 // Mastra stores tool calls as `{ type:'tool-invocation', toolInvocation }`;
@@ -333,21 +331,12 @@ export function mastraPartToUIPart(raw: unknown): UIMessagePart | UIMessagePart[
       data: { kind: d.kind, id: d.id, label: d.label, ...(summary ? { summary } : {}) },
     };
   }
-  if (type === `data-${ORCHESTRATION_STEP_PART}`) {
-    const r = raw as { id?: unknown; data?: unknown };
-    const d = r.data as { stepId?: unknown; agentId?: unknown; status?: unknown } | undefined;
-    if (!d || typeof d.stepId !== 'string' || typeof d.status !== 'string') return null;
-    const id = typeof r.id === 'string' ? r.id : d.stepId;
-    return {
-      type: `data-${ORCHESTRATION_STEP_PART}`,
-      id,
-      data: {
-        stepId: d.stepId,
-        ...(typeof d.agentId === 'string' ? { agentId: d.agentId } : {}),
-        status: d.status,
-        trust: (r.data as { trust?: unknown }).trust,
-      },
-    };
+  if (type === 'data-result' || type === 'data-trust') {
+    const r = raw as { data?: unknown };
+    if (r.data === undefined) return null;
+    return type === 'data-result'
+      ? { type: 'data-result', id: 'result', data: r.data }
+      : { type: 'data-trust', id: 'trust', data: r.data };
   }
   return null;
 }
