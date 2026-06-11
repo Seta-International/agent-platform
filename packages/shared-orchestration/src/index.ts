@@ -21,7 +21,9 @@ export type {
 export { type RunAgentDeps, runAgent } from './run-agent.ts';
 export {
   type AddJob,
+  type ChatStreamRun,
   type OrchestrationEvent,
+  type OrchestrationFinal,
   type OrchestrationSpec,
   type OrchestrationStep,
   type RunCtx,
