@@ -354,10 +354,7 @@ export function makeOrchestratorAgent(deps: OrchestratorDeps): SpecializedAgentS
             const r = await built.agent.generate(built.message, {
               ...built.runOptions,
               onChunk: (chunk) => {
-                if (
-                  chunk.type === 'tool-call' ||
-                  chunk.type === 'tool-call-input-streaming-end'
-                ) {
+                if (chunk.type === 'tool-call' || chunk.type === 'tool-call-input-streaming-end') {
                   firstToolSeen = true;
                 }
                 if (!firstToolSeen && chunk.type === 'text-delta') {

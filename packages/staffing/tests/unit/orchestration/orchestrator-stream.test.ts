@@ -87,6 +87,7 @@ describe('makeChatOrchestrationStreamer', () => {
       recommender: stub('staffing.recommender'),
       generalAnswer: stub('staffing.generalAnswer'),
       assign: { assign: async () => {} },
+      userProfileLookup: { findByName: async () => [] },
       resolveModel: () => ({}) as never,
       mastraStorage: new InMemoryStore(),
       streamAgent: () => fakeStreamThrowing(),
@@ -108,6 +109,7 @@ describe('makeChatOrchestrationStreamer', () => {
       recommender: stub('staffing.recommender'),
       generalAnswer: stub('staffing.generalAnswer'),
       assign: { assign: async () => {} },
+      userProfileLookup: { findByName: async () => [] },
       resolveModel: () => ({}) as never,
       mastraStorage: new InMemoryStore(),
       // The seam captures the onEvent the entrypoint wired into the tools' ctx.
@@ -139,6 +141,7 @@ describe('makeChatOrchestrationStreamer', () => {
       recommender: stub('staffing.recommender'),
       generalAnswer: stub('staffing.generalAnswer'),
       assign: { assign: async () => {} },
+      userProfileLookup: { findByName: async () => [] },
       resolveModel: () => ({}) as never,
       mastraStorage: new InMemoryStore(),
       streamAgent: ({ requestContext }) => {
@@ -172,6 +175,7 @@ describe('makeChatOrchestrationResumer', () => {
       recommender: stub('staffing.recommender'),
       generalAnswer: stub('staffing.generalAnswer'),
       assign: { assign: async () => {} },
+      userProfileLookup: { findByName: async () => [] },
       resolveModel: () => ({}) as never,
       mastraStorage: new InMemoryStore(),
       // Resume seam: stands in for built.agent.resumeStream — captures the resume
