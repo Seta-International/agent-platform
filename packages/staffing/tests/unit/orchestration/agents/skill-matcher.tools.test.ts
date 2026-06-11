@@ -22,17 +22,17 @@ const skillSearch: SkillSearchPort = {
 };
 
 describe('skill-matcher tools', () => {
-  it('searchCandidates returns hits via the port (tenant from requestContext)', async () => {
-    const { searchCandidates } = makeSkillMatcherTools({ skillSearch, topK: 10 });
-    const out = (await searchCandidates.execute!({ skills: ['aws'] } as never, ctx())) as {
+  it('staffing_searchCandidates returns hits via the port (tenant from requestContext)', async () => {
+    const { staffing_searchCandidates } = makeSkillMatcherTools({ skillSearch, topK: 10 });
+    const out = (await staffing_searchCandidates.execute!({ skills: ['aws'] } as never, ctx())) as {
       hits: unknown[];
     };
     expect(out.hits).toHaveLength(3);
   });
 
-  it('rankCandidates merges per user and ranks by overlap then similarity', async () => {
-    const { rankCandidates } = makeSkillMatcherTools({ skillSearch, topK: 10 });
-    const out = (await rankCandidates.execute!(
+  it('staffing_rankCandidates merges per user and ranks by overlap then similarity', async () => {
+    const { staffing_rankCandidates } = makeSkillMatcherTools({ skillSearch, topK: 10 });
+    const out = (await staffing_rankCandidates.execute!(
       {
         requiredSkills: ['aws'],
         hits: [

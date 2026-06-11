@@ -26,7 +26,7 @@ export interface SkillMatcherDeps {
 
 const INSTRUCTIONS = [
   'You find and rank candidate users for a task by required skills.',
-  'ALWAYS call searchCandidates with the required skills, then call rankCandidates',
+  'ALWAYS call staffing_searchCandidates with the required skills, then call staffing_rankCandidates',
   'with those hits and the required skills. Never invent people.',
 ].join(' ');
 
@@ -72,16 +72,16 @@ export function makeSkillMatcherAgent(deps: SkillMatcherDeps): SpecializedAgentS
 
       // Authoritative list = rankCandidates result; fall back to ranking the raw hits.
       const ranked = (
-        toolResult(res, 'rankCandidates') as { candidates?: RankedCandidate[] } | undefined
+        toolResult(res, 'staffing_rankCandidates') as { candidates?: RankedCandidate[] } | undefined
       )?.candidates;
       const hits =
-        (toolResult(res, 'searchCandidates') as { hits?: SkillSearchHit[] } | undefined)?.hits ??
-        [];
+        (toolResult(res, 'staffing_searchCandidates') as { hits?: SkillSearchHit[] } | undefined)
+          ?.hits ?? [];
       const candidates = ranked ?? fallbackRank(hits, input.skills);
 
       const trust = trustFromMastraResult(res, {
         citations: (tr) => {
-          if (tr.payload.toolName !== 'searchCandidates') return [];
+          if (tr.payload.toolName !== 'staffing_searchCandidates') return [];
           const hs = (tr.payload.result as { hits?: SkillSearchHit[] }).hits ?? [];
           return hs.map<Citation>((h) => ({
             kind: 'user',

@@ -19,7 +19,7 @@ import { withAgentTestDb } from '../../helpers.ts';
 const TENANT = '00000000-0000-4000-8000-0000000000b9';
 const ACTOR = '00000000-0000-4000-8000-0000000000c9';
 const RUN = '00000000-0000-4000-8000-0000000000d9';
-// callTaskAnalyzer's taskRef must be a real UUID (or an in-conversation
+// staffing_analyzeTasks's taskRef must be a real UUID (or an in-conversation
 // ordinal — but the inline runner has no conversation memory to resolve
 // ordinals against). The taskReader port stub ignores the id it is given.
 const TASK_REF = '00000000-0000-4000-8000-0000000000e9';
@@ -156,16 +156,22 @@ describe('orchestrator inline run (e2e)', () => {
         resolveModel: resolveModelSeq([
           // orchestrator: chain the four delegations. taskAnalyzer is deterministic
           // (resolve_task_skills reads the task's skillTags=['aws'] via the port);
-          // callAvaiChecker runs the deterministic avaiChecker against the ports.
+          // staffing_checkCandidateAvailability runs the deterministic avaiChecker against the ports.
           scriptedModel([
-            toolCallStep(0, 'callTaskAnalyzer', {
+            toolCallStep(0, 'staffing_analyzeTasks', {
               intent: 'resolve_task_skills',
               query: 'who should do this',
               taskRef: TASK_REF,
             }),
-            toolCallStep(1, 'callSkillMatcher', { taskId: 'task-1', skills: ['aws'] }),
-            toolCallStep(2, 'callAvaiChecker', { taskId: 'task-1', candidates: [CANDIDATE] }),
-            toolCallStep(3, 'callRecommender', {
+            toolCallStep(1, 'staffing_matchCandidatesBySkill', {
+              taskId: 'task-1',
+              skills: ['aws'],
+            }),
+            toolCallStep(2, 'staffing_checkCandidateAvailability', {
+              taskId: 'task-1',
+              candidates: [CANDIDATE],
+            }),
+            toolCallStep(3, 'staffing_rankRecommendations', {
               taskId: 'task-1',
               skills: ['aws'],
               candidates: [CANDIDATE],
@@ -182,7 +188,7 @@ describe('orchestrator inline run (e2e)', () => {
             STOP,
           ]),
           // skillMatcher: searchCandidates; run() ranks the hits via fallback.
-          scriptedModel([toolCallStep(0, 'searchCandidates', { skills: ['aws'] }), STOP]),
+          scriptedModel([toolCallStep(0, 'staffing_searchCandidates', { skills: ['aws'] }), STOP]),
         ]),
         ports: portsWith(),
       });
@@ -233,7 +239,7 @@ describe('orchestrator inline run (e2e)', () => {
           // Only the orchestrator resolves a model — skillMatcher is never
           // delegated to, so its (lazy) Agent is never built.
           scriptedModel([
-            toolCallStep(0, 'callTaskAnalyzer', {
+            toolCallStep(0, 'staffing_analyzeTasks', {
               intent: 'resolve_task_skills',
               query: 'what skills does this need',
               taskRef: TASK_REF,
@@ -276,14 +282,20 @@ describe('orchestrator inline run (e2e)', () => {
           // orchestrator: driven via Agent.stream() → doStream; same delegation
           // sequence as the inline recommend test.
           scriptedModel([
-            toolCallStep(0, 'callTaskAnalyzer', {
+            toolCallStep(0, 'staffing_analyzeTasks', {
               intent: 'resolve_task_skills',
               query: 'who should do this',
               taskRef: TASK_REF,
             }),
-            toolCallStep(1, 'callSkillMatcher', { taskId: 'task-1', skills: ['aws'] }),
-            toolCallStep(2, 'callAvaiChecker', { taskId: 'task-1', candidates: [CANDIDATE] }),
-            toolCallStep(3, 'callRecommender', {
+            toolCallStep(1, 'staffing_matchCandidatesBySkill', {
+              taskId: 'task-1',
+              skills: ['aws'],
+            }),
+            toolCallStep(2, 'staffing_checkCandidateAvailability', {
+              taskId: 'task-1',
+              candidates: [CANDIDATE],
+            }),
+            toolCallStep(3, 'staffing_rankRecommendations', {
               taskId: 'task-1',
               skills: ['aws'],
               candidates: [CANDIDATE],
@@ -300,7 +312,7 @@ describe('orchestrator inline run (e2e)', () => {
             STOP,
           ]),
           // skillMatcher: still uses doGenerate (sub-agents call .generate()).
-          scriptedModel([toolCallStep(0, 'searchCandidates', { skills: ['aws'] }), STOP]),
+          scriptedModel([toolCallStep(0, 'staffing_searchCandidates', { skills: ['aws'] }), STOP]),
         ]),
         ports: portsWith(),
       });
@@ -345,9 +357,15 @@ describe('orchestrator inline run (e2e)', () => {
           // with NO task → taskId is null through the whole recommend chain
           // (the taskId is only a correlation label).
           scriptedModel([
-            toolCallStep(0, 'callSkillMatcher', { taskId: null, skills: ['aws', 'docker'] }),
-            toolCallStep(1, 'callAvaiChecker', { taskId: null, candidates: [CANDIDATE] }),
-            toolCallStep(2, 'callRecommender', {
+            toolCallStep(0, 'staffing_matchCandidatesBySkill', {
+              taskId: null,
+              skills: ['aws', 'docker'],
+            }),
+            toolCallStep(1, 'staffing_checkCandidateAvailability', {
+              taskId: null,
+              candidates: [CANDIDATE],
+            }),
+            toolCallStep(2, 'staffing_rankRecommendations', {
               taskId: null,
               skills: ['aws', 'docker'],
               candidates: [CANDIDATE],
@@ -364,7 +382,10 @@ describe('orchestrator inline run (e2e)', () => {
             STOP,
           ]),
           // skillMatcher: searchCandidates by the named skills; run() ranks via fallback.
-          scriptedModel([toolCallStep(0, 'searchCandidates', { skills: ['aws', 'docker'] }), STOP]),
+          scriptedModel([
+            toolCallStep(0, 'staffing_searchCandidates', { skills: ['aws', 'docker'] }),
+            STOP,
+          ]),
         ]),
         ports: portsWith(),
       });

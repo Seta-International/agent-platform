@@ -10,16 +10,18 @@ const skillSearch: SkillSearchPort = {
 };
 
 describe('skillMatcher agent', () => {
-  it('reads candidates from the rankCandidates tool result + derives trust', async () => {
+  it('reads candidates from the staffing_rankCandidates tool result + derives trust', async () => {
     const agent = makeSkillMatcherAgent({
       skillSearch,
       resolveModel: () => ({}) as never,
       runAgent: async () => ({
-        toolCalls: [{ payload: { toolName: 'searchCandidates', args: { skills: ['aws'] } } }],
+        toolCalls: [
+          { payload: { toolName: 'staffing_searchCandidates', args: { skills: ['aws'] } } },
+        ],
         toolResults: [
           {
             payload: {
-              toolName: 'searchCandidates',
+              toolName: 'staffing_searchCandidates',
               result: {
                 hits: [{ userId: 'u1', name: 'A', skills: ['aws'], role: null, similarity: 0.6 }],
               },
@@ -27,7 +29,7 @@ describe('skillMatcher agent', () => {
           },
           {
             payload: {
-              toolName: 'rankCandidates',
+              toolName: 'staffing_rankCandidates',
               result: {
                 candidates: [
                   {
@@ -52,16 +54,18 @@ describe('skillMatcher agent', () => {
     expect(res.trust.confidenceScore).toBeCloseTo(0.6);
   });
 
-  it('falls back to ranking search hits when rankCandidates was not called', async () => {
+  it('falls back to ranking search hits when staffing_rankCandidates was not called', async () => {
     const agent = makeSkillMatcherAgent({
       skillSearch,
       resolveModel: () => ({}) as never,
       runAgent: async () => ({
-        toolCalls: [{ payload: { toolName: 'searchCandidates', args: { skills: ['aws'] } } }],
+        toolCalls: [
+          { payload: { toolName: 'staffing_searchCandidates', args: { skills: ['aws'] } } },
+        ],
         toolResults: [
           {
             payload: {
-              toolName: 'searchCandidates',
+              toolName: 'staffing_searchCandidates',
               result: {
                 hits: [{ userId: 'u1', name: 'A', skills: ['aws'], role: null, similarity: 0.6 }],
               },

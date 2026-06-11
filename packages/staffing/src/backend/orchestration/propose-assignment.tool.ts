@@ -91,8 +91,8 @@ export function makeProposeAssignmentTool(deps: ProposeAssignmentDeps) {
   };
 
   return defineAgentTool({
-    id: 'proposeAssignment',
-    name: 'Propose an assignee',
+    id: 'staffing_proposeAssignment',
+    name: 'Propose Assignment',
     description: [
       'Recommend the best assignee for a single task and ask the user to confirm the',
       'assignment. Pass the task: taskId is a task UUID, or an ordinal reference into the',

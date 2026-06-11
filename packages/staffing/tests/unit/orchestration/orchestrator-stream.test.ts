@@ -52,7 +52,7 @@ function fakeSuspendingStream(onEvent: (e: OrchestrationEvent) => void, card: un
         from: 'AGENT',
         payload: {
           toolCallId: 'tc-1',
-          toolName: 'proposeAssignment',
+          toolName: 'staffing_proposeAssignment',
           suspendPayload: { card },
           args: {},
           resumeSchema: {},
@@ -117,7 +117,7 @@ describe('makeChatOrchestrationStreamer', () => {
         // onEvent is read off the request context bridge set by the entrypoint.
         sink = (requestContext as unknown as { __onEvent: typeof sink }).__onEvent;
         return fakeStream(sink, [
-          { payload: { toolName: 'callTaskAnalyzer', result: { skills: ['aws'] } } },
+          { payload: { toolName: 'staffing_analyzeTasks', result: { skills: ['aws'] } } },
         ]);
       },
     });

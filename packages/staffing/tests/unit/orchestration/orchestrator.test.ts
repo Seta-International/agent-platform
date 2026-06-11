@@ -47,7 +47,7 @@ const make = (
 describe('orchestrator assembly', () => {
   it('describe-skills: taskAnalyzer skills only → { skills }, no recommendations', async () => {
     const agent = make([
-      { payload: { toolName: 'callTaskAnalyzer', result: { skills: ['aws', 'terraform'] } } },
+      { payload: { toolName: 'staffing_analyzeTasks', result: { skills: ['aws', 'terraform'] } } },
     ]);
     const res = await agent.run(
       { userText: 'what skills does this task need', taskId: 't-1' },
@@ -60,10 +60,10 @@ describe('orchestrator assembly', () => {
 
   it('recommend: recommender result → { recommendations } (skills are intermediate)', async () => {
     const agent = make([
-      { payload: { toolName: 'callTaskAnalyzer', result: { skills: ['aws'] } } },
+      { payload: { toolName: 'staffing_analyzeTasks', result: { skills: ['aws'] } } },
       {
         payload: {
-          toolName: 'callRecommender',
+          toolName: 'staffing_rankRecommendations',
           result: {
             taskId: 't-1',
             recommendations: [
@@ -82,10 +82,10 @@ describe('orchestrator assembly', () => {
     // "find users with aws and docker" is terminal at skillMatcher: the user
     // wants the top matches, not an assignee recommendation.
     const agent = make([
-      { payload: { toolName: 'callTaskAnalyzer', result: { skills: ['aws', 'docker'] } } },
+      { payload: { toolName: 'staffing_analyzeTasks', result: { skills: ['aws', 'docker'] } } },
       {
         payload: {
-          toolName: 'callSkillMatcher',
+          toolName: 'staffing_matchCandidatesBySkill',
           result: {
             taskId: null,
             candidates: [
@@ -114,8 +114,13 @@ describe('orchestrator assembly', () => {
 
   it('people search with zero matches → { candidates: [] }, not the generic message', async () => {
     const agent = make([
-      { payload: { toolName: 'callTaskAnalyzer', result: { skills: ['cobol'] } } },
-      { payload: { toolName: 'callSkillMatcher', result: { taskId: null, candidates: [] } } },
+      { payload: { toolName: 'staffing_analyzeTasks', result: { skills: ['cobol'] } } },
+      {
+        payload: {
+          toolName: 'staffing_matchCandidatesBySkill',
+          result: { taskId: null, candidates: [] },
+        },
+      },
     ]);
     const res = await agent.run({ userText: 'find users with cobol', taskId: null }, ctx);
     expect(res.result.candidates).toEqual([]);
@@ -129,10 +134,10 @@ describe('orchestrator assembly', () => {
     // or candidates as if the user asked a people search — honest failure.
     const agent = make(
       [
-        { payload: { toolName: 'callTaskAnalyzer', result: { skills: ['aws'] } } },
+        { payload: { toolName: 'staffing_analyzeTasks', result: { skills: ['aws'] } } },
         {
           payload: {
-            toolName: 'callSkillMatcher',
+            toolName: 'staffing_matchCandidatesBySkill',
             result: {
               taskId: 't-1',
               candidates: [
@@ -149,7 +154,7 @@ describe('orchestrator assembly', () => {
           },
         },
       ],
-      [{ payload: { toolName: 'callAvaiChecker', args: { taskId: 't-1' } } }],
+      [{ payload: { toolName: 'staffing_checkCandidateAvailability', args: { taskId: 't-1' } } }],
     );
     const res = await agent.run({ userText: 'who should do this task', taskId: 't-1' }, ctx);
     expect(res.result.skills).toBeUndefined();
@@ -161,7 +166,7 @@ describe('orchestrator assembly', () => {
     const agent = make([
       {
         payload: {
-          toolName: 'callTaskAnalyzer',
+          toolName: 'staffing_analyzeTasks',
           result: {
             tasks: [
               {
@@ -185,7 +190,7 @@ describe('orchestrator assembly', () => {
     const agent = make([
       {
         payload: {
-          toolName: 'callTaskAnalyzer',
+          toolName: 'staffing_analyzeTasks',
           result: {
             tasks: [
               {
@@ -200,7 +205,7 @@ describe('orchestrator assembly', () => {
       },
       {
         payload: {
-          toolName: 'callRecommender',
+          toolName: 'staffing_rankRecommendations',
           result: {
             taskId: 't9',
             recommendations: [
@@ -241,8 +246,8 @@ describe('orchestrator assembly', () => {
 
   it('tools ran but produced nothing → honest failure message, NOT the LLM text', async () => {
     const agent = make(
-      [{ payload: { toolName: 'callTaskAnalyzer', result: {} } }],
-      [{ payload: { toolName: 'callAvaiChecker', args: {} } }],
+      [{ payload: { toolName: 'staffing_analyzeTasks', result: {} } }],
+      [{ payload: { toolName: 'staffing_checkCandidateAvailability', args: {} } }],
       'Some chatty LLM filler that must not leak.',
     );
     const res = await agent.run({ userText: 'who should do this task', taskId: 't-1' }, ctx);
@@ -251,11 +256,11 @@ describe('orchestrator assembly', () => {
     );
   });
 
-  it('document question: callGeneralAnswer answer → { message } at 0.6 confidence', async () => {
+  it('document question: staffing_answerQuestion answer → { message } at 0.6 confidence', async () => {
     const agent = make([
       {
         payload: {
-          toolName: 'callGeneralAnswer',
+          toolName: 'staffing_answerQuestion',
           result: { answer: 'It is a Q3 budget report.' },
         },
       },
@@ -274,7 +279,9 @@ describe('orchestrator assembly', () => {
   });
 
   it('empty general answer → falls through to the generic capability message', async () => {
-    const agent = make([{ payload: { toolName: 'callGeneralAnswer', result: { answer: '   ' } } }]);
+    const agent = make([
+      { payload: { toolName: 'staffing_answerQuestion', result: { answer: '   ' } } },
+    ]);
     const res = await agent.run({ userText: 'hmm', taskId: null }, ctx);
     expect(res.result.message).toContain('I can describe');
   });
@@ -370,12 +377,12 @@ describe('orchestrator resource working memory', () => {
     await agent.run({ userText: 'hello', taskId: null }, ctx);
     expect(seen()?.instructions).not.toContain('WM-SECTION');
     expect(Object.keys(seen()?.tools ?? {})).not.toContain('updateWorkingMemory');
-    expect(Object.keys(seen()?.tools ?? {})).toContain('callTaskAnalyzer');
+    expect(Object.keys(seen()?.tools ?? {})).toContain('staffing_analyzeTasks');
   });
 
-  it('base instructions mention the callGeneralAnswer document/general route', async () => {
+  it('base instructions mention the staffing_answerQuestion document/general route', async () => {
     const { agent, seen } = capture();
     await agent.run({ userText: 'hello', taskId: null }, ctx);
-    expect(seen()?.instructions).toContain('callGeneralAnswer');
+    expect(seen()?.instructions).toContain('staffing_answerQuestion');
   });
 });

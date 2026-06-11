@@ -29,11 +29,13 @@ function countMatches(candidateSkills: string[], required: string[]): number {
 }
 
 export function makeSkillMatcherTools(deps: SkillMatcherToolDeps) {
-  const searchCandidates = defineAgentTool({
-    id: 'searchCandidates',
-    name: 'Search candidates by skill',
+  const staffing_searchCandidates = defineAgentTool({
+    id: 'staffing_searchCandidates',
+    name: 'Search Candidates',
     description:
-      'Vector-search users whose profile skills match the required skills. Call once with all required skills.',
+      'Vector-search users whose profile skills match the required skills.\n\n' +
+      'Use for: first step in every candidate-finding flow.\n' +
+      'Call once with all required skills; pass results to staffing_rankCandidates.',
     rbac: 'identity.user.read.any',
     input: z.object({ skills: z.array(z.string()).min(1) }),
     output: z.object({ hits: z.array(HitSchema) }),
@@ -48,11 +50,13 @@ export function makeSkillMatcherTools(deps: SkillMatcherToolDeps) {
     },
   });
 
-  const rankCandidates = defineAgentTool({
-    id: 'rankCandidates',
-    name: 'Rank candidates',
+  const staffing_rankCandidates = defineAgentTool({
+    id: 'staffing_rankCandidates',
+    name: 'Rank Candidates',
     description:
-      'Merge hits per user (union skills, best similarity) and rank by skill overlap then similarity. Call once with the hits from searchCandidates and the required skills.',
+      'Merge hits per user and rank by skill overlap then vector similarity.\n\n' +
+      'Use for: second step after staffing_searchCandidates.\n' +
+      'Pass hits from staffing_searchCandidates and the required skills.',
     input: z.object({ requiredSkills: z.array(z.string()).min(1), hits: z.array(HitSchema) }),
     output: z.object({ candidates: z.array(RankedCandidateSchema) }),
     execute: async ({ requiredSkills, hits }) => {
@@ -94,5 +98,5 @@ export function makeSkillMatcherTools(deps: SkillMatcherToolDeps) {
     },
   });
 
-  return { searchCandidates, rankCandidates };
+  return { staffing_searchCandidates, staffing_rankCandidates };
 }

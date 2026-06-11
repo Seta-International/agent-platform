@@ -96,25 +96,19 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
     userMemory: ctx.userMemory,
   };
 
-  const callTaskAnalyzer = defineAgentTool({
-    id: 'callTaskAnalyzer',
-    name: 'Analyze task',
+  const staffing_analyzeTasks = defineAgentTool({
+    id: 'staffing_analyzeTasks',
+    name: 'Analyze Tasks',
     description: [
-      'Get skills or tasks, per `intent`:',
-      "- resolve_task_skills: the current task's required skills (pass its taskRef). Use for",
-      '  "what skills does this task need" and to get skills before recommending people FOR a task.',
-      '- extract_named_skills: the skills the user named in the message. Use when the user asks',
-      '  for people by skill (e.g. "who has aws and k8s skills") — returns those skills, NOT tasks.',
-      '- find_tasks: list tasks whose skill_tags match the message (e.g. "find infra tasks").',
-      '  Pass completionStatus: "open" for not-yet-done tasks ("todo", "open", "not started",',
-      '  "pending", "not completed"); "completed" for done tasks ("done", "finished",',
-      '  "completed"); "any" when unspecified (default).',
+      'Analyze task requirements or find tasks by intent. Use for: resolving which skills a task',
+      'needs; extracting skill names the user mentioned; finding tasks by skill tag.',
       '',
-      'taskRef is a task UUID, or an ordinal reference into the tasks already listed in this',
-      'conversation: "first"/"#1", "second"/"#2", ... "last". When the user refers to a task',
-      'from an earlier answer ("the first task", "that one"), pass the ordinal — NEVER invent',
-      "a UUID. The result's resolvedTaskId is the real UUID: pass THAT as taskId to",
-      'callSkillMatcher, callAvaiChecker and callRecommender.',
+      'intent values:',
+      "- resolve_task_skills: the current task's required skills (pass its taskRef).",
+      '- extract_named_skills: skills the user named in the message.',
+      '- find_tasks: list tasks whose skill_tags match the message.',
+      '',
+      'taskRef is a UUID or an ordinal ("first"/"#1"). Pass resolvedTaskId to downstream tools.',
     ].join('\n'),
     input: z.object({
       intent: TaskAnalyzerIntentSchema,
@@ -164,11 +158,14 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
   // search, or a task-less recommend). It is only a correlation label here.
   // For a plain people search ("find users with aws and docker") this is the
   // FINAL step: the orchestrator answers with these candidates and stops.
-  const callSkillMatcher = defineAgentTool({
-    id: 'callSkillMatcher',
-    name: 'Find candidate people',
+  const staffing_matchCandidatesBySkill = defineAgentTool({
+    id: 'staffing_matchCandidatesBySkill',
+    name: 'Match Candidates By Skill',
     description:
-      'Find and rank candidate users by the required skills. Pass the current taskId, or null when the search is not tied to a task. For a plain people search ("find users with X") this is the FINAL step — answer with the returned candidates.',
+      'Find and rank candidate users by required skills.\n\n' +
+      'Use for: building a candidate pool for a task or a plain people search.\n' +
+      'Pass taskId (or null), and all required skills at once.\n' +
+      'For a plain people search ("find users with X"), this is the FINAL step.',
     input: z.object({ taskId: z.string().nullable(), skills: z.array(z.string()).min(1) }),
     output: z.object({ taskId: z.string().nullable(), candidates: z.array(RankedCandidateSchema) }),
     execute: async ({ taskId, skills }) => {
@@ -180,11 +177,13 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
     },
   });
 
-  const callAvaiChecker = defineAgentTool({
-    id: 'callAvaiChecker',
-    name: 'Check availability',
+  const staffing_checkCandidateAvailability = defineAgentTool({
+    id: 'staffing_checkCandidateAvailability',
+    name: 'Check Candidate Availability',
     description:
-      'Score how available each candidate is (status + in-progress load). Pass the candidates from callSkillMatcher, and the same taskId (or null).',
+      'Score availability (status + in-progress load) for each candidate.\n\n' +
+      'Use for: filtering out busy or OOO people before recommending.\n' +
+      'Pass candidates from staffing_matchCandidatesBySkill and the same taskId.',
     input: z.object({ taskId: z.string().nullable(), candidates: z.array(RankedCandidateSchema) }),
     output: z.object({
       taskId: z.string().nullable(),
@@ -199,11 +198,14 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
     },
   });
 
-  const callRecommender = defineAgentTool({
-    id: 'callRecommender',
-    name: 'Rank recommendations',
+  const staffing_rankRecommendations = defineAgentTool({
+    id: 'staffing_rankRecommendations',
+    name: 'Rank Recommendations',
     description:
-      'Produce the final ranked assignee recommendation from candidates and their availability.',
+      'Produce the final ranked assignee recommendations from candidates and availability scores.\n\n' +
+      'Use for: the last step in any "recommend who should own this task" flow.\n' +
+      'Pass taskId, skills, candidates (from staffing_matchCandidatesBySkill), ' +
+      'and availability (from staffing_checkCandidateAvailability).',
     input: z.object({
       taskId: z.string().nullable(),
       skills: z.array(z.string()),
@@ -229,15 +231,14 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
     },
   });
 
-  const callGeneralAnswer = defineAgentTool({
-    id: 'callGeneralAnswer',
-    name: 'Answer a general or document question',
-    description: [
-      "Answer the user's question directly, in prose. Use for a general question, a",
-      'conversational follow-up, or any question about an attached document (its text',
-      'is supplied to you automatically). Do NOT use for staffing requests (tasks,',
-      'skills, or finding/recommending people). Takes no arguments.',
-    ].join(' '),
+  const staffing_answerQuestion = defineAgentTool({
+    id: 'staffing_answerQuestion',
+    name: 'Answer Question',
+    description:
+      'Answer a general question or a question about an attached document in prose.\n\n' +
+      'Use for: conversational follow-ups; document questions; any query that is NOT about ' +
+      'finding tasks, skills, or recommending people.\n' +
+      'Do NOT use for staffing requests — use the staffing_* tools instead.',
     input: z.object({}),
     output: z.object({ answer: z.string() }),
     execute: async () => {
@@ -252,11 +253,13 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
     },
   });
 
-  const callUserProfileLookup = defineAgentTool({
-    id: 'callUserProfileLookup',
-    name: 'Look up a person profile',
+  const staffing_lookupUserProfile = defineAgentTool({
+    id: 'staffing_lookupUserProfile',
+    name: 'Look Up User Profile',
     description:
-      'Look up a specific person\'s skills, role, and availability by their display name. Use when the user asks about a named individual\'s skills or profile (e.g. "list skills of Alice", "what does Bob know", "show Tuấn\'s profile").',
+      "Look up a specific person's skills, role, and availability by display name.\n\n" +
+      'Use for: "list skills of Alice"; "what does Bob know"; "show Tuấn\'s profile".\n' +
+      'Pass the display name as the user wrote it.',
     input: z.object({ name: z.string().describe("The person's display name to search for.") }),
     output: z.object({ profiles: z.array(UserProfileResultSchema) }),
     execute: async ({ name }) => {
@@ -290,12 +293,12 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
   });
 
   return {
-    callTaskAnalyzer,
-    callSkillMatcher,
-    callAvaiChecker,
-    callRecommender,
-    callGeneralAnswer,
-    callUserProfileLookup,
+    staffing_analyzeTasks,
+    staffing_matchCandidatesBySkill,
+    staffing_checkCandidateAvailability,
+    staffing_rankRecommendations,
+    staffing_answerQuestion,
+    staffing_lookupUserProfile,
     proposeAssignment,
   };
 }

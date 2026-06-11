@@ -53,8 +53,9 @@ export function makeUpdateWorkingMemoryTool(ctx: SpecializedAgentRunCtx) {
     id: 'updateWorkingMemory',
     name: 'Update working memory',
     description:
-      'Persist durable user-context facts (timezone, communication style, current focus, ' +
-      'preferred task view, notes). Pass the FULL working-memory JSON object as a string.',
+      'Persist durable user-context facts to working memory.\n\n' +
+      'Use for: storing timezone, communication style, current focus, preferred task view, notes.\n' +
+      'Pass the FULL working-memory JSON object as a string — partial updates are not supported.',
     input: z.object({ memory: z.string() }),
     output: z.object({ success: z.boolean(), reason: z.string().optional() }),
     execute: async (input) =>

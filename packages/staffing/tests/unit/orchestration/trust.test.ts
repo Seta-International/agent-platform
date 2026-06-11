@@ -6,11 +6,13 @@ describe('trustFromMastraResult', () => {
   it('derives trace from toolCalls and citations from the extractor', () => {
     const trust: TrustEnvelope = trustFromMastraResult(
       {
-        toolCalls: [{ payload: { toolName: 'searchCandidates', args: { skills: ['aws'] } } }],
+        toolCalls: [
+          { payload: { toolName: 'staffing_searchCandidates', args: { skills: ['aws'] } } },
+        ],
         toolResults: [
           {
             payload: {
-              toolName: 'searchCandidates',
+              toolName: 'staffing_searchCandidates',
               result: { hits: [{ userId: 'u1', name: 'A', similarity: 0.42 }] },
             },
           },
@@ -18,7 +20,7 @@ describe('trustFromMastraResult', () => {
       },
       {
         citations: (tr) =>
-          tr.payload.toolName === 'searchCandidates'
+          tr.payload.toolName === 'staffing_searchCandidates'
             ? (
                 tr.payload.result as {
                   hits: { userId: string; name: string | null; similarity: number }[];
@@ -33,7 +35,7 @@ describe('trustFromMastraResult', () => {
         confidence: 0.42,
       },
     );
-    expect(trust.reasoningTrace[0]?.step).toBe('searchCandidates');
+    expect(trust.reasoningTrace[0]?.step).toBe('staffing_searchCandidates');
     expect(trust.evidenceCitations).toEqual([{ kind: 'user', id: 'u1', label: 'A', score: 0.42 }]);
     expect(trust.confidenceScore).toBeCloseTo(0.42);
   });
