@@ -55,11 +55,20 @@ describe('buildAssignApprovalCard', () => {
     expect(card.intent).toBe('Assign "t-1"');
     expect(card.details).toEqual([
       {
-        kind: 'candidateList',
+        kind: 'entityList',
+        select: 'multi',
         items: [
-          { id: 'u1', label: 'Alice', secondary: 'skills: aws, docker · available', score: 0.9 },
+          {
+            id: 'u1',
+            type: 'user',
+            label: 'Alice',
+            secondary: 'skills: aws, docker · available',
+            score: 0.9,
+            primary: true,
+          },
         ],
       },
+      { kind: 'confidence', score: 0.9 },
     ]);
   });
 

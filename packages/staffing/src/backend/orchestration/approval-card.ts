@@ -36,14 +36,18 @@ export function buildAssignApprovalCard(opts: BuildAssignApprovalCardOpts): Appr
     summary: `Top match: ${candidateLabel(top)} (${top.skillMatchCount} skill(s) matched, ${top.status}).`,
     details: [
       {
-        kind: 'candidateList',
-        items: recommendations.map((r) => ({
+        kind: 'entityList',
+        select: 'multi',
+        items: recommendations.map((r, i) => ({
           id: r.userId,
+          type: 'user',
           label: candidateLabel(r),
           secondary: `skills: ${r.skillMatch.join(', ') || '(none)'} · ${r.status}`,
           score: r.availabilityScore,
+          primary: i === 0,
         })),
       },
+      { kind: 'confidence', score: top.availabilityScore ?? 0.8 },
     ],
     primary: {
       label: `Assign to ${candidateLabel(top)}`,
