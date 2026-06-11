@@ -12,8 +12,10 @@ export const plannerAssignTaskTool = defineAgentTool({
   id: 'planner_assignTask',
   name: 'Assign Task',
   description:
-    'Add one user as an additional assignee without affecting existing assignees. ' +
-    'Use only when the user explicitly wants to ADD a collaborator alongside current owners. ' +
+    'Canvas and workflow path only — do NOT call from the chat flow; ' +
+    'use planner_proposeAssignment there instead.\n\n' +
+    'Add one user as an additional assignee without affecting existing assignees.\n' +
+    'Use only when the user explicitly wants to ADD a collaborator alongside current owners.\n' +
     'When the user says "assign to X" or "reassign to X", use planner_setAssignees instead.',
   input: z.object({
     taskRef: z

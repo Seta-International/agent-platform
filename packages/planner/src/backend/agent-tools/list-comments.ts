@@ -11,7 +11,9 @@ import { listComments } from '../domain/list-comments.ts';
 export const plannerListCommentsTool = defineAgentTool({
   id: 'planner_listComments',
   name: 'List Task Comments',
-  description: 'List comments on a planner task, newest first.',
+  description:
+    'List comments on a planner task, newest first.\n\n' +
+    'Use for: "what were the latest comments on this?"; showing discussion history before posting a reply.',
   input: z.object({
     taskRef: z
       .string()

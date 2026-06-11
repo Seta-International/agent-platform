@@ -23,8 +23,10 @@ export function plannerCreateTaskTool(_deps?: PlannerCreateTaskDeps) {
     id: 'planner_createTask',
     name: 'Create Task',
     description:
-      'Create a task immediately, then run the dedupOnCreate workflow to check for duplicates. ' +
-      'If duplicates are found, a HITL approval card appears with options: Link / Delete / Leave.',
+      'Create a new task, then check for duplicates in the background.\n\n' +
+      'Use for: "create a task for X"; "add \'fix login bug\' to plan Y".\n' +
+      'Requires plan_id — get it from planner_findSimilarTasks results or the current plan context.\n' +
+      'If duplicates are found, a HITL card appears with Link / Delete / Leave options.',
     input: TaskDraftSchema,
     output: DedupOutputSchema,
     rbac: 'planner.task.create',

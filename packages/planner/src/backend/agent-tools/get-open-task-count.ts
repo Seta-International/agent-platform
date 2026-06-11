@@ -28,8 +28,9 @@ export const plannerGetOpenTaskCountSpec: CrossModuleReadToolSpec<
 > = {
   id: 'planner_getOpenTaskCountForUser',
   description:
-    'Returns the count of open tasks (percent_complete < 100, not soft-deleted) ' +
-    'currently assigned to a user in the caller tenant.',
+    'Count of open (not completed, not deleted) tasks currently assigned to a user.\n\n' +
+    'Use for: workload comparison when ranking candidates; "how many open tasks does X have?".\n' +
+    'Do NOT use when you need the task list — use planner_queryTasks with assigneeUserId instead.',
   inputSchema,
   outputSchema,
   rbac: 'planner.task.read.tenant',
@@ -60,7 +61,10 @@ export const plannerGetOpenTaskCountSpec: CrossModuleReadToolSpec<
 export const plannerGetOpenTaskCountTool = defineCrossModuleReadAsTool({
   id: plannerGetOpenTaskCountSpec.id,
   name: 'Open Task Count',
-  description: plannerGetOpenTaskCountSpec.description,
+  description:
+    'Count of open (not completed, not deleted) tasks currently assigned to a user.\n\n' +
+    'Use for: workload comparison when ranking candidates; "how many open tasks does X have?".\n' +
+    'Do NOT use when you need the task list — use planner_queryTasks with assigneeUserId instead.',
   inputSchema,
   outputSchema,
   rbac: plannerGetOpenTaskCountSpec.rbac,

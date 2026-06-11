@@ -12,6 +12,8 @@ export const plannerSetAssigneesTool = defineAgentTool({
   id: 'planner_setAssignees',
   name: 'Set Task Assignees',
   description:
+    'Canvas and workflow path only — do NOT call from the chat flow; ' +
+    'use planner_proposeAssignment there instead.\n\n' +
     'Replace the complete assignee list for a task. ' +
     'Use when the user says "assign to X" (meaning X should be the sole or primary assignee) ' +
     'or "assign to X and Y" (replacing whoever is currently assigned). ' +
