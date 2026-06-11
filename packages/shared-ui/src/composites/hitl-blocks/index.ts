@@ -11,6 +11,8 @@ export type { BlockProps, EntityRef } from './types';
 
 export const blockRenderers: Record<string, ComponentType<BlockProps>> = {
   markdown: MarkdownBlock,
+  // `text` shares markdown's `body` field — render it as prose rather than blank.
+  text: MarkdownBlock,
   kvTable: KvTableBlock,
   entityList: EntityListBlock,
   confidence: ConfidenceBlock,
