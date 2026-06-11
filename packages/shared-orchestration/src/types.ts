@@ -1,3 +1,4 @@
+import type { MastraModelOutput } from '@mastra/core/stream';
 import type {
   AgentMemoryHandle,
   ApprovalCard,
@@ -58,12 +59,29 @@ export const RunStepPayloadSchema = z.object({
 });
 export type RunStepPayload = z.infer<typeof RunStepPayloadSchema>;
 
-/** Events emitted by the inline runner (Task 8), mapped to AI SDK v6 parts by the chat harness (Plan 06). */
+/** The assembled, structured outcome of a completed (non-suspended) chat turn:
+ *  the orchestrator's domain result plus the derived trust envelope. */
+export interface OrchestrationFinal {
+  result: unknown;
+  trust: TrustEnvelope;
+}
+
+/** One chat turn driven natively. `output` is the live Mastra stream the route
+ *  converts to AI SDK v6 UIMessage parts; `finalize` awaits the run's tool
+ *  results and assembles the structured result + trust (called only when the
+ *  turn completes without suspending — a suspended turn has no result). */
+export interface ChatStreamRun {
+  output: MastraModelOutput<unknown>;
+  finalize: () => Promise<OrchestrationFinal>;
+}
+
+/** Events emitted by the inline/evented orchestration runner (`runOrchestrationInline`,
+ *  the declarative step-DAG path). The native chat path uses `ChatStreamRun` instead;
+ *  this union is retained for the inline runner and is out of scope for the chat
+ *  streaming-backbone migration. */
 export type OrchestrationEvent =
   | { kind: 'step-start'; stepId: string; agentId: string }
   | { kind: 'step-done'; stepId: string; trust: TrustEnvelope }
-  /** LLM text token emitted before the first tool call — streams the agent's
-   *  opening acknowledgment to the user while tools are pending. */
   | { kind: 'text'; text: string }
   | { kind: 'approval'; card: ApprovalCard; mastraRunId: string; toolCallId: string }
   | { kind: 'final'; result: unknown };
