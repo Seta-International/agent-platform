@@ -19,6 +19,7 @@ export * from './composites/empty-state';
 export * from './composites/field-conflict-row';
 export * from './composites/filter-pill';
 export * from './composites/group-tile';
+export * from './composites/hitl-card';
 export * from './composites/inbox-list';
 export * from './composites/kanban-board';
 export * from './composites/kanban-card';
@@ -39,10 +40,11 @@ export * from './composites/sync-badge';
 export * from './composites/task-conflict-group';
 export * from './composites/task-grid';
 export * from './composites/top-bar';
+// Utilities
+export * from './hooks/use-hitl-decision';
 // Icons
 export * from './icons/seta-logo';
 export * from './icons/seta-mark';
-// Utilities
 export { cn } from './lib/cn';
 export { cva, type VariantProps } from './lib/cva';
 export { formatRelative } from './lib/format-relative';
