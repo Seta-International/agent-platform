@@ -17,6 +17,7 @@ import { useIsThreadFresh } from '../hooks/use-is-thread-fresh';
 import { useModelCatalog } from '../hooks/use-model-catalog';
 import { ThreadMessagesError, useThreadMessages } from '../hooks/use-thread-messages';
 import { markThreadFresh, markThreadKnown } from '../lib/fresh-thread-store';
+import { DensityProvider } from './use-density';
 
 const MODEL_STORAGE_KEY = 'seta.agent.model';
 
@@ -238,13 +239,15 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <SelectionContext.Provider value={selectionValue}>
-      <PageContextContext.Provider value={pageCtxValue}>
-        <PanelUIContext.Provider value={panelUIValue}>
-          <AgentRuntimeHost>{children}</AgentRuntimeHost>
-        </PanelUIContext.Provider>
-      </PageContextContext.Provider>
-    </SelectionContext.Provider>
+    <DensityProvider>
+      <SelectionContext.Provider value={selectionValue}>
+        <PageContextContext.Provider value={pageCtxValue}>
+          <PanelUIContext.Provider value={panelUIValue}>
+            <AgentRuntimeHost>{children}</AgentRuntimeHost>
+          </PanelUIContext.Provider>
+        </PageContextContext.Provider>
+      </SelectionContext.Provider>
+    </DensityProvider>
   );
 }
 
