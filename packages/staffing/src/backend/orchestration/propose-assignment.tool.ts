@@ -5,6 +5,7 @@ import { buildAssignApprovalCard } from './approval-card.ts';
 import type { AssignPort } from './ports.ts';
 import type {
   AvailabilityResult,
+  CompletionStatus,
   RankedCandidate,
   Recommendation,
   TaskAnalyzerIntent,
@@ -12,7 +13,12 @@ import type {
 } from './schemas.ts';
 
 type TaskAnalyzerSpec = SpecializedAgentSpec<
-  { intent: TaskAnalyzerIntent; query: string; taskId: string | null; completionStatus: 'any' },
+  {
+    intent: TaskAnalyzerIntent;
+    query: string;
+    taskId: string | null;
+    completionStatus: CompletionStatus;
+  },
   TaskAnalyzerOutput
 >;
 type SkillMatcherSpec = SpecializedAgentSpec<
