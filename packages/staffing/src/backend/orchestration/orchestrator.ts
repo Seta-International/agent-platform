@@ -223,6 +223,13 @@ function instructionsText(cap: number): string {
     'staffing_analyzeTasks result and STOP — do not recommend people.',
     `When asked to find tasks AND recommend people, recommend for at most the first ${cap} tasks.`,
     'Never invent tasks, skills, or people.',
+    '',
+    'FINAL ANSWER — after the tools you need have run, write ONE concise, friendly answer in',
+    "natural language that directly answers the user, grounded ONLY in the tools' results: state",
+    'counts, names, and skills exactly as returned — never invent or round them. For a people or',
+    'task list, summarize the top few in prose (the UI also shows a structured card, so do not',
+    'dump a long bulleted list). If a tool returned nothing, say so plainly. When an assignment',
+    "proposal is pending the user's confirmation, tell them to review the approval card.",
   ].join('\n');
 }
 
