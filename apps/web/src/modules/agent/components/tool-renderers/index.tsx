@@ -2,6 +2,8 @@ import type { ToolCallMessagePartProps } from '@assistant-ui/react';
 import { useAssistantDataUI, useAssistantToolUI } from '@assistant-ui/react';
 import { ChatToolCall } from '@seta/shared-ui';
 import { AgentStreamPart } from '../../chat-experience/agent-stream-part';
+import { DataResultPart } from '../../chat-experience/data-result-part';
+import { DataTrustPart } from '../../chat-experience/data-trust-part';
 import { OrchestrationStepPart } from '../../chat-experience/orchestration-step-part';
 import { useToolCatalog } from '../../hooks/use-tool-catalog';
 import { ServerTimeRenderer } from './core.server-time';
@@ -78,6 +80,22 @@ function OrchestrationStepRegistration() {
   return null;
 }
 
+function ResultRegistration() {
+  useAssistantDataUI({
+    name: 'result',
+    render: (props: { data: unknown }) => <DataResultPart data={props.data as never} />,
+  });
+  return null;
+}
+
+function TrustRegistration() {
+  useAssistantDataUI({
+    name: 'trust',
+    render: (props: { data: unknown }) => <DataTrustPart data={props.data as never} />,
+  });
+  return null;
+}
+
 function GenericToolRegistration({ id, name }: { id: string; name: string }) {
   useAssistantToolUI({
     toolName: id,
@@ -101,6 +119,8 @@ export function ToolUIRegistry() {
     <>
       <AgentStreamRegistration />
       <OrchestrationStepRegistration />
+      <ResultRegistration />
+      <TrustRegistration />
       <ServerTimeRegistration name={nameFor('core_serverTime')} />
       <WhoAmIRegistration name={nameFor('identity_whoAmI')} />
       <ListMyRolesRegistration name={nameFor('identity_listMyRoles')} />
