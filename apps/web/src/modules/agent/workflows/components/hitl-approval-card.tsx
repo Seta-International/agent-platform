@@ -1,24 +1,12 @@
 import { Check, Clock, Sparkles, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { WorkflowApprovalRow } from '../api/schemas.ts';
-
-// Subset of the @seta/agent-sdk ApprovalCard shape we render. We accept
-// `unknown` proposedPayload and type-narrow here so a stale or malformed
-// payload renders a graceful fallback instead of crashing the run page.
-interface CandidateRowShape {
-  id: string;
-  label: string;
-  secondary?: string;
-  score?: number;
-}
-interface ApprovalCardShape {
-  intent?: string;
-  summary?: string;
-  details?: Array<{ kind: string; items?: CandidateRowShape[] }>;
-  primary?: { label: string; argsPatch?: Record<string, unknown> };
-  alternates?: Array<{ label: string; argsPatch?: Record<string, unknown> }>;
-  decline?: { label: string; argsPatch?: Record<string, unknown> };
-}
+import {
+  type ApprovalCardShape,
+  asCard,
+  type CandidateRowShape,
+  isDedupCard,
+} from './approval-card-shape.ts';
 
 export type HitlDecisionInput =
   | { decision: 'approve' }
@@ -39,26 +27,9 @@ export interface HitlApprovalCardProps {
   proposedPayloadFallback?: unknown;
 }
 
-function asCard(payload: unknown): ApprovalCardShape | null {
-  if (!payload || typeof payload !== 'object') return null;
-  const p = payload as ApprovalCardShape;
-  return p.intent || p.primary || p.details ? p : null;
-}
-
 function candidateListFrom(card: ApprovalCardShape): CandidateRowShape[] {
   const block = card.details?.find((d) => d.kind === 'candidateList');
   return block?.items ?? [];
-}
-
-/**
- * Detects dedup-style cards: alternates have `kind: 'link'` in argsPatch,
- * as opposed to staffing cards that have `assigneeUserIds`.
- */
-function isDedupCard(card: ApprovalCardShape): boolean {
-  return (
-    (card.alternates ?? []).some((a) => (a.argsPatch as { kind?: string })?.kind === 'link') ||
-    (card.primary?.argsPatch as { kind?: string })?.kind === 'leave'
-  );
 }
 
 function initialsOf(label: string): string {
@@ -85,7 +56,7 @@ function avatarStyle(id: string): React.CSSProperties {
   };
 }
 
-function CandidateAvatar({ id, label }: { id: string; label: string }) {
+export function CandidateAvatar({ id, label }: { id: string; label: string }) {
   return (
     <span
       aria-hidden

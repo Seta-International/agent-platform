@@ -44,7 +44,9 @@ function stringArray(v: unknown): string[] {
 }
 
 function candidateLabels(payload: unknown): Map<string, string> {
-  const items = asCard(payload)?.details?.find((d) => d.kind === 'candidateList')?.items ?? [];
+  const details = asCard(payload)?.details;
+  const items =
+    details?.find((d) => d.kind === 'entityList' || d.kind === 'candidateList')?.items ?? [];
   return new Map(
     items
       .filter((i) => i && typeof i.id === 'string' && typeof i.label === 'string')

@@ -18,9 +18,20 @@ const PENDING_APPROVAL: WorkflowApprovalRow = {
     decline: { label: 'Leave unassigned' },
     details: [
       {
-        kind: 'candidateList',
-        items: [{ id: 'u-9', label: 'Jane', secondary: 'top match', score: 0.9 }],
+        kind: 'entityList',
+        select: 'multi',
+        items: [
+          {
+            id: 'u-9',
+            type: 'user',
+            label: 'Jane',
+            secondary: 'top match',
+            score: 0.9,
+            primary: true,
+          },
+        ],
       },
+      { kind: 'confidence', score: 0.9 },
     ],
     meta: { toolId: 'planner_proposeAssignment' },
   },
@@ -60,7 +71,7 @@ describe('ChatEmbeddedHitl', () => {
     render(withQuery(<ChatEmbeddedHitl threadId="thread-x" />));
 
     await waitFor(() => expect(screen.getAllByText('Jane').length).toBeGreaterThan(0));
-    expect(screen.getAllByRole('region', { name: /your input needed/i })).toHaveLength(1);
+    expect(screen.getAllByRole('region', { name: /assign task to a teammate/i })).toHaveLength(1);
     expect(workflowsApi.listThreadApprovals).toHaveBeenCalledWith('thread-x');
   });
 
@@ -72,7 +83,9 @@ describe('ChatEmbeddedHitl', () => {
     await waitFor(() => expect(screen.getByText('Approved.')).toBeInTheDocument());
     expect(screen.getByText('Task assigned to Jane.')).toBeInTheDocument();
     // No interactive card for a decided approval.
-    expect(screen.queryByRole('region', { name: /your input needed/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('region', { name: /assign task to a teammate/i }),
+    ).not.toBeInTheDocument();
   });
 
   it('renders nothing when the thread has no approvals', async () => {
@@ -97,8 +110,10 @@ describe('ChatEmbeddedHitl', () => {
       </QueryClientProvider>,
     );
 
-    await waitFor(() => expect(screen.getByRole('button', { name: /approve/i })).toBeEnabled());
-    await userEvent.click(screen.getByRole('button', { name: /approve/i }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /assign to jane/i })).toBeEnabled(),
+    );
+    await userEvent.click(screen.getByRole('button', { name: /assign to jane/i }));
 
     await waitFor(() => expect(workflowsApi.decideApproval).toHaveBeenCalled());
     // The chat-HITL decider already executed the planner write server-side, so
@@ -114,6 +129,8 @@ describe('ChatEmbeddedHitl', () => {
     // The query is disabled without a threadId, so the API is never called.
     await new Promise((r) => setTimeout(r, 30));
     expect(spy).not.toHaveBeenCalled();
-    expect(screen.queryByRole('region', { name: /your input needed/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('region', { name: /assign task to a teammate/i }),
+    ).not.toBeInTheDocument();
   });
 });

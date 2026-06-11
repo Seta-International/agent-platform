@@ -19,6 +19,7 @@ export * from './composites/empty-state';
 export * from './composites/field-conflict-row';
 export * from './composites/filter-pill';
 export * from './composites/group-tile';
+export type { BlockProps, EntityRef } from './composites/hitl-blocks';
 export * from './composites/hitl-card';
 export * from './composites/inbox-list';
 export * from './composites/kanban-board';
