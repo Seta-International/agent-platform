@@ -46,7 +46,7 @@
     "eslint-plugin-boundaries": "^6.0.2",
     "jiti": "^2.7.0",
     "lefthook": "^2.1.8",
-    "turbo": "^2.9.16",
+    "turbo": "^2.9.18",
     "typescript": "^6.0.3",
     "vitest": "^4.1.7"
   },
