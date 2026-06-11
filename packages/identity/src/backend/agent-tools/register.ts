@@ -40,12 +40,18 @@ AgentRegistry.registerSpecialist({
   id: 'identity',
   description: 'Looks up users, roles, and finds people by topic. Read-only across the directory.',
   instructions: () =>
-    'You answer who-is-who questions. Use identity_whoAmI, identity_listMyRoles, ' +
-    'and match_users_to_topic. Never modify state — defer self-modifications to the self specialist.',
+    'You answer who-is-who questions.\n\n' +
+    "identity_whoAmI — read the calling user's own profile.\n" +
+    'identity_listMyRoles — list effective permissions of the calling user.\n' +
+    'identity_matchUsersByTopic — find users by skill topic (semantic search, tenant-wide).\n' +
+    '  Use for: "who knows about Kubernetes?", "find people with ML expertise".\n' +
+    '  Do NOT use for exact skill-tag matching within a group — use ' +
+    'planner_searchGroupMembersBySkills for that.\n\n' +
+    'Never modify state — defer self-modifications to the self specialist.',
   tools: {
     identity_whoAmI: whoAmITool,
     identity_listMyRoles: listMyRolesTool,
-    match_users_to_topic: matchUsersToTopic,
+    identity_matchUsersByTopic: matchUsersToTopic,
   },
 });
 

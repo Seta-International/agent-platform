@@ -62,10 +62,15 @@ export function matchUsersToTopicTool(deps: MatchUsersToTopicToolDeps) {
   const resolveSession = deps.sessionProvider ?? buildActorSession;
 
   return defineAgentTool({
-    id: 'match_users_to_topic',
-    name: 'Match Users To Topic',
+    id: 'identity_matchUsersByTopic',
+    name: 'Match Users By Topic',
     description:
-      'Find users whose declared skills best match a given topic or skill area. Returns ranked candidates with user details and match scores.',
+      'Find users whose skills best match a topic or skill area using semantic similarity.\n\n' +
+      'Use for: "who knows about Kubernetes?"; "find people with ML expertise"; broad topic queries ' +
+      'where you do not have an exact skill tag list.\n' +
+      'Do NOT use for exact skill-tag matching within a group — use ' +
+      'planner_searchGroupMembersBySkills for that.\n\n' +
+      'Returns ranked candidates with match and rerank scores. Tenant-scoped.',
     input: inputSchema,
     output: outputSchema,
     rbac: 'identity.user.read',
@@ -79,7 +84,7 @@ export function matchUsersToTopicTool(deps: MatchUsersToTopicToolDeps) {
           ? getIdentityVectorStore(deps.databaseUrl)
           : (() => {
               throw new Error(
-                'match_users_to_topic: either pgVector or databaseUrl must be supplied',
+                'identity_matchUsersByTopic: either pgVector or databaseUrl must be supplied',
               );
             })());
 

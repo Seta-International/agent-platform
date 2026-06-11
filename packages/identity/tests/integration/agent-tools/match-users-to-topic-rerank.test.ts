@@ -59,7 +59,7 @@ function makeSessionProvider(tenantId: string) {
   });
 }
 
-describe('match_users_to_topic + rerank wiring', () => {
+describe('identity_matchUsersByTopic + rerank wiring', () => {
   it('passes hits through the configured reranker and surfaces the reranker tag in the result', () =>
     withDb(async ({ pool, pgVector }) => {
       const provider = new FakeEmbeddingProvider();

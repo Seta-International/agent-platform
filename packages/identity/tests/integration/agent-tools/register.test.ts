@@ -11,7 +11,7 @@ describe('identity register', () => {
 
     const identity = AgentRegistry.listSpecialists('people')[0]!;
     expect(Object.keys(identity.tools).sort()).toEqual(
-      ['identity_listMyRoles', 'identity_whoAmI', 'match_users_to_topic'].sort(),
+      ['identity_listMyRoles', 'identity_whoAmI', 'identity_matchUsersByTopic'].sort(),
     );
 
     const self = AgentRegistry.listSpecialists('self')[0]!;
