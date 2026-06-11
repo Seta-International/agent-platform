@@ -20,7 +20,12 @@ const outputSchema = z.object({
 export const whoAmITool = defineAgentTool({
   id: 'identity_whoAmI',
   name: 'Look Up My Profile',
-  description: "Returns the current user's profile (display name, email, tenant, availability).",
+  description:
+    'Read your own profile: display name, email, skills, timezone, and availability.\n\n' +
+    'Use for: "who am I?"; "what are my skills?"; getting your own userId to exclude yourself ' +
+    'from candidate lists; "am I available this week?".\n' +
+    'Call once at the start of any turn that references "me" or "I" — result is cheap and can ' +
+    'be reused within the turn.',
   input: z.object({}),
   output: outputSchema,
   rbac: 'identity.user.read.self',

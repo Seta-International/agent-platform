@@ -18,7 +18,11 @@ export const identityGetTimezoneSpec: CrossModuleReadToolSpec<GetTimezoneInput, 
   {
     id: 'identity_getTimezoneForUser',
     description:
-      'Returns the IANA timezone string for a user. Defaults to UTC when no profile is set.',
+      'Get the IANA timezone for a user (e.g. "Asia/Ho_Chi_Minh").\n\n' +
+      'Use for: timezone-overlap reasoning when assigning long-running collaborative work; ' +
+      '"what timezone is X in?".\n' +
+      'Do NOT use for availability status — use identity_getAvailabilityForUser instead.\n' +
+      'Defaults to UTC when no profile is set.',
     inputSchema,
     outputSchema,
     rbac: 'identity.user.read',
@@ -44,7 +48,12 @@ export const identityGetTimezoneSpec: CrossModuleReadToolSpec<GetTimezoneInput, 
 export const identityGetTimezoneTool = defineCrossModuleReadAsTool({
   id: identityGetTimezoneSpec.id,
   name: 'Get Timezone',
-  description: identityGetTimezoneSpec.description,
+  description:
+    'Get the IANA timezone for a user (e.g. "Asia/Ho_Chi_Minh").\n\n' +
+    'Use for: timezone-overlap reasoning when assigning long-running collaborative work; ' +
+    '"what timezone is X in?".\n' +
+    'Do NOT use for availability status — use identity_getAvailabilityForUser instead.\n' +
+    'Defaults to UTC when no profile is set.',
   inputSchema,
   outputSchema,
   rbac: identityGetTimezoneSpec.rbac,

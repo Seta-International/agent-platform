@@ -9,7 +9,10 @@ export const serverTimeSpec: CrossModuleReadToolSpec<
   z.infer<typeof outputSchema>
 > = {
   id: 'core_serverTime',
-  description: 'Returns the current server time as ISO-8601.',
+  description:
+    'Returns the current server time as ISO-8601.\n\n' +
+    'Use for: relative date calculations ("what tasks are due this week?"); anchoring date ' +
+    'comparisons when the client has not provided a timestamp.',
   inputSchema,
   outputSchema,
   rbac: 'agent.chat.use',

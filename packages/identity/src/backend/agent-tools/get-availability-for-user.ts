@@ -28,8 +28,12 @@ export const identityGetAvailabilitySpec: CrossModuleReadToolSpec<
 > = {
   id: 'identity_getAvailabilityForUser',
   description:
-    'Returns availability_status, ooo_until, and working_hours for a user. ' +
-    "Defaults to 'available' when no profile is set.",
+    "Check a user's availability: status (available / busy / ooo), out-of-office end date, " +
+    'and working hours.\n\n' +
+    'Use for: filtering out OOO candidates before proposing assignment; "is X available this ' +
+    'week?"; load-sensitive assignment decisions.\n' +
+    'Do NOT use for timezone — use identity_getTimezoneForUser instead.\n' +
+    "Defaults to 'available' when no profile exists.",
   inputSchema,
   outputSchema,
   rbac: 'identity.user.read',
@@ -66,7 +70,13 @@ export const identityGetAvailabilitySpec: CrossModuleReadToolSpec<
 export const identityGetAvailabilityTool = defineCrossModuleReadAsTool({
   id: identityGetAvailabilitySpec.id,
   name: 'Get Availability',
-  description: identityGetAvailabilitySpec.description,
+  description:
+    "Check a user's availability: status (available / busy / ooo), out-of-office end date, " +
+    'and working hours.\n\n' +
+    'Use for: filtering out OOO candidates before proposing assignment; "is X available this ' +
+    'week?"; load-sensitive assignment decisions.\n' +
+    'Do NOT use for timezone — use identity_getTimezoneForUser instead.\n' +
+    "Defaults to 'available' when no profile exists.",
   inputSchema,
   outputSchema,
   rbac: identityGetAvailabilitySpec.rbac,

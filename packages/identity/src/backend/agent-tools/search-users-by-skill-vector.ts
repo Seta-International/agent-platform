@@ -57,8 +57,9 @@ export function buildSearchUsersBySkillVectorSpec(
   return {
     id: 'identity_searchUsersBySkillVector',
     description:
-      'Vector-search users whose declared skills + role best match a free-text query. ' +
-      'Returns userId + similarity score. Tenant-scoped via session.tenant_id.',
+      'Vector-search users by skill profile — workflow use only (not LLM-visible). ' +
+      'Returns userId + raw similarity score without reranking. ' +
+      'For LLM-visible semantic user search, use identity_matchUsersByTopic instead.',
     inputSchema,
     outputSchema,
     rbac: 'identity.user.read',
