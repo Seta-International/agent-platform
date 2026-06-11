@@ -37,6 +37,7 @@
     "@mastra/ai-sdk": "^1.4.3",
     "@mastra/core": "^1.37.0",
     "@mastra/memory": "^1.20.0",
+    "@mastra/observability": "^1.14.1",
     "@mastra/pg": "^1.11.1",
     "@seta/agent-sdk": "workspace:^",
     "@seta/knowledge": "workspace:^",

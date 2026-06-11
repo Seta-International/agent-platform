@@ -40,17 +40,21 @@ import { registerStaffingContributions } from '@seta/staffing/register';
 import pino from 'pino';
 import { buildServerApp, registerAppContributions } from './build.ts';
 import { parseEnv } from './env.ts';
+import { logStreams } from './log-streams.ts';
 import { failedLoginAlertSubscriber } from './subscribers/failed-login-alert.ts';
 import { refreshRoleOverlaySubscriber } from './subscribers/refresh-role-overlay.ts';
 import { revokeSessionsOnDeactivationSubscriber } from './subscribers/revoke-sessions-on-deactivation.ts';
 
-const log = pino({
-  name: 'apps/server',
-  mixin() {
-    const requestId = requestIdStorage.getStore()?.requestId;
-    return requestId ? { request_id: requestId } : {};
+const log = pino(
+  {
+    name: 'apps/server',
+    mixin() {
+      const requestId = requestIdStorage.getStore()?.requestId;
+      return requestId ? { request_id: requestId } : {};
+    },
   },
-});
+  pino.multistream(logStreams('server')),
+);
 const env = parseEnv(process.env);
 
 initPools({ databaseUrl: env.DATABASE_URL, log: log.child({ subsystem: 'shared-db' }) });

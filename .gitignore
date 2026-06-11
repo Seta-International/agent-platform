@@ -69,3 +69,6 @@ infra/traefik/jaeger-auth
 .playwright-mcp/
 docs/design/
 .worktrees/
+
+# App NDJSON logs (dev log persistence)
+logs/

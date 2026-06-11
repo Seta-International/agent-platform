@@ -1,9 +1,11 @@
 import { Mastra } from '@mastra/core';
 import { Agent } from '@mastra/core/agent';
 import type { MastraModelConfig } from '@mastra/core/llm';
+import { ConsoleLogger, type LogLevel } from '@mastra/core/logger';
 import { TokenLimiterProcessor } from '@mastra/core/processors';
 import { RequestContext } from '@mastra/core/request-context';
 import type { MastraCompositeStore } from '@mastra/core/storage';
+import { MastraStorageExporter, Observability } from '@mastra/observability';
 import {
   type AgentResult,
   type ApprovalCard,
@@ -289,7 +291,22 @@ async function buildOrchestrator(
   const mastra = new Mastra({
     agents: { 'staffing.orchestrator': agent },
     storage: deps.mastraStorage,
-    logger: false,
+    // Framework-level logs (WARN by default; raise via MASTRA_LOG_LEVEL).
+    logger: new ConsoleLogger({
+      name: 'Mastra',
+      level: (process.env.MASTRA_LOG_LEVEL as LogLevel) ?? 'warn',
+    }),
+    // AI tracing → agent.mastra_ai_spans. This is the per-turn agent that
+    // actually decides tools (proposeAssignment etc.) and natively suspends,
+    // so its span tree is the primary record for debugging chat HITL.
+    observability: new Observability({
+      configs: {
+        default: {
+          serviceName: 'seta-staffing-orchestrator',
+          exporters: [new MastraStorageExporter()],
+        },
+      },
+    }),
   });
   const boundAgent = mastra.getAgent('staffing.orchestrator');
 

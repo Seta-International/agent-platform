@@ -23,8 +23,9 @@ import { registerStaffingContributions } from '@seta/staffing/register';
 // MODULE_IMPORTS_END — generator inserts new register*Contributions imports above this comment.
 import pino from 'pino';
 import { parseEnv } from './env.ts';
+import { logStreams } from './log-streams.ts';
 
-const log = pino({ name: 'apps/worker' });
+const log = pino({ name: 'apps/worker' }, pino.multistream(logStreams('worker')));
 const env = parseEnv(process.env);
 
 initPools({ databaseUrl: env.DATABASE_URL });

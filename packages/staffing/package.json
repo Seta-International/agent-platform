@@ -28,6 +28,7 @@
   },
   "dependencies": {
     "@mastra/core": "^1.37.0",
+    "@mastra/observability": "^1.14.1",
     "@seta/agent": "workspace:^",
     "@seta/agent-sdk": "workspace:^",
     "@seta/core": "workspace:^",
