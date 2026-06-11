@@ -85,6 +85,8 @@ export const TaskAnalyzerInputSchema = z.object({
   taskId: z.string().nullable(),
   /** Only used for find_tasks. "open" = not completed, "completed" = done, "any" = all (default). */
   completionStatus: CompletionStatus.default('any'),
+  /** Only used for find_tasks. Max tasks to return; falls back to the agent default when unset. */
+  limit: z.number().int().min(1).max(50).optional(),
 });
 export const TaskAnalyzerOutputSchema = z.object({
   skills: z.array(z.string()).optional(),

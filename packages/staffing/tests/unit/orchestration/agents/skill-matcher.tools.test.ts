@@ -21,6 +21,18 @@ const skillSearch: SkillSearchPort = {
   },
 };
 
+/** Records the topK each search was issued with, for limit-pass-through assertions. */
+function spySkillSearch() {
+  const topKs: number[] = [];
+  const port: SkillSearchPort = {
+    async search({ topK }) {
+      topKs.push(topK);
+      return [];
+    },
+  };
+  return { port, topKs };
+}
+
 describe('skill-matcher tools', () => {
   it('staffing_searchCandidates returns hits via the port (tenant from requestContext)', async () => {
     const { staffing_searchCandidates } = makeSkillMatcherTools({ skillSearch, topK: 10 });
@@ -28,6 +40,26 @@ describe('skill-matcher tools', () => {
       hits: unknown[];
     };
     expect(out.hits).toHaveLength(3);
+  });
+
+  it('staffing_searchCandidates defaults topK to the factory value when no limit is given', async () => {
+    const spy = spySkillSearch();
+    const { staffing_searchCandidates } = makeSkillMatcherTools({
+      skillSearch: spy.port,
+      topK: 10,
+    });
+    await staffing_searchCandidates.execute!({ skills: ['aws'] } as never, ctx());
+    expect(spy.topKs).toEqual([10]);
+  });
+
+  it('staffing_searchCandidates passes a requested limit through as topK', async () => {
+    const spy = spySkillSearch();
+    const { staffing_searchCandidates } = makeSkillMatcherTools({
+      skillSearch: spy.port,
+      topK: 10,
+    });
+    await staffing_searchCandidates.execute!({ skills: ['aws'], limit: 3 } as never, ctx());
+    expect(spy.topKs).toEqual([3]);
   });
 
   it('staffing_rankCandidates merges per user and ranks by overlap then similarity', async () => {

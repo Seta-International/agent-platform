@@ -19,7 +19,7 @@ import {
 type In = z.infer<typeof TaskAnalyzerInputSchema>;
 type Out = TaskAnalyzerOutput;
 
-/** Max tasks the find_tasks intent returns. */
+/** Default find_tasks result cap when the caller (tool) supplies no limit. */
 const FIND_TASKS_LIMIT = 20;
 
 export interface TaskAnalyzerDeps {
@@ -149,7 +149,7 @@ export function makeTaskAnalyzerAgent(deps: TaskAnalyzerDeps): SpecializedAgentS
           const tags = await extractTags(deps, input.query, ctx);
           const cs = input.completionStatus === 'any' ? undefined : input.completionStatus;
           const tasks: TaskSummary[] = tags.length
-            ? await deps.taskSearch.bySkillTags(tags, FIND_TASKS_LIMIT, ctx, cs)
+            ? await deps.taskSearch.bySkillTags(tags, input.limit ?? FIND_TASKS_LIMIT, ctx, cs)
             : [];
           return {
             result: { tasks },

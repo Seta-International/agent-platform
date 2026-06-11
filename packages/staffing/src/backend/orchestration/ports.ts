@@ -61,7 +61,7 @@ export interface UserProfileHit {
 
 /** Looks up a user's profile by display-name substring (adapter wraps identity listUsers). */
 export interface UserProfilePort {
-  findByName(name: string, ctx: SpecializedAgentRunCtx): Promise<UserProfileHit[]>;
+  findByName(name: string, ctx: SpecializedAgentRunCtx, limit?: number): Promise<UserProfileHit[]>;
 }
 
 /** Availability signals (adapter wraps identity profile + planner in-progress count). */

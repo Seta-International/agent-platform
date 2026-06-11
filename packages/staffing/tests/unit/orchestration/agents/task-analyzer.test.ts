@@ -21,16 +21,18 @@ function spyReader(task: TaskInfo | null) {
 }
 function spySearch(tasks: Awaited<ReturnType<TaskSearchPort['bySkillTags']>>) {
   const calls: string[][] = [];
+  const limits: number[] = [];
   const port: TaskSearchPort = {
-    async bySkillTags(tags) {
+    async bySkillTags(tags, limit) {
       calls.push(tags);
+      limits.push(limit);
       return tasks.map((t) => ({ ...t, skillTags: tags }));
     },
     async listAvailableTags() {
       return [];
     },
   };
-  return { port, calls };
+  return { port, calls, limits };
 }
 
 const TASK = (skillTags: string[]): TaskInfo => ({
@@ -97,6 +99,33 @@ describe('taskAnalyzer agent (intent-routed, deterministic)', () => {
     expect(search.calls).toEqual([['infrastructure']]);
     expect(reader.calls).toEqual([]);
     expect(res.trust.evidenceCitations.some((c) => c.id === 't9')).toBe(true);
+    // No explicit limit → the agent default reaches the search port.
+    expect(search.limits).toEqual([20]);
+  });
+
+  it('find_tasks: passes the requested limit through to the search port', async () => {
+    const search = spySearch([
+      { taskId: 't9', title: 'Infra A', status: 'not_started', skillTags: [] },
+    ]);
+    const agent = makeTaskAnalyzerAgent({
+      taskReader: spyReader(null).port,
+      taskSearch: search.port,
+      resolveModel: () => ({}) as never,
+      extractTagsFromQuery: async () => ['infrastructure'],
+    });
+
+    await agent.run(
+      {
+        intent: 'find_tasks',
+        query: 'find 5 infrastructure tasks',
+        taskId: null,
+        completionStatus: 'open' as const,
+        limit: 5,
+      },
+      ctx,
+    );
+
+    expect(search.limits).toEqual([5]);
   });
 
   it('find_tasks: empty tags → no search, empty task list', async () => {

@@ -60,6 +60,64 @@ describe('listTasksBySkillTag', () => {
       }
     }));
 
+  it('ranks tasks matching more of the requested tags first, then truncates to limit', () =>
+    withDb(async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      initPools({ databaseUrl });
+      try {
+        const seeded = await seedTenant(pool);
+        const session = seeded.adminSession;
+        const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+        const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+
+        // One-tag matches created LAST so recency would surface them first if the
+        // query ranked by updated_at — the overlap ranking must override that.
+        const twoTagMatch = await createTask({
+          plan_id: plan.id,
+          title: 'Both tags',
+          skill_tags: ['infrastructure', 'devops'],
+          session,
+        });
+        const oneTagA = await createTask({
+          plan_id: plan.id,
+          title: 'One tag A',
+          skill_tags: ['infrastructure'],
+          session,
+        });
+        const oneTagB = await createTask({
+          plan_id: plan.id,
+          title: 'One tag B',
+          skill_tags: ['devops'],
+          session,
+        });
+
+        const ranked = await listTasksBySkillTag({
+          tags: ['infrastructure', 'devops'],
+          limit: 10,
+          session,
+        });
+        // Two-tag match ranks first; the two one-tag matches follow.
+        expect(ranked.results[0]!.taskId).toBe(twoTagMatch.id);
+        expect(
+          ranked.results
+            .map((r) => r.taskId)
+            .slice(1)
+            .sort(),
+        ).toEqual([oneTagA.id, oneTagB.id].sort());
+
+        // "give me the single best match" keeps the most relevant, not the newest.
+        const top1 = await listTasksBySkillTag({
+          tags: ['infrastructure', 'devops'],
+          limit: 1,
+          session,
+        });
+        expect(top1.results.map((r) => r.taskId)).toEqual([twoTagMatch.id]);
+      } finally {
+        resetCoreDb();
+        await closePools();
+      }
+    }));
+
   it('matches tags case-insensitively', () =>
     withDb(async ({ pool, databaseUrl }) => {
       resetCoreDb();

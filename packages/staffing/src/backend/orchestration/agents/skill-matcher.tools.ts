@@ -37,15 +37,25 @@ export function makeSkillMatcherTools(deps: SkillMatcherToolDeps) {
       'Use for: first step in every candidate-finding flow.\n' +
       'Call once with all required skills; pass results to staffing_rankCandidates.',
     rbac: 'identity.user.read.any',
-    input: z.object({ skills: z.array(z.string()).min(1) }),
+    input: z.object({
+      skills: z.array(z.string()).min(1),
+      limit: z
+        .number()
+        .int()
+        .min(1)
+        .max(50)
+        .optional()
+        .describe('Max candidates to return. Set to the count the user asked for. Default 10.'),
+    }),
     output: z.object({ hits: z.array(HitSchema) }),
-    execute: async ({ skills }, ctx) => {
+    execute: async ({ skills, limit }, ctx) => {
       const runCtx = {
         tenantId: tenantOf(ctx),
         actorUserId: actorFromContext(ctx).user_id,
         abortSignal: ctx.abortSignal,
       };
-      const hits = await deps.skillSearch.search({ skills, topK: deps.topK ?? 10 }, runCtx);
+      const topK = limit ?? deps.topK ?? 10;
+      const hits = await deps.skillSearch.search({ skills, topK }, runCtx);
       return { hits };
     },
   });

@@ -92,10 +92,16 @@ export function makeSkillSearch(deps: SkillSearchDeps): SkillSearchPort {
 }
 
 // ---- UserProfileLookup: identity listUsers (name search) + getUserProfile ----
+const PROFILE_LOOKUP_DEFAULT_LIMIT = 5;
+
 export function makeUserProfileLookup(): UserProfilePort {
   return {
-    async findByName(name, ctx) {
-      const { rows } = await listUsers(ctx.tenantId, { search: name, limit: 5, offset: 0 });
+    async findByName(name, ctx, limit) {
+      const { rows } = await listUsers(ctx.tenantId, {
+        search: name,
+        limit: Math.min(Math.max(limit ?? PROFILE_LOOKUP_DEFAULT_LIMIT, 1), 25),
+        offset: 0,
+      });
       const profiles = await Promise.all(
         rows.map(async (r) => {
           const p = await getUserProfile(r.user_id);

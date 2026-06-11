@@ -77,18 +77,32 @@ function buildTools(
     'staffing.generalAnswer',
     { answer: '' },
   );
+  const profileCalls: Array<{ name: string; limit?: number }> = [];
   const tools = makeOrchestratorTools({
     taskAnalyzer: taskAnalyzer.spec as never,
     skillMatcher: skillMatcher.spec as never,
     avaiChecker: avaiChecker.spec as never,
     recommender: recommender.spec as never,
     generalAnswer: generalAnswer.spec as never,
-    userProfileLookup: { findByName: async () => [] },
+    userProfileLookup: {
+      findByName: async (name, _ctx, limit) => {
+        profileCalls.push({ name, limit });
+        return [];
+      },
+    },
     assign: { assign: async () => {} },
     userText: overrides.userText ?? '',
     ctx: { tenantId: 't1', actorUserId: 'a1' },
   });
-  return { tools, taskAnalyzer, skillMatcher, avaiChecker, recommender, generalAnswer };
+  return {
+    tools,
+    taskAnalyzer,
+    skillMatcher,
+    avaiChecker,
+    recommender,
+    generalAnswer,
+    profileCalls,
+  };
 }
 
 describe('staffing_analyzeTasks taskRef resolution', () => {
@@ -149,6 +163,27 @@ describe('staffing_analyzeTasks taskRef resolution', () => {
       internalDetail: expect.stringMatching(/no recent tasks/i),
     });
     expect(taskAnalyzer.inputs).toHaveLength(0); // sub-agent never invoked
+  });
+});
+
+describe('result-limit pass-through', () => {
+  it('staffing_analyzeTasks forwards the requested find_tasks limit to the sub-agent', async () => {
+    const { toolCtx } = memCtx();
+    const { tools, taskAnalyzer } = buildTools({
+      taskAnalyzerResult: { tasks: [] },
+    });
+    await tools.staffing_analyzeTasks.execute!(
+      { intent: 'find_tasks', query: 'find 5 infra tasks', taskRef: null, limit: 5 } as never,
+      toolCtx,
+    );
+    expect((taskAnalyzer.inputs[0] as { limit?: number }).limit).toBe(5);
+  });
+
+  it('staffing_lookupUserProfile forwards the requested limit to the profile port', async () => {
+    const { toolCtx } = memCtx();
+    const { tools, profileCalls } = buildTools();
+    await tools.staffing_lookupUserProfile.execute!({ name: 'Alice', limit: 3 } as never, toolCtx);
+    expect(profileCalls).toEqual([{ name: 'Alice', limit: 3 }]);
   });
 });
 

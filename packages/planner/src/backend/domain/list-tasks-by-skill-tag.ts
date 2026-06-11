@@ -67,9 +67,11 @@ export async function listTasksBySkillTag(
   const loweredTags = sql.raw(
     `ARRAY[${input.tags.map((t) => `'${t.toLowerCase().replace(/'/g, "''")}'`).join(',')}]::text[]`,
   );
-  conditions.push(
-    sql`EXISTS (SELECT 1 FROM unnest(${tasks.skill_tags}) AS st WHERE lower(st) = ANY(${loweredTags}))`,
-  );
+  // Relevance = how many of the requested tags the task carries. Used both to
+  // filter (>0) and to rank, so truncating to `limit` keeps the best matches
+  // rather than the most-recently-updated ones.
+  const matchCount = sql<number>`(SELECT count(DISTINCT lower(st)) FROM unnest(${tasks.skill_tags}) AS st WHERE lower(st) = ANY(${loweredTags}))`;
+  conditions.push(sql`${matchCount} > 0`);
 
   const rows = await db
     .select({
@@ -96,7 +98,7 @@ export async function listTasksBySkillTag(
       tasks.created_at,
       tasks.updated_at,
     )
-    .orderBy(sql`${tasks.updated_at} DESC, ${tasks.id} DESC`)
+    .orderBy(sql`${matchCount} DESC, ${tasks.updated_at} DESC, ${tasks.id} DESC`)
     .limit(input.limit);
 
   return {

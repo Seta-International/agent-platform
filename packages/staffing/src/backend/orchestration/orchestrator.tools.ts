@@ -24,6 +24,7 @@ type TaskAnalyzerSpec = SpecializedAgentSpec<
     query: string;
     taskId: string | null;
     completionStatus: CompletionStatus;
+    limit?: number;
   },
   TaskAnalyzerOutput
 >;
@@ -117,6 +118,17 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
       completionStatus: CompletionStatus.default('any').describe(
         'Only for find_tasks. "open" = not completed, "completed" = done, "any" = all (default).',
       ),
+      limit: z
+        .number()
+        .int()
+        .min(1)
+        .max(50)
+        .optional()
+        .describe(
+          'Only for find_tasks. Max tasks to return. Set this to the count the user asked ' +
+            'for — e.g. "find 5 infra tasks" → 5. Results are ranked by relevance, so this ' +
+            'returns the best N. Omit for the default of 20.',
+        ),
     }),
     output: z.object({
       resolvedTaskId: z.string().nullable(),
@@ -124,7 +136,7 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
       title: z.string().optional(),
       tasks: z.array(TaskSummarySchema).optional(),
     }),
-    execute: async ({ intent, query, taskRef, completionStatus }, toolCtx) => {
+    execute: async ({ intent, query, taskRef, completionStatus, limit }, toolCtx) => {
       // Resolve BEFORE emitting step-start: a failed resolution throws back to
       // the LLM (same pattern as the planner tools) without leaving a dangling
       // step card in the trace timeline.
@@ -134,7 +146,10 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
         stepId: 'taskAnalyzer',
         agentId: 'staffing.taskAnalyzer',
       });
-      const res = await taskAnalyzer.run({ intent, query, taskId, completionStatus }, subCtx);
+      const res = await taskAnalyzer.run(
+        { intent, query, taskId, completionStatus, limit },
+        subCtx,
+      );
       ctx.onEvent?.({ kind: 'step-done', stepId: 'taskAnalyzer', trust: res.trust });
       // Server-owned exposure tracking (thread-scoped working memory): the
       // recorder no-ops without RC_AGENT_MEMORY/RC_THREAD_ID and swallows its
@@ -260,15 +275,26 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
       "Look up a specific person's skills, role, and availability by display name.\n\n" +
       'Use for: "list skills of Alice"; "what does Bob know"; "show Tuấn\'s profile".\n' +
       'Pass the display name as the user wrote it.',
-    input: z.object({ name: z.string().describe("The person's display name to search for.") }),
+    input: z.object({
+      name: z.string().describe("The person's display name to search for."),
+      limit: z
+        .number()
+        .int()
+        .min(1)
+        .max(25)
+        .optional()
+        .describe(
+          'Max matching profiles to return. Set to the count the user asked for. Default 5.',
+        ),
+    }),
     output: z.object({ profiles: z.array(UserProfileResultSchema) }),
-    execute: async ({ name }) => {
+    execute: async ({ name, limit }) => {
       ctx.onEvent?.({
         kind: 'step-start',
         stepId: 'userProfileLookup',
         agentId: 'staffing.userProfileLookup',
       });
-      const profiles = await userProfileLookup.findByName(name, subCtx);
+      const profiles = await userProfileLookup.findByName(name, subCtx, limit);
       ctx.onEvent?.({
         kind: 'step-done',
         stepId: 'userProfileLookup',
