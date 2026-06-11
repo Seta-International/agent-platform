@@ -1,6 +1,6 @@
 import { InMemoryStore } from '@mastra/core/storage';
 import { SpecializedAgentRegistry } from '@seta/agent-sdk';
-import { type OrchestrationEvent, OrchestrationRegistry } from '@seta/shared-orchestration';
+import { OrchestrationRegistry } from '@seta/shared-orchestration';
 import { MockLanguageModelV3 } from 'ai/test';
 import { eq } from 'drizzle-orm';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -204,17 +204,6 @@ describe('orchestrator inline run (e2e)', () => {
       expect(final.kind).toBe('final');
       expect(final.result.recommendations?.[0]?.userId).toBe('u1');
 
-      // Live sub-step cards streamed (taskAnalyzer + skillMatcher + avaiChecker + recommender).
-      const started = events
-        .filter(
-          (e): e is Extract<OrchestrationEvent, { kind: 'step-start' }> => e.kind === 'step-start',
-        )
-        .map((e) => e.stepId);
-      expect(started).toContain('taskAnalyzer');
-      expect(started).toContain('skillMatcher:task-1');
-      expect(started).toContain('avaiChecker:task-1');
-      expect(started).toContain('recommender:task-1');
-
       const [run] = await staffingDb()
         .select()
         .from(orchestrationRuns)
@@ -260,20 +249,10 @@ describe('orchestrator inline run (e2e)', () => {
       };
       expect(final.result.skills).toEqual(['aws']);
       expect(final.result.recommendations).toBeUndefined();
-
-      const started = events
-        .filter(
-          (e): e is Extract<OrchestrationEvent, { kind: 'step-start' }> => e.kind === 'step-start',
-        )
-        .map((e) => e.stepId);
-      expect(started).toContain('taskAnalyzer');
-      expect(started.some((s: string) => s.startsWith('skillMatcher'))).toBe(false);
-      expect(started.some((s: string) => s.startsWith('avaiChecker'))).toBe(false);
-      expect(started.some((s: string) => s.startsWith('recommender'))).toBe(false);
     });
   });
 
-  it('runStream recommend path: streams OrchestrationEvents ending in final, no DB persistence', async () => {
+  it('runStream recommend path: returns the live Mastra output + a finalize() result, no DB persistence', async () => {
     await withAgentTestDb(async () => {
       const rt = buildStaffingOrchestrationRuntime({
         mastraStorage: new InMemoryStore(),
@@ -319,30 +298,18 @@ describe('orchestrator inline run (e2e)', () => {
       SpecializedAgentRegistry.freeze();
       OrchestrationRegistry.freeze();
 
-      const events: OrchestrationEvent[] = [];
-      for await (const e of rt.runStream(
+      const run = await rt.runStream(
         { userText: 'go', taskId: 'task-1' },
         { tenantId: TENANT, actorUserId: ACTOR },
-      )) {
-        events.push(e);
+      );
+      // Draining the live Mastra fullStream drives the LLM + tools to completion.
+      for await (const _ of run.output.fullStream) {
+        // no-op: the route maps these chunks to AI SDK parts.
       }
-
-      const final = events.at(-1) as {
-        kind: 'final';
+      const final = (await run.finalize()) as {
         result: { recommendations?: { userId: string }[] };
       };
-      expect(final.kind).toBe('final');
       expect(final.result.recommendations?.[0]?.userId).toBe('u1');
-
-      const started = events
-        .filter(
-          (e): e is Extract<OrchestrationEvent, { kind: 'step-start' }> => e.kind === 'step-start',
-        )
-        .map((e) => e.stepId);
-      expect(started).toContain('taskAnalyzer');
-      expect(started).toContain('skillMatcher:task-1');
-      expect(started).toContain('avaiChecker:task-1');
-      expect(started).toContain('recommender:task-1');
     });
   });
 

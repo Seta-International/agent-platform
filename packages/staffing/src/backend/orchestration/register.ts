@@ -3,6 +3,7 @@ import type { MastraCompositeStore } from '@mastra/core/storage';
 import { SpecializedAgentRegistry } from '@seta/agent-sdk';
 import {
   type AddJob,
+  type ChatStreamRun,
   makeOrchestrationTaskList,
   type OrchestrationEvent,
   OrchestrationRegistry,
@@ -51,13 +52,13 @@ export interface StaffingOrchestrationRuntime {
   runStream: (
     runInput: { userText: string; taskId: string | null },
     ctx: RunCtx,
-  ) => AsyncIterable<OrchestrationEvent>;
+  ) => Promise<ChatStreamRun>;
   /** Resumes a suspended native-suspend orchestrator run (the chat-HITL approval
    *  continuation). Injected by the app as the agent route's resumeOrchestration. */
   runResume: (
     resume: ResumeDecision,
     ctx: RunCtx & { mastraRunId: string; toolCallId?: string },
-  ) => AsyncIterable<OrchestrationEvent>;
+  ) => Promise<ChatStreamRun>;
   repo: RunStateRepository;
 }
 

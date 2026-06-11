@@ -61,7 +61,7 @@ export interface OrchestratorToolDeps {
    *  `Context:` file block. Passed verbatim to the general-answer sub-agent so
    *  the routing LLM cannot paraphrase or truncate the document into a tool arg. */
   userText: string;
-  /** The orchestrator's run ctx: provides tenant/actor/abort + the onEvent sink. */
+  /** The orchestrator's run ctx: provides tenant/actor/abort. */
   ctx: SpecializedAgentRunCtx;
 }
 
@@ -78,9 +78,8 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
     userText,
     ctx,
   } = deps;
-  // Sub-agents run with the same tenant/actor but WITHOUT the onEvent sink, so
-  // only the orchestrator (here) emits the sub-step cards. The per-turn model
-  // override rides along so sub-agent LLM calls honor the user's pick.
+  // Sub-agents run with the same tenant/actor. The per-turn model override rides
+  // along so sub-agent LLM calls honor the user's pick.
   const subCtx: SpecializedAgentRunCtx = {
     tenantId: ctx.tenantId,
     actorUserId: ctx.actorUserId,
@@ -137,20 +136,11 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
       tasks: z.array(TaskSummarySchema).optional(),
     }),
     execute: async ({ intent, query, taskRef, completionStatus, limit }, toolCtx) => {
-      // Resolve BEFORE emitting step-start: a failed resolution throws back to
-      // the LLM (same pattern as the planner tools) without leaving a dangling
-      // step card in the trace timeline.
       const taskId = taskRef ? (await resolveTaskRef(toolCtx as never, taskRef)).taskId : null;
-      ctx.onEvent?.({
-        kind: 'step-start',
-        stepId: 'taskAnalyzer',
-        agentId: 'staffing.taskAnalyzer',
-      });
       const res = await taskAnalyzer.run(
         { intent, query, taskId, completionStatus, limit },
         subCtx,
       );
-      ctx.onEvent?.({ kind: 'step-done', stepId: 'taskAnalyzer', trust: res.trust });
       // Server-owned exposure tracking (thread-scoped working memory): the
       // recorder no-ops without RC_AGENT_MEMORY/RC_THREAD_ID and swallows its
       // own failures — never breaks the staffing answer.
@@ -184,10 +174,7 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
     input: z.object({ taskId: z.string().nullable(), skills: z.array(z.string()).min(1) }),
     output: z.object({ taskId: z.string().nullable(), candidates: z.array(RankedCandidateSchema) }),
     execute: async ({ taskId, skills }) => {
-      const stepId = `skillMatcher:${taskId ?? 'adhoc'}`;
-      ctx.onEvent?.({ kind: 'step-start', stepId, agentId: 'staffing.skillMatcher' });
       const res = await skillMatcher.run({ taskId, skills }, subCtx);
-      ctx.onEvent?.({ kind: 'step-done', stepId, trust: res.trust });
       return res.result;
     },
   });
@@ -205,10 +192,7 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
       availability: z.array(AvailabilityResultSchema),
     }),
     execute: async ({ taskId, candidates }) => {
-      const stepId = `avaiChecker:${taskId ?? 'adhoc'}`;
-      ctx.onEvent?.({ kind: 'step-start', stepId, agentId: 'staffing.avaiChecker' });
       const res = await avaiChecker.run({ taskId, candidates }, subCtx);
-      ctx.onEvent?.({ kind: 'step-done', stepId, trust: res.trust });
       return res.result;
     },
   });
@@ -232,10 +216,7 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
       recommendations: z.array(RecommendationSchema),
     }),
     execute: async ({ taskId, skills, candidates, availability }, toolCtx) => {
-      const stepId = `recommender:${taskId ?? 'adhoc'}`;
-      ctx.onEvent?.({ kind: 'step-start', stepId, agentId: 'staffing.recommender' });
       const res = await recommender.run({ taskId, skills, candidates, availability }, subCtx);
-      ctx.onEvent?.({ kind: 'step-done', stepId, trust: res.trust });
       if (res.result.taskId && res.result.recommendations.length > 0) {
         await recordEntityExposure(toolCtx as never, {
           lastDiscussedTaskId: res.result.taskId,
@@ -257,13 +238,7 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
     input: z.object({}),
     output: z.object({ answer: z.string() }),
     execute: async () => {
-      ctx.onEvent?.({
-        kind: 'step-start',
-        stepId: 'generalAnswer',
-        agentId: 'staffing.generalAnswer',
-      });
       const res = await generalAnswer.run({ query: userText }, answerCtx);
-      ctx.onEvent?.({ kind: 'step-done', stepId: 'generalAnswer', trust: res.trust });
       return res.result;
     },
   });
@@ -289,17 +264,7 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
     }),
     output: z.object({ profiles: z.array(UserProfileResultSchema) }),
     execute: async ({ name, limit }) => {
-      ctx.onEvent?.({
-        kind: 'step-start',
-        stepId: 'userProfileLookup',
-        agentId: 'staffing.userProfileLookup',
-      });
       const profiles = await userProfileLookup.findByName(name, subCtx, limit);
-      ctx.onEvent?.({
-        kind: 'step-done',
-        stepId: 'userProfileLookup',
-        trust: { reasoningTrace: [], evidenceCitations: [], confidenceScore: 0.9 },
-      });
       return { profiles };
     },
   });

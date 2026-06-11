@@ -46,7 +46,7 @@ export interface ProposeAssignmentDeps {
   recommender: RecommenderSpec;
   /** Performs the assignment once the approval card is approved. */
   assign: AssignPort;
-  /** The orchestrator's run ctx: tenant/actor/abort + the onEvent sink. */
+  /** The orchestrator's run ctx: tenant/actor/abort. */
   ctx: SpecializedAgentRunCtx;
 }
 
@@ -80,9 +80,8 @@ const OutputSchema = z.object({
 export function makeProposeAssignmentTool(deps: ProposeAssignmentDeps) {
   const { taskAnalyzer, skillMatcher, avaiChecker, recommender, assign, ctx } = deps;
 
-  // Sub-agents run with the same tenant/actor but WITHOUT the onEvent sink, so
-  // only the composite (here) emits the sub-step cards. The per-turn model
-  // override rides along so sub-agent LLM calls honor the user's pick.
+  // Sub-agents run with the same tenant/actor. The per-turn model override rides
+  // along so sub-agent LLM calls honor the user's pick.
   const subCtx: SpecializedAgentRunCtx = {
     tenantId: ctx.tenantId,
     actorUserId: ctx.actorUserId,
@@ -135,16 +134,10 @@ export function makeProposeAssignmentTool(deps: ProposeAssignmentDeps) {
       const taskId = (await resolveTaskRef(toolCtx as never, taskRef)).taskId;
 
       // resolve_task_skills (taskAnalyzer) — its result carries skills + title.
-      ctx.onEvent?.({
-        kind: 'step-start',
-        stepId: 'taskAnalyzer',
-        agentId: 'staffing.taskAnalyzer',
-      });
       const analyzed = await taskAnalyzer.run(
         { intent: 'resolve_task_skills', query: title ?? '', taskId, completionStatus: 'any' },
         subCtx,
       );
-      ctx.onEvent?.({ kind: 'step-done', stepId: 'taskAnalyzer', trust: analyzed.trust });
       const skills = analyzed.result.skills ?? [];
       const cardTitle = analyzed.result.title ?? title;
       // Server-owned exposure tracking (thread-scoped working memory): the
@@ -158,20 +151,12 @@ export function makeProposeAssignmentTool(deps: ProposeAssignmentDeps) {
       });
 
       // skillMatcher
-      const matchStepId = `skillMatcher:${taskId}`;
-      ctx.onEvent?.({ kind: 'step-start', stepId: matchStepId, agentId: 'staffing.skillMatcher' });
       const matched = await skillMatcher.run({ taskId, skills }, subCtx);
-      ctx.onEvent?.({ kind: 'step-done', stepId: matchStepId, trust: matched.trust });
 
       // avaiChecker
-      const avaiStepId = `avaiChecker:${taskId}`;
-      ctx.onEvent?.({ kind: 'step-start', stepId: avaiStepId, agentId: 'staffing.avaiChecker' });
       const avai = await avaiChecker.run({ taskId, candidates: matched.result.candidates }, subCtx);
-      ctx.onEvent?.({ kind: 'step-done', stepId: avaiStepId, trust: avai.trust });
 
       // recommender
-      const recStepId = `recommender:${taskId}`;
-      ctx.onEvent?.({ kind: 'step-start', stepId: recStepId, agentId: 'staffing.recommender' });
       const recommended = await recommender.run(
         {
           taskId,
@@ -181,7 +166,6 @@ export function makeProposeAssignmentTool(deps: ProposeAssignmentDeps) {
         },
         subCtx,
       );
-      ctx.onEvent?.({ kind: 'step-done', stepId: recStepId, trust: recommended.trust });
 
       const recommendations = recommended.result.recommendations;
       if (recommendations.length === 0) {
