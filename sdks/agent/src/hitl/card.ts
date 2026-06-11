@@ -8,6 +8,17 @@ export const CandidateRowSchema = z.object({
   meta: z.record(z.string(), z.unknown()).optional(),
 });
 
+export const EntityRefSchema = z.object({
+  id: z.string(),
+  type: z.string(), // 'user' | 'task' | 'document' | … — resolves an entity renderer
+  label: z.string(),
+  secondary: z.string().optional(),
+  score: z.number().optional(),
+  primary: z.boolean().optional(), // the recommended/top choice
+  meta: z.record(z.string(), z.unknown()).optional(),
+});
+export type EntityRef = z.infer<typeof EntityRefSchema>;
+
 export const ApprovalDetailBlockSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('text'), body: z.string() }),
   z.object({
@@ -17,6 +28,16 @@ export const ApprovalDetailBlockSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('candidateList'), items: z.array(CandidateRowSchema) }),
   z.object({ kind: z.literal('diff'), before: z.unknown(), after: z.unknown() }),
   z.object({ kind: z.literal('confirmationChecklist'), items: z.array(z.string()) }),
+  z.object({
+    kind: z.literal('entityList'),
+    select: z.enum(['none', 'single', 'multi']).default('none'),
+    items: z.array(EntityRefSchema),
+  }),
+  z.object({ kind: z.literal('confidence'), score: z.number(), label: z.string().optional() }),
+  z.object({
+    kind: z.literal('citations'),
+    items: z.array(z.object({ kind: z.string(), id: z.string(), label: z.string().optional() })),
+  }),
 ]);
 
 export const ApprovalCardSchema = z.object({
