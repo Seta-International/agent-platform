@@ -22,6 +22,14 @@ const searchSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .optional(),
   calPage: z.coerce.number().int().min(1).optional(),
+  // Charts tab state (independent of board filters).
+  'c.assignee': z.string().optional(),
+  'c.bucket': z.string().optional(),
+  'c.priority': z.string().optional(),
+  'c.status': z.string().optional(),
+  'c.from': z.string().optional(),
+  'c.to': z.string().optional(),
+  'c.show': z.string().optional(),
 });
 
 export const Route = createFileRoute('/_authed/planner/plans_/$planId')({
