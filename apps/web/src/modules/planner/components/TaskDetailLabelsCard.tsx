@@ -344,10 +344,14 @@ function LabelEditPanel({
           Delete
         </Button>
         <div className="flex gap-1.5">
-          <Button variant="ghost" size="sm" onClick={onClose}>
+          <Button variant="ghost" size="sm" onClick={onClose} disabled={del.isPending}>
             Cancel
           </Button>
-          <Button size="sm" onClick={handleSave} disabled={!canSave || update.isPending}>
+          <Button
+            size="sm"
+            onClick={handleSave}
+            disabled={!canSave || update.isPending || del.isPending}
+          >
             Save
           </Button>
         </div>
