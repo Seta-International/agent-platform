@@ -16,15 +16,27 @@ export interface DonutChartProps {
   /** Caption under the centre value. */
   centerLabel?: string;
   height?: number;
+  /** `right` renders a count + % legend column beside the ring. */
+  legend?: 'none' | 'right';
+  onSliceClick?: (slice: DonutSlice) => void;
 }
 
 /** Generic donut/ring chart. Slice-driven — no domain coupling. */
-export function DonutChart({ slices, centerValue, centerLabel, height = 220 }: DonutChartProps) {
+export function DonutChart({
+  slices,
+  centerValue,
+  centerLabel,
+  height = 220,
+  legend = 'none',
+  onSliceClick,
+}: DonutChartProps) {
   const visible = slices.filter((s) => s.value > 0);
   if (visible.length === 0) return <ChartEmpty />;
+  const total = slices.reduce((a, s) => a + s.value, 0);
+  const clickable = Boolean(onSliceClick);
 
-  return (
-    <div className="relative">
+  const ring = (
+    <div className="relative" style={{ width: legend === 'right' ? 220 : '100%' }}>
       <ResponsiveContainer width="100%" height={height}>
         <PieChart>
           <Pie
@@ -38,7 +50,12 @@ export function DonutChart({ slices, centerValue, centerLabel, height = 220 }: D
             strokeWidth={2}
           >
             {visible.map((s) => (
-              <Cell key={s.key} fill={s.color} />
+              <Cell
+                key={s.key}
+                fill={s.color}
+                cursor={clickable ? 'pointer' : undefined}
+                onClick={onSliceClick ? () => onSliceClick(s) : undefined}
+              />
             ))}
           </Pie>
           <Tooltip
@@ -53,6 +70,46 @@ export function DonutChart({ slices, centerValue, centerLabel, height = 220 }: D
           {centerLabel && <span className="text-xs text-ink-subtle">{centerLabel}</span>}
         </div>
       )}
+    </div>
+  );
+
+  if (legend !== 'right') return ring;
+
+  return (
+    <div className="flex flex-wrap items-center gap-6">
+      {ring}
+      <ul className="flex min-w-40 flex-1 flex-col gap-2">
+        {slices.map((s) => {
+          const pct = total ? Math.round((s.value / total) * 100) : 0;
+          const body = (
+            <>
+              <span
+                aria-hidden="true"
+                className="size-2.5 shrink-0 rounded-[3px]"
+                style={{ background: s.color }}
+              />
+              <span className="text-ink">{s.name}</span>
+              <span className="ml-auto font-medium tabular-nums text-ink">{s.value}</span>
+              <span className="w-9 text-right tabular-nums text-ink-subtle">{pct}%</span>
+            </>
+          );
+          return (
+            <li key={s.key}>
+              {clickable ? (
+                <button
+                  type="button"
+                  onClick={() => onSliceClick?.(s)}
+                  className="flex w-full items-center gap-2 text-body-sm hover:opacity-80"
+                >
+                  {body}
+                </button>
+              ) : (
+                <div className="flex items-center gap-2 text-body-sm">{body}</div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
