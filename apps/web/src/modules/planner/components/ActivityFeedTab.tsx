@@ -4,6 +4,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { useEffect, useRef } from 'react';
 import { useGroupActivityFeed } from '../hooks/queries/use-group-activity-feed';
 import { buildActivityLabel } from '../lib/build-activity-label';
+import { absoluteActivityTime } from '../lib/format-activity-time';
 
 interface Props {
   groupId: string;
@@ -41,7 +42,12 @@ function ActivityRow({ item }: { item: GroupActivityItem }) {
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-body-sm text-ink">{buildActivityLabel(item)}</p>
-        <p className="text-caption text-ink-subtle mt-0.5">{formatRelative(item.occurred_at)}</p>
+        <p
+          className="text-caption text-ink-subtle mt-0.5"
+          title={absoluteActivityTime(item.occurred_at)}
+        >
+          {formatRelative(item.occurred_at)}
+        </p>
       </div>
     </div>
   );

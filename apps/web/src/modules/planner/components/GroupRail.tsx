@@ -12,6 +12,7 @@ import { Check, ChevronRight, Plus, Shield, Users, X } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { GroupJoinRequestRow } from '../api/planner-client';
 import { buildActivityLabel } from '../lib/build-activity-label';
+import { absoluteActivityTime } from '../lib/format-activity-time';
 
 interface Props {
   group: GroupRow;
@@ -70,7 +71,9 @@ function ActivityList({ items }: { items: ReadonlyArray<GroupActivityItem> | nul
           </Avatar>
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm">{buildActivityLabel(item)}</div>
-            <div className="text-xs text-ink-subtle">{formatRelative(item.occurred_at)}</div>
+            <div className="text-xs text-ink-subtle" title={absoluteActivityTime(item.occurred_at)}>
+              {formatRelative(item.occurred_at)}
+            </div>
           </div>
         </li>
       ))}
