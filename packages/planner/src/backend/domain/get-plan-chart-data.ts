@@ -59,7 +59,6 @@ async function getPlanChartDataImpl(
   const threeDaysFromNow = new Date(now.getTime() + 3 * MS_PER_DAY);
   const twoWeeksAgo = new Date(now.getTime() - 14 * MS_PER_DAY);
 
-  // byStatus + byPriority + kpis: all derived from a single tasks scan.
   const liveTasksWhere = and(
     eq(tasks.plan_id, input.plan_id),
     eq(tasks.tenant_id, session.tenant_id),
@@ -69,9 +68,10 @@ async function getPlanChartDataImpl(
   const [statusRow] = await db
     .select({
       completed: sql<number>`COUNT(*) FILTER (WHERE ${tasks.percent_complete} = 100)::int`,
-      in_progress: sql<number>`COUNT(*) FILTER (WHERE ${tasks.percent_complete} > 0 AND ${tasks.percent_complete} < 100 AND NOT ${tasks.is_deferred})::int`,
-      not_started: sql<number>`COUNT(*) FILTER (WHERE ${tasks.percent_complete} = 0 AND NOT ${tasks.is_deferred})::int`,
-      deferred: sql<number>`COUNT(*) FILTER (WHERE ${tasks.is_deferred} = true)::int`,
+      in_progress: sql<number>`COUNT(*) FILTER (WHERE ${tasks.is_deferred} = false AND ${tasks.percent_complete} = 50 AND (${tasks.due_at} IS NULL OR ${tasks.due_at} >= ${now}))::int`,
+      not_started: sql<number>`COUNT(*) FILTER (WHERE ${tasks.is_deferred} = false AND ${tasks.percent_complete} = 0 AND (${tasks.due_at} IS NULL OR ${tasks.due_at} >= ${now}))::int`,
+      late: sql<number>`COUNT(*) FILTER (WHERE ${tasks.is_deferred} = false AND ${tasks.percent_complete} < 100 AND ${tasks.due_at} IS NOT NULL AND ${tasks.due_at} < ${now})::int`,
+      deferred: sql<number>`COUNT(*) FILTER (WHERE ${tasks.is_deferred} = true AND ${tasks.percent_complete} < 100)::int`,
       at_risk: sql<number>`COUNT(*) FILTER (WHERE ${tasks.due_at} IS NOT NULL AND ${tasks.due_at} < ${threeDaysFromNow} AND ${tasks.percent_complete} < 100)::int`,
       velocity_completed: sql<number>`COUNT(*) FILTER (WHERE ${tasks.percent_complete} = 100 AND ${tasks.updated_at} >= ${twoWeeksAgo})::int`,
     })
@@ -81,6 +81,7 @@ async function getPlanChartDataImpl(
   const completed = statusRow?.completed ?? 0;
   const inProgress = statusRow?.in_progress ?? 0;
   const notStarted = statusRow?.not_started ?? 0;
+  const late = statusRow?.late ?? 0;
   const deferred = statusRow?.deferred ?? 0;
   const atRisk = statusRow?.at_risk ?? 0;
   const velocityCompleted = statusRow?.velocity_completed ?? 0;
@@ -89,6 +90,7 @@ async function getPlanChartDataImpl(
     not_started: notStarted,
     in_progress: inProgress,
     completed,
+    late,
     deferred,
   };
 
@@ -155,7 +157,7 @@ async function getPlanChartDataImpl(
     count: r.count,
   }));
 
-  const open = notStarted + inProgress + deferred;
+  const open = notStarted + inProgress + late + deferred;
   const velocity = velocityCompleted / 2;
 
   return {

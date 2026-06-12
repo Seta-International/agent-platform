@@ -133,6 +133,7 @@ export type {
   MyTasksResult,
   PlanRow,
   PlanWithRollupsRow,
+  StatusBreakdown,
   TaskDetailRow,
   TaskExternalSource,
   TaskPreviewType,

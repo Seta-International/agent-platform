@@ -307,13 +307,20 @@ export interface MyTasksResult {
   recentlyCompleted: TaskWithPlan[];
 }
 
+export interface StatusBreakdown {
+  not_started: number;
+  in_progress: number;
+  completed: number;
+  late: number;
+  deferred: number;
+}
+
 export interface ChartData {
   kpis: { open: number; completed: number; atRisk: number; velocity: number };
-  byStatus: Record<'not_started' | 'in_progress' | 'completed' | 'deferred', number>;
+  byStatus: StatusBreakdown;
   byPriority: Record<'urgent' | 'important' | 'medium' | 'low', number>;
   byBucket: Array<{ bucketId: string; name: string; count: number }>;
   byMember: Array<{ userId: string; displayName: string; count: number }>;
-  burndown?: Array<{ date: string; remaining: number; ideal: number }>;
 }
 
 export interface CommentDto {
