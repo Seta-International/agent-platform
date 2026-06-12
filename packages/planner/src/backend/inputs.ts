@@ -289,9 +289,20 @@ export interface ListPlanTasksByDateRangeInput {
   cursor?: string;
 }
 
+export type ChartStatusKey = 'not_started' | 'in_progress' | 'completed';
+
+export interface ChartFilters {
+  assignee_ids?: string[];
+  bucket_ids?: string[];
+  priorities?: Array<1 | 3 | 5 | 9>;
+  statuses?: ChartStatusKey[];
+  /** Filters tasks by due_at within [from, to] (inclusive). */
+  range?: { from?: string; to?: string };
+}
+
 export interface GetPlanChartDataInput {
   plan_id: string;
-  range?: { from?: string; to?: string };
+  filters?: ChartFilters;
 }
 
 export interface CreateCommentInput {
