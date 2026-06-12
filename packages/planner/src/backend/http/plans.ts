@@ -10,6 +10,7 @@ import {
   deletePlan,
   duplicatePlan,
   getPlan,
+  getPlanChartData,
   listGroupPlansWithRollups,
   listLabels,
   listPlans,
@@ -120,6 +121,11 @@ export function registerPlannerPlansRoutes(app: Hono<SessionEnv>, deps: PlannerP
   app.get('/api/planner/v1/plans/:id', async (c) => {
     const session = c.get('user');
     return c.json(await getPlan({ plan_id: c.req.param('id'), session }));
+  });
+
+  app.get('/api/planner/v1/plans/:id/chart', async (c) => {
+    const session = c.get('user');
+    return c.json(await getPlanChartData({ plan_id: c.req.param('id') }, session));
   });
 
   app.post('/api/planner/v1/plans', async (c) => {
