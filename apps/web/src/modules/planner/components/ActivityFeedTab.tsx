@@ -1,8 +1,9 @@
 import type { GroupActivityItem } from '@seta/planner';
-import { formatRelative } from '@seta/shared-ui';
+import { Button, formatRelative } from '@seta/shared-ui';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useGroupActivityFeed } from '../hooks/queries/use-group-activity-feed';
+import { useGroupActivityLive } from '../hooks/use-group-activity-live';
 import { buildActivityLabel } from '../lib/build-activity-label';
 import { absoluteActivityTime } from '../lib/format-activity-time';
 
@@ -59,6 +60,36 @@ export function ActivityFeedTab({ groupId }: Props) {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
+
+  const { pendingCount, flush } = useGroupActivityLive(groupId);
+  const [scrollEl, setScrollEl] = useState<HTMLElement | null>(null);
+  const [atTop, setAtTop] = useState(true);
+
+  // Resolve the scroll-owning ancestor (the tab panel) once the feed mounts. Used for
+  // at-top detection and "jump to top" — the virtualizer keeps its own scroll element.
+  const rootRef = useCallback((node: HTMLDivElement | null) => {
+    if (!node) return;
+    let el: HTMLElement | null = node.parentElement;
+    while (el) {
+      const oy = getComputedStyle(el).overflowY;
+      if (oy === 'auto' || oy === 'scroll') break;
+      el = el.parentElement;
+    }
+    setScrollEl(el);
+  }, []);
+
+  useEffect(() => {
+    if (!scrollEl) return;
+    const onScroll = () => setAtTop(scrollEl.scrollTop <= 8);
+    scrollEl.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+    return () => scrollEl.removeEventListener('scroll', onScroll);
+  }, [scrollEl]);
+
+  // At the top, apply new events immediately (prepend); otherwise the pill collects them.
+  useEffect(() => {
+    if (pendingCount > 0 && atTop) flush();
+  }, [pendingCount, atTop, flush]);
 
   const items = data?.pages.flatMap((p) => p.items) ?? [];
 
@@ -123,8 +154,21 @@ export function ActivityFeedTab({ groupId }: Props) {
   const virtualItems = rowVirtualizer.getVirtualItems();
 
   return (
-    <div className="flex flex-col gap-1 pb-2">
-      <p className="text-caption text-ink-subtle">All events · refreshes every 60s</p>
+    <div ref={rootRef} className="flex flex-col gap-1 pb-2">
+      {pendingCount > 0 && !atTop ? (
+        <Button
+          size="sm"
+          onClick={() => {
+            scrollEl?.scrollTo({ top: 0, behavior: 'smooth' });
+            flush();
+          }}
+          className="sticky top-2 z-10 mx-auto rounded-full shadow-sm"
+        >
+          {pendingCount} new {pendingCount === 1 ? 'activity' : 'activities'} — jump to top
+        </Button>
+      ) : (
+        <p className="text-caption text-ink-subtle">All events · live</p>
+      )}
 
       <div
         ref={containerRef}
