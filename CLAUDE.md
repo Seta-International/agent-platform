@@ -63,7 +63,7 @@ Declared via `"setaTier"` in `package.json` (informational, not a separate enfor
 
 ## Conventions worth knowing
 
-- **Inspect the DB (dev):** `docker exec seta-ap-postgres-dev psql -U seta -d seta -c '<SQL>'`. Postgres is also reachable at `localhost:5442` (mapped by `infra/docker/compose.dev.yml`). Schemas: `agent`, `core`, `identity`, `planner`, `notifications`, `staffing`, etc.
+- **Inspect the DB (dev):** `docker exec seta-ap-postgres-dev psql -U seta -d seta -c '<SQL>'`. Postgres is also reachable at `localhost:5542` (mapped by `infra/docker/compose.dev.yml`). Schemas: `agent`, `core`, `identity`, `planner`, `notifications`, `staffing`, etc.
 - **Debug the agent (dev):** `scripts/trace-thread.sh <threadId>` dumps a chat turn's lifecycle (messages, approvals, snapshot status, spans). App logs persist to `logs/{server,worker}.log` (NDJSON). Per-turn tool-calls/suspends/resumes trace to `agent.mastra_ai_spans`; raise Mastra's logger with `MASTRA_LOG_LEVEL`.
 - **HITL on every write tool.** AI SDK v6 `needsApproval: true` + assistant-ui Interactable confirmation card, wired via `registerToolPermission` from `@seta/agent-sdk`. Read tools execute directly. Native-suspend chat cards resume via `POST /chat/resume`; `/workflows/approvals/:id/decide` only records the decision (no resume).
 - **Subscribers must be idempotent**, keyed on `event_id`. At-least-once delivery; per-aggregate ordering only.

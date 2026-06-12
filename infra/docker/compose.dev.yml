@@ -1,14 +1,13 @@
 # Local dev stack for seta-agent-platform.
 #
-# Ports are offset by +10 from common defaults so this stack can run alongside
-# the seta-os stack (which holds 5432, 4318, 16686) on the same workstation.
+name: agent-platform
 
 services:
   postgres:
     image: pgvector/pgvector:pg17-trixie
     container_name: seta-ap-postgres-dev
     ports:
-      - "5442:5432"
+      - "5542:5432"
     environment:
       POSTGRES_USER: seta
       POSTGRES_PASSWORD: seta
@@ -25,7 +24,7 @@ services:
     image: redis:7-alpine
     container_name: seta-ap-redis-dev
     ports:
-      - "6389:6379"
+      - "6489:6379"
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - seta-ap-redis-data:/data
@@ -40,8 +39,8 @@ services:
     container_name: seta-ap-otel-dev
     command: ["--config=/etc/otel-collector-config.yaml"]
     ports:
-      - "4328:4318" # OTLP HTTP
-      - "4327:4317" # OTLP gRPC
+      - "4428:4318" # OTLP HTTP
+      - "4427:4317" # OTLP gRPC
     volumes:
       - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
     depends_on:

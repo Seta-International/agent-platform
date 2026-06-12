@@ -324,6 +324,10 @@ async function buildOrchestrator(
     requestContext: rc,
     maxSteps: 12,
     abortSignal: ctx.abortSignal,
+    // Ask OpenAI reasoning models to stream a summary of their thinking; without
+    // this the `reasoning` parts arrive empty. Provider-namespaced, so non-OpenAI
+    // models ignore it. Forwarded by Mastra to the AI SDK model call.
+    providerOptions: { openai: { reasoningSummary: 'auto' } },
     // Restore supervisor parity: Mastra injects lastMessages history
     // + semanticRecall and fires generateTitle. readOnly => it does
     // NOT persist messages (our chat route persists via

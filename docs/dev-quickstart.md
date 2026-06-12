@@ -39,11 +39,11 @@ Everything else (SSO, mail, S3, telemetry, AV scanning) is optional for local de
 ## 3. Start Postgres and run migrations
 
 ```bash
-pnpm db:up        # starts Postgres (host port 5442), Redis, telemetry
+pnpm db:up        # starts Postgres (host port 5542), Redis, telemetry
 pnpm db:migrate   # applies all module migrations
 ```
 
-> Postgres is exposed on `localhost:5442` (the dev stack offsets ports by +10 so it can run alongside other projects). That is why `DATABASE_URL` in `.env` uses port `5442`, not `5432`.
+> Postgres is exposed on `localhost:5542` (the dev stack offsets ports by +10 so it can run alongside other projects). That is why `DATABASE_URL` in `.env` uses port `5542`, not `5432`.
 
 ## 4. Load data — pick one
 
@@ -85,9 +85,9 @@ Open <http://localhost:5173/login> and sign in with the credentials from step 4.
 
 | Symptom | Cause / fix |
 |---|---|
-| `ECONNREFUSED ... 5442` or migrations hang | Postgres isn't up. Run `pnpm db:up` and wait a few seconds, then retry. |
+| `ECONNREFUSED ... 5542` or migrations hang | Postgres isn't up. Run `pnpm db:up` and wait a few seconds, then retry. |
 | Login page rejects valid-looking credentials | No tenant/user provisioned yet — run step 4. There is no self-signup. |
-| Port `5442`/`6389`/`5173` already in use | Another stack is bound to it. Stop it, or change the host port in `infra/docker/compose.dev.yml`. |
+| Port `5542`/`6489`/`5173` already in use | Another stack is bound to it. Stop it, or change the host port in `infra/docker/compose.dev.yml`. |
 | `BETTER_AUTH_SECRET`/`CRYPTO_LOCAL_MASTER_KEY` errors at boot | The secret is unset or too short — regenerate per step 2. |
 | Cookies/redirects misbehave | Confirm `.env` has `NODE_ENV=development` and `PUBLIC_URL=http://localhost:5173` (the local defaults). |
 | Start completely over | `pnpm db:reset` tears the volume down, re-migrates, and re-seeds. |

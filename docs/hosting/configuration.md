@@ -75,9 +75,9 @@ Database name created at first boot.
 
 ### DATABASE_URL
 
-Required. URL. Default (local dev): `postgres://seta:seta@localhost:5442/seta`. Self-host: `postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}`.
+Required. URL. Default (local dev): `postgres://seta:seta@localhost:5542/seta`. Self-host: `postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}`.
 
-Connection string read by the server and CLI. Local dev connects to the Docker Postgres mapped to host port `5442` (`pnpm db:up`). For the Docker Compose self-host stack, override to use the in-network `postgres` service hostname — do not change `postgres` unless you also rename the service. Set this explicitly to a managed-service endpoint when pointing at RDS — see [`aws.md`](aws.md).
+Connection string read by the server and CLI. Local dev connects to the Docker Postgres mapped to host port `5542` (`pnpm db:up`). For the Docker Compose self-host stack, override to use the in-network `postgres` service hostname — do not change `postgres` unless you also rename the service. Set this explicitly to a managed-service endpoint when pointing at RDS — see [`aws.md`](aws.md).
 
 ## Server runtime
 

@@ -4,11 +4,13 @@ import { Paperclip, Sparkles } from 'lucide-react';
 import { type ReactNode, useCallback } from 'react';
 import { ThreadListRefresher } from '../components/thread-list-refresher';
 import { ToolUIRegistry } from '../components/tool-renderers';
+import { ToolFallback } from '../components/tool-renderers/tool-fallback';
 import { AGENT_COPY } from '../i18n';
 import { parseContextAttachment } from '../lib/context-attachment';
 import { ChatEmbeddedHitl } from '../workflows/components/chat-embedded-hitl';
 import { type PageContext, useAgentSelection, usePageContext } from './agent-provider';
 import { ChainOfThought } from './chain-of-thought';
+import { groupByThought } from './group-by-thought';
 import { RenderContextBadge } from './render-context-badge';
 
 const ASSISTANT_LABEL = 'Agent';
@@ -162,12 +164,6 @@ function UserMessage() {
   );
 }
 
-const groupByThought = (part: { type: string }) => {
-  if (part.type === 'reasoning') return ['group-thought'] as const;
-  if (part.type === 'tool-call') return ['group-thought'] as const;
-  return null;
-};
-
 function makeAssistantMessage(authorLabel: string) {
   const renderPart = ({
     part,
@@ -180,6 +176,10 @@ function makeAssistantMessage(authorLabel: string) {
       toolUI?: ReactNode;
       dataRendererUI?: ReactNode;
       text?: string;
+      toolName?: string;
+      args?: unknown;
+      result?: unknown;
+      isError?: boolean;
     };
     children: ReactNode;
   }) => {
@@ -200,7 +200,7 @@ function makeAssistantMessage(authorLabel: string) {
           <ReasoningPart text={part.text ?? ''} status={part.status ?? { type: 'complete' }} />
         );
       case 'tool-call':
-        return <>{part.toolUI ?? null}</>;
+        return <>{part.toolUI ?? <ToolFallback part={part} />}</>;
       case 'data':
         return <>{part.dataRendererUI ?? null}</>;
       default:

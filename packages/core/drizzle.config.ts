@@ -6,6 +6,6 @@ export default defineConfig({
   dialect: 'postgresql',
   schemaFilter: ['core'],
   dbCredentials: {
-    url: process.env.DATABASE_URL ?? 'postgres://seta:seta@localhost:5442/seta',
+    url: process.env.DATABASE_URL ?? 'postgres://seta:seta@localhost:5542/seta',
   },
 });
