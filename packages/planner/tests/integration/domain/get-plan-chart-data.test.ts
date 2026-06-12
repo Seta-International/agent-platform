@@ -117,6 +117,7 @@ describe('getPlanChartData — composition', () => {
         const plan = await createPlan({ group_id: group.id, name: 'P', session: admin });
         const todo = await createBucket({ plan_id: plan.id, name: 'Todo', session: admin });
         const done = await createBucket({ plan_id: plan.id, name: 'Done', session: admin });
+        await createBucket({ plan_id: plan.id, name: 'Empty', session: admin });
 
         const mk = async (bucketId: string, state: Parameters<typeof setState>[1]) => {
           const t = await createTask({ plan_id: plan.id, title: 't', session: admin });
@@ -140,6 +141,16 @@ describe('getPlanChartData — composition', () => {
         const doneRow = data.byBucket.find((b) => b.name === 'Done')!;
         expect(doneRow.total).toBe(2);
         expect(doneRow.completed).toBe(2);
+
+        const emptyRow = data.byBucket.find((b) => b.name === 'Empty')!;
+        expect(emptyRow.total).toBe(0);
+        expect(emptyRow).toMatchObject({
+          not_started: 0,
+          in_progress: 0,
+          completed: 0,
+          late: 0,
+          deferred: 0,
+        });
 
         expect(data.byPriority.urgent.not_started).toBe(1);
         expect(data.byPriority.important.in_progress).toBe(1);
