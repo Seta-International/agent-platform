@@ -326,8 +326,27 @@ async function getPlan(plan_id: string): Promise<PlanRow> {
   return (await request<PlanRow>(`/api/planner/v1/plans/${plan_id}`)) as PlanRow;
 }
 
-async function getPlanChart(plan_id: string): Promise<ChartData> {
-  return (await request<ChartData>(`/api/planner/v1/plans/${plan_id}/chart`)) as ChartData;
+export interface PlanChartFilters {
+  assignee_ids?: string[];
+  bucket_ids?: string[];
+  priorities?: number[];
+  statuses?: string[];
+  from?: string;
+  to?: string;
+}
+
+async function getPlanChart(plan_id: string, f?: PlanChartFilters): Promise<ChartData> {
+  const p = new URLSearchParams();
+  if (f?.assignee_ids?.length) p.set('assignee', f.assignee_ids.join(','));
+  if (f?.bucket_ids?.length) p.set('bucket', f.bucket_ids.join(','));
+  if (f?.priorities?.length) p.set('priority', f.priorities.join(','));
+  if (f?.statuses?.length) p.set('status', f.statuses.join(','));
+  if (f?.from) p.set('from', f.from);
+  if (f?.to) p.set('to', f.to);
+  const qs = p.toString();
+  return (await request<ChartData>(
+    `/api/planner/v1/plans/${plan_id}/chart${qs ? `?${qs}` : ''}`,
+  )) as ChartData;
 }
 
 async function createPlan(input: { group_id: string; name: string }): Promise<PlanRow> {

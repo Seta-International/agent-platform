@@ -49,7 +49,8 @@ export const plannerKeys = {
       serializeFilters(filters as Record<string, unknown>),
     ] as const,
   planCalendar: (id: string) => [...plannerKeys.plan(id), 'calendar'] as const,
-  planChart: (id: string) => [...plannerKeys.plan(id), 'chart'] as const,
+  planChart: (id: string, filters: Record<string, unknown> = {}) =>
+    [...plannerKeys.plan(id), 'chart', serializeFilters(filters)] as const,
   planCalendarTasks: (id: string, from: string, to: string, page: number) =>
     [...plannerKeys.planCalendar(id), from, to, page] as const,
   planSyncStatus: (planId: string) => [...plannerKeys.plan(planId), 'syncStatus'] as const,
