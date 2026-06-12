@@ -2,20 +2,24 @@ import type { SessionScope } from '@seta/core';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { plannerDb } from '../db/index.ts';
 import { assigneeProjection, buckets, plans, taskAssignments, tasks } from '../db/schema.ts';
-import type { ChartData } from '../dto.ts';
+import type { ChartData, StatusBreakdown } from '../dto.ts';
 import type { GetPlanChartDataInput } from '../inputs.ts';
 import { withSpan } from '../observability.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 import { groupFilterFor } from '../read-helpers.ts';
 
-const PRIORITY_LABEL: Record<number, 'urgent' | 'important' | 'medium' | 'low'> = {
-  1: 'urgent',
-  3: 'important',
-  5: 'medium',
-  9: 'low',
-};
-
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function priorityLabel(n: number): 'urgent' | 'important' | 'medium' | 'low' {
+  if (n <= 1) return 'urgent';
+  if (n <= 4) return 'important';
+  if (n <= 7) return 'medium';
+  return 'low';
+}
+
+function emptyBreakdown(): StatusBreakdown {
+  return { not_started: 0, in_progress: 0, completed: 0, late: 0, deferred: 0 };
+}
 
 export async function getPlanChartData(
   input: GetPlanChartDataInput,
@@ -65,13 +69,17 @@ async function getPlanChartDataImpl(
     isNull(tasks.deleted_at),
   );
 
+  const breakdownCols = () => ({
+    not_started: sql<number>`COUNT(*) FILTER (WHERE ${tasks.is_deferred} = false AND ${tasks.percent_complete} = 0 AND (${tasks.due_at} IS NULL OR ${tasks.due_at} >= ${now}))::int`,
+    in_progress: sql<number>`COUNT(*) FILTER (WHERE ${tasks.is_deferred} = false AND ${tasks.percent_complete} = 50 AND (${tasks.due_at} IS NULL OR ${tasks.due_at} >= ${now}))::int`,
+    completed: sql<number>`COUNT(*) FILTER (WHERE ${tasks.percent_complete} = 100)::int`,
+    late: sql<number>`COUNT(*) FILTER (WHERE ${tasks.is_deferred} = false AND ${tasks.percent_complete} < 100 AND ${tasks.due_at} IS NOT NULL AND ${tasks.due_at} < ${now})::int`,
+    deferred: sql<number>`COUNT(*) FILTER (WHERE ${tasks.is_deferred} = true AND ${tasks.percent_complete} < 100)::int`,
+  });
+
   const [statusRow] = await db
     .select({
-      completed: sql<number>`COUNT(*) FILTER (WHERE ${tasks.percent_complete} = 100)::int`,
-      in_progress: sql<number>`COUNT(*) FILTER (WHERE ${tasks.is_deferred} = false AND ${tasks.percent_complete} = 50 AND (${tasks.due_at} IS NULL OR ${tasks.due_at} >= ${now}))::int`,
-      not_started: sql<number>`COUNT(*) FILTER (WHERE ${tasks.is_deferred} = false AND ${tasks.percent_complete} = 0 AND (${tasks.due_at} IS NULL OR ${tasks.due_at} >= ${now}))::int`,
-      late: sql<number>`COUNT(*) FILTER (WHERE ${tasks.is_deferred} = false AND ${tasks.percent_complete} < 100 AND ${tasks.due_at} IS NOT NULL AND ${tasks.due_at} < ${now})::int`,
-      deferred: sql<number>`COUNT(*) FILTER (WHERE ${tasks.is_deferred} = true AND ${tasks.percent_complete} < 100)::int`,
+      ...breakdownCols(),
       at_risk: sql<number>`COUNT(*) FILTER (WHERE ${tasks.due_at} IS NOT NULL AND ${tasks.due_at} < ${threeDaysFromNow} AND ${tasks.percent_complete} < 100)::int`,
       velocity_completed: sql<number>`COUNT(*) FILTER (WHERE ${tasks.percent_complete} = 100 AND ${tasks.updated_at} >= ${twoWeeksAgo})::int`,
     })
@@ -95,34 +103,35 @@ async function getPlanChartDataImpl(
   };
 
   const priorityRows = await db
-    .select({
-      priority_number: tasks.priority_number,
-      count: sql<number>`COUNT(*)::int`,
-    })
+    .select({ priority_number: tasks.priority_number, ...breakdownCols() })
     .from(tasks)
     .where(liveTasksWhere)
     .groupBy(tasks.priority_number);
 
   const byPriority: ChartData['byPriority'] = {
-    urgent: 0,
-    important: 0,
-    medium: 0,
-    low: 0,
+    urgent: emptyBreakdown(),
+    important: emptyBreakdown(),
+    medium: emptyBreakdown(),
+    low: emptyBreakdown(),
   };
   for (const r of priorityRows) {
-    const label = PRIORITY_LABEL[r.priority_number];
-    if (label) byPriority[label] = r.count;
+    const b = byPriority[priorityLabel(r.priority_number)];
+    b.not_started += r.not_started;
+    b.in_progress += r.in_progress;
+    b.completed += r.completed;
+    b.late += r.late;
+    b.deferred += r.deferred;
   }
 
   const bucketRows = await db
     .select({
       bucketId: buckets.id,
       name: buckets.name,
-      order_hint: buckets.order_hint,
-      count: sql<number>`COUNT(${tasks.id}) FILTER (WHERE ${tasks.deleted_at} IS NULL)::int`,
+      total: sql<number>`COUNT(${tasks.id})::int`,
+      ...breakdownCols(),
     })
     .from(buckets)
-    .leftJoin(tasks, eq(tasks.bucket_id, buckets.id))
+    .leftJoin(tasks, and(eq(tasks.bucket_id, buckets.id), isNull(tasks.deleted_at)))
     .where(and(eq(buckets.plan_id, input.plan_id), isNull(buckets.deleted_at)))
     .groupBy(buckets.id, buckets.name, buckets.order_hint)
     .orderBy(sql`${buckets.order_hint} ASC NULLS LAST`);
@@ -130,14 +139,20 @@ async function getPlanChartDataImpl(
   const byBucket: ChartData['byBucket'] = bucketRows.map((r) => ({
     bucketId: r.bucketId,
     name: r.name,
-    count: r.count,
+    total: r.total,
+    not_started: r.not_started,
+    in_progress: r.in_progress,
+    completed: r.completed,
+    late: r.late,
+    deferred: r.deferred,
   }));
 
   const memberRows = await db
     .select({
       userId: taskAssignments.user_id,
       displayName: assigneeProjection.display_name,
-      count: sql<number>`COUNT(${taskAssignments.task_id})::int`,
+      total: sql<number>`COUNT(${taskAssignments.task_id})::int`,
+      ...breakdownCols(),
     })
     .from(taskAssignments)
     .innerJoin(tasks, eq(tasks.id, taskAssignments.task_id))
@@ -154,7 +169,12 @@ async function getPlanChartDataImpl(
   const byMember: ChartData['byMember'] = memberRows.map((r) => ({
     userId: r.userId,
     displayName: r.displayName,
-    count: r.count,
+    total: r.total,
+    not_started: r.not_started,
+    in_progress: r.in_progress,
+    completed: r.completed,
+    late: r.late,
+    deferred: r.deferred,
   }));
 
   const open = notStarted + inProgress + late + deferred;

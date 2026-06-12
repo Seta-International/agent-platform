@@ -318,9 +318,9 @@ export interface StatusBreakdown {
 export interface ChartData {
   kpis: { open: number; completed: number; atRisk: number; velocity: number };
   byStatus: StatusBreakdown;
-  byPriority: Record<'urgent' | 'important' | 'medium' | 'low', number>;
-  byBucket: Array<{ bucketId: string; name: string; count: number }>;
-  byMember: Array<{ userId: string; displayName: string; count: number }>;
+  byPriority: Record<'urgent' | 'important' | 'medium' | 'low', StatusBreakdown>;
+  byBucket: Array<{ bucketId: string; name: string; total: number } & StatusBreakdown>;
+  byMember: Array<{ userId: string; displayName: string; total: number } & StatusBreakdown>;
 }
 
 export interface CommentDto {
