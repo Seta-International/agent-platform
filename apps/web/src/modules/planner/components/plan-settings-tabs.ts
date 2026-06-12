@@ -2,7 +2,6 @@ export type PlanSettingsTab =
   | 'general'
   | 'buckets'
   | 'members'
-  | 'labels'
   | 'categories'
   | 'automations'
   | 'danger';
@@ -16,7 +15,6 @@ export const PLAN_SETTINGS_TABS: ReadonlyArray<TabDef> = [
   { slug: 'general', label: 'General' },
   { slug: 'buckets', label: 'Buckets' },
   { slug: 'members', label: 'Members' },
-  { slug: 'labels', label: 'Labels' },
   { slug: 'categories', label: 'Categories' },
   { slug: 'automations', label: 'Automations' },
   { slug: 'danger', label: 'Danger zone' },

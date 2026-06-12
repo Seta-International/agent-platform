@@ -18,7 +18,7 @@ function renderStrip(active: PlanSettingsTab, onTabChange = vi.fn()) {
 }
 
 describe('PlanSettingsTabStrip', () => {
-  it('renders the 7 tabs in spec order', () => {
+  it('renders the tabs in spec order', () => {
     renderStrip('categories');
     const tabs = screen.getAllByRole('tab');
     expect(tabs).toHaveLength(PLAN_SETTINGS_TABS.length);
@@ -26,7 +26,6 @@ describe('PlanSettingsTabStrip', () => {
       'General',
       'Buckets 4',
       'Members 9',
-      'Labels',
       'Categories 7/25',
       'Automations',
       'Danger zone',

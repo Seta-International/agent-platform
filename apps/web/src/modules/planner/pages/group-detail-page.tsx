@@ -40,7 +40,7 @@ import { useGroupMembers } from '../hooks/queries/use-group-members';
 import { useGroupPlans } from '../hooks/queries/use-group-plans';
 import { useGroupActivityLive } from '../hooks/use-group-activity-live';
 
-export type GroupTab = 'plans' | 'members' | 'activity' | 'labels' | 'integrations' | 'settings';
+export type GroupTab = 'plans' | 'members' | 'activity' | 'integrations' | 'settings';
 
 // Re-export for route and tests
 export type { SessionScopeProjection as GroupDetailSession };
@@ -271,7 +271,6 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
             </span>
           </TabsTrigger>
           <TabsTrigger value="activity">Activity</TabsTrigger>
-          <TabsTrigger value="labels">Labels</TabsTrigger>
           <TabsTrigger value="integrations">Integrations</TabsTrigger>
           {canManage ? <TabsTrigger value="settings">Settings</TabsTrigger> : null}
         </TabsList>
@@ -347,9 +346,6 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
           <div className="page-container">
             <ActivityFeedTab groupId={groupId} />
           </div>
-        </TabsContent>
-        <TabsContent value="labels">
-          <ComingSoon feature="Labels" />
         </TabsContent>
         <TabsContent value="integrations">
           <ComingSoon feature="Integrations" />

@@ -4,7 +4,7 @@ import { useSession } from '@/modules/identity/components/SessionProvider';
 import { GroupDetailPage } from '@/modules/planner/pages/group-detail-page';
 
 const searchSchema = z.object({
-  tab: z.enum(['plans', 'members', 'activity', 'labels', 'integrations', 'settings']).optional(),
+  tab: z.enum(['plans', 'members', 'activity', 'integrations', 'settings']).optional(),
 });
 
 export const Route = createFileRoute('/_authed/planner/groups_/$groupId')({

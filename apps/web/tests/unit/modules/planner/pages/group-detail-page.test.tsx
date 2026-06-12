@@ -151,7 +151,6 @@ describe('GroupDetailPage', () => {
     expect(screen.getByRole('tab', { name: /plans/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /members/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /activity/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /labels/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /integrations/i })).toBeInTheDocument();
   });
 
@@ -207,14 +206,6 @@ describe('GroupDetailPage', () => {
     await screen.findByRole('heading', { name: 'Engineering' });
     // Activity tab now renders the real ActivityFeedTab; with no items it shows its empty state.
     expect(await screen.findByText(/No activity yet in this group/i)).toBeInTheDocument();
-  });
-
-  it('labels tab renders ComingSoon', async () => {
-    server.use(...defaultHandlers());
-    renderInRouter(<AdminPage tab="labels" />);
-
-    await screen.findByRole('heading', { name: 'Engineering' });
-    expect(screen.getByText(/Labels is coming soon/i)).toBeInTheDocument();
   });
 
   it('integrations tab renders ComingSoon', async () => {
