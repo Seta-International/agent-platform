@@ -28,6 +28,7 @@ import { usePlanBoard } from '@/modules/planner/hooks/queries/use-plan-board';
 import { useFilterOptions } from '@/modules/planner/hooks/use-filter-options';
 import { useRecentPlans } from '@/modules/planner/hooks/use-recent-plans';
 import { PlanCalendarPage } from '@/modules/planner/pages/plan-calendar-page';
+import { PlanChartsView } from '@/modules/planner/pages/plan-charts-view';
 import { PlanGridPage } from '@/modules/planner/pages/plan-grid-page';
 import { PlanPage } from '@/modules/planner/pages/plan-page';
 import type { BoardFilters, ViewMode } from '@/modules/planner/state/url-state';
@@ -42,7 +43,7 @@ import { PlanSearchInput } from '../components/plan-search-input';
 import { PlanViewSwitcher } from '../components/plan-view-switcher';
 
 export interface PlanBoardShellSearch {
-  view?: 'board' | 'grid' | 'calendar';
+  view?: 'board' | 'grid' | 'calendar' | 'charts';
   groupBy?: 'bucket' | 'assignee' | 'priority' | 'due' | 'label';
   'filter.assignee'?: string;
   'filter.label'?: string;
@@ -280,6 +281,8 @@ export function PlanBoardShell({
             description="This can take a minute for large plans."
           />
         </div>
+      ) : view === 'charts' ? (
+        <PlanChartsView planId={planId} />
       ) : view === 'board' ? (
         <PlanPage
           plan={resolvedPlan}

@@ -5,7 +5,7 @@ import { PlanBoardShell } from '@/modules/planner/pages/plan-board-shell';
 import { serializeFiltersToSearch } from '@/modules/planner/state/url-state';
 
 const searchSchema = z.object({
-  view: z.enum(['board', 'grid', 'calendar']).optional(),
+  view: z.enum(['board', 'grid', 'calendar', 'charts']).optional(),
   groupBy: z.enum(['bucket', 'assignee', 'priority', 'due', 'label']).optional(),
   'filter.assignee': z.string().optional(),
   'filter.label': z.string().optional(),

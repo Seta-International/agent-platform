@@ -10,10 +10,10 @@ export const EMPTY_FILTERS: BoardFilters = {
   skill_tags: [],
 };
 
-export type ViewMode = 'board' | 'grid' | 'calendar';
+export type ViewMode = 'board' | 'grid' | 'calendar' | 'charts';
 export type GroupBy = 'bucket' | 'assignee' | 'priority' | 'due' | 'label';
 
-const VIEW_MODES = ['board', 'grid', 'calendar'] as const;
+const VIEW_MODES = ['board', 'grid', 'calendar', 'charts'] as const;
 const GROUP_BYS = ['bucket', 'assignee', 'priority', 'due', 'label'] as const;
 
 function splitCSV(s: string | undefined): string[] {
