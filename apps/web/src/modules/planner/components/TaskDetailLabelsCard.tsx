@@ -304,7 +304,6 @@ function LabelEditPanel({
         {LABEL_COLORS.map((c) => (
           <label
             key={c}
-            aria-label={c}
             style={{
               borderRadius: 9999,
               cursor: 'pointer',
@@ -320,6 +319,7 @@ function LabelEditPanel({
               value={c}
               checked={color === c}
               onChange={() => setColor(c)}
+              aria-label={c}
               className="sr-only"
             />
             <span
