@@ -1,5 +1,6 @@
 import type {
   BucketRow,
+  ChartData,
   ChecklistItemRow,
   CommentDto,
   CommentListResult,
@@ -323,6 +324,10 @@ async function listGroupPlansWithRollups(group_id: string): Promise<PlanWithRoll
 
 async function getPlan(plan_id: string): Promise<PlanRow> {
   return (await request<PlanRow>(`/api/planner/v1/plans/${plan_id}`)) as PlanRow;
+}
+
+async function getPlanChart(plan_id: string): Promise<ChartData> {
+  return (await request<ChartData>(`/api/planner/v1/plans/${plan_id}/chart`)) as ChartData;
 }
 
 async function createPlan(input: { group_id: string; name: string }): Promise<PlanRow> {
@@ -920,6 +925,7 @@ export const plannerClient = {
   listPlans,
   listGroupPlansWithRollups,
   getPlan,
+  getPlanChart,
   createPlan,
   updatePlan,
   deletePlan,
