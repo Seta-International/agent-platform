@@ -10,6 +10,6 @@ export function useGroupActivity(groupId: string, days = 7) {
       return plannerClient.getGroupActivity(groupId, { since, limit: 8 });
     },
     enabled: !!groupId,
-    refetchInterval: 60_000,
+    refetchInterval: 120_000,
   });
 }

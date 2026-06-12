@@ -13,6 +13,6 @@ export function useGroupActivityFeed(groupId: string) {
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => (last.has_more ? last.next_cursor : undefined),
     enabled: !!groupId,
-    refetchInterval: 60_000,
+    refetchInterval: 120_000,
   });
 }

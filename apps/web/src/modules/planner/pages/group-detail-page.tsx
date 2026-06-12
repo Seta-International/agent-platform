@@ -38,6 +38,7 @@ import { useGroup } from '../hooks/queries/use-group';
 import { useGroupActivity } from '../hooks/queries/use-group-activity';
 import { useGroupMembers } from '../hooks/queries/use-group-members';
 import { useGroupPlans } from '../hooks/queries/use-group-plans';
+import { useGroupActivityLive } from '../hooks/use-group-activity-live';
 
 export type GroupTab = 'plans' | 'members' | 'activity' | 'labels' | 'integrations' | 'settings';
 
@@ -89,6 +90,8 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
   const membersQuery = useGroupMembers(groupId);
   const plansQuery = useGroupPlans(groupId);
   const activityQuery = useGroupActivity(groupId, 7);
+  // Keep the rail (and tab) live without a page refresh; the tab adds its own pill on top.
+  useGroupActivityLive(groupId);
   const setMemberRoleMutation = useSetMemberRole(groupId);
   const removeGroupMemberMutation = useRemoveGroupMember(groupId);
   const removeGroupMembersMutation = useRemoveGroupMembers(groupId);
