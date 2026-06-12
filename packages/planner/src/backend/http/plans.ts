@@ -125,7 +125,23 @@ export function registerPlannerPlansRoutes(app: Hono<SessionEnv>, deps: PlannerP
 
   app.get('/api/planner/v1/plans/:id/chart', async (c) => {
     const session = c.get('user');
-    return c.json(await getPlanChartData({ plan_id: c.req.param('id') }, session));
+    const q = c.req.query();
+    const csv = (v?: string) => (v ? v.split(',').filter(Boolean) : undefined);
+    const priorities = csv(q.priority)
+      ?.map(Number)
+      .filter((n): n is 1 | 3 | 5 | 9 => [1, 3, 5, 9].includes(n));
+    const statuses = csv(q.status)?.filter(
+      (s): s is 'not_started' | 'in_progress' | 'completed' =>
+        s === 'not_started' || s === 'in_progress' || s === 'completed',
+    );
+    const filters = {
+      assignee_ids: csv(q.assignee),
+      bucket_ids: csv(q.bucket),
+      priorities,
+      statuses,
+      range: q.from || q.to ? { from: q.from, to: q.to } : undefined,
+    };
+    return c.json(await getPlanChartData({ plan_id: c.req.param('id'), filters }, session));
   });
 
   app.post('/api/planner/v1/plans', async (c) => {
