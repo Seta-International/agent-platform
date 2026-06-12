@@ -151,6 +151,71 @@ export async function getGroupActivity(input: {
       : [];
   const taskTitleById = new Map(taskTitleRows.map((t) => [t.id, t.title]));
 
+  // Bucket + plan names for task.moved labels (from->to). IDs come from the move payload.
+  const movedBucketIds = new Set<string>();
+  const movedPlanIds = new Set<string>();
+  for (const r of audit.rows) {
+    if (r.event_type !== 'planner.task.moved' || !r.payload) continue;
+    const before = (r.payload.before ?? null) as { bucket_id?: string | null } | null;
+    const after = (r.payload.after ?? null) as { bucket_id?: string | null } | null;
+    if (before?.bucket_id) movedBucketIds.add(before.bucket_id);
+    if (after?.bucket_id) movedBucketIds.add(after.bucket_id);
+    const fromPlan = r.payload.from_plan_id;
+    const toPlan = r.payload.to_plan_id;
+    if (typeof fromPlan === 'string') movedPlanIds.add(fromPlan);
+    if (typeof toPlan === 'string') movedPlanIds.add(toPlan);
+  }
+
+  const bucketNameRows =
+    movedBucketIds.size > 0
+      ? await db
+          .select({ id: buckets.id, name: buckets.name })
+          .from(buckets)
+          .where(inArray(buckets.id, [...movedBucketIds]))
+      : [];
+  const bucketNameById = new Map(bucketNameRows.map((b) => [b.id, b.name]));
+
+  const planNameRows =
+    movedPlanIds.size > 0
+      ? await db
+          .select({ id: plans.id, name: plans.name })
+          .from(plans)
+          .where(inArray(plans.id, [...movedPlanIds]))
+      : [];
+  const planNameById = new Map(planNameRows.map((p) => [p.id, p.name]));
+
+  function moveStates(payload: Record<string, unknown> | null): {
+    before_state: Record<string, unknown> | null;
+    after_state: Record<string, unknown> | null;
+    changed_fields: string[] | null;
+  } {
+    if (!payload) return { before_state: null, after_state: null, changed_fields: null };
+    const fromPlan = payload.from_plan_id;
+    const toPlan = payload.to_plan_id;
+    if (typeof fromPlan === 'string' && typeof toPlan === 'string' && fromPlan !== toPlan) {
+      return {
+        before_state: { plan_id: fromPlan, plan_name: planNameById.get(fromPlan) ?? null },
+        after_state: { plan_id: toPlan, plan_name: planNameById.get(toPlan) ?? null },
+        changed_fields: ['plan_id'],
+      };
+    }
+    const before = (payload.before ?? null) as { bucket_id?: string | null } | null;
+    const after = (payload.after ?? null) as { bucket_id?: string | null } | null;
+    const beforeBucket = before?.bucket_id ?? null;
+    const afterBucket = after?.bucket_id ?? null;
+    return {
+      before_state: {
+        bucket_id: beforeBucket,
+        bucket_name: beforeBucket ? (bucketNameById.get(beforeBucket) ?? null) : null,
+      },
+      after_state: {
+        bucket_id: afterBucket,
+        bucket_name: afterBucket ? (bucketNameById.get(afterBucket) ?? null) : null,
+      },
+      changed_fields: ['bucket_id'],
+    };
+  }
+
   const items = audit.rows.map((r) => {
     const actorUserId =
       r.actor && typeof r.actor === 'object' && 'user_id' in r.actor
@@ -158,10 +223,10 @@ export async function getGroupActivity(input: {
         : null;
     const targetUserId = extractTargetUserId(r.event_type, r.payload);
     const title = extractTitle(r.payload) ?? taskTitleById.get(r.aggregate_id) ?? null;
-    const { before_state, after_state, changed_fields } = extractBeforeAfter(
-      r.event_type,
-      r.payload,
-    );
+    const { before_state, after_state, changed_fields } =
+      r.event_type === 'planner.task.moved'
+        ? moveStates(r.payload)
+        : extractBeforeAfter(r.event_type, r.payload);
     return {
       event_id: r.event_id,
       event_type: r.event_type,
