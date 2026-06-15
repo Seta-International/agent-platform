@@ -4,6 +4,7 @@ import type { ContributionRegistry, ErrorMapper } from '@seta/core';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import * as schema from './backend/db/schema.ts';
 import { buildEvaluationRoutes } from './backend/http/index.ts';
+import { evaluationJobs } from './backend/jobs/index.ts';
 import { EvaluationError } from './backend/rbac.ts';
 import { EVALUATION_EVENTS } from './events.ts';
 import { evaluationRbac } from './rbac.ts';
@@ -33,6 +34,7 @@ export function registerEvaluationContributions(reg: ContributionRegistry): void
     events: EVALUATION_EVENTS,
     rbac: evaluationRbac,
     routes: { mountAt: '/', build: buildEvaluationRoutes },
+    jobs: evaluationJobs,
     errorMapper: evaluationErrorMapper,
   });
 }
