@@ -30,6 +30,7 @@ allowBuilds:
   esbuild: true
   lefthook: true
   msw: true
+  onnxruntime-node: true
   protobufjs: true
   ssh2: true
 minimumReleaseAgeExclude:
