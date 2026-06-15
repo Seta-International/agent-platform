@@ -44,6 +44,11 @@ export async function runEvaluation(
     .where(and(eq(runs.id, payload.runId), eq(runs.tenant_id, payload.tenantId)))
     .limit(1);
   if (!run) return;
+  // Terminal-state guard: a graphile retry (or a re-enqueue) of an already
+  // finished run must not re-process or re-emit. Idempotency of case_results is
+  // also covered by the (run_id, case_id) skip below, but returning here avoids
+  // the redundant work and a duplicate completed/failed event.
+  if (run.status === 'completed' || run.status === 'failed') return;
 
   await db
     .update(runs)
@@ -110,12 +115,13 @@ export async function runEvaluation(
     }
 
     const summary = await computeSummary(db, run.id, scorerIds);
-    await db
-      .update(runs)
-      .set({ status: 'completed', finished_at: new Date(), summary })
-      .where(eq(runs.id, run.id));
-
-    await withEmit({ actor: { userId: 'system', tenantId: run.tenant_id } }, async () => {
+    // Bus-is-the-outbox: the terminal status change and its event commit in one
+    // transaction (the run row is written through the core tx, same as createRun).
+    await withEmit({ actor: { userId: 'system', tenantId: run.tenant_id } }, async (tx) => {
+      await tx
+        .update(runs)
+        .set({ status: 'completed', finished_at: new Date(), summary })
+        .where(eq(runs.id, run.id));
       await emit({
         tenantId: run.tenant_id,
         aggregateType: 'evaluation.run',
@@ -131,11 +137,11 @@ export async function runEvaluation(
       });
     });
   } catch (fatal) {
-    await db
-      .update(runs)
-      .set({ status: 'failed', finished_at: new Date(), error: errMsg(fatal) })
-      .where(eq(runs.id, run.id));
-    await withEmit({ actor: { userId: 'system', tenantId: run.tenant_id } }, async () => {
+    await withEmit({ actor: { userId: 'system', tenantId: run.tenant_id } }, async (tx) => {
+      await tx
+        .update(runs)
+        .set({ status: 'failed', finished_at: new Date(), error: errMsg(fatal) })
+        .where(eq(runs.id, run.id));
       await emit({
         tenantId: run.tenant_id,
         aggregateType: 'evaluation.run',

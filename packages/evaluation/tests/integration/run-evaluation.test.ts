@@ -96,6 +96,11 @@ describe('runEvaluation', () => {
         [runId],
       );
       expect(Number(rows[0]?.count)).toBe(1);
+
+      // Terminal-state guard: the second invocation early-returns, so exactly
+      // one completed event is emitted (state change + event stay atomic).
+      const completed = await readEvents(pool, session.tenant_id, 'evaluation.run.completed');
+      expect(completed).toHaveLength(1);
     });
   });
 });
