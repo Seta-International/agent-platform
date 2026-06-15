@@ -5,6 +5,7 @@ import { emit, withEmit } from '@seta/core/events';
 import { createOutboxStore } from '@seta/core/outbox';
 import { registerCoreContributions } from '@seta/core/register';
 import { buildRuntime, runMigrations, type WorkerHandle } from '@seta/core/runtime';
+import { registerEvaluationContributions } from '@seta/evaluation/register';
 import { embeddingJobs, getEntraTenantId } from '@seta/identity';
 import { registerIdentityContributions } from '@seta/identity/register';
 import { createMailTransportConfigStore } from '@seta/integrations';
@@ -19,7 +20,6 @@ import { createCrypto, createKeyProviderFromEnv, parseCryptoEnv } from '@seta/sh
 import { closePools, getPool, initPools } from '@seta/shared-db';
 import { resolveTransport } from '@seta/shared-mailer';
 import { createMailerSendTask } from '@seta/shared-mailer/queue';
-import { registerEvaluationContributions } from '@seta/evaluation/register';
 import { registerStaffingContributions } from '@seta/staffing/register';
 // MODULE_IMPORTS_END — generator inserts new register*Contributions imports above this comment.
 import pino from 'pino';

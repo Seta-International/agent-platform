@@ -8,6 +8,7 @@ import { emit, withEmit } from '@seta/core/events';
 import { createOutboxStore } from '@seta/core/outbox';
 import { registerCoreContributions } from '@seta/core/register';
 import { buildRuntime, runMigrations, type WorkerHandle } from '@seta/core/runtime';
+import { registerEvaluationContributions } from '@seta/evaluation/register';
 import { buildActorSession, getIdentityVectorStore, listTenantRoleOverlays } from '@seta/identity';
 import { registerIdentityContributions } from '@seta/identity/register';
 import { registerIntegrationsContributions } from '@seta/integrations/register';
@@ -35,7 +36,6 @@ import {
   makeUserProfileLookup,
   StaffingRunStateRepository,
 } from '@seta/staffing';
-import { registerEvaluationContributions } from '@seta/evaluation/register';
 import { registerStaffingContributions } from '@seta/staffing/register';
 // MODULE_IMPORTS_END — generator inserts new register*Contributions imports above this comment.
 import pino from 'pino';

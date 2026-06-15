@@ -20,10 +20,7 @@ export class EvaluationError extends Error {
   }
 }
 
-export function requirePermission(
-  session: SessionScope,
-  permission: EvaluationPermission,
-): void {
+export function requirePermission(session: SessionScope, permission: EvaluationPermission): void {
   if (!can(session, permission)) {
     throw new EvaluationError('FORBIDDEN', `Missing permission: ${permission}`, { permission });
   }
