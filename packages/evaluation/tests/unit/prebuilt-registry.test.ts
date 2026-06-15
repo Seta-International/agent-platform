@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { listScorers } from '../../src/backend/domain/list-scorers.ts';
 import {
   listScorerCatalogue,
   SCORER_REGISTRY,
@@ -36,5 +37,14 @@ describe('SCORER_REGISTRY', () => {
       kind: 'llm-judge',
       requires: ['output'],
     });
+  });
+});
+
+describe('listScorers', () => {
+  it('returns the catalogue read from code (no DB)', () => {
+    const scorers = listScorers();
+    expect(scorers.map((s) => s.id).sort()).toEqual(
+      ['answer-relevancy', 'completeness', 'toxicity'].sort(),
+    );
   });
 });
