@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Locally simulate the release.yml build + scan stages.
+# Locally simulate the dev-release.yml build + scan stages.
 # Pushes are always disabled here; CI is the only thing that pushes.
 set -euo pipefail
 
@@ -7,7 +7,7 @@ usage() {
   cat <<'USAGE'
 Usage: release-check.sh [--no-build] [--help]
 
-Runs the same build + smoke + scan stages release.yml runs, with push disabled.
+Runs the same build + smoke + scan stages dev-release.yml runs, with push disabled.
 Intended for fast local feedback before pushing a tag.
 
 Flags:
