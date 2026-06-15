@@ -6,7 +6,7 @@ export interface EmbedDraftDeps {
 }
 
 export function buildDraftText(draft: TaskDraft): string {
-  return [draft.title, draft.description, draft.skill_tags.join(', ')]
+  return [draft.title, draft.description, draft.labels.join(', ')]
     .filter((s) => s.length > 0)
     .join('\n\n');
 }

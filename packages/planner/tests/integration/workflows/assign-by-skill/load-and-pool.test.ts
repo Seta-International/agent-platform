@@ -15,6 +15,7 @@ import { z } from 'zod';
 import { candidatePool } from '../../../../src/backend/workflows/assign-by-skill/steps/candidate-pool.ts';
 import { loadTask } from '../../../../src/backend/workflows/assign-by-skill/steps/load-task.ts';
 import { withAgentTestDb } from '../../agent-tools-helpers.ts';
+import { applyLabels } from '../../label-test-helpers.ts';
 
 const _registry = buildRegistry(inventoryToManifests(INVENTORY));
 function adminSession(opts: { tenant_id: string; user_id: string; email: string }): SessionScope {
@@ -85,7 +86,7 @@ describe('loadTask + candidatePool', () => {
     AgentRegistry.__resetForTests();
   });
 
-  it('loadTask returns title, description, skill_tags', async () => {
+  it('loadTask returns title, description, label names', async () => {
     await withAgentTestDb(async ({ pool }) => {
       const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
       const session = adminSession({
@@ -101,14 +102,20 @@ describe('loadTask + candidatePool', () => {
         plan_id: plan.id,
         title: 'Fix login',
         description: 'OAuth flow broken',
-        skill_tags: ['react', 'auth'],
         session,
+      });
+      await applyLabels(pool, {
+        tenant_id,
+        plan_id: plan.id,
+        task_id: task.id,
+        applied_by: admin_user_id,
+        names: ['react', 'auth'],
       });
 
       const out = await loadTask({ tenantId: tenant_id, taskId: task.id });
       expect(out.title).toBe('Fix login');
       expect(out.description).toBe('OAuth flow broken');
-      expect(out.skill_tags).toEqual(['react', 'auth']);
+      expect([...out.labels].sort()).toEqual(['auth', 'react']);
     });
   });
 
@@ -156,8 +163,14 @@ describe('loadTask + candidatePool', () => {
         plan_id: plan.id,
         title: 'Fix login',
         description: 'oauth flow',
-        skill_tags: ['react', 'auth'],
         session,
+      });
+      await applyLabels(pool, {
+        tenant_id,
+        plan_id: plan.id,
+        task_id: task.id,
+        applied_by: admin_user_id,
+        names: ['react', 'auth'],
       });
 
       const t = await loadTask({ tenantId: tenant_id, taskId: task.id });
@@ -223,8 +236,14 @@ describe('loadTask + candidatePool', () => {
       const task = await createTask({
         plan_id: plan.id,
         title: 'rust',
-        skill_tags: ['rust'],
         session,
+      });
+      await applyLabels(pool, {
+        tenant_id,
+        plan_id: plan.id,
+        task_id: task.id,
+        applied_by: admin_user_id,
+        names: ['rust'],
       });
 
       const t = await loadTask({ tenantId: tenant_id, taskId: task.id });
@@ -240,7 +259,7 @@ describe('loadTask + candidatePool', () => {
     });
   });
 
-  it('returns [] when no skill_tags and no vector tool registered', async () => {
+  it('returns [] when no labels and no vector tool registered', async () => {
     await withAgentTestDb(async ({ pool }) => {
       const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
       const session = adminSession({

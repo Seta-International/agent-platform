@@ -23,7 +23,6 @@ const FIELD_LABEL: Record<string, string> = {
   title: 'title',
   bucket_id: 'column',
   order_hint: 'order',
-  skill_tags: 'tags',
 };
 
 function humanField(f: string): string {

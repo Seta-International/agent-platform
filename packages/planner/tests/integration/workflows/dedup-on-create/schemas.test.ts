@@ -18,7 +18,7 @@ describe('dedup schemas', () => {
     expect(() => TaskDraftSchema.parse({ description: 'x' })).toThrow();
     const ok = TaskDraftSchema.parse({ title: 'hello' });
     expect(ok.title).toBe('hello');
-    expect(ok.skill_tags).toEqual([]);
+    expect(ok.labels).toEqual([]);
     expect(ok.description).toBe('');
   });
 

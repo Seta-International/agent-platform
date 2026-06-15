@@ -10,13 +10,13 @@ import {
 import { withAgentTestDb } from '../../helpers.ts';
 
 /**
- * Seed a tenant + org.admin actor + one group/plan/bucket/task with skill_tags.
+ * Seed a tenant + org.admin actor + one group/plan/bucket/task with labels.
  * org.admin → buildActorSession sees the whole tenant (groupFilter = null), so the
  * adapters can read/search the seeded task by user_id alone.
  */
 async function seedAdminTask(
   pool: Pool,
-  opts: { skillTags: string[]; title?: string },
+  opts: { labels: string[]; title?: string },
 ): Promise<{ tenantId: string; adminUserId: string; taskId: string }> {
   const tenantId = randomUUID();
   await pool.query(`INSERT INTO core.tenants (id, name, slug) VALUES ($1, $2, $3)`, [
@@ -62,8 +62,8 @@ async function seedAdminTask(
   const taskId = randomUUID();
   await pool.query(
     `INSERT INTO planner.tasks
-       (id, tenant_id, plan_id, bucket_id, title, description, skill_tags, created_by, deleted_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NULL)`,
+       (id, tenant_id, plan_id, bucket_id, title, description, created_by, deleted_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, NULL)`,
     [
       taskId,
       tenantId,
@@ -71,19 +71,35 @@ async function seedAdminTask(
       bucketId,
       opts.title ?? 'Provision cluster',
       'infra work',
-      opts.skillTags,
       randomUUID(),
     ],
   );
+  // Apply labels: each test run is isolated (fresh tenant), so label names within a
+  // plan are unique — no ON CONFLICT needed. plan_id is required by the schema.
+  for (const name of opts.labels) {
+    const {
+      rows: [labelRow],
+    } = await pool.query<{ id: string }>(
+      `INSERT INTO planner.labels (id, tenant_id, plan_id, name, color)
+       VALUES (gen_random_uuid(), $1, $2, $3, 'blue')
+       RETURNING id`,
+      [tenantId, planId, name],
+    );
+    await pool.query(
+      `INSERT INTO planner.task_labels (task_id, label_id, applied_by)
+       VALUES ($1, $2, $3)`,
+      [taskId, labelRow!.id, actorId],
+    );
+  }
 
   return { tenantId, adminUserId: admin.user_id, taskId };
 }
 
 describe('staffing orchestration adapters (real DB)', () => {
-  it('makeTaskReader.load surfaces the task skill_tags', () =>
+  it('makeTaskReader.load surfaces the task labels', () =>
     withAgentTestDb(async ({ pool }) => {
       const { tenantId, adminUserId, taskId } = await seedAdminTask(pool, {
-        skillTags: ['infrastructure', 'devops'],
+        labels: ['infrastructure', 'devops'],
       });
       const ctx = { tenantId, actorUserId: adminUserId };
 
@@ -91,23 +107,23 @@ describe('staffing orchestration adapters (real DB)', () => {
       expect(info).not.toBeNull();
       expect(info!.taskId).toBe(taskId);
       expect(info!.title).toBe('Provision cluster');
-      expect(info!.skillTags).toEqual(['infrastructure', 'devops']);
+      expect(info!.labels).toEqual(expect.arrayContaining(['infrastructure', 'devops']));
     }));
 
-  it('makeTaskSearch.bySkillTags filters case-insensitively via the domain function', () =>
+  it('makeTaskSearch.byLabels filters case-insensitively via the domain function', () =>
     withAgentTestDb(async ({ pool }) => {
       const { tenantId, adminUserId, taskId } = await seedAdminTask(pool, {
-        skillTags: ['infrastructure'],
+        labels: ['infrastructure'],
       });
       const ctx = { tenantId, actorUserId: adminUserId };
 
-      // Capitalized query tag must still match the lowercase stored tag.
-      const hits = await makeTaskSearch().bySkillTags(['Infrastructure'], 20, ctx);
+      // Capitalized query label must still match the lowercase stored label.
+      const hits = await makeTaskSearch().byLabels(['Infrastructure'], 20, ctx);
       expect(hits.map((t) => t.taskId)).toEqual([taskId]);
       expect(hits[0]!.status).toBe('not_started');
-      expect(hits[0]!.skillTags).toContain('infrastructure');
+      expect(hits[0]!.labels).toContain('infrastructure');
 
-      const none = await makeTaskSearch().bySkillTags(['frontend'], 20, ctx);
+      const none = await makeTaskSearch().byLabels(['frontend'], 20, ctx);
       expect(none).toEqual([]);
     }));
 

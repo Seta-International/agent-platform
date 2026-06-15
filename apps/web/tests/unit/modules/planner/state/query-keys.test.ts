@@ -22,8 +22,8 @@ describe('plannerKeys', () => {
   });
 
   it('planTasks serializes filters deterministically', () => {
-    const a = plannerKeys.planTasks('p1', { assignee_id: 'u1', skill_tags: ['ts', 'react'] });
-    const b = plannerKeys.planTasks('p1', { skill_tags: ['ts', 'react'], assignee_id: 'u1' });
+    const a = plannerKeys.planTasks('p1', { assignee_id: 'u1', plan_id: 'p1' });
+    const b = plannerKeys.planTasks('p1', { plan_id: 'p1', assignee_id: 'u1' });
     expect(a).toEqual(b);
   });
 

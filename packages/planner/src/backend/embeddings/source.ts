@@ -1,13 +1,13 @@
 export interface TaskSourceInput {
   title: string;
   description: string | null;
-  skill_tags: string[];
+  labels: string[];
 }
 
 /**
  * Labeled-prose source text for task embeddings.
  *
- * Pure function. Reads only the semantic content (title, description, skill_tags);
+ * Pure function. Reads only the semantic content (title, description, labels);
  * structured fields like priority/percent/due_at belong to filters, not embeddings.
  *
  * Empty optional fields are omitted so the same task before/after filling them in
@@ -18,8 +18,8 @@ export function buildTaskSource(input: TaskSourceInput): string {
   if (input.description !== null && input.description.length > 0) {
     lines.push(`Description: ${input.description}`);
   }
-  if (input.skill_tags.length > 0) {
-    lines.push(`Skills: ${input.skill_tags.join(', ')}`);
+  if (input.labels.length > 0) {
+    lines.push(`Skills: ${input.labels.join(', ')}`);
   }
   return lines.join('\n');
 }

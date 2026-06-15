@@ -5,21 +5,18 @@ import type { PlanBoardData } from './queries/use-plan-board';
 export interface FilterOptions {
   assigneeOptions: ReadonlyArray<FilterPillOption<string>>;
   labelOptions: ReadonlyArray<FilterPillOption<string>>;
-  skillOptions: ReadonlyArray<FilterPillOption<string>>;
 }
 
 export function useFilterOptions(data: PlanBoardData | undefined): FilterOptions {
   return useMemo(() => {
     if (!data) {
-      return { assigneeOptions: [], labelOptions: [], skillOptions: [] };
+      return { assigneeOptions: [], labelOptions: [] };
     }
     const assignees = new Map<string, string>();
-    const skills = new Set<string>();
     for (const t of data.tasks) {
       for (const a of t.assignees) {
         if (!assignees.has(a.user_id)) assignees.set(a.user_id, a.display_name);
       }
-      for (const s of t.skill_tags) skills.add(s);
     }
     const assigneeOptions = [...assignees.entries()]
       .map(([value, label]) => ({ value, label }))
@@ -27,7 +24,6 @@ export function useFilterOptions(data: PlanBoardData | undefined): FilterOptions
     const labelOptions = data.labels
       .map((l) => ({ value: l.id, label: l.name }))
       .sort((a, b) => a.label.localeCompare(b.label));
-    const skillOptions = [...skills].toSorted().map((s) => ({ value: s, label: s }));
-    return { assigneeOptions, labelOptions, skillOptions };
+    return { assigneeOptions, labelOptions };
   }, [data]);
 }

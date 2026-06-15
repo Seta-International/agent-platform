@@ -74,7 +74,7 @@ describe('planner_getTask tool', () => {
           groupId: string;
           title: string;
           description: string | null;
-          skillTags: string[];
+          labels: Array<{ id: string; name: string; color: string }>;
         };
       };
 
@@ -83,7 +83,7 @@ describe('planner_getTask tool', () => {
       expect(result.task.groupId).toBe(group.id);
       expect(result.task.title).toBe('Wire SSE backpressure');
       expect(result.task.description).toBeNull();
-      expect(result.task.skillTags).toEqual([]);
+      expect(result.task.labels).toEqual([]);
     });
   });
 

@@ -85,7 +85,7 @@ describe('planner_createTask — triggers dedupOnCreate workflow', () => {
         {
           title: 'New task X',
           description: 'desc',
-          skill_tags: [],
+          labels: [],
           plan_id: plan.id,
           bucket_id: undefined,
         },
@@ -109,7 +109,7 @@ describe('planner_createTask — triggers dedupOnCreate workflow', () => {
       // No mastra on context
 
       const result = (await tool.execute!(
-        { title: 't', description: '', skill_tags: [], plan_id: plan.id, bucket_id: undefined },
+        { title: 't', description: '', labels: [], plan_id: plan.id, bucket_id: undefined },
         ctx,
       )) as { kind: string; taskId?: string };
 
@@ -128,7 +128,7 @@ describe('planner_createTask — triggers dedupOnCreate workflow', () => {
       (ctx as any).mastra = mastra;
 
       const result = (await tool.execute!(
-        { title: 't', description: '', skill_tags: [], plan_id: plan.id, bucket_id: undefined },
+        { title: 't', description: '', labels: [], plan_id: plan.id, bucket_id: undefined },
         ctx,
       )) as { kind: string; taskId?: string };
 

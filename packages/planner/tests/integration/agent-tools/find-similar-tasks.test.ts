@@ -72,7 +72,7 @@ describe('plannerFindSimilarTasksTool', () => {
       const seeded = await seedTaskForTest(pool, {
         title: 'Migrate auth gateway to v1.6',
         description: 'Move the auth gateway from v1.5 to v1.6',
-        skill_tags: ['auth'],
+        labels: ['auth'],
       });
       await setTaskAssignee(pool, seeded.task_id, aliceId);
       await embedTask(
@@ -124,7 +124,7 @@ describe('plannerFindSimilarTasksTool', () => {
       const seeded = await seedTaskForTest(pool, {
         title: 'old auth work',
         description: 'old',
-        skill_tags: ['auth'],
+        labels: ['auth'],
       });
       await backdateTask(pool, seeded.task_id, '2025-01-01T00:00:00Z');
       await embedTask(

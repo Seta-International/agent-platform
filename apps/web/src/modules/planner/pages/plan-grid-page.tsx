@@ -65,9 +65,6 @@ export function PlanGridPage({
       if (filters.label_ids.length && !t.labels.some((l) => filters.label_ids.includes(l.id))) {
         return [];
       }
-      if (filters.skill_tags.length && !t.skill_tags.some((s) => filters.skill_tags.includes(s))) {
-        return [];
-      }
       if (q && !t.title.toLowerCase().includes(q.toLowerCase())) {
         return [];
       }

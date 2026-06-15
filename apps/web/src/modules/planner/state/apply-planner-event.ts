@@ -187,7 +187,6 @@ export function applyPlannerEvent(qc: QueryClient, event: StreamEvent): void {
             (asString(after.preview_type) as TaskWithAssigneesRow['preview_type']) ?? 'automatic',
           review_state:
             (asString(after.review_state) as TaskWithAssigneesRow['review_state']) ?? null,
-          skill_tags: Array.isArray(after.skill_tags) ? (after.skill_tags as string[]) : [],
           start_at: asString(after.start_at) ?? null,
           due_at: asString(after.due_at) ?? null,
           order_hint: asString(after.order_hint) ?? null,
@@ -496,9 +495,6 @@ function mergeTaskPatch(
     ) {
       patch.preview_type = v;
     }
-  }
-  if ('skill_tags' in after && Array.isArray(after.skill_tags)) {
-    patch.skill_tags = after.skill_tags as string[];
   }
   if ('review_state' in after) {
     const v = after.review_state;

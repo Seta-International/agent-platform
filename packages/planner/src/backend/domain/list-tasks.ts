@@ -26,7 +26,6 @@ export interface ListTasksFilters {
   bucket_id?: string;
   assignee_id?: string;
   review_state?: 'needs_review';
-  skill_tags?: string[];
   is_deferred?: boolean;
   percent_complete_lt?: number;
   percent_complete_gte?: number;
@@ -260,15 +259,6 @@ export async function listTasks(input: {
 
   if (filters.percent_complete_gte !== undefined) {
     conditions.push(gte(tasks.percent_complete, filters.percent_complete_gte));
-  }
-
-  if (filters.skill_tags !== undefined && filters.skill_tags.length > 0) {
-    // GIN overlap operator &&. Build ARRAY[...] literal inline so postgres receives an
-    // explicit text[] value rather than a scalar parameter that triggers "malformed array".
-    const arrayLiteral = sql.raw(
-      `ARRAY[${filters.skill_tags.map((t) => `'${t.replace(/'/g, "''")}'`).join(',')}]::text[]`,
-    );
-    conditions.push(sql`${tasks.skill_tags} && ${arrayLiteral}`);
   }
 
   if (filters.due_before !== undefined) {

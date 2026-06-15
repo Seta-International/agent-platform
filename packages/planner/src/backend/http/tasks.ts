@@ -43,7 +43,6 @@ const createTaskSchema = z.object({
   description: z.string().optional(),
   priority_number: z.union([z.literal(1), z.literal(3), z.literal(5), z.literal(9)]).optional(),
   due_at: z.string().optional(),
-  skill_tags: z.array(z.string()).optional(),
   review_state: z.literal('needs_review').optional(),
 });
 
@@ -60,7 +59,6 @@ const updateTaskSchema = z.object({
       .optional(),
     start_at: z.string().nullable().optional(),
     due_at: z.string().nullable().optional(),
-    skill_tags: z.array(z.string()).optional(),
     review_state: z.literal('needs_review').nullable().optional(),
   }),
 });
@@ -183,7 +181,6 @@ function parseListTasksQuery(query: Record<string, string | undefined>): {
   }
   if (query.due_before) filters.due_before = query.due_before;
   if (query.no_date === 'true') filters.no_date = true;
-  if (query.skill_tags) filters.skill_tags = query.skill_tags.split(',').filter(Boolean);
   if (query.include_deleted === 'true') filters.include_deleted = true;
 
   const rawLimit = Number.parseInt(query.limit ?? '50', 10);

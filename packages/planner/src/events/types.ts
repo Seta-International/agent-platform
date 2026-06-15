@@ -23,7 +23,6 @@ export type TaskMutableFields = {
   due_at: string | null;
   order_hint: string | null;
   assignee_priority: string | null;
-  skill_tags: string[];
   review_state: 'needs_review' | null;
   external_source: 'native' | 'm365';
   external_id: string | null;
@@ -412,7 +411,6 @@ export interface PlannerTaskCreated {
       due_at: string | null;
       order_hint: string | null;
       assignee_priority: string | null;
-      skill_tags: string[];
       review_state: 'needs_review' | null;
       external_source: 'native' | 'm365';
       external_id: string | null;

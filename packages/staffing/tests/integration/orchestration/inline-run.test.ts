@@ -112,10 +112,10 @@ const portsWith = () => ({
       title: 'AWS migration',
       description: 'x',
       groupId: 'g1',
-      skillTags: ['aws'],
+      labels: ['aws'],
     }),
   },
-  taskSearch: { bySkillTags: async () => [], listAvailableTags: async () => [] },
+  taskSearch: { byLabels: async () => [], listAvailableLabels: async () => [] },
   skillSearch: {
     search: async () => [{ userId: 'u1', name: 'A', skills: ['aws'], role: null, similarity: 0.9 }],
   },
@@ -155,7 +155,7 @@ describe('orchestrator inline run (e2e)', () => {
         repo: new StaffingRunStateRepository(),
         resolveModel: resolveModelSeq([
           // orchestrator: chain the four delegations. taskAnalyzer is deterministic
-          // (resolve_task_skills reads the task's skillTags=['aws'] via the port);
+          // (resolve_task_skills reads the task's labels=['aws'] via the port);
           // staffing_checkCandidateAvailability runs the deterministic avaiChecker against the ports.
           scriptedModel([
             toolCallStep(0, 'staffing_analyzeTasks', {

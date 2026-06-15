@@ -27,6 +27,7 @@ import {
   runSuggestAssignee,
 } from '../../../../src/backend/workflows/assign-by-skill/workflow.ts';
 import { withAgentTestDb } from '../../agent-tools-helpers.ts';
+import { applyLabels } from '../../label-test-helpers.ts';
 
 const _registry = buildRegistry(inventoryToManifests(INVENTORY));
 function admin(opts: { tenant_id: string; user_id: string; email: string }): SessionScope {
@@ -115,8 +116,14 @@ describe('runSuggestAssignee + applyAssignDecision', () => {
         plan_id: plan.id,
         title: 'Fix login',
         description: 'OAuth flow broken',
-        skill_tags: ['react', 'auth'],
         session,
+      });
+      await applyLabels(pool, {
+        tenant_id,
+        plan_id: plan.id,
+        task_id: task.id,
+        applied_by: admin_user_id,
+        names: ['react', 'auth'],
       });
 
       const pgVector = new PgVector({
@@ -200,7 +207,6 @@ describe('runSuggestAssignee + applyAssignDecision', () => {
         plan_id: plan.id,
         title: 'Pair on auth',
         description: 'Two engineers',
-        skill_tags: ['react'],
         session,
       });
       const u1 = await createUser(

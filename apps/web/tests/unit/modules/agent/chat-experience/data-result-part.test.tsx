@@ -24,11 +24,11 @@ describe('DataResultPart', () => {
     expect(screen.getByText('u2')).toBeInTheDocument(); // falls back to id when name is null
   });
 
-  it('renders a task list with tags', () => {
+  it('renders a task list with labels', () => {
     render(
       <DataResultPart
         data={{
-          tasks: [{ task: { taskId: 't1', title: 'Infra', status: 'open', skillTags: ['infra'] } }],
+          tasks: [{ task: { taskId: 't1', title: 'Infra', status: 'open', labels: ['infra'] } }],
         }}
       />,
     );

@@ -35,7 +35,7 @@ export const plannerFindSimilarTasksOutputSchema = z.object({
       assigneeUserIds: z.array(z.string().uuid()),
       status: z.string(),
       reviewState: z.enum(['needs_review']).nullable(),
-      skillTags: z.array(z.string()),
+      labels: z.array(z.string()),
       createdAt: z.string(),
     }),
   ),
@@ -60,7 +60,7 @@ export function plannerFindSimilarTasksTool(deps: PlannerFindSimilarTasksToolDep
       'Find tasks whose content matches a topic or keyword using semantic similarity.\n\n' +
       'Use for: "find tasks about onboarding"; "anything related to the API migration"; ' +
       '"who has done work like this before?"; duplicate-check before creating a task.\n' +
-      'Do NOT use to filter by assignee, plan, status, skill tag, or date — ' +
+      'Do NOT use to filter by assignee, plan, status, label, or date — ' +
       'use planner_queryTasks for those.\n\n' +
       'Results are ranked by similarity and may be slightly stale on assignee and status fields. ' +
       'Call planner_getTask for the live record before acting on a result.',

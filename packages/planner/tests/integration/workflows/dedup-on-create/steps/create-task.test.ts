@@ -28,7 +28,7 @@ describe('createTaskStep', () => {
             draft: {
               title: 'New task',
               description: 'desc',
-              skill_tags: ['a'],
+              labels: ['a'],
               plan_id: plan.id,
             },
             session,
@@ -38,6 +38,16 @@ describe('createTaskStep', () => {
           const [row] = await plannerDb().select().from(tasks).where(eq(tasks.id, out.taskId));
           expect(row?.title).toBe('New task');
           expect(row?.tenant_id).toBe(seeded.tenant_id);
+
+          // Verify label 'a' was applied to the task via the labels join tables
+          const labelRows = await pool.query<{ name: string }>(
+            `SELECT l.name
+               FROM planner.task_labels tl
+               JOIN planner.labels l ON l.id = tl.label_id
+               WHERE tl.task_id = $1`,
+            [out.taskId],
+          );
+          expect(labelRows.rows.map((r) => r.name)).toContain('a');
         } finally {
           resetCoreDb();
           await closePools();
@@ -50,7 +60,7 @@ describe('createTaskStep', () => {
     await expect(
       createTaskStep({
         // biome-ignore lint/suspicious/noExplicitAny: testing missing field
-        draft: { title: 'x', description: '', skill_tags: [] } as any,
+        draft: { title: 'x', description: '', labels: [] } as any,
         // biome-ignore lint/suspicious/noExplicitAny: not used before error
         session: {} as any,
       }),

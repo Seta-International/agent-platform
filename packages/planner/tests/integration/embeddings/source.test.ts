@@ -7,7 +7,7 @@ describe('buildTaskSource', () => {
     const input: TaskSourceInput = {
       title: 'Provision EKS cluster',
       description: 'Set up control plane and worker nodes for prod.',
-      skill_tags: ['terraform', 'kubernetes'],
+      labels: ['terraform', 'kubernetes'],
     };
     expect(buildTaskSource(input)).toBe(
       'Title: Provision EKS cluster\n' +
@@ -17,15 +17,15 @@ describe('buildTaskSource', () => {
   });
 
   it('omits Description when null', () => {
-    expect(buildTaskSource({ title: 'X', description: null, skill_tags: [] })).toBe('Title: X');
+    expect(buildTaskSource({ title: 'X', description: null, labels: [] })).toBe('Title: X');
   });
 
   it('omits Description when empty string', () => {
-    expect(buildTaskSource({ title: 'X', description: '', skill_tags: [] })).toBe('Title: X');
+    expect(buildTaskSource({ title: 'X', description: '', labels: [] })).toBe('Title: X');
   });
 
   it('omits Skills when empty array', () => {
-    expect(buildTaskSource({ title: 'X', description: 'Y', skill_tags: [] })).toBe(
+    expect(buildTaskSource({ title: 'X', description: 'Y', labels: [] })).toBe(
       'Title: X\nDescription: Y',
     );
   });
@@ -34,7 +34,7 @@ describe('buildTaskSource', () => {
     const source = buildTaskSource({
       title: 'Provision EKS cluster',
       description: 'Set up control plane and worker nodes for prod.',
-      skill_tags: ['terraform', 'kubernetes'],
+      labels: ['terraform', 'kubernetes'],
     });
     expect(sourceHash(source)).toBe(
       'c2910c6abd42bf3735831925381db8a65a4f319d18c882fb466b6bf070bf443e',

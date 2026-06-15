@@ -7,10 +7,11 @@ import {
   createGroup,
   createPlan,
   createTask,
-  listTasksBySkillTag,
+  listTasksByLabel,
   updateTask,
 } from '../../src/index.ts';
 import { buildSession, seedTenant } from '../helpers.ts';
+import { applyLabels } from './label-test-helpers.ts';
 
 const withDb = (fn: Parameters<typeof withTestDb>[1]) =>
   withTestDb(
@@ -21,8 +22,8 @@ const withDb = (fn: Parameters<typeof withTestDb>[1]) =>
     fn,
   );
 
-describe('listTasksBySkillTag', () => {
-  it('returns only tasks whose skill_tags contain the requested tag', () =>
+describe('listTasksByLabel', () => {
+  it('returns only tasks whose labels contain the requested name', () =>
     withDb(async ({ pool, databaseUrl }) => {
       resetCoreDb();
       initPools({ databaseUrl });
@@ -35,32 +36,44 @@ describe('listTasksBySkillTag', () => {
         const infra = await createTask({
           plan_id: plan.id,
           title: 'Provision cluster',
-          skill_tags: ['infrastructure', 'devops'],
           session,
         });
-        await createTask({
+        await applyLabels(pool, {
+          tenant_id: seeded.tenant_id,
+          plan_id: plan.id,
+          task_id: infra.id,
+          applied_by: seeded.admin.user_id,
+          names: ['infrastructure', 'devops'],
+        });
+        const frontend = await createTask({
           plan_id: plan.id,
           title: 'Build login page',
-          skill_tags: ['frontend'],
           session,
         });
+        await applyLabels(pool, {
+          tenant_id: seeded.tenant_id,
+          plan_id: plan.id,
+          task_id: frontend.id,
+          applied_by: seeded.admin.user_id,
+          names: ['frontend'],
+        });
 
-        const { results } = await listTasksBySkillTag({
-          tags: ['infrastructure'],
+        const { results } = await listTasksByLabel({
+          names: ['infrastructure'],
           limit: 10,
           session,
         });
 
         expect(results.map((r) => r.taskId)).toEqual([infra.id]);
         expect(results[0]!.groupId).toBe(group.id);
-        expect(results[0]!.skillTags).toContain('infrastructure');
+        expect(results[0]!.labels).toContain('infrastructure');
       } finally {
         resetCoreDb();
         await closePools();
       }
     }));
 
-  it('ranks tasks matching more of the requested tags first, then truncates to limit', () =>
+  it('ranks tasks matching more of the requested names first, then truncates to limit', () =>
     withDb(async ({ pool, databaseUrl }) => {
       resetCoreDb();
       initPools({ databaseUrl });
@@ -70,33 +83,51 @@ describe('listTasksBySkillTag', () => {
         const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
         const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
 
-        // One-tag matches created LAST so recency would surface them first if the
+        // One-name matches created LAST so recency would surface them first if the
         // query ranked by updated_at — the overlap ranking must override that.
         const twoTagMatch = await createTask({
           plan_id: plan.id,
           title: 'Both tags',
-          skill_tags: ['infrastructure', 'devops'],
           session,
+        });
+        await applyLabels(pool, {
+          tenant_id: seeded.tenant_id,
+          plan_id: plan.id,
+          task_id: twoTagMatch.id,
+          applied_by: seeded.admin.user_id,
+          names: ['infrastructure', 'devops'],
         });
         const oneTagA = await createTask({
           plan_id: plan.id,
           title: 'One tag A',
-          skill_tags: ['infrastructure'],
           session,
+        });
+        await applyLabels(pool, {
+          tenant_id: seeded.tenant_id,
+          plan_id: plan.id,
+          task_id: oneTagA.id,
+          applied_by: seeded.admin.user_id,
+          names: ['infrastructure'],
         });
         const oneTagB = await createTask({
           plan_id: plan.id,
           title: 'One tag B',
-          skill_tags: ['devops'],
           session,
         });
+        await applyLabels(pool, {
+          tenant_id: seeded.tenant_id,
+          plan_id: plan.id,
+          task_id: oneTagB.id,
+          applied_by: seeded.admin.user_id,
+          names: ['devops'],
+        });
 
-        const ranked = await listTasksBySkillTag({
-          tags: ['infrastructure', 'devops'],
+        const ranked = await listTasksByLabel({
+          names: ['infrastructure', 'devops'],
           limit: 10,
           session,
         });
-        // Two-tag match ranks first; the two one-tag matches follow.
+        // Two-name match ranks first; the two one-name matches follow.
         expect(ranked.results[0]!.taskId).toBe(twoTagMatch.id);
         expect(
           ranked.results
@@ -106,8 +137,8 @@ describe('listTasksBySkillTag', () => {
         ).toEqual([oneTagA.id, oneTagB.id].sort());
 
         // "give me the single best match" keeps the most relevant, not the newest.
-        const top1 = await listTasksBySkillTag({
-          tags: ['infrastructure', 'devops'],
+        const top1 = await listTasksByLabel({
+          names: ['infrastructure', 'devops'],
           limit: 1,
           session,
         });
@@ -118,7 +149,7 @@ describe('listTasksBySkillTag', () => {
       }
     }));
 
-  it('matches tags case-insensitively', () =>
+  it('matches label names case-insensitively', () =>
     withDb(async ({ pool, databaseUrl }) => {
       resetCoreDb();
       initPools({ databaseUrl });
@@ -130,12 +161,18 @@ describe('listTasksBySkillTag', () => {
         const t = await createTask({
           plan_id: plan.id,
           title: 'Capitalized tag',
-          skill_tags: ['Infrastructure'],
           session,
         });
+        await applyLabels(pool, {
+          tenant_id: seeded.tenant_id,
+          plan_id: plan.id,
+          task_id: t.id,
+          applied_by: seeded.admin.user_id,
+          names: ['Infrastructure'],
+        });
 
-        const { results } = await listTasksBySkillTag({
-          tags: ['infrastructure'],
+        const { results } = await listTasksByLabel({
+          names: ['infrastructure'],
           limit: 10,
           session,
         });
@@ -157,16 +194,22 @@ describe('listTasksBySkillTag', () => {
         const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
         const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
         for (let i = 0; i < 5; i++) {
-          await createTask({
+          const task = await createTask({
             plan_id: plan.id,
             title: `Infra task ${i}`,
-            skill_tags: ['infrastructure'],
             session,
+          });
+          await applyLabels(pool, {
+            tenant_id: seeded.tenant_id,
+            plan_id: plan.id,
+            task_id: task.id,
+            applied_by: seeded.admin.user_id,
+            names: ['infrastructure'],
           });
         }
 
-        const a = await listTasksBySkillTag({ tags: ['infrastructure'], limit: 10, session });
-        const b = await listTasksBySkillTag({ tags: ['infrastructure'], limit: 10, session });
+        const a = await listTasksByLabel({ names: ['infrastructure'], limit: 10, session });
+        const b = await listTasksByLabel({ names: ['infrastructure'], limit: 10, session });
 
         expect(a.results.map((r) => r.taskId)).toEqual(b.results.map((r) => r.taskId));
         expect(a.results).toHaveLength(5);
@@ -189,14 +232,26 @@ describe('listTasksBySkillTag', () => {
         const notStarted = await createTask({
           plan_id: plan.id,
           title: 'Not started',
-          skill_tags: ['infrastructure'],
           session,
+        });
+        await applyLabels(pool, {
+          tenant_id: seeded.tenant_id,
+          plan_id: plan.id,
+          task_id: notStarted.id,
+          applied_by: seeded.admin.user_id,
+          names: ['infrastructure'],
         });
         const inProgress = await createTask({
           plan_id: plan.id,
           title: 'In progress',
-          skill_tags: ['infrastructure'],
           session,
+        });
+        await applyLabels(pool, {
+          tenant_id: seeded.tenant_id,
+          plan_id: plan.id,
+          task_id: inProgress.id,
+          applied_by: seeded.admin.user_id,
+          names: ['infrastructure'],
         });
         await updateTask({
           task_id: inProgress.id,
@@ -207,8 +262,14 @@ describe('listTasksBySkillTag', () => {
         const completed = await createTask({
           plan_id: plan.id,
           title: 'Completed',
-          skill_tags: ['infrastructure'],
           session,
+        });
+        await applyLabels(pool, {
+          tenant_id: seeded.tenant_id,
+          plan_id: plan.id,
+          task_id: completed.id,
+          applied_by: seeded.admin.user_id,
+          names: ['infrastructure'],
         });
         await updateTask({
           task_id: completed.id,
@@ -217,8 +278,8 @@ describe('listTasksBySkillTag', () => {
           session,
         });
 
-        const open = await listTasksBySkillTag({
-          tags: ['infrastructure'],
+        const open = await listTasksByLabel({
+          names: ['infrastructure'],
           completionStatus: 'open',
           limit: 10,
           session,
@@ -228,8 +289,8 @@ describe('listTasksBySkillTag', () => {
         );
         expect(open.results).toHaveLength(2);
 
-        const done = await listTasksBySkillTag({
-          tags: ['infrastructure'],
+        const done = await listTasksByLabel({
+          names: ['infrastructure'],
           completionStatus: 'completed',
           limit: 10,
           session,
@@ -237,7 +298,7 @@ describe('listTasksBySkillTag', () => {
         expect(done.results.map((r) => r.taskId)).toEqual([completed.id]);
         expect(done.results[0]!.status).toBe('completed');
 
-        const any = await listTasksBySkillTag({ tags: ['infrastructure'], limit: 10, session });
+        const any = await listTasksByLabel({ names: ['infrastructure'], limit: 10, session });
         expect(any.results).toHaveLength(3);
       } finally {
         resetCoreDb();
@@ -260,13 +321,19 @@ describe('listTasksBySkillTag', () => {
         const t = await createTask({
           plan_id: plan.id,
           title: 'Assigned infra task',
-          skill_tags: ['infrastructure'],
           session,
+        });
+        await applyLabels(pool, {
+          tenant_id: seeded.tenant_id,
+          plan_id: plan.id,
+          task_id: t.id,
+          applied_by: seeded.admin.user_id,
+          names: ['infrastructure'],
         });
         await assignTask({ task_id: t.id, user_id: alice.user_id, session });
 
-        const { results } = await listTasksBySkillTag({
-          tags: ['infrastructure'],
+        const { results } = await listTasksByLabel({
+          names: ['infrastructure'],
           limit: 10,
           session,
         });
@@ -299,14 +366,26 @@ describe('listTasksBySkillTag', () => {
         const taskA = await createTask({
           plan_id: planA.id,
           title: 'Infra A',
-          skill_tags: ['infrastructure'],
           session: admin,
         });
-        await createTask({
+        await applyLabels(pool, {
+          tenant_id: seeded.tenant_id,
+          plan_id: planA.id,
+          task_id: taskA.id,
+          applied_by: seeded.admin.user_id,
+          names: ['infrastructure'],
+        });
+        const taskB = await createTask({
           plan_id: planB.id,
           title: 'Infra B',
-          skill_tags: ['infrastructure'],
           session: admin,
+        });
+        await applyLabels(pool, {
+          tenant_id: seeded.tenant_id,
+          plan_id: planB.id,
+          task_id: taskB.id,
+          applied_by: seeded.admin.user_id,
+          names: ['infrastructure'],
         });
 
         const scoped = buildSession({
@@ -316,8 +395,8 @@ describe('listTasksBySkillTag', () => {
           accessible_group_ids: [groupA.id],
         });
 
-        const { results } = await listTasksBySkillTag({
-          tags: ['infrastructure'],
+        const { results } = await listTasksByLabel({
+          names: ['infrastructure'],
           limit: 10,
           session: scoped,
         });

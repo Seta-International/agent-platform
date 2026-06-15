@@ -55,13 +55,13 @@ describe('fetchTaskHistoryHits', () => {
       const past = await seedTaskForTest(pool, {
         title: 'kubernetes review',
         description: 'review prod cluster deployment',
-        skill_tags: ['kubernetes'],
+        labels: ['kubernetes'],
       });
       await embedTaskForTest({
         ...past,
         title: 'kubernetes review',
         description: 'review prod cluster deployment',
-        skill_tags: ['kubernetes'],
+        labels: ['kubernetes'],
         provider,
         pgVector,
       });
@@ -77,7 +77,6 @@ describe('fetchTaskHistoryHits', () => {
             planId: past.plan_id,
             title: 'kubernetes review cluster',
             description: 'investigate deployment failure',
-            skill_tags: [],
             labels: [],
             due_at: null,
             priority_number: 5,
@@ -100,13 +99,13 @@ describe('fetchTaskHistoryHits', () => {
       const seeded = await seedTaskForTest(pool, {
         title: 'rust',
         description: 'rust memory work',
-        skill_tags: ['rust'],
+        labels: ['rust'],
       });
       await embedTaskForTest({
         ...seeded,
         title: 'rust',
         description: 'rust memory work',
-        skill_tags: ['rust'],
+        labels: ['rust'],
         provider,
         pgVector,
       });
@@ -122,8 +121,7 @@ describe('fetchTaskHistoryHits', () => {
             planId: seeded.plan_id,
             title: 'rust memory work',
             description: 'rust',
-            skill_tags: ['rust'],
-            labels: [],
+            labels: ['rust'],
             due_at: null,
             priority_number: 5,
           },
@@ -146,8 +144,7 @@ describe('fetchTaskHistoryHits', () => {
             planId: crypto.randomUUID(),
             title: 'go',
             description: 'first task ever',
-            skill_tags: ['go'],
-            labels: [],
+            labels: ['go'],
             due_at: null,
             priority_number: 5,
           },

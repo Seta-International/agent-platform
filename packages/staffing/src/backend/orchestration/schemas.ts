@@ -8,7 +8,7 @@ export const TaskSummarySchema = z.object({
   taskId: z.string(),
   title: z.string(),
   status: z.enum(['not_started', 'in_progress', 'completed']),
-  skillTags: z.array(z.string()),
+  labels: z.array(z.string()),
 });
 
 /** analyzer output (also the self-gating signal: actionable=false => terminal). */
@@ -68,7 +68,7 @@ export const AnalyzerOutputSchema = SkillRequirementSchema;
  * does NOT guess this from the query — the orchestrator decides people-vs-task
  * and sets the intent, so the analyzer runs exactly one deterministic path.
  *   - resolve_task_skills : a specific task's required skills (needs taskId)
- *   - find_tasks          : list tasks whose skill_tags match the query
+ *   - find_tasks          : list tasks whose labels match the query
  *   - extract_named_skills: the skills the user named in the query (→ skills)
  */
 export const TaskAnalyzerIntent = z.enum([

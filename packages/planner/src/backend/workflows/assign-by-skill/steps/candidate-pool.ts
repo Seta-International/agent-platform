@@ -36,7 +36,7 @@ function findVectorTool():
 
 /**
  * Three signal branches run in parallel:
- * - **Exact** (SQL): skill_tags ∩ assignee_projection.skills, GIN-friendly
+ * - **Exact** (SQL): task label names ∩ assignee_projection.skills, GIN-friendly
  *   via the && operator, then cardinality only for the matching subset.
  * - **Skill vector**: free-text search over identity user-profile embeddings
  *   (catches role/bio matches when literal tags miss).
@@ -132,12 +132,12 @@ async function fetchExactOverlap(
   tenantId: string,
   task: LoadedTask,
 ): Promise<Array<{ user_id: string; display_name: string; skills: string[]; overlap: number }>> {
-  if (task.skill_tags.length === 0) return [];
+  if (task.labels.length === 0) return [];
 
   // pg-driver serializes JS arrays as comma-separated scalars; inline as a
   // SQL ARRAY[...]::text[] literal so the && operator works.
   const tagsLiteral = sql.raw(
-    `ARRAY[${task.skill_tags.map((t) => `'${t.replace(/'/g, "''")}'`).join(',')}]::text[]`,
+    `ARRAY[${task.labels.map((t) => `'${t.replace(/'/g, "''")}'`).join(',')}]::text[]`,
   );
 
   const db = plannerDb();
@@ -188,11 +188,10 @@ async function fetchVectorHits(
   const tool = findVectorTool();
   if (!tool) return [];
 
-  // Include title, description, labels, and tags — skill_tags are often
-  // missing on free-form tasks, and labels carry domain context (e.g.,
+  // Include title, description, and labels — labels carry domain context (e.g.,
   // "Mobile", "Backend") that ties to skills via the user-profile embedding
   // (which already contains role + skills + bio per spec §6.2).
-  const parts = [task.title, task.description, task.labels.join(', '), task.skill_tags.join(', ')]
+  const parts = [task.title, task.description, task.labels.join(', ')]
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
   const queryText = parts.join('\n\n');

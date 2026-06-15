@@ -5,7 +5,12 @@ import {
   applyProfileUpdated,
   applyUserCreated,
 } from './identity-projection.ts';
-import { handleTaskCreated, handleTaskDeleted, handleTaskUpdated } from './task-embedding.ts';
+import {
+  handleLabelChanged,
+  handleTaskCreated,
+  handleTaskDeleted,
+  handleTaskUpdated,
+} from './task-embedding.ts';
 
 export function plannerSubscribers(): SubscriberDef[] {
   return [
@@ -50,6 +55,18 @@ export function plannerSubscribers(): SubscriberDef[] {
       eventVersion: 1,
       subscription: 'planner.embeddings.refresh-task.deleted',
       handler: handleTaskDeleted as SubscriberDef['handler'],
+    },
+    {
+      event: 'planner.label.applied',
+      eventVersion: 1,
+      subscription: 'planner.embeddings.refresh-task.label-applied',
+      handler: handleLabelChanged as SubscriberDef['handler'],
+    },
+    {
+      event: 'planner.label.unapplied',
+      eventVersion: 1,
+      subscription: 'planner.embeddings.refresh-task.label-unapplied',
+      handler: handleLabelChanged as SubscriberDef['handler'],
     },
   ];
 }

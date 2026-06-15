@@ -9,7 +9,6 @@ const searchSchema = z.object({
   groupBy: z.enum(['bucket', 'assignee', 'priority', 'due', 'label']).optional(),
   'filter.assignee': z.string().optional(),
   'filter.label': z.string().optional(),
-  'filter.skill': z.string().optional(),
   q: z.string().optional(),
   /** Jira-style modal-over-board: when set, opens the task detail in a centered modal. */
   selectedTask: z.string().uuid().optional(),

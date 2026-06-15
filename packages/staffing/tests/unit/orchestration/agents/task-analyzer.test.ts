@@ -19,28 +19,28 @@ function spyReader(task: TaskInfo | null) {
   };
   return { port, calls };
 }
-function spySearch(tasks: Awaited<ReturnType<TaskSearchPort['bySkillTags']>>) {
+function spySearch(tasks: Awaited<ReturnType<TaskSearchPort['byLabels']>>) {
   const calls: string[][] = [];
   const limits: number[] = [];
   const port: TaskSearchPort = {
-    async bySkillTags(tags, limit) {
-      calls.push(tags);
+    async byLabels(names, limit) {
+      calls.push(names);
       limits.push(limit);
-      return tasks.map((t) => ({ ...t, skillTags: tags }));
+      return tasks.map((t) => ({ ...t, labels: names }));
     },
-    async listAvailableTags() {
+    async listAvailableLabels() {
       return [];
     },
   };
   return { port, calls, limits };
 }
 
-const TASK = (skillTags: string[]): TaskInfo => ({
+const TASK = (labels: string[]): TaskInfo => ({
   taskId: 't-1',
   title: 'AWS migration',
   description: 'lift and shift',
   groupId: 'g1',
-  skillTags,
+  labels,
 });
 
 describe('taskAnalyzer agent (intent-routed, deterministic)', () => {
@@ -74,7 +74,7 @@ describe('taskAnalyzer agent (intent-routed, deterministic)', () => {
   it('find_tasks: extracts tags then searches tasks — returns tasks, not skills', async () => {
     const reader = spyReader(null);
     const search = spySearch([
-      { taskId: 't9', title: 'Infra A', status: 'not_started', skillTags: [] },
+      { taskId: 't9', title: 'Infra A', status: 'not_started', labels: [] },
     ]);
     const agent = makeTaskAnalyzerAgent({
       taskReader: reader.port,
@@ -105,7 +105,7 @@ describe('taskAnalyzer agent (intent-routed, deterministic)', () => {
 
   it('find_tasks: passes the requested limit through to the search port', async () => {
     const search = spySearch([
-      { taskId: 't9', title: 'Infra A', status: 'not_started', skillTags: [] },
+      { taskId: 't9', title: 'Infra A', status: 'not_started', labels: [] },
     ]);
     const agent = makeTaskAnalyzerAgent({
       taskReader: spyReader(null).port,
@@ -151,7 +151,7 @@ describe('taskAnalyzer agent (intent-routed, deterministic)', () => {
     expect(search.calls).toEqual([]); // never search with empty tags
   });
 
-  it("resolve_task_skills: returns the task's own skill_tags — no extraction, no search", async () => {
+  it("resolve_task_skills: returns the task's own labels — no extraction, no search", async () => {
     const reader = spyReader(TASK(['aws', 'terraform']));
     const search = spySearch([]);
     let extractCalls = 0;
@@ -178,11 +178,11 @@ describe('taskAnalyzer agent (intent-routed, deterministic)', () => {
     expect(res.result.skills).toEqual(['aws', 'terraform']);
     expect(res.result.tasks).toBeUndefined();
     expect(reader.calls).toEqual(['t-1']);
-    expect(extractCalls).toBe(0); // task had its own tags → no LLM extraction
+    expect(extractCalls).toBe(0); // task had its own labels → no LLM extraction
     expect(search.calls).toEqual([]);
   });
 
-  it('resolve_task_skills: falls back to extractRequirement when the task has no skill_tags', async () => {
+  it('resolve_task_skills: falls back to extractRequirement when the task has no labels', async () => {
     const reader = spyReader(TASK([]));
     let extractCalls = 0;
     const agent = makeTaskAnalyzerAgent({

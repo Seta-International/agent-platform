@@ -5,6 +5,7 @@ export { addGroupMember } from './backend/domain/add-group-member.ts';
 export { addGroupMembers } from './backend/domain/add-group-members.ts';
 export { addTaskReference } from './backend/domain/add-task-reference.ts';
 export { applyLabel } from './backend/domain/apply-label.ts';
+export { applyLabelsByName } from './backend/domain/apply-labels-by-name.ts';
 export { archivePlan } from './backend/domain/archive-plan.ts';
 export { assignTask } from './backend/domain/assign-task.ts';
 export { attachLabelToCategorySlot } from './backend/domain/attach-label-to-category-slot.ts';
@@ -41,7 +42,7 @@ export { linkPlanToM365 } from './backend/domain/link-plan-to-m365.ts';
 export { listBuckets } from './backend/domain/list-buckets.ts';
 export { listChecklistItems } from './backend/domain/list-checklist-items.ts';
 export { listComments } from './backend/domain/list-comments.ts';
-export { listDistinctSkillTags } from './backend/domain/list-distinct-skill-tags.ts';
+export { listDistinctLabels } from './backend/domain/list-distinct-labels.ts';
 export type { GroupMemberCandidate } from './backend/domain/list-group-member-candidates.ts';
 export { listGroupMemberCandidates } from './backend/domain/list-group-member-candidates.ts';
 export type { GroupMembersPage } from './backend/domain/list-group-members.ts';
@@ -65,10 +66,10 @@ export { listTaskEvents } from './backend/domain/list-task-events.ts';
 export type { ListTasksFilters } from './backend/domain/list-tasks.ts';
 export { listTasks } from './backend/domain/list-tasks.ts';
 export type {
-  ListTasksBySkillTagInput,
-  ListTasksBySkillTagRow,
-} from './backend/domain/list-tasks-by-skill-tag.ts';
-export { listTasksBySkillTag } from './backend/domain/list-tasks-by-skill-tag.ts';
+  ListTasksByLabelInput,
+  ListTasksByLabelRow,
+} from './backend/domain/list-tasks-by-label.ts';
+export { listTasksByLabel } from './backend/domain/list-tasks-by-label.ts';
 export { markGroupSyncStatus } from './backend/domain/mark-group-sync-status.ts';
 export { markPlanSyncStatus } from './backend/domain/mark-plan-sync-status.ts';
 export { markTaskSyncStatus } from './backend/domain/mark-task-sync-status.ts';

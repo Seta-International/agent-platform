@@ -216,52 +216,6 @@ describe('updateTask', () => {
       },
     );
   });
-
-  it('updates skill_tags array', async () => {
-    await withTestDb(
-      {
-        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
-      },
-      async ({ pool, databaseUrl }) => {
-        resetCoreDb();
-        initPools({ databaseUrl });
-        try {
-          const seeded = await seedTenant(pool);
-          const session = seeded.adminSession;
-
-          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
-          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
-          const task = await createTask({
-            plan_id: plan.id,
-            title: 'T1',
-            skill_tags: ['typescript'],
-            session,
-          });
-
-          const updated = await updateTask({
-            task_id: task.id,
-            expected_version: 1,
-            patch: { skill_tags: ['typescript', 'node'] },
-            session,
-          });
-
-          expect(updated.skill_tags).toEqual(['typescript', 'node']);
-          expect(updated.version).toBe(2);
-
-          const events = await readEvents(pool, seeded.tenant_id, 'planner.task.updated');
-          expect(events).toHaveLength(1);
-          // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
-          const payload = events[0]?.payload as any;
-          expect(payload.before.skill_tags).toEqual(['typescript']);
-          expect(payload.after.skill_tags).toEqual(['typescript', 'node']);
-        } finally {
-          resetCoreDb();
-          await closePools();
-        }
-      },
-    );
-  });
 });
 
 // ---------------------------------------------------------------------------

@@ -3,6 +3,7 @@ import { coreDb } from '@seta/core/db';
 import { createUser, grantRole, listRoleGrants, updateUserProfile } from '@seta/identity';
 import {
   addGroupMember,
+  applyLabelsByName,
   assignTask,
   createBucket,
   createGroup,
@@ -466,7 +467,7 @@ export async function seedCommand(opts: SeedOpts): Promise<void> {
       }
 
       const bucketId = bucketMap.get(row.bucket_id) ?? undefined;
-      const skill_tags = splitIds(row.tags);
+      const labelNames = splitIds(row.tags);
 
       const statusFields = mapStatusFields(row.status);
       const task = await createTask({
@@ -478,10 +479,14 @@ export async function seedCommand(opts: SeedOpts): Promise<void> {
         percent_complete: statusFields.percent_complete,
         is_deferred: statusFields.is_deferred,
         due_at: row.due_date || undefined,
-        skill_tags: skill_tags.length > 0 ? skill_tags : undefined,
         session,
       });
       tasksCreated++;
+
+      // Skills are modeled as labels: find-or-create per plan, then apply.
+      if (labelNames.length > 0) {
+        await applyLabelsByName({ plan_id: planId, task_id: task.id, names: labelNames, session });
+      }
 
       for (const csvId of splitIds(row.assignee_ids)) {
         const userId = idMap.get(csvId);

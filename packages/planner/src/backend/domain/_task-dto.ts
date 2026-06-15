@@ -17,7 +17,6 @@ export function taskRowToDto(row: TaskDbRow): TaskRow {
     is_deferred: row.is_deferred,
     preview_type: row.preview_type as TaskPreviewType,
     review_state: row.review_state,
-    skill_tags: row.skill_tags,
     start_at: row.start_at?.toISOString() ?? null,
     due_at: row.due_at?.toISOString() ?? null,
     order_hint: row.order_hint,

@@ -42,7 +42,7 @@ async function extractTags(
   ctx: Pick<SpecializedAgentRunCtx, 'model' | 'abortSignal' | 'tenantId' | 'actorUserId'>,
 ) {
   if (deps.extractTagsFromQuery) return deps.extractTagsFromQuery({ query });
-  const knownTags = await deps.taskSearch.listAvailableTags(ctx);
+  const knownTags = await deps.taskSearch.listAvailableLabels(ctx);
   const vocabLine = knownTags.length
     ? `Known tag vocabulary — snap to the closest match when possible: ${knownTags.join(', ')}.`
     : '';
@@ -149,7 +149,7 @@ export function makeTaskAnalyzerAgent(deps: TaskAnalyzerDeps): SpecializedAgentS
           const tags = await extractTags(deps, input.query, ctx);
           const cs = input.completionStatus === 'any' ? undefined : input.completionStatus;
           const tasks: TaskSummary[] = tags.length
-            ? await deps.taskSearch.bySkillTags(tags, input.limit ?? FIND_TASKS_LIMIT, ctx, cs)
+            ? await deps.taskSearch.byLabels(tags, input.limit ?? FIND_TASKS_LIMIT, ctx, cs)
             : [];
           return {
             result: { tasks },
@@ -173,9 +173,9 @@ export function makeTaskAnalyzerAgent(deps: TaskAnalyzerDeps): SpecializedAgentS
               trust: trust('resolve_task_skills', `task ${input.taskId} not found`, [], 0.2),
             };
           }
-          // Prefer the task's own tags; fall back to LLM inference only when empty.
-          const skills = task.skillTags.length
-            ? task.skillTags
+          // Prefer the task's own labels; fall back to LLM inference only when empty.
+          const skills = task.labels.length
+            ? task.labels
             : await extractSkills(deps, task.title, task.description, ctx);
           return {
             result: { skills, title: task.title },

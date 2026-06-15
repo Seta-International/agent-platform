@@ -11,17 +11,17 @@ describe('normalize-draft', () => {
     const out = normalizeDraft({ title: '  Fix   login  ', description: '   bug\n\nhere   ' });
     expect(out.title).toBe('Fix login');
     expect(out.description).toBe('bug here');
-    expect(out.skill_tags).toEqual([]);
+    expect(out.labels).toEqual([]);
   });
 
-  it('preserves provided skill_tags + plan_id', () => {
+  it('preserves provided labels + plan_id', () => {
     const planId = '00000000-0000-4000-8000-000000000001';
     const out = normalizeDraft({
       title: 'task',
-      skill_tags: ['auth', 'frontend'],
+      labels: ['auth', 'frontend'],
       plan_id: planId,
     });
-    expect(out.skill_tags).toEqual(['auth', 'frontend']);
+    expect(out.labels).toEqual(['auth', 'frontend']);
     expect(out.plan_id).toBe(planId);
   });
 
@@ -31,11 +31,11 @@ describe('normalize-draft', () => {
 });
 
 describe('embed-draft', () => {
-  it('joins title, description, and skill_tags as the embed text', () => {
+  it('joins title, description, and labels as the embed text', () => {
     const text = buildDraftText({
       title: 'Fix login',
       description: 'OAuth loops',
-      skill_tags: ['auth', 'safari'],
+      labels: ['auth', 'safari'],
     });
     expect(text).toBe('Fix login\n\nOAuth loops\n\nauth, safari');
   });
@@ -46,7 +46,7 @@ describe('embed-draft', () => {
       {
         title: 'Fix login redirect on Safari',
         description: 'OAuth flow loops',
-        skill_tags: ['auth'],
+        labels: ['auth'],
       },
       { provider },
     );
@@ -55,7 +55,7 @@ describe('embed-draft', () => {
 
   it('is deterministic for the same draft', async () => {
     const provider = new FakeEmbeddingProvider();
-    const draft = { title: 'same', description: '', skill_tags: [] };
+    const draft = { title: 'same', description: '', labels: [] };
     const a = await embedDraft(draft, { provider });
     const b = await embedDraft(draft, { provider });
     expect(a).toEqual(b);

@@ -197,8 +197,8 @@ describe('entity recording', () => {
     const { tools } = buildTools({
       taskAnalyzerResult: {
         tasks: [
-          { taskId: UUID_A, title: 'Infra A', skillTags: ['aws'] },
-          { taskId: UUID_B, title: 'Infra B', skillTags: ['k8s'] },
+          { taskId: UUID_A, title: 'Infra A', labels: ['aws'] },
+          { taskId: UUID_B, title: 'Infra B', labels: ['k8s'] },
         ],
       },
     });
@@ -248,7 +248,7 @@ describe('entity recording', () => {
     rc.set('actor', { type: 'user', user_id: 'a1' });
     const toolCtx = { requestContext: rc } as never;
     const { tools } = buildTools({
-      taskAnalyzerResult: { tasks: [{ taskId: UUID_A, title: 'A', skillTags: [] }] },
+      taskAnalyzerResult: { tasks: [{ taskId: UUID_A, title: 'A', labels: [] }] },
     });
     // Must not throw — workflow/cron contexts have no chat memory.
     await expect(

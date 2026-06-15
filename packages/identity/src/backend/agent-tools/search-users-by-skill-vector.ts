@@ -10,7 +10,7 @@ const inputSchema = z.object({
     .string()
     .min(1)
     .max(2000)
-    .describe('Natural-language query: usually task skill_tags + description'),
+    .describe('Natural-language query: usually task labels + description'),
   topK: z.number().int().min(1).max(50).default(20),
   minScore: z.number().min(0).max(1).optional(),
 });

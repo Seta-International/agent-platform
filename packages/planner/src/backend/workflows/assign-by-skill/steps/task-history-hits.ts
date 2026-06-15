@@ -35,12 +35,7 @@ export async function fetchTaskHistoryHits(
   input: { tenantId: string; task: LoadedTask },
   deps: TaskHistoryDeps,
 ): Promise<TaskHistoryHit[]> {
-  const parts = [
-    input.task.title,
-    input.task.description,
-    input.task.labels.join(', '),
-    input.task.skill_tags.join(', '),
-  ]
+  const parts = [input.task.title, input.task.description, input.task.labels.join(', ')]
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
   const queryText = parts.join('\n\n');

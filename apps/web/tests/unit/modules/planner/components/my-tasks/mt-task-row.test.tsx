@@ -55,7 +55,6 @@ function fxTask(over: Partial<MyTasksRowTask> = {}): MyTasksRowTask {
     is_deferred: false,
     preview_type: 'automatic',
     review_state: null,
-    skill_tags: [],
     start_at: null,
     due_at: '2026-08-12T00:00:00.000Z',
     order_hint: null,

@@ -2,7 +2,7 @@ interface TaskSummary {
   taskId: string;
   title: string;
   status: string;
-  skillTags: string[];
+  labels: string[];
 }
 interface Recommendation {
   userId: string;
@@ -62,7 +62,7 @@ export function DataResultPart({ data }: { data: ResultData }) {
             <li key={task.taskId} className="flex flex-col gap-0.5">
               <span className="font-medium text-ink">{task.title}</span>
               <span className="text-caption text-ink-subtle">
-                {task.status} · {task.skillTags.join(', ') || 'no tags'}
+                {task.status} · {task.labels.join(', ') || 'no labels'}
               </span>
               {recommendations?.length ? (
                 <span className="text-caption text-ink-muted">

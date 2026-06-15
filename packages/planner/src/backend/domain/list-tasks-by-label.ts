@@ -1,13 +1,13 @@
 import type { SessionScope } from '@seta/core';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { plannerDb } from '../db/index.ts';
-import { plans, taskAssignments, tasks } from '../db/schema.ts';
+import { labels as labelsTable, plans, taskAssignments, taskLabels, tasks } from '../db/schema.ts';
 import { requirePermission } from '../rbac.ts';
 import { groupFilterFor } from '../read-helpers.ts';
 
-export interface ListTasksBySkillTagInput {
-  /** Skill tags to match (OR / overlap), case-insensitive. Must be non-empty. */
-  tags: string[];
+export interface ListTasksByLabelInput {
+  /** Label names to match (OR / overlap), case-insensitive. Must be non-empty. */
+  names: string[];
   /** "open" = incomplete (percent_complete < 100); "completed" = done; "any" = all. Default "any". */
   completionStatus?: 'open' | 'completed' | 'any';
   /** Max rows to return. Caller is responsible for clamping. */
@@ -15,14 +15,14 @@ export interface ListTasksBySkillTagInput {
   session: SessionScope;
 }
 
-export interface ListTasksBySkillTagRow {
+export interface ListTasksByLabelRow {
   taskId: string;
   groupId: string;
   title: string;
   status: 'not_started' | 'in_progress' | 'completed';
   percentComplete: number;
   assigneeUserIds: string[];
-  skillTags: string[];
+  labels: string[];
   createdAt: string;
 }
 
@@ -30,12 +30,12 @@ function statusOf(pc: number): 'not_started' | 'in_progress' | 'completed' {
   return pc >= 100 ? 'completed' : pc > 0 ? 'in_progress' : 'not_started';
 }
 
-export async function listTasksBySkillTag(
-  input: ListTasksBySkillTagInput,
-): Promise<{ results: ListTasksBySkillTagRow[] }> {
+export async function listTasksByLabel(
+  input: ListTasksByLabelInput,
+): Promise<{ results: ListTasksByLabelRow[] }> {
   requirePermission(input.session, 'planner.task.read');
 
-  if (input.tags.length === 0) return { results: [] };
+  if (input.names.length === 0) return { results: [] };
 
   const db = plannerDb();
   const groupFilter = groupFilterFor(input.session);
@@ -60,18 +60,28 @@ export async function listTasksBySkillTag(
     );
   }
 
-  // Case-insensitive overlap: lower(stored tag) matches any lowered query tag.
-  // Build the ARRAY[...] literal inline (escape ') so postgres receives an explicit
-  // text[] value rather than a scalar param, mirroring list-tasks.ts:277-280. The
-  // EXISTS(... FROM unnest ...) subquery names no module schema, so lint:raw-sql passes.
-  const loweredTags = sql.raw(
-    `ARRAY[${input.tags.map((t) => `'${t.toLowerCase().replace(/'/g, "''")}'`).join(',')}]::text[]`,
+  // Case-insensitive overlap: build the ARRAY[...] literal inline (escape ') so postgres
+  // receives an explicit text[] value. The count subquery joins task_labels → labels
+  // (same module schema, so lint:raw-sql passes).
+  const loweredNames = sql.raw(
+    `ARRAY[${input.names.map((t) => `'${t.toLowerCase().replace(/'/g, "''")}'`).join(',')}]::text[]`,
   );
-  // Relevance = how many of the requested tags the task carries. Used both to
-  // filter (>0) and to rank, so truncating to `limit` keeps the best matches
-  // rather than the most-recently-updated ones.
-  const matchCount = sql<number>`(SELECT count(DISTINCT lower(st)) FROM unnest(${tasks.skill_tags}) AS st WHERE lower(st) = ANY(${loweredTags}))`;
+  // Relevance = how many of the requested label names the task carries. Used both to
+  // filter (>0) and to rank, so truncating to `limit` keeps the best matches.
+  const matchCount = sql<number>`(
+    SELECT count(DISTINCT lower(l.name))
+      FROM planner.task_labels tl
+      JOIN planner.labels l ON l.id = tl.label_id
+     WHERE tl.task_id = ${tasks.id}
+       AND l.deleted_at IS NULL
+       AND lower(l.name) = ANY(${loweredNames})
+  )`;
   conditions.push(sql`${matchCount} > 0`);
+
+  const labelNamesAgg = sql<string[]>`COALESCE(
+    ARRAY_AGG(DISTINCT ${labelsTable.name}) FILTER (WHERE ${labelsTable.id} IS NOT NULL AND ${labelsTable.deleted_at} IS NULL),
+    ARRAY[]::text[]
+  )`;
 
   const rows = await db
     .select({
@@ -79,22 +89,23 @@ export async function listTasksBySkillTag(
       group_id: plans.group_id,
       title: tasks.title,
       percent_complete: tasks.percent_complete,
-      skill_tags: tasks.skill_tags,
       created_at: tasks.created_at,
+      labels: labelNamesAgg,
       assignee_ids: sql<
         string[]
-      >`COALESCE(ARRAY_AGG(${taskAssignments.user_id}) FILTER (WHERE ${taskAssignments.user_id} IS NOT NULL), ARRAY[]::uuid[])`,
+      >`COALESCE(ARRAY_AGG(DISTINCT ${taskAssignments.user_id}) FILTER (WHERE ${taskAssignments.user_id} IS NOT NULL), ARRAY[]::uuid[])`,
     })
     .from(tasks)
     .innerJoin(plans, eq(plans.id, tasks.plan_id))
     .leftJoin(taskAssignments, eq(taskAssignments.task_id, tasks.id))
+    .leftJoin(taskLabels, eq(taskLabels.task_id, tasks.id))
+    .leftJoin(labelsTable, eq(labelsTable.id, taskLabels.label_id))
     .where(and(...conditions))
     .groupBy(
       tasks.id,
       plans.group_id,
       tasks.title,
       tasks.percent_complete,
-      tasks.skill_tags,
       tasks.created_at,
       tasks.updated_at,
     )
@@ -109,7 +120,7 @@ export async function listTasksBySkillTag(
       status: statusOf(r.percent_complete ?? 0),
       percentComplete: r.percent_complete ?? 0,
       assigneeUserIds: (r.assignee_ids ?? []).map(String),
-      skillTags: r.skill_tags ?? [],
+      labels: r.labels ?? [],
       createdAt: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
     })),
   };

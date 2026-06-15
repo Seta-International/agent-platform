@@ -69,7 +69,6 @@ function makeTaskCreatedEvent(opts: { tenantId: string; taskId: string; eventId:
         due_at: null,
         order_hint: null,
         assignee_priority: null,
-        skill_tags: ['testing'],
         review_state: null,
         external_source: 'native' as const,
         external_id: null,
@@ -112,7 +111,7 @@ describe('CDC end-to-end: planner.task.created → Mastra vector store row', () 
       const seeded = await seedTaskForTest(pool, {
         title: 'E2E test task',
         description: 'Created via CDC subscriber test',
-        skill_tags: ['testing'],
+        labels: ['testing'],
       });
 
       const eventId = crypto.randomUUID();

@@ -106,19 +106,18 @@ describe('backfillTasks', () => {
       const t1 = await seedTaskForTest(pool, {
         title: 'Task one',
         description: 'First live task',
-        skill_tags: ['ts'],
+        labels: ['ts'],
       });
       const t2 = await seedTaskForTest(pool, {
         tenant_id: t1.tenant_id,
         title: 'Task two',
         description: 'Second live task',
-        skill_tags: ['go'],
+        labels: ['go'],
       });
       await seedTaskForTest(pool, {
         tenant_id: t1.tenant_id,
         title: 'Deleted task',
         description: 'Should not be embedded',
-        skill_tags: [],
         soft_deleted: true,
       });
 
@@ -146,8 +145,8 @@ describe('backfillTasks', () => {
         const isT1 = meta.task_id === t1.task_id;
         const expectedSource = buildTaskSource(
           isT1
-            ? { title: 'Task one', description: 'First live task', skill_tags: ['ts'] }
-            : { title: 'Task two', description: 'Second live task', skill_tags: ['go'] },
+            ? { title: 'Task one', description: 'First live task', labels: ['ts'] }
+            : { title: 'Task two', description: 'Second live task', labels: ['go'] },
         );
         expect(meta.chunk_text).toBe(expectedSource);
         expect(meta.source_hash).toBe(sourceHash(expectedSource));
@@ -162,19 +161,18 @@ describe('backfillTasks', () => {
       const t1 = await seedTaskForTest(pool, {
         title: 'Already embedded',
         description: 'This one is current',
-        skill_tags: ['ts'],
+        labels: ['ts'],
       });
       const t2 = await seedTaskForTest(pool, {
         tenant_id: t1.tenant_id,
         title: 'Needs embedding',
         description: 'This one is new',
-        skill_tags: [],
       });
 
       const source1 = buildTaskSource({
         title: 'Already embedded',
         description: 'This one is current',
-        skill_tags: ['ts'],
+        labels: ['ts'],
       });
       const hash1 = sourceHash(source1);
 
@@ -221,13 +219,11 @@ describe('backfillTasks', () => {
       const shortTask = await seedTaskForTest(pool, {
         title: 'short',
         description: 'fits',
-        skill_tags: [],
       });
       const longTask = await seedTaskForTest(pool, {
         tenant_id: shortTask.tenant_id,
         title: 'long',
         description: Array.from({ length: 1100 }, () => 'word').join(' '),
-        skill_tags: [],
       });
 
       await backfillTasks({
@@ -256,7 +252,6 @@ describe('backfillTasks', () => {
       const seeded = await seedTaskForTest(pool, {
         title: 'Only task',
         description: null,
-        skill_tags: [],
         soft_deleted: true,
       });
 

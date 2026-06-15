@@ -6,7 +6,7 @@ import { createBucket, createGroup, createPlan, createTask } from '../../src/ind
 import { readEvents, seedTenant } from '../helpers.ts';
 
 describe('createTask', () => {
-  it('inserts a task with all defaults (no bucket, no priority, no skill_tags), emits planner.task.created', async () => {
+  it('inserts a task with all defaults (no bucket, no priority), emits planner.task.created', async () => {
     await withTestDb(
       {
         templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -31,7 +31,6 @@ describe('createTask', () => {
           expect(task.description).toBeNull();
           expect(task.due_at).toBeNull();
           expect(task.review_state).toBeNull();
-          expect(task.skill_tags).toEqual([]);
           expect(task.bucket_id).toBeNull();
           expect(task.order_hint).not.toBeNull();
           expect(task.version).toBe(1);
@@ -53,7 +52,6 @@ describe('createTask', () => {
           expect(payload.after.description).toBeNull();
           expect(payload.after.priority_number).toBe(5);
           expect(payload.after.due_at).toBeNull();
-          expect(payload.after.skill_tags).toEqual([]);
           expect(payload.after.review_state).toBeNull();
           expect(payload.after.order_hint).toBe(task.order_hint);
           expect(payload.after.created_by).toBe(session.user_id);

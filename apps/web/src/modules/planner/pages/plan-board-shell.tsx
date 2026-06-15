@@ -47,7 +47,6 @@ export interface PlanBoardShellSearch {
   groupBy?: 'bucket' | 'assignee' | 'priority' | 'due' | 'label';
   'filter.assignee'?: string;
   'filter.label'?: string;
-  'filter.skill'?: string;
   q?: string;
   calFrom?: string;
   calTo?: string;
@@ -227,7 +226,6 @@ export function PlanBoardShell({
             onChange={onFiltersChange}
             assigneeOptions={filterOptions.assigneeOptions}
             labelOptions={filterOptions.labelOptions}
-            skillOptions={filterOptions.skillOptions}
           />
           <div className="plan-toolbar__divider" aria-hidden="true" />
           <PlanViewSwitcher value={view} onChange={onViewChange} />

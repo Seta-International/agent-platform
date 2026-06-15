@@ -1,13 +1,11 @@
 export interface BoardFilters {
   assignee_ids: string[];
   label_ids: string[];
-  skill_tags: string[];
 }
 
 export const EMPTY_FILTERS: BoardFilters = {
   assignee_ids: [],
   label_ids: [],
-  skill_tags: [],
 };
 
 export type ViewMode = 'board' | 'grid' | 'calendar' | 'charts';
@@ -27,7 +25,6 @@ export function parseFiltersFromSearch(search: Record<string, string | undefined
   return {
     assignee_ids: splitCSV(search['filter.assignee']),
     label_ids: splitCSV(search['filter.label']),
-    skill_tags: splitCSV(search['filter.skill']),
   };
 }
 
@@ -35,7 +32,6 @@ export function serializeFiltersToSearch(f: BoardFilters): Record<string, string
   return {
     'filter.assignee': f.assignee_ids.length ? f.assignee_ids.join(',') : undefined,
     'filter.label': f.label_ids.length ? f.label_ids.join(',') : undefined,
-    'filter.skill': f.skill_tags.length ? f.skill_tags.join(',') : undefined,
   };
 }
 

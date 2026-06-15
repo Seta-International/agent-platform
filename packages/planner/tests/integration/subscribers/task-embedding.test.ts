@@ -6,6 +6,7 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import {
+  handleLabelChanged,
   handleTaskCreated,
   handleTaskDeleted,
   handleTaskUpdated,
@@ -73,6 +74,21 @@ function makeDeletedEvent() {
   };
 }
 
+function makeLabelChangedEvent(eventType: 'planner.label.applied' | 'planner.label.unapplied') {
+  return {
+    id: EVENT_ID,
+    occurredAt: new Date(),
+    tenantId: TENANT_ID,
+    aggregateType: 'planner.label' as const,
+    aggregateId: TASK_ID,
+    eventType,
+    eventVersion: 1 as const,
+    payload: {
+      task_id: TASK_ID,
+    },
+  };
+}
+
 describe('handleTaskCreated', () => {
   it('enqueues planner.embed_task with correct jobKey + jobKeyMode replace + maxAttempts 10', async () => {
     const { ctx, executeSpy } = makeFakeCtx();
@@ -133,10 +149,10 @@ describe('handleTaskUpdated', () => {
     expect(executeSpy).toHaveBeenCalledOnce();
   });
 
-  it('enqueues when changed_fields includes "skill_tags"', async () => {
+  it('does NOT enqueue when changed_fields includes only "skill_tags" (column removed)', async () => {
     const { ctx, executeSpy } = makeFakeCtx();
     await handleTaskUpdated(makeUpdatedEvent(['skill_tags']) as never, ctx as never);
-    expect(executeSpy).toHaveBeenCalledOnce();
+    expect(executeSpy).not.toHaveBeenCalled();
   });
 
   it('enqueues with jobKey replace + maxAttempts 10 when relevant field changes', async () => {
@@ -146,5 +162,42 @@ describe('handleTaskUpdated', () => {
     expect(serialised).toContain(`planner.embed_task:${TENANT_ID}:${TASK_ID}`);
     expect(serialised).toContain('replace');
     expect(serialised).toContain('10');
+  });
+});
+
+describe('handleLabelChanged', () => {
+  it('enqueues planner.embed_task when a planner.label.applied event fires', async () => {
+    const { ctx, executeSpy } = makeFakeCtx();
+    await handleLabelChanged(makeLabelChangedEvent('planner.label.applied') as never, ctx as never);
+
+    expect(executeSpy).toHaveBeenCalledOnce();
+    const serialised = JSON.stringify(executeSpy.mock.calls[0]![0]);
+    expect(serialised).toContain('planner.embed_task');
+    expect(serialised).toContain(`planner.embed_task:${TENANT_ID}:${TASK_ID}`);
+    expect(serialised).toContain('replace');
+    expect(serialised).toContain('10');
+  });
+
+  it('enqueues planner.embed_task when a planner.label.unapplied event fires', async () => {
+    const { ctx, executeSpy } = makeFakeCtx();
+    await handleLabelChanged(
+      makeLabelChangedEvent('planner.label.unapplied') as never,
+      ctx as never,
+    );
+
+    expect(executeSpy).toHaveBeenCalledOnce();
+    const serialised = JSON.stringify(executeSpy.mock.calls[0]![0]);
+    expect(serialised).toContain('planner.embed_task');
+    expect(serialised).toContain(`planner.embed_task:${TENANT_ID}:${TASK_ID}`);
+  });
+
+  it('passes tenant_id + task_id + event_id in payload', async () => {
+    const { ctx, executeSpy } = makeFakeCtx();
+    await handleLabelChanged(makeLabelChangedEvent('planner.label.applied') as never, ctx as never);
+
+    const serialised = JSON.stringify(executeSpy.mock.calls[0]![0]);
+    expect(serialised).toContain(TENANT_ID);
+    expect(serialised).toContain(TASK_ID);
+    expect(serialised).toContain(EVENT_ID);
   });
 });

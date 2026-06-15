@@ -9,7 +9,6 @@ export interface LoadedTask {
   planId: string;
   title: string;
   description: string;
-  skill_tags: string[];
   labels: string[];
   due_at: Date | null;
   priority_number: number;
@@ -44,7 +43,6 @@ export async function loadTask(input: { tenantId: string; taskId: string }): Pro
     planId: row.plan_id,
     title: row.title,
     description: row.description ?? '',
-    skill_tags: row.skill_tags ?? [],
     labels: labelRows.map((l) => l.name),
     due_at: row.due_at,
     priority_number: row.priority_number,

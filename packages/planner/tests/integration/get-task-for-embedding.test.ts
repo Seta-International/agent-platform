@@ -4,9 +4,10 @@ import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { createGroup, createPlan, createTask, getTaskForEmbedding } from '../../src/index.ts';
 import { seedTenant } from '../helpers.ts';
+import { applyLabels } from './label-test-helpers.ts';
 
 describe('getTaskForEmbedding', () => {
-  it('returns title, description, skill_tags for a live task', async () => {
+  it('returns title, description, labels for a live task', async () => {
     await withTestDb(
       {
         templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -24,8 +25,15 @@ describe('getTaskForEmbedding', () => {
             plan_id: plan.id,
             title: 'Embed Me',
             description: 'Some description',
-            skill_tags: ['typescript', 'react'],
             session,
+          });
+
+          await applyLabels(pool, {
+            tenant_id: seeded.tenant_id,
+            plan_id: plan.id,
+            task_id: task.id,
+            applied_by: seeded.adminSession.user_id,
+            names: ['typescript', 'react'],
           });
 
           const result = await getTaskForEmbedding({
@@ -36,8 +44,8 @@ describe('getTaskForEmbedding', () => {
           expect(result).not.toBeNull();
           expect(result!.title).toBe('Embed Me');
           expect(result!.description).toBe('Some description');
-          expect(result!.skill_tags).toEqual(expect.arrayContaining(['typescript', 'react']));
-          expect(result!.skill_tags).toHaveLength(2);
+          expect(result!.labels).toEqual(expect.arrayContaining(['typescript', 'react']));
+          expect(result!.labels).toHaveLength(2);
           expect(result!.plan_id).toBe(plan.id);
         } finally {
           resetCoreDb();

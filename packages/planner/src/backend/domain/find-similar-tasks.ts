@@ -35,7 +35,7 @@ export interface FindSimilarTasksResult {
   assigneeUserIds: string[];
   status: string;
   reviewState: 'needs_review' | null;
-  skillTags: string[];
+  labels: string[];
   createdAt: string;
 }
 
@@ -83,7 +83,14 @@ export async function findSimilarTasks(
       title: tasks.title,
       percent_complete: tasks.percent_complete,
       review_state: tasks.review_state,
-      skill_tags: tasks.skill_tags,
+      labels: sql<string[]>`COALESCE(
+        ARRAY(
+          SELECT l.name FROM planner.task_labels tl
+            JOIN planner.labels l ON l.id = tl.label_id
+           WHERE tl.task_id = ${tasks.id} AND l.deleted_at IS NULL
+        ),
+        ARRAY[]::text[]
+      )`,
       created_at: tasks.created_at,
       assignee_ids: sql<
         string[]
@@ -99,7 +106,6 @@ export async function findSimilarTasks(
       plans.group_id,
       tasks.percent_complete,
       tasks.review_state,
-      tasks.skill_tags,
       tasks.created_at,
     );
 
@@ -118,7 +124,7 @@ export async function findSimilarTasks(
       assigneeUserIds: (row.assignee_ids ?? []).map(String),
       status: (row.percent_complete ?? 0) >= 100 ? 'completed' : 'open',
       reviewState: row.review_state ?? null,
-      skillTags: row.skill_tags ?? [],
+      labels: row.labels ?? [],
       createdAt:
         row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
     });

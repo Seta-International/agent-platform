@@ -315,7 +315,7 @@ async function handleBucketDeleted(
 // ---------------------------------------------------------------------------
 
 // Maps Seta TaskUpdated changed_field names to Graph PATCH body field names.
-// Returns undefined when the field has no Graph counterpart (e.g. skill_tags,
+// Returns undefined when the field has no Graph counterpart (e.g.
 // review_state, is_deferred — Seta-only).
 const TASK_FIELD_MAP: Record<string, { graphField: string; target: 'task' | 'taskDetails' }> = {
   title: { graphField: 'title', target: 'task' },

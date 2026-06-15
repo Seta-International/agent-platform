@@ -37,7 +37,7 @@ interface TaskRow {
   plan_id: string;
   title: string;
   description: string | null;
-  skill_tags: string[];
+  labels: string[];
 }
 
 export async function backfillTasks(opts: BackfillTasksOptions): Promise<void> {
@@ -62,12 +62,19 @@ export async function backfillTasks(opts: BackfillTasksOptions): Promise<void> {
 
   while (true) {
     const result = await pool.query<TaskRow>(
-      `SELECT id, plan_id, title, description, skill_tags
-         FROM planner.tasks
-        WHERE tenant_id = $1
-          AND deleted_at IS NULL
-          AND id > $2
-        ORDER BY id
+      `SELECT t.id, t.plan_id, t.title, t.description,
+              COALESCE(
+                ARRAY_AGG(l.name) FILTER (WHERE l.id IS NOT NULL AND l.deleted_at IS NULL),
+                ARRAY[]::text[]
+              ) AS labels
+         FROM planner.tasks t
+         LEFT JOIN planner.task_labels tl ON tl.task_id = t.id
+         LEFT JOIN planner.labels l ON l.id = tl.label_id
+        WHERE t.tenant_id = $1
+          AND t.deleted_at IS NULL
+          AND t.id > $2
+        GROUP BY t.id, t.plan_id, t.title, t.description
+        ORDER BY t.id
         LIMIT $3`,
       [tenant_id, cursor, PAGE_SIZE],
     );
@@ -83,7 +90,7 @@ export async function backfillTasks(opts: BackfillTasksOptions): Promise<void> {
         const source = buildTaskSource({
           title: row.title,
           description: row.description,
-          skill_tags: row.skill_tags,
+          labels: row.labels,
         });
         return { id: row.id, plan_id: row.plan_id, source, hash: sourceHash(source) };
       })

@@ -16,6 +16,7 @@ import { FakeEmbeddingProvider } from '@seta/shared-testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { runSuggestAssignee } from '../../../../src/backend/workflows/assign-by-skill/workflow.ts';
 import { withAgentTestDb } from '../../agent-tools-helpers.ts';
+import { applyLabels } from '../../label-test-helpers.ts';
 
 const _registry = buildRegistry(inventoryToManifests(INVENTORY));
 function admin(opts: { tenant_id: string; user_id: string; email: string }): SessionScope {
@@ -58,7 +59,7 @@ describe('assignBySkill graceful degradation', () => {
   beforeEach(() => AgentRegistry.__resetForTests());
   afterEach(() => AgentRegistry.__resetForTests());
 
-  it('task with no skill_tags but rich description still produces a card (vector + history carry)', () =>
+  it('task with no labels but rich description still produces a card (vector + history carry)', () =>
     withAgentTestDb(async ({ pool, databaseUrl }) => {
       const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
       const session = admin({ tenant_id, user_id: admin_user_id, email: 'a@d.local' });
@@ -111,7 +112,6 @@ describe('assignBySkill graceful degradation', () => {
       const task = await createTask({
         plan_id: plan.id,
         title: 'rust',
-        skill_tags: ['rust'],
         session,
       });
 
@@ -163,8 +163,14 @@ describe('assignBySkill graceful degradation', () => {
       const task = await createTask({
         plan_id: plan.id,
         title: 'rust audit',
-        skill_tags: ['rust'],
         session,
+      });
+      await applyLabels(pool, {
+        tenant_id,
+        plan_id: plan.id,
+        task_id: task.id,
+        applied_by: admin_user_id,
+        names: ['rust'],
       });
 
       const pgVector = new PgVector({

@@ -190,47 +190,6 @@ describe('listTasks', () => {
     );
   });
 
-  it('filter by skill_tags (GIN overlap)', async () => {
-    await withTestDb(
-      {
-        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
-      },
-      async ({ pool, databaseUrl }) => {
-        resetCoreDb();
-        initPools({ databaseUrl });
-        try {
-          const seeded = await seedTenant(pool);
-          const session = seeded.adminSession;
-          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
-          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
-          const taskTs = await createTask({
-            plan_id: plan.id,
-            title: 'TypeScript Task',
-            skill_tags: ['typescript', 'react'],
-            session,
-          });
-          await createTask({
-            plan_id: plan.id,
-            title: 'Python Task',
-            skill_tags: ['python'],
-            session,
-          });
-
-          const result = await listTasks({
-            filters: { skill_tags: ['typescript'] },
-            session,
-          });
-          expect(result.tasks).toHaveLength(1);
-          expect(result.tasks[0]!.id).toBe(taskTs.id);
-        } finally {
-          resetCoreDb();
-          await closePools();
-        }
-      },
-    );
-  });
-
   it('filter by percent_complete_gte', async () => {
     await withTestDb(
       {

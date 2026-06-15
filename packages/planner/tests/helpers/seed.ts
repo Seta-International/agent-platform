@@ -7,7 +7,7 @@ export interface SeedTaskOptions {
   pool?: Pool; // required when tenant_id is provided; otherwise inferred
   title: string;
   description: string | null;
-  skill_tags: string[];
+  labels?: string[];
   soft_deleted?: boolean;
 }
 
@@ -73,19 +73,24 @@ export async function seedTaskForTest(pool: Pool, opts: SeedTaskOptions): Promis
   const deletedAt = opts.soft_deleted ? 'now()' : 'NULL';
   await pool.query(
     `INSERT INTO planner.tasks
-       (id, tenant_id, plan_id, bucket_id, title, description, skill_tags, created_by, deleted_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, ${deletedAt})`,
-    [
-      task_id,
-      tenant_id,
-      plan_id,
-      bucket_id,
-      opts.title,
-      opts.description,
-      opts.skill_tags,
-      created_by,
-    ],
+       (id, tenant_id, plan_id, bucket_id, title, description, created_by, deleted_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, ${deletedAt})`,
+    [task_id, tenant_id, plan_id, bucket_id, opts.title, opts.description, created_by],
   );
+
+  // Skills are modeled as applied labels.
+  for (const name of opts.labels ?? []) {
+    const res = await pool.query<{ id: string }>(
+      `INSERT INTO planner.labels (tenant_id, plan_id, name, color)
+       VALUES ($1, $2, $3, '#2563eb') RETURNING id`,
+      [tenant_id, plan_id, name],
+    );
+    await pool.query(
+      `INSERT INTO planner.task_labels (task_id, label_id, applied_by)
+       VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+      [task_id, res.rows[0]!.id, created_by],
+    );
+  }
 
   return { tenant_id, task_id, plan_id, bucket_id };
 }

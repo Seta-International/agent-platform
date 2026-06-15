@@ -54,7 +54,6 @@ export interface CreateTaskInput {
   preview_type?: TaskPreviewType;
   start_at?: string;
   due_at?: string;
-  skill_tags?: string[];
   review_state?: 'needs_review';
 }
 
@@ -70,7 +69,6 @@ export interface UpdateTaskPatch {
   preview_type?: TaskPreviewType;
   order_hint?: string | null;
   assignee_priority?: string | null;
-  skill_tags?: string[];
   review_state?: 'needs_review' | null;
   // Spec 2 hook — accepted only when isM365SystemActor(session)
   external_source?: 'native' | 'm365';
@@ -96,7 +94,6 @@ export const UpdateTaskPatchSchema = z
       .optional(),
     order_hint: z.string().nullable().optional(),
     assignee_priority: z.string().nullable().optional(),
-    skill_tags: z.array(z.string()).optional(),
     review_state: z.enum(['needs_review']).nullable().optional(),
     external_source: z.enum(['native', 'm365']).optional(),
     external_id: z.string().nullable().optional(),

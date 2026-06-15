@@ -62,7 +62,6 @@ const SIMPLE_FIELDS = [
   'preview_type',
   'order_hint',
   'assignee_priority',
-  'skill_tags',
   'review_state',
 ] as const satisfies readonly (keyof TaskMutableFields)[];
 

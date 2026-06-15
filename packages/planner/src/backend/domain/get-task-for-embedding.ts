@@ -1,6 +1,6 @@
 import { and, eq, isNull } from 'drizzle-orm';
 import { plannerDb } from '../db/index.ts';
-import { tasks } from '../db/schema.ts';
+import { labels, taskLabels, tasks } from '../db/schema.ts';
 
 export interface GetTaskForEmbeddingInput {
   tenant_id: string;
@@ -10,7 +10,7 @@ export interface GetTaskForEmbeddingInput {
 export interface TaskForEmbedding {
   title: string;
   description: string | null;
-  skill_tags: string[];
+  labels: string[];
   plan_id: string;
 }
 
@@ -30,7 +30,6 @@ export async function getTaskForEmbedding(
     .select({
       title: tasks.title,
       description: tasks.description,
-      skill_tags: tasks.skill_tags,
       plan_id: tasks.plan_id,
     })
     .from(tasks)
@@ -44,5 +43,12 @@ export async function getTaskForEmbedding(
     .limit(1);
 
   if (!row) return null;
-  return row;
+
+  const labelRows = await db
+    .select({ name: labels.name })
+    .from(taskLabels)
+    .innerJoin(labels, eq(labels.id, taskLabels.label_id))
+    .where(and(eq(taskLabels.task_id, input.task_id), isNull(labels.deleted_at)));
+
+  return { ...row, labels: labelRows.map((l) => l.name) };
 }

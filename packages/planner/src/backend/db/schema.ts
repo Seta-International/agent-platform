@@ -145,7 +145,6 @@ export const tasks = planner.table(
     is_deferred: boolean('is_deferred').default(false).notNull(),
     preview_type: text('preview_type').default('automatic').notNull(),
     review_state: text('review_state', { enum: ['needs_review'] }),
-    skill_tags: text('skill_tags').array().default([]).notNull(),
     start_at: timestamp('start_at', { withTimezone: true }),
     due_at: timestamp('due_at', { withTimezone: true }),
     order_hint: text('order_hint'),
@@ -168,7 +167,6 @@ export const tasks = planner.table(
     index('tasks_by_due_soon')
       .on(t.tenant_id, t.due_at)
       .where(sql`deleted_at IS NULL AND is_deferred = false AND percent_complete < 100`),
-    index('tasks_by_skill_tags').using('gin', t.skill_tags),
     index('tasks_by_review_state')
       .on(t.tenant_id, t.review_state)
       .where(sql`review_state IS NOT NULL AND deleted_at IS NULL`),

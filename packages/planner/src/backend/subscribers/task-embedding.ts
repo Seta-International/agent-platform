@@ -4,9 +4,10 @@ import { sql } from 'drizzle-orm';
 /**
  * Fields whose changes warrant re-embedding the task.
  * Changes to other mutable fields (priority, due_at, etc.) do not affect the
- * embedded text and are safely ignored.
+ * embedded text and are safely ignored. Skills are modeled as labels, whose
+ * changes arrive as planner.label.applied/unapplied events (see handleLabelChanged).
  */
-const EMBEDDED_FIELDS = new Set(['title', 'description', 'skill_tags']);
+const EMBEDDED_FIELDS = new Set(['title', 'description']);
 
 interface TaskCreatedPayload {
   after: {
@@ -20,6 +21,10 @@ interface TaskUpdatedPayload {
 }
 
 interface TaskDeletedPayload {
+  task_id: string;
+}
+
+interface TaskLabelChangedPayload {
   task_id: string;
 }
 
@@ -78,6 +83,21 @@ export async function handleTaskUpdated(
 
 export async function handleTaskDeleted(
   event: DomainEvent<TaskDeletedPayload>,
+  ctx: SubscriberCtx,
+): Promise<void> {
+  await enqueueEmbedTask(ctx.tx, {
+    tenant_id: event.tenantId,
+    task_id: event.payload.task_id,
+    event_id: event.id,
+  });
+}
+
+/**
+ * Skills are modeled as labels, so applying/unapplying a label changes the
+ * task's embedded "Skills:" line. Re-embed the affected task.
+ */
+export async function handleLabelChanged(
+  event: DomainEvent<TaskLabelChangedPayload>,
   ctx: SubscriberCtx,
 ): Promise<void> {
   await enqueueEmbedTask(ctx.tx, {

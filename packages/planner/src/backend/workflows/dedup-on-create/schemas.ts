@@ -7,7 +7,7 @@ export type LinkMode = z.infer<typeof LinkModeSchema>;
 export const TaskDraftSchema = z.object({
   title: z.string().trim().min(1).max(280),
   description: z.string().optional().default(''),
-  skill_tags: z.array(z.string()).optional().default([]),
+  labels: z.array(z.string()).optional().default([]),
   plan_id: z.string().uuid().optional(),
   bucket_id: z.string().uuid().optional(),
 });

@@ -59,7 +59,7 @@ describe('orchestration schemas', () => {
           taskId: 't1',
           title: 'Provision cluster',
           status: 'not_started',
-          skillTags: ['infrastructure'],
+          labels: ['infrastructure'],
         },
       ],
     });
@@ -69,7 +69,7 @@ describe('orchestration schemas', () => {
 
   it('TaskSummary rejects an invalid status', () => {
     expect(() =>
-      TaskSummarySchema.parse({ taskId: 't1', title: 'x', status: 'nope', skillTags: [] }),
+      TaskSummarySchema.parse({ taskId: 't1', title: 'x', status: 'nope', labels: [] }),
     ).toThrow();
   });
 
