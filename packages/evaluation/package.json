@@ -1,0 +1,48 @@
+{
+  "name": "@seta/evaluation",
+  "version": "0.0.1",
+  "private": true,
+  "setaTier": "feature",
+  "description": "LLM evaluation harness module — datasets, runs, scores.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./events": "./src/events.ts",
+    "./rbac": "./src/rbac.ts",
+    "./contracts": "./src/contracts.ts",
+    "./register": "./src/register.ts",
+    "./db/schema": "./src/backend/db/schema.ts"
+  },
+  "scripts": {
+    "lint": "eslint . --no-error-on-unmatched-pattern",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:generate": "drizzle-kit generate",
+    "db:check": "drizzle-kit check"
+  },
+  "devDependencies": {
+    "@seta/shared-config": "workspace:^",
+    "@seta/shared-testing": "workspace:^",
+    "@types/node": "^22.15.29",
+    "@types/pg": "^8.20.0",
+    "drizzle-kit": "^0.31.10",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.7"
+  },
+  "dependencies": {
+    "@mastra/core": "^1.35.0",
+    "@mastra/evals": "^0.1.0",
+    "@seta/agent-sdk": "workspace:^",
+    "@seta/core": "workspace:^",
+    "@seta/shared-db": "workspace:^",
+    "@seta/shared-rbac": "workspace:^",
+    "@seta/shared-types": "workspace:^",
+    "drizzle-orm": "^0.45.2",
+    "graphile-worker": "^0.16.6",
+    "hono": "^4.7.11",
+    "pg": "^8.21.0",
+    "pino": "^10.3.1",
+    "zod": "^4.4.3"
+  }
+}
