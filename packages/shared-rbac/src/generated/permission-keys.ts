@@ -20,6 +20,10 @@ export type PermissionKey =
   | 'core.audit.read'
   | 'core.tenant.read'
   | 'core.tenant.write'
+  | 'evaluation.dataset.read'
+  | 'evaluation.dataset.write'
+  | 'evaluation.run.read'
+  | 'evaluation.run.write'
   | 'identity.concept_map.read'
   | 'identity.concept_map.write'
   | 'identity.password.disable_local'
@@ -120,6 +124,10 @@ export const ALL_PERMISSIONS: readonly PermissionKey[] = [
   'core.audit.read',
   'core.tenant.read',
   'core.tenant.write',
+  'evaluation.dataset.read',
+  'evaluation.dataset.write',
+  'evaluation.run.read',
+  'evaluation.run.write',
   'identity.concept_map.read',
   'identity.concept_map.write',
   'identity.password.disable_local',

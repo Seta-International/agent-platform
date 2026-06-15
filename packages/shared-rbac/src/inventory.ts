@@ -389,6 +389,30 @@ export const INVENTORY: StatementSpec[] = [
       },
     ],
   },
+  {
+    module: 'evaluation',
+    statement: {
+      'evaluation.dataset': ['read', 'write'],
+      'evaluation.run': ['read', 'write'],
+    },
+    roles: [
+      {
+        slug: 'evaluation.admin',
+        description: 'Create and run evaluations, manage datasets',
+        permissions: [
+          'evaluation.dataset.read',
+          'evaluation.dataset.write',
+          'evaluation.run.read',
+          'evaluation.run.write',
+        ],
+      },
+      {
+        slug: 'evaluation.viewer',
+        description: 'Read evaluation datasets and runs',
+        permissions: ['evaluation.dataset.read', 'evaluation.run.read'],
+      },
+    ],
+  },
 ];
 
 export const IMPLICIT_PERMISSIONS: readonly string[] = [
