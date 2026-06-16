@@ -7,6 +7,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@seta/shared-ui';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { authClient } from '../auth-client.ts';
 import { useSession } from './SessionProvider.tsx';
@@ -17,9 +18,10 @@ function initials(name: string): string {
   return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase();
 }
 
-export function UserMenu() {
+export function UserMenu({ onSignOut }: { onSignOut?: () => void } = {}) {
   const session = useSession();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus focus-visible:ring-offset-2 focus-visible:ring-offset-canvas">
@@ -51,6 +53,8 @@ export function UserMenu() {
         <DropdownMenuItem
           onSelect={async () => {
             await authClient.signOut();
+            queryClient.clear();
+            onSignOut?.();
             void navigate({ to: '/login', search: { redirect: undefined, reason: undefined } });
           }}
         >

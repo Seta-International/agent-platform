@@ -16,6 +16,7 @@ import { AgentMobileSheet } from '@/modules/agent/chat-experience/agent-mobile-s
 import { usePanelUI } from '@/modules/agent/chat-experience/agent-provider';
 import { useResolveAgentNotification } from '@/modules/agent/notifications/agent-renderers.tsx';
 import { useResolvePlannerNotification } from '@/modules/planner/notifications/renderers.tsx';
+import { clearLastApp, writeLastApp } from '@/shell/last-app.ts';
 import { activeAppId, activeNavId, visibleManifests } from '@/shell/manifest-registry.ts';
 import { ALL_MANIFESTS } from '@/shell/manifests.ts';
 import { fetchEnabledModules } from '../../shell/enabled-modules.ts';
@@ -71,7 +72,10 @@ function ShellWithPanel({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const onAppSelect = (id: string) => {
     const app = navModules.find((m) => m.id === id);
-    if (app) navigate({ to: app.routeNamespace as '/' });
+    if (app) {
+      writeLastApp(session.user_id, id);
+      navigate({ to: app.routeNamespace as '/' });
+    }
   };
 
   useNotificationStream(true);
@@ -84,7 +88,7 @@ function ShellWithPanel({ children }: { children: React.ReactNode }) {
       activeItemId={activeId}
       onAppSelect={onAppSelect}
       linkComponent={ShellLink}
-      userMenu={<UserMenu />}
+      userMenu={<UserMenu onSignOut={() => clearLastApp(session.user_id)} />}
       hideAgent={pathname.startsWith('/agent/')}
       notificationPanel={
         <NotificationPopoverContainer
