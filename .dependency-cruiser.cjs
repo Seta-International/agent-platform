@@ -275,7 +275,7 @@ module.exports = {
       from: {
         orphan: true,
         pathNot:
-          '(^|/)(\\.|index\\.ts|.+\\.config\\.[cm]?[jt]s)$|^packages/shared-config/(eslint|vitest)/|(^|/)(tests)/|\\.(spec|test)\\.[jt]sx?$|/\\.storybook/|\\.stories\\.[jt]sx?$|(^|/)e2e/|^apps/web/src/(lib|routes)/|(^|/)scripts/',
+          '(^|/)(\\.|index\\.ts|.+\\.config\\.[cm]?[jt]s)$|\\.d\\.ts$|^packages/shared-config/(eslint|vitest)/|(^|/)(tests)/|\\.(spec|test)\\.[jt]sx?$|/\\.storybook/|\\.stories\\.[jt]sx?$|(^|/)e2e/|^apps/web/src/(lib|routes)/|^apps/web/src/routes\\.virtual\\.ts$|(^|/)scripts/',
       },
       to: {},
     },
