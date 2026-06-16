@@ -41,6 +41,22 @@ export function filterNavSections(
   return out;
 }
 
+export function activeAppId(
+  apps: ReadonlyArray<AppManifest>,
+  pathname: string,
+): string | undefined {
+  let bestId: string | undefined;
+  let bestLen = -1;
+  for (const app of apps) {
+    const ns = app.routeNamespace;
+    if ((pathname === ns || pathname.startsWith(`${ns}/`)) && ns.length > bestLen) {
+      bestLen = ns.length;
+      bestId = app.id;
+    }
+  }
+  return bestId;
+}
+
 export function activeNavId(
   manifests: ReadonlyArray<AppManifest>,
   pathname: string,

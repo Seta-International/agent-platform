@@ -1,7 +1,8 @@
 import { type AppManifest, noNavExtensions } from '@seta/module-sdk';
-import { Box } from 'lucide-react';
+import { Box, LayoutDashboard } from 'lucide-react';
 import { describe, expect, it } from 'vitest';
 import {
+  activeAppId,
   activeNavId,
   filterNavSections,
   type SessionLike,
@@ -128,5 +129,36 @@ describe('activeNavId', () => {
 
   it('returns undefined when nothing matches', () => {
     expect(activeNavId(manifests, '/somewhere-else')).toBeUndefined();
+  });
+});
+
+const appsForActive = [
+  {
+    id: 'planner',
+    label: 'Planner',
+    icon: LayoutDashboard,
+    routeNamespace: '/planner',
+    requiredPermissions: [],
+    useNavExtensions: () => [],
+    nav: [],
+  },
+  {
+    id: 'admin',
+    label: 'Admin',
+    icon: LayoutDashboard,
+    routeNamespace: '/admin',
+    requiredPermissions: [],
+    useNavExtensions: () => [],
+    nav: [],
+  },
+] as AppManifest[];
+
+describe('activeAppId', () => {
+  it('matches the app whose routeNamespace prefixes the path', () => {
+    expect(activeAppId(appsForActive, '/planner/groups/1')).toBe('planner');
+    expect(activeAppId(appsForActive, '/admin')).toBe('admin');
+  });
+  it('returns undefined when no namespace matches', () => {
+    expect(activeAppId(appsForActive, '/account')).toBeUndefined();
   });
 });

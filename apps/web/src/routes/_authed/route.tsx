@@ -1,6 +1,13 @@
 import { AppShell, type ShellLinkProps } from '@seta/shared-ui';
 import { useQuery } from '@tanstack/react-query';
-import { createFileRoute, Link, Outlet, redirect, useRouterState } from '@tanstack/react-router';
+import {
+  createFileRoute,
+  Link,
+  Outlet,
+  redirect,
+  useNavigate,
+  useRouterState,
+} from '@tanstack/react-router';
 import { useMemo } from 'react';
 import { AgentProvider, AgentSidePanel } from '@/modules/agent';
 import { AgentMobileSheet } from '@/modules/agent/chat-experience/agent-mobile-sheet';
@@ -10,7 +17,7 @@ import { SessionProvider } from '@/modules/identity/components/SessionProvider.t
 import { UserMenu } from '@/modules/identity/components/UserMenu.tsx';
 import { NotificationPopoverContainer } from '@/modules/notifications/components/NotificationPopoverContainer.tsx';
 import { useNotificationStream } from '@/modules/notifications/hooks/useNotificationStream.ts';
-import { activeNavId, visibleManifests } from '@/shell/manifest-registry.ts';
+import { activeAppId, activeNavId, visibleManifests } from '@/shell/manifest-registry.ts';
 import { ALL_MANIFESTS } from '@/shell/manifests.ts';
 import { fetchEnabledModules } from '../../shell/enabled-modules.ts';
 
@@ -60,14 +67,23 @@ function ShellWithPanel({ children }: { children: React.ReactNode }) {
   }, [enabledQuery.data, session]);
 
   const activeId = activeNavId(navModules, pathname);
+  const activeApp = activeAppId(navModules, pathname);
+
+  const navigate = useNavigate();
+  const onAppSelect = (id: string) => {
+    const app = navModules.find((m) => m.id === id);
+    if (app) navigate({ to: app.routeNamespace as '/' });
+  };
 
   useNotificationStream(true);
 
   return (
     <AppShell
       workspace={session.tenant_name}
-      modules={navModules}
+      apps={navModules}
+      activeAppId={activeApp ?? navModules[0]?.id ?? ''}
       activeItemId={activeId}
+      onAppSelect={onAppSelect}
       linkComponent={ShellLink}
       userMenu={<UserMenu />}
       hideAgent={pathname.startsWith('/agent/')}
