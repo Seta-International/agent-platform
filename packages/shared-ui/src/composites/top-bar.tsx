@@ -1,4 +1,4 @@
-import { Building2, ChevronDown, Menu, Moon, Search, Sparkles, Sun } from 'lucide-react';
+import { Building2, ChevronDown, Grip, Menu, Moon, Search, Sparkles, Sun } from 'lucide-react';
 import type * as React from 'react';
 import { SetaMark } from '../icons/seta-mark';
 import { cn } from '../lib/cn';
@@ -17,6 +17,8 @@ export interface TopBarProps {
   /** Slot that replaces the default bell button. Pass a self-contained NotificationPopover here. */
   notificationPanel?: React.ReactNode;
   onMobileNavOpen?: () => void;
+  onLauncherOpen?: () => void;
+  launcherOpen?: boolean;
   className?: string;
 }
 
@@ -31,6 +33,8 @@ export function TopBar({
   hideAgentButton = false,
   notificationPanel,
   onMobileNavOpen,
+  onLauncherOpen,
+  launcherOpen,
   className,
 }: TopBarProps) {
   const theme = useThemeOptional();
@@ -43,6 +47,18 @@ export function TopBar({
       )}
     >
       <div className="flex items-center gap-3">
+        {onLauncherOpen && (
+          <button
+            type="button"
+            onClick={onLauncherOpen}
+            aria-label="Open app launcher"
+            aria-expanded={launcherOpen ?? false}
+            title="Apps"
+            className="-ml-1 inline-flex size-8 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
+          >
+            <Grip className="size-4" aria-hidden />
+          </button>
+        )}
         {onMobileNavOpen && (
           <button
             type="button"

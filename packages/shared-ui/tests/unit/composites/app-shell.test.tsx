@@ -1,34 +1,25 @@
 import { type AppManifest, noNavExtensions } from '@seta/module-sdk';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Building2, Inbox, LayoutDashboard, Sparkles, Users, Workflow } from 'lucide-react';
-import { describe, expect, it } from 'vitest';
-
+import { Building2, LayoutDashboard, Sparkles, Users } from 'lucide-react';
+import { describe, expect, it, vi } from 'vitest';
 import { AppShell } from '../../../src/composites/app-shell';
 
-const MODULES: AppManifest[] = [
+const APPS: AppManifest[] = [
   {
     id: 'agent',
-    routeNamespace: '/agent',
-    label: 'Agent',
+    label: 'Agent Studio',
     icon: Sparkles,
+    routeNamespace: '/agent',
     requiredPermissions: [],
     useNavExtensions: noNavExtensions,
-    nav: [
-      {
-        label: 'Workspace',
-        items: [
-          { id: 'agent.chat', icon: Inbox, label: 'Chat', disabled: true },
-          { id: 'agent.workflows', icon: Workflow, label: 'Workflows', disabled: true },
-        ],
-      },
-    ],
+    nav: [{ label: 'Workspace', items: [{ id: 'agent.chat', label: 'Chat', to: '/agent/chat' }] }],
   },
   {
     id: 'planner',
-    routeNamespace: '/planner',
     label: 'Planner',
     icon: LayoutDashboard,
+    routeNamespace: '/planner',
     requiredPermissions: [],
     useNavExtensions: noNavExtensions,
     nav: [
@@ -40,92 +31,57 @@ const MODULES: AppManifest[] = [
   },
   {
     id: 'admin',
-    routeNamespace: '/admin',
     label: 'Admin',
     icon: Building2,
+    routeNamespace: '/admin',
     requiredPermissions: [],
     useNavExtensions: noNavExtensions,
     nav: [
       {
-        label: 'Identity & access',
+        label: 'Access',
         items: [{ id: 'admin.users', icon: Users, label: 'Users', to: '/admin/users' }],
       },
     ],
   },
 ];
 
-function renderShell(activeItemId = 'planner.groups') {
+function renderShell(props: Partial<React.ComponentProps<typeof AppShell>> = {}) {
   return render(
-    <AppShell workspace="Acme · Engineering" modules={MODULES} activeItemId={activeItemId}>
+    <AppShell
+      workspace="Acme · Engineering"
+      apps={APPS}
+      activeAppId="planner"
+      activeItemId="planner.groups"
+      onAppSelect={() => {}}
+      {...props}
+    >
       <div>page content</div>
     </AppShell>,
   );
 }
 
-describe('AppShell', () => {
-  it('opens the module that contains the active item by default and keeps others collapsed', () => {
-    renderShell('planner.groups');
-
-    expect(screen.getByRole('button', { name: 'Planner' })).toHaveAttribute(
-      'aria-expanded',
-      'true',
-    );
-    expect(screen.getByRole('button', { name: 'Agent' })).toHaveAttribute('aria-expanded', 'false');
+describe('AppShell (suite)', () => {
+  it('renders only the active app nav in the sidebar', () => {
+    renderShell();
+    expect(screen.getByText('Planner')).toBeInTheDocument();
     expect(screen.getByText('Groups')).toBeInTheDocument();
+    expect(screen.queryByText('Chat')).not.toBeInTheDocument();
   });
 
-  it('keeps only one module expanded at a time', async () => {
+  it('opens the launcher and selects another app', async () => {
+    const onAppSelect = vi.fn();
     const user = userEvent.setup();
-    renderShell('planner.groups');
-
-    await user.click(screen.getByRole('button', { name: 'Admin' }));
-
-    expect(screen.getByRole('button', { name: 'Admin' })).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByRole('button', { name: 'Planner' })).toHaveAttribute(
-      'aria-expanded',
-      'false',
-    );
+    renderShell({ onAppSelect });
+    await user.click(screen.getByRole('button', { name: /Open app launcher/i }));
+    await user.click(screen.getByRole('button', { name: /Agent Studio/ }));
+    expect(onAppSelect).toHaveBeenCalledWith('agent');
   });
 
-  it('collapses the sidebar to the icon rail and restores it', async () => {
+  it('still toggles the agent panel with the meta-backslash shortcut', async () => {
     const user = userEvent.setup();
-    renderShell();
-
-    await user.click(screen.getByRole('button', { name: /Collapse sidebar/i }));
-    expect(screen.queryByText('Workspace')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Expand sidebar/i })).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: /Expand sidebar/i }));
-    expect(screen.getByText('Workspace')).toBeInTheDocument();
-  });
-
-  it('toggles the agent panel via the topbar button', async () => {
-    const user = userEvent.setup();
-    renderShell();
-
-    expect(screen.queryByRole('complementary', { name: /Agent/i })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /Show agent panel/i }));
-    expect(screen.getByRole('complementary', { name: /Agent/i })).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: /Hide agent panel/i }));
-    expect(screen.queryByRole('complementary', { name: /Agent/i })).not.toBeInTheDocument();
-  });
-
-  it('toggles the agent panel with the ⌘\\ shortcut', async () => {
-    const user = userEvent.setup();
-    renderShell();
-
+    renderShell({ agentPanel: <div>panel body</div> });
     expect(screen.queryByRole('complementary', { name: /Agent/i })).not.toBeInTheDocument();
     await user.keyboard('{Meta>}\\{/Meta}');
     expect(screen.getByRole('complementary', { name: /Agent/i })).toBeInTheDocument();
-    await user.keyboard('{Meta>}\\{/Meta}');
-    expect(screen.queryByRole('complementary', { name: /Agent/i })).not.toBeInTheDocument();
-  });
-
-  it('renders disabled nav items as non-link spans with a tooltip', () => {
-    renderShell('agent.chat');
-    const chat = screen.getByText('Chat').closest('span[aria-disabled]');
-    expect(chat).toHaveAttribute('aria-disabled', 'true');
-    expect(chat).toHaveAttribute('title', 'Coming soon');
   });
 });

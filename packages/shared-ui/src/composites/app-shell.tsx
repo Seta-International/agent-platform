@@ -4,6 +4,7 @@ import * as React from 'react';
 import { cn } from '../lib/cn';
 import { Sheet, SheetContent } from '../primitives/sheet';
 import { AgentPanel } from './agent-panel';
+import { AppLauncher } from './app-launcher';
 import { LeftNav, type ShellLinkComponent } from './left-nav';
 import { TopBar } from './top-bar';
 
@@ -13,8 +14,11 @@ export interface AppShellProps {
   userMenu?: React.ReactNode;
   onSearchOpen?: () => void;
 
-  modules: AppManifest[];
+  apps: AppManifest[];
+  activeAppId: string;
   activeItemId?: string;
+  disabledAppIds?: string[];
+  onAppSelect: (appId: string) => void;
   linkComponent?: ShellLinkComponent;
   sessionFooter?: React.ReactNode;
   defaultSidebarCollapsed?: boolean;
@@ -40,8 +44,11 @@ export function AppShell({
   onWorkspaceClick,
   userMenu,
   onSearchOpen,
-  modules,
+  apps,
+  activeAppId,
   activeItemId,
+  disabledAppIds,
+  onAppSelect,
   linkComponent,
   sessionFooter,
   defaultSidebarCollapsed = false,
@@ -67,6 +74,8 @@ export function AppShell({
     [controlledAgentOpen, onAgentOpenChange],
   );
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
+  const [launcherOpen, setLauncherOpen] = React.useState(false);
+  const activeApp = apps.find((a) => a.id === activeAppId) ?? apps[0];
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -111,33 +120,60 @@ export function AppShell({
         hideAgentButton={hideAgent}
         notificationPanel={notificationPanel}
         onMobileNavOpen={() => setMobileNavOpen(true)}
+        onLauncherOpen={() => setLauncherOpen((o) => !o)}
+        launcherOpen={launcherOpen}
       />
-      <div className="flex min-h-0 flex-1">
-        <div className="hidden md:flex">
-          <LeftNav
-            modules={modules}
-            activeItemId={activeItemId}
-            linkComponent={linkComponent}
-            collapsed={sidebarCollapsed}
-            onCollapsedChange={setSidebarCollapsed}
-            sessionFooter={sessionFooter}
+      {launcherOpen && (
+        <>
+          <button
+            type="button"
+            aria-label="Close app launcher"
+            className="fixed inset-0 z-40 cursor-default"
+            onClick={() => setLauncherOpen(false)}
           />
-        </div>
+          <div className="absolute left-2 top-14 z-50 w-[360px] rounded-md border border-hairline bg-surface-1 shadow-lg">
+            <AppLauncher
+              apps={apps}
+              currentAppId={activeAppId}
+              disabledAppIds={disabledAppIds}
+              onSelect={(id) => {
+                setLauncherOpen(false);
+                onAppSelect(id);
+              }}
+            />
+          </div>
+        </>
+      )}
+      <div className="flex min-h-0 flex-1">
+        {activeApp && (
+          <div className="hidden md:flex">
+            <LeftNav
+              app={activeApp}
+              activeItemId={activeItemId}
+              linkComponent={linkComponent}
+              collapsed={sidebarCollapsed}
+              onCollapsedChange={setSidebarCollapsed}
+              sessionFooter={sessionFooter}
+            />
+          </div>
+        )}
         <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
           <SheetContent
             side="left"
             hideClose
             className="w-[260px] border-r border-hairline bg-surface-1 p-0 sm:max-w-none md:hidden"
           >
-            <LeftNav
-              modules={modules}
-              activeItemId={activeItemId}
-              linkComponent={linkComponent}
-              collapsed={false}
-              hideCollapse
-              sessionFooter={sessionFooter}
-              className="w-full border-r-0"
-            />
+            {activeApp && (
+              <LeftNav
+                app={activeApp}
+                activeItemId={activeItemId}
+                linkComponent={linkComponent}
+                collapsed={false}
+                hideCollapse
+                sessionFooter={sessionFooter}
+                className="w-full border-r-0"
+              />
+            )}
           </SheetContent>
         </Sheet>
         <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto bg-canvas">

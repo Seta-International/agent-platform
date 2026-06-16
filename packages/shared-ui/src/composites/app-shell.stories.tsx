@@ -173,8 +173,10 @@ type Story = StoryObj<typeof AppShell>;
 export const Default: Story = {
   args: {
     workspace: 'Acme · Engineering',
-    modules: NAV_MODULES,
+    apps: NAV_MODULES,
+    activeAppId: 'admin',
     activeItemId: 'admin.audit',
+    onAppSelect: () => {},
     userMenu: <UserMenuDemo />,
     sessionFooter: <SessionFooter />,
     children: (
@@ -192,6 +194,7 @@ export const Default: Story = {
 export const PlannerActive: Story = {
   args: {
     ...Default.args,
+    activeAppId: 'planner',
     activeItemId: 'planner.plan.q3',
   },
 };
