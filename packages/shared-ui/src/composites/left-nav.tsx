@@ -1,7 +1,6 @@
 import type { AppManifest, NavBadgeTone, NavItem, NavSection } from '@seta/module-sdk';
-import { ChevronLeft, ChevronRight, LayoutDashboard } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import * as React from 'react';
-
 import { cn } from '../lib/cn';
 
 const DOT_CLASS: Record<NavBadgeTone, string> = {
@@ -29,7 +28,7 @@ const DefaultShellLink: ShellLinkComponent = ({ href, className, style, children
 );
 
 export interface LeftNavProps {
-  modules: AppManifest[];
+  app: AppManifest;
   activeItemId?: string;
   linkComponent?: ShellLinkComponent;
   collapsed?: boolean;
@@ -39,16 +38,8 @@ export interface LeftNavProps {
   className?: string;
 }
 
-function moduleIdOfItem(modules: AppManifest[], itemId: string | undefined): string | null {
-  if (!itemId) return null;
-  for (const m of modules) {
-    if (itemId === m.id || itemId.startsWith(`${m.id}.`)) return m.id;
-  }
-  return null;
-}
-
 export function LeftNav({
-  modules,
+  app,
   activeItemId,
   linkComponent,
   collapsed: collapsedProp,
@@ -58,7 +49,7 @@ export function LeftNav({
   className,
 }: LeftNavProps) {
   const Link = linkComponent ?? DefaultShellLink;
-
+  const Icon = app.icon;
   const [collapsedInternal, setCollapsedInternal] = React.useState(collapsedProp ?? false);
   const collapsed = collapsedProp ?? collapsedInternal;
   const setCollapsed = (next: boolean) => {
@@ -66,14 +57,8 @@ export function LeftNav({
     onCollapsedChange?.(next);
   };
 
-  const activeModuleId = moduleIdOfItem(modules, activeItemId);
-  const [openModuleId, setOpenModuleId] = React.useState<string | null>(
-    activeModuleId ?? modules[0]?.id ?? null,
-  );
-
-  React.useEffect(() => {
-    if (activeModuleId) setOpenModuleId(activeModuleId);
-  }, [activeModuleId]);
+  const extensions = app.useNavExtensions();
+  const sections: NavSection[] = [...app.nav, ...extensions];
 
   if (collapsed) {
     return (
@@ -92,49 +77,9 @@ export function LeftNav({
             aria-label="Expand sidebar"
             className="inline-flex size-8 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
           >
-            <LayoutDashboard className="size-4" aria-hidden />
+            <Icon className="size-4" aria-hidden />
           </button>
         </div>
-        <div className="mx-2 h-px bg-hairline" aria-hidden />
-        <div className="flex flex-col gap-1 py-3">
-          {modules.map((m) => {
-            const Icon = m.icon;
-            const isActive = openModuleId === m.id || activeModuleId === m.id;
-            return (
-              <button
-                key={m.id}
-                type="button"
-                title={m.label}
-                aria-label={m.label}
-                aria-current={isActive ? 'page' : undefined}
-                onClick={() => {
-                  setOpenModuleId(m.id);
-                  setCollapsed(false);
-                }}
-                className={cn(
-                  'relative mx-auto inline-flex size-10 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus',
-                  isActive
-                    ? 'bg-primary-tint text-primary'
-                    : 'text-ink-muted hover:bg-surface-2 hover:text-ink',
-                )}
-              >
-                <Icon className="size-4" aria-hidden />
-                {isActive && (
-                  <span
-                    className="absolute -left-2 top-2 bottom-2 w-0.5 rounded bg-primary"
-                    aria-hidden
-                  />
-                )}
-              </button>
-            );
-          })}
-        </div>
-        <div className="flex-1" />
-        {sessionFooter && (
-          <div className="flex h-14 items-center justify-center border-t border-hairline">
-            {sessionFooter}
-          </div>
-        )}
       </nav>
     );
   }
@@ -148,7 +93,10 @@ export function LeftNav({
       )}
     >
       <div className="flex h-10 flex-none items-center justify-between border-b border-hairline pl-3.5 pr-2">
-        <span className="text-eyebrow uppercase text-ink-subtle">Workspace</span>
+        <span className="flex items-center gap-2 text-body-sm font-semibold text-ink">
+          <Icon className="size-4 text-primary" aria-hidden />
+          {app.label}
+        </span>
         {!hideCollapse && (
           <button
             type="button"
@@ -163,110 +111,29 @@ export function LeftNav({
       </div>
 
       <div className="flex-1 overflow-y-auto py-1.5">
-        {modules.map((m) => (
-          <ModuleSection
-            key={m.id}
-            manifest={m}
-            isOpen={openModuleId === m.id}
-            moduleActive={activeModuleId === m.id}
-            activeItemId={activeItemId}
-            onToggle={() => setOpenModuleId(openModuleId === m.id ? null : m.id)}
-            Link={Link}
-          />
-        ))}
+        {sections.map((section, i) =>
+          section.items.length === 0 ? null : (
+            <div key={`${app.id}:${section.label}`} className={i > 0 ? 'mt-2' : ''}>
+              <div className="mt-1 mb-0.5 px-[28px] text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
+                {section.label}
+              </div>
+              {section.items.map((item) => (
+                <NavItemRow
+                  key={item.id}
+                  item={item}
+                  active={activeItemId === item.id}
+                  Link={Link}
+                />
+              ))}
+            </div>
+          ),
+        )}
       </div>
 
       {sessionFooter && (
         <div className="flex-none border-t border-hairline p-2.5">{sessionFooter}</div>
       )}
     </nav>
-  );
-}
-
-interface ModuleSectionProps {
-  manifest: AppManifest;
-  isOpen: boolean;
-  moduleActive: boolean;
-  activeItemId: string | undefined;
-  onToggle: () => void;
-  Link: ShellLinkComponent;
-}
-
-function ModuleSection({
-  manifest,
-  isOpen,
-  moduleActive,
-  activeItemId,
-  onToggle,
-  Link,
-}: ModuleSectionProps) {
-  const extensions = manifest.useNavExtensions();
-  const sections: NavSection[] = [...manifest.nav, ...extensions];
-  const ModuleIcon = manifest.icon;
-  const isAgent = manifest.id === 'agent';
-
-  return (
-    <div className="mb-0.5">
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={isOpen}
-        aria-controls={`shell-nav-module-${manifest.id}`}
-        className="mx-1.5 flex h-[30px] w-[calc(100%-12px)] items-center gap-2 rounded-sm px-2 text-left text-body-sm font-semibold text-ink transition-colors hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
-      >
-        <ChevronRight
-          className={cn(
-            'size-3 text-ink-subtle transition-transform duration-100',
-            isOpen && 'rotate-90',
-          )}
-          aria-hidden
-        />
-        <ModuleIcon
-          className={cn(
-            'size-3.5',
-            isAgent ? 'text-violet-500' : moduleActive ? 'text-primary' : 'text-ink-muted',
-          )}
-          aria-hidden
-        />
-        <span
-          className={cn(
-            'flex-1',
-            isAgent
-              ? 'bg-gradient-to-r from-violet-500 to-blue-600 bg-clip-text text-transparent'
-              : moduleActive
-                ? 'text-ink'
-                : 'text-ink-muted',
-          )}
-        >
-          {manifest.label}
-        </span>
-        {!isOpen && moduleActive && (
-          <span className="inline-block size-1.5 rounded-full bg-primary" aria-hidden />
-        )}
-      </button>
-
-      {isOpen && (
-        <div id={`shell-nav-module-${manifest.id}`} className="pb-1.5 pt-0.5">
-          {sections.map((section, sectionIdx) =>
-            section.items.length === 0 ? null : (
-              <div key={`${manifest.id}:${section.label}`} className={sectionIdx > 0 ? 'mt-2' : ''}>
-                <div className="mt-1 mb-0.5 px-[28px] text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
-                  {section.label}
-                </div>
-                {section.items.map((item) => (
-                  <NavItemRow
-                    key={item.id}
-                    item={item}
-                    active={activeItemId === item.id}
-                    Link={Link}
-                  />
-                ))}
-              </div>
-            ),
-          )}
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -279,7 +146,6 @@ interface NavItemRowProps {
 function NavItemRow({ item, active, Link }: NavItemRowProps) {
   const Icon = item.icon ?? null;
   const indent = item.indent ?? 0;
-
   const inner = (
     <>
       {active && (
@@ -298,7 +164,6 @@ function NavItemRow({ item, active, Link }: NavItemRowProps) {
       {item.badge != null && <span className="text-eyebrow text-ink-subtle">{item.badge}</span>}
     </>
   );
-
   const baseClass = cn(
     'group relative mx-1.5 mb-px flex h-7 items-center gap-2 rounded-sm text-body-sm',
     active
@@ -306,9 +171,7 @@ function NavItemRow({ item, active, Link }: NavItemRowProps) {
       : 'text-ink-muted hover:bg-surface-2 hover:text-ink',
     item.disabled && 'cursor-not-allowed opacity-55 hover:bg-transparent hover:text-ink-muted',
   );
-
   const style: React.CSSProperties = { paddingLeft: 28 + indent * 14, paddingRight: 10 };
-
   if (item.disabled || !item.to) {
     return (
       <span
@@ -321,7 +184,6 @@ function NavItemRow({ item, active, Link }: NavItemRowProps) {
       </span>
     );
   }
-
   return (
     <Link
       href={item.to}
