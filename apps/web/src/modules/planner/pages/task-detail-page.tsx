@@ -7,11 +7,11 @@ import {
   Skeleton,
   toast,
 } from '@seta/shared-ui';
+import { useSession } from '@seta/web-identity';
 import { useNavigate } from '@tanstack/react-router';
 import { ArrowRightLeft, ChevronRight, Copy, MoreHorizontal } from 'lucide-react';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { useAgentContext } from '@/modules/agent';
-import { useSession } from '@/modules/identity/components/SessionProvider';
 import { PlannerClientError } from '../api/planner-client';
 import { ConfirmDeleteTaskDialog } from '../components/ConfirmDeleteTaskDialog';
 import { DuplicateTaskDialog } from '../components/DuplicateTaskDialog';

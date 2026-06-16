@@ -1,9 +1,11 @@
+import type { ProfileDto, SaveProfile } from '@seta/web-identity';
+import {
+  ProfileAccountSection,
+  ProfileAvailabilitySection,
+  ProfileLocaleSection,
+  ProfileSkillsSection,
+} from '@seta/web-identity';
 import { useState } from 'react';
-import type { ProfileDto, SaveProfile } from '@/modules/identity/api/client.ts';
-import { ProfileAccountSection } from '@/modules/identity/components/ProfileAccountSection.tsx';
-import { ProfileAvailabilitySection } from '@/modules/identity/components/ProfileAvailabilitySection.tsx';
-import { ProfileLocaleSection } from '@/modules/identity/components/ProfileLocaleSection.tsx';
-import { ProfileSkillsSection } from '@/modules/identity/components/ProfileSkillsSection.tsx';
 import { type AdminUserDetail, patchAdminUserProfile } from '../../api/users-client.ts';
 import { ChangeEmailDialog } from '../ChangeEmailDialog.tsx';
 import { EmailHistorySection } from '../EmailHistorySection.tsx';

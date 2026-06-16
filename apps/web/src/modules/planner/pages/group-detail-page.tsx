@@ -13,10 +13,10 @@ import {
   TabsTrigger,
   toast,
 } from '@seta/shared-ui';
+import type { SessionScopeProjection } from '@seta/web-identity';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Navigate, useNavigate } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
-import type { SessionScopeProjection } from '@/modules/identity/api/client';
 import { listJoinRequests, resolveJoinRequest } from '../api/planner-client';
 import { ActivityFeedTab } from '../components/ActivityFeedTab';
 import { AddGroupMembersDialog } from '../components/AddGroupMembersDialog';

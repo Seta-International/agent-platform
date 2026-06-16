@@ -1,7 +1,7 @@
 import { Alert, AlertDescription, Button, PageChrome, Skeleton } from '@seta/shared-ui';
+import { useSession } from '@seta/web-identity';
 import { ExternalLink } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { useSession } from '@/modules/identity/components/SessionProvider.tsx';
 import type { SsoProviderRowDto } from '../api/sso-client.ts';
 import { listProviders } from '../api/sso-client.ts';
 import { ComingSoonProvidersCard } from '../components/ComingSoonProvidersCard.tsx';

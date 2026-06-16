@@ -1,4 +1,5 @@
 import { AppShell, type ShellLinkProps } from '@seta/shared-ui';
+import { fetchMe, SessionProvider, UserMenu } from '@seta/web-identity';
 import { useQuery } from '@tanstack/react-query';
 import {
   createFileRoute,
@@ -12,9 +13,6 @@ import { useMemo } from 'react';
 import { AgentProvider, AgentSidePanel } from '@/modules/agent';
 import { AgentMobileSheet } from '@/modules/agent/chat-experience/agent-mobile-sheet';
 import { usePanelUI } from '@/modules/agent/chat-experience/agent-provider';
-import { fetchMe } from '@/modules/identity/api/client.ts';
-import { SessionProvider } from '@/modules/identity/components/SessionProvider.tsx';
-import { UserMenu } from '@/modules/identity/components/UserMenu.tsx';
 import { NotificationPopoverContainer } from '@/modules/notifications/components/NotificationPopoverContainer.tsx';
 import { useNotificationStream } from '@/modules/notifications/hooks/useNotificationStream.ts';
 import { activeAppId, activeNavId, visibleManifests } from '@/shell/manifest-registry.ts';

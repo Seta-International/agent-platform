@@ -15,8 +15,8 @@ vi.mock('@/modules/agent/chat-experience/agent-provider', () => ({
   }),
 }));
 
-import type { SessionScopeProjection } from '@/modules/identity/api/client';
-import { SessionProvider } from '../../../../../src/modules/identity/components/SessionProvider';
+import type { SessionScopeProjection } from '@seta/web-identity';
+import { SessionProvider } from '@seta/web-identity';
 import { computeAssigneeReorder } from '../../../../../src/modules/planner/components/assignee-reorder';
 import { TaskDetailAssigneesCard } from '../../../../../src/modules/planner/components/TaskDetailAssigneesCard';
 import { makeTaskWithAssignees } from '../../../../../src/modules/planner/testing/fixtures';

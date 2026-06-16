@@ -1,5 +1,5 @@
+import { useSession } from '@seta/web-identity';
 import { createFileRoute, Outlet } from '@tanstack/react-router';
-import { useSession } from '@/modules/identity/components/SessionProvider';
 import { ReconnectingBanner } from '@/modules/planner/components/reconnecting-banner';
 import { useBoardStream } from '@/modules/planner/hooks/use-board-stream';
 

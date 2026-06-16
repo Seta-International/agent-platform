@@ -1,5 +1,5 @@
+import { useSession } from '@seta/web-identity';
 import { createFileRoute } from '@tanstack/react-router';
-import { useSession } from '@/modules/identity/components/SessionProvider.tsx';
 
 function Landing() {
   const s = useSession();

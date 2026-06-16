@@ -18,11 +18,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@seta/shared-ui';
+import { listTenantUsers, useSession } from '@seta/web-identity';
 import { useQuery } from '@tanstack/react-query';
 import { GripVertical, Info, Plus, X, Zap } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { listTenantUsers } from '../../identity/api/client';
-import { useSession } from '../../identity/components/SessionProvider';
 import { useAssignTask } from '../hooks/mutations/assign-task';
 import { useMoveToTopOfMyList } from '../hooks/mutations/move-to-top-of-my-list';
 import { useReorderTaskAssignees } from '../hooks/mutations/reorder-task-assignees';

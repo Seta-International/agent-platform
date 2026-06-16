@@ -5,9 +5,9 @@ import {
   ResolvePlanConflictsDialog,
   toast,
 } from '@seta/shared-ui';
+import { useSession } from '@seta/web-identity';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
-import { useSession } from '@/modules/identity/components/SessionProvider';
 import { BoardSkeleton, GridSkeleton } from '@/modules/planner/components/board-skeleton';
 import { ConfirmDeletePlanDialog } from '@/modules/planner/components/ConfirmDeletePlanDialog';
 import { GridGroupBySelector } from '@/modules/planner/components/grid-group-by-selector';

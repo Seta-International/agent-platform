@@ -1,8 +1,8 @@
 import { Alert, AlertDescription, Button, Input, Label, SetaMark } from '@seta/shared-ui';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useState } from 'react';
-import { signIn } from '@/lib/auth-client';
 import { discoverProvider } from '../api/client.ts';
+import { signIn } from '../auth-client.ts';
 
 type Step =
   | { kind: 'email' }

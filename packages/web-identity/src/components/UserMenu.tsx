@@ -8,7 +8,7 @@ import {
   DropdownMenuTrigger,
 } from '@seta/shared-ui';
 import { useNavigate } from '@tanstack/react-router';
-import { authClient } from '@/lib/auth-client';
+import { authClient } from '../auth-client.ts';
 import { useSession } from './SessionProvider.tsx';
 
 function initials(name: string): string {

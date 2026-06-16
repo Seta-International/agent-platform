@@ -3,7 +3,7 @@ import {
   type ProfileDto,
   type ProfilePatch,
   type TenantUserRow,
-} from '@/modules/identity/api/client.ts';
+} from '@seta/web-identity';
 
 export type AdminUserListRow = TenantUserRow;
 export const listAdminUsers = listTenantUsers;

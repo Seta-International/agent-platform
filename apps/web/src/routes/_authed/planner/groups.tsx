@@ -1,5 +1,5 @@
+import { usePermission } from '@seta/web-identity';
 import { createFileRoute } from '@tanstack/react-router';
-import { usePermission } from '@/modules/identity/components/Can.tsx';
 import { GroupsPage } from '@/modules/planner/pages/groups-page';
 
 export const Route = createFileRoute('/_authed/planner/groups')({

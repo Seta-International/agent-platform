@@ -1,6 +1,6 @@
 import type { CommentDto, CommentListResult } from '@seta/planner';
+import { useSession } from '@seta/web-identity';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useSession } from '@/modules/identity/components/SessionProvider';
 import { plannerClient } from '../../api/planner-client';
 import { plannerKeys } from '../../state/query-keys';
 

@@ -29,8 +29,8 @@ vi.mock('@/modules/agent/chat-experience/agent-provider', () => ({
   }),
 }));
 
-import type { SessionScopeProjection } from '@/modules/identity/api/client';
-import { SessionProvider } from '../../../../../src/modules/identity/components/SessionProvider';
+import type { SessionScopeProjection } from '@seta/web-identity';
+import { SessionProvider } from '@seta/web-identity';
 import { TaskDetailPage } from '../../../../../src/modules/planner/pages/task-detail-page';
 import {
   makePlan,

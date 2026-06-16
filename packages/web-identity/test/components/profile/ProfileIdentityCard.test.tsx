@@ -1,8 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import type { ProfileDto } from '../../../../../../src/modules/identity/api/client';
-import { ProfileIdentityCard } from '../../../../../../src/modules/identity/components/profile/ProfileIdentityCard';
+import type { ProfileDto } from '../../../src/api/client.ts';
+import { ProfileIdentityCard } from '../../../src/components/profile/ProfileIdentityCard.tsx';
 
 function makeProfile(overrides: Partial<ProfileDto> = {}): ProfileDto {
   return {

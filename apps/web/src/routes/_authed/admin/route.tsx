@@ -1,5 +1,5 @@
+import type { SessionScopeProjection } from '@seta/web-identity';
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router';
-import type { SessionScopeProjection } from '@/modules/identity/api/client.ts';
 
 export const Route = createFileRoute('/_authed/admin')({
   beforeLoad: ({ context }) => {

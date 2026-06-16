@@ -1,3 +1,4 @@
+import type { SessionScopeProjection } from '@seta/web-identity';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   createMemoryHistory,
@@ -12,7 +13,6 @@ import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import type { ReactNode } from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { SessionScopeProjection } from '../../../../../src/modules/identity/api/client';
 import {
   GroupDetailPage,
   type GroupTab,

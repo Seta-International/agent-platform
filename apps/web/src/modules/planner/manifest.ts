@@ -1,6 +1,6 @@
 import type { AppManifest, NavSection } from '@seta/module-sdk';
+import { useSession } from '@seta/web-identity';
 import { Archive, ClipboardList, Inbox, Search, Users } from 'lucide-react';
-import { useSession } from '@/modules/identity/components/SessionProvider.tsx';
 import { useRecentPlans } from './hooks/use-recent-plans.ts';
 
 function useRecentPlanSections(): NavSection[] {

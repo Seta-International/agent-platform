@@ -15,9 +15,9 @@ import {
   TabsList,
   TabsTrigger,
 } from '@seta/shared-ui';
+import { usePermission } from '@seta/web-identity';
 import { Lock, RotateCcw } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { usePermission } from '@/modules/identity/components/Can.tsx';
 import type { MatrixRole } from '../api/role-access-client.ts';
 import { useResetRole, useRoleAccessMatrix, useSetRolePermission } from '../hooks/useRoleAccess.ts';
 

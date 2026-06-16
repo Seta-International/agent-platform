@@ -1,6 +1,6 @@
+import { useSession } from '@seta/web-identity';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { z } from 'zod';
-import { useSession } from '@/modules/identity/components/SessionProvider';
 import { GroupDetailPage } from '@/modules/planner/pages/group-detail-page';
 
 const searchSchema = z.object({
