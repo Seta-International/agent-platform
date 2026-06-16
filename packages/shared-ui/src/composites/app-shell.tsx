@@ -1,4 +1,4 @@
-import type { NavManifest } from '@seta/module-sdk';
+import type { AppManifest } from '@seta/module-sdk';
 import * as React from 'react';
 
 import { cn } from '../lib/cn';
@@ -13,7 +13,7 @@ export interface AppShellProps {
   userMenu?: React.ReactNode;
   onSearchOpen?: () => void;
 
-  modules: NavManifest[];
+  modules: AppManifest[];
   activeItemId?: string;
   linkComponent?: ShellLinkComponent;
   sessionFooter?: React.ReactNode;

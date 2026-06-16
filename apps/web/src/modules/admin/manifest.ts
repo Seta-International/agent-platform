@@ -1,8 +1,9 @@
-import { type NavManifest, noNavExtensions } from '@seta/module-sdk';
+import { type AppManifest, noNavExtensions } from '@seta/module-sdk';
 import { Bell, FileClock, Mail, Settings, Shield, ShieldCheck, Sliders, Users } from 'lucide-react';
 
-export const adminNavManifest: NavManifest = {
+export const adminNavManifest: AppManifest = {
   id: 'admin',
+  routeNamespace: '/admin',
   label: 'Admin',
   icon: Settings,
   requiredPermissions: ['identity.user.read.any'],

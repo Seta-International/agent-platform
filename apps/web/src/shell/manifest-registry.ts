@@ -1,4 +1,4 @@
-import type { NavItem, NavManifest, NavSection } from '@seta/module-sdk';
+import type { AppManifest, NavItem, NavSection } from '@seta/module-sdk';
 
 export interface SessionLike {
   permissions: ReadonlySet<string>;
@@ -9,10 +9,10 @@ function matches(required: readonly string[], session: SessionLike): boolean {
 }
 
 export function visibleManifests(
-  manifests: ReadonlyArray<NavManifest>,
+  manifests: ReadonlyArray<AppManifest>,
   session: SessionLike,
   enabledModuleIds: ReadonlySet<string>,
-): NavManifest[] {
+): AppManifest[] {
   return manifests.filter((m) => {
     if (!enabledModuleIds.has(m.id)) return false;
     return matches(m.requiredPermissions, session);
@@ -42,7 +42,7 @@ export function filterNavSections(
 }
 
 export function activeNavId(
-  manifests: ReadonlyArray<NavManifest>,
+  manifests: ReadonlyArray<AppManifest>,
   pathname: string,
 ): string | undefined {
   let bestId: string | undefined;

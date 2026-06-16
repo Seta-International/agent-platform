@@ -1,4 +1,4 @@
-import { type NavManifest, noNavExtensions } from '@seta/module-sdk';
+import { type AppManifest, noNavExtensions } from '@seta/module-sdk';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Building2, Inbox, LayoutDashboard, Sparkles, Users, Workflow } from 'lucide-react';
@@ -6,9 +6,10 @@ import { describe, expect, it } from 'vitest';
 
 import { AppShell } from '../../../src/composites/app-shell';
 
-const MODULES: NavManifest[] = [
+const MODULES: AppManifest[] = [
   {
     id: 'agent',
+    routeNamespace: '/agent',
     label: 'Agent',
     icon: Sparkles,
     requiredPermissions: [],
@@ -25,6 +26,7 @@ const MODULES: NavManifest[] = [
   },
   {
     id: 'planner',
+    routeNamespace: '/planner',
     label: 'Planner',
     icon: LayoutDashboard,
     requiredPermissions: [],
@@ -38,6 +40,7 @@ const MODULES: NavManifest[] = [
   },
   {
     id: 'admin',
+    routeNamespace: '/admin',
     label: 'Admin',
     icon: Building2,
     requiredPermissions: [],

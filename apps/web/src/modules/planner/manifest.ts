@@ -1,4 +1,4 @@
-import type { NavManifest, NavSection } from '@seta/module-sdk';
+import type { AppManifest, NavSection } from '@seta/module-sdk';
 import { Archive, ClipboardList, Inbox, Search, Users } from 'lucide-react';
 import { useSession } from '@/modules/identity/components/SessionProvider.tsx';
 import { useRecentPlans } from './hooks/use-recent-plans.ts';
@@ -19,8 +19,9 @@ function useRecentPlanSections(): NavSection[] {
   ];
 }
 
-export const plannerNavManifest: NavManifest = {
+export const plannerNavManifest: AppManifest = {
   id: 'planner',
+  routeNamespace: '/planner',
   label: 'Planner',
   icon: ClipboardList,
   requiredPermissions: [],

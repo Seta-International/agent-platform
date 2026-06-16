@@ -1,4 +1,4 @@
-import type { NavBadgeTone, NavItem, NavManifest, NavSection } from '@seta/module-sdk';
+import type { AppManifest, NavBadgeTone, NavItem, NavSection } from '@seta/module-sdk';
 import { ChevronLeft, ChevronRight, LayoutDashboard } from 'lucide-react';
 import * as React from 'react';
 
@@ -29,7 +29,7 @@ const DefaultShellLink: ShellLinkComponent = ({ href, className, style, children
 );
 
 export interface LeftNavProps {
-  modules: NavManifest[];
+  modules: AppManifest[];
   activeItemId?: string;
   linkComponent?: ShellLinkComponent;
   collapsed?: boolean;
@@ -39,7 +39,7 @@ export interface LeftNavProps {
   className?: string;
 }
 
-function moduleIdOfItem(modules: NavManifest[], itemId: string | undefined): string | null {
+function moduleIdOfItem(modules: AppManifest[], itemId: string | undefined): string | null {
   if (!itemId) return null;
   for (const m of modules) {
     if (itemId === m.id || itemId.startsWith(`${m.id}.`)) return m.id;
@@ -184,7 +184,7 @@ export function LeftNav({
 }
 
 interface ModuleSectionProps {
-  manifest: NavManifest;
+  manifest: AppManifest;
   isOpen: boolean;
   moduleActive: boolean;
   activeItemId: string | undefined;

@@ -1,8 +1,9 @@
-import { type NavManifest, noNavExtensions } from '@seta/module-sdk';
+import { type AppManifest, noNavExtensions } from '@seta/module-sdk';
 import { BookOpen, MessageSquare, Sparkles, Workflow } from 'lucide-react';
 
-export const agentNavManifest: NavManifest = {
+export const agentNavManifest: AppManifest = {
   id: 'agent',
+  routeNamespace: '/agent',
   label: 'Agent Studio',
   icon: Sparkles,
   requiredPermissions: [],
