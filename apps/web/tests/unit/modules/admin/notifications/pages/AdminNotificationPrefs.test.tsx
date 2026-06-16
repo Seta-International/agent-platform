@@ -8,7 +8,8 @@ import { AdminNotificationPrefs } from '../../../../../../src/modules/admin/noti
 const listPrefs = vi.fn();
 const setPref = vi.fn();
 
-vi.mock('../../../../../../src/modules/notifications/api/client.ts', () => ({
+vi.mock('@seta/web-notifications', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@seta/web-notifications')>()),
   notificationsClient: {
     listPrefs: () => listPrefs(),
     setPref: (input: unknown) => setPref(input),

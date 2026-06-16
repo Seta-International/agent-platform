@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { notificationKeys } from '../../../../../src/modules/notifications/state/query-keys';
+import { notificationKeys } from '../../src/state/query-keys';
 
 describe('notificationKeys', () => {
   it('all is a stable tuple', () => {

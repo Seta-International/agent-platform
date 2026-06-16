@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { notificationsClient } from '../api/client';
-import { notificationKeys } from '../state/query-keys';
+import { notificationsClient } from '../api/client.ts';
+import { notificationKeys } from '../state/query-keys.ts';
 
 export function useUnreadCount(): { count: number; isPending: boolean } {
   const q = useQuery({

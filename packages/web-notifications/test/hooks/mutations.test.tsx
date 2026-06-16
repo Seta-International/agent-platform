@@ -2,13 +2,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import {
-  useMarkAllRead,
-  useMarkRead,
-} from '../../../../../src/modules/notifications/hooks/mutations';
-import { notificationKeys } from '../../../../../src/modules/notifications/state/query-keys';
+import { useMarkAllRead, useMarkRead } from '../../src/hooks/mutations';
+import { notificationKeys } from '../../src/state/query-keys';
 
-vi.mock('../../../../../src/modules/notifications/api/client', () => ({
+vi.mock('../../src/api/client', () => ({
   notificationsClient: {
     markRead: vi.fn(async (id: string) => ({
       id,

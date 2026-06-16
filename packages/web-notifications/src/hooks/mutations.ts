@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { notificationsClient } from '../api/client';
-import { notificationKeys } from '../state/query-keys';
+import { notificationsClient } from '../api/client.ts';
+import { notificationKeys } from '../state/query-keys.ts';
 
 function getCount(qc: ReturnType<typeof useQueryClient>): number {
   const data = qc.getQueryData<{ count: number }>(notificationKeys.unreadCount());

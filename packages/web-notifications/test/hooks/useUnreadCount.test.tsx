@@ -2,9 +2,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { useUnreadCount } from '../../../../../src/modules/notifications/hooks/useUnreadCount';
+import { useUnreadCount } from '../../src/hooks/useUnreadCount';
 
-vi.mock('../../../../../src/modules/notifications/api/client', () => ({
+vi.mock('../../src/api/client', () => ({
   notificationsClient: { unreadCount: vi.fn(async () => ({ count: 7 })) },
 }));
 

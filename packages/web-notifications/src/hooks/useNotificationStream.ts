@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
-import { notificationKeys } from '../state/query-keys';
+import { notificationKeys } from '../state/query-keys.ts';
 
 export function useNotificationStream(enabled: boolean): void {
   const qc = useQueryClient();

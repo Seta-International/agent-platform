@@ -1,7 +1,7 @@
+import type { NotificationPrefRowDTO } from '@seta/web-notifications';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { NotificationPrefRow } from '../../../../../../src/modules/admin/notifications/components/NotificationPrefRow';
-import type { NotificationPrefRowDTO } from '../../../../../../src/modules/notifications/api/client.ts';
 
 const baseRow: NotificationPrefRowDTO = {
   event_type: 'planner.task.assigned',

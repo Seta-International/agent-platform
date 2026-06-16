@@ -2,9 +2,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { useNotifications } from '../../../../../src/modules/notifications/hooks/useNotifications';
+import { useNotifications } from '../../src/hooks/useNotifications';
 
-vi.mock('../../../../../src/modules/notifications/api/client', () => ({
+vi.mock('../../src/api/client', () => ({
   notificationsClient: {
     list: vi.fn(async ({ cursor }: { cursor?: string }) => ({
       items: [

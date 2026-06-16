@@ -1,10 +1,10 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   type NotificationPrefsResponse,
+  notificationKeys,
   notificationsClient,
   type PatchPrefInput,
-} from '../../../notifications/api/client.ts';
-import { notificationKeys } from '../../../notifications/state/query-keys.ts';
+} from '@seta/web-notifications';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 export function useNotificationPrefs() {
   return useQuery({

@@ -1,6 +1,6 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { type NotificationDTO, notificationsClient } from '../api/client';
-import { notificationKeys } from '../state/query-keys';
+import { type NotificationDTO, notificationsClient } from '../api/client.ts';
+import { notificationKeys } from '../state/query-keys.ts';
 
 export function useNotifications(opts: { unread: boolean }): {
   items: NotificationDTO[];

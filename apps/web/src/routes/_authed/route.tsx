@@ -1,5 +1,6 @@
 import { AppShell, type ShellLinkProps } from '@seta/shared-ui';
 import { fetchMe, SessionProvider, UserMenu } from '@seta/web-identity';
+import { NotificationPopoverContainer, useNotificationStream } from '@seta/web-notifications';
 import { useQuery } from '@tanstack/react-query';
 import {
   createFileRoute,
@@ -13,8 +14,8 @@ import { useMemo } from 'react';
 import { AgentProvider, AgentSidePanel } from '@/modules/agent';
 import { AgentMobileSheet } from '@/modules/agent/chat-experience/agent-mobile-sheet';
 import { usePanelUI } from '@/modules/agent/chat-experience/agent-provider';
-import { NotificationPopoverContainer } from '@/modules/notifications/components/NotificationPopoverContainer.tsx';
-import { useNotificationStream } from '@/modules/notifications/hooks/useNotificationStream.ts';
+import { useResolveAgentNotification } from '@/modules/agent/notifications/agent-renderers.tsx';
+import { useResolvePlannerNotification } from '@/modules/planner/notifications/renderers.tsx';
 import { activeAppId, activeNavId, visibleManifests } from '@/shell/manifest-registry.ts';
 import { ALL_MANIFESTS } from '@/shell/manifests.ts';
 import { fetchEnabledModules } from '../../shell/enabled-modules.ts';
@@ -85,7 +86,11 @@ function ShellWithPanel({ children }: { children: React.ReactNode }) {
       linkComponent={ShellLink}
       userMenu={<UserMenu />}
       hideAgent={pathname.startsWith('/agent/')}
-      notificationPanel={<NotificationPopoverContainer />}
+      notificationPanel={
+        <NotificationPopoverContainer
+          resolvers={[useResolvePlannerNotification, useResolveAgentNotification]}
+        />
+      }
       agentPanel={<AgentSidePanel onClose={() => setPanelOpen(false)} />}
       agentOpen={panelOpen}
       onAgentOpenChange={setPanelOpen}

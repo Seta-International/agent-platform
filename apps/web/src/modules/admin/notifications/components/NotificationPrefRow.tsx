@@ -1,5 +1,5 @@
 import { Badge, Switch } from '@seta/shared-ui';
-import type { NotificationPrefRowDTO, PatchPrefInput } from '../../../notifications/api/client.ts';
+import type { NotificationPrefRowDTO, PatchPrefInput } from '@seta/web-notifications';
 
 export interface NotificationPrefRowProps {
   row: NotificationPrefRowDTO;

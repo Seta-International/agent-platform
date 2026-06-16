@@ -6,13 +6,30 @@ import {
 import { useLocation } from '@tanstack/react-router';
 import { Bell } from 'lucide-react';
 import * as React from 'react';
-import { useResolvePlannerNotification } from '../../planner/notifications/renderers';
-import { useDismiss, useMarkAllRead, useMarkRead } from '../hooks/mutations';
-import { useNotifications } from '../hooks/useNotifications';
-import { useUnreadCount } from '../hooks/useUnreadCount';
-import { useResolveAgentNotification } from '../renderers/agent-renderers';
+import { useDismiss, useMarkAllRead, useMarkRead } from '../hooks/mutations.ts';
+import { useNotifications } from '../hooks/useNotifications.ts';
+import { useUnreadCount } from '../hooks/useUnreadCount.ts';
 
-export function NotificationPopoverContainer(): React.ReactElement {
+export interface NotificationResolution {
+  icon?: React.ReactNode;
+  onClick?: () => void;
+}
+
+/**
+ * A resolver is a React hook mapping a notification to an optional icon + click
+ * handler. Feature modules supply their own; the popover calls them in fixed
+ * array order (Rules-of-Hooks safe because the array is static) and uses the
+ * first result whose `icon` is set.
+ */
+export type NotificationResolver = (
+  notification: NotificationListItemNotification,
+) => NotificationResolution;
+
+export function NotificationPopoverContainer({
+  resolvers = [],
+}: {
+  resolvers?: readonly NotificationResolver[];
+}): React.ReactElement {
   const [filter, setFilter] = React.useState<'all' | 'unread'>('all');
   const { items, hasNextPage, fetchNextPage, isFetchingNextPage } = useNotifications({
     unread: filter === 'unread',
@@ -73,6 +90,7 @@ export function NotificationPopoverContainer(): React.ReactElement {
       renderItem={(n) => (
         <PopoverRow
           notification={n}
+          resolvers={resolvers}
           onMarkRead={(id) => markRead.mutate(id)}
           onDismiss={(id) => dismiss.mutate(id)}
         />
@@ -83,16 +101,19 @@ export function NotificationPopoverContainer(): React.ReactElement {
 
 function PopoverRow({
   notification,
+  resolvers,
   onMarkRead,
   onDismiss,
 }: {
   notification: NotificationListItemNotification;
+  resolvers: readonly NotificationResolver[];
   onMarkRead: (id: string) => void;
   onDismiss: (id: string) => void;
 }): React.ReactElement {
-  const planner = useResolvePlannerNotification(notification);
-  const agent = useResolveAgentNotification(notification);
-  const { icon, onClick } = planner.icon ? planner : agent;
+  // Static array => the hook count is stable across renders (Rules-of-Hooks safe).
+  // First resolver that produces an icon wins, preserving caller-defined precedence.
+  const resolved = resolvers.map((resolve) => resolve(notification));
+  const { icon, onClick } = resolved.find((r) => r.icon) ?? {};
   return (
     <NotificationListItem
       notification={notification}

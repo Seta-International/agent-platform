@@ -1,3 +1,4 @@
+import { type NotificationPrefsResponse, notificationKeys } from '@seta/web-notifications';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
@@ -6,8 +7,6 @@ import {
   useNotificationPrefs,
   useSetNotificationPref,
 } from '../../../../../../src/modules/admin/notifications/hooks/usePrefs.ts';
-import type { NotificationPrefsResponse } from '../../../../../../src/modules/notifications/api/client.ts';
-import { notificationKeys } from '../../../../../../src/modules/notifications/state/query-keys.ts';
 
 const initialMatrix: NotificationPrefsResponse = {
   rows: [
@@ -28,7 +27,8 @@ const initialMatrix: NotificationPrefsResponse = {
   ],
 };
 
-vi.mock('../../../../../../src/modules/notifications/api/client.ts', () => ({
+vi.mock('@seta/web-notifications', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@seta/web-notifications')>()),
   notificationsClient: {
     listPrefs: vi.fn(async () => initialMatrix),
     setPref: vi.fn(async () => ({ ok: true })),
@@ -68,7 +68,7 @@ describe('useSetNotificationPref', () => {
   });
 
   it('rolls back on error', async () => {
-    const client = await import('../../../../../../src/modules/notifications/api/client.ts');
+    const client = await import('@seta/web-notifications');
     (
       client.notificationsClient.setPref as unknown as { mockRejectedValueOnce: (e: Error) => void }
     ).mockRejectedValueOnce(new Error('boom'));

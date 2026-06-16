@@ -2,8 +2,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { useNotificationStream } from '../../../../../src/modules/notifications/hooks/useNotificationStream';
-import { notificationKeys } from '../../../../../src/modules/notifications/state/query-keys';
+import { useNotificationStream } from '../../src/hooks/useNotificationStream';
+import { notificationKeys } from '../../src/state/query-keys';
 
 class FakeEventSource extends EventTarget {
   static instances: FakeEventSource[] = [];
