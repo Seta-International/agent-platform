@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { notificationsClient } from '../../src/api/client';
+import { notificationsClient } from '../../../src/api/client';
 
 const originalFetch = global.fetch;
 

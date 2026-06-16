@@ -3,14 +3,14 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { NotificationPopoverContainer } from '../../src/components/NotificationPopoverContainer';
+import { NotificationPopoverContainer } from '../../../src/components/NotificationPopoverContainer';
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@tanstack/react-router')>();
   return { ...actual, useLocation: vi.fn(() => ({ pathname: '/' })) };
 });
 
-vi.mock('../../src/api/client', () => ({
+vi.mock('../../../src/api/client', () => ({
   notificationsClient: {
     list: vi.fn(async () => ({
       items: [
@@ -44,7 +44,7 @@ describe('NotificationPopoverContainer', () => {
     await userEvent.click(screen.getByRole('button', { name: /notifications/i }));
     await waitFor(() => expect(screen.getByText('Hi')).toBeInTheDocument());
     await userEvent.click(screen.getByRole('button', { name: /mark all read/i }));
-    const { notificationsClient } = await import('../../src/api/client');
+    const { notificationsClient } = await import('../../../src/api/client');
     expect(notificationsClient.markAllRead).toHaveBeenCalled();
   });
 });

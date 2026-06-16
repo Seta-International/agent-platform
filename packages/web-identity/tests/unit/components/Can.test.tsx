@@ -1,8 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import type { SessionScopeProjection } from '../../src/api/client.ts';
-import { Can } from '../../src/components/Can.tsx';
-import { SessionProvider } from '../../src/index.ts';
+import type { SessionScopeProjection } from '../../../src/api/client.ts';
+import { Can } from '../../../src/components/Can.tsx';
+import { SessionProvider } from '../../../src/index.ts';
 
 function makeSession(permissions: string[]): SessionScopeProjection {
   return {
