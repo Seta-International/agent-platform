@@ -28,6 +28,7 @@
     "@seta/planner": "workspace:^",
     "@seta/shared-rbac": "workspace:^",
     "@seta/shared-ui": "workspace:^",
+    "@seta/web-admin": "workspace:*",
     "@seta/web-agent": "workspace:*",
     "@seta/web-identity": "workspace:*",
     "@seta/web-notifications": "workspace:*",
