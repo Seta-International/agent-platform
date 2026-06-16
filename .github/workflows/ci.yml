@@ -43,3 +43,17 @@ jobs:
         env:
           # testcontainers needs to find Docker; default socket on ubuntu-latest.
           TESTCONTAINERS_RYUK_DISABLED: 'true'
+
+      - name: Build web bundle
+        run: pnpm --filter @seta/web build
+
+      - name: Check per-app bundle budgets
+        run: pnpm --filter @seta/web size
+
+      - name: Upload bundle visualizer
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-bundle-stats
+          path: apps/web/dist/stats.html
+          if-no-files-found: warn
