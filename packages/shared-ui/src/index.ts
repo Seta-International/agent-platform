@@ -9,6 +9,7 @@ export * from './charts/donut-chart';
 export * from './charts/stacked-bar-chart';
 export * from './composites/agent-panel';
 // Composites
+export * from './composites/app-launcher';
 export * from './composites/app-shell';
 export * from './composites/avatar-stack';
 export * from './composites/chat-composer';
