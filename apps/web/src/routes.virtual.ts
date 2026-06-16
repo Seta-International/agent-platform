@@ -1,5 +1,14 @@
-import { physical, rootRoute } from '@tanstack/virtual-file-routes';
+import { index, layout, physical, rootRoute, route } from '@tanstack/virtual-file-routes';
 
-// Shell host composition root. App packages are added as physical() mounts in a later plan.
-// Paths resolve relative to routesDirectory (./src). 'routes' => ./src/routes (the app's own tree).
-export const routes = rootRoute('routes/__root.tsx', [physical('', 'routes')]);
+export const routes = rootRoute('routes/__root.tsx', [
+  route('/login', 'routes/login.tsx'),
+  route('/403', 'routes/403.tsx'),
+  physical('/dev', 'routes/dev'),
+  layout('_authed', 'routes/_authed/route.tsx', [
+    index('routes/_authed/index.tsx'),
+    route('/profile', 'routes/_authed/profile.tsx'),
+    physical('/planner', 'routes/_authed/planner'),
+    physical('/agent', 'routes/_authed/agent'),
+    physical('/admin', 'routes/_authed/admin'),
+  ]),
+]);
