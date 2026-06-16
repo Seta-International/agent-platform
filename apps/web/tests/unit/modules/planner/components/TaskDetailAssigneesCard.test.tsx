@@ -1,22 +1,12 @@
 import type { AssigneeRow, TaskWithAssigneesRow } from '@seta/planner';
+import type { SessionScopeProjection } from '@seta/web-identity';
+import { SessionProvider } from '@seta/web-identity';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import type { ReactNode } from 'react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-
-vi.mock('@/modules/agent/chat-experience/agent-provider', () => ({
-  usePanelUI: () => ({
-    panelOpen: false,
-    setPanelOpen: vi.fn(),
-    pendingPrompt: null,
-    setPendingPrompt: vi.fn(),
-  }),
-}));
-
-import type { SessionScopeProjection } from '@seta/web-identity';
-import { SessionProvider } from '@seta/web-identity';
 import { computeAssigneeReorder } from '../../../../../src/modules/planner/components/assignee-reorder';
 import { TaskDetailAssigneesCard } from '../../../../../src/modules/planner/components/TaskDetailAssigneesCard';
 import { makeTaskWithAssignees } from '../../../../../src/modules/planner/testing/fixtures';

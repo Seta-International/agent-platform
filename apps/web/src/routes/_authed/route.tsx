@@ -1,4 +1,11 @@
 import { AppShell, type ShellLinkProps } from '@seta/shared-ui';
+import {
+  AgentMobileSheet,
+  AgentProvider,
+  AgentSidePanel,
+  usePanelUI,
+  useResolveAgentNotification,
+} from '@seta/web-agent';
 import { fetchMe, SessionProvider, UserMenu } from '@seta/web-identity';
 import { NotificationPopoverContainer, useNotificationStream } from '@seta/web-notifications';
 import { useQuery } from '@tanstack/react-query';
@@ -11,10 +18,6 @@ import {
   useRouterState,
 } from '@tanstack/react-router';
 import { useMemo } from 'react';
-import { AgentProvider, AgentSidePanel } from '@/modules/agent';
-import { AgentMobileSheet } from '@/modules/agent/chat-experience/agent-mobile-sheet';
-import { usePanelUI } from '@/modules/agent/chat-experience/agent-provider';
-import { useResolveAgentNotification } from '@/modules/agent/notifications/agent-renderers.tsx';
 import { useResolvePlannerNotification } from '@/modules/planner/notifications/renderers.tsx';
 import { clearLastApp, writeLastApp } from '@/shell/last-app.ts';
 import { activeAppId, activeNavId, visibleManifests } from '@/shell/manifest-registry.ts';

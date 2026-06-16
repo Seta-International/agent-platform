@@ -13,20 +13,8 @@ import { delay, HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/modules/agent/chat-experience/agent-provider', () => ({
-  usePageContext: () => ({
-    pageContext: null,
-    setPageContext: vi.fn(),
-    suppressedFor: null,
-    suppressFor: vi.fn(),
-    clearSuppression: vi.fn(),
-  }),
-  usePanelUI: () => ({
-    panelOpen: false,
-    setPanelOpen: vi.fn(),
-    pendingPrompt: null,
-    setPendingPrompt: vi.fn(),
-  }),
+vi.mock('@seta/web-agent', () => ({
+  useAgentContext: () => {},
 }));
 
 import type { SessionScopeProjection } from '@seta/web-identity';

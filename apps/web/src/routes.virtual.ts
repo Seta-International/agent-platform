@@ -8,7 +8,7 @@ export const routes = rootRoute('routes/__root.tsx', [
     index('routes/_authed/index.tsx'),
     route('/profile', 'routes/_authed/profile.tsx'),
     physical('/planner', 'routes/_authed/planner'),
-    physical('/agent', 'routes/_authed/agent'),
+    physical('/agent', '../../../packages/web-agent/src/routes'),
     physical('/admin', 'routes/_authed/admin'),
   ]),
 ]);
