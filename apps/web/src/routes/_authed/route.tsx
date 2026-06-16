@@ -8,6 +8,7 @@ import {
 } from '@seta/web-agent';
 import { fetchMe, SessionProvider, UserMenu } from '@seta/web-identity';
 import { NotificationPopoverContainer, useNotificationStream } from '@seta/web-notifications';
+import { useResolvePlannerNotification } from '@seta/web-planner';
 import { useQuery } from '@tanstack/react-query';
 import {
   createFileRoute,
@@ -18,7 +19,6 @@ import {
   useRouterState,
 } from '@tanstack/react-router';
 import { useMemo } from 'react';
-import { useResolvePlannerNotification } from '@/modules/planner/notifications/renderers.tsx';
 import { clearLastApp, writeLastApp } from '@/shell/last-app.ts';
 import { activeAppId, activeNavId, visibleManifests } from '@/shell/manifest-registry.ts';
 import { ALL_MANIFESTS } from '@/shell/manifests.ts';

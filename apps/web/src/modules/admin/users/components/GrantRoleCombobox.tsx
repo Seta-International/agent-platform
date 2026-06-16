@@ -1,7 +1,7 @@
 import type { GroupRow } from '@seta/planner';
 import { Button } from '@seta/shared-ui';
+import { plannerClient } from '@seta/web-planner';
 import { useEffect, useState } from 'react';
-import { plannerClient } from '@/modules/planner/api/planner-client.ts';
 import { grantRoleScoped } from '../api/users-client.ts';
 import { TENANT_ROLE_SLUGS } from '../constants.ts';
 

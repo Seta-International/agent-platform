@@ -31,6 +31,7 @@
     "@seta/web-agent": "workspace:*",
     "@seta/web-identity": "workspace:*",
     "@seta/web-notifications": "workspace:*",
+    "@seta/web-planner": "workspace:*",
     "@tailwindcss/vite": "^4.3.0",
     "@tanstack/react-query": "^5.101.0",
     "@tanstack/react-router": "^1.170.15",
