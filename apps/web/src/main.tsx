@@ -1,5 +1,3 @@
-import '@seta/shared-ui/styles/tokens.css';
-import '@seta/shared-ui/styles/fonts.css';
 import './styles/globals.css';
 
 import { ThemeProvider, Toaster } from '@seta/shared-ui';
@@ -14,11 +12,9 @@ const rootElement = document.getElementById('root');
 if (!rootElement) throw new Error('Root element #root not found');
 
 if (typeof window !== 'undefined') {
-  void import('./modules/planner/observability/web-vitals').then(
-    ({ installWebVitals, defaultSend }) => {
-      installWebVitals(defaultSend);
-    },
-  );
+  void import('@seta/web-planner').then(({ installWebVitals, defaultSend }) => {
+    installWebVitals(defaultSend);
+  });
 }
 
 createRoot(rootElement).render(

@@ -1,0 +1,6 @@
+{
+  "routesDirectory": "./src",
+  "generatedRouteTree": "./src/routeTree.gen.ts",
+  "virtualRouteConfig": "./src/routes.virtual.ts",
+  "autoCodeSplitting": true
+}

@@ -25,10 +25,14 @@ export interface NavSection {
   items: NavItem[];
 }
 
-export interface NavManifest {
+export interface AppManifest {
   id: string;
   label: string;
   icon: NavIcon;
+  /** URL namespace this app owns, e.g. '/planner'. Drives launcher → active-app routing. */
+  routeNamespace: string;
+  /** Optional launcher-tile accent colour (CSS colour string). */
+  color?: string;
   requiredPermissions: PermissionKey[];
   /**
    * Sections grouping nav items inside this module. Every manifest must declare

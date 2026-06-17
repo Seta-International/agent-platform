@@ -1,16 +1,26 @@
 import { AppShell, type ShellLinkProps } from '@seta/shared-ui';
+import {
+  AgentMobileSheet,
+  AgentProvider,
+  AgentSidePanel,
+  usePanelUI,
+  useResolveAgentNotification,
+} from '@seta/web-agent';
+import { fetchMe, SessionProvider, UserMenu } from '@seta/web-identity';
+import { NotificationPopoverContainer, useNotificationStream } from '@seta/web-notifications';
+import { useResolvePlannerNotification } from '@seta/web-planner';
 import { useQuery } from '@tanstack/react-query';
-import { createFileRoute, Link, Outlet, redirect, useRouterState } from '@tanstack/react-router';
+import {
+  createFileRoute,
+  Link,
+  Outlet,
+  redirect,
+  useNavigate,
+  useRouterState,
+} from '@tanstack/react-router';
 import { useMemo } from 'react';
-import { AgentProvider, AgentSidePanel } from '@/modules/agent';
-import { AgentMobileSheet } from '@/modules/agent/chat-experience/agent-mobile-sheet';
-import { usePanelUI } from '@/modules/agent/chat-experience/agent-provider';
-import { fetchMe } from '@/modules/identity/api/client.ts';
-import { SessionProvider } from '@/modules/identity/components/SessionProvider.tsx';
-import { UserMenu } from '@/modules/identity/components/UserMenu.tsx';
-import { NotificationPopoverContainer } from '@/modules/notifications/components/NotificationPopoverContainer.tsx';
-import { useNotificationStream } from '@/modules/notifications/hooks/useNotificationStream.ts';
-import { activeNavId, visibleManifests } from '@/shell/manifest-registry.ts';
+import { clearLastApp, writeLastApp } from '@/shell/last-app.ts';
+import { activeAppId, activeNavId, visibleManifests } from '@/shell/manifest-registry.ts';
 import { ALL_MANIFESTS } from '@/shell/manifests.ts';
 import { fetchEnabledModules } from '../../shell/enabled-modules.ts';
 
@@ -60,18 +70,33 @@ function ShellWithPanel({ children }: { children: React.ReactNode }) {
   }, [enabledQuery.data, session]);
 
   const activeId = activeNavId(navModules, pathname);
+  const activeApp = activeAppId(navModules, pathname);
+
+  const navigate = useNavigate();
+  const onAppSelect = (id: string) => {
+    const app = navModules.find((m) => m.id === id);
+    if (app) {
+      writeLastApp(session.user_id, id);
+      navigate({ to: app.routeNamespace as '/' });
+    }
+  };
 
   useNotificationStream(true);
 
   return (
     <AppShell
-      workspace={session.tenant_name}
-      modules={navModules}
+      apps={navModules}
+      activeAppId={activeApp ?? navModules[0]?.id ?? ''}
       activeItemId={activeId}
+      onAppSelect={onAppSelect}
       linkComponent={ShellLink}
-      userMenu={<UserMenu />}
+      userMenu={<UserMenu onSignOut={() => clearLastApp(session.user_id)} />}
       hideAgent={pathname.startsWith('/agent/')}
-      notificationPanel={<NotificationPopoverContainer />}
+      notificationPanel={
+        <NotificationPopoverContainer
+          resolvers={[useResolvePlannerNotification, useResolveAgentNotification]}
+        />
+      }
       agentPanel={<AgentSidePanel onClose={() => setPanelOpen(false)} />}
       agentOpen={panelOpen}
       onAgentOpenChange={setPanelOpen}

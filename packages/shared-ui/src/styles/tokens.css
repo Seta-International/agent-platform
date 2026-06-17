@@ -1,6 +1,10 @@
 @import 'tailwindcss';
 
 @source '../**/*.{ts,tsx}';
+/* Suite apps live in sibling @seta/web-* packages, outside this Tailwind root's
+   auto-detection base (the apps/web Vite root). Register them explicitly so their
+   utility classes are generated; the glob auto-covers future apps (People/PM). */
+@source '../../../web-*/src/**/*.{ts,tsx}';
 
 @theme {
   --color-primary:          #0047FF;

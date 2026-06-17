@@ -219,7 +219,20 @@ module.exports = {
       to: { path: '^packages/(?!shared-|.+-web/)([^/]+)/src/(backend|db)/' },
     },
 
-    // 16. shared-ui composites must not depend on @hello-pangea/dnd; the app
+    // 16. Leaf frontend app packages must not import one another.
+    {
+      name: 'no-cross-web-app-imports',
+      severity: 'error',
+      comment:
+        'Leaf frontend app packages (@seta/web-<app>) must not import one another. Cross-app composition happens only in the apps/web shell host. Cross-module infra (web-identity, web-notifications, web-agent) is importable by apps.',
+      from: { path: '^packages/web-(?!identity/|notifications/|agent/)([^/]+)/src/' },
+      to: {
+        path: '^packages/web-(?!identity/|notifications/|agent/)([^/]+)/',
+        pathNot: '^packages/web-$1/',
+      },
+    },
+
+    // 17. shared-ui composites must not depend on @hello-pangea/dnd; the app
     //     layer wires DnD via render slots.
     {
       name: 'shared-ui-no-dnd',
@@ -262,7 +275,7 @@ module.exports = {
       from: {
         orphan: true,
         pathNot:
-          '(^|/)(\\.|index\\.ts|.+\\.config\\.[cm]?[jt]s)$|^packages/shared-config/(eslint|vitest)/|(^|/)(tests)/|\\.(spec|test)\\.[jt]sx?$|/\\.storybook/|\\.stories\\.[jt]sx?$|(^|/)e2e/|^apps/web/src/(lib|routes)/|(^|/)scripts/',
+          '(^|/)(\\.|index\\.ts|.+\\.config\\.[cm]?[jt]s)$|\\.d\\.ts$|^packages/shared-config/(eslint|vitest)/|(^|/)(tests)/|\\.(spec|test)\\.[jt]sx?$|/\\.storybook/|\\.stories\\.[jt]sx?$|(^|/)e2e/|^apps/web/src/(lib|routes)/|^apps/web/src/routes\\.virtual\\.ts$|(^|/)scripts/',
       },
       to: {},
     },

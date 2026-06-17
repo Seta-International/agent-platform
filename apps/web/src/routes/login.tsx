@@ -1,6 +1,5 @@
+import { fetchMe, LoginCard } from '@seta/web-identity';
 import { createFileRoute, redirect } from '@tanstack/react-router';
-import { fetchMe } from '@/modules/identity/api/client.ts';
-import { LoginCard } from '@/modules/identity/components/LoginCard.tsx';
 
 export const Route = createFileRoute('/login')({
   validateSearch: (s: Record<string, unknown>) => ({

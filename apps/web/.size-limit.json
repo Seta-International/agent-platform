@@ -1,0 +1,50 @@
+[
+  {
+    "name": "entry + shell",
+    "path": "dist/assets/index-*.js",
+    "limit": "125 kB"
+  },
+  {
+    "name": "vendor (shared)",
+    "path": "dist/assets/src-*.js",
+    "limit": "470 kB"
+  },
+  {
+    "name": "app: planner",
+    "path": [
+      "dist/assets/_planId-*.js",
+      "dist/assets/_groupId-*.js",
+      "dist/assets/my-tasks-*.js",
+      "dist/assets/groups-*.js",
+      "dist/assets/discover-*.js",
+      "dist/assets/trash-*.js",
+      "dist/assets/task-detail-page-*.js",
+      "dist/assets/categories-*.js"
+    ],
+    "limit": "160 kB"
+  },
+  {
+    "name": "app: agent",
+    "path": [
+      "dist/assets/chat-*.js",
+      "dist/assets/_runId-*.js",
+      "dist/assets/knowledge-*.js",
+      "dist/assets/workflows-*.js"
+    ],
+    "limit": "215 kB"
+  },
+  {
+    "name": "app: admin",
+    "path": [
+      "dist/assets/users-*.js",
+      "dist/assets/_userId-*.js",
+      "dist/assets/sso-*.js",
+      "dist/assets/audit-*.js",
+      "dist/assets/mail-*.js",
+      "dist/assets/role-access-*.js",
+      "dist/assets/notifications-*.js",
+      "dist/assets/tenant-*.js"
+    ],
+    "limit": "32 kB"
+  }
+]

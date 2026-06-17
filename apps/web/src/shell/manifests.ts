@@ -1,12 +1,12 @@
-import type { NavManifest } from '@seta/module-sdk';
-import { adminNavManifest } from '@/modules/admin';
-import { agentNavManifest } from '@/modules/agent';
-import { plannerNavManifest } from '@/modules/planner';
+import type { AppManifest } from '@seta/module-sdk';
+import { adminAppManifest } from '@seta/web-admin';
+import { agentAppManifest } from '@seta/web-agent';
+import { plannerAppManifest } from '@seta/web-planner';
 // MODULE_MANIFEST_IMPORTS_END — generator inserts new navManifest imports above this comment.
 
-export const ALL_MANIFESTS: ReadonlyArray<NavManifest> = [
-  agentNavManifest,
-  plannerNavManifest,
-  adminNavManifest,
+export const ALL_MANIFESTS: ReadonlyArray<AppManifest> = [
+  agentAppManifest,
+  plannerAppManifest,
+  adminAppManifest,
   // MODULE_MANIFEST_REGISTRATIONS_END — generator inserts new navManifest entries above this comment.
 ];
