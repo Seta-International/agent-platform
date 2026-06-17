@@ -1,22 +1,9 @@
 name: Dev Release
 
-# Dev / self-host deploy to the on-prem GPU host (`future`).
-#
-# Images are built LOCALLY on the `future` runner from source — no ECR, no AWS.
-# Intentionally separate from the production `hackathon-release.yml` flow.
-#
-# Trigger: `workflow_dispatch`. Pick the branch to deploy in the "Run workflow"
-# dropdown (defaults to the branch you launch it from); that ref is checked out
-# and built on the host.
-#
-# PREREQUISITES (one-time):
-#   1. A self-hosted runner labeled `future` on the GPU host (private LAN
-#      192.168.90.127, unreachable from GitHub-hosted runners).
-#   2. Ollama running on the host, bound to 0.0.0.0:11434, model pulled:
-#        ollama pull gemma4:12b-it-qat
-#   3. Repo VARIABLES: DEV_APP_DOMAIN (e.g. 192.168.90.127), optional
-#      OLLAMA_BASE_URL, ACME_EMAIL.  Repo SECRET: OPENAI_API_KEY (embeddings
-#      stay on OpenAI — pgvector columns are sized to text-embedding-3 dims).
+# Builds images locally on the `future` self-hosted runner and deploys the dev
+# stack — no ECR/AWS. Production release lives in hackathon-release.yml.
+# Requires: runner labeled `future`, Ollama on 0.0.0.0:11434 (gemma4:12b-it-qat),
+# repo vars DEV_APP_DOMAIN / OLLAMA_BASE_URL and secret OPENAI_API_KEY.
 
 on:
   workflow_dispatch:
@@ -57,9 +44,6 @@ jobs:
           VERSION:         ${{ steps.meta.outputs.version }}
           DEV_APP_DOMAIN:  ${{ vars.DEV_APP_DOMAIN }}
           ACME_EMAIL:      ${{ vars.ACME_EMAIL || 'devops@seta-international.vn' }}
-          # Reachable from inside the compose containers. Default targets the
-          # host via its LAN IP; requires Ollama bound to 0.0.0.0. Override with
-          # the `OLLAMA_BASE_URL` repo variable if the host address differs.
           OLLAMA_BASE_URL: ${{ vars.OLLAMA_BASE_URL || 'http://192.168.90.127:11434/v1' }}
           OPENAI_API_KEY:  ${{ secrets.OPENAI_API_KEY }}
         run: |
@@ -79,13 +63,10 @@ jobs:
           # shellcheck source=/dev/null
           source "$SECRETS_FILE"
 
-          SERVER_IMAGE="seta-server:${VERSION}"
-          WEB_IMAGE="seta-web:${VERSION}"
-
           cat > .env.deploy <<EOF
           NODE_ENV=production
-          PLATFORM_IMAGE_SERVER=${SERVER_IMAGE}
-          PLATFORM_IMAGE_WEB=${WEB_IMAGE}
+          PLATFORM_IMAGE_SERVER=seta-server:${VERSION}
+          PLATFORM_IMAGE_WEB=seta-web:${VERSION}
           PLATFORM_VERSION=${VERSION}
           PLATFORM_MODULES=*
           PLATFORM_DOMAIN=${DEV_APP_DOMAIN}
