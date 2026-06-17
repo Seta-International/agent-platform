@@ -5,12 +5,16 @@
 > `schemaFilter` scoping; **no cross-schema FK**; cross-module data flows only via events into
 > read-model (ACL) tables owned by the consumer.
 >
-> **✅ Earlier draft validated** against **Postgres 16** (throwaway Docker DB) at 54 tables. That pass is
-> superseded by the **architecture-revision below (§ "Architecture revision")** — effective-dated history
-> (compensation, capacity, rates), ledger/normalized facts replacing mutable cells + opaque jsonb
-> (leave, review scores, QCDP), DB-native invariants (`EXCLUDE`/`btree_gist`), the allocation
-> recurrence model, and the fulfillment saga. **Schema changed → re-validate the full DDL before
-> spec→plan** (the throwaway `seta-*.sql` artifacts are stale). Drizzle remains the schema SoR.
+> **✅ Revised DDL re-validated** (2026-06-17, throwaway Postgres) — the **architecture-revision below
+> (§ "Architecture revision")**: effective-dated history (compensation, capacity, rates), ledger/
+> normalized facts replacing mutable cells + opaque jsonb (leave, review scores, QCDP), the allocation
+> recurrence model, the fulfillment saga, and all **new DB-native invariants**. A self-checking script
+> applied the 29 changed/new constraint-bearing tables clean and confirmed **9/9 invariants fire**:
+> leave no-overlap (`EXCLUDE`/`btree_gist`), `rate` exactly-one-scope CHECK, one-accepted-offer partial
+> UNIQUE, committed-allocation⇒worker CHECK, non-Green-weekly road-to-green CHECK, filled-position⇒holder
+> CHECK, scorecard template-version UNIQUE, comp/capacity effective-dated UNIQUE. The earlier full
+> 54-table pass (PG16) stands for unchanged tables. **Drizzle remains the schema SoR** — the full DDL
+> regenerates via `db:generate` at implementation; the throwaway `seta-*.sql` artifacts are stale.
 >
 > **Review fixes applied (§ "Review fixes" below):** idempotency-guard tables; M:N `rm_allocation`
 > re-keyed; `allocation.planned_pct`; rate temporal uniqueness; offer-accept uniqueness; interview
