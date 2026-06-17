@@ -45,7 +45,7 @@ The generator scaffolds everything else. Jump to the step you need:
 | Path | Time | Includes | Skip |
 |---|---|---|---|
 | **Fast path** | ~30 min | Scaffold, one domain function, one read-only agent tool | UI, events, jobs, subscribers, write tools |
-| **Standard path** | ~2 hr | Fast path + HTTP route + web nav manifest + one list screen | Events, jobs, subscribers, agent specialist |
+| **Standard path** | ~2 hr | Fast path + HTTP route + `packages/web-<name>` app package + one list screen | Events, jobs, subscribers, agent specialist |
 | **Full path** | ~1 day | Standard path + events, subscribers, jobs, SSE, write tool with HITL, integration tests | (nothing) |
 
 Sections below are tagged with the path they belong to; untagged sections are required for every path.
@@ -59,7 +59,7 @@ flowchart LR
     CR[ContributionRegistry]
     Srv[apps server]
     Wrk[apps worker]
-    Web[apps web]
+    Web[packages web-timesheet — app package]
     Cop[agent]
     PG[(timesheet schema)]
     Bus[(core.events)]
@@ -69,7 +69,7 @@ flowchart LR
     CR --> Srv
     CR --> Wrk
     CR --> Cop
-    Pkg -. nav manifest .-> Web
+    Web -. app manifest .-> Shell[apps web shell host]
     Srv --> PG
     Wrk --> PG
     Srv -. emit .-> Bus
@@ -86,8 +86,9 @@ What a module contributes through one `reg.module({...})` call:
 | `agentTools` | Agent tool catalogue |
 | `routes` (optional) | `apps/server` HTTP mount |
 | `subscribers`, `jobs`, `workflows` (optional) | `apps/worker` dispatcher + pool |
-| `stream` (optional) | SSE hub, consumed by web companion |
-| `navManifest` (web companion) | `apps/web` shell |
+| `stream` (optional) | SSE hub, consumed by the `web-<name>` app package |
+
+A module's user-facing surface is a **separate frontend app package** at `packages/web-<name>` (a launcher app), not part of `reg.module({...})`. It exports an `AppManifest` that the shell host's launcher registry picks up — see [§7](#7-web-companion--ui-walkthrough-standard-path).
 
 ---
 
@@ -103,7 +104,7 @@ The generator asks three questions:
 |---|---|
 | Module name (kebab-case) | `timesheet` |
 | Tier | `feature` (default) |
-| Generate `apps/web/src/modules/<name>/` companion folder? | `Y` |
+| Generate a `packages/web-<name>` frontend app package (launcher app)? | `Y` |
 
 ### What the generator produces
 
@@ -113,11 +114,13 @@ The generator creates `packages/timesheet/` populated with the canonical module 
 
 | File | Change |
 |---|---|
-| `apps/server/src/index.ts`, `apps/worker/src/index.ts` | `import { registerTimesheetContributions } from '@seta/timesheet/register'` + a registration call |
-| `apps/server/package.json`, `apps/worker/package.json` | `"@seta/timesheet": "workspace:^"` added |
-| `apps/web/src/modules/timesheet/` | Created with a `navManifest` stub (only if web companion answered `Y`) |
-| `apps/web/src/shell/manifests.ts` | Manifest registered |
-| Lock file | `pnpm install` re-runs automatically |
+| `apps/server/src/index.ts`, `apps/worker/src/index.ts`, `apps/cli/src/commands/migrate.ts` | `import { registerTimesheetContributions } from '@seta/timesheet/register'` + a registration call |
+| `apps/server/package.json`, `apps/worker/package.json`, `apps/cli/package.json` | `"@seta/timesheet": "workspace:^"` added |
+| `packages/web-timesheet/` | New frontend app package created with an `AppManifest`, a placeholder page, and its layout + landing routes (only if the web prompt answered `Y`) |
+| `apps/web/src/routes.virtual.ts` | `physical('/timesheet', '../../../packages/web-timesheet/src/routes')` mount inserted (web only) |
+| `apps/web/src/shell/manifests.ts` | `timesheetAppManifest` imported and registered in the launcher registry (web only) |
+| `apps/web/package.json` | `"@seta/web-timesheet": "workspace:*"` added (web only) |
+| Lock file + RBAC keys | `pnpm install` and `pnpm gen:rbac` re-run automatically |
 
 ### Verify the scaffold
 
@@ -413,22 +416,30 @@ Add `subscribers`, `jobs`, `routes`, `stream`, `agentSpecs`, `workflows`, or `er
 
 ## 7. Web companion — UI walkthrough (standard path)
 
-The generator produced `apps/web/src/modules/timesheet/` with the structure below. This section adds a list screen and a create dialog, both backed by the module's domain function.
+The generator produced a standalone frontend **app package** at `packages/web-timesheet` (`@seta/web-timesheet`) — a **launcher app** that the shell host mounts at `/timesheet` and surfaces as a 9-dot launcher tile. This is a separate package from the backend `@seta/timesheet`: a React/Vite leaf, not Node/Drizzle. This section adds an HTTP route, a typed client, a list screen, and a create dialog, all backed by the module's domain function.
 
 ### Folder layout
 
 ```
-apps/web/src/modules/timesheet/
-├── manifest.ts              # NavManifest registered in apps/web/src/shell/manifests.ts
-├── api/
-│   └── timesheet-client.ts  # typed Hono RPC client + DTO re-exports
-├── state/
-│   └── query-keys.ts        # centralised TanStack Query key factory
-├── pages/
-│   └── entries-page.tsx     # list + create UI
-└── components/
-    └── log-entry-dialog.tsx # create dialog
+packages/web-timesheet/
+├── package.json             # @seta/web-timesheet — React/router as peerDependencies
+├── tsconfig.json            # extends @seta/shared-config; excludes src/routes
+├── vitest.config.ts         # node env
+├── src/
+│   ├── index.ts             # export { timesheetAppManifest } from './manifest.ts'
+│   ├── manifest.ts          # the AppManifest registered in the shell launcher
+│   ├── pages/
+│   │   └── timesheet-page.tsx   # placeholder page (EmptyState/PageChrome)
+│   └── routes/
+│       ├── route.tsx        # /_authed/timesheet layout route (renders <Outlet/>)
+│       └── index.tsx        # /_authed/timesheet/ landing route (renders the page)
+└── tests/
+    └── unit/manifest.test.ts    # manifest smoke test
 ```
+
+Route files live in `src/routes/` but are **excluded from this package's `tsconfig.json`** — they are type-checked through the shell's generated route tree, not here (see Step 4). React and `@types/react` are real devDependencies (not peer-only) precisely so the shell's `tsr generate` can type-check those files.
+
+As your app grows, organize it by feature slice — `web-admin` keeps each area (`users/`, `sso/`, `audit/`, …) in its own `pages/`, `components/`, `api/`, `state/`, `hooks/` subtree under `src/`. Reference `packages/web-admin/` for the full shape.
 
 ### Step 1 — HTTP route
 
@@ -455,16 +466,16 @@ Wire it in `register.ts`: `routes: { mountAt: '/api/timesheet/v1', build: buildT
 
 ### Step 2 — Typed client and centralised query keys
 
-Hono RPC infers a typed client from the route definition; the client breaks at compile time when the route signature changes. Alongside it, centralise TanStack Query keys per module so cache invalidation has a single source of truth (planner convention in `apps/web/src/modules/planner/state/query-keys.ts`).
+Hono RPC infers a typed client from the route definition; the client breaks at compile time when the route signature changes. Alongside it, centralise TanStack Query keys per app so cache invalidation has a single source of truth (convention in `packages/web-admin/src/role-access/state/query-keys.ts`). Both live under a feature slice in `src/`, e.g. `src/entries/api/timesheet-client.ts` and `src/entries/state/query-keys.ts`.
 
 ```ts
-// api/timesheet-client.ts
+// src/entries/api/timesheet-client.ts
 export const timesheetClient = hc<ReturnType<typeof buildTimesheetRoutes>>(
   '/api/timesheet/v1',
   { fetch: (i, init) => fetch(i, { ...init, credentials: 'include' }) },
 );
 
-// state/query-keys.ts
+// src/entries/state/query-keys.ts
 export const timesheetKeys = {
   all: ['timesheet'] as const,
   entries: () => [...timesheetKeys.all, 'entries'] as const,
@@ -472,24 +483,69 @@ export const timesheetKeys = {
 };
 ```
 
-### Step 3 — Nav manifest
+### Step 3 — App manifest
 
-The shell filters items by `session.effective_permissions` before rendering — users without `timesheet.entry.read` do not see the nav entry.
+`src/manifest.ts` exports the `AppManifest` (defined in `@seta/module-sdk`). It drives the launcher tile, the active-app routing, and the app's own sidebar. `requiredPermissions` (OR-semantics) gate launcher-tile visibility; the sidebar filters each `NavItem` by `requires` before rendering — users without `timesheet.entry.read` do not see that entry.
+
+The generator scaffolds a placeholder manifest with `requiredPermissions: []`. Populate the permissions and build out the nav:
 
 ```ts
-export const timesheetNavManifest: NavManifest = {
+import { type AppManifest, noNavExtensions } from '@seta/module-sdk';
+import { Clock } from 'lucide-react';
+
+export const timesheetAppManifest: AppManifest = {
   id: 'timesheet',
+  routeNamespace: '/timesheet',
   label: 'Timesheet',
   icon: Clock,
+  color: '#6e79d6',
   requiredPermissions: [TIMESHEET_ENTRY_READ],
-  nav: [{
-    label: 'Work',
-    items: [{ id: 'timesheet.entries', icon: Clock, label: 'My entries', to: '/timesheet' }],
-  }],
+  useNavExtensions: noNavExtensions,
+  nav: [
+    {
+      label: 'Work',
+      items: [{ id: 'timesheet.entries', icon: Clock, label: 'My entries', to: '/timesheet' }],
+    },
+  ],
 };
 ```
 
-### Step 4 — List screen
+| Field | Role |
+|---|---|
+| `id` | Stable app key |
+| `routeNamespace` | `/timesheet` — drives launcher → active-app routing |
+| `icon`, `color` | Launcher tile + sidebar header |
+| `requiredPermissions` | Launcher-tile visibility gate (OR-semantics) |
+| `nav` | `NavSection[]` — the active-app sidebar; ≥1 section, each item permission-filtered |
+| `useNavExtensions` | Always-called hook for dynamic sections; pass the exported `noNavExtensions` for none |
+
+`requiredPermissions` only hides the launcher tile; it does not block deep-linking to `/timesheet`. Enforce access in the layout route's `beforeLoad` (next step).
+
+### Step 4 — Route mount and the permission gate
+
+The generator wired the app into the shell host automatically:
+
+- **Route mount** — it inserted `physical('/timesheet', '../../../packages/web-timesheet/src/routes')` into `apps/web/src/routes.virtual.ts` (under the `_authed` layout). `@tanstack/virtual-file-routes` composes every app package's `src/routes/` into the shell's **single generated route tree** with one `Register`; `autoCodeSplitting` lazy-splits each app on first open. The path is three levels up because `physical()` resolves relative to the shell's `routesDirectory` (`./src`). Because the app's entry route file is `index.tsx`, the URL is `/timesheet`, not `/timesheet/timesheet`.
+- **Launcher registration** — it imported and added `timesheetAppManifest` to `apps/web/src/shell/manifests.ts`.
+- **Dependency** — it added `@seta/web-timesheet` to `apps/web/package.json`.
+
+The generated `route.tsx` is the app's layout (`/_authed/timesheet`) and renders `<Outlet/>`; auth is already enforced by the parent `_authed` layout. Add the app's permission gate here once it owns RBAC permissions (pattern in `packages/web-admin/src/routes/route.tsx`):
+
+```tsx
+import type { SessionScopeProjection } from '@seta/web-identity';
+import { createFileRoute, Outlet, redirect } from '@tanstack/react-router';
+
+export const Route = createFileRoute('/_authed/timesheet')({
+  beforeLoad: ({ context }) => {
+    const session = (context as { session?: SessionScopeProjection }).session;
+    const perms = new Set(session?.permissions ?? []);
+    if (!perms.has('timesheet.entry.read')) throw redirect({ to: '/403' });
+  },
+  component: () => <Outlet />,
+});
+```
+
+### Step 5 — List screen
 
 The page uses TanStack Query against the typed client; `shared-ui` provides Card, Button, DataTable.
 
@@ -512,7 +568,7 @@ export function EntriesPage() {
 }
 ```
 
-### Step 5 — Create dialog with optimistic invalidation
+### Step 6 — Create dialog with optimistic invalidation
 
 The dialog mutation posts to the typed client and invalidates the entries cache on success:
 
@@ -549,20 +605,20 @@ All styling lives in `@seta/shared-ui`. No `.css`, `tailwind.config.*`, or `@the
 
 ### SSE consumption (full path)
 
-If the module fans events to clients, register a stream hub on `reg.module({ stream })` and consume it from the page:
+If the module fans events to clients, register a stream hub on `reg.module({ stream })` and consume it from an app-local SSE hook that invalidates the affected query keys:
 
 ```tsx
-import { useStream } from '@/shell/sse';
+// src/entries/hooks/use-timesheet-stream.ts
 import { timesheetKeys } from '../state/query-keys';
 
-useStream('/api/timesheet/v1/stream', (event) => {
+useTimesheetStream('/api/timesheet/v1/stream', (event) => {
   if (event.type === 'timesheet.entry.logged') {
     qc.invalidateQueries({ queryKey: timesheetKeys.entries() });
   }
 });
 ```
 
-See `apps/web/src/modules/planner/` for a reference implementation including reconnection, version reconciliation, and event-driven cache updates.
+See `packages/web-planner/src/hooks/use-board-stream.ts` for a reference implementation including reconnection, version reconciliation, and event-driven cache updates.
 
 ---
 
@@ -654,7 +710,8 @@ The boundary gate (`pnpm lint`) catches the most common new-module mistakes: cro
 | Full `reg.module({...})` shape | [`architecture.md`](./architecture.md) §9 |
 | Boundary rules dep-cruiser enforces | [`architecture.md`](./architecture.md) §6 |
 | Reference feature module | `packages/planner/` |
+| Reference frontend app package | `packages/web-admin/`, `packages/web-planner/` |
 | Reference orchestrator module | `packages/staffing/` |
 | Tool contract definition | `sdks/agent/src/index.ts` |
-| Web nav contract definition | `sdks/module/src/index.ts` |
+| `AppManifest` contract definition | `sdks/module/src/index.ts` |
 | Agent system design | [`agent-architecture.md`](./agent-architecture.md) |

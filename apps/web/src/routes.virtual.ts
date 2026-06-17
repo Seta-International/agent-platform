@@ -10,5 +10,6 @@ export const routes = rootRoute('routes/__root.tsx', [
     physical('/planner', '../../../packages/web-planner/src/routes'),
     physical('/agent', '../../../packages/web-agent/src/routes'),
     physical('/admin', '../../../packages/web-admin/src/routes'),
+    // MODULE_ROUTE_MOUNTS_END — generator inserts new physical() app mounts above this comment.
   ]),
 ]);

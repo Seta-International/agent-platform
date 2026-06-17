@@ -108,7 +108,7 @@ The gap is a per-tenant agent that can read the planner, search team members by 
 journey
     title PM plans the week with the planner specialist
     section Open agent
-      Open Seta and open the agent panel: 5: User
+      Open Seta and toggle the Ask Seta panel (⌘\): 5: User
       Ask what is on my plate this week: 5: User
       Agent returns 7 open tasks grouped by status: 5: Agent
     section Triage
@@ -119,7 +119,7 @@ journey
       User picks an assignee and approves: 5: User
       Agent assigns, notifies assignee, records audit: 5: Agent
     section Close
-      Close agent panel: 5: User
+      Close the Ask Seta panel: 5: User
 ```
 
 The target end-to-end duration is approximately five minutes for the full interaction, compared with the 60–90 minutes typically required when the same workflow is performed manually across chat, board views, and email.
@@ -478,7 +478,7 @@ These tools differ from specialist tools in three ways: (1) they are owned by th
 
 ## 16. Web surface and HTTP routes
 
-The chat panel is anchored to the right edge of the application shell. The approval card is rendered inline within the conversation from the thread's workflow_approvals rows (`GET /workflows/threads/:threadId/approvals`) and decided via `POST /workflows/approvals/:id/decide`.
+The agent surface is twofold. The **"Ask Seta" panel** is a conversational panel the suite shell renders on the right edge of *every* app — cross-module, toggled from the top bar (`⌘\`) and owned by `@seta/web-agent`. A dedicated **Agent Studio** launcher app at `/agent` (chat history, knowledge, workflows, runs, config) carries the full-page surfaces with its own sidebar. All agent web UI lives in `packages/web-agent/src/routes/{chat,knowledge,workflows,index}.tsx`. The approval card is rendered inline within the conversation from the thread's workflow_approvals rows (`GET /workflows/threads/:threadId/approvals`) and decided via `POST /workflows/approvals/:id/decide`.
 
 ```
 ┌────────────────────────────────────────────────────────────┐
@@ -651,6 +651,7 @@ flowchart TD
 | Model registry (`fast \| balanced \| reasoning`) | `packages/agent/src/backend/model-registry.ts` |
 | Rate limit (`agent.rate_limits`) | `packages/agent/src/backend/rate-limit.ts` |
 | Chat + workflow HTTP routes | `packages/agent/src/backend/routes.ts` |
+| Agent web surfaces (Ask Seta panel + Agent Studio at `/agent`) | `packages/web-agent/src/routes/{chat,knowledge,workflows,index}.tsx`, `packages/web-agent/src/` (`AgentSidePanel`, `AgentProvider`) |
 | Workflow lifecycle hook | `packages/agent/src/backend/workflows/_infra/lifecycle-hook.ts` |
 | Workflow input-schema registry | `packages/agent/src/backend/workflows/_infra/input-schema-registry.ts` |
 | SSE — run + inbox | `packages/agent/src/backend/workflows/_infra/sse-run.ts`, `sse-inbox.ts` |

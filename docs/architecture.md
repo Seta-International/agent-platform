@@ -12,7 +12,7 @@ This document is the single source of truth for the implementation shape. When t
 
 ```mermaid
 flowchart LR
-    Browser[Browser — React SPA — planner UI and agent chat]
+    Browser[Browser — React shell host — app-launcher suite + agent chat]
 
     subgraph Runtime[Same image, two processes]
       Server[apps server — Hono HTTP and Agent engine]
@@ -132,7 +132,7 @@ apps/
 ├── server/   # Hono HTTP (dev also runs dispatcher + worker pool via startBoth)
 ├── worker/   # graphile-worker pool + LISTEN/NOTIFY dispatcher (production split)
 ├── cli/      # ops: migrate, seed, embedding backfills
-└── web/      # React 19 SPA — shell + per-module UI
+└── web/      # React 19 shell host — composition root for the frontend suite
 
 packages/
 ├── core/             # event bus, outbox, registry, runtime composition
@@ -143,12 +143,17 @@ packages/
 ├── notifications/    # in-app + email prefs, SSE hub
 ├── agent/          # engine-only: Mastra runtime + agent factory
 ├── staffing/         # orchestrator: cross-module workflows
+├── web-planner/        # launcher app: planner UI + client + query keys
+├── web-agent/          # launcher app (Agent Studio) + shell-rendered "Ask Seta" panel
+├── web-admin/          # launcher app: tenant-admin console
+├── web-identity/       # shell infra: SessionProvider, login/profile, user menu (no tile)
+├── web-notifications/  # shell infra: top-bar popover, notification stream (no tile)
 └── shared-*/         # infra: config, db, rbac, types, ui, crypto, mailer,
                       #        storage, embeddings, retrieval, testing
 
 sdks/
 ├── agent/   # @seta/agent-sdk — agent-tool contract (pure types)
-└── module/    # @seta/module-sdk — frontend nav contract
+└── module/    # @seta/module-sdk — frontend app-manifest contract
 
 infra/
 ├── docker/    # Dockerfile + compose
@@ -200,13 +205,13 @@ Any edge not drawn above is rejected by static analysis — every PR runs CI gat
 
 ### Module classification
 
-Three path layers — enforced by dep-cruiser, no maintained allowlist:
+Path layers — enforced by dep-cruiser, no maintained allowlist:
 
 | Layer | Path prefix | Rule |
 |---|---|---|
 | **infra** | `packages/shared-*`, `sdks/*` | Leaf packages — may not import from feature or orchestrator modules |
 | **module** | `packages/<name>/` | Cross-module imports go through the public surface only |
-| **runtime** | `apps/*` | Apps don't import each other |
+| **app** | `apps/*`, `packages/web-*` | Leaf frontend apps. `no-cross-web-app-imports` keeps `web-planner` / `web-agent` / `web-admin` from importing one another (the `web-identity`, `web-notifications`, and `web-agent` panel are sanctioned cross-app infra); `web-no-backend-imports` blocks any `web-*` / `apps/web` import of a module's `backend` or `db` paths |
 
 On top of the path layer, each module declares a `"setaTier"` in `package.json` — informational metadata naming its role: **foundation** (`core`, `identity`) depended on by every module; **feature** (`planner`, `integrations`, `knowledge`, `notifications`) domain-owning modules; **orchestrator** (`staffing`) composing multiple feature modules; **engine** (`agent`) composing tools and specs into a Mastra runtime.
 
@@ -288,7 +293,7 @@ sequenceDiagram
     ProdWrk->>ProdWrk: exactly one task in the fleet runs the dispatcher
 ```
 
-The browser SPA at `apps/web` shares no Node composition with the others. The same registry concept drives the web shell — each web module exports a typed `navManifest` from `@seta/module-sdk`, registered in `apps/web/src/shell/manifests.ts`.
+The browser shell at `apps/web` shares no Node composition with the others. The same registry concept drives the web shell — each app package exports a typed `AppManifest` from `@seta/module-sdk`, registered via `apps/web/src/shell/manifest-registry.ts` + `manifests.ts`.
 
 ---
 
@@ -496,34 +501,44 @@ Backfill of an entity's embeddings is a `apps/cli` one-off command, scoped to a 
 
 ## 14. Frontend shell
 
-`apps/web` is a React 19 SPA on TanStack Router. The shell at `apps/web/src/shell/` owns providers (session, theme, hotkeys, toasts), the global command palette, and the nav manifest registry.
+`apps/web` is a React 19 shell host on TanStack Router — the composition root for the frontend suite. Each app is its own workspace package under `packages/web-*`; the shell at `apps/web/src/shell/` owns providers (session, theme, hotkeys, toasts), the global command palette, the app-manifest registry, the 9-dot app-launcher, and route assembly.
 
 ```mermaid
 flowchart LR
-    Mod[Module manifest.ts] -->|navManifest| Reg[apps web src shell manifests.ts]
-    Reg -->|filter by| Perm[session.effective_permissions]
-    Perm -->|render| Nav[Sidebar and command palette]
-    Nav -->|TanStack Router| Routes[Module routes]
+    App[web-* app manifest.ts] -->|AppManifest| Reg[apps web src shell manifest-registry.ts]
+    Reg -->|filter by requiredPermissions| Launch[9-dot app launcher]
+    Launch -->|switch active app| Side[Active-app sidebar]
+    Side -->|TanStack Router| Routes[App routes]
 ```
 
+Routes are assembled with `@tanstack/virtual-file-routes`: `physical()` mounts each app package's `src/routes/` into one generated tree under a single `Register`, lazy-split per app on first open. The launcher gates tiles by `requiredPermissions` (OR-semantics); switching the active app swaps its sidebar and route namespace. Each app owns its own sidebar — there is no shared accordion.
+
 ```ts
-// apps/web/src/modules/planner/manifest.ts
-export const plannerNavManifest: NavManifest = {
+// packages/web-planner/src/manifest.ts
+export const plannerAppManifest: AppManifest = {
   id: 'planner',
   label: 'Planner',
   icon: Squares2x2,
-  requiredPermissions: [],
-  useNavExtensions: noNavExtensions,
+  routeNamespace: '/planner',
+  color: '#0047FF',                    // optional launcher-tile accent
+  requiredPermissions: [],             // launcher visibility gate
+  useNavExtensions: noNavExtensions,   // dynamic sidebar sections
   nav: [
-    { id: 'planner.boards', icon: LayoutDashboard, label: 'Boards', to: '/planner' },
-    // ...
-  ],
+    { label: 'WORK', items: [
+      { id: 'planner.boards', icon: LayoutDashboard, label: 'Boards', to: '/planner' },
+      // ...
+    ] },
+  ],                                   // NavSection[] — the active-app sidebar
 };
 ```
 
-**Console aggregation.** Tenant-admin UI (users, SSO, audit, integrations, notification prefs, tenant settings) lives in `apps/web/src/modules/admin/` — one admin home, not one admin sub-app per module.
+**Agent surfaces.** Two, both owned by `@seta/web-agent`: the shell-rendered **"Ask Seta" panel** (right-side conversational panel on every app, toggled from the top bar, no launcher tile) and **Agent Studio** — a normal launcher app at `/agent` (chat history, knowledge, workflows, runs, config) with its own sidebar.
 
-**Style monopoly.** All styling lives in `@seta/shared-ui`; modules compose primitives from there and never introduce their own CSS, Tailwind configuration, or design tokens. This is enforced statically at lint time.
+**Console aggregation.** Tenant-admin UI (users, SSO, audit, integrations, notification prefs, tenant settings) lives in `packages/web-admin/` as a launcher app at `/admin` — one admin home, not one admin sub-app per module.
+
+**Bundle governance.** Each app carries a `size-limit` budget enforced in CI. `web-*` and `shared-ui` mark React, react-dom, and `@tanstack/*` router+query as `peerDependencies` and external at build, so the shell provides one shared vendor instance rather than bundling a copy per app.
+
+**Style monopoly.** All styling lives in `@seta/shared-ui`; apps compose primitives from there and never introduce their own CSS, Tailwind configuration, or design tokens. This is enforced statically at lint time.
 
 ---
 
@@ -609,7 +624,7 @@ The fastest path to understanding any subsystem:
 | Reference orchestrator | `packages/staffing/` |
 | Composition in practice | `apps/server/src/index.ts` + `apps/worker/src/index.ts` |
 | Agent-tool contract | `sdks/agent/src/index.ts` |
-| Frontend nav contract | `sdks/module/src/index.ts` |
+| Frontend app-manifest contract | `sdks/module/src/index.ts` |
 
 For Mastra internals (when wiring the agent engine), consult the Mastra source checkout at `../mastra/` instead of inferring from npm types.
 

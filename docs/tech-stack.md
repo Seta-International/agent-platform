@@ -209,7 +209,7 @@ This document records each choice, the alternatives evaluated, and the condition
 
 ## 14. React 19
 
-**Role:** Single frontend framework for `apps/web`.
+**Role:** Frontend framework for the `apps/web` shell host and the per-app `@seta/web-*` packages it composes.
 
 | | |
 |---|---|
@@ -222,11 +222,11 @@ This document records each choice, the alternatives evaluated, and the condition
 
 ## 15. TanStack Router + Query
 
-**Role:** Type-safe routing for `apps/web`; server-state cache for every backend call.
+**Role:** Type-safe routing for the suite shell; server-state cache for every backend call.
 
 | | |
 |---|---|
-| **Why this** | TanStack Router gives us file-based routes with end-to-end inferred types — no string paths. Query owns the cache; we centralize query keys per module (e.g. `apps/web/src/modules/planner/state/query-keys.ts`) so invalidation is one place. Both are framework-agnostic — no Next.js lock-in. |
+| **Why this** | TanStack Router gives us file-based routes with end-to-end inferred types — no string paths. Routing is composed across packages: `@tanstack/virtual-file-routes` `physical()` mounts each `@seta/web-*` app's `src/routes/` into `apps/web`'s single generated tree with one `Register`, and `autoCodeSplitting` lazy-splits each app on first open. Query owns the cache; we centralize query keys per app (e.g. `packages/web-planner/src/state/query-keys.ts`) so invalidation is one place. Both are framework-agnostic — no Next.js lock-in. |
 | **Alternatives** | **React Router v6** (rejected: weaker types, no first-class loaders). **Next.js** (rejected: SSR/RSC overhead we don't need; locks us to one hosting model). **SWR** (rejected: smaller surface than Query; mutations less ergonomic). |
 | **Trade-offs accepted** | • Router code generation runs on save — IDE integration matters • Two libraries instead of one framework |
 | **Reconsider when** | A first-party React router ships at TanStack's type-safety bar. |

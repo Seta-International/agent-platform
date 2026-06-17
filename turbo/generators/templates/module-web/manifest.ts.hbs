@@ -1,11 +1,12 @@
 import { type AppManifest, noNavExtensions } from '@seta/module-sdk';
 import { Box } from 'lucide-react';
 
-export const {{camelCase name}}NavManifest: AppManifest = {
+export const {{camelCase name}}AppManifest: AppManifest = {
   id: '{{name}}',
   routeNamespace: '/{{name}}',
   label: '{{titleCase name}}',
   icon: Box,
+  color: '#6e79d6',
   requiredPermissions: [],
   useNavExtensions: noNavExtensions,
   nav: [

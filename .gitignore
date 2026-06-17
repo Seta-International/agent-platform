@@ -72,3 +72,6 @@ docs/design/
 
 # App NDJSON logs (dev log persistence)
 logs/
+
+# TanStack Query generated files
+apps/web/.tanstack
