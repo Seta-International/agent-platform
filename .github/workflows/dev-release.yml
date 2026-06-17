@@ -95,6 +95,27 @@ jobs:
           EMBED_MODEL=openai/text-embedding-3-small
           OPENAI_API_KEY=${OPENAI_API_KEY}
           EOF
+
+          # S3 object storage — provided by the standalone MinIO installed on this
+          # host (creds persisted in $SECRETS_FILE). Absent → app keeps its S3
+          # defaults. When the endpoint is self-signed, S3_CA_FILE points at the
+          # MinIO CA so the server/worker can trust it (mounted by compose.yml).
+          if [ -n "${S3_ENDPOINT:-}" ]; then
+          cat >> .env.deploy <<EOF
+          S3_REGION=${S3_REGION:-ap-southeast-1}
+          S3_ENDPOINT=${S3_ENDPOINT}
+          S3_BUCKET=${S3_BUCKET:-seta-knowledge}
+          S3_FORCE_PATH_STYLE=true
+          S3_ACCESS_KEY_ID=${S3_ACCESS_KEY_ID}
+          S3_SECRET_ACCESS_KEY=${S3_SECRET_ACCESS_KEY}
+          EOF
+          if [ -n "${S3_CA_FILE:-}" ]; then
+          cat >> .env.deploy <<EOF
+          S3_CA_FILE=${S3_CA_FILE}
+          NODE_EXTRA_CA_CERTS=/etc/ssl/minio-ca.crt
+          EOF
+          fi
+          fi
           chmod 600 .env.deploy
 
       - name: Migrate and bring up the stack (locally built images)

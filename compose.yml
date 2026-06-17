@@ -143,6 +143,17 @@ services:
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
       OLLAMA_API_KEY: ${OLLAMA_API_KEY:-}
       EMBED_MODEL: ${EMBED_MODEL:-}
+      # S3-compatible object storage (AWS S3, MinIO, …). The app is storage-
+      # agnostic — it only speaks the S3 protocol via these keys. Point them at
+      # a self-hosted MinIO or real S3 alike. NODE_EXTRA_CA_CERTS lets Node trust
+      # a self-signed S3 endpoint (see the gated CA bind-mount below).
+      S3_REGION: ${S3_REGION:-}
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
+      NODE_EXTRA_CA_CERTS: ${NODE_EXTRA_CA_CERTS:-}
     expose:
       - "9464"  # Prometheus metrics scrape port
     networks:
@@ -162,6 +173,10 @@ services:
     read_only: true
     tmpfs:
       - /tmp
+    volumes:
+      # Trust a self-signed S3/MinIO CA when S3_CA_FILE points at one on the host;
+      # defaults to /dev/null (no-op) for real S3 / public-CA endpoints.
+      - ${S3_CA_FILE:-/dev/null}:/etc/ssl/minio-ca.crt:ro
 
   worker:
     image: ${PLATFORM_IMAGE_SERVER:-${ECR_REGISTRY}/${ECR_REPOSITORY}:server-${PLATFORM_VERSION:-latest}}
@@ -194,6 +209,16 @@ services:
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
       OLLAMA_API_KEY: ${OLLAMA_API_KEY:-}
       EMBED_MODEL: ${EMBED_MODEL:-}
+      # S3-compatible object storage — see the server service for details. The
+      # worker streams objects directly (AV scan, PDF/CV parsing) so it needs the
+      # same credentials and self-signed-CA trust.
+      S3_REGION: ${S3_REGION:-}
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
+      NODE_EXTRA_CA_CERTS: ${NODE_EXTRA_CA_CERTS:-}
     networks:
       - seta-internal
       - seta-edge  # egress for OpenAI / external embedding APIs
@@ -211,6 +236,8 @@ services:
     read_only: true
     tmpfs:
       - /tmp
+    volumes:
+      - ${S3_CA_FILE:-/dev/null}:/etc/ssl/minio-ca.crt:ro
 
   postgres:
     image: pgvector/pgvector:pg17-trixie
