@@ -16,10 +16,10 @@ hires).
 | ID | Capability | What it does |
 |---|---|---|
 | **H-C1** | **Requisitions** | Open/manage a req: title, **job profile (role+grade)**, **account/project** (PM demand ref), required **skills + levels**, `kind` (**replacement/backfill** vs **new**), target dates, status, pipeline stage. A req is raised against **PM project demand** and/or a **people open position** (P-C2/P-C12). |
-| **H-C2** | **Internal mobility (applications)** | An existing **employee applies** to a req. Endorsement/approval chain: **releasing-EM** → **receiving-EM** → **PMO**. On PMO approval → a **PM allocation** is created (worker at N% on the target project) — feeding the M:N allocation model. Tracks full history. |
+| **H-C2** | **Internal mobility (applications)** | An existing **employee applies** to a req. Endorsement/approval chain: **releasing-EM** → **receiving-EM** → **PMO**. On PMO approval → `hiring.mobility.approved` → **pm fills the placeholder** (worker at N% on the target project, committed/possibly future-dated) — feeding the M:N allocation model. Tracks full history. |
 | **H-C3** | **External candidates** | Candidate records (profile, CV/docs, source), pipeline across **Sourcing → Screening → Interview → Offer**, per-req application. |
-| **H-C4** | **Interviews** | Schedule (round, panel, date/time, duration, mode online/onsite), capture **feedback/score** (reuses the scorecard instrument, OQ-8), result; calendar links + reminders. |
-| **H-C5** | **Offers** | Create/approve an offer; candidate accept/decline; **on accept → triggers `people` `people.worker.created`** (hire → onboarding case). |
+| **H-C4** | **Interviews** | Schedule (round, panel, date/time, duration, mode online/onsite), capture **feedback/score** via the **versioned scorecard template** (pinned `scorecard_template_id` + normalized `interview_score`, OQ-H3), result; calendar links + reminders. |
+| **H-C5** | **Offers** | Create/approve an offer; candidate accept/decline; **on accept → `hiring.candidate.hired`** → `people` creates the Worker and emits `people.worker.created` (carrying `resource_request_id`) → pm fills the placeholder. |
 | **H-C6** | **Recruitment insight ("Knowledge Base" tab)** | **NOT a JD CMS** — the prototype tab is **recruitment-effectiveness analytics**: interview-round pass-rate, **failure-pattern/root-cause** themes, improvement plan, hardest-roles-to-fill, **case-study log** (per-candidate pass/fail + reasons + tags). Needs structured interview-outcome data (`reject_reason`, `tags`). Folds into H-C7 analytics. *(OQ-7: a separate JD-template store may reuse `knowledge` if wanted — secondary.)* |
 | **H-C7** | **Recruitment reports** | Funnel/pipeline metrics, time-to-fill, open reqs, stage conversion, source effectiveness, interview load. Role-scoped. |
 
@@ -58,19 +58,26 @@ Notes:
 |---|---|---|
 | Requisition, candidate, interview, offer, application | **hiring** | recruitment SoR |
 | **Project staffing demand** (roles a project needs) | **pm** | a req references demand; OQ: does hiring read demand from pm, or pm raises reqs into hiring? |
-| **Allocation** created on mobility approval / hire | **pm** | hiring's H-C2 approval / H-C5 hire *requests* pm to allocate (event or public-surface call) |
+| **Allocation** created on mobility approval / hire | **pm** | hiring's H-C2 approval / H-C5 hire *emits*; pm fills the placeholder as soon as a `worker_id` exists |
 | **Open position** (internal seat to fill) | **people** | replacement/backfill reqs target a people position (P-C2); hire fills it |
-| **New employee** on offer-accept | **people** | `candidate.hired` → `people.worker.created` (already in overview §6) |
-| Interview feedback scoring | shared instrument | scorecard engine (OQ-8) shared with `people` P-C10 |
+| **New employee** on offer-accept | **people** | `hiring.candidate.hired` → `people.worker.created` (carries `resource_request_id`; overview §6) |
+| **Fulfillment lifecycle** (one request, one seat) | **hiring** | `resource_request_fulfillment` saga (state + timeout + losing-path cancel) — DDD-D1/D6 |
+| Interview feedback scoring | shared instrument | versioned scorecard template (OQ-H3) shared with `people` P-C10 |
 
 **Resolved (see [`ddd-design.md`](./ddd-design.md) + [pm spike](./pm.md)):**
-- **OQ-H1 → RESOLVED:** demand is a **placeholder allocation** in `pm`; on an unfilled placeholder pm
-  emits `resource_request.opened` and `hiring` **authors a requisition** linked to
+- **OQ-H1 → RESOLVED:** demand is a **placeholder allocation** in `pm` (**one seat**); on an unfilled
+  placeholder pm emits `pm.resource_request.opened` and `hiring` **authors a requisition** linked to
   `resource_request_id` (no FK).
-- **OQ-H2 → RESOLVED (event-driven):** on PMO mobility approval / offer-accept → onboarding, `hiring`/
-  `people` emit `mobility.approved` / `worker.onboarded`; **`pm` consumes** to **fill the placeholder**
-  with the named worker (pm = capacity gatekeeper + allocation SoR). No synchronous cross-module call.
-- **OQ-H3 → lean reuse:** interview/candidate scoring **reuses `people`'s scorecard instrument**.
+- **OQ-H2 → RESOLVED (event-driven):** on PMO mobility approval `hiring` emits `hiring.mobility.approved`;
+  on offer-accept `hiring.candidate.hired` → `people` creates the Worker → `people.worker.created`
+  (carries `resource_request_id`). **`pm` consumes either** and **fills the placeholder as soon as the
+  `worker_id` exists** (committed, possibly future-dated) — *not* at onboarding-complete. pm = capacity
+  gatekeeper + allocation SoR; no synchronous cross-module call. **hiring owns the
+  `resource_request_fulfillment` saga** that tracks the request and cancels the losing in-flight path.
+- **OQ-H3 → RESOLVED (schema-level reuse):** interview/candidate scoring reuses `people`'s scorecard as
+  a **versioned template pinned by `scorecard_template_id`** + a normalized `interview_score` child;
+  hiring projects `rm_scorecard_template`/`rm_scorecard_criterion` from people to render/validate it
+  without a cross-schema FK.
 
 ---
 
@@ -83,21 +90,21 @@ RBAC re-checked at the callee.
 
 | Op | Type | Actor | Rules | Effects |
 |---|---|---|---|---|
-| `createRequisition` | C | Recruiter / Strategic | title (req), **JD detail** (about/responsibilities/requirements/nice-to-have — required), job profile (role+grade), account, skills+levels, `kind` (replacement/new), interview mode; links `resource_request_id` (pm placeholder) and/or `position_id` (people) | `status=Open`, stage=Sourcing; emits `requisition.opened`; audit |
+| `createRequisition` | C | Recruiter / Strategic | title (req), **JD detail** (about/responsibilities/requirements/nice-to-have — required), job profile (role+grade), account, skills+levels, `kind` (replacement/new), interview mode; links `resource_request_id` (pm placeholder) and/or `position_id` (people) | `status=Open`, stage=Sourcing; opens the `resource_request_fulfillment` saga; emits `hiring.requisition.opened`; audit |
 | `updateRequisition` / `getJD` | C/Q | Recruiter | edit fields/JD | audit |
 | `advanceReqStage` | C | Recruiter | pipeline `Sourcing → Screening → Interview → Offer` | audit |
-| `closeRequisition` | C | Recruiter / Strategic | filled or cancelled | emits `requisition.closed`; audit |
+| `closeRequisition` | C | Recruiter / Strategic | filled or cancelled | emits `hiring.requisition.closed`; audit |
 
 ### H-C2 — Internal mobility (applications)
 
 | Op | Type | Actor | Rules | Effects |
 |---|---|---|---|---|
 | `getMatchedOpenRoles` | Q | Member (self) | **"Recommended for you"** — literal skill+grade overlap vs open reqs (match count); Member-scoped | — |
-| `submitApplication` | C | Member (self) | apply to an open req; note | `status=Submitted`; notifies releasing-EM; audit |
+| `submitApplication` | C | Member (self) | apply to an open req; note | `status=Submitted`; emits `hiring.application.submitted`; notifies releasing-EM; audit |
 | `withdrawApplication` | C | Member (self) | while in-flight (pre-approval) | `status=withdrawn`; audit |
 | `endorseApplication` | C | releasing-EM, then receiving-EM | **HITL** endorse (with spare-capacity note) | advances chain; audit |
 | `reviewApplication` (PMO) | C | PMO | **capacity check** | `PMO review` state; audit |
-| `approveApplication` | C | PMO | final approval at N% allocation; **projected-utilization check** (reads pm allocation read-model); >100% requires explicit **`override_overallocation`** | `Approved`; **emits `mobility.approved`** (worker_id, project_id, `placeholder_allocation_id`, pct) → pm fills the placeholder; notifies; audit |
+| `approveApplication` | C | PMO | final approval at N% allocation; **projected-utilization check** (reads pm allocation read-model); >100% requires explicit **`override_overallocation`** | `Approved`; **emits `hiring.mobility.approved`** (worker_id, project_id, `placeholder_allocation_id`, pct) → pm fills the placeholder (committed, possibly future-dated); saga → `filled`; notifies; audit |
 | `rejectApplication` | C | any approver | with reason | `Rejected`; audit |
 
 **Mobility state machine:** `Submitted → Releasing-EM endorsed → Receiving-EM endorsed → PMO review →
@@ -118,8 +125,8 @@ Approved / Rejected`. Approval is the **only** path that creates a PM allocation
 
 | Op | Type | Actor | Rules | Effects |
 |---|---|---|---|---|
-| `scheduleInterview` | C | Recruiter | round, panel, date/time, duration, **mode (online/onsite)**; online → **MS Teams link via `integrations`** | emits `interview.scheduled`; calendar + reminders; audit |
-| `submitInterviewFeedback` | C | panel (EM/Lead) | **result** (Pass/Hold/Fail), **rating** (1–5), **recommendation** (Hire/Next/No-hire), **Teams transcript pull** (`integrations`), notes; reuses the **scorecard instrument** | emits `interview.completed`; audit |
+| `scheduleInterview` | C | Recruiter | round, panel, date/time, duration, **mode (online/onsite)**; online → **MS Teams link via `integrations`** | emits `hiring.interview.scheduled`; calendar + reminders; audit |
+| `submitInterviewFeedback` | C | panel (EM/Lead) | **result** (Pass/Hold/Fail), **rating** (1–5), **recommendation** (Hire/Next/No-hire), **Teams transcript pull** (`integrations`), notes; scored against the **pinned `scorecard_template_id`** → per-criterion `interview_score` rows | emits `hiring.interview.completed`; audit |
 | `cancelInterview` / `reschedule` | C | Recruiter | reason | audit |
 
 ### H-C5 — Offers
@@ -128,7 +135,7 @@ Approved / Rejected`. Approval is the **only** path that creates a PM allocation
 |---|---|---|---|---|
 | `createOffer` | C | Recruiter | comp, start date, position (people), project (pm) | `Draft`; audit |
 | `approveOffer` | C | Strategic | **HITL** | `Approved`; audit |
-| `recordOfferDecision` | C | Recruiter | accept / decline | **accept → emits `candidate.hired`** → people (people.worker.created → onboarding → `worker.onboarded` → pm fills placeholder); decline → close/loop; audit |
+| `recordOfferDecision` | C | Recruiter | accept / decline | **accept → emits `hiring.candidate.hired`** → people creates Worker + emits `people.worker.created` (carries `resource_request_id`) → pm fills the placeholder (committed, possibly future-dated); onboarding then advances lifecycle only; decline → close/loop; audit |
 
 ### H-C6 — Knowledge base
 
@@ -150,26 +157,27 @@ Approved / Rejected`. Approval is the **only** path that creates a PM allocation
 
 | Event | Op | Consumers |
 |---|---|---|
-| `requisition.opened` / `closed` | H-C1 | people (position context), pm, notifications |
-| `application.submitted` | H-C2 | notifications (releasing-EM) |
-| `mobility.approved` | H-C2 | **pm** (fill placeholder w/ named worker), notifications |
-| `interview.scheduled` / `completed` | H-C4 | notifications (reminders) |
-| `offer.made` | H-C5 | notifications |
-| `candidate.hired` | H-C5 | **people** (people.worker.created → onboarding; then `worker.onboarded` → pm fills placeholder) |
+| `hiring.requisition.opened` / `closed` | H-C1 | people (position context), pm, notifications |
+| `hiring.application.submitted` | H-C2 | notifications (releasing-EM) |
+| `hiring.mobility.approved` | H-C2 | **pm** (fill placeholder w/ named worker), notifications |
+| `hiring.interview.scheduled` / `completed` | H-C4 | notifications (reminders) |
+| `hiring.offer.made` | H-C5 | notifications |
+| `hiring.candidate.hired` | H-C5 | **people** (creates Worker → `people.worker.created` carries `resource_request_id` → pm fills placeholder; onboarding then lifecycle-only) |
 
 ### Consumed / calls
 
 | Direction | Module | What |
 |---|---|---|
-| consumes | **pm** | `resource_request.opened` (unfilled placeholder) → author a requisition referencing `resource_request_id` |
-| consumes | **people** | `position.opened` (backfill/replacement demand context) |
-| calls | **people** | read employee (mobility applicant); shared **scorecard instrument** (H-C4) |
+| consumes | **pm** | `pm.resource_request.opened` (unfilled placeholder) → author a requisition referencing `resource_request_id` |
+| consumes | **people** | `people.position.opened` (backfill/replacement demand context); `people.worker.created` (on-hire link) |
+| calls | **people** | read employee (mobility applicant); projects the **versioned scorecard template** (H-C4) |
 | calls | **integrations** | MS Teams meeting links + transcript pull (H-C4) |
 | calls | **shared-storage** | CV + offer-letter document vault |
 | contributes | **agent** | read tools (reqs/candidates/pipeline/interviews) + HITL writes (create req, schedule interview, endorse/approve mobility, make/approve offer) |
 
-`hiring` never calls `pm` synchronously to allocate — it **emits**, pm consumes (OQ-H2). No
-cross-schema FK; account/project/position referenced by id.
+`hiring` never calls `pm` synchronously to allocate — it **emits**, pm consumes (OQ-H2). hiring owns the
+`resource_request_fulfillment` saga (one seat per request). No cross-schema FK; account/project/position
+referenced by id.
 
 ---
 
@@ -181,8 +189,8 @@ cross-schema FK; account/project/position referenced by id.
 | **HIR-2 Requisitions + JD** | H-C1 (create/edit/stage/close, JD); link `resource_request_id`/`position_id` | HIR-1 | pm demand, people position (refs) |
 | **HIR-3 Candidates + pipeline** | H-C3 (candidate CRUD, pipeline, CV vault) | HIR-2 | shared-storage |
 | **HIR-4 Interviews + feedback** | H-C4 (schedule, feedback via scorecard instrument, Teams) | HIR-3 | integrations (Teams), people (scorecard) |
-| **HIR-5 Offers + hire** | H-C5 (offer, approve, accept→`candidate.hired`) | HIR-3 | people, pm (consumers) |
-| **HIR-6 Internal mobility** | H-C2 (apply, endorsement chain, PMO approve→`mobility.approved`) | HIR-2 | people (employee read), pm (allocation consumer) |
+| **HIR-5 Offers + hire** | H-C5 (offer, approve, accept→`hiring.candidate.hired`) | HIR-3 | people, pm (consumers) |
+| **HIR-6 Internal mobility** | H-C2 (apply, endorsement chain, PMO approve→`hiring.mobility.approved`) + fulfillment saga | HIR-2 | people (employee read), pm (allocation consumer) |
 | **HIR-7 Knowledge base** | H-C6 | HIR-1 | knowledge module? (OQ-7) |
 | **HIR-8 Recruitment reports** | H-C7 | HIR-2..6 | — |
 
@@ -218,7 +226,7 @@ packages/hiring/src/
 | `/candidates` · `/:id` · `/:id/stage` | GET/POST/PATCH | H-C3 |
 | `/applications` · `/:id/{endorse,review,approve,reject}` | GET/POST | H-C2 (mobility chain, HITL) |
 | `/interviews` · `/:id/feedback` · `/:id/cancel` | GET/POST | H-C4 (feedback reuses scorecard instrument) |
-| `/offers` · `/:id/approve` · `/:id/decision` | POST | H-C5 (HITL approve; decision fires `candidate.hired`) |
+| `/offers` · `/:id/approve` · `/:id/decision` | POST | H-C5 (HITL approve; decision fires `hiring.candidate.hired`) |
 | `/knowledge/*` | GET/POST | H-C6 (OQ-7) |
 | `/reports` | GET | H-C7 |
 
@@ -239,22 +247,28 @@ packages/hiring/src/
 | `offer-expiry` | cron | offers past decision deadline → notify recruiter |
 | `pipeline-sla` | cron | stale candidates/reqs per stage → attention list |
 | `mobility-approval-route` | on endorse/approve | notify the next approver in the chain |
+| `fulfillment-timeout` | cron / `timeout_at` | `resource_request_fulfillment` past `timeout_at` → escalate or cancel the request |
 
-### 6.5 Projections (ACL, idempotent on `event_id`)
+### 6.5 Projections (ACL, idempotent on `event_id`, replayable/rebuildable from `core.events`)
 | Projection | Source | Local model |
 |---|---|---|
-| applicant / hire-target | `people` `employee.*` | minimal Worker facts for internal-mobility applicants + on-hire linking |
-| resource-request (demand) | `pm` `resource_request.opened` | open demand → suggest/author a requisition (`resource_request_id`) |
-| account/project lookup | `pm` `account.*`/`project.*` | id→name for req scoping/display |
+| applicant / hire-target (`rm_worker`) | `people` `people.worker.*` | minimal Worker facts for internal-mobility applicants + on-hire linking |
+| resource-request (demand, `rm_resource_request`) | `pm` `pm.resource_request.opened` | open demand (**one seat**, no count) → suggest/author a requisition (`resource_request_id`) |
+| scorecard template (`rm_scorecard_template`/`rm_scorecard_criterion`) | `people` scorecard config | render/validate the interview instrument + pin a `scorecard_template_id` without a cross-schema FK (OQ-H3) |
+| account/project lookup (`rm_account_project`) | `pm` `pm.account.*`/`pm.project.*` | id→name for req scoping/display |
 
 ### 6.6 Composition & 6.7 enforcement
 `register.ts` wires subscribers (6.5), RBAC, agent tools (read + HITL writes: create req, schedule
 interview, endorse/approve mobility, make/approve offer), HTTP routers, jobs — at the
-server/worker composition root. Own Drizzle client; no cross-schema FK; account/project/worker/
-position/resource_request referenced by id. `candidate.hired` / `mobility.approved` emitted exactly
-once (idempotent); every command audits via `core.events`.
+server/worker composition root. **hiring owns the `resource_request_fulfillment` saga**
+(`open→in_progress→filled|cancelled|timed_out` + `timeout_at`): when one path fills the request it
+cancels the losing in-flight path; out-of-order arrivals follow the global park-vs-noop policy. Own
+Drizzle client; no cross-schema FK; account/project/worker/position/resource_request referenced by id.
+`hiring.candidate.hired` / `hiring.mobility.approved` emitted exactly once (idempotent); every command
+audits via `core.events`.
 
 ## Step 7 — Database design
 → **[`db-design.md`](./db-design.md)** — the `hiring` schema section (requisition, candidate,
-application + application_event, interview, offer, kb_article) + `rm_worker`/`rm_resource_request`/
+application + application_event, interview + interview_score, offer, resource_request_fulfillment,
+kb_article) + `rm_worker`/`rm_resource_request`/`rm_scorecard_template`/`rm_scorecard_criterion`/
 `rm_account_project` ACL read-models.

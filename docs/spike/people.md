@@ -108,7 +108,7 @@ direct authority commit directly. State changes commit their domain event in the
 |---|---|---|---|---|---|
 | `onboardWorker` | C | Strategic | name (req), email (auto-derived if blank), role, dept, grade, type, **position?** (P-C2), CV file? | name required; email unique; grade/position admin-only; CV → document vault. Initial **project allocation is a pm concern** (`pm.assignment.*`), not a worker field. | creates record `stage=Preboarding/Onboarding`; reserves/links `user_id`; **requests MS365 provisioning** (`integrations`); emits `people.worker.created`; opens onboarding case (P-C6); audit |
 | `importEmployees` | C | Strategic | Excel/CSV per template (Employee ID, Full name, Email, Role, Dept, Grade, Account, Project, Direct manager, Join date) | validate required columns per row; **skip + report** invalid rows; manager/account/project stay admin-controlled post-import | bulk-create records; one `people.worker.created` per row; import summary; audit |
-| `updateWorkerField` | C | Strategic / self | field, value | `canEditField`: admin-only set (`grade, salary, bank, tax`) → Strategic only; position binding via P-C2; others → self or admin; no-op if unchanged. **Account/project are NOT fields** (pm allocations). | append to **employment history**; emits `people.worker.updated`; **emits `people.worker.capacity_changed` when `fte`/`contracted_hours` change**; MS365 sync on relevant change; audit |
+| `updateWorkerField` | C | Strategic / self | field, value, `effective_from?` | `canEditField`: admin-only set (`grade, salary, bank, tax`) → Strategic only; position binding via P-C2; others → self or admin; no-op if unchanged. **Account/project are NOT fields** (pm allocations). **Sensitive comp (`salary/bank/tax`) is NOT a worker column** — it lives in the effective-dated `worker_compensation` table; editing comp inserts a *new* effective-dated row (preserving salary history), never an in-place overwrite. **Capacity (`fte/contracted_hours`) is likewise effective-dated** (`worker_capacity`). | append to **employment history**; emits `people.worker.updated`; **emits `people.worker.capacity_changed` (carrying `effective_from`) when a new `worker_capacity` row is added**; MS365 sync on relevant change; audit |
 | `changeEmployeeStatus` | C | Strategic | status (`active/leave/probation/onboard/offboard`) | valid transition only (see state machine) | emits `people.worker.updated` / `people.worker.lifecycle_changed`; audit |
 | `getEmployee` / `listEmployees` | Q | all (scoped) | filters: status, account, search; view list/grid | scope via visibility rules; **sensitive fields masked** unless admin or owner | — |
 
@@ -130,8 +130,9 @@ Probation outcome → `Active` (pass) or `Offboarding` (fail). Transitions emit
 
 | Op | Type | Actor | Notes |
 |---|---|---|---|
-| `getAllocations` / `getUtilization` | Q | scoped | a worker's **concurrent fractional** allocations across **multiple projects/accounts**; utilization% = Σ allocations; bucket + rollups; searchable, paged |
-| (projection updater) | — | — | subscribes to **PM** assignment/utilization events; upserts the M:N allocation rows; idempotent on `event_id`; **no human write path** in `people` |
+| `getAllocations` | Q | scoped | a worker's **concurrent fractional** allocations across **multiple projects/accounts** (from the `rm_allocation` read-model); bucket + rollups; searchable, paged |
+| `getUtilization` | Q | scoped | utilization is **pm-authoritative** — read via pm's batch query `pm.getUtilization(workerIds[], period)` (no event, no local projection); degrades gracefully if pm is down |
+| (projection updater) | — | — | subscribes to **`pm.assignment.created/changed/ended`** (not utilization); upserts the M:N allocation rows; idempotent on `event_id`; replayable; **no human write path** in `people` |
 | `getVisibilityScope` | Q | internal | resolves which workers an AM/EM may see, from the allocation set (worker on 2 accounts → visible to both) |
 
 ### P-C4 — Workforce analytics
@@ -141,7 +142,9 @@ Probation outcome → `Active` (pass) or `Offboarding` (fail). Transitions emit
 | `getWorkforceMetrics` | Q | scoped | headcount, util, attrition, bench, health, seniority, stack, tenure, skill-gap, critical-roles, forecast, turnover, exits |
 | `getWorkforceDashboard` | Q | scoped | role-scoped composition (org-wide / account / team / self) over the above |
 
-> Read/aggregation only; sourced from the employee read-model + allocation projection. Heavy
+> Read/aggregation only; sourced from the employee read-model + `rm_allocation` projection;
+> **utilization is read from pm via the batch query `pm.getUtilization(workerIds[], period)`** (no
+> local projection), and the dashboard degrades gracefully (stale/unknown) if pm is unavailable. Heavy
 > aggregations may be materialized (Step 6/7).
 
 ### P-C5 — Lifecycle stage tracking
@@ -185,7 +188,7 @@ people-owned workflows.
 | Op | Type | Actor | Rules | Effects |
 |---|---|---|---|---|
 | `requestMovement` | C | EM/Lead or AM (propose) | type (`Promotion/Transfer/Salary`), from/to (role+grade or account, and/or salary), effective date | creates request; **multi-step approval workflow** starts; audit |
-| `advanceMovementStep` | C | the step's approver | **HITL approve-&-advance** per step | advance step; on final step apply: **rebind to new position** (P-C2) / grade / salary; `people.worker.updated` + `people.worker.movement_decided`; audit. (Account/project moves are PM re-allocations, not movement.) |
+| `advanceMovementStep` | C | the step's approver | **HITL approve-&-advance** per step | advance step; on final step **persist the approved change** and emit `people.worker.movement_decided`. The change is **applied at `effective_date`** by the `movement-apply` job (future-dated promotions) — rebind to new position (P-C2) / new `worker_compensation` row / grade — guarded by `applied_at` (once-only), then `people.worker.updated`; audit. (Account/project moves are PM re-allocations, not movement.) |
 
 **Movement approval workflow (state machine):**
 `Request → Leader review → Manager approval → HR approval → Effective` (Transfer terminal =
@@ -209,25 +212,26 @@ per leaver** across stage buckets (receive → prepare → execute → complete)
 
 | Op | Type | Actor | Rules | Effects |
 |---|---|---|---|---|
-| `openReviewCycle` | C | Strategic (HRM) | period, template (pillars/criteria/AMMI weights), participants/scope | creates cycle; enrolls participants; notifies; audit |
+| `openReviewCycle` | C | Strategic (HRM) | period, **`template_id`** (a versioned `scorecard_template` + its `scorecard_criterion` rows), participants/scope | creates cycle pinning the immutable `template_id`; enrolls participants; notifies; audit |
 | `setGoals` | C | self + manager | Goals/OKRs per employee within a cycle (objective, key results, weight) | persist; audit |
 | `updateGoalProgress` | C | self / manager | progress updates; may ingest **PM delivery/utilization signals** | persist; audit |
-| `submitReview` | C | self / manager / peer | the **scorecard instrument**: weighted criteria by pillar; **CORE mandatory** (EXT optional for juniors); **Evidence Rule** (1/5 needs evidence); **Action-Plan rule** (<4 needs a Top action); AMMI 0–4 auto-fills one criterion | compute total + verdict; persist per reviewer; audit |
-| `closeReviewCycle` | C | Strategic | all required reviews in | finalize; calibrate; emit `performance.cycle_closed`; audit |
+| `submitReview` | C | self / manager / peer | the **scorecard instrument** (pinned `template_id`): weighted criteria by pillar; **CORE mandatory** (EXT optional for juniors); **Evidence Rule** (1/5 needs evidence); **Action-Plan rule** (<4 needs a Top action); AMMI 0–4 auto-fills one criterion | persist per-criterion scores as **`review_score` rows** (not `review.scores jsonb`) so org-wide criterion analytics + prev-period delta are queryable; compute total + verdict; audit |
+| `closeReviewCycle` | C | Strategic | all required reviews in | finalize; calibrate; emit `people.performance.cycle_closed`; audit |
 | `getReview` / `getCycle` | Q | scoped | cycle, goals, reviews (own / managed / all) | — |
 
 > Probation (P-C7) reuses the scorecard **instrument** as a one-off lifecycle review, outside the
-> periodic cycle. *(OQ-8: scorecard pillar/criteria + AMMI is its own reference-config entity set —
-> detailed in DB design; may be shared with `hiring` candidate scoring.)*
+> periodic cycle. *(OQ-8: the instrument is a **versioned `scorecard_template` + `scorecard_criterion`**;
+> a review/probation/interview pins an immutable `template_id` and stores normalized per-criterion
+> scores. `hiring` reuses it via projected `rm_scorecard_template`/`rm_scorecard_criterion` — OQ-H3.)*
 
 ### P-C11 — Time-off / Leave *(R2)*
 
 | Op | Type | Actor | Rules | Effects |
 |---|---|---|---|---|
-| `requestLeave` | C | self | type, dates; checks balance | pending request; notifies approver; audit |
-| `decideLeave` | C | manager / Strategic | approve/reject | on approve: decrement balance, set availability; emit `leave.approved` (PM/timesheet consume); audit |
-| `getLeaveBalance` / `listLeaveRequests` | Q | scoped | balances per type; request history | — |
-| (accrual job) | — | — | policy-based accrual (e.g. monthly); **not** derived from attendance | balance update |
+| `requestLeave` | C | self | type, dates; checks balance (= Σ `leave_ledger` delta) | pending request; **DB `EXCLUDE` constraint enforces no-overlap** with approved leave; notifies approver; audit |
+| `decideLeave` | C | manager / Strategic | approve/reject | on approve: **append a negative `leave_ledger` row** (idempotent on `source_event_id`), set availability; emit `people.leave.approved` (PM/timesheet consume); audit |
+| `getLeaveBalance` / `listLeaveRequests` | Q | scoped | balance = Σ `leave_ledger` delta per type (or its `leave_balance` cache); request history | — |
+| (accrual job) | — | — | policy-based accrual (e.g. monthly); **not** derived from attendance | **append a positive `leave_ledger` row** (no in-place counter mutation) |
 
 > Attendance/worked-hours are **not** modeled here — pulled from the external **timesheet system**
 > via `integrations` (future platform module). `people` owns leave only.
@@ -247,7 +251,9 @@ per leaver** across stage buckets (receive → prepare → execute → complete)
 - **Audit** — every `C` above writes an audit entry via `core.events`.
 - **Masking** — every `Q` returning comp/bank/tax masks them unless caller is admin or record owner.
 - **Document vault** — CV/contract/identity-doc upload + expiry tracking attaches to the employee
-  record *(OQ-6: `shared-storage`)*.
+  record *(OQ-6: `shared-storage`)*. **Missing-required-doc attention is derived** — a
+  `document_requirement` policy table LEFT JOIN `employee_document` (a `required` flag on existing rows
+  can't represent an *absent* doc).
 
 ---
 
@@ -261,7 +267,7 @@ transaction via `withEmit` + `core.emit()`; all subscribers are idempotent on `e
 | Direction | Module | Mechanism | What |
 |---|---|---|---|
 | consumes | `identity` | events | `user.created` / `user.updated` → project identity facts (name, email, status) into `people` read model; resolve `user_id` link |
-| consumes | **PM module** | events | assignment / utilization → Resource Allocation read-model (P-C3) |
+| consumes | **PM module** | events | `pm.assignment.created/changed/ended` → Resource Allocation read-model (P-C3); utilization read live via pm batch query (no event) |
 | consumes | `planner` | events | `planner.task.*` (created/completed/moved) → recompute onboarding/offboarding case progress + health; advance lifecycle stage on board completion |
 | calls | `planner` | public surface | `createGroup` (per account/project) / `createPlan` (shared) / `createBucket` (phases) / `createTask` (employee card) / `addChecklistItem` (steps) / `assignTask` / `applyLabel`; `getTask` / `listChecklistItems` to read state |
 | calls | `integrations` | public surface / event | **MS365 user provisioning** on hire + **de-provisioning** on offboard *(NEW capability — see 4.5)*; planner-board → MS365 Planner sync is **already automatic** in `integrations` |
@@ -278,16 +284,16 @@ transaction via `withEmit` + `core.emit()`; all subscribers are idempotent on `e
 
 | Event | Emitted by op(s) | Primary consumers | Payload (key fields) |
 |---|---|---|---|
-| `people.worker.created` | `onboardEmployee`, `importEmployees`, (hiring `candidate.hired`) | notifications, projections | `user_id`, name, dept, account, stage |
+| `people.worker.created` | `onboardEmployee`, `importEmployees`, (hiring `candidate.hired`) | notifications, projections, **pm** | `user_id`, name, dept, account, stage, **`resource_request_id?`** (set when origin is an external hire → pm fills the placeholder at create time) |
 | `people.worker.updated` | `updateEmployeeField`, movement apply | notifications, projections | `user_id`, changed fields |
 | `people.worker.lifecycle_changed` | status/stage transitions, probation decision, offboarding | notifications | `user_id`, from-stage, to-stage |
 | `people.worker.movement_requested` | `requestMovement` | notifications (approver) | move id, type, approver-of-current-step |
 | `people.worker.movement_decided` | `advanceMovementStep` (final) | notifications | move id, outcome, effective date |
-| `position.opened` / `position.filled` | `createPosition` / `assignPositionHolder` | notifications, hiring (demand) | position id, org-unit, job profile, holder |
-| `leave.requested` / `leave.approved` | `requestLeave` / `decideLeave` | notifications, **PM/timesheet** (availability) | user_id, type, dates |
-| `performance.cycle_opened` / `performance.cycle_closed` | `openReviewCycle` / `closeReviewCycle` | notifications | cycle id, scope, period |
-| `people.worker.onboarded` | onboarding complete | **pm** | worker_id, **resource_request_id** → pm fills the named placeholder (loop) |
-| `people.worker.capacity_changed` | `updateWorker` when `fte`/`contracted_hours` change | **pm** | worker_id, fte, contracted_hours (utilization denominator) |
+| `people.position.opened` / `people.position.filled` | `createPosition` / `assignPositionHolder` | notifications, hiring (demand) | position id, org-unit, job profile, holder |
+| `people.leave.requested` / `people.leave.approved` | `requestLeave` / `decideLeave` | notifications, **PM/timesheet** (availability) | user_id, type, dates |
+| `people.performance.cycle_opened` / `people.performance.cycle_closed` | `openReviewCycle` / `closeReviewCycle` | notifications | cycle id, scope, period |
+| `people.worker.onboarded` | onboarding complete | **notifications** | worker_id — onboarding complete → **lifecycle/stage only**; the placeholder was already filled at `people.worker.created` |
+| `people.worker.capacity_changed` | `updateWorker` when `fte`/`contracted_hours` change (new effective-dated row) | **pm** | worker_id, **effective_from**, fte, contracted_hours (utilization denominator) |
 | `people.worker.deactivated` | offboarding complete (→ Alumni) | **pm**, hiring | worker_id → pm ends open allocations |
 
 > Event naming is canonical `<module>.<aggregate>.<verb>` (see [`ddd-design.md`](./ddd-design.md) §8).
@@ -299,10 +305,14 @@ transaction via `withEmit` + `core.emit()`; all subscribers are idempotent on `e
 | Source event | Handler | Effect (idempotent) |
 |---|---|---|
 | `identity.user.created` / `.updated` | `projectIdentityUser` | upsert identity facts into `people` employee read model; reconcile `user_id` link |
-| PM `assignment.*` / `utilization.*` | `projectAllocation` | upsert **M:N** allocation rows (worker × project, fractional); refresh visibility scope (P-C3) |
+| `pm.assignment.created/changed/ended` | `projectAllocation` | upsert **M:N** allocation rows (worker × project, fractional); `ended` retracts; refresh visibility scope (P-C3). **No `utilization.*` subscription** — there is no `utilization.updated` event; people reads utilization via pm's batch query (P-C4) |
 | timesheet system (external, via `integrations`) | `projectWorkedHours` | optional read-model of worked-hours for analytics; not authored in `people` |
 | `planner.task.created/completed/moved` | `projectLifecycleBoard` | if task's plan is a tracked case → recompute progress/health; on completion advance stage (P-C6/P-C9) |
-| `hiring.candidate.hired` | `createEmployeeFromHire` | create employee record + open onboarding case (P-C1/P-C6) |
+| `hiring.candidate.hired` | `createEmployeeFromHire` | create employee record (carrying `resource_request_id` onto `people.worker.created` so pm fills the placeholder) + open onboarding case (P-C1/P-C6) |
+
+> All projections are **idempotent on `event_id` and replayable/rebuildable from `core.events`**
+> (offset + idempotent upsert) — a projector bug or a newly-added projection is recovered by replay,
+> never hand-patched. Critical because the allocation projection drives RBAC visibility.
 
 ### 4.4 Agent tools `people` contributes (`/agent-tools`)
 
@@ -402,12 +412,15 @@ INT-MS365 runs in parallel from the start (own module).
   Reporting tree derived from position→org-unit. (Supersedes the earlier manager-derived-only plan.)
 - **OQ-6 (document vault):** `shared-storage` (S3); `employee_document` = metadata + storage key +
   expiry; signed URLs; expiry-reminder job (6.4).
-- **OQ-8 (scorecards):** `people`-owned. Pillars/criteria/weights + AMMI = **reference config**; a
-  review = scorecard header + per-criterion scores + AMMI, **inside a ReviewCycle** (P-C10). The
-  scoring engine is reused by probation (P-C7) and exposed for hiring interview scoring (OQ-H3).
-- **Capacity (DDD §7):** `people` owns Worker **capacity** (FTE/contracted hours) + leave; emits
-  `people.worker.capacity_changed`/`leave.approved`; pm computes utilization. `people` does **not** project
-  pm allocation as authoritative — it keeps a read-model only (P-C3).
+- **OQ-8 (scorecards):** `people`-owned. The instrument is a **versioned `scorecard_template` +
+  `scorecard_criterion`** (pillars/criteria/weights/CORE/AMMI = reference config); a review pins an
+  immutable `template_id` and stores **normalized `review_score` rows** + AMMI, **inside a ReviewCycle**
+  (P-C10) — re-weighting a pillar never shifts historical totals. The scoring engine is reused by
+  probation (P-C7) and exposed for hiring interview scoring via projection (OQ-H3).
+- **Capacity (DDD §7):** `people` owns Worker **capacity** (FTE/contracted hours), **effective-dated**
+  (`worker_capacity`), + leave; emits `people.worker.capacity_changed` (with `effective_from`) /
+  `people.leave.approved`; pm computes utilization (people reads it via pm's batch query, no event).
+  `people` does **not** project pm allocation as authoritative — it keeps a read-model only (P-C3).
 
 ### 6.1 Internal layout (mirrors existing modules)
 
@@ -481,7 +494,8 @@ suite shell (frontend contract, overview §3).
 | `document-expiry-reminder` | cron | docs nearing expiry → notify HR + owner |
 | `ms365-provision` / `ms365-deprovision` | on `people.worker.created` / offboard complete | call `integrations` (stub until INT-MS365) |
 | `movement-approval-route` | on `requestMovement` / step advance | notify the current step's approver |
-| `leave-accrual` | cron | policy-based leave balance accrual (P-C11; not from attendance) |
+| `movement-apply` | cron / on `effective_date` | apply approved-but-future-dated movements (position rebind / new `worker_compensation` row); `applied_at`-guarded once-only |
+| `leave-accrual` | cron | policy-based accrual → **appends a `leave_ledger` row** (P-C11; not from attendance), idempotent on the accrual `source_event_id` |
 | `review-cycle-reminder` | cron | nudge pending goals/reviews in an open cycle (P-C10) |
 
 ### 6.5 Projections (read models, idempotent on `event_id`)
@@ -489,7 +503,7 @@ suite shell (frontend contract, overview §3).
 | Projection | Source | Read model |
 |---|---|---|
 | identity facts | `identity.user.*` | worker ↔ user_id link, name/email/login status |
-| allocation (ACL) | **pm** `assignment.*`/`utilization.*` | per-worker M:N allocations + utilization (P-C3); **drives RBAC visibility scope** |
+| allocation (ACL) | **pm** `assignment.created/changed/ended` | per-worker M:N allocations (P-C3); `ended` retracts; **drives RBAC visibility scope**; replayable. (Utilization is read live via pm's batch query, not projected.) |
 | account/project lookup (ACL) | **pm** `account.*`/`project.*` | id→name, account↔project, AM owner |
 | lifecycle board | `planner.task.*` / `planner.checklist_item.*` | case progress/health; stage-advance trigger |
 
@@ -503,8 +517,15 @@ Drizzle client; it never hands it to another module.
 ### 6.7 Cross-cutting enforcement
 
 - **Masking** is applied in a single employee serializer keyed on `canSeeSensitive(caller, employee)`
-  — every query path funnels through it so comp/bank/tax cannot leak.
-- **Tenant isolation** — every table carries `tenant_id`; every query filters by it.
+  — every query path funnels through it so comp/bank/tax cannot leak. Comp lives in the isolated
+  `worker_compensation` table (RLS-eligible), so masking is defense-in-depth, not the only barrier.
+- **Sensitive-read staleness (D8):** account/project visibility rides the **async `rm_allocation`
+  projection**, which lags on **revocation** (an allocation `ended` event) — a window where an AM/EM
+  could still see a worker's `salary/bank/tax`. Mitigate by **bounding the projection lag with an SLO
+  AND re-validating an active allocation synchronously** before serving sensitive comp, so eventual
+  consistency never over-exposes.
+- **Tenant isolation** — every table carries `tenant_id`; every query filters by it; **Postgres RLS on
+  `tenant_id`** (platform-wide, recommended) backstops a missed `WHERE`.
 - **Audit** — every command writes a `core.events` audit entry in the same transaction as its domain
   event.
 
@@ -512,7 +533,9 @@ Drizzle client; it never hands it to another module.
 
 ## Step 7 — Database design
 
-→ **[`db-design.md`](./db-design.md)** — the `people` schema section (Worker, skill/worker_skill,
-org_unit, position, lifecycle_case, probation/movement, review_cycle/goal/review + scorecard_config,
-leave_*, headcount_plan, worker_history, employee_document) + the `rm_allocation`/`rm_account_project`
-ACL read-models. Designed in one pass with `hiring` + `pm` so projections line up.
+→ **[`db-design.md`](./db-design.md)** — the `people` schema section (worker, **worker_compensation**,
+**worker_capacity**, skill/worker_skill, org_unit, position, lifecycle_case + **lifecycle_template_step**,
+probation/movement, **scorecard_template/scorecard_criterion**, review_cycle/goal/review + **review_score**,
+leave_type/**leave_ledger**/leave_balance (cache)/leave_request, headcount_plan, worker_history,
+employee_document + **document_requirement**) + the `rm_allocation`/`rm_account_project` ACL
+read-models. Designed in one pass with `hiring` + `pm` so projections line up.

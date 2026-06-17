@@ -203,11 +203,11 @@ contract lives in [`ddd-design.md`](./ddd-design.md) §8; this is the summary.**
 
 | Event | Emitter | Consumers | Purpose |
 |---|---|---|---|
-| `people.worker.created` / `updated` | people | pm, hiring | New/changed worker record |
-| `people.worker.capacity_changed` | people | pm | FTE/contracted-hours change (utilization denominator) |
+| `people.worker.created` / `updated` | people | pm, hiring | New/changed worker record; `created` carries `resource_request_id?` when the worker came from an external hire → pm fills the placeholder **now** |
+| `people.worker.capacity_changed` | people | pm | FTE/contracted-hours change (effective-dated; utilization denominator) |
 | `people.worker.lifecycle_changed` | people | notifications | Stage transition (preboard→…→alumni) |
 | `people.worker.deactivated` | people | **pm**, hiring | Offboarding/Alumni → pm ends open allocations |
-| `people.worker.onboarded` | people | **pm** | Named worker ready (carries `resource_request_id`) → pm fills placeholder |
+| `people.worker.onboarded` | people | notifications | Onboarding **complete → lifecycle only** (placeholder was already filled at `people.worker.created`) |
 | `people.leave.approved` | people | pm | Availability change |
 | `people.position.opened` | people | pm | Open seat → pm creates a placeholder (single demand pipeline) |
 | `pm.resource_request.opened` | pm | hiring | Unfilled **placeholder allocation** → hiring authors a requisition |
@@ -300,3 +300,4 @@ between each. Capabilities are derived from the product's screens/features but e
 | 2026-06-16 | **R3: Performance = review cycles + Goals/OKRs + reviews** (scorecard = instrument), consuming PM delivery/utilization; probation stays a separate lifecycle review |
 | 2026-06-16 | **R4: Headcount/workforce planning** in `people`, tied to the Position object. **R6: comp/payroll/benefits deferred/integrate-only** |
 | 2026-06-16 | **`pm` is now a full implementation module** (3 modules: people/hiring/pm). pm owns Accounts/Projects/Allocation(M:N)/demand + monitoring (portfolio/weekly/risks/KPI). See [pm.md](./pm.md) |
+| 2026-06-17 | **Architecture-revision pass** (solution + DB design) — see [ddd-design.md](./ddd-design.md) §9 D4–D11 + [db-design.md](./db-design.md) "Architecture revision". Effective-dated comp/capacity/rates; leave/scores/QCDP normalized (ledger + child tables, no opaque jsonb); allocation recurrence-rule + overrides; one-seat placeholders; **pm fills the placeholder at `people.worker.created`/`mobility.approved` (committed, future-dated), not at onboarding-complete**; explicit `resource_request_fulfillment` saga (hiring-owned); utilization via batch query (no `utilization.updated` event); DB-native invariants (`EXCLUDE`/partial-`UNIQUE`/CHECK); RLS recommended; replayable projections; movements applied at `effective_date`; canonical `<module>.<aggregate>.<verb>` event names enforced. **DB schema changed → re-validate DDL.** |

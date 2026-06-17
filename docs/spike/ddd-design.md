@@ -92,23 +92,31 @@ Small, invariant-scoped aggregates (Vernon). Cross-aggregate consistency is **ev
 
 ## 5. Allocation & demand model (revised per research)
 
-**Allocation = date-ranged, per-day assignment** (Kantata Assignment+StoryAllocationDay / Float task):
-- `Allocation { id, project_id, worker_id?, role, date_from, date_to, billable }` owning **per-day
-  intensity** rows (hours/min per day); assignment totals + utilization are **derived**.
-- **Planning vs committed:** planning/demand may use a lighter **percent-of-capacity + duration**
-  sketch; concrete per-day rows materialize on commit.
+**Allocation = date-ranged assignment with a recurrence rule** (Kantata Assignment / Float task):
+- `Allocation { id, project_id, worker_id?, role, date_from, date_to, billable, minutes_per_day,
+  weekday_mask }`; only days that deviate from the rule live in `allocation_day_override`. Assignment
+  totals + utilization are **derived** (rule ⊕ overrides ÷ capacity). This replaces a full per-day
+  fan-out (a 6-month alloc was ~130 rows) — same fidelity, far less write amplification.
+- **Planning vs committed:** planning/demand uses a lighter `planned_pct` (capacity %) + duration
+  sketch; the recurrence rule (and any overrides) materialize on commit.
 
 **Demand = a placeholder allocation, NOT a separate entity** (research §2, the dominant pattern):
-- An unmet need is an `Allocation` with `worker_id = null` + **criteria** (role, skills, count, dates)
-  + a **`planned_pct`** (capacity %) for the planning sketch (per-day `minutes` materialize on commit).
+- An unmet need is an `Allocation` with `worker_id = null` + **criteria** (role, skills, dates) +
+  `planned_pct`. **One placeholder = one seat** (N seats → N placeholders) so the single
+  compare-and-set fill (DDD-D1) stays correct — there is **no `count`** on a placeholder.
 - **Single demand pipeline.** Both triggers funnel through the placeholder: a project staffing need
   *and* an **open people Position that needs filling** (backfill/headcount, P-C2/P-C12) result in **pm
   creating a placeholder** (`people.position.opened` → pm). pm is the only producer of
   `pm.resource_request.opened`. There is **no second `position.opened → hiring` demand path** (that
   would contradict "demand = placeholder, one pipeline").
 - **Fill paths:** (a) internal — resolve the placeholder to an existing Worker; (b) external — emit
-  `pm.resource_request.opened` → hiring opens a **Requisition** referencing the placeholder id. On
-  hire/approval the **named worker replaces the placeholder** (payload transfers), closing the loop.
+  `pm.resource_request.opened` → hiring opens a **Requisition** referencing the placeholder id. The
+  **named worker replaces the placeholder as soon as a worker_id exists** — on `hiring.mobility.approved`
+  (internal) or on `people.worker.created` carrying `resource_request_id` (external, right after
+  `candidate.hired`), **not** at onboarding-complete. The fill is a **committed, possibly future-dated**
+  allocation (`date_from` = planned start); onboarding then only advances the worker's lifecycle stage.
+  This stops the placeholder from showing as phantom-open demand (false aging escalation) during the
+  weeks of onboarding.
 
 > This replaces the earlier standalone `PM-C8 demand` entity. `pm.md` is revised accordingly.
 
@@ -125,16 +133,20 @@ RAG is derived.
 
 ## 7. Capacity / utilization contract (resolves research OQ)
 
-- **people owns capacity** — contracted hours / FTE% on the Worker, plus **leave** (reduces
-  availability). `updateWorker` emits **`people.worker.capacity_changed`** when `fte`/`contracted_hours`
-  change (a dedicated event, not folded into the generic `updated`); `decideLeave` emits
-  `people.leave.approved`.
-- **pm is the sole utilization authority** — utilization = Σ allocation intensity ÷ projected capacity;
-  flags overallocation. pm projects people's capacity + approved leave into its Resource read-model.
+- **people owns capacity** — contracted hours / FTE% on the Worker, **effective-dated**
+  (`worker_capacity`), plus **leave** (reduces availability). A capacity change is a new effective-dated
+  row that emits **`people.worker.capacity_changed`** (a dedicated event, not folded into the generic
+  `updated`); `decideLeave` emits `people.leave.approved`.
+- **pm is the sole utilization authority** — utilization = Σ allocation intensity ÷ **the capacity in
+  effect for that period**; flags overallocation. pm projects people's capacity (effective-dated, into
+  `rm_resource_capacity`) + approved leave. Using a single *current* capacity scalar would make any
+  past-period utilization wrong after a change — hence effective-dating on both sides.
 - **people does NOT recompute utilization** — its `rm_allocation` is a store-only projection of pm's
   `assignment.*`; there is **no `utilization.updated` cross-module event** (it would fire off a derived
-  projection with no transactional anchor — violates the outbox rule). people reads pm utilization via
-  query when it needs the number.
+  projection with no transactional anchor — violates the outbox rule). When people needs the number it
+  calls pm's public surface — **a batch query `pm.getUtilization(workerIds[], period)`**, so the
+  workforce-analytics path (P-C4, many workers) is one call, not N+1. The dashboard must degrade
+  gracefully if pm is unavailable (utilization shown as stale/unknown, not a hard failure).
 
 ## 8. Domain events — the integration contract
 
@@ -151,11 +163,11 @@ via the `core.events` outbox. Consumers fetch detail via public surface.
 | Event | Producer | Consumers | Payload (thin) |
 |---|---|---|---|
 | `identity.user.created/updated` | identity | people | user_id, email, status |
-| `people.worker.created/updated` | people | pm, hiring | worker_id, changed-fields |
-| `people.worker.capacity_changed` | people | pm | worker_id, fte, contracted_hours |
+| `people.worker.created/updated` | people | pm, hiring | worker_id, changed-fields, **`resource_request_id?`** (set when origin is an external hire → pm fills the placeholder now) |
+| `people.worker.capacity_changed` | people | pm | worker_id, effective_from, fte, contracted_hours |
 | `people.worker.lifecycle_changed` | people | notifications | worker_id, from_stage, to_stage |
 | `people.worker.deactivated` | people | **pm**, hiring | worker_id (Offboarding/Alumni → pm ends open allocations) |
-| `people.worker.onboarded` | people | pm | worker_id, **resource_request_id** (→ pm fills the named placeholder) |
+| `people.worker.onboarded` | people | notifications | worker_id (onboarding **complete → lifecycle only**; the placeholder was already filled at `worker.created`) |
 | `people.leave.approved` | people | pm | worker_id, range |
 | `people.position.opened` | people | pm | position_id, profile, org_unit (→ pm creates a placeholder; see §5) |
 | `pm.account.created/updated` · `pm.project.created/updated` | pm | people, hiring | id, name, parent, am_user_id (lookup projections) |
@@ -168,35 +180,67 @@ via the `core.events` outbox. Consumers fetch detail via public surface.
 ### Canonical flow — placeholder → requisition → hire → named allocation
 
 ```
-pm: create placeholder Allocation (worker_id=null, criteria) ──▶ pm.resource_request.opened
-hiring: open Requisition(resource_request_id) ─ pipeline / mobility ─▶ hire/approve
-   ├─ internal: hiring.mobility.approved ─▶ pm replaces placeholder with worker_id (alloc materializes)
-   └─ external: hiring.candidate.hired ─▶ people creates Worker ─▶ people.worker.onboarded ─▶ pm fills placeholder
+pm: create placeholder Allocation (worker_id=null, one seat) ──▶ pm.resource_request.opened
+hiring: open Requisition(resource_request_id); track in resource_request_fulfillment (saga)
+   ├─ internal: hiring.mobility.approved ─▶ pm fills placeholder w/ worker_id (committed, may be future-dated)
+   └─ external: hiring.candidate.hired ─▶ people creates Worker ─▶ people.worker.created(resource_request_id) ─▶ pm fills placeholder
+hiring marks the request filled + cancels the losing in-flight path; people.worker.onboarded later just advances lifecycle
 pm.assignment.created ─▶ people projects into allocation read-model (P-C3)
 ```
 
 ## 9. Decisions & residual open questions
 
-**Decided:** demand = placeholder allocation (no standalone entity); allocation = date-ranged per-day
-aggregate; rates = cascade; health = derived projection; ACL = projection + translation (no ceremony);
-people owns capacity+leave, pm computes utilization; thin events.
+**Decided:** demand = placeholder allocation (no standalone entity, one seat); allocation =
+date-ranged aggregate with a recurrence rule + sparse overrides; rates = typed cascade →
+`rm_effective_rate`; health = derived projection; ACL = projection + translation (no ceremony);
+people owns **effective-dated** capacity + leave (ledger), pm computes utilization (read via batch
+query, no event); thin events.
 
 **Resolved (system design):**
-- **OQ-D1 (double-fill) → RESOLVED:** one placeholder → one `resource_request` → at most one open
-  `requisition`. **hiring owns the resource_request fulfillment lifecycle**; internal-mobility and
-  external-hire are alternative fills of the same request. **Idempotency key = the placeholder
+- **OQ-D1 (double-fill) → RESOLVED:** one placeholder (**one seat**) → one `resource_request` → at most
+  one open `requisition`. **hiring owns the resource_request fulfillment lifecycle**, now modeled as an
+  explicit **`resource_request_fulfillment` saga** (state `open→in_progress→filled|cancelled|timed_out`
+  + `timeout_at`) — one observable record instead of state scattered across handlers. Internal-mobility
+  and external-hire are alternative fills of the same request. **Idempotency key = the placeholder
   `allocation.id`**: `fillPlaceholder` is a compare-and-set transitioning `status` `placeholder →
-  committed` **exactly once** (CAS); a second fill is a no-op. To make this work **both** fill events
-  carry `placeholder_allocation_id` — `hiring.mobility.approved` directly, and the external path
-  threads it through `hiring.candidate.hired` → `people.worker.onboarded` (both carry
-  `resource_request_id`, which pm resolves to the placeholder). **hiring** is the owner that closes the
-  losing in-flight path (cancels the other requisition/application) when the request is fulfilled.
+  committed` **exactly once** (CAS); a second fill is a no-op. **Both** fill events carry
+  `placeholder_allocation_id` — `hiring.mobility.approved` directly, and the external path threads it
+  through `hiring.candidate.hired` → `people.worker.created` carrying `resource_request_id` (which pm
+  resolves to the placeholder). **The fill happens as soon as a worker_id exists** (mobility-approve /
+  worker-create), producing a committed, possibly future-dated allocation — *not* at onboarding-complete.
+  **hiring** closes the losing in-flight path (cancels the other requisition/application) via the saga
+  when the request is fulfilled. Out-of-order arrivals follow the global park-vs-noop policy
+  ([`db-design.md`](./db-design.md) conventions).
 - **OQ-D2 (pm × planner) → RESOLVED:** pm core is **allocation + monitoring**; it does **not** build
   task execution. Project *task* boards, if needed, **reuse `planner`** (a planner group per project,
   linked by id) — **deferred, not in pm MVP**. Allocation is task-optional (`task_id` nullable).
-- **OQ-D3 (rates) → RESOLVED:** **pm owns the cost/bill rate cascade** (defaults + project overrides)
-  and computes derived financials (margin/billable) as projections. **Deep finance — invoicing,
-  payroll, GL — is downstream integration**, out of scope here.
+- **OQ-D3 (rates) → RESOLVED:** **pm owns the cost/bill rate cascade** (defaults + project overrides,
+  **typed scope** + temporal uniqueness) and computes derived financials (margin/billable) as
+  projections resolved into `rm_effective_rate`. **Deep finance — invoicing, payroll, GL — is
+  downstream integration**, out of scope here.
+
+**Architecture-revision decisions (2026-06-17) — from the solution-architecture review:**
+- **D4 (effective-dating):** compensation, capacity, and rates are effective-dated history, not
+  overwritten scalars; utilization/margin always read the value in effect for the period.
+- **D5 (fill timing):** pm fills the placeholder when a `worker_id` first exists (mobility-approve /
+  worker-create) as a committed, possibly future-dated allocation — decoupled from onboarding-complete,
+  which now only advances lifecycle stage. Eliminates phantom-open demand.
+- **D6 (fulfillment saga):** the request lifecycle is an explicit `resource_request_fulfillment` record
+  (state + timeout + losing-path cancellation), hiring-owned.
+- **D7 (utilization read):** people reads pm utilization via a **batch query**
+  `getUtilization(workerIds[], period)`; no `utilization.updated` event; dashboard degrades gracefully
+  if pm is down. (Reconciles `pm.md`/`people.md` to §7 — both previously listed the forbidden event.)
+- **D8 (RBAC sensitive reads):** account/project visibility rides the async `rm_allocation` projection,
+  which lags on **revocation** (allocation `ended`) — an over-exposure risk for salary/bank/tax.
+  Mitigation: bound the projection lag with an SLO **and** re-validate an active allocation
+  synchronously before serving sensitive comp fields, so eventual consistency never over-exposes.
+- **D9 (movement effective-dating):** approved movements apply at `effective_date` via a job, not at
+  approval time (future-dated promotions).
+- **D10 (lifecycle step identity):** a stable `template_step_key` is stamped on planner checklist items
+  so cross-case step-duration analytics survive the planner boundary.
+- **D11 (event naming):** every cross-context event is canonical `<module>.<aggregate>.<verb>` (§8 is
+  the SoR); module docs that dropped the prefix (`position.opened`, `mobility.approved`,
+  `assignment.created`, …) are wrong and reconciled to §8.
 
 ## Sources
 
