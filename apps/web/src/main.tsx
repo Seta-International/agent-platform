@@ -1,5 +1,3 @@
-import '@seta/shared-ui/styles/tokens.css';
-import '@seta/shared-ui/styles/fonts.css';
 import './styles/globals.css';
 
 import { ThemeProvider, Toaster } from '@seta/shared-ui';
