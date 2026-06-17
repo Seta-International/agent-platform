@@ -20,6 +20,22 @@ interface IntegrationsM365Deps {
   m365LinksRepo: m365.M365GroupLinkRepo;
 }
 
+function isGraphPermissionError(err: unknown): boolean {
+  if (typeof err !== 'object' || err === null) return false;
+  const maybeErr = err as {
+    statusCode?: number;
+    status?: number;
+    code?: string;
+    message?: string;
+    body?: string;
+  };
+  const status = maybeErr.statusCode ?? maybeErr.status;
+  if (status !== 403) return false;
+
+  const text = `${maybeErr.code ?? ''} ${maybeErr.message ?? ''} ${maybeErr.body ?? ''}`;
+  return /Authorization_RequestDenied|AccessDenied|Insufficient privileges/i.test(text);
+}
+
 function hasGroupAccess(session: SessionScope, groupId: string): boolean {
   return (
     session.accessible_group_ids.includes(groupId) ||
@@ -51,10 +67,23 @@ export function registerIntegrationsM365Routes(
       .search(`"displayName:${safeQ}"`)
       .select('id,displayName,mailNickname')
       .top(20)
-      .get();
+      .get()
+      .catch((err) => {
+        if (isGraphPermissionError(err)) {
+          throw new PlannerError(
+            'VALIDATION',
+            'M365 Graph app is missing required permissions (grant admin consent for Group.ReadWrite.All and Tasks.ReadWrite.All).',
+          );
+        }
+        throw err;
+      });
 
     const groups = (
-      res.value as Array<{ id: string; displayName: string; mailNickname: string }>
+      res.value as Array<{
+        id: string;
+        displayName: string;
+        mailNickname: string;
+      }>
     ).map((g) => ({
       external_id: g.id,
       display_name: g.displayName,
@@ -221,7 +250,9 @@ export function registerIntegrationsM365Routes(
             resolve();
             return;
           }
-          c.req.raw.signal.addEventListener('abort', () => resolve(), { once: true });
+          c.req.raw.signal.addEventListener('abort', () => resolve(), {
+            once: true,
+          });
         });
       },
       async (_err, _s) => {
