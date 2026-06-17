@@ -43,6 +43,11 @@ jobs:
         env:
           VERSION:         ${{ steps.meta.outputs.version }}
           DEV_APP_DOMAIN:  ${{ vars.DEV_APP_DOMAIN }}
+          # Public origin browsers actually use (e.g. the Cloudflare domain in
+          # front of this host). Drives better-auth trustedOrigins + CORS. Falls
+          # back to the internal IP. DEV_APP_DOMAIN stays internal (Traefik cert,
+          # smoke test) since Traefik path-routes any host.
+          DEV_PUBLIC_URL:  ${{ vars.DEV_PUBLIC_URL }}
           ACME_EMAIL:      ${{ vars.ACME_EMAIL || 'devops@seta-international.vn' }}
           OLLAMA_BASE_URL: ${{ vars.OLLAMA_BASE_URL || 'http://192.168.90.127:11434/v1' }}
           OPENAI_API_KEY:  ${{ secrets.OPENAI_API_KEY }}
@@ -77,11 +82,11 @@ jobs:
           POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
           POSTGRES_DB=seta
           PORT=3000
-          PUBLIC_URL=https://${DEV_APP_DOMAIN}
+          PUBLIC_URL=${DEV_PUBLIC_URL:-https://${DEV_APP_DOMAIN}}
           BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
           CRYPTO_KEY_PROVIDER=env
           CRYPTO_LOCAL_MASTER_KEY=${CRYPTO_LOCAL_MASTER_KEY}
-          CORS_ORIGINS=https://${DEV_APP_DOMAIN}
+          CORS_ORIGINS=${DEV_PUBLIC_URL:-https://${DEV_APP_DOMAIN}}
           SESSION_COOKIE_SAMESITE=strict
           EVENTS_RETENTION_DAYS=30
           KNOWLEDGE_AV_REQUIRED=false
