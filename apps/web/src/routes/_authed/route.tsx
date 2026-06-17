@@ -85,7 +85,6 @@ function ShellWithPanel({ children }: { children: React.ReactNode }) {
 
   return (
     <AppShell
-      workspace={session.tenant_name}
       apps={navModules}
       activeAppId={activeApp ?? navModules[0]?.id ?? ''}
       activeItemId={activeId}

@@ -9,8 +9,6 @@ import { LeftNav, type ShellLinkComponent } from './left-nav';
 import { TopBar } from './top-bar';
 
 export interface AppShellProps {
-  workspace: string;
-  onWorkspaceClick?: () => void;
   userMenu?: React.ReactNode;
   onSearchOpen?: () => void;
 
@@ -40,8 +38,6 @@ export interface AppShellProps {
 }
 
 export function AppShell({
-  workspace,
-  onWorkspaceClick,
   userMenu,
   onSearchOpen,
   apps,
@@ -110,8 +106,8 @@ export function AppShell({
       )}
     >
       <TopBar
-        workspace={workspace}
-        onWorkspaceClick={onWorkspaceClick}
+        activeApp={activeApp}
+        linkComponent={linkComponent}
         userMenu={userMenu}
         onSearchOpen={onSearchOpen}
         agentOpen={agentOpen}
@@ -131,7 +127,17 @@ export function AppShell({
             className="fixed inset-0 z-40 cursor-default"
             onClick={() => setLauncherOpen(false)}
           />
-          <div className="absolute left-2 top-14 z-50 w-[360px] rounded-md border border-hairline bg-surface-1 shadow-lg">
+          <div
+            role="dialog"
+            aria-label="App launcher"
+            className="absolute left-2 top-14 z-50 w-[360px] overflow-hidden rounded-lg border border-hairline bg-surface-1 shadow-lg"
+          >
+            <div className="flex items-center justify-between border-b border-hairline px-4 py-2.5">
+              <span className="text-body-sm font-semibold text-ink">Apps</span>
+              <span className="text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
+                Seta Suite
+              </span>
+            </div>
             <AppLauncher
               apps={apps}
               currentAppId={activeAppId}
@@ -148,6 +154,7 @@ export function AppShell({
         {activeApp && (
           <div className="hidden md:flex">
             <LeftNav
+              key={activeApp.id}
               app={activeApp}
               activeItemId={activeItemId}
               linkComponent={linkComponent}
@@ -165,6 +172,7 @@ export function AppShell({
           >
             {activeApp && (
               <LeftNav
+                key={activeApp.id}
                 app={activeApp}
                 activeItemId={activeItemId}
                 linkComponent={linkComponent}

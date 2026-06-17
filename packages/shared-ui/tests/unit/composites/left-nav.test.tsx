@@ -24,13 +24,19 @@ const PLANNER: AppManifest = {
 };
 
 describe('LeftNav (single active app)', () => {
-  it('renders the active app header and its section labels + items', () => {
+  it('renders section labels + items (no redundant app header)', () => {
     render(<LeftNav app={PLANNER} activeItemId="planner.boards" />);
-    expect(screen.getByText('Planner')).toBeInTheDocument();
+    expect(screen.queryByText('Planner')).not.toBeInTheDocument();
     expect(screen.getByText('Work')).toBeInTheDocument();
     expect(screen.getByText('Manage')).toBeInTheDocument();
     expect(screen.getByText('Boards')).toBeInTheDocument();
     expect(screen.getByText('Groups')).toBeInTheDocument();
+  });
+  it('collapsed: every nav item stays directly visible as an icon link', () => {
+    render(<LeftNav app={PLANNER} activeItemId="planner.boards" collapsed />);
+    expect(screen.getByRole('link', { name: 'Boards' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Groups' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /expand sidebar/i })).toBeInTheDocument();
   });
   it('marks the active item with aria-current=page', () => {
     render(<LeftNav app={PLANNER} activeItemId="planner.groups" />);

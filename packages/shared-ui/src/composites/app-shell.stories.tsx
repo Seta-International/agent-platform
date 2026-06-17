@@ -172,7 +172,6 @@ type Story = StoryObj<typeof AppShell>;
 
 export const Default: Story = {
   args: {
-    workspace: 'Acme · Engineering',
     apps: NAV_MODULES,
     activeAppId: 'admin',
     activeItemId: 'admin.audit',

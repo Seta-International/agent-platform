@@ -48,7 +48,6 @@ const APPS: AppManifest[] = [
 function renderShell(props: Partial<React.ComponentProps<typeof AppShell>> = {}) {
   return render(
     <AppShell
-      workspace="Acme · Engineering"
       apps={APPS}
       activeAppId="planner"
       activeItemId="planner.groups"

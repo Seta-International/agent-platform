@@ -4,11 +4,18 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
+  useThemeOptional,
 } from '@seta/shared-ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
+import { Monitor, Moon, Sun } from 'lucide-react';
 import { authClient } from '../auth-client.ts';
 import { useSession } from './SessionProvider.tsx';
 
@@ -18,15 +25,22 @@ function initials(name: string): string {
   return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase();
 }
 
+const APPEARANCE = [
+  { value: 'light', label: 'Light', Icon: Sun },
+  { value: 'dark', label: 'Dark', Icon: Moon },
+  { value: 'system', label: 'System', Icon: Monitor },
+] as const;
+
 export function UserMenu({ onSignOut }: { onSignOut?: () => void } = {}) {
   const session = useSession();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const theme = useThemeOptional();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus focus-visible:ring-offset-2 focus-visible:ring-offset-canvas">
-        <Avatar className="size-6">
-          <AvatarFallback className="text-[10px] font-semibold">
+        <Avatar className="size-7">
+          <AvatarFallback className="text-[11px] font-semibold">
             {initials(session.display_name || session.email)}
           </AvatarFallback>
         </Avatar>
@@ -49,6 +63,24 @@ export function UserMenu({ onSignOut }: { onSignOut?: () => void } = {}) {
         >
           Profile &amp; settings
         </DropdownMenuItem>
+        {theme && (
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>Appearance</DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              <DropdownMenuRadioGroup
+                value={theme.theme}
+                onValueChange={(v) => theme.setTheme(v as 'light' | 'dark' | 'system')}
+              >
+                {APPEARANCE.map(({ value, label, Icon }) => (
+                  <DropdownMenuRadioItem key={value} value={value}>
+                    <Icon className="mr-2 size-3.5 text-ink-muted" aria-hidden />
+                    {label}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onSelect={async () => {

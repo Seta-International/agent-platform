@@ -1,13 +1,25 @@
-import { Building2, ChevronDown, Grip, Menu, Moon, Search, Sparkles, Sun } from 'lucide-react';
+import type { AppManifest } from '@seta/module-sdk';
+import { ChevronRight, Menu, Search, Sparkles } from 'lucide-react';
 import type * as React from 'react';
+import { AppGrid } from '../icons/app-grid';
 import { SetaMark } from '../icons/seta-mark';
 import { cn } from '../lib/cn';
-import { useThemeOptional } from '../theme/theme-provider';
 import { KbdHint } from './kbd-hint';
+import type { ShellLinkComponent } from './left-nav';
+
+const DefaultShellLink: ShellLinkComponent = ({ href, className, style, children, ...rest }) => (
+  <a href={href} className={className} style={style} {...rest}>
+    {children}
+  </a>
+);
 
 export interface TopBarProps {
-  workspace: string;
-  onWorkspaceClick?: () => void;
+  /** Active app — rendered as the breadcrumb tail next to the brand. */
+  activeApp?: AppManifest;
+  /** Routing link used by the breadcrumb crumbs; falls back to a plain anchor. */
+  linkComponent?: ShellLinkComponent;
+  /** Where the brand crumb points; defaults to the suite root. */
+  homeHref?: string;
   userMenu?: React.ReactNode;
   onSearchOpen?: () => void;
   agentOpen?: boolean;
@@ -22,9 +34,13 @@ export interface TopBarProps {
   className?: string;
 }
 
+const ICON_BTN =
+  'inline-flex size-8 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus';
+
 export function TopBar({
-  workspace,
-  onWorkspaceClick,
+  activeApp,
+  linkComponent,
+  homeHref = '/',
   userMenu,
   onSearchOpen,
   agentOpen = false,
@@ -37,16 +53,15 @@ export function TopBar({
   launcherOpen,
   className,
 }: TopBarProps) {
-  const theme = useThemeOptional();
-  const isDark = theme ? theme.resolvedTheme === 'dark' : true;
   return (
     <header
       className={cn(
-        'flex h-12 flex-none items-center justify-between border-b border-hairline bg-canvas px-4',
+        'relative flex h-12 flex-none items-center justify-between gap-2 border-b border-hairline bg-canvas px-3 sm:px-4',
         className,
       )}
     >
-      <div className="flex items-center gap-3">
+      {/* Left zone: launcher + brand breadcrumb */}
+      <div className="flex min-w-0 items-center gap-2">
         {onLauncherOpen && (
           <button
             type="button"
@@ -54,9 +69,9 @@ export function TopBar({
             aria-label="Open app launcher"
             aria-expanded={launcherOpen ?? false}
             title="Apps"
-            className="-ml-1 inline-flex size-8 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
+            className={cn(ICON_BTN, '-ml-1')}
           >
-            <Grip className="size-4" aria-hidden />
+            <AppGrid className="size-[18px]" />
           </button>
         )}
         {onMobileNavOpen && (
@@ -64,58 +79,57 @@ export function TopBar({
             type="button"
             onClick={onMobileNavOpen}
             aria-label="Open navigation"
-            className="-ml-1 inline-flex size-8 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus md:hidden"
+            className={cn(ICON_BTN, '-ml-1 md:hidden')}
           >
             <Menu className="size-4" aria-hidden />
           </button>
         )}
-        <SetaMark size={20} />
-        <span className="hidden text-body-sm font-semibold tracking-tight text-ink sm:inline">
-          Seta
-        </span>
-        <span className="hidden h-[18px] w-px bg-hairline sm:inline-block" />
+        <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-0.5">
+          {(() => {
+            const Link = linkComponent ?? DefaultShellLink;
+            return (
+              <>
+                <Link
+                  href={homeHref}
+                  title="Home"
+                  className="flex items-center gap-1.5 rounded-md px-1 py-1 transition-colors hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
+                >
+                  <SetaMark size={20} />
+                  <span className="hidden text-body-sm font-semibold tracking-tight text-ink sm:inline">
+                    Seta
+                  </span>
+                </Link>
+                {activeApp && <AppCrumb app={activeApp} Link={Link} />}
+              </>
+            );
+          })()}
+        </nav>
+      </div>
+
+      {/* Center zone: global search (the focal command trigger) */}
+      <div className="pointer-events-none absolute left-1/2 hidden w-[clamp(240px,38vw,520px)] -translate-x-1/2 md:block">
         <button
           type="button"
-          onClick={onWorkspaceClick}
-          className="inline-flex h-6 items-center gap-1.5 rounded-md px-2 text-caption text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+          onClick={onSearchOpen}
+          aria-label="Search or jump to"
+          className="pointer-events-auto flex h-8 w-full items-center gap-2 rounded-md border border-hairline bg-surface-1 px-3 text-caption text-ink-subtle transition-colors hover:border-hairline-strong hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
         >
-          <Building2 className="size-3.5" aria-hidden />
-          <span className="max-w-[12ch] truncate text-ink sm:max-w-none">{workspace}</span>
-          <ChevronDown className="size-3 text-ink-subtle" aria-hidden />
+          <Search className="size-3.5 flex-none" aria-hidden />
+          <span className="flex-1 truncate text-left">Search across Seta…</span>
+          <KbdHint keys={['⌘K']} />
         </button>
       </div>
 
+      {/* Right zone: app actions · account */}
       <div className="flex items-center gap-1">
         <button
           type="button"
           onClick={onSearchOpen}
-          className="inline-flex h-6 items-center gap-2 rounded-md px-2 text-caption text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
-          aria-label="Search or jump to"
+          aria-label="Search"
+          className={cn(ICON_BTN, 'md:hidden')}
         >
-          <Search className="size-3.5" aria-hidden />
-          <span className="hidden text-ink-subtle md:inline">Search or jump to…</span>
-          <span className="hidden md:inline">
-            <KbdHint keys={['⌘K']} />
-          </span>
+          <Search className="size-4" aria-hidden />
         </button>
-
-        {theme && (
-          <button
-            type="button"
-            onClick={() => theme.setTheme(isDark ? 'light' : 'dark')}
-            className="inline-flex size-6 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
-            aria-label={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
-            title={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
-          >
-            {isDark ? (
-              <Sun className="size-3.5" aria-hidden />
-            ) : (
-              <Moon className="size-3.5" aria-hidden />
-            )}
-          </button>
-        )}
-
-        {notificationPanel}
 
         {!hideAgentButton && (
           <button
@@ -123,34 +137,49 @@ export function TopBar({
             onClick={onAgentToggle}
             aria-pressed={agentOpen}
             aria-label={agentOpen ? 'Hide agent panel' : 'Show agent panel'}
-            title={agentOpen ? 'Hide agent panel' : 'Show agent panel'}
+            title="Agent"
             className={cn(
-              'relative inline-flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-body-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus focus-visible:ring-offset-2 focus-visible:ring-offset-canvas',
+              'relative inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-body-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus focus-visible:ring-offset-2 focus-visible:ring-offset-canvas',
               agentOpen
-                ? 'border-primary-border bg-primary-tint'
-                : 'border-transparent hover:bg-surface-2',
+                ? 'border-primary-border bg-primary-tint text-ink'
+                : 'border-hairline text-ink-muted hover:bg-surface-2 hover:text-ink',
             )}
           >
             <Sparkles className="size-3.5 text-violet-500" aria-hidden />
-            <span className="hidden bg-gradient-to-r from-violet-500 to-blue-600 bg-clip-text text-transparent sm:inline">
-              Agent
-            </span>
+            <span className="hidden sm:inline">Agent</span>
             {agentAlert && (
               <span
-                className="absolute right-1.5 top-1 inline-block size-1.5 rounded-full bg-semantic-warning ring-2 ring-canvas"
+                className="absolute right-1 top-1 inline-block size-1.5 rounded-full bg-semantic-warning ring-2 ring-canvas"
                 aria-hidden
               />
             )}
-            <span className="hidden sm:inline">
-              <KbdHint keys={['⌘\\']} />
-            </span>
           </button>
         )}
 
-        <span className="mx-1 h-[18px] w-px bg-hairline" />
+        {notificationPanel}
+
+        <span className="mx-1 h-5 w-px bg-hairline" />
 
         {userMenu}
       </div>
     </header>
+  );
+}
+
+function AppCrumb({ app, Link }: { app: AppManifest; Link: ShellLinkComponent }) {
+  const Icon = app.icon;
+  return (
+    <span className="flex min-w-0 items-center gap-0.5">
+      <ChevronRight className="size-3.5 flex-none text-ink-subtle" aria-hidden />
+      <Link
+        href={app.routeNamespace}
+        title={`${app.label} home`}
+        aria-current="page"
+        className="flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 transition-colors hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
+      >
+        <Icon className="size-3.5 flex-none text-primary" aria-hidden />
+        <span className="truncate text-body-sm font-medium text-ink">{app.label}</span>
+      </Link>
+    </span>
   );
 }
