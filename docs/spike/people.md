@@ -14,14 +14,19 @@ lifecycle**. It links to `identity` by `user_id` (no cross-schema FK; event-driv
 
 Capabilities are backend domains, each tied to the product features it backs.
 
-### HR core
+> **Model follows well-known systems (Workday + Kantata-PSA), not bespoke.** `people` is the workforce
+> system-of-record (Worker + Position + Supervisory-Org); PM owns Account/Project/allocation/rates;
+> identity owns auth. See [benchmarking.md](./benchmarking.md).
+
+### HR core & org
 
 | ID | Capability | What it does |
 |---|---|---|
-| **P-C1** | **Employee record management** | System-of-record for the rich HR record: create (onboarding), **bulk import**, read (profile), edit with **field-level rights** (§ overview §4), status changes. Stores employment data, org placement, grade, comp, bank, tax, contact, DoB, skills, tech, **documents** (CV/contracts in the document vault), and **employment history**. On create: links/reserves `identity` `user_id`, triggers **MS365 provisioning** (via `integrations`), and emits `employee.created`. |
-| **P-C2** | **Org structure** | Reporting lines derived from each employee's **direct manager**; org chart across the org's hierarchies (e.g. Operations / Delivery). Auto-updates when a manager is assigned. *(OQ-4: manager-derived vs explicit org-unit hierarchy.)* |
-| **P-C3** | **Resource allocation** | A **read-model** of each employee's allocation bucket (**billable / internal / bench / on-leave**) and **utilization %**; per-department rollups; allocation + utilization listings (searchable, paged). **Sourced from the Project Management module via events** (assignment/utilization) — `people` projects, it does not author allocation. |
-| **P-C4** | **Workforce analytics** | Read/aggregation surface for headcount, utilization, attrition, bench, workforce health, seniority mix, tech-stack distribution, tenure bands, skill gaps, critical-role coverage, hiring/attrition forecast, turnover by group, and exit reasons. **Role-scoped** views (org-wide / account / team / self). |
+| **P-C1** | **Employee (Worker) record** | SoR for the rich HR record: create (onboarding), **bulk import**, read (profile), edit with **field-level rights** (overview §4), status changes. Stores personal/employment data, grade, comp-relevant attrs (level/title/tenure), bank, tax, contact, DoB, **first-class skills** (taxonomy + proficiency + experience), **documents** (vault), **employment history**. On create: links/reserves `identity` `user_id`, requests **MS365 provisioning**, emits `people.worker.created`. **Account/project is NOT a field here** — membership = the set of PM allocations (P-C3). |
+| **P-C2** | **Org structure & Positions** *(R1)* | Workday-style three objects: **Supervisory-Org / org-units** (reporting hierarchy + manager), **Position** (an internal company seat bound to a job profile — role+grade, org-unit, headcount status open/filled, held-by worker; persists across people), and the Worker (P-C1) who *holds* a position. Reporting line derived from position→org-unit. Movement/lifecycle change the position binding, not the worker identity. |
+| **P-C3** | **Resource allocation (read-model)** | A **read-model** projected from the **PM module**: each worker's **concurrent, fractional** allocations across **multiple projects/accounts** (M:N — one person can be on 2 accounts or 2 projects at once), utilization% = Σ allocations, bucket (billable/internal/bench/leave), rollups. `people` projects, never authors. Drives RBAC account/project scoping. |
+| **P-C4** | **Workforce analytics** | Read/aggregation: headcount, utilization, attrition, bench, health, seniority, skills coverage/gaps, tenure, critical-role coverage, hiring/attrition forecast, turnover, exits. **Role-scoped** (org-wide / account / team / self). |
+| **P-C12** | **Headcount & workforce planning** *(R4)* | Budgeted/planned **positions** per org-unit/period vs filled; feeds `hiring` demand (open positions → requisitions). Strategic-tier. Built on the Position object (P-C2). |
 
 ### Lifecycle (folded into `people`)
 
@@ -32,7 +37,12 @@ Capabilities are backend domains, each tied to the product features it backs.
 | **P-C7** | **Probation management** | Probation reviews (e.g. after 1 and 2 months); **pass/fail decision**; review forms; outcome transitions the employee to Active or triggers exit. |
 | **P-C8** | **Movement** | Internal **transfer / promotion**: changes to role, grade, department, account, or project; recorded in employment history; may re-trigger org-chart and allocation changes. |
 | **P-C9** | **Offboarding process** | Multi-stage offboarding (receive notice → prepare → execute → complete) with **owner lanes** (HR / IT / C&B / manager); de-provisioning handoff; transition to **Alumni**. **Board is `planner`-backed** (same pattern as P-C6). |
-| **P-C10** | **Evaluation & scorecards** | Member evaluation by EM/Team Lead and probation/periodic review records. *(OQ-8: exact scorecard model; may be shared with `hiring`.)* |
+### People operations
+
+| ID | Capability | What it does |
+|---|---|---|
+| **P-C10** | **Performance** *(R3)* | **Primary (prototype-backed):** the weighted **scorecard instrument** — pillars/criteria/weights, **CORE** flags, **AMMI** 6-dim sub-model, **Evidence rule** (score 1/5), **Action-Plan rule** (<4, from an action catalog), period selector, **"My Scorecard"** (self) + **"Team Evaluation"** (TL), prev-period delta. Criteria/weights/CORE/AMMI/action-catalog are **first-class reference config**, not opaque jsonb. **Additive (R3, not prototype-backed):** wrap scorecards in recurring **review cycles** + **Goals/OKRs** that consume PM signals. Probation (P-C7) reuses the instrument. |
+| **P-C11** | **Time-off / Leave** *(R2)* | Leave **types**, **balances**, **accrual policy**, **requests + approvals**. Emits leave events (availability) consumed by PM/timesheet. **Attendance/timesheets are NOT here** — they stay in the external timesheet system (pulled via `integrations` now; a future platform module). |
 
 ### Cross-cutting (within `people`)
 
@@ -51,20 +61,25 @@ Scoping: **Strategic** = all; **AM** = own + granted accounts; **EM/Lead** = sel
 | Capability | Strategic (BOD/Admin/PMO/HRM) | Account Manager | EM / Team Lead | Member |
 |---|---|---|---|---|
 | **P-C1** Employee record | R/W all incl. admin-only + sensitive fields | R account-scoped (sensitive masked); request grants | R managed members (sensitive masked) | R/W **self** non-admin fields; self-complete on first login |
-| **P-C2** Org structure | R/W (assign managers) | R account-scoped | R team subtree | R own position |
+| **P-C2** Org & positions | R/W org-units + positions; assign/move | R account-scoped | R team subtree | R own position |
 | **P-C3** Resource allocation | R all (read-model) | R account-scoped | R own team | R self |
 | **P-C4** Workforce analytics | R org-wide | R account-scoped | R team-scoped | R self only |
+| **P-C12** Headcount planning | R/W | R account-scoped (R) | — | — |
 | **P-C5** Lifecycle stage | R/W all transitions | R account-scoped | R managed members | R self |
 | **P-C6** Onboarding | R/W; owns HR steps | R account-scoped (view new joiners) | W own steps (TL prep/confirm); R case | R own onboarding tasks |
 | **P-C7** Probation | R/W decision (HR) | R account-scoped | **W review input**; R | R own outcome |
 | **P-C8** Movement | R/W (approve transfer/promotion) | R/Propose for own account | Propose for managed members | R own history |
 | **P-C9** Offboarding | R/W; owns HR/coordination | R account-scoped | W own lane tasks | R own (limited) |
-| **P-C10** Evaluation | R/W all | R account-scoped | **W evaluate managed members**; R | R own evaluations |
+| **P-C10** Performance | R/W cycles, goals, all reviews | R account-scoped | **W reviews + goals for managed members**; R | R/W own goals + self-review; R own reviews |
+| **P-C11** Leave | R/W all; approve | R account-scoped; approve own account | approve managed members' requests; R | R/W own requests; R own balance |
 
 Notes:
 - **Admin-only fields** (`manager, account, project, grade, salary, bank, tax`) are writable only by
   Strategic, regardless of capability row above (field policy overrides the W column).
 - **AM cross-account** requires an explicit grant; default is own account only.
+- **Account/project scoping derives from the PM allocation set** (M:N): an AM/EM sees a worker if the
+  worker has a current allocation to a project/account they manage — a worker on 2 accounts is visible
+  to both AMs.
 - "Propose" = creates a request/draft that a Strategic role (or the relevant approver) confirms —
   these are the **HITL/approval points** detailed in Step 3.
 
@@ -91,30 +106,33 @@ direct authority commit directly. State changes commit their domain event in the
 
 | Op | Type | Actor | Inputs | Rules / validation | Effects |
 |---|---|---|---|---|---|
-| `onboardEmployee` | C | Strategic | name (req), email (auto-derived if blank), role, dept, grade, type, account?, project?, manager?, CV file? | name required; email unique; account/project/manager are admin-only; CV → document vault | creates record `stage=Preboarding/Onboarding`; reserves/links `user_id`; **requests MS365 provisioning** (`integrations`); emits `employee.created`; opens onboarding case (P-C6); audit |
-| `importEmployees` | C | Strategic | Excel/CSV per template (Employee ID, Full name, Email, Role, Dept, Grade, Account, Project, Direct manager, Join date) | validate required columns per row; **skip + report** invalid rows; manager/account/project stay admin-controlled post-import | bulk-create records; one `employee.created` per row; import summary; audit |
-| `updateEmployeeField` | C | Strategic / self | field, value | `canEditField`: admin-only set (`manager, account, project, grade, salary, bank, tax`) → Strategic only; others → self or admin; no-op if unchanged | append to **employment history**; emits `employee.updated`; if `manager/account/project` changed → triggers org-chart recompute (P-C2) + MS365 sync; audit |
-| `changeEmployeeStatus` | C | Strategic | status (`active/leave/probation/onboard/offboard`) | valid transition only (see state machine) | emits `employee.updated` / `employee.lifecycle_changed`; audit |
+| `onboardWorker` | C | Strategic | name (req), email (auto-derived if blank), role, dept, grade, type, **position?** (P-C2), CV file? | name required; email unique; grade/position admin-only; CV → document vault. Initial **project allocation is a pm concern** (`pm.assignment.*`), not a worker field. | creates record `stage=Preboarding/Onboarding`; reserves/links `user_id`; **requests MS365 provisioning** (`integrations`); emits `people.worker.created`; opens onboarding case (P-C6); audit |
+| `importEmployees` | C | Strategic | Excel/CSV per template (Employee ID, Full name, Email, Role, Dept, Grade, Account, Project, Direct manager, Join date) | validate required columns per row; **skip + report** invalid rows; manager/account/project stay admin-controlled post-import | bulk-create records; one `people.worker.created` per row; import summary; audit |
+| `updateWorkerField` | C | Strategic / self | field, value | `canEditField`: admin-only set (`grade, salary, bank, tax`) → Strategic only; position binding via P-C2; others → self or admin; no-op if unchanged. **Account/project are NOT fields** (pm allocations). | append to **employment history**; emits `people.worker.updated`; **emits `people.worker.capacity_changed` when `fte`/`contracted_hours` change**; MS365 sync on relevant change; audit |
+| `changeEmployeeStatus` | C | Strategic | status (`active/leave/probation/onboard/offboard`) | valid transition only (see state machine) | emits `people.worker.updated` / `people.worker.lifecycle_changed`; audit |
 | `getEmployee` / `listEmployees` | Q | all (scoped) | filters: status, account, search; view list/grid | scope via visibility rules; **sensitive fields masked** unless admin or owner | — |
 
 **Employee status / lifecycle state machine:**
 `Preboarding → Onboarding → (Probation) → Active → Offboarding → Alumni`. `Active ⇄ On-leave`.
 Probation outcome → `Active` (pass) or `Offboarding` (fail). Transitions emit
-`employee.lifecycle_changed`.
+`people.worker.lifecycle_changed`.
 
-### P-C2 — Org structure
+### P-C2 — Org structure & Positions *(R1, Workday-style)*
+
+| Op | Type | Actor | Rules | Effects |
+|---|---|---|---|---|
+| `createOrgUnit` / `updateOrgUnit` | C | Strategic | supervisory-org node; parent, manager (a position/worker) | org tree change; audit |
+| `createPosition` / `updatePosition` | C | Strategic | seat bound to a job profile (role+grade), org-unit, headcount budget | open/filled state; audit |
+| `assignPositionHolder` / `vacatePosition` | C | Strategic | bind/unbind a worker to a position (on hire / movement / offboard) | `people.worker.updated` (position change); reporting line recompute; audit |
+| `getOrgChart` | Q | scoped | reporting tree derived from **position → org-unit** (not manager-field-only); filter by org-unit/account/project | — |
+
+### P-C3 — Resource allocation (read-model, M:N)
 
 | Op | Type | Actor | Notes |
 |---|---|---|---|
-| `getOrgChart` | Q | all (scoped) | reporting tree derived from each employee's **direct manager**; filter by company/account/project level |
-| (manager assignment) | C | Strategic | via `updateEmployeeField('manager')` — recomputes the subtree; *(OQ-4: pure derivation vs persisted org-unit)* |
-
-### P-C3 — Resource allocation (read-model)
-
-| Op | Type | Actor | Notes |
-|---|---|---|---|
-| `getAllocation` / `getUtilization` | Q | scoped | per-employee bucket (billable/internal/bench/leave) + utilization%; per-dept rollups; searchable, paged |
-| (projection updater) | — | — | subscribes to **PM module** assignment/utilization events; idempotent on `event_id`; no human write path in `people` |
+| `getAllocations` / `getUtilization` | Q | scoped | a worker's **concurrent fractional** allocations across **multiple projects/accounts**; utilization% = Σ allocations; bucket + rollups; searchable, paged |
+| (projection updater) | — | — | subscribes to **PM** assignment/utilization events; upserts the M:N allocation rows; idempotent on `event_id`; **no human write path** in `people` |
+| `getVisibilityScope` | Q | internal | resolves which workers an AM/EM may see, from the allocation set (worker on 2 accounts → visible to both) |
 
 ### P-C4 — Workforce analytics
 
@@ -145,7 +163,7 @@ people-owned workflows.
 
 | Op | Type | Actor | Rules | Effects |
 |---|---|---|---|---|
-| `startOnboardingCase` | C | Strategic (auto on `onboardEmployee`) | instantiate from the active onboarding **template** | ensure account/project planner **group** + shared onboarding **plan + phase buckets** (idempotent); `createTask` = the employee card in bucket 1 (assignee/label = first responsible role); `addChecklistItem` per template step; store case `{user_id, plan_id, task_id}`; emits `employee.lifecycle_changed`; audit |
+| `startOnboardingCase` | C | Strategic (auto on `onboardEmployee`) | instantiate from the active onboarding **template** | ensure account/project planner **group** + shared onboarding **plan + phase buckets** (idempotent); `createTask` = the employee card in bucket 1 (assignee/label = first responsible role); `addChecklistItem` per template step; store case `{user_id, plan_id, task_id}`; emits `people.worker.lifecycle_changed`; audit |
 | `getOnboardingCase` | Q | scoped | reads case + planner card state (`getTask`/`listChecklistItems`) | progress + health (On track / At risk / Blocked / Complete) from bucket position + checklist completion |
 | *(projection)* | — | — | subscribes to `planner.task.*` (moved/completed) + `planner.checklist_item.*` | recompute case progress + health; when card reaches final bucket / completes → advance stage (→ Probation/Active); audit |
 | `itHandoff` | C | HR→IT | the IT-provisioning checklist item / step | `integrations` ticket / account provisioning; audit |
@@ -160,14 +178,14 @@ people-owned workflows.
 |---|---|---|---|---|
 | `getProbationCase` | Q | scoped | objectives + scores, review schedule (e.g. 1- and 2-month) | — |
 | `submitProbationReview` | C | EM/Lead (input), HR (decision) | review windows; evidence on extreme scores (see P-C10 rules) | records review; audit |
-| `decideProbation` | C | Strategic (HR) | outcome `pass/fail` | `pass → Active`, `fail → Offboarding`; emits `employee.lifecycle_changed`; audit |
+| `decideProbation` | C | Strategic (HR) | outcome `pass/fail` | `pass → Active`, `fail → Offboarding`; emits `people.worker.lifecycle_changed`; audit |
 
 ### P-C8 — Movement (transfer / promotion / salary)
 
 | Op | Type | Actor | Rules | Effects |
 |---|---|---|---|---|
 | `requestMovement` | C | EM/Lead or AM (propose) | type (`Promotion/Transfer/Salary`), from/to (role+grade or account, and/or salary), effective date | creates request; **multi-step approval workflow** starts; audit |
-| `advanceMovementStep` | C | the step's approver | **HITL approve-&-advance** per step | advance step; on final step apply changes to employee (grade/account/role/salary via admin-only fields) + `employee.updated`; audit |
+| `advanceMovementStep` | C | the step's approver | **HITL approve-&-advance** per step | advance step; on final step apply: **rebind to new position** (P-C2) / grade / salary; `people.worker.updated` + `people.worker.movement_decided`; audit. (Account/project moves are PM re-allocations, not movement.) |
 
 **Movement approval workflow (state machine):**
 `Request → Leader review → Manager approval → HR approval → Effective` (Transfer terminal =
@@ -182,20 +200,47 @@ per leaver** across stage buckets (receive → prepare → execute → complete)
 
 | Op | Type | Actor | Rules | Effects |
 |---|---|---|---|---|
-| `startOffboarding` | C | Strategic | reason, last day | `stage=Offboarding`; ensure group + shared offboarding plan + buckets (idempotent); `createTask` = leaver card; `addChecklistItem` per step; store case `{user_id, plan_id, task_id}`; emits `employee.lifecycle_changed`; audit |
+| `startOffboarding` | C | Strategic | reason, last day | `stage=Offboarding`; ensure group + shared offboarding plan + buckets (idempotent); `createTask` = leaver card; `addChecklistItem` per step; store case `{user_id, plan_id, task_id}`; emits `people.worker.lifecycle_changed`; audit |
 | `getOffboardingCase` | Q | scoped | case + planner card state | progress/health from bucket position + checklist |
 | *(projection)* | — | — | subscribes to `planner.task.*` / `planner.checklist_item.*` | recompute progress; de-provisioning handoff (`integrations`) on the relevant step |
-| `completeOffboarding` | C | Strategic | card complete | `stage=Alumni`; emits `employee.lifecycle_changed`; audit |
+| `completeOffboarding` | C | Strategic | card complete | `stage=Alumni`; emits `people.worker.lifecycle_changed`; audit |
 
-### P-C10 — Evaluation & scorecards
+### P-C10 — Performance (cycles + Goals/OKRs + reviews) *(R3)*
 
 | Op | Type | Actor | Rules | Effects |
 |---|---|---|---|---|
-| `getScorecard` | Q | scoped | by employee + period; prefill from previous period | — |
-| `saveEvaluation` | C | EM/Lead | weighted criteria by pillar; **CORE mandatory** (EXT optional for juniors); **Evidence Rule** (score 1 or 5 needs evidence); **Action-Plan rule** (any score <4 needs a Top action); AMMI 0–4 dims auto-fill one criterion | compute total + verdict; persist per period; audit |
+| `openReviewCycle` | C | Strategic (HRM) | period, template (pillars/criteria/AMMI weights), participants/scope | creates cycle; enrolls participants; notifies; audit |
+| `setGoals` | C | self + manager | Goals/OKRs per employee within a cycle (objective, key results, weight) | persist; audit |
+| `updateGoalProgress` | C | self / manager | progress updates; may ingest **PM delivery/utilization signals** | persist; audit |
+| `submitReview` | C | self / manager / peer | the **scorecard instrument**: weighted criteria by pillar; **CORE mandatory** (EXT optional for juniors); **Evidence Rule** (1/5 needs evidence); **Action-Plan rule** (<4 needs a Top action); AMMI 0–4 auto-fills one criterion | compute total + verdict; persist per reviewer; audit |
+| `closeReviewCycle` | C | Strategic | all required reviews in | finalize; calibrate; emit `performance.cycle_closed`; audit |
+| `getReview` / `getCycle` | Q | scoped | cycle, goals, reviews (own / managed / all) | — |
 
-> *(OQ-8: scorecard pillar/criteria + AMMI model is its own entity set — detailed in Steps 6–7;
-> may be shared with `hiring` candidate scoring.)*
+> Probation (P-C7) reuses the scorecard **instrument** as a one-off lifecycle review, outside the
+> periodic cycle. *(OQ-8: scorecard pillar/criteria + AMMI is its own reference-config entity set —
+> detailed in DB design; may be shared with `hiring` candidate scoring.)*
+
+### P-C11 — Time-off / Leave *(R2)*
+
+| Op | Type | Actor | Rules | Effects |
+|---|---|---|---|---|
+| `requestLeave` | C | self | type, dates; checks balance | pending request; notifies approver; audit |
+| `decideLeave` | C | manager / Strategic | approve/reject | on approve: decrement balance, set availability; emit `leave.approved` (PM/timesheet consume); audit |
+| `getLeaveBalance` / `listLeaveRequests` | Q | scoped | balances per type; request history | — |
+| (accrual job) | — | — | policy-based accrual (e.g. monthly); **not** derived from attendance | balance update |
+
+> Attendance/worked-hours are **not** modeled here — pulled from the external **timesheet system**
+> via `integrations` (future platform module). `people` owns leave only.
+
+### P-C12 — Headcount & workforce planning *(R4)*
+
+| Op | Type | Actor | Rules | Effects |
+|---|---|---|---|---|
+| `planHeadcount` | C | Strategic | budgeted/planned **positions** per org-unit/period | persist plan; audit |
+| `getHeadcountPlan` | Q | scoped | planned vs filled (open positions); feeds `hiring` demand | — |
+
+> Built on the Position object (P-C2): an **open position** is the unit of headcount demand that a
+> `hiring` requisition targets.
 
 ### Cross-cutting operations
 
@@ -233,18 +278,29 @@ transaction via `withEmit` + `core.emit()`; all subscribers are idempotent on `e
 
 | Event | Emitted by op(s) | Primary consumers | Payload (key fields) |
 |---|---|---|---|
-| `employee.created` | `onboardEmployee`, `importEmployees`, (hiring `candidate.hired`) | notifications, projections | `user_id`, name, dept, account, stage |
-| `employee.updated` | `updateEmployeeField`, movement apply | notifications, projections | `user_id`, changed fields |
-| `employee.lifecycle_changed` | status/stage transitions, probation decision, offboarding | notifications | `user_id`, from-stage, to-stage |
-| `employee.movement_requested` | `requestMovement` | notifications (approver) | move id, type, approver-of-current-step |
-| `employee.movement_decided` | `advanceMovementStep` (final) | notifications | move id, outcome, effective date |
+| `people.worker.created` | `onboardEmployee`, `importEmployees`, (hiring `candidate.hired`) | notifications, projections | `user_id`, name, dept, account, stage |
+| `people.worker.updated` | `updateEmployeeField`, movement apply | notifications, projections | `user_id`, changed fields |
+| `people.worker.lifecycle_changed` | status/stage transitions, probation decision, offboarding | notifications | `user_id`, from-stage, to-stage |
+| `people.worker.movement_requested` | `requestMovement` | notifications (approver) | move id, type, approver-of-current-step |
+| `people.worker.movement_decided` | `advanceMovementStep` (final) | notifications | move id, outcome, effective date |
+| `position.opened` / `position.filled` | `createPosition` / `assignPositionHolder` | notifications, hiring (demand) | position id, org-unit, job profile, holder |
+| `leave.requested` / `leave.approved` | `requestLeave` / `decideLeave` | notifications, **PM/timesheet** (availability) | user_id, type, dates |
+| `performance.cycle_opened` / `performance.cycle_closed` | `openReviewCycle` / `closeReviewCycle` | notifications | cycle id, scope, period |
+| `people.worker.onboarded` | onboarding complete | **pm** | worker_id, **resource_request_id** → pm fills the named placeholder (loop) |
+| `people.worker.capacity_changed` | `updateWorker` when `fte`/`contracted_hours` change | **pm** | worker_id, fte, contracted_hours (utilization denominator) |
+| `people.worker.deactivated` | offboarding complete (→ Alumni) | **pm**, hiring | worker_id → pm ends open allocations |
+
+> Event naming is canonical `<module>.<aggregate>.<verb>` (see [`ddd-design.md`](./ddd-design.md) §8).
+> people's aggregate is **Worker**, so the wire prefix is `people.worker.*` — the capability/table reads
+> "Employee (Worker)" but there is **no `employee.*` event**.
 
 ### 4.3 Inbound subscribers `people` registers (via `register.ts`)
 
 | Source event | Handler | Effect (idempotent) |
 |---|---|---|
 | `identity.user.created` / `.updated` | `projectIdentityUser` | upsert identity facts into `people` employee read model; reconcile `user_id` link |
-| PM `assignment.*` / `utilization.*` | `projectAllocation` | upsert allocation read-model row (P-C3) |
+| PM `assignment.*` / `utilization.*` | `projectAllocation` | upsert **M:N** allocation rows (worker × project, fractional); refresh visibility scope (P-C3) |
+| timesheet system (external, via `integrations`) | `projectWorkedHours` | optional read-model of worked-hours for analytics; not authored in `people` |
 | `planner.task.created/completed/moved` | `projectLifecycleBoard` | if task's plan is a tracked case → recompute progress/health; on completion advance stage (P-C6/P-C9) |
 | `hiring.candidate.hired` | `createEmployeeFromHire` | create employee record + open onboarding case (P-C1/P-C6) |
 
@@ -291,15 +347,18 @@ a stable interface until it lands).
 | Slice | Scope (capabilities/ops) | Delivers | dep | ext |
 |---|---|---|---|---|
 | **PPL-1 Foundation** | module scaffold (`pnpm gen module people`), `people` pgSchema + `schemaFilter`, RBAC inventory (`PEOPLE_PERMISSIONS`/role maps), `withEmit`/event plumbing, audit, **identity projection** (`user.created/updated` subscriber + employee read-model base), field-level policy + sensitive-field masking helpers | the module spine | — | identity events (exist) |
-| **PPL-2 Employee management** | P-C1 (`onboardEmployee`, `importEmployees`, `updateEmployeeField`, `changeEmployeeStatus`, directory queries) + P-C2 org chart (manager-derived) + **document vault** (`shared-storage`) | employee CRUD, directory, org chart, docs; `employee.created/updated` events; HTTP routes; agent tools | PPL-1 | shared-storage |
+| **PPL-2 Employee (Worker) record** | P-C1 (`onboardEmployee`, `importEmployees`, `updateEmployeeField`, `changeEmployeeStatus`, directory queries) + **first-class skills** + **document vault** (`shared-storage`) | employee CRUD, skills, directory, docs; `people.worker.created/updated`; HTTP routes; agent tools | PPL-1 | shared-storage |
+| **PPL-2b Org & Positions** *(R1)* | P-C2 (org-units/supervisory-org, Position objects, assign/vacate holder) | Workday-style org model; reporting from position→org; `position.*` events | PPL-2 | — |
 | **PPL-3 Lifecycle core + planner integration** | P-C5 (stage model, case entity `{user_id, plan_id, task_id}`, directory/dashboard, SLA/attention) + **planner scaffolding helper** (ensure group+plan+buckets idempotent; card per employee via `createTask`; steps via `addChecklistItem`) + **`planner.task.*` / `planner.checklist_item.*` projection** (progress/health) | lifecycle spine + reusable planner-board integration | PPL-1, PPL-2 | planner public surface + events (exist) |
 | **PPL-4 Onboarding** | P-C6 (`startOnboardingCase` from template, projection-driven stage advance, `itHandoff`) | onboarding template + board + flow; new-joiner notifications | PPL-3 | **INT-MS365** (provisioning), notifications |
 | **PPL-5 Offboarding** | P-C9 (`startOffboarding`, projection, `completeOffboarding` → Alumni) | offboarding template + board + de-provision handoff | PPL-3 | **INT-MS365** (de-provision), notifications |
 | **PPL-6 Movement** | P-C8 (`requestMovement`, `advanceMovementStep` approval workflow; people-owned state machine) | movement requests + multi-step HITL approval; `employee.movement_*` events | PPL-2 | notifications |
 | **PPL-7 Probation** | P-C7 (`getProbationCase`, `submitProbationReview`, `decideProbation` → stage) | probation reviews + decision → Active/Offboarding | PPL-3 | (PPL-8 scorecard, soft) |
-| **PPL-8 Evaluation & scorecards** | P-C10 (`saveEvaluation` with CORE/Evidence/Action-Plan rules + AMMI, `getScorecard`) | scorecard entity set + rules | PPL-2 | — |
-| **PPL-9 Allocation read-model** | P-C3 (PM event subscriber `projectAllocation`, `getAllocation`/`getUtilization`) | allocation/utilization read-model | PPL-1 | **PM allocation events** (define jointly) |
+| **PPL-8 Performance** *(R3)* | P-C10 (review **cycles**, **Goals/OKRs**, reviews via the scorecard instrument with CORE/Evidence/Action-Plan + AMMI rules) | performance entity set + rules; consumes PM signals | PPL-2 | PM delivery/utilization signals (soft) |
+| **PPL-9 Allocation read-model (M:N)** | P-C3 (PM event subscriber `projectAllocation`, fractional multi-allocation, `getAllocations`/`getUtilization`, visibility-scope resolver) | allocation/utilization read-model + RBAC scope | PPL-1 | **PM allocation events** (define jointly) |
 | **PPL-10 Workforce analytics** | P-C4 (`getWorkforceMetrics`, role-scoped `getWorkforceDashboard`; materialize heavy aggregates) | analytics surface | PPL-2, PPL-9 | — |
+| **PPL-11 Time-off / Leave** *(R2)* | P-C11 (`requestLeave`, `decideLeave`, balances, accrual job) | leave model + approvals; `leave.*` events | PPL-2 | — |
+| **PPL-12 Headcount planning** *(R4)* | P-C12 (`planHeadcount`, `getHeadcountPlan`) | headcount plan on positions; feeds hiring demand | PPL-2b | — |
 
 ### Cross-module slice (separate, parallel — not in `people`)
 
@@ -331,21 +390,24 @@ INT-MS365 runs in parallel from the start (own module).
 
 ## Step 6 — System design
 
-### 6.0 Remaining OQ resolutions
+> Governed by [`ddd-design.md`](./ddd-design.md): `people` is the upstream **Worker Published-Language**
+> context; pm/hiring consume via ACL. Covers all 12 capabilities.
+
+### 6.0 Resolved OQs
 
 - **OQ-1 (skills):** `people` is SoR for the **rich HR skill set** (name, category, proficiency 1–4,
-  years experience) on the employee record. `identity.user_profile.skills` (flat string array) is
-  left **as-is** for the existing availability/staffing path; not coupled. If staffing later wants HR
-  skills it reads `people`'s surface. No change to `identity`.
-- **OQ-4 (org chart):** **manager-derived** — reporting tree is a recursive walk over
-  `employee.manager_id` within the caller's visibility scope, plus a `department` field for grouping.
-  **No** separate org-unit hierarchy table now (deferred; revisit only if a non-manager org structure
-  is required).
-- **OQ-6 (document vault):** `shared-storage` (S3). An `employee_document` row holds metadata +
-  storage key + optional expiry; downloads via signed URLs; an expiry-reminder job (6.4).
-- **OQ-8 (scorecards):** a `people`-owned entity set (Step 7). Pillars/criteria/weights + AMMI
-  dimensions are **reference config**; an evaluation is a scorecard header + per-criterion scores +
-  AMMI assessment. Candidate scoring in `hiring` may reuse the scoring engine later (not coupled now).
+  years experience). `identity.user_profile.skills` left **as-is**; not coupled.
+- **OQ-4 (org) → R1:** **explicit Workday-style model** — `org_unit` (supervisory hierarchy) +
+  `position` (seat: job profile, org-unit, headcount status, holder) + Worker holds a position.
+  Reporting tree derived from position→org-unit. (Supersedes the earlier manager-derived-only plan.)
+- **OQ-6 (document vault):** `shared-storage` (S3); `employee_document` = metadata + storage key +
+  expiry; signed URLs; expiry-reminder job (6.4).
+- **OQ-8 (scorecards):** `people`-owned. Pillars/criteria/weights + AMMI = **reference config**; a
+  review = scorecard header + per-criterion scores + AMMI, **inside a ReviewCycle** (P-C10). The
+  scoring engine is reused by probation (P-C7) and exposed for hiring interview scoring (OQ-H3).
+- **Capacity (DDD §7):** `people` owns Worker **capacity** (FTE/contracted hours) + leave; emits
+  `people.worker.capacity_changed`/`leave.approved`; pm computes utilization. `people` does **not** project
+  pm allocation as authoritative — it keeps a read-model only (P-C3).
 
 ### 6.1 Internal layout (mirrors existing modules)
 
@@ -382,16 +444,19 @@ mounts under `/api/people`:
 | `/api/people/employees/:id` | GET / PATCH | `getEmployee` / `updateEmployeeField` |
 | `/api/people/employees/:id/status` | POST | `changeEmployeeStatus` |
 | `/api/people/employees/:id/documents` | GET / POST | doc vault list / upload (signed URL) |
-| `/api/people/org` | GET | `getOrgChart` |
-| `/api/people/allocation` · `/utilization` | GET | read-model queries |
+| `/api/people/org-units` · `/positions` | GET/POST/PATCH | org-units + positions (P-C2); assign/vacate holder |
+| `/api/people/org` | GET | `getOrgChart` (position→org-unit derived) |
+| `/api/people/allocation` · `/utilization` | GET | read-model queries (M:N, from pm) |
+| `/api/people/headcount` | GET/POST | `getHeadcountPlan` / `planHeadcount` (P-C12) |
 | `/api/people/analytics/{metrics,dashboard}` | GET | workforce analytics |
 | `/api/people/lifecycle/cases` · `/dashboard` | GET | lifecycle directory/dashboard |
 | `/api/people/lifecycle/onboarding` · `/offboarding` | POST | `startOnboardingCase` / `startOffboarding` |
 | `/api/people/lifecycle/cases/:id` | GET | case + planner card state |
-| `/api/people/movements` | GET / POST | list / `requestMovement` |
-| `/api/people/movements/:id/advance` | POST | `advanceMovementStep` (HITL) |
-| `/api/people/probation/:id` · `/decide` | GET / POST | review / `decideProbation` |
-| `/api/people/evaluations` · `/:id` | POST / GET | `saveEvaluation` / `getScorecard` |
+| `/api/people/movements` · `/:id/advance` | GET/POST | `requestMovement` / `advanceMovementStep` (HITL) |
+| `/api/people/probation/:id` · `/decide` | GET/POST | review / `decideProbation` |
+| `/api/people/performance/cycles` · `/:id` | GET/POST | `openReviewCycle` / `closeReviewCycle` / `getCycle` (P-C10) |
+| `/api/people/performance/goals` · `/reviews` | POST | `setGoals` / `updateGoalProgress` / `submitReview` |
+| `/api/people/leave` · `/leave/:id/decide` · `/leave/balance` | GET/POST | `requestLeave` / `decideLeave` / `getLeaveBalance` (P-C11) |
 
 `GET /api/me` permission set + `GET /api/me/enabled-modules` expose `people` permissions/tile to the
 suite shell (frontend contract, overview §3).
@@ -399,12 +464,13 @@ suite shell (frontend contract, overview §3).
 ### 6.3 RBAC contributions (`./rbac`)
 
 - **Permissions** (`PEOPLE_PERMISSIONS`), e.g. `people.employee.read|write`,
-  `people.employee.sensitive.read`, `people.employee.admin_field.write`, `people.org.read`,
-  `people.allocation.read`, `people.analytics.read`, `people.lifecycle.read|manage`,
-  `people.movement.request|approve`, `people.probation.review|decide`, `people.evaluation.write`.
-- **Role→permission maps** for the four tiers (overview §4). Scoping (account/project/self) is
-  enforced in the domain layer using the employee's `account_id`/`project_id`/`manager_id` and the
-  caller's grants; field-level + sensitive masking enforced centrally in the employee serializer.
+  `people.employee.sensitive.read`, `people.employee.admin_field.write`, `people.org.read|manage`,
+  `people.position.manage`, `people.headcount.plan`, `people.allocation.read`, `people.analytics.read`,
+  `people.lifecycle.read|manage`, `people.movement.request|approve`, `people.probation.review|decide`,
+  `people.performance.manage|review`, `people.leave.request|approve`.
+- **Role→permission maps** for the four tiers (overview §4). **Account/project scoping derives from
+  the pm allocation read-model** (a worker is visible to an AM/EM if allocated to a project/account
+  they manage — DDD §7); field-level + sensitive masking enforced centrally in the worker serializer.
 
 ### 6.4 Workflows & jobs (graphile-worker)
 
@@ -413,16 +479,18 @@ suite shell (frontend contract, overview §3).
 | `lifecycle-sla-sweep` | cron | flag overdue onboarding/offboarding cards (attention list); notify owners |
 | `probation-review-reminder` | cron | due at 1- and 2-month marks → notify EM/Lead + HR |
 | `document-expiry-reminder` | cron | docs nearing expiry → notify HR + owner |
-| `ms365-provision` / `ms365-deprovision` | on `employee.created` / offboard complete | call `integrations` (stub until INT-MS365) |
+| `ms365-provision` / `ms365-deprovision` | on `people.worker.created` / offboard complete | call `integrations` (stub until INT-MS365) |
 | `movement-approval-route` | on `requestMovement` / step advance | notify the current step's approver |
+| `leave-accrual` | cron | policy-based leave balance accrual (P-C11; not from attendance) |
+| `review-cycle-reminder` | cron | nudge pending goals/reviews in an open cycle (P-C10) |
 
 ### 6.5 Projections (read models, idempotent on `event_id`)
 
 | Projection | Source | Read model |
 |---|---|---|
-| identity facts | `identity.user.*` | employee ↔ user_id link, name/email/login status |
-| allocation | **PM** assignment/utilization events | per-employee bucket + utilization (P-C3) |
-| account/project lookup | **PM** account/project events | id→name, account↔project, AM owner (for scoping/display) |
+| identity facts | `identity.user.*` | worker ↔ user_id link, name/email/login status |
+| allocation (ACL) | **pm** `assignment.*`/`utilization.*` | per-worker M:N allocations + utilization (P-C3); **drives RBAC visibility scope** |
+| account/project lookup (ACL) | **pm** `account.*`/`project.*` | id→name, account↔project, AM owner |
 | lifecycle board | `planner.task.*` / `planner.checklist_item.*` | case progress/health; stage-advance trigger |
 
 ### 6.6 Composition root (`register.ts`)
@@ -440,4 +508,11 @@ Drizzle client; it never hands it to another module.
 - **Audit** — every command writes a `core.events` audit entry in the same transaction as its domain
   event.
 
-*(Step 7 appended after review.)*
+---
+
+## Step 7 — Database design
+
+→ **[`db-design.md`](./db-design.md)** — the `people` schema section (Worker, skill/worker_skill,
+org_unit, position, lifecycle_case, probation/movement, review_cycle/goal/review + scorecard_config,
+leave_*, headcount_plan, worker_history, employee_document) + the `rm_allocation`/`rm_account_project`
+ACL read-models. Designed in one pass with `hiring` + `pm` so projections line up.
