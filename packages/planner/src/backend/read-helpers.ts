@@ -1,7 +1,9 @@
 import type { SessionScope } from '@seta/core';
 
 export function isTenantAdminish(session: SessionScope): boolean {
-  return session.role_summary.roles.some((r) => r === 'org.admin' || r === 'tenant.admin');
+  return session.role_summary.roles.some(
+    (r) => r === 'org.admin' || r === 'tenant.admin' || r === 'system.integrations.m365',
+  );
 }
 
 export function groupFilterFor(session: SessionScope): readonly string[] | null {

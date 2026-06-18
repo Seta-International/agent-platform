@@ -118,7 +118,7 @@ const roleStatements = {
       'member.role.set',
       'sync.mark-status',
     ],
-    'planner.plan': ['read', 'update', 'sync.mark-status'],
+    'planner.plan': ['read', 'create', 'update', 'link.m365', 'sync.mark-status'],
     'planner.task': ['read', 'update', 'sync.mark-status'],
   },
 } as const satisfies Record<string, Statement>;

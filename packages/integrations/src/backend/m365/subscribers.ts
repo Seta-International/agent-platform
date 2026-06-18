@@ -51,12 +51,19 @@ async function enqueueJob(
   tx: NodeTx,
   identifier: string,
   payload: Record<string, unknown>,
+  opts?: { jobKey?: string },
 ): Promise<void> {
   // sql.raw inside json() encodes the payload as a JSON literal. Using sql.param for the
   // identifier avoids injection; the payload is constructed internally (no user input).
-  await tx.execute(
-    sql`SELECT graphile_worker.add_job(${identifier}::text, ${JSON.stringify(payload)}::json)`,
-  );
+  if (opts?.jobKey) {
+    await tx.execute(
+      sql`SELECT graphile_worker.add_job(${identifier}::text, ${JSON.stringify(payload)}::json, job_key => ${opts.jobKey}::text)`,
+    );
+  } else {
+    await tx.execute(
+      sql`SELECT graphile_worker.add_job(${identifier}::text, ${JSON.stringify(payload)}::json)`,
+    );
+  }
 }
 
 async function handleGroupUpdated(
@@ -156,11 +163,17 @@ async function handlePlanAutoMirror(
   const link = await repo.findByGroup(payload.group_id);
   if (!link) return;
 
-  await enqueueJob(ctx.tx, 'm365.plan.auto-mirror', {
-    tenant_id: event.tenantId,
-    group_id: payload.group_id,
-    external_group_id: link.externalId,
-  });
+  // jobKey ensures concurrent triggers collapse into a single job run.
+  await enqueueJob(
+    ctx.tx,
+    'm365.plan.auto-mirror',
+    {
+      tenant_id: event.tenantId,
+      group_id: payload.group_id,
+      external_group_id: link.externalId,
+    },
+    { jobKey: `auto-mirror:${event.tenantId}:${payload.group_id}` },
+  );
 }
 
 async function handleGroupUnlinkedForPlans(
