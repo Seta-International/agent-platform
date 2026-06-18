@@ -324,6 +324,7 @@ select:focus-visible,
 .plan-search-input__icon { width: 12px; height: 12px; color: var(--color-ink-subtle); flex-shrink: 0; }
 .plan-search-input input { background: transparent; border: 0; outline: 0; flex: 1; font-size: var(--text-body-sm); color: var(--color-ink); min-width: 0; }
 .plan-search-input input::placeholder { color: var(--color-ink-subtle); }
+.plan-search-input input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
 .plan-search-input__clear { background: transparent; border: 0; color: var(--color-ink-subtle); cursor: pointer; padding: 2px; border-radius: var(--radius-sm); display: inline-flex; }
 .plan-search-input__clear:hover { color: var(--color-ink); background: var(--color-surface-2); }
 
