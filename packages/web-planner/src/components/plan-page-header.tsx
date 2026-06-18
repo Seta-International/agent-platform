@@ -161,7 +161,7 @@ export function PlanPageHeader({
           />
         )}
         {hasOverflow && (
-          <DropdownMenu>
+          <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
