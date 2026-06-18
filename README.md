@@ -154,39 +154,3 @@ flowchart TD
 ### Detailed request flow
 
 For the full step-by-step sequence — request ingestion, RBAC, specialist delegation, read-tool context gathering, HITL approval, and the transactional outbox commit — see **[`docs/agent/architecture.md`](docs/agent/architecture.md)**.
-
----
-
-## 4. Hackathon & Cloud Deployment
-
-> This section is specific to deploying on the Seta hackathon AWS environment.
-> For local development use [§2 Getting Started](#2-getting-started); for general
-> self-hosting (Docker Compose, AWS, scaling, upgrades) see [`docs/hosting/`](docs/hosting/).
-
-> Each hackathon team is allocated a secure, isolated cloud sandbox environment in AWS.
-
-### Allocated Cloud Architecture per Team
-
-```mermaid
-graph TD
-    subgraph Public["Browser"]
-        DNS["your_team.hackathon.seta-international.com"]
-    end
-
-    subgraph Docker["AWS EC2"]
-        Server["Server"]
-        React["React SPA"]
-        Worker["Async Worker"]
-    end
-
-    subgraph Private["VPC"]
-        RDS["AWS RDS Postgres 17"]
-        S3["AWS S3 Bucket"]
-    end
-
-    DNS -->|HTTP/SSE Traffic| Docker
-    Docker -->|Local Network Connect| RDS
-    Docker -->|Secure Asset Sync| S3
-```
-
-For the full deployment walkthrough — CI/CD setup, secrets configuration, ECR push, EC2 deployment, and troubleshooting — see **[`hackathon/DEPLOY.md`](hackathon/DEPLOY.md)**.
