@@ -99,8 +99,6 @@ No one ever sees another organization's data.
 
 **People owns the employee; it only borrows the rest.** People is the **single source of truth for the employee record** for the whole platform — every other module (Project Management, Hiring, the assistant, and the rest) reads a person's identity, role, skills, position, status, and history *from* People rather than keeping its own copy. In the other direction, the project and time data People displays — **who is allocated to which project, utilization, and worked hours** — is **owned elsewhere (Project Management and the timesheet system)** and surfaces here **for viewing and analysis only; People never creates or edits it**.
 
-**In scope:** the employee record (personal, employment, grade, skills, documents, effective-dated pay and capacity); org structure and positions; the resource-allocation and utilization **view** (read-only, fed from project assignments); workforce analytics and the skills/talent picture; headcount planning; the full lifecycle — preboarding, onboarding, probation, movement, offboarding, alumni — with its dashboards and directory; performance reviews, scorecards, goals, and review cycles; the document vault; sensitive-field protection and a full audit trail; and the read/draft tools the "Ask Seta" assistant uses against all of the above.
-
 **Out of scope (now):**
 
 - **The assistant's chat experience** — Seta's "Ask Seta" panel and its specialist agents are owned elsewhere; People only exposes the data and the approve-before-write tools it uses.
@@ -132,14 +130,7 @@ No one ever sees another organization's data.
 | Per-project task execution (kanban) | **Planner** | PM links a project to a planner group; People scaffolds lifecycle checklists on it |
 | Payroll, billing, invoicing | **Downstream finance** *(external)* | People holds pay attributes; PM derives margin; finance administration runs elsewhere |
 
-**The handoffs that link them**
-
-- **Demand → hire.** PM raises a one-seat staffing need; Hiring opens a requisition against it. PM owns demand; Hiring owns the pipeline.
-- **Hire → employee.** When a candidate accepts, Hiring hands the person to People, which creates the employee record and starts onboarding — nothing re-keyed. People is then the source of truth; Hiring keeps the candidate only as recruitment history.
-- **Hire or move → allocation.** As soon as a worker exists for that seat, PM fills it with the named person (committed, possibly future-dated). One seat is filled once; the losing path is cancelled.
-- **Internal move → job change.** An approved internal move is recorded as a **movement against the existing person** in People (never a new employee) and re-allocates them in PM.
-- **Re-hire → same person.** A returning alumnus is matched at hire and added as a **new employment period on their existing record** — never a duplicate.
-- **Leaving → wind-down.** Offboarding in People ends the person's open allocations in PM so utilization doesn't go stale.
+**The handoffs that link them** — demand→hire, hire→employee, hire/move→allocation, internal-move→job-change, re-hire→same-person, leaving→wind-down — are shown end to end in the journey in §8.
 
 **Priority**
 

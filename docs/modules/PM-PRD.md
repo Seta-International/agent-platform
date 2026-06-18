@@ -98,8 +98,6 @@ Within Strategic, the **PMO is a distinct authority**: it alone gates capacity o
 
 **PM owns delivery; it references the worker and feeds the workforce flow.** PM is the **single source of truth for accounts, projects, and resource allocation** for the whole platform — People reads who's allocated and how loaded from PM (it never authors allocations), and PM's allocation view is what People uses to decide visibility scope. In the other direction, PM **reads** the worker facts it needs — skills, capacity, leave/availability — from **People**, and **raises staffing demand** to **Hiring**, which turns it into an open role; PM never recruits and never holds an employee record.
 
-**In scope:** accounts (clients) and their account managers; projects and the **charter approval flow** ("Requests": submit → PMO review → BOD review → project created); **resource allocation** (a monthly man-month grid, billable vs non-billable, multi-project, capacity-checked) and the **utilization** it derives, with reallocation suggestions; **portfolio and project health** (QCDP/RAG, predictability, customer satisfaction, report compliance, exceptions); **weekly status reports** (dual PM/PMO) with road-to-green; **risks and issues** (with auto-created recovery actions); **KPI metrics, thresholds, the operational-health score (OHS), the EQI×TDI (Engineering Quality Index × Technical Debt Index) engineering-health matrix, and the corrective-and-preventive-action (CAPA) register**; **account retrospectives**; **staffing demand / backfill** handed to Hiring; **project-level access grants**; sensitive-data protection and a full audit trail; and the read/draft tools the "Ask Seta" assistant uses against all of the above.
-
 **Out of scope (now):**
 
 - **The employee record, skills mastery, org & positions, and the lifecycle** — owned by People; PM references each worker by id and reads their facts. PM stores how someone is *staffed*, not who they *are*.
@@ -132,14 +130,7 @@ Within Strategic, the **PMO is a distinct authority**: it alone gates capacity o
 | Per-project task execution (kanban) | **Planner** | PM links a project to a planner group; People scaffolds lifecycle checklists on it |
 | Payroll, billing, invoicing | **Downstream finance** *(external)* | People holds pay attributes; PM derives margin; finance administration runs elsewhere |
 
-**The handoffs that link them**
-
-- **Demand → hire.** PM raises a one-seat staffing need; Hiring opens a requisition against it. PM owns demand; Hiring owns the pipeline.
-- **Hire → employee.** When a candidate accepts, Hiring hands the person to People, which creates the employee record and starts onboarding — nothing re-keyed. People is then the source of truth; Hiring keeps the candidate only as recruitment history.
-- **Hire or move → allocation.** As soon as a worker exists for that seat, PM fills it with the named person (committed, possibly future-dated). One seat is filled once; the losing path is cancelled.
-- **Internal move → job change.** An approved internal move is recorded as a **movement against the existing person** in People (never a new employee) and re-allocates them in PM.
-- **Re-hire → same person.** A returning alumnus is matched at hire and added as a **new employment period on their existing record** — never a duplicate.
-- **Leaving → wind-down.** Offboarding in People ends the person's open allocations in PM so utilization doesn't go stale.
+**The handoffs that link them** — demand→hire, hire→employee, hire/move→allocation, internal-move→job-change, re-hire→same-person, leaving→wind-down — are shown end to end in the journey in §8.
 
 **Priority**
 
