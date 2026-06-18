@@ -1,21 +1,12 @@
 # `pm` (Project Management) module — backend discovery
 
-> Status: **Spike (in progress) — now a full implementation module** (we implement **3 modules**:
-> `people`, `hiring`, `pm`). Backend only. Built in the 7 steps from [`overview.md`](./overview.md) §7;
-> system + DB design done across all three modules together once discovery is clear.
+> Backend discovery notes for `pm`. Product source of truth: **[PM-PRD](../modules/PM-PRD.md)**; integration backbone in [`ddd-design.md`](./ddd-design.md).
 
 `pm` is the **delivery / PSA system-of-record** for a software-outsourcing firm: **Accounts (clients)
 → Projects → Resource Allocation**, project health monitoring, and staffing **demand**. It is the PSA
 layer per the [benchmarking](./benchmarking.md) (mirrors Kantata).
 
-> **Revised against dedicated PSA + DDD research** (see [`ddd-design.md`](./ddd-design.md), the
-> integration backbone). Key corrections to the earlier draft: **(1)** allocation is a **date-ranged**
-> assignment aggregate carrying a **recurrence rule** (`minutes_per_day` + weekday mask, with only
-> deviating days in `allocation_day_override`), not a bare `%` nor a full per-day fan-out; **(2) demand
-> is a *placeholder allocation*, not a standalone entity** (Kantata/Runn/Float pattern) — PM-C8 is
-> realized *within* the allocation model;
-> **(3)** rates resolve via a **cost/bill override cascade**; **(4)** health/financials (QCDP/RAG,
-> utilization, margin) are a **derived projection**, not write-aggregate state.
+> Design anchors: **(1)** allocation is a **date-ranged** assignment aggregate carrying a **recurrence rule** (`minutes_per_day` + weekday mask, with only deviating days in `allocation_day_override`), not a bare `%` nor a full per-day fan-out; **(2) demand is a *placeholder allocation*, not a standalone entity** (Kantata/Runn/Float pattern), realized *within* the allocation model; **(3)** rates resolve via a **cost/bill override cascade**; **(4)** health/financials (QCDP/RAG, utilization, margin) are a **derived projection**, not write-aggregate state.
 
 ---
 
@@ -272,7 +263,7 @@ account/project/worker referenced by id; no cross-schema FK. **Health/financials
 write-aggregates** — always recomputed projections. Every command audits via `core.events`;
 `pm.assignment.*`/`pm.resource_request.*` emitted idempotently.
 
-## Step 7 — Database design
+## Database design
 → **[`db-design.md`](./db-design.md)** — the `pm` schema section (account, project, project_request,
 allocation + allocation_day_override, rate (typed scope), weekly_report + weekly_report_qcdp, risk,
 kpi_metric/kpi_threshold/kpi_value, project_access, corrective_action) + the

@@ -1,16 +1,6 @@
 # People & HR — Program Overview
 
-> ⚠️ **Superseded (2026-06-18) — these spike docs are now stale.** The product source of truth is the
-> module PRDs in [`docs/modules/`](../modules/): **[People-PRD](../modules/People-PRD.md)** and
-> **[Hiring-PRD](../modules/Hiring-PRD.md)**. The spike is kept for backend/discovery context only.
-> Known reversals (PRD wins on any conflict):
-> - **Time-off / leave is owned by the external timesheet system**, not `people` — People only
->   integrates via the timesheet API (the spike's R2 "leave in people" is reversed).
-> - **Internal mobility (`hiring`) feeds a single job-change ("movement") in `people`**, and a
->   **re-hire links to the existing person** (person → many employment periods) via a boundary match —
->   grounded in [`benchmarking-mobility-rehire.md`](./benchmarking-mobility-rehire.md).
->
-> Original status: **Discovery (in progress)**; decisions in §9, open questions in §8.
+> Program/discovery overview for People, Hiring, and PM. Product source of truth: the module PRDs in [`docs/modules/`](../modules/) ([People-PRD](../modules/People-PRD.md), [Hiring-PRD](../modules/Hiring-PRD.md), [PM-PRD](../modules/PM-PRD.md)). Boundaries: time-off/leave is owned by the external timesheet system (People integrates via its API, doesn't own it); internal mobility feeds a single job-change ("movement") in `people`, and a re-hire links to the existing person (person → many employment periods) via a boundary match — see [`benchmarking-mobility-rehire.md`](./benchmarking-mobility-rehire.md).
 
 This is the shared foundation for **three new modules** — **`people`** (HR core + employee lifecycle),
 **`hiring`** (recruitment), and **`pm`** (project management / PSA — Accounts, Projects, Resource
@@ -287,25 +277,21 @@ between each. Capabilities are derived from the product's screens/features but e
 
 ---
 
-## 9. Decision log
+## 9. Key decisions
 
-| Date | Decision |
-|---|---|
-| 2026-06-16 | ~~Scope = People + Lifecycle + Hiring; PM + AI out~~ **(superseded — PM is now in scope, see below)** |
-| 2026-06-16 | Lifecycle folds into `people`. ~~two modules~~ **(superseded — three modules, see below)** |
-| 2026-06-16 | `people` owns employee record; link to `identity.user_id`, no cross-schema FK, event-driven |
-| 2026-06-16 | Deliverables = program overview + per-module docs, committed under `docs/people-hr/` |
-| 2026-06-16 | **Backend-focused discovery**; web UI delivered separately by the suite-shell refactor (People/HR as future `@seta/web-people` / `@seta/web-hiring` apps) |
-| 2026-06-16 | Resource Allocation (P-C3) = read-model in `people`, sourced from the **Project Management module** via events (not standalone, not directly from `staffing`) |
-| 2026-06-16 | Lifecycle **kanban boards (onboarding/offboarding) are `planner`-backed**: `people` owns the process template + thin case record, scaffolds a planner plan/buckets/tasks, and projects progress from `planner.task.*` events |
-| 2026-06-16 | **Only onboarding + offboarding** are planner-backed boards; **movement** stays a people-owned approval workflow and **probation** stays people-owned reviews |
-| 2026-06-16 | OQ-9: board = account/project → planner **group**; **one shared plan per group**; **card per employee** across phase buckets; steps = planner **checklist items** |
-| 2026-06-16 | **Confirmed: the Project Management module owns Account, Project, and Resource Allocation.** `people` references `account_id`/`project_id` by id (no FK) + minimal projection; allocation (P-C3) is a read-model fed by PM events |
-| 2026-06-16 | **Benchmarking ([benchmarking.md](./benchmarking.md)): boundaries validated; follow well-known systems (Workday/SAP/Kantata), don't reinvent.** Adopt R1–R6 |
-| 2026-06-16 | **R1: Position/org first-class** — `people` owns Worker + Position (internal org seat) + Supervisory-Org + headcount plan; supersedes manager-derived-only org (OQ-4). PM owns Account/Project + role-demand + allocation/utilization + rates. `hiring` requisition → PM demand and/or open position by id |
-| 2026-06-16 | **Multi-allocation: worker↔project is M:N, concurrent, fractional** (1 person on 2 accounts / 2 projects at once). Account/project is NOT a single employee field; membership = set of PM allocations projected into `people`; utilization = Σ fractional allocations |
-| 2026-06-16 | **R2: Leave in `people`** (types/balances/accrual/requests/approvals); attendance/timesheets stay in the **external timesheet system** (pull via `integrations` now → own module later) |
-| 2026-06-16 | **R3: Performance = review cycles + Goals/OKRs + reviews** (scorecard = instrument), consuming PM delivery/utilization; probation stays a separate lifecycle review |
-| 2026-06-16 | **R4: Headcount/workforce planning** in `people`, tied to the Position object. **R6: comp/payroll/benefits deferred/integrate-only** |
-| 2026-06-16 | **`pm` is now a full implementation module** (3 modules: people/hiring/pm). pm owns Accounts/Projects/Allocation(M:N)/demand + monitoring (portfolio/weekly/risks/KPI). See [pm.md](./pm.md) |
-| 2026-06-17 | **Architecture-revision pass** (solution + DB design) — see [ddd-design.md](./ddd-design.md) §9 D4–D11 + [db-design.md](./db-design.md) "Architecture revision". Effective-dated comp/capacity/rates; leave/scores/QCDP normalized (ledger + child tables, no opaque jsonb); allocation recurrence-rule + overrides; one-seat placeholders; **pm fills the placeholder at `people.worker.created`/`mobility.approved` (committed, future-dated), not at onboarding-complete**; explicit `resource_request_fulfillment` saga (hiring-owned); utilization via batch query (no `utilization.updated` event); DB-native invariants (`EXCLUDE`/partial-`UNIQUE`/CHECK); RLS recommended; replayable projections; movements applied at `effective_date`; canonical `<module>.<aggregate>.<verb>` event names enforced. **DB schema changed → re-validate DDL.** |
+| Decision |
+|---|
+| `people` owns employee record; link to `identity.user_id`, no cross-schema FK, event-driven |
+| Deliverables = program overview + per-module docs, committed under `docs/people-hr/` |
+| **Backend-focused discovery**; web UI delivered separately by the suite-shell refactor (People/HR as future `@seta/web-people` / `@seta/web-hiring` apps) |
+| Resource Allocation (P-C3) = read-model in `people`, sourced from the **Project Management module** via events (not standalone, not directly from `staffing`) |
+| Lifecycle **kanban boards (onboarding/offboarding) are `planner`-backed**: `people` owns the process template + thin case record, scaffolds a planner plan/buckets/tasks, and projects progress from `planner.task.*` events |
+| **Only onboarding + offboarding** are planner-backed boards; **movement** stays a people-owned approval workflow and **probation** stays people-owned reviews |
+| OQ-9: board = account/project → planner **group**; **one shared plan per group**; **card per employee** across phase buckets; steps = planner **checklist items** |
+| **Confirmed: the Project Management module owns Account, Project, and Resource Allocation.** `people` references `account_id`/`project_id` by id (no FK) + minimal projection; allocation (P-C3) is a read-model fed by PM events |
+| **Benchmarking ([benchmarking.md](./benchmarking.md)): boundaries validated; follow well-known systems (Workday/SAP/Kantata), don't reinvent.** Adopt R1–R6 |
+| **R1: Position/org first-class** — `people` owns Worker + Position (internal org seat) + Supervisory-Org + headcount plan; supersedes manager-derived-only org (OQ-4). PM owns Account/Project + role-demand + allocation/utilization + rates. `hiring` requisition → PM demand and/or open position by id |
+| **Multi-allocation: worker↔project is M:N, concurrent, fractional** (1 person on 2 accounts / 2 projects at once). Account/project is NOT a single employee field; membership = set of PM allocations projected into `people`; utilization = Σ fractional allocations |
+| **R3: Performance = review cycles + Goals/OKRs + reviews** (scorecard = instrument), consuming PM delivery/utilization; probation stays a separate lifecycle review |
+| **R4: Headcount/workforce planning** in `people`, tied to the Position object. **R6: comp/payroll/benefits deferred/integrate-only** |
+| **`pm` is now a full implementation module** (3 modules: people/hiring/pm). pm owns Accounts/Projects/Allocation(M:N)/demand + monitoring (portfolio/weekly/risks/KPI). See [pm.md](./pm.md) |

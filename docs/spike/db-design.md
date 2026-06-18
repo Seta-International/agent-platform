@@ -1,15 +1,10 @@
-# People / Hiring / PM — unified database design (Step 7)
+# People / Hiring / PM — unified database design
 
-> ⚠️ **Revision 2026-06-18 — superseded in parts by the module technical specs**
-> ([`People-technical-spec`](../modules/People-technical-spec.md), [`Hiring-technical-spec`](../modules/Hiring-technical-spec.md)),
-> which are the source of truth. Reconciled deltas (applied to the schema tables + ER diagrams below):
-> - **Leave tables removed from `people`** — **leave is owned by the timesheet system**; `people` only proxies its API. `people.leave.*` events dropped; `pm` reads availability from the timesheet system.
-> - **Re-hire:** `worker` splits into a stable **`person` identity + 1..N `employment_period`** rows (re-hire adds a period, never a duplicate person); `original_hire_date` immutable + `seniority_date`.
-> - **`movement_request.source`** (`hr_initiated|internal_mobility`); `hiring.mobility.approved` opens a `people` movement on role/grade change (dual consumer with `pm`).
-> - **`offer`** gains `respond_by` + `expired`; unified **`hiring.application`**; **`candidate.segment`** (alumni); person-match carries `person_id?`.
-> - **v3 hardening — authoritative DDL is [`review-schema.sql`](./review-schema.sql)** (applied + verified on a standalone Postgres; sample data in [`review-seed.sql`](./review-seed.sql)): temporal **`EXCLUDE`** overlap guards; a generic **`core.audit_log`** trigger + **`core.events`** outbox; an event-maintained **`people.rm_worker_directory`** projection; **`people.lifecycle_case_step`**; RFC 5545 **RRULE** on `hiring.interview` + an **`integrations`** schema for two-way Teams/Google sync.
+> **Source of truth: the module PRDs** ([`People-PRD`](../modules/People-PRD.md), [`Hiring-PRD`](../modules/Hiring-PRD.md), [`PM-PRD`](../modules/PM-PRD.md)). This is the data design behind them.
 >
-> **The schema tables and ER diagrams below reflect v3**; the dated decision-log sections further down are historical.
+> **Authoritative DDL** (standalone review DB for DBeaver): apply [`review-schema.sql`](./review-schema.sql), then [`review-seed.sql`](./review-seed.sql) for sample data — validated on a standalone Postgres.
+>
+> **Foundations:** no cross-schema FKs (cross-module links are bare uuids); temporal **`EXCLUDE`** overlap guards on effective-dated history; a generic **`core.audit_log`** trigger + a **`core.events`** outbox; event-maintained read-models (`rm_*`); RFC 5545 **RRULE** on `hiring.interview` + an **`integrations`** schema for two-way Teams/Google sync; leave owned by the timesheet system; re-hire = a stable `person` + 1..N `employment_period`.
 
 ## Conventions
 
@@ -64,12 +59,14 @@ gen_random_uuid()`. `created_at`/`updated_at timestamptz`.
 | Table | Purpose | Key columns | Constraints / notes |
 |---|---|---|---|
 | `person` | the person identity (persists across re-hires) | id (**= cross-module `worker_id`**), user_id (identity link, no FK), original_hire_date, seniority_date | original_hire_date immutable; idx `(tenant, user_id)` |
-| `employment_period` | one period of service | person_id, seq, start_date, end_date, status, lifecycle_stage, employment_type | uniq `(person, seq)`; **partial-unique one open** (`end_date IS NULL`) |
+| `employment_period` | one period of service | person_id, seq, start_date, end_date, status, lifecycle_stage, employment_type | uniq `(person, seq)`; **partial-unique one open** (`end_date IS NULL`); lifecycle_stage adds **`did_not_start`** (rescind/no-show before day one — F-ONB-5) |
 | `worker` | person-level **directory fields only** | person_id (unique 1:1), full_name, work_email, dob, gender, phone, emergency_contact jsonb, profile_completed_at, version, deleted_at | **GIN-trigram** `(full_name, work_email)`; domain fields derive via `rm_worker_directory` |
 | `worker_compensation` | effective-dated pay (sensitive) | person_id, effective_from/to, salary_amount, salary_currency, bank/tax jsonb, reason, by_user_id | uniq `(person, from)`; **`EXCLUDE` no-overlap**; RLS-eligible |
 | `worker_capacity` | effective-dated FTE | person_id, effective_from/to, fte, contracted_hours, reason, by_user_id | uniq + **`EXCLUDE`**; emits `capacity_changed` |
+| `worker_assignment` | **effective-dated job history** (F-WORK-11) | person_id, position_id, grade, org_unit_id, manager_worker_id, effective_from/to, reason, by_user_id | **`EXCLUDE` no-overlap** (one assignment in effect per person); answers "position/grade on date X"; mirrors comp/capacity effective-dating |
 | `skill` | taxonomy | name, category | uniq `(tenant, name)` |
-| `worker_skill` | M:N skills | person_id, skill_id, proficiency (0–5), years_experience | pk `(person, skill)` |
+| `worker_skill` | M:N skills | person_id, skill_id, proficiency (0–5), years_experience, **`certification_document_id?`, `valid_until?`** | pk `(person, skill)`; a skill can be backed by a cert with expiry (F-WORK-6) |
+| `position_required_skill` | a seat's required-skills baseline (F-WORK-6) | position_id, skill_id, min_proficiency (0–5) | pk `(position, skill)`; feeds skill-gap analytics & the requisition a gap raises |
 | `org_unit` | supervisory hierarchy | parent_id, name, manager_position_id | **acyclicity trigger** (was domain-only) |
 | `position` | a seat (job profile) | org_unit_id, role_title, grade, headcount_status (open\|filled), holder_worker_id (= person.id) | filled ⇒ holder; **1-per-holder** partial-unique |
 | `account_access_grant` | AM cross-account grant (F-SEC-4) | grantee_user_id, account_id, granted_by/at, revoked_by/at | unioned into visibility scope |
@@ -83,7 +80,7 @@ gen_random_uuid()`. `created_at`/`updated_at timestamptz`.
 | `lifecycle_case_step` | **per-case step instance** (step-duration) | case_id, template_step_key, status (todo\|doing\|done\|blocked), started_at, done_at | uniq `(case, step_key)` |
 | `lifecycle_template_step` | reusable checklist template | template_id, step_key (stamped on planner item), phase, responsible_role, sla_hours, seq | cross-case step analytics |
 | `probation_review` | probation checkpoint | person_id, marker (1mo\|2mo\|confirmation), scorecard_review_id, outcome (pass\|fail\|extend\|pending), extension_until, decided_at, **decided_by** | — |
-| `movement_request` | job change | person_id, type (promotion\|transfer\|pay), **source (hr_initiated\|internal_mobility)**, to_position_id, to_grade, salary_from/to, effective_date, status, applied_at, **decided_by, rejected_reason** | applied at `effective_date` (once-only via `applied_at`) |
+| `movement_request` | job change | person_id, type (promotion\|transfer\|pay), **source (hr_initiated\|internal_mobility\|`review`)**, to_position_id, to_grade, salary_from/to, effective_date, status, applied_at, **decided_by, rejected_reason** | applied at `effective_date` (once-only via `applied_at`); a move can be seeded from a review (F-PERF-4); a Hiring-originated move arrives PMO-capacity-approved and HR only applies it |
 | `movement_step` | approval step | request_id, seq, name, status, approver_user_id, decided_at | — |
 
 **Performance (P-C10)** — versioned template + normalized scores
@@ -92,7 +89,7 @@ gen_random_uuid()`. `created_at`/`updated_at timestamptz`.
 |---|---|---|---|
 | `scorecard_template` | versioned instrument | name, version, status (draft\|active\|archived) | uniq `(tenant, name, version)`; pinned immutable |
 | `scorecard_criterion` | pillar/criterion config | template_id, pillar, criterion, weight, is_core, auto_from_ammi, ammi_dim | uniq `(template, criterion)` |
-| `review_cycle` | review period | period, **starts_at, seq** (ordering), template_id, scope, status (open\|closed) | seq = deterministic prev-period |
+| `review_cycle` | review period | period, **starts_at, seq** (ordering), template_id, scope, status (open\|closed), **`calibration_status` (none\|in_progress\|calibrated), `calibrated_at`** | seq = deterministic prev-period; ratings are calibrated before close (F-PERF-4) |
 | `goal` | OKR | cycle_id, person_id, objective, key_results jsonb, weight, progress | — |
 | `review` | review submission | cycle_id, person_id, reviewer_type (self\|manager\|peer), template_id (pinned), ammi, total, verdict, strengths/improve/action | — |
 | `review_score` | per-criterion score (normalized) | review_id, criterion_id, score, evidence, **top_action** | pk; **CHECK** evidence on 1/5 + action when <4 |
@@ -105,7 +102,7 @@ gen_random_uuid()`. `created_at`/`updated_at timestamptz`.
 | `employee_document` | doc vault | person_id, doc_type, storage_key, expiry_date, supersedes_id (version chain), uploaded_by, at | — |
 | `document_requirement` | required-doc policy | scope (tenant\|employment_type), employment_type, doc_type, mandatory | missing = LEFT JOIN (a flag can't mark an *absent* doc) |
 
-> **~~Leave (P-C11)~~ — REMOVED (2026-06-18):** leave is owned by the **timesheet system**. `people` holds no leave tables and emits no `people.leave.*` events; it proxies the timesheet API (balance read + request submit) via `integrations`, and `pm` reads availability from the timesheet system directly.
+> **Leave (P-C11) — owned by the timesheet system:** leave is owned by the **timesheet system**. `people` holds no leave tables and emits no `people.leave.*` events; it proxies the timesheet API (balance read + request submit) via `integrations`, and `pm` reads availability from the timesheet system directly.
 
 **Read-models (ACL / projections in `people`)** — event-fed, no FK:
 
@@ -122,18 +119,19 @@ gen_random_uuid()`. `created_at`/`updated_at timestamptz`.
 
 | Table | Purpose | Key columns | Constraints / notes |
 |---|---|---|---|
-| `requisition` | an open role / seat | title, role_title, grade, account_id, `resource_request_id?` (pm), `position_id?` (people), kind (replacement\|new), status (open\|on_hold\|filled\|cancelled), stage (sourcing→offer), jd jsonb, owner_user_id, due_date, closed_at | uniq `(tenant, resource_request_id)`; idx `(tenant, status, stage)` |
+| `requisition` | an open role / seat | title, role_title, grade, account_id, `resource_request_id?` (pm), `position_id?` (people, the **funded seat**), kind (replacement\|new), **`approval_status` (draft\|pending_approval\|approved\|rejected)**, status (open\|on_hold\|filled\|cancelled), stage (sourcing→offer), jd jsonb, owner_user_id, due_date, closed_at | uniq `(tenant, resource_request_id)`; idx `(tenant, status, stage)`; approved before it opens & gated on the funded `position_id` (F-REQ-5) |
 | `requisition_skill` | required skills (normalized, was jsonb) | requisition_id, skill_id, skill_name, min_level | pk `(requisition_id, skill_name)` |
 | `candidate` | external person | name, source, contact jsonb, dob, gender, cv_storage_key, seniority, segment (alumni), source_cost | — |
 | `candidate_skill` | candidate skills (normalized) | candidate_id, skill_name, proficiency | pk `(candidate_id, skill_name)` |
-| **`application`** | **unified** pursuit of one req — external candidate OR internal worker | requisition_id, kind (external\|internal), `candidate_id?` / `worker_id?`, stage (external pipeline), status (internal endorsement), rating, alloc_pct, override_overallocation, mobility_event_id, reject_reason, tags | CHECK exactly-one subject; uniq `(req, candidate)` / `(req, worker)` |
+| **`application`** | **unified** pursuit of one req — external candidate OR internal worker | requisition_id, kind (external\|internal), `candidate_id?` / `worker_id?`, stage (external pipeline; **+`reneged`**), status (internal endorsement), rating, alloc_pct, override_overallocation, mobility_event_id, reject_reason, tags | CHECK exactly-one subject; uniq `(req, candidate)` / `(req, worker)`; `reneged` = accepted-then-withdrew before start (F-OFFER-7) |
 | `candidate_event` | external stage history | application_id, at, from_stage, to_stage, actor | funnel / lead-time; BRIN(at) |
 | `application_event` | internal endorsement history | application_id, at, actor, action | BRIN(at) |
 | `interview` | a scheduled interview | application_id, **dtstart/dtend/tzid/rrule/exdate/rdate** (RFC 5545), ical_uid (identity hub), round, mode, meeting_link, status (…\|no_show), no_show_reason, result (pass\|hold\|fail), rating, recommendation, transcript, `scorecard_template_id` (pinned, no FK), scorecard_snapshot | partial `interview_upcoming` |
+| `interview_plan_stage` | structured interview plan per round (F-INT-4) | requisition_id, round, seq, criteria_keys text[], scorecard_required | a candidate can't reach Offer until each required round's scorecards are in |
 | `interview_panelist` | panel (normalized, was jsonb) | interview_id, panelist_user_id | pk |
 | `interview_score` | per-criterion score | interview_id, `criterion_id` (people, no FK), score, evidence | pk; CHECK evidence on extreme (1/5) |
 | `calendar_event_override` | per-instance RECURRENCE-ID overrides | interview_id, recurrence_id (original instant), new_dtstart/dtend, is_cancelled | pk `(interview_id, recurrence_id)` |
-| `offer` | offer to a candidate | application_id, candidate_id, comp jsonb, start_date, respond_by, status (…\|expired), hired_event_id, decided_at, decided_by | partial uniq accepted-per-candidate; fire-once guard |
+| `offer` | offer to a candidate | application_id, candidate_id, comp jsonb, start_date, respond_by, **`version`**, status (draft\|approved\|sent\|accepted\|**`pre_hire_check`**\|**`hired`**\|declined\|expired\|**`reneged`**), hired_event_id, decided_at, decided_by | partial uniq accepted-per-candidate; fire-once guard; revise/counter bumps `version` & re-approves (F-OFFER-5); `pre_hire_check` gates Accepted→Hired (F-OFFER-6); `reneged` reopens the seat (F-OFFER-7) |
 | `resource_request_fulfillment` | one-seat fulfillment **saga** | resource_request_id, placeholder_allocation_id, requisition_id, path (internal\|external\|undecided), state (open→filled\|cancelled\|timed_out), timeout_at | uniq `(tenant, resource_request_id)`; uniq placeholder |
 | `recruiter_account_assignment` | recruiter scope (by assignment) | recruiter_user_id, account_id | pk |
 | `kb_failure_theme` / `kb_theme_case` | recruitment-insight clusters | theme: label, reject_count, pct, improvement_action, owner, priority — case: theme_id, application_id, reason | structured (replaces freetext) |
@@ -157,7 +155,9 @@ gen_random_uuid()`. `created_at`/`updated_at timestamptz`.
 | `account` | client of the outsourcing co. | name, am_worker_id | idx `(tenant)` |
 | `project` | project under an account | account_id, name, objective, scope jsonb, budget_bmm, pm_worker_id, phase, status, planner_group_id | idx `(tenant, account, status)` |
 | `project_request` | charter flow | name, account_id, objective, scope, budget_bmm, stage (submitted→created), rejected_at | — |
-| `allocation` | assignment **or** placeholder demand | `worker_id?` (null ⇒ placeholder, **one seat**), project_id, task_id, role, date_from/to, bucket (billable\|internal\|bench), planned_pct, **minutes_per_day + weekday_mask** (recurrence rule), resource_request_id, status (placeholder\|committed), deleted_at | CHECK committed ⇒ worker_id; partial idx open demand; uniq one placeholder/request; committed may be future-dated |
+| `project_staffing_plan` | required-team baseline (F-PROJ-5) | project_id, role, grade, planned_mm, period_from/to | the diff of plan vs staffed is the gap that raises a backfill |
+| `project_staffing_plan_skill` | skills a planned line needs | plan_id, skill_id, min_proficiency (0–5) | pk `(plan, skill)` |
+| `allocation` | assignment **or** placeholder demand | `worker_id?` (null ⇒ placeholder, **one seat**), project_id, task_id, role, date_from/to (**roll-off**), bucket (billable\|internal\|bench), planned_pct, **minutes_per_day + weekday_mask** (recurrence rule), resource_request_id, status (**placeholder\|`tentative`\|committed**), deleted_at | **worker-rule:** placeholder ⇒ worker_id null; tentative/committed ⇒ worker_id set (F-ALLOC-1, soft-vs-confirmed booking); partial idx open demand; uniq one placeholder/request; committed may be future-dated |
 | `allocation_skill` | placeholder criteria (normalized, was jsonb) | allocation_id, skill_name, min_level | pk |
 | `allocation_day_override` | days deviating from the rule | allocation_id, date, minutes | pk; effective intensity = rule ⊕ overrides (avoids per-day fan-out) |
 | `rate` | cost/bill rate cascade | typed scope (role\|worker_id\|project_id\|phase, CHECK exactly-one), cost_rate, bill_rate, effective_from/to | uniq per scope+from; **EXCLUDE no-overlap**; resolved into `rm_effective_rate` |
@@ -178,10 +178,11 @@ gen_random_uuid()`. `created_at`/`updated_at timestamptz`.
 | `rm_utilization` | derived | period, capacity, util_pct, overallocated + **4-way split** (billable/internal/bench/leave); read by people via `getUtilization(...)` batch query (no event) |
 | `rm_project_health` | derived from `weekly_report_qcdp` | qcdp, rag, predictability |
 | `rm_margin` | derived | cost, bill, margin (allocations × `rm_effective_rate`) |
+| `rm_bench` | derived (allocations + capacity + open demand) | forward **bench / capacity-vs-demand** by month, skill, role (F-ALLOC-6) — who rolls off & is free vs upcoming demand; no base table |
 
 ---
 
-## ER diagrams (Mermaid) — v3
+## ER diagrams (Mermaid)
 
 > Reflect [`review-schema.sql`](./review-schema.sql). Relationship lines are intra-schema FKs (verified
 > against the live DB). Cross-module references (`worker_id = person.id`, `resource_request_id`,
@@ -197,8 +198,11 @@ erDiagram
   person ||--o{ employment_period : "1..N periods (re-hire)"
   person ||--o{ worker_compensation : "comp (effective-dated, EXCLUDE)"
   person ||--o{ worker_capacity : "capacity (effective-dated, EXCLUDE)"
+  person ||--o{ worker_assignment : "assignment history (effective-dated, EXCLUDE)"
   person ||--o{ worker_skill : has
   skill ||--o{ worker_skill : tags
+  position ||--o{ position_required_skill : "required skills"
+  skill ||--o{ position_required_skill : "needed by"
   person ||--o{ worker_history : logs
   person ||--o{ employee_document : owns
   employee_document ||--o{ employee_document : supersedes
@@ -234,7 +238,13 @@ erDiagram
     uuid person_id FK
     int seq
     date end_date "null = open (partial-unique)"
-    text lifecycle_stage
+    text lifecycle_stage "+ did_not_start"
+  }
+  worker_assignment {
+    uuid person_id FK
+    uuid position_id "grade, org_unit, manager"
+    date effective_from
+    date effective_to "EXCLUDE no-overlap"
   }
   worker_compensation {
     uuid person_id FK
@@ -267,6 +277,7 @@ _Standalone (no FK): `account_access_grant`, `document_requirement`, and the rea
 ```mermaid
 erDiagram
   requisition ||--o{ requisition_skill : requires
+  requisition ||--o{ interview_plan_stage : "plan per round"
   requisition ||--o{ application : receives
   candidate ||--o{ application : "external applies"
   candidate ||--o{ candidate_skill : has
@@ -283,7 +294,8 @@ erDiagram
   requisition {
     uuid id PK
     uuid resource_request_id "pm (no FK)"
-    uuid position_id "people (no FK)"
+    uuid position_id "people funded seat (no FK)"
+    text approval_status "draft|pending|approved"
     text status "open|on_hold|filled|cancelled"
   }
   application {
@@ -304,7 +316,8 @@ erDiagram
   offer {
     uuid id PK
     uuid candidate_id FK
-    text status "...|expired"
+    int version "revise/counter"
+    text status "...|pre_hire_check|hired|reneged"
     uuid hired_event_id "fire-once guard"
   }
 ```
@@ -317,6 +330,8 @@ _Standalone: `kb_article` and read-models `rm_worker` (+`rm_worker_skill`), `rm_
 erDiagram
   account ||--o{ project : owns
   project ||--o{ allocation : staffs
+  project ||--o{ project_staffing_plan : "required-team baseline"
+  project_staffing_plan ||--o{ project_staffing_plan_skill : needs
   allocation ||--o{ allocation_day_override : "rule exceptions"
   allocation ||--o{ allocation_skill : "placeholder criteria"
   project ||--o{ weekly_report : reports
@@ -328,9 +343,15 @@ erDiagram
     uuid id PK
     uuid project_id FK
     uuid worker_id "null = placeholder (1 seat)"
+    date date_to "roll-off"
     int minutes_per_day "recurrence rule"
-    int weekday_mask
-    text status "placeholder|committed"
+    text status "placeholder|tentative|committed"
+  }
+  project_staffing_plan {
+    uuid project_id FK
+    text role
+    numeric planned_mm
+    date period_from
   }
   rate {
     text scope "role|worker|project|phase (CHECK=1)"
@@ -340,9 +361,9 @@ erDiagram
   }
 ```
 
-_Standalone: `project_request`; read-models `rm_resource` (+`rm_resource_skill`), `rm_resource_capacity`, `rm_effective_rate`, `rm_utilization` (4-way split), `rm_project_health`, `rm_margin`._
+_Standalone: `project_request`; read-models `rm_resource` (+`rm_resource_skill`), `rm_resource_capacity`, `rm_effective_rate`, `rm_utilization` (4-way split), `rm_project_health`, `rm_margin`, `rm_bench` (forward capacity-vs-demand)._
 
-### `core` + `integrations` schemas (v3)
+### `core` + `integrations` schemas
 
 ```mermaid
 erDiagram
@@ -375,7 +396,7 @@ erDiagram
   }
 ```
 
-### Cross-module event flow (the integration contract) — v3
+### Cross-module event flow (the integration contract)
 
 ```mermaid
 flowchart LR
@@ -405,7 +426,7 @@ _Note: `people.leave._`events are gone — leave/availability is the timesheet s
   groups are extracted to child tables (`worker_skill`, `allocation_day_override`, `movement_step`,
   `application_event`, `review_score`, `weekly_report_qcdp`). **Facts that vary over time are
   effective-dated history** (`worker_compensation`, `worker_capacity`, `rate`) rather than overwritten
-  scalars; **leave is a ledger** (`leave_ledger`), not a mutable counter. Sensitive comp is split to
+  scalars. Sensitive comp is split to
   its own `worker_compensation` table — column-isolated for stricter grants/RLS, not serializer-only
   masking (defense-in-depth, and it survives a stray `select *`).
 - **`rm_*` read-models are intentionally denormalized** (not 3NF) — they are event-fed projections
@@ -424,77 +445,6 @@ _Note: `people.leave._`events are gone — leave/availability is the timesheet s
 - **Integrity:** intra-schema FKs enforce local consistency; **zero cross-schema FKs** preserve module
   isolation (asserted in validation); cross-module consistency is eventual via idempotent projections.
 
-## Architecture revision (2026-06-17)
-
-Applied after the solution-architecture review. **Supersedes the matching "Review fixes" entries
-below** (notably: comp-on-`worker`, `review.scores jsonb`, `interview.scores jsonb`, flat
-`scorecard_config`, full `allocation_day` fan-out). Schema changed → **re-validate the full DDL**.
-
-| Area                 | Was                                                         | Now                                                                        | Why                                                |
-| -------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------- | -------------------------------------------------- |
-| Sensitive comp       | `salary/bank/tax` on `worker`, serializer-masked            | `worker_compensation` (effective-dated, column-isolated, RLS-eligible)     | salary history + defense-in-depth                  |
-| Capacity             | scalar `fte`/`contracted_hours` on `worker` / `rm_resource` | `worker_capacity` + `rm_resource_capacity` (effective-dated)               | correct past-period utilization                    |
-| Leave                | mutable `leave_balance` cell                                | `leave_ledger` (balance = Σδ) + optional cache                             | concurrent-writer races + audit                    |
-| Review scores        | `review.scores jsonb`                                       | `review_score` child (criterion FK)                                        | analytics/delta queryable                          |
-| Interview scoring    | `interview.scores jsonb`                                    | `interview_score` + pinned `scorecard_template_id` + `rm_scorecard_*`      | normalized + cross-module reuse                    |
-| Scorecard config     | flat `scorecard_config`                                     | `scorecard_template`(versioned) + `scorecard_criterion`                    | immutable historical totals                        |
-| Allocation intensity | full `allocation_day` fan-out                               | recurrence rule + `allocation_day_override`                                | row explosion / write amplification                |
-| Rates                | polymorphic `scope_id`                                      | typed scope cols + CHECK + `rm_effective_rate`                             | indexable/FK-able, cached resolution               |
-| QCDP / KPI           | `qcdp jsonb`, free-text `metric`                            | `weekly_report_qcdp`, `kpi_metric` catalog                                 | aggregatable, no drift                             |
-| Demand               | placeholder `criteria.count`                                | one seat per placeholder                                                   | single-CAS fill stays correct                      |
-| Fill timing          | pm fills on `worker.onboarded`                              | pm fills (committed, future-dated) on `worker.created`/`mobility.approved` | no phantom-open demand during onboarding           |
-| Fulfillment          | scattered handlers + CAS                                    | `resource_request_fulfillment` saga (state + timeout + cancel-loser)       | observable, compensatable                          |
-| Missing docs         | `employee_document.required` flag                           | `document_requirement` policy + LEFT JOIN                                  | a flag can't mark an _absent_ doc                  |
-| Movement             | applied at approval                                         | applied at `effective_date` (job) + `applied_at` guard                     | future-dated promotions                            |
-| Invariants           | domain-enforced                                             | `EXCLUDE`/`btree_gist`, partial `UNIQUE`, CHECK                            | race-free in the DB                                |
-| Tenancy              | app `WHERE tenant_id`                                       | + RLS (recommended, platform-wide)                                         | one missed clause can't leak                       |
-| Projections          | idempotent                                                  | idempotent **+ replayable/rebuildable**                                    | recover projector bugs; RBAC rides `rm_allocation` |
-
-## Review fixes (validated 2026-06-16) — _partially superseded by the revision above_
-
-Applied after the parallel design review; all validated on Postgres 16.
-
-**Correctness / contracts**
-
-- **Idempotency guard:** `people.processed_event` / `hiring.processed_event` / `pm.processed_event`
-  `(consumer, event_id)` — every projection subscriber inserts here in the same txn as its upsert.
-  `src_event` on `rm_*` is the _last_ event only, not the dedup ledger.
-- **`people.rm_allocation` re-keyed** to `(tenant_id, allocation_id)` (+ `allocation_id` column) so the
-  **M:N** read-model holds concurrent/sequential same-project allocations (old `(worker_id, project_id)`
-  PK collapsed them). pm emits `pm.assignment.created/changed/ended`; `ended` retracts the row.
-- **`pm.allocation.planned_pct numeric(5,2)`** — the planning/placeholder capacity % (per-day `minutes`
-  materialize on commit); gives `rm_allocation.pct` a real source and lands `mobility.approved.pct`.
-- **`pm.rate`** + `effective_to date` and `UNIQUE (tenant_id, scope_type, scope_id, effective_from)` —
-  deterministic cost/bill cascade resolution.
-- **`hiring.offer`**: partial `UNIQUE (tenant_id, candidate_id) WHERE status='accepted'` + CHECK
-  `hired_event_id IS NULL OR status='accepted'` — "hire fires once" is now a real invariant.
-- **`hiring.interview`** ~~gains `scores jsonb`~~ → **superseded:** normalized `interview_score` child +
-  pinned `scorecard_template_id` (Architecture revision); + `interview_panelist` child + partial
-  `interview_upcoming` index; mobility endorsement actors typed on `application`
-  (`releasing_endorsed_by`/`receiving_endorsed_by`/`pmo_decided_by`, `override_overallocation`).
-- **`people.worker`**: ~~`salary` → `salary_amount`/`salary_currency` on the row~~ → **superseded:**
-  sensitive comp moved to effective-dated `worker_compensation` (Architecture revision);
-  `emergency_contact jsonb`; `profile_completed_at` (first-login self-completion gate); `version`.
-  `movement_request` salary fields → numeric.
-- **House style** (planner parity): `updated_at` + `version` on hot aggregates; `deleted_at` soft-delete
-  on `pm.project`/`pm.allocation` (doc had promised it). The rule applies module-wide at implementation.
-
-**UI-driven tables (prototype-backed) added**
-
-- `people.skill_endorsement` (peer/manager skill endorsements ⭐); `people.exit_record` (voluntary flag,
-  reason, tenure-at-exit → "why/when people leave" analytics); `people.probation_review.risk_score`;
-  `people.lifecycle_case.sla_due_at` + `case_attention`/`case_by_plannertask` indexes;
-  `people.employee_document` gains version-chain (`supersedes_id`) + `required` (missing-doc attention).
-- `hiring.candidate` gains `skills`/`seniority` (CV-parse), `reject_reason`/`tags` (KB analytics),
-  `source_cost`; `hiring.requisition` gains `owner_user_id` (recruiter attribution) + `closed_at` (TTF).
-- `pm.project_access` (per-project Owner/Edit/View — the charter R&R grant); `pm.project` gains
-  `methodology`/`pricing_model`/`timeline`/`css`; `pm.weekly_report_comment`; `pm.weekly_report.due`→`date`;
-  `pm.kpi_value` (manual KPI input feeding QCDP); `pm.corrective_action` (CAPA/risk/improvement register).
-
-> These additions are reflected in the per-schema table lists above conceptually; the validated DDL is
-> `seta-people-hr-schema.sql` + `seta-fixes.sql` (validation artifacts — Drizzle remains the schema
-> source-of-truth per repo rules).
-
 ## Migration & indexing notes
 
 - Generate per module (`db:generate`) in dependency order: foundation tables first, `rm_*` tables
@@ -506,11 +456,11 @@ Applied after the parallel design review; all validated on Postgres 16.
   no-ops) **and is rebuildable from `core.events`** (offset + idempotent upsert) — required because
   RBAC visibility rides `rm_allocation`.
 - **DB-native invariants** — hand-written SQL for `EXCLUDE USING gist` (`btree_gist`) on
-  `leave_request` no-overlap; partial `UNIQUE` for single-holder / one-accepted-offer; CHECK
+  effective-dated history no-overlap (worker_compensation/worker_capacity/worker_assignment/rate); partial `UNIQUE` for single-holder / one-accepted-offer; CHECK
   "exactly one scope" on `rate`. Org-tree acyclicity stays a locked recursive-CTE domain check.
 - **Soft delete** where history matters (`worker`, `project`, `allocation` via `status`/`deleted_at`),
   consistent with `planner`'s pattern.
 
-## Per-module Step 7 pointers
+## Per-module pointers
 
-`people.md`, `hiring.md`, `pm.md` Step 7 = this document (their schema sections above).
+`people.md`, `hiring.md`, `pm.md` = this document (their schema sections above).

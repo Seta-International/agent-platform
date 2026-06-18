@@ -4,13 +4,8 @@
 > aggregate roots + invariants, and domain events as the data-in/out contract. Grounded in the
 > [PM/PSA + DDD research](#sources) (Kantata/Float/Runn for PSA; Vernon/O-AA/Context-Mapper for DDD).
 >
-> ⚠️ **Revision 2026-06-18 — superseded in parts by the module technical specs**
-> ([`People-technical-spec`](../modules/People-technical-spec.md), [`Hiring-technical-spec`](../modules/Hiring-technical-spec.md))
-> and [`benchmarking-mobility-rehire.md`](./benchmarking-mobility-rehire.md). Deltas reconciled inline below:
-> **leave is owned by the timesheet system** (removed from `people`; `people.leave.*` events dropped; `pm`
-> reads availability from timesheet); **re-hire** = `person` identity + many `employment_period`s (link, don't
-> duplicate) guarded by a person-match at the `hiring`→`people` boundary; **internal mobility feeds a single
-> `people` job-change ("movement")** so `hiring.mobility.approved` is consumed by **both** `pm` and `people`.
+> **Source of truth: the module PRDs** ([`People-PRD`](../modules/People-PRD.md), [`Hiring-PRD`](../modules/Hiring-PRD.md), [`PM-PRD`](../modules/PM-PRD.md)) and the data design in [`db-design.md`](./db-design.md). This is the integration backbone behind them. Carried decisions: **leave is owned by the timesheet system** (`people.leave.*` dropped; `pm` reads availability from timesheet); **re-hire** = `person` identity + many `employment_period`s, guarded by a person-match at the `hiring`→`people` boundary; **internal mobility feeds a single `people` job-change ("movement")** so `hiring.mobility.approved` is consumed by **both** `pm` and `people`.
+>
 
 ## 1. Bounded contexts
 
@@ -143,7 +138,7 @@ RAG is derived.
 - **people owns capacity** — contracted hours / FTE% on the Worker, **effective-dated**
   (`worker_capacity`). A capacity change is a new effective-dated row that emits
   **`people.worker.capacity_changed`** (a dedicated event, not folded into the generic `updated`).
-  **Leave is no longer owned by people** (2026-06-18): it lives in the **timesheet system**; `pm` reads
+  **Leave is owned by the timesheet system, not people**; `pm` reads
   availability from there, not from a `people.leave.approved` event (that event is removed).
 - **pm is the sole utilization authority** — utilization = Σ allocation intensity ÷ **the capacity in
   effect for that period**; flags overallocation. pm projects people's capacity (effective-dated, into
@@ -176,7 +171,6 @@ via the `core.events` outbox. Consumers fetch detail via public surface.
 | `people.worker.lifecycle_changed` | people | notifications | worker_id, from_stage, to_stage |
 | `people.worker.deactivated` | people | **pm**, hiring | worker_id (Offboarding/Alumni → pm ends open allocations) |
 | `people.worker.onboarded` | people | notifications | worker_id (onboarding **complete → lifecycle only**; the placeholder was already filled at `worker.created`) |
-| ~~`people.leave.approved`~~ | ~~people~~ | — | **REMOVED 2026-06-18** — leave owned by the timesheet system; `pm` reads availability from there |
 | `people.position.opened` | people | pm | position_id, profile, org_unit (→ pm creates a placeholder; see §5) |
 | `pm.account.created/updated` · `pm.project.created/updated` | pm | people, hiring | id, name, parent, am_user_id (lookup projections) |
 | `pm.resource_request.opened` | pm | hiring | placeholder_allocation_id, role, skills, count, dates, project_id |
@@ -184,6 +178,9 @@ via the `core.events` outbox. Consumers fetch detail via public surface.
 | `hiring.requisition.opened/closed` | hiring | pm | requisition_id, resource_request_id |
 | `hiring.mobility.approved` | hiring | **pm, people** | worker_id, project_id, **placeholder_allocation_id**, pct — pm fills the placeholder; **people opens a `movement_request(source=internal_mobility)` when role/grade changes** |
 | `hiring.candidate.hired` | hiring | people | candidate_id, target position_id, **resource_request_id**, **`person_id?`** (from the boundary person-match → people adds a new employment period to the existing person on re-hire, else creates one) |
+| `people.worker.exit_pending` | people | **pm**, notifications | worker_id (failed probation confirmation / accepted resignation → pm surfaces the soon-to-open seat in the pipeline **at the decision moment**, before offboarding completes) |
+| `people.movement.applied` | people | **hiring**, notifications | movement_id, worker_id, effective_date — closes the Member loop: notifies the person and back-fills the originating Hiring application's status to "live" |
+| `people.worker.did_not_start` | people | **pm**, hiring | worker_id, resource_request_id — rescind/no-show before day one → pm **reopens the placeholder/seat** (not a full offboard); hiring marks the application `reneged` |
 
 ### Canonical flow — placeholder → requisition → hire → named allocation
 
@@ -227,7 +224,7 @@ query, no event); thin events.
   projections resolved into `rm_effective_rate`. **Deep finance — invoicing, payroll, GL — is
   downstream integration**, out of scope here.
 
-**Architecture-revision decisions (2026-06-17) — from the solution-architecture review:**
+**Architecture-revision decisions — from the solution-architecture review:**
 - **D4 (effective-dating):** compensation, capacity, and rates are effective-dated history, not
   overwritten scalars; utilization/margin always read the value in effect for the period.
 - **D5 (fill timing):** pm fills the placeholder when a `worker_id` first exists (mobility-approve /

@@ -1,12 +1,6 @@
 # `people` module — backend discovery
 
-> ⚠️ **Superseded (2026-06-18) — stale.** Product source of truth is **[People-PRD](../modules/People-PRD.md)**.
-> Notable reversals since this spike: **leave is owned by the timesheet system** (People integrates, doesn't
-> own it); **re-hire** links to the existing person (person → many employment periods); **internal mobility**
-> from `hiring` records a single job-change ("movement") here. The PRD wins on any conflict.
->
-> Original status: **Discovery (in progress)**. Backend only (see [`overview.md`](./overview.md) §3 for why).
-> Built in the 7 steps from `overview.md` §7, with a review gate between each.
+> Backend discovery notes for `people`. Product source of truth: **[People-PRD](../modules/People-PRD.md)**. Boundaries: leave is owned by the timesheet system (People integrates, doesn't own it); re-hire links to the existing person (person → many employment periods); internal mobility from `hiring` records a single job-change ("movement") here.
 
 The `people` module is the system-of-record for the **employee/HR record** and the **employee
 lifecycle**. It links to `identity` by `user_id` (no cross-schema FK; event-driven — `overview.md`
@@ -535,7 +529,7 @@ Drizzle client; it never hands it to another module.
 
 ---
 
-## Step 7 — Database design
+## Database design
 
 → **[`db-design.md`](./db-design.md)** — the `people` schema section (worker, **worker_compensation**,
 **worker_capacity**, skill/worker_skill, org_unit, position, lifecycle_case + **lifecycle_template_step**,

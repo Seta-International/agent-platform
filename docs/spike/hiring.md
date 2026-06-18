@@ -1,13 +1,6 @@
-# `hiring` module — backend discovery (spike)
+# `hiring` module — backend discovery
 
-> ⚠️ **Superseded (2026-06-18) — stale.** Product source of truth is **[Hiring-PRD](../modules/Hiring-PRD.md)**.
-> Notable additions since this spike: **internal mobility records a single job-change ("movement") in `people`**
-> against the existing person (Hiring never edits the employment record); **re-hire/boomerang** runs a
-> person-match at the hire handoff so `people` adds a new employment period to the existing person — see
-> [`benchmarking-mobility-rehire.md`](./benchmarking-mobility-rehire.md). The PRD wins on any conflict.
->
-> Original status: **Spike (in progress)**. Backend only. Built in the 7 steps from [`overview.md`](./overview.md)
-> §7; system + DB design deferred until people/hiring/pm boundaries are all clear.
+> Backend discovery notes for `hiring`. Product source of truth: **[Hiring-PRD](../modules/Hiring-PRD.md)**. Boundaries: internal mobility records a single job-change ("movement") in `people` against the existing person (Hiring never edits the employment record); re-hire/boomerang runs a person-match at the hire handoff so `people` adds a new employment period to the existing person — see [`benchmarking-mobility-rehire.md`](./benchmarking-mobility-rehire.md).
 
 The `hiring` module owns **recruitment** — requisitions, candidates, interviews, offers, and the
 internal-mobility approval flow. It sits between **`pm`** (which owns the *demand*: project staffing
@@ -272,7 +265,7 @@ Drizzle client; no cross-schema FK; account/project/worker/position/resource_req
 `hiring.candidate.hired` / `hiring.mobility.approved` emitted exactly once (idempotent); every command
 audits via `core.events`.
 
-## Step 7 — Database design
+## Database design
 → **[`db-design.md`](./db-design.md)** — the `hiring` schema section (requisition, candidate,
 application + application_event, interview + interview_score, offer, resource_request_fulfillment,
 kb_article) + `rm_worker`/`rm_resource_request`/`rm_scorecard_template`/`rm_scorecard_criterion`/

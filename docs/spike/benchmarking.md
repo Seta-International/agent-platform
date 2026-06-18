@@ -3,7 +3,7 @@
 > Research synthesis (2026-06-16) benchmarking our design against **Workday**, **SAP SuccessFactors**,
 > **Odoo HR**, and PSA tools (**Kantata**, Runn/Float, BigTime), with HiBob/BambooHR inferred from
 > category consensus. 25 claims adversarially verified (2-of-3 vote), 0 refuted. Confidence noted per
-> item. Feeds decisions before `people` Step 7 (DB design) and the `hiring`/PM module docs.
+> item. Feeds decisions before the DB design and the `hiring`/PM module docs.
 
 ## 1. What's validated (keep as-is)
 

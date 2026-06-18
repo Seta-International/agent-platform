@@ -1,17 +1,10 @@
--- Seta — People / Hiring / PM review schema (v2: post adversarial PRD/3NF/DDD challenge)
--- Source: db-design.md + ddd-design.md (2026-06-18) + module technical specs, hardened by the
---         three-lens review. Standalone review DB for DBeaver. Hand-authored, NOT Drizzle migrations.
+-- Seta — People / Hiring / PM review schema.
+-- Source: the module PRDs (People / Hiring / PM) + db-design.md + ddd-design.md.
+-- Standalone review DB for DBeaver. Hand-authored, NOT Drizzle migrations.
 -- No cross-schema FKs (cross-module links are plain uuids).
---
--- v2 changes: missing invariants added (rm_allocation/rate/employment_period/position uniques,
--- org_unit acyclicity trigger, one-open-placeholder-per-request); worker split into person-level
--- columns + a derived directory view (no cached SoR drift); matched-skills normalized to child
--- tables; unified application (external candidate × requisition + internal mobility); candidate_event,
--- recruiter_account_assignment, kb failure-theme tables; 4-way utilization bucket; CHECK enums; GIN
--- directory index.
 
 create extension if not exists pg_trgm;
-create extension if not exists btree_gist;   -- v3: temporal EXCLUDE (scalar = + range &&)
+create extension if not exists btree_gist;   -- temporal EXCLUDE (scalar = + range &&)
 
 drop schema if exists people cascade;
 drop schema if exists hiring cascade;
@@ -21,8 +14,8 @@ drop schema if exists integrations cascade;
 create schema people;
 create schema hiring;
 create schema pm;
-create schema core;          -- v3: outbox + generic audit
-create schema integrations;  -- v3: external calendar sync mapping
+create schema core;          -- outbox + generic audit
+create schema integrations;  -- external calendar sync mapping
 
 -- =====================================================================================
 -- people
@@ -46,7 +39,7 @@ create table people.employment_period (
   end_date date,
   status text not null check (status in ('active','ended')),
   lifecycle_stage text not null
-    check (lifecycle_stage in ('preboarding','onboarding','probation','active','offboarding','alumni')),
+    check (lifecycle_stage in ('preboarding','onboarding','probation','active','offboarding','alumni','did_not_start')),
   employment_type text,
   unique (person_id, seq)
 );
@@ -81,7 +74,7 @@ create table people.worker_compensation (             -- effective-dated, sensit
   bank jsonb, tax jsonb,                          -- opaque sensitive (justified)
   reason text, by_user_id uuid,
   unique (person_id, effective_from),
-  -- v3: prevent OVERLAPPING comp periods (unique(effective_from) was insufficient)
+  -- prevent OVERLAPPING comp periods (unique(effective_from) was insufficient)
   exclude using gist (tenant_id with =, person_id with =,
                       daterange(effective_from, effective_to, '[)') with &&)
 );
@@ -93,8 +86,20 @@ create table people.worker_capacity (
   effective_from date not null,
   effective_to date,
   fte numeric, contracted_hours int,
-  reason text, by_user_id uuid,                  -- v3: symmetry with comp (who/why)
+  reason text, by_user_id uuid,                  -- symmetry with comp (who/why)
   unique (person_id, effective_from),
+  exclude using gist (tenant_id with =, person_id with =,
+                      daterange(effective_from, effective_to, '[)') with &&)
+);
+
+-- effective-dated job/assignment history (position, grade, org, manager, reason)
+create table people.worker_assignment (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid not null,
+  person_id uuid not null references people.person(id),
+  position_id uuid, grade text, org_unit_id uuid, manager_worker_id uuid,
+  effective_from date not null, effective_to date,
+  reason text, by_user_id uuid,
   exclude using gist (tenant_id with =, person_id with =,
                       daterange(effective_from, effective_to, '[)') with &&)
 );
@@ -110,6 +115,8 @@ create table people.worker_skill (
   skill_id uuid not null references people.skill(id),
   proficiency smallint check (proficiency between 0 and 5),
   years_experience numeric,
+  certification_document_id uuid,                -- a cert backing the skill (in the doc vault)
+  valid_until date,                              -- cert expiry (lapses flag the skill)
   primary key (person_id, skill_id)
 );
 
@@ -151,6 +158,15 @@ create index position_unit on people.position (tenant_id, org_unit_id, headcount
 -- one worker holds at most one position (the reverse of the one-holder invariant)
 create unique index position_one_per_holder on people.position (tenant_id, holder_worker_id) where holder_worker_id is not null;
 
+-- a seat's required-skills baseline (role × level) for skill-gap analytics
+create table people.position_required_skill (
+  position_id uuid not null references people.position(id),
+  skill_id uuid not null references people.skill(id),
+  min_proficiency smallint not null check (min_proficiency between 0 and 5),
+  tenant_id uuid not null,
+  primary key (position_id, skill_id)
+);
+
 create table people.account_access_grant (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null,
@@ -158,7 +174,7 @@ create table people.account_access_grant (
   account_id uuid not null,
   granted_by uuid not null,
   granted_at timestamptz not null default now(),
-  revoked_at timestamptz, revoked_by uuid         -- v3: revoke audit (F-SEC-4)
+  revoked_at timestamptz, revoked_by uuid         -- revoke audit (F-SEC-4)
 );
 
 create table people.worker_history (
@@ -208,9 +224,12 @@ create table people.scorecard_criterion (
 create table people.review_cycle (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null,
-  period text, starts_at date, seq int,          -- v3: deterministic prev-period ordering
+  period text, starts_at date, seq int,          -- deterministic prev-period ordering
   template_id uuid references people.scorecard_template(id),
-  scope jsonb, status text check (status in ('open','closed'))
+  scope jsonb, status text check (status in ('open','closed')),
+  calibration_status text not null default 'none'
+    check (calibration_status in ('none','in_progress','calibrated')),
+  calibrated_at timestamptz                       -- ratings normalized across teams before close
 );
 create table people.goal (
   id uuid primary key default gen_random_uuid(),
@@ -233,9 +252,9 @@ create table people.review_score (
   review_id uuid not null references people.review(id),
   criterion_id uuid not null references people.scorecard_criterion(id),
   score smallint, evidence text,
-  top_action text,                               -- v3: Action-Plan rule (<4 needs a top action)
+  top_action text,                               -- Action-Plan rule (<4 needs a top action)
   primary key (review_id, criterion_id),
-  -- v3: Evidence rule — an extreme score (1 or 5) requires written evidence (F-PERF-1)
+  -- Evidence rule — an extreme score (1 or 5) requires written evidence (F-PERF-1)
   constraint review_score_evidence_on_extreme check (score is null or score not in (1,5) or evidence is not null),
   constraint review_score_action_below_4 check (score is null or score >= 4 or top_action is not null)
 );
@@ -247,7 +266,7 @@ create table people.probation_review (
   marker text check (marker in ('1mo','2mo','confirmation')),
   scorecard_review_id uuid references people.review(id),
   outcome text check (outcome in ('pass','fail','extend','pending')),
-  extension_until date, decided_at timestamptz, decided_by uuid   -- v3: who decided (F-PROB-2)
+  extension_until date, decided_at timestamptz, decided_by uuid   -- who decided (F-PROB-2)
 );
 
 create table people.movement_request (
@@ -255,13 +274,13 @@ create table people.movement_request (
   tenant_id uuid not null,
   person_id uuid not null references people.person(id),
   type text check (type in ('promotion','transfer','pay')),
-  source text not null check (source in ('hr_initiated','internal_mobility')),
+  source text not null check (source in ('hr_initiated','internal_mobility','review')),
   to_position_id uuid, to_grade text,
   salary_from numeric(14,2), salary_to numeric(14,2),
   effective_date date,
   status text check (status in ('requested','leader_review','manager_approval','hr_approval','effective','completed','rejected')),
   applied_at timestamptz,
-  decided_by uuid, rejected_reason text           -- v3: terminal outcome audit (F-MOVE-2, QA-37)
+  decided_by uuid, rejected_reason text           -- terminal outcome audit (F-MOVE-2, QA-37)
 );
 create table people.movement_step (
   id uuid primary key default gen_random_uuid(),
@@ -316,8 +335,8 @@ create table people.rm_account_project (
   kind text, name text, parent_account_id uuid, am_worker_id uuid
 );
 
--- v3: the directory is an EVENT-MAINTAINED projection table (people.rm_worker_directory), NOT a
--- live 5-table-join view — see the v3 section at the end (fixes the measured 117ms/22k-buffer read).
+-- the directory is an EVENT-MAINTAINED projection table (people.rm_worker_directory), NOT a
+-- live 5-table-join view — see the projections section at the end (fixes the measured 117ms/22k-buffer read).
 
 -- =====================================================================================
 -- hiring
@@ -327,8 +346,10 @@ create table hiring.requisition (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null,
   title text, role_title text, grade text,       -- snapshot of position (cross-schema, no FK)
-  account_id uuid, resource_request_id uuid, position_id uuid,
+  account_id uuid, resource_request_id uuid, position_id uuid,   -- position_id = the funded seat
   kind text check (kind in ('replacement','new')),
+  approval_status text not null default 'approved'
+    check (approval_status in ('draft','pending_approval','approved','rejected')),
   status text check (status in ('open','on_hold','filled','cancelled')),
   stage text check (stage in ('sourcing','screening','interview','offer')),
   jd jsonb,                                       -- prose (justified)
@@ -341,6 +362,15 @@ create table hiring.requisition_skill (              -- normalized (was requisit
   requisition_id uuid not null references hiring.requisition(id),
   skill_id uuid, skill_name text not null, min_level smallint,
   primary key (requisition_id, skill_name)
+);
+-- structured interview plan per round (which competencies each round assesses) + scorecard gate
+create table hiring.interview_plan_stage (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid not null,
+  requisition_id uuid not null references hiring.requisition(id),
+  round text not null, seq int not null,
+  criteria_keys text[] not null default '{}',
+  scorecard_required boolean not null default true
 );
 
 create table hiring.candidate (                       -- the PERSON (no per-role stage here)
@@ -365,7 +395,7 @@ create table hiring.application (
   kind text not null check (kind in ('external','internal')),
   candidate_id uuid references hiring.candidate(id),   -- external
   worker_id uuid,                                      -- internal (= person.id, no FK)
-  stage text check (stage in ('new','screening','interview','offer','hired','rejected')),  -- external pipeline
+  stage text check (stage in ('new','screening','interview','offer','hired','rejected','reneged')),  -- external pipeline
   status text,                                         -- internal endorsement: submitted|releasing_endorsed|receiving_endorsed|pmo_review|approved|rejected|withdrawn
   rating smallint,
   alloc_pct numeric, override_overallocation boolean, mobility_event_id uuid,
@@ -395,20 +425,20 @@ create table hiring.interview (
   tenant_id uuid not null,
   application_id uuid not null references hiring.application(id),
   round text, at timestamptz, duration_min int,
-  -- v3: RFC 5545 (iCalendar) shape so events round-trip to Teams/Graph + Google Calendar
+  -- RFC 5545 (iCalendar) shape so events round-trip to Teams/Graph + Google Calendar
   dtstart timestamptz, dtend timestamptz, tzid text,   -- IANA tz, e.g. 'Asia/Ho_Chi_Minh'
   rrule text, exdate timestamptz[], rdate timestamptz[],
   ical_uid text,                                  -- OUR stable RFC 5545 UID (identity hub; NOT Graph's per-occurrence iCalUId)
   mode text check (mode in ('online','onsite')),
   meeting_link text,                              -- provider joinUrl (Teams/Meet) via integrations
   status text check (status in ('scheduled','completed','cancelled','no_show')),
-  no_show_reason text,                            -- v3 (F-INT-3, QA-38)
+  no_show_reason text,                            -- (F-INT-3, QA-38)
   result text check (result in ('pass','hold','fail')),
   rating smallint, recommendation text, feedback text, transcript text,
   scorecard_template_id uuid,                     -- pinned people template by id (no FK)
   scorecard_snapshot jsonb                        -- immutable copy
 );
-create table hiring.calendar_event_override (     -- v3: per-instance RECURRENCE-ID overrides
+create table hiring.calendar_event_override (     -- per-instance RECURRENCE-ID overrides
   interview_id uuid not null references hiring.interview(id),
   recurrence_id timestamptz not null,             -- the ORIGINAL instant of the overridden occurrence
   new_dtstart timestamptz, new_dtend timestamptz, is_cancelled boolean not null default false,
@@ -434,9 +464,10 @@ create table hiring.offer (
   application_id uuid not null references hiring.application(id),
   candidate_id uuid not null references hiring.candidate(id),  -- for the one-accepted-per-person rule
   comp jsonb, start_date date, respond_by date,
-  status text check (status in ('draft','approved','sent','accepted','declined','expired')),
+  version int not null default 1,                 -- revise/counter bumps version & re-approves
+  status text check (status in ('draft','approved','sent','accepted','pre_hire_check','hired','declined','expired','reneged')),
   offer_letter_key text, hired_event_id uuid,
-  decided_at timestamptz, decided_by uuid         -- v3: offer decision audit (F-OFFER-2, F-SEC-2)
+  decided_at timestamptz, decided_by uuid         -- offer decision audit (F-OFFER-2, F-SEC-2)
 );
 create unique index offer_one_accepted on hiring.offer (tenant_id, candidate_id) where status = 'accepted';
 
@@ -530,6 +561,23 @@ create table pm.project_request (
   rejected_at timestamptz
 );
 
+-- a project's staffing-plan baseline (required roles × MM × skills over the timeline)
+create table pm.project_staffing_plan (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid not null,
+  project_id uuid not null references pm.project(id),
+  role text not null, grade text,
+  planned_mm numeric(5,2) not null,
+  period_from date not null, period_to date not null
+);
+create table pm.project_staffing_plan_skill (
+  plan_id uuid not null references pm.project_staffing_plan(id),
+  skill_id uuid not null,
+  min_proficiency smallint check (min_proficiency between 0 and 5),
+  tenant_id uuid not null,
+  primary key (plan_id, skill_id)
+);
+
 create table pm.allocation (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null,
@@ -540,9 +588,11 @@ create table pm.allocation (
   planned_pct numeric(5,2),
   minutes_per_day int, weekday_mask int,
   resource_request_id uuid,
-  status text check (status in ('placeholder','committed')),
+  status text check (status in ('placeholder','tentative','committed')),  -- tentative = soft-booked
   deleted_at timestamptz,
-  check (status <> 'committed' or worker_id is not null)
+  -- a placeholder is unnamed; a tentative/committed booking names a worker
+  check ( (status = 'placeholder' and worker_id is null)
+       or (status in ('tentative','committed') and worker_id is not null) )
 );
 create index alloc_proj   on pm.allocation (tenant_id, project_id);
 create index alloc_worker on pm.allocation (tenant_id, worker_id);
@@ -570,7 +620,7 @@ create table pm.rate (
   check ( (role is not null)::int + (worker_id is not null)::int
         + (project_id is not null)::int + (phase is not null)::int = 1 ),
   unique nulls not distinct (tenant_id, role, worker_id, project_id, phase, effective_from),
-  -- v3: no overlapping rate periods for the same scope (NULL scope cols don't conflict)
+  -- no overlapping rate periods for the same scope (NULL scope cols don't conflict)
   exclude using gist (tenant_id with =, role with =, worker_id with =, project_id with =, phase with =,
                       daterange(effective_from, effective_to, '[)') with &&)
 );
@@ -642,7 +692,7 @@ create table pm.rm_margin (
 );
 
 -- =====================================================================================
--- v3 additions (post research + adversarial challenge)
+-- additions (post research + adversarial challenge)
 -- =====================================================================================
 
 -- core: transactional outbox (intent) + GENERIC audit log (who/what/when, field-level)
@@ -684,7 +734,7 @@ do $$
 declare t text;
 begin
   foreach t in array array[
-    'people.worker','people.worker_compensation','people.worker_capacity','people.employment_period',
+    'people.worker','people.worker_compensation','people.worker_capacity','people.worker_assignment','people.employment_period',
     'people.position','people.movement_request','people.probation_review','people.account_access_grant',
     'hiring.requisition','hiring.application','hiring.offer','hiring.interview',
     'pm.allocation','pm.rate','pm.project'
@@ -755,7 +805,7 @@ create table people.rm_workforce_metrics (
   primary key (tenant_id, scope, scope_id, period)
 );
 
--- v3 hot-path indexes (from the read/write review)
+-- hot-path indexes (from the read/write review)
 create index worker_tenant on people.worker (tenant_id) where deleted_at is null;
 create index ep_stage on people.employment_period (tenant_id, lifecycle_stage) where end_date is null;
 create index worker_skill_by_skill on people.worker_skill (skill_id);

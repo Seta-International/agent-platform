@@ -1,4 +1,4 @@
--- Seta — People / Hiring / PM review seed v2 (matches review-schema.sql v2).
+-- Seta — People / Hiring / PM review seed.
 -- Run AFTER review-schema.sql. Fixed UUIDs so cross-module links line up.
 -- Shows: a re-hire (2 employment periods), an internal-mobility movement, an external candidate
 -- application with stage history, normalized skills, and a placeholder + committed allocation.
@@ -160,7 +160,7 @@ insert into pm.rm_resource_capacity (worker_id, effective_from, fte, contracted_
 insert into pm.rm_utilization (worker_id, period, capacity, util_pct, overallocated, billable_pct, internal_pct, bench_pct, leave_pct) values
   ('aaaa0001-0000-0000-0000-000000000001','2026-05',1.0,0.85,false,0.80,0.05,0.0,0.0);
 
--- ---------- v3 demo: directory projection, lifecycle steps, calendar sync ----------
+-- ---------- demo: directory projection, lifecycle steps, calendar sync ----------
 insert into people.rm_worker_directory (person_id, tenant_id, full_name, work_email, lifecycle_stage, status, grade, fte, department, role_title, account_id) values
   ('aaaa0001-0000-0000-0000-000000000001','11111111-1111-1111-1111-111111111111','Le Thu Ha','ha.le@seta.vn','active','active','L5',1.0,'Delivery','Senior Engineer','00000000-0000-0000-0000-0000000000a1'),
   ('aaaa0002-0000-0000-0000-000000000002','11111111-1111-1111-1111-111111111111','Tran Minh','minh.tran@seta.vn','onboarding','active',null,1.0,null,null,null);
