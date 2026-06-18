@@ -11,7 +11,7 @@ pnpm typecheck
 pnpm lint
 ```
 
-See [`CLAUDE.md`](CLAUDE.md) for the fixed technical foundations and architectural rules, and [`docs/architecture.md`](docs/architecture.md) for the implementation shape — the single source of truth.
+See [`CLAUDE.md`](CLAUDE.md) for the fixed technical foundations and architectural rules, and [`docs/platform/architecture.md`](docs/platform/architecture.md) for the implementation shape — the single source of truth.
 
 ## Branching & commits
 

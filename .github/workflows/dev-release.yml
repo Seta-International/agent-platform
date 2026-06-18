@@ -1,7 +1,7 @@
 name: Dev Release
 
 # Builds images locally on the `future` self-hosted runner and deploys the dev
-# stack — no ECR/AWS. Production release lives in hackathon-release.yml.
+# stack — no ECR/AWS. This is the only release path.
 # Requires: runner labeled `future`, Ollama on 0.0.0.0:11434 (gemma4:12b-it-qat),
 # repo vars DEV_APP_DOMAIN / OLLAMA_BASE_URL and secret OPENAI_API_KEY.
 
@@ -56,6 +56,14 @@ jobs:
           ACME_EMAIL:      ${{ vars.ACME_EMAIL || 'devops@seta-international.vn' }}
           OLLAMA_BASE_URL: ${{ vars.OLLAMA_BASE_URL || 'http://192.168.90.127:11434/v1' }}
           OPENAI_API_KEY:  ${{ secrets.OPENAI_API_KEY }}
+          # Entra SSO (optional) + M365 change-notification webhook signing.
+          MICROSOFT_CLIENT_ID:     ${{ vars.MICROSOFT_CLIENT_ID }}
+          MICROSOFT_CLIENT_SECRET: ${{ secrets.MICROSOFT_CLIENT_SECRET }}
+          M365_WEBHOOK_SECRET:     ${{ secrets.M365_WEBHOOK_SECRET }}
+          # Outbound mail via Office 365 SMTP + optional Graph /sendMail.
+          MAILER_DEFAULT_SMTP_URL:    ${{ secrets.MAILER_DEFAULT_SMTP_URL }}
+          MAILER_GRAPH_CLIENT_ID:     ${{ vars.MAILER_GRAPH_CLIENT_ID }}
+          MAILER_GRAPH_CLIENT_SECRET: ${{ secrets.MAILER_GRAPH_CLIENT_SECRET }}
         run: |
           set -euo pipefail
 
@@ -95,8 +103,12 @@ jobs:
           SESSION_COOKIE_SAMESITE=strict
           EVENTS_RETENTION_DAYS=30
           KNOWLEDGE_AV_REQUIRED=false
-          MAILER_DEFAULT_TRANSPORT=dev-stub
-          MAILER_DEFAULT_SENDER=noreply@${DEV_APP_DOMAIN}
+          MAILER_DEFAULT_TRANSPORT=smtp
+          # Office 365 rejects From addresses the authenticated mailbox can't send as.
+          MAILER_DEFAULT_SENDER=llm@seta-international.vn
+          MAILER_DEFAULT_SMTP_URL=${MAILER_DEFAULT_SMTP_URL}
+          MAILER_GRAPH_CLIENT_ID=${MAILER_GRAPH_CLIENT_ID}
+          MAILER_GRAPH_CLIENT_SECRET=${MAILER_GRAPH_CLIENT_SECRET}
           # ── Self-hosted chat model: Gemma 4 12B (QAT) via Ollama on this host ──
           AGENT_MODELS=ollama/gemma4:12b-it-qat:balanced
           AGENT_MODEL_DEFAULT=auto
@@ -104,6 +116,9 @@ jobs:
           # Embeddings stay on OpenAI — pgvector columns are sized to its dims.
           EMBED_MODEL=openai/text-embedding-3-small
           OPENAI_API_KEY=${OPENAI_API_KEY}
+          MICROSOFT_CLIENT_ID=${MICROSOFT_CLIENT_ID}
+          MICROSOFT_CLIENT_SECRET=${MICROSOFT_CLIENT_SECRET}
+          M365_WEBHOOK_SECRET=${M365_WEBHOOK_SECRET}
           EOF
 
           # S3 object storage — provided by the standalone MinIO installed on this

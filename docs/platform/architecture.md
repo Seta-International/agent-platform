@@ -4,7 +4,7 @@ Seta is a multi-tenant, AI-first work-management platform implemented as a modul
 
 This document is the single source of truth for the implementation shape. When the code and this document disagree, the document is treated as the bug — the code is corrected to match.
 
-**Related documents.** [`tech-stack.md`](./tech-stack.md) records why each dependency was chosen. [`agent-architecture.md`](./agent-architecture.md) covers the agent system in depth. [`creating-modules.md`](./creating-modules.md) is the module-author guide. [`hosting/aws.md`](./hosting/aws.md) covers production deployment.
+**Related documents.** [`tech-stack.md`](./tech-stack.md) records why each dependency was chosen. [`agent-architecture.md`](../agent/architecture.md) covers the agent system in depth. [`creating-modules.md`](../guides/creating-modules.md) is the module-author guide. [`hosting/aws.md`](../hosting/aws.md) covers production deployment.
 
 ---
 
@@ -219,7 +219,7 @@ On top of the path layer, each module declares a `"setaTier"` in `package.json` 
 
 ## 7. Canonical module shape
 
-The module factory (`pnpm gen module`) produces this. Walkthrough in [`creating-modules.md`](./creating-modules.md).
+The module factory (`pnpm gen module`) produces this. Walkthrough in [`creating-modules.md`](../guides/creating-modules.md).
 
 ```
 packages/<module>/
@@ -433,7 +433,7 @@ sequenceDiagram
 
 ## 12. Agent system
 
-`@seta/agent` is engine-only. It composes module-owned agent tools and specs into Mastra agents via the contribution registry; it does **not** import any feature or orchestrator module (enforced by dep-cruiser rule `agent-no-feature-imports`). The agent registry, tool + RBAC contracts, workflow surface, HITL contract, memory model, and code locations are in [`agent-architecture.md`](./agent-architecture.md).
+`@seta/agent` is engine-only. It composes module-owned agent tools and specs into Mastra agents via the contribution registry; it does **not** import any feature or orchestrator module (enforced by dep-cruiser rule `agent-no-feature-imports`). The agent registry, tool + RBAC contracts, workflow surface, HITL contract, memory model, and code locations are in [`agent-architecture.md`](../agent/architecture.md).
 
 ### Chat runtime — staffing orchestration
 
@@ -544,9 +544,9 @@ export const plannerAppManifest: AppManifest = {
 
 ## 15. Deployment
 
-The production target is AWS ECS Fargate (HTTP service + dispatcher/worker service), RDS Postgres Multi-AZ with pgvector, S3 + CloudFront for the web bundle, Secrets Manager for environment secrets. A single multi-stage Dockerfile produces both `platform-server` and `platform-web` images; the same image runs self-hosted via `docker compose`. Mode-selectable runtime via `PLATFORM_MODULES` supports per-module deployment. Full topology, sizing, hardening, observability, runbooks, and FinOps in [`hosting/aws.md`](./hosting/aws.md); single-VM self-host in [`hosting/docker-compose.md`](./hosting/docker-compose.md).
+The production target is AWS ECS Fargate (HTTP service + dispatcher/worker service), RDS Postgres Multi-AZ with pgvector, S3 + CloudFront for the web bundle, Secrets Manager for environment secrets. A single multi-stage Dockerfile produces both `platform-server` and `platform-web` images; the same image runs self-hosted via `docker compose`. Mode-selectable runtime via `PLATFORM_MODULES` supports per-module deployment. Full topology, sizing, hardening, observability, runbooks, and FinOps in [`hosting/aws.md`](../hosting/aws.md); single-VM self-host in [`hosting/docker-compose.md`](../hosting/docker-compose.md).
 
-Full topology, sizing, security, runbooks, FinOps: [`hosting/aws.md`](./hosting/aws.md).
+Full topology, sizing, security, runbooks, FinOps: [`hosting/aws.md`](../hosting/aws.md).
 
 ---
 
@@ -607,7 +607,7 @@ The architecture imposes the following constraints. Each is a deliberate exchang
 | **Can the AI SDK v6 substitute for Mastra?** | No. AI SDK v6 provides the LLM client and tool-call protocol; Mastra provides agent composition, memory, and workflow primitives. The two are complementary. |
 | **How are agents added independently of modules?** | Agents are not module-independent. Tools are owned by modules; cross-module agents are composed in orchestrator-tier packages (for example, `staffing`). |
 | **What is the scale ceiling?** | The targets in §3 describe the validated envelope. Above this, the trade-offs in §17 begin to apply; mitigation involves the `PLATFORM_MODULES` split, read replicas, and isolating the highest-load module onto a dedicated database. |
-| **Is the agent system documented separately?** | Yes — see [`agent-architecture.md`](./agent-architecture.md). |
+| **Is the agent system documented separately?** | Yes — see [`agent-architecture.md`](../agent/architecture.md). |
 
 ---
 
@@ -633,7 +633,7 @@ For Mastra internals (when wiring the agent engine), consult the Mastra source c
 ## See also
 
 - [`tech-stack.md`](./tech-stack.md) — why each library is here.
-- [`agent-architecture.md`](./agent-architecture.md) — the agent system in depth via a planner walkthrough.
-- [`creating-modules.md`](./creating-modules.md) — add a module + agent tool + UI.
-- [`dev-quickstart.md`](./dev-quickstart.md) — first tenant on a fresh DB.
-- [`hosting/aws.md`](./hosting/aws.md) — production deployment.
+- [`agent-architecture.md`](../agent/architecture.md) — the agent system in depth via a planner walkthrough.
+- [`creating-modules.md`](../guides/creating-modules.md) — add a module + agent tool + UI.
+- [`dev-quickstart.md`](../guides/dev-quickstart.md) — first tenant on a fresh DB.
+- [`hosting/aws.md`](../hosting/aws.md) — production deployment.

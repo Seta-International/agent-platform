@@ -70,6 +70,9 @@ infra/traefik/jaeger-auth
 docs/design/
 .worktrees/
 
+# Generated PDFs (rendered from docs via scripts/export-pdf.sh)
+docs/**/*.pdf
+
 # App NDJSON logs (dev log persistence)
 logs/
 

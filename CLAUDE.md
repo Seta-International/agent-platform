@@ -4,15 +4,18 @@ Contract for coding agents (Claude Code, Codex, any `AGENTS.md`-aware tool) work
 
 ## Reference docs
 
-- [`docs/architecture.md`](docs/architecture.md) — single source of truth for the implementation shape.
-- [`docs/rbac.md`](docs/rbac.md) — how access control works, conceptually (for contributors + agents; no code).
-- [`docs/creating-modules.md`](docs/creating-modules.md) — add a new module + agent tool via `pnpm gen module`.
-- [`docs/dev-quickstart.md`](docs/dev-quickstart.md) — first tenant and accounts on a fresh DB.
+- [`docs/README.md`](docs/README.md) — the full documentation map (start here).
+- [`docs/platform/architecture.md`](docs/platform/architecture.md) — single source of truth for the implementation shape.
+- [`docs/platform/rbac.md`](docs/platform/rbac.md) — how access control works, conceptually (for contributors + agents; no code).
+- [`docs/guides/creating-modules.md`](docs/guides/creating-modules.md) — add a new module + agent tool via `pnpm gen module`.
+- [`docs/guides/dev-quickstart.md`](docs/guides/dev-quickstart.md) — first tenant and accounts on a fresh DB.
+- [`docs/guides/writing-a-prd.md`](docs/guides/writing-a-prd.md) · [`writing-a-wbs.md`](docs/guides/writing-a-wbs.md) — playbooks: author a module PRD; break a module into a WBS (CSV → Jira).
+- [`docs/reference/db-design.md`](docs/reference/db-design.md) — unified DB design; [`ddd-design.md`](docs/reference/ddd-design.md) is the event/integration backbone.
 - [`docs/hosting/`](docs/hosting/) — self-host (docker compose, AWS, scaling, upgrading).
 - [`DESIGN.md`](DESIGN.md) — design tokens and the `packages/shared-ui` contract.
 - [`/.env.example`](.env.example) — every variable the stack reads.
 
-When `docs/architecture.md` and the code disagree, the doc is the bug — fix it there. One version per doc: no Phase tags, no internal milestones, no ADR ledger.
+When `docs/platform/architecture.md` and the code disagree, the doc is the bug — fix it there. One version per doc: no Phase tags, no internal milestones, no ADR ledger.
 
 ## Fixed technical foundations (do not propose alternatives)
 
@@ -58,7 +61,7 @@ Declared via `"setaTier"` in `package.json` (informational, not a separate enfor
 - **Install deps via CLI only**: `pnpm add <pkg>` with no version specifier so the registry resolves latest. Never hand-edit `package.json` versions or `pnpm-lock.yaml`.
 - **Generate migrations via CLI only**: `pnpm --filter @seta/<module> db:generate`, then `pnpm db:migrate`. Never hand-edit files under `drizzle/`.
   - **Exception — SQL Drizzle cannot model** (partitioning, deferred constraint triggers, `pg_notify` wiring, partitioned indexes): hand-written `.sql` files live alongside generated ones in `drizzle/migrations/`. Each begins with a one-line comment naming the limitation. The runner walks lexically; both formats coexist. Never edit a committed migration — write a new numbered one.
-- **Module shape comes from `pnpm gen module`** — see [`docs/creating-modules.md`](docs/creating-modules.md). Don't invent commands; the `pnpm` scripts in root `package.json` are the contract.
+- **Module shape comes from `pnpm gen module`** — see [`docs/guides/creating-modules.md`](docs/guides/creating-modules.md). Don't invent commands; the `pnpm` scripts in root `package.json` are the contract.
 - **`docs/superpowers/` is gitignored — never `git add -f` or push it.** Specs and plans under that path are local working documents only. Commit design docs there freely; they will not appear in the remote repo.
 - **Onboarding contract**: `clone → install → db:up → db:migrate → bash scripts/tenant-bootstrap.sh → dev` yields a working demo in 5 min on a fresh machine. Don't break it.
 

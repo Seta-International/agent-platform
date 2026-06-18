@@ -3,8 +3,6 @@
 | | |
 |---|---|
 | **Product area** | Seta — Planner |
-| **Status** | Baseline · 2026-06-17 |
-| **Version** | 1.0 |
 | **Audience** | Product · PMO · QA |
 
 ---

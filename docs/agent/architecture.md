@@ -4,7 +4,7 @@ Seta's agent system is an **agent-of-agents orchestration**: every chat turn str
 
 This document explains the design by tracing one realistic workload — planner assignment assistance for a product manager — from user pain point through to implementation. The planner is used as the running example because it exercises every layer the system offers: a specialist with read and HITL-gated write tools, a deterministic multi-step workflow (`assignBySkill`), and cross-module read tools owned by `identity`.
 
-**Related documents.** [`architecture.md`](./architecture.md) describes the surrounding platform shape (modules, event bus, identity). [`tech-stack.md`](./tech-stack.md) records the rationale for Mastra, AI SDK v6, and assistant-ui. [`creating-modules.md`](./creating-modules.md) is the module-author guide.
+**Related documents.** [`architecture.md`](../platform/architecture.md) describes the surrounding platform shape (modules, event bus, identity). [`tech-stack.md`](../platform/tech-stack.md) records the rationale for Mastra, AI SDK v6, and assistant-ui. [`creating-modules.md`](../guides/creating-modules.md) is the module-author guide.
 
 > **Scope note.** Every layer described below — the staffing orchestrator and its sub-agents, the registered specialists backing the tool catalogue, the `assignBySkill` and `dedupOnCreate` workflows, and the cross-module read tools — is wired up in the codebase today. Code locations are listed in §21.
 
@@ -667,6 +667,6 @@ flowchart TD
 
 ## Related documents
 
-- [`architecture.md`](./architecture.md) — surrounding platform shape.
-- [`tech-stack.md`](./tech-stack.md) — rationale for Mastra, AI SDK v6, assistant-ui.
-- [`creating-modules.md`](./creating-modules.md) — adding a module and its agent tools.
+- [`architecture.md`](../platform/architecture.md) — surrounding platform shape.
+- [`tech-stack.md`](../platform/tech-stack.md) — rationale for Mastra, AI SDK v6, assistant-ui.
+- [`creating-modules.md`](../guides/creating-modules.md) — adding a module and its agent tools.
