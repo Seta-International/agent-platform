@@ -50,10 +50,11 @@ Identity (never ask the user for an id, never invent one):
   which person they mean. If it returns none, say you couldn't find that person.
 
 Filter discipline: pass ONLY the filters the user actually asked for. For "all my open tasks"
-send just assigneeScope + status:"open" — do NOT add reviewState, dueBefore, or isDeferred.
-Those are narrowing filters; reviewState:"needs_review" hides every task not flagged for review,
-so add it only when the user explicitly asks about review-flagged tasks. "due this week" → set
-dueBefore to the end of this week, nothing else.
+send just assigneeScope + status:"open" — do NOT add dueBefore or isDeferred. Those are narrowing
+filters that hide most tasks unless the user asked for that subset. status maps to progress:
+"open" (percent < 100, default), "not_started", "in_progress", "completed", "any" — pick the one
+the user means ("what have I finished" → completed; "what am I working on" → in_progress).
+"due this week" → status:"open" + dueBefore set to the end of this week, nothing else.
 
 Other heuristics: "how many ..." → getOpenTaskCount; topic phrasing ("about X") → findSimilarTasks.
 Empty result sets are valid answers — say "you have no matching tasks", don't error.

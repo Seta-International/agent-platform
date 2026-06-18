@@ -9,18 +9,45 @@ import { listTasks } from '../domain/list-tasks.ts';
 
 // ─── domain helper (exported for testing) ──────────────────────────────────
 
+/**
+ * Lifecycle status, derived entirely from `percent_complete` (DB buckets: 0, 50, 100).
+ * Ranges (not exact equality) keep the filter robust if intermediate values ever appear.
+ */
+export type QueryTaskStatus = 'open' | 'not_started' | 'in_progress' | 'completed' | 'any';
+
 export interface QueryTasksInput {
   assigneeUserId?: string;
   planId?: string;
   groupId?: string;
   bucketId?: string;
-  status?: 'open' | 'completed' | 'any';
-  reviewState?: 'needs_review';
+  status?: QueryTaskStatus;
   isDeferred?: boolean;
   dueBefore?: string;
   limit?: number;
   cursor?: string;
   session: SessionScope;
+}
+
+/**
+ * Map a lifecycle status to percent_complete bounds. Composed from the domain's
+ * `_lt` / `_gte` conditions — no exact-match filter needed.
+ */
+export function statusToPercentFilters(status: QueryTaskStatus): {
+  percent_complete_lt?: number;
+  percent_complete_gte?: number;
+} {
+  switch (status) {
+    case 'open':
+      return { percent_complete_lt: 100 };
+    case 'not_started':
+      return { percent_complete_lt: 50 };
+    case 'in_progress':
+      return { percent_complete_gte: 50, percent_complete_lt: 100 };
+    case 'completed':
+      return { percent_complete_gte: 100 };
+    case 'any':
+      return {};
+  }
 }
 
 /**
@@ -43,7 +70,6 @@ export interface QueryTaskItem {
   priority: 'urgent' | 'important' | 'medium' | 'low';
   dueAt: string | null;
   labels: string[];
-  reviewState: 'needs_review' | null;
   assigneeUserIds: string[];
   planId: string;
   groupId: string;
@@ -68,19 +94,16 @@ export async function queryTasks(input: QueryTasksInput): Promise<QueryTasksResu
   const { session } = input;
   const status = input.status ?? 'open';
 
-  const filters: Parameters<typeof listTasks>[0]['filters'] = {};
+  const filters: Parameters<typeof listTasks>[0]['filters'] = {
+    ...statusToPercentFilters(status),
+  };
 
   if (input.assigneeUserId !== undefined) filters.assignee_id = input.assigneeUserId;
   if (input.planId !== undefined) filters.plan_id = input.planId;
   if (input.groupId !== undefined) filters.group_id = input.groupId;
   if (input.bucketId !== undefined) filters.bucket_id = input.bucketId;
-  if (input.reviewState !== undefined) filters.review_state = input.reviewState;
   if (input.isDeferred !== undefined) filters.is_deferred = input.isDeferred;
   if (input.dueBefore !== undefined) filters.due_before = input.dueBefore;
-
-  if (status === 'open') filters.percent_complete_lt = 100;
-  else if (status === 'completed') filters.percent_complete_gte = 100;
-  // 'any' → no percent filter
 
   const raw = await listTasks({
     filters,
@@ -124,7 +147,6 @@ export async function queryTasks(input: QueryTasksInput): Promise<QueryTasksResu
     priority: PRIORITY_MAP[t.priority_number as keyof typeof PRIORITY_MAP] ?? 'medium',
     dueAt: t.due_at ?? null,
     labels: labelsByTask.get(t.id) ?? [],
-    reviewState: t.review_state ?? null,
     assigneeUserIds: (t.assignees ?? []).map((a) => a.user_id),
     planId: t.plan_id,
     groupId: groupByPlan.get(t.plan_id) ?? '',
@@ -163,16 +185,13 @@ const inputSchema = z.object({
     .describe('Restrict to tasks in plans belonging to this group.'),
   bucketId: z.string().uuid().optional().describe('Restrict to tasks in this bucket.'),
   status: z
-    .enum(['open', 'completed', 'any'])
+    .enum(['open', 'not_started', 'in_progress', 'completed', 'any'])
     .default('open')
-    .describe('"open" = incomplete only (default). "completed" = 100% done. "any" = all statuses.'),
-  reviewState: z
-    .enum(['needs_review'])
-    .optional()
     .describe(
-      'OPT-IN narrowing filter — OMIT by default. Set to "needs_review" ONLY when the user ' +
-        'explicitly asks for review-flagged tasks. When set it EXCLUDES every task not flagged ' +
-        'for review, so do NOT add it to a general "my open tasks" query.',
+      'Lifecycle filter on percent_complete. "open" = not done, percent < 100 (default). ' +
+        '"not_started" = percent < 50 (not begun). "in_progress" = started but not done ' +
+        '(50 ≤ percent < 100). "completed" = percent ≥ 100. "any" = all statuses. ' +
+        'Use "open" for general "my tasks" questions.',
     ),
   isDeferred: z
     .boolean()
@@ -202,7 +221,6 @@ const taskItemSchema = z.object({
   priority: z.enum(['urgent', 'important', 'medium', 'low']),
   dueAt: z.string().nullable(),
   labels: z.array(z.string()),
-  reviewState: z.enum(['needs_review']).nullable(),
   assigneeUserIds: z.array(z.string()),
   planId: z.string(),
   groupId: z.string(),
@@ -224,14 +242,14 @@ export const plannerQueryTasksTool = defineAgentTool({
   name: 'Query Tasks',
   description:
     'Find tasks matching structured filter criteria — by assignee, plan, group, bucket, ' +
-    'status, review state, or due date.\n\n' +
+    'status (lifecycle via percent_complete), or due date.\n\n' +
     'Use for: "find Tuấn\'s open tasks"; "what\'s overdue in plan X"; ' +
     '"list deferred tasks in group Y". Each result includes its applied labels.\n' +
     'Do NOT use for topic or keyword discovery — use planner_findSimilarTasks instead.\n\n' +
-    'At least one filter must be set. status defaults to "open". For the current user pass ' +
-    'assigneeScope: "me"; for another user pass assigneeUserId (a UUID from a lookup). ' +
-    'Apply optional filters (reviewState, dueBefore, isDeferred) ONLY when the user explicitly ' +
-    'asks for that subset — adding them to a general query wrongly hides most tasks.',
+    'At least one filter must be set. status defaults to "open" (percent < 100). For the current ' +
+    'user pass assigneeScope: "me"; for another user pass assigneeUserId (a UUID from a lookup). ' +
+    'Apply optional filters (dueBefore, isDeferred) ONLY when the user explicitly asks for that ' +
+    'subset — adding them to a general query wrongly hides most tasks.',
   input: inputSchema,
   output: outputSchema,
   rbac: 'planner.task.read.tenant',
