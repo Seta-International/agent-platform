@@ -28,7 +28,7 @@ interface PlanCreatedPayload extends ActorBearing {
     plan_id: string;
     group_id: string;
     name: string;
-    external_source: 'native' | 'm365';
+    external_source?: 'native' | 'm365';
   };
 }
 
@@ -230,8 +230,10 @@ async function handlePlanCreated(
 ): Promise<void> {
   const p = event.payload;
   if (isEcho(p, event.tenantId)) return;
-  // Auto-create only fires for a native plan inside an M365-linked group.
-  if (p.after.external_source !== 'native') return;
+  // Historical planner.plan.created payloads may omit external_source.
+  // Missing means planner-native create and should be mirrored to M365.
+  const source = p.after.external_source ?? 'native';
+  if (source !== 'native') return;
   if (!(await isGroupLinked(ctx.tx, event.tenantId, p.after.group_id))) return;
   await enqueueJob(ctx.tx, 'm365.plan.push-create-plan', {
     tenant_id: event.tenantId,

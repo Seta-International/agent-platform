@@ -54,27 +54,47 @@ export async function runAutoMirror(
       continue;
     }
 
-    const created = await planner.createPlan({
-      group_id,
-      name: plan.title,
-      external_source: 'm365',
-      external_id: plan.id,
-      session,
-    });
+    try {
+      const created = await planner.createPlan({
+        group_id,
+        name: plan.title,
+        external_source: 'm365',
+        external_id: plan.id,
+        session,
+      });
 
-    await planner.linkPlanToM365({ plan_id: created.id, external_id: plan.id, session });
+      await planner.linkPlanToM365({
+        plan_id: created.id,
+        external_id: plan.id,
+        session,
+      });
 
-    await planLinkRepo.upsert({
-      tenantId: tenant_id,
-      groupId: group_id,
-      planId: created.id,
-      externalId: plan.id,
-      initialSnapshot: {},
-    });
+      await planLinkRepo.upsert({
+        tenantId: tenant_id,
+        groupId: group_id,
+        planId: created.id,
+        externalId: plan.id,
+        initialSnapshot: {},
+      });
 
-    await enqueuePlanPull({ tenant_id, plan_id: created.id, full: true });
+      await enqueuePlanPull({ tenant_id, plan_id: created.id, full: true });
 
-    mirrored.push({ plan_id: created.id, external_id: plan.id, title: plan.title });
+      mirrored.push({
+        plan_id: created.id,
+        external_id: plan.id,
+        title: plan.title,
+      });
+    } catch (error) {
+      // Auto-mirror can race with another sync path; treat duplicate-link conflicts as idempotent.
+      const linkNow = await planLinkRepo.findByExternal(tenant_id, plan.id);
+      const message = error instanceof Error ? error.message : String(error);
+      const duplicate = /already linked to this external_id/i.test(message);
+      if (linkNow || duplicate) {
+        skipped.push({ external_id: plan.id, reason: 'already_linked' });
+        continue;
+      }
+      throw error;
+    }
   }
 
   return { mirrored, skipped };
