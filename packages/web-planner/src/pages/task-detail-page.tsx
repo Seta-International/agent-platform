@@ -243,7 +243,7 @@ export function TaskDetailPage({
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className={`flex flex-col ${variant === 'modal' ? 'min-h-0 flex-1' : 'h-full'}`}>
       {variant === 'page' && (
         <TaskDetailHeader
           taskNumber={taskNumberFromId(task.id)}
