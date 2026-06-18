@@ -492,11 +492,16 @@ describe('POST /api/integrations/m365/groups/:groupId/refresh', () => {
       group_id: groupId,
       external_id: 'ext-refresh-aaa',
     });
-    expect(addJob).toHaveBeenNthCalledWith(2, 'm365.plan.auto-mirror', {
-      tenant_id: tenantId,
-      group_id: groupId,
-      external_group_id: 'ext-refresh-aaa',
-    });
+    expect(addJob).toHaveBeenNthCalledWith(
+      2,
+      'm365.plan.auto-mirror',
+      {
+        tenant_id: tenantId,
+        group_id: groupId,
+        external_group_id: 'ext-refresh-aaa',
+      },
+      { jobKey: `auto-mirror:${tenantId}:${groupId}` },
+    );
   });
 
   it('returns 409 NOT_LINKED when no link exists', async () => {
