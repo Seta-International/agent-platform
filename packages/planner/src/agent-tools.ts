@@ -10,7 +10,9 @@ export {
   plannerGetOpenTaskCountTool,
   plannerGetTaskTool,
   plannerListBucketsTool,
+  plannerListCommentsTool,
   plannerListGroupMembersTool,
   plannerListPlansTool,
+  plannerQueryTasksTool,
   plannerSearchGroupMembersBySkillsTool,
 } from './backend/agent-tools/index.ts';
