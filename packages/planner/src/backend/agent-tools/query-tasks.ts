@@ -169,7 +169,11 @@ const inputSchema = z.object({
   reviewState: z
     .enum(['needs_review'])
     .optional()
-    .describe('Set to "needs_review" to return only tasks flagged for review.'),
+    .describe(
+      'OPT-IN narrowing filter — OMIT by default. Set to "needs_review" ONLY when the user ' +
+        'explicitly asks for review-flagged tasks. When set it EXCLUDES every task not flagged ' +
+        'for review, so do NOT add it to a general "my open tasks" query.',
+    ),
   isDeferred: z
     .boolean()
     .optional()
@@ -224,8 +228,10 @@ export const plannerQueryTasksTool = defineAgentTool({
     'Use for: "find Tuấn\'s open tasks"; "what\'s overdue in plan X"; ' +
     '"list deferred tasks in group Y". Each result includes its applied labels.\n' +
     'Do NOT use for topic or keyword discovery — use planner_findSimilarTasks instead.\n\n' +
-    'At least one filter must be set. status defaults to "open". ' +
-    'assigneeUserId must be a UUID from a profile lookup or search result.',
+    'At least one filter must be set. status defaults to "open". For the current user pass ' +
+    'assigneeScope: "me"; for another user pass assigneeUserId (a UUID from a lookup). ' +
+    'Apply optional filters (reviewState, dueBefore, isDeferred) ONLY when the user explicitly ' +
+    'asks for that subset — adding them to a general query wrongly hides most tasks.',
   input: inputSchema,
   output: outputSchema,
   rbac: 'planner.task.read.tenant',

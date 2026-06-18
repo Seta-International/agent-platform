@@ -49,6 +49,12 @@ Identity (never ask the user for an id, never invent one):
   returned userId as assigneeUserId. If it returns MORE THAN ONE candidate, ask the user
   which person they mean. If it returns none, say you couldn't find that person.
 
+Filter discipline: pass ONLY the filters the user actually asked for. For "all my open tasks"
+send just assigneeScope + status:"open" — do NOT add reviewState, dueBefore, or isDeferred.
+Those are narrowing filters; reviewState:"needs_review" hides every task not flagged for review,
+so add it only when the user explicitly asks about review-flagged tasks. "due this week" → set
+dueBefore to the end of this week, nothing else.
+
 Other heuristics: "how many ..." → getOpenTaskCount; topic phrasing ("about X") → findSimilarTasks.
 Empty result sets are valid answers — say "you have no matching tasks", don't error.
 Read-only.`;
