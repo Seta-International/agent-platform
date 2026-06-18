@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 
-import React, { type JSX } from 'react';
+import type { JSX } from 'react';
 import { Body, Button, Container, Head, Heading, Html, Text } from 'react-email';
 import type { MailTemplateProps } from '../../types.ts';
 
