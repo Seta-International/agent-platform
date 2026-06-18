@@ -41,6 +41,8 @@ import { registerStaffingContributions } from '@seta/staffing/register';
 // MODULE_IMPORTS_END — generator inserts new register*Contributions imports above this comment.
 import pino from 'pino';
 import { buildServerApp, registerAppContributions } from './build.ts';
+import { makeIntentClassifier } from './chat-routing/intent-classifier.ts';
+import { makeChatRouter } from './chat-routing/route-chat.ts';
 import { parseEnv } from './env.ts';
 import { logStreams } from './log-streams.ts';
 import { failedLoginAlertSubscriber } from './subscribers/failed-login-alert.ts';
@@ -160,8 +162,7 @@ const staffingOrchestration = buildStaffingOrchestrationRuntime({
 });
 
 // Planner QnA runtime — built + registered here so it lands before the
-// registries freeze. Not yet routed: Plan 04 introduces the chat router that
-// dispatches to plannerQnaOrchestration.runStream.
+// registries freeze.
 const plannerFindSimilar = plannerFindSimilarTasksTool({
   provider: resolveEmbeddingProvider(),
   databaseUrl: env.DATABASE_URL,
@@ -170,10 +171,21 @@ const plannerQnaOrchestration = buildPlannerQnaRuntime({
   resolveModel: () => resolveModel('auto', { tierHint: 'fast' }).model,
   findSimilarTasksTool: plannerFindSimilar,
 });
-void plannerQnaOrchestration; // wired into the chat router in Plan 04
 
 SpecializedAgentRegistry.freeze();
 OrchestrationRegistry.freeze();
+
+// Tiered chat router: classify each turn (tier-1 domain hard-coded to planner;
+// tier-2 staffing vs planner_qna) and dispatch to the matching runtime. Composed
+// here because apps/server is the only layer that can see both runtimes; the
+// agent engine stays import-isolated and receives one chatOrchestration function.
+const chatRouter = makeChatRouter({
+  classify: makeIntentClassifier({
+    resolveModel: () => resolveModel('auto', { tierHint: 'fast' }).model,
+  }),
+  staffing: staffingOrchestration.runStream,
+  plannerQna: plannerQnaOrchestration.runStream,
+});
 
 // Build the agent engine up front so subscriberBuilders contributed by
 // orchestrator modules (e.g. staffing) can be constructed against the live
@@ -186,10 +198,10 @@ const agent = registerAgent({
   // Mastra and the per-turn orchestrator Mastra share one physical store.
   mastraStorage,
   log: log.child({ subsystem: 'agent' }),
-  // The chat runtime: every chat turn streams through the staffing
-  // orchestration's streaming entrypoint. apps/server is the only layer that
-  // can bind the staffing runtime to the engine surface.
-  chatOrchestration: staffingOrchestration.runStream,
+  // The chat runtime: every chat turn streams through the tiered chat router,
+  // which classifies the turn and dispatches to the staffing or planner_qna
+  // runtime. apps/server is the only layer that can compose both.
+  chatOrchestration: chatRouter,
   // Native-suspend HITL resume: POST /chat/resume re-enters the suspended
   // proposeAssignment composite via resumeStream. Same composition-root binding.
   resumeOrchestration: staffingOrchestration.runResume,
