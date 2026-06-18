@@ -4,7 +4,7 @@ This guide walks an engineer from `pnpm gen module` to a working, agent-callable
 
 The guide is structured so that contributors can pick the depth that matches the time they have available. Hackathon participants should follow the **fast path** sections; production module authors should follow the full sequence.
 
-If anything below conflicts with [`architecture.md`](./architecture.md) §6 (boundaries) or §7 (canonical shape), the architecture document is authoritative — this guide is the operator's view.
+If anything below conflicts with [`architecture.md`](../platform/architecture.md) §6 (boundaries) or §7 (canonical shape), the architecture document is authoritative — this guide is the operator's view.
 
 ---
 
@@ -707,11 +707,11 @@ The boundary gate (`pnpm lint`) catches the most common new-module mistakes: cro
 
 | Subject | File |
 |---|---|
-| Full `reg.module({...})` shape | [`architecture.md`](./architecture.md) §9 |
-| Boundary rules dep-cruiser enforces | [`architecture.md`](./architecture.md) §6 |
+| Full `reg.module({...})` shape | [`architecture.md`](../platform/architecture.md) §9 |
+| Boundary rules dep-cruiser enforces | [`architecture.md`](../platform/architecture.md) §6 |
 | Reference feature module | `packages/planner/` |
 | Reference frontend app package | `packages/web-admin/`, `packages/web-planner/` |
 | Reference orchestrator module | `packages/staffing/` |
 | Tool contract definition | `sdks/agent/src/index.ts` |
 | `AppManifest` contract definition | `sdks/module/src/index.ts` |
-| Agent system design | [`agent-architecture.md`](./agent-architecture.md) |
+| Agent system design | [`agent-architecture.md`](../agent/architecture.md) |

@@ -337,6 +337,6 @@ This document records each choice, the alternatives evaluated, and the condition
 ## See also
 
 - [`architecture.md`](./architecture.md) — how these pieces compose into the system shape.
-- [`agent-architecture.md`](./agent-architecture.md) — Mastra + AI SDK v6 + assistant-ui in motion.
-- [`creating-modules.md`](./creating-modules.md) — Hono routes, Drizzle schemas, agent tools in practice.
-- [`hosting/aws.md`](./hosting/aws.md) — ECS Fargate + OpenTofu deployed.
+- [`agent-architecture.md`](../agent/architecture.md) — Mastra + AI SDK v6 + assistant-ui in motion.
+- [`creating-modules.md`](../guides/creating-modules.md) — Hono routes, Drizzle schemas, agent tools in practice.
+- [`hosting/aws.md`](../hosting/aws.md) — ECS Fargate + OpenTofu deployed.

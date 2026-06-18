@@ -1,6 +1,6 @@
 # Seta Agentic Platform
 
-> **Architecture Reference:** For the complete implementation details and design principles, see [`docs/architecture.md`](docs/architecture.md). This is the single source of truth for the platform's implementation shape.
+> **Architecture Reference:** For the complete implementation details and design principles, see [`docs/platform/architecture.md`](docs/platform/architecture.md). This is the single source of truth for the platform's implementation shape.
 
 ## 1. System Overview & Repo Structure
 
@@ -87,10 +87,10 @@ The platform architecture remains flexible. While Mastra is configured by defaul
 ```
 
 **Documentation:**
-- **[`docs/architecture.md`](docs/architecture.md)** — system architecture & design principles (single source of truth)
-- **[`docs/agent-architecture.md`](docs/agent-architecture.md)** — three-tier supervisor agent system
-- **[`docs/dev-quickstart.md`](docs/dev-quickstart.md)** — local setup & first run
-- **[`docs/creating-modules.md`](docs/creating-modules.md)** — building a module with `pnpm gen module`
+- **[`docs/platform/architecture.md`](docs/platform/architecture.md)** — system architecture & design principles (single source of truth)
+- **[`docs/agent/architecture.md`](docs/agent/architecture.md)** — three-tier supervisor agent system
+- **[`docs/guides/dev-quickstart.md`](docs/guides/dev-quickstart.md)** — local setup & first run
+- **[`docs/guides/creating-modules.md`](docs/guides/creating-modules.md)** — building a module with `pnpm gen module`
 - **[`docs/hosting/`](docs/hosting/)** — self-hosting (Docker Compose, AWS, scaling, upgrades)
 - **[`AGENTS.md`](AGENTS.md)** — contract for AI coding agents working in this repo
 
@@ -113,8 +113,8 @@ pnpm dev                 # serves the app at http://localhost:5173
 Sign in at <http://localhost:5173/login> as `admin@hackathon.com` / `ChangeMe@2026`.
 
 New here? The full walkthrough — secret generation, env reference, data-loading
-options, and troubleshooting — is in **[`docs/dev-quickstart.md`](docs/dev-quickstart.md)**.
-To build a business module, see **[`docs/creating-modules.md`](docs/creating-modules.md)**.
+options, and troubleshooting — is in **[`docs/guides/dev-quickstart.md`](docs/guides/dev-quickstart.md)**.
+To build a business module, see **[`docs/guides/creating-modules.md`](docs/guides/creating-modules.md)**.
 
 ---
 
@@ -153,7 +153,7 @@ flowchart TD
 
 ### Detailed request flow
 
-For the full step-by-step sequence — request ingestion, RBAC, specialist delegation, read-tool context gathering, HITL approval, and the transactional outbox commit — see **[`docs/agent-architecture.md`](docs/agent-architecture.md)**.
+For the full step-by-step sequence — request ingestion, RBAC, specialist delegation, read-tool context gathering, HITL approval, and the transactional outbox commit — see **[`docs/agent/architecture.md`](docs/agent/architecture.md)**.
 
 ---
 

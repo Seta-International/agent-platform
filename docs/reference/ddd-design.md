@@ -4,7 +4,7 @@
 > aggregate roots + invariants, and domain events as the data-in/out contract. Grounded in the
 > [PM/PSA + DDD research](#sources) (Kantata/Float/Runn for PSA; Vernon/O-AA/Context-Mapper for DDD).
 >
-> **Source of truth: the module PRDs** ([`People-PRD`](../modules/People-PRD.md), [`Hiring-PRD`](../modules/Hiring-PRD.md), [`PM-PRD`](../modules/PM-PRD.md)) and the data design in [`db-design.md`](./db-design.md). This is the integration backbone behind them. Carried decisions: **leave is owned by the timesheet system** (`people.leave.*` dropped; `pm` reads availability from timesheet); **re-hire** = `person` identity + many `employment_period`s, guarded by a person-match at the `hiring`→`people` boundary; **internal mobility feeds a single `people` job-change ("movement")** so `hiring.mobility.approved` is consumed by **both** `pm` and `people`.
+> **Source of truth: the module PRDs** ([`People-PRD`](../modules/people-prd.md), [`Hiring-PRD`](../modules/hiring-prd.md), [`PM-PRD`](../modules/pm-prd.md)) and the data design in [`db-design.md`](./db-design.md). This is the integration backbone behind them. Carried decisions: **leave is owned by the timesheet system** (`people.leave.*` dropped; `pm` reads availability from timesheet); **re-hire** = `person` identity + many `employment_period`s, guarded by a person-match at the `hiring`→`people` boundary; **internal mobility feeds a single `people` job-change ("movement")** so `hiring.mobility.approved` is consumed by **both** `pm` and `people`.
 >
 
 ## 1. Bounded contexts

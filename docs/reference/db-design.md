@@ -1,6 +1,6 @@
 # People / Hiring / PM — unified database design
 
-> **Source of truth: the module PRDs** ([`People-PRD`](../modules/People-PRD.md), [`Hiring-PRD`](../modules/Hiring-PRD.md), [`PM-PRD`](../modules/PM-PRD.md)). This is the data design behind them.
+> **Source of truth: the module PRDs** ([`People-PRD`](../modules/people-prd.md), [`Hiring-PRD`](../modules/hiring-prd.md), [`PM-PRD`](../modules/pm-prd.md)). This is the data design behind them.
 >
 > **Authoritative DDL** (standalone review DB for DBeaver): apply [`review-schema.sql`](./review-schema.sql), then [`review-seed.sql`](./review-seed.sql) for sample data — validated on a standalone Postgres.
 >
@@ -463,4 +463,4 @@ _Note: `people.leave._`events are gone — leave/availability is the timesheet s
 
 ## Per-module pointers
 
-`people.md`, `hiring.md`, `pm.md` = this document (their schema sections above).
+Per-module schema lives in the schema sections above; the product context for each module is in its PRD ([`People-PRD`](../modules/people-prd.md), [`Hiring-PRD`](../modules/hiring-prd.md), [`PM-PRD`](../modules/pm-prd.md)).
