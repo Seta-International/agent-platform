@@ -32,7 +32,9 @@ describe('planner_resolveMember', () => {
         tenant_id,
         permissions: ['planner.group.member.read'],
       });
-      const out = await plannerResolveMemberTool.execute({ query: 'tuan' }, ctx);
+      const out = (await plannerResolveMemberTool.execute!({ query: 'tuan' }, ctx)) as {
+        candidates: { userId: string; displayName: string; email: string }[];
+      };
 
       expect(out.candidates).toHaveLength(1);
       expect(out.candidates[0]).toMatchObject({ userId: tuan, displayName: 'Nguyen Tuan' });
@@ -57,7 +59,9 @@ describe('planner_resolveMember', () => {
         tenant_id: a.tenant_id,
         permissions: ['planner.group.member.read'],
       });
-      const out = await plannerResolveMemberTool.execute({ query: 'Shared Name' }, ctx);
+      const out = (await plannerResolveMemberTool.execute!({ query: 'Shared Name' }, ctx)) as {
+        candidates: { userId: string }[];
+      };
 
       expect(out.candidates).toHaveLength(0);
     });
