@@ -20,6 +20,8 @@ import {
 import { registerKnowledgeContributions } from '@seta/knowledge/register';
 import { registerNotificationsContributions } from '@seta/notifications/register';
 import { assignTask } from '@seta/planner';
+import { plannerFindSimilarTasksTool } from '@seta/planner/agent-tools';
+import { buildPlannerQnaRuntime } from '@seta/planner/orchestration';
 import { registerPlannerContributions } from '@seta/planner/register';
 import { createCrypto, createKeyProviderFromEnv, parseCryptoEnv } from '@seta/shared-crypto';
 import { closePools, getPool, initPools } from '@seta/shared-db';
@@ -156,6 +158,20 @@ const staffingOrchestration = buildStaffingOrchestrationRuntime({
     },
   },
 });
+
+// Planner QnA runtime — built + registered here so it lands before the
+// registries freeze. Not yet routed: Plan 04 introduces the chat router that
+// dispatches to plannerQnaOrchestration.runStream.
+const plannerFindSimilar = plannerFindSimilarTasksTool({
+  provider: resolveEmbeddingProvider(),
+  databaseUrl: env.DATABASE_URL,
+});
+const plannerQnaOrchestration = buildPlannerQnaRuntime({
+  resolveModel: () => resolveModel('auto', { tierHint: 'fast' }).model,
+  findSimilarTasksTool: plannerFindSimilar,
+});
+void plannerQnaOrchestration; // wired into the chat router in Plan 04
+
 SpecializedAgentRegistry.freeze();
 OrchestrationRegistry.freeze();
 
