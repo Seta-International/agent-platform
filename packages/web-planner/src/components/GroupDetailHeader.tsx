@@ -161,7 +161,7 @@ export function GroupDetailHeader({
               New plan
             </Button>
           )}
-          <DropdownMenu>
+          <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
