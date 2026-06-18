@@ -1,8 +1,12 @@
 # `people` module — backend discovery
 
-> Status: **Discovery (in progress)**. Backend only (see [`overview.md`](./overview.md) §3 for why).
-> Built in the 7 steps from `overview.md` §7, with a review gate between each. Steps 3–7 are appended
-> as we go.
+> ⚠️ **Superseded (2026-06-18) — stale.** Product source of truth is **[People-PRD](../modules/People-PRD.md)**.
+> Notable reversals since this spike: **leave is owned by the timesheet system** (People integrates, doesn't
+> own it); **re-hire** links to the existing person (person → many employment periods); **internal mobility**
+> from `hiring` records a single job-change ("movement") here. The PRD wins on any conflict.
+>
+> Original status: **Discovery (in progress)**. Backend only (see [`overview.md`](./overview.md) §3 for why).
+> Built in the 7 steps from `overview.md` §7, with a review gate between each.
 
 The `people` module is the system-of-record for the **employee/HR record** and the **employee
 lifecycle**. It links to `identity` by `user_id` (no cross-schema FK; event-driven — `overview.md`

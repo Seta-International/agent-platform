@@ -1,8 +1,13 @@
 # `hiring` module — backend discovery (spike)
 
-> Status: **Spike (in progress)**. Backend only. Built in the 7 steps from [`overview.md`](./overview.md)
-> §7; system + DB design deferred until people/hiring/pm boundaries are all clear. Cross-module
-> boundaries with `people` and `pm` are the focus of this spike.
+> ⚠️ **Superseded (2026-06-18) — stale.** Product source of truth is **[Hiring-PRD](../modules/Hiring-PRD.md)**.
+> Notable additions since this spike: **internal mobility records a single job-change ("movement") in `people`**
+> against the existing person (Hiring never edits the employment record); **re-hire/boomerang** runs a
+> person-match at the hire handoff so `people` adds a new employment period to the existing person — see
+> [`benchmarking-mobility-rehire.md`](./benchmarking-mobility-rehire.md). The PRD wins on any conflict.
+>
+> Original status: **Spike (in progress)**. Backend only. Built in the 7 steps from [`overview.md`](./overview.md)
+> §7; system + DB design deferred until people/hiring/pm boundaries are all clear.
 
 The `hiring` module owns **recruitment** — requisitions, candidates, interviews, offers, and the
 internal-mobility approval flow. It sits between **`pm`** (which owns the *demand*: project staffing

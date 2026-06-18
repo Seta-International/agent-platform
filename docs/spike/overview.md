@@ -1,8 +1,16 @@
 # People & HR — Program Overview
 
-> Status: **Discovery (in progress)**. This document and the per-module docs under
-> `docs/people-hr/` are the source of truth for the People & HR design. Decisions are recorded in
-> §9; open questions in §8.
+> ⚠️ **Superseded (2026-06-18) — these spike docs are now stale.** The product source of truth is the
+> module PRDs in [`docs/modules/`](../modules/): **[People-PRD](../modules/People-PRD.md)** and
+> **[Hiring-PRD](../modules/Hiring-PRD.md)**. The spike is kept for backend/discovery context only.
+> Known reversals (PRD wins on any conflict):
+> - **Time-off / leave is owned by the external timesheet system**, not `people` — People only
+>   integrates via the timesheet API (the spike's R2 "leave in people" is reversed).
+> - **Internal mobility (`hiring`) feeds a single job-change ("movement") in `people`**, and a
+>   **re-hire links to the existing person** (person → many employment periods) via a boundary match —
+>   grounded in [`benchmarking-mobility-rehire.md`](./benchmarking-mobility-rehire.md).
+>
+> Original status: **Discovery (in progress)**; decisions in §9, open questions in §8.
 
 This is the shared foundation for **three new modules** — **`people`** (HR core + employee lifecycle),
 **`hiring`** (recruitment), and **`pm`** (project management / PSA — Accounts, Projects, Resource

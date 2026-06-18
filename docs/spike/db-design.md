@@ -1,5 +1,18 @@
 # People / Hiring / PM — unified database design (Step 7)
 
+> ⚠️ **Revision 2026-06-18 — superseded in parts by the module technical specs**
+> ([`People-technical-spec`](../modules/People-technical-spec.md), [`Hiring-technical-spec`](../modules/Hiring-technical-spec.md)),
+> which are the source of truth. Reconciled deltas (applied as inline notes below):
+> - **Leave tables removed from `people`** (`leave_type`/`leave_ledger`/`leave_balance`/`leave_request`) —
+>   **leave is owned by the timesheet system**; `people` only proxies its API. `people.leave.*` events dropped;
+>   `pm` reads availability from the timesheet system, not from a `people` leave event.
+> - **Re-hire:** `worker` splits into a stable **`person` identity + 1..N `employment_period`** rows
+>   (re-hire adds a period, never a duplicate person); `original_hire_date` immutable + `seniority_date`.
+> - **`movement_request.source`** (`hr_initiated|internal_mobility`); `hiring.mobility.approved` opens a
+>   `people` movement when role/grade changes (dual consumer with `pm`).
+> - **`offer`** gains `respond_by` + `expired`; **`candidate.segment`** (alumni); person-match carries `person_id?`.
+> - **v3 hardening — authoritative DDL is [`review-schema.sql`](./review-schema.sql)** (applied + verified on a standalone Postgres; sample data in [`review-seed.sql`](./review-seed.sql)): temporal **`EXCLUDE`** overlap guards on comp/capacity/rate; a generic **`core.audit_log`** trigger (who/what/when) + **`core.events`** outbox; an event-maintained **`people.rm_worker_directory`** projection (replaces the directory view); **`people.lifecycle_case_step`** (step-duration); unified **`hiring.application`** (external candidate × req OR internal worker); RFC 5545 **RRULE** on `hiring.interview` + an **`integrations`** schema (`external_calendar_link`/`calendar_sync_state`) for two-way Teams/Google sync. **The ER diagrams below reflect v3** (the prose schema sections above are the earlier illustrative form).
+>
 > Drizzle schema for all three modules in one pass so write-tables, read-models, and the event/data
 > contracts ([`ddd-design.md`](./ddd-design.md)) line up. One `pgSchema` per module with
 > `schemaFilter` scoping; **no cross-schema FK**; cross-module data flows only via events into
@@ -127,17 +140,11 @@
   (FK→`scorecard_criterion`), `score smallint`, `evidence`. pk `(review_id, criterion_id)`. Makes
   "avg score on criterion X org-wide" and prev-period delta indexable instead of jsonb scans.
 
-**Leave (P-C11)** — *ledger, not a mutable balance cell*
-- `leave_type` — `name`, `accrual_policy jsonb`.
-- `leave_ledger` *(append-only SoR)* — `worker_id`, `leave_type_id`, `delta numeric` (+accrual /
-  −approved), `reason`, `source_event_id`, `at`. balance = `Σ(delta)`; idempotent on
-  `source_event_id` (no double-accrual / double-decrement under concurrent cron + approval).
-- `leave_balance` *(optional cache)* — `worker_id`, `leave_type_id`, `balance numeric`, `as_of`. pk
-  `(worker_id, leave_type_id)`. A materialized snapshot of the ledger for hot reads; never the SoR.
-- `leave_request` — `worker_id` (FK), `leave_type_id`, `date_from`, `date_to`, `status`,
-  `approver_user_id`, `decided_at`. idx `(tenant_id, worker_id, status)`. **`EXCLUDE USING gist`**
-  (`btree_gist`) on `(worker_id WITH =, daterange(date_from,date_to) WITH &&) WHERE status='approved'`
-  enforces no-overlap in the DB, not the domain.
+**~~Leave (P-C11)~~ — REMOVED (2026-06-18): leave is owned by the timesheet system.**
+`people` holds **no** leave tables (`leave_type`/`leave_ledger`/`leave_balance`/`leave_request` deleted)
+and emits no `people.leave.*` events. `people` proxies the timesheet API for balance read + request
+submit (`integrations`); `pm` reads availability from the timesheet system directly. The ledger/EXCLUDE
+no-overlap design moves with leave to that system.
 
 **Headcount (P-C12)**
 - `headcount_plan` — `org_unit_id`, `period`, `planned_count int`, `notes`. idx `(tenant_id, period)`.
@@ -256,98 +263,139 @@
 
 ---
 
-## ER diagrams (Mermaid)
+## ER diagrams (Mermaid) — v3
+
+> Reflect [`review-schema.sql`](./review-schema.sql). Relationship lines are intra-schema FKs (verified
+> against the live DB). Cross-module references (`worker_id = person.id`, `resource_request_id`,
+> `position_id`, `criterion_id`, …) are **bare uuids, no FK**; read-models (`rm_*`) are event-fed
+> projections with no FK in either direction. Attribute blocks show only representative columns — the
+> SQL is authoritative.
 
 ### `people` schema
 ```mermaid
 erDiagram
-  worker ||--o{ worker_skill : has
+  person ||--|| worker : "directory fields"
+  person ||--o{ employment_period : "1..N periods (re-hire)"
+  person ||--o{ worker_compensation : "comp (effective-dated, EXCLUDE)"
+  person ||--o{ worker_capacity : "capacity (effective-dated, EXCLUDE)"
+  person ||--o{ worker_skill : has
   skill ||--o{ worker_skill : tags
-  worker ||--o{ worker_compensation : "comp (effective-dated)"
-  worker ||--o{ worker_capacity : "capacity (effective-dated)"
+  person ||--o{ worker_history : logs
+  person ||--o{ employee_document : owns
+  employee_document ||--o{ employee_document : supersedes
   org_unit ||--o{ org_unit : parent
   org_unit ||--o{ position : contains
-  worker |o--o{ position : holds
-  worker ||--o{ worker_history : logs
-  worker ||--o{ employee_document : owns
-  worker ||--o{ lifecycle_case : has
-  worker ||--o{ movement_request : requests
-  movement_request ||--o{ movement_step : steps
+  org_unit ||--o{ headcount_plan : plans
+  person ||--o{ lifecycle_case : has
+  lifecycle_case ||--o{ lifecycle_case_step : steps
+  person ||--o{ movement_request : requests
+  movement_request ||--o{ movement_step : approvals
+  person ||--o{ probation_review : reviews
+  probation_review |o--o| review : instrument
   scorecard_template ||--o{ scorecard_criterion : defines
+  scorecard_template ||--o{ review_cycle : pins
   review_cycle ||--o{ goal : contains
   review_cycle ||--o{ review : contains
+  person ||--o{ review : about
   review ||--o{ review_score : scores
   scorecard_criterion ||--o{ review_score : "scored on"
-  worker ||--o{ probation_review : has
-  probation_review |o--o| review : instrument
-  worker ||--o{ leave_ledger : "balance = Σ delta"
-  leave_type ||--o{ leave_ledger : of
-  worker ||--o{ leave_request : files
-  leave_type ||--o{ leave_request : of
-  org_unit ||--o{ headcount_plan : plans
+  person {
+    uuid id PK "= cross-module worker_id"
+    uuid user_id "identity link (no FK)"
+    date original_hire_date "immutable"
+    date seniority_date
+  }
   worker {
-    uuid id PK
-    uuid tenant_id
-    uuid user_id "identity link, no FK"
-    text status
+    uuid person_id FK "unique 1:1"
+    text full_name "GIN trigram"
+    text work_email
+    jsonb emergency_contact
+  }
+  employment_period {
+    uuid person_id FK
+    int seq
+    date end_date "null = open (partial-unique)"
     text lifecycle_stage
-    timestamptz profile_completed_at
   }
   worker_compensation {
-    uuid worker_id FK
+    uuid person_id FK
     date effective_from
+    date effective_to "EXCLUDE no-overlap"
     numeric salary_amount "sensitive/RLS"
   }
   position {
-    uuid id PK
     uuid org_unit_id FK
     text headcount_status "open|filled"
-    uuid holder_worker_id FK
+    uuid holder_worker_id "= person.id; 1-per-holder"
   }
-  rm_allocation {
-    uuid worker_id "from pm (ACL)"
-    uuid project_id
-    uuid account_id "drives RBAC scope"
+  lifecycle_case_step {
+    uuid case_id FK
+    text status "todo|doing|done|blocked"
+    timestamptz started_at
+    timestamptz done_at "step-duration"
+  }
+  rm_worker_directory {
+    uuid person_id PK "event-maintained projection"
+    text lifecycle_stage "indexed (LIMIT pushdown)"
+    text full_name "GIN trigram search"
   }
 ```
+*Standalone (no FK): `account_access_grant`, `document_requirement`, and the read-models `rm_allocation`, `rm_account_project`, `rm_worker_directory`, `rm_workforce_metrics` (projected from pm / events).*
 
 ### `hiring` schema
 ```mermaid
 erDiagram
+  requisition ||--o{ requisition_skill : requires
   requisition ||--o{ application : receives
-  application ||--o{ application_event : history
-  candidate ||--o{ interview : sits
-  application ||--o{ interview : sits
-  candidate ||--o{ offer : receives
-  requisition |o--o{ offer : for
+  candidate ||--o{ application : "external applies"
+  candidate ||--o{ candidate_skill : has
+  application ||--o{ candidate_event : "stage history (funnel)"
+  application ||--o{ application_event : "endorsement history"
+  application ||--o{ interview : schedules
+  interview ||--o{ interview_panelist : panel
+  interview ||--o{ interview_score : scores
+  interview ||--o{ calendar_event_override : "RRULE overrides"
+  application ||--o{ offer : "leads to"
+  candidate ||--o{ offer : "1 accepted (partial-unique)"
+  kb_failure_theme ||--o{ kb_theme_case : clusters
+  application |o--o{ kb_theme_case : evidence
   requisition {
     uuid id PK
-    uuid resource_request_id "pm placeholder, no FK"
-    uuid position_id "people, no FK"
-    text status
-    text stage
-    jsonb jd
+    uuid resource_request_id "pm (no FK)"
+    uuid position_id "people (no FK)"
+    text status "open|on_hold|filled|cancelled"
   }
   application {
     uuid id PK
     uuid requisition_id FK
-    uuid worker_id "people, no FK"
-    text status "mobility chain"
+    uuid candidate_id FK "external"
+    uuid worker_id "= person.id (internal)"
+    text kind "external|internal"
+    text stage
+  }
+  interview {
+    uuid id PK
+    uuid application_id FK
+    text rrule "RFC 5545"
+    text tzid "IANA"
+    text ical_uid "identity hub"
   }
   offer {
     uuid id PK
     uuid candidate_id FK
-    uuid hired_event_id "idempotency guard"
+    text status "...|expired"
+    uuid hired_event_id "fire-once guard"
   }
 ```
+*Standalone: `kb_article` and read-models `rm_worker` (+`rm_worker_skill`), `rm_resource_request`, `rm_scorecard_template`/`rm_scorecard_criterion`, `rm_account_project`, `recruiter_account_assignment`.*
 
 ### `pm` schema
 ```mermaid
 erDiagram
   account ||--o{ project : owns
-  account |o--o{ project_request : for
   project ||--o{ allocation : staffs
-  allocation ||--o{ allocation_day_override : "exceptions to rule"
+  allocation ||--o{ allocation_day_override : "rule exceptions"
+  allocation ||--o{ allocation_skill : "placeholder criteria"
   project ||--o{ weekly_report : reports
   weekly_report ||--o{ weekly_report_qcdp : dimensions
   project ||--o{ risk : tracks
@@ -357,44 +405,72 @@ erDiagram
     uuid id PK
     uuid project_id FK
     uuid worker_id "null = placeholder (1 seat)"
-    daterange dates "date_from..date_to"
     int minutes_per_day "recurrence rule"
-    uuid resource_request_id
+    int weekday_mask
     text status "placeholder|committed"
   }
-  allocation_day_override {
-    uuid allocation_id FK
-    date day
-    int minutes "only deviating days"
-  }
   rate {
-    uuid role_worker_project_phase "exactly one (CHECK)"
+    text scope "role|worker|project|phase (CHECK=1)"
     numeric cost_rate
     numeric bill_rate
-    date effective_from
+    date effective_to "EXCLUDE no-overlap"
   }
-  rm_resource_capacity {
-    uuid worker_id "from people (ACL)"
-    date effective_from
-    numeric fte "effective-dated"
+```
+*Standalone: `project_request`; read-models `rm_resource` (+`rm_resource_skill`), `rm_resource_capacity`, `rm_effective_rate`, `rm_utilization` (4-way split), `rm_project_health`, `rm_margin`.*
+
+### `core` + `integrations` schemas (v3)
+```mermaid
+erDiagram
+  kb_failure_theme ||--o{ kb_theme_case : member
+  core_events {
+    uuid id PK
+    text event_type "module.aggregate.verb"
+    jsonb payload
+    timestamptz occurred_at "BRIN"
+  }
+  core_audit_log {
+    bigint id PK "append-only; REVOKE upd/del"
+    oid table_oid
+    uuid record_id
+    uuid actor_id "who"
+    jsonb old_record
+    jsonb record
+  }
+  external_calendar_link {
+    uuid calendar_event_id "= interview.id (no FK)"
+    text provider "msgraph|google"
+    text external_event_id
+    text etag_or_changekey "concurrency"
+  }
+  calendar_sync_state {
+    text provider
+    text sync_token "Google"
+    text delta_link "Graph"
+    timestamptz channel_expiry "renew webhook"
   }
 ```
 
-### Cross-module event flow (the integration contract)
+### Cross-module event flow (the integration contract) — v3
 ```mermaid
 flowchart LR
   identity -->|user.created/updated| people
+  timesheet[(Timesheet system)] -->|leave balance / availability API| people
   pm -->|resource_request.opened| hiring
-  hiring -->|requisition.opened| pm
+  hiring -->|requisition.opened/closed| pm
   hiring -->|mobility.approved| pm
-  hiring -->|candidate.hired| people
+  hiring -->|mobility.approved -> job-change| people
+  hiring -->|candidate.hired + person_id?| people
   people -->|worker.created + resource_request_id| pm
-  people -->|capacity_changed / leave.approved| pm
+  people -->|capacity_changed| pm
   pm -->|assignment.created/changed/ended| people
-  pm -.->|getUtilization batch query, no event| people
+  pm -.->|getUtilization batch query| people
+  pm -.->|availability| timesheet
   people <-->|createPlan/Task; task.*| planner
+  hiring <-->|interview.scheduled / external id| integrations
+  integrations -->|Teams + Google two-way sync| cal[(Teams / Google Calendar)]
   people & hiring & pm -->|agent-tools| agent
 ```
+*Note: `people.leave.*` events are gone — leave/availability is the timesheet system's; `pm` reads availability from it directly.*
 
 ## Normalization & optimization review
 
