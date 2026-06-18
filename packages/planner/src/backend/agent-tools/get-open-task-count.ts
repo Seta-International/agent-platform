@@ -54,6 +54,31 @@ export const plannerGetOpenTaskCountSpec: CrossModuleReadToolSpec<
 };
 
 /**
+ * LLM-wrapper-only assignee resolution. The workflow path uses the *Spec directly
+ * (always with an explicit userId) and is unaffected by this.
+ */
+export function resolveCountUserId(
+  session: { user_id: string },
+  input: { scope?: 'me'; userId?: string },
+): string {
+  if (input.scope === 'me') return session.user_id;
+  if (input.userId) return input.userId;
+  throw new Error('userId is required when scope is not "me"');
+}
+
+const wrapperInputSchema = z.object({
+  scope: z
+    .enum(['me'])
+    .optional()
+    .describe("Set to 'me' to count the CURRENT user's open tasks (identity from session)."),
+  userId: z
+    .string()
+    .uuid()
+    .optional()
+    .describe('UUID of ANOTHER user. Omit when scope is "me". Get it from planner_resolveMember.'),
+});
+
+/**
  * LLM-visible Mastra tool wrapper that derives `session` from `requestContext`.
  * Specialists register this on their `tools` record; the underlying `*Spec`
  * remains the source of truth for non-LLM callers (the assignBySkill workflow).
@@ -62,11 +87,15 @@ export const plannerGetOpenTaskCountTool = defineCrossModuleReadAsTool({
   id: plannerGetOpenTaskCountSpec.id,
   name: 'Open Task Count',
   description:
-    'Count of open (not completed, not deleted) tasks currently assigned to a user.\n\n' +
-    'Use for: workload comparison when ranking candidates; "how many open tasks does X have?".\n' +
-    'Do NOT use when you need the task list — use planner_queryTasks with assigneeUserId instead.',
-  inputSchema,
+    'Count of open (not completed, not deleted) tasks assigned to a user.\n\n' +
+    'Use for: "how many open tasks do I have?" (scope: "me"); workload comparison when ' +
+    'ranking another named user (resolve their UUID first via planner_resolveMember).\n' +
+    'Do NOT use when you need the task list — use planner_queryTasks instead.',
+  inputSchema: wrapperInputSchema,
   outputSchema,
   rbac: plannerGetOpenTaskCountSpec.rbac,
-  execute: plannerGetOpenTaskCountSpec.execute,
+  execute: async ({ session, input }) => {
+    const userId = resolveCountUserId(session, input);
+    return plannerGetOpenTaskCountSpec.execute({ session, input: { userId } });
+  },
 });
