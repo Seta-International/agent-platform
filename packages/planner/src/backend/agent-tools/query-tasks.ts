@@ -23,6 +23,19 @@ export interface QueryTasksInput {
   session: SessionScope;
 }
 
+/**
+ * Server-authoritative assignee resolution for the LLM tool. When the model asks
+ * for "my tasks" it sets assigneeScope: 'me' and the caller's id is taken from the
+ * authenticated session — the model never supplies its own UUID (anti-injection).
+ */
+export function resolveQueryAssignee(
+  actor: { user_id: string },
+  input: { assigneeScope?: 'me'; assigneeUserId?: string },
+): string | undefined {
+  if (input.assigneeScope === 'me') return actor.user_id;
+  return input.assigneeUserId;
+}
+
 export interface QueryTaskItem {
   taskId: string;
   title: string;
@@ -127,13 +140,20 @@ export async function queryTasks(input: QueryTasksInput): Promise<QueryTasksResu
 // ─── Zod schemas ────────────────────────────────────────────────────────────
 
 const inputSchema = z.object({
+  assigneeScope: z
+    .enum(['me'])
+    .optional()
+    .describe(
+      "Set to 'me' to list the CURRENT user's tasks. The caller's identity comes from " +
+        'the session — do NOT pass assigneeUserId for yourself, and never invent a UUID.',
+    ),
   assigneeUserId: z
     .string()
     .uuid()
     .optional()
     .describe(
-      'UUID of the user whose tasks to list. ' +
-        'Get from identity_whoAmI, identity_matchUsersByTopic, or planner_searchGroupMembersBySkills.',
+      'UUID of ANOTHER user whose tasks to list. For yourself use assigneeScope: "me" instead. ' +
+        "Obtain another user's UUID from planner_resolveMember — never guess it.",
     ),
   planId: z.string().uuid().optional().describe('Restrict to tasks in this plan.'),
   groupId: z
@@ -213,7 +233,8 @@ export const plannerQueryTasksTool = defineAgentTool({
     const actor = actorFromContext(ctx);
     const session = await buildActorSession(actor);
 
-    const result = await queryTasks({ ...input, session });
+    const assigneeUserId = resolveQueryAssignee(actor, input);
+    const result = await queryTasks({ ...input, assigneeUserId, session });
 
     if (result.tasks.length > 0) {
       await recordEntityExposure(ctx as never, {
