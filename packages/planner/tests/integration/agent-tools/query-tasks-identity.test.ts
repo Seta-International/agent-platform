@@ -87,7 +87,9 @@ describe('QnA identity resolution end-to-end (tool chain)', () => {
         tenant_id,
         permissions: TOOL_PERMS,
       });
-      const out = await plannerQueryTasksTool.execute({ assigneeScope: 'me' }, ctx);
+      const out = (await plannerQueryTasksTool.execute!({ assigneeScope: 'me' }, ctx)) as {
+        tasks: { title: string }[];
+      };
 
       expect(out.tasks.map((t) => t.title).sort()).toEqual(['mine-1', 'mine-2']);
     });
@@ -119,13 +121,15 @@ describe('QnA identity resolution end-to-end (tool chain)', () => {
         permissions: TOOL_PERMS,
       });
 
-      const resolved = await plannerResolveMemberTool.execute({ query: 'tuan' }, ctx);
+      const resolved = (await plannerResolveMemberTool.execute!({ query: 'tuan' }, ctx)) as {
+        candidates: { userId: string }[];
+      };
       expect(resolved.candidates).toHaveLength(1);
 
-      const theirs = await plannerQueryTasksTool.execute(
+      const theirs = (await plannerQueryTasksTool.execute!(
         { assigneeUserId: resolved.candidates[0]!.userId },
         ctx,
-      );
+      )) as { tasks: { title: string }[] };
       expect(theirs.tasks.map((t) => t.title)).toContain('tuan-task');
     });
   });
