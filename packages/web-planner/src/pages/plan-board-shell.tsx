@@ -87,6 +87,7 @@ export function PlanBoardShell({
   const view = parseViewMode(search.view);
   const groupBy = parseGroupBy(search.groupBy);
   const q = parseSearchQuery(search.q);
+  const searchInputValue = search.q ?? '';
   const calFrom = parseDateKey(search.calFrom);
   const calTo = parseDateKey(search.calTo);
   const calPage = search.calPage && search.calPage >= 1 ? search.calPage : 1;
@@ -234,7 +235,7 @@ export function PlanBoardShell({
           {view === 'grid' && <GridGroupBySelector value={groupBy} onChange={onGroupByChange} />}
         </div>
         <div className="plan-toolbar__right">
-          <PlanSearchInput value={q} onChange={onQChange} />
+          <PlanSearchInput value={searchInputValue} onChange={onQChange} />
         </div>
       </div>
 
