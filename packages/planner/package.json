@@ -49,6 +49,7 @@
     "@seta/agent-sdk": "workspace:^",
     "@seta/notifications": "workspace:^",
     "@seta/shared-embeddings": "workspace:^",
+    "@seta/shared-orchestration": "workspace:*",
     "@seta/shared-retrieval": "workspace:^",
     "drizzle-orm": "^0.45.2",
     "fractional-indexing": "^3.2.0",

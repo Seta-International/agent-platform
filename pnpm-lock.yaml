@@ -1028,6 +1028,9 @@ importers:
       '@seta/shared-embeddings':
         specifier: workspace:^
         version: link:../shared-embeddings
+      '@seta/shared-orchestration':
+        specifier: workspace:*
+        version: link:../shared-orchestration
       '@seta/shared-retrieval':
         specifier: workspace:^
         version: link:../shared-retrieval
