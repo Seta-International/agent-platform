@@ -7,7 +7,11 @@ import type {
   SpecializedAgentRunCtx,
   SpecializedAgentSpec,
 } from '@seta/agent-sdk';
-import { plannerGetOpenTaskCountTool, plannerQueryTasksTool } from '@seta/planner/agent-tools';
+import {
+  plannerGetOpenTaskCountTool,
+  plannerQueryTasksTool,
+  plannerResolveMemberTool,
+} from '@seta/planner/agent-tools';
 import { pickModel } from '../model.ts';
 import {
   type QnaSubAgentInput as In,
@@ -20,6 +24,7 @@ export const TASK_QUERY_TOOL_IDS = [
   'planner_queryTasks',
   'planner_findSimilarTasks',
   'planner_getOpenTaskCountForUser',
+  'planner_resolveMember',
 ] as const;
 
 export interface QnaTaskQueryDeps {
@@ -36,9 +41,15 @@ Tools:
 - planner_queryTasks: structured filter (assignee, plan, status, due window) → list.
 - planner_findSimilarTasks: semantic/topic search ("tasks about the billing migration").
 - planner_getOpenTaskCountForUser: a COUNT when the user only wants a number.
+- planner_resolveMember: turn a person's NAME/email into their userId.
 
-Heuristics: "my tasks" → queryTasks filtered to the current user; "how many ..."
-→ getOpenTaskCountForUser; topic phrasing ("about X") → findSimilarTasks.
+Identity (never ask the user for an id, never invent one):
+- "my/I/me" tasks → planner_queryTasks with assigneeScope: "me" (count → getOpenTaskCount scope: "me").
+- A named OTHER person ("Tuan's tasks") → call planner_resolveMember first; pass the
+  returned userId as assigneeUserId. If it returns MORE THAN ONE candidate, ask the user
+  which person they mean. If it returns none, say you couldn't find that person.
+
+Other heuristics: "how many ..." → getOpenTaskCount; topic phrasing ("about X") → findSimilarTasks.
 Empty result sets are valid answers — say "you have no matching tasks", don't error.
 Read-only.`;
 
@@ -67,6 +78,7 @@ export function makeQnaTaskQueryAgent(deps: QnaTaskQueryDeps): SpecializedAgentS
                 planner_queryTasks: plannerQueryTasksTool,
                 planner_findSimilarTasks: deps.findSimilarTasksTool,
                 planner_getOpenTaskCountForUser: plannerGetOpenTaskCountTool,
+                planner_resolveMember: plannerResolveMemberTool,
               } as never,
             });
             const r = await agent.generate(input.query, {
