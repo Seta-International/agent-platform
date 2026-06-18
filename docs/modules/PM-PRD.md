@@ -3,8 +3,6 @@
 | | |
 |---|---|
 | **Product area** | Seta — Project Management |
-| **Status** | Draft (to-build) · 2026-06-18 |
-| **Version** | 0.1 |
 | **Audience** | Product · PMO · QA |
 
 ---
@@ -57,16 +55,17 @@ The **PMO owns these metrics**; every target marked TBD is set at sign-off, and 
 
 ## 3. Roles & access
 
-Two independent things decide what a person sees and does — the same model People and Hiring use — plus the **PMO** as the **capacity gatekeeper** and a **project-level access** grant layered on top of the tier.
+Two independent things decide what a person sees and does — **what they can do** (their *tier*) and **whose records they can see** (their *scope*). They are never conflated. People, Hiring, and Project Management share one set of tiers:
 
-**Access tier** — *what a person can do.*
+- **Strategic** — the Board of Directors (BOD), Admin, the **PMO**, and **HR**. Org-wide reach and the final decisions. Within Strategic, **HR** owns the people decisions (confirm probation, run a review cycle, manage org & positions) and the **PMO** owns capacity (the last approver of an internal move, and the gate on project allocation).
+- **Account Manager** — sees and acts for the account(s) they own; needs an explicit grant to see another account.
+- **Manager** — a **Team Lead, Engineering Manager, or Project Manager**: runs the people or projects they manage, gives review and interview input, and proposes moves or staffing.
+- **Recruiter** — the HR staff who run requisitions, candidates, interviews, and offers for the accounts they're assigned to *(Hiring only)*.
+- **Member** — sees and self-services only their own record, work, and applications.
 
-- **Strategic** — the Board of Directors (BOD), Admin, and the **PMO**. Org-wide reach; the **BOD** is the final approver in a project charter; the **PMO** reviews charters, **owns allocation as the capacity gatekeeper**, configures KPI thresholds, and chases non-Green reports.
-- **Account Manager** — sees and acts for the account(s) they own — their projects, allocations, utilization, billable rate, customer satisfaction, and risks; needs an explicit grant to see another account.
-- **Project Manager / Engineering Manager / Team Lead** — runs the projects they manage: submits charters, edits allocation on their projects, submits weekly reports, raises and owns risks, and raises staffing demand for their project.
-- **Member** — sees what they're allocated to and their own utilization (read-only).
+**Scope is derived, never hand-set** — it follows **which account and project a person or role belongs to**. A Manager sees the people on the projects they manage; an Account Manager sees everyone allocated to their account; a person working on two accounts is visible to **both** account managers; a Member sees only themselves. When an allocation ends, that visibility is withdrawn.
 
-**Visibility scope** — *which accounts and projects you can see* — is derived from **account ownership and project membership**, not set by hand. An Account Manager sees their accounts' projects; a PM/EM sees the projects they are **named on or granted Owner/Edit access to**; a member sees only the projects they're allocated to (and, within those, **only their own allocation rows — never a colleague's effort or billable status**). An Account Manager who needs another account requests it (F-SEC-4). No one ever sees another organization's data.
+In Project Management specifically, a **Manager's editable projects** are those they are **named on or granted Owner/Edit access to** (see Project access below); the **BOD** is the final approver of a project charter; and a **Member** sees only the projects they're allocated to — and within those, **only their own allocation rows, never a colleague's effort or billable status**. No one ever sees another organization's data.
 
 **Project access (R&R)** — on top of the tier, each project carries explicit **Owner / Edit / View** grants, assigned in the charter's post-approval staffing step (F-ACCESS-1). This **project-scoped** grant is what makes "own project" concrete: it decides who can edit a specific project's plan, allocation, reports, and risks, regardless of how wide their tier view is.
 
@@ -76,7 +75,7 @@ Within Strategic, the **PMO is a distinct authority**: it alone gates capacity o
 
 **What each tier can do** *(defaults; an organization may fine-tune)*
 
-| Capability | Member | PM / EM / Lead | Account Manager | Strategic (BOD / Admin / PMO) |
+| Capability | Member | Manager | Account Manager | Strategic |
 |---|---|---|---|---|
 | Accounts | — | View own | Create / edit own | All; PMO/Admin manage |
 | Requests (project charter) | View own | **Submit & run** own | Create / edit own account | **PMO reviews · BOD approves** |
@@ -86,12 +85,12 @@ Within Strategic, the **PMO is a distinct authority**: it alone gates capacity o
 | Weekly reports | — | **Submit (as PM)** own project | View own account | All; PMO submits & chases |
 | Risks & issues | View own project | **Raise & own** own project | View own account | All |
 | KPI metrics & thresholds | — | **Enter own project's inputs**; view | View own account | PMO sets thresholds |
-| Staffing / backfill | View own | **Raise** own project | View own account | PMO runs the open-seat pipeline |
+| Staffing / backfill | View own | **Raise** own project | **Raise** for own account | PMO runs the open-seat pipeline |
 | Cost & margin | — | — *(restricted)* | View own account | PMO/Strategic |
 
 > Logging-in accounts are provisioned separately by an administrator; signing in with single sign-on authenticates a person who has already been created and never auto-creates one.
 
-> The assistant ("Ask Seta") acts as a restricted helper, not a person: it can read what the current user is allowed to see and **draft** changes, but every change it proposes is held for a human to approve before it is saved (§7.12).
+> The assistant ("Ask Seta") acts as a restricted helper, not a person: it can read what the current user is allowed to see and **draft** changes, but every change it proposes is held for a human to approve before it is saved.
 
 ---
 
@@ -99,7 +98,7 @@ Within Strategic, the **PMO is a distinct authority**: it alone gates capacity o
 
 **PM owns delivery; it references the worker and feeds the workforce flow.** PM is the **single source of truth for accounts, projects, and resource allocation** for the whole platform — People reads who's allocated and how loaded from PM (it never authors allocations), and PM's allocation view is what People uses to decide visibility scope. In the other direction, PM **reads** the worker facts it needs — skills, capacity, leave/availability — from **People**, and **raises staffing demand** to **Hiring**, which turns it into an open role; PM never recruits and never holds an employee record.
 
-**In scope:** accounts (clients) and their account managers; projects and the **charter approval flow** ("Requests": submit → PMO review → BOD review → project created); **resource allocation** (a monthly man-month grid, billable vs non-billable, multi-project, capacity-checked) and the **utilization** it derives, with reallocation suggestions; **portfolio and project health** (QCDP/RAG, predictability, customer satisfaction, report compliance, exceptions); **weekly status reports** (dual PM/PMO) with road-to-green; **risks and issues** (with auto-created recovery actions); **KPI metrics, thresholds, the operational-health score (OHS), the EQI×TDI (engineering-quality × technical-debt) engineering-health matrix, and the corrective-and-preventive-action (CAPA) register**; **account retrospectives**; **staffing demand / backfill** handed to Hiring; **project-level access grants**; sensitive-data protection and a full audit trail; and the read/draft tools the "Ask Seta" assistant uses against all of the above.
+**In scope:** accounts (clients) and their account managers; projects and the **charter approval flow** ("Requests": submit → PMO review → BOD review → project created); **resource allocation** (a monthly man-month grid, billable vs non-billable, multi-project, capacity-checked) and the **utilization** it derives, with reallocation suggestions; **portfolio and project health** (QCDP/RAG, predictability, customer satisfaction, report compliance, exceptions); **weekly status reports** (dual PM/PMO) with road-to-green; **risks and issues** (with auto-created recovery actions); **KPI metrics, thresholds, the operational-health score (OHS), the EQI×TDI (Engineering Quality Index × Technical Debt Index) engineering-health matrix, and the corrective-and-preventive-action (CAPA) register**; **account retrospectives**; **staffing demand / backfill** handed to Hiring; **project-level access grants**; sensitive-data protection and a full audit trail; and the read/draft tools the "Ask Seta" assistant uses against all of the above.
 
 **Out of scope (now):**
 
@@ -121,19 +120,26 @@ Within Strategic, the **PMO is a distinct authority**: it alone gates capacity o
 | "Actual" worked hours behind utilization and margin | From the external timesheet system | The "actual" figure is omitted (not guessed); planned utilization and margin still show |
 | Per-project task board | To / from Planner | The project links to a planner group; if absent, the task board is simply unavailable |
 
-**Module boundaries & data ownership.** The same worker is one identity across several modules, but **each fact has exactly one owner**; the others read it. PM never holds a second copy of what it doesn't own, and no module writes into another's data — they stay in step through events and module APIs.
+**How People, Hiring, and Project Management fit together.** These three are one value stream for an outsourcing business: **Hiring** fills the roles the company needs, **People** is the trusted record of everyone who works here and runs their whole journey, and **Project Management** staffs those people onto client work and tracks delivery. The same human is **one identity seen three ways** — a **candidate/applicant** in Hiring, an **employee** in People, an **allocated resource** in PM — linked by id and kept in step by events, **never copied into a shared record**. Each fact has **exactly one owner**; every other module reads it and never writes it.
 
-| Concern | Owned by | PM's relationship |
+| Concern | Owned by | How the others use it |
 |---|---|---|
-| Login, single sign-on, roles | Identity | PM gates access by role and project grant |
-| **Accounts, projects, resource allocation, demand, portfolio health, KPIs, margin** | **PM** | The source of truth PM owns |
-| Employee record, org & positions, skills, capacity, lifecycle | People | PM reads worker facts by id; People reads PM's allocation view for utilization and visibility |
-| Recruitment (open roles, candidates, interviews, offers) | Hiring | PM raises a backfill/demand; Hiring fills it and signals back the hire/move |
-| Time-off / leave, attendance, worked hours | Timesheet system | PM reads availability and logged hours; owns none of it |
-| Per-project task execution (kanban) | Planner | PM links a project to a planner group |
-| Payroll, billing, rate-card administration | Downstream finance | PM derives margin; finance administration runs elsewhere |
+| Login, single sign-on, roles | **Identity** | All three gate access by role; an account is admin-provisioned, never auto-created at first sign-on |
+| Employee record, org & positions, skills, documents, lifecycle, performance, capacity | **People** | PM and Hiring read worker facts by id; People is the source of truth |
+| Recruitment — requisitions, candidates, interviews, offers, internal-move applications | **Hiring** | PM raises the demand Hiring works; on a hire, Hiring hands the person to People |
+| Accounts, projects, resource allocation, utilization, demand, delivery health, margin | **Project Management** | People reads allocation and utilization (for its views and for who-sees-whom); Hiring reads the demand a role is opened against |
+| Time-off / leave, attendance, worked hours | **Timesheet system** *(external)* | People shows a balance and submits requests through it; PM reads availability from it |
+| Per-project task execution (kanban) | **Planner** | PM links a project to a planner group; People scaffolds lifecycle checklists on it |
+| Payroll, billing, invoicing | **Downstream finance** *(external)* | People holds pay attributes; PM derives margin; finance administration runs elsewhere |
 
-When a project is short of a person, **PM raises a backfill** (a one-seat staffing need) and hands it to **Hiring**, which opens a requisition; when Hiring lands a hire or the PMO approves an internal move, **PM commits the allocation** — filling the seat with the named worker. People then sees that allocation through PM's view. The worker is one identity across all modules, linked by id and kept in step by events — never a shared record.
+**The handoffs that link them**
+
+- **Demand → hire.** PM raises a one-seat staffing need; Hiring opens a requisition against it. PM owns demand; Hiring owns the pipeline.
+- **Hire → employee.** When a candidate accepts, Hiring hands the person to People, which creates the employee record and starts onboarding — nothing re-keyed. People is then the source of truth; Hiring keeps the candidate only as recruitment history.
+- **Hire or move → allocation.** As soon as a worker exists for that seat, PM fills it with the named person (committed, possibly future-dated). One seat is filled once; the losing path is cancelled.
+- **Internal move → job change.** An approved internal move is recorded as a **movement against the existing person** in People (never a new employee) and re-allocates them in PM.
+- **Re-hire → same person.** A returning alumnus is matched at hire and added as a **new employment period on their existing record** — never a duplicate.
+- **Leaving → wind-down.** Offboarding in People ends the person's open allocations in PM so utilization doesn't go stale.
 
 **Priority**
 
@@ -175,7 +181,7 @@ graph TD
 - **Account** — an outsourcing client (with an industry and an account manager); it has one or more projects and an account-level health rollup, billable rate, and customer-satisfaction score.
 - **Project** — a piece of work under an account, with an objective, scope, budget (in **billable man-months, BMM**), a methodology and pricing model, a PM and PMO, a **phase** (Initiation / Execution / Stabilize / UAT / Discovery), a QCDP/RAG health read, a team count, a customer-satisfaction score (CSS, out of 5), and a predictability figure. A project goes live only after its **charter** is approved.
 - **Charter request ("Requests")** — the approval a new project passes through (PM submits → PMO reviews → BOD approves) before it becomes a live project in the portfolio. A rejected charter is closed with its reason.
-- **Allocation** — the authoritative record that a worker is staffed on a project, expressed as **monthly effort in man-months** (e.g. 0.5 MM = half a person-month), **billable or not** (non-billable effort is "shadow"). A worker can be on **many projects at once** (multi-project); their utilization is **derived** from allocation against the capacity in effect.
+- **Allocation** — the authoritative record that a worker is staffed on a project, expressed as **monthly effort in man-months (MM)** (e.g. 0.5 MM = half a person-month), **billable or not** (non-billable effort is "shadow"). A worker can be on **many projects at once** (multi-project); their utilization is **derived** from allocation against the capacity in effect.
 - **Staffing gap / backfill** — an unfilled seat on a project (plan exceeds staffed): one seat is one backfill, handed to Hiring to fill.
 - **Weekly report** — a project's weekly status (submitted by the **PM and/or PMO**) with a RAG and QCDP read; a non-Green status requires a road-to-green action and spawns a tracked recovery.
 - **Risks & issues** — the register for a project; types include Bug, Customer, Resource, Stability, Recovery, Action, Improvement. A resource risk can raise a backfill.
@@ -190,7 +196,7 @@ graph TD
 ```mermaid
 graph LR
   M(("Member"))
-  PM(("PM / EM / Lead"))
+  PM(("Manager"))
   A(("Account Manager"))
   O(("PMO"))
   B(("BOD / Admin"))
@@ -227,8 +233,8 @@ graph LR
 
 ### 7.1 Accounts
 
-**F-ACCT-1 — Manage accounts.** A PMO or Account Manager can create and edit client accounts — each with an **industry** and an assigned **account manager** — holding one or more projects.
-- An account is the entity People and Hiring reference by id; changing it keeps their lookup views in step.
+**F-ACCT-1 — Manage accounts.** A PMO or Account Manager can create and edit client accounts — each with an **industry**, an assigned **account manager**, and the **recruiter(s) assigned** to staff it — holding one or more projects.
+- An account is the entity People and Hiring reference by id; changing it keeps their lookup views in step. The recruiter-to-account assignment here is the **source of truth for a recruiter's scope** in Hiring.
 - An account carries a derived health rollup, billable rate, and customer-satisfaction score across its projects.
 - An Account Manager manages only their own accounts; the PMO/Admin manage all.
 
@@ -246,9 +252,15 @@ graph LR
 **F-PROJ-4 — Run a project.** Once live, a PM can edit the project (objective, scope, **phase**, status) and close it; each change is audited.
 - A project carries a phase (Initiation / Execution / Stabilize / UAT / Discovery) and links to a **Planner group** for its task execution (the kanban board is Planner's, not rebuilt here — OQ-1).
 
+**F-PROJ-5 — Staffing plan (the required-team baseline).** A project carries a **staffing plan** — the **roles, effort (MM), and skills it needs over its timeline** — as the baseline its actual allocation is measured against.
+- The **gap is the diff** of plan vs who's actually staffed; an unmet line in the plan is what raises a backfill (F-STAFF-1), so demand comes from a baseline rather than being noticed ad hoc.
+- The plan is seeded from the charter's team size (F-PROJ-1) and refined as the project runs.
+
 ### 7.3 Resource allocation & utilization ("RA Monitoring")
 
 **F-ALLOC-1 — Allocate a worker.** A PMO or PM can staff a worker onto a project at a **monthly effort** (man-months per month — e.g. 0.2 / 0.5 / 0.8 / 1.0 MM), marking it **billable or not** and giving the role on the project.
+- An allocation is **time-bounded** — it has a **start and an end (roll-off) date**, not an open-ended booking — and carries a status of **tentative (proposed)** or **committed (confirmed)**. So a plan can hold a soft booking before it's locked in, and roll-off/offboarding has a concrete date to act on.
+- An **unfilled seat shows as a placeholder (unnamed-role) line** in the grid — e.g. "0.5 MM Senior Backend, TBD" — so a gap is visible in the plan and the forecast **before a person exists**; filling it (F-STAFF-2) replaces the placeholder with the named worker.
 - A worker can be allocated to **several projects at once** (multi-project); their total load is the sum across allocations.
 - The allocation grid shows each person's monthly effort across the planning horizon, with a per-person and per-project total; the PMO/PM can edit a month's effort inline, and each edit is saved and audited.
 - A **Member sees only their own allocation row** — their load across the projects they're on — never a colleague's effort or billable status. Allocation is **authored only by the PMO (any project) and the PM/EM (their own projects)**; an Account Manager views their account's allocation but does not edit it.
@@ -265,6 +277,11 @@ graph LR
 **F-ALLOC-4 — Reallocation suggestions.** The view pairs **over-allocated** people with **under-allocated** ones in the same account and suggests a rebalancing, so a capacity imbalance is surfaced rather than left to chance.
 
 **F-ALLOC-5 — Allocation view for People.** Every allocation create / change / end is emitted so **People's allocation view** stays current — this is the basis of People's resource-allocation view **and** of who can see whom (visibility scope). When a worker is offboarded in People, their open allocations are ended so utilization doesn't go stale.
+- An **exit-pending signal** from People (a failed probation confirmation or an accepted resignation — People F-PROB-2, F-OFF-1) surfaces the soon-to-open seat in the PMO's pipeline **at the decision moment**, so a backfill can be planned before the allocation actually ends.
+
+**F-ALLOC-6 — Forward bench & capacity-vs-demand forecast.** Beyond today's idle flag, the PMO sees a **forward view**: who **rolls off and becomes available in each coming month** (the bench), set against the **demand** for those months (open seats and placeholder lines), by skill and role.
+- This is the proactive match: upcoming availability against upcoming demand, so a roll-off can be redeployed and a gap planned ahead — not discovered late.
+- The forecast reads the time-bounded allocations (F-ALLOC-1), capacity in effect (from People), and open demand (F-STAFF-1); when the "actual" feed is unavailable it shows planned figures, clearly marked.
 
 ### 7.4 Portfolio & project health
 
@@ -316,13 +333,16 @@ graph LR
 
 ### 7.8 Staffing demand / backfill
 
-**F-STAFF-1 — Raise a backfill.** When a project is short of a person (its planned team exceeds who's staffed), a PM or PMO can **raise a backfill** — a one-seat staffing need carrying the project, account, and the size of the gap; the PM raising it **chooses the role, grade, and skills** for the seat (so Hiring opens a targeted requisition, not a generic one).
+**F-STAFF-1 — Raise a backfill.** When a project is short of a person (its planned team exceeds who's staffed), a **PM, PMO, or the account's Account Manager** can **raise a backfill** — a one-seat staffing need carrying the project, account, and the size of the gap; whoever raises it **chooses the role, grade, and skills** for the seat (so Hiring opens a targeted requisition, not a generic one).
+- PM is the **single owner of staffing demand**: a backfill is the one pipeline, whether it originates from a PM/AM on a project, the PMO, or a budgeted **open position fed in from People's headcount plan** (People F-HEAD-1). There is no second, parallel demand path.
+- The **Account Manager can raise a backfill for an account they own** — closing the gap where they were accountable for utilization but had no lever to fix a shortage.
 - **One seat is one backfill**; a gap of several seats raises several.
 - A backfill is handed to **Hiring**, which opens a requisition against it.
 - The **PMO sees every open seat across the portfolio** — its age, project, and owner — as the pipeline it runs. An unfilled seat past its deadline is escalated to the PMO and the assigned recruiter, never silently dropped; a seat that is **filled but not yet started** (a future-dated commitment) does not escalate.
 
 **F-STAFF-2 — Fill on hire or move.** When Hiring lands an external hire or the PMO approves an internal move for that seat, the **named worker fills the seat** as a committed allocation — as soon as a worker exists, not at onboarding-complete, and possibly future-dated.
 - A seat is filled **exactly once** even if the hire confirmation is received more than once. When one path fills it, the losing path is cancelled.
+- An internal move's allocation is **committed here, in PM** — capacity having already been gated once by the PMO at mobility approval (the over-capacity override, if any, is carried with the move, not re-prompted). People records the matching job change but does not write the allocation itself.
 
 ### 7.9 Retrospectives
 
@@ -338,12 +358,12 @@ graph LR
 
 **F-SEC-1 — Sensitive-data protection.** Where cost, margin, and commercial figures are shown, they are shown only to the PMO, the account's manager, and Strategic users; everyone else sees them as restricted. (Margin itself is a "Could" — see §4 and OQ-3 — so this rule governs it as and when it lands, not a promise that margin is built today.)
 
-**F-SEC-2 — Audit trail.** Every change — a charter decision, an allocation, an over-capacity override, a weekly report, a risk, a KPI threshold, an access grant — is recorded with who did it and when.
+**F-SEC-2 — Audit trail.** Every change — an edit, a status change, an approval, a decision, an access grant — is recorded with who did it and when, building a full history that an authorized user can review.
 
-**F-SEC-3 — Organization isolation.** A user only ever sees their own organization's accounts, projects, and data.
+**F-SEC-3 — Organization isolation.** A user only ever sees their own organization's data; nothing from another organization is ever visible.
 
-**F-SEC-4 — Cross-account access grant.** An Account Manager who needs to see an account they don't own can **request access**; a PMO or Strategic user **grants or revokes** it (it is never self-granted).
-- A grant widens that manager's visibility to the granted account for as long as it lasts — optionally time-boxed — and revoking it removes the visibility immediately.
+**F-SEC-4 — Cross-account access grant (suite-wide).** An Account Manager who needs to see an account they don't own can **request access**; a **PMO or Strategic** user **grants or revokes** it (it is never self-granted).
+- A grant is **suite-wide** — it widens the manager's visibility to that account across **People, Hiring, and Project Management** for as long as it lasts (optionally time-boxed); revoking it removes the visibility everywhere immediately.
 - Granting and revoking are recorded in the audit trail.
 
 ### 7.12 Assistant integration ("Ask Seta")
@@ -354,6 +374,31 @@ graph LR
 ---
 
 ## 8. Key journeys
+
+Each journey reads as a **lifecycle** — what goes **in**, how it's **handled**, and what comes **out**. The first shows the whole suite end to end; the rest zoom into Project Management.
+
+**End-to-end — from a project's need to a delivering, growing employee** *(the whole suite)*
+
+```mermaid
+sequenceDiagram
+  participant PM as Project Mgmt
+  participant H as Hiring
+  participant PE as People
+  participant TS as Timesheet
+  PM->>H: A project needs a person — open one seat of demand
+  H->>H: Source, interview, offer — the candidate accepts
+  H->>PE: Hand over the hire (nothing re-keyed)
+  PE->>PE: Create the employee record and onboard
+  PE-->>PM: The worker now exists — fill the seat (allocate)
+  PM->>PM: Deliver the work — track utilization and health
+  TS-->>PM: Worked hours and availability feed utilization
+  PE->>PE: Grow the person — probation, performance, a move
+  PE-->>PM: A move re-allocates, offboarding ends open allocations
+```
+
+*In: a project's staffing need. Handling: hire → onboard → allocate → deliver → review. Out: a staffed project and an employee with a tracked journey.*
+
+**Project charter approval**
 
 ```mermaid
 sequenceDiagram
@@ -369,6 +414,10 @@ sequenceDiagram
   P-->>PM: Project created and live in the portfolio
 ```
 
+*In: a charter (objective, scope, budget). Handling: PMO capacity-and-process review, then BOD approval. Out: a live project in the portfolio.*
+
+**Filling a staffing gap**
+
 ```mermaid
 sequenceDiagram
   actor PM as Project Manager
@@ -382,6 +431,10 @@ sequenceDiagram
   Note over P: The seat is filled by the named worker, exactly once
 ```
 
+*In: a one-seat gap. Handling: requisition → hire → fill. Out: a committed allocation, visible to People, filled exactly once.*
+
+**Weekly report and road-to-green**
+
 ```mermaid
 sequenceDiagram
   actor PM as Project Manager
@@ -392,6 +445,8 @@ sequenceDiagram
   P-->>P: A Recovery item is created in Risks & Issues
   P-->>PMO: Surfaced to chase until back to Green
 ```
+
+*In: a weekly status. Handling: non-Green forces a road-to-green action, which becomes a tracked Recovery item. Out: a chased project until it is back to Green.*
 
 ---
 
@@ -432,12 +487,13 @@ stateDiagram-v2
 
 ```mermaid
 stateDiagram-v2
-  [*] --> Staffed: worker named directly
+  [*] --> Tentative: soft-booked (proposed)
   [*] --> Gap: backfill raised (unfilled seat)
-  Gap --> Staffed: filled (internal / hire / move)
+  Tentative --> Committed: confirmed
+  Gap --> Committed: filled (internal / hire / move)
   Gap --> Cancelled: filled by another path
-  Staffed --> Active: month reached
-  Active --> Ended
+  Committed --> Active: start date reached
+  Active --> Ended: roll-off date reached
   Cancelled --> [*]
   Ended --> [*]
 ```
@@ -519,6 +575,10 @@ Plain, verifiable behaviors. The **Covers** column maps each scenario to the req
 | QA-50 | The PMO opens the open-seat pipeline | Every unfilled seat across the portfolio shows with its age, project, and owner | F-STAFF-1 |
 | QA-51 | A seat is filled but future-dated | It does not escalate while it waits to start | F-STAFF-1 |
 | QA-52 | An Account Manager requests access to another account; a PMO grants then revokes it | The manager sees it only while granted; revoking removes it immediately; both are audited; it is never self-granted | F-SEC-4 |
+| QA-53 | Soft-book a worker, then confirm it | The allocation reads Tentative, then Committed; a tentative booking doesn't count as firm capacity | F-ALLOC-1 |
+| QA-54 | Allocate a worker with a roll-off date | The allocation ends on its roll-off date; the seat is not open-ended | F-ALLOC-1 |
+| QA-55 | A project's staffing plan exceeds who's actually staffed | The unmet line shows as a placeholder in the grid and raises a backfill | F-PROJ-5, F-ALLOC-1 |
+| QA-56 | Open the forward bench view | Who rolls off and is available each coming month shows against the demand for those months, by skill/role | F-ALLOC-6 |
 
 ---
 
@@ -530,7 +590,7 @@ Plain, verifiable behaviors. The **Covers** column maps each scenario to the req
 | OQ-2 | **Allocation horizon & granularity:** the prototype shows a **monthly man-month grid** over a fixed horizon. Confirm the planning horizon, whether allocation is ever finer than monthly, and how a mid-month change is represented to the user. | Product |
 | OQ-3 | **Margin & rate-card:** margin and billable rate are derived KPIs; **cost/bill rate-card maintenance** (and invoicing/payroll) is a downstream finance integration. Confirm how far margin goes in the first release and where rates are maintained. | Product / Finance |
 | OQ-4 | **"Actual" utilization & margin** depend on the external timesheet feed for worked hours. Confirm the feed is available and the fallback when it isn't. | Product + Eng |
-| OQ-5 | **Over-allocation override:** who may staff a worker beyond capacity, and how it is surfaced and audited (shared with Hiring's mobility capacity gate). | Product + PMO |
+| OQ-5 | **Over-allocation override:** who may staff a worker beyond capacity, and how it is surfaced and audited. This is the **same single decision** as Hiring OQ-5 (recorded once at PMO mobility approval, carried onto the allocation commit — not prompted twice). | Product + PMO |
 | OQ-6 | **Charter approval chain:** confirm the PMO-then-BOD sequence and whether smaller projects may take a shorter path; confirm a rejected charter is truly terminal (no resubmission). | Product / PMO |
 | OQ-7 | **Project access vs tier:** confirm how the project-level Owner/Edit/View grant interacts with the tier when they disagree (e.g. an Account Manager with only View on a project in their account). | Product |
 | OQ-8 | **KPI catalogue:** confirm the exact metric set and thresholds, the OHS weighting and EQI/TDI derivation, and which KPIs are manual vs derived (and which actually feed QCDP) in the first release. | Product / PMO |
@@ -541,6 +601,3 @@ Plain, verifiable behaviors. The **Covers** column maps each scenario to the req
 | OQ-13 | **Multi & burnout thresholds:** confirm the threshold for the Multi flag (e.g. two or more concurrent projects) and each role's safe utilization band, and whether the PMO can tune them. | Product / PMO |
 | OQ-14 | **Demand-aging escalation:** confirm how long an unfilled seat may sit before it escalates, and to whom (PMO and/or the assigned recruiter). | Product / PMO |
 
----
-
-*A companion technical design (data, integrations, permissions, and detailed rules) is maintained separately for the development team.*

@@ -3,8 +3,6 @@
 | | |
 |---|---|
 | **Product area** | Seta — Hiring |
-| **Status** | Draft (to-build) · 2026-06-18 |
-| **Version** | 0.1 |
 | **Audience** | Product · PMO · QA |
 
 ---
@@ -55,23 +53,21 @@ Hiring sits in the middle of the workforce flow: it takes the **demand** for peo
 
 ## 3. Roles & access
 
-Two independent things decide what a person sees and does — the same model People uses, plus a **Recruiter** actor and the **PMO** as the gatekeeper for internal moves.
+Two independent things decide what a person sees and does — **what they can do** (their *tier*) and **whose records they can see** (their *scope*). They are never conflated. People, Hiring, and Project Management share one set of tiers:
 
-**Access tier** — *what a person can do:*
+- **Strategic** — the Board of Directors (BOD), Admin, the **PMO**, and **HR**. Org-wide reach and the final decisions. Within Strategic, **HR** owns the people decisions (confirm probation, run a review cycle, manage org & positions) and the **PMO** owns capacity (the last approver of an internal move, and the gate on project allocation).
+- **Account Manager** — sees and acts for the account(s) they own; needs an explicit grant to see another account.
+- **Manager** — a **Team Lead, Engineering Manager, or Project Manager**: runs the people or projects they manage, gives review and interview input, and proposes moves or staffing.
+- **Recruiter** — the HR staff who run requisitions, candidates, interviews, and offers for the accounts they're assigned to *(Hiring only)*.
+- **Member** — sees and self-services only their own record, work, and applications.
 
-- **Strategic** — the Board of Directors (BOD), Admin, the PMO, and HR management. Org-wide reach and the final approvals; the **PMO** specifically is the **last approver for an internal move** (it protects project capacity).
-- **Recruiter (HR)** — the HR staff who run requisitions, candidates, interviews, and offers, for the accounts they're **assigned to**.
-- **Account Manager** — sees and acts on hiring for the account(s) they own.
-- **Team Lead / Engineering Manager** — proposes roles for their projects, gives interview-panel feedback, and endorses internal moves (releasing or receiving the person).
-- **Member (Employee)** — sees Hiring only as **Open Roles**: they can browse open roles and **apply** for an internal move, and follow the status of their own application.
+**Scope is derived, never hand-set** — it follows **which account and project a person or role belongs to**. A Manager sees the people on the projects they manage; an Account Manager sees everyone allocated to their account; a person working on two accounts is visible to **both** account managers; a Member sees only themselves. When an allocation ends, that visibility is withdrawn.
 
-**Visibility scope** — *which roles and candidates you can see* — works as in People: it follows **which account and project a role belongs to**, rather than being set by hand. A manager sees the roles, candidates, and interviews for the accounts and projects they're responsible for; a recruiter sees those for the accounts they're **assigned to** — and no others.
-
-**Field-level rules** always apply: a **candidate's personal contact details** and an **offer's compensation** are shown only to recruiters and Strategic users; everyone else sees them as restricted. No one ever sees another organization's data.
+In Hiring specifically, a Member sees the module only as **Open Roles** — they can browse open roles, **apply** for an internal move, and follow their own application. A **Recruiter's scope is the accounts they are assigned to** (the assignment lives on the PM account record — F-ACCT-1), and on those accounts a recruiter gets a **scoped read into People** (an internal applicant's skills, role, and current allocation, to judge fit and release feasibility) and into **PM** (the project and demand a requisition was opened against). **Field-level rules** always apply: a **candidate's personal contact details** and an **offer's compensation** are shown only to Recruiters and Strategic users; everyone else sees them as restricted. No one ever sees another organization's data.
 
 **What each tier can do** *(defaults; an organization may fine-tune)*
 
-| Capability | Member | Team Lead / EM | Account Manager | Recruiter (HR) | Strategic (BOD / Admin / PMO) |
+| Capability | Member | Manager | Account Manager | Recruiter | Strategic |
 |---|---|---|---|---|---|
 | Open roles (requisitions) | View open roles | Propose for own project | View own account | Open & manage | All; PMO oversight |
 | Internal mobility | Apply (self); track own | Endorse (release / receive) | View own account | Coordinate | **PMO is the final approver** |
@@ -81,7 +77,7 @@ Two independent things decide what a person sees and does — the same model Peo
 | Recruitment insight (Knowledge Base) | — | View | View | Maintain | View / maintain |
 | Reports | — | Own roles | Own account | Recruitment-wide | Org-wide |
 
-> The assistant ("Ask Seta") acts as a restricted helper, not a person: it can read what the current user is allowed to see and **draft** changes, but every change it proposes is held for a human to approve before it is saved (§7.11).
+> The assistant ("Ask Seta") acts as a restricted helper, not a person: it can read what the current user is allowed to see and **draft** changes, but every change it proposes is held for a human to approve before it is saved.
 
 ---
 
@@ -105,22 +101,31 @@ Two independent things decide what a person sees and does — the same model Peo
 | Hiring needs… | From / To | Fallback if absent |
 |---|---|---|
 | The demand a role is opened against (a project's open seat) | From Project Management | A recruiter opens a requisition manually, unlinked |
-| Employee facts for internal applicants; the interview scorecard | From People | Internal mobility and scorecard-based scoring are unavailable; a plain rating still works |
+| Employee facts (skills, role, current allocation) for an internal applicant | From People + PM | Internal-mobility scoring falls back to a plain rating |
+| Which accounts a recruiter is assigned to (their scope) | From Project Management (account record) | The recruiter sees only requisitions explicitly assigned to them |
 | Microsoft Teams meeting links and interview transcripts | From the integrations layer | The recruiter pastes a link/transcript manually |
 | Creating the employee on a hire; committing the allocation on a hire or move | To People / Project Management | The hire is recorded in Hiring and handed over manually |
 
-**Module boundaries & data ownership.** The same person is one identity across several modules, but **each fact has exactly one owner**; the others read it. Hiring never holds a second copy of what it doesn't own, and no module writes into another's data — they stay in step through events and module APIs.
+**How People, Hiring, and Project Management fit together.** These three are one value stream for an outsourcing business: **Hiring** fills the roles the company needs, **People** is the trusted record of everyone who works here and runs their whole journey, and **Project Management** staffs those people onto client work and tracks delivery. The same human is **one identity seen three ways** — a **candidate/applicant** in Hiring, an **employee** in People, an **allocated resource** in PM — linked by id and kept in step by events, **never copied into a shared record**. Each fact has **exactly one owner**; every other module reads it and never writes it.
 
-| Concern | Owned by | Hiring's relationship |
+| Concern | Owned by | How the others use it |
 |---|---|---|
-| Login, single sign-on, roles | Identity | Hiring gates access by role |
-| **Recruitment (open roles, candidates, interviews, offers, internal moves)** | **Hiring** | The source of truth Hiring owns |
-| Employee record, org & positions, skills, performance scorecard | People | Hiring reads employee facts (for internal applicants) and the scorecard; hands a hire to People |
-| Project assignments, allocation, utilization, demand | Project Management | Hiring opens roles against PM demand and triggers an allocation on a hire or move |
-| Time-off / leave, attendance, worked hours | Timesheet system | Not used by Hiring |
-| Payroll & compensation administration | Downstream finance | An offer carries pay terms; payroll runs elsewhere |
+| Login, single sign-on, roles | **Identity** | All three gate access by role; an account is admin-provisioned, never auto-created at first sign-on |
+| Employee record, org & positions, skills, documents, lifecycle, performance, capacity | **People** | PM and Hiring read worker facts by id; People is the source of truth |
+| Recruitment — requisitions, candidates, interviews, offers, internal-move applications | **Hiring** | PM raises the demand Hiring works; on a hire, Hiring hands the person to People |
+| Accounts, projects, resource allocation, utilization, demand, delivery health, margin | **Project Management** | People reads allocation and utilization (for its views and for who-sees-whom); Hiring reads the demand a role is opened against |
+| Time-off / leave, attendance, worked hours | **Timesheet system** *(external)* | People shows a balance and submits requests through it; PM reads availability from it |
+| Per-project task execution (kanban) | **Planner** | PM links a project to a planner group; People scaffolds lifecycle checklists on it |
+| Payroll, billing, invoicing | **Downstream finance** *(external)* | People holds pay attributes; PM derives margin; finance administration runs elsewhere |
 
-When a candidate is hired, **Hiring hands the person to People**, which creates the employee record (the new source of truth) and starts onboarding; Project Management then commits the allocation the role was opened for. From that point People owns the person; Hiring keeps its candidate record only as recruitment history. The person is one identity across the three, linked by id and kept in step by events — never a shared record.
+**The handoffs that link them**
+
+- **Demand → hire.** PM raises a one-seat staffing need; Hiring opens a requisition against it. PM owns demand; Hiring owns the pipeline.
+- **Hire → employee.** When a candidate accepts, Hiring hands the person to People, which creates the employee record and starts onboarding — nothing re-keyed. People is then the source of truth; Hiring keeps the candidate only as recruitment history.
+- **Hire or move → allocation.** As soon as a worker exists for that seat, PM fills it with the named person (committed, possibly future-dated). One seat is filled once; the losing path is cancelled.
+- **Internal move → job change.** An approved internal move is recorded as a **movement against the existing person** in People (never a new employee) and re-allocates them in PM.
+- **Re-hire → same person.** A returning alumnus is matched at hire and added as a **new employment period on their existing record** — never a duplicate.
+- **Leaving → wind-down.** Offboarding in People ends the person's open allocations in PM so utilization doesn't go stale.
 
 **Priority**
 
@@ -171,22 +176,26 @@ graph TD
 ```mermaid
 graph LR
   M(("Member"))
-  L(("Team Lead / EM"))
-  R(("Recruiter (HR)"))
+  L(("Manager"))
+  A(("Account Manager"))
+  R(("Recruiter"))
   P(("PMO"))
   S(("Strategic — BOD / Admin"))
 
   M --- m1(["Browse open roles"])
-  M --- m2(["Apply for a move; track it"])
+  M --- m2(["Apply for a move, track it"])
 
   L --- l1(["Propose a role for my project"])
   L --- l2(["Give interview-panel feedback"])
   L --- l3(["Endorse a move (release / receive)"])
 
+  A --- a1(["See my account's hiring"])
+  A --- a2(["Raise a backfill for my account"])
+
   R --- r1(["Open & manage requisitions"])
   R --- r2(["Run the candidate pipeline"])
-  R --- r3(["Schedule interviews; record scores"])
-  R --- r4(["Draft offers; record the decision"])
+  R --- r3(["Schedule interviews, record scores"])
+  R --- r4(["Draft offers, record the decision"])
 
   P --- p1(["Approve a move — capacity gate"])
 
@@ -194,7 +203,7 @@ graph LR
   S --- s2(["See hiring across the company"])
 ```
 
-*An Account Manager sees and proposes within their own account(s); the diagram shows the actors that own distinct recruitment use cases.*
+*The PMO is shown as a distinct actor where it owns a distinct use case (the capacity gate); it otherwise sits within Strategic. The diagram shows the actors that own distinct recruitment use cases.*
 
 ---
 
@@ -217,6 +226,10 @@ graph LR
 
 **F-REQ-4 — Open roles for employees.** An employee sees Hiring as **Open Roles** — the open requisitions across the company they could apply to — and can follow a role they're interested in.
 - Roles a person is a good fit for can be surfaced as **"recommended for you"** by matching their skills and grade against the role's needs.
+
+**F-REQ-5 — Approval & funded headcount.** A requisition is **approved before it opens**, and is **gated on funded headcount** — it cannot be created beyond the budgeted positions that authorize it.
+- A requisition runs through a short **approval chain** (hiring manager → PMO/Strategic for budget sign-off) before it becomes open and visible; an unapproved requisition cannot collect candidates.
+- A **replacement/backfill** is tied to the specific open position it fills; a **new** role must map to an approved headcount line (People F-HEAD-1). A requisition raised from a PM backfill carries that authorization from the start, so the demand→hire link is governed, not free-created.
 
 ### 7.2 Candidates & pipeline
 
@@ -250,6 +263,10 @@ graph LR
 
 **F-INT-3 — Cancel, no-show, reschedule.** An interview can be cancelled, marked a no-show (with a reason), or rescheduled; the change is recorded.
 
+**F-INT-4 — Interview plan & scorecard gate.** A role's pipeline has a **structured interview plan** — which rounds the candidate goes through and, per round, which competencies each panel member assesses — so interviews are consistent rather than ad hoc.
+- Each round assigns its panel a focused set of criteria to score; the panel member knows what they're there to assess.
+- A candidate **cannot advance to the Offer stage until the round's scorecards are submitted** — a missing scorecard blocks the advance, so an offer is never made on incomplete feedback.
+
 ### 7.4 Offers
 
 **F-OFFER-1 — Make an offer.** A recruiter drafts an offer (compensation, start date, the role/position it's for); a Strategic user **approves** it before it goes out.
@@ -265,6 +282,15 @@ graph LR
 **F-OFFER-4 — Respond-by & expiry.** An approved offer is issued to the candidate with a **respond-by date**; if they don't decide by then it **lapses (Expired)** and the recruiter is notified.
 - A lapsed offer is closed; the role can continue with other candidates.
 
+**F-OFFER-5 — Revise & re-approve (negotiation).** An offer can be **revised** (e.g. after a counter on compensation or start date) — a new version that goes back through approval before it is re-sent, with the prior versions kept on record.
+- A candidate who declines on terms doesn't dead-end: the recruiter can revise and re-issue rather than losing them.
+
+**F-OFFER-6 — Pre-hire checks.** Where required, an accepted offer passes a **background / reference check** before the hire is final — a gate between *Accepted* and *Hired*.
+- A failed check stops the hire (the seat stays open); a passed or waived check lets the handoff (F-OFFER-3) proceed.
+
+**F-OFFER-7 — Reneged or no-show before start.** A candidate who **accepts then withdraws** before day one, or **no-shows at onboarding**, is a recognized outcome — not a dead end requiring a full offboarding.
+- The hire is reversed cleanly: the person is recorded as **Did not start** in People (People F-ONB-5) and the **project seat reopens** in Project Management so the pipeline resumes — rather than offboarding someone who never worked.
+
 ### 7.5 Internal mobility
 
 **F-MOB-1 — Apply for a move.** An employee can apply to an open role, with a note; they can withdraw any time **before the PMO's decision** — once approved or rejected, it can no longer be withdrawn.
@@ -272,10 +298,10 @@ graph LR
 **F-MOB-2 — Endorsement chain.** An application is endorsed in order by the employee's **current (releasing) manager**, then the **receiving manager**, before it reaches the PMO — each an explicit, recorded decision in which the endorsing manager notes the spare capacity.
 - Each endorsement notifies the next approver in the chain, so nothing stalls silently.
 
-**F-MOB-3 — PMO review & approval (capacity gate).** After both managers endorse, the application reaches **PMO review**, where the PMO checks the person's capacity before deciding. The **PMO** is the final approver.
-- Approving someone onto a role **beyond full capacity** (the over-100%-in-a-month measure People surfaces) requires an explicit **over-allocation override** — a PMO decision whose reason and approver are recorded in the audit trail (OQ-5).
-- On approval, Project Management allocates the person to the new role; if the move also changes their **role or grade**, Hiring hands that change to People to record as a **movement (job change) against their existing employee record** — Hiring never edits the employment record itself, and no new employee is created.
-- On rejection nothing changes. The full endorsement and decision history is kept on the application.
+**F-MOB-3 — PMO review & approval (the single capacity gate).** After both managers endorse, the application reaches **PMO review**, where the PMO checks the person's capacity before deciding. The **PMO** is the final approver, and this is **the one place capacity is gated** for the move — it is not re-approved downstream.
+- Approving someone onto a role **beyond full capacity** (the over-allocation measure Project Management derives and People surfaces) requires an explicit **over-allocation override** — a single PMO decision whose reason and approver are recorded in the audit trail and **carried with the move** (it is not prompted again when the allocation is committed) (OQ-5).
+- On approval the move hands off both ways, with capacity already settled: **Project Management** commits the allocation to the new role, and — if the move changes the person's **role or grade** — People records a **movement (job change) against the existing employee record**, where **HR applies the pay/position aspect without re-approving capacity** (People F-MOVE-2). Hiring never edits the employment record itself, and no new employee is created.
+- On rejection nothing changes. The full endorsement and decision history is kept on the application, and the applicant can follow it through to the move taking effect (People notifies them on the effective date — F-MOVE-3).
 
 ### 7.6 One-seat fulfillment
 
@@ -290,7 +316,7 @@ graph LR
 **F-RPT-2 — Funnel & lead time.** The dashboard shows how many candidates sit at each step and how long they spend there, calling out the **biggest drop-off** and the **slowest step**.
 
 **F-RPT-3 — Roles at risk.** Open roles are shown against their deadlines (on track / due soon / overdue), and hiring pace is shown against demand for the coming months.
-- Candidates and roles that sit too long in a stage surface on an attention list, so a stalled pipeline is caught rather than forgotten.
+- Each pipeline stage carries an **SLA target** (the expected days in stage); candidates and roles aging past their stage SLA surface on an attention list, so a stalled pipeline is caught rather than forgotten.
 
 **F-RPT-4 — Recruiters & sources.** The dashboard shows recruiter performance (hires, time-to-fill, on-time rate) and where hires come from (applicants, hires, hire rate, cost per hire by channel).
 
@@ -307,9 +333,13 @@ graph LR
 
 **F-SEC-1 — Sensitive-data protection.** A candidate's personal contact details and an offer's compensation are shown only to recruiters and Strategic users; everyone else sees them as restricted.
 
-**F-SEC-2 — Audit trail.** Every change — opening a role, moving a candidate, an endorsement, an approval, an offer decision — is recorded with who did it and when.
+**F-SEC-2 — Audit trail.** Every change — an edit, a status change, an approval, a decision, an access grant — is recorded with who did it and when, building a full history that an authorized user can review.
 
-**F-SEC-3 — Organization isolation.** A user only ever sees their own organization's roles, candidates, and data.
+**F-SEC-3 — Organization isolation.** A user only ever sees their own organization's data; nothing from another organization is ever visible.
+
+**F-SEC-4 — Cross-account access grant (suite-wide).** An Account Manager who needs to see an account they don't own can **request access**; a **PMO or Strategic** user **grants or revokes** it (it is never self-granted).
+- A grant is **suite-wide** — it widens the manager's visibility to that account across **People, Hiring, and Project Management** for as long as it lasts (optionally time-boxed); revoking it removes the visibility everywhere immediately.
+- Granting and revoking are recorded in the audit trail.
 
 ### 7.11 Assistant integration ("Ask Seta")
 
@@ -319,6 +349,31 @@ graph LR
 ---
 
 ## 8. Key journeys
+
+Each journey reads as a **lifecycle** — what goes **in**, how it's **handled**, and what comes **out**. The first shows the whole suite end to end; the rest zoom into Hiring.
+
+**End-to-end — from a project's need to a delivering, growing employee** *(the whole suite)*
+
+```mermaid
+sequenceDiagram
+  participant PM as Project Mgmt
+  participant H as Hiring
+  participant PE as People
+  participant TS as Timesheet
+  PM->>H: A project needs a person — open one seat of demand
+  H->>H: Source, interview, offer — the candidate accepts
+  H->>PE: Hand over the hire (nothing re-keyed)
+  PE->>PE: Create the employee record and onboard
+  PE-->>PM: The worker now exists — fill the seat (allocate)
+  PM->>PM: Deliver the work — track utilization and health
+  TS-->>PM: Worked hours and availability feed utilization
+  PE->>PE: Grow the person — probation, performance, a move
+  PE-->>PM: A move re-allocates, offboarding ends open allocations
+```
+
+*In: a project's staffing need. Handling: hire → onboard → allocate → deliver → review. Out: a staffed project and an employee with a tracked journey.*
+
+**Sourcing to hire**
 
 ```mermaid
 sequenceDiagram
@@ -332,6 +387,10 @@ sequenceDiagram
   PE-->>R: Employee record created, onboarding starts
 ```
 
+*In: an open role and a candidate's CV. Handling: pipeline → interviews → offer. Out: an accepted offer handed to People as a new employee.*
+
+**Internal mobility — the capacity-gated move**
+
 ```mermaid
 sequenceDiagram
   actor E as Employee
@@ -344,6 +403,10 @@ sequenceDiagram
   H-->>E: Approved — moved to the new role
 ```
 
+*In: an employee's application. Handling: releasing then receiving endorsement, then the PMO capacity gate. Out: an approved move (recorded in People as a job change).*
+
+**One seat, one hire — fulfillment**
+
 ```mermaid
 sequenceDiagram
   participant PM as Project Management
@@ -353,6 +416,8 @@ sequenceDiagram
   H-->>PM: One path fills the seat, the other is cancelled
 ```
 
+*In: a project's open seat. Handling: external hire and internal move worked in parallel. Out: the seat filled exactly once, the losing path cancelled.*
+
 ---
 
 ## 9. States
@@ -361,23 +426,27 @@ sequenceDiagram
 
 ```mermaid
 stateDiagram-v2
+  state "Did not start" as DidNotStart
   [*] --> Candidate
   Candidate --> Offered
   Offered --> Hired
   Hired --> Preboarding: person matched · employee record created
   Preboarding --> Onboarding
+  Preboarding --> DidNotStart: rescind before start
   Onboarding --> Probation
   Onboarding --> Active
+  Onboarding --> DidNotStart: no-show
   Probation --> Active
   Probation --> Offboarding: not confirmed
   Active --> Active: movement (job change) / internal mobility
   Active --> Offboarding
   Offboarding --> Alumni
   Alumni --> Candidate: re-hire
+  DidNotStart --> [*]
   Alumni --> [*]
 ```
 
-*Candidate and Offered are owned by Hiring; from Preboarding on, People owns the person. An internal move and a re-hire both run back through Hiring's selection but resolve to the **same person** in People — never a second record.*
+*Candidate and Offered are owned by Hiring; from Preboarding on, People owns the person. A hire who rescinds before day one or no-shows ends at **Did not start** (never an active employee — the project seat reopens, F-ONB-5), not Alumni. An internal move and a re-hire both run back through Hiring's selection but resolve to the **same person** in People — never a second record.*
 
 **A candidate's pipeline**
 
@@ -417,16 +486,26 @@ stateDiagram-v2
 
 ```mermaid
 stateDiagram-v2
+  state "Pre-hire checks" as Checks
   [*] --> Draft
   Draft --> Approved
   Approved --> Sent
+  Sent --> Draft: revise / counter
   Sent --> Accepted
   Sent --> Declined
   Sent --> Expired: respond-by passed
-  Accepted --> [*]
+  Declined --> Draft: revise / counter
+  Accepted --> Checks
+  Checks --> Hired: passed / waived
+  Checks --> Declined: check failed
+  Accepted --> Reneged: withdraws before start
+  Hired --> [*]
+  Reneged --> [*]
   Declined --> [*]
   Expired --> [*]
 ```
+
+*A revised offer goes back through approval before it's re-sent; an accepted offer clears any pre-hire checks before it becomes a hire; a candidate who reneges before day one ends at Reneged and the seat reopens (F-OFFER-7).*
 
 **A project seat (fulfillment)**
 
@@ -437,6 +516,7 @@ stateDiagram-v2
   InProgress --> Filled
   InProgress --> Cancelled
   InProgress --> TimedOut
+  Filled --> Open: hire reneged / no-show before start
   Filled --> [*]
   Cancelled --> [*]
   TimedOut --> [*]
@@ -446,7 +526,7 @@ stateDiagram-v2
 
 ## 10. Acceptance scenarios (for QA)
 
-Plain, verifiable behaviors. The **Covers** column maps each scenario to the requirement it verifies. Italic = behavior to confirm / test still to be written.
+Plain, verifiable behaviors. The **Covers** column maps each scenario to the requirement it verifies. Italic = behavior to confirm / test still to be written. (QA IDs are stable identifiers and may be non-contiguous.)
 
 | # | Scenario | Expected | Covers |
 |---|---|---|---|
@@ -498,6 +578,13 @@ Plain, verifiable behaviors. The **Covers** column maps each scenario to the req
 | QA-46 | A returning former employee is hired | They are matched to their existing person; People adds a new employment period — no duplicate record | F-OFFER-3 |
 | QA-47 | An approved internal move changes the person's role/grade | Hiring hands the change to People as a movement against the existing record; no new employee is created | F-MOB-3 |
 | QA-48 | Open the roles-at-risk view | Roles show on track / due soon / overdue against their deadline, hiring pace vs demand shows, and items stalled too long in a stage appear on the attention list | F-RPT-3 |
+| QA-49 | Try to open a requisition without approval / beyond funded headcount | It cannot collect candidates until approved, and a new role beyond budgeted headcount is blocked | F-REQ-5 |
+| QA-50 | A candidate reaches Offer with a panel scorecard missing | The advance to Offer is blocked until the round's scorecards are submitted | F-INT-4 |
+| QA-51 | A candidate counters on compensation | The offer is revised, re-approved, and re-sent; prior versions are kept | F-OFFER-5 |
+| QA-52 | An accepted offer requires a background check | The hire is held at pre-hire checks; a failed check stops it, a passed/waived check lets the handoff proceed | F-OFFER-6 |
+| QA-53 | A candidate accepts then withdraws before day one | They are recorded as "Did not start" and the project seat reopens — no full offboarding | F-OFFER-7 |
+| QA-54 | Open the recruitment dashboard | An overall hiring-health read shows alongside open roles, in-process candidates, time-to-hire, and acceptance — scoped to what the viewer is responsible for | F-RPT-1 |
+| QA-55 | An Account Manager is granted access to another account, then it's revoked | While granted they see that account's hiring too (the grant is suite-wide); revoking removes it immediately; both are audited | F-SEC-4 |
 
 ---
 
@@ -509,13 +596,12 @@ Plain, verifiable behaviors. The **Covers** column maps each scenario to the req
 | OQ-2 | **Localization:** which recruitment content (job descriptions, candidate-facing text, interview guides) must be authored in both English and Vietnamese? | Product |
 | OQ-3 | **Microsoft Teams integration:** interview meeting links and transcript pulls depend on the integrations layer. Confirm availability and the manual fallback. | Product + Eng |
 | OQ-4 | **CV parsing:** confirm the recruiter always reviews parsed fields before they're saved, and the expected accuracy bar. | Product |
-| OQ-5 | **Over-allocation override:** who may approve a move beyond full capacity, and how is it surfaced and audited? | Product + PMO |
+| OQ-5 | **Over-allocation override:** who may approve a move beyond full capacity, and how is it surfaced and audited? This is the **same single decision** as PM OQ-5 (recorded once at PMO mobility approval, carried with the move). | Product + PMO |
 | OQ-6 | **Follow a role:** the prototype lets an employee "follow" an open role. Confirm whether following (and any referral flow) is in the first release. | Product |
 | OQ-7 | **Success-metric targets** in §2 marked TBD are a business call to set at sign-off; confirm which metrics gate the release. | Product / PMO |
 | OQ-8 | **Candidate communication:** the prototype shows no candidate-facing messages (interview invites, decisions, offer delivery). Decide whether templated candidate communication is in scope, or done outside the system. | Product |
 | OQ-9 | **Everyday recruiter actions:** confirm whether duplicating a role (opening several similar seats at once), reassigning a role to another recruiter, and bulk-adding candidates from a sourcing batch are in the first release. | Product |
 | OQ-10 | **Endorsement edge cases:** how a move is handled when the releasing and receiving manager are the same person, or an approver is absent. | Product + PMO |
+| OQ-11 | **Role-level requisitions (openings count):** established ATS tools (Greenhouse/Ashby) let one requisition carry N openings against a single shared candidate pipeline. The platform's settled model is **one seat = one requisition** (for clean exactly-once fill). Confirm whether to add a role-level grouping/shared-pipeline view over several one-seat requisitions, without changing the one-seat fill model. | Product + Eng |
+| OQ-12 | **Requisition approval chain:** confirm the exact sign-off steps before a requisition opens and who approves budget/funded headcount (F-REQ-5). | Product / PMO |
 
----
-
-*A companion technical design (data, integrations, permissions, and detailed rules) is maintained separately for the development team.*

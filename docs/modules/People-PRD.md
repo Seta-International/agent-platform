@@ -3,8 +3,6 @@
 | | |
 |---|---|
 | **Product area** | Seta — People |
-| **Status** | Draft (to-build) · 2026-06-18 |
-| **Version** | 0.1 |
 | **Audience** | Product · PMO · QA |
 
 ---
@@ -53,16 +51,17 @@ People is Seta's single, trusted record of **who works here and what happens to 
 
 ## 3. Roles & access
 
-Two independent things decide what a person sees and does. Do not conflate them.
+Two independent things decide what a person sees and does — **what they can do** (their *tier*) and **whose records they can see** (their *scope*). They are never conflated. People, Hiring, and Project Management share one set of tiers:
 
-**Access tier** — *what a person can do.* Everyone sits in one of four tiers:
+- **Strategic** — the Board of Directors (BOD), Admin, the **PMO**, and **HR**. Org-wide reach and the final decisions. Within Strategic, **HR** owns the people decisions (confirm probation, run a review cycle, manage org & positions) and the **PMO** owns capacity (the last approver of an internal move, and the gate on project allocation).
+- **Account Manager** — sees and acts for the account(s) they own; needs an explicit grant to see another account.
+- **Manager** — a **Team Lead, Engineering Manager, or Project Manager**: runs the people or projects they manage, gives review and interview input, and proposes moves or staffing.
+- **Recruiter** — the HR staff who run requisitions, candidates, interviews, and offers for the accounts they're assigned to *(Hiring only)*.
+- **Member** — sees and self-services only their own record, work, and applications.
 
-- **Strategic** — the Board of Directors (BOD), Admin, the PMO, and HR. Full reach across the whole organization, including pay and personal data, plus the admin-only decisions (confirm probation, approve a move, run a review cycle, manage the org and positions).
-- **Account Manager** — sees and acts for the people on the account(s) they own; needs an explicit **grant** to view another account (F-SEC-4).
-- **Team Lead / Engineering Manager** — sees and coaches the people on the projects they manage; gives probation and review input and proposes moves.
-- **Member** — sees and self-services their own record only.
+**Scope is derived, never hand-set** — it follows **which account and project a person or role belongs to**. A Manager sees the people on the projects they manage; an Account Manager sees everyone allocated to their account; a person working on two accounts is visible to **both** account managers; a Member sees only themselves. When an allocation ends, that visibility is withdrawn.
 
-**Visibility scope** — *which people's records you can see.* This is **not** a field someone sets by hand; it is derived from **who is allocated to which project and account**. A Team Lead sees the people on the projects they manage; an Account Manager sees everyone allocated to their account; a person working on two accounts is visible to **both** account managers. When an allocation ends, that visibility is withdrawn.
+In People specifically, a Manager's **managed set** is both the people on the projects they manage (via allocation) **and** their **direct reports via the reporting line** (which comes from positions, not a hand-typed manager field — F-ORG-3); a report's project allocation and load are read from the shared allocation view that Project Management feeds, so the People-managed set and the PM-project set stay one consistent picture rather than two.
 
 On top of both, **field-level rules** always apply, regardless of tier:
 
@@ -74,7 +73,7 @@ No one ever sees another organization's data.
 
 **What each tier can do** *(defaults; an organization may fine-tune)*
 
-| Capability | Member | Team Lead | Account Manager | Strategic (BOD/Admin/PMO/HR) |
+| Capability | Member | Manager | Account Manager | Strategic |
 |---|---|---|---|---|
 | View people directory & profiles | Self | Managed members (pay/personal restricted) | Own account's people (restricted) | All, incl. restricted fields |
 | Edit personal details (contact, date of birth, emergency contact) | Own | — | — | Any record |
@@ -92,7 +91,7 @@ No one ever sees another organization's data.
 
 > Logging-in accounts are provisioned separately by an administrator; signing in with single sign-on authenticates a person who has already been created and never auto-creates one. A person can exist in People before they can log in (a preboarding hire), and the two are linked when they first sign in.
 
-> The assistant ("Ask Seta") acts as a restricted helper, not a person: it can read what the current user is allowed to see and **draft** changes, but every change it proposes is held for a human to approve before it is saved (§7.15).
+> The assistant ("Ask Seta") acts as a restricted helper, not a person: it can read what the current user is allowed to see and **draft** changes, but every change it proposes is held for a human to approve before it is saved.
 
 ---
 
@@ -121,18 +120,26 @@ No one ever sees another organization's data.
 | Leave balances and leave requests | Timesheet system | Balance shows as unavailable; a request is held until it can be submitted |
 | A workspace account on hire (and its removal on exit) | Workspace provisioning (not built yet — OQ-2) | The request is logged as a placeholder and actioned manually |
 
-**Module boundaries & data ownership.** The same person is one identity across several modules, but **each fact has exactly one owner**; the others read it. People never holds a second copy of what it doesn't own, and no module writes into another's data — they stay in step through events and module APIs.
+**How People, Hiring, and Project Management fit together.** These three are one value stream for an outsourcing business: **Hiring** fills the roles the company needs, **People** is the trusted record of everyone who works here and runs their whole journey, and **Project Management** staffs those people onto client work and tracks delivery. The same human is **one identity seen three ways** — a **candidate/applicant** in Hiring, an **employee** in People, an **allocated resource** in PM — linked by id and kept in step by events, **never copied into a shared record**. Each fact has **exactly one owner**; every other module reads it and never writes it.
 
-| Concern | Owned by | People's relationship |
+| Concern | Owned by | How the others use it |
 |---|---|---|
-| Login, single sign-on, roles | Identity | People links a person to their login by id |
-| **Employee record, org & positions, skills, documents, lifecycle, performance** | **People** | The source of truth other modules read |
-| Recruitment (open roles, candidates, interviews, offers, internal moves) | Hiring | Receives a hired person and creates the employee record (F-WORK-9) |
-| Project assignments, allocation, utilization, demand | Project Management | People reads it for views/analysis; never authors it |
-| Time-off / leave, attendance, worked hours | Timesheet system | People shows a balance and submits requests through its interface; owns no leave data |
-| Payroll & compensation administration | Downstream finance | People stores pay attributes and history; payroll runs elsewhere |
+| Login, single sign-on, roles | **Identity** | All three gate access by role; an account is admin-provisioned, never auto-created at first sign-on |
+| Employee record, org & positions, skills, documents, lifecycle, performance, capacity | **People** | PM and Hiring read worker facts by id; People is the source of truth |
+| Recruitment — requisitions, candidates, interviews, offers, internal-move applications | **Hiring** | PM raises the demand Hiring works; on a hire, Hiring hands the person to People |
+| Accounts, projects, resource allocation, utilization, demand, delivery health, margin | **Project Management** | People reads allocation and utilization (for its views and for who-sees-whom); Hiring reads the demand a role is opened against |
+| Time-off / leave, attendance, worked hours | **Timesheet system** *(external)* | People shows a balance and submits requests through it; PM reads availability from it |
+| Per-project task execution (kanban) | **Planner** | PM links a project to a planner group; People scaffolds lifecycle checklists on it |
+| Payroll, billing, invoicing | **Downstream finance** *(external)* | People holds pay attributes; PM derives margin; finance administration runs elsewhere |
 
-When a candidate is hired, **Hiring hands the person to People**, which creates the employee record (the new source of truth) and starts onboarding; Project Management then commits the allocation the role was opened for. From that point People owns the person; Hiring keeps its candidate record only as recruitment history.
+**The handoffs that link them**
+
+- **Demand → hire.** PM raises a one-seat staffing need; Hiring opens a requisition against it. PM owns demand; Hiring owns the pipeline.
+- **Hire → employee.** When a candidate accepts, Hiring hands the person to People, which creates the employee record and starts onboarding — nothing re-keyed. People is then the source of truth; Hiring keeps the candidate only as recruitment history.
+- **Hire or move → allocation.** As soon as a worker exists for that seat, PM fills it with the named person (committed, possibly future-dated). One seat is filled once; the losing path is cancelled.
+- **Internal move → job change.** An approved internal move is recorded as a **movement against the existing person** in People (never a new employee) and re-allocates them in PM.
+- **Re-hire → same person.** A returning alumnus is matched at hire and added as a **new employment period on their existing record** — never a duplicate.
+- **Leaving → wind-down.** Offboarding in People ends the person's open allocations in PM so utilization doesn't go stale.
 
 **Priority**
 
@@ -186,12 +193,12 @@ graph TD
 
 ## 6. Use cases
 
-Scope widens from Member to Strategic — a Member sees only themselves, a Team Lead their managed people, an Account Manager their account, and Strategic the whole company. But authority over **pay, position, and grade, and the final decisions** (confirm probation, approve a move, run a cycle) sits **only with Strategic**, no matter how wide a manager's view is.
+Scope widens from Member to Strategic — a Member sees only themselves, a Manager their managed people, an Account Manager their account, and Strategic the whole company. But authority over **pay, position, and grade, and the final decisions** (confirm probation, approve a move, run a cycle) sits **only with Strategic**, no matter how wide a manager's view is.
 
 ```mermaid
 graph LR
   M(("Member"))
-  L(("Team Lead / EM"))
+  L(("Manager"))
   A(("Account Manager"))
   S(("Strategic — BOD/Admin/PMO/HR"))
 
@@ -200,8 +207,8 @@ graph LR
   A -.->|wider visibility| S
 
   M --- m1(["View & self-edit my record"])
-  M --- m2(["Request leave; see my balance"])
-  M --- m3(["Set my goals; submit self-review"])
+  M --- m2(["Request leave, see my balance"])
+  M --- m3(["Set my goals, submit self-review"])
   M --- m4(["Do my lifecycle tasks"])
 
   L --- l1(["View & coach my managed people"])
@@ -214,8 +221,8 @@ graph LR
   A --- a3(["Request access to another account"])
 
   S --- s1(["Manage records, pay, org & positions"])
-  S --- s2(["Decide probation; approve & apply moves"])
-  S --- s3(["Run review cycles; plan headcount"])
+  S --- s2(["Decide probation, approve & apply moves"])
+  S --- s3(["Run review cycles, plan headcount"])
   S --- s4(["See & act across the whole company"])
 ```
 
@@ -256,6 +263,8 @@ graph LR
 **F-WORK-6 — Skills.** A person can hold many skills at once, each chosen from a **predefined skills catalog** (skills are not free-typed) and rated at a **proficiency level from 0 to 5**, optionally with years of experience.
 - The same person carries several skills, each at its own level.
 - A skill that isn't in the catalog cannot be added to a person.
+- A skill can be backed by a **certification with an expiry** (kept in the document vault — F-DOC-2); when a required certification lapses, the person is flagged so the skills picture stays trustworthy.
+- A **position can carry a required-skills baseline** (role × level), so a person's skills can be measured against what their seat needs — feeding both the skills/talent picture (F-ANALYTICS-2) and the requisition a gap raises.
 - Whether a skill level is self-declared or confirmed by a manager is an open question (OQ-8); it affects how much the skills analytics can be trusted.
 
 **F-WORK-7 — Change stage.** A Strategic user can move a person between lifecycle stages (the journey in §9), and only valid transitions are allowed.
@@ -271,6 +280,10 @@ graph LR
 **F-WORK-10 — Re-hire a former employee.** A person has one identity in People but can have more than one **period of employment**. Re-hiring an alumnus adds a new employment period to the **same person**, keeping their prior history — never a duplicate record.
 - A returning person comes through Hiring as a candidate; the match to their existing record is confirmed at hire (by identity, work email, or name + date of birth). A genuine new person gets a new record.
 - Their **original hire date is preserved** and a new start date is set. Whether prior service counts toward seniority is a **deliberate policy choice**, not assumed (OQ-12).
+
+**F-WORK-11 — Effective-dated job history.** Every change to a person's **assignment** — position, org unit, grade, reporting line, and pay — is recorded as a **dated event with a reason and an effective date**, never a silent overwrite, so a person's job state is queryable at any past date ("what was their position and grade on this date") and a change can be scheduled ahead of time.
+- Pay and capacity already work this way (F-WORK-4, F-WORK-8); this extends the same dated-history discipline to the **whole assignment**, so a promotion, transfer, or org move is **one dated record with a reason**, not a set of point-in-time edits.
+- A future-dated change shows as a scheduled future state and takes effect on its date (the apply job — F-MOVE-3); the org chart and analytics always read the assignment **in effect for the period being viewed**, which is what lets utilization be measured against the grade/capacity that actually applied then.
 
 ### 7.2 Org structure & positions
 
@@ -306,7 +319,7 @@ graph LR
 ### 7.5 Headcount planning
 
 **F-HEAD-1 — Plan headcount.** A Strategic user can set the planned (budgeted) positions for an org unit in a period and compare planned against filled.
-- Open positions are the unit of demand a hiring requisition can target; opening or vacating a position raises a demand signal that Hiring can pick up.
+- Open positions are the unit of demand. There is **one demand pipeline**: an open/vacated budgeted position **feeds Project Management's backfill pipeline** (PM raises the one-seat backfill, Hiring opens the requisition) — People does not raise a separate, parallel hiring signal.
 
 ### 7.6 Lifecycle directory & dashboard
 
@@ -330,6 +343,14 @@ graph LR
 **F-ONB-3 — Advance & complete.** Moving a card or ticking checklist items advances the work; a blocked step must be explicitly resolved before it continues.
 - When the checklist completes, the person advances out of onboarding (into probation or active), and HR, their manager, and IT are notified.
 
+**F-ONB-4 — Preboarding (the new hire's own pre-start tasks).** Before their first day, a new hire has a **preboarding task lane assigned to them** — confirm personal details, sign and upload documents (contract, identity), acknowledge equipment — distinct from the HR / IT / Lead lanes.
+- A person in **Preboarding** completes these before they can act as a full member; what they submit is held for HR to confirm.
+- **Day-1 readiness** (the new hire's preboarding tasks plus the IT/equipment lane) is a visible milestone. A Project-Management allocation may be future-dated to the start date, but the person only becomes **Active** once onboarding completes (F-ONB-3).
+
+**F-ONB-5 — Rescind or no-show before start.** A hire who **withdraws before their first day** or **no-shows at onboarding** is handled distinctly from offboarding — they never became an active employee, so there is nothing to off-board.
+- The record is closed as **Did not start** (not Alumni), with a reason; their **filled project seat is reopened in Project Management** so the backfill resumes, rather than forcing a full offboarding of someone who never worked a day.
+- This is a recognized outcome, not an edge case: it cleanly reverses the hire → onboard → allocate handoff and keeps utilization and lifecycle metrics honest.
+
 ### 7.8 Probation
 
 **F-PROB-1 — Probation reviews.** A person in probation has scheduled checkpoints (e.g. 1-month and 2-month, with a confirmation around 90 days), each capturing a score (1–5) and the reviewer's note, against weighted objectives with progress and a risk indicator.
@@ -338,18 +359,21 @@ graph LR
 **F-PROB-2 — Confirmation decision.** At the end of probation HR records one of three outcomes: **Pass & confirm** (the person becomes Active), **Extend** (a new confirmation date is set), or **Do not confirm** (offboarding begins).
 - An extension uses an org-default length (e.g. 30 days) that can be adjusted, and a person can be extended more than once.
 - The decision is recorded with who made it and when, and the person's stage moves accordingly.
+- A **Do not confirm** decision signals Project Management **at the moment it is taken** (an "exit pending" signal), so the PMO can plan the backfill before offboarding completes — rather than discovering a billable allocation is ending only when offboarding finishes.
 
 ### 7.9 Movement
 
-**F-MOVE-1 — Request a move.** A Team Lead or Account Manager can propose a **promotion**, **transfer**, or **pay change** for someone they manage, stating the from/to and an effective date.
-- A movement is the **single record of a job change**, whether it's started directly by HR/a manager **or triggered by an approved internal-mobility selection in Hiring** — both record the change against the **existing person**, never a new hire. (A move that only changes which project a person works on is a Project-Management re-allocation, not a movement — see F-MOVE-3.)
+**F-MOVE-1 — Request a move.** A Manager or Account Manager can propose a **promotion**, **transfer**, or **pay change** for someone they manage, stating the from/to and an effective date.
+- A movement is the **single record of a job change**, whether it's **started directly in People** (an HR/manager-initiated promotion or pay change) **or arrives from an approved internal-mobility selection in Hiring** — both record the change against the **existing person**, never a new hire. (A move that only changes which project a person works on is a Project-Management re-allocation, not a movement — see F-MOVE-3.)
 
-**F-MOVE-2 — Approval workflow.** A move runs through a fixed sequence of approvals — for a promotion: **Request → Leader review → Manager approval → HR approval → Effective**; a pay change follows the same path without the leader-review step; a transfer ends at **Completed** — and its status is the first step not yet done.
-- Each step is an explicit approval; a move only takes effect once fully approved.
+**F-MOVE-2 — Approval workflow (one canonical chain).** Capacity is gated once, by the PMO; HR applies people-policy. There is a single approval graph for an internal move regardless of where it starts:
+- A move **originated through Hiring's internal mobility** has already passed releasing manager → receiving manager → **PMO capacity approval** (Hiring F-MOB). It arrives at People **already capacity-approved**; **HR applies the people-policy aspect** (position, grade, pay) and does **not** re-approve capacity.
+- A move **started directly in People** (e.g. a straight promotion or pay change with no project move) runs **Request → Leader review → Manager approval → HR approval → Effective** (a pay change skips leader review; a transfer ends at **Completed**); if it changes a person's project load it is routed through the PMO capacity gate before HR applies it, so capacity is never approved twice or skipped.
 - Any approver can **reject** a move or **send it back** for rework; a rejected move does not take effect, and its outcome is recorded.
 
 **F-MOVE-3 — Apply on the effective date.** An approved move is **applied on its effective date**, not at the moment of approval — re-binding the person's position and/or adding a new dated pay record — and is applied once only.
-- Account/project changes are handled as project re-allocations, not as a People field edit.
+- Any **allocation change** the move implies is committed **through Project Management** (where the capacity check and any PMO over-capacity override live), not written directly in People.
+- On apply, the person is **notified** ("your move to X is effective on DATE"), and — for a move that came from Hiring — the **originating application's status is updated** to reflect that it is now live, so the applicant sees a clean Approved → Effective closure.
 
 ### 7.10 Offboarding
 
@@ -375,6 +399,9 @@ graph LR
 **F-PERF-3 — Review cycles & goals.** HR can run recurring **review cycles** with **goals/OKRs** (objectives and key results) per person (objective, key results, weight, progress); managers and the people themselves set and update goals, and reviews can draw on delivery and utilization signals.
 - Closing a cycle finalizes its reviews; probation reuses the same scorecard as a one-off review.
 
+**F-PERF-4 — Calibration & promotion from review.** Before a cycle closes, managers' ratings can be **calibrated** in a session that normalizes scores across teams — so a given rating means the same thing under different managers — and the calibrated result is what's finalized.
+- A strong review outcome can **seed a movement** (a promotion or pay-change proposal — F-MOVE-1) directly from the review, so the "grow the person" loop ends in an action, not just a score.
+
 ### 7.12 Time-off / Leave (from the timesheet system)
 
 Leave is **owned by the timesheet system**, not by People — its types, balances, accrual, and approvals all live there. People surfaces it and lets a person act on it through that system.
@@ -395,12 +422,12 @@ Leave is **owned by the timesheet system**, not by People — its types, balance
 **F-SEC-1 — Sensitive-data protection.** Pay, bank, and tax are shown only to the record's owner and to Strategic users; everyone else sees "Restricted."
 - A manager's access to a person's sensitive data is re-checked **at the moment it is requested** against a current allocation — not from a cached list — so that when an allocation ends, the very next request is refused. There is no window in which stale visibility exposes pay, bank, or tax.
 
-**F-SEC-2 — Audit trail.** Every change — a record edit, a status change, an approval, a decision — is recorded with who did it and when.
+**F-SEC-2 — Audit trail.** Every change — an edit, a status change, an approval, a decision, an access grant — is recorded with who did it and when, building a full history that an authorized user can review.
 
-**F-SEC-3 — Organization isolation.** A user only ever sees their own organization's people and data.
+**F-SEC-3 — Organization isolation.** A user only ever sees their own organization's data; nothing from another organization is ever visible.
 
-**F-SEC-4 — Cross-account access grant.** An Account Manager who needs to see an account they don't own can request access; a Strategic user grants or revokes it.
-- A grant widens that Account Manager's visibility to the granted account for as long as it lasts; revoking it removes the visibility immediately.
+**F-SEC-4 — Cross-account access grant (suite-wide).** An Account Manager who needs to see an account they don't own can **request access**; a **PMO or Strategic** user **grants or revokes** it (it is never self-granted).
+- A grant is **suite-wide** — it widens the manager's visibility to that account across **People, Hiring, and Project Management** for as long as it lasts (optionally time-boxed); revoking it removes the visibility everywhere immediately.
 - Granting and revoking are recorded in the audit trail.
 
 ### 7.15 Assistant integration ("Ask Seta")
@@ -411,6 +438,31 @@ Leave is **owned by the timesheet system**, not by People — its types, balance
 ---
 
 ## 8. Key journeys
+
+Each journey reads as a **lifecycle** — what goes **in**, how it's **handled**, and what comes **out**. The first shows the whole suite end to end; the rest zoom into People.
+
+**End-to-end — from a project's need to a delivering, growing employee** *(the whole suite)*
+
+```mermaid
+sequenceDiagram
+  participant PM as Project Mgmt
+  participant H as Hiring
+  participant PE as People
+  participant TS as Timesheet
+  PM->>H: A project needs a person — open one seat of demand
+  H->>H: Source, interview, offer — the candidate accepts
+  H->>PE: Hand over the hire (nothing re-keyed)
+  PE->>PE: Create the employee record and onboard
+  PE-->>PM: The worker now exists — fill the seat (allocate)
+  PM->>PM: Deliver the work — track utilization and health
+  TS-->>PM: Worked hours and availability feed utilization
+  PE->>PE: Grow the person — probation, performance, a move
+  PE-->>PM: A move re-allocates, offboarding ends open allocations
+```
+
+*In: a project's staffing need. Handling: hire → onboard → allocate → deliver → review. Out: a staffed project and an employee with a tracked journey.*
+
+**Onboarding a new hire**
 
 ```mermaid
 sequenceDiagram
@@ -424,9 +476,13 @@ sequenceDiagram
   Note over P: New hire completes personal details at first login
 ```
 
+*In: the new hire's details. Handling: People creates the record, requests a workspace, opens the checklist. Out: an employee ID and tasks routed to each owner.*
+
+**Promotion — applied on the effective date**
+
 ```mermaid
 sequenceDiagram
-  actor L as Team Lead
+  actor L as Manager
   actor HR as HR
   participant P as Seta People
   L->>P: Propose a promotion (from / to, effective date)
@@ -434,6 +490,10 @@ sequenceDiagram
   HR->>P: Approve the final step
   Note over P: Applied on the effective date — new seat and new pay record
 ```
+
+*In: a proposed job change. Handling: routed through approvals, applied on the effective date. Out: a new position and a dated pay record.*
+
+**Requesting leave — owned by the timesheet system**
 
 ```mermaid
 sequenceDiagram
@@ -446,6 +506,8 @@ sequenceDiagram
   P-->>M: Shows the outcome and the new balance
 ```
 
+*In: a leave request. Handling: handed to the timesheet system. Out: the decision and updated balance shown back to the person.*
+
 ---
 
 ## 9. States
@@ -454,32 +516,40 @@ sequenceDiagram
 
 ```mermaid
 stateDiagram-v2
+  state "Did not start" as DidNotStart
   [*] --> Candidate
   Candidate --> Offered
   Offered --> Hired
   Hired --> Preboarding: person matched · employee record created
   Preboarding --> Onboarding
+  Preboarding --> DidNotStart: rescind before start
   Onboarding --> Probation
   Onboarding --> Active
+  Onboarding --> DidNotStart: no-show
   Probation --> Active
   Probation --> Offboarding: not confirmed
   Active --> Active: movement (job change) / internal mobility
   Active --> Offboarding
   Offboarding --> Alumni
   Alumni --> Candidate: re-hire
+  DidNotStart --> [*]
   Alumni --> [*]
 ```
 
-*Candidate and Offered are owned by Hiring; from Preboarding on, People owns the person. An internal move and a re-hire both run back through Hiring's selection but resolve to the **same person** in People — never a second record.*
+*Candidate and Offered are owned by Hiring; from Preboarding on, People owns the person. A hire who rescinds before day one or no-shows ends at **Did not start** (never an active employee — the project seat reopens, F-ONB-5), not Alumni. An internal move and a re-hire both run back through Hiring's selection but resolve to the **same person** in People — never a second record.*
 
 **An employee's journey**
 
 ```mermaid
 stateDiagram-v2
+  state "On leave" as OnLeave
+  state "Did not start" as DidNotStart
   [*] --> Preboarding
   Preboarding --> Onboarding
+  Preboarding --> DidNotStart: rescind before start
   Onboarding --> Probation
   Onboarding --> Active
+  Onboarding --> DidNotStart: no-show
   Probation --> Probation: extend
   Probation --> Active: confirmed
   Probation --> Offboarding: not confirmed
@@ -488,6 +558,7 @@ stateDiagram-v2
   Active --> Offboarding
   Offboarding --> Alumni
   Alumni --> Preboarding: re-hire (same person)
+  DidNotStart --> [*]
   Alumni --> [*]
 ```
 
@@ -567,6 +638,12 @@ Plain, verifiable behaviors. The **Covers** column maps each scenario to the req
 | QA-50 | A Team Lead submits probation input; HR records the decision | Input and decision are separate — the Lead can't decide pass/fail | F-PROB-1 |
 | QA-51 | Put an offboarding on hold before completion | The person returns to their prior stage; clearance can resume later | F-OFF-1 |
 | QA-52 | Open then close a review cycle | Goals/OKRs and reviews are captured; closing finalizes the cycle's reviews | F-PERF-3 |
+| QA-53 | Promote then transfer a person, then ask their position/grade as of a past date | The assignment history returns the position and grade in effect on that date; each change is a dated record with a reason | F-WORK-11 |
+| QA-54 | A new hire opens their preboarding tasks before day one | They can confirm details and upload documents; what they submit is held for HR to confirm | F-ONB-4 |
+| QA-55 | A hire rescinds before day one (or no-shows at onboarding) | The record closes as "Did not start" (not Alumni) and the project seat reopens for backfill | F-ONB-5 |
+| QA-56 | Calibrate ratings before closing a cycle, then act on a strong review | Ratings normalize across teams; a strong outcome can seed a promotion/pay movement | F-PERF-4 |
+| QA-57 | A required certification backing a skill lapses | The person is flagged so the skills picture stays trustworthy | F-WORK-6, F-DOC-2 |
+| QA-58 | A required document nears its expiry | A reminder is raised to HR and the owner before it lapses | F-DOC-2 |
 
 ---
 
@@ -583,10 +660,7 @@ Plain, verifiable behaviors. The **Covers** column maps each scenario to the req
 | OQ-7 | **Success-metric targets** in §2 marked TBD are a business call to set at sign-off; confirm which metrics gate the release and the date targets are fixed. | Product / PMO |
 | OQ-8 | **Skill levels:** are proficiency levels self-declared by the person, or confirmed by a manager? This affects how far the skills analytics can be trusted. | Product |
 | OQ-9 | **Probation extension length:** confirm the default extension length and that it's configurable (the Pass / Extend / Do-not-confirm outcomes themselves are specified in F-PROB-2). | Product |
-| OQ-10 | **Account Manager demand:** an AM who is short of people on an account has no direct action here today (headcount planning is Strategic-only, hiring is separate). Confirm how an AM raises a staffing need. | Product |
+| OQ-10 | **Account Manager demand → RESOLVED:** an Account Manager who is short of people on their account **raises a backfill for that account** in Project Management, which flows to Hiring as a requisition (the single demand pipeline). Confirm the approval/limits on AM-raised demand at sign-off. | Product / PMO |
 | OQ-11 | **Timesheet leave API:** confirm the timesheet system exposes the interface People needs to show balances and submit leave requests, and the behavior when it's unavailable. | Product + Eng |
 | OQ-12 | **Continuous service on re-hire:** confirm the policy for whether a re-hired person's prior service bridges toward seniority/tenure (the original hire date is always preserved; the seniority date defaults to the new start unless bridged). | Product / HR |
 
----
-
-*A companion technical design (data, integrations, permissions, and detailed rules) is maintained separately for the development team.*
