@@ -14,6 +14,7 @@ describe('qna taskQueryAgent', () => {
       'planner_queryTasks',
       'planner_findSimilarTasks',
       'planner_getOpenTaskCountForUser',
+      'planner_resolveMember',
     ]);
   });
 
