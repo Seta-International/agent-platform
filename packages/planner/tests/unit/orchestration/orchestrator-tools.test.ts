@@ -3,6 +3,7 @@ import type { SpecializedAgentSpec } from '@seta/agent-sdk';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { makeQnaOrchestratorTools } from '../../../src/backend/orchestration/orchestrator.tools.ts';
+import { QnaOrchestratorInputSchema } from '../../../src/backend/orchestration/orchestrator.ts';
 import type {
   QnaSubAgentInput,
   QnaSubAgentOutput,
@@ -54,5 +55,12 @@ describe('qna orchestrator delegation tools', () => {
       requestContext: rc,
     } as never)) as { answer: string };
     expect(res.answer).toBe('you have 4 open tasks');
+  });
+});
+
+describe('qna orchestrator instructions', () => {
+  it('input schema accepts userText + nullable taskId', () => {
+    const parsed = QnaOrchestratorInputSchema.parse({ userText: 'my tasks', taskId: null });
+    expect(parsed.userText).toBe('my tasks');
   });
 });

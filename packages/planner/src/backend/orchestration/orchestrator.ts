@@ -55,7 +55,9 @@ Routing:
 Rules: call at most the tools you need; prefer ONE. Page context arrives as a
 "[Context: planner.<kind>#<id>]" prefix — pass the relevant id through to the
 delegate. This is READ-ONLY: never assign, comment, or claim to have changed
-anything. If a question needs an id you cannot resolve, ask the user.`;
+anything. The current user's identity is implicit — questions about "me/my/I" never need
+an id (the delegates resolve the caller from the session). For a NAMED other person, let the
+delegate resolve them; only ask the user to clarify when a name is genuinely ambiguous.`;
 
 interface BuiltQnaOrchestrator {
   agent: Agent;
