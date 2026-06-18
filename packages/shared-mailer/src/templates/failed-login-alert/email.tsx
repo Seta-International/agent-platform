@@ -1,4 +1,5 @@
 /** @jsxImportSource react */
+/** @jsxRuntime automatic */
 
 import type { JSX } from 'react';
 import { Body, Button, Container, Head, Heading, Html, Text } from 'react-email';
