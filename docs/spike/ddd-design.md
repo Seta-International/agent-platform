@@ -3,7 +3,14 @@
 > The integration backbone for the three modules: bounded contexts, the cross-cutting Worker concept,
 > aggregate roots + invariants, and domain events as the data-in/out contract. Grounded in the
 > [PM/PSA + DDD research](#sources) (Kantata/Float/Runn for PSA; Vernon/O-AA/Context-Mapper for DDD).
-> This doc governs `people.md`, `hiring.md`, `pm.md` system design — read it first.
+>
+> ⚠️ **Revision 2026-06-18 — superseded in parts by the module technical specs**
+> ([`People-technical-spec`](../modules/People-technical-spec.md), [`Hiring-technical-spec`](../modules/Hiring-technical-spec.md))
+> and [`benchmarking-mobility-rehire.md`](./benchmarking-mobility-rehire.md). Deltas reconciled inline below:
+> **leave is owned by the timesheet system** (removed from `people`; `people.leave.*` events dropped; `pm`
+> reads availability from timesheet); **re-hire** = `person` identity + many `employment_period`s (link, don't
+> duplicate) guarded by a person-match at the `hiring`→`people` boundary; **internal mobility feeds a single
+> `people` job-change ("movement")** so `hiring.mobility.approved` is consumed by **both** `pm` and `people`.
 
 ## 1. Bounded contexts
 
@@ -58,7 +65,7 @@ outbox + projection pattern. No shared tables, no cross-schema FK.
 
 | Context | Local model | Owns | Gets from upstream |
 |---|---|---|---|
-| people | **Worker** (aggregate, SoR) | identity link, employment, grade, skills, position binding, lifecycle stage, comp attrs, **capacity** (contracted hrs/FTE), leave balances | identity `user.*` |
+| people | **Worker** (aggregate, SoR) | identity link, employment (**person + 1..N employment periods**), grade, skills, position binding, lifecycle stage, comp attrs, **capacity** (contracted hrs/FTE) — **leave moved to the timesheet system** | identity `user.*` |
 | pm | **Resource** (read-model) | allocations, utilization, rate overrides, role-on-project | people `worker.*` (name, skills, capacity), `leave.approved` |
 | hiring | **HireTarget / Applicant** (read-model for internal; Candidate is local-owned for external) | application, endorsements, interview, offer | people `worker.*` (for internal applicants) |
 
@@ -134,9 +141,10 @@ RAG is derived.
 ## 7. Capacity / utilization contract (resolves research OQ)
 
 - **people owns capacity** — contracted hours / FTE% on the Worker, **effective-dated**
-  (`worker_capacity`), plus **leave** (reduces availability). A capacity change is a new effective-dated
-  row that emits **`people.worker.capacity_changed`** (a dedicated event, not folded into the generic
-  `updated`); `decideLeave` emits `people.leave.approved`.
+  (`worker_capacity`). A capacity change is a new effective-dated row that emits
+  **`people.worker.capacity_changed`** (a dedicated event, not folded into the generic `updated`).
+  **Leave is no longer owned by people** (2026-06-18): it lives in the **timesheet system**; `pm` reads
+  availability from there, not from a `people.leave.approved` event (that event is removed).
 - **pm is the sole utilization authority** — utilization = Σ allocation intensity ÷ **the capacity in
   effect for that period**; flags overallocation. pm projects people's capacity (effective-dated, into
   `rm_resource_capacity`) + approved leave. Using a single *current* capacity scalar would make any
@@ -168,14 +176,14 @@ via the `core.events` outbox. Consumers fetch detail via public surface.
 | `people.worker.lifecycle_changed` | people | notifications | worker_id, from_stage, to_stage |
 | `people.worker.deactivated` | people | **pm**, hiring | worker_id (Offboarding/Alumni → pm ends open allocations) |
 | `people.worker.onboarded` | people | notifications | worker_id (onboarding **complete → lifecycle only**; the placeholder was already filled at `worker.created`) |
-| `people.leave.approved` | people | pm | worker_id, range |
+| ~~`people.leave.approved`~~ | ~~people~~ | — | **REMOVED 2026-06-18** — leave owned by the timesheet system; `pm` reads availability from there |
 | `people.position.opened` | people | pm | position_id, profile, org_unit (→ pm creates a placeholder; see §5) |
 | `pm.account.created/updated` · `pm.project.created/updated` | pm | people, hiring | id, name, parent, am_user_id (lookup projections) |
 | `pm.resource_request.opened` | pm | hiring | placeholder_allocation_id, role, skills, count, dates, project_id |
 | `pm.assignment.created/changed/ended` | pm | people | allocation_id, worker_id, project_id, account_id, pct, dates (people projects `rm_allocation`; `ended` retracts) |
 | `hiring.requisition.opened/closed` | hiring | pm | requisition_id, resource_request_id |
-| `hiring.mobility.approved` | hiring | pm | worker_id, project_id, **placeholder_allocation_id**, pct |
-| `hiring.candidate.hired` | hiring | people | candidate_id, target position_id, **resource_request_id** |
+| `hiring.mobility.approved` | hiring | **pm, people** | worker_id, project_id, **placeholder_allocation_id**, pct — pm fills the placeholder; **people opens a `movement_request(source=internal_mobility)` when role/grade changes** |
+| `hiring.candidate.hired` | hiring | people | candidate_id, target position_id, **resource_request_id**, **`person_id?`** (from the boundary person-match → people adds a new employment period to the existing person on re-hire, else creates one) |
 
 ### Canonical flow — placeholder → requisition → hire → named allocation
 

@@ -1,5 +1,17 @@
 # People / Hiring / PM — unified database design (Step 7)
 
+> ⚠️ **Revision 2026-06-18 — superseded in parts by the module technical specs**
+> ([`People-technical-spec`](../modules/People-technical-spec.md), [`Hiring-technical-spec`](../modules/Hiring-technical-spec.md)),
+> which are the source of truth. Reconciled deltas (applied as inline notes below):
+> - **Leave tables removed from `people`** (`leave_type`/`leave_ledger`/`leave_balance`/`leave_request`) —
+>   **leave is owned by the timesheet system**; `people` only proxies its API. `people.leave.*` events dropped;
+>   `pm` reads availability from the timesheet system, not from a `people` leave event.
+> - **Re-hire:** `worker` splits into a stable **`person` identity + 1..N `employment_period`** rows
+>   (re-hire adds a period, never a duplicate person); `original_hire_date` immutable + `seniority_date`.
+> - **`movement_request.source`** (`hr_initiated|internal_mobility`); `hiring.mobility.approved` opens a
+>   `people` movement when role/grade changes (dual consumer with `pm`).
+> - **`offer`** gains `respond_by` + `expired`; **`candidate.segment`** (alumni); person-match carries `person_id?`.
+>
 > Drizzle schema for all three modules in one pass so write-tables, read-models, and the event/data
 > contracts ([`ddd-design.md`](./ddd-design.md)) line up. One `pgSchema` per module with
 > `schemaFilter` scoping; **no cross-schema FK**; cross-module data flows only via events into
@@ -127,17 +139,11 @@
   (FK→`scorecard_criterion`), `score smallint`, `evidence`. pk `(review_id, criterion_id)`. Makes
   "avg score on criterion X org-wide" and prev-period delta indexable instead of jsonb scans.
 
-**Leave (P-C11)** — *ledger, not a mutable balance cell*
-- `leave_type` — `name`, `accrual_policy jsonb`.
-- `leave_ledger` *(append-only SoR)* — `worker_id`, `leave_type_id`, `delta numeric` (+accrual /
-  −approved), `reason`, `source_event_id`, `at`. balance = `Σ(delta)`; idempotent on
-  `source_event_id` (no double-accrual / double-decrement under concurrent cron + approval).
-- `leave_balance` *(optional cache)* — `worker_id`, `leave_type_id`, `balance numeric`, `as_of`. pk
-  `(worker_id, leave_type_id)`. A materialized snapshot of the ledger for hot reads; never the SoR.
-- `leave_request` — `worker_id` (FK), `leave_type_id`, `date_from`, `date_to`, `status`,
-  `approver_user_id`, `decided_at`. idx `(tenant_id, worker_id, status)`. **`EXCLUDE USING gist`**
-  (`btree_gist`) on `(worker_id WITH =, daterange(date_from,date_to) WITH &&) WHERE status='approved'`
-  enforces no-overlap in the DB, not the domain.
+**~~Leave (P-C11)~~ — REMOVED (2026-06-18): leave is owned by the timesheet system.**
+`people` holds **no** leave tables (`leave_type`/`leave_ledger`/`leave_balance`/`leave_request` deleted)
+and emits no `people.leave.*` events. `people` proxies the timesheet API for balance read + request
+submit (`integrations`); `pm` reads availability from the timesheet system directly. The ledger/EXCLUDE
+no-overlap design moves with leave to that system.
 
 **Headcount (P-C12)**
 - `headcount_plan` — `org_unit_id`, `period`, `planned_count int`, `notes`. idx `(tenant_id, period)`.
