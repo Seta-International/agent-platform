@@ -6,7 +6,10 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   MICROSOFT_CLIENT_ID: z.string().optional(),
   MICROSOFT_CLIENT_SECRET: z.string().optional(),
-  SESSION_COOKIE_SAMESITE: z.enum(['strict', 'lax']).default('strict'),
+  // `lax` is required for OAuth/SSO: the IdP (Entra) redirect back to the
+  // callback is cross-site, and `strict` would drop the state cookie → state_mismatch.
+  // `lax` still blocks cross-site POST/subresource sends, so CSRF protection holds.
+  SESSION_COOKIE_SAMESITE: z.enum(['strict', 'lax']).default('lax'),
 });
 
 export type IdentityEnv = z.infer<typeof envSchema>;
