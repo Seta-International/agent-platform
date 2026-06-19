@@ -15,17 +15,19 @@ import {
   Label,
   PageChrome,
   Skeleton,
+  Switch,
   toast,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from '@tanstack/react-router';
-import { ChevronLeft, Clock } from 'lucide-react';
+import { ChevronLeft, Clock, KeyRound } from 'lucide-react';
 import { useState } from 'react';
 import {
   editWorker,
   fetchWorker,
   fetchWorkerHistory,
+  setPortalAccess,
   type WorkerPatch,
 } from '../api/people-client.ts';
 import { peopleKeys } from '../state/query-keys.ts';
@@ -67,6 +69,16 @@ export function WorkerProfilePage() {
   const workerId = params.workerId as string;
   const queryClient = useQueryClient();
   const canEdit = usePermission('people.worker.edit');
+  const canSetPortal = usePermission('people.worker.portal_access.set');
+
+  const portalMutation = useMutation({
+    mutationFn: (enabled: boolean) => setPortalAccess(workerId, enabled),
+    onSuccess: (r) => {
+      toast.success(r.portal_access ? 'Portal access enabled' : 'Portal access disabled');
+      void queryClient.invalidateQueries({ queryKey: peopleKeys.worker(workerId) });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<WorkerPatch>({});
@@ -314,6 +326,38 @@ export function WorkerProfilePage() {
 
         {/* Change history card */}
         <div>
+          {canSetPortal && (
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <KeyRound className="size-4 text-ink-muted" />
+                  Login &amp; access
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-body-sm font-medium text-ink">Portal access</p>
+                    <p className="text-body-sm text-ink-muted">
+                      {worker.portal_access
+                        ? 'This person can sign in.'
+                        : worker.work_email
+                          ? 'Turn on to provision a login.'
+                          : 'A work email is required before access can be granted.'}
+                    </p>
+                  </div>
+                  <Switch
+                    checked={worker.portal_access}
+                    disabled={
+                      portalMutation.isPending || (!worker.portal_access && !worker.work_email)
+                    }
+                    onCheckedChange={(v) => portalMutation.mutate(v)}
+                    aria-label="Portal access"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          )}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
