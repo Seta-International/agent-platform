@@ -338,6 +338,24 @@ export const INVENTORY: StatementSpec[] = [
     ],
   },
   {
+    module: 'people',
+    statement: {
+      'people.worker': ['read', 'provision'],
+    },
+    roles: [
+      {
+        slug: 'people.strategic',
+        description: 'Full people administration',
+        permissions: ['people.worker.read', 'people.worker.provision'],
+      },
+      {
+        slug: 'people.viewer',
+        description: 'Read people records',
+        permissions: ['people.worker.read'],
+      },
+    ],
+  },
+  {
     module: 'identity',
     statement: {
       'identity.user': [

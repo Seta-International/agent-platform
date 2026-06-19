@@ -53,6 +53,8 @@ export type PermissionKey =
   | 'notifications.category.read'
   | 'notifications.preference.read'
   | 'notifications.preference.write'
+  | 'people.worker.provision'
+  | 'people.worker.read'
   | 'planner.bucket.create'
   | 'planner.bucket.delete'
   | 'planner.bucket.read'
@@ -153,6 +155,8 @@ export const ALL_PERMISSIONS: readonly PermissionKey[] = [
   'notifications.category.read',
   'notifications.preference.read',
   'notifications.preference.write',
+  'people.worker.provision',
+  'people.worker.read',
   'planner.bucket.create',
   'planner.bucket.delete',
   'planner.bucket.read',
