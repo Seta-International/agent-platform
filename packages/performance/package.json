@@ -10,7 +10,11 @@
     "./events": "./src/events.ts",
     "./rbac": "./src/rbac.ts",
     "./contracts": "./src/contracts.ts",
-    "./register": "./src/register.ts"
+    "./register": "./src/register.ts",
+    "./agent-tools/register": {
+      "types": "./src/backend/agent-tools/register.ts",
+      "default": "./src/backend/agent-tools/register.ts"
+    }
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
