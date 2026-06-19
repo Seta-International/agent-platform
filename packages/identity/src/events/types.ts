@@ -187,7 +187,7 @@ export interface IdentityUserEmailChanged {
     tenant_id: Uuid;
     old_email: string;
     new_email: string;
-    reason: 'admin' | 'sso_sync';
+    reason: 'admin' | 'sso_sync' | 'people_sync';
   };
 }
 
