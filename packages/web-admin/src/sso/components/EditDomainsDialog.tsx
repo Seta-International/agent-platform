@@ -1,7 +1,6 @@
 import {
   Alert,
   AlertDescription,
-  Badge,
   Button,
   Dialog,
   DialogContent,
@@ -12,6 +11,7 @@ import {
   Label,
 } from '@seta/shared-ui';
 import { useState } from 'react';
+import { DomainsField } from '../../components/DomainsField.tsx';
 import { registerProvider } from '../api/sso-client.ts';
 
 interface EditDomainsDialogProps {
@@ -26,26 +26,11 @@ export function EditDomainsDialog({
   onSaved,
 }: EditDomainsDialogProps) {
   const [open, setOpen] = useState(false);
-  const [domainInput, setDomainInput] = useState('');
   const [domains, setDomains] = useState<string[]>(initialDomains);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  function addDomain() {
-    const trimmed = domainInput.trim().toLowerCase();
-    if (!trimmed) return;
-    if (!domains.includes(trimmed)) {
-      setDomains((prev) => [...prev, trimmed]);
-    }
-    setDomainInput('');
-  }
-
-  function removeDomain(d: string) {
-    setDomains((prev) => prev.filter((x) => x !== d));
-  }
-
   function resetState() {
-    setDomainInput('');
     setDomains(initialDomains);
     setError(null);
   }
@@ -95,43 +80,7 @@ export function EditDomainsDialog({
               className="text-muted-foreground"
             />
           </div>
-          <div className="space-y-1">
-            <Label htmlFor="edit-domains-domain-input">Email domains</Label>
-            <div className="flex gap-2">
-              <Input
-                id="edit-domains-domain-input"
-                value={domainInput}
-                onChange={(e) => setDomainInput(e.target.value)}
-                placeholder="contoso.com"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    addDomain();
-                  }
-                }}
-              />
-              <Button type="button" variant="secondary" onClick={addDomain}>
-                Add
-              </Button>
-            </div>
-            {domains.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1">
-                {domains.map((d) => (
-                  <Badge key={d} variant="secondary" className="gap-1">
-                    {d}
-                    <button
-                      type="button"
-                      className="ml-1 hover:text-destructive"
-                      onClick={() => removeDomain(d)}
-                      aria-label={`Remove ${d}`}
-                    >
-                      ×
-                    </button>
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </div>
+          <DomainsField domains={domains} onChange={setDomains} idPrefix="edit-domains" />
           {error && (
             <Alert variant="destructive">
               <AlertDescription>{error}</AlertDescription>
