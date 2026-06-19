@@ -5,7 +5,6 @@ import {
   ASSIGNABLE_ROLES,
   bulkGrantRole,
   bulkRevokeRole,
-  createUser,
   deactivateUser,
   getUserGrants,
   getUserProfile,
@@ -21,13 +20,6 @@ import {
   revokeUserSession,
   updateUserProfile,
 } from '../../index.ts';
-
-const createSchema = z.object({
-  email: z.string().email(),
-  name: z.string().min(1).max(120),
-  password: z.string().min(12).max(128),
-  initial_role: z.string().optional(),
-});
 
 const grantSchema = z.object({
   role_slug: z.string(),
@@ -87,31 +79,6 @@ export function registerAdminUsersRoutes(app: Hono<SessionEnv>): void {
       offset,
     });
     return c.json(result);
-  });
-
-  app.post('/api/identity/v1/users', async (c) => {
-    requireAdmin(c);
-    const scope = c.get('user');
-    const parsed = createSchema.safeParse(await c.req.json().catch(() => ({})));
-    if (!parsed.success) return c.json({ error: 'invalid', details: parsed.error.flatten() }, 400);
-    const { user_id } = await createUser(
-      {
-        tenant_id: scope.tenant_id,
-        email: parsed.data.email,
-        name: parsed.data.name,
-        password: parsed.data.password,
-        initial_role: parsed.data.initial_role
-          ? { role_slug: parsed.data.initial_role, scope_type: 'tenant', scope_id: null }
-          : undefined,
-      },
-      {
-        type: 'user',
-        user_id: scope.user_id,
-        ip: c.req.header('x-forwarded-for')?.split(',')[0]?.trim(),
-        user_agent: c.req.header('user-agent'),
-      },
-    );
-    return c.json({ user_id });
   });
 
   app.get('/api/identity/v1/users/:id', async (c) => {
