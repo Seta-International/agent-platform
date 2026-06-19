@@ -3,6 +3,7 @@ export interface WorkerListRow {
   full_name: string;
   work_email: string;
   lifecycle_stage: string;
+  portal_access: boolean;
 }
 
 export interface WorkerDetail extends WorkerListRow {
@@ -96,4 +97,34 @@ export async function editWorker(id: string, input: EditWorkerInput): Promise<{ 
     body: JSON.stringify(input),
   });
   return handleResponse<{ version: number }>(res);
+}
+
+export async function setPortalAccess(
+  id: string,
+  enabled: boolean,
+): Promise<{ portal_access: boolean; changed: boolean }> {
+  const res = await fetch(`/api/people/v1/workers/${id}/portal-access`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled }),
+  });
+  return handleResponse<{ portal_access: boolean; changed: boolean }>(res);
+}
+
+export interface BulkPortalResult {
+  results: Array<{ worker_id: string; status: 'changed' | 'skipped' | 'error'; error?: string }>;
+}
+
+export async function setPortalAccessBulk(
+  worker_ids: string[],
+  enabled: boolean,
+): Promise<BulkPortalResult> {
+  const res = await fetch('/api/people/v1/workers/portal-access/bulk', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ worker_ids, enabled }),
+  });
+  return handleResponse<BulkPortalResult>(res);
 }
