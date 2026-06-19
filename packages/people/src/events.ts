@@ -6,6 +6,14 @@ export const workerCreatedPayload = z.object({
 });
 export type WorkerCreatedPayload = z.infer<typeof workerCreatedPayload>;
 
+export const workerUpdatedPayload = z.object({
+  worker_id: z.string().uuid(),
+  tenant_id: z.string().uuid(),
+  fields: z.array(z.string()),
+});
+export type WorkerUpdatedPayload = z.infer<typeof workerUpdatedPayload>;
+
 export const PEOPLE_EVENTS = {
   'people.worker.created': workerCreatedPayload,
+  'people.worker.updated': workerUpdatedPayload,
 } as const satisfies Record<string, z.ZodSchema>;

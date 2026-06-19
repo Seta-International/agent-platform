@@ -20,7 +20,9 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:generate": "drizzle-kit generate",
+    "db:check": "drizzle-kit check"
   },
   "devDependencies": {
     "@opentelemetry/context-async-hooks": "^2.7.1",

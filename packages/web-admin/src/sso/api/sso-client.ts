@@ -30,7 +30,7 @@ export async function listProviders(): Promise<SsoProviderRowDto[]> {
 
 export async function registerProvider(body: {
   entra_tenant_id: string;
-  email_domains: string[];
+  email_domains?: string[];
 }): Promise<SsoProviderRowDto> {
   const res = await fetch('/api/identity/v1/sso/providers', {
     method: 'POST',

@@ -340,13 +340,13 @@ export const INVENTORY: StatementSpec[] = [
   {
     module: 'people',
     statement: {
-      'people.worker': ['read', 'provision'],
+      'people.worker': ['read', 'provision', 'edit'],
     },
     roles: [
       {
         slug: 'people.strategic',
         description: 'Full people administration',
-        permissions: ['people.worker.read', 'people.worker.provision'],
+        permissions: ['people.worker.read', 'people.worker.provision', 'people.worker.edit'],
       },
       {
         slug: 'people.viewer',
@@ -373,7 +373,7 @@ export const INVENTORY: StatementSpec[] = [
       'identity.role_grant': ['read', 'write'],
       'identity.password': ['disable_local'],
       'identity.concept_map': ['read', 'write'],
-      'core.tenant': ['read', 'write'],
+      'core.tenant': ['read', 'write', 'email_domains.write'],
       'core.audit': ['read'],
     },
     roles: [
@@ -388,6 +388,8 @@ export const INVENTORY: StatementSpec[] = [
           'identity.user.email.change',
           'identity.sso.read',
           'identity.sso.write',
+          // Dedicated email-domains write permission (not core.tenant.write).
+          'core.tenant.email_domains.write',
           'identity.role.grant',
           'identity.role.read',
           'identity.role.write',

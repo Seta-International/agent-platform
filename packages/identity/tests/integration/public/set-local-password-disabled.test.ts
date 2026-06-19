@@ -67,8 +67,8 @@ describe('setLocalPasswordDisabled', () => {
 
           // Seed an enabled SSO provider so the guard passes
           await pool.query(
-            `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, config, email_domains)
-             VALUES ($1, 'microsoft-entra-id', true, $2::jsonb, $3)`,
+            `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, config)
+             VALUES ($1, 'microsoft-entra-id', true, $2::jsonb)`,
             [
               tenantId,
               JSON.stringify({
@@ -77,7 +77,6 @@ describe('setLocalPasswordDisabled', () => {
                 consent_granted_by_oid: null,
                 consent_granted_by_email: null,
               }),
-              ['acme.com'],
             ],
           );
 

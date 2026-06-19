@@ -18,6 +18,7 @@ export type PermissionKey =
   | 'agent.workflow.run.read.self'
   | 'agent.workflow.run.read.tenant'
   | 'core.audit.read'
+  | 'core.tenant.email_domains.write'
   | 'core.tenant.read'
   | 'core.tenant.write'
   | 'identity.concept_map.read'
@@ -53,6 +54,7 @@ export type PermissionKey =
   | 'notifications.category.read'
   | 'notifications.preference.read'
   | 'notifications.preference.write'
+  | 'people.worker.edit'
   | 'people.worker.provision'
   | 'people.worker.read'
   | 'planner.bucket.create'
@@ -120,6 +122,7 @@ export const ALL_PERMISSIONS: readonly PermissionKey[] = [
   'agent.workflow.run.read.self',
   'agent.workflow.run.read.tenant',
   'core.audit.read',
+  'core.tenant.email_domains.write',
   'core.tenant.read',
   'core.tenant.write',
   'identity.concept_map.read',
@@ -155,6 +158,7 @@ export const ALL_PERMISSIONS: readonly PermissionKey[] = [
   'notifications.category.read',
   'notifications.preference.read',
   'notifications.preference.write',
+  'people.worker.edit',
   'people.worker.provision',
   'people.worker.read',
   'planner.bucket.create',

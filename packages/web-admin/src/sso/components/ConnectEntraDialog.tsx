@@ -1,7 +1,6 @@
 import {
   Alert,
   AlertDescription,
-  Badge,
   Button,
   Dialog,
   DialogContent,
@@ -21,28 +20,11 @@ function isUuid(s: string): boolean {
 export function ConnectEntraDialog({ onConnected }: { onConnected: () => void }) {
   const [open, setOpen] = useState(false);
   const [entraTenantId, setEntraTenantId] = useState('');
-  const [domainInput, setDomainInput] = useState('');
-  const [domains, setDomains] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  function addDomain() {
-    const trimmed = domainInput.trim().toLowerCase();
-    if (!trimmed) return;
-    if (!domains.includes(trimmed)) {
-      setDomains((prev) => [...prev, trimmed]);
-    }
-    setDomainInput('');
-  }
-
-  function removeDomain(d: string) {
-    setDomains((prev) => prev.filter((x) => x !== d));
-  }
-
   function reset() {
     setEntraTenantId('');
-    setDomainInput('');
-    setDomains([]);
     setError(null);
   }
 
@@ -51,14 +33,10 @@ export function ConnectEntraDialog({ onConnected }: { onConnected: () => void })
       setError("That doesn't look like an Entra tenant ID. Paste the UUID from your Azure portal.");
       return;
     }
-    if (domains.length === 0) {
-      setError('Add at least one email domain.');
-      return;
-    }
     setSubmitting(true);
     setError(null);
     try {
-      await registerProvider({ entra_tenant_id: entraTenantId, email_domains: domains });
+      await registerProvider({ entra_tenant_id: entraTenantId });
       onConnected();
       setOpen(false);
       reset();
@@ -93,43 +71,6 @@ export function ConnectEntraDialog({ onConnected }: { onConnected: () => void })
               onChange={(e) => setEntraTenantId(e.target.value)}
               placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
             />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="connect-entra-domain-input">Email domains</Label>
-            <div className="flex gap-2">
-              <Input
-                id="connect-entra-domain-input"
-                value={domainInput}
-                onChange={(e) => setDomainInput(e.target.value)}
-                placeholder="contoso.com"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    addDomain();
-                  }
-                }}
-              />
-              <Button type="button" variant="secondary" onClick={addDomain}>
-                Add
-              </Button>
-            </div>
-            {domains.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1">
-                {domains.map((d) => (
-                  <Badge key={d} variant="secondary" className="gap-1">
-                    {d}
-                    <button
-                      type="button"
-                      className="ml-1 hover:text-destructive"
-                      onClick={() => removeDomain(d)}
-                      aria-label={`Remove ${d}`}
-                    >
-                      ×
-                    </button>
-                  </Badge>
-                ))}
-              </div>
-            )}
           </div>
           {error && (
             <Alert variant="destructive">

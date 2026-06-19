@@ -20,8 +20,12 @@ export interface NavItem {
 }
 
 export interface NavSection {
-  /** Uppercase eyebrow label rendered above the section's items. */
-  label: string;
+  /**
+   * Uppercase eyebrow label rendered above the section's items. Omit for a
+   * flat, headerless section (used by apps with few enough items that grouping
+   * adds noise rather than structure).
+   */
+  label?: string;
   items: NavItem[];
 }
 
