@@ -5,6 +5,7 @@ import { useMemo } from 'react';
 import { AgentProvider, AgentSidePanel } from '@/modules/agent';
 import { AgentMobileSheet } from '@/modules/agent/chat-experience/agent-mobile-sheet';
 import { usePanelUI } from '@/modules/agent/chat-experience/agent-provider';
+import { DevToolkit } from '@/modules/devzone/dev-toolkit/DevToolkit.tsx';
 import { fetchMe } from '@/modules/identity/api/client.ts';
 import { SessionProvider } from '@/modules/identity/components/SessionProvider.tsx';
 import { UserMenu } from '@/modules/identity/components/UserMenu.tsx';
@@ -38,6 +39,7 @@ function AuthedLayout() {
         <ShellWithPanel>
           <Outlet />
         </ShellWithPanel>
+        {import.meta.env.DEV && <DevToolkit />}
       </AgentProvider>
     </SessionProvider>
   );

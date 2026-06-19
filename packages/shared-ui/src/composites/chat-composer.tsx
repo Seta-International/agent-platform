@@ -147,16 +147,28 @@ export function ChatComposer({
                     accept=".pdf,.docx,.xlsx,.csv,.txt,.md"
                     onChange={onPickFiles}
                   />
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={disabled || pending}
-                    aria-label="Attach file"
-                    title="Attach file"
-                    className="inline-flex size-7 flex-none items-center justify-center rounded-md text-ink-subtle transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40"
+                  <div
+                    data-impeccable-variants="e98bb778"
+                    data-impeccable-variant-count="1"
+                    style={{ display: 'contents' }}
                   >
-                    <Paperclip className="size-3.5" aria-hidden />
-                  </button>
+                    {/* impeccable-variants-start e98bb778 */}
+                    {/* Original */}
+                    <div data-impeccable-variant="original">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={disabled || pending}
+                        aria-label="Attach file"
+                        title="Attach file"
+                        className="inline-flex size-7 flex-none items-center justify-center rounded-md text-ink-subtle transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <Paperclip className="size-3.5" aria-hidden />
+                      </button>
+                    </div>
+                    {/* Variants: insert below this line */}
+                    {/* impeccable-variants-end e98bb778 */}
+                  </div>
                 </>
               )}
               {toolbar}

@@ -31,6 +31,7 @@ import { createMiddleware } from 'hono/factory';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import type { Pool } from 'pg';
 import { registerCredentialGate } from './routes/credential-gate.ts';
+import { registerDevImpersonateRoutes } from './routes/dev-impersonate.ts';
 import { registerDiscoverRoute } from './routes/discover.ts';
 import { registerEnabledModulesRoute } from './routes/enabled-modules.ts';
 import { registerMeRoute } from './routes/me.ts';
@@ -232,6 +233,10 @@ export function buildServerApp(
   // Cross-cutting protected routes that stay in apps/server.
   registerMeRoute(app);
   registerEnabledModulesRoute(app, reg);
+  if (process.env.NODE_ENV !== 'production') {
+    // dev-only: session impersonation tool for the floating DevToolkit
+    registerDevImpersonateRoutes(app);
+  }
 
   // Module-contributed routes. Each module's build factory mounts its absolute
   // paths inside a fresh Hono app; we attach that app at '/' so the inner paths
