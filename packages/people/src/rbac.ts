@@ -1,11 +1,11 @@
 import { type Statement, toManifest } from '@seta/shared-rbac';
 
 export const peopleStatement = {
-  'people.worker': ['read', 'provision'],
+  'people.worker': ['read', 'provision', 'edit'],
 } as const satisfies Statement;
 
 const roleStatements = {
-  'people.strategic': { 'people.worker': ['read', 'provision'] },
+  'people.strategic': { 'people.worker': ['read', 'provision', 'edit'] },
   'people.viewer': { 'people.worker': ['read'] },
 } as const satisfies Record<string, Statement>;
 
