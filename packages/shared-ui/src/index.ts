@@ -49,6 +49,9 @@ export * from './composites/sync-badge';
 export * from './composites/task-conflict-group';
 export * from './composites/task-grid';
 export * from './composites/top-bar';
+// Graph
+export * from './graph/graph-node-card';
+export * from './graph/graph-zoom-controls';
 // Utilities
 export * from './hooks/use-hitl-decision';
 // Icons
