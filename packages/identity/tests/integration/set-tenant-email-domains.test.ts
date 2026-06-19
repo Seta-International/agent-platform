@@ -9,22 +9,6 @@ import { _resetGraphCacheForTest } from '../../src/backend/sso/graph.ts';
 
 const CLI_ACTOR = { type: 'cli' as const, user_id: null };
 
-function mockGraphHappy(fetchMock: ReturnType<typeof vi.fn>) {
-  fetchMock.mockResolvedValueOnce({
-    ok: true,
-    json: async () => ({ access_token: 'tkn-test', expires_in: 3600 }),
-  } as Response);
-  fetchMock.mockResolvedValueOnce({
-    ok: true,
-    json: async () => ({
-      value: [
-        { id: 'acme.com', isVerified: true },
-        { id: 'acme.co.uk', isVerified: true },
-      ],
-    }),
-  } as Response);
-}
-
 describe('setTenantEmailDomains', () => {
   const fetchMock = vi.fn();
 

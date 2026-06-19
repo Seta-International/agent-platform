@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
 import { worker } from '../../src/backend/db/schema.ts';
 import { createWorker } from '../../src/index.ts';
-import { countEvents, readEvents, seedTenant } from '../helpers.ts';
+import { readEvents, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,

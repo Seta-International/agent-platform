@@ -6,7 +6,6 @@ import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
 import { resetPeopleDb } from '../../src/backend/db/client.ts';
 import { registerPeopleWorkersRoutes } from '../../src/backend/http/workers.ts';
-import { PeopleError } from '../../src/backend/rbac.ts';
 import { peopleErrorMapper } from '../../src/register.ts';
 import { buildSession, seedTenant } from '../helpers.ts';
 
