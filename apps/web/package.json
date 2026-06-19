@@ -31,6 +31,7 @@
     "@seta/shared-ui": "workspace:^",
     "@seta/web-admin": "workspace:*",
     "@seta/web-agent": "workspace:*",
+    "@seta/web-hiring": "workspace:*",
     "@seta/web-identity": "workspace:*",
     "@seta/web-notifications": "workspace:*",
     "@seta/web-people": "workspace:*",

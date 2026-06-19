@@ -20,6 +20,7 @@
   "dependencies": {
     "@seta/agent": "workspace:^",
     "@seta/core": "workspace:^",
+    "@seta/hiring": "workspace:^",
     "@seta/identity": "workspace:^",
     "@seta/integrations": "workspace:^",
     "@seta/knowledge": "workspace:^",

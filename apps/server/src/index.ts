@@ -8,6 +8,7 @@ import { emit, withEmit } from '@seta/core/events';
 import { createOutboxStore } from '@seta/core/outbox';
 import { registerCoreContributions } from '@seta/core/register';
 import { buildRuntime, runMigrations, type WorkerHandle } from '@seta/core/runtime';
+import { registerHiringContributions } from '@seta/hiring/register';
 import { buildActorSession, getIdentityVectorStore, listTenantRoleOverlays } from '@seta/identity';
 import { registerIdentityContributions } from '@seta/identity/register';
 import { registerIntegrationsContributions } from '@seta/integrations/register';
@@ -88,6 +89,7 @@ registerNotificationsContributions(reg);
 registerPlannerContributions(reg);
 registerStaffingContributions(reg);
 registerPeopleContributions(reg);
+registerHiringContributions(reg);
 // MODULE_REGISTRATIONS_END — generator inserts new register*Contributions(reg) calls above this comment.
 registerAppContributions(reg);
 
