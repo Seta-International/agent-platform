@@ -1,12 +1,14 @@
 // -- cross-schema-read: identity reads core.tenants for the local_password_disabled
 //    flag because tenant metadata is owned by core; identity uses it for sign-in routing.
 import type { SessionEnv } from '@seta/core';
+import { getTenantEmailDomains } from '@seta/core';
 import { getPool } from '@seta/shared-db';
 import type { Context, Hono } from 'hono';
 import { z } from 'zod';
-import { IdentityError, setLocalPasswordDisabled } from '../../index.ts';
+import { IdentityError, setLocalPasswordDisabled, setTenantEmailDomains } from '../../index.ts';
 
 const patchSchema = z.object({ disabled: z.boolean() });
+const domainsSchema = z.object({ email_domains: z.array(z.string()) });
 
 function requireOrgAdmin(c: Context<SessionEnv>): void {
   const scope = c.get('user');
@@ -27,8 +29,11 @@ export function registerTenantSettingsRoutes(app: Hono<SessionEnv>): void {
   app.get('/api/identity/v1/tenants/me/settings', async (c) => {
     requireOrgAdmin(c);
     const scope = c.get('user');
-    const local_password_disabled = await getLocalPasswordDisabled(scope.tenant_id);
-    return c.json({ local_password_disabled });
+    const [local_password_disabled, email_domains] = await Promise.all([
+      getLocalPasswordDisabled(scope.tenant_id),
+      getTenantEmailDomains(scope.tenant_id),
+    ]);
+    return c.json({ local_password_disabled, email_domains });
   });
 
   app.patch('/api/identity/v1/tenants/me/local-password-disabled', async (c) => {
@@ -38,6 +43,18 @@ export function registerTenantSettingsRoutes(app: Hono<SessionEnv>): void {
     if (!parsed.success) return c.json({ error: 'invalid' }, 400);
     await setLocalPasswordDisabled(
       { tenant_id: scope.tenant_id, disabled: parsed.data.disabled },
+      { type: 'user', user_id: scope.user_id },
+    );
+    return c.json({ ok: true });
+  });
+
+  app.patch('/api/identity/v1/tenants/me/email-domains', async (c) => {
+    requireOrgAdmin(c);
+    const scope = c.get('user');
+    const parsed = domainsSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) return c.json({ error: 'invalid' }, 400);
+    await setTenantEmailDomains(
+      { tenant_id: scope.tenant_id, email_domains: parsed.data.email_domains },
       { type: 'user', user_id: scope.user_id },
     );
     return c.json({ ok: true });
