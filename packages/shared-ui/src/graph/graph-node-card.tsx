@@ -129,7 +129,7 @@ export function GraphNodeCard({
             e.stopPropagation();
             onToggleCollapse?.();
           }}
-          className="absolute -bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-pill border-hairline border bg-surface-1 px-2 py-0.5 text-caption font-bold text-ink-subtle shadow-sm hover:border-primary-border"
+          className="absolute -bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-pill border border-hairline bg-surface-1 px-2 py-0.5 text-caption font-bold text-ink-subtle shadow-sm hover:border-primary-border"
         >
           {collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
           {collapsed && descendantCount !== undefined && <span>{descendantCount}</span>}
