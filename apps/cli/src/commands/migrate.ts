@@ -5,6 +5,7 @@ import { registerIdentityContributions } from '@seta/identity/register';
 import { registerIntegrationsContributions } from '@seta/integrations/register';
 import { registerKnowledgeContributions } from '@seta/knowledge/register';
 import { registerNotificationsContributions } from '@seta/notifications/register';
+import { registerPerformanceContributions } from '@seta/performance/register';
 import { registerPlannerContributions } from '@seta/planner/register';
 import { getPool } from '@seta/shared-db';
 import { registerStaffingContributions } from '@seta/staffing/register';
@@ -23,6 +24,7 @@ export async function migrateCommand(): Promise<void> {
   registerPlannerContributions(reg);
   registerStaffingContributions(reg);
   registerAgentContributions(reg);
+  registerPerformanceContributions(reg);
   // MODULE_REGISTRATIONS_END — generator inserts new register*Contributions(reg) calls above this comment.
   await runMigrations(reg, { pool: getPool('worker') });
   log.info('migrations applied');
