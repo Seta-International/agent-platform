@@ -6,16 +6,20 @@ export interface WorkerListRow {
 }
 
 export interface WorkerDetail extends WorkerListRow {
-  job_title: string | null;
-  department: string | null;
-  hire_date: string | null;
-  employment_type: string | null;
+  dob: string | null;
+  gender: string | null;
+  phone: string | null;
+  emergency_contact: string | null;
+  version: number;
 }
 
 export interface WorkerHistoryEntry {
-  event_type: string;
-  occurred_at: string;
-  payload: Record<string, unknown>;
+  at: string;
+  action: string;
+  field: string;
+  from_val: string | null;
+  to_val: string | null;
+  by_user_id: string;
 }
 
 export interface CreateWorkerInput {
@@ -27,13 +31,18 @@ export interface CreateWorkerInput {
   hire_date?: string;
 }
 
-export interface EditWorkerInput {
+export interface WorkerPatch {
   full_name?: string;
   work_email?: string;
-  job_title?: string;
-  department?: string;
-  employment_type?: string;
-  hire_date?: string;
+  phone?: string;
+  dob?: string;
+  gender?: string;
+  emergency_contact?: string;
+}
+
+export interface EditWorkerInput {
+  expected_version: number;
+  patch: WorkerPatch;
 }
 
 async function handleResponse<T>(res: Response): Promise<T> {
@@ -77,12 +86,12 @@ export async function fetchWorkerHistory(id: string): Promise<WorkerHistoryEntry
   return body.history;
 }
 
-export async function editWorker(id: string, body: EditWorkerInput): Promise<WorkerDetail> {
+export async function editWorker(id: string, input: EditWorkerInput): Promise<{ version: number }> {
   const res = await fetch(`/api/people/v1/workers/${id}`, {
     method: 'PATCH',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    body: JSON.stringify(input),
   });
-  return handleResponse<WorkerDetail>(res);
+  return handleResponse<{ version: number }>(res);
 }

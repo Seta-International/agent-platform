@@ -203,7 +203,8 @@ export function PeoplePage() {
             }
             onRowClick={(row) =>
               void navigate({
-                to: `/people/${row.original.worker_id}` as never,
+                to: '/people/$workerId',
+                params: { workerId: row.original.worker_id },
               })
             }
           />
