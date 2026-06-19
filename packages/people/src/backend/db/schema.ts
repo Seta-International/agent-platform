@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  boolean,
   check,
   date,
   index,
@@ -67,6 +68,7 @@ export const worker = peopleSchema.table(
     phone: text('phone'),
     emergency_contact: jsonb('emergency_contact'),
     profile_completed_at: timestamp('profile_completed_at', { withTimezone: true }),
+    portal_access: boolean('portal_access').notNull().default(false),
     version: integer('version').default(1).notNull(),
     deleted_at: timestamp('deleted_at', { withTimezone: true }),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

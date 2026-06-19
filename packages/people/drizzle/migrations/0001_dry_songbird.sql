@@ -1,0 +1,1 @@
+ALTER TABLE "people"."worker" ADD COLUMN "portal_access" boolean DEFAULT false NOT NULL;
