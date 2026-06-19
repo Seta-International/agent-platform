@@ -5,7 +5,7 @@ import type { DomainEvent } from '@seta/shared-types';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
-import { person, worker } from '../../src/backend/db/schema.ts';
+import { person } from '../../src/backend/db/schema.ts';
 import { bindUserToPerson } from '../../src/backend/subscribers/bind-user-to-person.ts';
 import { createWorker } from '../../src/index.ts';
 import { seedTenant } from '../helpers.ts';
