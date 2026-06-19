@@ -182,4 +182,52 @@ describe('People workers HTTP routes', () => {
       expect(res.status).toBe(404);
     });
   });
+
+  it('POST /workers/:id/portal-access toggles portal access', async () => {
+    await withDb(async ({ adminSession }) => {
+      const app = buildApp(adminSession);
+      const createRes = await app.request('/api/people/v1/workers', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ full_name: 'Http Toggle', work_email: 'http.toggle@example.test' }),
+      });
+      const { worker_id } = (await createRes.json()) as { worker_id: string };
+
+      const res = await app.request(`/api/people/v1/workers/${worker_id}/portal-access`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ enabled: true }),
+      });
+      expect(res.status).toBe(200);
+      expect(await res.json()).toMatchObject({ portal_access: true });
+    });
+  });
+
+  it('POST /workers/portal-access/bulk toggles multiple workers', async () => {
+    await withDb(async ({ adminSession }) => {
+      const app = buildApp(adminSession);
+      const createRes1 = await app.request('/api/people/v1/workers', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ full_name: 'Bulk Worker A', work_email: 'bulk.a@example.test' }),
+      });
+      const createRes2 = await app.request('/api/people/v1/workers', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ full_name: 'Bulk Worker B', work_email: 'bulk.b@example.test' }),
+      });
+      const { worker_id: id1 } = (await createRes1.json()) as { worker_id: string };
+      const { worker_id: id2 } = (await createRes2.json()) as { worker_id: string };
+
+      const res = await app.request('/api/people/v1/workers/portal-access/bulk', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ worker_ids: [id1, id2], enabled: true }),
+      });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { results: Array<{ status: string }> };
+      expect(body.results).toHaveLength(2);
+      expect(body.results.every((r) => r.status === 'changed')).toBe(true);
+    });
+  });
 });
