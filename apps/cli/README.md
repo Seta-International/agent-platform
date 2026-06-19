@@ -9,7 +9,7 @@ onboarding contract (`pnpm db:migrate`, `bash scripts/tenant-bootstrap.sh`).
 | Command | Purpose |
 |---|---|
 | `seta-cli migrate` | Apply Drizzle + hand-written migrations in lexical order |
-| `seta-cli seed` | Load the Hackathon demo dataset from `hackathon/data/*.csv` (auto-creates the tenant + admin if missing; idempotent) |
+| `seta-cli seed` | Seed the SETA International tenant + admin and the People workers from `apps/cli/seed/data/employees.csv` (auto-creates the tenant + admin if missing; idempotent) |
 | `seta-cli tenant-create` | Provision a new tenant |
 | `seta-cli user-create` | Pre-provision a user (SSO requires pre-provisioning — no JIT) |
 | `seta-cli user-deactivate` | Deactivate a user without deleting history |

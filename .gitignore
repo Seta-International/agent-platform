@@ -82,3 +82,6 @@ apps/web/.tanstack.idea/
 
 # Local IDE metadata
 .idea/
+
+# Seed data sourced from a real employee spreadsheet (PII — never committed)
+apps/cli/seed/data/employees.csv

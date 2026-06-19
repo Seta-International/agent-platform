@@ -4,10 +4,10 @@ set -euo pipefail
 # Create a tenant + admin + one member via apps/cli.
 # Overridable via env vars; defaults are dev-only placeholders.
 
-SLUG="${SLUG:-sandbox}"
-NAME="${NAME:-Sandbox Org}"
-ADMIN_EMAIL="${ADMIN_EMAIL:-admin@sandbox.test}"
-ADMIN_NAME="${ADMIN_NAME:-Sandbox Admin}"
+SLUG="${SLUG:-seta-international}"
+NAME="${NAME:-SETA International}"
+ADMIN_EMAIL="${ADMIN_EMAIL:-admin@seta-international.vn}"
+ADMIN_NAME="${ADMIN_NAME:-SETA International Admin}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-ChangeMe@2026}"
 MEMBER_COUNT="${MEMBER_COUNT:-1}"
 MEMBER_PASSWORD="${MEMBER_PASSWORD:-$ADMIN_PASSWORD}"

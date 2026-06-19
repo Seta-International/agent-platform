@@ -49,17 +49,17 @@ pnpm db:migrate   # applies all module migrations
 
 A fresh database has **zero tenants and zero users**, and there is no self-signup. The login page rejects every credential until you provision one. Both options below are idempotent and load `.env` automatically.
 
-### Option A — demo dataset (recommended)
+### Option A — SETA International tenant + People workers (recommended)
 
 ```bash
 pnpm db:seed
 ```
 
-Creates the `hackathon` tenant + admin, then loads `hackathon/data/*.csv` (≈300 users, plans, buckets, tasks, timesheet availability). Re-runs skip existing rows.
+Creates the `seta-international` tenant + admin, then seeds the People workers from `apps/cli/seed/data/employees.csv` (~194 workers). That CSV holds real employee names and is gitignored, so a fresh clone won't have it — the seed then provisions only the tenant + admin and logs a warning. Re-runs skip workers that already exist.
 
-Sign in as the admin `admin@hackathon.com` (or any CSV user) with password `ChangeMe@2026`.
+Sign in as the admin `admin@seta-international.vn` with password `ChangeMe@2026`.
 
-Useful flags: `--tenant <slug>`, `--admin-email <email>`, `--dir <path>`, `--only users,planner,availability`, `--password <pw>`.
+Useful flags: `--tenant <slug>`, `--tenant-name <name>`, `--admin-email <email>`, `--dir <path>`, `--password <pw>`.
 
 ### Option B — empty sandbox tenant (fastest)
 
@@ -69,7 +69,7 @@ MEMBER_COUNT=5 bash scripts/tenant-bootstrap.sh   # admin + 5 members
 SLUG=widgets bash scripts/tenant-bootstrap.sh     # custom slug
 ```
 
-Sign in as `admin@sandbox.test` / `ChangeMe@2026`, or as a member `member1@sandbox.test` / `ChangeMe@2026`. Each member is seeded with `planner.contributor`, `knowledge.member`, and `agent.contributor`, so Planner, Knowledge, and Chat are usable out of the box (nav is permission-gated).
+Sign in as `admin@seta-international.vn` / `ChangeMe@2026`, or as a member `member1@seta-international.test` / `ChangeMe@2026`. Each member is seeded with `planner.contributor`, `knowledge.member`, and `agent.contributor`, so Planner, Knowledge, and Chat are usable out of the box (nav is permission-gated).
 
 Overridable env vars: `SLUG`, `NAME`, `ADMIN_EMAIL`, `ADMIN_NAME`, `ADMIN_PASSWORD`, `MEMBER_COUNT`, `MEMBER_DOMAIN`, `MEMBER_PASSWORD`, `MEMBER_ROLE` (the primary role; defaults to `planner.contributor`).
 
@@ -110,4 +110,4 @@ Full command list: `pnpm -F @seta/cli exec tsx src/index.ts --help`. Other usefu
 
 ## Hand it to an agent
 
-> Bootstrap my local dev environment. Assume Docker, Node 24, and pnpm 11 are installed. Run `pnpm install`, `cp .env.example .env` and fill `BETTER_AUTH_SECRET`, `CRYPTO_LOCAL_MASTER_KEY`, and `OPENAI_API_KEY`, then `pnpm db:up`, `pnpm db:migrate`, and `pnpm db:seed`. Verify by starting `pnpm dev` and reporting whether <http://localhost:5173/login> accepts `admin@hackathon.com` / `ChangeMe@2026`. Stop and ask before running anything destructive.
+> Bootstrap my local dev environment. Assume Docker, Node 24, and pnpm 11 are installed. Run `pnpm install`, `cp .env.example .env` and fill `BETTER_AUTH_SECRET`, `CRYPTO_LOCAL_MASTER_KEY`, and `OPENAI_API_KEY`, then `pnpm db:up`, `pnpm db:migrate`, and `pnpm db:seed`. Verify by starting `pnpm dev` and reporting whether <http://localhost:5173/login> accepts `admin@seta-international.vn` / `ChangeMe@2026`. Stop and ask before running anything destructive.

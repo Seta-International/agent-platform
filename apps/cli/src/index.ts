@@ -241,22 +241,18 @@ program
 program
   .command('seed')
   .description(
-    'Load the hackathon dataset (users, plans, buckets, tasks, timesheet). Auto-creates the tenant + admin if missing; idempotent on re-run.',
+    'Seed the SETA International tenant + admin and the People workers from employees.csv. Auto-creates the tenant + admin if missing; idempotent on re-run.',
   )
-  .option('--tenant <slug-or-id>', 'Tenant slug or UUID', 'hackathon')
-  .option('--tenant-name <name>', 'Tenant display name when bootstrapping (defaults to slug)')
-  .option('--dir <path>', 'Directory containing the CSV files', './hackathon/data')
+  .option('--tenant <slug-or-id>', 'Tenant slug or UUID', 'seta-international')
+  .option('--tenant-name <name>', 'Tenant display name when bootstrapping', 'SETA International')
+  .option('--dir <path>', 'Directory containing employees.csv', './apps/cli/seed/data')
   .option(
     '--admin-email <email>',
     'Admin email — used as acting session, and created if the tenant is new',
-    'admin@hackathon.com',
+    'admin@seta-international.vn',
   )
   .option('--admin-name <name>', 'Admin display name when bootstrapping a new tenant')
-  .option('--password <password>', 'Password for created users', 'ChangeMe@2026')
-  .option(
-    '--only <modules>',
-    'Comma-separated subset of phases to run: users,planner,availability (default: all)',
-  )
+  .option('--password <password>', 'Password for the bootstrapped admin', 'ChangeMe@2026')
   .action(
     async (opts: {
       tenant: string;
@@ -265,7 +261,6 @@ program
       adminEmail: string;
       adminName?: string;
       password?: string;
-      only?: string;
     }) => {
       try {
         // pnpm exec changes CWD to the package dir; INIT_CWD is the original invocation dir.
@@ -277,7 +272,6 @@ program
           adminEmail: opts.adminEmail,
           adminName: opts.adminName,
           password: opts.password,
-          only: opts.only,
         });
       } finally {
         await closePools();
