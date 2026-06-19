@@ -56,7 +56,7 @@ export function AdminSso({ status, error }: AdminSsoProps) {
   return (
     <PageChrome
       breadcrumb={['Admin']}
-      title="Single sign-on"
+      title="Sign-in & SSO"
       subtitle={summarize(providers)}
       actions={
         <Button variant="ghost" size="sm" asChild>

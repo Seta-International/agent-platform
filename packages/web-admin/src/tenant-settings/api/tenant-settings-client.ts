@@ -18,16 +18,6 @@ export async function getTenantSettings(): Promise<TenantSettings> {
   return (await jsonOrThrow(res)) as TenantSettings;
 }
 
-export async function setLocalPasswordDisabled(disabled: boolean): Promise<void> {
-  const res = await fetch('/api/identity/v1/tenants/me/local-password-disabled', {
-    method: 'PATCH',
-    credentials: 'include',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ disabled }),
-  });
-  await jsonOrThrow(res);
-}
-
 export async function updateEmailDomains(email_domains: string[]): Promise<void> {
   const res = await fetch('/api/identity/v1/tenants/me/email-domains', {
     method: 'PATCH',
