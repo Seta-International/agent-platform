@@ -79,6 +79,9 @@ importers:
       '@seta/notifications':
         specifier: workspace:^
         version: link:../../packages/notifications
+      '@seta/people':
+        specifier: workspace:^
+        version: link:../../packages/people
       '@seta/planner':
         specifier: workspace:^
         version: link:../../packages/planner
@@ -167,6 +170,9 @@ importers:
       '@seta/notifications':
         specifier: workspace:^
         version: link:../../packages/notifications
+      '@seta/people':
+        specifier: workspace:^
+        version: link:../../packages/people
       '@seta/planner':
         specifier: workspace:^
         version: link:../../packages/planner
@@ -285,6 +291,9 @@ importers:
       '@seta/web-notifications':
         specifier: workspace:*
         version: link:../../packages/web-notifications
+      '@seta/web-people':
+        specifier: workspace:*
+        version: link:../../packages/web-people
       '@seta/web-planner':
         specifier: workspace:*
         version: link:../../packages/web-planner
@@ -463,6 +472,9 @@ importers:
       '@seta/notifications':
         specifier: workspace:^
         version: link:../../packages/notifications
+      '@seta/people':
+        specifier: workspace:^
+        version: link:../../packages/people
       '@seta/planner':
         specifier: workspace:^
         version: link:../../packages/planner
@@ -1003,6 +1015,55 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.8
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@25.9.3)(@vitest/coverage-v8@4.1.8)(happy-dom@20.9.0)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@25.9.3)(typescript@6.0.3))(vite@8.0.16(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
+
+  packages/people:
+    dependencies:
+      '@seta/agent-sdk':
+        specifier: workspace:^
+        version: link:../../sdks/agent
+      '@seta/core':
+        specifier: workspace:^
+        version: link:../core
+      '@seta/shared-db':
+        specifier: workspace:^
+        version: link:../shared-db
+      '@seta/shared-rbac':
+        specifier: workspace:^
+        version: link:../shared-rbac
+      '@seta/shared-types':
+        specifier: workspace:^
+        version: link:../shared-types
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(@opentelemetry/api@1.9.1)(@prisma/client@5.22.0)(@types/pg@8.20.0)(better-sqlite3@12.10.0)(kysely@0.29.2)(pg@8.21.0)
+      pg:
+        specifier: ^8.21.0
+        version: 8.21.0
+      pino:
+        specifier: ^10.3.1
+        version: 10.3.1
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@seta/shared-config':
+        specifier: workspace:^
+        version: link:../shared-config
+      '@seta/shared-testing':
+        specifier: workspace:^
+        version: link:../shared-testing
+      '@types/pg':
+        specifier: ^8.20.0
+        version: 8.20.0
+      drizzle-kit:
+        specifier: ^0.31.10
+        version: 0.31.10
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.7
         version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@25.9.3)(@vitest/coverage-v8@4.1.8)(happy-dom@20.9.0)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@25.9.3)(typescript@6.0.3))(vite@8.0.16(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
 
   packages/planner:
@@ -1875,6 +1936,55 @@ importers:
       happy-dom:
         specifier: 20.9.0
         version: 20.9.0
+      react:
+        specifier: ^19.2.7
+        version: 19.2.7
+      react-dom:
+        specifier: ^19.2.7
+        version: 19.2.7(react@19.2.7)
+      typescript:
+        specifier: ~6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.8
+        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@25.9.3)(@vitest/coverage-v8@4.1.8)(happy-dom@20.9.0)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@25.9.3)(typescript@6.0.3))(vite@8.0.16(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
+
+  packages/web-people:
+    dependencies:
+      '@seta/module-sdk':
+        specifier: workspace:^
+        version: link:../../sdks/module
+      '@seta/shared-rbac':
+        specifier: workspace:^
+        version: link:../shared-rbac
+      '@seta/shared-ui':
+        specifier: workspace:^
+        version: link:../shared-ui
+      lucide-react:
+        specifier: ^1.17.0
+        version: 1.17.0(react@19.2.7)
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@seta/shared-config':
+        specifier: workspace:^
+        version: link:../shared-config
+      '@tanstack/react-query':
+        specifier: ^5.101.0
+        version: 5.101.0(react@19.2.7)
+      '@tanstack/react-router':
+        specifier: ^1.170.15
+        version: 1.170.15(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@types/node':
+        specifier: ^25.9.3
+        version: 25.9.3
+      '@types/react':
+        specifier: ^19.2.17
+        version: 19.2.17
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.17)
       react:
         specifier: ^19.2.7
         version: 19.2.7
