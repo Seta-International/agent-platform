@@ -64,6 +64,34 @@
       "when": 1779438653033,
       "tag": "0010_core_notification_prefs",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1779438653034,
+      "tag": "0011_drop_core_notifications",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1779438653035,
+      "tag": "0012_events_trace_context",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1779438653036,
+      "tag": "0013_subscription_failure_state",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1781845817605,
+      "tag": "0014_tenants_email_domains",
+      "breakpoints": true
     }
   ]
 }
