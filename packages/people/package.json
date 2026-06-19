@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "setaTier": "feature",
-  "description": "TODO: describe @seta/people.",
+  "description": "People — system of record for employees, org structure, and the workforce lifecycle.",
   "type": "module",
   "exports": {
     ".": "./src/index.ts",

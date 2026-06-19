@@ -2,6 +2,7 @@
   "name": "@seta/web-people",
   "version": "0.0.1",
   "private": true,
+  "description": "People web app — directory, profiles, org chart, and lifecycle screens.",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"

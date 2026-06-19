@@ -73,7 +73,7 @@ describe('provisionWorker', () => {
         // start_date 'not-a-date' fails the Postgres date cast inside the tx → full rollback.
         await expect(
           provisionWorker({
-            full_name: '',
+            full_name: 'Atomic Rollback',
             start_date: 'not-a-date',
             employment_type: 'full_time',
             session: t.adminSession,
