@@ -19,6 +19,7 @@ import {
 } from '@seta/knowledge';
 import { registerKnowledgeContributions } from '@seta/knowledge/register';
 import { registerNotificationsContributions } from '@seta/notifications/register';
+import { registerPerformanceContributions } from '@seta/performance/register';
 import { assignTask } from '@seta/planner';
 import { registerPlannerContributions } from '@seta/planner/register';
 import { createCrypto, createKeyProviderFromEnv, parseCryptoEnv } from '@seta/shared-crypto';
@@ -86,6 +87,7 @@ registerKnowledgeContributions(reg);
 registerNotificationsContributions(reg);
 registerPlannerContributions(reg);
 registerStaffingContributions(reg);
+registerPerformanceContributions(reg);
 // MODULE_REGISTRATIONS_END — generator inserts new register*Contributions(reg) calls above this comment.
 registerAppContributions(reg);
 

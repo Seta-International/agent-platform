@@ -24,6 +24,7 @@
     "@seta/integrations": "workspace:^",
     "@seta/knowledge": "workspace:^",
     "@seta/notifications": "workspace:^",
+    "@seta/performance": "workspace:^",
     "@seta/planner": "workspace:^",
     "@seta/shared-crypto": "workspace:^",
     "@seta/shared-db": "workspace:^",

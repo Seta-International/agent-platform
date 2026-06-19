@@ -1,0 +1,983 @@
+{
+  "id": "d313cc49-b6b8-4612-b2ff-2050ce3f412b",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "performance.employee_master": {
+      "name": "employee_master",
+      "schema": "performance",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "member_id": {
+          "name": "member_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role_title": {
+          "name": "role_title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "department": {
+          "name": "department",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "level": {
+          "name": "level",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "employment_status": {
+          "name": "employment_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "join_date": {
+          "name": "join_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "performance_tier": {
+          "name": "performance_tier",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "overall_score_latest": {
+          "name": "overall_score_latest",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "employee_master_tenant_id_member_id_pk": {
+          "name": "employee_master_tenant_id_member_id_pk",
+          "columns": ["tenant_id", "member_id"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "performance.norm_rules": {
+      "name": "norm_rules",
+      "schema": "performance",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "norm_id": {
+          "name": "norm_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "category": {
+          "name": "category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rule_description": {
+          "name": "rule_description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "threshold": {
+          "name": "threshold",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "classification_label": {
+          "name": "classification_label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "action_if_triggered": {
+          "name": "action_if_triggered",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "priority": {
+          "name": "priority",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "applies_to": {
+          "name": "applies_to",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "norm_by_category": {
+          "name": "norm_by_category",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "category",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "norm_rules_tenant_id_norm_id_pk": {
+          "name": "norm_rules_tenant_id_norm_id_pk",
+          "columns": ["tenant_id", "norm_id"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "performance.performance_by_project": {
+      "name": "performance_by_project",
+      "schema": "performance",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "member_id": {
+          "name": "member_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "report_period": {
+          "name": "report_period",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reviewer_id": {
+          "name": "reviewer_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "total_point": {
+          "name": "total_point",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "classification": {
+          "name": "classification",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "feedback_category": {
+          "name": "feedback_category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "review_frequency": {
+          "name": "review_frequency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "perf_by_period": {
+          "name": "perf_by_period",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "report_period",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "performance_by_project_tenant_id_member_id_report_period_pk": {
+          "name": "performance_by_project_tenant_id_member_id_report_period_pk",
+          "columns": ["tenant_id", "member_id", "report_period"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "performance.performance_profile": {
+      "name": "performance_profile",
+      "schema": "performance",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "member_id": {
+          "name": "member_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "avg_score_t3_t4": {
+          "name": "avg_score_t3_t4",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "classification_latest": {
+          "name": "classification_latest",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ts_compliance_t4": {
+          "name": "ts_compliance_t4",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "total_ot_hours_t4": {
+          "name": "total_ot_hours_t4",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "violation_risk_flag": {
+          "name": "violation_risk_flag",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "open_violation_count": {
+          "name": "open_violation_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "allocation_status": {
+          "name": "allocation_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "readiness_score": {
+          "name": "readiness_score",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "salary_band": {
+          "name": "salary_band",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "perf_risk_note": {
+          "name": "perf_risk_note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "profile_by_risk": {
+          "name": "profile_by_risk",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "violation_risk_flag",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "performance_profile_tenant_id_member_id_pk": {
+          "name": "performance_profile_tenant_id_member_id_pk",
+          "columns": ["tenant_id", "member_id"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "performance.project_master": {
+      "name": "project_master",
+      "schema": "performance",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "account_name": {
+          "name": "account_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "project_name": {
+          "name": "project_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "project_master_tenant_id_project_id_pk": {
+          "name": "project_master_tenant_id_project_id_pk",
+          "columns": ["tenant_id", "project_id"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "performance.promotion_intent": {
+      "name": "promotion_intent",
+      "schema": "performance",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "member_id": {
+          "name": "member_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "current_level": {
+          "name": "current_level",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "target_level": {
+          "name": "target_level",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "readiness_score": {
+          "name": "readiness_score",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "promotion_intent_tenant_id_member_id_pk": {
+          "name": "promotion_intent_tenant_id_member_id_pk",
+          "columns": ["tenant_id", "member_id"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "performance.resource_allocation": {
+      "name": "resource_allocation",
+      "schema": "performance",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "member_id": {
+          "name": "member_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "assignment_type": {
+          "name": "assignment_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "report_to": {
+          "name": "report_to",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "allocation_pct": {
+          "name": "allocation_pct",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "work_on_other": {
+          "name": "work_on_other",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "other_project_ids": {
+          "name": "other_project_ids",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "alloc_by_account": {
+          "name": "alloc_by_account",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "resource_allocation_tenant_id_member_id_pk": {
+          "name": "resource_allocation_tenant_id_member_id_pk",
+          "columns": ["tenant_id", "member_id"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "performance.salary_band": {
+      "name": "salary_band",
+      "schema": "performance",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "member_id": {
+          "name": "member_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "salary_band": {
+          "name": "salary_band",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "effective_date": {
+          "name": "effective_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "salary_band_tenant_id_member_id_pk": {
+          "name": "salary_band_tenant_id_member_id_pk",
+          "columns": ["tenant_id", "member_id"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "performance.timesheet": {
+      "name": "timesheet",
+      "schema": "performance",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "member_id": {
+          "name": "member_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "report_period": {
+          "name": "report_period",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "work_days_in_month": {
+          "name": "work_days_in_month",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "days_probation": {
+          "name": "days_probation",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "days_official": {
+          "name": "days_official",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "days_holiday_official": {
+          "name": "days_holiday_official",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "days_leave_approved": {
+          "name": "days_leave_approved",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "days_late": {
+          "name": "days_late",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "days_absent_unapproved": {
+          "name": "days_absent_unapproved",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actual_work_days": {
+          "name": "actual_work_days",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ot_hours_weekday": {
+          "name": "ot_hours_weekday",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ot_hours_weekend": {
+          "name": "ot_hours_weekend",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ot_hours_holiday": {
+          "name": "ot_hours_holiday",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "total_ot_hours": {
+          "name": "total_ot_hours",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "night_shift_hours": {
+          "name": "night_shift_hours",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "timesheet_tenant_id_member_id_report_period_pk": {
+          "name": "timesheet_tenant_id_member_id_report_period_pk",
+          "columns": ["tenant_id", "member_id", "report_period"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "performance.violation_summary": {
+      "name": "violation_summary",
+      "schema": "performance",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "member_id": {
+          "name": "member_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "total_violations": {
+          "name": "total_violations",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "critical_count": {
+          "name": "critical_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "high_count": {
+          "name": "high_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "medium_count": {
+          "name": "medium_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "low_count": {
+          "name": "low_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "open_cases": {
+          "name": "open_cases",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "risk_flag": {
+          "name": "risk_flag",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "violation_summary_tenant_id_member_id_pk": {
+          "name": "violation_summary_tenant_id_member_id_pk",
+          "columns": ["tenant_id", "member_id"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "performance.violation_type_ref": {
+      "name": "violation_type_ref",
+      "schema": "performance",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "violation_type_code": {
+          "name": "violation_type_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "category": {
+          "name": "category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "violation_type_desc": {
+          "name": "violation_type_desc",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "typical_severity": {
+          "name": "typical_severity",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "typical_consequence": {
+          "name": "typical_consequence",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "violation_type_ref_tenant_id_violation_type_code_pk": {
+          "name": "violation_type_ref_tenant_id_violation_type_code_pk",
+          "columns": ["tenant_id", "violation_type_code"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "performance.violations": {
+      "name": "violations",
+      "schema": "performance",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "violation_id": {
+          "name": "violation_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "member_id": {
+          "name": "member_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "category": {
+          "name": "category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "violation_type_code": {
+          "name": "violation_type_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "violation_type_desc": {
+          "name": "violation_type_desc",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "severity": {
+          "name": "severity",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "consequence": {
+          "name": "consequence",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "incident_date": {
+          "name": "incident_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reported_by": {
+          "name": "reported_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "action_taken": {
+          "name": "action_taken",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "violations_by_member": {
+          "name": "violations_by_member",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "member_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "violations_tenant_id_violation_id_pk": {
+          "name": "violations_tenant_id_violation_id_pk",
+          "columns": ["tenant_id", "violation_id"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {
+    "performance": "performance"
+  },
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
