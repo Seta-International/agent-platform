@@ -1,5 +1,5 @@
 import { type AppManifest, noNavExtensions } from '@seta/module-sdk';
-import { Bell, FileClock, Mail, Settings, Shield, ShieldCheck, Sliders, Users } from 'lucide-react';
+import { Bell, FileClock, Mail, Settings, Shield, ShieldCheck, Sliders } from 'lucide-react';
 
 export const adminAppManifest: AppManifest = {
   id: 'admin',
@@ -13,13 +13,6 @@ export const adminAppManifest: AppManifest = {
     {
       label: 'Identity & access',
       items: [
-        {
-          id: 'admin.users',
-          icon: Users,
-          label: 'Users',
-          to: '/admin/users',
-          requires: ['identity.user.read.any'],
-        },
         {
           id: 'admin.sso',
           icon: Shield,
@@ -61,7 +54,7 @@ export const adminAppManifest: AppManifest = {
         {
           id: 'admin.tenant',
           icon: Sliders,
-          label: 'Organization',
+          label: 'General',
           to: '/admin/tenant',
           requires: ['core.tenant.read'],
         },

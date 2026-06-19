@@ -29,7 +29,7 @@ import { Route as PlannerGroupsRouteImport } from './../../../packages/web-plann
 import { Route as PeopleWorkerIdRouteImport } from './../../../packages/web-people/src/routes/$workerId'
 import { Route as AgentKnowledgeRouteImport } from './../../../packages/web-agent/src/routes/knowledge'
 import { Route as AgentChatRouteImport } from './../../../packages/web-agent/src/routes/chat'
-import { Route as AdminUsersRouteImport } from './../../../packages/web-admin/src/routes/users'
+import { Route as AdminTenantRouteImport } from './../../../packages/web-admin/src/routes/tenant'
 import { Route as AdminSsoRouteImport } from './../../../packages/web-admin/src/routes/sso'
 import { Route as AdminRoleAccessRouteImport } from './../../../packages/web-admin/src/routes/role-access'
 import { Route as AdminNotificationsRouteImport } from './../../../packages/web-admin/src/routes/notifications'
@@ -40,7 +40,6 @@ import { Route as AgentWorkflowsIndexRouteImport } from './../../../packages/web
 import { Route as PlannerPlansPlanIdRouteImport } from './../../../packages/web-planner/src/routes/plans_/$planId'
 import { Route as PlannerGroupsDiscoverRouteImport } from './../../../packages/web-planner/src/routes/groups_/discover'
 import { Route as PlannerGroupsGroupIdRouteImport } from './../../../packages/web-planner/src/routes/groups_/$groupId'
-import { Route as AdminUsersUserIdRouteImport } from './../../../packages/web-admin/src/routes/users_/$userId'
 import { Route as AgentWorkflowsRunsRunIdRouteImport } from './../../../packages/web-agent/src/routes/workflows/runs/$runId'
 import { Route as PlannerPlansPlanIdTasksTaskIdRouteImport } from './../../../packages/web-planner/src/routes/plans_/$planId_/tasks_/$taskId'
 import { Route as PlannerPlansPlanIdSettingsCategoriesRouteImport } from './../../../packages/web-planner/src/routes/plans_/$planId_/settings_/categories'
@@ -144,9 +143,9 @@ const AgentChatRoute = AgentChatRouteImport.update({
   path: '/chat',
   getParentRoute: () => AgentRouteRoute,
 } as any)
-const AdminUsersRoute = AdminUsersRouteImport.update({
-  id: '/users',
-  path: '/users',
+const AdminTenantRoute = AdminTenantRouteImport.update({
+  id: '/tenant',
+  path: '/tenant',
   getParentRoute: () => AdminRouteRoute,
 } as any)
 const AdminSsoRoute = AdminSsoRouteImport.update({
@@ -199,11 +198,6 @@ const PlannerGroupsGroupIdRoute = PlannerGroupsGroupIdRouteImport.update({
   path: '/groups/$groupId',
   getParentRoute: () => PlannerRouteRoute,
 } as any)
-const AdminUsersUserIdRoute = AdminUsersUserIdRouteImport.update({
-  id: '/users_/$userId',
-  path: '/users/$userId',
-  getParentRoute: () => AdminRouteRoute,
-} as any)
 const AgentWorkflowsRunsRunIdRoute = AgentWorkflowsRunsRunIdRouteImport.update({
   id: '/runs/$runId',
   path: '/runs/$runId',
@@ -238,7 +232,7 @@ export interface FileRoutesByFullPath {
   '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/role-access': typeof AdminRoleAccessRoute
   '/admin/sso': typeof AdminSsoRoute
-  '/admin/users': typeof AdminUsersRoute
+  '/admin/tenant': typeof AdminTenantRoute
   '/agent/chat': typeof AgentChatRoute
   '/agent/knowledge': typeof AgentKnowledgeRoute
   '/people/$workerId': typeof PeopleWorkerIdRoute
@@ -249,7 +243,6 @@ export interface FileRoutesByFullPath {
   '/agent/': typeof AgentIndexRoute
   '/people/': typeof PeopleIndexRoute
   '/planner/': typeof PlannerIndexRoute
-  '/admin/users/$userId': typeof AdminUsersUserIdRoute
   '/planner/groups/$groupId': typeof PlannerGroupsGroupIdRoute
   '/planner/groups/discover': typeof PlannerGroupsDiscoverRoute
   '/planner/plans/$planId': typeof PlannerPlansPlanIdRoute
@@ -269,7 +262,7 @@ export interface FileRoutesByTo {
   '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/role-access': typeof AdminRoleAccessRoute
   '/admin/sso': typeof AdminSsoRoute
-  '/admin/users': typeof AdminUsersRoute
+  '/admin/tenant': typeof AdminTenantRoute
   '/agent/chat': typeof AgentChatRoute
   '/agent/knowledge': typeof AgentKnowledgeRoute
   '/people/$workerId': typeof PeopleWorkerIdRoute
@@ -280,7 +273,6 @@ export interface FileRoutesByTo {
   '/agent': typeof AgentIndexRoute
   '/people': typeof PeopleIndexRoute
   '/planner': typeof PlannerIndexRoute
-  '/admin/users/$userId': typeof AdminUsersUserIdRoute
   '/planner/groups/$groupId': typeof PlannerGroupsGroupIdRoute
   '/planner/groups/discover': typeof PlannerGroupsDiscoverRoute
   '/planner/plans/$planId': typeof PlannerPlansPlanIdRoute
@@ -307,7 +299,7 @@ export interface FileRoutesById {
   '/_authed/admin/notifications': typeof AdminNotificationsRoute
   '/_authed/admin/role-access': typeof AdminRoleAccessRoute
   '/_authed/admin/sso': typeof AdminSsoRoute
-  '/_authed/admin/users': typeof AdminUsersRoute
+  '/_authed/admin/tenant': typeof AdminTenantRoute
   '/_authed/agent/chat': typeof AgentChatRoute
   '/_authed/agent/knowledge': typeof AgentKnowledgeRoute
   '/_authed/people/$workerId': typeof PeopleWorkerIdRoute
@@ -318,7 +310,6 @@ export interface FileRoutesById {
   '/_authed/agent/': typeof AgentIndexRoute
   '/_authed/people/': typeof PeopleIndexRoute
   '/_authed/planner/': typeof PlannerIndexRoute
-  '/_authed/admin/users_/$userId': typeof AdminUsersUserIdRoute
   '/_authed/planner/groups_/$groupId': typeof PlannerGroupsGroupIdRoute
   '/_authed/planner/groups_/discover': typeof PlannerGroupsDiscoverRoute
   '/_authed/planner/plans_/$planId': typeof PlannerPlansPlanIdRoute
@@ -345,7 +336,7 @@ export interface FileRouteTypes {
     | '/admin/notifications'
     | '/admin/role-access'
     | '/admin/sso'
-    | '/admin/users'
+    | '/admin/tenant'
     | '/agent/chat'
     | '/agent/knowledge'
     | '/people/$workerId'
@@ -356,7 +347,6 @@ export interface FileRouteTypes {
     | '/agent/'
     | '/people/'
     | '/planner/'
-    | '/admin/users/$userId'
     | '/planner/groups/$groupId'
     | '/planner/groups/discover'
     | '/planner/plans/$planId'
@@ -376,7 +366,7 @@ export interface FileRouteTypes {
     | '/admin/notifications'
     | '/admin/role-access'
     | '/admin/sso'
-    | '/admin/users'
+    | '/admin/tenant'
     | '/agent/chat'
     | '/agent/knowledge'
     | '/people/$workerId'
@@ -387,7 +377,6 @@ export interface FileRouteTypes {
     | '/agent'
     | '/people'
     | '/planner'
-    | '/admin/users/$userId'
     | '/planner/groups/$groupId'
     | '/planner/groups/discover'
     | '/planner/plans/$planId'
@@ -413,7 +402,7 @@ export interface FileRouteTypes {
     | '/_authed/admin/notifications'
     | '/_authed/admin/role-access'
     | '/_authed/admin/sso'
-    | '/_authed/admin/users'
+    | '/_authed/admin/tenant'
     | '/_authed/agent/chat'
     | '/_authed/agent/knowledge'
     | '/_authed/people/$workerId'
@@ -424,7 +413,6 @@ export interface FileRouteTypes {
     | '/_authed/agent/'
     | '/_authed/people/'
     | '/_authed/planner/'
-    | '/_authed/admin/users_/$userId'
     | '/_authed/planner/groups_/$groupId'
     | '/_authed/planner/groups_/discover'
     | '/_authed/planner/plans_/$planId'
@@ -583,11 +571,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AgentChatRouteImport
       parentRoute: typeof AgentRouteRoute
     }
-    '/_authed/admin/users': {
-      id: '/_authed/admin/users'
-      path: '/users'
-      fullPath: '/admin/users'
-      preLoaderRoute: typeof AdminUsersRouteImport
+    '/_authed/admin/tenant': {
+      id: '/_authed/admin/tenant'
+      path: '/tenant'
+      fullPath: '/admin/tenant'
+      preLoaderRoute: typeof AdminTenantRouteImport
       parentRoute: typeof AdminRouteRoute
     }
     '/_authed/admin/sso': {
@@ -660,13 +648,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PlannerGroupsGroupIdRouteImport
       parentRoute: typeof PlannerRouteRoute
     }
-    '/_authed/admin/users_/$userId': {
-      id: '/_authed/admin/users_/$userId'
-      path: '/users/$userId'
-      fullPath: '/admin/users/$userId'
-      preLoaderRoute: typeof AdminUsersUserIdRouteImport
-      parentRoute: typeof AdminRouteRoute
-    }
     '/_authed/agent/workflows/runs/$runId': {
       id: '/_authed/agent/workflows/runs/$runId'
       path: '/runs/$runId'
@@ -697,9 +678,8 @@ interface AdminRouteRouteChildren {
   AdminNotificationsRoute: typeof AdminNotificationsRoute
   AdminRoleAccessRoute: typeof AdminRoleAccessRoute
   AdminSsoRoute: typeof AdminSsoRoute
-  AdminUsersRoute: typeof AdminUsersRoute
+  AdminTenantRoute: typeof AdminTenantRoute
   AdminIndexRoute: typeof AdminIndexRoute
-  AdminUsersUserIdRoute: typeof AdminUsersUserIdRoute
 }
 
 const AdminRouteRouteChildren: AdminRouteRouteChildren = {
@@ -708,9 +688,8 @@ const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminNotificationsRoute: AdminNotificationsRoute,
   AdminRoleAccessRoute: AdminRoleAccessRoute,
   AdminSsoRoute: AdminSsoRoute,
-  AdminUsersRoute: AdminUsersRoute,
+  AdminTenantRoute: AdminTenantRoute,
   AdminIndexRoute: AdminIndexRoute,
-  AdminUsersUserIdRoute: AdminUsersUserIdRoute,
 }
 
 const AdminRouteRouteWithChildren = AdminRouteRoute._addFileChildren(

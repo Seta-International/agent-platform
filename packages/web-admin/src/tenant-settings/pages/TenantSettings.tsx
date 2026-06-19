@@ -52,39 +52,13 @@ export function TenantSettings() {
   });
 
   return (
-    <PageChrome breadcrumb={['Admin']} title="Organization">
+    <PageChrome breadcrumb={['Admin']} title="General">
       <div className="page-container space-y-4">
         {error && (
           <Alert variant="destructive">
             <AlertDescription>{(error as Error).message}</AlertDescription>
           </Alert>
         )}
-        <Card className="p-5">
-          <div className="flex items-start justify-between gap-6">
-            <div className="min-w-0 flex-1">
-              <div className="font-medium text-ink">Require SSO for sign-in</div>
-              <p className="mt-1 text-body-sm text-ink-muted">
-                Turn on to make everyone sign in through a connected SSO provider. Existing
-                passwords are kept on file but stop working.
-              </p>
-              {toggle.error && (
-                <div className="mt-2 text-body-sm text-destructive">
-                  {(toggle.error as Error).message}
-                </div>
-              )}
-            </div>
-            {isLoading || !data ? (
-              <Skeleton className="h-6 w-11 rounded-full" />
-            ) : (
-              <Switch
-                checked={data.local_password_disabled}
-                onCheckedChange={(next) => toggle.mutate(next)}
-                disabled={toggle.isPending}
-                aria-label="Require SSO for sign-in"
-              />
-            )}
-          </div>
-        </Card>
         <Card className="p-5">
           <div className="space-y-3">
             <div>
@@ -115,6 +89,32 @@ export function TenantSettings() {
                   </Button>
                 </div>
               </>
+            )}
+          </div>
+        </Card>
+        <Card className="p-5">
+          <div className="flex items-start justify-between gap-6">
+            <div className="min-w-0 flex-1">
+              <div className="font-medium text-ink">Require SSO for sign-in</div>
+              <p className="mt-1 text-body-sm text-ink-muted">
+                Turn on to make everyone sign in through a connected SSO provider. Existing
+                passwords are kept on file but stop working.
+              </p>
+              {toggle.error && (
+                <div className="mt-2 text-body-sm text-destructive">
+                  {(toggle.error as Error).message}
+                </div>
+              )}
+            </div>
+            {isLoading || !data ? (
+              <Skeleton className="h-6 w-11 rounded-full" />
+            ) : (
+              <Switch
+                checked={data.local_password_disabled}
+                onCheckedChange={(next) => toggle.mutate(next)}
+                disabled={toggle.isPending}
+                aria-label="Require SSO for sign-in"
+              />
             )}
           </div>
         </Card>
