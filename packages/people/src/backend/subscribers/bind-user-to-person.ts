@@ -23,7 +23,7 @@ export const bindUserToPerson: SubscriberDef = {
           eq(worker.tenant_id, tenant_id),
           sql`lower(${worker.work_email}) = ${email.toLowerCase()}`,
           isNull(worker.deleted_at),
-          isNull(person.user_id), // idempotent: skip if already linked
+          isNull(person.user_id),
         ),
       )
       .limit(1);
