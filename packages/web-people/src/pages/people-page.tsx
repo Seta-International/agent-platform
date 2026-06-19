@@ -53,7 +53,6 @@ function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
   const [open, setOpen] = useState(false);
   const [fullName, setFullName] = useState('');
   const [workEmail, setWorkEmail] = useState('');
-  const [jobTitle, setJobTitle] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const mutation = useMutation({
@@ -61,7 +60,6 @@ function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
       createWorker({
         full_name: fullName,
         work_email: workEmail || undefined,
-        job_title: jobTitle || undefined,
       }),
     onSuccess: () => {
       toast.success('Worker created');
@@ -75,7 +73,6 @@ function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
   function reset() {
     setFullName('');
     setWorkEmail('');
-    setJobTitle('');
     setError(null);
   }
 
@@ -102,10 +99,6 @@ function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
           <div className="space-y-1">
             <Label>Work email</Label>
             <Input value={workEmail} onChange={(e) => setWorkEmail(e.target.value)} type="email" />
-          </div>
-          <div className="space-y-1">
-            <Label>Job title</Label>
-            <Input value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} />
           </div>
           {error && (
             <Alert variant="destructive">

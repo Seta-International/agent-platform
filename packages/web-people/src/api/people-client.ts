@@ -25,10 +25,12 @@ export interface WorkerHistoryEntry {
 export interface CreateWorkerInput {
   full_name: string;
   work_email?: string;
-  job_title?: string;
-  department?: string;
+  start_date?: string;
   employment_type?: string;
-  hire_date?: string;
+  dob?: string;
+  gender?: string;
+  phone?: string;
+  emergency_contact?: unknown;
 }
 
 export interface WorkerPatch {
