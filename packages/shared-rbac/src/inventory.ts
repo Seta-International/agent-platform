@@ -361,6 +361,29 @@ export const INVENTORY: StatementSpec[] = [
     ],
   },
   {
+    module: 'hiring',
+    statement: {
+      'hiring.requisition': ['read', 'open'],
+    },
+    roles: [
+      {
+        slug: 'hiring.strategic',
+        description: 'Full hiring administration',
+        permissions: ['hiring.requisition.read', 'hiring.requisition.open'],
+      },
+      {
+        slug: 'hiring.recruiter',
+        description: 'Run requisitions, candidates, interviews, offers',
+        permissions: ['hiring.requisition.read', 'hiring.requisition.open'],
+      },
+      {
+        slug: 'hiring.viewer',
+        description: 'Read hiring records',
+        permissions: ['hiring.requisition.read'],
+      },
+    ],
+  },
+  {
     module: 'identity',
     statement: {
       'identity.user': [

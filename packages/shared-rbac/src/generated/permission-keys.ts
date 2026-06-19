@@ -21,6 +21,8 @@ export type PermissionKey =
   | 'core.tenant.email_domains.write'
   | 'core.tenant.read'
   | 'core.tenant.write'
+  | 'hiring.requisition.open'
+  | 'hiring.requisition.read'
   | 'identity.concept_map.read'
   | 'identity.concept_map.write'
   | 'identity.password.disable_local'
@@ -126,6 +128,8 @@ export const ALL_PERMISSIONS: readonly PermissionKey[] = [
   'core.tenant.email_domains.write',
   'core.tenant.read',
   'core.tenant.write',
+  'hiring.requisition.open',
+  'hiring.requisition.read',
   'identity.concept_map.read',
   'identity.concept_map.write',
   'identity.password.disable_local',
