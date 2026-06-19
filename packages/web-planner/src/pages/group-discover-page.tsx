@@ -39,8 +39,6 @@ export function GroupDiscoverPage() {
       title="Find a Workspace Group"
     >
       <div className="page-container max-w-2xl py-8">
-        <h1 className="text-2xl font-semibold mb-6">Find a Workspace group</h1>
-
         <form onSubmit={handleSearch} className="flex gap-2 mb-8">
           <Input
             placeholder="Search by group name…"
