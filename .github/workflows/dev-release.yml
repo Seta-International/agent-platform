@@ -94,10 +94,6 @@ jobs:
           POSTGRES_USER=seta
           POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
           POSTGRES_DB=seta
-          # Publish Postgres on all host interfaces (LAN) for direct DBeaver
-          # access without an SSH tunnel. Dev host is on a private LAN; security
-          # rests on POSTGRES_PASSWORD. Set to 127.0.0.1 to require SSH tunneling.
-          POSTGRES_BIND_ADDR=0.0.0.0
           PORT=3000
           PUBLIC_URL=${DEV_PUBLIC_URL:-https://${DEV_APP_DOMAIN}}
           BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
