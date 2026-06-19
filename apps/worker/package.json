@@ -19,6 +19,7 @@
     "@opentelemetry/sdk-node": "^0.218.0",
     "@seta/agent": "workspace:^",
     "@seta/core": "workspace:^",
+    "@seta/hiring": "workspace:^",
     "@seta/identity": "workspace:^",
     "@seta/integrations": "workspace:^",
     "@seta/knowledge": "workspace:^",
