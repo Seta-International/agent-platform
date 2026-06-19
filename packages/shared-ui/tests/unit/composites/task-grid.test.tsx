@@ -40,6 +40,13 @@ describe('TaskGrid', () => {
     expect(screen.getByText('2')).toBeInTheDocument();
   });
 
+  it('renders one "Add a task" affordance per bucket group with no trailing duplicate', () => {
+    render(
+      <TaskGrid rows={rows} groupBy="bucket" selection={new Set()} onSelectionChange={() => {}} />,
+    );
+    expect(screen.getAllByRole('button', { name: /\+ Add a task/ })).toHaveLength(1);
+  });
+
   it('opens the task when title is clicked (modal/detail intent)', () => {
     const onOpenTask = vi.fn();
     render(
