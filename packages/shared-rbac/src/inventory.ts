@@ -373,7 +373,7 @@ export const INVENTORY: StatementSpec[] = [
       'identity.role_grant': ['read', 'write'],
       'identity.password': ['disable_local'],
       'identity.concept_map': ['read', 'write'],
-      'core.tenant': ['read', 'write'],
+      'core.tenant': ['read', 'write', 'email_domains.write'],
       'core.audit': ['read'],
     },
     roles: [
@@ -388,9 +388,8 @@ export const INVENTORY: StatementSpec[] = [
           'identity.user.email.change',
           'identity.sso.read',
           'identity.sso.write',
-          // SSO registration writes the tenant's email_domains (core.tenants) via the guarded
-          // setTenantEmailDomains writer, which requires core.tenant.write.
-          'core.tenant.write',
+          // Dedicated email-domains write permission (not core.tenant.write).
+          'core.tenant.email_domains.write',
           'identity.role.grant',
           'identity.role.read',
           'identity.role.write',
