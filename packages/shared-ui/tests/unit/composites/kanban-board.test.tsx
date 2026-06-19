@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { KanbanBoard } from '../../../src/composites/kanban-board';
 
 describe('KanbanBoard', () => {
@@ -103,5 +103,76 @@ describe('KanbanBoard', () => {
 
     expect(screen.queryByRole('button', { name: /add another bucket/i })).not.toBeInTheDocument();
     expect(screen.getByTestId('col-1')).toBeInTheDocument();
+  });
+
+  describe('reveals the newest bucket (FUT-19)', () => {
+    let scrollToSpy: ReturnType<typeof vi.fn>;
+    afterEach(() => {
+      delete (HTMLElement.prototype as { scrollTo?: unknown }).scrollTo;
+      delete (HTMLElement.prototype as { scrollWidth?: unknown }).scrollWidth;
+    });
+    function stubScroll() {
+      scrollToSpy = vi.fn();
+      Object.defineProperty(HTMLElement.prototype, 'scrollTo', {
+        configurable: true,
+        writable: true,
+        value: scrollToSpy,
+      });
+      Object.defineProperty(HTMLElement.prototype, 'scrollWidth', {
+        configurable: true,
+        get: () => 4242,
+      });
+    }
+    const cols = (n: number) =>
+      Array.from({ length: n }, (_, i) => `col-${i}`).map((id) => (
+        <div key={id} data-testid={id}>
+          {id}
+        </div>
+      ));
+
+    it('scrolls the board to the end after the user adds a bucket and it arrives', () => {
+      stubScroll();
+      const onAddBucket = vi.fn();
+      const { rerender } = render(
+        <KanbanBoard onAddBucket={onAddBucket} bucketCount={6}>
+          {cols(6)}
+        </KanbanBoard>,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: /add another bucket/i }));
+      fireEvent.change(screen.getByLabelText(/new bucket name/i), {
+        target: { value: 'Bucket 7' },
+      });
+      fireEvent.keyDown(screen.getByLabelText(/new bucket name/i), { key: 'Enter' });
+      expect(onAddBucket).toHaveBeenCalledWith('Bucket 7');
+
+      rerender(
+        <KanbanBoard onAddBucket={onAddBucket} bucketCount={7}>
+          {cols(7)}
+        </KanbanBoard>,
+      );
+
+      expect(scrollToSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ left: 4242, behavior: 'smooth' }),
+      );
+    });
+
+    it('does NOT scroll when the count grows without a local add (e.g. realtime update)', () => {
+      stubScroll();
+      const onAddBucket = vi.fn();
+      const { rerender } = render(
+        <KanbanBoard onAddBucket={onAddBucket} bucketCount={6}>
+          {cols(6)}
+        </KanbanBoard>,
+      );
+
+      rerender(
+        <KanbanBoard onAddBucket={onAddBucket} bucketCount={7}>
+          {cols(7)}
+        </KanbanBoard>,
+      );
+
+      expect(scrollToSpy).not.toHaveBeenCalled();
+    });
   });
 });
