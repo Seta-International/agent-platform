@@ -165,6 +165,7 @@ export function PeoplePage() {
     return [
       {
         id: 'employee',
+        accessorKey: 'full_name',
         header: 'Employee',
         cell: ({ row }: CellCtx) => (
           <div className="flex items-center gap-2.5 min-w-0">
@@ -177,6 +178,7 @@ export function PeoplePage() {
       },
       {
         id: 'work_email',
+        accessorKey: 'work_email',
         header: 'Work email',
         cell: ({ row }: CellCtx) => (
           <span className="font-mono text-[12.5px] text-ink-muted truncate block">
@@ -245,7 +247,7 @@ export function PeoplePage() {
               columns={columns}
               data={workers ?? []}
               isLoading={isLoading}
-              pagination={false}
+              pagination={{ defaultPageSize: 25, pageSizeOptions: [25, 50, 100] }}
               getRowId={(r: WorkerListRow) => r.worker_id}
               enableRowSelection={canSetPortal}
               rowSelection={rowSelection}

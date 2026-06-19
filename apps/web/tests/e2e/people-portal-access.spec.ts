@@ -1,6 +1,6 @@
 import { expect, request, test } from '@playwright/test';
 
-// Runs as the sandbox org.admin (wildcard) from global-setup storage state.
+// Runs as the org.admin (wildcard) from global-setup storage state.
 // The admin holds people.worker.portal_access.set via org.admin, so the
 // "Login & access" card is visible and the Switch is interactive.
 
@@ -54,8 +54,11 @@ test.beforeAll(async () => {
 test('people directory: worker row is visible with Access column', async ({ page }) => {
   await page.goto('/people');
   await expect(page.getByRole('heading', { name: 'People' })).toBeVisible();
-  await expect(page.getByText(WORKER_NAME)).toBeVisible();
   await expect(page.getByRole('columnheader', { name: 'Access' })).toBeVisible();
+  // Directory holds the full seeded roster; filter to the target row so the
+  // assertion is independent of page size / row ordering.
+  await page.getByPlaceholder(/search/i).fill(WORKER_NAME);
+  await expect(page.getByText(WORKER_NAME)).toBeVisible();
 });
 
 test('worker profile: Login & access card renders with Switch', async ({ page }) => {
