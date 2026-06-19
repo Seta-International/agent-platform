@@ -15,6 +15,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { PRIORITY_LEVELS } from '../lib/priority';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -53,12 +54,13 @@ export interface KanbanColumnProps {
   };
 }
 
-const PRIORITY_OPTIONS = [
-  { value: 1 as const, label: 'Urgent', dotClass: 'bg-semantic-danger' },
-  { value: 3 as const, label: 'Important', dotClass: 'bg-semantic-warning' },
-  { value: 5 as const, label: 'Medium', dotClass: 'bg-semantic-info' },
-  { value: 9 as const, label: 'Low', dotClass: 'bg-ink-tertiary' },
-];
+// Derived from the shared priority registry so dots use the same colors as
+// PriorityIcon and the task detail panel — never redeclare priority colors here.
+const PRIORITY_OPTIONS = PRIORITY_LEVELS.map((p) => ({
+  value: p.value,
+  label: p.label,
+  color: p.color,
+}));
 
 const DEFAULT_PRIORITY: 1 | 3 | 5 | 9 = 5;
 
@@ -307,7 +309,8 @@ export function KanbanColumn({
                   onMouseDown={(e) => e.preventDefault()}
                 >
                   <span
-                    className={`inline-block size-2 rounded-sm ${priorityOpt?.dotClass ?? ''}`}
+                    className="inline-block size-2 rounded-sm"
+                    style={priorityOpt ? { backgroundColor: priorityOpt.color } : undefined}
                     aria-hidden
                   />
                   <span>{priorityOpt?.label ?? 'Priority'}</span>
@@ -321,7 +324,8 @@ export function KanbanColumn({
                     className="flex items-center gap-2"
                   >
                     <span
-                      className={`inline-block size-2 rounded-sm ${opt.dotClass}`}
+                      className="inline-block size-2 rounded-sm"
+                      style={{ backgroundColor: opt.color }}
                       aria-hidden
                     />
                     {opt.label}
