@@ -1,7 +1,6 @@
 import type { SubscriberDef } from '@seta/shared-types';
+import { bindUserToPerson } from './bind-user-to-person.ts';
 
-// Inbound-event framework. Concrete handlers (first: identity.user.created →
-// person link, PPL-2) are added here as later slices land.
 export function peopleSubscribers(): SubscriberDef[] {
-  return [];
+  return [bindUserToPerson];
 }
