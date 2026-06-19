@@ -5,6 +5,16 @@ import type { Pool } from 'pg';
 
 export { makeToolContext } from '@seta/agent-sdk/testing';
 
+export async function seedTenantRaw(pool: Pool): Promise<string> {
+  const id = crypto.randomUUID();
+  await pool.query(`INSERT INTO core.tenants (id, name, slug) VALUES ($1, $2, $3)`, [
+    id,
+    `Test Org ${id.slice(0, 8)}`,
+    `test-${id.slice(0, 8)}`,
+  ]);
+  return id;
+}
+
 export function withAgentTestDb<T>(
   fn: (ctx: { pool: Pool; databaseUrl: string }) => Promise<T>,
 ): Promise<T> {
