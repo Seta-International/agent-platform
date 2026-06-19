@@ -25,6 +25,9 @@ export async function provisionLogin(
   const email = input.email.toLowerCase().trim();
   if (!isValidEmail(email)) throw new IdentityError('INVALID_EMAIL', `Not a valid email: ${email}`);
 
+  // Deliberately broader than the partial unique index (user_tenant_email_uniq is
+  // WHERE deactivated_at IS NULL): matching deactivated rows too makes re-provision
+  // return the existing satellite instead of inserting a duplicate. Do not narrow.
   const [existing] = await identityDb()
     .select({ id: user.id })
     .from(user)
