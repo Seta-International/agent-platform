@@ -11,6 +11,7 @@ export async function listWorkers(session: SessionScope): Promise<
     full_name: string;
     work_email: string | null;
     lifecycle_stage: string | null;
+    portal_access: boolean;
   }>
 > {
   requirePermission(session, 'people.worker.read');
@@ -20,6 +21,7 @@ export async function listWorkers(session: SessionScope): Promise<
       full_name: worker.full_name,
       work_email: worker.work_email,
       lifecycle_stage: employmentPeriod.lifecycle_stage,
+      portal_access: worker.portal_access,
     })
     .from(worker)
     .leftJoin(
@@ -46,6 +48,7 @@ export async function getWorker({
   emergency_contact: unknown;
   version: number;
   lifecycle_stage: string | null;
+  portal_access: boolean;
 }> {
   requirePermission(session, 'people.worker.read');
   const [row] = await peopleDb()
@@ -59,6 +62,7 @@ export async function getWorker({
       emergency_contact: worker.emergency_contact,
       version: worker.version,
       lifecycle_stage: employmentPeriod.lifecycle_stage,
+      portal_access: worker.portal_access,
     })
     .from(worker)
     .leftJoin(

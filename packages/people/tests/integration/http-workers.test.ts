@@ -203,6 +203,23 @@ describe('People workers HTTP routes', () => {
     });
   });
 
+  it('GET /workers/:id returns portal_access field', async () => {
+    await withDb(async ({ adminSession }) => {
+      const app = buildApp(adminSession);
+      const createRes = await app.request('/api/people/v1/workers', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ full_name: 'Reader Portal' }),
+      });
+      const { worker_id } = (await createRes.json()) as { worker_id: string };
+
+      const res = await app.request(`/api/people/v1/workers/${worker_id}`);
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { portal_access: boolean };
+      expect(body.portal_access).toBe(false);
+    });
+  });
+
   it('POST /workers/portal-access/bulk toggles multiple workers', async () => {
     await withDb(async ({ adminSession }) => {
       const app = buildApp(adminSession);
