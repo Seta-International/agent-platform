@@ -39,7 +39,7 @@
     "@types/sanitize-html": "^2.16.1",
     "drizzle-kit": "^0.31.10",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.9"
   },
   "dependencies": {
     "@mastra/core": "^1.42.0",
