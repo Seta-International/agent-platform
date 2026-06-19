@@ -1,15 +1,17 @@
-import { LogOut, Terminal, Users, X } from 'lucide-react';
+import { BarChart2, LogOut, Terminal, Users, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { AriaPreviewTool } from './AriaPreviewTool.tsx';
 import { exitImpersonation, getImpersonateStatus } from './api.ts';
 import { ImpersonateTool } from './ImpersonateTool.tsx';
 
 type ImpersonateTarget = { user_id: string; email: string; display_name: string };
 
-type TabId = 'impersonate';
+type TabId = 'impersonate' | 'aria-preview';
 
 const TABS: { id: TabId; label: string; icon: typeof Users }[] = [
   { id: 'impersonate', label: 'Impersonate', icon: Users },
+  { id: 'aria-preview', label: 'ARIA', icon: BarChart2 },
 ];
 
 export function DevToolkit() {
@@ -98,7 +100,10 @@ export function DevToolkit() {
       )}
 
       {/* FAB + Panel container */}
-      <div className="fixed bottom-5 right-5 flex flex-col items-end gap-2 z-[9999]">
+      <div
+        className="fixed bottom-5 right-5 flex flex-col items-end gap-2 z-[9999]"
+        style={{ pointerEvents: open ? 'auto' : 'none' }}
+      >
         {/* Panel */}
         <div
           ref={panelRef}
@@ -162,16 +167,18 @@ export function DevToolkit() {
               {activeTab === 'impersonate' && (
                 <ImpersonateTool onImpersonated={handleImpersonated} />
               )}
+              {activeTab === 'aria-preview' && <AriaPreviewTool />}
             </div>
           </div>
         </div>
 
-        {/* FAB */}
+        {/* FAB — pointer-events: auto keeps it clickable when the container is none */}
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
           aria-label={open ? 'Close dev toolkit' : 'Open dev toolkit'}
           aria-expanded={open}
+          style={{ pointerEvents: 'auto' }}
           className={[
             'relative w-10 h-10 rounded-full flex items-center justify-center',
             'border transition-all duration-150',

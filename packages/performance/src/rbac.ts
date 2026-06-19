@@ -1,22 +1,19 @@
 import { type Statement, toManifest } from '@seta/shared-rbac';
 
-// TODO(rbac): These permissions MUST also be added to the single source of truth,
-// packages/shared-rbac/src/inventory.ts (the INVENTORY array). The runtime resolver,
-// the gen:rbac codegen, and identity all build from INVENTORY; this module statement
-// is parity-checked against its INVENTORY slice. After editing BOTH (keep them
-// identical — same resources, actions, role permissions, and role descriptions),
-// run `pnpm gen:rbac` and add a parity test (copy packages/knowledge/tests/unit/rbac-parity.test.ts).
-// See packages/knowledge/src/rbac.ts for a complete example.
 export const performanceStatement = {
-  'performance.example': ['read'],
+  'performance.dashboard': ['read', 'team.read', 'executive.read'],
 } as const satisfies Statement;
 
 const roleStatements = {
-  'performance.viewer': { 'performance.example': ['read'] },
+  'performance.employee': { 'performance.dashboard': ['read'] },
+  'performance.manager': { 'performance.dashboard': ['read', 'team.read'] },
+  'performance.bod': { 'performance.dashboard': ['read', 'team.read', 'executive.read'] },
 } as const satisfies Record<string, Statement>;
 
 export const performanceRbac = toManifest('performance', performanceStatement, roleStatements, {
-  'performance.viewer': 'Read-only access',
+  'performance.employee': 'View own performance dashboard',
+  'performance.manager': 'View own and team performance dashboards',
+  'performance.bod': 'View all performance dashboards including executive view',
 });
 
 export type PerformancePermission = (typeof performanceRbac.permissions)[number]['key'];

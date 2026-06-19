@@ -1,5 +1,15 @@
 import { type NavManifest, noNavExtensions } from '@seta/module-sdk';
-import { Bell, FileClock, Mail, Settings, Shield, ShieldCheck, Sliders, Users } from 'lucide-react';
+import {
+  BarChart2,
+  Bell,
+  FileClock,
+  Mail,
+  Settings,
+  Shield,
+  ShieldCheck,
+  Sliders,
+  Users,
+} from 'lucide-react';
 
 export const adminNavManifest: NavManifest = {
   id: 'admin',
@@ -50,6 +60,18 @@ export const adminNavManifest: NavManifest = {
           label: 'Notifications',
           to: '/admin/notifications',
           requires: ['notifications.category.read'],
+        },
+      ],
+    },
+    {
+      label: 'ARIA',
+      items: [
+        {
+          id: 'admin.org-chart',
+          icon: BarChart2,
+          label: 'Org Chart',
+          to: '/admin/org-chart',
+          requires: ['identity.user.read.any'],
         },
       ],
     },

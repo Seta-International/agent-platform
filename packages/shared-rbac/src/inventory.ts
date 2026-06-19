@@ -336,6 +336,33 @@ export const INVENTORY: StatementSpec[] = [
     ],
   },
   {
+    module: 'performance',
+    statement: {
+      'performance.dashboard': ['read', 'team.read', 'executive.read'],
+    },
+    roles: [
+      {
+        slug: 'performance.employee',
+        description: 'View own performance dashboard',
+        permissions: ['performance.dashboard.read'],
+      },
+      {
+        slug: 'performance.manager',
+        description: 'View own and team performance dashboards',
+        permissions: ['performance.dashboard.read', 'performance.dashboard.team.read'],
+      },
+      {
+        slug: 'performance.bod',
+        description: 'View all performance dashboards including executive view',
+        permissions: [
+          'performance.dashboard.read',
+          'performance.dashboard.team.read',
+          'performance.dashboard.executive.read',
+        ],
+      },
+    ],
+  },
+  {
     module: 'identity',
     statement: {
       'identity.user': [

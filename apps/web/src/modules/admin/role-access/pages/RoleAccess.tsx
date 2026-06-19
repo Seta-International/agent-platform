@@ -22,7 +22,8 @@ import type { MatrixRole } from '../api/role-access-client.ts';
 import { useResetRole, useRoleAccessMatrix, useSetRolePermission } from '../hooks/useRoleAccess.ts';
 
 const titleCase = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-const moduleLabel = (m: string) => titleCase(m);
+const MODULE_LABELS: Record<string, string> = { performance: 'ARIA' };
+const moduleLabel = (m: string) => MODULE_LABELS[m] ?? titleCase(m);
 const roleShort = (slug: string) =>
   slug.split('.').slice(1).map(titleCase).join(' ') || titleCase(slug);
 
