@@ -89,6 +89,7 @@ export {
   type SetRolePermissionInput,
   setRolePermission,
 } from './backend/domain/set-role-permission.ts';
+export { setTenantEmailDomains } from './backend/domain/set-tenant-email-domains.ts';
 export type { UpdateMyDisplayNameInput } from './backend/domain/update-my-display-name.ts';
 export { updateMyDisplayName } from './backend/domain/update-my-display-name.ts';
 export type { UpdateUserProfilePatch } from './backend/domain/update-user-profile.ts';
