@@ -34,4 +34,35 @@ describe('GraphNodeCard', () => {
     fireEvent.click(screen.getByText('Static'));
     expect(onClick).not.toHaveBeenCalled();
   });
+
+  it('renders the collapse toggle only when collapsible', () => {
+    const { rerender } = render(<GraphNodeCard title="Mgr" onClick={() => {}} />);
+    expect(screen.queryByRole('button', { name: /toggle/i })).not.toBeInTheDocument();
+    rerender(
+      <GraphNodeCard title="Mgr" onClick={() => {}} collapsible onToggleCollapse={() => {}} />,
+    );
+    expect(screen.getByRole('button', { name: /toggle/i })).toBeInTheDocument();
+  });
+
+  it('fires onToggleCollapse without triggering onClick (propagation stopped)', () => {
+    const onClick = vi.fn();
+    const onToggle = vi.fn();
+    render(<GraphNodeCard title="Mgr" onClick={onClick} collapsible onToggleCollapse={onToggle} />);
+    fireEvent.click(screen.getByRole('button', { name: /toggle/i }));
+    expect(onToggle).toHaveBeenCalledTimes(1);
+    expect(onClick).not.toHaveBeenCalled();
+  });
+
+  it('shows descendantCount in the toggle when collapsed', () => {
+    render(
+      <GraphNodeCard
+        title="Mgr"
+        collapsible
+        collapsed
+        descendantCount={5}
+        onToggleCollapse={() => {}}
+      />,
+    );
+    expect(screen.getByRole('button', { name: /toggle/i })).toHaveTextContent('5');
+  });
 });

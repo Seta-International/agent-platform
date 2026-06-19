@@ -1,4 +1,5 @@
-import type { CSSProperties, KeyboardEvent } from 'react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
+import type { CSSProperties, KeyboardEvent, MouseEvent } from 'react';
 import { cn } from '../lib/cn';
 import { initialsOf } from '../lib/initials';
 import { Avatar, AvatarFallback, AvatarImage } from '../primitives/avatar';
@@ -16,6 +17,10 @@ export interface GraphNodeCardProps {
   interactive?: boolean;
   onClick?: () => void;
   className?: string;
+  collapsible?: boolean;
+  collapsed?: boolean;
+  descendantCount?: number;
+  onToggleCollapse?: () => void;
 }
 
 const TONE: Record<GraphNodeTone, { card: string; title: string; subtitle: string }> = {
@@ -53,6 +58,10 @@ export function GraphNodeCard({
   interactive = true,
   onClick,
   className,
+  collapsible,
+  collapsed,
+  descendantCount,
+  onToggleCollapse,
 }: GraphNodeCardProps) {
   const t = TONE[tone];
   const hue = hueFromString(title);
@@ -111,6 +120,20 @@ export function GraphNodeCard({
         >
           {count}
         </span>
+      )}
+      {collapsible && (
+        <button
+          type="button"
+          aria-label="toggle collapse"
+          onClick={(e: MouseEvent) => {
+            e.stopPropagation();
+            onToggleCollapse?.();
+          }}
+          className="absolute -bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-pill border-hairline border bg-surface-1 px-2 py-0.5 text-caption font-bold text-ink-subtle shadow-sm hover:border-primary-border"
+        >
+          {collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+          {collapsed && descendantCount !== undefined && <span>{descendantCount}</span>}
+        </button>
       )}
     </div>
   );
