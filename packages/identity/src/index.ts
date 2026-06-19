@@ -61,6 +61,8 @@ export type {
 export { listUsersForBackfill } from './backend/domain/list-users-for-embedding-backfill.ts';
 export type { MatchUsersToTopicInput, UserMatch } from './backend/domain/match-users-to-topic.ts';
 export { matchUsersToTopic } from './backend/domain/match-users-to-topic.ts';
+export type { ProvisionLoginInput } from './backend/domain/provision-login.ts';
+export { provisionLogin } from './backend/domain/provision-login.ts';
 export { reactivateUser } from './backend/domain/reactivate-user.ts';
 export type { RecordSsoConsentInput } from './backend/domain/record-sso-consent.ts';
 export { recordSsoConsent } from './backend/domain/record-sso-consent.ts';
