@@ -1,3 +1,4 @@
+import { getTenantEmailDomains } from '@seta/core';
 import { resetCoreDb } from '@seta/core/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
@@ -120,6 +121,51 @@ describe('@seta/identity SSO provider lifecycle', () => {
           // listSsoProviders returns empty after disconnect
           const providers = await listSsoProviders(tenantId);
           expect(providers).toHaveLength(0);
+        } finally {
+          resetCoreDb();
+          await closePools();
+        }
+      },
+    );
+  });
+
+  it('registers with no domains: provider row exists, email domains stay empty', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
+      },
+      async ({ pool, databaseUrl }) => {
+        resetCoreDb();
+        initPools({ databaseUrl });
+        try {
+          const tenantId = crypto.randomUUID();
+          await pool.query(
+            `INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'NoDomains', 'no-domains')`,
+            [tenantId],
+          );
+
+          // No Graph calls expected: an empty domain list skips Entra verification.
+          const row = await registerSsoProvider(
+            {
+              tenant_id: tenantId,
+              provider_id: 'microsoft-entra-id',
+              entra_tenant_id: ENTRA_TID,
+              email_domains: [],
+            },
+            CLI_ACTOR,
+          );
+
+          expect(row.provider_id).toBe('microsoft-entra-id');
+          expect(row.enabled).toBe(false);
+
+          const providers = await listSsoProviders(tenantId);
+          expect(providers).toHaveLength(1);
+
+          const domains = await getTenantEmailDomains(tenantId);
+          expect(domains).toEqual([]);
+
+          expect(fetchMock).not.toHaveBeenCalled();
         } finally {
           resetCoreDb();
           await closePools();

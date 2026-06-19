@@ -33,10 +33,6 @@ export async function registerSsoProvider(
     new Set(input.email_domains.map((d) => d.toLowerCase().trim()).filter(Boolean)),
   ).sort();
 
-  if (normalized.length === 0) {
-    throw new IdentityError('NO_DOMAINS', 'At least one email domain is required');
-  }
-
   // Preserve existing consent metadata when re-registering
   const existing = await getProviderRow(input.tenant_id, 'microsoft-entra-id');
   const config: MicrosoftEntraConfig = {
