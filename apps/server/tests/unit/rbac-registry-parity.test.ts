@@ -3,6 +3,7 @@ import { identityRbac } from '@seta/identity/rbac';
 import { integrationsRbac } from '@seta/integrations/rbac';
 import { knowledgeRbac } from '@seta/knowledge/rbac';
 import { notificationsRbac } from '@seta/notifications/rbac';
+import { peopleRbac } from '@seta/people/rbac';
 import { plannerRbac } from '@seta/planner/rbac';
 import { buildRegistry, INVENTORY, inventoryToManifests } from '@seta/shared-rbac';
 import { staffingRbac } from '@seta/staffing/rbac';
@@ -18,6 +19,7 @@ describe('rbac registry parity', () => {
     knowledgeRbac,
     notificationsRbac,
     integrationsRbac,
+    peopleRbac,
     staffingRbac,
     agentRbac,
     plannerRbac,
