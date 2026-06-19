@@ -1,3 +1,4 @@
+// rbac: delegates — forwards to updateUserProfile (enforces the identity write check) and changeUserEmail (people_sync reason).
 import { changeUserEmail } from './change-user-email.ts';
 import type { Actor } from './create-user.ts';
 import { updateUserProfile } from './update-user-profile.ts';
