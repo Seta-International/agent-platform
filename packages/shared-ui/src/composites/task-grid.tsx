@@ -364,26 +364,6 @@ export function TaskGrid({
           </Fragment>
         );
       })}
-
-      {groupBy === 'bucket' && (
-        <div className="mt-2">
-          {addingBucketId === null ? (
-            <AddTaskRow
-              bucketId={null}
-              onCommit={(title) => onAddTask?.(title, null)}
-              onCancel={() => onCancelAdd?.()}
-            />
-          ) : (
-            <button
-              type="button"
-              onClick={() => onAddTask?.('__open__', null)}
-              className="flex w-full items-center gap-1.5 rounded-md px-3 py-2 text-body-sm text-ink-subtle hover:bg-surface-2 hover:text-ink"
-            >
-              <span className="text-base leading-none">+</span> Add a task
-            </button>
-          )}
-        </div>
-      )}
     </div>
   );
 }
