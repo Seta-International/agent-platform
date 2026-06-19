@@ -66,8 +66,12 @@ describe('People workers HTTP routes', () => {
 
       const listRes = await app.request('/api/people/v1/workers');
       expect(listRes.status).toBe(200);
-      const body = (await listRes.json()) as { workers: Array<{ full_name: string }> };
-      expect(body.workers.some((w) => w.full_name === 'Alice Tester')).toBe(true);
+      const body = (await listRes.json()) as {
+        workers: Array<{ full_name: string; portal_access: boolean }>;
+      };
+      const alice = body.workers.find((w) => w.full_name === 'Alice Tester');
+      expect(alice).toBeDefined();
+      expect(alice?.portal_access).toBe(false);
     });
   });
 
