@@ -4,4 +4,6 @@ export { provisionWorker } from './backend/domain/provision-worker.ts';
 export { getWorker, getWorkerHistory, listWorkers } from './backend/domain/read-workers.ts';
 export type { SetPortalAccessInput } from './backend/domain/set-portal-access.ts';
 export { setPortalAccess } from './backend/domain/set-portal-access.ts';
+export type { SetPortalAccessBulkInput } from './backend/domain/set-portal-access-bulk.ts';
+export { setPortalAccessBulk } from './backend/domain/set-portal-access-bulk.ts';
 export type { CreateWorkerInput, EditWorkerInput, ProvisionWorkerInput } from './contracts.ts';
