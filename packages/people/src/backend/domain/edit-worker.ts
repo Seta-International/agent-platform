@@ -1,5 +1,6 @@
 import type { SessionScope } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
+import { syncLoginIdentity } from '@seta/identity';
 import { can } from '@seta/shared-rbac';
 import { and, eq } from 'drizzle-orm';
 import type { EditWorkerInput } from '../../contracts.ts';
@@ -79,5 +80,18 @@ export async function editWorker(
       });
     },
   );
+
+  const linkedUserId = current.person.user_id;
+  if (linkedUserId && (patch.full_name !== undefined || patch.work_email !== undefined)) {
+    await syncLoginIdentity(
+      {
+        user_id: linkedUserId,
+        name: patch.full_name,
+        email: patch.work_email,
+      },
+      { type: 'system', user_id: session.user_id },
+    );
+  }
+
   return { version: nextVersion };
 }
