@@ -1,7 +1,7 @@
 import type { ContributionRegistry, SessionEnv } from '@seta/core';
 import type { Hono } from 'hono';
 
-const FRONTEND_ONLY_MODULES = ['admin'];
+const FRONTEND_ONLY_MODULES = ['admin', 'devzone'];
 
 export function registerEnabledModulesRoute(
   app: Hono<SessionEnv>,

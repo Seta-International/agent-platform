@@ -2,6 +2,7 @@
 # not published to the shared repo. CLAUDE.md stays tracked.
 docs/superpowers
 .superpowers/
+docs/codebase
 
 # Local Claude Code config (per-machine, not shared)
 .claude/settings.local.json
@@ -72,3 +73,12 @@ docs/design/
 
 # App NDJSON logs (dev log persistence)
 logs/
+
+# Serena
+.serena/
+
+# OMO
+.omo/
+
+# Backup env
+.env.old
