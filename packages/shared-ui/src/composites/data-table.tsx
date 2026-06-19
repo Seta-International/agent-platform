@@ -37,6 +37,8 @@ function ExpandedRowContent<TData>({ row, renderSubComponent }: ExpandedRowConte
   return <>{renderSubComponent({ row })}</>;
 }
 
+export type { RowSelectionState } from '@tanstack/react-table';
+
 export type DataTableDensity = 'comfortable' | 'compact';
 
 interface ClientPagination {
@@ -62,6 +64,7 @@ interface DataTableBaseProps<TData, TValue> {
   renderSubComponent?: (props: { row: Row<TData> }) => React.ReactNode;
   getRowCanExpand?: (row: Row<TData>) => boolean;
   density?: DataTableDensity;
+  getRowId?: (row: TData) => string;
   onRowClick?: (row: Row<TData>) => void;
 }
 
@@ -219,6 +222,7 @@ export function DataTable<TData, TValue>(props: DataTableProps<TData, TValue>) {
     onRowSelectionChange,
     onColumnVisibilityChange,
     enableRowSelection: props.enableRowSelection,
+    getRowId: props.getRowId,
     getRowCanExpand: props.getRowCanExpand ?? (() => Boolean(props.enableExpansion)),
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
