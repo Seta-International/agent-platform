@@ -28,6 +28,11 @@ networks:
   seta-internal:
     driver: bridge
     internal: true
+  # Non-internal bridge used ONLY to publish admin ports (e.g. Postgres) to the
+  # host loopback for SSH-tunneled access. `internal: true` networks cannot
+  # publish host ports, so services needing a loopback port join this too.
+  seta-admin:
+    driver: bridge
 
 volumes:
   postgres-data:
@@ -249,12 +254,15 @@ services:
     # Bind to host loopback only so the DB is reachable via an SSH tunnel
     # (e.g. DBeaver) without being publicly exposed — preserves the boundary
     # above (only `proxy` is public). Override the bind via POSTGRES_BIND_ADDR.
+    # Publishing requires the non-internal `seta-admin` network below; the
+    # `seta-internal` network is `internal: true` and cannot publish host ports.
     ports:
       - "${POSTGRES_BIND_ADDR:-127.0.0.1}:${POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     networks:
       - seta-internal
+      - seta-admin
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
