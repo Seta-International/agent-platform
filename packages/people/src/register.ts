@@ -2,6 +2,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ContributionRegistry } from '@seta/core';
 import * as schema from './backend/db/schema.ts';
+import { peopleSubscribers } from './backend/subscribers/index.ts';
 import { PEOPLE_EVENTS } from './events.ts';
 import { peopleRbac } from './rbac.ts';
 
@@ -14,5 +15,6 @@ export function registerPeopleContributions(reg: ContributionRegistry): void {
     migrationsDir: resolve(__dirname, '../drizzle/migrations'),
     events: PEOPLE_EVENTS,
     rbac: peopleRbac,
+    subscribers: peopleSubscribers(),
   });
 }
