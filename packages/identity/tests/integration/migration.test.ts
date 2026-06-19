@@ -73,7 +73,6 @@ describe('identity migrations', () => {
             'role_grants_user_idx',
             'role_grants_tenant_role_idx',
             'failed_login_email_ip_idx',
-            'tenant_sso_providers_domain_idx',
           ]),
         );
       },

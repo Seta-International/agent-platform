@@ -24,6 +24,9 @@ const roleStatements = {
   'identity.admin': {
     'identity.user': ['read.any', 'write', 'deactivate', 'invite', 'email.change'],
     'identity.sso': ['read', 'write'],
+    // SSO registration writes the tenant's email_domains via the guarded
+    // setTenantEmailDomains writer, which requires core.tenant.write.
+    'core.tenant': ['write'],
     'identity.role': ['grant', 'read', 'write'],
     'identity.role_grant': ['read', 'write'],
     'identity.password': ['disable_local'],

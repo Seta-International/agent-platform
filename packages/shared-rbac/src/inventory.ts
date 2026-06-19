@@ -388,6 +388,9 @@ export const INVENTORY: StatementSpec[] = [
           'identity.user.email.change',
           'identity.sso.read',
           'identity.sso.write',
+          // SSO registration writes the tenant's email_domains (core.tenants) via the guarded
+          // setTenantEmailDomains writer, which requires core.tenant.write.
+          'core.tenant.write',
           'identity.role.grant',
           'identity.role.read',
           'identity.role.write',

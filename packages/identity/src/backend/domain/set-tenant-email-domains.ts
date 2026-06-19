@@ -21,9 +21,8 @@ export async function setTenantEmailDomains(
 
   if (normalized.length > 0) {
     // Cross-tenant uniqueness (anti-takeover): no other tenant may claim these domains.
-    // -- cross-schema: core.tenants is owned by core; identity reads it for domain routing.
     const conflicts = await identityDb().execute<{ id: string }>(sql`
-      SELECT id FROM core.tenants
+      SELECT id FROM core.tenants -- cross-schema-read: core.tenants is owned by core; identity reads it for domain routing.
       WHERE id <> ${args.tenant_id}
         AND email_domains && ARRAY[${sql.join(
           normalized.map((d) => sql`${d}`),

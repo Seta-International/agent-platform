@@ -107,7 +107,10 @@ describe('@seta/identity SSO provider lifecycle', () => {
             [tenantId],
           );
           expect(events.map((e) => e.event_type)).toEqual([
+            // register now persists domains to core.tenants via setTenantEmailDomains,
+            // which emits core.tenant.email_domains.changed right after the registered event.
             'identity.sso_provider.registered',
+            'core.tenant.email_domains.changed',
             'identity.sso_provider.consent_granted',
             'identity.sso_provider.enabled',
             'identity.sso_provider.disabled',
@@ -190,25 +193,10 @@ describe('@seta/identity SSO provider lifecycle', () => {
         try {
           const tenantA = crypto.randomUUID();
           const tenantB = crypto.randomUUID();
+          // tenantA already claims acme.com on core.tenants (where email_domains now live).
           await pool.query(
-            `INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'TenantA', 'tenant-a'), ($2, 'TenantB', 'tenant-b')`,
-            [tenantA, tenantB],
-          );
-
-          // Seed tenantA with an enabled provider claiming acme.com
-          await pool.query(
-            `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, config, email_domains)
-             VALUES ($1, 'microsoft-entra-id', true, $2::jsonb, $3)`,
-            [
-              tenantA,
-              JSON.stringify({
-                entra_tenant_id: ENTRA_TID,
-                consent_granted_at: null,
-                consent_granted_by_oid: null,
-                consent_granted_by_email: null,
-              }),
-              ['acme.com'],
-            ],
+            `INSERT INTO core.tenants (id, name, slug, email_domains) VALUES ($1, 'TenantA', 'tenant-a', $3), ($2, 'TenantB', 'tenant-b', '{}')`,
+            [tenantA, tenantB, ['acme.com']],
           );
 
           // tenantB tries to register with acme.com

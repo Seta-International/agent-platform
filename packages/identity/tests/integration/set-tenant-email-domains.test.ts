@@ -170,8 +170,8 @@ describe('setTenantEmailDomains', () => {
 
           // Seed an SSO provider so getProviderRow returns a row
           await pool.query(
-            `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, config, email_domains)
-             VALUES ($1, 'microsoft-entra-id', false, $2::jsonb, '{}')`,
+            `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, config)
+             VALUES ($1, 'microsoft-entra-id', false, $2::jsonb)`,
             [
               tenantId,
               JSON.stringify({
