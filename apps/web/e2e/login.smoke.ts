@@ -2,7 +2,7 @@
 import { strict as assert } from 'node:assert';
 
 const baseUrl = process.env.PLATFORM_SERVER_URL ?? 'http://localhost:3000';
-const email = process.env.PLATFORM_ADMIN_EMAIL ?? 'admin@demo.local';
+const email = process.env.PLATFORM_ADMIN_EMAIL ?? 'admin@seta-international.vn';
 const password = process.env.PLATFORM_ADMIN_PASSWORD ?? 'ChangeMe@2026';
 
 async function main() {
