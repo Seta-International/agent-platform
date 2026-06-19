@@ -1047,6 +1047,9 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
+      '@seta/identity':
+        specifier: workspace:*
+        version: link:../identity
       '@seta/shared-config':
         specifier: workspace:^
         version: link:../shared-config
