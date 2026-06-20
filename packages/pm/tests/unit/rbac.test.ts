@@ -6,4 +6,16 @@ describe('pm rbac', () => {
     expect(PM_PERMISSIONS).toContain('pm.account.read');
     expect(PM_PERMISSIONS).toContain('pm.account.manage');
   });
+
+  it('exposes charter + project permissions', () => {
+    for (const p of [
+      'pm.charter.submit',
+      'pm.charter.approve',
+      'pm.charter.read',
+      'pm.project.read',
+      'pm.project.manage',
+    ]) {
+      expect(PM_PERMISSIONS).toContain(p);
+    }
+  });
 });
