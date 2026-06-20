@@ -74,7 +74,8 @@ export async function editSkill(input: {
   if (!cur) throw new CoreSkillError('NOT_FOUND', 'skill not found');
   if (input.expected_version !== undefined && input.expected_version !== cur.version)
     throw new CoreSkillError('CONFLICT', 'version mismatch');
-  if (input.input.category_id) await categoryOrThrow(session, input.input.category_id);
+  if (input.input.category_id !== undefined)
+    await categoryOrThrow(session, input.input.category_id);
   const next = cur.version + 1;
   const categoryId = input.input.category_id ?? cur.category_id;
   await withEmit(
