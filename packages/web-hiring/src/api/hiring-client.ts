@@ -39,6 +39,7 @@ export interface RequisitionListRow {
   openings_total: number;
   openings_open: number;
   applicants_count: number;
+  version: number;
 }
 export interface RequisitionRow {
   id: string;

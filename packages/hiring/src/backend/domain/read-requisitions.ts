@@ -23,6 +23,7 @@ export interface RequisitionListRow {
   openings_total: number;
   openings_open: number;
   applicants_count: number;
+  version: number;
 }
 
 export async function listRequisitions(session: SessionScope): Promise<RequisitionListRow[]> {
@@ -40,6 +41,7 @@ export async function listRequisitions(session: SessionScope): Promise<Requisiti
       openings_total: sql<number>`(SELECT count(*)::int FROM hiring.opening o WHERE o.requisition_id = "hiring"."requisition"."id")`,
       openings_open: sql<number>`(SELECT count(*)::int FROM hiring.opening o WHERE o.requisition_id = "hiring"."requisition"."id" AND o.status = 'open')`,
       applicants_count: sql<number>`(SELECT count(*)::int FROM hiring.application a WHERE a.requisition_id = "hiring"."requisition"."id")`,
+      version: requisition.version,
     })
     .from(requisition)
     .where(tenantScoped(requisition.tenant_id, session));
