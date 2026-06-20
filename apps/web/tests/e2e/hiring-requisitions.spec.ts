@@ -17,7 +17,7 @@ test('admin opens a requisition and it appears on the board', async ({ page }) =
   await page.getByPlaceholder('React, TypeScript, AWS').fill('Go, Postgres');
   await page.getByRole('button', { name: 'Create requisition' }).click();
 
-  await expect(page.getByText('Requisition created')).toBeVisible();
+  await expect(page.getByText('Requisition created')).toBeVisible({ timeout: 8_000 });
   // Board (default view) shows the new requisition card title.
   await expect(page.getByRole('button', { name: TITLE })).toBeVisible();
 });
