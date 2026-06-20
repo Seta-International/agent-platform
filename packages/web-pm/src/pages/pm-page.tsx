@@ -1,13 +1,13 @@
 import { EmptyState, PageChrome } from '@seta/shared-ui';
-import { Box } from 'lucide-react';
+import { FolderKanban } from 'lucide-react';
 
 export function PmPage() {
   return (
-    <PageChrome title="Pm">
+    <PageChrome title="Project Management">
       <EmptyState
-        icon={<Box className="size-6" />}
-        title="No Pm data yet"
-        description="This module is scaffolded. Add a domain function and a list screen to fill this page."
+        icon={<FolderKanban className="size-6" />}
+        title="Project Management — coming soon"
+        description="Projects, milestones, and task boards will appear here."
       />
     </PageChrome>
   );

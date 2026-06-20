@@ -1,18 +1,26 @@
 import { type AppManifest, noNavExtensions } from '@seta/module-sdk';
-import { Box } from 'lucide-react';
+import { FolderKanban } from 'lucide-react';
 
 export const pmAppManifest: AppManifest = {
   id: 'pm',
   routeNamespace: '/pm',
-  label: 'Pm',
-  icon: Box,
-  color: '#6e79d6',
-  requiredPermissions: [],
+  label: 'Project Management',
+  icon: FolderKanban,
+  color: '#0047FF',
+  requiredPermissions: ['pm.account.read'],
   useNavExtensions: noNavExtensions,
   nav: [
     {
-      label: 'Pm',
-      items: [{ id: 'pm.home', icon: Box, label: 'Pm', to: '/pm' }],
+      label: 'Project Management',
+      items: [
+        {
+          id: 'pm.portfolio',
+          icon: FolderKanban,
+          label: 'Portfolio',
+          to: '/pm',
+          requires: ['pm.account.read'],
+        },
+      ],
     },
   ],
 };
