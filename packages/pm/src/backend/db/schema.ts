@@ -41,6 +41,13 @@ export const project = pmSchema.table(
     scope: jsonb('scope'),
     budget_bmm: numeric('budget_bmm', { precision: 15, scale: 4 }),
     pm_worker_id: uuid('pm_worker_id'),
+    charter_id: uuid('charter_id'),
+    pmo_worker_id: uuid('pmo_worker_id'),
+    team_size: integer('team_size'),
+    methodology: text('methodology'),
+    pricing_model: text('pricing_model'),
+    date_from: date('date_from'),
+    date_to: date('date_to'),
     phase: text('phase').notNull().default('initiation'),
     status: text('status').notNull().default('active'),
     planner_group_id: uuid('planner_group_id'),
@@ -56,6 +63,14 @@ export const project = pmSchema.table(
       sql`phase IN ('initiation','discovery','execution','stabilize','uat','closed')`,
     ),
     check('project_status_check', sql`status IN ('active','on_hold','closed')`),
+    check(
+      'project_methodology_check',
+      sql`methodology IS NULL OR methodology IN ('scrum','kanban')`,
+    ),
+    check(
+      'project_pricing_check',
+      sql`pricing_model IS NULL OR pricing_model IN ('fixed_price','time_materials')`,
+    ),
   ],
 );
 
@@ -117,4 +132,82 @@ export const allocation = pmSchema.table(
     ),
     check('allocation_committed_dates_check', sql`status = 'placeholder' OR date_from IS NOT NULL`),
   ],
+);
+
+export const charter = pmSchema.table(
+  'charter',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenant_id: uuid('tenant_id').notNull(),
+    account_id: uuid('account_id').notNull(),
+    name: text('name').notNull(),
+    pm_worker_id: uuid('pm_worker_id').notNull(),
+    submitted_by_user_id: uuid('submitted_by_user_id'),
+    decided_by_user_id: uuid('decided_by_user_id'),
+    pmo_worker_id: uuid('pmo_worker_id'),
+    budget_bmm: numeric('budget_bmm', { precision: 15, scale: 4 }),
+    team_size: integer('team_size'),
+    methodology: text('methodology'),
+    pricing_model: text('pricing_model'),
+    date_from: date('date_from'),
+    date_to: date('date_to'),
+    objective: text('objective'),
+    scope: jsonb('scope'),
+    status: text('status').notNull().default('submitted'),
+    rejection_reason: text('rejection_reason'),
+    approved_at: timestamp('approved_at', { withTimezone: true }),
+    rejected_at: timestamp('rejected_at', { withTimezone: true }),
+    project_id: uuid('project_id'),
+    version: integer('version').default(1).notNull(),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('charter_by_account_status').on(t.tenant_id, t.account_id, t.status),
+    index('charter_by_tenant').on(t.tenant_id),
+    check('charter_status_check', sql`status IN ('submitted','approved','rejected','withdrawn')`),
+    check(
+      'charter_methodology_check',
+      sql`methodology IS NULL OR methodology IN ('scrum','kanban')`,
+    ),
+    check(
+      'charter_pricing_check',
+      sql`pricing_model IS NULL OR pricing_model IN ('fixed_price','time_materials')`,
+    ),
+  ],
+);
+
+export const projectAccess = pmSchema.table(
+  'project_access',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenant_id: uuid('tenant_id').notNull(),
+    project_id: uuid('project_id').notNull(),
+    worker_id: uuid('worker_id').notNull(),
+    level: text('level').notNull(),
+    version: integer('version').default(1).notNull(),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('project_access_uniq').on(t.tenant_id, t.project_id, t.worker_id),
+    index('project_access_by_project').on(t.tenant_id, t.project_id),
+    check('project_access_level_check', sql`level IN ('owner','edit','view')`),
+  ],
+);
+
+export const staffingPlanLine = pmSchema.table(
+  'staffing_plan_line',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenant_id: uuid('tenant_id').notNull(),
+    project_id: uuid('project_id').notNull(),
+    role: text('role').notNull(),
+    effort_mm: numeric('effort_mm', { precision: 10, scale: 4 }),
+    skills: jsonb('skills'),
+    version: integer('version').default(1).notNull(),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index('staffing_plan_line_by_project').on(t.tenant_id, t.project_id)],
 );
