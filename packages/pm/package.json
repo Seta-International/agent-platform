@@ -20,6 +20,7 @@
     "db:check": "drizzle-kit check"
   },
   "devDependencies": {
+    "@seta/identity": "workspace:*",
     "@seta/shared-config": "workspace:^",
     "@seta/shared-testing": "workspace:^",
     "@types/pg": "^8.20.0",
