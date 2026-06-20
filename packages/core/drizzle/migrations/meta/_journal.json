@@ -92,6 +92,13 @@
       "when": 1781845817605,
       "tag": "0014_tenants_email_domains",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1781959310967,
+      "tag": "0013_sudden_zaladane",
+      "breakpoints": true
     }
   ]
 }
