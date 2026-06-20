@@ -22,6 +22,13 @@
       "when": 1781921502315,
       "tag": "0002_closed_stone_men",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1781930285368,
+      "tag": "0003_absent_randall",
+      "breakpoints": true
     }
   ]
 }
