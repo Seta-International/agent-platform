@@ -3,6 +3,7 @@ import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { resetHiringDb } from '../../src/backend/db/client.ts';
+import { candidateEvent, candidateSkill, rejectionReason } from '../../src/backend/db/schema.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -16,6 +17,14 @@ async function tableCols(pool: import('pg').Pool, table: string): Promise<Set<st
   );
   return new Set(r.rows.map((x) => x.column_name));
 }
+
+describe('hir6/7 schema shape', () => {
+  it('exposes the new candidate tables', () => {
+    expect(candidateSkill).toBeDefined();
+    expect(rejectionReason).toBeDefined();
+    expect(candidateEvent).toBeDefined();
+  });
+});
 
 describe('hiring schema shape (HIR-2)', () => {
   it('has the reshaped requisition + 5 new tables after migrate', async () => {
