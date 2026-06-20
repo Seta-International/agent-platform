@@ -1,13 +1,43 @@
 import { closePools, createDb, initPools } from '@seta/shared-db';
+import {
+  buildRegistry,
+  IMPLICIT_PERMISSIONS,
+  INVENTORY,
+  inventoryToManifests,
+  resolvePermissions,
+} from '@seta/shared-rbac';
 import { withTestDb } from '@seta/shared-testing';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { Pool } from 'pg';
+import { resetCoreDb } from '../src/db/client.ts';
 import * as coreSchema from '../src/db/schema/index.ts';
 import {
   type DispatcherHandle,
   type SubscriberDef,
   startDispatcher,
 } from '../src/runtime/dispatcher/index.ts';
+import type { SessionScope } from '../src/session/scope.ts';
+import { hashRoleSummary } from '../src/session/scope.ts';
+
+const _skillRegistry = buildRegistry(inventoryToManifests(INVENTORY));
+
+export function buildSkillAdminSession(tenant_id: string, roles = ['core.admin']): SessionScope {
+  const role_summary = { roles, cross_tenant_read: false };
+  return {
+    session_id: crypto.randomUUID(),
+    user_id: crypto.randomUUID(),
+    tenant_id,
+    email: 'skill-admin@example.test',
+    display_name: 'Skill Admin',
+    role_summary,
+    role_summary_hash: hashRoleSummary(role_summary),
+    permissions: resolvePermissions(_skillRegistry, roles, IMPLICIT_PERMISSIONS),
+    accessible_group_ids: [],
+    cross_tenant_read: false,
+    built_at: new Date(),
+    invalidated_at: null,
+  };
+}
 
 export function withCoreTestDb<T>(
   fn: (ctx: {
@@ -24,6 +54,7 @@ export function withCoreTestDb<T>(
     async ({ pool, databaseUrl }) => {
       // shared/db's pool registry is what coreDb() / withEmit reach for. Wire it to the
       // same DB as the test pool so writes through both paths land in one database.
+      resetCoreDb();
       initPools({ databaseUrl });
       try {
         const db = createDb(pool, coreSchema, { schemaFilter: ['core'] });
