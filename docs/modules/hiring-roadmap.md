@@ -12,8 +12,11 @@ Concise delivery tracker for the Hiring module. The canonical scope/sequencing i
 | Area (PRD §) | Slice | Status |
 |---|---|---|
 | Foundation | HIR-1 Module foundation (schema, org-isolation, events, RBAC, web scaffold) | ✅ |
-| 7.1 Requisitions | HIR-2 Requisition CRUD + JD | ⬜ |
-| 7.2 Candidates & pipeline | Candidate records, sourcing, pipeline stages | ⬜ |
+| 7.1 Requisitions | HIR-2 Requisition + **Openings** CRUD + JD (resolves OQ-11: req owns 1..N openings, shared pipeline) | 🟡 |
+| 7.1 Requisitions | HIR-4 Requisition approval + funded-headcount gate | ⬜ |
+| 7.1 Requisitions | HIR-5 Open Roles (employee view) + recommended | ⬜ |
+| 7.2 Candidates & pipeline | HIR-6 Candidate intake + CV parse + fit indicator | ⬜ |
+| 7.2 Candidates & pipeline | HIR-7 Candidate pipeline + reject + detail + transfer | ⬜ |
 | 7.3 Interviews | Scheduling, scorecards, feedback | ⬜ |
 | 7.4 Offers | Offer drafting, approval, accept/decline | ⬜ |
 | 7.5 Internal mobility | Internal applications, worker-subject applications | ⬜ |
