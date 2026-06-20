@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import type { ContributionRegistry, ErrorMapper } from '@seta/core';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import * as schema from './backend/db/schema.ts';
+import { buildPmRoutes } from './backend/http/index.ts';
 import { PmError } from './backend/rbac.ts';
 import { pmSubscribers } from './backend/subscribers/index.ts';
 import { PM_EVENTS } from './events.ts';
@@ -34,5 +35,6 @@ export function registerPmContributions(reg: ContributionRegistry): void {
     rbac: pmRbac,
     subscribers: pmSubscribers(),
     errorMapper: pmErrorMapper,
+    routes: { mountAt: '/', build: buildPmRoutes },
   });
 }
