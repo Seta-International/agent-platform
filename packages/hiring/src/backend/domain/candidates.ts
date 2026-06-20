@@ -196,6 +196,7 @@ export async function editCandidate(input: {
       await recordCandidateEvent(tx, {
         session,
         candidate_id,
+        // emits 'note_changed' only when note is the sole changed field; any other field → 'profile_changed'
         kind: fields.includes('note') && fields.length === 1 ? 'note_changed' : 'profile_changed',
         summary: `Profile updated (${fields.join(', ')})`,
         detail: { fields },
