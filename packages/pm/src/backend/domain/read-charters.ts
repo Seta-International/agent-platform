@@ -9,7 +9,7 @@ export interface CharterListRow {
   charter_id: string;
   account_id: string;
   name: string;
-  status: string;
+  status: 'submitted' | 'approved' | 'rejected' | 'withdrawn';
   pm_worker_id: string;
   created_at: string;
 }
@@ -28,7 +28,11 @@ export async function listCharters(session: SessionScope): Promise<CharterListRo
     .from(charter)
     .where(tenantScoped(charter.tenant_id, session))
     .orderBy(desc(charter.created_at));
-  return rows.map((r) => ({ ...r, created_at: r.created_at.toISOString() }));
+  return rows.map((r) => ({
+    ...r,
+    status: r.status as CharterListRow['status'],
+    created_at: r.created_at.toISOString(),
+  }));
 }
 
 export async function getCharter(input: { charter_id: string; session: SessionScope }) {

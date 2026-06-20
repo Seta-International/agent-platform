@@ -6,10 +6,14 @@ import { useMemo } from 'react';
 import { type CharterListRow, fetchCharters } from '../api/pm-client.ts';
 import { pmKeys } from '../state/query-keys.ts';
 
-const STATUS_VARIANT: Record<CharterListRow['status'], 'secondary' | 'success' | 'destructive'> = {
+const STATUS_VARIANT: Record<
+  CharterListRow['status'],
+  'secondary' | 'success' | 'destructive' | 'outline'
+> = {
   submitted: 'secondary',
   approved: 'success',
   rejected: 'destructive',
+  withdrawn: 'outline',
 };
 
 export function RequestsPage() {
