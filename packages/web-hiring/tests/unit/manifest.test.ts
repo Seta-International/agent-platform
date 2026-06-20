@@ -9,4 +9,10 @@ describe('hiringAppManifest', () => {
     expect(req?.to).toBe('/hiring/requisitions');
     expect(req?.requires).toContain('hiring.requisition.read');
   });
+
+  it('declares a Settings nav item gated by jd_template read', () => {
+    const settings = hiringAppManifest.nav[0]?.items.find((i) => i.id === 'hiring.settings');
+    expect(settings?.to).toBe('/hiring/settings');
+    expect(settings?.requires).toContain('hiring.jd_template.read');
+  });
 });
