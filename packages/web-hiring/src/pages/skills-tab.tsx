@@ -35,7 +35,7 @@ export function SkillsTab({
       toast.success('Skills saved');
       void queryClient.invalidateQueries({ queryKey: hiringKeys.requisition(id) });
     },
-    onError: (e: Error) => on409(e, queryClient, id),
+    onError: (e: Error) => on409(e, queryClient, hiringKeys.requisition(id)),
   });
 
   if (!canManage) {

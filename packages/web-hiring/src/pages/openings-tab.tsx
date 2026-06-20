@@ -30,7 +30,7 @@ export function OpeningsTab({
       toast.success('Opening added');
       invalidate();
     },
-    onError: (e: Error) => on409(e, queryClient, id),
+    onError: (e: Error) => on409(e, queryClient, hiringKeys.requisition(id)),
   });
   const close = useMutation({
     mutationFn: (vars: { openingId: string; version: number; status: 'closed' | 'cancelled' }) =>
@@ -43,7 +43,7 @@ export function OpeningsTab({
       toast.success('Opening updated');
       invalidate();
     },
-    onError: (e: Error) => on409(e, queryClient, id),
+    onError: (e: Error) => on409(e, queryClient, hiringKeys.requisition(id)),
   });
 
   return (

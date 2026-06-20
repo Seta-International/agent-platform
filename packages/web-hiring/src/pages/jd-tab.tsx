@@ -53,7 +53,7 @@ export function JdTab({ detail, canManage }: { detail: RequisitionDetail; canMan
       toast.success('Job description saved');
       void queryClient.invalidateQueries({ queryKey: hiringKeys.requisition(id) });
     },
-    onError: (e: Error) => on409(e, queryClient, id),
+    onError: (e: Error) => on409(e, queryClient, hiringKeys.requisition(id)),
   });
 
   function applyTemplate(templateId: string) {

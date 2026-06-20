@@ -34,6 +34,7 @@ import {
   type JdVariant,
 } from '../api/hiring-client.ts';
 import { hiringKeys } from '../state/query-keys.ts';
+import { on409 } from './utils.ts';
 
 const SECTIONS: { key: JdSectionKey; label: string }[] = [
   { key: 'about', label: 'About the role' },
@@ -247,7 +248,7 @@ export function SettingsPage() {
       toast.success('Close reason archived');
       void queryClient.invalidateQueries({ queryKey: hiringKeys.closeReasons() });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => on409(e, queryClient, hiringKeys.closeReasons()),
   });
 
   return (
