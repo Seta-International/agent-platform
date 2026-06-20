@@ -1,8 +1,11 @@
-import { createFileRoute, Outlet } from '@tanstack/react-router';
+import type { SessionScopeProjection } from '@seta/web-identity';
+import { createFileRoute, Outlet, redirect } from '@tanstack/react-router';
 
-// Auth is enforced by the parent `_authed` layout. Add a `beforeLoad` permission
-// gate here (see packages/web-admin/src/routes/route.tsx) once this app owns
-// RBAC permissions, and list them in `requiredPermissions` in ./manifest.ts.
 export const Route = createFileRoute('/_authed/hiring')({
+  beforeLoad: ({ context }) => {
+    const session = (context as { session?: SessionScopeProjection }).session;
+    const perms = new Set(session?.permissions ?? []);
+    if (!perms.has('hiring.requisition.read')) throw redirect({ to: '/403' });
+  },
   component: () => <Outlet />,
 });

@@ -1,18 +1,26 @@
 import { type AppManifest, noNavExtensions } from '@seta/module-sdk';
-import { Box } from 'lucide-react';
+import { Briefcase } from 'lucide-react';
 
 export const hiringAppManifest: AppManifest = {
   id: 'hiring',
   routeNamespace: '/hiring',
   label: 'Hiring',
-  icon: Box,
-  color: '#6e79d6',
-  requiredPermissions: [],
+  icon: Briefcase,
+  color: '#0047FF',
+  requiredPermissions: ['hiring.requisition.read'],
   useNavExtensions: noNavExtensions,
   nav: [
     {
       label: 'Hiring',
-      items: [{ id: 'hiring.home', icon: Box, label: 'Hiring', to: '/hiring' }],
+      items: [
+        {
+          id: 'hiring.requisitions',
+          icon: Briefcase,
+          label: 'Open Roles',
+          to: '/hiring',
+          requires: ['hiring.requisition.read'],
+        },
+      ],
     },
   ],
 };

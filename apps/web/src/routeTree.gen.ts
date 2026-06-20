@@ -17,10 +17,12 @@ import { Route as DevDatatableRouteImport } from './routes/dev/datatable'
 import { Route as routesAuthedProfileRouteImport } from './routes/_authed/profile'
 import { Route as PlannerRouteRouteImport } from './../../../packages/web-planner/src/routes/route'
 import { Route as PeopleRouteRouteImport } from './../../../packages/web-people/src/routes/route'
+import { Route as HiringRouteRouteImport } from './../../../packages/web-hiring/src/routes/route'
 import { Route as AgentRouteRouteImport } from './../../../packages/web-agent/src/routes/route'
 import { Route as AdminRouteRouteImport } from './../../../packages/web-admin/src/routes/route'
 import { Route as PlannerIndexRouteImport } from './../../../packages/web-planner/src/routes/index'
 import { Route as PeopleIndexRouteImport } from './../../../packages/web-people/src/routes/index'
+import { Route as HiringIndexRouteImport } from './../../../packages/web-hiring/src/routes/index'
 import { Route as AgentIndexRouteImport } from './../../../packages/web-agent/src/routes/index'
 import { Route as AdminIndexRouteImport } from './../../../packages/web-admin/src/routes/index'
 import { Route as PlannerTrashRouteImport } from './../../../packages/web-planner/src/routes/trash'
@@ -83,6 +85,11 @@ const PeopleRouteRoute = PeopleRouteRouteImport.update({
   path: '/people',
   getParentRoute: () => routesAuthedRouteRoute,
 } as any)
+const HiringRouteRoute = HiringRouteRouteImport.update({
+  id: '/hiring',
+  path: '/hiring',
+  getParentRoute: () => routesAuthedRouteRoute,
+} as any)
 const AgentRouteRoute = AgentRouteRouteImport.update({
   id: '/agent',
   path: '/agent',
@@ -102,6 +109,11 @@ const PeopleIndexRoute = PeopleIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => PeopleRouteRoute,
+} as any)
+const HiringIndexRoute = HiringIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => HiringRouteRoute,
 } as any)
 const AgentIndexRoute = AgentIndexRouteImport.update({
   id: '/',
@@ -222,6 +234,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof routesLoginRoute
   '/admin': typeof AdminRouteRouteWithChildren
   '/agent': typeof AgentRouteRouteWithChildren
+  '/hiring': typeof HiringRouteRouteWithChildren
   '/people': typeof PeopleRouteRouteWithChildren
   '/planner': typeof PlannerRouteRouteWithChildren
   '/profile': typeof routesAuthedProfileRoute
@@ -241,6 +254,7 @@ export interface FileRoutesByFullPath {
   '/planner/trash': typeof PlannerTrashRoute
   '/admin/': typeof AdminIndexRoute
   '/agent/': typeof AgentIndexRoute
+  '/hiring/': typeof HiringIndexRoute
   '/people/': typeof PeopleIndexRoute
   '/planner/': typeof PlannerIndexRoute
   '/planner/groups/$groupId': typeof PlannerGroupsGroupIdRoute
@@ -271,6 +285,7 @@ export interface FileRoutesByTo {
   '/planner/trash': typeof PlannerTrashRoute
   '/admin': typeof AdminIndexRoute
   '/agent': typeof AgentIndexRoute
+  '/hiring': typeof HiringIndexRoute
   '/people': typeof PeopleIndexRoute
   '/planner': typeof PlannerIndexRoute
   '/planner/groups/$groupId': typeof PlannerGroupsGroupIdRoute
@@ -288,6 +303,7 @@ export interface FileRoutesById {
   '/login': typeof routesLoginRoute
   '/_authed/admin': typeof AdminRouteRouteWithChildren
   '/_authed/agent': typeof AgentRouteRouteWithChildren
+  '/_authed/hiring': typeof HiringRouteRouteWithChildren
   '/_authed/people': typeof PeopleRouteRouteWithChildren
   '/_authed/planner': typeof PlannerRouteRouteWithChildren
   '/_authed/profile': typeof routesAuthedProfileRoute
@@ -308,6 +324,7 @@ export interface FileRoutesById {
   '/_authed/planner/trash': typeof PlannerTrashRoute
   '/_authed/admin/': typeof AdminIndexRoute
   '/_authed/agent/': typeof AgentIndexRoute
+  '/_authed/hiring/': typeof HiringIndexRoute
   '/_authed/people/': typeof PeopleIndexRoute
   '/_authed/planner/': typeof PlannerIndexRoute
   '/_authed/planner/groups_/$groupId': typeof PlannerGroupsGroupIdRoute
@@ -326,6 +343,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/admin'
     | '/agent'
+    | '/hiring'
     | '/people'
     | '/planner'
     | '/profile'
@@ -345,6 +363,7 @@ export interface FileRouteTypes {
     | '/planner/trash'
     | '/admin/'
     | '/agent/'
+    | '/hiring/'
     | '/people/'
     | '/planner/'
     | '/planner/groups/$groupId'
@@ -375,6 +394,7 @@ export interface FileRouteTypes {
     | '/planner/trash'
     | '/admin'
     | '/agent'
+    | '/hiring'
     | '/people'
     | '/planner'
     | '/planner/groups/$groupId'
@@ -391,6 +411,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/_authed/admin'
     | '/_authed/agent'
+    | '/_authed/hiring'
     | '/_authed/people'
     | '/_authed/planner'
     | '/_authed/profile'
@@ -411,6 +432,7 @@ export interface FileRouteTypes {
     | '/_authed/planner/trash'
     | '/_authed/admin/'
     | '/_authed/agent/'
+    | '/_authed/hiring/'
     | '/_authed/people/'
     | '/_authed/planner/'
     | '/_authed/planner/groups_/$groupId'
@@ -487,6 +509,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PeopleRouteRouteImport
       parentRoute: typeof routesAuthedRouteRoute
     }
+    '/_authed/hiring': {
+      id: '/_authed/hiring'
+      path: '/hiring'
+      fullPath: '/hiring'
+      preLoaderRoute: typeof HiringRouteRouteImport
+      parentRoute: typeof routesAuthedRouteRoute
+    }
     '/_authed/agent': {
       id: '/_authed/agent'
       path: '/agent'
@@ -514,6 +543,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/people/'
       preLoaderRoute: typeof PeopleIndexRouteImport
       parentRoute: typeof PeopleRouteRoute
+    }
+    '/_authed/hiring/': {
+      id: '/_authed/hiring/'
+      path: '/'
+      fullPath: '/hiring/'
+      preLoaderRoute: typeof HiringIndexRouteImport
+      parentRoute: typeof HiringRouteRoute
     }
     '/_authed/agent/': {
       id: '/_authed/agent/'
@@ -727,6 +763,18 @@ const AgentRouteRouteWithChildren = AgentRouteRoute._addFileChildren(
   AgentRouteRouteChildren,
 )
 
+interface HiringRouteRouteChildren {
+  HiringIndexRoute: typeof HiringIndexRoute
+}
+
+const HiringRouteRouteChildren: HiringRouteRouteChildren = {
+  HiringIndexRoute: HiringIndexRoute,
+}
+
+const HiringRouteRouteWithChildren = HiringRouteRoute._addFileChildren(
+  HiringRouteRouteChildren,
+)
+
 interface PeopleRouteRouteChildren {
   PeopleWorkerIdRoute: typeof PeopleWorkerIdRoute
   PeopleIndexRoute: typeof PeopleIndexRoute
@@ -773,6 +821,7 @@ const PlannerRouteRouteWithChildren = PlannerRouteRoute._addFileChildren(
 interface routesAuthedRouteRouteChildren {
   AdminRouteRoute: typeof AdminRouteRouteWithChildren
   AgentRouteRoute: typeof AgentRouteRouteWithChildren
+  HiringRouteRoute: typeof HiringRouteRouteWithChildren
   PeopleRouteRoute: typeof PeopleRouteRouteWithChildren
   PlannerRouteRoute: typeof PlannerRouteRouteWithChildren
   routesAuthedProfileRoute: typeof routesAuthedProfileRoute
@@ -782,6 +831,7 @@ interface routesAuthedRouteRouteChildren {
 const routesAuthedRouteRouteChildren: routesAuthedRouteRouteChildren = {
   AdminRouteRoute: AdminRouteRouteWithChildren,
   AgentRouteRoute: AgentRouteRouteWithChildren,
+  HiringRouteRoute: HiringRouteRouteWithChildren,
   PeopleRouteRoute: PeopleRouteRouteWithChildren,
   PlannerRouteRoute: PlannerRouteRouteWithChildren,
   routesAuthedProfileRoute: routesAuthedProfileRoute,
