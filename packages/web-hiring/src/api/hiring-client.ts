@@ -441,3 +441,29 @@ export async function transferApplication(
     ),
   );
 }
+
+// ---- Talent pool (PR4) ----
+export interface TalentPoolFit {
+  met: number;
+  required: number;
+  score: number;
+  strong: boolean;
+}
+export interface TalentPoolRecommendation {
+  requisition_id: string;
+  title: string;
+  fit: TalentPoolFit;
+}
+export interface TalentPoolRow {
+  candidate_id: string;
+  name: string;
+  seniority: string | null;
+  segment: string | null;
+  last_status: string | null;
+  recommended: TalentPoolRecommendation[];
+}
+
+export async function fetchTalentPool(): Promise<TalentPoolRow[]> {
+  const res = await fetch('/api/hiring/v1/talent-pool', { credentials: 'include' });
+  return (await handleResponse<{ pool: TalentPoolRow[] }>(res)).pool;
+}

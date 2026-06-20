@@ -8,4 +8,5 @@ export const hiringKeys = {
   candidate: (id: string) => [...hiringKeys.all, 'candidate', id] as const,
   rejectionReasons: () => [...hiringKeys.all, 'rejection-reasons'] as const,
   skillCatalog: () => [...hiringKeys.all, 'skill-catalog'] as const,
+  talentPool: () => [...hiringKeys.all, 'talent-pool'] as const,
 };
