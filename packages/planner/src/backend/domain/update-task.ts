@@ -243,7 +243,7 @@ async function updateTaskImpl(input: {
         .update(tasks)
         .set(setFields)
         // guard: 0 rows ⇒ the row changed since our read (lost-update prevention)
-        .where(and(eq(tasks.id, input.task_id)))
+        .where(and(eq(tasks.id, input.task_id), eq(tasks.version, input.expected_version)))
         .returning();
       if (!row)
         throw new PlannerError('CONFLICT', 'Version mismatch', {
