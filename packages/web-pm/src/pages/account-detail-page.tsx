@@ -11,6 +11,7 @@ import {
   LabelChip,
   PageChrome,
   Skeleton,
+  Textarea,
   toast,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
@@ -77,7 +78,7 @@ export function AccountDetailPage({ accountId }: { accountId: string }) {
       void queryClient.invalidateQueries({ queryKey: pmKeys.accounts() });
     },
     onError: (e: Error) => {
-      if (e.message.includes('409') || e.message.toLowerCase().includes('conflict')) {
+      if ((e as { status?: number }).status === 409) {
         setEditError('Another change was made while you were editing. Please refresh and retry.');
         void queryClient.invalidateQueries({ queryKey: pmKeys.account(accountId) });
       } else {
@@ -254,7 +255,7 @@ export function AccountDetailPage({ accountId }: { accountId: string }) {
                   label="Account Manager"
                   value={
                     account.am_worker_id ? (
-                      <span className="font-mono text-[12.5px]">{account.am_worker_id}</span>
+                      <span className="font-mono text-caption">{account.am_worker_id}</span>
                     ) : null
                   }
                 />
@@ -286,8 +287,8 @@ export function AccountDetailPage({ accountId }: { accountId: string }) {
                   Enter one worker ID per line (UUIDs). Existing recruiters not listed will be
                   removed.
                 </p>
-                <textarea
-                  className="w-full min-h-[120px] rounded-md border border-input bg-background px-3 py-2 text-body-sm font-mono text-ink ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-y"
+                <Textarea
+                  className="min-h-[120px] font-mono resize-y"
                   value={recruiterDraft}
                   onChange={(e) => setRecruiterDraft(e.target.value)}
                   placeholder="Paste worker UUIDs, one per line…"
