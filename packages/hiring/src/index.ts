@@ -1,4 +1,14 @@
+export {
+  archiveCloseReason,
+  createCloseReason,
+  listCloseReasons,
+} from './backend/domain/close-reasons.ts';
 export { editRequisition } from './backend/domain/edit-requisition.ts';
+export {
+  createJdTemplate,
+  deleteJdTemplate,
+  listJdTemplates,
+} from './backend/domain/jd-templates.ts';
 export { openRequisition } from './backend/domain/open-requisition.ts';
 export { addOpening, closeOpening } from './backend/domain/openings.ts';
 export {
