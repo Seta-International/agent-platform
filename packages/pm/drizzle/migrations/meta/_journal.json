@@ -15,6 +15,13 @@
       "when": 1781919034644,
       "tag": "0001_right_jack_flag",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781921502315,
+      "tag": "0002_closed_stone_men",
+      "breakpoints": true
     }
   ]
 }
