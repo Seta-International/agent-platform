@@ -4,7 +4,12 @@ import { withTestDb } from '@seta/shared-testing';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { hiringDb, resetHiringDb } from '../../src/backend/db/client.ts';
-import { requisition } from '../../src/backend/db/schema.ts';
+import {
+  opening,
+  requisition,
+  requisitionJdSection,
+  requisitionSkill,
+} from '../../src/backend/db/schema.ts';
 import { openRequisition } from '../../src/index.ts';
 import { countEvents, readEvents, seedTenant } from '../helpers.ts';
 
@@ -33,7 +38,7 @@ describe('openRequisition', () => {
           .from(requisition)
           .where(eq(requisition.id, requisition_id));
         expect(r?.tenant_id).toBe(t.tenant_id);
-        expect(r?.approval_status).toBe('draft');
+        expect(r?.approval_status).toBe('approved');
         expect(r?.status).toBe('open');
         expect(r?.stage).toBe('sourcing');
 
@@ -72,6 +77,50 @@ describe('openRequisition', () => {
         );
         expect(reqs.rows[0].n).toBe(0);
         expect(await countEvents(pool, t.tenant_id, 'hiring.requisition.opened')).toBe(0);
+      } finally {
+        resetHiringDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('creates openings, jd sections and skills, emits opening.opened per opening', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetHiringDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const { requisition_id } = await openRequisition({
+          title: 'Platform Engineer',
+          kind: 'new',
+          headcount: 3,
+          jd_sections: [{ variant: 'external', section: 'about', body: '<p>Join us</p>' }],
+          skills: [{ skill_name: 'Kubernetes', min_level: 4 }],
+          session: t.adminSession,
+        });
+        const ops = await hiringDb()
+          .select()
+          .from(opening)
+          .where(eq(opening.requisition_id, requisition_id));
+        expect(ops).toHaveLength(3);
+        expect(ops.map((o) => o.seq).sort()).toEqual([1, 2, 3]);
+        expect(ops.every((o) => o.status === 'open')).toBe(true);
+
+        const jd = await hiringDb()
+          .select()
+          .from(requisitionJdSection)
+          .where(eq(requisitionJdSection.requisition_id, requisition_id));
+        expect(jd).toHaveLength(1);
+        const sk = await hiringDb()
+          .select()
+          .from(requisitionSkill)
+          .where(eq(requisitionSkill.requisition_id, requisition_id));
+        expect(sk[0]?.skill_name).toBe('Kubernetes');
+
+        expect(await countEvents(pool, t.tenant_id, 'hiring.opening.opened')).toBe(3);
+        expect(await countEvents(pool, t.tenant_id, 'hiring.requisition.opened')).toBe(1);
       } finally {
         resetHiringDb();
         resetCoreDb();
