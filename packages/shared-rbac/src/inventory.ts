@@ -9,6 +9,23 @@ export interface StatementSpec {
 
 export const INVENTORY: StatementSpec[] = [
   {
+    module: 'core',
+    statement: {
+      'core.skill': ['read', 'manage'],
+    },
+    roles: [
+      {
+        slug: 'core.admin',
+        description: 'Manage the system-wide skill catalog',
+        permissions: ['core.skill.read', 'core.skill.manage'],
+      },
+    ],
+    descriptions: {
+      'core.skill.read': 'Read the skill catalog',
+      'core.skill.manage': 'Create, edit, and archive catalog skills and categories',
+    },
+  },
+  {
     module: 'knowledge',
     statement: {
       'knowledge.file': ['read', 'write', 'delete'],
