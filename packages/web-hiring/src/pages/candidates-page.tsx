@@ -23,6 +23,7 @@ import { CandidateCard } from './candidate-card.tsx';
 import { CandidateDetailDrawer } from './candidate-detail-drawer.tsx';
 import { BOARD_COLUMNS, boardColumns, fitLabel, resolveStageDrop } from './candidate-utils.ts';
 import { NewCandidateDialog } from './new-candidate-dialog.tsx';
+import { TalentPoolCard } from './talent-pool-card.tsx';
 import { on409 } from './utils.ts';
 
 export function onBoardDragEnd(
@@ -263,6 +264,7 @@ export function CandidatesPage() {
             </div>
           </DragDropContext>
         )}
+        <TalentPoolCard onOpenCandidate={setSelected} />
       </div>
       <CandidateDetailDrawer candidateId={selected} onClose={() => setSelected(null)} />
     </PageChrome>
