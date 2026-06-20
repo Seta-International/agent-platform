@@ -94,7 +94,7 @@ export interface CharterListRow {
   charter_id: string;
   account_id: string;
   name: string;
-  status: 'submitted' | 'approved' | 'rejected';
+  status: 'submitted' | 'approved' | 'rejected' | 'withdrawn';
   pm_worker_id: string | null;
   created_at: string;
 }
@@ -113,7 +113,7 @@ export interface CharterDetail {
   date_to: string | null;
   objective: string | null;
   scope: { in: string; out: string } | null;
-  status: 'submitted' | 'approved' | 'rejected';
+  status: 'submitted' | 'approved' | 'rejected' | 'withdrawn';
   rejection_reason: string | null;
   project_id: string | null;
   version: number;
