@@ -43,6 +43,7 @@ import { Route as AgentWorkflowsRouteRouteImport } from './../../../packages/web
 import { Route as PmRequestsIndexRouteImport } from './../../../packages/web-pm/src/routes/requests/index'
 import { Route as PmProjectsIndexRouteImport } from './../../../packages/web-pm/src/routes/projects/index'
 import { Route as PmAccountsIndexRouteImport } from './../../../packages/web-pm/src/routes/accounts/index'
+import { Route as HiringRequisitionsIndexRouteImport } from './../../../packages/web-hiring/src/routes/requisitions/index'
 import { Route as AgentWorkflowsIndexRouteImport } from './../../../packages/web-agent/src/routes/workflows/index'
 import { Route as PmRequestsCharterIdRouteImport } from './../../../packages/web-pm/src/routes/requests/$charterId'
 import { Route as PmProjectsProjectIdRouteImport } from './../../../packages/web-pm/src/routes/projects/$projectId'
@@ -50,6 +51,7 @@ import { Route as PmAccountsAccountIdRouteImport } from './../../../packages/web
 import { Route as PlannerPlansPlanIdRouteImport } from './../../../packages/web-planner/src/routes/plans_/$planId'
 import { Route as PlannerGroupsDiscoverRouteImport } from './../../../packages/web-planner/src/routes/groups_/discover'
 import { Route as PlannerGroupsGroupIdRouteImport } from './../../../packages/web-planner/src/routes/groups_/$groupId'
+import { Route as HiringRequisitionsRequisitionIdRouteImport } from './../../../packages/web-hiring/src/routes/requisitions/$requisitionId'
 import { Route as AgentWorkflowsRunsRunIdRouteImport } from './../../../packages/web-agent/src/routes/workflows/runs/$runId'
 import { Route as PlannerPlansPlanIdTasksTaskIdRouteImport } from './../../../packages/web-planner/src/routes/plans_/$planId_/tasks_/$taskId'
 import { Route as PlannerPlansPlanIdSettingsCategoriesRouteImport } from './../../../packages/web-planner/src/routes/plans_/$planId_/settings_/categories'
@@ -223,6 +225,11 @@ const PmAccountsIndexRoute = PmAccountsIndexRouteImport.update({
   path: '/accounts/',
   getParentRoute: () => PmRouteRoute,
 } as any)
+const HiringRequisitionsIndexRoute = HiringRequisitionsIndexRouteImport.update({
+  id: '/requisitions/',
+  path: '/requisitions/',
+  getParentRoute: () => HiringRouteRoute,
+} as any)
 const AgentWorkflowsIndexRoute = AgentWorkflowsIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -258,6 +265,12 @@ const PlannerGroupsGroupIdRoute = PlannerGroupsGroupIdRouteImport.update({
   path: '/groups/$groupId',
   getParentRoute: () => PlannerRouteRoute,
 } as any)
+const HiringRequisitionsRequisitionIdRoute =
+  HiringRequisitionsRequisitionIdRouteImport.update({
+    id: '/requisitions/$requisitionId',
+    path: '/requisitions/$requisitionId',
+    getParentRoute: () => HiringRouteRoute,
+  } as any)
 const AgentWorkflowsRunsRunIdRoute = AgentWorkflowsRunsRunIdRouteImport.update({
   id: '/runs/$runId',
   path: '/runs/$runId',
@@ -307,6 +320,7 @@ export interface FileRoutesByFullPath {
   '/people/': typeof PeopleIndexRoute
   '/planner/': typeof PlannerIndexRoute
   '/pm/': typeof PmIndexRoute
+  '/hiring/requisitions/$requisitionId': typeof HiringRequisitionsRequisitionIdRoute
   '/planner/groups/$groupId': typeof PlannerGroupsGroupIdRoute
   '/planner/groups/discover': typeof PlannerGroupsDiscoverRoute
   '/planner/plans/$planId': typeof PlannerPlansPlanIdRoute
@@ -314,6 +328,7 @@ export interface FileRoutesByFullPath {
   '/pm/projects/$projectId': typeof PmProjectsProjectIdRoute
   '/pm/requests/$charterId': typeof PmRequestsCharterIdRoute
   '/agent/workflows/': typeof AgentWorkflowsIndexRoute
+  '/hiring/requisitions/': typeof HiringRequisitionsIndexRoute
   '/pm/accounts/': typeof PmAccountsIndexRoute
   '/pm/projects/': typeof PmProjectsIndexRoute
   '/pm/requests/': typeof PmRequestsIndexRoute
@@ -345,6 +360,7 @@ export interface FileRoutesByTo {
   '/people': typeof PeopleIndexRoute
   '/planner': typeof PlannerIndexRoute
   '/pm': typeof PmIndexRoute
+  '/hiring/requisitions/$requisitionId': typeof HiringRequisitionsRequisitionIdRoute
   '/planner/groups/$groupId': typeof PlannerGroupsGroupIdRoute
   '/planner/groups/discover': typeof PlannerGroupsDiscoverRoute
   '/planner/plans/$planId': typeof PlannerPlansPlanIdRoute
@@ -352,6 +368,7 @@ export interface FileRoutesByTo {
   '/pm/projects/$projectId': typeof PmProjectsProjectIdRoute
   '/pm/requests/$charterId': typeof PmRequestsCharterIdRoute
   '/agent/workflows': typeof AgentWorkflowsIndexRoute
+  '/hiring/requisitions': typeof HiringRequisitionsIndexRoute
   '/pm/accounts': typeof PmAccountsIndexRoute
   '/pm/projects': typeof PmProjectsIndexRoute
   '/pm/requests': typeof PmRequestsIndexRoute
@@ -392,6 +409,7 @@ export interface FileRoutesById {
   '/_authed/people/': typeof PeopleIndexRoute
   '/_authed/planner/': typeof PlannerIndexRoute
   '/_authed/pm/': typeof PmIndexRoute
+  '/_authed/hiring/requisitions/$requisitionId': typeof HiringRequisitionsRequisitionIdRoute
   '/_authed/planner/groups_/$groupId': typeof PlannerGroupsGroupIdRoute
   '/_authed/planner/groups_/discover': typeof PlannerGroupsDiscoverRoute
   '/_authed/planner/plans_/$planId': typeof PlannerPlansPlanIdRoute
@@ -399,6 +417,7 @@ export interface FileRoutesById {
   '/_authed/pm/projects/$projectId': typeof PmProjectsProjectIdRoute
   '/_authed/pm/requests/$charterId': typeof PmRequestsCharterIdRoute
   '/_authed/agent/workflows/': typeof AgentWorkflowsIndexRoute
+  '/_authed/hiring/requisitions/': typeof HiringRequisitionsIndexRoute
   '/_authed/pm/accounts/': typeof PmAccountsIndexRoute
   '/_authed/pm/projects/': typeof PmProjectsIndexRoute
   '/_authed/pm/requests/': typeof PmRequestsIndexRoute
@@ -439,6 +458,7 @@ export interface FileRouteTypes {
     | '/people/'
     | '/planner/'
     | '/pm/'
+    | '/hiring/requisitions/$requisitionId'
     | '/planner/groups/$groupId'
     | '/planner/groups/discover'
     | '/planner/plans/$planId'
@@ -446,6 +466,7 @@ export interface FileRouteTypes {
     | '/pm/projects/$projectId'
     | '/pm/requests/$charterId'
     | '/agent/workflows/'
+    | '/hiring/requisitions/'
     | '/pm/accounts/'
     | '/pm/projects/'
     | '/pm/requests/'
@@ -477,6 +498,7 @@ export interface FileRouteTypes {
     | '/people'
     | '/planner'
     | '/pm'
+    | '/hiring/requisitions/$requisitionId'
     | '/planner/groups/$groupId'
     | '/planner/groups/discover'
     | '/planner/plans/$planId'
@@ -484,6 +506,7 @@ export interface FileRouteTypes {
     | '/pm/projects/$projectId'
     | '/pm/requests/$charterId'
     | '/agent/workflows'
+    | '/hiring/requisitions'
     | '/pm/accounts'
     | '/pm/projects'
     | '/pm/requests'
@@ -523,6 +546,7 @@ export interface FileRouteTypes {
     | '/_authed/people/'
     | '/_authed/planner/'
     | '/_authed/pm/'
+    | '/_authed/hiring/requisitions/$requisitionId'
     | '/_authed/planner/groups_/$groupId'
     | '/_authed/planner/groups_/discover'
     | '/_authed/planner/plans_/$planId'
@@ -530,6 +554,7 @@ export interface FileRouteTypes {
     | '/_authed/pm/projects/$projectId'
     | '/_authed/pm/requests/$charterId'
     | '/_authed/agent/workflows/'
+    | '/_authed/hiring/requisitions/'
     | '/_authed/pm/accounts/'
     | '/_authed/pm/projects/'
     | '/_authed/pm/requests/'
@@ -785,6 +810,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PmAccountsIndexRouteImport
       parentRoute: typeof PmRouteRoute
     }
+    '/_authed/hiring/requisitions/': {
+      id: '/_authed/hiring/requisitions/'
+      path: '/requisitions'
+      fullPath: '/hiring/requisitions/'
+      preLoaderRoute: typeof HiringRequisitionsIndexRouteImport
+      parentRoute: typeof HiringRouteRoute
+    }
     '/_authed/agent/workflows/': {
       id: '/_authed/agent/workflows/'
       path: '/'
@@ -833,6 +865,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/planner/groups/$groupId'
       preLoaderRoute: typeof PlannerGroupsGroupIdRouteImport
       parentRoute: typeof PlannerRouteRoute
+    }
+    '/_authed/hiring/requisitions/$requisitionId': {
+      id: '/_authed/hiring/requisitions/$requisitionId'
+      path: '/requisitions/$requisitionId'
+      fullPath: '/hiring/requisitions/$requisitionId'
+      preLoaderRoute: typeof HiringRequisitionsRequisitionIdRouteImport
+      parentRoute: typeof HiringRouteRoute
     }
     '/_authed/agent/workflows/runs/$runId': {
       id: '/_authed/agent/workflows/runs/$runId'
@@ -915,10 +954,14 @@ const AgentRouteRouteWithChildren = AgentRouteRoute._addFileChildren(
 
 interface HiringRouteRouteChildren {
   HiringIndexRoute: typeof HiringIndexRoute
+  HiringRequisitionsRequisitionIdRoute: typeof HiringRequisitionsRequisitionIdRoute
+  HiringRequisitionsIndexRoute: typeof HiringRequisitionsIndexRoute
 }
 
 const HiringRouteRouteChildren: HiringRouteRouteChildren = {
   HiringIndexRoute: HiringIndexRoute,
+  HiringRequisitionsRequisitionIdRoute: HiringRequisitionsRequisitionIdRoute,
+  HiringRequisitionsIndexRoute: HiringRequisitionsIndexRoute,
 }
 
 const HiringRouteRouteWithChildren = HiringRouteRoute._addFileChildren(
