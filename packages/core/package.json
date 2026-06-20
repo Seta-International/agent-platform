@@ -16,7 +16,8 @@
     "./db": "./src/db/client.ts",
     "./outbox": "./src/outbox/store.ts",
     "./rpc": "./src/rpc/index.ts",
-    "./testing": "./src/test-support.ts"
+    "./testing": "./src/test-support.ts",
+    "./rbac": "./src/rbac.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

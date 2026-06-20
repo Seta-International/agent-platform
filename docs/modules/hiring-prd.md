@@ -598,4 +598,5 @@ Plain, verifiable behaviors. The **Covers** column maps each scenario to the req
 | OQ-10 | **Endorsement edge cases:** how a move is handled when the releasing and receiving manager are the same person, or an approver is absent. | Product + PMO |
 | OQ-11 | **Role-level requisitions (openings count):** ~~established ATS tools (Greenhouse/Ashby) let one requisition carry N openings against a single shared candidate pipeline…~~ **RESOLVED (2026-06-20):** adopt the industry model — a **requisition owns one or more openings** (each = one seat) over **one shared candidate pipeline**; exactly-once fill is enforced **per opening**. Reflected in §5, §7.1 (F-REQ-1/5), §7.6 (F-FILL-1), §9. | Product + Eng |
 | OQ-12 | **Requisition approval chain:** confirm the exact sign-off steps before a requisition opens and who approves budget/funded headcount (F-REQ-5). | Product / PMO |
+| OQ-13 | **Skill-catalog ownership:** **RESOLVED (2026-06-20):** skill taxonomy lives in `core` (system-wide, admin-managed); `requisition_skill.skill_id` references `core.skill.id` (bare uuid, no cross-schema FK); the catalog is also consumed by People and PM. | Eng |
 
