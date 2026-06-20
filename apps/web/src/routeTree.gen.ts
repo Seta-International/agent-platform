@@ -43,6 +43,7 @@ import { Route as AgentWorkflowsRouteRouteImport } from './../../../packages/web
 import { Route as PmRequestsIndexRouteImport } from './../../../packages/web-pm/src/routes/requests/index'
 import { Route as PmProjectsIndexRouteImport } from './../../../packages/web-pm/src/routes/projects/index'
 import { Route as PmAccountsIndexRouteImport } from './../../../packages/web-pm/src/routes/accounts/index'
+import { Route as HiringSettingsIndexRouteImport } from './../../../packages/web-hiring/src/routes/settings/index'
 import { Route as HiringRequisitionsIndexRouteImport } from './../../../packages/web-hiring/src/routes/requisitions/index'
 import { Route as AgentWorkflowsIndexRouteImport } from './../../../packages/web-agent/src/routes/workflows/index'
 import { Route as PmRequestsCharterIdRouteImport } from './../../../packages/web-pm/src/routes/requests/$charterId'
@@ -225,6 +226,11 @@ const PmAccountsIndexRoute = PmAccountsIndexRouteImport.update({
   path: '/accounts/',
   getParentRoute: () => PmRouteRoute,
 } as any)
+const HiringSettingsIndexRoute = HiringSettingsIndexRouteImport.update({
+  id: '/settings/',
+  path: '/settings/',
+  getParentRoute: () => HiringRouteRoute,
+} as any)
 const HiringRequisitionsIndexRoute = HiringRequisitionsIndexRouteImport.update({
   id: '/requisitions/',
   path: '/requisitions/',
@@ -329,6 +335,7 @@ export interface FileRoutesByFullPath {
   '/pm/requests/$charterId': typeof PmRequestsCharterIdRoute
   '/agent/workflows/': typeof AgentWorkflowsIndexRoute
   '/hiring/requisitions/': typeof HiringRequisitionsIndexRoute
+  '/hiring/settings/': typeof HiringSettingsIndexRoute
   '/pm/accounts/': typeof PmAccountsIndexRoute
   '/pm/projects/': typeof PmProjectsIndexRoute
   '/pm/requests/': typeof PmRequestsIndexRoute
@@ -369,6 +376,7 @@ export interface FileRoutesByTo {
   '/pm/requests/$charterId': typeof PmRequestsCharterIdRoute
   '/agent/workflows': typeof AgentWorkflowsIndexRoute
   '/hiring/requisitions': typeof HiringRequisitionsIndexRoute
+  '/hiring/settings': typeof HiringSettingsIndexRoute
   '/pm/accounts': typeof PmAccountsIndexRoute
   '/pm/projects': typeof PmProjectsIndexRoute
   '/pm/requests': typeof PmRequestsIndexRoute
@@ -418,6 +426,7 @@ export interface FileRoutesById {
   '/_authed/pm/requests/$charterId': typeof PmRequestsCharterIdRoute
   '/_authed/agent/workflows/': typeof AgentWorkflowsIndexRoute
   '/_authed/hiring/requisitions/': typeof HiringRequisitionsIndexRoute
+  '/_authed/hiring/settings/': typeof HiringSettingsIndexRoute
   '/_authed/pm/accounts/': typeof PmAccountsIndexRoute
   '/_authed/pm/projects/': typeof PmProjectsIndexRoute
   '/_authed/pm/requests/': typeof PmRequestsIndexRoute
@@ -467,6 +476,7 @@ export interface FileRouteTypes {
     | '/pm/requests/$charterId'
     | '/agent/workflows/'
     | '/hiring/requisitions/'
+    | '/hiring/settings/'
     | '/pm/accounts/'
     | '/pm/projects/'
     | '/pm/requests/'
@@ -507,6 +517,7 @@ export interface FileRouteTypes {
     | '/pm/requests/$charterId'
     | '/agent/workflows'
     | '/hiring/requisitions'
+    | '/hiring/settings'
     | '/pm/accounts'
     | '/pm/projects'
     | '/pm/requests'
@@ -555,6 +566,7 @@ export interface FileRouteTypes {
     | '/_authed/pm/requests/$charterId'
     | '/_authed/agent/workflows/'
     | '/_authed/hiring/requisitions/'
+    | '/_authed/hiring/settings/'
     | '/_authed/pm/accounts/'
     | '/_authed/pm/projects/'
     | '/_authed/pm/requests/'
@@ -810,6 +822,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PmAccountsIndexRouteImport
       parentRoute: typeof PmRouteRoute
     }
+    '/_authed/hiring/settings/': {
+      id: '/_authed/hiring/settings/'
+      path: '/settings'
+      fullPath: '/hiring/settings/'
+      preLoaderRoute: typeof HiringSettingsIndexRouteImport
+      parentRoute: typeof HiringRouteRoute
+    }
     '/_authed/hiring/requisitions/': {
       id: '/_authed/hiring/requisitions/'
       path: '/requisitions'
@@ -956,12 +975,14 @@ interface HiringRouteRouteChildren {
   HiringIndexRoute: typeof HiringIndexRoute
   HiringRequisitionsRequisitionIdRoute: typeof HiringRequisitionsRequisitionIdRoute
   HiringRequisitionsIndexRoute: typeof HiringRequisitionsIndexRoute
+  HiringSettingsIndexRoute: typeof HiringSettingsIndexRoute
 }
 
 const HiringRouteRouteChildren: HiringRouteRouteChildren = {
   HiringIndexRoute: HiringIndexRoute,
   HiringRequisitionsRequisitionIdRoute: HiringRequisitionsRequisitionIdRoute,
   HiringRequisitionsIndexRoute: HiringRequisitionsIndexRoute,
+  HiringSettingsIndexRoute: HiringSettingsIndexRoute,
 }
 
 const HiringRouteRouteWithChildren = HiringRouteRoute._addFileChildren(
