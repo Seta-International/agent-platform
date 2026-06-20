@@ -1,13 +1,13 @@
 import { EmptyState, PageChrome } from '@seta/shared-ui';
-import { Box } from 'lucide-react';
+import { Briefcase } from 'lucide-react';
 
 export function HiringPage() {
   return (
     <PageChrome title="Hiring">
       <EmptyState
-        icon={<Box className="size-6" />}
-        title="No Hiring data yet"
-        description="This module is scaffolded. Add a domain function and a list screen to fill this page."
+        icon={<Briefcase className="size-6" />}
+        title="Hiring — coming soon"
+        description="Open roles and candidate pipeline will appear here."
       />
     </PageChrome>
   );

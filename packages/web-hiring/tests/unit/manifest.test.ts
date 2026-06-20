@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { hiringAppManifest } from '../../src/index.ts';
+import { hiringAppManifest } from '../../src/manifest.ts';
 
 describe('hiringAppManifest', () => {
-  it('owns the /hiring route namespace', () => {
+  it('declares the hiring app with a read-gated nav item', () => {
+    expect(hiringAppManifest.id).toBe('hiring');
     expect(hiringAppManifest.routeNamespace).toBe('/hiring');
-  });
-
-  it('declares at least one nav section', () => {
-    expect(hiringAppManifest.nav.length).toBeGreaterThan(0);
+    expect(hiringAppManifest.requiredPermissions).toContain('hiring.requisition.read');
+    expect(hiringAppManifest.nav[0].items[0].requires).toContain('hiring.requisition.read');
   });
 });
