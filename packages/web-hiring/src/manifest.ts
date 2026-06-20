@@ -16,8 +16,8 @@ export const hiringAppManifest: AppManifest = {
         {
           id: 'hiring.requisitions',
           icon: Briefcase,
-          label: 'Open Roles',
-          to: '/hiring',
+          label: 'Requisitions',
+          to: '/hiring/requisitions',
           requires: ['hiring.requisition.read'],
         },
       ],
