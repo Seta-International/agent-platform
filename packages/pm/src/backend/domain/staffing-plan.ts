@@ -130,21 +130,6 @@ export async function deleteStaffingPlanLine(input: {
   await withEmit(
     { actor: { userId: session.user_id, tenantId: session.tenant_id } },
     async (tx) => {
-      if (input.expected_version !== undefined) {
-        const [current] = await tx
-          .select({ version: staffingPlanLine.version })
-          .from(staffingPlanLine)
-          .where(
-            and(
-              eq(staffingPlanLine.id, line_id),
-              tenantScoped(staffingPlanLine.tenant_id, session),
-            ),
-          )
-          .limit(1);
-        if (current && current.version !== input.expected_version) {
-          throw new PmError('CONFLICT', 'version mismatch');
-        }
-      }
       const rows = await tx
         .delete(staffingPlanLine)
         .where(
@@ -152,10 +137,16 @@ export async function deleteStaffingPlanLine(input: {
             eq(staffingPlanLine.id, line_id),
             eq(staffingPlanLine.project_id, project_id),
             eq(staffingPlanLine.tenant_id, session.tenant_id),
+            ...(input.expected_version !== undefined
+              ? [eq(staffingPlanLine.version, input.expected_version)]
+              : []),
           ),
         )
         .returning({ id: staffingPlanLine.id });
       deleted = rows.length > 0;
+      if (input.expected_version !== undefined && !deleted) {
+        throw new PmError('CONFLICT', 'version mismatch');
+      }
       if (deleted) await emitStaffingChanged(tx, session, project_id);
     },
   );
