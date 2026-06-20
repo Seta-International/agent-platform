@@ -23,6 +23,7 @@ export const account = pmSchema.table(
     name: text('name').notNull(),
     industry: text('industry'),
     am_worker_id: uuid('am_worker_id'),
+    version: integer('version').default(1).notNull(),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
@@ -38,11 +39,13 @@ export const project = pmSchema.table(
     name: text('name').notNull(),
     objective: text('objective'),
     scope: jsonb('scope'),
-    budget_bmm: numeric('budget_bmm'),
+    budget_bmm: numeric('budget_bmm', { precision: 15, scale: 4 }),
     pm_worker_id: uuid('pm_worker_id'),
     phase: text('phase').notNull().default('initiation'),
     status: text('status').notNull().default('active'),
     planner_group_id: uuid('planner_group_id'),
+    version: integer('version').default(1).notNull(),
+    deleted_at: timestamp('deleted_at', { withTimezone: true }),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
@@ -68,17 +71,21 @@ export const allocation = pmSchema.table(
     date_from: date('date_from'),
     date_to: date('date_to'),
     bucket: text('bucket').notNull().default('billable'),
-    planned_pct: numeric('planned_pct'),
+    planned_pct: numeric('planned_pct', { precision: 10, scale: 4 }),
     minutes_per_day: integer('minutes_per_day'),
     weekday_mask: integer('weekday_mask'),
     resource_request_id: uuid('resource_request_id'),
     status: text('status').notNull().default('placeholder'),
+    version: integer('version').default(1).notNull(),
     deleted_at: timestamp('deleted_at', { withTimezone: true }),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [
     index('allocation_by_project').on(t.tenant_id, t.project_id),
+    index('allocation_by_worker')
+      .on(t.tenant_id, t.worker_id)
+      .where(sql`worker_id IS NOT NULL AND deleted_at IS NULL`),
     index('allocation_open_demand')
       .on(t.tenant_id, t.status)
       .where(sql`worker_id IS NULL AND deleted_at IS NULL`),
@@ -91,5 +98,6 @@ export const allocation = pmSchema.table(
       'allocation_worker_rule_check',
       sql`(status = 'placeholder' AND worker_id IS NULL) OR (status IN ('tentative','committed') AND worker_id IS NOT NULL)`,
     ),
+    check('allocation_committed_dates_check', sql`status = 'placeholder' OR date_from IS NOT NULL`),
   ],
 );
