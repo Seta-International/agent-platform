@@ -4,7 +4,7 @@ Concise delivery tracker for the Hiring module. The canonical scope/sequencing i
 
 **Status:** ✅ done (merged to `module/hiring`) · 🔵 in review · 🟡 in progress · ⬜ backlog
 
-**Now:** HIR-2 Requisition CRUD + JD.
+**Now:** HIR-4 Requisition approval + funded-headcount gate.
 **Critical path:** HIR-1 → HIR-2 (requisition CRUD/JD) → candidates & pipeline → interviews → offers.
 
 ## Slice status
@@ -12,7 +12,7 @@ Concise delivery tracker for the Hiring module. The canonical scope/sequencing i
 | Area (PRD §) | Slice | Status |
 |---|---|---|
 | Foundation | HIR-1 Module foundation (schema, org-isolation, events, RBAC, web scaffold) | ✅ |
-| 7.1 Requisitions | HIR-2 Requisition + **Openings** CRUD + JD (resolves OQ-11: req owns 1..N openings, shared pipeline) | 🟡 |
+| 7.1 Requisitions | HIR-2 Requisition + **Openings** CRUD + JD (resolves OQ-11: req owns 1..N openings, shared pipeline) | ✅ |
 | 7.1 Requisitions | HIR-4 Requisition approval + funded-headcount gate | ⬜ |
 | 7.1 Requisitions | HIR-5 Open Roles (employee view) + recommended | ⬜ |
 | 7.2 Candidates & pipeline | HIR-6 Candidate intake + CV parse + fit indicator | ⬜ |
