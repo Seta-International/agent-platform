@@ -1,14 +1,17 @@
 import type { SessionEnv } from '@seta/core';
 import type { Hono } from 'hono';
 import { z } from 'zod';
-import { closeReasonInput, jdTemplateInput } from '../../contracts.ts';
+import { closeReasonInput, jdTemplateInput, rejectionReasonInput } from '../../contracts.ts';
 import {
   archiveCloseReason,
+  archiveRejectionReason,
   createCloseReason,
   createJdTemplate,
+  createRejectionReason,
   deleteJdTemplate,
   listCloseReasons,
   listJdTemplates,
+  listRejectionReasons,
 } from '../../index.ts';
 
 const archiveBody = z.object({ expected_version: z.number().int().positive().optional() });
@@ -42,6 +45,27 @@ export function registerHiringAdminRoutes(app: Hono<SessionEnv>): void {
       return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
     return c.json(
       await archiveCloseReason({ id: c.req.param('id'), ...parsed.data, session: c.get('user') }),
+    );
+  });
+  app.get('/api/hiring/v1/rejection-reasons', async (c) =>
+    c.json({ reasons: await listRejectionReasons(c.get('user')) }),
+  );
+  app.post('/api/hiring/v1/rejection-reasons', async (c) => {
+    const parsed = rejectionReasonInput.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success)
+      return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
+    return c.json(await createRejectionReason({ input: parsed.data, session: c.get('user') }), 201);
+  });
+  app.post('/api/hiring/v1/rejection-reasons/:id/archive', async (c) => {
+    const parsed = archiveBody.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success)
+      return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
+    return c.json(
+      await archiveRejectionReason({
+        id: c.req.param('id'),
+        ...parsed.data,
+        session: c.get('user'),
+      }),
     );
   });
 }
