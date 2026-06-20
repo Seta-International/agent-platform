@@ -55,14 +55,12 @@ export async function deleteJdTemplate(input: {
 }): Promise<void> {
   const { session, template_id } = input;
   requirePermission(session, 'hiring.jd_template.manage');
-  const [tpl] = await hiringDb()
-    .select({ id: jdTemplate.id })
-    .from(jdTemplate)
-    .where(and(eq(jdTemplate.id, template_id), tenantScoped(jdTemplate.tenant_id, session)))
-    .limit(1);
-  if (!tpl) throw new HiringError('NOT_FOUND', 'template not found');
   await hiringDb().transaction(async (tx) => {
+    const [deleted] = await tx
+      .delete(jdTemplate)
+      .where(and(eq(jdTemplate.id, template_id), tenantScoped(jdTemplate.tenant_id, session)))
+      .returning({ id: jdTemplate.id });
+    if (!deleted) throw new HiringError('NOT_FOUND', 'template not found');
     await tx.delete(jdTemplateSection).where(eq(jdTemplateSection.template_id, template_id));
-    await tx.delete(jdTemplate).where(eq(jdTemplate.id, template_id));
   });
 }
