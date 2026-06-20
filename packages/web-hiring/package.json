@@ -11,6 +11,7 @@
     "test": "NODE_OPTIONS='--no-experimental-webstorage' vitest run"
   },
   "dependencies": {
+    "@hello-pangea/dnd": "^18.0.1",
     "@seta/module-sdk": "workspace:^",
     "@seta/shared-rbac": "workspace:^",
     "@seta/shared-ui": "workspace:^",
