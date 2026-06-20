@@ -1,5 +1,14 @@
 import { type AppManifest, noNavExtensions } from '@seta/module-sdk';
-import { Bell, FileClock, Mail, Settings, Shield, ShieldCheck, Sliders } from 'lucide-react';
+import {
+  Bell,
+  BookOpen,
+  FileClock,
+  Mail,
+  Settings,
+  Shield,
+  ShieldCheck,
+  Sliders,
+} from 'lucide-react';
 
 export const adminAppManifest: AppManifest = {
   id: 'admin',
@@ -46,6 +55,13 @@ export const adminAppManifest: AppManifest = {
           label: 'Notifications',
           to: '/admin/notifications',
           requires: ['notifications.category.read'],
+        },
+        {
+          id: 'admin.skills',
+          icon: BookOpen,
+          label: 'Skills catalog',
+          to: '/admin/skills',
+          requires: ['core.skill.read'],
         },
         {
           id: 'admin.audit',
