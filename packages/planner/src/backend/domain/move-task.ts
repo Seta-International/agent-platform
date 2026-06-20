@@ -154,8 +154,9 @@ async function moveTaskImpl(input: MoveTaskInput & { session: SessionScope }): P
           const t = seq[i];
           const h = fresh[i];
           if (!t || h === undefined) continue;
-          const newBucket = t.id === input.task_id ? target_bucket_id : t.bucket_id;
-          await tx
+          const isMoved = t.id === input.task_id;
+          const newBucket = isMoved ? target_bucket_id : t.bucket_id;
+          const rebalancedRows = await tx
             .update(tasks)
             .set({
               bucket_id: newBucket,
@@ -163,7 +164,18 @@ async function moveTaskImpl(input: MoveTaskInput & { session: SessionScope }): P
               updated_at: now,
               version: t.version + 1,
             })
-            .where(eq(tasks.id, t.id));
+            // guard only the moved task: 0 rows ⇒ it changed since our read (lost-update prevention)
+            .where(
+              isMoved
+                ? and(eq(tasks.id, t.id), eq(tasks.version, input.expected_version))
+                : eq(tasks.id, t.id),
+            )
+            .returning({ id: tasks.id });
+          if (isMoved && rebalancedRows.length === 0) {
+            throw new PlannerError('CONFLICT', 'Version mismatch', {
+              current_version: existing.version,
+            });
+          }
           rebalanced.push({ before: t, after_hint: h, new_bucket: newBucket });
         }
         const [reread] = await tx.select().from(tasks).where(eq(tasks.id, input.task_id)).limit(1);
