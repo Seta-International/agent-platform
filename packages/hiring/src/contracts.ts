@@ -74,3 +74,60 @@ export type JdTemplateInput = z.infer<typeof jdTemplateInput>;
 
 export const closeReasonInput = z.object({ label: z.string().min(1) });
 export type CloseReasonInput = z.infer<typeof closeReasonInput>;
+
+export const applicationStage = z.enum(['new', 'screening', 'interview', 'offer']);
+
+export const candidateSkillInput = z.object({
+  skill_id: z.string().uuid(),
+  skill_name: z.string().min(1),
+  level: z.number().int().min(0).max(5).optional(),
+});
+export type CandidateSkillInput = z.infer<typeof candidateSkillInput>;
+
+export const addCandidateInput = z.object({
+  requisition_id: z.string().uuid(),
+  name: z.string().min(1),
+  email: z.string().email().optional(),
+  phone: z.string().optional(),
+  dob: z.string().optional(),
+  gender: z.string().optional(),
+  seniority: z.string().optional(),
+  source: z.string().optional(),
+  segment: z.string().optional(),
+  note: z.string().optional(),
+  skills: z.array(candidateSkillInput).default([]),
+});
+export type AddCandidateInput = z.input<typeof addCandidateInput>;
+
+export const editCandidatePatch = z
+  .object({
+    name: z.string().min(1),
+    email: z.string().email(),
+    phone: z.string(),
+    dob: z.string(),
+    gender: z.string(),
+    seniority: z.string(),
+    source: z.string(),
+    segment: z.string(),
+    note: z.string(),
+  })
+  .partial();
+export type EditCandidatePatch = z.infer<typeof editCandidatePatch>;
+
+export const rejectApplicationInput = z.object({
+  reason_id: z.string().uuid(),
+  tags: z.array(z.string()).default([]),
+  note: z.string().optional(),
+});
+export type RejectApplicationInput = z.infer<typeof rejectApplicationInput>;
+
+export const transferApplicationInput = z.object({
+  target_requisition_id: z.string().uuid(),
+});
+export type TransferApplicationInput = z.infer<typeof transferApplicationInput>;
+
+export const rejectionReasonInput = z.object({
+  label: z.string().min(1),
+  category: z.enum(['rejected_by_us', 'withdrew', 'other']),
+});
+export type RejectionReasonInput = z.infer<typeof rejectionReasonInput>;
