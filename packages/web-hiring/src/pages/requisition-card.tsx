@@ -45,11 +45,14 @@ export function RequisitionCard({ r, canManage }: { r: RequisitionListRow; canMa
   const change = useMutation({
     mutationFn: async (value: string) => {
       if ((STAGES as string[]).includes(value)) {
-        return editRequisition(r.id, { patch: { stage: value as ReqStage } });
+        return editRequisition(r.id, {
+          expected_version: r.version,
+          patch: { stage: value as ReqStage },
+        });
       }
-      if (value === 'on_hold') return holdRequisition(r.id, {});
+      if (value === 'on_hold') return holdRequisition(r.id, { expected_version: r.version });
       if (value === 'filled' || value === 'cancelled')
-        return closeRequisition(r.id, { status: value });
+        return closeRequisition(r.id, { expected_version: r.version, status: value });
       throw new Error(`unknown status ${value}`);
     },
     onSuccess: () => {
