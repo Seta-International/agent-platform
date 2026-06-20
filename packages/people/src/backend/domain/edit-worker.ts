@@ -38,10 +38,6 @@ export async function editWorker(
     }
   }
 
-  if (input.expected_version !== undefined && input.expected_version !== current.worker.version) {
-    throw new PeopleError('CONFLICT', 'version mismatch');
-  }
-
   const changes = entries.filter(
     ([f, v]) =>
       JSON.stringify((current.worker as Record<string, unknown>)[f]) !== JSON.stringify(v),
@@ -56,7 +52,22 @@ export async function editWorker(
       for (const [f, v] of changes) set[f] = v;
       if (isOwner && current.worker.profile_completed_at == null)
         set.profile_completed_at = new Date();
-      await tx.update(worker).set(set).where(eq(worker.person_id, worker_id));
+      const updated = await tx
+        .update(worker)
+        .set(set)
+        // guard: 0 rows ⇒ the row changed since our read (lost-update prevention)
+        .where(
+          and(
+            eq(worker.person_id, worker_id),
+            eq(worker.version, input.expected_version ?? current.worker.version),
+          ),
+        )
+        .returning({ id: worker.person_id });
+      if (updated.length === 0) {
+        throw new PeopleError('CONFLICT', 'version mismatch', {
+          current_version: current.worker.version,
+        });
+      }
 
       for (const [f, v] of changes) {
         await tx.insert(workerHistory).values({
