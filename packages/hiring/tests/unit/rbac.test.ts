@@ -7,3 +7,16 @@ describe('hiring rbac', () => {
     expect(HIRING_PERMISSIONS).toContain('hiring.requisition.open');
   });
 });
+
+describe('hiring rbac (HIR-2)', () => {
+  it('exposes the new requisition + jd_template verbs', () => {
+    for (const p of [
+      'hiring.requisition.manage',
+      'hiring.requisition.close',
+      'hiring.jd_template.read',
+      'hiring.jd_template.manage',
+    ]) {
+      expect(HIRING_PERMISSIONS).toContain(p);
+    }
+  });
+});
