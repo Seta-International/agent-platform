@@ -253,3 +253,191 @@ export async function archiveCloseReason(
     await fetch(`/api/hiring/v1/close-reasons/${id}/archive`, json('POST', input)),
   );
 }
+
+// ---- Candidates (mirror PR2; web must not import backend) ----
+export type CandStage = 'new' | 'screening' | 'interview' | 'offer';
+export type CandStatus = 'active' | 'hired' | 'rejected' | 'transferred';
+
+export interface Fit {
+  met: number;
+  required: number;
+  score: number;
+  strong: boolean;
+}
+
+export interface CandidateListItem {
+  application_id: string;
+  candidate_id: string;
+  name: string;
+  seniority: string | null;
+  source: string | null;
+  requisition_id: string;
+  requisition_title: string;
+  stage: CandStage;
+  status: CandStatus;
+  rating: number | null;
+  version: number;
+  fit: Fit;
+}
+
+export interface CandidateSkillRow {
+  skill_id: string;
+  skill_name: string;
+  level: number | null;
+}
+export interface CandidateEvent {
+  id: string;
+  kind: string;
+  summary: string;
+  created_at: string;
+  actor_user_id: string | null;
+}
+export interface CandidateApplication {
+  application_id: string;
+  requisition_id: string;
+  requisition_title: string;
+  account_id: string | null;
+  stage: CandStage;
+  status: CandStatus;
+  rating: number | null;
+  tags: string[];
+  version: number;
+  fit: Fit;
+}
+export interface CandidateDetail {
+  candidate: {
+    id: string;
+    name: string;
+    source: string | null;
+    seniority: string | null;
+    segment: string | null;
+    dob: string | null;
+    gender: string | null;
+    note: string | null;
+    contact: { email?: string; phone?: string } | null;
+    version: number;
+  };
+  application: CandidateApplication;
+  skills: CandidateSkillRow[];
+  timeline: CandidateEvent[];
+}
+
+export interface RejectionReason {
+  id: string;
+  label: string;
+  category: 'rejected_by_us' | 'withdrew' | 'other';
+  active: boolean;
+  version: number;
+}
+export interface CatalogSkill {
+  id: string;
+  name: string;
+  category_id: string;
+  active: boolean;
+}
+export interface CatalogCategory {
+  id: string;
+  name: string;
+  sort_order: number;
+  active: boolean;
+}
+export interface SkillCatalog {
+  categories: CatalogCategory[];
+  skills: CatalogSkill[];
+}
+
+export interface AddCandidatePayload {
+  requisition_id: string;
+  name: string;
+  contact?: { email?: string; phone?: string };
+  dob?: string;
+  gender?: string;
+  seniority?: string;
+  source?: string;
+  note?: string;
+  skills: { skill_id: string; skill_name: string; level?: number }[];
+}
+
+// ---- Candidate reads ----
+export async function fetchCandidates(): Promise<CandidateListItem[]> {
+  const res = await fetch('/api/hiring/v1/candidates', { credentials: 'include' });
+  return (await handleResponse<{ candidates: CandidateListItem[] }>(res)).candidates;
+}
+export async function fetchCandidate(id: string): Promise<CandidateDetail> {
+  const res = await fetch(`/api/hiring/v1/candidates/${id}`, { credentials: 'include' });
+  return handleResponse<CandidateDetail>(res);
+}
+export async function fetchRejectionReasons(): Promise<RejectionReason[]> {
+  const res = await fetch('/api/hiring/v1/rejection-reasons', { credentials: 'include' });
+  return (await handleResponse<{ reasons: RejectionReason[] }>(res)).reasons;
+}
+export async function fetchSkillCatalog(): Promise<SkillCatalog> {
+  const [catsRes, skillsRes] = await Promise.all([
+    fetch('/api/identity/v1/skill-categories', { credentials: 'include' }),
+    fetch('/api/identity/v1/skills', { credentials: 'include' }),
+  ]);
+  const categories = (await handleResponse<{ categories: CatalogCategory[] }>(catsRes)).categories;
+  const skills = (await handleResponse<{ skills: CatalogSkill[] }>(skillsRes)).skills;
+  return { categories, skills };
+}
+
+// ---- Candidate mutations ----
+export async function addCandidate(
+  input: AddCandidatePayload,
+): Promise<{ candidate_id: string; application_id: string }> {
+  return handleResponse(await fetch('/api/hiring/v1/candidates', json('POST', input)));
+}
+export async function editCandidate(
+  id: string,
+  input: {
+    patch: { name?: string; note?: string; seniority?: string; source?: string; segment?: string };
+  },
+): Promise<{ ok: true }> {
+  return handleResponse(await fetch(`/api/hiring/v1/candidates/${id}`, json('PATCH', input)));
+}
+export async function setCandidateSkills(
+  id: string,
+  input: { skills: { skill_id: string; skill_name: string; level?: number }[] },
+): Promise<{ ok: true }> {
+  return handleResponse(await fetch(`/api/hiring/v1/candidates/${id}/skills`, json('PUT', input)));
+}
+export async function moveApplicationStage(
+  applicationId: string,
+  input: { expected_version?: number; to: CandStage },
+): Promise<{ version: number }> {
+  return handleResponse(
+    await fetch(`/api/hiring/v1/applications/${applicationId}/stage`, json('POST', input)),
+  );
+}
+export async function setApplicationRating(
+  applicationId: string,
+  input: { expected_version?: number; rating: number },
+): Promise<{ version: number }> {
+  return handleResponse(
+    await fetch(`/api/hiring/v1/applications/${applicationId}/rating`, json('POST', input)),
+  );
+}
+export async function rejectApplication(
+  applicationId: string,
+  input: { expected_version?: number; reason_id: string; tags: string[]; note?: string },
+): Promise<{ version: number }> {
+  const { expected_version, ...reasonInput } = input;
+  return handleResponse(
+    await fetch(
+      `/api/hiring/v1/applications/${applicationId}/reject`,
+      json('POST', { input: reasonInput, expected_version }),
+    ),
+  );
+}
+export async function transferApplication(
+  applicationId: string,
+  input: { expected_version?: number; target_requisition_id: string },
+): Promise<{ version: number; to_application_id: string }> {
+  const { expected_version, ...transferInput } = input;
+  return handleResponse(
+    await fetch(
+      `/api/hiring/v1/applications/${applicationId}/transfer`,
+      json('POST', { input: transferInput, expected_version }),
+    ),
+  );
+}
