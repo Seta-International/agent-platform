@@ -142,8 +142,24 @@ export async function getCandidate(input: {
     .limit(1);
   if (!cand) throw new HiringError('NOT_FOUND', 'candidate not found');
   const [skills, applications, timeline] = await Promise.all([
-    hiringDb().select().from(candidateSkill).where(eq(candidateSkill.candidate_id, candidate_id)),
-    hiringDb().select().from(application).where(eq(application.candidate_id, candidate_id)),
+    hiringDb()
+      .select()
+      .from(candidateSkill)
+      .where(
+        and(
+          eq(candidateSkill.candidate_id, candidate_id),
+          tenantScoped(candidateSkill.tenant_id, session),
+        ),
+      ),
+    hiringDb()
+      .select()
+      .from(application)
+      .where(
+        and(
+          eq(application.candidate_id, candidate_id),
+          tenantScoped(application.tenant_id, session),
+        ),
+      ),
     hiringDb()
       .select()
       .from(candidateEvent)
