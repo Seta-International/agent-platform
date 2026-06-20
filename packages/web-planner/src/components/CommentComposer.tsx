@@ -1,4 +1,5 @@
 import { Button, Textarea } from '@seta/shared-ui';
+import { TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
 import { usePostComment } from '../hooks/mutations/post-comment';
 
@@ -52,24 +53,34 @@ export function CommentComposer({ taskId }: Props) {
         rows={3}
         className="resize-y"
       />
-      <div className="flex items-center justify-between">
-        <span className={`text-caption ${tooLong ? 'text-semantic-danger' : 'text-ink-tertiary'}`}>
-          {body.length > MAX - 500 ? `${body.length} / ${MAX}` : ''}
-        </span>
-        <div className="flex gap-2">
-          <Button
-            variant="ghost"
-            onClick={() => {
-              setBody('');
-              setExpanded(false);
-            }}
+      {(tooLong || body.length > MAX - 500) && (
+        <div className="flex items-center gap-2">
+          {tooLong && (
+            <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
+              <TriangleAlert className="size-3.5 shrink-0" aria-hidden="true" />
+              Comment cannot exceed {MAX} characters.
+            </p>
+          )}
+          <span
+            className={`ml-auto text-caption ${tooLong ? 'text-destructive' : 'text-ink-tertiary'}`}
           >
-            Cancel
-          </Button>
-          <Button onClick={handlePost} disabled={!canPost}>
-            Post
-          </Button>
+            {body.length} / {MAX}
+          </span>
         </div>
+      )}
+      <div className="flex justify-end gap-2">
+        <Button
+          variant="ghost"
+          onClick={() => {
+            setBody('');
+            setExpanded(false);
+          }}
+        >
+          Cancel
+        </Button>
+        <Button onClick={handlePost} disabled={!canPost}>
+          Post
+        </Button>
       </div>
     </div>
   );
