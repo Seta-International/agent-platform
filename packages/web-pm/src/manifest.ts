@@ -1,5 +1,5 @@
 import { type AppManifest, noNavExtensions } from '@seta/module-sdk';
-import { FolderKanban } from 'lucide-react';
+import { ClipboardList, FolderKanban } from 'lucide-react';
 
 export const pmAppManifest: AppManifest = {
   id: 'pm',
@@ -26,6 +26,13 @@ export const pmAppManifest: AppManifest = {
           label: 'Accounts',
           to: '/pm/accounts',
           requires: ['pm.account.read'],
+        },
+        {
+          id: 'pm.requests',
+          icon: ClipboardList,
+          label: 'Requests',
+          to: '/pm/requests',
+          requires: ['pm.charter.read'],
         },
       ],
     },
