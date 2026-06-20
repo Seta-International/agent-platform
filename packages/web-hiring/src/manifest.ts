@@ -1,5 +1,5 @@
 import { type AppManifest, noNavExtensions } from '@seta/module-sdk';
-import { Briefcase, Settings } from 'lucide-react';
+import { Briefcase, Settings, Users } from 'lucide-react';
 
 export const hiringAppManifest: AppManifest = {
   id: 'hiring',
@@ -19,6 +19,13 @@ export const hiringAppManifest: AppManifest = {
           label: 'Requisitions',
           to: '/hiring/requisitions',
           requires: ['hiring.requisition.read'],
+        },
+        {
+          id: 'hiring.candidates',
+          icon: Users,
+          label: 'Candidates',
+          to: '/hiring/candidates',
+          requires: ['hiring.candidate.read'],
         },
         {
           id: 'hiring.settings',

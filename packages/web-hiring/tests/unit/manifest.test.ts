@@ -15,4 +15,12 @@ describe('hiringAppManifest', () => {
     expect(settings?.to).toBe('/hiring/settings');
     expect(settings?.requires).toContain('hiring.jd_template.read');
   });
+
+  it('exposes a Candidates nav item gated on hiring.candidate.read', () => {
+    const items = hiringAppManifest.nav.flatMap((g) => g.items);
+    const candidates = items.find((i) => i.id === 'hiring.candidates');
+    expect(candidates).toBeDefined();
+    expect(candidates?.to).toBe('/hiring/candidates');
+    expect(candidates?.requires).toContain('hiring.candidate.read');
+  });
 });
