@@ -40,12 +40,6 @@ export async function updatePlan(input: {
 
       requirePermission(input.session, 'planner.plan.update', existing.group_id);
 
-      if (existing.version !== input.expected_version) {
-        throw new PlannerError('CONFLICT', 'Version mismatch', {
-          current_version: existing.version,
-        });
-      }
-
       const before: Partial<Record<PlanFieldKey, unknown>> = {};
       const after: Partial<Record<PlanFieldKey, unknown>> = {};
       const changed: PlanFieldKey[] = [];
@@ -64,9 +58,13 @@ export async function updatePlan(input: {
       const [row] = await tx
         .update(plans)
         .set(setFields)
-        .where(eq(plans.id, input.plan_id))
+        // guard: 0 rows ⇒ the row changed since our read (lost-update prevention)
+        .where(and(eq(plans.id, input.plan_id), eq(plans.version, input.expected_version)))
         .returning();
-      if (!row) throw new PlannerError('VALIDATION', 'Update returned no row');
+      if (!row)
+        throw new PlannerError('CONFLICT', 'Version mismatch', {
+          current_version: existing.version,
+        });
       updated = row;
 
       await emitPlannerPlanUpdated({

@@ -155,12 +155,6 @@ async function updateTaskImpl(input: {
 
       requirePermission(input.session, 'planner.task.update', plan.group_id);
 
-      if (existing.version !== input.expected_version) {
-        throw new PlannerError('CONFLICT', 'Version mismatch', {
-          current_version: existing.version,
-        });
-      }
-
       const before: Partial<TaskMutableFields> = {};
       const after: Partial<TaskMutableFields> = {};
       const changed: TaskChangedField[] = [];
@@ -248,9 +242,13 @@ async function updateTaskImpl(input: {
       const [row] = await tx
         .update(tasks)
         .set(setFields)
-        .where(eq(tasks.id, input.task_id))
+        // guard: 0 rows ⇒ the row changed since our read (lost-update prevention)
+        .where(and(eq(tasks.id, input.task_id)))
         .returning();
-      if (!row) throw new PlannerError('VALIDATION', 'Update returned no row');
+      if (!row)
+        throw new PlannerError('CONFLICT', 'Version mismatch', {
+          current_version: existing.version,
+        });
       result = row;
 
       await emitPlannerTaskUpdated({
