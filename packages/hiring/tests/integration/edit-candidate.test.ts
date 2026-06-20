@@ -84,4 +84,103 @@ describe('edit candidate', () => {
       }
     });
   });
+
+  it('setApplicationRating rejects a stale expected_version with CONFLICT', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetHiringDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const catSession = {
+          ...t.adminSession,
+          permissions: new Set([...t.adminSession.permissions, 'core.skill.manage']),
+        };
+        const cat = await createSkillCategory({ input: { name: 'BE2' }, session: catSession });
+        const s = await createSkill({
+          input: { category_id: cat.id, name: 'Kotlin' },
+          session: catSession,
+        });
+        const { requisition_id } = await openRequisition({
+          title: 'BE2',
+          kind: 'new',
+          headcount: 1,
+          session: t.adminSession,
+        });
+        const { application_id } = await addCandidate({
+          requisition_id,
+          name: 'Carol',
+          skills: [{ skill_id: s.id, skill_name: 'Kotlin' }],
+          session: t.adminSession,
+        });
+
+        // first call succeeds: version 1 → 2
+        await setApplicationRating({
+          application_id,
+          expected_version: 1,
+          rating: 3,
+          session: t.adminSession,
+        });
+
+        // second call with stale expected_version: 1 must throw CONFLICT
+        await expect(
+          setApplicationRating({
+            application_id,
+            expected_version: 1,
+            rating: 5,
+            session: t.adminSession,
+          }),
+        ).rejects.toMatchObject({ code: 'CONFLICT' });
+      } finally {
+        resetHiringDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('setCandidateSkills rejects a skill_id not in the catalog', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetHiringDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const catSession = {
+          ...t.adminSession,
+          permissions: new Set([...t.adminSession.permissions, 'core.skill.manage']),
+        };
+        const cat = await createSkillCategory({ input: { name: 'BE3' }, session: catSession });
+        const s = await createSkill({
+          input: { category_id: cat.id, name: 'Elixir' },
+          session: catSession,
+        });
+        const { requisition_id } = await openRequisition({
+          title: 'BE3',
+          kind: 'new',
+          headcount: 1,
+          session: t.adminSession,
+        });
+        const { candidate_id } = await addCandidate({
+          requisition_id,
+          name: 'Dan',
+          skills: [{ skill_id: s.id, skill_name: 'Elixir' }],
+          session: t.adminSession,
+        });
+
+        // ghost_id was never seeded into core.skill
+        await expect(
+          setCandidateSkills({
+            candidate_id,
+            skills: [{ skill_id: crypto.randomUUID(), skill_name: 'Ghost', level: 1 }],
+            session: t.adminSession,
+          }),
+        ).rejects.toThrow(/skill/i);
+      } finally {
+        resetHiringDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
 });
