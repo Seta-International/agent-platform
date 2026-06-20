@@ -7,6 +7,11 @@ export {
   type RequisitionListRow,
 } from './backend/domain/read-requisitions.ts';
 export {
+  closeRequisition,
+  holdRequisition,
+  resumeRequisition,
+} from './backend/domain/requisition-lifecycle.ts';
+export {
   setRequisitionJd,
   setRequisitionSkills,
 } from './backend/domain/set-requisition-content.ts';
