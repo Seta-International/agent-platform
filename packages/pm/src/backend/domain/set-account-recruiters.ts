@@ -36,26 +36,32 @@ export async function setAccountRecruiters(
   const toRemove = [...existingSet].filter((id) => !desiredSet.has(id));
   if (toAdd.length === 0 && toRemove.length === 0) return { added: 0, removed: 0 };
 
+  let added = 0;
+  let removed = 0;
   await withEmit(
     { actor: { userId: session.user_id, tenantId: session.tenant_id } },
     async (tx) => {
       for (const rid of toAdd) {
-        await tx.insert(accountRecruiter).values({
-          tenant_id: session.tenant_id,
-          account_id,
-          recruiter_worker_id: rid,
-        });
-        await emit({
-          tenantId: session.tenant_id,
-          aggregateType: 'pm.account',
-          aggregateId: account_id,
-          eventType: PM_ACCOUNT_RECRUITER_ASSIGNED,
-          eventVersion: 1,
-          payload: { account_id, tenant_id: session.tenant_id, recruiter_worker_id: rid },
-        });
+        // onConflictDoNothing: concurrent set-edits must not crash on the unique index; events track actual effect.
+        const inserted = await tx
+          .insert(accountRecruiter)
+          .values({ tenant_id: session.tenant_id, account_id, recruiter_worker_id: rid })
+          .onConflictDoNothing()
+          .returning({ id: accountRecruiter.id });
+        if (inserted.length > 0) {
+          await emit({
+            tenantId: session.tenant_id,
+            aggregateType: 'pm.account',
+            aggregateId: account_id,
+            eventType: PM_ACCOUNT_RECRUITER_ASSIGNED,
+            eventVersion: 1,
+            payload: { account_id, tenant_id: session.tenant_id, recruiter_worker_id: rid },
+          });
+          added += 1;
+        }
       }
       for (const rid of toRemove) {
-        await tx
+        const deleted = await tx
           .delete(accountRecruiter)
           .where(
             and(
@@ -63,17 +69,21 @@ export async function setAccountRecruiters(
               eq(accountRecruiter.recruiter_worker_id, rid),
               eq(accountRecruiter.tenant_id, session.tenant_id),
             ),
-          );
-        await emit({
-          tenantId: session.tenant_id,
-          aggregateType: 'pm.account',
-          aggregateId: account_id,
-          eventType: PM_ACCOUNT_RECRUITER_UNASSIGNED,
-          eventVersion: 1,
-          payload: { account_id, tenant_id: session.tenant_id, recruiter_worker_id: rid },
-        });
+          )
+          .returning({ id: accountRecruiter.id });
+        if (deleted.length > 0) {
+          await emit({
+            tenantId: session.tenant_id,
+            aggregateType: 'pm.account',
+            aggregateId: account_id,
+            eventType: PM_ACCOUNT_RECRUITER_UNASSIGNED,
+            eventVersion: 1,
+            payload: { account_id, tenant_id: session.tenant_id, recruiter_worker_id: rid },
+          });
+          removed += 1;
+        }
       }
     },
   );
-  return { added: toAdd.length, removed: toRemove.length };
+  return { added, removed };
 }

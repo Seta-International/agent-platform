@@ -6,3 +6,4 @@ export type {
   EditAccountInput,
   SetAccountRecruitersInput,
 } from './contracts.ts';
+export { setAccountRecruitersInput } from './contracts.ts';
