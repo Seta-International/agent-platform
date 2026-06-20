@@ -6,6 +6,7 @@ import { knowledgeRbac } from '@seta/knowledge/rbac';
 import { notificationsRbac } from '@seta/notifications/rbac';
 import { peopleRbac } from '@seta/people/rbac';
 import { plannerRbac } from '@seta/planner/rbac';
+import { pmRbac } from '@seta/pm/rbac';
 import { buildRegistry, INVENTORY, inventoryToManifests } from '@seta/shared-rbac';
 import { staffingRbac } from '@seta/staffing/rbac';
 import { describe, expect, it } from 'vitest';
@@ -26,6 +27,7 @@ describe('rbac registry parity', () => {
     plannerRbac,
     identityRbac,
     hiringRbac,
+    pmRbac,
   ];
 
   it('module-declared manifests cover exactly the inventory modules', () => {
