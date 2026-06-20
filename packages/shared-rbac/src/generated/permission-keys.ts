@@ -103,6 +103,11 @@ export type PermissionKey =
   | 'planner.trash.restore'
   | 'pm.account.manage'
   | 'pm.account.read'
+  | 'pm.charter.approve'
+  | 'pm.charter.read'
+  | 'pm.charter.submit'
+  | 'pm.project.manage'
+  | 'pm.project.read'
   | 'staffing.read'
   | 'staffing.workflow.cancel'
   | 'staffing.workflow.read'
@@ -212,6 +217,11 @@ export const ALL_PERMISSIONS: readonly PermissionKey[] = [
   'planner.trash.restore',
   'pm.account.manage',
   'pm.account.read',
+  'pm.charter.approve',
+  'pm.charter.read',
+  'pm.charter.submit',
+  'pm.project.manage',
+  'pm.project.read',
   'staffing.read',
   'staffing.workflow.cancel',
   'staffing.workflow.read',
