@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  addCandidateInput,
   closeOpeningInput,
   editRequisitionPatch,
   openRequisitionInput,
+  rejectApplicationInput,
 } from '../../src/contracts.ts';
 
 describe('hiring contracts (HIR-2)', () => {
@@ -22,5 +24,17 @@ describe('hiring contracts (HIR-2)', () => {
   it('closeOpeningInput requires a valid status', () => {
     expect(closeOpeningInput.safeParse({ status: 'open' }).success).toBe(false);
     expect(closeOpeningInput.safeParse({ status: 'closed' }).success).toBe(true);
+  });
+  it('requires a requisition and a name to add a candidate', () => {
+    expect(
+      addCandidateInput.safeParse({ name: 'A', requisition_id: crypto.randomUUID() }).success,
+    ).toBe(true);
+    expect(addCandidateInput.safeParse({ name: 'A' }).success).toBe(false);
+  });
+  it('requires a reason id to reject', () => {
+    expect(
+      rejectApplicationInput.safeParse({ reason_id: crypto.randomUUID(), tags: [] }).success,
+    ).toBe(true);
+    expect(rejectApplicationInput.safeParse({ tags: [] }).success).toBe(false);
   });
 });
