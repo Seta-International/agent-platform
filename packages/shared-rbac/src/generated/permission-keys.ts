@@ -23,8 +23,15 @@ export type PermissionKey =
   | 'core.tenant.email_domains.write'
   | 'core.tenant.read'
   | 'core.tenant.write'
+  | 'hiring.candidate.create'
+  | 'hiring.candidate.manage'
+  | 'hiring.candidate.read'
+  | 'hiring.candidate.reject'
+  | 'hiring.candidate.transfer'
   | 'hiring.jd_template.manage'
   | 'hiring.jd_template.read'
+  | 'hiring.rejection_reason.manage'
+  | 'hiring.rejection_reason.read'
   | 'hiring.requisition.close'
   | 'hiring.requisition.manage'
   | 'hiring.requisition.open'
@@ -143,8 +150,15 @@ export const ALL_PERMISSIONS: readonly PermissionKey[] = [
   'core.tenant.email_domains.write',
   'core.tenant.read',
   'core.tenant.write',
+  'hiring.candidate.create',
+  'hiring.candidate.manage',
+  'hiring.candidate.read',
+  'hiring.candidate.reject',
+  'hiring.candidate.transfer',
   'hiring.jd_template.manage',
   'hiring.jd_template.read',
+  'hiring.rejection_reason.manage',
+  'hiring.rejection_reason.read',
   'hiring.requisition.close',
   'hiring.requisition.manage',
   'hiring.requisition.open',
