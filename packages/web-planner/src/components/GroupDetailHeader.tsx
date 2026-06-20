@@ -90,7 +90,7 @@ export function GroupDetailHeader({
               <h1 className="text-card-title m-0 truncate font-semibold tracking-tight text-ink">
                 {group.name}
               </h1>
-              <div className="flex min-w-0 flex-none items-center gap-2 text-body-sm text-ink-subtle">
+              <div className="flex min-w-0 items-center gap-2 text-body-sm text-ink-subtle">
                 {canManage && !group.deleted_at && (
                   <button
                     type="button"
@@ -101,7 +101,7 @@ export function GroupDetailHeader({
                     <Pencil className="size-3.5" />
                   </button>
                 )}
-                <span className="inline-flex h-5 items-center gap-1.5 rounded-full bg-surface-1 px-2 text-xs">
+                <span className="inline-flex h-5 flex-none items-center gap-1.5 rounded-full bg-surface-1 px-2 text-xs">
                   {group.visibility === 'private' ? (
                     <>
                       <Shield className="size-3 text-ink-subtle" aria-hidden="true" />
@@ -115,7 +115,7 @@ export function GroupDetailHeader({
                   )}
                 </span>
                 {group.description && (
-                  <span className="truncate">
+                  <span className="min-w-0 truncate" title={group.description}>
                     <span aria-hidden="true">·</span> {group.description}
                   </span>
                 )}
