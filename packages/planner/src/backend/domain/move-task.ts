@@ -60,12 +60,6 @@ async function moveTaskImpl(input: MoveTaskInput & { session: SessionScope }): P
 
       requirePermission(input.session, 'planner.task.update', sourcePlan.group_id);
 
-      if (existing.version !== input.expected_version) {
-        throw new PlannerError('CONFLICT', 'Version mismatch', {
-          current_version: existing.version,
-        });
-      }
-
       const isCrossPlan = input.new_plan_id !== undefined && input.new_plan_id !== existing.plan_id;
 
       if (isCrossPlan) {
@@ -198,6 +192,7 @@ async function moveTaskImpl(input: MoveTaskInput & { session: SessionScope }): P
         return;
       }
 
+      // guard: 0 rows ⇒ the row changed since our read (lost-update prevention)
       const [updated] = await tx
         .update(tasks)
         .set({
@@ -206,9 +201,12 @@ async function moveTaskImpl(input: MoveTaskInput & { session: SessionScope }): P
           updated_at: now,
           version: versionAfter,
         })
-        .where(eq(tasks.id, input.task_id))
+        .where(and(eq(tasks.id, input.task_id), eq(tasks.version, input.expected_version)))
         .returning();
-      if (!updated) throw new PlannerError('VALIDATION', 'Update returned no row');
+      if (!updated)
+        throw new PlannerError('CONFLICT', 'Version mismatch', {
+          current_version: existing.version,
+        });
       result = updated;
 
       await emitPlannerTaskMoved({
@@ -359,6 +357,7 @@ async function performCrossPlanMove(args: {
     await applyCrossPlanUpdate({
       tx,
       existing,
+      expected_version: input.expected_version,
       newPlanId,
       target_bucket_id,
       newHint: finalHint,
@@ -396,7 +395,15 @@ async function performCrossPlanMove(args: {
 
   const now = new Date();
   const versionAfter = existing.version + 1;
-  await applyCrossPlanUpdate({ tx, existing, newPlanId, target_bucket_id, newHint, now });
+  await applyCrossPlanUpdate({
+    tx,
+    existing,
+    expected_version: input.expected_version,
+    newPlanId,
+    target_bucket_id,
+    newHint,
+    now,
+  });
 
   const [updated] = await tx.select().from(tasks).where(eq(tasks.id, input.task_id)).limit(1);
   if (!updated) throw new PlannerError('VALIDATION', 'Cross-plan update returned no row');
@@ -417,12 +424,13 @@ async function applyCrossPlanUpdate(args: {
   // biome-ignore lint/suspicious/noExplicitAny: tx is the inner Drizzle transaction handle
   tx: any;
   existing: TaskDbRow;
+  expected_version: number;
   newPlanId: string;
   target_bucket_id: string | null;
   newHint: string;
   now: Date;
 }): Promise<void> {
-  const { tx, existing, newPlanId, target_bucket_id, newHint, now } = args;
+  const { tx, existing, expected_version, newPlanId, target_bucket_id, newHint, now } = args;
 
   // Strip plan-scoped labels. Labels belong to their owning plan
   // (`labels.plan_id`), so any application against the moved task is
@@ -431,7 +439,8 @@ async function applyCrossPlanUpdate(args: {
   // references, and other task-scoped data carry over untouched.
   await tx.delete(taskLabels).where(eq(taskLabels.task_id, existing.id));
 
-  await tx
+  // guard: 0 rows ⇒ the row changed since our read (lost-update prevention)
+  const result = await tx
     .update(tasks)
     .set({
       plan_id: newPlanId,
@@ -440,7 +449,12 @@ async function applyCrossPlanUpdate(args: {
       updated_at: now,
       version: existing.version + 1,
     })
-    .where(eq(tasks.id, existing.id));
+    .where(and(eq(tasks.id, existing.id), eq(tasks.version, expected_version)))
+    .returning({ id: tasks.id });
+  if (result.length === 0)
+    throw new PlannerError('CONFLICT', 'Version mismatch', {
+      current_version: existing.version,
+    });
 }
 
 async function emitCrossPlanMove(args: {
