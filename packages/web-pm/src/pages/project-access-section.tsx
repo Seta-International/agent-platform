@@ -35,11 +35,7 @@ export function ProjectAccessSection({
       invalidate();
     },
     onError: (e: Error & { status?: number }) => {
-      if (e.status === 409 || e.status === 400) {
-        toast.error(`Owner invariant: ${e.message}`);
-      } else {
-        toast.error(e.message);
-      }
+      toast.error(e.message);
     },
   });
 
