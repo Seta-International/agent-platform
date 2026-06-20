@@ -16,13 +16,12 @@ import {
   toast,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { type ReactNode, useState } from 'react';
 import {
   closeRequisition,
   editRequisition,
-  fetchRequisition,
   holdRequisition,
   type RequisitionPatch,
   resumeRequisition,
@@ -31,19 +30,9 @@ import { hiringKeys } from '../state/query-keys.ts';
 import { JdTab } from './jd-tab.tsx';
 import { OpeningsTab } from './openings-tab.tsx';
 import { SkillsTab } from './skills-tab.tsx';
+import { on409, useRequisition } from './utils.ts';
 
-export function useRequisition(id: string) {
-  return useQuery({ queryKey: hiringKeys.requisition(id), queryFn: () => fetchRequisition(id) });
-}
-
-export function on409(e: Error, queryClient: ReturnType<typeof useQueryClient>, id: string): void {
-  if ((e as { status?: number }).status === 409) {
-    toast.error('This requisition changed — refreshing.');
-    void queryClient.invalidateQueries({ queryKey: hiringKeys.requisition(id) });
-  } else {
-    toast.error(e.message);
-  }
-}
+export { on409, useRequisition };
 
 export function RequisitionDetailPage({ requisitionId }: { requisitionId: string }) {
   const queryClient = useQueryClient();
