@@ -4,7 +4,7 @@ Concise delivery tracker for the PM module — Seta's delivery system-of-record 
 
 **Status:** ✅ done (merged to `module/pm`) · 🔵 in review · 🟡 in progress · ⬜ backlog
 
-**Now:** PM-2 Accounts CRUD.
+**Now:** PM-3 Projects & charter flow.
 **Critical path:** PM-1 → PM-2 (accounts) → projects & charter flow → resource allocation → delivery health.
 
 ## Slice status
@@ -12,7 +12,7 @@ Concise delivery tracker for the PM module — Seta's delivery system-of-record 
 | Area (PRD §) | Slice | Status |
 |---|---|---|
 | Foundation | PM-1 Module foundation (schema, org-isolation, events, RBAC, web scaffold) | ✅ |
-| 7.1 Accounts | PM-2 Accounts CRUD | ⬜ |
+| 7.1 Accounts | PM-2 Accounts CRUD | ✅ |
 | 7.2 Projects & charter flow | Project records + charter approval ("Requests") | ⬜ |
 | 7.3 Resource allocation & utilization | Allocation (placeholder/named bookings), utilization ("RA Monitoring") | ⬜ |
 | 7.4 Portfolio & project health | QCDP + RAG portfolio/project health | ⬜ |
