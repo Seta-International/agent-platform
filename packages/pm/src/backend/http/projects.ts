@@ -109,13 +109,26 @@ export function registerPmProjectsRoutes(app: Hono<SessionEnv>): void {
       }),
     );
   });
-  app.delete('/api/pm/v1/projects/:id/staffing-plan/:lineId', async (c) =>
-    c.json(
+  app.delete('/api/pm/v1/projects/:id/staffing-plan/:lineId', async (c) => {
+    const raw = c.req.query('expected_version');
+    let expected_version: number | undefined;
+    if (raw !== undefined) {
+      const n = Number(raw);
+      if (!Number.isInteger(n) || n <= 0) {
+        return c.json(
+          { error: 'VALIDATION', message: 'expected_version must be a positive integer' },
+          400,
+        );
+      }
+      expected_version = n;
+    }
+    return c.json(
       await deleteStaffingPlanLine({
         project_id: c.req.param('id'),
         line_id: c.req.param('lineId'),
+        expected_version,
         session: c.get('user'),
       }),
-    ),
-  );
+    );
+  });
 }

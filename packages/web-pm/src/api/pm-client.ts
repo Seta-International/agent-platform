@@ -347,8 +347,13 @@ export async function upsertStaffingPlanLine(
 export async function deleteStaffingPlanLine(
   id: string,
   lineId: string,
+  expectedVersion?: number,
 ): Promise<{ deleted: boolean }> {
-  const res = await fetch(`/api/pm/v1/projects/${id}/staffing-plan/${lineId}`, {
+  const url =
+    expectedVersion !== undefined
+      ? `/api/pm/v1/projects/${id}/staffing-plan/${lineId}?expected_version=${expectedVersion}`
+      : `/api/pm/v1/projects/${id}/staffing-plan/${lineId}`;
+  const res = await fetch(url, {
     method: 'DELETE',
     credentials: 'include',
   });

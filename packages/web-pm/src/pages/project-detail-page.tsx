@@ -29,6 +29,8 @@ import {
   reopenProject,
 } from '../api/pm-client.ts';
 import { pmKeys } from '../state/query-keys.ts';
+import { ProjectAccessSection } from './project-access-section.tsx';
+import { StaffingPlanSection } from './staffing-plan-section.tsx';
 
 const PHASES = ['initiation', 'discovery', 'execution', 'stabilize', 'uat', 'closed'] as const;
 const STATUSES = ['active', 'on_hold', 'closed'] as const;
@@ -335,6 +337,13 @@ export function ProjectDetailPage() {
             </CardContent>
           </Card>
         )}
+
+        <Card>
+          <CardContent className="space-y-6 pt-6">
+            <StaffingPlanSection projectId={projectId} canManage={canManage} />
+            <ProjectAccessSection projectId={projectId} canManage={canManage} />
+          </CardContent>
+        </Card>
       </div>
     </PageChrome>
   );
