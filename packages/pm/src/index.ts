@@ -2,10 +2,18 @@ export { createAccount } from './backend/domain/create-account.ts';
 export { approveCharter, rejectCharter } from './backend/domain/decide-charter.ts';
 export { editAccount } from './backend/domain/edit-account.ts';
 export { editCharter } from './backend/domain/edit-charter.ts';
+export {
+  closeProject,
+  editProject,
+  linkPlannerGroup,
+  reopenProject,
+} from './backend/domain/edit-project.ts';
 export type { AccountListRow } from './backend/domain/read-accounts.ts';
 export { getAccount, listAccounts } from './backend/domain/read-accounts.ts';
 export type { CharterListRow } from './backend/domain/read-charters.ts';
 export { getCharter, listCharters } from './backend/domain/read-charters.ts';
+export type { ProjectListRow } from './backend/domain/read-projects.ts';
+export { getProject, listProjects } from './backend/domain/read-projects.ts';
 export { setAccountRecruiters } from './backend/domain/set-account-recruiters.ts';
 export { submitCharter } from './backend/domain/submit-charter.ts';
 export { withdrawCharter } from './backend/domain/withdraw-charter.ts';
@@ -13,6 +21,7 @@ export type {
   CreateAccountInput,
   EditAccountInput,
   EditCharterInput,
+  EditProjectInput,
   RejectCharterInput,
   SetAccountRecruitersInput,
   SubmitCharterInput,
