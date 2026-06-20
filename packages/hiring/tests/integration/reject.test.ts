@@ -179,7 +179,7 @@ describe('rejectApplication', () => {
             input: { reason_id: crypto.randomUUID(), tags: [] },
             session: t.adminSession,
           }),
-        ).rejects.toThrow();
+        ).rejects.toMatchObject({ code: 'VALIDATION' });
       } finally {
         resetHiringDb();
         resetCoreDb();
