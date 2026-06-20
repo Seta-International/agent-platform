@@ -37,7 +37,15 @@ export async function editAccount(
     async (tx) => {
       const set: Record<string, unknown> = { version: nextVersion, updated_at: new Date() };
       for (const [f, v] of changes) set[f] = v;
-      await tx.update(account).set(set).where(eq(account.id, account_id));
+      // Guards the read→update window: 0 rows means a concurrent write committed between our SELECT and this UPDATE.
+      const updated = await tx
+        .update(account)
+        .set(set)
+        .where(and(eq(account.id, account_id), eq(account.version, current.version)))
+        .returning({ id: account.id });
+      if (updated.length === 0) {
+        throw new PmError('CONFLICT', 'account was modified concurrently');
+      }
       await emit({
         tenantId: session.tenant_id,
         aggregateType: 'pm.account',
