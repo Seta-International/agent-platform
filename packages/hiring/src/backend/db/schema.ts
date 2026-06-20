@@ -184,6 +184,65 @@ export const candidate = hiringSchema.table('candidate', {
   updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
+export const candidateSkill = hiringSchema.table(
+  'candidate_skill',
+  {
+    tenant_id: uuid('tenant_id').notNull(),
+    candidate_id: uuid('candidate_id').notNull(),
+    skill_id: uuid('skill_id').notNull(),
+    skill_name: text('skill_name').notNull(),
+    level: integer('level'),
+  },
+  (t) => [
+    primaryKey({ columns: [t.candidate_id, t.skill_id] }),
+    index('candidate_skill_by_skill').on(t.tenant_id, t.skill_id),
+    check('candidate_skill_level_check', sql`level IS NULL OR level BETWEEN 0 AND 5`),
+  ],
+);
+
+export const rejectionReason = hiringSchema.table(
+  'rejection_reason',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenant_id: uuid('tenant_id').notNull(),
+    label: text('label').notNull(),
+    category: text('category').notNull(),
+    active: boolean('active').notNull().default(true),
+    version: integer('version').default(1).notNull(),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('rejection_reason_uniq_label').on(t.tenant_id, t.label),
+    check(
+      'rejection_reason_category_check',
+      sql`category IN ('rejected_by_us','withdrew','other')`,
+    ),
+  ],
+);
+
+export const candidateEvent = hiringSchema.table(
+  'candidate_event',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenant_id: uuid('tenant_id').notNull(),
+    candidate_id: uuid('candidate_id').notNull(),
+    application_id: uuid('application_id'),
+    kind: text('kind').notNull(),
+    summary: text('summary').notNull(),
+    detail: jsonb('detail'),
+    actor_user_id: uuid('actor_user_id'),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('candidate_event_by_candidate').on(t.tenant_id, t.candidate_id, t.created_at),
+    check(
+      'candidate_event_kind_check',
+      sql`kind IN ('created','stage_changed','rejected','transferred','rating_changed','note_changed','skills_changed','profile_changed')`,
+    ),
+  ],
+);
+
 export const application = hiringSchema.table(
   'application',
   {
@@ -193,9 +252,15 @@ export const application = hiringSchema.table(
     kind: text('kind').notNull(),
     candidate_id: uuid('candidate_id'),
     worker_id: uuid('worker_id'),
-    stage: text('stage'),
-    status: text('status'),
+    stage: text('stage').notNull().default('new'),
+    status: text('status').notNull().default('active'),
     rating: integer('rating'),
+    rejection_reason_id: uuid('rejection_reason_id'),
+    tags: jsonb('tags').notNull().default(sql`'[]'::jsonb`),
+    note: text('note'),
+    closed_at: timestamp('closed_at', { withTimezone: true }),
+    superseded_by_application_id: uuid('superseded_by_application_id'),
+    version: integer('version').default(1).notNull(),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
@@ -207,7 +272,11 @@ export const application = hiringSchema.table(
       .on(t.tenant_id, t.requisition_id, t.worker_id)
       .where(sql`worker_id IS NOT NULL`),
     index('application_by_requisition').on(t.tenant_id, t.requisition_id),
+    index('application_by_candidate').on(t.tenant_id, t.candidate_id),
     check('application_kind_check', sql`kind IN ('external','internal')`),
+    check('application_stage_check', sql`stage IN ('new','screening','interview','offer')`),
+    check('application_status_check', sql`status IN ('active','hired','rejected','transferred')`),
+    check('application_rating_check', sql`rating IS NULL OR rating BETWEEN 0 AND 5`),
     check(
       'application_one_subject_check',
       sql`(candidate_id IS NOT NULL) <> (worker_id IS NOT NULL)`,
