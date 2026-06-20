@@ -19,6 +19,7 @@ export {
 } from './backend/domain/jd-templates.ts';
 export { openRequisition } from './backend/domain/open-requisition.ts';
 export { addOpening, closeOpening } from './backend/domain/openings.ts';
+export { moveApplicationStage } from './backend/domain/pipeline.ts';
 export {
   getRequisition,
   listRequisitions,
