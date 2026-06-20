@@ -1,7 +1,10 @@
 export {
   addCandidate,
   assertSkillsInCatalog,
+  editCandidate,
   recordCandidateEvent,
+  setApplicationRating,
+  setCandidateSkills,
 } from './backend/domain/candidates.ts';
 export {
   archiveCloseReason,
