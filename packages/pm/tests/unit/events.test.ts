@@ -44,4 +44,28 @@ describe('pm events', () => {
     expect(PM_ACCOUNT_RECRUITER_ASSIGNED).toBe('pm.account.recruiter.assigned');
     expect(PM_ACCOUNT_RECRUITER_UNASSIGNED).toBe('pm.account.recruiter.unassigned');
   });
+
+  it('registers charter + project event schemas', () => {
+    for (const t of [
+      'pm.charter.submitted',
+      'pm.charter.updated',
+      'pm.charter.approved',
+      'pm.charter.rejected',
+      'pm.charter.withdrawn',
+      'pm.project.created',
+      'pm.project.updated',
+      'pm.project.access.changed',
+      'pm.project.staffing_plan.changed',
+    ]) {
+      expect(PM_EVENTS[t as keyof typeof PM_EVENTS]).toBeDefined();
+    }
+    expect(
+      PM_EVENTS['pm.project.created'].safeParse({
+        project_id: crypto.randomUUID(),
+        tenant_id: crypto.randomUUID(),
+        account_id: crypto.randomUUID(),
+        charter_id: crypto.randomUUID(),
+      }).success,
+    ).toBe(true);
+  });
 });
