@@ -1,6 +1,7 @@
-import { createFileRoute } from '@tanstack/react-router';
-import { HiringPage } from '../pages/hiring-page.tsx';
+import { createFileRoute, redirect } from '@tanstack/react-router';
 
 export const Route = createFileRoute('/_authed/hiring/')({
-  component: HiringPage,
+  beforeLoad: () => {
+    throw redirect({ to: '/hiring/requisitions' });
+  },
 });
