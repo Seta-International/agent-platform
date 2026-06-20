@@ -8,7 +8,7 @@ const ctx = {
 };
 
 describe('pm schema', () => {
-  it('migrates the three foundation tables', async () => {
+  it('migrates the four pm tables', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       initPools({ databaseUrl });
       try {
@@ -16,7 +16,12 @@ describe('pm schema', () => {
           `SELECT table_name FROM information_schema.tables
              WHERE table_schema = 'pm' ORDER BY table_name`,
         );
-        expect(r.rows.map((x) => x.table_name)).toEqual(['account', 'allocation', 'project']);
+        expect(r.rows.map((x) => x.table_name)).toEqual([
+          'account',
+          'account_recruiter',
+          'allocation',
+          'project',
+        ]);
       } finally {
         await closePools();
       }
