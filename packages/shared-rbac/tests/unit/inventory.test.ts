@@ -2,6 +2,22 @@ import { describe, expect, it } from 'vitest';
 import { IMPLICIT_PERMISSIONS, INVENTORY, inventoryToManifests } from '../../src/inventory.ts';
 import { canonicalKeys } from '../../src/manifest.ts';
 
+describe('core.skill inventory', () => {
+  it('declares the core.skill resource with read + manage', () => {
+    const core = INVENTORY.find((m) => m.module === 'core');
+    expect(core).toBeDefined();
+    expect(core?.statement['core.skill']).toEqual(['read', 'manage']);
+  });
+
+  it('grants core.admin both verbs', () => {
+    const core = INVENTORY.find((m) => m.module === 'core');
+    const admin = core?.roles.find((r) => r.slug === 'core.admin');
+    expect(admin?.permissions).toEqual(
+      expect.arrayContaining(['core.skill.read', 'core.skill.manage']),
+    );
+  });
+});
+
 describe('rbac inventory', () => {
   it('every role permission exists in its module statement', () => {
     for (const mod of INVENTORY) {
