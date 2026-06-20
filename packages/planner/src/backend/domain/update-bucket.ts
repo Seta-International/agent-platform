@@ -45,12 +45,6 @@ export async function updateBucket(input: {
 
       requirePermission(input.session, 'planner.bucket.update', plan.group_id);
 
-      if (existing.version !== input.expected_version) {
-        throw new PlannerError('CONFLICT', 'Version mismatch', {
-          current_version: existing.version,
-        });
-      }
-
       const before: Partial<{ name: string }> = {};
       const after: Partial<{ name: string }> = {};
       const setFields: { name?: string; updated_at: Date; version: number } = {
@@ -67,9 +61,13 @@ export async function updateBucket(input: {
       const [row] = await tx
         .update(buckets)
         .set(setFields)
-        .where(eq(buckets.id, input.bucket_id))
+        // guard: 0 rows ⇒ the row changed since our read (lost-update prevention)
+        .where(and(eq(buckets.id, input.bucket_id), eq(buckets.version, input.expected_version)))
         .returning();
-      if (!row) throw new PlannerError('VALIDATION', 'Update returned no row');
+      if (!row)
+        throw new PlannerError('CONFLICT', 'Version mismatch', {
+          current_version: existing.version,
+        });
       updated = row;
 
       await emitPlannerBucketUpdated({

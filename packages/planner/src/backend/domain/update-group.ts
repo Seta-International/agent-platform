@@ -50,12 +50,6 @@ export async function updateGroup(input: {
           group_id: input.group_id,
         });
       }
-      if (existing.version !== input.expected_version) {
-        throw new PlannerError('CONFLICT', 'Version mismatch', {
-          current_version: existing.version,
-        });
-      }
-
       const before: Partial<Record<UpdatableField, unknown>> = {};
       const after: Partial<Record<UpdatableField, unknown>> = {};
       const changed_fields: GroupFieldKey[] = [];
@@ -95,9 +89,13 @@ export async function updateGroup(input: {
           updated_at: new Date(),
           version: existing.version + 1,
         })
-        .where(eq(groups.id, input.group_id))
+        // guard: 0 rows ⇒ the row changed since our read (lost-update prevention)
+        .where(and(eq(groups.id, input.group_id), eq(groups.version, input.expected_version)))
         .returning();
-      if (!row) throw new PlannerError('VALIDATION', 'Update returned no row');
+      if (!row)
+        throw new PlannerError('CONFLICT', 'Version mismatch', {
+          current_version: existing.version,
+        });
       resultRow = row;
 
       const isSystemActor = isM365SystemActor(input.session);
