@@ -1,8 +1,17 @@
 import { listSkills, type SessionScope } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
 import { and, eq } from 'drizzle-orm';
-import type { AddCandidateInput, CandidateSkillInput } from '../../contracts.ts';
-import { HIRING_APPLICATION_CREATED, HIRING_CANDIDATE_ADDED } from '../../events.ts';
+import type {
+  AddCandidateInput,
+  CandidateSkillInput,
+  EditCandidatePatch,
+} from '../../contracts.ts';
+import {
+  HIRING_APPLICATION_CREATED,
+  HIRING_APPLICATION_UPDATED,
+  HIRING_CANDIDATE_ADDED,
+  HIRING_CANDIDATE_UPDATED,
+} from '../../events.ts';
 import { hiringDb } from '../db/client.ts';
 import {
   application,
@@ -148,4 +157,162 @@ export async function addCandidate(
     },
   );
   return result;
+}
+
+export async function editCandidate(input: {
+  candidate_id: string;
+  patch: EditCandidatePatch;
+  session: SessionScope;
+}): Promise<{ ok: true }> {
+  const { session, candidate_id, patch } = input;
+  requirePermission(session, 'hiring.candidate.manage');
+  const [cur] = await hiringDb()
+    .select()
+    .from(candidate)
+    .where(and(eq(candidate.id, candidate_id), tenantScoped(candidate.tenant_id, session)))
+    .limit(1);
+  if (!cur) throw new HiringError('NOT_FOUND', 'candidate not found');
+  const contact = {
+    email: patch.email ?? (cur.contact as { email?: string } | null)?.email ?? null,
+    phone: patch.phone ?? (cur.contact as { phone?: string } | null)?.phone ?? null,
+  };
+  await withEmit(
+    { actor: { userId: session.user_id, tenantId: session.tenant_id } },
+    async (tx) => {
+      await tx
+        .update(candidate)
+        .set({
+          name: patch.name ?? cur.name,
+          source: patch.source ?? cur.source,
+          contact,
+          dob: patch.dob ?? cur.dob,
+          gender: patch.gender ?? cur.gender,
+          seniority: patch.seniority ?? cur.seniority,
+          segment: patch.segment ?? cur.segment,
+          updated_at: new Date(),
+        })
+        .where(and(eq(candidate.id, candidate_id), tenantScoped(candidate.tenant_id, session)));
+      const fields = Object.keys(patch);
+      await recordCandidateEvent(tx, {
+        session,
+        candidate_id,
+        kind: fields.includes('note') && fields.length === 1 ? 'note_changed' : 'profile_changed',
+        summary: `Profile updated (${fields.join(', ')})`,
+        detail: { fields },
+      });
+      await emit({
+        tenantId: session.tenant_id,
+        aggregateType: 'hiring.candidate',
+        aggregateId: candidate_id,
+        eventType: HIRING_CANDIDATE_UPDATED,
+        eventVersion: 1,
+        payload: { candidate_id, tenant_id: session.tenant_id, fields },
+      });
+    },
+  );
+  return { ok: true };
+}
+
+export async function setCandidateSkills(input: {
+  candidate_id: string;
+  skills: CandidateSkillInput[];
+  session: SessionScope;
+}): Promise<{ ok: true }> {
+  const { session, candidate_id, skills } = input;
+  requirePermission(session, 'hiring.candidate.manage');
+  await assertSkillsInCatalog(session, skills);
+  const [cur] = await hiringDb()
+    .select({ id: candidate.id })
+    .from(candidate)
+    .where(and(eq(candidate.id, candidate_id), tenantScoped(candidate.tenant_id, session)))
+    .limit(1);
+  if (!cur) throw new HiringError('NOT_FOUND', 'candidate not found');
+  await withEmit(
+    { actor: { userId: session.user_id, tenantId: session.tenant_id } },
+    async (tx) => {
+      await tx
+        .delete(candidateSkill)
+        .where(
+          and(
+            eq(candidateSkill.candidate_id, candidate_id),
+            tenantScoped(candidateSkill.tenant_id, session),
+          ),
+        );
+      if (skills.length) {
+        await tx.insert(candidateSkill).values(
+          skills.map((s) => ({
+            tenant_id: session.tenant_id,
+            candidate_id,
+            skill_id: s.skill_id,
+            skill_name: s.skill_name,
+            level: s.level,
+          })),
+        );
+      }
+      await recordCandidateEvent(tx, {
+        session,
+        candidate_id,
+        kind: 'skills_changed',
+        summary: `Skills updated (${skills.length})`,
+      });
+      await emit({
+        tenantId: session.tenant_id,
+        aggregateType: 'hiring.candidate',
+        aggregateId: candidate_id,
+        eventType: HIRING_CANDIDATE_UPDATED,
+        eventVersion: 1,
+        payload: { candidate_id, tenant_id: session.tenant_id, fields: ['skills'] },
+      });
+    },
+  );
+  return { ok: true };
+}
+
+export async function setApplicationRating(input: {
+  application_id: string;
+  expected_version?: number;
+  rating: number;
+  session: SessionScope;
+}): Promise<{ version: number }> {
+  const { session, application_id } = input;
+  requirePermission(session, 'hiring.candidate.manage');
+  const [cur] = await hiringDb()
+    .select({ version: application.version, candidate_id: application.candidate_id })
+    .from(application)
+    .where(and(eq(application.id, application_id), tenantScoped(application.tenant_id, session)))
+    .limit(1);
+  if (!cur) throw new HiringError('NOT_FOUND', 'application not found');
+  if (input.expected_version !== undefined && input.expected_version !== cur.version)
+    throw new HiringError('CONFLICT', 'version mismatch');
+  const next = cur.version + 1;
+  await withEmit(
+    { actor: { userId: session.user_id, tenantId: session.tenant_id } },
+    async (tx) => {
+      const updated = await tx
+        .update(application)
+        .set({ rating: input.rating, version: next, updated_at: new Date() })
+        .where(and(eq(application.id, application_id), eq(application.version, cur.version)))
+        .returning({ id: application.id });
+      if (updated.length === 0)
+        throw new HiringError('CONFLICT', 'application was modified concurrently');
+      if (cur.candidate_id) {
+        await recordCandidateEvent(tx, {
+          session,
+          candidate_id: cur.candidate_id,
+          application_id,
+          kind: 'rating_changed',
+          summary: `Rating set to ${input.rating}`,
+        });
+      }
+      await emit({
+        tenantId: session.tenant_id,
+        aggregateType: 'hiring.application',
+        aggregateId: application_id,
+        eventType: HIRING_APPLICATION_UPDATED,
+        eventVersion: 1,
+        payload: { application_id, tenant_id: session.tenant_id, fields: ['rating'] },
+      });
+    },
+  );
+  return { version: next };
 }
