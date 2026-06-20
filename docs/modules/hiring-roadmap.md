@@ -1,0 +1,34 @@
+# Hiring — Roadmap
+
+Concise delivery tracker for the Hiring module. The canonical scope/sequencing is [`hiring-prd.md`](hiring-prd.md) — on any disagreement the PRD wins; this page only tracks **status**.
+
+**Status:** ✅ done (merged to `module/hiring`) · 🔵 in review · 🟡 in progress · ⬜ backlog
+
+**Now:** HIR-2 Requisition CRUD + JD.
+**Critical path:** HIR-1 → HIR-2 (requisition CRUD/JD) → candidates & pipeline → interviews → offers.
+
+## Slice status
+
+| Area (PRD §) | Slice | Status |
+|---|---|---|
+| Foundation | HIR-1 Module foundation (schema, org-isolation, events, RBAC, web scaffold) | ✅ |
+| 7.1 Requisitions | HIR-2 Requisition CRUD + JD | ⬜ |
+| 7.2 Candidates & pipeline | Candidate records, sourcing, pipeline stages | ⬜ |
+| 7.3 Interviews | Scheduling, scorecards, feedback | ⬜ |
+| 7.4 Offers | Offer drafting, approval, accept/decline | ⬜ |
+| 7.5 Internal mobility | Internal applications, worker-subject applications | ⬜ |
+| 7.6 One-seat fulfillment | Requisition → hire close-out | ⬜ |
+| 7.7 Recruitment reports | Funnel, time-to-fill, source metrics | ⬜ |
+| 7.8 Recruitment insight (KB) | Knowledge-base-backed insight | ⬜ |
+| 7.9 Documents | CV / offer document vault | ⬜ |
+| 7.10 Protection & audit | Sensitive-field masking, scope re-check | ⬜ |
+| 7.11 Assistant integration | Hiring assistant tools | ⬜ |
+
+## Recently shipped
+
+- **HIR-1** Module foundation: the three foundation tables (`requisition`/`candidate`/`application`) with the FK-free cross-module-uuid pattern and the unified-application one-subject CHECK; application-layer tenant isolation; the `hiring.requisition.opened` domain event proven through the `core` outbox with an atomicity test; RBAC tiers (strategic/recruiter/viewer) wired into the authoritative inventory; the inbound-subscriber framework; and the `web-hiring` placeholder launcher app.
+
+## Pointers
+
+- Active specs/plans: `docs/superpowers/specs|plans/2026-06-19-hiring-hir1-*.md` (local working docs, not committed).
+- Requirements: [`hiring-prd.md`](hiring-prd.md).
