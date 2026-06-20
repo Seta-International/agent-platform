@@ -1,5 +1,6 @@
 export { editRequisition } from './backend/domain/edit-requisition.ts';
 export { openRequisition } from './backend/domain/open-requisition.ts';
+export { addOpening, closeOpening } from './backend/domain/openings.ts';
 export {
   getRequisition,
   listRequisitions,
