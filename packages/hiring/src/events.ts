@@ -3,7 +3,6 @@ import { z } from 'zod';
 export const requisitionOpenedPayload = z.object({
   requisition_id: z.string().uuid(),
   tenant_id: z.string().uuid(),
-  resource_request_id: z.string().uuid().optional(),
 });
 export type RequisitionOpenedPayload = z.infer<typeof requisitionOpenedPayload>;
 

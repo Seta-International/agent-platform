@@ -22,8 +22,6 @@ export async function openRequisition(
           role_title: input.role_title,
           grade: input.grade,
           account_id: input.account_id,
-          resource_request_id: input.resource_request_id,
-          position_id: input.position_id,
           owner_user_id: input.session.user_id,
         })
         .returning();
@@ -38,7 +36,6 @@ export async function openRequisition(
         payload: {
           requisition_id: row.id,
           tenant_id: input.session.tenant_id,
-          resource_request_id: input.resource_request_id,
         },
       });
     },
