@@ -54,6 +54,7 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const canApprove = usePermission('pm.charter.approve');
+  const canSubmit = usePermission('pm.charter.submit');
   const { user_id: currentUserId } = useSession();
 
   const [rejecting, setRejecting] = useState(false);
@@ -150,7 +151,8 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
   }
 
   const showApproveReject = canApprove && c.status === 'submitted';
-  const showWithdraw = c.status === 'submitted' && currentUserId === c.submitted_by_user_id;
+  const showWithdraw =
+    c.status === 'submitted' && canSubmit && currentUserId === c.submitted_by_user_id;
 
   const headerActions =
     showApproveReject || showWithdraw ? (

@@ -121,6 +121,7 @@ export function ProjectDetailPage() {
     onSuccess: () => {
       toast.success('Board created & linked');
       invalidate();
+      void queryClient.invalidateQueries({ queryKey: ['planner', 'groups'] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
