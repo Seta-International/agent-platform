@@ -319,4 +319,77 @@ describe('pm charters + projects HTTP', () => {
       }
     });
   });
+
+  it('DELETE staffing-plan line with stale expected_version → 409; invalid value → 400', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const app = appFor(t.adminSession);
+
+        const acctRes = await app.request('/api/pm/v1/accounts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: 'Guard Client' }),
+        });
+        const { account_id } = (await acctRes.json()) as { account_id: string };
+
+        const submitRes = await app.request('/api/pm/v1/charters', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            account_id,
+            name: 'Guard Proj',
+            pm_worker_id: t.admin_user_id,
+            methodology: 'scrum',
+            pricing_model: 'fixed_price',
+            budget_bmm: 10,
+          }),
+        });
+        const { charter_id } = (await submitRes.json()) as { charter_id: string };
+        const approveRes = await app.request(`/api/pm/v1/charters/${charter_id}/approve`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        });
+        const { project_id } = (await approveRes.json()) as { project_id: string };
+
+        const upsertRes = await app.request(`/api/pm/v1/projects/${project_id}/staffing-plan`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ role: 'QA', effort_mm: 1 }),
+        });
+        const { line_id } = (await upsertRes.json()) as { line_id: string };
+
+        // 400 — invalid expected_version query param
+        const badVersionRes = await app.request(
+          `/api/pm/v1/projects/${project_id}/staffing-plan/${line_id}?expected_version=abc`,
+          { method: 'DELETE' },
+        );
+        expect(badVersionRes.status).toBe(400);
+
+        // 409 — stale expected_version (line is at version 1, we send 99)
+        const staleRes = await app.request(
+          `/api/pm/v1/projects/${project_id}/staffing-plan/${line_id}?expected_version=99`,
+          { method: 'DELETE' },
+        );
+        expect(staleRes.status).toBe(409);
+
+        // correct version deletes successfully
+        const okRes = await app.request(
+          `/api/pm/v1/projects/${project_id}/staffing-plan/${line_id}?expected_version=1`,
+          { method: 'DELETE' },
+        );
+        expect(okRes.status).toBe(200);
+        const okBody = (await okRes.json()) as { deleted: boolean };
+        expect(okBody.deleted).toBe(true);
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
 });

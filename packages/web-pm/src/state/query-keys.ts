@@ -6,4 +6,6 @@ export const pmKeys = {
   charter: (id: string) => [...pmKeys.all, 'charter', id] as const,
   projects: () => [...pmKeys.all, 'projects'] as const,
   project: (id: string) => [...pmKeys.all, 'project', id] as const,
+  staffingPlan: (id: string) => [...pmKeys.all, 'project', id, 'staffing-plan'] as const,
+  projectAccess: (id: string) => [...pmKeys.all, 'project', id, 'access'] as const,
 };
