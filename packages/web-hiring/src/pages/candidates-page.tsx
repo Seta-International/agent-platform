@@ -1,3 +1,4 @@
+import { DragDropContext, Draggable, Droppable, type DropResult } from '@hello-pangea/dnd';
 import {
   Alert,
   AlertDescription,
@@ -6,17 +7,42 @@ import {
   Input,
   PageChrome,
   SegmentedControl,
+  toast,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { type CandidateListItem, fetchCandidates } from '../api/hiring-client.ts';
+import {
+  type CandidateListItem,
+  fetchCandidates,
+  moveApplicationStage,
+} from '../api/hiring-client.ts';
 import { hiringKeys } from '../state/query-keys.ts';
 import { CandidateCard } from './candidate-card.tsx';
 import { CandidateDetailDrawer } from './candidate-detail-drawer.tsx';
-import { BOARD_COLUMNS, boardColumns, fitLabel } from './candidate-utils.ts';
+import { BOARD_COLUMNS, boardColumns, fitLabel, resolveStageDrop } from './candidate-utils.ts';
 import { NewCandidateDialog } from './new-candidate-dialog.tsx';
+import { on409 } from './utils.ts';
+
+export function onBoardDragEnd(
+  items: CandidateListItem[],
+  mutate: (move: {
+    application_id: string;
+    to: import('../api/hiring-client.ts').CandStage;
+    expected_version: number;
+  }) => void,
+) {
+  return (result: DropResult) => {
+    const move = resolveStageDrop({
+      draggableId: result.draggableId,
+      source: result.source.droppableId,
+      destination: result.destination?.droppableId ?? null,
+      items,
+    });
+    if (move) mutate(move);
+  };
+}
 
 export function CandidatesPage() {
   const canCreate = usePermission('hiring.candidate.create');
@@ -47,6 +73,23 @@ export function CandidatesPage() {
     for (const c of data ?? []) seen.set(c.requisition_id, c.requisition_title);
     return [...seen.entries()];
   }, [data]);
+
+  const queryClient = useQueryClient();
+  const canManage = usePermission('hiring.candidate.manage');
+  const stageMove = useMutation({
+    mutationFn: (m: {
+      application_id: string;
+      to: 'new' | 'screening' | 'interview' | 'offer';
+      expected_version: number;
+    }) =>
+      moveApplicationStage(m.application_id, { expected_version: m.expected_version, to: m.to }),
+    onSuccess: () => {
+      toast.success('Stage updated');
+      void queryClient.invalidateQueries({ queryKey: hiringKeys.candidates() });
+    },
+    onError: (e: Error) => on409(e, queryClient, hiringKeys.candidates()),
+  });
+  const handleDragEnd = onBoardDragEnd(rows, (m) => stageMove.mutate(m));
 
   const groups = boardColumns(rows);
   const inPipeline = rows.filter((c) => c.status === 'active').length;
@@ -173,26 +216,52 @@ export function CandidatesPage() {
             onRowClick={(row) => setSelected(row.original.candidate_id)}
           />
         ) : (
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-5">
-            {BOARD_COLUMNS.map((col) => (
-              <div key={col.id} className="rounded-lg border border-hairline bg-surface-2 p-2">
-                <div className="mb-2 flex items-center justify-between px-1">
-                  <span className="text-caption font-semibold uppercase text-ink-muted">
-                    {col.label}
-                  </span>
-                  <span className="text-caption text-ink-muted">{groups[col.id].length}</span>
-                </div>
-                <div className="space-y-2">
-                  {groups[col.id].map((item) => (
-                    <CandidateCard key={item.application_id} item={item} onSelect={setSelected} />
-                  ))}
-                  {groups[col.id].length === 0 && (
-                    <div className="px-1 py-4 text-center text-caption text-ink-muted">—</div>
+          <DragDropContext onDragEnd={handleDragEnd}>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-5">
+              {BOARD_COLUMNS.map((col) => (
+                <Droppable
+                  key={col.id}
+                  droppableId={col.id}
+                  isDropDisabled={col.id === 'hired' || !canManage}
+                >
+                  {(provided) => (
+                    <div
+                      ref={provided.innerRef}
+                      {...provided.droppableProps}
+                      className="rounded-lg border border-hairline bg-surface-2 p-2"
+                    >
+                      <div className="mb-2 flex items-center justify-between px-1">
+                        <span className="text-caption font-semibold uppercase text-ink-muted">
+                          {col.label}
+                        </span>
+                        <span className="text-caption text-ink-muted">{groups[col.id].length}</span>
+                      </div>
+                      <div className="space-y-2">
+                        {groups[col.id].map((item, idx) => (
+                          <Draggable
+                            key={item.application_id}
+                            draggableId={item.application_id}
+                            index={idx}
+                            isDragDisabled={!canManage}
+                          >
+                            {(dp) => (
+                              <div ref={dp.innerRef} {...dp.draggableProps} {...dp.dragHandleProps}>
+                                <CandidateCard item={item} onSelect={setSelected} />
+                              </div>
+                            )}
+                          </Draggable>
+                        ))}
+                        {groups[col.id].length === 0 && (
+                          <div className="px-1 py-4 text-center text-caption text-ink-muted">—</div>
+                        )}
+                        {provided.placeholder}
+                      </div>
+                    </div>
                   )}
-                </div>
-              </div>
-            ))}
-          </div>
+                </Droppable>
+              ))}
+            </div>
+          </DragDropContext>
         )}
       </div>
       <CandidateDetailDrawer candidateId={selected} onClose={() => setSelected(null)} />
