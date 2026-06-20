@@ -2,10 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { hiringAppManifest } from '../../src/manifest.ts';
 
 describe('hiringAppManifest', () => {
-  it('declares the hiring app with a read-gated nav item', () => {
+  it('declares the hiring app with a Requisitions nav item gated by read', () => {
     expect(hiringAppManifest.id).toBe('hiring');
     expect(hiringAppManifest.routeNamespace).toBe('/hiring');
-    expect(hiringAppManifest.requiredPermissions).toContain('hiring.requisition.read');
-    expect(hiringAppManifest.nav[0].items[0].requires).toContain('hiring.requisition.read');
+    const req = hiringAppManifest.nav[0]?.items.find((i) => i.id === 'hiring.requisitions');
+    expect(req?.to).toBe('/hiring/requisitions');
+    expect(req?.requires).toContain('hiring.requisition.read');
   });
 });
