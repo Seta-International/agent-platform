@@ -75,7 +75,7 @@ describe('transferApplication', () => {
     });
   });
 
-  it('rejects a transfer when the candidate already has an active application on the target', async () => {
+  it('rejects with CONFLICT when the same candidate already has an active application on the target', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetHiringDb();
@@ -88,39 +88,52 @@ describe('transferApplication', () => {
           headcount: 1,
           session: t.adminSession,
         });
-        const { application_id, candidate_id } = await addCandidate({
-          requisition_id: r1.requisition_id,
-          name: 'C',
-          session: t.adminSession,
-        });
-        // give the same candidate an active app on r2 directly via a transfer, then try to transfer back
         const r2 = await openRequisition({
           title: 'R2',
           kind: 'new',
           headcount: 1,
           session: t.adminSession,
         });
+        const r3 = await openRequisition({
+          title: 'R3',
+          kind: 'new',
+          headcount: 1,
+          session: t.adminSession,
+        });
+        const { application_id, candidate_id } = await addCandidate({
+          requisition_id: r1.requisition_id,
+          name: 'C',
+          session: t.adminSession,
+        });
+        // transfer C's r1 app to r2 — candidate now has an active app on r2
         await transferApplication({
           application_id,
           expected_version: 1,
           input: { target_requisition_id: r2.requisition_id },
           session: t.adminSession,
         });
-        // now candidate has an active app on r2; create a fresh active app on r1 and transfer to r2 -> conflict
-        const second = await addCandidate({
-          requisition_id: r1.requisition_id,
-          name: 'C2',
-          session: t.adminSession,
-        });
-        expect(second.candidate_id).not.toBe(candidate_id);
-        // transfer the r2 active app's candidate is the conflict case; assert duplicate-active guard via a second transfer to r2
-        const onR1Again = await transferApplication({
-          application_id: second.application_id,
-          expected_version: 1,
-          input: { target_requisition_id: r2.requisition_id },
-          session: t.adminSession,
-        });
-        expect(onR1Again.to_application_id).toBeDefined();
+        // directly insert a second active app for the same candidate on r3
+        const [r3App] = await hiringDb()
+          .insert(application)
+          .values({
+            tenant_id: t.adminSession.tenant_id,
+            requisition_id: r3.requisition_id,
+            kind: 'external',
+            candidate_id,
+            stage: 'new',
+            status: 'active',
+          })
+          .returning({ id: application.id, version: application.version });
+        if (!r3App) throw new Error('setup: r3 application insert returned no row');
+        // attempt to transfer C's r3 app to r2 (C already has active on r2) — must throw CONFLICT
+        await expect(
+          transferApplication({
+            application_id: r3App.id,
+            expected_version: r3App.version,
+            input: { target_requisition_id: r2.requisition_id },
+            session: t.adminSession,
+          }),
+        ).rejects.toMatchObject({ code: 'CONFLICT' });
       } finally {
         resetHiringDb();
         resetCoreDb();
