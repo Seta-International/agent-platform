@@ -22,6 +22,13 @@ export {
   CORE_SKILL_EVENTS,
   CORE_SKILL_UPDATED,
 } from './backend/skills/events.ts';
+export {
+  archiveSkill,
+  createSkill,
+  editSkill,
+  listSkills,
+  type SkillRow,
+} from './backend/skills/skills.ts';
 export { captureException, registerErrorCapture } from './composition/error-capture.ts';
 export { buildHonoApp } from './composition/hono-app.ts';
 export {
