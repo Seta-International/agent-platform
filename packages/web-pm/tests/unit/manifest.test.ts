@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { pmAppManifest } from '../../src/index.ts';
+import { pmAppManifest } from '../../src/manifest.ts';
 
 describe('pmAppManifest', () => {
-  it('owns the /pm route namespace', () => {
+  it('declares the pm app with a read-gated nav item', () => {
+    expect(pmAppManifest.id).toBe('pm');
     expect(pmAppManifest.routeNamespace).toBe('/pm');
-  });
-
-  it('declares at least one nav section', () => {
-    expect(pmAppManifest.nav.length).toBeGreaterThan(0);
+    expect(pmAppManifest.requiredPermissions).toContain('pm.account.read');
+    expect(pmAppManifest.nav[0].items[0].requires).toContain('pm.account.read');
   });
 });
