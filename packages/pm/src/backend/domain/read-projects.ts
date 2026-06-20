@@ -37,7 +37,13 @@ export async function getProject(input: { project_id: string; session: SessionSc
   const [p] = await pmDb()
     .select()
     .from(project)
-    .where(and(eq(project.id, project_id), tenantScoped(project.tenant_id, session)))
+    .where(
+      and(
+        eq(project.id, project_id),
+        tenantScoped(project.tenant_id, session),
+        isNull(project.deleted_at),
+      ),
+    )
     .limit(1);
   if (!p) throw new PmError('NOT_FOUND', 'project not found');
   return {
