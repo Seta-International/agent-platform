@@ -83,4 +83,112 @@ describe('read candidates', () => {
       }
     });
   });
+
+  it('excludes active-application candidates from talent pool', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetHiringDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const { requisition_id } = await openRequisition({
+          title: 'Active Req',
+          kind: 'new',
+          headcount: 1,
+          session: t.adminSession,
+        });
+        const { candidate_id } = await addCandidate({
+          requisition_id,
+          name: 'Bob',
+          skills: [],
+          session: t.adminSession,
+        });
+
+        // candidate has an active application — must NOT appear in the talent pool
+        const talentPool = await listTalentPool(t.adminSession);
+        expect(talentPool.some((p) => p.candidate_id === candidate_id)).toBe(false);
+      } finally {
+        resetHiringDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('talent pool row carries terminal last_status and fit-based recommendations', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetHiringDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const catSession = {
+          ...t.adminSession,
+          permissions: new Set([...t.adminSession.permissions, 'core.skill.manage']),
+        };
+        const cat = await createSkillCategory({ input: { name: 'BE' }, session: catSession });
+        const node = await createSkill({
+          input: { category_id: cat.id, name: 'Node' },
+          session: catSession,
+        });
+
+        // requisition 1 — candidate applied to and was rejected from
+        const { requisition_id: req1 } = await openRequisition({
+          title: 'BE Engineer',
+          kind: 'new',
+          headcount: 1,
+          session: t.adminSession,
+        });
+        await setRequisitionSkills({
+          requisition_id: req1,
+          skills: [{ skill_id: node.id, skill_name: 'Node', min_level: 2 }],
+          session: t.adminSession,
+        });
+        const { candidate_id, application_id } = await addCandidate({
+          requisition_id: req1,
+          name: 'Carol',
+          skills: [{ skill_id: node.id, skill_name: 'Node', level: 3 }],
+          session: t.adminSession,
+        });
+        const reason = await createRejectionReason({
+          input: { label: 'Salary mismatch', category: 'other' },
+          session: t.adminSession,
+        });
+        await rejectApplication({
+          application_id,
+          expected_version: 1,
+          input: { reason_id: reason.id, tags: [] },
+          session: t.adminSession,
+        });
+
+        // requisition 2 — open with matching skill, should appear in recommendations
+        const { requisition_id: req2 } = await openRequisition({
+          title: 'Senior BE',
+          kind: 'new',
+          headcount: 1,
+          session: t.adminSession,
+        });
+        await setRequisitionSkills({
+          requisition_id: req2,
+          skills: [{ skill_id: node.id, skill_name: 'Node', min_level: 1 }],
+          session: t.adminSession,
+        });
+
+        const talentPool = await listTalentPool(t.adminSession);
+        const poolRow = talentPool.find((p) => p.candidate_id === candidate_id);
+        expect(poolRow).toBeDefined();
+        expect(poolRow?.last_status).toBe('rejected');
+        expect(Array.isArray(poolRow?.recommended)).toBe(true);
+        // req2 has overlapping skills — must surface in recommended
+        expect(poolRow?.recommended.some((r) => r.requisition_id === req2)).toBe(true);
+        const rec = poolRow?.recommended.find((r) => r.requisition_id === req2);
+        expect(rec?.fit).toBeDefined();
+        expect(typeof rec?.fit.score).toBe('number');
+      } finally {
+        resetHiringDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
 });
