@@ -36,6 +36,7 @@ import { registerDiscoverRoute } from './routes/discover.ts';
 import { registerEnabledModulesRoute } from './routes/enabled-modules.ts';
 import { registerMeRoute } from './routes/me.ts';
 import { registerObservabilityRoutes } from './routes/observability.ts';
+import { registerPerformanceDashboardRoutes } from './routes/performance-dashboard.ts';
 
 export type BuildServerAppDeps = {
   pool: Pool;
@@ -232,6 +233,7 @@ export function buildServerApp(
 
   // Cross-cutting protected routes that stay in apps/server.
   registerMeRoute(app);
+  registerPerformanceDashboardRoutes(app);
   registerEnabledModulesRoute(app, reg);
   if (process.env.NODE_ENV !== 'production') {
     // dev-only: session impersonation tool for the floating DevToolkit

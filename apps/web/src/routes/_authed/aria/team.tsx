@@ -1,6 +1,8 @@
 import { Badge, PageChrome } from '@seta/shared-ui';
+import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
-import { AlertTriangle, Lock, TrendingDown, Users } from 'lucide-react';
+import { AlertTriangle, Loader2, Lock, TrendingDown, Users } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import {
   Bar,
   BarChart,
@@ -17,13 +19,23 @@ import {
   YAxis,
   ZAxis,
 } from 'recharts';
-import { EMPLOYEES, SCORE_THRESHOLDS } from '@/modules/aria/mock-data.ts';
-import { TimeRangeFilter, useTimeRange } from '@/modules/aria/TimeRangeFilter.tsx';
+import {
+  type AtRiskMember,
+  ForbiddenError,
+  fetchPeriods,
+  fetchTeamDashboard,
+  type RiskFlag,
+  type TeamDashboard,
+} from '@/modules/aria/api/client.ts';
+import { PeriodFilter } from '@/modules/aria/PeriodFilter.tsx';
 import { usePermission } from '@/modules/identity/components/Can.tsx';
 
 export const Route = createFileRoute('/_authed/aria/team')({
   component: TeamPage,
 });
+
+// Score colour thresholds — dashboard display config (mirrors the spec's SCORE_THRESHOLDS).
+const SCORE_THRESHOLDS = { excellent: 4.5, good: 3.5, watch: 2.8 } as const;
 
 // Hardcoded hex — CSS vars don't resolve inside recharts SVG
 const C = {
@@ -38,54 +50,18 @@ const C = {
   surface3: '#23252a',
 } as const;
 
-const ACTIVE = EMPLOYEES.filter((e) => e.status === 'Active');
-const DECLINERS = ACTIVE.filter((e) => e.score_t4 < e.score_t3);
-const HIGH_RISK = ACTIVE.filter((e) => e.risk_flag === 'High');
-const WATCH = ACTIVE.filter((e) => e.risk_flag === 'Watch');
-const BENCH = ACTIVE.filter((e) => e.allocation_status === 'Bench');
-const OVERLOADED = ACTIVE.filter((e) => e.allocation_status === 'Overloaded');
-const AVG_SCORE = ACTIVE.reduce((s, e) => s + e.avg_score, 0) / ACTIVE.length;
+interface QuadrantPoint {
+  x: number;
+  y: number;
+  z: number;
+  id: string;
+  role: string;
+  risk: RiskFlag;
+}
 
-const RISK_QUADRANT = ACTIVE.map((e) => ({
-  x: parseFloat((e.readiness * 100).toFixed(1)),
-  y: parseFloat(e.avg_score.toFixed(2)),
-  z: e.risk_flag === 'High' ? 120 : e.risk_flag === 'Watch' ? 80 : 50,
-  id: e.id,
-  role: e.role,
-  risk: e.risk_flag,
-}));
-
-const DEPT_SCORES = Object.entries(
-  ACTIVE.reduce<Record<string, number[]>>((acc, e) => {
-    const key = e.dept.replace('IT - ', '').replace('Admin - ', '');
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(e.avg_score);
-    return acc;
-  }, {}),
-)
-  .map(([dept, scores]) => ({
-    dept,
-    avg: parseFloat((scores.reduce((s, v) => s + v, 0) / scores.length).toFixed(2)),
-    count: scores.length,
-  }))
-  .sort((a, b) => b.avg - a.avg);
-
-const ALLOC_PIE = [
-  {
-    name: 'Active',
-    value: ACTIVE.filter((e) => e.allocation_status === 'Active').length,
-    color: C.primary,
-  },
-  { name: 'Bench', value: BENCH.length, color: C.subtle },
-  { name: 'Overloaded', value: OVERLOADED.length, color: C.warning },
-];
-
-const RISK_ROWS = [...HIGH_RISK, ...WATCH]
-  .sort((a, b) => {
-    const order: Record<string, number> = { High: 0, Watch: 1 };
-    return (order[a.risk_flag] ?? 2) - (order[b.risk_flag] ?? 2);
-  })
-  .slice(0, 12);
+function stripDept(dept: string): string {
+  return dept.replace('IT - ', '').replace('Admin - ', '');
+}
 
 function riskBadge(flag: string) {
   if (flag === 'High') return <Badge variant="destructive">High</Badge>;
@@ -122,7 +98,7 @@ function QuadrantTooltip({
   payload,
 }: {
   active?: boolean;
-  payload?: { payload: (typeof RISK_QUADRANT)[0] }[];
+  payload?: { payload: QuadrantPoint }[];
 }) {
   if (!active || !payload?.[0]) return null;
   const d = payload[0].payload;
@@ -182,258 +158,375 @@ function deptBarColor(avg: number): string {
   return C.danger;
 }
 
+function LockScreen({ message }: { message: string }) {
+  return (
+    <div className="page-container py-16 flex flex-col items-center gap-3 text-center">
+      <Lock className="size-8 text-ink-subtle" />
+      <p className="text-body-sm text-ink-muted">{message}</p>
+    </div>
+  );
+}
+
+interface TeamView {
+  data: TeamDashboard;
+  quadrant: QuadrantPoint[];
+  deptScores: { dept: string; avg: number; count: number }[];
+  allocPie: { name: string; value: number; color: string }[];
+  riskRows: AtRiskMember[];
+}
+
+function buildView(data: TeamDashboard): TeamView {
+  const quadrant: QuadrantPoint[] = data.talent_quadrant.map((m) => ({
+    x: parseFloat((m.readiness * 100).toFixed(1)),
+    y: parseFloat(m.avg_score.toFixed(2)),
+    z: m.risk_flag === 'High' ? 120 : m.risk_flag === 'Watch' ? 80 : 50,
+    id: m.member_id,
+    role: m.role_title,
+    risk: m.risk_flag,
+  }));
+
+  const deptScores = data.dept_scores
+    .map((d) => ({
+      dept: stripDept(d.department),
+      avg: parseFloat(d.avg_score.toFixed(2)),
+      count: d.headcount,
+    }))
+    .sort((a, b) => b.avg - a.avg);
+
+  const allocPie = [
+    { name: 'Active', value: data.allocation_distribution.active, color: C.primary },
+    { name: 'Bench', value: data.allocation_distribution.bench, color: C.subtle },
+    { name: 'Overloaded', value: data.allocation_distribution.overloaded, color: C.warning },
+  ];
+
+  return { data, quadrant, deptScores, allocPie, riskRows: data.at_risk };
+}
+
 function TeamPage() {
   const canView = usePermission('performance.dashboard.team.read');
-  const [timeRange, setTimeRange] = useTimeRange('month');
+  const [selected, setSelected] = useState<string | null>(null);
+
+  const periodsQuery = useQuery({
+    queryKey: ['performance', 'dashboard', 'periods'],
+    queryFn: ({ signal }) => fetchPeriods(signal),
+    enabled: canView,
+  });
+  const periods = periodsQuery.data ?? [];
+  const selectedPeriod = selected ?? periods[0] ?? null;
+
+  const query = useQuery({
+    queryKey: ['performance', 'dashboard', 'team', selectedPeriod],
+    queryFn: ({ signal }) => fetchTeamDashboard({ to_period: selectedPeriod ?? undefined }, signal),
+    enabled: canView && selectedPeriod !== null,
+  });
+
+  const view = useMemo(() => (query.data ? buildView(query.data) : null), [query.data]);
+
   if (!canView) {
     return (
       <PageChrome breadcrumb={['ARIA']} title="Team Dashboard">
-        <div className="page-container py-16 flex flex-col items-center gap-3 text-center">
-          <Lock className="size-8 text-ink-subtle" />
-          <p className="text-body-sm text-ink-muted">
-            Team dashboard requires the Manager or BOD role.
-          </p>
-        </div>
+        <LockScreen message="Team dashboard requires the Manager or BOD role." />
       </PageChrome>
     );
   }
+
+  const loading = periodsQuery.isLoading || (selectedPeriod !== null && query.isLoading);
+  const errored = periodsQuery.isError || (selectedPeriod !== null && query.isError);
+  const error = periodsQuery.error ?? query.error;
+
   return (
     <PageChrome breadcrumb={['ARIA']} title="Team Dashboard">
       <div className="page-container py-6 space-y-6">
-        <TimeRangeFilter value={timeRange} onChange={setTimeRange} />
-        {/* KPI strip */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <KpiTile label="Active" value={ACTIVE.length} sub="headcount" />
-          <KpiTile
-            label="Avg Score"
-            value={AVG_SCORE.toFixed(2)}
-            sub="out of 5.00"
-            warn={AVG_SCORE < SCORE_THRESHOLDS.good}
-          />
-          <KpiTile
-            label="High Risk"
-            value={HIGH_RISK.length}
-            sub="employees"
-            danger={HIGH_RISK.length > 0}
-          />
-          <KpiTile
-            label="Declining"
-            value={DECLINERS.length}
-            sub="T3 → T4"
-            warn={DECLINERS.length > 20}
-          />
-          <KpiTile
-            label="Overloaded"
-            value={OVERLOADED.length}
-            sub="employees"
-            warn={OVERLOADED.length > 0}
-          />
-          <KpiTile label="On Bench" value={BENCH.length} sub="employees" />
+        <PeriodFilter
+          periods={periods}
+          value={selectedPeriod}
+          onChange={setSelected}
+          disabled={loading}
+        />
+
+        {loading && (
+          <div className="py-24 flex flex-col items-center gap-3 text-center">
+            <Loader2 className="size-6 text-ink-subtle animate-spin" />
+            <p className="text-body-sm text-ink-muted">Loading team performance…</p>
+          </div>
+        )}
+
+        {!loading &&
+          errored &&
+          (error instanceof ForbiddenError ? (
+            <LockScreen message="Team dashboard requires the Manager or BOD role." />
+          ) : (
+            <div className="py-24 flex flex-col items-center gap-3 text-center">
+              <AlertTriangle className="size-6 text-danger-ink" />
+              <p className="text-body-sm text-ink-muted">
+                Couldn't load team performance. Please try again.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  void periodsQuery.refetch();
+                  void query.refetch();
+                }}
+                className="px-3 py-1.5 rounded-md border border-hairline text-body-sm text-ink hover:bg-surface-2 transition-colors"
+              >
+                Retry
+              </button>
+            </div>
+          ))}
+
+        {!loading && !errored && view && view.data.kpis.active_count === 0 && (
+          <div className="py-24 flex flex-col items-center gap-3 text-center">
+            <Users className="size-6 text-ink-subtle" />
+            <p className="text-body-sm text-ink-muted">No active team members for this period.</p>
+          </div>
+        )}
+
+        {!loading && !errored && view && view.data.kpis.active_count > 0 && (
+          <TeamContent view={view} />
+        )}
+      </div>
+    </PageChrome>
+  );
+}
+
+function TeamContent({ view }: { view: TeamView }) {
+  const { kpis } = view.data;
+  return (
+    <>
+      {/* KPI strip */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <KpiTile label="Active" value={kpis.active_count} sub="headcount" />
+        <KpiTile
+          label="Avg Score"
+          value={kpis.avg_score.toFixed(2)}
+          sub="out of 5.00"
+          warn={kpis.avg_score < SCORE_THRESHOLDS.good}
+        />
+        <KpiTile
+          label="High Risk"
+          value={kpis.high_risk_count}
+          sub="employees"
+          danger={kpis.high_risk_count > 0}
+        />
+        <KpiTile
+          label="Declining"
+          value={kpis.declining_count}
+          sub="T3 → T4"
+          warn={kpis.declining_count > 20}
+        />
+        <KpiTile
+          label="Overloaded"
+          value={kpis.overloaded_count}
+          sub="employees"
+          warn={kpis.overloaded_count > 0}
+        />
+        <KpiTile label="On Bench" value={kpis.bench_count} sub="employees" />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Talent-Risk Quadrant */}
+        <div className="rounded-xl border border-hairline bg-surface-1 overflow-hidden">
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-hairline bg-surface-2">
+            <Users className="size-4 text-primary" />
+            <h3 className="text-body-sm font-semibold text-ink">Talent-Risk Quadrant</h3>
+            <span className="ml-auto text-caption text-ink-subtle">Readiness vs Score</span>
+          </div>
+          <div className="px-2 py-4">
+            <ResponsiveContainer width="100%" height={260}>
+              <ScatterChart margin={{ top: 8, right: 16, bottom: 16, left: -10 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={C.hairline} />
+                <XAxis
+                  dataKey="x"
+                  type="number"
+                  name="Readiness"
+                  domain={[0, 100]}
+                  ticks={[0, 20, 40, 60, 80, 100]}
+                  tick={{ fill: C.subtle, fontSize: 10 }}
+                  label={{
+                    value: 'Readiness %',
+                    position: 'insideBottom',
+                    offset: -8,
+                    fill: C.subtle,
+                    fontSize: 10,
+                  }}
+                />
+                <YAxis
+                  dataKey="y"
+                  type="number"
+                  name="Score"
+                  domain={[0, 5]}
+                  ticks={[0, 1, 2, 3, 4, 5]}
+                  tick={{ fill: C.subtle, fontSize: 10 }}
+                />
+                <ZAxis dataKey="z" range={[30, 140]} />
+                <Tooltip content={<QuadrantTooltip />} />
+                <Scatter
+                  data={view.quadrant.filter((d) => d.risk === 'High')}
+                  fill={C.danger}
+                  fillOpacity={0.8}
+                  name="High"
+                />
+                <Scatter
+                  data={view.quadrant.filter((d) => d.risk === 'Watch')}
+                  fill={C.warning}
+                  fillOpacity={0.8}
+                  name="Watch"
+                />
+                <Scatter
+                  data={view.quadrant.filter((d) => d.risk !== 'High' && d.risk !== 'Watch')}
+                  fill={C.primary}
+                  fillOpacity={0.5}
+                  name="OK"
+                />
+                <Legend
+                  iconType="circle"
+                  iconSize={8}
+                  formatter={(v) => <span style={{ color: C.muted, fontSize: 11 }}>{v}</span>}
+                />
+              </ScatterChart>
+            </ResponsiveContainer>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Talent-Risk Quadrant */}
-          <div className="rounded-xl border border-hairline bg-surface-1 overflow-hidden">
-            <div className="flex items-center gap-2 px-4 py-3 border-b border-hairline bg-surface-2">
-              <Users className="size-4 text-primary" />
-              <h3 className="text-body-sm font-semibold text-ink">Talent-Risk Quadrant</h3>
-              <span className="ml-auto text-caption text-ink-subtle">Readiness vs Score</span>
-            </div>
-            <div className="px-2 py-4">
-              <ResponsiveContainer width="100%" height={260}>
-                <ScatterChart margin={{ top: 8, right: 16, bottom: 16, left: -10 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={C.hairline} />
-                  <XAxis
-                    dataKey="x"
-                    type="number"
-                    name="Readiness"
-                    domain={[0, 100]}
-                    ticks={[0, 20, 40, 60, 80, 100]}
-                    tick={{ fill: C.subtle, fontSize: 10 }}
-                    label={{
-                      value: 'Readiness %',
-                      position: 'insideBottom',
-                      offset: -8,
-                      fill: C.subtle,
-                      fontSize: 10,
-                    }}
-                  />
-                  <YAxis
-                    dataKey="y"
-                    type="number"
-                    name="Score"
-                    domain={[0, 5]}
-                    ticks={[0, 1, 2, 3, 4, 5]}
-                    tick={{ fill: C.subtle, fontSize: 10 }}
-                  />
-                  <ZAxis dataKey="z" range={[30, 140]} />
-                  <Tooltip content={<QuadrantTooltip />} />
-                  <Scatter
-                    data={RISK_QUADRANT.filter((d) => d.risk === 'High')}
-                    fill={C.danger}
-                    fillOpacity={0.8}
-                    name="High"
-                  />
-                  <Scatter
-                    data={RISK_QUADRANT.filter((d) => d.risk === 'Watch')}
-                    fill={C.warning}
-                    fillOpacity={0.8}
-                    name="Watch"
-                  />
-                  <Scatter
-                    data={RISK_QUADRANT.filter((d) => d.risk !== 'High' && d.risk !== 'Watch')}
-                    fill={C.primary}
-                    fillOpacity={0.5}
-                    name="OK"
-                  />
-                  <Legend
-                    iconType="circle"
-                    iconSize={8}
-                    formatter={(v) => <span style={{ color: C.muted, fontSize: 11 }}>{v}</span>}
-                  />
-                </ScatterChart>
-              </ResponsiveContainer>
-            </div>
+        {/* Dept avg score bar */}
+        <div className="rounded-xl border border-hairline bg-surface-1 overflow-hidden">
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-hairline bg-surface-2">
+            <TrendingDown className="size-4 text-ink-subtle" />
+            <h3 className="text-body-sm font-semibold text-ink">Avg Score by Department</h3>
           </div>
-
-          {/* Dept avg score bar */}
-          <div className="rounded-xl border border-hairline bg-surface-1 overflow-hidden">
-            <div className="flex items-center gap-2 px-4 py-3 border-b border-hairline bg-surface-2">
-              <TrendingDown className="size-4 text-ink-subtle" />
-              <h3 className="text-body-sm font-semibold text-ink">Avg Score by Department</h3>
-            </div>
-            <div className="px-2 py-4">
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart
-                  data={DEPT_SCORES}
-                  layout="vertical"
-                  margin={{ top: 0, right: 24, bottom: 0, left: 60 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke={C.hairline} horizontal={false} />
-                  <XAxis
-                    type="number"
-                    domain={[0, 5]}
-                    ticks={[0, 1, 2, 3, 4, 5]}
-                    tick={{ fill: C.subtle, fontSize: 10 }}
-                  />
-                  <YAxis
-                    dataKey="dept"
-                    type="category"
-                    tick={{ fill: C.muted, fontSize: 10 }}
-                    width={60}
-                  />
-                  <Tooltip content={<BarTooltip />} />
-                  <Bar dataKey="avg" radius={[0, 4, 4, 0]}>
-                    {DEPT_SCORES.map((entry) => (
-                      <Cell key={entry.dept} fill={deptBarColor(entry.avg)} fillOpacity={0.9} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* Allocation donut */}
-          <div className="rounded-xl border border-hairline bg-surface-1 overflow-hidden">
-            <div className="flex items-center gap-2 px-4 py-3 border-b border-hairline bg-surface-2">
-              <h3 className="text-body-sm font-semibold text-ink">Allocation Status</h3>
-            </div>
-            <div className="px-4 py-4 flex flex-col items-center gap-4">
-              <ResponsiveContainer width="100%" height={180}>
-                <PieChart>
-                  <Pie
-                    data={ALLOC_PIE}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={80}
-                    paddingAngle={2}
-                    dataKey="value"
-                  >
-                    {ALLOC_PIE.map((entry) => (
-                      <Cell key={entry.name} fill={entry.color} fillOpacity={0.9} />
-                    ))}
-                  </Pie>
-                  <Tooltip content={<PieTooltip />} />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="flex flex-col gap-1.5 w-full">
-                {ALLOC_PIE.map((entry) => (
-                  <div key={entry.name} className="flex items-center justify-between text-body-sm">
-                    <span className="flex items-center gap-2 text-ink-muted">
-                      <span
-                        className="size-2 rounded-full shrink-0"
-                        style={{ background: entry.color }}
-                      />
-                      {entry.name}
-                    </span>
-                    <span className="text-ink font-medium">{entry.value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* At-risk table */}
-          <div className="lg:col-span-2 rounded-xl border border-hairline bg-surface-1 overflow-hidden">
-            <div className="flex items-center gap-2 px-4 py-3 border-b border-hairline bg-surface-2">
-              <AlertTriangle className="size-4 text-danger-ink" />
-              <h3 className="text-body-sm font-semibold text-ink">At-Risk Employees</h3>
-              <span className="ml-auto text-caption text-ink-subtle">
-                {HIGH_RISK.length} high · {WATCH.length} watch
-              </span>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-body-sm">
-                <thead>
-                  <tr className="border-b border-hairline">
-                    {['ID', 'Role', 'Dept', 'Score', 'Risk', 'Note'].map((h) => (
-                      <th
-                        key={h}
-                        className="text-left px-4 py-2.5 text-caption text-ink-subtle font-medium uppercase tracking-[0.06em]"
-                      >
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-hairline">
-                  {RISK_ROWS.map((emp) => (
-                    <tr key={emp.id} className="hover:bg-surface-2 transition-colors">
-                      <td className="px-4 py-2.5 font-mono text-caption text-ink-subtle">
-                        {emp.id}
-                      </td>
-                      <td className="px-4 py-2.5 text-ink truncate max-w-[140px]">{emp.role}</td>
-                      <td className="px-4 py-2.5 text-ink-muted truncate max-w-[120px]">
-                        {emp.dept.replace('IT - ', '').replace('Admin - ', '')}
-                      </td>
-                      <td className="px-4 py-2.5">
-                        <span
-                          className={
-                            emp.avg_score < SCORE_THRESHOLDS.watch
-                              ? 'text-danger-ink font-medium'
-                              : emp.avg_score < SCORE_THRESHOLDS.good
-                                ? 'text-semantic-warning font-medium'
-                                : 'text-ink'
-                          }
-                        >
-                          {emp.avg_score.toFixed(2)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2.5">{riskBadge(emp.risk_flag)}</td>
-                      <td className="px-4 py-2.5 text-ink-muted text-caption max-w-[180px] truncate">
-                        {emp.risk_note}
-                      </td>
-                    </tr>
+          <div className="px-2 py-4">
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart
+                data={view.deptScores}
+                layout="vertical"
+                margin={{ top: 0, right: 24, bottom: 0, left: 60 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke={C.hairline} horizontal={false} />
+                <XAxis
+                  type="number"
+                  domain={[0, 5]}
+                  ticks={[0, 1, 2, 3, 4, 5]}
+                  tick={{ fill: C.subtle, fontSize: 10 }}
+                />
+                <YAxis
+                  dataKey="dept"
+                  type="category"
+                  tick={{ fill: C.muted, fontSize: 10 }}
+                  width={60}
+                />
+                <Tooltip content={<BarTooltip />} />
+                <Bar dataKey="avg" radius={[0, 4, 4, 0]}>
+                  {view.deptScores.map((entry) => (
+                    <Cell key={entry.dept} fill={deptBarColor(entry.avg)} fillOpacity={0.9} />
                   ))}
-                </tbody>
-              </table>
-            </div>
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
       </div>
-    </PageChrome>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Allocation donut */}
+        <div className="rounded-xl border border-hairline bg-surface-1 overflow-hidden">
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-hairline bg-surface-2">
+            <h3 className="text-body-sm font-semibold text-ink">Allocation Status</h3>
+          </div>
+          <div className="px-4 py-4 flex flex-col items-center gap-4">
+            <ResponsiveContainer width="100%" height={180}>
+              <PieChart>
+                <Pie
+                  data={view.allocPie}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={50}
+                  outerRadius={80}
+                  paddingAngle={2}
+                  dataKey="value"
+                >
+                  {view.allocPie.map((entry) => (
+                    <Cell key={entry.name} fill={entry.color} fillOpacity={0.9} />
+                  ))}
+                </Pie>
+                <Tooltip content={<PieTooltip />} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="flex flex-col gap-1.5 w-full">
+              {view.allocPie.map((entry) => (
+                <div key={entry.name} className="flex items-center justify-between text-body-sm">
+                  <span className="flex items-center gap-2 text-ink-muted">
+                    <span
+                      className="size-2 rounded-full shrink-0"
+                      style={{ background: entry.color }}
+                    />
+                    {entry.name}
+                  </span>
+                  <span className="text-ink font-medium">{entry.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* At-risk table */}
+        <div className="lg:col-span-2 rounded-xl border border-hairline bg-surface-1 overflow-hidden">
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-hairline bg-surface-2">
+            <AlertTriangle className="size-4 text-danger-ink" />
+            <h3 className="text-body-sm font-semibold text-ink">At-Risk Employees</h3>
+            <span className="ml-auto text-caption text-ink-subtle">
+              {kpis.high_risk_count} high · {kpis.watch_count} watch
+            </span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-body-sm">
+              <thead>
+                <tr className="border-b border-hairline">
+                  {['ID', 'Role', 'Dept', 'Score', 'Risk', 'Note'].map((h) => (
+                    <th
+                      key={h}
+                      className="text-left px-4 py-2.5 text-caption text-ink-subtle font-medium uppercase tracking-[0.06em]"
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-hairline">
+                {view.riskRows.map((emp) => (
+                  <tr key={emp.member_id} className="hover:bg-surface-2 transition-colors">
+                    <td className="px-4 py-2.5 font-mono text-caption text-ink-subtle">
+                      {emp.member_id}
+                    </td>
+                    <td className="px-4 py-2.5 text-ink truncate max-w-[140px]">
+                      {emp.role_title}
+                    </td>
+                    <td className="px-4 py-2.5 text-ink-muted truncate max-w-[120px]">
+                      {stripDept(emp.department)}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <span
+                        className={
+                          emp.avg_score < SCORE_THRESHOLDS.watch
+                            ? 'text-danger-ink font-medium'
+                            : emp.avg_score < SCORE_THRESHOLDS.good
+                              ? 'text-semantic-warning font-medium'
+                              : 'text-ink'
+                        }
+                      >
+                        {emp.avg_score.toFixed(2)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5">{riskBadge(emp.risk_flag)}</td>
+                    <td className="px-4 py-2.5 text-ink-muted text-caption max-w-[180px] truncate">
+                      {emp.perf_risk_note}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
