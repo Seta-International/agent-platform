@@ -216,6 +216,21 @@ export function CandidatesPage() {
             }
             onRowClick={(row) => setSelected(row.original.candidate_id)}
           />
+        ) : isLoading ? (
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-5">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                className="h-40 animate-pulse rounded-lg border border-hairline bg-surface-2"
+              />
+            ))}
+          </div>
+        ) : (data ?? []).length === 0 ? (
+          <EmptyState
+            icon={<Users className="size-6" />}
+            title="No candidates yet"
+            description="Add a candidate to get started."
+          />
         ) : (
           <DragDropContext onDragEnd={handleDragEnd}>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-5">
