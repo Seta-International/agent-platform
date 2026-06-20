@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import type { ContributionRegistry, ErrorMapper } from '@seta/core';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import * as schema from './backend/db/schema.ts';
+import { buildHiringRoutes } from './backend/http/index.ts';
 import { HiringError } from './backend/rbac.ts';
 import { hiringSubscribers } from './backend/subscribers/index.ts';
 import { HIRING_EVENTS } from './events.ts';
@@ -34,5 +35,6 @@ export function registerHiringContributions(reg: ContributionRegistry): void {
     rbac: hiringRbac,
     subscribers: hiringSubscribers(),
     errorMapper: hiringErrorMapper,
+    routes: { mountAt: '/', build: buildHiringRoutes },
   });
 }

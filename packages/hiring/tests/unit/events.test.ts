@@ -27,7 +27,7 @@ describe('hiring events (HIR-2)', () => {
       HIRING_REQUISITION_CLOSED,
       HIRING_OPENING_OPENED,
       HIRING_OPENING_CLOSED,
-    ]) {
+    ] as const) {
       expect(HIRING_EVENTS[t]).toBeDefined();
     }
     expect(Object.keys(HIRING_EVENTS)).toHaveLength(5);

@@ -32,7 +32,7 @@ export const openRequisitionInput = z.object({
   jd_sections: z.array(jdSectionInput).optional(),
   skills: z.array(skillInput).optional(),
 });
-export type OpenRequisitionInput = z.infer<typeof openRequisitionInput>;
+export type OpenRequisitionInput = z.input<typeof openRequisitionInput>;
 
 export const editRequisitionPatch = z
   .object({
