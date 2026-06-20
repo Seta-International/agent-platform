@@ -29,7 +29,9 @@ export async function addOpening(input: {
       const [{ next }] = await tx
         .select({ next: sql<number>`coalesce(max(${opening.seq}),0)::int + 1` })
         .from(opening)
-        .where(eq(opening.requisition_id, requisition_id));
+        .where(
+          and(eq(opening.requisition_id, requisition_id), tenantScoped(opening.tenant_id, session)),
+        );
       const [op] = await tx
         .insert(opening)
         .values({
