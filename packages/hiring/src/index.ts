@@ -6,4 +6,8 @@ export {
   type RequisitionDetail,
   type RequisitionListRow,
 } from './backend/domain/read-requisitions.ts';
+export {
+  setRequisitionJd,
+  setRequisitionSkills,
+} from './backend/domain/set-requisition-content.ts';
 export type { OpenRequisitionInput } from './contracts.ts';
