@@ -20,6 +20,13 @@ export const pmAppManifest: AppManifest = {
           to: '/pm',
           requires: ['pm.account.read'],
         },
+        {
+          id: 'pm.accounts',
+          icon: FolderKanban,
+          label: 'Accounts',
+          to: '/pm/accounts',
+          requires: ['pm.account.read'],
+        },
       ],
     },
   ],
