@@ -26,6 +26,7 @@
     "@seta/notifications": "workspace:^",
     "@seta/people": "workspace:^",
     "@seta/planner": "workspace:^",
+    "@seta/pm": "workspace:^",
     "@seta/shared-crypto": "workspace:^",
     "@seta/shared-db": "workspace:^",
     "@seta/shared-mailer": "workspace:^",
