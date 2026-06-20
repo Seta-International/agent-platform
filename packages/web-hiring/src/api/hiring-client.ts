@@ -322,10 +322,11 @@ export interface CandidateDetail {
   timeline: CandidateEvent[];
 }
 
+export type RejectionCategory = 'rejected_by_us' | 'withdrew' | 'other';
 export interface RejectionReason {
   id: string;
   label: string;
-  category: 'rejected_by_us' | 'withdrew' | 'other';
+  category: RejectionCategory;
   active: boolean;
   version: number;
 }
@@ -370,6 +371,20 @@ export async function fetchCandidate(id: string): Promise<CandidateDetail> {
 export async function fetchRejectionReasons(): Promise<RejectionReason[]> {
   const res = await fetch('/api/hiring/v1/rejection-reasons', { credentials: 'include' });
   return (await handleResponse<{ reasons: RejectionReason[] }>(res)).reasons;
+}
+export async function createRejectionReason(input: {
+  label: string;
+  category: RejectionCategory;
+}): Promise<{ id: string }> {
+  return handleResponse(await fetch('/api/hiring/v1/rejection-reasons', json('POST', input)));
+}
+export async function archiveRejectionReason(
+  id: string,
+  input: { expected_version?: number },
+): Promise<{ version: number }> {
+  return handleResponse(
+    await fetch(`/api/hiring/v1/rejection-reasons/${id}/archive`, json('POST', input)),
+  );
 }
 export async function fetchSkillCatalog(): Promise<SkillCatalog> {
   const [catsRes, skillsRes] = await Promise.all([

@@ -25,13 +25,17 @@ import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import {
   archiveCloseReason,
+  archiveRejectionReason,
   createCloseReason,
   createJdTemplate,
+  createRejectionReason,
   deleteJdTemplate,
   fetchCloseReasons,
   fetchJdTemplates,
+  fetchRejectionReasons,
   type JdSectionKey,
   type JdVariant,
+  type RejectionCategory,
 } from '../api/hiring-client.ts';
 import { hiringKeys } from '../state/query-keys.ts';
 import { on409 } from './utils.ts';
@@ -227,6 +231,96 @@ function NewCloseReasonDialog() {
   );
 }
 
+const REJECTION_CATEGORIES: { value: RejectionCategory; label: string }[] = [
+  { value: 'rejected_by_us', label: 'We rejected them' },
+  { value: 'withdrew', label: 'Candidate withdrew' },
+  { value: 'other', label: 'Other' },
+];
+
+function NewRejectionReasonDialog() {
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [label, setLabel] = useState('');
+  const [category, setCategory] = useState<RejectionCategory>('rejected_by_us');
+  const [error, setError] = useState<string | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: () => createRejectionReason({ label, category }),
+    onSuccess: () => {
+      toast.success('Rejection reason created');
+      void queryClient.invalidateQueries({ queryKey: hiringKeys.rejectionReasons() });
+      setOpen(false);
+      setLabel('');
+      setCategory('rejected_by_us');
+      setError(null);
+    },
+    onError: (e: Error) => setError(e.message),
+  });
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v);
+        if (!v) {
+          setLabel('');
+          setCategory('rejected_by_us');
+          setError(null);
+        }
+      }}
+    >
+      <DialogTrigger asChild>
+        <Button size="sm">New rejection reason</Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>New rejection reason</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <Label>Label *</Label>
+            <Input
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="e.g. Lacking required skills"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>Category</Label>
+            <select
+              className="w-full rounded border border-hairline bg-surface-1 px-2 py-1"
+              value={category}
+              onChange={(e) => setCategory(e.target.value as RejectionCategory)}
+            >
+              {REJECTION_CATEGORIES.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => mutation.mutate()}
+              disabled={mutation.isPending || !label.trim()}
+            >
+              {mutation.isPending ? 'Creating…' : 'Create'}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function SettingsPage() {
   const queryClient = useQueryClient();
   const canManage = usePermission('hiring.jd_template.manage');
@@ -249,6 +343,21 @@ export function SettingsPage() {
       void queryClient.invalidateQueries({ queryKey: hiringKeys.closeReasons() });
     },
     onError: (e: Error) => on409(e, queryClient, hiringKeys.closeReasons()),
+  });
+
+  const canManageRejections = usePermission('hiring.rejection_reason.manage');
+  const rejections = useQuery({
+    queryKey: hiringKeys.rejectionReasons(),
+    queryFn: fetchRejectionReasons,
+  });
+  const archiveRejection = useMutation({
+    mutationFn: (vars: { id: string; version: number }) =>
+      archiveRejectionReason(vars.id, { expected_version: vars.version }),
+    onSuccess: () => {
+      toast.success('Rejection reason archived');
+      void queryClient.invalidateQueries({ queryKey: hiringKeys.rejectionReasons() });
+    },
+    onError: (e: Error) => on409(e, queryClient, hiringKeys.rejectionReasons()),
   });
 
   return (
@@ -320,6 +429,44 @@ export function SettingsPage() {
                         size="sm"
                         variant="ghost"
                         onClick={() => archive.mutate({ id: r.id, version: r.version })}
+                      >
+                        Archive
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Candidate rejection-reasons</CardTitle>
+            {canManageRejections && <NewRejectionReasonDialog />}
+          </CardHeader>
+          <CardContent>
+            {rejections.error ? (
+              <Alert variant="destructive">
+                <AlertDescription>{(rejections.error as Error).message}</AlertDescription>
+              </Alert>
+            ) : rejections.isLoading ? (
+              <div className="text-ink-muted">Loading…</div>
+            ) : (rejections.data?.length ?? 0) === 0 ? (
+              <div className="text-ink-muted">No rejection reasons yet.</div>
+            ) : (
+              <div className="divide-y divide-hairline">
+                {rejections.data?.map((r) => (
+                  <div key={r.id} className="flex items-center justify-between py-2">
+                    <span className="text-ink">
+                      {r.label} <Badge variant="secondary">{r.category}</Badge>
+                      {!r.active && <Badge variant="secondary">archived</Badge>}
+                    </span>
+                    {canManageRejections && r.active && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => archiveRejection.mutate({ id: r.id, version: r.version })}
                       >
                         Archive
                       </Button>
