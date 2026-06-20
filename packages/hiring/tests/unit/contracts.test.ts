@@ -11,7 +11,7 @@ describe('hiring contracts (HIR-2)', () => {
       title: 'Senior Backend Engineer',
       kind: 'new',
       jd_sections: [{ variant: 'external', section: 'about', body: '<p>hi</p>' }],
-      skills: [{ skill_name: 'Go', min_level: 4 }],
+      skills: [{ skill_id: crypto.randomUUID(), skill_name: 'Go', min_level: 4 }],
     });
     expect(p.headcount).toBe(1);
     expect(p.skills?.[0]?.skill_name).toBe('Go');

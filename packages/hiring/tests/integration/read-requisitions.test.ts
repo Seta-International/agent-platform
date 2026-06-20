@@ -24,7 +24,7 @@ describe('read requisitions', () => {
           title: 'SRE',
           kind: 'new',
           headcount: 2,
-          skills: [{ skill_name: 'Go' }],
+          skills: [{ skill_id: crypto.randomUUID(), skill_name: 'Go' }],
           session: t.adminSession,
         });
         const list = await listRequisitions(t.adminSession);

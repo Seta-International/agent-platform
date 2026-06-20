@@ -105,7 +105,7 @@ describe('openRequisition', () => {
           kind: 'new',
           headcount: 3,
           jd_sections: [{ variant: 'external', section: 'about', body: '<p>Join us</p>' }],
-          skills: [{ skill_name: 'Kubernetes', min_level: 4 }],
+          skills: [{ skill_id: crypto.randomUUID(), skill_name: 'Kubernetes', min_level: 4 }],
           session: t.adminSession,
         });
         const ops = await hiringDb()

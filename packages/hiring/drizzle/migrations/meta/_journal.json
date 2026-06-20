@@ -15,6 +15,13 @@
       "when": 1781946067788,
       "tag": "0001_watery_talos",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781961996925,
+      "tag": "0002_nasty_george_stacy",
+      "breakpoints": true
     }
   ]
 }
