@@ -32,8 +32,6 @@ import { OpeningsTab } from './openings-tab.tsx';
 import { SkillsTab } from './skills-tab.tsx';
 import { on409, useRequisition } from './utils.ts';
 
-export { on409, useRequisition };
-
 export function RequisitionDetailPage({ requisitionId }: { requisitionId: string }) {
   const queryClient = useQueryClient();
   const canManage = usePermission('hiring.requisition.manage');
