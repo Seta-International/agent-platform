@@ -31,7 +31,9 @@ async function handleResponse<T>(res: Response): Promise<T> {
     } catch {
       // ignore parse error
     }
-    throw new Error(message);
+    const err = new Error(message) as Error & { status?: number };
+    err.status = res.status;
+    throw err;
   }
   return res.json() as Promise<T>;
 }

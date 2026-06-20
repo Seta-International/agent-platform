@@ -130,7 +130,7 @@ export function AccountsPage() {
         accessorKey: 'am_worker_id',
         header: 'Account Manager',
         cell: ({ row }: CellCtx) => (
-          <span className="font-mono text-[12.5px] text-ink-muted truncate block">
+          <span className="font-mono text-caption text-ink-muted truncate block">
             {row.original.am_worker_id ?? '—'}
           </span>
         ),
