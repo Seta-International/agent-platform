@@ -8,6 +8,7 @@ export {
   linkPlannerGroup,
   reopenProject,
 } from './backend/domain/edit-project.ts';
+export { listProjectAccess, setProjectAccess } from './backend/domain/project-access.ts';
 export type { AccountListRow } from './backend/domain/read-accounts.ts';
 export { getAccount, listAccounts } from './backend/domain/read-accounts.ts';
 export type { CharterListRow } from './backend/domain/read-charters.ts';
@@ -15,6 +16,11 @@ export { getCharter, listCharters } from './backend/domain/read-charters.ts';
 export type { ProjectListRow } from './backend/domain/read-projects.ts';
 export { getProject, listProjects } from './backend/domain/read-projects.ts';
 export { setAccountRecruiters } from './backend/domain/set-account-recruiters.ts';
+export {
+  deleteStaffingPlanLine,
+  listStaffingPlan,
+  upsertStaffingPlanLine,
+} from './backend/domain/staffing-plan.ts';
 export { submitCharter } from './backend/domain/submit-charter.ts';
 export { withdrawCharter } from './backend/domain/withdraw-charter.ts';
 export type {
@@ -24,6 +30,8 @@ export type {
   EditProjectInput,
   RejectCharterInput,
   SetAccountRecruitersInput,
+  SetProjectAccessInput,
+  StaffingPlanLineInput,
   SubmitCharterInput,
 } from './contracts.ts';
 export { setAccountRecruitersInput } from './contracts.ts';
