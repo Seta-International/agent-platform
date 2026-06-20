@@ -55,7 +55,7 @@ export function RequisitionDetailPage({ requisitionId }: { requisitionId: string
       setDraft({});
       refresh();
     },
-    onError: (e: Error) => on409(e, queryClient, requisitionId),
+    onError: (e: Error) => on409(e, queryClient, hiringKeys.requisition(requisitionId)),
   });
   const lifecycle = useMutation({
     mutationFn: (action: 'hold' | 'resume' | 'fill' | 'cancel') => {
@@ -71,7 +71,7 @@ export function RequisitionDetailPage({ requisitionId }: { requisitionId: string
       toast.success('Requisition updated');
       refresh();
     },
-    onError: (e: Error) => on409(e, queryClient, requisitionId),
+    onError: (e: Error) => on409(e, queryClient, hiringKeys.requisition(requisitionId)),
   });
 
   const breadcrumb = [

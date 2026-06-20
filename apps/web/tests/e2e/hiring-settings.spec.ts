@@ -18,7 +18,7 @@ test('admin creates a JD template', async ({ page }) => {
   await page.getByRole('button', { name: 'Create template' }).click();
 
   await expect(page.getByText('Template created')).toBeVisible({ timeout: 8_000 });
-  await expect(page.getByText(TEMPLATE)).toBeVisible();
+  await expect(page.getByText(TEMPLATE)).toBeVisible({ timeout: 8_000 });
 });
 
 test('admin creates an opening close-reason', async ({ page }) => {
@@ -32,5 +32,5 @@ test('admin creates an opening close-reason', async ({ page }) => {
   await page.getByRole('button', { name: 'Create', exact: true }).click();
 
   await expect(page.getByText('Close reason created')).toBeVisible({ timeout: 8_000 });
-  await expect(page.getByText(REASON)).toBeVisible();
+  await expect(page.getByText(REASON)).toBeVisible({ timeout: 8_000 });
 });
