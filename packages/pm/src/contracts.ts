@@ -4,8 +4,15 @@ export const createAccountInput = z.object({
   name: z.string().min(1),
   industry: z.string().optional(),
   am_worker_id: z.string().uuid().optional(),
+  recruiter_worker_ids: z.array(z.string().uuid()).optional(),
 });
 export type CreateAccountInput = z.infer<typeof createAccountInput>;
+
+export const setAccountRecruitersInput = z.object({
+  account_id: z.string().uuid(),
+  recruiter_worker_ids: z.array(z.string().uuid()),
+});
+export type SetAccountRecruitersInput = z.infer<typeof setAccountRecruitersInput>;
 
 export const editAccountPatch = z.object({
   name: z.string().min(1).optional(),

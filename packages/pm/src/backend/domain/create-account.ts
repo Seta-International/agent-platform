@@ -1,8 +1,8 @@
 import type { SessionScope } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
 import type { CreateAccountInput } from '../../contracts.ts';
-import { PM_ACCOUNT_CREATED } from '../../events.ts';
-import { account } from '../db/schema.ts';
+import { PM_ACCOUNT_CREATED, PM_ACCOUNT_RECRUITER_ASSIGNED } from '../../events.ts';
+import { account, accountRecruiter } from '../db/schema.ts';
 import { requirePermission } from '../rbac.ts';
 
 export async function createAccount(
@@ -32,6 +32,26 @@ export async function createAccount(
         eventVersion: 1,
         payload: { account_id: row.id, tenant_id: input.session.tenant_id },
       });
+
+      for (const rid of input.recruiter_worker_ids ?? []) {
+        await tx.insert(accountRecruiter).values({
+          tenant_id: input.session.tenant_id,
+          account_id: row.id,
+          recruiter_worker_id: rid,
+        });
+        await emit({
+          tenantId: input.session.tenant_id,
+          aggregateType: 'pm.account',
+          aggregateId: row.id,
+          eventType: PM_ACCOUNT_RECRUITER_ASSIGNED,
+          eventVersion: 1,
+          payload: {
+            account_id: row.id,
+            tenant_id: input.session.tenant_id,
+            recruiter_worker_id: rid,
+          },
+        });
+      }
     },
   );
   return result;
