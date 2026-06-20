@@ -1,4 +1,9 @@
 export {
+  addCandidate,
+  assertSkillsInCatalog,
+  recordCandidateEvent,
+} from './backend/domain/candidates.ts';
+export {
   archiveCloseReason,
   createCloseReason,
   listCloseReasons,
@@ -27,12 +32,18 @@ export {
   setRequisitionSkills,
 } from './backend/domain/set-requisition-content.ts';
 export type {
+  AddCandidateInput,
   AddOpeningInput,
+  CandidateSkillInput,
   CloseOpeningInput,
   CloseReasonInput,
+  EditCandidatePatch,
   EditRequisitionPatch,
   JdSectionInput,
   JdTemplateInput,
   OpenRequisitionInput,
+  RejectApplicationInput,
+  RejectionReasonInput,
   SkillInput,
+  TransferApplicationInput,
 } from './contracts.ts';
