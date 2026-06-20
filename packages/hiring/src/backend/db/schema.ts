@@ -50,24 +50,39 @@ export const requisition = hiringSchema.table(
     ),
     check('requisition_status_check', sql`status IN ('open','on_hold','filled','cancelled')`),
     check('requisition_stage_check', sql`stage IN ('sourcing','screening','interview','offer')`),
+    check(
+      'requisition_dates_check',
+      sql`closed_at IS NULL OR due_date IS NULL OR due_date <= closed_at::date`,
+    ),
   ],
 );
 
-export const candidate = hiringSchema.table('candidate', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  tenant_id: uuid('tenant_id').notNull(),
-  name: text('name').notNull(),
-  source: text('source'),
-  contact: jsonb('contact'),
-  dob: date('dob'),
-  gender: text('gender'),
-  cv_storage_key: text('cv_storage_key'),
-  seniority: text('seniority'),
-  segment: text('segment'),
-  source_cost: numeric('source_cost'),
-  created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+export const candidate = hiringSchema.table(
+  'candidate',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenant_id: uuid('tenant_id').notNull(),
+    name: text('name').notNull(),
+    work_email: text('work_email'),
+    source: text('source'),
+    contact: jsonb('contact'),
+    dob: date('dob'),
+    gender: text('gender'),
+    cv_storage_key: text('cv_storage_key'),
+    seniority: text('seniority'),
+    segment: text('segment'),
+    source_cost: numeric('source_cost', { precision: 15, scale: 4 }),
+    version: integer('version').default(1).notNull(),
+    deleted_at: timestamp('deleted_at', { withTimezone: true }),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('candidate_uniq_email')
+      .on(t.tenant_id, t.work_email)
+      .where(sql`work_email IS NOT NULL AND deleted_at IS NULL`),
+  ],
+);
 
 export const application = hiringSchema.table(
   'application',
@@ -81,21 +96,28 @@ export const application = hiringSchema.table(
     stage: text('stage'),
     status: text('status'),
     rating: integer('rating'),
+    version: integer('version').default(1).notNull(),
+    deleted_at: timestamp('deleted_at', { withTimezone: true }),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [
     uniqueIndex('application_uniq_candidate')
       .on(t.tenant_id, t.requisition_id, t.candidate_id)
-      .where(sql`candidate_id IS NOT NULL`),
+      .where(sql`candidate_id IS NOT NULL AND deleted_at IS NULL`),
     uniqueIndex('application_uniq_worker')
       .on(t.tenant_id, t.requisition_id, t.worker_id)
-      .where(sql`worker_id IS NOT NULL`),
+      .where(sql`worker_id IS NOT NULL AND deleted_at IS NULL`),
     index('application_by_requisition').on(t.tenant_id, t.requisition_id),
     check('application_kind_check', sql`kind IN ('external','internal')`),
     check(
       'application_one_subject_check',
       sql`(candidate_id IS NOT NULL) <> (worker_id IS NOT NULL)`,
+    ),
+    // stage = candidate (external) pipeline; the internal-mobility status machine is HE6.
+    check(
+      'application_stage_check',
+      sql`stage IS NULL OR stage IN ('new','screening','interview','offer','hired','rejected')`,
     ),
   ],
 );
