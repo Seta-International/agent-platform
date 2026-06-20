@@ -1,13 +1,47 @@
 import { describe, expect, it } from 'vitest';
-import { PM_ACCOUNT_CREATED, PM_EVENTS } from '../../src/events.ts';
+import {
+  PM_ACCOUNT_CREATED,
+  PM_ACCOUNT_RECRUITER_ASSIGNED,
+  PM_ACCOUNT_RECRUITER_UNASSIGNED,
+  PM_ACCOUNT_UPDATED,
+  PM_EVENTS,
+} from '../../src/events.ts';
 
 describe('pm events', () => {
-  it('declares only pm.account.created with a valid payload schema', () => {
-    expect(Object.keys(PM_EVENTS)).toEqual([PM_ACCOUNT_CREATED]);
+  it('declares pm.account.created with a valid payload schema', () => {
+    expect(PM_EVENTS[PM_ACCOUNT_CREATED]).toBeDefined();
     const parsed = PM_EVENTS[PM_ACCOUNT_CREATED].safeParse({
       account_id: crypto.randomUUID(),
       tenant_id: crypto.randomUUID(),
     });
     expect(parsed.success).toBe(true);
+  });
+
+  it('registers the PM-2 account events', () => {
+    expect(PM_EVENTS['pm.account.updated']).toBeDefined();
+    expect(PM_EVENTS['pm.account.recruiter.assigned']).toBeDefined();
+    expect(PM_EVENTS['pm.account.recruiter.unassigned']).toBeDefined();
+  });
+
+  it('account.updated payload requires fields[]', () => {
+    expect(() =>
+      PM_EVENTS['pm.account.updated'].parse({
+        account_id: crypto.randomUUID(),
+        tenant_id: crypto.randomUUID(),
+        fields: ['name'],
+      }),
+    ).not.toThrow();
+    expect(() =>
+      PM_EVENTS['pm.account.updated'].parse({
+        account_id: crypto.randomUUID(),
+        tenant_id: crypto.randomUUID(),
+      }),
+    ).toThrow();
+  });
+
+  it('exports PM_ACCOUNT_UPDATED, PM_ACCOUNT_RECRUITER_ASSIGNED, PM_ACCOUNT_RECRUITER_UNASSIGNED constants', () => {
+    expect(PM_ACCOUNT_UPDATED).toBe('pm.account.updated');
+    expect(PM_ACCOUNT_RECRUITER_ASSIGNED).toBe('pm.account.recruiter.assigned');
+    expect(PM_ACCOUNT_RECRUITER_UNASSIGNED).toBe('pm.account.recruiter.unassigned');
   });
 });
