@@ -5,6 +5,13 @@ export {
   type AuditSortDir,
   queryAudit,
 } from './backend/audit.ts';
+export {
+  archiveSkillCategory,
+  createSkillCategory,
+  editSkillCategory,
+  listSkillCategories,
+  type SkillCategoryRow,
+} from './backend/skills/categories.ts';
 export { CoreSkillError } from './backend/skills/error.ts';
 export {
   CORE_SKILL_ARCHIVED,
