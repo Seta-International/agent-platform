@@ -84,6 +84,35 @@ describe('account recruiters', () => {
     });
   });
 
+  it('setAccountRecruiters is conflict-safe: pre-existing DB row does not throw and emits no new event', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const r1 = crypto.randomUUID();
+        const { account_id } = await createAccount({ name: 'Acme', session: t.adminSession });
+        // Directly insert the recruiter row to simulate a concurrent caller having already committed it.
+        await pool.query(
+          'INSERT INTO pm.account_recruiter (tenant_id, account_id, recruiter_worker_id) VALUES ($1,$2,$3)',
+          [t.tenant_id, account_id, r1],
+        );
+        const res = await setAccountRecruiters({
+          account_id,
+          recruiter_worker_ids: [r1],
+          session: t.adminSession,
+        });
+        expect(res).toEqual({ added: 0, removed: 0 });
+        expect(await countEvents(pool, t.tenant_id, 'pm.account.recruiter.assigned')).toBe(0);
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
   it('setAccountRecruiters is idempotent: same set emits nothing', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
