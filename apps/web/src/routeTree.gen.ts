@@ -35,6 +35,7 @@ import { Route as AgentKnowledgeRouteImport } from './../../../packages/web-agen
 import { Route as AgentChatRouteImport } from './../../../packages/web-agent/src/routes/chat'
 import { Route as AdminTenantRouteImport } from './../../../packages/web-admin/src/routes/tenant'
 import { Route as AdminSsoRouteImport } from './../../../packages/web-admin/src/routes/sso'
+import { Route as AdminSkillsRouteImport } from './../../../packages/web-admin/src/routes/skills'
 import { Route as AdminRoleAccessRouteImport } from './../../../packages/web-admin/src/routes/role-access'
 import { Route as AdminNotificationsRouteImport } from './../../../packages/web-admin/src/routes/notifications'
 import { Route as AdminMailRouteImport } from './../../../packages/web-admin/src/routes/mail'
@@ -186,6 +187,11 @@ const AdminSsoRoute = AdminSsoRouteImport.update({
   path: '/sso',
   getParentRoute: () => AdminRouteRoute,
 } as any)
+const AdminSkillsRoute = AdminSkillsRouteImport.update({
+  id: '/skills',
+  path: '/skills',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 const AdminRoleAccessRoute = AdminRoleAccessRouteImport.update({
   id: '/role-access',
   path: '/role-access',
@@ -312,6 +318,7 @@ export interface FileRoutesByFullPath {
   '/admin/mail': typeof AdminMailRoute
   '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/role-access': typeof AdminRoleAccessRoute
+  '/admin/skills': typeof AdminSkillsRoute
   '/admin/sso': typeof AdminSsoRoute
   '/admin/tenant': typeof AdminTenantRoute
   '/agent/chat': typeof AgentChatRoute
@@ -353,6 +360,7 @@ export interface FileRoutesByTo {
   '/admin/mail': typeof AdminMailRoute
   '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/role-access': typeof AdminRoleAccessRoute
+  '/admin/skills': typeof AdminSkillsRoute
   '/admin/sso': typeof AdminSsoRoute
   '/admin/tenant': typeof AdminTenantRoute
   '/agent/chat': typeof AgentChatRoute
@@ -403,6 +411,7 @@ export interface FileRoutesById {
   '/_authed/admin/mail': typeof AdminMailRoute
   '/_authed/admin/notifications': typeof AdminNotificationsRoute
   '/_authed/admin/role-access': typeof AdminRoleAccessRoute
+  '/_authed/admin/skills': typeof AdminSkillsRoute
   '/_authed/admin/sso': typeof AdminSsoRoute
   '/_authed/admin/tenant': typeof AdminTenantRoute
   '/_authed/agent/chat': typeof AgentChatRoute
@@ -453,6 +462,7 @@ export interface FileRouteTypes {
     | '/admin/mail'
     | '/admin/notifications'
     | '/admin/role-access'
+    | '/admin/skills'
     | '/admin/sso'
     | '/admin/tenant'
     | '/agent/chat'
@@ -494,6 +504,7 @@ export interface FileRouteTypes {
     | '/admin/mail'
     | '/admin/notifications'
     | '/admin/role-access'
+    | '/admin/skills'
     | '/admin/sso'
     | '/admin/tenant'
     | '/agent/chat'
@@ -543,6 +554,7 @@ export interface FileRouteTypes {
     | '/_authed/admin/mail'
     | '/_authed/admin/notifications'
     | '/_authed/admin/role-access'
+    | '/_authed/admin/skills'
     | '/_authed/admin/sso'
     | '/_authed/admin/tenant'
     | '/_authed/agent/chat'
@@ -766,6 +778,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSsoRouteImport
       parentRoute: typeof AdminRouteRoute
     }
+    '/_authed/admin/skills': {
+      id: '/_authed/admin/skills'
+      path: '/skills'
+      fullPath: '/admin/skills'
+      preLoaderRoute: typeof AdminSkillsRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/_authed/admin/role-access': {
       id: '/_authed/admin/role-access'
       path: '/role-access'
@@ -921,6 +940,7 @@ interface AdminRouteRouteChildren {
   AdminMailRoute: typeof AdminMailRoute
   AdminNotificationsRoute: typeof AdminNotificationsRoute
   AdminRoleAccessRoute: typeof AdminRoleAccessRoute
+  AdminSkillsRoute: typeof AdminSkillsRoute
   AdminSsoRoute: typeof AdminSsoRoute
   AdminTenantRoute: typeof AdminTenantRoute
   AdminIndexRoute: typeof AdminIndexRoute
@@ -931,6 +951,7 @@ const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminMailRoute: AdminMailRoute,
   AdminNotificationsRoute: AdminNotificationsRoute,
   AdminRoleAccessRoute: AdminRoleAccessRoute,
+  AdminSkillsRoute: AdminSkillsRoute,
   AdminSsoRoute: AdminSsoRoute,
   AdminTenantRoute: AdminTenantRoute,
   AdminIndexRoute: AdminIndexRoute,
