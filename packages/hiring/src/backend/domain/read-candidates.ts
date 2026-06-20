@@ -163,7 +163,12 @@ export async function getCandidate(input: {
     hiringDb()
       .select()
       .from(candidateEvent)
-      .where(eq(candidateEvent.candidate_id, candidate_id))
+      .where(
+        and(
+          eq(candidateEvent.candidate_id, candidate_id),
+          tenantScoped(candidateEvent.tenant_id, session),
+        ),
+      )
       .orderBy(asc(candidateEvent.created_at)),
   ]);
   return { candidate: cand, skills, applications, timeline };

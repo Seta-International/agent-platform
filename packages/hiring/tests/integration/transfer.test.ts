@@ -5,7 +5,13 @@ import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { hiringDb, resetHiringDb } from '../../src/backend/db/client.ts';
 import { application, candidateEvent } from '../../src/backend/db/schema.ts';
-import { addCandidate, openRequisition, transferApplication } from '../../src/index.ts';
+import {
+  addCandidate,
+  createRejectionReason,
+  openRequisition,
+  rejectApplication,
+  transferApplication,
+} from '../../src/index.ts';
 import { seedTenant } from '../helpers.ts';
 
 const ctx = {
@@ -67,6 +73,119 @@ describe('transferApplication', () => {
           .from(candidateEvent)
           .where(eq(candidateEvent.candidate_id, candidate_id));
         expect(tl.map((e) => e.kind)).toContain('transferred');
+      } finally {
+        resetHiringDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('allows re-applying a candidate to a requisition they have a transferred application on (I-1)', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetHiringDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const r1 = await openRequisition({
+          title: 'R1',
+          kind: 'new',
+          headcount: 1,
+          session: t.adminSession,
+        });
+        const r2 = await openRequisition({
+          title: 'R2',
+          kind: 'new',
+          headcount: 1,
+          session: t.adminSession,
+        });
+        const { application_id } = await addCandidate({
+          requisition_id: r1.requisition_id,
+          name: 'Re-apply C',
+          session: t.adminSession,
+        });
+        // Transfer r1→r2: r1 application becomes 'transferred'
+        const { to_application_id } = await transferApplication({
+          application_id,
+          expected_version: 1,
+          input: { target_requisition_id: r2.requisition_id },
+          session: t.adminSession,
+        });
+        // Transfer r2→r1: candidate had a transferred app on r1, this must NOT 500
+        const res2 = await transferApplication({
+          application_id: to_application_id,
+          expected_version: 1,
+          input: { target_requisition_id: r1.requisition_id },
+          session: t.adminSession,
+        });
+        const [newApp] = await hiringDb()
+          .select()
+          .from(application)
+          .where(eq(application.id, res2.to_application_id));
+        expect(newApp?.requisition_id).toBe(r1.requisition_id);
+        expect(newApp?.status).toBe('active');
+      } finally {
+        resetHiringDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('allows re-applying a candidate to a requisition they have a rejected application on (I-1)', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetHiringDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const r1 = await openRequisition({
+          title: 'R1',
+          kind: 'new',
+          headcount: 1,
+          session: t.adminSession,
+        });
+        const r2 = await openRequisition({
+          title: 'R2',
+          kind: 'new',
+          headcount: 1,
+          session: t.adminSession,
+        });
+        const { application_id: app1Id } = await addCandidate({
+          requisition_id: r1.requisition_id,
+          name: 'Rejected Re-apply',
+          session: t.adminSession,
+        });
+        const reason = await createRejectionReason({
+          input: { label: 'Did not proceed', category: 'rejected_by_us' },
+          session: t.adminSession,
+        });
+        // Reject the r1 application
+        await rejectApplication({
+          application_id: app1Id,
+          expected_version: 1,
+          input: { reason_id: reason.id, tags: [] },
+          session: t.adminSession,
+        });
+        // Now add the same candidate to r2, then transfer back to r1 — must not collide
+        const { application_id: app2Id } = await addCandidate({
+          requisition_id: r2.requisition_id,
+          name: 'Rejected Re-apply',
+          session: t.adminSession,
+        });
+        const res = await transferApplication({
+          application_id: app2Id,
+          expected_version: 1,
+          input: { target_requisition_id: r1.requisition_id },
+          session: t.adminSession,
+        });
+        const [newApp] = await hiringDb()
+          .select()
+          .from(application)
+          .where(eq(application.id, res.to_application_id));
+        expect(newApp?.requisition_id).toBe(r1.requisition_id);
+        expect(newApp?.status).toBe('active');
       } finally {
         resetHiringDb();
         resetCoreDb();

@@ -267,10 +267,10 @@ export const application = hiringSchema.table(
   (t) => [
     uniqueIndex('application_uniq_candidate')
       .on(t.tenant_id, t.requisition_id, t.candidate_id)
-      .where(sql`candidate_id IS NOT NULL`),
+      .where(sql`candidate_id IS NOT NULL AND status = 'active'`),
     uniqueIndex('application_uniq_worker')
       .on(t.tenant_id, t.requisition_id, t.worker_id)
-      .where(sql`worker_id IS NOT NULL`),
+      .where(sql`worker_id IS NOT NULL AND status = 'active'`),
     index('application_by_requisition').on(t.tenant_id, t.requisition_id),
     index('application_by_candidate').on(t.tenant_id, t.candidate_id),
     check('application_kind_check', sql`kind IN ('external','internal')`),
