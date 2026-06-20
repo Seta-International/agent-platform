@@ -59,6 +59,23 @@ export const project = pmSchema.table(
   ],
 );
 
+export const accountRecruiter = pmSchema.table(
+  'account_recruiter',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenant_id: uuid('tenant_id').notNull(),
+    account_id: uuid('account_id').notNull(),
+    recruiter_worker_id: uuid('recruiter_worker_id').notNull(),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('account_recruiter_uniq').on(t.tenant_id, t.account_id, t.recruiter_worker_id),
+    index('account_recruiter_by_account').on(t.tenant_id, t.account_id),
+    index('account_recruiter_by_recruiter').on(t.tenant_id, t.recruiter_worker_id),
+  ],
+);
+
 export const allocation = pmSchema.table(
   'allocation',
   {
