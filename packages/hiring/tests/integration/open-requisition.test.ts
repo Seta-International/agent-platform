@@ -42,6 +42,14 @@ describe('openRequisition', () => {
         expect(r?.status).toBe('open');
         expect(r?.stage).toBe('sourcing');
 
+        // headcount omitted → domain defaults to 1 opening (every open requisition owns ≥1 opening)
+        const ops = await hiringDb()
+          .select()
+          .from(opening)
+          .where(eq(opening.requisition_id, requisition_id));
+        expect(ops).toHaveLength(1);
+        expect(ops[0]?.seq).toBe(1);
+
         const events = await readEvents(pool, t.tenant_id, 'hiring.requisition.opened');
         expect(events).toHaveLength(1);
         expect(events[0]?.aggregate_id).toBe(requisition_id);

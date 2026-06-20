@@ -66,7 +66,7 @@ export async function openRequisition(
         payload: { requisition_id: row.id, tenant_id: session.tenant_id },
       });
 
-      for (let seq = 1; seq <= (input.headcount ?? 0); seq++) {
+      for (let seq = 1; seq <= (input.headcount ?? 1); seq++) {
         const [op] = await tx
           .insert(opening)
           .values({ tenant_id: session.tenant_id, requisition_id: row.id, seq })
