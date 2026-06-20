@@ -200,7 +200,7 @@ export interface ProjectListRow {
   account_id: string;
   name: string;
   phase: string;
-  status: string;
+  status: 'active' | 'on_hold' | 'closed';
   pm_worker_id: string | null;
 }
 
@@ -223,7 +223,7 @@ export interface ProjectPatch {
   objective?: string | null;
   scope?: { in: string; out: string } | null;
   phase?: string;
-  status?: string;
+  status?: 'active' | 'on_hold' | 'closed';
 }
 
 export interface ProjectAccessRow {

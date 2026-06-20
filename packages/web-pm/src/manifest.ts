@@ -34,6 +34,13 @@ export const pmAppManifest: AppManifest = {
           to: '/pm/requests',
           requires: ['pm.charter.read'],
         },
+        {
+          id: 'pm.projects',
+          icon: FolderKanban,
+          label: 'Projects',
+          to: '/pm/projects',
+          requires: ['pm.project.read'],
+        },
       ],
     },
   ],
