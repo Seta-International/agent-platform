@@ -12,6 +12,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { type CandStage, fetchCandidate, moveApplicationStage } from '../api/hiring-client.ts';
 import { hiringKeys } from '../state/query-keys.ts';
+import { CandidateTimeline } from './candidate-timeline.tsx';
 import { fitLabel } from './candidate-utils.ts';
 import { RejectDialog } from './reject-dialog.tsx';
 import { TransferDialog } from './transfer-dialog.tsx';
@@ -149,14 +150,7 @@ export function CandidateDetailDrawer({
 
               <section>
                 <h4 className="mb-2 text-eyebrow uppercase text-ink-muted">Activity</h4>
-                <ul className="space-y-2">
-                  {data.timeline.map((e) => (
-                    <li key={e.id} className="border-b border-hairline pb-2">
-                      <div className="text-body text-ink">{e.summary}</div>
-                      <div className="font-mono text-caption text-ink-muted">{e.created_at}</div>
-                    </li>
-                  ))}
-                </ul>
+                <CandidateTimeline events={data.timeline} />
               </section>
             </div>
 
