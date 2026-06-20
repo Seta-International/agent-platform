@@ -25,6 +25,14 @@ export {
   transferApplication,
 } from './backend/domain/pipeline.ts';
 export {
+  type CandidateDetail,
+  type CandidateListRow,
+  getCandidate,
+  listCandidates,
+  listTalentPool,
+  type TalentPoolRow,
+} from './backend/domain/read-candidates.ts';
+export {
   getRequisition,
   listRequisitions,
   type RequisitionDetail,
