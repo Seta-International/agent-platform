@@ -384,6 +384,24 @@ export const INVENTORY: StatementSpec[] = [
     ],
   },
   {
+    module: 'pm',
+    statement: {
+      'pm.account': ['read', 'manage'],
+    },
+    roles: [
+      {
+        slug: 'pm.strategic',
+        description: 'Full project-management administration',
+        permissions: ['pm.account.read', 'pm.account.manage'],
+      },
+      {
+        slug: 'pm.viewer',
+        description: 'Read project-management records',
+        permissions: ['pm.account.read'],
+      },
+    ],
+  },
+  {
     module: 'identity',
     statement: {
       'identity.user': [
