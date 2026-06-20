@@ -236,14 +236,17 @@ function TeamPage() {
 
   return (
     <PageChrome breadcrumb={['ARIA']} title="Team Dashboard">
+      <div className="sticky top-0 z-20 border-b border-hairline bg-canvas">
+        <div className="page-container py-3">
+          <PeriodFilter
+            periods={periods}
+            value={selectedPeriod}
+            onChange={setSelected}
+            disabled={loading}
+          />
+        </div>
+      </div>
       <div className="page-container py-6 space-y-6">
-        <PeriodFilter
-          periods={periods}
-          value={selectedPeriod}
-          onChange={setSelected}
-          disabled={loading}
-        />
-
         {loading && (
           <div className="py-24 flex flex-col items-center gap-3 text-center">
             <Loader2 className="size-6 text-ink-subtle animate-spin" />

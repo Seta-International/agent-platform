@@ -196,14 +196,17 @@ function ExecutivePage() {
 
   return (
     <PageChrome breadcrumb={['ARIA']} title="Executive Dashboard">
+      <div className="sticky top-0 z-20 border-b border-hairline bg-canvas">
+        <div className="page-container py-3">
+          <PeriodFilter
+            periods={periods}
+            value={selectedPeriod}
+            onChange={setSelected}
+            disabled={loading}
+          />
+        </div>
+      </div>
       <div className="page-container py-6 space-y-6">
-        <PeriodFilter
-          periods={periods}
-          value={selectedPeriod}
-          onChange={setSelected}
-          disabled={loading}
-        />
-
         {loading && (
           <StateBlock icon={<Loader2 className="size-6 text-ink-subtle animate-spin" />}>
             Loading organisation performance…
