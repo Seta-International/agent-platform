@@ -122,7 +122,7 @@ export interface CharterDetail {
 export interface SubmitCharterBody {
   account_id: string;
   name: string;
-  pm_worker_id?: string;
+  pm_worker_id: string;
   budget_bmm?: number;
   team_size?: number;
   methodology?: 'scrum' | 'kanban';

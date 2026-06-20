@@ -1,10 +1,12 @@
 import { Alert, AlertDescription, Badge, DataTable, EmptyState, PageChrome } from '@seta/shared-ui';
-import { useQuery } from '@tanstack/react-query';
+import { usePermission } from '@seta/web-identity';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { ClipboardList } from 'lucide-react';
 import { useMemo } from 'react';
 import { type CharterListRow, fetchCharters } from '../api/pm-client.ts';
 import { pmKeys } from '../state/query-keys.ts';
+import { SubmitCharterDialog } from './submit-charter-dialog.tsx';
 
 const STATUS_VARIANT: Record<
   CharterListRow['status'],
@@ -18,6 +20,8 @@ const STATUS_VARIANT: Record<
 
 export function RequestsPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const canSubmit = usePermission('pm.charter.submit');
   const { data, isLoading, error } = useQuery({
     queryKey: pmKeys.charters(),
     queryFn: fetchCharters,
@@ -55,8 +59,14 @@ export function RequestsPage() {
     ];
   }, []);
 
+  const actions = canSubmit ? (
+    <SubmitCharterDialog
+      onCreated={() => void queryClient.invalidateQueries({ queryKey: pmKeys.charters() })}
+    />
+  ) : undefined;
+
   return (
-    <PageChrome title="Requests">
+    <PageChrome title="Requests" actions={actions}>
       <div className="page-container space-y-4 p-6">
         {error ? (
           <Alert variant="destructive">
