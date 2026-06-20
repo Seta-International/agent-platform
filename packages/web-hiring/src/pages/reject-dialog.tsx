@@ -54,7 +54,6 @@ export function RejectDialog({
     onSuccess: () => {
       toast.success('Candidate rejected');
       void queryClient.invalidateQueries({ queryKey: hiringKeys.candidates() });
-      void queryClient.invalidateQueries({ queryKey: hiringKeys.candidate(applicationId) });
       onOpenChange(false);
       onDone();
     },
