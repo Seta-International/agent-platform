@@ -220,3 +220,36 @@ export async function closeOpening(
     await fetch(`/api/hiring/v1/openings/${openingId}/close`, json('POST', input)),
   );
 }
+
+// ---- Admin config mutations ----
+export interface JdTemplatePayload {
+  name: string;
+  kind: 'role' | 'intro' | 'closing';
+  sections: { variant: JdVariant; section: JdSectionKey; body: string }[];
+}
+
+export async function createJdTemplate(input: JdTemplatePayload): Promise<{ template_id: string }> {
+  return handleResponse(await fetch('/api/hiring/v1/jd-templates', json('POST', input)));
+}
+export async function deleteJdTemplate(id: string): Promise<void> {
+  const res = await fetch(`/api/hiring/v1/jd-templates/${id}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  if (!res.ok) {
+    const err = new Error(`HTTP ${res.status}`) as Error & { status?: number };
+    err.status = res.status;
+    throw err;
+  }
+}
+export async function createCloseReason(input: { label: string }): Promise<{ id: string }> {
+  return handleResponse(await fetch('/api/hiring/v1/close-reasons', json('POST', input)));
+}
+export async function archiveCloseReason(
+  id: string,
+  input: { expected_version?: number },
+): Promise<{ version: number }> {
+  return handleResponse(
+    await fetch(`/api/hiring/v1/close-reasons/${id}/archive`, json('POST', input)),
+  );
+}
