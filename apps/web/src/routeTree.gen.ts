@@ -40,7 +40,9 @@ import { Route as AdminNotificationsRouteImport } from './../../../packages/web-
 import { Route as AdminMailRouteImport } from './../../../packages/web-admin/src/routes/mail'
 import { Route as AdminAuditRouteImport } from './../../../packages/web-admin/src/routes/audit'
 import { Route as AgentWorkflowsRouteRouteImport } from './../../../packages/web-agent/src/routes/workflows/route'
+import { Route as PmAccountsIndexRouteImport } from './../../../packages/web-pm/src/routes/accounts/index'
 import { Route as AgentWorkflowsIndexRouteImport } from './../../../packages/web-agent/src/routes/workflows/index'
+import { Route as PmAccountsAccountIdRouteImport } from './../../../packages/web-pm/src/routes/accounts/$accountId'
 import { Route as PlannerPlansPlanIdRouteImport } from './../../../packages/web-planner/src/routes/plans_/$planId'
 import { Route as PlannerGroupsDiscoverRouteImport } from './../../../packages/web-planner/src/routes/groups_/discover'
 import { Route as PlannerGroupsGroupIdRouteImport } from './../../../packages/web-planner/src/routes/groups_/$groupId'
@@ -202,10 +204,20 @@ const AgentWorkflowsRouteRoute = AgentWorkflowsRouteRouteImport.update({
   path: '/workflows',
   getParentRoute: () => AgentRouteRoute,
 } as any)
+const PmAccountsIndexRoute = PmAccountsIndexRouteImport.update({
+  id: '/accounts/',
+  path: '/accounts/',
+  getParentRoute: () => PmRouteRoute,
+} as any)
 const AgentWorkflowsIndexRoute = AgentWorkflowsIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AgentWorkflowsRouteRoute,
+} as any)
+const PmAccountsAccountIdRoute = PmAccountsAccountIdRouteImport.update({
+  id: '/accounts/$accountId',
+  path: '/accounts/$accountId',
+  getParentRoute: () => PmRouteRoute,
 } as any)
 const PlannerPlansPlanIdRoute = PlannerPlansPlanIdRouteImport.update({
   id: '/plans_/$planId',
@@ -274,7 +286,9 @@ export interface FileRoutesByFullPath {
   '/planner/groups/$groupId': typeof PlannerGroupsGroupIdRoute
   '/planner/groups/discover': typeof PlannerGroupsDiscoverRoute
   '/planner/plans/$planId': typeof PlannerPlansPlanIdRoute
+  '/pm/accounts/$accountId': typeof PmAccountsAccountIdRoute
   '/agent/workflows/': typeof AgentWorkflowsIndexRoute
+  '/pm/accounts/': typeof PmAccountsIndexRoute
   '/agent/workflows/runs/$runId': typeof AgentWorkflowsRunsRunIdRoute
   '/planner/plans/$planId/settings/categories': typeof PlannerPlansPlanIdSettingsCategoriesRoute
   '/planner/plans/$planId/tasks/$taskId': typeof PlannerPlansPlanIdTasksTaskIdRoute
@@ -306,7 +320,9 @@ export interface FileRoutesByTo {
   '/planner/groups/$groupId': typeof PlannerGroupsGroupIdRoute
   '/planner/groups/discover': typeof PlannerGroupsDiscoverRoute
   '/planner/plans/$planId': typeof PlannerPlansPlanIdRoute
+  '/pm/accounts/$accountId': typeof PmAccountsAccountIdRoute
   '/agent/workflows': typeof AgentWorkflowsIndexRoute
+  '/pm/accounts': typeof PmAccountsIndexRoute
   '/agent/workflows/runs/$runId': typeof AgentWorkflowsRunsRunIdRoute
   '/planner/plans/$planId/settings/categories': typeof PlannerPlansPlanIdSettingsCategoriesRoute
   '/planner/plans/$planId/tasks/$taskId': typeof PlannerPlansPlanIdTasksTaskIdRoute
@@ -347,7 +363,9 @@ export interface FileRoutesById {
   '/_authed/planner/groups_/$groupId': typeof PlannerGroupsGroupIdRoute
   '/_authed/planner/groups_/discover': typeof PlannerGroupsDiscoverRoute
   '/_authed/planner/plans_/$planId': typeof PlannerPlansPlanIdRoute
+  '/_authed/pm/accounts/$accountId': typeof PmAccountsAccountIdRoute
   '/_authed/agent/workflows/': typeof AgentWorkflowsIndexRoute
+  '/_authed/pm/accounts/': typeof PmAccountsIndexRoute
   '/_authed/agent/workflows/runs/$runId': typeof AgentWorkflowsRunsRunIdRoute
   '/_authed/planner/plans_/$planId_/settings_/categories': typeof PlannerPlansPlanIdSettingsCategoriesRoute
   '/_authed/planner/plans_/$planId_/tasks_/$taskId': typeof PlannerPlansPlanIdTasksTaskIdRoute
@@ -388,7 +406,9 @@ export interface FileRouteTypes {
     | '/planner/groups/$groupId'
     | '/planner/groups/discover'
     | '/planner/plans/$planId'
+    | '/pm/accounts/$accountId'
     | '/agent/workflows/'
+    | '/pm/accounts/'
     | '/agent/workflows/runs/$runId'
     | '/planner/plans/$planId/settings/categories'
     | '/planner/plans/$planId/tasks/$taskId'
@@ -420,7 +440,9 @@ export interface FileRouteTypes {
     | '/planner/groups/$groupId'
     | '/planner/groups/discover'
     | '/planner/plans/$planId'
+    | '/pm/accounts/$accountId'
     | '/agent/workflows'
+    | '/pm/accounts'
     | '/agent/workflows/runs/$runId'
     | '/planner/plans/$planId/settings/categories'
     | '/planner/plans/$planId/tasks/$taskId'
@@ -460,7 +482,9 @@ export interface FileRouteTypes {
     | '/_authed/planner/groups_/$groupId'
     | '/_authed/planner/groups_/discover'
     | '/_authed/planner/plans_/$planId'
+    | '/_authed/pm/accounts/$accountId'
     | '/_authed/agent/workflows/'
+    | '/_authed/pm/accounts/'
     | '/_authed/agent/workflows/runs/$runId'
     | '/_authed/planner/plans_/$planId_/settings_/categories'
     | '/_authed/planner/plans_/$planId_/tasks_/$taskId'
@@ -692,12 +716,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AgentWorkflowsRouteRouteImport
       parentRoute: typeof AgentRouteRoute
     }
+    '/_authed/pm/accounts/': {
+      id: '/_authed/pm/accounts/'
+      path: '/accounts'
+      fullPath: '/pm/accounts/'
+      preLoaderRoute: typeof PmAccountsIndexRouteImport
+      parentRoute: typeof PmRouteRoute
+    }
     '/_authed/agent/workflows/': {
       id: '/_authed/agent/workflows/'
       path: '/'
       fullPath: '/agent/workflows/'
       preLoaderRoute: typeof AgentWorkflowsIndexRouteImport
       parentRoute: typeof AgentWorkflowsRouteRoute
+    }
+    '/_authed/pm/accounts/$accountId': {
+      id: '/_authed/pm/accounts/$accountId'
+      path: '/accounts/$accountId'
+      fullPath: '/pm/accounts/$accountId'
+      preLoaderRoute: typeof PmAccountsAccountIdRouteImport
+      parentRoute: typeof PmRouteRoute
     }
     '/_authed/planner/plans_/$planId': {
       id: '/_authed/planner/plans_/$planId'
@@ -856,10 +894,14 @@ const PlannerRouteRouteWithChildren = PlannerRouteRoute._addFileChildren(
 
 interface PmRouteRouteChildren {
   PmIndexRoute: typeof PmIndexRoute
+  PmAccountsAccountIdRoute: typeof PmAccountsAccountIdRoute
+  PmAccountsIndexRoute: typeof PmAccountsIndexRoute
 }
 
 const PmRouteRouteChildren: PmRouteRouteChildren = {
   PmIndexRoute: PmIndexRoute,
+  PmAccountsAccountIdRoute: PmAccountsAccountIdRoute,
+  PmAccountsIndexRoute: PmAccountsIndexRoute,
 }
 
 const PmRouteRouteWithChildren =
