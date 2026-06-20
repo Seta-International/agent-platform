@@ -40,8 +40,10 @@ import { Route as AdminNotificationsRouteImport } from './../../../packages/web-
 import { Route as AdminMailRouteImport } from './../../../packages/web-admin/src/routes/mail'
 import { Route as AdminAuditRouteImport } from './../../../packages/web-admin/src/routes/audit'
 import { Route as AgentWorkflowsRouteRouteImport } from './../../../packages/web-agent/src/routes/workflows/route'
+import { Route as PmRequestsIndexRouteImport } from './../../../packages/web-pm/src/routes/requests/index'
 import { Route as PmAccountsIndexRouteImport } from './../../../packages/web-pm/src/routes/accounts/index'
 import { Route as AgentWorkflowsIndexRouteImport } from './../../../packages/web-agent/src/routes/workflows/index'
+import { Route as PmRequestsCharterIdRouteImport } from './../../../packages/web-pm/src/routes/requests/$charterId'
 import { Route as PmAccountsAccountIdRouteImport } from './../../../packages/web-pm/src/routes/accounts/$accountId'
 import { Route as PlannerPlansPlanIdRouteImport } from './../../../packages/web-planner/src/routes/plans_/$planId'
 import { Route as PlannerGroupsDiscoverRouteImport } from './../../../packages/web-planner/src/routes/groups_/discover'
@@ -204,6 +206,11 @@ const AgentWorkflowsRouteRoute = AgentWorkflowsRouteRouteImport.update({
   path: '/workflows',
   getParentRoute: () => AgentRouteRoute,
 } as any)
+const PmRequestsIndexRoute = PmRequestsIndexRouteImport.update({
+  id: '/requests/',
+  path: '/requests/',
+  getParentRoute: () => PmRouteRoute,
+} as any)
 const PmAccountsIndexRoute = PmAccountsIndexRouteImport.update({
   id: '/accounts/',
   path: '/accounts/',
@@ -213,6 +220,11 @@ const AgentWorkflowsIndexRoute = AgentWorkflowsIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AgentWorkflowsRouteRoute,
+} as any)
+const PmRequestsCharterIdRoute = PmRequestsCharterIdRouteImport.update({
+  id: '/requests/$charterId',
+  path: '/requests/$charterId',
+  getParentRoute: () => PmRouteRoute,
 } as any)
 const PmAccountsAccountIdRoute = PmAccountsAccountIdRouteImport.update({
   id: '/accounts/$accountId',
@@ -287,8 +299,10 @@ export interface FileRoutesByFullPath {
   '/planner/groups/discover': typeof PlannerGroupsDiscoverRoute
   '/planner/plans/$planId': typeof PlannerPlansPlanIdRoute
   '/pm/accounts/$accountId': typeof PmAccountsAccountIdRoute
+  '/pm/requests/$charterId': typeof PmRequestsCharterIdRoute
   '/agent/workflows/': typeof AgentWorkflowsIndexRoute
   '/pm/accounts/': typeof PmAccountsIndexRoute
+  '/pm/requests/': typeof PmRequestsIndexRoute
   '/agent/workflows/runs/$runId': typeof AgentWorkflowsRunsRunIdRoute
   '/planner/plans/$planId/settings/categories': typeof PlannerPlansPlanIdSettingsCategoriesRoute
   '/planner/plans/$planId/tasks/$taskId': typeof PlannerPlansPlanIdTasksTaskIdRoute
@@ -321,8 +335,10 @@ export interface FileRoutesByTo {
   '/planner/groups/discover': typeof PlannerGroupsDiscoverRoute
   '/planner/plans/$planId': typeof PlannerPlansPlanIdRoute
   '/pm/accounts/$accountId': typeof PmAccountsAccountIdRoute
+  '/pm/requests/$charterId': typeof PmRequestsCharterIdRoute
   '/agent/workflows': typeof AgentWorkflowsIndexRoute
   '/pm/accounts': typeof PmAccountsIndexRoute
+  '/pm/requests': typeof PmRequestsIndexRoute
   '/agent/workflows/runs/$runId': typeof AgentWorkflowsRunsRunIdRoute
   '/planner/plans/$planId/settings/categories': typeof PlannerPlansPlanIdSettingsCategoriesRoute
   '/planner/plans/$planId/tasks/$taskId': typeof PlannerPlansPlanIdTasksTaskIdRoute
@@ -364,8 +380,10 @@ export interface FileRoutesById {
   '/_authed/planner/groups_/discover': typeof PlannerGroupsDiscoverRoute
   '/_authed/planner/plans_/$planId': typeof PlannerPlansPlanIdRoute
   '/_authed/pm/accounts/$accountId': typeof PmAccountsAccountIdRoute
+  '/_authed/pm/requests/$charterId': typeof PmRequestsCharterIdRoute
   '/_authed/agent/workflows/': typeof AgentWorkflowsIndexRoute
   '/_authed/pm/accounts/': typeof PmAccountsIndexRoute
+  '/_authed/pm/requests/': typeof PmRequestsIndexRoute
   '/_authed/agent/workflows/runs/$runId': typeof AgentWorkflowsRunsRunIdRoute
   '/_authed/planner/plans_/$planId_/settings_/categories': typeof PlannerPlansPlanIdSettingsCategoriesRoute
   '/_authed/planner/plans_/$planId_/tasks_/$taskId': typeof PlannerPlansPlanIdTasksTaskIdRoute
@@ -407,8 +425,10 @@ export interface FileRouteTypes {
     | '/planner/groups/discover'
     | '/planner/plans/$planId'
     | '/pm/accounts/$accountId'
+    | '/pm/requests/$charterId'
     | '/agent/workflows/'
     | '/pm/accounts/'
+    | '/pm/requests/'
     | '/agent/workflows/runs/$runId'
     | '/planner/plans/$planId/settings/categories'
     | '/planner/plans/$planId/tasks/$taskId'
@@ -441,8 +461,10 @@ export interface FileRouteTypes {
     | '/planner/groups/discover'
     | '/planner/plans/$planId'
     | '/pm/accounts/$accountId'
+    | '/pm/requests/$charterId'
     | '/agent/workflows'
     | '/pm/accounts'
+    | '/pm/requests'
     | '/agent/workflows/runs/$runId'
     | '/planner/plans/$planId/settings/categories'
     | '/planner/plans/$planId/tasks/$taskId'
@@ -483,8 +505,10 @@ export interface FileRouteTypes {
     | '/_authed/planner/groups_/discover'
     | '/_authed/planner/plans_/$planId'
     | '/_authed/pm/accounts/$accountId'
+    | '/_authed/pm/requests/$charterId'
     | '/_authed/agent/workflows/'
     | '/_authed/pm/accounts/'
+    | '/_authed/pm/requests/'
     | '/_authed/agent/workflows/runs/$runId'
     | '/_authed/planner/plans_/$planId_/settings_/categories'
     | '/_authed/planner/plans_/$planId_/tasks_/$taskId'
@@ -716,6 +740,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AgentWorkflowsRouteRouteImport
       parentRoute: typeof AgentRouteRoute
     }
+    '/_authed/pm/requests/': {
+      id: '/_authed/pm/requests/'
+      path: '/requests'
+      fullPath: '/pm/requests/'
+      preLoaderRoute: typeof PmRequestsIndexRouteImport
+      parentRoute: typeof PmRouteRoute
+    }
     '/_authed/pm/accounts/': {
       id: '/_authed/pm/accounts/'
       path: '/accounts'
@@ -729,6 +760,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/agent/workflows/'
       preLoaderRoute: typeof AgentWorkflowsIndexRouteImport
       parentRoute: typeof AgentWorkflowsRouteRoute
+    }
+    '/_authed/pm/requests/$charterId': {
+      id: '/_authed/pm/requests/$charterId'
+      path: '/requests/$charterId'
+      fullPath: '/pm/requests/$charterId'
+      preLoaderRoute: typeof PmRequestsCharterIdRouteImport
+      parentRoute: typeof PmRouteRoute
     }
     '/_authed/pm/accounts/$accountId': {
       id: '/_authed/pm/accounts/$accountId'
@@ -895,13 +933,17 @@ const PlannerRouteRouteWithChildren = PlannerRouteRoute._addFileChildren(
 interface PmRouteRouteChildren {
   PmIndexRoute: typeof PmIndexRoute
   PmAccountsAccountIdRoute: typeof PmAccountsAccountIdRoute
+  PmRequestsCharterIdRoute: typeof PmRequestsCharterIdRoute
   PmAccountsIndexRoute: typeof PmAccountsIndexRoute
+  PmRequestsIndexRoute: typeof PmRequestsIndexRoute
 }
 
 const PmRouteRouteChildren: PmRouteRouteChildren = {
   PmIndexRoute: PmIndexRoute,
   PmAccountsAccountIdRoute: PmAccountsAccountIdRoute,
+  PmRequestsCharterIdRoute: PmRequestsCharterIdRoute,
   PmAccountsIndexRoute: PmAccountsIndexRoute,
+  PmRequestsIndexRoute: PmRequestsIndexRoute,
 }
 
 const PmRouteRouteWithChildren =

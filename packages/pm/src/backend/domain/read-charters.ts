@@ -61,6 +61,7 @@ export async function getCharter(input: { charter_id: string; session: SessionSc
     status: c.status,
     rejection_reason: c.rejection_reason,
     project_id: c.project_id,
+    submitted_by_user_id: c.submitted_by_user_id,
     version: c.version,
   };
 }
