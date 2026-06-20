@@ -13,7 +13,7 @@ export type JdSectionInput = z.infer<typeof jdSectionInput>;
 
 export const skillInput = z.object({
   skill_name: z.string().min(1),
-  skill_id: z.string().uuid().optional(),
+  skill_id: z.string().uuid(),
   min_level: z.number().int().min(0).max(5).optional(),
 });
 export type SkillInput = z.infer<typeof skillInput>;

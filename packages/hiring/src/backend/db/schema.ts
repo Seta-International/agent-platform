@@ -110,12 +110,12 @@ export const requisitionSkill = hiringSchema.table(
   {
     tenant_id: uuid('tenant_id').notNull(),
     requisition_id: uuid('requisition_id').notNull(),
-    skill_id: uuid('skill_id'),
+    skill_id: uuid('skill_id').notNull(),
     skill_name: text('skill_name').notNull(),
     min_level: integer('min_level'),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
-  (t) => [primaryKey({ columns: [t.requisition_id, t.skill_name] })],
+  (t) => [primaryKey({ columns: [t.requisition_id, t.skill_id] })],
 );
 
 export const openingCloseReason = hiringSchema.table(
