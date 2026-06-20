@@ -1,0 +1,228 @@
+import type { SessionScope } from '@seta/core';
+import { and, asc, eq, inArray } from 'drizzle-orm';
+import { hiringDb } from '../db/client.ts';
+import {
+  application,
+  candidate,
+  candidateEvent,
+  candidateSkill,
+  requisition,
+  requisitionSkill,
+} from '../db/schema.ts';
+import { tenantScoped } from '../db/scope.ts';
+import { HiringError, requirePermission } from '../rbac.ts';
+import { computeFit, type FitResult } from './fit.ts';
+
+export interface CandidateListRow {
+  application_id: string;
+  candidate_id: string;
+  name: string;
+  seniority: string | null;
+  source: string | null;
+  requisition_id: string;
+  requisition_title: string;
+  stage: string;
+  status: string;
+  rating: number | null;
+  version: number;
+  fit: FitResult;
+}
+
+async function fitFor(
+  session: SessionScope,
+  reqIds: string[],
+  candIds: string[],
+): Promise<{
+  reqSkills: Map<string, { skill_id: string; min_level: number | null }[]>;
+  candSkills: Map<string, { skill_id: string; level: number | null }[]>;
+}> {
+  const reqSkills = new Map<string, { skill_id: string; min_level: number | null }[]>();
+  const candSkills = new Map<string, { skill_id: string; level: number | null }[]>();
+  if (reqIds.length) {
+    const rs = await hiringDb()
+      .select({
+        requisition_id: requisitionSkill.requisition_id,
+        skill_id: requisitionSkill.skill_id,
+        min_level: requisitionSkill.min_level,
+      })
+      .from(requisitionSkill)
+      .where(
+        and(
+          inArray(requisitionSkill.requisition_id, reqIds),
+          tenantScoped(requisitionSkill.tenant_id, session),
+        ),
+      );
+    for (const r of rs) {
+      const list = reqSkills.get(r.requisition_id) ?? [];
+      list.push({ skill_id: r.skill_id as string, min_level: r.min_level });
+      reqSkills.set(r.requisition_id, list);
+    }
+  }
+  if (candIds.length) {
+    const cs = await hiringDb()
+      .select({
+        candidate_id: candidateSkill.candidate_id,
+        skill_id: candidateSkill.skill_id,
+        level: candidateSkill.level,
+      })
+      .from(candidateSkill)
+      .where(
+        and(
+          inArray(candidateSkill.candidate_id, candIds),
+          tenantScoped(candidateSkill.tenant_id, session),
+        ),
+      );
+    for (const c of cs) {
+      const list = candSkills.get(c.candidate_id) ?? [];
+      list.push({ skill_id: c.skill_id, level: c.level });
+      candSkills.set(c.candidate_id, list);
+    }
+  }
+  return { reqSkills, candSkills };
+}
+
+export async function listCandidates(session: SessionScope): Promise<CandidateListRow[]> {
+  requirePermission(session, 'hiring.candidate.read');
+  const rows = await hiringDb()
+    .select({
+      application_id: application.id,
+      candidate_id: application.candidate_id,
+      name: candidate.name,
+      seniority: candidate.seniority,
+      source: candidate.source,
+      requisition_id: application.requisition_id,
+      requisition_title: requisition.title,
+      stage: application.stage,
+      status: application.status,
+      rating: application.rating,
+      version: application.version,
+    })
+    .from(application)
+    .innerJoin(candidate, eq(candidate.id, application.candidate_id))
+    .innerJoin(requisition, eq(requisition.id, application.requisition_id))
+    .where(
+      and(
+        eq(application.kind, 'external'),
+        eq(application.status, 'active'),
+        tenantScoped(application.tenant_id, session),
+      ),
+    );
+  const { reqSkills, candSkills } = await fitFor(
+    session,
+    [...new Set(rows.map((r) => r.requisition_id))],
+    [...new Set(rows.map((r) => r.candidate_id as string))],
+  );
+  return rows.map((r) => ({
+    ...r,
+    candidate_id: r.candidate_id as string,
+    fit: computeFit(
+      reqSkills.get(r.requisition_id) ?? [],
+      candSkills.get(r.candidate_id as string) ?? [],
+    ),
+  }));
+}
+
+export interface CandidateDetail {
+  candidate: typeof candidate.$inferSelect;
+  skills: (typeof candidateSkill.$inferSelect)[];
+  applications: (typeof application.$inferSelect)[];
+  timeline: (typeof candidateEvent.$inferSelect)[];
+}
+
+export async function getCandidate(input: {
+  candidate_id: string;
+  session: SessionScope;
+}): Promise<CandidateDetail> {
+  const { session, candidate_id } = input;
+  requirePermission(session, 'hiring.candidate.read');
+  const [cand] = await hiringDb()
+    .select()
+    .from(candidate)
+    .where(and(eq(candidate.id, candidate_id), tenantScoped(candidate.tenant_id, session)))
+    .limit(1);
+  if (!cand) throw new HiringError('NOT_FOUND', 'candidate not found');
+  const [skills, applications, timeline] = await Promise.all([
+    hiringDb().select().from(candidateSkill).where(eq(candidateSkill.candidate_id, candidate_id)),
+    hiringDb().select().from(application).where(eq(application.candidate_id, candidate_id)),
+    hiringDb()
+      .select()
+      .from(candidateEvent)
+      .where(eq(candidateEvent.candidate_id, candidate_id))
+      .orderBy(asc(candidateEvent.created_at)),
+  ]);
+  return { candidate: cand, skills, applications, timeline };
+}
+
+export interface TalentPoolRow {
+  candidate_id: string;
+  name: string;
+  seniority: string | null;
+  segment: string | null;
+  last_status: string | null;
+  recommended: { requisition_id: string; title: string; fit: FitResult }[];
+}
+
+export async function listTalentPool(session: SessionScope): Promise<TalentPoolRow[]> {
+  requirePermission(session, 'hiring.candidate.read');
+  const apps = await hiringDb()
+    .select({
+      candidate_id: application.candidate_id,
+      status: application.status,
+      created_at: application.created_at,
+    })
+    .from(application)
+    .where(and(eq(application.kind, 'external'), tenantScoped(application.tenant_id, session)));
+
+  const active = new Set(
+    apps.filter((a) => a.status === 'active').map((a) => a.candidate_id as string),
+  );
+
+  // latest application status per candidate — labels the pool card (rejected / transferred / alumni)
+  const lastStatus = new Map<string, string>();
+  const lastSeen = new Map<string, number>();
+  for (const a of apps) {
+    if (a.candidate_id == null) continue;
+    const ts =
+      a.created_at instanceof Date ? a.created_at.getTime() : new Date(a.created_at).getTime();
+    if (!lastSeen.has(a.candidate_id) || ts >= (lastSeen.get(a.candidate_id) as number)) {
+      lastSeen.set(a.candidate_id, ts);
+      lastStatus.set(a.candidate_id, a.status);
+    }
+  }
+
+  const cands = await hiringDb()
+    .select()
+    .from(candidate)
+    .where(tenantScoped(candidate.tenant_id, session));
+
+  const pool = cands.filter((c) => !active.has(c.id) || c.segment === 'alumni');
+  if (pool.length === 0) return [];
+
+  const openReqs = await hiringDb()
+    .select({ id: requisition.id, title: requisition.title })
+    .from(requisition)
+    .where(and(eq(requisition.status, 'open'), tenantScoped(requisition.tenant_id, session)));
+
+  const { reqSkills, candSkills } = await fitFor(
+    session,
+    openReqs.map((r) => r.id),
+    pool.map((c) => c.id),
+  );
+
+  return pool.map((c) => ({
+    candidate_id: c.id,
+    name: c.name,
+    seniority: c.seniority,
+    segment: c.segment,
+    last_status: lastStatus.get(c.id) ?? null,
+    recommended: openReqs
+      .map((r) => ({
+        requisition_id: r.id,
+        title: r.title,
+        fit: computeFit(reqSkills.get(r.id) ?? [], candSkills.get(c.id) ?? []),
+      }))
+      .filter((r) => r.fit.met > 0)
+      .sort((a, b) => b.fit.score - a.fit.score)
+      .slice(0, 3),
+  }));
+}
