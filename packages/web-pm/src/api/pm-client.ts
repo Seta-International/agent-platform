@@ -116,6 +116,7 @@ export interface CharterDetail {
   status: 'submitted' | 'approved' | 'rejected' | 'withdrawn';
   rejection_reason: string | null;
   project_id: string | null;
+  submitted_by_user_id: string | null;
   version: number;
 }
 
@@ -177,6 +178,19 @@ export async function rejectCharter(
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ reason, expected_version }),
+  });
+  return handleResponse<{ version: number }>(res);
+}
+
+export async function withdrawCharter(
+  id: string,
+  expected_version?: number,
+): Promise<{ version: number }> {
+  const res = await fetch(`/api/pm/v1/charters/${id}/withdraw`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ expected_version }),
   });
   return handleResponse<{ version: number }>(res);
 }
