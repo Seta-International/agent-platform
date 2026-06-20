@@ -7,6 +7,7 @@ import {
   archiveCloseReason,
   createCloseReason,
   createJdTemplate,
+  deleteJdTemplate,
   listCloseReasons,
   listJdTemplates,
 } from '../../src/index.ts';
@@ -44,6 +45,45 @@ describe('admin config', () => {
         await archiveCloseReason({ id, session: t.adminSession });
         const reasons = await listCloseReasons(t.adminSession);
         expect(reasons.find((r) => r.id === id)?.active).toBe(false);
+      } finally {
+        resetHiringDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('deleteJdTemplate removes the template atomically; cross-tenant id throws NOT_FOUND', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetHiringDb();
+      initPools({ databaseUrl });
+      try {
+        const a = await seedTenant(pool);
+        const b = await seedTenant(pool);
+        const { template_id } = await createJdTemplate({
+          input: {
+            name: 'To delete',
+            kind: 'role',
+            sections: [{ variant: 'external', section: 'about', body: 'About' }],
+          },
+          session: a.adminSession,
+        });
+
+        // another tenant cannot delete it
+        await expect(deleteJdTemplate({ template_id, session: b.adminSession })).rejects.toThrow(
+          'not found',
+        );
+        expect(await listJdTemplates(a.adminSession)).toHaveLength(1);
+
+        // owner deletes it (template + its sections gone)
+        await deleteJdTemplate({ template_id, session: a.adminSession });
+        expect(await listJdTemplates(a.adminSession)).toHaveLength(0);
+
+        // deleting again throws NOT_FOUND
+        await expect(deleteJdTemplate({ template_id, session: a.adminSession })).rejects.toThrow(
+          'not found',
+        );
       } finally {
         resetHiringDb();
         resetCoreDb();
