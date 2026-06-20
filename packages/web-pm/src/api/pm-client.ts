@@ -194,3 +194,163 @@ export async function withdrawCharter(
   });
   return handleResponse<{ version: number }>(res);
 }
+
+export interface ProjectListRow {
+  project_id: string;
+  account_id: string;
+  name: string;
+  phase: string;
+  status: string;
+  pm_worker_id: string | null;
+}
+
+export interface ProjectDetail extends ProjectListRow {
+  charter_id: string | null;
+  objective: string | null;
+  scope: { in: string; out: string } | null;
+  budget_bmm: string | null;
+  pmo_worker_id: string | null;
+  team_size: number | null;
+  methodology: string | null;
+  pricing_model: string | null;
+  date_from: string | null;
+  date_to: string | null;
+  planner_group_id: string | null;
+  version: number;
+}
+
+export interface ProjectPatch {
+  objective?: string | null;
+  scope?: { in: string; out: string } | null;
+  phase?: string;
+  status?: string;
+}
+
+export interface ProjectAccessRow {
+  worker_id: string;
+  level: 'owner' | 'edit' | 'view';
+}
+
+export interface StaffingPlanLine {
+  line_id: string;
+  role: string;
+  effort_mm: string | null;
+  skills: string[] | null;
+  version: number;
+}
+
+export async function fetchProjects(): Promise<ProjectListRow[]> {
+  const res = await fetch('/api/pm/v1/projects', { credentials: 'include' });
+  return (await handleResponse<{ projects: ProjectListRow[] }>(res)).projects;
+}
+
+export async function fetchProject(id: string): Promise<ProjectDetail> {
+  const res = await fetch(`/api/pm/v1/projects/${id}`, { credentials: 'include' });
+  return handleResponse<ProjectDetail>(res);
+}
+
+export async function editProject(
+  id: string,
+  input: { expected_version?: number; patch: ProjectPatch },
+): Promise<{ version: number }> {
+  const res = await fetch(`/api/pm/v1/projects/${id}`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  return handleResponse<{ version: number }>(res);
+}
+
+export async function closeProject(
+  id: string,
+  expected_version?: number,
+): Promise<{ version: number }> {
+  const res = await fetch(`/api/pm/v1/projects/${id}/close`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ expected_version }),
+  });
+  return handleResponse<{ version: number }>(res);
+}
+
+export async function reopenProject(
+  id: string,
+  expected_version?: number,
+): Promise<{ version: number }> {
+  const res = await fetch(`/api/pm/v1/projects/${id}/reopen`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ expected_version }),
+  });
+  return handleResponse<{ version: number }>(res);
+}
+
+export async function linkPlannerGroup(
+  id: string,
+  planner_group_id: string | null,
+  expected_version?: number,
+): Promise<{ version: number }> {
+  const res = await fetch(`/api/pm/v1/projects/${id}/planner-link`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ planner_group_id, expected_version }),
+  });
+  return handleResponse<{ version: number }>(res);
+}
+
+export async function fetchProjectAccess(id: string): Promise<ProjectAccessRow[]> {
+  const res = await fetch(`/api/pm/v1/projects/${id}/access`, { credentials: 'include' });
+  return (await handleResponse<{ access: ProjectAccessRow[] }>(res)).access;
+}
+
+export async function setProjectAccess(
+  id: string,
+  grants: ProjectAccessRow[],
+): Promise<{ added: number; removed: number; changed: number }> {
+  const res = await fetch(`/api/pm/v1/projects/${id}/access`, {
+    method: 'PUT',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ grants }),
+  });
+  return handleResponse(res);
+}
+
+export async function fetchStaffingPlan(id: string): Promise<StaffingPlanLine[]> {
+  const res = await fetch(`/api/pm/v1/projects/${id}/staffing-plan`, { credentials: 'include' });
+  return (await handleResponse<{ lines: StaffingPlanLine[] }>(res)).lines;
+}
+
+export async function upsertStaffingPlanLine(
+  id: string,
+  input: {
+    line_id?: string;
+    expected_version?: number;
+    role: string;
+    effort_mm?: number;
+    skills?: string[];
+  },
+): Promise<{ line_id: string; version: number }> {
+  const res = await fetch(`/api/pm/v1/projects/${id}/staffing-plan`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  return handleResponse(res);
+}
+
+export async function deleteStaffingPlanLine(
+  id: string,
+  lineId: string,
+): Promise<{ deleted: boolean }> {
+  const res = await fetch(`/api/pm/v1/projects/${id}/staffing-plan/${lineId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  return handleResponse(res);
+}
