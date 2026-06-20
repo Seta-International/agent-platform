@@ -9,7 +9,7 @@ import {
 } from '../../src/events.ts';
 
 describe('hiring events', () => {
-  it('declares only hiring.requisition.opened with a valid payload schema', () => {
+  it('declares hiring.requisition.opened with a valid payload schema', () => {
     expect(HIRING_EVENTS[HIRING_REQUISITION_OPENED]).toBeDefined();
     const parsed = HIRING_EVENTS[HIRING_REQUISITION_OPENED].safeParse({
       requisition_id: crypto.randomUUID(),
@@ -30,6 +30,7 @@ describe('hiring events (HIR-2)', () => {
     ]) {
       expect(HIRING_EVENTS[t]).toBeDefined();
     }
+    expect(Object.keys(HIRING_EVENTS)).toHaveLength(5);
   });
   it('opening.opened payload validates', () => {
     const ok = HIRING_EVENTS[HIRING_OPENING_OPENED].safeParse({
