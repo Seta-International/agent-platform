@@ -32,17 +32,18 @@ export async function deleteGroup(input: {
           group_id: input.group_id,
         });
       }
-      if (existing.version !== input.expected_version) {
+      const deletedAt = new Date();
+      const deleted = await tx
+        .update(groups)
+        .set({ deleted_at: deletedAt, updated_at: new Date(), version: existing.version + 1 })
+        // guard: 0 rows ⇒ the row changed since our read (lost-update prevention)
+        .where(and(eq(groups.id, input.group_id), eq(groups.version, input.expected_version)))
+        .returning({ id: groups.id });
+      if (deleted.length === 0) {
         throw new PlannerError('CONFLICT', 'Version mismatch', {
           current_version: existing.version,
         });
       }
-
-      const deletedAt = new Date();
-      await tx
-        .update(groups)
-        .set({ deleted_at: deletedAt, updated_at: new Date(), version: existing.version + 1 })
-        .where(eq(groups.id, input.group_id));
 
       await emitPlannerGroupDeleted({
         actor: { type: 'user', user_id: input.session.user_id },

@@ -35,17 +35,18 @@ export async function deletePlan(input: {
 
       requirePermission(input.session, 'planner.plan.delete', existing.group_id);
 
-      if (existing.version !== input.expected_version) {
+      const deletedAt = new Date();
+      const deleted = await tx
+        .update(plans)
+        .set({ deleted_at: deletedAt, updated_at: new Date(), version: existing.version + 1 })
+        // guard: 0 rows ⇒ the row changed since our read (lost-update prevention)
+        .where(and(eq(plans.id, input.plan_id), eq(plans.version, input.expected_version)))
+        .returning({ id: plans.id });
+      if (deleted.length === 0) {
         throw new PlannerError('CONFLICT', 'Version mismatch', {
           current_version: existing.version,
         });
       }
-
-      const deletedAt = new Date();
-      await tx
-        .update(plans)
-        .set({ deleted_at: deletedAt, updated_at: new Date(), version: existing.version + 1 })
-        .where(eq(plans.id, input.plan_id));
 
       const [group] = await tx
         .select({ name: groups.name })
