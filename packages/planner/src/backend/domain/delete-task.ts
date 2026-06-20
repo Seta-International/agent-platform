@@ -39,17 +39,18 @@ export async function deleteTask(input: {
 
       requirePermission(input.session, 'planner.task.delete', plan.group_id);
 
-      if (existing.version !== input.expected_version) {
+      const deletedAt = new Date();
+      const deleted = await tx
+        .update(tasks)
+        .set({ deleted_at: deletedAt, updated_at: deletedAt, version: existing.version + 1 })
+        // guard: 0 rows ⇒ the row changed since our read (lost-update prevention)
+        .where(and(eq(tasks.id, input.task_id), eq(tasks.version, input.expected_version)))
+        .returning({ id: tasks.id });
+      if (deleted.length === 0) {
         throw new PlannerError('CONFLICT', 'Version mismatch', {
           current_version: existing.version,
         });
       }
-
-      const deletedAt = new Date();
-      await tx
-        .update(tasks)
-        .set({ deleted_at: deletedAt, updated_at: deletedAt, version: existing.version + 1 })
-        .where(eq(tasks.id, input.task_id));
 
       await emitPlannerTaskDeleted({
         actor: { type: 'user', user_id: input.session.user_id },
