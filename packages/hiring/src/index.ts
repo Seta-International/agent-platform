@@ -26,4 +26,13 @@ export {
   setRequisitionJd,
   setRequisitionSkills,
 } from './backend/domain/set-requisition-content.ts';
-export type { OpenRequisitionInput } from './contracts.ts';
+export type {
+  AddOpeningInput,
+  CloseOpeningInput,
+  CloseReasonInput,
+  EditRequisitionPatch,
+  JdSectionInput,
+  JdTemplateInput,
+  OpenRequisitionInput,
+  SkillInput,
+} from './contracts.ts';

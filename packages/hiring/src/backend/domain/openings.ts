@@ -26,12 +26,13 @@ export async function addOpening(input: {
   await withEmit(
     { actor: { userId: session.user_id, tenantId: session.tenant_id } },
     async (tx) => {
-      const [{ next }] = await tx
+      const seqRows = await tx
         .select({ next: sql<number>`coalesce(max(${opening.seq}),0)::int + 1` })
         .from(opening)
         .where(
           and(eq(opening.requisition_id, requisition_id), tenantScoped(opening.tenant_id, session)),
         );
+      const next = seqRows[0]?.next ?? 1;
       const [op] = await tx
         .insert(opening)
         .values({
