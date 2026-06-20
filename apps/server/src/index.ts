@@ -23,6 +23,7 @@ import { registerNotificationsContributions } from '@seta/notifications/register
 import { registerPeopleContributions } from '@seta/people/register';
 import { assignTask } from '@seta/planner';
 import { registerPlannerContributions } from '@seta/planner/register';
+import { registerPmContributions } from '@seta/pm/register';
 import { createCrypto, createKeyProviderFromEnv, parseCryptoEnv } from '@seta/shared-crypto';
 import { closePools, getPool, initPools } from '@seta/shared-db';
 import { resolveEmbeddingProvider } from '@seta/shared-embeddings';
@@ -90,6 +91,7 @@ registerPlannerContributions(reg);
 registerStaffingContributions(reg);
 registerPeopleContributions(reg);
 registerHiringContributions(reg);
+registerPmContributions(reg);
 // MODULE_REGISTRATIONS_END — generator inserts new register*Contributions(reg) calls above this comment.
 registerAppContributions(reg);
 

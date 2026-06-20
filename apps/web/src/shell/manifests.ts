@@ -4,6 +4,7 @@ import { agentAppManifest } from '@seta/web-agent';
 import { hiringAppManifest } from '@seta/web-hiring';
 import { peopleAppManifest } from '@seta/web-people';
 import { plannerAppManifest } from '@seta/web-planner';
+import { pmAppManifest } from '@seta/web-pm';
 // MODULE_MANIFEST_IMPORTS_END — generator inserts new AppManifest imports above this comment.
 
 export const ALL_MANIFESTS: ReadonlyArray<AppManifest> = [
@@ -12,5 +13,6 @@ export const ALL_MANIFESTS: ReadonlyArray<AppManifest> = [
   adminAppManifest,
   peopleAppManifest,
   hiringAppManifest,
+  pmAppManifest,
   // MODULE_MANIFEST_REGISTRATIONS_END — generator inserts new AppManifest entries above this comment.
 ];
