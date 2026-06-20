@@ -5,6 +5,16 @@ export {
   type AuditSortDir,
   queryAudit,
 } from './backend/audit.ts';
+export { CoreSkillError } from './backend/skills/error.ts';
+export {
+  CORE_SKILL_ARCHIVED,
+  CORE_SKILL_CATEGORY_ARCHIVED,
+  CORE_SKILL_CATEGORY_CREATED,
+  CORE_SKILL_CATEGORY_UPDATED,
+  CORE_SKILL_CREATED,
+  CORE_SKILL_EVENTS,
+  CORE_SKILL_UPDATED,
+} from './backend/skills/events.ts';
 export { captureException, registerErrorCapture } from './composition/error-capture.ts';
 export { buildHonoApp } from './composition/hono-app.ts';
 export {
