@@ -317,7 +317,7 @@ export interface CandidateDetail {
     contact: { email?: string; phone?: string } | null;
     version: number;
   };
-  application: CandidateApplication;
+  applications: CandidateApplication[];
   skills: CandidateSkillRow[];
   timeline: CandidateEvent[];
 }

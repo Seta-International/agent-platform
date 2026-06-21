@@ -13,6 +13,19 @@ import { tenantScoped } from '../db/scope.ts';
 import { HiringError, requirePermission } from '../rbac.ts';
 import { computeFit, type FitResult } from './fit.ts';
 
+export interface CandidateApplication {
+  application_id: string;
+  requisition_id: string;
+  requisition_title: string;
+  account_id: string | null;
+  stage: string;
+  status: string;
+  rating: number | null;
+  tags: string[];
+  version: number;
+  fit: FitResult;
+}
+
 export interface CandidateListRow {
   application_id: string;
   candidate_id: string;
@@ -125,7 +138,7 @@ export async function listCandidates(session: SessionScope): Promise<CandidateLi
 export interface CandidateDetail {
   candidate: typeof candidate.$inferSelect;
   skills: (typeof candidateSkill.$inferSelect)[];
-  applications: (typeof application.$inferSelect)[];
+  applications: CandidateApplication[];
   timeline: (typeof candidateEvent.$inferSelect)[];
 }
 
@@ -141,7 +154,7 @@ export async function getCandidate(input: {
     .where(and(eq(candidate.id, candidate_id), tenantScoped(candidate.tenant_id, session)))
     .limit(1);
   if (!cand) throw new HiringError('NOT_FOUND', 'candidate not found');
-  const [skills, applications, timeline] = await Promise.all([
+  const [skills, rawApplications, timeline] = await Promise.all([
     hiringDb()
       .select()
       .from(candidateSkill)
@@ -152,14 +165,27 @@ export async function getCandidate(input: {
         ),
       ),
     hiringDb()
-      .select()
+      .select({
+        id: application.id,
+        requisition_id: application.requisition_id,
+        requisition_title: requisition.title,
+        account_id: requisition.account_id,
+        stage: application.stage,
+        status: application.status,
+        rating: application.rating,
+        tags: application.tags,
+        version: application.version,
+        created_at: application.created_at,
+      })
       .from(application)
+      .innerJoin(requisition, eq(requisition.id, application.requisition_id))
       .where(
         and(
           eq(application.candidate_id, candidate_id),
           tenantScoped(application.tenant_id, session),
         ),
-      ),
+      )
+      .orderBy(asc(application.created_at)),
     hiringDb()
       .select()
       .from(candidateEvent)
@@ -171,6 +197,26 @@ export async function getCandidate(input: {
       )
       .orderBy(asc(candidateEvent.created_at)),
   ]);
+
+  const { reqSkills, candSkills } = await fitFor(
+    session,
+    [...new Set(rawApplications.map((a) => a.requisition_id))],
+    [candidate_id],
+  );
+
+  const applications: CandidateApplication[] = rawApplications.map((a) => ({
+    application_id: a.id,
+    requisition_id: a.requisition_id,
+    requisition_title: a.requisition_title,
+    account_id: a.account_id,
+    stage: a.stage,
+    status: a.status,
+    rating: a.rating,
+    tags: (a.tags as string[]) ?? [],
+    version: a.version,
+    fit: computeFit(reqSkills.get(a.requisition_id) ?? [], candSkills.get(candidate_id) ?? []),
+  }));
+
   return { candidate: cand, skills, applications, timeline };
 }
 
