@@ -1,5 +1,5 @@
 import { type AppManifest, noNavExtensions } from '@seta/module-sdk';
-import { Users } from 'lucide-react';
+import { BarChart3, LayoutDashboard, LineChart, Network, Users } from 'lucide-react';
 
 export const peopleAppManifest: AppManifest = {
   id: 'people',
@@ -14,11 +14,43 @@ export const peopleAppManifest: AppManifest = {
       label: 'People',
       items: [
         {
-          id: 'people.directory',
-          icon: Users,
-          label: 'Directory',
+          id: 'people.dashboard',
+          icon: LayoutDashboard,
+          label: 'Dashboard',
           to: '/people',
           requires: ['people.worker.read'],
+          badge: 'Soon',
+        },
+        {
+          id: 'people.employees',
+          icon: Users,
+          label: 'Employees',
+          to: '/people/employees',
+          requires: ['people.worker.read'],
+        },
+        {
+          id: 'people.org',
+          icon: Network,
+          label: 'Org Chart',
+          to: '/people/org',
+          requires: ['people.worker.read'],
+          badge: 'Soon',
+        },
+        {
+          id: 'people.allocation',
+          icon: BarChart3,
+          label: 'Resource Allocation',
+          to: '/people/allocation',
+          requires: ['people.worker.read'],
+          badge: 'Soon',
+        },
+        {
+          id: 'people.performance',
+          icon: LineChart,
+          label: 'Performance',
+          to: '/people/performance',
+          requires: ['people.worker.read'],
+          badge: 'Soon',
         },
       ],
     },
