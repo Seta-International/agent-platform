@@ -3,12 +3,16 @@ import { z } from 'zod';
 export const accountCreatedPayload = z.object({
   account_id: z.string().uuid(),
   tenant_id: z.string().uuid(),
+  name: z.string(),
+  am_worker_id: z.string().uuid().nullable(),
 });
 export type AccountCreatedPayload = z.infer<typeof accountCreatedPayload>;
 
 export const accountUpdatedPayload = z.object({
   account_id: z.string().uuid(),
   tenant_id: z.string().uuid(),
+  name: z.string(),
+  am_worker_id: z.string().uuid().nullable(),
   fields: z.array(z.string()),
 });
 export type AccountUpdatedPayload = z.infer<typeof accountUpdatedPayload>;

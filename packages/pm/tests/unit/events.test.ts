@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  accountCreatedPayload,
+  accountUpdatedPayload,
   allocationCreatedPayload,
   allocationRemovedPayload,
   PM_ACCOUNT_CREATED,
@@ -16,6 +18,8 @@ describe('pm events', () => {
     const parsed = PM_EVENTS[PM_ACCOUNT_CREATED].safeParse({
       account_id: crypto.randomUUID(),
       tenant_id: crypto.randomUUID(),
+      name: 'Acme Corp',
+      am_worker_id: null,
     });
     expect(parsed.success).toBe(true);
   });
@@ -31,6 +35,8 @@ describe('pm events', () => {
       PM_EVENTS['pm.account.updated'].parse({
         account_id: crypto.randomUUID(),
         tenant_id: crypto.randomUUID(),
+        name: 'Acme Corp',
+        am_worker_id: null,
         fields: ['name'],
       }),
     ).not.toThrow();
@@ -63,6 +69,51 @@ describe('pm events', () => {
 
   it('registers pm.allocation.removed', () => {
     expect(PM_EVENTS[PM_ALLOCATION_REMOVED]).toBe(allocationRemovedPayload);
+  });
+
+  it('account.created carries name + am_worker_id', () => {
+    const p = accountCreatedPayload.parse({
+      account_id: crypto.randomUUID(),
+      tenant_id: crypto.randomUUID(),
+      name: 'Acme Corp',
+      am_worker_id: null,
+    });
+    expect(p.name).toBe('Acme Corp');
+    expect(p.am_worker_id).toBeNull();
+
+    const withAm = accountCreatedPayload.parse({
+      account_id: crypto.randomUUID(),
+      tenant_id: crypto.randomUUID(),
+      name: 'Beta Ltd',
+      am_worker_id: crypto.randomUUID(),
+    });
+    expect(typeof withAm.am_worker_id).toBe('string');
+
+    const missing = accountCreatedPayload.safeParse({
+      account_id: crypto.randomUUID(),
+      tenant_id: crypto.randomUUID(),
+    });
+    expect(missing.success).toBe(false);
+  });
+
+  it('account.updated carries name + am_worker_id + fields', () => {
+    const p = accountUpdatedPayload.parse({
+      account_id: crypto.randomUUID(),
+      tenant_id: crypto.randomUUID(),
+      name: 'Acme Corp',
+      am_worker_id: crypto.randomUUID(),
+      fields: ['name'],
+    });
+    expect(p.name).toBe('Acme Corp');
+    expect(typeof p.am_worker_id).toBe('string');
+    expect(p.fields).toEqual(['name']);
+
+    const missing = accountUpdatedPayload.safeParse({
+      account_id: crypto.randomUUID(),
+      tenant_id: crypto.randomUUID(),
+      fields: ['name'],
+    });
+    expect(missing.success).toBe(false);
   });
 
   it('registers charter + project event schemas', () => {
