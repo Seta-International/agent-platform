@@ -4,9 +4,7 @@ import { createHttpEntitySearch } from '../../../src/composites/entity-search';
 type Row = { worker_id: string; full_name: string };
 
 function mockFetch(rows: Row[]) {
-  return vi.fn(
-    async () => ({ ok: true, json: async () => ({ workers: rows }) }) as unknown as Response,
-  );
+  return vi.fn(async () => ({ ok: true, json: async () => ({ rows }) }) as unknown as Response);
 }
 
 afterEach(() => vi.restoreAllMocks());
@@ -15,7 +13,7 @@ describe('createHttpEntitySearch', () => {
   const make = () =>
     createHttpEntitySearch<Row>({
       path: '/api/people/v1/workers',
-      extract: (j) => (j as { workers: Row[] }).workers,
+      extract: (j) => (j as { rows: Row[] }).rows,
       mapRow: (w) => ({ value: w.worker_id, label: w.full_name }),
     });
 
