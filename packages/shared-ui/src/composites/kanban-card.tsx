@@ -1,7 +1,7 @@
-// biome-ignore-all lint/a11y/useSemanticElements: cannot use <button> — @hello-pangea/dnd blocks drag on native interactive elements, so the card uses div + role="button" with keyboard activation.
 import { CheckSquare } from 'lucide-react';
-import type { CSSProperties, HTMLAttributes, KeyboardEvent, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { AvatarStack } from './avatar-stack';
+import { KanbanCardShell, type KanbanCardShellProps } from './kanban-card-shell';
 import { LabelChip } from './label-chip';
 import { PriorityIcon } from './priority-icon';
 import { SyncBadge, type SyncState } from './sync-badge';
@@ -33,45 +33,18 @@ export interface KanbanCardProps {
   /** Optional body content rendered between the title and the meta footer. */
   previewSlot?: ReactNode;
   /** Render slots fed by the app layer's @hello-pangea/dnd wiring. shared-ui stays DnD-agnostic. */
-  draggable: {
-    ref?: (el: HTMLDivElement | null) => void;
-    rootProps?: HTMLAttributes<HTMLDivElement>;
-    handleProps?: HTMLAttributes<HTMLDivElement>;
-    isDragging?: boolean;
-    extraStyle?: CSSProperties;
-  };
+  draggable: KanbanCardShellProps['draggable'];
 }
 
 export function KanbanCard({ task, onOpen, selected, previewSlot, draggable }: KanbanCardProps) {
-  const className = [
-    'kanban-card',
-    task.recentlyMoved && 'kanban-card--recently-moved',
-    selected && 'kanban-card--selected',
-    draggable.isDragging && 'kanban-card--dragging',
-  ]
-    .filter(Boolean)
-    .join(' ');
-
-  function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
-    if (!onOpen) return;
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      onOpen();
-    }
-  }
-
   return (
-    <div
-      ref={draggable.ref}
-      {...draggable.rootProps}
-      {...draggable.handleProps}
-      role="button"
-      tabIndex={0}
-      className={className}
-      style={draggable.extraStyle}
-      onClick={onOpen}
-      onKeyDown={onKeyDown}
-      aria-label={`Task: ${task.title}`}
+    <KanbanCardShell
+      ariaLabel={`Task: ${task.title}`}
+      onOpen={onOpen}
+      selected={selected}
+      recentlyMoved={task.recentlyMoved}
+      saving={task.saving}
+      draggable={draggable}
     >
       <div className="kanban-card__title">
         {task.blocked && (
@@ -105,13 +78,6 @@ export function KanbanCard({ task, onOpen, selected, previewSlot, draggable }: K
         )}
         <AvatarStack assignees={task.assignees} />
       </div>
-      {task.saving && (
-        <span
-          data-testid="saving-indicator"
-          aria-hidden="true"
-          className="kanban-card__saving-dot"
-        />
-      )}
       {task.external_source === 'm365' && (
         <span style={{ position: 'absolute', right: 8, top: 8 }}>
           <SyncBadge
@@ -121,7 +87,7 @@ export function KanbanCard({ task, onOpen, selected, previewSlot, draggable }: K
           />
         </span>
       )}
-    </div>
+    </KanbanCardShell>
   );
 }
 
