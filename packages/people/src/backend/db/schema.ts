@@ -3,6 +3,7 @@ import {
   boolean,
   check,
   date,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -69,6 +70,8 @@ export const worker = peopleSchema.table(
     emergency_contact: jsonb('emergency_contact'),
     profile_completed_at: timestamp('profile_completed_at', { withTimezone: true }),
     portal_access: boolean('portal_access').notNull().default(false),
+    job_title: text('job_title'),
+    manager_id: uuid('manager_id'),
     version: integer('version').default(1).notNull(),
     deleted_at: timestamp('deleted_at', { withTimezone: true }),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -80,6 +83,12 @@ export const worker = peopleSchema.table(
       .on(t.tenant_id, t.work_email)
       .where(sql`work_email IS NOT NULL AND deleted_at IS NULL`),
     index('worker_by_tenant_live').on(t.tenant_id, t.deleted_at),
+    index('worker_by_manager').on(t.tenant_id, t.manager_id),
+    foreignKey({
+      columns: [t.manager_id],
+      foreignColumns: [t.person_id],
+      name: 'worker_manager_fk',
+    }),
   ],
 );
 

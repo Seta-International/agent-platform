@@ -15,6 +15,13 @@
       "when": 1781857554732,
       "tag": "0001_dry_songbird",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1782035795267,
+      "tag": "0002_fast_blade",
+      "breakpoints": true
     }
   ]
 }
