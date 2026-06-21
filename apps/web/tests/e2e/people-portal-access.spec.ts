@@ -52,7 +52,7 @@ test.beforeAll(async () => {
 });
 
 test('people directory: worker row is visible with Access column', async ({ page }) => {
-  await page.goto('/people');
+  await page.goto('/people/employees');
   await expect(page.getByRole('heading', { name: 'People' })).toBeVisible();
   await expect(page.getByRole('columnheader', { name: 'Access' })).toBeVisible();
   // Directory holds the full seeded roster; filter to the target row so the
@@ -62,7 +62,7 @@ test('people directory: worker row is visible with Access column', async ({ page
 });
 
 test('worker profile: Login & access card renders with Switch', async ({ page }) => {
-  await page.goto(`/people/${workerId}`);
+  await page.goto(`/people/employees/${workerId}`);
   await expect(page.getByRole('heading', { name: WORKER_NAME })).toBeVisible();
   await expect(page.getByText('Login & access')).toBeVisible();
   const toggle = page.getByRole('switch', { name: 'Portal access' });
@@ -70,7 +70,7 @@ test('worker profile: Login & access card renders with Switch', async ({ page })
 });
 
 test('worker profile: toggling portal access ON shows success toast', async ({ page }) => {
-  await page.goto(`/people/${workerId}`);
+  await page.goto(`/people/employees/${workerId}`);
   await expect(page.getByRole('heading', { name: WORKER_NAME })).toBeVisible();
 
   const toggle = page.getByRole('switch', { name: 'Portal access' });
@@ -86,7 +86,7 @@ test('worker profile: toggling portal access ON shows success toast', async ({ p
 });
 
 test('worker profile: toggling portal access OFF shows success toast', async ({ page }) => {
-  await page.goto(`/people/${workerId}`);
+  await page.goto(`/people/employees/${workerId}`);
   await expect(page.getByRole('heading', { name: WORKER_NAME })).toBeVisible();
 
   const toggle = page.getByRole('switch', { name: 'Portal access' });

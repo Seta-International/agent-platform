@@ -5,7 +5,7 @@ function DashboardPlaceholder() {
   return (
     <PageChrome title="Dashboard">
       <div className="p-6">
-        <ComingSoon feature="Workforce Overview" />
+        <ComingSoon feature="Dashboard" />
       </div>
     </PageChrome>
   );
