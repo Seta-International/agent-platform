@@ -30,8 +30,11 @@ import { Route as AdminIndexRouteImport } from './../../../packages/web-admin/sr
 import { Route as PlannerTrashRouteImport } from './../../../packages/web-planner/src/routes/trash'
 import { Route as PlannerMyTasksRouteImport } from './../../../packages/web-planner/src/routes/my-tasks'
 import { Route as PlannerGroupsRouteImport } from './../../../packages/web-planner/src/routes/groups'
+import { Route as PeopleProbationRouteImport } from './../../../packages/web-people/src/routes/probation'
 import { Route as PeoplePerformanceRouteImport } from './../../../packages/web-people/src/routes/performance'
 import { Route as PeopleOrgRouteImport } from './../../../packages/web-people/src/routes/org'
+import { Route as PeopleOnboardingRouteImport } from './../../../packages/web-people/src/routes/onboarding'
+import { Route as PeopleOffboardingRouteImport } from './../../../packages/web-people/src/routes/offboarding'
 import { Route as PeopleAllocationRouteImport } from './../../../packages/web-people/src/routes/allocation'
 import { Route as AgentKnowledgeRouteImport } from './../../../packages/web-agent/src/routes/knowledge'
 import { Route as AgentChatRouteImport } from './../../../packages/web-agent/src/routes/chat'
@@ -173,6 +176,11 @@ const PlannerGroupsRoute = PlannerGroupsRouteImport.update({
   path: '/groups',
   getParentRoute: () => PlannerRouteRoute,
 } as any)
+const PeopleProbationRoute = PeopleProbationRouteImport.update({
+  id: '/probation',
+  path: '/probation',
+  getParentRoute: () => PeopleRouteRoute,
+} as any)
 const PeoplePerformanceRoute = PeoplePerformanceRouteImport.update({
   id: '/performance',
   path: '/performance',
@@ -181,6 +189,16 @@ const PeoplePerformanceRoute = PeoplePerformanceRouteImport.update({
 const PeopleOrgRoute = PeopleOrgRouteImport.update({
   id: '/org',
   path: '/org',
+  getParentRoute: () => PeopleRouteRoute,
+} as any)
+const PeopleOnboardingRoute = PeopleOnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => PeopleRouteRoute,
+} as any)
+const PeopleOffboardingRoute = PeopleOffboardingRouteImport.update({
+  id: '/offboarding',
+  path: '/offboarding',
   getParentRoute: () => PeopleRouteRoute,
 } as any)
 const PeopleAllocationRoute = PeopleAllocationRouteImport.update({
@@ -390,8 +408,11 @@ export interface FileRoutesByFullPath {
   '/agent/chat': typeof AgentChatRoute
   '/agent/knowledge': typeof AgentKnowledgeRoute
   '/people/allocation': typeof PeopleAllocationRoute
+  '/people/offboarding': typeof PeopleOffboardingRoute
+  '/people/onboarding': typeof PeopleOnboardingRoute
   '/people/org': typeof PeopleOrgRoute
   '/people/performance': typeof PeoplePerformanceRoute
+  '/people/probation': typeof PeopleProbationRoute
   '/planner/groups': typeof PlannerGroupsRoute
   '/planner/my-tasks': typeof PlannerMyTasksRoute
   '/planner/trash': typeof PlannerTrashRoute
@@ -443,8 +464,11 @@ export interface FileRoutesByTo {
   '/agent/chat': typeof AgentChatRoute
   '/agent/knowledge': typeof AgentKnowledgeRoute
   '/people/allocation': typeof PeopleAllocationRoute
+  '/people/offboarding': typeof PeopleOffboardingRoute
+  '/people/onboarding': typeof PeopleOnboardingRoute
   '/people/org': typeof PeopleOrgRoute
   '/people/performance': typeof PeoplePerformanceRoute
+  '/people/probation': typeof PeopleProbationRoute
   '/planner/groups': typeof PlannerGroupsRoute
   '/planner/my-tasks': typeof PlannerMyTasksRoute
   '/planner/trash': typeof PlannerTrashRoute
@@ -505,8 +529,11 @@ export interface FileRoutesById {
   '/_authed/agent/chat': typeof AgentChatRoute
   '/_authed/agent/knowledge': typeof AgentKnowledgeRoute
   '/_authed/people/allocation': typeof PeopleAllocationRoute
+  '/_authed/people/offboarding': typeof PeopleOffboardingRoute
+  '/_authed/people/onboarding': typeof PeopleOnboardingRoute
   '/_authed/people/org': typeof PeopleOrgRoute
   '/_authed/people/performance': typeof PeoplePerformanceRoute
+  '/_authed/people/probation': typeof PeopleProbationRoute
   '/_authed/planner/groups': typeof PlannerGroupsRoute
   '/_authed/planner/my-tasks': typeof PlannerMyTasksRoute
   '/_authed/planner/trash': typeof PlannerTrashRoute
@@ -567,8 +594,11 @@ export interface FileRouteTypes {
     | '/agent/chat'
     | '/agent/knowledge'
     | '/people/allocation'
+    | '/people/offboarding'
+    | '/people/onboarding'
     | '/people/org'
     | '/people/performance'
+    | '/people/probation'
     | '/planner/groups'
     | '/planner/my-tasks'
     | '/planner/trash'
@@ -620,8 +650,11 @@ export interface FileRouteTypes {
     | '/agent/chat'
     | '/agent/knowledge'
     | '/people/allocation'
+    | '/people/offboarding'
+    | '/people/onboarding'
     | '/people/org'
     | '/people/performance'
+    | '/people/probation'
     | '/planner/groups'
     | '/planner/my-tasks'
     | '/planner/trash'
@@ -681,8 +714,11 @@ export interface FileRouteTypes {
     | '/_authed/agent/chat'
     | '/_authed/agent/knowledge'
     | '/_authed/people/allocation'
+    | '/_authed/people/offboarding'
+    | '/_authed/people/onboarding'
     | '/_authed/people/org'
     | '/_authed/people/performance'
+    | '/_authed/people/probation'
     | '/_authed/planner/groups'
     | '/_authed/planner/my-tasks'
     | '/_authed/planner/trash'
@@ -875,6 +911,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PlannerGroupsRouteImport
       parentRoute: typeof PlannerRouteRoute
     }
+    '/_authed/people/probation': {
+      id: '/_authed/people/probation'
+      path: '/probation'
+      fullPath: '/people/probation'
+      preLoaderRoute: typeof PeopleProbationRouteImport
+      parentRoute: typeof PeopleRouteRoute
+    }
     '/_authed/people/performance': {
       id: '/_authed/people/performance'
       path: '/performance'
@@ -887,6 +930,20 @@ declare module '@tanstack/react-router' {
       path: '/org'
       fullPath: '/people/org'
       preLoaderRoute: typeof PeopleOrgRouteImport
+      parentRoute: typeof PeopleRouteRoute
+    }
+    '/_authed/people/onboarding': {
+      id: '/_authed/people/onboarding'
+      path: '/onboarding'
+      fullPath: '/people/onboarding'
+      preLoaderRoute: typeof PeopleOnboardingRouteImport
+      parentRoute: typeof PeopleRouteRoute
+    }
+    '/_authed/people/offboarding': {
+      id: '/_authed/people/offboarding'
+      path: '/offboarding'
+      fullPath: '/people/offboarding'
+      preLoaderRoute: typeof PeopleOffboardingRouteImport
       parentRoute: typeof PeopleRouteRoute
     }
     '/_authed/people/allocation': {
@@ -1227,8 +1284,11 @@ const HiringRouteRouteWithChildren = HiringRouteRoute._addFileChildren(
 
 interface PeopleRouteRouteChildren {
   PeopleAllocationRoute: typeof PeopleAllocationRoute
+  PeopleOffboardingRoute: typeof PeopleOffboardingRoute
+  PeopleOnboardingRoute: typeof PeopleOnboardingRoute
   PeopleOrgRoute: typeof PeopleOrgRoute
   PeoplePerformanceRoute: typeof PeoplePerformanceRoute
+  PeopleProbationRoute: typeof PeopleProbationRoute
   PeopleIndexRoute: typeof PeopleIndexRoute
   PeopleEmployeesWorkerIdRoute: typeof PeopleEmployeesWorkerIdRoute
   PeopleEmployeesIndexRoute: typeof PeopleEmployeesIndexRoute
@@ -1236,8 +1296,11 @@ interface PeopleRouteRouteChildren {
 
 const PeopleRouteRouteChildren: PeopleRouteRouteChildren = {
   PeopleAllocationRoute: PeopleAllocationRoute,
+  PeopleOffboardingRoute: PeopleOffboardingRoute,
+  PeopleOnboardingRoute: PeopleOnboardingRoute,
   PeopleOrgRoute: PeopleOrgRoute,
   PeoplePerformanceRoute: PeoplePerformanceRoute,
+  PeopleProbationRoute: PeopleProbationRoute,
   PeopleIndexRoute: PeopleIndexRoute,
   PeopleEmployeesWorkerIdRoute: PeopleEmployeesWorkerIdRoute,
   PeopleEmployeesIndexRoute: PeopleEmployeesIndexRoute,

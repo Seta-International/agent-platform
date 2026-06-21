@@ -6,14 +6,23 @@ describe('peopleAppManifest', () => {
     expect(peopleAppManifest.routeNamespace).toBe('/people');
   });
 
-  it('declares the five prototype tabs in order', () => {
-    const items = peopleAppManifest.nav.flatMap((s) => s.items);
-    expect(items.map((i) => [i.label, i.to])).toEqual([
+  it('declares the five People tabs in order', () => {
+    const section = peopleAppManifest.nav.find((s) => s.label === 'People');
+    expect(section?.items.map((i) => [i.label, i.to])).toEqual([
       ['Dashboard', '/people'],
       ['Employees', '/people/employees'],
       ['Org Chart', '/people/org'],
       ['Resource Allocation', '/people/allocation'],
       ['Performance', '/people/performance'],
+    ]);
+  });
+
+  it('declares the Journey section with the three lifecycle tabs in order', () => {
+    const section = peopleAppManifest.nav.find((s) => s.label === 'Journey');
+    expect(section?.items.map((i) => [i.label, i.to])).toEqual([
+      ['Onboarding', '/people/onboarding'],
+      ['Probation', '/people/probation'],
+      ['Offboarding', '/people/offboarding'],
     ]);
   });
 
@@ -35,6 +44,9 @@ describe('peopleAppManifest', () => {
       'people.org',
       'people.allocation',
       'people.performance',
+      'people.onboarding',
+      'people.probation',
+      'people.offboarding',
     ]) {
       expect(byId[id]).toBe('Soon');
     }
