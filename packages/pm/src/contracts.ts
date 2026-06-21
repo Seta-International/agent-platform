@@ -100,3 +100,16 @@ export const staffingPlanLineInput = z.object({
   skills: z.array(z.string()).optional(),
 });
 export type StaffingPlanLineInput = z.infer<typeof staffingPlanLineInput>;
+
+export const createAllocationInput = z.object({
+  project_id: z.string().uuid(),
+  worker_id: z.string().uuid().nullable().optional(),
+  role: z.string().min(1).nullable().optional(),
+  date_from: z.string().nullable().optional(),
+  date_to: z.string().nullable().optional(),
+  bucket: z.enum(['billable', 'internal', 'bench']).optional().default('billable'),
+  planned_pct: z.number().min(0).max(100).nullable().optional(),
+  minutes_per_day: z.number().int().nonnegative().nullable().optional(),
+  status: z.enum(['placeholder', 'tentative', 'committed']).optional().default('placeholder'),
+});
+export type CreateAllocationInput = z.input<typeof createAllocationInput>;
