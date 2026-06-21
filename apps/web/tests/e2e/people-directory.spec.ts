@@ -144,7 +144,7 @@ test('admin (read.all): scoped-view badge is absent and result count is present'
   await page.goto('/people/employees');
   await expect(page.getByRole('heading', { name: 'People' })).toBeVisible();
   // Wait for data to load (count text appears when query resolves).
-  await expect(page.getByText(/\d+ peo?p/i)).toBeVisible({ timeout: 8_000 });
+  await expect(page.getByText(/\d+ (people|person)/i)).toBeVisible({ timeout: 8_000 });
   await expect(page.getByText('Scoped view')).not.toBeVisible();
 });
 
