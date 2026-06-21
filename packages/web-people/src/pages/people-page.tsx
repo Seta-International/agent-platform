@@ -16,13 +16,14 @@ import {
   Input,
   Label,
   PageChrome,
+  SegmentedControl,
   toast,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import type { OnChangeFn, PaginationState, SortingState } from '@tanstack/react-table';
-import { Users } from 'lucide-react';
+import { LayoutGrid, List, Users } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import {
   createWorker,
@@ -31,6 +32,7 @@ import {
   type WorkerListRow,
   type WorkersQuery,
 } from '../api/people-client.ts';
+import { PeopleCardGrid } from '../components/people-card-grid.tsx';
 import { PeopleFilterBar } from '../components/people-filter-bar.tsx';
 import { peopleKeys } from '../state/query-keys.ts';
 
@@ -139,6 +141,7 @@ export function PeoplePage() {
   const canReadAll = usePermission('people.worker.read.all');
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [query, setQuery] = useState<WorkersQuery>({ page: 1, pageSize: 25 });
+  const [view, setView] = useState<'list' | 'cards'>('list');
 
   const patchQuery = useCallback(
     (patch: Partial<WorkersQuery>) => setQuery((q) => ({ ...q, ...patch, page: 1 })),
@@ -361,50 +364,77 @@ export function PeoplePage() {
               </div>
             )}
             <PeopleFilterBar query={query} onChange={patchQuery} />
-            <div className="flex items-center gap-2 text-body-sm text-ink-muted">
-              <span>
-                {total} {total === 1 ? 'person' : 'people'}
-              </span>
-              {!canReadAll && (
-                <Badge variant="outline" title="You see only people related to you">
-                  Scoped view
-                </Badge>
-              )}
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-body-sm text-ink-muted">
+                <span>
+                  {total} {total === 1 ? 'person' : 'people'}
+                </span>
+                {!canReadAll && (
+                  <Badge variant="outline" title="You see only people related to you">
+                    Scoped view
+                  </Badge>
+                )}
+              </div>
+              <SegmentedControl
+                aria-label="Directory view"
+                value={view}
+                onValueChange={setView}
+                options={[
+                  { value: 'list', label: 'List', icon: <List className="size-3.5" /> },
+                  { value: 'cards', label: 'Cards', icon: <LayoutGrid className="size-3.5" /> },
+                ]}
+              />
             </div>
-            <DataTable
-              mode="server"
-              columns={columns}
-              data={rows}
-              isLoading={isLoading}
-              sorting={sorting}
-              onSortingChange={onSortingChange}
-              globalFilter=""
-              onGlobalFilterChange={() => {}}
-              enableGlobalFilter={false}
-              columnFilters={[]}
-              onColumnFiltersChange={() => {}}
-              pagination={pagination}
-              onPaginationChange={onPaginationChange}
-              pageCount={Math.max(1, Math.ceil(total / pageSize))}
-              rowCount={total}
-              getRowId={(r: WorkerListRow) => r.worker_id}
-              enableRowSelection={canSetPortal}
-              rowSelection={rowSelection}
-              onRowSelectionChange={setRowSelection}
-              emptyState={
-                <EmptyState
-                  icon={<Users className="size-6" />}
-                  title="No workers yet"
-                  description="Add a worker to get started."
-                />
-              }
-              onRowClick={(row) =>
-                void navigate({
-                  to: '/people/employees/$workerId',
-                  params: { workerId: row.original.worker_id },
-                })
-              }
-            />
+            {view === 'list' ? (
+              <DataTable
+                mode="server"
+                columns={columns}
+                data={rows}
+                isLoading={isLoading}
+                sorting={sorting}
+                onSortingChange={onSortingChange}
+                globalFilter=""
+                onGlobalFilterChange={() => {}}
+                enableGlobalFilter={false}
+                columnFilters={[]}
+                onColumnFiltersChange={() => {}}
+                pagination={pagination}
+                onPaginationChange={onPaginationChange}
+                pageCount={Math.max(1, Math.ceil(total / pageSize))}
+                rowCount={total}
+                getRowId={(r: WorkerListRow) => r.worker_id}
+                enableRowSelection={canSetPortal}
+                rowSelection={rowSelection}
+                onRowSelectionChange={setRowSelection}
+                emptyState={
+                  <EmptyState
+                    icon={<Users className="size-6" />}
+                    title="No workers yet"
+                    description="Add a worker to get started."
+                  />
+                }
+                onRowClick={(row) =>
+                  void navigate({
+                    to: '/people/employees/$workerId',
+                    params: { workerId: row.original.worker_id },
+                  })
+                }
+              />
+            ) : (
+              <PeopleCardGrid
+                rows={rows}
+                total={total}
+                isLoading={isLoading}
+                query={query}
+                setQuery={setQuery}
+                onRowClick={(row) =>
+                  void navigate({
+                    to: '/people/employees/$workerId',
+                    params: { workerId: row.worker_id },
+                  })
+                }
+              />
+            )}
           </>
         )}
       </div>
