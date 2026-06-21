@@ -46,7 +46,8 @@ export async function editAccount(
       if (updated.length === 0) {
         throw new PmError('CONFLICT', 'account was modified concurrently');
       }
-      const [updatedRow] = updated;
+      const updatedRow = updated[0];
+      if (!updatedRow) throw new PmError('CONFLICT', 'account was modified concurrently');
       await emit({
         tenantId: session.tenant_id,
         aggregateType: 'pm.account',
@@ -56,8 +57,8 @@ export async function editAccount(
         payload: {
           account_id,
           tenant_id: session.tenant_id,
-          name: updatedRow!.name,
-          am_worker_id: updatedRow!.am_worker_id ?? null,
+          name: updatedRow.name,
+          am_worker_id: updatedRow.am_worker_id ?? null,
           fields: changes.map(([f]) => f),
         },
       });
