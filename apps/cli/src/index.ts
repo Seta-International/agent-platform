@@ -23,6 +23,7 @@ import { seedCommand } from './commands/seed.ts';
 import { tenantCreateCommand } from './commands/tenant-create.ts';
 import { userCreateCommand } from './commands/user-create.ts';
 import { userDeactivateCommand } from './commands/user-deactivate.ts';
+import { xlsxToFixturesCommand } from './commands/xlsx-to-fixtures.ts';
 import { parseEnv } from './env.ts';
 
 const env = parseEnv(process.env);
@@ -278,6 +279,15 @@ program
       }
     },
   );
+
+program
+  .command('xlsx-to-fixtures')
+  .description('Convert employees.xlsx into fixtures/seta/ CSVs (employees, projects, allocations)')
+  .requiredOption('--xlsx <path>', 'path to employees.xlsx')
+  .option('--out <dir>', 'output directory', 'fixtures/seta')
+  .action((opts: { xlsx: string; out: string }) => {
+    xlsxToFixturesCommand({ xlsx: opts.xlsx, out: opts.out });
+  });
 
 plannerCommand(program);
 
