@@ -68,8 +68,8 @@ describe('approveCharter / rejectCharter', () => {
         expect(await readEvents(pool, t.tenant_id, 'pm.charter.approved')).toHaveLength(1);
         const createdEvents = await readEvents(pool, t.tenant_id, 'pm.project.created');
         expect(createdEvents).toHaveLength(1);
-        expect(createdEvents[0]!.payload['name']).toBe('P');
-        expect(typeof createdEvents[0]!.payload['account_id']).toBe('string');
+        expect(createdEvents[0]!.payload.name).toBe('P');
+        expect(typeof createdEvents[0]!.payload.account_id).toBe('string');
       } finally {
         resetPmDb();
         resetCoreDb();

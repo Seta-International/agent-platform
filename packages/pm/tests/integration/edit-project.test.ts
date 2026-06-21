@@ -79,8 +79,8 @@ describe('project run', () => {
         expect(updatedEvents.length).toBeGreaterThanOrEqual(3);
         // each event carries name + account_id (enriched payload)
         for (const ev of updatedEvents) {
-          expect(typeof ev.payload['name']).toBe('string');
-          expect(typeof ev.payload['account_id']).toBe('string');
+          expect(typeof ev.payload.name).toBe('string');
+          expect(typeof ev.payload.account_id).toBe('string');
         }
       } finally {
         resetPmDb();

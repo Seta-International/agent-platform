@@ -49,6 +49,8 @@ async function applyProjectUpdate(
         .where(and(eq(project.id, project_id), eq(project.version, current.version)))
         .returning({ id: project.id, name: project.name, account_id: project.account_id });
       if (updated.length === 0) throw new PmError('CONFLICT', 'project was modified concurrently');
+      // updated.length === 0 throws above; index 0 always exists here
+      // biome-ignore lint/style/noNonNullAssertion: guarded by length check above
       const updatedRow = updated[0]!;
       await emit({
         tenantId: session.tenant_id,
