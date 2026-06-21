@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  allocationCreatedPayload,
+  allocationRemovedPayload,
   PM_ACCOUNT_CREATED,
   PM_ACCOUNT_RECRUITER_ASSIGNED,
   PM_ACCOUNT_RECRUITER_UNASSIGNED,
   PM_ACCOUNT_UPDATED,
+  PM_ALLOCATION_REMOVED,
   PM_EVENTS,
 } from '../../src/events.ts';
 
@@ -43,6 +46,23 @@ describe('pm events', () => {
     expect(PM_ACCOUNT_UPDATED).toBe('pm.account.updated');
     expect(PM_ACCOUNT_RECRUITER_ASSIGNED).toBe('pm.account.recruiter.assigned');
     expect(PM_ACCOUNT_RECRUITER_UNASSIGNED).toBe('pm.account.recruiter.unassigned');
+  });
+
+  it('allocation.created carries account + lead fields', () => {
+    const p = allocationCreatedPayload.parse({
+      allocation_id: crypto.randomUUID(),
+      project_id: crypto.randomUUID(),
+      worker_id: crypto.randomUUID(),
+      tenant_id: crypto.randomUUID(),
+      account_id: crypto.randomUUID(),
+      account_name: 'Aeris',
+      lead_worker_id: null,
+    });
+    expect(p.account_name).toBe('Aeris');
+  });
+
+  it('registers pm.allocation.removed', () => {
+    expect(PM_EVENTS[PM_ALLOCATION_REMOVED]).toBe(allocationRemovedPayload);
   });
 
   it('registers charter + project event schemas', () => {
