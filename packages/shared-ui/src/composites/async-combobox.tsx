@@ -50,7 +50,7 @@ export function AsyncCombobox(props: AsyncComboboxProps): React.ReactElement {
   const [results, setResults] = useState<EntityOption[]>([]);
   const [loading, setLoading] = useState(false);
   const cache = useRef(new Map<string, EntityOption>());
-  const [, forceTick] = useState(0);
+  const [tick, forceTick] = useState(0);
 
   // remote search (race-safe)
   useEffect(() => {
@@ -88,6 +88,7 @@ export function AsyncCombobox(props: AsyncComboboxProps): React.ReactElement {
     };
   }, [selectedIds, resolveByIds]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: tick triggers recompute on hydration
   const options = useMemo(() => {
     const map = new Map<string, ComboboxOption>();
     for (const id of selectedIds) {
@@ -96,7 +97,7 @@ export function AsyncCombobox(props: AsyncComboboxProps): React.ReactElement {
     }
     for (const r of results) map.set(r.value, toComboboxOption(r));
     return [...map.values()];
-  }, [results, selectedIds]);
+  }, [results, selectedIds, tick]);
 
   if (props.multiple) {
     return (
