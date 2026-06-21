@@ -1,15 +1,23 @@
+import { createHttpEntitySearch } from '@seta/shared-ui';
+
 export interface WorkerListRow {
   worker_id: string;
   full_name: string;
-  work_email: string;
-  lifecycle_stage: string;
+  job_title: string | null;
+  work_email: string | null;
+  phone: string | null;
+  gender: string | null;
+  lifecycle_stage: string | null;
+  onboarding_date: string | null;
+  offboarding_date: string | null;
+  manager_name: string | null;
   portal_access: boolean;
+  accounts: { id: string; name: string }[];
+  skills: { id: string; name: string }[];
 }
 
 export interface WorkerDetail extends WorkerListRow {
   dob: string | null;
-  gender: string | null;
-  phone: string | null;
   emergency_contact: string | null;
   version: number;
 }
@@ -21,6 +29,17 @@ export interface WorkerHistoryEntry {
   from_val: string | null;
   to_val: string | null;
   by_user_id: string;
+}
+
+export interface WorkersQuery {
+  search?: string;
+  status?: string[];
+  account_id?: string[];
+  project_id?: string[];
+  skill_id?: string[];
+  sort?: { field: string; dir: 'asc' | 'desc' };
+  page?: number;
+  pageSize?: number;
 }
 
 export interface CreateWorkerInput {
@@ -62,10 +81,22 @@ async function handleResponse<T>(res: Response): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export async function fetchWorkers(): Promise<WorkerListRow[]> {
-  const res = await fetch('/api/people/v1/workers', { credentials: 'include' });
-  const body = await handleResponse<{ workers: WorkerListRow[] }>(res);
-  return body.workers;
+export async function fetchWorkers(
+  query: WorkersQuery = {},
+): Promise<{ rows: WorkerListRow[]; total: number }> {
+  const qs = new URLSearchParams();
+  if (query.search) qs.set('search', query.search);
+  if (query.status?.length) qs.set('status', query.status.join(','));
+  if (query.account_id?.length) qs.set('account_id', query.account_id.join(','));
+  if (query.project_id?.length) qs.set('project_id', query.project_id.join(','));
+  if (query.skill_id?.length) qs.set('skill_id', query.skill_id.join(','));
+  if (query.sort) qs.set('sort', `${query.sort.field}:${query.sort.dir}`);
+  if (query.page !== undefined) qs.set('page', String(query.page));
+  if (query.pageSize !== undefined) qs.set('pageSize', String(query.pageSize));
+
+  const url = qs.toString() ? `/api/people/v1/workers?${qs.toString()}` : '/api/people/v1/workers';
+  const res = await fetch(url, { credentials: 'include' });
+  return handleResponse<{ rows: WorkerListRow[]; total: number }>(res);
 }
 
 export async function createWorker(input: CreateWorkerInput): Promise<{ worker_id: string }> {
@@ -127,4 +158,40 @@ export async function setPortalAccessBulk(
     body: JSON.stringify({ worker_ids, enabled }),
   });
   return handleResponse<BulkPortalResult>(res);
+}
+
+type NameRow = { id: string; name: string };
+
+export const searchSkills = createHttpEntitySearch<NameRow>({
+  path: '/api/people/v1/skills',
+  extract: (j) => (j as { rows: NameRow[] }).rows,
+  mapRow: (r) => ({ value: r.id, label: r.name }),
+});
+
+export const searchAccounts = createHttpEntitySearch<NameRow>({
+  path: '/api/people/v1/accounts',
+  extract: (j) => (j as { rows: NameRow[] }).rows,
+  mapRow: (r) => ({ value: r.id, label: r.name }),
+});
+
+export const searchPeople = createHttpEntitySearch<WorkerListRow>({
+  path: '/api/people/v1/workers',
+  extract: (j) => (j as { rows: WorkerListRow[] }).rows,
+  mapRow: (w) => ({ value: w.worker_id, label: w.full_name }),
+});
+
+export function searchProjects(
+  q: string,
+  accountIds?: string[],
+): Promise<{ value: string; label: string }[]> {
+  const extraParams: Record<string, string> = accountIds?.length
+    ? { account_id: accountIds.join(',') }
+    : {};
+  const searcher = createHttpEntitySearch<NameRow>({
+    path: '/api/people/v1/projects',
+    extract: (j) => (j as { rows: NameRow[] }).rows,
+    mapRow: (r) => ({ value: r.id, label: r.name }),
+    extraParams,
+  });
+  return searcher.search(q);
 }

@@ -39,7 +39,7 @@ function initials(name: string): string {
     .join('');
 }
 
-function LifecycleBadge({ stage }: { stage: string }) {
+function LifecycleBadge({ stage }: { stage: string | null }) {
   const variantMap: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
     active: 'default',
     onboarding: 'secondary',
@@ -47,7 +47,7 @@ function LifecycleBadge({ stage }: { stage: string }) {
     terminated: 'destructive',
     leave: 'outline',
   };
-  const variant = variantMap[stage] ?? 'secondary';
+  const variant = (stage ? variantMap[stage] : undefined) ?? 'secondary';
   return (
     <Badge variant={variant} className="capitalize">
       {stage}
@@ -152,13 +152,14 @@ export function PeoplePage() {
   });
 
   const {
-    data: workers,
+    data: workersResult,
     isLoading,
     error,
   } = useQuery({
     queryKey: peopleKeys.workers(),
-    queryFn: fetchWorkers,
+    queryFn: () => fetchWorkers(),
   });
+  const workers = workersResult?.rows;
 
   const columns = useMemo(() => {
     type CellCtx = { row: { original: WorkerListRow } };

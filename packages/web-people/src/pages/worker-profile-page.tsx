@@ -40,7 +40,7 @@ function initials(name: string): string {
     .join('');
 }
 
-function LifecycleBadge({ stage }: { stage: string }) {
+function LifecycleBadge({ stage }: { stage: string | null }) {
   const variantMap: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
     active: 'default',
     onboarding: 'secondary',
@@ -49,7 +49,7 @@ function LifecycleBadge({ stage }: { stage: string }) {
     leave: 'outline',
   };
   return (
-    <Badge variant={variantMap[stage] ?? 'secondary'} className="capitalize">
+    <Badge variant={(stage ? variantMap[stage] : undefined) ?? 'secondary'} className="capitalize">
       {stage}
     </Badge>
   );
