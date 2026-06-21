@@ -158,11 +158,11 @@ export function WorkerProfilePage() {
 
   const backLink = (
     <Link
-      to="/people"
+      to="/people/employees"
       className="flex items-center gap-1 text-body-sm text-ink-muted hover:text-ink transition-colors"
     >
       <ChevronLeft className="size-4" />
-      People
+      Employees
     </Link>
   );
 

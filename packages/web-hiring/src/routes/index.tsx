@@ -1,7 +1,16 @@
-import { createFileRoute, redirect } from '@tanstack/react-router';
+import { ComingSoon, PageChrome } from '@seta/shared-ui';
+import { createFileRoute } from '@tanstack/react-router';
+
+function ReportsPlaceholder() {
+  return (
+    <PageChrome title="Reports">
+      <div className="p-6">
+        <ComingSoon feature="Reports" />
+      </div>
+    </PageChrome>
+  );
+}
 
 export const Route = createFileRoute('/_authed/hiring/')({
-  beforeLoad: () => {
-    throw redirect({ to: '/hiring/requisitions' });
-  },
+  component: ReportsPlaceholder,
 });
