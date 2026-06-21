@@ -14,6 +14,7 @@ import {
 } from '../../src/backend/db/schema.ts';
 import { createWorker } from '../../src/backend/domain/create-worker.ts';
 import { listWorkers } from '../../src/backend/domain/read-workers.ts';
+import { setPortalAccess } from '../../src/backend/domain/set-portal-access.ts';
 import { buildSession, type SeededTenant, seedTenant } from '../helpers.ts';
 
 const ctx = {
@@ -327,6 +328,44 @@ describe('listWorkers (SQL filter/sort/paginate + scope)', () => {
     await withDb(async ({ t }) => {
       const noPerm = buildSession({ tenant_id: t.tenant_id, user_id: t.admin_user_id, roles: [] });
       await expect(listWorkers(noPerm, {})).rejects.toThrow(/FORBIDDEN|permission/i);
+    });
+  });
+
+  it('portal_access is included in list rows with correct boolean values', async () => {
+    await withDb(async ({ t }) => {
+      const wNoAccess = await makeWorker(t, { name: 'No Access', email: 'noaccess@x.test' });
+      const wWithAccess = await makeWorker(t, { name: 'Has Access', email: 'hasaccess@x.test' });
+
+      await setPortalAccess({ worker_id: wWithAccess, enabled: true, session: t.adminSession });
+
+      const { rows } = await listWorkers(admin(t), { search: 'Access' });
+      expect(rows).toHaveLength(2);
+
+      const noAccessRow = rows.find((r) => r.worker_id === wNoAccess);
+      const hasAccessRow = rows.find((r) => r.worker_id === wWithAccess);
+
+      expect(noAccessRow).toBeDefined();
+      expect(noAccessRow!.portal_access).toBe(false);
+
+      expect(hasAccessRow).toBeDefined();
+      expect(hasAccessRow!.portal_access).toBe(true);
+    });
+  });
+
+  it('manager_name is null when the manager is soft-deleted', async () => {
+    await withDb(async ({ t }) => {
+      const mgr = await makeWorker(t, { name: 'Deleted Manager' });
+      const w = await makeWorker(t, { name: 'Orphaned Worker', managerId: mgr });
+
+      // Soft-delete the manager
+      await peopleDb()
+        .update(worker)
+        .set({ deleted_at: new Date() })
+        .where(eq(worker.person_id, mgr));
+
+      const { rows } = await listWorkers(admin(t), { search: 'Orphaned Worker' });
+      expect(rows).toHaveLength(1);
+      expect(rows[0]!.manager_name).toBeNull();
     });
   });
 });
