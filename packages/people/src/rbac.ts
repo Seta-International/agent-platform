@@ -9,7 +9,7 @@ const roleStatements = {
     'people.worker': ['read', 'read.all', 'provision', 'edit', 'portal_access.set'],
     'core.skill': ['read'],
   },
-  'people.viewer': { 'people.worker': ['read'] },
+  'people.viewer': { 'people.worker': ['read'], 'core.skill': ['read'] },
 } as const satisfies Record<string, Statement>;
 
 export const peopleRbac = toManifest('people', peopleStatement, roleStatements, {

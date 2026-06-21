@@ -375,7 +375,7 @@ export const INVENTORY: StatementSpec[] = [
       {
         slug: 'people.viewer',
         description: 'Read people records',
-        permissions: ['people.worker.read'],
+        permissions: ['people.worker.read', 'core.skill.read'],
       },
     ],
   },
