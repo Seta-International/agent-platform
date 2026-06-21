@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { rolesFor, skillsFor } from '../../src/commands/seed-fixture/rbac-map.ts';
+import { rolesFor } from '../../src/commands/seed-fixture/rbac-map.ts';
 
 describe('rolesFor', () => {
   it('ADMIN → org.admin only', () => {
@@ -44,31 +44,5 @@ describe('rolesFor', () => {
     expect(slugs).toContain('planner.contributor');
     expect(slugs).toContain('knowledge.member');
     expect(slugs).toContain('agent.contributor');
-  });
-});
-
-describe('skillsFor', () => {
-  it('QA roles get qa skills', () => {
-    expect(skillsFor('QA')).toContain('qa');
-    expect(skillsFor('QA Auto')).toContain('automation');
-  });
-
-  it('DEV gets typescript + react + node', () => {
-    const skills = skillsFor('DEV');
-    expect(skills).toContain('typescript');
-    expect(skills).toContain('react');
-    expect(skills).toContain('node');
-  });
-
-  it('DEVOPS gets devops skills', () => {
-    expect(skillsFor('DEVOPS')).toContain('devops');
-  });
-
-  it('PM gets project-management skills', () => {
-    expect(skillsFor('PM')).toContain('project-management');
-  });
-
-  it('unknown returns general', () => {
-    expect(skillsFor('WIZARD')).toEqual(['general']);
   });
 });

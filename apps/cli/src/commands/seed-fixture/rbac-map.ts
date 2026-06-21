@@ -12,13 +12,3 @@ export function rolesFor(primaryRole: string): Grant[] {
   if (r === 'MARKETING') return [T('planner.viewer'), T('knowledge.member')];
   return BASE_IC;
 }
-
-export function skillsFor(primaryRole: string): string[] {
-  const r = primaryRole.toUpperCase();
-  if (r.includes('QA')) return ['qa', 'automation', 'testing'];
-  if (r === 'DEVOPS') return ['devops', 'aws', 'ci-cd'];
-  if (r === 'DESIGNER' || r === 'UI/UX') return ['figma', 'ui', 'ux'];
-  if (r === 'PM') return ['project-management', 'agile', 'jira'];
-  if (r.includes('DEV') || r === 'TECHLEAD') return ['typescript', 'react', 'node'];
-  return ['general'];
-}

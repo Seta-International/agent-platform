@@ -117,13 +117,12 @@ Full command list: `pnpm -F @seta/cli exec tsx src/index.ts --help`. Other usefu
 # (the CSVs are shared privately between devs, never committed)
 pnpm xlsx:fixtures --xlsx ~/Documents/Seta/employees.xlsx
 
-# on a fresh DB: drop → up → migrate → bootstrap tenant+admin → seed
+# on a fresh DB: drop → up → migrate → seed (creates the tenant + admin itself)
 pnpm db:down && pnpm db:up && pnpm db:migrate
-bash scripts/tenant-bootstrap.sh
 pnpm seed:fixture --tenant seta-international
 ```
 
-The seed is idempotent — re-running it adds zero rows. `fixtures/seta/` is gitignored; it never enters the repo. Knowledge files and notification rows are intentionally not seeded directly: they populate through the real upload/scan pipeline and the async event subscriber when the worker runs.
+`seed:fixture` creates the `seta-international` tenant + admin if they don't exist, so no separate bootstrap step is needed. It also seeds the core skill catalog (categories + skills) and attaches skills to candidates/requisitions. The seed is idempotent — re-running it adds zero rows. `fixtures/seta/` is gitignored; it never enters the repo. Knowledge files and notification rows are intentionally not seeded directly: they populate through the real upload/scan pipeline and the async event subscriber when the worker runs.
 
 ## Hand it to an agent
 
