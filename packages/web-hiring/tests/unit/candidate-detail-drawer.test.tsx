@@ -33,18 +33,20 @@ const detail: CandidateDetail = {
     contact: { email: 'ada@example.com', phone: '+1' },
     version: 1,
   },
-  application: {
-    application_id: 'a1',
-    requisition_id: 'r1',
-    requisition_title: 'Backend Eng',
-    account_id: null,
-    stage: 'screening',
-    status: 'active',
-    rating: 3,
-    tags: [],
-    version: 4,
-    fit: { met: 2, required: 3, score: 0.66, strong: false },
-  },
+  applications: [
+    {
+      application_id: 'a1',
+      requisition_id: 'r1',
+      requisition_title: 'Backend Eng',
+      account_id: null,
+      stage: 'screening',
+      status: 'active',
+      rating: 3,
+      tags: [],
+      version: 4,
+      fit: { met: 2, required: 3, score: 0.66, strong: false },
+    },
+  ],
   skills: [{ skill_id: 's1', skill_name: 'TypeScript', level: 4 }],
   timeline: [
     {
