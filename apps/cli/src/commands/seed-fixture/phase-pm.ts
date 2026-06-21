@@ -11,6 +11,12 @@ const log = pino({ name: 'cli/seed-fixture/pm' });
 // Priority order for PM role derivation (case-insensitive)
 const PM_ROLE_PRIORITY = ['pm', 'product director', 'techlead', 'director'];
 
+function monthEnd(month: string): string {
+  const y = Number(month.slice(0, 4));
+  const m = Number(month.slice(5, 7));
+  return `${month}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
+}
+
 async function findAccountId(tenantId: string, name: string): Promise<string | undefined> {
   const r = await coreDb().execute(
     sql`SELECT id FROM pm.account WHERE tenant_id = ${tenantId} AND name = ${name} LIMIT 1`,
@@ -41,27 +47,6 @@ async function allocationExists(
         LIMIT 1`,
   );
   return r.rows.length > 0;
-}
-
-function derivePmEmployeeId(
-  projectCode: string,
-  membersByCode: Map<string, string[]>,
-): string | undefined {
-  const members = membersByCode.get(projectCode);
-  if (!members || members.length === 0) return undefined;
-
-  // membersWithRole stores [employeeId, roleLower]
-  const membersWithRole: Array<{ employeeId: string; roleLower: string }> =
-    (membersByCode as unknown as Map<string, Array<{ employeeId: string; roleLower: string }>>).get(
-      `${projectCode}:roles`,
-    ) ?? [];
-
-  for (const priority of PM_ROLE_PRIORITY) {
-    const match = membersWithRole.find((m) => m.roleLower === priority);
-    if (match) return match.employeeId;
-  }
-  // Fall back to first member
-  return members[0];
 }
 
 export async function seedPm(
@@ -195,7 +180,7 @@ export async function seedPm(
       worker_id: person.workerId,
       role: a.role || null,
       date_from: dateFrom,
-      date_to: `${a.month}-31`,
+      date_to: monthEnd(a.month),
       bucket: 'billable',
       planned_pct: a.ratio_pct,
       minutes_per_day: Math.round((a.ratio_pct / 100) * 480),

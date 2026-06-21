@@ -69,7 +69,7 @@ export function xlsxToFixturesCommand(opts: { xlsx: string; out: string }): void
 
   const projCsv = ['code,project_name,account_name,account_industry,dept,pm_employee_id'];
   for (const p of projects.values()) {
-    projCsv.push(`${p.code ?? ''},"${p.project_name}",,,,`);
+    projCsv.push(`${p.code ?? p.project_name},"${p.project_name}",,,,`);
   }
   writeFileSync(join(opts.out, 'projects.csv'), projCsv.join('\n') + '\n');
 
