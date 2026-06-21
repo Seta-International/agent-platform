@@ -287,12 +287,11 @@ test('worker profile: add skill via Techstack picker, skill chip appears', async
 
   const skillListRes = await ctx.get('/api/identity/v1/skills');
   const { skills } = (await skillListRes.json()) as { skills: SkillRow[] };
-  let secondSkill = skills.find((s) => s.name === SECOND_SKILL);
-  if (!secondSkill) {
-    const r = await ctx.post('/api/identity/v1/skills', {
+  // Ensure the catalog has SECOND_SKILL so the profile picker can find it (side effect only).
+  if (!skills.some((s) => s.name === SECOND_SKILL)) {
+    await ctx.post('/api/identity/v1/skills', {
       data: { category_id: catId, name: SECOND_SKILL },
     });
-    secondSkill = (await r.json()) as SkillRow;
   }
   await ctx.dispose();
 
