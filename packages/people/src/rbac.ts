@@ -5,7 +5,10 @@ export const peopleStatement = {
 } as const satisfies Statement;
 
 const roleStatements = {
-  'people.strategic': { 'people.worker': ['read', 'provision', 'edit', 'portal_access.set'] },
+  'people.strategic': {
+    'people.worker': ['read', 'provision', 'edit', 'portal_access.set'],
+    'core.skill': ['read'],
+  },
   'people.viewer': { 'people.worker': ['read'] },
 } as const satisfies Record<string, Statement>;
 
