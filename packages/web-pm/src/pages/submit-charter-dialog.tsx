@@ -1,6 +1,7 @@
 import {
   Alert,
   AlertDescription,
+  AsyncCombobox,
   Button,
   Dialog,
   DialogContent,
@@ -25,6 +26,7 @@ import {
   type SubmitCharterBody,
   submitCharter,
 } from '../api/pm-client.ts';
+import { useWorkerSearch } from '../api/worker-search';
 
 const NONE = '__none__';
 
@@ -62,6 +64,8 @@ export function SubmitCharterDialog({ onCreated }: { onCreated: () => void }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY);
   const [error, setError] = useState<string | null>(null);
+
+  const workerPicker = useWorkerSearch();
 
   const { data: accounts } = useQuery<AccountListRow[]>({
     queryKey: ['pm', 'accounts'],
@@ -149,11 +153,13 @@ export function SubmitCharterDialog({ onCreated }: { onCreated: () => void }) {
           </div>
 
           <div className="space-y-1">
-            <Label>PM (worker id) *</Label>
-            <Input
-              value={form.pm_worker_id}
-              onChange={(e) => set({ pm_worker_id: e.target.value })}
-              placeholder="uuid"
+            <Label>PM *</Label>
+            <AsyncCombobox
+              value={form.pm_worker_id || null}
+              onChange={(v) => set({ pm_worker_id: v ?? '' })}
+              search={workerPicker.search}
+              resolveByIds={workerPicker.resolveByIds}
+              placeholder="Search workers…"
             />
           </div>
 

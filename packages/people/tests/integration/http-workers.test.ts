@@ -5,7 +5,9 @@ import { withTestDb } from '@seta/shared-testing';
 import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
 import { resetPeopleDb } from '../../src/backend/db/client.ts';
+import { listWorkers } from '../../src/backend/domain/read-workers.ts';
 import { registerPeopleWorkersRoutes } from '../../src/backend/http/workers.ts';
+import { provisionWorker } from '../../src/index.ts';
 import { peopleErrorMapper } from '../../src/register.ts';
 import { buildSession, seedTenant } from '../helpers.ts';
 
@@ -249,6 +251,110 @@ describe('People workers HTTP routes', () => {
       const body = (await res.json()) as { results: Array<{ status: string }> };
       expect(body.results).toHaveLength(2);
       expect(body.results.every((r) => r.status === 'changed')).toBe(true);
+    });
+  });
+
+  it('listWorkers: search/ids/limit opts filter results', async () => {
+    await withDb(async ({ tenant_id, admin_user_id, adminSession }) => {
+      await provisionWorker({
+        full_name: 'Alice Anderson',
+        start_date: '2026-06-19',
+        employment_type: 'full_time',
+        session: adminSession,
+      });
+      const b = await provisionWorker({
+        full_name: 'Bob Brown',
+        start_date: '2026-06-19',
+        employment_type: 'full_time',
+        session: adminSession,
+      });
+
+      const hits = await listWorkers(adminSession, { search: 'alice' });
+      expect(hits.map((w) => w.full_name)).toEqual(['Alice Anderson']);
+
+      const byId = await listWorkers(adminSession, { ids: [b.worker_id] });
+      expect(byId).toHaveLength(1);
+      expect(byId[0]?.worker_id).toBe(b.worker_id);
+
+      const limited = await listWorkers(adminSession, { limit: 1 });
+      expect(limited).toHaveLength(1);
+
+      // RBAC: a session lacking people.worker.read is rejected
+      const noPermSession = buildSession({ tenant_id, user_id: admin_user_id, roles: [] });
+      await expect(listWorkers(noPermSession, {})).rejects.toThrow(/FORBIDDEN|permission/i);
+    });
+  });
+
+  it('GET /workers?search= filters by name', async () => {
+    await withDb(async ({ adminSession }) => {
+      await provisionWorker({
+        full_name: 'Carol Combobox',
+        start_date: '2026-06-19',
+        employment_type: 'full_time',
+        session: adminSession,
+      });
+      await provisionWorker({
+        full_name: 'Dan Dropdown',
+        start_date: '2026-06-19',
+        employment_type: 'full_time',
+        session: adminSession,
+      });
+
+      const app = buildApp(adminSession);
+      const res = await app.request('/api/people/v1/workers?search=carol');
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { workers: Array<{ full_name: string }> };
+      expect(body.workers.map((w) => w.full_name)).toContain('Carol Combobox');
+      expect(body.workers.map((w) => w.full_name)).not.toContain('Dan Dropdown');
+    });
+  });
+
+  it('GET /workers?ids= resolves workers by id', async () => {
+    await withDb(async ({ adminSession }) => {
+      const w1 = await provisionWorker({
+        full_name: 'Eve Exact',
+        start_date: '2026-06-19',
+        employment_type: 'full_time',
+        session: adminSession,
+      });
+      await provisionWorker({
+        full_name: 'Frank Filter',
+        start_date: '2026-06-19',
+        employment_type: 'full_time',
+        session: adminSession,
+      });
+
+      const app = buildApp(adminSession);
+      const res = await app.request(`/api/people/v1/workers?ids=${w1.worker_id}`);
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        workers: Array<{ worker_id: string; full_name: string }>;
+      };
+      expect(body.workers).toHaveLength(1);
+      expect(body.workers[0]?.worker_id).toBe(w1.worker_id);
+    });
+  });
+
+  it('GET /workers?limit=1 paginates results', async () => {
+    await withDb(async ({ adminSession }) => {
+      await provisionWorker({
+        full_name: 'Grace Paged',
+        start_date: '2026-06-19',
+        employment_type: 'full_time',
+        session: adminSession,
+      });
+      await provisionWorker({
+        full_name: 'Hank Paged',
+        start_date: '2026-06-19',
+        employment_type: 'full_time',
+        session: adminSession,
+      });
+
+      const app = buildApp(adminSession);
+      const res = await app.request('/api/people/v1/workers?limit=1');
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { workers: Array<unknown> };
+      expect(body.workers).toHaveLength(1);
     });
   });
 });

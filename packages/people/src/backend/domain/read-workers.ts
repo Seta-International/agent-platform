@@ -1,11 +1,14 @@
 import type { SessionScope } from '@seta/core';
-import { and, desc, eq, isNull } from 'drizzle-orm';
+import { and, desc, eq, ilike, inArray, isNull, or } from 'drizzle-orm';
 import { peopleDb } from '../db/client.ts';
 import { employmentPeriod, worker, workerHistory } from '../db/schema.ts';
 import { tenantScoped } from '../db/scope.ts';
 import { PeopleError, requirePermission } from '../rbac.ts';
 
-export async function listWorkers(session: SessionScope): Promise<
+export async function listWorkers(
+  session: SessionScope,
+  opts: { search?: string; ids?: string[]; limit?: number; offset?: number } = {},
+): Promise<
   Array<{
     worker_id: string;
     full_name: string;
@@ -15,7 +18,16 @@ export async function listWorkers(session: SessionScope): Promise<
   }>
 > {
   requirePermission(session, 'people.worker.read');
-  const rows = await peopleDb()
+  const filters = [tenantScoped(worker.tenant_id, session), isNull(worker.deleted_at)];
+  if (opts.search) {
+    const like = `%${opts.search}%`;
+    const term = or(ilike(worker.full_name, like), ilike(worker.work_email, like));
+    if (term) filters.push(term);
+  }
+  if (opts.ids && opts.ids.length > 0) {
+    filters.push(inArray(worker.person_id, opts.ids));
+  }
+  const base = peopleDb()
     .select({
       worker_id: worker.person_id,
       full_name: worker.full_name,
@@ -28,8 +40,11 @@ export async function listWorkers(session: SessionScope): Promise<
       employmentPeriod,
       and(eq(employmentPeriod.person_id, worker.person_id), isNull(employmentPeriod.end_date)),
     )
-    .where(and(tenantScoped(worker.tenant_id, session), isNull(worker.deleted_at)));
-  return rows;
+    .where(and(...filters))
+    .orderBy(worker.full_name);
+  // ids lookups return all matches; search/list paginate
+  if (opts.ids && opts.ids.length > 0) return base;
+  return base.limit(opts.limit ?? 20).offset(opts.offset ?? 0);
 }
 
 export async function getWorker({

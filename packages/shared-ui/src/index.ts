@@ -11,6 +11,7 @@ export * from './composites/agent-panel';
 // Composites
 export * from './composites/app-launcher';
 export * from './composites/app-shell';
+export * from './composites/async-combobox';
 export * from './composites/avatar-stack';
 export * from './composites/chat-composer';
 export * from './composites/chat-hitl-card';
@@ -25,6 +26,7 @@ export * from './composites/command-palette';
 export * from './composites/data-table';
 export * from './composites/dropzone';
 export * from './composites/empty-state';
+export * from './composites/entity-search';
 export * from './composites/field-conflict-row';
 export * from './composites/filter-pill';
 export * from './composites/group-tile';
