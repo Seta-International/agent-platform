@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { accountFor } from '../src/commands/seed-fixture/account-map.ts';
+import { accountFor } from '../../src/commands/seed-fixture/account-map.ts';
 
 describe('accountFor', () => {
   it('known external clients get their own account with the right industry', () => {

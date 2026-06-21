@@ -2,7 +2,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { loadFixtures } from '../src/commands/seed-fixture/load.ts';
+import { loadFixtures } from '../../src/commands/seed-fixture/load.ts';
 
 describe('loadFixtures', () => {
   it('parses the three CSVs', () => {

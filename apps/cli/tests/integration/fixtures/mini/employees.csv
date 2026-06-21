@@ -1,0 +1,5 @@
+id,full_name,work_email,employment_type,primary_role
+9001,"Test Admin",admin.test@seta-international.vn,full_time,ADMIN
+9002,"Test Pm",pm.test@seta-international.vn,full_time,PM
+9003,"Test Dev",dev.test@seta-international.vn,full_time,DEV
+9004,"Test Qa",qa.test@seta-international.vn,full_time,QA

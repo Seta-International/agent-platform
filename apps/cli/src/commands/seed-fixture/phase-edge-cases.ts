@@ -11,13 +11,6 @@ import type { EmployeeRec } from './load.ts';
 
 const log = pino({ name: 'cli/seed-fixture/edge-cases' });
 
-async function workerPersonId(workerId: string): Promise<string | undefined> {
-  const r = await coreDb().execute(
-    sql`SELECT person_id FROM people.worker WHERE id = ${workerId} AND deleted_at IS NULL LIMIT 1`,
-  );
-  return (r.rows[0] as { person_id: string } | undefined)?.person_id;
-}
-
 export async function seedEdgeCases(
   session: SessionScope,
   people: Map<string, { workerId: string; userId: string }>,
@@ -35,13 +28,8 @@ export async function seedEdgeCases(
       log.warn('edge-cases: no workers in people map, skipping no-portal');
     } else {
       const { workerId } = people.get(firstInMap.id)!;
-      const personId = await workerPersonId(workerId);
-      if (!personId) {
-        log.warn({ worker_id: workerId }, 'edge-cases: person_id not found, skipping no-portal');
-      } else {
-        await setPortalAccess({ worker_id: personId, enabled: false, session });
-        log.info({ worker_id: personId }, 'edge-cases: portal_access=false');
-      }
+      await setPortalAccess({ worker_id: workerId, enabled: false, session });
+      log.info({ worker_id: workerId }, 'edge-cases: portal_access=false');
     }
   } catch (err) {
     log.warn({ err }, 'edge-cases: no-portal skipped');
@@ -65,7 +53,9 @@ export async function seedEdgeCases(
   // 3. On-hold requisition — transition first seeded requisition from open → on_hold
   try {
     const r = await coreDb().execute(
-      sql`SELECT id FROM hiring.requisition WHERE title LIKE '% — %' ORDER BY created_at LIMIT 1`,
+      sql`SELECT id FROM hiring.requisition
+          WHERE tenant_id = ${session.tenant_id} AND title LIKE '% — %'
+          ORDER BY created_at LIMIT 1`,
     );
     const reqId = (r.rows[0] as { id: string } | undefined)?.id;
     if (!reqId) {

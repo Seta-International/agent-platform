@@ -11,7 +11,7 @@ const log = pino({ name: 'cli/seed-fixture/pm' });
 // Priority order for PM role derivation (case-insensitive)
 const PM_ROLE_PRIORITY = ['pm', 'product director', 'techlead', 'director'];
 
-function monthEnd(month: string): string {
+export function monthEnd(month: string): string {
   const y = Number(month.slice(0, 4));
   const m = Number(month.slice(5, 7));
   return `${month}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
