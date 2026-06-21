@@ -69,11 +69,13 @@ describe('People workers HTTP routes', () => {
       const listRes = await app.request('/api/people/v1/workers');
       expect(listRes.status).toBe(200);
       const body = (await listRes.json()) as {
-        workers: Array<{ full_name: string; portal_access: boolean }>;
+        workers: Array<{ worker_id: string; full_name: string }>;
+        total: number;
       };
       const alice = body.workers.find((w) => w.full_name === 'Alice Tester');
       expect(alice).toBeDefined();
-      expect(alice?.portal_access).toBe(false);
+      expect(alice?.worker_id).toBeTruthy();
+      expect(body.total).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -270,14 +272,14 @@ describe('People workers HTTP routes', () => {
       });
 
       const hits = await listWorkers(adminSession, { search: 'alice' });
-      expect(hits.map((w) => w.full_name)).toEqual(['Alice Anderson']);
+      expect(hits.rows.map((w) => w.full_name)).toEqual(['Alice Anderson']);
 
       const byId = await listWorkers(adminSession, { ids: [b.worker_id] });
-      expect(byId).toHaveLength(1);
-      expect(byId[0]?.worker_id).toBe(b.worker_id);
+      expect(byId.rows).toHaveLength(1);
+      expect(byId.rows[0]?.worker_id).toBe(b.worker_id);
 
-      const limited = await listWorkers(adminSession, { limit: 1 });
-      expect(limited).toHaveLength(1);
+      const limited = await listWorkers(adminSession, { pageSize: 1 });
+      expect(limited.rows).toHaveLength(1);
 
       // RBAC: a session lacking people.worker.read is rejected
       const noPermSession = buildSession({ tenant_id, user_id: admin_user_id, roles: [] });

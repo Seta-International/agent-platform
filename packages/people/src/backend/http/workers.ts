@@ -25,18 +25,49 @@ const portalBulkBody = z.object({
 
 export function registerPeopleWorkersRoutes(app: Hono<SessionEnv>): void {
   app.get('/api/people/v1/workers', async (c) => {
-    const idsParam = c.req.query('ids');
-    const limitParam = c.req.query('limit');
-    const offsetParam = c.req.query('offset');
-    const parsedLimit = limitParam ? parseInt(limitParam, 10) : Number.NaN;
-    const parsedOffset = offsetParam ? parseInt(offsetParam, 10) : Number.NaN;
-    const opts = {
-      search: c.req.query('search') || undefined,
-      ids: idsParam ? idsParam.split(',').filter(Boolean) : undefined,
-      limit: Number.isFinite(parsedLimit) ? Math.min(parsedLimit, 100) : undefined,
-      offset: Number.isFinite(parsedOffset) ? Math.max(parsedOffset, 0) : undefined,
+    const list = (name: string): string[] | undefined => {
+      const raw = c.req.query(name);
+      if (!raw) return undefined;
+      const vals = raw.split(',').filter(Boolean);
+      return vals.length > 0 ? vals : undefined;
     };
-    return c.json({ workers: await listWorkers(c.get('user'), opts) });
+
+    const num = (raw: string | undefined): number | undefined => {
+      if (!raw) return undefined;
+      const n = parseInt(raw, 10);
+      return Number.isFinite(n) ? n : undefined;
+    };
+
+    // Back-compat: the PM worker picker sends `limit` (type-ahead size) and `offset`.
+    // Map `limit`→pageSize and derive a 1-based `page` from `offset`. Explicit
+    // `page`/`pageSize` win when present.
+    const legacyLimit = num(c.req.query('limit'));
+    const legacyOffset = num(c.req.query('offset'));
+    const pageSize = num(c.req.query('pageSize')) ?? legacyLimit;
+    let page = num(c.req.query('page'));
+    if (page === undefined && legacyOffset !== undefined && pageSize && pageSize > 0) {
+      page = Math.floor(legacyOffset / pageSize) + 1;
+    }
+
+    let sort: { field: string; dir: 'asc' | 'desc' } | undefined;
+    const sortRaw = c.req.query('sort');
+    if (sortRaw) {
+      const [field, dir] = sortRaw.split(':');
+      if (field) sort = { field, dir: dir === 'desc' ? 'desc' : 'asc' };
+    }
+
+    const { rows, total } = await listWorkers(c.get('user'), {
+      search: c.req.query('search') || undefined,
+      ids: list('ids'),
+      status: list('status'),
+      account_id: list('account_id'),
+      project_id: list('project_id'),
+      skill_id: list('skill_id'),
+      sort,
+      page,
+      pageSize,
+    });
+    return c.json({ workers: rows, total });
   });
   app.get('/api/people/v1/workers/:id', async (c) =>
     c.json(await getWorker({ worker_id: c.req.param('id'), session: c.get('user') })),
