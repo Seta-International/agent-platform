@@ -9,6 +9,11 @@ import {
   EmptyState,
   KbdHint,
   PageChrome,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Skeleton,
   toast,
 } from '@seta/shared-ui';
@@ -247,21 +252,20 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
             <DialogTitle>Select group to link to M365</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <select
-              className="block h-9 w-full rounded-md border border-hairline bg-canvas px-3 text-sm"
-              value={groupToLink ?? ''}
-              onChange={(e) => setGroupToLink(e.target.value || null)}
-              aria-label="Select a group"
-            >
-              <option value="">— choose a group —</option>
-              {groups
-                .filter((g) => g.external_source === 'native')
-                .map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.name}
-                  </option>
-                ))}
-            </select>
+            <Select value={groupToLink ?? undefined} onValueChange={(v) => setGroupToLink(v)}>
+              <SelectTrigger aria-label="Select a group" className="w-full">
+                <SelectValue placeholder="— choose a group —" />
+              </SelectTrigger>
+              <SelectContent>
+                {groups
+                  .filter((g) => g.external_source === 'native')
+                  .map((g) => (
+                    <SelectItem key={g.id} value={g.id}>
+                      {g.name}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
             <div className="flex justify-end gap-2">
               <Button variant="secondary" onClick={() => setSyncFromIdPOpen(false)}>
                 Cancel

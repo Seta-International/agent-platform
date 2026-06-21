@@ -5,6 +5,11 @@ import {
   DialogHeader,
   DialogTitle,
   Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   toast,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -64,18 +69,18 @@ export function TransferDialog({
         <div className="space-y-3">
           <div className="space-y-1">
             <Label htmlFor="transfer-target">Target role</Label>
-            <select
-              id="transfer-target"
-              className="w-full rounded border border-hairline bg-surface-1 px-2 py-1"
-              value={effectiveTarget}
-              onChange={(e) => setTargetId(e.target.value)}
-            >
-              {targets.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.title}
-                </option>
-              ))}
-            </select>
+            <Select value={effectiveTarget} onValueChange={(v) => setTargetId(v)}>
+              <SelectTrigger id="transfer-target" className="w-full">
+                <SelectValue placeholder="Select a role" />
+              </SelectTrigger>
+              <SelectContent>
+                {targets.map((r) => (
+                  <SelectItem key={r.id} value={r.id}>
+                    {r.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <p className="text-caption text-ink-muted">
             A fresh application is opened on the target role; this one is closed as transferred.

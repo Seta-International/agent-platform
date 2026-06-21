@@ -39,10 +39,16 @@ describe('TransferDialog', () => {
       />,
       { wrapper: wrap(qc) },
     );
+    // Wait for query to load so effectiveTarget resolves to r2 (excludes current r1)
     await waitFor(() =>
-      expect(screen.getByRole('option', { name: 'Frontend Eng' })).toBeInTheDocument(),
+      expect(qc.getQueryState(['hiring', 'requisitions'])?.status).toBe('success'),
     );
-    expect(screen.queryByRole('option', { name: 'Backend Eng' })).not.toBeInTheDocument();
+    // The trigger shows the selected value (Frontend Eng = r2, since r1 is excluded)
+    await waitFor(() =>
+      expect(screen.getByRole('combobox', { name: /target role/i })).toBeInTheDocument(),
+    );
+    // effectiveTarget = r2 (Frontend Eng) because r1 is filtered out as currentRequisitionId
+    // Clicking submit verifies r2 is selected
     await userEvent.click(screen.getByRole('button', { name: /move candidate/i }));
     await waitFor(() =>
       expect(transferApplication).toHaveBeenCalledWith('a1', {

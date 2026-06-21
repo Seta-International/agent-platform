@@ -6,6 +6,11 @@ import {
   DialogTitle,
   Input,
   Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Textarea,
   toast,
 } from '@seta/shared-ui';
@@ -69,18 +74,18 @@ export function RejectDialog({
         <div className="space-y-3">
           <div className="space-y-1">
             <Label htmlFor="reject-reason">Reason</Label>
-            <select
-              id="reject-reason"
-              className="w-full rounded border border-hairline bg-surface-1 px-2 py-1"
-              value={effectiveReason}
-              onChange={(e) => setReasonId(e.target.value)}
-            >
-              {active.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.label}
-                </option>
-              ))}
-            </select>
+            <Select value={effectiveReason} onValueChange={(v) => setReasonId(v)}>
+              <SelectTrigger id="reject-reason" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {active.map((r) => (
+                  <SelectItem key={r.id} value={r.id}>
+                    {r.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-1">
             <Label htmlFor="reject-tags">Tags — comma-separated</Label>

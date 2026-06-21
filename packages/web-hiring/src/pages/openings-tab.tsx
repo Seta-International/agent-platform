@@ -1,4 +1,13 @@
-import { Badge, Button, toast } from '@seta/shared-ui';
+import {
+  Badge,
+  Button,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  toast,
+} from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import {
@@ -9,6 +18,8 @@ import {
 } from '../api/hiring-client.ts';
 import { hiringKeys } from '../state/query-keys.ts';
 import { on409 } from './utils.ts';
+
+const NONE = '__none__';
 
 export function OpeningsTab({
   detail,
@@ -74,20 +85,26 @@ export function OpeningsTab({
               <Badge variant={o.status === 'open' ? 'default' : 'secondary'}>{o.status}</Badge>
               {canManage && o.status === 'open' && (
                 <>
-                  <select
-                    className="rounded border border-hairline bg-surface-1 px-2 py-1 text-caption"
-                    value={reasonByOpening[o.id] ?? ''}
-                    onChange={(e) => setReasonByOpening((m) => ({ ...m, [o.id]: e.target.value }))}
+                  <Select
+                    value={reasonByOpening[o.id] || NONE}
+                    onValueChange={(v) =>
+                      setReasonByOpening((m) => ({ ...m, [o.id]: v === NONE ? '' : v }))
+                    }
                   >
-                    <option value="">Reason…</option>
-                    {reasons.data
-                      ?.filter((r) => r.active)
-                      .map((r) => (
-                        <option key={r.id} value={r.id}>
-                          {r.label}
-                        </option>
-                      ))}
-                  </select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Reason…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NONE}>—</SelectItem>
+                      {reasons.data
+                        ?.filter((r) => r.active)
+                        .map((r) => (
+                          <SelectItem key={r.id} value={r.id}>
+                            {r.label}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
                   <Button
                     size="sm"
                     variant="secondary"

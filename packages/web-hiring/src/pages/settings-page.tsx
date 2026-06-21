@@ -16,6 +16,11 @@ import {
   Label,
   PageChrome,
   SegmentedControl,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Textarea,
   toast,
 } from '@seta/shared-ui';
@@ -115,15 +120,16 @@ function NewTemplateDialog() {
           </div>
           <div className="space-y-1">
             <Label>Kind</Label>
-            <select
-              className="w-full rounded border border-hairline bg-surface-1 px-2 py-1"
-              value={kind}
-              onChange={(e) => setKind(e.target.value as 'role' | 'intro' | 'closing')}
-            >
-              <option value="role">role</option>
-              <option value="intro">intro</option>
-              <option value="closing">closing</option>
-            </select>
+            <Select value={kind} onValueChange={(v) => setKind(v as 'role' | 'intro' | 'closing')}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="role">role</SelectItem>
+                <SelectItem value="intro">intro</SelectItem>
+                <SelectItem value="closing">closing</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex items-center justify-between pt-2">
             <div className="text-caption font-semibold uppercase text-ink-muted">Sections</div>
@@ -287,17 +293,18 @@ function NewRejectionReasonDialog() {
           </div>
           <div className="space-y-1">
             <Label>Category</Label>
-            <select
-              className="w-full rounded border border-hairline bg-surface-1 px-2 py-1"
-              value={category}
-              onChange={(e) => setCategory(e.target.value as RejectionCategory)}
-            >
-              {REJECTION_CATEGORIES.map((c) => (
-                <option key={c.value} value={c.value}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
+            <Select value={category} onValueChange={(v) => setCategory(v as RejectionCategory)}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {REJECTION_CATEGORIES.map((c) => (
+                  <SelectItem key={c.value} value={c.value}>
+                    {c.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           {error && (
             <Alert variant="destructive">

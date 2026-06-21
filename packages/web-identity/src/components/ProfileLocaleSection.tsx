@@ -4,18 +4,10 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  Command,
-  CommandEmpty,
-  CommandInput,
-  CommandItem,
-  CommandList,
+  Combobox,
   Input,
   Label,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
 } from '@seta/shared-ui';
-import { Check, ChevronsUpDown } from 'lucide-react';
 import { useState } from 'react';
 import type { ProfileDto, SaveProfile } from '../api/client.ts';
 
@@ -32,41 +24,16 @@ const TIMEZONES = ((
 const HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 function TimezonePicker({ value, onChange }: { value: string; onChange: (next: string) => void }) {
-  const [open, setOpen] = useState(false);
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="secondary"
-          aria-expanded={open}
-          className="w-full justify-between font-normal"
-        >
-          {value || 'Select timezone'}
-          <ChevronsUpDown className="ml-2 size-4 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] p-0">
-        <Command>
-          <CommandInput placeholder="Search timezone…" />
-          <CommandList className="max-h-72">
-            <CommandEmpty>No timezone found.</CommandEmpty>
-            {TIMEZONES.map((z) => (
-              <CommandItem
-                key={z}
-                value={z}
-                onSelect={() => {
-                  onChange(z);
-                  setOpen(false);
-                }}
-              >
-                <Check className={`mr-2 h-4 w-4 ${value === z ? 'opacity-100' : 'opacity-0'}`} />
-                {z}
-              </CommandItem>
-            ))}
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+    <Combobox
+      className="w-full"
+      options={TIMEZONES.map((z) => ({ value: z, label: z }))}
+      value={value || null}
+      onChange={(v) => onChange(v ?? '')}
+      placeholder="Select timezone"
+      searchPlaceholder="Search timezone…"
+      emptyText="No timezone found."
+    />
   );
 }
 

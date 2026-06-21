@@ -11,6 +11,11 @@ import {
   GroupTile,
   Input,
   Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@seta/shared-ui';
 import { Link2, Shield, Users } from 'lucide-react';
 import React, { useState } from 'react';
@@ -170,15 +175,15 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
 
               <div className="space-y-1">
                 <Label htmlFor="cg-role">Default member role</Label>
-                <select
-                  id="cg-role"
-                  value={defaultRole}
-                  onChange={(e) => setDefaultRole(e.target.value as DefaultRole)}
-                  className="block h-9 w-full rounded-md border border-hairline bg-canvas px-3 text-sm"
-                >
-                  <option value="member">Member</option>
-                  <option value="owner">Owner</option>
-                </select>
+                <Select value={defaultRole} onValueChange={(v) => setDefaultRole(v as DefaultRole)}>
+                  <SelectTrigger id="cg-role" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="member">Member</SelectItem>
+                    <SelectItem value="owner">Owner</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 

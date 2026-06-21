@@ -31,9 +31,14 @@ describe('NewCandidateDialog', () => {
     render(<NewCandidateDialog />, { wrapper: wrap(qc) });
     await userEvent.click(screen.getByRole('button', { name: /new candidate/i }));
     await userEvent.type(screen.getByLabelText(/full name/i), 'Ada Lovelace');
+    // Wait for requisitions query to load so effectiveReq resolves to r1 (Backend Eng)
     await waitFor(() =>
-      expect(screen.getByRole('option', { name: 'Backend Eng' })).toBeInTheDocument(),
+      expect(qc.getQueryState(['hiring', 'requisitions'])?.status).toBe('success'),
     );
+    await waitFor(() =>
+      expect(screen.getByRole('combobox', { name: /position applied/i })).toBeInTheDocument(),
+    );
+    // effectiveReq auto-selects r1 (Backend Eng, the only open req)
     await userEvent.click(screen.getByRole('button', { name: /save candidate/i }));
     await waitFor(() =>
       expect(addCandidate).toHaveBeenCalledWith(
