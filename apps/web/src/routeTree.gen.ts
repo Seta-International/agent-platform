@@ -49,6 +49,8 @@ import { Route as PmAccountsIndexRouteImport } from './../../../packages/web-pm/
 import { Route as PeopleEmployeesIndexRouteImport } from './../../../packages/web-people/src/routes/employees/index'
 import { Route as HiringSettingsIndexRouteImport } from './../../../packages/web-hiring/src/routes/settings/index'
 import { Route as HiringRequisitionsIndexRouteImport } from './../../../packages/web-hiring/src/routes/requisitions/index'
+import { Route as HiringKnowledgeIndexRouteImport } from './../../../packages/web-hiring/src/routes/knowledge/index'
+import { Route as HiringInterviewsIndexRouteImport } from './../../../packages/web-hiring/src/routes/interviews/index'
 import { Route as HiringCandidatesIndexRouteImport } from './../../../packages/web-hiring/src/routes/candidates/index'
 import { Route as AgentWorkflowsIndexRouteImport } from './../../../packages/web-agent/src/routes/workflows/index'
 import { Route as PmRequestsCharterIdRouteImport } from './../../../packages/web-pm/src/routes/requests/$charterId'
@@ -262,6 +264,16 @@ const HiringRequisitionsIndexRoute = HiringRequisitionsIndexRouteImport.update({
   path: '/requisitions/',
   getParentRoute: () => HiringRouteRoute,
 } as any)
+const HiringKnowledgeIndexRoute = HiringKnowledgeIndexRouteImport.update({
+  id: '/knowledge/',
+  path: '/knowledge/',
+  getParentRoute: () => HiringRouteRoute,
+} as any)
+const HiringInterviewsIndexRoute = HiringInterviewsIndexRouteImport.update({
+  id: '/interviews/',
+  path: '/interviews/',
+  getParentRoute: () => HiringRouteRoute,
+} as any)
 const HiringCandidatesIndexRoute = HiringCandidatesIndexRouteImport.update({
   id: '/candidates/',
   path: '/candidates/',
@@ -375,6 +387,8 @@ export interface FileRoutesByFullPath {
   '/pm/requests/$charterId': typeof PmRequestsCharterIdRoute
   '/agent/workflows/': typeof AgentWorkflowsIndexRoute
   '/hiring/candidates/': typeof HiringCandidatesIndexRoute
+  '/hiring/interviews/': typeof HiringInterviewsIndexRoute
+  '/hiring/knowledge/': typeof HiringKnowledgeIndexRoute
   '/hiring/requisitions/': typeof HiringRequisitionsIndexRoute
   '/hiring/settings/': typeof HiringSettingsIndexRoute
   '/people/employees/': typeof PeopleEmployeesIndexRoute
@@ -422,6 +436,8 @@ export interface FileRoutesByTo {
   '/pm/requests/$charterId': typeof PmRequestsCharterIdRoute
   '/agent/workflows': typeof AgentWorkflowsIndexRoute
   '/hiring/candidates': typeof HiringCandidatesIndexRoute
+  '/hiring/interviews': typeof HiringInterviewsIndexRoute
+  '/hiring/knowledge': typeof HiringKnowledgeIndexRoute
   '/hiring/requisitions': typeof HiringRequisitionsIndexRoute
   '/hiring/settings': typeof HiringSettingsIndexRoute
   '/people/employees': typeof PeopleEmployeesIndexRoute
@@ -478,6 +494,8 @@ export interface FileRoutesById {
   '/_authed/pm/requests/$charterId': typeof PmRequestsCharterIdRoute
   '/_authed/agent/workflows/': typeof AgentWorkflowsIndexRoute
   '/_authed/hiring/candidates/': typeof HiringCandidatesIndexRoute
+  '/_authed/hiring/interviews/': typeof HiringInterviewsIndexRoute
+  '/_authed/hiring/knowledge/': typeof HiringKnowledgeIndexRoute
   '/_authed/hiring/requisitions/': typeof HiringRequisitionsIndexRoute
   '/_authed/hiring/settings/': typeof HiringSettingsIndexRoute
   '/_authed/people/employees/': typeof PeopleEmployeesIndexRoute
@@ -534,6 +552,8 @@ export interface FileRouteTypes {
     | '/pm/requests/$charterId'
     | '/agent/workflows/'
     | '/hiring/candidates/'
+    | '/hiring/interviews/'
+    | '/hiring/knowledge/'
     | '/hiring/requisitions/'
     | '/hiring/settings/'
     | '/people/employees/'
@@ -581,6 +601,8 @@ export interface FileRouteTypes {
     | '/pm/requests/$charterId'
     | '/agent/workflows'
     | '/hiring/candidates'
+    | '/hiring/interviews'
+    | '/hiring/knowledge'
     | '/hiring/requisitions'
     | '/hiring/settings'
     | '/people/employees'
@@ -636,6 +658,8 @@ export interface FileRouteTypes {
     | '/_authed/pm/requests/$charterId'
     | '/_authed/agent/workflows/'
     | '/_authed/hiring/candidates/'
+    | '/_authed/hiring/interviews/'
+    | '/_authed/hiring/knowledge/'
     | '/_authed/hiring/requisitions/'
     | '/_authed/hiring/settings/'
     | '/_authed/people/employees/'
@@ -936,6 +960,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HiringRequisitionsIndexRouteImport
       parentRoute: typeof HiringRouteRoute
     }
+    '/_authed/hiring/knowledge/': {
+      id: '/_authed/hiring/knowledge/'
+      path: '/knowledge'
+      fullPath: '/hiring/knowledge/'
+      preLoaderRoute: typeof HiringKnowledgeIndexRouteImport
+      parentRoute: typeof HiringRouteRoute
+    }
+    '/_authed/hiring/interviews/': {
+      id: '/_authed/hiring/interviews/'
+      path: '/interviews'
+      fullPath: '/hiring/interviews/'
+      preLoaderRoute: typeof HiringInterviewsIndexRouteImport
+      parentRoute: typeof HiringRouteRoute
+    }
     '/_authed/hiring/candidates/': {
       id: '/_authed/hiring/candidates/'
       path: '/candidates'
@@ -1091,6 +1129,8 @@ interface HiringRouteRouteChildren {
   HiringIndexRoute: typeof HiringIndexRoute
   HiringRequisitionsRequisitionIdRoute: typeof HiringRequisitionsRequisitionIdRoute
   HiringCandidatesIndexRoute: typeof HiringCandidatesIndexRoute
+  HiringInterviewsIndexRoute: typeof HiringInterviewsIndexRoute
+  HiringKnowledgeIndexRoute: typeof HiringKnowledgeIndexRoute
   HiringRequisitionsIndexRoute: typeof HiringRequisitionsIndexRoute
   HiringSettingsIndexRoute: typeof HiringSettingsIndexRoute
 }
@@ -1099,6 +1139,8 @@ const HiringRouteRouteChildren: HiringRouteRouteChildren = {
   HiringIndexRoute: HiringIndexRoute,
   HiringRequisitionsRequisitionIdRoute: HiringRequisitionsRequisitionIdRoute,
   HiringCandidatesIndexRoute: HiringCandidatesIndexRoute,
+  HiringInterviewsIndexRoute: HiringInterviewsIndexRoute,
+  HiringKnowledgeIndexRoute: HiringKnowledgeIndexRoute,
   HiringRequisitionsIndexRoute: HiringRequisitionsIndexRoute,
   HiringSettingsIndexRoute: HiringSettingsIndexRoute,
 }
