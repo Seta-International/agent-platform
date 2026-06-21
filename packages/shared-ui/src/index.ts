@@ -11,6 +11,7 @@ export * from './composites/agent-panel';
 // Composites
 export * from './composites/app-launcher';
 export * from './composites/app-shell';
+export * from './composites/async-combobox';
 export * from './composites/avatar-stack';
 export * from './composites/chat-composer';
 export * from './composites/chat-hitl-card';
