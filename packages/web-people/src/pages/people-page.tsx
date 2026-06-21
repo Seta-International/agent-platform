@@ -23,7 +23,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { useNavigate } from '@tanstack/react-router';
 import type { OnChangeFn, PaginationState, SortingState } from '@tanstack/react-table';
 import { Users } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   createWorker,
   fetchWorkers,
@@ -139,8 +139,10 @@ export function PeoplePage() {
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [query, setQuery] = useState<WorkersQuery>({ page: 1, pageSize: 25 });
 
-  const patchQuery = (patch: Partial<WorkersQuery>) =>
-    setQuery((q) => ({ ...q, ...patch, page: 1 }));
+  const patchQuery = useCallback(
+    (patch: Partial<WorkersQuery>) => setQuery((q) => ({ ...q, ...patch, page: 1 })),
+    [],
+  );
 
   const { data, isLoading, error } = useQuery({
     queryKey: peopleKeys.workers(query),

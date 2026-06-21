@@ -1,5 +1,5 @@
 import { AsyncCombobox, Combobox, type ComboboxOption, Input } from '@seta/shared-ui';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   projectSearch,
   searchAccounts,
@@ -39,10 +39,15 @@ export function PeopleFilterBar({ query, onChange }: Props) {
     }, 300);
   }
 
-  const projectSearchBound = {
-    search: (q: string) => projectSearch.search(q, query.account_id),
-    resolveByIds: projectSearch.resolveByIds,
-  };
+  // Stable per selected-accounts: AsyncCombobox lists `search` in its effect deps, so a new
+  // reference each render would re-fetch projects on every unrelated parent render.
+  const projectSearchBound = useMemo(
+    () => ({
+      search: (q: string) => projectSearch.search(q, query.account_id),
+      resolveByIds: projectSearch.resolveByIds,
+    }),
+    [query.account_id],
+  );
 
   return (
     <div className="flex flex-wrap items-center gap-2">
