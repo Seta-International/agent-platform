@@ -241,6 +241,7 @@ export async function getWorker({
     WHERE ps.person_id = ${worker.person_id} AND ps.tenant_id = ${tenantId}
   )`;
 
+  const scope = buildWorkerScope(session);
   const [row] = await peopleDb()
     .select({
       worker_id: worker.person_id,
@@ -274,7 +275,13 @@ export async function getWorker({
         isNull(managerAlias.deleted_at),
       ),
     )
-    .where(and(eq(worker.person_id, worker_id), tenantScoped(worker.tenant_id, session)))
+    .where(
+      and(
+        eq(worker.person_id, worker_id),
+        tenantScoped(worker.tenant_id, session),
+        scope ?? undefined,
+      ),
+    )
     .limit(1);
   if (!row) throw new PeopleError('NOT_FOUND', 'worker not found');
   return row;
@@ -297,6 +304,15 @@ export async function getWorkerHistory({
   }>
 > {
   requirePermission(session, 'people.worker.read');
+  const scope = buildWorkerScope(session);
+  if (scope) {
+    const [visible] = await peopleDb()
+      .select({ person_id: worker.person_id })
+      .from(worker)
+      .where(and(eq(worker.person_id, worker_id), tenantScoped(worker.tenant_id, session), scope))
+      .limit(1);
+    if (!visible) throw new PeopleError('NOT_FOUND', 'worker not found');
+  }
   const rows = await peopleDb()
     .select({
       at: workerHistory.at,
