@@ -12,7 +12,6 @@ import { sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { buildMigrationRegistry } from '../../src/commands/migrate.ts';
 import { seedFixtureCommand } from '../../src/commands/seed-fixture/index.ts';
-import { tenantCreateCommand } from '../../src/commands/tenant-create.ts';
 
 const MINI_DIR = new URL('./fixtures/mini', import.meta.url).pathname;
 
@@ -46,6 +45,10 @@ interface Counts {
   task_assignments: number;
   assignee_projection: number;
   requisitions: number;
+  skill_categories: number;
+  skills: number;
+  candidate_skills: number;
+  requisition_skills: number;
   events: number;
 }
 
@@ -63,6 +66,10 @@ async function getCounts(): Promise<Counts> {
       (SELECT COUNT(*) FROM planner.task_assignments)::int AS task_assignments,
       (SELECT COUNT(*) FROM planner.assignee_projection WHERE deactivated_at IS NULL)::int AS assignee_projection,
       (SELECT COUNT(*) FROM hiring.requisition)::int AS requisitions,
+      (SELECT COUNT(*) FROM core.skill_category)::int AS skill_categories,
+      (SELECT COUNT(*) FROM core.skill)::int AS skills,
+      (SELECT COUNT(*) FROM hiring.candidate_skill)::int AS candidate_skills,
+      (SELECT COUNT(*) FROM hiring.requisition_skill)::int AS requisition_skills,
       (SELECT COUNT(*) FROM core.events)::int AS events
   `);
   return r.rows[0] as Counts;
@@ -90,15 +97,7 @@ describe('seed-fixture end-to-end', () => {
       });
 
       try {
-        // Bootstrap tenant + admin
-        await tenantCreateCommand({
-          name: 'SETA International',
-          slug: 'seta-international',
-          adminEmail: 'admin@seta-international.vn',
-          adminPassword: 'ChangeMe@2026',
-        });
-
-        // Run the full seed pipeline
+        // No explicit tenant-create — seedFixtureCommand auto-bootstraps the tenant + admin.
         await seedFixtureCommand({
           tenant: 'seta-international',
           dir: MINI_DIR,
@@ -136,6 +135,10 @@ describe('seed-fixture end-to-end', () => {
         expect(before.tasks).toBeGreaterThan(0);
         expect(before.assignee_projection).toBeGreaterThan(0);
         expect(before.requisitions).toBeGreaterThanOrEqual(1);
+        expect(before.skill_categories).toBeGreaterThanOrEqual(5);
+        expect(before.skills).toBeGreaterThanOrEqual(20);
+        expect(before.candidate_skills).toBeGreaterThan(0);
+        expect(before.requisition_skills).toBeGreaterThan(0);
         expect(before.events).toBeGreaterThan(0);
 
         // Second run — must be idempotent
@@ -161,6 +164,10 @@ describe('seed-fixture end-to-end', () => {
         expect(after.task_assignments).toEqual(before.task_assignments);
         expect(after.assignee_projection).toEqual(before.assignee_projection);
         expect(after.requisitions).toEqual(before.requisitions);
+        expect(after.skill_categories).toEqual(before.skill_categories);
+        expect(after.skills).toEqual(before.skills);
+        expect(after.candidate_skills).toEqual(before.candidate_skills);
+        expect(after.requisition_skills).toEqual(before.requisition_skills);
       } finally {
         await dispatcher.shutdown(5_000);
         await closePools();

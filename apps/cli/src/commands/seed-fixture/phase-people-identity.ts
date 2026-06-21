@@ -5,7 +5,8 @@ import { createUser, grantRole, updateUserProfile } from '@seta/identity';
 import { createWorker } from '@seta/people';
 import { sql } from 'drizzle-orm';
 import type { EmployeeRec } from './load.ts';
-import { rolesFor, skillsFor } from './rbac-map.ts';
+import { rolesFor } from './rbac-map.ts';
+import { skillNamesForRole } from './skill-catalog.ts';
 
 // createWorker returns person_id as the canonical worker identity (so do
 // editWorker/setPortalAccess); resolve the same id here so create vs. find agree.
@@ -102,7 +103,7 @@ export async function seedPeopleIdentity(
       {
         availability_status: 'available',
         timezone: 'Asia/Ho_Chi_Minh',
-        skills: skillsFor(e.primary_role),
+        skills: skillNamesForRole(e.primary_role),
         role: e.primary_role,
       },
       actor,

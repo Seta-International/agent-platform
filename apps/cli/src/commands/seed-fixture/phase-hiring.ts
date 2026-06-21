@@ -12,6 +12,7 @@ import {
 } from '@seta/hiring';
 import { sql } from 'drizzle-orm';
 import pino from 'pino';
+import type { SeededSkill } from './phase-skills.ts';
 
 const log = pino({ name: 'cli/seed-fixture/hiring' });
 
@@ -19,13 +20,47 @@ const STAGES = ['new', 'screening', 'interview', 'offer'] as const;
 type Stage = (typeof STAGES)[number];
 
 const OPENINGS = [
-  { role: 'Senior Backend Engineer', account: 'Gridbeyond Energy' },
-  { role: 'QA Automation Engineer', account: 'Aeris' },
-  { role: 'React Developer', account: 'Motion Global' },
-  { role: 'DevOps Engineer', account: 'SETA Internal' },
-  { role: 'Project Manager', account: 'Veritone' },
-  { role: 'UI/UX Designer', account: 'Commerce Canal' },
+  {
+    role: 'Senior Backend Engineer',
+    account: 'Gridbeyond Energy',
+    skills: ['Node.js', 'TypeScript', 'PostgreSQL', 'AWS'],
+  },
+  {
+    role: 'QA Automation Engineer',
+    account: 'Aeris',
+    skills: ['Test Automation', 'Playwright', 'Cypress'],
+  },
+  {
+    role: 'React Developer',
+    account: 'Motion Global',
+    skills: ['React', 'TypeScript', 'Tailwind CSS'],
+  },
+  {
+    role: 'DevOps Engineer',
+    account: 'SETA Internal',
+    skills: ['AWS', 'Docker', 'Kubernetes', 'Terraform'],
+  },
+  {
+    role: 'Project Manager',
+    account: 'Veritone',
+    skills: ['Agile', 'Scrum', 'Jira', 'Stakeholder Management'],
+  },
+  {
+    role: 'UI/UX Designer',
+    account: 'Commerce Canal',
+    skills: ['Figma', 'UX Research', 'Design Systems'],
+  },
 ];
+
+function resolveSkills(
+  names: string[],
+  catalog: Map<string, SeededSkill>,
+): { skill_id: string; skill_name: string }[] {
+  return names
+    .map((n) => catalog.get(n.toLowerCase()))
+    .filter((s): s is SeededSkill => s !== undefined)
+    .map((s) => ({ skill_id: s.id, skill_name: s.name }));
+}
 
 async function requisitionExistsByTitle(tenantId: string, title: string): Promise<boolean> {
   const r = await coreDb().execute(
@@ -37,6 +72,7 @@ async function requisitionExistsByTitle(tenantId: string, title: string): Promis
 export async function seedHiring(
   session: SessionScope,
   accountByName: Map<string, string>,
+  catalog: Map<string, SeededSkill>,
 ): Promise<void> {
   faker.seed(20260522);
 
@@ -59,24 +95,30 @@ export async function seedHiring(
     }
 
     const account_id = accountByName.get(o.account);
+    const reqSkills = resolveSkills(o.skills, catalog);
     const { requisition_id } = await openRequisition({
       title,
       role_title: o.role,
       kind: 'new',
       account_id,
       headcount: 1,
+      skills: reqSkills,
       session,
     });
     log.info({ title, requisition_id }, 'opened requisition');
 
     const candidateCount = faker.number.int({ min: 2, max: 5 });
     for (let i = 0; i < candidateCount; i++) {
+      const candidateSkills = faker.helpers.arrayElements(
+        reqSkills,
+        Math.min(reqSkills.length, faker.number.int({ min: 1, max: 3 })),
+      );
       const { application_id } = await addCandidate({
         requisition_id,
         name: faker.person.fullName(),
         source: faker.helpers.arrayElement(['LinkedIn', 'Referral', 'Agency', 'Inbound']),
         seniority: faker.helpers.arrayElement(['junior', 'mid', 'senior']),
-        skills: [],
+        skills: candidateSkills,
         session,
       });
 
