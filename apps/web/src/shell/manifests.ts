@@ -9,10 +9,10 @@ import { pmAppManifest } from '@seta/web-pm';
 
 export const ALL_MANIFESTS: ReadonlyArray<AppManifest> = [
   agentAppManifest,
-  plannerAppManifest,
-  adminAppManifest,
   peopleAppManifest,
   hiringAppManifest,
   pmAppManifest,
+  plannerAppManifest,
+  adminAppManifest,
   // MODULE_MANIFEST_REGISTRATIONS_END — generator inserts new AppManifest entries above this comment.
 ];
