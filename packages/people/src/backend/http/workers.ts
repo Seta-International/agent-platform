@@ -38,16 +38,8 @@ export function registerPeopleWorkersRoutes(app: Hono<SessionEnv>): void {
       return Number.isFinite(n) ? n : undefined;
     };
 
-    // Back-compat: the PM worker picker sends `limit` (type-ahead size) and `offset`.
-    // Map `limit`→pageSize and derive a 1-based `page` from `offset`. Explicit
-    // `page`/`pageSize` win when present.
-    const legacyLimit = num(c.req.query('limit'));
-    const legacyOffset = num(c.req.query('offset'));
-    const pageSize = num(c.req.query('pageSize')) ?? legacyLimit;
-    let page = num(c.req.query('page'));
-    if (page === undefined && legacyOffset !== undefined && pageSize && pageSize > 0) {
-      page = Math.floor(legacyOffset / pageSize) + 1;
-    }
+    const pageSize = num(c.req.query('pageSize'));
+    const page = num(c.req.query('page'));
 
     let sort: { field: string; dir: 'asc' | 'desc' } | undefined;
     const sortRaw = c.req.query('sort');
@@ -67,7 +59,7 @@ export function registerPeopleWorkersRoutes(app: Hono<SessionEnv>): void {
       page,
       pageSize,
     });
-    return c.json({ workers: rows, total });
+    return c.json({ rows, total });
   });
   app.get('/api/people/v1/workers/:id', async (c) =>
     c.json(await getWorker({ worker_id: c.req.param('id'), session: c.get('user') })),

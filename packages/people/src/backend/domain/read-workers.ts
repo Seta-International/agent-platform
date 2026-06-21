@@ -1,4 +1,5 @@
 import type { SessionScope } from '@seta/core';
+import { can } from '@seta/shared-rbac';
 import { and, asc, count, desc, eq, ilike, inArray, isNull, or, type SQL, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { peopleDb } from '../db/client.ts';
@@ -49,7 +50,12 @@ export async function listWorkers(
   session: SessionScope,
   query: ListWorkersQuery = {},
 ): Promise<{ rows: WorkerRow[]; total: number }> {
-  requirePermission(session, 'people.worker.read');
+  // read.all grantees need not separately hold read — they see all workers via scope.
+  if (!can(session, 'people.worker.read') && !can(session, 'people.worker.read.all')) {
+    throw new PeopleError('FORBIDDEN', 'Missing permission: people.worker.read', {
+      permission: 'people.worker.read',
+    });
+  }
 
   const tenantId = session.tenant_id;
   const filters: SQL[] = [tenantScoped(worker.tenant_id, session), isNull(worker.deleted_at)];
@@ -105,6 +111,7 @@ export async function listWorkers(
   const where = and(...filters);
   const managerAlias = alias(worker, 'manager');
 
+  // pm.worker_id / am_worker_id / lead_worker_id all map to people.person_id — shared human identity.
   const accountsAgg = sql<Array<{ id: string; name: string }>>`(
     SELECT coalesce(
       jsonb_agg(DISTINCT jsonb_build_object('id', wap.account_id, 'name', wap.account_name))

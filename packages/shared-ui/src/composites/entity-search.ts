@@ -22,7 +22,7 @@ export function createHttpEntitySearch<Row>(opts: {
   };
   return {
     search: (query) => {
-      const qs = new URLSearchParams({ limit: String(limit) });
+      const qs = new URLSearchParams({ pageSize: String(limit) });
       if (query) qs.set('search', query);
       return run(qs);
     },

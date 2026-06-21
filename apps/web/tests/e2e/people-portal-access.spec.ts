@@ -27,9 +27,9 @@ test.beforeAll(async () => {
   const listRes = await ctx.get('/api/people/v1/workers');
   if (!listRes.ok())
     throw new Error(`list workers failed: ${listRes.status()} ${await listRes.text()}`);
-  const { workers } = (await listRes.json()) as { workers: WorkerRow[] };
+  const { rows } = (await listRes.json()) as { rows: WorkerRow[] };
 
-  const existing = workers.find((w) => w.full_name === WORKER_NAME);
+  const existing = rows.find((w) => w.full_name === WORKER_NAME);
   if (existing) {
     workerId = existing.worker_id;
     // Ensure portal_access is off so the toggle test starts from a known state.

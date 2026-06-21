@@ -27,7 +27,7 @@ describe('createHttpEntitySearch', () => {
     const url = f.mock.calls[0]?.[0] as string;
     expect(url).toContain('/api/people/v1/workers?');
     expect(url).toContain('search=ali');
-    expect(url).toContain('limit=20');
+    expect(url).toContain('pageSize=20');
     expect((f.mock.calls[0]?.[1] as RequestInit).credentials).toBe('include');
   });
 
