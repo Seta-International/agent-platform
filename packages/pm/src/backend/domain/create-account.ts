@@ -30,7 +30,12 @@ export async function createAccount(
         aggregateId: row.id,
         eventType: PM_ACCOUNT_CREATED,
         eventVersion: 1,
-        payload: { account_id: row.id, tenant_id: input.session.tenant_id },
+        payload: {
+          account_id: row.id,
+          tenant_id: input.session.tenant_id,
+          name: row.name,
+          am_worker_id: row.am_worker_id ?? null,
+        },
       });
 
       for (const rid of input.recruiter_worker_ids ?? []) {

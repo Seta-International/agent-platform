@@ -3,6 +3,7 @@ import {
   boolean,
   check,
   date,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -69,6 +70,8 @@ export const worker = peopleSchema.table(
     emergency_contact: jsonb('emergency_contact'),
     profile_completed_at: timestamp('profile_completed_at', { withTimezone: true }),
     portal_access: boolean('portal_access').notNull().default(false),
+    job_title: text('job_title'),
+    manager_id: uuid('manager_id'),
     version: integer('version').default(1).notNull(),
     deleted_at: timestamp('deleted_at', { withTimezone: true }),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -80,6 +83,36 @@ export const worker = peopleSchema.table(
       .on(t.tenant_id, t.work_email)
       .where(sql`work_email IS NOT NULL AND deleted_at IS NULL`),
     index('worker_by_tenant_live').on(t.tenant_id, t.deleted_at),
+    index('worker_by_manager').on(t.tenant_id, t.manager_id),
+    foreignKey({
+      columns: [t.manager_id],
+      foreignColumns: [t.person_id],
+      name: 'worker_manager_fk',
+    }),
+  ],
+);
+
+export const personSkill = peopleSchema.table(
+  'person_skill',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenant_id: uuid('tenant_id').notNull(),
+    person_id: uuid('person_id').notNull(),
+    skill_id: uuid('skill_id').notNull(),
+    skill_name: text('skill_name').notNull(),
+    level: integer('level'),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('person_skill_uniq').on(t.tenant_id, t.person_id, t.skill_id),
+    index('person_skill_by_person').on(t.tenant_id, t.person_id),
+    index('person_skill_by_skill').on(t.tenant_id, t.skill_id),
+    foreignKey({
+      columns: [t.person_id],
+      foreignColumns: [person.id],
+      name: 'person_skill_person_fk',
+    }),
   ],
 );
 
@@ -97,4 +130,41 @@ export const workerHistory = peopleSchema.table(
     by_user_id: uuid('by_user_id'),
   },
   (t) => [index('worker_history_by_person').on(t.tenant_id, t.person_id, t.at)],
+);
+
+export const workerAllocationProjection = peopleSchema.table(
+  'worker_allocation_projection',
+  {
+    allocation_id: uuid('allocation_id').primaryKey(),
+    tenant_id: uuid('tenant_id').notNull(),
+    worker_id: uuid('worker_id'),
+    project_id: uuid('project_id').notNull(),
+    account_id: uuid('account_id').notNull(),
+    account_name: text('account_name').notNull(),
+    lead_worker_id: uuid('lead_worker_id'),
+    active: boolean('active').notNull().default(true),
+  },
+  (t) => [
+    index('worker_alloc_by_worker').on(t.tenant_id, t.worker_id),
+    index('worker_alloc_by_account').on(t.tenant_id, t.account_id),
+    index('worker_alloc_by_project').on(t.tenant_id, t.project_id),
+  ],
+);
+
+export const accountProjection = peopleSchema.table('account_projection', {
+  account_id: uuid('account_id').primaryKey(),
+  tenant_id: uuid('tenant_id').notNull(),
+  name: text('name').notNull(),
+  am_worker_id: uuid('am_worker_id'),
+});
+
+export const projectProjection = peopleSchema.table(
+  'project_projection',
+  {
+    project_id: uuid('project_id').primaryKey(),
+    tenant_id: uuid('tenant_id').notNull(),
+    account_id: uuid('account_id').notNull(),
+    name: text('name').notNull(),
+  },
+  (t) => [index('project_proj_by_account').on(t.tenant_id, t.account_id)],
 );

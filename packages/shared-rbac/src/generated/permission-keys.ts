@@ -73,6 +73,7 @@ export type PermissionKey =
   | 'people.worker.portal_access.set'
   | 'people.worker.provision'
   | 'people.worker.read'
+  | 'people.worker.read.all'
   | 'planner.bucket.create'
   | 'planner.bucket.delete'
   | 'planner.bucket.read'
@@ -200,6 +201,7 @@ export const ALL_PERMISSIONS: readonly PermissionKey[] = [
   'people.worker.portal_access.set',
   'people.worker.provision',
   'people.worker.read',
+  'people.worker.read.all',
   'planner.bucket.create',
   'planner.bucket.delete',
   'planner.bucket.read',

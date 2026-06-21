@@ -47,15 +47,24 @@ async function applyProjectUpdate(
         .update(project)
         .set(set)
         .where(and(eq(project.id, project_id), eq(project.version, current.version)))
-        .returning({ id: project.id });
+        .returning({ id: project.id, name: project.name, account_id: project.account_id });
       if (updated.length === 0) throw new PmError('CONFLICT', 'project was modified concurrently');
+      // updated.length === 0 throws above; index 0 always exists here
+      // biome-ignore lint/style/noNonNullAssertion: guarded by length check above
+      const updatedRow = updated[0]!;
       await emit({
         tenantId: session.tenant_id,
         aggregateType: 'pm.project',
         aggregateId: project_id,
         eventType: PM_PROJECT_UPDATED,
         eventVersion: 1,
-        payload: { project_id, tenant_id: session.tenant_id, fields: changes.map(([f]) => f) },
+        payload: {
+          project_id,
+          tenant_id: session.tenant_id,
+          name: updatedRow.name,
+          account_id: updatedRow.account_id,
+          fields: changes.map(([f]) => f),
+        },
       });
     },
   );

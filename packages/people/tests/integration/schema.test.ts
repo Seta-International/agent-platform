@@ -14,15 +14,19 @@ const ctx = {
 };
 
 describe('people schema migration', () => {
-  it('creates the four foundation tables', async () => {
+  it('creates the people schema tables', async () => {
     await withTestDb(ctx, async ({ pool }) => {
       const r = await pool.query(
         `SELECT table_name FROM information_schema.tables WHERE table_schema='people' ORDER BY 1`,
       );
       expect(r.rows.map((x) => x.table_name)).toEqual([
+        'account_projection',
         'employment_period',
         'person',
+        'person_skill',
+        'project_projection',
         'worker',
+        'worker_allocation_projection',
         'worker_history',
       ]);
     });

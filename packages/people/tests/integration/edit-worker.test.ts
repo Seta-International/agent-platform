@@ -224,6 +224,50 @@ describe('editWorker', () => {
     });
   });
 
+  it('admin edits job_title + manager_id: two history rows, event fields includes both, worker row updated', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const { worker_id: manager_id } = await createWorker({
+          full_name: 'Manager',
+          session: t.adminSession,
+        });
+        const { worker_id } = await createWorker({ full_name: 'Helen', session: t.adminSession });
+
+        const result = await editWorker({
+          worker_id,
+          patch: { job_title: 'Staff Engineer', manager_id },
+          session: t.adminSession,
+        });
+        expect(result.version).toBeGreaterThan(1);
+
+        const [w] = await peopleDb().select().from(worker).where(eq(worker.person_id, worker_id));
+        expect(w?.job_title).toBe('Staff Engineer');
+        expect(w?.manager_id).toBe(manager_id);
+
+        const histRows = await pool.query(
+          `SELECT field FROM people.worker_history WHERE person_id = $1 AND action = 'updated' ORDER BY field`,
+          [worker_id],
+        );
+        expect(histRows.rows).toHaveLength(2);
+        const fields = histRows.rows.map((r: { field: string }) => r.field).sort();
+        expect(fields).toEqual(['job_title', 'manager_id']);
+
+        const events = await readEvents(pool, t.tenant_id, 'people.worker.updated');
+        expect(events).toHaveLength(1);
+        const eventFields = (events[0]?.payload.fields as string[]).sort();
+        expect(eventFields).toEqual(['job_title', 'manager_id']);
+      } finally {
+        resetPeopleDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
   it('cross-tenant worker_id returns NOT_FOUND', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();

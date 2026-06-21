@@ -4,9 +4,7 @@ import { createHttpEntitySearch } from '../../../src/composites/entity-search';
 type Row = { worker_id: string; full_name: string };
 
 function mockFetch(rows: Row[]) {
-  return vi.fn(
-    async () => ({ ok: true, json: async () => ({ workers: rows }) }) as unknown as Response,
-  );
+  return vi.fn(async () => ({ ok: true, json: async () => ({ rows }) }) as unknown as Response);
 }
 
 afterEach(() => vi.restoreAllMocks());
@@ -15,7 +13,7 @@ describe('createHttpEntitySearch', () => {
   const make = () =>
     createHttpEntitySearch<Row>({
       path: '/api/people/v1/workers',
-      extract: (j) => (j as { workers: Row[] }).workers,
+      extract: (j) => (j as { rows: Row[] }).rows,
       mapRow: (w) => ({ value: w.worker_id, label: w.full_name }),
     });
 
@@ -27,7 +25,7 @@ describe('createHttpEntitySearch', () => {
     const url = f.mock.calls[0]?.[0] as string;
     expect(url).toContain('/api/people/v1/workers?');
     expect(url).toContain('search=ali');
-    expect(url).toContain('limit=20');
+    expect(url).toContain('pageSize=20');
     expect((f.mock.calls[0]?.[1] as RequestInit).credentials).toBe('include');
   });
 

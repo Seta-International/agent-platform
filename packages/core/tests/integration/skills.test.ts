@@ -41,6 +41,20 @@ describe('skills', () => {
     });
   });
 
+  it('listSkills filters by search (case-insensitive substring)', async () => {
+    await withCoreTestDb(async ({ pool }) => {
+      const tenant = await seedTenant(pool);
+      const session = buildSkillAdminSession(tenant);
+      const { id: catId } = await createSkillCategory({ input: { name: 'Frontend' }, session });
+
+      await createSkill({ input: { category_id: catId, name: 'React' }, session });
+      await createSkill({ input: { category_id: catId, name: 'Vue' }, session });
+
+      const result = await listSkills(session, { search: 'rea' });
+      expect(result.map((s) => s.name)).toEqual(['React']);
+    });
+  });
+
   it('archiveSkill hides skill from activeOnly but retains it in full list', async () => {
     await withCoreTestDb(async ({ pool }) => {
       const tenant = await seedTenant(pool);

@@ -6,7 +6,7 @@ export type WorkerRow = { worker_id: string; full_name: string };
 
 export const workerSearch = createHttpEntitySearch<WorkerRow>({
   path: '/api/people/v1/workers',
-  extract: (j) => (j as { workers: WorkerRow[] }).workers,
+  extract: (j) => (j as { rows: WorkerRow[] }).rows,
   mapRow: (w) => ({ value: w.worker_id, label: w.full_name }),
 });
 

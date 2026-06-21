@@ -36,6 +36,36 @@ describe('createAccount', () => {
         expect(events).toHaveLength(1);
         expect(events[0]?.aggregate_id).toBe(account_id);
         expect(events[0]?.payload.account_id).toBe(account_id);
+        expect(events[0]?.payload.name).toBe('Acme Corp');
+        expect(events[0]?.payload.am_worker_id).toBeNull();
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('emits name and am_worker_id when set', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const workerId = crypto.randomUUID();
+
+        const { account_id } = await createAccount({
+          name: 'Beta Ltd',
+          am_worker_id: workerId,
+          session: t.adminSession,
+        });
+
+        const events = await readEvents(pool, t.tenant_id, 'pm.account.created');
+        expect(events).toHaveLength(1);
+        expect(events[0]?.payload.name).toBe('Beta Ltd');
+        expect(events[0]?.payload.am_worker_id).toBe(workerId);
+        expect(events[0]?.payload.account_id).toBe(account_id);
       } finally {
         resetPmDb();
         resetCoreDb();

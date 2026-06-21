@@ -42,17 +42,25 @@ export async function editAccount(
         .update(account)
         .set(set)
         .where(and(eq(account.id, account_id), eq(account.version, current.version)))
-        .returning({ id: account.id });
+        .returning({ id: account.id, name: account.name, am_worker_id: account.am_worker_id });
       if (updated.length === 0) {
         throw new PmError('CONFLICT', 'account was modified concurrently');
       }
+      const updatedRow = updated[0];
+      if (!updatedRow) throw new PmError('CONFLICT', 'account was modified concurrently');
       await emit({
         tenantId: session.tenant_id,
         aggregateType: 'pm.account',
         aggregateId: account_id,
         eventType: PM_ACCOUNT_UPDATED,
         eventVersion: 1,
-        payload: { account_id, tenant_id: session.tenant_id, fields: changes.map(([f]) => f) },
+        payload: {
+          account_id,
+          tenant_id: session.tenant_id,
+          name: updatedRow.name,
+          am_worker_id: updatedRow.am_worker_id ?? null,
+          fields: changes.map(([f]) => f),
+        },
       });
     },
   );

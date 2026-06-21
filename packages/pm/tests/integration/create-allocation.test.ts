@@ -65,6 +65,9 @@ describe('createAllocation', () => {
         const events = await readEvents(pool, t.tenant_id, 'pm.allocation.created');
         expect(events).toHaveLength(1);
         expect(events[0]?.payload.allocation_id).toBe(allocation_id);
+        expect(events[0]?.payload.account_name).toBe('A');
+        expect(events[0]?.payload.lead_worker_id).toBe(t.adminSession.user_id);
+        expect(typeof events[0]?.payload.account_id).toBe('string');
       } finally {
         resetPmDb();
         resetCoreDb();

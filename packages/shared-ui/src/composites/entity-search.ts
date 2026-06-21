@@ -11,19 +11,24 @@ export function createHttpEntitySearch<Row>(opts: {
   extract: (json: unknown) => Row[];
   mapRow: (row: Row) => EntityOption;
   limit?: number;
+  extraParams?: Record<string, string>;
 }): {
   search: (query: string) => Promise<EntityOption[]>;
   resolveByIds: (ids: string[]) => Promise<EntityOption[]>;
 } {
   const limit = opts.limit ?? 20;
   const run = async (qs: URLSearchParams): Promise<EntityOption[]> => {
-    const json = await getJson(`${opts.path}?${qs.toString()}`);
+    const url = qs.toString() ? `${opts.path}?${qs.toString()}` : opts.path;
+    const json = await getJson(url);
     return opts.extract(json).map(opts.mapRow);
   };
   return {
     search: (query) => {
-      const qs = new URLSearchParams({ limit: String(limit) });
+      const qs = new URLSearchParams({ pageSize: String(limit) });
       if (query) qs.set('search', query);
+      if (opts.extraParams) {
+        for (const [k, v] of Object.entries(opts.extraParams)) qs.set(k, v);
+      }
       return run(qs);
     },
     resolveByIds: (ids) => {

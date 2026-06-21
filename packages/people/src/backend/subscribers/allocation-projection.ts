@@ -1,0 +1,66 @@
+import type { AllocationCreatedPayload, AllocationRemovedPayload } from '@seta/pm/events';
+import { PM_ALLOCATION_CREATED, PM_ALLOCATION_REMOVED } from '@seta/pm/events';
+import type { DomainEvent, SubscriberDef } from '@seta/shared-types';
+import { and, eq } from 'drizzle-orm';
+import { workerAllocationProjection } from '../db/schema.ts';
+
+export const allocationProjectionCreated: SubscriberDef = {
+  subscription: 'people.allocation-projection.created',
+  event: PM_ALLOCATION_CREATED,
+  eventVersion: 1,
+  handler: async (event, ctx) => {
+    const e = event as DomainEvent<AllocationCreatedPayload>;
+    const {
+      allocation_id,
+      tenant_id,
+      worker_id,
+      project_id,
+      account_id,
+      account_name,
+      lead_worker_id,
+    } = e.payload;
+
+    await ctx.tx
+      .insert(workerAllocationProjection)
+      .values({
+        allocation_id,
+        tenant_id,
+        worker_id: worker_id ?? null,
+        project_id,
+        account_id,
+        account_name,
+        lead_worker_id: lead_worker_id ?? null,
+        active: true,
+      })
+      .onConflictDoUpdate({
+        target: workerAllocationProjection.allocation_id,
+        set: {
+          worker_id: worker_id ?? null,
+          project_id,
+          account_id,
+          account_name,
+          lead_worker_id: lead_worker_id ?? null,
+          active: true,
+        },
+      });
+  },
+};
+
+export const allocationProjectionRemoved: SubscriberDef = {
+  subscription: 'people.allocation-projection.removed',
+  event: PM_ALLOCATION_REMOVED,
+  eventVersion: 1,
+  handler: async (event, ctx) => {
+    const e = event as DomainEvent<AllocationRemovedPayload>;
+    const { allocation_id, tenant_id } = e.payload;
+
+    await ctx.tx
+      .delete(workerAllocationProjection)
+      .where(
+        and(
+          eq(workerAllocationProjection.allocation_id, allocation_id),
+          eq(workerAllocationProjection.tenant_id, tenant_id),
+        ),
+      );
+  },
+};

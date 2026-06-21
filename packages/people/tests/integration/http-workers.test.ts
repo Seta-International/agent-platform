@@ -69,11 +69,13 @@ describe('People workers HTTP routes', () => {
       const listRes = await app.request('/api/people/v1/workers');
       expect(listRes.status).toBe(200);
       const body = (await listRes.json()) as {
-        workers: Array<{ full_name: string; portal_access: boolean }>;
+        rows: Array<{ worker_id: string; full_name: string }>;
+        total: number;
       };
-      const alice = body.workers.find((w) => w.full_name === 'Alice Tester');
+      const alice = body.rows.find((w) => w.full_name === 'Alice Tester');
       expect(alice).toBeDefined();
-      expect(alice?.portal_access).toBe(false);
+      expect(alice?.worker_id).toBeTruthy();
+      expect(body.total).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -270,14 +272,14 @@ describe('People workers HTTP routes', () => {
       });
 
       const hits = await listWorkers(adminSession, { search: 'alice' });
-      expect(hits.map((w) => w.full_name)).toEqual(['Alice Anderson']);
+      expect(hits.rows.map((w) => w.full_name)).toEqual(['Alice Anderson']);
 
       const byId = await listWorkers(adminSession, { ids: [b.worker_id] });
-      expect(byId).toHaveLength(1);
-      expect(byId[0]?.worker_id).toBe(b.worker_id);
+      expect(byId.rows).toHaveLength(1);
+      expect(byId.rows[0]?.worker_id).toBe(b.worker_id);
 
-      const limited = await listWorkers(adminSession, { limit: 1 });
-      expect(limited).toHaveLength(1);
+      const limited = await listWorkers(adminSession, { pageSize: 1 });
+      expect(limited.rows).toHaveLength(1);
 
       // RBAC: a session lacking people.worker.read is rejected
       const noPermSession = buildSession({ tenant_id, user_id: admin_user_id, roles: [] });
@@ -303,9 +305,9 @@ describe('People workers HTTP routes', () => {
       const app = buildApp(adminSession);
       const res = await app.request('/api/people/v1/workers?search=carol');
       expect(res.status).toBe(200);
-      const body = (await res.json()) as { workers: Array<{ full_name: string }> };
-      expect(body.workers.map((w) => w.full_name)).toContain('Carol Combobox');
-      expect(body.workers.map((w) => w.full_name)).not.toContain('Dan Dropdown');
+      const body = (await res.json()) as { rows: Array<{ full_name: string }> };
+      expect(body.rows.map((w) => w.full_name)).toContain('Carol Combobox');
+      expect(body.rows.map((w) => w.full_name)).not.toContain('Dan Dropdown');
     });
   });
 
@@ -328,14 +330,14 @@ describe('People workers HTTP routes', () => {
       const res = await app.request(`/api/people/v1/workers?ids=${w1.worker_id}`);
       expect(res.status).toBe(200);
       const body = (await res.json()) as {
-        workers: Array<{ worker_id: string; full_name: string }>;
+        rows: Array<{ worker_id: string; full_name: string }>;
       };
-      expect(body.workers).toHaveLength(1);
-      expect(body.workers[0]?.worker_id).toBe(w1.worker_id);
+      expect(body.rows).toHaveLength(1);
+      expect(body.rows[0]?.worker_id).toBe(w1.worker_id);
     });
   });
 
-  it('GET /workers?limit=1 paginates results', async () => {
+  it('GET /workers?pageSize=1 paginates results', async () => {
     await withDb(async ({ adminSession }) => {
       await provisionWorker({
         full_name: 'Grace Paged',
@@ -351,10 +353,10 @@ describe('People workers HTTP routes', () => {
       });
 
       const app = buildApp(adminSession);
-      const res = await app.request('/api/people/v1/workers?limit=1');
+      const res = await app.request('/api/people/v1/workers?pageSize=1');
       expect(res.status).toBe(200);
-      const body = (await res.json()) as { workers: Array<unknown> };
-      expect(body.workers).toHaveLength(1);
+      const body = (await res.json()) as { rows: Array<unknown> };
+      expect(body.rows).toHaveLength(1);
     });
   });
 });
