@@ -5,6 +5,8 @@ import {
   DataTable,
   EmptyState,
   Input,
+  KanbanBoard,
+  KanbanColumn,
   PageChrome,
   SegmentedControl,
   Select,
@@ -17,6 +19,7 @@ import {
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Users } from 'lucide-react';
+import type { HTMLAttributes } from 'react';
 import { useMemo, useState } from 'react';
 import {
   type CandidateListItem,
@@ -243,50 +246,57 @@ export function CandidatesPage() {
           />
         ) : (
           <DragDropContext onDragEnd={handleDragEnd}>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-5">
+            <KanbanBoard>
               {BOARD_COLUMNS.map((col) => (
                 <Droppable
                   key={col.id}
                   droppableId={col.id}
                   isDropDisabled={col.id === 'hired' || !canManage}
                 >
-                  {(provided) => (
-                    <div
-                      ref={provided.innerRef}
-                      {...provided.droppableProps}
-                      className="rounded-lg border border-hairline bg-surface-2 p-2"
+                  {(provided, snapshot) => (
+                    <KanbanColumn
+                      name={col.label}
+                      count={groups[col.id].length}
+                      droppable={{
+                        ref: provided.innerRef,
+                        // Why: @hello-pangea/dnd uses string-indexed data-rfd-* keys that don't satisfy React's HTMLAttributes shape.
+                        rootProps:
+                          provided.droppableProps as unknown as HTMLAttributes<HTMLElement>,
+                        isDraggingOver: snapshot.isDraggingOver,
+                        placeholder: provided.placeholder,
+                      }}
                     >
-                      <div className="mb-2 flex items-center justify-between px-1">
-                        <span className="text-caption font-semibold uppercase text-ink-muted">
-                          {col.label}
-                        </span>
-                        <span className="text-caption text-ink-muted">{groups[col.id].length}</span>
-                      </div>
-                      <div className="space-y-2">
-                        {groups[col.id].map((item, idx) => (
+                      {groups[col.id].length === 0 ? (
+                        <div className="px-1 py-4 text-center text-caption text-ink-muted">—</div>
+                      ) : (
+                        groups[col.id].map((item, idx) => (
                           <Draggable
                             key={item.application_id}
                             draggableId={item.application_id}
                             index={idx}
                             isDragDisabled={!canManage}
                           >
-                            {(dp) => (
-                              <div ref={dp.innerRef} {...dp.draggableProps} {...dp.dragHandleProps}>
-                                <CandidateCard item={item} onSelect={setSelected} />
-                              </div>
+                            {(dp, ds) => (
+                              <CandidateCard
+                                item={item}
+                                onSelect={setSelected}
+                                draggable={{
+                                  ref: dp.innerRef,
+                                  rootProps: dp.draggableProps,
+                                  handleProps: dp.dragHandleProps ?? undefined,
+                                  isDragging: ds.isDragging,
+                                  extraStyle: dp.draggableProps.style,
+                                }}
+                              />
                             )}
                           </Draggable>
-                        ))}
-                        {groups[col.id].length === 0 && (
-                          <div className="px-1 py-4 text-center text-caption text-ink-muted">—</div>
-                        )}
-                        {provided.placeholder}
-                      </div>
-                    </div>
+                        ))
+                      )}
+                    </KanbanColumn>
                   )}
                 </Droppable>
               ))}
-            </div>
+            </KanbanBoard>
           </DragDropContext>
         )}
         <TalentPoolCard onOpenCandidate={setSelected} />
