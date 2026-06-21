@@ -2,6 +2,7 @@ import pino from 'pino';
 import { resolveTenantId } from '../lib/tenant-resolve.ts';
 import { buildAdminSession } from '../seed.ts';
 import { loadFixtures } from './load.ts';
+import { seedPeopleIdentity } from './phase-people-identity.ts';
 
 const log = pino({ name: 'cli/seed-fixture' });
 
@@ -23,9 +24,11 @@ export async function seedFixtureCommand(opts: {
     'fixtures loaded',
   );
 
-  // Tasks 4–8 append phases here, in order. Each phase is a separate module file
+  const people = await seedPeopleIdentity(session, fx.employees, opts.password ?? 'ChangeMe@2026');
+  log.info({ people: people.size }, 'phase: people+identity done');
+
+  // Tasks 5–8 append phases here, in order. Each phase is a separate module file
   // imported and called with (session, fx, ctx) where ctx accumulates id maps.
-  void session;
 
   log.info({ tenant_id: tenantId }, 'seed-fixture: complete');
 }
