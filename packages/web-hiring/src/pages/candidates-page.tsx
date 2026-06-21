@@ -167,7 +167,7 @@ export function CandidatesPage() {
 
   return (
     <PageChrome title="Candidates" actions={canCreate ? <NewCandidateDialog /> : undefined}>
-      <div className="page-container space-y-4 p-6">
+      <div className="space-y-4 p-6">
         <div className="grid grid-cols-3 gap-3">
           <Stat label="In pipeline" value={inPipeline} />
           <Stat label="Hired" value={groups.hired.length} />
@@ -184,7 +184,7 @@ export function CandidatesPage() {
             value={reqFilter || NONE}
             onValueChange={(v) => setReqFilter(v === NONE ? '' : v)}
           >
-            <SelectTrigger aria-label="Filter by role">
+            <SelectTrigger aria-label="Filter by role" className="max-w-xs">
               <SelectValue placeholder="All open roles" />
             </SelectTrigger>
             <SelectContent>
