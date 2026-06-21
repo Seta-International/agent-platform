@@ -1110,6 +1110,9 @@ importers:
       '@seta/core':
         specifier: workspace:^
         version: link:../core
+      '@seta/pm':
+        specifier: workspace:*
+        version: link:../pm
       '@seta/shared-db':
         specifier: workspace:^
         version: link:../shared-db
