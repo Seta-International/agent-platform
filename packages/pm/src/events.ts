@@ -91,6 +91,15 @@ export const PM_PROJECT_UPDATED = 'pm.project.updated';
 export const PM_PROJECT_ACCESS_CHANGED = 'pm.project.access.changed';
 export const PM_PROJECT_STAFFING_PLAN_CHANGED = 'pm.project.staffing_plan.changed';
 
+export const PM_ALLOCATION_CREATED = 'pm.allocation.created';
+export const allocationCreatedPayload = z.object({
+  allocation_id: z.string().uuid(),
+  project_id: z.string().uuid(),
+  worker_id: z.string().uuid().nullable(),
+  tenant_id: z.string().uuid(),
+});
+export type AllocationCreatedPayload = z.infer<typeof allocationCreatedPayload>;
+
 export const PM_EVENTS = {
   'pm.account.created': accountCreatedPayload,
   'pm.account.updated': accountUpdatedPayload,
@@ -105,4 +114,5 @@ export const PM_EVENTS = {
   'pm.project.updated': projectUpdatedPayload,
   'pm.project.access.changed': projectChildChangedPayload,
   'pm.project.staffing_plan.changed': projectChildChangedPayload,
+  'pm.allocation.created': allocationCreatedPayload,
 } as const satisfies Record<string, z.ZodSchema>;

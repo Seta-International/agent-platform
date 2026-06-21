@@ -1,4 +1,5 @@
 export { createAccount } from './backend/domain/create-account.ts';
+export { createAllocation } from './backend/domain/create-allocation.ts';
 export { approveCharter, rejectCharter } from './backend/domain/decide-charter.ts';
 export { editAccount } from './backend/domain/edit-account.ts';
 export { editCharter } from './backend/domain/edit-charter.ts';
@@ -25,6 +26,7 @@ export { submitCharter } from './backend/domain/submit-charter.ts';
 export { withdrawCharter } from './backend/domain/withdraw-charter.ts';
 export type {
   CreateAccountInput,
+  CreateAllocationInput,
   EditAccountInput,
   EditCharterInput,
   EditProjectInput,
