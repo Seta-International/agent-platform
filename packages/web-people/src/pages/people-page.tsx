@@ -178,7 +178,7 @@ export function PeoplePage() {
       const changed = r.results.filter((x) => x.status === 'changed').length;
       toast.success(`Portal access updated for ${changed} worker(s)`);
       setRowSelection({});
-      void queryClient.invalidateQueries({ queryKey: peopleKeys.workers(query) });
+      void queryClient.invalidateQueries({ queryKey: [...peopleKeys.all, 'workers'] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -313,7 +313,9 @@ export function PeoplePage() {
 
   const actions = canProvision ? (
     <CreateWorkerDialog
-      onCreated={() => void queryClient.invalidateQueries({ queryKey: peopleKeys.workers(query) })}
+      onCreated={() =>
+        void queryClient.invalidateQueries({ queryKey: [...peopleKeys.all, 'workers'] })
+      }
     />
   ) : undefined;
 
