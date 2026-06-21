@@ -20,6 +20,7 @@ export interface WorkerDetail extends WorkerListRow {
   dob: string | null;
   emergency_contact: string | null;
   version: number;
+  manager_id: string | null;
 }
 
 export interface WorkerHistoryEntry {
@@ -128,6 +129,46 @@ export async function editWorker(id: string, input: EditWorkerInput): Promise<{ 
     body: JSON.stringify(input),
   });
   return handleResponse<{ version: number }>(res);
+}
+
+export async function addWorkerSkill(
+  workerId: string,
+  skill_id: string,
+  level?: number,
+): Promise<void> {
+  const res = await fetch(`/api/people/v1/workers/${workerId}/skills`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(level !== undefined ? { skill_id, level } : { skill_id }),
+  });
+  if (!res.ok) {
+    let message = `HTTP ${res.status}`;
+    try {
+      const body = (await res.json()) as { message?: string };
+      if (body.message) message = body.message;
+    } catch {
+      // ignore parse error
+    }
+    throw new Error(message);
+  }
+}
+
+export async function removeWorkerSkill(workerId: string, skill_id: string): Promise<void> {
+  const res = await fetch(`/api/people/v1/workers/${workerId}/skills/${skill_id}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  if (!res.ok) {
+    let message = `HTTP ${res.status}`;
+    try {
+      const body = (await res.json()) as { message?: string };
+      if (body.message) message = body.message;
+    } catch {
+      // ignore parse error
+    }
+    throw new Error(message);
+  }
 }
 
 export async function setPortalAccess(

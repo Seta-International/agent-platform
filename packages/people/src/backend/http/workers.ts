@@ -3,11 +3,13 @@ import type { Hono } from 'hono';
 import { z } from 'zod';
 import { createWorkerInput, editWorkerPatch } from '../../contracts.ts';
 import {
+  addPersonSkill,
   createWorker,
   editWorker,
   getWorker,
   getWorkerHistory,
   listWorkers,
+  removePersonSkill,
   setPortalAccess,
   setPortalAccessBulk,
 } from '../../index.ts';
@@ -15,6 +17,11 @@ import {
 const editBody = z.object({
   expected_version: z.number().int().positive().optional(),
   patch: editWorkerPatch,
+});
+
+const addSkillBody = z.object({
+  skill_id: z.string().uuid(),
+  level: z.number().int().min(1).max(5).optional(),
 });
 
 const portalBody = z.object({ enabled: z.boolean() });
@@ -100,5 +107,25 @@ export function registerPeopleWorkersRoutes(app: Hono<SessionEnv>): void {
         session: c.get('user'),
       }),
     );
+  });
+  app.post('/api/people/v1/workers/:id/skills', async (c) => {
+    const parsed = addSkillBody.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success)
+      return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
+    await addPersonSkill({
+      person_id: c.req.param('id'),
+      skill_id: parsed.data.skill_id,
+      level: parsed.data.level,
+      session: c.get('user'),
+    });
+    return c.body(null, 201);
+  });
+  app.delete('/api/people/v1/workers/:id/skills/:skillId', async (c) => {
+    await removePersonSkill({
+      person_id: c.req.param('id'),
+      skill_id: c.req.param('skillId'),
+      session: c.get('user'),
+    });
+    return c.body(null, 204);
   });
 }

@@ -1,13 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  addWorkerSkill,
+  fetchWorker,
   fetchWorkers,
   projectSearch,
+  removeWorkerSkill,
   searchAccounts,
   searchPeople,
   searchProjects,
   searchSkills,
   setPortalAccess,
   setPortalAccessBulk,
+  type WorkerDetail,
 } from '../../src/api/people-client.ts';
 
 describe('setPortalAccess', () => {
@@ -317,5 +321,124 @@ describe('projectSearch', () => {
     const out = await projectSearch.resolveByIds([]);
     expect(out).toEqual([]);
     expect(f).not.toHaveBeenCalled();
+  });
+});
+
+describe('fetchWorker (WorkerDetail)', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('returns enriched WorkerDetail including manager_id, accounts, skills', async () => {
+    const detail: WorkerDetail = {
+      worker_id: 'w1',
+      full_name: 'Alice',
+      job_title: 'Engineer',
+      work_email: 'alice@example.com',
+      phone: null,
+      gender: null,
+      lifecycle_stage: 'active',
+      onboarding_date: null,
+      offboarding_date: null,
+      manager_name: 'Boss',
+      manager_id: 'mgr-1',
+      portal_access: true,
+      accounts: [{ id: 'acc-1', name: 'Acme' }],
+      skills: [{ id: 'sk-1', name: 'TypeScript' }],
+      dob: null,
+      emergency_contact: null,
+      version: 2,
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: true, json: async () => detail })),
+    );
+
+    const result = await fetchWorker('w1');
+    expect(result.manager_id).toBe('mgr-1');
+    expect(result.manager_name).toBe('Boss');
+    expect(result.accounts).toEqual([{ id: 'acc-1', name: 'Acme' }]);
+    expect(result.skills).toEqual([{ id: 'sk-1', name: 'TypeScript' }]);
+    expect(result.job_title).toBe('Engineer');
+    expect(result.version).toBe(2);
+  });
+});
+
+describe('addWorkerSkill', () => {
+  const mockFetch = vi.fn();
+
+  beforeEach(() => {
+    mockFetch.mockReset();
+    vi.stubGlobal('fetch', mockFetch);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('POSTs skill_id to the correct URL with credentials', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: true });
+
+    await addWorkerSkill('worker-1', 'skill-abc');
+
+    expect(mockFetch).toHaveBeenCalledOnce();
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('/api/people/v1/workers/worker-1/skills');
+    expect(init.method).toBe('POST');
+    expect(init.credentials).toBe('include');
+    expect((init.headers as Record<string, string>)['Content-Type']).toBe('application/json');
+    expect(JSON.parse(init.body as string)).toEqual({ skill_id: 'skill-abc' });
+  });
+
+  it('includes level when provided', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: true });
+
+    await addWorkerSkill('worker-1', 'skill-abc', 3);
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({ skill_id: 'skill-abc', level: 3 });
+  });
+
+  it('throws on non-ok response', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 403,
+      json: async () => ({ message: 'Forbidden' }),
+    });
+
+    await expect(addWorkerSkill('worker-1', 'skill-abc')).rejects.toThrow('Forbidden');
+  });
+});
+
+describe('removeWorkerSkill', () => {
+  const mockFetch = vi.fn();
+
+  beforeEach(() => {
+    mockFetch.mockReset();
+    vi.stubGlobal('fetch', mockFetch);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('DELETEs to the correct URL with credentials', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: true });
+
+    await removeWorkerSkill('worker-1', 'skill-xyz');
+
+    expect(mockFetch).toHaveBeenCalledOnce();
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('/api/people/v1/workers/worker-1/skills/skill-xyz');
+    expect(init.method).toBe('DELETE');
+    expect(init.credentials).toBe('include');
+  });
+
+  it('throws on non-ok response', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+      json: async () => ({ message: 'Not found' }),
+    });
+
+    await expect(removeWorkerSkill('worker-1', 'skill-xyz')).rejects.toThrow('Not found');
   });
 });

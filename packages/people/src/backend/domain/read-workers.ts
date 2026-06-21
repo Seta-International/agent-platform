@@ -211,8 +211,34 @@ export async function getWorker({
   version: number;
   lifecycle_stage: string | null;
   portal_access: boolean;
+  job_title: string | null;
+  manager_id: string | null;
+  manager_name: string | null;
+  accounts: Array<{ id: string; name: string }>;
+  skills: Array<{ id: string; name: string }>;
 }> {
   requirePermission(session, 'people.worker.read');
+  const tenantId = session.tenant_id;
+  const managerAlias = alias(worker, 'manager');
+
+  const accountsAgg = sql<Array<{ id: string; name: string }>>`(
+    SELECT coalesce(
+      jsonb_agg(DISTINCT jsonb_build_object('id', wap.account_id, 'name', wap.account_name))
+        FILTER (WHERE wap.account_id IS NOT NULL),
+      '[]'::jsonb)
+    FROM people.worker_allocation_projection wap
+    WHERE wap.worker_id = ${worker.person_id} AND wap.active AND wap.tenant_id = ${tenantId}
+  )`;
+
+  const skillsAgg = sql<Array<{ id: string; name: string }>>`(
+    SELECT coalesce(
+      jsonb_agg(DISTINCT jsonb_build_object('id', ps.skill_id, 'name', ps.skill_name))
+        FILTER (WHERE ps.skill_id IS NOT NULL),
+      '[]'::jsonb)
+    FROM people.person_skill ps
+    WHERE ps.person_id = ${worker.person_id} AND ps.tenant_id = ${tenantId}
+  )`;
+
   const [row] = await peopleDb()
     .select({
       worker_id: worker.person_id,
@@ -225,11 +251,24 @@ export async function getWorker({
       version: worker.version,
       lifecycle_stage: employmentPeriod.lifecycle_stage,
       portal_access: worker.portal_access,
+      job_title: worker.job_title,
+      manager_id: worker.manager_id,
+      manager_name: managerAlias.full_name,
+      accounts: accountsAgg,
+      skills: skillsAgg,
     })
     .from(worker)
     .leftJoin(
       employmentPeriod,
       and(eq(employmentPeriod.person_id, worker.person_id), isNull(employmentPeriod.end_date)),
+    )
+    .leftJoin(
+      managerAlias,
+      and(
+        eq(managerAlias.person_id, worker.manager_id),
+        eq(managerAlias.tenant_id, worker.tenant_id),
+        isNull(managerAlias.deleted_at),
+      ),
     )
     .where(and(eq(worker.person_id, worker_id), tenantScoped(worker.tenant_id, session)))
     .limit(1);
