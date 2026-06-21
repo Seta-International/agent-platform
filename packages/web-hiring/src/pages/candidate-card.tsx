@@ -1,20 +1,22 @@
-import { Badge } from '@seta/shared-ui';
+import { Badge, KanbanCardShell, type KanbanCardShellProps } from '@seta/shared-ui';
 import type { CandidateListItem } from '../api/hiring-client.ts';
 import { fitLabel } from './candidate-utils.ts';
 
 export function CandidateCard({
   item,
   onSelect,
+  draggable,
 }: {
   item: CandidateListItem;
   onSelect: (candidateId: string) => void;
+  draggable: KanbanCardShellProps['draggable'];
 }) {
   const fit = fitLabel(item.fit);
   return (
-    <button
-      type="button"
-      onClick={() => onSelect(item.candidate_id)}
-      className="w-full rounded-lg border border-hairline bg-surface-1 p-3 text-left hover:border-primary"
+    <KanbanCardShell
+      ariaLabel={`Candidate: ${item.name}`}
+      onOpen={() => onSelect(item.candidate_id)}
+      draggable={draggable}
     >
       <div className="font-medium text-ink">{item.name}</div>
       <div className="text-caption text-ink-muted">
@@ -24,6 +26,6 @@ export function CandidateCard({
       <div className="mt-2">
         <Badge variant={fit.strong ? 'success' : 'secondary'}>{fit.text}</Badge>
       </div>
-    </button>
+    </KanbanCardShell>
   );
 }
