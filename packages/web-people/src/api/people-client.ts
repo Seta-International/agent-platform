@@ -195,3 +195,12 @@ export function searchProjects(
   });
   return searcher.search(q);
 }
+
+export const projectSearch = {
+  search: (q: string, accountIds?: string[]) => searchProjects(q, accountIds),
+  resolveByIds: createHttpEntitySearch<NameRow>({
+    path: '/api/people/v1/projects',
+    extract: (j) => (j as { rows: NameRow[] }).rows,
+    mapRow: (r) => ({ value: r.id, label: r.name }),
+  }).resolveByIds,
+};

@@ -31,6 +31,7 @@ import {
   type WorkerListRow,
   type WorkersQuery,
 } from '../api/people-client.ts';
+import { PeopleFilterBar } from '../components/people-filter-bar.tsx';
 import { peopleKeys } from '../state/query-keys.ts';
 
 function initials(name: string): string {
@@ -137,6 +138,9 @@ export function PeoplePage() {
   const canSetPortal = usePermission('people.worker.portal_access.set');
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [query, setQuery] = useState<WorkersQuery>({ page: 1, pageSize: 25 });
+
+  const patchQuery = (patch: Partial<WorkersQuery>) =>
+    setQuery((q) => ({ ...q, ...patch, page: 1 }));
 
   const { data, isLoading, error } = useQuery({
     queryKey: peopleKeys.workers(query),
@@ -353,6 +357,7 @@ export function PeoplePage() {
                 </div>
               </div>
             )}
+            <PeopleFilterBar query={query} onChange={patchQuery} />
             <DataTable
               mode="server"
               columns={columns}
@@ -360,14 +365,9 @@ export function PeoplePage() {
               isLoading={isLoading}
               sorting={sorting}
               onSortingChange={onSortingChange}
-              globalFilter={query.search ?? ''}
-              onGlobalFilterChange={(u) =>
-                setQuery((q) => ({
-                  ...q,
-                  search: (typeof u === 'function' ? u(q.search ?? '') : u) || undefined,
-                  page: 1,
-                }))
-              }
+              globalFilter=""
+              onGlobalFilterChange={() => {}}
+              enableGlobalFilter={false}
               columnFilters={[]}
               onColumnFiltersChange={() => {}}
               pagination={pagination}
