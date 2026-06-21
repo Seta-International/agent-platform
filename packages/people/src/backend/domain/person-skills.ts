@@ -2,7 +2,6 @@ import type { SessionScope } from '@seta/core';
 import { listSkills } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
 import { and, eq } from 'drizzle-orm';
-import { peopleDb } from '../db/client.ts';
 import { personSkill } from '../db/schema.ts';
 import { PeopleError, requirePermission } from '../rbac.ts';
 
