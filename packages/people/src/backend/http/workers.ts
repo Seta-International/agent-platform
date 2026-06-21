@@ -28,11 +28,13 @@ export function registerPeopleWorkersRoutes(app: Hono<SessionEnv>): void {
     const idsParam = c.req.query('ids');
     const limitParam = c.req.query('limit');
     const offsetParam = c.req.query('offset');
+    const parsedLimit = limitParam ? parseInt(limitParam, 10) : Number.NaN;
+    const parsedOffset = offsetParam ? parseInt(offsetParam, 10) : Number.NaN;
     const opts = {
       search: c.req.query('search') || undefined,
       ids: idsParam ? idsParam.split(',').filter(Boolean) : undefined,
-      limit: limitParam ? Math.min(parseInt(limitParam, 10), 100) : undefined,
-      offset: offsetParam ? parseInt(offsetParam, 10) : undefined,
+      limit: Number.isFinite(parsedLimit) ? Math.min(parsedLimit, 100) : undefined,
+      offset: Number.isFinite(parsedOffset) ? Math.max(parsedOffset, 0) : undefined,
     };
     return c.json({ workers: await listWorkers(c.get('user'), opts) });
   });

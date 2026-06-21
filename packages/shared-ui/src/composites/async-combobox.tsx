@@ -74,6 +74,8 @@ export function AsyncCombobox(props: AsyncComboboxProps): React.ReactElement {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [props.multiple, props.value],
   );
+  const selectedKey = [...selectedIds].sort().join(',');
+  // biome-ignore lint/correctness/useExhaustiveDependencies: selectedKey is a stable string derived from selectedIds; selectedIds is read inside but intentionally omitted from deps to avoid re-running on array reference changes in multiple mode
   useEffect(() => {
     const missing = selectedIds.filter((id) => !cache.current.has(id));
     if (missing.length === 0) return;
@@ -86,7 +88,7 @@ export function AsyncCombobox(props: AsyncComboboxProps): React.ReactElement {
     return () => {
       live = false;
     };
-  }, [selectedIds, resolveByIds]);
+  }, [selectedKey, resolveByIds]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: tick triggers recompute on hydration
   const options = useMemo(() => {
