@@ -166,6 +166,37 @@ describe('createWorker', () => {
     });
   });
 
+  it('persists job_title and manager_id when supplied', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+
+        const { worker_id: manager_id } = await createWorker({
+          full_name: 'Manager Person',
+          session: t.adminSession,
+        });
+
+        const { worker_id } = await createWorker({
+          full_name: 'Worker With Title',
+          job_title: 'Senior Engineer',
+          manager_id,
+          session: t.adminSession,
+        });
+
+        const [w] = await peopleDb().select().from(worker).where(eq(worker.person_id, worker_id));
+        expect(w?.job_title).toBe('Senior Engineer');
+        expect(w?.manager_id).toBe(manager_id);
+      } finally {
+        resetPeopleDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
   it('throws CONFLICT when supplied email already in use', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();

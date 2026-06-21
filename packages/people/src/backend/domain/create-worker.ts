@@ -63,6 +63,8 @@ export async function createWorker(
           gender: input.gender ?? null,
           phone: input.phone ?? null,
           emergency_contact: input.emergency_contact ?? null,
+          job_title: input.job_title ?? null,
+          manager_id: input.manager_id ?? null,
           history_action: 'created',
         });
       },
