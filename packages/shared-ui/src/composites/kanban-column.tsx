@@ -44,7 +44,7 @@ export interface KanbanColumnProps {
     isDraggingOver?: boolean;
     placeholder?: ReactNode;
   };
-  draggableHandle: {
+  draggableHandle?: {
     ref?: (el: HTMLElement | null) => void;
     rootProps?: HTMLAttributes<HTMLElement>;
     handleProps?: HTMLAttributes<HTMLElement>;
@@ -135,24 +135,25 @@ export function KanbanColumn({
 
   const priorityOpt = PRIORITY_OPTIONS.find((o) => o.value === priority) ?? PRIORITY_OPTIONS[2];
 
+  const handle = draggableHandle;
+  const hasMenu = Boolean(onRename || onDelete);
+
   return (
     <section
-      ref={draggableHandle.ref}
-      {...draggableHandle.rootProps}
-      style={draggableHandle.extraStyle}
-      className={['kanban-column', draggableHandle.isDragging && 'kanban-column--dragging']
+      ref={handle?.ref}
+      {...handle?.rootProps}
+      style={handle?.extraStyle}
+      className={['kanban-column', handle?.isDragging && 'kanban-column--dragging']
         .filter(Boolean)
         .join(' ')}
       aria-label={`Bucket: ${name}`}
     >
       <header ref={headerRef} className="kanban-column__header">
-        {/* Disable DnD handle props on the drag area while the rename input is active so
-            mousedown on the input doesn't start a column drag. */}
         <div
           className="kanban-column__drag-handle"
-          {...(!renaming ? draggableHandle.handleProps : {})}
+          {...(handle && !renaming ? handle.handleProps : {})}
         >
-          <GripVertical size={12} className="kanban-column__grip" aria-hidden="true" />
+          {handle && <GripVertical size={12} className="kanban-column__grip" aria-hidden="true" />}
           <span className={`status-dot status-dot--${status ?? 'muted'}`} aria-hidden="true" />
           {renaming ? (
             <>
@@ -180,7 +181,7 @@ export function KanbanColumn({
           )}
         </div>
 
-        {!renaming && (
+        {!renaming && (onCreateTask || hasMenu) && (
           <div className="kanban-column__header-actions">
             {onCreateTask && (
               <button
@@ -192,19 +193,21 @@ export function KanbanColumn({
                 <Plus size={12} />
               </button>
             )}
-            <button
-              type="button"
-              className={[
-                'kanban-column__action-btn',
-                menuOpen && 'kanban-column__action-btn--active',
-              ]
-                .filter(Boolean)
-                .join(' ')}
-              title="More options"
-              onClick={() => setMenuOpen((v) => !v)}
-            >
-              <MoreHorizontal size={12} />
-            </button>
+            {hasMenu && (
+              <button
+                type="button"
+                className={[
+                  'kanban-column__action-btn',
+                  menuOpen && 'kanban-column__action-btn--active',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                title="More options"
+                onClick={() => setMenuOpen((v) => !v)}
+              >
+                <MoreHorizontal size={12} />
+              </button>
+            )}
           </div>
         )}
 
