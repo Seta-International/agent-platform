@@ -50,10 +50,12 @@ export function CandidateDetailDrawer({
     void queryClient.invalidateQueries({ queryKey: hiringKeys.candidates() });
   };
 
+  const app = data?.applications.find((a) => a.status === 'active') ?? data?.applications[0];
+
   const move = useMutation({
     mutationFn: (to: CandStage) =>
-      moveApplicationStage(data!.application.application_id, {
-        expected_version: data!.application.version,
+      moveApplicationStage(app!.application_id, {
+        expected_version: app!.version,
         to,
       }),
     onSuccess: () => {
@@ -62,8 +64,6 @@ export function CandidateDetailDrawer({
     },
     onError: (e: Error) => on409(e, queryClient, hiringKeys.candidate(candidateId ?? '')),
   });
-
-  const app = data?.application;
   const terminal = app ? app.status !== 'active' : true;
   const fit = app ? fitLabel(app.fit) : null;
 
@@ -77,8 +77,7 @@ export function CandidateDetailDrawer({
             <SheetHeader>
               <SheetTitle>{data.candidate.name}</SheetTitle>
               <div className="text-caption text-ink-muted">
-                {data.candidate.seniority ?? '—'} · applying for{' '}
-                {data.application.requisition_title}
+                {data.candidate.seniority ?? '—'} · applying for {app?.requisition_title ?? '—'}
               </div>
             </SheetHeader>
 

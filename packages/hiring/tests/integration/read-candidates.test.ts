@@ -63,6 +63,16 @@ describe('read candidates', () => {
         const detail = await getCandidate({ candidate_id, session: t.adminSession });
         expect(detail.timeline.length).toBeGreaterThan(0);
         expect(detail.skills).toHaveLength(1);
+        expect(Array.isArray(detail.applications)).toBe(true);
+        expect(detail.applications).toHaveLength(1);
+        const activeApp =
+          detail.applications.find((a) => a.status === 'active') ?? detail.applications[0];
+        expect(activeApp).toBeDefined();
+        expect(activeApp!.application_id).toBe(application_id);
+        expect(activeApp!.requisition_title).toBe('FE');
+        expect(activeApp!.fit).toBeDefined();
+        expect(typeof activeApp!.fit.score).toBe('number');
+        expect(activeApp!.fit.strong).toBe(true);
 
         const reason = await createRejectionReason({
           input: { label: 'X', category: 'other' },
