@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   addWorkerSkill,
+  editWorker,
   fetchWorker,
   fetchWorkers,
   projectSearch,
@@ -12,6 +13,7 @@ import {
   setPortalAccess,
   setPortalAccessBulk,
   type WorkerDetail,
+  type WorkerPatch,
 } from '../../src/api/people-client.ts';
 
 describe('setPortalAccess', () => {
@@ -321,6 +323,75 @@ describe('projectSearch', () => {
     const out = await projectSearch.resolveByIds([]);
     expect(out).toEqual([]);
     expect(f).not.toHaveBeenCalled();
+  });
+});
+
+describe('WorkerPatch type', () => {
+  it('includes job_title and manager_id as optional nullable fields', () => {
+    const p1: WorkerPatch = { job_title: 'Engineer' };
+    const p2: WorkerPatch = { job_title: null };
+    const p3: WorkerPatch = { manager_id: 'mgr-1' };
+    const p4: WorkerPatch = { manager_id: null };
+    const p5: WorkerPatch = { job_title: 'Lead', manager_id: 'mgr-2' };
+    expect(p1.job_title).toBe('Engineer');
+    expect(p2.job_title).toBeNull();
+    expect(p3.manager_id).toBe('mgr-1');
+    expect(p4.manager_id).toBeNull();
+    expect(p5).toEqual({ job_title: 'Lead', manager_id: 'mgr-2' });
+  });
+});
+
+describe('editWorker', () => {
+  const mockFetch = vi.fn();
+
+  beforeEach(() => {
+    mockFetch.mockReset();
+    vi.stubGlobal('fetch', mockFetch);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('PATCHes job_title and manager_id correctly', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ version: 3 }),
+    });
+
+    const result = await editWorker('worker-1', {
+      expected_version: 2,
+      patch: { job_title: 'Lead Engineer', manager_id: 'mgr-99' },
+    });
+
+    expect(mockFetch).toHaveBeenCalledOnce();
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('/api/people/v1/workers/worker-1');
+    expect(init.method).toBe('PATCH');
+    expect(init.credentials).toBe('include');
+    expect(JSON.parse(init.body as string)).toEqual({
+      expected_version: 2,
+      patch: { job_title: 'Lead Engineer', manager_id: 'mgr-99' },
+    });
+    expect(result.version).toBe(3);
+  });
+
+  it('sends null job_title to clear the field', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ version: 4 }),
+    });
+
+    await editWorker('worker-1', {
+      expected_version: 3,
+      patch: { job_title: null },
+    });
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({
+      expected_version: 3,
+      patch: { job_title: null },
+    });
   });
 });
 

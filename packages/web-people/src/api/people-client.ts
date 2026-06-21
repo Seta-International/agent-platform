@@ -61,6 +61,8 @@ export interface WorkerPatch {
   dob?: string;
   gender?: string;
   emergency_contact?: string;
+  job_title?: string | null;
+  manager_id?: string | null;
 }
 
 export interface EditWorkerInput {

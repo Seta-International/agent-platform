@@ -109,6 +109,21 @@ describe('getWorker enriched fields', () => {
       expect(w.skills).toEqual([]);
     });
   });
+
+  it('returns onboarding_date and offboarding_date from employment_period', async () => {
+    await withDb(async ({ t }) => {
+      const { worker_id } = await createWorker({
+        full_name: 'Dated Worker',
+        start_date: '2024-01-15',
+        session: t.adminSession,
+      } as never);
+
+      const w = await getWorker({ worker_id, session: t.adminSession });
+
+      expect(w.onboarding_date).toBe('2024-01-15');
+      expect(w.offboarding_date).toBeNull();
+    });
+  });
 });
 
 describe('person-skill HTTP routes', () => {

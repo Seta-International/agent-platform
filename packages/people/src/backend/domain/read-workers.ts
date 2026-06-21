@@ -210,6 +210,8 @@ export async function getWorker({
   emergency_contact: unknown;
   version: number;
   lifecycle_stage: string | null;
+  onboarding_date: string | null;
+  offboarding_date: string | null;
   portal_access: boolean;
   job_title: string | null;
   manager_id: string | null;
@@ -250,6 +252,8 @@ export async function getWorker({
       emergency_contact: worker.emergency_contact,
       version: worker.version,
       lifecycle_stage: employmentPeriod.lifecycle_stage,
+      onboarding_date: employmentPeriod.start_date,
+      offboarding_date: employmentPeriod.end_date,
       portal_access: worker.portal_access,
       job_title: worker.job_title,
       manager_id: worker.manager_id,

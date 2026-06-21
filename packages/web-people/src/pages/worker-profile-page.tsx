@@ -1,6 +1,7 @@
 import {
   Alert,
   AlertDescription,
+  AsyncCombobox,
   Avatar,
   AvatarFallback,
   Badge,
@@ -24,9 +25,13 @@ import { Link, useParams } from '@tanstack/react-router';
 import { ChevronLeft, Clock, KeyRound } from 'lucide-react';
 import { useState } from 'react';
 import {
+  addWorkerSkill,
   editWorker,
   fetchWorker,
   fetchWorkerHistory,
+  removeWorkerSkill,
+  searchPeople,
+  searchSkills,
   setPortalAccess,
   type WorkerPatch,
 } from '../api/people-client.ts';
@@ -116,6 +121,10 @@ export function WorkerProfilePage() {
         draft.emergency_contact !== (worker.emergency_contact ?? '')
       )
         patch.emergency_contact = draft.emergency_contact;
+      if (draft.job_title !== undefined && draft.job_title !== (worker.job_title ?? ''))
+        patch.job_title = draft.job_title || null;
+      if (draft.manager_id !== undefined && draft.manager_id !== (worker.manager_id ?? null))
+        patch.manager_id = draft.manager_id;
       return editWorker(workerId, { expected_version: worker.version, patch });
     },
     onSuccess: () => {
@@ -136,6 +145,19 @@ export function WorkerProfilePage() {
     },
   });
 
+  const skillsMutation = useMutation({
+    mutationFn: async ({ adds, removes }: { adds: string[]; removes: string[] }) => {
+      await Promise.all([
+        ...removes.map((id) => removeWorkerSkill(workerId, id)),
+        ...adds.map((id) => addWorkerSkill(workerId, id)),
+      ]);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: peopleKeys.worker(workerId) });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   function startEdit() {
     if (!worker) return;
     setDraft({
@@ -145,6 +167,8 @@ export function WorkerProfilePage() {
       dob: worker.dob ?? '',
       gender: worker.gender ?? '',
       emergency_contact: worker.emergency_contact ?? '',
+      job_title: worker.job_title ?? '',
+      manager_id: worker.manager_id ?? null,
     });
     setEditError(null);
     setEditing(true);
@@ -228,6 +252,8 @@ export function WorkerProfilePage() {
     );
   }
 
+  const currentSkillIds = worker.skills.map((s) => s.id);
+
   return (
     <PageChrome title={worker.full_name} breadcrumb={[backLink]} actions={headerActions}>
       <div className="page-container grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6 p-6 items-start">
@@ -264,6 +290,26 @@ export function WorkerProfilePage() {
                     <Input
                       value={draft.full_name ?? ''}
                       onChange={(e) => setDraft((d) => ({ ...d, full_name: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Job title</Label>
+                    <Input
+                      value={draft.job_title ?? ''}
+                      onChange={(e) => setDraft((d) => ({ ...d, job_title: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Manager</Label>
+                    <AsyncCombobox
+                      search={searchPeople.search}
+                      resolveByIds={searchPeople.resolveByIds}
+                      value={draft.manager_id ?? null}
+                      onChange={(v) => {
+                        if (v === workerId) return;
+                        setDraft((d) => ({ ...d, manager_id: v }));
+                      }}
+                      placeholder="Search employees…"
                     />
                   </div>
                   <div className="space-y-1">
@@ -309,6 +355,8 @@ export function WorkerProfilePage() {
               ) : (
                 <div>
                   <FieldRow label="Full name" value={worker.full_name} />
+                  <FieldRow label="Job title" value={worker.job_title} />
+                  <FieldRow label="Manager" value={worker.manager_name} />
                   <FieldRow label="Work email" value={worker.work_email} />
                   <FieldRow label="Phone" value={worker.phone} />
                   <FieldRow label="Date of birth" value={worker.dob} />
@@ -318,6 +366,79 @@ export function WorkerProfilePage() {
                     label="Lifecycle stage"
                     value={<LifecycleBadge stage={worker.lifecycle_stage} />}
                   />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Techstack card */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Techstack</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {worker.skills.length === 0 && !canEdit ? (
+                <span className="text-body-sm text-ink-muted">—</span>
+              ) : (
+                <div className="space-y-3">
+                  {worker.skills.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {worker.skills.map((s) => (
+                        <Badge key={s.id} variant="secondary" className="flex items-center gap-1">
+                          {s.name}
+                          {canEdit && (
+                            <button
+                              type="button"
+                              aria-label={`Remove ${s.name}`}
+                              className="ml-1 text-ink-muted hover:text-ink transition-colors leading-none"
+                              onClick={() => {
+                                skillsMutation.mutate({ adds: [], removes: [s.id] });
+                              }}
+                            >
+                              ×
+                            </button>
+                          )}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  {canEdit && (
+                    <AsyncCombobox
+                      multiple
+                      search={searchSkills.search}
+                      resolveByIds={searchSkills.resolveByIds}
+                      value={currentSkillIds}
+                      onChange={(next) => {
+                        const prev = new Set(currentSkillIds);
+                        const nextSet = new Set(next);
+                        const adds = next.filter((id) => !prev.has(id));
+                        const removes = currentSkillIds.filter((id) => !nextSet.has(id));
+                        if (adds.length === 0 && removes.length === 0) return;
+                        skillsMutation.mutate({ adds, removes });
+                      }}
+                      placeholder="Add skills…"
+                    />
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Engagements card */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Engagements</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {worker.accounts.length === 0 ? (
+                <span className="text-body-sm text-ink-muted">—</span>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {worker.accounts.map((a) => (
+                    <Badge key={a.id} variant="outline">
+                      {a.name}
+                    </Badge>
+                  ))}
                 </div>
               )}
             </CardContent>
