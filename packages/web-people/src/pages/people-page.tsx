@@ -136,6 +136,7 @@ export function PeoplePage() {
   const queryClient = useQueryClient();
   const canProvision = usePermission('people.worker.provision');
   const canSetPortal = usePermission('people.worker.portal_access.set');
+  const canReadAll = usePermission('people.worker.read.all');
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [query, setQuery] = useState<WorkersQuery>({ page: 1, pageSize: 25 });
 
@@ -360,6 +361,16 @@ export function PeoplePage() {
               </div>
             )}
             <PeopleFilterBar query={query} onChange={patchQuery} />
+            <div className="flex items-center gap-2 text-body-sm text-ink-muted">
+              <span>
+                {total} {total === 1 ? 'person' : 'people'}
+              </span>
+              {!canReadAll && (
+                <Badge variant="outline" title="You see only people related to you">
+                  Scoped view
+                </Badge>
+              )}
+            </div>
             <DataTable
               mode="server"
               columns={columns}
