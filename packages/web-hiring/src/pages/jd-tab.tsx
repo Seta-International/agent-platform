@@ -1,4 +1,14 @@
-import { Button, RichTextEditor, SegmentedControl, toast } from '@seta/shared-ui';
+import {
+  Button,
+  RichTextEditor,
+  SegmentedControl,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  toast,
+} from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import {
@@ -35,6 +45,7 @@ export function JdTab({ detail, canManage }: { detail: RequisitionDetail; canMan
 
   const [variant, setVariant] = useState<JdVariant>('external');
   const [grid, setGrid] = useState<Grid>(initial);
+  const [templatePickerKey, setTemplatePickerKey] = useState(0);
   const templates = useQuery({ queryKey: hiringKeys.jdTemplates(), queryFn: fetchJdTemplates });
 
   const save = useMutation({
@@ -81,20 +92,24 @@ export function JdTab({ detail, canManage }: { detail: RequisitionDetail; canMan
         {canManage && (
           <div className="flex items-center gap-2">
             {(templates.data?.length ?? 0) > 0 && (
-              <select
-                className="rounded border border-hairline bg-surface-1 px-2 py-1 text-caption"
-                defaultValue=""
-                onChange={(e) => {
-                  if (e.target.value) applyTemplate(e.target.value);
+              <Select
+                key={templatePickerKey}
+                onValueChange={(v) => {
+                  applyTemplate(v);
+                  setTemplatePickerKey((k) => k + 1);
                 }}
               >
-                <option value="">Apply template…</option>
-                {templates.data?.map((t) => (
-                  <option key={t.template.id} value={t.template.id}>
-                    {t.template.name}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger>
+                  <SelectValue placeholder="Apply template…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {templates.data?.map((t) => (
+                    <SelectItem key={t.template.id} value={t.template.id}>
+                      {t.template.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
             <Button size="sm" onClick={() => save.mutate()} disabled={save.isPending}>
               {save.isPending ? 'Saving…' : 'Save JD'}

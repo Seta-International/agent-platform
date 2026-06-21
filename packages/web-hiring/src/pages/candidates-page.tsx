@@ -7,6 +7,11 @@ import {
   Input,
   PageChrome,
   SegmentedControl,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   toast,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
@@ -25,6 +30,8 @@ import { BOARD_COLUMNS, boardColumns, fitLabel, resolveStageDrop } from './candi
 import { NewCandidateDialog } from './new-candidate-dialog.tsx';
 import { TalentPoolCard } from './talent-pool-card.tsx';
 import { on409 } from './utils.ts';
+
+const NONE = '__none__';
 
 export function onBoardDragEnd(
   items: CandidateListItem[],
@@ -170,19 +177,22 @@ export function CandidatesPage() {
             placeholder="Search name, role, seniority…"
             className="max-w-xs"
           />
-          <select
-            aria-label="Filter by role"
-            className="rounded border border-hairline bg-surface-1 px-2 py-1"
-            value={reqFilter}
-            onChange={(e) => setReqFilter(e.target.value)}
+          <Select
+            value={reqFilter || NONE}
+            onValueChange={(v) => setReqFilter(v === NONE ? '' : v)}
           >
-            <option value="">All open roles</option>
-            {reqOptions.map(([id, title]) => (
-              <option key={id} value={id}>
-                {title}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger aria-label="Filter by role">
+              <SelectValue placeholder="All open roles" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NONE}>All open roles</SelectItem>
+              {reqOptions.map(([id, title]) => (
+                <SelectItem key={id} value={id}>
+                  {title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <div className="ml-auto">
             <SegmentedControl
               value={view}

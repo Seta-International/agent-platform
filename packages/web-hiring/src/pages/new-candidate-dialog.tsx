@@ -9,6 +9,11 @@ import {
   DialogTrigger,
   Input,
   Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Textarea,
   toast,
 } from '@seta/shared-ui';
@@ -17,6 +22,8 @@ import { useState } from 'react';
 import { addCandidate, fetchRequisitions } from '../api/hiring-client.ts';
 import { hiringKeys } from '../state/query-keys.ts';
 import { type PickedSkill, SkillPicker } from './skill-picker.tsx';
+
+const NONE = '__none__';
 
 export function NewCandidateDialog() {
   const queryClient = useQueryClient();
@@ -125,17 +132,17 @@ export function NewCandidateDialog() {
             </div>
             <div className="space-y-1">
               <Label htmlFor="cand-gender">Gender</Label>
-              <select
-                id="cand-gender"
-                className="w-full rounded border border-hairline bg-surface-1 px-2 py-1"
-                value={gender}
-                onChange={(e) => setGender(e.target.value)}
-              >
-                <option value="">—</option>
-                <option>Male</option>
-                <option>Female</option>
-                <option>Other</option>
-              </select>
+              <Select value={gender || NONE} onValueChange={(v) => setGender(v === NONE ? '' : v)}>
+                <SelectTrigger id="cand-gender" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>—</SelectItem>
+                  <SelectItem value="Male">Male</SelectItem>
+                  <SelectItem value="Female">Female</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1">
               <Label htmlFor="cand-seniority">Seniority</Label>
@@ -152,18 +159,18 @@ export function NewCandidateDialog() {
           </div>
           <div className="space-y-1">
             <Label htmlFor="cand-req">Position applied *</Label>
-            <select
-              id="cand-req"
-              className="w-full rounded border border-hairline bg-surface-1 px-2 py-1"
-              value={effectiveReq}
-              onChange={(e) => setReqId(e.target.value)}
-            >
-              {openReqs.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.title}
-                </option>
-              ))}
-            </select>
+            <Select value={effectiveReq} onValueChange={(v) => setReqId(v)}>
+              <SelectTrigger id="cand-req" className="w-full">
+                <SelectValue placeholder="Select a position" />
+              </SelectTrigger>
+              <SelectContent>
+                {openReqs.map((r) => (
+                  <SelectItem key={r.id} value={r.id}>
+                    {r.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-1">
             <Label>Skills</Label>

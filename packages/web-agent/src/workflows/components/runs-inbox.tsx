@@ -1,4 +1,11 @@
-import { Button } from '@seta/shared-ui';
+import {
+  Button,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@seta/shared-ui';
 import { useState } from 'react';
 import { useWorkflowRuns } from '../hooks/use-workflow-runs.ts';
 import type { WorkflowRunScope } from '../state/query-keys.ts';
@@ -20,17 +27,18 @@ export function RunsInbox({ definitionId = null }: RunsInboxProps) {
     <section className="flex h-full flex-col">
       <header className="flex h-11 flex-none items-center justify-between border-b border-hairline px-4 text-[11px] font-medium uppercase tracking-wider text-ink-subtle">
         <span>Runs</span>
-        <label className="inline-flex items-center gap-1.5 text-xs font-normal normal-case tracking-normal text-ink-subtle">
+        <span className="inline-flex items-center gap-1.5 text-xs font-normal normal-case tracking-normal text-ink-subtle">
           Show
-          <select
-            value={scope}
-            onChange={(e) => setScope(e.target.value as WorkflowRunScope)}
-            className="h-7 rounded-md border border-hairline bg-canvas px-2 text-xs"
-          >
-            <option value="self">Mine</option>
-            <option value="tenant">Everyone</option>
-          </select>
-        </label>
+          <Select value={scope} onValueChange={(v) => setScope(v as WorkflowRunScope)}>
+            <SelectTrigger className="h-7 w-auto px-2 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="self">Mine</SelectItem>
+              <SelectItem value="tenant">Everyone</SelectItem>
+            </SelectContent>
+          </Select>
+        </span>
       </header>
       <div className="flex-1 overflow-auto">
         {isLoading

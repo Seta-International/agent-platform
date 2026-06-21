@@ -1,4 +1,13 @@
-import { Badge, Button, toast } from '@seta/shared-ui';
+import {
+  Badge,
+  Button,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  toast,
+} from '@seta/shared-ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import {
@@ -111,18 +120,22 @@ export function RequisitionCard({ r, canManage }: { r: RequisitionListRow; canMa
       {/* Inline editor */}
       {canManage && r.status !== 'filled' && r.status !== 'cancelled' && (
         <div className="flex items-center gap-2">
-          <select
-            className="rounded border border-hairline bg-surface-1 px-2 py-1 text-caption"
+          <Select
             value={selected}
             disabled={change.isPending}
-            onChange={(e) => change.mutate(e.target.value)}
+            onValueChange={(v) => change.mutate(v)}
           >
-            {STATUS_OPTIONS.map((o) => (
-              <option key={o} value={o}>
-                {STATUS_OPTION_LABEL[o]}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {STATUS_OPTIONS.map((o) => (
+                <SelectItem key={o} value={o}>
+                  {STATUS_OPTION_LABEL[o]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {overdue && <Badge variant="destructive">Overdue</Badge>}
         </div>
       )}

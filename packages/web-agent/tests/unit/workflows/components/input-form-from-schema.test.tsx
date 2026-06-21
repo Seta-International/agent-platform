@@ -45,9 +45,11 @@ describe('InputFormFromSchema', () => {
     );
     expect((screen.getByLabelText('taskRef › groupId') as HTMLInputElement).value).toBe('g1');
     expect((screen.getByLabelText('initiatedBy › userId') as HTMLInputElement).value).toBe('u1');
-    expect((screen.getByLabelText('initiatedBy › via') as HTMLSelectElement).value).toBe('event');
+    expect(screen.getByLabelText('initiatedBy › via')).toHaveTextContent('event');
 
-    fireEvent.change(screen.getByLabelText('initiatedBy › via'), { target: { value: 'rerun' } });
+    // Open the Radix select and pick 'rerun'
+    fireEvent.click(screen.getByLabelText('initiatedBy › via'));
+    fireEvent.click(screen.getByRole('option', { name: 'rerun' }));
     fireEvent.click(screen.getByRole('button', { name: /submit/i }));
 
     expect(onSubmit).toHaveBeenCalledTimes(1);

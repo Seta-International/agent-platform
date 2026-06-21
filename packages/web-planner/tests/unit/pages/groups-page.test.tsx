@@ -309,6 +309,7 @@ describe('GroupsPage', () => {
     expect(
       await screen.findByRole('dialog', { name: /Select group to link to M365/i }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'Engineering' })).toBeInTheDocument();
+    await user.click(screen.getByRole('combobox', { name: /Select a group/i }));
+    expect(await screen.findByRole('option', { name: 'Engineering' })).toBeInTheDocument();
   });
 });

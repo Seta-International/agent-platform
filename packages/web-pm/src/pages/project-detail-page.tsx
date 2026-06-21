@@ -9,6 +9,11 @@ import {
   CardTitle,
   Label,
   PageChrome,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Skeleton,
   Textarea,
   toast,
@@ -34,9 +39,6 @@ import { StaffingPlanSection } from './staffing-plan-section.tsx';
 
 const PHASES = ['initiation', 'discovery', 'execution', 'stabilize', 'uat', 'closed'] as const;
 const STATUSES = ['active', 'on_hold', 'closed'] as const;
-
-const SELECT_CLS =
-  'flex h-9 w-full rounded-md border border-stroke bg-surface px-3 py-1 text-sm text-ink shadow-xs transition-colors focus:outline-none focus:ring-1 focus:ring-brand disabled:cursor-not-allowed disabled:opacity-50';
 
 const STATUS_VARIANT: Record<
   ProjectDetail['status'],
@@ -214,38 +216,43 @@ export function ProjectDetailPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
                 <Label>Phase</Label>
-                <select
-                  className={SELECT_CLS}
+                <Select
                   value={patchVal('phase', p.phase) ?? ''}
-                  onChange={(e) => setPatch((s) => ({ ...s, phase: e.target.value }))}
+                  onValueChange={(v) => setPatch((s) => ({ ...s, phase: v }))}
                   disabled={inputsDisabled}
                 >
-                  {PHASES.map((ph) => (
-                    <option key={ph} value={ph}>
-                      {ph}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PHASES.map((ph) => (
+                      <SelectItem key={ph} value={ph}>
+                        {ph}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1">
                 <Label>Status</Label>
-                <select
-                  className={SELECT_CLS}
+                <Select
                   value={patchVal('status', p.status) ?? ''}
-                  onChange={(e) =>
-                    setPatch((s) => ({
-                      ...s,
-                      status: e.target.value as ProjectPatch['status'],
-                    }))
+                  onValueChange={(v) =>
+                    setPatch((s) => ({ ...s, status: v as ProjectPatch['status'] }))
                   }
                   disabled={inputsDisabled}
                 >
-                  {STATUSES.map((st) => (
-                    <option key={st} value={st}>
-                      {st}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STATUSES.map((st) => (
+                      <SelectItem key={st} value={st}>
+                        {st}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -298,18 +305,18 @@ export function ProjectDetailPage() {
               <div className="flex items-end gap-2">
                 <div className="space-y-1 flex-1">
                   <Label>Board</Label>
-                  <select
-                    className={SELECT_CLS}
-                    value={selectedGroupId}
-                    onChange={(e) => setSelectedGroupId(e.target.value)}
-                  >
-                    <option value="">Select a board</option>
-                    {(groups ?? []).map((g) => (
-                      <option key={g.id} value={g.id}>
-                        {g.name}
-                      </option>
-                    ))}
-                  </select>
+                  <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a board" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(groups ?? []).map((g) => (
+                        <SelectItem key={g.id} value={g.id}>
+                          {g.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <Button
                   variant="secondary"

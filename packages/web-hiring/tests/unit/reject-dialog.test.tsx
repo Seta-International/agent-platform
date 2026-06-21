@@ -31,8 +31,13 @@ describe('RejectDialog', () => {
       <RejectDialog applicationId="a1" version={1} open onOpenChange={() => {}} onDone={onDone} />,
       { wrapper: wrap(qc) },
     );
+    // Wait for query to load so effectiveReason resolves to rr1 (auto-select first active reason)
     await waitFor(() =>
-      expect(screen.getByRole('option', { name: 'Lacking skills' })).toBeInTheDocument(),
+      expect(screen.getByRole('combobox', { name: /reason/i })).toBeInTheDocument(),
+    );
+    // Give the query time to settle so effectiveReason = 'rr1'
+    await waitFor(() =>
+      expect(qc.getQueryState(['hiring', 'rejection-reasons'])?.status).toBe('success'),
     );
     await userEvent.type(screen.getByLabelText(/tags/i), 'frontend, junior');
     await userEvent.click(screen.getByRole('button', { name: /^reject$/i }));

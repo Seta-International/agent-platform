@@ -10,12 +10,19 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@seta/shared-ui';
 import { useQuery } from '@tanstack/react-query';
 import { X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { fetchSkillCatalog } from '../api/hiring-client.ts';
 import { hiringKeys } from '../state/query-keys.ts';
+
+const NONE = '__none__';
 
 export interface PickedSkill {
   skill_id: string;
@@ -43,7 +50,7 @@ export function SkillPicker({
   function remove(skillId: string) {
     onChange(value.filter((v) => v.skill_id !== skillId));
   }
-  function setLevel(skillId: string, level: number) {
+  function setLevel(skillId: string, level: number | undefined) {
     onChange(value.map((v) => (v.skill_id === skillId ? { ...v, level } : v)));
   }
 
@@ -85,19 +92,25 @@ export function SkillPicker({
         {value.map((v) => (
           <Badge key={v.skill_id} variant="secondary" className="gap-1 pr-1">
             {v.skill_name}
-            <select
-              aria-label={`${v.skill_name} level`}
-              className="ml-1 bg-transparent text-eyebrow outline-none"
-              value={v.level ?? ''}
-              onChange={(e) => setLevel(v.skill_id, Number(e.target.value))}
+            <Select
+              value={v.level !== undefined ? String(v.level) : NONE}
+              onValueChange={(val) => setLevel(v.skill_id, val === NONE ? undefined : Number(val))}
             >
-              <option value="">lvl</option>
-              {[0, 1, 2, 3, 4, 5].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger
+                aria-label={`${v.skill_name} level`}
+                className="ml-1 h-auto gap-1 border-0 bg-transparent p-0 text-eyebrow shadow-none focus-visible:shadow-none"
+              >
+                <SelectValue placeholder="lvl" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NONE}>lvl</SelectItem>
+                {[0, 1, 2, 3, 4, 5].map((n) => (
+                  <SelectItem key={n} value={String(n)}>
+                    {n}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <button
               type="button"
               aria-label={`Remove ${v.skill_name}`}

@@ -10,6 +10,11 @@ import {
   Input,
   Label,
   SegmentedControl,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Textarea,
   toast,
 } from '@seta/shared-ui';
@@ -123,28 +128,33 @@ export function NewRequisitionDialog() {
             </div>
             <div className="space-y-1">
               <Label>Type</Label>
-              <select
-                className="w-full rounded border border-hairline bg-surface-1 px-2 py-1"
-                value={kind}
-                onChange={(e) => setKind(e.target.value as 'new' | 'replacement')}
-              >
-                <option value="new">new</option>
-                <option value="replacement">replacement</option>
-              </select>
+              <Select value={kind} onValueChange={(v) => setKind(v as 'new' | 'replacement')}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="new">new</SelectItem>
+                  <SelectItem value="replacement">replacement</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label>Interview mode</Label>
-              <select
-                className="w-full rounded border border-hairline bg-surface-1 px-2 py-1"
+              <Select
                 value={mode}
-                onChange={(e) => setMode(e.target.value as 'online' | 'onsite' | 'either')}
+                onValueChange={(v) => setMode(v as 'online' | 'onsite' | 'either')}
               >
-                <option value="online">Online (Teams)</option>
-                <option value="onsite">Onsite</option>
-                <option value="either">Either</option>
-              </select>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="online">Online (Teams)</SelectItem>
+                  <SelectItem value="onsite">Onsite</SelectItem>
+                  <SelectItem value="either">Either</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1">
               <Label>Headcount (openings)</Label>

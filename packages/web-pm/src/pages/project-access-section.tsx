@@ -1,12 +1,21 @@
-import { Button, DataTable, EmptyState, Input, Label, toast } from '@seta/shared-ui';
+import {
+  Button,
+  DataTable,
+  EmptyState,
+  Input,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  toast,
+} from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ShieldCheck } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { fetchProjectAccess, type ProjectAccessRow, setProjectAccess } from '../api/pm-client.ts';
 import { pmKeys } from '../state/query-keys.ts';
-
-const SELECT_CLS =
-  'flex h-9 w-full rounded-md border border-stroke bg-surface px-3 py-1 text-sm text-ink shadow-xs transition-colors focus:outline-none focus:ring-1 focus:ring-brand disabled:cursor-not-allowed disabled:opacity-50';
 
 export function ProjectAccessSection({
   projectId,
@@ -103,15 +112,16 @@ export function ProjectAccessSection({
           </div>
           <div className="space-y-1 w-32">
             <Label>Level</Label>
-            <select
-              className={SELECT_CLS}
-              value={level}
-              onChange={(e) => setLevel(e.target.value as ProjectAccessRow['level'])}
-            >
-              <option value="owner">Owner</option>
-              <option value="edit">Edit</option>
-              <option value="view">View</option>
-            </select>
+            <Select value={level} onValueChange={(v) => setLevel(v as ProjectAccessRow['level'])}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="owner">Owner</SelectItem>
+                <SelectItem value="edit">Edit</SelectItem>
+                <SelectItem value="view">View</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <Button
             onClick={() =>

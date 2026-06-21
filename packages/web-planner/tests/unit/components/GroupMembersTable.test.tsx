@@ -102,10 +102,8 @@ describe('GroupMembersTable', () => {
         onRemoveMembers={vi.fn()}
       />,
     );
-    await user.selectOptions(
-      screen.getByRole('combobox', { name: /Change role/i }),
-      screen.getByRole('option', { name: 'Owner' }),
-    );
+    await user.click(screen.getByRole('combobox', { name: /Change role/i }));
+    await user.click(screen.getByRole('option', { name: 'Owner' }));
     expect(onRoleChange).toHaveBeenCalledWith({ user_id: 'u1', role: 'owner' });
   });
 

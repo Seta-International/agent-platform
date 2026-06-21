@@ -9,6 +9,11 @@ import {
   DialogTrigger,
   Input,
   Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Textarea,
   toast,
 } from '@seta/shared-ui';
@@ -20,6 +25,8 @@ import {
   type SubmitCharterBody,
   submitCharter,
 } from '../api/pm-client.ts';
+
+const NONE = '__none__';
 
 type FormState = {
   account_id: string;
@@ -122,18 +129,18 @@ export function SubmitCharterDialog({ onCreated }: { onCreated: () => void }) {
         <div className="space-y-3">
           <div className="space-y-1">
             <Label>Account *</Label>
-            <select
-              className="flex h-9 w-full rounded-md border border-stroke bg-surface px-3 py-1 text-sm text-ink shadow-xs transition-colors focus:outline-none focus:ring-1 focus:ring-brand disabled:cursor-not-allowed disabled:opacity-50"
-              value={form.account_id}
-              onChange={(e) => set({ account_id: e.target.value })}
-            >
-              <option value="">Select account</option>
-              {(accounts ?? []).map((a) => (
-                <option key={a.account_id} value={a.account_id}>
-                  {a.name}
-                </option>
-              ))}
-            </select>
+            <Select value={form.account_id} onValueChange={(v) => set({ account_id: v })}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select account" />
+              </SelectTrigger>
+              <SelectContent>
+                {(accounts ?? []).map((a) => (
+                  <SelectItem key={a.account_id} value={a.account_id}>
+                    {a.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-1">
@@ -153,33 +160,43 @@ export function SubmitCharterDialog({ onCreated }: { onCreated: () => void }) {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label>Methodology</Label>
-              <select
-                className="flex h-9 w-full rounded-md border border-stroke bg-surface px-3 py-1 text-sm text-ink shadow-xs transition-colors focus:outline-none focus:ring-1 focus:ring-brand disabled:cursor-not-allowed disabled:opacity-50"
-                value={form.methodology}
-                onChange={(e) =>
-                  set({ methodology: e.target.value as SubmitCharterBody['methodology'] | '' })
-                }
-              >
-                <option value="">—</option>
-                <option value="scrum">Scrum</option>
-                <option value="kanban">Kanban</option>
-              </select>
-            </div>
-            <div className="space-y-1">
-              <Label>Pricing</Label>
-              <select
-                className="flex h-9 w-full rounded-md border border-stroke bg-surface px-3 py-1 text-sm text-ink shadow-xs transition-colors focus:outline-none focus:ring-1 focus:ring-brand disabled:cursor-not-allowed disabled:opacity-50"
-                value={form.pricing_model}
-                onChange={(e) =>
+              <Select
+                value={form.methodology || NONE}
+                onValueChange={(v) =>
                   set({
-                    pricing_model: e.target.value as SubmitCharterBody['pricing_model'] | '',
+                    methodology: (v === NONE ? '' : v) as SubmitCharterBody['methodology'] | '',
                   })
                 }
               >
-                <option value="">—</option>
-                <option value="fixed_price">Fixed-price</option>
-                <option value="time_materials">Time &amp; materials</option>
-              </select>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>—</SelectItem>
+                  <SelectItem value="scrum">Scrum</SelectItem>
+                  <SelectItem value="kanban">Kanban</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>Pricing</Label>
+              <Select
+                value={form.pricing_model || NONE}
+                onValueChange={(v) =>
+                  set({
+                    pricing_model: (v === NONE ? '' : v) as SubmitCharterBody['pricing_model'] | '',
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>—</SelectItem>
+                  <SelectItem value="fixed_price">Fixed-price</SelectItem>
+                  <SelectItem value="time_materials">Time &amp; materials</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
