@@ -5,6 +5,7 @@ import {
   allocationProjectionRemoved,
 } from './allocation-projection.ts';
 import { bindUserToPerson } from './bind-user-to-person.ts';
+import { projectProjectionCreated, projectProjectionUpdated } from './project-projection.ts';
 
 export function peopleSubscribers(): SubscriberDef[] {
   return [
@@ -13,5 +14,7 @@ export function peopleSubscribers(): SubscriberDef[] {
     allocationProjectionRemoved,
     accountProjectionCreated,
     accountProjectionUpdated,
+    projectProjectionCreated,
+    projectProjectionUpdated,
   ];
 }
