@@ -1,6 +1,7 @@
 import {
   Alert,
   AlertDescription,
+  AsyncCombobox,
   Button,
   Card,
   CardContent,
@@ -11,7 +12,6 @@ import {
   LabelChip,
   PageChrome,
   Skeleton,
-  Textarea,
   toast,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
@@ -25,6 +25,7 @@ import {
   fetchAccount,
   setAccountRecruiters,
 } from '../api/pm-client.ts';
+import { useWorkerSearch } from '../api/worker-search.ts';
 import { pmKeys } from '../state/query-keys.ts';
 
 function FieldRow({ label, value }: { label: string; value: React.ReactNode }) {
@@ -46,8 +47,10 @@ export function AccountDetailPage({ accountId }: { accountId: string }) {
 
   // Recruiter management state
   const [editingRecruiters, setEditingRecruiters] = useState(false);
-  const [recruiterDraft, setRecruiterDraft] = useState('');
+  const [recruiterIds, setRecruiterIds] = useState<string[]>([]);
   const [recruiterError, setRecruiterError] = useState<string | null>(null);
+
+  const workerPicker = useWorkerSearch();
 
   const {
     data: account,
@@ -92,7 +95,6 @@ export function AccountDetailPage({ accountId }: { accountId: string }) {
     onSuccess: (r) => {
       toast.success(`Recruiters updated (${r.added} added, ${r.removed} removed)`);
       setEditingRecruiters(false);
-      setRecruiterDraft('');
       setRecruiterError(null);
       void queryClient.invalidateQueries({ queryKey: pmKeys.account(accountId) });
       void queryClient.invalidateQueries({ queryKey: pmKeys.accounts() });
@@ -119,24 +121,36 @@ export function AccountDetailPage({ accountId }: { accountId: string }) {
 
   function startEditRecruiters() {
     if (!account) return;
-    setRecruiterDraft(account.recruiter_worker_ids.join('\n'));
+    setRecruiterIds(account.recruiter_worker_ids);
     setRecruiterError(null);
     setEditingRecruiters(true);
   }
 
   function cancelEditRecruiters() {
     setEditingRecruiters(false);
-    setRecruiterDraft('');
+    setRecruiterIds([]);
     setRecruiterError(null);
   }
 
   function submitRecruiters() {
-    const ids = recruiterDraft
-      .split(/[\n,\s]+/)
-      .map((s) => s.trim())
-      .filter(Boolean);
-    saveRecruitersMutation.mutate(ids);
+    saveRecruitersMutation.mutate(recruiterIds);
   }
+
+  const recruiterLabels = useQuery({
+    queryKey: [
+      'people',
+      'worker-resolve',
+      [account?.am_worker_id, ...(account?.recruiter_worker_ids ?? [])].filter(Boolean).sort(),
+    ],
+    queryFn: () =>
+      workerPicker.resolveByIds(
+        [account?.am_worker_id, ...(account?.recruiter_worker_ids ?? [])].filter(
+          (x): x is string => !!x,
+        ),
+      ),
+    enabled: !!account,
+  });
+  const nameOf = (id: string) => recruiterLabels.data?.find((o) => o.value === id)?.label ?? id;
 
   const backLink = (
     <Link
@@ -236,14 +250,13 @@ export function AccountDetailPage({ accountId }: { accountId: string }) {
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label>Account Manager (worker ID)</Label>
-                  <Input
-                    value={draft.am_worker_id ?? ''}
-                    onChange={(e) =>
-                      setDraft((d) => ({ ...d, am_worker_id: e.target.value || null }))
-                    }
-                    placeholder="UUID or leave blank"
-                    className="font-mono"
+                  <Label>Account Manager</Label>
+                  <AsyncCombobox
+                    value={draft.am_worker_id ?? null}
+                    onChange={(v) => setDraft((d) => ({ ...d, am_worker_id: v }))}
+                    search={workerPicker.search}
+                    resolveByIds={workerPicker.resolveByIds}
+                    placeholder="Search workers…"
                   />
                 </div>
               </div>
@@ -253,11 +266,7 @@ export function AccountDetailPage({ accountId }: { accountId: string }) {
                 <FieldRow label="Industry" value={account.industry} />
                 <FieldRow
                   label="Account Manager"
-                  value={
-                    account.am_worker_id ? (
-                      <span className="font-mono text-caption">{account.am_worker_id}</span>
-                    ) : null
-                  }
+                  value={account.am_worker_id ? nameOf(account.am_worker_id) : null}
                 />
                 <FieldRow label="Version" value={String(account.version)} />
               </div>
@@ -283,15 +292,13 @@ export function AccountDetailPage({ accountId }: { accountId: string }) {
           <CardContent>
             {editingRecruiters ? (
               <div className="space-y-3">
-                <p className="text-body-sm text-ink-muted">
-                  Enter one worker ID per line (UUIDs). Existing recruiters not listed will be
-                  removed.
-                </p>
-                <Textarea
-                  className="min-h-[120px] font-mono resize-y"
-                  value={recruiterDraft}
-                  onChange={(e) => setRecruiterDraft(e.target.value)}
-                  placeholder="Paste worker UUIDs, one per line…"
+                <AsyncCombobox
+                  multiple
+                  value={recruiterIds}
+                  onChange={setRecruiterIds}
+                  search={workerPicker.search}
+                  resolveByIds={workerPicker.resolveByIds}
+                  placeholder="Search workers…"
                 />
                 {recruiterError && (
                   <Alert variant="destructive">
@@ -321,7 +328,7 @@ export function AccountDetailPage({ accountId }: { accountId: string }) {
             ) : (
               <div className="flex flex-wrap gap-2">
                 {account.recruiter_worker_ids.map((id) => (
-                  <LabelChip key={id} name={id} />
+                  <LabelChip key={id} name={nameOf(id)} />
                 ))}
               </div>
             )}
