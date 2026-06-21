@@ -131,3 +131,40 @@ export const workerHistory = peopleSchema.table(
   },
   (t) => [index('worker_history_by_person').on(t.tenant_id, t.person_id, t.at)],
 );
+
+export const workerAllocationProjection = peopleSchema.table(
+  'worker_allocation_projection',
+  {
+    allocation_id: uuid('allocation_id').primaryKey(),
+    tenant_id: uuid('tenant_id').notNull(),
+    worker_id: uuid('worker_id'),
+    project_id: uuid('project_id').notNull(),
+    account_id: uuid('account_id').notNull(),
+    account_name: text('account_name').notNull(),
+    lead_worker_id: uuid('lead_worker_id'),
+    active: boolean('active').notNull().default(true),
+  },
+  (t) => [
+    index('worker_alloc_by_worker').on(t.tenant_id, t.worker_id),
+    index('worker_alloc_by_account').on(t.tenant_id, t.account_id),
+    index('worker_alloc_by_project').on(t.tenant_id, t.project_id),
+  ],
+);
+
+export const accountProjection = peopleSchema.table('account_projection', {
+  account_id: uuid('account_id').primaryKey(),
+  tenant_id: uuid('tenant_id').notNull(),
+  name: text('name').notNull(),
+  am_worker_id: uuid('am_worker_id'),
+});
+
+export const projectProjection = peopleSchema.table(
+  'project_projection',
+  {
+    project_id: uuid('project_id').primaryKey(),
+    tenant_id: uuid('tenant_id').notNull(),
+    account_id: uuid('account_id').notNull(),
+    name: text('name').notNull(),
+  },
+  (t) => [index('project_proj_by_account').on(t.tenant_id, t.account_id)],
+);
