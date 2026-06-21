@@ -237,6 +237,54 @@ describe('buildWorkerScope', () => {
     });
   });
 
+  it('cross-tenant chained/allocated rows are excluded', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      initPools({ databaseUrl });
+      try {
+        const tA = await seedTenant(pool);
+        const tB = await seedTenant(pool);
+
+        // Tenant A: manager M_A with a report R_A.
+        const userMA = crypto.randomUUID();
+        const M_A = await makePersona(tA, 'Manager M_A', userMA, null);
+        const R_A = await makePersona(tA, 'Report R_A', crypto.randomUUID(), M_A);
+
+        // Tenant B: X_B whose manager_id is M_A's person_id (cross-tenant chaining vector).
+        const X_B = await makePersona(tB, 'Cross Worker X_B', crypto.randomUUID(), null);
+        await peopleDb().update(worker).set({ manager_id: M_A }).where(eq(worker.person_id, X_B));
+
+        // Tenant B: an allocation referencing M_A as both AM and lead, plus a B-tenant account
+        // managed by M_A — exercises tenant scoping of the AM/lead subqueries.
+        const accountB = crypto.randomUUID();
+        await peopleDb().insert(accountProjection).values({
+          account_id: accountB,
+          tenant_id: tB.tenant_id,
+          name: 'Account B',
+          am_worker_id: M_A,
+        });
+        await peopleDb().insert(workerAllocationProjection).values({
+          allocation_id: crypto.randomUUID(),
+          tenant_id: tB.tenant_id,
+          worker_id: X_B,
+          project_id: crypto.randomUUID(),
+          account_id: accountB,
+          account_name: 'Account B',
+          lead_worker_id: M_A,
+          active: true,
+        });
+
+        const seen = await visible(viewer(tA, userMA));
+        expect(seen).toEqual(new Set([M_A, R_A]));
+      } finally {
+        resetPeopleDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
   it('inactive allocation grants no AM or lead visibility', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();

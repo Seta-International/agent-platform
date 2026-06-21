@@ -30,7 +30,7 @@ export function buildWorkerScope(session: SessionScope): SQL | null {
   const me = sql`(SELECT w0.person_id FROM people.worker w0
       JOIN people.person p0 ON p0.id = w0.person_id
       WHERE p0.user_id = ${userId} AND w0.tenant_id = ${tenantId} AND w0.deleted_at IS NULL
-      LIMIT 1)`;
+      ORDER BY p0.id LIMIT 1)`;
 
   return sql`(
     ${worker.person_id} = ${me}
