@@ -56,7 +56,10 @@ async function resolveUserIdByEmail(tenantId: string, email: string): Promise<st
 
 const rbacRegistry = buildRegistry(inventoryToManifests(INVENTORY));
 
-async function buildAdminSession(tenantId: string, adminEmail: string): Promise<SessionScope> {
+export async function buildAdminSession(
+  tenantId: string,
+  adminEmail: string,
+): Promise<SessionScope> {
   const userId = await resolveUserIdByEmail(tenantId, adminEmail);
   const { grants } = await listRoleGrants(userId);
   const role_summary = rollup(grants);

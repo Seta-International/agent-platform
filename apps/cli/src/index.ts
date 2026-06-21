@@ -20,6 +20,7 @@ import { migrateCommand } from './commands/migrate.ts';
 import { plannerCommand } from './commands/planner.ts';
 import { roleGrantCommand } from './commands/role-grant.ts';
 import { seedCommand } from './commands/seed.ts';
+import { seedFixtureCommand } from './commands/seed-fixture/index.ts';
 import { tenantCreateCommand } from './commands/tenant-create.ts';
 import { userCreateCommand } from './commands/user-create.ts';
 import { userDeactivateCommand } from './commands/user-deactivate.ts';
@@ -287,6 +288,30 @@ program
   .option('--out <dir>', 'output directory', 'fixtures/seta')
   .action((opts: { xlsx: string; out: string }) => {
     xlsxToFixturesCommand({ xlsx: opts.xlsx, out: opts.out });
+  });
+
+program
+  .command('seed-fixture')
+  .description(
+    'Seed cross-module dev fixtures (people, PM, planner, hiring) from fixtures/seta/ CSVs',
+  )
+  .requiredOption('--tenant <slug>', 'tenant slug', 'seta-international')
+  .option('--dir <dir>', 'fixtures dir', 'fixtures/seta')
+  .option('--admin-email <email>', 'admin email', 'admin@seta-international.vn')
+  .option('--password <pw>', 'default password for seeded logins', 'ChangeMe@2026')
+  .action(async (o: { tenant: string; dir: string; adminEmail: string; password?: string }) => {
+    try {
+      const base = process.env.INIT_CWD ?? process.cwd();
+      const { resolve } = await import('node:path');
+      await seedFixtureCommand({
+        tenant: o.tenant,
+        dir: resolve(base, o.dir),
+        adminEmail: o.adminEmail,
+        password: o.password,
+      });
+    } finally {
+      await closePools();
+    }
   });
 
 plannerCommand(program);
