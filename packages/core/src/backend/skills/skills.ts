@@ -1,4 +1,4 @@
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, ilike } from 'drizzle-orm';
 import { coreDb } from '../../db/client.ts';
 import { coreSkill, coreSkillCategory } from '../../db/schema/skills.ts';
 import { emit, withEmit } from '../../events/index.ts';
@@ -147,12 +147,14 @@ export async function archiveSkill(input: {
 
 export async function listSkills(
   session: SessionScope,
-  opts?: { activeOnly?: boolean; categoryId?: string },
+  opts?: { activeOnly?: boolean; categoryId?: string; search?: string },
 ): Promise<SkillRow[]> {
   requireSkillPermission(session, 'core.skill.read');
   const filters = [eq(coreSkill.tenant_id, session.tenant_id)];
   if (opts?.activeOnly) filters.push(eq(coreSkill.active, true));
   if (opts?.categoryId) filters.push(eq(coreSkill.category_id, opts.categoryId));
+  const q = opts?.search?.trim();
+  if (q) filters.push(ilike(coreSkill.name, `%${q}%`));
   return coreDb()
     .select()
     .from(coreSkill)
