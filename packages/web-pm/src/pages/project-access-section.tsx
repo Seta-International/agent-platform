@@ -1,8 +1,8 @@
 import {
+  AsyncCombobox,
   Button,
   DataTable,
   EmptyState,
-  Input,
   Label,
   Select,
   SelectContent,
@@ -15,6 +15,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ShieldCheck } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { fetchProjectAccess, type ProjectAccessRow, setProjectAccess } from '../api/pm-client.ts';
+import { useWorkerSearch } from '../api/worker-search';
 import { pmKeys } from '../state/query-keys.ts';
 
 export function ProjectAccessSection({
@@ -31,6 +32,13 @@ export function ProjectAccessSection({
   });
   const [worker, setWorker] = useState('');
   const [level, setLevel] = useState<ProjectAccessRow['level']>('view');
+  const workerPicker = useWorkerSearch();
+
+  const { data: resolvedWorkers } = useQuery({
+    queryKey: ['people', 'worker-resolve-access', (data ?? []).map((g) => g.worker_id).sort()],
+    queryFn: () => workerPicker.resolveByIds((data ?? []).map((g) => g.worker_id)),
+    enabled: (data ?? []).length > 0,
+  });
 
   function invalidate() {
     void queryClient.invalidateQueries({ queryKey: pmKeys.projectAccess(projectId) });
@@ -50,14 +58,17 @@ export function ProjectAccessSection({
 
   const columns = useMemo(() => {
     type CellCtx = { row: { original: ProjectAccessRow } };
+    function nameOf(id: string): string {
+      return resolvedWorkers?.find((o) => o.value === id)?.label ?? id;
+    }
     return [
       {
         id: 'worker_id',
         accessorKey: 'worker_id',
         header: 'Worker',
         cell: ({ row }: CellCtx) => (
-          <span className="font-mono text-caption text-ink-muted truncate block">
-            {row.original.worker_id}
+          <span className="text-caption text-ink truncate block">
+            {nameOf(row.original.worker_id)}
           </span>
         ),
       },
@@ -86,7 +97,7 @@ export function ProjectAccessSection({
           ) : null,
       },
     ];
-  }, [canManage, data, save]);
+  }, [canManage, data, resolvedWorkers, save]);
 
   return (
     <section className="space-y-3">
@@ -107,8 +118,14 @@ export function ProjectAccessSection({
       {canManage && (
         <div className="flex items-end gap-2">
           <div className="space-y-1 flex-1">
-            <Label>Worker id</Label>
-            <Input value={worker} onChange={(e) => setWorker(e.target.value)} placeholder="uuid" />
+            <Label>Worker</Label>
+            <AsyncCombobox
+              value={worker || null}
+              onChange={(v) => setWorker(v ?? '')}
+              search={workerPicker.search}
+              resolveByIds={workerPicker.resolveByIds}
+              placeholder="Search workers…"
+            />
           </div>
           <div className="space-y-1 w-32">
             <Label>Level</Label>
