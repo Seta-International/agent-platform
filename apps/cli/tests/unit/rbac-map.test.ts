@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { rolesFor, skillsFor } from '../src/commands/seed-fixture/rbac-map.ts';
+import { rolesFor, skillsFor } from '../../src/commands/seed-fixture/rbac-map.ts';
 
 describe('rolesFor', () => {
   it('ADMIN → org.admin only', () => {

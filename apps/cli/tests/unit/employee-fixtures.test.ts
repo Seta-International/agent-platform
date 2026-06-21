@@ -3,7 +3,7 @@ import {
   classifyRow,
   deriveEmail,
   stripDiacritics,
-} from '../src/commands/lib/employee-fixtures.ts';
+} from '../../src/commands/lib/employee-fixtures.ts';
 
 describe('stripDiacritics', () => {
   it('strips Vietnamese marks', () => {

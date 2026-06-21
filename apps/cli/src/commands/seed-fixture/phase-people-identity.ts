@@ -7,14 +7,16 @@ import { sql } from 'drizzle-orm';
 import type { EmployeeRec } from './load.ts';
 import { rolesFor, skillsFor } from './rbac-map.ts';
 
+// createWorker returns person_id as the canonical worker identity (so do
+// editWorker/setPortalAccess); resolve the same id here so create vs. find agree.
 async function findWorkerId(tenantId: string, email: string): Promise<string | undefined> {
   const r = await coreDb().execute(
-    sql`SELECT id FROM people.worker
+    sql`SELECT person_id FROM people.worker
         WHERE tenant_id = ${tenantId} AND lower(work_email) = lower(${email})
           AND deleted_at IS NULL
         LIMIT 1`,
   );
-  return (r.rows[0] as { id: string } | undefined)?.id;
+  return (r.rows[0] as { person_id: string } | undefined)?.person_id;
 }
 
 async function findUserId(tenantId: string, email: string): Promise<string | undefined> {

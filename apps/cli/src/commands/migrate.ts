@@ -1,5 +1,5 @@
 import { registerAgentContributions } from '@seta/agent/register';
-import { createContributionRegistry, runMigrations } from '@seta/core';
+import { type ContributionRegistry, createContributionRegistry, runMigrations } from '@seta/core';
 import { registerCoreContributions } from '@seta/core/register';
 import { registerHiringContributions } from '@seta/hiring/register';
 import { registerIdentityContributions } from '@seta/identity/register';
@@ -16,7 +16,7 @@ import pino from 'pino';
 
 const log = pino({ name: 'cli/migrate' });
 
-export async function migrateCommand(): Promise<void> {
+export function buildMigrationRegistry(): ContributionRegistry {
   const reg = createContributionRegistry();
   registerCoreContributions(reg);
   registerIdentityContributions(reg);
@@ -30,6 +30,11 @@ export async function migrateCommand(): Promise<void> {
   registerHiringContributions(reg);
   registerPmContributions(reg);
   // MODULE_REGISTRATIONS_END — generator inserts new register*Contributions(reg) calls above this comment.
+  return reg;
+}
+
+export async function migrateCommand(): Promise<void> {
+  const reg = buildMigrationRegistry();
   await runMigrations(reg, { pool: getPool('worker') });
   log.info('migrations applied');
 }

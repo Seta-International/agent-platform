@@ -10,7 +10,8 @@
     "./events": "./src/events.ts",
     "./rbac": "./src/rbac.ts",
     "./contracts": "./src/contracts.ts",
-    "./register": "./src/register.ts"
+    "./register": "./src/register.ts",
+    "./testing": "./src/testing.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
