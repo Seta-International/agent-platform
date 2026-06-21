@@ -108,6 +108,23 @@ pnpm -F @seta/cli exec tsx src/index.ts user-create \
 
 Full command list: `pnpm -F @seta/cli exec tsx src/index.ts --help`. Other useful commands: `role-grant`, `user-deactivate`, `integrations-mail-set`.
 
+## Full dev fixture (every module)
+
+`pnpm db:seed` loads only People workers. For a coherent, cross-module tenant — accounts, projects, per-worker allocations, planner boards, hiring pipeline, plus injected edge states (deactivated/no-portal/on-hold/over-allocated) — use the fixture seed. It reads gitignored CSVs derived from a private payroll sheet and drives every module's public create surface (so events, audit, read-model projections, and notifications all populate naturally).
+
+```bash
+# one-time, private (PII): convert the payroll sheet → gitignored fixtures/seta/*.csv
+# (the CSVs are shared privately between devs, never committed)
+pnpm xlsx:fixtures --xlsx ~/Documents/Seta/employees.xlsx
+
+# on a fresh DB: drop → up → migrate → bootstrap tenant+admin → seed
+pnpm db:down && pnpm db:up && pnpm db:migrate
+bash scripts/tenant-bootstrap.sh
+pnpm seed:fixture --tenant seta-international
+```
+
+The seed is idempotent — re-running it adds zero rows. `fixtures/seta/` is gitignored; it never enters the repo. Knowledge files and notification rows are intentionally not seeded directly: they populate through the real upload/scan pipeline and the async event subscriber when the worker runs.
+
 ## Hand it to an agent
 
 > Bootstrap my local dev environment. Assume Docker, Node 24, and pnpm 11 are installed. Run `pnpm install`, `cp .env.example .env` and fill `BETTER_AUTH_SECRET`, `CRYPTO_LOCAL_MASTER_KEY`, and `OPENAI_API_KEY`, then `pnpm db:up`, `pnpm db:migrate`, and `pnpm db:seed`. Verify by starting `pnpm dev` and reporting whether <http://localhost:5173/login> accepts `admin@seta-international.vn` / `ChangeMe@2026`. Stop and ask before running anything destructive.
