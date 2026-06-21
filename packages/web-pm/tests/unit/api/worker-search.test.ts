@@ -11,7 +11,7 @@ describe('workerSearch', () => {
         async () =>
           ({
             ok: true,
-            json: async () => ({ workers: [{ worker_id: 'w1', full_name: 'Alice' }] }),
+            json: async () => ({ rows: [{ worker_id: 'w1', full_name: 'Alice' }] }),
           }) as unknown as Response,
       ),
     );
