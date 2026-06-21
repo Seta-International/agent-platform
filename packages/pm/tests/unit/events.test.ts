@@ -10,6 +10,8 @@ import {
   PM_ACCOUNT_UPDATED,
   PM_ALLOCATION_REMOVED,
   PM_EVENTS,
+  projectCreatedPayload,
+  projectUpdatedPayload,
 } from '../../src/events.ts';
 
 describe('pm events', () => {
@@ -116,6 +118,57 @@ describe('pm events', () => {
     expect(missing.success).toBe(false);
   });
 
+  it('project.created payload requires name', () => {
+    const valid = projectCreatedPayload.safeParse({
+      project_id: crypto.randomUUID(),
+      tenant_id: crypto.randomUUID(),
+      account_id: crypto.randomUUID(),
+      charter_id: crypto.randomUUID(),
+      name: 'Alpha Project',
+    });
+    expect(valid.success).toBe(true);
+    if (valid.success) expect(valid.data.name).toBe('Alpha Project');
+
+    const missing = projectCreatedPayload.safeParse({
+      project_id: crypto.randomUUID(),
+      tenant_id: crypto.randomUUID(),
+      account_id: crypto.randomUUID(),
+      charter_id: crypto.randomUUID(),
+    });
+    expect(missing.success).toBe(false);
+  });
+
+  it('project.updated payload requires name + account_id and still carries fields', () => {
+    const valid = projectUpdatedPayload.safeParse({
+      project_id: crypto.randomUUID(),
+      tenant_id: crypto.randomUUID(),
+      name: 'Beta Project',
+      account_id: crypto.randomUUID(),
+      fields: ['name', 'objective'],
+    });
+    expect(valid.success).toBe(true);
+    if (valid.success) {
+      expect(valid.data.name).toBe('Beta Project');
+      expect(valid.data.fields).toEqual(['name', 'objective']);
+    }
+
+    const missingName = projectUpdatedPayload.safeParse({
+      project_id: crypto.randomUUID(),
+      tenant_id: crypto.randomUUID(),
+      account_id: crypto.randomUUID(),
+      fields: ['name'],
+    });
+    expect(missingName.success).toBe(false);
+
+    const missingAccountId = projectUpdatedPayload.safeParse({
+      project_id: crypto.randomUUID(),
+      tenant_id: crypto.randomUUID(),
+      name: 'Gamma Project',
+      fields: ['name'],
+    });
+    expect(missingAccountId.success).toBe(false);
+  });
+
   it('registers charter + project event schemas', () => {
     for (const t of [
       'pm.charter.submitted',
@@ -136,6 +189,7 @@ describe('pm events', () => {
         tenant_id: crypto.randomUUID(),
         account_id: crypto.randomUUID(),
         charter_id: crypto.randomUUID(),
+        name: 'Test Project',
       }).success,
     ).toBe(true);
   });

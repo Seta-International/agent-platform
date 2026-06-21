@@ -75,9 +75,13 @@ describe('project run', () => {
         const detail = await getProject({ project_id: projectId, session: t.adminSession });
         expect(detail.phase).toBe('closed');
         expect((await listProjects(t.adminSession)).map((x) => x.project_id)).toContain(projectId);
-        expect(
-          (await readEvents(pool, t.tenant_id, 'pm.project.updated')).length,
-        ).toBeGreaterThanOrEqual(3);
+        const updatedEvents = await readEvents(pool, t.tenant_id, 'pm.project.updated');
+        expect(updatedEvents.length).toBeGreaterThanOrEqual(3);
+        // each event carries name + account_id (enriched payload)
+        for (const ev of updatedEvents) {
+          expect(typeof ev.payload['name']).toBe('string');
+          expect(typeof ev.payload['account_id']).toBe('string');
+        }
       } finally {
         resetPmDb();
         resetCoreDb();

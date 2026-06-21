@@ -63,12 +63,15 @@ export const projectCreatedPayload = z.object({
   tenant_id: z.string().uuid(),
   account_id: z.string().uuid(),
   charter_id: z.string().uuid(),
+  name: z.string(),
 });
 export type ProjectCreatedPayload = z.infer<typeof projectCreatedPayload>;
 
 export const projectUpdatedPayload = z.object({
   project_id: z.string().uuid(),
   tenant_id: z.string().uuid(),
+  name: z.string(),
+  account_id: z.string().uuid(),
   fields: z.array(z.string()),
 });
 export type ProjectUpdatedPayload = z.infer<typeof projectUpdatedPayload>;

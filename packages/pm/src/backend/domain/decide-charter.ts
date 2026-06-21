@@ -131,6 +131,7 @@ export async function approveCharter(input: {
           tenant_id: session.tenant_id,
           account_id: c.account_id,
           charter_id,
+          name: c.name,
         },
       });
     },
