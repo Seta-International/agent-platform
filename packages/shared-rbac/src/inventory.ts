@@ -368,6 +368,7 @@ export const INVENTORY: StatementSpec[] = [
           'people.worker.provision',
           'people.worker.edit',
           'people.worker.portal_access.set',
+          'core.skill.read',
         ],
       },
       {
