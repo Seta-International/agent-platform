@@ -43,8 +43,12 @@ import { Route as AdminNotificationsRouteImport } from './../../../packages/web-
 import { Route as AdminMailRouteImport } from './../../../packages/web-admin/src/routes/mail'
 import { Route as AdminAuditRouteImport } from './../../../packages/web-admin/src/routes/audit'
 import { Route as AgentWorkflowsRouteRouteImport } from './../../../packages/web-agent/src/routes/workflows/route'
+import { Route as PmWeeklyIndexRouteImport } from './../../../packages/web-pm/src/routes/weekly/index'
+import { Route as PmRisksIndexRouteImport } from './../../../packages/web-pm/src/routes/risks/index'
+import { Route as PmResourcingIndexRouteImport } from './../../../packages/web-pm/src/routes/resourcing/index'
 import { Route as PmRequestsIndexRouteImport } from './../../../packages/web-pm/src/routes/requests/index'
 import { Route as PmProjectsIndexRouteImport } from './../../../packages/web-pm/src/routes/projects/index'
+import { Route as PmMetricsIndexRouteImport } from './../../../packages/web-pm/src/routes/metrics/index'
 import { Route as PmAccountsIndexRouteImport } from './../../../packages/web-pm/src/routes/accounts/index'
 import { Route as PeopleEmployeesIndexRouteImport } from './../../../packages/web-people/src/routes/employees/index'
 import { Route as HiringSettingsIndexRouteImport } from './../../../packages/web-hiring/src/routes/settings/index'
@@ -234,6 +238,21 @@ const AgentWorkflowsRouteRoute = AgentWorkflowsRouteRouteImport.update({
   path: '/workflows',
   getParentRoute: () => AgentRouteRoute,
 } as any)
+const PmWeeklyIndexRoute = PmWeeklyIndexRouteImport.update({
+  id: '/weekly/',
+  path: '/weekly/',
+  getParentRoute: () => PmRouteRoute,
+} as any)
+const PmRisksIndexRoute = PmRisksIndexRouteImport.update({
+  id: '/risks/',
+  path: '/risks/',
+  getParentRoute: () => PmRouteRoute,
+} as any)
+const PmResourcingIndexRoute = PmResourcingIndexRouteImport.update({
+  id: '/resourcing/',
+  path: '/resourcing/',
+  getParentRoute: () => PmRouteRoute,
+} as any)
 const PmRequestsIndexRoute = PmRequestsIndexRouteImport.update({
   id: '/requests/',
   path: '/requests/',
@@ -242,6 +261,11 @@ const PmRequestsIndexRoute = PmRequestsIndexRouteImport.update({
 const PmProjectsIndexRoute = PmProjectsIndexRouteImport.update({
   id: '/projects/',
   path: '/projects/',
+  getParentRoute: () => PmRouteRoute,
+} as any)
+const PmMetricsIndexRoute = PmMetricsIndexRouteImport.update({
+  id: '/metrics/',
+  path: '/metrics/',
   getParentRoute: () => PmRouteRoute,
 } as any)
 const PmAccountsIndexRoute = PmAccountsIndexRouteImport.update({
@@ -393,8 +417,12 @@ export interface FileRoutesByFullPath {
   '/hiring/settings/': typeof HiringSettingsIndexRoute
   '/people/employees/': typeof PeopleEmployeesIndexRoute
   '/pm/accounts/': typeof PmAccountsIndexRoute
+  '/pm/metrics/': typeof PmMetricsIndexRoute
   '/pm/projects/': typeof PmProjectsIndexRoute
   '/pm/requests/': typeof PmRequestsIndexRoute
+  '/pm/resourcing/': typeof PmResourcingIndexRoute
+  '/pm/risks/': typeof PmRisksIndexRoute
+  '/pm/weekly/': typeof PmWeeklyIndexRoute
   '/agent/workflows/runs/$runId': typeof AgentWorkflowsRunsRunIdRoute
   '/planner/plans/$planId/settings/categories': typeof PlannerPlansPlanIdSettingsCategoriesRoute
   '/planner/plans/$planId/tasks/$taskId': typeof PlannerPlansPlanIdTasksTaskIdRoute
@@ -442,8 +470,12 @@ export interface FileRoutesByTo {
   '/hiring/settings': typeof HiringSettingsIndexRoute
   '/people/employees': typeof PeopleEmployeesIndexRoute
   '/pm/accounts': typeof PmAccountsIndexRoute
+  '/pm/metrics': typeof PmMetricsIndexRoute
   '/pm/projects': typeof PmProjectsIndexRoute
   '/pm/requests': typeof PmRequestsIndexRoute
+  '/pm/resourcing': typeof PmResourcingIndexRoute
+  '/pm/risks': typeof PmRisksIndexRoute
+  '/pm/weekly': typeof PmWeeklyIndexRoute
   '/agent/workflows/runs/$runId': typeof AgentWorkflowsRunsRunIdRoute
   '/planner/plans/$planId/settings/categories': typeof PlannerPlansPlanIdSettingsCategoriesRoute
   '/planner/plans/$planId/tasks/$taskId': typeof PlannerPlansPlanIdTasksTaskIdRoute
@@ -500,8 +532,12 @@ export interface FileRoutesById {
   '/_authed/hiring/settings/': typeof HiringSettingsIndexRoute
   '/_authed/people/employees/': typeof PeopleEmployeesIndexRoute
   '/_authed/pm/accounts/': typeof PmAccountsIndexRoute
+  '/_authed/pm/metrics/': typeof PmMetricsIndexRoute
   '/_authed/pm/projects/': typeof PmProjectsIndexRoute
   '/_authed/pm/requests/': typeof PmRequestsIndexRoute
+  '/_authed/pm/resourcing/': typeof PmResourcingIndexRoute
+  '/_authed/pm/risks/': typeof PmRisksIndexRoute
+  '/_authed/pm/weekly/': typeof PmWeeklyIndexRoute
   '/_authed/agent/workflows/runs/$runId': typeof AgentWorkflowsRunsRunIdRoute
   '/_authed/planner/plans_/$planId_/settings_/categories': typeof PlannerPlansPlanIdSettingsCategoriesRoute
   '/_authed/planner/plans_/$planId_/tasks_/$taskId': typeof PlannerPlansPlanIdTasksTaskIdRoute
@@ -558,8 +594,12 @@ export interface FileRouteTypes {
     | '/hiring/settings/'
     | '/people/employees/'
     | '/pm/accounts/'
+    | '/pm/metrics/'
     | '/pm/projects/'
     | '/pm/requests/'
+    | '/pm/resourcing/'
+    | '/pm/risks/'
+    | '/pm/weekly/'
     | '/agent/workflows/runs/$runId'
     | '/planner/plans/$planId/settings/categories'
     | '/planner/plans/$planId/tasks/$taskId'
@@ -607,8 +647,12 @@ export interface FileRouteTypes {
     | '/hiring/settings'
     | '/people/employees'
     | '/pm/accounts'
+    | '/pm/metrics'
     | '/pm/projects'
     | '/pm/requests'
+    | '/pm/resourcing'
+    | '/pm/risks'
+    | '/pm/weekly'
     | '/agent/workflows/runs/$runId'
     | '/planner/plans/$planId/settings/categories'
     | '/planner/plans/$planId/tasks/$taskId'
@@ -664,8 +708,12 @@ export interface FileRouteTypes {
     | '/_authed/hiring/settings/'
     | '/_authed/people/employees/'
     | '/_authed/pm/accounts/'
+    | '/_authed/pm/metrics/'
     | '/_authed/pm/projects/'
     | '/_authed/pm/requests/'
+    | '/_authed/pm/resourcing/'
+    | '/_authed/pm/risks/'
+    | '/_authed/pm/weekly/'
     | '/_authed/agent/workflows/runs/$runId'
     | '/_authed/planner/plans_/$planId_/settings_/categories'
     | '/_authed/planner/plans_/$planId_/tasks_/$taskId'
@@ -918,6 +966,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AgentWorkflowsRouteRouteImport
       parentRoute: typeof AgentRouteRoute
     }
+    '/_authed/pm/weekly/': {
+      id: '/_authed/pm/weekly/'
+      path: '/weekly'
+      fullPath: '/pm/weekly/'
+      preLoaderRoute: typeof PmWeeklyIndexRouteImport
+      parentRoute: typeof PmRouteRoute
+    }
+    '/_authed/pm/risks/': {
+      id: '/_authed/pm/risks/'
+      path: '/risks'
+      fullPath: '/pm/risks/'
+      preLoaderRoute: typeof PmRisksIndexRouteImport
+      parentRoute: typeof PmRouteRoute
+    }
+    '/_authed/pm/resourcing/': {
+      id: '/_authed/pm/resourcing/'
+      path: '/resourcing'
+      fullPath: '/pm/resourcing/'
+      preLoaderRoute: typeof PmResourcingIndexRouteImport
+      parentRoute: typeof PmRouteRoute
+    }
     '/_authed/pm/requests/': {
       id: '/_authed/pm/requests/'
       path: '/requests'
@@ -930,6 +999,13 @@ declare module '@tanstack/react-router' {
       path: '/projects'
       fullPath: '/pm/projects/'
       preLoaderRoute: typeof PmProjectsIndexRouteImport
+      parentRoute: typeof PmRouteRoute
+    }
+    '/_authed/pm/metrics/': {
+      id: '/_authed/pm/metrics/'
+      path: '/metrics'
+      fullPath: '/pm/metrics/'
+      preLoaderRoute: typeof PmMetricsIndexRouteImport
       parentRoute: typeof PmRouteRoute
     }
     '/_authed/pm/accounts/': {
@@ -1206,8 +1282,12 @@ interface PmRouteRouteChildren {
   PmProjectsProjectIdRoute: typeof PmProjectsProjectIdRoute
   PmRequestsCharterIdRoute: typeof PmRequestsCharterIdRoute
   PmAccountsIndexRoute: typeof PmAccountsIndexRoute
+  PmMetricsIndexRoute: typeof PmMetricsIndexRoute
   PmProjectsIndexRoute: typeof PmProjectsIndexRoute
   PmRequestsIndexRoute: typeof PmRequestsIndexRoute
+  PmResourcingIndexRoute: typeof PmResourcingIndexRoute
+  PmRisksIndexRoute: typeof PmRisksIndexRoute
+  PmWeeklyIndexRoute: typeof PmWeeklyIndexRoute
 }
 
 const PmRouteRouteChildren: PmRouteRouteChildren = {
@@ -1216,8 +1296,12 @@ const PmRouteRouteChildren: PmRouteRouteChildren = {
   PmProjectsProjectIdRoute: PmProjectsProjectIdRoute,
   PmRequestsCharterIdRoute: PmRequestsCharterIdRoute,
   PmAccountsIndexRoute: PmAccountsIndexRoute,
+  PmMetricsIndexRoute: PmMetricsIndexRoute,
   PmProjectsIndexRoute: PmProjectsIndexRoute,
   PmRequestsIndexRoute: PmRequestsIndexRoute,
+  PmResourcingIndexRoute: PmResourcingIndexRoute,
+  PmRisksIndexRoute: PmRisksIndexRoute,
+  PmWeeklyIndexRoute: PmWeeklyIndexRoute,
 }
 
 const PmRouteRouteWithChildren =
