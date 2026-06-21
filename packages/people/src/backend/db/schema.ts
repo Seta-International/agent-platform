@@ -92,6 +92,30 @@ export const worker = peopleSchema.table(
   ],
 );
 
+export const personSkill = peopleSchema.table(
+  'person_skill',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenant_id: uuid('tenant_id').notNull(),
+    person_id: uuid('person_id').notNull(),
+    skill_id: uuid('skill_id').notNull(),
+    skill_name: text('skill_name').notNull(),
+    level: integer('level'),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('person_skill_uniq').on(t.tenant_id, t.person_id, t.skill_id),
+    index('person_skill_by_person').on(t.tenant_id, t.person_id),
+    index('person_skill_by_skill').on(t.tenant_id, t.skill_id),
+    foreignKey({
+      columns: [t.person_id],
+      foreignColumns: [person.id],
+      name: 'person_skill_person_fk',
+    }),
+  ],
+);
+
 export const workerHistory = peopleSchema.table(
   'worker_history',
   {

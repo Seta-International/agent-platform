@@ -14,7 +14,7 @@ const ctx = {
 };
 
 describe('people schema migration', () => {
-  it('creates the four foundation tables', async () => {
+  it('creates the five foundation tables', async () => {
     await withTestDb(ctx, async ({ pool }) => {
       const r = await pool.query(
         `SELECT table_name FROM information_schema.tables WHERE table_schema='people' ORDER BY 1`,
@@ -22,6 +22,7 @@ describe('people schema migration', () => {
       expect(r.rows.map((x) => x.table_name)).toEqual([
         'employment_period',
         'person',
+        'person_skill',
         'worker',
         'worker_history',
       ]);
