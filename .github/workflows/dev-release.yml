@@ -30,7 +30,7 @@ jobs:
       minor: ${{ steps.parse.outputs.minor }}
       semver_ok: ${{ steps.parse.outputs.semver_ok }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
 
       - id: parse
         name: Parse tag into vX, vX.Y, vX.Y.Z (or dev-<sha> on manual dispatch)
@@ -65,7 +65,7 @@ jobs:
       server_digest: ${{ steps.collect.outputs.server_digest }}
       web_digest:    ${{ steps.collect.outputs.web_digest }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@6.1.3
@@ -177,7 +177,7 @@ jobs:
           - { name: seta-server, prefix: server, digest_ref: server_digest }
           - { name: seta-web,    prefix: web,    digest_ref: web_digest }
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
 
       - name: Install cosign
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
@@ -238,7 +238,7 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
 
       - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6
 
@@ -292,7 +292,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
         with:
           fetch-depth: 0
 
@@ -350,7 +350,7 @@ jobs:
     needs: [metadata]
     runs-on: [self-hosted, future]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
 
       - name: Build server + web images locally
         shell: bash

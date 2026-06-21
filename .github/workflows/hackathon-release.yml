@@ -76,7 +76,7 @@ jobs:
             dockerfile: infra/docker/web.Dockerfile
 
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v7
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@6.1.3
