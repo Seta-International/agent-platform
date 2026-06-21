@@ -2188,6 +2188,9 @@ importers:
       '@seta/web-identity':
         specifier: workspace:^
         version: link:../web-identity
+      '@tanstack/react-table':
+        specifier: ^8.21.3
+        version: 8.21.3(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       lucide-react:
         specifier: ^1.17.0
         version: 1.17.0(react@19.2.7)
