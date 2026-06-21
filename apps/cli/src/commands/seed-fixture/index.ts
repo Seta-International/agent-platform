@@ -2,6 +2,7 @@ import pino from 'pino';
 import { resolveTenantId } from '../lib/tenant-resolve.ts';
 import { buildAdminSession } from '../seed.ts';
 import { loadFixtures } from './load.ts';
+import { seedEdgeCases } from './phase-edge-cases.ts';
 import { seedHiring } from './phase-hiring.ts';
 import { seedPeopleIdentity } from './phase-people-identity.ts';
 import { seedPlanner } from './phase-planner.ts';
@@ -38,6 +39,9 @@ export async function seedFixtureCommand(opts: {
 
   await seedHiring(session, pm.accountByName);
   log.info('phase: hiring done');
+
+  await seedEdgeCases(session, people, fx.employees);
+  log.info('phase: edge-cases done');
 
   log.info({ tenant_id: tenantId }, 'seed-fixture: complete');
 }
