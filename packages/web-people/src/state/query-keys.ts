@@ -5,4 +5,6 @@ export const peopleKeys = {
   workers: (query?: WorkersQuery) => [...peopleKeys.all, 'workers', query ?? {}] as const,
   worker: (id: string) => [...peopleKeys.all, 'worker', id] as const,
   history: (id: string) => [...peopleKeys.all, 'worker', id, 'history'] as const,
+  orgStructure: () => [...peopleKeys.all, 'org', 'structure'] as const,
+  orgDelivery: () => [...peopleKeys.all, 'org', 'delivery'] as const,
 };

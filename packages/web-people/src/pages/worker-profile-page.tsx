@@ -24,13 +24,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from '@tanstack/react-router';
 import { ChevronLeft, Clock, KeyRound } from 'lucide-react';
 import { useState } from 'react';
+import { searchOrgUnits } from '../api/org-client.ts';
 import {
   addWorkerSkill,
   editWorker,
   fetchWorker,
   fetchWorkerHistory,
   removeWorkerSkill,
-  searchPeople,
   searchSkills,
   setPortalAccess,
   type WorkerPatch,
@@ -123,8 +123,8 @@ export function WorkerProfilePage() {
         patch.emergency_contact = draft.emergency_contact;
       if (draft.job_title !== undefined && draft.job_title !== (worker.job_title ?? ''))
         patch.job_title = draft.job_title || null;
-      if (draft.manager_id !== undefined && draft.manager_id !== (worker.manager_id ?? null))
-        patch.manager_id = draft.manager_id;
+      if (draft.org_unit_id !== undefined && draft.org_unit_id !== (worker.org_unit_id ?? null))
+        patch.org_unit_id = draft.org_unit_id;
       return editWorker(workerId, { expected_version: worker.version, patch });
     },
     onSuccess: () => {
@@ -168,7 +168,7 @@ export function WorkerProfilePage() {
       gender: worker.gender ?? '',
       emergency_contact: worker.emergency_contact ?? '',
       job_title: worker.job_title ?? '',
-      manager_id: worker.manager_id ?? null,
+      org_unit_id: worker.org_unit_id ?? null,
     });
     setEditError(null);
     setEditing(true);
@@ -300,16 +300,15 @@ export function WorkerProfilePage() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label>Manager</Label>
+                    <Label>Org unit</Label>
                     <AsyncCombobox
-                      search={searchPeople.search}
-                      resolveByIds={searchPeople.resolveByIds}
-                      value={draft.manager_id ?? null}
+                      search={searchOrgUnits.search}
+                      resolveByIds={searchOrgUnits.resolveByIds}
+                      value={draft.org_unit_id ?? null}
                       onChange={(v) => {
-                        if (v === workerId) return;
-                        setDraft((d) => ({ ...d, manager_id: v }));
+                        setDraft((d) => ({ ...d, org_unit_id: v }));
                       }}
-                      placeholder="Search employees…"
+                      placeholder="Search org units…"
                     />
                   </div>
                   <div className="space-y-1">
@@ -357,6 +356,7 @@ export function WorkerProfilePage() {
                   <FieldRow label="Full name" value={worker.full_name} />
                   <FieldRow label="Job title" value={worker.job_title} />
                   <FieldRow label="Manager" value={worker.manager_name} />
+                  <FieldRow label="Org unit" value={worker.org_unit_name} />
                   <FieldRow label="Work email" value={worker.work_email} />
                   <FieldRow label="Phone" value={worker.phone} />
                   <FieldRow label="Date of birth" value={worker.dob} />
