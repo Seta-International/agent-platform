@@ -16,7 +16,7 @@ const ctx = {
 };
 
 describe('getOrgStructure', () => {
-  it('returns the unit tree with heads and members for a strategic viewer', async () => {
+  it('returns the unit tree with heads for a strategic viewer', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPeopleDb();
@@ -40,7 +40,7 @@ describe('getOrgStructure', () => {
           kind: 'operation',
           parent_id: exec,
         });
-        const { worker_id: m } = await createWorker({
+        await createWorker({
           session: t.adminSession,
           full_name: 'Ops Member',
           org_unit_id: ops,
@@ -50,7 +50,7 @@ describe('getOrgStructure', () => {
         const opsNode = units.find((u) => u.id === ops)!;
         expect(units.find((u) => u.id === exec)!.head?.full_name).toBe('CEO');
         expect(opsNode.parent_id).toBe(exec);
-        expect(opsNode.members.map((x) => x.person_id)).toContain(m);
+        expect('members' in opsNode).toBe(false);
       } finally {
         resetPeopleDb();
         resetCoreDb();
