@@ -48,3 +48,27 @@ export async function fetchAllocationGrid(year?: number): Promise<AllocationGrid
   const res = await fetch(`/api/people/v1/allocation/grid${qs}`, { credentials: 'include' });
   return handleResponse<AllocationGrid>(res);
 }
+
+export interface UtilizationSegment {
+  project_id: string;
+  project_name: string | null;
+  pct: number;
+}
+export interface UtilizationRow {
+  worker_id: string;
+  full_name: string;
+  segments: UtilizationSegment[];
+  total_pct: number;
+  over_allocated: boolean;
+  split: { billable: number; internal: number; bench: number };
+}
+export interface UtilizationByPerson {
+  as_of: string;
+  rows: UtilizationRow[];
+}
+
+export async function fetchUtilizationByPerson(asOf?: string): Promise<UtilizationByPerson> {
+  const qs = asOf ? `?asOf=${asOf}` : '';
+  const res = await fetch(`/api/people/v1/allocation/utilization${qs}`, { credentials: 'include' });
+  return handleResponse<UtilizationByPerson>(res);
+}
