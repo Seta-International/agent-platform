@@ -16,22 +16,26 @@ export function monthEnd(month: string): string {
   return `${month}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
 }
 
-// Last day of the quarter containing `month` (YYYY-MM): e.g. 2026-05 → 2026-06-30.
-function quarterEnd(month: string): string {
-  const y = Number(month.slice(0, 4));
-  const m = Number(month.slice(5, 7));
-  const endMonth = Math.ceil(m / 3) * 3;
-  return `${y}-${String(endMonth).padStart(2, '0')}-${String(new Date(y, endMonth, 0).getDate()).padStart(2, '0')}`;
+interface ProjectWindow {
+  start: string;
+  end: string | null;
 }
 
-// A project's planned end date, by quarterly capacity planning. Deterministic per project so
-// re-seeds are stable and the demo shows a realistic mix of span lengths across the grid:
-//   0 → ongoing (no end date)   1 → end of the current quarter   2 → end of the year
-function projectEndDate(month: string, projectCode: string): string | null {
-  const bucket = [...projectCode].reduce((s, c) => s + c.charCodeAt(0), 0) % 3;
-  if (bucket === 0) return null;
-  if (bucket === 1) return quarterEnd(month);
-  return `${month.slice(0, 4)}-12-31`;
+// A project's planned engagement window, by quarterly capacity planning. Deterministic per project
+// so re-seeds are stable and the demo shows a realistic mix of start dates and span lengths across
+// the monthly grid (some run all year, some are open-ended, some a single quarter). `end` is
+// optional — not every project has a planned end date.
+function projectWindow(year: string, projectCode: string): ProjectWindow {
+  switch ([...projectCode].reduce((s, c) => s + c.charCodeAt(0), 0) % 4) {
+    case 0:
+      return { start: `${year}-01-01`, end: `${year}-12-31` }; // full-year engagement
+    case 1:
+      return { start: `${year}-01-01`, end: null }; // ongoing since January (no end date)
+    case 2:
+      return { start: `${year}-04-01`, end: `${year}-06-30` }; // a single quarter (Q2)
+    default:
+      return { start: `${year}-03-01`, end: null }; // ongoing from Q1
+  }
 }
 
 async function findAccountId(tenantId: string, name: string): Promise<string | undefined> {
@@ -100,18 +104,18 @@ export async function seedPm(
 
   const accountByName = new Map<string, string>();
   const projectByCode = new Map<string, string>();
-  const projectEndByCode = new Map<string, string | null>();
+  const projectWindowByCode = new Map<string, ProjectWindow>();
   const pmByCode = new Map<string, { workerId: string; userId: string }>();
 
-  // Quarterly planning anchor: the earliest allocation month in the fixture (the snapshot month).
-  const planningMonth =
-    allocations.reduce((min, a) => (a.month && a.month < min ? a.month : min), '9999-99') ===
-    '9999-99'
-      ? '2026-05'
-      : allocations.reduce((min, a) => (a.month && a.month < min ? a.month : min), '9999-99');
+  // Planning year: derived from the earliest allocation month in the fixture (the snapshot month).
+  const earliestMonth = allocations.reduce(
+    (min, a) => (a.month && a.month < min ? a.month : min),
+    '9999-99',
+  );
+  const planningYear = (earliestMonth === '9999-99' ? '2026-05' : earliestMonth).slice(0, 4);
 
   for (const p of projects) {
-    const projectEnd = projectEndDate(planningMonth, p.code);
+    const window = projectWindow(planningYear, p.code);
     // Account, industry and AM now come from the fixture (projects.csv) — self-describing data.
     const accountName = p.account_name || 'SETA Internal';
     const amWorkerId = p.am_employee_id ? people.get(p.am_employee_id)?.workerId : undefined;
@@ -156,8 +160,8 @@ export async function seedPm(
         pricing_model: 'time_materials',
         // budget_bmm is required by the completeness gate in approveCharter
         budget_bmm: 0,
-        date_from: `${planningMonth}-01`,
-        date_to: projectEnd ?? undefined,
+        date_from: window.start,
+        date_to: window.end ?? undefined,
         team_size: teamSize > 0 ? teamSize : undefined,
         session,
       });
@@ -181,7 +185,7 @@ export async function seedPm(
     }
 
     projectByCode.set(p.code, pid);
-    projectEndByCode.set(p.code, projectEnd);
+    projectWindowByCode.set(p.code, window);
   }
 
   // Allocations — idempotent on (project_id, worker_id, date_from)
@@ -197,23 +201,22 @@ export async function seedPm(
       continue;
     }
 
-    const dateFrom = `${a.month}-01`;
-    const exists = await allocationExists(session.tenant_id, pid, person.workerId, dateFrom);
+    // The booking spans the project's planned engagement window (open-ended when the project has
+    // no end date), so a person's allocation lines up with the project's start and end.
+    const window =
+      projectWindowByCode.get(a.project_code) ?? projectWindow(planningYear, a.project_code);
+    const exists = await allocationExists(session.tenant_id, pid, person.workerId, window.start);
     if (exists) {
       allocSkipped++;
       continue;
     }
 
-    // The booking runs from its snapshot month to the project's planned end date — or stays
-    // open-ended when the project has no end date.
     await createAllocation({
       project_id: pid,
       worker_id: person.workerId,
       role: a.role || null,
-      date_from: dateFrom,
-      date_to: projectEndByCode.has(a.project_code)
-        ? projectEndByCode.get(a.project_code)
-        : projectEndDate(a.month, a.project_code),
+      date_from: window.start,
+      date_to: window.end,
       bucket: 'billable',
       planned_pct: a.ratio_pct,
       minutes_per_day: Math.round((a.ratio_pct / 100) * 480),

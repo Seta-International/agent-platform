@@ -161,6 +161,11 @@ describe('getAllocationGrid', () => {
         const grid = await getAllocationGrid(t.adminSession, { year: 2026 });
         // Amy (2 rows) sorts before Zoe (1 row); each worker's rows are consecutive.
         expect(grid.rows.map((r) => r.worker_id)).toEqual([amy, amy, zoe]);
+
+        // Search filters rows to the matching worker, but KPIs stay at full scope.
+        const filtered = await getAllocationGrid(t.adminSession, { year: 2026, search: 'amy' });
+        expect(new Set(filtered.rows.map((r) => r.worker_id))).toEqual(new Set([amy]));
+        expect(filtered.kpis.member_count).toBe(2);
       } finally {
         resetPeopleDb();
         resetCoreDb();

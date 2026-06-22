@@ -1,10 +1,19 @@
-import { Badge, Card, CardContent, cn, DataTable, EmptyState, PageChrome } from '@seta/shared-ui';
+import {
+  Badge,
+  Card,
+  CardContent,
+  cn,
+  DataTable,
+  EmptyState,
+  Input,
+  PageChrome,
+} from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import type { ColumnDef, Row } from '@tanstack/react-table';
 import { BarChart3 } from 'lucide-react';
-import { type CSSProperties, useCallback, useMemo } from 'react';
+import { type CSSProperties, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   type AllocationGrid,
   type AllocationGridRow,
@@ -63,9 +72,17 @@ export function AllocationPage() {
   const navigate = useNavigate();
   const canReadAll = usePermission('people.worker.read.all');
 
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 250);
+    return () => clearTimeout(t);
+  }, [search]);
+
   const { data, isLoading, error } = useQuery<AllocationGrid>({
-    queryKey: peopleKeys.allocationGrid(),
-    queryFn: () => fetchAllocationGrid(),
+    queryKey: peopleKeys.allocationGrid(undefined, debouncedSearch),
+    queryFn: () => fetchAllocationGrid(undefined, debouncedSearch || undefined),
+    placeholderData: keepPreviousData,
   });
 
   const overByWorkerMonth = useMemo(() => {
@@ -215,12 +232,19 @@ export function AllocationPage() {
               />
             </div>
 
+            <Input
+              className="h-8 max-w-xs"
+              placeholder="Search name or worker ID…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+
             <DataTable
               columns={columns}
               data={data?.rows ?? []}
               isLoading={isLoading}
               getRowClassName={rowClassName}
-              globalFilterPlaceholder="Search name or worker ID…"
+              enableGlobalFilter={false}
               pagination={{ defaultPageSize: 25, pageSizeOptions: [25, 50, 100] }}
               emptyState={
                 <EmptyState

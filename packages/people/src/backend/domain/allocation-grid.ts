@@ -38,6 +38,8 @@ export interface AllocationGrid {
 }
 export interface AllocationGridQuery {
   year?: number;
+  /** Filters the returned rows to workers whose name or id matches; KPIs stay scope-level. */
+  search?: string;
 }
 
 interface RawRow {
@@ -193,10 +195,25 @@ export async function getAllocationGrid(
       )
     : 0;
 
+  // Search filters the table rows (and their totals) to matching workers; the KPIs above stay at
+  // the viewer's full scope so the headline figures don't shift as you type.
+  const q = (query.search ?? '').trim().toLowerCase();
+  const matched = q
+    ? new Set(
+        rows
+          .filter(
+            (r) => r.full_name.toLowerCase().includes(q) || r.worker_id.toLowerCase().includes(q),
+          )
+          .map((r) => r.worker_id),
+      )
+    : null;
+  const outRows = matched ? rows.filter((r) => matched.has(r.worker_id)) : rows;
+  const outTotals = matched ? worker_totals.filter((w) => matched.has(w.worker_id)) : worker_totals;
+
   return {
     year,
-    rows,
-    worker_totals,
+    rows: outRows,
+    worker_totals: outTotals,
     kpis: {
       avg_utilization: avgUtil,
       over_allocated_count: overCount,
