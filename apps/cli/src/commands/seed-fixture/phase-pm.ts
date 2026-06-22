@@ -1,6 +1,12 @@
 import type { SessionScope } from '@seta/core';
 import { coreDb } from '@seta/core/db';
-import { approveCharter, createAccount, createAllocation, submitCharter } from '@seta/pm';
+import {
+  bodApproveCharter,
+  createAccount,
+  createAllocation,
+  pmoSignOffCharter,
+  submitCharter,
+} from '@seta/pm';
 import { sql } from 'drizzle-orm';
 import pino from 'pino';
 import type { AllocationRec, ProjectRec } from './load.ts';
@@ -81,6 +87,18 @@ export async function seedPm(
   membersByCode: Map<string, string[]>;
   pmByCode: Map<string, { workerId: string; userId: string }>;
 }> {
+  // Seed actor drives both governance gates (PMO sign-off + BoD approval) when
+  // creating projects from charters. The admin import session is a trusted
+  // system actor, so grant it both gate permissions for the run.
+  const governanceSession: SessionScope = {
+    ...session,
+    permissions: new Set([
+      ...session.permissions,
+      'pm.charter.pmo_signoff',
+      'pm.charter.bod_approve',
+    ]),
+  };
+
   // Build membersByCode from allocations: project_code → unique employeeIds (in CSV order)
   // Also store roles alongside for PM derivation
   const membersByCode = new Map<string, string[]>();
@@ -158,7 +176,7 @@ export async function seedPm(
         pm_worker_id: pmPerson.workerId,
         methodology: 'scrum',
         pricing_model: 'time_materials',
-        // budget_bmm is required by the completeness gate in approveCharter
+        // budget_bmm is required by the completeness gate in bodApproveCharter
         budget_bmm: 0,
         date_from: window.start,
         date_to: window.end ?? undefined,
@@ -166,7 +184,8 @@ export async function seedPm(
         session,
       });
 
-      const approved = await approveCharter({ charter_id, session });
+      await pmoSignOffCharter({ charter_id, session: governanceSession });
+      const approved = await bodApproveCharter({ charter_id, session: governanceSession });
       pid = approved.project_id;
       log.info({ project: p.project_name, project_id: pid }, 'created project via charter');
 
