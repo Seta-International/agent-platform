@@ -2,6 +2,7 @@ import Dagre from '@dagrejs/dagre';
 import type { Edge, Node } from '@xyflow/react';
 import { MarkerType, Position } from '@xyflow/react';
 import type { OrgUnitNode } from '../../api/org-client.ts';
+import type { DeliveryDrill } from './build-delivery-graph.ts';
 
 export interface OrgGraphNodeData extends Record<string, unknown> {
   title: string;
@@ -14,6 +15,7 @@ export interface OrgGraphNodeData extends Record<string, unknown> {
   descendantCount?: number;
   personId?: string;
   unitId?: string;
+  drillTo?: DeliveryDrill;
 }
 
 const NODE_W = 210;
@@ -70,7 +72,8 @@ export function buildStructureGraph(
 
   // descendant person count for a unit's collapsed badge (members of its whole subtree)
   function descendantPersons(unitId: string): number {
-    const u = byId.get(unitId)!;
+    const u = byId.get(unitId);
+    if (!u) return 0;
     let n = u.members.length;
     for (const c of childUnits.get(unitId) ?? []) n += descendantPersons(c.id);
     return n;
