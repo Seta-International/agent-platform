@@ -107,7 +107,7 @@ describe('read charters', () => {
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
-        const pmo = await seedReviewer(pool, t.tenant_id, 'pm.pmo');
+        const pmo = await seedReviewer(t.tenant_id, 'pm.pmo');
         const a1 = await pool.query(
           `INSERT INTO pm.account (tenant_id, name) VALUES ($1,'Acct One') RETURNING id`,
           [t.tenant_id],
@@ -202,11 +202,7 @@ describe('read charters', () => {
   });
 });
 
-async function seedReviewer(
-  pool: import('pg').Pool,
-  tenantId: string,
-  roleSlug: 'pm.pmo' | 'pm.bod',
-) {
+async function seedReviewer(tenantId: string, roleSlug: 'pm.pmo' | 'pm.bod') {
   const email = `${roleSlug.replace('.', '-')}-${crypto.randomUUID().slice(0, 8)}@example.test`;
   const u = await createUser(
     {
