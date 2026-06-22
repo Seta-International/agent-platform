@@ -23,7 +23,13 @@ import type {
 } from '@seta/planner';
 import { errorFromPlannerResponse } from '../lib/planner-api-errors';
 
-type M365GroupSearchResult = { external_id: string; display_name: string; mail_nickname: string };
+type M365GroupSearchResult = {
+  external_id: string;
+  display_name: string;
+  mail_nickname: string;
+  description: string | null;
+  already_linked: boolean;
+};
 
 export interface GroupJoinRequestRow {
   group_id: string;

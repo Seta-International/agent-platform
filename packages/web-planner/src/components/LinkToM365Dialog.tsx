@@ -14,17 +14,28 @@ import { useLinkGroupToM365 } from '../hooks/mutations/link-group-to-m365';
 import { useM365GroupSearch } from '../hooks/queries/use-m365-group-search';
 
 interface Props {
-  groupId: string;
+  /** Existing group to link directly. Omit when used as a selection-only picker. */
+  groupId?: string;
   open: boolean;
   onOpenChange: (v: boolean) => void;
+  /**
+   * Selection-only mode: instead of linking immediately, return the chosen M365
+   * group to the caller (e.g. the New-group dialog, which defers create+link to
+   * the "Create group" action so nothing is created until then).
+   */
+  onSelect?: (group: {
+    external_id: string;
+    display_name: string;
+    description: string | null;
+  }) => void;
 }
 
-export function LinkToM365Dialog({ groupId, open, onOpenChange }: Props) {
+export function LinkToM365Dialog({ groupId, open, onOpenChange, onSelect }: Props) {
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const search = useM365GroupSearch(query);
-  const link = useLinkGroupToM365(groupId);
+  const link = useLinkGroupToM365(groupId ?? '');
 
   function reset() {
     setQuery('');
@@ -39,6 +50,18 @@ export function LinkToM365Dialog({ groupId, open, onOpenChange }: Props) {
 
   function handleLink() {
     if (!selectedId) return;
+    if (onSelect) {
+      const g = groups.find((x) => x.external_id === selectedId);
+      if (g)
+        onSelect({
+          external_id: g.external_id,
+          display_name: g.display_name,
+          description: g.description ?? null,
+        });
+      reset();
+      onOpenChange(false);
+      return;
+    }
     link.mutate(selectedId, {
       onSuccess: () => {
         reset();
@@ -93,13 +116,22 @@ export function LinkToM365Dialog({ groupId, open, onOpenChange }: Props) {
                 <li key={g.external_id}>
                   <button
                     type="button"
+                    disabled={g.already_linked}
                     onClick={() => setSelectedId(g.external_id)}
                     className={cn(
                       'w-full px-3 py-2 text-left hover:bg-surface-1',
                       selectedId === g.external_id && 'bg-primary/10',
+                      g.already_linked && 'cursor-not-allowed opacity-50 hover:bg-transparent',
                     )}
                   >
-                    <div className="font-medium text-sm">{g.display_name}</div>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="font-medium text-sm">{g.display_name}</div>
+                      {g.already_linked && (
+                        <span className="rounded bg-surface-2 px-1.5 py-0.5 text-xs text-ink-muted">
+                          Already linked
+                        </span>
+                      )}
+                    </div>
                     <div className="text-xs text-ink-muted">{g.mail_nickname}</div>
                   </button>
                 </li>

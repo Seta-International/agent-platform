@@ -66,7 +66,7 @@ export function registerIntegrationsM365Routes(
       .api('/groups')
       .header('ConsistencyLevel', 'eventual')
       .search(`"displayName:${safeQ}"`)
-      .select('id,displayName,mailNickname')
+      .select('id,displayName,mailNickname,description')
       .top(20)
       .get()
       .catch((err) => {
@@ -79,17 +79,27 @@ export function registerIntegrationsM365Routes(
         throw err;
       });
 
-    const groups = (
+    const rawGroups = (
       res.value as Array<{
         id: string;
         displayName: string;
         mailNickname: string;
+        description?: string | null;
       }>
     ).map((g) => ({
       external_id: g.id,
       display_name: g.displayName,
       mail_nickname: g.mailNickname,
+      description: g.description ?? null,
     }));
+
+    // Flag groups already linked to a live local group — an M365 group can only
+    // back one planner group (unique m365_group_links). The UI disables these so
+    // the user can't pick one and hit a post-create link failure.
+    const liveLinks = await Promise.all(
+      rawGroups.map((g) => deps.m365LinksRepo.findByExternal(session.tenant_id, g.external_id)),
+    );
+    const groups = rawGroups.map((g, i) => ({ ...g, already_linked: liveLinks[i] !== null }));
 
     return c.json({ groups });
   });
