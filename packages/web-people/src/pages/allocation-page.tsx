@@ -67,10 +67,7 @@ function HeatLegend() {
         </span>
       ))}
       <span className="inline-flex items-center gap-1.5">
-        <span
-          className="size-2.5 rounded-[3px]"
-          style={{ boxShadow: 'inset 0 0 0 2px rgba(229,72,77,.75)' }}
-        />
+        <span className="size-2.5 rounded-[3px]" style={{ background: 'var(--color-danger)' }} />
         over 100%
       </span>
     </div>
@@ -145,19 +142,11 @@ export function AllocationPage() {
     for (const r of data?.rows ?? []) if (!m.has(r.worker_id)) m.set(r.worker_id, idx++);
     return m;
   }, [data]);
-  const overWorkers = useMemo(() => {
-    const s = new Set<string>();
-    for (const w of data?.worker_totals ?? []) if (w.over_months.length > 0) s.add(w.worker_id);
-    return s;
-  }, [data]);
 
   const rowClassName = useCallback(
     (row: Row<AllocationGridRow>) =>
-      cn(
-        (workerBand.get(row.original.worker_id) ?? 0) % 2 === 1 && 'bg-surface-1',
-        overWorkers.has(row.original.worker_id) && 'border-l-2 border-[color:var(--color-danger)]',
-      ),
-    [workerBand, overWorkers],
+      cn((workerBand.get(row.original.worker_id) ?? 0) % 2 === 1 && 'bg-surface-1'),
+    [workerBand],
   );
 
   const columns = useMemo<ColumnDef<AllocationGridRow>[]>(() => {
@@ -170,15 +159,16 @@ export function AllocationPage() {
         const v = r.months[mi];
         const isOver = v != null && (overByWorkerMonth.get(r.worker_id)?.has(mi) ?? false);
         const total = totalsByWorker.get(r.worker_id)?.[mi];
+        // Over-allocated months are filled solid danger (not outlined); otherwise the heat fill.
+        const style: CSSProperties = isOver
+          ? { background: 'var(--color-danger)', color: '#fff' }
+          : heatStyle(v);
         return (
           <div className="flex justify-center">
             <span
               className="inline-block w-9 rounded-[5px] py-0.5 text-center font-mono text-[11px] font-semibold tabular-nums"
               title={isOver ? `Total ${total}% this month` : undefined}
-              style={{
-                ...heatStyle(v),
-                ...(isOver ? { boxShadow: 'inset 0 0 0 2px rgba(229,72,77,.75)' } : {}),
-              }}
+              style={style}
             >
               {v == null ? '' : v}
             </span>
@@ -318,7 +308,7 @@ export function AllocationPage() {
               }
             />
             <p className="text-[11px] text-ink-muted">
-              Red outline = that person is over 100% allocated that month.
+              Solid red = that person is over 100% allocated that month.
             </p>
             <UtilizationPanel />
           </>
