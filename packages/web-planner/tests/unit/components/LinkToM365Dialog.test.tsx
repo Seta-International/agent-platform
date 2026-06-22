@@ -92,6 +92,40 @@ describe('LinkToM365Dialog', () => {
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
   });
 
+  it('disables M365 groups that are already linked', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get('*/api/integrations/m365/groups/search', () =>
+        HttpResponse.json({
+          groups: [
+            {
+              external_id: 'ext-taken',
+              display_name: 'Taken Group',
+              mail_nickname: 'taken',
+              description: null,
+              already_linked: true,
+            },
+            {
+              external_id: 'ext-free',
+              display_name: 'Free Group',
+              mail_nickname: 'free',
+              description: null,
+              already_linked: false,
+            },
+          ],
+        }),
+      ),
+    );
+    wrap(<LinkToM365Dialog groupId={GROUP_ID} open onOpenChange={() => {}} />);
+    await user.type(screen.getByPlaceholderText('Search Microsoft 365 groups…'), 'Group');
+    await screen.findByText('Taken Group');
+
+    // already-linked → disabled + labelled; free one stays selectable.
+    expect(screen.getByText('Taken Group').closest('button')).toBeDisabled();
+    expect(screen.getByText(/Already linked/i)).toBeInTheDocument();
+    expect(screen.getByText('Free Group').closest('button')).not.toBeDisabled();
+  });
+
   it('Cancel button clears search and selection state', async () => {
     const user = userEvent.setup();
     server.use(

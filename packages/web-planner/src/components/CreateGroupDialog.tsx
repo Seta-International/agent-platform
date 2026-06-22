@@ -17,11 +17,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@seta/shared-ui';
+import { useQueryClient } from '@tanstack/react-query';
 import { Link2, Shield, Users } from 'lucide-react';
 import React, { useState } from 'react';
 import { plannerClient } from '../api/planner-client';
 import { LinkToM365Dialog } from '../components/LinkToM365Dialog';
 import { useCreateGroup } from '../hooks/mutations/create-group';
+import { plannerKeys } from '../state/query-keys';
 
 type Theme = 'teal' | 'purple' | 'green' | 'blue' | 'pink' | 'orange' | 'red';
 type Visibility = 'private' | 'public';
@@ -35,6 +37,7 @@ interface Props {
 
 export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
   const createGroup = useCreateGroup();
+  const qc = useQueryClient();
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -43,8 +46,13 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
   const [defaultRole, setDefaultRole] = useState<DefaultRole>('member');
   const [createStarterPlan, setCreateStarterPlan] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [createdGroupId, setCreatedGroupId] = useState<string | null>(null);
-  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  // The dialog only collects data — nothing is created until "Create group".
+  // A chosen M365 group is held here and linked after the group is created.
+  const [m365Selection, setM365Selection] = useState<{
+    external_id: string;
+    display_name: string;
+  } | null>(null);
+  const [linkPickerOpen, setLinkPickerOpen] = useState(false);
 
   function reset() {
     setName('');
@@ -54,11 +62,11 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
     setDefaultRole('member');
     setCreateStarterPlan(false);
     setError(null);
-    setCreatedGroupId(null);
-    setLinkDialogOpen(false);
+    setM365Selection(null);
+    setLinkPickerOpen(false);
   }
 
-  function submit(doLink = false) {
+  function submit() {
     const trimmed = name.trim();
     if (!trimmed) {
       setError('Give your group a name.');
@@ -73,7 +81,7 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
         default_role: defaultRole,
       },
       {
-        onSuccess: (group) => {
+        onSuccess: async (group) => {
           if (createStarterPlan) {
             plannerClient
               .createPlan({ group_id: group.id, name: `${trimmed} starter plan` })
@@ -81,14 +89,26 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
                 // starter plan creation failure is non-blocking
               });
           }
-          onCreated?.(group);
-          if (doLink) {
-            setCreatedGroupId(group.id);
-            setLinkDialogOpen(true);
-          } else {
-            reset();
-            onOpenChange(false);
+          if (m365Selection) {
+            try {
+              await plannerClient.linkGroupToM365({
+                groupId: group.id,
+                externalId: m365Selection.external_id,
+              });
+              void qc.invalidateQueries({ queryKey: plannerKeys.groupsWithCounts() });
+            } catch (e) {
+              onCreated?.(group);
+              setError(
+                `Group created, but linking to Microsoft 365 failed: ${
+                  e instanceof Error ? e.message : 'unknown error'
+                }`,
+              );
+              return;
+            }
           }
+          onCreated?.(group);
+          reset();
+          onOpenChange(false);
         },
         onError: (e) => setError(e instanceof Error ? e.message : "Couldn't create the group."),
       },
@@ -237,20 +257,29 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
               </div>
             </div>
 
-            {/* IdP callout — clicking "Link…" creates the group then opens the M365 link dialog */}
+            {/* IdP callout — "Link…" only picks an M365 group; the group is created
+              (and then linked) when "Create group" is pressed. */}
             <div className="flex items-center gap-3 rounded-md border border-hairline bg-surface-1 px-3 py-2.5">
               <Link2 className="size-3.5 text-ink-muted" />
-              <span className="flex-1 text-sm">
-                Link with a <b>Microsoft 365 group</b> to keep members in sync
-              </span>
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={!name.trim() || createGroup.isPending}
-                onClick={() => submit(true)}
-              >
-                Link…
-              </Button>
+              {m365Selection ? (
+                <>
+                  <span className="flex-1 text-sm">
+                    Will link to <b>{m365Selection.display_name}</b> on create
+                  </span>
+                  <Button size="sm" variant="ghost" onClick={() => setM365Selection(null)}>
+                    Clear
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <span className="flex-1 text-sm">
+                    Link with a <b>Microsoft 365 group</b> to keep members in sync
+                  </span>
+                  <Button size="sm" variant="ghost" onClick={() => setLinkPickerOpen(true)}>
+                    Link…
+                  </Button>
+                </>
+              )}
             </div>
 
             {error && (
@@ -293,18 +322,17 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
           </div>
         </DialogContent>
       </Dialog>
-      {createdGroupId && (
-        <LinkToM365Dialog
-          groupId={createdGroupId}
-          open={linkDialogOpen}
-          onOpenChange={(v) => {
-            if (!v) {
-              reset();
-              onOpenChange(false);
-            }
-          }}
-        />
-      )}
+      <LinkToM365Dialog
+        open={linkPickerOpen}
+        onOpenChange={setLinkPickerOpen}
+        onSelect={(g) => {
+          setM365Selection({ external_id: g.external_id, display_name: g.display_name });
+          // Prefill the description from the M365 group (it owns it once linked),
+          // but never clobber something the user already typed.
+          if (!description.trim() && g.description) setDescription(g.description);
+          setLinkPickerOpen(false);
+        }}
+      />
     </>
   );
 }

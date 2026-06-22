@@ -1,5 +1,6 @@
 import { toast } from '@seta/shared-ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { errorFromPlannerResponse, PlannerValidationError } from '../../lib/planner-api-errors';
 import { plannerKeys } from '../../state/query-keys';
 
 interface CreateVars {
@@ -42,8 +43,8 @@ export function useCreateTask(planId: string) {
         credentials: 'include',
       });
       if (!createRes.ok) {
-        const body = (await createRes.json().catch(() => ({}))) as { message?: string };
-        throw new Error(body.message ?? `Failed to create task (${createRes.status})`);
+        const body = await createRes.json().catch(() => ({}));
+        throw errorFromPlannerResponse(createRes.status, body);
       }
       const task = (await createRes.json()) as TaskResponse;
 
@@ -79,6 +80,9 @@ export function useCreateTask(planId: string) {
       qc.invalidateQueries({ queryKey: plannerKeys.planCalendar(planId) });
     },
     onError: (err) => {
+      if (err instanceof PlannerValidationError && err.fieldErrors.title?.length) {
+        return;
+      }
       toast.error("Couldn't create task", {
         description: err instanceof Error ? err.message : String(err),
       });

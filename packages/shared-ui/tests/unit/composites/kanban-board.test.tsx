@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { KanbanBoard } from '../../../src/composites/kanban-board';
 
@@ -26,7 +26,7 @@ describe('KanbanBoard', () => {
     expect(onAddBucket).not.toHaveBeenCalled();
   });
 
-  it('submits the typed name on Enter and keeps the input open for another (Trello loop)', () => {
+  it('submits the typed name on Enter and keeps the input open for another (Trello loop)', async () => {
     const onAddBucket = vi.fn();
 
     render(
@@ -40,7 +40,7 @@ describe('KanbanBoard', () => {
 
     fireEvent.change(input, { target: { value: 'Backlog' } });
     fireEvent.keyDown(input, { key: 'Enter' });
-    expect(onAddBucket).toHaveBeenNthCalledWith(1, 'Backlog');
+    await waitFor(() => expect(onAddBucket).toHaveBeenNthCalledWith(1, 'Backlog'));
 
     // Input stays open and is cleared, ready for the next bucket.
     expect(screen.getByLabelText(/new bucket name/i)).toBeInTheDocument();
@@ -50,11 +50,11 @@ describe('KanbanBoard', () => {
       target: { value: 'In progress' },
     });
     fireEvent.click(screen.getByRole('button', { name: /^add bucket$/i }));
-    expect(onAddBucket).toHaveBeenNthCalledWith(2, 'In progress');
+    await waitFor(() => expect(onAddBucket).toHaveBeenNthCalledWith(2, 'In progress'));
     expect(onAddBucket).toHaveBeenCalledTimes(2);
   });
 
-  it('trims whitespace and ignores empty submissions', () => {
+  it('trims whitespace and ignores empty submissions', async () => {
     const onAddBucket = vi.fn();
 
     render(
@@ -72,7 +72,7 @@ describe('KanbanBoard', () => {
 
     fireEvent.change(input, { target: { value: '  Review  ' } });
     fireEvent.keyDown(input, { key: 'Enter' });
-    expect(onAddBucket).toHaveBeenCalledWith('Review');
+    await waitFor(() => expect(onAddBucket).toHaveBeenCalledWith('Review'));
   });
 
   it('Escape closes the compose without submitting', () => {
@@ -92,6 +92,47 @@ describe('KanbanBoard', () => {
     expect(onAddBucket).not.toHaveBeenCalled();
     expect(screen.queryByLabelText(/new bucket name/i)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /add another bucket/i })).toBeInTheDocument();
+  });
+
+  it('shows an inline error and keeps compose open when name exceeds nameMaxLength', async () => {
+    const onAddBucket = vi.fn();
+
+    render(
+      <KanbanBoard nameMaxLength={120} onAddBucket={onAddBucket}>
+        <div />
+      </KanbanBoard>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /add another bucket/i }));
+    fireEvent.change(screen.getByLabelText(/new bucket name/i), {
+      target: { value: 'x'.repeat(121) },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /^add bucket$/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Bucket name cannot exceed 120 characters.',
+    );
+    expect(screen.getByLabelText(/new bucket name/i)).toBeInTheDocument();
+    expect(onAddBucket).not.toHaveBeenCalled();
+  });
+
+  it('shows an inline error when onAddBucket rejects', async () => {
+    render(
+      <KanbanBoard
+        onAddBucket={() => Promise.reject(new Error('Bucket name cannot exceed 120 characters.'))}
+      >
+        <div />
+      </KanbanBoard>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /add another bucket/i }));
+    fireEvent.change(screen.getByLabelText(/new bucket name/i), { target: { value: 'Too long' } });
+    fireEvent.click(screen.getByRole('button', { name: /^add bucket$/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Bucket name cannot exceed 120 characters.',
+    );
+    expect(screen.getByLabelText(/new bucket name/i)).toBeInTheDocument();
   });
 
   it('does NOT render the Add bucket trigger when onAddBucket is undefined (permission-degraded view)', () => {
@@ -130,7 +171,7 @@ describe('KanbanBoard', () => {
         </div>
       ));
 
-    it('scrolls the board to the end after the user adds a bucket and it arrives', () => {
+    it('scrolls the board to the end after the user adds a bucket and it arrives', async () => {
       stubScroll();
       const onAddBucket = vi.fn();
       const { rerender } = render(
@@ -144,7 +185,7 @@ describe('KanbanBoard', () => {
         target: { value: 'Bucket 7' },
       });
       fireEvent.keyDown(screen.getByLabelText(/new bucket name/i), { key: 'Enter' });
-      expect(onAddBucket).toHaveBeenCalledWith('Bucket 7');
+      await waitFor(() => expect(onAddBucket).toHaveBeenCalledWith('Bucket 7'));
 
       rerender(
         <KanbanBoard onAddBucket={onAddBucket} bucketCount={7}>
