@@ -5,6 +5,10 @@ import { setupServer } from 'msw/node';
 import type { PropsWithChildren } from 'react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { useCreateTask } from '../../../../src/hooks/mutations/create-task';
+import {
+  PlannerValidationError,
+  TASK_TITLE_TOO_LONG_MESSAGE,
+} from '../../../../src/lib/planner-api-errors';
 
 const server = setupServer();
 beforeAll(() => server.listen());
@@ -80,6 +84,35 @@ describe('useCreateTask', () => {
 
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(result.current.error?.message).toContain('bucket_full');
+  });
+
+  it('throws PlannerValidationError with a friendly title message on fieldErrors', async () => {
+    server.use(
+      http.post('/api/planner/v1/tasks', () =>
+        HttpResponse.json(
+          {
+            error: 'VALIDATION',
+            details: {
+              fieldErrors: {
+                title: ['Too big: expected string to have <=255 characters'],
+              },
+            },
+          },
+          { status: 400 },
+        ),
+      ),
+    );
+    const { Wrapper } = setup();
+    const { result } = renderHook(() => useCreateTask('p1'), { wrapper: Wrapper });
+
+    result.current.mutate({ plan_id: 'p1', title: 'x'.repeat(256) });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.error).toBeInstanceOf(PlannerValidationError);
+    expect(result.current.error?.message).toBe(TASK_TITLE_TOO_LONG_MESSAGE);
+    expect((result.current.error as PlannerValidationError).fieldErrors.title).toEqual([
+      TASK_TITLE_TOO_LONG_MESSAGE,
+    ]);
   });
 
   it('still resolves successfully when the dedup workflow returns 500', async () => {

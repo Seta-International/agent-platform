@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { KanbanColumn } from '../../../src/composites/kanban-column';
@@ -155,7 +155,7 @@ describe('<KanbanColumn> inline rename', () => {
 });
 
 describe('<KanbanColumn> quick-create submit', () => {
-  it('reveals the compose input on click and fires onCreateTask on Enter', () => {
+  it('reveals the compose input on click and fires onCreateTask on Enter', async () => {
     const onCreateTask = vi.fn();
     render(
       <KanbanColumn
@@ -173,8 +173,10 @@ describe('<KanbanColumn> quick-create submit', () => {
     expect(input).toBeInTheDocument();
     fireEvent.change(input, { target: { value: 'New' } });
     fireEvent.keyDown(input, { key: 'Enter' });
-    expect(onCreateTask).toHaveBeenCalledWith({ title: 'New' });
-    expect(screen.queryByPlaceholderText('Task title')).not.toBeInTheDocument();
+    await waitFor(() => expect(onCreateTask).toHaveBeenCalledWith({ title: 'New' }));
+    await waitFor(() =>
+      expect(screen.queryByPlaceholderText('Task title')).not.toBeInTheDocument(),
+    );
   });
 
   it('exposes Priority and Due chips inline (no "More options" disclosure)', () => {
@@ -195,7 +197,7 @@ describe('<KanbanColumn> quick-create submit', () => {
     expect(screen.queryByText('More options')).not.toBeInTheDocument();
   });
 
-  it('forwards due_at to onCreateTask', () => {
+  it('forwards due_at to onCreateTask', async () => {
     const onCreateTask = vi.fn();
     render(
       <KanbanColumn
@@ -214,7 +216,7 @@ describe('<KanbanColumn> quick-create submit', () => {
     });
     fireEvent.change(screen.getByLabelText('Due'), { target: { value: '2026-06-15' } });
     fireEvent.click(screen.getByRole('button', { name: 'Add' }));
-    expect(onCreateTask).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(onCreateTask).toHaveBeenCalledTimes(1));
     expect(onCreateTask).toHaveBeenCalledWith({ title: 'With details', due_at: '2026-06-15' });
   });
 
@@ -244,7 +246,7 @@ describe('<KanbanColumn> quick-create submit', () => {
     }
   });
 
-  it('omits default-valued extras from the payload', () => {
+  it('omits default-valued extras from the payload', async () => {
     const onCreateTask = vi.fn();
     render(
       <KanbanColumn
@@ -260,6 +262,54 @@ describe('<KanbanColumn> quick-create submit', () => {
     fireEvent.click(screen.getByText('+ Add a task'));
     fireEvent.change(screen.getByPlaceholderText('Task title'), { target: { value: 'Plain' } });
     fireEvent.keyDown(screen.getByPlaceholderText('Task title'), { key: 'Enter' });
-    expect(onCreateTask).toHaveBeenCalledWith({ title: 'Plain' });
+    await waitFor(() => expect(onCreateTask).toHaveBeenCalledWith({ title: 'Plain' }));
+  });
+
+  it('shows an inline error and keeps compose open when title exceeds titleMaxLength', async () => {
+    const onCreateTask = vi.fn();
+    render(
+      <KanbanColumn
+        name="Todo"
+        count={0}
+        titleMaxLength={255}
+        onCreateTask={onCreateTask}
+        droppable={{}}
+        draggableHandle={{}}
+      >
+        <span />
+      </KanbanColumn>,
+    );
+    fireEvent.click(screen.getByText('+ Add a task'));
+    const longTitle = 'x'.repeat(256);
+    fireEvent.change(screen.getByPlaceholderText('Task title'), { target: { value: longTitle } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Task title cannot exceed 255 characters.',
+    );
+    expect(screen.getByPlaceholderText('Task title')).toBeInTheDocument();
+    expect(onCreateTask).not.toHaveBeenCalled();
+  });
+
+  it('shows an inline error when onCreateTask rejects', async () => {
+    render(
+      <KanbanColumn
+        name="Todo"
+        count={0}
+        onCreateTask={() => Promise.reject(new Error('Task title cannot exceed 255 characters.'))}
+        droppable={{}}
+        draggableHandle={{}}
+      >
+        <span />
+      </KanbanColumn>,
+    );
+    fireEvent.click(screen.getByText('+ Add a task'));
+    fireEvent.change(screen.getByPlaceholderText('Task title'), { target: { value: 'Too long' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Task title cannot exceed 255 characters.',
+    );
+    expect(screen.getByPlaceholderText('Task title')).toBeInTheDocument();
   });
 });

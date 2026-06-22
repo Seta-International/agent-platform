@@ -18,6 +18,7 @@ import { useMoveTask } from '../hooks/mutations/move-task';
 import { useUpdateBucket } from '../hooks/mutations/update-bucket';
 import { useBoardKeyboard } from '../hooks/use-board-keyboard';
 import { formatDueShort } from '../lib/format-due-short';
+import { BUCKET_NAME_MAX_LENGTH, TASK_TITLE_MAX_LENGTH } from '../lib/planner-api-errors';
 import { computeNextFocus } from '../state/compute-next-focus';
 import { computeTaskMove } from '../state/compute-task-move';
 import { useRecentlyMovedTasks } from '../state/recently-moved-tasks';
@@ -265,12 +266,13 @@ export function PlanPage({
           {(provided) => (
             <KanbanBoard
               bucketCount={buckets.length}
-              onAddBucket={(name) =>
-                createBucket.mutate({
+              nameMaxLength={BUCKET_NAME_MAX_LENGTH}
+              onAddBucket={async (name) => {
+                await createBucket.mutateAsync({
                   name,
                   after_bucket_id: buckets[buckets.length - 1]?.id,
-                })
-              }
+                });
+              }}
               rootDroppable={{
                 ref: provided.innerRef,
                 // Why: @hello-pangea/dnd uses string-indexed data-rfd-* keys that don't satisfy React's HTMLAttributes shape.
@@ -285,9 +287,14 @@ export function PlanPage({
                       name={b.name}
                       count={(activeByBucket.get(b.id) ?? []).length}
                       status={statusForBucketName(b.name)}
-                      onCreateTask={(input) =>
-                        createTask.mutate({ plan_id: plan.id, bucket_id: b.id, ...input })
-                      }
+                      titleMaxLength={TASK_TITLE_MAX_LENGTH}
+                      onCreateTask={async (input) => {
+                        await createTask.mutateAsync({
+                          plan_id: plan.id,
+                          bucket_id: b.id,
+                          ...input,
+                        });
+                      }}
                       onRename={(newName) =>
                         updateBucket.mutate({
                           bucket_id: b.id,

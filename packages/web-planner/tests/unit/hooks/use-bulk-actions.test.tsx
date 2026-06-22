@@ -3,8 +3,9 @@ import { act, renderHook } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import type { ReactNode } from 'react';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useBulkActions } from '../../../src/hooks/use-bulk-actions';
+import { plannerKeys } from '../../../src/state/query-keys';
 
 const server = setupServer();
 beforeAll(() => server.listen());
@@ -80,6 +81,62 @@ describe('useBulkActions', () => {
 
     expect(r.ok).toBe(2);
     expect(r.failed).toBe(1);
+    expect(r.succeededIds).toEqual(['t1', 't2']);
     expect(r.failedPermissions).toEqual([{ taskId: 't3', permission: 'planner.task.update' }]);
+  });
+
+  it('invalidates plan task queries after successful bulk updates', async () => {
+    server.use(
+      http.post('/api/planner/v1/tasks/:id/move', () =>
+        HttpResponse.json({
+          id: 't1',
+          tenant_id: 'ten1',
+          plan_id: 'p1',
+          bucket_id: 'b2',
+          title: 'x',
+          description: null,
+          priority_number: 5,
+          percent_complete: 0,
+          is_deferred: false,
+          preview_type: 'automatic',
+          review_state: null,
+          start_at: null,
+          due_at: null,
+          order_hint: 'a',
+          assignee_priority: null,
+          external_source: 'native',
+          external_id: null,
+          external_etag: null,
+          external_synced_at: null,
+          created_by: 'u1',
+          created_at: '2026-05-21',
+          updated_at: '2026-05-21',
+          deleted_at: null,
+          version: 2,
+        }),
+      ),
+    );
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+    );
+    const { result } = renderHook(() => useBulkActions('p1'), { wrapper });
+
+    await act(async () => {
+      await result.current.bulkMove({
+        tasks: [{ id: 't1', expected_version: 1 }],
+        to_bucket_id: 'b2',
+      });
+    });
+
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: [...plannerKeys.plan('p1'), 'tasks'],
+    });
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: plannerKeys.planCalendar('p1'),
+    });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: plannerKeys.task('t1') });
   });
 });

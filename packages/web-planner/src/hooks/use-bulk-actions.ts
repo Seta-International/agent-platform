@@ -1,4 +1,6 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { PlannerClientError, plannerClient } from '../api/planner-client';
+import { plannerKeys } from '../state/query-keys';
 
 interface BulkMoveInput {
   tasks: Array<{ id: string; expected_version: number }>;
@@ -23,6 +25,7 @@ export interface BulkResult {
   ok: number;
   failed: number;
   failedPermissions: Array<{ taskId: string; permission: string }>;
+  succeededIds: string[];
 }
 
 function extractPermission(err: unknown): string | undefined {
@@ -39,22 +42,36 @@ function aggregate(results: PromiseSettledResult<unknown>[], taskIds: string[]):
   let ok = 0;
   let failed = 0;
   const failedPermissions: BulkResult['failedPermissions'] = [];
+  const succeededIds: string[] = [];
   for (const [i, r] of results.entries()) {
     const taskId = taskIds[i];
     if (!taskId) continue;
     if (r.status === 'fulfilled') {
       ok += 1;
+      succeededIds.push(taskId);
     } else {
       failed += 1;
       const permission = extractPermission(r.reason);
       if (permission) failedPermissions.push({ taskId, permission });
     }
   }
-  return { ok, failed, failedPermissions };
+  return { ok, failed, failedPermissions, succeededIds };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function useBulkActions(_planId: string) {
+export function useBulkActions(planId: string) {
+  const qc = useQueryClient();
+
+  async function refreshAfterBulk(succeededIds: string[]) {
+    if (succeededIds.length === 0) return;
+    await qc.invalidateQueries({ queryKey: [...plannerKeys.plan(planId), 'tasks'] });
+    await qc.invalidateQueries({ queryKey: plannerKeys.planCalendar(planId) });
+    await Promise.all(
+      succeededIds.flatMap((id) => [
+        qc.invalidateQueries({ queryKey: plannerKeys.task(id) }),
+        qc.invalidateQueries({ queryKey: plannerKeys.taskEvents(id) }),
+      ]),
+    );
+  }
   async function bulkMove(input: BulkMoveInput): Promise<BulkResult> {
     const results = await Promise.allSettled(
       input.tasks.map((t) =>
@@ -65,17 +82,21 @@ export function useBulkActions(_planId: string) {
         }),
       ),
     );
-    return aggregate(
+    const out = aggregate(
       results,
       input.tasks.map((t) => t.id),
     );
+    await refreshAfterBulk(out.succeededIds);
+    return out;
   }
 
   async function bulkAssign(input: BulkAssignInput): Promise<BulkResult> {
     const results = await Promise.allSettled(
       input.tasks.map((id) => plannerClient.assignTask({ task_id: id, user_id: input.user_id })),
     );
-    return aggregate(results, input.tasks);
+    const out = aggregate(results, input.tasks);
+    await refreshAfterBulk(out.succeededIds);
+    return out;
   }
 
   async function bulkSetDue(input: BulkSetDueInput): Promise<BulkResult> {
@@ -88,10 +109,12 @@ export function useBulkActions(_planId: string) {
         }),
       ),
     );
-    return aggregate(
+    const out = aggregate(
       results,
       input.tasks.map((t) => t.id),
     );
+    await refreshAfterBulk(out.succeededIds);
+    return out;
   }
 
   async function bulkDelete(input: BulkDeleteInput): Promise<BulkResult> {
@@ -100,10 +123,12 @@ export function useBulkActions(_planId: string) {
         plannerClient.deleteTask({ task_id: t.id, expected_version: t.expected_version }),
       ),
     );
-    return aggregate(
+    const out = aggregate(
       results,
       input.tasks.map((t) => t.id),
     );
+    await refreshAfterBulk(out.succeededIds);
+    return out;
   }
 
   return { bulkMove, bulkAssign, bulkSetDue, bulkDelete };
