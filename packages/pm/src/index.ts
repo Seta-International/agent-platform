@@ -34,6 +34,7 @@ export {
   upsertStaffingPlanLine,
 } from './backend/domain/staffing-plan.ts';
 export { submitCharter } from './backend/domain/submit-charter.ts';
+export { updateAllocation } from './backend/domain/update-allocation.ts';
 export { withdrawCharter } from './backend/domain/withdraw-charter.ts';
 export type {
   CreateAccountInput,

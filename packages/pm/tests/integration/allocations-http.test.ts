@@ -68,12 +68,40 @@ describe('pm allocations HTTP', () => {
         const get = await app.request(`/api/pm/v1/projects/${projectId}/allocations`);
         expect(get.status).toBe(200);
         const body = (await get.json()) as {
-          allocations: Array<{ worker_id: string; planned_pct: number; role: string }>;
+          allocations: Array<{
+            allocation_id: string;
+            worker_id: string;
+            planned_pct: number;
+            role: string;
+          }>;
         };
         expect(body.allocations).toHaveLength(1);
         expect(body.allocations[0]!.worker_id).toBe(worker);
         expect(body.allocations[0]!.planned_pct).toBe(80);
         expect(body.allocations[0]!.role).toBe('Developer');
+
+        // PATCH the row inline (role + RA%), then DELETE it.
+        const allocationId = body.allocations[0]!.allocation_id;
+        const patch = await app.request(`/api/pm/v1/allocations/${allocationId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ role: 'Tech Lead', planned_pct: 50 }),
+        });
+        expect(patch.status).toBe(200);
+        const afterPatch = (await (
+          await app.request(`/api/pm/v1/projects/${projectId}/allocations`)
+        ).json()) as { allocations: Array<{ role: string; planned_pct: number }> };
+        expect(afterPatch.allocations[0]!.role).toBe('Tech Lead');
+        expect(afterPatch.allocations[0]!.planned_pct).toBe(50);
+
+        const del = await app.request(`/api/pm/v1/allocations/${allocationId}`, {
+          method: 'DELETE',
+        });
+        expect(del.status).toBe(204);
+        const afterDelete = (await (
+          await app.request(`/api/pm/v1/projects/${projectId}/allocations`)
+        ).json()) as { allocations: unknown[] };
+        expect(afterDelete.allocations).toHaveLength(0);
       } finally {
         resetPmDb();
         resetCoreDb();

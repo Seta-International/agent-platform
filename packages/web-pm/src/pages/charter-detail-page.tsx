@@ -76,6 +76,7 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
   const canPmo = usePermission('pm.charter.pmo_signoff');
   const canBod = usePermission('pm.charter.bod_approve');
   const canSubmit = usePermission('pm.charter.submit');
+  const canManageProject = usePermission('pm.project.manage');
   const { user_id: currentUserId } = useSession();
 
   const [rejecting, setRejecting] = useState(false);
@@ -309,6 +310,7 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
             projectId={c.project_id}
             dateFrom={c.date_from}
             dateTo={c.date_to}
+            canManage={canManageProject}
           />
         )}
       </div>

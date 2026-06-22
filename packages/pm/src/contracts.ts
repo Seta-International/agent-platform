@@ -135,3 +135,13 @@ export const createAllocationInput = z.object({
   status: z.enum(['placeholder', 'tentative', 'committed']).optional().default('placeholder'),
 });
 export type CreateAllocationInput = z.input<typeof createAllocationInput>;
+
+export const updateAllocationInput = z.object({
+  expected_version: z.number().int().positive().optional(),
+  role: z.string().min(1).nullable().optional(),
+  planned_pct: z.number().min(0).max(100).nullable().optional(),
+  status: z.enum(['placeholder', 'tentative', 'committed']).optional(),
+  date_from: z.string().nullable().optional(),
+  date_to: z.string().nullable().optional(),
+});
+export type UpdateAllocationInput = z.infer<typeof updateAllocationInput>;

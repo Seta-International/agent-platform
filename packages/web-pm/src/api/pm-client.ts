@@ -449,6 +449,25 @@ export async function createAllocation(body: {
   return handleResponse<{ allocation_id: string }>(res);
 }
 
+export async function updateAllocation(
+  allocationId: string,
+  patch: {
+    role?: string;
+    planned_pct?: number;
+    status?: 'placeholder' | 'tentative' | 'committed';
+    date_from?: string | null;
+    date_to?: string | null;
+  },
+): Promise<{ version: number }> {
+  const res = await fetch(`/api/pm/v1/allocations/${allocationId}`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+  return handleResponse<{ version: number }>(res);
+}
+
 export async function removeAllocation(allocationId: string): Promise<void> {
   const res = await fetch(`/api/pm/v1/allocations/${allocationId}`, {
     method: 'DELETE',
