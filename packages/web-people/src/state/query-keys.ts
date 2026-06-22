@@ -7,4 +7,5 @@ export const peopleKeys = {
   history: (id: string) => [...peopleKeys.all, 'worker', id, 'history'] as const,
   orgStructure: () => [...peopleKeys.all, 'org', 'structure'] as const,
   orgDelivery: () => [...peopleKeys.all, 'org', 'delivery'] as const,
+  orgCompany: () => [...peopleKeys.all, 'org', 'company'] as const,
 };

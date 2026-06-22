@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fetchOrgDelivery, fetchOrgStructure } from '../../src/api/org-client.ts';
+import { fetchOrgCompany, fetchOrgDelivery, fetchOrgStructure } from '../../src/api/org-client.ts';
 
 describe('org-client', () => {
   const mockFetch = vi.fn();
@@ -26,6 +26,16 @@ describe('org-client', () => {
     expect(result).toEqual({ units });
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toBe('/api/people/v1/org/structure');
+    expect(init.credentials).toBe('include');
+  });
+
+  it('fetchOrgCompany GETs the endpoint and parses { nodes }', async () => {
+    const nodes = [{ id: 'unit:u1', parent_id: null, kind: 'executive', label: 'Executive' }];
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ nodes }) });
+    const result = await fetchOrgCompany();
+    expect(result).toEqual({ nodes });
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('/api/people/v1/org/company');
     expect(init.credentials).toBe('include');
   });
 
