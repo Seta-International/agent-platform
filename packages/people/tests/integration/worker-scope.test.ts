@@ -14,7 +14,7 @@ import {
 import { tenantScoped } from '../../src/backend/db/scope.ts';
 import { createWorker } from '../../src/backend/domain/create-worker.ts';
 import { buildWorkerScope } from '../../src/backend/domain/worker-scope.ts';
-import { buildSession, type SeededTenant, seedTenant } from '../helpers.ts';
+import { buildSession, type SeededTenant, seedOrgUnit, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -26,12 +26,12 @@ async function makePersona(
   t: SeededTenant,
   name: string,
   userId: string,
-  managerId: string | null,
+  orgUnitId: string | null,
 ): Promise<string> {
   const { worker_id } = await createWorker({
     session: t.adminSession,
     full_name: name,
-    manager_id: managerId,
+    org_unit_id: orgUnitId,
   } as never);
   await peopleDb().update(person).set({ user_id: userId }).where(eq(person.id, worker_id));
   return worker_id;
@@ -76,9 +76,27 @@ async function buildGraph(pool: Pool): Promise<Graph> {
   const userL = crypto.randomUUID();
   const userU = crypto.randomUUID();
 
+  // Unit chain: U1(head M) ⊃ U2(head R1) ⊃ U3(head R2)
   const M = await makePersona(t, 'Manager M', userM, null);
-  const R1 = await makePersona(t, 'Report R1', crypto.randomUUID(), M);
-  const R2 = await makePersona(t, 'Report R2', crypto.randomUUID(), R1);
+  const u1 = await seedOrgUnit({
+    tenant_id: t.tenant_id,
+    name: 'U1',
+    kind: 'operation',
+    head_worker_id: M,
+  });
+  await peopleDb().update(worker).set({ org_unit_id: u1 }).where(eq(worker.person_id, M));
+
+  const R1 = await makePersona(t, 'Report R1', crypto.randomUUID(), null);
+  const u2 = await seedOrgUnit({
+    tenant_id: t.tenant_id,
+    name: 'U2',
+    kind: 'function',
+    parent_id: u1,
+    head_worker_id: R1,
+  });
+  await peopleDb().update(worker).set({ org_unit_id: u2 }).where(eq(worker.person_id, R1));
+
+  const R2 = await makePersona(t, 'Report R2', crypto.randomUUID(), u2);
   const AM = await makePersona(t, 'Account Mgr AM', userAM, null);
   const W_am = await makePersona(t, 'Worker on Account', crypto.randomUUID(), null);
   const L = await makePersona(t, 'Lead L', userL, null);
@@ -246,14 +264,27 @@ describe('buildWorkerScope', () => {
         const tA = await seedTenant(pool);
         const tB = await seedTenant(pool);
 
-        // Tenant A: manager M_A with a report R_A.
+        // Tenant A: manager M_A heads unit U_A; R_A is a member (reports to M_A).
         const userMA = crypto.randomUUID();
         const M_A = await makePersona(tA, 'Manager M_A', userMA, null);
-        const R_A = await makePersona(tA, 'Report R_A', crypto.randomUUID(), M_A);
+        const uA = await seedOrgUnit({
+          tenant_id: tA.tenant_id,
+          name: 'U_A',
+          kind: 'operation',
+          head_worker_id: M_A,
+        });
+        await peopleDb().update(worker).set({ org_unit_id: uA }).where(eq(worker.person_id, M_A));
+        const R_A = await makePersona(tA, 'Report R_A', crypto.randomUUID(), uA);
 
-        // Tenant B: X_B whose manager_id is M_A's person_id (cross-tenant chaining vector).
+        // Tenant B: unit U_B headed by M_A's person_id with member X_B (cross-tenant chaining vector).
         const X_B = await makePersona(tB, 'Cross Worker X_B', crypto.randomUUID(), null);
-        await peopleDb().update(worker).set({ manager_id: M_A }).where(eq(worker.person_id, X_B));
+        const uB = await seedOrgUnit({
+          tenant_id: tB.tenant_id,
+          name: 'U_B',
+          kind: 'operation',
+          head_worker_id: M_A,
+        });
+        await peopleDb().update(worker).set({ org_unit_id: uB }).where(eq(worker.person_id, X_B));
 
         // Tenant B: an allocation referencing M_A as both AM and lead, plus a B-tenant account
         // managed by M_A — exercises tenant scoping of the AM/lead subqueries.

@@ -8,6 +8,8 @@ import {
   resolvePermissions,
 } from '@seta/shared-rbac';
 import type { Pool } from 'pg';
+import { peopleDb } from '../src/backend/db/client.ts';
+import { orgUnit } from '../src/backend/db/schema.ts';
 
 const _registry = buildRegistry(inventoryToManifests(INVENTORY));
 function permsFor(roles: string[]): ReadonlySet<string> {
@@ -74,6 +76,27 @@ export function buildSession(opts: {
     built_at: new Date(),
     invalidated_at: null,
   };
+}
+
+export async function seedOrgUnit(opts: {
+  tenant_id: string;
+  name: string;
+  kind: string;
+  parent_id?: string | null;
+  head_worker_id?: string | null;
+}): Promise<string> {
+  const [u] = await peopleDb()
+    .insert(orgUnit)
+    .values({
+      tenant_id: opts.tenant_id,
+      name: opts.name,
+      kind: opts.kind,
+      parent_id: opts.parent_id ?? null,
+      head_worker_id: opts.head_worker_id ?? null,
+      sort: 0,
+    })
+    .returning();
+  return u!.id;
 }
 
 export async function readEvents(
