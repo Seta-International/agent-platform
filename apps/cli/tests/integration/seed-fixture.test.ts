@@ -3,6 +3,7 @@ import { startDispatcher } from '@seta/core/runtime';
 import { resetCoreDb } from '@seta/core/testing';
 import { resetHiringDb } from '@seta/hiring/testing';
 import { resetIdentityDb } from '@seta/identity/testing';
+import { getOrgStructure } from '@seta/people';
 import { resetPeopleDb } from '@seta/people/testing';
 import { resetPlannerDb } from '@seta/planner/testing';
 import { resetPmDb } from '@seta/pm/testing';
@@ -11,6 +12,7 @@ import { withTestDb } from '@seta/shared-testing';
 import { sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { buildMigrationRegistry } from '../../src/commands/migrate.ts';
+import { buildAdminSession } from '../../src/commands/seed.ts';
 import { seedFixtureCommand } from '../../src/commands/seed-fixture/index.ts';
 
 const MINI_DIR = new URL('./fixtures/mini', import.meta.url).pathname;
@@ -49,6 +51,7 @@ interface Counts {
   skills: number;
   candidate_skills: number;
   requisition_skills: number;
+  org_units: number;
   events: number;
 }
 
@@ -70,6 +73,7 @@ async function getCounts(): Promise<Counts> {
       (SELECT COUNT(*) FROM core.skill)::int AS skills,
       (SELECT COUNT(*) FROM hiring.candidate_skill)::int AS candidate_skills,
       (SELECT COUNT(*) FROM hiring.requisition_skill)::int AS requisition_skills,
+      (SELECT COUNT(*) FROM people.org_unit)::int AS org_units,
       (SELECT COUNT(*) FROM core.events)::int AS events
   `);
   return r.rows[0] as Counts;
@@ -143,6 +147,22 @@ describe('seed-fixture end-to-end', () => {
         expect(before.requisition_skills).toBeGreaterThan(0);
         expect(before.events).toBeGreaterThan(0);
 
+        // Org spine: Executive + Operation + 6 functions + Delivery + PMO = 10 units.
+        expect(before.org_units).toBe(10);
+        const adminSession = await buildAdminSession(
+          (
+            await coreDb().execute(
+              sql`SELECT id FROM core.tenants WHERE slug = 'seta-international' LIMIT 1`,
+            )
+          ).rows[0]!.id as string,
+          'admin@seta-international.vn',
+        );
+        const { units } = await getOrgStructure(adminSession);
+        expect(units.find((u) => u.kind === 'executive')?.head).toBeTruthy();
+        expect(units.filter((u) => u.kind === 'function')).toHaveLength(6);
+        expect(units.some((u) => u.kind === 'delivery')).toBe(true);
+        expect(units.some((u) => u.kind === 'pmo')).toBe(true);
+
         // Second run — must be idempotent
         await seedFixtureCommand({
           tenant: 'seta-international',
@@ -177,6 +197,7 @@ describe('seed-fixture end-to-end', () => {
         expect(after.skills).toEqual(before.skills);
         expect(after.candidate_skills).toEqual(before.candidate_skills);
         expect(after.requisition_skills).toEqual(before.requisition_skills);
+        expect(after.org_units).toEqual(before.org_units);
       } finally {
         await dispatcher.shutdown(5_000);
         await closePools();

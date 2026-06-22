@@ -37,3 +37,15 @@ export const editWorkerInput = z.object({
   patch: editWorkerPatch,
 });
 export type EditWorkerInput = z.infer<typeof editWorkerInput>;
+
+export const orgUnitKind = z.enum(['executive', 'operation', 'function', 'delivery', 'pmo']);
+export type OrgUnitKind = z.infer<typeof orgUnitKind>;
+
+export const createOrgUnitInput = z.object({
+  name: z.string().min(1),
+  kind: orgUnitKind,
+  parent_id: z.string().uuid().nullable().optional(),
+  head_worker_id: z.string().uuid().nullable().optional(),
+  sort: z.number().int().optional(),
+});
+export type CreateOrgUnitInput = z.infer<typeof createOrgUnitInput>;

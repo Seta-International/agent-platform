@@ -1,3 +1,4 @@
+export { createOrgUnit } from './backend/domain/create-org-unit.ts';
 export { createWorker } from './backend/domain/create-worker.ts';
 export { editWorker } from './backend/domain/edit-worker.ts';
 export type { DeliveryAccount, OrgUnitNode } from './backend/domain/org-structure.ts';

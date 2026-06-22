@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
 import { worker } from '../../src/backend/db/schema.ts';
+import { createOrgUnit } from '../../src/backend/domain/create-org-unit.ts';
 import { createWorker } from '../../src/backend/domain/create-worker.ts';
 import { getOrgStructure } from '../../src/backend/domain/org-structure.ts';
 import { seedOrgUnit, seedTenant } from '../helpers.ts';
@@ -50,6 +51,41 @@ describe('getOrgStructure', () => {
         expect(units.find((u) => u.id === exec)!.head?.full_name).toBe('CEO');
         expect(opsNode.parent_id).toBe(exec);
         expect(opsNode.members.map((x) => x.person_id)).toContain(m);
+      } finally {
+        resetPeopleDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('createOrgUnit persists a unit with kind/parent/head via the public surface', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const { worker_id: head } = await createWorker({
+          session: t.adminSession,
+          full_name: 'Head',
+        } as never);
+        const { org_unit_id: root } = await createOrgUnit({
+          session: t.adminSession,
+          name: 'Executive',
+          kind: 'executive',
+          head_worker_id: head,
+        });
+        const { org_unit_id: child } = await createOrgUnit({
+          session: t.adminSession,
+          name: 'PMO',
+          kind: 'pmo',
+          parent_id: root,
+        });
+
+        const { units } = await getOrgStructure(t.adminSession);
+        expect(units.find((u) => u.id === root)!.kind).toBe('executive');
+        expect(units.find((u) => u.id === child)!.parent_id).toBe(root);
       } finally {
         resetPeopleDb();
         resetCoreDb();
