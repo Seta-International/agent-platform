@@ -21,7 +21,9 @@ export async function withdrawCharter(input: {
     .where(and(eq(charter.id, charter_id), tenantScoped(charter.tenant_id, session)))
     .limit(1);
   if (!c) throw new PmError('NOT_FOUND', 'charter not found');
-  if (c.status !== 'submitted') throw new PmError('CONFLICT', 'charter is not withdrawable');
+  if (c.status !== 'submitted' && c.status !== 'pmo_approved') {
+    throw new PmError('CONFLICT', 'charter is not withdrawable');
+  }
   if (c.submitted_by_user_id !== session.user_id) {
     throw new PmError('FORBIDDEN', 'only the submitter can withdraw this charter');
   }
@@ -40,7 +42,7 @@ export async function withdrawCharter(input: {
           and(
             eq(charter.id, charter_id),
             eq(charter.version, c.version),
-            eq(charter.status, 'submitted'),
+            eq(charter.status, c.status),
           ),
         )
         .returning({ id: charter.id });

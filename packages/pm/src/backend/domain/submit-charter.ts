@@ -60,9 +60,9 @@ export async function submitCharter(
         payload: { charter_id: row.id, tenant_id: session.tenant_id, account_id: input.account_id },
       });
 
-      // (G) notify approvers (pm.strategic) — minus the submitter.
+      // (G) notify the PMO reviewers (first gate) — minus the submitter.
       const approvers = await listUsers(session.tenant_id, {
-        role_slug: 'pm.strategic',
+        role_slug: 'pm.pmo',
         limit: 500,
         offset: 0,
       });

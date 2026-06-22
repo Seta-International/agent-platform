@@ -6,7 +6,7 @@ import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { pmDb, resetPmDb } from '../../src/backend/db/client.ts';
 import { charter } from '../../src/backend/db/schema.ts';
-import { editCharter, submitCharter, withdrawCharter } from '../../src/index.ts';
+import { editCharter, pmoSignOffCharter, submitCharter, withdrawCharter } from '../../src/index.ts';
 import { buildSession, readEvents, seedTenant } from '../helpers.ts';
 
 const ctx = {
@@ -154,27 +154,25 @@ describe('submitCharter / editCharter / withdrawCharter', () => {
     });
   });
 
-  it('submit emits notification.requested when a second pm.strategic user exists', async () => {
+  it('submit emits notification.requested targeting pm.pmo reviewers', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPmDb();
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
-        // Seed a second pm.strategic user so recipients is non-empty
-        const secondEmail = `strategic2-${crypto.randomUUID().slice(0, 8)}@example.test`;
-        const secondResult = await createUser(
+        // Seed a pm.pmo reviewer so recipients is non-empty
+        const pmoEmail = `pmo-${crypto.randomUUID().slice(0, 8)}@example.test`;
+        const pmoResult = await createUser(
           {
             tenant_id: t.tenant_id,
-            email: secondEmail,
-            name: 'Strategic User 2',
+            email: pmoEmail,
+            name: 'PMO Reviewer',
             password: 'correct-horse-battery-staple',
-            initial_role: { role_slug: 'pm.strategic', scope_type: 'tenant', scope_id: null },
+            initial_role: { role_slug: 'pm.pmo', scope_type: 'tenant', scope_id: null },
           },
           { type: 'cli', user_id: null },
         );
-        // suppress unused warning
-        void secondResult;
 
         const accountId = await seedAccount(pool, t.tenant_id);
         await submitCharter({
@@ -185,6 +183,8 @@ describe('submitCharter / editCharter / withdrawCharter', () => {
         });
         const notifEvents = await readEvents(pool, t.tenant_id, 'notification.requested');
         expect(notifEvents.length).toBeGreaterThan(0);
+        const recipientLists = notifEvents.map((e) => e.payload.user_ids as string[]);
+        expect(recipientLists.some((ids) => ids?.includes(pmoResult.user_id))).toBe(true);
       } finally {
         resetPmDb();
         resetCoreDb();
@@ -212,6 +212,49 @@ describe('submitCharter / editCharter / withdrawCharter', () => {
         const [c] = await pmDb().select().from(charter).where(eq(charter.id, charter_id));
         expect(c?.status).toBe('withdrawn');
         expect(await readEvents(pool, t.tenant_id, 'pm.charter.withdrawn')).toHaveLength(1);
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('submitter can withdraw a pmo_approved charter', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const pmoEmail = `pmo-${crypto.randomUUID().slice(0, 8)}@example.test`;
+        const pmoResult = await createUser(
+          {
+            tenant_id: t.tenant_id,
+            email: pmoEmail,
+            name: 'PMO',
+            password: 'correct-horse-battery-staple',
+            initial_role: { role_slug: 'pm.pmo', scope_type: 'tenant', scope_id: null },
+          },
+          { type: 'cli', user_id: null },
+        );
+        const pmo = buildSession({
+          tenant_id: t.tenant_id,
+          user_id: pmoResult.user_id,
+          email: pmoEmail,
+          roles: ['pm.pmo'],
+        });
+        const accountId = await seedAccount(pool, t.tenant_id);
+        const { charter_id } = await submitCharter({
+          account_id: accountId,
+          name: 'WithdrawAfterPmo',
+          pm_worker_id: crypto.randomUUID(),
+          session: t.adminSession,
+        });
+        await pmoSignOffCharter({ charter_id, session: pmo });
+        await withdrawCharter({ charter_id, session: t.adminSession });
+        const [c] = await pmDb().select().from(charter).where(eq(charter.id, charter_id));
+        expect(c?.status).toBe('withdrawn');
       } finally {
         resetPmDb();
         resetCoreDb();
