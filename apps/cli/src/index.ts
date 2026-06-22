@@ -241,10 +241,10 @@ program
 program
   .command('seed')
   .description(
-    'Seed the cross-module dev fixture (tenant + admin, people, PM, planner, hiring) from the fixtures/seta workbook. Auto-creates the tenant + admin; degrades to tenant + admin only when the gitignored workbook is absent. Idempotent.',
+    'Seed the cross-module dev fixture (tenant + admin, people, PM, planner, hiring) from the private/ workbook. Auto-creates the tenant + admin; degrades to tenant + admin only when the gitignored workbook is absent. Idempotent.',
   )
   .requiredOption('--tenant <slug>', 'tenant slug', 'seta-international')
-  .option('--dir <dir>', 'fixtures dir', 'fixtures/seta')
+  .option('--dir <dir>', 'fixture workbook dir', 'private')
   .option('--admin-email <email>', 'admin email', 'admin@seta-international.vn')
   .option('--password <pw>', 'default password for seeded logins', 'ChangeMe@2026')
   .action(async (o: { tenant: string; dir: string; adminEmail: string; password?: string }) => {

@@ -87,4 +87,4 @@ apps/web/.tanstack.idea/
 apps/cli/seed/data/employees.csv
 
 # Real employee fixture workbook (real names/emails/ids — never committed)
-fixtures/seta/
+private/

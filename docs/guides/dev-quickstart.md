@@ -55,7 +55,7 @@ A fresh database has **zero tenants and zero users**, and there is no self-signu
 pnpm db:seed
 ```
 
-Creates the `seta-international` tenant + admin, then seeds the full cross-module fixture (People, accounts, projects, allocations, planner boards, hiring pipeline, plus injected edge states) from the `fixtures/seta/seta-fixture.xlsx` workbook. That workbook holds real employee data and is gitignored, so a fresh clone won't have it — the seed then provisions only the tenant + admin and logs a warning. Re-runs are idempotent (zero new rows).
+Creates the `seta-international` tenant + admin, then seeds the full cross-module fixture (People, accounts, projects, allocations, planner boards, hiring pipeline, plus injected edge states) from the `private/seta-fixture.xlsx` workbook. That workbook holds real employee data and is gitignored, so a fresh clone won't have it — the seed then provisions only the tenant + admin and logs a warning. Re-runs are idempotent (zero new rows).
 
 Sign in as the admin `admin@seta-international.vn` with password `ChangeMe@2026`.
 
@@ -110,17 +110,17 @@ Full command list: `pnpm -F @seta/cli exec tsx src/index.ts --help`. Other usefu
 
 ## Full dev fixture (every module)
 
-`pnpm db:seed` (above) drives every module's public create surface from a single gitignored workbook — `fixtures/seta/seta-fixture.xlsx`, sheets `Employees`/`Projects`/`Allocations`/`Leadership` — so a coherent cross-module tenant (accounts, projects, per-worker allocations, planner boards, hiring pipeline, plus injected edge states: deactivated/no-portal/on-hold/over-allocated) materializes with events, audit, read-model projections, and notifications all populating naturally.
+`pnpm db:seed` (above) drives every module's public create surface from a single gitignored workbook — `private/seta-fixture.xlsx`, sheets `Employees`/`Projects`/`Allocations`/`Leadership` — so a coherent cross-module tenant (accounts, projects, per-worker allocations, planner boards, hiring pipeline, plus injected edge states: deactivated/no-portal/on-hold/over-allocated) materializes with events, audit, read-model projections, and notifications all populating naturally.
 
 ```bash
-# Private (PII): obtain fixtures/seta/seta-fixture.xlsx out-of-band — it is shared
-# privately between devs and never committed (the whole fixtures/seta/ dir is gitignored).
+# Private (PII): obtain private/seta-fixture.xlsx out-of-band — it is shared
+# privately between devs and never committed (the whole private/ dir is gitignored).
 
 # on a fresh DB: drop → up → migrate → seed (creates the tenant + admin itself)
 pnpm db:down && pnpm db:up && pnpm db:migrate && pnpm db:seed
 ```
 
-`db:seed` also seeds the core skill catalog (categories + skills) and attaches skills to candidates/requisitions. The seed is idempotent — re-running it adds zero rows. `fixtures/seta/` is gitignored; it never enters the repo. Knowledge files and notification rows are intentionally not seeded directly: they populate through the real upload/scan pipeline and the async event subscriber when the worker runs.
+`db:seed` also seeds the core skill catalog (categories + skills) and attaches skills to candidates/requisitions. The seed is idempotent — re-running it adds zero rows. `private/` is gitignored; it never enters the repo. Knowledge files and notification rows are intentionally not seeded directly: they populate through the real upload/scan pipeline and the async event subscriber when the worker runs.
 
 ## Hand it to an agent
 
