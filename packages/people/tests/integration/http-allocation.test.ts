@@ -76,4 +76,46 @@ describe('People allocation HTTP routes', () => {
       }
     });
   });
+
+  it('GET /allocation/utilization returns the scoped per-person utilization', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const personId = crypto.randomUUID();
+        await peopleDb().insert(worker).values({
+          tenant_id: t.tenant_id,
+          person_id: personId,
+          full_name: 'Util Person',
+        });
+        await peopleDb().insert(workerAllocationProjection).values({
+          allocation_id: crypto.randomUUID(),
+          tenant_id: t.tenant_id,
+          worker_id: personId,
+          project_id: crypto.randomUUID(),
+          account_id: crypto.randomUUID(),
+          account_name: 'Acme',
+          date_from: '2026-01-01',
+          date_to: '2026-12-31',
+          planned_pct: '60',
+          bucket: 'billable',
+          active: true,
+        });
+
+        const app = buildApp(t.adminSession);
+        const res = await app.request('/api/people/v1/allocation/utilization?asOf=2026-06-15');
+        expect(res.status).toBe(200);
+        const body = (await res.json()) as {
+          rows: Array<{ worker_id: string; total_pct: number }>;
+        };
+        expect(body.rows.find((r) => r.worker_id === personId)?.total_pct).toBe(60);
+      } finally {
+        resetPeopleDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
 });
