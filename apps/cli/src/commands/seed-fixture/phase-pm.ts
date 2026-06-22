@@ -16,6 +16,24 @@ export function monthEnd(month: string): string {
   return `${month}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
 }
 
+// Last day of the quarter containing `month` (YYYY-MM): e.g. 2026-05 → 2026-06-30.
+function quarterEnd(month: string): string {
+  const y = Number(month.slice(0, 4));
+  const m = Number(month.slice(5, 7));
+  const endMonth = Math.ceil(m / 3) * 3;
+  return `${y}-${String(endMonth).padStart(2, '0')}-${String(new Date(y, endMonth, 0).getDate()).padStart(2, '0')}`;
+}
+
+// A project's planned end date, by quarterly capacity planning. Deterministic per project so
+// re-seeds are stable and the demo shows a realistic mix of span lengths across the grid:
+//   0 → ongoing (no end date)   1 → end of the current quarter   2 → end of the year
+function projectEndDate(month: string, projectCode: string): string | null {
+  const bucket = [...projectCode].reduce((s, c) => s + c.charCodeAt(0), 0) % 3;
+  if (bucket === 0) return null;
+  if (bucket === 1) return quarterEnd(month);
+  return `${month.slice(0, 4)}-12-31`;
+}
+
 async function findAccountId(tenantId: string, name: string): Promise<string | undefined> {
   const r = await coreDb().execute(
     sql`SELECT id FROM pm.account WHERE tenant_id = ${tenantId} AND name = ${name} LIMIT 1`,
@@ -82,9 +100,18 @@ export async function seedPm(
 
   const accountByName = new Map<string, string>();
   const projectByCode = new Map<string, string>();
+  const projectEndByCode = new Map<string, string | null>();
   const pmByCode = new Map<string, { workerId: string; userId: string }>();
 
+  // Quarterly planning anchor: the earliest allocation month in the fixture (the snapshot month).
+  const planningMonth =
+    allocations.reduce((min, a) => (a.month && a.month < min ? a.month : min), '9999-99') ===
+    '9999-99'
+      ? '2026-05'
+      : allocations.reduce((min, a) => (a.month && a.month < min ? a.month : min), '9999-99');
+
   for (const p of projects) {
+    const projectEnd = projectEndDate(planningMonth, p.code);
     // Account, industry and AM now come from the fixture (projects.csv) — self-describing data.
     const accountName = p.account_name || 'SETA Internal';
     const amWorkerId = p.am_employee_id ? people.get(p.am_employee_id)?.workerId : undefined;
@@ -129,8 +156,8 @@ export async function seedPm(
         pricing_model: 'time_materials',
         // budget_bmm is required by the completeness gate in approveCharter
         budget_bmm: 0,
-        date_from: '2026-05-01',
-        date_to: '2026-05-31',
+        date_from: `${planningMonth}-01`,
+        date_to: projectEnd ?? undefined,
         team_size: teamSize > 0 ? teamSize : undefined,
         session,
       });
@@ -154,6 +181,7 @@ export async function seedPm(
     }
 
     projectByCode.set(p.code, pid);
+    projectEndByCode.set(p.code, projectEnd);
   }
 
   // Allocations — idempotent on (project_id, worker_id, date_from)
@@ -176,12 +204,16 @@ export async function seedPm(
       continue;
     }
 
+    // The booking runs from its snapshot month to the project's planned end date — or stays
+    // open-ended when the project has no end date.
     await createAllocation({
       project_id: pid,
       worker_id: person.workerId,
       role: a.role || null,
       date_from: dateFrom,
-      date_to: monthEnd(a.month),
+      date_to: projectEndByCode.has(a.project_code)
+        ? projectEndByCode.get(a.project_code)
+        : projectEndDate(a.month, a.project_code),
       bucket: 'billable',
       planned_pct: a.ratio_pct,
       minutes_per_day: Math.round((a.ratio_pct / 100) * 480),

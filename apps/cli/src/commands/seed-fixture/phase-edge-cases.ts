@@ -109,7 +109,9 @@ export async function seedEdgeCases(
             worker_id: workerId,
             role: 'DEV',
             date_from: '2026-05-01',
-            date_to: '2026-05-31',
+            // Open-ended so the deliberate >100% overlap is active today and surfaces in the
+            // utilization panel as well as the monthly grid.
+            date_to: null,
             bucket: 'internal',
             planned_pct: 80,
             minutes_per_day: 384,
