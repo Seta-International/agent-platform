@@ -8,4 +8,5 @@ export const pmKeys = {
   project: (id: string) => [...pmKeys.all, 'project', id] as const,
   staffingPlan: (id: string) => [...pmKeys.all, 'project', id, 'staffing-plan'] as const,
   projectAccess: (id: string) => [...pmKeys.all, 'project', id, 'access'] as const,
+  projectAllocations: (id: string) => [...pmKeys.all, 'project', id, 'allocations'] as const,
 };

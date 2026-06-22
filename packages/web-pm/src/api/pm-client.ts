@@ -90,11 +90,13 @@ export async function setAccountRecruiters(
   return handleResponse<{ added: number; removed: number }>(res);
 }
 
+export type CharterStatus = 'submitted' | 'pmo_approved' | 'approved' | 'rejected' | 'withdrawn';
+
 export interface CharterListRow {
   charter_id: string;
   account_id: string;
   name: string;
-  status: 'submitted' | 'approved' | 'rejected' | 'withdrawn';
+  status: CharterStatus;
   pm_worker_id: string | null;
   created_at: string;
 }
@@ -113,8 +115,10 @@ export interface CharterDetail {
   date_to: string | null;
   objective: string | null;
   scope: { in: string; out: string } | null;
-  status: 'submitted' | 'approved' | 'rejected' | 'withdrawn';
+  status: CharterStatus;
   rejection_reason: string | null;
+  rejected_stage: 'pmo' | 'bod' | null;
+  pmo_signed_off_at: string | null;
   project_id: string | null;
   submitted_by_user_id: string | null;
   version: number;
@@ -155,11 +159,24 @@ export async function submitCharter(input: SubmitCharterBody): Promise<{ charter
   return handleResponse<{ charter_id: string }>(res);
 }
 
-export async function approveCharter(
+export async function pmoSignOffCharter(
+  id: string,
+  expected_version?: number,
+): Promise<{ version: number }> {
+  const res = await fetch(`/api/pm/v1/charters/${id}/pmo-signoff`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ expected_version }),
+  });
+  return handleResponse<{ version: number }>(res);
+}
+
+export async function bodApproveCharter(
   id: string,
   expected_version?: number,
 ): Promise<{ project_id: string }> {
-  const res = await fetch(`/api/pm/v1/charters/${id}/approve`, {
+  const res = await fetch(`/api/pm/v1/charters/${id}/bod-approve`, {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
@@ -358,4 +375,46 @@ export async function deleteStaffingPlanLine(
     credentials: 'include',
   });
   return handleResponse(res);
+}
+
+export interface AllocationRow {
+  allocation_id: string;
+  worker_id: string | null;
+  role: string | null;
+  planned_pct: number | null;
+  bucket: 'billable' | 'internal' | 'bench';
+  status: 'placeholder' | 'tentative' | 'committed';
+}
+
+export async function fetchProjectAllocations(projectId: string): Promise<AllocationRow[]> {
+  const res = await fetch(`/api/pm/v1/projects/${projectId}/allocations`, {
+    credentials: 'include',
+  });
+  return (await handleResponse<{ allocations: AllocationRow[] }>(res)).allocations;
+}
+
+export async function createAllocation(body: {
+  project_id: string;
+  worker_id: string;
+  role: string;
+  planned_pct: number;
+  date_from?: string | null;
+  date_to?: string | null;
+  status?: 'placeholder' | 'tentative' | 'committed';
+}): Promise<{ allocation_id: string }> {
+  const res = await fetch('/api/pm/v1/allocations', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ bucket: 'billable', status: 'committed', ...body }),
+  });
+  return handleResponse<{ allocation_id: string }>(res);
+}
+
+export async function removeAllocation(allocationId: string): Promise<void> {
+  const res = await fetch(`/api/pm/v1/allocations/${allocationId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  if (!res.ok) await handleResponse(res);
 }
