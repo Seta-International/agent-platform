@@ -50,7 +50,6 @@ export const peopleAppManifest: AppManifest = {
           label: 'Resource Allocation',
           to: '/people/allocation',
           requires: ['people.worker.read'],
-          badge: 'Soon',
         },
         {
           id: 'people.performance',
