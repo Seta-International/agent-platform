@@ -1,6 +1,6 @@
 import { GraphNodeCard } from '@seta/shared-ui';
 import { Handle, type Node, type NodeProps, Position } from '@xyflow/react';
-import type { OrgGraphNodeData } from './build-structure-graph.ts';
+import type { OrgGraphNodeData } from './graph-layout.ts';
 
 export function OrgGraphNode({ data }: NodeProps<Node<OrgGraphNodeData>>) {
   return (
@@ -12,10 +12,7 @@ export function OrgGraphNode({ data }: NodeProps<Node<OrgGraphNodeData>>) {
         tone={data.tone}
         avatarShape={data.avatarShape}
         count={data.count}
-        collapsible={data.collapsible}
-        collapsed={data.collapsed}
-        descendantCount={data.descendantCount}
-        interactive={Boolean(data.personId || data.drillTo || data.collapsible)}
+        interactive={Boolean(data.personId || data.accountId)}
       />
       <Handle type="source" position={Position.Bottom} style={{ opacity: 0 }} />
     </>
