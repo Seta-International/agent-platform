@@ -1,6 +1,9 @@
-import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { parse } from 'csv-parse/sync';
+// xlsx ships a CJS default export. Node ESM→CJS interop wraps exports on `.default`
+// when the module is loaded natively, so accept either shape.
+import * as _XLSX from 'xlsx';
+
+const XLSX = ((_XLSX as unknown as { default?: typeof _XLSX }).default ?? _XLSX) as typeof _XLSX;
 
 export interface EmployeeRec {
   id: string;
@@ -39,20 +42,25 @@ export interface AllocationRec {
   month: string;
 }
 
-function read<T>(dir: string, file: string): T[] {
-  return parse(readFileSync(join(dir, file), 'utf-8'), {
-    columns: true,
-    skip_empty_lines: true,
-    trim: true,
-    relax_quotes: true,
-  }) as T[];
+export const FIXTURE_FILE = 'seta-fixture.xlsx';
+
+/** Read one workbook sheet as string-keyed rows; every cell is coerced to a trimmed string. */
+function sheet(wb: _XLSX.WorkBook, name: string): Record<string, string>[] {
+  const ws = wb.Sheets[name];
+  if (!ws) throw new Error(`${FIXTURE_FILE} is missing the "${name}" sheet`);
+  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '', raw: false });
+  return rows.map((r) => {
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(r)) out[k] = String(v ?? '').trim();
+    return out;
+  });
 }
 
 export function loadFixtures(dir: string) {
-  const employees = read<EmployeeRec>(dir, 'employees.csv');
-  const projects = read<ProjectRec>(dir, 'projects.csv');
-  const allocationsRaw = read<Record<string, string>>(dir, 'allocations.csv');
-  const allocations: AllocationRec[] = allocationsRaw.map((r) => ({
+  const wb = XLSX.readFile(join(dir, FIXTURE_FILE));
+  const employees = sheet(wb, 'Employees') as unknown as EmployeeRec[];
+  const projects = sheet(wb, 'Projects') as unknown as ProjectRec[];
+  const allocations: AllocationRec[] = sheet(wb, 'Allocations').map((r) => ({
     employee_id: r.employee_id ?? '',
     project_code: r.project_code ?? '',
     role: r.role ?? '',
@@ -60,9 +68,9 @@ export function loadFixtures(dir: string) {
     man_days: Number(r.man_days),
     month: r.month ?? '',
   }));
-  // Optional — fixtures without leadership data fall back to allocation-derived placement.
-  const leadership = existsSync(join(dir, 'leadership.csv'))
-    ? read<LeadershipRec>(dir, 'leadership.csv')
+  // Leadership is optional — a workbook without the sheet falls back to allocation-derived placement.
+  const leadership = wb.Sheets.Leadership
+    ? (sheet(wb, 'Leadership') as unknown as LeadershipRec[])
     : [];
   return { employees, projects, allocations, leadership };
 }

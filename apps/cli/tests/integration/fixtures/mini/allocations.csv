@@ -1,4 +1,0 @@
-employee_id,project_code,role,ratio_pct,man_days,month
-9002,STP900,PM,50,11,2026-05
-9003,STP900,DEV,100,22,2026-05
-9004,STP900,QA,100,22,2026-05

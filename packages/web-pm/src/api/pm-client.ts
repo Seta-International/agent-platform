@@ -143,10 +143,43 @@ export interface SubmitCharterBody {
   scope?: { in: string; out: string };
 }
 
-export async function fetchCharters(): Promise<CharterListRow[]> {
-  const res = await fetch('/api/pm/v1/charters', { credentials: 'include' });
-  const body = await handleResponse<{ charters: CharterListRow[] }>(res);
-  return body.charters;
+export interface CharterListQuery {
+  status?: CharterStatus;
+  account_id?: string;
+  q?: string;
+  sort?: 'submitted' | 'name' | 'budget' | 'team';
+  dir?: 'asc' | 'desc';
+  limit?: number;
+  offset?: number;
+}
+
+export interface CharterListResult {
+  charters: CharterListRow[];
+  total: number;
+}
+
+export interface CharterSummary {
+  total: number;
+  submitted: number;
+  pmo_approved: number;
+  approved: number;
+  rejected: number;
+  withdrawn: number;
+}
+
+export async function fetchCharters(params: CharterListQuery = {}): Promise<CharterListResult> {
+  const sp = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== null && v !== '') sp.set(k, String(v));
+  }
+  const qs = sp.toString();
+  const res = await fetch(`/api/pm/v1/charters${qs ? `?${qs}` : ''}`, { credentials: 'include' });
+  return handleResponse<CharterListResult>(res);
+}
+
+export async function fetchCharterSummary(): Promise<CharterSummary> {
+  const res = await fetch('/api/pm/v1/charters/summary', { credentials: 'include' });
+  return handleResponse<CharterSummary>(res);
 }
 
 export async function fetchCharter(id: string): Promise<CharterDetail> {

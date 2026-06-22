@@ -19,12 +19,10 @@ import { integrationsMailTestCommand } from './commands/integrations-mail-test.t
 import { migrateCommand } from './commands/migrate.ts';
 import { plannerCommand } from './commands/planner.ts';
 import { roleGrantCommand } from './commands/role-grant.ts';
-import { seedCommand } from './commands/seed.ts';
 import { seedFixtureCommand } from './commands/seed-fixture/index.ts';
 import { tenantCreateCommand } from './commands/tenant-create.ts';
 import { userCreateCommand } from './commands/user-create.ts';
 import { userDeactivateCommand } from './commands/user-deactivate.ts';
-import { xlsxToFixturesCommand } from './commands/xlsx-to-fixtures.ts';
 import { parseEnv } from './env.ts';
 
 const env = parseEnv(process.env);
@@ -243,62 +241,7 @@ program
 program
   .command('seed')
   .description(
-    'Seed the SETA International tenant + admin and the People workers from employees.csv. Auto-creates the tenant + admin if missing; idempotent on re-run.',
-  )
-  .option('--tenant <slug-or-id>', 'Tenant slug or UUID', 'seta-international')
-  .option('--tenant-name <name>', 'Tenant display name when bootstrapping', 'SETA International')
-  .option('--dir <path>', 'Directory containing employees.csv', './apps/cli/seed/data')
-  .option(
-    '--admin-email <email>',
-    'Admin email — used as acting session, and created if the tenant is new',
-    'admin@seta-international.vn',
-  )
-  .option('--admin-name <name>', 'Admin display name when bootstrapping a new tenant')
-  .option('--password <password>', 'Password for the bootstrapped admin', 'ChangeMe@2026')
-  .action(
-    async (opts: {
-      tenant: string;
-      tenantName?: string;
-      dir: string;
-      adminEmail: string;
-      adminName?: string;
-      password?: string;
-    }) => {
-      try {
-        // pnpm exec changes CWD to the package dir; INIT_CWD is the original invocation dir.
-        const base = process.env.INIT_CWD ?? process.cwd();
-        await seedCommand({
-          tenant: opts.tenant,
-          tenantName: opts.tenantName,
-          dir: resolve(base, opts.dir),
-          adminEmail: opts.adminEmail,
-          adminName: opts.adminName,
-          password: opts.password,
-        });
-      } finally {
-        await closePools();
-      }
-    },
-  );
-
-program
-  .command('xlsx-to-fixtures')
-  .description('Convert employees.xlsx into fixtures/seta/ CSVs (employees, projects, allocations)')
-  .requiredOption('--xlsx <path>', 'path to employees.xlsx')
-  .option('--out <dir>', 'output directory', 'fixtures/seta')
-  .action(async (opts: { xlsx: string; out: string }) => {
-    // Resolve --out against the original invocation dir (repo root), matching how `seed-fixture`
-    // resolves --dir. `pnpm -F @seta/cli exec` changes CWD to the package dir, so a CWD-relative
-    // path would write to apps/cli/fixtures/seta while the seed reads <root>/fixtures/seta.
-    const base = process.env.INIT_CWD ?? process.cwd();
-    const { resolve } = await import('node:path');
-    xlsxToFixturesCommand({ xlsx: opts.xlsx, out: resolve(base, opts.out) });
-  });
-
-program
-  .command('seed-fixture')
-  .description(
-    'Seed cross-module dev fixtures (people, PM, planner, hiring) from fixtures/seta/ CSVs',
+    'Seed the cross-module dev fixture (tenant + admin, people, PM, planner, hiring) from the fixtures/seta workbook. Auto-creates the tenant + admin; degrades to tenant + admin only when the gitignored workbook is absent. Idempotent.',
   )
   .requiredOption('--tenant <slug>', 'tenant slug', 'seta-international')
   .option('--dir <dir>', 'fixtures dir', 'fixtures/seta')

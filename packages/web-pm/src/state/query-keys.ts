@@ -3,6 +3,9 @@ export const pmKeys = {
   accounts: () => [...pmKeys.all, 'accounts'] as const,
   account: (id: string) => [...pmKeys.all, 'account', id] as const,
   charters: () => [...pmKeys.all, 'charters'] as const,
+  chartersList: (params: Record<string, unknown>) =>
+    [...pmKeys.all, 'charters', 'list', params] as const,
+  charterSummary: () => [...pmKeys.all, 'charters', 'summary'] as const,
   charter: (id: string) => [...pmKeys.all, 'charter', id] as const,
   projects: () => [...pmKeys.all, 'projects'] as const,
   project: (id: string) => [...pmKeys.all, 'project', id] as const,

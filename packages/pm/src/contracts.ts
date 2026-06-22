@@ -71,6 +71,28 @@ export const rejectCharterInput = z.object({
 });
 export type RejectCharterInput = z.infer<typeof rejectCharterInput>;
 
+export const charterStatusEnum = z.enum([
+  'submitted',
+  'pmo_approved',
+  'approved',
+  'rejected',
+  'withdrawn',
+]);
+
+const emptyToUndefined = (v: unknown) => (v === '' || v == null ? undefined : v);
+
+export const charterListQuery = z.object({
+  status: z.preprocess(emptyToUndefined, charterStatusEnum.optional()),
+  account_id: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  q: z.preprocess(emptyToUndefined, z.string().trim().min(1).optional()),
+  sort: z.enum(['submitted', 'name', 'budget', 'team']).default('submitted'),
+  dir: z.enum(['asc', 'desc']).default('desc'),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+export type CharterListQuery = z.infer<typeof charterListQuery>;
+export type CharterListQueryInput = z.input<typeof charterListQuery>;
+
 export const editProjectPatch = z.object({
   objective: z.string().nullable().optional(),
   scope: charterScope.nullable().optional(),

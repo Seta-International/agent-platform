@@ -1,8 +1,10 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import pino from 'pino';
 import { resolveTenantId } from '../lib/tenant-resolve.ts';
 import { buildAdminSession } from '../seed.ts';
 import { tenantCreateCommand } from '../tenant-create.ts';
-import { loadFixtures } from './load.ts';
+import { FIXTURE_FILE, loadFixtures } from './load.ts';
 import { seedEdgeCases } from './phase-edge-cases.ts';
 import { seedHiring } from './phase-hiring.ts';
 import { seedOrgStructure } from './phase-org-structure.ts';
@@ -35,6 +37,18 @@ export async function seedFixtureCommand(opts: {
   }
 
   const session = await buildAdminSession(tenantId, opts.adminEmail);
+
+  // The fixture workbook holds real employee PII and is gitignored, so a fresh clone
+  // won't have it. Degrade gracefully: tenant + admin are already provisioned above.
+  if (!existsSync(join(opts.dir, FIXTURE_FILE))) {
+    log.warn(
+      { dir: opts.dir, file: FIXTURE_FILE },
+      'fixture workbook absent (gitignored PII) — seeded tenant + admin only',
+    );
+    log.info({ tenant_id: tenantId }, 'seed-fixture: complete');
+    return;
+  }
+
   const fx = loadFixtures(opts.dir);
   log.info(
     {

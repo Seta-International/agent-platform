@@ -1,11 +1,12 @@
 import type { SessionEnv } from '@seta/core';
 import type { Hono } from 'hono';
 import { z } from 'zod';
-import { editCharterPatch, submitCharterInput } from '../../contracts.ts';
+import { charterListQuery, editCharterPatch, submitCharterInput } from '../../contracts.ts';
 import {
   bodApproveCharter,
   editCharter,
   getCharter,
+  getCharterSummary,
   listCharters,
   pmoSignOffCharter,
   rejectCharter,
@@ -24,8 +25,15 @@ const rejectBody = z.object({
 });
 
 export function registerPmChartersRoutes(app: Hono<SessionEnv>): void {
-  app.get('/api/pm/v1/charters', async (c) =>
-    c.json({ charters: await listCharters(c.get('user')) }),
+  app.get('/api/pm/v1/charters', async (c) => {
+    const parsed = charterListQuery.safeParse(c.req.query());
+    if (!parsed.success)
+      return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
+    return c.json(await listCharters(c.get('user'), parsed.data));
+  });
+  // Registered before /:id so "summary" isn't captured as a charter id.
+  app.get('/api/pm/v1/charters/summary', async (c) =>
+    c.json(await getCharterSummary(c.get('user'))),
   );
   app.get('/api/pm/v1/charters/:id', async (c) =>
     c.json(await getCharter({ charter_id: c.req.param('id'), session: c.get('user') })),

@@ -18,8 +18,12 @@ export type { AccountListRow } from './backend/domain/read-accounts.ts';
 export { getAccount, listAccounts } from './backend/domain/read-accounts.ts';
 export type { AllocationRow } from './backend/domain/read-allocations.ts';
 export { listProjectAllocations } from './backend/domain/read-allocations.ts';
-export type { CharterListRow } from './backend/domain/read-charters.ts';
-export { getCharter, listCharters } from './backend/domain/read-charters.ts';
+export type {
+  CharterListResult,
+  CharterListRow,
+  CharterSummary,
+} from './backend/domain/read-charters.ts';
+export { getCharter, getCharterSummary, listCharters } from './backend/domain/read-charters.ts';
 export type { ProjectListRow } from './backend/domain/read-projects.ts';
 export { getProject, listProjects } from './backend/domain/read-projects.ts';
 export { removeAllocation } from './backend/domain/remove-allocation.ts';

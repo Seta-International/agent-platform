@@ -106,7 +106,7 @@ pnpm install
 cp .env.example .env     # then fill BETTER_AUTH_SECRET, CRYPTO_LOCAL_MASTER_KEY, OPENAI_API_KEY
 pnpm db:up               # Postgres + Redis + telemetry, all in Docker
 pnpm db:migrate          # apply every module's schema
-pnpm db:seed             # seed the SETA International tenant + admin + People workers
+pnpm db:seed             # seed the SETA International tenant + admin + full cross-module fixture
 pnpm dev                 # serves the app at http://localhost:5173
 ```
 

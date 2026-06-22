@@ -86,5 +86,5 @@ apps/web/.tanstack.idea/
 # Seed data sourced from a real employee spreadsheet (PII — never committed)
 apps/cli/seed/data/employees.csv
 
-# Converted fixtures from employees.xlsx (real employee PII — never committed)
+# Real employee fixture workbook (real names/emails/ids — never committed)
 fixtures/seta/
