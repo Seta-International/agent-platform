@@ -88,3 +88,6 @@ apps/cli/seed/data/employees.csv
 
 # Real employee fixture workbook (real names/emails/ids — never committed)
 private/
+
+.agents
+skills-lock.json

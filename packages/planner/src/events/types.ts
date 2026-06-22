@@ -187,6 +187,10 @@ export interface PlannerPlanCreated {
       group_id: Uuid;
       name: string;
       created_by: Uuid;
+      // Present so M365 sync subscribers can distinguish a pulled plan
+      // (external_source: 'm365') from a native one and suppress re-push.
+      external_source?: 'native' | 'm365';
+      external_id?: string | null;
     };
   };
 }

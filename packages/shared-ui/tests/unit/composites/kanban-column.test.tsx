@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { KanbanColumn } from '../../../src/composites/kanban-column';
 
@@ -215,6 +216,32 @@ describe('<KanbanColumn> quick-create submit', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add' }));
     expect(onCreateTask).toHaveBeenCalledTimes(1);
     expect(onCreateTask).toHaveBeenCalledWith({ title: 'With details', due_at: '2026-06-15' });
+  });
+
+  it('shows a color dot for every priority option (FUT-21)', async () => {
+    const user = userEvent.setup();
+    render(
+      <KanbanColumn
+        name="Todo"
+        count={0}
+        onCreateTask={() => {}}
+        droppable={{}}
+        draggableHandle={{}}
+      >
+        <span />
+      </KanbanColumn>,
+    );
+    fireEvent.click(screen.getByText('+ Add a task'));
+    await user.click(screen.getByRole('button', { name: 'Priority' }));
+
+    // Every option's leading dot must carry a priority color from the shared
+    // registry — Urgent and Medium were rendering with no color (FUT-21).
+    for (const label of ['Urgent', 'Important', 'Medium', 'Low']) {
+      const item = await screen.findByRole('menuitem', { name: label });
+      const dot = item.querySelector('span[aria-hidden="true"]');
+      expect(dot, `dot for ${label}`).toBeTruthy();
+      expect(dot?.getAttribute('style') ?? '', `color for ${label}`).toContain('--color-priority');
+    }
   });
 
   it('omits default-valued extras from the payload', () => {

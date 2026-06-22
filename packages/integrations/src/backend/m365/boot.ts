@@ -285,6 +285,12 @@ export function buildM365Boot(deps: M365BootDeps): M365Boot {
       const groupLink = await m365LinksRepo.findByGroup(p.group_id);
       if (!groupLink) return;
 
+      // Idempotency: jobs are delivered at-least-once. If this plan already has
+      // a live M365 link it was already pushed (e.g. a retried/duplicate job) —
+      // creating another Graph plan would surface as a duplicate plan in Teams.
+      const existingLink = await m365PlanLinksRepo.findByPlan(p.plan_id);
+      if (existingLink) return;
+
       const graphClient = await graphClientFor(p.tenant_id);
       const created = (await graphClient
         .api('/planner/plans')
