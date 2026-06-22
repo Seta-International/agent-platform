@@ -35,7 +35,7 @@ describe('people projection tables', () => {
   });
 
   it('account_projection: round-trip insert and upsert', async () => {
-    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+    await withTestDb(ctx, async ({ databaseUrl }) => {
       resetCoreDb();
       resetPeopleDb();
       initPools({ databaseUrl });
@@ -75,7 +75,7 @@ describe('people projection tables', () => {
   });
 
   it('project_projection: round-trip insert and upsert', async () => {
-    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+    await withTestDb(ctx, async ({ databaseUrl }) => {
       resetCoreDb();
       resetPeopleDb();
       initPools({ databaseUrl });
@@ -115,7 +115,7 @@ describe('people projection tables', () => {
   });
 
   it('worker_allocation_projection: round-trip insert and upsert', async () => {
-    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+    await withTestDb(ctx, async ({ databaseUrl }) => {
       resetCoreDb();
       resetPeopleDb();
       initPools({ databaseUrl });

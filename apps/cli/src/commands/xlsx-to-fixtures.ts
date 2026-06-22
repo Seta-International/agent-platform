@@ -5,15 +5,15 @@ import { join } from 'node:path';
 // The `(ns.default ?? ns)` pattern handles both loader paths transparently.
 import * as _XLSX from 'xlsx';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const XLSX = ((_XLSX as any).default ?? _XLSX) as typeof _XLSX;
+const XLSX = ((_XLSX as unknown as { default?: typeof _XLSX }).default ?? _XLSX) as typeof _XLSX;
 
 import { classifyRow, deriveEmail } from './lib/employee-fixtures.ts';
 
 export function xlsxToFixturesCommand(opts: { xlsx: string; out: string }): void {
   const wb = XLSX.readFile(opts.xlsx);
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-  const ws = wb.Sheets[wb.SheetNames[0]!]!;
+  const sheetName = wb.SheetNames[0];
+  const ws = sheetName ? wb.Sheets[sheetName] : undefined;
+  if (!ws) throw new Error(`xlsx has no readable sheet: ${opts.xlsx}`);
   const rows = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, blankrows: false });
 
   const employees = new Map<
@@ -65,13 +65,13 @@ export function xlsxToFixturesCommand(opts: { xlsx: string; out: string }): void
       `${e.id},"${e.full_name}",${deriveEmail(e.full_name, e.id, taken)},${e.employment_type},${e.role}`,
     );
   }
-  writeFileSync(join(opts.out, 'employees.csv'), empCsv.join('\n') + '\n');
+  writeFileSync(join(opts.out, 'employees.csv'), `${empCsv.join('\n')}\n`);
 
   const projCsv = ['code,project_name,account_name,account_industry,dept,pm_employee_id'];
   for (const p of projects.values()) {
     projCsv.push(`${p.code ?? p.project_name},"${p.project_name}",,,,`);
   }
-  writeFileSync(join(opts.out, 'projects.csv'), projCsv.join('\n') + '\n');
+  writeFileSync(join(opts.out, 'projects.csv'), `${projCsv.join('\n')}\n`);
 
   const allocCsv = ['employee_id,project_code,role,ratio_pct,man_days,month'];
   for (const a of allocations) {
@@ -79,13 +79,13 @@ export function xlsxToFixturesCommand(opts: { xlsx: string; out: string }): void
       `${a.employee_id},${a.project_code},${a.role},${a.ratio_pct},${a.man_days},2026-05`,
     );
   }
-  writeFileSync(join(opts.out, 'allocations.csv'), allocCsv.join('\n') + '\n');
+  writeFileSync(join(opts.out, 'allocations.csv'), `${allocCsv.join('\n')}\n`);
 
   process.stdout.write(
-    JSON.stringify({
+    `${JSON.stringify({
       employees: employees.size,
       projects: projects.size,
       allocations: allocations.length,
-    }) + '\n',
+    })}\n`,
   );
 }

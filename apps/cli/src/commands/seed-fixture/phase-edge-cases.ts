@@ -27,7 +27,9 @@ export async function seedEdgeCases(
     if (!firstInMap) {
       log.warn('edge-cases: no workers in people map, skipping no-portal');
     } else {
-      const { workerId } = people.get(firstInMap.id)!;
+      const entry = people.get(firstInMap.id);
+      if (!entry) throw new Error('no-portal target not in people map');
+      const { workerId } = entry;
       await setPortalAccess({ worker_id: workerId, enabled: false, session });
       log.info({ worker_id: workerId }, 'edge-cases: portal_access=false');
     }
@@ -42,7 +44,9 @@ export async function seedEdgeCases(
     if (!deactivateTarget) {
       log.warn('edge-cases: no DEV employee found, skipping deactivated-user');
     } else {
-      const { userId } = people.get(deactivateTarget.id)!;
+      const entry = people.get(deactivateTarget.id);
+      if (!entry) throw new Error('deactivate target not in people map');
+      const { userId } = entry;
       await deactivateUser(userId, actor);
       log.info({ user_id: userId }, 'edge-cases: user deactivated');
     }
@@ -74,7 +78,9 @@ export async function seedEdgeCases(
     if (!secondDev) {
       log.warn('edge-cases: no DEV employee for over-allocation, skipping');
     } else {
-      const { workerId } = people.get(secondDev.id)!;
+      const entry = people.get(secondDev.id);
+      if (!entry) throw new Error('over-allocation target not in people map');
+      const { workerId } = entry;
 
       const injected = await coreDb().execute(
         sql`SELECT 1 FROM pm.allocation

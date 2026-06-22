@@ -18,7 +18,7 @@ async function assertProject(project_id: string, session: SessionScope) {
 }
 
 async function emitStaffingChanged(
-  tx: Parameters<Parameters<typeof withEmit>[1]>[0],
+  _tx: Parameters<Parameters<typeof withEmit>[1]>[0],
   session: SessionScope,
   project_id: string,
 ) {

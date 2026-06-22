@@ -49,7 +49,7 @@ export async function getOrgStructure(session: SessionScope): Promise<{ units: O
       sort: u.sort,
       head:
         u.head_worker_id && nameByPerson.has(u.head_worker_id)
-          ? { person_id: u.head_worker_id, full_name: nameByPerson.get(u.head_worker_id)! }
+          ? { person_id: u.head_worker_id, full_name: nameByPerson.get(u.head_worker_id) ?? '' }
           : null,
     })),
   };
@@ -122,8 +122,8 @@ export async function getOrgDelivery(
       members: (allocByProject.get(p.project_id) ?? [])
         .filter((a) => a.worker_id && (seeAll || nameByPerson.has(a.worker_id)))
         .map((a) => ({
-          person_id: a.worker_id!,
-          full_name: nameByPerson.get(a.worker_id!) ?? '',
+          person_id: a.worker_id ?? '',
+          full_name: nameByPerson.get(a.worker_id ?? '') ?? '',
           is_lead: a.lead_worker_id === a.worker_id,
         })),
     }));
@@ -136,7 +136,7 @@ export async function getOrgDelivery(
       name: acc.name,
       am:
         acc.am_worker_id && nameByPerson.has(acc.am_worker_id)
-          ? { person_id: acc.am_worker_id, full_name: nameByPerson.get(acc.am_worker_id)! }
+          ? { person_id: acc.am_worker_id, full_name: nameByPerson.get(acc.am_worker_id) ?? '' }
           : acc.am_worker_id && seeAll
             ? { person_id: acc.am_worker_id, full_name: '' }
             : null,
@@ -215,7 +215,7 @@ export async function getOrgCompany(session: SessionScope): Promise<{ nodes: Com
     const amEmitted = new Set<string>();
     for (const acc of accounts) {
       let parentId = `unit:${deliveryUnit.id}`;
-      if (acc.am && acc.am.full_name) {
+      if (acc.am?.full_name) {
         const amNodeId = `am:${acc.am.person_id}`;
         if (!amEmitted.has(acc.am.person_id)) {
           amEmitted.add(acc.am.person_id);

@@ -53,12 +53,12 @@ export function loadFixtures(dir: string) {
   const projects = read<ProjectRec>(dir, 'projects.csv');
   const allocationsRaw = read<Record<string, string>>(dir, 'allocations.csv');
   const allocations: AllocationRec[] = allocationsRaw.map((r) => ({
-    employee_id: r['employee_id'] ?? '',
-    project_code: r['project_code'] ?? '',
-    role: r['role'] ?? '',
-    ratio_pct: Number(r['ratio_pct']),
-    man_days: Number(r['man_days']),
-    month: r['month'] ?? '',
+    employee_id: r.employee_id ?? '',
+    project_code: r.project_code ?? '',
+    role: r.role ?? '',
+    ratio_pct: Number(r.ratio_pct),
+    man_days: Number(r.man_days),
+    month: r.month ?? '',
   }));
   // Optional — fixtures without leadership data fall back to allocation-derived placement.
   const leadership = existsSync(join(dir, 'leadership.csv'))

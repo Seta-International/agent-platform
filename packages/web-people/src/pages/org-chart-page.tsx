@@ -63,14 +63,14 @@ export function OrgChartPage() {
     if (view === 'account' && !account && accountOptions.length > 0) {
       void navigate({
         to: '/people/org',
-        search: { view, project, account: accountOptions[0]!.value },
+        search: { view, project, account: accountOptions[0]?.value },
         replace: true,
       });
     }
     if (view === 'project' && !project && projectOptions.length > 0) {
       void navigate({
         to: '/people/org',
-        search: { view, account, project: projectOptions[0]!.value },
+        search: { view, account, project: projectOptions[0]?.value },
         replace: true,
       });
     }

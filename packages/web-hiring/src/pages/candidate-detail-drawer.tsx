@@ -53,11 +53,10 @@ export function CandidateDetailDrawer({
   const app = data?.applications.find((a) => a.status === 'active') ?? data?.applications[0];
 
   const move = useMutation({
-    mutationFn: (to: CandStage) =>
-      moveApplicationStage(app!.application_id, {
-        expected_version: app!.version,
-        to,
-      }),
+    mutationFn: (to: CandStage) => {
+      if (!app) throw new Error('no active application');
+      return moveApplicationStage(app.application_id, { expected_version: app.version, to });
+    },
     onSuccess: () => {
       toast.success('Stage updated');
       refresh();

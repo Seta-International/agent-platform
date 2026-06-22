@@ -22,8 +22,7 @@ export async function seedSkillCatalog(session: SessionScope): Promise<Map<strin
   let catsCreated = 0;
   let skillsCreated = 0;
 
-  for (let i = 0; i < SKILL_CATALOG.length; i++) {
-    const cat = SKILL_CATALOG[i]!;
+  for (const [i, cat] of SKILL_CATALOG.entries()) {
     let catId = catIdByName.get(cat.name.toLowerCase());
     if (!catId) {
       catId = (await createSkillCategory({ input: { name: cat.name, sort_order: i }, session })).id;
