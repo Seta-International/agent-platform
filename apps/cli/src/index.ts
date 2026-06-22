@@ -286,8 +286,13 @@ program
   .description('Convert employees.xlsx into fixtures/seta/ CSVs (employees, projects, allocations)')
   .requiredOption('--xlsx <path>', 'path to employees.xlsx')
   .option('--out <dir>', 'output directory', 'fixtures/seta')
-  .action((opts: { xlsx: string; out: string }) => {
-    xlsxToFixturesCommand({ xlsx: opts.xlsx, out: opts.out });
+  .action(async (opts: { xlsx: string; out: string }) => {
+    // Resolve --out against the original invocation dir (repo root), matching how `seed-fixture`
+    // resolves --dir. `pnpm -F @seta/cli exec` changes CWD to the package dir, so a CWD-relative
+    // path would write to apps/cli/fixtures/seta while the seed reads <root>/fixtures/seta.
+    const base = process.env.INIT_CWD ?? process.cwd();
+    const { resolve } = await import('node:path');
+    xlsxToFixturesCommand({ xlsx: opts.xlsx, out: resolve(base, opts.out) });
   });
 
 program
