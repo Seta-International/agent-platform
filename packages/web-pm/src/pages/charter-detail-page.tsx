@@ -32,50 +32,18 @@ import {
 } from '../api/pm-client.ts';
 import { pmKeys } from '../state/query-keys.ts';
 import { CharterStaffingEditor } from './charter-staffing-editor.tsx';
+import { CharterStepper } from './charter-stepper.tsx';
 
 const STATUS_META: Record<
   CharterDetail['status'],
   { label: string; variant: 'secondary' | 'success' | 'destructive' | 'outline' }
 > = {
-  submitted: { label: 'Awaiting PMO', variant: 'secondary' },
-  pmo_approved: { label: 'Awaiting BoD', variant: 'secondary' },
+  submitted: { label: 'Awaiting PMO review', variant: 'secondary' },
+  pmo_approved: { label: 'Awaiting BoD review', variant: 'secondary' },
   approved: { label: 'Approved · created', variant: 'success' },
   rejected: { label: 'Rejected', variant: 'destructive' },
   withdrawn: { label: 'Withdrawn', variant: 'outline' },
 };
-
-const STEP_LABELS = ['Submitted', 'PMO Review', 'BoD Review', 'Project created'] as const;
-
-function CharterStepper({ status }: { status: CharterDetail['status'] }) {
-  const reached =
-    status === 'submitted' ? 1 : status === 'pmo_approved' ? 2 : status === 'approved' ? 4 : 1;
-  const terminal = status === 'rejected' || status === 'withdrawn';
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      {STEP_LABELS.map((label, i) => {
-        const done = i < reached && !(terminal && i >= reached);
-        const current = !terminal && i === reached - 1 && status !== 'approved';
-        return (
-          <div key={label} className="flex items-center gap-2">
-            <div
-              className={[
-                'flex size-6 items-center justify-center rounded-full text-[11px] font-semibold',
-                done ? 'bg-blue text-white' : 'bg-surface-2 text-ink-muted',
-                current ? 'ring-2 ring-blue/40' : '',
-              ].join(' ')}
-            >
-              {i + 1}
-            </div>
-            <span className={done ? 'text-body-sm text-ink' : 'text-body-sm text-ink-muted'}>
-              {label}
-            </span>
-            {i < STEP_LABELS.length - 1 && <span className="h-px w-6 bg-hairline" />}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 function FieldRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -241,7 +209,7 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
       <div className="page-container p-6 space-y-4">
         <Card>
           <CardContent className="p-4">
-            <CharterStepper status={c.status} />
+            <CharterStepper status={c.status} rejectedStage={c.rejected_stage} />
           </CardContent>
         </Card>
 
