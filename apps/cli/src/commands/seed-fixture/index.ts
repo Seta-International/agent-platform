@@ -54,7 +54,7 @@ export async function seedFixtureCommand(opts: {
   const pm = await seedPm(session, fx.projects, fx.allocations, people);
   log.info({ accounts: pm.accountByName.size, projects: pm.projectByCode.size }, 'phase: pm done');
 
-  await seedOrgStructure(session, fx.employees, fx.projects, fx.allocations, people);
+  await seedOrgStructure(session, fx.employees, fx.projects, fx.allocations, fx.leadership, people);
   log.info('phase: org-structure done');
 
   await seedPlanner(session, fx.projects, people, pm.membersByCode, pm.projectByCode);
