@@ -5,7 +5,28 @@ export interface OrgUnitNode {
   kind: string;
   sort: number;
   head: { person_id: string; full_name: string } | null;
+  // NOTE: dropped from the backend payload; retained only for build-structure-graph until Task 6.
   members: Array<{ person_id: string; full_name: string; job_title: string | null }>;
+}
+
+export type CompanyNodeKind =
+  | 'executive'
+  | 'operation'
+  | 'function'
+  | 'delivery'
+  | 'pmo'
+  | 'am'
+  | 'account';
+
+export interface CompanyNode {
+  id: string;
+  parent_id: string | null;
+  kind: CompanyNodeKind;
+  label: string;
+  sublabel?: string;
+  count?: number;
+  person_id?: string;
+  account_id?: string;
 }
 
 export interface DeliveryAccount {
@@ -41,6 +62,11 @@ export async function fetchOrgStructure(): Promise<{ units: OrgUnitNode[] }> {
 export async function fetchOrgDelivery(): Promise<{ accounts: DeliveryAccount[] }> {
   const res = await fetch('/api/people/v1/org/delivery', { credentials: 'include' });
   return handleResponse<{ accounts: DeliveryAccount[] }>(res);
+}
+
+export async function fetchOrgCompany(): Promise<{ nodes: CompanyNode[] }> {
+  const res = await fetch('/api/people/v1/org/company', { credentials: 'include' });
+  return handleResponse<{ nodes: CompanyNode[] }>(res);
 }
 
 // Org-unit picker source for the worker profile (org_unit_id is the reporting write path;
