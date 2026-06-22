@@ -20,7 +20,8 @@ export interface WorkerDetail extends WorkerListRow {
   dob: string | null;
   emergency_contact: string | null;
   version: number;
-  manager_id: string | null;
+  org_unit_id: string | null;
+  org_unit_name: string | null;
 }
 
 export interface WorkerHistoryEntry {
@@ -62,7 +63,7 @@ export interface WorkerPatch {
   gender?: string;
   emergency_contact?: string;
   job_title?: string | null;
-  manager_id?: string | null;
+  org_unit_id?: string | null;
 }
 
 export interface EditWorkerInput {

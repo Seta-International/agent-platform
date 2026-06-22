@@ -327,17 +327,17 @@ describe('projectSearch', () => {
 });
 
 describe('WorkerPatch type', () => {
-  it('includes job_title and manager_id as optional nullable fields', () => {
+  it('includes job_title and org_unit_id as optional nullable fields', () => {
     const p1: WorkerPatch = { job_title: 'Engineer' };
     const p2: WorkerPatch = { job_title: null };
-    const p3: WorkerPatch = { manager_id: 'mgr-1' };
-    const p4: WorkerPatch = { manager_id: null };
-    const p5: WorkerPatch = { job_title: 'Lead', manager_id: 'mgr-2' };
+    const p3: WorkerPatch = { org_unit_id: 'ou-1' };
+    const p4: WorkerPatch = { org_unit_id: null };
+    const p5: WorkerPatch = { job_title: 'Lead', org_unit_id: 'ou-2' };
     expect(p1.job_title).toBe('Engineer');
     expect(p2.job_title).toBeNull();
-    expect(p3.manager_id).toBe('mgr-1');
-    expect(p4.manager_id).toBeNull();
-    expect(p5).toEqual({ job_title: 'Lead', manager_id: 'mgr-2' });
+    expect(p3.org_unit_id).toBe('ou-1');
+    expect(p4.org_unit_id).toBeNull();
+    expect(p5).toEqual({ job_title: 'Lead', org_unit_id: 'ou-2' });
   });
 });
 
@@ -353,7 +353,7 @@ describe('editWorker', () => {
     vi.unstubAllGlobals();
   });
 
-  it('PATCHes job_title and manager_id correctly', async () => {
+  it('PATCHes job_title and org_unit_id correctly', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ version: 3 }),
@@ -361,7 +361,7 @@ describe('editWorker', () => {
 
     const result = await editWorker('worker-1', {
       expected_version: 2,
-      patch: { job_title: 'Lead Engineer', manager_id: 'mgr-99' },
+      patch: { job_title: 'Lead Engineer', org_unit_id: 'ou-99' },
     });
 
     expect(mockFetch).toHaveBeenCalledOnce();
@@ -371,7 +371,7 @@ describe('editWorker', () => {
     expect(init.credentials).toBe('include');
     expect(JSON.parse(init.body as string)).toEqual({
       expected_version: 2,
-      patch: { job_title: 'Lead Engineer', manager_id: 'mgr-99' },
+      patch: { job_title: 'Lead Engineer', org_unit_id: 'ou-99' },
     });
     expect(result.version).toBe(3);
   });
@@ -398,7 +398,7 @@ describe('editWorker', () => {
 describe('fetchWorker (WorkerDetail)', () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it('returns enriched WorkerDetail including manager_id, accounts, skills', async () => {
+  it('returns enriched WorkerDetail including org_unit, accounts, skills', async () => {
     const detail: WorkerDetail = {
       worker_id: 'w1',
       full_name: 'Alice',
@@ -410,7 +410,8 @@ describe('fetchWorker (WorkerDetail)', () => {
       onboarding_date: null,
       offboarding_date: null,
       manager_name: 'Boss',
-      manager_id: 'mgr-1',
+      org_unit_id: 'ou-1',
+      org_unit_name: 'Delivery',
       portal_access: true,
       accounts: [{ id: 'acc-1', name: 'Acme' }],
       skills: [{ id: 'sk-1', name: 'TypeScript' }],
@@ -424,7 +425,8 @@ describe('fetchWorker (WorkerDetail)', () => {
     );
 
     const result = await fetchWorker('w1');
-    expect(result.manager_id).toBe('mgr-1');
+    expect(result.org_unit_id).toBe('ou-1');
+    expect(result.org_unit_name).toBe('Delivery');
     expect(result.manager_name).toBe('Boss');
     expect(result.accounts).toEqual([{ id: 'acc-1', name: 'Acme' }]);
     expect(result.skills).toEqual([{ id: 'sk-1', name: 'TypeScript' }]);
