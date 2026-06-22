@@ -97,6 +97,83 @@ describe('getAllocationGrid', () => {
     });
   });
 
+  it('returns rows grouped per worker, sorted by name', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const accountId = crypto.randomUUID();
+        const zoe = crypto.randomUUID();
+        const amy = crypto.randomUUID();
+        await peopleDb()
+          .insert(worker)
+          .values([
+            { tenant_id: t.tenant_id, person_id: zoe, full_name: 'Zoe Last' },
+            { tenant_id: t.tenant_id, person_id: amy, full_name: 'Amy First' },
+          ]);
+        // Interleave insert order: Zoe, Amy, Amy — the query must still group + alphabetize.
+        await peopleDb()
+          .insert(workerAllocationProjection)
+          .values([
+            {
+              allocation_id: crypto.randomUUID(),
+              tenant_id: t.tenant_id,
+              worker_id: zoe,
+              project_id: crypto.randomUUID(),
+              account_id: accountId,
+              account_name: 'Acme',
+              date_from: '2026-01-01',
+              date_to: '2026-12-31',
+              planned_pct: '50',
+              bucket: 'billable',
+              active: true,
+            },
+            {
+              allocation_id: crypto.randomUUID(),
+              tenant_id: t.tenant_id,
+              worker_id: amy,
+              project_id: crypto.randomUUID(),
+              account_id: accountId,
+              account_name: 'Acme',
+              date_from: '2026-01-01',
+              date_to: '2026-12-31',
+              planned_pct: '50',
+              bucket: 'billable',
+              active: true,
+            },
+            {
+              allocation_id: crypto.randomUUID(),
+              tenant_id: t.tenant_id,
+              worker_id: amy,
+              project_id: crypto.randomUUID(),
+              account_id: accountId,
+              account_name: 'Acme',
+              date_from: '2026-01-01',
+              date_to: '2026-12-31',
+              planned_pct: '50',
+              bucket: 'billable',
+              active: true,
+            },
+          ]);
+
+        const grid = await getAllocationGrid(t.adminSession, { year: 2026 });
+        // Amy (2 rows) sorts before Zoe (1 row); each worker's rows are consecutive.
+        expect(grid.rows.map((r) => r.worker_id)).toEqual([amy, amy, zoe]);
+
+        // Search filters rows to the matching worker, but KPIs stay at full scope.
+        const filtered = await getAllocationGrid(t.adminSession, { year: 2026, search: 'amy' });
+        expect(new Set(filtered.rows.map((r) => r.worker_id))).toEqual(new Set([amy]));
+        expect(filtered.kpis.member_count).toBe(2);
+      } finally {
+        resetPeopleDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
   it('excludes workers outside the viewer scope', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();

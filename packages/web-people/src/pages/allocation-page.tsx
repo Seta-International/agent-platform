@@ -1,18 +1,78 @@
-import { Badge, Card, CardContent, DataTable, EmptyState, PageChrome } from '@seta/shared-ui';
+import {
+  Badge,
+  Card,
+  CardContent,
+  cn,
+  DataTable,
+  EmptyState,
+  Input,
+  PageChrome,
+} from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import type { ColumnDef } from '@tanstack/react-table';
+import type { ColumnDef, Row } from '@tanstack/react-table';
 import { BarChart3 } from 'lucide-react';
-import { useMemo } from 'react';
+import { type CSSProperties, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   type AllocationGrid,
   type AllocationGridRow,
   fetchAllocationGrid,
 } from '../api/allocation-client.ts';
+import { UtilizationPanel } from '../components/utilization-panel.tsx';
 import { peopleKeys } from '../state/query-keys.ts';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// Heatmap fill by planned-allocation level (matches the design prototype): green = fully loaded,
+// blue = high, amber = mid, red = light. Empty/zero months stay uncolored.
+function heatStyle(v: number | null | undefined): CSSProperties {
+  if (v == null || v === 0) return {};
+  if (v >= 100)
+    return { background: 'var(--color-success-tint)', color: 'var(--color-success-ink)' };
+  if (v >= 75) return { background: 'var(--color-info-tint)', color: 'var(--color-info-ink)' };
+  if (v >= 50)
+    return { background: 'var(--color-warning-tint)', color: 'var(--color-warning-ink)' };
+  return { background: 'var(--color-danger-tint)', color: 'var(--color-danger-ink)' };
+}
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  const first = parts[0]?.[0] ?? '';
+  const last = parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? '') : '';
+  return (first + last).toUpperCase();
+}
+
+const HEAT_LEVELS = [
+  { label: '≥100', token: 'success' },
+  { label: '75–99', token: 'info' },
+  { label: '50–74', token: 'warning' },
+  { label: '<50', token: 'danger' },
+] as const;
+
+function HeatLegend() {
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] text-ink-muted">
+      <span className="font-medium">Planned load</span>
+      {HEAT_LEVELS.map((l) => (
+        <span key={l.label} className="inline-flex items-center gap-1.5">
+          <span
+            className="size-2.5 rounded-[3px]"
+            style={{
+              background: `var(--color-${l.token}-tint)`,
+              boxShadow: `inset 0 0 0 1px var(--color-${l.token})`,
+            }}
+          />
+          {l.label}
+        </span>
+      ))}
+      <span className="inline-flex items-center gap-1.5">
+        <span className="size-2.5 rounded-[3px]" style={{ background: 'var(--color-danger)' }} />
+        over 100%
+      </span>
+    </div>
+  );
+}
 
 function Kpi({
   label,
@@ -27,11 +87,11 @@ function Kpi({
 }) {
   const color =
     tone === 'positive'
-      ? 'var(--positive)'
+      ? 'var(--color-success)'
       : tone === 'warning'
-        ? 'var(--warning)'
+        ? 'var(--color-warning)'
         : tone === 'accent'
-          ? 'var(--accent)'
+          ? 'var(--color-danger)'
           : undefined;
   return (
     <Card>
@@ -50,9 +110,17 @@ export function AllocationPage() {
   const navigate = useNavigate();
   const canReadAll = usePermission('people.worker.read.all');
 
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 250);
+    return () => clearTimeout(t);
+  }, [search]);
+
   const { data, isLoading, error } = useQuery<AllocationGrid>({
-    queryKey: peopleKeys.allocationGrid(),
-    queryFn: () => fetchAllocationGrid(),
+    queryKey: peopleKeys.allocationGrid(undefined, debouncedSearch),
+    queryFn: () => fetchAllocationGrid(undefined, debouncedSearch || undefined),
+    placeholderData: keepPreviousData,
   });
 
   const overByWorkerMonth = useMemo(() => {
@@ -66,6 +134,21 @@ export function AllocationPage() {
     return m;
   }, [data]);
 
+  // Rows arrive grouped per worker (backend sorts by name); the band parity just alternates the
+  // shade between adjacent person-groups so a worker's projects read as one block.
+  const workerBand = useMemo(() => {
+    const m = new Map<string, number>();
+    let idx = 0;
+    for (const r of data?.rows ?? []) if (!m.has(r.worker_id)) m.set(r.worker_id, idx++);
+    return m;
+  }, [data]);
+
+  const rowClassName = useCallback(
+    (row: Row<AllocationGridRow>) =>
+      cn((workerBand.get(row.original.worker_id) ?? 0) % 2 === 1 && 'bg-surface-1'),
+    [workerBand],
+  );
+
   const columns = useMemo<ColumnDef<AllocationGridRow>[]>(() => {
     const monthCols: ColumnDef<AllocationGridRow>[] = MONTHS.map((label, mi) => ({
       id: `m${mi}`,
@@ -76,16 +159,16 @@ export function AllocationPage() {
         const v = r.months[mi];
         const isOver = v != null && (overByWorkerMonth.get(r.worker_id)?.has(mi) ?? false);
         const total = totalsByWorker.get(r.worker_id)?.[mi];
+        // Over-allocated months are filled solid danger (not outlined); otherwise the heat fill.
+        const style: CSSProperties = isOver
+          ? { background: 'var(--color-danger)', color: '#fff' }
+          : heatStyle(v);
         return (
-          <div
-            className="text-center font-mono text-[12px]"
-            title={isOver ? `Total ${total}% this month` : undefined}
-          >
+          <div className="flex justify-center">
             <span
-              className={isOver ? 'rounded-sm px-1' : undefined}
-              style={
-                isOver ? { outline: '1px solid var(--accent)', outlineOffset: '-1px' } : undefined
-              }
+              className="inline-block w-9 rounded-[5px] py-0.5 text-center font-mono text-[11px] font-semibold tabular-nums"
+              title={isOver ? `Total ${total}% this month` : undefined}
+              style={style}
             >
               {v == null ? '' : v}
             </span>
@@ -96,21 +179,34 @@ export function AllocationPage() {
     return [
       {
         id: 'name',
-        accessorFn: (r) => `${r.full_name} ${r.worker_id}`,
         header: 'Name',
-        cell: ({ row }) => <span className="font-medium">{row.original.full_name}</span>,
-      },
-      {
-        accessorKey: 'account_name',
-        header: 'Account',
-        cell: ({ row }) => <span className="text-ink-muted">{row.original.account_name}</span>,
-      },
-      {
-        accessorKey: 'project_name',
-        header: 'Project',
         cell: ({ row }) => (
-          <span className="text-ink-muted">{row.original.project_name ?? '—'}</span>
+          <div className="flex w-44 items-center gap-2">
+            <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-surface-3 text-[10px] font-semibold text-ink-muted">
+              {initials(row.original.full_name)}
+            </span>
+            <span className="line-clamp-2 font-medium leading-tight">{row.original.full_name}</span>
+          </div>
         ),
+      },
+      {
+        id: 'engagement',
+        header: 'Project',
+        cell: ({ row }) => {
+          const { account_name, project_name } = row.original;
+          const project = project_name ?? '—';
+          // Account is redundant when it just repeats the project name (common for internal work).
+          const showAccount =
+            account_name && account_name !== project_name && !project.startsWith(account_name);
+          return (
+            <div className="min-w-0 max-w-[220px]">
+              <div className="truncate">{project}</div>
+              {showAccount && (
+                <div className="truncate text-[11px] text-ink-subtle">{account_name}</div>
+              )}
+            </div>
+          );
+        },
       },
       ...monthCols,
       {
@@ -144,21 +240,17 @@ export function AllocationPage() {
   return (
     <PageChrome title="Resource Allocation">
       <div className="space-y-4 p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-body-sm text-ink-muted">
-            Monthly staffing grid — planned % across {data?.year ?? 'the year'}.
-            {!canReadAll && ' Scoped to people related to you.'}
-          </p>
-          {!canReadAll && (
+        {!canReadAll && (
+          <div className="flex justify-end">
             <Badge variant="outline" title="You see only people related to you">
               Scoped view
             </Badge>
-          )}
-        </div>
+          </div>
+        )}
 
         {error ? (
           <Card>
-            <CardContent className="p-4 text-body-sm text-[color:var(--accent)]">
+            <CardContent className="p-4 text-body-sm text-[color:var(--color-danger)]">
               {(error as Error).message}
             </CardContent>
           </Card>
@@ -184,11 +276,22 @@ export function AllocationPage() {
               />
             </div>
 
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <Input
+                className="h-8 max-w-xs"
+                placeholder="Search name or worker ID…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              <HeatLegend />
+            </div>
+
             <DataTable
               columns={columns}
               data={data?.rows ?? []}
               isLoading={isLoading}
-              globalFilterPlaceholder="Search name or worker ID…"
+              getRowClassName={rowClassName}
+              enableGlobalFilter={false}
               pagination={{ defaultPageSize: 25, pageSizeOptions: [25, 50, 100] }}
               emptyState={
                 <EmptyState
@@ -205,8 +308,9 @@ export function AllocationPage() {
               }
             />
             <p className="text-[11px] text-ink-muted">
-              Red outline = that person is over 100% allocated that month.
+              Solid red = that person is over 100% allocated that month.
             </p>
+            <UtilizationPanel />
           </>
         )}
       </div>

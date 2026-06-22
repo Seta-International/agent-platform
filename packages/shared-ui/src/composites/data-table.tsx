@@ -66,6 +66,8 @@ interface DataTableBaseProps<TData, TValue> {
   density?: DataTableDensity;
   getRowId?: (row: TData) => string;
   onRowClick?: (row: Row<TData>) => void;
+  /** Extra classes per data row — e.g. banding/separating grouped rows. */
+  getRowClassName?: (row: Row<TData>) => string | undefined;
 }
 
 export interface DataTableClientProps<TData, TValue = unknown>
@@ -322,6 +324,7 @@ export function DataTable<TData, TValue>(props: DataTableProps<TData, TValue>) {
                         'border-b border-hairline-tertiary transition-colors hover:bg-surface-2',
                         'data-[state=selected]:bg-primary-tint data-[state=selected]:hover:bg-primary-tint',
                         onRowClick && 'cursor-pointer',
+                        props.getRowClassName?.(row),
                       )}
                     >
                       {visibleCells.map((cell, cellIdx) => (

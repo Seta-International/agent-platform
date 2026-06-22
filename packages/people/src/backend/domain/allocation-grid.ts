@@ -1,6 +1,6 @@
 import type { SessionScope } from '@seta/core';
 import { can } from '@seta/shared-rbac';
-import { and, eq, isNotNull, sql } from 'drizzle-orm';
+import { and, asc, eq, isNotNull, sql } from 'drizzle-orm';
 import { peopleDb } from '../db/client.ts';
 import { projectProjection, worker, workerAllocationProjection } from '../db/schema.ts';
 import { PeopleError } from '../rbac.ts';
@@ -38,6 +38,8 @@ export interface AllocationGrid {
 }
 export interface AllocationGridQuery {
   year?: number;
+  /** Filters the returned rows to workers whose name or id matches; KPIs stay scope-level. */
+  search?: string;
 }
 
 interface RawRow {
@@ -119,7 +121,14 @@ export async function getAllocationGrid(
         eq(projectProjection.tenant_id, workerAllocationProjection.tenant_id),
       ),
     )
-    .where(and(...where))) as RawRow[];
+    .where(and(...where))
+    // Group each person's project rows together (sorted by name) so the grid renders a worker's
+    // allocations as one consecutive block.
+    .orderBy(
+      asc(worker.full_name),
+      asc(workerAllocationProjection.worker_id),
+      asc(projectProjection.name),
+    )) as RawRow[];
 
   const yearStart = new Date(Date.UTC(year, 0, 1));
   const yearEnd = new Date(Date.UTC(year, 11, 31));
@@ -186,10 +195,25 @@ export async function getAllocationGrid(
       )
     : 0;
 
+  // Search filters the table rows (and their totals) to matching workers; the KPIs above stay at
+  // the viewer's full scope so the headline figures don't shift as you type.
+  const q = (query.search ?? '').trim().toLowerCase();
+  const matched = q
+    ? new Set(
+        rows
+          .filter(
+            (r) => r.full_name.toLowerCase().includes(q) || r.worker_id.toLowerCase().includes(q),
+          )
+          .map((r) => r.worker_id),
+      )
+    : null;
+  const outRows = matched ? rows.filter((r) => matched.has(r.worker_id)) : rows;
+  const outTotals = matched ? worker_totals.filter((w) => matched.has(w.worker_id)) : worker_totals;
+
   return {
     year,
-    rows,
-    worker_totals,
+    rows: outRows,
+    worker_totals: outTotals,
     kpis: {
       avg_utilization: avgUtil,
       over_allocated_count: overCount,
