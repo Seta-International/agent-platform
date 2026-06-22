@@ -10,7 +10,8 @@ describe('pm rbac', () => {
   it('exposes charter + project permissions', () => {
     for (const p of [
       'pm.charter.submit',
-      'pm.charter.approve',
+      'pm.charter.pmo_signoff',
+      'pm.charter.bod_approve',
       'pm.charter.read',
       'pm.project.read',
       'pm.project.manage',

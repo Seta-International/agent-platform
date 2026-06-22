@@ -6,13 +6,12 @@ import { describe, expect, it } from 'vitest';
 import { pmDb, resetPmDb } from '../../src/backend/db/client.ts';
 import { allocation } from '../../src/backend/db/schema.ts';
 import {
-  approveCharter,
   createAccount,
   createAllocation,
   removeAllocation,
   submitCharter,
 } from '../../src/index.ts';
-import { readEvents, seedTenant } from '../helpers.ts';
+import { approveCharterTwoStage, readEvents, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -32,7 +31,7 @@ async function seedProject(
     budget_bmm: 100,
     session,
   });
-  const { project_id } = await approveCharter({ charter_id, session });
+  const { project_id } = await approveCharterTwoStage(charter_id, session.tenant_id);
   return { project_id, account_id };
 }
 
