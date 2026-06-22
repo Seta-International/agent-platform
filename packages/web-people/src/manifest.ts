@@ -43,7 +43,6 @@ export const peopleAppManifest: AppManifest = {
           label: 'Org Chart',
           to: '/people/org',
           requires: ['people.worker.read'],
-          badge: 'Soon',
         },
         {
           id: 'people.allocation',
