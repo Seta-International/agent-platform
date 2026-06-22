@@ -2,6 +2,7 @@ import type { SessionScope } from '@seta/core';
 import { can } from '@seta/shared-rbac';
 import { type SQL, sql } from 'drizzle-orm';
 import { worker } from '../db/schema.ts';
+import { reportsSubtreeSql } from './org-structure.ts';
 
 /**
  * Relationship-based row-scope predicate for the worker directory. SECURITY-CRITICAL.
@@ -11,7 +12,7 @@ import { worker } from '../db/schema.ts';
  * matching a worker row (keyed on `worker.person_id`) iff it falls on any of four axes
  * relative to the viewer's own `person_id` (`:me`):
  *   1. self
- *   2. transitive reports (recursive walk DOWN manager_id from the viewer)
+ *   2. transitive reports (org-unit subtree headed by the viewer)
  *   3. workers actively allocated under an account the viewer manages (AM)
  *   4. workers actively allocated to a project the viewer leads
  *
@@ -34,17 +35,7 @@ export function buildWorkerScope(session: SessionScope): SQL | null {
 
   return sql`(
     ${worker.person_id} = ${me}
-    OR ${worker.person_id} IN (
-      WITH RECURSIVE reports AS (
-        SELECT person_id FROM people.worker
-          WHERE manager_id = ${me} AND tenant_id = ${tenantId} AND deleted_at IS NULL
-        UNION
-        SELECT w.person_id FROM people.worker w
-          JOIN reports r ON w.manager_id = r.person_id
-          WHERE w.tenant_id = ${tenantId} AND w.deleted_at IS NULL
-      )
-      SELECT person_id FROM reports
-    )
+    OR ${worker.person_id} IN ${reportsSubtreeSql(me, tenantId)}
     OR ${worker.person_id} IN (
       SELECT worker_id FROM people.worker_allocation_projection
         WHERE active AND tenant_id = ${tenantId}
