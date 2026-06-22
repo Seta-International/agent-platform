@@ -2,7 +2,12 @@ import { resetCoreDb } from '@seta/core/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
-import { addGroupMember, createGroup, createPlan } from '../../src/index.ts';
+import {
+  addGroupMember,
+  createGroup,
+  createPlan,
+  type PlannerSessionScope,
+} from '../../src/index.ts';
 import { readEvents, seedTenant } from '../helpers.ts';
 
 describe('createPlan', () => {
@@ -50,6 +55,93 @@ describe('createPlan', () => {
           expect(payload.actor.user_id).toBe(session.user_id);
           expect(payload.actor.type).toBe('user');
           expect(payload.group_id).toBe(group.id);
+        } finally {
+          resetCoreDb();
+          await closePools();
+        }
+      },
+    );
+  });
+
+  it('a plan mirrored from M365 (system actor) is marked m365 and emits a system-actor event (echo guard)', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
+      },
+      async ({ pool, databaseUrl }) => {
+        resetCoreDb();
+        initPools({ databaseUrl });
+        try {
+          const seeded = await seedTenant(pool);
+          const group = await createGroup({
+            tenant_id: seeded.tenant_id,
+            name: 'Eng',
+            session: seeded.adminSession,
+          });
+
+          // Auto-mirror (pull) creates plans via the M365 system session.
+          const systemSession: PlannerSessionScope = {
+            ...seeded.adminSession,
+            actor: { kind: 'system', system_id: 'integrations.m365' },
+          };
+
+          const plan = await createPlan({
+            group_id: group.id,
+            name: 'Mirrored from M365',
+            external_source: 'm365',
+            external_id: 'M365-PLAN-ABC',
+            session: systemSession,
+          });
+
+          // Row reflects the M365 origin so it isn't re-treated as a native plan.
+          expect(plan.external_source).toBe('m365');
+          expect(plan.external_id).toBe('M365-PLAN-ABC');
+
+          // The event MUST be attributable to the M365 system actor AND carry
+          // external_source — both are how the integrations push subscriber
+          // suppresses the echo (otherwise a pulled plan gets pushed back → loop).
+          const events = await readEvents(pool, seeded.tenant_id, 'planner.plan.created');
+          expect(events).toHaveLength(1);
+          // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB and we know its shape
+          const payload = events[0]?.payload as any;
+          expect(payload.actor.type).toBe('system');
+          expect(payload.actor.system_id).toBe('integrations.m365');
+          expect(payload.after.external_source).toBe('m365');
+        } finally {
+          resetCoreDb();
+          await closePools();
+        }
+      },
+    );
+  });
+
+  it('rejects external_source from a non-system (user) actor', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
+      },
+      async ({ pool, databaseUrl }) => {
+        resetCoreDb();
+        initPools({ databaseUrl });
+        try {
+          const seeded = await seedTenant(pool);
+          const group = await createGroup({
+            tenant_id: seeded.tenant_id,
+            name: 'Eng',
+            session: seeded.adminSession,
+          });
+
+          await expect(
+            createPlan({
+              group_id: group.id,
+              name: 'Sneaky',
+              external_source: 'm365',
+              external_id: 'x',
+              session: seeded.adminSession,
+            }),
+          ).rejects.toMatchObject({ code: 'RESERVED_FOR_SYSTEM_ACTOR' });
         } finally {
           resetCoreDb();
           await closePools();
