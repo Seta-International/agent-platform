@@ -13,11 +13,12 @@ export interface OrgGraphNodeData extends Record<string, unknown> {
   tone: 'surface' | 'solid' | 'primary';
   avatarShape: 'circle' | 'square';
   count?: number;
-  collapsible: boolean;
-  collapsed: boolean;
+  collapsible?: boolean;
+  collapsed?: boolean;
   descendantCount?: number;
   personId?: string;
   unitId?: string;
+  accountId?: string;
   drillTo?: DeliveryDrill;
 }
 
