@@ -46,13 +46,13 @@ import { CharterStepper } from './charter-stepper.tsx';
 import { SubmitCharterDialog } from './submit-charter-dialog.tsx';
 
 export interface RequestsSearch {
-  view: 'cards' | 'table';
+  view?: 'cards' | 'table';
   status?: CharterStatus;
   account?: string;
   q?: string;
-  sort: NonNullable<CharterListQuery['sort']>;
-  dir: NonNullable<CharterListQuery['dir']>;
-  page: number;
+  sort?: NonNullable<CharterListQuery['sort']>;
+  dir?: NonNullable<CharterListQuery['dir']>;
+  page?: number;
 }
 
 const PAGE_SIZE = 25;
@@ -76,7 +76,7 @@ const STATUS_OPTIONS: ReadonlyArray<{ value: CharterStatus; label: string }> = [
   { value: 'withdrawn', label: 'Withdrawn' },
 ];
 
-const SORT_OPTIONS: ReadonlyArray<{ value: RequestsSearch['sort']; label: string }> = [
+const SORT_OPTIONS: ReadonlyArray<{ value: NonNullable<RequestsSearch['sort']>; label: string }> = [
   { value: 'submitted', label: 'Submitted date' },
   { value: 'name', label: 'Project name' },
   { value: 'budget', label: 'Budget (BMM)' },
@@ -238,15 +238,9 @@ export function RequestsPage() {
   const page = search.page ?? 1;
 
   const update = (patch: Partial<RequestsSearch>, resetPage = true) => {
-    void navigate({
-      to: '/pm/requests',
-      search: (prev: Partial<RequestsSearch>) => {
-        const next = { ...prev, ...patch } as RequestsSearch;
-        if (resetPage && !('page' in patch)) next.page = 1;
-        return next;
-      },
-      replace: true,
-    });
+    const next: Partial<RequestsSearch> = { ...search, ...patch };
+    if (resetPage && !('page' in patch)) next.page = 1;
+    void navigate({ to: '/pm/requests', search: next, replace: true });
   };
 
   // Debounced free-text search synced to the URL.
