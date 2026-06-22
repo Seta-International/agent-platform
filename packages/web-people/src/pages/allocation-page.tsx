@@ -1,10 +1,10 @@
-import { Badge, Card, CardContent, DataTable, EmptyState, PageChrome } from '@seta/shared-ui';
+import { Badge, Card, CardContent, cn, DataTable, EmptyState, PageChrome } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import type { ColumnDef } from '@tanstack/react-table';
+import type { ColumnDef, Row } from '@tanstack/react-table';
 import { BarChart3 } from 'lucide-react';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import {
   type AllocationGrid,
   type AllocationGridRow,
@@ -66,6 +66,29 @@ export function AllocationPage() {
     for (const w of data?.worker_totals ?? []) m.set(w.worker_id, w.totals);
     return m;
   }, [data]);
+
+  // Rows arrive grouped per worker (backend sorts by name); the band parity just alternates the
+  // shade between adjacent person-groups so a worker's projects read as one block.
+  const workerBand = useMemo(() => {
+    const m = new Map<string, number>();
+    let idx = 0;
+    for (const r of data?.rows ?? []) if (!m.has(r.worker_id)) m.set(r.worker_id, idx++);
+    return m;
+  }, [data]);
+  const overWorkers = useMemo(() => {
+    const s = new Set<string>();
+    for (const w of data?.worker_totals ?? []) if (w.over_months.length > 0) s.add(w.worker_id);
+    return s;
+  }, [data]);
+
+  const rowClassName = useCallback(
+    (row: Row<AllocationGridRow>) =>
+      cn(
+        (workerBand.get(row.original.worker_id) ?? 0) % 2 === 1 && 'bg-surface-1',
+        overWorkers.has(row.original.worker_id) && 'border-l-2 border-[color:var(--accent)]',
+      ),
+    [workerBand, overWorkers],
+  );
 
   const columns = useMemo<ColumnDef<AllocationGridRow>[]>(() => {
     const monthCols: ColumnDef<AllocationGridRow>[] = MONTHS.map((label, mi) => ({
@@ -185,6 +208,7 @@ export function AllocationPage() {
               columns={columns}
               data={data?.rows ?? []}
               isLoading={isLoading}
+              getRowClassName={rowClassName}
               globalFilterPlaceholder="Search name or worker ID…"
               pagination={{ defaultPageSize: 25, pageSizeOptions: [25, 50, 100] }}
               emptyState={
