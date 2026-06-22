@@ -21,6 +21,11 @@ function memberNode(
   };
 }
 
+/**
+ * Account view (matches the prototype): the **Account Manager** is the root, the account's
+ * **projects** hang under the AM, and each project's **members** hang under it. Accounts with no
+ * AM fall back to an account-box root so the account still anchors its projects.
+ */
 export function buildAccountGraph(
   accounts: DeliveryAccount[],
   accountId: string | null,
@@ -30,19 +35,38 @@ export function buildAccountGraph(
   const acc = accounts.find((a) => a.account_id === accountId);
   if (!acc) return layout(nodes, edges);
 
-  nodes.push({
-    id: `acct:${acc.account_id}`,
-    type: 'org',
-    position: { x: 0, y: 0 },
-    data: {
-      title: acc.name,
-      subtitle: acc.am ? `AM: ${acc.am.full_name}` : undefined,
-      tone: 'surface',
-      avatarShape: 'square',
-      entity: 'account',
-      count: acc.projects.length || undefined,
-    },
-  });
+  let rootId: string;
+  if (acc.am) {
+    rootId = `am:${acc.am.person_id}`;
+    nodes.push({
+      id: rootId,
+      type: 'org',
+      position: { x: 0, y: 0 },
+      data: {
+        title: acc.am.full_name,
+        subtitle: `Account Manager · ${acc.name}`,
+        tone: 'surface',
+        avatarShape: 'circle',
+        entity: 'person',
+        personId: acc.am.person_id,
+      },
+    });
+  } else {
+    rootId = `acct:${acc.account_id}`;
+    nodes.push({
+      id: rootId,
+      type: 'org',
+      position: { x: 0, y: 0 },
+      data: {
+        title: acc.name,
+        subtitle: `${acc.projects.length} project${acc.projects.length === 1 ? '' : 's'}`,
+        tone: 'surface',
+        avatarShape: 'square',
+        entity: 'account',
+        count: acc.projects.length || undefined,
+      },
+    });
+  }
 
   for (const p of acc.projects) {
     nodes.push({
@@ -60,8 +84,8 @@ export function buildAccountGraph(
       },
     });
     edges.push({
-      id: `e:a-${acc.account_id}->p-${p.project_id}`,
-      source: `acct:${acc.account_id}`,
+      id: `e:root-${acc.account_id}->p-${p.project_id}`,
+      source: rootId,
       target: `proj:${p.project_id}`,
       ...EDGE,
     });
