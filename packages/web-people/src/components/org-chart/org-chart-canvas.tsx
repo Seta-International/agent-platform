@@ -12,7 +12,7 @@ import {
   useReactFlow,
 } from '@xyflow/react';
 import { useEffect, useState } from 'react';
-import type { OrgGraphNodeData } from './build-structure-graph.ts';
+import type { OrgGraphNodeData } from './graph-layout.ts';
 import { OrgGraphNode } from './org-graph-node.tsx';
 
 import '@xyflow/react/dist/style.css';

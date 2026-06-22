@@ -11,15 +11,7 @@ describe('org-client', () => {
 
   it('fetchOrgStructure GETs the endpoint with credentials and parses { units }', async () => {
     const units = [
-      {
-        id: 'u1',
-        parent_id: null,
-        name: 'Executive',
-        kind: 'executive',
-        sort: 0,
-        head: null,
-        members: [],
-      },
+      { id: 'u1', parent_id: null, name: 'Executive', kind: 'executive', sort: 0, head: null },
     ];
     mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ units }) });
     const result = await fetchOrgStructure();

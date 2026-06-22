@@ -2,24 +2,14 @@ import Dagre from '@dagrejs/dagre';
 import type { Edge, Node } from '@xyflow/react';
 import { MarkerType, Position } from '@xyflow/react';
 
-export type DeliveryDrill =
-  | { level: 'accounts' }
-  | { level: 'account'; accountId: string }
-  | { level: 'project'; accountId: string; projectId: string };
-
 export interface OrgGraphNodeData extends Record<string, unknown> {
   title: string;
   subtitle?: string;
   tone: 'surface' | 'solid' | 'primary';
   avatarShape: 'circle' | 'square';
   count?: number;
-  collapsible?: boolean;
-  collapsed?: boolean;
-  descendantCount?: number;
   personId?: string;
-  unitId?: string;
   accountId?: string;
-  drillTo?: DeliveryDrill;
 }
 
 const NODE_W = 210;

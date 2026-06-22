@@ -5,8 +5,6 @@ export interface OrgUnitNode {
   kind: string;
   sort: number;
   head: { person_id: string; full_name: string } | null;
-  // NOTE: dropped from the backend payload; retained only for build-structure-graph until Task 6.
-  members: Array<{ person_id: string; full_name: string; job_title: string | null }>;
 }
 
 export type CompanyNodeKind =
