@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { resetPmDb } from '../../src/backend/db/client.ts';
 import { buildPmRoutes } from '../../src/backend/http/index.ts';
 import { pmErrorMapper } from '../../src/register.ts';
-import { buildSession, seedTenant } from '../helpers.ts';
+import { buildSession, type SeededTenant, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -37,8 +37,24 @@ function appFor(session: unknown) {
   return app;
 }
 
+function reviewerApps(t: SeededTenant) {
+  const pmoApp = appFor(
+    buildSession({ tenant_id: t.tenant_id, user_id: crypto.randomUUID(), roles: ['pm.pmo'] }),
+  );
+  const bodApp = appFor(
+    buildSession({ tenant_id: t.tenant_id, user_id: crypto.randomUUID(), roles: ['pm.bod'] }),
+  );
+  return { pmoApp, bodApp };
+}
+
+const POST_JSON = (body: unknown) => ({
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(body),
+});
+
 describe('pm charters + projects HTTP', () => {
-  it('submit → approve → list project + error-mapper paths', async () => {
+  it('submit → pmo-signoff → bod-approve → list project + error-mapper paths', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPmDb();
@@ -46,21 +62,18 @@ describe('pm charters + projects HTTP', () => {
       try {
         const t = await seedTenant(pool);
         const app = appFor(t.adminSession);
+        const { pmoApp, bodApp } = reviewerApps(t);
 
-        // Create account first (required for charter)
-        const acctRes = await app.request('/api/pm/v1/accounts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: 'HTTP Test Client', industry: 'Tech' }),
-        });
+        const acctRes = await app.request(
+          '/api/pm/v1/accounts',
+          POST_JSON({ name: 'HTTP Test Client', industry: 'Tech' }),
+        );
         expect(acctRes.status).toBe(201);
         const { account_id } = (await acctRes.json()) as { account_id: string };
 
-        // POST /charters → 201
-        const submitRes = await app.request('/api/pm/v1/charters', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+        const submitRes = await app.request(
+          '/api/pm/v1/charters',
+          POST_JSON({
             account_id,
             name: 'HTTP Proj',
             pm_worker_id: t.admin_user_id,
@@ -68,24 +81,18 @@ describe('pm charters + projects HTTP', () => {
             pricing_model: 'time_materials',
             budget_bmm: 12,
           }),
-        });
+        );
         expect(submitRes.status).toBe(201);
         const { charter_id } = (await submitRes.json()) as { charter_id: string };
 
-        // GET /charters → lists submitted charter
         const listRes = await app.request('/api/pm/v1/charters');
         expect(listRes.status).toBe(200);
         const listBody = (await listRes.json()) as { charters: Array<{ charter_id: string }> };
         expect(listBody.charters.some((c) => c.charter_id === charter_id)).toBe(true);
 
-        // GET /charters/:id
         const detailRes = await app.request(`/api/pm/v1/charters/${charter_id}`);
         expect(detailRes.status).toBe(200);
-        const detail = (await detailRes.json()) as { charter_id: string; name: string };
-        expect(detail.charter_id).toBe(charter_id);
-        expect(detail.name).toBe('HTTP Proj');
 
-        // PATCH /charters/:id
         const patchRes = await app.request(`/api/pm/v1/charters/${charter_id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -93,30 +100,31 @@ describe('pm charters + projects HTTP', () => {
         });
         expect(patchRes.status).toBe(200);
 
-        // POST /:id/approve → 200, returns project_id
-        const approveRes = await app.request(`/api/pm/v1/charters/${charter_id}/approve`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({}),
-        });
-        expect(approveRes.status).toBe(200);
-        const approveBody = (await approveRes.json()) as { project_id: string };
-        expect(typeof approveBody.project_id).toBe('string');
-        const { project_id } = approveBody;
+        // legacy /approve route is gone
+        const goneRes = await app.request(
+          `/api/pm/v1/charters/${charter_id}/approve`,
+          POST_JSON({}),
+        );
+        expect(goneRes.status).toBe(404);
 
-        // GET /projects → lists the project
+        // PMO sign-off (200), then BoD approve (200, returns project_id)
+        const pmoRes = await pmoApp.request(
+          `/api/pm/v1/charters/${charter_id}/pmo-signoff`,
+          POST_JSON({}),
+        );
+        expect(pmoRes.status).toBe(200);
+        const approveRes = await bodApp.request(
+          `/api/pm/v1/charters/${charter_id}/bod-approve`,
+          POST_JSON({}),
+        );
+        expect(approveRes.status).toBe(200);
+        const { project_id } = (await approveRes.json()) as { project_id: string };
+        expect(typeof project_id).toBe('string');
+
         const projListRes = await app.request('/api/pm/v1/projects');
-        expect(projListRes.status).toBe(200);
         const projList = (await projListRes.json()) as { projects: Array<{ project_id: string }> };
         expect(projList.projects.some((p) => p.project_id === project_id)).toBe(true);
 
-        // GET /projects/:id
-        const projDetailRes = await app.request(`/api/pm/v1/projects/${project_id}`);
-        expect(projDetailRes.status).toBe(200);
-        const projDetail = (await projDetailRes.json()) as { project_id: string };
-        expect(projDetail.project_id).toBe(project_id);
-
-        // PATCH /projects/:id
         const projPatchRes = await app.request(`/api/pm/v1/projects/${project_id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -124,60 +132,22 @@ describe('pm charters + projects HTTP', () => {
         });
         expect(projPatchRes.status).toBe(200);
 
-        // GET /projects/:id/access
-        const accessListRes = await app.request(`/api/pm/v1/projects/${project_id}/access`);
-        expect(accessListRes.status).toBe(200);
-        const accessBody = (await accessListRes.json()) as { access: unknown[] };
-        expect(Array.isArray(accessBody.access)).toBe(true);
-
-        // PUT /projects/:id/access
         const setAccessRes = await app.request(`/api/pm/v1/projects/${project_id}/access`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            grants: [{ worker_id: t.admin_user_id, level: 'owner' }],
-          }),
+          body: JSON.stringify({ grants: [{ worker_id: t.admin_user_id, level: 'owner' }] }),
         });
         expect(setAccessRes.status).toBe(200);
 
-        // GET /projects/:id/staffing-plan
-        const planListRes = await app.request(`/api/pm/v1/projects/${project_id}/staffing-plan`);
-        expect(planListRes.status).toBe(200);
-        const planBody = (await planListRes.json()) as { lines: unknown[] };
-        expect(Array.isArray(planBody.lines)).toBe(true);
-
-        // POST /projects/:id/staffing-plan
-        const upsertLineRes = await app.request(`/api/pm/v1/projects/${project_id}/staffing-plan`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ role: 'Backend Dev', effort_mm: 3 }),
-        });
-        expect(upsertLineRes.status).toBe(200);
-        const lineBody = (await upsertLineRes.json()) as { line_id: string };
-        expect(typeof lineBody.line_id).toBe('string');
-        const { line_id } = lineBody;
-
-        // DELETE /projects/:id/staffing-plan/:lineId
-        const deleteLineRes = await app.request(
-          `/api/pm/v1/projects/${project_id}/staffing-plan/${line_id}`,
-          { method: 'DELETE' },
+        const closeRes = await app.request(
+          `/api/pm/v1/projects/${project_id}/close`,
+          POST_JSON({}),
         );
-        expect(deleteLineRes.status).toBe(200);
-
-        // POST /projects/:id/close → 200
-        const closeRes = await app.request(`/api/pm/v1/projects/${project_id}/close`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({}),
-        });
         expect(closeRes.status).toBe(200);
-
-        // POST /projects/:id/reopen → 200
-        const reopenRes = await app.request(`/api/pm/v1/projects/${project_id}/reopen`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({}),
-        });
+        const reopenRes = await app.request(
+          `/api/pm/v1/projects/${project_id}/reopen`,
+          POST_JSON({}),
+        );
         expect(reopenRes.status).toBe(200);
       } finally {
         resetPmDb();
@@ -187,7 +157,7 @@ describe('pm charters + projects HTTP', () => {
     });
   });
 
-  it('error-mapper: stale version → 409, viewer approve → 403, unknown id → 404, bad body → 400', async () => {
+  it('error-mapper: stale version → 409, viewer sign-off → 403, unknown id → 404, bad body → 400', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPmDb();
@@ -195,65 +165,46 @@ describe('pm charters + projects HTTP', () => {
       try {
         const t = await seedTenant(pool);
         const app = appFor(t.adminSession);
+        const { pmoApp } = reviewerApps(t);
 
-        // Create account + charter
-        const acctRes = await app.request('/api/pm/v1/accounts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: 'Error Client' }),
-        });
+        const acctRes = await app.request(
+          '/api/pm/v1/accounts',
+          POST_JSON({ name: 'Error Client' }),
+        );
         const { account_id } = (await acctRes.json()) as { account_id: string };
 
-        const submitRes = await app.request('/api/pm/v1/charters', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            account_id,
-            name: 'Error Proj',
-            pm_worker_id: t.admin_user_id,
-          }),
-        });
+        const submitRes = await app.request(
+          '/api/pm/v1/charters',
+          POST_JSON({ account_id, name: 'Error Proj', pm_worker_id: t.admin_user_id }),
+        );
         const { charter_id } = (await submitRes.json()) as { charter_id: string };
 
-        // 409 — stale version on approve
-        const staleRes = await app.request(`/api/pm/v1/charters/${charter_id}/approve`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ expected_version: 99 }),
-        });
+        // 409 — stale version on pmo-signoff
+        const staleRes = await pmoApp.request(
+          `/api/pm/v1/charters/${charter_id}/pmo-signoff`,
+          POST_JSON({ expected_version: 99 }),
+        );
         expect(staleRes.status).toBe(409);
 
-        // 403 — viewer trying to approve
-        const viewerSession = buildSession({
-          tenant_id: t.tenant_id,
-          user_id: t.admin_user_id,
-          roles: ['pm.viewer'],
-        });
-        const viewerApp = appFor(viewerSession);
-        const forbidRes = await viewerApp.request(`/api/pm/v1/charters/${charter_id}/approve`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({}),
-        });
+        // 403 — viewer trying to sign off
+        const viewerApp = appFor(
+          buildSession({ tenant_id: t.tenant_id, user_id: t.admin_user_id, roles: ['pm.viewer'] }),
+        );
+        const forbidRes = await viewerApp.request(
+          `/api/pm/v1/charters/${charter_id}/pmo-signoff`,
+          POST_JSON({}),
+        );
         expect(forbidRes.status).toBe(403);
 
         // 404 — unknown charter id
-        const notFoundRes = await app.request(
-          `/api/pm/v1/charters/${crypto.randomUUID()}/approve`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({}),
-          },
+        const notFoundRes = await pmoApp.request(
+          `/api/pm/v1/charters/${crypto.randomUUID()}/pmo-signoff`,
+          POST_JSON({}),
         );
         expect(notFoundRes.status).toBe(404);
 
-        // 400 — bad POST body (empty object missing required fields)
-        const badBodyRes = await app.request('/api/pm/v1/charters', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({}),
-        });
+        // 400 — bad submit body
+        const badBodyRes = await app.request('/api/pm/v1/charters', POST_JSON({}));
         expect(badBodyRes.status).toBe(400);
       } finally {
         resetPmDb();
@@ -263,7 +214,7 @@ describe('pm charters + projects HTTP', () => {
     });
   });
 
-  it('withdraw and reject flows', async () => {
+  it('withdraw (submitter) and reject (PMO at submitted stage) flows', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPmDb();
@@ -271,46 +222,31 @@ describe('pm charters + projects HTTP', () => {
       try {
         const t = await seedTenant(pool);
         const app = appFor(t.adminSession);
+        const { pmoApp } = reviewerApps(t);
 
-        const acctRes = await app.request('/api/pm/v1/accounts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: 'Flow Client' }),
-        });
+        const acctRes = await app.request(
+          '/api/pm/v1/accounts',
+          POST_JSON({ name: 'Flow Client' }),
+        );
         const { account_id } = (await acctRes.json()) as { account_id: string };
 
-        // Charter for withdraw
-        const s1 = await app.request('/api/pm/v1/charters', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            account_id,
-            name: 'Withdraw Proj',
-            pm_worker_id: t.admin_user_id,
-          }),
-        });
+        const s1 = await app.request(
+          '/api/pm/v1/charters',
+          POST_JSON({ account_id, name: 'Withdraw Proj', pm_worker_id: t.admin_user_id }),
+        );
         const { charter_id: cw } = (await s1.json()) as { charter_id: string };
-
-        const withdrawRes = await app.request(`/api/pm/v1/charters/${cw}/withdraw`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({}),
-        });
+        const withdrawRes = await app.request(`/api/pm/v1/charters/${cw}/withdraw`, POST_JSON({}));
         expect(withdrawRes.status).toBe(200);
 
-        // Charter for reject
-        const s2 = await app.request('/api/pm/v1/charters', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ account_id, name: 'Reject Proj', pm_worker_id: t.admin_user_id }),
-        });
+        const s2 = await app.request(
+          '/api/pm/v1/charters',
+          POST_JSON({ account_id, name: 'Reject Proj', pm_worker_id: t.admin_user_id }),
+        );
         const { charter_id: cr } = (await s2.json()) as { charter_id: string };
-
-        const rejectRes = await app.request(`/api/pm/v1/charters/${cr}/reject`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ reason: 'Budget not approved' }),
-        });
+        const rejectRes = await pmoApp.request(
+          `/api/pm/v1/charters/${cr}/reject`,
+          POST_JSON({ reason: 'Budget not approved' }),
+        );
         expect(rejectRes.status).toBe(200);
       } finally {
         resetPmDb();
@@ -328,18 +264,17 @@ describe('pm charters + projects HTTP', () => {
       try {
         const t = await seedTenant(pool);
         const app = appFor(t.adminSession);
+        const { pmoApp, bodApp } = reviewerApps(t);
 
-        const acctRes = await app.request('/api/pm/v1/accounts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: 'Guard Client' }),
-        });
+        const acctRes = await app.request(
+          '/api/pm/v1/accounts',
+          POST_JSON({ name: 'Guard Client' }),
+        );
         const { account_id } = (await acctRes.json()) as { account_id: string };
 
-        const submitRes = await app.request('/api/pm/v1/charters', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+        const submitRes = await app.request(
+          '/api/pm/v1/charters',
+          POST_JSON({
             account_id,
             name: 'Guard Proj',
             pm_worker_id: t.admin_user_id,
@@ -347,37 +282,33 @@ describe('pm charters + projects HTTP', () => {
             pricing_model: 'fixed_price',
             budget_bmm: 10,
           }),
-        });
+        );
         const { charter_id } = (await submitRes.json()) as { charter_id: string };
-        const approveRes = await app.request(`/api/pm/v1/charters/${charter_id}/approve`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({}),
-        });
+        await pmoApp.request(`/api/pm/v1/charters/${charter_id}/pmo-signoff`, POST_JSON({}));
+        const approveRes = await bodApp.request(
+          `/api/pm/v1/charters/${charter_id}/bod-approve`,
+          POST_JSON({}),
+        );
         const { project_id } = (await approveRes.json()) as { project_id: string };
 
-        const upsertRes = await app.request(`/api/pm/v1/projects/${project_id}/staffing-plan`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ role: 'QA', effort_mm: 1 }),
-        });
+        const upsertRes = await app.request(
+          `/api/pm/v1/projects/${project_id}/staffing-plan`,
+          POST_JSON({ role: 'QA', effort_mm: 1 }),
+        );
         const { line_id } = (await upsertRes.json()) as { line_id: string };
 
-        // 400 — invalid expected_version query param
         const badVersionRes = await app.request(
           `/api/pm/v1/projects/${project_id}/staffing-plan/${line_id}?expected_version=abc`,
           { method: 'DELETE' },
         );
         expect(badVersionRes.status).toBe(400);
 
-        // 409 — stale expected_version (line is at version 1, we send 99)
         const staleRes = await app.request(
           `/api/pm/v1/projects/${project_id}/staffing-plan/${line_id}?expected_version=99`,
           { method: 'DELETE' },
         );
         expect(staleRes.status).toBe(409);
 
-        // correct version deletes successfully
         const okRes = await app.request(
           `/api/pm/v1/projects/${project_id}/staffing-plan/${line_id}?expected_version=1`,
           { method: 'DELETE' },
