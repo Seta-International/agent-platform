@@ -36,6 +36,47 @@ function heatStyle(v: number | null | undefined): CSSProperties {
   return { background: 'var(--color-danger-tint)', color: 'var(--color-danger-ink)' };
 }
 
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  const first = parts[0]?.[0] ?? '';
+  const last = parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? '') : '';
+  return (first + last).toUpperCase();
+}
+
+const HEAT_LEVELS = [
+  { label: '≥100', token: 'success' },
+  { label: '75–99', token: 'info' },
+  { label: '50–74', token: 'warning' },
+  { label: '<50', token: 'danger' },
+] as const;
+
+function HeatLegend() {
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] text-ink-muted">
+      <span className="font-medium">Planned load</span>
+      {HEAT_LEVELS.map((l) => (
+        <span key={l.label} className="inline-flex items-center gap-1.5">
+          <span
+            className="size-2.5 rounded-[3px]"
+            style={{
+              background: `var(--color-${l.token}-tint)`,
+              boxShadow: `inset 0 0 0 1px var(--color-${l.token})`,
+            }}
+          />
+          {l.label}
+        </span>
+      ))}
+      <span className="inline-flex items-center gap-1.5">
+        <span
+          className="size-2.5 rounded-[3px]"
+          style={{ boxShadow: 'inset 0 0 0 2px rgba(229,72,77,.75)' }}
+        />
+        over 100%
+      </span>
+    </div>
+  );
+}
+
 function Kpi({
   label,
   value,
@@ -148,21 +189,34 @@ export function AllocationPage() {
     return [
       {
         id: 'name',
-        accessorFn: (r) => `${r.full_name} ${r.worker_id}`,
         header: 'Name',
-        cell: ({ row }) => <span className="font-medium">{row.original.full_name}</span>,
-      },
-      {
-        accessorKey: 'account_name',
-        header: 'Account',
-        cell: ({ row }) => <span className="text-ink-muted">{row.original.account_name}</span>,
-      },
-      {
-        accessorKey: 'project_name',
-        header: 'Project',
         cell: ({ row }) => (
-          <span className="text-ink-muted">{row.original.project_name ?? '—'}</span>
+          <div className="flex w-44 items-center gap-2">
+            <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-surface-3 text-[10px] font-semibold text-ink-muted">
+              {initials(row.original.full_name)}
+            </span>
+            <span className="line-clamp-2 font-medium leading-tight">{row.original.full_name}</span>
+          </div>
         ),
+      },
+      {
+        id: 'engagement',
+        header: 'Project',
+        cell: ({ row }) => {
+          const { account_name, project_name } = row.original;
+          const project = project_name ?? '—';
+          // Account is redundant when it just repeats the project name (common for internal work).
+          const showAccount =
+            account_name && account_name !== project_name && !project.startsWith(account_name);
+          return (
+            <div className="min-w-0 max-w-[220px]">
+              <div className="truncate">{project}</div>
+              {showAccount && (
+                <div className="truncate text-[11px] text-ink-subtle">{account_name}</div>
+              )}
+            </div>
+          );
+        },
       },
       ...monthCols,
       {
@@ -232,12 +286,15 @@ export function AllocationPage() {
               />
             </div>
 
-            <Input
-              className="h-8 max-w-xs"
-              placeholder="Search name or worker ID…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <Input
+                className="h-8 max-w-xs"
+                placeholder="Search name or worker ID…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              <HeatLegend />
+            </div>
 
             <DataTable
               columns={columns}
