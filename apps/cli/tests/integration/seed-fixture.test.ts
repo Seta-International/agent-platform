@@ -3,7 +3,7 @@ import { startDispatcher } from '@seta/core/runtime';
 import { resetCoreDb } from '@seta/core/testing';
 import { resetHiringDb } from '@seta/hiring/testing';
 import { resetIdentityDb } from '@seta/identity/testing';
-import { getOrgStructure } from '@seta/people';
+import { getOrgCompany, getOrgStructure } from '@seta/people';
 import { resetPeopleDb } from '@seta/people/testing';
 import { resetPlannerDb } from '@seta/planner/testing';
 import { resetPmDb } from '@seta/pm/testing';
@@ -163,7 +163,9 @@ describe('seed-fixture end-to-end', () => {
         expect(units.some((u) => u.kind === 'delivery')).toBe(true);
         expect(units.some((u) => u.kind === 'pmo')).toBe(true);
         // Workers place into units by their primary allocation's dept (STP900 → Delivery).
-        expect(units.find((u) => u.kind === 'delivery')?.members.length).toBeGreaterThan(0);
+        // getOrgStructure no longer carries per-unit members; the company tree exposes the count.
+        const { nodes: companyNodes } = await getOrgCompany(adminSession);
+        expect(companyNodes.find((n) => n.kind === 'delivery')?.count ?? 0).toBeGreaterThan(0);
 
         // Second run — must be idempotent
         await seedFixtureCommand({
