@@ -83,6 +83,16 @@ export function LinkToM365Dialog({ groupId, open, onOpenChange }: Props) {
             )}
           </div>
 
+          {search.isError && (
+            <Alert variant="destructive">
+              <AlertDescription>
+                {search.error instanceof Error
+                  ? search.error.message
+                  : "Couldn't search Microsoft 365 groups."}
+              </AlertDescription>
+            </Alert>
+          )}
+
           {search.data && groups.length === 0 && (
             <p className="text-sm text-ink-subtle px-1">No matching groups in Microsoft 365.</p>
           )}

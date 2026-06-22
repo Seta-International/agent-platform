@@ -51,6 +51,27 @@ describe('LinkToM365Dialog', () => {
     expect(screen.getByText('engineering')).toBeInTheDocument();
   });
 
+  it('surfaces a failed group search instead of looking empty', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get('*/api/integrations/m365/groups/search', () =>
+        HttpResponse.json(
+          {
+            error: 'VALIDATION',
+            message:
+              'M365 Graph app is missing required permissions (grant admin consent for Group.ReadWrite.All and Tasks.ReadWrite.All).',
+          },
+          { status: 400 },
+        ),
+      ),
+    );
+    wrap(<LinkToM365Dialog groupId={GROUP_ID} open onOpenChange={() => {}} />);
+    await user.type(screen.getByPlaceholderText('Search Microsoft 365 groups…'), 'Seta');
+    await waitFor(() =>
+      expect(screen.getByText(/missing required permissions/i)).toBeInTheDocument(),
+    );
+  });
+
   it('selecting a result and clicking "Link group" calls linkGroupToM365', async () => {
     const user = userEvent.setup();
     const captured: unknown[] = [];
