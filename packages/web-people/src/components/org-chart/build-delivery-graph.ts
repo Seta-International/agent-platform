@@ -1,22 +1,8 @@
 import type { Edge, Node } from '@xyflow/react';
-import { MarkerType } from '@xyflow/react';
 import type { DeliveryAccount } from '../../api/org-client.ts';
-import { layout, type OrgGraphNodeData } from './build-structure-graph.ts';
+import { type DeliveryDrill, EDGE, layout, type OrgGraphNodeData } from './graph-layout.ts';
 
-export type DeliveryDrill =
-  | { level: 'accounts' }
-  | { level: 'account'; accountId: string }
-  | { level: 'project'; accountId: string; projectId: string };
-
-const EDGE = {
-  type: 'smoothstep' as const,
-  markerEnd: {
-    type: MarkerType.ArrowClosed,
-    width: 14,
-    height: 14,
-    color: 'var(--color-ink-subtle)',
-  },
-};
+export type { DeliveryDrill } from './graph-layout.ts';
 
 function acctNode(a: DeliveryAccount, drillTo?: DeliveryDrill): Node<OrgGraphNodeData> {
   return {
