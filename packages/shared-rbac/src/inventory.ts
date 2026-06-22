@@ -444,22 +444,37 @@ export const INVENTORY: StatementSpec[] = [
     module: 'pm',
     statement: {
       'pm.account': ['read', 'manage'],
-      'pm.charter': ['submit', 'approve', 'read'],
+      'pm.charter': ['submit', 'pmo_signoff', 'bod_approve', 'read'],
       'pm.project': ['read', 'manage'],
     },
     roles: [
       {
         slug: 'pm.strategic',
-        description: 'Full project-management administration',
+        description: 'Raises charters and runs delivery (no approval gate)',
         permissions: [
           'pm.account.read',
           'pm.account.manage',
           'pm.charter.submit',
-          'pm.charter.approve',
           'pm.charter.read',
           'pm.project.read',
           'pm.project.manage',
         ],
+      },
+      {
+        slug: 'pm.pmo',
+        description: 'PMO review gate + post-approval staffing & access',
+        permissions: [
+          'pm.account.read',
+          'pm.charter.pmo_signoff',
+          'pm.charter.read',
+          'pm.project.read',
+          'pm.project.manage',
+        ],
+      },
+      {
+        slug: 'pm.bod',
+        description: 'Board final approval gate',
+        permissions: ['pm.charter.bod_approve', 'pm.charter.read', 'pm.project.read'],
       },
       {
         slug: 'pm.viewer',
