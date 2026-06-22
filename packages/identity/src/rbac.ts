@@ -16,7 +16,7 @@ export const identityStatement = {
   'identity.role_grant': ['read', 'write'],
   'identity.password': ['disable_local'],
   'identity.concept_map': ['read', 'write'],
-  'core.tenant': ['read', 'write'],
+  'core.tenant': ['read', 'write', 'email_domains.write'],
   'core.audit': ['read'],
 } as const satisfies Statement;
 
@@ -24,6 +24,8 @@ const roleStatements = {
   'identity.admin': {
     'identity.user': ['read.any', 'write', 'deactivate', 'invite', 'email.change'],
     'identity.sso': ['read', 'write'],
+    // Narrower than core.tenant.write — only the email-domains writer requires this.
+    'core.tenant': ['email_domains.write'],
     'identity.role': ['grant', 'read', 'write'],
     'identity.role_grant': ['read', 'write'],
     'identity.password': ['disable_local'],

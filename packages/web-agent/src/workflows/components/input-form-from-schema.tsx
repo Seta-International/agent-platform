@@ -1,4 +1,13 @@
-import { Button, Input, Label } from '@seta/shared-ui';
+import {
+  Button,
+  Input,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@seta/shared-ui';
 import { dequal } from 'dequal';
 import { useState } from 'react';
 
@@ -184,31 +193,28 @@ export function InputFormFromSchema({
               ) : null}
             </Label>
             {leaf.enumValues ? (
-              <select
-                id={id}
-                aria-label={labelFor(leaf)}
-                value={rawStr}
-                onChange={(e) => handleChange(leaf, e.target.value)}
-                className="block w-full rounded-md border border-[var(--color-hairline)] bg-[var(--color-surface-1)] px-2 py-1.5 text-sm"
-              >
-                {!leaf.required && <option value="">—</option>}
-                {leaf.enumValues.map((v) => (
-                  <option key={v} value={v}>
-                    {v}
-                  </option>
-                ))}
-              </select>
+              <Select value={rawStr || undefined} onValueChange={(v) => handleChange(leaf, v)}>
+                <SelectTrigger id={id} aria-label={labelFor(leaf)} className="w-full">
+                  <SelectValue placeholder="—" />
+                </SelectTrigger>
+                <SelectContent>
+                  {leaf.enumValues.map((v) => (
+                    <SelectItem key={v} value={v}>
+                      {v}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             ) : leaf.type === 'boolean' ? (
-              <select
-                id={id}
-                aria-label={labelFor(leaf)}
-                value={rawStr}
-                onChange={(e) => handleChange(leaf, e.target.value)}
-                className="block w-full rounded-md border border-[var(--color-hairline)] bg-[var(--color-surface-1)] px-2 py-1.5 text-sm"
-              >
-                <option value="false">false</option>
-                <option value="true">true</option>
-              </select>
+              <Select value={rawStr || 'false'} onValueChange={(v) => handleChange(leaf, v)}>
+                <SelectTrigger id={id} aria-label={labelFor(leaf)} className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="false">false</SelectItem>
+                  <SelectItem value="true">true</SelectItem>
+                </SelectContent>
+              </Select>
             ) : (
               <Input
                 id={id}

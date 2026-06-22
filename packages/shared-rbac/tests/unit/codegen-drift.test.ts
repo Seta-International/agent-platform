@@ -13,5 +13,7 @@ describe('permission-keys codegen', () => {
     const before = readFileSync(resolve(repoRoot, path), 'utf8');
     execSync('pnpm gen:rbac', { cwd: repoRoot });
     expect(readFileSync(resolve(repoRoot, path), 'utf8')).toBe(before);
-  });
+    // Spawns `pnpm gen:rbac` (pnpm → tsx → script); the default 5s timeout is too tight under
+    // parallel full-suite load where this subprocess routinely takes >5s.
+  }, 60_000);
 });

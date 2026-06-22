@@ -1,5 +1,14 @@
 import { type AppManifest, noNavExtensions } from '@seta/module-sdk';
-import { Bell, FileClock, Mail, Settings, Shield, ShieldCheck, Sliders, Users } from 'lucide-react';
+import {
+  Bell,
+  BookOpen,
+  FileClock,
+  Mail,
+  Settings,
+  Shield,
+  ShieldCheck,
+  Sliders,
+} from 'lucide-react';
 
 export const adminAppManifest: AppManifest = {
   id: 'admin',
@@ -11,19 +20,18 @@ export const adminAppManifest: AppManifest = {
   useNavExtensions: noNavExtensions,
   nav: [
     {
-      label: 'Identity & access',
       items: [
         {
-          id: 'admin.users',
-          icon: Users,
-          label: 'Users',
-          to: '/admin/users',
-          requires: ['identity.user.read.any'],
+          id: 'admin.tenant',
+          icon: Sliders,
+          label: 'General',
+          to: '/admin/tenant',
+          requires: ['core.tenant.read'],
         },
         {
           id: 'admin.sso',
           icon: Shield,
-          label: 'SSO',
+          label: 'Sign-in & SSO',
           to: '/admin/sso',
           requires: ['identity.sso.read'],
         },
@@ -34,15 +42,10 @@ export const adminAppManifest: AppManifest = {
           to: '/admin/role-access',
           requires: ['identity.role.read'],
         },
-      ],
-    },
-    {
-      label: 'Communication',
-      items: [
         {
           id: 'admin.mail-transport',
           icon: Mail,
-          label: 'Mail transport',
+          label: 'Mail',
           to: '/admin/mail',
           requires: ['integrations.mail.read'],
         },
@@ -53,17 +56,12 @@ export const adminAppManifest: AppManifest = {
           to: '/admin/notifications',
           requires: ['notifications.category.read'],
         },
-      ],
-    },
-    {
-      label: 'Workspace',
-      items: [
         {
-          id: 'admin.tenant',
-          icon: Sliders,
-          label: 'Organization',
-          to: '/admin/tenant',
-          requires: ['core.tenant.read'],
+          id: 'admin.skills',
+          icon: BookOpen,
+          label: 'Skills catalog',
+          to: '/admin/skills',
+          requires: ['core.skill.read'],
         },
         {
           id: 'admin.audit',

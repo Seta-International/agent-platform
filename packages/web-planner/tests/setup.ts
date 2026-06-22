@@ -41,6 +41,33 @@ if (typeof globalThis.jest === 'undefined') {
   (globalThis as Record<string, unknown>).jest = vi;
 }
 
+// Radix UI portals (Select, Dialog, etc.) use pointer-capture APIs and scrollIntoView
+// that are absent or incomplete in happy-dom, causing infinite focus-event recursion.
+// Stub them to no-ops globally so every test that mounts a Radix component is safe.
+window.HTMLElement.prototype.hasPointerCapture = () => false;
+window.HTMLElement.prototype.setPointerCapture = () => {};
+window.HTMLElement.prototype.releasePointerCapture = () => {};
+window.HTMLElement.prototype.scrollIntoView = () => {};
+
+// Radix's FocusScope calls element.focus() inside a `focusin` event handler, causing
+// happy-dom to re-fire a `focusin` event (which bubbles to document) and trigger the
+// same handler again — infinite recursion. Guard `HTMLElement.prototype.focus` with a
+// re-entrant flag so nested `.focus()` calls during a `focusin` event are silently
+// dropped (the outer call already handles focus; the inner one is redundant).
+{
+  const _focus = HTMLElement.prototype.focus;
+  let _inFocus = false;
+  HTMLElement.prototype.focus = function (options?: FocusOptions): void {
+    if (_inFocus) return;
+    _inFocus = true;
+    try {
+      _focus.call(this, options);
+    } finally {
+      _inFocus = false;
+    }
+  };
+}
+
 expect.extend(toHaveNoViolations);
 
 declare module 'vitest' {

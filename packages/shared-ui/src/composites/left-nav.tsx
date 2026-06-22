@@ -72,7 +72,7 @@ export function LeftNav({
         <TooltipProvider delayDuration={200}>
           <div className="flex-1 overflow-y-auto py-2">
             {sections.map((section, i) => (
-              <div key={`${app.id}:${section.label}`}>
+              <div key={`${app.id}:${section.label ?? i}`}>
                 {i > 0 && <div className="mx-3 my-1.5 h-px bg-hairline" aria-hidden />}
                 {section.items.map((item) => (
                   <RailItemRow
@@ -114,10 +114,12 @@ export function LeftNav({
     >
       <div className="flex-1 overflow-y-auto py-2">
         {sections.map((section, i) => (
-          <div key={`${app.id}:${section.label}`} className={i > 0 ? 'mt-3' : ''}>
-            <div className="mt-1 mb-1 px-[20px] text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
-              {section.label}
-            </div>
+          <div key={`${app.id}:${section.label ?? i}`} className={i > 0 ? 'mt-3' : ''}>
+            {section.label && (
+              <div className="mt-1 mb-1 px-[20px] text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
+                {section.label}
+              </div>
+            )}
             {section.items.map((item) => (
               <NavItemRow key={item.id} item={item} active={activeItemId === item.id} Link={Link} />
             ))}

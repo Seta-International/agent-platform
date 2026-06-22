@@ -16,11 +16,14 @@
     "./db": "./src/db/client.ts",
     "./outbox": "./src/outbox/store.ts",
     "./rpc": "./src/rpc/index.ts",
-    "./testing": "./src/test-support.ts"
+    "./testing": "./src/test-support.ts",
+    "./rbac": "./src/rbac.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:generate": "drizzle-kit generate",
+    "db:check": "drizzle-kit check"
   },
   "devDependencies": {
     "@opentelemetry/context-async-hooks": "^2.7.1",
@@ -32,7 +35,7 @@
     "@types/pg": "^8.20.0",
     "drizzle-kit": "^0.31.10",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.9"
   },
   "dependencies": {
     "@hono/node-server": "^2.0.4",

@@ -1,0 +1,94 @@
+import { type AppManifest, noNavExtensions } from '@seta/module-sdk';
+import {
+  BadgeCheck,
+  BarChart3,
+  LayoutDashboard,
+  LineChart,
+  Network,
+  UserMinus,
+  UserPlus,
+  Users,
+} from 'lucide-react';
+
+export const peopleAppManifest: AppManifest = {
+  id: 'people',
+  routeNamespace: '/people',
+  label: 'People',
+  icon: Users,
+  color: '#0047FF',
+  requiredPermissions: ['people.worker.read'],
+  useNavExtensions: noNavExtensions,
+  nav: [
+    {
+      label: 'People',
+      items: [
+        {
+          id: 'people.dashboard',
+          icon: LayoutDashboard,
+          label: 'Dashboard',
+          to: '/people',
+          requires: ['people.worker.read'],
+          badge: 'Soon',
+        },
+        {
+          id: 'people.employees',
+          icon: Users,
+          label: 'Employees',
+          to: '/people/employees',
+          requires: ['people.worker.read'],
+        },
+        {
+          id: 'people.org',
+          icon: Network,
+          label: 'Org Chart',
+          to: '/people/org',
+          requires: ['people.worker.read'],
+        },
+        {
+          id: 'people.allocation',
+          icon: BarChart3,
+          label: 'Resource Allocation',
+          to: '/people/allocation',
+          requires: ['people.worker.read'],
+        },
+        {
+          id: 'people.performance',
+          icon: LineChart,
+          label: 'Performance',
+          to: '/people/performance',
+          requires: ['people.worker.read'],
+          badge: 'Soon',
+        },
+      ],
+    },
+    {
+      label: 'Journey',
+      items: [
+        {
+          id: 'people.onboarding',
+          icon: UserPlus,
+          label: 'Onboarding',
+          to: '/people/onboarding',
+          requires: ['people.worker.read'],
+          badge: 'Soon',
+        },
+        {
+          id: 'people.probation',
+          icon: BadgeCheck,
+          label: 'Probation',
+          to: '/people/probation',
+          requires: ['people.worker.read'],
+          badge: 'Soon',
+        },
+        {
+          id: 'people.offboarding',
+          icon: UserMinus,
+          label: 'Offboarding',
+          to: '/people/offboarding',
+          requires: ['people.worker.read'],
+          badge: 'Soon',
+        },
+      ],
+    },
+  ],
+};

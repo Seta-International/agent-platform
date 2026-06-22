@@ -19,6 +19,7 @@ How the `docs/` tree is organized. Start with `platform/architecture.md` — the
 
 ## modules/ — product specs
 - [`people-prd.md`](modules/people-prd.md) · [`hiring-prd.md`](modules/hiring-prd.md) · [`pm-prd.md`](modules/pm-prd.md) · [`planner-prd.md`](modules/planner-prd.md) — per-module PRDs (each with a rendered `.pdf`).
+- [`people-roadmap.md`](modules/people-roadmap.md) — People delivery tracker (PPL slice status); scope/sequencing in [`people-wbs.csv`](modules/people-wbs.csv).
 
 ## reference/ — engineering design behind the modules
 - [`db-design.md`](reference/db-design.md) — unified `people`/`hiring`/`pm` database design + ER diagrams.

@@ -77,6 +77,24 @@ const post = (app: Hono<SessionEnv>, body: unknown) =>
     body: JSON.stringify(body),
   });
 
+describe('POST /users (create — retired)', () => {
+  it('user creation is no longer available via identity HTTP (moved to People)', async () => {
+    await withDb(async ({ tenant_id, admin }) => {
+      const app = buildApp(session(tenant_id, admin, ['org.admin']));
+      const res = await app.request('/api/identity/v1/users', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          email: 'x@corp.test',
+          name: 'X',
+          password: 'correct-horse-battery',
+        }),
+      });
+      expect(res.status).toBe(404);
+    });
+  });
+});
+
 describe('POST /users/bulk-role-grants', () => {
   it('admin bulk-grants and returns the summary', async () => {
     await withDb(async ({ tenant_id, admin, users }) => {

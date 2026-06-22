@@ -1,9 +1,13 @@
 import { agentRbac } from '@seta/agent/rbac';
+import { coreRbac } from '@seta/core/rbac';
+import { hiringRbac } from '@seta/hiring/rbac';
 import { identityRbac } from '@seta/identity/rbac';
 import { integrationsRbac } from '@seta/integrations/rbac';
 import { knowledgeRbac } from '@seta/knowledge/rbac';
 import { notificationsRbac } from '@seta/notifications/rbac';
+import { peopleRbac } from '@seta/people/rbac';
 import { plannerRbac } from '@seta/planner/rbac';
+import { pmRbac } from '@seta/pm/rbac';
 import { buildRegistry, INVENTORY, inventoryToManifests } from '@seta/shared-rbac';
 import { staffingRbac } from '@seta/staffing/rbac';
 import { describe, expect, it } from 'vitest';
@@ -15,13 +19,17 @@ import { describe, expect, it } from 'vitest';
 // never gets a manifest — this fails before anything resolves the wrong set.
 describe('rbac registry parity', () => {
   const moduleManifests = [
+    coreRbac,
     knowledgeRbac,
     notificationsRbac,
     integrationsRbac,
+    peopleRbac,
     staffingRbac,
     agentRbac,
     plannerRbac,
     identityRbac,
+    hiringRbac,
+    pmRbac,
   ];
 
   it('module-declared manifests cover exactly the inventory modules', () => {

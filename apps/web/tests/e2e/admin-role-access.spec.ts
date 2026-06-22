@@ -12,7 +12,7 @@ import { expect, test } from '@playwright/test';
 test.describe.configure({ mode: 'serial' });
 
 test('admin role-access: nav highlights and route is reachable', async ({ page }) => {
-  await page.goto('/admin/users');
+  await page.goto('/admin/tenant');
   const navLink = page.getByRole('link', { name: 'Role access', exact: true });
   await expect(navLink).toBeVisible();
   await navLink.click();

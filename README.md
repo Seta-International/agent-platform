@@ -106,11 +106,11 @@ pnpm install
 cp .env.example .env     # then fill BETTER_AUTH_SECRET, CRYPTO_LOCAL_MASTER_KEY, OPENAI_API_KEY
 pnpm db:up               # Postgres + Redis + telemetry, all in Docker
 pnpm db:migrate          # apply every module's schema
-pnpm db:seed             # load the demo tenant (~300 users, plans, tasks)
+pnpm db:seed             # seed the SETA International tenant + admin + full cross-module fixture
 pnpm dev                 # serves the app at http://localhost:5173
 ```
 
-Sign in at <http://localhost:5173/login> as `admin@hackathon.com` / `ChangeMe@2026`.
+Sign in at <http://localhost:5173/login> as `admin@seta-international.vn` / `ChangeMe@2026`.
 
 New here? The full walkthrough — secret generation, env reference, data-loading
 options, and troubleshooting — is in **[`docs/guides/dev-quickstart.md`](docs/guides/dev-quickstart.md)**.

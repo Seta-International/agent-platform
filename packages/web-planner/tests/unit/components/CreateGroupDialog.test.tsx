@@ -46,7 +46,8 @@ describe('CreateGroupDialog', () => {
     await user.type(screen.getByLabelText(/Description/i), 'Post-sale work');
     await user.click(screen.getByRole('button', { name: 'green' }));
     await user.click(screen.getByRole('radio', { name: /Workspace/i }));
-    await user.selectOptions(screen.getByLabelText(/Default member role/i), 'owner');
+    await user.click(screen.getByRole('combobox', { name: /Default member role/i }));
+    await user.click(screen.getByRole('option', { name: 'Owner' }));
     await user.click(screen.getByRole('button', { name: /Create group/i }));
     await waitFor(() => expect(captured.length).toBe(1));
     expect(captured[0]).toMatchObject({

@@ -5,6 +5,11 @@ import {
   Button,
   cn,
   DataTable,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -50,15 +55,15 @@ interface RoleControlProps {
 function RoleControl({ member, canEdit, isLinkedGroup, externalId, onChange }: RoleControlProps) {
   if (canEdit) {
     return (
-      <select
-        value={member.role}
-        aria-label={`Change role for ${member.display_name}`}
-        className="h-8 w-28 rounded border border-hairline bg-canvas px-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-        onChange={(e) => onChange(e.target.value as 'owner' | 'member')}
-      >
-        <option value="owner">Owner</option>
-        <option value="member">Member</option>
-      </select>
+      <Select value={member.role} onValueChange={(v) => onChange(v as 'owner' | 'member')}>
+        <SelectTrigger aria-label={`Change role for ${member.display_name}`} className="w-28">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="owner">Owner</SelectItem>
+          <SelectItem value="member">Member</SelectItem>
+        </SelectContent>
+      </Select>
     );
   }
 

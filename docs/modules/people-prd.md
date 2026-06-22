@@ -105,7 +105,7 @@ No one ever sees another organization's data.
 - **Authoring project assignments, utilization, and billing rates** — these belong to Project Management; People only **reads** them. Account and project are *not* fields on a person; membership is the set of project allocations.
 - **Recruitment** (requisitions, candidates, interviews, offers) — a separate Hiring module; People receives a hired candidate from it and turns them into an employee (F-WORK-9).
 - **Time-off / leave, attendance, and timesheets** — owned by the **timesheet system**; People shows a person's leave balance and lets them submit a request through that system's interface, but owns no leave, attendance, or worked-hours data.
-- **Payroll, benefits, and deep compensation planning** — People stores pay-relevant attributes and history but does not run payroll.
+- **Payroll, benefits, and deep compensation planning** — People stores pay-relevant attributes and history but does not run payroll. *(Sequencing: the finance/payroll integration is built last — at the end of the program, not now.)*
 - **The web shell, navigation chrome, and global search bar** — delivered by the suite-shell effort; People supplies the data behind them.
 
 **Upstream dependencies.** People relies on other systems for some of its data; each has a defined fallback so People stays usable if the upstream is late or down.

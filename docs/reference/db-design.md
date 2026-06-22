@@ -64,7 +64,8 @@ gen_random_uuid()`. `created_at`/`updated_at timestamptz`.
 | `worker_compensation` | effective-dated pay (sensitive) | person_id, effective_from/to, salary_amount, salary_currency, bank/tax jsonb, reason, by_user_id | uniq `(person, from)`; **`EXCLUDE` no-overlap**; RLS-eligible |
 | `worker_capacity` | effective-dated FTE | person_id, effective_from/to, fte, contracted_hours, reason, by_user_id | uniq + **`EXCLUDE`**; emits `capacity_changed` |
 | `worker_assignment` | **effective-dated job history** (F-WORK-11) | person_id, position_id, grade, org_unit_id, manager_worker_id, effective_from/to, reason, by_user_id | **`EXCLUDE` no-overlap** (one assignment in effect per person); answers "position/grade on date X"; mirrors comp/capacity effective-dating |
-| `skill` | taxonomy | name, category | uniq `(tenant, name)` |
+| `skill_category` | taxonomy (core) | name, sort_order, active, version | uniq `(tenant, name)` |
+| `skill` | taxonomy (core) | category_id → skill_category, name, active, version | uniq `(tenant, name)`; idx `(tenant, category_id)` |
 | `worker_skill` | M:N skills | person_id, skill_id, proficiency (0–5), years_experience, **`certification_document_id?`, `valid_until?`** | pk `(person, skill)`; a skill can be backed by a cert with expiry (F-WORK-6) |
 | `position_required_skill` | a seat's required-skills baseline (F-WORK-6) | position_id, skill_id, min_proficiency (0–5) | pk `(position, skill)`; feeds skill-gap analytics & the requisition a gap raises |
 | `org_unit` | supervisory hierarchy | parent_id, name, manager_position_id | **acyclicity trigger** (was domain-only) |
@@ -119,12 +120,17 @@ gen_random_uuid()`. `created_at`/`updated_at timestamptz`.
 
 | Table | Purpose | Key columns | Constraints / notes |
 |---|---|---|---|
-| `requisition` | an open role / seat | title, role_title, grade, account_id, `resource_request_id?` (pm), `position_id?` (people, the **funded seat**), kind (replacement\|new), **`approval_status` (draft\|pending_approval\|approved\|rejected)**, status (open\|on_hold\|filled\|cancelled), stage (sourcing→offer), jd jsonb, owner_user_id, due_date, closed_at | uniq `(tenant, resource_request_id)`; idx `(tenant, status, stage)`; approved before it opens & gated on the funded `position_id` (F-REQ-5) |
-| `requisition_skill` | required skills (normalized, was jsonb) | requisition_id, skill_id, skill_name, min_level | pk `(requisition_id, skill_name)` |
+| `requisition` | a role + one shared candidate pipeline (owns 1..N openings) | title, role_title, grade, account_id, kind (replacement\|new), **`approval_status` (draft\|pending_approval\|approved\|rejected)**, status (open\|on_hold\|filled\|cancelled), stage (sourcing→offer), owner_user_id, due_date, closed_at, version | idx `(tenant, status, stage)`, `(tenant, account_id)`; approved before it opens (F-REQ-5); JD normalized → `requisition_jd_section`; seat refs moved to `opening` |
+| `opening` | **one seat / one unit of headcount** under a requisition (N per req, shared pipeline) | requisition_id, seq (id = `<req>-<seq>`), status (open\|filled\|closed\|cancelled), `close_reason_id?`, closed_at, `hired_application_id?` (set by offer slice), `resource_request_id?` (pm seat), `position_id?` (people funded seat), version | uniq `(tenant, requisition_id, seq)`; partial uniq `(tenant, resource_request_id)`; idx `(tenant, requisition_id)`; exactly-once fill **per opening** (F-FILL-1); headcount = count of openings |
+| `requisition_jd_section` | normalized JD grid (was `jd jsonb`) | requisition_id, variant (internal\|external), section (about\|responsibilities\|requirements\|nice_to_have), body (rich-text HTML) | pk `(requisition_id, variant, section)` |
+| `requisition_skill` | required skills (normalized, was jsonb) | requisition_id, skill_id (NOT NULL, catalog-backed → `core.skill.id`, no FK), skill_name (cross-module cache), min_level | pk `(requisition_id, skill_id)` |
+| `opening_close_reason` | admin-configurable close-reason taxonomy | label, active, version | uniq `(tenant, label)` |
+| `jd_template` / `jd_template_section` | reusable JD boilerplate/templates | template: name, kind (role\|intro\|closing), version — section: template_id, variant, section, body | template uniq `(tenant, name)`; section pk `(template_id, variant, section)` |
 | `candidate` | external person | name, source, contact jsonb, dob, gender, cv_storage_key, seniority, segment (alumni), source_cost | — |
-| `candidate_skill` | candidate skills (normalized) | candidate_id, skill_name, proficiency | pk `(candidate_id, skill_name)` |
-| **`application`** | **unified** pursuit of one req — external candidate OR internal worker | requisition_id, kind (external\|internal), `candidate_id?` / `worker_id?`, stage (external pipeline; **+`reneged`**), status (internal endorsement), rating, alloc_pct, override_overallocation, mobility_event_id, reject_reason, tags | CHECK exactly-one subject; uniq `(req, candidate)` / `(req, worker)`; `reneged` = accepted-then-withdrew before start (F-OFFER-7) |
-| `candidate_event` | external stage history | application_id, at, from_stage, to_stage, actor | funnel / lead-time; BRIN(at) |
+| `candidate_skill` | candidate skills (normalized, catalog-backed) | candidate_id, skill_id (→ `core.skill.id`, no FK), skill_name (cross-module cache), level (0–5) | pk `(candidate_id, skill_id)` |
+| `rejection_reason` | admin-configurable rejection-reason taxonomy | label, category (rejected_by_us\|withdrew\|other), active, version | uniq `(tenant, label)` |
+| **`application`** | **unified** pursuit of one req — external candidate OR internal worker | requisition_id, kind (external\|internal), `candidate_id?` / `worker_id?`, stage (new\|screening\|interview\|offer), status (active\|hired\|rejected\|transferred), `rejection_reason_id?`, tags, closed_at, `superseded_by_application_id?`, version, rating, alloc_pct, override_overallocation, mobility_event_id | CHECK exactly-one subject; uniq `(req, candidate)` / `(req, worker)`; stage/status reshaped from prior single-column design (HIR-6/7); `superseded_by_application_id` links a transferred application to its successor |
+| `candidate_event` | candidate activity feed | candidate_id, `application_id?`, kind, summary, detail, actor_user_id | idx `(tenant, candidate_id, created_at)`; covers stage transitions, rejections, transfers, and manual notes |
 | `application_event` | internal endorsement history | application_id, at, actor, action | BRIN(at) |
 | `interview` | a scheduled interview | application_id, **dtstart/dtend/tzid/rrule/exdate/rdate** (RFC 5545), ical_uid (identity hub), round, mode, meeting_link, status (…\|no_show), no_show_reason, result (pass\|hold\|fail), rating, recommendation, transcript, `scorecard_template_id` (pinned, no FK), scorecard_snapshot | partial `interview_upcoming` |
 | `interview_plan_stage` | structured interview plan per round (F-INT-4) | requisition_id, round, seq, criteria_keys text[], scorecard_required | a candidate can't reach Offer until each required round's scorecards are in |
@@ -132,7 +138,7 @@ gen_random_uuid()`. `created_at`/`updated_at timestamptz`.
 | `interview_score` | per-criterion score | interview_id, `criterion_id` (people, no FK), score, evidence | pk; CHECK evidence on extreme (1/5) |
 | `calendar_event_override` | per-instance RECURRENCE-ID overrides | interview_id, recurrence_id (original instant), new_dtstart/dtend, is_cancelled | pk `(interview_id, recurrence_id)` |
 | `offer` | offer to a candidate | application_id, candidate_id, comp jsonb, start_date, respond_by, **`version`**, status (draft\|approved\|sent\|accepted\|**`pre_hire_check`**\|**`hired`**\|declined\|expired\|**`reneged`**), hired_event_id, decided_at, decided_by | partial uniq accepted-per-candidate; fire-once guard; revise/counter bumps `version` & re-approves (F-OFFER-5); `pre_hire_check` gates Accepted→Hired (F-OFFER-6); `reneged` reopens the seat (F-OFFER-7) |
-| `resource_request_fulfillment` | one-seat fulfillment **saga** | resource_request_id, placeholder_allocation_id, requisition_id, path (internal\|external\|undecided), state (open→filled\|cancelled\|timed_out), timeout_at | uniq `(tenant, resource_request_id)`; uniq placeholder |
+| `resource_request_fulfillment` | one-seat fulfillment **saga** (per opening) | resource_request_id, placeholder_allocation_id, opening_id, path (internal\|external\|undecided), state (open→filled\|cancelled\|timed_out), timeout_at | uniq `(tenant, resource_request_id)`; uniq placeholder |
 | `recruiter_account_assignment` | recruiter scope (by assignment) | recruiter_user_id, account_id | pk |
 | `kb_failure_theme` / `kb_theme_case` | recruitment-insight clusters | theme: label, reject_count, pct, improvement_action, owner, priority — case: theme_id, application_id, reason | structured (replaces freetext) |
 | `kb_article` | optional prose playbooks | type, title, body, tags | OQ-1 |
@@ -276,9 +282,14 @@ _Standalone (no FK): `account_access_grant`, `document_requirement`, and the rea
 
 ```mermaid
 erDiagram
+  requisition ||--o{ opening : "1..N seats"
+  requisition ||--o{ requisition_jd_section : "JD (variant x section)"
   requisition ||--o{ requisition_skill : requires
   requisition ||--o{ interview_plan_stage : "plan per round"
-  requisition ||--o{ application : receives
+  requisition ||--o{ application : "receives (shared pipeline)"
+  opening |o--o| application : "filled by (hired_application_id)"
+  opening_close_reason |o--o{ opening : "close reason"
+  jd_template ||--o{ jd_template_section : sections
   candidate ||--o{ application : "external applies"
   candidate ||--o{ candidate_skill : has
   application ||--o{ candidate_event : "stage history (funnel)"
@@ -293,10 +304,18 @@ erDiagram
   application |o--o{ kb_theme_case : evidence
   requisition {
     uuid id PK
-    uuid resource_request_id "pm (no FK)"
-    uuid position_id "people funded seat (no FK)"
     text approval_status "draft|pending|approved"
     text status "open|on_hold|filled|cancelled"
+    text stage "sourcing->offer"
+  }
+  opening {
+    uuid id PK
+    uuid requisition_id "no FK"
+    int seq "id = req-seq"
+    text status "open|filled|closed|cancelled"
+    uuid resource_request_id "pm seat (no FK)"
+    uuid position_id "people funded seat (no FK)"
+    uuid hired_application_id "no FK (offer slice)"
   }
   application {
     uuid id PK

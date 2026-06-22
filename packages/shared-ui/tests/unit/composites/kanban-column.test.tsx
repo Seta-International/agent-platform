@@ -313,3 +313,30 @@ describe('<KanbanColumn> quick-create submit', () => {
     expect(screen.getByPlaceholderText('Task title')).toBeInTheDocument();
   });
 });
+
+describe('<KanbanColumn> opt-in affordances', () => {
+  it('renders no grip handle when draggableHandle is omitted', () => {
+    const { container } = render(
+      <KanbanColumn name="New" count={2} droppable={{}}>
+        <div />
+      </KanbanColumn>,
+    );
+    expect(container.querySelector('.kanban-column__grip')).toBeNull();
+    expect(screen.getByText('New')).toBeInTheDocument();
+    expect(screen.getByText('2')).toBeInTheDocument();
+  });
+
+  it('renders the grip handle when draggableHandle is provided', () => {
+    const { container } = col(); // col() passes noopHandle
+    expect(container.querySelector('.kanban-column__grip')).not.toBeNull();
+  });
+
+  it('renders no More options button when neither onRename nor onDelete is provided', () => {
+    render(
+      <KanbanColumn name="New" count={0} droppable={{}}>
+        <div />
+      </KanbanColumn>,
+    );
+    expect(screen.queryByTitle('More options')).not.toBeInTheDocument();
+  });
+});

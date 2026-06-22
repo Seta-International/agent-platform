@@ -2,13 +2,33 @@ import { describe, expect, it } from 'vitest';
 import { IMPLICIT_PERMISSIONS, INVENTORY, inventoryToManifests } from '../../src/inventory.ts';
 import { canonicalKeys } from '../../src/manifest.ts';
 
+describe('core.skill inventory', () => {
+  it('declares the core.skill resource with read + manage', () => {
+    const core = INVENTORY.find((m) => m.module === 'core');
+    expect(core).toBeDefined();
+    expect(core?.statement['core.skill']).toEqual(['read', 'manage']);
+  });
+
+  it('grants core.admin both verbs', () => {
+    const core = INVENTORY.find((m) => m.module === 'core');
+    const admin = core?.roles.find((r) => r.slug === 'core.admin');
+    expect(admin?.permissions).toEqual(
+      expect.arrayContaining(['core.skill.read', 'core.skill.manage']),
+    );
+  });
+});
+
 describe('rbac inventory', () => {
-  it('every role permission exists in its module statement', () => {
+  it('every role permission exists in some module statement (cross-module grants allowed)', () => {
+    // A role may grant a permission declared by another module's statement — e.g. a hiring
+    // role granting `core.skill.read` so recruiters can read the foundation-owned skill
+    // catalog. The invariant is that the permission exists *somewhere* in the inventory
+    // (no dangling/typo'd keys), not that it belongs to the granting role's own module.
+    const allKeys = new Set(INVENTORY.flatMap((mod) => canonicalKeys(mod.statement)));
     for (const mod of INVENTORY) {
-      const keys = new Set(canonicalKeys(mod.statement));
       for (const role of mod.roles) {
         for (const p of role.permissions) {
-          expect(keys.has(p), `${role.slug} → ${p} missing from ${mod.module} statement`).toBe(
+          expect(allKeys.has(p), `${role.slug} → ${p} not found in any module statement`).toBe(
             true,
           );
         }

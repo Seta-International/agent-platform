@@ -17,7 +17,7 @@
     "@types/pg": "^8.20.0",
     "ai": "^6.0.200",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.9"
   },
   "dependencies": {
     "@mastra/core": "^1.42.0",

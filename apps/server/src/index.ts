@@ -8,6 +8,7 @@ import { emit, withEmit } from '@seta/core/events';
 import { createOutboxStore } from '@seta/core/outbox';
 import { registerCoreContributions } from '@seta/core/register';
 import { buildRuntime, runMigrations, type WorkerHandle } from '@seta/core/runtime';
+import { registerHiringContributions } from '@seta/hiring/register';
 import { buildActorSession, getIdentityVectorStore, listTenantRoleOverlays } from '@seta/identity';
 import { registerIdentityContributions } from '@seta/identity/register';
 import { registerIntegrationsContributions } from '@seta/integrations/register';
@@ -19,10 +20,12 @@ import {
 } from '@seta/knowledge';
 import { registerKnowledgeContributions } from '@seta/knowledge/register';
 import { registerNotificationsContributions } from '@seta/notifications/register';
+import { registerPeopleContributions } from '@seta/people/register';
 import { assignTask } from '@seta/planner';
 import { plannerFindSimilarTasksTool } from '@seta/planner/agent-tools';
 import { buildPlannerQnaRuntime } from '@seta/planner/orchestration';
 import { registerPlannerContributions } from '@seta/planner/register';
+import { registerPmContributions } from '@seta/pm/register';
 import { createCrypto, createKeyProviderFromEnv, parseCryptoEnv } from '@seta/shared-crypto';
 import { closePools, getPool, initPools } from '@seta/shared-db';
 import { resolveEmbeddingProvider } from '@seta/shared-embeddings';
@@ -90,6 +93,9 @@ registerKnowledgeContributions(reg);
 registerNotificationsContributions(reg);
 registerPlannerContributions(reg);
 registerStaffingContributions(reg);
+registerPeopleContributions(reg);
+registerHiringContributions(reg);
+registerPmContributions(reg);
 // MODULE_REGISTRATIONS_END — generator inserts new register*Contributions(reg) calls above this comment.
 registerAppContributions(reg);
 

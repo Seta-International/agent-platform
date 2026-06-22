@@ -18,8 +18,24 @@ export type PermissionKey =
   | 'agent.workflow.run.read.self'
   | 'agent.workflow.run.read.tenant'
   | 'core.audit.read'
+  | 'core.skill.manage'
+  | 'core.skill.read'
+  | 'core.tenant.email_domains.write'
   | 'core.tenant.read'
   | 'core.tenant.write'
+  | 'hiring.candidate.create'
+  | 'hiring.candidate.manage'
+  | 'hiring.candidate.read'
+  | 'hiring.candidate.reject'
+  | 'hiring.candidate.transfer'
+  | 'hiring.jd_template.manage'
+  | 'hiring.jd_template.read'
+  | 'hiring.rejection_reason.manage'
+  | 'hiring.rejection_reason.read'
+  | 'hiring.requisition.close'
+  | 'hiring.requisition.manage'
+  | 'hiring.requisition.open'
+  | 'hiring.requisition.read'
   | 'identity.concept_map.read'
   | 'identity.concept_map.write'
   | 'identity.password.disable_local'
@@ -53,6 +69,11 @@ export type PermissionKey =
   | 'notifications.category.read'
   | 'notifications.preference.read'
   | 'notifications.preference.write'
+  | 'people.worker.edit'
+  | 'people.worker.portal_access.set'
+  | 'people.worker.provision'
+  | 'people.worker.read'
+  | 'people.worker.read.all'
   | 'planner.bucket.create'
   | 'planner.bucket.delete'
   | 'planner.bucket.read'
@@ -94,6 +115,14 @@ export type PermissionKey =
   | 'planner.trash.empty'
   | 'planner.trash.read'
   | 'planner.trash.restore'
+  | 'pm.account.manage'
+  | 'pm.account.read'
+  | 'pm.charter.bod_approve'
+  | 'pm.charter.pmo_signoff'
+  | 'pm.charter.read'
+  | 'pm.charter.submit'
+  | 'pm.project.manage'
+  | 'pm.project.read'
   | 'staffing.read'
   | 'staffing.workflow.cancel'
   | 'staffing.workflow.read'
@@ -118,8 +147,24 @@ export const ALL_PERMISSIONS: readonly PermissionKey[] = [
   'agent.workflow.run.read.self',
   'agent.workflow.run.read.tenant',
   'core.audit.read',
+  'core.skill.manage',
+  'core.skill.read',
+  'core.tenant.email_domains.write',
   'core.tenant.read',
   'core.tenant.write',
+  'hiring.candidate.create',
+  'hiring.candidate.manage',
+  'hiring.candidate.read',
+  'hiring.candidate.reject',
+  'hiring.candidate.transfer',
+  'hiring.jd_template.manage',
+  'hiring.jd_template.read',
+  'hiring.rejection_reason.manage',
+  'hiring.rejection_reason.read',
+  'hiring.requisition.close',
+  'hiring.requisition.manage',
+  'hiring.requisition.open',
+  'hiring.requisition.read',
   'identity.concept_map.read',
   'identity.concept_map.write',
   'identity.password.disable_local',
@@ -153,6 +198,11 @@ export const ALL_PERMISSIONS: readonly PermissionKey[] = [
   'notifications.category.read',
   'notifications.preference.read',
   'notifications.preference.write',
+  'people.worker.edit',
+  'people.worker.portal_access.set',
+  'people.worker.provision',
+  'people.worker.read',
+  'people.worker.read.all',
   'planner.bucket.create',
   'planner.bucket.delete',
   'planner.bucket.read',
@@ -194,6 +244,14 @@ export const ALL_PERMISSIONS: readonly PermissionKey[] = [
   'planner.trash.empty',
   'planner.trash.read',
   'planner.trash.restore',
+  'pm.account.manage',
+  'pm.account.read',
+  'pm.charter.bod_approve',
+  'pm.charter.pmo_signoff',
+  'pm.charter.read',
+  'pm.charter.submit',
+  'pm.project.manage',
+  'pm.project.read',
   'staffing.read',
   'staffing.workflow.cancel',
   'staffing.workflow.read',

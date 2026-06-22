@@ -69,7 +69,7 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
     return `organized imports in ${files.length} entry-point file(s)`;
   });
 
-  plop.setGenerator('module-scaffold', {
+  plop.setGenerator('module', {
     description: 'Scaffold a Seta module with backend + optional same-name frontend.',
     prompts: [
       {

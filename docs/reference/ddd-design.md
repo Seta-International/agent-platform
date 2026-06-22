@@ -175,7 +175,8 @@ via the `core.events` outbox. Consumers fetch detail via public surface.
 | `pm.account.created/updated` · `pm.project.created/updated` | pm | people, hiring | id, name, parent, am_user_id (lookup projections) |
 | `pm.resource_request.opened` | pm | hiring | placeholder_allocation_id, role, skills, count, dates, project_id |
 | `pm.assignment.created/changed/ended` | pm | people | allocation_id, worker_id, project_id, account_id, pct, dates (people projects `rm_allocation`; `ended` retracts) |
-| `hiring.requisition.opened/closed` | hiring | pm | requisition_id, resource_request_id |
+| `hiring.requisition.opened/updated/closed` | hiring | pm | requisition_id (the role + shared pipeline; seat link is on the opening, not here) |
+| `hiring.opening.opened/closed` | hiring | pm | opening_id, requisition_id, resource_request_id? — one seat of headcount; carries the demand link (a requisition owns 1..N openings); `closed` carries reason_id + status |
 | `hiring.mobility.approved` | hiring | **pm, people** | worker_id, project_id, **placeholder_allocation_id**, pct — pm fills the placeholder; **people opens a `movement_request(source=internal_mobility)` when role/grade changes** |
 | `hiring.candidate.hired` | hiring | people | candidate_id, target position_id, **resource_request_id**, **`person_id?`** (from the boundary person-match → people adds a new employment period to the existing person on re-hire, else creates one) |
 | `people.worker.exit_pending` | people | **pm**, notifications | worker_id (failed probation confirmation / accepted resignation → pm surfaces the soon-to-open seat in the pipeline **at the decision moment**, before offboarding completes) |

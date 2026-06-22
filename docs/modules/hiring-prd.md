@@ -133,26 +133,27 @@ In Hiring specifically, a Member sees the module only as **Open Roles** — they
 
 ```mermaid
 graph TD
-  R["Requisition — an open role"]
+  R["Requisition — a role + one shared pipeline"]
+  R --> O["Opening — one seat (N per requisition)"]
   R --> C["Candidate (external)"]
   R --> AP["Application (internal employee)"]
   C --> IV["Interview"]
   AP --> IV
   IV --> SC["Interview scores (per criterion)"]
   C --> OF["Offer"]
-  OF -. "on accept → a hire" .-> PE["Employee record (created in People)"]
+  OF -. "on accept → a hire fills an opening" .-> PE["Employee record (created in People)"]
   AP -. "on approval → a move" .-> AL["Allocation (committed in Project Management)"]
 
   DM["Project demand (from Project Management)"]
-  DM -. "opens" .-> R
+  DM -. "raises an opening" .-> O
   FUL["Fulfillment — one seat, one hire"]
-  DM -. tracked by .-> FUL
-  R -. tracked by .-> FUL
+  O -. tracked by .-> FUL
 ```
 
 *Structure only — this shows what belongs to what, not any order of events (those live in §8).*
 
-- **Requisition** — one open role to fill: its job description, the role and grade, the account/project it serves, the skills it needs, whether it's a **replacement** or a **new** role, and where it is in the pipeline.
+- **Requisition** — one open role to fill: its job description, the role and grade, the account/project it serves, the skills it needs, whether it's a **replacement** or a **new** role, where it is in the pipeline, and **one shared candidate pipeline**. A requisition carries **one or more openings**.
+- **Opening** — **one seat / one unit of headcount** under a requisition. Hiring several people for the same role = several openings on one requisition sharing one pipeline (not several requisitions). Each opening has its own status (open → filled / closed / cancelled), a close-reason, the funded position and project-demand seat it serves, and the hire that fills it. **Headcount = the count of openings.**
 - **Candidate** — an external applicant: their profile, CV, source, skills, and current pipeline stage.
 - **Application** — an existing **employee applying** for a role (the internal-mobility path), with its endorsement history.
 - **Interview** — a scheduled conversation (round, panel, time, online or onsite) with its result and feedback.
@@ -205,9 +206,9 @@ graph LR
 ### 7.1 Requisitions
 
 **F-REQ-1 — Open & manage a role.** A recruiter (or a Strategic user) can open a requisition with a title, a full job description (about, responsibilities, requirements, nice-to-have), the role and grade, the account/project it serves, the skills and levels it needs, and whether it's a **replacement/backfill** or a **new** role.
-- A requisition can be opened directly by a recruiter, or **raised automatically when Project Management flags an unfilled seat** — in which case it is linked to that demand from the start. A **replacement/backfill** role is linked to the specific open position it fills.
-- Each requisition represents **one seat**; to hire several people for the same role, several requisitions are opened.
-- A role can be edited, paused (**On hold**), resumed, and closed as **Filled** or **Cancelled**.
+- A requisition can be opened directly by a recruiter, or an **opening on it is raised automatically when Project Management flags an unfilled seat** — in which case that opening is linked to the demand from the start. A **replacement/backfill** opening is linked to the specific open position it fills.
+- A requisition carries **one or more openings**, each one seat of headcount, sharing one candidate pipeline; to hire several people for the same role, several **openings** are added to the one requisition. Each opening fills **exactly once**.
+- A role can be edited, paused (**On hold**), resumed, and closed as **Filled** or **Cancelled**; individual openings can be added or closed independently.
 
 **F-REQ-2 — Pipeline & status.** A requisition moves through **Sourcing → Screening → Interview → Offer**, and shows a status of the current stage, **On hold**, **Filled**, or **Cancelled**.
 - The board shows roles as cards with their stage progress; the list shows them as a table with applicants count, stage, status, and due date.
@@ -218,9 +219,9 @@ graph LR
 **F-REQ-4 — Open roles for employees.** An employee sees Hiring as **Open Roles** — the open requisitions across the company they could apply to — and can follow a role they're interested in.
 - Roles a person is a good fit for can be surfaced as **"recommended for you"** by matching their skills and grade against the role's needs.
 
-**F-REQ-5 — Approval & funded headcount.** A requisition is **approved before it opens**, and is **gated on funded headcount** — it cannot be created beyond the budgeted positions that authorize it.
+**F-REQ-5 — Approval & funded headcount.** A requisition is **approved before it opens**, and its openings are **gated on funded headcount** — the number of openings cannot exceed the budgeted positions that authorize them.
 - A requisition runs through a short **approval chain** (hiring manager → PMO/Strategic for budget sign-off) before it becomes open and visible; an unapproved requisition cannot collect candidates.
-- A **replacement/backfill** is tied to the specific open position it fills; a **new** role must map to an approved headcount line (People F-HEAD-1). A requisition raised from a PM backfill carries that authorization from the start, so the demand→hire link is governed, not free-created.
+- A **replacement/backfill** opening is tied to the specific open position it fills; a **new** opening must map to an approved headcount line (People F-HEAD-1). An opening raised from a PM backfill carries that authorization from the start, so the demand→hire link is governed, not free-created.
 
 ### 7.2 Candidates & pipeline
 
@@ -296,9 +297,9 @@ graph LR
 
 ### 7.6 One-seat fulfillment
 
-**F-FILL-1 — One seat, one hire.** When a project needs a person, that single open seat is tracked from the moment a requisition opens to the moment it's filled — by an **external hire** or an **internal move**, never both.
-- When one path fills the seat, the other in-flight path for that seat is **cancelled** automatically.
-- A seat left unfilled past its deadline is raised on the PMO's and the assigned recruiter's attention list, with a notification — never silently dropped.
+**F-FILL-1 — One seat, one hire.** When a project needs a person, that single open seat — an **opening** on a requisition — is tracked from the moment the opening is raised to the moment it's filled — by an **external hire** or an **internal move**, never both. Exactly-once fulfillment is enforced **per opening**, not per requisition (a requisition with N openings tracks N independent seats over one shared pipeline).
+- When one path fills an opening, the other in-flight path for that opening is **cancelled** automatically.
+- An opening left unfilled past its deadline is raised on the PMO's and the assigned recruiter's attention list, with a notification — never silently dropped.
 
 ### 7.7 Recruitment reports
 
@@ -498,7 +499,9 @@ stateDiagram-v2
 
 *A revised offer goes back through approval before it's re-sent; an accepted offer clears any pre-hire checks before it becomes a hire; a candidate who reneges before day one ends at Reneged and the seat reopens (F-OFFER-7).*
 
-**A project seat (fulfillment)**
+**An opening (one seat / fulfillment)**
+
+An opening is one seat of headcount on a requisition (N per requisition, one shared pipeline). Its lifecycle and the fulfillment of the project seat it serves are one and the same.
 
 ```mermaid
 stateDiagram-v2
@@ -543,8 +546,8 @@ Plain, verifiable behaviors. The **Covers** column maps each scenario to the req
 | QA-20 | Endorsements happen out of order | The chain must go releasing manager, then receiving manager, then PMO | F-MOB-2 |
 | QA-21 | The PMO approves a move beyond full capacity | An explicit over-allocation override is required | F-MOB-3 |
 | QA-22 | The PMO approves a move | The person is committed to the new role and Project Management allocates them | F-MOB-3 |
-| QA-23 | A seat is filled by an internal move while an external hire is in progress | The external path for that seat is cancelled | F-FILL-1 |
-| QA-24 | A seat passes its deadline unfilled | It is escalated, not silently dropped | F-FILL-1 |
+| QA-23 | An opening is filled by an internal move while an external hire is in progress | The external path for that opening is cancelled (other openings on the requisition are unaffected) | F-FILL-1 |
+| QA-24 | An opening passes its deadline unfilled | It is escalated, not silently dropped | F-FILL-1 |
 | QA-25 | An Account Manager opens the reports | Figures are scoped to their account, not the whole company | F-RPT-1 |
 | QA-26 | View the recruitment funnel | The biggest drop-off and slowest step are called out | F-RPT-2 |
 | QA-27 | Open the recruitment-insight view | Pass-rate by round, failure patterns, and an improvement plan are shown from closed roles | F-KB-1 |
@@ -552,7 +555,7 @@ Plain, verifiable behaviors. The **Covers** column maps each scenario to the req
 | QA-29 | Make any change | It is recorded with who did it and when | F-SEC-2 |
 | QA-30 | A user from one organization tries to see another's roles | Never possible | F-SEC-3 |
 | QA-31 | The assistant proposes opening a requisition | The change is held for a human to approve before anything is saved | F-AI-1 |
-| QA-32 | Project Management flags an unfilled seat | A requisition is raised automatically, linked to that demand | F-REQ-1 |
+| QA-32 | Project Management flags an unfilled seat | An opening (on a new or existing requisition) is raised automatically, linked to that demand | F-REQ-1 |
 | QA-33 | Close a role as Cancelled | It shows Cancelled and the pipeline stops | F-REQ-2 |
 | QA-34 | Open a role with internal applicants | Its applicants are listed with their application status | F-REQ-3 |
 | QA-35 | Parse a CV but don't confirm the fields | Nothing parsed is saved until the recruiter confirms it | F-CAND-1 |
@@ -569,7 +572,7 @@ Plain, verifiable behaviors. The **Covers** column maps each scenario to the req
 | QA-46 | A returning former employee is hired | They are matched to their existing person; People adds a new employment period — no duplicate record | F-OFFER-3 |
 | QA-47 | An approved internal move changes the person's role/grade | Hiring hands the change to People as a movement against the existing record; no new employee is created | F-MOB-3 |
 | QA-48 | Open the roles-at-risk view | Roles show on track / due soon / overdue against their deadline, hiring pace vs demand shows, and items stalled too long in a stage appear on the attention list | F-RPT-3 |
-| QA-49 | Try to open a requisition without approval / beyond funded headcount | It cannot collect candidates until approved, and a new role beyond budgeted headcount is blocked | F-REQ-5 |
+| QA-49 | Try to open a requisition without approval / add openings beyond funded headcount | It cannot collect candidates until approved, and openings beyond budgeted headcount are blocked | F-REQ-5 |
 | QA-50 | A candidate reaches Offer with a panel scorecard missing | The advance to Offer is blocked until the round's scorecards are submitted | F-INT-4 |
 | QA-51 | A candidate counters on compensation | The offer is revised, re-approved, and re-sent; prior versions are kept | F-OFFER-5 |
 | QA-52 | An accepted offer requires a background check | The hire is held at pre-hire checks; a failed check stops it, a passed/waived check lets the handoff proceed | F-OFFER-6 |
@@ -593,6 +596,7 @@ Plain, verifiable behaviors. The **Covers** column maps each scenario to the req
 | OQ-8 | **Candidate communication:** the prototype shows no candidate-facing messages (interview invites, decisions, offer delivery). Decide whether templated candidate communication is in scope, or done outside the system. | Product |
 | OQ-9 | **Everyday recruiter actions:** confirm whether duplicating a role (opening several similar seats at once), reassigning a role to another recruiter, and bulk-adding candidates from a sourcing batch are in the first release. | Product |
 | OQ-10 | **Endorsement edge cases:** how a move is handled when the releasing and receiving manager are the same person, or an approver is absent. | Product + PMO |
-| OQ-11 | **Role-level requisitions (openings count):** established ATS tools (Greenhouse/Ashby) let one requisition carry N openings against a single shared candidate pipeline. The platform's settled model is **one seat = one requisition** (for clean exactly-once fill). Confirm whether to add a role-level grouping/shared-pipeline view over several one-seat requisitions, without changing the one-seat fill model. | Product + Eng |
+| OQ-11 | **Role-level requisitions (openings count):** ~~established ATS tools (Greenhouse/Ashby) let one requisition carry N openings against a single shared candidate pipeline…~~ **RESOLVED (2026-06-20):** adopt the industry model — a **requisition owns one or more openings** (each = one seat) over **one shared candidate pipeline**; exactly-once fill is enforced **per opening**. Reflected in §5, §7.1 (F-REQ-1/5), §7.6 (F-FILL-1), §9. | Product + Eng |
 | OQ-12 | **Requisition approval chain:** confirm the exact sign-off steps before a requisition opens and who approves budget/funded headcount (F-REQ-5). | Product / PMO |
+| OQ-13 | **Skill-catalog ownership:** **RESOLVED (2026-06-20):** skill taxonomy lives in `core` (system-wide, admin-managed); `requisition_skill.skill_id` references `core.skill.id` (bare uuid, no cross-schema FK); the catalog is also consumed by People and PM. | Eng |
 

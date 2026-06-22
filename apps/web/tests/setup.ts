@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom/vitest';
+import type { TestingLibraryMatchers } from '@testing-library/jest-dom/matchers';
 import { cleanup } from '@testing-library/react';
 import { toHaveNoViolations } from 'jest-axe';
 import { afterEach, expect, vi } from 'vitest';
@@ -44,10 +45,10 @@ if (typeof globalThis.jest === 'undefined') {
 expect.extend(toHaveNoViolations);
 
 declare module 'vitest' {
-  interface Assertion {
+  interface Assertion extends TestingLibraryMatchers<unknown, unknown> {
     toHaveNoViolations(): unknown;
   }
-  interface AsymmetricMatchersContaining {
+  interface AsymmetricMatchersContaining extends TestingLibraryMatchers<unknown, unknown> {
     toHaveNoViolations(): unknown;
   }
 }

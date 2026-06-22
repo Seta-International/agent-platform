@@ -11,7 +11,7 @@ import type { Actor } from './create-user.ts';
 export interface ChangeUserEmailInput {
   user_id: string;
   new_email: string;
-  reason: 'admin' | 'sso_sync';
+  reason: 'admin' | 'sso_sync' | 'people_sync';
 }
 
 export async function changeUserEmail(

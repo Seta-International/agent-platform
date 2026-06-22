@@ -1,0 +1,1 @@
+ALTER TABLE "core"."tenants" ADD COLUMN "email_domains" text[] DEFAULT '{}' NOT NULL;

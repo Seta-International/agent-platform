@@ -39,18 +39,19 @@ export async function deleteBucket(input: {
 
       requirePermission(input.session, 'planner.bucket.delete', plan.group_id);
 
-      if (existing.version !== input.expected_version) {
+      // Soft-delete the bucket.
+      const deletedAt = new Date();
+      const deleted = await tx
+        .update(buckets)
+        .set({ deleted_at: deletedAt, updated_at: deletedAt, version: existing.version + 1 })
+        // guard: 0 rows ⇒ the row changed since our read (lost-update prevention)
+        .where(and(eq(buckets.id, input.bucket_id), eq(buckets.version, input.expected_version)))
+        .returning({ id: buckets.id });
+      if (deleted.length === 0) {
         throw new PlannerError('CONFLICT', 'Version mismatch', {
           current_version: existing.version,
         });
       }
-
-      // Soft-delete the bucket.
-      const deletedAt = new Date();
-      await tx
-        .update(buckets)
-        .set({ deleted_at: deletedAt, updated_at: deletedAt, version: existing.version + 1 })
-        .where(eq(buckets.id, input.bucket_id));
 
       // Snapshot live tasks so we have their current version for the event payload.
       const liveTasks = await tx

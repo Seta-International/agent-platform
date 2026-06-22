@@ -20,25 +20,23 @@ export async function resolveSetaTenantFromEmail(
     .trim();
   if (!domain) return null;
 
-  const [row] = await identityDb()
-    .select({
-      tenant_id: tenantSsoProviders.tenant_id,
-      provider_id: tenantSsoProviders.provider_id,
-      config: tenantSsoProviders.config,
-    })
-    .from(tenantSsoProviders)
-    .where(
-      and(
-        eq(tenantSsoProviders.enabled, true),
-        sql`${domain} = ANY(${tenantSsoProviders.email_domains})`,
-      ),
-    )
-    .limit(1);
+  const result = await identityDb().execute<{
+    tenant_id: string;
+    provider_id: string;
+    config: MicrosoftEntraConfig;
+  }>(sql`
+    SELECT p.tenant_id, p.provider_id, p.config
+    FROM core.tenants t -- cross-schema-read: core.tenants owns email_domains; identity joins it for pre-auth SSO routing.
+    JOIN identity.tenant_sso_providers p ON p.tenant_id = t.id AND p.enabled = true
+    WHERE ${domain} = ANY(t.email_domains)
+    LIMIT 1
+  `);
+  const row = result.rows[0];
   if (row) {
     return {
       tenant_id: row.tenant_id,
       provider_id: row.provider_id as SsoProviderId,
-      config: row.config as MicrosoftEntraConfig,
+      config: row.config,
     };
   }
 

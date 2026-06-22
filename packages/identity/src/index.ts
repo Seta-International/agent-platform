@@ -61,6 +61,8 @@ export type {
 export { listUsersForBackfill } from './backend/domain/list-users-for-embedding-backfill.ts';
 export type { MatchUsersToTopicInput, UserMatch } from './backend/domain/match-users-to-topic.ts';
 export { matchUsersToTopic } from './backend/domain/match-users-to-topic.ts';
+export type { ProvisionLoginInput } from './backend/domain/provision-login.ts';
+export { provisionLogin } from './backend/domain/provision-login.ts';
 export { reactivateUser } from './backend/domain/reactivate-user.ts';
 export type { RecordSsoConsentInput } from './backend/domain/record-sso-consent.ts';
 export { recordSsoConsent } from './backend/domain/record-sso-consent.ts';
@@ -89,6 +91,9 @@ export {
   type SetRolePermissionInput,
   setRolePermission,
 } from './backend/domain/set-role-permission.ts';
+export { setTenantEmailDomains } from './backend/domain/set-tenant-email-domains.ts';
+export type { SyncLoginIdentityInput } from './backend/domain/sync-login-identity.ts';
+export { syncLoginIdentity } from './backend/domain/sync-login-identity.ts';
 export type { UpdateMyDisplayNameInput } from './backend/domain/update-my-display-name.ts';
 export { updateMyDisplayName } from './backend/domain/update-my-display-name.ts';
 export type { UpdateUserProfilePatch } from './backend/domain/update-user-profile.ts';

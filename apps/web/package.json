@@ -31,9 +31,12 @@
     "@seta/shared-ui": "workspace:^",
     "@seta/web-admin": "workspace:*",
     "@seta/web-agent": "workspace:*",
+    "@seta/web-hiring": "workspace:*",
     "@seta/web-identity": "workspace:*",
     "@seta/web-notifications": "workspace:*",
+    "@seta/web-people": "workspace:*",
     "@seta/web-planner": "workspace:*",
+    "@seta/web-pm": "workspace:*",
     "@tailwindcss/vite": "^4.3.0",
     "@tanstack/react-query": "^5.101.0",
     "@tanstack/react-router": "^1.170.15",
@@ -81,6 +84,6 @@
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.61.0",
     "vite": "^8.0.16",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.9"
   }
 }

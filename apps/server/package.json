@@ -21,11 +21,14 @@
     "@seta/agent": "workspace:^",
     "@seta/agent-sdk": "workspace:^",
     "@seta/core": "workspace:^",
+    "@seta/hiring": "workspace:^",
     "@seta/identity": "workspace:^",
     "@seta/integrations": "workspace:^",
     "@seta/knowledge": "workspace:^",
     "@seta/notifications": "workspace:^",
+    "@seta/people": "workspace:^",
     "@seta/planner": "workspace:^",
+    "@seta/pm": "workspace:^",
     "@seta/shared-crypto": "workspace:^",
     "@seta/shared-db": "workspace:^",
     "@seta/shared-embeddings": "workspace:^",
@@ -48,6 +51,6 @@
     "@types/pg": "^8.20.0",
     "pg": "^8.21.0",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.9"
   }
 }

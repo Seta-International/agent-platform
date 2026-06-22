@@ -12,13 +12,15 @@ async function seedProvider(
   opts: { enabled: boolean; domains: string[] },
 ): Promise<{ tenantId: string }> {
   const tenantId = crypto.randomUUID();
-  await pool.query(`INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'Acme', 'acme')`, [
-    tenantId,
-  ]);
+  // email_domains now live on core.tenants (PPL-3); routing JOINs the provider for enabled state.
+  await pool.query(
+    `INSERT INTO core.tenants (id, name, slug, email_domains) VALUES ($1, 'Acme', 'acme', $2)`,
+    [tenantId, opts.domains],
+  );
   await pool.query(
     `
-    INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, config, email_domains)
-    VALUES ($1, 'microsoft-entra-id', $2, $3::jsonb, $4)
+    INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, config)
+    VALUES ($1, 'microsoft-entra-id', $2, $3::jsonb)
   `,
     [
       tenantId,
@@ -29,7 +31,6 @@ async function seedProvider(
         consent_granted_by_oid: null,
         consent_granted_by_email: null,
       }),
-      opts.domains,
     ],
   );
   return { tenantId };
