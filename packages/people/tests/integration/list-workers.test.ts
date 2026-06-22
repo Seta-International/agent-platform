@@ -373,7 +373,7 @@ describe('listWorkers (SQL filter/sort/paginate + scope)', () => {
         kind: 'operation',
         head_worker_id: mgr,
       });
-      const w = await makeWorker(t, { name: 'Orphaned Worker', orgUnitId: unit });
+      await makeWorker(t, { name: 'Orphaned Worker', orgUnitId: unit });
 
       // Soft-delete the manager
       await peopleDb()
