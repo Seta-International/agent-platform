@@ -10,7 +10,12 @@ export interface CharterListRow {
   account_id: string;
   name: string;
   status: 'submitted' | 'pmo_approved' | 'approved' | 'rejected' | 'withdrawn';
+  rejected_stage: 'pmo' | 'bod' | null;
   pm_worker_id: string;
+  budget_bmm: string | null;
+  team_size: number | null;
+  methodology: 'scrum' | 'kanban' | null;
+  pricing_model: 'fixed_price' | 'time_materials' | null;
   created_at: string;
 }
 
@@ -22,7 +27,12 @@ export async function listCharters(session: SessionScope): Promise<CharterListRo
       account_id: charter.account_id,
       name: charter.name,
       status: charter.status,
+      rejected_stage: charter.rejected_stage,
       pm_worker_id: charter.pm_worker_id,
+      budget_bmm: charter.budget_bmm,
+      team_size: charter.team_size,
+      methodology: charter.methodology,
+      pricing_model: charter.pricing_model,
       created_at: charter.created_at,
     })
     .from(charter)
@@ -31,6 +41,9 @@ export async function listCharters(session: SessionScope): Promise<CharterListRo
   return rows.map((r) => ({
     ...r,
     status: r.status as CharterListRow['status'],
+    rejected_stage: r.rejected_stage as 'pmo' | 'bod' | null,
+    methodology: r.methodology as 'scrum' | 'kanban' | null,
+    pricing_model: r.pricing_model as 'fixed_price' | 'time_materials' | null,
     created_at: r.created_at.toISOString(),
   }));
 }

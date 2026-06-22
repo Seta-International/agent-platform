@@ -97,7 +97,12 @@ export interface CharterListRow {
   account_id: string;
   name: string;
   status: CharterStatus;
+  rejected_stage: 'pmo' | 'bod' | null;
   pm_worker_id: string | null;
+  budget_bmm: string | null;
+  team_size: number | null;
+  methodology: 'scrum' | 'kanban' | null;
+  pricing_model: 'fixed_price' | 'time_materials' | null;
   created_at: string;
 }
 
