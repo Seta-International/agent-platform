@@ -65,6 +65,10 @@ describe('allocationProjectionCreated', () => {
           account_id: accountId,
           account_name: 'Acme Corp',
           lead_worker_id: leadWorkerId,
+          date_from: '2026-03-01',
+          date_to: '2026-09-30',
+          planned_pct: 60,
+          bucket: 'internal',
         };
 
         await peopleDb().transaction(async (tx) => {
@@ -86,6 +90,10 @@ describe('allocationProjectionCreated', () => {
           account_name: 'Acme Corp',
           lead_worker_id: leadWorkerId,
           active: true,
+          date_from: '2026-03-01',
+          date_to: '2026-09-30',
+          planned_pct: '60.0000', // numeric(10,4) → string in drizzle
+          bucket: 'internal',
         });
       } finally {
         resetPeopleDb();
@@ -114,6 +122,10 @@ describe('allocationProjectionCreated', () => {
           account_id: accountId,
           account_name: 'Original Name',
           lead_worker_id: null,
+          date_from: null,
+          date_to: null,
+          planned_pct: null,
+          bucket: 'billable',
         };
         const second: AllocationCreatedPayload = {
           ...first,
@@ -163,6 +175,10 @@ describe('allocationProjectionRemoved', () => {
           account_id: accountId,
           account_name: 'To Delete',
           lead_worker_id: null,
+          date_from: null,
+          date_to: null,
+          planned_pct: null,
+          bucket: 'billable',
         };
 
         await peopleDb().transaction(async (tx) => {
