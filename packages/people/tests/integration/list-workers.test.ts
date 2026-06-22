@@ -15,7 +15,7 @@ import {
 import { createWorker } from '../../src/backend/domain/create-worker.ts';
 import { listWorkers } from '../../src/backend/domain/read-workers.ts';
 import { setPortalAccess } from '../../src/backend/domain/set-portal-access.ts';
-import { buildSession, type SeededTenant, seedTenant } from '../helpers.ts';
+import { buildSession, type SeededTenant, seedOrgUnit, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -46,7 +46,7 @@ async function makeWorker(
     job_title?: string;
     gender?: string;
     phone?: string;
-    managerId?: string | null;
+    orgUnitId?: string | null;
     userId?: string;
   },
 ): Promise<string> {
@@ -54,7 +54,7 @@ async function makeWorker(
     session: t.adminSession,
     full_name: opts.name,
     work_email: opts.email,
-    manager_id: opts.managerId ?? null,
+    org_unit_id: opts.orgUnitId ?? null,
   } as never);
   const patch: Record<string, unknown> = {};
   if (opts.job_title !== undefined) patch.job_title = opts.job_title;
@@ -132,13 +132,19 @@ describe('listWorkers (SQL filter/sort/paginate + scope)', () => {
   it('returns rich rows: accounts[], skills[], manager_name, onboarding_date', async () => {
     await withDb(async ({ t }) => {
       const mgr = await makeWorker(t, { name: 'Boss Manager' });
+      const unit = await seedOrgUnit({
+        tenant_id: t.tenant_id,
+        name: 'Boss Unit',
+        kind: 'operation',
+        head_worker_id: mgr,
+      });
       const w = await makeWorker(t, {
         name: 'Rich Row',
         email: 'rich@x.test',
         job_title: 'Engineer',
         gender: 'female',
         phone: '555-1',
-        managerId: mgr,
+        orgUnitId: unit,
       });
       await addEmployment(t, w, { stage: 'active', start: '2026-01-15' });
 
@@ -305,7 +311,13 @@ describe('listWorkers (SQL filter/sort/paginate + scope)', () => {
     await withDb(async ({ t }) => {
       const userM = crypto.randomUUID();
       const m = await makeWorker(t, { name: 'Manager M', userId: userM });
-      const r1 = await makeWorker(t, { name: 'Report R1', managerId: m });
+      const unit = await seedOrgUnit({
+        tenant_id: t.tenant_id,
+        name: 'M Unit',
+        kind: 'operation',
+        head_worker_id: m,
+      });
+      const r1 = await makeWorker(t, { name: 'Report R1', orgUnitId: unit });
       void r1;
       const unrelated = await makeWorker(t, { name: 'Unrelated U' });
       void unrelated;
@@ -355,7 +367,13 @@ describe('listWorkers (SQL filter/sort/paginate + scope)', () => {
   it('manager_name is null when the manager is soft-deleted', async () => {
     await withDb(async ({ t }) => {
       const mgr = await makeWorker(t, { name: 'Deleted Manager' });
-      const w = await makeWorker(t, { name: 'Orphaned Worker', managerId: mgr });
+      const unit = await seedOrgUnit({
+        tenant_id: t.tenant_id,
+        name: 'Orphan Unit',
+        kind: 'operation',
+        head_worker_id: mgr,
+      });
+      const w = await makeWorker(t, { name: 'Orphaned Worker', orgUnitId: unit });
 
       // Soft-delete the manager
       await peopleDb()

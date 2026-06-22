@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
 import { person, worker } from '../../src/backend/db/schema.ts';
 import { createWorker, editWorker, setPortalAccess } from '../../src/index.ts';
-import { buildSession, countEvents, readEvents, seedTenant } from '../helpers.ts';
+import { buildSession, countEvents, readEvents, seedOrgUnit, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -224,29 +224,35 @@ describe('editWorker', () => {
     });
   });
 
-  it('admin edits job_title + manager_id: two history rows, event fields includes both, worker row updated', async () => {
+  it('admin edits job_title + org_unit_id: two history rows, event fields includes both, worker row updated', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPeopleDb();
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
-        const { worker_id: manager_id } = await createWorker({
+        const { worker_id: head } = await createWorker({
           full_name: 'Manager',
           session: t.adminSession,
+        });
+        const unit = await seedOrgUnit({
+          tenant_id: t.tenant_id,
+          name: 'Edit Unit',
+          kind: 'operation',
+          head_worker_id: head,
         });
         const { worker_id } = await createWorker({ full_name: 'Helen', session: t.adminSession });
 
         const result = await editWorker({
           worker_id,
-          patch: { job_title: 'Staff Engineer', manager_id },
+          patch: { job_title: 'Staff Engineer', org_unit_id: unit },
           session: t.adminSession,
         });
         expect(result.version).toBeGreaterThan(1);
 
         const [w] = await peopleDb().select().from(worker).where(eq(worker.person_id, worker_id));
         expect(w?.job_title).toBe('Staff Engineer');
-        expect(w?.manager_id).toBe(manager_id);
+        expect(w?.org_unit_id).toBe(unit);
 
         const histRows = await pool.query(
           `SELECT field FROM people.worker_history WHERE person_id = $1 AND action = 'updated' ORDER BY field`,
@@ -254,12 +260,12 @@ describe('editWorker', () => {
         );
         expect(histRows.rows).toHaveLength(2);
         const fields = histRows.rows.map((r: { field: string }) => r.field).sort();
-        expect(fields).toEqual(['job_title', 'manager_id']);
+        expect(fields).toEqual(['job_title', 'org_unit_id']);
 
         const events = await readEvents(pool, t.tenant_id, 'people.worker.updated');
         expect(events).toHaveLength(1);
         const eventFields = (events[0]?.payload.fields as string[]).sort();
-        expect(eventFields).toEqual(['job_title', 'manager_id']);
+        expect(eventFields).toEqual(['job_title', 'org_unit_id']);
       } finally {
         resetPeopleDb();
         resetCoreDb();

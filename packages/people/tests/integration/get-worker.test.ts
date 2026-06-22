@@ -2,14 +2,21 @@ import type { SessionEnv, SessionScope } from '@seta/core';
 import { resetCoreDb } from '@seta/core/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
+import { eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
-import { personSkill, workerAllocationProjection } from '../../src/backend/db/schema.ts';
+import { personSkill, worker, workerAllocationProjection } from '../../src/backend/db/schema.ts';
 import { registerPeopleWorkersRoutes } from '../../src/backend/http/workers.ts';
 import { createWorker, getWorker } from '../../src/index.ts';
 import { peopleErrorMapper } from '../../src/register.ts';
-import { buildSession, readEvents, type SeededTenant, seedTenant } from '../helpers.ts';
+import {
+  buildSession,
+  readEvents,
+  type SeededTenant,
+  seedOrgUnit,
+  seedTenant,
+} from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -50,17 +57,24 @@ function withDb(
 }
 
 describe('getWorker enriched fields', () => {
-  it('returns job_title, manager_id, manager_name, accounts[], skills[]', async () => {
+  it('returns job_title, derived manager_name, org_unit, accounts[], skills[]', async () => {
     await withDb(async ({ t }) => {
-      const { worker_id: manager_id } = await createWorker({
+      const { worker_id: head } = await createWorker({
         full_name: 'The Manager',
         session: t.adminSession,
       });
+      const unit = await seedOrgUnit({
+        tenant_id: t.tenant_id,
+        name: 'Delivery',
+        kind: 'delivery',
+        head_worker_id: head,
+      });
+      await peopleDb().update(worker).set({ org_unit_id: unit }).where(eq(worker.person_id, head));
 
       const { worker_id } = await createWorker({
         full_name: 'Rich Worker',
         job_title: 'Senior Engineer',
-        manager_id,
+        org_unit_id: unit,
         session: t.adminSession,
       } as never);
 
@@ -87,14 +101,15 @@ describe('getWorker enriched fields', () => {
       const w = await getWorker({ worker_id, session: t.adminSession });
 
       expect(w.job_title).toBe('Senior Engineer');
-      expect(w.manager_id).toBe(manager_id);
       expect(w.manager_name).toBe('The Manager');
+      expect(w.org_unit_id).toBe(unit);
+      expect(w.org_unit_name).toBe('Delivery');
       expect(w.accounts).toEqual([{ id: accountId, name: 'Test Account' }]);
       expect(w.skills).toEqual([{ id: skillId, name: 'TypeScript' }]);
     });
   });
 
-  it('returns null manager fields when no manager set', async () => {
+  it('returns null manager/org fields when no unit set', async () => {
     await withDb(async ({ t }) => {
       const { worker_id } = await createWorker({
         full_name: 'Solo Worker',
@@ -103,8 +118,9 @@ describe('getWorker enriched fields', () => {
 
       const w = await getWorker({ worker_id, session: t.adminSession });
 
-      expect(w.manager_id).toBeNull();
       expect(w.manager_name).toBeNull();
+      expect(w.org_unit_id).toBeNull();
+      expect(w.org_unit_name).toBeNull();
       expect(w.accounts).toEqual([]);
       expect(w.skills).toEqual([]);
     });

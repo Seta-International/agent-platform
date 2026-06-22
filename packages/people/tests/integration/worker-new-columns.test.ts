@@ -6,15 +6,15 @@ import { describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
 import { worker } from '../../src/backend/db/schema.ts';
 import { provisionWorker } from '../../src/index.ts';
-import { seedTenant } from '../helpers.ts';
+import { seedOrgUnit, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
   baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
 };
 
-describe('worker.job_title + worker.manager_id', () => {
-  it('round-trips job_title and manager_id (self-FK) on the worker table', async () => {
+describe('worker.job_title + worker.org_unit_id', () => {
+  it('round-trips job_title and org_unit_id on the worker table', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPeopleDb();
@@ -22,15 +22,6 @@ describe('worker.job_title + worker.manager_id', () => {
       try {
         const t = await seedTenant(pool);
 
-        // Insert manager first so the FK is satisfied
-        const { worker_id: managerId } = await provisionWorker({
-          full_name: 'Manager Person',
-          start_date: '2026-01-01',
-          employment_type: 'full_time',
-          session: t.adminSession,
-        });
-
-        // Insert report with job_title + manager_id pointing at the manager
         const { worker_id: reportId } = await provisionWorker({
           full_name: 'Report Person',
           start_date: '2026-01-02',
@@ -38,16 +29,21 @@ describe('worker.job_title + worker.manager_id', () => {
           session: t.adminSession,
         });
 
-        // Set job_title + manager_id via direct DB update (domain fns added in Task 1.8)
+        const unit = await seedOrgUnit({
+          tenant_id: t.tenant_id,
+          name: 'Engineering',
+          kind: 'function',
+        });
+
         await peopleDb()
           .update(worker)
-          .set({ job_title: 'Software Engineer', manager_id: managerId })
+          .set({ job_title: 'Software Engineer', org_unit_id: unit })
           .where(eq(worker.person_id, reportId));
 
         const [w] = await peopleDb().select().from(worker).where(eq(worker.person_id, reportId));
 
         expect(w?.job_title).toBe('Software Engineer');
-        expect(w?.manager_id).toBe(managerId);
+        expect(w?.org_unit_id).toBe(unit);
       } finally {
         resetPeopleDb();
         resetCoreDb();
@@ -56,21 +52,12 @@ describe('worker.job_title + worker.manager_id', () => {
     });
   });
 
-  it('worker_by_manager index exists', async () => {
+  it('worker_by_org_unit index exists', async () => {
     await withTestDb(ctx, async ({ pool }) => {
       const idx = await pool.query(
-        `SELECT indexname FROM pg_indexes WHERE schemaname='people' AND indexname='worker_by_manager'`,
+        `SELECT indexname FROM pg_indexes WHERE schemaname='people' AND indexname='worker_by_org_unit'`,
       );
       expect(idx.rowCount).toBe(1);
-    });
-  });
-
-  it('worker_manager_fk constraint exists', async () => {
-    await withTestDb(ctx, async ({ pool }) => {
-      const c = await pool.query(
-        `SELECT conname FROM pg_constraint WHERE conname='worker_manager_fk'`,
-      );
-      expect(c.rowCount).toBe(1);
     });
   });
 });
