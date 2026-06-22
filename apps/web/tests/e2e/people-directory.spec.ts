@@ -314,22 +314,20 @@ test('worker profile: add skill via Techstack picker, skill chip appears', async
   await expect(page.getByText(SECOND_SKILL)).toBeVisible({ timeout: 8_000 });
 });
 
-test('worker profile: set manager via picker, manager name renders after save', async ({
-  page,
-}) => {
-  // Pick any existing worker to be the manager (not the test worker itself).
-  // We use the API to find one.
+test('worker profile: set org unit via picker, unit name renders after save', async ({ page }) => {
+  // Reporting is derived from the org unit (manager_id was dropped in PR1), so the editable
+  // field is now Org unit. Pick a seeded unit from /org/structure; skip if none seeded.
   const ctx = await request.newContext({
     baseURL: 'http://localhost:5173',
     storageState: '.auth/admin.json',
   });
-  const listRes = await ctx.get('/api/people/v1/workers');
-  const { rows } = (await listRes.json()) as { rows: WorkerRow[] };
-  const manager = rows.find((w) => w.worker_id !== workerId && w.full_name !== WORKER_NAME);
+  const structRes = await ctx.get('/api/people/v1/org/structure');
+  const { units } = (await structRes.json()) as { units: { id: string; name: string }[] };
   await ctx.dispose();
 
-  if (!manager) {
-    test.skip();
+  const unit = units[0];
+  if (!unit) {
+    test.skip(true, 'no org units seeded — covered by people unit/integration tests');
     return;
   }
 
@@ -338,30 +336,30 @@ test('worker profile: set manager via picker, manager name renders after save', 
 
   await page.getByRole('button', { name: 'Edit' }).click();
 
-  // Manager picker: AsyncCombobox with placeholder "Search employees…" (single-mode, button).
-  const managerCombobox = page
+  // Org-unit picker: AsyncCombobox with placeholder "Search org units…" (single-mode, button).
+  const unitCombobox = page
     .locator('button[role="combobox"]')
-    .filter({ hasText: 'Search employees…' })
-    .or(page.locator('[role="combobox"]').filter({ hasText: 'Search employees…' }));
-  await managerCombobox.first().click();
+    .filter({ hasText: 'Search org units…' })
+    .or(page.locator('[role="combobox"]').filter({ hasText: 'Search org units…' }));
+  await unitCombobox.first().click();
 
   const searchInput = page.getByPlaceholder('Search…');
-  await searchInput.fill(manager.full_name.split(' ')[0] ?? manager.full_name);
+  await searchInput.fill(unit.name.split(' ')[0] ?? unit.name);
 
-  const managerItem = page.getByRole('option', { name: manager.full_name });
-  await expect(managerItem).toBeVisible({ timeout: 5_000 });
-  await managerItem.click();
+  const unitItem = page.getByRole('option', { name: unit.name });
+  await expect(unitItem).toBeVisible({ timeout: 5_000 });
+  await unitItem.click();
 
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByText('Changes saved')).toBeVisible({ timeout: 8_000 });
 
-  // In read-only view, the Manager field row should show the manager's name.
-  await expect(page.getByText(manager.full_name)).toBeVisible({ timeout: 5_000 });
+  // In read-only view, the Org unit field row should show the unit's name.
+  await expect(page.getByText(unit.name)).toBeVisible({ timeout: 5_000 });
 
   // Reload and confirm persistence.
   await page.reload();
   await expect(page.getByRole('heading', { name: WORKER_NAME })).toBeVisible({ timeout: 8_000 });
-  await expect(page.getByText(manager.full_name)).toBeVisible({ timeout: 5_000 });
+  await expect(page.getByText(unit.name)).toBeVisible({ timeout: 5_000 });
 });
 
 // ─── Test 8: Multi-account chips (best-effort, skip if none present) ──────────
