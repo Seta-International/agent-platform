@@ -19,7 +19,18 @@ import {
 import { usePermission } from '@seta/web-identity';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, ClipboardList } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardList,
+  Clock,
+  FileText,
+  Gavel,
+  type LucideIcon,
+} from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import {
   type CharterListQuery,
@@ -80,6 +91,7 @@ function Kpi({
   value,
   sub,
   tone,
+  icon: Icon,
   active,
   onClick,
 }: {
@@ -87,6 +99,7 @@ function Kpi({
   value: string;
   sub?: string;
   tone?: 'warning' | 'positive';
+  icon: LucideIcon;
   active?: boolean;
   onClick?: () => void;
 }) {
@@ -95,25 +108,56 @@ function Kpi({
       ? 'var(--color-warning)'
       : tone === 'positive'
         ? 'var(--color-success)'
-        : undefined;
+        : 'var(--color-ink-muted)';
   return (
-    <button type="button" onClick={onClick} className="text-left" disabled={!onClick}>
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!onClick}
+      className="text-left transition-transform enabled:hover:-translate-y-px"
+    >
       <Card
-        className={
-          active ? 'border-blue ring-1 ring-blue/30' : onClick ? 'hover:border-blue/40' : ''
-        }
+        className={[
+          'h-full transition-shadow',
+          active ? 'border-blue ring-1 ring-blue/30' : '',
+          onClick ? 'enabled:hover:shadow-sm hover:border-blue/40' : '',
+        ].join(' ')}
       >
-        <CardContent className="p-4">
-          <div className="text-[11px] uppercase tracking-wide text-ink-muted">{label}</div>
-          <div className="mt-1 text-2xl font-semibold" style={color ? { color } : undefined}>
-            {value}
+        <CardContent className="flex items-center justify-between gap-3 p-3.5">
+          <div className="min-w-0">
+            <div className="text-[10.5px] font-medium uppercase tracking-wide text-ink-muted">
+              {label}
+            </div>
+            <div
+              className="mt-1 text-[26px] font-semibold leading-none tabular-nums"
+              style={{ color }}
+            >
+              {value}
+            </div>
+            {sub && <div className="mt-1.5 text-[11px] text-ink-muted">{sub}</div>}
           </div>
-          {sub && <div className="text-[11px] text-ink-muted">{sub}</div>}
+          <span
+            className="grid size-9 flex-shrink-0 place-items-center rounded-[10px]"
+            style={{
+              background: `color-mix(in srgb, ${color} 12%, transparent)`,
+              color,
+            }}
+          >
+            <Icon className="size-[18px]" />
+          </span>
         </CardContent>
       </Card>
     </button>
   );
 }
+
+const STATUS_ACCENT: Record<CharterListRow['status'], string> = {
+  submitted: 'var(--color-warning)',
+  pmo_approved: 'var(--color-warning)',
+  approved: 'var(--color-success)',
+  rejected: 'var(--color-danger)',
+  withdrawn: 'var(--color-hairline)',
+};
 
 function RequestCard({
   row,
@@ -127,9 +171,8 @@ function RequestCard({
   onOpen: () => void;
 }) {
   const meta = [
-    accountName,
     `PM ${pmName}`,
-    row.budget_bmm != null ? `${Number(row.budget_bmm)} BMM` : null,
+    row.budget_bmm != null && Number(row.budget_bmm) > 0 ? `${Number(row.budget_bmm)} BMM` : null,
     row.team_size != null ? `Team ${row.team_size}` : null,
     row.methodology ? METHODOLOGY_LABEL[row.methodology] : null,
     row.pricing_model ? PRICING_LABEL[row.pricing_model] : null,
@@ -138,30 +181,43 @@ function RequestCard({
     .join(' · ');
   const status = STATUS_META[row.status];
   return (
-    <button type="button" onClick={onOpen} className="w-full text-left">
-      <Card className="transition-colors hover:border-blue/40">
+    <button type="button" onClick={onOpen} className="group block w-full text-left">
+      <Card
+        className="overflow-hidden border-l-[3px] transition-shadow hover:border-blue/40 hover:shadow-sm"
+        style={{ borderLeftColor: STATUS_ACCENT[row.status] }}
+      >
         <CardContent className="space-y-3 p-4">
-          <div className="flex items-start gap-4">
-            <div className="min-w-[150px]">
-              <div className="font-mono text-[13px] font-bold text-ink">
-                {row.charter_id.slice(0, 8)}
-              </div>
-              <div className="mt-1.5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-[10.5px] text-ink-muted">
+                  #{row.charter_id.slice(0, 8)}
+                </span>
                 <Badge variant={status.variant}>{status.label}</Badge>
+                <span className="rounded bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium text-ink-muted">
+                  {accountName}
+                </span>
               </div>
+              <div className="mt-1.5 truncate text-[15px] font-semibold text-ink">{row.name}</div>
+              <div className="mt-0.5 truncate text-body-sm text-ink-muted">{meta}</div>
             </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-[14.5px] font-bold text-ink">{row.name}</div>
-              <div className="mt-0.5 text-body-sm text-ink-muted">{meta}</div>
-            </div>
-            <div className="flex-shrink-0 text-right">
-              <div className="text-[10px] uppercase tracking-wide text-ink-muted">Submitted</div>
-              <div className="font-mono text-[13px] font-bold text-ink">
-                {row.created_at.slice(0, 10)}
+            <div className="flex flex-shrink-0 items-start gap-2">
+              <div className="text-right">
+                <div className="text-[10px] uppercase tracking-wide text-ink-muted">Submitted</div>
+                <div className="font-mono text-[13px] font-semibold text-ink">
+                  {row.created_at.slice(0, 10)}
+                </div>
               </div>
+              <ChevronRight className="mt-0.5 size-4 text-ink-muted opacity-0 transition-opacity group-hover:opacity-100" />
             </div>
           </div>
-          <CharterStepper status={row.status} rejectedStage={row.rejected_stage} />
+          <div className="border-t border-hairline pt-3">
+            <CharterStepper
+              status={row.status}
+              rejectedStage={row.rejected_stage}
+              variant="compact"
+            />
+          </div>
         </CardContent>
       </Card>
     </button>
@@ -325,12 +381,13 @@ export function RequestsPage() {
     >
       <div className="page-container space-y-4 p-6">
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <Kpi label="Total requests" value={String(summary?.total ?? 0)} />
+          <Kpi label="Total requests" value={String(summary?.total ?? 0)} icon={FileText} />
           <Kpi
             label="Awaiting PMO"
             value={String(summary?.submitted ?? 0)}
             sub="PMO sign-off required"
             tone="warning"
+            icon={Clock}
             active={status === 'submitted'}
             onClick={() => update({ status: status === 'submitted' ? undefined : 'submitted' })}
           />
@@ -339,6 +396,7 @@ export function RequestsPage() {
             value={String(summary?.pmo_approved ?? 0)}
             sub="Board approval required"
             tone="warning"
+            icon={Gavel}
             active={status === 'pmo_approved'}
             onClick={() =>
               update({ status: status === 'pmo_approved' ? undefined : 'pmo_approved' })
@@ -349,6 +407,7 @@ export function RequestsPage() {
             value={String(summary?.approved ?? 0)}
             sub={`${summary?.rejected ?? 0} rejected`}
             tone="positive"
+            icon={CheckCircle2}
             active={status === 'approved'}
             onClick={() => update({ status: status === 'approved' ? undefined : 'approved' })}
           />
