@@ -68,6 +68,13 @@ describe('createAllocation', () => {
         expect(events[0]?.payload.account_name).toBe('A');
         expect(events[0]?.payload.lead_worker_id).toBe(t.adminSession.user_id);
         expect(typeof events[0]?.payload.account_id).toBe('string');
+        // span fields now flow on the event for People's read-model
+        expect(events[0]?.payload).toMatchObject({
+          date_from: '2026-05-01',
+          date_to: '2026-05-31',
+          planned_pct: 100,
+          bucket: 'billable',
+        });
       } finally {
         resetPmDb();
         resetCoreDb();
