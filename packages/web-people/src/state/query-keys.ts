@@ -8,4 +8,6 @@ export const peopleKeys = {
   orgStructure: () => [...peopleKeys.all, 'org', 'structure'] as const,
   orgDelivery: () => [...peopleKeys.all, 'org', 'delivery'] as const,
   orgCompany: () => [...peopleKeys.all, 'org', 'company'] as const,
+  allocationGrid: (year?: number) =>
+    [...peopleKeys.all, 'allocation', 'grid', year ?? 'current'] as const,
 };
