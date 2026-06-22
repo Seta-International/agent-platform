@@ -107,6 +107,10 @@ export const allocationCreatedPayload = z.object({
   account_id: z.string().uuid(),
   account_name: z.string(),
   lead_worker_id: z.string().uuid().nullable(),
+  date_from: z.string().nullable(),
+  date_to: z.string().nullable(),
+  planned_pct: z.number().nullable(),
+  bucket: z.enum(['billable', 'internal', 'bench']),
 });
 export type AllocationCreatedPayload = z.infer<typeof allocationCreatedPayload>;
 

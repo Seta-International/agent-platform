@@ -65,6 +65,10 @@ describe('pm events', () => {
       account_id: crypto.randomUUID(),
       account_name: 'Aeris',
       lead_worker_id: null,
+      date_from: null,
+      date_to: null,
+      planned_pct: null,
+      bucket: 'billable',
     });
     expect(p.account_name).toBe('Aeris');
   });
@@ -167,6 +171,40 @@ describe('pm events', () => {
       fields: ['name'],
     });
     expect(missingAccountId.success).toBe(false);
+  });
+
+  it('allocationCreatedPayload accepts the enriched span fields', () => {
+    const parsed = allocationCreatedPayload.safeParse({
+      allocation_id: crypto.randomUUID(),
+      project_id: crypto.randomUUID(),
+      worker_id: crypto.randomUUID(),
+      tenant_id: crypto.randomUUID(),
+      account_id: crypto.randomUUID(),
+      account_name: 'Acme',
+      lead_worker_id: null,
+      date_from: '2026-01-01',
+      date_to: '2026-12-31',
+      planned_pct: 100,
+      bucket: 'billable',
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it('allocationCreatedPayload rejects an unknown bucket', () => {
+    const parsed = allocationCreatedPayload.safeParse({
+      allocation_id: crypto.randomUUID(),
+      project_id: crypto.randomUUID(),
+      worker_id: null,
+      tenant_id: crypto.randomUUID(),
+      account_id: crypto.randomUUID(),
+      account_name: 'Acme',
+      lead_worker_id: null,
+      date_from: null,
+      date_to: null,
+      planned_pct: null,
+      bucket: 'leave',
+    });
+    expect(parsed.success).toBe(false);
   });
 
   it('registers charter + project event schemas', () => {

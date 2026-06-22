@@ -68,6 +68,10 @@ export async function createAllocation(
           account_id: proj[0].account_id,
           account_name: acc.name,
           lead_worker_id: proj[0].pm_worker_id ?? null,
+          date_from: parsed.date_from ?? null,
+          date_to: parsed.date_to ?? null,
+          planned_pct: parsed.planned_pct ?? null,
+          bucket: parsed.bucket,
         },
       });
     },
