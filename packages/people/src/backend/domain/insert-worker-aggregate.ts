@@ -14,7 +14,7 @@ export interface InsertWorkerArgs {
   phone?: string | null;
   emergency_contact?: unknown;
   job_title?: string | null;
-  manager_id?: string | null;
+  org_unit_id?: string | null;
   history_action: 'provisioned' | 'created';
 }
 
@@ -53,7 +53,7 @@ export async function insertWorkerAggregate(
     phone: args.phone ?? null,
     emergency_contact: args.emergency_contact ?? null,
     job_title: args.job_title ?? null,
-    manager_id: args.manager_id ?? null,
+    org_unit_id: args.org_unit_id ?? null,
   });
 
   await tx.insert(workerHistory).values({
