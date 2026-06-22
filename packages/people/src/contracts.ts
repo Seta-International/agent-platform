@@ -17,7 +17,7 @@ export const createWorkerInput = z.object({
   phone: z.string().optional(),
   emergency_contact: z.unknown().optional(),
   job_title: z.string().optional(),
-  manager_id: z.string().uuid().optional(),
+  org_unit_id: z.string().uuid().optional(),
 });
 export type CreateWorkerInput = z.infer<typeof createWorkerInput>;
 
@@ -29,7 +29,7 @@ export const editWorkerPatch = z.object({
   gender: z.string().nullable().optional(),
   emergency_contact: z.unknown().optional(),
   job_title: z.string().nullable().optional(),
-  manager_id: z.string().uuid().nullable().optional(),
+  org_unit_id: z.string().uuid().nullable().optional(),
 });
 export const editWorkerInput = z.object({
   worker_id: z.string().uuid(),
