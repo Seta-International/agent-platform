@@ -1,4 +1,5 @@
 // packages/pm/tests/integration/charter-schema.test.ts
+import { resetCoreDb } from '@seta/core/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
@@ -57,6 +58,39 @@ describe('charter schema', () => {
         );
       } finally {
         resetPmDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('accepts pmo_approved status and rejects an invalid rejected_stage', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const acc = await pool.query(
+          `INSERT INTO pm.account (tenant_id, name) VALUES ($1,'A') RETURNING id`,
+          [t.tenant_id],
+        );
+        await expect(
+          pool.query(
+            `INSERT INTO pm.charter (tenant_id, account_id, name, pm_worker_id, status)
+             VALUES ($1,$2,'P',$3,'pmo_approved')`,
+            [t.tenant_id, acc.rows[0].id, crypto.randomUUID()],
+          ),
+        ).resolves.toBeDefined();
+        await expect(
+          pool.query(
+            `INSERT INTO pm.charter (tenant_id, account_id, name, pm_worker_id, status, rejected_stage)
+             VALUES ($1,$2,'Q',$3,'rejected','nope')`,
+            [t.tenant_id, acc.rows[0].id, crypto.randomUUID()],
+          ),
+        ).rejects.toThrow(/charter_rejected_stage_check/);
+      } finally {
+        resetPmDb();
+        resetCoreDb();
         await closePools();
       }
     });
