@@ -23,6 +23,7 @@ export { plannerListGroupMembersTool } from './list-group-members.ts';
 export { plannerListPlansTool } from './list-plans.ts';
 export { plannerPostCommentTool } from './post-comment.ts';
 export { plannerQueryTasksTool } from './query-tasks.ts';
+export { plannerResolveMemberTool } from './resolve-member.ts';
 export { plannerSearchGroupMembersBySkillsTool } from './search-users-by-skills.ts';
 export { plannerSetAssigneesTool } from './set-assignees.ts';
 

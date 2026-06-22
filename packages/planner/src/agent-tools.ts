@@ -14,5 +14,6 @@ export {
   plannerListGroupMembersTool,
   plannerListPlansTool,
   plannerQueryTasksTool,
+  plannerResolveMemberTool,
   plannerSearchGroupMembersBySkillsTool,
 } from './backend/agent-tools/index.ts';
