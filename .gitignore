@@ -82,3 +82,6 @@ apps/web/.tanstack.idea/
 
 # Local IDE metadata
 .idea/
+
+.agents
+skills-lock.json

@@ -1,4 +1,5 @@
 import type { AssigneeRow, TaskWithAssigneesRow } from '@seta/planner';
+import { Dialog, DialogContent, DialogTitle } from '@seta/shared-ui';
 import type { SessionScopeProjection } from '@seta/web-identity';
 import { SessionProvider } from '@seta/web-identity';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -53,6 +54,24 @@ function renderWithClient(node: ReactNode, session: SessionScopeProjection = fxS
   return render(
     <QueryClientProvider client={qc}>
       <SessionProvider session={session}>{node}</SessionProvider>
+    </QueryClientProvider>,
+  );
+}
+
+function renderInModalDialog(node: ReactNode, session: SessionScopeProjection = fxSession) {
+  const qc = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={qc}>
+      <SessionProvider session={session}>
+        <Dialog open>
+          <DialogContent hideClose unstyled onOpenAutoFocus={(e) => e.preventDefault()}>
+            <DialogTitle className="sr-only">Task</DialogTitle>
+            {node}
+          </DialogContent>
+        </Dialog>
+      </SessionProvider>
     </QueryClientProvider>,
   );
 }
@@ -302,6 +321,43 @@ describe('TaskDetailAssigneesCard', () => {
     const task = withAssignees([assignee({ user_id: 'u-other', display_name: 'Other' })]);
     renderWithClient(<TaskDetailAssigneesCard task={task} planId="p1" />);
     expect(screen.queryByRole('button', { name: /Move to top of my list/i })).toBeNull();
+  });
+
+  it('inside modal Dialog: opens picker via trigger click and assigns a user', async () => {
+    const { userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup();
+
+    const assignMutate = vi.fn();
+    server.use(
+      http.get('/api/identity/v1/users', () =>
+        HttpResponse.json({
+          rows: [
+            {
+              user_id: 'u9',
+              email: 'dora@x',
+              name: 'Dora',
+              status: 'active',
+              role_slugs: [],
+              sign_in_methods: [],
+              last_seen_at: null,
+              created_at: '',
+            },
+          ],
+          total: 1,
+        }),
+      ),
+      http.post('/api/planner/v1/tasks/t1/assign', async () => {
+        assignMutate();
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    const task = withAssignees([]);
+    renderInModalDialog(<TaskDetailAssigneesCard task={task} planId="p1" />);
+    await user.click(screen.getByRole('button', { name: /Add assignee/i }));
+    await waitFor(() => expect(screen.getByText('Dora')).toBeInTheDocument());
+    await user.click(screen.getByRole('option', { name: /Dora/i }));
+    await waitFor(() => expect(assignMutate).toHaveBeenCalledOnce());
   });
 });
 

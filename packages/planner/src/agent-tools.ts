@@ -9,5 +9,11 @@ export {
   plannerFindSimilarTasksTool,
   plannerGetOpenTaskCountTool,
   plannerGetTaskTool,
+  plannerListBucketsTool,
+  plannerListCommentsTool,
+  plannerListGroupMembersTool,
+  plannerListPlansTool,
+  plannerQueryTasksTool,
+  plannerResolveMemberTool,
   plannerSearchGroupMembersBySkillsTool,
 } from './backend/agent-tools/index.ts';
