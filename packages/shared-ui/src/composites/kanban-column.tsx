@@ -35,7 +35,9 @@ export interface KanbanColumnProps {
   status?: 'muted' | 'primary' | 'warning' | 'success';
   children: ReactNode;
   completedTasks?: { count: number; children: ReactNode };
-  onCreateTask?: (input: QuickCreateTaskInput) => void;
+  onCreateTask?: (input: QuickCreateTaskInput) => void | Promise<void>;
+  /** When set, blocks submit and shows an inline error if the trimmed title exceeds this length. */
+  titleMaxLength?: number;
   onRename?: (name: string) => void;
   onDelete?: () => void;
   droppable: {
@@ -69,6 +71,7 @@ export function KanbanColumn({
   children,
   completedTasks,
   onCreateTask,
+  titleMaxLength,
   onRename,
   onDelete,
   droppable,
@@ -82,6 +85,8 @@ export function KanbanColumn({
   const [completedExpanded, setCompletedExpanded] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
+  const [titleError, setTitleError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
   const cancelledRef = useRef(false);
   const committedRef = useRef(false);
@@ -101,20 +106,35 @@ export function KanbanColumn({
     setValue('');
     setDueAt(null);
     setPriority(DEFAULT_PRIORITY);
+    setTitleError(null);
+    setIsSubmitting(false);
     setComposing(false);
   }
 
-  function submit() {
+  async function submit() {
     const v = value.trim();
     if (!v || !onCreateTask) {
       resetCompose();
       return;
     }
+    if (titleMaxLength !== undefined && v.length > titleMaxLength) {
+      setTitleError(`Task title cannot exceed ${titleMaxLength} characters.`);
+      return;
+    }
     const payload: QuickCreateTaskInput = { title: v };
     if (dueAt) payload.due_at = dueAt;
     if (priority !== DEFAULT_PRIORITY) payload.priority_number = priority;
-    onCreateTask(payload);
-    resetCompose();
+
+    setTitleError(null);
+    setIsSubmitting(true);
+    try {
+      await onCreateTask(payload);
+      resetCompose();
+    } catch (err) {
+      setTitleError(err instanceof Error ? err.message : "Couldn't create the task.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   function openRename() {
@@ -291,12 +311,21 @@ export function KanbanColumn({
             placeholder="Task title"
             value={value}
             autoFocus
-            onChange={(e) => setValue(e.target.value)}
+            aria-invalid={!!titleError}
+            onChange={(e) => {
+              setValue(e.target.value);
+              if (titleError) setTitleError(null);
+            }}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') submit();
+              if (e.key === 'Enter') void submit();
               if (e.key === 'Escape') resetCompose();
             }}
           />
+          {titleError ? (
+            <p role="alert" className="kanban-column__compose-error">
+              {titleError}
+            </p>
+          ) : null}
           <div className="kanban-column__compose-chips">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -358,8 +387,8 @@ export function KanbanColumn({
                 type="button"
                 className="kanban-column__compose-btn kanban-column__compose-btn--primary"
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={submit}
-                disabled={!value.trim()}
+                onClick={() => void submit()}
+                disabled={!value.trim() || isSubmitting}
               >
                 Add
               </button>

@@ -113,6 +113,7 @@ select:focus-visible,
 .kanban-column__compose                       { display: flex; flex-direction: column; gap: var(--spacing-xs); background: var(--color-canvas); border: 1px solid var(--color-primary); border-radius: var(--radius-md); padding: var(--spacing-xs); box-shadow: 0 0 0 3px var(--color-primary-tint); }
 .kanban-column__compose input                 { width: 100%; padding: 6px 8px; border: 0; outline: 0; background: transparent; color: var(--color-ink); font-size: var(--text-body-sm); }
 .kanban-column__compose input::placeholder    { color: var(--color-ink-subtle); }
+.kanban-column__compose-error                  { margin: 0; padding: 0 8px; font-size: var(--text-body-sm); font-weight: 500; color: var(--color-destructive); }
 .kanban-column__compose-chips                 { display: flex; flex-wrap: wrap; gap: 4px; }
 .kanban-column__compose-chip                  { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 8px; font-size: 11.5px; color: var(--color-ink-muted); background: var(--color-surface-2); border: 0; border-radius: 999px; cursor: pointer; }
 .kanban-column__compose-chip:hover            { background: var(--color-surface-1); color: var(--color-ink); }
@@ -269,6 +270,7 @@ select:focus-visible,
   font-size: var(--text-body-sm);
 }
 .kanban-board__add-bucket-compose input:focus { border-color: var(--color-primary); }
+.kanban-board__add-bucket-compose-error { margin: 0; font-size: var(--text-body-sm); font-weight: 500; color: var(--color-destructive); }
 .kanban-board__add-bucket-compose-footer {
   display: flex;
   align-items: center;

@@ -12,7 +12,9 @@ import {
 export interface KanbanBoardProps {
   children: ReactNode;
   /** Called with the typed bucket name; the trigger is omitted when undefined (no-permission view). */
-  onAddBucket?: (name: string) => void;
+  onAddBucket?: (name: string) => void | Promise<void>;
+  /** When set, blocks submit and shows an inline error if the trimmed name exceeds this length. */
+  nameMaxLength?: number;
   bucketCount?: number;
   /** Root Droppable slot for horizontal column reorder; wired by the app layer's @hello-pangea/dnd. */
   rootDroppable?: {
@@ -25,6 +27,7 @@ export interface KanbanBoardProps {
 export function KanbanBoard({
   children,
   onAddBucket,
+  nameMaxLength,
   bucketCount,
   rootDroppable,
 }: KanbanBoardProps) {
@@ -50,9 +53,9 @@ export function KanbanBoard({
   }, [bucketCount]);
 
   const handleAddBucket = onAddBucket
-    ? (name: string) => {
+    ? async (name: string) => {
+        await onAddBucket(name);
         wantScrollRef.current = true;
-        onAddBucket(name);
       }
     : undefined;
 
@@ -60,14 +63,22 @@ export function KanbanBoard({
     <div ref={setBoardRef} {...rootDroppable?.rootProps} className="kanban-board">
       {children}
       {rootDroppable?.placeholder}
-      {handleAddBucket && <AddBucket onSubmit={handleAddBucket} />}
+      {handleAddBucket && <AddBucket onSubmit={handleAddBucket} nameMaxLength={nameMaxLength} />}
     </div>
   );
 }
 
-function AddBucket({ onSubmit }: { onSubmit: (name: string) => void }) {
+function AddBucket({
+  onSubmit,
+  nameMaxLength,
+}: {
+  onSubmit: (name: string) => void | Promise<void>;
+  nameMaxLength?: number;
+}) {
   const [composing, setComposing] = useState(false);
   const [value, setValue] = useState('');
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const composeRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -78,24 +89,38 @@ function AddBucket({ onSubmit }: { onSubmit: (name: string) => void }) {
       if (target && composeRef.current && !composeRef.current.contains(target)) {
         setComposing(false);
         setValue('');
+        setNameError(null);
       }
     }
     document.addEventListener('pointerdown', onPointerDown);
     return () => document.removeEventListener('pointerdown', onPointerDown);
   }, [composing]);
 
-  function submit() {
+  async function submit() {
     const v = value.trim();
     if (!v) return;
-    onSubmit(v);
-    // Trello-style loop: keep the input open for the next bucket.
-    setValue('');
-    inputRef.current?.focus();
+    if (nameMaxLength !== undefined && v.length > nameMaxLength) {
+      setNameError(`Bucket name cannot exceed ${nameMaxLength} characters.`);
+      return;
+    }
+    setNameError(null);
+    setIsSubmitting(true);
+    try {
+      await onSubmit(v);
+      // Trello-style loop: keep the input open for the next bucket.
+      setValue('');
+      inputRef.current?.focus();
+    } catch (err) {
+      setNameError(err instanceof Error ? err.message : "Couldn't create the bucket.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   function cancel() {
     setComposing(false);
     setValue('');
+    setNameError(null);
   }
 
   if (!composing) {
@@ -113,11 +138,15 @@ function AddBucket({ onSubmit }: { onSubmit: (name: string) => void }) {
         autoFocus
         placeholder="Enter bucket name…"
         value={value}
-        onChange={(e) => setValue(e.target.value)}
+        aria-invalid={!!nameError}
+        onChange={(e) => {
+          setValue(e.target.value);
+          if (nameError) setNameError(null);
+        }}
         onKeyDown={(e) => {
           if (e.key === 'Enter') {
             e.preventDefault();
-            submit();
+            void submit();
           } else if (e.key === 'Escape') {
             e.preventDefault();
             cancel();
@@ -125,13 +154,18 @@ function AddBucket({ onSubmit }: { onSubmit: (name: string) => void }) {
         }}
         aria-label="New bucket name"
       />
+      {nameError ? (
+        <p role="alert" className="kanban-board__add-bucket-compose-error">
+          {nameError}
+        </p>
+      ) : null}
       <div className="kanban-board__add-bucket-compose-footer">
         <button
           type="button"
           className="kanban-board__add-bucket-compose-btn"
           onMouseDown={(e) => e.preventDefault()}
-          onClick={submit}
-          disabled={!value.trim()}
+          onClick={() => void submit()}
+          disabled={!value.trim() || isSubmitting}
         >
           Add bucket
         </button>

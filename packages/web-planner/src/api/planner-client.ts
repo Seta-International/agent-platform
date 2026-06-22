@@ -21,6 +21,7 @@ import type {
   TaskRow,
   TaskWithAssigneesRow,
 } from '@seta/planner';
+import { errorFromPlannerResponse } from '../lib/planner-api-errors';
 
 type M365GroupSearchResult = { external_id: string; display_name: string; mail_nickname: string };
 
@@ -72,6 +73,14 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T | und
   const text = await res.text();
   const body = text ? (JSON.parse(text) as Record<string, unknown>) : {};
   if (!res.ok) {
+    const details = body.details as { fieldErrors?: Record<string, string[]> } | undefined;
+    if (details?.fieldErrors && Object.keys(details.fieldErrors).length > 0) {
+      throw errorFromPlannerResponse(res.status, {
+        error: typeof body.error === 'string' ? body.error : undefined,
+        message: typeof body.message === 'string' ? body.message : undefined,
+        details,
+      });
+    }
     const code = typeof body.error === 'string' ? body.error : `HTTP_${res.status}`;
     throw new PlannerClientError(
       res.status,

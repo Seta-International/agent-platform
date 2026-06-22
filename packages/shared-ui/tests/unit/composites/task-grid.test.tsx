@@ -47,6 +47,43 @@ describe('TaskGrid', () => {
     expect(screen.getAllByRole('button', { name: /\+ Add a task/ })).toHaveLength(1);
   });
 
+  it('renders empty buckets from bucketOptions with an Add a task affordance', () => {
+    render(
+      <TaskGrid
+        rows={rows}
+        groupBy="bucket"
+        selection={new Set()}
+        onSelectionChange={() => {}}
+        bucketOptions={[
+          { id: 'b1', name: 'Sprint' },
+          { id: 'b2', name: 'Backlog' },
+        ]}
+        onAddTask={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Backlog')).toBeInTheDocument();
+    expect(screen.getByText('0', { selector: 'span' })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /\+ Add a task/ })).toHaveLength(2);
+  });
+
+  it('opens add-task inline editor for an empty bucket with the correct bucket id', () => {
+    const onAddTask = vi.fn();
+    render(
+      <TaskGrid
+        rows={[]}
+        groupBy="bucket"
+        selection={new Set()}
+        onSelectionChange={() => {}}
+        bucketOptions={[{ id: 'b-empty', name: 'New bucket' }]}
+        onAddTask={onAddTask}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /\+ Add a task/ }));
+    expect(onAddTask).toHaveBeenCalledWith('__open__', 'b-empty');
+  });
+
   it('opens the task when title is clicked (modal/detail intent)', () => {
     const onOpenTask = vi.fn();
     render(
