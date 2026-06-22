@@ -145,3 +145,101 @@ export async function getOrgDelivery(
   }
   return { accounts: out };
 }
+
+export type CompanyNodeKind =
+  | 'executive'
+  | 'operation'
+  | 'function'
+  | 'delivery'
+  | 'pmo'
+  | 'am'
+  | 'account';
+
+export interface CompanyNode {
+  id: string;
+  parent_id: string | null;
+  kind: CompanyNodeKind;
+  label: string;
+  sublabel?: string;
+  count?: number;
+  person_id?: string;
+  account_id?: string;
+}
+
+const UNIT_KINDS = new Set<CompanyNodeKind>([
+  'executive',
+  'operation',
+  'function',
+  'delivery',
+  'pmo',
+]);
+
+/**
+ * The Company tab tree. The org-unit spine comes from the stored `org_unit.parent_id`; the
+ * Delivery → AM → account subtree is derived from `getOrgDelivery` (so scope/visibility match the
+ * Account tab exactly). No member/project leaves. All parent links are returned as data.
+ */
+export async function getOrgCompany(session: SessionScope): Promise<{ nodes: CompanyNode[] }> {
+  requirePermission(session, 'people.worker.read');
+
+  const units = await peopleDb()
+    .select()
+    .from(orgUnit)
+    .where(tenantScoped(orgUnit.tenant_id, session))
+    .orderBy(asc(orgUnit.sort), asc(orgUnit.name));
+
+  // Scope-filtered member counts per unit.
+  const scope = buildWorkerScope(session);
+  const memberRows = await peopleDb()
+    .select({ org_unit_id: worker.org_unit_id })
+    .from(worker)
+    .where(
+      and(tenantScoped(worker.tenant_id, session), isNull(worker.deleted_at), scope ?? undefined),
+    );
+  const countByUnit = new Map<string, number>();
+  for (const r of memberRows) {
+    if (r.org_unit_id) countByUnit.set(r.org_unit_id, (countByUnit.get(r.org_unit_id) ?? 0) + 1);
+  }
+
+  const nodes: CompanyNode[] = units.map((u) => ({
+    id: `unit:${u.id}`,
+    parent_id: u.parent_id ? `unit:${u.parent_id}` : null,
+    kind: (UNIT_KINDS.has(u.kind as CompanyNodeKind) ? u.kind : 'function') as CompanyNodeKind,
+    label: u.name,
+    count: countByUnit.get(u.id) || undefined,
+  }));
+
+  const deliveryUnit = units.find((u) => u.kind === 'delivery');
+  if (deliveryUnit) {
+    const { accounts } = await getOrgDelivery(session);
+    const amEmitted = new Set<string>();
+    for (const acc of accounts) {
+      let parentId = `unit:${deliveryUnit.id}`;
+      if (acc.am && acc.am.full_name) {
+        const amNodeId = `am:${acc.am.person_id}`;
+        if (!amEmitted.has(acc.am.person_id)) {
+          amEmitted.add(acc.am.person_id);
+          nodes.push({
+            id: amNodeId,
+            parent_id: `unit:${deliveryUnit.id}`,
+            kind: 'am',
+            label: acc.am.full_name,
+            sublabel: 'Account Manager',
+            person_id: acc.am.person_id,
+          });
+        }
+        parentId = amNodeId;
+      }
+      nodes.push({
+        id: `account:${acc.account_id}`,
+        parent_id: parentId,
+        kind: 'account',
+        label: acc.name,
+        count: acc.projects.length || undefined,
+        account_id: acc.account_id,
+      });
+    }
+  }
+
+  return { nodes };
+}
