@@ -23,23 +23,59 @@ import { Link, useNavigate } from '@tanstack/react-router';
 import { ChevronLeft } from 'lucide-react';
 import { useState } from 'react';
 import {
-  approveCharter,
+  bodApproveCharter,
   type CharterDetail,
   fetchCharter,
+  pmoSignOffCharter,
   rejectCharter,
   withdrawCharter,
 } from '../api/pm-client.ts';
 import { pmKeys } from '../state/query-keys.ts';
+import { CharterStaffingEditor } from './charter-staffing-editor.tsx';
 
-const STATUS_VARIANT: Record<
+const STATUS_META: Record<
   CharterDetail['status'],
-  'secondary' | 'success' | 'destructive' | 'outline'
+  { label: string; variant: 'secondary' | 'success' | 'destructive' | 'outline' }
 > = {
-  submitted: 'secondary',
-  approved: 'success',
-  rejected: 'destructive',
-  withdrawn: 'outline',
+  submitted: { label: 'Awaiting PMO', variant: 'secondary' },
+  pmo_approved: { label: 'Awaiting BoD', variant: 'secondary' },
+  approved: { label: 'Approved · created', variant: 'success' },
+  rejected: { label: 'Rejected', variant: 'destructive' },
+  withdrawn: { label: 'Withdrawn', variant: 'outline' },
 };
+
+const STEP_LABELS = ['Submitted', 'PMO Review', 'BoD Review', 'Project created'] as const;
+
+function CharterStepper({ status }: { status: CharterDetail['status'] }) {
+  const reached =
+    status === 'submitted' ? 1 : status === 'pmo_approved' ? 2 : status === 'approved' ? 4 : 1;
+  const terminal = status === 'rejected' || status === 'withdrawn';
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {STEP_LABELS.map((label, i) => {
+        const done = i < reached && !(terminal && i >= reached);
+        const current = !terminal && i === reached - 1 && status !== 'approved';
+        return (
+          <div key={label} className="flex items-center gap-2">
+            <div
+              className={[
+                'flex size-6 items-center justify-center rounded-full text-[11px] font-semibold',
+                done ? 'bg-blue text-white' : 'bg-surface-2 text-ink-muted',
+                current ? 'ring-2 ring-blue/40' : '',
+              ].join(' ')}
+            >
+              {i + 1}
+            </div>
+            <span className={done ? 'text-body-sm text-ink' : 'text-body-sm text-ink-muted'}>
+              {label}
+            </span>
+            {i < STEP_LABELS.length - 1 && <span className="h-px w-6 bg-hairline" />}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 function FieldRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -53,7 +89,8 @@ function FieldRow({ label, value }: { label: string; value: React.ReactNode }) {
 export function CharterDetailPage({ charterId }: { charterId: string }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const canApprove = usePermission('pm.charter.approve');
+  const canPmo = usePermission('pm.charter.pmo_signoff');
+  const canBod = usePermission('pm.charter.bod_approve');
   const canSubmit = usePermission('pm.charter.submit');
   const { user_id: currentUserId } = useSession();
 
@@ -75,10 +112,19 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
     void queryClient.invalidateQueries({ queryKey: pmKeys.projects() });
   }
 
-  const approveMutation = useMutation({
-    mutationFn: () => approveCharter(charterId, c?.version),
+  const pmoMutation = useMutation({
+    mutationFn: () => pmoSignOffCharter(charterId, c?.version),
+    onSuccess: () => {
+      toast.success('PMO sign-off recorded — sent to BoD');
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const bodMutation = useMutation({
+    mutationFn: () => bodApproveCharter(charterId, c?.version),
     onSuccess: (r) => {
-      toast.success('Charter approved');
+      toast.success('Approved — project created');
       invalidate();
       void navigate({ to: '/pm/projects/$projectId', params: { projectId: r.project_id } });
     },
@@ -150,12 +196,17 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
     );
   }
 
-  const showApproveReject = canApprove && c.status === 'submitted';
+  const showPmo = canPmo && c.status === 'submitted';
+  const showBod = canBod && c.status === 'pmo_approved';
+  const showReject =
+    (canPmo && c.status === 'submitted') || (canBod && c.status === 'pmo_approved');
   const showWithdraw =
-    c.status === 'submitted' && canSubmit && currentUserId === c.submitted_by_user_id;
+    (c.status === 'submitted' || c.status === 'pmo_approved') &&
+    canSubmit &&
+    currentUserId === c.submitted_by_user_id;
 
   const headerActions =
-    showApproveReject || showWithdraw ? (
+    showPmo || showBod || showReject || showWithdraw ? (
       <div className="flex items-center gap-2">
         {showWithdraw && (
           <Button
@@ -167,24 +218,20 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
             {withdrawMutation.isPending ? 'Withdrawing…' : 'Withdraw'}
           </Button>
         )}
-        {showApproveReject && (
-          <>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => setRejecting(true)}
-              disabled={approveMutation.isPending}
-            >
-              Reject
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => approveMutation.mutate()}
-              disabled={approveMutation.isPending}
-            >
-              {approveMutation.isPending ? 'Approving…' : 'Approve'}
-            </Button>
-          </>
+        {showReject && (
+          <Button size="sm" variant="secondary" onClick={() => setRejecting(true)}>
+            Reject
+          </Button>
+        )}
+        {showPmo && (
+          <Button size="sm" onClick={() => pmoMutation.mutate()} disabled={pmoMutation.isPending}>
+            {pmoMutation.isPending ? 'Signing off…' : 'PMO sign-off'}
+          </Button>
+        )}
+        {showBod && (
+          <Button size="sm" onClick={() => bodMutation.mutate()} disabled={bodMutation.isPending}>
+            {bodMutation.isPending ? 'Approving…' : 'BoD approve · create project'}
+          </Button>
         )}
       </div>
     ) : undefined;
@@ -192,9 +239,17 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
   return (
     <PageChrome title={c.name} breadcrumb={[backLink]} actions={headerActions}>
       <div className="page-container p-6 space-y-4">
+        <Card>
+          <CardContent className="p-4">
+            <CharterStepper status={c.status} />
+          </CardContent>
+        </Card>
+
         {c.status === 'rejected' && c.rejection_reason && (
           <Alert variant="destructive">
-            <AlertDescription>Rejected: {c.rejection_reason}</AlertDescription>
+            <AlertDescription>
+              Rejected at {c.rejected_stage === 'bod' ? 'BoD' : 'PMO'} review: {c.rejection_reason}
+            </AlertDescription>
           </Alert>
         )}
 
@@ -202,7 +257,7 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
           <CardHeader>
             <div className="flex items-center gap-3">
               <CardTitle>{c.name}</CardTitle>
-              <Badge variant={STATUS_VARIANT[c.status]}>{c.status}</Badge>
+              <Badge variant={STATUS_META[c.status].variant}>{STATUS_META[c.status].label}</Badge>
             </div>
           </CardHeader>
           <CardContent>
@@ -250,6 +305,14 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
             <FieldRow label="Scope (out)" value={c.scope?.out} />
           </CardContent>
         </Card>
+
+        {c.status === 'approved' && c.project_id && (
+          <CharterStaffingEditor
+            projectId={c.project_id}
+            dateFrom={c.date_from}
+            dateTo={c.date_to}
+          />
+        )}
       </div>
 
       <Dialog open={rejecting} onOpenChange={setRejecting}>

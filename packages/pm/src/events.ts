@@ -49,8 +49,15 @@ export const charterRejectedPayload = z.object({
   charter_id: z.string().uuid(),
   tenant_id: z.string().uuid(),
   reason: z.string(),
+  stage: z.enum(['pmo', 'bod']),
 });
 export type CharterRejectedPayload = z.infer<typeof charterRejectedPayload>;
+
+export const charterPmoSignedOffPayload = z.object({
+  charter_id: z.string().uuid(),
+  tenant_id: z.string().uuid(),
+});
+export type CharterPmoSignedOffPayload = z.infer<typeof charterPmoSignedOffPayload>;
 
 export const charterWithdrawnPayload = z.object({
   charter_id: z.string().uuid(),
@@ -89,6 +96,7 @@ export const PM_ACCOUNT_RECRUITER_UNASSIGNED = 'pm.account.recruiter.unassigned'
 
 export const PM_CHARTER_SUBMITTED = 'pm.charter.submitted';
 export const PM_CHARTER_UPDATED = 'pm.charter.updated';
+export const PM_CHARTER_PMO_SIGNED_OFF = 'pm.charter.pmo_signed_off';
 export const PM_CHARTER_APPROVED = 'pm.charter.approved';
 export const PM_CHARTER_REJECTED = 'pm.charter.rejected';
 export const PM_CHARTER_WITHDRAWN = 'pm.charter.withdrawn';
@@ -131,6 +139,7 @@ export const PM_EVENTS = {
   'pm.account.recruiter.unassigned': accountRecruiterChangedPayload,
   'pm.charter.submitted': charterSubmittedPayload,
   'pm.charter.updated': charterUpdatedPayload,
+  'pm.charter.pmo_signed_off': charterPmoSignedOffPayload,
   'pm.charter.approved': charterApprovedPayload,
   'pm.charter.rejected': charterRejectedPayload,
   'pm.charter.withdrawn': charterWithdrawnPayload,

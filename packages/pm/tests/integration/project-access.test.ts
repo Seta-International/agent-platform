@@ -4,7 +4,6 @@ import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { resetPmDb } from '../../src/backend/db/client.ts';
 import {
-  approveCharter,
   deleteStaffingPlanLine,
   listProjectAccess,
   listStaffingPlan,
@@ -12,7 +11,7 @@ import {
   submitCharter,
   upsertStaffingPlanLine,
 } from '../../src/index.ts';
-import { buildSession, readEvents, seedTenant } from '../helpers.ts';
+import { approveCharterTwoStage, buildSession, readEvents, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -37,7 +36,7 @@ async function seedProject(
     budget_bmm: 100,
     session,
   });
-  return approveCharter({ charter_id, session });
+  return approveCharterTwoStage(charter_id, session.tenant_id);
 }
 
 describe('project access + staffing plan', () => {

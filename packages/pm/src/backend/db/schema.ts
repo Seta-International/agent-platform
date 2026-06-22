@@ -155,6 +155,9 @@ export const charter = pmSchema.table(
     scope: jsonb('scope'),
     status: text('status').notNull().default('submitted'),
     rejection_reason: text('rejection_reason'),
+    rejected_stage: text('rejected_stage'),
+    pmo_signed_off_by_user_id: uuid('pmo_signed_off_by_user_id'),
+    pmo_signed_off_at: timestamp('pmo_signed_off_at', { withTimezone: true }),
     approved_at: timestamp('approved_at', { withTimezone: true }),
     rejected_at: timestamp('rejected_at', { withTimezone: true }),
     project_id: uuid('project_id'),
@@ -165,7 +168,14 @@ export const charter = pmSchema.table(
   (t) => [
     index('charter_by_account_status').on(t.tenant_id, t.account_id, t.status),
     index('charter_by_tenant').on(t.tenant_id),
-    check('charter_status_check', sql`status IN ('submitted','approved','rejected','withdrawn')`),
+    check(
+      'charter_status_check',
+      sql`status IN ('submitted','pmo_approved','approved','rejected','withdrawn')`,
+    ),
+    check(
+      'charter_rejected_stage_check',
+      sql`rejected_stage IS NULL OR rejected_stage IN ('pmo','bod')`,
+    ),
     check(
       'charter_methodology_check',
       sql`methodology IS NULL OR methodology IN ('scrum','kanban')`,

@@ -9,7 +9,7 @@ export interface CharterListRow {
   charter_id: string;
   account_id: string;
   name: string;
-  status: 'submitted' | 'approved' | 'rejected' | 'withdrawn';
+  status: 'submitted' | 'pmo_approved' | 'approved' | 'rejected' | 'withdrawn';
   pm_worker_id: string;
   created_at: string;
 }
@@ -60,6 +60,8 @@ export async function getCharter(input: { charter_id: string; session: SessionSc
     scope: c.scope as { in: string; out: string } | null,
     status: c.status,
     rejection_reason: c.rejection_reason,
+    rejected_stage: c.rejected_stage as 'pmo' | 'bod' | null,
+    pmo_signed_off_at: c.pmo_signed_off_at ? c.pmo_signed_off_at.toISOString() : null,
     project_id: c.project_id,
     submitted_by_user_id: c.submitted_by_user_id,
     version: c.version,

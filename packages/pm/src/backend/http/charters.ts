@@ -3,10 +3,11 @@ import type { Hono } from 'hono';
 import { z } from 'zod';
 import { editCharterPatch, submitCharterInput } from '../../contracts.ts';
 import {
-  approveCharter,
+  bodApproveCharter,
   editCharter,
   getCharter,
   listCharters,
+  pmoSignOffCharter,
   rejectCharter,
   submitCharter,
   withdrawCharter,
@@ -43,12 +44,24 @@ export function registerPmChartersRoutes(app: Hono<SessionEnv>): void {
       await editCharter({ charter_id: c.req.param('id'), ...parsed.data, session: c.get('user') }),
     );
   });
-  app.post('/api/pm/v1/charters/:id/approve', async (c) => {
+  app.post('/api/pm/v1/charters/:id/pmo-signoff', async (c) => {
     const parsed = decideBody.safeParse(await c.req.json().catch(() => ({})));
     if (!parsed.success)
       return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
     return c.json(
-      await approveCharter({
+      await pmoSignOffCharter({
+        charter_id: c.req.param('id'),
+        ...parsed.data,
+        session: c.get('user'),
+      }),
+    );
+  });
+  app.post('/api/pm/v1/charters/:id/bod-approve', async (c) => {
+    const parsed = decideBody.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success)
+      return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
+    return c.json(
+      await bodApproveCharter({
         charter_id: c.req.param('id'),
         ...parsed.data,
         session: c.get('user'),

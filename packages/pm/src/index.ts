@@ -1,6 +1,10 @@
 export { createAccount } from './backend/domain/create-account.ts';
 export { createAllocation } from './backend/domain/create-allocation.ts';
-export { approveCharter, rejectCharter } from './backend/domain/decide-charter.ts';
+export {
+  bodApproveCharter,
+  pmoSignOffCharter,
+  rejectCharter,
+} from './backend/domain/decide-charter.ts';
 export { editAccount } from './backend/domain/edit-account.ts';
 export { editCharter } from './backend/domain/edit-charter.ts';
 export {
@@ -12,6 +16,8 @@ export {
 export { listProjectAccess, setProjectAccess } from './backend/domain/project-access.ts';
 export type { AccountListRow } from './backend/domain/read-accounts.ts';
 export { getAccount, listAccounts } from './backend/domain/read-accounts.ts';
+export type { AllocationRow } from './backend/domain/read-allocations.ts';
+export { listProjectAllocations } from './backend/domain/read-allocations.ts';
 export type { CharterListRow } from './backend/domain/read-charters.ts';
 export { getCharter, listCharters } from './backend/domain/read-charters.ts';
 export type { ProjectListRow } from './backend/domain/read-projects.ts';

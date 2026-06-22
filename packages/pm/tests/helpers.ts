@@ -8,6 +8,7 @@ import {
   resolvePermissions,
 } from '@seta/shared-rbac';
 import type { Pool } from 'pg';
+import { bodApproveCharter, pmoSignOffCharter } from '../src/index.ts';
 
 const _registry = buildRegistry(inventoryToManifests(INVENTORY));
 function permsFor(roles: string[]): ReadonlySet<string> {
@@ -99,4 +100,28 @@ export async function countEvents(
     [tenantId, eventType],
   );
   return r.rows[0].n as number;
+}
+
+/**
+ * Drives a submitted charter through both governance gates (PMO sign-off then
+ * BoD approval) using throwaway pm.pmo / pm.bod sessions. Returns the created
+ * project. Used by tests that just need a live project to exercise downstream
+ * project/allocation operations.
+ */
+export async function approveCharterTwoStage(
+  charter_id: string,
+  tenantId: string,
+): Promise<{ project_id: string; version: number }> {
+  const pmo = buildSession({
+    tenant_id: tenantId,
+    user_id: crypto.randomUUID(),
+    roles: ['pm.pmo'],
+  });
+  const bod = buildSession({
+    tenant_id: tenantId,
+    user_id: crypto.randomUUID(),
+    roles: ['pm.bod'],
+  });
+  await pmoSignOffCharter({ charter_id, session: pmo });
+  return bodApproveCharter({ charter_id, session: bod });
 }

@@ -2,10 +2,16 @@ import { describe, expect, it } from 'vitest';
 import { rolesFor } from '../../src/commands/seed-fixture/rbac-map.ts';
 
 describe('rolesFor', () => {
-  it('ADMIN → org.admin only', () => {
+  it('ADMIN → org.admin + pm.pmo (admins are the PMO governance gate)', () => {
     const grants = rolesFor('ADMIN');
-    expect(grants.map((g) => g.slug)).toEqual(['org.admin']);
+    expect(grants.map((g) => g.slug)).toEqual(['org.admin', 'pm.pmo']);
     expect(grants[0]).toMatchObject({ scope_type: 'tenant', scope_id: null });
+  });
+
+  it('PRODUCT DIRECTOR → pm.bod (final approval gate)', () => {
+    const slugs = rolesFor('Product Director').map((g) => g.slug);
+    expect(slugs).toContain('pm.bod');
+    expect(slugs).not.toContain('pm.strategic');
   });
 
   it('PM → pm.strategic + planner.contributor + agent.contributor', () => {
@@ -24,7 +30,7 @@ describe('rolesFor', () => {
   });
 
   it('case-insensitive: admin (lowercase) maps same as ADMIN', () => {
-    expect(rolesFor('admin').map((g) => g.slug)).toEqual(['org.admin']);
+    expect(rolesFor('admin').map((g) => g.slug)).toEqual(['org.admin', 'pm.pmo']);
   });
 
   it('MARKETING → planner.viewer + knowledge.member', () => {

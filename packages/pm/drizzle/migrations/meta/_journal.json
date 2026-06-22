@@ -29,6 +29,13 @@
       "when": 1781930285368,
       "tag": "0003_absent_randall",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1782119600384,
+      "tag": "0004_giant_kronos",
+      "breakpoints": true
     }
   ]
 }

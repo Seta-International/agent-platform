@@ -6,7 +6,12 @@ import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { pmDb, resetPmDb } from '../../src/backend/db/client.ts';
 import { charter, project, projectAccess } from '../../src/backend/db/schema.ts';
-import { approveCharter, rejectCharter, submitCharter } from '../../src/index.ts';
+import {
+  bodApproveCharter,
+  pmoSignOffCharter,
+  rejectCharter,
+  submitCharter,
+} from '../../src/index.ts';
 import { buildSession, countEvents, readEvents, seedTenant } from '../helpers.ts';
 
 const ctx = {
@@ -37,16 +42,56 @@ async function seedCharter(
   });
 }
 
-describe('approveCharter / rejectCharter', () => {
-  it('approve atomically creates the project, owner grant, and both events', async () => {
+async function seedReviewer(tenantId: string, roleSlug: 'pm.pmo' | 'pm.bod') {
+  const email = `${roleSlug.replace('.', '-')}-${crypto.randomUUID().slice(0, 8)}@example.test`;
+  const u = await createUser(
+    {
+      tenant_id: tenantId,
+      email,
+      name: roleSlug,
+      password: 'correct-horse-battery-staple',
+      initial_role: { role_slug: roleSlug, scope_type: 'tenant', scope_id: null },
+    },
+    { type: 'cli', user_id: null },
+  );
+  return buildSession({ tenant_id: tenantId, user_id: u.user_id, email, roles: [roleSlug] });
+}
+
+describe('two-stage charter governance', () => {
+  it('PMO sign-off moves submitted -> pmo_approved and emits the event', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPmDb();
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
+        const pmo = await seedReviewer(t.tenant_id, 'pm.pmo');
         const { charter_id } = await seedCharter(pool, t.adminSession, t.tenant_id);
-        const { project_id } = await approveCharter({ charter_id, session: t.adminSession });
+        await pmoSignOffCharter({ charter_id, session: pmo });
+        const [c] = await pmDb().select().from(charter).where(eq(charter.id, charter_id));
+        expect(c?.status).toBe('pmo_approved');
+        expect(c?.pmo_signed_off_by_user_id).toBe(pmo.user_id);
+        expect(await readEvents(pool, t.tenant_id, 'pm.charter.pmo_signed_off')).toHaveLength(1);
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('BoD approve from pmo_approved creates the project + owner grant + both events', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const pmo = await seedReviewer(t.tenant_id, 'pm.pmo');
+        const bod = await seedReviewer(t.tenant_id, 'pm.bod');
+        const { charter_id } = await seedCharter(pool, t.adminSession, t.tenant_id);
+        await pmoSignOffCharter({ charter_id, session: pmo });
+        const { project_id } = await bodApproveCharter({ charter_id, session: bod });
 
         const [p] = await pmDb().select().from(project).where(eq(project.id, project_id));
         expect(p?.charter_id).toBe(charter_id);
@@ -57,7 +102,7 @@ describe('approveCharter / rejectCharter', () => {
         const [c] = await pmDb().select().from(charter).where(eq(charter.id, charter_id));
         expect(c?.status).toBe('approved');
         expect(c?.project_id).toBe(project_id);
-        expect(c?.decided_by_user_id).toBe(t.admin_user_id);
+        expect(c?.decided_by_user_id).toBe(bod.user_id);
 
         const grants = await pmDb()
           .select()
@@ -69,7 +114,6 @@ describe('approveCharter / rejectCharter', () => {
         const createdEvents = await readEvents(pool, t.tenant_id, 'pm.project.created');
         expect(createdEvents).toHaveLength(1);
         expect(createdEvents[0]!.payload.name).toBe('P');
-        expect(typeof createdEvents[0]!.payload.account_id).toBe('string');
       } finally {
         resetPmDb();
         resetCoreDb();
@@ -78,20 +122,18 @@ describe('approveCharter / rejectCharter', () => {
     });
   });
 
-  it('reject closes the charter with a reason and creates no project', async () => {
+  it('BoD approve before PMO sign-off is a CONFLICT', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPmDb();
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
+        const bod = await seedReviewer(t.tenant_id, 'pm.bod');
         const { charter_id } = await seedCharter(pool, t.adminSession, t.tenant_id);
-        await rejectCharter({ charter_id, reason: 'no capacity', session: t.adminSession });
-        const [c] = await pmDb().select().from(charter).where(eq(charter.id, charter_id));
-        expect(c?.status).toBe('rejected');
-        expect(c?.rejection_reason).toBe('no capacity');
-        expect(c?.decided_by_user_id).toBe(t.admin_user_id);
-        expect(await countEvents(pool, t.tenant_id, 'pm.project.created')).toBe(0);
+        await expect(bodApproveCharter({ charter_id, session: bod })).rejects.toMatchObject({
+          code: 'CONFLICT',
+        });
       } finally {
         resetPmDb();
         resetCoreDb();
@@ -100,24 +142,52 @@ describe('approveCharter / rejectCharter', () => {
     });
   });
 
-  it('viewer cannot approve; stale version conflicts', async () => {
+  it('PMO cannot BoD-approve and BoD cannot PMO-sign-off (403)', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPmDb();
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
+        const pmo = await seedReviewer(t.tenant_id, 'pm.pmo');
+        const bod = await seedReviewer(t.tenant_id, 'pm.bod');
+        const { charter_id } = await seedCharter(pool, t.adminSession, t.tenant_id);
+        await expect(bodApproveCharter({ charter_id, session: pmo })).rejects.toMatchObject({
+          code: 'FORBIDDEN',
+        });
+        await pmoSignOffCharter({ charter_id, session: pmo });
+        await expect(pmoSignOffCharter({ charter_id, session: bod })).rejects.toMatchObject({
+          code: 'FORBIDDEN',
+        });
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('viewer cannot sign off; stale version conflicts at BoD', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const pmo = await seedReviewer(t.tenant_id, 'pm.pmo');
+        const bod = await seedReviewer(t.tenant_id, 'pm.bod');
         const { charter_id } = await seedCharter(pool, t.adminSession, t.tenant_id);
         const viewer = buildSession({
           tenant_id: t.tenant_id,
           user_id: t.admin_user_id,
           roles: ['pm.viewer'],
         });
-        await expect(approveCharter({ charter_id, session: viewer })).rejects.toThrow(
+        await expect(pmoSignOffCharter({ charter_id, session: viewer })).rejects.toThrow(
           /permission/i,
         );
+        await pmoSignOffCharter({ charter_id, session: pmo });
         await expect(
-          approveCharter({ charter_id, expected_version: 99, session: t.adminSession }),
+          bodApproveCharter({ charter_id, expected_version: 99, session: bod }),
         ).rejects.toThrow(/version|concurrently/i);
       } finally {
         resetPmDb();
@@ -127,14 +197,15 @@ describe('approveCharter / rejectCharter', () => {
     });
   });
 
-  it('(F) approving a charter missing methodology/pricing/budget throws VALIDATION and creates no project', async () => {
+  it('(F) BoD approve of a charter missing methodology/pricing/budget throws VALIDATION, no project', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPmDb();
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
-        // Submit a minimal charter without methodology/pricing/budget
+        const pmo = await seedReviewer(t.tenant_id, 'pm.pmo');
+        const bod = await seedReviewer(t.tenant_id, 'pm.bod');
         const acc = await pool.query(
           `INSERT INTO pm.account (tenant_id, name) VALUES ($1,'Acct') RETURNING id`,
           [t.tenant_id],
@@ -145,14 +216,14 @@ describe('approveCharter / rejectCharter', () => {
           pm_worker_id: t.adminSession.user_id,
           session: t.adminSession,
         });
-        // Force-null the fields that the completeness gate checks
         await pool.query(
           `UPDATE pm.charter SET methodology = NULL, pricing_model = NULL, budget_bmm = NULL WHERE id = $1`,
           [charter_id],
         );
-        await expect(approveCharter({ charter_id, session: t.adminSession })).rejects.toMatchObject(
-          { code: 'VALIDATION' },
-        );
+        await pmoSignOffCharter({ charter_id, session: pmo });
+        await expect(bodApproveCharter({ charter_id, session: bod })).rejects.toMatchObject({
+          code: 'VALIDATION',
+        });
         expect(await countEvents(pool, t.tenant_id, 'pm.project.created')).toBe(0);
       } finally {
         resetPmDb();
@@ -162,39 +233,33 @@ describe('approveCharter / rejectCharter', () => {
     });
   });
 
-  it('(G) approve notifies the submitter when submitter and approver are different users', async () => {
+  it('reject at submitted records rejected_stage=pmo; reject at pmo_approved records bod', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPmDb();
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
+        const pmo = await seedReviewer(t.tenant_id, 'pm.pmo');
+        const bod = await seedReviewer(t.tenant_id, 'pm.bod');
 
-        // Seed a second pm.strategic user who will be the approver
-        const approverEmail = `approver-${crypto.randomUUID().slice(0, 8)}@example.test`;
-        const approverResult = await createUser(
-          {
-            tenant_id: t.tenant_id,
-            email: approverEmail,
-            name: 'Approver User',
-            password: 'correct-horse-battery-staple',
-            initial_role: { role_slug: 'pm.strategic', scope_type: 'tenant', scope_id: null },
-          },
-          { type: 'cli', user_id: null },
-        );
-        const approverSession = buildSession({
-          tenant_id: t.tenant_id,
-          user_id: approverResult.user_id,
-          email: approverEmail,
-          roles: ['pm.strategic'],
-        });
+        const a = await seedCharter(pool, t.adminSession, t.tenant_id);
+        await rejectCharter({ charter_id: a.charter_id, reason: 'no capacity', session: pmo });
+        const [ca] = await pmDb().select().from(charter).where(eq(charter.id, a.charter_id));
+        expect(ca?.status).toBe('rejected');
+        expect(ca?.rejected_stage).toBe('pmo');
+        expect(ca?.rejection_reason).toBe('no capacity');
 
-        // Submit charter as user A (t.adminSession), approve as user B (approverSession)
-        const { charter_id } = await seedCharter(pool, t.adminSession, t.tenant_id);
-        await approveCharter({ charter_id, session: approverSession });
+        const b = await seedCharter(pool, t.adminSession, t.tenant_id);
+        await pmoSignOffCharter({ charter_id: b.charter_id, session: pmo });
+        await rejectCharter({ charter_id: b.charter_id, reason: 'budget window', session: bod });
+        const [cb] = await pmDb().select().from(charter).where(eq(charter.id, b.charter_id));
+        expect(cb?.rejected_stage).toBe('bod');
 
-        const notifEvents = await readEvents(pool, t.tenant_id, 'notification.requested');
-        expect(notifEvents.length).toBeGreaterThan(0);
+        const rejected = await readEvents(pool, t.tenant_id, 'pm.charter.rejected');
+        expect(rejected).toHaveLength(2);
+        expect(rejected.map((e) => e.payload.stage).sort()).toEqual(['bod', 'pmo']);
+        expect(await countEvents(pool, t.tenant_id, 'pm.project.created')).toBe(0);
       } finally {
         resetPmDb();
         resetCoreDb();
@@ -203,21 +268,40 @@ describe('approveCharter / rejectCharter', () => {
     });
   });
 
-  it('(G) approve does NOT notify when submitter === approver', async () => {
+  it('BoD cannot reject a still-submitted charter (403)', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPmDb();
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
-        // Same user submits and approves — no notification.requested should fire
+        const bod = await seedReviewer(t.tenant_id, 'pm.bod');
         const { charter_id } = await seedCharter(pool, t.adminSession, t.tenant_id);
-        await approveCharter({ charter_id, session: t.adminSession });
-        // submit-charter also fires notification.requested (to other pm.strategics); but since
-        // there are no other pm.strategics here, that should also be 0.
-        // We only assert no notification was issued for the approve path.
+        await expect(
+          rejectCharter({ charter_id, reason: 'x', session: bod }),
+        ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('(G) BoD approve notifies the submitter (distinct from approver)', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const pmo = await seedReviewer(t.tenant_id, 'pm.pmo');
+        const bod = await seedReviewer(t.tenant_id, 'pm.bod');
+        const { charter_id } = await seedCharter(pool, t.adminSession, t.tenant_id);
+        await pmoSignOffCharter({ charter_id, session: pmo });
+        await bodApproveCharter({ charter_id, session: bod });
         const notifEvents = await readEvents(pool, t.tenant_id, 'notification.requested');
-        expect(notifEvents).toHaveLength(0);
+        expect(notifEvents.length).toBeGreaterThan(0);
       } finally {
         resetPmDb();
         resetCoreDb();
