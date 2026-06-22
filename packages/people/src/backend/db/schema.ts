@@ -71,7 +71,7 @@ export const worker = peopleSchema.table(
     profile_completed_at: timestamp('profile_completed_at', { withTimezone: true }),
     portal_access: boolean('portal_access').notNull().default(false),
     job_title: text('job_title'),
-    manager_id: uuid('manager_id'),
+    org_unit_id: uuid('org_unit_id'),
     version: integer('version').default(1).notNull(),
     deleted_at: timestamp('deleted_at', { withTimezone: true }),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -83,12 +83,35 @@ export const worker = peopleSchema.table(
       .on(t.tenant_id, t.work_email)
       .where(sql`work_email IS NOT NULL AND deleted_at IS NULL`),
     index('worker_by_tenant_live').on(t.tenant_id, t.deleted_at),
-    index('worker_by_manager').on(t.tenant_id, t.manager_id),
+    index('worker_by_org_unit').on(t.tenant_id, t.org_unit_id),
+  ],
+);
+
+export const orgUnit = peopleSchema.table(
+  'org_unit',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenant_id: uuid('tenant_id').notNull(),
+    parent_id: uuid('parent_id'),
+    name: text('name').notNull(),
+    kind: text('kind').notNull(),
+    head_worker_id: uuid('head_worker_id'),
+    sort: integer('sort').notNull().default(0),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('org_unit_by_parent').on(t.tenant_id, t.parent_id),
+    index('org_unit_by_head').on(t.tenant_id, t.head_worker_id),
     foreignKey({
-      columns: [t.manager_id],
-      foreignColumns: [t.person_id],
-      name: 'worker_manager_fk',
+      columns: [t.parent_id],
+      foreignColumns: [t.id],
+      name: 'org_unit_parent_fk',
     }),
+    check(
+      'org_unit_kind_check',
+      sql`kind IN ('executive','operation','function','delivery','pmo')`,
+    ),
   ],
 );
 

@@ -36,6 +36,20 @@
       "when": 1782038131255,
       "tag": "0004_icy_silvermane",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1782097465559,
+      "tag": "0005_org_unit_drop_manager",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1782097506743,
+      "tag": "0006_worker_org_unit_id",
+      "breakpoints": true
     }
   ]
 }
