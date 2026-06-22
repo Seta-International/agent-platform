@@ -1,4 +1,8 @@
 import {
+  Command,
+  CommandInput,
+  CommandItem,
+  CommandList,
   Dialog,
   DialogContent,
   DialogTitle,
@@ -7,9 +11,21 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@seta/shared-ui';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { useState } from 'react';
+import { describe, expect, it, vi } from 'vitest';
+
+function allowFloatingLayerOutsideInteraction(e: Event): void {
+  if (
+    e.target instanceof Element &&
+    e.target.closest(
+      '[data-radix-popover-content], [data-radix-dropdown-menu-content], [data-radix-select-content]',
+    )
+  ) {
+    e.preventDefault();
+  }
+}
 
 // Regression for the reported bug: in the task-details MODAL (a Radix Dialog),
 // the label rename field can't be typed into; on the full page it works. Root
@@ -22,7 +38,13 @@ import { describe, expect, it } from 'vitest';
 function Harness({ open }: { open: boolean }) {
   return (
     <Dialog open>
-      <DialogContent hideClose unstyled onOpenAutoFocus={(e) => e.preventDefault()}>
+      <DialogContent
+        hideClose
+        unstyled
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        onPointerDownOutside={allowFloatingLayerOutsideInteraction}
+        onInteractOutside={allowFloatingLayerOutsideInteraction}
+      >
         <DialogTitle className="sr-only">t</DialogTitle>
         <Popover open={open}>
           <PopoverTrigger asChild>
@@ -30,6 +52,51 @@ function Harness({ open }: { open: boolean }) {
           </PopoverTrigger>
           <PopoverContent>
             <Input aria-label="rename" />
+          </PopoverContent>
+        </Popover>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function CreateClickHarness({ open, onCreate }: { open: boolean; onCreate: () => void }) {
+  const [search, setSearch] = useState('');
+  const trimmed = search.trim();
+  return (
+    <Dialog open>
+      <DialogContent
+        hideClose
+        unstyled
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        onPointerDownOutside={allowFloatingLayerOutsideInteraction}
+        onInteractOutside={allowFloatingLayerOutsideInteraction}
+      >
+        <DialogTitle className="sr-only">t</DialogTitle>
+        <Popover open={open}>
+          <PopoverTrigger asChild>
+            <span />
+          </PopoverTrigger>
+          <PopoverContent className="w-72 p-0">
+            <Command shouldFilter={false}>
+              <CommandInput
+                aria-label="Filter labels"
+                placeholder="Filter or create label"
+                value={search}
+                onValueChange={setSearch}
+              />
+              <CommandList>
+                {trimmed ? (
+                  <CommandItem
+                    value={`__create__${trimmed}`}
+                    onSelect={() => {
+                      onCreate();
+                    }}
+                  >
+                    Create &ldquo;{trimmed}&rdquo;
+                  </CommandItem>
+                ) : null}
+              </CommandList>
+            </Command>
           </PopoverContent>
         </Popover>
       </DialogContent>
@@ -65,5 +132,59 @@ describe('typing into a Popover input inside a modal Dialog', () => {
     const input = await screen.findByLabelText('rename');
     await user.type(input, 'Defect');
     expect(input).toHaveValue('Defect');
+  });
+});
+
+describe('clicking a Popover CommandItem inside a modal Dialog', () => {
+  function ClickHarness({ open, onSelect }: { open: boolean; onSelect: () => void }) {
+    return (
+      <Dialog open>
+        <DialogContent
+          hideClose
+          unstyled
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          onPointerDownOutside={allowFloatingLayerOutsideInteraction}
+          onInteractOutside={allowFloatingLayerOutsideInteraction}
+        >
+          <DialogTitle className="sr-only">t</DialogTitle>
+          <Popover open={open}>
+            <PopoverTrigger asChild>
+              <span />
+            </PopoverTrigger>
+            <PopoverContent className="p-0">
+              <Command shouldFilter={false}>
+                <CommandList>
+                  <CommandItem value="alpha" onSelect={onSelect}>
+                    alpha
+                  </CommandItem>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  it('fires onSelect when the popover opens after the dialog', async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    const { rerender } = render(<ClickHarness open={false} onSelect={onSelect} />);
+    rerender(<ClickHarness open={true} onSelect={onSelect} />);
+
+    await user.click(await screen.findByRole('option', { name: 'alpha' }));
+    await waitFor(() => expect(onSelect).toHaveBeenCalledOnce());
+  });
+
+  it('fires onSelect on a create row after typing in the filter input', async () => {
+    const user = userEvent.setup();
+    const onCreate = vi.fn();
+    const { rerender } = render(<CreateClickHarness open={false} onCreate={onCreate} />);
+    rerender(<CreateClickHarness open={true} onCreate={onCreate} />);
+
+    const input = await screen.findByLabelText('Filter labels');
+    await user.type(input, 'shiny');
+    await user.click(await screen.findByRole('option', { name: /Create.*shiny/i }));
+    await waitFor(() => expect(onCreate).toHaveBeenCalledOnce());
   });
 });

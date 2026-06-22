@@ -17,6 +17,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  toast,
 } from '@seta/shared-ui';
 import { useQuery } from '@tanstack/react-query';
 import { Check, ChevronLeft, Pencil, Plus, Trash2, X } from 'lucide-react';
@@ -75,6 +76,10 @@ export function TaskDetailLabelsCard({ task, planId, isLinkedToM365 = false }: P
   );
 
   const trimmedSearch = search.trim();
+  const filteredSlotlessLabels =
+    trimmedSearch.length > 0
+      ? slotlessLabels.filter((l) => l.name.toLowerCase().includes(trimmedSearch.toLowerCase()))
+      : slotlessLabels;
   const hasExactMatch = (planLabelsQuery.data ?? []).some(
     (l) => l.name.toLowerCase() === trimmedSearch.toLowerCase(),
   );
@@ -86,15 +91,19 @@ export function TaskDetailLabelsCard({ task, planId, isLinkedToM365 = false }: P
     const name = trimmedSearch;
     if (!name) return;
     const color = pickLabelColor(name);
-    const created = await create.mutateAsync({ name, color });
-    apply.mutate({
-      task_id: task.id,
-      label_id: created.id,
-      label_name: created.name,
-      label_color: created.color,
-    });
-    setPickerOpen(false);
-    setSearch('');
+    try {
+      const created = await create.mutateAsync({ name, color });
+      apply.mutate({
+        task_id: task.id,
+        label_id: created.id,
+        label_name: created.name,
+        label_color: created.color,
+      });
+      setPickerOpen(false);
+      setSearch('');
+    } catch {
+      toast.error("Couldn't create label.");
+    }
   };
 
   const toggleLabel = (l: LabelRow) => {
@@ -107,6 +116,8 @@ export function TaskDetailLabelsCard({ task, planId, isLinkedToM365 = false }: P
         label_name: l.name,
         label_color: l.color,
       });
+      setPickerOpen(false);
+      setSearch('');
     }
   };
 
@@ -153,7 +164,7 @@ export function TaskDetailLabelsCard({ task, planId, isLinkedToM365 = false }: P
                 onClose={() => setEditingLabel(null)}
               />
             ) : (
-              <Command>
+              <Command shouldFilter={false}>
                 <CommandInput
                   aria-label="Filter labels"
                   placeholder="Filter or create label"
@@ -166,7 +177,7 @@ export function TaskDetailLabelsCard({ task, planId, isLinkedToM365 = false }: P
                   </CommandEmpty>
                   <CommandGroup>
                     <TooltipProvider delayDuration={0}>
-                      {slotlessLabels.map((l) =>
+                      {filteredSlotlessLabels.map((l) =>
                         isLinkedToM365 ? (
                           <Tooltip key={l.id}>
                             <TooltipTrigger asChild>
