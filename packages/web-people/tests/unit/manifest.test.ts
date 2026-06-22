@@ -38,10 +38,11 @@ describe('peopleAppManifest', () => {
     const byId = Object.fromEntries(
       peopleAppManifest.nav.flatMap((s) => s.items).map((i) => [i.id, i.badge]),
     );
+    // Built/live tabs carry no badge.
     expect(byId['people.employees']).toBeUndefined();
+    expect(byId['people.org']).toBeUndefined();
     for (const id of [
       'people.dashboard',
-      'people.org',
       'people.allocation',
       'people.performance',
       'people.onboarding',
