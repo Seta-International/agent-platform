@@ -7,6 +7,7 @@ import { groups, plans } from '../db/schema.ts';
 import type { PlanRow } from '../dto.ts';
 import type { CreatePlanInput } from '../inputs.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
+import { isM365SystemActor } from './_actor.ts';
 import { resolveGroupMemberIds } from './recipients.ts';
 
 type PlanDbRow = typeof plans.$inferSelect;
@@ -38,6 +39,20 @@ export async function createPlan(
 
       requirePermission(input.session, 'planner.plan.create', input.group_id);
 
+      // external_* mark a plan as M365-origin and are reserved for the M365
+      // system actor (the auto-mirror pull). A user-supplied value would let a
+      // native plan masquerade as already-synced and dodge the push.
+      const touchesExternal =
+        input.external_source !== undefined || input.external_id !== undefined;
+      const isSystemActor = isM365SystemActor(input.session);
+      if (touchesExternal && !isSystemActor) {
+        throw new PlannerError(
+          'RESERVED_FOR_SYSTEM_ACTOR',
+          'external_* fields writable only by M365 system actor',
+          { group_id: input.group_id },
+        );
+      }
+
       const [row] = await tx
         .insert(plans)
         .values({
@@ -45,19 +60,29 @@ export async function createPlan(
           group_id: input.group_id,
           name: input.name,
           created_by: input.session.user_id,
+          ...(input.external_source !== undefined
+            ? { external_source: input.external_source }
+            : {}),
+          ...(input.external_id !== undefined ? { external_id: input.external_id } : {}),
         })
         .returning();
       if (!row) throw new PlannerError('VALIDATION', 'Insert returned no row');
       inserted = row;
 
       const { eventId } = await emitPlannerPlanCreated({
-        actor: { type: 'user', user_id: input.session.user_id },
+        // Attribute M365-originated creates to the system actor so the M365
+        // push subscriber's echo guard suppresses a re-push (push↔pull loop).
+        actor: isSystemActor
+          ? { type: 'system', user_id: null, system_id: 'integrations.m365' }
+          : { type: 'user', user_id: input.session.user_id },
         tenant_id: group.tenant_id,
         after: {
           plan_id: row.id,
           group_id: row.group_id,
           name: row.name,
           created_by: row.created_by,
+          external_source: row.external_source as 'native' | 'm365',
+          external_id: row.external_id,
         },
       });
 

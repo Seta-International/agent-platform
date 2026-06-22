@@ -1,4 +1,5 @@
 import type { LabelRow, TaskWithAssigneesRow } from '@seta/planner';
+import { Dialog, DialogContent, DialogTitle } from '@seta/shared-ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
@@ -41,6 +42,23 @@ function renderWithClient(node: ReactNode, planLabels?: LabelRow[]) {
   });
   if (planLabels) qc.setQueryData(plannerKeys.planLabels('p1'), planLabels);
   return render(<QueryClientProvider client={qc}>{node}</QueryClientProvider>);
+}
+
+function renderInModalDialog(node: ReactNode, planLabels?: LabelRow[]) {
+  const qc = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  if (planLabels) qc.setQueryData(plannerKeys.planLabels('p1'), planLabels);
+  return render(
+    <QueryClientProvider client={qc}>
+      <Dialog open>
+        <DialogContent hideClose unstyled onOpenAutoFocus={(e) => e.preventDefault()}>
+          <DialogTitle className="sr-only">Task</DialogTitle>
+          {node}
+        </DialogContent>
+      </Dialog>
+    </QueryClientProvider>,
+  );
 }
 
 describe('TaskDetailLabelsCard', () => {
@@ -283,6 +301,38 @@ describe('TaskDetailLabelsCard', () => {
           ).length,
         ).toBeGreaterThanOrEqual(1),
       );
+    });
+  });
+
+  describe('inside modal Dialog', () => {
+    it('opens the picker via trigger click and applies a label', async () => {
+      const { userEvent } = await import('@testing-library/user-event');
+      const user = userEvent.setup();
+
+      const applyMutate = vi.fn();
+      server.use(
+        http.get('/api/planner/v1/plans/p1/categories', () =>
+          HttpResponse.json({
+            descriptions: {},
+            labels: [],
+            task_counts: {},
+            counts: { categories: 0 },
+          }),
+        ),
+        http.post('/api/planner/v1/tasks/t1/labels', async () => {
+          applyMutate();
+          return new HttpResponse(null, { status: 204 });
+        }),
+      );
+
+      const task = makeTask([]);
+      renderInModalDialog(<TaskDetailLabelsCard task={task} planId="p1" />, [
+        label({ id: 'la', name: 'alpha' }),
+      ]);
+      await user.click(screen.getByRole('button', { name: /Add label/i }));
+      await waitFor(() => expect(screen.getByText('alpha')).toBeInTheDocument());
+      await user.click(screen.getByRole('option', { name: /alpha/i }));
+      await waitFor(() => expect(applyMutate).toHaveBeenCalledOnce());
     });
   });
 });
