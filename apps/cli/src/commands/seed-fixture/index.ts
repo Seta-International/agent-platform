@@ -5,6 +5,7 @@ import { tenantCreateCommand } from '../tenant-create.ts';
 import { loadFixtures } from './load.ts';
 import { seedEdgeCases } from './phase-edge-cases.ts';
 import { seedHiring } from './phase-hiring.ts';
+import { seedOrgStructure } from './phase-org-structure.ts';
 import { seedPeopleIdentity } from './phase-people-identity.ts';
 import { seedPlanner } from './phase-planner.ts';
 import { seedPm } from './phase-pm.ts';
@@ -52,6 +53,9 @@ export async function seedFixtureCommand(opts: {
 
   const pm = await seedPm(session, fx.projects, fx.allocations, people);
   log.info({ accounts: pm.accountByName.size, projects: pm.projectByCode.size }, 'phase: pm done');
+
+  await seedOrgStructure(session, fx.employees, people);
+  log.info('phase: org-structure done');
 
   await seedPlanner(session, fx.projects, people, pm.membersByCode, pm.projectByCode);
   log.info('phase: planner done');
