@@ -97,3 +97,43 @@ test('account tab: clicking a member opens the worker profile', async ({ page })
     timeout: 8_000,
   });
 });
+
+// ─── Test 4: tab + selection are cached on the URL and survive a reload ───────
+test('selection is cached on the URL and restored after reload', async ({ page }) => {
+  if (accounts.length === 0) {
+    test.skip(true, 'no delivery accounts seeded');
+    return;
+  }
+  await page.goto('/people/org');
+  await page
+    .getByRole('tablist', { name: 'Org chart view' })
+    .getByRole('tab', { name: 'Account' })
+    .click();
+
+  // The URL captures the view and the defaulted account selection.
+  await expect(page).toHaveURL(/[?&]view=account/, { timeout: 8_000 });
+  await expect(page).toHaveURL(/[?&]account=/, { timeout: 8_000 });
+
+  // Reloading restores the same account view + node (no reset to Company).
+  await page.reload();
+  await expect(page).toHaveURL(/[?&]view=account/, { timeout: 8_000 });
+  await expect(
+    page.locator('.react-flow__node').filter({ hasText: accounts[0]!.name }).first(),
+  ).toBeVisible({ timeout: 10_000 });
+});
+
+// ─── Test 5: clicking an account on the Company tab drills into the Account view ─
+test('company tab: clicking an account node drills into the Account view', async ({ page }) => {
+  const account = accounts[0];
+  if (!account) {
+    test.skip(true, 'no delivery accounts seeded');
+    return;
+  }
+  await page.goto('/people/org');
+  await expect(page.locator('.react-flow__node').first()).toBeVisible({ timeout: 10_000 });
+
+  await page.locator('.react-flow__node').filter({ hasText: account.name }).first().click();
+
+  await expect(page).toHaveURL(new RegExp(`[?&]account=${account.account_id}`), { timeout: 8_000 });
+  await expect(page).toHaveURL(/[?&]view=account/, { timeout: 8_000 });
+});
