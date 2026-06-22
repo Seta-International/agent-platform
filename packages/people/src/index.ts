@@ -1,5 +1,7 @@
 export { createWorker } from './backend/domain/create-worker.ts';
 export { editWorker } from './backend/domain/edit-worker.ts';
+export type { DeliveryAccount, OrgUnitNode } from './backend/domain/org-structure.ts';
+export { getOrgDelivery, getOrgStructure } from './backend/domain/org-structure.ts';
 export { addPersonSkill, removePersonSkill } from './backend/domain/person-skills.ts';
 export { provisionWorker } from './backend/domain/provision-worker.ts';
 export { getWorker, getWorkerHistory, listWorkers } from './backend/domain/read-workers.ts';
