@@ -147,8 +147,8 @@ describe('seed-fixture end-to-end', () => {
         expect(before.requisition_skills).toBeGreaterThan(0);
         expect(before.events).toBeGreaterThan(0);
 
-        // Org spine: Executive + Operation + 6 functions + Delivery + PMO = 10 units.
-        expect(before.org_units).toBe(10);
+        // Org spine: Executive + Operation + 7 functions + Delivery + PMO = 11 units.
+        expect(before.org_units).toBe(11);
         const adminSession = await buildAdminSession(
           (
             await coreDb().execute(
@@ -159,9 +159,11 @@ describe('seed-fixture end-to-end', () => {
         );
         const { units } = await getOrgStructure(adminSession);
         expect(units.find((u) => u.kind === 'executive')?.head).toBeTruthy();
-        expect(units.filter((u) => u.kind === 'function')).toHaveLength(6);
+        expect(units.filter((u) => u.kind === 'function')).toHaveLength(7);
         expect(units.some((u) => u.kind === 'delivery')).toBe(true);
         expect(units.some((u) => u.kind === 'pmo')).toBe(true);
+        // Workers place into units by their primary allocation's dept (STP900 → Delivery).
+        expect(units.find((u) => u.kind === 'delivery')?.members.length).toBeGreaterThan(0);
 
         // Second run — must be idempotent
         await seedFixtureCommand({

@@ -3,19 +3,26 @@ import { coreDb } from '@seta/core/db';
 import { createOrgUnit, editWorker } from '@seta/people';
 import { sql } from 'drizzle-orm';
 import pino from 'pino';
-import type { EmployeeRec } from './load.ts';
+import type { AllocationRec, EmployeeRec, ProjectRec } from './load.ts';
 
 const log = pino({ name: 'cli/seed-fixture/org' });
 
-// The six Operation function buckets from the prototype (docs/design ORG_OPS).
-const FUNCTION_UNITS = [
+// Operation function units, in display order. Sourced from the real fixture `dept` column
+// (projects.csv); these are the internal SETA departments, design-aligned where they overlap
+// the prototype's ORG_OPS (Back Office, IT, Internal Communication, Sales, L&D) plus the
+// real-only ones the fixture carries (R&D, Project Support). HR folds into Back Office —
+// the fixture has no separate HR project.
+const OPERATION_FUNCTIONS = [
   'Back Office',
-  'Human Resources',
-  'Learning & Development',
-  'Internal Communication',
   'Information Technology',
+  'Internal Communication',
   'Sales',
+  'Learning & Development',
+  'R&D',
+  'Project Support',
 ] as const;
+const DELIVERY_DEPT = 'Delivery';
+const PMO_DEPT = 'PMO';
 
 async function findOrgUnitId(tenantId: string, name: string): Promise<string | undefined> {
   const r = await coreDb().execute(
@@ -43,54 +50,100 @@ async function ensureUnit(
   return org_unit_id;
 }
 
-// Map an employee's primary_role to the unit that owns them. Delivery is the default
-// home for individual contributors; PM staff seed the PMO; ADMIN/Director seed leadership.
-function placementUnit(
-  role: string,
-  units: { exec: string; pmo: string; delivery: string },
-): string {
-  const r = role.toUpperCase().trim();
-  if (r === 'ADMIN' || r === 'PRODUCT DIRECTOR' || r === 'DIRECTOR') return units.exec;
-  if (r === 'PM') return units.pmo;
-  return units.delivery;
+/** project_code → dept, from the fixture's `dept` column. */
+function deptByProjectCode(projects: ProjectRec[]): Map<string, string> {
+  const m = new Map<string, string>();
+  for (const p of projects) if (p.dept) m.set(p.code, p.dept);
+  return m;
 }
 
 /**
- * Seed the real org spine — Executive → Operation(+6 functions)/Delivery/PMO — and place each
- * seeded worker into a unit by role. Idempotent: units are reused by name, and editWorker
- * no-ops when org_unit_id is already set. Must run after people + PM so workers exist.
+ * employee_id → the dept of their *primary* allocation (highest ratio_pct, ties broken by
+ * man_days then first-seen). This is the worker's HR home unit — distinct from the delivery
+ * lens, where the same worker appears under the specific account/project they're staffed on.
+ */
+function primaryDeptByEmployee(
+  allocations: AllocationRec[],
+  deptByCode: Map<string, string>,
+): Map<string, string> {
+  const best = new Map<string, { dept: string; ratio: number; manDays: number }>();
+  for (const a of allocations) {
+    const dept = deptByCode.get(a.project_code);
+    if (!dept || !a.employee_id) continue;
+    const cur = best.get(a.employee_id);
+    if (
+      !cur ||
+      a.ratio_pct > cur.ratio ||
+      (a.ratio_pct === cur.ratio && a.man_days > cur.manDays)
+    ) {
+      best.set(a.employee_id, { dept, ratio: a.ratio_pct, manDays: a.man_days });
+    }
+  }
+  return new Map([...best].map(([id, v]) => [id, v.dept]));
+}
+
+/**
+ * Seed the org spine — Executive → Operation(+ real function units) / Delivery / PMO — and place
+ * each seeded worker into a unit by their *primary allocation's* dept (falling back to
+ * primary_role for the unallocated). Idempotent: units reused by name, editWorker no-ops when
+ * org_unit_id is unchanged. Must run after people + PM so workers and allocations exist.
  */
 export async function seedOrgStructure(
   session: SessionScope,
   employees: EmployeeRec[],
+  projects: ProjectRec[],
+  allocations: AllocationRec[],
   people: Map<string, { workerId: string; userId: string }>,
 ): Promise<void> {
-  // Executive head: prefer an ADMIN, then a Product Director, else the first seeded worker.
+  const deptByCode = deptByProjectCode(projects);
+  const primaryDept = primaryDeptByEmployee(allocations, deptByCode);
+
+  // Executive head: prefer the Product Director, then an ADMIN, else the first seeded worker.
+  const roleIs = (e: EmployeeRec, role: string): boolean =>
+    e.primary_role?.toUpperCase().trim() === role;
   const headEmployee =
-    employees.find((e) => e.primary_role?.toUpperCase().trim() === 'ADMIN' && people.has(e.id)) ??
-    employees.find(
-      (e) => e.primary_role?.toUpperCase().trim() === 'PRODUCT DIRECTOR' && people.has(e.id),
-    ) ??
+    employees.find((e) => roleIs(e, 'PRODUCT DIRECTOR') && people.has(e.id)) ??
+    employees.find((e) => roleIs(e, 'ADMIN') && people.has(e.id)) ??
     employees.find((e) => people.has(e.id));
   const execHeadWorkerId = headEmployee ? (people.get(headEmployee.id)?.workerId ?? null) : null;
 
   const exec = await ensureUnit(session, 'Executive', 'executive', null, execHeadWorkerId);
   const operation = await ensureUnit(session, 'Operation', 'operation', exec, null);
-  for (const name of FUNCTION_UNITS) {
-    await ensureUnit(session, name, 'function', operation, null);
+
+  const unitByDept = new Map<string, string>();
+  for (const name of OPERATION_FUNCTIONS) {
+    unitByDept.set(name, await ensureUnit(session, name, 'function', operation, null));
   }
   const delivery = await ensureUnit(session, 'Delivery', 'delivery', exec, null);
   const pmo = await ensureUnit(session, 'PMO', 'pmo', exec, null);
+  unitByDept.set(DELIVERY_DEPT, delivery);
+  unitByDept.set(PMO_DEPT, pmo);
+  const backOffice = unitByDept.get('Back Office') ?? delivery;
 
-  const units = { exec, pmo, delivery };
+  // Fallback unit for the unallocated, by primary_role.
+  function fallbackUnit(role: string): string {
+    const r = role.toUpperCase().trim();
+    if (r === 'PRODUCT DIRECTOR' || r === 'DIRECTOR') return exec;
+    if (r === 'PM') return pmo;
+    if (r === 'ADMIN') return backOffice;
+    return delivery;
+  }
+
   let placed = 0;
   for (const e of employees) {
     const person = people.get(e.id);
     if (!person) continue;
-    const unitId = placementUnit(e.primary_role ?? '', units);
+    const isExecHead = headEmployee?.id === e.id;
+    const dept = primaryDept.get(e.id);
+    const unitId = isExecHead
+      ? exec
+      : ((dept ? unitByDept.get(dept) : undefined) ?? fallbackUnit(e.primary_role ?? ''));
     await editWorker({ worker_id: person.workerId, patch: { org_unit_id: unitId }, session });
     placed++;
   }
 
-  log.info({ units: FUNCTION_UNITS.length + 4, placed }, 'phase: org-structure done');
+  log.info(
+    { units: OPERATION_FUNCTIONS.length + 4, placed },
+    'phase: org-structure done (units derived from fixture depts)',
+  );
 }
