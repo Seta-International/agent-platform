@@ -1,5 +1,6 @@
 import { createContributionRegistry, runMigrations } from '@seta/core';
 import { registerCoreContributions } from '@seta/core/register';
+import { registerIntegrationsContributions } from '@seta/integrations/register';
 import { closePools, getPool, initPools } from '@seta/shared-db';
 import { ensureTemplateDb, markAsTemplate, startPgContainer } from '@seta/shared-testing';
 
@@ -12,6 +13,7 @@ export default async function (): Promise<() => Promise<void>> {
   initPools({ databaseUrl: `${handle.baseUrl}/${TEMPLATE}` });
   const reg = createContributionRegistry();
   registerCoreContributions(reg);
+  registerIntegrationsContributions(reg);
   await runMigrations(reg, { pool: getPool('worker') });
   await closePools();
   await markAsTemplate(handle, TEMPLATE);

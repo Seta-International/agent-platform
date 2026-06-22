@@ -14,6 +14,7 @@ import { closePools, initPools } from '@seta/shared-db';
 import { Command } from 'commander';
 import pino from 'pino';
 import { runEmbedBackfill } from './commands/embed-backfill.ts';
+import { integrationsM365SetCommand } from './commands/integrations-m365-set.ts';
 import { integrationsMailSetCommand } from './commands/integrations-mail-set.ts';
 import { integrationsMailTestCommand } from './commands/integrations-mail-test.ts';
 import { migrateCommand } from './commands/migrate.ts';
@@ -218,6 +219,35 @@ program
           smtpPassword: opts.smtpPassword,
           smtpRequireTls: opts.smtpRequireTls,
           policyAcked: opts.policyAcked,
+        });
+      } finally {
+        await closePools();
+      }
+    },
+  );
+
+program
+  .command('integrations-m365-set')
+  .description(
+    'Configure the Microsoft 365 / Graph app credentials for a tenant (group + plan sync)',
+  )
+  .requiredOption('--tenant <slug-or-id>')
+  .requiredOption('--entra-tenant <guid>', 'Azure AD (Entra) tenant id')
+  .requiredOption('--client-id <guid>', 'Entra app (client) id')
+  .requiredOption('--client-secret <value>', 'Entra app client secret')
+  .action(
+    async (opts: {
+      tenant: string;
+      entraTenant: string;
+      clientId: string;
+      clientSecret: string;
+    }) => {
+      try {
+        await integrationsM365SetCommand({
+          tenant: opts.tenant,
+          entraTenantId: opts.entraTenant,
+          clientId: opts.clientId,
+          clientSecret: opts.clientSecret,
         });
       } finally {
         await closePools();
