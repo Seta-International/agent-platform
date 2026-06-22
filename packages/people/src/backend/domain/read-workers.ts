@@ -1,7 +1,6 @@
 import type { SessionScope } from '@seta/core';
 import { can } from '@seta/shared-rbac';
 import { and, asc, count, desc, eq, ilike, inArray, isNull, or, type SQL, sql } from 'drizzle-orm';
-import { alias } from 'drizzle-orm/pg-core';
 import { peopleDb } from '../db/client.ts';
 import { employmentPeriod, worker, workerHistory } from '../db/schema.ts';
 import { tenantScoped } from '../db/scope.ts';
@@ -46,6 +45,31 @@ const SORT_COLUMNS = {
 const MAX_PAGE_SIZE = 100;
 const DEFAULT_PAGE_SIZE = 20;
 
+// Derived reporting: a worker's manager is their unit's head; when the worker *is* the head,
+// it's the parent unit's head. Correlated on worker.org_unit_id / worker.person_id.
+function derivedManagerNameSql(tenantId: string): SQL<string | null> {
+  return sql<string | null>`(
+    SELECT mh.full_name FROM people.worker mh
+      WHERE mh.tenant_id = ${tenantId} AND mh.deleted_at IS NULL
+        AND mh.person_id = (
+          SELECT CASE
+            WHEN ou.head_worker_id = ${worker.person_id} THEN parent_ou.head_worker_id
+            ELSE ou.head_worker_id
+          END
+          FROM people.org_unit ou
+          LEFT JOIN people.org_unit parent_ou ON parent_ou.id = ou.parent_id
+          WHERE ou.id = ${worker.org_unit_id} AND ou.tenant_id = ${tenantId}
+        )
+  )`;
+}
+
+function derivedOrgUnitNameSql(tenantId: string): SQL<string | null> {
+  return sql<string | null>`(
+    SELECT ou.name FROM people.org_unit ou
+      WHERE ou.id = ${worker.org_unit_id} AND ou.tenant_id = ${tenantId}
+  )`;
+}
+
 export async function listWorkers(
   session: SessionScope,
   query: ListWorkersQuery = {},
@@ -58,6 +82,7 @@ export async function listWorkers(
   }
 
   const tenantId = session.tenant_id;
+  const managerNameSql = derivedManagerNameSql(tenantId);
   const filters: SQL[] = [tenantScoped(worker.tenant_id, session), isNull(worker.deleted_at)];
 
   const scope = buildWorkerScope(session);
@@ -109,7 +134,6 @@ export async function listWorkers(
   }
 
   const where = and(...filters);
-  const managerAlias = alias(worker, 'manager');
 
   // pm.worker_id / am_worker_id / lead_worker_id all map to people.person_id — shared human identity.
   const accountsAgg = sql<Array<{ id: string; name: string }>>`(
@@ -141,7 +165,7 @@ export async function listWorkers(
     lifecycle_stage: employmentPeriod.lifecycle_stage,
     onboarding_date: employmentPeriod.start_date,
     offboarding_date: employmentPeriod.end_date,
-    manager_name: managerAlias.full_name,
+    manager_name: managerNameSql,
     accounts: accountsAgg,
     skills: skillsAgg,
   };
@@ -152,14 +176,6 @@ export async function listWorkers(
     .leftJoin(
       employmentPeriod,
       and(eq(employmentPeriod.person_id, worker.person_id), isNull(employmentPeriod.end_date)),
-    )
-    .leftJoin(
-      managerAlias,
-      and(
-        eq(managerAlias.person_id, worker.manager_id),
-        eq(managerAlias.tenant_id, worker.tenant_id),
-        isNull(managerAlias.deleted_at),
-      ),
     )
     .where(where);
 
@@ -214,14 +230,16 @@ export async function getWorker({
   offboarding_date: string | null;
   portal_access: boolean;
   job_title: string | null;
-  manager_id: string | null;
   manager_name: string | null;
+  org_unit_id: string | null;
+  org_unit_name: string | null;
   accounts: Array<{ id: string; name: string }>;
   skills: Array<{ id: string; name: string }>;
 }> {
   requirePermission(session, 'people.worker.read');
   const tenantId = session.tenant_id;
-  const managerAlias = alias(worker, 'manager');
+  const managerNameSql = derivedManagerNameSql(tenantId);
+  const orgUnitNameSql = derivedOrgUnitNameSql(tenantId);
 
   const accountsAgg = sql<Array<{ id: string; name: string }>>`(
     SELECT coalesce(
@@ -257,8 +275,9 @@ export async function getWorker({
       offboarding_date: employmentPeriod.end_date,
       portal_access: worker.portal_access,
       job_title: worker.job_title,
-      manager_id: worker.manager_id,
-      manager_name: managerAlias.full_name,
+      manager_name: managerNameSql,
+      org_unit_id: worker.org_unit_id,
+      org_unit_name: orgUnitNameSql,
       accounts: accountsAgg,
       skills: skillsAgg,
     })
@@ -266,14 +285,6 @@ export async function getWorker({
     .leftJoin(
       employmentPeriod,
       and(eq(employmentPeriod.person_id, worker.person_id), isNull(employmentPeriod.end_date)),
-    )
-    .leftJoin(
-      managerAlias,
-      and(
-        eq(managerAlias.person_id, worker.manager_id),
-        eq(managerAlias.tenant_id, worker.tenant_id),
-        isNull(managerAlias.deleted_at),
-      ),
     )
     .where(
       and(
