@@ -10,6 +10,7 @@ import {
   type AllocationGridRow,
   fetchAllocationGrid,
 } from '../api/allocation-client.ts';
+import { UtilizationPanel } from '../components/utilization-panel.tsx';
 import { peopleKeys } from '../state/query-keys.ts';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -144,17 +145,13 @@ export function AllocationPage() {
   return (
     <PageChrome title="Resource Allocation">
       <div className="space-y-4 p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-body-sm text-ink-muted">
-            Monthly staffing grid — planned % across {data?.year ?? 'the year'}.
-            {!canReadAll && ' Scoped to people related to you.'}
-          </p>
-          {!canReadAll && (
+        {!canReadAll && (
+          <div className="flex justify-end">
             <Badge variant="outline" title="You see only people related to you">
               Scoped view
             </Badge>
-          )}
-        </div>
+          </div>
+        )}
 
         {error ? (
           <Card>
@@ -207,6 +204,7 @@ export function AllocationPage() {
             <p className="text-[11px] text-ink-muted">
               Red outline = that person is over 100% allocated that month.
             </p>
+            <UtilizationPanel />
           </>
         )}
       </div>
