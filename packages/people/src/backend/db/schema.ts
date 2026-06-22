@@ -7,6 +7,7 @@ import {
   index,
   integer,
   jsonb,
+  numeric,
   pgSchema,
   text,
   timestamp,
@@ -165,12 +166,20 @@ export const workerAllocationProjection = peopleSchema.table(
     account_id: uuid('account_id').notNull(),
     account_name: text('account_name').notNull(),
     lead_worker_id: uuid('lead_worker_id'),
+    date_from: date('date_from'),
+    date_to: date('date_to'),
+    planned_pct: numeric('planned_pct', { precision: 10, scale: 4 }),
+    bucket: text('bucket'),
     active: boolean('active').notNull().default(true),
   },
   (t) => [
     index('worker_alloc_by_worker').on(t.tenant_id, t.worker_id),
     index('worker_alloc_by_account').on(t.tenant_id, t.account_id),
     index('worker_alloc_by_project').on(t.tenant_id, t.project_id),
+    check(
+      'worker_alloc_bucket_check',
+      sql`bucket IS NULL OR bucket IN ('billable','internal','bench')`,
+    ),
   ],
 );
 

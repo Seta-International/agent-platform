@@ -18,6 +18,10 @@ export const allocationProjectionCreated: SubscriberDef = {
       account_id,
       account_name,
       lead_worker_id,
+      date_from,
+      date_to,
+      planned_pct,
+      bucket,
     } = e.payload;
 
     await ctx.tx
@@ -30,6 +34,10 @@ export const allocationProjectionCreated: SubscriberDef = {
         account_id,
         account_name,
         lead_worker_id: lead_worker_id ?? null,
+        date_from: date_from ?? null,
+        date_to: date_to ?? null,
+        planned_pct: planned_pct == null ? null : planned_pct.toString(),
+        bucket: bucket ?? null,
         active: true,
       })
       .onConflictDoUpdate({
@@ -40,6 +48,10 @@ export const allocationProjectionCreated: SubscriberDef = {
           account_id,
           account_name,
           lead_worker_id: lead_worker_id ?? null,
+          date_from: date_from ?? null,
+          date_to: date_to ?? null,
+          planned_pct: planned_pct == null ? null : planned_pct.toString(),
+          bucket: bucket ?? null,
           active: true,
         },
       });
