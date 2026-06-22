@@ -2,17 +2,25 @@ import type { SessionScope } from '@seta/core';
 import { can } from '@seta/shared-rbac';
 import { and, asc, eq, isNotNull, sql } from 'drizzle-orm';
 import { peopleDb } from '../db/client.ts';
-import { projectProjection, worker, workerAllocationProjection } from '../db/schema.ts';
+import {
+  accountProjection,
+  projectProjection,
+  worker,
+  workerAllocationProjection,
+} from '../db/schema.ts';
 import { PeopleError } from '../rbac.ts';
 import { buildWorkerScope } from './worker-scope.ts';
 
 export interface AllocationGridRow {
   worker_id: string;
+  employee_no: string | null;
   full_name: string;
   account_id: string;
   account_name: string;
   project_id: string;
   project_name: string | null;
+  /** True when this worker is the account manager of the row's account (render account, not project). */
+  is_account_am: boolean;
   bucket: 'billable' | 'internal' | 'bench' | null;
   months: (number | null)[];
   ytd_pct: number;
@@ -30,20 +38,44 @@ export interface AllocationGridKpis {
   member_count: number;
   project_count: number;
 }
+export interface AllocationFacets {
+  accounts: { id: string; name: string }[];
+  projects: { id: string; name: string; account_id: string }[];
+}
 export interface AllocationGrid {
   year: number;
   rows: AllocationGridRow[];
   worker_totals: WorkerMonthTotal[];
   kpis: AllocationGridKpis;
+  /** Distinct accounts/projects across the viewer's full scope, for populating the filter pickers. */
+  facets: AllocationFacets;
 }
+export type AllocationStatus = 'over' | 'under';
+export type AllocationBucket = 'billable' | 'internal' | 'bench';
 export interface AllocationGridQuery {
   year?: number;
-  /** Filters the returned rows to workers whose name or id matches; KPIs stay scope-level. */
+  /** Accent-insensitive match on worker name or id. Filters rows; KPIs stay scope-level. */
   search?: string;
+  /** 'over' = exceeds 100% in some month; 'under' = busiest month stays below the target. */
+  status?: AllocationStatus;
+  accountId?: string;
+  projectId?: string;
+  bucket?: AllocationBucket;
+}
+
+// Target utilization; a worker whose busiest month stays below this counts as under-utilized.
+const UNDER_UTIL_THRESHOLD = 85;
+
+// Fold a string for accent-insensitive search: lowercase, strip combining diacritics (covers
+// Vietnamese tone marks and the horn on ư/ơ, which decompose under NFD), then map đ→d (đ has no
+// canonical decomposition so NFD leaves it intact).
+function foldText(s: string): string {
+  return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd');
 }
 
 interface RawRow {
   worker_id: string;
+  employee_no: string | null;
   full_name: string;
   account_id: string;
   account_name: string;
@@ -95,6 +127,7 @@ export async function getAllocationGrid(
   const raw = (await peopleDb()
     .select({
       worker_id: workerAllocationProjection.worker_id,
+      employee_no: worker.employee_no,
       full_name: worker.full_name,
       account_id: workerAllocationProjection.account_id,
       account_name: workerAllocationProjection.account_name,
@@ -130,6 +163,16 @@ export async function getAllocationGrid(
       asc(projectProjection.name),
     )) as RawRow[];
 
+  // Which account each worker is the AM of — so an AM's row renders the account, not the project.
+  const amRows = await peopleDb()
+    .select({
+      account_id: accountProjection.account_id,
+      am_worker_id: accountProjection.am_worker_id,
+    })
+    .from(accountProjection)
+    .where(eq(accountProjection.tenant_id, session.tenant_id));
+  const amByAccount = new Map(amRows.map((a) => [a.account_id, a.am_worker_id]));
+
   const yearStart = new Date(Date.UTC(year, 0, 1));
   const yearEnd = new Date(Date.UTC(year, 11, 31));
   const nowMonth = new Date().getUTCFullYear() === year ? new Date().getUTCMonth() : 11;
@@ -156,6 +199,8 @@ export async function getAllocationGrid(
     const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
     return {
       worker_id: r.worker_id,
+      employee_no: r.employee_no,
+      is_account_am: amByAccount.get(r.account_id) === r.worker_id,
       full_name: r.full_name,
       account_id: r.account_id,
       account_name: r.account_name,
@@ -195,20 +240,43 @@ export async function getAllocationGrid(
       )
     : 0;
 
-  // Search filters the table rows (and their totals) to matching workers; the KPIs above stay at
-  // the viewer's full scope so the headline figures don't shift as you type.
-  const q = (query.search ?? '').trim().toLowerCase();
-  const matched = q
-    ? new Set(
-        rows
-          .filter(
-            (r) => r.full_name.toLowerCase().includes(q) || r.worker_id.toLowerCase().includes(q),
-          )
-          .map((r) => r.worker_id),
-      )
-    : null;
-  const outRows = matched ? rows.filter((r) => matched.has(r.worker_id)) : rows;
-  const outTotals = matched ? worker_totals.filter((w) => matched.has(w.worker_id)) : worker_totals;
+  // Facets cover the viewer's full scope (computed before filtering) so the dropdowns stay stable
+  // as filters narrow the visible rows.
+  const accountFacets = new Map<string, string>();
+  const projectFacets = new Map<string, { name: string; account_id: string }>();
+  for (const r of rows) {
+    accountFacets.set(r.account_id, r.account_name);
+    projectFacets.set(r.project_id, { name: r.project_name ?? '—', account_id: r.account_id });
+  }
+
+  // Worker-level predicates (search, over/under status) keep a person's whole block together; the
+  // KPIs above stay at full scope so the headline figures don't shift as filters narrow the table.
+  const q = foldText((query.search ?? '').trim());
+  const totalsByWorker = new Map(worker_totals.map((w) => [w.worker_id, w]));
+  const workerMatches = (workerId: string, fullName: string): boolean => {
+    if (q && !foldText(fullName).includes(q) && !foldText(workerId).includes(q)) return false;
+    const wt = totalsByWorker.get(workerId);
+    if (query.status === 'over' && !(wt && wt.over_months.length > 0)) return false;
+    if (query.status === 'under') {
+      // Classify on the busiest month, symmetric with over-allocation: a worker who reaches the
+      // target band in any month is fully utilized. Averaging would wrongly flag someone steady at
+      // 100% whose total only dips in the ramp-up months of a misaligned project window.
+      const peak = wt ? Math.max(0, ...wt.totals) : 0;
+      if (peak >= UNDER_UTIL_THRESHOLD) return false;
+    }
+    return true;
+  };
+  // Row-level predicates (account / project / bucket) filter the individual project lines.
+  const rowMatches = (r: AllocationGridRow): boolean => {
+    if (query.accountId && r.account_id !== query.accountId) return false;
+    if (query.projectId && r.project_id !== query.projectId) return false;
+    if (query.bucket && r.bucket !== query.bucket) return false;
+    return true;
+  };
+
+  const outRows = rows.filter((r) => workerMatches(r.worker_id, r.full_name) && rowMatches(r));
+  const keptWorkers = new Set(outRows.map((r) => r.worker_id));
+  const outTotals = worker_totals.filter((w) => keptWorkers.has(w.worker_id));
 
   return {
     year,
@@ -219,6 +287,14 @@ export async function getAllocationGrid(
       over_allocated_count: overCount,
       member_count: memberCount,
       project_count: projectCount,
+    },
+    facets: {
+      accounts: [...accountFacets.entries()]
+        .map(([id, name]) => ({ id, name }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+      projects: [...projectFacets.entries()]
+        .map(([id, v]) => ({ id, name: v.name, account_id: v.account_id }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
     },
   };
 }

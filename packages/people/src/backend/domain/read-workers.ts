@@ -18,6 +18,7 @@ export interface WorkerRow {
   lifecycle_stage: string | null;
   onboarding_date: string | null;
   offboarding_date: string | null;
+  manager_id: string | null;
   manager_name: string | null;
   accounts: Array<{ id: string; name: string }>;
   skills: Array<{ id: string; name: string }>;
@@ -45,21 +46,12 @@ const SORT_COLUMNS = {
 const MAX_PAGE_SIZE = 100;
 const DEFAULT_PAGE_SIZE = 20;
 
-// Derived reporting: a worker's manager is their unit's head; when the worker *is* the head,
-// it's the parent unit's head. Correlated on worker.org_unit_id / worker.person_id.
-function derivedManagerNameSql(tenantId: string): SQL<string | null> {
+// Direct manager: the full name of the worker stored in worker.manager_id (admin-set), if any.
+function managerNameSql(tenantId: string): SQL<string | null> {
   return sql<string | null>`(
     SELECT mh.full_name FROM people.worker mh
-      WHERE mh.tenant_id = ${tenantId} AND mh.deleted_at IS NULL
-        AND mh.person_id = (
-          SELECT CASE
-            WHEN ou.head_worker_id = ${worker.person_id} THEN parent_ou.head_worker_id
-            ELSE ou.head_worker_id
-          END
-          FROM people.org_unit ou
-          LEFT JOIN people.org_unit parent_ou ON parent_ou.id = ou.parent_id
-          WHERE ou.id = ${worker.org_unit_id} AND ou.tenant_id = ${tenantId}
-        )
+      WHERE mh.person_id = ${worker.manager_id}
+        AND mh.tenant_id = ${tenantId} AND mh.deleted_at IS NULL
   )`;
 }
 
@@ -82,7 +74,7 @@ export async function listWorkers(
   }
 
   const tenantId = session.tenant_id;
-  const managerNameSql = derivedManagerNameSql(tenantId);
+  const managerName = managerNameSql(tenantId);
   const filters: SQL[] = [tenantScoped(worker.tenant_id, session), isNull(worker.deleted_at)];
 
   const scope = buildWorkerScope(session);
@@ -165,7 +157,8 @@ export async function listWorkers(
     lifecycle_stage: employmentPeriod.lifecycle_stage,
     onboarding_date: employmentPeriod.start_date,
     offboarding_date: employmentPeriod.end_date,
-    manager_name: managerNameSql,
+    manager_name: managerName,
+    manager_id: worker.manager_id,
     accounts: accountsAgg,
     skills: skillsAgg,
   };
@@ -230,6 +223,7 @@ export async function getWorker({
   offboarding_date: string | null;
   portal_access: boolean;
   job_title: string | null;
+  manager_id: string | null;
   manager_name: string | null;
   org_unit_id: string | null;
   org_unit_name: string | null;
@@ -238,7 +232,7 @@ export async function getWorker({
 }> {
   requirePermission(session, 'people.worker.read');
   const tenantId = session.tenant_id;
-  const managerNameSql = derivedManagerNameSql(tenantId);
+  const managerName = managerNameSql(tenantId);
   const orgUnitNameSql = derivedOrgUnitNameSql(tenantId);
 
   const accountsAgg = sql<Array<{ id: string; name: string }>>`(
@@ -275,7 +269,8 @@ export async function getWorker({
       offboarding_date: employmentPeriod.end_date,
       portal_access: worker.portal_access,
       job_title: worker.job_title,
-      manager_name: managerNameSql,
+      manager_name: managerName,
+      manager_id: worker.manager_id,
       org_unit_id: worker.org_unit_id,
       org_unit_name: orgUnitNameSql,
       accounts: accountsAgg,

@@ -57,6 +57,27 @@
       "when": 1782109689127,
       "tag": "0007_overconfident_silk_fever",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1782116956319,
+      "tag": "0008_lean_rhodey",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1782117837054,
+      "tag": "0009_charming_namora",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1782118733350,
+      "tag": "0010_absent_big_bertha",
+      "breakpoints": true
     }
   ]
 }

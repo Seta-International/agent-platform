@@ -158,8 +158,50 @@ export async function seedOrgStructure(
     placed++;
   }
 
+  await backfillManagers(session.tenant_id);
+
   log.info(
     { units: OPERATION_FUNCTIONS.length + 4, placed },
     'phase: org-structure done (units derived from fixture depts)',
   );
+}
+
+/**
+ * Mock the directory's direct-manager field. leadership.csv only names a couple of unit heads, so
+ * (1) give every still-headless unit a head — its most senior member, then a child unit's head for
+ * empty structural units — and (2) set each worker's stored manager_id to their unit's head (the
+ * parent unit's head when the worker *is* the head). Pure backfill: only fills nulls / recomputes.
+ */
+async function backfillManagers(tenantId: string): Promise<void> {
+  // Head = most senior (earliest-hired) member of the unit.
+  await coreDb().execute(sql`
+    UPDATE people.org_unit ou SET head_worker_id = (
+      SELECT w.person_id FROM people.worker w
+        JOIN people.person p ON p.id = w.person_id
+        WHERE w.org_unit_id = ou.id AND w.tenant_id = ou.tenant_id AND w.deleted_at IS NULL
+        ORDER BY p.original_hire_date NULLS LAST, w.full_name
+        LIMIT 1)
+    WHERE ou.tenant_id = ${tenantId} AND ou.head_worker_id IS NULL`);
+
+  // Empty structural units (no direct members) borrow a child unit's head, so their descendants'
+  // heads still resolve a manager up the chain.
+  await coreDb().execute(sql`
+    UPDATE people.org_unit ou SET head_worker_id = (
+      SELECT c.head_worker_id FROM people.org_unit c
+        WHERE c.parent_id = ou.id AND c.tenant_id = ou.tenant_id AND c.head_worker_id IS NOT NULL
+        ORDER BY c.name
+        LIMIT 1)
+    WHERE ou.tenant_id = ${tenantId} AND ou.head_worker_id IS NULL`);
+
+  // manager_id = unit head, or the parent unit's head when the worker is their unit's head.
+  await coreDb().execute(sql`
+    UPDATE people.worker w SET manager_id = (
+      SELECT CASE
+               WHEN ou.head_worker_id = w.person_id THEN parent_ou.head_worker_id
+               ELSE ou.head_worker_id
+             END
+        FROM people.org_unit ou
+        LEFT JOIN people.org_unit parent_ou ON parent_ou.id = ou.parent_id
+        WHERE ou.id = w.org_unit_id AND ou.tenant_id = w.tenant_id)
+    WHERE w.tenant_id = ${tenantId} AND w.deleted_at IS NULL`);
 }

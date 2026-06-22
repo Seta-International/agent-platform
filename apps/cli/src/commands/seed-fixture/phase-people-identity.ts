@@ -1,12 +1,14 @@
+import { createHash } from 'node:crypto';
 import type { SessionScope } from '@seta/core';
 import { coreDb } from '@seta/core/db';
 import type { Actor } from '@seta/identity';
 import { createUser, grantRole, updateUserProfile } from '@seta/identity';
-import { createWorker, setPortalAccess } from '@seta/people';
+import { addPersonSkill, createWorker, genderValue, setPortalAccess } from '@seta/people';
 import { sql } from 'drizzle-orm';
 import type { EmployeeRec } from './load.ts';
+import type { SeededSkill } from './phase-skills.ts';
 import { rolesFor } from './rbac-map.ts';
-import { skillNamesForRole } from './skill-catalog.ts';
+import { skillNamesForRole, techStackFor } from './skill-catalog.ts';
 
 // createWorker returns person_id as the canonical worker identity (so do
 // editWorker/setPortalAccess); resolve the same id here so create vs. find agree.
@@ -51,6 +53,7 @@ export async function seedPeopleIdentity(
   session: SessionScope,
   employees: EmployeeRec[],
   password: string,
+  skills: Map<string, SeededSkill>,
 ): Promise<Map<string, { workerId: string; userId: string }>> {
   const actor: Actor = { type: 'cli', user_id: session.user_id };
   const map = new Map<string, { workerId: string; userId: string }>();
@@ -58,16 +61,54 @@ export async function seedPeopleIdentity(
   for (const e of employees) {
     if (!e.full_name?.trim() || !e.work_email?.trim()) continue;
 
+    const gender = genderValue.safeParse(e.gender);
+    const hireDate = e.hire_date?.trim() || null;
+
     // worker — idempotent on work_email
     let workerId = await findWorkerId(session.tenant_id, e.work_email);
     if (!workerId) {
       const created = await createWorker({
         full_name: e.full_name,
+        employee_no: e.id,
         work_email: e.work_email,
         employment_type: e.employment_type || undefined,
+        phone: e.phone || undefined,
+        gender: gender.success ? gender.data : undefined,
+        start_date: hireDate ?? undefined,
         session,
       });
       workerId = created.worker_id;
+    } else {
+      // The fixture is the authoritative source of these HR fields; backfill them onto workers
+      // the base seed created from a CSV that lacked the id/phone/gender columns.
+      const genderVal = gender.success ? gender.data : null;
+      await coreDb().execute(
+        sql`UPDATE people.worker
+              SET employee_no = ${e.id},
+                  phone = coalesce(${e.phone || null}, phone),
+                  gender = coalesce(${genderVal}, gender)
+            WHERE person_id = ${workerId}
+              AND (employee_no IS DISTINCT FROM ${e.id}
+                   OR phone IS DISTINCT FROM ${e.phone || null}
+                   OR gender IS DISTINCT FROM ${genderVal})`,
+      );
+    }
+
+    // Onboarding: createWorker fixes lifecycle at 'preboarding' with no start_date. These are
+    // current, allocated staff, so set the fixture hire date and mark the open period active.
+    if (hireDate) {
+      await coreDb().execute(
+        sql`UPDATE people.employment_period
+              SET start_date = ${hireDate}, lifecycle_stage = 'active', status = 'active'
+            WHERE person_id = ${workerId} AND end_date IS NULL
+              AND (start_date IS DISTINCT FROM ${hireDate}::date OR lifecycle_stage <> 'active')`,
+      );
+      await coreDb().execute(
+        sql`UPDATE people.person
+              SET original_hire_date = coalesce(original_hire_date, ${hireDate}::date),
+                  seniority_date = coalesce(seniority_date, ${hireDate}::date)
+            WHERE id = ${workerId}`,
+      );
     }
 
     // identity login — idempotent on email
@@ -113,6 +154,16 @@ export async function seedPeopleIdentity(
     // the credentialed user; provisionLogin is email-idempotent, so this binds the
     // same user and flips portal_access — no duplicate). Idempotent on re-run.
     await setPortalAccess({ worker_id: workerId, enabled: true, session });
+
+    // Tech stack — populate people.person_skill (what the directory Techstack column reads).
+    // Role base skills plus a deterministic handful of extras so same-role peers differ.
+    const seed = createHash('sha1')
+      .update(e.id || e.work_email)
+      .digest();
+    for (const skillName of techStackFor(e.primary_role, seed.readUInt32BE(0))) {
+      const skill = skills.get(skillName.toLowerCase());
+      if (skill) await addPersonSkill({ person_id: workerId, skill_id: skill.id, session });
+    }
 
     map.set(e.id, { workerId, userId });
   }

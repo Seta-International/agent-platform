@@ -57,7 +57,7 @@ function withDb(
 }
 
 describe('getWorker enriched fields', () => {
-  it('returns job_title, derived manager_name, org_unit, accounts[], skills[]', async () => {
+  it('returns job_title, manager_name (from manager_id), org_unit, accounts[], skills[]', async () => {
     await withDb(async ({ t }) => {
       const { worker_id: head } = await createWorker({
         full_name: 'The Manager',
@@ -75,6 +75,7 @@ describe('getWorker enriched fields', () => {
         full_name: 'Rich Worker',
         job_title: 'Senior Engineer',
         org_unit_id: unit,
+        manager_id: head,
         session: t.adminSession,
       } as never);
 

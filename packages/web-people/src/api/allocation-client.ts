@@ -1,10 +1,12 @@
 export interface AllocationGridRow {
   worker_id: string;
+  employee_no: string | null;
   full_name: string;
   account_id: string;
   account_name: string;
   project_id: string;
   project_name: string | null;
+  is_account_am: boolean;
   bucket: 'billable' | 'internal' | 'bench' | null;
   months: (number | null)[];
   ytd_pct: number;
@@ -22,11 +24,26 @@ export interface AllocationGridKpis {
   member_count: number;
   project_count: number;
 }
+export interface AllocationFacets {
+  accounts: { id: string; name: string }[];
+  projects: { id: string; name: string; account_id: string }[];
+}
 export interface AllocationGrid {
   year: number;
   rows: AllocationGridRow[];
   worker_totals: WorkerMonthTotal[];
   kpis: AllocationGridKpis;
+  facets: AllocationFacets;
+}
+export type AllocationStatus = 'over' | 'under';
+export type AllocationBucket = 'billable' | 'internal' | 'bench';
+export interface AllocationGridFilters {
+  year?: number;
+  search?: string;
+  status?: AllocationStatus;
+  accountId?: string;
+  projectId?: string;
+  bucket?: AllocationBucket;
 }
 
 async function handleResponse<T>(res: Response): Promise<T> {
@@ -43,10 +60,16 @@ async function handleResponse<T>(res: Response): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export async function fetchAllocationGrid(year?: number, search?: string): Promise<AllocationGrid> {
+export async function fetchAllocationGrid(
+  filters: AllocationGridFilters = {},
+): Promise<AllocationGrid> {
   const params = new URLSearchParams();
-  if (year) params.set('year', String(year));
-  if (search) params.set('search', search);
+  if (filters.year) params.set('year', String(filters.year));
+  if (filters.search) params.set('search', filters.search);
+  if (filters.status) params.set('status', filters.status);
+  if (filters.accountId) params.set('accountId', filters.accountId);
+  if (filters.projectId) params.set('projectId', filters.projectId);
+  if (filters.bucket) params.set('bucket', filters.bucket);
   const qs = params.toString() ? `?${params.toString()}` : '';
   const res = await fetch(`/api/people/v1/allocation/grid${qs}`, { credentials: 'include' });
   return handleResponse<AllocationGrid>(res);

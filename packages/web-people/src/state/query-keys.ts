@@ -1,3 +1,4 @@
+import type { AllocationGridFilters } from '../api/allocation-client';
 import type { WorkersQuery } from '../api/people-client';
 
 export const peopleKeys = {
@@ -8,7 +9,7 @@ export const peopleKeys = {
   orgStructure: () => [...peopleKeys.all, 'org', 'structure'] as const,
   orgDelivery: () => [...peopleKeys.all, 'org', 'delivery'] as const,
   orgCompany: () => [...peopleKeys.all, 'org', 'company'] as const,
-  allocationGrid: (year?: number, search?: string) =>
-    [...peopleKeys.all, 'allocation', 'grid', year ?? 'current', search ?? ''] as const,
+  allocationGrid: (filters?: AllocationGridFilters) =>
+    [...peopleKeys.all, 'allocation', 'grid', filters ?? {}] as const,
   allocationUtilization: () => [...peopleKeys.all, 'allocation', 'utilization'] as const,
 };

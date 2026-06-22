@@ -1,22 +1,28 @@
 import {
   Badge,
+  Button,
   Card,
   CardContent,
+  Combobox,
   cn,
   DataTable,
   EmptyState,
   Input,
   PageChrome,
+  SegmentedControl,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
+import { useNavigate, useSearch } from '@tanstack/react-router';
 import type { ColumnDef, Row } from '@tanstack/react-table';
-import { BarChart3 } from 'lucide-react';
+import { BarChart3, X } from 'lucide-react';
 import { type CSSProperties, useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  type AllocationBucket,
   type AllocationGrid,
+  type AllocationGridFilters,
   type AllocationGridRow,
+  type AllocationStatus,
   fetchAllocationGrid,
 } from '../api/allocation-client.ts';
 import { UtilizationPanel } from '../components/utilization-panel.tsx';
@@ -106,22 +112,84 @@ function Kpi({
   );
 }
 
+export interface AllocationSearch {
+  q?: string;
+  status?: AllocationStatus;
+  account?: string;
+  project?: string;
+  bucket?: AllocationBucket;
+}
+
+const STATUS_OPTIONS = [
+  { value: 'all', label: 'All' },
+  { value: 'over', label: 'Over-allocated' },
+  { value: 'under', label: 'Under-utilized' },
+] as const;
+
+const BUCKET_OPTIONS = [
+  { value: 'billable', label: 'Billable' },
+  { value: 'internal', label: 'Internal' },
+  { value: 'bench', label: 'Bench' },
+];
+
 export function AllocationPage() {
   const navigate = useNavigate();
   const canReadAll = usePermission('people.worker.read.all');
 
-  const [search, setSearch] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+  // Every filter lives in the URL, so refresh / back / share restores the exact view.
+  const raw = useSearch({ strict: false }) as Partial<AllocationSearch>;
+  const setSearch = useCallback(
+    (patch: Partial<AllocationSearch>): void => {
+      void navigate({
+        to: '/people/allocation',
+        search: { ...raw, ...patch },
+        replace: true,
+      });
+    },
+    [navigate, raw],
+  );
+
+  // Text input is local for responsiveness; its committed value is debounced into the URL.
+  const [searchInput, setSearchInput] = useState(raw.q ?? '');
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(search.trim()), 250);
+    setSearchInput(raw.q ?? '');
+  }, [raw.q]);
+  useEffect(() => {
+    const next = searchInput.trim();
+    if (next === (raw.q ?? '')) return;
+    const t = setTimeout(() => setSearch({ q: next || undefined }), 250);
     return () => clearTimeout(t);
-  }, [search]);
+  }, [searchInput, raw.q, setSearch]);
+
+  const filters = useMemo<AllocationGridFilters>(
+    () => ({
+      search: raw.q || undefined,
+      status: raw.status,
+      accountId: raw.account || undefined,
+      projectId: raw.project || undefined,
+      bucket: raw.bucket,
+    }),
+    [raw.q, raw.status, raw.account, raw.project, raw.bucket],
+  );
+  const hasFilters = Boolean(raw.q || raw.status || raw.account || raw.project || raw.bucket);
 
   const { data, isLoading, error } = useQuery<AllocationGrid>({
-    queryKey: peopleKeys.allocationGrid(undefined, debouncedSearch),
-    queryFn: () => fetchAllocationGrid(undefined, debouncedSearch || undefined),
+    queryKey: peopleKeys.allocationGrid(filters),
+    queryFn: () => fetchAllocationGrid(filters),
     placeholderData: keepPreviousData,
   });
+
+  const accountOptions = useMemo(
+    () => (data?.facets.accounts ?? []).map((a) => ({ value: a.id, label: a.name })),
+    [data],
+  );
+  const projectOptions = useMemo(
+    () =>
+      (data?.facets.projects ?? [])
+        .filter((p) => !raw.account || p.account_id === raw.account)
+        .map((p) => ({ value: p.id, label: p.name })),
+    [data, raw.account],
+  );
 
   const overByWorkerMonth = useMemo(() => {
     const m = new Map<string, Set<number>>();
@@ -178,6 +246,15 @@ export function AllocationPage() {
     }));
     return [
       {
+        id: 'employee_no',
+        header: 'Employee ID',
+        cell: ({ row }) => (
+          <span className="font-mono text-[11px] text-ink-muted">
+            {row.original.employee_no ?? '—'}
+          </span>
+        ),
+      },
+      {
         id: 'name',
         header: 'Name',
         cell: ({ row }) => (
@@ -190,23 +267,22 @@ export function AllocationPage() {
         ),
       },
       {
-        id: 'engagement',
+        id: 'account',
+        header: 'Account',
+        cell: ({ row }) => (
+          <div className="max-w-[160px] truncate">{row.original.account_name || '—'}</div>
+        ),
+      },
+      {
+        id: 'project',
         header: 'Project',
-        cell: ({ row }) => {
-          const { account_name, project_name } = row.original;
-          const project = project_name ?? '—';
-          // Account is redundant when it just repeats the project name (common for internal work).
-          const showAccount =
-            account_name && account_name !== project_name && !project.startsWith(account_name);
-          return (
-            <div className="min-w-0 max-w-[220px]">
-              <div className="truncate">{project}</div>
-              {showAccount && (
-                <div className="truncate text-[11px] text-ink-subtle">{account_name}</div>
-              )}
-            </div>
-          );
-        },
+        cell: ({ row }) =>
+          // AMs manage the whole account, not a single project — show that instead of a sub-project.
+          row.original.is_account_am ? (
+            <span className="text-[12px] text-ink-subtle italic">Account management</span>
+          ) : (
+            <div className="max-w-[200px] truncate">{row.original.project_name ?? '—'}</div>
+          ),
       },
       ...monthCols,
       {
@@ -276,14 +352,71 @@ export function AllocationPage() {
               />
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <Input
-                className="h-8 max-w-xs"
-                placeholder="Search name or worker ID…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-              <HeatLegend />
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <Input
+                  className="h-8 w-56"
+                  placeholder="Search name or worker ID…"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                />
+                <SegmentedControl<'all' | AllocationStatus>
+                  aria-label="Allocation status"
+                  value={raw.status ?? 'all'}
+                  onValueChange={(v) => setSearch({ status: v === 'all' ? undefined : v })}
+                  options={STATUS_OPTIONS}
+                />
+                <Combobox
+                  className="h-8 w-44"
+                  aria-label="Account"
+                  placeholder="All accounts"
+                  searchPlaceholder="Search accounts…"
+                  options={accountOptions}
+                  value={raw.account ?? null}
+                  onChange={(v) => setSearch({ account: v ?? undefined, project: undefined })}
+                />
+                <Combobox
+                  className="h-8 w-44"
+                  aria-label="Project"
+                  placeholder="All projects"
+                  searchPlaceholder="Search projects…"
+                  options={projectOptions}
+                  value={raw.project ?? null}
+                  onChange={(v) => setSearch({ project: v ?? undefined })}
+                />
+                <Combobox
+                  className="h-8 w-36"
+                  aria-label="Bucket"
+                  placeholder="All buckets"
+                  searchable={false}
+                  options={BUCKET_OPTIONS}
+                  value={raw.bucket ?? null}
+                  onChange={(v) => setSearch({ bucket: (v as AllocationBucket) ?? undefined })}
+                />
+                {hasFilters && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 gap-1 text-ink-muted"
+                    onClick={() => {
+                      setSearchInput('');
+                      setSearch({
+                        q: undefined,
+                        status: undefined,
+                        account: undefined,
+                        project: undefined,
+                        bucket: undefined,
+                      });
+                    }}
+                  >
+                    <X className="size-3.5" />
+                    Clear
+                  </Button>
+                )}
+              </div>
+              <div className="flex justify-end">
+                <HeatLegend />
+              </div>
             </div>
 
             <DataTable

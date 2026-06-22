@@ -56,6 +56,7 @@ export async function createWorker(
           tenant_id: session.tenant_id,
           by_user_id: session.user_id,
           full_name: input.full_name.trim(),
+          employee_no: input.employee_no?.trim() || null,
           work_email: workEmail,
           start_date: input.start_date ?? null,
           employment_type: input.employment_type ?? null,
@@ -65,6 +66,7 @@ export async function createWorker(
           emergency_contact: input.emergency_contact ?? null,
           job_title: input.job_title ?? null,
           org_unit_id: input.org_unit_id ?? null,
+          manager_id: input.manager_id ?? null,
           history_action: 'created',
         });
       },

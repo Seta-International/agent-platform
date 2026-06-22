@@ -28,6 +28,7 @@ import { useCallback, useMemo, useState } from 'react';
 import {
   createWorker,
   fetchWorkers,
+  genderLabel,
   setPortalAccessBulk,
   type WorkerListRow,
   type WorkersQuery,
@@ -225,7 +226,11 @@ export function PeoplePage() {
           row.original.accounts.length > 0 ? (
             <div className="flex flex-wrap gap-1">
               {row.original.accounts.map((a) => (
-                <Badge key={a.id} variant="outline" className="text-[11px] px-1.5 py-0">
+                <Badge
+                  key={a.id}
+                  variant="outline"
+                  className="text-[11px] px-1.5 py-0 whitespace-nowrap"
+                >
                   {a.name}
                 </Badge>
               ))}
@@ -250,7 +255,9 @@ export function PeoplePage() {
         header: 'Direct manager',
         enableSorting: false,
         cell: ({ row }: CellCtx) => (
-          <span className="text-ink-muted">{row.original.manager_name || '—'}</span>
+          <span className="text-ink-muted whitespace-nowrap">
+            {row.original.manager_name || '—'}
+          </span>
         ),
       },
       {
@@ -280,7 +287,9 @@ export function PeoplePage() {
         header: 'Phone',
         enableSorting: false,
         cell: ({ row }: CellCtx) => (
-          <span className="text-ink-muted">{row.original.phone || '—'}</span>
+          <span className="text-ink-muted tabular-nums whitespace-nowrap">
+            {row.original.phone || '—'}
+          </span>
         ),
       },
       {
@@ -288,7 +297,9 @@ export function PeoplePage() {
         header: 'Gender',
         enableSorting: false,
         cell: ({ row }: CellCtx) => (
-          <span className="text-ink-muted capitalize">{row.original.gender || '—'}</span>
+          <span className="text-ink-muted whitespace-nowrap">
+            {genderLabel(row.original.gender)}
+          </span>
         ),
       },
       {
@@ -313,7 +324,10 @@ export function PeoplePage() {
         header: 'Access',
         enableSorting: false,
         cell: ({ row }: CellCtx) => (
-          <Badge variant={row.original.portal_access ? 'default' : 'outline'}>
+          <Badge
+            variant={row.original.portal_access ? 'default' : 'outline'}
+            className="whitespace-nowrap"
+          >
             {row.original.portal_access ? 'Login on' : 'No login'}
           </Badge>
         ),
@@ -331,7 +345,7 @@ export function PeoplePage() {
 
   return (
     <PageChrome title="People" actions={actions}>
-      <div className="page-container space-y-4 p-6">
+      <div className="w-full space-y-4 p-6">
         {error ? (
           <Alert variant="destructive">
             <AlertDescription>{(error as Error).message}</AlertDescription>

@@ -48,7 +48,7 @@ export async function seedFixtureCommand(opts: {
   const skills = await seedSkillCatalog(session);
   log.info({ skills: skills.size }, 'phase: skills done');
 
-  const people = await seedPeopleIdentity(session, fx.employees, password);
+  const people = await seedPeopleIdentity(session, fx.employees, password, skills);
   log.info({ people: people.size }, 'phase: people+identity done');
 
   const pm = await seedPm(session, fx.projects, fx.allocations, people);

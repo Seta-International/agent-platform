@@ -6,6 +6,7 @@ export interface InsertWorkerArgs {
   tenant_id: string;
   by_user_id: string | null;
   full_name: string;
+  employee_no?: string | null;
   work_email?: string | null;
   start_date?: string | null;
   employment_type?: string | null;
@@ -15,6 +16,7 @@ export interface InsertWorkerArgs {
   emergency_contact?: unknown;
   job_title?: string | null;
   org_unit_id?: string | null;
+  manager_id?: string | null;
   history_action: 'provisioned' | 'created';
 }
 
@@ -46,6 +48,7 @@ export async function insertWorkerAggregate(
   await tx.insert(worker).values({
     tenant_id: args.tenant_id,
     person_id: p.id,
+    employee_no: args.employee_no ?? null,
     full_name: args.full_name,
     work_email: args.work_email ?? null,
     dob: args.dob ?? null,
@@ -54,6 +57,7 @@ export async function insertWorkerAggregate(
     emergency_contact: args.emergency_contact ?? null,
     job_title: args.job_title ?? null,
     org_unit_id: args.org_unit_id ?? null,
+    manager_id: args.manager_id ?? null,
   });
 
   await tx.insert(workerHistory).values({

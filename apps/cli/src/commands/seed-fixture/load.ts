@@ -8,6 +8,9 @@ export interface EmployeeRec {
   work_email: string;
   employment_type: string;
   primary_role: string;
+  phone: string;
+  gender: string;
+  hire_date: string;
 }
 
 export interface ProjectRec {

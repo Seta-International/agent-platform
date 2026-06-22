@@ -15,6 +15,11 @@ import {
   Input,
   Label,
   PageChrome,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Skeleton,
   Switch,
   toast,
@@ -30,7 +35,10 @@ import {
   editWorker,
   fetchWorker,
   fetchWorkerHistory,
+  GENDER_OPTIONS,
+  genderLabel,
   removeWorkerSkill,
+  searchPeople,
   searchSkills,
   setPortalAccess,
   type WorkerPatch,
@@ -125,6 +133,8 @@ export function WorkerProfilePage() {
         patch.job_title = draft.job_title || null;
       if (draft.org_unit_id !== undefined && draft.org_unit_id !== (worker.org_unit_id ?? null))
         patch.org_unit_id = draft.org_unit_id;
+      if (draft.manager_id !== undefined && draft.manager_id !== (worker.manager_id ?? null))
+        patch.manager_id = draft.manager_id;
       return editWorker(workerId, { expected_version: worker.version, patch });
     },
     onSuccess: () => {
@@ -169,6 +179,7 @@ export function WorkerProfilePage() {
       emergency_contact: worker.emergency_contact ?? '',
       job_title: worker.job_title ?? '',
       org_unit_id: worker.org_unit_id ?? null,
+      manager_id: worker.manager_id ?? null,
     });
     setEditError(null);
     setEditing(true);
@@ -312,6 +323,18 @@ export function WorkerProfilePage() {
                     />
                   </div>
                   <div className="space-y-1">
+                    <Label>Direct manager</Label>
+                    <AsyncCombobox
+                      search={searchPeople.search}
+                      resolveByIds={searchPeople.resolveByIds}
+                      value={draft.manager_id ?? null}
+                      onChange={(v) => {
+                        setDraft((d) => ({ ...d, manager_id: v }));
+                      }}
+                      placeholder="Search people…"
+                    />
+                  </div>
+                  <div className="space-y-1">
                     <Label>Work email</Label>
                     <Input
                       type="email"
@@ -336,10 +359,21 @@ export function WorkerProfilePage() {
                   </div>
                   <div className="space-y-1">
                     <Label>Gender</Label>
-                    <Input
+                    <Select
                       value={draft.gender ?? ''}
-                      onChange={(e) => setDraft((d) => ({ ...d, gender: e.target.value }))}
-                    />
+                      onValueChange={(v) => setDraft((d) => ({ ...d, gender: v }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {GENDER_OPTIONS.map((g) => (
+                          <SelectItem key={g.value} value={g.value}>
+                            {g.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-1">
                     <Label>Emergency contact</Label>
@@ -360,7 +394,7 @@ export function WorkerProfilePage() {
                   <FieldRow label="Work email" value={worker.work_email} />
                   <FieldRow label="Phone" value={worker.phone} />
                   <FieldRow label="Date of birth" value={worker.dob} />
-                  <FieldRow label="Gender" value={worker.gender} />
+                  <FieldRow label="Gender" value={genderLabel(worker.gender)} />
                   <FieldRow label="Emergency contact" value={worker.emergency_contact} />
                   <FieldRow
                     label="Lifecycle stage"

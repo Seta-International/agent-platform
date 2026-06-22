@@ -63,6 +63,7 @@ export const worker = peopleSchema.table(
     id: uuid('id').primaryKey().defaultRandom(),
     tenant_id: uuid('tenant_id').notNull(),
     person_id: uuid('person_id').notNull(),
+    employee_no: text('employee_no'),
     full_name: text('full_name').notNull(),
     work_email: text('work_email'),
     dob: date('dob'),
@@ -73,6 +74,7 @@ export const worker = peopleSchema.table(
     portal_access: boolean('portal_access').notNull().default(false),
     job_title: text('job_title'),
     org_unit_id: uuid('org_unit_id'),
+    manager_id: uuid('manager_id'),
     version: integer('version').default(1).notNull(),
     deleted_at: timestamp('deleted_at', { withTimezone: true }),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -80,11 +82,16 @@ export const worker = peopleSchema.table(
   },
   (t) => [
     uniqueIndex('worker_uniq_person').on(t.person_id),
+    uniqueIndex('worker_uniq_employee_no_per_tenant')
+      .on(t.tenant_id, t.employee_no)
+      .where(sql`employee_no IS NOT NULL AND deleted_at IS NULL`),
     uniqueIndex('worker_uniq_email_per_tenant')
       .on(t.tenant_id, t.work_email)
       .where(sql`work_email IS NOT NULL AND deleted_at IS NULL`),
     index('worker_by_tenant_live').on(t.tenant_id, t.deleted_at),
     index('worker_by_org_unit').on(t.tenant_id, t.org_unit_id),
+    index('worker_by_manager').on(t.tenant_id, t.manager_id),
+    check('worker_gender_check', sql`gender IN ('male','female','prefer_not_to_say')`),
   ],
 );
 

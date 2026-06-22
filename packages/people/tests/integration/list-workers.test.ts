@@ -47,6 +47,7 @@ async function makeWorker(
     gender?: string;
     phone?: string;
     orgUnitId?: string | null;
+    managerId?: string | null;
     userId?: string;
   },
 ): Promise<string> {
@@ -55,6 +56,7 @@ async function makeWorker(
     full_name: opts.name,
     work_email: opts.email,
     org_unit_id: opts.orgUnitId ?? null,
+    manager_id: opts.managerId ?? null,
   } as never);
   const patch: Record<string, unknown> = {};
   if (opts.job_title !== undefined) patch.job_title = opts.job_title;
@@ -145,6 +147,7 @@ describe('listWorkers (SQL filter/sort/paginate + scope)', () => {
         gender: 'female',
         phone: '555-1',
         orgUnitId: unit,
+        managerId: mgr,
       });
       await addEmployment(t, w, { stage: 'active', start: '2026-01-15' });
 
@@ -373,7 +376,7 @@ describe('listWorkers (SQL filter/sort/paginate + scope)', () => {
         kind: 'operation',
         head_worker_id: mgr,
       });
-      await makeWorker(t, { name: 'Orphaned Worker', orgUnitId: unit });
+      await makeWorker(t, { name: 'Orphaned Worker', orgUnitId: unit, managerId: mgr });
 
       // Soft-delete the manager
       await peopleDb()

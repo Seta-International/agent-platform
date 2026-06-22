@@ -1,8 +1,11 @@
 export {
+  type AllocationBucket,
+  type AllocationFacets,
   type AllocationGrid,
   type AllocationGridKpis,
   type AllocationGridQuery,
   type AllocationGridRow,
+  type AllocationStatus,
   getAllocationGrid,
   type WorkerMonthTotal,
 } from './backend/domain/allocation-grid.ts';
@@ -31,3 +34,4 @@ export {
   type UtilizationSegment,
 } from './backend/domain/utilization.ts';
 export type { CreateWorkerInput, EditWorkerInput, ProvisionWorkerInput } from './contracts.ts';
+export { GENDER_VALUES, type GenderValue, genderValue } from './contracts.ts';

@@ -1,5 +1,19 @@
 import { createHttpEntitySearch } from '@seta/shared-ui';
 
+export const GENDER_OPTIONS = [
+  { value: 'male', label: 'Male' },
+  { value: 'female', label: 'Female' },
+  { value: 'prefer_not_to_say', label: 'Prefer not to say' },
+] as const;
+
+const GENDER_LABELS: Record<string, string> = Object.fromEntries(
+  GENDER_OPTIONS.map((g) => [g.value, g.label]),
+);
+
+export function genderLabel(value: string | null | undefined): string {
+  return value ? (GENDER_LABELS[value] ?? value) : '—';
+}
+
 export interface WorkerListRow {
   worker_id: string;
   full_name: string;
@@ -10,6 +24,7 @@ export interface WorkerListRow {
   lifecycle_stage: string | null;
   onboarding_date: string | null;
   offboarding_date: string | null;
+  manager_id: string | null;
   manager_name: string | null;
   portal_access: boolean;
   accounts: { id: string; name: string }[];
@@ -64,6 +79,7 @@ export interface WorkerPatch {
   emergency_contact?: string;
   job_title?: string | null;
   org_unit_id?: string | null;
+  manager_id?: string | null;
 }
 
 export interface EditWorkerInput {
