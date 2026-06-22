@@ -72,10 +72,44 @@ describe('resolveSetaTenantFromEmail', () => {
         baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
-        await setup(pool, databaseUrl, { enabled: true, domains: ['acme.com'] });
+        await setup(pool, databaseUrl, {
+          enabled: true,
+          domains: ['acme.com'],
+        });
         try {
           const out = await resolveSetaTenantFromEmail('bob@globex.com');
           expect(out).toBeNull();
+        } finally {
+          resetCoreDb();
+          await closePools();
+        }
+      },
+    );
+  });
+
+  it('falls back to user tenant when domain mapping is empty but SSO is enabled', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
+      },
+      async ({ pool, databaseUrl }) => {
+        const { tenantId } = await setup(pool, databaseUrl, {
+          enabled: true,
+          domains: [],
+        });
+        await pool.query(
+          `
+            INSERT INTO identity."user"
+              (id, email, name, email_verified, tenant_id)
+            VALUES ($1, $2, $3, $4, $5)
+          `,
+          [crypto.randomUUID(), 'hai.le@seta-international.vn', 'Hai Le', true, tenantId],
+        );
+        try {
+          const out = await resolveSetaTenantFromEmail('Hai.Le@seta-international.vn');
+          expect(out?.tenant_id).toBe(tenantId);
+          expect(out?.provider_id).toBe('microsoft-entra-id');
         } finally {
           resetCoreDb();
           await closePools();
@@ -91,7 +125,10 @@ describe('resolveSetaTenantFromEmail', () => {
         baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
-        await setup(pool, databaseUrl, { enabled: false, domains: ['acme.com'] });
+        await setup(pool, databaseUrl, {
+          enabled: false,
+          domains: ['acme.com'],
+        });
         try {
           const out = await resolveSetaTenantFromEmail('bob@acme.com');
           expect(out).toBeNull();
@@ -110,7 +147,10 @@ describe('resolveSetaTenantFromEmail', () => {
         baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
-        await setup(pool, databaseUrl, { enabled: true, domains: ['acme.com'] });
+        await setup(pool, databaseUrl, {
+          enabled: true,
+          domains: ['acme.com'],
+        });
         try {
           expect(await resolveSetaTenantFromEmail('no-at-sign')).toBeNull();
           expect(await resolveSetaTenantFromEmail('user@')).toBeNull();
