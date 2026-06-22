@@ -22,7 +22,13 @@ import type {
   TaskWithAssigneesRow,
 } from '@seta/planner';
 
-type M365GroupSearchResult = { external_id: string; display_name: string; mail_nickname: string };
+type M365GroupSearchResult = {
+  external_id: string;
+  display_name: string;
+  mail_nickname: string;
+  description: string | null;
+  already_linked: boolean;
+};
 
 export interface GroupJoinRequestRow {
   group_id: string;

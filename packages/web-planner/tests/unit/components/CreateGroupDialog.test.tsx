@@ -88,25 +88,119 @@ describe('CreateGroupDialog', () => {
     );
   });
 
-  it('Link group button is enabled and submitting creates group then opens LinkToM365Dialog', async () => {
+  it('clicking Link… opens the M365 picker WITHOUT creating the group', async () => {
+    const user = userEvent.setup();
+    const created: unknown[] = [];
+    server.use(
+      http.post('*/api/planner/v1/groups', async ({ request }) => {
+        created.push(await request.json());
+        return HttpResponse.json(makeGroup({ id: 'g-new' }), { status: 201 });
+      }),
+      http.get('*/api/integrations/m365/groups/search', () => HttpResponse.json({ groups: [] })),
+    );
+    wrap(<CreateGroupDialog open onOpenChange={() => {}} />);
+
+    await user.type(screen.getByLabelText(/Group name/i), 'Linked Group');
+    await user.click(screen.getByRole('button', { name: /^Link…$/ }));
+
+    // Picker opens…
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText(/Search Microsoft 365 groups/i)).toBeInTheDocument(),
+    );
+    // …but nothing is created yet — creation is deferred to "Create group".
+    expect(created).toHaveLength(0);
+  });
+
+  it('selecting an M365 group then Create group creates the group AND links it', async () => {
+    const user = userEvent.setup();
+    const created: unknown[] = [];
+    const linked: unknown[] = [];
+    server.use(
+      http.get('*/api/integrations/m365/groups/search', () =>
+        HttpResponse.json({
+          groups: [{ external_id: 'ext-1', display_name: 'Eng M365', mail_nickname: 'eng' }],
+        }),
+      ),
+      http.post('*/api/planner/v1/groups', async ({ request }) => {
+        created.push(await request.json());
+        return HttpResponse.json(makeGroup({ id: 'g-new', name: 'Linked Group' }), { status: 201 });
+      }),
+      http.post('*/api/integrations/m365/groups/g-new/link', async ({ request }) => {
+        linked.push(await request.json());
+        return HttpResponse.json(makeGroup({ id: 'g-new' }));
+      }),
+    );
+    wrap(<CreateGroupDialog open onOpenChange={() => {}} />);
+
+    await user.type(screen.getByLabelText(/Group name/i), 'Linked Group');
+    await user.click(screen.getByRole('button', { name: /^Link…$/ }));
+    await user.type(screen.getByPlaceholderText(/Search Microsoft 365 groups/i), 'Eng');
+    await user.click(await screen.findByText('Eng M365'));
+    await user.click(screen.getByRole('button', { name: /^Link$/ }));
+
+    // Still nothing created — only the selection was collected.
+    expect(created).toHaveLength(0);
+
+    await user.click(screen.getByRole('button', { name: /Create group/i }));
+    await waitFor(() => expect(created).toHaveLength(1));
+    await waitFor(() => expect(linked).toHaveLength(1));
+    expect(linked[0]).toMatchObject({ external_id: 'ext-1' });
+  });
+
+  it('prefills the empty Description from the selected M365 group', async () => {
     const user = userEvent.setup();
     server.use(
-      http.post('*/api/planner/v1/groups', async () =>
-        HttpResponse.json(makeGroup({ id: 'g-new', name: 'Linked Group' }), { status: 201 }),
+      http.get('*/api/integrations/m365/groups/search', () =>
+        HttpResponse.json({
+          groups: [
+            {
+              external_id: 'ext-1',
+              display_name: 'Eng M365',
+              mail_nickname: 'eng',
+              description: 'The engineering org',
+            },
+          ],
+        }),
       ),
     );
     wrap(<CreateGroupDialog open onOpenChange={() => {}} />);
 
-    const btn = screen.getByRole('button', { name: /^Link…$/ });
-    // Button is enabled when name is empty (disabled by the name check)
-    await user.type(screen.getByLabelText(/Group name/i), 'Linked Group');
-    expect(btn).not.toBeDisabled();
+    await user.type(screen.getByLabelText(/Group name/i), 'X');
+    await user.click(screen.getByRole('button', { name: /^Link…$/ }));
+    await user.type(screen.getByPlaceholderText(/Search Microsoft 365 groups/i), 'Eng');
+    await user.click(await screen.findByText('Eng M365'));
+    await user.click(screen.getByRole('button', { name: /^Link$/ }));
 
-    await user.click(btn);
-    // After creation, LinkToM365Dialog should open
-    await waitFor(() =>
-      expect(screen.getByText('Link with a Microsoft 365 group')).toBeInTheDocument(),
+    expect(screen.getByLabelText(/Description/i)).toHaveValue('The engineering org');
+  });
+
+  it('does NOT overwrite a description the user already typed', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get('*/api/integrations/m365/groups/search', () =>
+        HttpResponse.json({
+          groups: [
+            {
+              external_id: 'ext-1',
+              display_name: 'Eng M365',
+              mail_nickname: 'eng',
+              description: 'The engineering org',
+            },
+          ],
+        }),
+      ),
     );
+    wrap(<CreateGroupDialog open onOpenChange={() => {}} />);
+
+    await user.type(screen.getByLabelText(/Group name/i), 'X');
+    await user.type(screen.getByLabelText(/Description/i), 'My own description');
+    await user.click(screen.getByRole('button', { name: /^Link…$/ }));
+    await user.type(screen.getByPlaceholderText(/Search Microsoft 365 groups/i), 'Eng');
+    await user.click(await screen.findByText('Eng M365'));
+    await user.click(screen.getByRole('button', { name: /^Link$/ }));
+
+    // The user's text is preserved — the M365 description does not overwrite it.
+    expect(screen.getByLabelText(/Description/i)).toHaveValue('My own description');
   });
 
   it('when starter-plan is checked, fires createPlan on submit', async () => {

@@ -6,6 +6,38 @@ import { createGroup } from '../../src/index.ts';
 import { buildSession, readEvents, seedTenant } from '../helpers.ts';
 
 describe('createGroup', () => {
+  it('rejects a duplicate group name with CONFLICT (not a raw 500)', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
+      },
+      async ({ pool, databaseUrl }) => {
+        resetCoreDb();
+        initPools({ databaseUrl });
+        try {
+          const seeded = await seedTenant(pool);
+          const session = buildSession({
+            tenant_id: seeded.tenant_id,
+            user_id: seeded.admin.user_id,
+            email: seeded.admin.email,
+            display_name: seeded.admin.name,
+            roles: ['planner.admin'],
+          });
+
+          await createGroup({ tenant_id: seeded.tenant_id, name: 'Test Scroll View', session });
+
+          await expect(
+            createGroup({ tenant_id: seeded.tenant_id, name: 'Test Scroll View', session }),
+          ).rejects.toMatchObject({ code: 'CONFLICT' });
+        } finally {
+          resetCoreDb();
+          await closePools();
+        }
+      },
+    );
+  });
+
   it('inserts a group, emits planner.group.created, returns version=1', async () => {
     await withTestDb(
       {
