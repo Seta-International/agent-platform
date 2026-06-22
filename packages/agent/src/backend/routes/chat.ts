@@ -303,6 +303,7 @@ export function mountChatRoute(app: Hono<AgentRouteEnv>, deps: AgentRouteDeps): 
             tenantId: session.tenant_id,
             actorUserId: session.user_id,
             effectivePermissions: session.effective_permissions,
+            roleSummary: session.role_summary,
             threadId: orchThreadId,
             userMemory:
               deps.userMemory && deps.userMemoryConfig

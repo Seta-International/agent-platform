@@ -19,6 +19,7 @@ import {
 } from '@seta/knowledge';
 import { registerKnowledgeContributions } from '@seta/knowledge/register';
 import { registerNotificationsContributions } from '@seta/notifications/register';
+import { performanceAgentToolMap } from '@seta/performance/agent-tools/register';
 import { registerPerformanceContributions } from '@seta/performance/register';
 import { assignTask } from '@seta/planner';
 import { registerPlannerContributions } from '@seta/planner/register';
@@ -137,6 +138,10 @@ const staffingOrchestration = buildStaffingOrchestrationRuntime({
   repo: new StaffingRunStateRepository(),
   mastraStorage,
   resolveModel: () => resolveModel('auto', { tierHint: 'fast' }).model,
+  // Wire the ARIA performance tools into the chat orchestrator so chat can answer
+  // performance questions and render cards. The tools resolve session/audience
+  // from the RequestContext the orchestrator sets per turn.
+  extraTools: performanceAgentToolMap,
   ports: {
     taskReader: makeTaskReader(),
     taskSearch: makeTaskSearch(),

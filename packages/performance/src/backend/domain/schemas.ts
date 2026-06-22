@@ -109,6 +109,39 @@ export const NormRuleResultSchema = z.object({
 });
 export type NormRuleResult = z.infer<typeof NormRuleResultSchema>;
 
+// ---- Aggregate read-models (multi-employee / account-level views) ----
+
+/**
+ * One row of the at-risk list (Leader view). A pre-classified, pre-summarised
+ * entry: the risk level and signal summary are derived server-side (from NORM),
+ * so the agent never re-classifies a raw score into a risk band itself.
+ */
+export const AtRiskEntrySchema = z.object({
+  memberId: z.string(),
+  name: z.string(),
+  risk: RiskLevelSchema,
+  /** Compact signal summary, e.g. "KPI below target, OT exceeds limit". */
+  summary: z.string(),
+  recommendedAction: z.string(),
+});
+export type AtRiskEntry = z.infer<typeof AtRiskEntrySchema>;
+
+/**
+ * Account / workforce-level risk roll-up (BOD view). Counts are the deterministic
+ * population breakdown; `narrative` is a short workforce framing.
+ */
+export const AccountRiskSummarySchema = z.object({
+  scopeLabel: z.string(), // e.g. "All accounts" or "Account B — Fintech Platform"
+  accountId: z.string().nullable(),
+  period: z.string().nullable(),
+  high: z.number(),
+  medium: z.number(),
+  low: z.number(),
+  total: z.number(),
+  narrative: z.string(),
+});
+export type AccountRiskSummary = z.infer<typeof AccountRiskSummarySchema>;
+
 export const NormResultSchema = z.object({
   /** Deterministic Layer A — all evaluated threshold rules. */
   layerA: z.array(NormRuleResultSchema),

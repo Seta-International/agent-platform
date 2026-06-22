@@ -84,6 +84,10 @@ export interface OrchestratorDeps {
    * fixtures default this to an InMemoryStore.
    */
   mastraStorage: MastraCompositeStore;
+  /** Extra agent tools merged into the orchestrator's tool map at the composition
+   *  root (e.g. the ARIA performance tools). Keyed by tool id. These read session
+   *  facts from the RequestContext, so the orchestrator sets role_summary on it. */
+  extraTools?: Record<string, unknown>;
   /** Cap on how many found tasks the orchestrator recommends people for. */
   recommendTaskCap?: number;
   /** Test-only seam; production builds + runs a real Mastra Agent. Receives the
@@ -178,6 +182,23 @@ function instructionsText(cap: number): string {
     "call staffing_lookupUserProfile with that person's name and STOP. Do NOT use staffing_analyzeTasks",
     'or staffing_matchCandidatesBySkill for this — those are for task-based skill searches.',
     '',
+    "EMPLOYEE PERFORMANCE (ARIA) — when the user asks about an employee's performance,",
+    'KPI, profile/report, who is "at risk" on a team or account, an account/workforce risk',
+    'overview, or a sensitive talent conclusion (PIP / attrition / performance verdict), use',
+    'the performance_* tools — NOT staffing_answerQuestion. Gather facts with',
+    'performance_getEmployeeProfile / performance_getPerformanceData / performance_getTimesheet /',
+    'performance_getViolations / performance_getAllocation / performance_evaluateNorm as needed,',
+    'then call performance_renderCard to SHOW the answer as a card, choosing card_type:',
+    "- employee_profile_report — one employee's full performance picture (needs member_id).",
+    '- inline_transcript — a compact single-employee snapshot (needs member_id).',
+    '- at_risk_list — "who is at risk" for a team/account (pass account_id when named).',
+    '- account_summary — account- or workforce-level risk roll-up (aggregate).',
+    '- human_review_flag — a sensitive conclusion; pass it as `conclusion` to hold for review.',
+    'Set include_sensitive=true ONLY when the user explicitly asks for promotion readiness,',
+    'salary band, or HR notes (the tool denies it for non-HR roles). performance_renderCard',
+    'assembles the data and enforces redaction — never invent employee numbers; render the card,',
+    'then add at most one short sentence of prose.',
+    '',
     'DOCUMENT / GENERAL QUESTION — when the user asks a general question, a',
     'conversational follow-up, or anything about an attached document (its text is',
     'inlined in this message under a `Context:` block delimited by `<<<FILE: ...>>>`,',
@@ -256,6 +277,9 @@ async function buildOrchestrator(
   rc.set('actor', { type: 'user', user_id: ctx.actorUserId });
   rc.set('tenant_id', ctx.tenantId);
   rc.set('effective_permissions', ctx.effectivePermissions ?? new Set<string>());
+  // Audience-aware tools (ARIA performance tools) read role_summary to resolve
+  // HR/Leader/BOD framing; forward it when the caller supplied one.
+  if (ctx.roleSummary) rc.set('role_summary', ctx.roleSummary);
   if (ctx.threadId) rc.set(RC_THREAD_ID, ctx.threadId);
 
   const tools: Record<string, unknown> = makeOrchestratorTools({
@@ -271,6 +295,9 @@ async function buildOrchestrator(
   });
   const wmTool = makeUpdateWorkingMemoryTool(ctx);
   if (wmTool) tools.updateWorkingMemory = wmTool;
+  // Composition-root extras (e.g. the ARIA performance tools) the orchestrator
+  // can call directly, so their tool-call parts surface in the chat UI.
+  if (deps.extraTools) Object.assign(tools, deps.extraTools);
 
   const wmSection = await loadUserContextSection(ctx);
   const instructions = wmSection
@@ -472,6 +499,12 @@ function results(res: MastraToolSignals, name: string): unknown[] {
 }
 
 function assemble(res: MastraToolSignals): OrchestratorResult {
+  // A rendered UI card (ARIA's performance_renderCard) is a terminal answer: the
+  // card IS the result. Surface the latest one so it persists as a data-result.
+  const cards = results(res, 'performance_renderCard') as Array<{ card?: unknown }>;
+  const lastCard = cards.at(-1)?.card;
+  if (lastCard !== undefined) return { card: lastCard };
+
   const ta = results(res, 'staffing_analyzeTasks') as TaskAnalyzerOutput[];
   const recs = results(res, 'staffing_rankRecommendations') as {
     taskId: string | null;
@@ -573,6 +606,8 @@ function citationsFor(
 }
 
 function confidenceFor(result: OrchestratorResult, res?: MastraToolSignals): number {
+  // A rendered card is assembled server-side from real data — high confidence.
+  if (result.card !== undefined) return 0.9;
   if (result.recommendations?.length) return 0.8;
   if (result.tasks?.length) return 0.8;
   if (result.candidates?.length) return 0.8;

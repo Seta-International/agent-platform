@@ -14,6 +14,9 @@ export interface RunCtx {
   /** Resolved permission set for the actor — forwarded into each agent's run
    *  ctx so cross-module read tools enforce access. Empty for queued runs. */
   effectivePermissions?: ReadonlySet<string>;
+  /** The actor's role summary — forwarded onto the agent RequestContext as
+   *  `role_summary` so audience-aware tools resolve HR/Leader/BOD framing. */
+  roleSummary?: { roles: readonly string[]; cross_tenant_read: boolean };
   /** The real chat thread id (chat inline runs only). */
   threadId?: string;
   /** Resource-scoped userContext memory handle (chat inline runs only). */

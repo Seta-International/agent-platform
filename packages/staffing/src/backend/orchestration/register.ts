@@ -87,8 +87,12 @@ export function buildStaffingOrchestrationRuntime(deps: {
    * instance is shared with the agent engine so cross-Mastra resume works.
    */
   mastraStorage: MastraCompositeStore;
+  /** Extra agent tools (keyed by id) merged into the orchestrator's tool map —
+   *  e.g. the ARIA performance tools, injected by the composition root so the
+   *  chat agent can answer performance questions and render cards. */
+  extraTools?: Record<string, unknown>;
 }): StaffingOrchestrationRuntime {
-  const { ports, resolveModel, repo, mastraStorage } = deps;
+  const { ports, resolveModel, repo, mastraStorage, extraTools } = deps;
 
   // Sub-agents are invoked through the orchestrator's tools (direct .run calls),
   // not via the registry, so only the orchestrator agent is registered.
@@ -111,6 +115,7 @@ export function buildStaffingOrchestrationRuntime(deps: {
     assign: ports.assign,
     resolveModel,
     mastraStorage,
+    extraTools,
   };
   const orchestrator = makeOrchestratorAgent(orchestratorDeps);
 

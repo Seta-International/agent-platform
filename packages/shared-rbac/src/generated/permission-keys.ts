@@ -53,9 +53,16 @@ export type PermissionKey =
   | 'notifications.category.read'
   | 'notifications.preference.read'
   | 'notifications.preference.write'
+  | 'performance.aggregate.read'
   | 'performance.dashboard.executive.read'
   | 'performance.dashboard.read'
   | 'performance.dashboard.team.read'
+  | 'performance.employee.read'
+  | 'performance.norm.read'
+  | 'performance.promotion_readiness.read'
+  | 'performance.report.generate'
+  | 'performance.salary_band.read'
+  | 'performance.violation.read'
   | 'planner.bucket.create'
   | 'planner.bucket.delete'
   | 'planner.bucket.read'
@@ -156,9 +163,16 @@ export const ALL_PERMISSIONS: readonly PermissionKey[] = [
   'notifications.category.read',
   'notifications.preference.read',
   'notifications.preference.write',
+  'performance.aggregate.read',
   'performance.dashboard.executive.read',
   'performance.dashboard.read',
   'performance.dashboard.team.read',
+  'performance.employee.read',
+  'performance.norm.read',
+  'performance.promotion_readiness.read',
+  'performance.report.generate',
+  'performance.salary_band.read',
+  'performance.violation.read',
   'planner.bucket.create',
   'planner.bucket.delete',
   'planner.bucket.read',

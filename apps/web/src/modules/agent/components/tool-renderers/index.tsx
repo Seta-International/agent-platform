@@ -18,7 +18,12 @@ function toReadState(
   return 'input-streaming';
 }
 
-const DEDICATED_TOOL_IDS = new Set(['core_serverTime', 'identity_whoAmI', 'identity_listMyRoles']);
+const DEDICATED_TOOL_IDS = new Set([
+  'core_serverTime',
+  'identity_whoAmI',
+  'identity_listMyRoles',
+  'performance_renderCard',
+]);
 
 function ServerTimeRegistration({ name }: { name: string }) {
   useAssistantToolUI({
@@ -88,6 +93,13 @@ function TrustRegistration() {
   return null;
 }
 
+function PerformanceCardRegistration() {
+  // The card is rendered from the persisted data-result part (see DataResultPart),
+  // so suppress the transient tool-call pill to avoid a duplicate / flicker.
+  useAssistantToolUI({ toolName: 'performance_renderCard', render: () => null });
+  return null;
+}
+
 function GenericToolRegistration({ id, name }: { id: string; name: string }) {
   useAssistantToolUI({
     toolName: id,
@@ -115,6 +127,7 @@ export function ToolUIRegistry() {
       <ServerTimeRegistration name={nameFor('core_serverTime')} />
       <WhoAmIRegistration name={nameFor('identity_whoAmI')} />
       <ListMyRolesRegistration name={nameFor('identity_listMyRoles')} />
+      <PerformanceCardRegistration />
       {tools
         .filter((t) => !DEDICATED_TOOL_IDS.has(t.id))
         .map((t) => (

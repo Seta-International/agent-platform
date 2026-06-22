@@ -6,17 +6,24 @@ import { getEmployeeProfileTool } from './get-employee-profile.ts';
 import { getPerformanceDataTool } from './get-performance-data.ts';
 import { getTimesheetTool } from './get-timesheet.ts';
 import { getViolationsTool } from './get-violations.ts';
+import { renderCardTool } from './render-card.ts';
+
+/** All performance tools keyed by tool id — the single source for both the ARIA
+ *  specialist registration and the composition root, which merges this map into
+ *  the chat orchestrator so chat can answer performance questions + render cards. */
+export const performanceAgentToolMap = {
+  performance_getEmployeeProfile: getEmployeeProfileTool,
+  performance_getPerformanceData: getPerformanceDataTool,
+  performance_getTimesheet: getTimesheetTool,
+  performance_getViolations: getViolationsTool,
+  performance_getAllocation: getAllocationTool,
+  performance_evaluateNorm: evaluateNormTool,
+  performance_formatOutput: formatOutputTool,
+  performance_renderCard: renderCardTool,
+};
 
 /** All performance tools, exported for the contribution registry (register.ts). */
-export const performanceAgentTools = [
-  getEmployeeProfileTool,
-  getPerformanceDataTool,
-  getTimesheetTool,
-  getViolationsTool,
-  getAllocationTool,
-  evaluateNormTool,
-  formatOutputTool,
-];
+export const performanceAgentTools = Object.values(performanceAgentToolMap);
 
 // The ARIA main agent. A single supervisor specialist that owns the whole flow:
 // it parses intent, retrieves the datasets it needs, evaluates NORM, and writes
@@ -48,6 +55,7 @@ Reads (call directly, no approval needed):
 - performance_getAllocation — DS01 account/project, allocation %, overload/bench
 - performance_evaluateNorm — runs the deterministic NORM rules for an employee
 - performance_formatOutput — assembles a redacted, audience-shaped report payload
+- performance_renderCard — renders a UI card for the user (see "Returning a card")
 
 ## NORM evaluation — do NOT re-derive thresholds
 performance_evaluateNorm applies every numeric threshold in code and returns
@@ -70,6 +78,30 @@ overload, violation, and trend context. Explain the interaction, not just the fl
 Sensitive fields are already stripped from tool results for non-HR audiences — if a
 field comes back null, it is not available to this audience; never guess it.
 
+## Returning a card
+Cards are a richer medium than prose, but they are NOT the default — most answers
+are plain text. Call performance_renderCard only when a card genuinely fits, and
+pick the single best type. Do NOT emit a card for greetings, clarifying questions,
+yes/no answers, or short factual replies. After a card, add at most one short
+sentence of prose; do not restate the card's contents.
+
+When to use which card:
+- employee_profile_report — the user asks for one employee's full performance
+  picture / profile / report.
+- inline_transcript — a quick single-employee snapshot inline in chat (fewer
+  fields than the full report); use when a compact answer is enough.
+- at_risk_list — the user asks "who is at risk" for a team / account (a roster).
+- account_summary — an account- or workforce-level risk roll-up (aggregate, no
+  individual focus). Prefer this for BOD-style "overall risk" questions.
+- human_review_flag — you are about to state a SENSITIVE conclusion (PIP,
+  attrition verdict, performance verdict). Pass the conclusion to the tool so it
+  is held for human approval rather than asserted directly.
+- access_denied — you normally do NOT request this; the tool returns it itself
+  when the audience lacks access. Set include_sensitive only when the user
+  explicitly asked for promotion readiness, salary band, or HR notes.
+Never hand-write card JSON or claim a card is shown without calling the tool. The
+tool assembles the data and enforces redaction; trust its output.
+
 ## Guardrails
 - You do not make final talent decisions. Tag any sensitive conclusion (PIP, attrition
   risk, performance verdict) with "Requires HR / Leader review before finalising".
@@ -80,13 +112,5 @@ field comes back null, it is not available to this audience; never guess it.
 ## Style
 Surface your reasoning as you go. Restate the employee/scope so the next turn keeps
 context. Be concise and concrete; lead with the answer, then the supporting signals.`,
-  tools: {
-    performance_getEmployeeProfile: getEmployeeProfileTool,
-    performance_getPerformanceData: getPerformanceDataTool,
-    performance_getTimesheet: getTimesheetTool,
-    performance_getViolations: getViolationsTool,
-    performance_getAllocation: getAllocationTool,
-    performance_evaluateNorm: evaluateNormTool,
-    performance_formatOutput: formatOutputTool,
-  },
+  tools: performanceAgentToolMap,
 });

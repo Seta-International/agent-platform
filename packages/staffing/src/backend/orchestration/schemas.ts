@@ -171,6 +171,10 @@ export const OrchestratorResultSchema = z.object({
       inThread: z.boolean().default(true),
     })
     .optional(),
+  /** A UI card emitted by a domain tool (e.g. ARIA's performance_renderCard),
+   *  passed through opaquely so the frontend renders it from the persisted
+   *  data-result part. */
+  card: z.unknown().optional(),
   message: z.string().optional(),
 });
 export type OrchestratorResult = z.infer<typeof OrchestratorResultSchema>;

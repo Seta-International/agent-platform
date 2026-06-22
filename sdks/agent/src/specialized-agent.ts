@@ -20,6 +20,10 @@ export interface SpecializedAgentRunCtx {
    *  RequestContext so cross-module read tools can re-check access. Empty when
    *  the caller (queued runner, direct call) has no session. */
   effectivePermissions?: ReadonlySet<string>;
+  /** The actor's role summary, threaded onto the RequestContext as
+   *  `role_summary` so audience-aware tools (e.g. the ARIA performance tools)
+   *  can resolve HR/Leader/BOD framing. Absent ⇒ fail safe to least privilege. */
+  roleSummary?: { roles: readonly string[]; cross_tenant_read: boolean };
   abortSignal?: AbortSignal;
   /** The real chat thread id (inline chat runs only). Conversation-scoped
    *  memory (entity recorder, task-ref resolver) keys on this — never on
