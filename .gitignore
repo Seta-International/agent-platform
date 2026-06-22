@@ -88,4 +88,3 @@ apps/cli/seed/data/employees.csv
 
 # Converted fixtures from employees.xlsx (real employee PII — never committed)
 fixtures/seta/
-apps/cli/fixtures/seta/
