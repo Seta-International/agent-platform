@@ -108,7 +108,9 @@ export function UtilizationPanel() {
         </div>
 
         {error ? (
-          <div className="text-body-sm text-[color:var(--accent)]">{(error as Error).message}</div>
+          <div className="text-body-sm text-[color:var(--color-danger)]">
+            {(error as Error).message}
+          </div>
         ) : isLoading ? (
           <div className="text-body-sm text-ink-muted">Loading…</div>
         ) : filtered.length === 0 ? (
@@ -124,10 +126,10 @@ export function UtilizationPanel() {
               {slice.map((r: UtilizationRow) => {
                 const free = r.total_pct < 100 ? 100 - r.total_pct : 0;
                 const totalColor = r.over_allocated
-                  ? 'var(--accent)'
+                  ? 'var(--color-danger)'
                   : r.total_pct >= 70
-                    ? 'var(--positive)'
-                    : 'var(--warning)';
+                    ? 'var(--color-success)'
+                    : 'var(--color-warning)';
                 return (
                   <button
                     key={r.worker_id}

@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import type { ColumnDef, Row } from '@tanstack/react-table';
 import { BarChart3 } from 'lucide-react';
-import { useCallback, useMemo } from 'react';
+import { type CSSProperties, useCallback, useMemo } from 'react';
 import {
   type AllocationGrid,
   type AllocationGridRow,
@@ -14,6 +14,18 @@ import { UtilizationPanel } from '../components/utilization-panel.tsx';
 import { peopleKeys } from '../state/query-keys.ts';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// Heatmap fill by planned-allocation level (matches the design prototype): green = fully loaded,
+// blue = high, amber = mid, red = light. Empty/zero months stay uncolored.
+function heatStyle(v: number | null | undefined): CSSProperties {
+  if (v == null || v === 0) return {};
+  if (v >= 100)
+    return { background: 'var(--color-success-tint)', color: 'var(--color-success-ink)' };
+  if (v >= 75) return { background: 'var(--color-info-tint)', color: 'var(--color-info-ink)' };
+  if (v >= 50)
+    return { background: 'var(--color-warning-tint)', color: 'var(--color-warning-ink)' };
+  return { background: 'var(--color-danger-tint)', color: 'var(--color-danger-ink)' };
+}
 
 function Kpi({
   label,
@@ -28,11 +40,11 @@ function Kpi({
 }) {
   const color =
     tone === 'positive'
-      ? 'var(--positive)'
+      ? 'var(--color-success)'
       : tone === 'warning'
-        ? 'var(--warning)'
+        ? 'var(--color-warning)'
         : tone === 'accent'
-          ? 'var(--accent)'
+          ? 'var(--color-danger)'
           : undefined;
   return (
     <Card>
@@ -85,7 +97,7 @@ export function AllocationPage() {
     (row: Row<AllocationGridRow>) =>
       cn(
         (workerBand.get(row.original.worker_id) ?? 0) % 2 === 1 && 'bg-surface-1',
-        overWorkers.has(row.original.worker_id) && 'border-l-2 border-[color:var(--accent)]',
+        overWorkers.has(row.original.worker_id) && 'border-l-2 border-[color:var(--color-danger)]',
       ),
     [workerBand, overWorkers],
   );
@@ -101,15 +113,14 @@ export function AllocationPage() {
         const isOver = v != null && (overByWorkerMonth.get(r.worker_id)?.has(mi) ?? false);
         const total = totalsByWorker.get(r.worker_id)?.[mi];
         return (
-          <div
-            className="text-center font-mono text-[12px]"
-            title={isOver ? `Total ${total}% this month` : undefined}
-          >
+          <div className="flex justify-center">
             <span
-              className={isOver ? 'rounded-sm px-1' : undefined}
-              style={
-                isOver ? { outline: '1px solid var(--accent)', outlineOffset: '-1px' } : undefined
-              }
+              className="inline-block w-9 rounded-[5px] py-0.5 text-center font-mono text-[11px] font-semibold tabular-nums"
+              title={isOver ? `Total ${total}% this month` : undefined}
+              style={{
+                ...heatStyle(v),
+                ...(isOver ? { boxShadow: 'inset 0 0 0 2px rgba(229,72,77,.75)' } : {}),
+              }}
             >
               {v == null ? '' : v}
             </span>
@@ -178,7 +189,7 @@ export function AllocationPage() {
 
         {error ? (
           <Card>
-            <CardContent className="p-4 text-body-sm text-[color:var(--accent)]">
+            <CardContent className="p-4 text-body-sm text-[color:var(--color-danger)]">
               {(error as Error).message}
             </CardContent>
           </Card>
