@@ -3,7 +3,6 @@ import { coreDb } from '@seta/core/db';
 import { approveCharter, createAccount, createAllocation, submitCharter } from '@seta/pm';
 import { sql } from 'drizzle-orm';
 import pino from 'pino';
-import { accountFor } from './account-map.ts';
 import type { AllocationRec, ProjectRec } from './load.ts';
 
 const log = pino({ name: 'cli/seed-fixture/pm' });
@@ -86,22 +85,24 @@ export async function seedPm(
   const pmByCode = new Map<string, { workerId: string; userId: string }>();
 
   for (const p of projects) {
-    const acc = accountFor(p.project_name);
+    // Account, industry and AM now come from the fixture (projects.csv) — self-describing data.
+    const accountName = p.account_name || 'SETA Internal';
+    const amWorkerId = p.am_employee_id ? people.get(p.am_employee_id)?.workerId : undefined;
 
     // Account — idempotent on name
     let aid =
-      accountByName.get(acc.account_name) ??
-      (await findAccountId(session.tenant_id, acc.account_name));
+      accountByName.get(accountName) ?? (await findAccountId(session.tenant_id, accountName));
     if (!aid) {
       const created = await createAccount({
-        name: acc.account_name,
-        industry: acc.industry,
+        name: accountName,
+        industry: p.account_industry || 'Internal',
+        am_worker_id: amWorkerId,
         session,
       });
       aid = created.account_id;
-      log.info({ account_name: acc.account_name }, 'created account');
+      log.info({ account_name: accountName, am_worker_id: amWorkerId ?? null }, 'created account');
     }
-    accountByName.set(acc.account_name, aid);
+    accountByName.set(accountName, aid);
 
     // Project — idempotent on name
     let pid = await findProjectId(session.tenant_id, p.project_name);

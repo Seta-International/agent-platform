@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse } from 'csv-parse/sync';
 
@@ -16,7 +16,15 @@ export interface ProjectRec {
   account_name: string;
   account_industry: string;
   dept: string;
+  am_employee_id: string;
   pm_employee_id: string;
+}
+
+/** Org leadership: who heads / sits in which unit, overriding allocation-derived placement. */
+export interface LeadershipRec {
+  employee_id: string;
+  org_unit: string;
+  head: string;
 }
 
 export interface AllocationRec {
@@ -49,5 +57,9 @@ export function loadFixtures(dir: string) {
     man_days: Number(r['man_days']),
     month: r['month'] ?? '',
   }));
-  return { employees, projects, allocations };
+  // Optional — fixtures without leadership data fall back to allocation-derived placement.
+  const leadership = existsSync(join(dir, 'leadership.csv'))
+    ? read<LeadershipRec>(dir, 'leadership.csv')
+    : [];
+  return { employees, projects, allocations, leadership };
 }
