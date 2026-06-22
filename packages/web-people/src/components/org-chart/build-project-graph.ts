@@ -18,8 +18,9 @@ export function buildProjectGraph(
       data: {
         title: p.name,
         subtitle: `${p.members.length} member${p.members.length === 1 ? '' : 's'}`,
-        tone: 'solid',
+        tone: 'surface',
         avatarShape: 'square',
+        entity: 'project',
         count: p.members.length || undefined,
       },
     });
@@ -33,6 +34,7 @@ export function buildProjectGraph(
           subtitle: m.is_lead ? 'Lead' : 'Member',
           tone: 'surface',
           avatarShape: 'circle',
+          entity: 'person',
           personId: m.person_id,
         },
       });

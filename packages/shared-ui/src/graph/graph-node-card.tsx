@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import type { CSSProperties, KeyboardEvent, MouseEvent } from 'react';
+import type { CSSProperties, KeyboardEvent, MouseEvent, ReactNode } from 'react';
 import { cn } from '../lib/cn';
 import { initialsOf } from '../lib/initials';
 import { Avatar, AvatarFallback, AvatarImage } from '../primitives/avatar';
@@ -12,6 +12,10 @@ export interface GraphNodeCardProps {
   tone?: GraphNodeTone;
   avatarSrc?: string;
   avatarShape?: 'circle' | 'square';
+  /** Glyph rendered in the avatar slot instead of name initials (signals node type). */
+  icon?: ReactNode;
+  /** Type accent color (any CSS color). Drives the left rail + icon/avatar tint. */
+  accent?: string;
   count?: number;
   selected?: boolean;
   interactive?: boolean;
@@ -53,6 +57,8 @@ export function GraphNodeCard({
   tone = 'surface',
   avatarSrc,
   avatarShape = 'circle',
+  icon,
+  accent,
   count,
   selected,
   interactive = true,
@@ -67,12 +73,22 @@ export function GraphNodeCard({
   const hue = hueFromString(title);
   const shapeCls = avatarShape === 'circle' ? 'rounded-full' : 'rounded-md';
 
-  const ringStyle: CSSProperties | undefined =
-    tone === 'primary'
-      ? { boxShadow: '0 0 0 3px var(--color-primary-tint)' }
-      : selected
-        ? { boxShadow: '0 0 0 2px var(--color-primary)' }
-        : undefined;
+  // Compose the box-shadow: a soft base, an optional type accent rail on the left, and the
+  // primary/selected ring. Inline boxShadow overrides the `shadow-sm` class, so re-state the base.
+  const shadows = ['0 1px 2px rgb(0 0 0 / 0.06)'];
+  if (accent) shadows.push(`inset 3px 0 0 ${accent}`);
+  if (tone === 'primary') shadows.push('0 0 0 3px var(--color-primary-tint)');
+  else if (selected) shadows.push('0 0 0 2px var(--color-primary)');
+  const ringStyle: CSSProperties = { boxShadow: shadows.join(', ') };
+
+  // Icon nodes (department/account/project) tint the avatar with the type accent; person nodes
+  // keep the deterministic name-hue initials.
+  const avatarStyle: CSSProperties = icon
+    ? {
+        background: accent ? `color-mix(in oklch, ${accent} 16%, transparent)` : undefined,
+        color: accent,
+      }
+    : { background: `hsl(${hue} 60% 88%)`, color: `hsl(${hue} 40% 22%)` };
 
   function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
     if (!onClick) return;
@@ -101,10 +117,10 @@ export function GraphNodeCard({
       <Avatar className={cn('h-9 w-9', shapeCls)}>
         {avatarSrc && <AvatarImage src={avatarSrc} alt={title} />}
         <AvatarFallback
-          className={cn(shapeCls)}
-          style={{ background: `hsl(${hue} 60% 88%)`, color: `hsl(${hue} 40% 22%)` }}
+          className={cn(shapeCls, '[&>svg]:h-[18px] [&>svg]:w-[18px]')}
+          style={avatarStyle}
         >
-          {initialsOf(title)}
+          {icon ?? initialsOf(title)}
         </AvatarFallback>
       </Avatar>
       <div className="min-w-0">

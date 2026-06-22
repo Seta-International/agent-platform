@@ -10,6 +10,19 @@ describe('GraphNodeCard', () => {
     expect(screen.getByText('VT')).toBeInTheDocument();
   });
 
+  it('renders the type icon instead of initials when icon is provided', () => {
+    render(
+      <GraphNodeCard
+        title="Acme Account"
+        icon={<svg data-testid="type-glyph" aria-hidden />}
+        accent="#207087"
+      />,
+    );
+    expect(screen.getByTestId('type-glyph')).toBeInTheDocument();
+    // initials fallback is suppressed when an icon is supplied
+    expect(screen.queryByText('AA')).not.toBeInTheDocument();
+  });
+
   it('renders a count pill only when count is provided', () => {
     const { rerender } = render(<GraphNodeCard title="Delivery" />);
     expect(screen.queryByText('4')).not.toBeInTheDocument();

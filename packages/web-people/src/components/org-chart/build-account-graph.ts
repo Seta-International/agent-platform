@@ -15,6 +15,7 @@ function memberNode(
       subtitle: m.is_lead ? 'Lead' : 'Member',
       tone: 'surface',
       avatarShape: 'circle',
+      entity: 'person',
       personId: m.person_id,
     },
   };
@@ -36,8 +37,9 @@ export function buildAccountGraph(
     data: {
       title: acc.name,
       subtitle: acc.am ? `AM: ${acc.am.full_name}` : undefined,
-      tone: 'solid',
+      tone: 'surface',
       avatarShape: 'square',
+      entity: 'account',
       count: acc.projects.length || undefined,
     },
   });
@@ -52,7 +54,9 @@ export function buildAccountGraph(
         subtitle: `${p.members.length} member${p.members.length === 1 ? '' : 's'}`,
         tone: 'surface',
         avatarShape: 'square',
+        entity: 'project',
         count: p.members.length || undefined,
+        nav: { view: 'project', projectId: p.project_id, accountId: acc.account_id },
       },
     });
     edges.push({

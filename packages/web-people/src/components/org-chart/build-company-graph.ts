@@ -1,16 +1,27 @@
 import type { Edge, Node } from '@xyflow/react';
 import type { CompanyNode } from '../../api/org-client.ts';
-import { EDGE, layout, type OrgGraphNodeData } from './graph-layout.ts';
+import { EDGE, layout, type OrgGraphNodeData, type OrgNodeEntity } from './graph-layout.ts';
 
 export type { OrgGraphNodeData } from './graph-layout.ts';
 
-function tone(kind: CompanyNode['kind']): OrgGraphNodeData['tone'] {
-  if (kind === 'executive') return 'primary';
-  if (kind === 'am' || kind === 'account') return 'surface';
-  return 'solid';
+function entityOf(kind: CompanyNode['kind']): OrgNodeEntity {
+  if (kind === 'am') return 'person';
+  if (kind === 'account') return 'account';
+  return 'department';
 }
 
 function toNode(c: CompanyNode): Node<OrgGraphNodeData> {
+  const entity = entityOf(c.kind);
+  // Executive carries the brand-primary emphasis; everything else is a clean surface card whose
+  // type reads from its accent rail + icon.
+  const tone: OrgGraphNodeData['tone'] = c.kind === 'executive' ? 'primary' : 'surface';
+  // Navigation: the Delivery unit drills to the Account view; an account box opens that account.
+  const nav: OrgGraphNodeData['nav'] =
+    c.kind === 'delivery'
+      ? { view: 'account' }
+      : c.kind === 'account' && c.account_id
+        ? { view: 'account', accountId: c.account_id }
+        : undefined;
   return {
     id: c.id,
     type: 'org',
@@ -18,11 +29,12 @@ function toNode(c: CompanyNode): Node<OrgGraphNodeData> {
     data: {
       title: c.label,
       subtitle: c.sublabel,
-      tone: tone(c.kind),
-      avatarShape: c.kind === 'am' ? 'circle' : 'square',
+      tone,
+      avatarShape: entity === 'person' ? 'circle' : 'square',
+      entity,
       count: c.count,
       personId: c.person_id,
-      accountId: c.account_id,
+      nav,
     },
   };
 }

@@ -2,14 +2,23 @@ import Dagre from '@dagrejs/dagre';
 import type { Edge, Node } from '@xyflow/react';
 import { MarkerType, Position } from '@xyflow/react';
 
+/** Visual type of a node — drives its icon, accent rail and avatar shape. */
+export type OrgNodeEntity = 'department' | 'person' | 'account' | 'project';
+
+/** Where a node click drills to. `person` nodes use `personId` instead. */
+export type OrgNav =
+  | { view: 'account'; accountId?: string }
+  | { view: 'project'; projectId: string; accountId?: string };
+
 export interface OrgGraphNodeData extends Record<string, unknown> {
   title: string;
   subtitle?: string;
   tone: 'surface' | 'solid' | 'primary';
   avatarShape: 'circle' | 'square';
+  entity: OrgNodeEntity;
   count?: number;
   personId?: string;
-  accountId?: string;
+  nav?: OrgNav;
 }
 
 const NODE_W = 210;

@@ -39,15 +39,20 @@ describe('buildCompanyGraph', () => {
     // function box keeps its count
     expect(nodes.find((n) => n.id === 'unit:bo')!.data.count).toBe(3);
 
-    // AM node is a clickable circle carrying personId
+    // AM node is a clickable person circle carrying personId
     const am = nodes.find((n) => n.id === 'am:p1')!;
     expect(am.data.avatarShape).toBe('circle');
+    expect(am.data.entity).toBe('person');
     expect(am.data.personId).toBe('p1');
 
-    // account node is a square carrying accountId
+    // account node is a square that drills to its account view
     const acct = nodes.find((n) => n.id === 'account:a1')!;
     expect(acct.data.avatarShape).toBe('square');
-    expect(acct.data.accountId).toBe('a1');
+    expect(acct.data.entity).toBe('account');
+    expect(acct.data.nav).toEqual({ view: 'account', accountId: 'a1' });
+
+    // the Delivery unit drills to the Account view
+    expect(nodes.find((n) => n.id === 'unit:del')!.data.nav).toEqual({ view: 'account' });
 
     // edges: one per non-null parent_id (exec has none)
     expect(edges).toHaveLength(5);
