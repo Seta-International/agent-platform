@@ -60,6 +60,11 @@ jobs:
           MICROSOFT_CLIENT_ID:     ${{ vars.MICROSOFT_CLIENT_ID }}
           MICROSOFT_CLIENT_SECRET: ${{ secrets.MICROSOFT_CLIENT_SECRET }}
           M365_WEBHOOK_SECRET:     ${{ secrets.M365_WEBHOOK_SECRET }}
+          # M365 Planner Graph app — lets `db:seed` (re)provision the tenant's
+          # m365_tenant_config, so a clean DB re-init self-heals group/plan sync.
+          M365_GRAPH_TENANT_ID:     ${{ vars.M365_GRAPH_TENANT_ID }}
+          M365_GRAPH_CLIENT_ID:     ${{ vars.M365_GRAPH_CLIENT_ID }}
+          M365_GRAPH_CLIENT_SECRET: ${{ secrets.M365_GRAPH_CLIENT_SECRET }}
           # Outbound mail via Office 365 SMTP + optional Graph /sendMail.
           MAILER_DEFAULT_SMTP_URL:    ${{ secrets.MAILER_DEFAULT_SMTP_URL }}
           MAILER_GRAPH_CLIENT_ID:     ${{ vars.MAILER_GRAPH_CLIENT_ID }}
@@ -123,6 +128,9 @@ jobs:
           MICROSOFT_CLIENT_ID=${MICROSOFT_CLIENT_ID}
           MICROSOFT_CLIENT_SECRET=${MICROSOFT_CLIENT_SECRET}
           M365_WEBHOOK_SECRET=${M365_WEBHOOK_SECRET}
+          M365_GRAPH_TENANT_ID=${M365_GRAPH_TENANT_ID}
+          M365_GRAPH_CLIENT_ID=${M365_GRAPH_CLIENT_ID}
+          M365_GRAPH_CLIENT_SECRET=${M365_GRAPH_CLIENT_SECRET}
           EOF
 
           # S3 object storage — provided by the standalone MinIO installed on this
