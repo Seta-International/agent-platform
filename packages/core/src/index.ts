@@ -56,6 +56,7 @@ export { CORE_FEATURE_FLAG_EVENTS, CORE_FEATURE_FLAG_UPDATED } from './flags/eve
 export { isFeatureEnabled } from './flags/is-feature-enabled.ts';
 export { type FeatureFlagView, listFeatureFlags } from './flags/list.ts';
 export { SetaFeatureProvider } from './flags/provider.ts';
+export { requireFeature } from './flags/require-feature.ts';
 export { resolveFeatures } from './flags/resolve-features.ts';
 export { setFeatureFlag } from './flags/set-feature-flag.ts';
 export {
