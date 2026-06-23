@@ -48,7 +48,7 @@ export function registerFeatureFlagsRoutes(app: Hono<SessionEnv>): void {
       });
     }
     const search = c.req.query('search') ?? undefined;
-    const pageSize = Math.min(parseInt(c.req.query('pageSize') ?? '20', 10), 50);
+    const pageSize = Math.min(parseInt(c.req.query('pageSize') ?? '20', 10) || 20, 50);
     const result = await listUsers(scope.tenant_id, { search, limit: pageSize, offset: 0 });
     return c.json({
       rows: result.rows.map((u) => ({

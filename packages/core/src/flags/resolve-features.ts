@@ -38,17 +38,21 @@ export async function resolveFeatures(
     });
   }
 
-  await coreDb()
-    .insert(coreFeatureFlagExposure)
-    .values(rows)
-    .onConflictDoUpdate({
-      target: [coreFeatureFlagExposure.flag_key, coreFeatureFlagExposure.user_id],
-      set: {
-        result: sql`excluded.result`,
-        tenant_id: sql`excluded.tenant_id`,
-        last_evaluated_at: sql`excluded.last_evaluated_at`,
-      },
-    });
+  try {
+    await coreDb()
+      .insert(coreFeatureFlagExposure)
+      .values(rows)
+      .onConflictDoUpdate({
+        target: [coreFeatureFlagExposure.flag_key, coreFeatureFlagExposure.user_id],
+        set: {
+          result: sql`excluded.result`,
+          tenant_id: sql`excluded.tenant_id`,
+          last_evaluated_at: sql`excluded.last_evaluated_at`,
+        },
+      });
+  } catch (err) {
+    console.warn({ err, tenantId, userId }, 'feature-flag exposure upsert failed (non-blocking)');
+  }
 
   return enabled;
 }
