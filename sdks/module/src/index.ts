@@ -38,6 +38,8 @@ export interface AppManifest {
   /** Optional launcher-tile accent colour (CSS colour string). */
   color?: string;
   requiredPermissions: PermissionKey[];
+  /** Feature-flag key gating this app's launcher/nav visibility; absent = always visible (subject to RBAC). */
+  requiredFeature?: string;
   /**
    * Sections grouping nav items inside this module. Every manifest must declare
    * at least one section; single-section modules pass a single entry.
