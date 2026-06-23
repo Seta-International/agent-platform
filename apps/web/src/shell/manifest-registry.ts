@@ -2,6 +2,7 @@ import type { AppManifest, NavItem, NavSection } from '@seta/module-sdk';
 
 export interface SessionLike {
   permissions: ReadonlySet<string>;
+  features?: ReadonlySet<string>;
 }
 
 function matches(required: readonly string[], session: SessionLike): boolean {
@@ -15,6 +16,7 @@ export function visibleManifests(
 ): AppManifest[] {
   return manifests.filter((m) => {
     if (!enabledModuleIds.has(m.id)) return false;
+    if (m.requiredFeature && !session.features?.has(m.requiredFeature)) return false;
     return matches(m.requiredPermissions, session);
   });
 }

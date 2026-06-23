@@ -1,10 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import type { SessionScopeProjection } from '../../../src/api/client.ts';
-import { Can } from '../../../src/components/Can.tsx';
+import { Can, Feature } from '../../../src/components/Can.tsx';
 import { SessionProvider } from '../../../src/index.ts';
 
-function makeSession(permissions: string[]): SessionScopeProjection {
+function makeSession(permissions: string[], features: string[] = []): SessionScopeProjection {
   return {
     user_id: 'u-1',
     tenant_id: 't-1',
@@ -14,6 +14,7 @@ function makeSession(permissions: string[]): SessionScopeProjection {
     display_name: 'Ada Lovelace',
     role_summary: { roles: [], cross_tenant_read: false },
     permissions,
+    features,
     accessible_group_ids: [],
     cross_tenant_read: false,
     tenant_local_password_disabled: false,
@@ -41,5 +42,29 @@ describe('Can', () => {
       </SessionProvider>,
     );
     expect(screen.queryByText('visible')).not.toBeInTheDocument();
+  });
+});
+
+describe('Feature', () => {
+  it('renders children when the session has the feature', () => {
+    render(
+      <SessionProvider session={makeSession([], ['hiring'])}>
+        <Feature feature="hiring">
+          <span>enabled</span>
+        </Feature>
+      </SessionProvider>,
+    );
+    expect(screen.getByText('enabled')).toBeInTheDocument();
+  });
+
+  it('hides children when the session lacks the feature', () => {
+    render(
+      <SessionProvider session={makeSession([], [])}>
+        <Feature feature="hiring">
+          <span>enabled</span>
+        </Feature>
+      </SessionProvider>,
+    );
+    expect(screen.queryByText('enabled')).not.toBeInTheDocument();
   });
 });

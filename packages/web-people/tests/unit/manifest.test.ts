@@ -6,6 +6,10 @@ describe('peopleAppManifest', () => {
     expect(peopleAppManifest.routeNamespace).toBe('/people');
   });
 
+  it('gates visibility on the people feature flag', () => {
+    expect(peopleAppManifest.requiredFeature).toBe('people');
+  });
+
   it('declares the five People tabs in order', () => {
     const section = peopleAppManifest.nav.find((s) => s.label === 'People');
     expect(section?.items.map((i) => [i.label, i.to])).toEqual([

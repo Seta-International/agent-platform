@@ -11,3 +11,12 @@ export function usePermission(permission: PermissionKey): boolean {
 export function Can({ permission, children }: { permission: PermissionKey; children: ReactNode }) {
   return usePermission(permission) ? children : null;
 }
+
+export function useFeature(feature: string): boolean {
+  const session = useSession();
+  return (session.features ?? []).includes(feature);
+}
+
+export function Feature({ feature, children }: { feature: string; children: ReactNode }) {
+  return useFeature(feature) ? children : null;
+}

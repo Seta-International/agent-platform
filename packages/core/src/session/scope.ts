@@ -20,6 +20,12 @@ export type ResolvePermissions = (
   tenantId: string,
 ) => Promise<ReadonlySet<string>>;
 
+export type ResolveFeatures = (
+  tenantId: string,
+  userId: string,
+  roles: readonly string[],
+) => Promise<ReadonlySet<string>>;
+
 export interface SessionScope {
   session_id: string;
   user_id: string;
@@ -29,6 +35,7 @@ export interface SessionScope {
   role_summary: { roles: string[]; cross_tenant_read: boolean };
   role_summary_hash: string;
   permissions: ReadonlySet<string>;
+  features: ReadonlySet<string>;
   accessible_group_ids: ReadonlyArray<string>;
   cross_tenant_read: boolean;
   built_at: Date;
@@ -63,12 +70,17 @@ export function computeAccessibleGroups(grants: ReadonlyArray<RoleGrant>): Reado
 }
 
 export async function getSessionScope(
-  deps: { listRoleGrants: ListRoleGrants; resolvePermissions: ResolvePermissions },
+  deps: {
+    listRoleGrants: ListRoleGrants;
+    resolvePermissions: ResolvePermissions;
+    resolveFeatures?: ResolveFeatures;
+  },
   sessionId: string,
   userId: string,
   email: string,
   displayName: string,
 ): Promise<SessionScope> {
+  const resolveFeatures = deps.resolveFeatures ?? (async () => new Set<string>());
   const hit = hot.get(sessionId);
   if (hit && !hit.invalidated_at) return hit;
 
@@ -81,6 +93,11 @@ export async function getSessionScope(
     const permissions = await deps.resolvePermissions(
       (cached.role_summary as { roles: string[] }).roles,
       cached.tenant_id,
+    );
+    const features = await resolveFeatures(
+      cached.tenant_id,
+      cached.user_id,
+      (cached.role_summary as { roles: string[] }).roles,
     );
     const scope: SessionScope = {
       session_id: cached.session_id,
@@ -95,6 +112,7 @@ export async function getSessionScope(
       email,
       display_name: displayName,
       permissions,
+      features,
     };
     hot.set(sessionId, scope);
     return scope;
@@ -103,6 +121,7 @@ export async function getSessionScope(
   const { tenant_id, grants } = await deps.listRoleGrants(userId);
   const role_summary = rollup(grants);
   const permissions = await deps.resolvePermissions(role_summary.roles, tenant_id);
+  const features = await resolveFeatures(tenant_id, userId, role_summary.roles);
   const scope: SessionScope = {
     session_id: sessionId,
     user_id: userId,
@@ -116,6 +135,7 @@ export async function getSessionScope(
     built_at: new Date(),
     invalidated_at: null,
     permissions,
+    features,
   };
 
   await coreDb()
@@ -168,6 +188,12 @@ export function evictHotByTenant(tenantId: string): number {
       n++;
     }
   }
+  return n;
+}
+
+export function evictHotAll(): number {
+  const n = hot.size;
+  hot.clear();
   return n;
 }
 

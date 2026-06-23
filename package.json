@@ -25,6 +25,7 @@
     "db:down": "docker compose -f infra/docker/compose.dev.yml down",
     "db:migrate": "pnpm -F @seta/cli exec tsx src/index.ts migrate",
     "db:seed": "pnpm -F @seta/cli exec tsx src/index.ts seed",
+    "flag": "pnpm -F @seta/cli exec tsx src/index.ts flag",
     "db:reset": "docker compose -f infra/docker/compose.dev.yml down -v && pnpm db:up && sleep 3 && pnpm db:migrate && pnpm db:seed",
     "demo:bootstrap": "bash scripts/demo-bootstrap.sh",
     "smoke:login": "tsx apps/web/e2e/login.smoke.ts",

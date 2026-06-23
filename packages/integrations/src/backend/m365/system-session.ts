@@ -36,6 +36,7 @@ export function buildSystemSession(tenantId: string): PlannerSessionScope {
     cross_tenant_read: false,
     built_at: new Date(),
     invalidated_at: null,
+    features: new Set<string>(),
     actor: { kind: 'system', system_id: 'integrations.m365' },
   };
 }

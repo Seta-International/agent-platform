@@ -6,7 +6,7 @@ export type {
   TenantUserRow,
 } from './api/client.ts';
 export { fetchMe, listTenantUsers } from './api/client.ts';
-export { usePermission } from './components/Can.tsx';
+export { Can, Feature, useFeature, usePermission } from './components/Can.tsx';
 export { LoginCard } from './components/LoginCard.tsx';
 export { ProfileAccountSection } from './components/ProfileAccountSection.tsx';
 export { ProfileAvailabilitySection } from './components/ProfileAvailabilitySection.tsx';
