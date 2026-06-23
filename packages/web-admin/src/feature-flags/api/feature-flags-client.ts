@@ -13,6 +13,8 @@ export interface FeatureFlagView {
   enabled_for_all: boolean;
   allowlist_user_ids: string[];
   strategies: { kind: string; config?: Record<string, unknown> }[];
+  default_enabled: boolean;
+  is_overridden: boolean;
   usage: FeatureFlagUsage;
 }
 

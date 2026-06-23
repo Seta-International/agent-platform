@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm';
 import { coreFeatureFlags } from '../db/schema/index.ts';
 import { emit } from '../events/emit.ts';
 import { withEmit } from '../events/with-emit.ts';
+import { evictTenantFlags, resetFlagCache } from './cache.ts';
 import { isKnownFlagKey } from './catalog.ts';
 import { CORE_FEATURE_FLAG_UPDATED } from './events.ts';
 import { getStrategy } from './strategies.ts';
@@ -89,4 +90,11 @@ export async function applyFeatureFlag(params: {
       });
     },
   );
+
+  // Read-after-write consistency on this instance: the event subscriber only
+  // evicts after async bus delivery, so an immediate admin re-read would hit a
+  // stale flag-cache entry. Evict synchronously now that the tx has committed;
+  // the subscriber still handles eviction on other instances.
+  if (params.tenantId === null) resetFlagCache();
+  else evictTenantFlags(params.tenantId);
 }

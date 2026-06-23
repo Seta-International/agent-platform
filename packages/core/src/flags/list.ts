@@ -13,6 +13,10 @@ export interface FeatureFlagView {
   enabled_for_all: boolean;
   allowlist_user_ids: string[];
   strategies: FlagStrategyConfig[];
+  /** Catalog fallback applied when no override row exists for this tenant. */
+  default_enabled: boolean;
+  /** True when a tenant/global row overrides the catalog default. */
+  is_overridden: boolean;
   usage: FeatureFlagUsage;
 }
 
@@ -33,6 +37,8 @@ export async function listFeatureFlags(session: SessionScope): Promise<FeatureFl
         ? (allow.config.userIds as string[])
         : [],
       strategies,
+      default_enabled: def.defaultEnabled ?? false,
+      is_overridden: row !== undefined,
       usage: await getFeatureFlagUsage(session, def.key),
     });
   }
