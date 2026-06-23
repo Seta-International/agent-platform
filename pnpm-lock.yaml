@@ -152,6 +152,9 @@ importers:
       '@microsoft/microsoft-graph-client':
         specifier: ^3.0.7
         version: 3.0.7(@azure/identity@4.13.1)
+      '@openfeature/server-sdk':
+        specifier: ^1.22.0
+        version: 1.22.0(@openfeature/core@1.11.0)
       '@opentelemetry/api':
         specifier: ^1.9.1
         version: 1.9.1
