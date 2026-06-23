@@ -3,7 +3,7 @@ import { OpenFeature } from '@openfeature/server-sdk';
 import { registerIdentityContributions } from '@seta/identity/register';
 import { initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
-import { and, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
 import { coreDb, resetCoreDb } from '../../src/db/client.ts';
 import { coreFeatureFlagExposure, coreFeatureFlags } from '../../src/db/schema/index.ts';
