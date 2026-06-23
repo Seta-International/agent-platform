@@ -38,6 +38,7 @@ const SRC_ALLOWLIST = new Set([
   'contracts.ts',
   'contracts',
   'register.ts',
+  'flags.ts',
   'models.ts',
   'agent-tools.ts',
   'agent-reads.ts',
