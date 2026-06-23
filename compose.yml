@@ -393,6 +393,11 @@ services:
       CRYPTO_LOCAL_KEYS: ${CRYPTO_LOCAL_KEYS:-}
       CRYPTO_LOCAL_PRIMARY_KID: ${CRYPTO_LOCAL_PRIMARY_KID:-}
       AWS_REGION: ${AWS_REGION:-}
+      # M365 Planner Graph app — seed (re)provisions integrations.m365_tenant_config
+      # when these are set, so a clean DB re-init self-heals group/plan sync.
+      M365_GRAPH_TENANT_ID: ${M365_GRAPH_TENANT_ID:-}
+      M365_GRAPH_CLIENT_ID: ${M365_GRAPH_CLIENT_ID:-}
+      M365_GRAPH_CLIENT_SECRET: ${M365_GRAPH_CLIENT_SECRET:-}
     networks:
       - seta-internal
       - seta-edge  # egress to reach an external DB (RDS) when bundled postgres is off

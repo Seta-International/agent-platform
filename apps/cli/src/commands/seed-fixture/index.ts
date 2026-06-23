@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import pino from 'pino';
+import { provisionM365FromEnv } from '../lib/m365-provision.ts';
 import { resolveTenantId } from '../lib/tenant-resolve.ts';
 import { buildAdminSession } from '../seed.ts';
 import { tenantCreateCommand } from '../tenant-create.ts';
@@ -37,6 +38,17 @@ export async function seedFixtureCommand(opts: {
   }
 
   const session = await buildAdminSession(tenantId, opts.adminEmail);
+
+  // M365: env-gated + idempotent. Re-provisions the tenant's Graph config on every
+  // reseed and re-encrypts under the current crypto key, so a DB reset or key
+  // rotation self-heals instead of needing a manual fix. No-op unless M365_GRAPH_*
+  // are set. Runs before the fixture-absent early return so deploys without the
+  // PII workbook still get M365. A failure here must not abort tenant/data seeding.
+  try {
+    await provisionM365FromEnv({ tenantId, env: process.env, log });
+  } catch (err) {
+    log.error({ err, tenant_id: tenantId }, 'M365 provisioning failed — continuing seed');
+  }
 
   // The fixture workbook holds real employee PII and is gitignored, so a fresh clone
   // won't have it. Degrade gracefully: tenant + admin are already provisioned above.
