@@ -10,6 +10,7 @@ import type { Task, TaskList } from 'graphile-worker';
 import type { Hono } from 'hono';
 import type { Pool } from 'pg';
 import type { z } from 'zod';
+import type { FlagDef } from '../flags/types.ts';
 import type { WorkerHandle } from '../runtime/workers/index.ts';
 
 export type JobHandler = Task;
@@ -81,6 +82,7 @@ export interface ModuleContribution {
   agentToolFactories?: AgentToolFactory[];
   agentSpecs?: AgentSpec[];
   workflows?: WorkflowContribution[];
+  flags?: FlagDef[];
   errorMapper?: ErrorMapper;
 }
 
@@ -102,6 +104,7 @@ export interface ContributionRegistry {
     errorMappers: ReadonlyArray<{ module: string; mapper: ErrorMapper }>;
     rbacManifests: ReadonlyArray<ModuleRbacManifest>;
     eventsByModule: ReadonlyMap<string, Record<string, z.ZodSchema>>;
+    flagCatalog: ReadonlyArray<FlagDef>;
   };
 }
 
@@ -121,6 +124,8 @@ export function createContributionRegistry(): ContributionRegistry {
   const errorMappers: { module: string; mapper: ErrorMapper }[] = [];
   const rbacManifests: ModuleRbacManifest[] = [];
   const eventsByModule = new Map<string, Record<string, z.ZodSchema>>();
+  const flagCatalog: FlagDef[] = [];
+  const seenFlagKeys = new Set<string>();
   const seenToolIds = new Set<string>();
   const seenAgentSpecIds = new Set<string>();
   const seenPermissionSlugs = new Set<string>();
@@ -187,6 +192,13 @@ export function createContributionRegistry(): ContributionRegistry {
       rbacManifests.push(c.rbac);
     }
     if (c.events) eventsByModule.set(c.name, c.events);
+    if (c.flags) {
+      for (const def of c.flags) {
+        if (seenFlagKeys.has(def.key)) throw new Error(`duplicate flag key: ${def.key}`);
+        seenFlagKeys.add(def.key);
+        flagCatalog.push(def);
+      }
+    }
   }
 
   return {
@@ -207,6 +219,7 @@ export function createContributionRegistry(): ContributionRegistry {
       errorMappers,
       rbacManifests,
       eventsByModule,
+      flagCatalog,
     },
   };
 }
