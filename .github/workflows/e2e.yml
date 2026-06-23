@@ -1,0 +1,98 @@
+name: E2E
+
+# Run Playwright against a live deployment and publish the HTML report behind
+# Traefik basic-auth. Plumbing only — test specs/fixtures are authored elsewhere.
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to test'
+        required: true
+        default: uat
+        type: choice
+        options: [uat]
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+
+concurrency:
+  group: e2e-${{ inputs.environment }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: E2E on ${{ inputs.environment }}
+    runs-on: [self-hosted, "${{ inputs.environment }}"]
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Ensure the report route is live
+        shell: bash
+        env:
+          PUBLIC_DOMAIN: ${{ vars.PUBLIC_DOMAIN }}
+          E2E_BASICAUTH_USERS: ${{ secrets.E2E_BASICAUTH_USERS }}
+          COMPOSE_PROJECT: ${{ vars.COMPOSE_PROJECT }}
+          ENV_FILE: ${{ vars.ENV_FILE }}
+        run: |
+          set -euo pipefail
+          bash scripts/write-e2e-route.sh
+          docker compose -p "$COMPOSE_PROJECT" --profile e2e-report --env-file "$ENV_FILE" \
+            up -d e2e-report
+
+      - name: Run Playwright (official container) against the live env
+        shell: bash
+        env:
+          PUBLIC_DOMAIN: ${{ vars.PUBLIC_DOMAIN }}
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          PW_VERSION=$(node -p "require('./apps/web/package.json').devDependencies['@playwright/test'].replace(/[^0-9.]/g,'')")
+          docker run --rm \
+            -v "$PWD":/work -w /work \
+            -e E2E_BASE_URL="https://${PUBLIC_DOMAIN}" \
+            -e E2E_ADMIN_EMAIL -e E2E_ADMIN_PASSWORD -e CI=1 \
+            "mcr.microsoft.com/playwright:v${PW_VERSION}-noble" \
+            bash -c "corepack enable && pnpm install --frozen-lockfile && pnpm --filter @seta/web exec playwright test" \
+            || echo "PLAYWRIGHT_FAILED=1" >> "$GITHUB_ENV"
+
+      - name: Publish report to the served volume
+        if: always()
+        shell: bash
+        env:
+          E2E_REPORTS_DIR: ${{ vars.E2E_REPORTS_DIR }}
+          PUBLIC_DOMAIN: ${{ vars.PUBLIC_DOMAIN }}
+        run: |
+          set -euo pipefail
+          dest_rel="${{ github.run_id }}-$(git rev-parse --short=12 HEAD)"
+          dest="${E2E_REPORTS_DIR}/${dest_rel}"
+          mkdir -p "$dest"
+          cp -r apps/web/playwright-report/. "$dest/"
+          ln -sfn "$dest_rel" "${E2E_REPORTS_DIR}/latest"
+          # Retain the 20 most recent report dirs (the `latest` symlink is type l,
+          # so -type d leaves it untouched).
+          find "${E2E_REPORTS_DIR}" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' \
+            | sort -rn | tail -n +21 | cut -d' ' -f2- | xargs -r rm -rf
+          {
+            echo "### E2E report"
+            echo ""
+            echo "https://e2e.${PUBLIC_DOMAIN}/${dest_rel}/"
+            echo ""
+            echo "Latest: https://e2e.${PUBLIC_DOMAIN}/latest/"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail the job if tests failed
+        if: always()
+        shell: bash
+        run: |
+          if [ "${PLAYWRIGHT_FAILED:-0}" = "1" ]; then
+            echo "❌ Playwright reported failures — see the report URL above"; exit 1
+          fi
+          echo "✅ E2E passed"

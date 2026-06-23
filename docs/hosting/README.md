@@ -9,6 +9,7 @@ Seta ships as two Docker images — `platform-server` (API + workers) and `platf
 - I want to run Seta on one VPS in 5 minutes. → [`docker-compose.md`](docker-compose.md)
 - I need the full list of environment variables. → [`configuration.md`](configuration.md)
 - I'm deploying on AWS. → [`aws.md`](aws.md)
+- I want the CI/CD flow (build once → ECR → pull-deploy to dev/UAT). → [`deploying.md`](deploying.md)
 - I want to use Coolify / Dokploy / Kamal. → [`community.md`](community.md) (not supported, documented for clarity)
 
 ## What you will not find here
@@ -36,4 +37,5 @@ Tag scheme: the server and web images share one repository, distinguished by a `
 | `docker-compose.md` | 5-minute self-host quickstart (the §19.3 contract). |
 | `configuration.md` | Exhaustive env var reference; mirrors `.env.example`. CI gate enforces. |
 | `aws.md` | Points at `infra/opentofu/aws-ecs/`, sketches the topology. |
+| `deploying.md` | CI/CD: `build.yml`/`deploy.yml`/`e2e.yml`, GitHub Environments, run/rollback. |
 | `community.md` | Coolify / Dokploy / Kamal mentions. Explicit "not supported" framing. |
