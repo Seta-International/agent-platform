@@ -61,6 +61,9 @@ importers:
 
   apps/cli:
     dependencies:
+      '@faker-js/faker':
+        specifier: ^10.5.0
+        version: 10.5.0
       '@seta/agent':
         specifier: workspace:^
         version: link:../../packages/agent
@@ -128,9 +131,6 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
-      '@faker-js/faker':
-        specifier: ^10.5.0
-        version: 10.5.0
       '@seta/shared-config':
         specifier: workspace:^
         version: link:../../packages/shared-config

@@ -2,6 +2,8 @@
 
 This document describes the production AWS deployment of Seta — topology, sizing, security, observability, runbooks, and cost. It targets operators running Seta in staging and production environments. The supported infrastructure-as-code implementation is the OpenTofu module at `infra/opentofu/aws-ecs/`, which provisions everything described below.
 
+> **Status:** this ECS/Fargate topology is the **target prod design and is not yet wired**. The **live dev + UAT deployment** uses the build-once / pull-deploy GitHub Actions flow onto a self-hosted box with managed RDS + S3 — see [`deploying.md`](deploying.md). Production slots into that same flow as a new GitHub Environment.
+
 For the underlying architecture, see [`../architecture.md`](../platform/architecture.md). For the rationale behind each AWS service choice, see [`../tech-stack.md`](../platform/tech-stack.md) §18–§20.
 
 ---

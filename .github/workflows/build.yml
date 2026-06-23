@@ -1,0 +1,92 @@
+name: Build
+
+# Build the server + web images once and push to ECR. Env-agnostic artifact:
+# every environment deploys by pulling these tags. Manual, and callable.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref to build (default: this branch HEAD)'
+        required: false
+        type: string
+  workflow_call:
+    inputs:
+      ref:
+        required: false
+        type: string
+    outputs:
+      image_tag:
+        description: 'Immutable git-<sha> tag that was pushed'
+        value: ${{ jobs.build.outputs.image_tag }}
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  id-token: write   # OIDC for AWS
+  contents: read
+
+jobs:
+  build:
+    name: Build + push to ECR
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    outputs:
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+
+      - name: Derive immutable tag from SHA
+        id: meta
+        shell: bash
+        run: |
+          echo "image_tag=git-$(git rev-parse --short=12 HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_BUILD_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Build + push server
+        uses: ./.github/actions/build-images
+        with:
+          image: seta-server
+          dockerfile: infra/docker/server.Dockerfile
+          platforms: linux/amd64
+          push: 'true'
+          ecr-registry: ${{ vars.ECR_REGISTRY }}
+          cache-ref: ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY }}:buildcache-server
+          tags: |
+            ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY }}:server-${{ steps.meta.outputs.image_tag }}
+            ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY }}:server-latest
+
+      - name: Build + push web
+        uses: ./.github/actions/build-images
+        with:
+          image: seta-web
+          dockerfile: infra/docker/web.Dockerfile
+          platforms: linux/amd64
+          push: 'true'
+          ecr-registry: ${{ vars.ECR_REGISTRY }}
+          cache-ref: ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY }}:buildcache-web
+          tags: |
+            ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY }}:web-${{ steps.meta.outputs.image_tag }}
+            ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY }}:web-latest
+
+      - name: Summary
+        shell: bash
+        run: |
+          {
+            echo "### Built image"
+            echo ""
+            echo "- **image_tag:** \`${{ steps.meta.outputs.image_tag }}\`"
+            echo "- server: \`server-${{ steps.meta.outputs.image_tag }}\`, \`server-latest\`"
+            echo "- web: \`web-${{ steps.meta.outputs.image_tag }}\`, \`web-latest\`"
+            echo ""
+            echo "Deploy with \`deploy\` workflow, \`image_tag = ${{ steps.meta.outputs.image_tag }}\` (or \`latest\`)."
+          } >> "$GITHUB_STEP_SUMMARY"

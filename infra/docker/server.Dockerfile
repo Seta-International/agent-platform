@@ -51,7 +51,6 @@ FROM deps AS sources
 COPY apps/server/  apps/server/
 COPY apps/cli/     apps/cli/
 COPY apps/worker/  apps/worker/
-COPY hackathon/data/ data/
 
 # Typecheck-only — fail the image build if the TS doesn't pass.
 RUN pnpm --filter=@seta/server exec tsc --noEmit \
@@ -77,13 +76,9 @@ RUN pnpm --filter=@seta/server deploy --prod --ignore-scripts --legacy /out/apps
 
 # Copy source files into the deploy tree (pnpm deploy ships `files`, but
 # these workspace apps don't declare `files`, so we explicitly include src/).
-# Seed CSVs land at apps/cli/hackathon/data so the CLI's default --dir
-# (./hackathon/data, resolved against the cli package cwd) works out of the box.
 RUN cp -R apps/server/src /out/apps/server/src \
  && cp -R apps/cli/src    /out/apps/cli/src \
- && cp -R apps/worker/src /out/apps/worker/src \
- && mkdir -p /out/apps/cli/hackathon \
- && cp -R data            /out/apps/cli/hackathon/data
+ && cp -R apps/worker/src /out/apps/worker/src
 
 # ============================================================================
 # Stage 5 — runtime
