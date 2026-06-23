@@ -669,6 +669,9 @@ importers:
       '@mastra/core':
         specifier: ^1.42.0
         version: 1.42.0(@grpc/grpc-js@1.14.4)(ai@6.0.200(zod@4.4.3))(express@5.2.1)(zod@4.4.3)
+      '@openfeature/server-sdk':
+        specifier: ^1.22.0
+        version: 1.22.0(@openfeature/core@1.11.0)
       '@opentelemetry/api':
         specifier: ^1.9.1
         version: 1.9.1
@@ -4433,6 +4436,15 @@ packages:
 
   '@open-draft/until@2.1.0':
     resolution: {integrity: sha512-U69T3ItWHvLwGg5eJ0n3I62nWuE6ilHlmz7zM0npLBRvPRd7e6NYmg54vvRtP5mZG7kZqZCFVdsTWo7BPtBujg==}
+
+  '@openfeature/core@1.11.0':
+    resolution: {integrity: sha512-P0u3/ht/oZCQT89fOed+laLk0kZR529a825cS02uPDglxXbE97irWYpDAeRGGVETIzKfuy+H2g8c3Ccv/tXJNQ==}
+
+  '@openfeature/server-sdk@1.22.0':
+    resolution: {integrity: sha512-YBrf6SQkn0FNB/dRAtLEs41dvFMUE8CrQTwI+iLaMFUIqWlqGNJfGnulKSneEKS+2OgKTAC6DdmKcZ6tK7kBcg==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      '@openfeature/core': ^1.11.0
 
   '@opentelemetry/api-logs@0.218.0':
     resolution: {integrity: sha512-fmEWp5kXlGEc3i/lR698Hz41DfGyN4Tbe4g7L1AxSc7fF8Xeh/FQ9Quqpa9dVA413Q1Ad43QOLzU4JoXgbFPWw==}
@@ -13859,6 +13871,12 @@ snapshots:
       outvariant: 1.4.3
 
   '@open-draft/until@2.1.0': {}
+
+  '@openfeature/core@1.11.0': {}
+
+  '@openfeature/server-sdk@1.22.0(@openfeature/core@1.11.0)':
+    dependencies:
+      '@openfeature/core': 1.11.0
 
   '@opentelemetry/api-logs@0.218.0':
     dependencies:
