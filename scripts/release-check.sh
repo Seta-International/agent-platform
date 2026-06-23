@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Locally simulate the dev-release.yml build + scan stages.
-# Pushes are always disabled here; CI is the only thing that pushes.
+# Locally simulate the build.yml image build + scan stages before pushing.
+# Pushes are always disabled here; build.yml (CI) is the only thing that pushes.
 set -euo pipefail
 
 usage() {
   cat <<'USAGE'
 Usage: release-check.sh [--no-build] [--help]
 
-Runs the same build + smoke + scan stages dev-release.yml runs, with push disabled.
-Intended for fast local feedback before pushing a tag.
+Runs the same image build + smoke + scan stages build.yml runs, with push disabled.
+Intended for fast local feedback before triggering a build/deploy.
 
 Flags:
   --no-build   Skip the docker build step (just report what would run).
