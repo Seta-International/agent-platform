@@ -78,125 +78,127 @@ export function TaskDetailHeader({
   }, [onPrevious, onNext]);
 
   return (
-    <header className="border-b border-hairline px-7 pt-4 pb-3">
-      <div className="mb-3 flex items-center gap-2 text-xs text-ink-subtle">
-        <button
-          type="button"
-          onClick={onBack}
-          aria-label="Back to board"
-          className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 hover:bg-surface-1"
-        >
-          <ChevronLeft className="size-3" />
-          Back to board
-        </button>
-        <span>·</span>
-        <nav aria-label="Breadcrumb" className="flex items-center gap-1">
-          <Link
-            to="/planner/groups"
-            className="rounded px-1 py-0.5 hover:bg-surface-1 hover:text-ink"
-          >
-            Planner
-          </Link>
-          <ChevronRight className="size-2.5 text-ink-tertiary" aria-hidden="true" />
-          {groupId ? (
-            <Link
-              to="/planner/groups/$groupId"
-              params={{ groupId }}
-              className="rounded px-1 py-0.5 hover:bg-surface-1 hover:text-ink"
-            >
-              {groupName}
-            </Link>
-          ) : (
-            <span>{groupName}</span>
-          )}
-          <ChevronRight className="size-2.5 text-ink-tertiary" aria-hidden="true" />
-          {planId ? (
-            <Link
-              to="/planner/plans/$planId"
-              params={{ planId }}
-              className="rounded px-1 py-0.5 hover:bg-surface-1 hover:text-ink"
-            >
-              {planName}
-            </Link>
-          ) : (
-            <span>{planName}</span>
-          )}
-          {bucketName && (
-            <>
-              <ChevronRight className="size-2.5 text-ink-tertiary" aria-hidden="true" />
-              <span className="text-primary">{bucketName}</span>
-            </>
-          )}
-          <ChevronRight className="size-2.5 text-ink-tertiary" aria-hidden="true" />
-          <span className="mono inline-flex items-center rounded bg-surface-2 px-1.5 py-0.5 text-ink-muted">
-            T-{taskNumber}
-          </span>
-        </nav>
-      </div>
-
-      <div className="flex items-start gap-4">
-        <div className="min-w-0 flex-1">{titleSlot}</div>
-
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="secondary" onClick={onAskAgent}>
-            <Sparkles className="size-3" />
-            Ask agent
-          </Button>
-          <Button size="sm" variant="secondary" onClick={onCopyLink}>
-            <Copy className="size-3" />
-            Copy link
-          </Button>
-          {(onDuplicate || onMove || onDelete) && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  aria-label="More actions"
-                  className="inline-flex items-center justify-center rounded p-1 text-ink-subtle hover:bg-surface-1 hover:text-ink"
-                >
-                  <MoreHorizontal className="size-4" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {onDuplicate && (
-                  <DropdownMenuItem onSelect={() => onDuplicate()}>
-                    <Copy className="size-3.5" />
-                    Duplicate
-                  </DropdownMenuItem>
-                )}
-                {onMove && (
-                  <DropdownMenuItem onSelect={() => onMove()}>
-                    <ArrowRightLeft className="size-3.5" />
-                    Move…
-                  </DropdownMenuItem>
-                )}
-                {onDelete && (
-                  <DropdownMenuItem onSelect={() => onDelete()} className="text-semantic-danger">
-                    Delete
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-          <span aria-hidden="true" className="h-5 w-px bg-hairline" />
+    <header className="border-b border-hairline overflow-x-auto">
+      <div className="min-w-[1040px] px-7 pt-4 pb-3">
+        <div className="mb-3 flex items-center gap-2 text-xs text-ink-subtle">
           <button
             type="button"
-            onClick={onPrevious}
-            aria-label="Previous task"
-            className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs text-ink-subtle hover:bg-surface-1 hover:text-ink"
+            onClick={onBack}
+            aria-label="Back to board"
+            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 hover:bg-surface-1"
           >
-            <KbdHint keys={['K']} />
-            <span>Prev</span>
+            <ChevronLeft className="size-3" />
+            Back to board
           </button>
-          <button
-            type="button"
-            onClick={onNext}
-            aria-label="Next task"
-            className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs text-ink-subtle hover:bg-surface-1 hover:text-ink"
-          >
-            <span>Next</span>
-            <KbdHint keys={['J']} />
-          </button>
+          <span>·</span>
+          <nav aria-label="Breadcrumb" className="flex items-center gap-1">
+            <Link
+              to="/planner/groups"
+              className="rounded px-1 py-0.5 hover:bg-surface-1 hover:text-ink"
+            >
+              Planner
+            </Link>
+            <ChevronRight className="size-2.5 text-ink-tertiary" aria-hidden="true" />
+            {groupId ? (
+              <Link
+                to="/planner/groups/$groupId"
+                params={{ groupId }}
+                className="rounded px-1 py-0.5 hover:bg-surface-1 hover:text-ink"
+              >
+                {groupName}
+              </Link>
+            ) : (
+              <span>{groupName}</span>
+            )}
+            <ChevronRight className="size-2.5 text-ink-tertiary" aria-hidden="true" />
+            {planId ? (
+              <Link
+                to="/planner/plans/$planId"
+                params={{ planId }}
+                className="rounded px-1 py-0.5 hover:bg-surface-1 hover:text-ink"
+              >
+                {planName}
+              </Link>
+            ) : (
+              <span>{planName}</span>
+            )}
+            {bucketName && (
+              <>
+                <ChevronRight className="size-2.5 text-ink-tertiary" aria-hidden="true" />
+                <span className="text-primary">{bucketName}</span>
+              </>
+            )}
+            <ChevronRight className="size-2.5 text-ink-tertiary" aria-hidden="true" />
+            <span className="mono inline-flex items-center rounded bg-surface-2 px-1.5 py-0.5 text-ink-muted">
+              T-{taskNumber}
+            </span>
+          </nav>
+        </div>
+
+        <div className="flex items-start gap-4">
+          <div className="min-w-0 flex-1">{titleSlot}</div>
+
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="secondary" onClick={onAskAgent}>
+              <Sparkles className="size-3" />
+              Ask agent
+            </Button>
+            <Button size="sm" variant="secondary" onClick={onCopyLink}>
+              <Copy className="size-3" />
+              Copy link
+            </Button>
+            {(onDuplicate || onMove || onDelete) && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="More actions"
+                    className="inline-flex items-center justify-center rounded p-1 text-ink-subtle hover:bg-surface-1 hover:text-ink"
+                  >
+                    <MoreHorizontal className="size-4" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {onDuplicate && (
+                    <DropdownMenuItem onSelect={() => onDuplicate()}>
+                      <Copy className="size-3.5" />
+                      Duplicate
+                    </DropdownMenuItem>
+                  )}
+                  {onMove && (
+                    <DropdownMenuItem onSelect={() => onMove()}>
+                      <ArrowRightLeft className="size-3.5" />
+                      Move…
+                    </DropdownMenuItem>
+                  )}
+                  {onDelete && (
+                    <DropdownMenuItem onSelect={() => onDelete()} className="text-semantic-danger">
+                      Delete
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            <span aria-hidden="true" className="h-5 w-px bg-hairline" />
+            <button
+              type="button"
+              onClick={onPrevious}
+              aria-label="Previous task"
+              className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs text-ink-subtle hover:bg-surface-1 hover:text-ink"
+            >
+              <KbdHint keys={['K']} />
+              <span>Prev</span>
+            </button>
+            <button
+              type="button"
+              onClick={onNext}
+              aria-label="Next task"
+              className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs text-ink-subtle hover:bg-surface-1 hover:text-ink"
+            >
+              <span>Next</span>
+              <KbdHint keys={['J']} />
+            </button>
+          </div>
         </div>
       </div>
     </header>

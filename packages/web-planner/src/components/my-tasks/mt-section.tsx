@@ -48,7 +48,7 @@ const TONE_DOT: Record<SectionTone, string> = {
 // Shared grid template — every row + the section column-header strip must use this so
 // columns visually line up. 8 cells: drag, title+status, plan, priority, progress, due, labels, assignees.
 export const MT_GRID_COLS =
-  'grid-cols-[24px_minmax(0,1fr)_140px_90px_130px_100px_110px_120px]' as const;
+  'grid-cols-[24px_minmax(200px,1fr)_140px_90px_130px_100px_110px_120px]' as const;
 
 // virtualization kicks in once rows would noticeably affect layout cost;
 // below this threshold the non-virtual path keeps DOM simple for tests and a11y
