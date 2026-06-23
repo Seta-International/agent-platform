@@ -3,12 +3,18 @@ import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import {
+  archivePlan,
   assignTask,
   completeTask,
   createGroup,
   createPlan,
   createTask,
+  deleteGroup,
+  deletePlan,
   listMyTasks,
+  restoreGroup,
+  restorePlan,
+  unarchivePlan,
   updateTask,
 } from '../../src/index.ts';
 import { seedTenant } from '../helpers.ts';
@@ -234,6 +240,123 @@ describe('listMyTasks', () => {
 
         const r = await listMyTasks({}, session);
         expect(r.notStarted.map((t) => t.id)).toEqual([b.id, c.id, a.id]);
+      } finally {
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('excludes tasks whose plan was soft-deleted, and re-includes them on restore (FUT-29)', async () => {
+    await withTestDb(dbCfg(), async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      initPools({ databaseUrl });
+      try {
+        const seeded = await seedTenant(pool);
+        const session = seeded.adminSession;
+        const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+        const plan = await createPlan({ group_id: group.id, name: 'P', session });
+
+        const task = await createTask({ plan_id: plan.id, title: 'In the plan', session });
+        await assignTask({ task_id: task.id, user_id: session.user_id, session });
+
+        const allIds = (r: Awaited<ReturnType<typeof listMyTasks>>) =>
+          [
+            ...r.late,
+            ...r.dueThisWeek,
+            ...r.inProgress,
+            ...r.notStarted,
+            ...r.recentlyCompleted,
+          ].map((t) => t.id);
+
+        // visible while the plan is live
+        expect(allIds(await listMyTasks({}, session))).toContain(task.id);
+
+        // deleting the PLAN must remove its tasks from My Tasks
+        await deletePlan({ plan_id: plan.id, expected_version: plan.version, session });
+        expect(allIds(await listMyTasks({}, session))).not.toContain(task.id);
+
+        // restoring the plan brings the task back
+        await restorePlan({ plan_id: plan.id, session });
+        expect(allIds(await listMyTasks({}, session))).toContain(task.id);
+      } finally {
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('excludes tasks whose group was soft-deleted, and re-includes them on restore (FUT-29)', async () => {
+    await withTestDb(dbCfg(), async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      initPools({ databaseUrl });
+      try {
+        const seeded = await seedTenant(pool);
+        const session = seeded.adminSession;
+        const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+        const plan = await createPlan({ group_id: group.id, name: 'P', session });
+
+        const task = await createTask({ plan_id: plan.id, title: 'In the group', session });
+        await assignTask({ task_id: task.id, user_id: session.user_id, session });
+
+        const allIds = (r: Awaited<ReturnType<typeof listMyTasks>>) =>
+          [
+            ...r.late,
+            ...r.dueThisWeek,
+            ...r.inProgress,
+            ...r.notStarted,
+            ...r.recentlyCompleted,
+          ].map((t) => t.id);
+
+        // visible while the group is live
+        expect(allIds(await listMyTasks({}, session))).toContain(task.id);
+
+        // deleting the GROUP must remove its plans' tasks from My Tasks
+        await deleteGroup({ group_id: group.id, expected_version: group.version, session });
+        expect(allIds(await listMyTasks({}, session))).not.toContain(task.id);
+
+        // restoring the group brings the task back
+        await restoreGroup({ group_id: group.id, session });
+        expect(allIds(await listMyTasks({}, session))).toContain(task.id);
+      } finally {
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('excludes tasks whose plan was archived, and re-includes them on unarchive (FUT-28)', async () => {
+    await withTestDb(dbCfg(), async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      initPools({ databaseUrl });
+      try {
+        const seeded = await seedTenant(pool);
+        const session = seeded.adminSession;
+        const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+        const plan = await createPlan({ group_id: group.id, name: 'P', session });
+
+        const task = await createTask({ plan_id: plan.id, title: 'In archived plan', session });
+        await assignTask({ task_id: task.id, user_id: session.user_id, session });
+
+        const allIds = (r: Awaited<ReturnType<typeof listMyTasks>>) =>
+          [
+            ...r.late,
+            ...r.dueThisWeek,
+            ...r.inProgress,
+            ...r.notStarted,
+            ...r.recentlyCompleted,
+          ].map((t) => t.id);
+
+        // visible while the plan is active
+        expect(allIds(await listMyTasks({}, session))).toContain(task.id);
+
+        // archiving the plan must remove its tasks from My Tasks
+        await archivePlan({ plan_id: plan.id, session });
+        expect(allIds(await listMyTasks({}, session))).not.toContain(task.id);
+
+        // unarchiving the plan brings the task back
+        await unarchivePlan({ plan_id: plan.id, session });
+        expect(allIds(await listMyTasks({}, session))).toContain(task.id);
       } finally {
         resetCoreDb();
         await closePools();
