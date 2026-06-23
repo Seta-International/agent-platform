@@ -92,9 +92,11 @@ services:
     image: traefik:v3.1
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
-      - "5173:5173"  # local smoke-test HTTP (blocked by EC2 security group on prod)
+      # Host-side ports are parameterized so a second stack (e.g. UAT) can coexist
+      # on the same host. Defaults preserve the standard 80/443/5173.
+      - "${HTTP_BIND:-80}:80"
+      - "${HTTPS_BIND:-443}:443"
+      - "${SMOKE_BIND:-5173}:5173"  # local smoke-test HTTP (blocked by EC2 security group on prod)
     volumes:
       - ./infra/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
       - ./infra/traefik/dynamic:/etc/traefik/dynamic:ro
