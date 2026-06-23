@@ -307,6 +307,7 @@ services:
       AWS_REGION: ${AWS_REGION:-}
     networks:
       - seta-internal
+      - seta-edge  # egress to reach an external DB (RDS) when bundled postgres is off
     depends_on:
       postgres:
         condition: service_healthy
@@ -390,6 +391,7 @@ services:
       AWS_REGION: ${AWS_REGION:-}
     networks:
       - seta-internal
+      - seta-edge  # egress to reach an external DB (RDS) when bundled postgres is off
     depends_on:
       postgres:
         condition: service_healthy
