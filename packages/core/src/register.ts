@@ -5,6 +5,7 @@ import { CORE_SKILL_EVENTS } from './backend/skills/events.ts';
 import type { ContributionRegistry } from './composition/registry.ts';
 import * as schema from './db/schema/index.ts';
 import { CORE_FEATURE_FLAG_EVENTS } from './flags/events.ts';
+import { featureFlagCacheInvalidateSubscriber } from './flags/subscriber.ts';
 import { coreRbac } from './rbac.ts';
 import { invalidateUserSessions } from './session/invalidate.ts';
 
@@ -62,6 +63,7 @@ export function registerCoreContributions(reg: ContributionRegistry): void {
           await invalidateUserSessions((e.payload as { user_id: string }).user_id);
         },
       },
+      featureFlagCacheInvalidateSubscriber,
     ],
   });
 }
