@@ -7,7 +7,7 @@ export function useTrash() {
     queryKey: plannerKeys.trash(),
     queryFn: async () => {
       const [groups, deletedPlans, archivedPlans, tasksPage] = await Promise.all([
-        plannerClient.listGroups(),
+        plannerClient.listGroups({ include_deleted: true }),
         plannerClient.listPlans({ include_deleted: true }),
         plannerClient.listPlans({ include_archived: true }),
         plannerClient.listTasks({ include_deleted: true, limit: 200 }),

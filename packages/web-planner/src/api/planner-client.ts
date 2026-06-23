@@ -98,8 +98,11 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T | und
   return body as T;
 }
 
-async function listGroups(): Promise<GroupRow[]> {
-  const r = (await request<{ groups: GroupRow[] }>(`/api/planner/v1/groups`)) ?? { groups: [] };
+async function listGroups(opts: { include_deleted?: boolean } = {}): Promise<GroupRow[]> {
+  const qs = opts.include_deleted ? '?include_deleted=true' : '';
+  const r = (await request<{ groups: GroupRow[] }>(`/api/planner/v1/groups${qs}`)) ?? {
+    groups: [],
+  };
   return r.groups;
 }
 
