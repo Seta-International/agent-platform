@@ -25,9 +25,9 @@ This is the single source of truth for image references and tags; other pages li
 
 Images are published to **Amazon ECR**. `compose.yml` resolves each image as `${ECR_REGISTRY}/${ECR_REPOSITORY}:server-${PLATFORM_VERSION}` and `…:web-${PLATFORM_VERSION}` (overridable via `PLATFORM_IMAGE_SERVER` / `PLATFORM_IMAGE_WEB`). Set `ECR_REGISTRY`, `ECR_REPOSITORY`, and `PLATFORM_VERSION` in `.env`.
 
-Multi-arch: `linux/amd64` + `linux/arm64`.
+Architecture: CI currently builds **`linux/amd64`** (the `build-images` action stays multi-arch-capable for when prod needs `arm64`).
 
-Tag scheme: the server and web images share one repository, distinguished by a `server-` / `web-` prefix on the version tag. `PLATFORM_VERSION` is `vX.Y.Z` (immutable), `vX.Y`, `vX`, or `latest`. Self-hosters should pin to `vX.Y.Z` and upgrade deliberately.
+Tag scheme: the server and web images share one repository, distinguished by a `server-` / `web-` prefix on the version tag. CI publishes an immutable `git-<sha>` plus a moving `latest` per image; `PLATFORM_VERSION` selects which (`git-<sha>` to pin/roll back, `latest` for newest). See [`deploying.md`](deploying.md) for the build→deploy flow.
 
 ## Layout of this directory
 
