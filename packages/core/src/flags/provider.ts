@@ -31,7 +31,10 @@ export class SetaFeatureProvider implements Provider {
   readonly metadata = { name: 'seta-flags' } as const;
   readonly events = new OpenFeatureEventEmitter();
 
-  constructor(private readonly deps: SetaFeatureProviderDeps) {}
+  private readonly deps: SetaFeatureProviderDeps;
+  constructor(deps: SetaFeatureProviderDeps) {
+    this.deps = deps;
+  }
 
   async resolveBooleanEvaluation(
     flagKey: string,

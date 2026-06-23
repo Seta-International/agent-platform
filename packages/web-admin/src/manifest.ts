@@ -3,6 +3,7 @@ import {
   Bell,
   BookOpen,
   FileClock,
+  Flag,
   Mail,
   Settings,
   Shield,
@@ -62,6 +63,13 @@ export const adminAppManifest: AppManifest = {
           label: 'Skills catalog',
           to: '/admin/skills',
           requires: ['core.skill.read'],
+        },
+        {
+          id: 'admin.feature-flags',
+          icon: Flag,
+          label: 'Feature flags',
+          to: '/admin/feature-flags',
+          requires: ['core.feature_flag.read'],
         },
         {
           id: 'admin.audit',
