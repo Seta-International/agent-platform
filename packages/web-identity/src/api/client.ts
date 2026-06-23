@@ -66,7 +66,7 @@ export async function patchProfile(patch: ProfilePatch): Promise<ProfileDto> {
 
 export async function searchSkillsApi(prefix: string, limit = 20): Promise<string[]> {
   const res = await fetch(
-    `/api/identity/v1/skills?prefix=${encodeURIComponent(prefix)}&limit=${limit}`,
+    `/api/identity/v1/skill-search?prefix=${encodeURIComponent(prefix)}&limit=${limit}`,
     { credentials: 'include' },
   );
   if (!res.ok) throw new Error(`skills search failed: ${res.status}`);

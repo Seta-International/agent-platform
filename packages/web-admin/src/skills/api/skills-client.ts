@@ -22,8 +22,9 @@ async function json<T>(res: Response): Promise<T> {
   return (await res.json()) as T;
 }
 
-export async function listCategories(): Promise<SkillCategory[]> {
-  const res = await fetch('/api/identity/v1/skill-categories', { credentials: 'include' });
+export async function listCategories(activeOnly = true): Promise<SkillCategory[]> {
+  const qs = activeOnly ? '?activeOnly=true' : '';
+  const res = await fetch(`/api/identity/v1/skill-categories${qs}`, { credentials: 'include' });
   return (await json<{ categories: SkillCategory[] }>(res)).categories;
 }
 
@@ -64,9 +65,17 @@ export async function archiveCategory(id: string, expected_version: number): Pro
   );
 }
 
-export async function listSkills(categoryId?: string): Promise<Skill[]> {
-  const qs = categoryId ? `?categoryId=${encodeURIComponent(categoryId)}` : '';
-  const res = await fetch(`/api/identity/v1/skills${qs}`, { credentials: 'include' });
+export async function listSkills(opts?: {
+  categoryId?: string;
+  activeOnly?: boolean;
+}): Promise<Skill[]> {
+  const params = new URLSearchParams();
+  if (opts?.categoryId) params.set('categoryId', opts.categoryId);
+  if (opts?.activeOnly) params.set('activeOnly', 'true');
+  const qs = params.toString();
+  const res = await fetch(`/api/identity/v1/skills${qs ? `?${qs}` : ''}`, {
+    credentials: 'include',
+  });
   return (await json<{ skills: Skill[] }>(res)).skills;
 }
 

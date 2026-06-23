@@ -10,6 +10,7 @@ import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
+import { registerProfileRoutes } from '../../src/backend/http/profile.ts';
 import { registerSkillCatalogRoutes } from '../../src/backend/http/skill-catalog.ts';
 import { registerIdentityContributions } from '../../src/register.ts';
 
@@ -127,6 +128,51 @@ describe('skill catalog HTTP', () => {
       expect(
         (list.body as { categories: { name: string }[] }).categories.map((c) => c.name),
       ).toContain('Backend');
+    });
+  });
+
+  // Guards against the route collision where profile's skill typeahead and the
+  // catalog list both bound `GET /api/identity/v1/skills`, so the first-registered
+  // typeahead shadowed the catalog and consumers got `{ results }` not `{ skills }`.
+  it('catalog GET /skills is not shadowed by the profile skill typeahead', async () => {
+    await withDb(async ({ tenant }) => {
+      const app = new Hono<SessionEnv>();
+      const scope = session(tenant, ['core.skill.read', 'core.skill.manage']);
+      app.use('*', async (c, next) => {
+        c.set('user', scope);
+        await next();
+      });
+      // Same order as the real app: profile first, then skill-catalog.
+      registerProfileRoutes(app);
+      registerSkillCatalogRoutes(app);
+
+      const reqJson = async (method: string, path: string, body?: unknown) => {
+        const init: RequestInit = { method };
+        if (body !== undefined) {
+          init.headers = { 'content-type': 'application/json' };
+          init.body = JSON.stringify(body);
+        }
+        const res = await app.request(path, init);
+        return { status: res.status, body: (await res.json()) as Record<string, unknown> };
+      };
+
+      const cat = await reqJson('POST', '/api/identity/v1/skill-categories', { name: 'Frontend' });
+      await reqJson('POST', '/api/identity/v1/skills', {
+        category_id: (cat.body as { id: string }).id,
+        name: 'React',
+      });
+
+      const list = await reqJson('GET', '/api/identity/v1/skills?activeOnly=true');
+      expect(list.body).toHaveProperty('skills');
+      expect((list.body as { skills: { name: string }[] }).skills.map((s) => s.name)).toEqual([
+        'React',
+      ]);
+
+      // The profile typeahead now lives on its own path with its own contract
+      // (`{ results }`, sourced from user-profile skills — empty here).
+      const ta = await reqJson('GET', '/api/identity/v1/skill-search?prefix=Re');
+      expect(ta.status).toBe(200);
+      expect(Array.isArray((ta.body as { results: unknown }).results)).toBe(true);
     });
   });
 });
