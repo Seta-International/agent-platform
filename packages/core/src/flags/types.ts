@@ -18,6 +18,7 @@ export interface FlagStrategyConfig {
 export interface FlagDef {
   key: string;
   description: string;
+  defaultEnabled?: boolean;
 }
 
 export interface FlagRow {

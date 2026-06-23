@@ -27,7 +27,7 @@ export async function resolveFeatures(
   }[];
 
   for (const def of catalog) {
-    const value = await client.getBooleanValue(def.key, false, ctx);
+    const value = await client.getBooleanValue(def.key, def.defaultEnabled ?? false, ctx);
     if (value) enabled.add(def.key);
     rows.push({
       flag_key: def.key,
