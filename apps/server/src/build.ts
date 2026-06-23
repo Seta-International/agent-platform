@@ -165,10 +165,10 @@ export function buildServerApp(
   // Spec 2: RPC actor overlay deferred — agent-tool RPC checks resolve from seed roles only.
   setRbacCheck(makeRbacCheck(rbacRegistry, IMPLICIT_PERMISSIONS));
 
-  // Feature flags: assemble the contributed catalog, register the in-process
-  // OpenFeature provider, and resolve `features` into each session at build.
+  // Feature flags: assemble the contributed catalog and register the in-process
+  // OpenFeature provider once; `features` is resolved per request at session scope.
   setFlagCatalog(reg.collected.flagCatalog);
-  OpenFeature.setProvider(new SetaFeatureProvider({ getEffectiveFlag }));
+  OpenFeature.setProvider(new SetaFeatureProvider({ getEffectiveFlag, log: deps.log }));
 
   const sessionMiddleware = createSessionMiddleware({
     getSession: ({ headers }) => auth.api.getSession({ headers }),
