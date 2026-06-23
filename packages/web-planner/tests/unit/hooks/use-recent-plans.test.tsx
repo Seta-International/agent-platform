@@ -81,6 +81,24 @@ describe('useRecentPlans', () => {
     expect(localStorage.getItem('planner.recents.tenant-B')).toBeNull();
   });
 
+  it('reflects a recorded rename across separate hook instances without remount (FUT-26)', async () => {
+    // Two independent consumers of the same tenant's recents: the plan board
+    // (which records visits) and the sidebar (which renders them). A rename
+    // recorded by one must be seen by the other without a page refresh.
+    const board = renderHook(() => useRecentPlans('tenant-1'));
+    const sidebar = renderHook(() => useRecentPlans('tenant-1'));
+
+    await act(async () => {
+      board.result.current.recordVisit('plan-a', 'Old name');
+    });
+    expect(sidebar.result.current.recents[0]?.planName).toBe('Old name');
+
+    await act(async () => {
+      board.result.current.recordVisit('plan-a', 'New name');
+    });
+    expect(sidebar.result.current.recents[0]?.planName).toBe('New name');
+  });
+
   it('hydrates from existing localStorage on mount', () => {
     localStorage.setItem(
       'planner.recents.tenant-1',
