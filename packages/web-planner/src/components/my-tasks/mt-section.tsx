@@ -1,7 +1,7 @@
 import { Draggable, Droppable } from '@hello-pangea/dnd';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ChevronDown } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { type CSSProperties, useRef, useState } from 'react';
 import { MtTaskRow, type MyTasksRowTask } from './mt-task-row';
 import type { SectionKey, SectionTone } from './types';
 
@@ -45,10 +45,10 @@ const TONE_DOT: Record<SectionTone, string> = {
   success: 'dot--success',
 };
 
-// Shared grid template — every row + the section column-header strip must use this so
-// columns visually line up. 8 cells: drag, title+status, plan, priority, progress, due, labels, assignees.
-export const MT_GRID_COLS =
-  'grid-cols-[24px_minmax(200px,1fr)_140px_90px_130px_100px_110px_120px]' as const;
+const gridVars = {
+  '--mt-grid': 'auto minmax(0, 1fr) auto auto auto auto auto auto',
+} as CSSProperties;
+const gridColsStyle: CSSProperties = { gridTemplateColumns: 'var(--mt-grid)' };
 
 // virtualization kicks in once rows would noticeably affect layout cost;
 // below this threshold the non-virtual path keeps DOM simple for tests and a11y
@@ -73,6 +73,7 @@ export function MtSection({ section }: Props) {
     <section
       data-testid="mt-section"
       data-section={section.key}
+      style={gridVars}
       className="border-b border-hairline last:border-b-0"
     >
       <button
@@ -106,8 +107,9 @@ export function MtSection({ section }: Props) {
         <>
           <div
             data-testid="mt-section-columns"
+            style={gridColsStyle}
             className={
-              `sticky top-0 z-10 grid ${MT_GRID_COLS} ` +
+              'sticky top-0 z-10 grid ' +
               'gap-3 px-7 py-2.5 text-[10.5px] font-medium uppercase tracking-wider ' +
               'text-ink-subtle border-b border-hairline bg-canvas'
             }
