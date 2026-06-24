@@ -74,6 +74,8 @@ jobs:
           AGENT_MODELS: ${{ vars.AGENT_MODELS }}
           AGENT_MODEL_DEFAULT: ${{ vars.AGENT_MODEL_DEFAULT }}
           OLLAMA_BASE_URL: ${{ vars.OLLAMA_BASE_URL }}
+          VLLM_BASE_URL: ${{ vars.VLLM_BASE_URL }}
+          VLLM_API_KEY: ${{ vars.VLLM_API_KEY }}
           EMBED_MODEL: ${{ vars.EMBED_MODEL }}
           MAILER_DEFAULT_TRANSPORT: ${{ vars.MAILER_DEFAULT_TRANSPORT }}
           MAILER_DEFAULT_SENDER: ${{ vars.MAILER_DEFAULT_SENDER }}
