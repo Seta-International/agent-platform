@@ -277,6 +277,8 @@ export interface ListMyTasksInput {
     due?: 'this_week' | 'overdue' | 'no_date';
   };
   sort?: 'assignee_priority' | 'due_at';
+  /** Free-text keyword; case-insensitively matches the task title or description. */
+  search?: string;
 }
 
 export interface ListPlanTasksByDateRangeInput {

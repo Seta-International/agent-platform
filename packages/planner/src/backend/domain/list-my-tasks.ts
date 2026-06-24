@@ -1,5 +1,5 @@
 import type { SessionScope } from '@seta/core';
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { and, eq, ilike, isNull, or, sql } from 'drizzle-orm';
 import { plannerDb } from '../db/index.ts';
 import { groups, plans, taskAssignments, tasks } from '../db/schema.ts';
 import type { MyTasksResult, TaskPriorityNumber, TaskWithPlan } from '../dto.ts';
@@ -85,6 +85,13 @@ async function listMyTasksImpl(
     );
   } else if (filter.due === 'no_date') {
     conditions.push(isNull(tasks.due_at));
+  }
+
+  if (input.search?.trim()) {
+    // Escape LIKE wildcards so the keyword is matched as literal text.
+    const term = `%${input.search.trim().replace(/[\\%_]/g, '\\$&')}%`;
+    const match = or(ilike(tasks.title, term), ilike(tasks.description_text, term));
+    if (match) conditions.push(match);
   }
 
   const rows = await db
