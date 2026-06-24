@@ -1,10 +1,35 @@
 import type { SessionScope } from '@seta/core';
 import { withEmit } from '@seta/core/events';
 import { requestNotification } from '@seta/notifications';
-import { and, eq, isNull } from 'drizzle-orm';
-import { emitPlannerBucketCreated, emitPlannerPlanCreated } from '../../events/emit-helpers.ts';
-import { buckets, groups, plans } from '../db/schema.ts';
-import type { PlanRow } from '../dto.ts';
+import { and, asc, eq, isNull, sql } from 'drizzle-orm';
+import {
+  emitPlannerBucketCreated,
+  emitPlannerChecklistItemAdded,
+  emitPlannerLabelApplied,
+  emitPlannerLabelCreated,
+  emitPlannerPlanCreated,
+  emitPlannerTaskAssigned,
+  emitPlannerTaskCreated,
+  emitPlannerTaskReferenceAdded,
+} from '../../events/emit-helpers.ts';
+import {
+  buckets,
+  checklistItems,
+  groups,
+  labels,
+  plans,
+  taskAssignments,
+  taskLabels,
+  taskReferences,
+  tasks,
+} from '../db/schema.ts';
+import type {
+  PlanRow,
+  TaskExternalSource,
+  TaskPreviewType,
+  TaskPriorityNumber,
+  TaskReferenceType,
+} from '../dto.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 import { resolveGroupMemberIds } from './recipients.ts';
 
@@ -53,6 +78,8 @@ export async function duplicatePlan(input: {
           tenant_id: source.tenant_id,
           group_id: source.group_id,
           name: newName,
+          // Preserve category descriptions so copied labels keep their slot meaning.
+          category_descriptions: source.category_descriptions,
           created_by: input.session.user_id,
         })
         .returning();
@@ -70,11 +97,44 @@ export async function duplicatePlan(input: {
         },
       });
 
-      // Copy non-deleted buckets (name + order_hint only; no tasks).
+      // Labels are plan-scoped: copy the definitions first, then remap task labels.
+      const sourceLabels = await tx
+        .select()
+        .from(labels)
+        .where(and(eq(labels.plan_id, source.id), isNull(labels.deleted_at)));
+      const labelIdMap = new Map<string, string>();
+      for (const l of sourceLabels) {
+        const [newLabel] = await tx
+          .insert(labels)
+          .values({
+            tenant_id: source.tenant_id,
+            plan_id: row.id,
+            name: l.name,
+            color: l.color,
+            category_slot: l.category_slot,
+          })
+          .returning();
+        if (!newLabel) continue;
+        labelIdMap.set(l.id, newLabel.id);
+        await emitPlannerLabelCreated({
+          actor: { type: 'user', user_id: input.session.user_id },
+          tenant_id: source.tenant_id,
+          after: {
+            label_id: newLabel.id,
+            plan_id: row.id,
+            group_id: source.group_id,
+            name: newLabel.name,
+            color: newLabel.color,
+          },
+        });
+      }
+
+      // Copy non-deleted buckets and map old→new ids so tasks land in the right bucket.
       const sourceBuckets = await tx
         .select()
         .from(buckets)
         .where(and(eq(buckets.plan_id, source.id), isNull(buckets.deleted_at)));
+      const bucketIdMap = new Map<string, string>();
 
       for (const b of sourceBuckets) {
         const [newBucket] = await tx
@@ -87,6 +147,7 @@ export async function duplicatePlan(input: {
           })
           .returning();
         if (!newBucket) continue;
+        bucketIdMap.set(b.id, newBucket.id);
 
         await emitPlannerBucketCreated({
           actor: { type: 'user', user_id: input.session.user_id },
@@ -99,6 +160,177 @@ export async function duplicatePlan(input: {
             order_hint: newBucket.order_hint,
           },
         });
+      }
+
+      // Copy non-deleted tasks with full fidelity (status/priority/dates/etc.),
+      // remapping bucket ids; a task whose bucket was deleted lands bucketless.
+      const sourceTasks = await tx
+        .select()
+        .from(tasks)
+        .where(and(eq(tasks.plan_id, source.id), isNull(tasks.deleted_at)))
+        .orderBy(sql`order_hint NULLS LAST`);
+
+      for (const t of sourceTasks) {
+        const newBucketId = t.bucket_id ? (bucketIdMap.get(t.bucket_id) ?? null) : null;
+        const [newTask] = await tx
+          .insert(tasks)
+          .values({
+            tenant_id: source.tenant_id,
+            plan_id: row.id,
+            bucket_id: newBucketId,
+            title: t.title,
+            description: t.description,
+            description_text: t.description_text,
+            priority_number: t.priority_number,
+            percent_complete: t.percent_complete,
+            is_deferred: t.is_deferred,
+            preview_type: t.preview_type,
+            review_state: t.review_state,
+            start_at: t.start_at,
+            due_at: t.due_at,
+            order_hint: t.order_hint,
+            assignee_priority: t.assignee_priority,
+            created_by: input.session.user_id,
+          })
+          .returning();
+        if (!newTask) continue;
+
+        await emitPlannerTaskCreated({
+          actor: { type: 'user', user_id: input.session.user_id },
+          tenant_id: source.tenant_id,
+          after: {
+            task_id: newTask.id,
+            plan_id: row.id,
+            group_id: source.group_id,
+            bucket_id: newTask.bucket_id,
+            title: newTask.title,
+            description: newTask.description,
+            priority_number: newTask.priority_number as TaskPriorityNumber,
+            percent_complete: newTask.percent_complete,
+            is_deferred: newTask.is_deferred,
+            preview_type: newTask.preview_type as TaskPreviewType,
+            start_at: newTask.start_at ? newTask.start_at.toISOString() : null,
+            due_at: newTask.due_at ? newTask.due_at.toISOString() : null,
+            order_hint: newTask.order_hint,
+            assignee_priority: newTask.assignee_priority,
+            review_state: newTask.review_state,
+            external_source: newTask.external_source as TaskExternalSource,
+            external_id: newTask.external_id,
+            created_by: newTask.created_by,
+          },
+        });
+
+        const sourceChecklist = await tx
+          .select()
+          .from(checklistItems)
+          .where(eq(checklistItems.task_id, t.id))
+          .orderBy(sql`order_hint NULLS LAST`);
+        for (const item of sourceChecklist) {
+          const [newItem] = await tx
+            .insert(checklistItems)
+            .values({
+              task_id: newTask.id,
+              label: item.label,
+              checked: item.checked,
+              order_hint: item.order_hint,
+            })
+            .returning();
+          if (!newItem) continue;
+          await emitPlannerChecklistItemAdded({
+            actor: { type: 'user', user_id: input.session.user_id },
+            tenant_id: source.tenant_id,
+            group_id: source.group_id,
+            item_id: newItem.id,
+            task_id: newTask.id,
+            plan_id: row.id,
+            label: newItem.label,
+            order_hint: newItem.order_hint,
+          });
+        }
+
+        const sourceAssignees = await tx
+          .select()
+          .from(taskAssignments)
+          .where(eq(taskAssignments.task_id, t.id))
+          .orderBy(sql`order_hint NULLS LAST`);
+        for (const a of sourceAssignees) {
+          const ins = await tx
+            .insert(taskAssignments)
+            .values({
+              task_id: newTask.id,
+              user_id: a.user_id,
+              order_hint: a.order_hint,
+              assigned_by: input.session.user_id,
+            })
+            .onConflictDoNothing()
+            .returning();
+          if (ins.length === 0) continue;
+          await emitPlannerTaskAssigned({
+            actor: { type: 'user', user_id: input.session.user_id },
+            tenant_id: source.tenant_id,
+            task_id: newTask.id,
+            plan_id: row.id,
+            group_id: source.group_id,
+            user_id: a.user_id,
+          });
+        }
+
+        const sourceRefs = await tx
+          .select()
+          .from(taskReferences)
+          .where(eq(taskReferences.task_id, t.id))
+          .orderBy(asc(taskReferences.created_at));
+        for (const r of sourceRefs) {
+          const [newRef] = await tx
+            .insert(taskReferences)
+            .values({
+              tenant_id: source.tenant_id,
+              task_id: newTask.id,
+              url: r.url,
+              alias: r.alias,
+              type: r.type,
+              preview_priority: r.preview_priority,
+            })
+            .onConflictDoNothing()
+            .returning();
+          if (!newRef) continue;
+          await emitPlannerTaskReferenceAdded({
+            actor: { type: 'user', user_id: input.session.user_id },
+            tenant_id: source.tenant_id,
+            task_id: newTask.id,
+            plan_id: row.id,
+            url: newRef.url,
+            alias: newRef.alias,
+            type: newRef.type as TaskReferenceType,
+          });
+        }
+
+        const sourceTaskLabels = await tx
+          .select({ label_id: taskLabels.label_id })
+          .from(taskLabels)
+          .where(eq(taskLabels.task_id, t.id));
+        for (const { label_id } of sourceTaskLabels) {
+          const newLabelId = labelIdMap.get(label_id);
+          if (!newLabelId) continue;
+          const ins = await tx
+            .insert(taskLabels)
+            .values({
+              task_id: newTask.id,
+              label_id: newLabelId,
+              applied_by: input.session.user_id,
+            })
+            .onConflictDoNothing()
+            .returning();
+          if (ins.length === 0) continue;
+          await emitPlannerLabelApplied({
+            actor: { type: 'user', user_id: input.session.user_id },
+            tenant_id: source.tenant_id,
+            group_id: source.group_id,
+            task_id: newTask.id,
+            plan_id: row.id,
+            label_id: newLabelId,
+          });
+        }
       }
 
       const memberIds = await resolveGroupMemberIds(source.tenant_id, source.group_id, tx);
