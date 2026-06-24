@@ -80,6 +80,26 @@ describe('TaskDetailReferencesCard', () => {
     expect(captured.mock.calls[0]?.[0]).toMatchObject({ url: 'https://added.test/doc' });
   });
 
+  it('shows a validation message when the reference already exists (FUT-42)', async () => {
+    const { userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup();
+    server.use(
+      http.post('/api/planner/v1/tasks/t1/references', () =>
+        HttpResponse.json(
+          {
+            error: 'DUPLICATE_REFERENCE',
+            message: 'Reference with this URL already exists on task',
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+    renderWithClient(<TaskDetailReferencesCard task={makeDetail([])} planId="p1" />);
+    const input = screen.getByPlaceholderText(/Paste a URL/i);
+    await user.type(input, 'https://dupe.test/doc{Enter}');
+    expect(await screen.findByText(/already exists on the task/i)).toBeInTheDocument();
+  });
+
   it('calls removeTaskReference when × is clicked', async () => {
     const { userEvent } = await import('@testing-library/user-event');
     const user = userEvent.setup();
