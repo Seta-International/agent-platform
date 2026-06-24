@@ -158,6 +158,8 @@ services:
       AGENT_MODEL_DEFAULT: ${AGENT_MODEL_DEFAULT:-}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
       OLLAMA_API_KEY: ${OLLAMA_API_KEY:-}
+      VLLM_BASE_URL: ${VLLM_BASE_URL:-}
+      VLLM_API_KEY: ${VLLM_API_KEY:-}
       EMBED_MODEL: ${EMBED_MODEL:-}
       # S3-compatible object storage (AWS S3, MinIO, …). The app is storage-
       # agnostic — it only speaks the S3 protocol via these keys. Point them at
@@ -233,6 +235,8 @@ services:
       AGENT_MODEL_DEFAULT: ${AGENT_MODEL_DEFAULT:-}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
       OLLAMA_API_KEY: ${OLLAMA_API_KEY:-}
+      VLLM_BASE_URL: ${VLLM_BASE_URL:-}
+      VLLM_API_KEY: ${VLLM_API_KEY:-}
       EMBED_MODEL: ${EMBED_MODEL:-}
       # S3-compatible object storage — see the server service for details. The
       # worker streams objects directly (AV scan, PDF/CV parsing) so it needs the
