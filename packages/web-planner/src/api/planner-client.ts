@@ -273,6 +273,13 @@ async function setMemberRole(input: {
   });
 }
 
+async function getGroupMemberSummary(): Promise<{ distinct_member_count: number }> {
+  const r = await request<{ distinct_member_count: number }>(
+    '/api/planner/v1/groups/member-summary',
+  );
+  return r ?? { distinct_member_count: 0 };
+}
+
 export async function discoverGroups(q: string): Promise<DiscoverGroupsItem[]> {
   const r = await request<{ groups: DiscoverGroupsItem[] }>(
     `/api/planner/v1/groups/discover?q=${encodeURIComponent(q)}`,
@@ -953,6 +960,7 @@ export const plannerClient = {
   removeGroupMembersBulk,
   setMemberRole,
   discoverGroups,
+  getGroupMemberSummary,
   createJoinRequest,
   listJoinRequests,
   resolveJoinRequest,
