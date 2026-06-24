@@ -1,4 +1,4 @@
-import { Button, Input, PageChrome, Skeleton } from '@seta/shared-ui';
+import { Badge, Button, Input, PageChrome, Skeleton, toast } from '@seta/shared-ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { Search } from 'lucide-react';
@@ -20,6 +20,10 @@ export function GroupDiscoverPage() {
     mutationFn: (groupId: string) => createJoinRequest(groupId),
     onSuccess: (_data, groupId) => {
       setRequestedIds((prev) => new Set(prev).add(groupId));
+      toast('Request sent');
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : "Couldn't send the join request.");
     },
   });
 
@@ -69,7 +73,7 @@ export function GroupDiscoverPage() {
         {searchQuery.data && searchQuery.data.length > 0 && (
           <ul className="flex flex-col gap-3">
             {searchQuery.data.map((group) => {
-              const isRequested = requestedIds.has(group.id);
+              const isRequested = group.has_pending_request || requestedIds.has(group.id);
               return (
                 <li
                   key={group.id}
@@ -81,18 +85,25 @@ export function GroupDiscoverPage() {
                       <p className="text-sm text-ink-muted mt-1 truncate">{group.description}</p>
                     )}
                     <p className="text-xs text-ink-subtle mt-1">
-                      {group.member_count} member{group.member_count !== 1 ? 's' : ''}
+                      {group.member_count} member
+                      {group.member_count !== 1 ? 's' : ''}
                       {group.owner_display_name ? ` · Owner: ${group.owner_display_name}` : ''}
                     </p>
                   </div>
-                  <Button
-                    size="sm"
-                    variant={isRequested ? 'secondary' : 'default'}
-                    disabled={isRequested || joinMutation.isPending}
-                    onClick={() => joinMutation.mutate(group.id)}
-                  >
-                    {isRequested ? 'Requested' : 'Request to Join'}
-                  </Button>
+                  {group.is_member ? (
+                    <Badge variant="success" className="shrink-0">
+                      Member
+                    </Badge>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant={isRequested ? 'secondary' : 'default'}
+                      disabled={isRequested || joinMutation.isPending}
+                      onClick={() => joinMutation.mutate(group.id)}
+                    >
+                      {isRequested ? 'Requested' : 'Request to Join'}
+                    </Button>
+                  )}
                 </li>
               );
             })}
