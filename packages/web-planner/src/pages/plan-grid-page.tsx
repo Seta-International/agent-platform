@@ -27,6 +27,7 @@ interface Props {
   onOpenTask: (taskId: string) => void;
   groupBy: GroupBy;
   q?: string;
+  isLinkedToM365?: boolean;
 }
 
 export function PlanGridPage({
@@ -37,6 +38,7 @@ export function PlanGridPage({
   onOpenTask,
   groupBy,
   q = '',
+  isLinkedToM365 = false,
 }: Props) {
   const selectedIds = useSelectedTaskIds((s) => s.ids);
   const setSelectedIds = useSelectedTaskIds((s) => s.set);
@@ -50,7 +52,7 @@ export function PlanGridPage({
   const bulk = useBulkActions(planId);
   const [addingBucketId, setAddingBucketId] = useState<string | null | undefined>(undefined);
 
-  const { rows, tasksById, bucketOptions, assigneeOptions } = useMemo(() => {
+  const { rows, tasksById, bucketOptions } = useMemo(() => {
     const bucketById = new Map(buckets.map((b) => [b.id, b]));
     const taskMap = new Map(tasks.map((t) => [t.id, t]));
 
@@ -90,21 +92,11 @@ export function PlanGridPage({
     });
 
     const bucketOpts = buckets.map((b) => ({ id: b.id, name: b.name }));
-    const assigneeMap = new Map<string, string>();
-    for (const t of tasks) {
-      for (const a of t.assignees) {
-        if (!assigneeMap.has(a.user_id)) assigneeMap.set(a.user_id, a.display_name);
-      }
-    }
-    const assigneeOpts = [...assigneeMap.entries()]
-      .map(([user_id, display_name]) => ({ user_id, display_name }))
-      .sort((a, b) => a.display_name.localeCompare(b.display_name));
 
     return {
       rows: gridRows,
       tasksById: taskMap,
       bucketOptions: bucketOpts,
-      assigneeOptions: assigneeOpts,
     };
   }, [buckets, tasks, filters, q]);
 
@@ -219,7 +211,7 @@ export function PlanGridPage({
         <GridBulkActionFooter
           count={selectedIds.size}
           bucketOptions={bucketOptions}
-          assigneeOptions={assigneeOptions}
+          isLinkedToM365={isLinkedToM365}
           onMove={onMove}
           onAssign={onAssign}
           onSetDue={onSetDue}

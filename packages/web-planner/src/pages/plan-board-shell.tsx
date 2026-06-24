@@ -321,6 +321,7 @@ export function PlanBoardShell({
           onOpenTask={onOpenTask}
           groupBy={groupBy}
           q={q}
+          isLinkedToM365={resolvedPlan.external_source === 'm365'}
         />
       )}
 

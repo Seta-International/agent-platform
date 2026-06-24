@@ -1,20 +1,27 @@
-import { Popover, PopoverContent, PopoverTrigger } from '@seta/shared-ui';
-import { useState } from 'react';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@seta/shared-ui';
+import { listTenantUsers } from '@seta/web-identity';
+import { useQuery } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 
 export interface BulkBucketOption {
   id: string;
   name: string;
 }
 
-export interface BulkAssigneeOption {
-  user_id: string;
-  display_name: string;
-}
-
 interface Props {
   count: number;
   bucketOptions: ReadonlyArray<BulkBucketOption>;
-  assigneeOptions: ReadonlyArray<BulkAssigneeOption>;
+  isLinkedToM365?: boolean;
   onMove: (toBucketId: string | null) => void;
   onAssign: (userId: string) => void;
   onSetDue: (due: string | null) => void;
@@ -24,7 +31,7 @@ interface Props {
 export function GridBulkActionFooter({
   count,
   bucketOptions,
-  assigneeOptions,
+  isLinkedToM365,
   onMove,
   onAssign,
   onSetDue,
@@ -40,7 +47,7 @@ export function GridBulkActionFooter({
         <strong>{count}</strong> selected
       </span>
       <BucketMenu options={bucketOptions} onPick={onMove} />
-      <AssigneeMenu options={assigneeOptions} onPick={onAssign} />
+      <AssigneeMenu onPick={onAssign} isLinkedToM365={isLinkedToM365 ?? false} />
       <DueMenu onPick={onSetDue} />
       <button type="button" className="grid-bulk-action-footer__danger" onClick={onDelete}>
         Delete
@@ -91,37 +98,85 @@ function BucketMenu({
   );
 }
 
+function useDebounced<T>(value: T, ms: number): T {
+  const [debounced, setDebounced] = useState<T>(value);
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), ms);
+    return () => clearTimeout(id);
+  }, [value, ms]);
+  return debounced;
+}
+
 function AssigneeMenu({
-  options,
   onPick,
+  isLinkedToM365,
 }: {
-  options: ReadonlyArray<BulkAssigneeOption>;
   onPick: (userId: string) => void;
+  isLinkedToM365: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const debounced = useDebounced(search, 200);
+  const userQuery = useQuery({
+    queryKey: [
+      'identity',
+      'admin-users',
+      { search: debounced, sign_in_method: isLinkedToM365 ? 'microsoft' : null },
+    ],
+    queryFn: () =>
+      listTenantUsers({
+        search: debounced,
+        limit: 8,
+        offset: 0,
+        ...(isLinkedToM365 ? { sign_in_method: 'microsoft' as const } : {}),
+      }),
+    enabled: open,
+  });
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) setSearch('');
+      }}
+    >
       <PopoverTrigger asChild>
         <button type="button">Assign</button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-56 p-1">
-        {options.length === 0 ? (
-          <p className="p-2 text-sm text-ink-subtle">No members.</p>
-        ) : (
-          options.map((a) => (
-            <button
-              key={a.user_id}
-              type="button"
-              className="flex w-full items-center rounded px-2 py-1.5 text-sm hover:bg-surface-2"
-              onClick={() => {
-                onPick(a.user_id);
-                setOpen(false);
-              }}
-            >
-              {a.display_name}
-            </button>
-          ))
-        )}
+      <PopoverContent align="start" className="w-72 p-0">
+        <Command shouldFilter={false}>
+          <CommandInput
+            aria-label="Search users"
+            placeholder="Search users"
+            value={search}
+            onValueChange={setSearch}
+          />
+          <CommandList>
+            <CommandEmpty>
+              {userQuery.isPending && search ? 'Searching…' : 'No users found.'}
+            </CommandEmpty>
+            <CommandGroup>
+              {(userQuery.data?.rows ?? []).map((u) => (
+                <CommandItem
+                  key={u.user_id}
+                  value={u.user_id}
+                  onSelect={() => {
+                    onPick(u.user_id);
+                    setOpen(false);
+                    setSearch('');
+                  }}
+                  className="flex flex-col items-start gap-0.5"
+                >
+                  <span className="truncate text-body-sm leading-tight text-ink">{u.name}</span>
+                  <span className="truncate text-caption leading-tight text-ink-subtle">
+                    {u.email}
+                  </span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
       </PopoverContent>
     </Popover>
   );
