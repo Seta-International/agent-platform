@@ -62,9 +62,9 @@ export function GroupPlansSection({
   const showCreateTile = canCreatePlan && safePageIndex === pageCount - 1;
 
   return (
-    <section className="rounded-lg border border-hairline bg-canvas overflow-hidden">
+    <section className="@container rounded-lg border border-hairline bg-canvas overflow-hidden">
       <div className="p-3">
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 items-start">
+        <div className="grid grid-cols-1 @lg:grid-cols-2 @3xl:grid-cols-3 gap-3 items-start">
           {pageSlice.map((plan) => (
             <PlanCard
               key={plan.id}

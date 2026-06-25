@@ -47,8 +47,9 @@ export function MtTaskRow({ task, dragHandleProps }: Props) {
       params={{ planId: task.plan_id, taskId: task.id }}
       data-task-row=""
       data-task-id={task.id}
+      style={{ gridTemplateColumns: 'var(--mt-grid)' }}
       className={
-        'group/row grid grid-cols-[24px_minmax(0,1fr)_140px_90px_130px_100px_110px_120px] ' +
+        'group/row grid ' +
         'gap-3 items-center px-7 py-2 min-h-10 ' +
         'border-b border-hairline-tertiary text-[13px] no-underline text-ink relative ' +
         'hover:bg-surface-1 transition-colors'

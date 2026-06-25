@@ -335,9 +335,9 @@ export function TaskDetailPage({
         onConfirm={handleConfirmMove}
         pending={moveTask.isPending}
       />
-      <div className="min-h-0 flex-1 overflow-y-auto bg-surface-1">
+      <div className="min-h-0 flex-1 overflow-auto bg-surface-1">
         <div
-          className="mx-auto grid grid-cols-[minmax(0,1fr)_320px] gap-[22px] px-7 pt-5 pb-10"
+          className="mx-auto grid grid-cols-[minmax(640px,1fr)_320px] gap-[22px] px-7 pt-5 pb-10"
           style={{ maxWidth: 1180 }}
         >
           <main className="flex min-w-0 flex-col gap-4">

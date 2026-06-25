@@ -16,7 +16,7 @@ export function StatusInline({ status }: Props) {
   return (
     <span
       data-testid="status-inline"
-      className="inline-flex items-center gap-1.5 text-[11.5px] text-ink-subtle"
+      className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-[11.5px] text-ink-subtle"
     >
       <span data-testid="status-inline-dot" className={`dot dot--${tone}`} />
       {status}

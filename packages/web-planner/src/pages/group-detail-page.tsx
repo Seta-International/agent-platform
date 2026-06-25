@@ -275,8 +275,8 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
           {canManage ? <TabsTrigger value="settings">Settings</TabsTrigger> : null}
         </TabsList>
 
-        <TabsContent value="plans" className="flex-1 overflow-auto bg-surface-1">
-          <div className="page-container grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
+        <TabsContent value="plans" className="@container flex-1 overflow-auto bg-surface-1">
+          <div className="page-container grid grid-cols-1 @3xl:grid-cols-[1fr_320px] gap-6 items-start">
             <GroupPlansSection
               groupName={group.name}
               plans={plans}
@@ -311,8 +311,8 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
           </div>
         </TabsContent>
 
-        <TabsContent value="members" className="flex-1 overflow-auto bg-surface-1">
-          <div className="page-container grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
+        <TabsContent value="members" className="@container flex-1 overflow-auto bg-surface-1">
+          <div className="page-container grid grid-cols-1 @3xl:grid-cols-[1fr_320px] gap-6 items-start">
             <GroupMembersTable
               group={group}
               members={members}
