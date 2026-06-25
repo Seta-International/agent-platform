@@ -41,7 +41,7 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
   const [source, setSource] = useState<'native' | 'm365' | null>(null);
   const [owner, setOwner] = useState<string | null>(null);
   const [status, setStatus] = useState<'active' | 'archived' | null>(null);
-  const q = useGroupsWithCounts({ includeDeleted: status === 'archived' });
+  const q = useGroupsWithCounts({ includeDeleted: status !== 'active' });
   const memberSummary = useGroupMemberSummary();
   const restoreGroup = useRestoreGroup();
 
@@ -151,12 +151,9 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
   if (!showSourceFilter && source !== null) setSource(null);
 
   const filtered = groups.filter((g) => {
-    // Status: archived view shows only deleted rows; active/null shows only live rows
-    if (status === 'archived') {
-      if (!g.deleted_at) return false;
-    } else {
-      if (g.deleted_at) return false;
-    }
+    // Status: 'archived' → only deleted rows; 'active' → only live rows; null (Any) → both
+    if (status === 'archived' && !g.deleted_at) return false;
+    if (status === 'active' && g.deleted_at) return false;
     if (visibility && g.visibility !== visibility) return false;
     if (source && g.external_source !== source) return false;
     if (owner && g.created_by !== owner) return false;
