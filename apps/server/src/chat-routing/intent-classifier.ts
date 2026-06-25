@@ -15,10 +15,12 @@ export interface IntentClassifierDeps {
 }
 
 // Action/recommend intent → staffing. Checked first; assignment verbs win.
+// Also catches find-tasks-by-label/criteria queries (task analyzer find_tasks intent).
+// Deliberately narrow: "my open tasks" stays planner_qna; only label/criteria searches go staffing.
 const ACTION_RE =
-  /\b(assign|reassign|re-assign|recommend|delegate|staff this|who should|find (people|someone|users|a person)\b)/i;
+  /\b(assign|reassign|re-assign|recommend|delegate|staff this|who should|find (people|someone|users|a person|tasks?)\b|list tasks?\b|(find|list|show)\s+open\s+tasks?\b|tasks?\s+(with|tagged|labeled|in|for)\b|tìm task)\b/i;
 
-// Read-only question intent → planner_qna.
+// Read-only question intent → planner_qna. Only reached when ACTION_RE did not match.
 const QUESTION_RE =
   /\b(what|which|how many|how much|when|where|who is|who's|whose|list|show me|do i have|are there|count)\b/i;
 
@@ -27,10 +29,20 @@ async function llmFallback(deps: IntentClassifierDeps, userText: string): Promis
     id: 'chat.intentClassifier',
     name: 'Chat Intent Classifier',
     instructions:
-      'Classify the user message as exactly one word.\n' +
-      '"staffing" = a request to assign/recommend/decide WHO does work.\n' +
-      '"planner_qna" = a read-only QUESTION about tasks, plans, buckets, or team members.\n' +
-      'Output only the single word, nothing else.',
+      'Classify the user message as exactly one word: "staffing" or "planner_qna".\n' +
+      '\n' +
+      '"staffing" — use when the user wants to:\n' +
+      '  • assign, reassign, recommend, or delegate work to someone\n' +
+      '  • find or list tasks by skill, label, area, or status (e.g. open/overdue tasks in a domain)\n' +
+      '  • search for tasks matching a criteria (infrastructure, frontend, devops, etc.)\n' +
+      '  • find people with a certain skill for a task\n' +
+      '\n' +
+      '"planner_qna" — use when the user wants to:\n' +
+      '  • read details about a specific task (deadline, description, assignee)\n' +
+      '  • check their own task list or workload\n' +
+      '  • ask about plans, groups, or team structure\n' +
+      '\n' +
+      'The message may be in Vietnamese or English. Output only the single word, nothing else.',
     model: deps.resolveModel(),
   });
   const r = await agent.generate(userText);
