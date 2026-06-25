@@ -15,7 +15,11 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import { GroupsPage } from '../../../src/pages/groups-page';
 import { makeGroupWithCounts } from '../../../src/testing/fixtures';
 
-const server = setupServer();
+const server = setupServer(
+  http.get('*/api/planner/v1/groups/member-summary', () =>
+    HttpResponse.json({ distinct_member_count: 0 }),
+  ),
+);
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => {
   server.resetHandlers();

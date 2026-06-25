@@ -70,6 +70,7 @@ export function buildSession(opts: {
     role_summary,
     role_summary_hash: hashRoleSummary(role_summary),
     permissions: permsFor(roles),
+    features: new Set<string>(['pm']),
     accessible_group_ids: [],
     cross_tenant_read: false,
     built_at: new Date(),

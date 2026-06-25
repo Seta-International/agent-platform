@@ -38,6 +38,7 @@ const SRC_ALLOWLIST = new Set([
   'contracts.ts',
   'contracts',
   'register.ts',
+  'flags.ts',
   'models.ts',
   'agent-tools.ts',
   'agent-reads.ts',
@@ -52,6 +53,7 @@ const SRC_ALLOWLIST = new Set([
 // they don't have. Keep them at src/ root and extend the allowlist accordingly.
 const CORE_EXTRA_SRC_ALLOWLIST = new Set([
   'composition',
+  'flags',
   'middleware',
   'outbox',
   'rpc',

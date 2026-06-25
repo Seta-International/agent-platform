@@ -7,6 +7,7 @@ import { buildPmRoutes } from './backend/http/index.ts';
 import { PmError } from './backend/rbac.ts';
 import { pmSubscribers } from './backend/subscribers/index.ts';
 import { PM_EVENTS } from './events.ts';
+import { pmFlags } from './flags.ts';
 import { pmRbac } from './rbac.ts';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
@@ -35,6 +36,7 @@ export function registerPmContributions(reg: ContributionRegistry): void {
     rbac: pmRbac,
     subscribers: pmSubscribers(),
     errorMapper: pmErrorMapper,
+    flags: pmFlags,
     routes: { mountAt: '/', build: buildPmRoutes },
   });
 }

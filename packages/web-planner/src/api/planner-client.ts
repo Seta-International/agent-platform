@@ -49,6 +49,8 @@ export interface DiscoverGroupsItem {
   member_count: number;
   owner_display_name: string | null;
   owner_email: string | null;
+  is_member: boolean;
+  has_pending_request: boolean;
 }
 
 export type GroupSyncStatusResponse =
@@ -271,6 +273,13 @@ async function setMemberRole(input: {
     method: 'PATCH',
     body: JSON.stringify({ role: input.role }),
   });
+}
+
+async function getGroupMemberSummary(): Promise<{ distinct_member_count: number }> {
+  const r = await request<{ distinct_member_count: number }>(
+    '/api/planner/v1/groups/member-summary',
+  );
+  return r ?? { distinct_member_count: 0 };
 }
 
 export async function discoverGroups(q: string): Promise<DiscoverGroupsItem[]> {
@@ -953,6 +962,7 @@ export const plannerClient = {
   removeGroupMembersBulk,
   setMemberRole,
   discoverGroups,
+  getGroupMemberSummary,
   createJoinRequest,
   listJoinRequests,
   resolveJoinRequest,

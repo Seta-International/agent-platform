@@ -9,6 +9,10 @@ describe('pmAppManifest', () => {
     expect(pmAppManifest.requiredPermissions).toContain('pm.account.read');
   });
 
+  it('gates visibility on the pm feature flag', () => {
+    expect(pmAppManifest.requiredFeature).toBe('pm');
+  });
+
   it('declares the prototype tabs in order with Accounts and Projects appended', () => {
     const items = pmAppManifest.nav.flatMap((s) => s.items);
     expect(items.map((i) => [i.label, i.to])).toEqual([

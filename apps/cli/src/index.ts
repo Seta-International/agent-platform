@@ -14,6 +14,7 @@ import { closePools, initPools } from '@seta/shared-db';
 import { Command } from 'commander';
 import pino from 'pino';
 import { runEmbedBackfill } from './commands/embed-backfill.ts';
+import { flagSetCommand } from './commands/flag.ts';
 import { integrationsMailSetCommand } from './commands/integrations-mail-set.ts';
 import { integrationsMailTestCommand } from './commands/integrations-mail-test.ts';
 import { migrateCommand } from './commands/migrate.ts';
@@ -261,6 +262,27 @@ program
       await closePools();
     }
   });
+
+const flag = program.command('flag').description('Feature-flag go-live control');
+flag
+  .command('set <key>')
+  .description('Set a feature flag (master enabled and/or a member allowlist)')
+  .option('--enabled', 'turn the flag on for everyone in scope', false)
+  .option('--members <ids>', 'comma-separated user ids for the allowlist')
+  .option('--tenant <uuid>', 'tenant id to scope the flag to')
+  .option('--global', 'set the global default row (tenant_id NULL)', false)
+  .action(
+    async (
+      key: string,
+      opts: { enabled: boolean; members?: string; tenant?: string; global: boolean },
+    ) => {
+      try {
+        await flagSetCommand({ key, ...opts });
+      } finally {
+        await closePools();
+      }
+    },
+  );
 
 plannerCommand(program);
 

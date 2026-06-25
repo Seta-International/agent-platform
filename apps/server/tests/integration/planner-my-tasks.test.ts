@@ -33,6 +33,7 @@ function buildSession(opts: {
     cross_tenant_read: false,
     built_at: new Date(),
     invalidated_at: null,
+    features: new Set<string>(),
   };
 }
 
@@ -193,6 +194,42 @@ describe('GET /api/planner/v1/my-tasks', () => {
         expect(res.status).toBe(200);
         const body = (await res.json()) as MyTasksBody;
         expect(body.notStarted.map((t) => t.id)).toEqual([a.id]);
+      } finally {
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('filters tasks by the q search query param (FUT-24)', async () => {
+    await withTestDb(dbCfg(), async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      initPools({ databaseUrl });
+      try {
+        const { tenantId, adminUserId, adminEmail } = await seedTenant(pool, 'mysearch');
+        const session = buildSession({
+          tenant_id: tenantId,
+          user_id: adminUserId,
+          email: adminEmail,
+          display_name: 'Admin',
+        });
+        const group = await createGroup({ tenant_id: tenantId, name: 'Eng', session });
+        const plan = await createPlan({ group_id: group.id, name: 'P', session });
+
+        const match = await createTask({
+          plan_id: plan.id,
+          title: 'Quarterly budget review',
+          session,
+        });
+        await assignTask({ task_id: match.id, user_id: session.user_id, session });
+        const other = await createTask({ plan_id: plan.id, title: 'Unrelated work', session });
+        await assignTask({ task_id: other.id, user_id: session.user_id, session });
+
+        const app = buildTestApp(session);
+        const res = await app.request('/api/planner/v1/my-tasks?q=budget');
+        expect(res.status).toBe(200);
+        const body = (await res.json()) as MyTasksBody;
+        expect(body.notStarted.map((t) => t.id)).toEqual([match.id]);
       } finally {
         resetCoreDb();
         await closePools();

@@ -10,6 +10,7 @@ export async function discoverGroups(input: DiscoverGroupsInput): Promise<Discov
 
   const db = plannerDb();
   const searchTerm = `%${input.q.trim().toLowerCase()}%`;
+  const viewerId = input.session.user_id;
 
   const rows = await db
     .select({
@@ -20,6 +21,14 @@ export async function discoverGroups(input: DiscoverGroupsInput): Promise<Discov
         SELECT COUNT(*)::int FROM planner.group_members gm2
         WHERE gm2.group_id = ${groups.id}
       )`.as('member_count'),
+      is_member: sql<boolean>`EXISTS (
+        SELECT 1 FROM planner.group_members gm3
+        WHERE gm3.group_id = ${groups.id} AND gm3.user_id = ${viewerId}
+      )`.as('is_member'),
+      has_pending_request: sql<boolean>`EXISTS (
+        SELECT 1 FROM planner.group_join_requests jr
+        WHERE jr.group_id = ${groups.id} AND jr.user_id = ${viewerId} AND jr.status = 'pending'
+      )`.as('has_pending_request'),
     })
     .from(groups)
     .where(
@@ -39,5 +48,7 @@ export async function discoverGroups(input: DiscoverGroupsInput): Promise<Discov
     member_count: r.member_count,
     owner_display_name: null,
     owner_email: null,
+    is_member: r.is_member,
+    has_pending_request: r.has_pending_request,
   }));
 }

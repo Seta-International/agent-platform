@@ -7,6 +7,7 @@ export interface SessionScopeProjection {
   display_name: string;
   role_summary: { roles: string[]; cross_tenant_read: boolean };
   permissions: string[];
+  features: string[];
   accessible_group_ids: ReadonlyArray<string>;
   cross_tenant_read: boolean;
   tenant_local_password_disabled: boolean;
@@ -65,7 +66,7 @@ export async function patchProfile(patch: ProfilePatch): Promise<ProfileDto> {
 
 export async function searchSkillsApi(prefix: string, limit = 20): Promise<string[]> {
   const res = await fetch(
-    `/api/identity/v1/skills?prefix=${encodeURIComponent(prefix)}&limit=${limit}`,
+    `/api/identity/v1/skill-search?prefix=${encodeURIComponent(prefix)}&limit=${limit}`,
     { credentials: 'include' },
   );
   if (!res.ok) throw new Error(`skills search failed: ${res.status}`);

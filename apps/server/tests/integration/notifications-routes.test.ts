@@ -27,6 +27,7 @@ function buildSession(opts: { tenant_id: string; user_id: string }): SessionScop
     cross_tenant_read: false,
     built_at: new Date(),
     invalidated_at: null,
+    features: new Set<string>(),
   };
 }
 

@@ -413,6 +413,23 @@ describe('PlanGridPage (via PlanBoardShell)', () => {
       ),
       http.get('*/api/planner/v1/plans/p1/labels', () => HttpResponse.json({ labels: [] })),
       http.get('*/api/planner/v1/groups/g1', () => HttpResponse.json(groupFixture())),
+      http.get('*/api/identity/v1/users', () =>
+        HttpResponse.json({
+          rows: [
+            {
+              user_id: 'u1',
+              email: 'alice@x',
+              name: 'Alice',
+              status: 'active',
+              role_slugs: [],
+              sign_in_methods: [],
+              last_seen_at: null,
+              created_at: '',
+            },
+          ],
+          total: 1,
+        }),
+      ),
       http.post('*/api/planner/v1/tasks/:taskId/assign', async ({ params, request }) => {
         const body = (await request.json()) as { user_id: string };
         assignCalls.push({ taskId: params.taskId as string, user_id: body.user_id });
@@ -425,7 +442,7 @@ describe('PlanGridPage (via PlanBoardShell)', () => {
     const user = userEvent.setup();
     await user.click(screen.getAllByRole('checkbox')[0]!);
     await user.click(await screen.findByRole('button', { name: 'Assign' }));
-    await user.click(await screen.findByRole('button', { name: 'Alice' }));
+    await user.click(await screen.findByRole('option', { name: /Alice/i }));
 
     expect(assignCalls).toContainEqual({ taskId: 't1', user_id: 'u1' });
   });

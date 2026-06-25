@@ -26,6 +26,7 @@ export const plannerAppManifest: AppManifest = {
   icon: ClipboardList,
   color: '#0047FF',
   requiredPermissions: [],
+  requiredFeature: 'planner',
   nav: [
     {
       label: 'Work',

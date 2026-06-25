@@ -20,10 +20,10 @@ function Landing() {
     const enabled = new Set(enabledQuery.data?.enabled ?? ALL_MANIFESTS.map((m) => m.id));
     return visibleManifests(
       ALL_MANIFESTS,
-      { permissions: new Set(session.permissions) },
+      { permissions: new Set(session.permissions), features: new Set(session.features) },
       enabled,
     ).map((m) => m.id);
-  }, [enabledQuery.data, session.permissions]);
+  }, [enabledQuery.data, session.permissions, session.features]);
 
   const dest = resolveLanding(session.user_id, permittedAppIds);
 

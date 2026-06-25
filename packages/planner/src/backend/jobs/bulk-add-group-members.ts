@@ -38,6 +38,7 @@ export const plannerMembershipJobs: TaskList = {
       cross_tenant_read: false,
       built_at: new Date(),
       invalidated_at: null,
+      features: new Set<string>(),
     };
     for (const user_id of payload.user_ids) {
       // swallow per-user errors (already a member, group deleted mid-job, etc.)

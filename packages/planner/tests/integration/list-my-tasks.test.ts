@@ -364,6 +364,116 @@ describe('listMyTasks', () => {
     });
   });
 
+  it('search matches the task title case-insensitively and excludes non-matching tasks (FUT-24)', async () => {
+    await withTestDb(dbCfg(), async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      initPools({ databaseUrl });
+      try {
+        const seeded = await seedTenant(pool);
+        const session = seeded.adminSession;
+        const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+        const plan = await createPlan({ group_id: group.id, name: 'P', session });
+
+        const match = await createTask({
+          plan_id: plan.id,
+          title: 'Fix Incorrect filter',
+          session,
+        });
+        await assignTask({ task_id: match.id, user_id: session.user_id, session });
+        const other = await createTask({ plan_id: plan.id, title: 'Unrelated work', session });
+        await assignTask({ task_id: other.id, user_id: session.user_id, session });
+
+        const allIds = (r: Awaited<ReturnType<typeof listMyTasks>>) =>
+          [
+            ...r.late,
+            ...r.dueThisWeek,
+            ...r.inProgress,
+            ...r.notStarted,
+            ...r.recentlyCompleted,
+          ].map((t) => t.id);
+
+        const r = await listMyTasks({ search: 'incorrect' }, session);
+        expect(allIds(r)).toEqual([match.id]);
+      } finally {
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('search matches the task description text (FUT-24)', async () => {
+    await withTestDb(dbCfg(), async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      initPools({ databaseUrl });
+      try {
+        const seeded = await seedTenant(pool);
+        const session = seeded.adminSession;
+        const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+        const plan = await createPlan({ group_id: group.id, name: 'P', session });
+
+        const match = await createTask({ plan_id: plan.id, title: 'Task one', session });
+        await updateTask({
+          task_id: match.id,
+          expected_version: match.version,
+          patch: { description: 'please review the quarterly budget' },
+          session,
+        });
+        await assignTask({ task_id: match.id, user_id: session.user_id, session });
+        const other = await createTask({ plan_id: plan.id, title: 'Task two', session });
+        await assignTask({ task_id: other.id, user_id: session.user_id, session });
+
+        const allIds = (r: Awaited<ReturnType<typeof listMyTasks>>) =>
+          [
+            ...r.late,
+            ...r.dueThisWeek,
+            ...r.inProgress,
+            ...r.notStarted,
+            ...r.recentlyCompleted,
+          ].map((t) => t.id);
+
+        const r = await listMyTasks({ search: 'budget' }, session);
+        expect(allIds(r)).toEqual([match.id]);
+      } finally {
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('search treats LIKE wildcards as literal text (FUT-24)', async () => {
+    await withTestDb(dbCfg(), async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      initPools({ databaseUrl });
+      try {
+        const seeded = await seedTenant(pool);
+        const session = seeded.adminSession;
+        const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+        const plan = await createPlan({ group_id: group.id, name: 'P', session });
+
+        const literal = await createTask({ plan_id: plan.id, title: '50% done', session });
+        await assignTask({ task_id: literal.id, user_id: session.user_id, session });
+        const other = await createTask({ plan_id: plan.id, title: 'nothing here', session });
+        await assignTask({ task_id: other.id, user_id: session.user_id, session });
+
+        const allIds = (r: Awaited<ReturnType<typeof listMyTasks>>) =>
+          [
+            ...r.late,
+            ...r.dueThisWeek,
+            ...r.inProgress,
+            ...r.notStarted,
+            ...r.recentlyCompleted,
+          ].map((t) => t.id);
+
+        // '%' is a SQL LIKE wildcard; it must be escaped so it does not match every row.
+        const r = await listMyTasks({ search: '%' }, session);
+        expect(allIds(r)).toEqual([literal.id]);
+      } finally {
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
   it('filter.due="overdue" restricts to tasks with due_at < now', async () => {
     await withTestDb(dbCfg(), async ({ pool, databaseUrl }) => {
       resetCoreDb();
