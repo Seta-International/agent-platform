@@ -264,6 +264,7 @@ export function registerPlannerTasksRoutes(app: Hono<SessionEnv>): void {
     if (q.sort && MY_TASKS_SORT_VALUES.has(q.sort)) {
       input.sort = q.sort as 'assignee_priority' | 'due_at';
     }
+    if (q.q?.trim()) input.search = q.q.trim();
     return c.json(await listMyTasks(input, session));
   });
 

@@ -162,7 +162,11 @@ export function MyTasksPage({ filters, onFiltersChange }: Props) {
           <div className="flex h-full flex-col">
             <div className="flex-1 overflow-auto">
               {SECTION_SPECS.map((spec) => (
-                <MtSection key={spec.key} section={mapSection(spec, q.data)} />
+                <MtSection
+                  key={spec.key}
+                  section={mapSection(spec, q.data)}
+                  searchTerm={filters.search}
+                />
               ))}
             </div>
             <MyTasksFooter data={q.data} total={total} />

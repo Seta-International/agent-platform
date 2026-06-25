@@ -1,7 +1,7 @@
 import { Draggable, Droppable } from '@hello-pangea/dnd';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ChevronDown } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { MtTaskRow, type MyTasksRowTask } from './mt-task-row';
 import type { SectionKey, SectionTone } from './types';
 
@@ -19,6 +19,7 @@ export interface MyTasksSection {
 
 interface Props {
   section: MyTasksSection;
+  searchTerm?: string;
 }
 
 const TONE_BG: Record<SectionTone, string> = {
@@ -54,9 +55,12 @@ export const MT_GRID_COLS =
 // below this threshold the non-virtual path keeps DOM simple for tests and a11y
 const VIRTUAL_THRESHOLD = 20;
 
-export function MtSection({ section }: Props) {
+export function MtSection({ section, searchTerm }: Props) {
   const [open, setOpen] = useState(section.open);
   const taskCount = section.tasks.length;
+  useEffect(() => {
+    if (searchTerm && taskCount > 0) setOpen(true);
+  }, [searchTerm, taskCount]);
   const droppableId = `mt:${section.key}`;
   const virtualize = open && taskCount >= VIRTUAL_THRESHOLD;
   const parentRef = useRef<HTMLDivElement | null>(null);
