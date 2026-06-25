@@ -27,6 +27,7 @@ export const plannerKeys = {
   myGroups: () => [...plannerKeys.groups(), 'mine'] as const,
   groupsWithCounts: (includeDeleted = false) =>
     [...plannerKeys.groups(), 'withCounts', includeDeleted] as const,
+  groupMemberSummary: () => [...plannerKeys.groups(), 'memberSummary'] as const,
   group: (id: string) => [...plannerKeys.groups(), id] as const,
   groupMembers: (id: string) => [...plannerKeys.group(id), 'members'] as const,
   groupMemberCandidates: (id: string, search: string) =>

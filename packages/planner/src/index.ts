@@ -10,6 +10,7 @@ export { archivePlan } from './backend/domain/archive-plan.ts';
 export { assignTask } from './backend/domain/assign-task.ts';
 export { attachLabelToCategorySlot } from './backend/domain/attach-label-to-category-slot.ts';
 export { completeTask } from './backend/domain/complete-task.ts';
+export { countDistinctGroupMembers } from './backend/domain/count-group-members.ts';
 export { countTasksByCategorySlot } from './backend/domain/count-tasks-by-category-slot.ts';
 export { createBucket } from './backend/domain/create-bucket.ts';
 export { createComment } from './backend/domain/create-comment.ts';
