@@ -18,6 +18,9 @@ set -euo pipefail
 
 log() { printf 'export-pdf: %s\n' "$*" >&2; }
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+STYLE_CSS="$SCRIPT_DIR/pdf-style.css"
+
 [ $# -ge 1 ] || { log "usage: scripts/export-pdf.sh <input.md> [output.pdf]"; exit 2; }
 IN="$1"
 [ -f "$IN" ] || { log "input not found: $IN"; exit 2; }
@@ -53,6 +56,15 @@ cat > "$BD/pptr.json" <<EOF
 EOF
 LAUNCH="{\"executablePath\":\"$CHROME\",\"args\":[\"--no-sandbox\"]}"
 
+# Polished print styling + page geometry/footer. Falls back to md-to-pdf's
+# default styling if the sibling stylesheet is missing.
+STYLE_ARGS=()
+if [ -f "$STYLE_CSS" ]; then
+  cp "$STYLE_CSS" "$BD/style.css"
+  STYLE_ARGS=(--stylesheet style.css --body-class "")
+fi
+PDF_OPTIONS='{"format":"A4","printBackground":true,"margin":{"top":"20mm","bottom":"18mm","left":"16mm","right":"16mm"},"displayHeaderFooter":true,"headerTemplate":"<span></span>","footerTemplate":"<div style=\"font-size:8px;color:#9aa3b2;width:100%;text-align:center;padding:0 16mm;\"><span class=\"pageNumber\"></span> / <span class=\"totalPages\"></span></div>"}'
+
 export PUPPETEER_SKIP_DOWNLOAD=1 PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1
 cd "$BD"
 
@@ -62,9 +74,9 @@ npx --yes @mermaid-js/mermaid-cli -p pptr.json -i doc.md -o doc.rendered.md >/de
 
 run_md2pdf() {
   if [ -n "$TIMEOUT_BIN" ]; then
-    "$TIMEOUT_BIN" 120 npx --yes md-to-pdf --launch-options "$LAUNCH" doc.rendered.md >/dev/null 2>&1 || true
+    "$TIMEOUT_BIN" 120 npx --yes md-to-pdf --launch-options "$LAUNCH" --pdf-options "$PDF_OPTIONS" "${STYLE_ARGS[@]+${STYLE_ARGS[@]}}" doc.rendered.md >/dev/null 2>&1 || true
   else
-    npx --yes md-to-pdf --launch-options "$LAUNCH" doc.rendered.md >/dev/null 2>&1 || true
+    npx --yes md-to-pdf --launch-options "$LAUNCH" --pdf-options "$PDF_OPTIONS" "${STYLE_ARGS[@]+${STYLE_ARGS[@]}}" doc.rendered.md >/dev/null 2>&1 || true
   fi
 }
 
