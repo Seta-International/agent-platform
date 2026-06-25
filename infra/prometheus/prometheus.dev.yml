@@ -21,3 +21,21 @@ scrape_configs:
       - targets: ['host.docker.internal:9465']
         labels:
           service: seta-worker
+
+  # vLLM server-side metrics (aggregate throughput, batching, queue depth).
+  # Complements the app-side per-tenant agent_llm_* metrics on seta-server.
+  - job_name: vllm
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['192.168.90.127:8000']
+        labels:
+          service: vllm
+
+  # NVIDIA GPU metrics (utilization, VRAM/framebuffer) from dcgm-exporter
+  # running on the GPU host alongside vLLM. vLLM's own /metrics does NOT expose
+  # GPU util or VRAM — dcgm-exporter is the source for DCGM_FI_DEV_* series.
+  - job_name: dcgm
+    static_configs:
+      - targets: ['192.168.90.127:9400']
+        labels:
+          service: gpu

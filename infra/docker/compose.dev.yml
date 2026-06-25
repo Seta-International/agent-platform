@@ -81,7 +81,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
-      - "9090:9090"
+      - "9092:9090"
     volumes:
       - ../../infra/prometheus/prometheus.dev.yml:/etc/prometheus/prometheus.yml:ro
       - seta-ap-prometheus-data:/prometheus
@@ -96,6 +96,7 @@ services:
       - "3100:3000"   # offset from 3000 (often used by pnpm dev server)
     volumes:
       - ../../infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../../infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
       - seta-ap-grafana-data:/var/lib/grafana
     depends_on:
       - prometheus
