@@ -26,6 +26,7 @@ import { GroupsTable } from '../components/GroupsTable';
 import { GroupsToolbar } from '../components/GroupsToolbar';
 import { LinkToM365Dialog } from '../components/LinkToM365Dialog';
 import { useRestoreGroup } from '../hooks/mutations/restore-group';
+import { useGroupMemberSummary } from '../hooks/queries/use-group-member-summary';
 import { useGroupsWithCounts } from '../hooks/queries/use-groups-with-counts';
 
 interface Props {
@@ -41,6 +42,7 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
   const [owner, setOwner] = useState<string | null>(null);
   const [status, setStatus] = useState<'active' | 'archived' | null>(null);
   const q = useGroupsWithCounts({ includeDeleted: status !== 'active' });
+  const memberSummary = useGroupMemberSummary();
   const restoreGroup = useRestoreGroup();
 
   function handleRestore(groupId: string) {
@@ -165,7 +167,7 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
   });
 
   const totalPlans = groups.reduce((s, g) => s + g.plan_count, 0);
-  const totalMembers = groups.reduce((s, g) => s + g.member_count, 0);
+  const totalMembers = memberSummary.data?.distinct_member_count ?? 0;
   const syncedCount = groups.filter((g) => g.external_source !== 'native').length;
 
   return (
