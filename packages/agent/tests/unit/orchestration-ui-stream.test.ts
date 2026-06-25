@@ -50,6 +50,34 @@ describe('pumpOrchestrationStream', () => {
     expect(w.chunks.some((c) => c.type === 'data-trust')).toBe(true);
   });
 
+  it('reports decode timing: first/last token timestamps over the text deltas', async () => {
+    const w = new FakeWriter();
+    const { timing } = await pumpOrchestrationStream(
+      w,
+      parts(
+        { type: 'text-start', id: 't' },
+        { type: 'text-delta', id: 't', delta: 'a' },
+        { type: 'text-delta', id: 't', delta: 'b' },
+        { type: 'text-end', id: 't' },
+      ),
+      { finalize: async () => ({ result: {}, trust: TRUST }), onApproval: async () => {} },
+    );
+    expect(typeof timing.firstTokenAtMs).toBe('number');
+    expect(typeof timing.lastTokenAtMs).toBe('number');
+    expect(timing.lastTokenAtMs).toBeGreaterThanOrEqual(timing.firstTokenAtMs as number);
+  });
+
+  it('leaves decode timing undefined when no text delta is streamed', async () => {
+    const w = new FakeWriter();
+    const { timing } = await pumpOrchestrationStream(
+      w,
+      parts({ type: 'text-start', id: 't' }, { type: 'text-end', id: 't' }),
+      { finalize: async () => ({ result: {}, trust: TRUST }), onApproval: async () => {} },
+    );
+    expect(timing.firstTokenAtMs).toBeUndefined();
+    expect(timing.lastTokenAtMs).toBeUndefined();
+  });
+
   it('fires onApproval and skips finalize when the run suspends', async () => {
     const w = new FakeWriter();
     const card = {
