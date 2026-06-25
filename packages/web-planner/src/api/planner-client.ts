@@ -49,6 +49,8 @@ export interface DiscoverGroupsItem {
   member_count: number;
   owner_display_name: string | null;
   owner_email: string | null;
+  is_member: boolean;
+  has_pending_request: boolean;
 }
 
 export type GroupSyncStatusResponse =
