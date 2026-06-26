@@ -3,7 +3,6 @@ import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import {
-  assignTask,
   completeTask,
   createGroup,
   createPlan,
@@ -11,7 +10,7 @@ import {
   listMyAccessibleGroups,
   listMyAssignedTasks,
 } from '../../src/index.ts';
-import { buildSession, seedTenant } from '../helpers.ts';
+import { assignTaskInGroup, buildSession, seedTenant } from '../helpers.ts';
 
 // ---------------------------------------------------------------------------
 // listMyAccessibleGroups
@@ -188,7 +187,12 @@ describe('listMyAssignedTasks', () => {
             session: adminSession,
           });
           await createTask({ plan_id: plan.id, title: 'Someone Else Task', session: adminSession });
-          await assignTask({ task_id: myTask.id, user_id: alice.user_id, session: adminSession });
+          await assignTaskInGroup({
+            group_id: group.id,
+            task_id: myTask.id,
+            user_id: alice.user_id,
+            session: adminSession,
+          });
 
           const aliceSession = buildSession({
             tenant_id: seeded.tenant_id,
@@ -271,12 +275,18 @@ describe('listMyAssignedTasks', () => {
             title: 'Open Task',
             session: adminSession,
           });
-          await assignTask({
+          await assignTaskInGroup({
+            group_id: group.id,
             task_id: taskCompleted.id,
             user_id: alice.user_id,
             session: adminSession,
           });
-          await assignTask({ task_id: taskOpen.id, user_id: alice.user_id, session: adminSession });
+          await assignTaskInGroup({
+            group_id: group.id,
+            task_id: taskOpen.id,
+            user_id: alice.user_id,
+            session: adminSession,
+          });
           await completeTask({
             task_id: taskCompleted.id,
             expected_version: taskCompleted.version,
@@ -353,8 +363,18 @@ describe('listMyAssignedTasks', () => {
           });
 
           // Assign alice to tasks in both groups
-          await assignTask({ task_id: taskInA.id, user_id: alice.user_id, session: adminSession });
-          await assignTask({ task_id: taskInB.id, user_id: alice.user_id, session: adminSession });
+          await assignTaskInGroup({
+            group_id: groupA.id,
+            task_id: taskInA.id,
+            user_id: alice.user_id,
+            session: adminSession,
+          });
+          await assignTaskInGroup({
+            group_id: groupB.id,
+            task_id: taskInB.id,
+            user_id: alice.user_id,
+            session: adminSession,
+          });
 
           // Alice has viewer access to groupA only
           const aliceViewerSession = buildSession({

@@ -13,25 +13,22 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
 } from '@seta/shared-ui';
-import { listTenantUsers, useSession } from '@seta/web-identity';
-import { useQuery } from '@tanstack/react-query';
-import { GripVertical, Info, Plus, X, Zap } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useSession } from '@seta/web-identity';
+import { GripVertical, Plus, X, Zap } from 'lucide-react';
+import { useState } from 'react';
 import { useAssignTask } from '../hooks/mutations/assign-task';
 import { useMoveToTopOfMyList } from '../hooks/mutations/move-to-top-of-my-list';
 import { useReorderTaskAssignees } from '../hooks/mutations/reorder-task-assignees';
 import { useUnassignTask } from '../hooks/mutations/unassign-task';
+import { useGroupMemberAssigneeSearch } from '../hooks/use-group-member-assignee-search';
 import { computeAssigneeReorder } from './assignee-reorder';
 import { SuggestAssigneeButton } from './SuggestAssigneeButton';
 
 interface Props {
   task: TaskWithAssigneesRow & { pending_assign_workflow_run_id?: string | null };
   planId: string;
+  groupId: string;
   isLinkedToM365?: boolean;
 }
 
@@ -58,44 +55,12 @@ function userAvatarStyle(userId: string) {
   };
 }
 
-function useDebounced<T>(value: T, ms: number): T {
-  const [debounced, setDebounced] = useState<T>(value);
-  useEffect(() => {
-    const id = setTimeout(() => setDebounced(value), ms);
-    return () => clearTimeout(id);
-  }, [value, ms]);
-  return debounced;
-}
-
-function useUserSearch(search: string, enabled: boolean, isLinkedToM365: boolean) {
-  const debounced = useDebounced(search, 200);
-  return useQuery({
-    queryKey: [
-      'identity',
-      'admin-users',
-      { search: debounced, sign_in_method: isLinkedToM365 ? 'microsoft' : null },
-    ],
-    queryFn: () =>
-      listTenantUsers({
-        search: debounced,
-        limit: 8,
-        offset: 0,
-        ...(isLinkedToM365 ? { sign_in_method: 'microsoft' as const } : {}),
-      }),
-    enabled,
-  });
-}
-
-function useUnfilteredUserCount(search: string, enabled: boolean) {
-  const debounced = useDebounced(search, 200);
-  return useQuery({
-    queryKey: ['identity', 'admin-users', { search: debounced, sign_in_method: null }],
-    queryFn: () => listTenantUsers({ search: debounced, limit: 8, offset: 0 }),
-    enabled,
-  });
-}
-
-export function TaskDetailAssigneesCard({ task, planId, isLinkedToM365 = false }: Props) {
+export function TaskDetailAssigneesCard({
+  task,
+  planId,
+  groupId,
+  isLinkedToM365: _isLinkedToM365 = false,
+}: Props) {
   const session = useSession();
   const reorder = useReorderTaskAssignees();
   const moveToTop = useMoveToTopOfMyList();
@@ -106,13 +71,7 @@ export function TaskDetailAssigneesCard({ task, planId, isLinkedToM365 = false }
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const userQuery = useUserSearch(search, pickerOpen, isLinkedToM365);
-  const unfilteredQuery = useUnfilteredUserCount(search, pickerOpen && isLinkedToM365);
-
-  const filteredTotal = userQuery.data?.total ?? 0;
-  const unfilteredTotal = unfilteredQuery.data?.total ?? 0;
-  const hiddenCount = isLinkedToM365 ? Math.max(0, unfilteredTotal - filteredTotal) : 0;
-  const showHiddenFooter = isLinkedToM365 && hiddenCount > 0;
+  const memberQuery = useGroupMemberAssigneeSearch(groupId, search, pickerOpen);
 
   const onDragEnd = (result: DropResult) => {
     if (!result.destination) return;
@@ -192,29 +151,29 @@ export function TaskDetailAssigneesCard({ task, planId, isLinkedToM365 = false }
           <PopoverContent align="start" className="w-80 p-0">
             <Command shouldFilter={false}>
               <CommandInput
-                aria-label="Search users"
-                placeholder="Search users"
+                aria-label="Search group members"
+                placeholder="Search group members"
                 value={search}
                 onValueChange={setSearch}
               />
               <CommandList>
                 <CommandEmpty>
-                  {userQuery.isPending && search ? 'Searching…' : 'No users found.'}
+                  {memberQuery.isPending && search ? 'Searching…' : 'No group members found.'}
                 </CommandEmpty>
                 <CommandGroup>
-                  {(userQuery.data?.rows ?? []).map((u) => {
-                    const already = task.assignees.some((a) => a.user_id === u.user_id);
+                  {memberQuery.members.map((m) => {
+                    const already = task.assignees.some((a) => a.user_id === m.user_id);
                     return (
                       <CommandItem
-                        key={u.user_id}
-                        value={u.user_id}
+                        key={m.user_id}
+                        value={m.user_id}
                         disabled={already}
                         onSelect={() => {
                           assign.mutate({
                             task_id: task.id,
-                            user_id: u.user_id,
-                            display_name: u.name,
-                            email: u.email,
+                            user_id: m.user_id,
+                            display_name: m.display_name,
+                            email: m.email,
                           });
                           setPickerOpen(false);
                           setSearch('');
@@ -224,16 +183,16 @@ export function TaskDetailAssigneesCard({ task, planId, isLinkedToM365 = false }
                         <span
                           aria-hidden
                           className="inline-flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
-                          style={userAvatarStyle(u.user_id)}
+                          style={userAvatarStyle(m.user_id)}
                         >
-                          {initialsOf(u.name)}
+                          {initialsOf(m.display_name)}
                         </span>
                         <span className="flex min-w-0 flex-1 flex-col">
                           <span className="truncate text-body-sm leading-tight text-ink">
-                            {u.name}
+                            {m.display_name}
                           </span>
                           <span className="truncate text-caption leading-tight text-ink-subtle">
-                            {u.email}
+                            {m.email}
                           </span>
                         </span>
                         {already && (
@@ -243,28 +202,6 @@ export function TaskDetailAssigneesCard({ task, planId, isLinkedToM365 = false }
                     );
                   })}
                 </CommandGroup>
-                {showHiddenFooter ? (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div
-                          role="note"
-                          className="flex items-center gap-1 border-t border-hairline px-3 py-2 text-caption text-ink-subtle"
-                        >
-                          <Info className="size-3" />
-                          <span>
-                            {hiddenCount} {hiddenCount === 1 ? 'person' : 'people'} hidden — not in
-                            Microsoft 365
-                          </span>
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        On linked plans, you can only assign people who have a Microsoft work
-                        account.
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                ) : null}
               </CommandList>
             </Command>
           </PopoverContent>

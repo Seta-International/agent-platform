@@ -315,6 +315,7 @@ export function PlanBoardShell({
       ) : (
         <PlanGridPage
           planId={planId}
+          groupId={resolvedPlan.group_id}
           buckets={buckets}
           tasks={tasks}
           filters={filters}

@@ -2,7 +2,7 @@ import { requiredPermissionFor } from '@seta/agent-sdk';
 import { hashRoleSummary, type SessionScope } from '@seta/core';
 import { createUser, updateUserProfile } from '@seta/identity';
 import { createTestTenantWithAdmin } from '@seta/identity/testing';
-import { addGroupMember, assignTask, createGroup, createPlan, createTask } from '@seta/planner';
+import { addGroupMember, createGroup, createPlan, createTask } from '@seta/planner';
 import { plannerSearchGroupMembersBySkillsTool } from '@seta/planner/agent-tools';
 import {
   buildRegistry,
@@ -12,6 +12,7 @@ import {
   resolvePermissions,
 } from '@seta/shared-rbac';
 import { describe, expect, it } from 'vitest';
+import { assignTaskInGroup } from '../../helpers.ts';
 import { makeToolContext, withAgentTestDb } from '../agent-tools-helpers.ts';
 
 const _registry = buildRegistry(inventoryToManifests(INVENTORY));
@@ -293,7 +294,12 @@ describe('planner_searchGroupMembersBySkills tool', () => {
 
       await addGroupMember({ group_id: group.id, user_id: alice.user_id, session });
       await addGroupMember({ group_id: group.id, user_id: bob.user_id, session });
-      await assignTask({ task_id: task.id, user_id: alice.user_id, session });
+      await assignTaskInGroup({
+        group_id: group.id,
+        task_id: task.id,
+        user_id: alice.user_id,
+        session,
+      });
 
       const result = (await plannerSearchGroupMembersBySkillsTool.execute!(
         {

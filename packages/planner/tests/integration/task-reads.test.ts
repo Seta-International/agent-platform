@@ -6,7 +6,6 @@ import {
   addChecklistItem,
   addTaskReference,
   applyLabel,
-  assignTask,
   completeTask,
   createBucket,
   createGroup,
@@ -18,7 +17,7 @@ import {
   listTasks,
   updateChecklistItem,
 } from '../../src/index.ts';
-import { buildSession, seedTenant } from '../helpers.ts';
+import { assignTaskInGroup, buildSession, seedTenant } from '../helpers.ts';
 
 // ---------------------------------------------------------------------------
 // listTasks
@@ -71,7 +70,12 @@ describe('listTasks', () => {
           const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
           const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
           const task = await createTask({ plan_id: plan.id, title: 'My Task', session });
-          await assignTask({ task_id: task.id, user_id: alice.user_id, session });
+          await assignTaskInGroup({
+            group_id: group.id,
+            task_id: task.id,
+            user_id: alice.user_id,
+            session,
+          });
 
           const result = await listTasks({ filters: { plan_id: plan.id }, session });
           expect(result.tasks).toHaveLength(1);
@@ -176,8 +180,18 @@ describe('listTasks', () => {
           const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
           const taskAlice = await createTask({ plan_id: plan.id, title: 'Task Alice', session });
           const taskBob = await createTask({ plan_id: plan.id, title: 'Task Bob', session });
-          await assignTask({ task_id: taskAlice.id, user_id: alice.user_id, session });
-          await assignTask({ task_id: taskBob.id, user_id: bob.user_id, session });
+          await assignTaskInGroup({
+            group_id: group.id,
+            task_id: taskAlice.id,
+            user_id: alice.user_id,
+            session,
+          });
+          await assignTaskInGroup({
+            group_id: group.id,
+            task_id: taskBob.id,
+            user_id: bob.user_id,
+            session,
+          });
 
           const result = await listTasks({ filters: { assignee_id: alice.user_id }, session });
           expect(result.tasks).toHaveLength(1);
@@ -578,7 +592,12 @@ describe('getTask', () => {
           });
           const task = await createTask({ plan_id: plan.id, title: 'Feature Task', session });
 
-          await assignTask({ task_id: task.id, user_id: alice.user_id, session });
+          await assignTaskInGroup({
+            group_id: group.id,
+            task_id: task.id,
+            user_id: alice.user_id,
+            session,
+          });
           await applyLabel({ task_id: task.id, label_id: label.id, session });
           const item1 = await addChecklistItem({ task_id: task.id, label: 'Step 1', session });
           await addChecklistItem({ task_id: task.id, label: 'Step 2', session });

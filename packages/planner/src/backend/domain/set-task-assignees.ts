@@ -7,6 +7,7 @@ import type { SetTaskAssigneesInput } from '../inputs.ts';
 import { withSpan } from '../observability.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 import { isM365SystemActor } from './_actor.ts';
+import { assertAssigneesAreGroupMembers } from './_assert-assignees-are-group-members.ts';
 import { hintsForN, type PlanExternalSource } from './order-hint.ts';
 
 export interface SetTaskAssigneesDeps {
@@ -65,6 +66,12 @@ async function setTaskAssigneesImpl(
         });
 
       requirePermission(input.session, 'planner.task.assign', plan.group_id);
+
+      await assertAssigneesAreGroupMembers(
+        tx,
+        plan.group_id,
+        input.assignees.map((a) => a.user_id),
+      );
 
       const existing = await tx
         .select({ user_id: taskAssignments.user_id })

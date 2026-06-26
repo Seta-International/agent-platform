@@ -11,8 +11,8 @@ import {
   applyProfileUpdated,
   applyUserCreated,
 } from '../../src/backend/subscribers/identity-projection.ts';
-import { assignTask, createGroup, createPlan, createTask } from '../../src/index.ts';
-import { readEvents, seedTenant } from '../helpers.ts';
+import { createGroup, createPlan, createTask } from '../../src/index.ts';
+import { assignTaskInGroup, readEvents, seedTenant } from '../helpers.ts';
 
 const BASE_URL = process.env.PLATFORM_TEST_PG_BASE as string;
 const TEMPLATE = process.env.PLATFORM_TEST_PG_TEMPLATE as string;
@@ -426,8 +426,18 @@ describe('applyDeactivated', () => {
           const task1 = await createTask({ plan_id: plan.id, title: 'T1', session });
           const task2 = await createTask({ plan_id: plan.id, title: 'T2', session });
 
-          await assignTask({ task_id: task1.id, user_id: dave.user_id, session });
-          await assignTask({ task_id: task2.id, user_id: dave.user_id, session });
+          await assignTaskInGroup({
+            group_id: group.id,
+            task_id: task1.id,
+            user_id: dave.user_id,
+            session,
+          });
+          await assignTaskInGroup({
+            group_id: group.id,
+            task_id: task2.id,
+            user_id: dave.user_id,
+            session,
+          });
 
           const deactivatedAt = new Date().toISOString();
 

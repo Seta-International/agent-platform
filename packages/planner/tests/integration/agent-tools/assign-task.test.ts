@@ -2,7 +2,7 @@ import { requiredPermissionFor } from '@seta/agent-sdk';
 import { hashRoleSummary, type SessionScope } from '@seta/core';
 import { createUser } from '@seta/identity';
 import { createTestTenantWithAdmin } from '@seta/identity/testing';
-import { createGroup, createPlan, createTask } from '@seta/planner';
+import { addGroupMember, createGroup, createPlan, createTask } from '@seta/planner';
 import { plannerAssignTaskTool } from '@seta/planner/agent-tools';
 import {
   buildRegistry,
@@ -85,6 +85,8 @@ describe('planner_assignTask tool', () => {
         title: 'Task to assign',
         session,
       });
+
+      await addGroupMember({ group_id: group.id, user_id: assigneeResult.user_id, session });
 
       const result = (await plannerAssignTaskTool.execute!(
         { taskRef: task.id, assigneeUserId: assigneeResult.user_id },

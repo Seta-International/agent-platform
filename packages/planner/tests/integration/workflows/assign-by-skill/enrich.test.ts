@@ -2,7 +2,7 @@ import { AgentRegistry } from '@seta/agent-sdk';
 import { hashRoleSummary, type SessionScope } from '@seta/core';
 import { createUser } from '@seta/identity';
 import { createTestTenantWithAdmin } from '@seta/identity/testing';
-import { assignTask, createGroup, createPlan, createTask } from '@seta/planner';
+import { createGroup, createPlan, createTask } from '@seta/planner';
 import {
   buildRegistry,
   IMPLICIT_PERMISSIONS,
@@ -13,6 +13,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { plannerGetOpenTaskCountSpec } from '../../../../src/backend/agent-tools/get-open-task-count.ts';
 import { enrichWithLoadAndCapacity } from '../../../../src/backend/workflows/assign-by-skill/steps/enrich-with-load-capacity.ts';
+import { assignTaskInGroup } from '../../../helpers.ts';
 import { withAgentTestDb } from '../../agent-tools-helpers.ts';
 
 const _registry = buildRegistry(inventoryToManifests(INVENTORY));
@@ -81,7 +82,12 @@ describe('enrichWithLoadAndCapacity', () => {
       const plan = await createPlan({ group_id: group.id, name: 'P', session });
       for (let i = 0; i < 2; i++) {
         const t = await createTask({ plan_id: plan.id, title: `t${i}`, session });
-        await assignTask({ task_id: t.id, user_id: assignee.user_id, session });
+        await assignTaskInGroup({
+          group_id: group.id,
+          task_id: t.id,
+          user_id: assignee.user_id,
+          session,
+        });
       }
 
       AgentRegistry.registerCrossModuleReadTool(plannerGetOpenTaskCountSpec);
