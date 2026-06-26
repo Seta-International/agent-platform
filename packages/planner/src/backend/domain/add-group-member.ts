@@ -1,4 +1,5 @@
 import { withEmit } from '@seta/core/events';
+import { ensureGroupViewerGrant } from '@seta/identity';
 import { requestNotification } from '@seta/notifications';
 import { and, eq, isNull } from 'drizzle-orm';
 import { emitPlannerGroupMemberAdded } from '../../events/emit-helpers.ts';
@@ -13,6 +14,7 @@ export async function addGroupMember(input: {
 }): Promise<void> {
   requirePermission(input.session, 'planner.group.member.write', input.group_id);
 
+  let memberAdded = false;
   await withEmit(
     {
       actor: {
@@ -52,6 +54,7 @@ export async function addGroupMember(input: {
         .returning();
 
       if (inserted.length > 0) {
+        memberAdded = true;
         const isSystemActor = isM365SystemActor(input.session);
         const { eventId } = await emitPlannerGroupMemberAdded({
           actor: isSystemActor
@@ -78,4 +81,13 @@ export async function addGroupMember(input: {
       }
     },
   );
+
+  if (memberAdded) {
+    await ensureGroupViewerGrant({
+      tenant_id: input.session.tenant_id,
+      user_id: input.user_id,
+      group_id: input.group_id,
+      granted_by: input.session.user_id,
+    });
+  }
 }

@@ -1,5 +1,6 @@
 import { emit } from '@seta/core/events';
 import type { DomainEvent, SubscriberCtx } from '@seta/shared-types';
+import { ensureGroupViewerGrant } from '../domain/ensure-group-viewer-grant.ts';
 
 // Local payload types — no import from @seta/planner to preserve module boundary.
 interface MemberAddedPayload {
@@ -32,19 +33,16 @@ function pgClient(tx: SubscriberCtx['tx']): {
 
 export async function applyMemberAdded(
   e: DomainEvent<MemberAddedPayload>,
-  ctx: SubscriberCtx,
+  _ctx: SubscriberCtx,
 ): Promise<void> {
-  const grantId = crypto.randomUUID();
-  await pgClient(ctx.tx).query(
-    `INSERT INTO identity.role_grants
-       (id, tenant_id, user_id, role_slug, scope_type, scope_id, granted_by, granted_via)
-     VALUES
-       ($5, $1, $2, 'planner.viewer', 'group', $3, $4, 'admin')
-     ON CONFLICT DO NOTHING`,
-    [e.tenantId, e.payload.user_id, e.payload.group_id, e.payload.actor.user_id ?? null, grantId],
-  );
+  await ensureGroupViewerGrant({
+    tenant_id: e.tenantId,
+    user_id: e.payload.user_id,
+    group_id: e.payload.group_id,
+    granted_by: e.payload.actor.user_id ?? null,
+  });
 
-  // Emit so core.session-invalidate-by-grant flushes the member's stale session scope cache.
+  const grantId = crypto.randomUUID();
   await emit({
     tenantId: e.tenantId,
     aggregateType: 'identity.user',

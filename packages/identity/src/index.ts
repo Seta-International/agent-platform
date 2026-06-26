@@ -12,6 +12,7 @@ export { disconnectSsoProvider } from './backend/domain/disconnect-sso-provider.
 export type { DiscoverResult } from './backend/domain/discover-provider.ts';
 export { discoverProvider } from './backend/domain/discover-provider.ts';
 export { enableSsoProvider } from './backend/domain/enable-sso-provider.ts';
+export { ensureGroupViewerGrant } from './backend/domain/ensure-group-viewer-grant.ts';
 export { findEntraOidByUserId } from './backend/domain/find-entra-oid-by-user-id.ts';
 export { findUserByEntraOid } from './backend/domain/find-user-by-entra-oid.ts';
 export { getEntraTenantId } from './backend/domain/get-entra-tenant-id.ts';

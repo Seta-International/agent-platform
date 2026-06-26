@@ -1,14 +1,28 @@
+import { getSessionScope } from '@seta/core';
 import { resetCoreDb } from '@seta/core/testing';
+import { listRoleGrants } from '@seta/identity';
 import { closePools, initPools } from '@seta/shared-db';
+import {
+  buildRegistry,
+  IMPLICIT_PERMISSIONS,
+  INVENTORY,
+  inventoryToManifests,
+  resolvePermissions,
+} from '@seta/shared-rbac';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import {
   createGroup,
   createJoinRequest,
+  getGroup,
   listGroupMembers,
   resolveJoinRequest,
 } from '../../src/index.ts';
 import { buildSession, seedTenant } from '../helpers.ts';
+
+const rbacRegistry = buildRegistry(inventoryToManifests(INVENTORY));
+const resolvePerms = async (roles: readonly string[]) =>
+  resolvePermissions(rbacRegistry, roles, IMPLICIT_PERMISSIONS);
 
 describe('resolveJoinRequest', () => {
   it('approve → user added to group members', async () => {
@@ -61,6 +75,24 @@ describe('resolveJoinRequest', () => {
           });
           const memberIds = members.map((m) => m.user_id);
           expect(memberIds).toContain(requester.user_id);
+
+          const scope = await getSessionScope(
+            { listRoleGrants, resolvePermissions: resolvePerms },
+            `sess-${requester.user_id}`,
+            requester.user_id,
+            requesterEmail,
+            'Rq',
+          );
+          expect(scope.accessible_group_ids).toContain(group.id);
+
+          const requesterAccessSession = buildSession({
+            tenant_id: seeded.tenant_id,
+            user_id: requester.user_id,
+            roles: ['planner.viewer'],
+            accessible_group_ids: [...scope.accessible_group_ids],
+          });
+          const loaded = await getGroup({ group_id: group.id, session: requesterAccessSession });
+          expect(loaded.id).toBe(group.id);
         } finally {
           resetCoreDb();
           await closePools();
