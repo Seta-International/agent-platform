@@ -86,8 +86,8 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
     if (!q.data) return [];
     const seen = new Map<string, string>();
     for (const g of q.data) {
-      if (g.owner_display_name && !seen.has(g.created_by)) {
-        seen.set(g.created_by, g.owner_display_name);
+      if (g.owner_display_name && g.owner_user_id && !seen.has(g.owner_user_id)) {
+        seen.set(g.owner_user_id, g.owner_display_name);
       }
     }
     return Array.from(seen.entries()).map(([value, label]) => ({ value, label }));
@@ -156,7 +156,7 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
     if (status === 'active' && g.deleted_at) return false;
     if (visibility && g.visibility !== visibility) return false;
     if (source && g.external_source !== source) return false;
-    if (owner && g.created_by !== owner) return false;
+    if (owner && g.owner_user_id !== owner) return false;
     if (search) {
       const s = search.toLowerCase();
       if (!g.name.toLowerCase().includes(s) && !(g.description ?? '').toLowerCase().includes(s)) {

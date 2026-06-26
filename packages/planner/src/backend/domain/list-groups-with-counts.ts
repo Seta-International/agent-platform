@@ -1,7 +1,7 @@
 import type { SessionScope } from '@seta/core';
 import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { plannerDb } from '../db/index.ts';
-import { assigneeProjection, groups } from '../db/schema.ts';
+import { groups } from '../db/schema.ts';
 import type { GroupMemberPreview, GroupWithCountsRow } from '../dto.ts';
 import { requirePermission } from '../rbac.ts';
 import { groupFilterFor } from '../read-helpers.ts';
@@ -55,11 +55,18 @@ export async function listGroupsWithCounts(input: {
       members_preview: sql<
         GroupMemberPreview[]
       >`(SELECT COALESCE(json_agg(json_build_object('user_id', m.user_id, 'display_name', ap.display_name) ORDER BY m.added_at), '[]'::json) FROM (SELECT user_id, added_at FROM planner.group_members WHERE group_id = "planner"."groups"."id" ORDER BY added_at LIMIT 3) m JOIN planner.assignee_projection ap ON ap.user_id = m.user_id)`,
-      owner_display_name: assigneeProjection.display_name,
-      owner_email: assigneeProjection.email,
+      // Owner is the member with role=owner (not groups.created_by — that never changes on transfer).
+      owner_user_id: sql<
+        string | null
+      >`(SELECT gm.user_id FROM planner.group_members gm WHERE gm.group_id = "planner"."groups"."id" AND gm.role = 'owner' ORDER BY gm.added_at LIMIT 1)`,
+      owner_display_name: sql<
+        string | null
+      >`(SELECT ap.display_name FROM planner.group_members gm JOIN planner.assignee_projection ap ON ap.user_id = gm.user_id WHERE gm.group_id = "planner"."groups"."id" AND gm.role = 'owner' ORDER BY gm.added_at LIMIT 1)`,
+      owner_email: sql<
+        string | null
+      >`(SELECT ap.email FROM planner.group_members gm JOIN planner.assignee_projection ap ON ap.user_id = gm.user_id WHERE gm.group_id = "planner"."groups"."id" AND gm.role = 'owner' ORDER BY gm.added_at LIMIT 1)`,
     })
     .from(groups)
-    .leftJoin(assigneeProjection, eq(assigneeProjection.user_id, groups.created_by))
     .where(and(...conditions))
     .orderBy(asc(groups.name));
 
@@ -83,6 +90,7 @@ export async function listGroupsWithCounts(input: {
     plan_count: Number(r.plan_count),
     member_count: Number(r.member_count),
     members_preview: Array.isArray(r.members_preview) ? r.members_preview : [],
+    owner_user_id: r.owner_user_id ?? null,
     owner_display_name: r.owner_display_name ?? null,
     owner_email: r.owner_email ?? null,
   }));
