@@ -46,6 +46,7 @@ export async function addGroupMember(input: {
         .values({
           group_id: input.group_id,
           user_id: input.user_id,
+          role: existing.default_role,
           added_by: input.session.user_id,
         })
         .onConflictDoNothing()
