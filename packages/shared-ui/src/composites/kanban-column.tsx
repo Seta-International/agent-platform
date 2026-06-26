@@ -41,6 +41,15 @@ export interface KanbanColumnProps {
   titleMaxLength?: number;
   onRename?: (name: string) => void;
   onDelete?: () => void;
+  onSetColor?: () => void;
+  onSetWipLimit?: () => void;
+  onArchive?: () => void;
+  /** Header status-dot color (hex). null = default status dot. */
+  color?: string | null;
+  /** WIP limit; null = none. */
+  wipLimit?: number | null;
+  /** M365-linked bucket: color/wip/archive actions are hidden. */
+  isLinked?: boolean;
   droppable: {
     ref?: (el: HTMLElement | null) => void;
     rootProps?: HTMLAttributes<HTMLElement>;
@@ -76,6 +85,12 @@ export function KanbanColumn({
   titleMaxLength,
   onRename,
   onDelete,
+  onSetColor,
+  onSetWipLimit,
+  onArchive,
+  color,
+  wipLimit,
+  isLinked,
   droppable,
   draggableHandle,
 }: KanbanColumnProps) {
@@ -158,7 +173,11 @@ export function KanbanColumn({
   const priorityOpt = PRIORITY_OPTIONS.find((o) => o.value === priority) ?? PRIORITY_OPTIONS[2];
 
   const handle = draggableHandle;
-  const hasMenu = Boolean(onRename || onDelete);
+  const localActions = !isLinked;
+  const hasMenu = Boolean(
+    onRename || onDelete || (localActions && (onSetColor || onSetWipLimit || onArchive)),
+  );
+  const overLimit = wipLimit != null && count > wipLimit;
 
   return (
     <section
@@ -176,7 +195,11 @@ export function KanbanColumn({
           {...(handle && !renaming ? handle.handleProps : {})}
         >
           {handle && <GripVertical size={12} className="kanban-column__grip" aria-hidden="true" />}
-          <span className={`status-dot status-dot--${status ?? 'muted'}`} aria-hidden="true" />
+          <span
+            className={`status-dot status-dot--${status ?? 'muted'}`}
+            style={color ? { backgroundColor: color } : undefined}
+            aria-hidden="true"
+          />
           {renaming ? (
             <>
               <input
@@ -198,7 +221,11 @@ export function KanbanColumn({
           ) : (
             <>
               <span className="kanban-column__name">{name}</span>
-              <span className="kanban-column__count">{count}</span>
+              <span
+                className={`kanban-column__count${overLimit ? ' kanban-column__count--over' : ''}`}
+              >
+                {wipLimit != null ? `${count}/${wipLimit}` : count}
+              </span>
             </>
           )}
         </div>
@@ -235,52 +262,73 @@ export function KanbanColumn({
 
         {menuOpen && (
           <div className="kanban-column__menu" role="menu">
-            <button
-              type="button"
-              className="kanban-column__menu-item"
-              role="menuitem"
-              onClick={openRename}
-            >
-              Rename bucket
-              <span className="kanban-column__menu-kbd">R</span>
-            </button>
-            <button
-              type="button"
-              className="kanban-column__menu-item"
-              role="menuitem"
-              onClick={() => {
-                setMenuOpen(false);
-                setComposing(true);
-              }}
-            >
-              Add task here
-              <span className="kanban-column__menu-kbd">C</span>
-            </button>
-            <button
-              type="button"
-              className="kanban-column__menu-item"
-              role="menuitem"
-              aria-disabled="true"
-            >
-              Set color
-            </button>
-            <button
-              type="button"
-              className="kanban-column__menu-item"
-              role="menuitem"
-              aria-disabled="true"
-            >
-              Set WIP limit
-            </button>
-            <hr className="kanban-column__menu-sep" />
-            <button
-              type="button"
-              className="kanban-column__menu-item"
-              role="menuitem"
-              aria-disabled="true"
-            >
-              Archive bucket
-            </button>
+            {onRename && (
+              <button
+                type="button"
+                className="kanban-column__menu-item"
+                role="menuitem"
+                onClick={openRename}
+              >
+                Rename bucket
+                <span className="kanban-column__menu-kbd">R</span>
+              </button>
+            )}
+            {onCreateTask && (
+              <button
+                type="button"
+                className="kanban-column__menu-item"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setComposing(true);
+                }}
+              >
+                Add task here
+                <span className="kanban-column__menu-kbd">C</span>
+              </button>
+            )}
+            {localActions && onSetColor && (
+              <button
+                type="button"
+                className="kanban-column__menu-item"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onSetColor();
+                }}
+              >
+                Set color
+              </button>
+            )}
+            {localActions && onSetWipLimit && (
+              <button
+                type="button"
+                className="kanban-column__menu-item"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onSetWipLimit();
+                }}
+              >
+                Set WIP limit
+              </button>
+            )}
+            {localActions && onArchive && (
+              <>
+                <hr className="kanban-column__menu-sep" />
+                <button
+                  type="button"
+                  className="kanban-column__menu-item"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onArchive();
+                  }}
+                >
+                  Archive bucket
+                </button>
+              </>
+            )}
             {onDelete && (
               <button
                 type="button"
