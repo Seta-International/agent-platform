@@ -9,7 +9,6 @@ import {
   createGroup,
   createPlan,
   createTask,
-  PlannerError,
   reopenTask,
   unassignTask,
 } from '../../src/index.ts';
