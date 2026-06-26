@@ -489,6 +489,7 @@ async function emitCrossPlanMove(args: {
     from_plan_id: sourcePlan.id,
     to_plan_id: targetPlan.id,
     group_id: targetPlan.group_id,
+    from_group_id: sourcePlan.group_id !== targetPlan.group_id ? sourcePlan.group_id : undefined,
     before: { bucket_id: existing.bucket_id, order_hint: existing.order_hint },
     after: { bucket_id: target_bucket_id, order_hint: newHint },
     version_before: existing.version,

@@ -67,8 +67,13 @@ export function applyPlannerEvent(qc: QueryClient, event: StreamEvent): void {
 
   const p = event.payload;
   const groupId = payloadField(p, 'group_id');
+  const fromGroupId = payloadField(p, 'from_group_id');
   const planId = payloadField(p, 'plan_id');
   const taskId = payloadField(p, 'task_id');
+
+  if (event.eventType.startsWith('planner.') && (groupId || fromGroupId)) {
+    qc.invalidateQueries({ queryKey: plannerKeys.groupsWithCounts() });
+  }
 
   switch (event.eventType) {
     case 'planner.group.created':

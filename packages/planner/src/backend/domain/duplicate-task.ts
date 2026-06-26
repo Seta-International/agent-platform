@@ -289,6 +289,7 @@ export async function duplicateTask(
           await emitPlannerTaskReferenceAdded({
             actor: { type: 'user', user_id: input.session.user_id },
             tenant_id: row.tenant_id,
+            group_id: plan.group_id,
             task_id: newTaskId,
             plan_id: row.plan_id,
             url: newRef.url,
