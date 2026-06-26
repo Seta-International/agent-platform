@@ -327,6 +327,7 @@ export interface PlannerPlanCategoryDescriptionChanged {
   payload: {
     actor: PlannerEventActor;
     tenant_id: Uuid;
+    group_id: Uuid;
     plan_id: Uuid;
     slot: number;
     before: string | null;
@@ -480,6 +481,11 @@ export interface PlannerTaskMoved {
     group_id: Uuid;
     task_id: Uuid;
     /**
+     * Cross-plan move source group — when set and different from `group_id`,
+     * both groups get an activity bump on the Groups list.
+     */
+    from_group_id?: Uuid;
+    /**
      * The task's plan at the time of emission. For cross-plan moves this is
      * the new (target) plan; use `from_plan_id` / `to_plan_id` to recover
      * the source. For in-plan moves `plan_id` equals both.
@@ -563,6 +569,7 @@ export interface PlannerTaskReferenceAdded {
   payload: {
     actor: PlannerEventActor;
     tenant_id: Uuid;
+    group_id: Uuid;
     task_id: Uuid;
     plan_id: Uuid;
     url: string;
@@ -589,6 +596,7 @@ export interface PlannerTaskReferenceRemoved {
   payload: {
     actor: PlannerEventActor;
     tenant_id: Uuid;
+    group_id: Uuid;
     task_id: Uuid;
     plan_id: Uuid;
     url: string;
@@ -731,6 +739,7 @@ export interface PlannerLabelCategorySlotChanged {
   payload: {
     actor: PlannerEventActor;
     tenant_id: Uuid;
+    group_id: Uuid;
     plan_id: Uuid;
     label_id: Uuid;
     before: number | null;

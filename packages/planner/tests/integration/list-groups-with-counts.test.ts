@@ -88,6 +88,39 @@ describe('listGroupsWithCounts', () => {
     );
   });
 
+  it('bumps group updated_at when nested activity occurs (e.g. plan created)', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
+      },
+      async ({ pool, databaseUrl }) => {
+        resetCoreDb();
+        initPools({ databaseUrl });
+        try {
+          const seeded = await seedTenant(pool);
+          const session = seeded.adminSession;
+          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Active', session });
+
+          const before = (await listGroupsWithCounts({ session })).find((r) => r.id === group.id);
+          expect(before).toBeDefined();
+          const beforeTs = new Date(before!.updated_at).getTime();
+
+          await new Promise((r) => setTimeout(r, 5));
+
+          await createPlan({ group_id: group.id, name: 'New plan', session });
+
+          const after = (await listGroupsWithCounts({ session })).find((r) => r.id === group.id);
+          expect(after).toBeDefined();
+          expect(new Date(after!.updated_at).getTime()).toBeGreaterThan(beforeTs);
+        } finally {
+          resetCoreDb();
+          await closePools();
+        }
+      },
+    );
+  });
+
   it('respects accessible-group filter for non-admins', async () => {
     await withTestDb(
       {
