@@ -22,11 +22,17 @@ interface Props {
 
 function computeDaysLate(dueAt: string | null, now: Date): number | undefined {
   if (!dueAt) return undefined;
-  const due = new Date(dueAt).getTime();
-  if (Number.isNaN(due)) return undefined;
-  const diffMs = now.getTime() - due;
-  if (diffMs <= 0) return undefined;
-  return Math.ceil(diffMs / 86_400_000);
+  const due = new Date(dueAt);
+  if (Number.isNaN(due.getTime())) return undefined;
+  const dueKey = due.toISOString().slice(0, 10);
+  const todayKey = now.toISOString().slice(0, 10);
+  const days = Math.round(
+    (new Date(`${todayKey}T00:00:00.000Z`).getTime() -
+      new Date(`${dueKey}T00:00:00.000Z`).getTime()) /
+      86_400_000,
+  );
+  if (days <= 0) return undefined;
+  return days;
 }
 
 function formatDueShort(dueAt: string | null): string {
