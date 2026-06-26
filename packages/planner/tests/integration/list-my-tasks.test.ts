@@ -44,6 +44,38 @@ describe('listMyTasks', () => {
     });
   });
 
+  it('tasks due today land in dueThisWeek, not late', async () => {
+    await withTestDb(dbCfg(), async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      initPools({ databaseUrl });
+      try {
+        const seeded = await seedTenant(pool);
+        const session = seeded.adminSession;
+        const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+        const plan = await createPlan({ group_id: group.id, name: 'P', session });
+
+        const todayKey = new Date().toISOString().slice(0, 10);
+        const todayDue = `${todayKey}T00:00:00.000Z`;
+
+        const t = await createTask({ plan_id: plan.id, title: 'Due today', session });
+        await updateTask({
+          task_id: t.id,
+          expected_version: t.version,
+          patch: { due_at: todayDue, percent_complete: 50 },
+          session,
+        });
+        await assignTask({ task_id: t.id, user_id: session.user_id, session });
+
+        const r = await listMyTasks({}, session);
+        expect(r.late.map((x) => x.id)).not.toContain(t.id);
+        expect(r.dueThisWeek.map((x) => x.id)).toContain(t.id);
+      } finally {
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
   it('buckets tasks into late / dueThisWeek / inProgress / notStarted by due_at and percent_complete', async () => {
     await withTestDb(dbCfg(), async ({ pool, databaseUrl }) => {
       resetCoreDb();
@@ -474,7 +506,7 @@ describe('listMyTasks', () => {
     });
   });
 
-  it('filter.due="overdue" restricts to tasks with due_at < now', async () => {
+  it('filter.due="overdue" restricts to tasks due before today (UTC calendar day)', async () => {
     await withTestDb(dbCfg(), async ({ pool, databaseUrl }) => {
       resetCoreDb();
       initPools({ databaseUrl });
