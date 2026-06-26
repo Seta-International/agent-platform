@@ -105,7 +105,7 @@ export function useBulkActions(planId: string) {
         plannerClient.updateTask({
           task_id: t.id,
           expected_version: t.expected_version,
-          patch: { due_at: input.due_at ?? undefined },
+          patch: { due_at: input.due_at },
         }),
       ),
     );
