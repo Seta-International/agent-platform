@@ -62,3 +62,46 @@ export const WithQuickCreate: Story = {
     draggableHandle: {},
   },
 };
+
+export const WithColorDot: Story = {
+  args: {
+    name: 'Design',
+    count: 2,
+    color: '#6366f1',
+    children: mockCards,
+    droppable: {},
+    draggableHandle: {},
+    onSetColor: () => console.log('set color'),
+    onSetWipLimit: () => console.log('set wip limit'),
+    onArchive: () => console.log('archive'),
+  },
+};
+
+export const OverWipLimit: Story = {
+  args: {
+    name: 'In Progress',
+    count: 5,
+    wipLimit: 3,
+    status: 'warning',
+    children: mockCards,
+    droppable: {},
+    draggableHandle: {},
+    onRename: (name) => console.log('rename', name),
+    onSetColor: () => console.log('set color'),
+    onSetWipLimit: () => console.log('set wip limit'),
+  },
+};
+
+export const LinkedBucket: Story = {
+  args: {
+    name: 'M365 Bucket',
+    count: 4,
+    isLinked: true,
+    children: mockCards,
+    droppable: {},
+    draggableHandle: {},
+    onRename: (name) => console.log('rename', name),
+    onSetColor: () => console.log('set color'),
+    onArchive: () => console.log('archive'),
+  },
+};

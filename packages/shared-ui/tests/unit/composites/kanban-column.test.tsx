@@ -314,6 +314,92 @@ describe('<KanbanColumn> quick-create submit', () => {
   });
 });
 
+describe('KanbanColumn bucket actions', () => {
+  it('calls onSetColor / onSetWipLimit / onArchive from the menu', () => {
+    const onSetColor = vi.fn();
+    const onSetWipLimit = vi.fn();
+    const onArchive = vi.fn();
+    render(
+      <KanbanColumn
+        name="To do"
+        count={3}
+        droppable={{}}
+        onSetColor={onSetColor}
+        onSetWipLimit={onSetWipLimit}
+        onArchive={onArchive}
+      >
+        {null}
+      </KanbanColumn>,
+    );
+    fireEvent.click(screen.getByTitle('More options'));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Set color' }));
+    expect(onSetColor).toHaveBeenCalledOnce();
+
+    fireEvent.click(screen.getByTitle('More options'));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Set WIP limit' }));
+    expect(onSetWipLimit).toHaveBeenCalledOnce();
+
+    fireEvent.click(screen.getByTitle('More options'));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Archive bucket' }));
+    expect(onArchive).toHaveBeenCalledOnce();
+  });
+
+  it('renders n/limit and marks over-limit', () => {
+    render(
+      <KanbanColumn name="To do" count={5} wipLimit={3} droppable={{}}>
+        {null}
+      </KanbanColumn>,
+    );
+    const badge = screen.getByText('5/3');
+    expect(badge).toHaveClass('kanban-column__count--over');
+  });
+
+  it('hides only the local actions when isLinked, keeping the rest of the menu', () => {
+    render(
+      <KanbanColumn
+        name="To do"
+        count={3}
+        droppable={{}}
+        isLinked
+        onRename={vi.fn()}
+        onSetColor={vi.fn()}
+        onSetWipLimit={vi.fn()}
+        onArchive={vi.fn()}
+      >
+        {null}
+      </KanbanColumn>,
+    );
+    fireEvent.click(screen.getByTitle('More options'));
+    expect(screen.queryByRole('menuitem', { name: 'Set color' })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: 'Set WIP limit' })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: 'Archive bucket' })).toBeNull();
+    // Non-local actions remain available on a linked bucket.
+    expect(screen.getByRole('menuitem', { name: /rename bucket/i })).toBeInTheDocument();
+  });
+
+  it('applies an inline backgroundColor on the status dot when color is set', () => {
+    const { container } = render(
+      <KanbanColumn name="To do" count={3} color="#6366f1" droppable={{}}>
+        {null}
+      </KanbanColumn>,
+    );
+    const dot = container.querySelector('.status-dot') as HTMLElement;
+    expect(dot).not.toBeNull();
+    expect(dot.style.backgroundColor).not.toBe('');
+  });
+
+  it('leaves the status dot background unstyled when color is absent', () => {
+    const { container } = render(
+      <KanbanColumn name="To do" count={3} droppable={{}}>
+        {null}
+      </KanbanColumn>,
+    );
+    const dot = container.querySelector('.status-dot') as HTMLElement;
+    expect(dot).not.toBeNull();
+    expect(dot.style.backgroundColor).toBe('');
+  });
+});
+
 describe('<KanbanColumn> opt-in affordances', () => {
   it('renders no grip handle when draggableHandle is omitted', () => {
     const { container } = render(
