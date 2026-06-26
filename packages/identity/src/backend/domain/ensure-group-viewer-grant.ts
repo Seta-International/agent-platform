@@ -1,10 +1,12 @@
+// rbac: system-only — invoked from the planner.group.member.added subscriber; no caller session to gate on.
 import { invalidateUserSessions } from '@seta/core';
 import { sql } from 'drizzle-orm';
 import { identityDb } from '../db/index.ts';
 
 /**
  * Idempotently grants planner.viewer on a group and flushes the member's session
- * scope cache so they can access the group without re-login.
+ * scope cache so they can access the group without re-login. Called by the
+ * identity subscriber that consumes planner.group.member.added.
  */
 export async function ensureGroupViewerGrant(input: {
   tenant_id: string;
