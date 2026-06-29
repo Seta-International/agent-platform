@@ -4,8 +4,6 @@
 // '@seta/identity/agent-tools' at this file.
 export {
   identityAgentTools,
-  identityGetAvailabilityTool,
-  identityGetTimezoneTool,
   listMyRolesTool,
   updateMyDisplayNameTool,
   whoAmITool,
