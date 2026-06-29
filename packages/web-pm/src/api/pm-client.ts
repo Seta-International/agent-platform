@@ -434,10 +434,11 @@ export async function fetchProjectAllocations(projectId: string): Promise<Alloca
 export async function createAllocation(body: {
   project_id: string;
   worker_id: string;
-  role: string;
+  role?: string | null;
   planned_pct: number;
   date_from?: string | null;
   date_to?: string | null;
+  bucket?: 'billable' | 'internal' | 'bench';
   status?: 'placeholder' | 'tentative' | 'committed';
   note?: string | null;
 }): Promise<{ allocation_id: string }> {
@@ -453,12 +454,13 @@ export async function createAllocation(body: {
 export async function updateAllocation(
   allocationId: string,
   patch: {
-    role?: string;
-    planned_pct?: number;
+    role?: string | null;
+    planned_pct?: number | null;
     status?: 'placeholder' | 'tentative' | 'committed';
     date_from?: string | null;
     date_to?: string | null;
     note?: string | null;
+    expected_version?: number;
   },
 ): Promise<{ version: number }> {
   const res = await fetch(`/api/pm/v1/allocations/${allocationId}`, {
