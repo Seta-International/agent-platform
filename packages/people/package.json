@@ -7,6 +7,11 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./agent-tools": "./src/agent-tools.ts",
+    "./agent-tools/register": {
+      "types": "./src/backend/agent-tools/register.ts",
+      "default": "./src/backend/agent-tools/register.ts"
+    },
     "./events": "./src/events.ts",
     "./rbac": "./src/rbac.ts",
     "./contracts": "./src/contracts.ts",
