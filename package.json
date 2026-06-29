@@ -43,7 +43,7 @@
     "@turbo/gen": "^2.10.0",
     "@types/eslint": "^9.6.1",
     "dependency-cruiser": "^17.4.3",
-    "eslint": "^10.5.0",
+    "eslint": "^10.6.0",
     "eslint-plugin-boundaries": "^6.0.2",
     "jiti": "^2.7.0",
     "lefthook": "^2.1.9",
