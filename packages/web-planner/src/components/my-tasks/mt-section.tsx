@@ -46,8 +46,19 @@ const TONE_DOT: Record<SectionTone, string> = {
   success: 'dot--success',
 };
 
+export const MT_COLUMNS = [
+  { key: 'handle', label: '', track: '24px' },
+  { key: 'task', label: 'Task', track: 'minmax(220px, 1fr)' },
+  { key: 'plan', label: 'Plan', track: '140px' },
+  { key: 'priority', label: 'Priority', track: '90px' },
+  { key: 'progress', label: 'Progress', track: '130px' },
+  { key: 'due', label: 'Due', track: '100px' },
+  { key: 'labels', label: 'Labels', track: '110px' },
+  { key: 'assignees', label: 'Assignees', track: '120px' },
+] as const;
+
 const gridVars = {
-  '--mt-grid': 'auto minmax(0, 1fr) auto auto auto auto auto auto',
+  '--mt-grid': MT_COLUMNS.map((c) => c.track).join(' '),
 } as CSSProperties;
 const gridColsStyle: CSSProperties = { gridTemplateColumns: 'var(--mt-grid)' };
 
@@ -118,14 +129,9 @@ export function MtSection({ section, searchTerm }: Props) {
               'text-ink-subtle border-b border-hairline bg-canvas'
             }
           >
-            <span />
-            <span>Task</span>
-            <span>Plan</span>
-            <span>Priority</span>
-            <span>Progress</span>
-            <span>Due</span>
-            <span>Labels</span>
-            <span>Assignees</span>
+            {MT_COLUMNS.map((col) => (
+              <span key={col.key}>{col.label}</span>
+            ))}
           </div>
 
           {virtualize ? (
