@@ -613,7 +613,7 @@ export function RaMonitoringPage() {
             return (
               <div className="flex justify-end gap-1">
                 <Button
-                  size="icon"
+                  size="icon-round"
                   variant="ghost"
                   aria-label="Save"
                   disabled={m.savePending}
@@ -622,7 +622,7 @@ export function RaMonitoringPage() {
                   <Check className="size-4 text-[var(--color-success)]" />
                 </Button>
                 <Button
-                  size="icon"
+                  size="icon-round"
                   variant="ghost"
                   aria-label="Cancel"
                   onClick={() => m.onCancel()}
@@ -634,10 +634,20 @@ export function RaMonitoringPage() {
           }
           return (
             <div className="flex justify-end gap-1">
-              <Button size="icon" variant="ghost" aria-label="Edit" onClick={() => m.onEdit(r)}>
+              <Button
+                size="icon-round"
+                variant="ghost"
+                aria-label="Edit"
+                onClick={() => m.onEdit(r)}
+              >
                 <Pencil className="size-4" />
               </Button>
-              <Button size="icon" variant="ghost" aria-label="Delete" onClick={() => m.onDelete(r)}>
+              <Button
+                size="icon-round"
+                variant="ghost"
+                aria-label="Delete"
+                onClick={() => m.onDelete(r)}
+              >
                 <Trash2 className="size-4 text-ink-subtle" />
               </Button>
             </div>
