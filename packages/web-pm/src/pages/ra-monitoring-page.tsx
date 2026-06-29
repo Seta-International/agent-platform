@@ -389,6 +389,8 @@ export function RaMonitoringPage() {
             <div className="flex items-center gap-2">
               {r.worker_name ? (
                 <span className="font-medium text-ink">{r.worker_name}</span>
+              ) : r.worker_id ? (
+                <span className="text-ink-subtle">Unknown</span>
               ) : (
                 <span className="italic text-ink-subtle">Unfilled (TBD)</span>
               )}
