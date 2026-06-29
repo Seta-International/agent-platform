@@ -41,7 +41,8 @@ export const autoSuspendSubscribers: SubscriberDef[] = [
         await deactivateUser(userId, systemActor);
       } catch (err) {
         if (err instanceof IdentityError && err.code === 'LAST_ORG_ADMIN') {
-          // Last active admin — skip silently; bus must not retry this.
+          // Last active admin — skip so the bus does not retry forever.
+          console.warn({ userId }, 'auto-suspend skipped: last active admin');
           return;
         }
         throw err;

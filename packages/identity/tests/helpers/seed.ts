@@ -2,6 +2,7 @@ import type { Pool } from 'pg';
 import { identityDb } from '../../src/backend/db/index.ts';
 import { directoryPerson } from '../../src/backend/db/schema.ts';
 import { createUser } from '../../src/backend/domain/create-user.ts';
+import { deactivateUser } from '../../src/backend/domain/deactivate-user.ts';
 
 export interface SeededDirectoryAccount {
   person_id: string;
@@ -61,6 +62,25 @@ export async function seedDirectoryAccount(
     },
     { type: 'cli', user_id: null },
   );
+
+  if (opts.suspended) {
+    // Deactivating an admin in a single-admin tenant would hit LAST_ORG_ADMIN;
+    // seed a second admin first so the guard passes and the target suspends.
+    if (opts.admin) {
+      const tag = crypto.randomUUID().slice(0, 8);
+      await createUser(
+        {
+          tenant_id,
+          email: `co-admin-${tag}@seed.local`,
+          name: 'Co Admin',
+          password: 'S3cur3Pass!99',
+          initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
+        },
+        { type: 'cli', user_id: null },
+      );
+    }
+    await deactivateUser(user_id, { type: 'system', user_id: null });
+  }
 
   return { person_id, user_id, tenant_id };
 }

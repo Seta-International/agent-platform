@@ -79,4 +79,26 @@ describe('autoSuspendSubscribers', () => {
       }
     });
   });
+
+  it('seedDirectoryAccount({ suspended: true }) creates an already-suspended account', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetIdentityDb();
+      initPools({ databaseUrl });
+      try {
+        const { user_id } = await seedDirectoryAccount(pool, {
+          email: 'already-suspended@acme.test',
+          admin: false,
+          suspended: true,
+        });
+
+        const [u] = await identityDb().select().from(user).where(eq(user.id, user_id));
+        expect(u.deactivated_at).not.toBeNull();
+      } finally {
+        resetIdentityDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
 });
