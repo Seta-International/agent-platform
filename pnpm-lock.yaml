@@ -581,6 +581,9 @@ importers:
       '@mastra/pg':
         specifier: ^1.13.0
         version: 1.13.0(@mastra/core@1.42.0(@grpc/grpc-js@1.14.4)(ai@6.0.200(zod@4.4.3))(express@5.2.1)(zod@4.4.3))
+      '@opentelemetry/api':
+        specifier: ^1.9.1
+        version: 1.9.1
       '@seta/agent-sdk':
         specifier: workspace:^
         version: link:../../sdks/agent
