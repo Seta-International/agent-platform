@@ -22,19 +22,19 @@ describe('embed-backfill CLI', () => {
     );
   });
 
-  it('dispatches to backfillUserProfiles with identity', async () => {
-    const backfillUserProfiles = vi.fn(async () => {});
+  it('dispatches to backfillPersonProfiles with people', async () => {
+    const backfillPersonProfiles = vi.fn(async () => {});
     const fakePool = { end: vi.fn(async () => {}) };
     await runEmbedBackfill(
-      { module: 'identity', tenant: '00000000-0000-0000-0000-000000000000' },
+      { module: 'people', tenant: '00000000-0000-0000-0000-000000000000' },
       {
-        backfillUserProfiles: backfillUserProfiles as never,
+        backfillPersonProfiles: backfillPersonProfiles as never,
         env: { OPENAI_API_KEY: 'k', DATABASE_URL: 'postgres://test/db' },
         pool: fakePool as never,
       },
     );
-    expect(backfillUserProfiles).toHaveBeenCalledOnce();
-    expect(backfillUserProfiles).toHaveBeenCalledWith(
+    expect(backfillPersonProfiles).toHaveBeenCalledOnce();
+    expect(backfillPersonProfiles).toHaveBeenCalledWith(
       expect.objectContaining({
         tenant_id: '00000000-0000-0000-0000-000000000000',
         model: 'text-embedding-3-small',

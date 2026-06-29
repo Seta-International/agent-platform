@@ -1,11 +1,17 @@
-import type { PgVector } from '@mastra/pg';
+import { PgVector } from '@mastra/pg';
 import { actorFromContext, defineAgentTool } from '@seta/agent-sdk';
 import type { EmbeddingProvider } from '@seta/shared-embeddings';
 import type { Reranker } from '@seta/shared-retrieval';
 import { z } from 'zod';
 import { buildActorSession } from '../domain/build-actor-session.ts';
 import { matchUsersToTopic } from '../domain/match-users-to-topic.ts';
-import { getIdentityVectorStore } from '../embeddings/vector-store.ts';
+
+// Vector store now lives in people_rag (people pipeline). Hardcoded string
+// avoids a circular dep (people → identity). The caller or AgentToolFactory
+// framework may pass an already-initialised pgVector via deps.pgVector; when
+// only databaseUrl is provided we create an ephemeral store pointing at
+// people_rag.
+const PEOPLE_RAG_SCHEMA = 'people_rag';
 
 const STAGE1_TOPK = Number(process.env.RERANK_STAGE1_TOPK ?? 50);
 
@@ -61,6 +67,20 @@ export interface MatchUsersToTopicToolDeps {
 export function matchUsersToTopicTool(deps: MatchUsersToTopicToolDeps) {
   const resolveSession = deps.sessionProvider ?? buildActorSession;
 
+  const resolvePgVector = (): PgVector => {
+    if (deps.pgVector) return deps.pgVector;
+    if (!deps.databaseUrl) {
+      throw new Error(
+        'identity_matchUsersByTopic: either pgVector or databaseUrl must be supplied',
+      );
+    }
+    return new PgVector({
+      id: 'people-person-profile-embeddings',
+      connectionString: deps.databaseUrl,
+      schemaName: PEOPLE_RAG_SCHEMA,
+    });
+  };
+
   return defineAgentTool({
     id: 'identity_matchUsersByTopic',
     name: 'Match Users By Topic',
@@ -78,16 +98,6 @@ export function matchUsersToTopicTool(deps: MatchUsersToTopicToolDeps) {
       const actor = actorFromContext(ctx);
       const session = await resolveSession(actor);
 
-      const pgVector =
-        deps.pgVector ??
-        (deps.databaseUrl
-          ? getIdentityVectorStore(deps.databaseUrl)
-          : (() => {
-              throw new Error(
-                'identity_matchUsersByTopic: either pgVector or databaseUrl must be supplied',
-              );
-            })());
-
       const requestedLimit = input.limit ?? 10;
       const stage1Limit = Math.max(requestedLimit * 3, STAGE1_TOPK);
 
@@ -98,7 +108,7 @@ export function matchUsersToTopicTool(deps: MatchUsersToTopicToolDeps) {
           limit: stage1Limit,
           minScore: input.min_score,
         },
-        { provider: deps.provider, pgVector },
+        { provider: deps.provider, pgVector: resolvePgVector() },
       );
 
       const reranked = await deps.reranker.rescore(input.topic, stage1, {

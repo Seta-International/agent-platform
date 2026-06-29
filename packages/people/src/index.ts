@@ -32,5 +32,22 @@ export {
   type UtilizationRow,
   type UtilizationSegment,
 } from './backend/domain/utilization.ts';
+export {
+  type BackfillPersonProfilesOptions,
+  backfillPersonProfiles,
+} from './backend/embeddings/backfill/backfill-profiles.ts';
+export { peopleEmbeddingJobs } from './backend/embeddings/register-jobs.ts';
+export type { PersonProfileSourceInput } from './backend/embeddings/source.ts';
+export { buildPersonProfileSource } from './backend/embeddings/source.ts';
+export {
+  ensurePeopleVectorIndex,
+  getPeopleVectorStore,
+  PEOPLE_VECTOR_DIMENSION,
+  PEOPLE_VECTOR_INDEX,
+  PEOPLE_VECTOR_NAMESPACE,
+  type PersonProfileVectorMetadata,
+  personProfileVectorId,
+  resetPeopleVectorStore,
+} from './backend/embeddings/vector-store.ts';
 export type { CreateWorkerInput, EditWorkerInput, ProvisionWorkerInput } from './contracts.ts';
 export { GENDER_VALUES, type GenderValue, genderValue } from './contracts.ts';

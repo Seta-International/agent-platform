@@ -1,9 +1,12 @@
-import type { PgVector } from '@mastra/pg';
+import { PgVector } from '@mastra/pg';
 import type { CrossModuleReadToolSpec } from '@seta/agent-sdk';
 import type { EmbeddingProvider } from '@seta/shared-embeddings';
 import { z } from 'zod';
 import { matchUsersToTopic } from '../domain/match-users-to-topic.ts';
-import { getIdentityVectorStore } from '../embeddings/vector-store.ts';
+
+// Vector store now lives in people_rag (people pipeline). Hardcoded string
+// avoids a circular dep (people → identity).
+const PEOPLE_RAG_SCHEMA = 'people_rag';
 
 const inputSchema = z.object({
   queryText: z
@@ -35,13 +38,11 @@ export interface SearchUsersBySkillVectorDeps {
 
 /**
  * Cross-module read tool: vector-search active users whose embedded profile
- * (display name + role + skills + bio) best matches a free-text query.
+ * (skills + bio) best matches a free-text query.
  *
- * Consumed by planner.assignBySkill (vector branch). The embedding worker only
- * upserts vector rows for active users (deactivation deletes the row), so
- * deactivated_at filtering is implicit. Availability (ooo/busy) is enforced
- * downstream in the workflow's enrichment step where the canonical projection
- * is read — vector metadata is not the source of truth for state changes.
+ * Consumed by planner.assignBySkill (vector branch). Availability (ooo/busy)
+ * is enforced downstream; vector metadata is not the source of truth for
+ * state changes.
  */
 export function buildSearchUsersBySkillVectorSpec(
   deps: SearchUsersBySkillVectorDeps,
@@ -51,7 +52,11 @@ export function buildSearchUsersBySkillVectorSpec(
     if (!deps.databaseUrl) {
       throw new Error('identity_searchUsersBySkillVector: pgVector or databaseUrl required');
     }
-    return getIdentityVectorStore(deps.databaseUrl);
+    return new PgVector({
+      id: 'people-person-profile-embeddings',
+      connectionString: deps.databaseUrl,
+      schemaName: PEOPLE_RAG_SCHEMA,
+    });
   };
 
   return {

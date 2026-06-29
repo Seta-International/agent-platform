@@ -24,8 +24,6 @@ export type { UserGrant } from './backend/domain/get-user-grants.ts';
 export { getUserGrants } from './backend/domain/get-user-grants.ts';
 export type { UserProfile } from './backend/domain/get-user-profile.ts';
 export { getUserProfile } from './backend/domain/get-user-profile.ts';
-export type { UserProfileForEmbedding } from './backend/domain/get-user-profile-for-embedding.ts';
-export { getUserProfileForEmbedding } from './backend/domain/get-user-profile-for-embedding.ts';
 export { getUserSignInMethods } from './backend/domain/get-user-sign-in-methods.ts';
 export type { GrantRoleInput } from './backend/domain/grant-role.ts';
 export { grantRole } from './backend/domain/grant-role.ts';
@@ -59,11 +57,6 @@ export type {
 export { listUserSessions } from './backend/domain/list-user-sessions.ts';
 export type { AdminUserRow, ListUsersOpts } from './backend/domain/list-users.ts';
 export { listUsers } from './backend/domain/list-users.ts';
-export type {
-  ListUsersForBackfillInput,
-  UserBackfillRow,
-} from './backend/domain/list-users-for-embedding-backfill.ts';
-export { listUsersForBackfill } from './backend/domain/list-users-for-embedding-backfill.ts';
 export type { MatchUsersToTopicInput, UserMatch } from './backend/domain/match-users-to-topic.ts';
 export { matchUsersToTopic } from './backend/domain/match-users-to-topic.ts';
 export { provisionAccount } from './backend/domain/provision-account.ts';
@@ -110,23 +103,6 @@ export { updateMyDisplayName } from './backend/domain/update-my-display-name.ts'
 export type { UpdateUserProfilePatch } from './backend/domain/update-user-profile.ts';
 export { updateUserProfile } from './backend/domain/update-user-profile.ts';
 export { whoAmI } from './backend/domain/who-am-i.ts';
-export {
-  type BackfillUserProfilesOptions,
-  backfillUserProfiles,
-} from './backend/embeddings/backfill/backfill-user-profiles.ts';
-export { embeddingJobs } from './backend/embeddings/register-jobs.ts';
-export type { UserProfileSourceInput } from './backend/embeddings/source.ts';
-export { buildUserProfileSource } from './backend/embeddings/source.ts';
-export {
-  ensureIdentityVectorIndex,
-  getIdentityVectorStore,
-  IDENTITY_VECTOR_DIMENSION,
-  IDENTITY_VECTOR_INDEX,
-  IDENTITY_VECTOR_NAMESPACE,
-  resetIdentityVectorStore,
-  type UserProfileVectorMetadata,
-  userProfileVectorId,
-} from './backend/embeddings/vector-store.ts';
 export { IdentityError } from './backend/rbac.ts';
 export type { MicrosoftEntraConfig, SsoProviderId } from './backend/sso/config.ts';
 export { buildAdminConsentUrl } from './backend/sso/consent-url.ts';

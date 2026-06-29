@@ -1,13 +1,13 @@
 import type { PgVector } from '@mastra/pg';
 import { sourceHash } from '@seta/shared-embeddings';
 import type { Pool } from 'pg';
-import { listUsersForBackfill } from '../../domain/list-users-for-embedding-backfill.ts';
-import { buildUserProfileSource } from '../source.ts';
+import { listPersonsForBackfill } from '../../domain/list-persons-for-backfill.ts';
+import { buildPersonProfileSource } from '../source.ts';
 import {
-  ensureIdentityVectorIndex,
-  IDENTITY_VECTOR_INDEX,
-  type UserProfileVectorMetadata,
-  userProfileVectorId,
+  ensurePeopleVectorIndex,
+  PEOPLE_VECTOR_INDEX,
+  type PersonProfileVectorMetadata,
+  personProfileVectorId,
 } from '../vector-store.ts';
 import {
   type BatchInputRow,
@@ -22,7 +22,7 @@ export type { BatchInputRow, BatchResultRow };
 
 const PAGE_SIZE = 1000;
 
-export interface BackfillUserProfilesOptions {
+export interface BackfillPersonProfilesOptions {
   tenant_id: string;
   pool: Pool;
   pgVector: PgVector;
@@ -32,7 +32,7 @@ export interface BackfillUserProfilesOptions {
   pollUntilDone?: typeof defaultPoll;
 }
 
-export async function backfillUserProfiles(opts: BackfillUserProfilesOptions): Promise<void> {
+export async function backfillPersonProfiles(opts: BackfillPersonProfilesOptions): Promise<void> {
   const {
     tenant_id,
     pool,
@@ -46,51 +46,48 @@ export async function backfillUserProfiles(opts: BackfillUserProfilesOptions): P
   const modelId = `openai:${model}`;
   const embeddedAt = new Date().toISOString();
 
-  await ensureIdentityVectorIndex(pgVector);
+  await ensurePeopleVectorIndex(pgVector);
 
   let cursor = '00000000-0000-0000-0000-000000000000';
   const submitOpts: SubmitOptions = { apiKey, model };
   const pollOpts: OpenAIBatchClient = { apiKey };
 
   while (true) {
-    const page = await listUsersForBackfill({ tenant_id, cursor, limit: PAGE_SIZE, pool });
+    const page = await listPersonsForBackfill({ tenant_id, cursor, limit: PAGE_SIZE, pool });
 
     if (page.length === 0) break;
 
     // biome-ignore lint/style/noNonNullAssertion: page.length > 0 checked above
-    cursor = page[page.length - 1]!.user_id;
+    cursor = page[page.length - 1]!.person_id;
 
     const sourced = page.map((row) => {
-      const source = buildUserProfileSource({
-        name: row.name,
-        role: row.role,
+      const source = buildPersonProfileSource({
         skills: row.skills,
+        bio: row.bio ?? undefined,
       });
       return {
-        user_id: row.user_id,
-        display_name: row.name,
-        email: row.email,
+        person_id: row.person_id,
         skills: row.skills,
         source,
         hash: sourceHash(source),
       };
     });
 
-    const pageIds = sourced.map((s) => s.user_id);
+    const pageIds = sourced.map((s) => s.person_id);
     const existing = pageIds.length
       ? await pgVector.query({
-          indexName: IDENTITY_VECTOR_INDEX,
-          filter: { tenant_id: { $eq: tenant_id }, user_id: { $in: pageIds } },
+          indexName: PEOPLE_VECTOR_INDEX,
+          filter: { tenant_id: { $eq: tenant_id }, person_id: { $in: pageIds } },
           topK: pageIds.length,
         })
       : [];
-    const existingByUser = new Map<string, string>();
+    const existingByPerson = new Map<string, string>();
     for (const row of existing) {
-      const md = row.metadata as Partial<UserProfileVectorMetadata> | undefined;
-      if (md?.user_id && md.source_hash) existingByUser.set(md.user_id, md.source_hash);
+      const md = row.metadata as Partial<PersonProfileVectorMetadata> | undefined;
+      if (md?.person_id && md.source_hash) existingByPerson.set(md.person_id, md.source_hash);
     }
 
-    const toEmbed = sourced.filter((s) => existingByUser.get(s.user_id) !== s.hash);
+    const toEmbed = sourced.filter((s) => existingByPerson.get(s.person_id) !== s.hash);
 
     if (toEmbed.length === 0) {
       if (page.length < PAGE_SIZE) break;
@@ -98,41 +95,39 @@ export async function backfillUserProfiles(opts: BackfillUserProfilesOptions): P
     }
 
     const batchInputs: BatchInputRow[] = toEmbed.map((s) => ({
-      custom_id: s.user_id,
+      custom_id: s.person_id,
       input: s.source,
     }));
 
     const batchId = await submit(submitOpts, batchInputs);
     const batchResults: BatchResultRow[] = await poll(pollOpts, batchId);
 
-    const vectorByUser = new Map<string, number[]>(
+    const vectorByPerson = new Map<string, number[]>(
       batchResults.map((r) => [r.custom_id, r.vector]),
     );
 
     const vectorsToUpsert: number[][] = [];
-    const metadataToUpsert: UserProfileVectorMetadata[] = [];
+    const metadataToUpsert: PersonProfileVectorMetadata[] = [];
     const idsToUpsert: string[] = [];
 
     for (const meta of toEmbed) {
-      const vec = vectorByUser.get(meta.user_id);
+      const vec = vectorByPerson.get(meta.person_id);
       if (!vec) continue;
       vectorsToUpsert.push(vec);
       metadataToUpsert.push({
         tenant_id,
-        user_id: meta.user_id,
-        display_name: meta.display_name,
-        email: meta.email,
+        person_id: meta.person_id,
         skills: meta.skills,
         source_hash: meta.hash,
         model_id: modelId,
         embedded_at: embeddedAt,
       });
-      idsToUpsert.push(userProfileVectorId(tenant_id, meta.user_id));
+      idsToUpsert.push(personProfileVectorId(tenant_id, meta.person_id));
     }
 
     if (vectorsToUpsert.length > 0) {
       await pgVector.upsert({
-        indexName: IDENTITY_VECTOR_INDEX,
+        indexName: PEOPLE_VECTOR_INDEX,
         vectors: vectorsToUpsert,
         metadata: metadataToUpsert,
         ids: idsToUpsert,
