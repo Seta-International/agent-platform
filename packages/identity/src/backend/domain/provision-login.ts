@@ -2,7 +2,7 @@
 import { emit, withEmit } from '@seta/core/events';
 import { and, eq, sql } from 'drizzle-orm';
 import { identityDb } from '../db/index.ts';
-import { user, userProfile } from '../db/schema.ts';
+import { user } from '../db/schema.ts';
 import { IdentityError } from '../rbac.ts';
 import { isValidEmail } from './_email.ts';
 import type { Actor } from './create-user.ts';
@@ -63,9 +63,9 @@ export async function provisionLogin(
         .returning({ id: user.id });
 
       if (inserted.length === 0) {
-        // A concurrent caller won the race and owns this user (its user.created +
-        // userProfile). Re-resolve the winner's id and return created:false — do not
-        // emit a phantom user.created or double-insert the profile.
+        // A concurrent caller won the race and owns this user (its user.created).
+        // Re-resolve the winner's id and return created:false — do not emit a
+        // phantom user.created.
         const [winner] = await tx
           .select({ id: user.id })
           .from(user)
@@ -82,7 +82,6 @@ export async function provisionLogin(
       }
 
       created = true;
-      await tx.insert(userProfile).values({ user_id: newUserId, tenant_id: input.tenant_id });
       await emit({
         tenantId: input.tenant_id,
         aggregateType: 'identity.user',

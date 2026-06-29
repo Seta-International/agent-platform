@@ -1,4 +1,5 @@
 import { resetCoreDb } from '@seta/core/testing';
+import { resetPeopleDb } from '@seta/people/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import type { Pool } from 'pg';
@@ -17,6 +18,9 @@ export function withAgentTestDb<T>(
         return await fn({ pool, databaseUrl });
       } finally {
         resetCoreDb();
+        // Adapters read People (presence/skills); reset its cached DB client so it
+        // rebinds to the next test's pool after closePools().
+        resetPeopleDb();
         await closePools();
       }
     },

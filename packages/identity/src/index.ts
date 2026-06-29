@@ -87,7 +87,6 @@ export type {
   SearchDirectoryOpts,
 } from './backend/domain/search-directory.ts';
 export { searchDirectory } from './backend/domain/search-directory.ts';
-export { searchSkills } from './backend/domain/search-skills.ts';
 export { setLocalPasswordDisabled } from './backend/domain/set-local-password-disabled.ts';
 export {
   type SetRolePermissionInput,

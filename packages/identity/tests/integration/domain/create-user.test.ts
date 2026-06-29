@@ -57,14 +57,6 @@ describe('createUser', () => {
           expect(accountRows[0].provider_id).toBe('credential');
           expect(accountRows[0].password).toMatch(/^\$argon2id\$/);
 
-          // user_profile row
-          const profileRows = (
-            await pool.query(`SELECT user_id FROM identity.user_profile WHERE user_id = $1`, [
-              result.user_id,
-            ])
-          ).rows;
-          expect(profileRows).toHaveLength(1);
-
           // event
           const eventRows = (
             await pool.query(

@@ -2,13 +2,13 @@ import { createHash } from 'node:crypto';
 import type { SessionScope } from '@seta/core';
 import { coreDb } from '@seta/core/db';
 import type { Actor } from '@seta/identity';
-import { ensureLocalLogin, grantRole, provisionLogin, updateUserProfile } from '@seta/identity';
+import { ensureLocalLogin, grantRole, provisionLogin } from '@seta/identity';
 import { addPersonSkill, createWorker, genderValue } from '@seta/people';
 import { sql } from 'drizzle-orm';
 import type { EmployeeRec } from './load.ts';
 import type { SeededSkill } from './phase-skills.ts';
 import { rolesFor } from './rbac-map.ts';
-import { skillNamesForRole, techStackFor } from './skill-catalog.ts';
+import { techStackFor } from './skill-catalog.ts';
 
 // createWorker returns person_id as the canonical worker identity (so does
 // editWorker); resolve the same id here so create vs. find agree.
@@ -128,16 +128,13 @@ export async function seedPeopleIdentity(
       }
     }
 
-    // profile — set-state, call unconditionally
-    await updateUserProfile(
-      userId,
-      {
-        availability_status: 'available',
-        timezone: 'Asia/Ho_Chi_Minh',
-        skills: skillNamesForRole(e.primary_role),
-        role: e.primary_role,
-      },
-      actor,
+    // Presence lives on people.worker now. availability defaults to 'available' at
+    // createWorker; set the fixture timezone (all staff are VN-based). Keyed by the
+    // worker, not a session, so this is not the self-service setPresence path.
+    await coreDb().execute(
+      sql`UPDATE people.worker
+            SET timezone = 'Asia/Ho_Chi_Minh', updated_at = now()
+          WHERE person_id = ${workerId} AND timezone IS DISTINCT FROM 'Asia/Ho_Chi_Minh'`,
     );
 
     // Tech stack — populate people.person_skill (what the directory Techstack column reads).

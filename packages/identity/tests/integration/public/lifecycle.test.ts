@@ -77,10 +77,10 @@ describe('@seta/identity public-surface lifecycle', () => {
 
           const updated = await updateUserProfile(
             bobId,
-            { skills: ['rust', 'Rust', 'TypeScript'] },
+            { display_name: 'Bob Renamed' },
             { type: 'user', user_id: bobId },
           );
-          expect(updated.skills).toEqual(['rust', 'typescript']);
+          expect(updated.display_name).toBe('Bob Renamed');
 
           await revokeRole(grant_id, { type: 'user', user_id: adminId });
           const afterRevoke = await listRoleGrants(bobId);

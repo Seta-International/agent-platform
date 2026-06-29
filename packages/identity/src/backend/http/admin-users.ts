@@ -37,18 +37,10 @@ const bulkSchema = z.object({
   scope_id: z.string().nullable().optional(),
 });
 
-const HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
-
+// Identity owns the account only — admins edit display_name here; worker
+// presence/skills are edited through People (web-people worker profile).
 const adminProfilePatchSchema = z.object({
   display_name: z.string().min(1).max(120).optional(),
-  availability_status: z.enum(['available', 'busy', 'ooo']).optional(),
-  ooo_until: z.string().datetime().nullable().optional(),
-  timezone: z.string().min(1).optional(),
-  working_hours: z
-    .object({ start: z.string().regex(HHMM_RE), end: z.string().regex(HHMM_RE) })
-    .nullable()
-    .optional(),
-  skills: z.array(z.string()).optional(),
 });
 
 // Admin gate for user *management* (grant roles, deactivate, reset passwords, etc.).
@@ -76,8 +68,7 @@ export function registerAdminUsersRoutes(app: Hono<SessionEnv>): void {
     const scope = c.get('user');
     const search = c.req.query('search') ?? undefined;
     const role_slug = c.req.query('role') ?? undefined;
-    const status =
-      (c.req.query('status') as 'active' | 'deactivated' | 'ooo' | undefined) ?? undefined;
+    const status = (c.req.query('status') as 'active' | 'deactivated' | undefined) ?? undefined;
     const sign_in_method =
       (c.req.query('sign_in_method') as 'credential' | 'microsoft' | 'both' | undefined) ??
       undefined;
@@ -113,16 +104,7 @@ export function registerAdminUsersRoutes(app: Hono<SessionEnv>): void {
     const parsed = adminProfilePatchSchema.safeParse(await c.req.json().catch(() => ({})));
     if (!parsed.success)
       return c.json({ error: 'invalid_patch', details: parsed.error.flatten() }, 400);
-    const patch = {
-      ...parsed.data,
-      ooo_until:
-        parsed.data.ooo_until === undefined
-          ? undefined
-          : parsed.data.ooo_until
-            ? new Date(parsed.data.ooo_until)
-            : null,
-    };
-    const updated = await updateUserProfile(userId, patch, {
+    const updated = await updateUserProfile(userId, parsed.data, {
       type: 'user',
       user_id: scope.user_id,
       ip: c.req.header('x-forwarded-for')?.split(',')[0]?.trim(),

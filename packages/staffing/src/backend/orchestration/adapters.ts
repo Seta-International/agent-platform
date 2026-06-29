@@ -1,5 +1,5 @@
-import { buildActorSession, getUserProfile, listUsers } from '@seta/identity';
-import { matchUsersToTopic } from '@seta/people';
+import { buildActorSession, listUsers } from '@seta/identity';
+import { getPersonSkills, matchUsersToTopic, readPresence } from '@seta/people';
 import { getTask, listDistinctLabels, listTasks, listTasksByLabel } from '@seta/planner';
 import type {
   AvailabilityPort,
@@ -98,20 +98,26 @@ const PROFILE_LOOKUP_DEFAULT_LIMIT = 5;
 export function makeUserProfileLookup(): UserProfilePort {
   return {
     async findByName(name, ctx, limit) {
+      const session = await buildActorSession({ user_id: ctx.actorUserId });
       const { rows } = await listUsers(ctx.tenantId, {
         search: name,
         limit: Math.min(Math.max(limit ?? PROFILE_LOOKUP_DEFAULT_LIMIT, 1), 25),
         offset: 0,
       });
+      // role is no longer modeled per-user (job role lives on People worker.job_title,
+      // which the recommender doesn't consume); skills + availability come from People.
       const profiles = await Promise.all(
         rows.map(async (r) => {
-          const p = await getUserProfile(r.user_id);
+          const [presence, skills] = await Promise.all([
+            readPresence(session, { user_id: r.user_id }),
+            getPersonSkills(session, { user_id: r.user_id }),
+          ]);
           return {
             userId: r.user_id,
             name: r.name,
-            role: p?.role ?? null,
-            skills: (p?.skills as string[]) ?? [],
-            availability: p?.availability_status ?? ('available' as const),
+            role: null,
+            skills,
+            availability: presence.availability_status,
           };
         }),
       );
@@ -123,13 +129,14 @@ export function makeUserProfileLookup(): UserProfilePort {
 // ---- Availability: real in-progress count; leave is Phase-A default ----
 export function makeAvailability(): AvailabilityPort {
   return {
-    // Real availability + display name from identity.user_profile via the identity
-    // public surface (no cross-schema read). A user with no profile row defaults to available.
-    async status(userId) {
-      const profile = await getUserProfile(userId);
+    // Availability from People presence (worker), read under the actor's session.
+    // name is left to the candidate-level fallback (avai-checker uses s.name ?? c.name).
+    async status(userId, ctx) {
+      const session = await buildActorSession({ user_id: ctx.actorUserId });
+      const presence = await readPresence(session, { user_id: userId });
       return {
-        status: profile?.availability_status ?? 'available',
-        name: profile?.display_name ?? null,
+        status: presence.availability_status,
+        name: null,
         note: null,
       };
     },

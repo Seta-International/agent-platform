@@ -54,7 +54,6 @@ describe('identity migrations', () => {
             'session',
             'account',
             'verification',
-            'user_profile',
             'role_grants',
             'failed_login_attempts',
             'tenant_sso_providers',

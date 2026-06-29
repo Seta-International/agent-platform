@@ -4,21 +4,6 @@ export { identity } from './pg-schema.ts';
 
 import { identity } from './pg-schema.ts';
 
-export const userProfile = identity.table('user_profile', {
-  user_id: uuid('user_id').primaryKey(),
-  tenant_id: uuid('tenant_id').notNull(),
-  skills: text('skills').array().default([]).notNull(),
-  role: text('role'),
-  availability_status: text('availability_status', { enum: ['available', 'busy', 'ooo'] })
-    .default('available')
-    .notNull(),
-  ooo_until: timestamp('ooo_until', { withTimezone: true }),
-  timezone: text('timezone').default('UTC').notNull(),
-  working_hours: jsonb('working_hours').$type<{ start: string; end: string } | null>(),
-  bio: text('bio'),
-  updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
-
 export const roleGrants = identity.table('role_grants', {
   id: uuid('id').primaryKey().defaultRandom(),
   user_id: uuid('user_id').notNull(),
