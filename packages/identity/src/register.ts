@@ -11,6 +11,7 @@ import {
 } from './backend/embeddings/subscribers/refresh-user-profile.ts';
 import { buildIdentityRoutes } from './backend/http/index.ts';
 import { IdentityError } from './backend/rbac.ts';
+import { autoProvisionSubscribers } from './backend/subscribers/auto-provision.ts';
 import { directoryProjectionSubscribers } from './backend/subscribers/directory-projection.ts';
 import {
   applyMemberAdded,
@@ -36,6 +37,7 @@ export function registerIdentityContributions(reg: ContributionRegistry): void {
     agentTools: identityAgentTools,
     agentToolFactories: [matchUsersToTopicTool],
     subscribers: [
+      ...autoProvisionSubscribers,
       ...directoryProjectionSubscribers,
       refreshUserProfileCreatedSubscriber,
       refreshUserProfileUpdatedSubscriber,
