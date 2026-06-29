@@ -34,7 +34,8 @@ export const autoSuspendSubscribers: SubscriberDef[] = [
     subscription: 'identity.account.auto-suspend',
     event: 'people.worker.terminated',
     eventVersion: 1,
-    handler: async (e: DomainEvent<WorkerLifecyclePayload>) => {
+    handler: async (event, _ctx) => {
+      const e = event as DomainEvent<WorkerLifecyclePayload>;
       const userId = await resolveUserId(e.payload);
       if (!userId) return;
       try {
@@ -53,7 +54,8 @@ export const autoSuspendSubscribers: SubscriberDef[] = [
     subscription: 'identity.account.auto-reinstate',
     event: 'people.worker.reinstated',
     eventVersion: 1,
-    handler: async (e: DomainEvent<WorkerLifecyclePayload>) => {
+    handler: async (event, _ctx) => {
+      const e = event as DomainEvent<WorkerLifecyclePayload>;
       const userId = await resolveUserId(e.payload);
       if (userId) await reactivateUser(userId, systemActor);
     },

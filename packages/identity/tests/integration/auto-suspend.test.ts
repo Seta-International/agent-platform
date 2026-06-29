@@ -33,7 +33,7 @@ describe('autoSuspendSubscribers', () => {
         });
 
         let [u] = await identityDb().select().from(user).where(eq(user.id, user_id));
-        expect(u.deactivated_at).not.toBeNull();
+        expect(u!.deactivated_at).not.toBeNull();
 
         await dispatch(autoSuspendSubscribers, {
           eventType: 'people.worker.reinstated',
@@ -42,7 +42,7 @@ describe('autoSuspendSubscribers', () => {
         });
 
         [u] = await identityDb().select().from(user).where(eq(user.id, user_id));
-        expect(u.deactivated_at).toBeNull();
+        expect(u!.deactivated_at).toBeNull();
       } finally {
         resetIdentityDb();
         resetCoreDb();
@@ -71,7 +71,7 @@ describe('autoSuspendSubscribers', () => {
         ).resolves.not.toThrow();
 
         const [u] = await identityDb().select().from(user).where(eq(user.id, user_id));
-        expect(u.deactivated_at).toBeNull();
+        expect(u!.deactivated_at).toBeNull();
       } finally {
         resetIdentityDb();
         resetCoreDb();
@@ -93,7 +93,7 @@ describe('autoSuspendSubscribers', () => {
         });
 
         const [u] = await identityDb().select().from(user).where(eq(user.id, user_id));
-        expect(u.deactivated_at).not.toBeNull();
+        expect(u!.deactivated_at).not.toBeNull();
       } finally {
         resetIdentityDb();
         resetCoreDb();

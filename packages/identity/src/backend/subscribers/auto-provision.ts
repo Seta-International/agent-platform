@@ -22,12 +22,12 @@ export const autoProvisionSubscribers: SubscriberDef[] = [
     subscription: 'identity.account.auto-provision.created',
     event: 'people.worker.created',
     eventVersion: 1,
-    handler: async (event: DomainEvent<WorkerPayload>) => maybeProvision(event.payload),
+    handler: async (event, _ctx) => maybeProvision((event as DomainEvent<WorkerPayload>).payload),
   },
   {
     subscription: 'identity.account.auto-provision.updated',
     event: 'people.worker.updated',
     eventVersion: 1,
-    handler: async (event: DomainEvent<WorkerPayload>) => maybeProvision(event.payload),
+    handler: async (event, _ctx) => maybeProvision((event as DomainEvent<WorkerPayload>).payload),
   },
 ];
