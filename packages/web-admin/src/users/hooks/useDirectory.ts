@@ -2,6 +2,7 @@ import { toast } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   type BulkRoleBody,
+  type BulkRoleResult,
   bulkRole,
   listDirectory,
   provisionAccount,
@@ -51,7 +52,13 @@ export function useBulkRole() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: BulkRoleBody) => bulkRole(body),
-    onSuccess: () => toast.success('Roles updated'),
+    onSuccess: (result: BulkRoleResult) => {
+      const changed = result.granted + result.revoked;
+      const parts: string[] = [`${changed} updated`];
+      if (result.skipped > 0) parts.push(`${result.skipped} skipped`);
+      if (result.failed.length > 0) parts.push(`${result.failed.length} failed`);
+      toast.success(parts.join(', '));
+    },
     onError: (e) => toast.error((e as Error).message),
     onSettled: () => qc.invalidateQueries({ queryKey: directoryKeys.all }),
   });

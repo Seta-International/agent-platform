@@ -155,6 +155,7 @@ export function Combobox(props: ComboboxProps) {
             type="button"
             role="combobox"
             aria-expanded={open}
+            aria-label={props['aria-label']}
             className={cn(triggerCls, className)}
           >
             <span className={cn('truncate', !selected[0] && 'text-ink-subtle')}>

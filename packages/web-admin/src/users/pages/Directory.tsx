@@ -16,6 +16,7 @@ import {
   Input,
   PageChrome,
   PageChromeToolbar,
+  type RowSelectionState,
   Select,
   SelectContent,
   SelectItem,
@@ -23,10 +24,11 @@ import {
   SelectValue,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
-import type { ColumnDef, PaginationState } from '@tanstack/react-table';
+import type { ColumnDef, PaginationState, Row } from '@tanstack/react-table';
 import { MoreHorizontal } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { DirectoryRow } from '../api/directory-client.ts';
+import { BulkRoleBar } from '../components/BulkRoleBar.tsx';
 import { UserDetailSheet } from '../components/UserDetailSheet.tsx';
 import { useDirectory, useProvision, useReactivate, useSuspend } from '../hooks/useDirectory.ts';
 
@@ -70,6 +72,7 @@ export function Directory() {
   const [page, setPage] = useState(0);
   const [selectedRow, setSelectedRow] = useState<DirectoryRow | null>(null);
   const [suspendTarget, setSuspendTarget] = useState<DirectoryRow | null>(null);
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
 
   const canWrite = usePermission('identity.user.write');
 
@@ -85,6 +88,20 @@ export function Directory() {
 
   const rows = data?.rows ?? [];
   const hasMore = data?.hasMore ?? false;
+
+  const selectedUserIds = useMemo(
+    () =>
+      Object.keys(rowSelection)
+        .filter((personId) => rowSelection[personId])
+        .map((personId) => rows.find((r) => r.person_id === personId)?.user_id)
+        .filter((id): id is string => !!id),
+    [rowSelection, rows],
+  );
+
+  function clearSelection() {
+    setRowSelection({});
+  }
+
   const pageCount = page + (hasMore ? 2 : 1);
   const rowCount = page * PAGE_SIZE + rows.length + (hasMore ? 1 : 0);
 
@@ -246,13 +263,18 @@ export function Directory() {
         />
       }
     >
+      {canWrite && selectedUserIds.length > 0 && (
+        <BulkRoleBar selectedUserIds={selectedUserIds} onClearSelection={clearSelection} />
+      )}
       <div className="px-6 py-4">
         <DataTable
           mode="server"
           data={rows}
           columns={columns}
           isLoading={isLoading}
-          enableRowSelection
+          enableRowSelection={(row: Row<DirectoryRow>) => row.original.account_status !== 'none'}
+          rowSelection={rowSelection}
+          onRowSelectionChange={setRowSelection}
           enableGlobalFilter={false}
           enableColumnVisibility={false}
           sorting={[]}

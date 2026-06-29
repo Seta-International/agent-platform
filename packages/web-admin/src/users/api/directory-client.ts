@@ -54,5 +54,15 @@ export interface BulkRoleBody {
   scope_id?: string | null;
 }
 
+export interface BulkRoleResult {
+  granted: number;
+  revoked: number;
+  skipped: number;
+  failed: { user_id: string; reason: string }[];
+}
+
 export const bulkRole = (body: BulkRoleBody) =>
-  post('/api/identity/v1/users/bulk-role-grants', { scope_type: 'tenant', ...body });
+  post<BulkRoleResult>('/api/identity/v1/users/bulk-role-grants', {
+    scope_type: 'tenant',
+    ...body,
+  });
