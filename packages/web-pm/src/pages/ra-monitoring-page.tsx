@@ -699,6 +699,7 @@ export function RaMonitoringPage() {
           columns={columns}
           data={filtered}
           isLoading={isLoading}
+          enableGlobalFilter={false}
           density="compact"
           getRowId={(r: RaMonitoringAllocation) => r.allocation_id}
           emptyState={
