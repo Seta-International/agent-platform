@@ -1,6 +1,4 @@
 import { resetCoreDb } from '@seta/core/testing';
-import type { WorkerCreatedPayload, WorkerUpdatedPayload } from '@seta/people/events';
-import { PEOPLE_WORKER_CREATED, PEOPLE_WORKER_UPDATED } from '@seta/people/events';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import type { DomainEvent } from '@seta/shared-types';
@@ -9,6 +7,9 @@ import { describe, expect, it } from 'vitest';
 import { pmDb, resetPmDb } from '../../src/backend/db/client.ts';
 import { workerProjection } from '../../src/backend/db/schema.ts';
 import {
+  PEOPLE_WORKER_CREATED,
+  PEOPLE_WORKER_UPDATED,
+  type PeopleWorkerProjected,
   workerProjectionCreated,
   workerProjectionUpdated,
 } from '../../src/backend/subscribers/worker-projection.ts';
@@ -19,29 +20,25 @@ const ctx = {
   baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
 };
 
-function createdEvent(payload: WorkerCreatedPayload): DomainEvent<WorkerCreatedPayload> {
+function workerEvent(
+  eventType: string,
+  payload: PeopleWorkerProjected,
+): DomainEvent<PeopleWorkerProjected> {
   return {
     id: crypto.randomUUID(),
     tenantId: payload.tenant_id,
     aggregateType: 'people.worker',
     aggregateId: payload.worker_id,
-    eventType: PEOPLE_WORKER_CREATED,
+    eventType,
     eventVersion: 1,
     payload,
   } as never;
 }
 
-function updatedEvent(payload: WorkerUpdatedPayload): DomainEvent<WorkerUpdatedPayload> {
-  return {
-    id: crypto.randomUUID(),
-    tenantId: payload.tenant_id,
-    aggregateType: 'people.worker',
-    aggregateId: payload.worker_id,
-    eventType: PEOPLE_WORKER_UPDATED,
-    eventVersion: 1,
-    payload,
-  } as never;
-}
+const createdEvent = (payload: PeopleWorkerProjected) =>
+  workerEvent(PEOPLE_WORKER_CREATED, payload);
+const updatedEvent = (payload: PeopleWorkerProjected) =>
+  workerEvent(PEOPLE_WORKER_UPDATED, payload);
 
 describe('workerProjectionCreated', () => {
   it('inserts a worker_projection row with name and title', async () => {
@@ -53,7 +50,7 @@ describe('workerProjectionCreated', () => {
         const t = await seedTenant(pool);
         const workerId = crypto.randomUUID();
 
-        const payload: WorkerCreatedPayload = {
+        const payload: PeopleWorkerProjected = {
           worker_id: workerId,
           tenant_id: t.tenant_id,
           full_name: 'Alice Example',
@@ -93,7 +90,7 @@ describe('workerProjectionCreated', () => {
         const t = await seedTenant(pool);
         const workerId = crypto.randomUUID();
 
-        const payload: WorkerCreatedPayload = {
+        const payload: PeopleWorkerProjected = {
           worker_id: workerId,
           tenant_id: t.tenant_id,
           full_name: 'Bob NoTitle',
@@ -144,10 +141,9 @@ describe('workerProjectionUpdated', () => {
         });
 
         // then fire updated event with new name
-        const updatePayload: WorkerUpdatedPayload = {
+        const updatePayload: PeopleWorkerProjected = {
           worker_id: workerId,
           tenant_id: t.tenant_id,
-          fields: ['full_name'],
           full_name: 'Carol Renamed',
           job_title: 'Developer',
         };

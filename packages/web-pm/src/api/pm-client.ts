@@ -484,6 +484,8 @@ export async function removeAllocation(allocationId: string): Promise<void> {
 export interface RaMonitoringAllocation {
   allocation_id: string;
   worker_id: string | null;
+  worker_name: string | null;
+  worker_title: string | null;
   role: string | null;
   planned_pct: number | null;
   bucket: 'billable' | 'internal' | 'bench';
@@ -503,6 +505,7 @@ export async function fetchAllocations(params: {
   project_id?: string;
   active_from?: string;
   active_to?: string;
+  q?: string;
 }): Promise<RaMonitoringAllocation[]> {
   const sp = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {
@@ -513,20 +516,4 @@ export async function fetchAllocations(params: {
     credentials: 'include',
   });
   return (await handleResponse<{ allocations: RaMonitoringAllocation[] }>(res)).allocations;
-}
-
-export async function fetchWorkersByIds(
-  ids: string[],
-): Promise<Map<string, { full_name: string; job_title: string | null }>> {
-  const unique = [...new Set(ids)];
-  if (unique.length === 0) return new Map();
-  const res = await fetch(`/api/people/v1/workers?ids=${unique.join(',')}`, {
-    credentials: 'include',
-  });
-  const body = await handleResponse<{
-    rows: Array<{ worker_id: string; full_name: string; job_title: string | null }>;
-  }>(res);
-  return new Map(
-    body.rows.map((r) => [r.worker_id, { full_name: r.full_name, job_title: r.job_title }]),
-  );
 }

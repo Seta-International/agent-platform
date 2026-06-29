@@ -33,7 +33,6 @@
     "@seta/agent-sdk": "workspace:^",
     "@seta/core": "workspace:^",
     "@seta/notifications": "workspace:*",
-    "@seta/people": "workspace:*",
     "@seta/shared-db": "workspace:^",
     "@seta/shared-rbac": "workspace:^",
     "@seta/shared-types": "workspace:^",

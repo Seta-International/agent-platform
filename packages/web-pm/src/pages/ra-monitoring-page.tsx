@@ -35,13 +35,12 @@ import {
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CalendarRange, Check, Pencil, Plus, Trash2, Users, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   createAllocation,
   fetchAccounts,
   fetchAllocations,
   fetchProjects,
-  fetchWorkersByIds,
   type RaMonitoringAllocation,
   removeAllocation,
   updateAllocation,
@@ -284,14 +283,22 @@ export function RaMonitoringPage() {
     [activeFrom, activeTo],
   );
 
+  // Debounce the free-text search before it drives the server query.
+  const [debouncedQ, setDebouncedQ] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQ(search.trim()), 250);
+    return () => clearTimeout(t);
+  }, [search]);
+
   const params = useMemo(
     () => ({
       account_id: accountId || undefined,
       project_id: projectId || undefined,
       active_from: activeFrom || undefined,
       active_to: activeTo || undefined,
+      q: debouncedQ || undefined,
     }),
-    [accountId, projectId, activeFrom, activeTo],
+    [accountId, projectId, activeFrom, activeTo, debouncedQ],
   );
 
   const { data: accounts } = useQuery({ queryKey: pmKeys.accounts(), queryFn: fetchAccounts });
@@ -302,15 +309,6 @@ export function RaMonitoringPage() {
   });
 
   const allocations = useMemo(() => rows ?? [], [rows]);
-  const workerIds = useMemo(
-    () => allocations.map((r) => r.worker_id).filter((w): w is string => Boolean(w)),
-    [allocations],
-  );
-  const { data: workers } = useQuery({
-    queryKey: pmKeys.workersByIds(workerIds),
-    queryFn: () => fetchWorkersByIds(workerIds),
-    enabled: workerIds.length > 0,
-  });
 
   const visibleProjects = useMemo(
     () => (projects ?? []).filter((p) => !accountId || p.account_id === accountId),
@@ -325,17 +323,6 @@ export function RaMonitoringPage() {
     [visibleProjects],
   );
   const kpis = useMemo(() => rollupKpis(allocations, win), [allocations, win]);
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return allocations;
-    return allocations.filter((r) => {
-      const name = r.worker_id ? (workers?.get(r.worker_id)?.full_name ?? '') : '';
-      return [name, r.project_name, r.account_name, r.note ?? '']
-        .join(' ')
-        .toLowerCase()
-        .includes(q);
-    });
-  }, [allocations, search, workers]);
   const hasFilters =
     search !== '' ||
     accountId !== '' ||
@@ -375,30 +362,33 @@ export function RaMonitoringPage() {
 
   const columns = useMemo(() => {
     type Ctx = { row: { original: RaMonitoringAllocation } };
-    const nameOf = (id: string | null) => (id ? (workers?.get(id)?.full_name ?? id) : null);
-    const titleOf = (id: string | null) => (id ? (workers?.get(id)?.job_title ?? '—') : '—');
 
     return [
       {
         id: 'account',
         header: 'Account',
+        accessorFn: (r: RaMonitoringAllocation) => r.account_name,
+        enableSorting: true,
         cell: ({ row }: Ctx) => <span className="text-ink-muted">{row.original.account_name}</span>,
       },
       {
         id: 'project',
         header: 'Project',
+        accessorFn: (r: RaMonitoringAllocation) => r.project_name,
+        enableSorting: true,
         cell: ({ row }: Ctx) => <span className="text-ink">{row.original.project_name}</span>,
       },
       {
         id: 'name',
         header: 'Person',
+        accessorFn: (r: RaMonitoringAllocation) => r.worker_name ?? '',
+        enableSorting: true,
         cell: ({ row }: Ctx) => {
           const r = row.original;
-          const name = nameOf(r.worker_id);
           return (
             <div className="flex items-center gap-2">
-              {name ? (
-                <span className="font-medium text-ink">{name}</span>
+              {r.worker_name ? (
+                <span className="font-medium text-ink">{r.worker_name}</span>
               ) : (
                 <span className="italic text-ink-subtle">Unfilled (TBD)</span>
               )}
@@ -414,13 +404,17 @@ export function RaMonitoringPage() {
       {
         id: 'seniority',
         header: 'Seniority',
+        accessorFn: (r: RaMonitoringAllocation) => r.worker_title ?? '',
+        enableSorting: true,
         cell: ({ row }: Ctx) => (
-          <span className="text-ink-muted">{titleOf(row.original.worker_id)}</span>
+          <span className="text-ink-muted">{row.original.worker_title ?? '—'}</span>
         ),
       },
       {
         id: 'planned',
         header: 'Planned (MM/mo)',
+        accessorFn: (r: RaMonitoringAllocation) => r.planned_pct ?? 0,
+        enableSorting: true,
         cell: ({ row }: Ctx) => {
           const r = row.original;
           if (editing === r.allocation_id) {
@@ -448,6 +442,8 @@ export function RaMonitoringPage() {
       {
         id: 'start',
         header: 'Start',
+        accessorFn: (r: RaMonitoringAllocation) => r.date_from ?? '',
+        enableSorting: true,
         cell: ({ row }: Ctx) => {
           const r = row.original;
           return editing === r.allocation_id ? (
@@ -465,6 +461,8 @@ export function RaMonitoringPage() {
       {
         id: 'end',
         header: 'End',
+        accessorFn: (r: RaMonitoringAllocation) => r.date_to ?? '',
+        enableSorting: true,
         cell: ({ row }: Ctx) => {
           const r = row.original;
           return editing === r.allocation_id ? (
@@ -482,6 +480,8 @@ export function RaMonitoringPage() {
       {
         id: 'effort',
         header: 'Calendar effort',
+        accessorFn: (r: RaMonitoringAllocation) => clippedCalendarEffort(r, win),
+        enableSorting: true,
         cell: ({ row }: Ctx) => (
           <span className="font-mono font-semibold tabular-nums text-ink">
             {clippedCalendarEffort(row.original, win).toFixed(1)}
@@ -491,6 +491,8 @@ export function RaMonitoringPage() {
       {
         id: 'bucket',
         header: 'Type',
+        accessorFn: (r: RaMonitoringAllocation) => r.bucket,
+        enableSorting: true,
         cell: ({ row }: Ctx) => {
           const r = row.original;
           if (editing === r.allocation_id) {
@@ -592,7 +594,7 @@ export function RaMonitoringPage() {
         },
       },
     ];
-  }, [editing, draft, win, workers, canManage, saveMut]);
+  }, [editing, draft, win, canManage, saveMut]);
 
   const scopeLabel = projectId
     ? (visibleProjects.find((p) => p.project_id === projectId)?.name ?? '1 project')
@@ -697,7 +699,7 @@ export function RaMonitoringPage() {
 
         <DataTable
           columns={columns}
-          data={filtered}
+          data={allocations}
           isLoading={isLoading}
           enableGlobalFilter={false}
           density="compact"
@@ -728,9 +730,7 @@ export function RaMonitoringPage() {
             <AlertDialogDescription>
               {confirmTarget
                 ? `This removes ${
-                    confirmTarget.worker_id
-                      ? (workers?.get(confirmTarget.worker_id)?.full_name ?? 'this person')
-                      : 'this unfilled seat'
+                    confirmTarget.worker_name ?? 'this unfilled seat'
                   } from ${confirmTarget.project_name}. The allocation is ended for People's view; this can't be undone.`
                 : ''}
             </AlertDialogDescription>
