@@ -1,4 +1,4 @@
-import { boolean, jsonb, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { boolean, index, jsonb, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 export { identity } from './pg-schema.ts';
 
@@ -75,3 +75,19 @@ export const failedLoginAlertsSent = identity.table('failed_login_alerts_sent', 
 });
 
 export * from './auth-tables.ts';
+
+export const directoryPerson = identity.table(
+  'directory_person',
+  {
+    person_id: uuid('person_id').primaryKey(),
+    tenant_id: uuid('tenant_id').notNull(),
+    full_name: text('full_name').notNull(),
+    work_email: text('work_email'),
+    job_title: text('job_title'),
+    employment_status: text('employment_status', { enum: ['active', 'terminated'] })
+      .default('active')
+      .notNull(),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index('directory_person_by_tenant').on(t.tenant_id)],
+);

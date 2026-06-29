@@ -240,13 +240,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "email_domains": {
-          "name": "email_domains",
-          "type": "text[]",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'"
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
