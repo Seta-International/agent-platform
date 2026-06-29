@@ -36,7 +36,7 @@ export async function seedEdgeCases(
     log.warn({ err }, 'edge-cases: deactivated-user skipped');
   }
 
-  // 3. On-hold requisition — transition first seeded requisition from open → on_hold
+  // 2. On-hold requisition — transition first seeded requisition from open → on_hold
   try {
     const r = await coreDb().execute(
       sql`SELECT id FROM hiring.requisition
@@ -54,7 +54,7 @@ export async function seedEdgeCases(
     log.warn({ err }, 'edge-cases: on-hold skipped (already on_hold or not found)');
   }
 
-  // 4. Over-allocated worker — add a second allocation on a different project
+  // 3. Over-allocated worker — add a second allocation on a different project
   try {
     const secondDev = devEmployees[1] ?? devEmployees[0];
     if (!secondDev) {

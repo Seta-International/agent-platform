@@ -1,4 +1,4 @@
-// rbac: system-only — called from People setPortalAccess, which enforces people.worker.portal_access.set; tenant scope comes from input.tenant_id.
+// rbac: system-only — called by the auto-provision subscriber and provisionAccount; tenant scope comes from input.tenant_id.
 import { emit, withEmit } from '@seta/core/events';
 import { and, eq, sql } from 'drizzle-orm';
 import { identityDb } from '../db/index.ts';

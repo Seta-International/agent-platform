@@ -10,8 +10,8 @@ import type { SeededSkill } from './phase-skills.ts';
 import { rolesFor } from './rbac-map.ts';
 import { skillNamesForRole, techStackFor } from './skill-catalog.ts';
 
-// createWorker returns person_id as the canonical worker identity (so do
-// editWorker/setPortalAccess); resolve the same id here so create vs. find agree.
+// createWorker returns person_id as the canonical worker identity (so does
+// editWorker); resolve the same id here so create vs. find agree.
 async function findWorkerId(tenantId: string, email: string): Promise<string | undefined> {
   const r = await coreDb().execute(
     sql`SELECT person_id FROM people.worker
