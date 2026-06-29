@@ -12,4 +12,5 @@ export const pmKeys = {
   staffingPlan: (id: string) => [...pmKeys.all, 'project', id, 'staffing-plan'] as const,
   projectAccess: (id: string) => [...pmKeys.all, 'project', id, 'access'] as const,
   projectAllocations: (id: string) => [...pmKeys.all, 'project', id, 'allocations'] as const,
+  allocations: (params: Record<string, unknown>) => [...pmKeys.all, 'allocations', params] as const,
 };

@@ -36,6 +36,20 @@
       "when": 1782119600384,
       "tag": "0004_giant_kronos",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1782704749973,
+      "tag": "0005_wooden_bruce_banner",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1782709143701,
+      "tag": "0006_yummy_puppet_master",
+      "breakpoints": true
     }
   ]
 }

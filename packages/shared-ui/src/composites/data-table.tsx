@@ -12,6 +12,7 @@ import {
   type Row,
   type RowSelectionState,
   type SortingState,
+  type TableMeta,
   useReactTable,
   type VisibilityState,
 } from '@tanstack/react-table';
@@ -37,7 +38,7 @@ function ExpandedRowContent<TData>({ row, renderSubComponent }: ExpandedRowConte
   return <>{renderSubComponent({ row })}</>;
 }
 
-export type { RowSelectionState } from '@tanstack/react-table';
+export type { OnChangeFn, RowSelectionState, SortingState } from '@tanstack/react-table';
 
 export type DataTableDensity = 'comfortable' | 'compact';
 
@@ -65,6 +66,9 @@ interface DataTableBaseProps<TData, TValue> {
   getRowCanExpand?: (row: Row<TData>) => boolean;
   density?: DataTableDensity;
   getRowId?: (row: TData) => string;
+  /** Arbitrary state forwarded to TanStack `table.options.meta`; cells read it
+   *  without rebuilding column definitions (the editable-cell pattern). */
+  meta?: TableMeta<TData>;
   onRowClick?: (row: Row<TData>) => void;
   /** Extra classes per data row — e.g. banding/separating grouped rows. */
   getRowClassName?: (row: Row<TData>) => string | undefined;
@@ -74,6 +78,10 @@ export interface DataTableClientProps<TData, TValue = unknown>
   extends DataTableBaseProps<TData, TValue> {
   mode?: 'client';
   pagination?: ClientPagination | false;
+  /** Optionally control sorting (still sorted client-side) — e.g. to mirror it
+   *  in the URL. When omitted, sorting is managed internally. */
+  sorting?: SortingState;
+  onSortingChange?: OnChangeFn<SortingState>;
 }
 
 export interface DataTableServerProps<TData, TValue = unknown>
@@ -119,8 +127,10 @@ export function DataTable<TData, TValue>(props: DataTableProps<TData, TValue>) {
     {},
   );
 
-  const sorting = isServer ? props.sorting : sortingInternal;
-  const onSortingChange = isServer ? props.onSortingChange : setSortingInternal;
+  const sorting = isServer ? props.sorting : (props.sorting ?? sortingInternal);
+  const onSortingChange = isServer
+    ? props.onSortingChange
+    : (props.onSortingChange ?? setSortingInternal);
   const globalFilter = isServer ? props.globalFilter : globalFilterInternal;
   const onGlobalFilterChange = isServer ? props.onGlobalFilterChange : setGlobalFilterInternal;
   const columnFilters = isServer ? props.columnFilters : columnFiltersInternal;
@@ -224,6 +234,7 @@ export function DataTable<TData, TValue>(props: DataTableProps<TData, TValue>) {
     onRowSelectionChange,
     onColumnVisibilityChange,
     enableRowSelection: props.enableRowSelection,
+    meta: props.meta,
     getRowId: props.getRowId,
     getRowCanExpand: props.getRowCanExpand ?? (() => Boolean(props.enableExpansion)),
     getCoreRowModel: getCoreRowModel(),

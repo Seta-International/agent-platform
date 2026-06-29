@@ -106,6 +106,7 @@ export const allocation = pmSchema.table(
     planned_pct: numeric('planned_pct', { precision: 10, scale: 4 }),
     minutes_per_day: integer('minutes_per_day'),
     weekday_mask: integer('weekday_mask'),
+    note: text('note'),
     resource_request_id: uuid('resource_request_id'),
     status: text('status').notNull().default('placeholder'),
     version: integer('version').default(1).notNull(),
@@ -204,6 +205,18 @@ export const projectAccess = pmSchema.table(
     index('project_access_by_project').on(t.tenant_id, t.project_id),
     check('project_access_level_check', sql`level IN ('owner','edit','view')`),
   ],
+);
+
+export const workerProjection = pmSchema.table(
+  'worker_projection',
+  {
+    worker_id: uuid('worker_id').primaryKey(),
+    tenant_id: uuid('tenant_id').notNull(),
+    full_name: text('full_name').notNull(),
+    job_title: text('job_title'),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index('worker_projection_by_name').on(t.tenant_id, t.full_name)],
 );
 
 export const staffingPlanLine = pmSchema.table(

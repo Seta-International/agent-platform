@@ -6,6 +6,7 @@ import { PM_ALLOCATION_CREATED } from '../../events.ts';
 import { account, allocation, project } from '../db/schema.ts';
 import { tenantScoped } from '../db/scope.ts';
 import { PmError, requirePermission } from '../rbac.ts';
+import { assertNoProjectOverlap } from './assert-no-overlap.ts';
 
 export async function createAllocation(
   input: CreateAllocationInput & { session: SessionScope },
@@ -36,6 +37,16 @@ export async function createAllocation(
         .limit(1);
       if (!acc) throw new PmError('NOT_FOUND', `account ${proj[0].account_id} not found`);
 
+      if (parsed.worker_id) {
+        await assertNoProjectOverlap(tx, {
+          tenant_id: session.tenant_id,
+          worker_id: parsed.worker_id,
+          project_id: parsed.project_id,
+          date_from: parsed.date_from ?? null,
+          date_to: parsed.date_to ?? null,
+        });
+      }
+
       const [row] = await tx
         .insert(allocation)
         .values({
@@ -49,6 +60,7 @@ export async function createAllocation(
           planned_pct: parsed.planned_pct?.toString() ?? null,
           minutes_per_day: parsed.minutes_per_day ?? null,
           status: parsed.status,
+          note: parsed.note ?? null,
         })
         .returning({ id: allocation.id });
       if (!row) throw new Error('allocation insert returned no row');
