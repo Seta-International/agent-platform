@@ -1,7 +1,16 @@
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   AsyncCombobox,
   Badge,
   Button,
+  buttonVariants,
   Card,
   CardContent,
   Combobox,
@@ -320,10 +329,13 @@ export function RaMonitoringPage() {
 
   const invalidate = () => void qc.invalidateQueries({ queryKey: [...pmKeys.all, 'allocations'] });
 
+  const [confirmTarget, setConfirmTarget] = useState<RaMonitoringAllocation | null>(null);
+
   const removeMut = useMutation({
     mutationFn: (id: string) => removeAllocation(id),
     onSuccess: () => {
       toast.success('Allocation removed');
+      setConfirmTarget(null);
       invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -555,7 +567,7 @@ export function RaMonitoringPage() {
                 size="icon"
                 variant="ghost"
                 aria-label="Delete"
-                onClick={() => removeMut.mutate(r.allocation_id)}
+                onClick={() => setConfirmTarget(r)}
               >
                 <Trash2 className="size-4 text-ink-subtle" />
               </Button>
@@ -564,7 +576,7 @@ export function RaMonitoringPage() {
         },
       },
     ];
-  }, [editing, draft, win, workers, canManage, saveMut, removeMut]);
+  }, [editing, draft, win, workers, canManage, saveMut]);
 
   const scopeLabel = projectId
     ? (visibleProjects.find((p) => p.project_id === projectId)?.name ?? '1 project')
@@ -679,6 +691,41 @@ export function RaMonitoringPage() {
           }
         />
       </div>
+
+      <AlertDialog
+        open={confirmTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setConfirmTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove allocation?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmTarget
+                ? `This removes ${
+                    confirmTarget.worker_id
+                      ? (workers?.get(confirmTarget.worker_id)?.full_name ?? 'this person')
+                      : 'this unfilled seat'
+                  } from ${confirmTarget.project_name}. The allocation is ended for People's view; this can't be undone.`
+                : ''}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className={buttonVariants({ variant: 'destructive' })}
+              disabled={removeMut.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (confirmTarget) removeMut.mutate(confirmTarget.allocation_id);
+              }}
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PageChrome>
   );
 }
