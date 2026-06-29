@@ -9,9 +9,11 @@ import {
   getWorker,
   getWorkerHistory,
   listWorkers,
+  reinstateWorker,
   removePersonSkill,
   setPortalAccess,
   setPortalAccessBulk,
+  terminateWorker,
 } from '../../index.ts';
 
 const editBody = z.object({
@@ -128,4 +130,10 @@ export function registerPeopleWorkersRoutes(app: Hono<SessionEnv>): void {
     });
     return c.body(null, 204);
   });
+  app.post('/api/people/v1/workers/:id/terminate', async (c) =>
+    c.json(await terminateWorker({ worker_id: c.req.param('id'), session: c.get('user') })),
+  );
+  app.post('/api/people/v1/workers/:id/reinstate', async (c) =>
+    c.json(await reinstateWorker({ worker_id: c.req.param('id'), session: c.get('user') })),
+  );
 }

@@ -41,10 +41,19 @@ export const personSkillRemovedPayload = z.object({
 });
 export type PersonSkillRemovedPayload = z.infer<typeof personSkillRemovedPayload>;
 
+export const workerLifecyclePayload = z.object({
+  worker_id: z.string().uuid(),
+  person_id: z.string().uuid(),
+  tenant_id: z.string().uuid(),
+});
+export type WorkerLifecyclePayload = z.infer<typeof workerLifecyclePayload>;
+
 export const PEOPLE_EVENTS = {
   [PEOPLE_WORKER_CREATED]: workerCreatedPayload,
   [PEOPLE_WORKER_UPDATED]: workerUpdatedPayload,
   'people.worker.portal_access.changed': workerPortalAccessChangedPayload,
   'people.person.skill.added': personSkillAddedPayload,
   'people.person.skill.removed': personSkillRemovedPayload,
+  'people.worker.terminated': workerLifecyclePayload,
+  'people.worker.reinstated': workerLifecyclePayload,
 } as const satisfies Record<string, z.ZodSchema>;
