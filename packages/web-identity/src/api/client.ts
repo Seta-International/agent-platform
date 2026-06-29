@@ -20,6 +20,24 @@ export async function fetchMe(signal?: AbortSignal): Promise<SessionScopeProject
   return res.json() as Promise<SessionScopeProjection>;
 }
 
+// Shape returned by GET /api/people/v1/me/profile
+export interface PeopleMyProfile {
+  availability_status: 'available' | 'busy' | 'ooo';
+  ooo_until: string | null;
+  timezone: string;
+  working_hours: { start: string; end: string } | null;
+  skills: string[];
+  bio: string | null;
+  full_name: string | null;
+}
+
+async function fetchPeopleProfile(): Promise<PeopleMyProfile> {
+  const res = await fetch('/api/people/v1/me/profile', { credentials: 'include' });
+  if (!res.ok) throw new Error(`people /me/profile failed: ${res.status}`);
+  return res.json() as Promise<PeopleMyProfile>;
+}
+
+// View-model composed from identity (account) + People (HR fields)
 export interface ProfileDto {
   user_id: string;
   tenant_id: string;
@@ -47,30 +65,105 @@ export interface ProfilePatch {
 
 export type SaveProfile = (patch: ProfilePatch) => Promise<ProfileDto>;
 
+// Compose from identity /me (account fields) + People /me/profile (HR fields)
 export async function fetchProfile(): Promise<ProfileDto> {
-  const res = await fetch('/api/identity/v1/profile', { credentials: 'include' });
-  if (!res.ok) throw new Error(`profile fetch failed: ${res.status}`);
-  return res.json() as Promise<ProfileDto>;
+  const [me, people] = await Promise.all([fetchMe(), fetchPeopleProfile()]);
+  if (!me) throw new Error('not authenticated');
+  return {
+    user_id: me.user_id,
+    tenant_id: me.tenant_id,
+    display_name: me.display_name,
+    email: me.email,
+    availability_status: people.availability_status,
+    ooo_until: people.ooo_until,
+    timezone: people.timezone,
+    working_hours: people.working_hours,
+    skills: people.skills,
+    bio: people.bio,
+    updated_at: new Date().toISOString(),
+    deactivated_at: null,
+  };
 }
 
+// Fan out: display_name → identity, HR fields → People endpoints
 export async function patchProfile(patch: ProfilePatch): Promise<ProfileDto> {
-  const res = await fetch('/api/identity/v1/profile', {
-    method: 'PATCH',
-    credentials: 'include',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(patch),
-  });
-  if (!res.ok) throw new Error(`profile patch failed: ${res.status}`);
-  return res.json() as Promise<ProfileDto>;
+  const calls: Promise<void>[] = [];
+
+  // identity: display_name only
+  if (patch.display_name !== undefined) {
+    calls.push(
+      fetch('/api/identity/v1/profile', {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ display_name: patch.display_name }),
+      }).then((r) => {
+        if (!r.ok) throw new Error(`identity profile patch failed: ${r.status}`);
+      }),
+    );
+  }
+
+  // People presence: availability_status, ooo_until, timezone, working_hours
+  const presencePatch: Record<string, unknown> = {};
+  if (patch.availability_status !== undefined)
+    presencePatch.availability_status = patch.availability_status;
+  if (patch.ooo_until !== undefined) presencePatch.ooo_until = patch.ooo_until;
+  if (patch.timezone !== undefined) presencePatch.timezone = patch.timezone;
+  if (patch.working_hours !== undefined) presencePatch.working_hours = patch.working_hours;
+  if (Object.keys(presencePatch).length > 0) {
+    calls.push(
+      fetch('/api/people/v1/me/presence', {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(presencePatch),
+      }).then((r) => {
+        if (!r.ok) throw new Error(`presence patch failed: ${r.status}`);
+      }),
+    );
+  }
+
+  // People bio
+  if (patch.bio !== undefined) {
+    calls.push(
+      fetch('/api/people/v1/me/bio', {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ bio: patch.bio }),
+      }).then((r) => {
+        if (!r.ok) throw new Error(`bio patch failed: ${r.status}`);
+      }),
+    );
+  }
+
+  // People skills
+  if (patch.skills !== undefined) {
+    calls.push(
+      fetch('/api/people/v1/me/skills', {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ skills: patch.skills }),
+      }).then((r) => {
+        if (!r.ok) throw new Error(`skills put failed: ${r.status}`);
+      }),
+    );
+  }
+
+  await Promise.all(calls);
+  return fetchProfile();
 }
 
+// Skill catalog search via People; returns catalog names (catalog-constrained for PUT /me/skills)
 export async function searchSkillsApi(prefix: string, limit = 20): Promise<string[]> {
   const res = await fetch(
-    `/api/identity/v1/skill-search?prefix=${encodeURIComponent(prefix)}&limit=${limit}`,
+    `/api/people/v1/skills?search=${encodeURIComponent(prefix)}&pageSize=${limit}`,
     { credentials: 'include' },
   );
   if (!res.ok) throw new Error(`skills search failed: ${res.status}`);
-  return ((await res.json()) as { results: string[] }).results;
+  const data = (await res.json()) as { rows: { id: string; name: string }[] };
+  return data.rows.map((r) => r.name);
 }
 
 export async function discoverProvider(
