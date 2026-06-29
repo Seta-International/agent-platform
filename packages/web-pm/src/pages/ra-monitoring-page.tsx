@@ -37,7 +37,7 @@ import {
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, CalendarRange, Check, Pencil, Plus, Trash2, Users, X } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { type Dispatch, type SetStateAction, useEffect, useMemo, useState } from 'react';
 import {
   createAllocation,
   fetchAccounts,
@@ -79,6 +79,21 @@ type AllocationDraft = {
   bucket?: Bucket;
   note?: string | null;
 };
+
+/** Volatile per-row edit state passed via the table `meta` so column defs stay
+ *  stable across keystrokes — otherwise editable inputs remount and lose focus. */
+interface RaTableMeta {
+  editing: string | null;
+  draft: AllocationDraft;
+  setDraft: Dispatch<SetStateAction<AllocationDraft>>;
+  canManage: boolean;
+  savePending: boolean;
+  overWorkers: Set<string>;
+  onEdit: (r: RaMonitoringAllocation) => void;
+  onCancel: () => void;
+  onSave: (r: RaMonitoringAllocation) => void;
+  onDelete: (r: RaMonitoringAllocation) => void;
+}
 
 function Kpi({
   label,
@@ -374,8 +389,37 @@ export function RaMonitoringPage() {
       toast.error(e.status === 409 ? 'Changed by someone else — refresh and retry.' : e.message),
   });
 
+  const tableMeta = useMemo<RaTableMeta>(
+    () => ({
+      editing,
+      draft,
+      setDraft,
+      canManage,
+      savePending: saveMut.isPending,
+      overWorkers,
+      onEdit: (r) => {
+        setEditing(r.allocation_id);
+        setDraft({});
+      },
+      onCancel: () => {
+        setEditing(null);
+        setDraft({});
+      },
+      onSave: (r) =>
+        saveMut.mutate({ id: r.allocation_id, patch: { ...draft, expected_version: r.version } }),
+      onDelete: (r) => setConfirmTarget(r),
+    }),
+    [editing, draft, canManage, saveMut, overWorkers],
+  );
+
+  // Columns depend only on `win` (the effort accessor). All volatile edit state
+  // is read from `table.options.meta`, so typing in a cell never rebuilds the
+  // column defs — which would remount the inputs and drop focus.
   const columns = useMemo(() => {
-    type Ctx = { row: { original: RaMonitoringAllocation } };
+    type Ctx = {
+      row: { original: RaMonitoringAllocation };
+      table: { options: { meta?: unknown } };
+    };
 
     return [
       {
@@ -397,8 +441,9 @@ export function RaMonitoringPage() {
         header: 'Person',
         accessorFn: (r: RaMonitoringAllocation) => r.worker_name ?? '',
         enableSorting: true,
-        cell: ({ row }: Ctx) => {
+        cell: ({ row, table }: Ctx) => {
           const r = row.original;
+          const m = table.options.meta as RaTableMeta;
           return (
             <div className="flex items-center gap-2">
               {r.worker_name ? (
@@ -413,7 +458,7 @@ export function RaMonitoringPage() {
                   {r.status}
                 </Badge>
               ) : null}
-              {r.worker_id && overWorkers.has(r.worker_id) ? (
+              {r.worker_id && m.overWorkers.has(r.worker_id) ? (
                 <Badge variant="warning" className="font-normal">
                   Over-allocated
                 </Badge>
@@ -436,13 +481,14 @@ export function RaMonitoringPage() {
         header: 'Planned (MM/mo)',
         accessorFn: (r: RaMonitoringAllocation) => r.planned_pct ?? 0,
         enableSorting: true,
-        cell: ({ row }: Ctx) => {
+        cell: ({ row, table }: Ctx) => {
           const r = row.original;
-          if (editing === r.allocation_id) {
+          const m = table.options.meta as RaTableMeta;
+          if (m.editing === r.allocation_id) {
             return (
               <Select
-                value={String(draft.planned_pct ?? r.planned_pct ?? 100)}
-                onValueChange={(v) => setDraft((d) => ({ ...d, planned_pct: Number(v) }))}
+                value={String(m.draft.planned_pct ?? r.planned_pct ?? 100)}
+                onValueChange={(v) => m.setDraft((d) => ({ ...d, planned_pct: Number(v) }))}
               >
                 <SelectTrigger className="h-8 w-24">
                   <SelectValue />
@@ -465,14 +511,15 @@ export function RaMonitoringPage() {
         header: 'Start',
         accessorFn: (r: RaMonitoringAllocation) => r.date_from ?? '',
         enableSorting: true,
-        cell: ({ row }: Ctx) => {
+        cell: ({ row, table }: Ctx) => {
           const r = row.original;
-          return editing === r.allocation_id ? (
+          const m = table.options.meta as RaTableMeta;
+          return m.editing === r.allocation_id ? (
             <Input
               type="date"
               className="h-8 w-36"
-              value={draft.date_from ?? r.date_from ?? ''}
-              onChange={(e) => setDraft((d) => ({ ...d, date_from: e.target.value }))}
+              value={m.draft.date_from ?? r.date_from ?? ''}
+              onChange={(e) => m.setDraft((d) => ({ ...d, date_from: e.target.value }))}
             />
           ) : (
             <span className="font-mono text-caption text-ink-muted">{r.date_from ?? '—'}</span>
@@ -484,14 +531,15 @@ export function RaMonitoringPage() {
         header: 'End',
         accessorFn: (r: RaMonitoringAllocation) => r.date_to ?? '',
         enableSorting: true,
-        cell: ({ row }: Ctx) => {
+        cell: ({ row, table }: Ctx) => {
           const r = row.original;
-          return editing === r.allocation_id ? (
+          const m = table.options.meta as RaTableMeta;
+          return m.editing === r.allocation_id ? (
             <Input
               type="date"
               className="h-8 w-36"
-              value={draft.date_to ?? r.date_to ?? ''}
-              onChange={(e) => setDraft((d) => ({ ...d, date_to: e.target.value }))}
+              value={m.draft.date_to ?? r.date_to ?? ''}
+              onChange={(e) => m.setDraft((d) => ({ ...d, date_to: e.target.value }))}
             />
           ) : (
             <span className="font-mono text-caption text-ink-muted">{r.date_to ?? '—'}</span>
@@ -514,13 +562,14 @@ export function RaMonitoringPage() {
         header: 'Type',
         accessorFn: (r: RaMonitoringAllocation) => r.bucket,
         enableSorting: true,
-        cell: ({ row }: Ctx) => {
+        cell: ({ row, table }: Ctx) => {
           const r = row.original;
-          if (editing === r.allocation_id) {
+          const m = table.options.meta as RaTableMeta;
+          if (m.editing === r.allocation_id) {
             return (
               <Select
-                value={draft.bucket ?? r.bucket}
-                onValueChange={(v) => setDraft((d) => ({ ...d, bucket: v as Bucket }))}
+                value={m.draft.bucket ?? r.bucket}
+                onValueChange={(v) => m.setDraft((d) => ({ ...d, bucket: v as Bucket }))}
               >
                 <SelectTrigger className="h-8 w-28">
                   <SelectValue />
@@ -539,13 +588,14 @@ export function RaMonitoringPage() {
       {
         id: 'note',
         header: 'Note',
-        cell: ({ row }: Ctx) => {
+        cell: ({ row, table }: Ctx) => {
           const r = row.original;
-          return editing === r.allocation_id ? (
+          const m = table.options.meta as RaTableMeta;
+          return m.editing === r.allocation_id ? (
             <Input
               className="h-8 w-44"
-              value={draft.note ?? r.note ?? ''}
-              onChange={(e) => setDraft((d) => ({ ...d, note: e.target.value }))}
+              value={m.draft.note ?? r.note ?? ''}
+              onChange={(e) => m.setDraft((d) => ({ ...d, note: e.target.value }))}
             />
           ) : (
             <span className="text-caption text-ink-muted">{r.note ?? '—'}</span>
@@ -555,23 +605,19 @@ export function RaMonitoringPage() {
       {
         id: 'actions',
         header: '',
-        cell: ({ row }: Ctx) => {
+        cell: ({ row, table }: Ctx) => {
           const r = row.original;
-          if (!canManage) return null;
-          if (editing === r.allocation_id) {
+          const m = table.options.meta as RaTableMeta;
+          if (!m.canManage) return null;
+          if (m.editing === r.allocation_id) {
             return (
               <div className="flex justify-end gap-1">
                 <Button
                   size="icon"
                   variant="ghost"
                   aria-label="Save"
-                  disabled={saveMut.isPending}
-                  onClick={() =>
-                    saveMut.mutate({
-                      id: r.allocation_id,
-                      patch: { ...draft, expected_version: r.version },
-                    })
-                  }
+                  disabled={m.savePending}
+                  onClick={() => m.onSave(r)}
                 >
                   <Check className="size-4 text-[var(--color-success)]" />
                 </Button>
@@ -579,10 +625,7 @@ export function RaMonitoringPage() {
                   size="icon"
                   variant="ghost"
                   aria-label="Cancel"
-                  onClick={() => {
-                    setEditing(null);
-                    setDraft({});
-                  }}
+                  onClick={() => m.onCancel()}
                 >
                   <X className="size-4" />
                 </Button>
@@ -591,23 +634,10 @@ export function RaMonitoringPage() {
           }
           return (
             <div className="flex justify-end gap-1">
-              <Button
-                size="icon"
-                variant="ghost"
-                aria-label="Edit"
-                onClick={() => {
-                  setEditing(r.allocation_id);
-                  setDraft({});
-                }}
-              >
+              <Button size="icon" variant="ghost" aria-label="Edit" onClick={() => m.onEdit(r)}>
                 <Pencil className="size-4" />
               </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                aria-label="Delete"
-                onClick={() => setConfirmTarget(r)}
-              >
+              <Button size="icon" variant="ghost" aria-label="Delete" onClick={() => m.onDelete(r)}>
                 <Trash2 className="size-4 text-ink-subtle" />
               </Button>
             </div>
@@ -615,7 +645,7 @@ export function RaMonitoringPage() {
         },
       },
     ];
-  }, [editing, draft, win, canManage, saveMut, overWorkers]);
+  }, [win]);
 
   const scopeLabel = projectId
     ? (visibleProjects.find((p) => p.project_id === projectId)?.name ?? '1 project')
@@ -727,6 +757,7 @@ export function RaMonitoringPage() {
         <DataTable
           columns={columns}
           data={allocations}
+          meta={tableMeta}
           isLoading={isLoading}
           enableGlobalFilter={false}
           density="compact"

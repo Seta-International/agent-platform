@@ -12,6 +12,7 @@ import {
   type Row,
   type RowSelectionState,
   type SortingState,
+  type TableMeta,
   useReactTable,
   type VisibilityState,
 } from '@tanstack/react-table';
@@ -65,6 +66,9 @@ interface DataTableBaseProps<TData, TValue> {
   getRowCanExpand?: (row: Row<TData>) => boolean;
   density?: DataTableDensity;
   getRowId?: (row: TData) => string;
+  /** Arbitrary state forwarded to TanStack `table.options.meta`; cells read it
+   *  without rebuilding column definitions (the editable-cell pattern). */
+  meta?: TableMeta<TData>;
   onRowClick?: (row: Row<TData>) => void;
   /** Extra classes per data row — e.g. banding/separating grouped rows. */
   getRowClassName?: (row: Row<TData>) => string | undefined;
@@ -224,6 +228,7 @@ export function DataTable<TData, TValue>(props: DataTableProps<TData, TValue>) {
     onRowSelectionChange,
     onColumnVisibilityChange,
     enableRowSelection: props.enableRowSelection,
+    meta: props.meta,
     getRowId: props.getRowId,
     getRowCanExpand: props.getRowCanExpand ?? (() => Boolean(props.enableExpansion)),
     getCoreRowModel: getCoreRowModel(),
