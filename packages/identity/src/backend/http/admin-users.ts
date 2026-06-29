@@ -21,6 +21,7 @@ import {
   updateUserProfile,
 } from '../../index.ts';
 import { listDirectory } from '../domain/list-directory.ts';
+import { provisionAccount } from '../domain/provision-account.ts';
 
 const grantSchema = z.object({
   role_slug: z.string(),
@@ -196,11 +197,24 @@ export function registerAdminUsersRoutes(app: Hono<SessionEnv>): void {
     return c.json({ ok: true });
   });
 
+  // Alias used by the directory UI; deactivate and suspend are the same operation.
+  app.post('/api/identity/v1/users/:id/suspend', async (c) => {
+    requireAdmin(c);
+    const scope = c.get('user');
+    await deactivateUser(c.req.param('id'), { type: 'user', user_id: scope.user_id });
+    return c.json({ ok: true });
+  });
+
   app.post('/api/identity/v1/users/:id/reactivate', async (c) => {
     requireAdmin(c);
     const scope = c.get('user');
     await reactivateUser(c.req.param('id'), { type: 'user', user_id: scope.user_id });
     return c.json({ ok: true });
+  });
+
+  app.post('/api/identity/v1/directory/:personId/provision', async (c) => {
+    const scope = c.get('user');
+    return c.json(await provisionAccount(scope, { person_id: c.req.param('personId') }));
   });
 
   app.get('/api/identity/v1/users/:id/sessions', async (c) => {
