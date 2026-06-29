@@ -63,10 +63,18 @@ describe('employment status transitions', () => {
           full_name: 'Bob Reinstate',
           session: t.adminSession,
         });
+        const person_id = worker_id; // worker_id = person.id in this schema
         await terminateWorker({ worker_id, session: t.adminSession });
 
         const res = await reinstateWorker({ worker_id, session: t.adminSession });
         expect(res.status).toBe('active');
+
+        const [open] = await peopleDb()
+          .select()
+          .from(employmentPeriod)
+          .where(and(eq(employmentPeriod.person_id, person_id), isNull(employmentPeriod.end_date)));
+        expect(open).toBeDefined();
+        expect(open?.status).toBe('active');
 
         const events = await readEvents(pool, t.tenant_id, 'people.worker.reinstated');
         expect(events).toHaveLength(1);

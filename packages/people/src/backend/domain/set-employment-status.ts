@@ -27,7 +27,7 @@ export async function terminateWorker(input: {
   await withEmit(
     { actor: { userId: session.user_id, tenantId: session.tenant_id } },
     async (tx) => {
-      await tx
+      const closed = await tx
         .update(employmentPeriod)
         .set({
           end_date: new Date().toISOString().slice(0, 10),
@@ -35,7 +35,9 @@ export async function terminateWorker(input: {
           lifecycle_stage: 'alumni',
           updated_at: new Date(),
         })
-        .where(and(eq(employmentPeriod.person_id, person_id), isNull(employmentPeriod.end_date)));
+        .where(and(eq(employmentPeriod.person_id, person_id), isNull(employmentPeriod.end_date)))
+        .returning({ id: employmentPeriod.id });
+      if (closed.length === 0) throw new PeopleError('CONFLICT', 'worker is not active');
       await emit({
         tenantId: session.tenant_id,
         aggregateType: 'people.worker',
@@ -60,6 +62,12 @@ export async function reinstateWorker(input: {
   await withEmit(
     { actor: { userId: session.user_id, tenantId: session.tenant_id } },
     async (tx) => {
+      const [openPeriod] = await tx
+        .select({ id: employmentPeriod.id })
+        .from(employmentPeriod)
+        .where(and(eq(employmentPeriod.person_id, person_id), isNull(employmentPeriod.end_date)))
+        .limit(1);
+      if (openPeriod) throw new PeopleError('CONFLICT', 'worker is already active');
       const rows = await tx
         .select({ seq: max(employmentPeriod.seq) })
         .from(employmentPeriod)
