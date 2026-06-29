@@ -1,8 +1,8 @@
 import type { SessionScope } from '@seta/core';
-import { and, eq, ilike, inArray, isNull, or, sql } from 'drizzle-orm';
+import { and, eq, ilike, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
 import { identityDb } from '../db/index.ts';
 import { directoryPerson, roleGrants, user } from '../db/schema.ts';
-import { IdentityError } from '../rbac.ts';
+import { requirePermission } from '../rbac.ts';
 
 export interface DirectoryRow {
   person_id: string;
@@ -21,9 +21,7 @@ export async function listDirectory(
   session: SessionScope,
   opts: { search?: string; status?: DirectoryRow['account_status']; page?: number } = {},
 ): Promise<{ rows: DirectoryRow[]; page: number; hasMore: boolean }> {
-  if (!session.permissions.has('identity.user.read.any')) {
-    throw new IdentityError('FORBIDDEN', 'Missing permission: identity.user.read.any');
-  }
+  await requirePermission(session.user_id, 'identity.user.read.any', session.tenant_id);
 
   const page = opts.page ?? 0;
 
@@ -33,6 +31,15 @@ export async function listDirectory(
         ilike(directoryPerson.work_email, `%${opts.search}%`),
       )
     : undefined;
+
+  const statusFilter =
+    opts.status === 'none'
+      ? isNull(user.id)
+      : opts.status === 'active'
+        ? and(isNotNull(user.id), isNull(user.deactivated_at))
+        : opts.status === 'suspended'
+          ? and(isNotNull(user.id), isNotNull(user.deactivated_at))
+          : undefined;
 
   const base = await identityDb()
     .select({
@@ -52,7 +59,7 @@ export async function listDirectory(
         sql`lower(${user.email}) = lower(${directoryPerson.work_email})`,
       ),
     )
-    .where(and(eq(directoryPerson.tenant_id, session.tenant_id), searchFilter))
+    .where(and(eq(directoryPerson.tenant_id, session.tenant_id), searchFilter, statusFilter))
     .orderBy(directoryPerson.full_name)
     .limit(PAGE + 1)
     .offset(page * PAGE);
@@ -74,7 +81,7 @@ export async function listDirectory(
     rolesByUser.set(g.user_id, existing);
   }
 
-  let rows: DirectoryRow[] = base.slice(0, PAGE).map((r) => ({
+  const rows: DirectoryRow[] = base.slice(0, PAGE).map((r) => ({
     person_id: r.person_id,
     full_name: r.full_name,
     work_email: r.work_email,
@@ -84,10 +91,6 @@ export async function listDirectory(
     account_status: !r.user_id ? 'none' : r.deactivated_at ? 'suspended' : ('active' as const),
     roles: r.user_id ? (rolesByUser.get(r.user_id) ?? []) : [],
   }));
-
-  if (opts.status) {
-    rows = rows.filter((r) => r.account_status === opts.status);
-  }
 
   return { rows, page, hasMore: base.length > PAGE };
 }
