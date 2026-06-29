@@ -39,7 +39,10 @@ describe('ProfileSkillsSection', () => {
 
   it('calls onSave with skills array and calls onUpdate', async () => {
     const user = userEvent.setup();
-    const updated = makeProfile({ skills: ['TypeScript', 'Go'] });
+    const clientModule = await import('../../../../src/api/client.ts');
+    vi.spyOn(clientModule, 'searchSkillsApi').mockResolvedValue(['Go']);
+
+    const updated = makeProfile({ skills: ['Go'] });
     const onSave = vi.fn().mockResolvedValue(updated);
     const onUpdate = vi.fn();
 
@@ -51,15 +54,16 @@ describe('ProfileSkillsSection', () => {
       />,
     );
 
-    // Remove TypeScript, add Go
+    // Remove TypeScript, add catalog skill "Go"
     await user.click(screen.getByRole('button', { name: /remove typescript/i }));
     const input = screen.getByPlaceholderText(/type a skill/i);
     await user.type(input, 'Go');
+    await new Promise((r) => setTimeout(r, 300)); // debounce
     await user.keyboard('{Enter}');
 
     await user.click(screen.getByRole('button', { name: /save/i }));
 
-    expect(onSave).toHaveBeenCalledWith({ skills: ['go'] });
+    expect(onSave).toHaveBeenCalledWith({ skills: ['Go'] });
     expect(onUpdate).toHaveBeenCalledWith(updated);
   });
 
@@ -85,5 +89,57 @@ describe('ProfileSkillsSection', () => {
     await new Promise((r) => setTimeout(r, 300));
 
     expect(searchSpy).toHaveBeenCalledWith('ru');
+  });
+
+  it('Enter on partial text matching a catalog suggestion adds the CANONICAL name', async () => {
+    const user = userEvent.setup();
+    const clientModule = await import('../../../../src/api/client.ts');
+    vi.spyOn(clientModule, 'searchSkillsApi').mockResolvedValue(['TypeScript']);
+
+    const onSave = vi.fn().mockResolvedValue(makeProfile({ skills: ['TypeScript'] }));
+
+    render(
+      <ProfileSkillsSection
+        profile={makeProfile({ skills: [] })}
+        onSave={onSave}
+        onUpdate={vi.fn()}
+      />,
+    );
+
+    const input = screen.getByPlaceholderText(/type a skill/i);
+    await user.type(input, 'type'); // lowercase partial
+    await new Promise((r) => setTimeout(r, 300)); // debounce -> suggestions = ['TypeScript']
+    await user.keyboard('{Enter}');
+
+    // Badge shows canonical casing, not 'type'
+    expect(screen.getByText('TypeScript')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /save/i }));
+    expect(onSave).toHaveBeenCalledWith({ skills: ['TypeScript'] });
+  });
+
+  it('Enter on text matching NO catalog entry adds nothing', async () => {
+    const user = userEvent.setup();
+    const clientModule = await import('../../../../src/api/client.ts');
+    vi.spyOn(clientModule, 'searchSkillsApi').mockResolvedValue([]); // no catalog match
+
+    const onSave = vi.fn().mockResolvedValue(makeProfile({ skills: [] }));
+
+    render(
+      <ProfileSkillsSection
+        profile={makeProfile({ skills: [] })}
+        onSave={onSave}
+        onUpdate={vi.fn()}
+      />,
+    );
+
+    const input = screen.getByPlaceholderText(/type a skill/i);
+    await user.type(input, 'notacatalogskill');
+    await new Promise((r) => setTimeout(r, 300)); // debounce -> suggestions = []
+    await user.keyboard('{Enter}');
+
+    // No badge added; save button disabled (not dirty)
+    expect(screen.queryByText('notacatalogskill')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /save/i })).toBeDisabled();
   });
 });
