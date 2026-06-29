@@ -20,14 +20,22 @@ export interface Transport {
 }
 
 export class TransportError extends Error {
+  readonly kind: TransportKind;
+  readonly classification: 'permanent' | 'transient';
+  readonly code: string;
+  readonly cause?: unknown;
   constructor(
-    public readonly kind: TransportKind,
-    public readonly classification: 'permanent' | 'transient',
-    public readonly code: string,
+    kind: TransportKind,
+    classification: 'permanent' | 'transient',
+    code: string,
     message: string,
-    public readonly cause?: unknown,
+    cause?: unknown,
   ) {
     super(message);
+    this.kind = kind;
+    this.classification = classification;
+    this.code = code;
+    this.cause = cause;
     this.name = 'TransportError';
   }
 }

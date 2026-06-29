@@ -4,11 +4,10 @@ import { roleGrants } from './db/schema.ts';
 import { resolveForRoles } from './rbac-registry.ts';
 
 export class IdentityError extends Error {
-  constructor(
-    public code: string,
-    message?: string,
-  ) {
+  code: string;
+  constructor(code: string, message?: string) {
     super(message ?? code);
+    this.code = code;
     this.name = 'IdentityError';
   }
 }
