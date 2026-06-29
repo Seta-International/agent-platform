@@ -25,10 +25,17 @@ export type {
   OrgUnitNode,
 } from './backend/domain/org-structure.ts';
 export { getOrgCompany, getOrgDelivery, getOrgStructure } from './backend/domain/org-structure.ts';
-export { addPersonSkill, removePersonSkill } from './backend/domain/person-skills.ts';
+export {
+  addPersonSkill,
+  getPersonSkills,
+  removePersonSkill,
+  setMySkills,
+} from './backend/domain/person-skills.ts';
 export { provisionWorker } from './backend/domain/provision-worker.ts';
+export { type MyProfile, readMyProfile } from './backend/domain/read-my-profile.ts';
 export { type PresenceResult, readPresence } from './backend/domain/read-presence.ts';
 export { getWorker, getWorkerHistory, listWorkers } from './backend/domain/read-workers.ts';
+export { setBio } from './backend/domain/set-bio.ts';
 export { reinstateWorker, terminateWorker } from './backend/domain/set-employment-status.ts';
 export { type SetPresenceInput, setPresence } from './backend/domain/set-presence.ts';
 export {
