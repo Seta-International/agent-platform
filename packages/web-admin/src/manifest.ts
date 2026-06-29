@@ -9,6 +9,7 @@ import {
   Shield,
   ShieldCheck,
   Sliders,
+  Users,
 } from 'lucide-react';
 
 export const adminAppManifest: AppManifest = {
@@ -28,6 +29,13 @@ export const adminAppManifest: AppManifest = {
           label: 'General',
           to: '/admin/tenant',
           requires: ['core.tenant.read'],
+        },
+        {
+          id: 'admin.users',
+          icon: Users,
+          label: 'Users',
+          to: '/admin/users',
+          requires: ['identity.user.read.any'],
         },
         {
           id: 'admin.sso',
