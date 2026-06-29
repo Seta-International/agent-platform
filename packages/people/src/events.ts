@@ -5,17 +5,21 @@ export const PEOPLE_WORKER_UPDATED = 'people.worker.updated';
 
 export const workerCreatedPayload = z.object({
   worker_id: z.string().uuid(),
+  person_id: z.string().uuid(),
   tenant_id: z.string().uuid(),
   full_name: z.string(),
+  work_email: z.string().nullable(),
   job_title: z.string().nullable(),
 });
 export type WorkerCreatedPayload = z.infer<typeof workerCreatedPayload>;
 
 export const workerUpdatedPayload = z.object({
   worker_id: z.string().uuid(),
+  person_id: z.string().uuid(),
   tenant_id: z.string().uuid(),
   fields: z.array(z.string()),
   full_name: z.string(),
+  work_email: z.string().nullable(),
   job_title: z.string().nullable(),
 });
 export type WorkerUpdatedPayload = z.infer<typeof workerUpdatedPayload>;
