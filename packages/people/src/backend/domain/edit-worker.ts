@@ -81,13 +81,26 @@ export async function editWorker(
         });
       }
 
+      const updatedFullName =
+        (changes.find(([f]) => f === 'full_name')?.[1] as string | undefined) ??
+        current.worker.full_name;
+      const updatedJobTitle =
+        (changes.find(([f]) => f === 'job_title')?.[1] as string | null | undefined) ??
+        current.worker.job_title;
+
       await emit({
         tenantId: session.tenant_id,
         aggregateType: 'people.worker',
         aggregateId: worker_id,
         eventType: 'people.worker.updated',
         eventVersion: 1,
-        payload: { worker_id, tenant_id: session.tenant_id, fields: changes.map(([f]) => f) },
+        payload: {
+          worker_id,
+          tenant_id: session.tenant_id,
+          fields: changes.map(([f]) => f),
+          full_name: updatedFullName,
+          job_title: updatedJobTitle ?? null,
+        },
       });
     },
   );
