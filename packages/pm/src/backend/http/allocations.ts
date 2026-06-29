@@ -3,12 +3,24 @@ import type { Hono } from 'hono';
 import { createAllocationInput, updateAllocationInput } from '../../contracts.ts';
 import {
   createAllocation,
+  listAllocations,
   listProjectAllocations,
   removeAllocation,
   updateAllocation,
 } from '../../index.ts';
 
 export function registerPmAllocationsRoutes(app: Hono<SessionEnv>): void {
+  app.get('/api/pm/v1/allocations', async (c) =>
+    c.json({
+      allocations: await listAllocations({
+        account_id: c.req.query('account_id'),
+        project_id: c.req.query('project_id'),
+        active_from: c.req.query('active_from'),
+        active_to: c.req.query('active_to'),
+        session: c.get('user'),
+      }),
+    }),
+  );
   app.post('/api/pm/v1/allocations', async (c) => {
     const parsed = createAllocationInput.safeParse(await c.req.json().catch(() => ({})));
     if (!parsed.success)

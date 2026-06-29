@@ -1,7 +1,7 @@
 import type { SessionScope } from '@seta/core';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import { pmDb } from '../db/client.ts';
-import { allocation } from '../db/schema.ts';
+import { account, allocation, project } from '../db/schema.ts';
 import { tenantScoped } from '../db/scope.ts';
 import { requirePermission } from '../rbac.ts';
 
@@ -44,5 +44,87 @@ export async function listProjectAllocations(input: {
     planned_pct: r.planned_pct === null ? null : Number(r.planned_pct),
     bucket: r.bucket as AllocationRow['bucket'],
     status: r.status as AllocationRow['status'],
+  }));
+}
+
+export interface RaMonitoringRow {
+  allocation_id: string;
+  worker_id: string | null;
+  role: string | null;
+  planned_pct: number | null;
+  bucket: 'billable' | 'internal' | 'bench';
+  status: 'placeholder' | 'tentative' | 'committed';
+  date_from: string | null;
+  date_to: string | null;
+  note: string | null;
+  project_id: string;
+  project_name: string;
+  account_id: string;
+  account_name: string;
+  version: number;
+}
+
+export async function listAllocations(input: {
+  account_id?: string;
+  project_id?: string;
+  active_from?: string;
+  active_to?: string;
+  session: SessionScope;
+}): Promise<RaMonitoringRow[]> {
+  const { session } = input;
+  requirePermission(session, 'pm.project.read');
+
+  const conds = [tenantScoped(allocation.tenant_id, session), isNull(allocation.deleted_at)];
+  if (input.project_id) conds.push(eq(allocation.project_id, input.project_id));
+  if (input.account_id) conds.push(eq(project.account_id, input.account_id));
+  // RBAC-SCOPE: insert buildAllocationScope(session) predicate here (D-1).
+  if (input.active_from) {
+    conds.push(
+      sql`(${allocation.date_to} IS NULL OR ${allocation.date_to} >= ${input.active_from})`,
+    );
+  }
+  if (input.active_to) {
+    conds.push(
+      sql`(${allocation.date_from} IS NULL OR ${allocation.date_from} <= ${input.active_to})`,
+    );
+  }
+
+  const rows = await pmDb()
+    .select({
+      allocation_id: allocation.id,
+      worker_id: allocation.worker_id,
+      role: allocation.role,
+      planned_pct: allocation.planned_pct,
+      bucket: allocation.bucket,
+      status: allocation.status,
+      date_from: allocation.date_from,
+      date_to: allocation.date_to,
+      note: allocation.note,
+      project_id: allocation.project_id,
+      project_name: project.name,
+      account_id: project.account_id,
+      account_name: account.name,
+      version: allocation.version,
+    })
+    .from(allocation)
+    .innerJoin(project, eq(project.id, allocation.project_id))
+    .innerJoin(account, eq(account.id, project.account_id))
+    .where(and(...conds));
+
+  return rows.map((r) => ({
+    allocation_id: r.allocation_id,
+    worker_id: r.worker_id,
+    role: r.role,
+    planned_pct: r.planned_pct === null ? null : Number(r.planned_pct),
+    bucket: r.bucket as RaMonitoringRow['bucket'],
+    status: r.status as RaMonitoringRow['status'],
+    date_from: r.date_from,
+    date_to: r.date_to,
+    note: r.note,
+    project_id: r.project_id,
+    project_name: r.project_name,
+    account_id: r.account_id,
+    account_name: r.account_name,
+    version: r.version,
   }));
 }
