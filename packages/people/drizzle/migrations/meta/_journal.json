@@ -85,6 +85,13 @@
       "when": 1782713544151,
       "tag": "0011_wooden_captain_flint",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1782723031065,
+      "tag": "0012_curvy_doctor_faustus",
+      "breakpoints": true
     }
   ]
 }

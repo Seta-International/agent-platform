@@ -23,6 +23,7 @@ export const person = peopleSchema.table(
     id: uuid('id').primaryKey().defaultRandom(),
     tenant_id: uuid('tenant_id').notNull(),
     user_id: uuid('user_id'),
+    bio: text('bio'),
     original_hire_date: date('original_hire_date'),
     seniority_date: date('seniority_date'),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -74,6 +75,12 @@ export const worker = peopleSchema.table(
     job_title: text('job_title'),
     org_unit_id: uuid('org_unit_id'),
     manager_id: uuid('manager_id'),
+    availability_status: text('availability_status', { enum: ['available', 'busy', 'ooo'] })
+      .default('available')
+      .notNull(),
+    ooo_until: timestamp('ooo_until', { withTimezone: true }),
+    working_hours: jsonb('working_hours').$type<{ start: string; end: string } | null>(),
+    timezone: text('timezone').default('UTC').notNull(),
     version: integer('version').default(1).notNull(),
     deleted_at: timestamp('deleted_at', { withTimezone: true }),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
