@@ -207,6 +207,18 @@ export const projectAccess = pmSchema.table(
   ],
 );
 
+export const workerProjection = pmSchema.table(
+  'worker_projection',
+  {
+    worker_id: uuid('worker_id').primaryKey(),
+    tenant_id: uuid('tenant_id').notNull(),
+    full_name: text('full_name').notNull(),
+    job_title: text('job_title'),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index('worker_projection_by_name').on(t.tenant_id, t.full_name)],
+);
+
 export const staffingPlanLine = pmSchema.table(
   'staffing_plan_line',
   {

@@ -1,7 +1,7 @@
 import type { SessionScope } from '@seta/core';
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { and, eq, ilike, isNull, or, sql } from 'drizzle-orm';
 import { pmDb } from '../db/client.ts';
-import { account, allocation, project } from '../db/schema.ts';
+import { account, allocation, project, workerProjection } from '../db/schema.ts';
 import { tenantScoped } from '../db/scope.ts';
 import { requirePermission } from '../rbac.ts';
 
@@ -50,6 +50,8 @@ export async function listProjectAllocations(input: {
 export interface RaMonitoringRow {
   allocation_id: string;
   worker_id: string | null;
+  worker_name: string | null;
+  worker_title: string | null;
   role: string | null;
   planned_pct: number | null;
   bucket: 'billable' | 'internal' | 'bench';
@@ -69,6 +71,7 @@ export async function listAllocations(input: {
   project_id?: string;
   active_from?: string;
   active_to?: string;
+  q?: string;
   session: SessionScope;
 }): Promise<RaMonitoringRow[]> {
   const { session } = input;
@@ -88,11 +91,25 @@ export async function listAllocations(input: {
       sql`(${allocation.date_from} IS NULL OR ${allocation.date_from} <= ${input.active_to})`,
     );
   }
+  if (input.q) {
+    const like = '%' + input.q + '%';
+    conds.push(
+      or(
+        ilike(workerProjection.full_name, like),
+        ilike(project.name, like),
+        ilike(account.name, like),
+        ilike(allocation.note, like),
+        ilike(allocation.role, like),
+      )!,
+    );
+  }
 
   const rows = await pmDb()
     .select({
       allocation_id: allocation.id,
       worker_id: allocation.worker_id,
+      worker_name: workerProjection.full_name,
+      worker_title: workerProjection.job_title,
       role: allocation.role,
       planned_pct: allocation.planned_pct,
       bucket: allocation.bucket,
@@ -109,11 +126,21 @@ export async function listAllocations(input: {
     .from(allocation)
     .innerJoin(project, eq(project.id, allocation.project_id))
     .innerJoin(account, eq(account.id, project.account_id))
-    .where(and(...conds));
+    .leftJoin(
+      workerProjection,
+      and(
+        eq(workerProjection.worker_id, allocation.worker_id),
+        eq(workerProjection.tenant_id, allocation.tenant_id),
+      ),
+    )
+    .where(and(...conds))
+    .orderBy(account.name, project.name, workerProjection.full_name);
 
   return rows.map((r) => ({
     allocation_id: r.allocation_id,
     worker_id: r.worker_id,
+    worker_name: r.worker_name ?? null,
+    worker_title: r.worker_title ?? null,
     role: r.role,
     planned_pct: r.planned_pct === null ? null : Number(r.planned_pct),
     bucket: r.bucket as RaMonitoringRow['bucket'],

@@ -3,7 +3,8 @@ import { resetCoreDb } from '@seta/core/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
-import { resetPmDb } from '../../src/backend/db/client.ts';
+import { pmDb, resetPmDb } from '../../src/backend/db/client.ts';
+import { workerProjection } from '../../src/backend/db/schema.ts';
 import {
   createAccount,
   createAllocation,
@@ -81,6 +82,88 @@ describe('listAllocations', () => {
           session: t.adminSession,
         });
         expect(h1).toHaveLength(2); // the Sep–Dec row is excluded
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('returns worker_name from projection and supports q search', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const proj = await seedProject(t.adminSession, 'SearchCo');
+
+        const workerIdAlice = crypto.randomUUID();
+        const workerIdBob = crypto.randomUUID();
+
+        // seed worker projections
+        await pmDb()
+          .insert(workerProjection)
+          .values([
+            {
+              worker_id: workerIdAlice,
+              tenant_id: t.tenant_id,
+              full_name: 'Alice Finder',
+              job_title: 'Engineer',
+            },
+            {
+              worker_id: workerIdBob,
+              tenant_id: t.tenant_id,
+              full_name: 'Bob Other',
+              job_title: null,
+            },
+          ]);
+
+        await createAllocation({
+          project_id: proj.projectId,
+          worker_id: workerIdAlice,
+          role: 'DEV',
+          date_from: '2026-01-01',
+          date_to: '2026-06-30',
+          bucket: 'billable',
+          planned_pct: 100,
+          status: 'committed',
+          session: t.adminSession,
+        });
+        await createAllocation({
+          project_id: proj.projectId,
+          worker_id: workerIdBob,
+          role: 'QA',
+          date_from: '2026-01-01',
+          date_to: '2026-06-30',
+          bucket: 'billable',
+          planned_pct: 50,
+          status: 'committed',
+          session: t.adminSession,
+        });
+
+        const all = await listAllocations({ session: t.adminSession });
+        const alice = all.find((r) => r.worker_id === workerIdAlice);
+        expect(alice?.worker_name).toBe('Alice Finder');
+        expect(alice?.worker_title).toBe('Engineer');
+
+        const bob = all.find((r) => r.worker_id === workerIdBob);
+        expect(bob?.worker_name).toBe('Bob Other');
+        expect(bob?.worker_title).toBeNull();
+
+        // q search matches partial name
+        const found = await listAllocations({ q: 'Finder', session: t.adminSession });
+        expect(found).toHaveLength(1);
+        expect(found[0]?.worker_name).toBe('Alice Finder');
+
+        // q search on project name
+        const byProject = await listAllocations({ q: 'SearchCo', session: t.adminSession });
+        expect(byProject).toHaveLength(2);
+
+        // q search with no match
+        const empty = await listAllocations({ q: 'NoMatch_XYZ_42', session: t.adminSession });
+        expect(empty).toHaveLength(0);
       } finally {
         resetPmDb();
         resetCoreDb();

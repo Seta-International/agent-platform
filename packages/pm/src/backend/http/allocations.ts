@@ -17,6 +17,7 @@ export function registerPmAllocationsRoutes(app: Hono<SessionEnv>): void {
         project_id: c.req.query('project_id'),
         active_from: c.req.query('active_from'),
         active_to: c.req.query('active_to'),
+        q: c.req.query('q'),
         session: c.get('user'),
       }),
     }),

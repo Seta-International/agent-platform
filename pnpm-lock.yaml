@@ -1277,6 +1277,9 @@ importers:
       '@seta/notifications':
         specifier: workspace:*
         version: link:../notifications
+      '@seta/people':
+        specifier: workspace:*
+        version: link:../people
       '@seta/shared-db':
         specifier: workspace:^
         version: link:../shared-db
