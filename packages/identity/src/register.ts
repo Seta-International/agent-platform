@@ -12,6 +12,7 @@ import {
 import { buildIdentityRoutes } from './backend/http/index.ts';
 import { IdentityError } from './backend/rbac.ts';
 import { autoProvisionSubscribers } from './backend/subscribers/auto-provision.ts';
+import { autoSuspendSubscribers } from './backend/subscribers/auto-suspend.ts';
 import { directoryProjectionSubscribers } from './backend/subscribers/directory-projection.ts';
 import {
   applyMemberAdded,
@@ -38,6 +39,7 @@ export function registerIdentityContributions(reg: ContributionRegistry): void {
     agentToolFactories: [matchUsersToTopicTool],
     subscribers: [
       ...autoProvisionSubscribers,
+      ...autoSuspendSubscribers,
       ...directoryProjectionSubscribers,
       refreshUserProfileCreatedSubscriber,
       refreshUserProfileUpdatedSubscriber,
