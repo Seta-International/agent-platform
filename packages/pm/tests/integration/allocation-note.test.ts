@@ -73,4 +73,43 @@ describe('allocation note', () => {
       }
     });
   });
+
+  it('updates bucket from billable to internal', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const projectId = await seedProject(t.adminSession);
+        const { allocation_id } = await createAllocation({
+          project_id: projectId,
+          worker_id: crypto.randomUUID(),
+          role: 'DEV',
+          date_from: '2026-05-01',
+          date_to: '2026-05-31',
+          bucket: 'billable',
+          planned_pct: 100,
+          status: 'committed',
+          session: t.adminSession,
+        });
+        const [created] = await pmDb()
+          .select()
+          .from(allocation)
+          .where(eq(allocation.id, allocation_id));
+        expect(created?.bucket).toBe('billable');
+
+        await updateAllocation({ allocation_id, bucket: 'internal', session: t.adminSession });
+        const [updated] = await pmDb()
+          .select()
+          .from(allocation)
+          .where(eq(allocation.id, allocation_id));
+        expect(updated?.bucket).toBe('internal');
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
 });

@@ -144,6 +144,7 @@ export const updateAllocationInput = z.object({
   status: z.enum(['placeholder', 'tentative', 'committed']).optional(),
   date_from: z.string().nullable().optional(),
   date_to: z.string().nullable().optional(),
+  bucket: z.enum(['billable', 'internal', 'bench']).optional(),
   note: z.string().nullable().optional(),
 });
 export type UpdateAllocationInput = z.infer<typeof updateAllocationInput>;

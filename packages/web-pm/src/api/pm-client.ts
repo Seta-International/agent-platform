@@ -459,6 +459,7 @@ export async function updateAllocation(
     status?: 'placeholder' | 'tentative' | 'committed';
     date_from?: string | null;
     date_to?: string | null;
+    bucket?: 'billable' | 'internal' | 'bench';
     note?: string | null;
     expected_version?: number;
   },
@@ -517,8 +518,9 @@ export async function fetchAllocations(params: {
 export async function fetchWorkersByIds(
   ids: string[],
 ): Promise<Map<string, { full_name: string; job_title: string | null }>> {
-  if (ids.length === 0) return new Map();
-  const res = await fetch(`/api/people/v1/workers?ids=${ids.join(',')}`, {
+  const unique = [...new Set(ids)];
+  if (unique.length === 0) return new Map();
+  const res = await fetch(`/api/people/v1/workers?ids=${unique.join(',')}`, {
     credentials: 'include',
   });
   const body = await handleResponse<{

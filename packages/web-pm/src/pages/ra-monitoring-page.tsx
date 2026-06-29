@@ -23,6 +23,7 @@ type AllocationDraft = {
   planned_pct?: number | null;
   date_from?: string | null;
   date_to?: string | null;
+  bucket?: 'billable' | 'internal' | 'bench';
   note?: string | null;
 };
 
@@ -249,7 +250,27 @@ export function RaMonitoringPage() {
       {
         id: 'bucket',
         header: 'Billable',
-        cell: ({ row }: Ctx) => <span className="text-ink-muted">{row.original.bucket}</span>,
+        cell: ({ row }: Ctx) => {
+          const r = row.original;
+          if (editing === r.allocation_id) {
+            return (
+              <select
+                className="rounded border border-line px-1 py-0.5"
+                value={draft.bucket ?? r.bucket}
+                onChange={(e) =>
+                  setDraft((d) => ({ ...d, bucket: e.target.value as (typeof BUCKETS)[number] }))
+                }
+              >
+                {BUCKETS.map((b) => (
+                  <option key={b} value={b}>
+                    {b}
+                  </option>
+                ))}
+              </select>
+            );
+          }
+          return <span className="text-ink-muted">{r.bucket}</span>;
+        },
       },
       {
         id: 'note',
