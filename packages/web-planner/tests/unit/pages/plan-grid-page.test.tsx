@@ -413,7 +413,7 @@ describe('PlanGridPage (via PlanBoardShell)', () => {
       ),
       http.get('*/api/planner/v1/plans/p1/labels', () => HttpResponse.json({ labels: [] })),
       http.get('*/api/planner/v1/groups/g1', () => HttpResponse.json(groupFixture())),
-      http.get('*/api/identity/v1/users', () =>
+      http.get('*/api/identity/v1/directory', () =>
         HttpResponse.json({
           rows: [
             {

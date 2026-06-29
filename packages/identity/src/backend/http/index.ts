@@ -2,6 +2,7 @@ import type { RouteBuildDeps, SessionEnv } from '@seta/core';
 import { Hono } from 'hono';
 import { registerAdminAuditRoutes } from './admin-audit.ts';
 import { registerAdminUsersRoutes } from './admin-users.ts';
+import { registerDirectoryRoutes } from './directory.ts';
 import { registerFeatureFlagsRoutes } from './feature-flags.ts';
 import { registerProfileRoutes } from './profile.ts';
 import { registerRoleAccessRoutes } from './role-access.ts';
@@ -14,6 +15,7 @@ import { registerUsersEmailRoutes } from './users-email.ts';
 
 export { registerAdminAuditRoutes } from './admin-audit.ts';
 export { registerAdminUsersRoutes } from './admin-users.ts';
+export { registerDirectoryRoutes } from './directory.ts';
 export { registerFeatureFlagsRoutes } from './feature-flags.ts';
 export { registerProfileRoutes } from './profile.ts';
 export { registerRoleAccessRoutes } from './role-access.ts';
@@ -28,6 +30,7 @@ export function buildIdentityRoutes(_deps: RouteBuildDeps): Hono<SessionEnv> {
   const app = new Hono<SessionEnv>();
   registerProfileRoutes(app);
   registerAdminUsersRoutes(app);
+  registerDirectoryRoutes(app);
   registerAdminAuditRoutes(app);
   registerRoleAccessRoutes(app);
   registerSkillCatalogRoutes(app);

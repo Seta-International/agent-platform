@@ -85,6 +85,11 @@ export { resetUserPasswordByAdmin } from './backend/domain/reset-user-password-b
 export { revokeRole } from './backend/domain/revoke-role.ts';
 export type { RevokeUserSessionInput } from './backend/domain/revoke-user-session.ts';
 export { revokeUserSession } from './backend/domain/revoke-user-session.ts';
+export type {
+  DirectoryUserRow,
+  SearchDirectoryOpts,
+} from './backend/domain/search-directory.ts';
+export { searchDirectory } from './backend/domain/search-directory.ts';
 export { searchSkills } from './backend/domain/search-skills.ts';
 export { setLocalPasswordDisabled } from './backend/domain/set-local-password-disabled.ts';
 export {
