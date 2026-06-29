@@ -47,7 +47,12 @@ import {
 } from '../api/pm-client.ts';
 import { useWorkerSearch } from '../api/worker-search.ts';
 import { pmKeys } from '../state/query-keys.ts';
-import { clippedCalendarEffort, type EffortWindow, rollupKpis } from './ra-effort.ts';
+import {
+  clippedCalendarEffort,
+  type EffortWindow,
+  overAllocatedWorkers,
+  rollupKpis,
+} from './ra-effort.ts';
 
 const PLANNED_OPTIONS = [20, 50, 80, 100];
 const BUCKETS = ['billable', 'internal', 'bench'] as const;
@@ -323,6 +328,7 @@ export function RaMonitoringPage() {
     [visibleProjects],
   );
   const kpis = useMemo(() => rollupKpis(allocations, win), [allocations, win]);
+  const overWorkers = useMemo(() => overAllocatedWorkers(allocations, win), [allocations, win]);
   const hasFilters =
     search !== '' ||
     accountId !== '' ||
@@ -397,6 +403,11 @@ export function RaMonitoringPage() {
               {r.status !== 'committed' ? (
                 <Badge variant="outline" className="font-normal capitalize text-ink-subtle">
                   {r.status}
+                </Badge>
+              ) : null}
+              {r.worker_id && overWorkers.has(r.worker_id) ? (
+                <Badge variant="warning" className="font-normal">
+                  Over-allocated
                 </Badge>
               ) : null}
             </div>
@@ -596,7 +607,7 @@ export function RaMonitoringPage() {
         },
       },
     ];
-  }, [editing, draft, win, canManage, saveMut]);
+  }, [editing, draft, win, canManage, saveMut, overWorkers]);
 
   const scopeLabel = projectId
     ? (visibleProjects.find((p) => p.project_id === projectId)?.name ?? '1 project')
@@ -618,7 +629,7 @@ export function RaMonitoringPage() {
       }
     >
       <div className="space-y-5 p-6">
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
           <Kpi
             label="Calendar effort"
             value={`${kpis.total_mm.toFixed(1)} MM`}
@@ -631,6 +642,12 @@ export function RaMonitoringPage() {
             tone="positive"
           />
           <Kpi label="People allocated" value={String(kpis.people)} sub="distinct" />
+          <Kpi
+            label="Over-allocated"
+            value={String(overWorkers.size)}
+            sub=">100% in window"
+            tone={overWorkers.size > 0 ? 'accent' : undefined}
+          />
           <Kpi label="Scope" value={scopeLabel} sub={`${visibleProjects.length} projects`} />
         </div>
 

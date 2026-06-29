@@ -21,6 +21,57 @@ export function clippedCalendarEffort(
   return Math.round(months * frac * 10) / 10;
 }
 
+interface CapacityRow {
+  date_from: string | null;
+  date_to: string | null;
+  planned_pct: number | null;
+}
+
+/**
+ * Peak concurrent planned_pct (0-100 scale) across a single worker's segments,
+ * clipped to the window. Open-ended rows (missing either date) are skipped, to
+ * stay consistent with the calendar-effort column. Concurrency maxes out at some
+ * segment's start, so sampling those points is sufficient.
+ */
+export function peakConcurrentPct(rows: CapacityRow[], win: EffortWindow): number {
+  const segs: Array<{ from: string; to: string; pct: number }> = [];
+  for (const r of rows) {
+    if (!r.date_from || !r.date_to) continue;
+    const from = win.from && win.from > r.date_from ? win.from : r.date_from;
+    const to = win.to && win.to < r.date_to ? win.to : r.date_to;
+    if (from > to) continue;
+    segs.push({ from, to, pct: r.planned_pct ?? 0 });
+  }
+  let peak = 0;
+  for (const s of segs) {
+    let sum = 0;
+    for (const t of segs) {
+      if (t.from <= s.from && s.from <= t.to) sum += t.pct;
+    }
+    if (sum > peak) peak = sum;
+  }
+  return peak;
+}
+
+/** Worker ids whose peak concurrent allocation exceeds 100% within the window. */
+export function overAllocatedWorkers(
+  rows: Array<CapacityRow & { worker_id: string | null }>,
+  win: EffortWindow,
+): Set<string> {
+  const byWorker = new Map<string, CapacityRow[]>();
+  for (const r of rows) {
+    if (!r.worker_id) continue;
+    const list = byWorker.get(r.worker_id);
+    if (list) list.push(r);
+    else byWorker.set(r.worker_id, [r]);
+  }
+  const over = new Set<string>();
+  for (const [wid, rs] of byWorker) {
+    if (peakConcurrentPct(rs, win) > 100) over.add(wid);
+  }
+  return over;
+}
+
 export interface RaKpis {
   total_mm: number;
   billable_mm: number;
