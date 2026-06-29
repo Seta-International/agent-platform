@@ -161,13 +161,15 @@ export function MyTasksPage({ filters, onFiltersChange }: Props) {
         <DragDropContext onDragEnd={handleDragEnd}>
           <div className="flex h-full flex-col">
             <div className="flex-1 overflow-auto">
-              {SECTION_SPECS.map((spec) => (
-                <MtSection
-                  key={spec.key}
-                  section={mapSection(spec, q.data)}
-                  searchTerm={filters.search}
-                />
-              ))}
+              <div className="min-w-[1024px]">
+                {SECTION_SPECS.map((spec) => (
+                  <MtSection
+                    key={spec.key}
+                    section={mapSection(spec, q.data)}
+                    searchTerm={filters.search}
+                  />
+                ))}
+              </div>
             </div>
             <MyTasksFooter data={q.data} total={total} />
           </div>

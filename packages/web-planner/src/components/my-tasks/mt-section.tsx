@@ -46,8 +46,19 @@ const TONE_DOT: Record<SectionTone, string> = {
   success: 'dot--success',
 };
 
+export const MT_COLUMNS = [
+  { key: 'handle', label: '', width: '2.5%' },
+  { key: 'task', label: 'Task', width: '23.5%' },
+  { key: 'plan', label: 'Plan', width: '15%' },
+  { key: 'priority', label: 'Priority', width: '9.5%' },
+  { key: 'progress', label: 'Progress', width: '14%' },
+  { key: 'due', label: 'Due', width: '10.5%' },
+  { key: 'labels', label: 'Labels', width: '12%' },
+  { key: 'assignees', label: 'Assignees', width: '13%' },
+] as const;
+
 const gridVars = {
-  '--mt-grid': 'auto minmax(0, 1fr) auto auto auto auto auto auto',
+  '--mt-grid': MT_COLUMNS.map((c) => c.width).join(' '),
 } as CSSProperties;
 const gridColsStyle: CSSProperties = { gridTemplateColumns: 'var(--mt-grid)' };
 
@@ -113,19 +124,14 @@ export function MtSection({ section, searchTerm }: Props) {
             data-testid="mt-section-columns"
             style={gridColsStyle}
             className={
-              'sticky top-0 z-10 grid ' +
-              'gap-3 px-7 py-2.5 text-[10.5px] font-medium uppercase tracking-wider ' +
+              'sticky top-0 z-10 grid [&>*]:pe-3 ' +
+              'px-7 py-2.5 text-[10.5px] font-medium uppercase tracking-wider ' +
               'text-ink-subtle border-b border-hairline bg-canvas'
             }
           >
-            <span />
-            <span>Task</span>
-            <span>Plan</span>
-            <span>Priority</span>
-            <span>Progress</span>
-            <span>Due</span>
-            <span>Labels</span>
-            <span>Assignees</span>
+            {MT_COLUMNS.map((col) => (
+              <span key={col.key}>{col.label}</span>
+            ))}
           </div>
 
           {virtualize ? (

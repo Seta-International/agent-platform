@@ -11,7 +11,11 @@ import {
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { MtSection, type MyTasksSection } from '../../../../src/components/my-tasks/mt-section';
+import {
+  MT_COLUMNS,
+  MtSection,
+  type MyTasksSection,
+} from '../../../../src/components/my-tasks/mt-section';
 import type { MyTasksRowTask } from '../../../../src/components/my-tasks/mt-task-row';
 
 afterEach(() => cleanup());
@@ -116,6 +120,22 @@ describe('MtSection', () => {
     expect(cols.textContent).toContain('Due');
     expect(cols.textContent).toContain('Labels');
     expect(cols.textContent).toContain('Assignees');
+  });
+
+  it('drives header labels from the single MT_COLUMNS source, in order', async () => {
+    renderInRouter(<MtSection section={fxSection({ open: true })} />);
+    const cols = await screen.findByTestId('mt-section-columns');
+    const rendered = Array.from(cols.children).map((c) => c.textContent ?? '');
+    expect(rendered).toEqual(MT_COLUMNS.map((c) => c.label));
+  });
+
+  it('sizes every column with a relative percentage (no pixel values) totalling 100%', () => {
+    for (const col of MT_COLUMNS) {
+      expect(col.width).toMatch(/^\d+(\.\d+)?%$/);
+      expect(col.width).not.toContain('px');
+    }
+    const total = MT_COLUMNS.reduce((sum, c) => sum + Number.parseFloat(c.width), 0);
+    expect(total).toBeCloseTo(100, 5);
   });
 
   it('hides the column-header strip when section has zero tasks', async () => {
