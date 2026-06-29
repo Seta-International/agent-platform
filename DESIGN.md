@@ -483,6 +483,15 @@ Linear's depth is carried by surface ladder + hairline borders. The brand resist
 **`top-nav`** — Sticky dark bar with the Linear wordmark left, primary nav links centered, and a `button-secondary` ("Sign in") + `button-primary` ("Get started") pair right.
 - Background `{colors.canvas}`, text `{colors.ink}`, type `{typography.body-sm}`, height 56px.
 
+### Product shell composites
+
+The `top-nav` above is the marketing chrome. The signed-in product surface is composed from four shell composites in `packages/shared-ui/src/composites/`, on the same token system (surface ladder, hairlines, Seta-blue accent for the active indicator):
+
+- **`AppShell`** — the layout host. Top bar across the full width, the active app's left nav down the left edge, the app's main content, and the right-side **"Ask Seta"** panel. Renders a single active app at a time.
+- **`TopBar`** — left to right: 9-dot launcher button, brand crumb, active-app crumb, global search, agent (Ask Seta) toggle, theme toggle, notifications popover, user menu.
+- **`LeftNav`** — the single active app's nav sections (uppercase eyebrow labels). Expanded at `w-60` or collapsed to a `w-14` icon rail; no accordion across apps.
+- **`AppLauncher`** — a 9-dot grid overlay of permission-filtered app tiles, each with a color accent; disabled apps render a muted **"Soon"** tile.
+
 ### Footer
 
 **`footer`** — Dense link grid on `{colors.canvas}` with the Linear wordmark left.

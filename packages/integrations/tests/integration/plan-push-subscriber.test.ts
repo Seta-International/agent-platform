@@ -6,6 +6,7 @@ import { makeWorkerUtils } from 'graphile-worker';
 import type { Pool } from 'pg';
 import { describe, expect, it } from 'vitest';
 import { resetIntegrationsDb } from '../../src/backend/db/client.ts';
+import { buildM365Boot } from '../../src/backend/m365/boot.ts';
 import { createM365PlanLinkRepo } from '../../src/backend/m365/plans/repo.ts';
 import { createM365GroupLinkRepo } from '../../src/backend/m365/repo.ts';
 import { buildM365Subscribers } from '../../src/backend/m365/subscribers.ts';
@@ -219,5 +220,40 @@ describe('plan-push subscribers', () => {
       s.subscription.startsWith('integrations.m365.plan.push.'),
     );
     expect(pushSubs.length).toBeGreaterThanOrEqual(11);
+  });
+});
+
+describe('push-create-plan job idempotency', () => {
+  it('skips creating a Graph plan when the plan already has a live link (retry-safe)', async () => {
+    await withSetup(async ({ pool, tenantId, planId, groupId }) => {
+      const boot = buildM365Boot({
+        webhookSecret: 'x'.repeat(32),
+        // Not reached: the idempotency guard returns before any Graph/crypto use.
+        cryptoSvc: {
+          encrypt: async () => ({}) as never,
+          decrypt: async () => '',
+        } as never,
+        getWorkers: () => ({}) as never,
+      });
+      const job = boot.jobs['m365.plan.push-create-plan'];
+      if (!job) throw new Error('push-create-plan job not registered');
+
+      // The plan already has a live m365_plan_link (seeded by withSetup). A
+      // retried/duplicate job must NOT create a second Graph plan — it must
+      // short-circuit before calling Graph.
+      await expect(
+        // biome-ignore lint/suspicious/noExplicitAny: graphile-worker helpers unused by this handler
+        (job as any)(
+          { tenant_id: tenantId, plan_id: planId, group_id: groupId, name: 'Roadmap' },
+          {},
+        ),
+      ).resolves.toBeUndefined();
+
+      const { rows } = await pool.query(
+        `SELECT count(*)::int AS n FROM integrations.m365_plan_links WHERE plan_id = $1 AND unlinked_at IS NULL`,
+        [planId],
+      );
+      expect(rows[0].n).toBe(1);
+    });
   });
 });

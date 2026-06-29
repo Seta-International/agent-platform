@@ -2,6 +2,7 @@ import type { Client } from '@microsoft/microsoft-graph-client';
 import type { WorkerHandle } from '@seta/core';
 import { addEventTap, type SessionEnv, type SessionScope } from '@seta/core';
 import {
+  getGroup,
   linkGroupToM365,
   PlannerError,
   requirePermission,
@@ -18,6 +19,22 @@ interface IntegrationsM365Deps {
   graphClientFor: (tenantId: string) => Promise<Client>;
   workers: WorkerHandle;
   m365LinksRepo: m365.M365GroupLinkRepo;
+}
+
+function isGraphPermissionError(err: unknown): boolean {
+  if (typeof err !== 'object' || err === null) return false;
+  const maybeErr = err as {
+    statusCode?: number;
+    status?: number;
+    code?: string;
+    message?: string;
+    body?: string;
+  };
+  const status = maybeErr.statusCode ?? maybeErr.status;
+  if (status !== 403) return false;
+
+  const text = `${maybeErr.code ?? ''} ${maybeErr.message ?? ''} ${maybeErr.body ?? ''}`;
+  return /Authorization_RequestDenied|AccessDenied|Insufficient privileges/i.test(text);
 }
 
 function hasGroupAccess(session: SessionScope, groupId: string): boolean {
@@ -49,17 +66,40 @@ export function registerIntegrationsM365Routes(
       .api('/groups')
       .header('ConsistencyLevel', 'eventual')
       .search(`"displayName:${safeQ}"`)
-      .select('id,displayName,mailNickname')
+      .select('id,displayName,mailNickname,description')
       .top(20)
-      .get();
+      .get()
+      .catch((err) => {
+        if (isGraphPermissionError(err)) {
+          throw new PlannerError(
+            'VALIDATION',
+            'M365 Graph app is missing required permissions (grant admin consent for Group.ReadWrite.All and Tasks.ReadWrite.All).',
+          );
+        }
+        throw err;
+      });
 
-    const groups = (
-      res.value as Array<{ id: string; displayName: string; mailNickname: string }>
+    const rawGroups = (
+      res.value as Array<{
+        id: string;
+        displayName: string;
+        mailNickname: string;
+        description?: string | null;
+      }>
     ).map((g) => ({
       external_id: g.id,
       display_name: g.displayName,
       mail_nickname: g.mailNickname,
+      description: g.description ?? null,
     }));
+
+    // Flag groups already linked to a live local group — an M365 group can only
+    // back one planner group (unique m365_group_links). The UI disables these so
+    // the user can't pick one and hit a post-create link failure.
+    const liveLinks = await Promise.all(
+      rawGroups.map((g) => deps.m365LinksRepo.findByExternal(session.tenant_id, g.external_id)),
+    );
+    const groups = rawGroups.map((g, i) => ({ ...g, already_linked: liveLinks[i] !== null }));
 
     return c.json({ groups });
   });
@@ -79,6 +119,15 @@ export function registerIntegrationsM365Routes(
       session,
     });
 
+    // Persist the integrations-side link row immediately so follow-up refresh calls
+    // can resolve the link without waiting for asynchronous jobs/subscribers.
+    await deps.m365LinksRepo.upsert({
+      tenantId: session.tenant_id,
+      groupId,
+      externalId: body.external_id,
+      lastSyncedFields: {},
+    });
+
     await deps.workers.addJob('m365.group.pull', {
       tenant_id: session.tenant_id,
       group_id: groupId,
@@ -93,7 +142,23 @@ export function registerIntegrationsM365Routes(
     const session = c.get('user');
     const groupId = c.req.param('groupId');
 
-    const group = await unlinkGroupFromM365({ group_id: groupId, session });
+    const existingLink = await deps.m365LinksRepo.findByGroup(groupId);
+    const group = await unlinkGroupFromM365({
+      group_id: groupId,
+      session,
+    }).catch(async (err) => {
+      const maybeCode = (err as { code?: string }).code;
+      if (maybeCode === 'CONFLICT' && existingLink) {
+        // Planner already considers the group native, but an integrations link row
+        // still exists. Return current group and clean up the stale row below.
+        return getGroup({ group_id: groupId, session });
+      }
+      throw err;
+    });
+
+    if (existingLink) {
+      await deps.m365LinksRepo.tombstone(existingLink.id);
+    }
 
     return c.json(group, 200);
   });
@@ -114,6 +179,18 @@ export function registerIntegrationsM365Routes(
       group_id: groupId,
       external_id: link.externalId,
     });
+
+    // Refresh should also discover plans created in M365 after the initial link.
+    // jobKey ensures concurrent refresh calls collapse into a single job run.
+    await deps.workers.addJob(
+      'm365.plan.auto-mirror',
+      {
+        tenant_id: link.tenantId,
+        group_id: groupId,
+        external_group_id: link.externalId,
+      },
+      { jobKey: `auto-mirror:${link.tenantId}:${groupId}` },
+    );
 
     return c.json({ ok: true });
   });
@@ -221,7 +298,9 @@ export function registerIntegrationsM365Routes(
             resolve();
             return;
           }
-          c.req.raw.signal.addEventListener('abort', () => resolve(), { once: true });
+          c.req.raw.signal.addEventListener('abort', () => resolve(), {
+            once: true,
+          });
         });
       },
       async (_err, _s) => {

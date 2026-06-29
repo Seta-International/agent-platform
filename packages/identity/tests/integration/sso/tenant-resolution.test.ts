@@ -18,13 +18,15 @@ describe('resolveSetaTenantFromEmail', () => {
 
     const tenantId = crypto.randomUUID();
     const entraTid = '11111111-2222-3333-4444-555555555555';
-    await pool.query(`INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'Acme', 'acme')`, [
-      tenantId,
-    ]);
+    // email_domains now live on core.tenants (PPL-3); routing JOINs the provider for enabled state.
+    await pool.query(
+      `INSERT INTO core.tenants (id, name, slug, email_domains) VALUES ($1, 'Acme', 'acme', $2)`,
+      [tenantId, opts.domains],
+    );
     await pool.query(
       `
-      INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, config, email_domains)
-      VALUES ($1, 'microsoft-entra-id', $2, $3::jsonb, $4)
+      INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, config)
+      VALUES ($1, 'microsoft-entra-id', $2, $3::jsonb)
     `,
       [
         tenantId,
@@ -35,7 +37,6 @@ describe('resolveSetaTenantFromEmail', () => {
           consent_granted_by_oid: null,
           consent_granted_by_email: null,
         }),
-        opts.domains,
       ],
     );
     return { tenantId, entraTid };
@@ -72,10 +73,44 @@ describe('resolveSetaTenantFromEmail', () => {
         baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
-        await setup(pool, databaseUrl, { enabled: true, domains: ['acme.com'] });
+        await setup(pool, databaseUrl, {
+          enabled: true,
+          domains: ['acme.com'],
+        });
         try {
           const out = await resolveSetaTenantFromEmail('bob@globex.com');
           expect(out).toBeNull();
+        } finally {
+          resetCoreDb();
+          await closePools();
+        }
+      },
+    );
+  });
+
+  it('falls back to user tenant when domain mapping is empty but SSO is enabled', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
+      },
+      async ({ pool, databaseUrl }) => {
+        const { tenantId } = await setup(pool, databaseUrl, {
+          enabled: true,
+          domains: [],
+        });
+        await pool.query(
+          `
+            INSERT INTO identity."user"
+              (id, email, name, email_verified, tenant_id)
+            VALUES ($1, $2, $3, $4, $5)
+          `,
+          [crypto.randomUUID(), 'hai.le@seta-international.vn', 'Hai Le', true, tenantId],
+        );
+        try {
+          const out = await resolveSetaTenantFromEmail('Hai.Le@seta-international.vn');
+          expect(out?.tenant_id).toBe(tenantId);
+          expect(out?.provider_id).toBe('microsoft-entra-id');
         } finally {
           resetCoreDb();
           await closePools();
@@ -91,7 +126,10 @@ describe('resolveSetaTenantFromEmail', () => {
         baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
-        await setup(pool, databaseUrl, { enabled: false, domains: ['acme.com'] });
+        await setup(pool, databaseUrl, {
+          enabled: false,
+          domains: ['acme.com'],
+        });
         try {
           const out = await resolveSetaTenantFromEmail('bob@acme.com');
           expect(out).toBeNull();
@@ -110,7 +148,10 @@ describe('resolveSetaTenantFromEmail', () => {
         baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
       },
       async ({ pool, databaseUrl }) => {
-        await setup(pool, databaseUrl, { enabled: true, domains: ['acme.com'] });
+        await setup(pool, databaseUrl, {
+          enabled: true,
+          domains: ['acme.com'],
+        });
         try {
           expect(await resolveSetaTenantFromEmail('no-at-sign')).toBeNull();
           expect(await resolveSetaTenantFromEmail('user@')).toBeNull();

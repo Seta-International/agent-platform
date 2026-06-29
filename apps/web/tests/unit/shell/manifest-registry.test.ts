@@ -1,16 +1,18 @@
-import { type NavManifest, noNavExtensions } from '@seta/module-sdk';
-import { Box } from 'lucide-react';
+import { type AppManifest, noNavExtensions } from '@seta/module-sdk';
+import { Box, LayoutDashboard } from 'lucide-react';
 import { describe, expect, it } from 'vitest';
 import {
+  activeAppId,
   activeNavId,
   filterNavSections,
   type SessionLike,
   visibleManifests,
 } from '../../../src/shell/manifest-registry.ts';
 
-const manifests: NavManifest[] = [
+const manifests: AppManifest[] = [
   {
     id: 'planner',
+    routeNamespace: '/planner',
     label: 'Planner',
     icon: Box,
     requiredPermissions: [],
@@ -32,6 +34,7 @@ const manifests: NavManifest[] = [
   },
   {
     id: 'admin',
+    routeNamespace: '/admin',
     label: 'Admin',
     icon: Box,
     requiredPermissions: ['identity.user.read.any'],
@@ -83,6 +86,46 @@ describe('visibleManifests', () => {
     const visible = visibleManifests(manifests, adminSession, new Set(['planner']));
     expect(visible.map((m) => m.id)).toEqual(['planner']);
   });
+
+  describe('feature gating', () => {
+    const flagged = (id: string, requiredFeature?: string): AppManifest => ({
+      id,
+      routeNamespace: `/${id}`,
+      label: id,
+      icon: Box,
+      requiredPermissions: [],
+      requiredFeature,
+      useNavExtensions: noNavExtensions,
+      nav: [{ label: id, items: [] }],
+    });
+
+    it('hides a manifest whose requiredFeature is not in session.features', () => {
+      const result = visibleManifests(
+        [flagged('people', 'people')],
+        { permissions: new Set(), features: new Set() },
+        new Set(['people']),
+      );
+      expect(result).toHaveLength(0);
+    });
+
+    it('shows a manifest whose requiredFeature is in session.features', () => {
+      const result = visibleManifests(
+        [flagged('people', 'people')],
+        { permissions: new Set(), features: new Set(['people']) },
+        new Set(['people']),
+      );
+      expect(result.map((m) => m.id)).toEqual(['people']);
+    });
+
+    it('leaves a manifest without requiredFeature unaffected', () => {
+      const result = visibleManifests(
+        [flagged('planner')],
+        { permissions: new Set(), features: new Set() },
+        new Set(['planner']),
+      );
+      expect(result.map((m) => m.id)).toEqual(['planner']);
+    });
+  });
 });
 
 describe('filterNavSections', () => {
@@ -99,7 +142,7 @@ describe('filterNavSections', () => {
   });
 
   it('drops sections whose items are all filtered out', () => {
-    const guarded: NavManifest['nav'] = [
+    const guarded: AppManifest['nav'] = [
       {
         label: 'Restricted',
         items: [{ id: 'x.secret', label: 'Secret', to: '/x', requires: ['core.audit.read'] }],
@@ -126,5 +169,36 @@ describe('activeNavId', () => {
 
   it('returns undefined when nothing matches', () => {
     expect(activeNavId(manifests, '/somewhere-else')).toBeUndefined();
+  });
+});
+
+const appsForActive = [
+  {
+    id: 'planner',
+    label: 'Planner',
+    icon: LayoutDashboard,
+    routeNamespace: '/planner',
+    requiredPermissions: [],
+    useNavExtensions: () => [],
+    nav: [],
+  },
+  {
+    id: 'admin',
+    label: 'Admin',
+    icon: LayoutDashboard,
+    routeNamespace: '/admin',
+    requiredPermissions: [],
+    useNavExtensions: () => [],
+    nav: [],
+  },
+] as AppManifest[];
+
+describe('activeAppId', () => {
+  it('matches the app whose routeNamespace prefixes the path', () => {
+    expect(activeAppId(appsForActive, '/planner/groups/1')).toBe('planner');
+    expect(activeAppId(appsForActive, '/admin')).toBe('admin');
+  });
+  it('returns undefined when no namespace matches', () => {
+    expect(activeAppId(appsForActive, '/account')).toBeUndefined();
   });
 });

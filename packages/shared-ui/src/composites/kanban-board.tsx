@@ -1,11 +1,21 @@
 // biome-ignore-all lint/a11y/noAutofocus: autoFocus is intentional UX on the inline compose input.
 import { X } from 'lucide-react';
-import { type HTMLAttributes, type ReactNode, useEffect, useRef, useState } from 'react';
+import {
+  type HTMLAttributes,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 
 export interface KanbanBoardProps {
   children: ReactNode;
   /** Called with the typed bucket name; the trigger is omitted when undefined (no-permission view). */
-  onAddBucket?: (name: string) => void;
+  onAddBucket?: (name: string) => void | Promise<void>;
+  /** When set, blocks submit and shows an inline error if the trimmed name exceeds this length. */
+  nameMaxLength?: number;
+  bucketCount?: number;
   /** Root Droppable slot for horizontal column reorder; wired by the app layer's @hello-pangea/dnd. */
   rootDroppable?: {
     ref?: (el: HTMLElement | null) => void;
@@ -14,19 +24,61 @@ export interface KanbanBoardProps {
   };
 }
 
-export function KanbanBoard({ children, onAddBucket, rootDroppable }: KanbanBoardProps) {
+export function KanbanBoard({
+  children,
+  onAddBucket,
+  nameMaxLength,
+  bucketCount,
+  rootDroppable,
+}: KanbanBoardProps) {
+  const boardRef = useRef<HTMLDivElement | null>(null);
+  const rootDroppableRef = useRef(rootDroppable);
+  rootDroppableRef.current = rootDroppable;
+  const setBoardRef = useCallback((el: HTMLDivElement | null) => {
+    boardRef.current = el;
+    rootDroppableRef.current?.ref?.(el);
+  }, []);
+
+  const wantScrollRef = useRef(false);
+  const prevCountRef = useRef(bucketCount ?? 0);
+  useEffect(() => {
+    const prev = prevCountRef.current;
+    const next = bucketCount ?? 0;
+    prevCountRef.current = next;
+    if (wantScrollRef.current && next > prev) {
+      wantScrollRef.current = false;
+      const el = boardRef.current;
+      if (el) el.scrollTo({ left: el.scrollWidth, behavior: 'smooth' });
+    }
+  }, [bucketCount]);
+
+  const handleAddBucket = onAddBucket
+    ? async (name: string) => {
+        await onAddBucket(name);
+        wantScrollRef.current = true;
+      }
+    : undefined;
+
   return (
-    <div ref={rootDroppable?.ref} {...rootDroppable?.rootProps} className="kanban-board">
+    <div ref={setBoardRef} {...rootDroppable?.rootProps} className="kanban-board">
       {children}
       {rootDroppable?.placeholder}
-      {onAddBucket && <AddBucket onSubmit={onAddBucket} />}
+      {handleAddBucket && <AddBucket onSubmit={handleAddBucket} nameMaxLength={nameMaxLength} />}
     </div>
   );
 }
 
-function AddBucket({ onSubmit }: { onSubmit: (name: string) => void }) {
+function AddBucket({
+  onSubmit,
+  nameMaxLength,
+}: {
+  onSubmit: (name: string) => void | Promise<void>;
+  nameMaxLength?: number;
+}) {
   const [composing, setComposing] = useState(false);
   const [value, setValue] = useState('');
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const composeRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -37,24 +89,38 @@ function AddBucket({ onSubmit }: { onSubmit: (name: string) => void }) {
       if (target && composeRef.current && !composeRef.current.contains(target)) {
         setComposing(false);
         setValue('');
+        setNameError(null);
       }
     }
     document.addEventListener('pointerdown', onPointerDown);
     return () => document.removeEventListener('pointerdown', onPointerDown);
   }, [composing]);
 
-  function submit() {
+  async function submit() {
     const v = value.trim();
     if (!v) return;
-    onSubmit(v);
-    // Trello-style loop: keep the input open for the next bucket.
-    setValue('');
-    inputRef.current?.focus();
+    if (nameMaxLength !== undefined && v.length > nameMaxLength) {
+      setNameError(`Bucket name cannot exceed ${nameMaxLength} characters.`);
+      return;
+    }
+    setNameError(null);
+    setIsSubmitting(true);
+    try {
+      await onSubmit(v);
+      // Trello-style loop: keep the input open for the next bucket.
+      setValue('');
+      inputRef.current?.focus();
+    } catch (err) {
+      setNameError(err instanceof Error ? err.message : "Couldn't create the bucket.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   function cancel() {
     setComposing(false);
     setValue('');
+    setNameError(null);
   }
 
   if (!composing) {
@@ -72,11 +138,15 @@ function AddBucket({ onSubmit }: { onSubmit: (name: string) => void }) {
         autoFocus
         placeholder="Enter bucket name…"
         value={value}
-        onChange={(e) => setValue(e.target.value)}
+        aria-invalid={!!nameError}
+        onChange={(e) => {
+          setValue(e.target.value);
+          if (nameError) setNameError(null);
+        }}
         onKeyDown={(e) => {
           if (e.key === 'Enter') {
             e.preventDefault();
-            submit();
+            void submit();
           } else if (e.key === 'Escape') {
             e.preventDefault();
             cancel();
@@ -84,13 +154,18 @@ function AddBucket({ onSubmit }: { onSubmit: (name: string) => void }) {
         }}
         aria-label="New bucket name"
       />
+      {nameError ? (
+        <p role="alert" className="kanban-board__add-bucket-compose-error">
+          {nameError}
+        </p>
+      ) : null}
       <div className="kanban-board__add-bucket-compose-footer">
         <button
           type="button"
           className="kanban-board__add-bucket-compose-btn"
           onMouseDown={(e) => e.preventDefault()}
-          onClick={submit}
-          disabled={!value.trim()}
+          onClick={() => void submit()}
+          disabled={!value.trim() || isSubmitting}
         >
           Add bucket
         </button>

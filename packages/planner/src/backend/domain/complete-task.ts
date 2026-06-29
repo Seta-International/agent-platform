@@ -43,12 +43,6 @@ export async function completeTask(input: {
 
       requirePermission(input.session, 'planner.task.update', plan.group_id);
 
-      if (existing.version !== input.expected_version) {
-        throw new PlannerError('CONFLICT', 'Version mismatch', {
-          current_version: existing.version,
-        });
-      }
-
       if (existing.percent_complete === 100) {
         throw new PlannerError('VALIDATION', 'Task already completed', {
           task_id: input.task_id,
@@ -58,6 +52,7 @@ export async function completeTask(input: {
       const versionAfter = existing.version + 1;
       const now = new Date();
 
+      // guard: 0 rows ⇒ the row changed since our read (lost-update prevention)
       const [updated] = await tx
         .update(tasks)
         .set({
@@ -66,9 +61,12 @@ export async function completeTask(input: {
           updated_at: now,
           version: versionAfter,
         })
-        .where(eq(tasks.id, input.task_id))
+        .where(and(eq(tasks.id, input.task_id), eq(tasks.version, input.expected_version)))
         .returning();
-      if (!updated) throw new PlannerError('VALIDATION', 'Update returned no row');
+      if (!updated)
+        throw new PlannerError('CONFLICT', 'Version mismatch', {
+          current_version: existing.version,
+        });
       result = updated;
 
       const [assignment] = await tx

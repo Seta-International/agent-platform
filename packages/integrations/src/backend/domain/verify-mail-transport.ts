@@ -36,20 +36,23 @@ export async function verifyMailTransport(
     throw new IntegrationsError('FORBIDDEN', 'tenant mismatch');
 
   const store = createMailTransportConfigStore({ db: integrationsDb() });
-  const resolved =
-    args.transportOverride ??
-    (await resolveTransport(args.tenantId, {
-      env: args.env,
-      configStore: { findEnabled: (tid: string) => store.findEnabled(tid) },
-      lookupEntraTenantId: args.lookupEntraTenantId,
-      crypto: args.crypto,
-    }));
-
-  const rendered = await renderTemplate('_test-send', {
-    tenantName: args.tenantId,
-    attemptedAt: new Date().toISOString(),
-  });
+  let kind: ResolvedTransport['transportKind'] | 'unresolved' = 'unresolved';
   try {
+    const resolved =
+      args.transportOverride ??
+      (await resolveTransport(args.tenantId, {
+        env: args.env,
+        configStore: { findEnabled: (tid: string) => store.findEnabled(tid) },
+        lookupEntraTenantId: args.lookupEntraTenantId,
+        crypto: args.crypto,
+      }));
+    kind = resolved.transportKind;
+
+    const rendered = await renderTemplate('_test-send', {
+      tenantName: args.tenantId,
+      attemptedAt: new Date().toISOString(),
+    });
+
     const out = await resolved.transport.send({
       from: resolved.sender,
       fromDisplayName: resolved.senderDisplayName,
@@ -59,7 +62,9 @@ export async function verifyMailTransport(
       text: rendered.text,
     });
     await withEmit(
-      { actor: { userId: String(args.actor.user_id), tenantId: args.tenantId } },
+      {
+        actor: { userId: String(args.actor.user_id), tenantId: args.tenantId },
+      },
       async (tx) => {
         await tx
           .update(mailTransportConfig)
@@ -71,7 +76,7 @@ export async function verifyMailTransport(
           aggregateId: args.tenantId,
           eventType: 'integrations.mail_transport.verify_succeeded',
           eventVersion: 1,
-          payload: { kind: resolved.transportKind, transport_message_id: out.messageId },
+          payload: { kind, transport_message_id: out.messageId },
         });
       },
     );
@@ -80,7 +85,9 @@ export async function verifyMailTransport(
     const code = (err as { code?: string }).code ?? 'UNKNOWN';
     const message = (err as Error).message ?? String(err);
     await withEmit(
-      { actor: { userId: String(args.actor.user_id), tenantId: args.tenantId } },
+      {
+        actor: { userId: String(args.actor.user_id), tenantId: args.tenantId },
+      },
       async (tx) => {
         await tx
           .update(mailTransportConfig)
@@ -92,7 +99,7 @@ export async function verifyMailTransport(
           aggregateId: args.tenantId,
           eventType: 'integrations.mail_transport.verify_failed',
           eventVersion: 1,
-          payload: { kind: resolved.transportKind, error_code: code, error_message: message },
+          payload: { kind, error_code: code, error_message: message },
         });
       },
     );

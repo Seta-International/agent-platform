@@ -2,7 +2,7 @@
   "name": "@seta/module-sdk",
   "version": "0.0.1",
   "private": true,
-  "description": "Frontend module manifest contract — NavManifest, NavItem types consumed by the apps/web shell and by per-module web packages.",
+  "description": "Frontend app manifest contract — AppManifest, NavSection, NavItem types consumed by the apps/web shell host and by the per-app @seta/web-* packages.",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
@@ -15,7 +15,7 @@
     "@seta/shared-config": "workspace:^",
     "@types/react": "^19.2.17",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.9"
   },
   "peerDependencies": {
     "react": "^19.0.0"

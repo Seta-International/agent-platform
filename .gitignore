@@ -70,5 +70,27 @@ infra/traefik/jaeger-auth
 docs/design/
 .worktrees/
 
+# Generated PDFs (rendered from docs via scripts/export-pdf.sh)
+docs/**/*.pdf
+
 # App NDJSON logs (dev log persistence)
 logs/
+
+# TanStack Query generated files
+apps/web/.tanstack
+apps/web/.tanstack.idea/
+
+# Local IDE metadata
+.idea/
+
+# Seed data sourced from a real employee spreadsheet (PII — never committed)
+apps/cli/seed/data/employees.csv
+
+# Real employee fixture workbook (real names/emails/ids — never committed)
+private/
+
+.agents
+skills-lock.json
+
+# Generated at deploy by scripts/write-e2e-route.sh
+infra/traefik/dynamic/e2e-report.yml

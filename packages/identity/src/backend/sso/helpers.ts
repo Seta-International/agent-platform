@@ -19,7 +19,6 @@ export interface ProviderRow {
   provider_id: SsoProviderId;
   enabled: boolean;
   config: MicrosoftEntraConfig;
-  email_domains: string[];
   created_at: Date;
   updated_at: Date;
 }
@@ -44,7 +43,6 @@ export async function getProviderRow(
     provider_id: row.provider_id as SsoProviderId,
     enabled: row.enabled,
     config: row.config as MicrosoftEntraConfig,
-    email_domains: row.email_domains,
     created_at: row.created_at,
     updated_at: row.updated_at,
   };

@@ -1,0 +1,6 @@
+import { createFileRoute } from '@tanstack/react-router';
+import { {{pascalCase name}}Page } from '../pages/{{name}}-page.tsx';
+
+export const Route = createFileRoute('/_authed/{{name}}/')({
+  component: {{pascalCase name}}Page,
+});

@@ -1,7 +1,7 @@
 import type { SessionScope } from '@seta/core';
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { and, eq, ilike, isNull, or, sql } from 'drizzle-orm';
 import { plannerDb } from '../db/index.ts';
-import { plans, taskAssignments, tasks } from '../db/schema.ts';
+import { groups, plans, taskAssignments, tasks } from '../db/schema.ts';
 import type { MyTasksResult, TaskPriorityNumber, TaskWithPlan } from '../dto.ts';
 import type { ListMyTasksInput } from '../inputs.ts';
 import { withSpan } from '../observability.ts';
@@ -61,6 +61,9 @@ async function listMyTasksImpl(
   const conditions = [
     eq(tasks.tenant_id, session.tenant_id),
     isNull(tasks.deleted_at),
+    isNull(plans.deleted_at),
+    isNull(groups.deleted_at),
+    isNull(plans.archived_at),
     eq(taskAssignments.user_id, session.user_id),
   ];
 
@@ -84,6 +87,13 @@ async function listMyTasksImpl(
     conditions.push(isNull(tasks.due_at));
   }
 
+  if (input.search?.trim()) {
+    // Escape LIKE wildcards so the keyword is matched as literal text.
+    const term = `%${input.search.trim().replace(/[\\%_]/g, '\\$&')}%`;
+    const match = or(ilike(tasks.title, term), ilike(tasks.description_text, term));
+    if (match) conditions.push(match);
+  }
+
   const rows = await db
     .select({
       task: tasks,
@@ -94,6 +104,7 @@ async function listMyTasksImpl(
     .from(tasks)
     .innerJoin(taskAssignments, eq(taskAssignments.task_id, tasks.id))
     .innerJoin(plans, eq(plans.id, tasks.plan_id))
+    .innerJoin(groups, eq(groups.id, plans.group_id))
     .where(and(...conditions));
 
   const { assigneesByTaskId, labelsByTaskId } = await fetchAssigneesAndLabels(

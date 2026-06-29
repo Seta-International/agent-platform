@@ -1,0 +1,12 @@
+import { describe, expect, it } from 'vitest';
+import { {{camelCase name}}AppManifest } from '../../src/index.ts';
+
+describe('{{camelCase name}}AppManifest', () => {
+  it('owns the /{{name}} route namespace', () => {
+    expect({{camelCase name}}AppManifest.routeNamespace).toBe('/{{name}}');
+  });
+
+  it('declares at least one nav section', () => {
+    expect({{camelCase name}}AppManifest.nav.length).toBeGreaterThan(0);
+  });
+});

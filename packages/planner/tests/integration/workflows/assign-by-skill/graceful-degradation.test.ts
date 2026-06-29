@@ -31,6 +31,7 @@ function admin(opts: { tenant_id: string; user_id: string; email: string }): Ses
     role_summary,
     role_summary_hash: hashRoleSummary(role_summary),
     permissions: resolvePermissions(_registry, roles, IMPLICIT_PERMISSIONS),
+    features: new Set<string>(),
     accessible_group_ids: [],
     cross_tenant_read: false,
     built_at: new Date(),

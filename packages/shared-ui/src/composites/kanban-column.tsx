@@ -15,6 +15,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { PRIORITY_LEVELS } from '../lib/priority';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,7 +36,9 @@ export interface KanbanColumnProps {
   status?: 'muted' | 'primary' | 'warning' | 'success';
   children: ReactNode;
   completedTasks?: { count: number; children: ReactNode };
-  onCreateTask?: (input: QuickCreateTaskInput) => void;
+  onCreateTask?: (input: QuickCreateTaskInput) => void | Promise<void>;
+  /** When set, blocks submit and shows an inline error if the trimmed title exceeds this length. */
+  titleMaxLength?: number;
   onRename?: (name: string) => void;
   onDelete?: () => void;
   droppable: {
@@ -44,7 +47,7 @@ export interface KanbanColumnProps {
     isDraggingOver?: boolean;
     placeholder?: ReactNode;
   };
-  draggableHandle: {
+  draggableHandle?: {
     ref?: (el: HTMLElement | null) => void;
     rootProps?: HTMLAttributes<HTMLElement>;
     handleProps?: HTMLAttributes<HTMLElement>;
@@ -53,12 +56,13 @@ export interface KanbanColumnProps {
   };
 }
 
-const PRIORITY_OPTIONS = [
-  { value: 1 as const, label: 'Urgent', dotClass: 'bg-semantic-danger' },
-  { value: 3 as const, label: 'Important', dotClass: 'bg-semantic-warning' },
-  { value: 5 as const, label: 'Medium', dotClass: 'bg-semantic-info' },
-  { value: 9 as const, label: 'Low', dotClass: 'bg-ink-tertiary' },
-];
+// Derived from the shared priority registry so dots use the same colors as
+// PriorityIcon and the task detail panel — never redeclare priority colors here.
+const PRIORITY_OPTIONS = PRIORITY_LEVELS.map((p) => ({
+  value: p.value,
+  label: p.label,
+  color: p.color,
+}));
 
 const DEFAULT_PRIORITY: 1 | 3 | 5 | 9 = 5;
 
@@ -69,6 +73,7 @@ export function KanbanColumn({
   children,
   completedTasks,
   onCreateTask,
+  titleMaxLength,
   onRename,
   onDelete,
   droppable,
@@ -82,6 +87,8 @@ export function KanbanColumn({
   const [completedExpanded, setCompletedExpanded] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
+  const [titleError, setTitleError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
   const cancelledRef = useRef(false);
   const committedRef = useRef(false);
@@ -101,20 +108,35 @@ export function KanbanColumn({
     setValue('');
     setDueAt(null);
     setPriority(DEFAULT_PRIORITY);
+    setTitleError(null);
+    setIsSubmitting(false);
     setComposing(false);
   }
 
-  function submit() {
+  async function submit() {
     const v = value.trim();
     if (!v || !onCreateTask) {
       resetCompose();
       return;
     }
+    if (titleMaxLength !== undefined && v.length > titleMaxLength) {
+      setTitleError(`Task title cannot exceed ${titleMaxLength} characters.`);
+      return;
+    }
     const payload: QuickCreateTaskInput = { title: v };
     if (dueAt) payload.due_at = dueAt;
     if (priority !== DEFAULT_PRIORITY) payload.priority_number = priority;
-    onCreateTask(payload);
-    resetCompose();
+
+    setTitleError(null);
+    setIsSubmitting(true);
+    try {
+      await onCreateTask(payload);
+      resetCompose();
+    } catch (err) {
+      setTitleError(err instanceof Error ? err.message : "Couldn't create the task.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   function openRename() {
@@ -135,24 +157,25 @@ export function KanbanColumn({
 
   const priorityOpt = PRIORITY_OPTIONS.find((o) => o.value === priority) ?? PRIORITY_OPTIONS[2];
 
+  const handle = draggableHandle;
+  const hasMenu = Boolean(onRename || onDelete);
+
   return (
     <section
-      ref={draggableHandle.ref}
-      {...draggableHandle.rootProps}
-      style={draggableHandle.extraStyle}
-      className={['kanban-column', draggableHandle.isDragging && 'kanban-column--dragging']
+      ref={handle?.ref}
+      {...handle?.rootProps}
+      style={handle?.extraStyle}
+      className={['kanban-column', handle?.isDragging && 'kanban-column--dragging']
         .filter(Boolean)
         .join(' ')}
       aria-label={`Bucket: ${name}`}
     >
       <header ref={headerRef} className="kanban-column__header">
-        {/* Disable DnD handle props on the drag area while the rename input is active so
-            mousedown on the input doesn't start a column drag. */}
         <div
           className="kanban-column__drag-handle"
-          {...(!renaming ? draggableHandle.handleProps : {})}
+          {...(handle && !renaming ? handle.handleProps : {})}
         >
-          <GripVertical size={12} className="kanban-column__grip" aria-hidden="true" />
+          {handle && <GripVertical size={12} className="kanban-column__grip" aria-hidden="true" />}
           <span className={`status-dot status-dot--${status ?? 'muted'}`} aria-hidden="true" />
           {renaming ? (
             <>
@@ -180,7 +203,7 @@ export function KanbanColumn({
           )}
         </div>
 
-        {!renaming && (
+        {!renaming && (onCreateTask || hasMenu) && (
           <div className="kanban-column__header-actions">
             {onCreateTask && (
               <button
@@ -192,19 +215,21 @@ export function KanbanColumn({
                 <Plus size={12} />
               </button>
             )}
-            <button
-              type="button"
-              className={[
-                'kanban-column__action-btn',
-                menuOpen && 'kanban-column__action-btn--active',
-              ]
-                .filter(Boolean)
-                .join(' ')}
-              title="More options"
-              onClick={() => setMenuOpen((v) => !v)}
-            >
-              <MoreHorizontal size={12} />
-            </button>
+            {hasMenu && (
+              <button
+                type="button"
+                className={[
+                  'kanban-column__action-btn',
+                  menuOpen && 'kanban-column__action-btn--active',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                title="More options"
+                onClick={() => setMenuOpen((v) => !v)}
+              >
+                <MoreHorizontal size={12} />
+              </button>
+            )}
           </div>
         )}
 
@@ -291,12 +316,21 @@ export function KanbanColumn({
             placeholder="Task title"
             value={value}
             autoFocus
-            onChange={(e) => setValue(e.target.value)}
+            aria-invalid={!!titleError}
+            onChange={(e) => {
+              setValue(e.target.value);
+              if (titleError) setTitleError(null);
+            }}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') submit();
+              if (e.key === 'Enter') void submit();
               if (e.key === 'Escape') resetCompose();
             }}
           />
+          {titleError ? (
+            <p role="alert" className="kanban-column__compose-error">
+              {titleError}
+            </p>
+          ) : null}
           <div className="kanban-column__compose-chips">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -307,7 +341,8 @@ export function KanbanColumn({
                   onMouseDown={(e) => e.preventDefault()}
                 >
                   <span
-                    className={`inline-block size-2 rounded-sm ${priorityOpt?.dotClass ?? ''}`}
+                    className="inline-block size-2 rounded-sm"
+                    style={priorityOpt ? { backgroundColor: priorityOpt.color } : undefined}
                     aria-hidden
                   />
                   <span>{priorityOpt?.label ?? 'Priority'}</span>
@@ -321,7 +356,8 @@ export function KanbanColumn({
                     className="flex items-center gap-2"
                   >
                     <span
-                      className={`inline-block size-2 rounded-sm ${opt.dotClass}`}
+                      className="inline-block size-2 rounded-sm"
+                      style={{ backgroundColor: opt.color }}
                       aria-hidden
                     />
                     {opt.label}
@@ -358,8 +394,8 @@ export function KanbanColumn({
                 type="button"
                 className="kanban-column__compose-btn kanban-column__compose-btn--primary"
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={submit}
-                disabled={!value.trim()}
+                onClick={() => void submit()}
+                disabled={!value.trim() || isSubmitting}
               >
                 Add
               </button>

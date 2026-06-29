@@ -4,13 +4,17 @@ import type { PlopTypes } from '@turbo/gen';
 
 type WorkspaceDepsAnswers = { name: string; withWeb: boolean };
 
-function addWorkspaceDep(packageJsonPath: string, depName: string): string {
+function addWorkspaceDep(
+  packageJsonPath: string,
+  depName: string,
+  versionRange = 'workspace:^',
+): string {
   const raw = readFileSync(packageJsonPath, 'utf8');
   const pkg = JSON.parse(raw) as { dependencies?: Record<string, string> };
   pkg.dependencies = pkg.dependencies ?? {};
   if (pkg.dependencies[depName]) return `${depName} already present in ${packageJsonPath}`;
   pkg.dependencies = Object.fromEntries(
-    Object.entries({ ...pkg.dependencies, [depName]: 'workspace:^' }).sort(([a], [b]) =>
+    Object.entries({ ...pkg.dependencies, [depName]: versionRange }).sort(([a], [b]) =>
       a.localeCompare(b),
     ),
   );
@@ -29,6 +33,11 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
     ];
     const messages = targets.map((t) => addWorkspaceDep(t, dep));
     return messages.join('\n');
+  });
+
+  plop.setActionType('addWebAppDep', (answers) => {
+    const { name } = answers as WorkspaceDepsAnswers;
+    return addWorkspaceDep('apps/web/package.json', `@seta/web-${name}`, 'workspace:*');
   });
 
   plop.setActionType('runPnpmInstall', () => {
@@ -60,7 +69,7 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
     return `organized imports in ${files.length} entry-point file(s)`;
   });
 
-  plop.setGenerator('module-scaffold', {
+  plop.setGenerator('module', {
     description: 'Scaffold a Seta module with backend + optional same-name frontend.',
     prompts: [
       {
@@ -87,7 +96,7 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
       {
         type: 'confirm',
         name: 'withWeb',
-        message: 'Generate apps/web/src/modules/<name>/ companion folder?',
+        message: 'Generate a packages/web-<name> frontend app package (launcher app)?',
         default: true,
       },
     ],
@@ -234,46 +243,81 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
       ];
 
       if (withWeb) {
-        const webBase = `apps/web/src/modules/${name}`;
+        const webBase = `packages/web-${name}`;
         actions.push(
+          // App package config
           {
             type: 'add',
-            path: `${webBase}/index.ts`,
+            path: `${webBase}/package.json`,
+            templateFile: 'templates/module-web/package.json.hbs',
+          },
+          {
+            type: 'add',
+            path: `${webBase}/tsconfig.json`,
+            templateFile: 'templates/module-web/tsconfig.json.hbs',
+          },
+          {
+            type: 'add',
+            path: `${webBase}/vitest.config.ts`,
+            templateFile: 'templates/module-web/vitest.config.ts.hbs',
+          },
+          // Public surface: the AppManifest the shell launcher registers.
+          {
+            type: 'add',
+            path: `${webBase}/src/index.ts`,
             templateFile: 'templates/module-web/index.ts.hbs',
           },
           {
             type: 'add',
-            path: `${webBase}/manifest.ts`,
+            path: `${webBase}/src/manifest.ts`,
             templateFile: 'templates/module-web/manifest.ts.hbs',
           },
-          { type: 'add', path: `${webBase}/api/.gitkeep`, template: '' },
-          { type: 'add', path: `${webBase}/components/.gitkeep`, template: '' },
-          { type: 'add', path: `${webBase}/hooks/.gitkeep`, template: '' },
-          { type: 'add', path: `${webBase}/state/.gitkeep`, template: '' },
-          // Minimal visible page + TanStack route so a fresh module renders an
-          // empty page at /<name> immediately after scaffolding.
+          // Minimal visible page + co-located TanStack routes so the app renders
+          // at /<name> immediately after scaffolding. route.tsx is the app's
+          // layout; index.tsx is the landing page.
           {
             type: 'add',
-            path: `${webBase}/pages/${name}-page.tsx`,
+            path: `${webBase}/src/pages/${name}-page.tsx`,
             templateFile: 'templates/module-web/page.tsx.hbs',
           },
           {
             type: 'add',
-            path: `apps/web/src/routes/_authed/${name}.tsx`,
+            path: `${webBase}/src/routes/route.tsx`,
             templateFile: 'templates/module-web/route.tsx.hbs',
           },
+          {
+            type: 'add',
+            path: `${webBase}/src/routes/index.tsx`,
+            templateFile: 'templates/module-web/index-route.tsx.hbs',
+          },
+          // Public-surface smoke test.
+          {
+            type: 'add',
+            path: `${webBase}/tests/unit/manifest.test.ts`,
+            templateFile: 'templates/module-web/manifest.test.ts.hbs',
+          },
+          // Mount the app's routes into the shell's single generated tree.
+          {
+            type: 'modify',
+            path: 'apps/web/src/routes.virtual.ts',
+            pattern: /( {4}\/\/ MODULE_ROUTE_MOUNTS_END)/,
+            template: `    physical('/${name}', '../../../packages/web-${name}/src/routes'),\n$1`,
+          },
+          // Register the AppManifest in the launcher registry.
           {
             type: 'modify',
             path: 'apps/web/src/shell/manifests.ts',
             pattern: /(\/\/ MODULE_MANIFEST_IMPORTS_END)/,
-            template: `import { ${camel}NavManifest } from '@/modules/${name}';\n$1`,
+            template: `import { ${camel}AppManifest } from '@seta/web-${name}';\n$1`,
           },
           {
             type: 'modify',
             path: 'apps/web/src/shell/manifests.ts',
             pattern: /( {2}\/\/ MODULE_MANIFEST_REGISTRATIONS_END)/,
-            template: `  ${camel}NavManifest,\n$1`,
+            template: `  ${camel}AppManifest,\n$1`,
           },
+          // Add the app package to the shell host's dependencies.
+          { type: 'addWebAppDep' },
         );
       }
 

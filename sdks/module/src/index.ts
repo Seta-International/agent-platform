@@ -20,16 +20,26 @@ export interface NavItem {
 }
 
 export interface NavSection {
-  /** Uppercase eyebrow label rendered above the section's items. */
-  label: string;
+  /**
+   * Uppercase eyebrow label rendered above the section's items. Omit for a
+   * flat, headerless section (used by apps with few enough items that grouping
+   * adds noise rather than structure).
+   */
+  label?: string;
   items: NavItem[];
 }
 
-export interface NavManifest {
+export interface AppManifest {
   id: string;
   label: string;
   icon: NavIcon;
+  /** URL namespace this app owns, e.g. '/planner'. Drives launcher → active-app routing. */
+  routeNamespace: string;
+  /** Optional launcher-tile accent colour (CSS colour string). */
+  color?: string;
   requiredPermissions: PermissionKey[];
+  /** Feature-flag key gating this app's launcher/nav visibility; absent = always visible (subject to RBAC). */
+  requiredFeature?: string;
   /**
    * Sections grouping nav items inside this module. Every manifest must declare
    * at least one section; single-section modules pass a single entry.

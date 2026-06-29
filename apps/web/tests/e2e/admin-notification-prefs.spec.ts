@@ -64,7 +64,7 @@ test('admin notification-prefs: toggle in-app off blocks delivery; toggle on res
 });
 
 test('admin notification-prefs: nav highlights and route is reachable', async ({ page }) => {
-  await page.goto('/admin/users');
+  await page.goto('/admin/tenant');
   // The Admin nav has a "Notifications" item now.
   const navLink = page.getByRole('link', { name: 'Notifications', exact: true });
   await expect(navLink).toBeVisible();

@@ -63,7 +63,6 @@ export const tenantSsoProviders = identity.table(
     provider_id: text('provider_id').notNull(),
     enabled: boolean('enabled').default(false).notNull(),
     config: jsonb('config').notNull(),
-    email_domains: text('email_domains').array().default([]).notNull(),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },

@@ -29,6 +29,11 @@ export interface UpdateGroupPatch {
 export interface CreatePlanInput {
   group_id: string;
   name: string;
+  // Origin hints — accepted only when isM365SystemActor(session). Set by the
+  // M365 auto-mirror (pull) so the created plan is recorded as M365-origin and
+  // not re-pushed back to Graph (push↔pull echo loop).
+  external_source?: 'native' | 'm365';
+  external_id?: string | null;
 }
 export interface UpdatePlanPatch {
   name?: string;
@@ -272,6 +277,8 @@ export interface ListMyTasksInput {
     due?: 'this_week' | 'overdue' | 'no_date';
   };
   sort?: 'assignee_priority' | 'due_at';
+  /** Free-text keyword; case-insensitively matches the task title or description. */
+  search?: string;
 }
 
 export interface ListPlanTasksByDateRangeInput {

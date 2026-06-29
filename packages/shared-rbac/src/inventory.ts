@@ -9,6 +9,31 @@ export interface StatementSpec {
 
 export const INVENTORY: StatementSpec[] = [
   {
+    module: 'core',
+    statement: {
+      'core.skill': ['read', 'manage'],
+      'core.feature_flag': ['read', 'write'],
+    },
+    roles: [
+      {
+        slug: 'core.admin',
+        description: 'Manage the system-wide skill catalog',
+        permissions: [
+          'core.skill.read',
+          'core.skill.manage',
+          'core.feature_flag.read',
+          'core.feature_flag.write',
+        ],
+      },
+    ],
+    descriptions: {
+      'core.skill.read': 'Read the skill catalog',
+      'core.skill.manage': 'Create, edit, and archive catalog skills and categories',
+      'core.feature_flag.read': 'View feature flags and adoption',
+      'core.feature_flag.write': 'Toggle feature flags and edit allowlists',
+    },
+  },
+  {
     module: 'knowledge',
     statement: {
       'knowledge.file': ['read', 'write', 'delete'],
@@ -326,12 +351,143 @@ export const INVENTORY: StatementSpec[] = [
           'planner.group.member.role.set',
           'planner.group.sync.mark-status',
           'planner.plan.read',
+          'planner.plan.create',
           'planner.plan.update',
+          'planner.plan.link.m365',
           'planner.plan.sync.mark-status',
           'planner.task.read',
           'planner.task.update',
           'planner.task.sync.mark-status',
         ],
+      },
+    ],
+  },
+  {
+    module: 'people',
+    statement: {
+      'people.worker': ['read', 'read.all', 'provision', 'edit', 'portal_access.set'],
+    },
+    roles: [
+      {
+        slug: 'people.strategic',
+        description: 'Full people administration',
+        permissions: [
+          'people.worker.read',
+          'people.worker.read.all',
+          'people.worker.provision',
+          'people.worker.edit',
+          'people.worker.portal_access.set',
+          'core.skill.read',
+        ],
+      },
+      {
+        slug: 'people.viewer',
+        description: 'Read people records',
+        permissions: ['people.worker.read', 'core.skill.read'],
+      },
+    ],
+  },
+  {
+    module: 'hiring',
+    statement: {
+      'hiring.requisition': ['read', 'open', 'manage', 'close'],
+      'hiring.jd_template': ['read', 'manage'],
+      'hiring.candidate': ['read', 'create', 'manage', 'reject', 'transfer'],
+      'hiring.rejection_reason': ['read', 'manage'],
+    },
+    roles: [
+      {
+        slug: 'hiring.strategic',
+        description: 'Full hiring administration',
+        permissions: [
+          'hiring.requisition.read',
+          'hiring.requisition.open',
+          'hiring.requisition.manage',
+          'hiring.requisition.close',
+          'hiring.jd_template.read',
+          'hiring.jd_template.manage',
+          'hiring.candidate.read',
+          'hiring.candidate.create',
+          'hiring.candidate.manage',
+          'hiring.candidate.reject',
+          'hiring.candidate.transfer',
+          'hiring.rejection_reason.read',
+          'hiring.rejection_reason.manage',
+          'core.skill.read',
+        ],
+      },
+      {
+        slug: 'hiring.recruiter',
+        description: 'Run requisitions, candidates, interviews, offers',
+        permissions: [
+          'hiring.requisition.read',
+          'hiring.requisition.open',
+          'hiring.requisition.manage',
+          'hiring.requisition.close',
+          'hiring.jd_template.read',
+          'hiring.jd_template.manage',
+          'hiring.candidate.read',
+          'hiring.candidate.create',
+          'hiring.candidate.manage',
+          'hiring.candidate.reject',
+          'hiring.candidate.transfer',
+          'hiring.rejection_reason.read',
+          'hiring.rejection_reason.manage',
+          'core.skill.read',
+        ],
+      },
+      {
+        slug: 'hiring.viewer',
+        description: 'Read hiring records',
+        permissions: [
+          'hiring.requisition.read',
+          'hiring.jd_template.read',
+          'hiring.candidate.read',
+          'hiring.rejection_reason.read',
+        ],
+      },
+    ],
+  },
+  {
+    module: 'pm',
+    statement: {
+      'pm.account': ['read', 'manage'],
+      'pm.charter': ['submit', 'pmo_signoff', 'bod_approve', 'read'],
+      'pm.project': ['read', 'manage'],
+    },
+    roles: [
+      {
+        slug: 'pm.strategic',
+        description: 'Raises charters and runs delivery (no approval gate)',
+        permissions: [
+          'pm.account.read',
+          'pm.account.manage',
+          'pm.charter.submit',
+          'pm.charter.read',
+          'pm.project.read',
+          'pm.project.manage',
+        ],
+      },
+      {
+        slug: 'pm.pmo',
+        description: 'PMO review gate + post-approval staffing & access',
+        permissions: [
+          'pm.account.read',
+          'pm.charter.pmo_signoff',
+          'pm.charter.read',
+          'pm.project.read',
+          'pm.project.manage',
+        ],
+      },
+      {
+        slug: 'pm.bod',
+        description: 'Board final approval gate',
+        permissions: ['pm.charter.bod_approve', 'pm.charter.read', 'pm.project.read'],
+      },
+      {
+        slug: 'pm.viewer',
+        description: 'Read project-management records',
+        permissions: ['pm.account.read', 'pm.charter.read', 'pm.project.read'],
       },
     ],
   },
@@ -353,7 +509,7 @@ export const INVENTORY: StatementSpec[] = [
       'identity.role_grant': ['read', 'write'],
       'identity.password': ['disable_local'],
       'identity.concept_map': ['read', 'write'],
-      'core.tenant': ['read', 'write'],
+      'core.tenant': ['read', 'write', 'email_domains.write'],
       'core.audit': ['read'],
     },
     roles: [
@@ -368,6 +524,8 @@ export const INVENTORY: StatementSpec[] = [
           'identity.user.email.change',
           'identity.sso.read',
           'identity.sso.write',
+          // Dedicated email-domains write permission (not core.tenant.write).
+          'core.tenant.email_domains.write',
           'identity.role.grant',
           'identity.role.read',
           'identity.role.write',

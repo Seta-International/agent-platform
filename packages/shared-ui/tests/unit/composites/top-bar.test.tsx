@@ -8,7 +8,6 @@ describe('TopBar bell', () => {
     const onBellClick = vi.fn();
     render(
       <TopBar
-        workspace="x"
         notificationPanel={
           <button type="button" aria-label="Notifications" onClick={onBellClick} />
         }
@@ -19,12 +18,7 @@ describe('TopBar bell', () => {
   });
 
   it('renders the badge dot when notificationCount > 0', () => {
-    render(
-      <TopBar
-        workspace="x"
-        notificationPanel={<button type="button" aria-label="Notifications (5)" />}
-      />,
-    );
+    render(<TopBar notificationPanel={<button type="button" aria-label="Notifications (5)" />} />);
     expect(screen.getByLabelText('Notifications (5)')).toBeInTheDocument();
   });
 });

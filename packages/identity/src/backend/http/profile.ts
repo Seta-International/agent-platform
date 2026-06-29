@@ -45,7 +45,10 @@ export function registerProfileRoutes(app: Hono<SessionEnv>): void {
     return c.json(updated);
   });
 
-  app.get('/api/identity/v1/skills', async (c) => {
+  // Distinct path from the skill-catalog resource `GET /api/identity/v1/skills`
+  // (which returns `{ skills }`). Sharing the path let this handler shadow the
+  // catalog list, so consumers expecting `{ skills }` got `{ results }`.
+  app.get('/api/identity/v1/skill-search', async (c) => {
     const scope = c.get('user');
     const prefix = c.req.query('prefix') ?? '';
     const limit = Math.min(parseInt(c.req.query('limit') ?? '20', 10), 50);

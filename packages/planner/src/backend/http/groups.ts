@@ -4,6 +4,7 @@ import { z } from 'zod';
 import {
   addGroupMember,
   addGroupMembers,
+  countDistinctGroupMembers,
   createGroup,
   createJoinRequest,
   deleteGroup,
@@ -81,6 +82,11 @@ export function registerPlannerGroupsRoutes(app: Hono<SessionEnv>, deps: Planner
   app.get('/api/planner/v1/groups/mine', async (c) => {
     const session = c.get('user');
     return c.json({ groups: await listMyAccessibleGroups({ session }) });
+  });
+
+  app.get('/api/planner/v1/groups/member-summary', async (c) => {
+    const session = c.get('user');
+    return c.json({ distinct_member_count: await countDistinctGroupMembers({ session }) });
   });
 
   // ── Workspace group discovery ──────────────────────────────────────────────

@@ -38,9 +38,11 @@ const SRC_ALLOWLIST = new Set([
   'contracts.ts',
   'contracts',
   'register.ts',
+  'flags.ts',
   'models.ts',
   'agent-tools.ts',
   'agent-reads.ts',
+  'orchestration.ts',
   'testing',
   'testing.ts',
   'backend',
@@ -51,6 +53,7 @@ const SRC_ALLOWLIST = new Set([
 // they don't have. Keep them at src/ root and extend the allowlist accordingly.
 const CORE_EXTRA_SRC_ALLOWLIST = new Set([
   'composition',
+  'flags',
   'middleware',
   'outbox',
   'rpc',
@@ -79,6 +82,7 @@ const BACKEND_DIR_ALLOWLIST = new Set([
   'orchestration', // staffing orchestrator-tier composition + agents + run state
   'm365', // integrations-owned external connector
   'scan', // knowledge-owned upload AV scanner
+  'skills', // core-owned skill catalog (categories + skills admin)
 ]);
 
 const errors = [];

@@ -7,6 +7,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./agent-tools": "./src/agent-tools.ts",
+    "./orchestration": "./src/orchestration.ts",
     "./rbac": "./src/rbac.ts",
     "./register": "./src/register.ts",
     "./agent-tools/register": {
@@ -39,7 +40,7 @@
     "@types/sanitize-html": "^2.16.1",
     "drizzle-kit": "^0.31.10",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.9"
   },
   "dependencies": {
     "@mastra/core": "^1.42.0",
@@ -49,6 +50,7 @@
     "@seta/agent-sdk": "workspace:^",
     "@seta/notifications": "workspace:^",
     "@seta/shared-embeddings": "workspace:^",
+    "@seta/shared-orchestration": "workspace:*",
     "@seta/shared-retrieval": "workspace:^",
     "drizzle-orm": "^0.45.2",
     "fractional-indexing": "^3.2.0",

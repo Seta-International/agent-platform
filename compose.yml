@@ -28,10 +28,17 @@ networks:
   seta-internal:
     driver: bridge
     internal: true
+  # Non-internal bridge used ONLY to publish admin ports (e.g. Postgres) to the
+  # host loopback for SSH-tunneled access. `internal: true` networks cannot
+  # publish host ports, so services needing a loopback port join this too.
+  seta-admin:
+    driver: bridge
 
 volumes:
   postgres-data:
   traefik-acme:
+  minio-data:
+  e2e-reports:
   # jaeger-data:
   # prometheus-data:
   # grafana-data:
@@ -85,9 +92,11 @@ services:
     image: traefik:v3.1
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
-      - "5173:5173"  # local smoke-test HTTP (blocked by EC2 security group on prod)
+      # Host-side ports are parameterized so a second stack (e.g. UAT) can coexist
+      # on the same host. Defaults preserve the standard 80/443/5173.
+      - "${HTTP_BIND:-80}:80"
+      - "${HTTPS_BIND:-443}:443"
+      - "${SMOKE_BIND:-5173}:5173"  # local smoke-test HTTP (blocked by EC2 security group on prod)
     volumes:
       - ./infra/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
       - ./infra/traefik/dynamic:/etc/traefik/dynamic:ro
@@ -123,6 +132,13 @@ services:
       PLATFORM_MODULES: ${PLATFORM_MODULES:-*}
       MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
       MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
+      M365_WEBHOOK_SECRET: ${M365_WEBHOOK_SECRET:-}
+      MAILER_DEFAULT_TRANSPORT: ${MAILER_DEFAULT_TRANSPORT:-}
+      MAILER_DEFAULT_SENDER: ${MAILER_DEFAULT_SENDER:-}
+      MAILER_DEFAULT_SENDER_DISPLAY_NAME: ${MAILER_DEFAULT_SENDER_DISPLAY_NAME:-}
+      MAILER_DEFAULT_SMTP_URL: ${MAILER_DEFAULT_SMTP_URL:-}
+      MAILER_GRAPH_CLIENT_ID: ${MAILER_GRAPH_CLIENT_ID:-}
+      MAILER_GRAPH_CLIENT_SECRET: ${MAILER_GRAPH_CLIENT_SECRET:-}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       CORS_ORIGINS: ${CORS_ORIGINS:-}
       SESSION_COOKIE_SAMESITE: ${SESSION_COOKIE_SAMESITE:-strict}
@@ -142,7 +158,20 @@ services:
       AGENT_MODEL_DEFAULT: ${AGENT_MODEL_DEFAULT:-}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
       OLLAMA_API_KEY: ${OLLAMA_API_KEY:-}
+      VLLM_BASE_URL: ${VLLM_BASE_URL:-}
+      VLLM_API_KEY: ${VLLM_API_KEY:-}
       EMBED_MODEL: ${EMBED_MODEL:-}
+      # S3-compatible object storage (AWS S3, MinIO, …). The app is storage-
+      # agnostic — it only speaks the S3 protocol via these keys. Point them at
+      # a self-hosted MinIO or real S3 alike. NODE_EXTRA_CA_CERTS lets Node trust
+      # a self-signed S3 endpoint (see the gated CA bind-mount below).
+      S3_REGION: ${S3_REGION:-}
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
+      NODE_EXTRA_CA_CERTS: ${NODE_EXTRA_CA_CERTS:-}
     expose:
       - "9464"  # Prometheus metrics scrape port
     networks:
@@ -151,8 +180,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+        required: false
       migrator:
         condition: service_completed_successfully
+        required: false
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:'+(process.env.PORT||3000)+'/health/live',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
       interval: 10s
@@ -162,6 +193,10 @@ services:
     read_only: true
     tmpfs:
       - /tmp
+    volumes:
+      # Trust a self-signed S3/MinIO CA when S3_CA_FILE points at one on the host;
+      # defaults to /dev/null (no-op) for real S3 / public-CA endpoints.
+      - ${S3_CA_FILE:-/dev/null}:/etc/ssl/minio-ca.crt:ro
 
   worker:
     image: ${PLATFORM_IMAGE_SERVER:-${ECR_REGISTRY}/${ECR_REPOSITORY}:server-${PLATFORM_VERSION:-latest}}
@@ -176,6 +211,13 @@ services:
       PLATFORM_MODULES: ${PLATFORM_MODULES:-*}
       MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
       MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
+      M365_WEBHOOK_SECRET: ${M365_WEBHOOK_SECRET:-}
+      MAILER_DEFAULT_TRANSPORT: ${MAILER_DEFAULT_TRANSPORT:-}
+      MAILER_DEFAULT_SENDER: ${MAILER_DEFAULT_SENDER:-}
+      MAILER_DEFAULT_SENDER_DISPLAY_NAME: ${MAILER_DEFAULT_SENDER_DISPLAY_NAME:-}
+      MAILER_DEFAULT_SMTP_URL: ${MAILER_DEFAULT_SMTP_URL:-}
+      MAILER_GRAPH_CLIENT_ID: ${MAILER_GRAPH_CLIENT_ID:-}
+      MAILER_GRAPH_CLIENT_SECRET: ${MAILER_GRAPH_CLIENT_SECRET:-}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       CLAMAV_HOST: ${CLAMAV_HOST:-clamav}
       CLAMAV_PORT: ${CLAMAV_PORT:-3310}
@@ -193,15 +235,29 @@ services:
       AGENT_MODEL_DEFAULT: ${AGENT_MODEL_DEFAULT:-}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
       OLLAMA_API_KEY: ${OLLAMA_API_KEY:-}
+      VLLM_BASE_URL: ${VLLM_BASE_URL:-}
+      VLLM_API_KEY: ${VLLM_API_KEY:-}
       EMBED_MODEL: ${EMBED_MODEL:-}
+      # S3-compatible object storage — see the server service for details. The
+      # worker streams objects directly (AV scan, PDF/CV parsing) so it needs the
+      # same credentials and self-signed-CA trust.
+      S3_REGION: ${S3_REGION:-}
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
+      NODE_EXTRA_CA_CERTS: ${NODE_EXTRA_CA_CERTS:-}
     networks:
       - seta-internal
       - seta-edge  # egress for OpenAI / external embedding APIs
     depends_on:
       postgres:
         condition: service_healthy
+        required: false
       migrator:
         condition: service_completed_successfully
+        required: false
     healthcheck:
       test: ["CMD-SHELL", "/entrypoint.sh health || exit 1"]
       interval: 30s
@@ -211,18 +267,29 @@ services:
     read_only: true
     tmpfs:
       - /tmp
+    volumes:
+      - ${S3_CA_FILE:-/dev/null}:/etc/ssl/minio-ca.crt:ro
 
   postgres:
     image: pgvector/pgvector:pg17-trixie
     restart: unless-stopped
+    profiles: ["bundled-infra"]
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
+    # Bind to host loopback only so the DB is reachable via an SSH tunnel
+    # (e.g. DBeaver) without being publicly exposed — preserves the boundary
+    # above (only `proxy` is public). Override the bind via POSTGRES_BIND_ADDR.
+    # Publishing requires the non-internal `seta-admin` network below; the
+    # `seta-internal` network is `internal: true` and cannot publish host ports.
+    ports:
+      - "${POSTGRES_BIND_ADDR:-127.0.0.1}:${POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     networks:
       - seta-internal
+      - seta-admin
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
@@ -244,13 +311,71 @@ services:
       AWS_REGION: ${AWS_REGION:-}
     networks:
       - seta-internal
+      - seta-edge  # egress to reach an external DB (RDS) when bundled postgres is off
     depends_on:
       postgres:
         condition: service_healthy
+        required: false
     restart: "no"
     read_only: true
     tmpfs:
       - /tmp
+
+  # ── Bundled object storage (dev only) ──────────────────────────────────────
+  # MinIO + a one-shot bucket creator, gated behind the bundled-infra profile.
+  # UAT/prod use real AWS S3 (profile off) and never start these.
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    restart: unless-stopped
+    profiles: ["bundled-infra"]
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID:-seta-dev}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY:-seta-dev-secret}
+    volumes:
+      - minio-data:/data
+    networks:
+      - seta-internal
+      - seta-edge
+    healthcheck:
+      test: ["CMD-SHELL", "mc ready local || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio-setup:
+    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    profiles: ["bundled-infra"]
+    restart: "no"
+    networks:
+      - seta-internal
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint:
+      - /bin/sh
+      - -c
+      - >
+        mc alias set local http://minio:9000 "${S3_ACCESS_KEY_ID:-seta-dev}" "${S3_SECRET_ACCESS_KEY:-seta-dev-secret}" &&
+        mc mb --ignore-existing "local/${S3_BUCKET:-seta-knowledge}"
+
+  # ── E2E report site (UAT) ──────────────────────────────────────────────────
+  # Serves the Playwright HTML report written into the e2e-reports volume by the
+  # e2e workflow. Exposed via Traefik at e2e.<domain> behind basic-auth (route
+  # generated by scripts/write-e2e-route.sh). Gated behind the e2e-report profile.
+  e2e-report:
+    image: nginxinc/nginx-unprivileged:alpine
+    restart: unless-stopped
+    profiles: ["e2e-report"]
+    networks:
+      - seta-edge
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+      - /var/run
+    volumes:
+      - e2e-reports:/usr/share/nginx/html:ro
 
   seeder:
     image: ${PLATFORM_IMAGE_SERVER:-${ECR_REGISTRY}/${ECR_REPOSITORY}:server-${PLATFORM_VERSION:-latest}}
@@ -270,6 +395,7 @@ services:
       AWS_REGION: ${AWS_REGION:-}
     networks:
       - seta-internal
+      - seta-edge  # egress to reach an external DB (RDS) when bundled postgres is off
     depends_on:
       postgres:
         condition: service_healthy

@@ -1,4 +1,4 @@
-import { type NavManifest, noNavExtensions } from '@seta/module-sdk';
+import { type AppManifest, noNavExtensions } from '@seta/module-sdk';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import {
   AlertTriangle,
@@ -19,9 +19,10 @@ import {
 import { Avatar, AvatarFallback } from '../primitives/avatar';
 import { AppShell } from './app-shell';
 
-const NAV_MODULES: NavManifest[] = [
+const NAV_MODULES: AppManifest[] = [
   {
     id: 'agent',
+    routeNamespace: '/agent',
     label: 'Agent',
     icon: Sparkles,
     requiredPermissions: [],
@@ -44,6 +45,7 @@ const NAV_MODULES: NavManifest[] = [
   },
   {
     id: 'planner',
+    routeNamespace: '/planner',
     label: 'Planner',
     icon: LayoutDashboard,
     requiredPermissions: [],
@@ -71,6 +73,7 @@ const NAV_MODULES: NavManifest[] = [
   },
   {
     id: 'integrations',
+    routeNamespace: '/integrations',
     label: 'Integrations',
     icon: Link2,
     requiredPermissions: [],
@@ -105,6 +108,7 @@ const NAV_MODULES: NavManifest[] = [
   },
   {
     id: 'admin',
+    routeNamespace: '/admin',
     label: 'Admin',
     icon: Building2,
     requiredPermissions: [],
@@ -168,9 +172,10 @@ type Story = StoryObj<typeof AppShell>;
 
 export const Default: Story = {
   args: {
-    workspace: 'Acme · Engineering',
-    modules: NAV_MODULES,
+    apps: NAV_MODULES,
+    activeAppId: 'admin',
     activeItemId: 'admin.audit',
+    onAppSelect: () => {},
     userMenu: <UserMenuDemo />,
     sessionFooter: <SessionFooter />,
     children: (
@@ -188,6 +193,7 @@ export const Default: Story = {
 export const PlannerActive: Story = {
   args: {
     ...Default.args,
+    activeAppId: 'planner',
     activeItemId: 'planner.plan.q3',
   },
 };

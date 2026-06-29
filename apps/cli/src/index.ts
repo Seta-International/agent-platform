@@ -14,12 +14,13 @@ import { closePools, initPools } from '@seta/shared-db';
 import { Command } from 'commander';
 import pino from 'pino';
 import { runEmbedBackfill } from './commands/embed-backfill.ts';
+import { flagSetCommand } from './commands/flag.ts';
 import { integrationsMailSetCommand } from './commands/integrations-mail-set.ts';
 import { integrationsMailTestCommand } from './commands/integrations-mail-test.ts';
 import { migrateCommand } from './commands/migrate.ts';
 import { plannerCommand } from './commands/planner.ts';
 import { roleGrantCommand } from './commands/role-grant.ts';
-import { seedCommand } from './commands/seed.ts';
+import { seedFixtureCommand } from './commands/seed-fixture/index.ts';
 import { tenantCreateCommand } from './commands/tenant-create.ts';
 import { userCreateCommand } from './commands/user-create.ts';
 import { userDeactivateCommand } from './commands/user-deactivate.ts';
@@ -241,44 +242,42 @@ program
 program
   .command('seed')
   .description(
-    'Load the hackathon dataset (users, plans, buckets, tasks, timesheet). Auto-creates the tenant + admin if missing; idempotent on re-run.',
+    'Seed the cross-module dev fixture (tenant + admin, people, PM, planner, hiring) from the private/ workbook. Auto-creates the tenant + admin; degrades to tenant + admin only when the gitignored workbook is absent. Idempotent.',
   )
-  .option('--tenant <slug-or-id>', 'Tenant slug or UUID', 'hackathon')
-  .option('--tenant-name <name>', 'Tenant display name when bootstrapping (defaults to slug)')
-  .option('--dir <path>', 'Directory containing the CSV files', './hackathon/data')
-  .option(
-    '--admin-email <email>',
-    'Admin email — used as acting session, and created if the tenant is new',
-    'admin@hackathon.com',
-  )
-  .option('--admin-name <name>', 'Admin display name when bootstrapping a new tenant')
-  .option('--password <password>', 'Password for created users', 'ChangeMe@2026')
-  .option(
-    '--only <modules>',
-    'Comma-separated subset of phases to run: users,planner,availability (default: all)',
-  )
+  .requiredOption('--tenant <slug>', 'tenant slug', 'seta-international')
+  .option('--dir <dir>', 'fixture workbook dir', 'private')
+  .option('--admin-email <email>', 'admin email', 'admin@seta-international.vn')
+  .option('--password <pw>', 'default password for seeded logins', 'ChangeMe@2026')
+  .action(async (o: { tenant: string; dir: string; adminEmail: string; password?: string }) => {
+    try {
+      const base = process.env.INIT_CWD ?? process.cwd();
+      const { resolve } = await import('node:path');
+      await seedFixtureCommand({
+        tenant: o.tenant,
+        dir: resolve(base, o.dir),
+        adminEmail: o.adminEmail,
+        password: o.password,
+      });
+    } finally {
+      await closePools();
+    }
+  });
+
+const flag = program.command('flag').description('Feature-flag go-live control');
+flag
+  .command('set <key>')
+  .description('Set a feature flag (master enabled and/or a member allowlist)')
+  .option('--enabled', 'turn the flag on for everyone in scope', false)
+  .option('--members <ids>', 'comma-separated user ids for the allowlist')
+  .option('--tenant <uuid>', 'tenant id to scope the flag to')
+  .option('--global', 'set the global default row (tenant_id NULL)', false)
   .action(
-    async (opts: {
-      tenant: string;
-      tenantName?: string;
-      dir: string;
-      adminEmail: string;
-      adminName?: string;
-      password?: string;
-      only?: string;
-    }) => {
+    async (
+      key: string,
+      opts: { enabled: boolean; members?: string; tenant?: string; global: boolean },
+    ) => {
       try {
-        // pnpm exec changes CWD to the package dir; INIT_CWD is the original invocation dir.
-        const base = process.env.INIT_CWD ?? process.cwd();
-        await seedCommand({
-          tenant: opts.tenant,
-          tenantName: opts.tenantName,
-          dir: resolve(base, opts.dir),
-          adminEmail: opts.adminEmail,
-          adminName: opts.adminName,
-          password: opts.password,
-          only: opts.only,
-        });
+        await flagSetCommand({ key, ...opts });
       } finally {
         await closePools();
       }

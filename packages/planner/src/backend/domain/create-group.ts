@@ -9,6 +9,18 @@ import { groupRowToDto } from './_group-dto.ts';
 
 type GroupDbRow = typeof groups.$inferSelect;
 
+function isUniqueViolation(err: unknown): boolean {
+  if (typeof err !== 'object' || err === null) return false;
+  if ('code' in err && (err as { code: unknown }).code === '23505') return true;
+  const cause = (err as { cause?: unknown }).cause;
+  return (
+    typeof cause === 'object' &&
+    cause !== null &&
+    'code' in cause &&
+    (cause as { code: unknown }).code === '23505'
+  );
+}
+
 export async function createGroup(
   input: CreateGroupInput & { session: SessionScope },
 ): Promise<GroupRow> {
@@ -21,75 +33,85 @@ export async function createGroup(
   }
 
   let inserted!: GroupDbRow;
-  await withEmit(
-    {
-      actor: {
-        userId: input.session.user_id,
-        tenantId: input.tenant_id,
-      },
-    },
-    async (tx) => {
-      const [row] = await tx
-        .insert(groups)
-        .values({
-          tenant_id: input.tenant_id,
-          name: input.name,
-          description: input.description ?? null,
-          theme: input.theme ?? 'blue',
-          visibility: input.visibility ?? 'private',
-          default_role: input.default_role ?? 'member',
-          created_by: input.session.user_id,
-        })
-        .returning();
-      if (!row) throw new PlannerError('VALIDATION', 'Insert returned no row');
-      inserted = row;
-
-      // Always insert creator as owner; caller-supplied initial_members append after.
-      // onConflictDoNothing deduplicates if caller also listed the creator.
-      const membersToInsert = [
-        { user_id: input.session.user_id, role: 'owner' as const },
-        ...(input.initial_members ?? []),
-      ];
-      await tx
-        .insert(groupMembers)
-        .values(
-          membersToInsert.map((m) => ({
-            group_id: row.id,
-            user_id: m.user_id,
-            role: m.role,
-            added_by: input.session.user_id,
-          })),
-        )
-        .onConflictDoNothing();
-
-      await emitPlannerGroupCreated({
-        actor: { type: 'user', user_id: input.session.user_id },
-        tenant_id: input.tenant_id,
-        after: {
-          group_id: row.id,
-          tenant_id: row.tenant_id,
-          name: row.name,
-          description: row.description,
-          theme: row.theme as GroupRow['theme'],
-          visibility: row.visibility as GroupRow['visibility'],
-          default_role: row.default_role as GroupRow['default_role'],
-          external_source: row.external_source as GroupRow['external_source'],
-          external_id: row.external_id,
-          account_id: row.account_id,
-          created_by: row.created_by,
+  try {
+    await withEmit(
+      {
+        actor: {
+          userId: input.session.user_id,
+          tenantId: input.tenant_id,
         },
-      });
+      },
+      async (tx) => {
+        const [row] = await tx
+          .insert(groups)
+          .values({
+            tenant_id: input.tenant_id,
+            name: input.name,
+            description: input.description ?? null,
+            theme: input.theme ?? 'blue',
+            visibility: input.visibility ?? 'private',
+            default_role: input.default_role ?? 'member',
+            created_by: input.session.user_id,
+          })
+          .returning();
+        if (!row) throw new PlannerError('VALIDATION', 'Insert returned no row');
+        inserted = row;
 
-      for (const m of membersToInsert) {
-        await emitPlannerGroupMemberAdded({
+        // Always insert creator as owner; caller-supplied initial_members append after.
+        // onConflictDoNothing deduplicates if caller also listed the creator.
+        const membersToInsert = [
+          { user_id: input.session.user_id, role: 'owner' as const },
+          ...(input.initial_members ?? []),
+        ];
+        await tx
+          .insert(groupMembers)
+          .values(
+            membersToInsert.map((m) => ({
+              group_id: row.id,
+              user_id: m.user_id,
+              role: m.role,
+              added_by: input.session.user_id,
+            })),
+          )
+          .onConflictDoNothing();
+
+        await emitPlannerGroupCreated({
           actor: { type: 'user', user_id: input.session.user_id },
           tenant_id: input.tenant_id,
-          group_id: row.id,
-          user_id: m.user_id,
+          after: {
+            group_id: row.id,
+            tenant_id: row.tenant_id,
+            name: row.name,
+            description: row.description,
+            theme: row.theme as GroupRow['theme'],
+            visibility: row.visibility as GroupRow['visibility'],
+            default_role: row.default_role as GroupRow['default_role'],
+            external_source: row.external_source as GroupRow['external_source'],
+            external_id: row.external_id,
+            account_id: row.account_id,
+            created_by: row.created_by,
+          },
         });
-      }
-    },
-  );
+
+        for (const m of membersToInsert) {
+          await emitPlannerGroupMemberAdded({
+            actor: { type: 'user', user_id: input.session.user_id },
+            tenant_id: input.tenant_id,
+            group_id: row.id,
+            user_id: m.user_id,
+          });
+        }
+      },
+    );
+  } catch (err) {
+    // Unique index groups_uniq_name_per_tenant (tenant_id, name) WHERE deleted_at IS NULL.
+    if (isUniqueViolation(err)) {
+      throw new PlannerError('CONFLICT', `A group named "${input.name}" already exists`, {
+        name: input.name,
+      });
+    }
+    throw err;
+  }
 
   return groupRowToDto(inserted);
 }

@@ -1,0 +1,84 @@
+import { type AppManifest, noNavExtensions } from '@seta/module-sdk';
+import {
+  Bell,
+  BookOpen,
+  FileClock,
+  Flag,
+  Mail,
+  Settings,
+  Shield,
+  ShieldCheck,
+  Sliders,
+} from 'lucide-react';
+
+export const adminAppManifest: AppManifest = {
+  id: 'admin',
+  routeNamespace: '/admin',
+  label: 'Admin',
+  icon: Settings,
+  color: '#8a8f98',
+  requiredPermissions: ['identity.user.read.any'],
+  useNavExtensions: noNavExtensions,
+  nav: [
+    {
+      items: [
+        {
+          id: 'admin.tenant',
+          icon: Sliders,
+          label: 'General',
+          to: '/admin/tenant',
+          requires: ['core.tenant.read'],
+        },
+        {
+          id: 'admin.sso',
+          icon: Shield,
+          label: 'Sign-in & SSO',
+          to: '/admin/sso',
+          requires: ['identity.sso.read'],
+        },
+        {
+          id: 'admin.role-access',
+          icon: ShieldCheck,
+          label: 'Role access',
+          to: '/admin/role-access',
+          requires: ['identity.role.read'],
+        },
+        {
+          id: 'admin.mail-transport',
+          icon: Mail,
+          label: 'Mail',
+          to: '/admin/mail',
+          requires: ['integrations.mail.read'],
+        },
+        {
+          id: 'admin.notifications',
+          icon: Bell,
+          label: 'Notifications',
+          to: '/admin/notifications',
+          requires: ['notifications.category.read'],
+        },
+        {
+          id: 'admin.skills',
+          icon: BookOpen,
+          label: 'Skills catalog',
+          to: '/admin/skills',
+          requires: ['core.skill.read'],
+        },
+        {
+          id: 'admin.feature-flags',
+          icon: Flag,
+          label: 'Feature flags',
+          to: '/admin/feature-flags',
+          requires: ['core.feature_flag.read'],
+        },
+        {
+          id: 'admin.audit',
+          icon: FileClock,
+          label: 'Audit log',
+          to: '/admin/audit',
+          requires: ['core.audit.read'],
+        },
+      ],
+    },
+  ],
+};

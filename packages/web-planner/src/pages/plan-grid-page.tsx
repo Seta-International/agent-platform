@@ -1,0 +1,223 @@
+import type { BucketRow, TaskWithAssigneesRow } from '@seta/planner';
+import { TaskGrid, type TaskGridRow } from '@seta/shared-ui';
+import { useMemo, useState } from 'react';
+import { GridBulkActionFooter } from '../components/grid-bulk-action-footer';
+import { useCompleteTask } from '../hooks/mutations/complete-task';
+import { useCreateTask } from '../hooks/mutations/create-task';
+import { useMoveTask } from '../hooks/mutations/move-task';
+import { useReopenTask } from '../hooks/mutations/reopen-task';
+import { useUpdateTask } from '../hooks/mutations/update-task';
+import { useBulkActions } from '../hooks/use-bulk-actions';
+import { useGridColumnPrefs } from '../hooks/use-grid-column-prefs';
+import { useSelectedTaskIds } from '../state/selected-task-ids';
+import {
+  type PriorityLabel,
+  priorityLabel,
+  priorityNumber,
+  progressLabel,
+  progressLabelPatch,
+} from '../state/task-derived';
+import type { BoardFilters, GroupBy } from '../state/url-state';
+
+interface Props {
+  planId: string;
+  buckets: BucketRow[];
+  tasks: TaskWithAssigneesRow[];
+  filters: BoardFilters;
+  onOpenTask: (taskId: string) => void;
+  groupBy: GroupBy;
+  q?: string;
+  isLinkedToM365?: boolean;
+}
+
+export function PlanGridPage({
+  planId,
+  buckets,
+  tasks,
+  filters,
+  onOpenTask,
+  groupBy,
+  q = '',
+  isLinkedToM365 = false,
+}: Props) {
+  const selectedIds = useSelectedTaskIds((s) => s.ids);
+  const setSelectedIds = useSelectedTaskIds((s) => s.set);
+  const clearSelection = useSelectedTaskIds((s) => s.clear);
+  const [prefs, setPrefs] = useGridColumnPrefs(planId);
+  const updateTask = useUpdateTask(planId);
+  const moveTask = useMoveTask(planId);
+  const completeTask = useCompleteTask(planId);
+  const reopenTask = useReopenTask(planId);
+  const createTask = useCreateTask(planId);
+  const bulk = useBulkActions(planId);
+  const [addingBucketId, setAddingBucketId] = useState<string | null | undefined>(undefined);
+
+  const { rows, tasksById, bucketOptions } = useMemo(() => {
+    const bucketById = new Map(buckets.map((b) => [b.id, b]));
+    const taskMap = new Map(tasks.map((t) => [t.id, t]));
+
+    const gridRows: TaskGridRow[] = tasks.flatMap((t) => {
+      if (t.bucket_id === null) return [];
+      if (
+        filters.assignee_ids.length &&
+        !t.assignees.some((a) => filters.assignee_ids.includes(a.user_id))
+      ) {
+        return [];
+      }
+      if (filters.label_ids.length && !t.labels.some((l) => filters.label_ids.includes(l.id))) {
+        return [];
+      }
+      if (q && !t.title.toLowerCase().includes(q.toLowerCase())) {
+        return [];
+      }
+      return [
+        {
+          id: t.id,
+          title: t.title,
+          status: progressLabel({
+            percent_complete: t.percent_complete,
+            is_deferred: t.is_deferred,
+          }),
+          bucket: bucketById.get(t.bucket_id ?? '')?.name ?? 'No bucket',
+          bucket_id: t.bucket_id,
+          priority: priorityLabel(t.priority_number),
+          assignees: t.assignees.map((a) => ({ id: a.user_id, name: a.display_name })),
+          due: t.due_at,
+          labels: t.labels.map((l) => ({ id: l.id, name: l.name })),
+          external_source: t.external_source,
+          sync_status: t.sync_status,
+          external_synced_at: t.external_synced_at,
+        },
+      ];
+    });
+
+    const bucketOpts = buckets.map((b) => ({ id: b.id, name: b.name }));
+
+    return {
+      rows: gridRows,
+      tasksById: taskMap,
+      bucketOptions: bucketOpts,
+    };
+  }, [buckets, tasks, filters, q]);
+
+  async function onCommitField(taskId: string, patch: Partial<TaskGridRow>) {
+    const task = tasksById.get(taskId);
+    if (!task) return;
+    const expected_version = task.version;
+
+    if (patch.bucket_id !== undefined) {
+      moveTask.mutate({ task_id: taskId, expected_version, bucket_id: patch.bucket_id });
+      return;
+    }
+    const currentStatus = progressLabel({
+      percent_complete: task.percent_complete,
+      is_deferred: task.is_deferred,
+    });
+    if (patch.status !== undefined && patch.status !== currentStatus) {
+      const target = patch.status;
+      if (target === 'completed') {
+        completeTask.mutate({ task_id: taskId, expected_version });
+      } else if (currentStatus === 'completed') {
+        // Reopen emits task.reopened and lands at not_started. If the user
+        // picked in_progress or deferred, follow up with updateTask using the
+        // version returned by reopen.
+        const reopened = await reopenTask.mutateAsync({ task_id: taskId, expected_version });
+        if (target !== 'not_started') {
+          updateTask.mutate({
+            task_id: taskId,
+            expected_version: reopened.version,
+            patch: progressLabelPatch(target),
+          });
+        }
+      } else {
+        updateTask.mutate({
+          task_id: taskId,
+          expected_version,
+          patch: progressLabelPatch(target),
+        });
+      }
+      return;
+    }
+    const apiPatch: Partial<{
+      title: string;
+      priority_number: 1 | 3 | 5 | 9;
+      due_at: string | undefined;
+    }> = {};
+    if (patch.title !== undefined) apiPatch.title = patch.title;
+    if (patch.priority !== undefined) {
+      apiPatch.priority_number = priorityNumber(patch.priority as PriorityLabel);
+    }
+    if (patch.due !== undefined) apiPatch.due_at = patch.due ?? undefined;
+    if (Object.keys(apiPatch).length === 0) return;
+    updateTask.mutate({ task_id: taskId, expected_version, patch: apiPatch });
+  }
+
+  function selectedExpectedVersions() {
+    return [...selectedIds].flatMap((id) => {
+      const t = tasksById.get(id);
+      return t !== undefined ? [{ id: t.id, expected_version: t.version }] : [];
+    });
+  }
+
+  function onMove(toBucketId: string | null) {
+    void bulk.bulkMove({ tasks: selectedExpectedVersions(), to_bucket_id: toBucketId });
+    clearSelection();
+  }
+  function onAssign(userId: string) {
+    void bulk.bulkAssign({ tasks: [...selectedIds], user_id: userId });
+    clearSelection();
+  }
+  function onSetDue(due: string | null) {
+    void bulk.bulkSetDue({ tasks: selectedExpectedVersions(), due_at: due });
+    clearSelection();
+  }
+  function onDelete() {
+    void bulk.bulkDelete({ tasks: selectedExpectedVersions() });
+    clearSelection();
+  }
+
+  function handleAddTask(title: string, bucketId: string | null) {
+    if (title === '__open__') {
+      setAddingBucketId(bucketId);
+      return;
+    }
+    createTask.mutate({ plan_id: planId, bucket_id: bucketId ?? undefined, title });
+    setAddingBucketId(undefined);
+  }
+
+  function handleCancelAdd() {
+    setAddingBucketId(undefined);
+  }
+
+  return (
+    <>
+      <TaskGrid
+        rows={rows}
+        groupBy={groupBy}
+        selection={selectedIds}
+        onSelectionChange={setSelectedIds}
+        onCommitField={onCommitField}
+        bucketOptions={bucketOptions}
+        onOpenTask={onOpenTask}
+        columnOrder={prefs.order}
+        columnWidths={prefs.widths}
+        onColumnOrderChange={(order) => setPrefs((p) => ({ ...p, order }))}
+        onColumnWidthsChange={(widths) => setPrefs((p) => ({ ...p, widths }))}
+        addingBucketId={addingBucketId}
+        onAddTask={handleAddTask}
+        onCancelAdd={handleCancelAdd}
+      />
+      {selectedIds.size > 0 && (
+        <GridBulkActionFooter
+          count={selectedIds.size}
+          bucketOptions={bucketOptions}
+          isLinkedToM365={isLinkedToM365}
+          onMove={onMove}
+          onAssign={onAssign}
+          onSetDue={onSetDue}
+          onDelete={onDelete}
+        />
+      )}
+    </>
+  );
+}

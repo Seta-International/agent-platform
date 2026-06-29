@@ -367,4 +367,62 @@ describe('moveTask', () => {
       },
     );
   });
+
+  it('throws CONFLICT on stale version when the move triggers a rebalance', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
+      },
+      async ({ pool, databaseUrl }) => {
+        resetCoreDb();
+        initPools({ databaseUrl });
+        try {
+          const seeded = await seedTenant(pool);
+          const session = seeded.adminSession;
+
+          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+          const bucketA = await createBucket({ plan_id: plan.id, name: 'Bucket A', session });
+          const bucketB = await createBucket({ plan_id: plan.id, name: 'Bucket B', session });
+
+          const task1 = await createTask({
+            plan_id: plan.id,
+            bucket_id: bucketB.id,
+            title: 'T1',
+            session,
+          });
+          const task2 = await createTask({
+            plan_id: plan.id,
+            bucket_id: bucketB.id,
+            title: 'T2',
+            session,
+          });
+          // Force a collision so the move takes the rebalance branch.
+          await pool.query(`UPDATE planner.tasks SET order_hint = 'a0' WHERE id = $1`, [task1.id]);
+          await pool.query(`UPDATE planner.tasks SET order_hint = 'a0' WHERE id = $1`, [task2.id]);
+
+          const taskToMove = await createTask({
+            plan_id: plan.id,
+            bucket_id: bucketA.id,
+            title: 'Move',
+            session,
+          });
+
+          await expect(
+            moveTask({
+              task_id: taskToMove.id,
+              expected_version: 99,
+              bucket_id: bucketB.id,
+              after_id: task1.id,
+              session,
+            }),
+          ).rejects.toMatchObject({ code: 'CONFLICT' });
+        } finally {
+          resetCoreDb();
+          await closePools();
+        }
+      },
+    );
+  });
 });

@@ -127,7 +127,10 @@ export function TaskGrid({
   onAddTask,
   onCancelAdd,
 }: TaskGridProps) {
-  const groups = useMemo(() => groupRows(rows, groupBy), [rows, groupBy]);
+  const groups = useMemo(
+    () => buildDisplayGroups(rows, groupBy, bucketOptions),
+    [rows, groupBy, bucketOptions],
+  );
   const [editing, setEditing] = useState<{ taskId: string; field: keyof TaskGridRow } | null>(null);
   const lastClickedRef = useRef<string | null>(null);
 
@@ -170,9 +173,8 @@ export function TaskGrid({
         <div className={`${headCellCls} pr-2`}>Labels</div>
       </div>
 
-      {[...groups.entries()].map(([groupKey, groupRowList]) => {
+      {groups.map(({ key: groupKey, rows: groupRowList, bucketId: groupBucketId }) => {
         const header = formatGroupHeader(groupBy, groupKey);
-        const groupBucketId = groupRowList[0]?.bucket_id ?? null;
         return (
           <Fragment key={groupKey}>
             <div className="mt-2 flex items-center gap-2 px-3 pb-2 pt-3 first:mt-0">
@@ -364,26 +366,6 @@ export function TaskGrid({
           </Fragment>
         );
       })}
-
-      {groupBy === 'bucket' && (
-        <div className="mt-2">
-          {addingBucketId === null ? (
-            <AddTaskRow
-              bucketId={null}
-              onCommit={(title) => onAddTask?.(title, null)}
-              onCancel={() => onCancelAdd?.()}
-            />
-          ) : (
-            <button
-              type="button"
-              onClick={() => onAddTask?.('__open__', null)}
-              className="flex w-full items-center gap-1.5 rounded-md px-3 py-2 text-body-sm text-ink-subtle hover:bg-surface-2 hover:text-ink"
-            >
-              <span className="text-base leading-none">+</span> Add a task
-            </button>
-          )}
-        </div>
-      )}
     </div>
   );
 }
@@ -662,4 +644,43 @@ function groupRows(rows: TaskGridRow[], by: GroupBy): Map<string, TaskGridRow[]>
     m.set(k, arr);
   }
   return m;
+}
+
+interface DisplayGroup {
+  key: string;
+  rows: TaskGridRow[];
+  bucketId: string | null;
+}
+
+/** When grouped by bucket, include every plan bucket so empty buckets still expose "Add a task". */
+function buildDisplayGroups(
+  rows: TaskGridRow[],
+  by: GroupBy,
+  bucketOptions?: ReadonlyArray<BucketOption>,
+): DisplayGroup[] {
+  const rowGroups = groupRows(rows, by);
+
+  if (by === 'bucket' && bucketOptions?.length) {
+    const seen = new Set<string>();
+    const groups: DisplayGroup[] = bucketOptions.map((b) => {
+      seen.add(b.name);
+      return { key: b.name, rows: rowGroups.get(b.name) ?? [], bucketId: b.id };
+    });
+    for (const [key, groupRowList] of rowGroups) {
+      if (!seen.has(key)) {
+        groups.push({
+          key,
+          rows: groupRowList,
+          bucketId: groupRowList[0]?.bucket_id ?? null,
+        });
+      }
+    }
+    return groups;
+  }
+
+  return [...rowGroups.entries()].map(([key, groupRowList]) => ({
+    key,
+    rows: groupRowList,
+    bucketId: groupRowList[0]?.bucket_id ?? null,
+  }));
 }

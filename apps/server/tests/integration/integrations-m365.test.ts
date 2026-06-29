@@ -35,6 +35,7 @@ function buildSession(opts: {
     cross_tenant_read: false,
     built_at: new Date(),
     invalidated_at: null,
+    features: new Set<string>(),
   };
 }
 
@@ -103,7 +104,11 @@ describe('GET /api/integrations/m365/groups/search', () => {
     const res = await app.request('/api/integrations/m365/groups/search?q=Eng');
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
-      groups: Array<{ external_id: string; display_name: string; mail_nickname: string }>;
+      groups: Array<{
+        external_id: string;
+        display_name: string;
+        mail_nickname: string;
+      }>;
     };
     expect(body.groups).toHaveLength(2);
     expect(body.groups[0]).toEqual({
@@ -202,7 +207,11 @@ async function seedTenant(pool: Pool, slug: string) {
       email: adminEmail,
       name: 'Admin',
       password: 'correct-horse-battery-staple',
-      initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
+      initial_role: {
+        role_slug: 'org.admin',
+        scope_type: 'tenant',
+        scope_id: null,
+      },
     },
     { type: 'cli', user_id: null },
   );
@@ -216,7 +225,10 @@ describe('POST /api/integrations/m365/groups/:groupId/link', () => {
       initPools({ databaseUrl });
       try {
         const { tenantId, adminUserId, adminEmail } = await seedTenant(pool, 'm365-link-ok');
-        const session = buildSession({ tenant_id: tenantId, user_id: adminUserId });
+        const session = buildSession({
+          tenant_id: tenantId,
+          user_id: adminUserId,
+        });
         const addJob = vi.fn().mockResolvedValue(undefined);
 
         const group = await createGroup({
@@ -247,7 +259,10 @@ describe('POST /api/integrations/m365/groups/:groupId/link', () => {
         });
 
         expect(res.status).toBe(201);
-        const body = (await res.json()) as { external_source: string; external_id: string };
+        const body = (await res.json()) as {
+          external_source: string;
+          external_id: string;
+        };
         expect(body.external_source).toBe('m365');
         expect(body.external_id).toBe('ext-m365-aaa');
         expect(addJob).toHaveBeenCalledWith('m365.group.pull', {
@@ -340,7 +355,10 @@ describe('POST /api/integrations/m365/groups/:groupId/unlink', () => {
       initPools({ databaseUrl });
       try {
         const { tenantId, adminUserId, adminEmail } = await seedTenant(pool, 'm365-unlink-ok');
-        const session = buildSession({ tenant_id: tenantId, user_id: adminUserId });
+        const session = buildSession({
+          tenant_id: tenantId,
+          user_id: adminUserId,
+        });
         const fullSession = {
           ...session,
           email: adminEmail,
@@ -348,7 +366,11 @@ describe('POST /api/integrations/m365/groups/:groupId/unlink', () => {
           accessible_group_ids: [] as string[],
         };
 
-        const group = await createGroup({ tenant_id: tenantId, name: 'Eng', session: fullSession });
+        const group = await createGroup({
+          tenant_id: tenantId,
+          name: 'Eng',
+          session: fullSession,
+        });
 
         const app = buildTestApp(session, async () => {
           throw new Error('unused');
@@ -466,11 +488,21 @@ describe('POST /api/integrations/m365/groups/:groupId/refresh', () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as { ok: boolean };
     expect(body.ok).toBe(true);
-    expect(addJob).toHaveBeenCalledWith('m365.group.pull', {
+    expect(addJob).toHaveBeenNthCalledWith(1, 'm365.group.pull', {
       tenant_id: tenantId,
       group_id: groupId,
       external_id: 'ext-refresh-aaa',
     });
+    expect(addJob).toHaveBeenNthCalledWith(
+      2,
+      'm365.plan.auto-mirror',
+      {
+        tenant_id: tenantId,
+        group_id: groupId,
+        external_group_id: 'ext-refresh-aaa',
+      },
+      { jobKey: `auto-mirror:${tenantId}:${groupId}` },
+    );
   });
 
   it('returns 409 NOT_LINKED when no link exists', async () => {
@@ -601,7 +633,9 @@ describe('POST /api/integrations/m365/groups/:groupId/resolve', () => {
     const res = await app.request(`/api/integrations/m365/groups/${groupId}/resolve`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ decisions: [{ field: 'name', choice: 'local' }] }),
+      body: JSON.stringify({
+        decisions: [{ field: 'name', choice: 'local' }],
+      }),
     });
 
     expect(res.status).toBe(404);
@@ -626,7 +660,9 @@ describe('POST /api/integrations/m365/groups/:groupId/resolve', () => {
     const res = await app.request(`/api/integrations/m365/groups/${groupId}/resolve`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ decisions: [{ field: 'name', choice: 'local' }] }),
+      body: JSON.stringify({
+        decisions: [{ field: 'name', choice: 'local' }],
+      }),
     });
 
     expect(res.status).toBe(403);
@@ -684,7 +720,9 @@ describe('POST /api/integrations/m365/groups/:groupId/resolve', () => {
         const res = await app.request(`/api/integrations/m365/groups/${group.id}/resolve`, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ decisions: [{ field: 'name', choice: 'remote' }] }),
+          body: JSON.stringify({
+            decisions: [{ field: 'name', choice: 'remote' }],
+          }),
         });
 
         expect(res.status).toBe(200);
@@ -706,7 +744,10 @@ describe('POST /api/integrations/m365/groups/:groupId/resolve', () => {
         throw new Error('unused');
       },
       {
-        workers: { addJob, shutdown: async () => {} } as import('@seta/core/runtime').WorkerHandle,
+        workers: {
+          addJob,
+          shutdown: async () => {},
+        } as import('@seta/core/runtime').WorkerHandle,
         m365LinksRepo: buildResolveLinksRepo(),
       },
     );
@@ -714,7 +755,9 @@ describe('POST /api/integrations/m365/groups/:groupId/resolve', () => {
     const res = await app.request(`/api/integrations/m365/groups/${groupId}/resolve`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ decisions: [{ field: 'name', choice: 'local' }] }),
+      body: JSON.stringify({
+        decisions: [{ field: 'name', choice: 'local' }],
+      }),
     });
 
     expect(res.status).toBe(200);
@@ -793,7 +836,11 @@ describe('GET /api/integrations/m365/groups/:groupId/sync-status', () => {
 
     const res = await app.request(`/api/integrations/m365/groups/${groupId}/sync-status`);
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { sync_status: string; synced_at: string; last_error: null };
+    const body = (await res.json()) as {
+      sync_status: string;
+      synced_at: string;
+      last_error: null;
+    };
     expect(body.sync_status).toBe('idle');
     expect(body.synced_at).toBe(syncedAt.toISOString());
     expect(body.last_error).toBeNull();
