@@ -439,6 +439,7 @@ export async function createAllocation(body: {
   date_from?: string | null;
   date_to?: string | null;
   status?: 'placeholder' | 'tentative' | 'committed';
+  note?: string | null;
 }): Promise<{ allocation_id: string }> {
   const res = await fetch('/api/pm/v1/allocations', {
     method: 'POST',
@@ -457,6 +458,7 @@ export async function updateAllocation(
     status?: 'placeholder' | 'tentative' | 'committed';
     date_from?: string | null;
     date_to?: string | null;
+    note?: string | null;
   },
 ): Promise<{ version: number }> {
   const res = await fetch(`/api/pm/v1/allocations/${allocationId}`, {
@@ -474,4 +476,53 @@ export async function removeAllocation(allocationId: string): Promise<void> {
     credentials: 'include',
   });
   if (!res.ok) await handleResponse(res);
+}
+
+export interface RaMonitoringAllocation {
+  allocation_id: string;
+  worker_id: string | null;
+  role: string | null;
+  planned_pct: number | null;
+  bucket: 'billable' | 'internal' | 'bench';
+  status: 'placeholder' | 'tentative' | 'committed';
+  date_from: string | null;
+  date_to: string | null;
+  note: string | null;
+  project_id: string;
+  project_name: string;
+  account_id: string;
+  account_name: string;
+  version: number;
+}
+
+export async function fetchAllocations(params: {
+  account_id?: string;
+  project_id?: string;
+  active_from?: string;
+  active_to?: string;
+}): Promise<RaMonitoringAllocation[]> {
+  const sp = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v) sp.set(k, v);
+  }
+  const qs = sp.toString();
+  const res = await fetch(`/api/pm/v1/allocations${qs ? `?${qs}` : ''}`, {
+    credentials: 'include',
+  });
+  return (await handleResponse<{ allocations: RaMonitoringAllocation[] }>(res)).allocations;
+}
+
+export async function fetchWorkersByIds(
+  ids: string[],
+): Promise<Map<string, { full_name: string; job_title: string | null }>> {
+  if (ids.length === 0) return new Map();
+  const res = await fetch(`/api/people/v1/workers?ids=${ids.join(',')}`, {
+    credentials: 'include',
+  });
+  const body = await handleResponse<{
+    rows: Array<{ worker_id: string; full_name: string; job_title: string | null }>;
+  }>(res);
+  return new Map(
+    body.rows.map((r) => [r.worker_id, { full_name: r.full_name, job_title: r.job_title }]),
+  );
 }
