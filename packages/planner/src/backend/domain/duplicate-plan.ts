@@ -379,6 +379,7 @@ async function copyTask(args: {
     await emitPlannerTaskReferenceAdded({
       actor,
       tenant_id: row.tenant_id,
+      group_id: groupId,
       task_id: newTaskId,
       plan_id: newPlanId,
       url: newRef.url,
