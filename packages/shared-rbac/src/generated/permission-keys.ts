@@ -73,7 +73,6 @@ export type PermissionKey =
   | 'notifications.preference.write'
   | 'people.worker.edit'
   | 'people.worker.manage'
-  | 'people.worker.portal_access.set'
   | 'people.worker.provision'
   | 'people.worker.read'
   | 'people.worker.read.all'
@@ -205,7 +204,6 @@ export const ALL_PERMISSIONS: readonly PermissionKey[] = [
   'notifications.preference.write',
   'people.worker.edit',
   'people.worker.manage',
-  'people.worker.portal_access.set',
   'people.worker.provision',
   'people.worker.read',
   'people.worker.read.all',

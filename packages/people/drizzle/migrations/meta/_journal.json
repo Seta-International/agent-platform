@@ -78,6 +78,13 @@
       "when": 1782118733350,
       "tag": "0010_absent_big_bertha",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1782713544151,
+      "tag": "0011_wooden_captain_flint",
+      "breakpoints": true
     }
   ]
 }

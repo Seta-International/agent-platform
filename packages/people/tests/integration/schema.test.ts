@@ -50,27 +50,4 @@ describe('people schema migration', () => {
       expect(c.rowCount).toBe(1);
     });
   });
-
-  it('worker.portal_access defaults to false', async () => {
-    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
-      resetCoreDb();
-      resetPeopleDb();
-      initPools({ databaseUrl });
-      try {
-        const t = await seedTenant(pool);
-        const { worker_id } = await provisionWorker({
-          full_name: 'Portal Default',
-          start_date: '2026-06-19',
-          employment_type: 'full_time',
-          session: t.adminSession,
-        });
-        const [w] = await peopleDb().select().from(worker).where(eq(worker.person_id, worker_id));
-        expect(w?.portal_access).toBe(false);
-      } finally {
-        resetPeopleDb();
-        resetCoreDb();
-        await closePools();
-      }
-    });
-  });
 });

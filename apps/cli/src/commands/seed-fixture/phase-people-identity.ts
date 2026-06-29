@@ -3,7 +3,7 @@ import type { SessionScope } from '@seta/core';
 import { coreDb } from '@seta/core/db';
 import type { Actor } from '@seta/identity';
 import { createUser, grantRole, updateUserProfile } from '@seta/identity';
-import { addPersonSkill, createWorker, genderValue, setPortalAccess } from '@seta/people';
+import { addPersonSkill, createWorker, genderValue } from '@seta/people';
 import { sql } from 'drizzle-orm';
 import type { EmployeeRec } from './load.ts';
 import type { SeededSkill } from './phase-skills.ts';
@@ -149,11 +149,6 @@ export async function seedPeopleIdentity(
       },
       actor,
     );
-
-    // Grant portal access so the worker record matches its login (createUser made
-    // the credentialed user; provisionLogin is email-idempotent, so this binds the
-    // same user and flips portal_access — no duplicate). Idempotent on re-run.
-    await setPortalAccess({ worker_id: workerId, enabled: true, session });
 
     // Tech stack — populate people.person_skill (what the directory Techstack column reads).
     // Role base skills plus a deterministic handful of extras so same-role peers differ.

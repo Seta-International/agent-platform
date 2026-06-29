@@ -365,7 +365,7 @@ export const INVENTORY: StatementSpec[] = [
   {
     module: 'people',
     statement: {
-      'people.worker': ['read', 'read.all', 'provision', 'edit', 'portal_access.set', 'manage'],
+      'people.worker': ['read', 'read.all', 'provision', 'edit', 'manage'],
     },
     roles: [
       {
@@ -376,7 +376,6 @@ export const INVENTORY: StatementSpec[] = [
           'people.worker.read.all',
           'people.worker.provision',
           'people.worker.edit',
-          'people.worker.portal_access.set',
           'people.worker.manage',
           'core.skill.read',
         ],

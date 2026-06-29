@@ -71,7 +71,6 @@ export const worker = peopleSchema.table(
     phone: text('phone'),
     emergency_contact: jsonb('emergency_contact'),
     profile_completed_at: timestamp('profile_completed_at', { withTimezone: true }),
-    portal_access: boolean('portal_access').notNull().default(false),
     job_title: text('job_title'),
     org_unit_id: uuid('org_unit_id'),
     manager_id: uuid('manager_id'),

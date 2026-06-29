@@ -3,7 +3,6 @@ import { coreDb } from '@seta/core/db';
 import { holdRequisition } from '@seta/hiring';
 import type { Actor } from '@seta/identity';
 import { deactivateUser } from '@seta/identity';
-import { setPortalAccess } from '@seta/people';
 import { createAllocation } from '@seta/pm';
 import { sql } from 'drizzle-orm';
 import pino from 'pino';
@@ -19,28 +18,11 @@ export async function seedEdgeCases(
   const actor: Actor = { type: 'cli', user_id: session.user_id };
 
   // Resolve deterministic targets
-  const firstInMap = employees.find((e) => people.has(e.id));
   const devEmployees = employees.filter((e) => e.primary_role === 'DEV' && people.has(e.id));
 
-  // 1. No-portal worker — flip portal_access to false
+  // 1. Deactivated user — pick first DEV
   try {
-    if (!firstInMap) {
-      log.warn('edge-cases: no workers in people map, skipping no-portal');
-    } else {
-      const entry = people.get(firstInMap.id);
-      if (!entry) throw new Error('no-portal target not in people map');
-      const { workerId } = entry;
-      await setPortalAccess({ worker_id: workerId, enabled: false, session });
-      log.info({ worker_id: workerId }, 'edge-cases: portal_access=false');
-    }
-  } catch (err) {
-    log.warn({ err }, 'edge-cases: no-portal skipped');
-  }
-
-  // 2. Deactivated user — pick first DEV that isn't also the no-portal target
-  try {
-    const noPortalId = firstInMap?.id;
-    const deactivateTarget = devEmployees.find((e) => e.id !== noPortalId) ?? devEmployees[0];
+    const deactivateTarget = devEmployees[0];
     if (!deactivateTarget) {
       log.warn('edge-cases: no DEV employee found, skipping deactivated-user');
     } else {
