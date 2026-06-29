@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import type { SessionScope } from '@seta/core';
 import { coreDb } from '@seta/core/db';
 import type { Actor } from '@seta/identity';
-import { createUser, grantRole, updateUserProfile } from '@seta/identity';
+import { ensureLocalLogin, grantRole, provisionLogin, updateUserProfile } from '@seta/identity';
 import { addPersonSkill, createWorker, genderValue } from '@seta/people';
 import { sql } from 'drizzle-orm';
 import type { EmployeeRec } from './load.ts';
@@ -20,15 +20,6 @@ async function findWorkerId(tenantId: string, email: string): Promise<string | u
         LIMIT 1`,
   );
   return (r.rows[0] as { person_id: string } | undefined)?.person_id;
-}
-
-async function findUserId(tenantId: string, email: string): Promise<string | undefined> {
-  const r = await coreDb().execute(
-    sql`SELECT id FROM identity."user"
-        WHERE tenant_id = ${tenantId} AND lower(email) = lower(${email})
-        LIMIT 1`,
-  );
-  return (r.rows[0] as { id: string } | undefined)?.id;
 }
 
 async function hasGrant(
@@ -111,15 +102,14 @@ export async function seedPeopleIdentity(
       );
     }
 
-    // identity login — idempotent on email
-    let userId = await findUserId(session.tenant_id, e.work_email);
-    if (!userId) {
-      const created = await createUser(
-        { tenant_id: session.tenant_id, email: e.work_email, name: e.full_name, password },
-        actor,
-      );
-      userId = created.user_id;
-    }
+    // identity login — provision via the same concurrency-safe path the auto-provision
+    // subscriber uses (idempotent on email, so it composes with the subscriber instead of
+    // racing it), then attach the shared demo credential so employees can still password-log-in.
+    const { user_id: userId } = await provisionLogin(
+      { tenant_id: session.tenant_id, email: e.work_email, name: e.full_name },
+      actor,
+    );
+    await ensureLocalLogin({ user_id: userId, tenant_id: session.tenant_id, password }, actor);
 
     // role grants — check before each insert (append-only table, no unique constraint)
     for (const g of rolesFor(e.primary_role)) {
