@@ -9,6 +9,7 @@ Contract for coding agents (Claude Code, Codex, any `AGENTS.md`-aware tool) work
 - [`docs/platform/rbac.md`](docs/platform/rbac.md) — how access control works, conceptually (for contributors + agents; no code).
 - [`docs/guides/creating-modules.md`](docs/guides/creating-modules.md) — add a new module + agent tool via `pnpm gen module`.
 - [`docs/guides/dev-quickstart.md`](docs/guides/dev-quickstart.md) — first tenant and accounts on a fresh DB.
+- [`docs/guides/commit-convention.md`](docs/guides/commit-convention.md) — Jira-keyed branches, commit format, PR template (CI-gated).
 - [`docs/guides/writing-a-prd.md`](docs/guides/writing-a-prd.md) · [`writing-a-wbs.md`](docs/guides/writing-a-wbs.md) — playbooks: author a module PRD; break a module into a WBS (CSV → Jira).
 - [`docs/reference/db-design.md`](docs/reference/db-design.md) — unified DB design; [`ddd-design.md`](docs/reference/ddd-design.md) is the event/integration backbone.
 - [`docs/hosting/`](docs/hosting/) — self-host (docker compose, AWS, scaling, upgrading).
@@ -56,6 +57,7 @@ Declared via `"setaTier"` in `package.json` (informational, not a separate enfor
 
 ## Project-specific workflow
 
+- **Branching & commits (Jira-keyed, CI-gated)** — every task maps to a Jira ticket (`FUT-<n>`). Start work on a fresh branch named `<type>/FUT-<n>-<slug>` (e.g. `git checkout -b feat/FUT-123-group-viewer`); never commit feature work on `main`. Commit as `type(scope): FUT-<n> subject` — Conventional Commit type + the Jira key right after the colon, subject ≤ 100 chars (e.g. `feat(planner): FUT-123 add group viewer`). Types: `feat fix chore docs refactor test ci build perf style revert`; scope is optional (use `(deps)` for dependency bumps — key not required there). `commitlint` (lefthook `commit-msg`) + the branch-name guard (lefthook `pre-commit`) enforce this locally; CI re-checks the PR title and head branch. Pull the `FUT-<n>` from the ticket the task references.
 - **Tests run against real Postgres via `testcontainers`** — do not introduce DB mocks. Write the failing test first.
 - **Verify before claiming done**: `pnpm typecheck && pnpm lint && pnpm test` (and `pnpm test:e2e` if UI changed).
 - **Install deps via CLI only**: `pnpm add <pkg>` with no version specifier so the registry resolves latest. Never hand-edit `package.json` versions or `pnpm-lock.yaml`.
