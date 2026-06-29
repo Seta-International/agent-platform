@@ -36,6 +36,7 @@ import {
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate, useSearch } from '@tanstack/react-router';
 import { AlertCircle, CalendarRange, Check, Pencil, Plus, Trash2, Users, X } from 'lucide-react';
 import { type Dispatch, type SetStateAction, useEffect, useMemo, useState } from 'react';
 import {
@@ -79,6 +80,15 @@ type AllocationDraft = {
   bucket?: Bucket;
   note?: string | null;
 };
+
+/** Filter state mirrored in the URL query string. */
+export interface RaSearch {
+  q?: string;
+  account?: string;
+  project?: string;
+  from?: string;
+  to?: string;
+}
 
 /** Volatile per-row edit state passed via the table `meta` so column defs stay
  *  stable across keystrokes — otherwise editable inputs remount and lose focus. */
@@ -296,27 +306,40 @@ function AddAllocationDialog({
 export function RaMonitoringPage() {
   const qc = useQueryClient();
   const canManage = usePermission('pm.project.manage');
+  const navigate = useNavigate();
+  const search = useSearch({ strict: false }) as Partial<RaSearch>;
 
   const thisYear = new Date().getFullYear();
   const yearFrom = `${thisYear}-01-01`;
   const yearTo = `${thisYear}-12-31`;
-  const [search, setSearch] = useState<string>('');
-  const [accountId, setAccountId] = useState<string>('');
-  const [projectId, setProjectId] = useState<string>('');
-  const [activeFrom, setActiveFrom] = useState<string>(yearFrom);
-  const [activeTo, setActiveTo] = useState<string>(yearTo);
+  const accountId = search.account ?? '';
+  const projectId = search.project ?? '';
+  const activeFrom = search.from ?? yearFrom;
+  const activeTo = search.to ?? yearTo;
+  const q = search.q;
+
+  const update = (patch: Partial<RaSearch>) => {
+    void navigate({ to: '/pm/resourcing', search: { ...search, ...patch }, replace: true });
+  };
 
   const win = useMemo<EffortWindow>(
     () => ({ from: activeFrom || undefined, to: activeTo || undefined }),
     [activeFrom, activeTo],
   );
 
-  // Debounce the free-text search before it drives the server query.
-  const [debouncedQ, setDebouncedQ] = useState('');
+  // Free-text search: local input, debounced into the URL `q` param.
+  const [searchInput, setSearchInput] = useState(q ?? '');
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedQ(search.trim()), 250);
-    return () => clearTimeout(t);
-  }, [search]);
+    setSearchInput(q ?? '');
+  }, [q]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: debounce keys on searchInput; q/update are read fresh each tick
+  useEffect(() => {
+    const id = setTimeout(() => {
+      const trimmed = searchInput.trim();
+      if ((q ?? '') !== trimmed) update({ q: trimmed || undefined });
+    }, 250);
+    return () => clearTimeout(id);
+  }, [searchInput]);
 
   const params = useMemo(
     () => ({
@@ -324,9 +347,9 @@ export function RaMonitoringPage() {
       project_id: projectId || undefined,
       active_from: activeFrom || undefined,
       active_to: activeTo || undefined,
-      q: debouncedQ || undefined,
+      q: q || undefined,
     }),
-    [accountId, projectId, activeFrom, activeTo, debouncedQ],
+    [accountId, projectId, activeFrom, activeTo, q],
   );
 
   const { data: accounts } = useQuery({ queryKey: pmKeys.accounts(), queryFn: fetchAccounts });
@@ -352,12 +375,9 @@ export function RaMonitoringPage() {
   );
   const kpis = useMemo(() => rollupKpis(allocations, win), [allocations, win]);
   const overWorkers = useMemo(() => overAllocatedWorkers(allocations, win), [allocations, win]);
-  const hasFilters =
-    search !== '' ||
-    accountId !== '' ||
-    projectId !== '' ||
-    activeFrom !== yearFrom ||
-    activeTo !== yearTo;
+  const hasFilters = Boolean(
+    search.q || search.account || search.project || search.from || search.to,
+  );
 
   const invalidate = () => void qc.invalidateQueries({ queryKey: [...pmKeys.all, 'allocations'] });
 
@@ -613,8 +633,8 @@ export function RaMonitoringPage() {
             return (
               <div className="flex justify-end gap-1">
                 <Button
-                  size="icon-round"
-                  variant="ghost"
+                  size="icon"
+                  variant="secondary"
                   aria-label="Save"
                   disabled={m.savePending}
                   onClick={() => m.onSave(r)}
@@ -622,8 +642,8 @@ export function RaMonitoringPage() {
                   <Check className="size-4 text-[var(--color-success)]" />
                 </Button>
                 <Button
-                  size="icon-round"
-                  variant="ghost"
+                  size="icon"
+                  variant="secondary"
                   aria-label="Cancel"
                   onClick={() => m.onCancel()}
                 >
@@ -634,17 +654,12 @@ export function RaMonitoringPage() {
           }
           return (
             <div className="flex justify-end gap-1">
-              <Button
-                size="icon-round"
-                variant="ghost"
-                aria-label="Edit"
-                onClick={() => m.onEdit(r)}
-              >
+              <Button size="icon" variant="secondary" aria-label="Edit" onClick={() => m.onEdit(r)}>
                 <Pencil className="size-4" />
               </Button>
               <Button
-                size="icon-round"
-                variant="ghost"
+                size="icon"
+                variant="secondary"
                 aria-label="Delete"
                 onClick={() => m.onDelete(r)}
               >
@@ -703,8 +718,8 @@ export function RaMonitoringPage() {
           <Input
             className="h-8 w-56"
             placeholder="Search person, project…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
           />
           <Combobox
             className="h-8 w-44"
@@ -713,10 +728,7 @@ export function RaMonitoringPage() {
             searchPlaceholder="Search accounts…"
             options={accountOptions}
             value={accountId || null}
-            onChange={(v) => {
-              setAccountId(v ?? '');
-              setProjectId('');
-            }}
+            onChange={(v) => update({ account: v ?? undefined, project: undefined })}
           />
           <Combobox
             className="h-8 w-44"
@@ -725,7 +737,7 @@ export function RaMonitoringPage() {
             searchPlaceholder="Search projects…"
             options={projectOptions}
             value={projectId || null}
-            onChange={(v) => setProjectId(v ?? '')}
+            onChange={(v) => update({ project: v ?? undefined })}
           />
           <div className="flex h-8 items-center gap-1.5 rounded-md border border-hairline bg-surface-1 px-2 text-ink-muted">
             <CalendarRange className="size-3.5 text-ink-subtle" />
@@ -734,7 +746,7 @@ export function RaMonitoringPage() {
               aria-label="Active from"
               className="h-7 w-[7.5rem] border-0 bg-transparent px-1 focus-visible:ring-0"
               value={activeFrom}
-              onChange={(e) => setActiveFrom(e.target.value)}
+              onChange={(e) => update({ from: e.target.value || undefined })}
             />
             <span className="text-ink-subtle">→</span>
             <Input
@@ -742,7 +754,7 @@ export function RaMonitoringPage() {
               aria-label="Active to"
               className="h-7 w-[7.5rem] border-0 bg-transparent px-1 focus-visible:ring-0"
               value={activeTo}
-              onChange={(e) => setActiveTo(e.target.value)}
+              onChange={(e) => update({ to: e.target.value || undefined })}
             />
           </div>
           {hasFilters ? (
@@ -751,11 +763,14 @@ export function RaMonitoringPage() {
               size="sm"
               className="ml-auto h-8 gap-1 text-ink-muted"
               onClick={() => {
-                setSearch('');
-                setAccountId('');
-                setProjectId('');
-                setActiveFrom(yearFrom);
-                setActiveTo(yearTo);
+                setSearchInput('');
+                update({
+                  q: undefined,
+                  account: undefined,
+                  project: undefined,
+                  from: undefined,
+                  to: undefined,
+                });
               }}
             >
               <X className="size-3.5" />
