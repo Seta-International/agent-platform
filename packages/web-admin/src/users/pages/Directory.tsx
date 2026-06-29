@@ -1,6 +1,18 @@
 import {
   Badge,
+  Button,
   DataTable,
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
   Input,
   PageChrome,
   PageChromeToolbar,
@@ -12,9 +24,11 @@ import {
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import type { ColumnDef, PaginationState } from '@tanstack/react-table';
+import { MoreHorizontal } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { DirectoryRow } from '../api/directory-client.ts';
-import { useDirectory } from '../hooks/useDirectory.ts';
+import { UserDetailSheet } from '../components/UserDetailSheet.tsx';
+import { useDirectory, useProvision, useReactivate, useSuspend } from '../hooks/useDirectory.ts';
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'All statuses' },
@@ -54,6 +68,8 @@ export function Directory() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [page, setPage] = useState(0);
+  const [selectedRow, setSelectedRow] = useState<DirectoryRow | null>(null);
+  const [suspendTarget, setSuspendTarget] = useState<DirectoryRow | null>(null);
 
   const canWrite = usePermission('identity.user.write');
 
@@ -62,6 +78,10 @@ export function Directory() {
     status: status === 'all' ? undefined : status,
     page,
   });
+
+  const provision = useProvision();
+  const suspend = useSuspend();
+  const reactivate = useReactivate();
 
   const rows = data?.rows ?? [];
   const hasMore = data?.hasMore ?? false;
@@ -133,13 +153,47 @@ export function Directory() {
         id: 'actions',
         header: '',
         enableSorting: false,
-        // A2.4/A2.5: Provision / Suspend / Reactivate action menu goes here,
-        // gated by canWrite and row.original.account_status.
-        // A2.4/A2.5 hook-in: replace with DropdownMenu gated by canWrite + row status.
-        cell: ({ row }) => (canWrite && row.original.person_id ? <span /> : null),
+        cell: ({ row }) => {
+          if (!canWrite) return null;
+          const r = row.original;
+          return (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="tertiary"
+                  size="icon"
+                  aria-label={`Row actions for ${r.full_name}`}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <MoreHorizontal className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {r.account_status === 'none' && (
+                  <DropdownMenuItem onSelect={() => provision.mutate(r.person_id)}>
+                    Provision
+                  </DropdownMenuItem>
+                )}
+                {r.account_status === 'active' && r.user_id && (
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onSelect={() => setSuspendTarget(r)}
+                  >
+                    Suspend
+                  </DropdownMenuItem>
+                )}
+                {r.account_status === 'suspended' && r.user_id && (
+                  <DropdownMenuItem onSelect={() => reactivate.mutate(r.user_id ?? '')}>
+                    Reactivate
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          );
+        },
       },
     ],
-    [canWrite],
+    [canWrite, provision, reactivate],
   );
 
   const subtitle = isLoading
@@ -215,8 +269,51 @@ export function Directory() {
           pageCount={pageCount}
           rowCount={rowCount}
           getRowId={(r) => r.person_id}
+          onRowClick={(row) => setSelectedRow(row.original)}
         />
       </div>
+
+      {/* Suspend confirm dialog */}
+      <Dialog
+        open={suspendTarget !== null}
+        onOpenChange={(o) => {
+          if (!o) setSuspendTarget(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Suspend account?</DialogTitle>
+            <DialogDescription>
+              {suspendTarget?.full_name}'s access will be revoked immediately. You can reactivate at
+              any time.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="secondary">Cancel</Button>
+            </DialogClose>
+            <Button
+              variant="default"
+              className="bg-destructive text-on-primary hover:bg-destructive/90"
+              onClick={() => {
+                if (suspendTarget?.user_id) suspend.mutate(suspendTarget.user_id);
+                setSuspendTarget(null);
+              }}
+            >
+              Suspend
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Detail sheet */}
+      <UserDetailSheet
+        row={selectedRow}
+        open={selectedRow !== null}
+        onOpenChange={(o) => {
+          if (!o) setSelectedRow(null);
+        }}
+      />
     </PageChrome>
   );
 }
