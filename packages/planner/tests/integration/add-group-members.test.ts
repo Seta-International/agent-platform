@@ -55,6 +55,43 @@ describe('addGroupMembers (bulk)', () => {
     });
   });
 
+  it("assigns the group's default_role to newly added members", async () => {
+    await withTestDb(DB(), async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      initPools({ databaseUrl });
+      try {
+        const seeded = await seedTenant(pool, {
+          users: [{ name: 'Alice', email: 'alice@example.test' }],
+        });
+        const [alice] = seeded.users;
+        if (!alice) throw new Error('seed failed');
+
+        const group = await createGroup({
+          tenant_id: seeded.tenant_id,
+          name: 'Owners',
+          default_role: 'owner',
+          session: seeded.adminSession,
+        });
+
+        await addGroupMembers({
+          group_id: group.id,
+          members: [{ user_id: alice.user_id }],
+          session: seeded.adminSession,
+        });
+
+        const { members } = await listGroupMembers({
+          group_id: group.id,
+          session: seeded.adminSession,
+        });
+        const aliceMember = members.find((m) => m.user_id === alice.user_id);
+        expect(aliceMember?.role).toBe('owner');
+      } finally {
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
   it('is idempotent: duplicate user_id in input is a no-op', async () => {
     await withTestDb(DB(), async ({ pool, databaseUrl }) => {
       resetCoreDb();
