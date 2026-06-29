@@ -30,6 +30,35 @@ describe('chat intent classifier (tier 2: staffing vs planner_qna)', () => {
     }
   });
 
+  it('routes English find-tasks-by-label queries to staffing by rules (no LLM call)', async () => {
+    const queries = [
+      'list tasks with label backend',
+      'find tasks tagged devops',
+      'find open tasks in infrastructure',
+      'any open tasks for the design label',
+      'tìm task frontend đang mở',
+    ];
+    for (const q of queries) {
+      expect(await classify(q), q).toBe('staffing');
+    }
+  });
+
+  it('Vietnamese find-tasks queries reach LLM and are not hard-blocked to planner_qna', async () => {
+    // Pure-Vietnamese task-by-criteria queries cannot be regex-matched reliably.
+    // They must fall through to LLM fallback (not short-circuit to planner_qna).
+    const queries = [
+      'có task infrastructure nào đang open không',
+      'tôi đang có task nào quá hạn không',
+    ];
+    for (const q of queries) {
+      const llm = vi.fn(async () => 'staffing' as const);
+      const c = makeIntentClassifier({ resolveModel: () => ({}) as never, classifyLlm: llm });
+      const out = await c(q);
+      expect(llm, `${q} — should reach LLM`).toHaveBeenCalledOnce();
+      expect(out, q).toBe('staffing');
+    }
+  });
+
   it('falls back to the LLM seam only for ambiguous text, defaulting safe', async () => {
     const llm = vi.fn(async () => 'staffing' as const);
     const c = makeIntentClassifier({ resolveModel: () => ({}) as never, classifyLlm: llm });
