@@ -273,6 +273,7 @@ export function RaMonitoringPage() {
   const thisYear = new Date().getFullYear();
   const yearFrom = `${thisYear}-01-01`;
   const yearTo = `${thisYear}-12-31`;
+  const [search, setSearch] = useState<string>('');
   const [accountId, setAccountId] = useState<string>('');
   const [projectId, setProjectId] = useState<string>('');
   const [activeFrom, setActiveFrom] = useState<string>(yearFrom);
@@ -324,8 +325,23 @@ export function RaMonitoringPage() {
     [visibleProjects],
   );
   const kpis = useMemo(() => rollupKpis(allocations, win), [allocations, win]);
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return allocations;
+    return allocations.filter((r) => {
+      const name = r.worker_id ? (workers?.get(r.worker_id)?.full_name ?? '') : '';
+      return [name, r.project_name, r.account_name, r.note ?? '']
+        .join(' ')
+        .toLowerCase()
+        .includes(q);
+    });
+  }, [allocations, search, workers]);
   const hasFilters =
-    accountId !== '' || projectId !== '' || activeFrom !== yearFrom || activeTo !== yearTo;
+    search !== '' ||
+    accountId !== '' ||
+    projectId !== '' ||
+    activeFrom !== yearFrom ||
+    activeTo !== yearTo;
 
   const invalidate = () => void qc.invalidateQueries({ queryKey: [...pmKeys.all, 'allocations'] });
 
@@ -615,8 +631,14 @@ export function RaMonitoringPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <Input
+            className="h-8 w-56"
+            placeholder="Search person, project…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
           <Combobox
-            className="h-8 w-52"
+            className="h-8 w-44"
             aria-label="Account"
             placeholder="All accounts"
             searchPlaceholder="Search accounts…"
@@ -628,7 +650,7 @@ export function RaMonitoringPage() {
             }}
           />
           <Combobox
-            className="h-8 w-52"
+            className="h-8 w-44"
             aria-label="Project"
             placeholder="All projects"
             searchPlaceholder="Search projects…"
@@ -636,12 +658,12 @@ export function RaMonitoringPage() {
             value={projectId || null}
             onChange={(v) => setProjectId(v ?? '')}
           />
-          <div className="flex items-center gap-1.5 rounded-md border border-hairline bg-surface-1 px-2 text-ink-muted">
+          <div className="flex h-8 items-center gap-1.5 rounded-md border border-hairline bg-surface-1 px-2 text-ink-muted">
             <CalendarRange className="size-3.5 text-ink-subtle" />
             <Input
               type="date"
               aria-label="Active from"
-              className="h-8 w-[7.5rem] border-0 bg-transparent px-1 focus-visible:ring-0"
+              className="h-7 w-[7.5rem] border-0 bg-transparent px-1 focus-visible:ring-0"
               value={activeFrom}
               onChange={(e) => setActiveFrom(e.target.value)}
             />
@@ -649,7 +671,7 @@ export function RaMonitoringPage() {
             <Input
               type="date"
               aria-label="Active to"
-              className="h-8 w-[7.5rem] border-0 bg-transparent px-1 focus-visible:ring-0"
+              className="h-7 w-[7.5rem] border-0 bg-transparent px-1 focus-visible:ring-0"
               value={activeTo}
               onChange={(e) => setActiveTo(e.target.value)}
             />
@@ -658,8 +680,9 @@ export function RaMonitoringPage() {
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 gap-1 text-ink-muted"
+              className="ml-auto h-8 gap-1 text-ink-muted"
               onClick={() => {
+                setSearch('');
                 setAccountId('');
                 setProjectId('');
                 setActiveFrom(yearFrom);
@@ -674,7 +697,7 @@ export function RaMonitoringPage() {
 
         <DataTable
           columns={columns}
-          data={allocations}
+          data={filtered}
           isLoading={isLoading}
           density="compact"
           getRowId={(r: RaMonitoringAllocation) => r.allocation_id}
