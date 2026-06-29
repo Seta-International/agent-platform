@@ -20,6 +20,7 @@ import {
   revokeUserSession,
   updateUserProfile,
 } from '../../index.ts';
+import { listDirectory } from '../domain/list-directory.ts';
 
 const grantSchema = z.object({
   role_slug: z.string(),
@@ -62,6 +63,13 @@ function requireAdmin(c: Context<SessionEnv>): void {
 }
 
 export function registerAdminUsersRoutes(app: Hono<SessionEnv>): void {
+  app.get('/api/identity/v1/directory', async (c) => {
+    const session = c.get('user');
+    const page = Number(c.req.query('page') ?? '0');
+    const status = c.req.query('status') as 'none' | 'active' | 'suspended' | undefined;
+    return c.json(await listDirectory(session, { search: c.req.query('search'), status, page }));
+  });
+
   app.get('/api/identity/v1/users', async (c) => {
     requireAdmin(c);
     const scope = c.get('user');

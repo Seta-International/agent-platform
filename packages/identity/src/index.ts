@@ -35,6 +35,8 @@ export type {
   LinkSsoAccountResult,
 } from './backend/domain/link-sso-account.ts';
 export { linkSsoAccount } from './backend/domain/link-sso-account.ts';
+export type { DirectoryRow } from './backend/domain/list-directory.ts';
+export { listDirectory } from './backend/domain/list-directory.ts';
 export type { EntraImportableUser } from './backend/domain/list-entra-importable-users.ts';
 export { listEntraImportableUsers } from './backend/domain/list-entra-importable-users.ts';
 export { listMyEffectivePermissions } from './backend/domain/list-my-effective-permissions.ts';

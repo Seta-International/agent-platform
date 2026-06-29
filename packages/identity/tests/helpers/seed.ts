@@ -1,8 +1,18 @@
+import type { SessionScope } from '@seta/core';
+import {
+  buildRegistry,
+  IMPLICIT_PERMISSIONS,
+  INVENTORY,
+  inventoryToManifests,
+  resolvePermissions,
+} from '@seta/shared-rbac';
 import type { Pool } from 'pg';
 import { identityDb } from '../../src/backend/db/index.ts';
-import { directoryPerson } from '../../src/backend/db/schema.ts';
+import { directoryPerson, roleGrants } from '../../src/backend/db/schema.ts';
 import { createUser } from '../../src/backend/domain/create-user.ts';
 import { deactivateUser } from '../../src/backend/domain/deactivate-user.ts';
+
+const _rbacRegistry = buildRegistry(inventoryToManifests(INVENTORY));
 
 export interface SeededDirectoryAccount {
   person_id: string;
@@ -27,6 +37,8 @@ export async function seedDirectoryAccount(
     admin: boolean;
     tenant_id?: string;
     suspended?: boolean;
+    name?: string;
+    roles?: string[];
   },
 ): Promise<SeededDirectoryAccount> {
   const tenant_id = opts.tenant_id ?? crypto.randomUUID();
@@ -39,11 +51,12 @@ export async function seedDirectoryAccount(
     ]);
   }
 
+  const displayName = opts.name ?? 'Test Person';
   const person_id = crypto.randomUUID();
   await identityDb().insert(directoryPerson).values({
     person_id,
     tenant_id,
-    full_name: 'Test Person',
+    full_name: displayName,
     work_email: opts.email,
     employment_status: 'active',
   });
@@ -56,12 +69,27 @@ export async function seedDirectoryAccount(
     {
       tenant_id,
       email: opts.email,
-      name: 'Test Person',
+      name: displayName,
       password: 'S3cur3Pass!99',
       ...(initial_role ? { initial_role } : {}),
     },
     { type: 'cli', user_id: null },
   );
+
+  if (opts.roles && opts.roles.length > 0) {
+    for (const role_slug of opts.roles) {
+      await identityDb().insert(roleGrants).values({
+        id: crypto.randomUUID(),
+        user_id,
+        tenant_id,
+        role_slug,
+        scope_type: 'tenant',
+        scope_id: null,
+        granted_by: null,
+        granted_via: 'cli',
+      });
+    }
+  }
 
   if (opts.suspended) {
     // Deactivating an admin in a single-admin tenant would hit LAST_ORG_ADMIN;
@@ -95,6 +123,7 @@ export async function seedDirectoryPersonOnly(
   opts: {
     email?: string;
     tenant_id?: string;
+    name?: string;
   } = {},
 ): Promise<SeededDirectoryPerson> {
   const tenant_id = opts.tenant_id ?? crypto.randomUUID();
@@ -113,10 +142,49 @@ export async function seedDirectoryPersonOnly(
     .values({
       person_id,
       tenant_id,
-      full_name: 'Test Person',
+      full_name: opts.name ?? 'Test Person',
       work_email: opts.email ?? null,
       employment_status: 'active',
     });
 
   return { person_id, tenant_id };
+}
+
+/**
+ * Create a synthetic SessionScope for unit/integration tests.
+ * Computes the permissions set from the RBAC registry given a role list,
+ * OR accepts a raw permission list via `perms` to bypass role lookup.
+ */
+export function testSession(opts: {
+  tenant?: string;
+  user_id?: string;
+  perms?: string[];
+  roles?: string[];
+}): SessionScope {
+  const tenant_id = opts.tenant ?? crypto.randomUUID();
+  const user_id = opts.user_id ?? crypto.randomUUID();
+  const roles = opts.roles ?? [];
+
+  let permissions: ReadonlySet<string>;
+  if (opts.perms !== undefined) {
+    permissions = new Set(opts.perms);
+  } else {
+    permissions = resolvePermissions(_rbacRegistry, roles, IMPLICIT_PERMISSIONS);
+  }
+
+  return {
+    session_id: crypto.randomUUID(),
+    user_id,
+    tenant_id,
+    email: 'test@seed.local',
+    display_name: 'Test User',
+    role_summary: { roles, cross_tenant_read: false },
+    role_summary_hash: 'test',
+    permissions,
+    features: new Set<string>(),
+    accessible_group_ids: [],
+    cross_tenant_read: false,
+    built_at: new Date(),
+    invalidated_at: null,
+  };
 }
