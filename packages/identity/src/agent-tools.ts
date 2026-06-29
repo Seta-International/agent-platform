@@ -7,8 +7,6 @@ export {
   identityGetAvailabilityTool,
   identityGetTimezoneTool,
   listMyRolesTool,
-  type MatchUsersToTopicToolDeps,
-  matchUsersToTopicTool,
   updateMyDisplayNameTool,
   whoAmITool,
 } from './backend/agent-tools/index.ts';

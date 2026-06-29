@@ -57,8 +57,6 @@ export type {
 export { listUserSessions } from './backend/domain/list-user-sessions.ts';
 export type { AdminUserRow, ListUsersOpts } from './backend/domain/list-users.ts';
 export { listUsers } from './backend/domain/list-users.ts';
-export type { MatchUsersToTopicInput, UserMatch } from './backend/domain/match-users-to-topic.ts';
-export { matchUsersToTopic } from './backend/domain/match-users-to-topic.ts';
 export { provisionAccount } from './backend/domain/provision-account.ts';
 export type { ProvisionLoginInput } from './backend/domain/provision-login.ts';
 export { provisionLogin } from './backend/domain/provision-login.ts';

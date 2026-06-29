@@ -1,12 +1,9 @@
-import { PgVector } from '@mastra/pg';
+import type { PgVector } from '@mastra/pg';
 import type { CrossModuleReadToolSpec } from '@seta/agent-sdk';
 import type { EmbeddingProvider } from '@seta/shared-embeddings';
 import { z } from 'zod';
 import { matchUsersToTopic } from '../domain/match-users-to-topic.ts';
-
-// Vector store now lives in people_rag (people pipeline). Hardcoded string
-// avoids a circular dep (people → identity).
-const PEOPLE_RAG_SCHEMA = 'people_rag';
+import { getPeopleVectorStore } from '../embeddings/vector-store.ts';
 
 const inputSchema = z.object({
   queryText: z
@@ -50,24 +47,20 @@ export function buildSearchUsersBySkillVectorSpec(
   const resolvePgVector = (): PgVector => {
     if (deps.pgVector) return deps.pgVector;
     if (!deps.databaseUrl) {
-      throw new Error('identity_searchUsersBySkillVector: pgVector or databaseUrl required');
+      throw new Error('people_searchUsersBySkillVector: pgVector or databaseUrl required');
     }
-    return new PgVector({
-      id: 'people-person-profile-embeddings',
-      connectionString: deps.databaseUrl,
-      schemaName: PEOPLE_RAG_SCHEMA,
-    });
+    return getPeopleVectorStore(deps.databaseUrl);
   };
 
   return {
-    id: 'identity_searchUsersBySkillVector',
+    id: 'people_searchUsersBySkillVector',
     description:
       'Vector-search users by skill profile — workflow use only (not LLM-visible). ' +
       'Returns userId + raw similarity score without reranking. ' +
-      'For LLM-visible semantic user search, use identity_matchUsersByTopic instead.',
+      'For LLM-visible semantic user search, use people_matchUsersByTopic instead.',
     inputSchema,
     outputSchema,
-    rbac: 'identity.user.read',
+    rbac: 'people.worker.read',
     availableTo: 'all-specialists',
     execute: async ({ session, input }) => {
       const parsed = inputSchema.parse(input);

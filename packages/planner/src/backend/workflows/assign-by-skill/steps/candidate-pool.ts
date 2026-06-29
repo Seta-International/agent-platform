@@ -30,7 +30,7 @@ function findVectorTool():
   | CrossModuleReadToolSpec<VectorSearchInput, VectorSearchOutput>
   | undefined {
   return AgentRegistry.listCrossModuleReadTools().find(
-    (t) => t.id === 'identity_searchUsersBySkillVector',
+    (t) => t.id === 'people_searchUsersBySkillVector',
   ) as CrossModuleReadToolSpec<VectorSearchInput, VectorSearchOutput> | undefined;
 }
 
@@ -38,7 +38,7 @@ function findVectorTool():
  * Three signal branches run in parallel:
  * - **Exact** (SQL): task label names ∩ assignee_projection.skills, GIN-friendly
  *   via the && operator, then cardinality only for the matching subset.
- * - **Skill vector**: free-text search over identity user-profile embeddings
+ * - **Skill vector**: free-text search over People person-profile embeddings
  *   (catches role/bio matches when literal tags miss).
  * - **History vector** (optional): "who's worked on similar tasks before" —
  *   skill proxy when users haven't filled in their skills profile. Skipped
@@ -189,8 +189,8 @@ async function fetchVectorHits(
   if (!tool) return [];
 
   // Include title, description, and labels — labels carry domain context (e.g.,
-  // "Mobile", "Backend") that ties to skills via the user-profile embedding
-  // (which already contains role + skills + bio per spec §6.2).
+  // "Mobile", "Backend") that ties to skills via the person-profile embedding
+  // (which already contains skills + bio).
   const parts = [task.title, task.description, task.labels.join(', ')]
     .map((s) => s.trim())
     .filter((s) => s.length > 0);

@@ -1,4 +1,5 @@
-import { buildActorSession, getUserProfile, listUsers, matchUsersToTopic } from '@seta/identity';
+import { buildActorSession, getUserProfile, listUsers } from '@seta/identity';
+import { matchUsersToTopic } from '@seta/people';
 import { getTask, listDistinctLabels, listTasks, listTasksByLabel } from '@seta/planner';
 import type {
   AvailabilityPort,
@@ -60,10 +61,10 @@ export function makeTaskSearch(): TaskSearchPort {
   };
 }
 
-// ---- SkillSearch: identity.matchUsersToTopic (vector) ----
-// provider + pgVector are the identity embedding provider + the identity user-
-// profile PgVector, injected by apps/server (Task 5). matchUsersToTopic queries
-// the identity vector index, so the store must be identity's own.
+// ---- SkillSearch: people.matchUsersToTopic (vector) ----
+// provider + pgVector are the embedding provider + the People person-profile
+// PgVector (people_rag), injected by apps/server. matchUsersToTopic queries the
+// People vector index and hydrates display fields via a worker join.
 export interface SkillSearchDeps {
   provider: Parameters<typeof matchUsersToTopic>[1]['provider'];
   pgVector: Parameters<typeof matchUsersToTopic>[1]['pgVector'];
@@ -72,7 +73,7 @@ export interface SkillSearchDeps {
 export function makeSkillSearch(deps: SkillSearchDeps): SkillSearchPort {
   return {
     async search({ skills, topK }, ctx) {
-      // Match the profile embedding format from buildUserProfileSource so cosine
+      // Match the profile embedding format from buildPersonProfileSource so cosine
       // similarity is computed between semantically aligned texts. A bare
       // skills.join(', ') query scores <0.2 against the rich profile paragraphs.
       const topic = skills.length === 0 ? '' : `Core competencies include ${skills.join(', ')}.`;

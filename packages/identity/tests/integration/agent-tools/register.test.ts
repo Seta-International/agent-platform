@@ -11,7 +11,7 @@ describe('identity register', () => {
 
     const identity = AgentRegistry.listSpecialists('people')[0]!;
     expect(Object.keys(identity.tools).sort()).toEqual(
-      ['identity_listMyRoles', 'identity_whoAmI', 'identity_matchUsersByTopic'].sort(),
+      ['identity_listMyRoles', 'identity_whoAmI'].sort(),
     );
 
     const self = AgentRegistry.listSpecialists('self')[0]!;
@@ -21,11 +21,7 @@ describe('identity register', () => {
       .map((t) => t.id)
       .sort();
     expect(reads).toEqual(
-      [
-        'identity_getAvailabilityForUser',
-        'identity_getTimezoneForUser',
-        'identity_searchUsersBySkillVector',
-      ].sort(),
+      ['identity_getAvailabilityForUser', 'identity_getTimezoneForUser'].sort(),
     );
   });
 });

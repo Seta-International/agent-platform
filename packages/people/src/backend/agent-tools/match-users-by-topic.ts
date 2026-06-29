@@ -1,17 +1,11 @@
-import { PgVector } from '@mastra/pg';
+import type { PgVector } from '@mastra/pg';
 import { actorFromContext, defineAgentTool } from '@seta/agent-sdk';
+import { buildActorSession } from '@seta/identity';
 import type { EmbeddingProvider } from '@seta/shared-embeddings';
 import type { Reranker } from '@seta/shared-retrieval';
 import { z } from 'zod';
-import { buildActorSession } from '../domain/build-actor-session.ts';
 import { matchUsersToTopic } from '../domain/match-users-to-topic.ts';
-
-// Vector store now lives in people_rag (people pipeline). Hardcoded string
-// avoids a circular dep (people → identity). The caller or AgentToolFactory
-// framework may pass an already-initialised pgVector via deps.pgVector; when
-// only databaseUrl is provided we create an ephemeral store pointing at
-// people_rag.
-const PEOPLE_RAG_SCHEMA = 'people_rag';
+import { getPeopleVectorStore } from '../embeddings/vector-store.ts';
 
 const STAGE1_TOPK = Number(process.env.RERANK_STAGE1_TOPK ?? 50);
 
@@ -70,19 +64,13 @@ export function matchUsersToTopicTool(deps: MatchUsersToTopicToolDeps) {
   const resolvePgVector = (): PgVector => {
     if (deps.pgVector) return deps.pgVector;
     if (!deps.databaseUrl) {
-      throw new Error(
-        'identity_matchUsersByTopic: either pgVector or databaseUrl must be supplied',
-      );
+      throw new Error('people_matchUsersByTopic: either pgVector or databaseUrl must be supplied');
     }
-    return new PgVector({
-      id: 'people-person-profile-embeddings',
-      connectionString: deps.databaseUrl,
-      schemaName: PEOPLE_RAG_SCHEMA,
-    });
+    return getPeopleVectorStore(deps.databaseUrl);
   };
 
   return defineAgentTool({
-    id: 'identity_matchUsersByTopic',
+    id: 'people_matchUsersByTopic',
     name: 'Match Users By Topic',
     description:
       'Find users whose skills best match a topic or skill area using semantic similarity.\n\n' +
@@ -93,7 +81,7 @@ export function matchUsersToTopicTool(deps: MatchUsersToTopicToolDeps) {
       'Returns ranked candidates with match and rerank scores. Tenant-scoped.',
     input: inputSchema,
     output: outputSchema,
-    rbac: 'identity.user.read',
+    rbac: 'people.worker.read',
     execute: async (input, ctx) => {
       const actor = actorFromContext(ctx);
       const session = await resolveSession(actor);
@@ -119,7 +107,12 @@ export function matchUsersToTopicTool(deps: MatchUsersToTopicToolDeps) {
 
       return {
         candidates: reranked.map((h) => ({
-          user: h.item,
+          user: {
+            user_id: h.item.user_id,
+            display_name: h.item.display_name,
+            email: h.item.email,
+            skills: h.item.skills,
+          },
           match_score: h.score,
           rerank_score: h.rerankScore,
           source: 'vector' as const,

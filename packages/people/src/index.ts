@@ -12,6 +12,12 @@ export {
 export { createOrgUnit } from './backend/domain/create-org-unit.ts';
 export { createWorker } from './backend/domain/create-worker.ts';
 export { editWorker } from './backend/domain/edit-worker.ts';
+export {
+  type MatchUsersToTopicDeps,
+  type MatchUsersToTopicInput,
+  matchUsersToTopic,
+  type UserMatch,
+} from './backend/domain/match-users-to-topic.ts';
 export type {
   CompanyNode,
   CompanyNodeKind,

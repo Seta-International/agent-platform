@@ -34,6 +34,7 @@
     "@seta/core": "workspace:^",
     "@seta/identity": "workspace:^",
     "@seta/knowledge": "workspace:*",
+    "@seta/people": "workspace:^",
     "@seta/planner": "workspace:^",
     "@seta/shared-db": "workspace:^",
     "@seta/shared-embeddings": "workspace:^",

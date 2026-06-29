@@ -67,7 +67,7 @@ function registerFakeVectorTool(hits: ReadonlyArray<{ userId: string; score: num
     { queryText: string; topK: number; minScore?: number },
     { hits: Array<{ userId: string; score: number }> }
   > = {
-    id: 'identity_searchUsersBySkillVector',
+    id: 'people_searchUsersBySkillVector',
     description: 'fake',
     inputSchema: z.object({
       queryText: z.string(),

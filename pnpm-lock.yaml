@@ -596,6 +596,9 @@ importers:
       '@seta/knowledge':
         specifier: workspace:^
         version: link:../knowledge
+      '@seta/people':
+        specifier: workspace:^
+        version: link:../people
       '@seta/planner':
         specifier: workspace:^
         version: link:../planner
@@ -1143,6 +1146,9 @@ importers:
       '@seta/shared-rbac':
         specifier: workspace:^
         version: link:../shared-rbac
+      '@seta/shared-retrieval':
+        specifier: workspace:^
+        version: link:../shared-retrieval
       '@seta/shared-types':
         specifier: workspace:^
         version: link:../shared-types
@@ -1798,6 +1804,9 @@ importers:
       '@seta/knowledge':
         specifier: workspace:*
         version: link:../knowledge
+      '@seta/people':
+        specifier: workspace:^
+        version: link:../people
       '@seta/planner':
         specifier: workspace:^
         version: link:../planner

@@ -25,7 +25,7 @@ export const plannerSearchGroupMembersBySkillsTool = defineAgentTool({
     'Find and rank group members whose skills exactly match the requested skill tags.\n\n' +
     'Use for: building a candidate shortlist for task assignment within a specific group; ' +
     '"who in this group knows docker?"; "find backend developers in group X".\n' +
-    'Do NOT use for broad topic or semantic search — use identity_matchUsersByTopic instead.\n\n' +
+    'Do NOT use for broad topic or semantic search — use people_matchUsersByTopic instead.\n\n' +
     'Requires groupId — always resolvable from a task or plan result; call planner_getTask first ' +
     'if no group is in context.',
   input: z.object({
