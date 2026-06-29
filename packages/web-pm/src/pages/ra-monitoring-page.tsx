@@ -26,12 +26,14 @@ import {
   EmptyState,
   Input,
   Label,
+  type OnChangeFn,
   PageChrome,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
+  type SortingState,
   toast,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
@@ -81,13 +83,28 @@ type AllocationDraft = {
   note?: string | null;
 };
 
-/** Filter state mirrored in the URL query string. */
+/** Sortable column ids, mirrored to the URL `sort` param. */
+export const RA_SORTS = [
+  'account',
+  'project',
+  'name',
+  'seniority',
+  'planned',
+  'start',
+  'end',
+  'effort',
+  'bucket',
+] as const;
+
+/** Filter + sort state mirrored in the URL query string. */
 export interface RaSearch {
   q?: string;
   account?: string;
   project?: string;
   from?: string;
   to?: string;
+  sort?: (typeof RA_SORTS)[number];
+  dir?: 'asc' | 'desc';
 }
 
 /** Volatile per-row edit state passed via the table `meta` so column defs stay
@@ -320,6 +337,19 @@ export function RaMonitoringPage() {
 
   const update = (patch: Partial<RaSearch>) => {
     void navigate({ to: '/pm/resourcing', search: { ...search, ...patch }, replace: true });
+  };
+
+  const sorting = useMemo<SortingState>(
+    () => (search.sort ? [{ id: search.sort, desc: search.dir !== 'asc' }] : []),
+    [search.sort, search.dir],
+  );
+  const onSortingChange: OnChangeFn<SortingState> = (updater) => {
+    const next = typeof updater === 'function' ? updater(sorting) : updater;
+    const first = next[0];
+    update({
+      sort: first ? (first.id as RaSearch['sort']) : undefined,
+      dir: first ? (first.desc ? 'desc' : 'asc') : undefined,
+    });
   };
 
   const win = useMemo<EffortWindow>(
@@ -783,6 +813,8 @@ export function RaMonitoringPage() {
           columns={columns}
           data={allocations}
           meta={tableMeta}
+          sorting={sorting}
+          onSortingChange={onSortingChange}
           isLoading={isLoading}
           enableGlobalFilter={false}
           density="compact"

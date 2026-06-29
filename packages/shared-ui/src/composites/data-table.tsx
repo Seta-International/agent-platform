@@ -38,7 +38,7 @@ function ExpandedRowContent<TData>({ row, renderSubComponent }: ExpandedRowConte
   return <>{renderSubComponent({ row })}</>;
 }
 
-export type { RowSelectionState } from '@tanstack/react-table';
+export type { OnChangeFn, RowSelectionState, SortingState } from '@tanstack/react-table';
 
 export type DataTableDensity = 'comfortable' | 'compact';
 
@@ -78,6 +78,10 @@ export interface DataTableClientProps<TData, TValue = unknown>
   extends DataTableBaseProps<TData, TValue> {
   mode?: 'client';
   pagination?: ClientPagination | false;
+  /** Optionally control sorting (still sorted client-side) — e.g. to mirror it
+   *  in the URL. When omitted, sorting is managed internally. */
+  sorting?: SortingState;
+  onSortingChange?: OnChangeFn<SortingState>;
 }
 
 export interface DataTableServerProps<TData, TValue = unknown>
@@ -123,8 +127,10 @@ export function DataTable<TData, TValue>(props: DataTableProps<TData, TValue>) {
     {},
   );
 
-  const sorting = isServer ? props.sorting : sortingInternal;
-  const onSortingChange = isServer ? props.onSortingChange : setSortingInternal;
+  const sorting = isServer ? props.sorting : (props.sorting ?? sortingInternal);
+  const onSortingChange = isServer
+    ? props.onSortingChange
+    : (props.onSortingChange ?? setSortingInternal);
   const globalFilter = isServer ? props.globalFilter : globalFilterInternal;
   const onGlobalFilterChange = isServer ? props.onGlobalFilterChange : setGlobalFilterInternal;
   const columnFilters = isServer ? props.columnFilters : columnFiltersInternal;
