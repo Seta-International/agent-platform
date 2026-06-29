@@ -49,6 +49,7 @@ export async function createAllocation(
           planned_pct: parsed.planned_pct?.toString() ?? null,
           minutes_per_day: parsed.minutes_per_day ?? null,
           status: parsed.status,
+          note: parsed.note ?? null,
         })
         .returning({ id: allocation.id });
       if (!row) throw new Error('allocation insert returned no row');

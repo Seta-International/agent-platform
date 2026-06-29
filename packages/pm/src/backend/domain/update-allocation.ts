@@ -46,6 +46,7 @@ export async function updateAllocation(
   if (patch.status !== undefined) changes.status = patch.status;
   if (patch.date_from !== undefined) changes.date_from = patch.date_from;
   if (patch.date_to !== undefined) changes.date_to = patch.date_to;
+  if (patch.note !== undefined) changes.note = patch.note;
   const fields = Object.keys(changes);
   if (fields.length === 0) return { version: current.version };
 

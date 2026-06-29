@@ -106,6 +106,7 @@ export const allocation = pmSchema.table(
     planned_pct: numeric('planned_pct', { precision: 10, scale: 4 }),
     minutes_per_day: integer('minutes_per_day'),
     weekday_mask: integer('weekday_mask'),
+    note: text('note'),
     resource_request_id: uuid('resource_request_id'),
     status: text('status').notNull().default('placeholder'),
     version: integer('version').default(1).notNull(),
