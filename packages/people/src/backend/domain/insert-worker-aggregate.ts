@@ -73,7 +73,12 @@ export async function insertWorkerAggregate(
     aggregateId: p.id,
     eventType: 'people.worker.created',
     eventVersion: 1,
-    payload: { worker_id: p.id, tenant_id: args.tenant_id },
+    payload: {
+      worker_id: p.id,
+      tenant_id: args.tenant_id,
+      full_name: args.full_name,
+      job_title: args.job_title ?? null,
+    },
   });
 
   return { worker_id: p.id };

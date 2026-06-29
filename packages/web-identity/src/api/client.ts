@@ -90,17 +90,14 @@ export interface TenantUserRow {
   user_id: string;
   email: string;
   name: string;
-  status: 'active' | 'deactivated' | 'ooo';
-  role_slugs: string[];
-  sign_in_methods: string[];
-  last_seen_at: string | null;
-  created_at: string;
 }
 
+// Searches the read-only people directory (`/directory`), readable by any
+// authenticated tenant member — used by assignee/mention pickers. This is NOT the
+// admin user-management endpoint (`/users`), so non-admins (e.g. a Planner
+// Contributor) can assign tasks (FUT-54).
 export async function listTenantUsers(params: {
   search?: string;
-  role?: string;
-  status?: string;
   sign_in_method?: 'credential' | 'microsoft' | 'both';
   limit: number;
   offset: number;
@@ -109,7 +106,7 @@ export async function listTenantUsers(params: {
   for (const [k, v] of Object.entries(params)) {
     if (v != null && v !== '') q.set(k, String(v));
   }
-  const res = await fetch(`/api/identity/v1/users?${q}`, { credentials: 'include' });
-  if (!res.ok) throw new Error(`list users failed: ${res.status}`);
+  const res = await fetch(`/api/identity/v1/directory?${q}`, { credentials: 'include' });
+  if (!res.ok) throw new Error(`directory search failed: ${res.status}`);
   return res.json() as Promise<{ rows: TenantUserRow[]; total: number }>;
 }

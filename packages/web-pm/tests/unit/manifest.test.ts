@@ -39,10 +39,16 @@ describe('pmAppManifest', () => {
     const byId = Object.fromEntries(
       pmAppManifest.nav.flatMap((s) => s.items).map((i) => [i.id, i.badge]),
     );
-    for (const id of ['pm.weekly', 'pm.resourcing', 'pm.risks', 'pm.metrics']) {
+    for (const id of ['pm.weekly', 'pm.risks', 'pm.metrics']) {
       expect(byId[id]).toBe('Soon');
     }
-    for (const id of ['pm.portfolio', 'pm.requests', 'pm.accounts', 'pm.projects']) {
+    for (const id of [
+      'pm.portfolio',
+      'pm.requests',
+      'pm.resourcing',
+      'pm.accounts',
+      'pm.projects',
+    ]) {
       expect(byId[id]).toBeUndefined();
     }
   });

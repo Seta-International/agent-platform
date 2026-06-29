@@ -17,6 +17,16 @@ const PRIORITY_MAP: Record<'urgent' | 'important' | 'medium' | 'low', TaskPriori
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
+/** UTC calendar day (YYYY-MM-DD) — matches how due_at is stored from date pickers. */
+function utcDateKey(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function addUtcDays(key: string, days: number): string {
+  const base = new Date(`${key}T00:00:00.000Z`);
+  return utcDateKey(new Date(base.getTime() + days * MS_PER_DAY));
+}
+
 function compareTasks(a: TaskWithPlan, b: TaskWithPlan): number {
   const aPrio = a.assignee_priority;
   const bPrio = b.assignee_priority;
@@ -55,7 +65,10 @@ async function listMyTasksImpl(
 ): Promise<MyTasksResult> {
   const db = plannerDb();
   const now = new Date();
-  const weekFromNow = new Date(now.getTime() + 7 * MS_PER_DAY);
+  const todayKey = utcDateKey(now);
+  const weekEndKey = addUtcDays(todayKey, 7);
+  const startOfTodayUtc = new Date(`${todayKey}T00:00:00.000Z`);
+  const endOfWeekUtc = new Date(`${weekEndKey}T23:59:59.999Z`);
   const twoWeeksAgo = new Date(now.getTime() - 14 * MS_PER_DAY);
 
   const conditions = [
@@ -78,10 +91,10 @@ async function listMyTasksImpl(
     conditions.push(eq(tasks.priority_number, PRIORITY_MAP[filter.priority]));
   }
   if (filter.due === 'overdue') {
-    conditions.push(sql`${tasks.due_at} IS NOT NULL AND ${tasks.due_at} < ${now}`);
+    conditions.push(sql`${tasks.due_at} IS NOT NULL AND ${tasks.due_at} < ${startOfTodayUtc}`);
   } else if (filter.due === 'this_week') {
     conditions.push(
-      sql`${tasks.due_at} IS NOT NULL AND ${tasks.due_at} >= ${now} AND ${tasks.due_at} <= ${weekFromNow}`,
+      sql`${tasks.due_at} IS NOT NULL AND ${tasks.due_at} >= ${startOfTodayUtc} AND ${tasks.due_at} <= ${endOfWeekUtc}`,
     );
   } else if (filter.due === 'no_date') {
     conditions.push(isNull(tasks.due_at));
@@ -143,13 +156,16 @@ async function listMyTasksImpl(
 
     if (isDeferred) continue;
 
-    if (dueAt !== null && dueAt < now) {
-      result.late.push(withPlan);
-      continue;
-    }
-    if (dueAt !== null && dueAt >= now && dueAt <= weekFromNow) {
-      result.dueThisWeek.push(withPlan);
-      continue;
+    if (dueAt !== null) {
+      const dueKey = utcDateKey(dueAt);
+      if (dueKey < todayKey) {
+        result.late.push(withPlan);
+        continue;
+      }
+      if (dueKey <= weekEndKey) {
+        result.dueThisWeek.push(withPlan);
+        continue;
+      }
     }
     if (pct > 0) {
       result.inProgress.push(withPlan);

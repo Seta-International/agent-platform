@@ -129,6 +129,7 @@ export async function setCategoryDescriptionTx(
   await emitPlannerPlanCategoryDescriptionChanged({
     actor: { type: 'user', user_id: input.session.user_id },
     tenant_id: existing.tenant_id,
+    group_id: existing.group_id,
     plan_id: existing.id,
     slot: input.slot,
     before: beforeVal,

@@ -93,7 +93,7 @@ describe('TaskDetailAssigneesCard', () => {
     const { userEvent } = await import('@testing-library/user-event');
     const user = userEvent.setup();
     server.use(
-      http.get('/api/identity/v1/users', () =>
+      http.get('/api/identity/v1/directory', () =>
         HttpResponse.json({
           rows: [
             {
@@ -123,7 +123,7 @@ describe('TaskDetailAssigneesCard', () => {
     const { userEvent } = await import('@testing-library/user-event');
     const user = userEvent.setup();
     server.use(
-      http.get('/api/identity/v1/users', () =>
+      http.get('/api/identity/v1/directory', () =>
         HttpResponse.json({
           rows: [
             {
@@ -155,7 +155,7 @@ describe('TaskDetailAssigneesCard', () => {
     const user = userEvent.setup();
     const capturedParams: Array<URLSearchParams> = [];
     server.use(
-      http.get('/api/identity/v1/users', ({ request }) => {
+      http.get('/api/identity/v1/directory', ({ request }) => {
         const url = new URL(request.url);
         capturedParams.push(url.searchParams);
         return HttpResponse.json({
@@ -195,7 +195,7 @@ describe('TaskDetailAssigneesCard', () => {
     const user = userEvent.setup();
     const capturedParams: Array<URLSearchParams> = [];
     server.use(
-      http.get('/api/identity/v1/users', ({ request }) => {
+      http.get('/api/identity/v1/directory', ({ request }) => {
         const url = new URL(request.url);
         capturedParams.push(url.searchParams);
         const isFiltered = url.searchParams.get('sign_in_method') === 'microsoft';
@@ -271,7 +271,7 @@ describe('TaskDetailAssigneesCard', () => {
     const { userEvent } = await import('@testing-library/user-event');
     const user = userEvent.setup();
     server.use(
-      http.get('/api/identity/v1/users', () =>
+      http.get('/api/identity/v1/directory', () =>
         HttpResponse.json({
           rows: [
             {
@@ -329,7 +329,7 @@ describe('TaskDetailAssigneesCard', () => {
 
     const assignMutate = vi.fn();
     server.use(
-      http.get('/api/identity/v1/users', () =>
+      http.get('/api/identity/v1/directory', () =>
         HttpResponse.json({
           rows: [
             {

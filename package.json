@@ -2,7 +2,7 @@
   "name": "seta-agent-platform",
   "private": true,
   "scripts": {
-    "prepare": "test -d .git && lefthook install || true",
+    "prepare": "test -d .git && lefthook install && git config commit.template .gitmessage || true",
     "build": "turbo run build",
     "dev": "turbo run dev",
     "typecheck": "turbo run typecheck",
@@ -39,11 +39,13 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.1",
+    "@commitlint/cli": "^21.1.0",
+    "@commitlint/config-conventional": "^21.1.0",
     "@seta/shared-config": "workspace:^",
     "@turbo/gen": "^2.10.0",
     "@types/eslint": "^9.6.1",
     "dependency-cruiser": "^17.4.3",
-    "eslint": "^10.5.0",
+    "eslint": "^10.6.0",
     "eslint-plugin-boundaries": "^6.0.2",
     "jiti": "^2.7.0",
     "lefthook": "^2.1.9",

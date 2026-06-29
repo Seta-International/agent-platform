@@ -24,6 +24,7 @@ describe('pm schema', () => {
           'project',
           'project_access',
           'staffing_plan_line',
+          'worker_projection',
         ]);
       } finally {
         await closePools();

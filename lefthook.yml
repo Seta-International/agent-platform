@@ -1,9 +1,16 @@
 assert_lefthook_installed: true
 min_version: 1.10.0
 
+commit-msg:
+  commands:
+    commitlint:
+      run: pnpm exec commitlint --edit {1}
+
 pre-commit:
   parallel: true
   commands:
+    branch-name:
+      run: bash scripts/check-branch-name.sh
     biome:
       glob: "*.{js,jsx,ts,tsx,json,jsonc}"
       run: pnpm biome check --write --no-errors-on-unmatched {staged_files}
