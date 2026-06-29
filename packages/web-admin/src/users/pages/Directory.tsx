@@ -24,9 +24,9 @@ import {
   SelectValue,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
-import type { ColumnDef, PaginationState, Row } from '@tanstack/react-table';
+import type { ColumnDef, OnChangeFn, PaginationState, Row } from '@tanstack/react-table';
 import { MoreHorizontal } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { DirectoryRow } from '../api/directory-client.ts';
 import { BulkRoleBar } from '../components/BulkRoleBar.tsx';
 import { UserDetailSheet } from '../components/UserDetailSheet.tsx';
@@ -89,17 +89,40 @@ export function Directory() {
   const rows = data?.rows ?? [];
   const hasMore = data?.hasMore ?? false;
 
-  const selectedUserIds = useMemo(
-    () =>
-      Object.keys(rowSelection)
-        .filter((personId) => rowSelection[personId])
-        .map((personId) => rows.find((r) => r.person_id === personId)?.user_id)
-        .filter((id): id is string => !!id),
-    [rowSelection, rows],
+  // Accumulator: person_id → user_id, surviving pagination. rowSelection drives
+  // the table checkboxes per page; selectedUsers is the durable cross-page set.
+  const [selectedUsers, setSelectedUsers] = useState<Record<string, string>>({});
+
+  const handleRowSelectionChange = useCallback<OnChangeFn<RowSelectionState>>(
+    (updater) => {
+      setRowSelection((prev) => {
+        const next = typeof updater === 'function' ? updater(prev) : updater;
+        setSelectedUsers((acc) => {
+          const merged = { ...acc };
+          // Newly selected on this page → resolve user_id from the visible rows.
+          for (const personId of Object.keys(next)) {
+            if (next[personId] && !prev[personId]) {
+              const userId = rows.find((r) => r.person_id === personId)?.user_id;
+              if (userId) merged[personId] = userId;
+            }
+          }
+          // Newly deselected on this page → drop from accumulator.
+          for (const personId of Object.keys(prev)) {
+            if (prev[personId] && !next[personId]) delete merged[personId];
+          }
+          return merged;
+        });
+        return next;
+      });
+    },
+    [rows],
   );
+
+  const selectedUserIds = useMemo(() => Object.values(selectedUsers), [selectedUsers]);
 
   function clearSelection() {
     setRowSelection({});
+    setSelectedUsers({});
   }
 
   const pageCount = page + (hasMore ? 2 : 1);
@@ -274,7 +297,7 @@ export function Directory() {
           isLoading={isLoading}
           enableRowSelection={(row: Row<DirectoryRow>) => row.original.account_status !== 'none'}
           rowSelection={rowSelection}
-          onRowSelectionChange={setRowSelection}
+          onRowSelectionChange={handleRowSelectionChange}
           enableGlobalFilter={false}
           enableColumnVisibility={false}
           sorting={[]}

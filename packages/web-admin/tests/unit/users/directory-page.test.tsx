@@ -195,6 +195,69 @@ describe('Directory page', () => {
     expect(calledBody.user_ids).toHaveLength(2);
   });
 
+  it('bulk bar: selection persists across pagination (accumulator)', async () => {
+    const mockBulkMutate = vi.fn();
+    const hooks = await setupMocks({ canWrite: true });
+    (hooks.useBulkRole as ReturnType<typeof vi.fn>).mockReturnValue({
+      mutate: mockBulkMutate,
+      isPending: false,
+    });
+
+    // Page 1: Bob (u2) + Carol (u3) selectable; Alice (none) not.
+    const page2Rows = [
+      {
+        person_id: 'p4',
+        full_name: 'Dave',
+        work_email: 'dave@test.com',
+        job_title: 'Lead',
+        employment_status: 'active' as const,
+        account_status: 'active' as const,
+        user_id: 'u4',
+        roles: [],
+      },
+    ];
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { rerender } = render(<Directory />, { wrapper: wrap(qc) });
+
+    // Select two account rows on page 1 (Bob, Carol)
+    await waitFor(() => screen.getAllByRole('checkbox', { name: /select row/i }));
+    let checkboxes = screen.getAllByRole('checkbox', { name: /select row/i });
+    await userEvent.click(checkboxes[1]);
+    await waitFor(() => expect(screen.getByText('1 selected')).toBeInTheDocument());
+    checkboxes = screen.getAllByRole('checkbox', { name: /select row/i });
+    await userEvent.click(checkboxes[2]);
+    await waitFor(() => expect(screen.getByText('2 selected')).toBeInTheDocument());
+
+    // Simulate pagination → page 2 returns a single new account row (Dave / u4)
+    (hooks.useDirectory as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: { rows: page2Rows, page: 1, hasMore: false },
+      isLoading: false,
+    });
+    rerender(<Directory />);
+
+    // Select Dave on page 2
+    await waitFor(() => screen.getByText('Dave'));
+    const page2Checkboxes = screen.getAllByRole('checkbox', { name: /select row/i });
+    await userEvent.click(page2Checkboxes[0]);
+
+    // Accumulator now holds 3 across both pages
+    await waitFor(() => expect(screen.getByText('3 selected')).toBeInTheDocument());
+
+    // Assign role → confirm
+    const rolePicker = screen.getByRole('combobox', { name: /role/i });
+    await userEvent.click(rolePicker);
+    const roleOption = await screen.findByRole('option', { name: /identity.admin/i });
+    await userEvent.click(roleOption);
+    await userEvent.click(screen.getByRole('button', { name: /^assign$/i }));
+    await userEvent.click(await screen.findByRole('button', { name: /^confirm$/i }));
+
+    // Mutation receives all three user_ids (page 1 + page 2)
+    const [calledBody] = mockBulkMutate.mock.calls[0] as [{ user_ids: string[] }];
+    expect(calledBody.user_ids).toHaveLength(3);
+    expect(calledBody.user_ids).toEqual(expect.arrayContaining(['u2', 'u3', 'u4']));
+  });
+
   it('clicking a row opens the detail sheet with person details', async () => {
     await setupMocks({ canWrite: false });
 

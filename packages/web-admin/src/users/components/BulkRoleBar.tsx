@@ -30,7 +30,7 @@ export function BulkRoleBar({ selectedUserIds, onClearSelection }: Props) {
     const seen = new Set<string>();
     return matrixData
       .filter((r) => !seen.has(r.slug) && seen.add(r.slug))
-      .map((r) => ({ value: r.slug, label: r.slug }));
+      .map((r) => ({ value: r.slug, label: r.description || r.slug, keywords: [r.slug] }));
   }, [matrixData]);
 
   const count = selectedUserIds.length;
