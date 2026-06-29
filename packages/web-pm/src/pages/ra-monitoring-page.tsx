@@ -1,4 +1,6 @@
 import {
+  Alert,
+  AlertDescription,
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -34,7 +36,7 @@ import {
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarRange, Check, Pencil, Plus, Trash2, Users, X } from 'lucide-react';
+import { AlertCircle, CalendarRange, Check, Pencil, Plus, Trash2, Users, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import {
   createAllocation,
@@ -141,6 +143,7 @@ function AddAllocationDialog({
     setFrom(defaultFrom);
     setTo(defaultTo);
     setNote('');
+    mutation.reset();
   }
 
   const mutation = useMutation({
@@ -161,7 +164,6 @@ function AddAllocationDialog({
       setOpen(false);
       reset();
     },
-    onError: (e: Error) => toast.error(e.message),
   });
 
   return (
@@ -183,6 +185,12 @@ function AddAllocationDialog({
           <DialogTitle>Add allocation</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
+          {mutation.isError ? (
+            <Alert variant="destructive">
+              <AlertCircle />
+              <AlertDescription>{mutation.error.message}</AlertDescription>
+            </Alert>
+          ) : null}
           <div className="space-y-1.5">
             <Label>Person</Label>
             <AsyncCombobox
