@@ -1,0 +1,503 @@
+{
+  "title": "AI SDLC — Team",
+  "uid": "ai-sdlc-team",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5m",
+  "tags": ["ai-sdlc", "team"],
+  "time": { "from": "now-30d", "to": "now" },
+  "timezone": "browser",
+  "templating": {
+    "list": [
+      {
+        "name": "project",
+        "type": "query",
+        "datasource": { "type": "postgres", "uid": "reporting-postgres" },
+        "query": "SELECT DISTINCT project FROM reporting.ai_sprint_metrics ORDER BY 1",
+        "refresh": 2,
+        "includeAll": false,
+        "hide": 0
+      },
+      {
+        "name": "sprint",
+        "type": "query",
+        "datasource": { "type": "postgres", "uid": "reporting-postgres" },
+        "query": "SELECT DISTINCT sprint_label FROM reporting.ai_sprint_metrics WHERE project = '$project' ORDER BY 1 DESC",
+        "refresh": 2,
+        "includeAll": false,
+        "hide": 0
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Live Snapshot",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "A4 — AI Adoption %",
+      "datasource": { "type": "postgres", "uid": "reporting-postgres" },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
+      "targets": [
+        {
+          "rawSql": "SELECT a4_ai_issue_ratio * 100 FROM reporting.ai_sprint_metrics WHERE project = '$project' AND sprint_label = '$sprint'",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": 0 },
+              { "color": "yellow", "value": 30 },
+              { "color": "green", "value": 50 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "A2 — AI PR %",
+      "datasource": { "type": "postgres", "uid": "reporting-postgres" },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
+      "targets": [
+        {
+          "rawSql": "SELECT a2_pr_ai_ratio * 100 FROM reporting.ai_sprint_metrics WHERE project = '$project' AND sprint_label = '$sprint'",
+          "format": "table"
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": 0 },
+              { "color": "yellow", "value": 40 },
+              { "color": "green", "value": 60 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "A3 — Agent Task %",
+      "datasource": { "type": "postgres", "uid": "reporting-postgres" },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
+      "targets": [
+        {
+          "rawSql": "SELECT a3_agent_issue_ratio * 100 FROM reporting.ai_sprint_metrics WHERE project = '$project' AND sprint_label = '$sprint'",
+          "format": "table"
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "steps": [{ "color": "blue", "value": 0 }, { "color": "green", "value": 20 }]
+          }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "D3 — Agent Autonomy %",
+      "datasource": { "type": "postgres", "uid": "reporting-postgres" },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
+      "targets": [
+        {
+          "rawSql": "SELECT d3_autonomy_ratio * 100 FROM reporting.ai_sprint_metrics WHERE project = '$project' AND sprint_label = '$sprint'",
+          "format": "table"
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "steps": [{ "color": "blue", "value": 0 }, { "color": "green", "value": 70 }]
+          }
+        }
+      }
+    },
+    {
+      "id": 10,
+      "type": "row",
+      "title": "DORA",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "B1 — Lead Time (hrs)",
+      "datasource": { "type": "postgres", "uid": "reporting-postgres" },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 6 },
+      "targets": [
+        {
+          "rawSql": "SELECT b1_lead_time_median_hours FROM reporting.ai_sprint_metrics WHERE project = '$project' AND sprint_label = '$sprint'",
+          "format": "table"
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": 0 },
+              { "color": "yellow", "value": 24 },
+              { "color": "red", "value": 72 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 12,
+      "type": "stat",
+      "title": "B2 — Deploys / Week",
+      "datasource": { "type": "postgres", "uid": "reporting-postgres" },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 6 },
+      "targets": [
+        {
+          "rawSql": "SELECT b2_deploy_frequency_per_week FROM reporting.ai_sprint_metrics WHERE project = '$project' AND sprint_label = '$sprint'",
+          "format": "table"
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": 0 },
+              { "color": "yellow", "value": 1 },
+              { "color": "green", "value": 3 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 13,
+      "type": "stat",
+      "title": "B3 — Change Failure Rate",
+      "datasource": { "type": "postgres", "uid": "reporting-postgres" },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 6 },
+      "targets": [
+        {
+          "rawSql": "SELECT b3_change_failure_rate * 100 FROM reporting.ai_sprint_metrics WHERE project = '$project' AND sprint_label = '$sprint'",
+          "format": "table"
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": 0 },
+              { "color": "yellow", "value": 10 },
+              { "color": "red", "value": 15 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 14,
+      "type": "stat",
+      "title": "B4 — MTTR (hrs)",
+      "datasource": { "type": "postgres", "uid": "reporting-postgres" },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 6 },
+      "targets": [
+        {
+          "rawSql": "SELECT b4_mttr_hours FROM reporting.ai_sprint_metrics WHERE project = '$project' AND sprint_label = '$sprint'",
+          "format": "table"
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": 0 },
+              { "color": "yellow", "value": 4 },
+              { "color": "red", "value": 24 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20,
+      "type": "row",
+      "title": "Quality & Security",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 10 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 21,
+      "type": "stat",
+      "title": "C1 — Rework Rate",
+      "datasource": { "type": "postgres", "uid": "reporting-postgres" },
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 11 },
+      "targets": [
+        {
+          "rawSql": "SELECT c1_rework_ratio * 100 FROM reporting.ai_sprint_metrics WHERE project = '$project' AND sprint_label = '$sprint'",
+          "format": "table"
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": 0 },
+              { "color": "yellow", "value": 5 },
+              { "color": "red", "value": 10 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 22,
+      "type": "stat",
+      "title": "C2 — AI PR Review Coverage",
+      "datasource": { "type": "postgres", "uid": "reporting-postgres" },
+      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 11 },
+      "targets": [
+        {
+          "rawSql": "SELECT c2_ai_pr_review_ratio * 100 FROM reporting.ai_sprint_metrics WHERE project = '$project' AND sprint_label = '$sprint'",
+          "format": "table"
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": 0 },
+              { "color": "yellow", "value": 80 },
+              { "color": "green", "value": 100 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 23,
+      "type": "stat",
+      "title": "C4 — Security Alerts",
+      "datasource": { "type": "postgres", "uid": "reporting-postgres" },
+      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 11 },
+      "targets": [
+        {
+          "rawSql": "SELECT c4_security_alerts FROM reporting.ai_sprint_metrics WHERE project = '$project' AND sprint_label = '$sprint'",
+          "format": "table"
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "steps": [{ "color": "green", "value": 0 }, { "color": "red", "value": 1 }]
+          }
+        }
+      }
+    },
+    {
+      "id": 30,
+      "type": "row",
+      "title": "Agent Maturity",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 15 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 31,
+      "type": "gauge",
+      "title": "D1 — Agent Completion",
+      "datasource": { "type": "postgres", "uid": "reporting-postgres" },
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "rawSql": "SELECT d1_agent_completion_ratio * 100 FROM reporting.ai_sprint_metrics WHERE project = '$project' AND sprint_label = '$sprint'",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "minVizWidth": 75,
+        "minVizHeight": 75
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": 0 },
+              { "color": "yellow", "value": 60 },
+              { "color": "green", "value": 80 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 32,
+      "type": "gauge",
+      "title": "D2 — Human Intervention",
+      "datasource": { "type": "postgres", "uid": "reporting-postgres" },
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 16 },
+      "targets": [
+        {
+          "rawSql": "SELECT d2_human_intervention_ratio * 100 FROM reporting.ai_sprint_metrics WHERE project = '$project' AND sprint_label = '$sprint'",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "minVizWidth": 75,
+        "minVizHeight": 75
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": 0 },
+              { "color": "yellow", "value": 40 },
+              { "color": "red", "value": 60 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 33,
+      "type": "gauge",
+      "title": "D3 — Autonomy",
+      "datasource": { "type": "postgres", "uid": "reporting-postgres" },
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 16 },
+      "targets": [
+        {
+          "rawSql": "SELECT d3_autonomy_ratio * 100 FROM reporting.ai_sprint_metrics WHERE project = '$project' AND sprint_label = '$sprint'",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "minVizWidth": 75,
+        "minVizHeight": 75
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": 0 },
+              { "color": "yellow", "value": 50 },
+              { "color": "green", "value": 70 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 34,
+      "type": "stat",
+      "title": "D4 — Agent Cycle Time (hrs)",
+      "datasource": { "type": "postgres", "uid": "reporting-postgres" },
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 16 },
+      "targets": [
+        {
+          "rawSql": "SELECT d4_agent_cycle_time_hours FROM reporting.ai_sprint_metrics WHERE project = '$project' AND sprint_label = '$sprint'",
+          "format": "table"
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": 0 },
+              { "color": "yellow", "value": 4 },
+              { "color": "red", "value": 12 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 40,
+      "type": "row",
+      "title": "Sprint Trend",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 22 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 41,
+      "type": "timeseries",
+      "title": "A4 AI Adoption % — all sprints",
+      "datasource": { "type": "postgres", "uid": "reporting-postgres" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 23 },
+      "targets": [
+        {
+          "rawSql": "SELECT sprint_label AS time, a4_ai_issue_ratio * 100 AS \"AI Adoption %\" FROM reporting.ai_sprint_metrics WHERE project = '$project' ORDER BY sprint_label",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percent" } }
+    },
+    {
+      "id": 42,
+      "type": "timeseries",
+      "title": "D3 Autonomy % — all sprints",
+      "datasource": { "type": "postgres", "uid": "reporting-postgres" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 23 },
+      "targets": [
+        {
+          "rawSql": "SELECT sprint_label AS time, d3_autonomy_ratio * 100 AS \"Autonomy %\" FROM reporting.ai_sprint_metrics WHERE project = '$project' ORDER BY sprint_label",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percent" } }
+    }
+  ]
+}
