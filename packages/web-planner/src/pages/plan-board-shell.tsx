@@ -5,7 +5,7 @@ import {
   ResolvePlanConflictsDialog,
   toast,
 } from '@seta/shared-ui';
-import { useSession } from '@seta/web-identity';
+import { usePermission, useSession } from '@seta/web-identity';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { BoardSkeleton, GridSkeleton } from '../components/board-skeleton';
@@ -125,12 +125,17 @@ export function PlanBoardShell({
     if (isStale) evict(planId);
   }, [isStale, planId, evict]);
 
+  // M365 link/unlink + sync controls have no dedicated permission key yet, so they stay on the
+  // role/ownership proxy. Plan create/update/delete actions are gated by their RBAC permission.
   const canManage =
     session.role_summary.roles.includes('org.admin') ||
     session.role_summary.roles.includes('tenant.admin') ||
     (session.role_summary.roles.includes('planner.admin') &&
       groupId !== undefined &&
       session.accessible_group_ids.includes(groupId));
+  const canCreatePlan = usePermission('planner.plan.create');
+  const canUpdatePlan = usePermission('planner.plan.update');
+  const canDeletePlan = usePermission('planner.plan.delete');
 
   function onRenamePlan(name: string) {
     if (!plan) return;
@@ -201,15 +206,18 @@ export function PlanBoardShell({
             ? tasks.filter((t) => t.assignees.some((a) => a.user_id === currentUserId)).length
             : undefined
         }
-        canRename={canManage}
+        canRename={canUpdatePlan}
         canManage={canManage}
+        canDuplicate={canCreatePlan}
+        canArchive={canUpdatePlan}
+        canDelete={canDeletePlan}
         onRename={onRenamePlan}
-        onDuplicate={canManage ? handleDuplicatePlan : undefined}
+        onDuplicate={handleDuplicatePlan}
         onCopyShareLink={handleCopyShareLink}
         isArchived={resolvedPlan.archived_at !== null}
-        onArchive={canManage && !resolvedPlan.archived_at ? handleArchivePlan : undefined}
+        onArchive={!resolvedPlan.archived_at ? handleArchivePlan : undefined}
         onRestore={undefined}
-        onDelete={canManage ? onDeletePlan : undefined}
+        onDelete={onDeletePlan}
         external_source={resolvedPlan.external_source}
         syncStatus={resolvedPlan.sync_status}
         externalSyncedAt={resolvedPlan.external_synced_at}

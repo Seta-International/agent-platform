@@ -6,6 +6,7 @@ import {
   Card,
   CardContent,
   cn,
+  DisabledActionTooltip,
   formatRelative,
 } from '@seta/shared-ui';
 import { Check, ChevronRight, Plus, Shield, Users, X } from 'lucide-react';
@@ -13,6 +14,7 @@ import type { ReactNode } from 'react';
 import type { GroupJoinRequestRow } from '../api/planner-client';
 import { buildActivityLabel } from '../lib/build-activity-label';
 import { absoluteActivityTime } from '../lib/format-activity-time';
+import { PERMISSION_DENIED } from '../lib/permission-messages';
 
 interface Props {
   group: GroupRow;
@@ -123,17 +125,18 @@ export function GroupRail({
               Members{' '}
               <span className="ml-1 text-xs normal-case text-ink-subtle">{memberCount}</span>
             </h3>
-            {canManage ? (
+            <DisabledActionTooltip disabled={!canManage} reason={PERMISSION_DENIED.group.addMember}>
               <Button
                 size="sm"
                 variant="ghost"
                 onClick={onAddMember}
                 aria-label="Add member"
                 className="h-6 px-1.5"
+                disabled={!canManage}
               >
                 <Plus className="size-3" /> Add
               </Button>
-            ) : null}
+            </DisabledActionTooltip>
           </div>
           <div className="flex flex-col">
             {visibleMembers.map((m, i, arr) => (

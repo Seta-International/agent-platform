@@ -1,4 +1,5 @@
 import { DropdownMenuItem } from '@seta/shared-ui';
+import { usePermission } from '@seta/web-identity';
 import { useRefreshGroupSync } from '../hooks/mutations/refresh-group-sync';
 import { useUnlinkGroupFromM365 } from '../hooks/mutations/unlink-group-from-m365';
 
@@ -6,7 +7,6 @@ interface Props {
   groupId: string;
   externalSource: 'native' | 'm365' | string;
   syncStatus: string | null;
-  canManage: boolean;
   onLinkClick: () => void;
   onResolveClick: () => void;
   onRefreshClick?: () => void;
@@ -17,7 +17,6 @@ export function SyncControlsMenu({
   groupId,
   externalSource,
   syncStatus,
-  canManage,
   onLinkClick,
   onResolveClick,
   onRefreshClick,
@@ -28,27 +27,35 @@ export function SyncControlsMenu({
   const refreshPending = isRefreshing ?? internalRefresh.isPending;
   const unlink = useUnlinkGroupFromM365(groupId);
 
+  // Linking/unlinking a group to M365 mutates the group; gate on the group update permission.
+  // Permission-gated items render disabled (not hidden) so the capability stays discoverable.
+  const canManageLink = usePermission('planner.group.update');
   const isNative = externalSource === 'native';
-
-  if (isNative && !canManage) return null;
 
   return (
     <>
-      {isNative && canManage && (
-        <DropdownMenuItem onSelect={onLinkClick}>Link with Microsoft 365…</DropdownMenuItem>
+      {isNative && (
+        <DropdownMenuItem onSelect={onLinkClick} disabled={!canManageLink}>
+          Link with Microsoft 365…
+        </DropdownMenuItem>
       )}
       {!isNative && (
         <DropdownMenuItem onSelect={handleRefresh} disabled={refreshPending}>
           {refreshPending ? 'Syncing…' : 'Sync now'}
         </DropdownMenuItem>
       )}
-      {!isNative && canManage && (
-        <DropdownMenuItem onSelect={() => unlink.mutate()} disabled={unlink.isPending}>
+      {!isNative && (
+        <DropdownMenuItem
+          onSelect={() => unlink.mutate()}
+          disabled={!canManageLink || unlink.isPending}
+        >
           {unlink.isPending ? 'Unlinking…' : 'Unlink from Microsoft 365'}
         </DropdownMenuItem>
       )}
-      {!isNative && canManage && syncStatus === 'conflict' && (
-        <DropdownMenuItem onSelect={onResolveClick}>Review changes…</DropdownMenuItem>
+      {!isNative && syncStatus === 'conflict' && (
+        <DropdownMenuItem onSelect={onResolveClick} disabled={!canManageLink}>
+          Review changes…
+        </DropdownMenuItem>
       )}
     </>
   );

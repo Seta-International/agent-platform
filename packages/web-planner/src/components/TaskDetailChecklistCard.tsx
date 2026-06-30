@@ -1,11 +1,13 @@
 import { DragDropContext, Draggable, Droppable, type DropResult } from '@hello-pangea/dnd';
 import type { ChecklistItemRow, TaskDetailRow } from '@seta/planner';
-import { Checkbox } from '@seta/shared-ui';
+import { Checkbox, DisabledActionTooltip } from '@seta/shared-ui';
+import { usePermission } from '@seta/web-identity';
 import { GripVertical, Plus } from 'lucide-react';
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { useAddChecklistItem } from '../hooks/mutations/add-checklist-item';
 import { useRemoveChecklistItem } from '../hooks/mutations/remove-checklist-item';
 import { useUpdateChecklistItem } from '../hooks/mutations/update-checklist-item';
+import { PERMISSION_DENIED } from '../lib/permission-messages';
 import { computeReorderHint } from './checklist-reorder';
 
 interface Props {
@@ -17,6 +19,7 @@ export function TaskDetailChecklistCard({ task, planId }: Props) {
   const add = useAddChecklistItem(planId, task.id);
   const update = useUpdateChecklistItem(planId, task.id);
   const remove = useRemoveChecklistItem(planId, task.id);
+  const canUpdate = usePermission('planner.task.update');
 
   const [draft, setDraft] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -33,6 +36,7 @@ export function TaskDetailChecklistCard({ task, planId }: Props) {
   }, [editingId]);
 
   const beginEdit = (it: ChecklistItemRow) => {
+    if (!canUpdate) return;
     setEditingId(it.id);
     setEditDraft(it.label);
   };
@@ -60,6 +64,7 @@ export function TaskDetailChecklistCard({ task, planId }: Props) {
   };
 
   const onSubmitDraft = () => {
+    if (!canUpdate) return;
     const label = draft.trim();
     if (!label) return;
     // Trello/Planner-style loop: clear the field and keep focus for the next item.
@@ -86,6 +91,7 @@ export function TaskDetailChecklistCard({ task, planId }: Props) {
   };
 
   const onDragEnd = (result: DropResult) => {
+    if (!canUpdate) return;
     if (!result.destination) return;
     const newHint = computeReorderHint(
       task.checklist,
@@ -122,8 +128,9 @@ export function TaskDetailChecklistCard({ task, planId }: Props) {
                       <button
                         type="button"
                         aria-label="Drag handle"
-                        {...dpc.dragHandleProps}
-                        className="inline-flex cursor-grab items-center border-none bg-transparent p-0 text-ink-tertiary"
+                        {...(canUpdate ? dpc.dragHandleProps : {})}
+                        disabled={!canUpdate}
+                        className={`inline-flex items-center border-none bg-transparent p-0 text-ink-tertiary ${canUpdate ? 'cursor-grab' : 'cursor-not-allowed opacity-40'}`}
                       >
                         <GripVertical className="size-3.5" />
                       </button>
@@ -131,6 +138,7 @@ export function TaskDetailChecklistCard({ task, planId }: Props) {
                         id={`chk-${it.id}`}
                         aria-label={it.label}
                         checked={it.checked}
+                        disabled={!canUpdate}
                         onCheckedChange={(v) =>
                           update.mutate({
                             item_id: it.id,
@@ -151,6 +159,7 @@ export function TaskDetailChecklistCard({ task, planId }: Props) {
                       ) : (
                         <button
                           type="button"
+                          disabled={!canUpdate}
                           onDoubleClick={() => beginEdit(it)}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' || e.key === ' ') {
@@ -158,20 +167,26 @@ export function TaskDetailChecklistCard({ task, planId }: Props) {
                               beginEdit(it);
                             }
                           }}
-                          title="Double-click to edit"
-                          className={`t-sm flex-1 cursor-text select-none border-none bg-transparent p-0 text-left ${it.checked ? 'text-ink-subtle line-through' : 'text-ink'}`}
+                          title={canUpdate ? 'Double-click to edit' : undefined}
+                          className={`t-sm flex-1 select-none border-none bg-transparent p-0 text-left ${canUpdate ? 'cursor-text' : 'cursor-default'} ${it.checked ? 'text-ink-subtle line-through' : 'text-ink'}`}
                         >
                           {it.label}
                         </button>
                       )}
-                      <button
-                        type="button"
-                        aria-label="Remove"
-                        onClick={() => remove.mutate({ item_id: it.id })}
-                        className="cursor-pointer border-none bg-transparent px-1 py-0 text-[14px] leading-none text-ink-subtle"
+                      <DisabledActionTooltip
+                        disabled={!canUpdate}
+                        reason={PERMISSION_DENIED.task.edit}
                       >
-                        ×
-                      </button>
+                        <button
+                          type="button"
+                          aria-label="Remove"
+                          onClick={() => remove.mutate({ item_id: it.id })}
+                          disabled={!canUpdate}
+                          className="cursor-pointer border-none bg-transparent px-1 py-0 text-[14px] leading-none text-ink-subtle disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          ×
+                        </button>
+                      </DisabledActionTooltip>
                     </div>
                   )}
                 </Draggable>
@@ -182,21 +197,24 @@ export function TaskDetailChecklistCard({ task, planId }: Props) {
         </Droppable>
       </DragDropContext>
 
-      <div className="mt-2 flex items-center gap-2 rounded-sm border border-hairline bg-surface-1 px-2 py-1.5 focus-within:border-primary">
-        <Plus className="size-3.5 shrink-0 text-ink-tertiary" aria-hidden />
-        <input
-          ref={inputRef}
-          aria-label="New checklist item"
-          value={draft}
-          onChange={(e) => setDraft(e.currentTarget.value)}
-          onKeyDown={onKeyDown}
-          placeholder="Add an item"
-          className="flex-1 border-0 bg-transparent text-body-sm text-ink outline-none placeholder:text-ink-subtle"
-        />
-        <span className="t-xs subtle shrink-0" aria-hidden>
-          ↵ to add
-        </span>
-      </div>
+      <DisabledActionTooltip disabled={!canUpdate} reason={PERMISSION_DENIED.task.edit}>
+        <div className="mt-2 flex items-center gap-2 rounded-sm border border-hairline bg-surface-1 px-2 py-1.5 focus-within:border-primary">
+          <Plus className="size-3.5 shrink-0 text-ink-tertiary" aria-hidden />
+          <input
+            ref={inputRef}
+            aria-label="New checklist item"
+            value={draft}
+            onChange={(e) => setDraft(e.currentTarget.value)}
+            onKeyDown={onKeyDown}
+            disabled={!canUpdate}
+            placeholder="Add an item"
+            className="flex-1 border-0 bg-transparent text-body-sm text-ink outline-none placeholder:text-ink-subtle disabled:cursor-not-allowed"
+          />
+          <span className="t-xs subtle shrink-0" aria-hidden>
+            ↵ to add
+          </span>
+        </div>
+      </DisabledActionTooltip>
     </section>
   );
 }

@@ -6,6 +6,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DisabledActionTooltip,
   Skeleton,
   Tabs,
   TabsContent,
@@ -13,7 +14,7 @@ import {
   TabsTrigger,
   toast,
 } from '@seta/shared-ui';
-import type { SessionScopeProjection } from '@seta/web-identity';
+import { type SessionScopeProjection, usePermission } from '@seta/web-identity';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Navigate, useNavigate } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
@@ -39,6 +40,7 @@ import { useGroupActivity } from '../hooks/queries/use-group-activity';
 import { useGroupMembers } from '../hooks/queries/use-group-members';
 import { useGroupPlans } from '../hooks/queries/use-group-plans';
 import { useGroupActivityLive } from '../hooks/use-group-activity-live';
+import { PERMISSION_DENIED } from '../lib/permission-messages';
 
 export type GroupTab = 'plans' | 'members' | 'activity' | 'integrations' | 'settings';
 
@@ -98,6 +100,12 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
   const navigate = useNavigate();
   const deleteGroup = useDeleteGroup(groupId);
   const restoreGroup = useRestoreGroup();
+  const canUpdateGroup = usePermission('planner.group.update');
+  const canCreatePlan = usePermission('planner.plan.create');
+  // Member management maps to dedicated, backend-enforced permissions (not the canManage proxy):
+  // add/remove member + resolve join request => member.write; change role => member.role.set.
+  const canManageMembers = usePermission('planner.group.member.write');
+  const canSetMemberRole = usePermission('planner.group.member.role.set');
 
   const [createPlanOpen, setCreatePlanOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -111,11 +119,13 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
   const hasAutoPrompted = useRef(false);
 
   useEffect(() => {
-    if (groupQuery.data?.deleted_at && !hasAutoPrompted.current) {
+    // Only auto-prompt when the user can actually restore — otherwise the modal's sole action
+    // would be disabled and the prompt is just noise.
+    if (groupQuery.data?.deleted_at && canUpdateGroup && !hasAutoPrompted.current) {
       hasAutoPrompted.current = true;
       setRestorePromptOpen(true);
     }
-  }, [groupQuery.data?.deleted_at]);
+  }, [groupQuery.data?.deleted_at, canUpdateGroup]);
 
   // Capability checks
   const roles = session.role_summary.roles;
@@ -127,13 +137,12 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
   const memberTotal = membersQuery.data?.total ?? members.length;
   const isOwner = members.some((m) => m.user_id === session.user_id && m.role === 'owner');
   const canManage = isAdmin || isOwner;
-  const canCreatePlan = canManage;
-  const canManageRoles = canManage;
+  const canManageRoles = canSetMemberRole;
 
   const joinRequestsQuery = useQuery({
     queryKey: ['planner', 'join-requests', groupId, 'pending'],
     queryFn: () => listJoinRequests(groupId, 'pending'),
-    enabled: canManage,
+    enabled: canManageMembers,
   });
 
   const resolveRequestMutation = useMutation({
@@ -227,7 +236,7 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
     <div className="flex h-full flex-col">
       <GroupDetailHeader
         group={group}
-        canManage={canManage}
+        canManage={canManageMembers}
         onEditClick={() => setEditOpen(true)}
         onInviteClick={() => setAddMembersOpen(true)}
         onCreatePlanClick={() => setCreatePlanOpen(true)}
@@ -236,14 +245,19 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
       {group.deleted_at && (
         <div className="flex flex-none items-center justify-between gap-4 border-b border-hairline bg-semantic-warning-tint px-6 py-2 text-body-sm text-semantic-warning">
           <span>This group is archived.</span>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={doRestore}
-            disabled={restoreGroup.isPending}
+          <DisabledActionTooltip
+            disabled={!canUpdateGroup}
+            reason={PERMISSION_DENIED.group.restore}
           >
-            Restore
-          </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={doRestore}
+              disabled={!canUpdateGroup || restoreGroup.isPending}
+            >
+              Restore
+            </Button>
+          </DisabledActionTooltip>
         </div>
       )}
       <Tabs
@@ -294,13 +308,13 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
               group={group}
               members={members}
               totalMemberCount={memberTotal}
-              canManage={canManage}
+              canManage={canManageMembers}
               onAddMember={() => setAddMembersOpen(true)}
               onSeeAllMembers={() => onTabChange('members')}
               activityItems={
                 activityQuery.isPending ? undefined : (activityQuery.data?.items ?? null)
               }
-              pendingRequests={canManage ? (joinRequestsQuery.data ?? []) : undefined}
+              pendingRequests={canManageMembers ? (joinRequestsQuery.data ?? []) : undefined}
               onApproveRequest={(userId) =>
                 resolveRequestMutation.mutate({ userId, action: 'approved' })
               }
@@ -317,7 +331,7 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
               group={group}
               members={members}
               canManageRoles={canManageRoles}
-              canRemoveMembers={canManage}
+              canRemoveMembers={canManageMembers}
               onRoleChange={(v) => setMemberRoleMutation.mutate(v)}
               onRemoveMember={(member) => setMemberToRemove(member)}
               onRemoveMembers={(userIds) => setMembersToRemove(userIds)}
@@ -326,12 +340,12 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
               group={group}
               members={members}
               totalMemberCount={memberTotal}
-              canManage={canManage}
+              canManage={canManageMembers}
               onAddMember={() => setAddMembersOpen(true)}
               activityItems={
                 activityQuery.isPending ? undefined : (activityQuery.data?.items ?? null)
               }
-              pendingRequests={canManage ? (joinRequestsQuery.data ?? []) : undefined}
+              pendingRequests={canManageMembers ? (joinRequestsQuery.data ?? []) : undefined}
               onApproveRequest={(userId) =>
                 resolveRequestMutation.mutate({ userId, action: 'approved' })
               }
@@ -407,15 +421,20 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
               <Button variant="secondary" onClick={() => setRestorePromptOpen(false)}>
                 View anyway
               </Button>
-              <Button
-                onClick={() => {
-                  setRestorePromptOpen(false);
-                  doRestore();
-                }}
-                disabled={restoreGroup.isPending}
+              <DisabledActionTooltip
+                disabled={!canUpdateGroup}
+                reason={PERMISSION_DENIED.group.restore}
               >
-                Restore group
-              </Button>
+                <Button
+                  onClick={() => {
+                    setRestorePromptOpen(false);
+                    doRestore();
+                  }}
+                  disabled={!canUpdateGroup || restoreGroup.isPending}
+                >
+                  Restore group
+                </Button>
+              </DisabledActionTooltip>
             </div>
           </div>
         </DialogContent>

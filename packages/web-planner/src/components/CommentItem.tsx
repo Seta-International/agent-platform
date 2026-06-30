@@ -8,6 +8,7 @@ import {
   formatRelative,
   Textarea,
 } from '@seta/shared-ui';
+import { usePermission } from '@seta/web-identity';
 import { MoreHorizontal } from 'lucide-react';
 import { useState } from 'react';
 import { useDeleteComment } from '../hooks/mutations/delete-comment';
@@ -37,9 +38,11 @@ export function CommentItem({ taskId, comment, currentUserId, isGroupOwner }: Pr
   const [draft, setDraft] = useState(comment.body);
   const update = useUpdateComment();
   const del = useDeleteComment();
+  const canComment = usePermission('planner.task.comment.create');
 
   const isAuthor = comment.author_id === currentUserId;
-  const canEdit = isAuthor;
+  // Editing a comment hits the same endpoint as creating one (requires comment.create).
+  const canEdit = isAuthor && canComment;
   const canDelete = isAuthor || isGroupOwner;
 
   function handleSave() {

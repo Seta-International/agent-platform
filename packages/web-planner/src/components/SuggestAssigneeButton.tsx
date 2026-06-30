@@ -1,7 +1,9 @@
-import { Button, toast } from '@seta/shared-ui';
+import { Button, DisabledActionTooltip, toast } from '@seta/shared-ui';
+import { usePermission } from '@seta/web-identity';
 import { Link } from '@tanstack/react-router';
 import { Loader2, MoveUpRight, Sparkles } from 'lucide-react';
 import { useStartAssignBySkill } from '../api/start-assign-by-skill';
+import { PERMISSION_DENIED } from '../lib/permission-messages';
 
 interface Props {
   taskId: string;
@@ -20,6 +22,7 @@ interface Props {
  */
 export function SuggestAssigneeButton({ taskId, taskTitle, pendingAssignWorkflowRunId }: Props) {
   const start = useStartAssignBySkill();
+  const canAssign = usePermission('planner.task.assign');
 
   if (pendingAssignWorkflowRunId) {
     return (
@@ -54,22 +57,24 @@ export function SuggestAssigneeButton({ taskId, taskTitle, pendingAssignWorkflow
     });
 
   return (
-    <Button
-      size="sm"
-      variant="ghost"
-      onClick={onClick}
-      disabled={start.isPending}
-      aria-label="Suggest assignee"
-      type="button"
-    >
-      {start.isPending ? (
-        <Loader2 className="size-3 animate-spin text-violet-500" />
-      ) : (
-        <Sparkles className="size-3 text-violet-500" />
-      )}
-      <span className="bg-gradient-to-r from-violet-500 to-blue-600 bg-clip-text text-transparent">
-        Suggest
-      </span>
-    </Button>
+    <DisabledActionTooltip disabled={!canAssign} reason={PERMISSION_DENIED.task.assign}>
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={onClick}
+        disabled={start.isPending || !canAssign}
+        aria-label="Suggest assignee"
+        type="button"
+      >
+        {start.isPending ? (
+          <Loader2 className="size-3 animate-spin text-violet-500" />
+        ) : (
+          <Sparkles className="size-3 text-violet-500" />
+        )}
+        <span className="bg-gradient-to-r from-violet-500 to-blue-600 bg-clip-text text-transparent">
+          Suggest
+        </span>
+      </Button>
+    </DisabledActionTooltip>
   );
 }

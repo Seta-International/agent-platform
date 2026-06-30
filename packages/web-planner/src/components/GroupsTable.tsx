@@ -5,11 +5,14 @@ import {
   AvatarStack,
   Badge,
   Button,
+  DisabledActionTooltip,
   formatRelative,
   GroupTile,
 } from '@seta/shared-ui';
+import { usePermission } from '@seta/web-identity';
 import { Link } from '@tanstack/react-router';
 import { ChevronRight, RefreshCw, Shield, Users } from 'lucide-react';
+import { PERMISSION_DENIED } from '../lib/permission-messages';
 
 interface Props {
   groups: ReadonlyArray<GroupWithCountsRow>;
@@ -26,6 +29,7 @@ function initialsOf(name: string): string {
 }
 
 export function GroupsTable({ groups, onRestore }: Props) {
+  const canUpdateGroup = usePermission('planner.group.update');
   return (
     <div className="w-full overflow-x-auto">
       {/* Header row */}
@@ -130,17 +134,23 @@ export function GroupsTable({ groups, onRestore }: Props) {
             {/* Restore or chevron */}
             <div className="flex justify-end">
               {onRestore && group.deleted_at ? (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onRestore(group.id);
-                  }}
+                <DisabledActionTooltip
+                  disabled={!canUpdateGroup}
+                  reason={PERMISSION_DENIED.group.restore}
                 >
-                  Restore
-                </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={!canUpdateGroup}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onRestore(group.id);
+                    }}
+                  >
+                    Restore
+                  </Button>
+                </DisabledActionTooltip>
               ) : (
                 <ChevronRight className="size-3 text-ink-tertiary" aria-hidden="true" />
               )}

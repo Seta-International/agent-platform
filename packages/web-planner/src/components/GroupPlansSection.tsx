@@ -1,6 +1,7 @@
 import type { PlanWithRollupsRow } from '@seta/planner';
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
+import { PERMISSION_DENIED } from '../lib/permission-messages';
 import { Paginator } from './Paginator';
 import { PlanCard } from './PlanCard';
 
@@ -59,7 +60,8 @@ export function GroupPlansSection({
   const start = safePageIndex * pageSize;
   const pageSlice = plans.slice(start, start + pageSize);
   const showPaginator = total > Math.min(...PAGE_SIZE_OPTIONS);
-  const showCreateTile = canCreatePlan && safePageIndex === pageCount - 1;
+  // Show the create tile on the last page; disable (not hide) it when the user can't create plans.
+  const showCreateTile = safePageIndex === pageCount - 1;
 
   return (
     <section className="@container rounded-lg border border-hairline bg-canvas overflow-hidden">
@@ -85,7 +87,9 @@ export function GroupPlansSection({
             <button
               type="button"
               onClick={onCreatePlan}
-              className="min-h-[158px] border border-dashed border-hairline-strong rounded-lg bg-transparent flex flex-col items-center justify-center gap-1.5 text-ink-subtle text-sm cursor-pointer hover:bg-surface-1 transition-colors"
+              disabled={!canCreatePlan}
+              title={canCreatePlan ? undefined : PERMISSION_DENIED.plan.create}
+              className="min-h-[158px] border border-dashed border-hairline-strong rounded-lg bg-transparent flex flex-col items-center justify-center gap-1.5 text-ink-subtle text-sm cursor-pointer hover:bg-surface-1 transition-colors disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
             >
               <Plus className="size-4" />
               <span>Create a plan in {groupName}</span>

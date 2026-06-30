@@ -8,11 +8,17 @@ import {
   useRef,
   useState,
 } from 'react';
+import { DisabledActionTooltip } from './disabled-action-tooltip';
 
 export interface KanbanBoardProps {
   children: ReactNode;
   /** Called with the typed bucket name; the trigger is omitted when undefined (no-permission view). */
   onAddBucket?: (name: string) => void | Promise<void>;
+  /**
+   * When set, the "Add another bucket" trigger renders disabled with this reason as a tooltip
+   * instead of being interactive — for users who lack permission to create buckets.
+   */
+  addBucketDisabledReason?: string;
   /** When set, blocks submit and shows an inline error if the trimmed name exceeds this length. */
   nameMaxLength?: number;
   bucketCount?: number;
@@ -27,6 +33,7 @@ export interface KanbanBoardProps {
 export function KanbanBoard({
   children,
   onAddBucket,
+  addBucketDisabledReason,
   nameMaxLength,
   bucketCount,
   rootDroppable,
@@ -63,7 +70,13 @@ export function KanbanBoard({
     <div ref={setBoardRef} {...rootDroppable?.rootProps} className="kanban-board">
       {children}
       {rootDroppable?.placeholder}
-      {handleAddBucket && <AddBucket onSubmit={handleAddBucket} nameMaxLength={nameMaxLength} />}
+      {handleAddBucket && (
+        <AddBucket
+          onSubmit={handleAddBucket}
+          nameMaxLength={nameMaxLength}
+          disabledReason={addBucketDisabledReason}
+        />
+      )}
     </div>
   );
 }
@@ -71,9 +84,11 @@ export function KanbanBoard({
 function AddBucket({
   onSubmit,
   nameMaxLength,
+  disabledReason,
 }: {
   onSubmit: (name: string) => void | Promise<void>;
   nameMaxLength?: number;
+  disabledReason?: string;
 }) {
   const [composing, setComposing] = useState(false);
   const [value, setValue] = useState('');
@@ -125,9 +140,16 @@ function AddBucket({
 
   if (!composing) {
     return (
-      <button type="button" className="kanban-board__add-bucket" onClick={() => setComposing(true)}>
-        + Add another bucket
-      </button>
+      <DisabledActionTooltip disabled={Boolean(disabledReason)} reason={disabledReason}>
+        <button
+          type="button"
+          className="kanban-board__add-bucket"
+          onClick={() => setComposing(true)}
+          disabled={Boolean(disabledReason)}
+        >
+          + Add another bucket
+        </button>
+      </DisabledActionTooltip>
     );
   }
 

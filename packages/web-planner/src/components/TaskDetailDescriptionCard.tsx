@@ -1,8 +1,10 @@
 import type { TaskWithAssigneesRow } from '@seta/planner';
-import { Button, RichTextDisplay, RichTextEditor } from '@seta/shared-ui';
+import { Button, DisabledActionTooltip, RichTextDisplay, RichTextEditor } from '@seta/shared-ui';
+import { usePermission } from '@seta/web-identity';
 import { Pencil } from 'lucide-react';
 import { useState } from 'react';
 import { useUpdateTask } from '../hooks/mutations/update-task';
+import { PERMISSION_DENIED } from '../lib/permission-messages';
 
 interface Props {
   task: TaskWithAssigneesRow;
@@ -10,11 +12,13 @@ interface Props {
 }
 
 export function TaskDetailDescriptionCard({ task, planId }: Props) {
+  const canUpdate = usePermission('planner.task.update');
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(task.description ?? '');
   const update = useUpdateTask(planId);
 
   const beginEdit = () => {
+    if (!canUpdate) return;
     setDraft(task.description ?? '');
     setEditing(true);
   };
@@ -59,26 +63,33 @@ export function TaskDetailDescriptionCard({ task, planId }: Props) {
   return (
     <section className="card" aria-label="Description">
       <header className="mb-2 text-body-sm text-ink-subtle">Description</header>
-      <button
-        type="button"
-        onClick={beginEdit}
-        aria-label="Edit description"
-        className="group relative flex w-full items-start gap-2 rounded-md border border-hairline bg-canvas px-3 py-2 text-left transition-colors hover:border-hairline-strong hover:bg-surface-1"
-      >
-        <div className="min-h-[40px] flex-1">
-          {task.description ? (
-            <div className="text-body-sm leading-[1.55]">
-              <RichTextDisplay value={task.description} />
-            </div>
-          ) : (
-            <span className="text-body-sm text-ink-subtle">No description. Click to add.</span>
+      <DisabledActionTooltip disabled={!canUpdate} reason={PERMISSION_DENIED.task.edit}>
+        <button
+          type="button"
+          onClick={beginEdit}
+          disabled={!canUpdate}
+          aria-label="Edit description"
+          className="group relative flex w-full items-start gap-2 rounded-md border border-hairline bg-canvas px-3 py-2 text-left transition-colors enabled:hover:border-hairline-strong enabled:hover:bg-surface-1 disabled:cursor-not-allowed"
+        >
+          <div className="min-h-[40px] flex-1">
+            {task.description ? (
+              <div className="text-body-sm leading-[1.55]">
+                <RichTextDisplay value={task.description} />
+              </div>
+            ) : (
+              <span className="text-body-sm text-ink-subtle">
+                {canUpdate ? 'No description. Click to add.' : 'No description.'}
+              </span>
+            )}
+          </div>
+          {canUpdate && (
+            <Pencil
+              aria-hidden
+              className="size-4 shrink-0 text-ink-subtle opacity-0 transition-opacity group-hover:opacity-100"
+            />
           )}
-        </div>
-        <Pencil
-          aria-hidden
-          className="size-4 shrink-0 text-ink-subtle opacity-0 transition-opacity group-hover:opacity-100"
-        />
-      </button>
+        </button>
+      </DisabledActionTooltip>
     </section>
   );
 }
