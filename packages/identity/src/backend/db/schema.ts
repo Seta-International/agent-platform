@@ -1,4 +1,13 @@
-import { boolean, index, jsonb, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  index,
+  jsonb,
+  primaryKey,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core';
 
 export { identity } from './pg-schema.ts';
 
@@ -75,4 +84,46 @@ export const directoryPerson = identity.table(
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [index('directory_person_by_tenant').on(t.tenant_id)],
+);
+
+export const accessGroup = identity.table(
+  'access_group',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenant_id: uuid('tenant_id').notNull(),
+    slug: text('slug').notNull(),
+    name: text('name').notNull(),
+    description: text('description'),
+    kind: text('kind', { enum: ['default', 'custom'] })
+      .default('custom')
+      .notNull(),
+    is_base: boolean('is_base').default(false).notNull(),
+    created_by: uuid('created_by'),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex('access_group_tenant_slug').on(t.tenant_id, t.slug)],
+);
+
+export const accessGroupMembership = identity.table(
+  'access_group_membership',
+  {
+    group_id: uuid('group_id').notNull(),
+    user_id: uuid('user_id').notNull(),
+    added_by: uuid('added_by'),
+    added_at: timestamp('added_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.group_id, t.user_id] }),
+    index('access_group_membership_by_user').on(t.user_id),
+  ],
+);
+
+export const accessGroupRole = identity.table(
+  'access_group_role',
+  {
+    group_id: uuid('group_id').notNull(),
+    role_slug: text('role_slug').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.group_id, t.role_slug] })],
 );
