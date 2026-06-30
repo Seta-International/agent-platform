@@ -49,6 +49,7 @@ async function buildActorSession(tenantId: string, actorEmail: string): Promise<
     features: new Set<string>(),
     role_summary_hash: hashRoleSummary(role_summary),
     accessible_group_ids: computeAccessibleGroups(grants),
+    group_ids: [],
     cross_tenant_read: role_summary.cross_tenant_read,
     built_at: new Date(),
     invalidated_at: null,

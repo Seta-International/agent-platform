@@ -138,6 +138,7 @@ export function buildSession(opts: {
     permissions: permsFor(roles),
     features: new Set<string>(),
     accessible_group_ids: opts.accessible_group_ids ?? [],
+    group_ids: [],
     cross_tenant_read: role_summary.cross_tenant_read,
     built_at: new Date(),
     invalidated_at: null,

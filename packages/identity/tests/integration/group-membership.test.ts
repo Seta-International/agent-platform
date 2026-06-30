@@ -171,7 +171,7 @@ describe('group membership', () => {
           );
 
           // actorA (system actor to bypass permission check) tries to write to tenant B's group
-          const systemActorA = { type: 'system' as const, user_id: undefined };
+          const systemActorA = { type: 'cli' as const, user_id: null };
 
           await expect(
             addGroupMembers(

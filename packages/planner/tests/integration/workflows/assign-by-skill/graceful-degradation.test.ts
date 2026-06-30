@@ -33,6 +33,7 @@ function admin(opts: { tenant_id: string; user_id: string; email: string }): Ses
     permissions: resolvePermissions(_registry, roles, IMPLICIT_PERMISSIONS),
     features: new Set<string>(),
     accessible_group_ids: [],
+    group_ids: [],
     cross_tenant_read: false,
     built_at: new Date(),
     invalidated_at: null,
