@@ -3,13 +3,7 @@ import { AgentRegistry, type CrossModuleReadToolSpec } from '@seta/agent-sdk';
 import { hashRoleSummary, type SessionScope } from '@seta/core';
 import { createUser } from '@seta/identity';
 import { createTestTenantWithAdmin } from '@seta/identity/testing';
-import {
-  createGroup,
-  createPlan,
-  createTask,
-  PLANNER_VECTOR_NAMESPACE,
-  assignTask as plannerAssignTask,
-} from '@seta/planner';
+import { createGroup, createPlan, createTask, PLANNER_VECTOR_NAMESPACE } from '@seta/planner';
 import {
   buildRegistry,
   IMPLICIT_PERMISSIONS,
@@ -26,6 +20,7 @@ import {
   applyAssignDecision,
   runSuggestAssignee,
 } from '../../../../src/backend/workflows/assign-by-skill/workflow.ts';
+import { assignTaskInGroup } from '../../../helpers.ts';
 import { withAgentTestDb } from '../../agent-tools-helpers.ts';
 import { applyLabels } from '../../label-test-helpers.ts';
 
@@ -165,7 +160,7 @@ describe('runSuggestAssignee + applyAssignDecision', () => {
             decision: { action: 'assign', assigneeUserIds: [alice.user_id] },
             session,
           },
-          { assignTask: plannerAssignTask },
+          { assignTask: (input) => assignTaskInGroup({ group_id: group.id, ...input }) },
         );
         expect(out).toEqual({ kind: 'assigned', taskId: task.id, userIds: [alice.user_id] });
 
@@ -225,7 +220,7 @@ describe('runSuggestAssignee + applyAssignDecision', () => {
           decision: { action: 'assign', assigneeUserIds: [u1.user_id, u2.user_id] },
           session,
         },
-        { assignTask: plannerAssignTask },
+        { assignTask: (input) => assignTaskInGroup({ group_id: group.id, ...input }) },
       );
       expect(out).toEqual({
         kind: 'assigned',

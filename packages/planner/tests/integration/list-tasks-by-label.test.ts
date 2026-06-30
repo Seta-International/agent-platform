@@ -3,14 +3,13 @@ import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import {
-  assignTask,
   createGroup,
   createPlan,
   createTask,
   listTasksByLabel,
   updateTask,
 } from '../../src/index.ts';
-import { buildSession, seedTenant } from '../helpers.ts';
+import { assignTaskInGroup, buildSession, seedTenant } from '../helpers.ts';
 import { applyLabels } from './label-test-helpers.ts';
 
 const withDb = (fn: Parameters<typeof withTestDb>[1]) =>
@@ -330,7 +329,12 @@ describe('listTasksByLabel', () => {
           applied_by: seeded.admin.user_id,
           names: ['infrastructure'],
         });
-        await assignTask({ task_id: t.id, user_id: alice.user_id, session });
+        await assignTaskInGroup({
+          group_id: group.id,
+          task_id: t.id,
+          user_id: alice.user_id,
+          session,
+        });
 
         const { results } = await listTasksByLabel({
           names: ['infrastructure'],

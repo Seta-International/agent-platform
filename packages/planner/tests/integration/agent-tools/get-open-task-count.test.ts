@@ -1,7 +1,7 @@
 import { hashRoleSummary, type SessionScope } from '@seta/core';
 import { createUser } from '@seta/identity';
 import { createTestTenantWithAdmin } from '@seta/identity/testing';
-import { assignTask, createGroup, createPlan, createTask } from '@seta/planner';
+import { createGroup, createPlan, createTask } from '@seta/planner';
 import {
   buildRegistry,
   IMPLICIT_PERMISSIONS,
@@ -11,6 +11,7 @@ import {
 } from '@seta/shared-rbac';
 import { describe, expect, it } from 'vitest';
 import { plannerGetOpenTaskCountSpec } from '../../../src/backend/agent-tools/get-open-task-count.ts';
+import { assignTaskInGroup } from '../../helpers.ts';
 import { withAgentTestDb } from '../agent-tools-helpers.ts';
 
 const _registry = buildRegistry(inventoryToManifests(INVENTORY));
@@ -84,18 +85,33 @@ describe('planner_getOpenTaskCountForUser cross-module read', () => {
         [0, 1, 2].map((i) => createTask({ plan_id: plan.id, title: `open-${i}`, session })),
       );
       for (const t of openTasks) {
-        await assignTask({ task_id: t.id, user_id: assignee.user_id, session });
+        await assignTaskInGroup({
+          group_id: group.id,
+          task_id: t.id,
+          user_id: assignee.user_id,
+          session,
+        });
       }
 
       // 1 completed task (percent_complete=100) — should not count.
       // Bypass updateTask's strict patch schema by setting the column directly.
       const done = await createTask({ plan_id: plan.id, title: 'done', session });
-      await assignTask({ task_id: done.id, user_id: assignee.user_id, session });
+      await assignTaskInGroup({
+        group_id: group.id,
+        task_id: done.id,
+        user_id: assignee.user_id,
+        session,
+      });
       await pool.query(`UPDATE planner.tasks SET percent_complete = 100 WHERE id = $1`, [done.id]);
 
       // 1 soft-deleted task — should not count.
       const deleted = await createTask({ plan_id: plan.id, title: 'gone', session });
-      await assignTask({ task_id: deleted.id, user_id: assignee.user_id, session });
+      await assignTaskInGroup({
+        group_id: group.id,
+        task_id: deleted.id,
+        user_id: assignee.user_id,
+        session,
+      });
       await pool.query(`UPDATE planner.tasks SET deleted_at = now() WHERE id = $1`, [deleted.id]);
 
       const out = await plannerGetOpenTaskCountSpec.execute({
@@ -140,7 +156,12 @@ describe('planner_getOpenTaskCountForUser cross-module read', () => {
       });
       const planA = await createPlan({ group_id: groupA.id, name: 'PA', session: sessionA });
       const taskA = await createTask({ plan_id: planA.id, title: 't', session: sessionA });
-      await assignTask({ task_id: taskA.id, user_id: a.user_id, session: sessionA });
+      await assignTaskInGroup({
+        group_id: groupA.id,
+        task_id: taskA.id,
+        user_id: a.user_id,
+        session: sessionA,
+      });
 
       const out = await plannerGetOpenTaskCountSpec.execute({
         session: {

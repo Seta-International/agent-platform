@@ -3,14 +3,13 @@ import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import {
-  assignTask,
   createGroup,
   createPlan,
   createTask,
   deleteTask,
   listPlanTasksByDateRange,
 } from '../../src/index.ts';
-import { seedTenant } from '../helpers.ts';
+import { assignTaskInGroup, seedTenant } from '../helpers.ts';
 
 const JUNE_FROM = '2026-06-01T00:00:00.000Z';
 const JUNE_TO = '2026-06-30T23:59:59.999Z';
@@ -90,7 +89,12 @@ describe('listPlanTasksByDateRange', () => {
           due_at: '2026-06-10T12:00:00Z',
           session,
         });
-        await assignTask({ task_id: task.id, user_id: alice.user_id, session });
+        await assignTaskInGroup({
+          group_id: group.id,
+          task_id: task.id,
+          user_id: alice.user_id,
+          session,
+        });
 
         const result = await listPlanTasksByDateRange(
           { plan_id: plan.id, from: JUNE_FROM, to: JUNE_TO },

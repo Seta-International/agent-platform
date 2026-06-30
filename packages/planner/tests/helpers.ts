@@ -8,7 +8,7 @@ import {
   resolvePermissions,
 } from '@seta/shared-rbac';
 import type { Pool } from 'pg';
-import { createGroup, createPlan, createTask } from '../src/index.ts';
+import { addGroupMember, assignTask, createGroup, createPlan, createTask } from '../src/index.ts';
 import type { PlannerRoleSlug } from '../src/rbac.ts';
 
 const _registry = buildRegistry(inventoryToManifests(INVENTORY));
@@ -256,6 +256,25 @@ export async function makeMemberSession(
     display_name: `User ${tag}`,
     roles: ['planner.contributor'],
     accessible_group_ids: [opts.group_id],
+  });
+}
+
+/** Ensures the user is a group member, then assigns — matches production assign rules. */
+export async function assignTaskInGroup(input: {
+  group_id: string;
+  task_id: string;
+  user_id: string;
+  session: SessionScope;
+}): Promise<void> {
+  await addGroupMember({
+    group_id: input.group_id,
+    user_id: input.user_id,
+    session: input.session,
+  });
+  await assignTask({
+    task_id: input.task_id,
+    user_id: input.user_id,
+    session: input.session,
   });
 }
 

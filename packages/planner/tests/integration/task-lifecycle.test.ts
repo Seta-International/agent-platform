@@ -3,6 +3,7 @@ import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import {
+  addGroupMember,
   assignTask,
   completeTask,
   createGroup,
@@ -11,7 +12,7 @@ import {
   reopenTask,
   unassignTask,
 } from '../../src/index.ts';
-import { countEvents, readEvents, seedTenant } from '../helpers.ts';
+import { assignTaskInGroup, countEvents, readEvents, seedTenant } from '../helpers.ts';
 
 // ---------------------------------------------------------------------------
 // assignTask
@@ -38,7 +39,12 @@ describe('assignTask', () => {
           const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
           const task = await createTask({ plan_id: plan.id, title: 'T', session });
 
-          await assignTask({ task_id: task.id, user_id: alice.user_id, session });
+          await assignTaskInGroup({
+            group_id: group.id,
+            task_id: task.id,
+            user_id: alice.user_id,
+            session,
+          });
 
           const { rows } = await pool.query(
             `SELECT task_id, user_id FROM planner.task_assignments WHERE task_id = $1 AND user_id = $2`,
@@ -83,8 +89,18 @@ describe('assignTask', () => {
           const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
           const task = await createTask({ plan_id: plan.id, title: 'T', session });
 
-          await assignTask({ task_id: task.id, user_id: bob.user_id, session });
-          await assignTask({ task_id: task.id, user_id: bob.user_id, session });
+          await assignTaskInGroup({
+            group_id: group.id,
+            task_id: task.id,
+            user_id: bob.user_id,
+            session,
+          });
+          await assignTaskInGroup({
+            group_id: group.id,
+            task_id: task.id,
+            user_id: bob.user_id,
+            session,
+          });
 
           const { rows } = await pool.query(
             `SELECT COUNT(*)::int AS n FROM planner.task_assignments WHERE task_id = $1 AND user_id = $2`,
@@ -122,6 +138,11 @@ describe('assignTask', () => {
           const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
           const task = await createTask({ plan_id: plan.id, title: 'T', session });
 
+          await addGroupMember({ group_id: group.id, user_id: alice.user_id, session });
+          await pool.query(
+            `DELETE FROM core.events WHERE event_type = 'notification.requested' AND tenant_id = $1`,
+            [seeded.tenant_id],
+          );
           await assignTask({ task_id: task.id, user_id: alice.user_id, session });
 
           const events = await readEvents(pool, seeded.tenant_id, 'notification.requested');
@@ -158,10 +179,46 @@ describe('assignTask', () => {
           const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
           const task = await createTask({ plan_id: plan.id, title: 'T', session });
 
-          await assignTask({ task_id: task.id, user_id: session.user_id, session });
+          await assignTaskInGroup({
+            group_id: group.id,
+            task_id: task.id,
+            user_id: session.user_id,
+            session,
+          });
 
           const events = await readEvents(pool, seeded.tenant_id, 'notification.requested');
           expect(events).toHaveLength(0);
+        } finally {
+          resetCoreDb();
+          await closePools();
+        }
+      },
+    );
+  });
+
+  it('rejects assignee who is not a group member', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
+      },
+      async ({ pool, databaseUrl }) => {
+        resetCoreDb();
+        initPools({ databaseUrl });
+        try {
+          const seeded = await seedTenant(pool, {
+            users: [{ name: 'Carol', email: 'carol@example.test' }],
+          });
+          const session = seeded.adminSession;
+          const outsider = seeded.users[0]!;
+
+          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+          const task = await createTask({ plan_id: plan.id, title: 'T', session });
+
+          await expect(
+            assignTask({ task_id: task.id, user_id: outsider.user_id, session }),
+          ).rejects.toMatchObject({ code: 'ASSIGNEE_NOT_GROUP_MEMBER' });
         } finally {
           resetCoreDb();
           await closePools();
@@ -196,7 +253,12 @@ describe('unassignTask', () => {
           const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
           const task = await createTask({ plan_id: plan.id, title: 'T', session });
 
-          await assignTask({ task_id: task.id, user_id: carol.user_id, session });
+          await assignTaskInGroup({
+            group_id: group.id,
+            task_id: task.id,
+            user_id: carol.user_id,
+            session,
+          });
           await unassignTask({ task_id: task.id, user_id: carol.user_id, session });
 
           const { rows } = await pool.query(
@@ -271,7 +333,12 @@ describe('unassignTask', () => {
           const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
           const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
           const task = await createTask({ plan_id: plan.id, title: 'T', session });
-          await assignTask({ task_id: task.id, user_id: alice.user_id, session });
+          await assignTaskInGroup({
+            group_id: group.id,
+            task_id: task.id,
+            user_id: alice.user_id,
+            session,
+          });
 
           // Wipe any pre-existing notification events from the assign step so we isolate the unassign event.
           await pool.query(
@@ -313,7 +380,12 @@ describe('unassignTask', () => {
           const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
           const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
           const task = await createTask({ plan_id: plan.id, title: 'T', session });
-          await assignTask({ task_id: task.id, user_id: session.user_id, session });
+          await assignTaskInGroup({
+            group_id: group.id,
+            task_id: task.id,
+            user_id: session.user_id,
+            session,
+          });
 
           // Self-assign already produced 0 notifications. Clean slate is the same.
           await pool.query(
@@ -475,7 +547,12 @@ describe('completeTask', () => {
             session: adminSession,
           });
           const task = await createTask({ plan_id: plan.id, title: 'T', session: creatorSession });
-          await assignTask({ task_id: task.id, user_id: assignee.user_id, session: adminSession });
+          await assignTaskInGroup({
+            group_id: group.id,
+            task_id: task.id,
+            user_id: assignee.user_id,
+            session: adminSession,
+          });
 
           await pool.query(
             `DELETE FROM core.events WHERE event_type = 'notification.requested' AND tenant_id = $1`,
@@ -516,7 +593,12 @@ describe('completeTask', () => {
           const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
           const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
           const task = await createTask({ plan_id: plan.id, title: 'T', session });
-          await assignTask({ task_id: task.id, user_id: session.user_id, session });
+          await assignTaskInGroup({
+            group_id: group.id,
+            task_id: task.id,
+            user_id: session.user_id,
+            session,
+          });
 
           await pool.query(
             `DELETE FROM core.events WHERE event_type = 'notification.requested' AND tenant_id = $1`,
@@ -649,7 +731,12 @@ describe('reopenTask', () => {
             session: adminSession,
           });
           const task = await createTask({ plan_id: plan.id, title: 'T', session: creatorSession });
-          await assignTask({ task_id: task.id, user_id: assignee.user_id, session: adminSession });
+          await assignTaskInGroup({
+            group_id: group.id,
+            task_id: task.id,
+            user_id: assignee.user_id,
+            session: adminSession,
+          });
           await completeTask({ task_id: task.id, expected_version: 1, session: adminSession });
 
           await pool.query(
@@ -691,7 +778,12 @@ describe('reopenTask', () => {
           const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
           const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
           const task = await createTask({ plan_id: plan.id, title: 'T', session });
-          await assignTask({ task_id: task.id, user_id: session.user_id, session });
+          await assignTaskInGroup({
+            group_id: group.id,
+            task_id: task.id,
+            user_id: session.user_id,
+            session,
+          });
           await completeTask({ task_id: task.id, expected_version: 1, session });
 
           await pool.query(

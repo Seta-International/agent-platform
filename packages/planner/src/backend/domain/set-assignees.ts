@@ -5,6 +5,7 @@ import { and, eq, inArray, isNull, notInArray } from 'drizzle-orm';
 import { emitPlannerTaskAssigned } from '../../events/emit-helpers.ts';
 import { plans, taskAssignments, tasks } from '../db/schema.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
+import { assertAssigneesAreGroupMembers } from './_assert-assignees-are-group-members.ts';
 
 /**
  * Atomically replaces the full assignee list for a task.
@@ -45,6 +46,8 @@ export async function setAssignees(input: {
         });
 
       requirePermission(input.session, 'planner.task.assign', plan.group_id);
+
+      await assertAssigneesAreGroupMembers(tx, plan.group_id, input.user_ids);
 
       // Remove assignees no longer in the desired list.
       if (input.user_ids.length > 0) {

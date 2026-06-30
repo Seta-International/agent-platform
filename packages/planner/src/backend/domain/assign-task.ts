@@ -5,6 +5,7 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { emitPlannerTaskAssigned } from '../../events/emit-helpers.ts';
 import { plans, taskAssignments, tasks } from '../db/schema.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
+import { assertAssigneesAreGroupMembers } from './_assert-assignees-are-group-members.ts';
 
 export async function assignTask(input: {
   task_id: string;
@@ -39,6 +40,8 @@ export async function assignTask(input: {
         });
 
       requirePermission(input.session, 'planner.task.assign', plan.group_id);
+
+      await assertAssigneesAreGroupMembers(tx, plan.group_id, [input.user_id]);
 
       // ON CONFLICT DO NOTHING: idempotent — if already assigned, skip.
       const inserted = await tx

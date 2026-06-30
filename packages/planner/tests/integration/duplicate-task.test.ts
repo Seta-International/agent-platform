@@ -6,7 +6,6 @@ import {
   addChecklistItem,
   addTaskReference,
   applyLabel,
-  assignTask,
   createBucket,
   createGroup,
   createLabel,
@@ -16,7 +15,7 @@ import {
   getTask,
   updateTask,
 } from '../../src/index.ts';
-import { readEvents, seedTenant } from '../helpers.ts';
+import { assignTaskInGroup, readEvents, seedTenant } from '../helpers.ts';
 
 describe('duplicateTask', () => {
   it('with defaults copies description + checklist but NOT labels/assignees/references/dates', async () => {
@@ -68,7 +67,12 @@ describe('duplicateTask', () => {
           });
           await applyLabel({ task_id: source.id, label_id: label.id, session });
 
-          await assignTask({ task_id: source.id, user_id: otherUser.user_id, session });
+          await assignTaskInGroup({
+            group_id: group.id,
+            task_id: source.id,
+            user_id: otherUser.user_id,
+            session,
+          });
 
           await addTaskReference({
             task_id: source.id,
@@ -171,7 +175,12 @@ describe('duplicateTask', () => {
           });
           await applyLabel({ task_id: source.id, label_id: label.id, session });
 
-          await assignTask({ task_id: source.id, user_id: otherUser.user_id, session });
+          await assignTaskInGroup({
+            group_id: group.id,
+            task_id: source.id,
+            user_id: otherUser.user_id,
+            session,
+          });
 
           await addTaskReference({
             task_id: source.id,

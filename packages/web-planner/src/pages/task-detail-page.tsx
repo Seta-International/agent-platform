@@ -355,6 +355,7 @@ export function TaskDetailPage({
             <TaskDetailAssigneesCard
               task={task}
               planId={planId}
+              groupId={groupId ?? ''}
               isLinkedToM365={plan?.external_source === 'm365'}
             />
             <TaskDetailPriorityCard task={task} planId={planId} />
