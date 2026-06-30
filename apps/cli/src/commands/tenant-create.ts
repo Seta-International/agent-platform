@@ -1,7 +1,9 @@
+import type { SessionScope } from '@seta/core';
 import { coreTenants } from '@seta/core/db/schema';
 import { emit, withEmit } from '@seta/core/events';
-import { createUser } from '@seta/identity';
+import { addGroupMembers, createUser } from '@seta/identity';
 import pino from 'pino';
+import { ensurePersonaGroups } from './lib/access-groups.ts';
 import { generatePassword } from './lib/password-gen.ts';
 
 const log = pino({ name: 'cli/tenant-create' });
@@ -49,6 +51,18 @@ export async function tenantCreateCommand(opts: TenantCreateOpts): Promise<void>
       },
       { type: 'cli', user_id: null },
     );
+
+    const adminSession = { user_id: adminUserId, tenant_id: tenantId } as unknown as SessionScope;
+    const cliActor = { type: 'cli' as const, user_id: null };
+    const groups = await ensurePersonaGroups(adminSession, cliActor, ['member', 'admin']);
+    for (const slug of ['member', 'admin']) {
+      const gid = groups.get(slug);
+      if (gid)
+        await addGroupMembers(
+          { group_id: gid, tenant_id: tenantId, user_ids: [adminUserId] },
+          cliActor,
+        );
+    }
 
     const output: Record<string, unknown> = {
       tenant_id: tenantId,

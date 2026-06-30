@@ -166,6 +166,7 @@ export async function listGroups(session: SessionScope): Promise<GroupRow[]> {
     .select()
     .from(accessGroup)
     .where(eq(accessGroup.tenant_id, session.tenant_id));
+  if (groups.length === 0) return [];
   const counts = await db
     .select({ group_id: accessGroupMembership.group_id, n: sql<number>`count(*)::int` })
     .from(accessGroupMembership)

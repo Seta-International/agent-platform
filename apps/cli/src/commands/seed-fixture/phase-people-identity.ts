@@ -2,12 +2,12 @@ import { createHash } from 'node:crypto';
 import type { SessionScope } from '@seta/core';
 import { coreDb } from '@seta/core/db';
 import type { Actor } from '@seta/identity';
-import { ensureLocalLogin, grantRole, provisionLogin } from '@seta/identity';
+import { addGroupMembers, ensureLocalLogin, provisionLogin } from '@seta/identity';
 import { addPersonSkill, createWorker, genderValue } from '@seta/people';
 import { sql } from 'drizzle-orm';
 import type { EmployeeRec } from './load.ts';
 import type { SeededSkill } from './phase-skills.ts';
-import { rolesFor } from './rbac-map.ts';
+import { personaGroupsFor } from './rbac-map.ts';
 import { techStackFor } from './skill-catalog.ts';
 
 // createWorker returns person_id as the canonical worker identity (so does
@@ -22,29 +22,12 @@ async function findWorkerId(tenantId: string, email: string): Promise<string | u
   return (r.rows[0] as { person_id: string } | undefined)?.person_id;
 }
 
-async function hasGrant(
-  userId: string,
-  tenantId: string,
-  roleSlug: string,
-  scopeType: 'tenant' | 'group',
-  scopeId: string | null,
-): Promise<boolean> {
-  const r = await coreDb().execute(
-    sql`SELECT 1 FROM identity.role_grants
-        WHERE user_id = ${userId} AND tenant_id = ${tenantId}
-          AND role_slug = ${roleSlug} AND scope_type = ${scopeType}
-          AND scope_id IS NOT DISTINCT FROM ${scopeId}
-          AND revoked_at IS NULL
-        LIMIT 1`,
-  );
-  return r.rows.length > 0;
-}
-
 export async function seedPeopleIdentity(
   session: SessionScope,
   employees: EmployeeRec[],
   password: string,
   skills: Map<string, SeededSkill>,
+  groups: Map<string, string>,
 ): Promise<Map<string, { workerId: string; userId: string }>> {
   const actor: Actor = { type: 'cli', user_id: session.user_id };
   const map = new Map<string, { workerId: string; userId: string }>();
@@ -111,21 +94,13 @@ export async function seedPeopleIdentity(
     );
     await ensureLocalLogin({ user_id: userId, tenant_id: session.tenant_id, password }, actor);
 
-    // role grants — check before each insert (append-only table, no unique constraint)
-    for (const g of rolesFor(e.primary_role)) {
-      const already = await hasGrant(userId, session.tenant_id, g.slug, g.scope_type, g.scope_id);
-      if (!already) {
-        await grantRole(
-          {
-            user_id: userId,
-            tenant_id: session.tenant_id,
-            role_slug: g.slug,
-            scope_type: g.scope_type,
-            scope_id: g.scope_id,
-          },
+    for (const slug of ['member', ...personaGroupsFor(e.primary_role)]) {
+      const gid = groups.get(slug);
+      if (gid)
+        await addGroupMembers(
+          { group_id: gid, tenant_id: session.tenant_id, user_ids: [userId] },
           actor,
         );
-      }
     }
 
     // Presence lives on people.worker now. availability defaults to 'available' at
