@@ -16,7 +16,7 @@ export interface MyProfile extends PresenceResult {
 // Self-service composite read for the caller's own profile page: presence +
 // catalog skills + bio + display name, all keyed off session.user_id.
 export async function readMyProfile(session: SessionScope): Promise<MyProfile> {
-  requirePermission(session, 'people.worker.read');
+  requirePermission(session, 'people.self.read');
 
   const presence = await fetchPresenceByUserId(session.tenant_id, session.user_id);
   const skills = await fetchPersonSkillNames(session.tenant_id, session.user_id);

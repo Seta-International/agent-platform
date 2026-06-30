@@ -7,7 +7,7 @@ import { resolveSelfPersonId } from './self.ts';
 
 // Self-service bio write to person.bio. Blank trims to null (no empty strings).
 export async function setBio(session: SessionScope, input: { bio: string | null }): Promise<void> {
-  requirePermission(session, 'people.worker.read');
+  requirePermission(session, 'people.self.manage');
   const personId = await resolveSelfPersonId(session);
 
   const trimmed = input.bio?.trim();

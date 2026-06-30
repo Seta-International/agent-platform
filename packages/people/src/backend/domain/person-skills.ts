@@ -35,7 +35,7 @@ export async function setMySkills(
   session: SessionScope,
   input: { skills: ReadonlyArray<string> },
 ): Promise<void> {
-  requirePermission(session, 'people.worker.read');
+  requirePermission(session, 'people.self.manage');
   const personId = await resolveSelfPersonId(session);
 
   const catalog = await listSkills(session);

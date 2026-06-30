@@ -13,7 +13,7 @@ export interface SetPresenceInput {
 }
 
 export async function setPresence(session: SessionScope, input: SetPresenceInput): Promise<void> {
-  requirePermission(session, 'people.worker.read');
+  requirePermission(session, 'people.self.manage');
 
   const [row] = await peopleDb()
     .select({ person_id: worker.person_id })
