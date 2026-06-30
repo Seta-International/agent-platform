@@ -1,5 +1,13 @@
+import { PRODUCTS } from '@seta/shared-rbac';
 import { Badge, Sheet, SheetContent, SheetHeader, SheetTitle } from '@seta/shared-ui';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import {
+  clearUserProductOverride,
+  listUserProducts,
+  setUserProductOverride,
+  type UserProductAccess,
+} from '../../groups/api/product-access-client.ts';
 import {
   useGroupMembersMutations,
   useGroupsQuery,
@@ -114,6 +122,100 @@ function GroupsSection({ userId }: { userId: string }) {
   );
 }
 
+const productKeys = {
+  user: (userId: string) => ['identity', 'products', 'user', userId] as const,
+};
+
+function effectLabel(rows: UserProductAccess[], productId: string): string {
+  const userOverride = rows.find((r) => r.product_id === productId && r.source === 'user');
+  if (userOverride)
+    return userOverride.effect === 'grant' ? 'granted (override)' : 'revoked (override)';
+  const last = [...rows].reverse().find((r) => r.product_id === productId);
+  if (!last) return 'not granted';
+  if (last.source === 'role') return `via role`;
+  if (last.source === 'group') return `via group`;
+  if (last.source === 'tenant') return `via tenant`;
+  return last.effect;
+}
+
+function sourceVariant(
+  rows: UserProductAccess[],
+  productId: string,
+): 'secondary' | 'success' | 'destructive' | 'outline' {
+  const userOverride = rows.find((r) => r.product_id === productId && r.source === 'user');
+  if (userOverride) return userOverride.effect === 'grant' ? 'success' : 'destructive';
+  const last = [...rows].reverse().find((r) => r.product_id === productId);
+  if (!last) return 'outline';
+  return 'secondary';
+}
+
+function ProductsSection({ userId }: { userId: string }) {
+  const qc = useQueryClient();
+  const { data: rows = [] } = useQuery({
+    queryKey: productKeys.user(userId),
+    queryFn: () => listUserProducts(userId),
+  });
+
+  const setOverride = useMutation({
+    mutationFn: ({ productId, effect }: { productId: string; effect: 'grant' | 'revoke' }) =>
+      setUserProductOverride(userId, productId, effect),
+    onSettled: () => qc.invalidateQueries({ queryKey: productKeys.user(userId) }),
+  });
+
+  const clearOverride = useMutation({
+    mutationFn: ({ productId }: { productId: string }) =>
+      clearUserProductOverride(userId, productId),
+    onSettled: () => qc.invalidateQueries({ queryKey: productKeys.user(userId) }),
+  });
+
+  return (
+    <Field label="Products">
+      <div className="flex flex-col gap-2">
+        {PRODUCTS.map((p) => {
+          const userOverride = rows.find((r) => r.product_id === p.id && r.source === 'user');
+          const hasOverride = !!userOverride;
+          return (
+            <div key={p.id} className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                <span className="text-body-sm text-ink truncate">{p.label}</span>
+                <Badge variant={sourceVariant(rows, p.id)}>{effectLabel(rows, p.id)}</Badge>
+              </div>
+              <div className="flex gap-1 shrink-0">
+                <button
+                  type="button"
+                  disabled={setOverride.isPending || clearOverride.isPending}
+                  className="text-caption px-1.5 py-0.5 rounded border border-border bg-surface hover:bg-surface-2 text-ink-subtle disabled:opacity-50"
+                  onClick={() => setOverride.mutate({ productId: p.id, effect: 'grant' })}
+                >
+                  Grant
+                </button>
+                <button
+                  type="button"
+                  disabled={setOverride.isPending || clearOverride.isPending}
+                  className="text-caption px-1.5 py-0.5 rounded border border-border bg-surface hover:bg-surface-2 text-ink-subtle disabled:opacity-50"
+                  onClick={() => setOverride.mutate({ productId: p.id, effect: 'revoke' })}
+                >
+                  Revoke
+                </button>
+                {hasOverride && (
+                  <button
+                    type="button"
+                    disabled={setOverride.isPending || clearOverride.isPending}
+                    className="text-caption px-1.5 py-0.5 rounded border border-border bg-surface hover:bg-surface-2 text-ink-subtle disabled:opacity-50"
+                    onClick={() => clearOverride.mutate({ productId: p.id })}
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Field>
+  );
+}
+
 export function UserDetailSheet({ row, open, onOpenChange }: Props) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -159,6 +261,7 @@ export function UserDetailSheet({ row, open, onOpenChange }: Props) {
             </Field>
 
             {row.user_id && <GroupsSection userId={row.user_id} />}
+            {row.user_id && <ProductsSection userId={row.user_id} />}
           </div>
         )}
       </SheetContent>

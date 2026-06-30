@@ -2,6 +2,11 @@ import type { SessionEnv } from '@seta/core';
 import type { Context, Hono } from 'hono';
 import { z } from 'zod';
 import {
+  clearProductAccess,
+  grantProductAccess,
+  listProductAccess,
+} from '../domain/grant-product-access.ts';
+import {
   addGroupMembers,
   listGroupMembers,
   listUserGroups,
@@ -15,6 +20,8 @@ import {
   updateGroup,
 } from '../domain/groups.ts';
 import { IdentityError } from '../rbac.ts';
+
+const productEffectBody = z.object({ effect: z.enum(['grant', 'revoke']) });
 
 const createBody = z.object({
   slug: z.string().min(1),
@@ -115,6 +122,48 @@ export function registerGroupRoutes(app: Hono<SessionEnv>): void {
     guard(c, async () =>
       c.json({ groups: await listUserGroups(c.get('user'), c.req.param('userId')) }),
     ),
+  );
+
+  app.get('/api/identity/v1/groups/users/:userId/products', async (c) =>
+    guard(c, async () =>
+      c.json({ products: await listProductAccess(c.get('user'), c.req.param('userId')) }),
+    ),
+  );
+
+  app.put('/api/identity/v1/groups/users/:userId/products/:productId', async (c) =>
+    guard(c, async () => {
+      const parsed = productEffectBody.safeParse(await c.req.json().catch(() => ({})));
+      if (!parsed.success)
+        return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
+      const s = c.get('user');
+      await grantProductAccess(
+        {
+          tenant_id: s.tenant_id,
+          subject_type: 'user',
+          subject_id: c.req.param('userId'),
+          product_id: c.req.param('productId'),
+          effect: parsed.data.effect,
+        },
+        { type: 'user', user_id: s.user_id },
+      );
+      return c.body(null, 204);
+    }),
+  );
+
+  app.delete('/api/identity/v1/groups/users/:userId/products/:productId', async (c) =>
+    guard(c, async () => {
+      const s = c.get('user');
+      await clearProductAccess(
+        {
+          tenant_id: s.tenant_id,
+          subject_type: 'user',
+          subject_id: c.req.param('userId'),
+          product_id: c.req.param('productId'),
+        },
+        { type: 'user', user_id: s.user_id },
+      );
+      return c.body(null, 204);
+    }),
   );
 
   app.get('/api/identity/v1/groups/:id/members', async (c) =>

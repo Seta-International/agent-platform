@@ -1,8 +1,9 @@
-import { ASSIGNABLE_ROLES } from '@seta/shared-rbac';
+import { ASSIGNABLE_ROLES, productForNamespace } from '@seta/shared-rbac';
 import {
   Alert,
   AlertDescription,
   AsyncCombobox,
+  Badge,
   Button,
   Card,
   Combobox,
@@ -71,6 +72,24 @@ function GroupRow({ group }: { group: Group }) {
           searchPlaceholder="Search roles…"
           aria-label={`Roles for ${group.name}`}
         />
+        {(() => {
+          const derivedProducts = [
+            ...new Set(
+              roleValues
+                .map((slug) => productForNamespace(slug.split('.')[0] ?? ''))
+                .filter((p): p is NonNullable<typeof p> => p !== undefined),
+            ),
+          ];
+          return derivedProducts.length > 0 ? (
+            <div className="flex flex-wrap gap-1 pt-1">
+              {derivedProducts.map((p) => (
+                <Badge key={p} variant="secondary">
+                  {p}
+                </Badge>
+              ))}
+            </div>
+          ) : null;
+        })()}
       </div>
 
       <div className="space-y-1.5">

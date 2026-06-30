@@ -98,6 +98,73 @@ export async function grantProductAccess(
   }
 }
 
+export interface ClearProductAccessInput {
+  tenant_id: string;
+  subject_type: 'tenant' | 'group' | 'user';
+  subject_id: string;
+  product_id: string;
+}
+
+export async function clearProductAccess(
+  input: ClearProductAccessInput,
+  actor: Actor,
+): Promise<void> {
+  if (actor.type === 'user') {
+    if (!actor.user_id) throw new IdentityError('FORBIDDEN', 'user actor requires user_id');
+    await requirePermission(actor.user_id, 'identity.product_access.revoke', input.tenant_id);
+  }
+
+  await withEmit(
+    {
+      actor: {
+        userId: actor.user_id ?? 'system',
+        tenantId: input.tenant_id,
+        ip: actor.ip,
+        userAgent: actor.user_agent,
+      },
+    },
+    async (tx) => {
+      await tx
+        .delete(productGrant)
+        .where(
+          and(
+            eq(productGrant.tenant_id, input.tenant_id),
+            eq(productGrant.subject_type, input.subject_type),
+            eq(productGrant.subject_id, input.subject_id),
+            eq(productGrant.product_id, input.product_id),
+          ),
+        );
+
+      await emit({
+        tenantId: input.tenant_id,
+        aggregateType: 'identity.user',
+        aggregateId: input.subject_type === 'user' ? input.subject_id : input.tenant_id,
+        eventType: 'identity.product_access.revoked',
+        eventVersion: 1,
+        payload: {
+          actor: {
+            type: actor.type,
+            user_id: actor.user_id,
+            ip: actor.ip,
+            user_agent: actor.user_agent,
+          },
+          tenant_id: input.tenant_id,
+          subject_type: input.subject_type,
+          subject_id: input.subject_id,
+          product_id: input.product_id,
+          effect: 'cleared' as const,
+        },
+      });
+    },
+  );
+
+  if (input.subject_type === 'user') {
+    await invalidateUserSessions(input.subject_id);
+  } else {
+    await invalidateTenantSessions(input.tenant_id);
+  }
+}
+
 export async function listProductAccess(
   session: SessionScope,
   user_id: string,
