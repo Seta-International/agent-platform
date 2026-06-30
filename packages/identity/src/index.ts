@@ -93,6 +93,10 @@ export {
 } from './backend/domain/reset-role-to-defaults.ts';
 export type { ResetPasswordByAdminInput } from './backend/domain/reset-user-password-by-admin.ts';
 export { resetUserPasswordByAdmin } from './backend/domain/reset-user-password-by-admin.ts';
+export {
+  resolveProductAccess,
+  resolveTenantProducts,
+} from './backend/domain/resolve-product-access.ts';
 export { revokeRole } from './backend/domain/revoke-role.ts';
 export type { RevokeUserSessionInput } from './backend/domain/revoke-user-session.ts';
 export { revokeUserSession } from './backend/domain/revoke-user-session.ts';
