@@ -14,7 +14,7 @@ export const PRODUCT_GATE_EXEMPT: ReadonlySet<string> = new Set([
   'people.self.manage',
 ]);
 
-const byNamespace = new Map(PRODUCTS.map((p) => [p.namespace, p.id]));
+const byNamespace = new Map<string, ProductId>(PRODUCTS.map((p) => [p.namespace, p.id]));
 export function productForNamespace(ns: string): ProductId | undefined {
   return byNamespace.get(ns);
 }

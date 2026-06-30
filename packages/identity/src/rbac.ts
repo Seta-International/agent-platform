@@ -19,6 +19,7 @@ export const identityStatement = {
   'identity.group': ['read', 'create', 'update', 'delete'],
   'identity.group.membership': ['manage'],
   'identity.group.role': ['manage'],
+  'identity.product_access': ['read', 'grant', 'revoke'],
   'core.tenant': ['read', 'write', 'email_domains.write'],
   'core.audit': ['read'],
 } as const satisfies Statement;
@@ -36,6 +37,7 @@ const roleStatements = {
     'identity.group': ['read', 'create', 'update', 'delete'],
     'identity.group.membership': ['manage'],
     'identity.group.role': ['manage'],
+    'identity.product_access': ['read', 'grant', 'revoke'],
   },
   'identity.viewer': {
     'identity.user': ['read.any'],

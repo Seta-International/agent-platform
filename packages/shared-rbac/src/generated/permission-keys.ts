@@ -47,6 +47,9 @@ export type PermissionKey =
   | 'identity.group.role.manage'
   | 'identity.group.update'
   | 'identity.password.disable_local'
+  | 'identity.product_access.grant'
+  | 'identity.product_access.read'
+  | 'identity.product_access.revoke'
   | 'identity.role.grant'
   | 'identity.role.read'
   | 'identity.role.write'
@@ -77,6 +80,8 @@ export type PermissionKey =
   | 'notifications.category.read'
   | 'notifications.preference.read'
   | 'notifications.preference.write'
+  | 'people.self.manage'
+  | 'people.self.read'
   | 'people.worker.edit'
   | 'people.worker.manage'
   | 'people.worker.provision'
@@ -184,6 +189,9 @@ export const ALL_PERMISSIONS: readonly PermissionKey[] = [
   'identity.group.role.manage',
   'identity.group.update',
   'identity.password.disable_local',
+  'identity.product_access.grant',
+  'identity.product_access.read',
+  'identity.product_access.revoke',
   'identity.role.grant',
   'identity.role.read',
   'identity.role.write',
@@ -214,6 +222,8 @@ export const ALL_PERMISSIONS: readonly PermissionKey[] = [
   'notifications.category.read',
   'notifications.preference.read',
   'notifications.preference.write',
+  'people.self.manage',
+  'people.self.read',
   'people.worker.edit',
   'people.worker.manage',
   'people.worker.provision',

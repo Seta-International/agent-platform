@@ -322,6 +322,8 @@ export const INVENTORY: StatementSpec[] = [
           'planner.task.comment.create',
           'planner.group.refresh',
           'planner.plan.refresh',
+          'people.self.read',
+          'people.self.manage',
         ],
       },
       {
@@ -366,6 +368,7 @@ export const INVENTORY: StatementSpec[] = [
     module: 'people',
     statement: {
       'people.worker': ['read', 'read.all', 'provision', 'edit', 'manage'],
+      'people.self': ['read', 'manage'],
     },
     roles: [
       {
@@ -377,13 +380,20 @@ export const INVENTORY: StatementSpec[] = [
           'people.worker.provision',
           'people.worker.edit',
           'people.worker.manage',
+          'people.self.read',
+          'people.self.manage',
           'core.skill.read',
         ],
       },
       {
         slug: 'people.viewer',
         description: 'Read people records',
-        permissions: ['people.worker.read', 'core.skill.read'],
+        permissions: [
+          'people.worker.read',
+          'people.self.read',
+          'people.self.manage',
+          'core.skill.read',
+        ],
       },
     ],
   },
@@ -512,6 +522,7 @@ export const INVENTORY: StatementSpec[] = [
       'identity.group': ['read', 'create', 'update', 'delete'],
       'identity.group.membership': ['manage'],
       'identity.group.role': ['manage'],
+      'identity.product_access': ['read', 'grant', 'revoke'],
       'core.tenant': ['read', 'write', 'email_domains.write'],
       'core.audit': ['read'],
     },
@@ -543,6 +554,9 @@ export const INVENTORY: StatementSpec[] = [
           'identity.group.delete',
           'identity.group.membership.manage',
           'identity.group.role.manage',
+          'identity.product_access.read',
+          'identity.product_access.grant',
+          'identity.product_access.revoke',
         ],
       },
       {

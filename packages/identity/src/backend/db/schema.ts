@@ -127,3 +127,23 @@ export const accessGroupRole = identity.table(
   },
   (t) => [primaryKey({ columns: [t.group_id, t.role_slug] })],
 );
+
+export const productGrant = identity.table(
+  'product_grant',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenant_id: uuid('tenant_id').notNull(),
+    subject_type: text('subject_type', { enum: ['tenant', 'group', 'user'] }).notNull(),
+    subject_id: uuid('subject_id').notNull(),
+    product_id: text('product_id').notNull(),
+    effect: text('effect', { enum: ['grant', 'revoke'] }).notNull(),
+    granted_by: uuid('granted_by'),
+    granted_via: text('granted_via', { enum: ['admin', 'seed', 'cli'] })
+      .default('admin')
+      .notNull(),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('product_grant_subject_product').on(t.subject_type, t.subject_id, t.product_id),
+  ],
+);

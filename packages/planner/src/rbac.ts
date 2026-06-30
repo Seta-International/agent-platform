@@ -102,6 +102,7 @@ const roleStatements = {
       'comment.read',
       'comment.create',
     ],
+    'people.self': ['read', 'manage'],
   },
   'planner.viewer': {
     'planner.group': ['read', 'member.read', 'refresh'],

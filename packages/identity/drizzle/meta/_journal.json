@@ -50,6 +50,13 @@
       "when": 1782791060571,
       "tag": "0006_rich_speedball",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1782802029667,
+      "tag": "0007_giant_wolf_cub",
+      "breakpoints": true
     }
   ]
 }
