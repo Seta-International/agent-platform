@@ -187,7 +187,6 @@ describe('TaskDetailAssigneesCard', () => {
 
     const assignMutate = vi.fn();
     server.use(
-
       http.post('/api/planner/v1/tasks/t1/assign', async () => {
         assignMutate();
         return new HttpResponse(null, { status: 204 });
