@@ -16,7 +16,6 @@ export const pmAppManifest: AppManifest = {
   icon: FolderKanban,
   color: '#0047FF',
   requiredPermissions: ['pm.account.read'],
-  requiredFeature: 'pm',
   useNavExtensions: noNavExtensions,
   nav: [
     {

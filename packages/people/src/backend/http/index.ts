@@ -1,4 +1,4 @@
-import { type RouteBuildDeps, requireFeature, type SessionEnv } from '@seta/core';
+import type { RouteBuildDeps, SessionEnv } from '@seta/core';
 import { Hono } from 'hono';
 import { registerPeopleAllocationRoutes } from './allocations.ts';
 import { registerPeopleMeRoutes } from './me.ts';
@@ -14,7 +14,6 @@ export { registerPeopleWorkersRoutes } from './workers.ts';
 
 export function buildPeopleRoutes(_deps: RouteBuildDeps): Hono<SessionEnv> {
   const app = new Hono<SessionEnv>();
-  app.use('*', requireFeature('people'));
   registerPeopleWorkersRoutes(app);
   registerPeopleMeRoutes(app);
   registerPeoplePickersRoutes(app);
