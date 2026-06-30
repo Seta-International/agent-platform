@@ -88,12 +88,12 @@ export async function deleteGroup(
   actor: Actor,
 ): Promise<void> {
   const by = await actorUserId(actor, input.tenant_id, 'identity.group.delete');
-  const db = identityDb();
-  const members = await db
-    .select({ user_id: accessGroupMembership.user_id })
-    .from(accessGroupMembership)
-    .where(eq(accessGroupMembership.group_id, input.group_id));
+  let members: { user_id: string }[] = [];
   await withEmit({ actor: { userId: by, tenantId: input.tenant_id } }, async (tx) => {
+    members = await tx
+      .select({ user_id: accessGroupMembership.user_id })
+      .from(accessGroupMembership)
+      .where(eq(accessGroupMembership.group_id, input.group_id));
     await tx.delete(accessGroupRole).where(eq(accessGroupRole.group_id, input.group_id));
     await tx
       .delete(accessGroupMembership)
@@ -122,12 +122,12 @@ export async function setGroupRoles(
   for (const r of input.role_slugs) {
     if (!valid.has(r)) throw new IdentityError('VALIDATION', `unknown role slug: ${r}`);
   }
-  const db = identityDb();
-  const members = await db
-    .select({ user_id: accessGroupMembership.user_id })
-    .from(accessGroupMembership)
-    .where(eq(accessGroupMembership.group_id, input.group_id));
+  let members: { user_id: string }[] = [];
   await withEmit({ actor: { userId: by, tenantId: input.tenant_id } }, async (tx) => {
+    members = await tx
+      .select({ user_id: accessGroupMembership.user_id })
+      .from(accessGroupMembership)
+      .where(eq(accessGroupMembership.group_id, input.group_id));
     await tx.delete(accessGroupRole).where(eq(accessGroupRole.group_id, input.group_id));
     if (input.role_slugs.length > 0) {
       await tx
@@ -156,6 +156,12 @@ export async function listGroups(session: SessionScope): Promise<GroupRow[]> {
   const counts = await db
     .select({ group_id: accessGroupMembership.group_id, n: sql<number>`count(*)::int` })
     .from(accessGroupMembership)
+    .where(
+      inArray(
+        accessGroupMembership.group_id,
+        groups.map((g) => g.id).length ? groups.map((g) => g.id) : [''],
+      ),
+    )
     .groupBy(accessGroupMembership.group_id);
   const roles = await db
     .select()
