@@ -8,7 +8,8 @@ export type OrgNodeEntity = 'department' | 'person' | 'account' | 'project';
 /** Where a node click drills to. `person` nodes use `personId` instead. */
 export type OrgNav =
   | { view: 'account'; accountId?: string }
-  | { view: 'project'; projectId: string; accountId?: string };
+  | { view: 'project'; projectId: string; accountId?: string }
+  | { view: 'department'; deptId: string };
 
 export interface OrgGraphNodeData extends Record<string, unknown> {
   title: string;

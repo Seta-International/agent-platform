@@ -21,7 +21,9 @@ function toNode(c: CompanyNode): Node<OrgGraphNodeData> {
       ? { view: 'account' }
       : c.kind === 'account' && c.account_id
         ? { view: 'account', accountId: c.account_id }
-        : undefined;
+        : c.kind !== 'am'
+          ? { view: 'department', deptId: c.id.replace(/^unit:/, '') }
+          : undefined;
   return {
     id: c.id,
     type: 'org',
