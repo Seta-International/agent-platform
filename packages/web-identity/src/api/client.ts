@@ -8,6 +8,7 @@ export interface SessionScopeProjection {
   role_summary: { roles: string[]; cross_tenant_read: boolean };
   permissions: string[];
   features: string[];
+  product_access: string[];
   accessible_group_ids: ReadonlyArray<string>;
   cross_tenant_read: boolean;
   tenant_local_password_disabled: boolean;

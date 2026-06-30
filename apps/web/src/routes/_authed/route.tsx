@@ -69,7 +69,11 @@ function ShellWithPanel({ children }: { children: React.ReactNode }) {
     const enabled = new Set(enabledQuery.data?.enabled ?? ALL_MANIFESTS.map((m) => m.id));
     return visibleManifests(
       ALL_MANIFESTS,
-      { permissions: new Set(session.permissions), features: new Set(session.features) },
+      {
+        permissions: new Set(session.permissions),
+        features: new Set(session.features),
+        product_access: new Set(session.product_access),
+      },
       enabled,
     );
   }, [enabledQuery.data, session]);
