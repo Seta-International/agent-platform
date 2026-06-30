@@ -1,20 +1,17 @@
 import { emit, withEmit } from '@seta/core/events';
 import { eq } from 'drizzle-orm';
-import { user, userProfile } from '../db/schema.ts';
+import { user } from '../db/schema.ts';
 import { IdentityError, requirePermission } from '../rbac.ts';
 import type { Actor } from './create-user.ts';
 import { getUserProfile, type UserProfile } from './get-user-profile.ts';
 import { requireUserExists } from './helpers.ts';
 
+// Identity owns the account only — the sole mutable account field here is the
+// display name (HR fields moved to People's /me surface). Kept under this name
+// so the display-name delegators (update-my-display-name, link-sso-account,
+// sync-login-identity) keep working.
 export interface UpdateUserProfilePatch {
   display_name?: string;
-  availability_status?: 'available' | 'busy' | 'ooo';
-  ooo_until?: Date | null;
-  timezone?: string;
-  working_hours?: { start: string; end: string } | null;
-  skills?: ReadonlyArray<string>;
-  role?: string | null;
-  bio?: string | null;
 }
 
 export async function updateUserProfile(
@@ -34,71 +31,9 @@ export async function updateUserProfile(
   const before = await getUserProfile(userId);
   if (!before) throw new IdentityError('USER_NOT_FOUND', userId);
 
-  const normalizedSkills =
-    patch.skills !== undefined
-      ? Array.from(
-          new Set(patch.skills.map((s) => s.toLowerCase().trim()).filter((s) => s.length > 0)),
-        ).sort()
-      : undefined;
-
-  const normalizedBio =
-    patch.bio === undefined
-      ? undefined
-      : patch.bio === null
-        ? null
-        : patch.bio.trim().length === 0
-          ? null
-          : patch.bio.trim();
-
-  const diffBefore: Record<string, unknown> = {};
-  const diffAfter: Record<string, unknown> = {};
-
-  if (patch.display_name !== undefined && patch.display_name !== before.display_name) {
-    diffBefore.display_name = before.display_name;
-    diffAfter.display_name = patch.display_name;
+  if (patch.display_name === undefined || patch.display_name === before.display_name) {
+    return before;
   }
-  if (
-    patch.availability_status !== undefined &&
-    patch.availability_status !== before.availability_status
-  ) {
-    diffBefore.availability_status = before.availability_status;
-    diffAfter.availability_status = patch.availability_status;
-  }
-  if (
-    patch.ooo_until !== undefined &&
-    (before.ooo_until?.toISOString() ?? null) !== (patch.ooo_until?.toISOString() ?? null)
-  ) {
-    diffBefore.ooo_until = before.ooo_until?.toISOString() ?? null;
-    diffAfter.ooo_until = patch.ooo_until?.toISOString() ?? null;
-  }
-  if (patch.timezone !== undefined && patch.timezone !== before.timezone) {
-    diffBefore.timezone = before.timezone;
-    diffAfter.timezone = patch.timezone;
-  }
-  if (
-    patch.working_hours !== undefined &&
-    JSON.stringify(patch.working_hours) !== JSON.stringify(before.working_hours ?? null)
-  ) {
-    diffBefore.working_hours = before.working_hours ?? null;
-    diffAfter.working_hours = patch.working_hours;
-  }
-  if (
-    normalizedSkills !== undefined &&
-    JSON.stringify(normalizedSkills) !== JSON.stringify([...before.skills].sort())
-  ) {
-    diffBefore.skills = [...before.skills];
-    diffAfter.skills = normalizedSkills;
-  }
-  if (patch.role !== undefined && (patch.role ?? null) !== (before.role ?? null)) {
-    diffBefore.role = before.role ?? null;
-    diffAfter.role = patch.role ?? null;
-  }
-  if (normalizedBio !== undefined && normalizedBio !== (before.bio ?? null)) {
-    diffBefore.bio = before.bio ?? null;
-    diffAfter.bio = normalizedBio;
-  }
-
-  if (Object.keys(diffAfter).length === 0) return before;
 
   await withEmit(
     {
@@ -110,26 +45,10 @@ export async function updateUserProfile(
       },
     },
     async (tx) => {
-      if (patch.display_name !== undefined) {
-        await tx
-          .update(user)
-          .set({ name: patch.display_name, updated_at: new Date() })
-          .where(eq(user.id, userId));
-      }
-
-      const profilePatch: Record<string, unknown> = { updated_at: new Date() };
-      if (patch.availability_status !== undefined)
-        profilePatch.availability_status = patch.availability_status;
-      if (patch.ooo_until !== undefined) profilePatch.ooo_until = patch.ooo_until;
-      if (patch.timezone !== undefined) profilePatch.timezone = patch.timezone;
-      if (patch.working_hours !== undefined) profilePatch.working_hours = patch.working_hours;
-      if (normalizedSkills !== undefined) profilePatch.skills = normalizedSkills;
-      if (patch.role !== undefined) profilePatch.role = patch.role;
-      if (normalizedBio !== undefined) profilePatch.bio = normalizedBio;
-
-      if (Object.keys(profilePatch).length > 1) {
-        await tx.update(userProfile).set(profilePatch).where(eq(userProfile.user_id, userId));
-      }
+      await tx
+        .update(user)
+        .set({ name: patch.display_name, updated_at: new Date() })
+        .where(eq(user.id, userId));
 
       await emit({
         tenantId: target.tenant_id,
@@ -145,8 +64,8 @@ export async function updateUserProfile(
             user_agent: actor.user_agent,
           },
           user_id: userId,
-          before: diffBefore,
-          after: diffAfter,
+          before: { display_name: before.display_name },
+          after: { display_name: patch.display_name },
         },
       });
     },

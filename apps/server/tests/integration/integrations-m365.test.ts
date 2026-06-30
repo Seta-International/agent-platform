@@ -32,6 +32,8 @@ function buildSession(opts: {
     role_summary_hash: hashRoleSummary(role_summary),
     permissions: resolveTestPermissions(role_summary.roles),
     accessible_group_ids: [],
+    group_ids: [],
+    product_access: new Set<string>(),
     cross_tenant_read: false,
     built_at: new Date(),
     invalidated_at: null,
@@ -108,6 +110,8 @@ describe('GET /api/integrations/m365/groups/search', () => {
         external_id: string;
         display_name: string;
         mail_nickname: string;
+        description: string | null;
+        already_linked: boolean;
       }>;
     };
     expect(body.groups).toHaveLength(2);
@@ -115,11 +119,15 @@ describe('GET /api/integrations/m365/groups/search', () => {
       external_id: 'aaa-111',
       display_name: 'Engineering',
       mail_nickname: 'engineering',
+      description: null,
+      already_linked: false,
     });
     expect(body.groups[1]).toEqual({
       external_id: 'bbb-222',
       display_name: 'Eng Leads',
       mail_nickname: 'eng-leads',
+      description: null,
+      already_linked: false,
     });
   });
 
@@ -239,6 +247,8 @@ describe('POST /api/integrations/m365/groups/:groupId/link', () => {
             email: adminEmail,
             display_name: 'Admin',
             accessible_group_ids: [],
+            group_ids: [],
+            product_access: new Set<string>(),
           },
         });
 
@@ -289,6 +299,8 @@ describe('POST /api/integrations/m365/groups/:groupId/link', () => {
           email: adminEmail,
           display_name: 'Admin',
           accessible_group_ids: [] as string[],
+          group_ids: [],
+          product_access: new Set<string>(),
         };
         const group = await createGroup({
           tenant_id: tenantId,
@@ -364,6 +376,8 @@ describe('POST /api/integrations/m365/groups/:groupId/unlink', () => {
           email: adminEmail,
           display_name: 'Admin',
           accessible_group_ids: [] as string[],
+          group_ids: [],
+          product_access: new Set<string>(),
         };
 
         const group = await createGroup({
@@ -413,6 +427,8 @@ describe('POST /api/integrations/m365/groups/:groupId/unlink', () => {
           email: adminEmail,
           display_name: 'Admin',
           accessible_group_ids: [] as string[],
+          group_ids: [],
+          product_access: new Set<string>(),
         };
         const group = await createGroup({
           tenant_id: tenantId,
@@ -685,6 +701,8 @@ describe('POST /api/integrations/m365/groups/:groupId/resolve', () => {
           email: adminEmail,
           display_name: 'Admin',
           accessible_group_ids: [] as string[],
+          group_ids: [],
+          product_access: new Set<string>(),
         };
         const group = await createGroup({
           tenant_id: tid,

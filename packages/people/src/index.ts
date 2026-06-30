@@ -12,6 +12,12 @@ export {
 export { createOrgUnit } from './backend/domain/create-org-unit.ts';
 export { createWorker } from './backend/domain/create-worker.ts';
 export { editWorker } from './backend/domain/edit-worker.ts';
+export {
+  type MatchUsersToTopicDeps,
+  type MatchUsersToTopicInput,
+  matchUsersToTopic,
+  type UserMatch,
+} from './backend/domain/match-users-to-topic.ts';
 export type {
   CompanyNode,
   CompanyNodeKind,
@@ -19,13 +25,19 @@ export type {
   OrgUnitNode,
 } from './backend/domain/org-structure.ts';
 export { getOrgCompany, getOrgDelivery, getOrgStructure } from './backend/domain/org-structure.ts';
-export { addPersonSkill, removePersonSkill } from './backend/domain/person-skills.ts';
+export {
+  addPersonSkill,
+  getPersonSkills,
+  removePersonSkill,
+  setMySkills,
+} from './backend/domain/person-skills.ts';
 export { provisionWorker } from './backend/domain/provision-worker.ts';
+export { type MyProfile, readMyProfile } from './backend/domain/read-my-profile.ts';
+export { type PresenceResult, readPresence } from './backend/domain/read-presence.ts';
 export { getWorker, getWorkerHistory, listWorkers } from './backend/domain/read-workers.ts';
-export type { SetPortalAccessInput } from './backend/domain/set-portal-access.ts';
-export { setPortalAccess } from './backend/domain/set-portal-access.ts';
-export type { SetPortalAccessBulkInput } from './backend/domain/set-portal-access-bulk.ts';
-export { setPortalAccessBulk } from './backend/domain/set-portal-access-bulk.ts';
+export { setBio } from './backend/domain/set-bio.ts';
+export { reinstateWorker, terminateWorker } from './backend/domain/set-employment-status.ts';
+export { type SetPresenceInput, setPresence } from './backend/domain/set-presence.ts';
 export {
   getUtilizationByPerson,
   type UtilizationByPerson,
@@ -33,5 +45,22 @@ export {
   type UtilizationRow,
   type UtilizationSegment,
 } from './backend/domain/utilization.ts';
+export {
+  type BackfillPersonProfilesOptions,
+  backfillPersonProfiles,
+} from './backend/embeddings/backfill/backfill-profiles.ts';
+export { peopleEmbeddingJobs } from './backend/embeddings/register-jobs.ts';
+export type { PersonProfileSourceInput } from './backend/embeddings/source.ts';
+export { buildPersonProfileSource } from './backend/embeddings/source.ts';
+export {
+  ensurePeopleVectorIndex,
+  getPeopleVectorStore,
+  PEOPLE_VECTOR_DIMENSION,
+  PEOPLE_VECTOR_INDEX,
+  PEOPLE_VECTOR_NAMESPACE,
+  type PersonProfileVectorMetadata,
+  personProfileVectorId,
+  resetPeopleVectorStore,
+} from './backend/embeddings/vector-store.ts';
 export type { CreateWorkerInput, EditWorkerInput, ProvisionWorkerInput } from './contracts.ts';
 export { GENDER_VALUES, type GenderValue, genderValue } from './contracts.ts';

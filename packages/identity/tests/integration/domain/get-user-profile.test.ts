@@ -38,10 +38,6 @@ describe('getUserProfile', () => {
           expect(profile?.display_name).toBe('A');
           expect(profile?.email).toBe('a@d.local');
           expect(profile?.tenant_id).toBe(tenantId);
-          expect(profile?.availability_status).toBe('available');
-          expect(profile?.timezone).toBe('UTC');
-          expect(profile?.skills).toEqual([]);
-          expect(profile?.bio).toBeNull();
         } finally {
           resetCoreDb();
           await closePools();

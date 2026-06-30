@@ -38,12 +38,14 @@ import { Route as PeopleOffboardingRouteImport } from './../../../packages/web-p
 import { Route as PeopleAllocationRouteImport } from './../../../packages/web-people/src/routes/allocation'
 import { Route as AgentKnowledgeRouteImport } from './../../../packages/web-agent/src/routes/knowledge'
 import { Route as AgentChatRouteImport } from './../../../packages/web-agent/src/routes/chat'
+import { Route as AdminUsersRouteImport } from './../../../packages/web-admin/src/routes/users'
 import { Route as AdminTenantRouteImport } from './../../../packages/web-admin/src/routes/tenant'
 import { Route as AdminSsoRouteImport } from './../../../packages/web-admin/src/routes/sso'
 import { Route as AdminSkillsRouteImport } from './../../../packages/web-admin/src/routes/skills'
 import { Route as AdminRoleAccessRouteImport } from './../../../packages/web-admin/src/routes/role-access'
 import { Route as AdminNotificationsRouteImport } from './../../../packages/web-admin/src/routes/notifications'
 import { Route as AdminMailRouteImport } from './../../../packages/web-admin/src/routes/mail'
+import { Route as AdminGroupsRouteImport } from './../../../packages/web-admin/src/routes/groups'
 import { Route as AdminFeatureFlagsRouteImport } from './../../../packages/web-admin/src/routes/feature-flags'
 import { Route as AdminAuditRouteImport } from './../../../packages/web-admin/src/routes/audit'
 import { Route as AgentWorkflowsRouteRouteImport } from './../../../packages/web-agent/src/routes/workflows/route'
@@ -217,6 +219,11 @@ const AgentChatRoute = AgentChatRouteImport.update({
   path: '/chat',
   getParentRoute: () => AgentRouteRoute,
 } as any)
+const AdminUsersRoute = AdminUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 const AdminTenantRoute = AdminTenantRouteImport.update({
   id: '/tenant',
   path: '/tenant',
@@ -245,6 +252,11 @@ const AdminNotificationsRoute = AdminNotificationsRouteImport.update({
 const AdminMailRoute = AdminMailRouteImport.update({
   id: '/mail',
   path: '/mail',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminGroupsRoute = AdminGroupsRouteImport.update({
+  id: '/groups',
+  path: '/groups',
   getParentRoute: () => AdminRouteRoute,
 } as any)
 const AdminFeatureFlagsRoute = AdminFeatureFlagsRouteImport.update({
@@ -406,12 +418,14 @@ export interface FileRoutesByFullPath {
   '/agent/workflows': typeof AgentWorkflowsRouteRouteWithChildren
   '/admin/audit': typeof AdminAuditRoute
   '/admin/feature-flags': typeof AdminFeatureFlagsRoute
+  '/admin/groups': typeof AdminGroupsRoute
   '/admin/mail': typeof AdminMailRoute
   '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/role-access': typeof AdminRoleAccessRoute
   '/admin/skills': typeof AdminSkillsRoute
   '/admin/sso': typeof AdminSsoRoute
   '/admin/tenant': typeof AdminTenantRoute
+  '/admin/users': typeof AdminUsersRoute
   '/agent/chat': typeof AgentChatRoute
   '/agent/knowledge': typeof AgentKnowledgeRoute
   '/people/allocation': typeof PeopleAllocationRoute
@@ -463,12 +477,14 @@ export interface FileRoutesByTo {
   '/': typeof routesAuthedIndexRoute
   '/admin/audit': typeof AdminAuditRoute
   '/admin/feature-flags': typeof AdminFeatureFlagsRoute
+  '/admin/groups': typeof AdminGroupsRoute
   '/admin/mail': typeof AdminMailRoute
   '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/role-access': typeof AdminRoleAccessRoute
   '/admin/skills': typeof AdminSkillsRoute
   '/admin/sso': typeof AdminSsoRoute
   '/admin/tenant': typeof AdminTenantRoute
+  '/admin/users': typeof AdminUsersRoute
   '/agent/chat': typeof AgentChatRoute
   '/agent/knowledge': typeof AgentKnowledgeRoute
   '/people/allocation': typeof PeopleAllocationRoute
@@ -529,12 +545,14 @@ export interface FileRoutesById {
   '/_authed/agent/workflows': typeof AgentWorkflowsRouteRouteWithChildren
   '/_authed/admin/audit': typeof AdminAuditRoute
   '/_authed/admin/feature-flags': typeof AdminFeatureFlagsRoute
+  '/_authed/admin/groups': typeof AdminGroupsRoute
   '/_authed/admin/mail': typeof AdminMailRoute
   '/_authed/admin/notifications': typeof AdminNotificationsRoute
   '/_authed/admin/role-access': typeof AdminRoleAccessRoute
   '/_authed/admin/skills': typeof AdminSkillsRoute
   '/_authed/admin/sso': typeof AdminSsoRoute
   '/_authed/admin/tenant': typeof AdminTenantRoute
+  '/_authed/admin/users': typeof AdminUsersRoute
   '/_authed/agent/chat': typeof AgentChatRoute
   '/_authed/agent/knowledge': typeof AgentKnowledgeRoute
   '/_authed/people/allocation': typeof PeopleAllocationRoute
@@ -595,12 +613,14 @@ export interface FileRouteTypes {
     | '/agent/workflows'
     | '/admin/audit'
     | '/admin/feature-flags'
+    | '/admin/groups'
     | '/admin/mail'
     | '/admin/notifications'
     | '/admin/role-access'
     | '/admin/skills'
     | '/admin/sso'
     | '/admin/tenant'
+    | '/admin/users'
     | '/agent/chat'
     | '/agent/knowledge'
     | '/people/allocation'
@@ -652,12 +672,14 @@ export interface FileRouteTypes {
     | '/'
     | '/admin/audit'
     | '/admin/feature-flags'
+    | '/admin/groups'
     | '/admin/mail'
     | '/admin/notifications'
     | '/admin/role-access'
     | '/admin/skills'
     | '/admin/sso'
     | '/admin/tenant'
+    | '/admin/users'
     | '/agent/chat'
     | '/agent/knowledge'
     | '/people/allocation'
@@ -717,12 +739,14 @@ export interface FileRouteTypes {
     | '/_authed/agent/workflows'
     | '/_authed/admin/audit'
     | '/_authed/admin/feature-flags'
+    | '/_authed/admin/groups'
     | '/_authed/admin/mail'
     | '/_authed/admin/notifications'
     | '/_authed/admin/role-access'
     | '/_authed/admin/skills'
     | '/_authed/admin/sso'
     | '/_authed/admin/tenant'
+    | '/_authed/admin/users'
     | '/_authed/agent/chat'
     | '/_authed/agent/knowledge'
     | '/_authed/people/allocation'
@@ -979,6 +1003,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AgentChatRouteImport
       parentRoute: typeof AgentRouteRoute
     }
+    '/_authed/admin/users': {
+      id: '/_authed/admin/users'
+      path: '/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AdminUsersRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/_authed/admin/tenant': {
       id: '/_authed/admin/tenant'
       path: '/tenant'
@@ -1019,6 +1050,13 @@ declare module '@tanstack/react-router' {
       path: '/mail'
       fullPath: '/admin/mail'
       preLoaderRoute: typeof AdminMailRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/_authed/admin/groups': {
+      id: '/_authed/admin/groups'
+      path: '/groups'
+      fullPath: '/admin/groups'
+      preLoaderRoute: typeof AdminGroupsRouteImport
       parentRoute: typeof AdminRouteRoute
     }
     '/_authed/admin/feature-flags': {
@@ -1223,24 +1261,28 @@ declare module '@tanstack/react-router' {
 interface AdminRouteRouteChildren {
   AdminAuditRoute: typeof AdminAuditRoute
   AdminFeatureFlagsRoute: typeof AdminFeatureFlagsRoute
+  AdminGroupsRoute: typeof AdminGroupsRoute
   AdminMailRoute: typeof AdminMailRoute
   AdminNotificationsRoute: typeof AdminNotificationsRoute
   AdminRoleAccessRoute: typeof AdminRoleAccessRoute
   AdminSkillsRoute: typeof AdminSkillsRoute
   AdminSsoRoute: typeof AdminSsoRoute
   AdminTenantRoute: typeof AdminTenantRoute
+  AdminUsersRoute: typeof AdminUsersRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminAuditRoute: AdminAuditRoute,
   AdminFeatureFlagsRoute: AdminFeatureFlagsRoute,
+  AdminGroupsRoute: AdminGroupsRoute,
   AdminMailRoute: AdminMailRoute,
   AdminNotificationsRoute: AdminNotificationsRoute,
   AdminRoleAccessRoute: AdminRoleAccessRoute,
   AdminSkillsRoute: AdminSkillsRoute,
   AdminSsoRoute: AdminSsoRoute,
   AdminTenantRoute: AdminTenantRoute,
+  AdminUsersRoute: AdminUsersRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
 

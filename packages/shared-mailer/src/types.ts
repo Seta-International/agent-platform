@@ -58,12 +58,12 @@ export type MailerErrorCode =
   | 'TRANSPORT_TRANSIENT';
 
 export class MailerError extends Error {
-  constructor(
-    public readonly code: MailerErrorCode,
-    message: string,
-    public readonly cause?: unknown,
-  ) {
+  readonly code: MailerErrorCode;
+  readonly cause?: unknown;
+  constructor(code: MailerErrorCode, message: string, cause?: unknown) {
     super(message);
+    this.code = code;
+    this.cause = cause;
     this.name = 'MailerError';
   }
 }

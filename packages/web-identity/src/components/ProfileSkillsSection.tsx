@@ -48,12 +48,27 @@ export function ProfileSkillsSection({
     };
   }, [prefix, skills]);
 
-  function addSkill(s: string) {
-    const clean = s.toLowerCase().trim();
-    if (!clean || skills.includes(clean)) return;
-    setSkills((prev) => [...prev, clean]);
+  // `name` must be a canonical catalog name (PUT /me/skills 400s on non-catalog text).
+  function addSkill(name: string) {
+    const canonical = name.trim();
+    if (!canonical || skills.some((x) => x.toLowerCase() === canonical.toLowerCase())) return;
+    setSkills((prev) => [...prev, canonical]);
     setPrefix('');
     setSuggestions([]);
+  }
+
+  // Enter only commits a genuine catalog match: an exact case-insensitive hit, or
+  // the top prefix suggestion. Non-catalog text is ignored (never reaches save).
+  function commitTypedSkill() {
+    const typed = prefix.trim().toLowerCase();
+    if (!typed) return;
+    const exact = suggestions.find((s) => s.toLowerCase() === typed);
+    if (exact) {
+      addSkill(exact);
+      return;
+    }
+    const top = suggestions[0];
+    if (top?.toLowerCase().startsWith(typed)) addSkill(top);
   }
 
   function removeSkill(s: string) {
@@ -108,9 +123,7 @@ export function ProfileSkillsSection({
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault();
-                const top = suggestions[0];
-                if (top?.startsWith(prefix.toLowerCase().trim())) addSkill(top);
-                else addSkill(prefix);
+                commitTypedSkill();
               } else if (e.key === 'Backspace' && prefix === '' && skills.length > 0) {
                 removeSkill(skills[skills.length - 1] as string);
               } else if (e.key === 'Escape') {

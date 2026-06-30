@@ -17,7 +17,6 @@ export const peopleAppManifest: AppManifest = {
   icon: Users,
   color: '#0047FF',
   requiredPermissions: ['people.worker.read'],
-  requiredFeature: 'people',
   useNavExtensions: noNavExtensions,
   nav: [
     {

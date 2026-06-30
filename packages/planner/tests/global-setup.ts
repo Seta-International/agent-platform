@@ -21,6 +21,8 @@ export default async function (): Promise<() => Promise<void>> {
         { name: 'core', dir: resolve(__dirname, '../../core/drizzle/migrations') },
         { name: 'identity', dir: resolve(__dirname, '../../identity/drizzle') },
         { name: 'planner', dir: resolve(__dirname, '../drizzle') },
+        // planner's searchGroupMembersBySkills tool reads live skills from People.
+        { name: 'people', dir: resolve(__dirname, '../../people/drizzle/migrations') },
         { name: 'agent', dir: resolve(__dirname, '../../agent/drizzle') },
       ],
     });

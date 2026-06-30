@@ -20,6 +20,8 @@ import {
   revokeUserSession,
   updateUserProfile,
 } from '../../index.ts';
+import { listDirectory } from '../domain/list-directory.ts';
+import { provisionAccount } from '../domain/provision-account.ts';
 
 const grantSchema = z.object({
   role_slug: z.string(),
@@ -35,18 +37,10 @@ const bulkSchema = z.object({
   scope_id: z.string().nullable().optional(),
 });
 
-const HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
-
+// Identity owns the account only — admins edit display_name here; worker
+// presence/skills are edited through People (web-people worker profile).
 const adminProfilePatchSchema = z.object({
   display_name: z.string().min(1).max(120).optional(),
-  availability_status: z.enum(['available', 'busy', 'ooo']).optional(),
-  ooo_until: z.string().datetime().nullable().optional(),
-  timezone: z.string().min(1).optional(),
-  working_hours: z
-    .object({ start: z.string().regex(HHMM_RE), end: z.string().regex(HHMM_RE) })
-    .nullable()
-    .optional(),
-  skills: z.array(z.string()).optional(),
 });
 
 // Admin gate for user *management* (grant roles, deactivate, reset passwords, etc.).
@@ -62,13 +56,32 @@ function requireAdmin(c: Context<SessionEnv>): void {
 }
 
 export function registerAdminUsersRoutes(app: Hono<SessionEnv>): void {
+  app.get('/api/identity/v1/directory', async (c) => {
+    const session = c.get('user');
+    const page = Number(c.req.query('page') ?? '0');
+    const pageSizeRaw = c.req.query('pageSize');
+    const pageSize = pageSizeRaw ? Number(pageSizeRaw) : undefined;
+    const status = c.req.query('status') as 'none' | 'active' | 'suspended' | undefined;
+    const employment = c.req.query('employment') as 'active' | 'terminated' | undefined;
+    const group_id = c.req.query('group_id') || undefined;
+    return c.json(
+      await listDirectory(session, {
+        search: c.req.query('search'),
+        status,
+        employment,
+        group_id,
+        page,
+        pageSize,
+      }),
+    );
+  });
+
   app.get('/api/identity/v1/users', async (c) => {
     requireAdmin(c);
     const scope = c.get('user');
     const search = c.req.query('search') ?? undefined;
     const role_slug = c.req.query('role') ?? undefined;
-    const status =
-      (c.req.query('status') as 'active' | 'deactivated' | 'ooo' | undefined) ?? undefined;
+    const status = (c.req.query('status') as 'active' | 'deactivated' | undefined) ?? undefined;
     const sign_in_method =
       (c.req.query('sign_in_method') as 'credential' | 'microsoft' | 'both' | undefined) ??
       undefined;
@@ -104,16 +117,7 @@ export function registerAdminUsersRoutes(app: Hono<SessionEnv>): void {
     const parsed = adminProfilePatchSchema.safeParse(await c.req.json().catch(() => ({})));
     if (!parsed.success)
       return c.json({ error: 'invalid_patch', details: parsed.error.flatten() }, 400);
-    const patch = {
-      ...parsed.data,
-      ooo_until:
-        parsed.data.ooo_until === undefined
-          ? undefined
-          : parsed.data.ooo_until
-            ? new Date(parsed.data.ooo_until)
-            : null,
-    };
-    const updated = await updateUserProfile(userId, patch, {
+    const updated = await updateUserProfile(userId, parsed.data, {
       type: 'user',
       user_id: scope.user_id,
       ip: c.req.header('x-forwarded-for')?.split(',')[0]?.trim(),
@@ -188,11 +192,24 @@ export function registerAdminUsersRoutes(app: Hono<SessionEnv>): void {
     return c.json({ ok: true });
   });
 
+  // Alias used by the directory UI; deactivate and suspend are the same operation.
+  app.post('/api/identity/v1/users/:id/suspend', async (c) => {
+    requireAdmin(c);
+    const scope = c.get('user');
+    await deactivateUser(c.req.param('id'), { type: 'user', user_id: scope.user_id });
+    return c.json({ ok: true });
+  });
+
   app.post('/api/identity/v1/users/:id/reactivate', async (c) => {
     requireAdmin(c);
     const scope = c.get('user');
     await reactivateUser(c.req.param('id'), { type: 'user', user_id: scope.user_id });
     return c.json({ ok: true });
+  });
+
+  app.post('/api/identity/v1/directory/:personId/provision', async (c) => {
+    const scope = c.get('user');
+    return c.json(await provisionAccount(scope, { person_id: c.req.param('personId') }));
   });
 
   app.get('/api/identity/v1/users/:id/sessions', async (c) => {

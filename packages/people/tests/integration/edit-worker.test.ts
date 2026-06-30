@@ -5,7 +5,7 @@ import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
 import { person, worker } from '../../src/backend/db/schema.ts';
-import { createWorker, editWorker, setPortalAccess } from '../../src/index.ts';
+import { createWorker, editWorker } from '../../src/index.ts';
 import { buildSession, countEvents, readEvents, seedOrgUnit, seedTenant } from '../helpers.ts';
 
 const ctx = {
@@ -287,44 +287,6 @@ describe('editWorker', () => {
         await expect(
           editWorker({ worker_id, patch: { phone: '000' }, session: t2.adminSession }),
         ).rejects.toMatchObject({ code: 'NOT_FOUND' });
-      } finally {
-        resetPeopleDb();
-        resetCoreDb();
-        await closePools();
-      }
-    });
-  });
-
-  it('editing full_name on a linked worker propagates name to identity.user', async () => {
-    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
-      resetCoreDb();
-      resetPeopleDb();
-      initPools({ databaseUrl });
-      try {
-        const t = await seedTenant(pool);
-        const { worker_id } = await createWorker({
-          full_name: 'Original Name',
-          work_email: 'orig@example.test',
-          session: t.adminSession,
-        });
-
-        await setPortalAccess({ worker_id, enabled: true, session: t.adminSession });
-
-        const [p] = await peopleDb()
-          .select({ user_id: person.user_id })
-          .from(person)
-          .where(eq(person.id, worker_id));
-        const userId = p?.user_id;
-        expect(userId).toBeTruthy();
-
-        await editWorker({
-          worker_id,
-          patch: { full_name: 'Updated Name' },
-          session: t.adminSession,
-        });
-
-        const result = await pool.query('SELECT name FROM identity.user WHERE id=$1', [userId]);
-        expect(result.rows[0]?.name).toBe('Updated Name');
       } finally {
         resetPeopleDb();
         resetCoreDb();

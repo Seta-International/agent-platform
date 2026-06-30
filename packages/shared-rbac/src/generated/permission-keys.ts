@@ -40,7 +40,16 @@ export type PermissionKey =
   | 'hiring.requisition.read'
   | 'identity.concept_map.read'
   | 'identity.concept_map.write'
+  | 'identity.group.create'
+  | 'identity.group.delete'
+  | 'identity.group.membership.manage'
+  | 'identity.group.read'
+  | 'identity.group.role.manage'
+  | 'identity.group.update'
   | 'identity.password.disable_local'
+  | 'identity.product_access.grant'
+  | 'identity.product_access.read'
+  | 'identity.product_access.revoke'
   | 'identity.role.grant'
   | 'identity.role.read'
   | 'identity.role.write'
@@ -71,8 +80,10 @@ export type PermissionKey =
   | 'notifications.category.read'
   | 'notifications.preference.read'
   | 'notifications.preference.write'
+  | 'people.self.manage'
+  | 'people.self.read'
   | 'people.worker.edit'
-  | 'people.worker.portal_access.set'
+  | 'people.worker.manage'
   | 'people.worker.provision'
   | 'people.worker.read'
   | 'people.worker.read.all'
@@ -171,7 +182,16 @@ export const ALL_PERMISSIONS: readonly PermissionKey[] = [
   'hiring.requisition.read',
   'identity.concept_map.read',
   'identity.concept_map.write',
+  'identity.group.create',
+  'identity.group.delete',
+  'identity.group.membership.manage',
+  'identity.group.read',
+  'identity.group.role.manage',
+  'identity.group.update',
   'identity.password.disable_local',
+  'identity.product_access.grant',
+  'identity.product_access.read',
+  'identity.product_access.revoke',
   'identity.role.grant',
   'identity.role.read',
   'identity.role.write',
@@ -202,8 +222,10 @@ export const ALL_PERMISSIONS: readonly PermissionKey[] = [
   'notifications.category.read',
   'notifications.preference.read',
   'notifications.preference.write',
+  'people.self.manage',
+  'people.self.read',
   'people.worker.edit',
-  'people.worker.portal_access.set',
+  'people.worker.manage',
   'people.worker.provision',
   'people.worker.read',
   'people.worker.read.all',

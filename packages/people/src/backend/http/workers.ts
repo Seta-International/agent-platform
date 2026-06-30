@@ -9,9 +9,9 @@ import {
   getWorker,
   getWorkerHistory,
   listWorkers,
+  reinstateWorker,
   removePersonSkill,
-  setPortalAccess,
-  setPortalAccessBulk,
+  terminateWorker,
 } from '../../index.ts';
 
 const editBody = z.object({
@@ -22,12 +22,6 @@ const editBody = z.object({
 const addSkillBody = z.object({
   skill_id: z.string().uuid(),
   level: z.number().int().min(1).max(5).optional(),
-});
-
-const portalBody = z.object({ enabled: z.boolean() });
-const portalBulkBody = z.object({
-  worker_ids: z.array(z.string().uuid()).min(1).max(500),
-  enabled: z.boolean(),
 });
 
 export function registerPeopleWorkersRoutes(app: Hono<SessionEnv>): void {
@@ -90,24 +84,6 @@ export function registerPeopleWorkersRoutes(app: Hono<SessionEnv>): void {
       await editWorker({ worker_id: c.req.param('id'), ...parsed.data, session: c.get('user') }),
     );
   });
-  app.post('/api/people/v1/workers/portal-access/bulk', async (c) => {
-    const parsed = portalBulkBody.safeParse(await c.req.json().catch(() => ({})));
-    if (!parsed.success)
-      return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
-    return c.json(await setPortalAccessBulk({ ...parsed.data, session: c.get('user') }));
-  });
-  app.post('/api/people/v1/workers/:id/portal-access', async (c) => {
-    const parsed = portalBody.safeParse(await c.req.json().catch(() => ({})));
-    if (!parsed.success)
-      return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
-    return c.json(
-      await setPortalAccess({
-        worker_id: c.req.param('id'),
-        enabled: parsed.data.enabled,
-        session: c.get('user'),
-      }),
-    );
-  });
   app.post('/api/people/v1/workers/:id/skills', async (c) => {
     const parsed = addSkillBody.safeParse(await c.req.json().catch(() => ({})));
     if (!parsed.success)
@@ -128,4 +104,10 @@ export function registerPeopleWorkersRoutes(app: Hono<SessionEnv>): void {
     });
     return c.body(null, 204);
   });
+  app.post('/api/people/v1/workers/:id/terminate', async (c) =>
+    c.json(await terminateWorker({ worker_id: c.req.param('id'), session: c.get('user') })),
+  );
+  app.post('/api/people/v1/workers/:id/reinstate', async (c) =>
+    c.json(await reinstateWorker({ worker_id: c.req.param('id'), session: c.get('user') })),
+  );
 }

@@ -7,6 +7,11 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./agent-tools": "./src/agent-tools.ts",
+    "./agent-tools/register": {
+      "types": "./src/backend/agent-tools/register.ts",
+      "default": "./src/backend/agent-tools/register.ts"
+    },
     "./events": "./src/events.ts",
     "./rbac": "./src/rbac.ts",
     "./contracts": "./src/contracts.ts",
@@ -30,13 +35,17 @@
     "vitest": "^4.1.9"
   },
   "dependencies": {
+    "@mastra/pg": "^1.13.0",
     "@seta/agent-sdk": "workspace:^",
+    "@seta/shared-embeddings": "workspace:^",
     "@seta/core": "workspace:^",
     "@seta/pm": "workspace:*",
     "@seta/shared-db": "workspace:^",
     "@seta/shared-rbac": "workspace:^",
+    "@seta/shared-retrieval": "workspace:^",
     "@seta/shared-types": "workspace:^",
     "drizzle-orm": "^0.45.2",
+    "graphile-worker": "^0.16.6",
     "hono": "^4.12.25",
     "pg": "^8.21.0",
     "pino": "^10.3.1",

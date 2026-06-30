@@ -7,12 +7,6 @@ const outputSchema = z.object({
   tenant_id: z.string(),
   display_name: z.string(),
   email: z.string(),
-  availability_status: z.enum(['available', 'busy', 'ooo']),
-  ooo_until: z.date().nullable(),
-  timezone: z.string(),
-  working_hours: z.object({ start: z.string(), end: z.string() }).nullable(),
-  skills: z.array(z.string()).readonly(),
-  role: z.string().nullable(),
   updated_at: z.date(),
   deactivated_at: z.date().nullable(),
 });
@@ -21,9 +15,9 @@ export const whoAmITool = defineAgentTool({
   id: 'identity_whoAmI',
   name: 'Look Up My Profile',
   description:
-    'Read your own profile: display name, email, skills, timezone, and availability.\n\n' +
-    'Use for: "who am I?"; "what are my skills?"; getting your own userId to exclude yourself ' +
-    'from candidate lists; "am I available this week?".\n' +
+    'Read your own account: display name, email, and tenant.\n\n' +
+    'Use for: "who am I?"; getting your own userId to exclude yourself ' +
+    'from candidate lists.\n' +
     'Call once at the start of any turn that references "me" or "I" — result is cheap and can ' +
     'be reused within the turn.',
   input: z.object({}),
@@ -33,6 +27,13 @@ export const whoAmITool = defineAgentTool({
     const actor = actorFromContext(ctx);
     const profile = await whoAmI(actor);
     if (!profile) throw new Error('profile_not_found');
-    return profile;
+    return {
+      user_id: profile.user_id,
+      tenant_id: profile.tenant_id,
+      display_name: profile.display_name,
+      email: profile.email,
+      updated_at: profile.updated_at,
+      deactivated_at: profile.deactivated_at,
+    };
   },
 });

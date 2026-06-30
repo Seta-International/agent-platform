@@ -7,7 +7,6 @@ import { buildPeopleRoutes } from './backend/http/index.ts';
 import { PeopleError } from './backend/rbac.ts';
 import { peopleSubscribers } from './backend/subscribers/index.ts';
 import { PEOPLE_EVENTS } from './events.ts';
-import { peopleFlags } from './flags.ts';
 import { peopleRbac } from './rbac.ts';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
@@ -35,7 +34,6 @@ export function registerPeopleContributions(reg: ContributionRegistry): void {
     events: PEOPLE_EVENTS,
     rbac: peopleRbac,
     subscribers: peopleSubscribers(),
-    flags: peopleFlags,
     routes: { mountAt: '/', build: buildPeopleRoutes },
     errorMapper: peopleErrorMapper,
   });

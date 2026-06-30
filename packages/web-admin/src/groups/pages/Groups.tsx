@@ -1,0 +1,133 @@
+import { Alert, AlertDescription, Badge, EmptyState, PageChrome, Skeleton } from '@seta/shared-ui';
+import { UsersRound } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { RailHeader, RailItem } from '../../components/access-console.tsx';
+import type { Group } from '../api/groups-client.ts';
+import { CreateGroupDialog } from '../components/CreateGroupDialog.tsx';
+import { GroupDetail } from '../components/GroupDetail.tsx';
+import { useGroupsQuery } from '../hooks/useGroups.ts';
+import { derivedProducts } from '../lib/role-meta.ts';
+
+function roleProductSummary(group: Group): string {
+  const roles = group.role_slugs.length;
+  if (roles === 0) return 'No roles';
+  const products = derivedProducts(group.role_slugs).length;
+  const rolePart = `${roles} ${roles === 1 ? 'role' : 'roles'}`;
+  return products > 0
+    ? `${rolePart} · ${products} ${products === 1 ? 'product' : 'products'}`
+    : rolePart;
+}
+
+function GroupListItem({
+  group,
+  active,
+  onClick,
+}: {
+  group: Group;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <RailItem
+      title={group.name}
+      active={active}
+      onClick={onClick}
+      count={group.member_count}
+      subtitle={
+        <>
+          {group.is_base ? (
+            <Badge variant="secondary">Base</Badge>
+          ) : group.kind === 'default' ? (
+            <Badge variant="outline">Default</Badge>
+          ) : null}
+          <span className="truncate">{roleProductSummary(group)}</span>
+        </>
+      }
+    />
+  );
+}
+
+export function GroupsPage() {
+  const { data, isLoading, error } = useGroupsQuery();
+  const groups = data ?? [];
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  // Keep a valid selection: default to the first group, drop a deleted one.
+  useEffect(() => {
+    if (groups.length === 0) {
+      setSelectedId(null);
+      return;
+    }
+    if (!selectedId || !groups.some((g) => g.group_id === selectedId)) {
+      setSelectedId(groups[0]?.group_id ?? null);
+    }
+  }, [groups, selectedId]);
+
+  const selected = groups.find((g) => g.group_id === selectedId) ?? null;
+
+  return (
+    <PageChrome
+      breadcrumb={['Admin']}
+      title="Groups"
+      subtitle={
+        isLoading ? 'Loading…' : `${groups.length} ${groups.length === 1 ? 'group' : 'groups'}`
+      }
+      actions={<CreateGroupDialog onCreated={setSelectedId} />}
+    >
+      {error ? (
+        <div className="page-container pt-4">
+          <Alert variant="destructive">
+            <AlertDescription>{(error as Error).message}</AlertDescription>
+          </Alert>
+        </div>
+      ) : (
+        <div className="flex h-full min-h-0">
+          <aside className="flex w-72 flex-none flex-col border-r border-hairline bg-surface-1">
+            <RailHeader>All groups</RailHeader>
+            <div className="flex-1 space-y-0.5 overflow-y-auto p-2">
+              {isLoading ? (
+                <>
+                  <Skeleton className="h-12 w-full rounded-md" />
+                  <Skeleton className="h-12 w-full rounded-md" />
+                  <Skeleton className="h-12 w-full rounded-md" />
+                </>
+              ) : groups.length === 0 ? (
+                <p className="px-3 py-6 text-center text-body-sm text-ink-tertiary">
+                  No groups yet.
+                </p>
+              ) : (
+                groups.map((g) => (
+                  <GroupListItem
+                    key={g.group_id}
+                    group={g}
+                    active={g.group_id === selectedId}
+                    onClick={() => setSelectedId(g.group_id)}
+                  />
+                ))
+              )}
+            </div>
+          </aside>
+
+          <div className="min-w-0 flex-1 overflow-y-auto">
+            {selected ? (
+              <GroupDetail
+                key={selected.group_id}
+                group={selected}
+                onDeleted={() => setSelectedId(null)}
+              />
+            ) : (
+              !isLoading && (
+                <EmptyState
+                  className="h-full"
+                  icon={<UsersRound className="size-8" />}
+                  title="No group selected"
+                  description="Create a group to bundle roles and assign people in one place."
+                />
+              )
+            )}
+          </div>
+        </div>
+      )}
+    </PageChrome>
+  );
+}

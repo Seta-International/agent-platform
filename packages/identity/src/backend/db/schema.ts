@@ -1,23 +1,17 @@
-import { boolean, jsonb, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  index,
+  jsonb,
+  primaryKey,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core';
 
 export { identity } from './pg-schema.ts';
 
 import { identity } from './pg-schema.ts';
-
-export const userProfile = identity.table('user_profile', {
-  user_id: uuid('user_id').primaryKey(),
-  tenant_id: uuid('tenant_id').notNull(),
-  skills: text('skills').array().default([]).notNull(),
-  role: text('role'),
-  availability_status: text('availability_status', { enum: ['available', 'busy', 'ooo'] })
-    .default('available')
-    .notNull(),
-  ooo_until: timestamp('ooo_until', { withTimezone: true }),
-  timezone: text('timezone').default('UTC').notNull(),
-  working_hours: jsonb('working_hours').$type<{ start: string; end: string } | null>(),
-  bio: text('bio'),
-  updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
 
 export const roleGrants = identity.table('role_grants', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -75,3 +69,81 @@ export const failedLoginAlertsSent = identity.table('failed_login_alerts_sent', 
 });
 
 export * from './auth-tables.ts';
+
+export const directoryPerson = identity.table(
+  'directory_person',
+  {
+    person_id: uuid('person_id').primaryKey(),
+    tenant_id: uuid('tenant_id').notNull(),
+    full_name: text('full_name').notNull(),
+    work_email: text('work_email'),
+    job_title: text('job_title'),
+    employment_status: text('employment_status', { enum: ['active', 'terminated'] })
+      .default('active')
+      .notNull(),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index('directory_person_by_tenant').on(t.tenant_id)],
+);
+
+export const accessGroup = identity.table(
+  'access_group',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenant_id: uuid('tenant_id').notNull(),
+    slug: text('slug').notNull(),
+    name: text('name').notNull(),
+    description: text('description'),
+    kind: text('kind', { enum: ['default', 'custom'] })
+      .default('custom')
+      .notNull(),
+    is_base: boolean('is_base').default(false).notNull(),
+    created_by: uuid('created_by'),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex('access_group_tenant_slug').on(t.tenant_id, t.slug)],
+);
+
+export const accessGroupMembership = identity.table(
+  'access_group_membership',
+  {
+    group_id: uuid('group_id').notNull(),
+    user_id: uuid('user_id').notNull(),
+    added_by: uuid('added_by'),
+    added_at: timestamp('added_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.group_id, t.user_id] }),
+    index('access_group_membership_by_user').on(t.user_id),
+  ],
+);
+
+export const accessGroupRole = identity.table(
+  'access_group_role',
+  {
+    group_id: uuid('group_id').notNull(),
+    role_slug: text('role_slug').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.group_id, t.role_slug] })],
+);
+
+export const productGrant = identity.table(
+  'product_grant',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenant_id: uuid('tenant_id').notNull(),
+    subject_type: text('subject_type', { enum: ['tenant', 'group', 'user'] }).notNull(),
+    subject_id: uuid('subject_id').notNull(),
+    product_id: text('product_id').notNull(),
+    effect: text('effect', { enum: ['grant', 'revoke'] }).notNull(),
+    granted_by: uuid('granted_by'),
+    granted_via: text('granted_via', { enum: ['admin', 'seed', 'cli'] })
+      .default('admin')
+      .notNull(),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('product_grant_subject_product').on(t.subject_type, t.subject_id, t.product_id),
+  ],
+);

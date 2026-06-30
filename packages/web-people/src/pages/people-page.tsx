@@ -1,4 +1,3 @@
-import type { RowSelectionState } from '@seta/shared-ui';
 import {
   Alert,
   AlertDescription,
@@ -29,7 +28,6 @@ import {
   createWorker,
   fetchWorkers,
   genderLabel,
-  setPortalAccessBulk,
   type WorkerListRow,
   type WorkersQuery,
 } from '../api/people-client.ts';
@@ -138,9 +136,7 @@ export function PeoplePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const canProvision = usePermission('people.worker.provision');
-  const canSetPortal = usePermission('people.worker.portal_access.set');
   const canReadAll = usePermission('people.worker.read.all');
-  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [query, setQuery] = useState<WorkersQuery>({ page: 1, pageSize: 25 });
   const [view, setView] = useState<'list' | 'cards'>('list');
 
@@ -177,22 +173,6 @@ export function PeoplePage() {
       const s = next[0];
       return { ...q, sort: s ? { field: s.id, dir: s.desc ? 'desc' : 'asc' } : undefined };
     });
-
-  const selectedWorkerIds = useMemo(
-    () => Object.keys(rowSelection).filter((k) => rowSelection[k]),
-    [rowSelection],
-  );
-
-  const bulkMutation = useMutation({
-    mutationFn: (enabled: boolean) => setPortalAccessBulk(selectedWorkerIds, enabled),
-    onSuccess: (r) => {
-      const changed = r.results.filter((x) => x.status === 'changed').length;
-      toast.success(`Portal access updated for ${changed} worker(s)`);
-      setRowSelection({});
-      void queryClient.invalidateQueries({ queryKey: [...peopleKeys.all, 'workers'] });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
 
   const columns = useMemo(() => {
     type CellCtx = { row: { original: WorkerListRow } };
@@ -319,19 +299,6 @@ export function PeoplePage() {
             <span className="text-ink-muted">—</span>
           ),
       },
-      {
-        id: 'portal',
-        header: 'Access',
-        enableSorting: false,
-        cell: ({ row }: CellCtx) => (
-          <Badge
-            variant={row.original.portal_access ? 'default' : 'outline'}
-            className="whitespace-nowrap"
-          >
-            {row.original.portal_access ? 'Login on' : 'No login'}
-          </Badge>
-        ),
-      },
     ];
   }, []);
 
@@ -352,31 +319,6 @@ export function PeoplePage() {
           </Alert>
         ) : (
           <>
-            {selectedWorkerIds.length > 0 && (
-              <div className="flex items-center justify-between gap-3 rounded-md border border-hairline bg-surface-raised px-4 py-2">
-                <span className="text-body-sm text-ink-muted">
-                  {selectedWorkerIds.length} selected
-                </span>
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    disabled={bulkMutation.isPending}
-                    onClick={() => bulkMutation.mutate(true)}
-                  >
-                    Enable portal access
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    disabled={bulkMutation.isPending}
-                    onClick={() => bulkMutation.mutate(false)}
-                  >
-                    Disable portal access
-                  </Button>
-                </div>
-              </div>
-            )}
             <PeopleFilterBar query={query} onChange={patchQuery} />
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2 text-body-sm text-ink-muted">
@@ -417,9 +359,9 @@ export function PeoplePage() {
                 pageCount={Math.max(1, Math.ceil(total / pageSize))}
                 rowCount={total}
                 getRowId={(r: WorkerListRow) => r.worker_id}
-                enableRowSelection={canSetPortal}
-                rowSelection={rowSelection}
-                onRowSelectionChange={setRowSelection}
+                enableRowSelection={false}
+                rowSelection={{}}
+                onRowSelectionChange={() => {}}
                 emptyState={
                   <EmptyState
                     icon={<Users className="size-6" />}
