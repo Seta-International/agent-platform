@@ -64,15 +64,19 @@ export function MyTasksToolbar({
 }: Props) {
   const [localSearch, setLocalSearch] = useState(value.search ?? '');
   const initial = useRef(true);
+  // True while an IME composition is in progress (Vietnamese Telex/VNI, CJK, …).
+  // Propagating the value mid-composition corrupts the IME buffer.
+  const [isComposing, setIsComposing] = useState(false);
 
   useEffect(() => {
     if (initial.current) {
       initial.current = false;
       return;
     }
+    if (isComposing) return;
     const t = setTimeout(() => onSearchChange(localSearch), searchDebounceMs);
     return () => clearTimeout(t);
-  }, [localSearch, onSearchChange, searchDebounceMs]);
+  }, [localSearch, onSearchChange, searchDebounceMs, isComposing]);
 
   return (
     <div
@@ -136,6 +140,11 @@ export function MyTasksToolbar({
             className="pl-7"
             value={localSearch}
             onChange={(e) => setLocalSearch(e.target.value)}
+            onCompositionStart={() => setIsComposing(true)}
+            onCompositionEnd={(e) => {
+              setIsComposing(false);
+              setLocalSearch(e.currentTarget.value);
+            }}
           />
         </div>
         <button
