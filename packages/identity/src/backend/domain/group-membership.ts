@@ -15,11 +15,21 @@ async function guardMembership(actor: Actor, tenantId: string): Promise<string> 
   return actor.user_id ?? 'system';
 }
 
+async function requireGroupInTenant(groupId: string, tenantId: string): Promise<void> {
+  const [g] = await identityDb()
+    .select({ id: accessGroup.id })
+    .from(accessGroup)
+    .where(and(eq(accessGroup.id, groupId), eq(accessGroup.tenant_id, tenantId)))
+    .limit(1);
+  if (!g) throw new IdentityError('NOT_FOUND', `No group ${groupId} in tenant ${tenantId}`);
+}
+
 export async function addGroupMembers(
   input: { group_id: string; tenant_id: string; user_ids: string[] },
   actor: Actor,
 ): Promise<void> {
   const by = await guardMembership(actor, input.tenant_id);
+  await requireGroupInTenant(input.group_id, input.tenant_id);
   if (input.user_ids.length === 0) return;
   await withEmit({ actor: { userId: by, tenantId: input.tenant_id } }, async (tx) => {
     await tx
@@ -49,6 +59,7 @@ export async function removeGroupMember(
   actor: Actor,
 ): Promise<void> {
   const by = await guardMembership(actor, input.tenant_id);
+  await requireGroupInTenant(input.group_id, input.tenant_id);
   await withEmit({ actor: { userId: by, tenantId: input.tenant_id } }, async (tx) => {
     await tx
       .delete(accessGroupMembership)
@@ -78,7 +89,13 @@ export async function listGroupMembers(
   return identityDb()
     .select({ user_id: accessGroupMembership.user_id })
     .from(accessGroupMembership)
-    .where(eq(accessGroupMembership.group_id, group_id));
+    .innerJoin(accessGroup, eq(accessGroup.id, accessGroupMembership.group_id))
+    .where(
+      and(
+        eq(accessGroupMembership.group_id, group_id),
+        eq(accessGroup.tenant_id, session.tenant_id),
+      ),
+    );
 }
 
 export async function listUserGroups(
