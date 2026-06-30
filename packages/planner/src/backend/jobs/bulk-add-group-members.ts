@@ -35,6 +35,7 @@ export const plannerMembershipJobs: TaskList = {
       role_summary_hash: hashRoleSummary(role_summary),
       permissions: resolvePermissions(_registry, roles, IMPLICIT_PERMISSIONS),
       accessible_group_ids: [] as readonly string[],
+      group_ids: [] as readonly string[],
       cross_tenant_read: false,
       built_at: new Date(),
       invalidated_at: null,

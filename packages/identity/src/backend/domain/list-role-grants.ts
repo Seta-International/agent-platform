@@ -59,3 +59,11 @@ export async function listRoleGrants(userId: string): Promise<RoleGrantsResult> 
 
   return { tenant_id: u.tenant_id, grants: [...grants, ...synthetic] };
 }
+
+export async function listUserGroupIds(userId: string): Promise<string[]> {
+  const rows = await identityDb()
+    .select({ group_id: accessGroupMembership.group_id })
+    .from(accessGroupMembership)
+    .where(eq(accessGroupMembership.user_id, userId));
+  return rows.map((r) => r.group_id);
+}

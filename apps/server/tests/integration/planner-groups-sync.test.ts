@@ -31,6 +31,7 @@ function buildSession(opts: {
     role_summary_hash: hashRoleSummary(role_summary),
     permissions: resolveTestPermissions(role_summary.roles),
     accessible_group_ids: opts.accessible_group_ids ?? [],
+    group_ids: [],
     cross_tenant_read: false,
     built_at: new Date(),
     invalidated_at: null,

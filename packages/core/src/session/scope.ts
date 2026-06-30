@@ -26,6 +26,8 @@ export type ResolveFeatures = (
   roles: readonly string[],
 ) => Promise<ReadonlySet<string>>;
 
+export type ResolveGroupIds = (userId: string) => Promise<ReadonlyArray<string>>;
+
 export interface SessionScope {
   session_id: string;
   user_id: string;
@@ -37,6 +39,7 @@ export interface SessionScope {
   permissions: ReadonlySet<string>;
   features: ReadonlySet<string>;
   accessible_group_ids: ReadonlyArray<string>;
+  group_ids: ReadonlyArray<string>;
   cross_tenant_read: boolean;
   built_at: Date;
   invalidated_at: Date | null;
@@ -74,6 +77,7 @@ export async function getSessionScope(
     listRoleGrants: ListRoleGrants;
     resolvePermissions: ResolvePermissions;
     resolveFeatures?: ResolveFeatures;
+    resolveGroupIds?: ResolveGroupIds;
   },
   sessionId: string,
   userId: string,
@@ -81,6 +85,7 @@ export async function getSessionScope(
   displayName: string,
 ): Promise<SessionScope> {
   const resolveFeatures = deps.resolveFeatures ?? (async () => new Set<string>());
+  const resolveGroupIds = deps.resolveGroupIds ?? (async () => []);
   const hit = hot.get(sessionId);
   if (hit && !hit.invalidated_at) return hit;
 
@@ -99,6 +104,7 @@ export async function getSessionScope(
       cached.user_id,
       (cached.role_summary as { roles: string[] }).roles,
     );
+    const group_ids = await resolveGroupIds(cached.user_id);
     const scope: SessionScope = {
       session_id: cached.session_id,
       tenant_id: cached.tenant_id,
@@ -106,6 +112,7 @@ export async function getSessionScope(
       role_summary_hash: cached.role_summary_hash,
       role_summary: cached.role_summary as { roles: string[]; cross_tenant_read: boolean },
       accessible_group_ids: cached.accessible_group_ids as string[],
+      group_ids,
       cross_tenant_read: cached.cross_tenant_read,
       built_at: cached.built_at,
       invalidated_at: cached.invalidated_at,
@@ -122,6 +129,7 @@ export async function getSessionScope(
   const role_summary = rollup(grants);
   const permissions = await deps.resolvePermissions(role_summary.roles, tenant_id);
   const features = await resolveFeatures(tenant_id, userId, role_summary.roles);
+  const group_ids = await resolveGroupIds(userId);
   const scope: SessionScope = {
     session_id: sessionId,
     user_id: userId,
@@ -131,6 +139,7 @@ export async function getSessionScope(
     role_summary,
     role_summary_hash: hashRoleSummary(role_summary),
     accessible_group_ids: computeAccessibleGroups(grants),
+    group_ids,
     cross_tenant_read: role_summary.cross_tenant_read,
     built_at: new Date(),
     invalidated_at: null,

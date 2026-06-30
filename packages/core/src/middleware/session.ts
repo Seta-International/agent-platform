@@ -4,6 +4,7 @@ import {
   getSessionScope,
   type ListRoleGrants,
   type ResolveFeatures,
+  type ResolveGroupIds,
   type ResolvePermissions,
   type SessionScope,
 } from '../session/scope.ts';
@@ -25,6 +26,7 @@ export interface SessionMiddlewareDeps {
   listRoleGrants: ListRoleGrants;
   resolvePermissions: ResolvePermissions;
   resolveFeatures?: ResolveFeatures;
+  resolveGroupIds?: ResolveGroupIds;
 }
 
 export function createSessionMiddleware(deps: SessionMiddlewareDeps) {
@@ -54,6 +56,7 @@ export function createSessionMiddleware(deps: SessionMiddlewareDeps) {
         listRoleGrants: deps.listRoleGrants,
         resolvePermissions: deps.resolvePermissions,
         resolveFeatures: deps.resolveFeatures,
+        resolveGroupIds: deps.resolveGroupIds,
       },
       session.session.id,
       session.user.id,

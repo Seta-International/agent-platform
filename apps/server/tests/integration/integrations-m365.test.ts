@@ -32,6 +32,7 @@ function buildSession(opts: {
     role_summary_hash: hashRoleSummary(role_summary),
     permissions: resolveTestPermissions(role_summary.roles),
     accessible_group_ids: [],
+    group_ids: [],
     cross_tenant_read: false,
     built_at: new Date(),
     invalidated_at: null,
@@ -245,6 +246,7 @@ describe('POST /api/integrations/m365/groups/:groupId/link', () => {
             email: adminEmail,
             display_name: 'Admin',
             accessible_group_ids: [],
+            group_ids: [],
           },
         });
 
@@ -295,6 +297,7 @@ describe('POST /api/integrations/m365/groups/:groupId/link', () => {
           email: adminEmail,
           display_name: 'Admin',
           accessible_group_ids: [] as string[],
+          group_ids: [],
         };
         const group = await createGroup({
           tenant_id: tenantId,
@@ -370,6 +373,7 @@ describe('POST /api/integrations/m365/groups/:groupId/unlink', () => {
           email: adminEmail,
           display_name: 'Admin',
           accessible_group_ids: [] as string[],
+          group_ids: [],
         };
 
         const group = await createGroup({
@@ -419,6 +423,7 @@ describe('POST /api/integrations/m365/groups/:groupId/unlink', () => {
           email: adminEmail,
           display_name: 'Admin',
           accessible_group_ids: [] as string[],
+          group_ids: [],
         };
         const group = await createGroup({
           tenant_id: tenantId,
@@ -691,6 +696,7 @@ describe('POST /api/integrations/m365/groups/:groupId/resolve', () => {
           email: adminEmail,
           display_name: 'Admin',
           accessible_group_ids: [] as string[],
+          group_ids: [],
         };
         const group = await createGroup({
           tenant_id: tid,
