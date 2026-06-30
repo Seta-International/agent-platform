@@ -26,7 +26,24 @@ const fxSession: SessionScopeProjection = {
   tenant_local_password_disabled: false,
 };
 
-const server = setupServer();
+const groupMembersHandler = http.get('/api/planner/v1/groups/g1/members', () =>
+  HttpResponse.json({
+    members: [
+      {
+        group_id: 'g1',
+        user_id: 'u9',
+        role: 'member',
+        display_name: 'Dora',
+        email: 'dora@x',
+        added_at: '2026-05-20T00:00:00Z',
+        added_by: 'u1',
+      },
+    ],
+    total: 1,
+  }),
+);
+
+const server = setupServer(groupMembersHandler);
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
@@ -83,221 +100,63 @@ describe('TaskDetailAssigneesCard', () => {
       assignee({ user_id: 'u2', display_name: 'Bob' }),
       assignee({ user_id: 'u3', display_name: 'Carol' }),
     ]);
-    renderWithClient(<TaskDetailAssigneesCard task={task} planId="p1" />);
+    renderWithClient(<TaskDetailAssigneesCard task={task} planId="p1" groupId="g1" />);
     expect(screen.getByText('Alice')).toBeInTheDocument();
     expect(screen.getByText('Bob')).toBeInTheDocument();
     expect(screen.getByText('Carol')).toBeInTheDocument();
   });
 
-  it('lists initial users when the picker is first opened with an empty search', async () => {
+  it('lists group members when the picker is first opened with an empty search', async () => {
+    const { userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup();
+
+    const task = withAssignees([]);
+    renderWithClient(<TaskDetailAssigneesCard task={task} planId="p1" groupId="g1" />);
+    await user.click(screen.getByRole('button', { name: /Add assignee/i }));
+
+    await waitFor(() => expect(screen.getByText('Dora')).toBeInTheDocument());
+  });
+
+  it('filters group members when searching', async () => {
     const { userEvent } = await import('@testing-library/user-event');
     const user = userEvent.setup();
     server.use(
-      http.get('/api/identity/v1/directory', () =>
+      http.get('/api/planner/v1/groups/g1/members', () =>
         HttpResponse.json({
-          rows: [
+          members: [
             {
+              group_id: 'g1',
               user_id: 'u9',
+              role: 'member',
+              display_name: 'Dora',
               email: 'dora@x',
-              name: 'Dora',
-              status: 'active',
-              role_slugs: [],
-              sign_in_methods: [],
-              last_seen_at: null,
-              created_at: '',
+              added_at: '2026-05-20T00:00:00Z',
+              added_by: 'u1',
+            },
+            {
+              group_id: 'g1',
+              user_id: 'u10',
+              role: 'member',
+              display_name: 'Dan',
+              email: 'dan@x',
+              added_at: '2026-05-20T00:00:00Z',
+              added_by: 'u1',
             },
           ],
-          total: 1,
+          total: 2,
         }),
       ),
     );
 
     const task = withAssignees([]);
-    renderWithClient(<TaskDetailAssigneesCard task={task} planId="p1" />);
+    renderWithClient(<TaskDetailAssigneesCard task={task} planId="p1" groupId="g1" />);
     await user.click(screen.getByRole('button', { name: /Add assignee/i }));
-
-    await waitFor(() => expect(screen.getByText('Dora')).toBeInTheDocument());
-  });
-
-  it('opens the user combobox and lists matches from listAdminUsers', async () => {
-    const { userEvent } = await import('@testing-library/user-event');
-    const user = userEvent.setup();
-    server.use(
-      http.get('/api/identity/v1/directory', () =>
-        HttpResponse.json({
-          rows: [
-            {
-              user_id: 'u9',
-              email: 'dora@x',
-              name: 'Dora',
-              status: 'active',
-              role_slugs: [],
-              sign_in_methods: [],
-              last_seen_at: null,
-              created_at: '',
-            },
-          ],
-          total: 1,
-        }),
-      ),
-    );
-
-    const task = withAssignees([]);
-    renderWithClient(<TaskDetailAssigneesCard task={task} planId="p1" />);
-    await user.click(screen.getByRole('button', { name: /Add assignee/i }));
-    const search = screen.getByLabelText(/Search users/i);
-    await user.type(search, 'dora');
-    await waitFor(() => expect(screen.getByText('Dora')).toBeInTheDocument());
-  });
-
-  it('does not send sign_in_method or show hidden footer when plan is not linked', async () => {
-    const { userEvent } = await import('@testing-library/user-event');
-    const user = userEvent.setup();
-    const capturedParams: Array<URLSearchParams> = [];
-    server.use(
-      http.get('/api/identity/v1/directory', ({ request }) => {
-        const url = new URL(request.url);
-        capturedParams.push(url.searchParams);
-        return HttpResponse.json({
-          rows: [
-            {
-              user_id: 'u9',
-              email: 'dora@x',
-              name: 'Dora',
-              status: 'active',
-              role_slugs: [],
-              sign_in_methods: ['credential'],
-              last_seen_at: null,
-              created_at: '',
-            },
-          ],
-          total: 1,
-        });
-      }),
-    );
-
-    const task = withAssignees([]);
-    renderWithClient(<TaskDetailAssigneesCard task={task} planId="p1" isLinkedToM365={false} />);
-    await user.click(screen.getByRole('button', { name: /Add assignee/i }));
-    const searchInput = screen.getByLabelText(/Search users/i);
-    await user.type(searchInput, 'd');
-
-    await waitFor(() => expect(screen.getByText('Dora')).toBeInTheDocument());
-    expect(capturedParams.length).toBeGreaterThanOrEqual(1);
-    for (const params of capturedParams) {
-      expect(params.get('sign_in_method')).toBeNull();
-    }
-    expect(screen.queryByText(/hidden — not in\s+Microsoft 365/)).not.toBeInTheDocument();
-  });
-
-  it('sends sign_in_method=microsoft and shows hidden footer when plan is linked to M365', async () => {
-    const { userEvent } = await import('@testing-library/user-event');
-    const user = userEvent.setup();
-    const capturedParams: Array<URLSearchParams> = [];
-    server.use(
-      http.get('/api/identity/v1/directory', ({ request }) => {
-        const url = new URL(request.url);
-        capturedParams.push(url.searchParams);
-        const isFiltered = url.searchParams.get('sign_in_method') === 'microsoft';
-        return HttpResponse.json({
-          rows: isFiltered
-            ? [
-                {
-                  user_id: 'u9',
-                  email: 'dora@m365',
-                  name: 'Dora',
-                  status: 'active',
-                  role_slugs: [],
-                  sign_in_methods: ['microsoft'],
-                  last_seen_at: null,
-                  created_at: '',
-                },
-              ]
-            : [
-                {
-                  user_id: 'u9',
-                  email: 'dora@m365',
-                  name: 'Dora',
-                  status: 'active',
-                  role_slugs: [],
-                  sign_in_methods: ['microsoft'],
-                  last_seen_at: null,
-                  created_at: '',
-                },
-                {
-                  user_id: 'u10',
-                  email: 'dan@x',
-                  name: 'Dan',
-                  status: 'active',
-                  role_slugs: [],
-                  sign_in_methods: ['credential'],
-                  last_seen_at: null,
-                  created_at: '',
-                },
-                {
-                  user_id: 'u11',
-                  email: 'don@x',
-                  name: 'Don',
-                  status: 'active',
-                  role_slugs: [],
-                  sign_in_methods: ['credential'],
-                  last_seen_at: null,
-                  created_at: '',
-                },
-              ],
-          total: isFiltered ? 1 : 3,
-        });
-      }),
-    );
-
-    const task = withAssignees([]);
-    renderWithClient(<TaskDetailAssigneesCard task={task} planId="p1" isLinkedToM365={true} />);
-    await user.click(screen.getByRole('button', { name: /Add assignee/i }));
-    const searchInput = screen.getByLabelText(/Search users/i);
-    await user.type(searchInput, 'd');
-
-    await waitFor(() => expect(screen.getByText('Dora')).toBeInTheDocument());
-    await waitFor(() =>
-      expect(screen.getByText(/2 people hidden — not in\s+Microsoft 365/)).toBeInTheDocument(),
-    );
-
-    const microsoftCalls = capturedParams.filter((p) => p.get('sign_in_method') === 'microsoft');
-    const unfilteredCalls = capturedParams.filter((p) => p.get('sign_in_method') === null);
-    expect(microsoftCalls.length).toBeGreaterThanOrEqual(1);
-    expect(unfilteredCalls.length).toBeGreaterThanOrEqual(1);
-  });
-
-  it('does not show hidden footer when all users are M365-eligible', async () => {
-    const { userEvent } = await import('@testing-library/user-event');
-    const user = userEvent.setup();
-    server.use(
-      http.get('/api/identity/v1/directory', () =>
-        HttpResponse.json({
-          rows: [
-            {
-              user_id: 'u9',
-              email: 'dora@m365',
-              name: 'Dora',
-              status: 'active',
-              role_slugs: [],
-              sign_in_methods: ['microsoft'],
-              last_seen_at: null,
-              created_at: '',
-            },
-          ],
-          total: 1,
-        }),
-      ),
-    );
-
-    const task = withAssignees([]);
-    renderWithClient(<TaskDetailAssigneesCard task={task} planId="p1" isLinkedToM365={true} />);
-    await user.click(screen.getByRole('button', { name: /Add assignee/i }));
-    const searchInput = screen.getByLabelText(/Search users/i);
-    await user.type(searchInput, 'd');
-
-    await waitFor(() => expect(screen.getByText('Dora')).toBeInTheDocument());
-    expect(screen.queryByText(/hidden — not in\s+Microsoft 365/)).not.toBeInTheDocument();
+    const search = screen.getByLabelText(/Search group members/i);
+    await user.type(search, 'dan');
+    await waitFor(() => {
+      expect(screen.getByText('Dan')).toBeInTheDocument();
+      expect(screen.queryByText('Dora')).not.toBeInTheDocument();
+    });
   });
 
   it('calls moveToTopOfMyList when "Move to top of my list" is clicked', async () => {
@@ -311,41 +170,23 @@ describe('TaskDetailAssigneesCard', () => {
       }),
     );
     const task = withAssignees([assignee()]);
-    renderWithClient(<TaskDetailAssigneesCard task={task} planId="p1" />);
+    renderWithClient(<TaskDetailAssigneesCard task={task} planId="p1" groupId="g1" />);
     await user.click(screen.getByRole('button', { name: /Move to top of my list/i }));
     await waitFor(() => expect(captured).toHaveBeenCalled());
   });
 
   it('hides "Move to top of my list" when the current user is not assigned', () => {
-    // session.user_id is 'u1' (fxSession); the only assignee here is 'u-other'
     const task = withAssignees([assignee({ user_id: 'u-other', display_name: 'Other' })]);
-    renderWithClient(<TaskDetailAssigneesCard task={task} planId="p1" />);
+    renderWithClient(<TaskDetailAssigneesCard task={task} planId="p1" groupId="g1" />);
     expect(screen.queryByRole('button', { name: /Move to top of my list/i })).toBeNull();
   });
 
-  it('inside modal Dialog: opens picker via trigger click and assigns a user', async () => {
+  it('inside modal Dialog: opens picker via trigger click and assigns a group member', async () => {
     const { userEvent } = await import('@testing-library/user-event');
     const user = userEvent.setup();
 
     const assignMutate = vi.fn();
     server.use(
-      http.get('/api/identity/v1/directory', () =>
-        HttpResponse.json({
-          rows: [
-            {
-              user_id: 'u9',
-              email: 'dora@x',
-              name: 'Dora',
-              status: 'active',
-              role_slugs: [],
-              sign_in_methods: [],
-              last_seen_at: null,
-              created_at: '',
-            },
-          ],
-          total: 1,
-        }),
-      ),
       http.post('/api/planner/v1/tasks/t1/assign', async () => {
         assignMutate();
         return new HttpResponse(null, { status: 204 });
@@ -353,7 +194,7 @@ describe('TaskDetailAssigneesCard', () => {
     );
 
     const task = withAssignees([]);
-    renderInModalDialog(<TaskDetailAssigneesCard task={task} planId="p1" />);
+    renderInModalDialog(<TaskDetailAssigneesCard task={task} planId="p1" groupId="g1" />);
     await user.click(screen.getByRole('button', { name: /Add assignee/i }));
     await waitFor(() => expect(screen.getByText('Dora')).toBeInTheDocument());
     await user.click(screen.getByRole('option', { name: /Dora/i }));

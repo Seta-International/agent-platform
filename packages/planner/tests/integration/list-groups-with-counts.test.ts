@@ -8,6 +8,7 @@ import {
   createPlan,
   deletePlan,
   listGroupsWithCounts,
+  setMemberRole,
 } from '../../src/index.ts';
 import { buildSession, seedTenant } from '../helpers.ts';
 
@@ -73,6 +74,7 @@ describe('listGroupsWithCounts', () => {
           expect(a?.owner_display_name).toBe(
             adminProjection.rows[0]?.display_name ?? seeded.admin.name,
           );
+          expect(a?.owner_user_id).toBe(seeded.admin.user_id);
 
           expect(b).toBeDefined();
           expect(b?.plan_count).toBe(0);
@@ -113,6 +115,60 @@ describe('listGroupsWithCounts', () => {
           const after = (await listGroupsWithCounts({ session })).find((r) => r.id === group.id);
           expect(after).toBeDefined();
           expect(new Date(after!.updated_at).getTime()).toBeGreaterThan(beforeTs);
+        } finally {
+          resetCoreDb();
+          await closePools();
+        }
+      },
+    );
+  });
+
+  it('reflects the current owner from group_members after ownership transfer', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
+      },
+      async ({ pool, databaseUrl }) => {
+        resetCoreDb();
+        initPools({ databaseUrl });
+        try {
+          const seeded = await seedTenant(pool, {
+            users: [{ name: 'Bob', email: 'bob@example.test' }],
+          });
+          const session = seeded.adminSession;
+          const [bob] = seeded.users;
+          if (!bob) throw new Error('seed failed: missing bob');
+
+          const group = await createGroup({
+            tenant_id: seeded.tenant_id,
+            name: 'Transfer',
+            session,
+          });
+          await addGroupMember({ group_id: group.id, user_id: bob.user_id, session });
+          await setMemberRole({
+            group_id: group.id,
+            user_id: session.user_id,
+            role: 'member',
+            session,
+          });
+          await setMemberRole({
+            group_id: group.id,
+            user_id: bob.user_id,
+            role: 'owner',
+            session,
+          });
+
+          const rows = await listGroupsWithCounts({ session });
+          const row = rows.find((r) => r.id === group.id);
+          expect(row?.owner_user_id).toBe(bob.user_id);
+          expect(row?.owner_user_id).not.toBe(group.created_by);
+
+          const bobProjection = await pool.query(
+            'SELECT display_name FROM planner.assignee_projection WHERE user_id = $1',
+            [bob.user_id],
+          );
+          expect(row?.owner_display_name).toBe(bobProjection.rows[0]?.display_name ?? bob.name);
         } finally {
           resetCoreDb();
           await closePools();

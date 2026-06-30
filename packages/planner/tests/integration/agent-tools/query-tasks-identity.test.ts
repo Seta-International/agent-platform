@@ -1,7 +1,7 @@
 import { hashRoleSummary, type SessionScope } from '@seta/core';
 import { createUser } from '@seta/identity';
 import { createTestTenantWithAdmin } from '@seta/identity/testing';
-import { assignTask, createGroup, createPlan, createTask } from '@seta/planner';
+import { createGroup, createPlan, createTask } from '@seta/planner';
 import {
   buildRegistry,
   IMPLICIT_PERMISSIONS,
@@ -12,6 +12,7 @@ import {
 import { describe, expect, it } from 'vitest';
 import { plannerQueryTasksTool } from '../../../src/backend/agent-tools/query-tasks.ts';
 import { plannerResolveMemberTool } from '../../../src/backend/agent-tools/resolve-member.ts';
+import { assignTaskInGroup } from '../../helpers.ts';
 import { makeToolContext, withAgentTestDb } from '../agent-tools-helpers.ts';
 
 const _registry = buildRegistry(inventoryToManifests(INVENTORY));
@@ -79,9 +80,24 @@ describe('QnA identity resolution end-to-end (tool chain)', () => {
       const mine1 = await createTask({ plan_id: plan.id, title: 'mine-1', session });
       const mine2 = await createTask({ plan_id: plan.id, title: 'mine-2', session });
       const theirs = await createTask({ plan_id: plan.id, title: 'other-task', session });
-      await assignTask({ task_id: mine1.id, user_id: admin_user_id, session });
-      await assignTask({ task_id: mine2.id, user_id: admin_user_id, session });
-      await assignTask({ task_id: theirs.id, user_id: other.user_id, session });
+      await assignTaskInGroup({
+        group_id: group.id,
+        task_id: mine1.id,
+        user_id: admin_user_id,
+        session,
+      });
+      await assignTaskInGroup({
+        group_id: group.id,
+        task_id: mine2.id,
+        user_id: admin_user_id,
+        session,
+      });
+      await assignTaskInGroup({
+        group_id: group.id,
+        task_id: theirs.id,
+        user_id: other.user_id,
+        session,
+      });
 
       const ctx = makeToolContext({
         user_id: admin_user_id,
@@ -114,7 +130,12 @@ describe('QnA identity resolution end-to-end (tool chain)', () => {
       const group = await createGroup({ tenant_id, name: 'G', session });
       const plan = await createPlan({ group_id: group.id, name: 'P', session });
       const task = await createTask({ plan_id: plan.id, title: 'tuan-task', session });
-      await assignTask({ task_id: task.id, user_id: tuan.user_id, session });
+      await assignTaskInGroup({
+        group_id: group.id,
+        task_id: task.id,
+        user_id: tuan.user_id,
+        session,
+      });
 
       const ctx = makeToolContext({
         user_id: admin_user_id,

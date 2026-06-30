@@ -21,6 +21,7 @@ import type { BoardFilters, GroupBy } from '../state/url-state';
 
 interface Props {
   planId: string;
+  groupId: string;
   buckets: BucketRow[];
   tasks: TaskWithAssigneesRow[];
   filters: BoardFilters;
@@ -32,6 +33,7 @@ interface Props {
 
 export function PlanGridPage({
   planId,
+  groupId,
   buckets,
   tasks,
   filters,
@@ -210,6 +212,7 @@ export function PlanGridPage({
       {selectedIds.size > 0 && (
         <GridBulkActionFooter
           count={selectedIds.size}
+          groupId={groupId}
           bucketOptions={bucketOptions}
           isLinkedToM365={isLinkedToM365}
           onMove={onMove}

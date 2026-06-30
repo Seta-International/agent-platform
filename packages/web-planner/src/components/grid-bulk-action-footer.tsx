@@ -9,9 +9,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@seta/shared-ui';
-import { listTenantUsers } from '@seta/web-identity';
-import { useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useGroupMemberAssigneeSearch } from '../hooks/use-group-member-assignee-search';
 
 export interface BulkBucketOption {
   id: string;
@@ -20,6 +19,7 @@ export interface BulkBucketOption {
 
 interface Props {
   count: number;
+  groupId: string;
   bucketOptions: ReadonlyArray<BulkBucketOption>;
   isLinkedToM365?: boolean;
   onMove: (toBucketId: string | null) => void;
@@ -30,8 +30,9 @@ interface Props {
 
 export function GridBulkActionFooter({
   count,
+  groupId,
   bucketOptions,
-  isLinkedToM365,
+  isLinkedToM365: _isLinkedToM365,
   onMove,
   onAssign,
   onSetDue,
@@ -47,7 +48,7 @@ export function GridBulkActionFooter({
         <strong>{count}</strong> selected
       </span>
       <BucketMenu options={bucketOptions} onPick={onMove} />
-      <AssigneeMenu onPick={onAssign} isLinkedToM365={isLinkedToM365 ?? false} />
+      <AssigneeMenu groupId={groupId} onPick={onAssign} />
       <DueMenu onPick={onSetDue} />
       <button type="button" className="grid-bulk-action-footer__danger" onClick={onDelete}>
         Delete
@@ -98,40 +99,10 @@ function BucketMenu({
   );
 }
 
-function useDebounced<T>(value: T, ms: number): T {
-  const [debounced, setDebounced] = useState<T>(value);
-  useEffect(() => {
-    const id = setTimeout(() => setDebounced(value), ms);
-    return () => clearTimeout(id);
-  }, [value, ms]);
-  return debounced;
-}
-
-function AssigneeMenu({
-  onPick,
-  isLinkedToM365,
-}: {
-  onPick: (userId: string) => void;
-  isLinkedToM365: boolean;
-}) {
+function AssigneeMenu({ groupId, onPick }: { groupId: string; onPick: (userId: string) => void }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const debounced = useDebounced(search, 200);
-  const userQuery = useQuery({
-    queryKey: [
-      'identity',
-      'admin-users',
-      { search: debounced, sign_in_method: isLinkedToM365 ? 'microsoft' : null },
-    ],
-    queryFn: () =>
-      listTenantUsers({
-        search: debounced,
-        limit: 8,
-        offset: 0,
-        ...(isLinkedToM365 ? { sign_in_method: 'microsoft' as const } : {}),
-      }),
-    enabled: open,
-  });
+  const memberQuery = useGroupMemberAssigneeSearch(groupId, search, open);
 
   return (
     <Popover
@@ -147,30 +118,32 @@ function AssigneeMenu({
       <PopoverContent align="start" className="w-72 p-0">
         <Command shouldFilter={false}>
           <CommandInput
-            aria-label="Search users"
-            placeholder="Search users"
+            aria-label="Search group members"
+            placeholder="Search group members"
             value={search}
             onValueChange={setSearch}
           />
           <CommandList>
             <CommandEmpty>
-              {userQuery.isPending && search ? 'Searching…' : 'No users found.'}
+              {memberQuery.isPending && search ? 'Searching…' : 'No group members found.'}
             </CommandEmpty>
             <CommandGroup>
-              {(userQuery.data?.rows ?? []).map((u) => (
+              {memberQuery.members.map((m) => (
                 <CommandItem
-                  key={u.user_id}
-                  value={u.user_id}
+                  key={m.user_id}
+                  value={m.user_id}
                   onSelect={() => {
-                    onPick(u.user_id);
+                    onPick(m.user_id);
                     setOpen(false);
                     setSearch('');
                   }}
                   className="flex flex-col items-start gap-0.5"
                 >
-                  <span className="truncate text-body-sm leading-tight text-ink">{u.name}</span>
+                  <span className="truncate text-body-sm leading-tight text-ink">
+                    {m.display_name}
+                  </span>
                   <span className="truncate text-caption leading-tight text-ink-subtle">
-                    {u.email}
+                    {m.email}
                   </span>
                 </CommandItem>
               ))}

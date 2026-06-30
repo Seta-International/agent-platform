@@ -413,18 +413,17 @@ describe('PlanGridPage (via PlanBoardShell)', () => {
       ),
       http.get('*/api/planner/v1/plans/p1/labels', () => HttpResponse.json({ labels: [] })),
       http.get('*/api/planner/v1/groups/g1', () => HttpResponse.json(groupFixture())),
-      http.get('*/api/identity/v1/directory', () =>
+      http.get('*/api/planner/v1/groups/g1/members', () =>
         HttpResponse.json({
-          rows: [
+          members: [
             {
+              group_id: 'g1',
               user_id: 'u1',
+              role: 'member',
+              display_name: 'Alice',
               email: 'alice@x',
-              name: 'Alice',
-              status: 'active',
-              role_slugs: [],
-              sign_in_methods: [],
-              last_seen_at: null,
-              created_at: '',
+              added_at: '2026-05-20T00:00:00Z',
+              added_by: 'admin',
             },
           ],
           total: 1,
