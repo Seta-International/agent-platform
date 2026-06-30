@@ -1,7 +1,8 @@
 import type { SessionScope } from '@seta/core';
 import { coreTenants } from '@seta/core/db/schema';
 import { emit, withEmit } from '@seta/core/events';
-import { addGroupMembers, createUser } from '@seta/identity';
+import { addGroupMembers, createUser, grantProductAccess } from '@seta/identity';
+import { PRODUCT_IDS } from '@seta/shared-rbac';
 import pino from 'pino';
 import { ensurePersonaGroups } from './lib/access-groups.ts';
 import { generatePassword } from './lib/password-gen.ts';
@@ -62,6 +63,20 @@ export async function tenantCreateCommand(opts: TenantCreateOpts): Promise<void>
           { group_id: gid, tenant_id: tenantId, user_ids: [adminUserId] },
           cliActor,
         );
+    }
+
+    for (const product_id of PRODUCT_IDS) {
+      await grantProductAccess(
+        {
+          tenant_id: tenantId,
+          subject_type: 'tenant',
+          subject_id: tenantId,
+          product_id,
+          effect: 'grant',
+          granted_via: 'cli',
+        },
+        cliActor,
+      );
     }
 
     const output: Record<string, unknown> = {
