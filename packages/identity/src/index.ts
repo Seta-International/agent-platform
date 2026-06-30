@@ -27,6 +27,14 @@ export { getUserProfile } from './backend/domain/get-user-profile.ts';
 export { getUserSignInMethods } from './backend/domain/get-user-sign-in-methods.ts';
 export type { GrantRoleInput } from './backend/domain/grant-role.ts';
 export { grantRole } from './backend/domain/grant-role.ts';
+export type { GroupRow } from './backend/domain/groups.ts';
+export {
+  createGroup,
+  deleteGroup,
+  listGroups,
+  setGroupRoles,
+  updateGroup,
+} from './backend/domain/groups.ts';
 export type { ImportUsersFromEntraInput } from './backend/domain/import-users-from-entra.ts';
 export { importUsersFromEntra } from './backend/domain/import-users-from-entra.ts';
 export type {
