@@ -27,6 +27,12 @@ export { getUserProfile } from './backend/domain/get-user-profile.ts';
 export { getUserSignInMethods } from './backend/domain/get-user-sign-in-methods.ts';
 export type { GrantRoleInput } from './backend/domain/grant-role.ts';
 export { grantRole } from './backend/domain/grant-role.ts';
+export {
+  addGroupMembers,
+  listGroupMembers,
+  listUserGroups,
+  removeGroupMember,
+} from './backend/domain/group-membership.ts';
 export type { GroupRow } from './backend/domain/groups.ts';
 export {
   createGroup,
