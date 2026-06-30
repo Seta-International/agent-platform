@@ -63,7 +63,7 @@ export function buildAccountGraph(
         tone: 'surface',
         avatarShape: 'square',
         entity: 'account',
-        count: acc.projects.length || undefined,
+        count: acc.projects.length,
       },
     });
   }
@@ -79,7 +79,7 @@ export function buildAccountGraph(
         tone: 'surface',
         avatarShape: 'square',
         entity: 'project',
-        count: p.members.length || undefined,
+        count: p.members.length,
         nav: { view: 'project', projectId: p.project_id, accountId: acc.account_id },
       },
     });

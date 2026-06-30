@@ -206,7 +206,7 @@ export async function getOrgCompany(session: SessionScope): Promise<{ nodes: Com
     parent_id: u.parent_id ? `unit:${u.parent_id}` : null,
     kind: (UNIT_KINDS.has(u.kind as CompanyNodeKind) ? u.kind : 'function') as CompanyNodeKind,
     label: u.name,
-    count: countByUnit.get(u.id) || undefined,
+    count: countByUnit.get(u.id) ?? 0,
   }));
 
   const deliveryUnit = units.find((u) => u.kind === 'delivery');
@@ -235,7 +235,7 @@ export async function getOrgCompany(session: SessionScope): Promise<{ nodes: Com
         parent_id: parentId,
         kind: 'account',
         label: acc.name,
-        count: acc.projects.length || undefined,
+        count: acc.projects.length,
         account_id: acc.account_id,
       });
     }

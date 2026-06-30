@@ -21,7 +21,7 @@ export function buildProjectGraph(
         tone: 'surface',
         avatarShape: 'square',
         entity: 'project',
-        count: p.members.length || undefined,
+        count: p.members.length,
       },
     });
     for (const m of p.members) {
