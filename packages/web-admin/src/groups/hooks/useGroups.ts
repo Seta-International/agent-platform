@@ -4,10 +4,19 @@ import {
   addMembers,
   createGroup,
   listGroups,
+  listUserGroups,
   removeMember,
   setGroupRoles,
 } from '../api/groups-client.ts';
 import { groupKeys } from '../state/query-keys.ts';
+
+export function useUserGroups(userId: string | null) {
+  return useQuery({
+    queryKey: groupKeys.userGroups(userId ?? ''),
+    queryFn: () => listUserGroups(userId as string),
+    enabled: !!userId,
+  });
+}
 
 export function useGroupsQuery() {
   return useQuery({
