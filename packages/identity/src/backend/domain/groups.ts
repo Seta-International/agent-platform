@@ -1,6 +1,7 @@
 import type { SessionScope } from '@seta/core';
 import { invalidateUserSessions } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
+import type { NodeTx } from '@seta/shared-db';
 import { ASSIGNABLE_ROLES } from '@seta/shared-rbac';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { identityDb } from '../db/index.ts';
@@ -16,6 +17,15 @@ export interface GroupRow {
   is_base: boolean;
   member_count: number;
   role_slugs: string[];
+}
+
+async function requireGroupInTenant(tx: NodeTx, groupId: string, tenantId: string): Promise<void> {
+  const [g] = await tx
+    .select({ id: accessGroup.id })
+    .from(accessGroup)
+    .where(and(eq(accessGroup.id, groupId), eq(accessGroup.tenant_id, tenantId)))
+    .limit(1);
+  if (!g) throw new IdentityError('NOT_FOUND', `No group ${groupId} in tenant ${tenantId}`);
 }
 
 async function actorUserId(actor: Actor, tenantId: string, perm: string): Promise<string> {
@@ -68,6 +78,7 @@ export async function updateGroup(
 ): Promise<void> {
   const by = await actorUserId(actor, input.tenant_id, 'identity.group.update');
   await withEmit({ actor: { userId: by, tenantId: input.tenant_id } }, async (tx) => {
+    await requireGroupInTenant(tx, input.group_id, input.tenant_id);
     await tx
       .update(accessGroup)
       .set({ name: input.name, description: input.description, updated_at: new Date() })
@@ -90,6 +101,7 @@ export async function deleteGroup(
   const by = await actorUserId(actor, input.tenant_id, 'identity.group.delete');
   let members: { user_id: string }[] = [];
   await withEmit({ actor: { userId: by, tenantId: input.tenant_id } }, async (tx) => {
+    await requireGroupInTenant(tx, input.group_id, input.tenant_id);
     members = await tx
       .select({ user_id: accessGroupMembership.user_id })
       .from(accessGroupMembership)
@@ -124,6 +136,7 @@ export async function setGroupRoles(
   }
   let members: { user_id: string }[] = [];
   await withEmit({ actor: { userId: by, tenantId: input.tenant_id } }, async (tx) => {
+    await requireGroupInTenant(tx, input.group_id, input.tenant_id);
     members = await tx
       .select({ user_id: accessGroupMembership.user_id })
       .from(accessGroupMembership)
