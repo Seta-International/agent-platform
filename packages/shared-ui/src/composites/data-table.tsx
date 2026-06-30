@@ -277,7 +277,7 @@ export function DataTable<TData, TValue>(props: DataTableProps<TData, TValue>) {
           ) : null
         }
       />
-      <div className="border border-hairline rounded-lg overflow-hidden bg-canvas shadow-sm">
+      <div className="border border-hairline rounded-lg overflow-hidden bg-canvas">
         <Table>
           <TableHeader className="bg-surface-1 sticky top-0 z-10 [&_tr]:border-b [&_tr]:border-hairline">
             {table.getHeaderGroups().map((hg) => (

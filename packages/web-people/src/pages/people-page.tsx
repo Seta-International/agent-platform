@@ -239,7 +239,7 @@ export function PeoplePage() {
         enableSorting: false,
         cell: ({ row }: CellCtx) =>
           row.original.accounts.length > 0 ? (
-            <div className="flex flex-wrap gap-1">
+            <div className="flex items-center gap-1 overflow-hidden h-5 max-w-[200px]">
               {row.original.accounts.map((a) => (
                 <Badge
                   key={a.id}
@@ -251,7 +251,7 @@ export function PeoplePage() {
               ))}
             </div>
           ) : (
-            <span className="text-ink-muted">—</span>
+            <div className="flex items-center h-5 text-ink-muted">—</div>
           ),
       },
       {
@@ -323,15 +323,19 @@ export function PeoplePage() {
         enableSorting: false,
         cell: ({ row }: CellCtx) =>
           row.original.skills.length > 0 ? (
-            <div className="flex flex-wrap gap-1">
+            <div className="flex items-center gap-1 overflow-hidden h-5 max-w-[200px]">
               {row.original.skills.map((s) => (
-                <Badge key={s.id} variant="secondary" className="text-[11px] px-1.5 py-0">
+                <Badge
+                  key={s.id}
+                  variant="secondary"
+                  className="text-[11px] px-1.5 py-0 whitespace-nowrap"
+                >
                   {s.name}
                 </Badge>
               ))}
             </div>
           ) : (
-            <span className="text-ink-muted">—</span>
+            <div className="flex items-center h-5 text-ink-muted">—</div>
           ),
       },
       {
@@ -448,6 +452,7 @@ export function PeoplePage() {
                 pageCount={Math.max(1, Math.ceil(total / pageSize))}
                 rowCount={total}
                 getRowId={(r: WorkerListRow) => r.worker_id}
+                getRowClassName={() => 'h-14'}
                 enableRowSelection={canSetPortal}
                 rowSelection={rowSelection}
                 onRowSelectionChange={setRowSelection}
