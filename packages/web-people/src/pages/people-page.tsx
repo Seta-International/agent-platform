@@ -6,12 +6,19 @@ import {
   AvatarFallback,
   Badge,
   Button,
+  CounterBadgePopover,
   DataTable,
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
   EmptyState,
   Input,
   Label,
@@ -23,7 +30,7 @@ import { usePermission } from '@seta/web-identity';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import type { OnChangeFn, PaginationState, SortingState } from '@tanstack/react-table';
-import { LayoutGrid, List, Users } from 'lucide-react';
+import { LayoutGrid, List, Settings2, User, Users, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   createWorker,
@@ -134,6 +141,19 @@ function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
   );
 }
 
+const HIDEABLE_COLUMNS = [
+  { id: 'accounts', label: 'Account' },
+  { id: 'work_email', label: 'Work email' },
+  { id: 'manager_name', label: 'Direct manager' },
+  { id: 'lifecycle_stage', label: 'Status' },
+  { id: 'onboarding_date', label: 'Onboarding' },
+  { id: 'offboarding_date', label: 'Offboarding' },
+  { id: 'phone', label: 'Phone' },
+  { id: 'gender', label: 'Gender' },
+  { id: 'skills', label: 'Techstack' },
+  { id: 'portal', label: 'Access' },
+];
+
 export function PeoplePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -141,8 +161,26 @@ export function PeoplePage() {
   const canSetPortal = usePermission('people.worker.portal_access.set');
   const canReadAll = usePermission('people.worker.read.all');
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({});
   const [query, setQuery] = useState<WorkersQuery>({ page: 1, pageSize: 25 });
   const [view, setView] = useState<'list' | 'cards'>('list');
+
+  const activeFiltersCount =
+    (query.status?.length ?? 0) +
+    (query.account_id?.length ?? 0) +
+    (query.project_id?.length ?? 0) +
+    (query.skill_id?.length ?? 0);
+
+  const handleClearFilters = useCallback(() => {
+    setQuery((q) => ({
+      ...q,
+      status: undefined,
+      account_id: undefined,
+      project_id: undefined,
+      skill_id: undefined,
+      page: 1,
+    }));
+  }, []);
 
   const [searchText, setSearchText] = useState(query.search ?? '');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -321,22 +359,15 @@ export function PeoplePage() {
         id: 'skills',
         header: 'Techstack',
         enableSorting: false,
-        cell: ({ row }: CellCtx) =>
-          row.original.skills.length > 0 ? (
-            <div className="flex items-center gap-1 overflow-hidden h-5 max-w-[200px]">
-              {row.original.skills.map((s) => (
-                <Badge
-                  key={s.id}
-                  variant="secondary"
-                  className="text-[11px] px-1.5 py-0 whitespace-nowrap"
-                >
-                  {s.name}
-                </Badge>
-              ))}
-            </div>
-          ) : (
-            <div className="flex items-center h-5 text-ink-muted">—</div>
-          ),
+        cell: ({ row }: CellCtx) => (
+          <CounterBadgePopover
+            items={row.original.skills}
+            title="Techstack"
+            limit={2}
+            type="badge"
+            badgeVariant="secondary"
+          />
+        ),
       },
       {
         id: 'portal',
@@ -407,8 +438,20 @@ export function PeoplePage() {
                     value={searchText}
                     onChange={(e) => handleSearchChange(e.target.value)}
                   />
+                  <span className="text-ink-tertiary select-none">|</span>
+                  {activeFiltersCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleClearFilters}
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:opacity-80 transition-opacity focus:outline-none cursor-pointer"
+                    >
+                      <X className="size-3.5" />
+                      Clear filters ({activeFiltersCount})
+                    </button>
+                  )}
                   <div className="flex items-center gap-2 text-body-sm text-ink-muted">
-                    <span className="font-medium text-ink">
+                    <span className="font-medium text-ink flex items-center gap-1">
+                      <User className="size-3.5 text-ink-muted" />
                       {total} {total === 1 ? 'person' : 'people'}
                     </span>
                     {!canReadAll && (
@@ -419,6 +462,41 @@ export function PeoplePage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  {view === 'list' && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-1 px-2.5 py-1 text-xs font-medium text-ink hover:bg-surface-2 transition-colors h-7 focus:outline-none"
+                        >
+                          <Settings2 className="size-3.5" />
+                          Columns
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        {HIDEABLE_COLUMNS.map((col) => {
+                          const isVisible = columnVisibility[col.id] ?? true;
+                          return (
+                            <DropdownMenuCheckboxItem
+                              key={col.id}
+                              checked={isVisible}
+                              onSelect={(e) => e.preventDefault()}
+                              onCheckedChange={(checked) => {
+                                setColumnVisibility((prev) => ({
+                                  ...prev,
+                                  [col.id]: checked,
+                                }));
+                              }}
+                            >
+                              {col.label}
+                            </DropdownMenuCheckboxItem>
+                          );
+                        })}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                   <SegmentedControl
                     aria-label="Directory view"
                     value={view}
@@ -445,6 +523,9 @@ export function PeoplePage() {
                 globalFilter=""
                 onGlobalFilterChange={() => {}}
                 enableGlobalFilter={false}
+                enableColumnVisibility={false}
+                columnVisibility={columnVisibility}
+                onColumnVisibilityChange={setColumnVisibility}
                 columnFilters={[]}
                 onColumnFiltersChange={() => {}}
                 pagination={pagination}
