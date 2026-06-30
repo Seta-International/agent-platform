@@ -47,10 +47,12 @@ describe('getOrgStructure', () => {
         } as never);
 
         const { units } = await getOrgStructure(t.adminSession);
+        const execNode = units.find((u) => u.id === exec)!;
         const opsNode = units.find((u) => u.id === ops)!;
-        expect(units.find((u) => u.id === exec)!.head?.full_name).toBe('CEO');
+        expect(execNode.head?.full_name).toBe('CEO');
+        expect(execNode.members.map((m) => m.full_name)).toContain('CEO');
         expect(opsNode.parent_id).toBe(exec);
-        expect('members' in opsNode).toBe(false);
+        expect(opsNode.members.map((m) => m.full_name)).toContain('Ops Member');
       } finally {
         resetPeopleDb();
         resetCoreDb();
