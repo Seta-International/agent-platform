@@ -29,7 +29,7 @@ export function useSetMemberRole(groupId: string) {
     },
     onServerOk: () => {},
     savingId: (v) => `${groupId}:${v.user_id}:role`,
-    invalidate: () => [plannerKeys.groupMembers(groupId)],
+    invalidate: () => [plannerKeys.groupMembers(groupId), plannerKeys.groupsWithCounts()],
     errorMessage: () => "Couldn't update member role.",
   });
 }
