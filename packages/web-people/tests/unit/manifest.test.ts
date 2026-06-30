@@ -45,9 +45,9 @@ describe('peopleAppManifest', () => {
     // Built/live tabs carry no badge.
     expect(byId['people.employees']).toBeUndefined();
     expect(byId['people.org']).toBeUndefined();
+    expect(byId['people.allocation']).toBeUndefined();
     for (const id of [
       'people.dashboard',
-      'people.allocation',
       'people.performance',
       'people.onboarding',
       'people.probation',

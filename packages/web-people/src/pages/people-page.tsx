@@ -24,7 +24,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { useNavigate } from '@tanstack/react-router';
 import type { OnChangeFn, PaginationState, SortingState } from '@tanstack/react-table';
 import { LayoutGrid, List, Users } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   createWorker,
   fetchWorkers,
@@ -143,6 +143,21 @@ export function PeoplePage() {
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [query, setQuery] = useState<WorkersQuery>({ page: 1, pageSize: 25 });
   const [view, setView] = useState<'list' | 'cards'>('list');
+
+  const [searchText, setSearchText] = useState(query.search ?? '');
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    setSearchText(query.search ?? '');
+  }, [query.search]);
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchText(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setQuery((q) => ({ ...q, search: value || undefined, page: 1 }));
+    }, 300);
+  }, []);
 
   const patchQuery = useCallback(
     (patch: Partial<WorkersQuery>) => setQuery((q) => ({ ...q, ...patch, page: 1 })),
@@ -377,27 +392,43 @@ export function PeoplePage() {
                 </div>
               </div>
             )}
-            <PeopleFilterBar query={query} onChange={patchQuery} />
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2 text-body-sm text-ink-muted">
-                <span>
-                  {total} {total === 1 ? 'person' : 'people'}
-                </span>
-                {!canReadAll && (
-                  <Badge variant="outline" title="You see only people related to you">
-                    Scoped view
-                  </Badge>
-                )}
+            {/* Control & Filter Layout */}
+            <div className="flex flex-col gap-4">
+              {/* Row 1: Search & Controls */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <Input
+                    className="h-9 w-64"
+                    placeholder="Search people…"
+                    value={searchText}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                  />
+                  <div className="flex items-center gap-2 text-body-sm text-ink-muted">
+                    <span className="font-medium text-ink">
+                      {total} {total === 1 ? 'person' : 'people'}
+                    </span>
+                    {!canReadAll && (
+                      <Badge variant="outline" title="You see only people related to you">
+                        Scoped view
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <SegmentedControl
+                    aria-label="Directory view"
+                    value={view}
+                    onValueChange={setView}
+                    options={[
+                      { value: 'list', label: 'List', icon: <List className="size-3.5" /> },
+                      { value: 'cards', label: 'Cards', icon: <LayoutGrid className="size-3.5" /> },
+                    ]}
+                  />
+                </div>
               </div>
-              <SegmentedControl
-                aria-label="Directory view"
-                value={view}
-                onValueChange={setView}
-                options={[
-                  { value: 'list', label: 'List', icon: <List className="size-3.5" /> },
-                  { value: 'cards', label: 'Cards', icon: <LayoutGrid className="size-3.5" /> },
-                ]}
-              />
+
+              {/* Row 2: Dropdown Filters */}
+              <PeopleFilterBar query={query} onChange={patchQuery} />
             </div>
             {view === 'list' ? (
               <DataTable

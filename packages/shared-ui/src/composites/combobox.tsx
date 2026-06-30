@@ -36,6 +36,7 @@ type BaseProps = {
   onSearchChange?: (query: string) => void;
   loading?: boolean;
   'aria-label'?: string;
+  triggerPrefix?: string;
 };
 
 type SingleProps = BaseProps & {
@@ -113,7 +114,7 @@ export function Combobox(props: ComboboxProps) {
   return (
     <Popover open={open} onOpenChange={commit}>
       <PopoverTrigger asChild disabled={disabled}>
-        {multiple ? (
+        {multiple && !props.triggerPrefix ? (
           <div
             role="combobox"
             aria-expanded={open}
@@ -157,8 +158,16 @@ export function Combobox(props: ComboboxProps) {
             aria-expanded={open}
             className={cn(triggerCls, className)}
           >
-            <span className={cn('truncate', !selected[0] && 'text-ink-subtle')}>
-              {selected[0] ? labelOf(selected[0]) : placeholder}
+            <span className={cn('truncate', selected.length === 0 && 'text-ink-subtle')}>
+              {multiple
+                ? selected.length === 0
+                  ? placeholder
+                  : selected.length === 1
+                    ? `${props.triggerPrefix}: ${labelOf(selected[0] ?? '')}`
+                    : `${props.triggerPrefix}: ${selected.length} Selected`
+                : selected[0]
+                  ? labelOf(selected[0])
+                  : placeholder}
             </span>
             <ChevronsUpDown className="text-ink-subtle" />
           </button>
