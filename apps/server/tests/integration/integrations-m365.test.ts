@@ -108,6 +108,8 @@ describe('GET /api/integrations/m365/groups/search', () => {
         external_id: string;
         display_name: string;
         mail_nickname: string;
+        description: string | null;
+        already_linked: boolean;
       }>;
     };
     expect(body.groups).toHaveLength(2);
@@ -115,11 +117,15 @@ describe('GET /api/integrations/m365/groups/search', () => {
       external_id: 'aaa-111',
       display_name: 'Engineering',
       mail_nickname: 'engineering',
+      description: null,
+      already_linked: false,
     });
     expect(body.groups[1]).toEqual({
       external_id: 'bbb-222',
       display_name: 'Eng Leads',
       mail_nickname: 'eng-leads',
+      description: null,
+      already_linked: false,
     });
   });
 
