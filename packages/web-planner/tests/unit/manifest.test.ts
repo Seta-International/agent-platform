@@ -6,7 +6,7 @@ describe('plannerAppManifest', () => {
     expect(plannerAppManifest.routeNamespace).toBe('/planner');
   });
 
-  it('gates visibility on the planner feature flag', () => {
-    expect(plannerAppManifest.requiredFeature).toBe('planner');
+  it('carries no feature-flag gate (product access supersedes)', () => {
+    expect(plannerAppManifest.requiredFeature).toBeUndefined();
   });
 });
