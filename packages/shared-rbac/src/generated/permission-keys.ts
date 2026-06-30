@@ -40,6 +40,12 @@ export type PermissionKey =
   | 'hiring.requisition.read'
   | 'identity.concept_map.read'
   | 'identity.concept_map.write'
+  | 'identity.group.create'
+  | 'identity.group.delete'
+  | 'identity.group.membership.manage'
+  | 'identity.group.read'
+  | 'identity.group.role.manage'
+  | 'identity.group.update'
   | 'identity.password.disable_local'
   | 'identity.role.grant'
   | 'identity.role.read'
@@ -171,6 +177,12 @@ export const ALL_PERMISSIONS: readonly PermissionKey[] = [
   'hiring.requisition.read',
   'identity.concept_map.read',
   'identity.concept_map.write',
+  'identity.group.create',
+  'identity.group.delete',
+  'identity.group.membership.manage',
+  'identity.group.read',
+  'identity.group.role.manage',
+  'identity.group.update',
   'identity.password.disable_local',
   'identity.role.grant',
   'identity.role.read',
