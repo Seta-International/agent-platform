@@ -1,6 +1,4 @@
-import { and, eq, isNull } from 'drizzle-orm';
-import { identityDb } from './db/index.ts';
-import { roleGrants } from './db/schema.ts';
+import { resolveEffectiveRoleSlugs } from './domain/resolve-effective-roles.ts';
 import { resolveForRoles } from './rbac-registry.ts';
 
 export class IdentityError extends Error {
@@ -17,18 +15,8 @@ export async function requirePermission(
   permission: string,
   tenantId: string,
 ): Promise<void> {
-  const grants = await identityDb()
-    .select({ role_slug: roleGrants.role_slug })
-    .from(roleGrants)
-    .where(
-      and(
-        eq(roleGrants.user_id, userId),
-        eq(roleGrants.tenant_id, tenantId),
-        isNull(roleGrants.revoked_at),
-      ),
-    );
-
-  const perms = resolveForRoles(grants.map((g) => g.role_slug));
+  const roles = await resolveEffectiveRoleSlugs(userId, tenantId);
+  const perms = resolveForRoles(roles);
   if (!perms.has(permission)) {
     throw new IdentityError('FORBIDDEN', `Missing permission: ${permission}`);
   }
