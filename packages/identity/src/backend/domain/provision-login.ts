@@ -34,7 +34,10 @@ export async function provisionLogin(
     .from(user)
     .where(and(eq(user.tenant_id, input.tenant_id), sql`lower(${user.email}) = ${email}`))
     .limit(1);
-  if (existing) return { user_id: existing.id, created: false };
+  if (existing) {
+    await ensureBaseMembership(input.tenant_id, existing.id, actor);
+    return { user_id: existing.id, created: false };
+  }
 
   // The pre-SELECT above is a fast-path, not a guard: a concurrent provisionLogin
   // (at-least-once redelivery) or createUser can insert the same (tenant, email)
@@ -107,17 +110,18 @@ export async function provisionLogin(
       });
     },
   );
+  await ensureBaseMembership(input.tenant_id, resolvedUserId, actor);
+
+  return { user_id: resolvedUserId, created };
+}
+
+async function ensureBaseMembership(tenantId: string, userId: string, actor: Actor): Promise<void> {
   const [base] = await identityDb()
     .select({ id: accessGroup.id })
     .from(accessGroup)
-    .where(and(eq(accessGroup.tenant_id, input.tenant_id), eq(accessGroup.is_base, true)))
+    .where(and(eq(accessGroup.tenant_id, tenantId), eq(accessGroup.is_base, true)))
     .limit(1);
   if (base) {
-    await addGroupMembers(
-      { group_id: base.id, tenant_id: input.tenant_id, user_ids: [resolvedUserId] },
-      actor,
-    );
+    await addGroupMembers({ group_id: base.id, tenant_id: tenantId, user_ids: [userId] }, actor);
   }
-
-  return { user_id: resolvedUserId, created };
 }
