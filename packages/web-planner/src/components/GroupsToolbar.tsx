@@ -67,22 +67,28 @@ export function GroupsToolbar({
 }: GroupsToolbarProps) {
   const [localSearch, setLocalSearch] = useState(searchQuery);
   const [prevSearchQuery, setPrevSearchQuery] = useState(searchQuery);
+  // True while an IME composition is in progress (Vietnamese Telex/VNI, CJK, …).
+  // Mutating or propagating the value mid-composition corrupts the IME buffer.
+  const [isComposing, setIsComposing] = useState(false);
 
   // Sync local state when parent resets searchQuery externally (state-during-render pattern
   // from https://react.dev/reference/react/useState#storing-information-from-previous-renders).
-  if (searchQuery !== prevSearchQuery) {
+  // Never mid-composition: overwriting the value breaks the IME buffer.
+  if (searchQuery !== prevSearchQuery && !isComposing) {
     setPrevSearchQuery(searchQuery);
     setLocalSearch(searchQuery);
   }
 
-  // Debounce: fire onSearchChange 250ms after last keystroke
+  // Debounce: fire onSearchChange 250ms after last keystroke. Suspended during
+  // composition so a half-formed query is never searched nor echoed back.
   useEffect(() => {
+    if (isComposing) return;
     if (localSearch === searchQuery) return;
     const id = setTimeout(() => {
       onSearchChange(localSearch);
     }, 250);
     return () => clearTimeout(id);
-  }, [localSearch, searchQuery, onSearchChange]);
+  }, [localSearch, searchQuery, onSearchChange, isComposing]);
 
   return (
     <div className="flex items-center gap-3 border-b border-hairline px-7 py-3">
@@ -130,6 +136,11 @@ export function GroupsToolbar({
           placeholder="Search groups…"
           value={localSearch}
           onChange={(e) => setLocalSearch(e.target.value)}
+          onCompositionStart={() => setIsComposing(true)}
+          onCompositionEnd={(e) => {
+            setIsComposing(false);
+            setLocalSearch(e.currentTarget.value);
+          }}
           className="pl-8"
           size="sm"
         />
