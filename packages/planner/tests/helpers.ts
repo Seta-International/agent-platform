@@ -139,6 +139,7 @@ export function buildSession(opts: {
     features: new Set<string>(),
     accessible_group_ids: opts.accessible_group_ids ?? [],
     group_ids: [],
+    product_access: new Set<string>(),
     cross_tenant_read: role_summary.cross_tenant_read,
     built_at: new Date(),
     invalidated_at: null,

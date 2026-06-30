@@ -18,6 +18,7 @@ function buildSession(userId: string, tenantId: string): SessionScope {
     permissions: resolveTestPermissions(role_summary.roles),
     accessible_group_ids: [],
     group_ids: [],
+    product_access: new Set<string>(),
     cross_tenant_read: false,
     built_at: new Date(),
     invalidated_at: null,

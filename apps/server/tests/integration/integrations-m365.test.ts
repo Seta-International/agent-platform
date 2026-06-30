@@ -33,6 +33,7 @@ function buildSession(opts: {
     permissions: resolveTestPermissions(role_summary.roles),
     accessible_group_ids: [],
     group_ids: [],
+    product_access: new Set<string>(),
     cross_tenant_read: false,
     built_at: new Date(),
     invalidated_at: null,
@@ -247,6 +248,7 @@ describe('POST /api/integrations/m365/groups/:groupId/link', () => {
             display_name: 'Admin',
             accessible_group_ids: [],
             group_ids: [],
+            product_access: new Set<string>(),
           },
         });
 
@@ -298,6 +300,7 @@ describe('POST /api/integrations/m365/groups/:groupId/link', () => {
           display_name: 'Admin',
           accessible_group_ids: [] as string[],
           group_ids: [],
+          product_access: new Set<string>(),
         };
         const group = await createGroup({
           tenant_id: tenantId,
@@ -374,6 +377,7 @@ describe('POST /api/integrations/m365/groups/:groupId/unlink', () => {
           display_name: 'Admin',
           accessible_group_ids: [] as string[],
           group_ids: [],
+          product_access: new Set<string>(),
         };
 
         const group = await createGroup({
@@ -424,6 +428,7 @@ describe('POST /api/integrations/m365/groups/:groupId/unlink', () => {
           display_name: 'Admin',
           accessible_group_ids: [] as string[],
           group_ids: [],
+          product_access: new Set<string>(),
         };
         const group = await createGroup({
           tenant_id: tenantId,
@@ -697,6 +702,7 @@ describe('POST /api/integrations/m365/groups/:groupId/resolve', () => {
           display_name: 'Admin',
           accessible_group_ids: [] as string[],
           group_ids: [],
+          product_access: new Set<string>(),
         };
         const group = await createGroup({
           tenant_id: tid,

@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { PRODUCT_GATE_EXEMPT, PRODUCT_NAMESPACES } from '@seta/shared-rbac';
 import { eq } from 'drizzle-orm';
 import { LRUCache } from 'lru-cache';
 import { coreDb } from '../db/client.ts';
@@ -28,6 +29,12 @@ export type ResolveFeatures = (
 
 export type ResolveGroupIds = (userId: string) => Promise<ReadonlyArray<string>>;
 
+export type ResolveProductAccess = (
+  userId: string,
+  tenantId: string,
+  groupIds: readonly string[],
+) => Promise<ReadonlySet<string>>;
+
 export interface SessionScope {
   session_id: string;
   user_id: string;
@@ -40,12 +47,27 @@ export interface SessionScope {
   features: ReadonlySet<string>;
   accessible_group_ids: ReadonlyArray<string>;
   group_ids: ReadonlyArray<string>;
+  product_access: ReadonlySet<string>;
   cross_tenant_read: boolean;
   built_at: Date;
   invalidated_at: Date | null;
 }
 
 const hot = new LRUCache<string, SessionScope>({ max: 50_000, ttl: 1000 * 60 * 15 });
+
+function applyProductGate(
+  perms: ReadonlySet<string>,
+  productAccess: ReadonlySet<string>,
+): Set<string> {
+  const gated = new Set<string>();
+  for (const p of perms) {
+    const ns = p.split('.')[0];
+    if (ns && PRODUCT_NAMESPACES.has(ns) && !productAccess.has(ns) && !PRODUCT_GATE_EXEMPT.has(p))
+      continue;
+    gated.add(p);
+  }
+  return gated;
+}
 
 export function rollup(grants: ReadonlyArray<RoleGrant>): {
   roles: string[];
@@ -78,6 +100,7 @@ export async function getSessionScope(
     resolvePermissions: ResolvePermissions;
     resolveFeatures?: ResolveFeatures;
     resolveGroupIds?: ResolveGroupIds;
+    resolveProductAccess?: ResolveProductAccess;
   },
   sessionId: string,
   userId: string,
@@ -95,7 +118,7 @@ export async function getSessionScope(
     .where(eq(sessionScopeCache.session_id, sessionId))
     .limit(1);
   if (cached && !cached.invalidated_at) {
-    const permissions = await deps.resolvePermissions(
+    const rawPermissions = await deps.resolvePermissions(
       (cached.role_summary as { roles: string[] }).roles,
       cached.tenant_id,
     );
@@ -105,6 +128,12 @@ export async function getSessionScope(
       (cached.role_summary as { roles: string[] }).roles,
     );
     const group_ids = await resolveGroupIds(cached.user_id);
+    const productAccess = deps.resolveProductAccess
+      ? await deps.resolveProductAccess(cached.user_id, cached.tenant_id, group_ids)
+      : undefined;
+    const permissions = productAccess
+      ? applyProductGate(rawPermissions, productAccess)
+      : rawPermissions;
     const scope: SessionScope = {
       session_id: cached.session_id,
       tenant_id: cached.tenant_id,
@@ -113,6 +142,7 @@ export async function getSessionScope(
       role_summary: cached.role_summary as { roles: string[]; cross_tenant_read: boolean },
       accessible_group_ids: cached.accessible_group_ids as string[],
       group_ids,
+      product_access: productAccess ?? new Set<string>(),
       cross_tenant_read: cached.cross_tenant_read,
       built_at: cached.built_at,
       invalidated_at: cached.invalidated_at,
@@ -127,9 +157,15 @@ export async function getSessionScope(
 
   const { tenant_id, grants } = await deps.listRoleGrants(userId);
   const role_summary = rollup(grants);
-  const permissions = await deps.resolvePermissions(role_summary.roles, tenant_id);
+  const rawPermissions = await deps.resolvePermissions(role_summary.roles, tenant_id);
   const features = await resolveFeatures(tenant_id, userId, role_summary.roles);
   const group_ids = await resolveGroupIds(userId);
+  const productAccess = deps.resolveProductAccess
+    ? await deps.resolveProductAccess(userId, tenant_id, group_ids)
+    : undefined;
+  const permissions = productAccess
+    ? applyProductGate(rawPermissions, productAccess)
+    : rawPermissions;
   const scope: SessionScope = {
     session_id: sessionId,
     user_id: userId,
@@ -140,6 +176,7 @@ export async function getSessionScope(
     role_summary_hash: hashRoleSummary(role_summary),
     accessible_group_ids: computeAccessibleGroups(grants),
     group_ids,
+    product_access: productAccess ?? new Set<string>(),
     cross_tenant_read: role_summary.cross_tenant_read,
     built_at: new Date(),
     invalidated_at: null,

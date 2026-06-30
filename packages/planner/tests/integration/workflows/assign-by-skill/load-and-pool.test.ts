@@ -33,6 +33,7 @@ function adminSession(opts: { tenant_id: string; user_id: string; email: string 
     features: new Set<string>(),
     accessible_group_ids: [],
     group_ids: [],
+    product_access: new Set<string>(),
     cross_tenant_read: false,
     built_at: new Date(),
     invalidated_at: null,
