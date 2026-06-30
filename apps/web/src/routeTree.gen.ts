@@ -38,6 +38,7 @@ import { Route as PeopleOffboardingRouteImport } from './../../../packages/web-p
 import { Route as PeopleAllocationRouteImport } from './../../../packages/web-people/src/routes/allocation'
 import { Route as AgentKnowledgeRouteImport } from './../../../packages/web-agent/src/routes/knowledge'
 import { Route as AgentChatRouteImport } from './../../../packages/web-agent/src/routes/chat'
+import { Route as AdminUsersRouteImport } from './../../../packages/web-admin/src/routes/users'
 import { Route as AdminTenantRouteImport } from './../../../packages/web-admin/src/routes/tenant'
 import { Route as AdminSsoRouteImport } from './../../../packages/web-admin/src/routes/sso'
 import { Route as AdminSkillsRouteImport } from './../../../packages/web-admin/src/routes/skills'
@@ -216,6 +217,11 @@ const AgentChatRoute = AgentChatRouteImport.update({
   id: '/chat',
   path: '/chat',
   getParentRoute: () => AgentRouteRoute,
+} as any)
+const AdminUsersRoute = AdminUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AdminRouteRoute,
 } as any)
 const AdminTenantRoute = AdminTenantRouteImport.update({
   id: '/tenant',
@@ -412,6 +418,7 @@ export interface FileRoutesByFullPath {
   '/admin/skills': typeof AdminSkillsRoute
   '/admin/sso': typeof AdminSsoRoute
   '/admin/tenant': typeof AdminTenantRoute
+  '/admin/users': typeof AdminUsersRoute
   '/agent/chat': typeof AgentChatRoute
   '/agent/knowledge': typeof AgentKnowledgeRoute
   '/people/allocation': typeof PeopleAllocationRoute
@@ -469,6 +476,7 @@ export interface FileRoutesByTo {
   '/admin/skills': typeof AdminSkillsRoute
   '/admin/sso': typeof AdminSsoRoute
   '/admin/tenant': typeof AdminTenantRoute
+  '/admin/users': typeof AdminUsersRoute
   '/agent/chat': typeof AgentChatRoute
   '/agent/knowledge': typeof AgentKnowledgeRoute
   '/people/allocation': typeof PeopleAllocationRoute
@@ -535,6 +543,7 @@ export interface FileRoutesById {
   '/_authed/admin/skills': typeof AdminSkillsRoute
   '/_authed/admin/sso': typeof AdminSsoRoute
   '/_authed/admin/tenant': typeof AdminTenantRoute
+  '/_authed/admin/users': typeof AdminUsersRoute
   '/_authed/agent/chat': typeof AgentChatRoute
   '/_authed/agent/knowledge': typeof AgentKnowledgeRoute
   '/_authed/people/allocation': typeof PeopleAllocationRoute
@@ -601,6 +610,7 @@ export interface FileRouteTypes {
     | '/admin/skills'
     | '/admin/sso'
     | '/admin/tenant'
+    | '/admin/users'
     | '/agent/chat'
     | '/agent/knowledge'
     | '/people/allocation'
@@ -658,6 +668,7 @@ export interface FileRouteTypes {
     | '/admin/skills'
     | '/admin/sso'
     | '/admin/tenant'
+    | '/admin/users'
     | '/agent/chat'
     | '/agent/knowledge'
     | '/people/allocation'
@@ -723,6 +734,7 @@ export interface FileRouteTypes {
     | '/_authed/admin/skills'
     | '/_authed/admin/sso'
     | '/_authed/admin/tenant'
+    | '/_authed/admin/users'
     | '/_authed/agent/chat'
     | '/_authed/agent/knowledge'
     | '/_authed/people/allocation'
@@ -979,6 +991,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AgentChatRouteImport
       parentRoute: typeof AgentRouteRoute
     }
+    '/_authed/admin/users': {
+      id: '/_authed/admin/users'
+      path: '/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AdminUsersRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/_authed/admin/tenant': {
       id: '/_authed/admin/tenant'
       path: '/tenant'
@@ -1229,6 +1248,7 @@ interface AdminRouteRouteChildren {
   AdminSkillsRoute: typeof AdminSkillsRoute
   AdminSsoRoute: typeof AdminSsoRoute
   AdminTenantRoute: typeof AdminTenantRoute
+  AdminUsersRoute: typeof AdminUsersRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
@@ -1241,6 +1261,7 @@ const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminSkillsRoute: AdminSkillsRoute,
   AdminSsoRoute: AdminSsoRoute,
   AdminTenantRoute: AdminTenantRoute,
+  AdminUsersRoute: AdminUsersRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
 
