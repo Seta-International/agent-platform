@@ -40,6 +40,8 @@ services:
       GF_AUTH_ANONYMOUS_ORG_ROLE: "Viewer"
       # Set so links/shares render with the right host.
       GF_SERVER_ROOT_URL: "http://192.168.90.127:3000"
+      REPORTING_DB_HOST: ${REPORTING_DB_HOST}
+      REPORTING_DB_PASSWORD: ${REPORTING_DB_PASSWORD}
     ports:
       - "3000:3000"
     volumes:
