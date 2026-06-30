@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   Sliders,
   Users,
+  UsersRound,
 } from 'lucide-react';
 
 export const adminAppManifest: AppManifest = {
@@ -50,6 +51,13 @@ export const adminAppManifest: AppManifest = {
           label: 'Role access',
           to: '/admin/role-access',
           requires: ['identity.role.read'],
+        },
+        {
+          id: 'admin.groups',
+          icon: UsersRound,
+          label: 'Groups',
+          to: '/admin/groups',
+          requires: ['identity.group.read'],
         },
         {
           id: 'admin.mail-transport',

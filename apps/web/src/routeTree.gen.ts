@@ -45,6 +45,7 @@ import { Route as AdminSkillsRouteImport } from './../../../packages/web-admin/s
 import { Route as AdminRoleAccessRouteImport } from './../../../packages/web-admin/src/routes/role-access'
 import { Route as AdminNotificationsRouteImport } from './../../../packages/web-admin/src/routes/notifications'
 import { Route as AdminMailRouteImport } from './../../../packages/web-admin/src/routes/mail'
+import { Route as AdminGroupsRouteImport } from './../../../packages/web-admin/src/routes/groups'
 import { Route as AdminFeatureFlagsRouteImport } from './../../../packages/web-admin/src/routes/feature-flags'
 import { Route as AdminAuditRouteImport } from './../../../packages/web-admin/src/routes/audit'
 import { Route as AgentWorkflowsRouteRouteImport } from './../../../packages/web-agent/src/routes/workflows/route'
@@ -253,6 +254,11 @@ const AdminMailRoute = AdminMailRouteImport.update({
   path: '/mail',
   getParentRoute: () => AdminRouteRoute,
 } as any)
+const AdminGroupsRoute = AdminGroupsRouteImport.update({
+  id: '/groups',
+  path: '/groups',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 const AdminFeatureFlagsRoute = AdminFeatureFlagsRouteImport.update({
   id: '/feature-flags',
   path: '/feature-flags',
@@ -412,6 +418,7 @@ export interface FileRoutesByFullPath {
   '/agent/workflows': typeof AgentWorkflowsRouteRouteWithChildren
   '/admin/audit': typeof AdminAuditRoute
   '/admin/feature-flags': typeof AdminFeatureFlagsRoute
+  '/admin/groups': typeof AdminGroupsRoute
   '/admin/mail': typeof AdminMailRoute
   '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/role-access': typeof AdminRoleAccessRoute
@@ -470,6 +477,7 @@ export interface FileRoutesByTo {
   '/': typeof routesAuthedIndexRoute
   '/admin/audit': typeof AdminAuditRoute
   '/admin/feature-flags': typeof AdminFeatureFlagsRoute
+  '/admin/groups': typeof AdminGroupsRoute
   '/admin/mail': typeof AdminMailRoute
   '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/role-access': typeof AdminRoleAccessRoute
@@ -537,6 +545,7 @@ export interface FileRoutesById {
   '/_authed/agent/workflows': typeof AgentWorkflowsRouteRouteWithChildren
   '/_authed/admin/audit': typeof AdminAuditRoute
   '/_authed/admin/feature-flags': typeof AdminFeatureFlagsRoute
+  '/_authed/admin/groups': typeof AdminGroupsRoute
   '/_authed/admin/mail': typeof AdminMailRoute
   '/_authed/admin/notifications': typeof AdminNotificationsRoute
   '/_authed/admin/role-access': typeof AdminRoleAccessRoute
@@ -604,6 +613,7 @@ export interface FileRouteTypes {
     | '/agent/workflows'
     | '/admin/audit'
     | '/admin/feature-flags'
+    | '/admin/groups'
     | '/admin/mail'
     | '/admin/notifications'
     | '/admin/role-access'
@@ -662,6 +672,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin/audit'
     | '/admin/feature-flags'
+    | '/admin/groups'
     | '/admin/mail'
     | '/admin/notifications'
     | '/admin/role-access'
@@ -728,6 +739,7 @@ export interface FileRouteTypes {
     | '/_authed/agent/workflows'
     | '/_authed/admin/audit'
     | '/_authed/admin/feature-flags'
+    | '/_authed/admin/groups'
     | '/_authed/admin/mail'
     | '/_authed/admin/notifications'
     | '/_authed/admin/role-access'
@@ -1040,6 +1052,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminMailRouteImport
       parentRoute: typeof AdminRouteRoute
     }
+    '/_authed/admin/groups': {
+      id: '/_authed/admin/groups'
+      path: '/groups'
+      fullPath: '/admin/groups'
+      preLoaderRoute: typeof AdminGroupsRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/_authed/admin/feature-flags': {
       id: '/_authed/admin/feature-flags'
       path: '/feature-flags'
@@ -1242,6 +1261,7 @@ declare module '@tanstack/react-router' {
 interface AdminRouteRouteChildren {
   AdminAuditRoute: typeof AdminAuditRoute
   AdminFeatureFlagsRoute: typeof AdminFeatureFlagsRoute
+  AdminGroupsRoute: typeof AdminGroupsRoute
   AdminMailRoute: typeof AdminMailRoute
   AdminNotificationsRoute: typeof AdminNotificationsRoute
   AdminRoleAccessRoute: typeof AdminRoleAccessRoute
@@ -1255,6 +1275,7 @@ interface AdminRouteRouteChildren {
 const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminAuditRoute: AdminAuditRoute,
   AdminFeatureFlagsRoute: AdminFeatureFlagsRoute,
+  AdminGroupsRoute: AdminGroupsRoute,
   AdminMailRoute: AdminMailRoute,
   AdminNotificationsRoute: AdminNotificationsRoute,
   AdminRoleAccessRoute: AdminRoleAccessRoute,
