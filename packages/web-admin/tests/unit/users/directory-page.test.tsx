@@ -1,24 +1,32 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import type { DirectorySearch } from '../../../src/users/directory-search.ts';
 import { Directory } from '../../../src/users/pages/Directory.tsx';
+
+// Mirrors the route: holds the URL search state and feeds it to the page.
+function Harness() {
+  const [search, setSearch] = useState<DirectorySearch>({});
+  return <Directory search={search} onSearch={(next) => setSearch((p) => next(p))} />;
+}
 
 vi.mock('../../../src/users/hooks/useDirectory.ts', () => ({
   useDirectory: vi.fn(),
   useProvision: vi.fn(),
   useSuspend: vi.fn(),
   useReactivate: vi.fn(),
-  useBulkRole: vi.fn(),
 }));
 
 vi.mock('@seta/web-identity', () => ({
   usePermission: vi.fn().mockReturnValue(false),
 }));
 
-vi.mock('../../../src/role-access/hooks/useRoleAccess.ts', () => ({
-  useRoleAccessMatrix: vi.fn(),
+vi.mock('../../../src/groups/hooks/useGroups.ts', () => ({
+  useGroupsQuery: vi.fn(),
+  useGroupMembersMutations: vi.fn(),
+  useUserGroups: vi.fn().mockReturnValue({ data: [] }),
 }));
 
 const mockRows = [
@@ -31,6 +39,7 @@ const mockRows = [
     account_status: 'none' as const,
     user_id: null,
     roles: [],
+    groups: [],
   },
   {
     person_id: 'p2',
@@ -41,6 +50,7 @@ const mockRows = [
     account_status: 'active' as const,
     user_id: 'u2',
     roles: ['admin'],
+    groups: ['Engineering'],
   },
   {
     person_id: 'p3',
@@ -51,8 +61,19 @@ const mockRows = [
     account_status: 'suspended' as const,
     user_id: 'u3',
     roles: [],
+    groups: [],
   },
 ];
+
+const mockGroup = {
+  group_id: 'g1',
+  slug: 'engineering',
+  name: 'Engineering',
+  kind: 'custom' as const,
+  is_base: false,
+  member_count: 0,
+  role_slugs: [],
+};
 
 const noop = vi.fn();
 
@@ -62,10 +83,10 @@ const wrap =
     <QueryClientProvider client={qc}>{children}</QueryClientProvider>
   );
 
-async function setupMocks(opts: { canWrite?: boolean } = {}) {
+async function setupMocks(opts: { canWrite?: boolean; addMutate?: ReturnType<typeof vi.fn> } = {}) {
   const hooks = await import('../../../src/users/hooks/useDirectory.ts');
   const identity = await import('@seta/web-identity');
-  const roleAccess = await import('../../../src/role-access/hooks/useRoleAccess.ts');
+  const groups = await import('../../../src/groups/hooks/useGroups.ts');
 
   (hooks.useDirectory as ReturnType<typeof vi.fn>).mockReturnValue({
     data: { rows: mockRows, page: 0, hasMore: false },
@@ -83,13 +104,13 @@ async function setupMocks(opts: { canWrite?: boolean } = {}) {
     mutate: noop,
     isPending: false,
   });
-  (hooks.useBulkRole as ReturnType<typeof vi.fn>).mockReturnValue({
-    mutate: noop,
-    isPending: false,
-  });
-  (roleAccess.useRoleAccessMatrix as ReturnType<typeof vi.fn>).mockReturnValue({
-    data: [{ slug: 'identity.admin', description: 'Identity Admin', module: 'identity' }],
+  (groups.useGroupsQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+    data: [mockGroup],
     isLoading: false,
+  });
+  (groups.useGroupMembersMutations as ReturnType<typeof vi.fn>).mockReturnValue({
+    add: { mutate: opts.addMutate ?? noop, isPending: false },
+    remove: { mutate: noop, isPending: false },
   });
   (identity.usePermission as ReturnType<typeof vi.fn>).mockReturnValue(opts.canWrite ?? false);
   return hooks;
@@ -99,7 +120,7 @@ describe('Directory page', () => {
   it('renders one badge per account_status variant (none/active/suspended)', async () => {
     await setupMocks();
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(<Directory />, { wrapper: wrap(qc) });
+    render(<Harness />, { wrapper: wrap(qc) });
 
     await waitFor(() => {
       expect(screen.getByText('No account')).toBeInTheDocument();
@@ -112,7 +133,7 @@ describe('Directory page', () => {
     const hooks = await setupMocks();
 
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(<Directory />, { wrapper: wrap(qc) });
+    render(<Harness />, { wrapper: wrap(qc) });
 
     const input = screen.getByRole('textbox', { name: /search people/i });
     await userEvent.type(input, 'alice');
@@ -131,7 +152,7 @@ describe('Directory page', () => {
     });
 
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(<Directory />, { wrapper: wrap(qc) });
+    render(<Harness />, { wrapper: wrap(qc) });
 
     const trigger = await screen.findByRole('button', { name: /row actions for alice/i });
     await userEvent.click(trigger);
@@ -141,69 +162,53 @@ describe('Directory page', () => {
     expect(mockMutate).toHaveBeenCalledWith('p1');
   });
 
-  it('bulk bar: shows count, excludes none-account rows, calls useBulkRole on confirm', async () => {
-    const mockBulkMutate = vi.fn();
-    const hooks = await setupMocks({ canWrite: true });
-    (hooks.useBulkRole as ReturnType<typeof vi.fn>).mockReturnValue({
-      mutate: mockBulkMutate,
-      isPending: false,
-    });
+  it('bulk bar: shows count, excludes none-account rows, adds selection to a group on confirm', async () => {
+    const mockAdd = vi.fn();
+    await setupMocks({ canWrite: true, addMutate: mockAdd });
 
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(<Directory />, { wrapper: wrap(qc) });
+    render(<Harness />, { wrapper: wrap(qc) });
 
-    // Wait for rows to render
     await waitFor(() => screen.getAllByRole('checkbox', { name: /select row/i }));
     const rowCheckboxes = screen.getAllByRole('checkbox', { name: /select row/i });
     // Alice is 'none' account → checkbox disabled
     expect(rowCheckboxes[0]).toBeDisabled();
 
-    // Select Bob (user_id='u2')
+    // Select Bob (u2)
     await userEvent.click(rowCheckboxes[1]);
     await waitFor(() => expect(screen.getByText(/selected/)).toBeInTheDocument());
-    // Re-query after re-render to get fresh references, then select Carol (user_id='u3')
+    // Re-query then select Carol (u3)
     const freshCheckboxes = screen.getAllByRole('checkbox', { name: /select row/i });
     await userEvent.click(freshCheckboxes[2]);
-
-    // Bulk bar shows "2 selected"
     await waitFor(() => expect(screen.getByText('2 selected')).toBeInTheDocument());
 
-    // Open the role combobox and pick identity.admin
-    const rolePicker = screen.getByRole('combobox', { name: /role/i });
-    await userEvent.click(rolePicker);
-    const roleOption = await screen.findByRole('option', { name: /identity.admin/i });
-    await userEvent.click(roleOption);
+    // Pick the target group
+    const groupPicker = screen.getByRole('combobox', { name: /^group$/i });
+    await userEvent.click(groupPicker);
+    const groupOption = await screen.findByRole('option', { name: /engineering/i });
+    await userEvent.click(groupOption);
 
-    // Click Assign → confirm dialog appears
-    const assignBtn = screen.getByRole('button', { name: /^assign$/i });
-    await userEvent.click(assignBtn);
-    const confirmBtn = await screen.findByRole('button', { name: /^confirm$/i });
-    await userEvent.click(confirmBtn);
+    // Open + confirm the dialog
+    await userEvent.click(screen.getByRole('button', { name: /add to group/i }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: /add to group/i }));
 
-    // useBulkRole.mutate called with both account user_ids and correct role/action
-    expect(mockBulkMutate).toHaveBeenCalledWith(
+    expect(mockAdd).toHaveBeenCalledWith(
       expect.objectContaining({
+        id: 'g1',
         user_ids: expect.arrayContaining(['u2', 'u3']),
-        role_slug: 'identity.admin',
-        action: 'grant',
       }),
       expect.any(Object),
     );
-    // Alice's user_id (null) must NOT appear
-    const [calledBody] = mockBulkMutate.mock.calls[0] as [{ user_ids: string[] }];
+    const [calledBody] = mockAdd.mock.calls[0] as [{ user_ids: string[] }];
     expect(calledBody.user_ids).not.toContain(null);
     expect(calledBody.user_ids).toHaveLength(2);
   });
 
   it('bulk bar: selection persists across pagination (accumulator)', async () => {
-    const mockBulkMutate = vi.fn();
-    const hooks = await setupMocks({ canWrite: true });
-    (hooks.useBulkRole as ReturnType<typeof vi.fn>).mockReturnValue({
-      mutate: mockBulkMutate,
-      isPending: false,
-    });
+    const mockAdd = vi.fn();
+    const hooks = await setupMocks({ canWrite: true, addMutate: mockAdd });
 
-    // Page 1: Bob (u2) + Carol (u3) selectable; Alice (none) not.
     const page2Rows = [
       {
         person_id: 'p4',
@@ -214,11 +219,12 @@ describe('Directory page', () => {
         account_status: 'active' as const,
         user_id: 'u4',
         roles: [],
+        groups: [],
       },
     ];
 
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const { rerender } = render(<Directory />, { wrapper: wrap(qc) });
+    const { rerender } = render(<Harness />, { wrapper: wrap(qc) });
 
     // Select two account rows on page 1 (Bob, Carol)
     await waitFor(() => screen.getAllByRole('checkbox', { name: /select row/i }));
@@ -229,31 +235,27 @@ describe('Directory page', () => {
     await userEvent.click(checkboxes[2]);
     await waitFor(() => expect(screen.getByText('2 selected')).toBeInTheDocument());
 
-    // Simulate pagination → page 2 returns a single new account row (Dave / u4)
+    // Paginate → page 2 returns one new account row (Dave / u4)
     (hooks.useDirectory as ReturnType<typeof vi.fn>).mockReturnValue({
       data: { rows: page2Rows, page: 1, hasMore: false },
       isLoading: false,
     });
-    rerender(<Directory />);
+    rerender(<Harness />);
 
-    // Select Dave on page 2
     await waitFor(() => screen.getByText('Dave'));
     const page2Checkboxes = screen.getAllByRole('checkbox', { name: /select row/i });
     await userEvent.click(page2Checkboxes[0]);
-
-    // Accumulator now holds 3 across both pages
     await waitFor(() => expect(screen.getByText('3 selected')).toBeInTheDocument());
 
-    // Assign role → confirm
-    const rolePicker = screen.getByRole('combobox', { name: /role/i });
-    await userEvent.click(rolePicker);
-    const roleOption = await screen.findByRole('option', { name: /identity.admin/i });
-    await userEvent.click(roleOption);
-    await userEvent.click(screen.getByRole('button', { name: /^assign$/i }));
-    await userEvent.click(await screen.findByRole('button', { name: /^confirm$/i }));
+    // Add all three to a group
+    const groupPicker = screen.getByRole('combobox', { name: /^group$/i });
+    await userEvent.click(groupPicker);
+    await userEvent.click(await screen.findByRole('option', { name: /engineering/i }));
+    await userEvent.click(screen.getByRole('button', { name: /add to group/i }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: /add to group/i }));
 
-    // Mutation receives all three user_ids (page 1 + page 2)
-    const [calledBody] = mockBulkMutate.mock.calls[0] as [{ user_ids: string[] }];
+    const [calledBody] = mockAdd.mock.calls[0] as [{ user_ids: string[] }];
     expect(calledBody.user_ids).toHaveLength(3);
     expect(calledBody.user_ids).toEqual(expect.arrayContaining(['u2', 'u3', 'u4']));
   });
@@ -262,7 +264,7 @@ describe('Directory page', () => {
     await setupMocks({ canWrite: false });
 
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(<Directory />, { wrapper: wrap(qc) });
+    render(<Harness />, { wrapper: wrap(qc) });
 
     const aliceCell = await screen.findByText('Alice');
     await userEvent.click(aliceCell);

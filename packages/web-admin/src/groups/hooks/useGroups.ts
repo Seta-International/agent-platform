@@ -3,10 +3,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   addMembers,
   createGroup,
+  deleteGroup,
   listGroups,
   listUserGroups,
   removeMember,
   setGroupRoles,
+  updateGroup,
 } from '../api/groups-client.ts';
 import { groupKeys } from '../state/query-keys.ts';
 
@@ -22,6 +24,27 @@ export function useGroupsQuery() {
   return useQuery({
     queryKey: groupKeys.list(),
     queryFn: listGroups,
+  });
+}
+
+export function useUpdateGroup() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, name, description }: { id: string; name?: string; description?: string }) =>
+      updateGroup(id, { name, description }),
+    onSuccess: () => toast.success('Group updated'),
+    onError: (e) => toast.error((e as Error).message),
+    onSettled: () => qc.invalidateQueries({ queryKey: groupKeys.all }),
+  });
+}
+
+export function useDeleteGroup() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deleteGroup(id),
+    onSuccess: () => toast.success('Group deleted'),
+    onError: (e) => toast.error((e as Error).message),
+    onSettled: () => qc.invalidateQueries({ queryKey: groupKeys.all }),
   });
 }
 

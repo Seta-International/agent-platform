@@ -1,231 +1,133 @@
-import { ASSIGNABLE_ROLES, productForNamespace } from '@seta/shared-rbac';
-import {
-  Alert,
-  AlertDescription,
-  AsyncCombobox,
-  Badge,
-  Button,
-  Card,
-  Combobox,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  Input,
-  Label,
-  PageChrome,
-  Skeleton,
-} from '@seta/shared-ui';
-import { useState } from 'react';
-import { useMemberSearch } from '../../feature-flags/api/member-search.ts';
+import { Alert, AlertDescription, Badge, EmptyState, PageChrome, Skeleton } from '@seta/shared-ui';
+import { UsersRound } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { RailHeader, RailItem } from '../../components/access-console.tsx';
 import type { Group } from '../api/groups-client.ts';
-import {
-  useCreateGroup,
-  useGroupMembersMutations,
-  useGroupsQuery,
-  useSetGroupRoles,
-} from '../hooks/useGroups.ts';
+import { CreateGroupDialog } from '../components/CreateGroupDialog.tsx';
+import { GroupDetail } from '../components/GroupDetail.tsx';
+import { useGroupsQuery } from '../hooks/useGroups.ts';
+import { derivedProducts } from '../lib/role-meta.ts';
 
-const ROLE_OPTIONS = ASSIGNABLE_ROLES.map((r) => ({ value: r, label: r }));
-
-function GroupRow({ group }: { group: Group }) {
-  const setRolesMutation = useSetGroupRoles();
-  const { add } = useGroupMembersMutations();
-  const memberPicker = useMemberSearch();
-  const [roleValues, setRoleValues] = useState<string[]>(group.role_slugs);
-  const [pendingMembers, setPendingMembers] = useState<string[]>([]);
-
-  const handleRoleChange = (next: string[]) => {
-    setRoleValues(next);
-    setRolesMutation.mutate({ id: group.group_id, role_slugs: next });
-  };
-
-  const handleAddMembers = () => {
-    if (pendingMembers.length === 0) return;
-    add.mutate(
-      { id: group.group_id, user_ids: pendingMembers },
-      { onSuccess: () => setPendingMembers([]) },
-    );
-  };
-
-  return (
-    <Card className="space-y-4 p-5">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <span className="font-semibold text-ink">{group.name}</span>
-          <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-surface-3 px-1.5 text-caption tabular-nums text-ink-subtle">
-            {group.member_count}
-          </span>
-        </div>
-        <span className="font-mono text-caption text-ink-tertiary">{group.slug}</span>
-      </div>
-
-      <div className="space-y-1.5">
-        <Label className="text-eyebrow uppercase tracking-[0.04em] text-ink-tertiary">Roles</Label>
-        <Combobox
-          multiple
-          value={roleValues}
-          onChange={handleRoleChange}
-          options={ROLE_OPTIONS}
-          placeholder="Assign roles…"
-          searchPlaceholder="Search roles…"
-          aria-label={`Roles for ${group.name}`}
-        />
-        {(() => {
-          const derivedProducts = [
-            ...new Set(
-              roleValues
-                .map((slug) => productForNamespace(slug.split('.')[0] ?? ''))
-                .filter((p): p is NonNullable<typeof p> => p !== undefined),
-            ),
-          ];
-          return derivedProducts.length > 0 ? (
-            <div className="flex flex-wrap gap-1 pt-1">
-              {derivedProducts.map((p) => (
-                <Badge key={p} variant="secondary">
-                  {p}
-                </Badge>
-              ))}
-            </div>
-          ) : null;
-        })()}
-      </div>
-
-      <div className="space-y-1.5">
-        <Label className="text-eyebrow uppercase tracking-[0.04em] text-ink-tertiary">
-          Add members
-        </Label>
-        <div className="flex gap-2">
-          <AsyncCombobox
-            multiple
-            value={pendingMembers}
-            onChange={setPendingMembers}
-            search={memberPicker.search}
-            resolveByIds={memberPicker.resolveByIds}
-            placeholder="Search users to add…"
-            className="flex-1"
-          />
-          <Button
-            size="sm"
-            onClick={handleAddMembers}
-            disabled={pendingMembers.length === 0 || add.isPending}
-          >
-            Add
-          </Button>
-        </div>
-      </div>
-    </Card>
-  );
+function roleProductSummary(group: Group): string {
+  const roles = group.role_slugs.length;
+  if (roles === 0) return 'No roles';
+  const products = derivedProducts(group.role_slugs).length;
+  const rolePart = `${roles} ${roles === 1 ? 'role' : 'roles'}`;
+  return products > 0
+    ? `${rolePart} · ${products} ${products === 1 ? 'product' : 'products'}`
+    : rolePart;
 }
 
-function CreateGroupDialog() {
-  const [open, setOpen] = useState(false);
-  const [slug, setSlug] = useState('');
-  const [name, setName] = useState('');
-  const createGroup = useCreateGroup();
-
-  const reset = () => {
-    setSlug('');
-    setName('');
-  };
-
-  const handleSubmit = () => {
-    if (!slug.trim() || !name.trim()) return;
-    createGroup.mutate(
-      { slug: slug.trim(), name: name.trim() },
-      {
-        onSuccess: () => {
-          setOpen(false);
-          reset();
-        },
-      },
-    );
-  };
-
+function GroupListItem({
+  group,
+  active,
+  onClick,
+}: {
+  group: Group;
+  active: boolean;
+  onClick: () => void;
+}) {
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (!next) reset();
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button>Create group</Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Create group</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 pt-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="group-slug">Slug</Label>
-            <Input
-              id="group-slug"
-              value={slug}
-              onChange={(e) => setSlug(e.target.value)}
-              placeholder="hr-team"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="group-name">Name</Label>
-            <Input
-              id="group-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="HR Team"
-            />
-          </div>
-          <div className="flex justify-end">
-            <Button
-              onClick={handleSubmit}
-              disabled={!slug.trim() || !name.trim() || createGroup.isPending}
-            >
-              {createGroup.isPending ? 'Creating…' : 'Create'}
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+    <RailItem
+      title={group.name}
+      active={active}
+      onClick={onClick}
+      count={group.member_count}
+      subtitle={
+        <>
+          {group.is_base ? (
+            <Badge variant="secondary">Base</Badge>
+          ) : group.kind === 'default' ? (
+            <Badge variant="outline">Default</Badge>
+          ) : null}
+          <span className="truncate">{roleProductSummary(group)}</span>
+        </>
+      }
+    />
   );
 }
 
 export function GroupsPage() {
   const { data, isLoading, error } = useGroupsQuery();
   const groups = data ?? [];
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  // Keep a valid selection: default to the first group, drop a deleted one.
+  useEffect(() => {
+    if (groups.length === 0) {
+      setSelectedId(null);
+      return;
+    }
+    if (!selectedId || !groups.some((g) => g.group_id === selectedId)) {
+      setSelectedId(groups[0]?.group_id ?? null);
+    }
+  }, [groups, selectedId]);
+
+  const selected = groups.find((g) => g.group_id === selectedId) ?? null;
 
   return (
     <PageChrome
       breadcrumb={['Admin']}
       title="Groups"
-      subtitle="Manage access groups and their role assignments."
-      actions={<CreateGroupDialog />}
+      subtitle={
+        isLoading ? 'Loading…' : `${groups.length} ${groups.length === 1 ? 'group' : 'groups'}`
+      }
+      actions={<CreateGroupDialog onCreated={setSelectedId} />}
     >
-      <div className="page-container space-y-4">
-        {error && (
+      {error ? (
+        <div className="page-container pt-4">
           <Alert variant="destructive">
             <AlertDescription>{(error as Error).message}</AlertDescription>
           </Alert>
-        )}
+        </div>
+      ) : (
+        <div className="flex h-full min-h-0">
+          <aside className="flex w-72 flex-none flex-col border-r border-hairline bg-surface-1">
+            <RailHeader>All groups</RailHeader>
+            <div className="flex-1 space-y-0.5 overflow-y-auto p-2">
+              {isLoading ? (
+                <>
+                  <Skeleton className="h-12 w-full rounded-md" />
+                  <Skeleton className="h-12 w-full rounded-md" />
+                  <Skeleton className="h-12 w-full rounded-md" />
+                </>
+              ) : groups.length === 0 ? (
+                <p className="px-3 py-6 text-center text-body-sm text-ink-tertiary">
+                  No groups yet.
+                </p>
+              ) : (
+                groups.map((g) => (
+                  <GroupListItem
+                    key={g.group_id}
+                    group={g}
+                    active={g.group_id === selectedId}
+                    onClick={() => setSelectedId(g.group_id)}
+                  />
+                ))
+              )}
+            </div>
+          </aside>
 
-        {isLoading ? (
-          <>
-            <Skeleton className="h-36 w-full rounded-lg" />
-            <Skeleton className="h-36 w-full rounded-lg" />
-          </>
-        ) : groups.length === 0 ? (
-          <p className="rounded-md border border-dashed border-hairline px-4 py-8 text-center text-body-sm text-ink-tertiary">
-            No groups. Create one to get started.
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {groups.map((g) => (
-              <GroupRow key={g.group_id} group={g} />
-            ))}
+          <div className="min-w-0 flex-1 overflow-y-auto">
+            {selected ? (
+              <GroupDetail
+                key={selected.group_id}
+                group={selected}
+                onDeleted={() => setSelectedId(null)}
+              />
+            ) : (
+              !isLoading && (
+                <EmptyState
+                  className="h-full"
+                  icon={<UsersRound className="size-8" />}
+                  title="No group selected"
+                  description="Create a group to bundle roles and assign people in one place."
+                />
+              )
+            )}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </PageChrome>
   );
 }

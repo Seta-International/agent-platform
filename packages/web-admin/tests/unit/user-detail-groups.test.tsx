@@ -34,6 +34,7 @@ describe('user detail groups', () => {
             account_status: 'active',
             user_id: 'u1',
             roles: [],
+            groups: [],
           }}
           open
           onOpenChange={() => {}}

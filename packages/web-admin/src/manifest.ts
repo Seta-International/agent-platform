@@ -23,27 +23,21 @@ export const adminAppManifest: AppManifest = {
   useNavExtensions: noNavExtensions,
   nav: [
     {
+      label: 'Access control',
       items: [
-        {
-          id: 'admin.tenant',
-          icon: Sliders,
-          label: 'General',
-          to: '/admin/tenant',
-          requires: ['core.tenant.read'],
-        },
         {
           id: 'admin.users',
           icon: Users,
-          label: 'Users',
+          label: 'Directory',
           to: '/admin/users',
           requires: ['identity.user.read.any'],
         },
         {
-          id: 'admin.sso',
-          icon: Shield,
-          label: 'Sign-in & SSO',
-          to: '/admin/sso',
-          requires: ['identity.sso.read'],
+          id: 'admin.groups',
+          icon: UsersRound,
+          label: 'Groups',
+          to: '/admin/groups',
+          requires: ['identity.group.read'],
         },
         {
           id: 'admin.role-access',
@@ -53,11 +47,23 @@ export const adminAppManifest: AppManifest = {
           requires: ['identity.role.read'],
         },
         {
-          id: 'admin.groups',
-          icon: UsersRound,
-          label: 'Groups',
-          to: '/admin/groups',
-          requires: ['identity.group.read'],
+          id: 'admin.sso',
+          icon: Shield,
+          label: 'Sign-in & SSO',
+          to: '/admin/sso',
+          requires: ['identity.sso.read'],
+        },
+      ],
+    },
+    {
+      label: 'Workspace',
+      items: [
+        {
+          id: 'admin.tenant',
+          icon: Sliders,
+          label: 'General',
+          to: '/admin/tenant',
+          requires: ['core.tenant.read'],
         },
         {
           id: 'admin.mail-transport',
@@ -87,6 +93,11 @@ export const adminAppManifest: AppManifest = {
           to: '/admin/feature-flags',
           requires: ['core.feature_flag.read'],
         },
+      ],
+    },
+    {
+      label: 'Activity',
+      items: [
         {
           id: 'admin.audit',
           icon: FileClock,

@@ -7,21 +7,34 @@ export interface DirectoryRow {
   account_status: 'none' | 'active' | 'suspended';
   user_id: string | null;
   roles: string[];
+  groups: string[];
 }
 
 export interface DirectoryPage {
   rows: DirectoryRow[];
   page: number;
+  pageSize: number;
   hasMore: boolean;
+  total: number;
 }
 
-export async function listDirectory(
-  p: { search?: string; status?: string; page?: number } = {},
-): Promise<DirectoryPage> {
+export interface DirectoryFilters {
+  search?: string;
+  status?: string;
+  employment?: string;
+  group_id?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export async function listDirectory(p: DirectoryFilters = {}): Promise<DirectoryPage> {
   const qs = new URLSearchParams();
   if (p.search) qs.set('search', p.search);
   if (p.status) qs.set('status', p.status);
+  if (p.employment) qs.set('employment', p.employment);
+  if (p.group_id) qs.set('group_id', p.group_id);
   if (p.page !== undefined) qs.set('page', String(p.page));
+  if (p.pageSize !== undefined) qs.set('pageSize', String(p.pageSize));
   const res = await fetch(`/api/identity/v1/directory?${qs}`, { credentials: 'include' });
   if (!res.ok) throw new Error(`directory failed: ${res.status}`);
   return res.json() as Promise<DirectoryPage>;

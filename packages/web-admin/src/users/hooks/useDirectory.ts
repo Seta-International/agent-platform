@@ -4,6 +4,7 @@ import {
   type BulkRoleBody,
   type BulkRoleResult,
   bulkRole,
+  type DirectoryFilters,
   listDirectory,
   provisionAccount,
   reactivateAccount,
@@ -11,7 +12,7 @@ import {
 } from '../api/directory-client.ts';
 import { directoryKeys } from '../state/query-keys.ts';
 
-export function useDirectory(params: { search?: string; status?: string; page?: number } = {}) {
+export function useDirectory(params: DirectoryFilters = {}) {
   return useQuery({
     queryKey: directoryKeys.list(params),
     queryFn: () => listDirectory(params),

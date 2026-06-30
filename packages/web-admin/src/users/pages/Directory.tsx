@@ -1,6 +1,7 @@
 import {
   Badge,
   Button,
+  cn,
   DataTable,
   Dialog,
   DialogClose,
@@ -25,19 +26,57 @@ import {
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import type { ColumnDef, OnChangeFn, PaginationState, Row } from '@tanstack/react-table';
-import { MoreHorizontal } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { MoreHorizontal, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { PersonAvatar } from '../../components/person-avatar.tsx';
+import { useGroupsQuery } from '../../groups/hooks/useGroups.ts';
 import type { DirectoryRow } from '../api/directory-client.ts';
-import { BulkRoleBar } from '../components/BulkRoleBar.tsx';
+import { BulkGroupBar } from '../components/BulkGroupBar.tsx';
 import { UserDetailSheet } from '../components/UserDetailSheet.tsx';
+import type { DirectorySearch } from '../directory-search.ts';
 import { useDirectory, useProvision, useReactivate, useSuspend } from '../hooks/useDirectory.ts';
 
 const STATUS_OPTIONS = [
-  { value: 'all', label: 'All statuses' },
+  { value: 'all', label: 'All accounts' },
   { value: 'none', label: 'No account' },
   { value: 'active', label: 'Active' },
   { value: 'suspended', label: 'Suspended' },
 ] as const;
+
+const EMPLOYMENT_OPTIONS = [
+  { value: 'all', label: 'All employment' },
+  { value: 'active', label: 'Employed' },
+  { value: 'terminated', label: 'Terminated' },
+] as const;
+
+function FilterSelect({
+  value,
+  onValueChange,
+  options,
+  ariaLabel,
+  className,
+}: {
+  value: string;
+  onValueChange: (v: string) => void;
+  options: ReadonlyArray<{ value: string; label: string }>;
+  ariaLabel: string;
+  className?: string;
+}) {
+  return (
+    <Select value={value} onValueChange={onValueChange}>
+      <SelectTrigger aria-label={ariaLabel} className={cn('h-8 text-body-sm', className)}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((o) => (
+          <SelectItem key={o.value} value={o.value}>
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
 
 const ACCOUNT_STATUS_BADGE: Record<
   DirectoryRow['account_status'],
@@ -64,22 +103,70 @@ const EMPLOYMENT_LABEL: Record<DirectoryRow['employment_status'], string> = {
   terminated: 'Terminated',
 };
 
-const PAGE_SIZE = 25;
+const DEFAULT_PAGE_SIZE = 25;
 
-export function Directory() {
-  const [search, setSearch] = useState('');
-  const [status, setStatus] = useState('all');
-  const [page, setPage] = useState(0);
+interface DirectoryProps {
+  search: DirectorySearch;
+  onSearch: (next: (prev: DirectorySearch) => DirectorySearch) => void;
+}
+
+export function Directory({ search, onSearch }: DirectoryProps) {
   const [selectedRow, setSelectedRow] = useState<DirectoryRow | null>(null);
   const [suspendTarget, setSuspendTarget] = useState<DirectoryRow | null>(null);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
 
   const canWrite = usePermission('identity.user.write');
 
+  // URL search params are the source of truth (shareable, survive refresh).
+  const status = search.status ?? 'all';
+  const employment = search.employment ?? 'all';
+  const group = search.group ?? 'all';
+  const page = search.page ?? 0;
+  const pageSize = search.size ?? DEFAULT_PAGE_SIZE;
+
+  // Changing any filter resets to the first page; pagination keeps the filters.
+  const applyFilter = useCallback(
+    (patch: Partial<DirectorySearch>) =>
+      onSearch((prev) => ({ ...prev, ...patch, page: undefined })),
+    [onSearch],
+  );
+  const setPage = useCallback(
+    (p: number) => onSearch((prev) => ({ ...prev, page: p > 0 ? p : undefined })),
+    [onSearch],
+  );
+  // Changing page size resets to the first page so the offset stays valid.
+  const setPageSize = useCallback(
+    (s: number) =>
+      onSearch((prev) => ({
+        ...prev,
+        page: undefined,
+        size: s === DEFAULT_PAGE_SIZE ? undefined : s,
+      })),
+    [onSearch],
+  );
+
+  // Local mirror keeps the search box responsive; the URL stays the source of truth.
+  const [qInput, setQInput] = useState(search.q ?? '');
+  useEffect(() => setQInput(search.q ?? ''), [search.q]);
+
+  const { data: groups = [] } = useGroupsQuery();
+  const groupOptions = useMemo(
+    () => [
+      { value: 'all', label: 'All groups' },
+      ...groups.map((g) => ({ value: g.group_id, label: g.name })),
+    ],
+    [groups],
+  );
+
+  const hasFilters = status !== 'all' || employment !== 'all' || group !== 'all' || !!search.q;
+
   const { data, isLoading } = useDirectory({
-    search: search.trim() || undefined,
+    search: search.q?.trim() || undefined,
     status: status === 'all' ? undefined : status,
+    employment: employment === 'all' ? undefined : employment,
+    group_id: group === 'all' ? undefined : group,
     page,
+    pageSize,
   });
 
   const provision = useProvision();
@@ -87,7 +174,6 @@ export function Directory() {
   const reactivate = useReactivate();
 
   const rows = data?.rows ?? [];
-  const hasMore = data?.hasMore ?? false;
 
   // Accumulator: person_id → user_id, surviving pagination. rowSelection drives
   // the table checkboxes per page; selectedUsers is the durable cross-page set.
@@ -125,8 +211,8 @@ export function Directory() {
     setSelectedUsers({});
   }
 
-  const pageCount = page + (hasMore ? 2 : 1);
-  const rowCount = page * PAGE_SIZE + rows.length + (hasMore ? 1 : 0);
+  const rowCount = data?.total ?? 0;
+  const pageCount = Math.max(1, Math.ceil(rowCount / pageSize));
 
   const columns = useMemo<ColumnDef<DirectoryRow>[]>(
     () => [
@@ -134,18 +220,19 @@ export function Directory() {
         id: 'full_name',
         accessorKey: 'full_name',
         header: 'Name',
-        cell: ({ row }) => <span className="font-medium text-ink">{row.original.full_name}</span>,
-      },
-      {
-        id: 'work_email',
-        accessorKey: 'work_email',
-        header: 'Email',
-        cell: ({ row }) =>
-          row.original.work_email ? (
-            <span className="text-ink-muted">{row.original.work_email}</span>
-          ) : (
-            <span className="text-ink-tertiary">{'—'}</span>
-          ),
+        cell: ({ row }) => (
+          <div className="flex items-center gap-2.5">
+            <PersonAvatar name={row.original.full_name} />
+            <div className="flex min-w-0 flex-col">
+              <span className="truncate font-medium text-ink">{row.original.full_name}</span>
+              {row.original.work_email && (
+                <span className="truncate text-caption text-ink-tertiary">
+                  {row.original.work_email}
+                </span>
+              )}
+            </div>
+          </div>
+        ),
       },
       {
         id: 'job_title',
@@ -179,15 +266,25 @@ export function Directory() {
         ),
       },
       {
-        id: 'roles',
-        header: 'Roles',
+        id: 'groups',
+        header: 'Groups',
         enableSorting: false,
-        cell: ({ row }) =>
-          row.original.roles.length > 0 ? (
-            <span className="text-body-sm text-ink-muted">{row.original.roles.join(', ')}</span>
-          ) : (
-            <span className="text-ink-tertiary">{'—'}</span>
-          ),
+        cell: ({ row }) => {
+          const groups = row.original.groups ?? [];
+          if (groups.length === 0) return <span className="text-ink-tertiary">{'—'}</span>;
+          return (
+            <div className="flex flex-wrap items-center gap-1">
+              {groups.slice(0, 2).map((g) => (
+                <Badge key={g} variant="secondary">
+                  {g}
+                </Badge>
+              ))}
+              {groups.length > 2 && (
+                <span className="text-caption text-ink-tertiary">+{groups.length - 2}</span>
+              )}
+            </div>
+          );
+        },
       },
       {
         id: 'actions',
@@ -239,45 +336,72 @@ export function Directory() {
   const subtitle = isLoading
     ? 'Loading…'
     : data
-      ? `${rowCount.toLocaleString()}${hasMore ? '+' : ''} ${rowCount === 1 ? 'person' : 'people'}`
+      ? `${rowCount.toLocaleString()} ${rowCount === 1 ? 'person' : 'people'}`
       : undefined;
 
-  const pagination: PaginationState = { pageIndex: page, pageSize: PAGE_SIZE };
+  const pagination: PaginationState = { pageIndex: page, pageSize };
 
   return (
     <PageChrome
       breadcrumb={['Admin']}
-      title="Users"
+      title="Directory"
       subtitle={subtitle}
       toolbar={
         <PageChromeToolbar
           left={
-            <Select
-              value={status}
-              onValueChange={(v) => {
-                setStatus(v);
-                setPage(0);
-              }}
-            >
-              <SelectTrigger className="h-8 w-44 text-body-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {STATUS_OPTIONS.map((o) => (
-                  <SelectItem key={o.value} value={o.value}>
-                    {o.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex flex-wrap items-center gap-2">
+              <FilterSelect
+                ariaLabel="Filter by group"
+                value={group}
+                onValueChange={(v) => applyFilter({ group: v === 'all' ? undefined : v })}
+                options={groupOptions}
+                className="w-44"
+              />
+              <FilterSelect
+                ariaLabel="Filter by account status"
+                value={status}
+                onValueChange={(v) =>
+                  applyFilter({
+                    status: v === 'all' ? undefined : (v as DirectorySearch['status']),
+                  })
+                }
+                options={STATUS_OPTIONS}
+                className="w-40"
+              />
+              <FilterSelect
+                ariaLabel="Filter by employment"
+                value={employment}
+                onValueChange={(v) =>
+                  applyFilter({
+                    employment: v === 'all' ? undefined : (v as DirectorySearch['employment']),
+                  })
+                }
+                options={EMPLOYMENT_OPTIONS}
+                className="w-40"
+              />
+              {hasFilters && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 text-ink-subtle"
+                  onClick={() => {
+                    setQInput('');
+                    onSearch(() => ({}));
+                  }}
+                >
+                  <X className="size-3.5" aria-hidden />
+                  Clear
+                </Button>
+              )}
+            </div>
           }
           right={
             <Input
               placeholder="Search people…"
-              value={search}
+              value={qInput}
               onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(0);
+                setQInput(e.target.value);
+                applyFilter({ q: e.target.value.trim() || undefined });
               }}
               className="h-8 w-64 text-body-sm"
               aria-label="Search people"
@@ -287,7 +411,7 @@ export function Directory() {
       }
     >
       {canWrite && selectedUserIds.length > 0 && (
-        <BulkRoleBar selectedUserIds={selectedUserIds} onClearSelection={clearSelection} />
+        <BulkGroupBar selectedUserIds={selectedUserIds} onClearSelection={clearSelection} />
       )}
       <div className="px-6 py-4">
         <DataTable
@@ -309,7 +433,8 @@ export function Directory() {
           pagination={pagination}
           onPaginationChange={(updater) => {
             const next = typeof updater === 'function' ? updater(pagination) : updater;
-            setPage(next.pageIndex);
+            if (next.pageSize !== pageSize) setPageSize(next.pageSize);
+            else setPage(next.pageIndex);
           }}
           pageCount={pageCount}
           rowCount={rowCount}

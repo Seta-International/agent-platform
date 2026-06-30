@@ -1,7 +1,21 @@
 import { PRODUCTS } from '@seta/shared-rbac';
-import { Badge, Sheet, SheetContent, SheetHeader, SheetTitle } from '@seta/shared-ui';
+import {
+  Badge,
+  Combobox,
+  cn,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { Boxes, ShieldCheck, UsersRound } from 'lucide-react';
+import { PersonAvatar } from '../../components/person-avatar.tsx';
 import {
   clearUserProductOverride,
   listUserProducts,
@@ -55,69 +69,72 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+function SectionTitle({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2 border-b border-hairline pb-2">
+      <span className="text-ink-subtle">{icon}</span>
+      <h3 className="text-body-sm font-semibold text-ink">{children}</h3>
+    </div>
+  );
+}
+
 function GroupsSection({ userId }: { userId: string }) {
   const { data: userGroups = [] } = useUserGroups(userId);
   const { data: allGroups = [] } = useGroupsQuery();
   const { add, remove } = useGroupMembersMutations();
-  const [selectedGroupId, setSelectedGroupId] = useState('');
 
-  const joinedIds = new Set(userGroups.map((g) => g.group_id));
-  const available = allGroups.filter((g) => !joinedIds.has(g.group_id));
+  const value = userGroups.map((g) => g.group_id);
+  const options = allGroups.map((g) => ({ value: g.group_id, label: g.name, keywords: [g.slug] }));
 
-  function handleAdd() {
-    if (!selectedGroupId) return;
-    add.mutate({ id: selectedGroupId, user_ids: [userId] });
-    setSelectedGroupId('');
-  }
+  const handleChange = (next: string[]) => {
+    const before = new Set(value);
+    const after = new Set(next);
+    for (const id of next) if (!before.has(id)) add.mutate({ id, user_ids: [userId] });
+    for (const id of value) if (!after.has(id)) remove.mutate({ id, userId });
+  };
 
   return (
     <Field label="Groups">
-      <div className="flex flex-col gap-2">
-        {userGroups.length > 0 ? (
-          <div className="flex flex-wrap gap-1.5">
-            {userGroups.map((g) => (
-              <span key={g.group_id} className="inline-flex items-center gap-1">
-                <Badge variant="secondary">{g.name}</Badge>
-                <button
-                  type="button"
-                  aria-label={`Remove from ${g.name}`}
-                  className="text-ink-subtle hover:text-ink leading-none"
-                  onClick={() => remove.mutate({ id: g.group_id, userId })}
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-          </div>
-        ) : (
-          <span className="text-ink-tertiary">No groups</span>
-        )}
+      <Combobox
+        multiple
+        value={value}
+        onChange={handleChange}
+        options={options}
+        placeholder="Add to group…"
+        searchPlaceholder="Search groups…"
+        aria-label="Groups"
+      />
+    </Field>
+  );
+}
 
-        {available.length > 0 && (
-          <div className="flex gap-1.5">
-            <select
-              className="text-body-sm border border-border rounded px-1.5 py-0.5 bg-surface flex-1"
-              value={selectedGroupId}
-              onChange={(e) => setSelectedGroupId(e.target.value)}
+/** Roles the user inherits, derived live from current group memberships so it tracks add/remove. */
+function RolesSection({ userId }: { userId: string }) {
+  const { data: userGroups = [] } = useUserGroups(userId);
+  const { data: allGroups = [] } = useGroupsQuery();
+
+  const joined = new Set(userGroups.map((g) => g.group_id));
+  const roles = [
+    ...new Set(allGroups.filter((g) => joined.has(g.group_id)).flatMap((g) => g.role_slugs)),
+  ].sort();
+
+  return (
+    <Field label="Roles · inherited from groups">
+      {roles.length > 0 ? (
+        <div className="flex flex-wrap gap-1.5">
+          {roles.map((r) => (
+            <span
+              key={r}
+              className="inline-flex items-center gap-1 rounded-md bg-surface-2 px-1.5 py-0.5 font-mono text-caption text-ink-subtle"
             >
-              <option value="">Add to group…</option>
-              {available.map((g) => (
-                <option key={g.group_id} value={g.group_id}>
-                  {g.name}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              disabled={!selectedGroupId || add.isPending}
-              className="text-body-sm px-2 py-0.5 rounded bg-brand text-white disabled:opacity-50"
-              onClick={handleAdd}
-            >
-              Add
-            </button>
-          </div>
-        )}
-      </div>
+              <ShieldCheck className="size-3" aria-hidden />
+              {r}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <span className="text-ink-tertiary">No roles</span>
+      )}
     </Field>
   );
 }
@@ -126,27 +143,29 @@ const productKeys = {
   user: (userId: string) => ['identity', 'products', 'user', userId] as const,
 };
 
-function effectLabel(rows: UserProductAccess[], productId: string): string {
-  const userOverride = rows.find((r) => r.product_id === productId && r.source === 'user');
-  if (userOverride)
-    return userOverride.effect === 'grant' ? 'granted (override)' : 'revoked (override)';
-  const last = [...rows].reverse().find((r) => r.product_id === productId);
-  if (!last) return 'not granted';
-  if (last.source === 'role') return `via role`;
-  if (last.source === 'group') return `via group`;
-  if (last.source === 'tenant') return `via tenant`;
-  return last.effect;
-}
+const VIA_LABEL: Record<string, string> = {
+  role: 'via role',
+  group: 'via group',
+  tenant: 'via tenant',
+};
 
-function sourceVariant(
+/** Effective entitlement for a product: whether it's granted, how, and if an admin override is set. */
+function productState(
   rows: UserProductAccess[],
   productId: string,
-): 'secondary' | 'success' | 'destructive' | 'outline' {
+): { granted: boolean; source: string; isOverride: boolean } {
   const userOverride = rows.find((r) => r.product_id === productId && r.source === 'user');
-  if (userOverride) return userOverride.effect === 'grant' ? 'success' : 'destructive';
+  if (userOverride) {
+    const granted = userOverride.effect === 'grant';
+    return {
+      granted,
+      source: granted ? 'Granted · override' : 'Revoked · override',
+      isOverride: true,
+    };
+  }
   const last = [...rows].reverse().find((r) => r.product_id === productId);
-  if (!last) return 'outline';
-  return 'secondary';
+  if (last?.effect !== 'grant') return { granted: false, source: 'Not granted', isOverride: false };
+  return { granted: true, source: VIA_LABEL[last.source] ?? last.source, isOverride: false };
 }
 
 function ProductsSection({ userId }: { userId: string }) {
@@ -168,100 +187,116 @@ function ProductsSection({ userId }: { userId: string }) {
     onSettled: () => qc.invalidateQueries({ queryKey: productKeys.user(userId) }),
   });
 
+  const busy = setOverride.isPending || clearOverride.isPending;
+
   return (
-    <Field label="Products">
-      <div className="flex flex-col gap-2">
-        {PRODUCTS.map((p) => {
-          const userOverride = rows.find((r) => r.product_id === p.id && r.source === 'user');
-          const hasOverride = !!userOverride;
-          return (
-            <div key={p.id} className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                <span className="text-body-sm text-ink truncate">{p.label}</span>
-                <Badge variant={sourceVariant(rows, p.id)}>{effectLabel(rows, p.id)}</Badge>
-              </div>
-              <div className="flex gap-1 shrink-0">
-                <button
-                  type="button"
-                  disabled={setOverride.isPending || clearOverride.isPending}
-                  className="text-caption px-1.5 py-0.5 rounded border border-border bg-surface hover:bg-surface-2 text-ink-subtle disabled:opacity-50"
-                  onClick={() => setOverride.mutate({ productId: p.id, effect: 'grant' })}
-                >
-                  Grant
-                </button>
-                <button
-                  type="button"
-                  disabled={setOverride.isPending || clearOverride.isPending}
-                  className="text-caption px-1.5 py-0.5 rounded border border-border bg-surface hover:bg-surface-2 text-ink-subtle disabled:opacity-50"
-                  onClick={() => setOverride.mutate({ productId: p.id, effect: 'revoke' })}
-                >
-                  Revoke
-                </button>
-                {hasOverride && (
-                  <button
-                    type="button"
-                    disabled={setOverride.isPending || clearOverride.isPending}
-                    className="text-caption px-1.5 py-0.5 rounded border border-border bg-surface hover:bg-surface-2 text-ink-subtle disabled:opacity-50"
-                    onClick={() => clearOverride.mutate({ productId: p.id })}
-                  >
-                    Clear
-                  </button>
+    <div className="flex flex-col gap-1.5">
+      {PRODUCTS.map((p) => {
+        const userOverride = rows.find((r) => r.product_id === p.id && r.source === 'user');
+        const overrideValue = userOverride
+          ? userOverride.effect
+          : ('inherit' as 'grant' | 'revoke' | 'inherit');
+        const { granted, source, isOverride } = productState(rows, p.id);
+        return (
+          <div
+            key={p.id}
+            className={cn(
+              'flex items-center justify-between gap-3 rounded-lg border px-3 py-2',
+              isOverride ? 'border-primary/40 bg-primary/[0.04]' : 'border-hairline bg-surface-1',
+            )}
+          >
+            <div className="flex min-w-0 items-center gap-2.5">
+              <span
+                className={cn(
+                  'size-1.5 flex-none rounded-full',
+                  granted ? 'bg-success' : 'bg-ink-tertiary/50',
                 )}
+                aria-hidden
+              />
+              <div className="min-w-0">
+                <span className="block truncate text-body-sm font-medium text-ink">{p.label}</span>
+                <span className="block truncate text-caption text-ink-subtle">{source}</span>
               </div>
             </div>
-          );
-        })}
-      </div>
-    </Field>
+            <Select
+              value={overrideValue}
+              onValueChange={(v) => {
+                if (busy) return;
+                if (v === 'inherit') clearOverride.mutate({ productId: p.id });
+                else setOverride.mutate({ productId: p.id, effect: v as 'grant' | 'revoke' });
+              }}
+            >
+              <SelectTrigger
+                aria-label={`${p.label} access`}
+                className="h-8 w-28 flex-none text-body-sm"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="inherit">Auto</SelectItem>
+                <SelectItem value="grant">Grant</SelectItem>
+                <SelectItem value="revoke">Revoke</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
 export function UserDetailSheet({ row, open, onOpenChange }: Props) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-96 sm:max-w-96 overflow-y-auto">
+      <SheetContent side="right" className="w-[27rem] overflow-y-auto sm:max-w-[27rem]">
         <SheetHeader className="mb-6">
-          <SheetTitle>{row?.full_name ?? '—'}</SheetTitle>
+          <div className="flex items-center gap-3">
+            <PersonAvatar
+              name={row?.full_name ?? '?'}
+              className="size-10 text-body-sm font-semibold"
+            />
+            <div className="min-w-0">
+              <SheetTitle className="truncate">{row?.full_name ?? '—'}</SheetTitle>
+              {row?.work_email && (
+                <p className="truncate text-caption text-ink-subtle">{row.work_email}</p>
+              )}
+            </div>
+          </div>
         </SheetHeader>
 
         {row && (
           <div className="flex flex-col gap-5">
-            <Field label="Email">
-              {row.work_email ?? <span className="text-ink-tertiary">—</span>}
-            </Field>
-
             <Field label="Job title">
               {row.job_title ?? <span className="text-ink-tertiary">—</span>}
             </Field>
 
-            <Field label="Employment">
-              <Badge variant={EMPLOYMENT_BADGE[row.employment_status]}>
-                {EMPLOYMENT_LABEL[row.employment_status]}
-              </Badge>
-            </Field>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Employment">
+                <Badge variant={EMPLOYMENT_BADGE[row.employment_status]}>
+                  {EMPLOYMENT_LABEL[row.employment_status]}
+                </Badge>
+              </Field>
+              <Field label="Account">
+                <Badge variant={ACCOUNT_STATUS_BADGE[row.account_status]}>
+                  {ACCOUNT_STATUS_LABEL[row.account_status]}
+                </Badge>
+              </Field>
+            </div>
 
-            <Field label="Account">
-              <Badge variant={ACCOUNT_STATUS_BADGE[row.account_status]}>
-                {ACCOUNT_STATUS_LABEL[row.account_status]}
-              </Badge>
-            </Field>
+            {row.user_id && (
+              <div className="mt-1 flex flex-col gap-4">
+                <SectionTitle icon={<UsersRound className="size-4" />}>Access</SectionTitle>
 
-            <Field label="Roles">
-              {row.roles.length > 0 ? (
-                <div className="flex flex-wrap gap-1.5">
-                  {row.roles.map((r) => (
-                    <Badge key={r} variant="secondary">
-                      {r}
-                    </Badge>
-                  ))}
+                <GroupsSection userId={row.user_id} />
+
+                <RolesSection userId={row.user_id} />
+
+                <div className="flex flex-col gap-3">
+                  <SectionTitle icon={<Boxes className="size-4" />}>Product overrides</SectionTitle>
+                  <ProductsSection userId={row.user_id} />
                 </div>
-              ) : (
-                <span className="text-ink-tertiary">No roles assigned</span>
-              )}
-            </Field>
-
-            {row.user_id && <GroupsSection userId={row.user_id} />}
-            {row.user_id && <ProductsSection userId={row.user_id} />}
+              </div>
+            )}
           </div>
         )}
       </SheetContent>

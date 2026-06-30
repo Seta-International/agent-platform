@@ -45,6 +45,17 @@ export async function createGroup(body: {
   return post<{ group_id: string }>('/api/identity/v1/groups', body);
 }
 
+export async function updateGroup(
+  id: string,
+  body: { name?: string; description?: string },
+): Promise<void> {
+  return send('PATCH', `/api/identity/v1/groups/${id}`, body);
+}
+
+export async function deleteGroup(id: string): Promise<void> {
+  return send('DELETE', `/api/identity/v1/groups/${id}`);
+}
+
 export async function setGroupRoles(id: string, role_slugs: string[]): Promise<void> {
   return send('PUT', `/api/identity/v1/groups/${id}/roles`, { role_slugs });
 }

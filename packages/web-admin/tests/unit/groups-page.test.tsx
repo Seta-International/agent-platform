@@ -17,16 +17,8 @@ vi.mock('../../src/groups/api/groups-client.ts', () => ({
   ],
 }));
 
-// useMemberSearch uses useQueryClient — stub the search fns so no fetch is issued
-vi.mock('../../src/feature-flags/api/member-search.ts', () => ({
-  useMemberSearch: () => ({
-    search: async () => [],
-    resolveByIds: async () => [],
-  }),
-}));
-
 describe('GroupsPage', () => {
-  it('renders groups', async () => {
+  it('lists groups and opens the first in the detail pane', async () => {
     render(
       <QueryClientProvider
         client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
@@ -34,7 +26,10 @@ describe('GroupsPage', () => {
         <GroupsPage />
       </QueryClientProvider>,
     );
-    expect(await screen.findByText('HR')).toBeInTheDocument();
-    expect(await screen.findByText('3')).toBeInTheDocument();
+    // The group surfaces in both the list and the auto-selected detail header.
+    expect((await screen.findAllByText('HR')).length).toBeGreaterThan(0);
+    // The detail pane renders the slug and the Roles section.
+    expect(await screen.findByText('hr')).toBeInTheDocument();
+    expect(await screen.findByText('Roles')).toBeInTheDocument();
   });
 });

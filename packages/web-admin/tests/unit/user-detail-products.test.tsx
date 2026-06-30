@@ -30,6 +30,7 @@ describe('user detail products', () => {
             account_status: 'active',
             user_id: 'u1',
             roles: [],
+            groups: [],
           }}
           open
           onOpenChange={() => {}}

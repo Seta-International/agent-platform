@@ -59,8 +59,21 @@ export function registerAdminUsersRoutes(app: Hono<SessionEnv>): void {
   app.get('/api/identity/v1/directory', async (c) => {
     const session = c.get('user');
     const page = Number(c.req.query('page') ?? '0');
+    const pageSizeRaw = c.req.query('pageSize');
+    const pageSize = pageSizeRaw ? Number(pageSizeRaw) : undefined;
     const status = c.req.query('status') as 'none' | 'active' | 'suspended' | undefined;
-    return c.json(await listDirectory(session, { search: c.req.query('search'), status, page }));
+    const employment = c.req.query('employment') as 'active' | 'terminated' | undefined;
+    const group_id = c.req.query('group_id') || undefined;
+    return c.json(
+      await listDirectory(session, {
+        search: c.req.query('search'),
+        status,
+        employment,
+        group_id,
+        page,
+        pageSize,
+      }),
+    );
   });
 
   app.get('/api/identity/v1/users', async (c) => {
