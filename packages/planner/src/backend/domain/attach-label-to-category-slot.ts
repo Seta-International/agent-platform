@@ -140,6 +140,7 @@ export async function attachLabelToCategorySlotTx(
   await emitPlannerLabelCategorySlotChanged({
     actor: { type: 'user', user_id: input.session.user_id },
     tenant_id: existing.tenant_id,
+    group_id: plan.group_id,
     plan_id: existing.plan_id,
     label_id: existing.id,
     before: beforeSlot,

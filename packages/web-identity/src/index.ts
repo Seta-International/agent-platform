@@ -12,6 +12,6 @@ export { ProfileAccountSection } from './components/ProfileAccountSection.tsx';
 export { ProfileAvailabilitySection } from './components/ProfileAvailabilitySection.tsx';
 export { ProfileLocaleSection } from './components/ProfileLocaleSection.tsx';
 export { ProfileSkillsSection } from './components/ProfileSkillsSection.tsx';
-export { SessionProvider, useSession } from './components/SessionProvider.tsx';
+export { SessionProvider, useRefreshSession, useSession } from './components/SessionProvider.tsx';
 export { UserMenu } from './components/UserMenu.tsx';
 export { ProfileSettings } from './pages/ProfileSettings.tsx';

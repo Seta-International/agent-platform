@@ -20,7 +20,6 @@ export const pmAppManifest: AppManifest = {
   useNavExtensions: noNavExtensions,
   nav: [
     {
-      label: 'Project Monitoring',
       items: [
         {
           id: 'pm.portfolio',
@@ -50,7 +49,6 @@ export const pmAppManifest: AppManifest = {
           label: 'RA Monitoring',
           to: '/pm/resourcing',
           requires: ['pm.account.read'],
-          badge: 'Soon',
         },
         {
           id: 'pm.risks',

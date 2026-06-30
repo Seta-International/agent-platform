@@ -133,6 +133,7 @@ export const createAllocationInput = z.object({
   planned_pct: z.number().min(0).max(100).nullable().optional(),
   minutes_per_day: z.number().int().nonnegative().nullable().optional(),
   status: z.enum(['placeholder', 'tentative', 'committed']).optional().default('placeholder'),
+  note: z.string().nullable().optional(),
 });
 export type CreateAllocationInput = z.input<typeof createAllocationInput>;
 
@@ -143,5 +144,7 @@ export const updateAllocationInput = z.object({
   status: z.enum(['placeholder', 'tentative', 'committed']).optional(),
   date_from: z.string().nullable().optional(),
   date_to: z.string().nullable().optional(),
+  bucket: z.enum(['billable', 'internal', 'bench']).optional(),
+  note: z.string().nullable().optional(),
 });
 export type UpdateAllocationInput = z.infer<typeof updateAllocationInput>;

@@ -7,9 +7,10 @@ import {
   writeChatApprovalRow,
 } from '../domain/write-chat-approval-row.ts';
 import { agentEnv } from '../env.ts';
+import { recordLlmTurn } from '../llm-metrics.ts';
 import { ModelNotFoundError, resolveModel } from '../model-registry.ts';
 import { type ApprovalEvent, pumpOrchestrationStream } from '../orchestration-ui-stream.ts';
-import { RateLimitError, reserveTurn } from '../rate-limit.ts';
+import { commitActualTokens, RateLimitError, reserveTurn } from '../rate-limit.ts';
 import { getTenantSettings } from '../tenant-settings.ts';
 import { generateThreadTitle } from '../thread-title.ts';
 import {
@@ -154,9 +155,14 @@ export function mountChatRoute(app: Hono<AgentRouteEnv>, deps: AgentRouteDeps): 
     });
 
     let modelOverride: ReturnType<typeof resolveModel>['model'] | undefined;
+    // Catalog key used as the `model` metric label. Falls back to the auto-pick
+    // key so token throughput is always attributed to a concrete model.
+    let modelKey = resolveModel('auto', { tierHint: 'fast' }).entry.key;
     if (parsed.data.model && parsed.data.model !== 'auto') {
       try {
-        modelOverride = resolveModel(parsed.data.model, { tierHint: 'fast' }).model;
+        const resolved = resolveModel(parsed.data.model, { tierHint: 'fast' });
+        modelOverride = resolved.model;
+        modelKey = resolved.entry.key;
       } catch (e) {
         if (e instanceof ModelNotFoundError) {
           return c.json({ error: 'unknown_model', message: e.message }, 400);
@@ -165,8 +171,9 @@ export function mountChatRoute(app: Hono<AgentRouteEnv>, deps: AgentRouteDeps): 
       }
     }
 
+    let reservation: Awaited<ReturnType<typeof reserveTurn>>;
     try {
-      await reserveTurn({
+      reservation = await reserveTurn({
         tenantId: session.tenant_id,
         userId: session.user_id,
         estimatedTokens: estimatedTokensIn,
@@ -297,6 +304,7 @@ export function mountChatRoute(app: Hono<AgentRouteEnv>, deps: AgentRouteDeps): 
     const uiStream = createUIMessageStream({
       originalMessages: effectiveMessages,
       execute: async ({ writer }) => {
+        const turnStartAtMs = performance.now();
         const run = await orchestrate(
           { userText: effectiveUserText, taskId },
           {
@@ -317,13 +325,57 @@ export function mountChatRoute(app: Hono<AgentRouteEnv>, deps: AgentRouteDeps): 
           sendReasoning: true,
           sendStart: true,
           sendFinish: true,
-          onError: (e: unknown) => String(e),
+          // Log the real error (with stack) server-side before it's flattened to
+          // the client error part — otherwise mid-stream LLM/tool failures are
+          // invisible in the logs and only show as "Error in ... stream" on the UI.
+          onError: (e: unknown) => {
+            (deps.log?.error ?? console.error)(
+              { subsystem: 'agent.chat', event: 'stream.error', threadId: orchThreadId, err: e },
+              'agent chat stream error',
+            );
+            return e instanceof Error ? e.message : String(e);
+          },
         });
-        const { assistantParts } = await pumpOrchestrationStream(
+        const { assistantParts, timing } = await pumpOrchestrationStream(
           writer as unknown as import('../orchestration-ui-stream.ts').UiStreamWriter,
           aiParts as AsyncIterable<{ type: string; delta?: string; data?: unknown }>,
           { finalize: run.finalize, onApproval },
         );
+        // Token usage + throughput. Best-effort: observability and the rate-limit
+        // actuals reconciliation must never break the chat turn.
+        try {
+          const usage = await run.output.usage;
+          const inputTokens = usage?.inputTokens ?? 0;
+          const outputTokens = usage?.outputTokens ?? 0;
+          recordLlmTurn({
+            tenantId: session.tenant_id,
+            model: modelKey,
+            inputTokens,
+            outputTokens,
+            firstTokenAtMs: timing.firstTokenAtMs,
+            lastTokenAtMs: timing.lastTokenAtMs,
+            turnStartAtMs,
+          });
+          // Close the reservation loop: replace the estimate with measured tokens.
+          await commitActualTokens({
+            tenantId: session.tenant_id,
+            userId: session.user_id,
+            reservationWindowStart: reservation.windowStart,
+            estimatedTokensIn: reservation.estimatedTokensIn,
+            actualTokensIn: inputTokens,
+            actualTokensOut: outputTokens,
+          });
+        } catch (err) {
+          (deps.log?.warn ?? console.warn)(
+            {
+              subsystem: 'agent.chat',
+              event: 'llm.usage.record.failed',
+              threadId: orchThreadId,
+              err,
+            },
+            'failed to record LLM usage metrics',
+          );
+        }
         // Persist the user turn + assistant trace timeline so the conversation
         // survives reload (GET /threads/:id rebuilds the cards + final answer).
         if (!orchThreadId || !orchStore) return;

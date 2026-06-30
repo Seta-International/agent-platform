@@ -49,6 +49,10 @@ const adminProfilePatchSchema = z.object({
   skills: z.array(z.string()).optional(),
 });
 
+// Admin gate for user *management* (grant roles, deactivate, reset passwords, etc.).
+// Do NOT reuse this endpoint's `/users` list for assignee/mention pickers — that needs a
+// read permission every member has, not an admin role. Use `/api/identity/v1/directory`
+// instead (see directory.ts / FUT-54).
 function requireAdmin(c: Context<SessionEnv>): void {
   const scope = c.get('user');
   const isAdmin =

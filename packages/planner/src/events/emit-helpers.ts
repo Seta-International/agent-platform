@@ -1,4 +1,9 @@
-import { emit } from '@seta/core/events';
+import { emit as coreEmit, emitContext } from '@seta/core/events';
+import type { DomainEventInput } from '@seta/shared-types';
+import {
+  extractGroupIdFromPayload,
+  touchGroupActivity,
+} from '../backend/domain/_touch-group-activity.ts';
 import type {
   PlannerBucketCreated,
   PlannerBucketDeleted,
@@ -46,6 +51,26 @@ import type {
   TaskChangedField,
   Uuid,
 } from './types.ts';
+
+async function touchGroupActivityFromEvent<P>(event: DomainEventInput<P>): Promise<void> {
+  const ctx = emitContext.getStore();
+  if (!ctx?.tx) return;
+  const payload = event.payload as Record<string, unknown>;
+  const groupId = extractGroupIdFromPayload(payload);
+  if (groupId) {
+    await touchGroupActivity(ctx.tx, { group_id: groupId });
+  }
+  const fromGroupId = payload.from_group_id;
+  if (typeof fromGroupId === 'string' && fromGroupId !== groupId) {
+    await touchGroupActivity(ctx.tx, { group_id: fromGroupId });
+  }
+}
+
+async function emit<P>(event: DomainEventInput<P>): Promise<{ eventId: string }> {
+  const result = await coreEmit(event);
+  await touchGroupActivityFromEvent(event);
+  return result;
+}
 
 // -----
 // Groups
@@ -618,6 +643,8 @@ export async function emitPlannerTaskMoved(args: {
   actor: PlannerEventActor;
   tenant_id: Uuid;
   group_id: Uuid;
+  /** When set with a different `group_id`, both groups get an activity bump. */
+  from_group_id?: Uuid;
   task_id: Uuid;
   /**
    * The task's plan at the time of emission. For cross-plan moves callers
@@ -642,6 +669,7 @@ export async function emitPlannerTaskMoved(args: {
     payload: {
       actor: args.actor,
       group_id: args.group_id,
+      from_group_id: args.from_group_id,
       task_id: args.task_id,
       plan_id: args.plan_id,
       from_plan_id: args.from_plan_id ?? args.plan_id,
@@ -966,6 +994,7 @@ export async function emitPlannerLabelUnapplied(args: {
 export async function emitPlannerTaskReferenceAdded(args: {
   actor: PlannerEventActor;
   tenant_id: Uuid;
+  group_id: Uuid;
   task_id: Uuid;
   plan_id: Uuid;
   url: PlannerTaskReferenceAdded['payload']['url'];
@@ -981,6 +1010,7 @@ export async function emitPlannerTaskReferenceAdded(args: {
     payload: {
       actor: args.actor,
       tenant_id: args.tenant_id,
+      group_id: args.group_id,
       task_id: args.task_id,
       plan_id: args.plan_id,
       url: args.url,
@@ -993,6 +1023,7 @@ export async function emitPlannerTaskReferenceAdded(args: {
 export async function emitPlannerTaskReferenceRemoved(args: {
   actor: PlannerEventActor;
   tenant_id: Uuid;
+  group_id: Uuid;
   task_id: Uuid;
   plan_id: Uuid;
   url: PlannerTaskReferenceRemoved['payload']['url'];
@@ -1006,6 +1037,7 @@ export async function emitPlannerTaskReferenceRemoved(args: {
     payload: {
       actor: args.actor,
       tenant_id: args.tenant_id,
+      group_id: args.group_id,
       task_id: args.task_id,
       plan_id: args.plan_id,
       url: args.url,
@@ -1016,6 +1048,7 @@ export async function emitPlannerTaskReferenceRemoved(args: {
 export async function emitPlannerPlanCategoryDescriptionChanged(args: {
   actor: PlannerEventActor;
   tenant_id: Uuid;
+  group_id: Uuid;
   plan_id: Uuid;
   slot: PlannerPlanCategoryDescriptionChanged['payload']['slot'];
   before: PlannerPlanCategoryDescriptionChanged['payload']['before'];
@@ -1030,6 +1063,7 @@ export async function emitPlannerPlanCategoryDescriptionChanged(args: {
     payload: {
       actor: args.actor,
       tenant_id: args.tenant_id,
+      group_id: args.group_id,
       plan_id: args.plan_id,
       slot: args.slot,
       before: args.before,
@@ -1041,6 +1075,7 @@ export async function emitPlannerPlanCategoryDescriptionChanged(args: {
 export async function emitPlannerLabelCategorySlotChanged(args: {
   actor: PlannerEventActor;
   tenant_id: Uuid;
+  group_id: Uuid;
   plan_id: Uuid;
   label_id: Uuid;
   before: PlannerLabelCategorySlotChanged['payload']['before'];
@@ -1055,6 +1090,7 @@ export async function emitPlannerLabelCategorySlotChanged(args: {
     payload: {
       actor: args.actor,
       tenant_id: args.tenant_id,
+      group_id: args.group_id,
       plan_id: args.plan_id,
       label_id: args.label_id,
       before: args.before,

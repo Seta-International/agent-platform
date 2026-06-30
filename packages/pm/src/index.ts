@@ -16,8 +16,8 @@ export {
 export { listProjectAccess, setProjectAccess } from './backend/domain/project-access.ts';
 export type { AccountListRow } from './backend/domain/read-accounts.ts';
 export { getAccount, listAccounts } from './backend/domain/read-accounts.ts';
-export type { AllocationRow } from './backend/domain/read-allocations.ts';
-export { listProjectAllocations } from './backend/domain/read-allocations.ts';
+export type { AllocationRow, RaMonitoringRow } from './backend/domain/read-allocations.ts';
+export { listAllocations, listProjectAllocations } from './backend/domain/read-allocations.ts';
 export type {
   CharterListResult,
   CharterListRow,

@@ -73,6 +73,7 @@ async function removeTaskReferenceImpl(
       await emitPlannerTaskReferenceRemoved({
         actor: { type: 'user', user_id: input.session.user_id },
         tenant_id: task.tenant_id,
+        group_id: plan.group_id,
         task_id: task.id,
         plan_id: task.plan_id,
         url: input.url,

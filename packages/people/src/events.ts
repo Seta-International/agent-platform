@@ -1,8 +1,13 @@
 import { z } from 'zod';
 
+export const PEOPLE_WORKER_CREATED = 'people.worker.created';
+export const PEOPLE_WORKER_UPDATED = 'people.worker.updated';
+
 export const workerCreatedPayload = z.object({
   worker_id: z.string().uuid(),
   tenant_id: z.string().uuid(),
+  full_name: z.string(),
+  job_title: z.string().nullable(),
 });
 export type WorkerCreatedPayload = z.infer<typeof workerCreatedPayload>;
 
@@ -10,6 +15,8 @@ export const workerUpdatedPayload = z.object({
   worker_id: z.string().uuid(),
   tenant_id: z.string().uuid(),
   fields: z.array(z.string()),
+  full_name: z.string(),
+  job_title: z.string().nullable(),
 });
 export type WorkerUpdatedPayload = z.infer<typeof workerUpdatedPayload>;
 
@@ -35,8 +42,8 @@ export const personSkillRemovedPayload = z.object({
 export type PersonSkillRemovedPayload = z.infer<typeof personSkillRemovedPayload>;
 
 export const PEOPLE_EVENTS = {
-  'people.worker.created': workerCreatedPayload,
-  'people.worker.updated': workerUpdatedPayload,
+  [PEOPLE_WORKER_CREATED]: workerCreatedPayload,
+  [PEOPLE_WORKER_UPDATED]: workerUpdatedPayload,
   'people.worker.portal_access.changed': workerPortalAccessChangedPayload,
   'people.person.skill.added': personSkillAddedPayload,
   'people.person.skill.removed': personSkillRemovedPayload,
