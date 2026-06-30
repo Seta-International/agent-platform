@@ -1,0 +1,255 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 1,
+  "title": "LLM Throughput (tok/s)",
+  "uid": "llm-throughput",
+  "tags": ["llm", "vllm", "agent"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "time": { "from": "now-1h", "to": "now" },
+  "refresh": "10s",
+  "templating": {
+    "list": [
+      {
+        "name": "tenant",
+        "label": "Tenant",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(agent_llm_output_tokens_total, tenant)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "App — per-tenant (agent_llm_*)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Output tok/s (avg decode) by tenant",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 1 },
+      "fieldConfig": { "defaults": { "unit": "none" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum by (tenant) (rate(agent_llm_output_tokens_per_second_sum{tenant=~\"$tenant\"}[5m])) / sum by (tenant) (rate(agent_llm_output_tokens_per_second_count{tenant=~\"$tenant\"}[5m]))",
+          "legendFormat": "{{tenant}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Output tok/s p95 by tenant",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 1 },
+      "fieldConfig": { "defaults": { "unit": "none" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "histogram_quantile(0.95, sum by (tenant, le) (rate(agent_llm_output_tokens_per_second_bucket{tenant=~\"$tenant\"}[5m])))",
+          "legendFormat": "{{tenant}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Tokens/s throughput (output + prompt) by tenant",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 9 },
+      "fieldConfig": { "defaults": { "unit": "none" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum by (tenant) (rate(agent_llm_output_tokens_total{tenant=~\"$tenant\"}[5m]))",
+          "legendFormat": "out {{tenant}}"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum by (tenant) (rate(agent_llm_prompt_tokens_total{tenant=~\"$tenant\"}[5m]))",
+          "legendFormat": "in {{tenant}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Time to first token p95 (s) by tenant",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 9 },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "histogram_quantile(0.95, sum by (tenant, le) (rate(agent_llm_ttft_seconds_bucket{tenant=~\"$tenant\"}[5m])))",
+          "legendFormat": "{{tenant}}"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "vLLM — server-side (all tenants)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 17 }
+    },
+    {
+      "type": "timeseries",
+      "title": "vLLM generation tok/s by model",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 18 },
+      "fieldConfig": { "defaults": { "unit": "none" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum by (model_name) (rate(vllm:generation_tokens_total[1m]))",
+          "legendFormat": "out {{model_name}}"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum by (model_name) (rate(vllm:prompt_tokens_total[1m]))",
+          "legendFormat": "in {{model_name}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "vLLM requests running / waiting",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 18 },
+      "fieldConfig": { "defaults": { "unit": "none" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum by (model_name) (vllm:num_requests_running)",
+          "legendFormat": "running {{model_name}}"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum by (model_name) (vllm:num_requests_waiting)",
+          "legendFormat": "waiting {{model_name}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "vLLM time-per-output-token avg (s) — inverse = per-request tok/s",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 26 },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "rate(vllm:time_per_output_token_seconds_sum[1m]) / rate(vllm:time_per_output_token_seconds_count[1m])",
+          "legendFormat": "{{model_name}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "vLLM end-to-end request latency p95 (s)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 26 },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(vllm:e2e_request_latency_seconds_bucket[5m])))",
+          "legendFormat": "p95"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "GPU — resources (dcgm-exporter)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 34 }
+    },
+    {
+      "type": "timeseries",
+      "title": "GPU utilization (%) by gpu",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 35 },
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100 } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "DCGM_FI_DEV_GPU_UTIL",
+          "legendFormat": "gpu {{gpu}} {{modelName}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "VRAM used (GiB) by gpu",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 35 },
+      "fieldConfig": { "defaults": { "unit": "decgbytes" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "DCGM_FI_DEV_FB_USED / 1024",
+          "legendFormat": "used gpu {{gpu}}"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "(DCGM_FI_DEV_FB_USED + DCGM_FI_DEV_FB_FREE) / 1024",
+          "legendFormat": "total gpu {{gpu}}"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "VRAM peak (GiB, window) by gpu",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 43 },
+      "fieldConfig": { "defaults": { "unit": "decgbytes" } },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "horizontal" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "max_over_time(DCGM_FI_DEV_FB_USED[$__range]) / 1024",
+          "legendFormat": "peak gpu {{gpu}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "GPU temperature (°C) / power (W) by gpu",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 43 },
+      "fieldConfig": { "defaults": { "unit": "none" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "DCGM_FI_DEV_GPU_TEMP",
+          "legendFormat": "temp gpu {{gpu}}"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "DCGM_FI_DEV_POWER_USAGE",
+          "legendFormat": "power gpu {{gpu}}"
+        }
+      ]
+    }
+  ]
+}

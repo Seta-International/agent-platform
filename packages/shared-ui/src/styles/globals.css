@@ -105,6 +105,7 @@ select:focus-visible,
 .kanban-column__drag-handle:active { cursor: grabbing; }
 .kanban-column__name      { font-size: var(--text-body-sm); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .kanban-column__count     { font-size: var(--font-size-xs); color: var(--color-ink-subtle); }
+.kanban-column__count--over { color: var(--color-danger); font-weight: 600; }
 .kanban-column__list      { display: flex; flex-direction: column; gap: 6px; min-height: 40px; }
 .kanban-column__cards     { display: flex; flex-direction: column; gap: 6px; min-height: 40px; }
 .kanban-column__list--over { background: var(--color-primary-tint); border-radius: var(--radius-sm); }

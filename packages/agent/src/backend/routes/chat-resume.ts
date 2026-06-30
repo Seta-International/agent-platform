@@ -4,6 +4,8 @@ import { createUIMessageStream, createUIMessageStreamResponse } from 'ai';
 import type { Hono } from 'hono';
 import { z } from 'zod';
 import { recordApprovalDecision } from '../domain/decide-approval.ts';
+import { recordLlmTurn } from '../llm-metrics.ts';
+import { resolveModel } from '../model-registry.ts';
 import { pumpOrchestrationStream } from '../orchestration-ui-stream.ts';
 import {
   type AgentRouteDeps,
@@ -151,13 +153,36 @@ export function mountChatResumeRoute(app: Hono<AgentRouteEnv>, deps: AgentRouteD
           sendReasoning: true,
           sendStart: true,
           sendFinish: true,
-          onError: (e: unknown) => String(e),
+          onError: (e: unknown) => {
+            (deps.log?.error ?? console.error)(
+              { subsystem: 'agent.chat', event: 'resume.stream.error', threadId, err: e },
+              'agent chat resume stream error',
+            );
+            return e instanceof Error ? e.message : String(e);
+          },
         });
-        await pumpOrchestrationStream(
+        const turnStartAtMs = performance.now();
+        const { timing } = await pumpOrchestrationStream(
           writer as unknown as import('../orchestration-ui-stream.ts').UiStreamWriter,
           aiParts as AsyncIterable<{ type: string; delta?: string; data?: unknown }>,
           { finalize: run.finalize, onApproval: async () => {} },
         );
+        // Best-effort throughput for the post-approval continuation. The original
+        // run's model isn't carried on resume, so attribute to the default key.
+        try {
+          const usage = await run.output.usage;
+          recordLlmTurn({
+            tenantId: session.tenant_id,
+            model: resolveModel('auto', { tierHint: 'fast' }).entry.key,
+            inputTokens: usage?.inputTokens ?? 0,
+            outputTokens: usage?.outputTokens ?? 0,
+            firstTokenAtMs: timing.firstTokenAtMs,
+            lastTokenAtMs: timing.lastTokenAtMs,
+            turnStartAtMs,
+          });
+        } catch {
+          // metrics only — never break the resume turn
+        }
       },
     });
     return createUIMessageStreamResponse({ stream: uiStream, headers: NO_BUFFER_HEADERS });

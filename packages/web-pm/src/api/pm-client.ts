@@ -434,11 +434,13 @@ export async function fetchProjectAllocations(projectId: string): Promise<Alloca
 export async function createAllocation(body: {
   project_id: string;
   worker_id: string;
-  role: string;
+  role?: string | null;
   planned_pct: number;
   date_from?: string | null;
   date_to?: string | null;
+  bucket?: 'billable' | 'internal' | 'bench';
   status?: 'placeholder' | 'tentative' | 'committed';
+  note?: string | null;
 }): Promise<{ allocation_id: string }> {
   const res = await fetch('/api/pm/v1/allocations', {
     method: 'POST',
@@ -452,11 +454,14 @@ export async function createAllocation(body: {
 export async function updateAllocation(
   allocationId: string,
   patch: {
-    role?: string;
-    planned_pct?: number;
+    role?: string | null;
+    planned_pct?: number | null;
     status?: 'placeholder' | 'tentative' | 'committed';
     date_from?: string | null;
     date_to?: string | null;
+    bucket?: 'billable' | 'internal' | 'bench';
+    note?: string | null;
+    expected_version?: number;
   },
 ): Promise<{ version: number }> {
   const res = await fetch(`/api/pm/v1/allocations/${allocationId}`, {
@@ -474,4 +479,41 @@ export async function removeAllocation(allocationId: string): Promise<void> {
     credentials: 'include',
   });
   if (!res.ok) await handleResponse(res);
+}
+
+export interface RaMonitoringAllocation {
+  allocation_id: string;
+  worker_id: string | null;
+  worker_name: string | null;
+  worker_title: string | null;
+  role: string | null;
+  planned_pct: number | null;
+  bucket: 'billable' | 'internal' | 'bench';
+  status: 'placeholder' | 'tentative' | 'committed';
+  date_from: string | null;
+  date_to: string | null;
+  note: string | null;
+  project_id: string;
+  project_name: string;
+  account_id: string;
+  account_name: string;
+  version: number;
+}
+
+export async function fetchAllocations(params: {
+  account_id?: string;
+  project_id?: string;
+  active_from?: string;
+  active_to?: string;
+  q?: string;
+}): Promise<RaMonitoringAllocation[]> {
+  const sp = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v) sp.set(k, v);
+  }
+  const qs = sp.toString();
+  const res = await fetch(`/api/pm/v1/allocations${qs ? `?${qs}` : ''}`, {
+    credentials: 'include',
+  });
+  return (await handleResponse<{ allocations: RaMonitoringAllocation[] }>(res)).allocations;
 }

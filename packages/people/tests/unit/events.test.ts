@@ -10,6 +10,8 @@ describe('people events', () => {
     const parsed = workerCreatedPayload.safeParse({
       worker_id: crypto.randomUUID(),
       tenant_id: crypto.randomUUID(),
+      full_name: 'Alice Example',
+      job_title: null,
     });
     expect(parsed.success).toBe(true);
   });

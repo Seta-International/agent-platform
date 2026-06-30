@@ -81,6 +81,8 @@ jobs:
           MAILER_DEFAULT_SENDER: ${{ vars.MAILER_DEFAULT_SENDER }}
           MAILER_DEFAULT_SENDER_DISPLAY_NAME: ${{ vars.MAILER_DEFAULT_SENDER_DISPLAY_NAME }}
           MAILER_GRAPH_CLIENT_ID: ${{ vars.MAILER_GRAPH_CLIENT_ID }}
+          M365_GRAPH_TENANT_ID: ${{ vars.M365_GRAPH_TENANT_ID }}
+          M365_GRAPH_CLIENT_ID: ${{ vars.M365_GRAPH_CLIENT_ID }}
           # ── Environment Secrets (sensitive) ──────────────────────────────
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
@@ -94,6 +96,7 @@ jobs:
           MICROSOFT_CLIENT_ID: ${{ secrets.MICROSOFT_CLIENT_ID }}
           MICROSOFT_CLIENT_SECRET: ${{ secrets.MICROSOFT_CLIENT_SECRET }}
           M365_WEBHOOK_SECRET: ${{ secrets.M365_WEBHOOK_SECRET }}
+          M365_GRAPH_CLIENT_SECRET: ${{ secrets.M365_GRAPH_CLIENT_SECRET }}
           MAILER_DEFAULT_SMTP_URL: ${{ secrets.MAILER_DEFAULT_SMTP_URL }}
           MAILER_GRAPH_CLIENT_SECRET: ${{ secrets.MAILER_GRAPH_CLIENT_SECRET }}
         run: bash scripts/render-env.sh "$ENV_FILE"

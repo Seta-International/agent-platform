@@ -11,7 +11,11 @@ import {
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { MtSection, type MyTasksSection } from '../../../../src/components/my-tasks/mt-section';
+import {
+  MT_COLUMNS,
+  MtSection,
+  type MyTasksSection,
+} from '../../../../src/components/my-tasks/mt-section';
 import type { MyTasksRowTask } from '../../../../src/components/my-tasks/mt-task-row';
 
 afterEach(() => cleanup());
@@ -116,6 +120,21 @@ describe('MtSection', () => {
     expect(cols.textContent).toContain('Due');
     expect(cols.textContent).toContain('Labels');
     expect(cols.textContent).toContain('Assignees');
+  });
+
+  it('drives header labels from the single MT_COLUMNS source, in order', async () => {
+    renderInRouter(<MtSection section={fxSection({ open: true })} />);
+    const cols = await screen.findByTestId('mt-section-columns');
+    const rendered = Array.from(cols.children).map((c) => c.textContent ?? '');
+    expect(rendered).toEqual(MT_COLUMNS.map((c) => c.label));
+  });
+
+  it('uses deterministic grid tracks (no content-based auto) so the header lines up with the rows', () => {
+    const template = MT_COLUMNS.map((c) => c.track).join(' ');
+    expect(template).not.toMatch(/\bauto\b/);
+    for (const col of MT_COLUMNS) {
+      expect(col.track).toBeTruthy();
+    }
   });
 
   it('hides the column-header strip when section has zero tasks', async () => {

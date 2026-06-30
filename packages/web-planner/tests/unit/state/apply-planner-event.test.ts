@@ -111,11 +111,11 @@ describe('applyPlannerEvent', () => {
       const after = qc.getQueryData<TaskWithAssigneesRow[]>(tasksKey)!;
       expect(after[0]).toMatchObject({ id: 't1', bucket_id: 'b2', order_hint: 'm', version: 4 });
       expect(after[1]).toMatchObject({ id: 't2', bucket_id: 'b1', order_hint: 'b' });
-      // Only the broad myTasks predicate-based invalidation should fire; no queryKey-based invalidation.
+      // myTasks predicate invalidation + Groups list activity timestamp refresh.
       const queryKeyCalls = spy.mock.calls.filter(
         (c) => (c[0] as { queryKey?: unknown }).queryKey !== undefined,
       );
-      expect(queryKeyCalls).toHaveLength(0);
+      expect(queryKeyCalls).toEqual([[{ queryKey: plannerKeys.groupsWithCounts() }]]);
     });
   });
 
@@ -169,11 +169,11 @@ describe('applyPlannerEvent', () => {
         checklist_preview: [],
         reference_preview: [],
       });
-      // Only the broad myTasks predicate-based invalidation should fire; no queryKey-based invalidation.
+      // myTasks predicate invalidation + Groups list activity timestamp refresh.
       const queryKeyCalls = spy.mock.calls.filter(
         (c) => (c[0] as { queryKey?: unknown }).queryKey !== undefined,
       );
-      expect(queryKeyCalls).toHaveLength(0);
+      expect(queryKeyCalls).toEqual([[{ queryKey: plannerKeys.groupsWithCounts() }]]);
     });
 
     it('is idempotent (does not duplicate on replay)', () => {
@@ -437,7 +437,8 @@ describe('applyPlannerEvent', () => {
       const after = qc.getQueryData<BucketRow[]>(bucketsKey)!;
       expect(after.map((b) => b.id)).toEqual(['b1', 'b2']);
       expect(after[1]).toMatchObject({ id: 'b2', name: 'Doing', order_hint: 'b', version: 1 });
-      expect(spy).not.toHaveBeenCalled();
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.groupsWithCounts() });
     });
   });
 

@@ -12,7 +12,7 @@ function useDebouncedValue<T>(value: T, ms: number): T {
 }
 
 export function useGroupMemberAssigneeSearch(
-  groupId: string,
+  groupId: string | undefined,
   search: string,
   enabled: boolean,
 ): { members: GroupMemberRow[]; isPending: boolean } {
@@ -20,7 +20,7 @@ export function useGroupMemberAssigneeSearch(
   const membersQ = useGroupMembers(groupId);
 
   const members = useMemo(() => {
-    if (!enabled || groupId.length === 0) return [];
+    if (!enabled || !groupId || groupId.length === 0) return [];
     const all = membersQ.data?.members ?? [];
     const term = debouncedSearch.trim().toLowerCase();
     if (!term) return [...all];
@@ -31,6 +31,6 @@ export function useGroupMemberAssigneeSearch(
 
   return {
     members,
-    isPending: enabled && groupId.length > 0 && membersQ.isPending,
+    isPending: enabled && !!groupId && groupId.length > 0 && membersQ.isPending,
   };
 }

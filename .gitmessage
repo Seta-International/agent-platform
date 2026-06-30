@@ -1,0 +1,9 @@
+# <type>(<scope>): <JIRA-KEY> <subject>      (<= 100 chars; key required, e.g. FUT-123)
+#   e.g. feat(planner): FUT-123 add group viewer to the board
+#
+# type:  feat fix chore docs refactor test ci build perf style revert
+# scope: optional module/area; use (deps) for dependency bumps (key not required)
+#
+# Body (optional): what & why, wrap at ~72 cols.
+#
+# Footer (optional): Closes: FUT-123  /  BREAKING CHANGE: ...

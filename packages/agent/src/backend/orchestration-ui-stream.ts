@@ -27,6 +27,14 @@ export interface ApprovalEvent {
   toolCallId: string;
 }
 
+/** Decode-window timestamps (`performance.now()` ms) for tok/s measurement:
+ *  when the first and last streamed text deltas were observed. Both undefined
+ *  when the turn produced no prose (e.g. a pure suspend or tool-only turn). */
+export interface DecodeTiming {
+  firstTokenAtMs?: number;
+  lastTokenAtMs?: number;
+}
+
 /**
  * Pump an AI SDK v6 UIMessage part stream into the writer, accumulating the
  * answer prose for persistence and detecting native HITL suspend.
@@ -46,10 +54,11 @@ export async function pumpOrchestrationStream(
     finalize: ChatStreamRun['finalize'];
     onApproval: (e: ApprovalEvent) => Promise<void>;
   },
-): Promise<{ assistantParts: OrchestrationAssistantPart[] }> {
+): Promise<{ assistantParts: OrchestrationAssistantPart[]; timing: DecodeTiming }> {
   const assistantParts: OrchestrationAssistantPart[] = [];
   let answer = '';
   let suspend: ApprovalEvent | undefined;
+  const timing: DecodeTiming = {};
 
   for await (const part of parts) {
     if (part.type === 'data-tool-call-suspended') {
@@ -58,14 +67,19 @@ export async function pumpOrchestrationStream(
       continue;
     }
     writer.write(part);
-    if (part.type === 'text-delta') answer += part.delta ?? part.text ?? '';
+    if (part.type === 'text-delta') {
+      const now = performance.now();
+      if (timing.firstTokenAtMs === undefined) timing.firstTokenAtMs = now;
+      timing.lastTokenAtMs = now;
+      answer += part.delta ?? part.text ?? '';
+    }
   }
 
   if (answer) assistantParts.push({ type: 'text', text: answer });
 
   if (suspend) {
     await opts.onApproval(suspend);
-    return { assistantParts };
+    return { assistantParts, timing };
   }
 
   const { result, trust } = await opts.finalize();
@@ -73,5 +87,5 @@ export async function pumpOrchestrationStream(
   writer.write({ type: 'data-trust', id: 'trust', data: trust });
   assistantParts.push({ type: 'data-result', id: 'result', data: result });
   assistantParts.push({ type: 'data-trust', id: 'trust', data: trust });
-  return { assistantParts };
+  return { assistantParts, timing };
 }

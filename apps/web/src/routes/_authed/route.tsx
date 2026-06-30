@@ -6,7 +6,7 @@ import {
   usePanelUI,
   useResolveAgentNotification,
 } from '@seta/web-agent';
-import { fetchMe, SessionProvider, UserMenu } from '@seta/web-identity';
+import { fetchMe, SessionProvider, UserMenu, useRefreshSession } from '@seta/web-identity';
 import { NotificationPopoverContainer, useNotificationStream } from '@seta/web-notifications';
 import { useResolvePlannerNotification } from '@seta/web-planner';
 import { useQuery } from '@tanstack/react-query';
@@ -55,6 +55,7 @@ function AuthedLayout() {
 
 function ShellWithPanel({ children }: { children: React.ReactNode }) {
   const { session } = Route.useRouteContext();
+  const refreshSession = useRefreshSession();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { panelOpen, setPanelOpen } = usePanelUI();
 
@@ -85,7 +86,9 @@ function ShellWithPanel({ children }: { children: React.ReactNode }) {
     }
   };
 
-  useNotificationStream(true);
+  useNotificationStream(true, () => {
+    void refreshSession();
+  });
 
   return (
     <AppShell

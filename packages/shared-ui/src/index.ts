@@ -78,6 +78,7 @@ export {
 export * from './plan/category-description-editor';
 // Primitives
 export * from './primitives/alert';
+export * from './primitives/alert-dialog';
 export * from './primitives/avatar';
 export * from './primitives/badge';
 export * from './primitives/button';
