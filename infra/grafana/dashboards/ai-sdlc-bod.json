@@ -1,0 +1,302 @@
+{
+  "title": "AI SDLC — BOD",
+  "uid": "ai-sdlc-bod",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1h",
+  "tags": ["ai-sdlc", "bod"],
+  "time": { "from": "now-6M", "to": "now" },
+  "timezone": "browser",
+  "templating": {
+    "list": [
+      {
+        "name": "project",
+        "type": "query",
+        "datasource": { "type": "postgres", "uid": "reporting-postgres" },
+        "query": "SELECT DISTINCT project FROM reporting.ai_sprint_metrics ORDER BY 1",
+        "refresh": 2,
+        "includeAll": true,
+        "allValue": ".*",
+        "hide": 0
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Headline Scorecard — Latest Sprint",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "AI Adoption % (latest)",
+      "datasource": { "type": "postgres", "uid": "reporting-postgres" },
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 1 },
+      "targets": [
+        {
+          "rawSql": "SELECT a4_ai_issue_ratio * 100 FROM reporting.ai_sprint_metrics WHERE project LIKE '$project' ORDER BY sprint_label DESC LIMIT 1",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "orientation": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": 0 },
+              { "color": "yellow", "value": 30 },
+              { "color": "green", "value": 50 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Lead Time — hrs (latest)",
+      "datasource": { "type": "postgres", "uid": "reporting-postgres" },
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 1 },
+      "targets": [
+        {
+          "rawSql": "SELECT b1_lead_time_median_hours FROM reporting.ai_sprint_metrics WHERE project LIKE '$project' ORDER BY sprint_label DESC LIMIT 1",
+          "format": "table"
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": 0 },
+              { "color": "yellow", "value": 24 },
+              { "color": "red", "value": 72 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Deploy Freq / Week (latest)",
+      "datasource": { "type": "postgres", "uid": "reporting-postgres" },
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 1 },
+      "targets": [
+        {
+          "rawSql": "SELECT b2_deploy_frequency_per_week FROM reporting.ai_sprint_metrics WHERE project LIKE '$project' ORDER BY sprint_label DESC LIMIT 1",
+          "format": "table"
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": 0 },
+              { "color": "yellow", "value": 1 },
+              { "color": "green", "value": 3 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Agent Autonomy % (latest)",
+      "datasource": { "type": "postgres", "uid": "reporting-postgres" },
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 1 },
+      "targets": [
+        {
+          "rawSql": "SELECT d3_autonomy_ratio * 100 FROM reporting.ai_sprint_metrics WHERE project LIKE '$project' ORDER BY sprint_label DESC LIMIT 1",
+          "format": "table"
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "steps": [{ "color": "blue", "value": 0 }, { "color": "green", "value": 70 }]
+          }
+        }
+      }
+    },
+    {
+      "id": 10,
+      "type": "row",
+      "title": "Adoption Trend",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 6 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 11,
+      "type": "barchart",
+      "title": "AI Adoption % per Sprint (A4 + A3 stacked)",
+      "datasource": { "type": "postgres", "uid": "reporting-postgres" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 7 },
+      "targets": [
+        {
+          "rawSql": "SELECT sprint_label, a4_ai_issue_ratio * 100 AS \"AI Assisted %\", a3_agent_issue_ratio * 100 AS \"Agent %\" FROM reporting.ai_sprint_metrics WHERE project LIKE '$project' ORDER BY sprint_label",
+          "format": "table"
+        }
+      ],
+      "options": { "stacking": "normal" },
+      "fieldConfig": { "defaults": { "unit": "percent" } }
+    },
+    {
+      "id": 20,
+      "type": "row",
+      "title": "DORA Improvement",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 15 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 21,
+      "type": "barchart",
+      "title": "Lead Time per Sprint (B1) — lower is better",
+      "datasource": { "type": "postgres", "uid": "reporting-postgres" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "rawSql": "SELECT sprint_label, b1_lead_time_median_hours AS \"Lead Time hrs\" FROM reporting.ai_sprint_metrics WHERE project LIKE '$project' ORDER BY sprint_label",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "h" } }
+    },
+    {
+      "id": 22,
+      "type": "barchart",
+      "title": "Deploy Frequency per Sprint (B2) — higher is better",
+      "datasource": { "type": "postgres", "uid": "reporting-postgres" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "targets": [
+        {
+          "rawSql": "SELECT sprint_label, b2_deploy_frequency_per_week AS \"Deploys/wk\" FROM reporting.ai_sprint_metrics WHERE project LIKE '$project' ORDER BY sprint_label",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short" } }
+    },
+    {
+      "id": 30,
+      "type": "row",
+      "title": "Agent Maturity Trend",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 24 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 31,
+      "type": "timeseries",
+      "title": "D3 Autonomy % — climbing over sprints",
+      "datasource": { "type": "postgres", "uid": "reporting-postgres" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 25 },
+      "targets": [
+        {
+          "rawSql": "SELECT sprint_label AS time, d3_autonomy_ratio * 100 AS \"Autonomy %\" FROM reporting.ai_sprint_metrics WHERE project LIKE '$project' ORDER BY sprint_label",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100 } }
+    },
+    {
+      "id": 40,
+      "type": "row",
+      "title": "Quality Gate",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 33 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 41,
+      "type": "barchart",
+      "title": "Quality metrics per Sprint (C1 rework, C2 review, C4 alerts)",
+      "datasource": { "type": "postgres", "uid": "reporting-postgres" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 34 },
+      "targets": [
+        {
+          "rawSql": "SELECT sprint_label, c1_rework_ratio * 100 AS \"Rework %\", c2_ai_pr_review_ratio * 100 AS \"Review Coverage %\", c4_security_alerts AS \"Security Alerts\" FROM reporting.ai_sprint_metrics WHERE project LIKE '$project' ORDER BY sprint_label",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Security Alerts" },
+            "properties": [{ "id": "unit", "value": "short" }]
+          }
+        ],
+        "defaults": { "unit": "percent" }
+      }
+    },
+    {
+      "id": 50,
+      "type": "row",
+      "title": "Manual KPIs",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 42 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 51,
+      "type": "stat",
+      "title": "A1 — AI Seat Adoption (latest)",
+      "datasource": { "type": "postgres", "uid": "reporting-postgres" },
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 43 },
+      "targets": [
+        {
+          "rawSql": "SELECT a1_adoption_rate * 100 FROM reporting.ai_sprint_metrics WHERE project LIKE '$project' AND a1_adoption_rate IS NOT NULL ORDER BY sprint_label DESC LIMIT 1",
+          "format": "table"
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value" },
+      "fieldConfig": { "defaults": { "unit": "percent" } }
+    },
+    {
+      "id": 52,
+      "type": "stat",
+      "title": "B5 — Cost Improvement % (latest)",
+      "datasource": { "type": "postgres", "uid": "reporting-postgres" },
+      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 43 },
+      "targets": [
+        {
+          "rawSql": "SELECT b5_cost_improvement_pct * 100 FROM reporting.ai_sprint_metrics WHERE project LIKE '$project' AND b5_cost_improvement_pct IS NOT NULL ORDER BY sprint_label DESC LIMIT 1",
+          "format": "table"
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value" },
+      "fieldConfig": { "defaults": { "unit": "percent" } }
+    },
+    {
+      "id": 53,
+      "type": "stat",
+      "title": "C3 — AI Code Coverage % (latest)",
+      "datasource": { "type": "postgres", "uid": "reporting-postgres" },
+      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 43 },
+      "targets": [
+        {
+          "rawSql": "SELECT c3_ai_code_coverage_pct * 100 FROM reporting.ai_sprint_metrics WHERE project LIKE '$project' AND c3_ai_code_coverage_pct IS NOT NULL ORDER BY sprint_label DESC LIMIT 1",
+          "format": "table"
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value" },
+      "fieldConfig": { "defaults": { "unit": "percent" } }
+    }
+  ]
+}
