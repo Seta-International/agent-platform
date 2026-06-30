@@ -544,6 +544,13 @@ export function PeoplePage() {
                     description="Add a worker to get started."
                   />
                 }
+                noResultsState={
+                  <EmptyState
+                    icon={<Users className="size-6" />}
+                    title="No matching people"
+                    description="Try adjusting your search or filters."
+                  />
+                }
                 onRowClick={(row) =>
                   void navigate({
                     to: '/people/employees/$workerId',

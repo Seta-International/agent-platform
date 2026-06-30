@@ -88,11 +88,20 @@ export function PeopleCardGrid({
   }
 
   if (rows.length === 0) {
+    const hasFilters = Boolean(
+      query.search ||
+        query.status?.length ||
+        query.account_id?.length ||
+        query.project_id?.length ||
+        query.skill_id?.length,
+    );
     return (
       <EmptyState
         icon={<Users className="size-6" />}
-        title="No workers yet"
-        description="Add a worker to get started."
+        title={hasFilters ? 'No matching people' : 'No workers yet'}
+        description={
+          hasFilters ? 'Try adjusting your search or filters.' : 'Add a worker to get started.'
+        }
       />
     );
   }

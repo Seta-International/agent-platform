@@ -389,4 +389,56 @@ describe('listWorkers (SQL filter/sort/paginate + scope)', () => {
       expect(rows[0]!.manager_name).toBeNull();
     });
   });
+
+  it('search matches account_name case-insensitively', async () => {
+    await withDb(async ({ t }) => {
+      const w = await makeWorker(t, { name: 'Account Search Worker' });
+      const acc = crypto.randomUUID();
+      await addAllocation(t, { workerId: w, accountId: acc, accountName: 'Zebra Corp' });
+      await makeWorker(t, { name: 'No Account Worker' });
+
+      const { rows } = await listWorkers(admin(t), { search: 'zebra' });
+      expect(rows).toHaveLength(1);
+      expect(rows[0]!.full_name).toBe('Account Search Worker');
+
+      const upper = await listWorkers(admin(t), { search: 'ZEBRA CORP' });
+      expect(upper.rows).toHaveLength(1);
+    });
+  });
+
+  it('search matches skill_name case-insensitively', async () => {
+    await withDb(async ({ t }) => {
+      const w = await makeWorker(t, { name: 'Skill Search Worker' });
+      const sk = crypto.randomUUID();
+      await addSkill(t, w, sk, 'GraphQL');
+      await makeWorker(t, { name: 'No Skill Worker' });
+
+      const { rows } = await listWorkers(admin(t), { search: 'graphql' });
+      expect(rows).toHaveLength(1);
+      expect(rows[0]!.full_name).toBe('Skill Search Worker');
+
+      const upper = await listWorkers(admin(t), { search: 'GRAPHQL' });
+      expect(upper.rows).toHaveLength(1);
+    });
+  });
+
+  it('search + status filter narrow results together', async () => {
+    await withDb(async ({ t }) => {
+      const bob = await makeWorker(t, { name: 'Bob Builder' });
+      const alice = await makeWorker(t, { name: 'Alice Coder' });
+      await addEmployment(t, bob, { stage: 'active', start: '2026-01-01' });
+      await addEmployment(t, alice, { stage: 'active', start: '2026-02-01' });
+      const charlie = await makeWorker(t, { name: 'Charlie Designer' });
+      await addEmployment(t, charlie, { stage: 'onboarding', start: '2026-03-01' });
+
+      // search "bob" + status "active" → only Bob
+      const { rows } = await listWorkers(admin(t), { search: 'bob', status: ['active'] });
+      expect(rows).toHaveLength(1);
+      expect(rows[0]!.full_name).toBe('Bob Builder');
+
+      // search "charlie" + status "active" → nobody (Charlie is onboarding)
+      const empty = await listWorkers(admin(t), { search: 'charlie', status: ['active'] });
+      expect(empty.rows).toHaveLength(0);
+    });
+  });
 });
