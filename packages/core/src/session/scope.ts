@@ -21,12 +21,6 @@ export type ResolvePermissions = (
   tenantId: string,
 ) => Promise<ReadonlySet<string>>;
 
-export type ResolveFeatures = (
-  tenantId: string,
-  userId: string,
-  roles: readonly string[],
-) => Promise<ReadonlySet<string>>;
-
 export type ResolveGroupIds = (userId: string) => Promise<ReadonlyArray<string>>;
 
 export type ResolveProductAccess = (
@@ -44,7 +38,6 @@ export interface SessionScope {
   role_summary: { roles: string[]; cross_tenant_read: boolean };
   role_summary_hash: string;
   permissions: ReadonlySet<string>;
-  features: ReadonlySet<string>;
   accessible_group_ids: ReadonlyArray<string>;
   group_ids: ReadonlyArray<string>;
   product_access: ReadonlySet<string>;
@@ -98,7 +91,6 @@ export async function getSessionScope(
   deps: {
     listRoleGrants: ListRoleGrants;
     resolvePermissions: ResolvePermissions;
-    resolveFeatures?: ResolveFeatures;
     resolveGroupIds?: ResolveGroupIds;
     resolveProductAccess?: ResolveProductAccess;
   },
@@ -107,7 +99,6 @@ export async function getSessionScope(
   email: string,
   displayName: string,
 ): Promise<SessionScope> {
-  const resolveFeatures = deps.resolveFeatures ?? (async () => new Set<string>());
   const resolveGroupIds = deps.resolveGroupIds ?? (async () => []);
   const hit = hot.get(sessionId);
   if (hit && !hit.invalidated_at) return hit;
@@ -121,11 +112,6 @@ export async function getSessionScope(
     const rawPermissions = await deps.resolvePermissions(
       (cached.role_summary as { roles: string[] }).roles,
       cached.tenant_id,
-    );
-    const features = await resolveFeatures(
-      cached.tenant_id,
-      cached.user_id,
-      (cached.role_summary as { roles: string[] }).roles,
     );
     const group_ids = await resolveGroupIds(cached.user_id);
     const productAccess = deps.resolveProductAccess
@@ -149,7 +135,6 @@ export async function getSessionScope(
       email,
       display_name: displayName,
       permissions,
-      features,
     };
     hot.set(sessionId, scope);
     return scope;
@@ -158,7 +143,6 @@ export async function getSessionScope(
   const { tenant_id, grants } = await deps.listRoleGrants(userId);
   const role_summary = rollup(grants);
   const rawPermissions = await deps.resolvePermissions(role_summary.roles, tenant_id);
-  const features = await resolveFeatures(tenant_id, userId, role_summary.roles);
   const group_ids = await resolveGroupIds(userId);
   const productAccess = deps.resolveProductAccess
     ? await deps.resolveProductAccess(userId, tenant_id, group_ids)
@@ -181,7 +165,6 @@ export async function getSessionScope(
     built_at: new Date(),
     invalidated_at: null,
     permissions,
-    features,
   };
 
   await coreDb()

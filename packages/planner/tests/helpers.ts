@@ -136,7 +136,6 @@ export function buildSession(opts: {
     role_summary,
     role_summary_hash: hashRoleSummary(role_summary),
     permissions: permsFor(roles),
-    features: new Set<string>(),
     accessible_group_ids: opts.accessible_group_ids ?? [],
     group_ids: [],
     product_access: new Set<string>(),

@@ -1,6 +1,4 @@
 export * from './events.ts';
-export * from './feature-flag-exposure.ts';
-export * from './feature-flags.ts';
 export * from './outgoing-emails.ts';
 export * from './rpc-idempotency.ts';
 export * from './session-scope.ts';

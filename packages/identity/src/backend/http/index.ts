@@ -3,7 +3,6 @@ import { Hono } from 'hono';
 import { registerAdminAuditRoutes } from './admin-audit.ts';
 import { registerAdminUsersRoutes } from './admin-users.ts';
 import { registerDirectoryRoutes } from './directory.ts';
-import { registerFeatureFlagsRoutes } from './feature-flags.ts';
 import { registerGroupRoutes } from './groups.ts';
 import { registerProfileRoutes } from './profile.ts';
 import { registerRoleAccessRoutes } from './role-access.ts';
@@ -17,7 +16,6 @@ import { registerUsersEmailRoutes } from './users-email.ts';
 export { registerAdminAuditRoutes } from './admin-audit.ts';
 export { registerAdminUsersRoutes } from './admin-users.ts';
 export { registerDirectoryRoutes } from './directory.ts';
-export { registerFeatureFlagsRoutes } from './feature-flags.ts';
 export { registerGroupRoutes } from './groups.ts';
 export { registerProfileRoutes } from './profile.ts';
 export { registerRoleAccessRoutes } from './role-access.ts';
@@ -42,6 +40,5 @@ export function buildIdentityRoutes(_deps: RouteBuildDeps): Hono<SessionEnv> {
   registerSsoProvidersRoutes(app);
   registerSsoEntraGraphRoutes(app);
   registerTenantSettingsRoutes(app);
-  registerFeatureFlagsRoutes(app);
   return app;
 }

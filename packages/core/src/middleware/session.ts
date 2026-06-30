@@ -3,7 +3,6 @@ import { isIdleExpired } from '../session/idle.ts';
 import {
   getSessionScope,
   type ListRoleGrants,
-  type ResolveFeatures,
   type ResolveGroupIds,
   type ResolvePermissions,
   type ResolveProductAccess,
@@ -26,7 +25,6 @@ export interface SessionMiddlewareDeps {
   signOut: (req: { headers: Headers }) => Promise<void>;
   listRoleGrants: ListRoleGrants;
   resolvePermissions: ResolvePermissions;
-  resolveFeatures?: ResolveFeatures;
   resolveGroupIds?: ResolveGroupIds;
   resolveProductAccess?: ResolveProductAccess;
 }
@@ -57,7 +55,6 @@ export function createSessionMiddleware(deps: SessionMiddlewareDeps) {
       {
         listRoleGrants: deps.listRoleGrants,
         resolvePermissions: deps.resolvePermissions,
-        resolveFeatures: deps.resolveFeatures,
         resolveGroupIds: deps.resolveGroupIds,
         resolveProductAccess: deps.resolveProductAccess,
       },

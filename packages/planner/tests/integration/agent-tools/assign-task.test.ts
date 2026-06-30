@@ -31,7 +31,6 @@ function buildAdminSession(opts: {
     role_summary,
     role_summary_hash: hashRoleSummary(role_summary),
     permissions: resolvePermissions(_registry, roles, IMPLICIT_PERMISSIONS),
-    features: new Set<string>(),
     accessible_group_ids: [],
     group_ids: [],
     product_access: new Set<string>(),

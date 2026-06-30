@@ -33,7 +33,6 @@ describe('POST /api/notifications/v1/__dev/synthesize (prod)', () => {
       cross_tenant_read: false,
       built_at: new Date(),
       invalidated_at: null,
-      features: new Set<string>(),
     };
     const app = new Hono<SessionEnv>();
     app.use('*', async (c, next) => {

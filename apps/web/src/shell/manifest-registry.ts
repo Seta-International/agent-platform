@@ -3,7 +3,6 @@ import { PRODUCT_IDS } from '@seta/shared-rbac';
 
 export interface SessionLike {
   permissions: ReadonlySet<string>;
-  features?: ReadonlySet<string>;
   product_access?: ReadonlySet<string>;
 }
 
@@ -26,7 +25,6 @@ export function visibleManifests(
       !session.product_access.has(m.id)
     )
       return false;
-    if (m.requiredFeature && !session.features?.has(m.requiredFeature)) return false;
     return matches(m.requiredPermissions, session);
   });
 }

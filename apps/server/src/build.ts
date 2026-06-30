@@ -1,4 +1,3 @@
-import { OpenFeature } from '@openfeature/server-sdk';
 import { type AgentHandle, registerAgent, registerAgentContributions } from '@seta/agent/register';
 import type { SessionLike } from '@seta/agent-sdk';
 import {
@@ -7,13 +6,9 @@ import {
   createOverlayStore,
   createSessionMiddleware,
   type ErrorMapper,
-  getEffectiveFlag,
   type OverlayStore,
-  resolveFeatures,
   type SessionEnv,
-  SetaFeatureProvider,
   type StreamHubHandle,
-  setFlagCatalog,
 } from '@seta/core';
 import { makeRbacCheck, setRbacCheck } from '@seta/core/rpc';
 import type { WorkerHandle } from '@seta/core/runtime';
@@ -170,17 +165,11 @@ export function buildServerApp(
   // Spec 2: RPC actor overlay deferred — agent-tool RPC checks resolve from seed roles only.
   setRbacCheck(makeRbacCheck(rbacRegistry, IMPLICIT_PERMISSIONS));
 
-  // Feature flags: assemble the contributed catalog and register the in-process
-  // OpenFeature provider once; `features` is resolved per request at session scope.
-  setFlagCatalog(reg.collected.flagCatalog);
-  OpenFeature.setProvider(new SetaFeatureProvider({ getEffectiveFlag, log: deps.log }));
-
   const sessionMiddleware = createSessionMiddleware({
     getSession: ({ headers }) => auth.api.getSession({ headers }),
     signOut: ({ headers }) => auth.api.signOut({ headers }).then(() => undefined),
     listRoleGrants,
     resolvePermissions: resolve,
-    resolveFeatures,
     resolveGroupIds: listUserGroupIds,
     resolveProductAccess,
   });

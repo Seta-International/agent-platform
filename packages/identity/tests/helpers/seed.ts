@@ -181,7 +181,6 @@ export function testSession(opts: {
     role_summary: { roles, cross_tenant_read: false },
     role_summary_hash: 'test',
     permissions,
-    features: new Set<string>(),
     accessible_group_ids: [],
     group_ids: [],
     product_access: new Set<string>(),

@@ -9,10 +9,6 @@ describe('pmAppManifest', () => {
     expect(pmAppManifest.requiredPermissions).toContain('pm.account.read');
   });
 
-  it('carries no feature-flag gate (product access supersedes)', () => {
-    expect(pmAppManifest.requiredFeature).toBeUndefined();
-  });
-
   it('declares the prototype tabs in order with Accounts and Projects appended', () => {
     const items = pmAppManifest.nav.flatMap((s) => s.items);
     expect(items.map((i) => [i.label, i.to])).toEqual([

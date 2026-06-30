@@ -1,4 +1,4 @@
-import { isFeatureEnabled, type SessionEnv } from '@seta/core';
+import type { SessionEnv } from '@seta/core';
 import type { Hono } from 'hono';
 import { z } from 'zod';
 import {
@@ -36,7 +36,6 @@ const versionBody = z.object({ expected_version: z.number().int().positive().opt
 
 export function registerHiringRequisitionRoutes(app: Hono<SessionEnv>): void {
   app.get('/api/hiring/v1/requisitions', async (c) => {
-    if (!isFeatureEnabled(c.get('user'), 'hiring')) return c.json({ error: 'not_found' }, 404);
     return c.json({ requisitions: await listRequisitions(c.get('user')) });
   });
   app.get('/api/hiring/v1/requisitions/:id', async (c) =>
