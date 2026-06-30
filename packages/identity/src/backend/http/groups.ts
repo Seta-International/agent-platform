@@ -53,7 +53,10 @@ export function registerGroupRoutes(app: Hono<SessionEnv>): void {
 
   app.post('/api/identity/v1/groups', async (c) =>
     guard(c, async () => {
-      const b = createBody.parse(await c.req.json());
+      const parsed = createBody.safeParse(await c.req.json().catch(() => ({})));
+      if (!parsed.success)
+        return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
+      const b = parsed.data;
       const s = c.get('user');
       return c.json(
         await createGroup({ tenant_id: s.tenant_id, ...b }, { type: 'user', user_id: s.user_id }),
@@ -63,7 +66,10 @@ export function registerGroupRoutes(app: Hono<SessionEnv>): void {
 
   app.patch('/api/identity/v1/groups/:id', async (c) =>
     guard(c, async () => {
-      const b = patchBody.parse(await c.req.json());
+      const parsed = patchBody.safeParse(await c.req.json().catch(() => ({})));
+      if (!parsed.success)
+        return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
+      const b = parsed.data;
       const s = c.get('user');
       await updateGroup(
         {
@@ -91,7 +97,10 @@ export function registerGroupRoutes(app: Hono<SessionEnv>): void {
 
   app.put('/api/identity/v1/groups/:id/roles', async (c) =>
     guard(c, async () => {
-      const b = rolesBody.parse(await c.req.json());
+      const parsed = rolesBody.safeParse(await c.req.json().catch(() => ({})));
+      if (!parsed.success)
+        return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
+      const b = parsed.data;
       const s = c.get('user');
       await setGroupRoles(
         { group_id: c.req.param('id'), tenant_id: s.tenant_id, role_slugs: b.role_slugs },
@@ -116,7 +125,10 @@ export function registerGroupRoutes(app: Hono<SessionEnv>): void {
 
   app.post('/api/identity/v1/groups/:id/members', async (c) =>
     guard(c, async () => {
-      const b = membersBody.parse(await c.req.json());
+      const parsed = membersBody.safeParse(await c.req.json().catch(() => ({})));
+      if (!parsed.success)
+        return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
+      const b = parsed.data;
       const s = c.get('user');
       await addGroupMembers(
         { group_id: c.req.param('id'), tenant_id: s.tenant_id, user_ids: b.user_ids },

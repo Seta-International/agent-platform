@@ -72,6 +72,11 @@ describe('groups http', () => {
           expect(list.status).toBe(200);
           const slugs = (list.body as { groups: { slug: string }[] }).groups.map((g) => g.slug);
           expect(slugs).toContain('hr');
+
+          // malformed body (missing required `name`) → 400, not 500
+          const bad = await req('POST', '/api/identity/v1/groups', { slug: 'no-name' });
+          expect(bad.status).toBe(400);
+          expect((bad.body as { error: string }).error).toBe('VALIDATION');
         } finally {
           resetCoreDb();
           resetIdentityDb();

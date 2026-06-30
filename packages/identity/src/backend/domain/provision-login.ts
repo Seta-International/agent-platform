@@ -2,10 +2,11 @@
 import { emit, withEmit } from '@seta/core/events';
 import { and, eq, sql } from 'drizzle-orm';
 import { identityDb } from '../db/index.ts';
-import { user } from '../db/schema.ts';
+import { accessGroup, user } from '../db/schema.ts';
 import { IdentityError } from '../rbac.ts';
 import { isValidEmail } from './_email.ts';
 import type { Actor } from './create-user.ts';
+import { addGroupMembers } from './group-membership.ts';
 
 export interface ProvisionLoginInput {
   tenant_id: string;
@@ -106,5 +107,17 @@ export async function provisionLogin(
       });
     },
   );
+  const [base] = await identityDb()
+    .select({ id: accessGroup.id })
+    .from(accessGroup)
+    .where(and(eq(accessGroup.tenant_id, input.tenant_id), eq(accessGroup.is_base, true)))
+    .limit(1);
+  if (base) {
+    await addGroupMembers(
+      { group_id: base.id, tenant_id: input.tenant_id, user_ids: [resolvedUserId] },
+      actor,
+    );
+  }
+
   return { user_id: resolvedUserId, created };
 }
