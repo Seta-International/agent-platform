@@ -290,13 +290,14 @@ describe('GroupsPage', () => {
     expect(screen.getByRole('button', { name: /Sync from IdP/i })).toBeInTheDocument();
   });
 
-  it('canCreateGroup=false does not show "Sync from IdP" button', async () => {
+  it('canCreateGroup=false disables (not hides) the "Sync from IdP" and "New group" buttons', async () => {
     const groups = [makeGroupWithCounts({ id: 'g1', name: 'Engineering' })];
     server.use(makeGroupsHandler(groups));
     renderWithRouter(<GroupsPage canCreateGroup={false} />);
 
     await screen.findByText('Engineering');
-    expect(screen.queryByRole('button', { name: /Sync from IdP/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Sync from IdP/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /New group/i })).toBeDisabled();
   });
 
   it('clicking "Sync from IdP" opens the group selector dialog', async () => {

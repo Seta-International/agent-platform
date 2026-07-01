@@ -1,7 +1,9 @@
-import { Button, Textarea } from '@seta/shared-ui';
+import { Button, DisabledActionTooltip, Textarea } from '@seta/shared-ui';
+import { usePermission } from '@seta/web-identity';
 import { TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
 import { usePostComment } from '../hooks/mutations/post-comment';
+import { PERMISSION_DENIED } from '../lib/permission-messages';
 
 interface Props {
   taskId: string;
@@ -13,10 +15,11 @@ export function CommentComposer({ taskId }: Props) {
   const [body, setBody] = useState('');
   const [expanded, setExpanded] = useState(false);
   const postComment = usePostComment();
+  const canComment = usePermission('planner.task.comment.create');
 
   const trimmed = body.trim();
   const tooLong = body.length > MAX;
-  const canPost = trimmed.length > 0 && !tooLong && !postComment.isPending;
+  const canPost = trimmed.length > 0 && !tooLong && !postComment.isPending && canComment;
 
   function handlePost() {
     if (!canPost) return;
@@ -33,13 +36,16 @@ export function CommentComposer({ taskId }: Props) {
 
   if (!expanded) {
     return (
-      <button
-        type="button"
-        onClick={() => setExpanded(true)}
-        className="w-full rounded-md border border-hairline bg-surface-1 px-3 py-2 text-left text-sm text-ink-tertiary hover:bg-surface-2"
-      >
-        Write a comment…
-      </button>
+      <DisabledActionTooltip disabled={!canComment} reason={PERMISSION_DENIED.task.comment}>
+        <button
+          type="button"
+          disabled={!canComment}
+          onClick={() => setExpanded(true)}
+          className="w-full rounded-md border border-hairline bg-surface-1 px-3 py-2 text-left text-sm text-ink-tertiary hover:bg-surface-2"
+        >
+          Write a comment…
+        </button>
+      </DisabledActionTooltip>
     );
   }
 

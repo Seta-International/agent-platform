@@ -28,9 +28,10 @@ describe('GroupPlansSection', () => {
     expect(screen.getByText(/Create a plan in Engineering/)).toBeInTheDocument();
   });
 
-  it('hides the dashed tile when canCreatePlan=false', () => {
+  it('disables (not hides) the dashed tile when canCreatePlan=false', () => {
     render(<GroupPlansSection {...baseProps} canCreatePlan={false} />);
-    expect(screen.queryByText(/Create a plan in/)).not.toBeInTheDocument();
+    const tile = screen.getByText(/Create a plan in/).closest('button');
+    expect(tile).toBeDisabled();
   });
 
   it('calls onCreatePlan when the dashed tile is clicked', async () => {

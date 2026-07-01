@@ -3,6 +3,16 @@ import { cleanup } from '@testing-library/react';
 import { toHaveNoViolations } from 'jest-axe';
 import { afterEach, expect, vi } from 'vitest';
 
+// Planner components gate actions with usePermission(), which reads the session via useSession().
+// Most unit tests render those components without a SessionProvider, so stub usePermission to grant
+// access globally — these tests pre-date permission gating and assume full access. Every other
+// @seta/web-identity export keeps its real implementation (useSession, SessionProvider, API helpers).
+// Tests that need to assert the no-permission (disabled) state can override usePermission per-file.
+vi.mock('@seta/web-identity', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@seta/web-identity')>()),
+  usePermission: () => true,
+}));
+
 // Node ≥ 24 exposes an experimental opt-in localStorage that resolves to undefined
 // unless --localstorage-file is passed. Shim it with an in-memory implementation so
 // tests that call localStorage.* work inside happy-dom without the flag.

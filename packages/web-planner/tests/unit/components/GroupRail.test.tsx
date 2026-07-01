@@ -38,7 +38,7 @@ describe('GroupRail', () => {
     expect(screen.getByText(/See all 10 members/)).toBeInTheDocument();
   });
 
-  it('hides the "Add" button when canManage=false', () => {
+  it('disables (not hides) the "Add" button when canManage=false', () => {
     render(
       <GroupRail
         group={baseGroup}
@@ -47,7 +47,7 @@ describe('GroupRail', () => {
         onAddMember={vi.fn()}
       />,
     );
-    expect(screen.queryByRole('button', { name: /Add member/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Add member/i })).toBeDisabled();
   });
 
   it('calls onAddMember when "Add" is clicked', async () => {

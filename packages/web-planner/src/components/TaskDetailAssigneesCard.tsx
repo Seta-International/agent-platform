@@ -10,11 +10,12 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  DisabledActionTooltip,
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@seta/shared-ui';
-import { useSession } from '@seta/web-identity';
+import { usePermission, useSession } from '@seta/web-identity';
 import { GripVertical, Plus, X, Zap } from 'lucide-react';
 import { useState } from 'react';
 import { useAssignTask } from '../hooks/mutations/assign-task';
@@ -22,6 +23,7 @@ import { useMoveToTopOfMyList } from '../hooks/mutations/move-to-top-of-my-list'
 import { useReorderTaskAssignees } from '../hooks/mutations/reorder-task-assignees';
 import { useUnassignTask } from '../hooks/mutations/unassign-task';
 import { useGroupMemberAssigneeSearch } from '../hooks/use-group-member-assignee-search';
+import { PERMISSION_DENIED } from '../lib/permission-messages';
 import { computeAssigneeReorder } from './assignee-reorder';
 import { SuggestAssigneeButton } from './SuggestAssigneeButton';
 
@@ -66,6 +68,8 @@ export function TaskDetailAssigneesCard({
   const moveToTop = useMoveToTopOfMyList();
   const assign = useAssignTask(planId);
   const unassign = useUnassignTask(planId);
+  const canAssign = usePermission('planner.task.assign');
+  const noAssignReason = PERMISSION_DENIED.task.assign;
 
   const isCurrentUserAssigned = task.assignees.some((a) => a.user_id === session.user_id);
 
@@ -74,6 +78,7 @@ export function TaskDetailAssigneesCard({
   const memberQuery = useGroupMemberAssigneeSearch(groupId, search, pickerOpen);
 
   const onDragEnd = (result: DropResult) => {
+    if (!canAssign) return;
     if (!result.destination) return;
     const ids = task.assignees.map((a) => a.user_id);
     const newOrder = computeAssigneeReorder(ids, result.source.index, result.destination.index);
@@ -110,8 +115,9 @@ export function TaskDetailAssigneesCard({
                       <button
                         type="button"
                         aria-label="Drag handle"
-                        {...dpc.dragHandleProps}
-                        className="cursor-grab border-none bg-transparent p-0 text-ink-tertiary"
+                        {...(canAssign ? dpc.dragHandleProps : {})}
+                        disabled={!canAssign}
+                        className={`border-none bg-transparent p-0 text-ink-tertiary ${canAssign ? 'cursor-grab' : 'cursor-not-allowed opacity-40'}`}
                       >
                         <GripVertical className="size-3.5" />
                       </button>
@@ -122,14 +128,20 @@ export function TaskDetailAssigneesCard({
                         <div className="t-sm text-ink">{a.display_name}</div>
                         <div className="t-xs subtle">{idx === 0 ? 'driver' : 'reviewer'}</div>
                       </div>
-                      <button
-                        type="button"
-                        aria-label={`Remove ${a.display_name}`}
-                        onClick={() => unassign.mutate({ task_id: task.id, user_id: a.user_id })}
-                        className="cursor-pointer border-none bg-transparent p-1 text-ink-subtle"
+                      <DisabledActionTooltip
+                        disabled={!canAssign}
+                        reason={PERMISSION_DENIED.task.assign}
                       >
-                        <X className="size-3" />
-                      </button>
+                        <button
+                          type="button"
+                          aria-label={`Remove ${a.display_name}`}
+                          onClick={() => unassign.mutate({ task_id: task.id, user_id: a.user_id })}
+                          disabled={!canAssign}
+                          className="cursor-pointer border-none bg-transparent p-1 text-ink-subtle disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <X className="size-3" />
+                        </button>
+                      </DisabledActionTooltip>
                     </div>
                   )}
                 </Draggable>
@@ -141,13 +153,15 @@ export function TaskDetailAssigneesCard({
       </DragDropContext>
 
       <div className="mt-1.5">
-        <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
-          <PopoverTrigger asChild>
-            <Button size="sm" variant="ghost" aria-label="Add assignee">
-              <Plus className="size-3" />
-              Add assignee
-            </Button>
-          </PopoverTrigger>
+        <Popover open={pickerOpen} onOpenChange={(o) => canAssign && setPickerOpen(o)}>
+          <DisabledActionTooltip disabled={!canAssign} reason={noAssignReason}>
+            <PopoverTrigger asChild disabled={!canAssign}>
+              <Button size="sm" variant="ghost" aria-label="Add assignee" disabled={!canAssign}>
+                <Plus className="size-3" />
+                Add assignee
+              </Button>
+            </PopoverTrigger>
+          </DisabledActionTooltip>
           <PopoverContent align="start" className="w-80 p-0">
             <Command shouldFilter={false}>
               <CommandInput
@@ -209,14 +223,17 @@ export function TaskDetailAssigneesCard({
       </div>
 
       {isCurrentUserAssigned && (
-        <button
-          type="button"
-          onClick={() => moveToTop.mutate({ task_id: task.id })}
-          className="mt-2.5 inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-dashed border-primary-border bg-primary-tint px-2.5 py-1.5 text-caption font-semibold text-primary-ink"
-        >
-          <Zap className="size-3" />
-          Move to top of my list
-        </button>
+        <DisabledActionTooltip disabled={!canAssign} reason={noAssignReason}>
+          <button
+            type="button"
+            onClick={() => moveToTop.mutate({ task_id: task.id })}
+            disabled={!canAssign}
+            className="mt-2.5 inline-flex items-center gap-1.5 rounded-md border border-dashed border-primary-border bg-primary-tint px-2.5 py-1.5 text-caption font-semibold text-primary-ink enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Zap className="size-3" />
+            Move to top of my list
+          </button>
+        </DisabledActionTooltip>
       )}
     </section>
   );

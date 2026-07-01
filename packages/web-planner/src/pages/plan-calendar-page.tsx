@@ -1,5 +1,6 @@
 import type { TaskWithAssigneesRow } from '@seta/planner';
-import { Button, toast } from '@seta/shared-ui';
+import { Button, DisabledActionTooltip, toast } from '@seta/shared-ui';
+import { usePermission } from '@seta/web-identity';
 import { useEffect, useMemo, useState } from 'react';
 import { GridSkeleton } from '../components/board-skeleton';
 import { CalendarGrid } from '../components/calendar/calendar-grid';
@@ -12,6 +13,7 @@ import { useUpdateTaskSchedule } from '../hooks/mutations/update-task-schedule';
 import { useCalendarTasks } from '../hooks/queries/use-calendar-tasks';
 import { useNoDateTasks } from '../hooks/queries/use-no-date-tasks';
 import { currentMonthRange, toDateKey } from '../lib/calendar-dates';
+import { PERMISSION_DENIED } from '../lib/permission-messages';
 import type { BoardFilters } from '../state/url-state';
 
 export interface PlanCalendarPageProps {
@@ -70,6 +72,8 @@ export function PlanCalendarPage({
     }
   }, [hasRange, onRangeChange]);
 
+  const canCreateTask = usePermission('planner.task.create');
+  const canUpdateTask = usePermission('planner.task.update');
   const query = useCalendarTasks(planId, calFrom ?? '', calTo ?? '', calPage);
   const noDateQ = useNoDateTasks(planId);
   const updateSchedule = useUpdateTaskSchedule(planId);
@@ -108,6 +112,10 @@ export function PlanCalendarPage({
     newEnd: Date | null,
     revert: () => void,
   ) {
+    if (!canUpdateTask) {
+      revert();
+      return;
+    }
     try {
       // FullCalendar all-day events deliver local-midnight Date objects. Use local
       // date parts to build a UTC-midnight ISO string so the date is not shifted by
@@ -173,17 +181,20 @@ export function PlanCalendarPage({
             Tasks with a start or due date inside the selected range appear here.
           </p>
           <div className="flex items-center gap-3">
-            <Button
-              onClick={(e) =>
-                setQuickCreate({
-                  date: emptyStateDate,
-                  x: e.clientX,
-                  y: e.clientY,
-                })
-              }
-            >
-              Create task
-            </Button>
+            <DisabledActionTooltip disabled={!canCreateTask} reason={PERMISSION_DENIED.task.create}>
+              <Button
+                disabled={!canCreateTask}
+                onClick={(e) =>
+                  setQuickCreate({
+                    date: emptyStateDate,
+                    x: e.clientX,
+                    y: e.clientY,
+                  })
+                }
+              >
+                Create task
+              </Button>
+            </DisabledActionTooltip>
             <Button variant="ghost" onClick={onSwitchToBoard}>
               Switch to Board
             </Button>
@@ -205,7 +216,11 @@ export function PlanCalendarPage({
           to={calTo}
           onOpenTask={onOpenTask}
           onRescheduleTask={handleReschedule}
-          onSelectDate={(dateKey, pos) => setQuickCreate({ date: dateKey, ...pos })}
+          editable={canUpdateTask}
+          onSelectDate={(dateKey, pos) => {
+            if (!canCreateTask) return;
+            setQuickCreate({ date: dateKey, ...pos });
+          }}
         />
       )}
       {quickCreate && !showEmptyState && (

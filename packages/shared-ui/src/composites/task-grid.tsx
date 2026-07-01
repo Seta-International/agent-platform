@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '../primitives/dropdown-menu';
 import { AvatarStack } from './avatar-stack';
+import { DisabledActionTooltip } from './disabled-action-tooltip';
 import { LabelChip } from './label-chip';
 import { PriorityIcon } from './priority-icon';
 import { SyncBadge, type SyncState } from './sync-badge';
@@ -54,6 +55,13 @@ export interface TaskGridProps {
   addingBucketId?: string | null;
   onAddTask?: (title: string, bucketId: string | null) => void;
   onCancelAdd?: () => void;
+  /**
+   * When set, inline field editing (title rename, status/bucket/priority/due cells) is disabled
+   * with this reason as a tooltip — for users who lack permission to update tasks.
+   */
+  editDisabledReason?: string;
+  /** When set, the "Add a task" row is disabled with this reason — lacks permission to create tasks. */
+  addTaskDisabledReason?: string;
 }
 
 const STATUS_OPTIONS: Array<{
@@ -126,7 +134,10 @@ export function TaskGrid({
   addingBucketId,
   onAddTask,
   onCancelAdd,
+  editDisabledReason,
+  addTaskDisabledReason,
 }: TaskGridProps) {
+  const editDisabled = Boolean(editDisabledReason);
   const groups = useMemo(
     () => buildDisplayGroups(rows, groupBy, bucketOptions),
     [rows, groupBy, bucketOptions],
@@ -236,17 +247,20 @@ export function TaskGrid({
                         >
                           {r.title}
                         </button>
-                        <button
-                          type="button"
-                          aria-label={`Rename ${r.title}`}
-                          className="inline-flex size-[22px] shrink-0 items-center justify-center rounded-sm text-ink-subtle opacity-0 transition-opacity hover:bg-surface-2 hover:text-ink group-hover:opacity-100"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditing({ taskId: r.id, field: 'title' });
-                          }}
-                        >
-                          <Pencil className="size-3" aria-hidden />
-                        </button>
+                        <DisabledActionTooltip disabled={editDisabled} reason={editDisabledReason}>
+                          <button
+                            type="button"
+                            aria-label={`Rename ${r.title}`}
+                            className="inline-flex size-[22px] shrink-0 items-center justify-center rounded-sm text-ink-subtle opacity-0 transition-opacity hover:bg-surface-2 hover:text-ink group-hover:opacity-100"
+                            disabled={editDisabled}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditing({ taskId: r.id, field: 'title' });
+                            }}
+                          >
+                            <Pencil className="size-3" aria-hidden />
+                          </button>
+                        </DisabledActionTooltip>
                         {r.external_source === 'm365' && (
                           <SyncBadge
                             state={r.sync_status ?? null}
@@ -262,6 +276,7 @@ export function TaskGrid({
                     <StatusCell
                       label={`Edit status for ${r.title}`}
                       value={r.status}
+                      disabled={editDisabled}
                       onChange={(v) => onCommitField?.(r.id, { status: v })}
                     />
                   </div>
@@ -273,6 +288,7 @@ export function TaskGrid({
                         value={r.bucket_id ?? ''}
                         bucketName={r.bucket}
                         options={bucketOptions}
+                        disabled={editDisabled}
                         onChange={(v) =>
                           onCommitField?.(r.id, {
                             bucket_id: v === '' ? null : v,
@@ -289,6 +305,7 @@ export function TaskGrid({
                     <PriorityCell
                       label={`Edit priority for ${r.title}`}
                       value={r.priority}
+                      disabled={editDisabled}
                       onChange={(v) => onCommitField?.(r.id, { priority: v })}
                     />
                   </div>
@@ -317,6 +334,7 @@ export function TaskGrid({
                     <DueCell
                       value={r.due}
                       overdue={overdue}
+                      disabled={editDisabled}
                       onChange={(v) => onCommitField?.(r.id, { due: v })}
                       label={`Edit due date for ${r.title}`}
                     />
@@ -355,13 +373,19 @@ export function TaskGrid({
                   onCancel={() => onCancelAdd?.()}
                 />
               ) : (
-                <button
-                  type="button"
-                  onClick={() => onAddTask?.('__open__', groupBucketId)}
-                  className="mb-1 flex w-full items-center gap-1.5 rounded-md px-3 py-2 text-body-sm text-ink-subtle hover:bg-surface-2 hover:text-ink"
+                <DisabledActionTooltip
+                  disabled={Boolean(addTaskDisabledReason)}
+                  reason={addTaskDisabledReason}
                 >
-                  <span className="text-base leading-none">+</span> Add a task
-                </button>
+                  <button
+                    type="button"
+                    disabled={Boolean(addTaskDisabledReason)}
+                    onClick={() => onAddTask?.('__open__', groupBucketId)}
+                    className="mb-1 flex w-full items-center gap-1.5 rounded-md px-3 py-2 text-body-sm text-ink-subtle hover:bg-surface-2 hover:text-ink"
+                  >
+                    <span className="text-base leading-none">+</span> Add a task
+                  </button>
+                </DisabledActionTooltip>
               ))}
           </Fragment>
         );
@@ -412,19 +436,20 @@ function TitleInput({ initialValue, onCommit, onCancel }: TitleInputProps) {
 interface StatusCellProps {
   label: string;
   value: TaskGridRow['status'];
+  disabled?: boolean;
   onChange: (next: TaskGridRow['status']) => void;
 }
 
-function StatusCell({ label, value, onChange }: StatusCellProps) {
+function StatusCell({ label, value, disabled, onChange }: StatusCellProps) {
   const current = STATUS_OPTIONS.find((o) => o.value === value) ?? STATUS_OPTIONS[0];
   if (!current) return null;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button type="button" className={CHIP_CLS} aria-label={label}>
+        <button type="button" className={CHIP_CLS} aria-label={label} disabled={disabled}>
           <span className={`status-dot ${current.dotClass}`} aria-hidden />
           <span className="truncate">{current.label}</span>
-          <ChevronDown className="size-3 shrink-0 text-ink-subtle" aria-hidden />
+          {!disabled && <ChevronDown className="size-3 shrink-0 text-ink-subtle" aria-hidden />}
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="min-w-[180px]">
@@ -446,19 +471,20 @@ function StatusCell({ label, value, onChange }: StatusCellProps) {
 interface PriorityCellProps {
   label: string;
   value: TaskGridRow['priority'];
+  disabled?: boolean;
   onChange: (next: TaskGridRow['priority']) => void;
 }
 
-function PriorityCell({ label, value, onChange }: PriorityCellProps) {
+function PriorityCell({ label, value, disabled, onChange }: PriorityCellProps) {
   const current = PRIORITY_OPTIONS.find((o) => o.value === value) ?? PRIORITY_OPTIONS[2];
   if (!current) return null;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button type="button" className={CHIP_CLS} aria-label={label}>
+        <button type="button" className={CHIP_CLS} aria-label={label} disabled={disabled}>
           <PriorityIcon level={value} />
           <span className="truncate">{current.label}</span>
-          <ChevronDown className="size-3 shrink-0 text-ink-subtle" aria-hidden />
+          {!disabled && <ChevronDown className="size-3 shrink-0 text-ink-subtle" aria-hidden />}
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="min-w-[180px]">
@@ -482,14 +508,20 @@ interface BucketCellProps {
   value: string;
   bucketName: string;
   options: ReadonlyArray<BucketOption>;
+  disabled?: boolean;
   onChange: (next: string) => void;
 }
 
-function BucketCell({ label, value, bucketName, options, onChange }: BucketCellProps) {
+function BucketCell({ label, value, bucketName, options, disabled, onChange }: BucketCellProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button type="button" className="border-0 bg-transparent p-0" aria-label={label}>
+        <button
+          type="button"
+          className="border-0 bg-transparent p-0"
+          aria-label={label}
+          disabled={disabled}
+        >
           <BucketPill name={bucketName} />
         </button>
       </DropdownMenuTrigger>
@@ -528,11 +560,12 @@ function BucketPill({ name }: { name: string }) {
 interface DueCellProps {
   value: string | null;
   overdue: boolean;
+  disabled?: boolean;
   onChange: (next: string | null) => void;
   label: string;
 }
 
-function DueCell({ value, overdue, onChange, label }: DueCellProps) {
+function DueCell({ value, overdue, disabled, onChange, label }: DueCellProps) {
   const [editing, setEditing] = useState(false);
   if (editing) {
     return (
@@ -557,6 +590,7 @@ function DueCell({ value, overdue, onChange, label }: DueCellProps) {
     <button
       type="button"
       suppressHydrationWarning
+      disabled={disabled}
       className={`${CHIP_CLS} ${overdue ? '!bg-semantic-danger-tint !text-semantic-danger' : ''}`}
       aria-label={label}
       onClick={() => setEditing(true)}

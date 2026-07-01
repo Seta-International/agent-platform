@@ -1,4 +1,5 @@
 import {
+  DisabledActionTooltip,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -8,7 +9,7 @@ import {
   toast,
 } from '@seta/shared-ui';
 import { useAgentContext } from '@seta/web-agent';
-import { useSession } from '@seta/web-identity';
+import { usePermission, useSession } from '@seta/web-identity';
 import { useNavigate } from '@tanstack/react-router';
 import { ArrowRightLeft, ChevronRight, Copy, MoreHorizontal } from 'lucide-react';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
@@ -37,6 +38,7 @@ import { useGroup } from '../hooks/queries/use-group';
 import { useGroupMembers } from '../hooks/queries/use-group-members';
 import { usePlanBoard } from '../hooks/queries/use-plan-board';
 import { useTaskDetail } from '../hooks/queries/use-task-detail';
+import { PERMISSION_DENIED } from '../lib/permission-messages';
 import { compareOrderHint } from '../state/task-derived';
 
 interface Props {
@@ -92,6 +94,12 @@ export function TaskDetailPage({
   const deleteTask = useDeleteTask(planId);
   const duplicateTask = useDuplicateTask(planId);
   const moveTask = useMoveTask(planId);
+  const canCreate = usePermission('planner.task.create');
+  const canUpdate = usePermission('planner.task.update');
+  const canDelete = usePermission('planner.task.delete');
+  const duplicateDisabledReason = canCreate ? undefined : PERMISSION_DENIED.task.create;
+  const moveDisabledReason = canUpdate ? undefined : PERMISSION_DENIED.task.edit;
+  const deleteDisabledReason = canDelete ? undefined : PERMISSION_DENIED.task.delete;
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [duplicateOpen, setDuplicateOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
@@ -163,6 +171,7 @@ export function TaskDetailPage({
     });
 
   function handleConfirmDelete() {
+    if (!canDelete) return;
     deleteTask.mutate(
       { task_id: taskId, expected_version: task.version },
       {
@@ -184,6 +193,7 @@ export function TaskDetailPage({
     targetBucketId: string | null;
     targetPlanName: string;
   }) {
+    if (!canUpdate) return;
     moveTask.mutate(
       {
         task_id: taskId,
@@ -216,6 +226,7 @@ export function TaskDetailPage({
   }
 
   function handleConfirmDuplicate(options: DuplicateOptions) {
+    if (!canCreate) return;
     duplicateTask.mutate(
       { task_id: taskId, options },
       {
@@ -264,6 +275,9 @@ export function TaskDetailPage({
           onDuplicate={openFromMenu(() => setDuplicateOpen(true))}
           onMove={openFromMenu(() => setMoveOpen(true))}
           onDelete={openFromMenu(() => setDeleteOpen(true))}
+          duplicateDisabledReason={duplicateDisabledReason}
+          moveDisabledReason={moveDisabledReason}
+          deleteDisabledReason={deleteDisabledReason}
         />
       )}
       {variant === 'modal' && (
@@ -290,20 +304,42 @@ export function TaskDetailPage({
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onSelect={openFromMenu(() => setDuplicateOpen(true))}>
-                    <Copy className="size-3.5" />
-                    Duplicate
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={openFromMenu(() => setMoveOpen(true))}>
-                    <ArrowRightLeft className="size-3.5" />
-                    Move…
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onSelect={openFromMenu(() => setDeleteOpen(true))}
-                    className="text-semantic-danger"
+                  <DisabledActionTooltip
+                    disabled={Boolean(duplicateDisabledReason)}
+                    reason={duplicateDisabledReason}
                   >
-                    Delete
-                  </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={openFromMenu(() => setDuplicateOpen(true))}
+                      disabled={Boolean(duplicateDisabledReason)}
+                    >
+                      <Copy className="size-3.5" />
+                      Duplicate
+                    </DropdownMenuItem>
+                  </DisabledActionTooltip>
+                  <DisabledActionTooltip
+                    disabled={Boolean(moveDisabledReason)}
+                    reason={moveDisabledReason}
+                  >
+                    <DropdownMenuItem
+                      onSelect={openFromMenu(() => setMoveOpen(true))}
+                      disabled={Boolean(moveDisabledReason)}
+                    >
+                      <ArrowRightLeft className="size-3.5" />
+                      Move…
+                    </DropdownMenuItem>
+                  </DisabledActionTooltip>
+                  <DisabledActionTooltip
+                    disabled={Boolean(deleteDisabledReason)}
+                    reason={deleteDisabledReason}
+                  >
+                    <DropdownMenuItem
+                      onSelect={openFromMenu(() => setDeleteOpen(true))}
+                      disabled={Boolean(deleteDisabledReason)}
+                      className="text-semantic-danger"
+                    >
+                      Delete
+                    </DropdownMenuItem>
+                  </DisabledActionTooltip>
                 </DropdownMenuContent>
               </DropdownMenu>
               {modalHeaderActions}

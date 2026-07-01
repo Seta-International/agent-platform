@@ -8,6 +8,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  DisabledActionTooltip,
   Input,
   LabelChip,
   Popover,
@@ -19,6 +20,7 @@ import {
   TooltipTrigger,
   toast,
 } from '@seta/shared-ui';
+import { usePermission } from '@seta/web-identity';
 import { useQuery } from '@tanstack/react-query';
 import { Check, ChevronLeft, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
@@ -29,6 +31,7 @@ import { useDeleteLabel } from '../hooks/mutations/delete-label';
 import { useUnapplyLabel } from '../hooks/mutations/unapply-label';
 import { useUpdateLabel } from '../hooks/mutations/update-label';
 import { usePlanCategories } from '../hooks/queries/use-plan-categories';
+import { PERMISSION_DENIED } from '../lib/permission-messages';
 import { plannerKeys } from '../state/query-keys';
 import { ConfirmDeleteLabelDialog } from './ConfirmDeleteLabelDialog';
 
@@ -52,6 +55,7 @@ export function TaskDetailLabelsCard({ task, planId, isLinkedToM365 = false }: P
   const apply = useApplyLabel(planId);
   const unapply = useUnapplyLabel(planId);
   const create = useCreateLabel(planId);
+  const canUpdate = usePermission('planner.task.update');
   const planLabelsQuery = useQuery({
     queryKey: plannerKeys.planLabels(planId),
     queryFn: () => plannerClient.listLabels(planId),
@@ -132,29 +136,35 @@ export function TaskDetailLabelsCard({ task, planId, isLinkedToM365 = false }: P
           .map((l) => (
             <span key={l.id} className="inline-flex items-center gap-0.5">
               <LabelChip name={l.name} color={l.color || undefined} />
-              <button
-                type="button"
-                aria-label={`Remove ${l.name}`}
-                onClick={() => unapply.mutate({ task_id: task.id, label_id: l.id })}
-                className="cursor-pointer border-none bg-transparent p-0.5 text-ink-subtle"
-              >
-                <X className="size-3" />
-              </button>
+              <DisabledActionTooltip disabled={!canUpdate} reason={PERMISSION_DENIED.task.edit}>
+                <button
+                  type="button"
+                  aria-label={`Remove ${l.name}`}
+                  onClick={() => unapply.mutate({ task_id: task.id, label_id: l.id })}
+                  disabled={!canUpdate}
+                  className="cursor-pointer border-none bg-transparent p-0.5 text-ink-subtle disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <X className="size-3" />
+                </button>
+              </DisabledActionTooltip>
             </span>
           ))}
         <Popover
           open={pickerOpen}
           onOpenChange={(o) => {
+            if (!canUpdate) return;
             setPickerOpen(o);
             if (!o) setEditingLabel(null);
           }}
         >
-          <PopoverTrigger asChild>
-            <Button size="sm" variant="ghost" aria-label="Add label">
-              <Plus className="size-3" />
-              Add
-            </Button>
-          </PopoverTrigger>
+          <DisabledActionTooltip disabled={!canUpdate} reason={PERMISSION_DENIED.task.edit}>
+            <PopoverTrigger asChild disabled={!canUpdate}>
+              <Button size="sm" variant="ghost" aria-label="Add label" disabled={!canUpdate}>
+                <Plus className="size-3" />
+                Add
+              </Button>
+            </PopoverTrigger>
+          </DisabledActionTooltip>
           <PopoverContent align="start" className="w-72 p-0">
             {editingLabel ? (
               <LabelEditPanel

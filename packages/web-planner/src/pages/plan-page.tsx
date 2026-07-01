@@ -7,6 +7,7 @@ import {
   PreviewBody,
   type PreviewBodyTask,
 } from '@seta/shared-ui';
+import { usePermission } from '@seta/web-identity';
 import { type HTMLAttributes, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { ConfirmDeleteBucketDialog } from '../components/ConfirmDeleteBucketDialog';
 import { type BucketCard, VirtualizedBucketList } from '../components/virtualized-bucket-list';
@@ -18,6 +19,7 @@ import { useMoveTask } from '../hooks/mutations/move-task';
 import { useUpdateBucket } from '../hooks/mutations/update-bucket';
 import { useBoardKeyboard } from '../hooks/use-board-keyboard';
 import { formatDueShort } from '../lib/format-due-short';
+import { PERMISSION_DENIED } from '../lib/permission-messages';
 import { BUCKET_NAME_MAX_LENGTH, TASK_TITLE_MAX_LENGTH } from '../lib/planner-api-errors';
 import { computeNextFocus } from '../state/compute-next-focus';
 import { computeTaskMove } from '../state/compute-task-move';
@@ -66,6 +68,17 @@ export function PlanPage({
   const updateBucket = useUpdateBucket(planId);
   const savingIds = useSavingIds((s) => s.ids);
   const recentlyMoved = useRecentlyMovedTasks((s) => s.ids);
+
+  const canCreateBucket = usePermission('planner.bucket.create');
+  const canUpdateBucket = usePermission('planner.bucket.update');
+  const canDeleteBucket = usePermission('planner.bucket.delete');
+  const canCreateTask = usePermission('planner.task.create');
+  const canUpdateTask = usePermission('planner.task.update');
+  const createBucketReason = canCreateBucket ? undefined : PERMISSION_DENIED.bucket.create;
+  const renameBucketReason = canUpdateBucket ? undefined : PERMISSION_DENIED.bucket.rename;
+  const reorderBucketReason = canUpdateBucket ? undefined : PERMISSION_DENIED.bucket.reorder;
+  const deleteBucketReason = canDeleteBucket ? undefined : PERMISSION_DENIED.bucket.delete;
+  const createTaskReason = canCreateTask ? undefined : PERMISSION_DENIED.task.create;
 
   const [focusedCardId, setFocusedCardId] = useState<string | null>(null);
   const [pendingDeleteBucket, setPendingDeleteBucket] = useState<{
@@ -182,6 +195,7 @@ export function PlanPage({
       if (focusedCardId) onOpenTask(focusedCardId);
     },
     onCreateTask: () => {
+      if (!canCreateTask) return;
       const bucketId = focusedCardId
         ? buckets.find((b) =>
             (activeByBucket.get(b.id) ?? []).some((e) => e.card.id === focusedCardId),
@@ -205,6 +219,12 @@ export function PlanPage({
     ) {
       return;
     }
+
+    // Defensive: drag handles are already suppressed when the user lacks permission, but guard
+    // the mutation here too so a stray drop can never reach the server (column reorder = bucket
+    // update; task move = task update).
+    if (r.type === 'COLUMN' && !canUpdateBucket) return;
+    if (r.type !== 'COLUMN' && !canUpdateTask) return;
 
     if (r.type === 'COLUMN') {
       const others = buckets.filter((b) => b.id !== r.draggableId);
@@ -267,6 +287,7 @@ export function PlanPage({
             <KanbanBoard
               bucketCount={buckets.length}
               nameMaxLength={BUCKET_NAME_MAX_LENGTH}
+              addBucketDisabledReason={createBucketReason}
               onAddBucket={async (name) => {
                 await createBucket.mutateAsync({
                   name,
@@ -288,6 +309,10 @@ export function PlanPage({
                       count={(activeByBucket.get(b.id) ?? []).length}
                       status={statusForBucketName(b.name)}
                       titleMaxLength={TASK_TITLE_MAX_LENGTH}
+                      createTaskDisabledReason={createTaskReason}
+                      renameDisabledReason={renameBucketReason}
+                      deleteDisabledReason={deleteBucketReason}
+                      reorderDisabledReason={reorderBucketReason}
                       onCreateTask={async (input) => {
                         await createTask.mutateAsync({
                           plan_id: plan.id,
@@ -383,7 +408,11 @@ export function PlanPage({
                                               else cardRefs.current.delete(entry.card.id);
                                             },
                                             rootProps: dpc.draggableProps,
-                                            handleProps: dpc.dragHandleProps ?? undefined,
+                                            // Suppress the drag handle when the user can't move
+                                            // tasks (moving a task is a task.update).
+                                            handleProps: canUpdateTask
+                                              ? (dpc.dragHandleProps ?? undefined)
+                                              : undefined,
                                             isDragging: dsc.isDragging,
                                             extraStyle: dpc.draggableProps.style,
                                           }}

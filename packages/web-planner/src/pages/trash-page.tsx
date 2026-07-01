@@ -11,6 +11,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DisabledActionTooltip,
   EmptyState,
   formatRelative,
   PageChrome,
@@ -20,6 +21,7 @@ import {
   TabsList,
   TabsTrigger,
 } from '@seta/shared-ui';
+import { usePermission } from '@seta/web-identity';
 import { CheckSquare, Layers, RotateCcw, Trash2, Users } from 'lucide-react';
 import { useState } from 'react';
 import { useDeleteArchivedPlan } from '../hooks/mutations/delete-archived-plan';
@@ -28,6 +30,7 @@ import { useRestorePlan } from '../hooks/mutations/restore-plan';
 import { useRestoreTask } from '../hooks/mutations/restore-task';
 import { useUnarchivePlan } from '../hooks/mutations/unarchive-plan';
 import { useTrash } from '../hooks/queries/use-trash';
+import { PERMISSION_DENIED } from '../lib/permission-messages';
 
 type TrashKind = 'group' | 'plan' | 'task';
 
@@ -79,6 +82,18 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
   const unarchivePlan = useUnarchivePlan();
   const deleteArchivedPlan = useDeleteArchivedPlan();
   const [confirmingPurge, setConfirmingPurge] = useState<TrashRow | null>(null);
+
+  const canUpdatePlan = usePermission('planner.plan.update');
+  const canDeletePlan = usePermission('planner.plan.delete');
+  const canUpdateGroup = usePermission('planner.group.update');
+  const canUpdateTask = usePermission('planner.task.update');
+
+  // Restoring an item is an "update" on that item's resource. Gate the per-row Restore by kind.
+  const restoreGate: Record<TrashKind, { allowed: boolean; reason: string }> = {
+    group: { allowed: canUpdateGroup, reason: PERMISSION_DENIED.group.restore },
+    plan: { allowed: canUpdatePlan, reason: PERMISSION_DENIED.plan.restore },
+    task: { allowed: canUpdateTask, reason: PERMISSION_DENIED.task.restore },
+  };
 
   if (q.isPending) {
     return (
@@ -230,19 +245,33 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
                         <DaysBadge days={days} />
                       </div>
                       <div role="cell" className="flex justify-end gap-1">
-                        <Button variant="ghost" size="sm" onClick={() => onRestore(r)}>
-                          <RotateCcw className="size-3" aria-hidden /> Restore
-                        </Button>
-                        {canPermanentlyDelete && (
+                        <DisabledActionTooltip
+                          disabled={!restoreGate[r.kind].allowed}
+                          reason={restoreGate[r.kind].reason}
+                        >
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onRestore(r)}
+                            disabled={!restoreGate[r.kind].allowed}
+                          >
+                            <RotateCcw className="size-3" aria-hidden /> Restore
+                          </Button>
+                        </DisabledActionTooltip>
+                        <DisabledActionTooltip
+                          disabled={!canPermanentlyDelete}
+                          reason={PERMISSION_DENIED.trash.permanentDelete}
+                        >
                           <Button
                             variant="ghost"
                             size="sm"
                             className="text-semantic-danger hover:text-semantic-danger"
                             onClick={() => setConfirmingPurge(r)}
+                            disabled={!canPermanentlyDelete}
                           >
                             <Trash2 className="size-3" aria-hidden /> Delete
                           </Button>
-                        )}
+                        </DisabledActionTooltip>
                       </div>
                     </div>
                   );
@@ -293,26 +322,38 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
                       {r.archived_at ? formatRelative(r.archived_at) : '—'}
                     </div>
                     <div role="cell" className="flex justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => unarchivePlan.mutate({ plan_id: r.id })}
+                      <DisabledActionTooltip
+                        disabled={!canUpdatePlan}
+                        reason={PERMISSION_DENIED.plan.restore}
                       >
-                        <RotateCcw className="size-3" aria-hidden /> Restore
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-semantic-danger hover:text-semantic-danger"
-                        onClick={() =>
-                          deleteArchivedPlan.mutate({
-                            plan_id: r.id,
-                            expected_version: r.version,
-                          })
-                        }
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => unarchivePlan.mutate({ plan_id: r.id })}
+                          disabled={!canUpdatePlan}
+                        >
+                          <RotateCcw className="size-3" aria-hidden /> Restore
+                        </Button>
+                      </DisabledActionTooltip>
+                      <DisabledActionTooltip
+                        disabled={!canDeletePlan}
+                        reason={PERMISSION_DENIED.plan.delete}
                       >
-                        <Trash2 className="size-3" aria-hidden /> Delete
-                      </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-semantic-danger hover:text-semantic-danger"
+                          onClick={() =>
+                            deleteArchivedPlan.mutate({
+                              plan_id: r.id,
+                              expected_version: r.version,
+                            })
+                          }
+                          disabled={!canDeletePlan}
+                        >
+                          <Trash2 className="size-3" aria-hidden /> Delete
+                        </Button>
+                      </DisabledActionTooltip>
                     </div>
                   </div>
                 ))}
