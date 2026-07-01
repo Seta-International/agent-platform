@@ -35,12 +35,12 @@ jobs:
       security-events: read
     steps:
       - name: Checkout ai-sdlc-metrics
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: Seta-International/ai-sdlc-metrics
           path: ai-sdlc-metrics
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
           cache: pip
