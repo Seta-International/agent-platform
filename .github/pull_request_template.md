@@ -20,3 +20,5 @@ Jira: https://all-it.atlassian.net/browse/FUT-XXX
 ## AI usage
 - [ ] AI assisted → add label `ai-assisted`
 - [ ] Agent created → add labels `ai-assisted` **and** `ai-agent`
+- AI time saved (hours): <!-- optional, e.g. 3 -->
+

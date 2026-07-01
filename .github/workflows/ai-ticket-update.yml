@@ -1,0 +1,39 @@
+name: AI Ticket Update — Future
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  update-ticket:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true
+    permissions:
+      pull-requests: read
+    steps:
+      - name: Checkout ai-sdlc-metrics
+        uses: actions/checkout@v4
+        with:
+          repository: Seta-International/ai-sdlc-metrics
+          path: ai-sdlc-metrics
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: ai-sdlc-metrics/requirements.txt
+
+      - run: pip install -r ai-sdlc-metrics/requirements.txt
+
+      - name: Update Jira ticket AI fields
+        working-directory: ai-sdlc-metrics
+        env:
+          METRICS_GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+          JIRA_TOKEN: ${{ secrets.JIRA_TOKEN }}
+          JIRA_AI_USAGE_FIELD: ${{ secrets.JIRA_AI_USAGE_FIELD }}
+          JIRA_AI_TOOL_FIELD: ${{ secrets.JIRA_AI_TOOL_FIELD }}
+          JIRA_AI_TIME_SAVED_FIELD: ${{ secrets.JIRA_AI_TIME_SAVED_FIELD }}
+          GH_REPO: seta-international/agent-platform
+          JIRA_PROJECT: FUT
+        run: python -m collector.update_ticket --pr ${{ github.event.pull_request.number }}
