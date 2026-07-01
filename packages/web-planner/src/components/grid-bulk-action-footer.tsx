@@ -5,12 +5,14 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  DisabledActionTooltip,
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@seta/shared-ui';
 import { useState } from 'react';
 import { useGroupMemberAssigneeSearch } from '../hooks/use-group-member-assignee-search';
+import { PERMISSION_DENIED } from '../lib/permission-messages';
 
 export interface BulkBucketOption {
   id: string;
@@ -22,6 +24,10 @@ interface Props {
   groupId: string;
   bucketOptions: ReadonlyArray<BulkBucketOption>;
   isLinkedToM365?: boolean;
+  canMove?: boolean;
+  canAssign?: boolean;
+  canSetDue?: boolean;
+  canDelete?: boolean;
   onMove: (toBucketId: string | null) => void;
   onAssign: (userId: string) => void;
   onSetDue: (due: string | null) => void;
@@ -33,6 +39,10 @@ export function GridBulkActionFooter({
   groupId,
   bucketOptions,
   isLinkedToM365: _isLinkedToM365,
+  canMove = true,
+  canAssign = true,
+  canSetDue = true,
+  canDelete = true,
   onMove,
   onAssign,
   onSetDue,
@@ -47,12 +57,19 @@ export function GridBulkActionFooter({
       <span>
         <strong>{count}</strong> selected
       </span>
-      <BucketMenu options={bucketOptions} onPick={onMove} />
-      <AssigneeMenu groupId={groupId} onPick={onAssign} />
-      <DueMenu onPick={onSetDue} />
-      <button type="button" className="grid-bulk-action-footer__danger" onClick={onDelete}>
-        Delete
-      </button>
+      <BucketMenu options={bucketOptions} onPick={onMove} disabled={!canMove} />
+      <AssigneeMenu groupId={groupId} onPick={onAssign} disabled={!canAssign} />
+      <DueMenu onPick={onSetDue} disabled={!canSetDue} />
+      <DisabledActionTooltip disabled={!canDelete} reason={PERMISSION_DENIED.task.delete}>
+        <button
+          type="button"
+          className="grid-bulk-action-footer__danger"
+          disabled={!canDelete}
+          onClick={onDelete}
+        >
+          Delete
+        </button>
+      </DisabledActionTooltip>
     </footer>
   );
 }
@@ -60,11 +77,22 @@ export function GridBulkActionFooter({
 function BucketMenu({
   options,
   onPick,
+  disabled,
 }: {
   options: ReadonlyArray<BulkBucketOption>;
   onPick: (id: string | null) => void;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  if (disabled) {
+    return (
+      <DisabledActionTooltip disabled reason={PERMISSION_DENIED.task.move}>
+        <button type="button" disabled>
+          Move
+        </button>
+      </DisabledActionTooltip>
+    );
+  }
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -99,11 +127,28 @@ function BucketMenu({
   );
 }
 
-function AssigneeMenu({ groupId, onPick }: { groupId: string; onPick: (userId: string) => void }) {
+function AssigneeMenu({
+  groupId,
+  onPick,
+  disabled,
+}: {
+  groupId: string;
+  onPick: (userId: string) => void;
+  disabled?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const memberQuery = useGroupMemberAssigneeSearch(groupId, search, open);
 
+  if (disabled) {
+    return (
+      <DisabledActionTooltip disabled reason={PERMISSION_DENIED.task.assign}>
+        <button type="button" disabled>
+          Assign
+        </button>
+      </DisabledActionTooltip>
+    );
+  }
   return (
     <Popover
       open={open}
@@ -155,8 +200,23 @@ function AssigneeMenu({ groupId, onPick }: { groupId: string; onPick: (userId: s
   );
 }
 
-function DueMenu({ onPick }: { onPick: (due: string | null) => void }) {
+function DueMenu({
+  onPick,
+  disabled,
+}: {
+  onPick: (due: string | null) => void;
+  disabled?: boolean;
+}) {
   const [open, setOpen] = useState(false);
+  if (disabled) {
+    return (
+      <DisabledActionTooltip disabled reason={PERMISSION_DENIED.task.edit}>
+        <button type="button" disabled>
+          Set due
+        </button>
+      </DisabledActionTooltip>
+    );
+  }
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>

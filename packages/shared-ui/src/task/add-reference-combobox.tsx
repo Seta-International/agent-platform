@@ -41,12 +41,15 @@ export function classifyUrl(raw: string): ClassifiedReference | null {
 interface Props {
   onAdd: (ref: ClassifiedReference) => void;
   suggestions?: Array<{ id: string; label: string; url: string }>;
+  /** Renders the input inert (e.g. for users without edit permission). */
+  disabled?: boolean;
 }
 
-export function AddReferenceCombobox({ onAdd, suggestions = [] }: Props) {
+export function AddReferenceCombobox({ onAdd, suggestions = [], disabled = false }: Props) {
   const [value, setValue] = useState('');
 
   const submit = () => {
+    if (disabled) return;
     const classified = classifyUrl(value);
     if (!classified) return;
     onAdd(classified);
@@ -62,7 +65,7 @@ export function AddReferenceCombobox({ onAdd, suggestions = [] }: Props) {
 
   return (
     <Command style={shell} loop>
-      <div style={inputRow}>
+      <div style={disabled ? { ...inputRow, opacity: 0.5 } : inputRow}>
         <span aria-hidden="true" style={glyph}>
           ⎘
         </span>
@@ -70,8 +73,9 @@ export function AddReferenceCombobox({ onAdd, suggestions = [] }: Props) {
           value={value}
           onValueChange={setValue}
           onKeyDown={onKeyDown}
+          disabled={disabled}
           placeholder="Paste a URL to attach a reference"
-          style={input}
+          style={disabled ? { ...input, cursor: 'not-allowed' } : input}
         />
         <kbd style={kbd}>⌘V</kbd>
       </div>

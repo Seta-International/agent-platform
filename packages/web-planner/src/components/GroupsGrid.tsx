@@ -1,7 +1,9 @@
 import type { GroupWithCountsRow } from '@seta/planner';
-import { Badge, Button, GroupTile } from '@seta/shared-ui';
+import { Badge, Button, DisabledActionTooltip, GroupTile } from '@seta/shared-ui';
+import { usePermission } from '@seta/web-identity';
 import { Link } from '@tanstack/react-router';
 import { Shield, Users } from 'lucide-react';
+import { PERMISSION_DENIED } from '../lib/permission-messages';
 
 interface Props {
   groups: ReadonlyArray<GroupWithCountsRow>;
@@ -9,6 +11,7 @@ interface Props {
 }
 
 export function GroupsGrid({ groups, onRestore }: Props) {
+  const canUpdateGroup = usePermission('planner.group.update');
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6">
       {groups.map((g) => (
@@ -56,18 +59,24 @@ export function GroupsGrid({ groups, onRestore }: Props) {
           </div>
           {onRestore && g.deleted_at && (
             <div className="mt-3">
-              <Button
-                size="sm"
-                variant="secondary"
-                className="w-full"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onRestore(g.id);
-                }}
+              <DisabledActionTooltip
+                disabled={!canUpdateGroup}
+                reason={PERMISSION_DENIED.group.restore}
               >
-                Restore
-              </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="w-full"
+                  disabled={!canUpdateGroup}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onRestore(g.id);
+                  }}
+                >
+                  Restore
+                </Button>
+              </DisabledActionTooltip>
             </div>
           )}
         </Link>

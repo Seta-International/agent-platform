@@ -6,6 +6,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DisabledActionTooltip,
   EmptyState,
   KbdHint,
   PageChrome,
@@ -28,6 +29,7 @@ import { LinkToM365Dialog } from '../components/LinkToM365Dialog';
 import { useRestoreGroup } from '../hooks/mutations/restore-group';
 import { useGroupMemberSummary } from '../hooks/queries/use-group-member-summary';
 import { useGroupsWithCounts } from '../hooks/queries/use-groups-with-counts';
+import { PERMISSION_DENIED } from '../lib/permission-messages';
 
 interface Props {
   canCreateGroup?: boolean;
@@ -185,16 +187,21 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
             <Search className="size-4 mr-2" />
             Find a Workspace group
           </Button>
-          {canCreateGroup ? (
-            <>
-              <Button size="sm" variant="secondary" onClick={() => setSyncFromIdPOpen(true)}>
-                <Cloud className="size-3" /> Sync from IdP
-              </Button>
-              <Button size="sm" onClick={() => setCreateOpen(true)}>
-                <Plus className="size-3" /> New group
-              </Button>
-            </>
-          ) : null}
+          <DisabledActionTooltip disabled={!canCreateGroup} reason={PERMISSION_DENIED.group.create}>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setSyncFromIdPOpen(true)}
+              disabled={!canCreateGroup}
+            >
+              <Cloud className="size-3" /> Sync from IdP
+            </Button>
+          </DisabledActionTooltip>
+          <DisabledActionTooltip disabled={!canCreateGroup} reason={PERMISSION_DENIED.group.create}>
+            <Button size="sm" onClick={() => setCreateOpen(true)} disabled={!canCreateGroup}>
+              <Plus className="size-3" /> New group
+            </Button>
+          </DisabledActionTooltip>
         </>
       }
       toolbar={

@@ -22,6 +22,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../primitives/dropdown-menu';
+import { DisabledActionTooltip } from './disabled-action-tooltip';
 import { KbdHint } from './kbd-hint';
 
 export interface QuickCreateTaskInput {
@@ -44,6 +45,16 @@ export interface KanbanColumnProps {
   onSetColor?: () => void;
   onSetWipLimit?: () => void;
   onArchive?: () => void;
+  /**
+   * When set, the corresponding trigger renders disabled with this reason as a tooltip instead of
+   * being interactive — for users who lack the relevant permission. The owning callback is still
+   * passed (so the trigger remains visible); the reason gates interaction.
+   */
+  createTaskDisabledReason?: string;
+  renameDisabledReason?: string;
+  deleteDisabledReason?: string;
+  /** When set, the drag handle is shown disabled (column reorder requires bucket update permission). */
+  reorderDisabledReason?: string;
   /** Header status-dot color (hex). null = default status dot. */
   color?: string | null;
   /** WIP limit; null = none. */
@@ -88,6 +99,10 @@ export function KanbanColumn({
   onSetColor,
   onSetWipLimit,
   onArchive,
+  createTaskDisabledReason,
+  renameDisabledReason,
+  deleteDisabledReason,
+  reorderDisabledReason,
   color,
   wipLimit,
   isLinked,
@@ -173,6 +188,7 @@ export function KanbanColumn({
   const priorityOpt = PRIORITY_OPTIONS.find((o) => o.value === priority) ?? PRIORITY_OPTIONS[2];
 
   const handle = draggableHandle;
+  const reorderDisabled = Boolean(reorderDisabledReason);
   const localActions = !isLinked;
   const hasMenu = Boolean(
     onRename || onDelete || (localActions && (onSetColor || onSetWipLimit || onArchive)),
@@ -192,9 +208,20 @@ export function KanbanColumn({
       <header ref={headerRef} className="kanban-column__header">
         <div
           className="kanban-column__drag-handle"
-          {...(handle && !renaming ? handle.handleProps : {})}
+          {...(handle && !renaming && !reorderDisabled ? handle.handleProps : {})}
         >
-          {handle && <GripVertical size={12} className="kanban-column__grip" aria-hidden="true" />}
+          {handle &&
+            (reorderDisabled ? (
+              <DisabledActionTooltip disabled reason={reorderDisabledReason}>
+                <GripVertical
+                  size={12}
+                  className="kanban-column__grip opacity-40"
+                  aria-hidden="true"
+                />
+              </DisabledActionTooltip>
+            ) : (
+              <GripVertical size={12} className="kanban-column__grip" aria-hidden="true" />
+            ))}
           <span
             className={`status-dot status-dot--${status ?? 'muted'}`}
             style={color ? { backgroundColor: color } : undefined}
@@ -233,14 +260,20 @@ export function KanbanColumn({
         {!renaming && (onCreateTask || hasMenu) && (
           <div className="kanban-column__header-actions">
             {onCreateTask && (
-              <button
-                type="button"
-                className="kanban-column__action-btn"
-                title="Add task (C)"
-                onClick={() => setComposing(true)}
+              <DisabledActionTooltip
+                disabled={Boolean(createTaskDisabledReason)}
+                reason={createTaskDisabledReason}
               >
-                <Plus size={12} />
-              </button>
+                <button
+                  type="button"
+                  className="kanban-column__action-btn"
+                  title="Add task (C)"
+                  onClick={() => setComposing(true)}
+                  disabled={Boolean(createTaskDisabledReason)}
+                >
+                  <Plus size={12} />
+                </button>
+              </DisabledActionTooltip>
             )}
             {hasMenu && (
               <button
@@ -263,29 +296,41 @@ export function KanbanColumn({
         {menuOpen && (
           <div className="kanban-column__menu" role="menu">
             {onRename && (
-              <button
-                type="button"
-                className="kanban-column__menu-item"
-                role="menuitem"
-                onClick={openRename}
+              <DisabledActionTooltip
+                disabled={Boolean(renameDisabledReason)}
+                reason={renameDisabledReason}
               >
-                Rename bucket
-                <span className="kanban-column__menu-kbd">R</span>
-              </button>
+                <button
+                  type="button"
+                  className="kanban-column__menu-item"
+                  role="menuitem"
+                  onClick={openRename}
+                  disabled={Boolean(renameDisabledReason)}
+                >
+                  Rename bucket
+                  <span className="kanban-column__menu-kbd">R</span>
+                </button>
+              </DisabledActionTooltip>
             )}
             {onCreateTask && (
-              <button
-                type="button"
-                className="kanban-column__menu-item"
-                role="menuitem"
-                onClick={() => {
-                  setMenuOpen(false);
-                  setComposing(true);
-                }}
+              <DisabledActionTooltip
+                disabled={Boolean(createTaskDisabledReason)}
+                reason={createTaskDisabledReason}
               >
-                Add task here
-                <span className="kanban-column__menu-kbd">C</span>
-              </button>
+                <button
+                  type="button"
+                  className="kanban-column__menu-item"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setComposing(true);
+                  }}
+                  disabled={Boolean(createTaskDisabledReason)}
+                >
+                  Add task here
+                  <span className="kanban-column__menu-kbd">C</span>
+                </button>
+              </DisabledActionTooltip>
             )}
             {localActions && onSetColor && (
               <button
@@ -330,32 +375,44 @@ export function KanbanColumn({
               </>
             )}
             {onDelete && (
-              <button
-                type="button"
-                className="kanban-column__menu-item kanban-column__menu-item--danger"
-                role="menuitem"
-                onClick={() => {
-                  setMenuOpen(false);
-                  onDelete();
-                }}
+              <DisabledActionTooltip
+                disabled={Boolean(deleteDisabledReason)}
+                reason={deleteDisabledReason}
               >
-                Delete bucket
-              </button>
+                <button
+                  type="button"
+                  className="kanban-column__menu-item kanban-column__menu-item--danger"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onDelete();
+                  }}
+                  disabled={Boolean(deleteDisabledReason)}
+                >
+                  Delete bucket
+                </button>
+              </DisabledActionTooltip>
             )}
           </div>
         )}
       </header>
 
       {!composing && onCreateTask && (
-        <button
-          type="button"
-          className="kanban-column__quick-create"
-          onClick={() => setComposing(true)}
-          title="Add a task (C)"
+        <DisabledActionTooltip
+          disabled={Boolean(createTaskDisabledReason)}
+          reason={createTaskDisabledReason}
         >
-          + Add a task
-          <KbdHint keys={['C']} className="ml-1" />
-        </button>
+          <button
+            type="button"
+            className="kanban-column__quick-create"
+            onClick={() => setComposing(true)}
+            title="Add a task (C)"
+            disabled={Boolean(createTaskDisabledReason)}
+          >
+            + Add a task
+            <KbdHint keys={['C']} className="ml-1" />
+          </button>
+        </DisabledActionTooltip>
       )}
 
       {composing && (

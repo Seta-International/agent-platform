@@ -21,6 +21,8 @@ interface Props {
   ) => void;
   /** Wired to FC's dateClick — receives the date key and the raw mouse position. */
   onSelectDate?: (dateKey: string, pos: { x: number; y: number }) => void;
+  /** Drag-to-reschedule is enabled only when true (requires task update permission). */
+  editable?: boolean;
 }
 
 export function CalendarGrid({
@@ -30,6 +32,7 @@ export function CalendarGrid({
   onOpenTask,
   onRescheduleTask,
   onSelectDate,
+  editable = true,
 }: Props) {
   const calendarRef = useRef<FullCalendar>(null);
   const isWeekMode = deriveCalendarMode(from, to) === 'week';
@@ -66,7 +69,7 @@ export function CalendarGrid({
         height={isWeekMode ? '100%' : 'auto'}
         expandRows={isWeekMode}
         events={events}
-        editable={true}
+        editable={editable}
         eventContent={({ event }) => (
           <TaskEventCard task={event.extendedProps.task as TaskWithAssigneesRow} />
         )}
