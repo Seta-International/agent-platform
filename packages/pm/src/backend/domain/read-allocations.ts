@@ -93,15 +93,14 @@ export async function listAllocations(input: {
   }
   if (input.q) {
     const like = `%${input.q}%`;
-    conds.push(
-      or(
-        ilike(workerProjection.full_name, like),
-        ilike(project.name, like),
-        ilike(account.name, like),
-        ilike(allocation.note, like),
-        ilike(allocation.role, like),
-      )!,
+    const searchCond = or(
+      ilike(workerProjection.full_name, like),
+      ilike(project.name, like),
+      ilike(account.name, like),
+      ilike(allocation.note, like),
+      ilike(allocation.role, like),
     );
+    if (searchCond) conds.push(searchCond);
   }
 
   const rows = await pmDb()
