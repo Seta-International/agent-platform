@@ -3,7 +3,7 @@ import type { Edge, Node } from '@xyflow/react';
 import { MarkerType, Position } from '@xyflow/react';
 
 /** Visual type of a node — drives its icon, accent rail and avatar shape. */
-export type OrgNodeEntity = 'department' | 'person' | 'account' | 'project';
+export type OrgNodeEntity = 'department' | 'person' | 'account' | 'project' | 'empty';
 
 /** Where a node click drills to. `person` nodes use `personId` instead. */
 export type OrgNav =
@@ -22,7 +22,7 @@ export interface OrgGraphNodeData extends Record<string, unknown> {
   nav?: OrgNav;
 }
 
-const NODE_W = 210;
+export const NODE_W = 210;
 const NODE_H = 64;
 
 export const EDGE = {
@@ -34,6 +34,21 @@ export const EDGE = {
     color: 'var(--color-ink-subtle)',
   },
 };
+
+/** Creates an edge with a stable auto-generated id. */
+export function mkEdge(source: string, target: string): Edge {
+  return { id: `e:${source}->${target}`, source, target, ...EDGE };
+}
+
+/** Empty-state placeholder node — renders an italic message with no card chrome. */
+export function emptyNode(id: string, message: string): Node<OrgGraphNodeData> {
+  return {
+    id,
+    type: 'org',
+    position: { x: 0, y: 0 },
+    data: { title: message, tone: 'surface', avatarShape: 'square', entity: 'empty' },
+  };
+}
 
 /** Lay out with dagre top-to-bottom; returns nodes with positions + handle sides set. */
 export function layout(

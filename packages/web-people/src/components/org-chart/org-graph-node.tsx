@@ -2,7 +2,7 @@ import { GraphNodeCard } from '@seta/shared-ui';
 import { Handle, type Node, type NodeProps, Position } from '@xyflow/react';
 import { Boxes, Briefcase, Building2 } from 'lucide-react';
 import type { ReactNode } from 'react';
-import type { OrgGraphNodeData } from './graph-layout.ts';
+import { NODE_W, type OrgGraphNodeData } from './graph-layout.ts';
 
 // Per-type glyph + accent rail. Person nodes keep their name-initials avatar (icon undefined).
 function visualFor(data: OrgGraphNodeData): { icon?: ReactNode; accent?: string } {
@@ -22,6 +22,27 @@ function visualFor(data: OrgGraphNodeData): { icon?: ReactNode; accent?: string 
 }
 
 export function OrgGraphNode({ data }: NodeProps<Node<OrgGraphNodeData>>) {
+  if (data.entity === 'empty') {
+    return (
+      <>
+        <Handle type="target" position={Position.Top} style={{ opacity: 0 }} />
+        <div
+          style={{
+            width: NODE_W,
+            padding: '18px 0',
+            textAlign: 'center',
+            fontSize: 13,
+            fontStyle: 'italic',
+            color: 'var(--color-ink-subtle)',
+          }}
+        >
+          {data.title}
+        </div>
+        <Handle type="source" position={Position.Bottom} style={{ opacity: 0 }} />
+      </>
+    );
+  }
+
   const { icon, accent } = visualFor(data);
   return (
     <>

@@ -19,6 +19,7 @@ export interface OrgUnitNode {
   kind: string;
   sort: number;
   head: { person_id: string; full_name: string } | null;
+  members: Array<{ person_id: string; full_name: string; job_title: string | null }>;
 }
 
 export async function getOrgStructure(session: SessionScope): Promise<{ units: OrgUnitNode[] }> {
@@ -30,15 +31,30 @@ export async function getOrgStructure(session: SessionScope): Promise<{ units: O
     .where(tenantScoped(orgUnit.tenant_id, session))
     .orderBy(asc(orgUnit.sort), asc(orgUnit.name));
 
-  // Resolve head display names from the scope-visible workers (head ids without a visible worker → null).
   const scope = buildWorkerScope(session);
   const rows = await peopleDb()
-    .select({ person_id: worker.person_id, full_name: worker.full_name })
+    .select({
+      person_id: worker.person_id,
+      full_name: worker.full_name,
+      job_title: worker.job_title,
+      org_unit_id: worker.org_unit_id,
+    })
     .from(worker)
     .where(
       and(tenantScoped(worker.tenant_id, session), isNull(worker.deleted_at), scope ?? undefined),
     );
+
   const nameByPerson = new Map(rows.map((r) => [r.person_id, r.full_name]));
+  const membersByUnit = new Map<
+    string,
+    Array<{ person_id: string; full_name: string; job_title: string | null }>
+  >();
+  for (const r of rows) {
+    if (!r.org_unit_id) continue;
+    const arr = membersByUnit.get(r.org_unit_id) ?? [];
+    arr.push({ person_id: r.person_id, full_name: r.full_name, job_title: r.job_title });
+    membersByUnit.set(r.org_unit_id, arr);
+  }
 
   return {
     units: units.map((u) => ({
@@ -51,6 +67,7 @@ export async function getOrgStructure(session: SessionScope): Promise<{ units: O
         u.head_worker_id && nameByPerson.has(u.head_worker_id)
           ? { person_id: u.head_worker_id, full_name: nameByPerson.get(u.head_worker_id) ?? '' }
           : null,
+      members: membersByUnit.get(u.id) ?? [],
     })),
   };
 }
