@@ -5,12 +5,19 @@ import {
   AvatarFallback,
   Badge,
   Button,
+  CounterBadgePopover,
   DataTable,
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
   EmptyState,
   Input,
   Label,
@@ -22,8 +29,8 @@ import { usePermission } from '@seta/web-identity';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import type { OnChangeFn, PaginationState, SortingState } from '@tanstack/react-table';
-import { LayoutGrid, List, Users } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { LayoutGrid, List, Settings2, User, Users, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   createWorker,
   fetchWorkers,
@@ -132,13 +139,60 @@ function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
   );
 }
 
+const HIDEABLE_COLUMNS = [
+  { id: 'accounts', label: 'Account' },
+  { id: 'work_email', label: 'Work email' },
+  { id: 'manager_name', label: 'Direct manager' },
+  { id: 'lifecycle_stage', label: 'Status' },
+  { id: 'onboarding_date', label: 'Onboarding' },
+  { id: 'offboarding_date', label: 'Offboarding' },
+  { id: 'phone', label: 'Phone' },
+  { id: 'gender', label: 'Gender' },
+  { id: 'skills', label: 'Techstack' },
+  { id: 'portal', label: 'Access' },
+];
+
 export function PeoplePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const canProvision = usePermission('people.worker.provision');
   const canReadAll = usePermission('people.worker.read.all');
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({});
   const [query, setQuery] = useState<WorkersQuery>({ page: 1, pageSize: 25 });
   const [view, setView] = useState<'list' | 'cards'>('list');
+
+  const activeFiltersCount =
+    (query.status?.length ?? 0) +
+    (query.account_id?.length ?? 0) +
+    (query.project_id?.length ?? 0) +
+    (query.skill_id?.length ?? 0);
+
+  const handleClearFilters = useCallback(() => {
+    setQuery((q) => ({
+      ...q,
+      status: undefined,
+      account_id: undefined,
+      project_id: undefined,
+      skill_id: undefined,
+      page: 1,
+    }));
+  }, []);
+
+  const [searchText, setSearchText] = useState(query.search ?? '');
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    setSearchText(query.search ?? '');
+  }, [query.search]);
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchText(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setQuery((q) => ({ ...q, search: value || undefined, page: 1 }));
+    }, 300);
+  }, []);
 
   const patchQuery = useCallback(
     (patch: Partial<WorkersQuery>) => setQuery((q) => ({ ...q, ...patch, page: 1 })),
@@ -204,7 +258,7 @@ export function PeoplePage() {
         enableSorting: false,
         cell: ({ row }: CellCtx) =>
           row.original.accounts.length > 0 ? (
-            <div className="flex flex-wrap gap-1">
+            <div className="flex items-center gap-1 overflow-hidden h-5 max-w-[200px]">
               {row.original.accounts.map((a) => (
                 <Badge
                   key={a.id}
@@ -216,7 +270,7 @@ export function PeoplePage() {
               ))}
             </div>
           ) : (
-            <span className="text-ink-muted">—</span>
+            <div className="flex items-center h-5 text-ink-muted">—</div>
           ),
       },
       {
@@ -286,18 +340,15 @@ export function PeoplePage() {
         id: 'skills',
         header: 'Techstack',
         enableSorting: false,
-        cell: ({ row }: CellCtx) =>
-          row.original.skills.length > 0 ? (
-            <div className="flex flex-wrap gap-1">
-              {row.original.skills.map((s) => (
-                <Badge key={s.id} variant="secondary" className="text-[11px] px-1.5 py-0">
-                  {s.name}
-                </Badge>
-              ))}
-            </div>
-          ) : (
-            <span className="text-ink-muted">—</span>
-          ),
+        cell: ({ row }: CellCtx) => (
+          <CounterBadgePopover
+            items={row.original.skills}
+            title="Techstack"
+            limit={2}
+            type="badge"
+            badgeVariant="secondary"
+          />
+        ),
       },
     ];
   }, []);
@@ -319,27 +370,115 @@ export function PeoplePage() {
           </Alert>
         ) : (
           <>
-            <PeopleFilterBar query={query} onChange={patchQuery} />
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2 text-body-sm text-ink-muted">
-                <span>
-                  {total} {total === 1 ? 'person' : 'people'}
+            {selectedWorkerIds.length > 0 && (
+              <div className="flex items-center justify-between gap-3 rounded-md border border-hairline bg-surface-raised px-4 py-2">
+                <span className="text-body-sm text-ink-muted">
+                  {selectedWorkerIds.length} selected
                 </span>
-                {!canReadAll && (
-                  <Badge variant="outline" title="You see only people related to you">
-                    Scoped view
-                  </Badge>
-                )}
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={bulkMutation.isPending}
+                    onClick={() => bulkMutation.mutate(true)}
+                  >
+                    Enable portal access
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={bulkMutation.isPending}
+                    onClick={() => bulkMutation.mutate(false)}
+                  >
+                    Disable portal access
+                  </Button>
+                </div>
               </div>
-              <SegmentedControl
-                aria-label="Directory view"
-                value={view}
-                onValueChange={setView}
-                options={[
-                  { value: 'list', label: 'List', icon: <List className="size-3.5" /> },
-                  { value: 'cards', label: 'Cards', icon: <LayoutGrid className="size-3.5" /> },
-                ]}
-              />
+            )}
+            {/* Control & Filter Layout */}
+            <div className="flex flex-col gap-4">
+              {/* Row 1: Search & Controls */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <Input
+                    className="h-9 w-64"
+                    placeholder="Search people…"
+                    value={searchText}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                  />
+                  <span className="text-ink-tertiary select-none">|</span>
+                  {activeFiltersCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleClearFilters}
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:opacity-80 transition-opacity focus:outline-none cursor-pointer"
+                    >
+                      <X className="size-3.5" />
+                      Clear filters ({activeFiltersCount})
+                    </button>
+                  )}
+                  <div className="flex items-center gap-2 text-body-sm text-ink-muted">
+                    <span className="font-medium text-ink flex items-center gap-1">
+                      <User className="size-3.5 text-ink-muted" />
+                      {total} {total === 1 ? 'person' : 'people'}
+                    </span>
+                    {!canReadAll && (
+                      <Badge variant="outline" title="You see only people related to you">
+                        Scoped view
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {view === 'list' && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-1 px-2.5 py-1 text-xs font-medium text-ink hover:bg-surface-2 transition-colors h-7 focus:outline-none"
+                        >
+                          <Settings2 className="size-3.5" />
+                          Columns
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        {HIDEABLE_COLUMNS.map((col) => {
+                          const isVisible = columnVisibility[col.id] ?? true;
+                          return (
+                            <DropdownMenuCheckboxItem
+                              key={col.id}
+                              checked={isVisible}
+                              onSelect={(e) => e.preventDefault()}
+                              onCheckedChange={(checked) => {
+                                setColumnVisibility((prev) => ({
+                                  ...prev,
+                                  [col.id]: checked,
+                                }));
+                              }}
+                            >
+                              {col.label}
+                            </DropdownMenuCheckboxItem>
+                          );
+                        })}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                  <SegmentedControl
+                    aria-label="Directory view"
+                    value={view}
+                    onValueChange={setView}
+                    options={[
+                      { value: 'list', label: 'List', icon: <List className="size-3.5" /> },
+                      { value: 'cards', label: 'Cards', icon: <LayoutGrid className="size-3.5" /> },
+                    ]}
+                  />
+                </div>
+              </div>
+
+              {/* Row 2: Dropdown Filters */}
+              <PeopleFilterBar query={query} onChange={patchQuery} />
             </div>
             {view === 'list' ? (
               <DataTable
@@ -352,6 +491,9 @@ export function PeoplePage() {
                 globalFilter=""
                 onGlobalFilterChange={() => {}}
                 enableGlobalFilter={false}
+                enableColumnVisibility={false}
+                columnVisibility={columnVisibility}
+                onColumnVisibilityChange={setColumnVisibility}
                 columnFilters={[]}
                 onColumnFiltersChange={() => {}}
                 pagination={pagination}
@@ -359,14 +501,22 @@ export function PeoplePage() {
                 pageCount={Math.max(1, Math.ceil(total / pageSize))}
                 rowCount={total}
                 getRowId={(r: WorkerListRow) => r.worker_id}
-                enableRowSelection={false}
-                rowSelection={{}}
-                onRowSelectionChange={() => {}}
+                getRowClassName={() => 'h-14'}
+                enableRowSelection={canSetPortal}
+                rowSelection={rowSelection}
+                onRowSelectionChange={setRowSelection}
                 emptyState={
                   <EmptyState
                     icon={<Users className="size-6" />}
                     title="No workers yet"
                     description="Add a worker to get started."
+                  />
+                }
+                noResultsState={
+                  <EmptyState
+                    icon={<Users className="size-6" />}
+                    title="No matching people"
+                    description="Try adjusting your search or filters."
                   />
                 }
                 onRowClick={(row) =>

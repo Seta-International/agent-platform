@@ -15,6 +15,7 @@ type BaseProps = {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  triggerPrefix?: string;
 };
 
 export type AsyncComboboxProps =
@@ -44,7 +45,7 @@ function toComboboxOption(o: EntityOption): ComboboxOption {
 }
 
 export function AsyncCombobox(props: AsyncComboboxProps): React.ReactElement {
-  const { search, resolveByIds, placeholder, disabled, className } = props;
+  const { search, resolveByIds, placeholder, disabled, className, triggerPrefix } = props;
   const [query, setQuery] = useState('');
   const debounced = useDebounced(query, 200);
   const [results, setResults] = useState<EntityOption[]>([]);
@@ -114,6 +115,7 @@ export function AsyncCombobox(props: AsyncComboboxProps): React.ReactElement {
         placeholder={placeholder}
         disabled={disabled}
         className={className}
+        triggerPrefix={triggerPrefix}
       />
     );
   }
@@ -127,6 +129,7 @@ export function AsyncCombobox(props: AsyncComboboxProps): React.ReactElement {
       placeholder={placeholder}
       disabled={disabled}
       className={className}
+      triggerPrefix={triggerPrefix}
     />
   );
 }

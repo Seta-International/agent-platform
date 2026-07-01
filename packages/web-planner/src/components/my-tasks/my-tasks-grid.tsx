@@ -1,5 +1,5 @@
 import type { MyTasksResult, TaskWithPlan } from '@seta/planner';
-import { AvatarStack, LabelChip } from '@seta/shared-ui';
+import { AvatarStack, CounterBadgePopover } from '@seta/shared-ui';
 import { Link } from '@tanstack/react-router';
 import {
   createColumnHelper,
@@ -105,11 +105,12 @@ export function MyTasksGrid({ data }: Props) {
         id: 'labels',
         header: 'Labels',
         cell: ({ row }) => (
-          <div className="flex gap-1 flex-nowrap overflow-hidden">
-            {row.original.labels.slice(0, 2).map((l) => (
-              <LabelChip key={l.id} name={l.name} color={l.color} />
-            ))}
-          </div>
+          <CounterBadgePopover
+            items={row.original.labels}
+            title="Labels"
+            limit={2}
+            type="label-chip"
+          />
         ),
       }),
       col.display({

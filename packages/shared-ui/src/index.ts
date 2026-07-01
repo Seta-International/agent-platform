@@ -23,6 +23,7 @@ export * from './composites/chat-transcript';
 export * from './composites/combobox';
 export * from './composites/coming-soon';
 export * from './composites/command-palette';
+export * from './composites/counter-badge-popover';
 export * from './composites/data-table';
 export * from './composites/disabled-action-tooltip';
 export * from './composites/dropzone';

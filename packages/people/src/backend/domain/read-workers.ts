@@ -90,6 +90,18 @@ export async function listWorkers(
       ilike(worker.full_name, like),
       ilike(worker.work_email, like),
       ilike(worker.job_title, like),
+      sql`EXISTS (
+        SELECT 1 FROM people.worker_allocation_projection wap
+          WHERE wap.worker_id = ${worker.person_id} AND wap.active
+            AND wap.tenant_id = ${tenantId}
+            AND wap.account_name ILIKE ${like}
+      )`,
+      sql`EXISTS (
+        SELECT 1 FROM people.person_skill ps
+          WHERE ps.person_id = ${worker.person_id}
+            AND ps.tenant_id = ${tenantId}
+            AND ps.skill_name ILIKE ${like}
+      )`,
     );
     if (term) filters.push(term);
   }

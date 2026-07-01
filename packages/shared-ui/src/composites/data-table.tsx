@@ -278,9 +278,9 @@ export function DataTable<TData, TValue>(props: DataTableProps<TData, TValue>) {
           ) : null
         }
       />
-      <div>
+      <div className="border border-hairline rounded-lg overflow-hidden bg-canvas">
         <Table>
-          <TableHeader className="bg-canvas sticky top-0 z-10 [&_tr]:border-b [&_tr]:border-hairline">
+          <TableHeader className="bg-surface-1 sticky top-0 z-10 [&_tr]:border-b [&_tr]:border-hairline">
             {table.getHeaderGroups().map((hg) => (
               <TableRow key={hg.id} className="border-b border-hairline hover:bg-transparent">
                 {hg.headers.map((h) => (
@@ -374,18 +374,18 @@ export function DataTable<TData, TValue>(props: DataTableProps<TData, TValue>) {
             )}
           </TableBody>
         </Table>
-        {showPagination && (
-          <DataTablePagination
-            table={table}
-            rowCount={rowCount}
-            pageSizeOptions={
-              props.mode !== 'server' && props.pagination !== false
-                ? props.pagination?.pageSizeOptions
-                : undefined
-            }
-          />
-        )}
       </div>
+      {showPagination && (
+        <DataTablePagination
+          table={table}
+          rowCount={rowCount}
+          pageSizeOptions={
+            props.mode !== 'server' && props.pagination !== false
+              ? props.pagination?.pageSizeOptions
+              : undefined
+          }
+        />
+      )}
     </div>
   );
 }

@@ -1,5 +1,5 @@
-import { AsyncCombobox, Combobox, type ComboboxOption, Input } from '@seta/shared-ui';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { AsyncCombobox, Combobox, type ComboboxOption } from '@seta/shared-ui';
+import { useMemo } from 'react';
 import {
   projectSearch,
   searchAccounts,
@@ -24,21 +24,6 @@ interface Props {
 }
 
 export function PeopleFilterBar({ query, onChange }: Props) {
-  const [searchText, setSearchText] = useState(query.search ?? '');
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    setSearchText(query.search ?? '');
-  }, [query.search]);
-
-  function handleSearchChange(value: string) {
-    setSearchText(value);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      onChange({ search: value || undefined });
-    }, 300);
-  }
-
   // Stable per selected-accounts: AsyncCombobox lists `search` in its effect deps, so a new
   // reference each render would re-fetch projects on every unrelated parent render.
   const projectSearchBound = useMemo(
@@ -51,19 +36,14 @@ export function PeopleFilterBar({ query, onChange }: Props) {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Input
-        className="h-8 w-48"
-        placeholder="Search people…"
-        value={searchText}
-        onChange={(e) => handleSearchChange(e.target.value)}
-      />
       <Combobox
         multiple
         options={STATUS_OPTIONS}
         value={query.status ?? []}
         onChange={(v) => onChange({ status: v.length ? v : undefined })}
         placeholder="Status"
-        className="h-8 w-40"
+        triggerPrefix="Status"
+        className="w-40"
       />
       <AsyncCombobox
         multiple
@@ -72,7 +52,8 @@ export function PeopleFilterBar({ query, onChange }: Props) {
         search={searchAccounts.search}
         resolveByIds={searchAccounts.resolveByIds}
         placeholder="Account"
-        className="h-8 w-44"
+        triggerPrefix="Account"
+        className="w-44"
       />
       <AsyncCombobox
         multiple
@@ -81,7 +62,8 @@ export function PeopleFilterBar({ query, onChange }: Props) {
         search={projectSearchBound.search}
         resolveByIds={projectSearchBound.resolveByIds}
         placeholder="Project"
-        className="h-8 w-44"
+        triggerPrefix="Project"
+        className="w-44"
       />
       <AsyncCombobox
         multiple
@@ -90,7 +72,8 @@ export function PeopleFilterBar({ query, onChange }: Props) {
         search={searchSkills.search}
         resolveByIds={searchSkills.resolveByIds}
         placeholder="Techstack"
-        className="h-8 w-44"
+        triggerPrefix="Techstack"
+        className="w-44"
       />
     </div>
   );
