@@ -1,4 +1,4 @@
-name: AI SDLC Metrics — FUT
+name: AI SDLC Metrics — Future
 
 on:
   schedule:
@@ -58,11 +58,13 @@ jobs:
           JIRA_AI_USAGE_FIELD: ${{ secrets.JIRA_AI_USAGE_FIELD }}
           GH_REPO: seta-international/agent-platform
           JIRA_PROJECT: FUT
-          PROJECT_LABEL: FUT
+          PROJECT_LABEL: Future
+          SPRINT_ANCHOR: "2026-06-29"
+          SPRINT_LENGTH_DAYS: "14"
         run: |
           ARGS=""
           [ -n "${{ inputs.sprint_label }}" ]         && ARGS="$ARGS --sprint ${{ inputs.sprint_label }}"
           [ -n "${{ inputs.a1_adoption_rate }}" ]      && ARGS="$ARGS --a1 ${{ inputs.a1_adoption_rate }}"
           [ -n "${{ inputs.b5_cost_improvement_pct }}" ] && ARGS="$ARGS --b5 ${{ inputs.b5_cost_improvement_pct }}"
           [ -n "${{ inputs.c3_ai_code_coverage_pct }}" ] && ARGS="$ARGS --c3 ${{ inputs.c3_ai_code_coverage_pct }}"
-          python -m collector.collect --project FUT $ARGS
+          python -m collector.collect --project Future $ARGS
