@@ -21,16 +21,22 @@ const accounts: DeliveryAccount[] = [
 ];
 
 describe('buildAccountGraph', () => {
-  it('roots the AM, then projects, then members for the selected account', () => {
+  it('roots the AM, then account, then projects, then members for the selected account', () => {
     const { nodes, edges } = buildAccountGraph(accounts, 'a1');
-    // AM is the root person node, carrying the account name in its subtitle
+    // AM is the root person node
     const am = nodes.find((n) => n.id === 'am:am1');
     expect(am?.data.entity).toBe('person');
     expect(am?.data.title).toBe('AM One');
     expect(am?.data.personId).toBe('am1');
-    expect(am?.data.subtitle).toContain('Acme');
-    // projects hang under the AM and drill to the Project view
-    expect(edges.some((e) => e.source === 'am:am1' && e.target === 'proj:p1')).toBe(true);
+    expect(am?.data.subtitle).toBe('Account Manager');
+    // the account hangs under the AM, carrying the total member count
+    expect(edges.some((e) => e.source === 'am:am1' && e.target === 'acct:a1')).toBe(true);
+    const acct = nodes.find((n) => n.id === 'acct:a1');
+    expect(acct?.data.entity).toBe('account');
+    expect(acct?.data.title).toBe('Acme');
+    expect(acct?.data.count).toBe(2);
+    // projects hang under the account and drill to the Project view
+    expect(edges.some((e) => e.source === 'acct:a1' && e.target === 'proj:p1')).toBe(true);
     const proj = nodes.find((n) => n.id === 'proj:p1');
     expect(proj?.data.entity).toBe('project');
     expect(proj?.data.nav).toEqual({ view: 'project', projectId: 'p1', accountId: 'a1' });

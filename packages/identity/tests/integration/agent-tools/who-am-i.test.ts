@@ -12,14 +12,14 @@ describe('identity_whoAmI tool', () => {
         {},
         makeToolContext({ user_id: admin_user_id }),
       )) as Record<string, unknown>;
-      expect(out['user_id']).toBe(admin_user_id);
-      expect(out['email']).toBe('admin@demo.local');
+      expect(out.user_id).toBe(admin_user_id);
+      expect(out.email).toBe('admin@demo.local');
       // presence + skills MUST NOT be exposed via this tool
-      expect(out['availability_status']).toBeUndefined();
-      expect(out['working_hours']).toBeUndefined();
-      expect(out['timezone']).toBeUndefined();
-      expect(out['ooo_until']).toBeUndefined();
-      expect(out['skills']).toBeUndefined();
+      expect(out.availability_status).toBeUndefined();
+      expect(out.working_hours).toBeUndefined();
+      expect(out.timezone).toBeUndefined();
+      expect(out.ooo_until).toBeUndefined();
+      expect(out.skills).toBeUndefined();
     });
   });
 

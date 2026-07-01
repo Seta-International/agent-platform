@@ -92,7 +92,7 @@ export async function listAllocations(input: {
     );
   }
   if (input.q) {
-    const like = '%' + input.q + '%';
+    const like = `%${input.q}%`;
     conds.push(
       or(
         ilike(workerProjection.full_name, like),

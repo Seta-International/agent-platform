@@ -1,54 +1,36 @@
 import { describe, expect, it } from 'vitest';
-import { rolesFor } from '../../src/commands/seed-fixture/rbac-map.ts';
+import { personaGroupsFor } from '../../src/commands/seed-fixture/rbac-map.ts';
 
-describe('rolesFor', () => {
-  it('ADMIN → org.admin + pm.pmo (admins are the PMO governance gate)', () => {
-    const grants = rolesFor('ADMIN');
-    expect(grants.map((g) => g.slug)).toEqual(['org.admin', 'pm.pmo']);
-    expect(grants[0]).toMatchObject({ scope_type: 'tenant', scope_id: null });
+describe('personaGroupsFor', () => {
+  it('ADMIN → admin persona group (org.admin wildcard subsumes the old pm.pmo grant)', () => {
+    expect(personaGroupsFor('ADMIN')).toEqual(['admin']);
   });
 
-  it('PRODUCT DIRECTOR → pm.bod (final approval gate)', () => {
-    const slugs = rolesFor('Product Director').map((g) => g.slug);
-    expect(slugs).toContain('pm.bod');
-    expect(slugs).not.toContain('pm.strategic');
+  it('PRODUCT DIRECTOR → bod persona group (final approval gate)', () => {
+    expect(personaGroupsFor('Product Director')).toEqual(['bod']);
   });
 
-  it('PM → pm.strategic + planner.contributor + agent.contributor', () => {
-    const slugs = rolesFor('PM').map((g) => g.slug);
-    expect(slugs).toContain('pm.strategic');
-    expect(slugs).toContain('planner.contributor');
-    expect(slugs).toContain('agent.contributor');
-    expect(slugs).not.toContain('pm.viewer');
+  it('PM → am persona group (pm.strategic)', () => {
+    expect(personaGroupsFor('PM')).toEqual(['am']);
   });
 
-  it('DEV → planner.contributor + knowledge.member + agent.contributor', () => {
-    const slugs = rolesFor('DEV').map((g) => g.slug);
-    expect(slugs).toContain('planner.contributor');
-    expect(slugs).toContain('knowledge.member');
-    expect(slugs).toContain('agent.contributor');
+  it('DEV → no extra persona group (base member only)', () => {
+    expect(personaGroupsFor('DEV')).toEqual([]);
   });
 
   it('case-insensitive: admin (lowercase) maps same as ADMIN', () => {
-    expect(rolesFor('admin').map((g) => g.slug)).toEqual(['org.admin', 'pm.pmo']);
+    expect(personaGroupsFor('admin')).toEqual(['admin']);
   });
 
-  it('MARKETING → planner.viewer + knowledge.member', () => {
-    const slugs = rolesFor('MARKETING').map((g) => g.slug);
-    expect(slugs).toContain('planner.viewer');
-    expect(slugs).toContain('knowledge.member');
+  it('MARKETING → no extra persona group (base member only)', () => {
+    expect(personaGroupsFor('MARKETING')).toEqual([]);
   });
 
-  it('DIRECTOR → pm.strategic + agent.contributor', () => {
-    const slugs = rolesFor('DIRECTOR').map((g) => g.slug);
-    expect(slugs).toContain('pm.strategic');
-    expect(slugs).toContain('agent.contributor');
+  it('DIRECTOR → am persona group (pm.strategic)', () => {
+    expect(personaGroupsFor('DIRECTOR')).toEqual(['am']);
   });
 
-  it('unknown role falls back to IC default', () => {
-    const slugs = rolesFor('RANDOM_ROLE').map((g) => g.slug);
-    expect(slugs).toContain('planner.contributor');
-    expect(slugs).toContain('knowledge.member');
-    expect(slugs).toContain('agent.contributor');
+  it('unknown role falls back to base member only', () => {
+    expect(personaGroupsFor('RANDOM_ROLE')).toEqual([]);
   });
 });
