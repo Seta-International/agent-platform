@@ -15,6 +15,22 @@ import { RenderContextBadge } from './render-context-badge';
 
 const ASSISTANT_LABEL = 'Agent';
 
+function splitThinkSegments(text: string): { text: string; isThink: boolean; id: string }[] {
+  const segments: { text: string; isThink: boolean; id: string }[] = [];
+  let last = 0;
+  for (const match of text.matchAll(/<think>([\s\S]*?)<\/think>/g)) {
+    const idx = match.index ?? 0;
+    const before = text.slice(last, idx).trim();
+    if (before) segments.push({ text: before, isThink: false, id: `t-${last}` });
+    const think = (match[1] ?? '').trim();
+    if (think) segments.push({ text: think, isThink: true, id: `r-${idx}` });
+    last = idx + (match[0] ?? '').length;
+  }
+  const after = text.slice(last).trim();
+  if (after) segments.push({ text: after, isThink: false, id: `t-${last}` });
+  return segments;
+}
+
 interface PartProps {
   text: string;
   status: { type: string };
@@ -193,8 +209,25 @@ function makeAssistantMessage(authorLabel: string) {
           </ChainOfThought>
         );
       }
-      case 'text':
-        return <TextPart text={part.text ?? ''} status={part.status ?? { type: 'complete' }} />;
+      case 'text': {
+        const raw = part.text ?? '';
+        const status = part.status ?? { type: 'complete' };
+        if (!raw.includes('<think>')) return <TextPart text={raw} status={status} />;
+        // r1-style models embed thinking in text — split and render in-place so
+        // streaming turns show correctly without a reload.
+        const segments = splitThinkSegments(raw);
+        return (
+          <>
+            {segments.map((seg) =>
+              seg.isThink ? (
+                <ReasoningPart key={seg.id} text={seg.text} status={{ type: 'complete' }} />
+              ) : (
+                <TextPart key={seg.id} text={seg.text} status={status} />
+              ),
+            )}
+          </>
+        );
+      }
       case 'reasoning':
         return (
           <ReasoningPart text={part.text ?? ''} status={part.status ?? { type: 'complete' }} />

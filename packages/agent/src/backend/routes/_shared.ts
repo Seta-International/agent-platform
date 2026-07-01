@@ -268,12 +268,32 @@ export function leafDataPart(
   };
 }
 
+/** Split text containing `<think>...</think>` blocks (r1-style models) into
+ *  interleaved reasoning + text UI parts so they render in the thought span. */
+function splitThinkBlocks(text: string): UIMessagePart | UIMessagePart[] | null {
+  if (!text.includes('<think>')) return text.length > 0 ? { type: 'text', text } : null;
+  const parts: UIMessagePart[] = [];
+  let last = 0;
+  for (const match of text.matchAll(/<think>([\s\S]*?)<\/think>/g)) {
+    const idx = match.index ?? 0;
+    const before = text.slice(last, idx).trim();
+    if (before) parts.push({ type: 'text', text: before });
+    const think = (match[1] ?? '').trim();
+    if (think) parts.push({ type: 'reasoning', text: think });
+    last = idx + (match[0] ?? '').length;
+  }
+  const after = text.slice(last).trim();
+  if (after) parts.push({ type: 'text', text: after });
+  if (parts.length === 0) return null;
+  return parts.length === 1 ? (parts[0] as UIMessagePart) : parts;
+}
+
 export function mastraPartToUIPart(raw: unknown): UIMessagePart | UIMessagePart[] | null {
   if (!raw || typeof raw !== 'object') return null;
   const type = (raw as { type?: unknown }).type;
   if (type === 'text') {
     const text = (raw as { text?: unknown }).text;
-    return typeof text === 'string' && text.length > 0 ? { type: 'text', text } : null;
+    return typeof text === 'string' ? splitThinkBlocks(text) : null;
   }
   if (type === 'reasoning') {
     const text = (raw as { text?: unknown }).text;
