@@ -79,4 +79,46 @@ describe('provisionLogin', () => {
       }
     });
   });
+
+  it('is concurrency-safe: parallel calls for the same (tenant, email) yield one user, one created', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetIdentityDb();
+      initPools({ databaseUrl });
+      try {
+        const tenantId = await seedTenantRaw(pool);
+
+        // The pre-SELECT is a fast-path, not a guard; fire enough parallel calls that
+        // several race past it into the insert and hit ON CONFLICT DO NOTHING.
+        const results = await Promise.all(
+          Array.from({ length: 8 }, () =>
+            provisionLogin(
+              { tenant_id: tenantId, email: 'Race@corp.test', name: 'Race' },
+              { type: 'system', user_id: null },
+            ),
+          ),
+        );
+
+        const ids = new Set(results.map((r) => r.user_id));
+        expect(ids.size).toBe(1);
+        expect(results.filter((r) => r.created)).toHaveLength(1);
+
+        const rows = await identityDb()
+          .select()
+          .from(user)
+          .where(and(eq(user.tenant_id, tenantId), eq(user.email, 'race@corp.test')));
+        expect(rows).toHaveLength(1);
+
+        const ev = await pool.query(
+          `SELECT count(*)::int n FROM core.events WHERE tenant_id=$1 AND event_type='identity.user.created'`,
+          [tenantId],
+        );
+        expect(ev.rows[0].n).toBe(1);
+      } finally {
+        resetIdentityDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
 });

@@ -42,6 +42,7 @@
     "@opentelemetry/api": "^1.9.1",
     "@seta/agent-sdk": "workspace:^",
     "@seta/knowledge": "workspace:^",
+    "@seta/people": "workspace:^",
     "@seta/planner": "workspace:^",
     "@seta/shared-embeddings": "workspace:^",
     "@seta/shared-retrieval": "workspace:^",

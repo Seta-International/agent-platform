@@ -39,6 +39,8 @@ function admin(opts: { tenant_id: string; user_id: string; email: string }): Ses
     permissions: resolvePermissions(_registry, roles, IMPLICIT_PERMISSIONS),
     features: new Set<string>(),
     accessible_group_ids: [],
+    group_ids: [],
+    product_access: new Set<string>(),
     cross_tenant_read: false,
     built_at: new Date(),
     invalidated_at: null,
@@ -67,7 +69,7 @@ function registerFakeVectorTool(hits: ReadonlyArray<{ userId: string; score: num
     { queryText: string; topK: number; minScore?: number },
     { hits: Array<{ userId: string; score: number }> }
   > = {
-    id: 'identity_searchUsersBySkillVector',
+    id: 'people_searchUsersBySkillVector',
     description: 'fake',
     inputSchema: z.object({
       queryText: z.string(),

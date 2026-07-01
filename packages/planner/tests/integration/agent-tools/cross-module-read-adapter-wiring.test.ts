@@ -1,4 +1,4 @@
-import { identityGetAvailabilityTool, identityGetTimezoneTool } from '@seta/identity/agent-tools';
+import { peopleGetAvailabilityTool, peopleGetTimezoneTool } from '@seta/people/agent-tools';
 import { plannerGetOpenTaskCountTool } from '@seta/planner/agent-tools';
 import { describe, expect, it } from 'vitest';
 
@@ -10,14 +10,14 @@ describe('cross-module-read adapter wiring', () => {
       label: 'Open Task Count',
     },
     {
-      tool: identityGetTimezoneTool,
-      id: 'identity_getTimezoneForUser',
-      label: 'Get Timezone',
+      tool: peopleGetTimezoneTool,
+      id: 'people_getTimezoneForUser',
+      label: 'Get Worker Timezone',
     },
     {
-      tool: identityGetAvailabilityTool,
-      id: 'identity_getAvailabilityForUser',
-      label: 'Get Availability',
+      tool: peopleGetAvailabilityTool,
+      id: 'people_getAvailabilityForUser',
+      label: 'Get Worker Availability',
     },
   ])('$id is wired as a Mastra-shaped tool with displayName=$label', ({ tool, id, label }) => {
     expect((tool as { id?: string }).id).toBe(id);

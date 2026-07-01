@@ -4,11 +4,7 @@
 // '@seta/identity/agent-tools' at this file.
 export {
   identityAgentTools,
-  identityGetAvailabilityTool,
-  identityGetTimezoneTool,
   listMyRolesTool,
-  type MatchUsersToTopicToolDeps,
-  matchUsersToTopicTool,
   updateMyDisplayNameTool,
   whoAmITool,
 } from './backend/agent-tools/index.ts';

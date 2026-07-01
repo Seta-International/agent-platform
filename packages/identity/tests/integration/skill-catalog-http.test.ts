@@ -131,10 +131,10 @@ describe('skill catalog HTTP', () => {
     });
   });
 
-  // Guards against the route collision where profile's skill typeahead and the
-  // catalog list both bound `GET /api/identity/v1/skills`, so the first-registered
-  // typeahead shadowed the catalog and consumers got `{ results }` not `{ skills }`.
-  it('catalog GET /skills is not shadowed by the profile skill typeahead', async () => {
+  // The profile skill typeahead (which once shadowed this catalog list at
+  // `GET /api/identity/v1/skills`) has been removed — profile is account-only now.
+  // Catalog GET /skills must still return `{ skills }` with profile routes first.
+  it('catalog GET /skills returns { skills } with profile routes registered', async () => {
     await withDb(async ({ tenant }) => {
       const app = new Hono<SessionEnv>();
       const scope = session(tenant, ['core.skill.read', 'core.skill.manage']);
@@ -167,12 +167,6 @@ describe('skill catalog HTTP', () => {
       expect((list.body as { skills: { name: string }[] }).skills.map((s) => s.name)).toEqual([
         'React',
       ]);
-
-      // The profile typeahead now lives on its own path with its own contract
-      // (`{ results }`, sourced from user-profile skills — empty here).
-      const ta = await reqJson('GET', '/api/identity/v1/skill-search?prefix=Re');
-      expect(ta.status).toBe(200);
-      expect(Array.isArray((ta.body as { results: unknown }).results)).toBe(true);
     });
   });
 });

@@ -1,6 +1,6 @@
 import { requiredPermissionFor } from '@seta/agent-sdk';
 import { hashRoleSummary, type SessionScope } from '@seta/core';
-import { createUser, updateUserProfile } from '@seta/identity';
+import { createUser } from '@seta/identity';
 import { createTestTenantWithAdmin } from '@seta/identity/testing';
 import { addGroupMember, createGroup, createPlan, createTask } from '@seta/planner';
 import { plannerSearchGroupMembersBySkillsTool } from '@seta/planner/agent-tools';
@@ -11,11 +11,35 @@ import {
   inventoryToManifests,
   resolvePermissions,
 } from '@seta/shared-rbac';
+import type { Pool } from 'pg';
 import { describe, expect, it } from 'vitest';
 import { assignTaskInGroup } from '../../helpers.ts';
 import { makeToolContext, withAgentTestDb } from '../agent-tools-helpers.ts';
 
 const _registry = buildRegistry(inventoryToManifests(INVENTORY));
+
+// The tool now reads live skills from People (getPersonSkills joins person_skill →
+// person on person.user_id). Seed a People person linked to the user with skills.
+async function seedPeopleSkills(
+  pool: Pool,
+  tenantId: string,
+  userId: string,
+  skillNames: string[],
+): Promise<void> {
+  const personId = crypto.randomUUID();
+  await pool.query(`INSERT INTO people.person (id, tenant_id, user_id) VALUES ($1, $2, $3)`, [
+    personId,
+    tenantId,
+    userId,
+  ]);
+  for (const name of skillNames) {
+    await pool.query(
+      `INSERT INTO people.person_skill (id, tenant_id, person_id, skill_id, skill_name)
+       VALUES (gen_random_uuid(), $1, $2, gen_random_uuid(), $3)`,
+      [tenantId, personId, name],
+    );
+  }
+}
 function buildAdminSession(opts: {
   tenant_id: string;
   user_id: string;
@@ -34,6 +58,8 @@ function buildAdminSession(opts: {
     permissions: resolvePermissions(_registry, roles, IMPLICIT_PERMISSIONS),
     features: new Set<string>(),
     accessible_group_ids: [],
+    group_ids: [],
+    product_access: new Set<string>(),
     cross_tenant_read: false,
     built_at: new Date(),
     invalidated_at: null,
@@ -79,21 +105,9 @@ describe('planner_searchGroupMembersBySkills tool', () => {
         { type: 'cli', user_id: null },
       );
 
-      await updateUserProfile(
-        alice.user_id,
-        { skills: ['TypeScript', 'React', 'PostgreSQL'] },
-        { type: 'cli', user_id: null },
-      );
-      await updateUserProfile(
-        bob.user_id,
-        { skills: ['TypeScript', 'Node.js'] },
-        { type: 'cli', user_id: null },
-      );
-      await updateUserProfile(
-        charlie.user_id,
-        { skills: ['Python', 'Django'] },
-        { type: 'cli', user_id: null },
-      );
+      await seedPeopleSkills(pool, tenant_id, alice.user_id, ['TypeScript', 'React', 'PostgreSQL']);
+      await seedPeopleSkills(pool, tenant_id, bob.user_id, ['TypeScript', 'Node.js']);
+      await seedPeopleSkills(pool, tenant_id, charlie.user_id, ['Python', 'Django']);
 
       await pool.query(
         `INSERT INTO planner.assignee_projection
@@ -186,21 +200,9 @@ describe('planner_searchGroupMembersBySkills tool', () => {
         { type: 'cli', user_id: null },
       );
 
-      await updateUserProfile(
-        alice.user_id,
-        { skills: ['TypeScript'] },
-        { type: 'cli', user_id: null },
-      );
-      await updateUserProfile(
-        bob.user_id,
-        { skills: ['TypeScript'] },
-        { type: 'cli', user_id: null },
-      );
-      await updateUserProfile(
-        charlie.user_id,
-        { skills: ['TypeScript'] },
-        { type: 'cli', user_id: null },
-      );
+      await seedPeopleSkills(pool, tenant_id, alice.user_id, ['TypeScript']);
+      await seedPeopleSkills(pool, tenant_id, bob.user_id, ['TypeScript']);
+      await seedPeopleSkills(pool, tenant_id, charlie.user_id, ['TypeScript']);
 
       await pool.query(
         `INSERT INTO planner.assignee_projection
@@ -274,8 +276,8 @@ describe('planner_searchGroupMembersBySkills tool', () => {
         { type: 'cli', user_id: null },
       );
 
-      await updateUserProfile(alice.user_id, { skills: ['AWS'] }, { type: 'cli', user_id: null });
-      await updateUserProfile(bob.user_id, { skills: ['AWS'] }, { type: 'cli', user_id: null });
+      await seedPeopleSkills(pool, tenant_id, alice.user_id, ['AWS']);
+      await seedPeopleSkills(pool, tenant_id, bob.user_id, ['AWS']);
 
       await pool.query(
         `INSERT INTO planner.assignee_projection
@@ -322,7 +324,7 @@ describe('planner_searchGroupMembersBySkills tool', () => {
     });
   });
 
-  it('uses identity profile skills even when planner projection skills are stale', async () => {
+  it('uses live People skills even when planner projection skills are stale', async () => {
     await withAgentTestDb(async ({ pool }) => {
       const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
       const session = buildAdminSession({
@@ -340,7 +342,7 @@ describe('planner_searchGroupMembersBySkills tool', () => {
         },
         { type: 'cli', user_id: null },
       );
-      await updateUserProfile(alice.user_id, { skills: ['AWS'] }, { type: 'cli', user_id: null });
+      await seedPeopleSkills(pool, tenant_id, alice.user_id, ['AWS']);
 
       await pool.query(
         `INSERT INTO planner.assignee_projection
@@ -374,7 +376,7 @@ describe('planner_searchGroupMembersBySkills tool', () => {
       expect(result.candidates).toEqual([
         {
           userId: alice.user_id,
-          displayName: 'Alice Profile',
+          displayName: 'Alice Projection',
           matchedSkills: ['aws'],
           score: 1,
         },

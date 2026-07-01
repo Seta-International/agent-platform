@@ -2,15 +2,13 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ContributionRegistry, ErrorMapper } from '@seta/core';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
-import { identityAgentTools, matchUsersToTopicTool } from './agent-tools.ts';
+import { identityAgentTools } from './agent-tools.ts';
 import * as schema from './backend/db/schema.ts';
-import {
-  refreshUserProfileCreatedSubscriber,
-  refreshUserProfileDeactivatedSubscriber,
-  refreshUserProfileUpdatedSubscriber,
-} from './backend/embeddings/subscribers/refresh-user-profile.ts';
 import { buildIdentityRoutes } from './backend/http/index.ts';
 import { IdentityError } from './backend/rbac.ts';
+import { autoProvisionSubscribers } from './backend/subscribers/auto-provision.ts';
+import { autoSuspendSubscribers } from './backend/subscribers/auto-suspend.ts';
+import { directoryProjectionSubscribers } from './backend/subscribers/directory-projection.ts';
 import {
   applyMemberAdded,
   applyMemberRemoved,
@@ -33,11 +31,10 @@ export function registerIdentityContributions(reg: ContributionRegistry): void {
     rbac: identityRbac,
     migrationsDir: resolve(__dirname, '../drizzle'),
     agentTools: identityAgentTools,
-    agentToolFactories: [matchUsersToTopicTool],
     subscribers: [
-      refreshUserProfileCreatedSubscriber,
-      refreshUserProfileUpdatedSubscriber,
-      refreshUserProfileDeactivatedSubscriber,
+      ...autoProvisionSubscribers,
+      ...autoSuspendSubscribers,
+      ...directoryProjectionSubscribers,
       {
         event: 'planner.group.member.added',
         eventVersion: 1,

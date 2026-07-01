@@ -9,7 +9,7 @@ import { createOutboxStore } from '@seta/core/outbox';
 import { registerCoreContributions } from '@seta/core/register';
 import { buildRuntime, runMigrations, type WorkerHandle } from '@seta/core/runtime';
 import { registerHiringContributions } from '@seta/hiring/register';
-import { buildActorSession, getIdentityVectorStore, listTenantRoleOverlays } from '@seta/identity';
+import { buildActorSession, listTenantRoleOverlays } from '@seta/identity';
 import { registerIdentityContributions } from '@seta/identity/register';
 import { registerIntegrationsContributions } from '@seta/integrations/register';
 import {
@@ -20,6 +20,7 @@ import {
 } from '@seta/knowledge';
 import { registerKnowledgeContributions } from '@seta/knowledge/register';
 import { registerNotificationsContributions } from '@seta/notifications/register';
+import { getPeopleVectorStore } from '@seta/people';
 import { registerPeopleContributions } from '@seta/people/register';
 import { assignTask } from '@seta/planner';
 import { plannerFindSimilarTasksTool } from '@seta/planner/agent-tools';
@@ -150,7 +151,7 @@ const staffingOrchestration = buildStaffingOrchestrationRuntime({
     taskSearch: makeTaskSearch(),
     skillSearch: makeSkillSearch({
       provider: identityEmbeddingProvider,
-      pgVector: getIdentityVectorStore(env.DATABASE_URL),
+      pgVector: getPeopleVectorStore(env.DATABASE_URL),
     }),
     availability: makeAvailability(),
     userProfileLookup: makeUserProfileLookup(),

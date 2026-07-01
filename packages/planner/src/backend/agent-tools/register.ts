@@ -1,9 +1,6 @@
 import { AgentRegistry } from '@seta/agent-sdk';
-import {
-  identityGetAvailabilityTool,
-  identityGetTimezoneTool,
-  whoAmITool,
-} from '@seta/identity/agent-tools';
+import { whoAmITool } from '@seta/identity/agent-tools';
+import { peopleGetAvailabilityTool, peopleGetTimezoneTool } from '@seta/people/agent-tools';
 import type { EmbeddingProvider } from '@seta/shared-embeddings';
 import { resolveEmbeddingProvider } from '@seta/shared-embeddings';
 import { assignBySkillWorkflowSpec } from '../workflows/assign-by-skill/spec.ts';
@@ -112,9 +109,9 @@ Then choose the signals that matter for this specific request:
   "again" / "like last time" requests or follow-up tasks)
 - **planner_getOpenTaskCountForUser** — current workload (relevant when urgency
   is high or team capacity is a concern). For the actual task list (not just the count), use planner_queryTasks with assigneeUserId instead.
-- **identity_getAvailabilityForUser** — OOO / busy status (cheap to check;
+- **people_getAvailabilityForUser** — OOO / busy status (cheap to check;
   only decisive if a candidate would otherwise be the top pick)
-- **identity_getTimezoneForUser** — timezone overlap (relevant for long-running
+- **people_getTimezoneForUser** — timezone overlap (relevant for long-running
   collaborative work, not one-off async tasks)
 
 Most decisions need 2-4 of these signals. Pick the ones that actually change
@@ -192,7 +189,7 @@ call planner_createTask — it shows a confirm card.
 ## Tool reference
 Read: identity_whoAmI, planner_getTask, planner_queryTasks, planner_findSimilarTasks,
       planner_listComments, planner_searchGroupMembersBySkills, planner_getOpenTaskCountForUser,
-      identity_getTimezoneForUser, identity_getAvailabilityForUser
+      people_getTimezoneForUser, people_getAvailabilityForUser
 Write (HITL via chat card): planner_createTask, planner_proposeAssignment, planner_postComment
 Write (canvas/workflow only — do NOT call in chat): planner_setAssignees, planner_assignTask
 
@@ -209,8 +206,8 @@ Surface your reasoning as you go so the user can follow along.`,
     planner_postComment: plannerPostCommentTool,
     planner_searchGroupMembersBySkills: plannerSearchGroupMembersBySkillsTool,
     planner_getOpenTaskCountForUser: plannerGetOpenTaskCountTool,
-    identity_getTimezoneForUser: identityGetTimezoneTool,
-    identity_getAvailabilityForUser: identityGetAvailabilityTool,
+    people_getTimezoneForUser: peopleGetTimezoneTool,
+    people_getAvailabilityForUser: peopleGetAvailabilityTool,
   },
 });
 

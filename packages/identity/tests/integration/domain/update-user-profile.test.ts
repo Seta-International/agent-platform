@@ -63,66 +63,6 @@ describe('updateUserProfile', () => {
     );
   });
 
-  it('lowercases and dedupes skills', async () => {
-    await withTestDb(
-      {
-        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
-      },
-      async ({ pool, databaseUrl }) => {
-        resetCoreDb();
-        const { userId } = await setup(pool, databaseUrl);
-        try {
-          const result = await updateUserProfile(
-            userId,
-            { skills: ['Rust', 'rust', 'TypeScript'] },
-            { type: 'user', user_id: userId },
-          );
-          expect(result.skills).toEqual(['rust', 'typescript']);
-        } finally {
-          resetCoreDb();
-          await closePools();
-        }
-      },
-    );
-  });
-
-  it('round-trips working_hours and emits the diff', async () => {
-    await withTestDb(
-      {
-        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
-      },
-      async ({ pool, databaseUrl }) => {
-        resetCoreDb();
-        const { userId } = await setup(pool, databaseUrl);
-        try {
-          const result = await updateUserProfile(
-            userId,
-            { working_hours: { start: '09:00', end: '18:00' } },
-            { type: 'user', user_id: userId },
-          );
-          expect(result.working_hours).toEqual({ start: '09:00', end: '18:00' });
-
-          const event = (
-            await pool.query(
-              `SELECT payload FROM core.events WHERE event_type = 'identity.user.profile.updated'`,
-            )
-          ).rows[0] as {
-            payload: { before: Record<string, unknown>; after: Record<string, unknown> };
-          };
-          expect(event.payload.before).toEqual({ working_hours: null });
-          expect(event.payload.after).toEqual({
-            working_hours: { start: '09:00', end: '18:00' },
-          });
-        } finally {
-          resetCoreDb();
-          await closePools();
-        }
-      },
-    );
-  });
-
   it('admin can update another user with identity.user.write; non-admin cannot', async () => {
     await withTestDb(
       {
@@ -174,82 +114,18 @@ describe('updateUserProfile', () => {
 
           const result = await updateUserProfile(
             subjectId,
-            { skills: ['typescript'], working_hours: { start: '09:00', end: '17:00' } },
+            { display_name: 'S Renamed' },
             { type: 'user', user_id: adminId },
           );
-          expect(result.skills).toEqual(['typescript']);
-          expect(result.working_hours).toEqual({ start: '09:00', end: '17:00' });
+          expect(result.display_name).toBe('S Renamed');
 
           await expect(
-            updateUserProfile(subjectId, { skills: ['rust'] }, { type: 'user', user_id: viewerId }),
+            updateUserProfile(
+              subjectId,
+              { display_name: 'Nope' },
+              { type: 'user', user_id: viewerId },
+            ),
           ).rejects.toThrow();
-        } finally {
-          resetCoreDb();
-          await closePools();
-        }
-      },
-    );
-  });
-
-  it('round-trips bio and emits the diff', async () => {
-    await withTestDb(
-      {
-        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
-      },
-      async ({ pool, databaseUrl }) => {
-        resetCoreDb();
-        const { userId } = await setup(pool, databaseUrl);
-        try {
-          const result = await updateUserProfile(
-            userId,
-            { bio: 'Lead engineer on planner.\nLoves Postgres.' },
-            { type: 'user', user_id: userId },
-          );
-          expect(result.bio).toBe('Lead engineer on planner.\nLoves Postgres.');
-
-          const event = (
-            await pool.query(
-              `SELECT payload FROM core.events WHERE event_type = 'identity.user.profile.updated'`,
-            )
-          ).rows[0] as {
-            payload: { before: Record<string, unknown>; after: Record<string, unknown> };
-          };
-          expect(event.payload.before).toEqual({ bio: null });
-          expect(event.payload.after).toEqual({
-            bio: 'Lead engineer on planner.\nLoves Postgres.',
-          });
-        } finally {
-          resetCoreDb();
-          await closePools();
-        }
-      },
-    );
-  });
-
-  it('trims bio and normalizes whitespace-only to null', async () => {
-    await withTestDb(
-      {
-        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
-        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
-      },
-      async ({ pool, databaseUrl }) => {
-        resetCoreDb();
-        const { userId } = await setup(pool, databaseUrl);
-        try {
-          const trimmed = await updateUserProfile(
-            userId,
-            { bio: '  hello  ' },
-            { type: 'user', user_id: userId },
-          );
-          expect(trimmed.bio).toBe('hello');
-
-          const cleared = await updateUserProfile(
-            userId,
-            { bio: '   ' },
-            { type: 'user', user_id: userId },
-          );
-          expect(cleared.bio).toBeNull();
         } finally {
           resetCoreDb();
           await closePools();
@@ -268,7 +144,7 @@ describe('updateUserProfile', () => {
         resetCoreDb();
         const { userId } = await setup(pool, databaseUrl);
         try {
-          await updateUserProfile(userId, { timezone: 'UTC' }, { type: 'user', user_id: userId });
+          await updateUserProfile(userId, { display_name: 'A' }, { type: 'user', user_id: userId });
           const count = (
             await pool.query(
               `SELECT count(*)::int AS n FROM core.events WHERE event_type = 'identity.user.profile.updated'`,

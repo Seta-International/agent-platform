@@ -81,13 +81,7 @@ export async function editWorker(
         });
       }
 
-      const updatedFullName =
-        (changes.find(([f]) => f === 'full_name')?.[1] as string | undefined) ??
-        current.worker.full_name;
-      const updatedJobTitle =
-        (changes.find(([f]) => f === 'job_title')?.[1] as string | null | undefined) ??
-        current.worker.job_title;
-
+      const changesMap = new Map(changes);
       await emit({
         tenantId: session.tenant_id,
         aggregateType: 'people.worker',
@@ -96,10 +90,17 @@ export async function editWorker(
         eventVersion: 1,
         payload: {
           worker_id,
+          person_id: worker_id,
           tenant_id: session.tenant_id,
           fields: changes.map(([f]) => f),
-          full_name: updatedFullName,
-          job_title: updatedJobTitle ?? null,
+          full_name:
+            (changesMap.get('full_name') as string | undefined) ?? current.worker.full_name,
+          work_email: changesMap.has('work_email')
+            ? (changesMap.get('work_email') as string | null)
+            : current.worker.work_email,
+          job_title: changesMap.has('job_title')
+            ? (changesMap.get('job_title') as string | null)
+            : current.worker.job_title,
         },
       });
     },

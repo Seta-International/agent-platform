@@ -75,8 +75,10 @@ export async function insertWorkerAggregate(
     eventVersion: 1,
     payload: {
       worker_id: p.id,
+      person_id: p.id,
       tenant_id: args.tenant_id,
       full_name: args.full_name,
+      work_email: args.work_email ?? null,
       job_title: args.job_title ?? null,
     },
   });

@@ -8,7 +8,6 @@ import { buildPlannerRoutes } from './backend/http/index.ts';
 import { PlannerError } from './backend/rbac.ts';
 import { buildPlannerBoardStreamHub } from './backend/stream/index.ts';
 import { plannerSubscribers } from './backend/subscribers/index.ts';
-import { plannerFlags } from './flags.ts';
 import { plannerRbac } from './rbac.ts';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
@@ -49,7 +48,6 @@ export function registerPlannerContributions(reg: ContributionRegistry): void {
     agentTools: plannerAgentTools,
     agentToolFactories: [plannerFindSimilarTasksTool],
     subscribers: plannerSubscribers(),
-    flags: plannerFlags,
     routes: { mountAt: '/', build: buildPlannerRoutes },
     stream: buildPlannerBoardStreamHub,
     errorMapper: plannerErrorMapper,

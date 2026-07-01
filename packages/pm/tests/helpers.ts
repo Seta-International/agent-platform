@@ -72,6 +72,8 @@ export function buildSession(opts: {
     permissions: permsFor(roles),
     features: new Set<string>(['pm']),
     accessible_group_ids: [],
+    group_ids: [],
+    product_access: new Set<string>(),
     cross_tenant_read: false,
     built_at: new Date(),
     invalidated_at: null,

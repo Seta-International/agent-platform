@@ -14,7 +14,6 @@ export interface WorkerRow {
   work_email: string | null;
   phone: string | null;
   gender: string | null;
-  portal_access: boolean;
   lifecycle_stage: string | null;
   onboarding_date: string | null;
   offboarding_date: string | null;
@@ -153,7 +152,6 @@ export async function listWorkers(
     work_email: worker.work_email,
     phone: worker.phone,
     gender: worker.gender,
-    portal_access: worker.portal_access,
     lifecycle_stage: employmentPeriod.lifecycle_stage,
     onboarding_date: employmentPeriod.start_date,
     offboarding_date: employmentPeriod.end_date,
@@ -221,7 +219,6 @@ export async function getWorker({
   lifecycle_stage: string | null;
   onboarding_date: string | null;
   offboarding_date: string | null;
-  portal_access: boolean;
   job_title: string | null;
   manager_id: string | null;
   manager_name: string | null;
@@ -267,7 +264,6 @@ export async function getWorker({
       lifecycle_stage: employmentPeriod.lifecycle_stage,
       onboarding_date: employmentPeriod.start_date,
       offboarding_date: employmentPeriod.end_date,
-      portal_access: worker.portal_access,
       job_title: worker.job_title,
       manager_name: managerName,
       manager_id: worker.manager_id,

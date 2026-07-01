@@ -5,15 +5,21 @@ import { describe, expect, it } from 'vitest';
 import { makeToolContext, withAgentTestDb } from '../../helpers.ts';
 
 describe('identity_whoAmI tool', () => {
-  it("returns the caller's profile", async () => {
+  it('returns account fields only — no presence or skills in output', async () => {
     await withAgentTestDb(async ({ pool }) => {
       const { admin_user_id } = await createTestTenantWithAdmin({ pool });
-      const out = (await whoAmITool.execute!({}, makeToolContext({ user_id: admin_user_id }))) as {
-        user_id: string;
-        email: string;
-      };
-      expect(out.user_id).toBe(admin_user_id);
-      expect(out.email).toBe('admin@demo.local');
+      const out = (await whoAmITool.execute!(
+        {},
+        makeToolContext({ user_id: admin_user_id }),
+      )) as Record<string, unknown>;
+      expect(out['user_id']).toBe(admin_user_id);
+      expect(out['email']).toBe('admin@demo.local');
+      // presence + skills MUST NOT be exposed via this tool
+      expect(out['availability_status']).toBeUndefined();
+      expect(out['working_hours']).toBeUndefined();
+      expect(out['timezone']).toBeUndefined();
+      expect(out['ooo_until']).toBeUndefined();
+      expect(out['skills']).toBeUndefined();
     });
   });
 

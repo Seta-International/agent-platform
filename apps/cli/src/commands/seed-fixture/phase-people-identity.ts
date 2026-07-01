@@ -2,16 +2,16 @@ import { createHash } from 'node:crypto';
 import type { SessionScope } from '@seta/core';
 import { coreDb } from '@seta/core/db';
 import type { Actor } from '@seta/identity';
-import { createUser, grantRole, updateUserProfile } from '@seta/identity';
-import { addPersonSkill, createWorker, genderValue, setPortalAccess } from '@seta/people';
+import { addGroupMembers, ensureLocalLogin, provisionLogin } from '@seta/identity';
+import { addPersonSkill, createWorker, genderValue } from '@seta/people';
 import { sql } from 'drizzle-orm';
 import type { EmployeeRec } from './load.ts';
 import type { SeededSkill } from './phase-skills.ts';
-import { rolesFor } from './rbac-map.ts';
-import { skillNamesForRole, techStackFor } from './skill-catalog.ts';
+import { personaGroupsFor } from './rbac-map.ts';
+import { techStackFor } from './skill-catalog.ts';
 
-// createWorker returns person_id as the canonical worker identity (so do
-// editWorker/setPortalAccess); resolve the same id here so create vs. find agree.
+// createWorker returns person_id as the canonical worker identity (so does
+// editWorker); resolve the same id here so create vs. find agree.
 async function findWorkerId(tenantId: string, email: string): Promise<string | undefined> {
   const r = await coreDb().execute(
     sql`SELECT person_id FROM people.worker
@@ -22,38 +22,12 @@ async function findWorkerId(tenantId: string, email: string): Promise<string | u
   return (r.rows[0] as { person_id: string } | undefined)?.person_id;
 }
 
-async function findUserId(tenantId: string, email: string): Promise<string | undefined> {
-  const r = await coreDb().execute(
-    sql`SELECT id FROM identity."user"
-        WHERE tenant_id = ${tenantId} AND lower(email) = lower(${email})
-        LIMIT 1`,
-  );
-  return (r.rows[0] as { id: string } | undefined)?.id;
-}
-
-async function hasGrant(
-  userId: string,
-  tenantId: string,
-  roleSlug: string,
-  scopeType: 'tenant' | 'group',
-  scopeId: string | null,
-): Promise<boolean> {
-  const r = await coreDb().execute(
-    sql`SELECT 1 FROM identity.role_grants
-        WHERE user_id = ${userId} AND tenant_id = ${tenantId}
-          AND role_slug = ${roleSlug} AND scope_type = ${scopeType}
-          AND scope_id IS NOT DISTINCT FROM ${scopeId}
-          AND revoked_at IS NULL
-        LIMIT 1`,
-  );
-  return r.rows.length > 0;
-}
-
 export async function seedPeopleIdentity(
   session: SessionScope,
   employees: EmployeeRec[],
   password: string,
   skills: Map<string, SeededSkill>,
+  groups: Map<string, string>,
 ): Promise<Map<string, { workerId: string; userId: string }>> {
   const actor: Actor = { type: 'cli', user_id: session.user_id };
   const map = new Map<string, { workerId: string; userId: string }>();
@@ -111,49 +85,32 @@ export async function seedPeopleIdentity(
       );
     }
 
-    // identity login — idempotent on email
-    let userId = await findUserId(session.tenant_id, e.work_email);
-    if (!userId) {
-      const created = await createUser(
-        { tenant_id: session.tenant_id, email: e.work_email, name: e.full_name, password },
-        actor,
-      );
-      userId = created.user_id;
-    }
-
-    // role grants — check before each insert (append-only table, no unique constraint)
-    for (const g of rolesFor(e.primary_role)) {
-      const already = await hasGrant(userId, session.tenant_id, g.slug, g.scope_type, g.scope_id);
-      if (!already) {
-        await grantRole(
-          {
-            user_id: userId,
-            tenant_id: session.tenant_id,
-            role_slug: g.slug,
-            scope_type: g.scope_type,
-            scope_id: g.scope_id,
-          },
-          actor,
-        );
-      }
-    }
-
-    // profile — set-state, call unconditionally
-    await updateUserProfile(
-      userId,
-      {
-        availability_status: 'available',
-        timezone: 'Asia/Ho_Chi_Minh',
-        skills: skillNamesForRole(e.primary_role),
-        role: e.primary_role,
-      },
+    // identity login — provision via the same concurrency-safe path the auto-provision
+    // subscriber uses (idempotent on email, so it composes with the subscriber instead of
+    // racing it), then attach the shared demo credential so employees can still password-log-in.
+    const { user_id: userId } = await provisionLogin(
+      { tenant_id: session.tenant_id, email: e.work_email, name: e.full_name },
       actor,
     );
+    await ensureLocalLogin({ user_id: userId, tenant_id: session.tenant_id, password }, actor);
 
-    // Grant portal access so the worker record matches its login (createUser made
-    // the credentialed user; provisionLogin is email-idempotent, so this binds the
-    // same user and flips portal_access — no duplicate). Idempotent on re-run.
-    await setPortalAccess({ worker_id: workerId, enabled: true, session });
+    for (const slug of ['member', ...personaGroupsFor(e.primary_role)]) {
+      const gid = groups.get(slug);
+      if (gid)
+        await addGroupMembers(
+          { group_id: gid, tenant_id: session.tenant_id, user_ids: [userId] },
+          actor,
+        );
+    }
+
+    // Presence lives on people.worker now. availability defaults to 'available' at
+    // createWorker; set the fixture timezone (all staff are VN-based). Keyed by the
+    // worker, not a session, so this is not the self-service setPresence path.
+    await coreDb().execute(
+      sql`UPDATE people.worker
+            SET timezone = 'Asia/Ho_Chi_Minh', updated_at = now()
+          WHERE person_id = ${workerId} AND timezone IS DISTINCT FROM 'Asia/Ho_Chi_Minh'`,
+    );
 
     // Tech stack — populate people.person_skill (what the directory Techstack column reads).
     // Role base skills plus a deterministic handful of extras so same-role peers differ.

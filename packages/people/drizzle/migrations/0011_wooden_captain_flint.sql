@@ -1,0 +1,1 @@
+ALTER TABLE "people"."worker" DROP COLUMN "portal_access";

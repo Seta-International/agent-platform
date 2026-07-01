@@ -30,12 +30,12 @@ export type CryptoErrorCode =
   | 'KEY_PROVIDER_UNAVAILABLE';
 
 export class CryptoError extends Error {
-  constructor(
-    public readonly code: CryptoErrorCode,
-    message: string,
-    public readonly cause?: unknown,
-  ) {
+  readonly code: CryptoErrorCode;
+  readonly cause?: unknown;
+  constructor(code: CryptoErrorCode, message: string, cause?: unknown) {
     super(message);
+    this.code = code;
+    this.cause = cause;
     this.name = 'CryptoError';
   }
 }

@@ -1,9 +1,13 @@
 import type { AppManifest, NavItem, NavSection } from '@seta/module-sdk';
+import { PRODUCT_IDS } from '@seta/shared-rbac';
 
 export interface SessionLike {
   permissions: ReadonlySet<string>;
   features?: ReadonlySet<string>;
+  product_access?: ReadonlySet<string>;
 }
+
+const PRODUCT_ID_SET = new Set<string>(PRODUCT_IDS);
 
 function matches(required: readonly string[], session: SessionLike): boolean {
   return required.length === 0 || required.some((p) => session.permissions.has(p));
@@ -16,6 +20,12 @@ export function visibleManifests(
 ): AppManifest[] {
   return manifests.filter((m) => {
     if (!enabledModuleIds.has(m.id)) return false;
+    if (
+      PRODUCT_ID_SET.has(m.id) &&
+      session.product_access !== undefined &&
+      !session.product_access.has(m.id)
+    )
+      return false;
     if (m.requiredFeature && !session.features?.has(m.requiredFeature)) return false;
     return matches(m.requiredPermissions, session);
   });

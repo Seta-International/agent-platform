@@ -127,7 +127,7 @@ describe('staffing orchestration adapters (real DB)', () => {
       expect(none).toEqual([]);
     }));
 
-  it('makeAvailability.status reads availability_status + display name from identity', () =>
+  it('makeAvailability.status reads availability_status from People presence', () =>
     withAgentTestDb(async ({ pool }) => {
       const tenantId = randomUUID();
       await pool.query(`INSERT INTO core.tenants (id, name, slug) VALUES ($1, $2, $3)`, [
@@ -145,17 +145,23 @@ describe('staffing orchestration adapters (real DB)', () => {
         },
         { type: 'cli', user_id: null },
       );
-      // Ensure a profile row exists with a known non-default status.
+      // Presence lives on people.worker now; link a worker to the user with a known status.
+      const personId = randomUUID();
+      await pool.query(`INSERT INTO people.person (id, tenant_id, user_id) VALUES ($1, $2, $3)`, [
+        personId,
+        tenantId,
+        u.user_id,
+      ]);
       await pool.query(
-        `INSERT INTO identity.user_profile (user_id, tenant_id, availability_status)
-         VALUES ($1, $2, 'busy')
-         ON CONFLICT (user_id) DO UPDATE SET availability_status = 'busy'`,
-        [u.user_id, tenantId],
+        `INSERT INTO people.worker (id, tenant_id, person_id, full_name, availability_status)
+         VALUES (gen_random_uuid(), $1, $2, 'Busy Bee', 'busy')`,
+        [tenantId, personId],
       );
 
       const ctx = { tenantId, actorUserId: u.user_id };
       const s = await makeAvailability().status(u.user_id, ctx);
       expect(s.status).toBe('busy');
-      expect(s.name).toBe('Busy Bee');
+      // name is left to the candidate-level fallback (avai-checker uses s.name ?? c.name).
+      expect(s.name).toBeNull();
     }));
 });

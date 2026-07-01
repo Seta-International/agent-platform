@@ -11,6 +11,14 @@ export {
 } from './inventory.ts';
 export type { ModuleRbacManifest, Statement } from './manifest.ts';
 export { canonicalKeys, toManifest } from './manifest.ts';
+export {
+  PRODUCT_GATE_EXEMPT,
+  PRODUCT_IDS,
+  PRODUCT_NAMESPACES,
+  PRODUCTS,
+  type ProductId,
+  productForNamespace,
+} from './products.ts';
 export type { RbacRegistry } from './registry.ts';
 export { buildRegistry } from './registry.ts';
 export type { RoleOverlay } from './resolve.ts';
