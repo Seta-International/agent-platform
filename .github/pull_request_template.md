@@ -14,3 +14,9 @@ Jira: https://all-it.atlassian.net/browse/FUT-XXX
 ## Checklist
 - [ ] `pnpm typecheck && pnpm lint && pnpm test` pass (`pnpm test:e2e` if UI changed)
 - [ ] Docs updated, or N/A
+
+---
+
+## AI usage
+- [ ] AI assisted → add label `ai-assisted`
+- [ ] Agent created → add labels `ai-assisted` **and** `ai-agent`
