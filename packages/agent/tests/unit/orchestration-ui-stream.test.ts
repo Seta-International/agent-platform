@@ -78,6 +78,39 @@ describe('pumpOrchestrationStream', () => {
     expect(timing.lastTokenAtMs).toBeUndefined();
   });
 
+  it('strips <think> blocks and emits reasoning events; text-delta carries id', async () => {
+    const w = new FakeWriter();
+    const { assistantParts } = await pumpOrchestrationStream(
+      w,
+      parts(
+        { type: 'text-start', id: 'txt' },
+        { type: 'text-delta', id: 'txt', delta: '<think>internal reasoning</think>Answer here' },
+        { type: 'text-end', id: 'txt' },
+      ),
+      { finalize: async () => ({ result: {}, trust: TRUST }), onApproval: async () => {} },
+    );
+    // text-delta must carry the id from the source stream
+    const textDeltas = w.chunks.filter((c) => c.type === 'text-delta');
+    expect(textDeltas.every((c) => c.id === 'txt')).toBe(true);
+    // reasoning events must be present
+    expect(w.chunks.some((c) => c.type === 'reasoning-start')).toBe(true);
+    expect(
+      w.chunks.some((c) => c.type === 'reasoning-delta' && c.delta === 'internal reasoning'),
+    ).toBe(true);
+    expect(w.chunks.some((c) => c.type === 'reasoning-end')).toBe(true);
+    // text-end comes after all text-deltas
+    const endIdx = w.chunks.findIndex((c) => c.type === 'text-end');
+    const lastDeltaIdx =
+      w.chunks
+        .map((c, i) => (c.type === 'text-delta' ? i : -1))
+        .filter((i) => i >= 0)
+        .at(-1) ?? -1;
+    expect(endIdx).toBeGreaterThan(lastDeltaIdx);
+    // persisted parts
+    expect(assistantParts).toContainEqual({ type: 'reasoning', text: 'internal reasoning' });
+    expect(assistantParts).toContainEqual({ type: 'text', text: 'Answer here' });
+  });
+
   it('fires onApproval and skips finalize when the run suspends', async () => {
     const w = new FakeWriter();
     const card = {

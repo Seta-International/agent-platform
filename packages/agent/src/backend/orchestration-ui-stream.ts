@@ -59,12 +59,14 @@ function trailingPrefixLen(s: string, tag: string): number {
 class ThinkStreamSplitter {
   private mode: 'text' | 'think' = 'text';
   private buf = '';
+  private textId = '';
   private reasoningId = '';
   readonly thinking: string[] = [];
 
   constructor(private readonly writer: UiStreamWriter) {}
 
-  push(delta: string): string {
+  push(delta: string, textId?: string): string {
+    if (textId) this.textId = textId;
     this.buf += delta;
     let textOut = '';
 
@@ -75,7 +77,7 @@ class ThinkStreamSplitter {
         if (idx !== -1) {
           const before = this.buf.slice(0, idx);
           if (before) {
-            this.writer.write({ type: 'text-delta', delta: before });
+            this.writer.write({ type: 'text-delta', id: this.textId, delta: before });
             textOut += before;
           }
           this.buf = this.buf.slice(idx + tag.length);
@@ -86,7 +88,7 @@ class ThinkStreamSplitter {
           const hold = trailingPrefixLen(this.buf, tag);
           const safe = this.buf.slice(0, this.buf.length - hold);
           if (safe) {
-            this.writer.write({ type: 'text-delta', delta: safe });
+            this.writer.write({ type: 'text-delta', id: this.textId, delta: safe });
             textOut += safe;
           }
           this.buf = this.buf.slice(safe.length);
@@ -120,7 +122,8 @@ class ThinkStreamSplitter {
     return textOut;
   }
 
-  flush(): string {
+  flush(textId?: string): string {
+    if (textId) this.textId = textId;
     if (!this.buf) return '';
     const remaining = this.buf;
     this.buf = '';
@@ -131,7 +134,7 @@ class ThinkStreamSplitter {
       this.thinking.push(remaining);
       return '';
     }
-    this.writer.write({ type: 'text-delta', delta: remaining });
+    this.writer.write({ type: 'text-delta', id: this.textId, delta: remaining });
     return remaining;
   }
 }
@@ -151,7 +154,13 @@ class ThinkStreamSplitter {
  */
 export async function pumpOrchestrationStream(
   writer: UiStreamWriter,
-  parts: AsyncIterable<{ type: string; delta?: string; text?: string; data?: unknown }>,
+  parts: AsyncIterable<{
+    type: string;
+    id?: string;
+    delta?: string;
+    text?: string;
+    data?: unknown;
+  }>,
   opts: {
     finalize: ChatStreamRun['finalize'];
     onApproval: (e: ApprovalEvent) => Promise<void>;
@@ -173,12 +182,17 @@ export async function pumpOrchestrationStream(
       const now = performance.now();
       if (timing.firstTokenAtMs === undefined) timing.firstTokenAtMs = now;
       timing.lastTokenAtMs = now;
-      answer += splitter.push(part.delta ?? part.text ?? '');
+      answer += splitter.push(part.delta ?? part.text ?? '', part.id);
+    } else if (part.type === 'text-end') {
+      // Flush buffered content before forwarding text-end so text-delta ordering is preserved.
+      answer += splitter.flush(part.id);
+      writer.write(part);
     } else {
       writer.write(part);
     }
   }
 
+  // Safety flush for streams that don't emit text-end (e.g. non-standard model outputs).
   answer += splitter.flush();
 
   // Persist reasoning before answer text so reload order matches stream order.
