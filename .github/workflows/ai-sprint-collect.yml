@@ -28,12 +28,16 @@ jobs:
     if: >
       github.event_name != 'pull_request' ||
       github.event.pull_request.merged == true
+    permissions:
+      contents: read
+      pull-requests: read
+      deployments: read
+      security-events: read
     steps:
       - name: Checkout ai-sdlc-metrics
         uses: actions/checkout@v4
         with:
           repository: Seta-International/ai-sdlc-metrics
-          token: ${{ secrets.METRICS_GH_TOKEN }}
           path: ai-sdlc-metrics
 
       - uses: actions/setup-python@v5
@@ -47,7 +51,7 @@ jobs:
       - name: Collect and upsert metrics
         working-directory: ai-sdlc-metrics
         env:
-          METRICS_GH_TOKEN: ${{ secrets.METRICS_GH_TOKEN }}
+          METRICS_GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
           JIRA_TOKEN: ${{ secrets.JIRA_TOKEN }}
           REPORTING_DB_URL: ${{ secrets.REPORTING_DB_URL }}
