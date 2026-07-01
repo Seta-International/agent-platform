@@ -149,7 +149,6 @@ const HIDEABLE_COLUMNS = [
   { id: 'phone', label: 'Phone' },
   { id: 'gender', label: 'Gender' },
   { id: 'skills', label: 'Techstack' },
-  { id: 'portal', label: 'Access' },
 ];
 
 export function PeoplePage() {
@@ -157,7 +156,6 @@ export function PeoplePage() {
   const queryClient = useQueryClient();
   const canProvision = usePermission('people.worker.provision');
   const canReadAll = usePermission('people.worker.read.all');
-  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({});
   const [query, setQuery] = useState<WorkersQuery>({ page: 1, pageSize: 25 });
   const [view, setView] = useState<'list' | 'cards'>('list');
@@ -370,31 +368,6 @@ export function PeoplePage() {
           </Alert>
         ) : (
           <>
-            {selectedWorkerIds.length > 0 && (
-              <div className="flex items-center justify-between gap-3 rounded-md border border-hairline bg-surface-raised px-4 py-2">
-                <span className="text-body-sm text-ink-muted">
-                  {selectedWorkerIds.length} selected
-                </span>
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    disabled={bulkMutation.isPending}
-                    onClick={() => bulkMutation.mutate(true)}
-                  >
-                    Enable portal access
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    disabled={bulkMutation.isPending}
-                    onClick={() => bulkMutation.mutate(false)}
-                  >
-                    Disable portal access
-                  </Button>
-                </div>
-              </div>
-            )}
             {/* Control & Filter Layout */}
             <div className="flex flex-col gap-4">
               {/* Row 1: Search & Controls */}
@@ -502,9 +475,9 @@ export function PeoplePage() {
                 rowCount={total}
                 getRowId={(r: WorkerListRow) => r.worker_id}
                 getRowClassName={() => 'h-14'}
-                enableRowSelection={canSetPortal}
-                rowSelection={rowSelection}
-                onRowSelectionChange={setRowSelection}
+                enableRowSelection={false}
+                rowSelection={{}}
+                onRowSelectionChange={() => {}}
                 emptyState={
                   <EmptyState
                     icon={<Users className="size-6" />}
