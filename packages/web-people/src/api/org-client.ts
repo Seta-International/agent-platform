@@ -5,6 +5,7 @@ export interface OrgUnitNode {
   kind: string;
   sort: number;
   head: { person_id: string; full_name: string } | null;
+  members: Array<{ person_id: string; full_name: string; job_title: string | null }>;
 }
 
 export type CompanyNodeKind =
