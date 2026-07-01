@@ -1,6 +1,12 @@
 import { and, eq, isNull } from 'drizzle-orm';
 import { identityDb } from '../db/index.ts';
-import { roleGrants, user } from '../db/schema.ts';
+import {
+  accessGroup,
+  accessGroupMembership,
+  accessGroupRole,
+  roleGrants,
+  user,
+} from '../db/schema.ts';
 import { IdentityError } from '../rbac.ts';
 
 export interface ActiveRoleGrant {
@@ -34,5 +40,30 @@ export async function listRoleGrants(userId: string): Promise<RoleGrantsResult> 
     .from(roleGrants)
     .where(and(eq(roleGrants.user_id, userId), isNull(roleGrants.revoked_at)));
 
-  return { tenant_id: u.tenant_id, grants };
+  const groupRoles = await db
+    .select({ role_slug: accessGroupRole.role_slug })
+    .from(accessGroupMembership)
+    .innerJoin(accessGroup, eq(accessGroup.id, accessGroupMembership.group_id))
+    .innerJoin(accessGroupRole, eq(accessGroupRole.group_id, accessGroup.id))
+    .where(and(eq(accessGroupMembership.user_id, userId), eq(accessGroup.tenant_id, u.tenant_id)));
+
+  const directSlugs = new Set(grants.map((g) => g.role_slug));
+  const synthetic = groupRoles
+    .filter((g) => !directSlugs.has(g.role_slug))
+    .map((g) => ({
+      role_slug: g.role_slug,
+      scope_type: 'tenant' as const,
+      scope_id: null,
+      granted_at: new Date(0),
+    }));
+
+  return { tenant_id: u.tenant_id, grants: [...grants, ...synthetic] };
+}
+
+export async function listUserGroupIds(userId: string): Promise<string[]> {
+  const rows = await identityDb()
+    .select({ group_id: accessGroupMembership.group_id })
+    .from(accessGroupMembership)
+    .where(eq(accessGroupMembership.user_id, userId));
+  return rows.map((r) => r.group_id);
 }

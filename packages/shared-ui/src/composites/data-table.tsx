@@ -56,7 +56,7 @@ interface DataTableBaseProps<TData, TValue> {
   enableGlobalFilter?: boolean;
   globalFilterPlaceholder?: string;
   enableColumnVisibility?: boolean;
-  enableRowSelection?: boolean;
+  enableRowSelection?: boolean | ((row: Row<TData>) => boolean);
   rowSelection?: RowSelectionState;
   onRowSelectionChange?: OnChangeFn<RowSelectionState>;
   columnVisibility?: VisibilityState;
@@ -187,6 +187,7 @@ export function DataTable<TData, TValue>(props: DataTableProps<TData, TValue>) {
           <Checkbox
             aria-label="Select row"
             checked={row.getIsSelected()}
+            disabled={!row.getCanSelect()}
             onCheckedChange={(v) => row.toggleSelected(!!v)}
             onClick={(e) => e.stopPropagation()}
           />

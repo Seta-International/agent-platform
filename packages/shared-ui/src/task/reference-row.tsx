@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, CSSProperties } from 'react';
+import { DisabledActionTooltip } from '../composites/disabled-action-tooltip';
 
 export type ReferenceType =
   | 'word'
@@ -36,11 +37,22 @@ export interface ReferenceRowData {
 interface Props {
   refRow: ReferenceRowData;
   onOpen: (row: ReferenceRowData) => void;
-  onRemove: (row: ReferenceRowData) => void;
+  /** Omit to render the row without a remove affordance entirely. */
+  onRemove?: (row: ReferenceRowData) => void;
+  /** When true, the remove (×) renders disabled with a tooltip rather than active. */
+  removeDisabled?: boolean;
+  removeDisabledReason?: string;
   dragHandleProps?: ButtonHTMLAttributes<HTMLButtonElement>;
 }
 
-export function ReferenceRow({ refRow, onOpen, onRemove, dragHandleProps }: Props) {
+export function ReferenceRow({
+  refRow,
+  onOpen,
+  onRemove,
+  removeDisabled = false,
+  removeDisabledReason,
+  dragHandleProps,
+}: Props) {
   const color = REFERENCE_TYPE_COLOR[refRow.type];
   const displayName = refRow.alias ?? refRow.host;
   return (
@@ -59,9 +71,19 @@ export function ReferenceRow({ refRow, onOpen, onRemove, dragHandleProps }: Prop
       <button type="button" onClick={() => onOpen(refRow)} aria-label="Open" style={iconBtn}>
         ↗
       </button>
-      <button type="button" onClick={() => onRemove(refRow)} aria-label="Remove" style={iconBtn}>
-        ×
-      </button>
+      {onRemove && (
+        <DisabledActionTooltip disabled={removeDisabled} reason={removeDisabledReason}>
+          <button
+            type="button"
+            onClick={() => onRemove(refRow)}
+            aria-label="Remove"
+            disabled={removeDisabled}
+            style={removeDisabled ? { ...iconBtn, cursor: 'not-allowed', opacity: 0.4 } : iconBtn}
+          >
+            ×
+          </button>
+        </DisabledActionTooltip>
+      )}
     </div>
   );
 }

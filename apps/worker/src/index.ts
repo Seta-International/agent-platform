@@ -6,7 +6,7 @@ import { createOutboxStore } from '@seta/core/outbox';
 import { registerCoreContributions } from '@seta/core/register';
 import { buildRuntime, runMigrations, type WorkerHandle } from '@seta/core/runtime';
 import { registerHiringContributions } from '@seta/hiring/register';
-import { embeddingJobs, getEntraTenantId } from '@seta/identity';
+import { getEntraTenantId } from '@seta/identity';
 import { registerIdentityContributions } from '@seta/identity/register';
 import { createMailTransportConfigStore } from '@seta/integrations';
 import { integrationsDb } from '@seta/integrations/db';
@@ -14,6 +14,7 @@ import { registerIntegrationsContributions } from '@seta/integrations/register';
 import { knowledgeJobs } from '@seta/knowledge/jobs';
 import { registerKnowledgeContributions } from '@seta/knowledge/register';
 import { registerNotificationsContributions } from '@seta/notifications/register';
+import { peopleEmbeddingJobs } from '@seta/people';
 import { registerPeopleContributions } from '@seta/people/register';
 import { plannerEmbeddingJobs, plannerMembershipJobs } from '@seta/planner';
 import { registerPlannerContributions } from '@seta/planner/register';
@@ -100,7 +101,7 @@ const rt = buildRuntime(
       'mailer:send': async (payload) => {
         await mailerSendTask(payload as never);
       },
-      ...embeddingJobs,
+      ...peopleEmbeddingJobs,
       ...knowledgeJobs,
       ...plannerEmbeddingJobs,
       ...plannerMembershipJobs,

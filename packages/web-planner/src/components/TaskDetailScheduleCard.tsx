@@ -1,8 +1,11 @@
 import type { TaskWithAssigneesRow } from '@seta/planner';
+import { DisabledActionTooltip } from '@seta/shared-ui';
+import { usePermission } from '@seta/web-identity';
 import { parseISO } from 'date-fns';
 import { CalendarDays, X } from 'lucide-react';
 import { useId } from 'react';
 import { useUpdateTaskSchedule } from '../hooks/mutations/update-task-schedule';
+import { PERMISSION_DENIED } from '../lib/permission-messages';
 
 interface Props {
   task: TaskWithAssigneesRow;
@@ -32,6 +35,7 @@ function fromDateInputValue(value: string): string | null {
 
 export function TaskDetailScheduleCard({ task, planId, today }: Props) {
   const update = useUpdateTaskSchedule(planId);
+  const canUpdate = usePermission('planner.task.update');
   const todayDate = today ?? todayIso();
   const overdue =
     !!task.due_at &&
@@ -49,6 +53,7 @@ export function TaskDetailScheduleCard({ task, planId, today }: Props) {
           label="Start"
           value={task.start_at}
           ariaLabel="Start"
+          disabled={!canUpdate}
           onChange={(start_at) =>
             update.mutate({ task_id: task.id, expected_version: task.version, start_at })
           }
@@ -58,6 +63,7 @@ export function TaskDetailScheduleCard({ task, planId, today }: Props) {
           value={task.due_at}
           ariaLabel="Due"
           danger={overdue}
+          disabled={!canUpdate}
           onChange={(due_at) =>
             update.mutate({ task_id: task.id, expected_version: task.version, due_at })
           }
@@ -72,48 +78,53 @@ interface DateFieldProps {
   value: string | null;
   ariaLabel: string;
   danger?: boolean;
+  disabled?: boolean;
   onChange: (next: string | null) => void;
 }
 
-function DateField({ label, value, ariaLabel, danger, onChange }: DateFieldProps) {
+function DateField({ label, value, ariaLabel, danger, disabled, onChange }: DateFieldProps) {
   const dateValue = toDateInputValue(value);
   const inputId = useId();
   return (
-    <div
-      className={`flex items-center gap-2 rounded-md border px-3 py-2 text-body-sm ${
-        danger
-          ? 'border-semantic-danger bg-semantic-danger-tint text-semantic-danger'
-          : 'border-hairline bg-canvas text-ink'
-      }`}
-    >
-      <CalendarDays
-        className={`size-3.5 ${danger ? 'text-semantic-danger' : 'text-ink-subtle'}`}
-        aria-hidden
-      />
-      <label
-        htmlFor={inputId}
-        className={`text-caption font-medium ${danger ? 'text-semantic-danger' : 'text-ink-subtle'}`}
+    <DisabledActionTooltip disabled={Boolean(disabled)} reason={PERMISSION_DENIED.task.edit}>
+      <div
+        className={`flex items-center gap-2 rounded-md border px-3 py-2 text-body-sm ${
+          danger
+            ? 'border-semantic-danger bg-semantic-danger-tint text-semantic-danger'
+            : 'border-hairline bg-canvas text-ink'
+        }`}
       >
-        {label}
-      </label>
-      <input
-        id={inputId}
-        type="date"
-        aria-label={ariaLabel}
-        value={dateValue}
-        onChange={(e) => onChange(fromDateInputValue(e.currentTarget.value))}
-        className="mono flex-1 bg-transparent text-body-sm text-ink outline-none"
-      />
-      {dateValue && (
-        <button
-          type="button"
-          onClick={() => onChange(null)}
-          aria-label={`Reset ${ariaLabel.toLowerCase()} date`}
-          className="text-ink-subtle hover:text-ink"
+        <CalendarDays
+          className={`size-3.5 ${danger ? 'text-semantic-danger' : 'text-ink-subtle'}`}
+          aria-hidden
+        />
+        <label
+          htmlFor={inputId}
+          className={`text-caption font-medium ${danger ? 'text-semantic-danger' : 'text-ink-subtle'}`}
         >
-          <X className="size-3.5" />
-        </button>
-      )}
-    </div>
+          {label}
+        </label>
+        <input
+          id={inputId}
+          type="date"
+          aria-label={ariaLabel}
+          value={dateValue}
+          disabled={disabled}
+          onChange={(e) => onChange(fromDateInputValue(e.currentTarget.value))}
+          className="mono flex-1 bg-transparent text-body-sm text-ink outline-none disabled:cursor-not-allowed"
+        />
+        {dateValue && (
+          <button
+            type="button"
+            onClick={() => onChange(null)}
+            aria-label={`Reset ${ariaLabel.toLowerCase()} date`}
+            disabled={disabled}
+            className="text-ink-subtle hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <X className="size-3.5" />
+          </button>
+        )}
+      </div>
+    </DisabledActionTooltip>
   );
 }

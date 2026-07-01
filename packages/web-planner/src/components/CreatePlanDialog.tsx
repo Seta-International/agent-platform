@@ -6,11 +6,14 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DisabledActionTooltip,
   Input,
   Label,
 } from '@seta/shared-ui';
+import { usePermission } from '@seta/web-identity';
 import { useState } from 'react';
 import { useCreatePlan } from '../hooks/mutations/create-plan';
+import { PERMISSION_DENIED } from '../lib/permission-messages';
 
 interface Props {
   groupId: string;
@@ -21,6 +24,7 @@ interface Props {
 
 export function CreatePlanDialog({ groupId, open, onOpenChange, onCreated }: Props) {
   const createPlan = useCreatePlan(groupId);
+  const canCreatePlan = usePermission('planner.plan.create');
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -85,9 +89,11 @@ export function CreatePlanDialog({ groupId, open, onOpenChange, onCreated }: Pro
             <Button variant="secondary" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button onClick={submit} disabled={!name.trim()}>
-              Create plan
-            </Button>
+            <DisabledActionTooltip disabled={!canCreatePlan} reason={PERMISSION_DENIED.plan.create}>
+              <Button onClick={submit} disabled={!canCreatePlan || !name.trim()}>
+                Create plan
+              </Button>
+            </DisabledActionTooltip>
           </div>
         </div>
       </DialogContent>

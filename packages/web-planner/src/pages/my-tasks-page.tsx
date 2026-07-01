@@ -1,6 +1,7 @@
 import { DragDropContext, type DropResult } from '@hello-pangea/dnd';
 import type { MyTasksResult } from '@seta/planner';
 import { Alert, AlertDescription, Button, EmptyState, PageChrome, Skeleton } from '@seta/shared-ui';
+import { usePermission } from '@seta/web-identity';
 import { useNavigate } from '@tanstack/react-router';
 import { generateKeyBetween } from 'fractional-indexing';
 import { CheckCircle2 } from 'lucide-react';
@@ -53,6 +54,7 @@ export function MyTasksPage({ filters, onFiltersChange }: Props) {
   const q = useMyTasks(filters);
   const groupsQ = useMyGroups();
   const setPrio = useSetAssigneePriority();
+  const canUpdate = usePermission('planner.task.update');
   const navigate = useNavigate();
 
   const planOptions: PlanOption[] = useMemo(() => {
@@ -90,6 +92,7 @@ export function MyTasksPage({ filters, onFiltersChange }: Props) {
   }, [q.data, groupsQ.data]);
 
   function handleDragEnd(result: DropResult) {
+    if (!canUpdate) return;
     if (!result.destination || !q.data) return;
     if (result.source.droppableId !== result.destination.droppableId) return;
     if (result.source.index === result.destination.index) return;

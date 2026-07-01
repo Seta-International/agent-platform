@@ -1,4 +1,3 @@
-import type { RowSelectionState } from '@seta/shared-ui';
 import {
   Alert,
   AlertDescription,
@@ -36,7 +35,6 @@ import {
   createWorker,
   fetchWorkers,
   genderLabel,
-  setPortalAccessBulk,
   type WorkerListRow,
   type WorkersQuery,
 } from '../api/people-client.ts';
@@ -158,7 +156,6 @@ export function PeoplePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const canProvision = usePermission('people.worker.provision');
-  const canSetPortal = usePermission('people.worker.portal_access.set');
   const canReadAll = usePermission('people.worker.read.all');
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({});
@@ -230,22 +227,6 @@ export function PeoplePage() {
       const s = next[0];
       return { ...q, sort: s ? { field: s.id, dir: s.desc ? 'desc' : 'asc' } : undefined };
     });
-
-  const selectedWorkerIds = useMemo(
-    () => Object.keys(rowSelection).filter((k) => rowSelection[k]),
-    [rowSelection],
-  );
-
-  const bulkMutation = useMutation({
-    mutationFn: (enabled: boolean) => setPortalAccessBulk(selectedWorkerIds, enabled),
-    onSuccess: (r) => {
-      const changed = r.results.filter((x) => x.status === 'changed').length;
-      toast.success(`Portal access updated for ${changed} worker(s)`);
-      setRowSelection({});
-      void queryClient.invalidateQueries({ queryKey: [...peopleKeys.all, 'workers'] });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
 
   const columns = useMemo(() => {
     type CellCtx = { row: { original: WorkerListRow } };
@@ -367,19 +348,6 @@ export function PeoplePage() {
             type="badge"
             badgeVariant="secondary"
           />
-        ),
-      },
-      {
-        id: 'portal',
-        header: 'Access',
-        enableSorting: false,
-        cell: ({ row }: CellCtx) => (
-          <Badge
-            variant={row.original.portal_access ? 'default' : 'outline'}
-            className="whitespace-nowrap"
-          >
-            {row.original.portal_access ? 'Login on' : 'No login'}
-          </Badge>
         ),
       },
     ];

@@ -6,6 +6,7 @@ import { resolveTenantId } from '../lib/tenant-resolve.ts';
 import { buildAdminSession } from '../seed.ts';
 import { tenantCreateCommand } from '../tenant-create.ts';
 import { FIXTURE_FILE, loadFixtures } from './load.ts';
+import { seedAccessGroups } from './phase-access-groups.ts';
 import { seedEdgeCases } from './phase-edge-cases.ts';
 import { seedHiring } from './phase-hiring.ts';
 import { seedOrgStructure } from './phase-org-structure.ts';
@@ -74,7 +75,10 @@ export async function seedFixtureCommand(opts: {
   const skills = await seedSkillCatalog(session);
   log.info({ skills: skills.size }, 'phase: skills done');
 
-  const people = await seedPeopleIdentity(session, fx.employees, password, skills);
+  const groups = await seedAccessGroups(session);
+  log.info({ groups: groups.size }, 'phase: access-groups done');
+
+  const people = await seedPeopleIdentity(session, fx.employees, password, skills, groups);
   log.info({ people: people.size }, 'phase: people+identity done');
 
   const pm = await seedPm(session, fx.projects, fx.allocations, people);

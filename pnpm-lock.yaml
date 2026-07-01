@@ -596,6 +596,9 @@ importers:
       '@seta/knowledge':
         specifier: workspace:^
         version: link:../knowledge
+      '@seta/people':
+        specifier: workspace:^
+        version: link:../people
       '@seta/planner':
         specifier: workspace:^
         version: link:../planner
@@ -1122,6 +1125,9 @@ importers:
 
   packages/people:
     dependencies:
+      '@mastra/pg':
+        specifier: ^1.13.0
+        version: 1.13.0(@mastra/core@1.42.0(@grpc/grpc-js@1.14.4)(ai@6.0.200(zod@4.4.3))(express@5.2.1)(zod@4.4.3))
       '@seta/agent-sdk':
         specifier: workspace:^
         version: link:../../sdks/agent
@@ -1134,15 +1140,24 @@ importers:
       '@seta/shared-db':
         specifier: workspace:^
         version: link:../shared-db
+      '@seta/shared-embeddings':
+        specifier: workspace:^
+        version: link:../shared-embeddings
       '@seta/shared-rbac':
         specifier: workspace:^
         version: link:../shared-rbac
+      '@seta/shared-retrieval':
+        specifier: workspace:^
+        version: link:../shared-retrieval
       '@seta/shared-types':
         specifier: workspace:^
         version: link:../shared-types
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(@opentelemetry/api@1.9.1)(@prisma/client@5.22.0)(@types/pg@8.20.0)(better-sqlite3@12.10.0)(kysely@0.29.2)(pg@8.21.0)
+      graphile-worker:
+        specifier: ^0.16.6
+        version: 0.16.6(typescript@6.0.3)
       hono:
         specifier: ^4.12.25
         version: 4.12.25
@@ -1198,6 +1213,9 @@ importers:
       '@seta/notifications':
         specifier: workspace:^
         version: link:../notifications
+      '@seta/people':
+        specifier: workspace:^
+        version: link:../people
       '@seta/shared-embeddings':
         specifier: workspace:^
         version: link:../shared-embeddings
@@ -1789,6 +1807,9 @@ importers:
       '@seta/knowledge':
         specifier: workspace:*
         version: link:../knowledge
+      '@seta/people':
+        specifier: workspace:^
+        version: link:../people
       '@seta/planner':
         specifier: workspace:^
         version: link:../planner

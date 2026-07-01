@@ -30,6 +30,10 @@ interface Props {
   myTaskCount?: number;
   canRename?: boolean;
   canManage?: boolean;
+  /** Gate the Duplicate/Archive/Delete menu items; when false the item is shown disabled. */
+  canDuplicate?: boolean;
+  canArchive?: boolean;
+  canDelete?: boolean;
   onRename?: (name: string) => void;
   onDuplicate?: () => void;
   onCopyShareLink?: () => void;
@@ -61,6 +65,9 @@ export function PlanPageHeader({
   myTaskCount,
   canRename,
   canManage,
+  canDuplicate = true,
+  canArchive = true,
+  canDelete = true,
   onRename,
   onDuplicate,
   onCopyShareLink,
@@ -182,8 +189,9 @@ export function PlanPageHeader({
                 }
               }}
             >
-              {canRename && onRename && (
+              {onRename && (
                 <DropdownMenuItem
+                  disabled={!canRename}
                   onSelect={() => {
                     pendingRenameRef.current = true;
                     setEditing(true);
@@ -193,7 +201,7 @@ export function PlanPageHeader({
                 </DropdownMenuItem>
               )}
               {onDuplicate && (
-                <DropdownMenuItem onSelect={onDuplicate}>
+                <DropdownMenuItem disabled={!canDuplicate} onSelect={onDuplicate}>
                   <Copy aria-hidden /> Duplicate plan
                 </DropdownMenuItem>
               )}
@@ -232,7 +240,7 @@ export function PlanPageHeader({
               )}
               {(onArchive || onRestore || onDelete) && <DropdownMenuSeparator />}
               {!isArchived && onArchive && (
-                <DropdownMenuItem onSelect={onArchive}>
+                <DropdownMenuItem disabled={!canArchive} onSelect={onArchive}>
                   <Archive aria-hidden /> Archive plan
                 </DropdownMenuItem>
               )}
@@ -242,7 +250,11 @@ export function PlanPageHeader({
                 </DropdownMenuItem>
               )}
               {onDelete && (
-                <DropdownMenuItem onSelect={onDelete} className="text-semantic-danger">
+                <DropdownMenuItem
+                  disabled={!canDelete}
+                  onSelect={onDelete}
+                  className="text-semantic-danger"
+                >
                   <X aria-hidden /> Delete plan
                 </DropdownMenuItem>
               )}

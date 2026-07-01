@@ -1,4 +1,4 @@
-import { type RouteBuildDeps, requireFeature, type SessionEnv } from '@seta/core';
+import type { RouteBuildDeps, SessionEnv } from '@seta/core';
 import { Hono } from 'hono';
 import type { BoardStreamHub } from '../stream/hub.ts';
 import { registerPlannerBoardStreamRoutes } from '../stream/route.ts';
@@ -15,7 +15,6 @@ export { registerPlannerTasksRoutes } from './tasks.ts';
 
 export function buildPlannerRoutes(deps: RouteBuildDeps): Hono<SessionEnv> {
   const app = new Hono<SessionEnv>();
-  app.use('*', requireFeature('planner'));
   registerPlannerGroupsRoutes(app, { workers: deps.workers, log: deps.log });
   registerPlannerPlansRoutes(app, { workers: deps.workers });
   registerPlannerBucketsRoutes(app);

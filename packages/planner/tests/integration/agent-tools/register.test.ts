@@ -15,8 +15,8 @@ describe('planner register', () => {
     expect(planner.description).toMatch(/tasks/i);
     expect(Object.keys(planner.tools).sort()).toEqual(
       [
-        'identity_getAvailabilityForUser',
-        'identity_getTimezoneForUser',
+        'people_getAvailabilityForUser',
+        'people_getTimezoneForUser',
         'identity_whoAmI',
         'planner_assignTask',
         'planner_createTask',

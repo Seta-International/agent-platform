@@ -9,6 +9,8 @@ import {
   Shield,
   ShieldCheck,
   Sliders,
+  Users,
+  UsersRound,
 } from 'lucide-react';
 
 export const adminAppManifest: AppManifest = {
@@ -21,13 +23,28 @@ export const adminAppManifest: AppManifest = {
   useNavExtensions: noNavExtensions,
   nav: [
     {
+      label: 'Access control',
       items: [
         {
-          id: 'admin.tenant',
-          icon: Sliders,
-          label: 'General',
-          to: '/admin/tenant',
-          requires: ['core.tenant.read'],
+          id: 'admin.users',
+          icon: Users,
+          label: 'Directory',
+          to: '/admin/users',
+          requires: ['identity.user.read.any'],
+        },
+        {
+          id: 'admin.groups',
+          icon: UsersRound,
+          label: 'Groups',
+          to: '/admin/groups',
+          requires: ['identity.group.read'],
+        },
+        {
+          id: 'admin.role-access',
+          icon: ShieldCheck,
+          label: 'Role access',
+          to: '/admin/role-access',
+          requires: ['identity.role.read'],
         },
         {
           id: 'admin.sso',
@@ -36,12 +53,17 @@ export const adminAppManifest: AppManifest = {
           to: '/admin/sso',
           requires: ['identity.sso.read'],
         },
+      ],
+    },
+    {
+      label: 'Workspace',
+      items: [
         {
-          id: 'admin.role-access',
-          icon: ShieldCheck,
-          label: 'Role access',
-          to: '/admin/role-access',
-          requires: ['identity.role.read'],
+          id: 'admin.tenant',
+          icon: Sliders,
+          label: 'General',
+          to: '/admin/tenant',
+          requires: ['core.tenant.read'],
         },
         {
           id: 'admin.mail-transport',
@@ -71,6 +93,11 @@ export const adminAppManifest: AppManifest = {
           to: '/admin/feature-flags',
           requires: ['core.feature_flag.read'],
         },
+      ],
+    },
+    {
+      label: 'Activity',
+      items: [
         {
           id: 'admin.audit',
           icon: FileClock,

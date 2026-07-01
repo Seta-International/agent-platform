@@ -33,6 +33,8 @@ export function buildSystemSession(tenantId: string): PlannerSessionScope {
     role_summary_hash: SYSTEM_ROLE_SUMMARY_HASH,
     permissions: SYSTEM_PERMISSIONS,
     accessible_group_ids: [],
+    group_ids: [],
+    product_access: new Set<string>(),
     cross_tenant_read: false,
     built_at: new Date(),
     invalidated_at: null,

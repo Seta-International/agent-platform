@@ -21,6 +21,8 @@ export default async function (): Promise<() => Promise<void>> {
         { name: 'core', dir: resolve(__dirname, '../../core/drizzle/migrations') },
         { name: 'identity', dir: resolve(__dirname, '../../identity/drizzle') },
         { name: 'planner', dir: resolve(__dirname, '../../planner/drizzle') },
+        // staffing adapters read People presence + skills via its public surface.
+        { name: 'people', dir: resolve(__dirname, '../../people/drizzle/migrations') },
         { name: 'agent', dir: resolve(__dirname, '../../agent/drizzle') },
         { name: 'staffing', dir: resolve(__dirname, '../drizzle/migrations') },
       ],

@@ -2,6 +2,7 @@ import type { GroupRow } from '@seta/planner';
 import type { SyncState } from '@seta/shared-ui';
 import {
   Button,
+  DisabledActionTooltip,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -9,12 +10,14 @@ import {
   GroupTile,
   SyncBadge,
 } from '@seta/shared-ui';
+import { usePermission } from '@seta/web-identity';
 import { Link } from '@tanstack/react-router';
 import { ChevronRight, MoreHorizontal, Pencil, Plus, Shield, Users } from 'lucide-react';
 import { useState } from 'react';
 import { useRefreshGroupSync } from '../hooks/mutations/refresh-group-sync';
 import { useGroupSyncStatus } from '../hooks/queries/use-group-sync-status';
 import { useGroupSyncStream } from '../hooks/queries/use-group-sync-stream';
+import { PERMISSION_DENIED } from '../lib/permission-messages';
 import { LinkToM365Dialog } from './LinkToM365Dialog';
 import { ResolveConflictDialog } from './ResolveConflictDialog';
 import { SyncControlsMenu } from './SyncControlsMenu';
@@ -46,6 +49,10 @@ export function GroupDetailHeader({
 }: Props) {
   const [linkOpen, setLinkOpen] = useState(false);
   const [resolveOpen, setResolveOpen] = useState(false);
+
+  const canCreatePlan = usePermission('planner.plan.create');
+  const canUpdateGroup = usePermission('planner.group.update');
+  const canDeleteGroup = usePermission('planner.group.delete');
 
   const syncStatusQuery = useGroupSyncStatus(group.id);
   useGroupSyncStream(group.id);
@@ -91,15 +98,21 @@ export function GroupDetailHeader({
                 {group.name}
               </h1>
               <div className="flex min-w-0 items-center gap-2 text-body-sm text-ink-subtle">
-                {canManage && !group.deleted_at && (
-                  <button
-                    type="button"
-                    aria-label="Edit group"
-                    className="rounded p-0.5 text-ink-subtle hover:bg-surface-1 hover:text-ink"
-                    onClick={onEditClick}
+                {!group.deleted_at && (
+                  <DisabledActionTooltip
+                    disabled={!canUpdateGroup}
+                    reason={PERMISSION_DENIED.group.edit}
                   >
-                    <Pencil className="size-3.5" />
-                  </button>
+                    <button
+                      type="button"
+                      aria-label="Edit group"
+                      className="rounded p-0.5 text-ink-subtle hover:bg-surface-1 hover:text-ink"
+                      onClick={onEditClick}
+                      disabled={!canUpdateGroup}
+                    >
+                      <Pencil className="size-3.5" />
+                    </button>
+                  </DisabledActionTooltip>
                 )}
                 <span className="inline-flex h-5 flex-none items-center gap-1.5 rounded-full bg-surface-1 px-2 text-xs">
                   {group.visibility === 'private' ? (
@@ -149,17 +162,21 @@ export function GroupDetailHeader({
           </div>
         </div>
         <div className="flex flex-none items-center gap-2">
-          {canManage && !group.deleted_at && (
-            <Button size="sm" variant="secondary" onClick={onInviteClick}>
-              <Users className="size-3" />
-              Invite
-            </Button>
+          {!group.deleted_at && (
+            <DisabledActionTooltip disabled={!canManage} reason={PERMISSION_DENIED.group.invite}>
+              <Button size="sm" variant="secondary" onClick={onInviteClick} disabled={!canManage}>
+                <Users className="size-3" />
+                Invite
+              </Button>
+            </DisabledActionTooltip>
           )}
           {!group.deleted_at && (
-            <Button size="sm" onClick={onCreatePlanClick}>
-              <Plus className="size-3" />
-              New plan
-            </Button>
+            <DisabledActionTooltip disabled={!canCreatePlan} reason={PERMISSION_DENIED.plan.create}>
+              <Button size="sm" onClick={onCreatePlanClick} disabled={!canCreatePlan}>
+                <Plus className="size-3" />
+                New plan
+              </Button>
+            </DisabledActionTooltip>
           )}
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
@@ -176,14 +193,16 @@ export function GroupDetailHeader({
                 groupId={group.id}
                 externalSource={group.external_source}
                 syncStatus={rawSyncStatus}
-                canManage={canManage}
                 onLinkClick={() => setLinkOpen(true)}
                 onResolveClick={() => setResolveOpen(true)}
                 onRefreshClick={() => refresh.mutate()}
                 isRefreshing={refresh.isPending}
               />
-              <DropdownMenuItem onSelect={() => onMenuAction('archive')}>Archive</DropdownMenuItem>
+              <DropdownMenuItem disabled={!canDeleteGroup} onSelect={() => onMenuAction('archive')}>
+                Archive
+              </DropdownMenuItem>
               <DropdownMenuItem
+                disabled={!canDeleteGroup}
                 onSelect={() => onMenuAction('delete')}
                 className="text-semantic-danger"
               >

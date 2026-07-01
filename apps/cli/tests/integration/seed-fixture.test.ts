@@ -117,16 +117,15 @@ describe('seed-fixture end-to-end', () => {
           return Number(r.rows[0]?.cnt ?? 0) >= 4;
         });
 
-        // The edge-cases phase deactivates two users (the no-portal worker, whose
-        // login setPortalAccess(false) deactivates, and the deactivated-user case);
+        // The edge-cases phase deactivates one user (the deactivated-user case);
         // the planner identity-projection subscriber cascades unassignment (deletes
-        // their task_assignments) async. Wait for both to land so the before/after
+        // their task_assignments) async. Wait for it to land so the before/after
         // snapshots compare steady states.
         await waitFor(async () => {
           const r = await pool.query<{ cnt: string }>(
             `SELECT COUNT(*)::text AS cnt FROM planner.assignee_projection WHERE deactivated_at IS NOT NULL`,
           );
-          return Number(r.rows[0]?.cnt ?? 0) >= 2;
+          return Number(r.rows[0]?.cnt ?? 0) >= 1;
         });
 
         const before = await getCounts();
@@ -174,14 +173,14 @@ describe('seed-fixture end-to-end', () => {
           adminEmail: 'admin@seta-international.vn',
         });
 
-        // Rerun re-enables then the edge-case re-disables the no-portal worker; let the
-        // dispatcher settle back to both-deactivated steady state before snapshotting.
+        // Let the dispatcher settle back to the deactivated steady state (the
+        // edge-case deactivated-user) before snapshotting.
         await new Promise((r) => setTimeout(r, 500));
         await waitFor(async () => {
           const r = await pool.query<{ cnt: string }>(
             `SELECT COUNT(*)::text AS cnt FROM planner.assignee_projection WHERE deactivated_at IS NOT NULL`,
           );
-          return Number(r.rows[0]?.cnt ?? 0) >= 2;
+          return Number(r.rows[0]?.cnt ?? 0) >= 1;
         });
 
         const after = await getCounts();

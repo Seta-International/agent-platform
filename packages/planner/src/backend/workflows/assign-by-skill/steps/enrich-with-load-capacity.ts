@@ -35,7 +35,7 @@ export async function enrichWithLoadAndCapacity(input: {
     'planner_getOpenTaskCountForUser',
   );
   const tzTool = findReadTool<{ userId: string }, { timezone: string }>(
-    'identity_getTimezoneForUser',
+    'people_getTimezoneForUser',
   );
   const capTool = findReadTool<{ userId: string }, { hoursAvailable: number }>(
     'timesheet_getCapacityThisWeek',

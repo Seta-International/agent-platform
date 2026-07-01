@@ -1,10 +1,15 @@
 import type { SubscriberDef } from '@seta/shared-types';
+import {
+  refreshPersonSkillAddedSubscriber,
+  refreshPersonSkillRemovedSubscriber,
+} from '../embeddings/subscribers/refresh-profile.ts';
 import { accountProjectionCreated, accountProjectionUpdated } from './account-projection.ts';
 import {
   allocationProjectionCreated,
   allocationProjectionRemoved,
 } from './allocation-projection.ts';
 import { bindUserToPerson } from './bind-user-to-person.ts';
+import { orgUnitHeadBackfill } from './org-unit-head-backfill.ts';
 import { projectProjectionCreated, projectProjectionUpdated } from './project-projection.ts';
 
 export function peopleSubscribers(): SubscriberDef[] {
@@ -16,5 +21,8 @@ export function peopleSubscribers(): SubscriberDef[] {
     accountProjectionUpdated,
     projectProjectionCreated,
     projectProjectionUpdated,
+    orgUnitHeadBackfill,
+    refreshPersonSkillAddedSubscriber,
+    refreshPersonSkillRemovedSubscriber,
   ];
 }

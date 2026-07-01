@@ -17,7 +17,7 @@ describe('skills-client', () => {
     const cats = await listCategories();
     expect(cats).toEqual([{ id: 'c1', name: 'Frontend' }]);
     expect(fetchMock).toHaveBeenCalledWith(
-      '/api/identity/v1/skill-categories',
+      '/api/identity/v1/skill-categories?activeOnly=true',
       expect.objectContaining({ credentials: 'include' }),
     );
   });
@@ -33,7 +33,7 @@ describe('skills-client', () => {
     const fetchMock = vi
       .spyOn(globalThis, 'fetch')
       .mockResolvedValue(new Response(JSON.stringify({ skills: [] }), { status: 200 }));
-    await listSkills('c1');
+    await listSkills({ categoryId: 'c1' });
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/identity/v1/skills?categoryId=c1',
       expect.objectContaining({ credentials: 'include' }),

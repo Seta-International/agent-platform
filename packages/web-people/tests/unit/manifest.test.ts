@@ -6,8 +6,8 @@ describe('peopleAppManifest', () => {
     expect(peopleAppManifest.routeNamespace).toBe('/people');
   });
 
-  it('gates visibility on the people feature flag', () => {
-    expect(peopleAppManifest.requiredFeature).toBe('people');
+  it('carries no feature-flag gate (product access supersedes)', () => {
+    expect(peopleAppManifest.requiredFeature).toBeUndefined();
   });
 
   it('declares the five People tabs in order', () => {

@@ -1,8 +1,10 @@
 import type { TaskDetailRow } from '@seta/planner';
 import { AddReferenceCombobox, ReferenceRow } from '@seta/shared-ui';
+import { usePermission } from '@seta/web-identity';
 import { PlannerClientError } from '../api/planner-client';
 import { useAddTaskReference } from '../hooks/mutations/add-task-reference';
 import { useRemoveTaskReference } from '../hooks/mutations/remove-task-reference';
+import { PERMISSION_DENIED } from '../lib/permission-messages';
 
 interface Props {
   task: TaskDetailRow;
@@ -20,6 +22,7 @@ function addErrorMessage(error: unknown): string | null {
 export function TaskDetailReferencesCard({ task, planId }: Props) {
   const add = useAddTaskReference(planId);
   const remove = useRemoveTaskReference(planId);
+  const canUpdate = usePermission('planner.task.update');
   const errorMessage = addErrorMessage(add.error);
 
   return (
@@ -38,11 +41,14 @@ export function TaskDetailReferencesCard({ task, planId }: Props) {
             }}
             onOpen={(row) => window.open(row.url, '_blank', 'noopener,noreferrer')}
             onRemove={(row) => remove.mutate({ task_id: task.id, url: row.url })}
+            removeDisabled={!canUpdate}
+            removeDisabledReason={PERMISSION_DENIED.task.edit}
           />
         ))}
       </div>
       <div className="mt-2.5">
         <AddReferenceCombobox
+          disabled={!canUpdate}
           onAdd={(classified) =>
             add.mutate({
               task_id: task.id,

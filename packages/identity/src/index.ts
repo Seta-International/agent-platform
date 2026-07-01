@@ -13,6 +13,8 @@ export type { DiscoverResult } from './backend/domain/discover-provider.ts';
 export { discoverProvider } from './backend/domain/discover-provider.ts';
 export { enableSsoProvider } from './backend/domain/enable-sso-provider.ts';
 export { ensureGroupViewerGrant } from './backend/domain/ensure-group-viewer-grant.ts';
+export type { EnsureLocalLoginInput } from './backend/domain/ensure-local-login.ts';
+export { ensureLocalLogin } from './backend/domain/ensure-local-login.ts';
 export { findEntraOidByUserId } from './backend/domain/find-entra-oid-by-user-id.ts';
 export { findUserByEntraOid } from './backend/domain/find-user-by-entra-oid.ts';
 export { getEntraTenantId } from './backend/domain/get-entra-tenant-id.ts';
@@ -22,11 +24,32 @@ export type { UserGrant } from './backend/domain/get-user-grants.ts';
 export { getUserGrants } from './backend/domain/get-user-grants.ts';
 export type { UserProfile } from './backend/domain/get-user-profile.ts';
 export { getUserProfile } from './backend/domain/get-user-profile.ts';
-export type { UserProfileForEmbedding } from './backend/domain/get-user-profile-for-embedding.ts';
-export { getUserProfileForEmbedding } from './backend/domain/get-user-profile-for-embedding.ts';
 export { getUserSignInMethods } from './backend/domain/get-user-sign-in-methods.ts';
+export type {
+  ClearProductAccessInput,
+  GrantProductAccessInput,
+} from './backend/domain/grant-product-access.ts';
+export {
+  clearProductAccess,
+  grantProductAccess,
+  listProductAccess,
+} from './backend/domain/grant-product-access.ts';
 export type { GrantRoleInput } from './backend/domain/grant-role.ts';
 export { grantRole } from './backend/domain/grant-role.ts';
+export {
+  addGroupMembers,
+  listGroupMembers,
+  listUserGroups,
+  removeGroupMember,
+} from './backend/domain/group-membership.ts';
+export type { GroupRow } from './backend/domain/groups.ts';
+export {
+  createGroup,
+  deleteGroup,
+  listGroups,
+  setGroupRoles,
+  updateGroup,
+} from './backend/domain/groups.ts';
 export type { ImportUsersFromEntraInput } from './backend/domain/import-users-from-entra.ts';
 export { importUsersFromEntra } from './backend/domain/import-users-from-entra.ts';
 export type {
@@ -35,11 +58,13 @@ export type {
   LinkSsoAccountResult,
 } from './backend/domain/link-sso-account.ts';
 export { linkSsoAccount } from './backend/domain/link-sso-account.ts';
+export type { DirectoryRow } from './backend/domain/list-directory.ts';
+export { listDirectory } from './backend/domain/list-directory.ts';
 export type { EntraImportableUser } from './backend/domain/list-entra-importable-users.ts';
 export { listEntraImportableUsers } from './backend/domain/list-entra-importable-users.ts';
 export { listMyEffectivePermissions } from './backend/domain/list-my-effective-permissions.ts';
 export type { ActiveRoleGrant, RoleGrantsResult } from './backend/domain/list-role-grants.ts';
-export { listRoleGrants } from './backend/domain/list-role-grants.ts';
+export { listRoleGrants, listUserGroupIds } from './backend/domain/list-role-grants.ts';
 export { listSsoProviders } from './backend/domain/list-sso-providers.ts';
 export { listTenantRoleOverlays } from './backend/domain/list-tenant-role-overlays.ts';
 export type {
@@ -55,13 +80,7 @@ export type {
 export { listUserSessions } from './backend/domain/list-user-sessions.ts';
 export type { AdminUserRow, ListUsersOpts } from './backend/domain/list-users.ts';
 export { listUsers } from './backend/domain/list-users.ts';
-export type {
-  ListUsersForBackfillInput,
-  UserBackfillRow,
-} from './backend/domain/list-users-for-embedding-backfill.ts';
-export { listUsersForBackfill } from './backend/domain/list-users-for-embedding-backfill.ts';
-export type { MatchUsersToTopicInput, UserMatch } from './backend/domain/match-users-to-topic.ts';
-export { matchUsersToTopic } from './backend/domain/match-users-to-topic.ts';
+export { provisionAccount } from './backend/domain/provision-account.ts';
 export type { ProvisionLoginInput } from './backend/domain/provision-login.ts';
 export { provisionLogin } from './backend/domain/provision-login.ts';
 export { reactivateUser } from './backend/domain/reactivate-user.ts';
@@ -83,6 +102,10 @@ export {
 } from './backend/domain/reset-role-to-defaults.ts';
 export type { ResetPasswordByAdminInput } from './backend/domain/reset-user-password-by-admin.ts';
 export { resetUserPasswordByAdmin } from './backend/domain/reset-user-password-by-admin.ts';
+export {
+  resolveProductAccess,
+  resolveTenantProducts,
+} from './backend/domain/resolve-product-access.ts';
 export { revokeRole } from './backend/domain/revoke-role.ts';
 export type { RevokeUserSessionInput } from './backend/domain/revoke-user-session.ts';
 export { revokeUserSession } from './backend/domain/revoke-user-session.ts';
@@ -91,7 +114,6 @@ export type {
   SearchDirectoryOpts,
 } from './backend/domain/search-directory.ts';
 export { searchDirectory } from './backend/domain/search-directory.ts';
-export { searchSkills } from './backend/domain/search-skills.ts';
 export { setLocalPasswordDisabled } from './backend/domain/set-local-password-disabled.ts';
 export {
   type SetRolePermissionInput,
@@ -105,23 +127,6 @@ export { updateMyDisplayName } from './backend/domain/update-my-display-name.ts'
 export type { UpdateUserProfilePatch } from './backend/domain/update-user-profile.ts';
 export { updateUserProfile } from './backend/domain/update-user-profile.ts';
 export { whoAmI } from './backend/domain/who-am-i.ts';
-export {
-  type BackfillUserProfilesOptions,
-  backfillUserProfiles,
-} from './backend/embeddings/backfill/backfill-user-profiles.ts';
-export { embeddingJobs } from './backend/embeddings/register-jobs.ts';
-export type { UserProfileSourceInput } from './backend/embeddings/source.ts';
-export { buildUserProfileSource } from './backend/embeddings/source.ts';
-export {
-  ensureIdentityVectorIndex,
-  getIdentityVectorStore,
-  IDENTITY_VECTOR_DIMENSION,
-  IDENTITY_VECTOR_INDEX,
-  IDENTITY_VECTOR_NAMESPACE,
-  resetIdentityVectorStore,
-  type UserProfileVectorMetadata,
-  userProfileVectorId,
-} from './backend/embeddings/vector-store.ts';
 export { IdentityError } from './backend/rbac.ts';
 export type { MicrosoftEntraConfig, SsoProviderId } from './backend/sso/config.ts';
 export { buildAdminConsentUrl } from './backend/sso/consent-url.ts';

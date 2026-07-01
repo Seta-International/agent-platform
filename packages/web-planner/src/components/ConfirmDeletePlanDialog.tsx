@@ -7,8 +7,11 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DisabledActionTooltip,
 } from '@seta/shared-ui';
+import { usePermission } from '@seta/web-identity';
 import { useState } from 'react';
+import { PERMISSION_DENIED } from '../lib/permission-messages';
 
 interface Props {
   open: boolean;
@@ -26,6 +29,7 @@ export function ConfirmDeletePlanDialog({
   pending = false,
 }: Props) {
   const [acknowledged, setAcknowledged] = useState(false);
+  const canDeletePlan = usePermission('planner.plan.delete');
 
   function handleOpenChange(v: boolean) {
     if (!v) setAcknowledged(false);
@@ -33,7 +37,7 @@ export function ConfirmDeletePlanDialog({
   }
 
   const isLinked = externalSource === 'm365';
-  const deleteDisabled = pending || (isLinked && !acknowledged);
+  const deleteDisabled = pending || !canDeletePlan || (isLinked && !acknowledged);
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -70,9 +74,11 @@ export function ConfirmDeletePlanDialog({
           <Button variant="ghost" onClick={() => handleOpenChange(false)} disabled={pending}>
             Cancel
           </Button>
-          <Button variant="destructive" onClick={onConfirm} disabled={deleteDisabled}>
-            Delete
-          </Button>
+          <DisabledActionTooltip disabled={!canDeletePlan} reason={PERMISSION_DENIED.plan.delete}>
+            <Button variant="destructive" onClick={onConfirm} disabled={deleteDisabled}>
+              Delete
+            </Button>
+          </DisabledActionTooltip>
         </DialogFooter>
       </DialogContent>
     </Dialog>

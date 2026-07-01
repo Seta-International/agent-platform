@@ -1,5 +1,6 @@
 import type { BucketRow, TaskWithAssigneesRow } from '@seta/planner';
 import { TaskGrid, type TaskGridRow } from '@seta/shared-ui';
+import { usePermission } from '@seta/web-identity';
 import { useMemo, useState } from 'react';
 import { GridBulkActionFooter } from '../components/grid-bulk-action-footer';
 import { useCompleteTask } from '../hooks/mutations/complete-task';
@@ -9,6 +10,7 @@ import { useReopenTask } from '../hooks/mutations/reopen-task';
 import { useUpdateTask } from '../hooks/mutations/update-task';
 import { useBulkActions } from '../hooks/use-bulk-actions';
 import { useGridColumnPrefs } from '../hooks/use-grid-column-prefs';
+import { PERMISSION_DENIED } from '../lib/permission-messages';
 import { useSelectedTaskIds } from '../state/selected-task-ids';
 import {
   type PriorityLabel,
@@ -53,6 +55,11 @@ export function PlanGridPage({
   const createTask = useCreateTask(planId);
   const bulk = useBulkActions(planId);
   const [addingBucketId, setAddingBucketId] = useState<string | null | undefined>(undefined);
+
+  const canUpdateTask = usePermission('planner.task.update');
+  const canCreateTask = usePermission('planner.task.create');
+  const canAssignTask = usePermission('planner.task.assign');
+  const canDeleteTask = usePermission('planner.task.delete');
 
   const { rows, tasksById, bucketOptions } = useMemo(() => {
     const bucketById = new Map(buckets.map((b) => [b.id, b]));
@@ -103,6 +110,7 @@ export function PlanGridPage({
   }, [buckets, tasks, filters, q]);
 
   async function onCommitField(taskId: string, patch: Partial<TaskGridRow>) {
+    if (!canUpdateTask) return;
     const task = tasksById.get(taskId);
     if (!task) return;
     const expected_version = task.version;
@@ -162,23 +170,28 @@ export function PlanGridPage({
   }
 
   function onMove(toBucketId: string | null) {
+    if (!canUpdateTask) return;
     void bulk.bulkMove({ tasks: selectedExpectedVersions(), to_bucket_id: toBucketId });
     clearSelection();
   }
   function onAssign(userId: string) {
+    if (!canAssignTask) return;
     void bulk.bulkAssign({ tasks: [...selectedIds], user_id: userId });
     clearSelection();
   }
   function onSetDue(due: string | null) {
+    if (!canUpdateTask) return;
     void bulk.bulkSetDue({ tasks: selectedExpectedVersions(), due_at: due });
     clearSelection();
   }
   function onDelete() {
+    if (!canDeleteTask) return;
     void bulk.bulkDelete({ tasks: selectedExpectedVersions() });
     clearSelection();
   }
 
   function handleAddTask(title: string, bucketId: string | null) {
+    if (!canCreateTask) return;
     if (title === '__open__') {
       setAddingBucketId(bucketId);
       return;
@@ -208,6 +221,8 @@ export function PlanGridPage({
         addingBucketId={addingBucketId}
         onAddTask={handleAddTask}
         onCancelAdd={handleCancelAdd}
+        editDisabledReason={canUpdateTask ? undefined : PERMISSION_DENIED.task.edit}
+        addTaskDisabledReason={canCreateTask ? undefined : PERMISSION_DENIED.task.create}
       />
       {selectedIds.size > 0 && (
         <GridBulkActionFooter
@@ -215,6 +230,10 @@ export function PlanGridPage({
           groupId={groupId}
           bucketOptions={bucketOptions}
           isLinkedToM365={isLinkedToM365}
+          canMove={canUpdateTask}
+          canAssign={canAssignTask}
+          canSetDue={canUpdateTask}
+          canDelete={canDeleteTask}
           onMove={onMove}
           onAssign={onAssign}
           onSetDue={onSetDue}

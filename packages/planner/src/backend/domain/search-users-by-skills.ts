@@ -1,4 +1,5 @@
 import type { SessionScope } from '@seta/core';
+import { getPersonSkills } from '@seta/people';
 import { and, eq, isNull } from 'drizzle-orm';
 import { plannerDb } from '../db/index.ts';
 import { assigneeProjection, groupMembers, groups } from '../db/schema.ts';
@@ -44,11 +45,13 @@ export async function searchUsersBySkills(input: {
     throw new PlannerError('FORBIDDEN', 'No access to group', { group_id: input.group_id });
   }
 
+  // display_name from the planner projection; skills read live from People (the
+  // owning module) — assignee_projection.skills is no longer event-populated since
+  // worker skills moved to People.
   const rows = await db
     .select({
       user_id: groupMembers.user_id,
       display_name: assigneeProjection.display_name,
-      skills: assigneeProjection.skills,
     })
     .from(groupMembers)
     .innerJoin(assigneeProjection, eq(assigneeProjection.user_id, groupMembers.user_id))
@@ -56,10 +59,10 @@ export async function searchUsersBySkills(input: {
 
   const candidates: CandidateRow[] = [];
   const excluded = new Set(input.exclude_user_ids ?? []);
+  const normalizedInputSkills = input.skills.map((s) => s.toLowerCase());
   for (const row of rows) {
     if (excluded.has(row.user_id)) continue;
-    const userSkills = row.skills ?? [];
-    const normalizedInputSkills = input.skills.map((s) => s.toLowerCase());
+    const userSkills = await getPersonSkills(input.session, { user_id: row.user_id });
     const matched = userSkills.filter((skill) =>
       normalizedInputSkills.includes(skill.toLowerCase()),
     );

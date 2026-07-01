@@ -1,5 +1,6 @@
 import {
   Button,
+  DisabledActionTooltip,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -34,6 +35,10 @@ interface Props {
   onDuplicate?: () => void;
   onMove?: () => void;
   onDelete?: () => void;
+  /** When set, the matching menu item renders disabled with this reason as a tooltip. */
+  duplicateDisabledReason?: string;
+  moveDisabledReason?: string;
+  deleteDisabledReason?: string;
 }
 
 function isEditableTarget(node: EventTarget | null): boolean {
@@ -60,6 +65,9 @@ export function TaskDetailHeader({
   onDuplicate,
   onMove,
   onDelete,
+  duplicateDisabledReason,
+  moveDisabledReason,
+  deleteDisabledReason,
 }: Props) {
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -160,21 +168,46 @@ export function TaskDetailHeader({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   {onDuplicate && (
-                    <DropdownMenuItem onSelect={() => onDuplicate()}>
-                      <Copy className="size-3.5" />
-                      Duplicate
-                    </DropdownMenuItem>
+                    <DisabledActionTooltip
+                      disabled={Boolean(duplicateDisabledReason)}
+                      reason={duplicateDisabledReason}
+                    >
+                      <DropdownMenuItem
+                        onSelect={() => onDuplicate()}
+                        disabled={Boolean(duplicateDisabledReason)}
+                      >
+                        <Copy className="size-3.5" />
+                        Duplicate
+                      </DropdownMenuItem>
+                    </DisabledActionTooltip>
                   )}
                   {onMove && (
-                    <DropdownMenuItem onSelect={() => onMove()}>
-                      <ArrowRightLeft className="size-3.5" />
-                      Move…
-                    </DropdownMenuItem>
+                    <DisabledActionTooltip
+                      disabled={Boolean(moveDisabledReason)}
+                      reason={moveDisabledReason}
+                    >
+                      <DropdownMenuItem
+                        onSelect={() => onMove()}
+                        disabled={Boolean(moveDisabledReason)}
+                      >
+                        <ArrowRightLeft className="size-3.5" />
+                        Move…
+                      </DropdownMenuItem>
+                    </DisabledActionTooltip>
                   )}
                   {onDelete && (
-                    <DropdownMenuItem onSelect={() => onDelete()} className="text-semantic-danger">
-                      Delete
-                    </DropdownMenuItem>
+                    <DisabledActionTooltip
+                      disabled={Boolean(deleteDisabledReason)}
+                      reason={deleteDisabledReason}
+                    >
+                      <DropdownMenuItem
+                        onSelect={() => onDelete()}
+                        disabled={Boolean(deleteDisabledReason)}
+                        className="text-semantic-danger"
+                      >
+                        Delete
+                      </DropdownMenuItem>
+                    </DisabledActionTooltip>
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>

@@ -17,7 +17,12 @@ import {
 } from '@seta/core';
 import { makeRbacCheck, setRbacCheck } from '@seta/core/rpc';
 import type { WorkerHandle } from '@seta/core/runtime';
-import { listRoleGrants, listTenantRoleOverlays } from '@seta/identity';
+import {
+  listRoleGrants,
+  listTenantRoleOverlays,
+  listUserGroupIds,
+  resolveProductAccess,
+} from '@seta/identity';
 import { auth } from '@seta/identity/auth';
 import { registerKnowledgeRoutes, registerKnowledgeStreamRoutes } from '@seta/knowledge/http';
 import type { KnowledgeStreamHub } from '@seta/knowledge/stream';
@@ -176,6 +181,8 @@ export function buildServerApp(
     listRoleGrants,
     resolvePermissions: resolve,
     resolveFeatures,
+    resolveGroupIds: listUserGroupIds,
+    resolveProductAccess,
   });
 
   const app = buildHonoApp(reg, { corsOrigins: deps.corsOrigins }) as unknown as Hono<SessionEnv>;

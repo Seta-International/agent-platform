@@ -9,6 +9,13 @@
 #
 # Set a real admin password before first run:
 #   export GF_ADMIN_PASSWORD='something-strong'
+#
+# `name:` pins this stack's compose project name to its historical default
+# ("docker", from the infra/docker/ directory name) so other compose stacks
+# whose files also happen to sit in a folder named "docker" (e.g.
+# ai-sdlc-metrics's own compose.yml) can never be treated as orphans of this
+# one and get reaped on `up`.
+name: docker
 
 services:
   prometheus:

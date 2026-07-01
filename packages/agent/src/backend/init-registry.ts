@@ -5,6 +5,7 @@ import { AgentRegistry } from '@seta/agent-sdk';
 import '@seta/core/agent-tools/register';
 import '@seta/planner/agent-tools/register';
 import '@seta/identity/agent-tools/register';
+import '@seta/people/agent-tools/register';
 import '@seta/knowledge/agent-tools/register';
 import './agent-tools/register-meta.ts';
 

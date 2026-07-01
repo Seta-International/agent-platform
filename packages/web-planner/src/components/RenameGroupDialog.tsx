@@ -7,14 +7,17 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DisabledActionTooltip,
   Input,
   Label,
   SegmentedControl,
   Textarea,
   toast,
 } from '@seta/shared-ui';
+import { usePermission } from '@seta/web-identity';
 import { useState } from 'react';
 import { useUpdateGroup } from '../hooks/mutations/update-group';
+import { PERMISSION_DENIED } from '../lib/permission-messages';
 import { THEME_HEX } from './GroupPlansSection';
 
 type GroupTheme = GroupRow['theme'];
@@ -46,6 +49,7 @@ interface EditFormProps {
 
 function EditForm({ group, onDone }: EditFormProps) {
   const updateGroup = useUpdateGroup(group.id);
+  const canUpdateGroup = usePermission('planner.group.update');
   const [name, setName] = useState(group.name);
   const [description, setDescription] = useState(group.description ?? '');
   const [theme, setTheme] = useState<GroupTheme>(group.theme);
@@ -173,12 +177,16 @@ function EditForm({ group, onDone }: EditFormProps) {
         <Button variant="secondary" onClick={onDone}>
           Cancel
         </Button>
-        <Button
-          onClick={submit}
-          disabled={!hasChanges || updateGroup.isPending || (!isM365 && !trimmedName)}
-        >
-          Save
-        </Button>
+        <DisabledActionTooltip disabled={!canUpdateGroup} reason={PERMISSION_DENIED.group.edit}>
+          <Button
+            onClick={submit}
+            disabled={
+              !canUpdateGroup || !hasChanges || updateGroup.isPending || (!isM365 && !trimmedName)
+            }
+          >
+            Save
+          </Button>
+        </DisabledActionTooltip>
       </div>
     </div>
   );

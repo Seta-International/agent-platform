@@ -121,11 +121,13 @@ describe('GroupDetailHeader', () => {
     expect(screen.getByText('Workspace')).toBeInTheDocument();
   });
 
-  it('hides the Invite and edit pencil when canManage=false', async () => {
+  it('disables (not hides) the Invite button when canManage=false', async () => {
     renderInRouter(<GroupDetailHeader {...baseProps} canManage={false} />);
     await screen.findByRole('heading', { name: 'Engineering' });
-    expect(screen.queryByRole('button', { name: /Invite/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Edit group/i })).not.toBeInTheDocument();
+    // Invite (member.write) is now disabled rather than hidden. The edit pencil moved to its own
+    // usePermission('planner.group.update') gate (stubbed true in tests), so it is no longer
+    // governed by the canManage prop.
+    expect(screen.getByRole('button', { name: /Invite/ })).toBeDisabled();
   });
 
   it('calls onEditClick when the edit pencil is clicked', async () => {

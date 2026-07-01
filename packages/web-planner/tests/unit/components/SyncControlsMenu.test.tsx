@@ -4,8 +4,16 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SyncControlsMenu } from '../../../src/components/SyncControlsMenu';
+
+// SyncControlsMenu gates link/unlink on usePermission('planner.group.update'). Override the global
+// test stub locally so each case can toggle the permission and assert the disable behavior.
+let mockCanManageLink = true;
+vi.mock('@seta/web-identity', () => ({ usePermission: () => mockCanManageLink }));
+beforeEach(() => {
+  mockCanManageLink = true;
+});
 
 const server = setupServer(
   http.post('*/api/integrations/m365/groups/*/refresh', () => HttpResponse.json({ ok: true })),
@@ -35,7 +43,6 @@ describe('SyncControlsMenu', () => {
         groupId="g1"
         externalSource="native"
         syncStatus={null}
-        canManage
         onLinkClick={vi.fn()}
         onResolveClick={vi.fn()}
       />,
@@ -51,7 +58,6 @@ describe('SyncControlsMenu', () => {
         groupId="g1"
         externalSource="m365"
         syncStatus={null}
-        canManage
         onLinkClick={vi.fn()}
         onResolveClick={vi.fn()}
       />,
@@ -67,7 +73,6 @@ describe('SyncControlsMenu', () => {
         groupId="g1"
         externalSource="m365"
         syncStatus="conflict"
-        canManage
         onLinkClick={vi.fn()}
         onResolveClick={vi.fn()}
       />,
@@ -77,19 +82,23 @@ describe('SyncControlsMenu', () => {
     expect(screen.getByText('Review changes…')).toBeInTheDocument();
   });
 
-  it('m365 + canManage=false still shows Sync now (any member may refresh)', () => {
+  it('m365 without update permission: Sync now stays enabled, Unlink is disabled (not hidden)', () => {
+    mockCanManageLink = false;
     wrap(
       <SyncControlsMenu
         groupId="g1"
         externalSource="m365"
         syncStatus={null}
-        canManage={false}
         onLinkClick={vi.fn()}
         onResolveClick={vi.fn()}
       />,
     );
+    // Any member may refresh, so Sync now remains actionable.
     expect(screen.getByText('Sync now')).toBeInTheDocument();
-    expect(screen.queryByText('Unlink from Microsoft 365')).not.toBeInTheDocument();
+    // Unlink requires planner.group.update — shown but disabled rather than hidden.
+    expect(
+      screen.getByText('Unlink from Microsoft 365').closest('[role="menuitem"]'),
+    ).toHaveAttribute('aria-disabled', 'true');
     expect(screen.queryByText('Link with Microsoft 365…')).not.toBeInTheDocument();
   });
 
@@ -107,7 +116,6 @@ describe('SyncControlsMenu', () => {
         groupId="g1"
         externalSource="m365"
         syncStatus={null}
-        canManage
         onLinkClick={vi.fn()}
         onResolveClick={vi.fn()}
       />,
@@ -124,7 +132,6 @@ describe('SyncControlsMenu', () => {
         groupId="g1"
         externalSource="native"
         syncStatus={null}
-        canManage
         onLinkClick={onLinkClick}
         onResolveClick={vi.fn()}
       />,
