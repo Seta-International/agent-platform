@@ -1,7 +1,7 @@
 import { hashRoleSummary, type SessionEnv, type SessionScope } from '@seta/core';
 import { resetCoreDb } from '@seta/core/testing';
 import { createUser } from '@seta/identity';
-import { createBucket, createGroup, createPlan, createTask } from '@seta/planner';
+import { addGroupMember, createBucket, createGroup, createPlan, createTask } from '@seta/planner';
 import { registerPlannerTasksRoutes } from '@seta/planner/http';
 import { plannerErrorMapper } from '@seta/planner/register';
 import { closePools, initPools } from '@seta/shared-db';
@@ -36,7 +36,6 @@ function buildSession(opts: {
     cross_tenant_read: false,
     built_at: new Date(),
     invalidated_at: null,
-    features: new Set<string>(),
   };
 }
 
@@ -228,6 +227,8 @@ describe('task assignees HTTP routes', () => {
                VALUES ($1, $2, 'M', 'm@example.test', ARRAY[]::text[], 'available', 'UTC')`,
             [memberId, tenantId],
           );
+          // Assignees must be group members (FUT-55).
+          await addGroupMember({ group_id: group.id, user_id: memberId, session });
 
           const app = buildTestApp(session);
 

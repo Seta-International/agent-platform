@@ -35,7 +35,6 @@ function buildSession(opts: {
     cross_tenant_read: false,
     built_at: new Date(),
     invalidated_at: null,
-    features: new Set<string>(),
   };
 }
 

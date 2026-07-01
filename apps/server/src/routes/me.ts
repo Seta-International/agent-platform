@@ -33,7 +33,6 @@ export function registerMeRoute(app: Hono<SessionEnv>): void {
       display_name: profile?.display_name ?? scope.display_name,
       role_summary: scope.role_summary,
       permissions: Array.from(c.get('user').permissions),
-      features: Array.from(scope.features),
       product_access: Array.from(scope.product_access),
       accessible_group_ids: scope.accessible_group_ids,
       cross_tenant_read: scope.cross_tenant_read,

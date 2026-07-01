@@ -71,7 +71,6 @@ function ShellWithPanel({ children }: { children: React.ReactNode }) {
       ALL_MANIFESTS,
       {
         permissions: new Set(session.permissions),
-        features: new Set(session.features),
         product_access: new Set(session.product_access),
       },
       enabled,

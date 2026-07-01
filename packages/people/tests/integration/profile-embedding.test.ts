@@ -11,7 +11,7 @@ import { sourceHash } from '@seta/shared-embeddings';
 import { FakeEmbeddingProvider, withTestDb } from '@seta/shared-testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
-import { person, personSkill } from '../../src/backend/db/schema.ts';
+import { person } from '../../src/backend/db/schema.ts';
 import { embedPersonProfile } from '../../src/backend/embeddings/embed-profile.ts';
 import { buildPersonProfileSource } from '../../src/backend/embeddings/source.ts';
 import {
@@ -58,7 +58,7 @@ function withDb<T>(
 // ── Seed helper ──────────────────────────────────────────────────────────────
 
 async function seedPerson(
-  pool: import('pg').Pool,
+  _pool: import('pg').Pool,
   tenantId: string,
 ): Promise<{ person_id: string }> {
   const [p] = await peopleDb().insert(person).values({ tenant_id: tenantId }).returning();

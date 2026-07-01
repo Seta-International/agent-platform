@@ -7,7 +7,6 @@ import { buildHiringRoutes } from './backend/http/index.ts';
 import { HiringError } from './backend/rbac.ts';
 import { hiringSubscribers } from './backend/subscribers/index.ts';
 import { HIRING_EVENTS } from './events.ts';
-import { hiringFlags } from './flags.ts';
 import { hiringRbac } from './rbac.ts';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
@@ -36,7 +35,6 @@ export function registerHiringContributions(reg: ContributionRegistry): void {
     rbac: hiringRbac,
     subscribers: hiringSubscribers(),
     errorMapper: hiringErrorMapper,
-    flags: hiringFlags,
     routes: { mountAt: '/', build: buildHiringRoutes },
   });
 }

@@ -18,8 +18,6 @@ export type PermissionKey =
   | 'agent.workflow.run.read.self'
   | 'agent.workflow.run.read.tenant'
   | 'core.audit.read'
-  | 'core.feature_flag.read'
-  | 'core.feature_flag.write'
   | 'core.skill.manage'
   | 'core.skill.read'
   | 'core.tenant.email_domains.write'
@@ -160,8 +158,6 @@ export const ALL_PERMISSIONS: readonly PermissionKey[] = [
   'agent.workflow.run.read.self',
   'agent.workflow.run.read.tenant',
   'core.audit.read',
-  'core.feature_flag.read',
-  'core.feature_flag.write',
   'core.skill.manage',
   'core.skill.read',
   'core.tenant.email_domains.write',

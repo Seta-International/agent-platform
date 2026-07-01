@@ -46,7 +46,6 @@ async function buildActorSession(tenantId: string, actorEmail: string): Promise<
     display_name: actorEmail,
     role_summary,
     permissions: resolvePermissions(rbacRegistry, role_summary.roles, IMPLICIT_PERMISSIONS),
-    features: new Set<string>(),
     role_summary_hash: hashRoleSummary(role_summary),
     accessible_group_ids: computeAccessibleGroups(grants),
     group_ids: [],

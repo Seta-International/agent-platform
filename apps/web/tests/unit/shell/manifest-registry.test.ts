@@ -86,46 +86,6 @@ describe('visibleManifests', () => {
     const visible = visibleManifests(manifests, adminSession, new Set(['planner']));
     expect(visible.map((m) => m.id)).toEqual(['planner']);
   });
-
-  describe('feature gating', () => {
-    const flagged = (id: string, requiredFeature?: string): AppManifest => ({
-      id,
-      routeNamespace: `/${id}`,
-      label: id,
-      icon: Box,
-      requiredPermissions: [],
-      requiredFeature,
-      useNavExtensions: noNavExtensions,
-      nav: [{ label: id, items: [] }],
-    });
-
-    it('hides a manifest whose requiredFeature is not in session.features', () => {
-      const result = visibleManifests(
-        [flagged('people', 'people')],
-        { permissions: new Set(), features: new Set() },
-        new Set(['people']),
-      );
-      expect(result).toHaveLength(0);
-    });
-
-    it('shows a manifest whose requiredFeature is in session.features', () => {
-      const result = visibleManifests(
-        [flagged('people', 'people')],
-        { permissions: new Set(), features: new Set(['people']) },
-        new Set(['people']),
-      );
-      expect(result.map((m) => m.id)).toEqual(['people']);
-    });
-
-    it('leaves a manifest without requiredFeature unaffected', () => {
-      const result = visibleManifests(
-        [flagged('planner')],
-        { permissions: new Set(), features: new Set() },
-        new Set(['planner']),
-      );
-      expect(result.map((m) => m.id)).toEqual(['planner']);
-    });
-  });
 });
 
 describe('filterNavSections', () => {

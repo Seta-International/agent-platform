@@ -12,25 +12,17 @@ export const INVENTORY: StatementSpec[] = [
     module: 'core',
     statement: {
       'core.skill': ['read', 'manage'],
-      'core.feature_flag': ['read', 'write'],
     },
     roles: [
       {
         slug: 'core.admin',
         description: 'Manage the system-wide skill catalog',
-        permissions: [
-          'core.skill.read',
-          'core.skill.manage',
-          'core.feature_flag.read',
-          'core.feature_flag.write',
-        ],
+        permissions: ['core.skill.read', 'core.skill.manage'],
       },
     ],
     descriptions: {
       'core.skill.read': 'Read the skill catalog',
       'core.skill.manage': 'Create, edit, and archive catalog skills and categories',
-      'core.feature_flag.read': 'View feature flags and adoption',
-      'core.feature_flag.write': 'Toggle feature flags and edit allowlists',
     },
   },
   {
