@@ -4,6 +4,7 @@ import { identityDb } from '../db/index.ts';
 import { roleAssignments, user } from '../db/schema.ts';
 import { IdentityError, requirePermission } from '../rbac.ts';
 import type { Actor } from './create-user.ts';
+import { requireOrgUnitInTenant } from './helpers.ts';
 
 const MAX_BULK = 500;
 
@@ -42,6 +43,12 @@ export async function bulkGrantRole(input: BulkRoleInput, actor: Actor): Promise
   if (input.user_ids.length > MAX_BULK)
     throw new IdentityError('VALIDATION', `max ${MAX_BULK} users per call`);
   await authorize(actor, input.tenant_id);
+
+  if (input.scope_kind === 'org_unit') {
+    if (!input.scope_id)
+      throw new IdentityError('VALIDATION', 'scope_id required for org_unit scope');
+    await requireOrgUnitInTenant(input.tenant_id, input.scope_id);
+  }
 
   const valid = await tenantUserSet(input.tenant_id, input.user_ids);
   const existing =
@@ -130,6 +137,12 @@ export async function bulkRevokeRole(input: BulkRoleInput, actor: Actor): Promis
   if (input.user_ids.length > MAX_BULK)
     throw new IdentityError('VALIDATION', `max ${MAX_BULK} users per call`);
   await authorize(actor, input.tenant_id);
+
+  if (input.scope_kind === 'org_unit') {
+    if (!input.scope_id)
+      throw new IdentityError('VALIDATION', 'scope_id required for org_unit scope');
+    await requireOrgUnitInTenant(input.tenant_id, input.scope_id);
+  }
 
   const rows = await identityDb()
     .select()

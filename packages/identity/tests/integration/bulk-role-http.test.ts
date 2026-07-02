@@ -167,6 +167,21 @@ describe('POST /users/bulk-role-grants', () => {
       expect(((await res.json()) as { error: string }).error).toBe('invalid');
     });
   });
+
+  it('org_unit scope with an unknown org unit is 400 unknown_org_unit', async () => {
+    await withDb(async ({ tenant_id, admin, users }) => {
+      const app = buildApp(session(tenant_id, admin, ['org.admin']));
+      const res = await post(app, {
+        user_ids: users,
+        role_slug: 'knowledge.viewer',
+        action: 'grant',
+        scope_kind: 'org_unit',
+        scope_id: crypto.randomUUID(),
+      });
+      expect(res.status).toBe(400);
+      expect(((await res.json()) as { error: string }).error).toBe('unknown_org_unit');
+    });
+  });
 });
 
 describe('POST /users/:id/role-grants', () => {
