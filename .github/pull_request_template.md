@@ -3,7 +3,7 @@
 ## What & why
 <!-- One or two sentences. The diff shows the how. -->
 
-Jira: https://all-it.atlassian.net/browse/FUT-XXX
+Jira: FUT-XXX
 
 ## Evidence
 <!-- Proof it works, not just a claim. Paste the relevant bits:

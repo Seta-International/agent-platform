@@ -6,7 +6,7 @@ set -euo pipefail
 
 SLUG="${SLUG:-seta-international}"
 NAME="${NAME:-SETA International}"
-ADMIN_EMAIL="${ADMIN_EMAIL:-admin@seta-international.vn}"
+ADMIN_EMAIL="${ADMIN_EMAIL:-admin@example.com}"
 ADMIN_NAME="${ADMIN_NAME:-SETA International Admin}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-ChangeMe@2026}"
 MEMBER_COUNT="${MEMBER_COUNT:-1}"

@@ -245,7 +245,7 @@ program
   )
   .requiredOption('--tenant <slug>', 'tenant slug', 'seta-international')
   .option('--dir <dir>', 'fixture workbook dir', 'private')
-  .option('--admin-email <email>', 'admin email', 'admin@seta-international.vn')
+  .option('--admin-email <email>', 'admin email', 'admin@example.com')
   .option('--password <pw>', 'default password for seeded logins', 'ChangeMe@2026')
   .action(async (o: { tenant: string; dir: string; adminEmail: string; password?: string }) => {
     try {

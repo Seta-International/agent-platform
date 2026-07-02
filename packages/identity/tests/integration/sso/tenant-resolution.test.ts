@@ -105,10 +105,10 @@ describe('resolveSetaTenantFromEmail', () => {
               (id, email, name, email_verified, tenant_id)
             VALUES ($1, $2, $3, $4, $5)
           `,
-          [crypto.randomUUID(), 'hai.le@seta-international.vn', 'Hai Le', true, tenantId],
+          [crypto.randomUUID(), 'thu.pham@example.com', 'Thu Pham', true, tenantId],
         );
         try {
-          const out = await resolveSetaTenantFromEmail('Hai.Le@seta-international.vn');
+          const out = await resolveSetaTenantFromEmail('Thu.Pham@example.com');
           expect(out?.tenant_id).toBe(tenantId);
           expect(out?.provider_id).toBe('microsoft-entra-id');
         } finally {

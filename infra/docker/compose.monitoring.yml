@@ -1,14 +1,16 @@
-# Shared monitoring stack (Prometheus + Grafana) for the GPU/app host
-# (192.168.90.127). Run here so the whole team can view the dashboards over the
-# LAN — Grafana enables anonymous read-only viewing, no login to look.
+# Shared monitoring stack (Prometheus + Grafana) for the GPU/app host.
+# Run here so the whole team can view the dashboards over the LAN — Grafana
+# enables anonymous read-only viewing, no login to look.
 #
 #   docker compose -f infra/docker/compose.monitoring.yml up -d
 #
-# Team opens:  http://192.168.90.127:3000   (read-only, no login)
+# Team opens:  http://<gpu-host>:3000   (read-only, no login)
 # Admins edit: same URL, log in top-right with admin / $GF_ADMIN_PASSWORD.
 #
-# Set a real admin password before first run:
+# Before first run, set a real admin password and the host's LAN address
+# (used for Grafana link/share rendering):
 #   export GF_ADMIN_PASSWORD='something-strong'
+#   export MONITORING_HOST=<gpu-host LAN address>
 #
 # `name:` pins this stack's compose project name to its historical default
 # ("docker", from the infra/docker/ directory name) so other compose stacks
@@ -46,7 +48,7 @@ services:
       GF_AUTH_ANONYMOUS_ENABLED: "true"
       GF_AUTH_ANONYMOUS_ORG_ROLE: "Viewer"
       # Set so links/shares render with the right host.
-      GF_SERVER_ROOT_URL: "http://192.168.90.127:3000"
+      GF_SERVER_ROOT_URL: "http://${MONITORING_HOST:-localhost}:3000"
     ports:
       - "3000:3000"
     volumes:

@@ -36,7 +36,7 @@ jobs:
       project: Future
       gh-repo: ${{ github.repository }}
       jira-project: FUT
-      jira-base: 'https://all-it.atlassian.net'
+      jira-base: ${{ vars.JIRA_BASE }}
       sprint-anchor: '2026-06-29'
       sprint-length-days: '14'
       prod-env: 'dev,uat'              # no production environment yet (spec §6.1)
@@ -57,7 +57,7 @@ jobs:
       project: Future
       gh-repo: ${{ github.repository }}
       jira-project: FUT
-      jira-base: 'https://all-it.atlassian.net'
+      jira-base: ${{ vars.JIRA_BASE }}
       sprint-anchor: '2026-06-29'
       prod-env: 'dev,uat'
       deploy-strategy: 'deployments'

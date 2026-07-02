@@ -141,16 +141,10 @@ function LoginShell({ children }: { children: React.ReactNode }) {
       <footer className="flex items-center justify-between px-lg py-md text-caption text-ink-subtle sm:px-xl">
         <span suppressHydrationWarning>© {new Date().getFullYear()}</span>
         <div className="flex items-center gap-md">
-          <a
-            href="https://seta-international.vn/privacy"
-            className="transition-colors hover:text-ink"
-          >
+          <a href="https://example.com/privacy" className="transition-colors hover:text-ink">
             Privacy
           </a>
-          <a
-            href="https://seta-international.vn/terms"
-            className="transition-colors hover:text-ink"
-          >
+          <a href="https://example.com/terms" className="transition-colors hover:text-ink">
             Terms
           </a>
           <SystemStatus />
@@ -253,7 +247,7 @@ function PasswordStep({
           label="Password"
           trailing={
             <a
-              href="mailto:support@seta-international.vn?subject=Password%20reset"
+              href="mailto:support@example.com?subject=Password%20reset"
               className="text-caption font-medium text-primary hover:underline"
             >
               Reset
@@ -359,10 +353,7 @@ function SsoStep({
 
       <p className="mt-md text-center text-caption text-ink-subtle">
         Can&apos;t get in?{' '}
-        <a
-          href="mailto:support@seta-international.vn"
-          className="font-medium text-primary hover:underline"
-        >
+        <a href="mailto:support@example.com" className="font-medium text-primary hover:underline">
           Contact your admin
         </a>
       </p>

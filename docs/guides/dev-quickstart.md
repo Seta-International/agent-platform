@@ -57,7 +57,7 @@ pnpm db:seed
 
 Creates the `seta-international` tenant + admin, then seeds the full cross-module fixture (People, accounts, projects, allocations, planner boards, hiring pipeline, plus injected edge states) from the `private/seta-fixture.xlsx` workbook. That workbook holds real employee data and is gitignored, so a fresh clone won't have it — the seed then provisions only the tenant + admin and logs a warning. Re-runs are idempotent (zero new rows).
 
-Sign in as the admin `admin@seta-international.vn` with password `ChangeMe@2026`.
+Sign in as the admin `admin@example.com` with password `ChangeMe@2026`.
 
 Useful flags: `--tenant <slug>`, `--admin-email <email>`, `--dir <path>`, `--password <pw>`.
 
@@ -69,7 +69,7 @@ MEMBER_COUNT=5 bash scripts/tenant-bootstrap.sh   # admin + 5 members
 SLUG=widgets bash scripts/tenant-bootstrap.sh     # custom slug
 ```
 
-Sign in as `admin@seta-international.vn` / `ChangeMe@2026`, or as a member `member1@seta-international.test` / `ChangeMe@2026`. Each member is seeded with `planner.contributor`, `knowledge.member`, and `agent.contributor`, so Planner, Knowledge, and Chat are usable out of the box (nav is permission-gated).
+Sign in as `admin@example.com` / `ChangeMe@2026`, or as a member `member1@example.test` / `ChangeMe@2026`. Each member is seeded with `planner.contributor`, `knowledge.member`, and `agent.contributor`, so Planner, Knowledge, and Chat are usable out of the box (nav is permission-gated).
 
 Overridable env vars: `SLUG`, `NAME`, `ADMIN_EMAIL`, `ADMIN_NAME`, `ADMIN_PASSWORD`, `MEMBER_COUNT`, `MEMBER_DOMAIN`, `MEMBER_PASSWORD`, `MEMBER_ROLE` (the primary role; defaults to `planner.contributor`).
 
@@ -124,4 +124,4 @@ pnpm db:down && pnpm db:up && pnpm db:migrate && pnpm db:seed
 
 ## Hand it to an agent
 
-> Bootstrap my local dev environment. Assume Docker, Node 24, and pnpm 11 are installed. Run `pnpm install`, `cp .env.example .env` and fill `BETTER_AUTH_SECRET`, `CRYPTO_LOCAL_MASTER_KEY`, and `OPENAI_API_KEY`, then `pnpm db:up`, `pnpm db:migrate`, and `pnpm db:seed`. Verify by starting `pnpm dev` and reporting whether <http://localhost:5173/login> accepts `admin@seta-international.vn` / `ChangeMe@2026`. Stop and ask before running anything destructive.
+> Bootstrap my local dev environment. Assume Docker, Node 24, and pnpm 11 are installed. Run `pnpm install`, `cp .env.example .env` and fill `BETTER_AUTH_SECRET`, `CRYPTO_LOCAL_MASTER_KEY`, and `OPENAI_API_KEY`, then `pnpm db:up`, `pnpm db:migrate`, and `pnpm db:seed`. Verify by starting `pnpm dev` and reporting whether <http://localhost:5173/login> accepts `admin@example.com` / `ChangeMe@2026`. Stop and ask before running anything destructive.

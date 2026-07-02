@@ -105,7 +105,7 @@ describe('seed-fixture end-to-end', () => {
         await seedFixtureCommand({
           tenant: 'seta-international',
           dir: MINI_DIR,
-          adminEmail: 'admin@seta-international.vn',
+          adminEmail: 'admin@example.com',
         });
 
         // Wait for subscribers (assignee_projection) to catch up
@@ -154,7 +154,7 @@ describe('seed-fixture end-to-end', () => {
               sql`SELECT id FROM core.tenants WHERE slug = 'seta-international' LIMIT 1`,
             )
           ).rows[0]!.id as string,
-          'admin@seta-international.vn',
+          'admin@example.com',
         );
         const { units } = await getOrgStructure(adminSession);
         expect(units.find((u) => u.kind === 'executive')?.head).toBeTruthy();
@@ -170,7 +170,7 @@ describe('seed-fixture end-to-end', () => {
         await seedFixtureCommand({
           tenant: 'seta-international',
           dir: MINI_DIR,
-          adminEmail: 'admin@seta-international.vn',
+          adminEmail: 'admin@example.com',
         });
 
         // Let the dispatcher settle back to the deactivated steady state (the

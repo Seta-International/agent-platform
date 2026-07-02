@@ -14,7 +14,7 @@ describe('directory-client', () => {
     const row = {
       person_id: 'p1',
       full_name: 'Mai Nguyen',
-      work_email: 'mai@seta.vn',
+      work_email: 'mai@example.com',
       job_title: 'Engineer',
       employment_status: 'active',
       account_status: 'none',
