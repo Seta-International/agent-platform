@@ -21,6 +21,8 @@ export default async function (): Promise<() => Promise<void>> {
         { name: 'core', dir: resolve(__dirname, '../../core/drizzle/migrations') },
         { name: 'identity', dir: resolve(__dirname, '../../identity/drizzle') },
         { name: 'hiring', dir: resolve(__dirname, '../drizzle/migrations') },
+        // hiring's recruiter scope reads pm.account_recruiter (see backend/domain/scope.ts).
+        { name: 'pm', dir: resolve(__dirname, '../../pm/drizzle/migrations') },
       ],
     });
   } finally {

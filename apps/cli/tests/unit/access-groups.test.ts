@@ -21,14 +21,28 @@ describe('PERSONA_GROUPS scoping', () => {
     expect(roleIn('team-lead-pm', 'people.viewer')?.scope_kind).toBe('self');
   });
 
+  it('team-lead-pm.hiring.recruiter is self-scoped', () => {
+    expect(roleIn('team-lead-pm', 'hiring.recruiter')?.scope_kind).toBe('self');
+  });
+
   it("team-lead-pm's other roles stay tenant (no scope_kind override)", () => {
-    for (const slug of ['pm.manager', 'planner.member', 'hiring.recruiter']) {
+    for (const slug of ['pm.manager', 'planner.member']) {
       expect(roleIn('team-lead-pm', slug)?.scope_kind).toBeUndefined();
     }
   });
 
-  it('hr, pmo, am, admin roles are unscoped (tenant)', () => {
-    for (const slug of ['hr', 'pmo', 'am', 'admin']) {
+  it('hr.hiring.recruiter is self-scoped', () => {
+    expect(roleIn('hr', 'hiring.recruiter')?.scope_kind).toBe('self');
+  });
+
+  it("hr's other roles stay tenant (no scope_kind override)", () => {
+    for (const slug of ['people.manager', 'hiring.manager']) {
+      expect(roleIn('hr', slug)?.scope_kind).toBeUndefined();
+    }
+  });
+
+  it('pmo, am, admin roles are unscoped (tenant)', () => {
+    for (const slug of ['pmo', 'am', 'admin']) {
       const group = PERSONA_GROUPS.find((g) => g.slug === slug);
       expect(group).toBeDefined();
       for (const r of group?.roles ?? []) expect(r.scope_kind).toBeUndefined();

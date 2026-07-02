@@ -29,7 +29,11 @@ export const PERSONA_GROUPS: PersonaGroupDef[] = [
   {
     slug: 'hr',
     name: 'HR',
-    roles: [{ slug: 'people.manager' }, { slug: 'hiring.manager' }, { slug: 'hiring.recruiter' }],
+    roles: [
+      { slug: 'people.manager' },
+      { slug: 'hiring.manager' },
+      { slug: 'hiring.recruiter', scope_kind: 'self' },
+    ],
   },
   { slug: 'pmo', name: 'PMO', roles: [{ slug: 'pm.pmo' }] },
   { slug: 'am', name: 'AM', roles: [{ slug: 'pm.manager' }] },
@@ -45,7 +49,7 @@ export const PERSONA_GROUPS: PersonaGroupDef[] = [
       { slug: 'pm.manager' },
       { slug: 'planner.member' },
       { slug: 'people.viewer', scope_kind: 'self' },
-      { slug: 'hiring.recruiter' },
+      { slug: 'hiring.recruiter', scope_kind: 'self' },
     ],
   },
   { slug: 'admin', name: 'Admin', roles: [{ slug: 'org.admin' }, { slug: 'identity.admin' }] },
