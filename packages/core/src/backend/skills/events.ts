@@ -13,6 +13,7 @@ export const skillRenamedEventPayload = z.object({
   name: z.string(),
   previous_name: z.string(),
 });
+export type SkillRenamedEventPayload = z.infer<typeof skillRenamedEventPayload>;
 
 export const CORE_SKILL_CATEGORY_CREATED = 'core.skill_category.created';
 export const CORE_SKILL_CATEGORY_UPDATED = 'core.skill_category.updated';
