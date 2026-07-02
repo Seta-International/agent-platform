@@ -55,11 +55,12 @@ export function makeWeeklyPlanTaskCollector(
       const out = deps.runAgent
         ? await deps.runAgent({ input, requestContext: rc })
         : await (async () => {
+            const model = pickModel(ctx, deps.resolveModel);
             const agent = new Agent({
               id: 'planner.weeklyPlan.taskCollector',
               name: 'Weekly Plan Task Collector',
               instructions: INSTRUCTIONS,
-              model: pickModel(ctx, deps.resolveModel),
+              model,
               tools: { planner_queryTasks: plannerQueryTasksTool } as never,
             });
             const r = await agent.generate(
@@ -67,7 +68,9 @@ export function makeWeeklyPlanTaskCollector(
                 '\n',
               ),
               {
-                structuredOutput: { schema: CollectorOutputSchema },
+                toolChoice: { type: 'tool', toolName: 'planner_queryTasks' },
+                structuredOutput: { schema: CollectorOutputSchema, model },
+                maxSteps: 5,
                 requestContext: rc,
                 abortSignal: ctx.abortSignal,
               },
