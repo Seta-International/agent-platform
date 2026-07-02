@@ -1,0 +1,88 @@
+name: AI SDLC Metrics — Future
+
+# Thin caller: all logic lives in Seta-International/ai-sdlc-metrics.
+# Onboarding: fill the <PLACEHOLDERS>, add the three repo secrets
+# (JIRA_EMAIL, JIRA_TOKEN + JIRA_AI_USAGE_FIELD, REPORTING_DB_URL), done.
+
+on:
+  schedule:
+    - cron: '0 * * * *'    # hourly: current sprint
+    - cron: '30 0 1 * *'   # monthly: previous calendar month
+    - cron: '45 1 1 1,4,7,10 *'  # quarterly: governance auto-check
+  pull_request:
+    types: [closed]
+  deployment_status:
+  workflow_dispatch:
+    inputs:
+      sprint:
+        description: 'Re-collect a specific sprint (e.g. S3); blank = current'
+        required: false
+      manual_period:
+        description: 'Manual input period (YYYY-MM or YYYY-Q<n>)'
+        required: false
+      manual_fields:
+        description: 'Manual input pairs separated by ";", e.g. total_engineers=18; cost_actual=30'
+        required: false
+
+jobs:
+  collect-sprint:
+    if: >
+      github.event_name != 'workflow_dispatch' && github.event.schedule != '30 0 1 * *' &&
+      github.event.schedule != '45 1 1 1,4,7,10 *' &&
+      (github.event_name != 'pull_request' || github.event.pull_request.merged == true)
+      || (github.event_name == 'workflow_dispatch' && inputs.manual_period == '')
+    uses: Seta-International/ai-sdlc-metrics/.github/workflows/collect.yml@main
+    with:
+      project: Future
+      gh-repo: ${{ github.repository }}
+      jira-project: FUT
+      sprint-anchor: '2026-06-29'
+      sprint-length-days: '14'
+      prod-env: 'dev,uat'              # no production environment yet (spec §6.1)
+      deploy-strategy: 'deployments'
+      jira-board-id: ''
+      sprint: ${{ inputs.sprint || '' }}
+      mode: sprint
+    secrets:
+      jira-email: ${{ secrets.JIRA_EMAIL }}
+      jira-token: ${{ secrets.JIRA_TOKEN }}
+      jira-ai-usage-field: ${{ secrets.JIRA_AI_USAGE_FIELD }}
+      reporting-db-url: ${{ secrets.REPORTING_DB_URL }}
+
+  collect-month:
+    if: github.event_name == 'schedule' && github.event.schedule == '30 0 1 * *'
+    uses: Seta-International/ai-sdlc-metrics/.github/workflows/collect.yml@main
+    with:
+      project: Future
+      gh-repo: ${{ github.repository }}
+      jira-project: FUT
+      sprint-anchor: '2026-06-29'
+      prod-env: 'dev,uat'
+      deploy-strategy: 'deployments'
+      jira-board-id: ''
+      mode: previous-month
+    secrets:
+      jira-email: ${{ secrets.JIRA_EMAIL }}
+      jira-token: ${{ secrets.JIRA_TOKEN }}
+      jira-ai-usage-field: ${{ secrets.JIRA_AI_USAGE_FIELD }}
+      reporting-db-url: ${{ secrets.REPORTING_DB_URL }}
+
+  quarterly-check:
+    if: github.event_name == 'schedule' && github.event.schedule == '45 1 1 1,4,7,10 *'
+    uses: Seta-International/ai-sdlc-metrics/.github/workflows/quarterly-check.yml@main
+    with:
+      project: Future
+      gh-repo: ${{ github.repository }}
+    secrets:
+      reporting-db-url: ${{ secrets.REPORTING_DB_URL }}
+
+  manual-input:
+    if: github.event_name == 'workflow_dispatch' && inputs.manual_period != ''
+    uses: Seta-International/ai-sdlc-metrics/.github/workflows/manual-input.yml@main
+    with:
+      project: Future
+      period: ${{ inputs.manual_period }}
+      fields: ${{ inputs.manual_fields }}
+      entered-by: ${{ github.actor }}
+    secrets:
+      reporting-db-url: ${{ secrets.REPORTING_DB_URL }}
