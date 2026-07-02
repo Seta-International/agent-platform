@@ -30,7 +30,7 @@ export async function userCreateCommand(opts: UserCreateOpts): Promise<void> {
         user_id,
         tenant_id: tenantId,
         role_slug: slug,
-        scope_type: isGroupScoped ? 'group' : 'tenant',
+        scope_kind: isGroupScoped ? 'group' : 'tenant',
         scope_id: isGroupScoped ? (opts.group ?? null) : null,
       },
       { type: 'cli', user_id: null },

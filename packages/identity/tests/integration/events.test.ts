@@ -80,7 +80,7 @@ describe('identity event emit helpers', () => {
               grant: {
                 grant_id: grantId,
                 role_slug: 'org.admin',
-                scope_type: 'tenant',
+                scope_kind: 'tenant',
                 scope_id: null,
                 granted_via: 'cli',
               },

@@ -65,7 +65,7 @@ describe('@seta/identity public-surface lifecycle', () => {
               user_id: bobId,
               tenant_id: tenantId,
               role_slug: 'planner.member',
-              scope_type: 'tenant',
+              scope_kind: 'tenant',
               scope_id: null,
             },
             { type: 'user', user_id: adminId },

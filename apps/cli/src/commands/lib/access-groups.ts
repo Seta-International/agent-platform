@@ -50,7 +50,18 @@ export async function ensurePersonaGroups(
         actor,
       ));
     }
-    await setGroupRoles({ group_id: id, tenant_id: session.tenant_id, role_slugs: g.roles }, actor);
+    await setGroupRoles(
+      {
+        group_id: id,
+        tenant_id: session.tenant_id,
+        roles: g.roles.map((role_slug) => ({
+          role_slug,
+          scope_kind: 'tenant' as const,
+          scope_id: null,
+        })),
+      },
+      actor,
+    );
     out.set(g.slug, id);
   }
   return out;

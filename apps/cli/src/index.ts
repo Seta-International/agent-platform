@@ -137,15 +137,15 @@ program
   .requiredOption('--user <email-or-id>', 'User email or UUID')
   .requiredOption('--tenant <slug-or-id>', 'Tenant')
   .requiredOption('--role <role-slug>', 'Role slug (e.g. planner.viewer)')
-  .option('--scope <scope>', 'Grant scope: tenant or group', 'tenant')
-  .option('--group <group-id>', 'Group id (required when scope=group)')
+  .option('--scope <scope>', 'Grant scope: tenant, org_unit, self, or group', 'tenant')
+  .option('--group <group-id>', 'Group or org-unit id (required when scope=group or org_unit)')
   .requiredOption('--action <action>', 'grant or revoke')
   .action(
     async (opts: {
       user: string;
       tenant: string;
       role: string;
-      scope: 'tenant' | 'group';
+      scope: 'tenant' | 'org_unit' | 'self' | 'group';
       group?: string;
       action: 'grant' | 'revoke';
     }) => {

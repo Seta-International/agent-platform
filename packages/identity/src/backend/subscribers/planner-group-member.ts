@@ -57,7 +57,7 @@ export async function applyMemberAdded(
       grant: {
         grant_id: grantId,
         role_slug: 'planner.viewer',
-        scope_type: 'group',
+        scope_kind: 'group',
         scope_id: e.payload.group_id,
         granted_via: 'admin',
       },

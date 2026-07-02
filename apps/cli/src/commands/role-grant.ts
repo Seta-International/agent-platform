@@ -10,10 +10,14 @@ export interface RoleGrantOpts {
   user: string;
   tenant: string;
   role: string;
-  scope: 'tenant' | 'group';
+  scope: 'tenant' | 'org_unit' | 'self' | 'group';
   group?: string;
   action: 'grant' | 'revoke';
 }
+
+// 'tenant' and 'self' scopes carry no scope id; 'org_unit' and 'group' do.
+const scopeIdFor = (scope: RoleGrantOpts['scope'], group: string | undefined): string | null =>
+  scope === 'org_unit' || scope === 'group' ? (group ?? null) : null;
 
 async function resolveUserId(emailOrId: string, tenantId: string): Promise<string> {
   if (UUID_RE.test(emailOrId)) return emailOrId;
@@ -35,8 +39,8 @@ export async function roleGrantCommand(opts: RoleGrantOpts): Promise<void> {
         user_id: userId,
         tenant_id: tenantId,
         role_slug: opts.role,
-        scope_type: opts.scope,
-        scope_id: opts.scope === 'group' ? (opts.group ?? null) : null,
+        scope_kind: opts.scope,
+        scope_id: scopeIdFor(opts.scope, opts.group),
       },
       { type: 'cli', user_id: null },
     );
@@ -46,7 +50,7 @@ export async function roleGrantCommand(opts: RoleGrantOpts): Promise<void> {
       SELECT id FROM identity.role_assignments
       WHERE user_id = ${userId} AND tenant_id = ${tenantId}
         AND role_slug = ${opts.role} AND scope_kind = ${opts.scope}
-        AND COALESCE(scope_id, '-') = COALESCE(${opts.scope === 'group' ? opts.group : null}, '-')
+        AND COALESCE(scope_id, '-') = COALESCE(${scopeIdFor(opts.scope, opts.group)}, '-')
         AND revoked_at IS NULL
       LIMIT 1
     `);

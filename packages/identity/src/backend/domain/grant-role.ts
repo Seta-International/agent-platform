@@ -2,13 +2,13 @@ import { emit, withEmit } from '@seta/core/events';
 import { roleAssignments } from '../db/schema.ts';
 import { IdentityError, requirePermission } from '../rbac.ts';
 import type { Actor } from './create-user.ts';
-import { requireUserExists } from './helpers.ts';
+import { requireOrgUnitInTenant, requireUserExists } from './helpers.ts';
 
 export interface GrantRoleInput {
   user_id: string;
   tenant_id: string;
   role_slug: string;
-  scope_type: 'tenant' | 'group';
+  scope_kind: 'tenant' | 'org_unit' | 'self' | 'group';
   scope_id: string | null;
 }
 
@@ -17,6 +17,12 @@ export async function grantRole(
   actor: Actor,
 ): Promise<{ grant_id: string }> {
   await requireUserExists(input.user_id);
+
+  if (input.scope_kind === 'org_unit') {
+    if (!input.scope_id)
+      throw new IdentityError('VALIDATION', 'scope_id required for org_unit scope');
+    await requireOrgUnitInTenant(input.tenant_id, input.scope_id);
+  }
 
   if (actor.type === 'user') {
     if (!actor.user_id) throw new IdentityError('FORBIDDEN', 'user actor requires user_id');
@@ -41,7 +47,7 @@ export async function grantRole(
         user_id: input.user_id,
         tenant_id: input.tenant_id,
         role_slug: input.role_slug,
-        scope_kind: input.scope_type,
+        scope_kind: input.scope_kind,
         scope_id: input.scope_id,
         granted_by: actor.user_id,
         granted_via: grantedVia,
@@ -65,7 +71,7 @@ export async function grantRole(
           grant: {
             grant_id: grantId,
             role_slug: input.role_slug,
-            scope_type: input.scope_type,
+            scope_kind: input.scope_kind,
             scope_id: input.scope_id,
             granted_via: grantedVia,
           },

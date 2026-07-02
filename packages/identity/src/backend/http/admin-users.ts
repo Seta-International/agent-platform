@@ -23,19 +23,26 @@ import {
 import { listDirectory } from '../domain/list-directory.ts';
 import { provisionAccount } from '../domain/provision-account.ts';
 
-const grantSchema = z.object({
-  role_slug: z.string(),
-  scope_type: z.enum(['tenant', 'group']).default('tenant'),
-  scope_id: z.string().nullable().optional(),
-});
+const scopeRefine = (v: { scope_kind: string; scope_id?: string | null }) =>
+  v.scope_kind !== 'org_unit' || Boolean(v.scope_id);
 
-const bulkSchema = z.object({
-  user_ids: z.array(z.string().uuid()).min(1).max(500),
-  role_slug: z.string(),
-  action: z.enum(['grant', 'revoke']),
-  scope_type: z.enum(['tenant', 'group']).default('tenant'),
-  scope_id: z.string().nullable().optional(),
-});
+const grantSchema = z
+  .object({
+    role_slug: z.string(),
+    scope_kind: z.enum(['tenant', 'org_unit', 'self']).default('tenant'),
+    scope_id: z.string().uuid().nullable().optional(),
+  })
+  .refine(scopeRefine, { message: 'scope_id required for org_unit scope', path: ['scope_id'] });
+
+const bulkSchema = z
+  .object({
+    user_ids: z.array(z.string().uuid()).min(1).max(500),
+    role_slug: z.string(),
+    action: z.enum(['grant', 'revoke']),
+    scope_kind: z.enum(['tenant', 'org_unit', 'self']).default('tenant'),
+    scope_id: z.string().uuid().nullable().optional(),
+  })
+  .refine(scopeRefine, { message: 'scope_id required for org_unit scope', path: ['scope_id'] });
 
 // Identity owns the account only — admins edit display_name here; worker
 // presence/skills are edited through People (web-people worker profile).
@@ -132,8 +139,6 @@ export function registerAdminUsersRoutes(app: Hono<SessionEnv>): void {
     const userId = c.req.param('id');
     const parsed = grantSchema.safeParse(await c.req.json().catch(() => ({})));
     if (!parsed.success) return c.json({ error: 'invalid' }, 400);
-    if (parsed.data.scope_type === 'group')
-      return c.json({ error: 'group_scope_ui_deferred' }, 400);
     if (!ASSIGNABLE_ROLES.includes(parsed.data.role_slug))
       return c.json({ error: 'unknown_role' }, 400);
     const result = await grantRole(
@@ -141,8 +146,8 @@ export function registerAdminUsersRoutes(app: Hono<SessionEnv>): void {
         user_id: userId,
         tenant_id: scope.tenant_id,
         role_slug: parsed.data.role_slug,
-        scope_type: 'tenant',
-        scope_id: null,
+        scope_kind: parsed.data.scope_kind,
+        scope_id: parsed.data.scope_id ?? null,
       },
       { type: 'user', user_id: scope.user_id },
     );
@@ -154,16 +159,14 @@ export function registerAdminUsersRoutes(app: Hono<SessionEnv>): void {
     const scope = c.get('user');
     const parsed = bulkSchema.safeParse(await c.req.json().catch(() => ({})));
     if (!parsed.success) return c.json({ error: 'invalid', details: parsed.error.flatten() }, 400);
-    if (parsed.data.scope_type === 'group')
-      return c.json({ error: 'group_scope_ui_deferred' }, 400);
     if (!ASSIGNABLE_ROLES.includes(parsed.data.role_slug))
       return c.json({ error: 'unknown_role' }, 400);
     const input = {
       user_ids: parsed.data.user_ids,
       tenant_id: scope.tenant_id,
       role_slug: parsed.data.role_slug,
-      scope_type: 'tenant' as const,
-      scope_id: null,
+      scope_kind: parsed.data.scope_kind,
+      scope_id: parsed.data.scope_id ?? null,
     };
     const actor = {
       type: 'user' as const,

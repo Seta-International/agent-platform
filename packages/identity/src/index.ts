@@ -42,7 +42,7 @@ export {
   listUserGroups,
   removeGroupMember,
 } from './backend/domain/group-membership.ts';
-export type { GroupRow } from './backend/domain/groups.ts';
+export type { GroupRoleInput, GroupRow } from './backend/domain/groups.ts';
 export {
   createGroup,
   deleteGroup,
@@ -63,6 +63,8 @@ export { listDirectory } from './backend/domain/list-directory.ts';
 export type { EntraImportableUser } from './backend/domain/list-entra-importable-users.ts';
 export { listEntraImportableUsers } from './backend/domain/list-entra-importable-users.ts';
 export { listMyEffectivePermissions } from './backend/domain/list-my-effective-permissions.ts';
+export type { OrgUnitRow } from './backend/domain/list-org-units.ts';
+export { listOrgUnits } from './backend/domain/list-org-units.ts';
 export type { ActiveAssignment } from './backend/domain/list-role-assignments.ts';
 export { listRoleAssignments, listUserGroupIds } from './backend/domain/list-role-assignments.ts';
 export { listSsoProviders } from './backend/domain/list-sso-providers.ts';

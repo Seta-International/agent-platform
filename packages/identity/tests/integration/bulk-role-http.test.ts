@@ -77,6 +77,13 @@ const post = (app: Hono<SessionEnv>, body: unknown) =>
     body: JSON.stringify(body),
   });
 
+const postGrant = (app: Hono<SessionEnv>, userId: string, body: unknown) =>
+  app.request(`/api/identity/v1/users/${userId}/role-grants`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
 describe('POST /users (create — retired)', () => {
   it('user creation is no longer available via identity HTTP (moved to People)', async () => {
     await withDb(async ({ tenant_id, admin }) => {
@@ -133,17 +140,88 @@ describe('POST /users/bulk-role-grants', () => {
     });
   });
 
-  it('group scope is 400 (deferred)', async () => {
+  it('group scope is 400 — unreachable via the HTTP schema', async () => {
     await withDb(async ({ tenant_id, admin, users }) => {
       const app = buildApp(session(tenant_id, admin, ['org.admin']));
       const res = await post(app, {
         user_ids: users,
         role_slug: 'knowledge.viewer',
         action: 'grant',
-        scope_type: 'group',
+        scope_kind: 'group',
       });
       expect(res.status).toBe(400);
-      expect(((await res.json()) as { error: string }).error).toBe('group_scope_ui_deferred');
+      expect(((await res.json()) as { error: string }).error).toBe('invalid');
+    });
+  });
+
+  it('org_unit scope without scope_id is 400', async () => {
+    await withDb(async ({ tenant_id, admin, users }) => {
+      const app = buildApp(session(tenant_id, admin, ['org.admin']));
+      const res = await post(app, {
+        user_ids: users,
+        role_slug: 'knowledge.viewer',
+        action: 'grant',
+        scope_kind: 'org_unit',
+      });
+      expect(res.status).toBe(400);
+      expect(((await res.json()) as { error: string }).error).toBe('invalid');
+    });
+  });
+});
+
+describe('POST /users/:id/role-grants', () => {
+  it('grants pm.manager scoped to an org unit and lands it in role_assignments', async () => {
+    await withDb(async ({ tenant_id, admin, users, pool }) => {
+      const orgUnitId = crypto.randomUUID();
+      await pool.query(
+        `INSERT INTO identity.org_unit_projection (org_unit_id, tenant_id, parent_id, name)
+         VALUES ($1, $2, NULL, 'Engineering')`,
+        [orgUnitId, tenant_id],
+      );
+
+      const app = buildApp(session(tenant_id, admin, ['org.admin']));
+      const res = await postGrant(app, users[0]!, {
+        role_slug: 'pm.manager',
+        scope_kind: 'org_unit',
+        scope_id: orgUnitId,
+      });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { grant_id: string };
+      expect(typeof body.grant_id).toBe('string');
+
+      const row = await pool.query(
+        `SELECT role_slug, scope_kind, scope_id FROM identity.role_assignments WHERE id = $1`,
+        [body.grant_id],
+      );
+      expect(row.rows[0]).toMatchObject({
+        role_slug: 'pm.manager',
+        scope_kind: 'org_unit',
+        scope_id: orgUnitId,
+      });
+    });
+  });
+
+  it('org_unit scope without scope_id is 400', async () => {
+    await withDb(async ({ tenant_id, admin, users }) => {
+      const app = buildApp(session(tenant_id, admin, ['org.admin']));
+      const res = await postGrant(app, users[0]!, {
+        role_slug: 'pm.manager',
+        scope_kind: 'org_unit',
+      });
+      expect(res.status).toBe(400);
+    });
+  });
+
+  it('org_unit scope with an unknown org unit is 400 unknown_org_unit', async () => {
+    await withDb(async ({ tenant_id, admin, users }) => {
+      const app = buildApp(session(tenant_id, admin, ['org.admin']));
+      const res = await postGrant(app, users[0]!, {
+        role_slug: 'pm.manager',
+        scope_kind: 'org_unit',
+        scope_id: crypto.randomUUID(),
+      });
+      expect(res.status).toBe(400);
+      expect(((await res.json()) as { error: string }).error).toBe('unknown_org_unit');
     });
   });
 });

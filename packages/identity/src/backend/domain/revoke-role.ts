@@ -52,7 +52,7 @@ export async function revokeRole(assignmentId: string, actor: Actor): Promise<vo
           grant: {
             grant_id: assignmentId,
             role_slug: assignment.role_slug,
-            scope_type: assignment.scope_kind,
+            scope_kind: assignment.scope_kind,
             scope_id: assignment.scope_id,
             granted_via: assignment.granted_via,
           },

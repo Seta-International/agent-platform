@@ -110,7 +110,9 @@ export async function createUser(
             change: 'granted',
             grant: {
               grant_id: assignmentId,
-              ...input.initial_role,
+              role_slug: input.initial_role.role_slug,
+              scope_kind: input.initial_role.scope_type,
+              scope_id: input.initial_role.scope_id,
               granted_via: grantedVia,
             },
           },

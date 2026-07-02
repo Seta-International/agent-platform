@@ -50,7 +50,7 @@ describe('grantRole / revokeRole', () => {
               user_id: targetId,
               tenant_id: tenantId,
               role_slug: 'planner.viewer',
-              scope_type: 'tenant',
+              scope_kind: 'tenant',
               scope_id: null,
             },
             { type: 'user', user_id: adminId },

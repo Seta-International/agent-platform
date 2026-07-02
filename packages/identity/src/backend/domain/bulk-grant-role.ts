@@ -11,7 +11,7 @@ export interface BulkRoleInput {
   user_ids: string[];
   tenant_id: string;
   role_slug: string;
-  scope_type: 'tenant' | 'group';
+  scope_kind: 'tenant' | 'org_unit' | 'self';
   scope_id: string | null;
 }
 
@@ -54,7 +54,7 @@ export async function bulkGrantRole(input: BulkRoleInput, actor: Actor): Promise
             and(
               eq(roleAssignments.tenant_id, input.tenant_id),
               eq(roleAssignments.role_slug, input.role_slug),
-              eq(roleAssignments.scope_kind, input.scope_type),
+              eq(roleAssignments.scope_kind, input.scope_kind),
               isNull(roleAssignments.revoked_at),
               inArray(roleAssignments.user_id, [...valid]),
             ),
@@ -88,7 +88,7 @@ export async function bulkGrantRole(input: BulkRoleInput, actor: Actor): Promise
           user_id: uid,
           tenant_id: input.tenant_id,
           role_slug: input.role_slug,
-          scope_kind: input.scope_type,
+          scope_kind: input.scope_kind,
           scope_id: input.scope_id,
           granted_by: actor.user_id,
           granted_via: grantedVia,
@@ -112,7 +112,7 @@ export async function bulkGrantRole(input: BulkRoleInput, actor: Actor): Promise
             grant: {
               grant_id: assignmentId,
               role_slug: input.role_slug,
-              scope_type: input.scope_type,
+              scope_kind: input.scope_kind,
               scope_id: input.scope_id,
               granted_via: grantedVia,
             },
@@ -138,7 +138,7 @@ export async function bulkRevokeRole(input: BulkRoleInput, actor: Actor): Promis
       and(
         eq(roleAssignments.tenant_id, input.tenant_id),
         eq(roleAssignments.role_slug, input.role_slug),
-        eq(roleAssignments.scope_kind, input.scope_type),
+        eq(roleAssignments.scope_kind, input.scope_kind),
         isNull(roleAssignments.revoked_at),
         inArray(roleAssignments.user_id, input.user_ids),
       ),
@@ -185,7 +185,7 @@ export async function bulkRevokeRole(input: BulkRoleInput, actor: Actor): Promis
             grant: {
               grant_id: assignment.id,
               role_slug: assignment.role_slug,
-              scope_type: assignment.scope_kind,
+              scope_kind: assignment.scope_kind,
               scope_id: assignment.scope_id,
               granted_via: assignment.granted_via,
             },
