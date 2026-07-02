@@ -34,7 +34,7 @@ export async function archivePlan(input: {
         });
       }
 
-      requirePermission(input.session, 'planner.plan.update', existing.group_id);
+      await requirePermission(input.session, 'planner.plan.update', existing.group_id);
 
       if (existing.archived_at !== null) {
         throw new PlannerError('VALIDATION', 'Plan is already archived');

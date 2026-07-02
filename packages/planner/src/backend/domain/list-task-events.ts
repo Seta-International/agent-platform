@@ -57,9 +57,9 @@ export async function listTaskEvents(opts: ListTaskEventsOpts): Promise<ListTask
     throw new PlannerError('NOT_FOUND', 'Parent plan not found', { plan_id: task.plan_id });
   }
 
-  requirePermission(opts.session, 'planner.task.read', plan.group_id);
+  await requirePermission(opts.session, 'planner.task.read', plan.group_id);
 
-  const groupFilter = groupFilterFor(opts.session);
+  const groupFilter = await groupFilterFor(opts.session);
   if (groupFilter !== null && !groupFilter.includes(plan.group_id)) {
     throw new PlannerError('FORBIDDEN', 'No access to group', {
       task_id: opts.task_id,

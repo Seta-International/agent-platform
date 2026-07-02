@@ -50,7 +50,7 @@ export async function linkPlanToM365(
         });
       }
 
-      requirePermission(input.session, 'planner.plan.link_m365', existing.group_id);
+      await requirePermission(input.session, 'planner.plan.link_m365', existing.group_id);
 
       if (existing.external_source !== 'native') {
         throw new PlannerError('CONFLICT', 'Plan is already linked to an external source', {

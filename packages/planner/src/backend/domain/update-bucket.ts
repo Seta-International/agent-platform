@@ -43,7 +43,7 @@ export async function updateBucket(input: {
           plan_id: existing.plan_id,
         });
 
-      requirePermission(input.session, 'planner.bucket.update', plan.group_id);
+      await requirePermission(input.session, 'planner.bucket.update', plan.group_id);
 
       const before: Partial<{ name: string }> = {};
       const after: Partial<{ name: string }> = {};

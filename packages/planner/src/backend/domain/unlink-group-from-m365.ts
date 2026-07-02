@@ -13,7 +13,7 @@ export async function unlinkGroupFromM365(input: {
   group_id: string;
   session: SessionScope;
 }): Promise<GroupRow> {
-  requirePermission(input.session, 'planner.group.unlink', input.group_id);
+  await requirePermission(input.session, 'planner.group.unlink', input.group_id);
 
   let resultRow!: GroupDbRow;
   await withEmit(

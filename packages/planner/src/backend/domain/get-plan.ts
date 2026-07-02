@@ -23,9 +23,9 @@ export async function getPlan(input: { plan_id: string; session: SessionScope })
     });
   }
 
-  requirePermission(input.session, 'planner.plan.read', row.group_id);
+  await requirePermission(input.session, 'planner.plan.read', row.group_id);
 
-  const filter = groupFilterFor(input.session);
+  const filter = await groupFilterFor(input.session);
   if (filter !== null && !filter.includes(row.group_id)) {
     throw new PlannerError('FORBIDDEN', 'No access to group', { plan_id: input.plan_id });
   }

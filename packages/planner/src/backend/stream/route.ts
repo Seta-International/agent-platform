@@ -1,6 +1,7 @@
 import type { SessionEnv } from '@seta/core';
 import type { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
+import { listMemberGroupIds } from '../read-helpers.ts';
 import type { BoardStreamHub } from './hub.ts';
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
@@ -14,15 +15,19 @@ export function registerPlannerBoardStreamRoutes(app: Hono<SessionEnv>, hub: Boa
       .map((s) => s.trim())
       .filter(Boolean);
 
-    const accessible = new Set(session.accessible_group_ids);
     const isAdmin =
       session.role_summary.roles.includes('org.admin') ||
       session.role_summary.roles.includes('tenant.admin') ||
       session.cross_tenant_read;
 
+    // Fetched once at stream setup, not per event — membership doesn't change mid-connection.
+    const accessible = isAdmin
+      ? null
+      : new Set(await listMemberGroupIds(session.user_id, session.tenant_id));
+
     const filterGroupIds = isAdmin
       ? new Set(requestedGroupIds)
-      : new Set(requestedGroupIds.filter((g) => accessible.has(g)));
+      : new Set(requestedGroupIds.filter((g) => accessible?.has(g)));
 
     if (filterGroupIds.size === 0) {
       return c.json({ error: 'FORBIDDEN', message: 'No accessible groups in request' }, 403);

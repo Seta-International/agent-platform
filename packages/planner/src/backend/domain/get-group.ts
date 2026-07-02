@@ -13,7 +13,7 @@ export async function getGroup(input: {
   session: SessionScope;
   include_deleted?: boolean;
 }): Promise<GroupRow> {
-  requirePermission(input.session, 'planner.group.read', input.group_id);
+  await requirePermission(input.session, 'planner.group.read', input.group_id);
 
   const db = plannerDb();
 
@@ -29,7 +29,7 @@ export async function getGroup(input: {
     });
   }
 
-  const filter = groupFilterFor(input.session);
+  const filter = await groupFilterFor(input.session);
   if (filter !== null && !isM365SystemActor(input.session) && !filter.includes(input.group_id)) {
     throw new PlannerError('FORBIDDEN', 'No access to group', { group_id: input.group_id });
   }

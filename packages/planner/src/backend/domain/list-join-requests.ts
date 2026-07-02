@@ -10,7 +10,7 @@ export async function listJoinRequests(input: {
   status?: 'pending' | 'approved' | 'rejected';
   session: PlannerSessionScope;
 }): Promise<GroupJoinRequestRow[]> {
-  requirePermission(input.session, 'planner.group.member.read', input.group_id);
+  await requirePermission(input.session, 'planner.group.member.read', input.group_id);
 
   const db = plannerDb();
   const conditions = [eq(groupJoinRequests.group_id, input.group_id)];

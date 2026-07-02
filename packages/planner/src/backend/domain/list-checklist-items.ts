@@ -35,9 +35,9 @@ export async function listChecklistItems(input: {
     throw new PlannerError('NOT_FOUND', 'Parent plan not found', { plan_id: task.plan_id });
   }
 
-  requirePermission(input.session, 'planner.task.read', plan.group_id);
+  await requirePermission(input.session, 'planner.task.read', plan.group_id);
 
-  const filter = groupFilterFor(input.session);
+  const filter = await groupFilterFor(input.session);
   if (filter !== null && !filter.includes(plan.group_id)) {
     throw new PlannerError('FORBIDDEN', 'No access to group', { task_id: input.task_id });
   }

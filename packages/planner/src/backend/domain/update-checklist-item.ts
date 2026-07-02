@@ -45,7 +45,7 @@ export async function updateChecklistItem(input: {
       if (!plan)
         throw new PlannerError('NOT_FOUND', 'Parent plan not found', { plan_id: task.plan_id });
 
-      requirePermission(input.session, 'planner.task.update', plan.group_id);
+      await requirePermission(input.session, 'planner.task.update', plan.group_id);
 
       const before: Partial<{ label: string; checked: boolean; order_hint: string | null }> = {};
       const after: Partial<{ label: string; checked: boolean; order_hint: string | null }> = {};

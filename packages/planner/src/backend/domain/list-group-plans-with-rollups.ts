@@ -10,10 +10,10 @@ export async function listGroupPlansWithRollups(input: {
   group_id: string;
   session: SessionScope;
 }): Promise<PlanWithRollupsRow[]> {
-  requirePermission(input.session, 'planner.plan.read');
+  await requirePermission(input.session, 'planner.plan.read');
 
   const db = plannerDb();
-  const filter = groupFilterFor(input.session);
+  const filter = await groupFilterFor(input.session);
 
   const conditions = [
     eq(plans.tenant_id, input.session.tenant_id),

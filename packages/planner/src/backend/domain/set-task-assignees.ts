@@ -65,7 +65,7 @@ async function setTaskAssigneesImpl(
           plan_id: task.plan_id,
         });
 
-      requirePermission(input.session, 'planner.task.assign', plan.group_id);
+      await requirePermission(input.session, 'planner.task.assign', plan.group_id);
 
       await assertAssigneesAreGroupMembers(
         tx,

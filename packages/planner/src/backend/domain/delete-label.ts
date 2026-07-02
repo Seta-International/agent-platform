@@ -34,7 +34,7 @@ export async function deleteLabel(input: {
       if (!plan)
         throw new PlannerError('NOT_FOUND', 'Parent plan not found', { plan_id: existing.plan_id });
 
-      requirePermission(input.session, 'planner.plan.update', plan.group_id);
+      await requirePermission(input.session, 'planner.plan.update', plan.group_id);
 
       await tx.update(labels).set({ deleted_at: new Date() }).where(eq(labels.id, input.label_id));
 

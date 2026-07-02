@@ -39,7 +39,7 @@ export async function addChecklistItem(
       if (!plan)
         throw new PlannerError('NOT_FOUND', 'Parent plan not found', { plan_id: task.plan_id });
 
-      requirePermission(input.session, 'planner.task.update', plan.group_id);
+      await requirePermission(input.session, 'planner.task.update', plan.group_id);
 
       const existingItems = await tx
         .select()

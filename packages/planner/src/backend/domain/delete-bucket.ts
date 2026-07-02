@@ -37,7 +37,7 @@ export async function deleteBucket(input: {
           plan_id: existing.plan_id,
         });
 
-      requirePermission(input.session, 'planner.bucket.delete', plan.group_id);
+      await requirePermission(input.session, 'planner.bucket.delete', plan.group_id);
 
       // Soft-delete the bucket.
       const deletedAt = new Date();

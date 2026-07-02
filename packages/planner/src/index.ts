@@ -205,7 +205,8 @@ export type {
 } from './backend/inputs.ts';
 export { plannerMembershipJobs } from './backend/jobs/bulk-add-group-members.ts';
 export type { PlannerErrorCode } from './backend/rbac.ts';
-export { PlannerError, requirePermission } from './backend/rbac.ts';
+export { isGroupMember, PlannerError, requirePermission } from './backend/rbac.ts';
+export { listMemberGroupIds } from './backend/read-helpers.ts';
 export type {
   SearchTasksDeps,
   SearchTasksInput,

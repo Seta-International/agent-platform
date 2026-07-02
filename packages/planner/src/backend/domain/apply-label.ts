@@ -35,7 +35,7 @@ export async function applyLabel(input: {
       if (!plan)
         throw new PlannerError('NOT_FOUND', 'Parent plan not found', { plan_id: task.plan_id });
 
-      requirePermission(input.session, 'planner.task.update', plan.group_id);
+      await requirePermission(input.session, 'planner.task.update', plan.group_id);
 
       const [label] = await tx
         .select()

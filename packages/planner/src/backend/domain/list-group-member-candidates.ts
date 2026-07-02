@@ -16,7 +16,7 @@ export async function listGroupMemberCandidates(input: {
   limit?: number;
   session: PlannerSessionScope;
 }): Promise<GroupMemberCandidate[]> {
-  requirePermission(input.session, 'planner.group.member.read', input.group_id);
+  await requirePermission(input.session, 'planner.group.member.read', input.group_id);
 
   const db = plannerDb();
 

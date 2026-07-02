@@ -6,7 +6,7 @@ import type { DiscoverGroupsInput } from '../inputs.ts';
 import { requirePermission } from '../rbac.ts';
 
 export async function discoverGroups(input: DiscoverGroupsInput): Promise<DiscoverGroupsItem[]> {
-  requirePermission(input.session, 'planner.group.read');
+  await requirePermission(input.session, 'planner.group.read');
 
   const db = plannerDb();
   const searchTerm = `%${input.q.trim().toLowerCase()}%`;

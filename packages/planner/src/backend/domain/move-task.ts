@@ -58,7 +58,7 @@ async function moveTaskImpl(input: MoveTaskInput & { session: SessionScope }): P
           plan_id: existing.plan_id,
         });
 
-      requirePermission(input.session, 'planner.task.update', sourcePlan.group_id);
+      await requirePermission(input.session, 'planner.task.update', sourcePlan.group_id);
 
       const isCrossPlan = input.new_plan_id !== undefined && input.new_plan_id !== existing.plan_id;
 
@@ -286,7 +286,7 @@ async function performCrossPlanMove(args: {
   if (targetPlan.deleted_at !== null) {
     throw new PlannerError('VALIDATION', 'Target plan is deleted', { plan_id: newPlanId });
   }
-  requirePermission(input.session, 'planner.task.update', targetPlan.group_id);
+  await requirePermission(input.session, 'planner.task.update', targetPlan.group_id);
 
   // Resolve target bucket: validate when provided, else pick the target plan's
   // tail bucket (or null when the target plan has no buckets).

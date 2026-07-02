@@ -27,7 +27,7 @@ export async function updateGroup(input: {
   patch: UpdateGroupPatch;
   session: PlannerSessionScope;
 }): Promise<GroupRow> {
-  requirePermission(input.session, 'planner.group.update', input.group_id);
+  await requirePermission(input.session, 'planner.group.update', input.group_id);
 
   let resultRow!: GroupDbRow;
   await withEmit(

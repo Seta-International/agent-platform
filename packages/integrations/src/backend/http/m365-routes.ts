@@ -3,6 +3,7 @@ import type { WorkerHandle } from '@seta/core';
 import { addEventTap, type SessionEnv, type SessionScope } from '@seta/core';
 import {
   getGroup,
+  isGroupMember,
   linkGroupToM365,
   PlannerError,
   requirePermission,
@@ -37,11 +38,11 @@ function isGraphPermissionError(err: unknown): boolean {
   return /Authorization_RequestDenied|AccessDenied|Insufficient privileges/i.test(text);
 }
 
-function hasGroupAccess(session: SessionScope, groupId: string): boolean {
+async function hasGroupAccess(session: SessionScope, groupId: string): Promise<boolean> {
   return (
-    session.accessible_group_ids.includes(groupId) ||
     session.role_summary.roles.includes('org.admin') ||
-    session.role_summary.roles.includes('tenant.admin')
+    session.role_summary.roles.includes('tenant.admin') ||
+    (await isGroupMember(session.user_id, groupId))
   );
 }
 
@@ -51,7 +52,7 @@ export function registerIntegrationsM365Routes(
 ): void {
   app.get('/api/integrations/m365/groups/search', async (c) => {
     const session = c.get('user');
-    requirePermission(session, 'planner.group.link_m365');
+    await requirePermission(session, 'planner.group.link_m365');
 
     const q = c.req.query('q') ?? '';
     const safeQ = q.replace(/["'\\]/g, '').trim();
@@ -167,7 +168,7 @@ export function registerIntegrationsM365Routes(
     const session = c.get('user');
     const groupId = c.req.param('groupId');
 
-    requirePermission(session, 'planner.group.refresh', groupId);
+    await requirePermission(session, 'planner.group.refresh', groupId);
 
     const link = (await deps.m365LinksRepo.findByGroup(groupId)) ?? null;
     if (!link) {
@@ -216,7 +217,7 @@ export function registerIntegrationsM365Routes(
     const session = c.get('user');
     const groupId = c.req.param('groupId');
 
-    if (!hasGroupAccess(session, groupId)) {
+    if (!(await hasGroupAccess(session, groupId))) {
       return c.json({ error: 'FORBIDDEN' }, 403);
     }
 
@@ -235,7 +236,7 @@ export function registerIntegrationsM365Routes(
     const session = c.get('user');
     const groupId = c.req.param('groupId');
 
-    if (!hasGroupAccess(session, groupId)) {
+    if (!(await hasGroupAccess(session, groupId))) {
       return c.json({ error: 'FORBIDDEN' }, 403);
     }
 

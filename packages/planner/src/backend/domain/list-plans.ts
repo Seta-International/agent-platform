@@ -14,10 +14,10 @@ export async function listPlans(input: {
   include_archived?: boolean;
   session: SessionScope;
 }): Promise<PlanRow[]> {
-  requirePermission(input.session, 'planner.plan.read');
+  await requirePermission(input.session, 'planner.plan.read');
 
   const db = plannerDb();
-  const filter = groupFilterFor(input.session);
+  const filter = await groupFilterFor(input.session);
 
   const conditions = [eq(plans.tenant_id, input.session.tenant_id)];
 

@@ -1,6 +1,9 @@
 import type { SessionScope } from '@seta/core';
 import { can } from '@seta/shared-rbac';
+import { and, eq } from 'drizzle-orm';
 import type { PlannerPermission } from '../rbac.ts';
+import { plannerDb } from './db/index.ts';
+import { groupMembers } from './db/schema.ts';
 import { isM365SystemActor } from './domain/_actor.ts';
 
 export type PlannerErrorCode =
@@ -37,11 +40,31 @@ export class PlannerError extends Error {
   }
 }
 
-export function requirePermission(
+// The M365 system actor and tenant-wide admin roles (org.admin, tenant.admin) operate
+// tenant-wide and bypass the group-scope check; cross-tenant access is blocked via
+// tenant_id comparison inside each domain function instead.
+export function isTenantWide(session: SessionScope): boolean {
+  return (
+    isM365SystemActor(session) ||
+    session.role_summary.roles.some((r) => r === 'org.admin' || r === 'tenant.admin')
+  );
+}
+
+/** Group reach: does this user have a planner.group_members row for this group? */
+export async function isGroupMember(userId: string, groupId: string): Promise<boolean> {
+  const rows = await plannerDb()
+    .select({ group_id: groupMembers.group_id })
+    .from(groupMembers)
+    .where(and(eq(groupMembers.group_id, groupId), eq(groupMembers.user_id, userId)))
+    .limit(1);
+  return rows.length > 0;
+}
+
+export async function requirePermission(
   session: SessionScope,
   permission: PlannerPermission,
   groupId?: string,
-): void {
+): Promise<void> {
   if (!can(session, permission)) {
     throw new PlannerError('FORBIDDEN', `Missing permission: ${permission}`, {
       permission,
@@ -49,15 +72,13 @@ export function requirePermission(
     });
   }
 
-  // Group-scope check: when groupId is given, the session must have access to that group.
-  // accessible_group_ids is populated from group-scoped role_assignments in core/session/scope.ts.
-  // The M365 system actor and tenant-wide admin roles (org.admin, tenant.admin) operate
-  // tenant-wide and bypass the group-scope check; cross-tenant access is blocked via
-  // tenant_id comparison inside each domain function instead.
-  const isTenantWide =
-    isM365SystemActor(session) ||
-    session.role_summary.roles.some((r) => r === 'org.admin' || r === 'tenant.admin');
-  if (groupId !== undefined && !isTenantWide && !session.accessible_group_ids.includes(groupId)) {
+  // Group-scope check: permissions come solely from persona roles (can() above);
+  // membership grants reach, checked live against planner-local group_members.
+  if (
+    groupId !== undefined &&
+    !isTenantWide(session) &&
+    !(await isGroupMember(session.user_id, groupId))
+  ) {
     throw new PlannerError('FORBIDDEN', `No access to group`, { permission, group_id: groupId });
   }
 }

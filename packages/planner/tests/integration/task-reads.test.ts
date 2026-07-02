@@ -4,6 +4,7 @@ import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import {
   addChecklistItem,
+  addGroupMember,
   addTaskReference,
   applyLabel,
   completeTask,
@@ -512,8 +513,12 @@ describe('listTasks', () => {
         resetCoreDb();
         initPools({ databaseUrl });
         try {
-          const seeded = await seedTenant(pool);
+          const seeded = await seedTenant(pool, {
+            users: [{ name: 'Viewer', email: 'viewer-listtasks@example.test' }],
+          });
           const adminSession = seeded.adminSession;
+          const [viewer] = seeded.users;
+          if (!viewer) throw new Error('Seed did not create viewer');
           const groupA = await createGroup({
             tenant_id: seeded.tenant_id,
             name: 'Alpha',
@@ -541,11 +546,16 @@ describe('listTasks', () => {
           });
           await createTask({ plan_id: planB.id, title: 'Task in B', session: adminSession });
 
+          await addGroupMember({
+            group_id: groupA.id,
+            user_id: viewer.user_id,
+            session: adminSession,
+          });
+
           const viewerSession = buildSession({
             tenant_id: seeded.tenant_id,
-            user_id: seeded.admin.user_id,
+            user_id: viewer.user_id,
             roles: ['planner.viewer'],
-            accessible_group_ids: [groupA.id],
           });
 
           const result = await listTasks({ session: viewerSession });
@@ -673,8 +683,12 @@ describe('getTask', () => {
         resetCoreDb();
         initPools({ databaseUrl });
         try {
-          const seeded = await seedTenant(pool);
+          const seeded = await seedTenant(pool, {
+            users: [{ name: 'Viewer', email: 'viewer-gettask@example.test' }],
+          });
           const adminSession = seeded.adminSession;
+          const [viewer] = seeded.users;
+          if (!viewer) throw new Error('Seed did not create viewer');
           const groupA = await createGroup({
             tenant_id: seeded.tenant_id,
             name: 'Alpha',
@@ -696,11 +710,16 @@ describe('getTask', () => {
             session: adminSession,
           });
 
+          await addGroupMember({
+            group_id: groupA.id,
+            user_id: viewer.user_id,
+            session: adminSession,
+          });
+
           const viewerSession = buildSession({
             tenant_id: seeded.tenant_id,
-            user_id: seeded.admin.user_id,
+            user_id: viewer.user_id,
             roles: ['planner.viewer'],
-            accessible_group_ids: [groupA.id],
           });
 
           await expect(

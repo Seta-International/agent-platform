@@ -35,7 +35,7 @@ export async function restoreTask(input: {
           plan_id: existing.plan_id,
         });
 
-      requirePermission(input.session, 'planner.task.update', plan.group_id);
+      await requirePermission(input.session, 'planner.task.update', plan.group_id);
 
       if (existing.deleted_at === null) {
         throw new PlannerError('VALIDATION', 'Task is not deleted');

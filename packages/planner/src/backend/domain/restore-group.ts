@@ -13,7 +13,7 @@ export async function restoreGroup(input: {
   group_id: string;
   session: SessionScope;
 }): Promise<GroupRow> {
-  requirePermission(input.session, 'planner.group.update', input.group_id);
+  await requirePermission(input.session, 'planner.group.update', input.group_id);
 
   let restored!: GroupDbRow;
   await withEmit(

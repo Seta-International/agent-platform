@@ -33,7 +33,7 @@ export async function deletePlan(input: {
         });
       }
 
-      requirePermission(input.session, 'planner.plan.delete', existing.group_id);
+      await requirePermission(input.session, 'planner.plan.delete', existing.group_id);
 
       const deletedAt = new Date();
       const deleted = await tx

@@ -68,7 +68,7 @@ async function setAssigneePriorityImpl(
         .limit(1);
 
       if (!assignment) {
-        requirePermission(input.session, 'planner.task.update', plan.group_id);
+        await requirePermission(input.session, 'planner.task.update', plan.group_id);
       }
 
       if (task.assignee_priority === input.value) {

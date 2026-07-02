@@ -33,7 +33,7 @@ export async function createTask(
         });
       }
 
-      requirePermission(input.session, 'planner.task.create', plan.group_id);
+      await requirePermission(input.session, 'planner.task.create', plan.group_id);
 
       if (input.bucket_id !== undefined) {
         const [bucket] = await tx

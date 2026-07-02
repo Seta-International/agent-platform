@@ -41,7 +41,7 @@ export async function completeTask(input: {
           plan_id: existing.plan_id,
         });
 
-      requirePermission(input.session, 'planner.task.update', plan.group_id);
+      await requirePermission(input.session, 'planner.task.update', plan.group_id);
 
       if (existing.percent_complete === 100) {
         throw new PlannerError('VALIDATION', 'Task already completed', {

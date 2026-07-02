@@ -41,7 +41,7 @@ export async function updateLabel(input: {
       if (!plan)
         throw new PlannerError('NOT_FOUND', 'Parent plan not found', { plan_id: existing.plan_id });
 
-      requirePermission(input.session, 'planner.plan.update', plan.group_id);
+      await requirePermission(input.session, 'planner.plan.update', plan.group_id);
 
       const before: Partial<{ name: string; color: string }> = {};
       const after: Partial<{ name: string; color: string }> = {};

@@ -197,12 +197,13 @@ describe('listGroupsWithCounts', () => {
           const g1 = await createGroup({ tenant_id: seeded.tenant_id, name: 'Visible', session });
           await createGroup({ tenant_id: seeded.tenant_id, name: 'Invisible', session });
 
+          await addGroupMember({ group_id: g1.id, user_id: bob.user_id, session });
+
           // Non-admin Bob session that only sees g1
           const bobSession = buildSession({
             tenant_id: seeded.tenant_id,
             user_id: bob.user_id,
             roles: ['planner.viewer'],
-            accessible_group_ids: [g1.id],
           });
 
           const rows = await listGroupsWithCounts({ session: bobSession });

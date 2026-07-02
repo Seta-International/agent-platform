@@ -31,7 +31,7 @@ export async function markPlanSyncStatus(
         });
       }
 
-      requirePermission(input.session, 'planner.plan.mark_sync_status', existing.group_id);
+      await requirePermission(input.session, 'planner.plan.mark_sync_status', existing.group_id);
 
       if (!isM365SystemActor(input.session)) {
         throw new PlannerError(

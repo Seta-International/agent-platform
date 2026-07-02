@@ -86,15 +86,15 @@ export async function duplicateTask(
 
       // Read-side gate matches getTask (group access), and create-side gate
       // matches createTask (planner.task.create).
-      requirePermission(input.session, 'planner.task.read', plan.group_id);
-      const groupFilter = groupFilterFor(input.session);
+      await requirePermission(input.session, 'planner.task.read', plan.group_id);
+      const groupFilter = await groupFilterFor(input.session);
       if (groupFilter !== null && !groupFilter.includes(plan.group_id)) {
         throw new PlannerError('FORBIDDEN', 'No access to group', {
           task_id: input.task_id,
           group_id: plan.group_id,
         });
       }
-      requirePermission(input.session, 'planner.task.create', plan.group_id);
+      await requirePermission(input.session, 'planner.task.create', plan.group_id);
 
       // Append: pick a key after the last live task in this bucket scope. Matches
       // createTask's append rule so the copy lands at the tail of the same bucket.

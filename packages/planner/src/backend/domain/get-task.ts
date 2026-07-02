@@ -17,7 +17,7 @@ export async function getTask(input: {
   task_id: string;
   session: SessionScope;
 }): Promise<TaskDetailRow> {
-  requirePermission(input.session, 'planner.task.read');
+  await requirePermission(input.session, 'planner.task.read');
 
   const db = plannerDb();
 
@@ -42,9 +42,9 @@ export async function getTask(input: {
     throw new PlannerError('NOT_FOUND', 'Parent plan not found', { plan_id: row.plan_id });
   }
 
-  requirePermission(input.session, 'planner.task.read', plan.group_id);
+  await requirePermission(input.session, 'planner.task.read', plan.group_id);
 
-  const groupFilter = groupFilterFor(input.session);
+  const groupFilter = await groupFilterFor(input.session);
   if (groupFilter !== null && !groupFilter.includes(plan.group_id)) {
     throw new PlannerError('FORBIDDEN', 'No access to group', {
       task_id: input.task_id,

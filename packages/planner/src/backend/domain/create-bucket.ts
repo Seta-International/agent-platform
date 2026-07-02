@@ -34,7 +34,7 @@ export async function createBucket(
         });
       }
 
-      requirePermission(input.session, 'planner.bucket.create', plan.group_id);
+      await requirePermission(input.session, 'planner.bucket.create', plan.group_id);
 
       const existingBuckets = await tx
         .select()

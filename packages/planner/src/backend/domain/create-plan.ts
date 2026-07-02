@@ -37,7 +37,7 @@ export async function createPlan(
         });
       }
 
-      requirePermission(input.session, 'planner.plan.create', input.group_id);
+      await requirePermission(input.session, 'planner.plan.create', input.group_id);
 
       // external_* mark a plan as M365-origin and are reserved for the M365
       // system actor (the auto-mirror pull). A user-supplied value would let a
