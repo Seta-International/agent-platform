@@ -51,6 +51,7 @@ async function buildActorSession(tenantId: string, actorEmail: string): Promise<
     assignments: role_summary.assignments,
     group_ids: [],
     product_access: new Set<string>(),
+    worker_id: null,
     cross_tenant_read: role_summary.cross_tenant_read,
     built_at: new Date(),
     invalidated_at: null,

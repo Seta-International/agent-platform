@@ -7,6 +7,7 @@ import {
   type ResolveGroupIds,
   type ResolvePermissions,
   type ResolveProductAccess,
+  type ResolveWorkerId,
   type SessionScope,
 } from '../session/scope.ts';
 
@@ -28,6 +29,7 @@ export interface SessionMiddlewareDeps {
   resolvePermissions: ResolvePermissions;
   resolveGroupIds?: ResolveGroupIds;
   resolveProductAccess?: ResolveProductAccess;
+  resolveWorkerId?: ResolveWorkerId;
   expandOrgUnits?: ExpandOrgUnits;
 }
 
@@ -59,6 +61,7 @@ export function createSessionMiddleware(deps: SessionMiddlewareDeps) {
         resolvePermissions: deps.resolvePermissions,
         resolveGroupIds: deps.resolveGroupIds,
         resolveProductAccess: deps.resolveProductAccess,
+        resolveWorkerId: deps.resolveWorkerId,
         expandOrgUnits: deps.expandOrgUnits,
       },
       session.session.id,

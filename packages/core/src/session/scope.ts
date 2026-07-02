@@ -34,6 +34,8 @@ export type ResolveProductAccess = (
   groupIds: readonly string[],
 ) => Promise<ReadonlySet<string>>;
 
+export type ResolveWorkerId = (userId: string, tenantId: string) => Promise<string | null>;
+
 export interface SessionAssignment {
   role_slug: string;
   scope_kind: 'tenant' | 'org_unit' | 'self' | 'group';
@@ -64,6 +66,7 @@ export interface SessionScope {
   assignments: ReadonlyArray<SessionAssignment>;
   group_ids: ReadonlyArray<string>;
   product_access: ReadonlySet<string>;
+  worker_id: string | null;
   cross_tenant_read: boolean;
   built_at: Date;
   invalidated_at: Date | null;
@@ -151,6 +154,7 @@ export async function getSessionScope(
     resolvePermissions: ResolvePermissions;
     resolveGroupIds?: ResolveGroupIds;
     resolveProductAccess?: ResolveProductAccess;
+    resolveWorkerId?: ResolveWorkerId;
     expandOrgUnits?: ExpandOrgUnits;
   },
   sessionId: string,
@@ -188,6 +192,9 @@ export async function getSessionScope(
     const permissions = productAccess
       ? applyProductGate(rawPermissions, productAccess)
       : rawPermissions;
+    const worker_id = deps.resolveWorkerId
+      ? await deps.resolveWorkerId(cached.user_id, cached.tenant_id)
+      : null;
     const scope: SessionScope = {
       session_id: cached.session_id,
       tenant_id: cached.tenant_id,
@@ -198,6 +205,7 @@ export async function getSessionScope(
       assignments: await expandAssignments(summary, cached.tenant_id, deps.expandOrgUnits),
       group_ids,
       product_access: productAccess ?? new Set<string>(),
+      worker_id,
       cross_tenant_read: cached.cross_tenant_read,
       built_at: cached.built_at,
       invalidated_at: cached.invalidated_at,
@@ -219,6 +227,7 @@ export async function getSessionScope(
   const permissions = productAccess
     ? applyProductGate(rawPermissions, productAccess)
     : rawPermissions;
+  const worker_id = deps.resolveWorkerId ? await deps.resolveWorkerId(userId, tenant_id) : null;
   const scope: SessionScope = {
     session_id: sessionId,
     user_id: userId,
@@ -231,6 +240,7 @@ export async function getSessionScope(
     assignments: await expandAssignments(role_summary, tenant_id, deps.expandOrgUnits),
     group_ids,
     product_access: productAccess ?? new Set<string>(),
+    worker_id,
     cross_tenant_read: role_summary.cross_tenant_read,
     built_at: new Date(),
     invalidated_at: null,

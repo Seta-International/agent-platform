@@ -25,6 +25,7 @@ import { registerKnowledgeRoutes, registerKnowledgeStreamRoutes } from '@seta/kn
 import type { KnowledgeStreamHub } from '@seta/knowledge/stream';
 import { registerNotificationsRoutes } from '@seta/notifications/http';
 import { NotificationStreamHub } from '@seta/notifications/stream';
+import { getWorkerIdForUser } from '@seta/people';
 import { getPool } from '@seta/shared-db';
 import {
   buildRegistry,
@@ -172,6 +173,7 @@ export function buildServerApp(
     resolvePermissions: resolve,
     resolveGroupIds: listUserGroupIds,
     resolveProductAccess,
+    resolveWorkerId: getWorkerIdForUser,
     expandOrgUnits,
   });
 

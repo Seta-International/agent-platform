@@ -124,16 +124,19 @@ describe('session scope cache', () => {
             resolvePermissions: async () => new Set(['pm.project.read']),
             expandOrgUnits: async (_t: string, ids: readonly string[]) =>
               Object.fromEntries(ids.map((id) => [id, [id, 'child-1']])),
+            resolveWorkerId: async () => 'worker-42',
           };
           const scope3 = await getSessionScope(deps, orgSessionId, user_id, 'a@b.c', 'A');
           const orgAssignment = scope3.assignments.find((a) => a.scope_kind === 'org_unit');
           expect(orgAssignment?.org_unit_ids).toEqual(['root-a', 'child-1']);
+          expect(scope3.worker_id).toBe('worker-42');
 
           _clearHotForTest();
           const hydrated = await getSessionScope(deps, orgSessionId, user_id, 'a@b.c', 'A');
           expect(
             hydrated.assignments.find((a) => a.scope_kind === 'org_unit')?.org_unit_ids,
           ).toEqual(['root-a', 'child-1']);
+          expect(hydrated.worker_id).toBe('worker-42');
         } finally {
           await closePools();
           resetCoreDb();
