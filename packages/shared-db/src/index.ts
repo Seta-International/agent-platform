@@ -24,5 +24,6 @@ export {
   type Pools,
   type PoolsConfig,
 } from './pools.ts';
+export { buildRlsSql, setTenantGuc, TENANT_GUC, withTenantTx } from './rls.ts';
 export { textEnum, textEnumCheck, textEnumValuesSql } from './text-enum.ts';
 export { type NodeTx, withRetry, withTx } from './tx.ts';
