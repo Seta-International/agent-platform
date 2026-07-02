@@ -1,6 +1,6 @@
 # Agent system
 
-Seta's agent system is an **agent-of-agents orchestration**: every chat turn streams through the staffing orchestrator, which delegates to its sub-agents (taskAnalyzer / skillMatcher / avaiChecker / recommender) through tools and stops at the right terminal for the request. Agent-driven mutations are gated by an explicit human-in-the-loop approval card; every workflow step is audited and replayable through the same event bus as the rest of the platform.
+Seta's agent system is an **agent-of-agents orchestration**: every chat turn is classified by a tiered intent router (`apps/server/src/chat-routing/`) and dispatched to one of three orchestrators — **staffing** (assignment/recommendation; sub-agents taskAnalyzer / skillMatcher / avaiChecker / recommender), **planner Q&A** (read-only task/team questions; sub-agents taskQuery / taskDetail / teamInfo / generalAnswer), or the **weekly planner** (organizes the caller's tasks into a day-by-day plan; sub-agents taskCollector / scheduleBuilder / insightGenerator). Each orchestrator delegates to its sub-agents through tools and stops at the right terminal for the request. Agent-driven mutations are gated by an explicit human-in-the-loop approval card; every workflow step is audited and replayable through the same event bus as the rest of the platform.
 
 This document explains the design by tracing one realistic workload — planner assignment assistance for a product manager — from user pain point through to implementation. The planner is used as the running example because it exercises every layer the system offers: a specialist with read and HITL-gated write tools, a deterministic multi-step workflow (`assignBySkill`), and cross-module read tools owned by `identity`.
 
@@ -61,7 +61,8 @@ flowchart LR
 |---|---|
 | User-facing chat | Message stream, orchestration step cards, approval cards rendered by assistant-ui |
 | Agent HTTP | A single route bridges the AI SDK v6 stream protocol to the inline orchestration runner |
-| Orchestrator | One agent-of-agents (`staffing.orchestrator`) that routes the request across its sub-agent tools and stops at the right terminal |
+| Intent router | Regex + LLM-fallback classifier picks `staffing` \| `planner_qna` \| `weekly_planner` per turn (`apps/server/src/chat-routing/`) |
+| Orchestrators | Three agents-of-agents (`staffing.orchestrator`, `planner.qna.orchestrator`, `planner.weeklyPlan.orchestrator`), each routing across its own sub-agent tools |
 | Sub-agents | `taskAnalyzer` / `skillMatcher` (LLM-driven) and `avaiChecker` / `recommender` (deterministic), invoked as orchestrator tools |
 | Tools | Thin adapters over module domain functions (ports bound in apps/server), owned by the source module |
 | Workflows | Deterministic multi-step flows on the REST surface; emit lifecycle events into `agent.workflow_runs` |
@@ -644,6 +645,9 @@ flowchart TD
 | Mastra runtime + lifecycle hook wiring | `packages/agent/src/backend/runtime.ts` |
 | Working-memory factories (GuardedMemory, entities) | `packages/agent/src/backend/memory.ts` |
 | Staffing orchestration runtime (orchestrator + sub-agents + ports) | `packages/staffing/src/backend/orchestration/` |
+| Chat intent router (classifier + dispatch) | `apps/server/src/chat-routing/` |
+| Planner QnA orchestration runtime | `packages/planner/src/backend/orchestration/` |
+| Weekly planner orchestration runtime (collector / builder / insights + pure scheduling) | `packages/planner/src/backend/orchestration/weekly-plan/` |
 | Orchestration kernel (executeStep, inline + queued runners, RunCtx) | `packages/shared-orchestration/src/` |
 | Orchestration chat stream (events → AI SDK v6 parts) | `packages/agent/src/backend/orchestration-chat-stream.ts` |
 | Module side-effect imports + `freeze()` | `packages/agent/src/backend/init-registry.ts` |
