@@ -3,17 +3,23 @@ import { z } from 'zod';
 
 // ─── Calendar ────────────────────────────────────────────────────────────────
 
-export const WeekdaySchema = z.enum(['mon', 'tue', 'wed', 'thu', 'fri']);
+export const WeekdaySchema = z.enum(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']);
 export type Weekday = z.infer<typeof WeekdaySchema>;
 
 /** Monday-first ordering used everywhere a weekday index is needed. */
-export const WEEKDAY_ORDER: readonly Weekday[] = ['mon', 'tue', 'wed', 'thu', 'fri'];
+export const WEEKDAY_ORDER: readonly Weekday[] = [
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+];
 
 /** The plannable slice of a week. Current week: startDay = the day the user asks
  *  (weekend asks roll to the upcoming Monday). Next week: always 'mon'. */
 export const PlanWindowSchema = z.object({
   startDay: WeekdaySchema,
-  endDay: z.literal('fri'),
+  endDay: z.literal('Friday'),
   weekStart: z.string().describe('ISO date (YYYY-MM-DD) of startDay.'),
   weekEnd: z.string().describe('ISO date (YYYY-MM-DD) of the Friday ending the window.'),
 });
