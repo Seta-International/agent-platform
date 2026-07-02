@@ -3,39 +3,29 @@ export type AgentPermission =
   | 'agent.chat.use'
   | 'agent.config.read'
   | 'agent.config.update'
-  | 'agent.meta.read.self'
+  | 'agent.meta.read'
   | 'agent.rate_limit.read'
   | 'agent.specialist.use'
-  | 'agent.thread.erase.any'
-  | 'agent.thread.read.self'
-  | 'agent.thread.write.self'
+  | 'agent.thread.read'
+  | 'agent.thread.write'
   | 'agent.workflow.approve'
-  | 'agent.workflow.run.cancel.instance'
-  | 'agent.workflow.run.cancel.self'
-  | 'agent.workflow.run.cancel.tenant'
-  | 'agent.workflow.run.execute.self'
-  | 'agent.workflow.run.read.instance'
-  | 'agent.workflow.run.read.self'
-  | 'agent.workflow.run.read.tenant';
+  | 'agent.workflow.run.cancel'
+  | 'agent.workflow.run.execute'
+  | 'agent.workflow.run.read';
 
 export const AGENT_PERMISSIONS: readonly AgentPermission[] = [
   'agent.chat.use',
   'agent.config.read',
   'agent.config.update',
-  'agent.meta.read.self',
+  'agent.meta.read',
   'agent.rate_limit.read',
   'agent.specialist.use',
-  'agent.thread.erase.any',
-  'agent.thread.read.self',
-  'agent.thread.write.self',
+  'agent.thread.read',
+  'agent.thread.write',
   'agent.workflow.approve',
-  'agent.workflow.run.cancel.instance',
-  'agent.workflow.run.cancel.self',
-  'agent.workflow.run.cancel.tenant',
-  'agent.workflow.run.execute.self',
-  'agent.workflow.run.read.instance',
-  'agent.workflow.run.read.self',
-  'agent.workflow.run.read.tenant',
+  'agent.workflow.run.cancel',
+  'agent.workflow.run.execute',
+  'agent.workflow.run.read',
 ];
 
 export const AGENT_ROLE_SLUGS = [

@@ -11,7 +11,7 @@ test('member cannot select tenant scope in the runs inbox', async ({ page }) => 
   await page.goto('/agent/workflows');
   const scope = page.getByLabel(/Scope/);
   await scope.click();
-  // Tenant must be absent for a member (lacks agent.workflow.run.read.tenant).
+  // Tenant must be absent for a member (agent.workflow.run.read only resolves to self scope).
   await expect(page.getByRole('option', { name: /tenant/i })).toHaveCount(0);
 });
 

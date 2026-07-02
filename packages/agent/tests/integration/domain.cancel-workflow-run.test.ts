@@ -2,18 +2,8 @@ import { randomUUID } from 'node:crypto';
 import type { Mastra } from '@mastra/core';
 import { describe, expect, it, vi } from 'vitest';
 import { cancelWorkflowRun } from '../../src/backend/domain/cancel-workflow-run.ts';
-import type { SessionLike } from '../../src/backend/types.ts';
 import { onLifecycleEvent } from '../../src/backend/workflows/_infra/lifecycle-hook.ts';
-import { withAgentTestDb } from '../helpers.ts';
-
-function sessionWith(perms: string[], tenantId = randomUUID(), userId = randomUUID()): SessionLike {
-  return {
-    tenant_id: tenantId,
-    user_id: userId,
-    effective_permissions: new Set(perms),
-    role_summary: { roles: [], cross_tenant_read: false },
-  };
-}
+import { buildSession, withAgentTestDb } from '../helpers.ts';
 
 async function seedRun(
   pool: import('pg').Pool,
@@ -40,21 +30,9 @@ function mastraWith(publish: ReturnType<typeof vi.fn>): Mastra {
 }
 
 describe('cancelWorkflowRun', () => {
-  it('throws forbidden when the session lacks any cancel permission', async () => {
+  it('member (implicit only) cancels their own running run', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const viewer = sessionWith(['agent.workflow.run.read.self']);
-      const runId = randomUUID();
-      await seedRun(pool, { runId, tenantId: viewer.tenant_id, startedBy: viewer.user_id });
-
-      await expect(
-        cancelWorkflowRun({ session: viewer, runId, mastra: mastraWith(vi.fn()) }),
-      ).rejects.toThrow(/forbidden/i);
-    });
-  });
-
-  it('publishes workflow.cancel for own running run', async () => {
-    await withAgentTestDb(async ({ pool }) => {
-      const me = sessionWith(['agent.workflow.run.read.self', 'agent.workflow.run.cancel.self']);
+      const me = buildSession();
       const runId = randomUUID();
       await seedRun(pool, { runId, tenantId: me.tenant_id, startedBy: me.user_id });
       const publish = vi.fn().mockResolvedValue(undefined);
@@ -68,37 +46,39 @@ describe('cancelWorkflowRun', () => {
     });
   });
 
-  it("self scope cannot cancel another user's run; tenant scope can", async () => {
+  it("member (tenant-wide read, self-only cancel) cannot cancel another user's run; agent.admin @ tenant can", async () => {
     await withAgentTestDb(async ({ pool }) => {
       const tenantId = randomUUID();
-      const myUserId = randomUUID();
       const otherUserId = randomUUID();
       const runId = randomUUID();
       await seedRun(pool, { runId, tenantId, startedBy: otherUserId });
 
-      const meSelf = sessionWith(
-        ['agent.workflow.run.read.tenant', 'agent.workflow.run.cancel.self'],
+      // Tenant-wide read (so the run is visible) but only self-scoped cancel —
+      // isolates the cancel-specific ownership check from the read gate.
+      const member = buildSession({
         tenantId,
-        myUserId,
-      );
+        assignments: [
+          { role_slug: 'agent.viewer', scope_kind: 'tenant' },
+          { role_slug: 'agent.member', scope_kind: 'self' },
+        ],
+      });
       await expect(
-        cancelWorkflowRun({ session: meSelf, runId, mastra: mastraWith(vi.fn()) }),
+        cancelWorkflowRun({ session: member, runId, mastra: mastraWith(vi.fn()) }),
       ).rejects.toThrow(/forbidden/i);
 
-      const meTenant = sessionWith(
-        ['agent.workflow.run.read.tenant', 'agent.workflow.run.cancel.tenant'],
+      const admin = buildSession({
         tenantId,
-        myUserId,
-      );
+        assignments: [{ role_slug: 'agent.admin', scope_kind: 'tenant' }],
+      });
       const publish = vi.fn().mockResolvedValue(undefined);
-      await cancelWorkflowRun({ session: meTenant, runId, mastra: mastraWith(publish) });
+      await cancelWorkflowRun({ session: admin, runId, mastra: mastraWith(publish) });
       expect(publish).toHaveBeenCalled();
     });
   });
 
   it('is a no-op when the run is already terminal', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const me = sessionWith(['agent.workflow.run.read.self', 'agent.workflow.run.cancel.self']);
+      const me = buildSession();
       const runId = randomUUID();
       await seedRun(pool, { runId, tenantId: me.tenant_id, startedBy: me.user_id });
       await onLifecycleEvent(pool, {

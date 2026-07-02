@@ -1,8 +1,13 @@
 import { sql } from 'drizzle-orm';
 import { agentDb } from '../db/index.ts';
 import type { SessionLike } from '../types.ts';
+import {
+  canRequestRunScope,
+  resolveRunPermissionScope,
+  type WorkflowRunScope,
+} from './workflow-run-scope.ts';
 
-export type WorkflowRunScope = 'self' | 'group' | 'tenant' | 'instance';
+export type { WorkflowRunScope } from './workflow-run-scope.ts';
 
 export type WorkflowRunStatus =
   | 'pending'
@@ -58,13 +63,6 @@ export interface ListWorkflowRunsResult {
   nextCursor: string | null;
 }
 
-const SCOPE_PERMISSIONS: Record<WorkflowRunScope, string> = {
-  self: 'agent.workflow.run.read.self',
-  group: 'agent.workflow.run.read.tenant',
-  tenant: 'agent.workflow.run.read.tenant',
-  instance: 'agent.workflow.run.read.instance',
-};
-
 interface RawRow {
   run_id: string;
   workflow_id: string;
@@ -85,9 +83,11 @@ interface RawRow {
 export async function listWorkflowRuns(
   opts: ListWorkflowRunsOpts,
 ): Promise<ListWorkflowRunsResult> {
-  const required = SCOPE_PERMISSIONS[opts.scope];
-  if (!opts.session.effective_permissions.has(required)) {
-    throw Object.assign(new Error(`forbidden: ${required}`), { code: 'forbidden' });
+  const decision = resolveRunPermissionScope(opts.session, 'agent.workflow.run.read');
+  if (!canRequestRunScope(decision, opts.scope, opts.session.role_summary.cross_tenant_read)) {
+    throw Object.assign(new Error(`forbidden: agent.workflow.run.read (scope=${opts.scope})`), {
+      code: 'forbidden',
+    });
   }
 
   const limit = Math.min(Math.max(opts.limit ?? 50, 1), 200);

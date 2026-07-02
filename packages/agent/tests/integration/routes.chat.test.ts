@@ -11,7 +11,15 @@ type TestSession = {
   tenant_id: string;
   user_id: string;
   effective_permissions: ReadonlySet<string>;
-  role_summary: { roles: string[]; cross_tenant_read: boolean };
+  role_summary: {
+    roles: string[];
+    cross_tenant_read: boolean;
+    assignments: ReadonlyArray<{
+      role_slug: string;
+      scope_kind: 'tenant' | 'org_unit' | 'self' | 'group';
+      scope_id: string | null;
+    }>;
+  };
 };
 
 const fakeMastra = { getStorage: () => null } as never;
@@ -87,7 +95,7 @@ describe('POST /api/agent/v1/chat', () => {
         tenant_id: 't',
         user_id: 'u',
         effective_permissions: new Set<string>(),
-        role_summary: { roles: [], cross_tenant_read: false },
+        role_summary: { roles: [], cross_tenant_read: false, assignments: [] },
       });
       await next();
     });
@@ -113,7 +121,7 @@ describe('POST /api/agent/v1/chat', () => {
           tenant_id,
           user_id: admin_user_id,
           effective_permissions: new Set(['agent.chat.use']),
-          role_summary: { roles: ['org.admin'], cross_tenant_read: false },
+          role_summary: { roles: ['org.admin'], cross_tenant_read: false, assignments: [] },
         });
         await next();
       });
@@ -181,7 +189,7 @@ describe('POST /api/agent/v1/chat', () => {
           tenant_id,
           user_id: admin_user_id,
           effective_permissions: new Set(['agent.chat.use']),
-          role_summary: { roles: ['org.admin'], cross_tenant_read: false },
+          role_summary: { roles: ['org.admin'], cross_tenant_read: false, assignments: [] },
         });
         await next();
       });
@@ -220,7 +228,7 @@ describe('POST /api/agent/v1/chat', () => {
           tenant_id,
           user_id: admin_user_id,
           effective_permissions: new Set(['agent.chat.use']),
-          role_summary: { roles: ['org.admin'], cross_tenant_read: false },
+          role_summary: { roles: ['org.admin'], cross_tenant_read: false, assignments: [] },
         });
         await next();
       });
@@ -304,8 +312,8 @@ describe('POST /api/agent/v1/chat (orchestration runtime persistence)', () => {
         c.set('session', {
           tenant_id,
           user_id: admin_user_id,
-          effective_permissions: new Set(['agent.chat.use', 'agent.thread.read.self']),
-          role_summary: { roles: ['org.admin'], cross_tenant_read: false },
+          effective_permissions: new Set(['agent.chat.use', 'agent.thread.read']),
+          role_summary: { roles: ['org.admin'], cross_tenant_read: false, assignments: [] },
         });
         await next();
       });
@@ -393,8 +401,8 @@ describe('POST /api/agent/v1/chat (orchestration runtime persistence)', () => {
         c.set('session', {
           tenant_id,
           user_id: admin_user_id,
-          effective_permissions: new Set(['agent.chat.use', 'agent.thread.read.self']),
-          role_summary: { roles: ['org.admin'], cross_tenant_read: false },
+          effective_permissions: new Set(['agent.chat.use', 'agent.thread.read']),
+          role_summary: { roles: ['org.admin'], cross_tenant_read: false, assignments: [] },
         });
         await next();
       });
@@ -496,10 +504,10 @@ describe('GET /api/agent/v1/threads/:id (data-page-context round-trip)', () => {
           user_id: admin_user_id,
           effective_permissions: new Set([
             'agent.chat.use',
-            'agent.thread.read.self',
-            'agent.thread.write.self',
+            'agent.thread.read',
+            'agent.thread.write',
           ]),
-          role_summary: { roles: ['org.admin'], cross_tenant_read: false },
+          role_summary: { roles: ['org.admin'], cross_tenant_read: false, assignments: [] },
         });
         await next();
       });
@@ -602,10 +610,10 @@ describe('GET /api/agent/v1/threads/:id (sub-agent leaf tool calls)', () => {
           user_id: admin_user_id,
           effective_permissions: new Set([
             'agent.chat.use',
-            'agent.thread.read.self',
-            'agent.thread.write.self',
+            'agent.thread.read',
+            'agent.thread.write',
           ]),
-          role_summary: { roles: ['org.admin'], cross_tenant_read: false },
+          role_summary: { roles: ['org.admin'], cross_tenant_read: false, assignments: [] },
         });
         await next();
       });
@@ -660,7 +668,7 @@ describe('POST /api/agent/v1/chat (model override)', () => {
         tenant_id: opts.tenantId,
         user_id: opts.userId,
         effective_permissions: new Set(['agent.chat.use']),
-        role_summary: { roles: ['org.admin'], cross_tenant_read: false },
+        role_summary: { roles: ['org.admin'], cross_tenant_read: false, assignments: [] },
       });
       await next();
     });

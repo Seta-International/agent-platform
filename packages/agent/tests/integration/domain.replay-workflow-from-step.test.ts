@@ -2,18 +2,8 @@ import { randomUUID } from 'node:crypto';
 import type { Mastra } from '@mastra/core';
 import { describe, expect, it, vi } from 'vitest';
 import { replayWorkflowFromStep } from '../../src/backend/domain/replay-workflow-from-step.ts';
-import type { SessionLike } from '../../src/backend/types.ts';
 import { onLifecycleEvent } from '../../src/backend/workflows/_infra/lifecycle-hook.ts';
-import { withAgentTestDb } from '../helpers.ts';
-
-function sessionWith(perms: string[], tenantId = randomUUID(), userId = randomUUID()): SessionLike {
-  return {
-    tenant_id: tenantId,
-    user_id: userId,
-    effective_permissions: new Set(perms),
-    role_summary: { roles: [], cross_tenant_read: false },
-  };
-}
+import { buildSession, withAgentTestDb } from '../helpers.ts';
 
 async function seedParent(
   pool: import('pg').Pool,
@@ -51,30 +41,9 @@ function makeMastra(
 }
 
 describe('replayWorkflowFromStep', () => {
-  it('requires agent.workflow.run.execute.self (reuses rerun permission)', async () => {
-    await withAgentTestDb(async ({ pool }) => {
-      const viewer = sessionWith(['agent.workflow.run.read.self']);
-      const runId = randomUUID();
-      await seedParent(pool, {
-        runId,
-        tenantId: viewer.tenant_id,
-        startedBy: viewer.user_id,
-      });
-      await expect(
-        replayWorkflowFromStep({
-          session: viewer,
-          runId,
-          stepId: 'b',
-          payload: { x: 2 },
-          mastra: makeMastra(vi.fn()),
-        }),
-      ).rejects.toThrow(/forbidden/i);
-    });
-  });
-
-  it('returns not_found when parent run does not exist', async () => {
+  it('returns not_found when parent run does not exist (execute is implicit; visibility gates it)', async () => {
     await withAgentTestDb(async ({ pool: _pool }) => {
-      const me = sessionWith(['agent.workflow.run.read.self', 'agent.workflow.run.execute.self']);
+      const me = buildSession();
       await expect(
         replayWorkflowFromStep({
           session: me,
@@ -89,7 +58,7 @@ describe('replayWorkflowFromStep', () => {
 
   it('happy path: calls Mastra time-travel with stepId + payload and returns a runId', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const me = sessionWith(['agent.workflow.run.read.self', 'agent.workflow.run.execute.self']);
+      const me = buildSession();
       const parentRunId = randomUUID();
       await seedParent(pool, {
         runId: parentRunId,
@@ -132,7 +101,7 @@ describe('replayWorkflowFromStep', () => {
 
   it('replay landing on a suspended step does not throw (Mastra re-emits suspension)', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const me = sessionWith(['agent.workflow.run.read.self', 'agent.workflow.run.execute.self']);
+      const me = buildSession();
       const parentRunId = randomUUID();
       await seedParent(pool, {
         runId: parentRunId,

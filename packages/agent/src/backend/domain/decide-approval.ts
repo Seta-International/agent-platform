@@ -2,6 +2,7 @@ import type { Mastra } from '@mastra/core';
 import { sql } from 'drizzle-orm';
 import { agentDb } from '../db/index.ts';
 import type { SessionLike } from '../types.ts';
+import { resolveRunPermissionScope } from './workflow-run-scope.ts';
 
 export interface DecideApprovalOpts {
   session: SessionLike;
@@ -176,10 +177,10 @@ export async function recordApprovalDecision(
       throw Object.assign(new Error('forbidden: cross_tenant'), { code: 'forbidden' });
     }
 
-    const perms = opts.session.effective_permissions;
     const isPrimary = row.approver_user_id === opts.session.user_id;
     const isFallback = row.fallback_approver_user_id === opts.session.user_id;
-    const isStepIn = perms.has('agent.workflow.run.read.tenant') && row.surface_canvas;
+    const readScope = resolveRunPermissionScope(opts.session, 'agent.workflow.run.read');
+    const isStepIn = readScope.kind === 'tenant' && row.surface_canvas;
     if (!isPrimary && !isFallback && !isStepIn) {
       throw Object.assign(new Error('forbidden: not_authorized_for_approval'), {
         code: 'forbidden',

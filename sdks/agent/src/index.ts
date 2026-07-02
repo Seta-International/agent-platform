@@ -64,7 +64,7 @@ export {
   RC_THREAD_ID,
   RequestContextSchema,
 } from './request-context.ts';
-export type { SessionLike } from './session.ts';
+export type { SessionLike, SessionLikeAssignment } from './session.ts';
 export { type AgentSession, sessionFromRequestContext } from './session-context.ts';
 export {
   DuplicateSpecializedAgentError,

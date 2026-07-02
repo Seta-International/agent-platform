@@ -9,19 +9,10 @@ import type { AgentRouteEnv } from '../../src/backend/routes.ts';
 import { registerAgentRoutes } from '../../src/backend/routes.ts';
 import type { SessionLike } from '../../src/backend/types.ts';
 import { onLifecycleEvent } from '../../src/backend/workflows/_infra/lifecycle-hook.ts';
-import { withAgentTestDb } from '../helpers.ts';
+import { buildSession, withAgentTestDb } from '../helpers.ts';
 
 async function* stubOrchestration(): AsyncIterable<OrchestrationEvent> {
   yield { kind: 'final', result: { message: 'ok' } };
-}
-
-function session(perms: string[], tenantId = randomUUID(), userId = randomUUID()): SessionLike {
-  return {
-    tenant_id: tenantId,
-    user_id: userId,
-    effective_permissions: new Set(perms),
-    role_summary: { roles: [], cross_tenant_read: false },
-  };
 }
 
 function makeApp(
@@ -104,7 +95,7 @@ async function seed(
 describe('GET /api/agent/v1/workflows/runs', () => {
   it('returns runs scoped to self', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const me = session(['agent.workflow.run.read.self']);
+      const me = buildSession();
       const runId = randomUUID();
       await seed(pool, { runId, tenantId: me.tenant_id, startedBy: me.user_id });
       const app = makeApp(me, makeMastra(vi.fn()), pool);
@@ -123,9 +114,9 @@ describe('GET /api/agent/v1/workflows/runs', () => {
     });
   });
 
-  it('403 when scope=tenant but caller lacks read.tenant', async () => {
+  it('403 when scope=tenant but caller only has implicit self scope', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const me = session(['agent.workflow.run.read.self']);
+      const me = buildSession();
       const app = makeApp(me, makeMastra(vi.fn()), pool);
       const res = await app.request('/api/agent/v1/workflows/runs?scope=tenant');
       expect(res.status).toBe(403);
@@ -136,7 +127,7 @@ describe('GET /api/agent/v1/workflows/runs', () => {
 describe('GET /api/agent/v1/workflows/runs/:runId', () => {
   it('200 own run', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const me = session(['agent.workflow.run.read.self']);
+      const me = buildSession();
       const runId = randomUUID();
       await seed(pool, { runId, tenantId: me.tenant_id, startedBy: me.user_id });
       const app = makeApp(me, makeMastra(vi.fn()), pool);
@@ -149,7 +140,7 @@ describe('GET /api/agent/v1/workflows/runs/:runId', () => {
 
   it('404 invisible run', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const me = session(['agent.workflow.run.read.self']);
+      const me = buildSession();
       const runId = randomUUID();
       await seed(pool, { runId, tenantId: randomUUID(), startedBy: randomUUID() });
       const app = makeApp(me, makeMastra(vi.fn()), pool);
@@ -162,7 +153,7 @@ describe('GET /api/agent/v1/workflows/runs/:runId', () => {
 describe('GET /api/agent/v1/workflows/my-pending-approvals', () => {
   it('returns my pending approvals', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const me = session(['agent.workflow.run.read.self']);
+      const me = buildSession();
       const runId = randomUUID();
       await seed(pool, { runId, tenantId: me.tenant_id, startedBy: me.user_id, suspended: true });
       const app = makeApp(me, makeMastra(vi.fn()), pool);
@@ -177,7 +168,7 @@ describe('GET /api/agent/v1/workflows/my-pending-approvals', () => {
 describe('POST /api/agent/v1/workflows/approvals/:id/decide', () => {
   it('decides and returns { runId, resumed }', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const me = session(['agent.workflow.run.read.self', 'agent.workflow.approve']);
+      const me = buildSession();
       const runId = randomUUID();
       await seed(pool, { runId, tenantId: me.tenant_id, startedBy: me.user_id, suspended: true });
       const approvalId = (
@@ -203,7 +194,7 @@ describe('POST /api/agent/v1/workflows/approvals/:id/decide', () => {
 
   it('400 on missing/invalid body', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const me = session(['agent.workflow.approve']);
+      const me = buildSession();
       const app = makeApp(me, makeMastra(vi.fn()), pool);
       const res = await app.request(`/api/agent/v1/workflows/approvals/${randomUUID()}/decide`, {
         method: 'POST',
@@ -214,11 +205,26 @@ describe('POST /api/agent/v1/workflows/approvals/:id/decide', () => {
     });
   });
 
-  it('403 when caller lacks agent.workflow.approve', async () => {
+  it('403 when caller is neither the approver nor tenant-scoped for step-in', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const me = session(['agent.workflow.run.read.self']);
-      const app = makeApp(me, makeMastra(vi.fn()), pool);
-      const res = await app.request(`/api/agent/v1/workflows/approvals/${randomUUID()}/decide`, {
+      const owner = buildSession();
+      const runId = randomUUID();
+      await seed(pool, {
+        runId,
+        tenantId: owner.tenant_id,
+        startedBy: owner.user_id,
+        suspended: true,
+      });
+      const approvalId = (
+        await pool.query<{ approval_id: string }>(
+          `SELECT approval_id FROM agent.workflow_approvals WHERE run_id = $1`,
+          [runId],
+        )
+      ).rows[0]!.approval_id;
+
+      const stranger = buildSession({ tenantId: owner.tenant_id });
+      const app = makeApp(stranger, makeMastra(vi.fn()), pool);
+      const res = await app.request(`/api/agent/v1/workflows/approvals/${approvalId}/decide`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ decision: 'approve' }),
@@ -231,7 +237,7 @@ describe('POST /api/agent/v1/workflows/approvals/:id/decide', () => {
 describe('POST /api/agent/v1/workflows/runs/:runId/rerun', () => {
   it('reruns and returns { newRunId }', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const me = session(['agent.workflow.run.read.self', 'agent.workflow.run.execute.self']);
+      const me = buildSession();
       const runId = randomUUID();
       await seed(pool, { runId, tenantId: me.tenant_id, startedBy: me.user_id });
       const newRunId = randomUUID();
@@ -257,7 +263,7 @@ describe('POST /api/agent/v1/workflows/runs/:runId/rerun', () => {
 describe('POST /api/agent/v1/workflows/runs/:runId/replay-from-step', () => {
   it('returns 200 with newRunId on happy path', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const me = session(['agent.workflow.run.read.self', 'agent.workflow.run.execute.self']);
+      const me = buildSession();
       const runId = randomUUID();
       await seed(pool, { runId, tenantId: me.tenant_id, startedBy: me.user_id });
       const timeTravel = vi.fn().mockResolvedValue({ status: 'success' });
@@ -286,7 +292,7 @@ describe('POST /api/agent/v1/workflows/runs/:runId/replay-from-step', () => {
 
   it('returns 400 on missing stepId', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const me = session(['agent.workflow.run.read.self', 'agent.workflow.run.execute.self']);
+      const me = buildSession();
       const runId = randomUUID();
       await seed(pool, { runId, tenantId: me.tenant_id, startedBy: me.user_id });
       const app = makeApp(me, makeMastra(vi.fn()), pool);
@@ -318,7 +324,7 @@ describe('POST /api/agent/v1/workflows/runs/:runId/replay-from-step', () => {
 describe('POST /api/agent/v1/workflows/runs/:runId/cancel', () => {
   it('returns 200 and publishes workflow.cancel for own running run', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const me = session(['agent.workflow.run.read.self', 'agent.workflow.run.cancel.self']);
+      const me = buildSession();
       const runId = randomUUID();
       await seed(pool, { runId, tenantId: me.tenant_id, startedBy: me.user_id });
       const publish = vi.fn().mockResolvedValue(undefined);
@@ -335,12 +341,21 @@ describe('POST /api/agent/v1/workflows/runs/:runId/cancel', () => {
     });
   });
 
-  it('returns 403 when caller lacks any cancel permission', async () => {
+  it("returns 403 when caller tries to cancel another user's run without a tenant-wide grant", async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const me = session(['agent.workflow.run.read.self']);
+      const owner = buildSession();
       const runId = randomUUID();
-      await seed(pool, { runId, tenantId: me.tenant_id, startedBy: me.user_id });
-      const app = makeApp(me, makeMastra(vi.fn()), pool);
+      await seed(pool, { runId, tenantId: owner.tenant_id, startedBy: owner.user_id });
+      // Tenant-wide read (so the run is visible) but only self-scoped cancel —
+      // isolates the cancel-specific ownership check from the read gate.
+      const stranger = buildSession({
+        tenantId: owner.tenant_id,
+        assignments: [
+          { role_slug: 'agent.viewer', scope_kind: 'tenant' },
+          { role_slug: 'agent.member', scope_kind: 'self' },
+        ],
+      });
+      const app = makeApp(stranger, makeMastra(vi.fn()), pool);
       const res = await app.request(`/api/agent/v1/workflows/runs/${runId}/cancel`, {
         method: 'POST',
       });
@@ -362,7 +377,7 @@ describe('POST /api/agent/v1/workflows/runs/:runId/cancel', () => {
 describe('GET /api/agent/v1/workflows/sse-token', () => {
   it('returns a token', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const me = session(['agent.workflow.run.read.self']);
+      const me = buildSession();
       const app = makeApp(me, makeMastra(vi.fn()), pool);
       const res = await app.request('/api/agent/v1/workflows/sse-token');
       expect(res.status).toBe(200);
@@ -397,7 +412,7 @@ describe('GET /api/agent/v1/workflows/definitions', () => {
       });
       AgentRegistry.freeze();
       try {
-        const me = session(['agent.workflow.run.read.self']);
+        const me = buildSession();
         const app = makeApp(me, makeMastra(vi.fn()), pool);
         const res = await app.request('/api/agent/v1/workflows/definitions');
         expect(res.status).toBe(200);
@@ -438,7 +453,7 @@ describe('GET /api/agent/v1/workflows/:workflowId/input-schema', () => {
         'agent.routes-test-workflow',
         z.object({ taskId: z.string().uuid() }),
       );
-      const me = session(['agent.workflow.run.read.self']);
+      const me = buildSession();
       const app = makeApp(me, makeMastra(vi.fn()), pool);
       const res = await app.request(
         '/api/agent/v1/workflows/agent.routes-test-workflow/input-schema',
@@ -455,7 +470,7 @@ describe('GET /api/agent/v1/workflows/:workflowId/input-schema', () => {
 
   it('returns 404 for an unknown workflow id', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const me = session(['agent.workflow.run.read.self']);
+      const me = buildSession();
       const app = makeApp(me, makeMastra(vi.fn()), pool);
       const res = await app.request('/api/agent/v1/workflows/agent.no-such-workflow/input-schema');
       expect(res.status).toBe(404);
@@ -495,7 +510,7 @@ function hitlCard(tenantId: string, userId: string): ApprovalCard {
 describe('GET /api/agent/v1/workflows/threads/:threadId/approvals', () => {
   it('returns the thread approvals including decision fields', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const me = session(['agent.workflow.run.read.self']);
+      const me = buildSession();
       await writeChatApprovalRow({
         card: hitlCard(me.tenant_id, me.user_id),
         mastraRunId: randomUUID(),

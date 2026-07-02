@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import { agentDb } from '../db/index.ts';
 import type { SessionLike } from '../types.ts';
 import type { WorkflowRunRow, WorkflowRunStartedVia } from './list-workflow-runs.ts';
+import { resolveRunPermissionScope } from './workflow-run-scope.ts';
 
 export interface GetWorkflowRunOpts {
   session: SessionLike;
@@ -41,11 +42,11 @@ export async function getWorkflowRun(opts: GetWorkflowRunOpts): Promise<Workflow
 
   const isOwn = r.started_by === opts.session.user_id;
   const sameTenant = r.tenant_id === opts.session.tenant_id;
-  const perms = opts.session.effective_permissions;
+  const scope = resolveRunPermissionScope(opts.session, 'agent.workflow.run.read');
   const canSee =
-    (isOwn && sameTenant && perms.has('agent.workflow.run.read.self')) ||
-    (sameTenant && perms.has('agent.workflow.run.read.tenant')) ||
-    perms.has('agent.workflow.run.read.instance');
+    scope.kind === 'tenant'
+      ? sameTenant || opts.session.role_summary.cross_tenant_read
+      : scope.kind === 'subset' && scope.self && isOwn && sameTenant;
   if (!canSee) return null;
 
   return {

@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm';
 import { agentDb } from '../db/index.ts';
 import type { SessionLike } from '../types.ts';
 import { getWorkflowRun } from './get-workflow-run.ts';
+import { resolveRunPermissionScope } from './workflow-run-scope.ts';
 
 export interface ReplayWorkflowFromStepOpts {
   session: SessionLike;
@@ -16,13 +17,12 @@ export interface ReplayWorkflowFromStepResult {
   newRunId: string;
 }
 
-const EXEC_PERM = 'agent.workflow.run.execute.self';
-
 export async function replayWorkflowFromStep(
   opts: ReplayWorkflowFromStepOpts,
 ): Promise<ReplayWorkflowFromStepResult> {
-  if (!opts.session.effective_permissions.has(EXEC_PERM)) {
-    throw Object.assign(new Error(`forbidden: ${EXEC_PERM}`), { code: 'forbidden' });
+  const scope = resolveRunPermissionScope(opts.session, 'agent.workflow.run.execute');
+  if (scope.kind === 'none') {
+    throw Object.assign(new Error('forbidden: agent.workflow.run.execute'), { code: 'forbidden' });
   }
 
   const parent = await getWorkflowRun({ session: opts.session, runId: opts.runId });

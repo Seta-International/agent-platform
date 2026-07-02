@@ -10,7 +10,15 @@ type TestSession = {
   tenant_id: string;
   user_id: string;
   effective_permissions: ReadonlySet<string>;
-  role_summary: { roles: string[]; cross_tenant_read: boolean };
+  role_summary: {
+    roles: string[];
+    cross_tenant_read: boolean;
+    assignments: ReadonlyArray<{
+      role_slug: string;
+      scope_kind: 'tenant' | 'org_unit' | 'self' | 'group';
+      scope_id: string | null;
+    }>;
+  };
 };
 
 async function* stubOrchestration(): AsyncIterable<OrchestrationEvent> {
@@ -64,9 +72,13 @@ function makeApp(args: {
       tenant_id: args.tenant_id,
       user_id: args.user_id,
       effective_permissions: new Set(
-        args.permissions ?? ['agent.chat.use', 'agent.thread.read.self', 'agent.thread.write.self'],
+        args.permissions ?? ['agent.chat.use', 'agent.thread.read', 'agent.thread.write'],
       ),
-      role_summary: { roles: ['org.admin'], cross_tenant_read: false },
+      role_summary: {
+        roles: ['org.admin'],
+        cross_tenant_read: false,
+        assignments: [{ role_slug: 'org.admin', scope_kind: 'tenant', scope_id: null }],
+      },
     });
     await next();
   });

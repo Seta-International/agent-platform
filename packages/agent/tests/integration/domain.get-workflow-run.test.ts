@@ -3,18 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { getWorkflowRun } from '../../src/backend/domain/get-workflow-run.ts';
 import { getWorkflowRunSnapshot } from '../../src/backend/domain/get-workflow-run-snapshot.ts';
 import { buildMastra } from '../../src/backend/runtime.ts';
-import type { SessionLike } from '../../src/backend/types.ts';
 import { onLifecycleEvent } from '../../src/backend/workflows/_infra/lifecycle-hook.ts';
-import { withAgentTestDb } from '../helpers.ts';
-
-function sessionWith(perms: string[], tenantId = randomUUID(), userId = randomUUID()): SessionLike {
-  return {
-    tenant_id: tenantId,
-    user_id: userId,
-    effective_permissions: new Set(perms),
-    role_summary: { roles: [], cross_tenant_read: false },
-  };
-}
+import { buildSession, withAgentTestDb } from '../helpers.ts';
 
 async function seed(
   pool: import('pg').Pool,
@@ -39,9 +29,9 @@ async function seed(
 }
 
 describe('getWorkflowRun', () => {
-  it('returns own run via read.self', async () => {
+  it('returns own run for an implicit-only session (no agent role)', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const me = sessionWith(['agent.workflow.run.read.self']);
+      const me = buildSession();
       const runId = randomUUID();
       await seed(pool, runId, me.tenant_id, me.user_id);
       const row = await getWorkflowRun({ session: me, runId });
@@ -51,9 +41,9 @@ describe('getWorkflowRun', () => {
     });
   });
 
-  it('returns null for an other-tenant run (caller has read.self only)', async () => {
+  it('returns null for an other-tenant run (implicit self scope only)', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const me = sessionWith(['agent.workflow.run.read.self']);
+      const me = buildSession();
       const runId = randomUUID();
       await seed(pool, runId, randomUUID(), randomUUID());
       const row = await getWorkflowRun({ session: me, runId });
@@ -61,12 +51,11 @@ describe('getWorkflowRun', () => {
     });
   });
 
-  it('returns same-tenant other-user run when caller holds read.tenant', async () => {
+  it('returns same-tenant other-user run when caller holds agent.viewer @ tenant', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const viewer = sessionWith([
-        'agent.workflow.run.read.self',
-        'agent.workflow.run.read.tenant',
-      ]);
+      const viewer = buildSession({
+        assignments: [{ role_slug: 'agent.viewer', scope_kind: 'tenant' }],
+      });
       const otherUser = randomUUID();
       const runId = randomUUID();
       await seed(pool, runId, viewer.tenant_id, otherUser);
@@ -76,12 +65,11 @@ describe('getWorkflowRun', () => {
     });
   });
 
-  it('returns any-tenant run when caller holds read.instance', async () => {
+  it('returns any-tenant run when caller holds org.viewer (cross_tenant_read)', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const admin = sessionWith([
-        'agent.workflow.run.read.self',
-        'agent.workflow.run.read.instance',
-      ]);
+      const admin = buildSession({
+        assignments: [{ role_slug: 'org.viewer', scope_kind: 'tenant' }],
+      });
       const runId = randomUUID();
       await seed(pool, runId, randomUUID(), randomUUID());
       const row = await getWorkflowRun({ session: admin, runId });
@@ -91,7 +79,7 @@ describe('getWorkflowRun', () => {
 
   it('returns null for a non-existent run', async () => {
     await withAgentTestDb(async ({ pool: _pool }) => {
-      const me = sessionWith(['agent.workflow.run.read.self']);
+      const me = buildSession();
       const row = await getWorkflowRun({ session: me, runId: randomUUID() });
       expect(row).toBeNull();
     });
@@ -103,7 +91,7 @@ describe('getWorkflowRunSnapshot', () => {
     await withAgentTestDb(async ({ pool, databaseUrl }) => {
       const mastra = buildMastra({ pool, databaseUrl });
       await mastra.getStorage()!.init();
-      const me = sessionWith(['agent.workflow.run.read.self']);
+      const me = buildSession();
       const runId = randomUUID();
       await seed(pool, runId, randomUUID(), randomUUID()); // foreign tenant
       const snap = await getWorkflowRunSnapshot({ session: me, runId, mastra });
@@ -119,7 +107,7 @@ describe('getWorkflowRunSnapshot', () => {
       const workflowsStore = await storage.getStore('workflows');
       if (!workflowsStore) throw new Error('workflows store unavailable');
 
-      const me = sessionWith(['agent.workflow.run.read.self']);
+      const me = buildSession();
       const runId = randomUUID();
       await seed(pool, runId, me.tenant_id, me.user_id);
 

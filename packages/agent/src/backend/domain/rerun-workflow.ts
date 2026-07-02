@@ -6,6 +6,7 @@ import { agentDb } from '../db/index.ts';
 import type { SessionLike } from '../types.ts';
 import { onLifecycleEvent } from '../workflows/_infra/lifecycle-hook.ts';
 import { getWorkflowRun } from './get-workflow-run.ts';
+import { resolveRunPermissionScope } from './workflow-run-scope.ts';
 
 export interface RerunWorkflowOpts {
   session: SessionLike;
@@ -21,10 +22,9 @@ export interface RerunWorkflowResult {
 }
 
 export async function rerunWorkflow(opts: RerunWorkflowOpts): Promise<RerunWorkflowResult> {
-  if (!opts.session.effective_permissions.has('agent.workflow.run.execute.self')) {
-    throw Object.assign(new Error('forbidden: agent.workflow.run.execute.self'), {
-      code: 'forbidden',
-    });
+  const scope = resolveRunPermissionScope(opts.session, 'agent.workflow.run.execute');
+  if (scope.kind === 'none') {
+    throw Object.assign(new Error('forbidden: agent.workflow.run.execute'), { code: 'forbidden' });
   }
 
   const parent = await getWorkflowRun({ session: opts.session, runId: opts.runId });

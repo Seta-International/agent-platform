@@ -2,19 +2,9 @@ import { randomUUID } from 'node:crypto';
 import type { Mastra } from '@mastra/core';
 import { Hono } from 'hono';
 import { describe, expect, it, vi } from 'vitest';
-import type { SessionLike } from '../../src/backend/types.ts';
 import { onLifecycleEvent } from '../../src/backend/workflows/_infra/lifecycle-hook.ts';
 import { mountRunSse } from '../../src/backend/workflows/_infra/sse-run.ts';
-import { withAgentTestDb } from '../helpers.ts';
-
-function session(tenantId: string, userId: string, perms: string[]): SessionLike {
-  return {
-    tenant_id: tenantId,
-    user_id: userId,
-    effective_permissions: new Set(perms),
-    role_summary: { roles: [], cross_tenant_read: false },
-  };
-}
+import { buildSession, withAgentTestDb } from '../helpers.ts';
 
 async function seed(
   pool: import('pg').Pool,
@@ -79,7 +69,7 @@ describe('mountRunSse', () => {
 
   it('returns 404 when run is invisible to the caller', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const me = session(randomUUID(), randomUUID(), ['agent.workflow.run.read.self']);
+      const me = buildSession();
       const runId = randomUUID();
       await seed(pool, { runId, tenantId: randomUUID(), startedBy: randomUUID() });
       const mastra = makeMastra(vi.fn());
@@ -92,7 +82,7 @@ describe('mountRunSse', () => {
 
   it('proxies Mastra run.watch events to SSE', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const me = session(randomUUID(), randomUUID(), ['agent.workflow.run.read.self']);
+      const me = buildSession();
       const runId = randomUUID();
       await seed(pool, { runId, tenantId: me.tenant_id, startedBy: me.user_id });
 

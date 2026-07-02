@@ -3,18 +3,8 @@ import type { Mastra } from '@mastra/core';
 import { describe, expect, it, vi } from 'vitest';
 import { decideApproval } from '../../src/backend/domain/decide-approval.ts';
 import { listMyPendingApprovals } from '../../src/backend/domain/list-my-pending-approvals.ts';
-import type { SessionLike } from '../../src/backend/types.ts';
 import { onLifecycleEvent } from '../../src/backend/workflows/_infra/lifecycle-hook.ts';
-import { withAgentTestDb } from '../helpers.ts';
-
-function sessionWith(perms: string[], tenantId = randomUUID(), userId = randomUUID()): SessionLike {
-  return {
-    tenant_id: tenantId,
-    user_id: userId,
-    effective_permissions: new Set(perms),
-    role_summary: { roles: [], cross_tenant_read: false },
-  };
-}
+import { buildSession, withAgentTestDb } from '../helpers.ts';
 
 async function seedSuspendedRun(
   pool: import('pg').Pool,
@@ -69,7 +59,7 @@ function makeMastra(resume: ReturnType<typeof vi.fn>): Mastra {
 describe('listMyPendingApprovals', () => {
   it('returns only the calling user pending approvals', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const me = sessionWith(['agent.workflow.run.read.self']);
+      const me = buildSession();
       const other = randomUUID();
       await seedSuspendedRun(pool, {
         runId: randomUUID(),
@@ -91,7 +81,7 @@ describe('listMyPendingApprovals', () => {
 describe('decideApproval', () => {
   it('marks approved, writes outbox, calls run.resume(step, resumeData) outside the tx', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const me = sessionWith(['agent.workflow.run.read.self', 'agent.workflow.approve']);
+      const me = buildSession();
       const runId = randomUUID();
       await seedSuspendedRun(pool, { runId, tenantId: me.tenant_id, approverUserId: me.user_id });
       const [pending] = await listMyPendingApprovals({ session: me });
@@ -152,7 +142,7 @@ describe('decideApproval', () => {
       decline: { label: 'Leave unassigned', argsPatch: { action: 'leave-unassigned' } },
     };
     await withAgentTestDb(async ({ pool }) => {
-      const me = sessionWith(['agent.workflow.run.read.self', 'agent.workflow.approve']);
+      const me = buildSession();
 
       // approve → primary.argsPatch
       const runApprove = randomUUID();
@@ -252,7 +242,7 @@ describe('decideApproval', () => {
     // because no such step exists in the workflow. Let Mastra auto-resolve the
     // suspended step from the snapshot in that case.
     await withAgentTestDb(async ({ pool }) => {
-      const me = sessionWith(['agent.workflow.run.read.self', 'agent.workflow.approve']);
+      const me = buildSession();
       const runId = randomUUID();
       await seedSuspendedRun(pool, {
         runId,
@@ -278,23 +268,9 @@ describe('decideApproval', () => {
     });
   });
 
-  it('rejects when caller lacks agent.workflow.approve permission', async () => {
-    await withAgentTestDb(async ({ pool: _pool }) => {
-      const me = sessionWith(['agent.workflow.run.read.self']);
-      await expect(
-        decideApproval({
-          session: me,
-          approvalId: randomUUID(),
-          decision: 'approve',
-          mastra: makeMastra(vi.fn()),
-        }),
-      ).rejects.toThrow(/forbidden|permission/i);
-    });
-  });
-
   it('rejects when caller is neither approver nor step-in eligible', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const stranger = sessionWith(['agent.workflow.approve']);
+      const stranger = buildSession();
       const other = randomUUID();
       const runId = randomUUID();
       await seedSuspendedRun(pool, { runId, tenantId: stranger.tenant_id, approverUserId: other });
@@ -316,17 +292,22 @@ describe('decideApproval', () => {
     });
   });
 
-  it('allows step-in when caller has read.tenant AND surface_canvas=true AND same tenant', async () => {
+  it('allows step-in when caller has agent.viewer @ tenant AND surface_canvas=true AND same tenant', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const admin = sessionWith(['agent.workflow.approve', 'agent.workflow.run.read.tenant']);
-      const other = randomUUID();
-      const runId = randomUUID();
-      await seedSuspendedRun(pool, {
-        runId,
-        tenantId: admin.tenant_id,
-        approverUserId: other,
-        surfaceCanvas: true,
+      const admin = buildSession({
+        assignments: [{ role_slug: 'agent.viewer', scope_kind: 'tenant' }],
       });
+      const other = randomUUID();
+      const runId = await (async () => {
+        const id = randomUUID();
+        await seedSuspendedRun(pool, {
+          runId: id,
+          tenantId: admin.tenant_id,
+          approverUserId: other,
+          surfaceCanvas: true,
+        });
+        return id;
+      })();
       const approvalId = (
         await pool.query<{ approval_id: string }>(
           `SELECT approval_id FROM agent.workflow_approvals WHERE run_id = $1`,
@@ -347,7 +328,9 @@ describe('decideApproval', () => {
 
   it('denies step-in when surface_canvas=false', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const admin = sessionWith(['agent.workflow.approve', 'agent.workflow.run.read.tenant']);
+      const admin = buildSession({
+        assignments: [{ role_slug: 'agent.viewer', scope_kind: 'tenant' }],
+      });
       const other = randomUUID();
       const runId = randomUUID();
       await seedSuspendedRun(pool, {
@@ -376,7 +359,7 @@ describe('decideApproval', () => {
 
   it('refuses on already-decided approval', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const me = sessionWith(['agent.workflow.approve', 'agent.workflow.run.read.self']);
+      const me = buildSession();
       const runId = randomUUID();
       await seedSuspendedRun(pool, { runId, tenantId: me.tenant_id, approverUserId: me.user_id });
       const approvalId = (
@@ -394,9 +377,11 @@ describe('decideApproval', () => {
     });
   });
 
-  it('rejects cross-tenant decisions even when caller has approve + read.tenant', async () => {
+  it('rejects cross-tenant decisions even when caller has agent.viewer @ tenant', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const admin = sessionWith(['agent.workflow.approve', 'agent.workflow.run.read.tenant']);
+      const admin = buildSession({
+        assignments: [{ role_slug: 'agent.viewer', scope_kind: 'tenant' }],
+      });
       const runId = randomUUID();
       await seedSuspendedRun(pool, {
         runId,
