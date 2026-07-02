@@ -3,6 +3,8 @@ import {
   IMPLICIT_PERMISSIONS,
   INVENTORY,
   inventoryToManifests,
+  type RbacRegistry,
+  type RoleOverlay,
   resolvePermissions,
 } from '@seta/shared-rbac';
 
@@ -11,6 +13,13 @@ import {
 // the registry is process-global and immutable.
 const registry = buildRegistry(inventoryToManifests(INVENTORY));
 
-export function resolveForRoles(roles: readonly string[]): ReadonlySet<string> {
-  return resolvePermissions(registry, roles, IMPLICIT_PERMISSIONS);
+export function resolveForRoles(
+  roles: readonly string[],
+  overlay?: RoleOverlay,
+): ReadonlySet<string> {
+  return resolvePermissions(registry, roles, IMPLICIT_PERMISSIONS, overlay);
+}
+
+export function getRbacRegistry(): RbacRegistry {
+  return registry;
 }

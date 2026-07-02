@@ -35,7 +35,11 @@ const adminActor = {
   tenant_id: 't1',
   email: 'u1@example.com',
   display_name: 'U',
-  role_summary: { roles: ['tenant.admin'], cross_tenant_read: false },
+  role_summary: {
+    roles: ['tenant.admin'],
+    cross_tenant_read: false,
+    assignments: [{ role_slug: 'tenant.admin', scope_kind: 'tenant' as const, scope_id: null }],
+  },
   cross_tenant_read: false,
 };
 
@@ -44,7 +48,11 @@ const memberActor = {
   tenant_id: 't1',
   email: 'u2@example.com',
   display_name: 'M',
-  role_summary: { roles: ['member'], cross_tenant_read: false },
+  role_summary: {
+    roles: ['member'],
+    cross_tenant_read: false,
+    assignments: [{ role_slug: 'member', scope_kind: 'tenant' as const, scope_id: null }],
+  },
   cross_tenant_read: false,
 };
 
@@ -77,13 +85,13 @@ describe('rpc shim — public surface', () => {
     expect(() => RpcActorSchema.parse(adminActor)).not.toThrow();
   });
 
-  it('rbacCheck passes for admin, throws RpcForbidden for member', () => {
-    expect(() =>
+  it('rbacCheck passes for admin, throws RpcForbidden for member', async () => {
+    await expect(
       rbacCheck(adminActor, 'identity.user.read.any', 'identity', 'getUserProfile'),
-    ).not.toThrow();
-    expect(() =>
+    ).resolves.toBeUndefined();
+    await expect(
       rbacCheck(memberActor, 'identity.user.read.any', 'identity', 'getUserProfile'),
-    ).toThrow(RpcForbidden);
+    ).rejects.toBeInstanceOf(RpcForbidden);
   });
 
   it('peerAuth(bearer) rejects construction with a short secret', () => {

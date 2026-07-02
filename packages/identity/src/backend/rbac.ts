@@ -1,3 +1,4 @@
+import { listTenantRoleOverlays } from './domain/list-tenant-role-overlays.ts';
 import {
   resolveEffectiveAssignments,
   toRoleSlugs,
@@ -19,7 +20,8 @@ export async function requirePermission(
   tenantId: string,
 ): Promise<void> {
   const roles = toRoleSlugs(await resolveEffectiveAssignments(userId, tenantId));
-  const perms = resolveForRoles(roles);
+  const overlay = await listTenantRoleOverlays(tenantId);
+  const perms = resolveForRoles(roles, overlay);
   if (!perms.has(permission)) {
     throw new IdentityError('FORBIDDEN', `Missing permission: ${permission}`);
   }

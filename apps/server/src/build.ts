@@ -161,8 +161,9 @@ export function buildServerApp(
     tenantId: string,
   ): Promise<ReadonlySet<string>> =>
     resolvePermissions(rbacRegistry, roles, IMPLICIT_PERMISSIONS, await overlayStore.get(tenantId));
-  // Spec 2: RPC actor overlay deferred — agent-tool RPC checks resolve from seed roles only.
-  setRbacCheck(makeRbacCheck(rbacRegistry, IMPLICIT_PERMISSIONS));
+  setRbacCheck(
+    makeRbacCheck(rbacRegistry, IMPLICIT_PERMISSIONS, (tenantId) => overlayStore.get(tenantId)),
+  );
 
   const sessionMiddleware = createSessionMiddleware({
     getSession: ({ headers }) => auth.api.getSession({ headers }),
