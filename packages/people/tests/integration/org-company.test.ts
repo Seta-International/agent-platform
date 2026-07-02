@@ -123,7 +123,7 @@ describe('getOrgCompany', () => {
           kind: 'delivery',
           parent_id: exec,
         });
-        // a worker allocated to the account so a strategic viewer sees it
+        // a worker allocated to the account so a manager viewer sees it
         const { worker_id: m } = await createWorker({
           session: t.adminSession,
           full_name: 'Solo',

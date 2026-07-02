@@ -395,7 +395,7 @@ describe('listTasksByLabel', () => {
         const scoped = buildSession({
           tenant_id: seeded.tenant_id,
           user_id: seeded.admin.user_id,
-          roles: ['planner.contributor'],
+          roles: ['planner.member'],
           accessible_group_ids: [groupA.id],
         });
 

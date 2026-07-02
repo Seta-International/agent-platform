@@ -22,7 +22,7 @@ describe('listComments', () => {
       initPools({ databaseUrl });
       try {
         const { session, task_id } = await seedTenantAndTask(pool, {
-          role: 'planner.contributor',
+          role: 'planner.member',
         });
         await createComment({ task_id, body: 'first', session });
         await sleep(5);
@@ -47,7 +47,7 @@ describe('listComments', () => {
       initPools({ databaseUrl });
       try {
         const { session, task_id } = await seedTenantAndTask(pool, {
-          role: 'planner.contributor',
+          role: 'planner.member',
         });
         for (let i = 0; i < 5; i++) {
           await createComment({ task_id, body: `c${i}`, session });
@@ -83,7 +83,7 @@ describe('listComments', () => {
       initPools({ databaseUrl });
       try {
         const { session, task_id } = await seedTenantAndTask(pool, {
-          role: 'planner.contributor',
+          role: 'planner.member',
         });
         const visible = await createComment({ task_id, body: 'visible', session });
         const gone = await createComment({ task_id, body: 'gone', session });

@@ -216,7 +216,7 @@ export async function seedTenantAndTask(
 /**
  * Create an extra group member with the given group-membership role
  * ('owner'/'member') and return a session for them. Always grants the
- * planner.contributor role on the session so planner permission checks pass —
+ * planner.member role on the session so planner permission checks pass —
  * group-role authorization happens via planner.group_members lookups inside
  * the domain functions.
  */
@@ -255,7 +255,7 @@ export async function makeMemberSession(
     user_id: r.user_id,
     email,
     display_name: `User ${tag}`,
-    roles: ['planner.contributor'],
+    roles: ['planner.member'],
     accessible_group_ids: [opts.group_id],
   });
 }

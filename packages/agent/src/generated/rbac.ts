@@ -40,6 +40,6 @@ export const AGENT_PERMISSIONS: readonly AgentPermission[] = [
 
 export const AGENT_ROLE_SLUGS = [
   'agent.admin',
-  'agent.contributor',
+  'agent.member',
   'agent.viewer',
 ] as const;

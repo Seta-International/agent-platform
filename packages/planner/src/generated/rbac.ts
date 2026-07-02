@@ -88,7 +88,7 @@ export const PLANNER_PERMISSIONS: readonly PlannerPermission[] = [
 
 export const PLANNER_ROLE_SLUGS = [
   'planner.admin',
-  'planner.contributor',
+  'planner.member',
   'planner.viewer',
   'system.integrations.m365',
 ] as const;

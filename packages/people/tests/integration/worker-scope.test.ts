@@ -242,7 +242,7 @@ describe('buildWorkerScope', () => {
         const session = buildSession({
           tenant_id: g.t.tenant_id,
           user_id: adminUser,
-          roles: ['people.strategic'],
+          roles: ['people.manager'],
         });
         expect(buildWorkerScope(session)).toBeNull();
         const seen = await visible(session);

@@ -22,7 +22,7 @@ export const PM_PERMISSIONS: readonly PmPermission[] = [
 
 export const PM_ROLE_SLUGS = [
   'pm.bod',
+  'pm.manager',
   'pm.pmo',
-  'pm.strategic',
   'pm.viewer',
 ] as const;

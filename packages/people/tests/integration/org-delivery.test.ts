@@ -91,7 +91,7 @@ async function buildDelivery(pool: import('pg').Pool): Promise<DeliveryGraph> {
 }
 
 describe('getOrgDelivery', () => {
-  it('assembles account → project → members with AM and lead for a strategic viewer', async () => {
+  it('assembles account → project → members with AM and lead for a manager viewer', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPeopleDb();

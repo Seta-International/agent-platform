@@ -41,13 +41,13 @@ describe('groups CRUD', () => {
           );
 
           await setGroupRoles(
-            { group_id, tenant_id, role_slugs: ['people.strategic', 'hiring.strategic'] },
+            { group_id, tenant_id, role_slugs: ['people.manager', 'hiring.manager'] },
             actor,
           );
 
           const rows = await listGroups(session);
           const hr = rows.find((r) => r.slug === 'hr');
-          expect(hr?.role_slugs.sort()).toEqual(['hiring.strategic', 'people.strategic']);
+          expect(hr?.role_slugs.sort()).toEqual(['hiring.manager', 'people.manager']);
           expect(hr?.member_count).toBe(0);
         } finally {
           resetCoreDb();
@@ -95,7 +95,7 @@ describe('groups CRUD', () => {
             actorA,
           );
           await setGroupRoles(
-            { group_id, tenant_id: tenantA, role_slugs: ['people.strategic'] },
+            { group_id, tenant_id: tenantA, role_slugs: ['people.manager'] },
             actorA,
           );
 
@@ -120,7 +120,7 @@ describe('groups CRUD', () => {
           const eng = rows.find((r) => r.group_id === group_id);
           expect(eng).toBeDefined();
           expect(eng?.name).toBe('Engineering');
-          expect(eng?.role_slugs).toEqual(['people.strategic']);
+          expect(eng?.role_slugs).toEqual(['people.manager']);
         } finally {
           resetCoreDb();
           await closePools();

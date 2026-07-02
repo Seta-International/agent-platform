@@ -29,11 +29,11 @@ describe('hiring rbac (HIR-6/7 candidate + pipeline)', () => {
     expect(HIRING_PERMISSIONS).toContain('hiring.rejection_reason.manage');
   });
 
-  it('grants core.skill.read to recruiter + strategic (catalog read), but not to viewer', () => {
+  it('grants core.skill.read to recruiter + manager (catalog read), but not to viewer', () => {
     const grant = (slug: string) =>
       hiringRbac.roles.find((r) => r.slug === slug)?.permissions ?? [];
     expect(grant('hiring.recruiter')).toContain('core.skill.read');
-    expect(grant('hiring.strategic')).toContain('core.skill.read');
+    expect(grant('hiring.manager')).toContain('core.skill.read');
     expect(grant('hiring.viewer')).not.toContain('core.skill.read');
   });
 });

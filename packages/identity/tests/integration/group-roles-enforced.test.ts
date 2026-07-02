@@ -50,7 +50,7 @@ describe('group roles enforced by requirePermission', () => {
             requirePermission(user_id, 'people.worker.read', tenant_id),
           ).rejects.toBeInstanceOf(IdentityError);
 
-          // Insert group → assign people.strategic role → add user
+          // Insert group → assign people.manager role → add user
           const db = identityDb();
           const groupId = crypto.randomUUID();
           await db.insert(accessGroup).values({
@@ -61,14 +61,14 @@ describe('group roles enforced by requirePermission', () => {
           });
           await db.insert(accessGroupRole).values({
             group_id: groupId,
-            role_slug: 'people.strategic',
+            role_slug: 'people.manager',
           });
           await db.insert(accessGroupMembership).values({
             group_id: groupId,
             user_id,
           });
 
-          // AFTER group membership: people.strategic includes people.worker.read
+          // AFTER group membership: people.manager includes people.worker.read
           await expect(
             requirePermission(user_id, 'people.worker.read', tenant_id),
           ).resolves.toBeUndefined();

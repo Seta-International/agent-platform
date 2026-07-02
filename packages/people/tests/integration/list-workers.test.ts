@@ -123,7 +123,7 @@ async function addSkill(
 }
 
 function admin(t: SeededTenant) {
-  return t.adminSession; // people.strategic → read.all
+  return t.adminSession; // people.manager → read.all
 }
 function viewer(t: SeededTenant, userId: string) {
   return buildSession({ tenant_id: t.tenant_id, user_id: userId, roles: ['people.viewer'] });

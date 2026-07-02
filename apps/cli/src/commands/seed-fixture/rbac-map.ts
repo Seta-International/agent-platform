@@ -2,8 +2,8 @@
 export function personaGroupsFor(primaryRole: string): string[] {
   const r = primaryRole.toUpperCase();
   if (r === 'ADMIN') return ['admin']; // org.admin wildcard subsumes the old pm.pmo grant
-  if (r === 'PM') return ['am']; // pm.strategic
+  if (r === 'PM') return ['am']; // pm.manager
   if (r === 'PRODUCT DIRECTOR') return ['bod'];
-  if (r === 'DIRECTOR') return ['am']; // pm.strategic
+  if (r === 'DIRECTOR') return ['am']; // pm.manager
   return []; // MARKETING + IC -> member only
 }

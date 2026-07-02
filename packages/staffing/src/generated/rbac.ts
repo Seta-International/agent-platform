@@ -13,6 +13,6 @@ export const STAFFING_PERMISSIONS: readonly StaffingPermission[] = [
 ];
 
 export const STAFFING_ROLE_SLUGS = [
-  'staffing.operator',
+  'staffing.member',
   'staffing.viewer',
 ] as const;

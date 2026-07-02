@@ -95,7 +95,7 @@ function buildSession(roles: string[]): SessionScopeProjection {
 }
 
 const adminSession = buildSession(['planner.admin']);
-const guestSession = buildSession(['planner.contributor']);
+const guestSession = buildSession(['planner.member']);
 
 /** Default MSW handlers for a group with one plan and no members */
 function defaultHandlers() {

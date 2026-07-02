@@ -19,7 +19,7 @@ describe('session scope cache', () => {
   it('rollup excludes accessible_group_ids from the role-summary hash', () => {
     const summaryA = rollup([
       {
-        role_slug: 'planner.contributor',
+        role_slug: 'planner.member',
         scope_type: 'group',
         scope_id: 'g1',
         granted_at: new Date(),
@@ -27,7 +27,7 @@ describe('session scope cache', () => {
     ]);
     const summaryB = rollup([
       {
-        role_slug: 'planner.contributor',
+        role_slug: 'planner.member',
         scope_type: 'group',
         scope_id: 'g2',
         granted_at: new Date(),
