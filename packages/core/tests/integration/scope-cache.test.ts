@@ -16,24 +16,32 @@ import {
 describe('session scope cache', () => {
   beforeEach(() => _clearHotForTest());
 
-  it('rollup excludes accessible_group_ids from the role-summary hash', () => {
-    const summaryA = rollup([
-      {
-        role_slug: 'planner.member',
-        scope_kind: 'group',
-        scope_id: 'g1',
-        granted_at: new Date(),
-      },
-    ]);
-    const summaryB = rollup([
-      {
-        role_slug: 'planner.member',
-        scope_kind: 'group',
-        scope_id: 'g2',
-        granted_at: new Date(),
-      },
-    ]);
-    expect(hashRoleSummary(summaryA)).toBe(hashRoleSummary(summaryB));
+  it('hashRoleSummary is order-independent but sensitive to assignment scope', () => {
+    const g1 = {
+      role_slug: 'planner.member',
+      scope_kind: 'group' as const,
+      scope_id: 'g1',
+      granted_at: new Date(),
+    };
+    const g2 = {
+      role_slug: 'planner.member',
+      scope_kind: 'group' as const,
+      scope_id: 'g2',
+      granted_at: new Date(),
+    };
+    const admin = {
+      role_slug: 'org.admin',
+      scope_kind: 'tenant' as const,
+      scope_id: null,
+      granted_at: new Date(),
+    };
+
+    const forward = rollup([g1, admin]);
+    const reversed = rollup([admin, g1]);
+    expect(hashRoleSummary(forward)).toBe(hashRoleSummary(reversed));
+
+    const differentScope = rollup([g2, admin]);
+    expect(hashRoleSummary(forward)).not.toBe(hashRoleSummary(differentScope));
   });
 
   it('builds and caches on cold call; reads from durable on second cold call after hot clear', async () => {
@@ -93,6 +101,39 @@ describe('session scope cache', () => {
             'A',
           );
           expect(scope2.role_summary.roles).toEqual(['org.admin']);
+
+          const orgSessionId = `test-session-${crypto.randomUUID()}`;
+          const deps = {
+            listRoleAssignments: async () => ({
+              tenant_id: tenantId,
+              assignments: [
+                {
+                  role_slug: 'pm.manager',
+                  scope_kind: 'org_unit' as const,
+                  scope_id: 'root-a',
+                  granted_at: new Date(),
+                },
+                {
+                  role_slug: 'pm.viewer',
+                  scope_kind: 'tenant' as const,
+                  scope_id: null,
+                  granted_at: new Date(),
+                },
+              ],
+            }),
+            resolvePermissions: async () => new Set(['pm.project.read']),
+            expandOrgUnits: async (_t: string, ids: readonly string[]) =>
+              Object.fromEntries(ids.map((id) => [id, [id, 'child-1']])),
+          };
+          const scope3 = await getSessionScope(deps, orgSessionId, user_id, 'a@b.c', 'A');
+          const orgAssignment = scope3.assignments.find((a) => a.scope_kind === 'org_unit');
+          expect(orgAssignment?.org_unit_ids).toEqual(['root-a', 'child-1']);
+
+          _clearHotForTest();
+          const hydrated = await getSessionScope(deps, orgSessionId, user_id, 'a@b.c', 'A');
+          expect(
+            hydrated.assignments.find((a) => a.scope_kind === 'org_unit')?.org_unit_ids,
+          ).toEqual(['root-a', 'child-1']);
         } finally {
           await closePools();
           resetCoreDb();

@@ -19,7 +19,11 @@ function buildSession(opts: {
   display_name: string;
   roles?: string[];
 }): SessionScope {
-  const role_summary = { roles: opts.roles ?? ['org.admin'], cross_tenant_read: false };
+  const role_summary = {
+    roles: opts.roles ?? ['org.admin'],
+    cross_tenant_read: false,
+    assignments: [],
+  };
   return {
     session_id: crypto.randomUUID(),
     user_id: opts.user_id,
@@ -30,6 +34,7 @@ function buildSession(opts: {
     role_summary_hash: hashRoleSummary(role_summary),
     permissions: resolveTestPermissions(role_summary.roles),
     accessible_group_ids: [],
+    assignments: [],
     group_ids: [],
     product_access: new Set<string>(),
     cross_tenant_read: false,
