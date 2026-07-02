@@ -154,3 +154,28 @@ export function validatePlan(
 
   return { ok: violations.length === 0, violations };
 }
+
+// ─── Fallback + synthesized insight ─────────────────────────────────────────
+
+/** Deterministic last-resort plan: pre-pass order dealt across window days in
+ *  capacity-sized chunks, one "Focus" block per day. Best-effort on due days —
+ *  callers attach a caveat when this is used. */
+export function fallbackPlan(tasks: NormalizedTask[], window: PlanWindow): WeeklyPlan {
+  const days = windowDays(window);
+  const perDay = capacityHint(tasks.length, window);
+  const ordered = prePassOrder(tasks);
+  const out: WeeklyPlan = { days: [], unplaced: [] };
+  days.forEach((day, i) => {
+    const titles = ordered.slice(i * perDay, (i + 1) * perDay).map((t) => t.title);
+    if (titles.length > 0) out.days.push({ day, blocks: [{ label: 'Focus', taskTitles: titles }] });
+  });
+  return out;
+}
+
+/** Guaranteed-available insight when the LLM produces none. */
+export function synthesizeWorkloadInsight(plan: WeeklyPlan): Insight {
+  const counts = plan.days.map(
+    (d) => `${d.day}: ${d.blocks.reduce((n, b) => n + b.taskTitles.length, 0)}`,
+  );
+  return { kind: 'workload', text: `Workload spread across the window — ${counts.join(', ')}.` };
+}
