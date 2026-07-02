@@ -7,8 +7,8 @@ import type {
 } from '../../../../src/backend/orchestration/weekly-plan/schemas.ts';
 
 const WED_FRI: PlanWindow = {
-  startDay: 'wed',
-  endDay: 'fri',
+  startDay: 'Wednesday',
+  endDay: 'Friday',
   weekStart: '2026-07-08',
   weekEnd: '2026-07-10',
 };
@@ -26,14 +26,14 @@ const tasks = [task({ title: 'A', dueAt: '2026-07-09' }), task({ title: 'B' })];
 
 const validPlan: WeeklyPlan = {
   days: [
-    { day: 'wed', blocks: [{ label: 'Focus', taskTitles: ['A'] }] },
-    { day: 'thu', blocks: [{ label: 'Focus', taskTitles: ['B'] }] },
+    { day: 'Wednesday', blocks: [{ label: 'Focus', taskTitles: ['A'] }] },
+    { day: 'Thursday', blocks: [{ label: 'Focus', taskTitles: ['B'] }] },
   ],
   unplaced: [],
 };
 
 const invalidPlan: WeeklyPlan = {
-  days: [{ day: 'mon', blocks: [{ label: 'Focus', taskTitles: ['A', 'B'] }] }],
+  days: [{ day: 'Monday', blocks: [{ label: 'Focus', taskTitles: ['A', 'B'] }] }],
   unplaced: [],
 };
 
@@ -72,7 +72,9 @@ describe('weeklyPlan scheduleBuilder', () => {
     // Fallback still places every task inside the window.
     const placed = res.result.plan.days.flatMap((d) => d.blocks.flatMap((b) => b.taskTitles));
     expect(placed.sort()).toEqual(['A', 'B']);
-    expect(res.result.plan.days.every((d) => ['wed', 'thu', 'fri'].includes(d.day))).toBe(true);
+    expect(
+      res.result.plan.days.every((d) => ['Wednesday', 'Thursday', 'Friday'].includes(d.day)),
+    ).toBe(true);
   });
 
   it('empty task list → empty plan, no LLM call', async () => {
