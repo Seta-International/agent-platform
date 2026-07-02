@@ -4,7 +4,7 @@ Role-based access control with a **precomputed permission set**. Users hold role
 
 ```mermaid
 flowchart LR
-  G[User's role grants] --> R{{Resolver}}
+  G[User's role assignments] --> R{{Resolver}}
   INV[(Inventory<br/>single source)] --> REG[Registry] --> R
   IMP[Implicit baseline] --> R
   R --> S[["session.permissions<br/>(flat string set)"]]
@@ -77,12 +77,12 @@ flowchart TD
   INV --> REG[Runtime registry]
   INV --> ID[identity: what can I do?]
   INV --> GEN[Generated PermissionKey type<br/>shared FE + BE]
-  MOD[Each module's local statement] -. parity test .-> INV
+  MOD[Each module's generated rbac.ts] -. codegen drift .-> INV
   REG -. aggregate parity .-> INV
   GEN -. drift guard .-> INV
 ```
 
-Three derived consumers, all built from one inventory → cannot drift. Module-local declarations are **guarded mirrors**, not second sources.
+Three derived consumers, all built from one inventory → cannot drift. Each module's `src/generated/rbac.ts` is **generated from the inventory** (emitted by `pnpm gen:rbac`, drift-guarded), not a hand-maintained second source.
 
 **Build-time invariants** (fail-fast — refuse to boot/build if violated):
 
@@ -90,7 +90,7 @@ Three derived consumers, all built from one inventory → cannot drift. Module-l
 |---|---|
 | no dangling grant | a role granting a non-existent permission |
 | no duplicate key | two modules declaring the same permission |
-| per-module parity | a module's statement drifting from inventory |
+| per-module codegen drift | a module's generated `rbac.ts` drifting from inventory |
 | aggregate parity | a module missing, or an orphan inventory entry |
 | codegen drift | the generated type out of sync with inventory |
 
@@ -141,6 +141,8 @@ sequenceDiagram
 | unknown role slug | contributes nothing |
 | RPC checker not wired at boot | throws (never silently passes) |
 | frontend has no delivered set | hides everything |
+
+**Scope foundation (this release).** The Scope layer above is now backed by shared machinery: the session carries the holder's scoped role *assignments* — `(role, scope_kind, scope_id)`, with `org_unit` scopes pre-expanded to their subtree — and `resolveScope` answers "which rows does this permission reach?", which the scope-kit turns into a query predicate. Modules migrate their list/mutation queries onto this kit in the following PRs; until a module adopts it, its existing scope checks (group membership, ownership, self-vs-any) stay authoritative.
 
 ---
 
