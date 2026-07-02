@@ -87,6 +87,7 @@ export interface RaMonitoringRow {
 export async function listAllocations(input: {
   account_id?: string;
   project_id?: string;
+  worker_id?: string;
   active_from?: string;
   active_to?: string;
   q?: string;
@@ -98,6 +99,7 @@ export async function listAllocations(input: {
   const conds = [tenantScoped(allocation.tenant_id, session), isNull(allocation.deleted_at)];
   if (input.project_id) conds.push(eq(allocation.project_id, input.project_id));
   if (input.account_id) conds.push(eq(project.account_id, input.account_id));
+  if (input.worker_id) conds.push(eq(allocation.worker_id, input.worker_id));
   const joinScope = buildAllocationJoinScope(session);
   if (joinScope) conds.push(joinScope);
   if (input.active_from) {
