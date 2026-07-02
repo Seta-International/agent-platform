@@ -11,7 +11,7 @@
     "test:e2e": "pnpm --filter @seta/web test:e2e",
     "lint": "pnpm depcruise && pnpm lint:styles && pnpm lint:raw-sql && pnpm lint:db && pnpm lint:test-layout && pnpm lint:module-shape && pnpm lint:boundaries && pnpm lint:rbac-coverage && pnpm exec biome ci .",
     "lint:boundaries": "eslint . --max-warnings=999",
-    "lint:db": "node scripts/lint-db.mjs",
+    "lint:db": "node scripts/lint-db.mjs && node scripts/lint-migration-prefixes.mjs",
     "lint:module-shape": "node scripts/lint-module-shape.mjs",
     "lint:rbac-coverage": "node scripts/lint-rbac-coverage.mjs",
     "lint:raw-sql": "bash scripts/audit-raw-sql.sh",
