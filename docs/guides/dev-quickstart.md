@@ -122,6 +122,8 @@ pnpm db:down && pnpm db:up && pnpm db:migrate && pnpm db:seed
 
 `db:seed` also seeds the core skill catalog (categories + skills) and attaches skills to candidates/requisitions. The seed is idempotent — re-running it adds zero rows. `private/` is gitignored; it never enters the repo. Knowledge files and notification rows are intentionally not seeded directly: they populate through the real upload/scan pipeline and the async event subscriber when the worker runs.
 
+The fixture's delivery-lead demo groups (which demonstrate org-unit-scoped access) only appear after a second `pnpm db:seed` run with the app up: their org-unit grants validate against an async read model that a dispatcherless first seed hasn't populated yet. So on a fresh DB, run `pnpm db:seed` once to provision the tenant and data, start `pnpm dev`, then re-run `pnpm db:seed` — the second pass is a no-op except for creating those groups.
+
 ## Hand it to an agent
 
 > Bootstrap my local dev environment. Assume Docker, Node 24, and pnpm 11 are installed. Run `pnpm install`, `cp .env.example .env` and fill `BETTER_AUTH_SECRET`, `CRYPTO_LOCAL_MASTER_KEY`, and `OPENAI_API_KEY`, then `pnpm db:up`, `pnpm db:migrate`, and `pnpm db:seed`. Verify by starting `pnpm dev` and reporting whether <http://localhost:5173/login> accepts `admin@example.com` / `ChangeMe@2026`. Stop and ask before running anything destructive.

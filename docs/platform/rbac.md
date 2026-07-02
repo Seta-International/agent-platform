@@ -142,7 +142,7 @@ sequenceDiagram
 | RPC checker not wired at boot | throws (never silently passes) |
 | frontend has no delivered set | hides everything |
 
-**Scope foundation (this release).** The Scope layer above is now backed by shared machinery: the session carries the holder's scoped role *assignments* — `(role, scope_kind, scope_id)`, with `org_unit` scopes pre-expanded to their subtree — and `resolveScope` answers "which rows does this permission reach?", which the scope-kit turns into a query predicate. Modules migrate their list/mutation queries onto this kit in the following PRs; until a module adopts it, its existing scope checks (group membership, ownership, self-vs-any) stay authoritative.
+**Scope foundation (this release).** The Scope layer above is now backed by shared machinery: the session carries the holder's scoped role *assignments* — `(role, scope_kind, scope_id)`, with `org_unit` scopes pre-expanded to their subtree — and `resolveScope` answers "which rows does this permission reach?", which the scope-kit turns into a query predicate. `people` (worker directory) and `pm` (projects, accounts, allocations) now enforce their assignment scopes through the shared scope-kit — org-unit, self, and relationship arms — replacing their prior permission-only checks. Other modules still migrate their list/mutation queries onto the kit in later PRs; until a module adopts it, its existing scope checks (group membership, ownership, self-vs-any) stay authoritative. Admins set org-unit scopes via the authenticated `GET /api/identity/v1/org-units` route and the group-detail scope picker.
 
 ---
 
