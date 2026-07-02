@@ -128,6 +128,7 @@ CREATE TABLE "people"."worker_history" (
 --> statement-breakpoint
 ALTER TABLE "people"."employment_period" ADD CONSTRAINT "employment_period_person_fk" FOREIGN KEY ("person_id") REFERENCES "people"."person"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "people"."org_unit" ADD CONSTRAINT "org_unit_parent_fk" FOREIGN KEY ("parent_id") REFERENCES "people"."org_unit"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "people"."org_unit" ADD CONSTRAINT "org_unit_head_worker_fk" FOREIGN KEY ("head_worker_id") REFERENCES "people"."person"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "people"."person_skill" ADD CONSTRAINT "person_skill_person_fk" FOREIGN KEY ("person_id") REFERENCES "people"."person"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "people"."worker" ADD CONSTRAINT "worker_org_unit_id_org_unit_id_fk" FOREIGN KEY ("org_unit_id") REFERENCES "people"."org_unit"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "people"."worker" ADD CONSTRAINT "worker_person_fk" FOREIGN KEY ("person_id") REFERENCES "people"."person"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint

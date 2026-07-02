@@ -1,5 +1,5 @@
 {
-  "id": "b2e97ea5-2ee7-47b1-b3e4-cb6ae6d0f929",
+  "id": "9d86a2ac-a624-4895-b977-39ef3fb698dc",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -336,6 +336,16 @@
           "columnsFrom": ["parent_id"],
           "columnsTo": ["id"],
           "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "org_unit_head_worker_fk": {
+          "name": "org_unit_head_worker_fk",
+          "tableFrom": "org_unit",
+          "tableTo": "person",
+          "schemaTo": "people",
+          "columnsFrom": ["head_worker_id"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
