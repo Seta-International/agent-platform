@@ -15,7 +15,7 @@ const task = (over: Partial<NormalizedTask> & { title: string }): NormalizedTask
 });
 
 const plan: WeeklyPlan = {
-  days: [{ day: 'wed', blocks: [{ label: 'Focus', taskTitles: ['A'] }] }],
+  days: [{ day: 'Wednesday', blocks: [{ label: 'Focus', taskTitles: ['A'] }] }],
   unplaced: [],
 };
 
