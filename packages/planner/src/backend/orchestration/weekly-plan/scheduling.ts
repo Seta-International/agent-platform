@@ -88,3 +88,69 @@ export function windowDays(window: PlanWindow): Weekday[] {
 export function capacityHint(taskCount: number, window: PlanWindow): number {
   return Math.ceil(taskCount / windowDays(window).length);
 }
+
+// ─── Validation ──────────────────────────────────────────────────────────────
+
+/** The weekday a due date falls on when it lies inside the planned week; null otherwise
+ *  (including Sat/Sun due dates, which constrain nothing). */
+export function dueDayInWindow(dueAt: string | null, window: PlanWindow): Weekday | null {
+  if (!dueAt) return null;
+  const due = dueAt.slice(0, 10);
+  const monday = addDays(window.weekEnd, -4);
+  if (due < monday || due > window.weekEnd) return null;
+  const idx = Math.round(
+    (Date.parse(`${due}T00:00:00Z`) - Date.parse(`${monday}T00:00:00Z`)) / 86_400_000,
+  );
+  return (WEEKDAY_ORDER[idx] as Weekday | undefined) ?? null;
+}
+
+export interface PlanValidation {
+  ok: boolean;
+  /** Human-readable violations — fed back to the LLM verbatim on the repair attempt. */
+  violations: string[];
+}
+
+export function validatePlan(
+  plan: WeeklyPlan,
+  tasks: NormalizedTask[],
+  window: PlanWindow,
+): PlanValidation {
+  const violations: string[] = [];
+  const allowed = new Set(windowDays(window));
+  const dayIdx = new Map(WEEKDAY_ORDER.map((d, i) => [d, i]));
+
+  const placed = new Map<string, number>();
+  for (const day of plan.days) {
+    if (!allowed.has(day.day)) {
+      violations.push(`day "${day.day}" is outside the planning window (${window.startDay}-fri)`);
+    }
+    for (const block of day.blocks) {
+      for (const title of block.taskTitles) placed.set(title, (placed.get(title) ?? 0) + 1);
+    }
+  }
+
+  if (plan.unplaced.length > 0) violations.push(`unplaced tasks: ${plan.unplaced.join(', ')}`);
+
+  const expected = new Map<string, number>();
+  for (const t of tasks) expected.set(t.title, (expected.get(t.title) ?? 0) + 1);
+  for (const [title, n] of expected) {
+    const got = placed.get(title) ?? 0;
+    if (got !== n) violations.push(`task "${title}" placed ${got} time(s), expected ${n}`);
+  }
+  for (const title of placed.keys()) {
+    if (!expected.has(title)) violations.push(`unknown task "${title}" in plan`);
+  }
+
+  for (const t of tasks) {
+    const dueDay = dueDayInWindow(t.dueAt, window);
+    if (!dueDay) continue;
+    for (const day of plan.days) {
+      const inDay = day.blocks.some((b) => b.taskTitles.includes(t.title));
+      if (inDay && (dayIdx.get(day.day) ?? 0) > (dayIdx.get(dueDay) ?? 4)) {
+        violations.push(`task "${t.title}" is due ${dueDay} but placed on ${day.day}`);
+      }
+    }
+  }
+
+  return { ok: violations.length === 0, violations };
+}

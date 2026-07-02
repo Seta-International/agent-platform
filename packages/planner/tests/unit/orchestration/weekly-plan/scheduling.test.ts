@@ -5,6 +5,7 @@ import {
   prePassOrder,
   resolvePlanWindow,
   resolveWeekChoice,
+  validatePlan,
   windowDays,
 } from '../../../../src/backend/orchestration/weekly-plan/scheduling.ts';
 import type {
@@ -143,5 +144,68 @@ describe('windowDays / capacityHint', () => {
   it('capacity is ceil(tasks / remaining days)', () => {
     expect(capacityHint(7, WED_FRI)).toBe(3); // 7 tasks / 3 days
     expect(capacityHint(3, WED_FRI)).toBe(1);
+  });
+});
+
+describe('validatePlan', () => {
+  const tasks = [
+    task({ title: 'A', dueAt: '2026-07-09' }), // due Thursday
+    task({ title: 'B' }),
+  ];
+  const plan = (
+    days: { day: 'mon' | 'tue' | 'wed' | 'thu' | 'fri'; titles: string[] }[],
+    unplaced: string[] = [],
+  ) => ({
+    days: days.map((d) => ({ day: d.day, blocks: [{ label: 'Focus', taskTitles: d.titles }] })),
+    unplaced,
+  });
+
+  it('accepts a plan that places every task once, inside the window, on/before its due day', () => {
+    const v = validatePlan(
+      plan([
+        { day: 'wed', titles: ['A'] },
+        { day: 'fri', titles: ['B'] },
+      ]),
+      tasks,
+      WED_FRI,
+    );
+    expect(v).toEqual({ ok: true, violations: [] });
+  });
+
+  it('flags days outside the window', () => {
+    const v = validatePlan(plan([{ day: 'mon', titles: ['A', 'B'] }]), tasks, WED_FRI);
+    expect(v.ok).toBe(false);
+    expect(v.violations.join(' ')).toContain('outside the planning window');
+  });
+
+  it('flags missing, duplicated, unknown, and unplaced tasks', () => {
+    const v = validatePlan(
+      plan([{ day: 'wed', titles: ['A', 'A', 'Ghost'] }], ['B']),
+      tasks,
+      WED_FRI,
+    );
+    expect(v.ok).toBe(false);
+    expect(v.violations.join(' ')).toContain('"A" placed 2');
+    expect(v.violations.join(' ')).toContain('unknown task "Ghost"');
+    expect(v.violations.join(' ')).toContain('unplaced tasks: B');
+  });
+
+  it('flags a task placed after its due day', () => {
+    const v = validatePlan(
+      plan([
+        { day: 'fri', titles: ['A'] },
+        { day: 'wed', titles: ['B'] },
+      ]),
+      tasks,
+      WED_FRI,
+    );
+    expect(v.ok).toBe(false);
+    expect(v.violations.join(' ')).toContain('"A" is due thu but placed on fri');
+  });
+
+  it('a due date outside the planned week constrains nothing', () => {
+    const t = [task({ title: 'far', dueAt: '2026-08-01' })];
+    const v = validatePlan(plan([{ day: 'fri', titles: ['far'] }]), t, WED_FRI);
+    expect(v.ok).toBe(true);
   });
 });
