@@ -82,12 +82,32 @@ function primaryDeptByEmployee(
   return new Map([...best].map(([id, v]) => [id, v.dept]));
 }
 
+export interface TopLevelDeliveryUnit {
+  id: string;
+  name: string;
+  head_worker_id: string | null;
+}
+
+/** Top-level (direct child of Executive) org units of kind 'delivery' — the fixture's demo
+ * hook for org-scoped roles (each becomes a delivery-lead group in phase-access-groups). */
+async function fetchTopLevelDeliveryUnits(
+  tenantId: string,
+  execId: string,
+): Promise<TopLevelDeliveryUnit[]> {
+  const r = await coreDb().execute(sql`
+    SELECT id, name, head_worker_id FROM people.org_unit
+    WHERE tenant_id = ${tenantId} AND parent_id = ${execId} AND kind = 'delivery'
+    ORDER BY name`);
+  return r.rows as unknown as TopLevelDeliveryUnit[];
+}
+
 /**
  * Seed the org spine — Executive → Operation(+ real function units) / Delivery / PMO — set unit
  * heads from leadership.csv, and place each worker into a unit by (1) an explicit leadership
  * org_unit override, else (2) their primary allocation's dept, else (3) a primary_role fallback.
  * Idempotent: units reused by name, editWorker no-ops when org_unit_id is unchanged. Must run
- * after people + PM so workers and allocations exist.
+ * after people + PM so workers and allocations exist. Returns the top-level delivery units (with
+ * heads, resolved after backfillManagers) so a later phase can seed org-scoped fixture groups.
  */
 export async function seedOrgStructure(
   session: SessionScope,
@@ -96,7 +116,7 @@ export async function seedOrgStructure(
   allocations: AllocationRec[],
   leadership: LeadershipRec[],
   people: Map<string, { workerId: string; userId: string }>,
-): Promise<void> {
+): Promise<{ topLevelDeliveryUnits: TopLevelDeliveryUnit[] }> {
   const deptByCode = deptByProjectCode(projects);
   const primaryDept = primaryDeptByEmployee(allocations, deptByCode);
 
@@ -160,10 +180,14 @@ export async function seedOrgStructure(
 
   await backfillManagers(session.tenant_id);
 
+  const topLevelDeliveryUnits = await fetchTopLevelDeliveryUnits(session.tenant_id, exec);
+
   log.info(
-    { units: OPERATION_FUNCTIONS.length + 4, placed },
+    { units: OPERATION_FUNCTIONS.length + 4, placed, deliveryUnits: topLevelDeliveryUnits.length },
     'phase: org-structure done (units derived from fixture depts)',
   );
+
+  return { topLevelDeliveryUnits };
 }
 
 /**

@@ -166,6 +166,48 @@ describe('seed-fixture end-to-end', () => {
         const { nodes: companyNodes } = await getOrgCompany(adminSession);
         expect(companyNodes.find((n) => n.kind === 'delivery')?.count ?? 0).toBeGreaterThan(0);
 
+        // Org scoping demo: a delivery-lead-<unit> group per top-level delivery unit, carrying
+        // org_unit-scoped pm.manager + people.viewer, with the unit's head as a member.
+        const deliveryUnit = units.find((u) => u.kind === 'delivery')!;
+        const deliveryLeadSlug = `delivery-lead-${deliveryUnit.name
+          .toLowerCase()
+          .trim()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/(^-|-$)/g, '')}`;
+        const groupRow = (
+          await coreDb().execute(
+            sql`SELECT id FROM identity.access_group WHERE tenant_id = ${adminSession.tenant_id} AND slug = ${deliveryLeadSlug}`,
+          )
+        ).rows[0] as { id: string } | undefined;
+        expect(groupRow).toBeTruthy();
+        const roleRows = (
+          await coreDb().execute(
+            sql`SELECT role_slug, scope_kind, scope_id FROM identity.access_group_role WHERE group_id = ${groupRow!.id} ORDER BY role_slug`,
+          )
+        ).rows as Array<{ role_slug: string; scope_kind: string; scope_id: string }>;
+        expect(roleRows).toEqual([
+          { role_slug: 'people.viewer', scope_kind: 'org_unit', scope_id: deliveryUnit.id },
+          { role_slug: 'pm.manager', scope_kind: 'org_unit', scope_id: deliveryUnit.id },
+        ]);
+        const memberRows = (
+          await coreDb().execute(
+            sql`SELECT user_id FROM identity.access_group_membership WHERE group_id = ${groupRow!.id}`,
+          )
+        ).rows as Array<{ user_id: string }>;
+        expect(memberRows.length).toBeGreaterThan(0);
+
+        // The base member persona carries a self-scoped people.viewer — every seeded worker's
+        // group memberships resolve at least one non-tenant-scoped role assignment.
+        const nonTenantScoped = (
+          await coreDb().execute(
+            sql`SELECT DISTINCT agr.scope_kind FROM identity.access_group_role agr
+                JOIN identity.access_group ag ON ag.id = agr.group_id
+                WHERE ag.tenant_id = ${adminSession.tenant_id} AND agr.scope_kind <> 'tenant'
+                ORDER BY agr.scope_kind`,
+          )
+        ).rows as Array<{ scope_kind: string }>;
+        expect(nonTenantScoped.map((r) => r.scope_kind)).toEqual(['org_unit', 'self']);
+
         // Second run — must be idempotent
         await seedFixtureCommand({
           tenant: 'seta-international',
