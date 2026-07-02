@@ -49,6 +49,8 @@ jobs:
       jira-token: ${{ secrets.JIRA_TOKEN }}
       jira-ai-usage-field: ${{ secrets.JIRA_AI_USAGE_FIELD }}
       reporting-db-url: ${{ secrets.REPORTING_DB_URL }}
+      jira-ai-tool-field: ${{ secrets.JIRA_AI_TOOL_FIELD }}
+      jira-ai-time-saved-field: ${{ secrets.JIRA_AI_TIME_SAVED_FIELD }}
 
   collect-month:
     if: github.event_name == 'schedule' && github.event.schedule == '30 0 1 * *'
@@ -68,6 +70,8 @@ jobs:
       jira-token: ${{ secrets.JIRA_TOKEN }}
       jira-ai-usage-field: ${{ secrets.JIRA_AI_USAGE_FIELD }}
       reporting-db-url: ${{ secrets.REPORTING_DB_URL }}
+      jira-ai-tool-field: ${{ secrets.JIRA_AI_TOOL_FIELD }}
+      jira-ai-time-saved-field: ${{ secrets.JIRA_AI_TIME_SAVED_FIELD }}
 
   quarterly-check:
     if: github.event_name == 'schedule' && github.event.schedule == '45 1 1 1,4,7,10 *'
