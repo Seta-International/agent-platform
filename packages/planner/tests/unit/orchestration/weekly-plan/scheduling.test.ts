@@ -25,8 +25,8 @@ const task = (over: Partial<NormalizedTask> & { title: string }): NormalizedTask
 });
 
 const WED_FRI: PlanWindow = {
-  startDay: 'wed',
-  endDay: 'fri',
+  startDay: 'Wednesday',
+  endDay: 'Friday',
   weekStart: '2026-07-08',
   weekEnd: '2026-07-10',
 };
@@ -50,8 +50,8 @@ describe('resolvePlanWindow (UTC-pinned)', () => {
 
   it('Monday ask, this week → full Mon–Fri', () => {
     expect(resolvePlanWindow(at('2026-07-06'), 'this', 'UTC')).toEqual({
-      startDay: 'mon',
-      endDay: 'fri',
+      startDay: 'Monday',
+      endDay: 'Friday',
       weekStart: '2026-07-06',
       weekEnd: '2026-07-10',
     });
@@ -59,8 +59,8 @@ describe('resolvePlanWindow (UTC-pinned)', () => {
 
   it('Wednesday ask, this week → starts Wednesday (mid-week rule)', () => {
     expect(resolvePlanWindow(at('2026-07-08'), 'this', 'UTC')).toEqual({
-      startDay: 'wed',
-      endDay: 'fri',
+      startDay: 'Wednesday',
+      endDay: 'Friday',
       weekStart: '2026-07-08',
       weekEnd: '2026-07-10',
     });
@@ -68,8 +68,8 @@ describe('resolvePlanWindow (UTC-pinned)', () => {
 
   it('Friday ask, this week → single-day window', () => {
     expect(resolvePlanWindow(at('2026-07-10'), 'this', 'UTC')).toEqual({
-      startDay: 'fri',
-      endDay: 'fri',
+      startDay: 'Friday',
+      endDay: 'Friday',
       weekStart: '2026-07-10',
       weekEnd: '2026-07-10',
     });
@@ -77,8 +77,8 @@ describe('resolvePlanWindow (UTC-pinned)', () => {
 
   it('Saturday and Sunday ask, this week → rolls to the upcoming Mon–Fri', () => {
     const expected = {
-      startDay: 'mon',
-      endDay: 'fri',
+      startDay: 'Monday',
+      endDay: 'Friday',
       weekStart: '2026-07-13',
       weekEnd: '2026-07-17',
     };
@@ -88,8 +88,8 @@ describe('resolvePlanWindow (UTC-pinned)', () => {
 
   it('weekday ask, next week → next Mon–Fri', () => {
     expect(resolvePlanWindow(at('2026-07-08'), 'next', 'UTC')).toEqual({
-      startDay: 'mon',
-      endDay: 'fri',
+      startDay: 'Monday',
+      endDay: 'Friday',
       weekStart: '2026-07-13',
       weekEnd: '2026-07-17',
     });
@@ -97,8 +97,8 @@ describe('resolvePlanWindow (UTC-pinned)', () => {
 
   it('weekend ask, next week → the imminent Mon–Fri (same as weekend this-week)', () => {
     expect(resolvePlanWindow(at('2026-07-11'), 'next', 'UTC')).toEqual({
-      startDay: 'mon',
-      endDay: 'fri',
+      startDay: 'Monday',
+      endDay: 'Friday',
       weekStart: '2026-07-13',
       weekEnd: '2026-07-17',
     });
@@ -107,7 +107,7 @@ describe('resolvePlanWindow (UTC-pinned)', () => {
   it('resolves "today" in the given IANA timezone, not the server zone', () => {
     // 18:00 UTC on Monday 2026-07-06 is already Tuesday 01:00 in Asia/Ho_Chi_Minh (UTC+7).
     const w = resolvePlanWindow(new Date('2026-07-06T18:00:00Z'), 'this', 'Asia/Ho_Chi_Minh');
-    expect(w.startDay).toBe('tue');
+    expect(w.startDay).toBe('Tuesday');
     expect(w.weekStart).toBe('2026-07-07');
     expect(w.weekEnd).toBe('2026-07-10');
   });
@@ -140,7 +140,7 @@ describe('prePassOrder', () => {
 
 describe('windowDays / capacityHint', () => {
   it('lists only the days from startDay', () => {
-    expect(windowDays(WED_FRI)).toEqual(['wed', 'thu', 'fri']);
+    expect(windowDays(WED_FRI)).toEqual(['Wednesday', 'Thursday', 'Friday']);
   });
 
   it('capacity is ceil(tasks / remaining days)', () => {
@@ -155,7 +155,7 @@ describe('validatePlan', () => {
     task({ title: 'B' }),
   ];
   const plan = (
-    days: { day: 'mon' | 'tue' | 'wed' | 'thu' | 'fri'; titles: string[] }[],
+    days: { day: 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday'; titles: string[] }[],
     unplaced: string[] = [],
   ) => ({
     days: days.map((d) => ({ day: d.day, blocks: [{ label: 'Focus', taskTitles: d.titles }] })),
@@ -165,8 +165,8 @@ describe('validatePlan', () => {
   it('accepts a plan that places every task once, inside the window, on/before its due day', () => {
     const v = validatePlan(
       plan([
-        { day: 'wed', titles: ['A'] },
-        { day: 'fri', titles: ['B'] },
+        { day: 'Wednesday', titles: ['A'] },
+        { day: 'Friday', titles: ['B'] },
       ]),
       tasks,
       WED_FRI,
@@ -175,14 +175,14 @@ describe('validatePlan', () => {
   });
 
   it('flags days outside the window', () => {
-    const v = validatePlan(plan([{ day: 'mon', titles: ['A', 'B'] }]), tasks, WED_FRI);
+    const v = validatePlan(plan([{ day: 'Monday', titles: ['A', 'B'] }]), tasks, WED_FRI);
     expect(v.ok).toBe(false);
     expect(v.violations.join(' ')).toContain('outside the planning window');
   });
 
   it('flags missing, duplicated, unknown, and unplaced tasks', () => {
     const v = validatePlan(
-      plan([{ day: 'wed', titles: ['A', 'A', 'Ghost'] }], ['B']),
+      plan([{ day: 'Wednesday', titles: ['A', 'A', 'Ghost'] }], ['B']),
       tasks,
       WED_FRI,
     );
@@ -195,19 +195,19 @@ describe('validatePlan', () => {
   it('flags a task placed after its due day', () => {
     const v = validatePlan(
       plan([
-        { day: 'fri', titles: ['A'] },
-        { day: 'wed', titles: ['B'] },
+        { day: 'Friday', titles: ['A'] },
+        { day: 'Wednesday', titles: ['B'] },
       ]),
       tasks,
       WED_FRI,
     );
     expect(v.ok).toBe(false);
-    expect(v.violations.join(' ')).toContain('"A" is due thu but placed on fri');
+    expect(v.violations.join(' ')).toContain('"A" is due Thursday but placed on Friday');
   });
 
   it('a due date outside the planned week constrains nothing', () => {
     const t = [task({ title: 'far', dueAt: '2026-08-01' })];
-    const v = validatePlan(plan([{ day: 'fri', titles: ['far'] }]), t, WED_FRI);
+    const v = validatePlan(plan([{ day: 'Friday', titles: ['far'] }]), t, WED_FRI);
     expect(v.ok).toBe(true);
   });
 });
@@ -222,20 +222,20 @@ describe('fallbackPlan', () => {
     ];
     const p = fallbackPlan(tasks, WED_FRI); // capacity ceil(4/3) = 2 per day
     expect(p.unplaced).toEqual([]);
-    expect(p.days.map((d) => d.day)).toEqual(['wed', 'thu']);
+    expect(p.days.map((d) => d.day)).toEqual(['Wednesday', 'Thursday']);
     expect(p.days[0]!.blocks[0]!.taskTitles).toEqual(['T1', 'T2']);
     expect(p.days[1]!.blocks[0]!.taskTitles).toEqual(['T3', 'T4']);
   });
 
   it('handles the single-day Friday window', () => {
     const friOnly: PlanWindow = {
-      startDay: 'fri',
-      endDay: 'fri',
+      startDay: 'Friday',
+      endDay: 'Friday',
       weekStart: '2026-07-10',
       weekEnd: '2026-07-10',
     };
     const p = fallbackPlan([task({ title: 'only' })], friOnly);
-    expect(p.days).toEqual([{ day: 'fri', blocks: [{ label: 'Focus', taskTitles: ['only'] }] }]);
+    expect(p.days).toEqual([{ day: 'Friday', blocks: [{ label: 'Focus', taskTitles: ['only'] }] }]);
   });
 });
 
@@ -244,6 +244,6 @@ describe('synthesizeWorkloadInsight', () => {
     const p = fallbackPlan([task({ title: 'a' }), task({ title: 'b' })], WED_FRI);
     const insight = synthesizeWorkloadInsight(p);
     expect(insight.kind).toBe('workload');
-    expect(insight.text).toContain('wed');
+    expect(insight.text).toContain('Wednesday');
   });
 });

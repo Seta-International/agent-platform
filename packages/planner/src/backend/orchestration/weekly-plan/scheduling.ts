@@ -56,7 +56,7 @@ export function resolvePlanWindow(now: Date, week: WeekChoice, timezone?: string
   const startsToday = week === 'this' && !isWeekend;
   return {
     startDay: WEEKDAY_ORDER[startsToday ? dayIdx : 0] as Weekday,
-    endDay: 'fri',
+    endDay: 'Friday',
     weekStart: startsToday ? today : planMonday,
     weekEnd: addDays(planMonday, 4),
   };
