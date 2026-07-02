@@ -103,10 +103,10 @@ describe('createUser', () => {
             { type: 'cli', user_id: null },
           );
 
-          // role_grants row exists
+          // role_assignments row exists
           const grantRows = (
             await pool.query(
-              `SELECT role_slug, granted_via FROM identity.role_grants WHERE user_id = $1`,
+              `SELECT role_slug, granted_via FROM identity.role_assignments WHERE user_id = $1`,
               [result.user_id],
             )
           ).rows;

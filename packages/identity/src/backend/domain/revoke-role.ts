@@ -1,42 +1,42 @@
 import { emit, withEmit } from '@seta/core/events';
 import { and, eq, isNull } from 'drizzle-orm';
 import { identityDb } from '../db/index.ts';
-import { roleGrants } from '../db/schema.ts';
+import { roleAssignments } from '../db/schema.ts';
 import { IdentityError, requirePermission } from '../rbac.ts';
 import type { Actor } from './create-user.ts';
 
-export async function revokeRole(grantId: string, actor: Actor): Promise<void> {
-  const [grant] = await identityDb()
+export async function revokeRole(assignmentId: string, actor: Actor): Promise<void> {
+  const [assignment] = await identityDb()
     .select()
-    .from(roleGrants)
-    .where(eq(roleGrants.id, grantId))
+    .from(roleAssignments)
+    .where(eq(roleAssignments.id, assignmentId))
     .limit(1);
-  if (!grant) throw new IdentityError('GRANT_NOT_FOUND', grantId);
-  if (grant.revoked_at) return;
+  if (!assignment) throw new IdentityError('GRANT_NOT_FOUND', assignmentId);
+  if (assignment.revoked_at) return;
 
   if (actor.type === 'user') {
     if (!actor.user_id) throw new IdentityError('FORBIDDEN', 'user actor requires user_id');
-    await requirePermission(actor.user_id, 'identity.role.grant', grant.tenant_id);
+    await requirePermission(actor.user_id, 'identity.role.grant', assignment.tenant_id);
   }
 
   await withEmit(
     {
       actor: {
         userId: actor.user_id ?? 'system',
-        tenantId: grant.tenant_id,
+        tenantId: assignment.tenant_id,
         ip: actor.ip,
         userAgent: actor.user_agent,
       },
     },
     async (tx) => {
       await tx
-        .update(roleGrants)
+        .update(roleAssignments)
         .set({ revoked_at: new Date(), revoked_by: actor.user_id })
-        .where(and(eq(roleGrants.id, grantId), isNull(roleGrants.revoked_at)));
+        .where(and(eq(roleAssignments.id, assignmentId), isNull(roleAssignments.revoked_at)));
       await emit({
-        tenantId: grant.tenant_id,
+        tenantId: assignment.tenant_id,
         aggregateType: 'identity.user',
-        aggregateId: grant.user_id,
+        aggregateId: assignment.user_id,
         eventType: 'identity.role_grant.changed',
         eventVersion: 1,
         payload: {
@@ -46,15 +46,15 @@ export async function revokeRole(grantId: string, actor: Actor): Promise<void> {
             ip: actor.ip,
             user_agent: actor.user_agent,
           },
-          user_id: grant.user_id,
-          tenant_id: grant.tenant_id,
+          user_id: assignment.user_id,
+          tenant_id: assignment.tenant_id,
           change: 'revoked',
           grant: {
-            grant_id: grantId,
-            role_slug: grant.role_slug,
-            scope_type: grant.scope_type,
-            scope_id: grant.scope_id,
-            granted_via: grant.granted_via,
+            grant_id: assignmentId,
+            role_slug: assignment.role_slug,
+            scope_type: assignment.scope_kind,
+            scope_id: assignment.scope_id,
+            granted_via: assignment.granted_via,
           },
         },
       });

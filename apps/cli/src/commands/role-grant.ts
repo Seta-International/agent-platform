@@ -43,17 +43,17 @@ export async function roleGrantCommand(opts: RoleGrantOpts): Promise<void> {
     process.stdout.write(`${JSON.stringify({ grant_id, user_id: userId, role: opts.role })}\n`);
   } else {
     const row = await coreDb().execute(sql`
-      SELECT id FROM identity.role_grants
+      SELECT id FROM identity.role_assignments
       WHERE user_id = ${userId} AND tenant_id = ${tenantId}
-        AND role_slug = ${opts.role} AND scope_type = ${opts.scope}
+        AND role_slug = ${opts.role} AND scope_kind = ${opts.scope}
         AND COALESCE(scope_id, '-') = COALESCE(${opts.scope === 'group' ? opts.group : null}, '-')
         AND revoked_at IS NULL
       LIMIT 1
     `);
-    const grantId = (row.rows[0] as { id?: string } | undefined)?.id;
-    if (!grantId) throw new Error(`No active grant matching ${opts.role} for user ${userId}`);
-    await revokeRole(grantId, { type: 'cli', user_id: null });
-    process.stdout.write(`${JSON.stringify({ revoked_grant_id: grantId })}\n`);
+    const assignmentId = (row.rows[0] as { id?: string } | undefined)?.id;
+    if (!assignmentId) throw new Error(`No active grant matching ${opts.role} for user ${userId}`);
+    await revokeRole(assignmentId, { type: 'cli', user_id: null });
+    process.stdout.write(`${JSON.stringify({ revoked_grant_id: assignmentId })}\n`);
   }
 
   log.info({ userId, role: opts.role, action: opts.action }, 'role grant updated');

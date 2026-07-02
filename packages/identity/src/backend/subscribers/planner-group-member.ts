@@ -70,10 +70,10 @@ export async function applyMemberRemoved(
   ctx: SubscriberCtx,
 ): Promise<void> {
   await pgClient(ctx.tx).query(
-    `UPDATE identity.role_grants
+    `UPDATE identity.role_assignments
      SET revoked_at = NOW(), revoked_by = $1
      WHERE user_id   = $2
-       AND scope_type = 'group'
+       AND scope_kind = 'group'
        AND scope_id   = $3
        AND revoked_at IS NULL`,
     [e.payload.actor.user_id ?? null, e.payload.user_id, e.payload.group_id],

@@ -5,7 +5,7 @@ import {
   accessGroup,
   accessGroupMembership,
   directoryPerson,
-  roleGrants,
+  roleAssignments,
   user,
 } from '../db/schema.ts';
 import { requirePermission } from '../rbac.ts';
@@ -121,9 +121,9 @@ export async function listDirectory(
   const grants =
     userIds.length > 0
       ? await identityDb()
-          .select({ user_id: roleGrants.user_id, role_slug: roleGrants.role_slug })
-          .from(roleGrants)
-          .where(and(isNull(roleGrants.revoked_at), inArray(roleGrants.user_id, userIds)))
+          .select({ user_id: roleAssignments.user_id, role_slug: roleAssignments.role_slug })
+          .from(roleAssignments)
+          .where(and(isNull(roleAssignments.revoked_at), inArray(roleAssignments.user_id, userIds)))
       : [];
 
   const rolesByUser = new Map<string, string[]>();

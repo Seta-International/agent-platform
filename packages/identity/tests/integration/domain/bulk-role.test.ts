@@ -6,7 +6,7 @@ import { withTestDb } from '@seta/shared-testing';
 import { and, eq, isNull } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { identityDb } from '../../../src/backend/db/index.ts';
-import { roleGrants } from '../../../src/backend/db/schema.ts';
+import { roleAssignments } from '../../../src/backend/db/schema.ts';
 import { bulkGrantRole, bulkRevokeRole } from '../../../src/backend/domain/bulk-grant-role.ts';
 import { registerIdentityContributions } from '../../../src/register.ts';
 import { seedTenantWithUsers } from '../../helpers/seed-tenant.ts';
@@ -39,11 +39,11 @@ describe('bulkGrantRole', () => {
     await withDb(async (pool) => {
       const { tenant_id, admin, users } = await seedTenantWithUsers(pool, 3);
       // pre-grant users[0]
-      await identityDb().insert(roleGrants).values({
+      await identityDb().insert(roleAssignments).values({
         user_id: users[0]!,
         tenant_id,
         role_slug: 'knowledge.viewer',
-        scope_type: 'tenant',
+        scope_kind: 'tenant',
         scope_id: null,
       });
 
@@ -63,12 +63,12 @@ describe('bulkGrantRole', () => {
 
       const active = await identityDb()
         .select()
-        .from(roleGrants)
+        .from(roleAssignments)
         .where(
           and(
-            eq(roleGrants.tenant_id, tenant_id),
-            eq(roleGrants.role_slug, 'knowledge.viewer'),
-            isNull(roleGrants.revoked_at),
+            eq(roleAssignments.tenant_id, tenant_id),
+            eq(roleAssignments.role_slug, 'knowledge.viewer'),
+            isNull(roleAssignments.revoked_at),
           ),
         );
       expect(active).toHaveLength(3);
@@ -119,12 +119,12 @@ describe('bulkRevokeRole', () => {
 
       const active = await identityDb()
         .select()
-        .from(roleGrants)
+        .from(roleAssignments)
         .where(
           and(
-            eq(roleGrants.tenant_id, tenant_id),
-            eq(roleGrants.role_slug, 'knowledge.viewer'),
-            isNull(roleGrants.revoked_at),
+            eq(roleAssignments.tenant_id, tenant_id),
+            eq(roleAssignments.role_slug, 'knowledge.viewer'),
+            isNull(roleAssignments.revoked_at),
           ),
         );
       expect(active).toHaveLength(0);

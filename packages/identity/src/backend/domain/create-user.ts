@@ -1,7 +1,7 @@
 import { emit, withEmit } from '@seta/core/events';
 import type { Mailer } from '@seta/shared-mailer';
 import { argon2id } from '../argon2.ts';
-import { account, roleGrants, user } from '../db/schema.ts';
+import { account, roleAssignments, user } from '../db/schema.ts';
 import { IdentityError, requirePermission } from '../rbac.ts';
 import { credentialAccountValues } from './_credential.ts';
 import { isValidEmail } from './_email.ts';
@@ -81,13 +81,13 @@ export async function createUser(
       await tx.insert(account).values(credentialAccountValues(userId, passwordHash));
 
       if (input.initial_role) {
-        const grantId = crypto.randomUUID();
-        await tx.insert(roleGrants).values({
-          id: grantId,
+        const assignmentId = crypto.randomUUID();
+        await tx.insert(roleAssignments).values({
+          id: assignmentId,
           user_id: userId,
           tenant_id: input.tenant_id,
           role_slug: input.initial_role.role_slug,
-          scope_type: input.initial_role.scope_type,
+          scope_kind: input.initial_role.scope_type,
           scope_id: input.initial_role.scope_id,
           granted_by: actor.user_id,
           granted_via: grantedVia,
@@ -109,7 +109,7 @@ export async function createUser(
             tenant_id: input.tenant_id,
             change: 'granted',
             grant: {
-              grant_id: grantId,
+              grant_id: assignmentId,
               ...input.initial_role,
               granted_via: grantedVia,
             },

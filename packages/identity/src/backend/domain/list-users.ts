@@ -40,7 +40,7 @@ export async function listUsers(
 
   const userRolesCte = sql`WITH user_roles AS (
     SELECT user_id, array_agg(DISTINCT role_slug) AS role_slugs
-    FROM identity.role_grants
+    FROM identity.role_assignments
     WHERE tenant_id = ${tenantId} AND revoked_at IS NULL
     GROUP BY user_id
   ),

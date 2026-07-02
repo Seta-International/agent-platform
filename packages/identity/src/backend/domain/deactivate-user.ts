@@ -1,7 +1,7 @@
 import { emit, withEmit } from '@seta/core/events';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { identityDb } from '../db/index.ts';
-import { roleGrants, user } from '../db/schema.ts';
+import { roleAssignments, user } from '../db/schema.ts';
 import { IdentityError, requirePermission } from '../rbac.ts';
 import type { Actor } from './create-user.ts';
 import { requireUserExists } from './helpers.ts';
@@ -17,15 +17,15 @@ export async function deactivateUser(userId: string, actor: Actor): Promise<void
 
   const adminCountRows = await identityDb()
     .select({
-      active_admins: sql<number>`count(distinct ${roleGrants.user_id})::int`,
+      active_admins: sql<number>`count(distinct ${roleAssignments.user_id})::int`,
     })
-    .from(roleGrants)
-    .innerJoin(user, eq(user.id, roleGrants.user_id))
+    .from(roleAssignments)
+    .innerJoin(user, eq(user.id, roleAssignments.user_id))
     .where(
       and(
-        eq(roleGrants.tenant_id, target.tenant_id),
-        eq(roleGrants.role_slug, 'org.admin'),
-        isNull(roleGrants.revoked_at),
+        eq(roleAssignments.tenant_id, target.tenant_id),
+        eq(roleAssignments.role_slug, 'org.admin'),
+        isNull(roleAssignments.revoked_at),
         isNull(user.deactivated_at),
       ),
     );
@@ -33,12 +33,12 @@ export async function deactivateUser(userId: string, actor: Actor): Promise<void
 
   const [adminCheck] = await identityDb()
     .select({ has: sql<boolean>`true` })
-    .from(roleGrants)
+    .from(roleAssignments)
     .where(
       and(
-        eq(roleGrants.user_id, userId),
-        eq(roleGrants.role_slug, 'org.admin'),
-        isNull(roleGrants.revoked_at),
+        eq(roleAssignments.user_id, userId),
+        eq(roleAssignments.role_slug, 'org.admin'),
+        isNull(roleAssignments.revoked_at),
       ),
     )
     .limit(1);

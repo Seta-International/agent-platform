@@ -14,12 +14,12 @@ export async function ensureGroupViewerGrant(input: {
   group_id: string;
   granted_by: string | null;
 }): Promise<void> {
-  const grantId = crypto.randomUUID();
+  const assignmentId = crypto.randomUUID();
   await identityDb().execute(
-    sql`INSERT INTO identity.role_grants
-          (id, tenant_id, user_id, role_slug, scope_type, scope_id, granted_by, granted_via)
+    sql`INSERT INTO identity.role_assignments
+          (id, tenant_id, user_id, role_slug, scope_kind, scope_id, granted_by, granted_via)
         VALUES
-          (${grantId}, ${input.tenant_id}, ${input.user_id}, 'planner.viewer', 'group', ${input.group_id}, ${input.granted_by}, 'admin')
+          (${assignmentId}, ${input.tenant_id}, ${input.user_id}, 'planner.viewer', 'group', ${input.group_id}, ${input.granted_by}, 'admin')
         ON CONFLICT DO NOTHING`,
   );
   await invalidateUserSessions(input.user_id);

@@ -6,7 +6,7 @@ import { withTestDb } from '@seta/shared-testing';
 import { and, eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { identityDb } from '../../src/backend/db/index.ts';
-import { productGrant, roleGrants } from '../../src/backend/db/schema.ts';
+import { productGrant, roleAssignments } from '../../src/backend/db/schema.ts';
 import { resolveProductAccess } from '../../src/index.ts';
 import { registerIdentityContributions } from '../../src/register.ts';
 import { createTestTenantWithAdmin } from '../../src/testing/index.ts';
@@ -50,12 +50,12 @@ describe('resolveProductAccess', () => {
             },
           ]);
           // user holds a pm role (implies pm) and a hiring role (NOT tenant-enabled)
-          await db.insert(roleGrants).values([
+          await db.insert(roleAssignments).values([
             {
               user_id: userId,
               tenant_id: tenantId,
               role_slug: 'pm.pmo',
-              scope_type: 'tenant',
+              scope_kind: 'tenant',
               scope_id: null,
               granted_via: 'admin',
             },
@@ -63,7 +63,7 @@ describe('resolveProductAccess', () => {
               user_id: userId,
               tenant_id: tenantId,
               role_slug: 'hiring.recruiter',
-              scope_type: 'tenant',
+              scope_kind: 'tenant',
               scope_id: null,
               granted_via: 'admin',
             },

@@ -33,7 +33,7 @@ describe('listRoleGrants', () => {
           const grantId3 = crypto.randomUUID();
 
           await pool.query(
-            `INSERT INTO identity.role_grants (id, user_id, tenant_id, role_slug, scope_type, scope_id)
+            `INSERT INTO identity.role_assignments (id, user_id, tenant_id, role_slug, scope_kind, scope_id)
              VALUES ($1, $2, $3, 'org.admin', 'tenant', NULL),
                     ($4, $2, $3, 'planner.member', 'tenant', NULL),
                     ($5, $2, $3, 'org.viewer', 'tenant', NULL)`,
@@ -41,9 +41,10 @@ describe('listRoleGrants', () => {
           );
 
           // Soft-revoke the third grant
-          await pool.query(`UPDATE identity.role_grants SET revoked_at = NOW() WHERE id = $1`, [
-            grantId3,
-          ]);
+          await pool.query(
+            `UPDATE identity.role_assignments SET revoked_at = NOW() WHERE id = $1`,
+            [grantId3],
+          );
 
           const result = await listRoleGrants(userId);
 
