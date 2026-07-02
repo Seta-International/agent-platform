@@ -1,5 +1,5 @@
 // packages/core/tests/integration/product-gate-intersection.test.ts
-import { createUser, listRoleGrants } from '@seta/identity';
+import { createUser, listRoleAssignments } from '@seta/identity';
 import { registerIdentityContributions } from '@seta/identity/register';
 import { initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
@@ -50,7 +50,7 @@ describe('product gate intersection', () => {
         // Case 1: with resolveProductAccess granting only 'pm'
         const scope = await getSessionScope(
           {
-            listRoleGrants,
+            listRoleAssignments,
             resolvePermissions: async () => rawPerms,
             resolveProductAccess: async () => new Set(['pm']),
           },
@@ -69,7 +69,7 @@ describe('product gate intersection', () => {
         _clearHotForTest();
         const scopeCached = await getSessionScope(
           {
-            listRoleGrants,
+            listRoleAssignments,
             resolvePermissions: async () => rawPerms,
             resolveProductAccess: async () => new Set(['pm']),
           },
@@ -95,7 +95,7 @@ describe('product gate intersection', () => {
         );
         const scopeNoDep = await getSessionScope(
           {
-            listRoleGrants,
+            listRoleAssignments,
             resolvePermissions: async () => rawPerms,
             // no resolveProductAccess
           },

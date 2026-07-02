@@ -1,5 +1,5 @@
 // packages/core/tests/integration/session-group-ids.test.ts
-import { createUser, listRoleGrants } from '@seta/identity';
+import { createUser, listRoleAssignments } from '@seta/identity';
 import { registerIdentityContributions } from '@seta/identity/register';
 import { initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
@@ -43,7 +43,7 @@ describe('session group_ids', () => {
         // Fresh path: with resolver
         const scope = await getSessionScope(
           {
-            listRoleGrants,
+            listRoleAssignments,
             resolvePermissions: async () => new Set(),
             resolveGroupIds: async () => ['g1', 'g2'],
           },
@@ -58,7 +58,7 @@ describe('session group_ids', () => {
         _clearHotForTest();
         const scopeHit = await getSessionScope(
           {
-            listRoleGrants,
+            listRoleAssignments,
             resolvePermissions: async () => new Set(),
             resolveGroupIds: async () => ['g3'],
           },
@@ -82,7 +82,7 @@ describe('session group_ids', () => {
         );
         const scopeNoResolver = await getSessionScope(
           {
-            listRoleGrants,
+            listRoleAssignments,
             resolvePermissions: async () => new Set(),
           },
           'sess-grp-3',

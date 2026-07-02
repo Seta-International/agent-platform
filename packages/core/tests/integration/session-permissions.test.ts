@@ -25,12 +25,12 @@ it('populates permissions via the injected resolver', async () => {
         _clearHotForTest();
         const scope = await getSessionScope(
           {
-            listRoleGrants: async () => ({
+            listRoleAssignments: async () => ({
               tenant_id: tenantId,
-              grants: [
+              assignments: [
                 {
                   role_slug: 'knowledge.viewer',
-                  scope_type: 'tenant',
+                  scope_kind: 'tenant',
                   scope_id: null,
                   granted_at: new Date(),
                 },
@@ -70,12 +70,12 @@ it('applies the tenant overlay during resolution', async () => {
         _clearHotForTest();
         const scope = await getSessionScope(
           {
-            listRoleGrants: async () => ({
+            listRoleAssignments: async () => ({
               tenant_id: overlayTenantId,
-              grants: [
+              assignments: [
                 {
                   role_slug: 'knowledge.viewer',
-                  scope_type: 'tenant',
+                  scope_kind: 'tenant',
                   scope_id: null,
                   granted_at: new Date(),
                 },

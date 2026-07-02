@@ -71,8 +71,8 @@ export {
   evictHotAll,
   getSessionScope,
   hashRoleSummary,
-  type ListRoleGrants,
-  type RoleGrant,
+  type ListRoleAssignments,
+  type RoleAssignment,
   rollup,
   type SessionScope,
 } from './session/scope.ts';

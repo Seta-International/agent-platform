@@ -6,7 +6,7 @@ import {
   deactivateUser,
   grantRole,
   IdentityError,
-  listRoleGrants,
+  listRoleAssignments,
   listUsers,
   reactivateUser,
   revokeRole,
@@ -18,7 +18,7 @@ import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 
 describe('@seta/identity public-surface lifecycle', () => {
-  it('createUser → grantRole → listRoleGrants → updateProfile → revokeRole → deactivate → reactivate', async () => {
+  it('createUser → grantRole → listRoleAssignments → updateProfile → revokeRole → deactivate → reactivate', async () => {
     await withTestDb(
       {
         templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -71,9 +71,9 @@ describe('@seta/identity public-surface lifecycle', () => {
             { type: 'user', user_id: adminId },
           );
 
-          const grants = await listRoleGrants(bobId);
-          expect(grants.tenant_id).toBe(tenantId);
-          expect(grants.grants.map((g) => g.role_slug)).toEqual(['planner.member']);
+          const assignments = await listRoleAssignments(bobId);
+          expect(assignments.tenant_id).toBe(tenantId);
+          expect(assignments.assignments.map((a) => a.role_slug)).toEqual(['planner.member']);
 
           const updated = await updateUserProfile(
             bobId,
@@ -83,8 +83,8 @@ describe('@seta/identity public-surface lifecycle', () => {
           expect(updated.display_name).toBe('Bob Renamed');
 
           await revokeRole(grant_id, { type: 'user', user_id: adminId });
-          const afterRevoke = await listRoleGrants(bobId);
-          expect(afterRevoke.grants).toEqual([]);
+          const afterRevoke = await listRoleAssignments(bobId);
+          expect(afterRevoke.assignments).toEqual([]);
 
           await deactivateUser(bobId, { type: 'user', user_id: adminId });
           await reactivateUser(bobId, { type: 'user', user_id: adminId });

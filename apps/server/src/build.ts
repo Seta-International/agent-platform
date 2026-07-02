@@ -13,7 +13,7 @@ import {
 import { makeRbacCheck, setRbacCheck } from '@seta/core/rpc';
 import type { WorkerHandle } from '@seta/core/runtime';
 import {
-  listRoleGrants,
+  listRoleAssignments,
   listTenantRoleOverlays,
   listUserGroupIds,
   resolveProductAccess,
@@ -122,17 +122,17 @@ function stubChatRuntimeNotWired(): Promise<import('@seta/shared-orchestration')
 type AgentBridgeEnv = { Variables: { session: SessionLike } };
 
 function createAgentSessionBridge(deps: {
-  listRoleGrants: typeof listRoleGrants;
+  listRoleAssignments: typeof listRoleAssignments;
   resolve: (roles: readonly string[], tenantId: string) => Promise<ReadonlySet<string>>;
 }) {
   return createMiddleware<AgentBridgeEnv>(async (c, next) => {
     const authSession = await auth.api.getSession({ headers: c.req.raw.headers });
     if (authSession?.user) {
       const { user } = authSession;
-      const { tenant_id, grants } = await deps.listRoleGrants(user.id);
+      const { tenant_id, assignments } = await deps.listRoleAssignments(user.id);
       const role_summary = {
-        roles: Array.from(new Set(grants.map((g) => g.role_slug))).sort(),
-        cross_tenant_read: grants.some((g) => g.role_slug === 'org.viewer'),
+        roles: Array.from(new Set(assignments.map((a) => a.role_slug))).sort(),
+        cross_tenant_read: assignments.some((a) => a.role_slug === 'org.viewer'),
       };
       c.set('session', {
         tenant_id,
@@ -168,7 +168,7 @@ export function buildServerApp(
   const sessionMiddleware = createSessionMiddleware({
     getSession: ({ headers }) => auth.api.getSession({ headers }),
     signOut: ({ headers }) => auth.api.signOut({ headers }).then(() => undefined),
-    listRoleGrants,
+    listRoleAssignments,
     resolvePermissions: resolve,
     resolveGroupIds: listUserGroupIds,
     resolveProductAccess,
@@ -230,7 +230,7 @@ export function buildServerApp(
       // not-configured message instead of crashing the whole app.
       chatOrchestration: () => stubChatRuntimeNotWired(),
     });
-  app.use('/api/agent/*', createAgentSessionBridge({ listRoleGrants, resolve }));
+  app.use('/api/agent/*', createAgentSessionBridge({ listRoleAssignments, resolve }));
   agent.attach(app as unknown as Hono);
 
   // Session middleware gates everything registered after this point

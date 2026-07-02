@@ -2,11 +2,11 @@ import { resetCoreDb } from '@seta/core/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
-import { listRoleGrants } from '../../../src/backend/domain/list-role-grants.ts';
+import { listRoleAssignments } from '../../../src/backend/domain/list-role-assignments.ts';
 import { IdentityError } from '../../../src/backend/rbac.ts';
 
-describe('listRoleGrants', () => {
-  it('returns tenant_id and active grants for a user', async () => {
+describe('listRoleAssignments', () => {
+  it('returns tenant_id and active assignments for a user', async () => {
     await withTestDb(
       {
         templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -28,33 +28,33 @@ describe('listRoleGrants', () => {
             [userId, 'alice@test.local', 'Alice', tenantId],
           );
 
-          const grantId1 = crypto.randomUUID();
-          const grantId2 = crypto.randomUUID();
-          const grantId3 = crypto.randomUUID();
+          const assignmentId1 = crypto.randomUUID();
+          const assignmentId2 = crypto.randomUUID();
+          const assignmentId3 = crypto.randomUUID();
 
           await pool.query(
             `INSERT INTO identity.role_assignments (id, user_id, tenant_id, role_slug, scope_kind, scope_id)
              VALUES ($1, $2, $3, 'org.admin', 'tenant', NULL),
                     ($4, $2, $3, 'planner.member', 'tenant', NULL),
                     ($5, $2, $3, 'org.viewer', 'tenant', NULL)`,
-            [grantId1, userId, tenantId, grantId2, grantId3],
+            [assignmentId1, userId, tenantId, assignmentId2, assignmentId3],
           );
 
-          // Soft-revoke the third grant
+          // Soft-revoke the third assignment
           await pool.query(
             `UPDATE identity.role_assignments SET revoked_at = NOW() WHERE id = $1`,
-            [grantId3],
+            [assignmentId3],
           );
 
-          const result = await listRoleGrants(userId);
+          const result = await listRoleAssignments(userId);
 
           expect(result.tenant_id).toBe(tenantId);
-          expect(result.grants).toHaveLength(2);
-          const slugs = [...result.grants].map((g) => g.role_slug).sort();
+          expect(result.assignments).toHaveLength(2);
+          const slugs = [...result.assignments].map((a) => a.role_slug).sort();
           expect(slugs).toEqual(['org.admin', 'planner.member']);
-          for (const grant of result.grants) {
-            expect(grant.granted_at).toBeInstanceOf(Date);
-            expect(['tenant', 'group']).toContain(grant.scope_type);
+          for (const assignment of result.assignments) {
+            expect(assignment.granted_at).toBeInstanceOf(Date);
+            expect(['tenant', 'org_unit', 'self', 'group']).toContain(assignment.scope_kind);
           }
         } finally {
           resetCoreDb();
@@ -81,7 +81,7 @@ describe('listRoleGrants', () => {
           );
 
           const nonExistentUserId = crypto.randomUUID();
-          await expect(listRoleGrants(nonExistentUserId)).rejects.toSatisfy(
+          await expect(listRoleAssignments(nonExistentUserId)).rejects.toSatisfy(
             (e: unknown) => e instanceof IdentityError && /USER_NOT_FOUND/.test(e.code),
           );
         } finally {

@@ -2,7 +2,7 @@ import { createMiddleware } from 'hono/factory';
 import { isIdleExpired } from '../session/idle.ts';
 import {
   getSessionScope,
-  type ListRoleGrants,
+  type ListRoleAssignments,
   type ResolveGroupIds,
   type ResolvePermissions,
   type ResolveProductAccess,
@@ -23,7 +23,7 @@ export interface SessionMiddlewareDeps {
     };
   } | null>;
   signOut: (req: { headers: Headers }) => Promise<void>;
-  listRoleGrants: ListRoleGrants;
+  listRoleAssignments: ListRoleAssignments;
   resolvePermissions: ResolvePermissions;
   resolveGroupIds?: ResolveGroupIds;
   resolveProductAccess?: ResolveProductAccess;
@@ -53,7 +53,7 @@ export function createSessionMiddleware(deps: SessionMiddlewareDeps) {
 
     const scope = await getSessionScope(
       {
-        listRoleGrants: deps.listRoleGrants,
+        listRoleAssignments: deps.listRoleAssignments,
         resolvePermissions: deps.resolvePermissions,
         resolveGroupIds: deps.resolveGroupIds,
         resolveProductAccess: deps.resolveProductAccess,
