@@ -21,7 +21,7 @@ import { applyLabels } from '../../label-test-helpers.ts';
 const _registry = buildRegistry(inventoryToManifests(INVENTORY));
 function admin(opts: { tenant_id: string; user_id: string; email: string }): SessionScope {
   const roles = ['org.admin'];
-  const role_summary = { roles, cross_tenant_read: false };
+  const role_summary = { roles, cross_tenant_read: false, assignments: [] };
   return {
     session_id: crypto.randomUUID(),
     user_id: opts.user_id,
@@ -32,6 +32,7 @@ function admin(opts: { tenant_id: string; user_id: string; email: string }): Ses
     role_summary_hash: hashRoleSummary(role_summary),
     permissions: resolvePermissions(_registry, roles, IMPLICIT_PERMISSIONS),
     accessible_group_ids: [],
+    assignments: [],
     group_ids: [],
     product_access: new Set<string>(),
     cross_tenant_read: false,

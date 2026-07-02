@@ -68,11 +68,14 @@ export { invalidateTenantSessions, invalidateUserSessions } from './session/inva
 export { createOverlayStore, type OverlayStore } from './session/overlay-store.ts';
 export {
   computeAccessibleGroups,
+  type ExpandOrgUnits,
   evictHotAll,
   getSessionScope,
   hashRoleSummary,
   type ListRoleAssignments,
   type RoleAssignment,
+  type RoleSummary,
   rollup,
+  type SessionAssignment,
   type SessionScope,
 } from './session/scope.ts';

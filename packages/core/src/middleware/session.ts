@@ -1,6 +1,7 @@
 import { createMiddleware } from 'hono/factory';
 import { isIdleExpired } from '../session/idle.ts';
 import {
+  type ExpandOrgUnits,
   getSessionScope,
   type ListRoleAssignments,
   type ResolveGroupIds,
@@ -27,6 +28,7 @@ export interface SessionMiddlewareDeps {
   resolvePermissions: ResolvePermissions;
   resolveGroupIds?: ResolveGroupIds;
   resolveProductAccess?: ResolveProductAccess;
+  expandOrgUnits?: ExpandOrgUnits;
 }
 
 export function createSessionMiddleware(deps: SessionMiddlewareDeps) {
@@ -57,6 +59,7 @@ export function createSessionMiddleware(deps: SessionMiddlewareDeps) {
         resolvePermissions: deps.resolvePermissions,
         resolveGroupIds: deps.resolveGroupIds,
         resolveProductAccess: deps.resolveProductAccess,
+        expandOrgUnits: deps.expandOrgUnits,
       },
       session.session.id,
       session.user.id,

@@ -42,6 +42,7 @@ export async function buildAdminSession(
     permissions: resolvePermissions(rbacRegistry, role_summary.roles, IMPLICIT_PERMISSIONS),
     role_summary_hash: hashRoleSummary(role_summary),
     accessible_group_ids: computeAccessibleGroups(assignments),
+    assignments: role_summary.assignments,
     group_ids: [],
     product_access: new Set<string>(),
     cross_tenant_read: role_summary.cross_tenant_read,

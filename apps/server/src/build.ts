@@ -7,12 +7,14 @@ import {
   createSessionMiddleware,
   type ErrorMapper,
   type OverlayStore,
+  rollup,
   type SessionEnv,
   type StreamHubHandle,
 } from '@seta/core';
 import { makeRbacCheck, setRbacCheck } from '@seta/core/rpc';
 import type { WorkerHandle } from '@seta/core/runtime';
 import {
+  expandOrgUnits,
   listRoleAssignments,
   listTenantRoleOverlays,
   listUserGroupIds,
@@ -130,10 +132,7 @@ function createAgentSessionBridge(deps: {
     if (authSession?.user) {
       const { user } = authSession;
       const { tenant_id, assignments } = await deps.listRoleAssignments(user.id);
-      const role_summary = {
-        roles: Array.from(new Set(assignments.map((a) => a.role_slug))).sort(),
-        cross_tenant_read: assignments.some((a) => a.role_slug === 'org.viewer'),
-      };
+      const role_summary = rollup(assignments);
       c.set('session', {
         tenant_id,
         user_id: user.id,
@@ -172,6 +171,7 @@ export function buildServerApp(
     resolvePermissions: resolve,
     resolveGroupIds: listUserGroupIds,
     resolveProductAccess,
+    expandOrgUnits,
   });
 
   const app = buildHonoApp(reg, { corsOrigins: deps.corsOrigins }) as unknown as Hono<SessionEnv>;

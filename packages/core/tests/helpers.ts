@@ -22,7 +22,7 @@ import { hashRoleSummary } from '../src/session/scope.ts';
 const _skillRegistry = buildRegistry(inventoryToManifests(INVENTORY));
 
 export function buildSkillAdminSession(tenant_id: string, roles = ['core.admin']): SessionScope {
-  const role_summary = { roles, cross_tenant_read: false };
+  const role_summary = { roles, cross_tenant_read: false, assignments: [] };
   return {
     session_id: crypto.randomUUID(),
     user_id: crypto.randomUUID(),
@@ -33,6 +33,7 @@ export function buildSkillAdminSession(tenant_id: string, roles = ['core.admin']
     role_summary_hash: hashRoleSummary(role_summary),
     permissions: resolvePermissions(_skillRegistry, roles, IMPLICIT_PERMISSIONS),
     accessible_group_ids: [],
+    assignments: [],
     group_ids: [],
     product_access: new Set<string>(),
     cross_tenant_read: false,

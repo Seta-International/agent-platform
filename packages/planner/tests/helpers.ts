@@ -126,6 +126,7 @@ export function buildSession(opts: {
   const role_summary = {
     roles,
     cross_tenant_read: opts.cross_tenant_read ?? false,
+    assignments: [],
   };
   return {
     session_id: crypto.randomUUID(),
@@ -137,6 +138,7 @@ export function buildSession(opts: {
     role_summary_hash: hashRoleSummary(role_summary),
     permissions: permsFor(roles),
     accessible_group_ids: opts.accessible_group_ids ?? [],
+    assignments: [],
     group_ids: [],
     product_access: new Set<string>(),
     cross_tenant_read: role_summary.cross_tenant_read,
