@@ -33,8 +33,13 @@ export {
   type TalentPoolRow,
 } from './backend/domain/read-candidates.ts';
 export {
+  type AccountOption,
   getRequisition,
+  listAccounts,
+  listOpenRequisitions,
+  listProjects,
   listRequisitions,
+  type ProjectOption,
   type RequisitionDetail,
   type RequisitionListRow,
 } from './backend/domain/read-requisitions.ts';

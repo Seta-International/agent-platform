@@ -23,6 +23,7 @@ export async function openRequisition(
           role_title: input.role_title,
           grade: input.grade,
           account_id: input.account_id,
+          project_id: input.project_id,
           due_date: input.due_date,
           start_date: input.start_date,
           note: input.note ?? deriveNote(input),

@@ -13,6 +13,9 @@ import {
   editRequisition,
   getRequisition,
   holdRequisition,
+  listAccounts,
+  listOpenRequisitions,
+  listProjects,
   listRequisitions,
   openRequisition,
   resumeRequisition,
@@ -35,8 +38,23 @@ const skillsBody = z.object({
 const versionBody = z.object({ expected_version: z.number().int().positive().optional() });
 
 export function registerHiringRequisitionRoutes(app: Hono<SessionEnv>): void {
+  // Backing data for the New Requisition account/project pickers — top-level resources, not
+  // nested under /requisitions, so they don't need to dodge the `:id` route below.
+  app.get('/api/hiring/v1/accounts', async (c) => {
+    return c.json({ accounts: await listAccounts(c.get('user')) });
+  });
+  app.get('/api/hiring/v1/projects', async (c) => {
+    const accountId = c.req.query('account_id');
+    return c.json({ projects: await listProjects(c.get('user'), accountId) });
+  });
   app.get('/api/hiring/v1/requisitions', async (c) => {
     return c.json({ requisitions: await listRequisitions(c.get('user')) });
+  });
+  // FUT-326/327 — open-positions board (every non-filled requisition, oversight- or
+  // account-scoped). Registered before `:id` so the literal "board" segment is not parsed as a
+  // requisition id.
+  app.get('/api/hiring/v1/requisitions/board', async (c) => {
+    return c.json(await listOpenRequisitions(c.get('user')));
   });
   app.get('/api/hiring/v1/requisitions/:id', async (c) =>
     c.json(await getRequisition({ requisition_id: c.req.param('id'), session: c.get('user') })),

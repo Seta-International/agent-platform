@@ -1,3 +1,4 @@
+import { invalidateUserSessions } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { identityDb } from '../db/index.ts';
@@ -130,6 +131,10 @@ export async function bulkGrantRole(input: BulkRoleInput, actor: Actor): Promise
     },
   );
 
+  for (const uid of input.user_ids) {
+    if (valid.has(uid) && !held.has(uid)) await invalidateUserSessions(uid);
+  }
+
   return result;
 }
 
@@ -208,6 +213,8 @@ export async function bulkRevokeRole(input: BulkRoleInput, actor: Actor): Promis
       }
     },
   );
+
+  for (const uid of byUser.keys()) await invalidateUserSessions(uid);
 
   return result;
 }

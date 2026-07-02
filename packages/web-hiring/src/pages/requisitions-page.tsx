@@ -11,7 +11,11 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { Briefcase } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { fetchRequisitions, type RequisitionListRow } from '../api/hiring-client.ts';
+import {
+  fetchOpenRequisitions,
+  type OpenRequisitionsBoard,
+  type RequisitionListRow,
+} from '../api/hiring-client.ts';
 import { hiringKeys } from '../state/query-keys.ts';
 import { NewRequisitionDialog } from './new-requisition-dialog.tsx';
 import { RequisitionCard, STAGE_LABEL } from './requisition-card.tsx';
@@ -26,18 +30,28 @@ const STATUS_LABEL: Record<string, string> = {
 export function RequisitionsPage() {
   const navigate = useNavigate();
   const canManage = usePermission('hiring.requisition.manage');
+  // The "New requisition" button calls openRequisition, which the backend gates on
+  // `.open` (see backend/domain/open-requisition.ts) — a distinct permission from `.manage`
+  // (edit/hold/close an existing requisition), even though every seed role grants both today.
+  const canCreate = usePermission('hiring.requisition.open');
   const [view, setView] = useState<'board' | 'list'>('board');
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error } = useQuery<OpenRequisitionsBoard>({
     queryKey: hiringKeys.requisitions(),
-    queryFn: fetchRequisitions,
+    queryFn: fetchOpenRequisitions,
   });
-  const rows = data ?? [];
+  const rows = data?.requisitions ?? [];
+  const scopeNote =
+    data?.scope === 'account'
+      ? data.scoped_account_names.length > 0
+        ? `Showing requisitions for: ${data.scoped_account_names.join(', ')}`
+        : 'You are not assigned as Account Manager on any active account.'
+      : null;
 
-  const stat = (label: string, value: number) => (
-    <div className="rounded-lg border border-hairline bg-surface-1 px-4 py-3">
-      <div className="text-caption text-ink-muted">{label}</div>
-      <div className="text-h3 font-semibold text-ink">{value}</div>
+  const stat = (label: string, value: number, valueClass = 'text-ink') => (
+    <div className="rounded-lg border border-hairline bg-surface-1 px-5 py-4">
+      <div className={`text-display-md font-semibold tabular-nums ${valueClass}`}>{value}</div>
+      <div className="mt-1 text-caption text-ink-muted">{label}</div>
     </div>
   );
 
@@ -58,11 +72,19 @@ export function RequisitionsPage() {
         ),
       },
       {
-        id: 'account_id',
-        accessorKey: 'account_id',
+        id: 'account_name',
+        accessorKey: 'account_name',
         header: 'Account',
         cell: ({ row }: Ctx) => (
-          <span className="text-ink-muted">{row.original.account_id ?? '—'}</span>
+          <span className="text-ink-muted">{row.original.account_name ?? '—'}</span>
+        ),
+      },
+      {
+        id: 'project_name',
+        accessorKey: 'project_name',
+        header: 'Project',
+        cell: ({ row }: Ctx) => (
+          <span className="text-ink-muted">{row.original.project_name ?? '—'}</span>
         ),
       },
       {
@@ -116,17 +138,29 @@ export function RequisitionsPage() {
     ];
   }, []);
 
-  const open = rows.filter((r) => r.status === 'open' || r.status === 'on_hold').length;
-  const filled = rows.filter((r) => r.status === 'filled').length;
+  // The board only carries non-filled requisitions (status open | on_hold).
+  const openCount = rows.filter((r) => r.status === 'open').length;
+  const onHold = rows.filter((r) => r.status === 'on_hold').length;
   const totalApplicants = rows.reduce((n, r) => n + r.applicants_count, 0);
 
   return (
-    <PageChrome title="Requisitions" actions={canManage ? <NewRequisitionDialog /> : undefined}>
+    <PageChrome
+      breadcrumb={['Hiring management', 'Open positions']}
+      title="Requisitions"
+      subtitle="Live open positions across every account — track hiring status and let internal staff browse and apply."
+      actions={<NewRequisitionDialog disabled={!canCreate} />}
+    >
       <div className="page-container space-y-4 p-6">
-        <div className="grid grid-cols-3 gap-3">
-          {stat('Open positions', open)}
+        {scopeNote && (
+          <Alert variant="info">
+            <AlertDescription>{scopeNote}</AlertDescription>
+          </Alert>
+        )}
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {stat('Open positions', openCount)}
           {stat('Applicants', totalApplicants)}
-          {stat('Filled', filled)}
+          {stat('On hold', onHold, 'text-warning')}
+          {stat('Total open', rows.length)}
         </div>
         <div className="flex items-center justify-between">
           <div className="text-caption font-medium uppercase tracking-wide text-ink-muted">

@@ -68,6 +68,7 @@ export const requisition = hiringSchema.table(
     role_title: text('role_title'),
     grade: text('grade'),
     account_id: uuid('account_id'),
+    project_id: uuid('project_id'),
     kind: textEnum('kind', REQUISITION_KINDS).notNull().default('new'),
     approval_status: textEnum('approval_status', APPROVAL_STATUS).notNull().default('draft'),
     status: textEnum('status', REQUISITION_STATUS).notNull().default('open'),
@@ -360,4 +361,42 @@ export const application = hiringSchema.table(
       sql`(candidate_id IS NOT NULL) <> (worker_id IS NOT NULL)`,
     ),
   ],
+);
+
+// Local read-model projections of pm.account / pm.project names, fed by pm domain events
+// (see backend/subscribers). Hiring stores only account_id/project_id on a requisition;
+// these tables resolve the display names without a cross-module join.
+export const accountProjection = hiringSchema.table(
+  'account_projection',
+  {
+    account_id: uuid('account_id').primaryKey(),
+    tenant_id: uuid('tenant_id').notNull(),
+    name: text('name').notNull(),
+    // AM ownership, projected from pm.account.am_worker_id for FUT-327 row scoping.
+    am_worker_id: uuid('am_worker_id'),
+  },
+  (t) => [index('account_projection_by_am').on(t.tenant_id, t.am_worker_id)],
+);
+
+export const projectProjection = hiringSchema.table(
+  'project_projection',
+  {
+    project_id: uuid('project_id').primaryKey(),
+    tenant_id: uuid('tenant_id').notNull(),
+    account_id: uuid('account_id').notNull(),
+    name: text('name').notNull(),
+  },
+  (t) => [index('project_projection_by_account').on(t.tenant_id, t.account_id)],
+);
+
+// Local projection of "which user is this worker", fed by people.worker.user_linked, so
+// hiring can resolve session.user_id -> worker_id without a cross-module join (FUT-327).
+export const workerUserProjection = hiringSchema.table(
+  'worker_user_projection',
+  {
+    worker_id: uuid('worker_id').primaryKey(),
+    tenant_id: uuid('tenant_id').notNull(),
+    user_id: uuid('user_id').notNull(),
+  },
+  (t) => [index('worker_user_projection_by_user').on(t.tenant_id, t.user_id)],
 );

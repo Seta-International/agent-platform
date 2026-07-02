@@ -90,15 +90,19 @@ export function SkillPicker({
       </Popover>
       <div className="flex flex-wrap gap-2">
         {value.map((v) => (
-          <Badge key={v.skill_id} variant="secondary" className="gap-1 pr-1">
-            {v.skill_name}
+          <Badge
+            key={v.skill_id}
+            variant="secondary"
+            className="h-auto gap-1.5 whitespace-nowrap py-1.5 pl-3 pr-1.5 text-body-sm"
+          >
+            <span className="whitespace-nowrap">{v.skill_name}</span>
             <Select
               value={v.level !== undefined ? String(v.level) : NONE}
               onValueChange={(val) => setLevel(v.skill_id, val === NONE ? undefined : Number(val))}
             >
               <SelectTrigger
                 aria-label={`${v.skill_name} level`}
-                className="ml-1 h-auto gap-1 border-0 bg-transparent p-0 text-eyebrow shadow-none focus-visible:shadow-none"
+                className="ml-1 h-auto gap-1 border-0 bg-transparent p-0 text-body-sm shadow-none focus-visible:shadow-none"
               >
                 <SelectValue placeholder="lvl" />
               </SelectTrigger>
@@ -115,8 +119,9 @@ export function SkillPicker({
               type="button"
               aria-label={`Remove ${v.skill_name}`}
               onClick={() => remove(v.skill_id)}
+              className="rounded-full p-1 hover:bg-surface-2"
             >
-              <X className="size-3" />
+              <X className="size-3.5" />
             </button>
           </Badge>
         ))}

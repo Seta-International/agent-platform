@@ -49,6 +49,36 @@ describe('editRequisition', () => {
     });
   });
 
+  it('rejects a patch that pushes start_date past the stored due_date', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetHiringDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const { requisition_id } = await openRequisition({
+          title: 'Web Developer',
+          kind: 'new',
+          due_date: '2026-07-02',
+          session: t.adminSession,
+        });
+        // Only start_date is in the patch — the check must compare it against the *stored*
+        // due_date, not just fields present in this same patch.
+        await expect(
+          editRequisition({
+            requisition_id,
+            patch: { start_date: '2026-07-10' },
+            session: t.adminSession,
+          }),
+        ).rejects.toThrow('start_date must be before due_date');
+      } finally {
+        resetHiringDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
   it('rejects a stale version with CONFLICT', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();

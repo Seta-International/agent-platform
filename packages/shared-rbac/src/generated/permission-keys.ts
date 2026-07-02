@@ -31,6 +31,7 @@ export type PermissionKey =
   | 'hiring.requisition.manage'
   | 'hiring.requisition.open'
   | 'hiring.requisition.read'
+  | 'hiring.requisition.read.all'
   | 'identity.concept_map.read'
   | 'identity.concept_map.update'
   | 'identity.group.create'
@@ -164,6 +165,7 @@ export const ALL_PERMISSIONS: readonly PermissionKey[] = [
   'hiring.requisition.manage',
   'hiring.requisition.open',
   'hiring.requisition.read',
+  'hiring.requisition.read.all',
   'identity.concept_map.read',
   'identity.concept_map.update',
   'identity.group.create',
