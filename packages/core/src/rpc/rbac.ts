@@ -1,4 +1,4 @@
-import { type RbacRegistry, resolvePermissions } from '@seta/shared-rbac';
+import { type RbacRegistry, type RoleOverlay, resolvePermissions } from '@seta/shared-rbac';
 import { z } from 'zod';
 import { RpcForbidden } from './errors.ts';
 
@@ -10,6 +10,15 @@ export const RpcActorSchema = z.object({
   role_summary: z.object({
     roles: z.array(z.string()),
     cross_tenant_read: z.boolean(),
+    assignments: z
+      .array(
+        z.object({
+          role_slug: z.string(),
+          scope_kind: z.enum(['tenant', 'org_unit', 'self', 'group']),
+          scope_id: z.string().nullable(),
+        }),
+      )
+      .default([]),
   }),
   cross_tenant_read: z.boolean(),
 });
@@ -21,11 +30,16 @@ export type RbacCheck = (
   permission: string,
   module: string,
   method: string,
-) => void;
+) => Promise<void>;
 
-export function makeRbacCheck(registry: RbacRegistry, implicit: readonly string[]): RbacCheck {
-  return (actor, permission, module, method): void => {
-    const perms = resolvePermissions(registry, actor.role_summary.roles, implicit);
+export function makeRbacCheck(
+  registry: RbacRegistry,
+  implicit: readonly string[],
+  getOverlay?: (tenantId: string) => Promise<RoleOverlay | undefined>,
+): RbacCheck {
+  return async (actor, permission, module, method): Promise<void> => {
+    const overlay = getOverlay ? await getOverlay(actor.tenant_id) : undefined;
+    const perms = resolvePermissions(registry, actor.role_summary.roles, implicit, overlay);
     if (!perms.has(permission)) throw new RpcForbidden(module, method, permission);
   };
 }
@@ -37,16 +51,16 @@ export function setRbacCheck(check: RbacCheck): void {
   configured = check;
 }
 
-export function rbacCheck(
+export async function rbacCheck(
   actor: RpcActor,
   permission: string,
   module: string,
   method: string,
-): void {
+): Promise<void> {
   if (!configured) {
     throw new Error(
       'rbacCheck not configured: call setRbacCheck(makeRbacCheck(registry, IMPLICIT_PERMISSIONS)) at boot',
     );
   }
-  configured(actor, permission, module, method);
+  await configured(actor, permission, module, method);
 }

@@ -87,7 +87,7 @@ export function defineModuleRpc<M extends RpcMethodMap>(opts: DefineModuleRpcOpt
           Object.fromEntries(c.req.raw.headers),
           async () => {
             try {
-              rbacCheck(actor, def.permission, opts.module, methodName);
+              await rbacCheck(actor, def.permission, opts.module, methodName);
             } catch (e) {
               if (e instanceof RpcForbidden) {
                 return c.json({ error: 'forbidden', permission: e.permission }, 403);
