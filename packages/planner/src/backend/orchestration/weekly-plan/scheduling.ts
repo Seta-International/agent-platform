@@ -61,3 +61,30 @@ export function resolvePlanWindow(now: Date, week: WeekChoice, timezone?: string
     weekEnd: addDays(planMonday, 4),
   };
 }
+
+// ─── Pre-pass ────────────────────────────────────────────────────────────────
+
+const PRIORITY_RANK = { urgent: 0, important: 1, medium: 2, low: 3 } as const;
+
+/** Overdue first, then earliest due date (nulls last), then priority. Non-mutating. */
+export function prePassOrder(tasks: NormalizedTask[]): NormalizedTask[] {
+  return [...tasks].sort((a, b) => {
+    if (a.overdue !== b.overdue) return a.overdue ? -1 : 1;
+    if (a.dueAt !== b.dueAt) {
+      if (a.dueAt === null) return 1;
+      if (b.dueAt === null) return -1;
+      return a.dueAt < b.dueAt ? -1 : 1;
+    }
+    return PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority];
+  });
+}
+
+/** The weekdays inside the window, in order. */
+export function windowDays(window: PlanWindow): Weekday[] {
+  return WEEKDAY_ORDER.slice(WEEKDAY_ORDER.indexOf(window.startDay)) as Weekday[];
+}
+
+/** Per-day task target used as a balancing hint for the LLM and the fallback plan. */
+export function capacityHint(taskCount: number, window: PlanWindow): number {
+  return Math.ceil(taskCount / windowDays(window).length);
+}
