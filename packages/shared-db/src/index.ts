@@ -7,6 +7,14 @@ export type PoolName = 'web' | 'worker' | 'mastraState';
 export { createDb } from './db.ts';
 export { halfvec } from './halfvec.ts';
 export {
+  getLifecycleEntries,
+  type LifecycleEntry,
+  type LifecyclePolicy,
+  registerLifecycle,
+  resetLifecycleRegistry,
+  runRetention,
+} from './lifecycle.ts';
+export {
   MigrationChecksumMismatch,
   type MigrationLagRow,
   type ModuleMigration,
