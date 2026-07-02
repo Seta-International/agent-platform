@@ -2,9 +2,11 @@ import type { SessionScope } from '@seta/core';
 import { withEmit } from '@seta/core/events';
 import { and, eq, isNull } from 'drizzle-orm';
 import { emitPlannerPlanArchived } from '../../events/emit-helpers.ts';
+import { plannerDb } from '../db/index.ts';
 import { plans } from '../db/schema.ts';
 import type { PlanRow } from '../dto.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
+import { fetchCategoryDescriptions, planRowToDto } from './_plan-dto.ts';
 
 type PlanDbRow = typeof plans.$inferSelect;
 
@@ -64,27 +66,6 @@ export async function archivePlan(input: {
     },
   );
 
-  return rowToDto(archived);
-}
-
-function rowToDto(row: PlanDbRow): PlanRow {
-  return {
-    id: row.id,
-    tenant_id: row.tenant_id,
-    group_id: row.group_id,
-    name: row.name,
-    category_descriptions: (row.category_descriptions ?? {}) as Record<string, string>,
-    external_source: row.external_source as 'native' | 'm365',
-    external_id: row.external_id,
-    external_etag: row.external_etag,
-    external_synced_at: row.external_synced_at ? row.external_synced_at.toISOString() : null,
-    sync_status: row.sync_status as PlanRow['sync_status'],
-    last_error: row.last_error,
-    created_by: row.created_by,
-    created_at: row.created_at.toISOString(),
-    updated_at: row.updated_at.toISOString(),
-    deleted_at: row.deleted_at ? row.deleted_at.toISOString() : null,
-    archived_at: row.archived_at ? row.archived_at.toISOString() : null,
-    version: row.version,
-  };
+  const categoryDescriptions = await fetchCategoryDescriptions(plannerDb(), archived.id);
+  return planRowToDto(archived, categoryDescriptions);
 }

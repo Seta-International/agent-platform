@@ -68,6 +68,7 @@ export async function addChecklistItem(
       const [row] = await tx
         .insert(checklistItems)
         .values({
+          tenant_id: task.tenant_id,
           task_id: input.task_id,
           label: input.label,
           order_hint: orderHint,

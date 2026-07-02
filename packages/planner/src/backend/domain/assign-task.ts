@@ -47,6 +47,7 @@ export async function assignTask(input: {
       const inserted = await tx
         .insert(taskAssignments)
         .values({
+          tenant_id: existing.tenant_id,
           task_id: input.task_id,
           user_id: input.user_id,
           assigned_by: input.session.user_id,

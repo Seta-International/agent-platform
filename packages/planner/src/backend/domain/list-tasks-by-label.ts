@@ -2,6 +2,7 @@ import type { SessionScope } from '@seta/core';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { plannerDb } from '../db/index.ts';
 import { labels as labelsTable, plans, taskAssignments, taskLabels, tasks } from '../db/schema.ts';
+import { progressToPercent } from '../db/task-enums.ts';
 import { requirePermission } from '../rbac.ts';
 import { groupFilterFor } from '../read-helpers.ts';
 
@@ -45,8 +46,8 @@ export async function listTasksByLabel(
   const conditions = [eq(tasks.tenant_id, input.session.tenant_id), isNull(tasks.deleted_at)];
 
   const cs = input.completionStatus ?? 'any';
-  if (cs === 'open') conditions.push(sql`${tasks.percent_complete} < 100`);
-  if (cs === 'completed') conditions.push(sql`${tasks.percent_complete} = 100`);
+  if (cs === 'open') conditions.push(sql`${tasks.progress} <> 'done'`);
+  if (cs === 'completed') conditions.push(sql`${tasks.progress} = 'done'`);
 
   if (groupFilter !== null) {
     conditions.push(
@@ -88,7 +89,7 @@ export async function listTasksByLabel(
       id: tasks.id,
       group_id: plans.group_id,
       title: tasks.title,
-      percent_complete: tasks.percent_complete,
+      progress: tasks.progress,
       created_at: tasks.created_at,
       labels: labelNamesAgg,
       assignee_ids: sql<
@@ -105,7 +106,7 @@ export async function listTasksByLabel(
       tasks.id,
       plans.group_id,
       tasks.title,
-      tasks.percent_complete,
+      tasks.progress,
       tasks.created_at,
       tasks.updated_at,
     )
@@ -117,8 +118,8 @@ export async function listTasksByLabel(
       taskId: r.id,
       groupId: r.group_id,
       title: r.title,
-      status: statusOf(r.percent_complete ?? 0),
-      percentComplete: r.percent_complete ?? 0,
+      status: statusOf(progressToPercent(r.progress)),
+      percentComplete: progressToPercent(r.progress),
       assigneeUserIds: (r.assignee_ids ?? []).map(String),
       labels: r.labels ?? [],
       createdAt: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),

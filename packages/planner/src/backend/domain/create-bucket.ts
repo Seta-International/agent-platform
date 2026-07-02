@@ -67,6 +67,7 @@ export async function createBucket(
           plan_id: input.plan_id,
           name: input.name,
           order_hint: orderHint,
+          created_by: input.session.user_id,
         })
         .returning();
       if (!row) throw new PlannerError('VALIDATION', 'Insert returned no row');

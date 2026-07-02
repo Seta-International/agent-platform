@@ -1,5 +1,6 @@
 import type { tasks } from '../db/schema.ts';
-import type { TaskExternalSource, TaskPreviewType, TaskPriorityNumber, TaskRow } from '../dto.ts';
+import { priorityToNumber, progressToPercent } from '../db/task-enums.ts';
+import type { TaskExternalSource, TaskPreviewType, TaskRow } from '../dto.ts';
 
 type TaskDbRow = typeof tasks.$inferSelect;
 
@@ -12,8 +13,8 @@ export function taskRowToDto(row: TaskDbRow): TaskRow {
     title: row.title,
     description: row.description,
     description_text: row.description_text,
-    priority_number: row.priority_number as TaskPriorityNumber,
-    percent_complete: row.percent_complete,
+    priority_number: priorityToNumber(row.priority),
+    percent_complete: progressToPercent(row.progress),
     is_deferred: row.is_deferred,
     preview_type: row.preview_type as TaskPreviewType,
     review_state: row.review_state,
