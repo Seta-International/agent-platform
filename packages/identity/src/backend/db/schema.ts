@@ -1,6 +1,8 @@
+import { textEnum, textEnumCheck } from '@seta/shared-db';
 import { sql } from 'drizzle-orm';
 import {
   boolean,
+  check,
   index,
   jsonb,
   primaryKey,
@@ -14,6 +16,17 @@ export { identity } from './pg-schema.ts';
 
 import { identity } from './pg-schema.ts';
 
+export const ROLE_SCOPE_KINDS = ['tenant', 'org_unit', 'self'] as const;
+export const GRANTED_VIA = ['admin', 'cli', 'idp'] as const;
+export const PRODUCT_GRANT_SUBJECT_TYPES = ['tenant', 'group', 'user'] as const;
+export const PRODUCT_GRANT_GRANTED_VIA = ['admin', 'seed', 'cli'] as const;
+export const GRANT_EFFECT = ['grant', 'revoke'] as const;
+export const ACCESS_GROUP_KINDS = ['default', 'custom'] as const;
+export const EMPLOYMENT_STATUSES = ['active', 'terminated'] as const;
+
+/** Nil uuid sentinel: a whole-scope_kind (non-org_unit) grant in access_group_role.scope_id. */
+export const NIL_SCOPE_ID = '00000000-0000-0000-0000-000000000000';
+
 export const roleAssignments = identity.table(
   'role_assignments',
   {
@@ -21,14 +34,10 @@ export const roleAssignments = identity.table(
     user_id: uuid('user_id').notNull(),
     tenant_id: uuid('tenant_id').notNull(),
     role_slug: text('role_slug').notNull(),
-    scope_kind: text('scope_kind', { enum: ['tenant', 'org_unit', 'self'] })
-      .default('tenant')
-      .notNull(),
+    scope_kind: textEnum('scope_kind', ROLE_SCOPE_KINDS).default('tenant').notNull(),
     scope_id: uuid('scope_id'),
     granted_by: uuid('granted_by'),
-    granted_via: text('granted_via', { enum: ['admin', 'cli', 'idp'] })
-      .default('admin')
-      .notNull(),
+    granted_via: textEnum('granted_via', GRANTED_VIA).default('admin').notNull(),
     granted_at: timestamp('granted_at', { withTimezone: true }).defaultNow().notNull(),
     revoked_at: timestamp('revoked_at', { withTimezone: true }),
     revoked_by: uuid('revoked_by'),
@@ -38,6 +47,12 @@ export const roleAssignments = identity.table(
       .on(t.tenant_id, t.user_id, t.role_slug, t.scope_kind, sql`COALESCE(scope_id::text, '')`)
       .where(sql`revoked_at IS NULL`),
     index('role_assignment_by_user').on(t.user_id),
+    textEnumCheck('role_assignments', 'scope_kind', ROLE_SCOPE_KINDS),
+    textEnumCheck('role_assignments', 'granted_via', GRANTED_VIA),
+    check(
+      'role_assignments_scope_check',
+      sql`(scope_kind = 'org_unit' AND scope_id IS NOT NULL) OR (scope_kind IN ('tenant','self') AND scope_id IS NULL)`,
+    ),
   ],
 );
 
@@ -47,11 +62,14 @@ export const rolePermissionOverlays = identity.table(
     tenant_id: uuid('tenant_id').notNull(),
     role_slug: text('role_slug').notNull(),
     permission_key: text('permission_key').notNull(),
-    effect: text('effect', { enum: ['grant', 'revoke'] }).notNull(),
+    effect: textEnum('effect', GRANT_EFFECT).notNull(),
     updated_by: uuid('updated_by'),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
-  (t) => [primaryKey({ columns: [t.tenant_id, t.role_slug, t.permission_key] })],
+  (t) => [
+    primaryKey({ columns: [t.tenant_id, t.role_slug, t.permission_key] }),
+    textEnumCheck('role_permission_overlays', 'effect', GRANT_EFFECT),
+  ],
 );
 
 export const failedLoginAttempts = identity.table(
@@ -93,20 +111,23 @@ export const failedLoginAlertsSent = identity.table('failed_login_alerts_sent', 
 
 export * from './auth-tables.ts';
 
-export const directoryPerson = identity.table(
-  'directory_person',
+export const personProjection = identity.table(
+  'person_projection',
   {
     person_id: uuid('person_id').primaryKey(),
     tenant_id: uuid('tenant_id').notNull(),
     full_name: text('full_name').notNull(),
     work_email: text('work_email'),
     job_title: text('job_title'),
-    employment_status: text('employment_status', { enum: ['active', 'terminated'] })
+    employment_status: textEnum('employment_status', EMPLOYMENT_STATUSES)
       .default('active')
       .notNull(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
-  (t) => [index('directory_person_by_tenant').on(t.tenant_id)],
+  (t) => [
+    index('person_projection_by_tenant').on(t.tenant_id),
+    textEnumCheck('person_projection', 'employment_status', EMPLOYMENT_STATUSES),
+  ],
 );
 
 export const accessGroup = identity.table(
@@ -117,27 +138,30 @@ export const accessGroup = identity.table(
     slug: text('slug').notNull(),
     name: text('name').notNull(),
     description: text('description'),
-    kind: text('kind', { enum: ['default', 'custom'] })
-      .default('custom')
-      .notNull(),
+    kind: textEnum('kind', ACCESS_GROUP_KINDS).default('custom').notNull(),
     is_base: boolean('is_base').default(false).notNull(),
     created_by: uuid('created_by'),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
-  (t) => [uniqueIndex('access_group_tenant_slug').on(t.tenant_id, t.slug)],
+  (t) => [
+    uniqueIndex('access_group_tenant_slug').on(t.tenant_id, t.slug),
+    textEnumCheck('access_group', 'kind', ACCESS_GROUP_KINDS),
+  ],
 );
 
 export const accessGroupMembership = identity.table(
   'access_group_membership',
   {
+    tenant_id: uuid('tenant_id').notNull(),
     group_id: uuid('group_id').notNull(),
     user_id: uuid('user_id').notNull(),
     added_by: uuid('added_by'),
     added_at: timestamp('added_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [
-    primaryKey({ columns: [t.group_id, t.user_id] }),
+    primaryKey({ columns: [t.tenant_id, t.group_id, t.user_id] }),
+    index('access_group_membership_by_tenant').on(t.tenant_id),
     index('access_group_membership_by_user').on(t.user_id),
   ],
 );
@@ -145,14 +169,21 @@ export const accessGroupMembership = identity.table(
 export const accessGroupRole = identity.table(
   'access_group_role',
   {
+    tenant_id: uuid('tenant_id').notNull(),
     group_id: uuid('group_id').notNull(),
     role_slug: text('role_slug').notNull(),
-    scope_kind: text('scope_kind', { enum: ['tenant', 'org_unit', 'self'] })
-      .default('tenant')
-      .notNull(),
-    scope_id: text('scope_id'),
+    scope_kind: textEnum('scope_kind', ROLE_SCOPE_KINDS).default('tenant').notNull(),
+    scope_id: uuid('scope_id').notNull().default(NIL_SCOPE_ID),
   },
-  (t) => [primaryKey({ columns: [t.group_id, t.role_slug] })],
+  (t) => [
+    primaryKey({ columns: [t.tenant_id, t.group_id, t.role_slug, t.scope_kind, t.scope_id] }),
+    index('access_group_role_by_tenant').on(t.tenant_id),
+    textEnumCheck('access_group_role', 'scope_kind', ROLE_SCOPE_KINDS),
+    check(
+      'access_group_role_scope_check',
+      sql`(scope_kind = 'org_unit') = (scope_id <> '00000000-0000-0000-0000-000000000000')`,
+    ),
+  ],
 );
 
 export const orgUnitProjection = identity.table(
@@ -172,17 +203,23 @@ export const productGrant = identity.table(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     tenant_id: uuid('tenant_id').notNull(),
-    subject_type: text('subject_type', { enum: ['tenant', 'group', 'user'] }).notNull(),
+    subject_type: textEnum('subject_type', PRODUCT_GRANT_SUBJECT_TYPES).notNull(),
     subject_id: uuid('subject_id').notNull(),
     product_id: text('product_id').notNull(),
-    effect: text('effect', { enum: ['grant', 'revoke'] }).notNull(),
+    effect: textEnum('effect', GRANT_EFFECT).notNull(),
     granted_by: uuid('granted_by'),
-    granted_via: text('granted_via', { enum: ['admin', 'seed', 'cli'] })
-      .default('admin')
-      .notNull(),
+    granted_via: textEnum('granted_via', PRODUCT_GRANT_GRANTED_VIA).default('admin').notNull(),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [
-    uniqueIndex('product_grant_subject_product').on(t.subject_type, t.subject_id, t.product_id),
+    uniqueIndex('product_grant_subject_product').on(
+      t.tenant_id,
+      t.subject_type,
+      t.subject_id,
+      t.product_id,
+    ),
+    textEnumCheck('product_grant', 'subject_type', PRODUCT_GRANT_SUBJECT_TYPES),
+    textEnumCheck('product_grant', 'effect', GRANT_EFFECT),
+    textEnumCheck('product_grant', 'granted_via', PRODUCT_GRANT_GRANTED_VIA),
   ],
 );

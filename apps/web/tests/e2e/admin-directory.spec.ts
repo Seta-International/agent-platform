@@ -5,14 +5,14 @@ import { expect, request, test } from '@playwright/test';
 //
 // Pre-conditions (feature branch CI only):
 //   The feature branch server registers identity.directory-projection.ts, which
-//   listens for people.worker.created events and populates identity.directory_person.
+//   listens for people.worker.created events and populates identity.person_projection.
 //   beforeAll creates 4 fresh workers via the people API, then polls the admin
 //   directory until they appear (event propagation via graphile-worker, ~1–3s).
 //
 //   In local dev against the main-branch server this test cannot pass because:
 //     • /api/people/v1/workers returns 500 (main branch expects a portal_access
 //       column not yet in the DB)
-//     • identity.directory_person is empty (subscriber not registered in main)
+//     • identity.person_projection is empty (subscriber not registered in main)
 //   See task-A2.6-report.md for details.
 
 test.describe('admin directory', () => {
@@ -41,7 +41,7 @@ test.describe('admin directory', () => {
 
     // 1. Create 4 fresh workers (unique by STAMP → no state collision across runs).
     //    The feature-branch people API emits people.worker.created events which the
-    //    identity directory-projection subscriber uses to populate identity.directory_person.
+    //    identity directory-projection subscriber uses to populate identity.person_projection.
     const fixtures = [
       { name: `E2E Provision ${STAMP}`, email: `e2e-prov-${STAMP}@sandbox.test` },
       { name: `E2E Suspend ${STAMP}`, email: `e2e-susp-${STAMP}@sandbox.test` },

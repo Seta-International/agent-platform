@@ -63,10 +63,11 @@ describe('resolveEffectiveAssignments', () => {
             kind: 'default',
           });
           await db.insert(accessGroupRole).values([
-            { group_id: groupId, role_slug: 'people.manager' },
-            { group_id: groupId, role_slug: 'hiring.manager' },
+            { tenant_id, group_id: groupId, role_slug: 'people.manager' },
+            { tenant_id, group_id: groupId, role_slug: 'hiring.manager' },
           ]);
           await db.insert(accessGroupMembership).values({
+            tenant_id,
             group_id: groupId,
             user_id,
           });
@@ -119,12 +120,13 @@ describe('resolveEffectiveAssignments', () => {
             kind: 'default',
           });
           await db.insert(accessGroupRole).values({
+            tenant_id,
             group_id: groupId,
             role_slug: 'pm.manager',
             scope_kind: 'org_unit',
             scope_id: orgUnitId,
           });
-          await db.insert(accessGroupMembership).values({ group_id: groupId, user_id });
+          await db.insert(accessGroupMembership).values({ tenant_id, group_id: groupId, user_id });
 
           const assignments = await resolveEffectiveAssignments(user_id, tenant_id);
           expect(assignments).toContainEqual({
