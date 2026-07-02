@@ -2,7 +2,7 @@ import { PRODUCT_NAMESPACES, type ProductId, productForNamespace } from '@seta/s
 import { and, eq, inArray } from 'drizzle-orm';
 import { identityDb } from '../db/index.ts';
 import { productGrant } from '../db/schema.ts';
-import { resolveEffectiveRoleSlugs } from './resolve-effective-roles.ts';
+import { resolveEffectiveAssignments, toRoleSlugs } from './resolve-effective-assignments.ts';
 
 export async function resolveTenantProducts(tenantId: string): Promise<Set<ProductId>> {
   const rows = await identityDb()
@@ -27,7 +27,7 @@ export async function resolveProductAccess(
   const tenantProducts = await resolveTenantProducts(tenantId);
   if (tenantProducts.size === 0) return new Set();
 
-  const roles = await resolveEffectiveRoleSlugs(userId, tenantId);
+  const roles = toRoleSlugs(await resolveEffectiveAssignments(userId, tenantId));
   const derived = new Set<string>();
   for (const r of roles) {
     const ns = r.split('.')[0];

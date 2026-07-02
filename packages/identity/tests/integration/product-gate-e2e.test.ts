@@ -3,12 +3,12 @@
 // Proves that the real identity resolveProductAccess drives the product-gate
 // inside getSessionScope — exactly the wiring build.ts now uses.
 // Tests the SAME dep composition as the composition root:
-//   listRoleGrants + listUserGroupIds + resolveProductAccess (all real, from @seta/identity)
+//   listRoleAssignments + listUserGroupIds + resolveProductAccess (all real, from @seta/identity)
 //   resolvePermissions: faithful stub returning pm.account.read for pm.pmo holders.
 import { createContributionRegistry, getSessionScope, runMigrations } from '@seta/core';
 import { registerCoreContributions } from '@seta/core/register';
 import { _clearHotForTest, resetCoreDb } from '@seta/core/testing';
-import { listRoleGrants, listUserGroupIds, resolveProductAccess } from '@seta/identity';
+import { listRoleAssignments, listUserGroupIds, resolveProductAccess } from '@seta/identity';
 import { registerIdentityContributions } from '@seta/identity/register';
 import { createTestTenantWithAdmin } from '@seta/identity/testing';
 import { closePools, initPools } from '@seta/shared-db';
@@ -57,7 +57,7 @@ describe('product gate e2e', () => {
             new Set(roles.includes('pm.pmo') ? ['pm.account.read'] : []);
 
           const deps = {
-            listRoleGrants,
+            listRoleAssignments,
             resolvePermissions,
             resolveGroupIds: listUserGroupIds,
             resolveProductAccess,

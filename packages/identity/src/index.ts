@@ -63,8 +63,8 @@ export { listDirectory } from './backend/domain/list-directory.ts';
 export type { EntraImportableUser } from './backend/domain/list-entra-importable-users.ts';
 export { listEntraImportableUsers } from './backend/domain/list-entra-importable-users.ts';
 export { listMyEffectivePermissions } from './backend/domain/list-my-effective-permissions.ts';
-export type { ActiveRoleGrant, RoleGrantsResult } from './backend/domain/list-role-grants.ts';
-export { listRoleGrants, listUserGroupIds } from './backend/domain/list-role-grants.ts';
+export type { ActiveAssignment } from './backend/domain/list-role-assignments.ts';
+export { listRoleAssignments, listUserGroupIds } from './backend/domain/list-role-assignments.ts';
 export { listSsoProviders } from './backend/domain/list-sso-providers.ts';
 export { listTenantRoleOverlays } from './backend/domain/list-tenant-role-overlays.ts';
 export type {

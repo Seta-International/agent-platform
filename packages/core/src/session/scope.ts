@@ -5,16 +5,16 @@ import { LRUCache } from 'lru-cache';
 import { coreDb } from '../db/client.ts';
 import { sessionScopeCache } from '../db/schema/index.ts';
 
-export interface RoleGrant {
+export interface RoleAssignment {
   role_slug: string;
-  scope_type: 'tenant' | 'group';
+  scope_kind: 'tenant' | 'org_unit' | 'self' | 'group';
   scope_id: string | null;
   granted_at: Date;
 }
 
-export type ListRoleGrants = (
+export type ListRoleAssignments = (
   userId: string,
-) => Promise<{ tenant_id: string; grants: ReadonlyArray<RoleGrant> }>;
+) => Promise<{ tenant_id: string; assignments: ReadonlyArray<RoleAssignment> }>;
 
 export type ResolvePermissions = (
   roles: readonly string[],
@@ -62,12 +62,12 @@ function applyProductGate(
   return gated;
 }
 
-export function rollup(grants: ReadonlyArray<RoleGrant>): {
+export function rollup(assignments: ReadonlyArray<RoleAssignment>): {
   roles: string[];
   cross_tenant_read: boolean;
 } {
-  const roles = Array.from(new Set(grants.map((g) => g.role_slug))).sort();
-  const cross_tenant_read = grants.some((g) => g.role_slug === 'org.viewer');
+  const roles = Array.from(new Set(assignments.map((a) => a.role_slug))).sort();
+  const cross_tenant_read = assignments.some((a) => a.role_slug === 'org.viewer');
   return { roles, cross_tenant_read };
 }
 
@@ -79,17 +79,19 @@ export function hashRoleSummary(summary: { roles: string[]; cross_tenant_read: b
   return createHash('sha256').update(canonical).digest('hex').slice(0, 16);
 }
 
-export function computeAccessibleGroups(grants: ReadonlyArray<RoleGrant>): ReadonlyArray<string> {
+export function computeAccessibleGroups(
+  assignments: ReadonlyArray<RoleAssignment>,
+): ReadonlyArray<string> {
   const groups = new Set<string>();
-  for (const g of grants) {
-    if (g.scope_type === 'group' && g.scope_id) groups.add(g.scope_id);
+  for (const a of assignments) {
+    if (a.scope_kind === 'group' && a.scope_id) groups.add(a.scope_id);
   }
   return Array.from(groups).sort();
 }
 
 export async function getSessionScope(
   deps: {
-    listRoleGrants: ListRoleGrants;
+    listRoleAssignments: ListRoleAssignments;
     resolvePermissions: ResolvePermissions;
     resolveGroupIds?: ResolveGroupIds;
     resolveProductAccess?: ResolveProductAccess;
@@ -140,8 +142,8 @@ export async function getSessionScope(
     return scope;
   }
 
-  const { tenant_id, grants } = await deps.listRoleGrants(userId);
-  const role_summary = rollup(grants);
+  const { tenant_id, assignments } = await deps.listRoleAssignments(userId);
+  const role_summary = rollup(assignments);
   const rawPermissions = await deps.resolvePermissions(role_summary.roles, tenant_id);
   const group_ids = await resolveGroupIds(userId);
   const productAccess = deps.resolveProductAccess
@@ -158,7 +160,7 @@ export async function getSessionScope(
     display_name: displayName,
     role_summary,
     role_summary_hash: hashRoleSummary(role_summary),
-    accessible_group_ids: computeAccessibleGroups(grants),
+    accessible_group_ids: computeAccessibleGroups(assignments),
     group_ids,
     product_access: productAccess ?? new Set<string>(),
     cross_tenant_read: role_summary.cross_tenant_read,

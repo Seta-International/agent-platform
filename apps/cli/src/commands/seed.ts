@@ -1,6 +1,6 @@
 import { computeAccessibleGroups, hashRoleSummary, rollup, type SessionScope } from '@seta/core';
 import { coreDb } from '@seta/core/db';
-import { listRoleGrants } from '@seta/identity';
+import { listRoleAssignments } from '@seta/identity';
 import {
   buildRegistry,
   IMPLICIT_PERMISSIONS,
@@ -30,8 +30,8 @@ export async function buildAdminSession(
   adminEmail: string,
 ): Promise<SessionScope> {
   const userId = await resolveUserIdByEmail(tenantId, adminEmail);
-  const { grants } = await listRoleGrants(userId);
-  const role_summary = rollup(grants);
+  const { assignments } = await listRoleAssignments(userId);
+  const role_summary = rollup(assignments);
   return {
     session_id: `cli-import-${userId}`,
     user_id: userId,
@@ -41,7 +41,7 @@ export async function buildAdminSession(
     role_summary,
     permissions: resolvePermissions(rbacRegistry, role_summary.roles, IMPLICIT_PERMISSIONS),
     role_summary_hash: hashRoleSummary(role_summary),
-    accessible_group_ids: computeAccessibleGroups(grants),
+    accessible_group_ids: computeAccessibleGroups(assignments),
     group_ids: [],
     product_access: new Set<string>(),
     cross_tenant_read: role_summary.cross_tenant_read,

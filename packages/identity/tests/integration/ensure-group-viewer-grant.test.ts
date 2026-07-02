@@ -1,7 +1,7 @@
 import { createContributionRegistry, getSessionScope, runMigrations } from '@seta/core';
 import { registerCoreContributions } from '@seta/core/register';
 import { resetCoreDb } from '@seta/core/testing';
-import { createUser, ensureGroupViewerGrant, listRoleGrants } from '@seta/identity';
+import { createUser, ensureGroupViewerGrant, listRoleAssignments } from '@seta/identity';
 import { registerIdentityContributions } from '@seta/identity/register';
 import { closePools, initPools } from '@seta/shared-db';
 import {
@@ -55,7 +55,7 @@ describe('ensureGroupViewerGrant', () => {
 
           const sessionId = `sess-${userId}`;
           await getSessionScope(
-            { listRoleGrants, resolvePermissions: resolvePerms },
+            { listRoleAssignments, resolvePermissions: resolvePerms },
             sessionId,
             userId,
             'user@test.com',
@@ -70,7 +70,7 @@ describe('ensureGroupViewerGrant', () => {
           });
 
           const scope = await getSessionScope(
-            { listRoleGrants, resolvePermissions: resolvePerms },
+            { listRoleAssignments, resolvePermissions: resolvePerms },
             sessionId,
             userId,
             'user@test.com',

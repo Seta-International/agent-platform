@@ -1,4 +1,4 @@
-import { createUser, listRoleGrants } from '@seta/identity';
+import { createUser, listRoleAssignments } from '@seta/identity';
 import { registerIdentityContributions } from '@seta/identity/register';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
@@ -20,7 +20,7 @@ describe('session scope cache', () => {
     const summaryA = rollup([
       {
         role_slug: 'planner.member',
-        scope_type: 'group',
+        scope_kind: 'group',
         scope_id: 'g1',
         granted_at: new Date(),
       },
@@ -28,7 +28,7 @@ describe('session scope cache', () => {
     const summaryB = rollup([
       {
         role_slug: 'planner.member',
-        scope_type: 'group',
+        scope_kind: 'group',
         scope_id: 'g2',
         granted_at: new Date(),
       },
@@ -68,7 +68,7 @@ describe('session scope cache', () => {
           const sessionId = `test-session-${crypto.randomUUID()}`;
 
           const scope1 = await getSessionScope(
-            { listRoleGrants, resolvePermissions: () => new Set() },
+            { listRoleAssignments, resolvePermissions: () => new Set() },
             sessionId,
             user_id,
             'a@d.local',
@@ -86,7 +86,7 @@ describe('session scope cache', () => {
 
           _clearHotForTest();
           const scope2 = await getSessionScope(
-            { listRoleGrants, resolvePermissions: () => new Set() },
+            { listRoleAssignments, resolvePermissions: () => new Set() },
             sessionId,
             user_id,
             'a@d.local',

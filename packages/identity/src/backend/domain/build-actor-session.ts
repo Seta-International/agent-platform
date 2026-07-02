@@ -1,6 +1,6 @@
 import { getSessionScope, type SessionScope } from '@seta/core';
 import { resolveForRoles } from '../rbac-registry.ts';
-import { listRoleGrants } from './list-role-grants.ts';
+import { listRoleAssignments } from './list-role-assignments.ts';
 import { whoAmI } from './who-am-i.ts';
 
 /**
@@ -14,7 +14,7 @@ export async function buildActorSession(actor: { user_id: string }): Promise<Ses
 
   return await getSessionScope(
     {
-      listRoleGrants,
+      listRoleAssignments,
       // Spec 2: agent-tool actor sessions resolve seed-only; the per-tenant
       // permission overlay is deferred for this RPC actor path (see build.ts).
       resolvePermissions: async (roles) => resolveForRoles(roles),
