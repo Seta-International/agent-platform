@@ -8,6 +8,13 @@
       "when": 1782967292295,
       "tag": "0000_identity_baseline",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1782970479447,
+      "tag": "0001_optimal_queen_noir",
+      "breakpoints": true
     }
   ]
 }
