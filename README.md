@@ -110,7 +110,7 @@ pnpm db:seed             # seed the SETA International tenant + admin + full cro
 pnpm dev                 # serves the app at http://localhost:5173
 ```
 
-Sign in at <http://localhost:5173/login> as `admin@seta-international.vn` / `ChangeMe@2026`.
+Sign in at <http://localhost:5173/login> as `admin@example.com` / `ChangeMe@2026`.
 
 New here? The full walkthrough — secret generation, env reference, data-loading
 options, and troubleshooting — is in **[`docs/guides/dev-quickstart.md`](docs/guides/dev-quickstart.md)**.

@@ -116,28 +116,16 @@ docker run --rm --network <project>_seta-edge \
   seed --dir /seed
 ```
 
-- Admin defaults: `--admin-email admin@seta-international.vn`, `--password ChangeMe@2026` (idempotent; auto-creates tenant + admin; degrades to tenant+admin only if the workbook is absent).
+- Admin defaults: `--admin-email admin@example.com`, `--password ChangeMe@2026` (idempotent; auto-creates tenant + admin; degrades to tenant+admin only if the workbook is absent).
 - **Do not pipe the seeder to `| tail`** — that masks its exit code; a truncated run can look successful while leaving planner/hiring unseeded. Redirect to a log and check the exit code instead.
 
 ## Operational notes
 
-- **`gh` account:** repo/Environment writes require the `seta-canhta` collaborator account (admin for Environment secrets). The CLI can revert to a non-collaborator account — run `gh auth switch --user seta-canhta` before write operations.
+- **`gh` account:** repo/Environment writes require a collaborator account with Environment-secrets admin. The CLI can revert to a non-collaborator account — run `gh auth switch --user <ops-account>` before write operations.
 - **Two stacks, one host:** dev (`seta-dev`, ports 80/443/5173) and uat (`seta-uat`, ports 8080/8443/8173) coexist. Each owns its own networks/volumes; the bundled `postgres`/`minio` only exist in dev.
 - **S3 credentials hardening:** if you wired S3 with a broad personal IAM key to get going, swap it for a dedicated bucket-scoped key.
 - **`build-images` action** logs into ECR with no `registries:` input (that field expects a 12-digit account id, not the registry hostname) — it uses the caller's default registry.
 
-## Reference: current Seta dev + UAT
+## Reference: locating the concrete values
 
-Concrete, non-secret values for the running deployment.
-
-| | dev | uat |
-|---|---|---|
-| Host / runner | `future` box (`seta-future` runner), label `dev` | same box, label `uat` |
-| Public URL | `https://dev-future.seta-international.com` | `https://uat-future.seta-international.com` (→ box `8443`) |
-| Database | bundled Docker Postgres (`seta-dev`) | RDS `future-app-db` … db `future_app`, user `future_admin` |
-| Object storage | bundled MinIO | S3 `future-app-bucket-seta` |
-| ECR | `555146423830.dkr.ecr.ap-southeast-1.amazonaws.com/future-app` (`ap-southeast-1`) | same |
-| OIDC build role | `future-app-gha-build` | same |
-| ECR pull user (box) | `future-app-ecr-pull` | same |
-
-**Status:** dev + uat both deployed, seeded (202 users / 201 workers / 243 tasks / 6 requisitions), healthy. **E2E** for uat is not yet wired (needs `E2E_BASICAUTH_USERS` + `E2E_ADMIN_*` secrets, `E2E_REPORTS_DIR`, DNS for `e2e.uat-future…`, and a Playwright-container networking tweak for the `8443` target).
+The concrete values for a running deployment (public URLs, RDS/S3/ECR resource names, IAM role names, runner hosts) are intentionally **not** documented here — they live in the matching **GitHub Environment** (Variables + Secrets, see tables above) and the repo-level Variables `ECR_REGISTRY` / `ECR_REPOSITORY` / `AWS_REGION`. Check there (or the internal ops runbook) rather than this file.

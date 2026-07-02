@@ -16,8 +16,8 @@ insert into people.employment_period (tenant_id, person_id, seq, start_date, end
 
 -- worker = person-level mutable directory fields only (domain fields derive via v_worker_directory)
 insert into people.worker (tenant_id, person_id, full_name, work_email, location, gender, dob, phone) values
-  ('11111111-1111-1111-1111-111111111111','aaaa0001-0000-0000-0000-000000000001','Le Thu Ha','ha.le@seta.vn','Hanoi','F','1994-07-12','+84-900-000-001'),
-  ('11111111-1111-1111-1111-111111111111','aaaa0002-0000-0000-0000-000000000002','Tran Minh','minh.tran@seta.vn','Hanoi','M','1999-02-20','+84-900-000-002');
+  ('11111111-1111-1111-1111-111111111111','aaaa0001-0000-0000-0000-000000000001','Le Thu Ha','ha.le@example.com','Hanoi','F','1994-07-12','+84-900-000-001'),
+  ('11111111-1111-1111-1111-111111111111','aaaa0002-0000-0000-0000-000000000002','Tran Minh','minh.tran@example.com','Hanoi','M','1999-02-20','+84-900-000-002');
 
 insert into people.worker_compensation (tenant_id, person_id, effective_from, effective_to, salary_amount, salary_currency, reason) values
   ('11111111-1111-1111-1111-111111111111','aaaa0001-0000-0000-0000-000000000001','2021-03-01','2023-06-30',3000.00,'USD','initial hire'),
@@ -76,7 +76,7 @@ insert into people.employee_document (tenant_id, person_id, doc_type, storage_ke
 insert into people.rm_allocation (tenant_id, allocation_id, worker_id, project_id, account_id, pct, bucket, date_from) values
   ('11111111-1111-1111-1111-111111111111','00000000-0000-0000-0000-00000000e002','aaaa0001-0000-0000-0000-000000000001','00000000-0000-0000-0000-0000000000b1','00000000-0000-0000-0000-0000000000a1',80,'billable','2025-01-06');
 insert into people.rm_account_project (tenant_id, kind, name, am_worker_id) values
-  ('11111111-1111-1111-1111-111111111111','account','Aeris','aaaa0001-0000-0000-0000-000000000001');
+  ('11111111-1111-1111-1111-111111111111','account','Fabrikam','aaaa0001-0000-0000-0000-000000000001');
 
 -- ---------- hiring ----------
 insert into hiring.requisition (id, tenant_id, title, role_title, grade, account_id, resource_request_id, position_id, kind, status, stage, owner_user_id) values
@@ -130,7 +130,7 @@ insert into hiring.rm_resource_request (resource_request_id, tenant_id, project_
 
 -- ---------- pm ----------
 insert into pm.account (id, tenant_id, name, am_worker_id) values
-  ('00000000-0000-0000-0000-0000000000a1','11111111-1111-1111-1111-111111111111','Aeris','aaaa0001-0000-0000-0000-000000000001');
+  ('00000000-0000-0000-0000-0000000000a1','11111111-1111-1111-1111-111111111111','Fabrikam','aaaa0001-0000-0000-0000-000000000001');
 insert into pm.project (id, tenant_id, account_id, name, objective, budget_bmm, phase, status) values
   ('00000000-0000-0000-0000-0000000000b1','11111111-1111-1111-1111-111111111111','00000000-0000-0000-0000-0000000000a1','PGE Automotive','OTA platform',24,'delivery','active');
 insert into pm.allocation (id, tenant_id, worker_id, project_id, role, date_from, date_to, bucket, planned_pct, resource_request_id, status) values
@@ -162,8 +162,8 @@ insert into pm.rm_utilization (worker_id, period, capacity, util_pct, overalloca
 
 -- ---------- demo: directory projection, lifecycle steps, calendar sync ----------
 insert into people.rm_worker_directory (person_id, tenant_id, full_name, work_email, lifecycle_stage, status, grade, fte, department, role_title, account_id) values
-  ('aaaa0001-0000-0000-0000-000000000001','11111111-1111-1111-1111-111111111111','Le Thu Ha','ha.le@seta.vn','active','active','L5',1.0,'Delivery','Senior Engineer','00000000-0000-0000-0000-0000000000a1'),
-  ('aaaa0002-0000-0000-0000-000000000002','11111111-1111-1111-1111-111111111111','Tran Minh','minh.tran@seta.vn','onboarding','active',null,1.0,null,null,null);
+  ('aaaa0001-0000-0000-0000-000000000001','11111111-1111-1111-1111-111111111111','Le Thu Ha','ha.le@example.com','active','active','L5',1.0,'Delivery','Senior Engineer','00000000-0000-0000-0000-0000000000a1'),
+  ('aaaa0002-0000-0000-0000-000000000002','11111111-1111-1111-1111-111111111111','Tran Minh','minh.tran@example.com','onboarding','active',null,1.0,null,null,null);
 
 insert into people.lifecycle_case_step (tenant_id, case_id, template_step_key, phase, responsible_role, status, started_at, done_at) values
   ('11111111-1111-1111-1111-111111111111','00000000-0000-0000-0000-0000000000c5','it_provision','onboarding day','IT','done','2026-06-15 09:00+07','2026-06-15 15:00+07'),
@@ -172,4 +172,4 @@ insert into people.lifecycle_case_step (tenant_id, case_id, template_step_key, p
 insert into integrations.external_calendar_link (tenant_id, calendar_event_id, provider, external_event_id, ical_uid, etag_or_changekey, sequence, sync_status) values
   ('11111111-1111-1111-1111-111111111111','00000000-0000-0000-0000-00000000d004','msgraph','AAMkAGI2...graphid','iv-d004@seta','W/"CQAAABYAAAA"',0,'idle');
 insert into integrations.calendar_sync_state (tenant_id, provider, account_ref, delta_link, channel_expiry) values
-  ('11111111-1111-1111-1111-111111111111','msgraph','recruiting@seta.vn','https://graph.microsoft.com/v1.0/...$deltatoken=abc', now()+interval '6 days');
+  ('11111111-1111-1111-1111-111111111111','msgraph','recruiting@example.com','https://graph.microsoft.com/v1.0/...$deltatoken=abc', now()+interval '6 days');

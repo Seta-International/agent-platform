@@ -390,7 +390,7 @@ describe('getAllocationGrid', () => {
           ]);
         await peopleDb()
           .insert(accountProjection)
-          .values({ account_id: acc, tenant_id: t.tenant_id, name: 'Aeris', am_worker_id: am });
+          .values({ account_id: acc, tenant_id: t.tenant_id, name: 'Fabrikam', am_worker_id: am });
         await peopleDb()
           .insert(workerAllocationProjection)
           .values([
@@ -400,7 +400,7 @@ describe('getAllocationGrid', () => {
               worker_id: am,
               project_id: crypto.randomUUID(),
               account_id: acc,
-              account_name: 'Aeris',
+              account_name: 'Fabrikam',
               date_from: '2026-01-01',
               date_to: '2026-12-31',
               planned_pct: '64',
@@ -413,7 +413,7 @@ describe('getAllocationGrid', () => {
               worker_id: member,
               project_id: crypto.randomUUID(),
               account_id: acc,
-              account_name: 'Aeris',
+              account_name: 'Fabrikam',
               date_from: '2026-01-01',
               date_to: '2026-12-31',
               planned_pct: '100',

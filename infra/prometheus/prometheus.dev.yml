@@ -24,10 +24,11 @@ scrape_configs:
 
   # vLLM server-side metrics (aggregate throughput, batching, queue depth).
   # Complements the app-side per-tenant agent_llm_* metrics on seta-server.
+  # Replace `gpu-host` with the LAN address of the box running vLLM.
   - job_name: vllm
     metrics_path: /metrics
     static_configs:
-      - targets: ['192.168.90.127:8000']
+      - targets: ['gpu-host:8000']
         labels:
           service: vllm
 
@@ -36,6 +37,6 @@ scrape_configs:
   # GPU util or VRAM — dcgm-exporter is the source for DCGM_FI_DEV_* series.
   - job_name: dcgm
     static_configs:
-      - targets: ['192.168.90.127:9400']
+      - targets: ['gpu-host:9400']
         labels:
           service: gpu

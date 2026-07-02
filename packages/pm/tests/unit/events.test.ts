@@ -63,14 +63,14 @@ describe('pm events', () => {
       worker_id: crypto.randomUUID(),
       tenant_id: crypto.randomUUID(),
       account_id: crypto.randomUUID(),
-      account_name: 'Aeris',
+      account_name: 'Fabrikam',
       lead_worker_id: null,
       date_from: null,
       date_to: null,
       planned_pct: null,
       bucket: 'billable',
     });
-    expect(p.account_name).toBe('Aeris');
+    expect(p.account_name).toBe('Fabrikam');
   });
 
   it('registers pm.allocation.removed', () => {

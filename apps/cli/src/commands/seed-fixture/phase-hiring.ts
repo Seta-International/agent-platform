@@ -19,35 +19,31 @@ const log = pino({ name: 'cli/seed-fixture/hiring' });
 const STAGES = ['new', 'screening', 'interview', 'offer'] as const;
 type Stage = (typeof STAGES)[number];
 
+// Accounts are assigned at runtime from the workbook-seeded account list so no
+// account names live in the repo.
 const OPENINGS = [
   {
     role: 'Senior Backend Engineer',
-    account: 'Gridbeyond Energy',
     skills: ['Node.js', 'TypeScript', 'PostgreSQL', 'AWS'],
   },
   {
     role: 'QA Automation Engineer',
-    account: 'Aeris',
     skills: ['Test Automation', 'Playwright', 'Cypress'],
   },
   {
     role: 'React Developer',
-    account: 'Motion Global',
     skills: ['React', 'TypeScript', 'Tailwind CSS'],
   },
   {
     role: 'DevOps Engineer',
-    account: 'SETA Internal',
     skills: ['AWS', 'Docker', 'Kubernetes', 'Terraform'],
   },
   {
     role: 'Project Manager',
-    account: 'Veritone',
     skills: ['Agile', 'Scrum', 'Jira', 'Stakeholder Management'],
   },
   {
     role: 'UI/UX Designer',
-    account: 'Commerce Canal',
     skills: ['Figma', 'UX Research', 'Design Systems'],
   },
 ];
@@ -86,15 +82,18 @@ export async function seedHiring(
       })
     ).id;
 
-  for (const o of OPENINGS) {
-    const title = `${o.role} — ${o.account}`;
+  const accountNames = [...accountByName.keys()].sort((a, b) => a.localeCompare(b));
+
+  for (const [i, o] of OPENINGS.entries()) {
+    const account = accountNames.length > 0 ? accountNames[i % accountNames.length] : undefined;
+    const title = account === undefined ? o.role : `${o.role} — ${account}`;
 
     if (await requisitionExistsByTitle(session.tenant_id, title)) {
       log.info({ title }, 'requisition already exists, skipping');
       continue;
     }
 
-    const account_id = accountByName.get(o.account);
+    const account_id = account === undefined ? undefined : accountByName.get(account);
     const reqSkills = resolveSkills(o.skills, catalog);
     const { requisition_id } = await openRequisition({
       title,

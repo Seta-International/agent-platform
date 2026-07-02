@@ -1,5 +1,5 @@
-# Prometheus config for the SHARED monitoring stack running on the GPU/app host
-# (192.168.90.127), started via infra/docker/compose.monitoring.yml.
+# Prometheus config for the SHARED monitoring stack running on the GPU/app host,
+# started via infra/docker/compose.monitoring.yml.
 #
 # vLLM and dcgm-exporter run as Docker on this same box and bind 0.0.0.0, so the
 # Prometheus container reaches them through host.docker.internal (host-gateway).
