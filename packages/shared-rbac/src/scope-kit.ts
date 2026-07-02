@@ -38,6 +38,12 @@ export function scopeDecision(
   return { kind: 'predicate', predicate: or(...arms) as SQL };
 }
 
+export function decisionPredicate(d: ScopeDecision): SQL | null {
+  if (d.kind === 'all') return null;
+  if (d.kind === 'deny') return sql`false`;
+  return d.predicate;
+}
+
 export function tenantScoped(column: AnyColumn, session: { tenant_id: string }): SQL {
   return sql`${column} = ${session.tenant_id}`;
 }

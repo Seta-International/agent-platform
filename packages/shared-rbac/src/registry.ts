@@ -1,3 +1,4 @@
+import { INVENTORY, inventoryToManifests } from './inventory.ts';
 import type { ModuleRbacManifest } from './manifest.ts';
 
 export interface RbacRegistry {
@@ -27,4 +28,12 @@ export function buildRegistry(manifests: readonly ModuleRbacManifest[]): RbacReg
     }
   }
   return { allPermissions: all, readPermissions: reads, rolePermissions: roles, manifests };
+}
+
+let defaultRegistry: RbacRegistry | null = null;
+export function getDefaultRegistry(): RbacRegistry {
+  if (!defaultRegistry) {
+    defaultRegistry = buildRegistry(inventoryToManifests(INVENTORY));
+  }
+  return defaultRegistry;
 }

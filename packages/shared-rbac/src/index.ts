@@ -21,13 +21,19 @@ export {
   productForNamespace,
 } from './products.ts';
 export type { RbacRegistry } from './registry.ts';
-export { buildRegistry } from './registry.ts';
+export { buildRegistry, getDefaultRegistry } from './registry.ts';
 export type { RoleOverlay } from './resolve.ts';
 export { can, resolvePermissions } from './resolve.ts';
 export type { PermissionScope, ScopedAssignmentInput } from './scope.ts';
 export { resolveScope } from './scope.ts';
 export type { ScopeCtx, ScopeDecision, ScopePlan } from './scope-kit.ts';
-export { assertSameTenant, CrossTenantError, scopeDecision, tenantScoped } from './scope-kit.ts';
+export {
+  assertSameTenant,
+  CrossTenantError,
+  decisionPredicate,
+  scopeDecision,
+  tenantScoped,
+} from './scope-kit.ts';
 export type {
   Permission,
   PermissionDefinition,

@@ -1,9 +1,11 @@
-import { sql } from 'drizzle-orm';
+import { type SQL, sql } from 'drizzle-orm';
 import { PgDialect, pgTable, uuid } from 'drizzle-orm/pg-core';
 import { describe, expect, it } from 'vitest';
+import { getDefaultRegistry } from '../../src/registry.ts';
 import {
   assertSameTenant,
   CrossTenantError,
+  decisionPredicate,
   scopeDecision,
   tenantScoped,
 } from '../../src/scope-kit.ts';
@@ -124,5 +126,23 @@ describe('assertSameTenant', () => {
 
   it('does not throw when row tenant matches session tenant', () => {
     expect(() => assertSameTenant('t1', { tenant_id: 't1' })).not.toThrow();
+  });
+});
+
+describe('decisionPredicate', () => {
+  it('all → null', () => {
+    expect(decisionPredicate({ kind: 'all' })).toBeNull();
+  });
+  it('deny → false predicate', () => {
+    const p = decisionPredicate({ kind: 'deny' });
+    expect(p).not.toBeNull();
+    expect(dialect.sqlToQuery(p as SQL).sql).toContain('false');
+  });
+});
+
+describe('getDefaultRegistry', () => {
+  it('is a singleton over the full inventory', () => {
+    expect(getDefaultRegistry()).toBe(getDefaultRegistry());
+    expect(getDefaultRegistry().allPermissions.has('pm.project.read')).toBe(true);
   });
 });
