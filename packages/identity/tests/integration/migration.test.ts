@@ -54,7 +54,7 @@ describe('identity migrations', () => {
             'session',
             'account',
             'verification',
-            'role_grants',
+            'role_assignments',
             'failed_login_attempts',
             'tenant_sso_providers',
           ]),
@@ -68,9 +68,8 @@ describe('identity migrations', () => {
         expect(indexes).toEqual(
           expect.arrayContaining([
             'user_tenant_email_uniq',
-            'role_grants_active_uniq',
-            'role_grants_user_idx',
-            'role_grants_tenant_role_idx',
+            'role_assignment_active_unique',
+            'role_assignment_by_user',
             'failed_login_email_ip_idx',
           ]),
         );

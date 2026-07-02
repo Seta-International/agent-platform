@@ -1,5 +1,5 @@
 import { emit, withEmit } from '@seta/core/events';
-import { roleGrants } from '../db/schema.ts';
+import { roleAssignments } from '../db/schema.ts';
 import { IdentityError, requirePermission } from '../rbac.ts';
 import type { Actor } from './create-user.ts';
 import { requireUserExists } from './helpers.ts';
@@ -36,12 +36,12 @@ export async function grantRole(
       },
     },
     async (tx) => {
-      await tx.insert(roleGrants).values({
+      await tx.insert(roleAssignments).values({
         id: grantId,
         user_id: input.user_id,
         tenant_id: input.tenant_id,
         role_slug: input.role_slug,
-        scope_type: input.scope_type,
+        scope_kind: input.scope_type,
         scope_id: input.scope_id,
         granted_by: actor.user_id,
         granted_via: grantedVia,

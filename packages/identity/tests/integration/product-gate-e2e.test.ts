@@ -15,7 +15,7 @@ import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { identityDb } from '../../src/backend/db/index.ts';
-import { productGrant, roleGrants } from '../../src/backend/db/schema.ts';
+import { productGrant, roleAssignments } from '../../src/backend/db/schema.ts';
 
 describe('product gate e2e', () => {
   it('hides pm permissions until tenant enables pm product', async () => {
@@ -38,11 +38,11 @@ describe('product gate e2e', () => {
           const db = identityDb();
 
           // Grant the admin user the pm.pmo role (in addition to org.admin from bootstrap)
-          await db.insert(roleGrants).values({
+          await db.insert(roleAssignments).values({
             user_id: admin_user_id,
             tenant_id,
             role_slug: 'pm.pmo',
-            scope_type: 'tenant',
+            scope_kind: 'tenant',
             scope_id: null,
             granted_via: 'admin',
           });

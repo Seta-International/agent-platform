@@ -38,7 +38,7 @@ async function waitFor(
 interface Counts {
   workers: number;
   users: number;
-  role_grants: number;
+  role_assignments: number;
   accounts: number;
   projects: number;
   allocations: number;
@@ -60,7 +60,7 @@ async function getCounts(): Promise<Counts> {
     SELECT
       (SELECT COUNT(*) FROM people.worker WHERE deleted_at IS NULL)::int AS workers,
       (SELECT COUNT(*) FROM identity."user")::int AS users,
-      (SELECT COUNT(*) FROM identity.role_grants WHERE revoked_at IS NULL)::int AS role_grants,
+      (SELECT COUNT(*) FROM identity.role_assignments WHERE revoked_at IS NULL)::int AS role_assignments,
       (SELECT COUNT(*) FROM pm.account)::int AS accounts,
       (SELECT COUNT(*) FROM pm.project WHERE deleted_at IS NULL)::int AS projects,
       (SELECT COUNT(*) FROM pm.allocation WHERE deleted_at IS NULL)::int AS allocations,
@@ -132,7 +132,7 @@ describe('seed-fixture end-to-end', () => {
 
         expect(before.workers).toBeGreaterThanOrEqual(4);
         expect(before.users).toBeGreaterThanOrEqual(4);
-        expect(before.role_grants).toBeGreaterThan(0);
+        expect(before.role_assignments).toBeGreaterThan(0);
         expect(before.accounts).toBeGreaterThanOrEqual(1);
         expect(before.projects).toBeGreaterThanOrEqual(1);
         expect(before.allocations).toBeGreaterThanOrEqual(2);

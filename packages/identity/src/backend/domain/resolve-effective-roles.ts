@@ -1,6 +1,11 @@
 import { and, eq, isNull } from 'drizzle-orm';
 import { identityDb } from '../db/index.ts';
-import { accessGroup, accessGroupMembership, accessGroupRole, roleGrants } from '../db/schema.ts';
+import {
+  accessGroup,
+  accessGroupMembership,
+  accessGroupRole,
+  roleAssignments,
+} from '../db/schema.ts';
 
 export async function resolveEffectiveRoleSlugs(
   userId: string,
@@ -9,13 +14,13 @@ export async function resolveEffectiveRoleSlugs(
   const db = identityDb();
 
   const direct = await db
-    .select({ role_slug: roleGrants.role_slug })
-    .from(roleGrants)
+    .select({ role_slug: roleAssignments.role_slug })
+    .from(roleAssignments)
     .where(
       and(
-        eq(roleGrants.user_id, userId),
-        eq(roleGrants.tenant_id, tenantId),
-        isNull(roleGrants.revoked_at),
+        eq(roleAssignments.user_id, userId),
+        eq(roleAssignments.tenant_id, tenantId),
+        isNull(roleAssignments.revoked_at),
       ),
     );
 

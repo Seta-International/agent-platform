@@ -1,10 +1,10 @@
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import { identityDb } from '../db/index.ts';
 import {
   accessGroup,
   accessGroupMembership,
   accessGroupRole,
-  roleGrants,
+  roleAssignments,
   user,
 } from '../db/schema.ts';
 import { IdentityError } from '../rbac.ts';
@@ -32,13 +32,15 @@ export async function listRoleGrants(userId: string): Promise<RoleGrantsResult> 
 
   const grants = await db
     .select({
-      role_slug: roleGrants.role_slug,
-      scope_type: roleGrants.scope_type,
-      scope_id: roleGrants.scope_id,
-      granted_at: roleGrants.granted_at,
+      role_slug: roleAssignments.role_slug,
+      // PR1 writers only ever set 'tenant' | 'group' (org_unit/self land in Task 4+); cast narrows
+      // to keep this function's public contract (ActiveRoleGrant, ListRoleGrants) unchanged here.
+      scope_type: sql<'tenant' | 'group'>`${roleAssignments.scope_kind}`,
+      scope_id: roleAssignments.scope_id,
+      granted_at: roleAssignments.granted_at,
     })
-    .from(roleGrants)
-    .where(and(eq(roleGrants.user_id, userId), isNull(roleGrants.revoked_at)));
+    .from(roleAssignments)
+    .where(and(eq(roleAssignments.user_id, userId), isNull(roleAssignments.revoked_at)));
 
   const groupRoles = await db
     .select({ role_slug: accessGroupRole.role_slug })

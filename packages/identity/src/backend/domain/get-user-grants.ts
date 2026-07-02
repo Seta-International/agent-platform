@@ -4,7 +4,7 @@ import { identityDb } from '../db/index.ts';
 export interface UserGrant {
   id: string;
   role_slug: string;
-  scope_type: 'tenant' | 'group';
+  scope_type: 'tenant' | 'org_unit' | 'self' | 'group';
   scope_id: string | null;
   scope_label: string | null;
   granted_via: 'admin' | 'cli' | 'idp';
@@ -16,7 +16,7 @@ export interface UserGrant {
 interface RawGrantRow {
   id: string;
   role_slug: string;
-  scope_type: 'tenant' | 'group';
+  scope_type: 'tenant' | 'org_unit' | 'self' | 'group';
   scope_id: string | null;
   scope_label: string | null;
   granted_via: 'admin' | 'cli' | 'idp';
@@ -29,14 +29,14 @@ export async function getUserGrants(userId: string): Promise<UserGrant[]> {
   const result = await identityDb().execute(sql`
     SELECT rg.id,
            rg.role_slug,
-           rg.scope_type,
+           rg.scope_kind AS scope_type,
            rg.scope_id,
            NULL::text AS scope_label,
            rg.granted_via,
            rg.granted_at,
            rg.granted_by AS granted_by_user_id,
            gb.name AS granted_by_name
-    FROM identity.role_grants rg
+    FROM identity.role_assignments rg
     LEFT JOIN identity."user" gb ON gb.id = rg.granted_by
     WHERE rg.user_id = ${userId} AND rg.revoked_at IS NULL
     ORDER BY rg.granted_at

@@ -5,57 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1779201963713,
-      "tag": "0004_user_profile",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1779442428087,
-      "tag": "0017_failed_login_alerts_sent",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1779642520492,
-      "tag": "0018_user_profile_bio",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1781075029906,
-      "tag": "0020_role_permission_overlays",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1782709903843,
-      "tag": "0004_0022_directory_person",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1782730837002,
-      "tag": "0022_drop_user_profile",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1782791060571,
-      "tag": "0006_rich_speedball",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1782802029667,
-      "tag": "0007_giant_wolf_cub",
+      "when": 1782967292295,
+      "tag": "0000_identity_baseline",
       "breakpoints": true
     }
   ]

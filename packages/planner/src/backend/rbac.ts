@@ -50,7 +50,7 @@ export function requirePermission(
   }
 
   // Group-scope check: when groupId is given, the session must have access to that group.
-  // accessible_group_ids is populated from group-scoped role_grants in core/session/scope.ts.
+  // accessible_group_ids is populated from group-scoped role_assignments in core/session/scope.ts.
   // The M365 system actor and tenant-wide admin roles (org.admin, tenant.admin) operate
   // tenant-wide and bypass the group-scope check; cross-tenant access is blocked via
   // tenant_id comparison inside each domain function instead.

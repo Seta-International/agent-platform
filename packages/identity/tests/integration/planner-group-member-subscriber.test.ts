@@ -14,7 +14,7 @@ const BASE_URL = process.env.PLATFORM_TEST_PG_BASE as string;
 const TEMPLATE = process.env.PLATFORM_TEST_PG_TEMPLATE as string;
 
 describe('applyMemberAdded', () => {
-  it('inserts a planner.viewer role grant in identity.role_grants', async () => {
+  it('inserts a planner.viewer role assignment in identity.role_assignments', async () => {
     await withTestDb(
       { templateDbName: TEMPLATE, baseUrl: BASE_URL },
       async ({ pool, databaseUrl }) => {
@@ -59,9 +59,9 @@ describe('applyMemberAdded', () => {
           });
 
           const { rows } = await pool.query(
-            `SELECT role_slug, scope_type, scope_id, revoked_at
-           FROM identity.role_grants
-           WHERE user_id = $1 AND scope_type = 'group' AND scope_id = $2`,
+            `SELECT role_slug, scope_kind, scope_id, revoked_at
+           FROM identity.role_assignments
+           WHERE user_id = $1 AND scope_kind = 'group' AND scope_id = $2`,
             [userId, groupId],
           );
           expect(rows).toHaveLength(1);
@@ -155,7 +155,7 @@ describe('applyMemberRemoved', () => {
             `rem-${tenantId.slice(0, 8)}`,
           ]);
           await pool.query(
-            `INSERT INTO identity.role_grants (id, tenant_id, user_id, role_slug, scope_type, scope_id, granted_by, granted_via)
+            `INSERT INTO identity.role_assignments (id, tenant_id, user_id, role_slug, scope_kind, scope_id, granted_by, granted_via)
            VALUES (gen_random_uuid(), $1, $2, 'planner.viewer', 'group', $3, $4, 'admin')`,
             [tenantId, userId, groupId, actorId],
           );
