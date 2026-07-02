@@ -45,6 +45,16 @@ export const workerLifecyclePayload = z.object({
 });
 export type WorkerLifecyclePayload = z.infer<typeof workerLifecyclePayload>;
 
+export const PEOPLE_ORG_UNIT_CREATED = 'people.org_unit.created';
+
+export const orgUnitCreatedPayload = z.object({
+  org_unit_id: z.string().uuid(),
+  tenant_id: z.string().uuid(),
+  parent_id: z.string().uuid().nullable(),
+  name: z.string(),
+});
+export type OrgUnitCreatedPayload = z.infer<typeof orgUnitCreatedPayload>;
+
 export const PEOPLE_EVENTS = {
   [PEOPLE_WORKER_CREATED]: workerCreatedPayload,
   [PEOPLE_WORKER_UPDATED]: workerUpdatedPayload,
@@ -52,4 +62,5 @@ export const PEOPLE_EVENTS = {
   'people.person.skill.removed': personSkillRemovedPayload,
   'people.worker.terminated': workerLifecyclePayload,
   'people.worker.reinstated': workerLifecyclePayload,
+  [PEOPLE_ORG_UNIT_CREATED]: orgUnitCreatedPayload,
 } as const satisfies Record<string, z.ZodSchema>;
