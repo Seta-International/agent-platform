@@ -271,6 +271,7 @@ export interface ProjectDetail extends ProjectListRow {
   date_from: string | null;
   date_to: string | null;
   planner_group_id: string | null;
+  org_unit_id: string | null;
   version: number;
 }
 
@@ -279,6 +280,7 @@ export interface ProjectPatch {
   scope?: { in: string; out: string } | null;
   phase?: string;
   status?: 'active' | 'on_hold' | 'closed';
+  org_unit_id?: string | null;
 }
 
 export interface ProjectAccessRow {
