@@ -65,7 +65,11 @@ const log = pino(
 );
 const env = parseEnv(process.env);
 
-initPools({ databaseUrl: env.DATABASE_URL, log: log.child({ subsystem: 'shared-db' }) });
+initPools({
+  databaseUrl: env.DATABASE_URL,
+  appDatabaseUrl: env.DATABASE_APP_URL,
+  log: log.child({ subsystem: 'shared-db' }),
+});
 
 const cryptoEnv = parseCryptoEnv(process.env);
 const keyProvider = await createKeyProviderFromEnv(cryptoEnv);
