@@ -9,6 +9,7 @@ import { IdentityError } from './backend/rbac.ts';
 import { autoProvisionSubscribers } from './backend/subscribers/auto-provision.ts';
 import { autoSuspendSubscribers } from './backend/subscribers/auto-suspend.ts';
 import { directoryProjectionSubscribers } from './backend/subscribers/directory-projection.ts';
+import { orgUnitProjectionSubscribers } from './backend/subscribers/org-unit-projection.ts';
 import {
   applyMemberAdded,
   applyMemberRemoved,
@@ -35,6 +36,7 @@ export function registerIdentityContributions(reg: ContributionRegistry): void {
       ...autoProvisionSubscribers,
       ...autoSuspendSubscribers,
       ...directoryProjectionSubscribers,
+      ...orgUnitProjectionSubscribers,
       {
         event: 'planner.group.member.added',
         eventVersion: 1,

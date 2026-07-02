@@ -156,6 +156,18 @@ export const accessGroupRole = identity.table(
   (t) => [primaryKey({ columns: [t.group_id, t.role_slug] })],
 );
 
+export const orgUnitProjection = identity.table(
+  'org_unit_projection',
+  {
+    org_unit_id: uuid('org_unit_id').primaryKey(),
+    tenant_id: uuid('tenant_id').notNull(),
+    parent_id: uuid('parent_id'),
+    name: text('name').notNull(),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index('org_unit_projection_by_tenant').on(t.tenant_id)],
+);
+
 export const productGrant = identity.table(
   'product_grant',
   {
