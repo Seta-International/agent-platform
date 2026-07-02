@@ -44,11 +44,25 @@ const SORT_COLUMNS = {
 const MAX_PAGE_SIZE = 100;
 const DEFAULT_PAGE_SIZE = 20;
 
-// Direct manager: the full name of the worker stored in worker.manager_id (admin-set), if any.
+// F-ORG-3: reporting is derived from org-unit heads, never a hand-typed pointer. A worker's
+// manager is their unit's head; a unit head's manager is the parent unit's head.
+function derivedManagerIdSql(tenantId: string): SQL<string | null> {
+  return sql<string | null>`(
+    SELECT CASE
+      WHEN ou.head_worker_id = ${worker.person_id} THEN parent_ou.head_worker_id
+      ELSE ou.head_worker_id
+    END
+    FROM people.org_unit ou
+    LEFT JOIN people.org_unit parent_ou
+      ON parent_ou.id = ou.parent_id AND parent_ou.tenant_id = ou.tenant_id
+    WHERE ou.id = ${worker.org_unit_id} AND ou.tenant_id = ${tenantId}
+  )`;
+}
+
 function managerNameSql(tenantId: string): SQL<string | null> {
   return sql<string | null>`(
     SELECT mh.full_name FROM people.worker mh
-      WHERE mh.person_id = ${worker.manager_id}
+      WHERE mh.person_id = ${derivedManagerIdSql(tenantId)}
         AND mh.tenant_id = ${tenantId} AND mh.deleted_at IS NULL
   )`;
 }
@@ -162,7 +176,7 @@ export async function listWorkers(
     onboarding_date: employmentPeriod.start_date,
     offboarding_date: employmentPeriod.end_date,
     manager_name: managerName,
-    manager_id: worker.manager_id,
+    manager_id: derivedManagerIdSql(tenantId),
     accounts: accountsAgg,
     skills: skillsAgg,
   };
@@ -272,7 +286,7 @@ export async function getWorker({
       offboarding_date: employmentPeriod.end_date,
       job_title: worker.job_title,
       manager_name: managerName,
-      manager_id: worker.manager_id,
+      manager_id: derivedManagerIdSql(tenantId),
       org_unit_id: worker.org_unit_id,
       org_unit_name: orgUnitNameSql,
       accounts: accountsAgg,

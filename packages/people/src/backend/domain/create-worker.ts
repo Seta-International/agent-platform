@@ -66,7 +66,6 @@ export async function createWorker(
           emergency_contact: input.emergency_contact ?? null,
           job_title: input.job_title ?? null,
           org_unit_id: input.org_unit_id ?? null,
-          manager_id: input.manager_id ?? null,
           history_action: 'created',
         });
       },

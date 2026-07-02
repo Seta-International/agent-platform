@@ -78,7 +78,6 @@ export interface WorkerPatch {
   emergency_contact?: string;
   job_title?: string | null;
   org_unit_id?: string | null;
-  manager_id?: string | null;
 }
 
 export interface EditWorkerInput {

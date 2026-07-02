@@ -37,7 +37,6 @@ import {
   GENDER_OPTIONS,
   genderLabel,
   removeWorkerSkill,
-  searchPeople,
   searchSkills,
   type WorkerPatch,
 } from '../api/people-client.ts';
@@ -120,8 +119,6 @@ export function WorkerProfilePage() {
         patch.job_title = draft.job_title || null;
       if (draft.org_unit_id !== undefined && draft.org_unit_id !== (worker.org_unit_id ?? null))
         patch.org_unit_id = draft.org_unit_id;
-      if (draft.manager_id !== undefined && draft.manager_id !== (worker.manager_id ?? null))
-        patch.manager_id = draft.manager_id;
       return editWorker(workerId, { expected_version: worker.version, patch });
     },
     onSuccess: () => {
@@ -166,7 +163,6 @@ export function WorkerProfilePage() {
       emergency_contact: worker.emergency_contact ?? '',
       job_title: worker.job_title ?? '',
       org_unit_id: worker.org_unit_id ?? null,
-      manager_id: worker.manager_id ?? null,
     });
     setEditError(null);
     setEditing(true);
@@ -310,16 +306,8 @@ export function WorkerProfilePage() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label>Direct manager</Label>
-                    <AsyncCombobox
-                      search={searchPeople.search}
-                      resolveByIds={searchPeople.resolveByIds}
-                      value={draft.manager_id ?? null}
-                      onChange={(v) => {
-                        setDraft((d) => ({ ...d, manager_id: v }));
-                      }}
-                      placeholder="Search people…"
-                    />
+                    <Label>Manager</Label>
+                    <p className="text-body-sm text-ink py-2">{worker.manager_name ?? '—'}</p>
                   </div>
                   <div className="space-y-1">
                     <Label>Work email</Label>

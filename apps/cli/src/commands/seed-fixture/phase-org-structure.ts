@@ -107,7 +107,7 @@ async function fetchTopLevelDeliveryUnits(
  * org_unit override, else (2) their primary allocation's dept, else (3) a primary_role fallback.
  * Idempotent: units reused by name, editWorker no-ops when org_unit_id is unchanged. Must run
  * after people + PM so workers and allocations exist. Returns the top-level delivery units (with
- * heads, resolved after backfillManagers) so a later phase can seed org-scoped fixture groups.
+ * heads, resolved after backfillOrgUnitHeads) so a later phase can seed org-scoped fixture groups.
  */
 export async function seedOrgStructure(
   session: SessionScope,
@@ -178,7 +178,7 @@ export async function seedOrgStructure(
     placed++;
   }
 
-  await backfillManagers(session.tenant_id);
+  await backfillOrgUnitHeads(session.tenant_id);
 
   const topLevelDeliveryUnits = await fetchTopLevelDeliveryUnits(session.tenant_id, exec);
 
@@ -191,12 +191,12 @@ export async function seedOrgStructure(
 }
 
 /**
- * Mock the directory's direct-manager field. leadership.csv only names a couple of unit heads, so
- * (1) give every still-headless unit a head — its most senior member, then a child unit's head for
- * empty structural units — and (2) set each worker's stored manager_id to their unit's head (the
- * parent unit's head when the worker *is* the head). Pure backfill: only fills nulls / recomputes.
+ * leadership.csv only names a couple of unit heads, so give every still-headless unit a head —
+ * its most senior member, then a child unit's head for empty structural units — so the
+ * derived-manager read path (F-ORG-3) and the delivery-lead group seed both resolve. Pure
+ * backfill: only fills nulls.
  */
-async function backfillManagers(tenantId: string): Promise<void> {
+async function backfillOrgUnitHeads(tenantId: string): Promise<void> {
   // Head = most senior (earliest-hired) member of the unit.
   await coreDb().execute(sql`
     UPDATE people.org_unit ou SET head_worker_id = (
@@ -216,16 +216,4 @@ async function backfillManagers(tenantId: string): Promise<void> {
         ORDER BY c.name
         LIMIT 1)
     WHERE ou.tenant_id = ${tenantId} AND ou.head_worker_id IS NULL`);
-
-  // manager_id = unit head, or the parent unit's head when the worker is their unit's head.
-  await coreDb().execute(sql`
-    UPDATE people.worker w SET manager_id = (
-      SELECT CASE
-               WHEN ou.head_worker_id = w.person_id THEN parent_ou.head_worker_id
-               ELSE ou.head_worker_id
-             END
-        FROM people.org_unit ou
-        LEFT JOIN people.org_unit parent_ou ON parent_ou.id = ou.parent_id
-        WHERE ou.id = w.org_unit_id AND ou.tenant_id = w.tenant_id)
-    WHERE w.tenant_id = ${tenantId} AND w.deleted_at IS NULL`);
 }

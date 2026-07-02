@@ -13,7 +13,7 @@ const ctx = {
 };
 
 describe('org_unit schema', () => {
-  it('stores a unit with a head and a worker membership; worker has a manager_id column', async () => {
+  it('stores a unit with a head and a worker org_unit_id membership; worker has no manager_id column', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetPeopleDb();
       initPools({ databaseUrl });
@@ -51,7 +51,7 @@ describe('org_unit schema', () => {
           `SELECT column_name FROM information_schema.columns
              WHERE table_schema='people' AND table_name='worker' AND column_name='manager_id'`,
         );
-        expect(cols.rowCount).toBe(1);
+        expect(cols.rowCount).toBe(0);
       } finally {
         resetPeopleDb();
         await closePools();
