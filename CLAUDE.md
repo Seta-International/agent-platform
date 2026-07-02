@@ -7,6 +7,7 @@ Contract for coding agents (Claude Code, Codex, any `AGENTS.md`-aware tool) work
 - [`docs/README.md`](docs/README.md) — the full documentation map (start here).
 - [`docs/platform/architecture.md`](docs/platform/architecture.md) — single source of truth for the implementation shape.
 - [`docs/platform/rbac.md`](docs/platform/rbac.md) — how access control works, conceptually (for contributors + agents; no code).
+- [`docs/guides/defining-rbac.md`](docs/guides/defining-rbac.md) — how to author roles, permissions, and scopes for a module.
 - [`docs/guides/creating-modules.md`](docs/guides/creating-modules.md) — add a new module + agent tool via `pnpm gen module`.
 - [`docs/guides/dev-quickstart.md`](docs/guides/dev-quickstart.md) — first tenant and accounts on a fresh DB.
 - [`docs/guides/commit-convention.md`](docs/guides/commit-convention.md) — Jira-keyed branches, commit format, PR template (CI-gated).

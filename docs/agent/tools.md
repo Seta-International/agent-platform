@@ -573,19 +573,17 @@ Examples: `query-tasks.ts`, `get-task.ts`, `search-users-by-skills.ts`, `post-co
 
 ### 9.1 Permission Taxonomy
 
-Format: `{module}.{resource}.{action}[.{scope}]`
+Format: `{module}.{resource}.{action}` — a flat verb from the closed set, **no scope suffix**. Row reach is decided by the caller's assignment scope and the module scope-builder, not the permission string (see [`docs/platform/rbac.md`](../platform/rbac.md)).
 
-| Suffix         | Meaning                                              |
-| -------------- | ---------------------------------------------------- |
-| `.read`        | Read any record the session can see                  |
-| `.read.self`   | Read only the calling user's own record              |
-| `.read.tenant` | Read any record in the tenant (broader than `.read`) |
-| `.write`       | Mutate; typically gated by approval                  |
-| `.write.self`  | Mutate only own record                               |
-| `.create`      | Create new record                                    |
-| `.assign`      | Assign ownership/membership                          |
+| Action    | Meaning                     |
+| --------- | --------------------------- |
+| `.read`   | Read a record               |
+| `.create` | Create a new record         |
+| `.update` | Mutate; typically approval-gated |
+| `.delete` | Remove a record             |
+| `.assign` | Assign ownership/membership |
 
-Use the **most restrictive** permission that still lets the tool work. Prefer `.read.self` over `.read` for self-only tools. Prefer `.read` over `.read.tenant` unless the query genuinely spans the entire tenant.
+A tool tags itself with the single permission its action needs. "Only the calling user's own record" is not a permission variant — it falls out of the caller holding the permission at `self` scope, which the module's scope-builder enforces when the tool reads/writes. Don't invent `.self`/`.tenant` suffixes.
 
 ### 9.2 Approval Mechanisms
 
@@ -600,7 +598,7 @@ export const deleteTaskTool = defineAgentTool({
   name: 'Delete Task',
   description: '…',
   inputSchema, outputSchema,
-  rbac: 'planner.task.write',
+  rbac: 'planner.task.update',
   requireApproval: true,            // pauses before execute; emits a `tool-call-approval` chunk
   execute: async (input, ctx) => { … },
 });

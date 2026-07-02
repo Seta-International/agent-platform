@@ -360,7 +360,7 @@ Tool definitions reside in `packages/planner/src/backend/agent-tools/`. Each too
 | `planner_getTask` | `get-task.ts` | `getTask` | `planner.task.read` | none |
 | `planner_findSimilarTasks` | `find-similar-tasks.ts` | `findSimilarTasks` (vector + assignee enrich + scope filter) | `planner.task.read` | none |
 | `search_users_by_skills` | `search-users-by-skills.ts` | `searchUsersBySkills` (identity) | `identity.user.read` | none |
-| `planner_getOpenTaskCountForUser` | `get-open-task-count.ts` | spec promoted via `defineCrossModuleReadAsTool` | `planner.task.read.tenant` | none |
+| `planner_getOpenTaskCountForUser` | `get-open-task-count.ts` | spec promoted via `defineCrossModuleReadAsTool` | `planner.reporting.read` | none |
 | `identity_getTimezoneForUser` | `@seta/identity/agent-tools` | spec promoted via `defineCrossModuleReadAsTool` | `identity.user.read` | none |
 | `identity_getAvailabilityForUser` | `@seta/identity/agent-tools` | spec promoted via `defineCrossModuleReadAsTool` | `identity.user.read` | none |
 | `planner_createTask` | `create-task.ts` | thin confirm-and-create over `createTask` domain | `planner.task.create` | `ctx.agent.suspend(confirm card)` |
