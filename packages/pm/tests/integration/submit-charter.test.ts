@@ -278,15 +278,15 @@ describe('submitCharter / editCharter / withdrawCharter', () => {
           session: t.adminSession,
         });
 
-        // Create a different pm.strategic user who is NOT the submitter
+        // Create a different pm.manager user who is NOT the submitter
         const otherEmail = `other-${crypto.randomUUID().slice(0, 8)}@example.test`;
         const otherResult = await createUser(
           {
             tenant_id: t.tenant_id,
             email: otherEmail,
-            name: 'Other Strategic',
+            name: 'Other Manager',
             password: 'correct-horse-battery-staple',
-            initial_role: { role_slug: 'pm.strategic', scope_type: 'tenant', scope_id: null },
+            initial_role: { role_slug: 'pm.manager', scope_type: 'tenant', scope_id: null },
           },
           { type: 'cli', user_id: null },
         );
@@ -294,7 +294,7 @@ describe('submitCharter / editCharter / withdrawCharter', () => {
           tenant_id: t.tenant_id,
           user_id: otherResult.user_id,
           email: otherEmail,
-          roles: ['pm.strategic'],
+          roles: ['pm.manager'],
         });
 
         await expect(withdrawCharter({ charter_id, session: otherSession })).rejects.toMatchObject({

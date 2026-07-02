@@ -7,7 +7,7 @@ pnpm tsx apps/cli/src/index.ts tenant-create \
 
 pnpm tsx apps/cli/src/index.ts user-create \
   --tenant demo --email alice@demo.local --name Alice \
-  --password 'ChangeMe@2026' --role planner.contributor
+  --password 'ChangeMe@2026' --role planner.member
 
 pnpm tsx apps/cli/src/index.ts user-create \
   --tenant demo --email bob@demo.local --name Bob \

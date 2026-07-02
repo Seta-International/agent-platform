@@ -35,7 +35,7 @@ describe('resolveEffectiveRoleSlugs', () => {
 
           const { tenant_id } = await createTestTenantWithAdmin({ pool });
 
-          // Create a non-admin target user with a direct planner.contributor grant
+          // Create a non-admin target user with a direct planner.member grant
           const { user_id } = await createUser(
             {
               tenant_id,
@@ -43,7 +43,7 @@ describe('resolveEffectiveRoleSlugs', () => {
               name: 'Target User',
               password: 'pw',
               initial_role: {
-                role_slug: 'planner.contributor',
+                role_slug: 'planner.member',
                 scope_type: 'tenant',
                 scope_id: null,
               },
@@ -62,8 +62,8 @@ describe('resolveEffectiveRoleSlugs', () => {
             kind: 'default',
           });
           await db.insert(accessGroupRole).values([
-            { group_id: groupId, role_slug: 'people.strategic' },
-            { group_id: groupId, role_slug: 'hiring.strategic' },
+            { group_id: groupId, role_slug: 'people.manager' },
+            { group_id: groupId, role_slug: 'hiring.manager' },
           ]);
           await db.insert(accessGroupMembership).values({
             group_id: groupId,
@@ -71,7 +71,7 @@ describe('resolveEffectiveRoleSlugs', () => {
           });
 
           const roles = await resolveEffectiveRoleSlugs(user_id, tenant_id);
-          expect(roles).toEqual(['hiring.strategic', 'people.strategic', 'planner.contributor']);
+          expect(roles).toEqual(['hiring.manager', 'people.manager', 'planner.member']);
         } finally {
           resetCoreDb();
           await closePools();

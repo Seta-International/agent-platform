@@ -19,6 +19,6 @@ export const PEOPLE_PERMISSIONS: readonly PeoplePermission[] = [
 ];
 
 export const PEOPLE_ROLE_SLUGS = [
-  'people.strategic',
+  'people.manager',
   'people.viewer',
 ] as const;

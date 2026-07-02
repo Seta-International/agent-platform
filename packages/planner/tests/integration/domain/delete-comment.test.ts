@@ -19,7 +19,7 @@ describe('deleteComment', () => {
       initPools({ databaseUrl });
       try {
         const { session, task_id } = await seedTenantAndTask(pool, {
-          role: 'planner.contributor',
+          role: 'planner.member',
         });
         const c = await createComment({ task_id, body: 'x', session });
 
@@ -44,7 +44,7 @@ describe('deleteComment', () => {
           group_id,
           tenant_id,
         } = await seedTenantAndTask(pool, {
-          role: 'planner.contributor',
+          role: 'planner.member',
         });
         const c = await createComment({ task_id, body: 'mod me', session: author });
         const owner = await makeMemberSession(pool, { tenant_id, group_id, role: 'owner' });
@@ -70,7 +70,7 @@ describe('deleteComment', () => {
           group_id,
           tenant_id,
         } = await seedTenantAndTask(pool, {
-          role: 'planner.contributor',
+          role: 'planner.member',
         });
         const c = await createComment({ task_id, body: 'x', session: author });
         const member = await makeMemberSession(pool, { tenant_id, group_id, role: 'member' });
@@ -91,7 +91,7 @@ describe('deleteComment', () => {
       initPools({ databaseUrl });
       try {
         const { session, task_id } = await seedTenantAndTask(pool, {
-          role: 'planner.contributor',
+          role: 'planner.member',
         });
         const c = await createComment({ task_id, body: 'x', session });
         await deleteComment({ comment_id: c.id, session });

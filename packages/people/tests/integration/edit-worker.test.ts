@@ -99,7 +99,7 @@ describe('editWorker', () => {
     });
   });
 
-  it('strategic admin edits full_name + phone: two history rows, event fields contains both', async () => {
+  it('manager admin edits full_name + phone: two history rows, event fields contains both', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPeopleDb();

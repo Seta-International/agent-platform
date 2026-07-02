@@ -31,7 +31,7 @@ export const HIRING_PERMISSIONS: readonly HiringPermission[] = [
 ];
 
 export const HIRING_ROLE_SLUGS = [
+  'hiring.manager',
   'hiring.recruiter',
-  'hiring.strategic',
   'hiring.viewer',
 ] as const;

@@ -47,8 +47,8 @@ describe('planner requirePermission', () => {
     expect(() => requirePermission(session, 'planner.task.create')).toThrow(PlannerError);
   });
 
-  it('planner.contributor can create tasks but not delete groups', () => {
-    const session = makeSession(['planner.contributor']);
+  it('planner.member can create tasks but not delete groups', () => {
+    const session = makeSession(['planner.member']);
     expect(() => requirePermission(session, 'planner.task.create')).not.toThrow();
     expect(() => requirePermission(session, 'planner.group.delete')).toThrow(PlannerError);
   });

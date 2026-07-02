@@ -158,7 +158,7 @@ describe('GET /api/integrations/m365/groups/search', () => {
     const session = buildSession({
       tenant_id: tenantId,
       user_id: userId,
-      roles: ['planner.contributor'],
+      roles: ['planner.member'],
     });
     const app = buildTestApp(session, async () => {
       throw new Error('should not be called');
@@ -310,7 +310,7 @@ describe('POST /api/integrations/m365/groups/:groupId/link', () => {
         const nonAdminSession = buildSession({
           tenant_id: tenantId,
           user_id: crypto.randomUUID(),
-          roles: ['planner.contributor'],
+          roles: ['planner.member'],
         });
         const app = buildTestApp(nonAdminSession, async () => {
           throw new Error('unused');
@@ -449,7 +449,7 @@ describe('POST /api/integrations/m365/groups/:groupId/unlink', () => {
         const nonAdminSession = buildSession({
           tenant_id: tenantId,
           user_id: crypto.randomUUID(),
-          roles: ['planner.contributor'],
+          roles: ['planner.member'],
         });
         const app = buildTestApp(nonAdminSession, async () => {
           throw new Error('unused');
@@ -658,11 +658,11 @@ describe('POST /api/integrations/m365/groups/:groupId/resolve', () => {
     expect(body.error).toBe('NOT_FOUND');
   });
 
-  it('returns 403 for planner.contributor without resolve permission', async () => {
+  it('returns 403 for planner.member without resolve permission', async () => {
     const session = buildSession({
       tenant_id: tenantId,
       user_id: userId,
-      roles: ['planner.contributor'],
+      roles: ['planner.member'],
     });
     const app = buildTestApp(
       session,
@@ -867,7 +867,7 @@ describe('GET /api/integrations/m365/groups/:groupId/sync-status', () => {
     const session = buildSession({
       tenant_id: tenantId,
       user_id: userId,
-      roles: ['planner.contributor'],
+      roles: ['planner.member'],
     });
     const app = buildTestApp(
       session,
@@ -902,7 +902,7 @@ describe('GET /api/integrations/m365/groups/:groupId/sync-status/stream', () => 
     const session = buildSession({
       tenant_id: tenantId,
       user_id: userId,
-      roles: ['planner.contributor'],
+      roles: ['planner.member'],
     });
     const app = buildTestApp(
       session,

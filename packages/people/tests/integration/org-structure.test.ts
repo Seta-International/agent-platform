@@ -16,7 +16,7 @@ const ctx = {
 };
 
 describe('getOrgStructure', () => {
-  it('returns the unit tree with heads for a strategic viewer', async () => {
+  it('returns the unit tree with heads for a manager viewer', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPeopleDb();

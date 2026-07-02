@@ -114,8 +114,8 @@ export const INVENTORY: StatementSpec[] = [
     },
     roles: [
       {
-        slug: 'staffing.operator',
-        description: 'Run and cancel staffing workflows',
+        slug: 'staffing.member',
+        description: 'Run and cancel staffing workflows (member tier)',
         permissions: [
           'staffing.read',
           'staffing.workflow.read',
@@ -171,8 +171,8 @@ export const INVENTORY: StatementSpec[] = [
         ],
       },
       {
-        slug: 'agent.contributor',
-        description: 'Use agents and run workflows',
+        slug: 'agent.member',
+        description: 'Use agents and run workflows (member tier)',
         permissions: [
           'agent.chat.use',
           'agent.specialist.use',
@@ -292,8 +292,8 @@ export const INVENTORY: StatementSpec[] = [
         ],
       },
       {
-        slug: 'planner.contributor',
-        description: 'Create and manage plans, buckets, and tasks',
+        slug: 'planner.member',
+        description: 'Create and manage plans, buckets, and tasks (member tier)',
         permissions: [
           'planner.group.read',
           'planner.group.member.read',
@@ -364,8 +364,8 @@ export const INVENTORY: StatementSpec[] = [
     },
     roles: [
       {
-        slug: 'people.strategic',
-        description: 'Full people administration',
+        slug: 'people.manager',
+        description: 'People management across the granted scope',
         permissions: [
           'people.worker.read',
           'people.worker.read.all',
@@ -399,8 +399,8 @@ export const INVENTORY: StatementSpec[] = [
     },
     roles: [
       {
-        slug: 'hiring.strategic',
-        description: 'Full hiring administration',
+        slug: 'hiring.manager',
+        description: 'Hiring management across the granted scope',
         permissions: [
           'hiring.requisition.read',
           'hiring.requisition.open',
@@ -459,8 +459,9 @@ export const INVENTORY: StatementSpec[] = [
     },
     roles: [
       {
-        slug: 'pm.strategic',
-        description: 'Raises charters and runs delivery (no approval gate)',
+        slug: 'pm.manager',
+        description:
+          'Project management across the granted scope: raises charters and runs delivery (no approval gate)',
         permissions: [
           'pm.account.read',
           'pm.account.manage',

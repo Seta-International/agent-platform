@@ -64,7 +64,7 @@ describe('@seta/identity public-surface lifecycle', () => {
             {
               user_id: bobId,
               tenant_id: tenantId,
-              role_slug: 'planner.contributor',
+              role_slug: 'planner.member',
               scope_type: 'tenant',
               scope_id: null,
             },
@@ -73,7 +73,7 @@ describe('@seta/identity public-surface lifecycle', () => {
 
           const grants = await listRoleGrants(bobId);
           expect(grants.tenant_id).toBe(tenantId);
-          expect(grants.grants.map((g) => g.role_slug)).toEqual(['planner.contributor']);
+          expect(grants.grants.map((g) => g.role_slug)).toEqual(['planner.member']);
 
           const updated = await updateUserProfile(
             bobId,

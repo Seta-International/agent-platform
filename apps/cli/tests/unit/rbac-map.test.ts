@@ -10,7 +10,7 @@ describe('personaGroupsFor', () => {
     expect(personaGroupsFor('Product Director')).toEqual(['bod']);
   });
 
-  it('PM → am persona group (pm.strategic)', () => {
+  it('PM → am persona group (pm.manager)', () => {
     expect(personaGroupsFor('PM')).toEqual(['am']);
   });
 
@@ -26,7 +26,7 @@ describe('personaGroupsFor', () => {
     expect(personaGroupsFor('MARKETING')).toEqual([]);
   });
 
-  it('DIRECTOR → am persona group (pm.strategic)', () => {
+  it('DIRECTOR → am persona group (pm.manager)', () => {
     expect(personaGroupsFor('DIRECTOR')).toEqual(['am']);
   });
 
