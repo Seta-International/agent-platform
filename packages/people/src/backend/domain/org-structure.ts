@@ -90,7 +90,7 @@ export async function getOrgDelivery(
   const tenantId = session.tenant_id;
   const scope = buildWorkerScope(session);
 
-  // Visible workers gate which allocations/accounts appear (read.all ⇒ scope null ⇒ all).
+  // Visible workers gate which allocations/accounts appear (tenant scope ⇒ predicate null ⇒ all).
   const visibleWorkers = await peopleDb()
     .select({ person_id: worker.person_id, full_name: worker.full_name })
     .from(worker)

@@ -155,7 +155,6 @@ export function PeoplePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const canProvision = usePermission('people.worker.provision');
-  const canReadAll = usePermission('people.worker.read.all');
   const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({});
   const [query, setQuery] = useState<WorkersQuery>({ page: 1, pageSize: 25 });
   const [view, setView] = useState<'list' | 'cards'>('list');
@@ -395,11 +394,6 @@ export function PeoplePage() {
                       <User className="size-3.5 text-ink-muted" />
                       {total} {total === 1 ? 'person' : 'people'}
                     </span>
-                    {!canReadAll && (
-                      <Badge variant="outline" title="You see only people related to you">
-                        Scoped view
-                      </Badge>
-                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">

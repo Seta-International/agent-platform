@@ -1,5 +1,4 @@
 import type { SessionScope } from '@seta/core';
-import { can } from '@seta/shared-rbac';
 import { and, asc, count, desc, eq, ilike, inArray, isNull, or, type SQL, sql } from 'drizzle-orm';
 import { peopleDb } from '../db/client.ts';
 import { employmentPeriod, worker, workerHistory } from '../db/schema.ts';
@@ -65,12 +64,7 @@ export async function listWorkers(
   session: SessionScope,
   query: ListWorkersQuery = {},
 ): Promise<{ rows: WorkerRow[]; total: number }> {
-  // read.all grantees need not separately hold read — they see all workers via scope.
-  if (!can(session, 'people.worker.read') && !can(session, 'people.worker.read.all')) {
-    throw new PeopleError('FORBIDDEN', 'Missing permission: people.worker.read', {
-      permission: 'people.worker.read',
-    });
-  }
+  requirePermission(session, 'people.worker.read');
 
   const tenantId = session.tenant_id;
   const managerName = managerNameSql(tenantId);

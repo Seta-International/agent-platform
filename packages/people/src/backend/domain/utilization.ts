@@ -1,9 +1,8 @@
 import type { SessionScope } from '@seta/core';
-import { can } from '@seta/shared-rbac';
 import { and, eq, isNotNull, sql } from 'drizzle-orm';
 import { peopleDb } from '../db/client.ts';
 import { projectProjection, worker, workerAllocationProjection } from '../db/schema.ts';
-import { PeopleError } from '../rbac.ts';
+import { requirePermission } from '../rbac.ts';
 import { buildWorkerScope } from './worker-scope.ts';
 
 export interface UtilizationSegment {
@@ -40,11 +39,7 @@ export async function getUtilizationByPerson(
   session: SessionScope,
   query: UtilizationQuery = {},
 ): Promise<UtilizationByPerson> {
-  if (!can(session, 'people.worker.read') && !can(session, 'people.worker.read.all')) {
-    throw new PeopleError('FORBIDDEN', 'Missing permission: people.worker.read', {
-      permission: 'people.worker.read',
-    });
-  }
+  requirePermission(session, 'people.worker.read');
 
   const asOf = query.asOf ?? new Date().toISOString().slice(0, 10);
   const scope = buildWorkerScope(session);

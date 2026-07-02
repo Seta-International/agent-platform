@@ -49,8 +49,18 @@ export async function seedTenant(pool: Pool): Promise<SeededTenant> {
       email: adminEmail,
       display_name: 'Test Admin',
       roles: ['people.manager'],
+      // Tenant-wide reach — matches the retired read-everything permission's old behavior so
+      // every fixture that relies on the seeded admin seeing the whole directory keeps working.
+      assignments: [{ role_slug: 'people.manager', scope_kind: 'tenant', scope_id: null }],
     }),
   };
+}
+
+export interface SessionAssignmentInput {
+  role_slug: string;
+  scope_kind: 'tenant' | 'org_unit' | 'self' | 'group';
+  scope_id: string | null;
+  org_unit_ids?: readonly string[];
 }
 
 export function buildSession(opts: {
@@ -59,9 +69,23 @@ export function buildSession(opts: {
   email?: string;
   display_name?: string;
   roles?: string[];
+  assignments?: SessionAssignmentInput[];
 }): SessionScope {
   const roles = opts.roles ?? [];
-  const role_summary = { roles, cross_tenant_read: false, assignments: [] };
+  // Default: each role carries a self-scoped assignment, matching pre-scope-kit behavior
+  // (every persona saw self + relationship arms unless it held the tenant-wide permission).
+  const assignments =
+    opts.assignments ??
+    roles.map((role_slug) => ({ role_slug, scope_kind: 'self' as const, scope_id: null }));
+  const role_summary = {
+    roles,
+    cross_tenant_read: false,
+    assignments: assignments.map((a) => ({
+      role_slug: a.role_slug,
+      scope_kind: a.scope_kind,
+      scope_id: a.scope_id,
+    })),
+  };
   return {
     session_id: crypto.randomUUID(),
     user_id: opts.user_id,
@@ -72,7 +96,7 @@ export function buildSession(opts: {
     role_summary_hash: hashRoleSummary(role_summary),
     permissions: permsFor(roles),
     accessible_group_ids: [],
-    assignments: [],
+    assignments,
     group_ids: [],
     product_access: new Set<string>(),
     worker_id: null,

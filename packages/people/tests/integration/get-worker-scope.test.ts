@@ -100,7 +100,7 @@ describe('getWorker — relationship scope', () => {
     });
   });
 
-  it('read.all session can read any worker profile regardless of relationship', async () => {
+  it('tenant-scoped admin session can read any worker profile regardless of relationship', async () => {
     await withDb(async ({ t, U }) => {
       const w = await getWorker({ worker_id: U, session: t.adminSession });
       expect(w.worker_id).toBe(U);
@@ -134,7 +134,7 @@ describe('getWorkerHistory — relationship scope', () => {
     });
   });
 
-  it('read.all session can read any worker history regardless of relationship', async () => {
+  it('tenant-scoped admin session can read any worker history regardless of relationship', async () => {
     await withDb(async ({ t, U }) => {
       const rows = await getWorkerHistory({ worker_id: U, session: t.adminSession });
       expect(Array.isArray(rows)).toBe(true);

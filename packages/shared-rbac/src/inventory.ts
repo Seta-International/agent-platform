@@ -359,7 +359,7 @@ export const INVENTORY: StatementSpec[] = [
   {
     module: 'people',
     statement: {
-      'people.worker': ['read', 'read.all', 'provision', 'edit', 'manage'],
+      'people.worker': ['read', 'provision', 'edit', 'manage'],
       'people.self': ['read', 'manage'],
     },
     roles: [
@@ -368,7 +368,6 @@ export const INVENTORY: StatementSpec[] = [
         description: 'People management across the granted scope',
         permissions: [
           'people.worker.read',
-          'people.worker.read.all',
           'people.worker.provision',
           'people.worker.edit',
           'people.worker.manage',

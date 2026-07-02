@@ -123,7 +123,7 @@ async function addSkill(
 }
 
 function admin(t: SeededTenant) {
-  return t.adminSession; // people.manager → read.all
+  return t.adminSession; // people.manager with a tenant-scope assignment → sees everyone
 }
 function viewer(t: SeededTenant, userId: string) {
   return buildSession({ tenant_id: t.tenant_id, user_id: userId, roles: ['people.viewer'] });
@@ -309,7 +309,7 @@ describe('listWorkers (SQL filter/sort/paginate + scope)', () => {
     });
   });
 
-  it('scope: viewer without read.all sees only scoped set; read.all sees all', async () => {
+  it('scope: viewer without tenant scope sees only scoped set; tenant-scoped sees all', async () => {
     await withDb(async ({ t }) => {
       const userM = crypto.randomUUID();
       const m = await makeWorker(t, { name: 'Manager M', userId: userM });

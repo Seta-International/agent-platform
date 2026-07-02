@@ -84,7 +84,6 @@ export type PermissionKey =
   | 'people.worker.manage'
   | 'people.worker.provision'
   | 'people.worker.read'
-  | 'people.worker.read.all'
   | 'planner.bucket.create'
   | 'planner.bucket.delete'
   | 'planner.bucket.read'
@@ -224,7 +223,6 @@ export const ALL_PERMISSIONS: readonly PermissionKey[] = [
   'people.worker.manage',
   'people.worker.provision',
   'people.worker.read',
-  'people.worker.read.all',
   'planner.bucket.create',
   'planner.bucket.delete',
   'planner.bucket.read',

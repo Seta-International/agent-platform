@@ -1,5 +1,4 @@
 import {
-  Badge,
   Button,
   Card,
   CardContent,
@@ -11,7 +10,6 @@ import {
   PageChrome,
   SegmentedControl,
 } from '@seta/shared-ui';
-import { usePermission } from '@seta/web-identity';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import type { ColumnDef, Row } from '@tanstack/react-table';
@@ -134,7 +132,6 @@ const BUCKET_OPTIONS = [
 
 export function AllocationPage() {
   const navigate = useNavigate();
-  const canReadAll = usePermission('people.worker.read.all');
 
   // Every filter lives in the URL, so refresh / back / share restores the exact view.
   const raw = useSearch({ strict: false }) as Partial<AllocationSearch>;
@@ -316,14 +313,6 @@ export function AllocationPage() {
   return (
     <PageChrome title="Resource Allocation">
       <div className="space-y-4 p-6">
-        {!canReadAll && (
-          <div className="flex justify-end">
-            <Badge variant="outline" title="You see only people related to you">
-              Scoped view
-            </Badge>
-          </div>
-        )}
-
         {error ? (
           <Card>
             <CardContent className="p-4 text-body-sm text-[color:var(--color-danger)]">
