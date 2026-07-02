@@ -1,4 +1,4 @@
-import { computeAccessibleGroups, hashRoleSummary, rollup, type SessionScope } from '@seta/core';
+import { hashRoleSummary, rollup, type SessionScope } from '@seta/core';
 import { coreDb } from '@seta/core/db';
 import { listRoleAssignments } from '@seta/identity';
 import {
@@ -47,7 +47,6 @@ async function buildActorSession(tenantId: string, actorEmail: string): Promise<
     role_summary,
     permissions: resolvePermissions(rbacRegistry, role_summary.roles, IMPLICIT_PERMISSIONS),
     role_summary_hash: hashRoleSummary(role_summary),
-    accessible_group_ids: computeAccessibleGroups(assignments),
     assignments: role_summary.assignments,
     group_ids: [],
     product_access: new Set<string>(),

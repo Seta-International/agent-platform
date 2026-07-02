@@ -10,10 +10,6 @@ import { autoProvisionSubscribers } from './backend/subscribers/auto-provision.t
 import { autoSuspendSubscribers } from './backend/subscribers/auto-suspend.ts';
 import { directoryProjectionSubscribers } from './backend/subscribers/directory-projection.ts';
 import { orgUnitProjectionSubscribers } from './backend/subscribers/org-unit-projection.ts';
-import {
-  applyMemberAdded,
-  applyMemberRemoved,
-} from './backend/subscribers/planner-group-member.ts';
 import { identityRbac } from './rbac.ts';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
@@ -37,18 +33,6 @@ export function registerIdentityContributions(reg: ContributionRegistry): void {
       ...autoSuspendSubscribers,
       ...directoryProjectionSubscribers,
       ...orgUnitProjectionSubscribers,
-      {
-        event: 'planner.group.member.added',
-        eventVersion: 1,
-        subscription: 'identity.role-grants.planner-group-member.add',
-        handler: applyMemberAdded as import('@seta/shared-types').SubscriberDef['handler'],
-      },
-      {
-        event: 'planner.group.member.removed',
-        eventVersion: 1,
-        subscription: 'identity.role-grants.planner-group-member.remove',
-        handler: applyMemberRemoved as import('@seta/shared-types').SubscriberDef['handler'],
-      },
     ],
     routes: { mountAt: '/', build: buildIdentityRoutes },
     errorMapper: identityErrorMapper,

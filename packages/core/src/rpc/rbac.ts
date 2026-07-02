@@ -14,7 +14,7 @@ export const RpcActorSchema = z.object({
       .array(
         z.object({
           role_slug: z.string(),
-          scope_kind: z.enum(['tenant', 'org_unit', 'self', 'group']),
+          scope_kind: z.enum(['tenant', 'org_unit', 'self']),
           scope_id: z.string().nullable(),
         }),
       )

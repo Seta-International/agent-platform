@@ -8,7 +8,7 @@ export interface GrantRoleInput {
   user_id: string;
   tenant_id: string;
   role_slug: string;
-  scope_kind: 'tenant' | 'org_unit' | 'self' | 'group';
+  scope_kind: 'tenant' | 'org_unit' | 'self';
   scope_id: string | null;
 }
 

@@ -21,11 +21,10 @@ export const roleAssignments = identity.table(
     user_id: uuid('user_id').notNull(),
     tenant_id: uuid('tenant_id').notNull(),
     role_slug: text('role_slug').notNull(),
-    // 'group' + text scope_id survive only until PR3 (planner bridge).
-    scope_kind: text('scope_kind', { enum: ['tenant', 'org_unit', 'self', 'group'] })
+    scope_kind: text('scope_kind', { enum: ['tenant', 'org_unit', 'self'] })
       .default('tenant')
       .notNull(),
-    scope_id: text('scope_id'),
+    scope_id: uuid('scope_id'),
     granted_by: uuid('granted_by'),
     granted_via: text('granted_via', { enum: ['admin', 'cli', 'idp'] })
       .default('admin')
@@ -36,7 +35,7 @@ export const roleAssignments = identity.table(
   },
   (t) => [
     uniqueIndex('role_assignment_active_unique')
-      .on(t.tenant_id, t.user_id, t.role_slug, t.scope_kind, sql`COALESCE(scope_id, '')`)
+      .on(t.tenant_id, t.user_id, t.role_slug, t.scope_kind, sql`COALESCE(scope_id::text, '')`)
       .where(sql`revoked_at IS NULL`),
     index('role_assignment_by_user').on(t.user_id),
   ],

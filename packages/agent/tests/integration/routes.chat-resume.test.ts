@@ -50,7 +50,7 @@ type TestSession = {
     cross_tenant_read: boolean;
     assignments: ReadonlyArray<{
       role_slug: string;
-      scope_kind: 'tenant' | 'org_unit' | 'self' | 'group';
+      scope_kind: 'tenant' | 'org_unit' | 'self';
       scope_id: string | null;
     }>;
   };

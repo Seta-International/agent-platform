@@ -213,7 +213,6 @@ describe('setMemberRole', () => {
             tenant_id: seeded.tenant_id,
             user_id: member.user_id,
             roles: ['planner.viewer'],
-            accessible_group_ids: [g.id],
           });
           await expect(
             setMemberRole({

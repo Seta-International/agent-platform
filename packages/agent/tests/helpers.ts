@@ -24,7 +24,7 @@ export function makeToolContext(actor: {
 
 export interface TestAssignment {
   role_slug: string;
-  scope_kind: 'tenant' | 'org_unit' | 'self' | 'group';
+  scope_kind: 'tenant' | 'org_unit' | 'self';
   scope_id?: string | null;
 }
 

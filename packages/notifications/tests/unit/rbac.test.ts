@@ -23,7 +23,6 @@ function makeSession(roles: string[]) {
     role_summary: { roles, cross_tenant_read: false },
     role_summary_hash: 'h',
     permissions: permsFor(roles),
-    accessible_group_ids: [] as string[],
     cross_tenant_read: false,
     built_at: new Date(),
     invalidated_at: null,

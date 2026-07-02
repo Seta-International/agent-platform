@@ -125,15 +125,7 @@ describe('resolveScope', () => {
     ).toEqual({ kind: 'subset', org_unit_ids: ['v'], self: false });
   });
 
-  it('group assignments and unknown roles contribute nothing', () => {
-    expect(
-      resolveScope(
-        registry,
-        [{ role_slug: 'pm.viewer', scope_kind: 'group' }],
-        [],
-        'pm.project.read',
-      ),
-    ).toEqual({ kind: 'none' });
+  it('unknown roles contribute nothing', () => {
     expect(
       resolveScope(
         registry,

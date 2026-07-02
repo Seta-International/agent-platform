@@ -51,7 +51,7 @@ describe('listMyAccessibleGroups', () => {
     );
   });
 
-  it('group-scoped viewer sees only their accessible_group_ids', async () => {
+  it('group-scoped viewer sees only their group memberships', async () => {
     await withTestDb(
       {
         templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -208,7 +208,6 @@ describe('listMyAssignedTasks', () => {
             tenant_id: seeded.tenant_id,
             user_id: alice.user_id,
             roles: ['org.admin'],
-            accessible_group_ids: [],
           });
 
           const result = await listMyAssignedTasks({ session: aliceSession });
@@ -307,7 +306,6 @@ describe('listMyAssignedTasks', () => {
             tenant_id: seeded.tenant_id,
             user_id: alice.user_id,
             roles: ['org.admin'],
-            accessible_group_ids: [],
           });
 
           const result = await listMyAssignedTasks({

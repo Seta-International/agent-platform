@@ -63,7 +63,7 @@ export interface BulkRoleBody {
   user_ids: string[];
   role_slug: string;
   action: 'grant' | 'revoke';
-  scope_type?: 'tenant' | 'group';
+  scope_type?: 'tenant';
   scope_id?: string | null;
 }
 

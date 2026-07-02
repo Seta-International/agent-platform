@@ -6,7 +6,7 @@ import { createGroup, listGroups } from '../../src/index.ts';
 import { buildSession, seedTenant } from '../helpers.ts';
 
 describe('listGroups visibility', () => {
-  it('AC-1: creator can see the group they created when it is in accessible_group_ids', async () => {
+  it('AC-1: creator can see the group they created via their group membership', async () => {
     await withTestDb(
       {
         templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -24,12 +24,11 @@ describe('listGroups visibility', () => {
             session: seeded.adminSession,
           });
 
-          // Non-admin session with this group in accessible_group_ids (as the identity subscriber would populate)
+          // Non-admin session — visibility comes from the creator's real planner.group_members row.
           const creatorSession = buildSession({
             tenant_id: seeded.tenant_id,
             user_id: seeded.adminSession.user_id,
             roles: ['planner.viewer'],
-            accessible_group_ids: [group.id],
           });
 
           const groups = await listGroups({ session: creatorSession });
@@ -71,12 +70,11 @@ describe('listGroups visibility', () => {
               { type: 'cli', user_id: null },
             ),
           );
-          // Non-admin with empty accessible_group_ids — cannot see private groups
+          // Non-admin with no group membership — cannot see private groups
           const outsiderSession = buildSession({
             tenant_id: seeded.tenant_id,
             user_id: outsider.user_id,
             roles: ['planner.viewer'],
-            accessible_group_ids: [],
           });
 
           const groups = await listGroups({ session: outsiderSession });

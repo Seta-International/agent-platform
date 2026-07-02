@@ -26,6 +26,7 @@ import {
 } from '../hooks/mutations/resolve-plan-conflicts';
 import { useUpdatePlan } from '../hooks/mutations/update-plan';
 import { useGroup } from '../hooks/queries/use-group';
+import { useMyGroups } from '../hooks/queries/use-my-groups';
 import { usePlanBoard } from '../hooks/queries/use-plan-board';
 import { useFilterOptions } from '../hooks/use-filter-options';
 import { useRecentPlans } from '../hooks/use-recent-plans';
@@ -97,6 +98,7 @@ export function PlanBoardShell({
   const plan = boardQ.data?.plan;
   const groupId = plan?.group_id;
   const groupQ = useGroup(groupId ?? '');
+  const myGroupsQ = useMyGroups();
   const navigate = useNavigate();
   const updatePlan = useUpdatePlan(groupId ?? '', planId);
   const deletePlan = useDeletePlan(groupId ?? '', planId);
@@ -132,7 +134,7 @@ export function PlanBoardShell({
     session.role_summary.roles.includes('tenant.admin') ||
     (session.role_summary.roles.includes('planner.admin') &&
       groupId !== undefined &&
-      session.accessible_group_ids.includes(groupId));
+      (myGroupsQ.data ?? []).some((g) => g.id === groupId));
   const canCreatePlan = usePermission('planner.plan.create');
   const canUpdatePlan = usePermission('planner.plan.update');
   const canDeletePlan = usePermission('planner.plan.delete');

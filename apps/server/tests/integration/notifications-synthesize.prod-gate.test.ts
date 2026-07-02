@@ -27,7 +27,6 @@ describe('POST /api/notifications/v1/__dev/synthesize (prod)', () => {
       role_summary,
       role_summary_hash: hashRoleSummary(role_summary),
       permissions: resolveTestPermissions(role_summary.roles),
-      accessible_group_ids: [],
       assignments: [],
       group_ids: [],
       product_access: new Set<string>(),

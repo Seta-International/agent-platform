@@ -18,7 +18,6 @@ function buildSession(opts: {
   email: string;
   display_name: string;
   roles?: string[];
-  accessible_group_ids?: string[];
 }): SessionScope {
   const role_summary = {
     roles: opts.roles ?? ['org.admin'],
@@ -34,7 +33,6 @@ function buildSession(opts: {
     role_summary,
     role_summary_hash: hashRoleSummary(role_summary),
     permissions: resolveTestPermissions(role_summary.roles),
-    accessible_group_ids: opts.accessible_group_ids ?? [],
     assignments: [],
     group_ids: [],
     product_access: new Set<string>(),

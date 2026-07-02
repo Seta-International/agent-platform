@@ -32,7 +32,6 @@ function buildSession(opts: { tenant_id: string; user_id: string; roles: string[
     role_summary,
     role_summary_hash: hashRoleSummary(role_summary),
     permissions: permsFor(opts.roles),
-    accessible_group_ids: [],
     assignments: [],
     group_ids: [],
     product_access: new Set<string>(),

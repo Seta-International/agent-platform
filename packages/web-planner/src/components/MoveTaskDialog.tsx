@@ -61,8 +61,8 @@ export function MoveTaskDialog({
   const [bucketPickerOpen, setBucketPickerOpen] = useState(false);
 
   // Source-of-truth for "plans I can write to": every plan in every group the
-  // session has access to. The HTTP `listPlans` endpoint already filters by
-  // `accessible_group_ids` server-side, so we don't need to join client-side.
+  // caller has access to. The HTTP `listPlans` endpoint already filters by
+  // live group membership server-side, so we don't need to join client-side.
   const plansQ = useQuery({
     queryKey: [...plannerKeys.all, 'allWritablePlans'] as const,
     queryFn: () => plannerClient.listPlans({}),

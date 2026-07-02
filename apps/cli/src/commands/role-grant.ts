@@ -10,14 +10,14 @@ export interface RoleGrantOpts {
   user: string;
   tenant: string;
   role: string;
-  scope: 'tenant' | 'org_unit' | 'self' | 'group';
+  scope: 'tenant' | 'org_unit' | 'self';
   group?: string;
   action: 'grant' | 'revoke';
 }
 
-// 'tenant' and 'self' scopes carry no scope id; 'org_unit' and 'group' do.
+// 'tenant' and 'self' scopes carry no scope id; 'org_unit' does.
 const scopeIdFor = (scope: RoleGrantOpts['scope'], group: string | undefined): string | null =>
-  scope === 'org_unit' || scope === 'group' ? (group ?? null) : null;
+  scope === 'org_unit' ? (group ?? null) : null;
 
 async function resolveUserId(emailOrId: string, tenantId: string): Promise<string> {
   if (UUID_RE.test(emailOrId)) return emailOrId;

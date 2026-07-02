@@ -31,7 +31,6 @@ function buildAdminSession(opts: {
     role_summary,
     role_summary_hash: hashRoleSummary(role_summary),
     permissions: resolvePermissions(_registry, roles, IMPLICIT_PERMISSIONS),
-    accessible_group_ids: [],
     assignments: [],
     group_ids: [],
     product_access: new Set<string>(),
@@ -94,7 +93,7 @@ describe('planner_listGroupMembers tool', () => {
       });
       const group = await createGroup({ tenant_id, name: 'Engineering', session });
 
-      // A non-member, non-admin user with an empty accessible_group_ids set.
+      // A non-member, non-admin user.
       const outsider = await createUser(
         { tenant_id, email: 'out@demo.local', name: 'Out', password: 'password123456' },
         { type: 'cli', user_id: null },

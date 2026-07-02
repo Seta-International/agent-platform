@@ -20,7 +20,7 @@ export interface CreateUserInput {
   password: string;
   initial_role?: {
     role_slug: string;
-    scope_type: 'tenant' | 'group';
+    scope_type: 'tenant';
     scope_id: string | null;
   };
 }

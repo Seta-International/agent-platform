@@ -76,7 +76,7 @@ export interface IdentityRoleGrantChanged {
     grant: {
       grant_id: Uuid;
       role_slug: string;
-      scope_kind: 'tenant' | 'org_unit' | 'self' | 'group';
+      scope_kind: 'tenant' | 'org_unit' | 'self';
       scope_id: string | null;
       granted_via: 'admin' | 'cli' | 'idp';
     };

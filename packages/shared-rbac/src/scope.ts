@@ -3,7 +3,7 @@ import { type RoleOverlay, WILDCARD } from './resolve.ts';
 
 export interface ScopedAssignmentInput {
   role_slug: string;
-  scope_kind: 'tenant' | 'org_unit' | 'self' | 'group';
+  scope_kind: 'tenant' | 'org_unit' | 'self';
   org_unit_ids?: readonly string[];
 }
 
@@ -36,7 +36,6 @@ export function resolveScope(
   let self = implicit.includes(permission);
   const orgIds = new Set<string>();
   for (const a of assignments) {
-    if (a.scope_kind === 'group') continue;
     if (!roleGrants(registry, a.role_slug, permission, overlay)) continue;
     if (a.scope_kind === 'tenant') return { kind: 'tenant' };
     if (a.scope_kind === 'self') self = true;

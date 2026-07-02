@@ -108,7 +108,6 @@ export async function seedTenant(
       email: admin.email,
       display_name: admin.name,
       roles: ['org.admin'],
-      accessible_group_ids: [],
     }),
   };
 }
@@ -119,7 +118,6 @@ export function buildSession(opts: {
   email?: string;
   display_name?: string;
   roles?: string[];
-  accessible_group_ids?: string[];
   cross_tenant_read?: boolean;
 }): SessionScope {
   const roles = opts.roles ?? [];
@@ -137,7 +135,6 @@ export function buildSession(opts: {
     role_summary,
     role_summary_hash: hashRoleSummary(role_summary),
     permissions: permsFor(roles),
-    accessible_group_ids: opts.accessible_group_ids ?? [],
     assignments: [],
     group_ids: [],
     product_access: new Set<string>(),
@@ -202,7 +199,6 @@ export async function seedTenantAndTask(
     email: member.email,
     display_name: member.name,
     roles: [opts.role],
-    accessible_group_ids: [group.id],
   });
 
   return {
@@ -259,7 +255,6 @@ export async function makeMemberSession(
     email,
     display_name: `User ${tag}`,
     roles: ['planner.member'],
-    accessible_group_ids: [opts.group_id],
   });
 }
 

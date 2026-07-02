@@ -19,13 +19,13 @@ describe('session scope cache', () => {
   it('hashRoleSummary is order-independent but sensitive to assignment scope', () => {
     const g1 = {
       role_slug: 'planner.member',
-      scope_kind: 'group' as const,
+      scope_kind: 'org_unit' as const,
       scope_id: 'g1',
       granted_at: new Date(),
     };
     const g2 = {
       role_slug: 'planner.member',
-      scope_kind: 'group' as const,
+      scope_kind: 'org_unit' as const,
       scope_id: 'g2',
       granted_at: new Date(),
     };

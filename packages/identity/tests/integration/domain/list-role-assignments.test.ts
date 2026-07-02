@@ -54,7 +54,7 @@ describe('listRoleAssignments', () => {
           expect(slugs).toEqual(['org.admin', 'planner.member']);
           for (const assignment of result.assignments) {
             expect(assignment.granted_at).toBeInstanceOf(Date);
-            expect(['tenant', 'org_unit', 'self', 'group']).toContain(assignment.scope_kind);
+            expect(['tenant', 'org_unit', 'self']).toContain(assignment.scope_kind);
           }
         } finally {
           resetCoreDb();

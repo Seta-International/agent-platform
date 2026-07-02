@@ -4,7 +4,7 @@ import { identityDb } from '../db/index.ts';
 export interface UserGrant {
   id: string;
   role_slug: string;
-  scope_type: 'tenant' | 'org_unit' | 'self' | 'group';
+  scope_type: 'tenant' | 'org_unit' | 'self';
   scope_id: string | null;
   scope_label: string | null;
   granted_via: 'admin' | 'cli' | 'idp';
@@ -16,7 +16,7 @@ export interface UserGrant {
 interface RawGrantRow {
   id: string;
   role_slug: string;
-  scope_type: 'tenant' | 'org_unit' | 'self' | 'group';
+  scope_type: 'tenant' | 'org_unit' | 'self';
   scope_id: string | null;
   scope_label: string | null;
   granted_via: 'admin' | 'cli' | 'idp';

@@ -13,8 +13,4 @@ describe('buildSystemSession', () => {
   it('includes system.integrations.m365 in role_summary.roles', () => {
     expect(buildSystemSession('tenant-x').role_summary.roles).toContain('system.integrations.m365');
   });
-
-  it('accessible_group_ids is an empty array', () => {
-    expect(buildSystemSession('tenant-x').accessible_group_ids).toEqual([]);
-  });
 });

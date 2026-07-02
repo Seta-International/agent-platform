@@ -12,7 +12,6 @@ export { disconnectSsoProvider } from './backend/domain/disconnect-sso-provider.
 export type { DiscoverResult } from './backend/domain/discover-provider.ts';
 export { discoverProvider } from './backend/domain/discover-provider.ts';
 export { enableSsoProvider } from './backend/domain/enable-sso-provider.ts';
-export { ensureGroupViewerGrant } from './backend/domain/ensure-group-viewer-grant.ts';
 export type { EnsureLocalLoginInput } from './backend/domain/ensure-local-login.ts';
 export { ensureLocalLogin } from './backend/domain/ensure-local-login.ts';
 export { findEntraOidByUserId } from './backend/domain/find-entra-oid-by-user-id.ts';

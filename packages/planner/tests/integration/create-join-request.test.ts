@@ -129,7 +129,6 @@ describe('createJoinRequest', () => {
             tenant_id: seeded.tenant_id,
             user_id: member.user_id,
             roles: ['planner.viewer'],
-            accessible_group_ids: [group.id],
           });
           await expect(
             createJoinRequest({ group_id: group.id, session: memberSession }),

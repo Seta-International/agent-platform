@@ -14,7 +14,7 @@ function permsFor(roles: string[]): ReadonlySet<string> {
   return resolvePermissions(registry, roles, IMPLICIT_PERMISSIONS);
 }
 
-function makeSession(roles: string[], accessible_group_ids: string[] = []) {
+function makeSession(roles: string[]) {
   return {
     session_id: crypto.randomUUID(),
     user_id: crypto.randomUUID(),
@@ -24,7 +24,6 @@ function makeSession(roles: string[], accessible_group_ids: string[] = []) {
     role_summary: { roles, cross_tenant_read: false, assignments: [] },
     role_summary_hash: 'h',
     permissions: permsFor(roles),
-    accessible_group_ids,
     assignments: [],
     group_ids: [],
     product_access: new Set<string>(),
@@ -37,7 +36,7 @@ function makeSession(roles: string[], accessible_group_ids: string[] = []) {
 
 function makeSystemActorSession(): PlannerSessionScope {
   return {
-    ...makeSession(['system.integrations.m365'], []),
+    ...makeSession(['system.integrations.m365']),
     actor: { kind: 'system', system_id: 'integrations.m365' },
   };
 }
@@ -66,7 +65,7 @@ describe('planner requirePermission', () => {
 
   it('org.admin passes all permission checks and bypasses group-scope', async () => {
     const groupId = crypto.randomUUID();
-    const session = makeSession(['org.admin'], []);
+    const session = makeSession(['org.admin']);
     await expect(requirePermission(session, 'planner.group.delete')).resolves.toBeUndefined();
     await expect(requirePermission(session, 'planner.trash.empty')).resolves.toBeUndefined();
     // org.admin is tenant-wide: group-scope check does not apply (no DB lookup needed)

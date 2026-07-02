@@ -15,7 +15,6 @@ function makeSession(permissions: string[]): SessionScopeProjection {
     role_summary: { roles: [], cross_tenant_read: false },
     permissions,
     product_access: [],
-    accessible_group_ids: [],
     cross_tenant_read: false,
     tenant_local_password_disabled: false,
   };

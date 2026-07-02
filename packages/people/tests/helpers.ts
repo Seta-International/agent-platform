@@ -58,7 +58,7 @@ export async function seedTenant(pool: Pool): Promise<SeededTenant> {
 
 export interface SessionAssignmentInput {
   role_slug: string;
-  scope_kind: 'tenant' | 'org_unit' | 'self' | 'group';
+  scope_kind: 'tenant' | 'org_unit' | 'self';
   scope_id: string | null;
   org_unit_ids?: readonly string[];
 }
@@ -95,7 +95,6 @@ export function buildSession(opts: {
     role_summary,
     role_summary_hash: hashRoleSummary(role_summary),
     permissions: permsFor(roles),
-    accessible_group_ids: [],
     assignments,
     group_ids: [],
     product_access: new Set<string>(),

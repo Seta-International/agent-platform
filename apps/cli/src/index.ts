@@ -106,7 +106,6 @@ program
     ...prev,
     v,
   ])
-  .option('--group <group-id>', 'Group id for group-scoped planner roles')
   .action(
     async (opts: {
       tenant: string;
@@ -114,7 +113,6 @@ program
       name: string;
       password?: string;
       role?: string[];
-      group?: string;
     }) => {
       try {
         await userCreateCommand({
@@ -123,7 +121,6 @@ program
           name: opts.name,
           password: opts.password,
           roles: opts.role,
-          group: opts.group,
         });
       } finally {
         await closePools();
@@ -137,15 +134,15 @@ program
   .requiredOption('--user <email-or-id>', 'User email or UUID')
   .requiredOption('--tenant <slug-or-id>', 'Tenant')
   .requiredOption('--role <role-slug>', 'Role slug (e.g. planner.viewer)')
-  .option('--scope <scope>', 'Grant scope: tenant, org_unit, self, or group', 'tenant')
-  .option('--group <group-id>', 'Group or org-unit id (required when scope=group or org_unit)')
+  .option('--scope <scope>', 'Grant scope: tenant, org_unit, or self', 'tenant')
+  .option('--group <group-id>', 'Org-unit id (required when scope=org_unit)')
   .requiredOption('--action <action>', 'grant or revoke')
   .action(
     async (opts: {
       user: string;
       tenant: string;
       role: string;
-      scope: 'tenant' | 'org_unit' | 'self' | 'group';
+      scope: 'tenant' | 'org_unit' | 'self';
       group?: string;
       action: 'grant' | 'revoke';
     }) => {

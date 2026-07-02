@@ -3,7 +3,7 @@
 // `execute(args, ctx)` without importing engine internals.
 export interface SessionLikeAssignment {
   role_slug: string;
-  scope_kind: 'tenant' | 'org_unit' | 'self' | 'group';
+  scope_kind: 'tenant' | 'org_unit' | 'self';
   scope_id: string | null;
 }
 

@@ -16,7 +16,6 @@ const session: PlannerSessionScope = {
   role_summary: { roles: [], cross_tenant_read: false, assignments: [] },
   role_summary_hash: 'hash',
   permissions: new Set<string>(),
-  accessible_group_ids: [],
   assignments: [],
   group_ids: [],
   product_access: new Set<string>(),
