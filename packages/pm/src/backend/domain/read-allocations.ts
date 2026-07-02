@@ -3,7 +3,8 @@ import { and, eq, ilike, isNull, or, sql } from 'drizzle-orm';
 import { pmDb } from '../db/client.ts';
 import { account, allocation, project, workerProjection } from '../db/schema.ts';
 import { tenantScoped } from '../db/scope.ts';
-import { requirePermission } from '../rbac.ts';
+import { PmError, requirePermission } from '../rbac.ts';
+import { buildAllocationJoinScope, buildProjectScope } from './scope.ts';
 
 export interface AllocationRow {
   allocation_id: string;
@@ -20,6 +21,23 @@ export async function listProjectAllocations(input: {
 }): Promise<AllocationRow[]> {
   const { project_id, session } = input;
   requirePermission(session, 'pm.project.read');
+
+  // Visibility pre-check: an invisible project must 404, not silently return an empty allocation
+  // list (which would leak nothing but is inconsistent) nor leak existence via a different error.
+  const visibilityConds = [
+    eq(project.id, project_id),
+    tenantScoped(project.tenant_id, session),
+    isNull(project.deleted_at),
+  ];
+  const projectScope = buildProjectScope(session);
+  if (projectScope) visibilityConds.push(projectScope);
+  const [visible] = await pmDb()
+    .select({ id: project.id })
+    .from(project)
+    .where(and(...visibilityConds))
+    .limit(1);
+  if (!visible) throw new PmError('NOT_FOUND', `project ${project_id} not found`);
+
   const rows = await pmDb()
     .select({
       allocation_id: allocation.id,
@@ -80,7 +98,8 @@ export async function listAllocations(input: {
   const conds = [tenantScoped(allocation.tenant_id, session), isNull(allocation.deleted_at)];
   if (input.project_id) conds.push(eq(allocation.project_id, input.project_id));
   if (input.account_id) conds.push(eq(project.account_id, input.account_id));
-  // RBAC-SCOPE: insert buildAllocationScope(session) predicate here (D-1).
+  const joinScope = buildAllocationJoinScope(session);
+  if (joinScope) conds.push(joinScope);
   if (input.active_from) {
     conds.push(
       sql`(${allocation.date_to} IS NULL OR ${allocation.date_to} >= ${input.active_from})`,
