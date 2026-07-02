@@ -32,7 +32,7 @@ test('admin role-access: toggling a cell persists and reset restores defaults', 
   if (await resetViewer.isEnabled()) await resetViewer.click();
 
   // knowledge.viewer lacks knowledge.file.update by seed — toggle it on.
-  const cell = page.getByRole('checkbox', { name: /^Viewer .*knowledge\.file\.write$/ });
+  const cell = page.getByRole('checkbox', { name: /^Viewer .*knowledge\.file\.update$/ });
   await expect(cell).toHaveAttribute('data-state', 'unchecked');
   await cell.click();
   await expect(cell).toHaveAttribute('data-state', 'checked');
@@ -40,12 +40,12 @@ test('admin role-access: toggling a cell persists and reset restores defaults', 
   // Persisted: reload and the grant survives.
   await page.reload();
   await page.getByRole('tab', { name: 'Knowledge' }).click();
-  const cellAfter = page.getByRole('checkbox', { name: /^Viewer .*knowledge\.file\.write$/ });
+  const cellAfter = page.getByRole('checkbox', { name: /^Viewer .*knowledge\.file\.update$/ });
   await expect(cellAfter).toHaveAttribute('data-state', 'checked');
 
   // Reset restores the seed default (unchecked).
   await page.getByRole('button', { name: 'Reset knowledge.viewer to defaults' }).click();
   await expect(
-    page.getByRole('checkbox', { name: /^Viewer .*knowledge\.file\.write$/ }),
+    page.getByRole('checkbox', { name: /^Viewer .*knowledge\.file\.update$/ }),
   ).toHaveAttribute('data-state', 'unchecked');
 });
