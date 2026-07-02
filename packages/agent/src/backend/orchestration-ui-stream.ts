@@ -7,9 +7,11 @@ export interface UiStreamWriter {
 
 /** A persisted assistant-message part. The streamed `text` prose is the answer;
  *  `data-result` carries the structured payload for cards; `data-trust` carries
- *  confidence + citations. */
+ *  confidence + citations. `reasoning` holds `<think>` blocks extracted from
+ *  r1-style models so they survive reload and render in the thought span. */
 export type OrchestrationAssistantPart =
   | { type: 'text'; text: string }
+  | { type: 'reasoning'; text: string }
   | { type: 'data-result'; id: 'result'; data: unknown }
   | { type: 'data-trust'; id: 'trust'; data: unknown };
 
@@ -35,12 +37,115 @@ export interface DecodeTiming {
   lastTokenAtMs?: number;
 }
 
+// Returns how many trailing chars of `s` match a leading prefix of `tag`.
+// Used to hold back a partial tag boundary before more data arrives.
+function trailingPrefixLen(s: string, tag: string): number {
+  for (let len = Math.min(s.length, tag.length - 1); len > 0; len--) {
+    if (s.endsWith(tag.slice(0, len))) return len;
+  }
+  return 0;
+}
+
+/**
+ * Intercepts text-delta events from r1-style models that embed their thinking
+ * as `<think>...</think>` in plain text. Strips those blocks from the text
+ * stream and re-emits them as `reasoning-start`/`reasoning-delta`/`reasoning-end`
+ * events so the client renders them in the thought span without a page reload.
+ *
+ * Handles tags split across chunk boundaries via an internal buffer.
+ * `push()` returns the non-think text added (for answer accumulation).
+ * `flush()` drains any pending buffer at end-of-stream.
+ */
+class ThinkStreamSplitter {
+  private mode: 'text' | 'think' = 'text';
+  private buf = '';
+  private textId = '';
+  private reasoningId = '';
+  readonly thinking: string[] = [];
+
+  constructor(private readonly writer: UiStreamWriter) {}
+
+  push(delta: string, textId?: string): string {
+    if (textId) this.textId = textId;
+    this.buf += delta;
+    let textOut = '';
+
+    while (this.buf.length > 0) {
+      if (this.mode === 'text') {
+        const tag = '<think>';
+        const idx = this.buf.indexOf(tag);
+        if (idx !== -1) {
+          const before = this.buf.slice(0, idx);
+          if (before) {
+            this.writer.write({ type: 'text-delta', id: this.textId, delta: before });
+            textOut += before;
+          }
+          this.buf = this.buf.slice(idx + tag.length);
+          this.reasoningId = crypto.randomUUID();
+          this.writer.write({ type: 'reasoning-start', id: this.reasoningId });
+          this.mode = 'think';
+        } else {
+          const hold = trailingPrefixLen(this.buf, tag);
+          const safe = this.buf.slice(0, this.buf.length - hold);
+          if (safe) {
+            this.writer.write({ type: 'text-delta', id: this.textId, delta: safe });
+            textOut += safe;
+          }
+          this.buf = this.buf.slice(safe.length);
+          break;
+        }
+      } else {
+        const tag = '</think>';
+        const idx = this.buf.indexOf(tag);
+        if (idx !== -1) {
+          const chunk = this.buf.slice(0, idx);
+          if (chunk) {
+            this.writer.write({ type: 'reasoning-delta', id: this.reasoningId, delta: chunk });
+            this.thinking.push(chunk);
+          }
+          this.writer.write({ type: 'reasoning-end', id: this.reasoningId });
+          this.buf = this.buf.slice(idx + tag.length);
+          this.mode = 'text';
+        } else {
+          const hold = trailingPrefixLen(this.buf, tag);
+          const safe = this.buf.slice(0, this.buf.length - hold);
+          if (safe) {
+            this.writer.write({ type: 'reasoning-delta', id: this.reasoningId, delta: safe });
+            this.thinking.push(safe);
+          }
+          this.buf = this.buf.slice(safe.length);
+          break;
+        }
+      }
+    }
+
+    return textOut;
+  }
+
+  flush(textId?: string): string {
+    if (textId) this.textId = textId;
+    if (!this.buf) return '';
+    const remaining = this.buf;
+    this.buf = '';
+    if (this.mode === 'think') {
+      // Unclosed <think> block — treat as reasoning.
+      this.writer.write({ type: 'reasoning-delta', id: this.reasoningId, delta: remaining });
+      this.writer.write({ type: 'reasoning-end', id: this.reasoningId });
+      this.thinking.push(remaining);
+      return '';
+    }
+    this.writer.write({ type: 'text-delta', id: this.textId, delta: remaining });
+    return remaining;
+  }
+}
+
 /**
  * Pump an AI SDK v6 UIMessage part stream into the writer, accumulating the
  * answer prose for persistence and detecting native HITL suspend.
  *
  * - Every part is written through (live streaming to the client).
- * - `text-delta` parts accumulate into the persisted answer text.
+ * - `text-delta` parts pass through a `ThinkStreamSplitter`: `<think>` blocks
+ *   are emitted as reasoning events; only non-think deltas accumulate in answer.
  * - A `data-tool-call-suspended` part means the run paused for approval: the
  *   `onApproval` hook fires (writes the read-model row) and `finalize` is NOT
  *   called (a suspended turn has no assembled result).
@@ -49,13 +154,20 @@ export interface DecodeTiming {
  */
 export async function pumpOrchestrationStream(
   writer: UiStreamWriter,
-  parts: AsyncIterable<{ type: string; delta?: string; text?: string; data?: unknown }>,
+  parts: AsyncIterable<{
+    type: string;
+    id?: string;
+    delta?: string;
+    text?: string;
+    data?: unknown;
+  }>,
   opts: {
     finalize: ChatStreamRun['finalize'];
     onApproval: (e: ApprovalEvent) => Promise<void>;
   },
 ): Promise<{ assistantParts: OrchestrationAssistantPart[]; timing: DecodeTiming }> {
   const assistantParts: OrchestrationAssistantPart[] = [];
+  const splitter = new ThinkStreamSplitter(writer);
   let answer = '';
   let suspend: ApprovalEvent | undefined;
   const timing: DecodeTiming = {};
@@ -66,15 +178,26 @@ export async function pumpOrchestrationStream(
       suspend = { card: d.suspendPayload.card, mastraRunId: d.runId, toolCallId: d.toolCallId };
       continue;
     }
-    writer.write(part);
     if (part.type === 'text-delta') {
       const now = performance.now();
       if (timing.firstTokenAtMs === undefined) timing.firstTokenAtMs = now;
       timing.lastTokenAtMs = now;
-      answer += part.delta ?? part.text ?? '';
+      answer += splitter.push(part.delta ?? part.text ?? '', part.id);
+    } else if (part.type === 'text-end') {
+      // Flush buffered content before forwarding text-end so text-delta ordering is preserved.
+      answer += splitter.flush(part.id);
+      writer.write(part);
+    } else {
+      writer.write(part);
     }
   }
 
+  // Safety flush for streams that don't emit text-end (e.g. non-standard model outputs).
+  answer += splitter.flush();
+
+  // Persist reasoning before answer text so reload order matches stream order.
+  const thinkingText = splitter.thinking.join('').trim();
+  if (thinkingText) assistantParts.push({ type: 'reasoning', text: thinkingText });
   if (answer) assistantParts.push({ type: 'text', text: answer });
 
   if (suspend) {
