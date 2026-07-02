@@ -9,7 +9,7 @@ import {
 } from '@seta/shared-rbac';
 import type { Pool } from 'pg';
 import { peopleDb } from '../src/backend/db/client.ts';
-import { orgUnit } from '../src/backend/db/schema.ts';
+import { type ORG_UNIT_KINDS, orgUnit } from '../src/backend/db/schema.ts';
 
 const _registry = buildRegistry(inventoryToManifests(INVENTORY));
 function permsFor(roles: string[]): ReadonlySet<string> {
@@ -108,7 +108,7 @@ export function buildSession(opts: {
 export async function seedOrgUnit(opts: {
   tenant_id: string;
   name: string;
-  kind: string;
+  kind: (typeof ORG_UNIT_KINDS)[number];
   parent_id?: string | null;
   head_worker_id?: string | null;
 }): Promise<string> {

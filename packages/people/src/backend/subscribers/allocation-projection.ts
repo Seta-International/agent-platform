@@ -53,6 +53,7 @@ export const allocationProjectionCreated: SubscriberDef = {
           planned_pct: planned_pct == null ? null : planned_pct.toString(),
           bucket: bucket ?? null,
           active: true,
+          updated_at: new Date(),
         },
       });
   },
