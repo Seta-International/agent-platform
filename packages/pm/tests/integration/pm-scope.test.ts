@@ -1,13 +1,13 @@
 // packages/pm/tests/integration/pm-scope.test.ts
 import { resetCoreDb } from '@seta/core/testing';
 import { closePools, initPools } from '@seta/shared-db';
+import { tenantScoped } from '@seta/shared-rbac';
 import { withTestDb } from '@seta/shared-testing';
 import { and, isNull } from 'drizzle-orm';
 import type { Pool } from 'pg';
 import { describe, expect, it } from 'vitest';
 import { pmDb, resetPmDb } from '../../src/backend/db/client.ts';
 import { account, allocation, project } from '../../src/backend/db/schema.ts';
-import { tenantScoped } from '../../src/backend/db/scope.ts';
 import { buildAccountScope, buildProjectScope } from '../../src/backend/domain/scope.ts';
 import { listAllocations, listProjectAllocations } from '../../src/index.ts';
 import { buildSession, type SeededTenant, seedTenant } from '../helpers.ts';

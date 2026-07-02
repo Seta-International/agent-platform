@@ -1,11 +1,11 @@
 import type { SessionScope } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
+import { tenantScoped } from '@seta/shared-rbac';
 import { and, eq } from 'drizzle-orm';
 import type { EditAccountInput } from '../../contracts.ts';
 import { PM_ACCOUNT_UPDATED } from '../../events.ts';
 import { pmDb } from '../db/client.ts';
 import { account } from '../db/schema.ts';
-import { tenantScoped } from '../db/scope.ts';
 import { PmError, requirePermission } from '../rbac.ts';
 
 export async function editAccount(

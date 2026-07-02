@@ -1,8 +1,8 @@
 import type { SessionScope } from '@seta/core';
+import { tenantScoped } from '@seta/shared-rbac';
 import { and, eq } from 'drizzle-orm';
 import { peopleDb } from '../db/client.ts';
 import { person } from '../db/schema.ts';
-import { tenantScoped } from '../db/scope.ts';
 import { PeopleError } from '../rbac.ts';
 
 // Self-service profile writes resolve the caller's own person via person.user_id,

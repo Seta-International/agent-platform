@@ -1,12 +1,11 @@
 import type { SessionScope } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
 import { syncLoginIdentity } from '@seta/identity';
-import { can } from '@seta/shared-rbac';
+import { can, tenantScoped } from '@seta/shared-rbac';
 import { and, eq } from 'drizzle-orm';
 import type { EditWorkerInput } from '../../contracts.ts';
 import { peopleDb } from '../db/client.ts';
 import { person, worker, workerHistory } from '../db/schema.ts';
-import { tenantScoped } from '../db/scope.ts';
 import { PeopleError, requirePermission } from '../rbac.ts';
 import { classifyField } from './field-rules.ts';
 

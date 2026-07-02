@@ -1,9 +1,9 @@
 import type { SessionScope } from '@seta/core';
+import { tenantScoped } from '@seta/shared-rbac';
 import { and, eq } from 'drizzle-orm';
 import type { CloseReasonInput } from '../../contracts.ts';
 import { hiringDb } from '../db/client.ts';
 import { openingCloseReason } from '../db/schema.ts';
-import { tenantScoped } from '../db/scope.ts';
 import { HiringError, requirePermission } from '../rbac.ts';
 
 export async function createCloseReason(input: {

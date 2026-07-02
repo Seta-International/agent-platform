@@ -1,10 +1,10 @@
 import type { SessionScope } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
+import { tenantScoped } from '@seta/shared-rbac';
 import { and, eq } from 'drizzle-orm';
 import { type CreateAllocationInput, createAllocationInput } from '../../contracts.ts';
 import { PM_ALLOCATION_CREATED } from '../../events.ts';
 import { account, allocation, project } from '../db/schema.ts';
-import { tenantScoped } from '../db/scope.ts';
 import { PmError, requirePermission } from '../rbac.ts';
 import { assertNoProjectOverlap } from './assert-no-overlap.ts';
 

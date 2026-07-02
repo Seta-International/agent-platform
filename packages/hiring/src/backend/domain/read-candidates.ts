@@ -1,4 +1,5 @@
 import type { SessionScope } from '@seta/core';
+import { tenantScoped } from '@seta/shared-rbac';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { hiringDb } from '../db/client.ts';
 import {
@@ -9,7 +10,6 @@ import {
   requisition,
   requisitionSkill,
 } from '../db/schema.ts';
-import { tenantScoped } from '../db/scope.ts';
 import { HiringError, requirePermission } from '../rbac.ts';
 import { computeFit, type FitResult } from './fit.ts';
 import { buildCandidateScope, buildRequisitionScope } from './scope.ts';

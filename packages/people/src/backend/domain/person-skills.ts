@@ -1,10 +1,10 @@
 import type { SessionScope } from '@seta/core';
 import { listSkills } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
+import { tenantScoped } from '@seta/shared-rbac';
 import { and, eq, inArray } from 'drizzle-orm';
 import { peopleDb } from '../db/client.ts';
 import { person, personSkill } from '../db/schema.ts';
-import { tenantScoped } from '../db/scope.ts';
 import { PeopleError, requirePermission } from '../rbac.ts';
 import { resolveSelfPersonId } from './self.ts';
 

@@ -1,5 +1,6 @@
 import { resetCoreDb } from '@seta/core/testing';
 import { closePools, initPools } from '@seta/shared-db';
+import { tenantScoped } from '@seta/shared-rbac';
 import { withTestDb } from '@seta/shared-testing';
 import { and, eq } from 'drizzle-orm';
 import type { Pool } from 'pg';
@@ -11,7 +12,6 @@ import {
   worker,
   workerAllocationProjection,
 } from '../../src/backend/db/schema.ts';
-import { tenantScoped } from '../../src/backend/db/scope.ts';
 import { createWorker } from '../../src/backend/domain/create-worker.ts';
 import { buildWorkerScope } from '../../src/backend/domain/worker-scope.ts';
 import { buildSession, type SeededTenant, seedOrgUnit, seedTenant } from '../helpers.ts';

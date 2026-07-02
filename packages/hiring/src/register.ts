@@ -16,13 +16,11 @@ export const hiringErrorMapper: ErrorMapper = (err) => {
   const status: ContentfulStatusCode =
     err.code === 'FORBIDDEN'
       ? 403
-      : err.code === 'CROSS_TENANT'
-        ? 403
-        : err.code === 'NOT_FOUND'
-          ? 404
-          : err.code === 'CONFLICT'
-            ? 409
-            : 400;
+      : err.code === 'NOT_FOUND'
+        ? 404
+        : err.code === 'CONFLICT'
+          ? 409
+          : 400;
   return { status, body: { error: err.code, message: err.message, details: err.details } };
 };
 

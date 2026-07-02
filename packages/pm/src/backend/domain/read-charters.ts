@@ -1,9 +1,9 @@
 import type { SessionScope } from '@seta/core';
+import { tenantScoped } from '@seta/shared-rbac';
 import { and, asc, count, desc, eq, ilike } from 'drizzle-orm';
 import { type CharterListQueryInput, charterListQuery } from '../../contracts.ts';
 import { pmDb } from '../db/client.ts';
 import { charter } from '../db/schema.ts';
-import { tenantScoped } from '../db/scope.ts';
 import { PmError, requirePermission } from '../rbac.ts';
 
 export interface CharterListRow {

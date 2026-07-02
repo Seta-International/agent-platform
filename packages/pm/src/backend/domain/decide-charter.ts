@@ -2,6 +2,7 @@ import type { SessionScope } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
 import { listUsers } from '@seta/identity';
 import { requestNotification } from '@seta/notifications';
+import { tenantScoped } from '@seta/shared-rbac';
 import { and, eq } from 'drizzle-orm';
 import type { RejectCharterInput } from '../../contracts.ts';
 import {
@@ -12,7 +13,6 @@ import {
 } from '../../events.ts';
 import { pmDb } from '../db/client.ts';
 import { charter, project, projectAccess } from '../db/schema.ts';
-import { tenantScoped } from '../db/scope.ts';
 import { PmError, requirePermission } from '../rbac.ts';
 
 async function loadCharter(charter_id: string, session: SessionScope) {

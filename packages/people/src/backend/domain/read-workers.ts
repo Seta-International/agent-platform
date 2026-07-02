@@ -1,8 +1,8 @@
 import type { SessionScope } from '@seta/core';
+import { tenantScoped } from '@seta/shared-rbac';
 import { and, asc, count, desc, eq, ilike, inArray, isNull, or, type SQL, sql } from 'drizzle-orm';
 import { peopleDb } from '../db/client.ts';
 import { employmentPeriod, worker, workerHistory } from '../db/schema.ts';
-import { tenantScoped } from '../db/scope.ts';
 import { PeopleError, requirePermission } from '../rbac.ts';
 import { buildWorkerScope } from './worker-scope.ts';
 

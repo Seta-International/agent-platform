@@ -1,8 +1,8 @@
 import type { SessionScope } from '@seta/core';
+import { tenantScoped } from '@seta/shared-rbac';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { pmDb } from '../db/client.ts';
 import { account, accountRecruiter, project } from '../db/schema.ts';
-import { tenantScoped } from '../db/scope.ts';
 import { PmError, requirePermission } from '../rbac.ts';
 import { buildAccountScope } from './scope.ts';
 
