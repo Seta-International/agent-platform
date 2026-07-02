@@ -24,7 +24,7 @@ import { getPeopleVectorStore } from '@seta/people';
 import { registerPeopleContributions } from '@seta/people/register';
 import { assignTask } from '@seta/planner';
 import { plannerFindSimilarTasksTool } from '@seta/planner/agent-tools';
-import { buildPlannerQnaRuntime } from '@seta/planner/orchestration';
+import { buildPlannerQnaRuntime, buildWeeklyPlanRuntime } from '@seta/planner/orchestration';
 import { registerPlannerContributions } from '@seta/planner/register';
 import { registerPmContributions } from '@seta/pm/register';
 import { createCrypto, createKeyProviderFromEnv, parseCryptoEnv } from '@seta/shared-crypto';
@@ -179,6 +179,11 @@ const plannerQnaOrchestration = buildPlannerQnaRuntime({
   findSimilarTasksTool: plannerFindSimilar,
 });
 
+// Weekly planner runtime — organizes the caller's tasks into a day-by-day plan.
+const weeklyPlanOrchestration = buildWeeklyPlanRuntime({
+  resolveModel: () => resolveModel('auto', { tierHint: 'fast' }).model,
+});
+
 SpecializedAgentRegistry.freeze();
 OrchestrationRegistry.freeze();
 
@@ -192,6 +197,7 @@ const chatRouter = makeChatRouter({
   }),
   staffing: staffingOrchestration.runStream,
   plannerQna: plannerQnaOrchestration.runStream,
+  weeklyPlanner: weeklyPlanOrchestration.runStream,
 });
 
 // Build the agent engine up front so subscriberBuilders contributed by
