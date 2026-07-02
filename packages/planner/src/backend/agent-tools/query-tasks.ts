@@ -252,7 +252,7 @@ export const plannerQueryTasksTool = defineAgentTool({
     'subset — adding them to a general query wrongly hides most tasks.',
   input: inputSchema,
   output: outputSchema,
-  rbac: 'planner.task.read.tenant',
+  rbac: 'planner.reporting.read',
   execute: async (input, ctx) => {
     const actor = actorFromContext(ctx);
     const session = await buildActorSession(actor);

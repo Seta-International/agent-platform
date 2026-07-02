@@ -60,7 +60,7 @@ async function seedProjection(
   );
 }
 
-const TOOL_PERMS = ['planner.task.read', 'planner.task.read.tenant', 'planner.group.member.read'];
+const TOOL_PERMS = ['planner.task.read', 'planner.reporting.read', 'planner.group.member.read'];
 
 describe('QnA identity resolution end-to-end (tool chain)', () => {
   it('assigneeScope "me" returns only the caller\'s tasks', async () => {

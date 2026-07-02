@@ -25,7 +25,7 @@ export async function editWorker(
   if (!current) throw new PeopleError('NOT_FOUND', 'worker not found');
 
   const isOwner = current.person.user_id === session.user_id;
-  const isAdmin = can(session, 'people.worker.edit');
+  const isAdmin = can(session, 'people.worker.update');
 
   const entries = Object.entries(patch).filter(([, v]) => v !== undefined) as [string, unknown][];
   for (const [field] of entries) {

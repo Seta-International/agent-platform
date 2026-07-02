@@ -13,7 +13,7 @@ const domainsSchema = z.object({ email_domains: z.array(z.string()) });
 function requireOrgAdmin(c: Context<SessionEnv>): void {
   const scope = c.get('user');
   if (!scope.role_summary.roles.includes('org.admin')) {
-    throw new IdentityError('FORBIDDEN', 'core.tenant.write required');
+    throw new IdentityError('FORBIDDEN', 'core.tenant.update required');
   }
 }
 

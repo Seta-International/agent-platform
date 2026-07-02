@@ -23,7 +23,7 @@ describe('identity_whoAmI tool', () => {
     });
   });
 
-  it('is registered with permission identity.user.read.self', () => {
-    expect(requiredPermissionFor(whoAmITool)).toBe('identity.user.read.self');
+  it('is registered with permission identity.profile.read', () => {
+    expect(requiredPermissionFor(whoAmITool)).toBe('identity.profile.read');
   });
 });

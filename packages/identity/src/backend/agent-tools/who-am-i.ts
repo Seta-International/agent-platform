@@ -22,7 +22,7 @@ export const whoAmITool = defineAgentTool({
     'be reused within the turn.',
   input: z.object({}),
   output: outputSchema,
-  rbac: 'identity.user.read.self',
+  rbac: 'identity.profile.read',
   execute: async (_input, ctx) => {
     const actor = actorFromContext(ctx);
     const profile = await whoAmI(actor);

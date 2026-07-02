@@ -46,7 +46,7 @@ export async function createUser(
 ): Promise<{ user_id: string }> {
   if (actor.type === 'user') {
     if (!actor.user_id) throw new IdentityError('FORBIDDEN', 'user actor requires user_id');
-    await requirePermission(actor.user_id, 'identity.user.write', input.tenant_id);
+    await requirePermission(actor.user_id, 'identity.user.update', input.tenant_id);
   }
 
   const email = input.email.toLowerCase().trim();

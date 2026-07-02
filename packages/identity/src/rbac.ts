@@ -8,9 +8,9 @@ export const identityRbac = inventoryToManifests(INVENTORY).find((m) => m.module
 
 export const A2_PERMISSIONS = [
   'identity.sso.read',
-  'identity.sso.write',
-  'identity.user.email.change',
-  'identity.user.write.self',
+  'identity.sso.update',
+  'identity.user.change_email',
+  'identity.profile.update',
 ] as const satisfies readonly IdentityPermission[];
 
 export type A2Permission = (typeof A2_PERMISSIONS)[number];

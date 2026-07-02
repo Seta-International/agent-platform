@@ -36,7 +36,7 @@ export interface ChatAttachmentRouteDeps {
   }) => Promise<void>;
 }
 
-const PERM = 'knowledge.chat_attachment.write';
+const PERM = 'knowledge.chat_attachment.create';
 
 const uploadSchema = z.object({
   thread_id: z.string().uuid(),

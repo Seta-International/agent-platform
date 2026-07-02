@@ -1,10 +1,10 @@
 import { expect, test } from '@playwright/test';
 
 // Runs as the sandbox org.admin (wildcard) from global-setup storage state, which
-// holds identity.role.read + identity.role.write.
+// holds identity.role.read + identity.role.update.
 //
 // Deferred — the "read-only admin sees disabled checkboxes" path is not covered:
-// no built-in role grants identity.role.read WITHOUT identity.role.write (both
+// no built-in role grants identity.role.read WITHOUT identity.role.update (both
 // were added to identity.admin together; identity.viewer has neither), so a
 // read-only-for-this-feature actor can't be provisioned from seeded roles.
 // The disabled-state branch is covered by the component's usePermission gate.
@@ -31,7 +31,7 @@ test('admin role-access: toggling a cell persists and reset restores defaults', 
   const resetViewer = page.getByRole('button', { name: 'Reset knowledge.viewer to defaults' });
   if (await resetViewer.isEnabled()) await resetViewer.click();
 
-  // knowledge.viewer lacks knowledge.file.write by seed — toggle it on.
+  // knowledge.viewer lacks knowledge.file.update by seed — toggle it on.
   const cell = page.getByRole('checkbox', { name: /^Viewer .*knowledge\.file\.write$/ });
   await expect(cell).toHaveAttribute('data-state', 'unchecked');
   await cell.click();

@@ -79,7 +79,7 @@ export function WorkerProfilePage() {
   const params = useParams({ strict: false });
   const workerId = params.workerId as string;
   const queryClient = useQueryClient();
-  const canEdit = usePermission('people.worker.edit');
+  const canEdit = usePermission('people.worker.update');
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<WorkerPatch>({});
   const [editError, setEditError] = useState<string | null>(null);

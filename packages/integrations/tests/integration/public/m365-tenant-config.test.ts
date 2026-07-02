@@ -110,7 +110,7 @@ describe('setM365TenantConfig domain', () => {
     const actor = {
       user_id: 42,
       tenantId,
-      permissions: new Set<string>([INTEGRATIONS_PERMISSIONS.m365ConfigWrite]),
+      permissions: new Set<string>([INTEGRATIONS_PERMISSIONS.m365Configure]),
     };
     return { tenantId, actor };
   }

@@ -46,7 +46,7 @@ async function deleteCommentImpl(
       const isAuthor = existing.author_id === input.session.user_id;
       let hasAnyDelete = false;
       try {
-        requirePermission(input.session, 'planner.task.comment.delete.any');
+        requirePermission(input.session, 'planner.task.comment.delete');
         hasAnyDelete = true;
       } catch {
         // not an admin — fall through to author/owner check

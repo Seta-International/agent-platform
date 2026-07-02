@@ -18,6 +18,6 @@ describe('editable roles', () => {
   it('identity.role has read + write actions', () => {
     const reg = buildRegistry(inventoryToManifests());
     expect(reg.allPermissions.has('identity.role.read')).toBe(true);
-    expect(reg.allPermissions.has('identity.role.write')).toBe(true);
+    expect(reg.allPermissions.has('identity.role.update')).toBe(true);
   });
 });

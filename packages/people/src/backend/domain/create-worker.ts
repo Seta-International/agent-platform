@@ -12,7 +12,7 @@ export async function createWorker(
   input: CreateWorkerInput & { session: SessionScope },
 ): Promise<{ worker_id: string }> {
   const { session } = input;
-  requirePermission(session, 'people.worker.provision');
+  requirePermission(session, 'people.worker.create');
   if (!input.full_name.trim()) throw new PeopleError('VALIDATION', 'full_name is required');
 
   const domains = await getTenantEmailDomains(session.tenant_id);

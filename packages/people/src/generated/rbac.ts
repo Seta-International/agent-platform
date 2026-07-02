@@ -2,18 +2,18 @@
 export type PeoplePermission =
   | 'people.self.manage'
   | 'people.self.read'
-  | 'people.worker.edit'
+  | 'people.worker.create'
   | 'people.worker.manage'
-  | 'people.worker.provision'
-  | 'people.worker.read';
+  | 'people.worker.read'
+  | 'people.worker.update';
 
 export const PEOPLE_PERMISSIONS: readonly PeoplePermission[] = [
   'people.self.manage',
   'people.self.read',
-  'people.worker.edit',
+  'people.worker.create',
   'people.worker.manage',
-  'people.worker.provision',
   'people.worker.read',
+  'people.worker.update',
 ];
 
 export const PEOPLE_ROLE_SLUGS = [

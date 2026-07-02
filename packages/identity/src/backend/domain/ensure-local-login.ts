@@ -25,7 +25,7 @@ export interface EnsureLocalLoginInput {
 export async function ensureLocalLogin(input: EnsureLocalLoginInput, actor: Actor): Promise<void> {
   if (actor.type === 'user') {
     if (!actor.user_id) throw new IdentityError('FORBIDDEN', 'user actor requires user_id');
-    await requirePermission(actor.user_id, 'identity.user.write', input.tenant_id);
+    await requirePermission(actor.user_id, 'identity.user.update', input.tenant_id);
   }
 
   // CLI is a trusted internal actor; only enforce the floor for web/user-submitted passwords.

@@ -13,8 +13,8 @@ export async function resetRoleToDefaults(
   session: SessionScope,
   input: ResetRoleToDefaultsInput,
 ): Promise<void> {
-  if (!can(session, 'identity.role.write'))
-    throw new IdentityError('FORBIDDEN', 'identity.role.write required');
+  if (!can(session, 'identity.role.update'))
+    throw new IdentityError('FORBIDDEN', 'identity.role.update required');
   if (!EDITABLE_ROLES.includes(input.role_slug))
     throw new IdentityError('VALIDATION', 'role not editable');
 

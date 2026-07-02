@@ -124,7 +124,7 @@ describe('@seta/identity revokeUserSession', () => {
     );
   });
 
-  it('refuses when caller lacks identity.user.write', async () => {
+  it('refuses when caller lacks identity.user.update', async () => {
     await withTestDb(
       {
         templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,

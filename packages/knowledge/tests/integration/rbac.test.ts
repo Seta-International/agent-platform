@@ -30,7 +30,7 @@ const withDb = <T>(fn: () => Promise<T>) =>
   );
 
 describe('knowledge RBAC', () => {
-  it('rejects requestKnowledgeUpload without knowledge.file.write', () =>
+  it('rejects requestKnowledgeUpload without knowledge.file.update', () =>
     withDb(async () => {
       const tenantId = crypto.randomUUID();
       const viewer = buildTestSession({ tenant_id: tenantId, roles: ['knowledge.viewer'] });
@@ -48,7 +48,7 @@ describe('knowledge RBAC', () => {
       ).rejects.toBeInstanceOf(KnowledgeError);
     }));
 
-  it('rejects markKnowledgeFileProcessed without knowledge.file.write', () =>
+  it('rejects markKnowledgeFileProcessed without knowledge.file.update', () =>
     withDb(async () => {
       const tenantId = crypto.randomUUID();
       const viewer = buildTestSession({ tenant_id: tenantId, roles: ['knowledge.viewer'] });
@@ -130,7 +130,7 @@ describe('knowledge RBAC', () => {
       };
 
       expect(() => requirePermission(session, 'knowledge.file.read')).not.toThrow();
-      expect(() => requirePermission(session, 'knowledge.file.write')).toThrow(KnowledgeError);
+      expect(() => requirePermission(session, 'knowledge.file.update')).toThrow(KnowledgeError);
       expect(() => requirePermission(session, 'knowledge.file.delete')).toThrow(KnowledgeError);
     });
 
@@ -157,7 +157,7 @@ describe('knowledge RBAC', () => {
       };
 
       expect(() => requirePermission(session, 'knowledge.file.read')).not.toThrow();
-      expect(() => requirePermission(session, 'knowledge.file.write')).not.toThrow();
+      expect(() => requirePermission(session, 'knowledge.file.update')).not.toThrow();
       expect(() => requirePermission(session, 'knowledge.file.delete')).not.toThrow();
     });
   });

@@ -34,7 +34,7 @@ describe('notifications requirePermission', () => {
   it('notifications.viewer can read preferences but not write', () => {
     const session = makeSession(['notifications.viewer']);
     expect(() => requirePermission(session, 'notifications.preference.read')).not.toThrow();
-    expect(() => requirePermission(session, 'notifications.preference.write')).toThrow(
+    expect(() => requirePermission(session, 'notifications.preference.update')).toThrow(
       NotificationsError,
     );
   });
@@ -42,13 +42,13 @@ describe('notifications requirePermission', () => {
   it('notifications.member can read and write preferences', () => {
     const session = makeSession(['notifications.member']);
     expect(() => requirePermission(session, 'notifications.preference.read')).not.toThrow();
-    expect(() => requirePermission(session, 'notifications.preference.write')).not.toThrow();
+    expect(() => requirePermission(session, 'notifications.preference.update')).not.toThrow();
   });
 
   it('tenant.admin passes all permission checks', () => {
     const session = makeSession(['tenant.admin']);
     expect(() => requirePermission(session, 'notifications.preference.read')).not.toThrow();
-    expect(() => requirePermission(session, 'notifications.preference.write')).not.toThrow();
+    expect(() => requirePermission(session, 'notifications.preference.update')).not.toThrow();
     expect(() => requirePermission(session, 'notifications.category.read')).not.toThrow();
   });
 

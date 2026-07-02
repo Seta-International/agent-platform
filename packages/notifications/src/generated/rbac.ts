@@ -2,12 +2,12 @@
 export type NotificationsPermission =
   | 'notifications.category.read'
   | 'notifications.preference.read'
-  | 'notifications.preference.write';
+  | 'notifications.preference.update';
 
 export const NOTIFICATIONS_PERMISSIONS: readonly NotificationsPermission[] = [
   'notifications.category.read',
   'notifications.preference.read',
-  'notifications.preference.write',
+  'notifications.preference.update',
 ];
 
 export const NOTIFICATIONS_ROLE_SLUGS = [

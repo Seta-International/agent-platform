@@ -154,7 +154,7 @@ const HIDEABLE_COLUMNS = [
 export function PeoplePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const canProvision = usePermission('people.worker.provision');
+  const canProvision = usePermission('people.worker.create');
   const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({});
   const [query, setQuery] = useState<WorkersQuery>({ page: 1, pageSize: 25 });
   const [view, setView] = useState<'list' | 'cards'>('list');

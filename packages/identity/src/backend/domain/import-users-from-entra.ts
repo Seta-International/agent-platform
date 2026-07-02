@@ -18,7 +18,7 @@ export async function importUsersFromEntra(
 }> {
   if (actor.type === 'user') {
     if (!actor.user_id) throw new Error('user actor requires user_id');
-    await requirePermission(actor.user_id, 'identity.user.write', input.tenant_id);
+    await requirePermission(actor.user_id, 'identity.user.update', input.tenant_id);
   }
 
   const universe = await listEntraImportableUsers(input.tenant_id);

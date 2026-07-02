@@ -28,7 +28,7 @@ function isUniqueViolation(err: unknown): boolean {
 export async function linkGroupToM365(
   input: LinkGroupToM365Input & { session: SessionScope },
 ): Promise<GroupRow> {
-  requirePermission(input.session, 'planner.group.link.m365', input.group_id);
+  requirePermission(input.session, 'planner.group.link_m365', input.group_id);
 
   let resultRow!: GroupDbRow;
   await withEmit(

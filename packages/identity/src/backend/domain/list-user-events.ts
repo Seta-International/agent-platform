@@ -82,7 +82,7 @@ export async function listUserEvents(
 ): Promise<{ rows: ActivityRow[]; total: number }> {
   if (actor.type === 'user') {
     if (!actor.user_id) throw new IdentityError('FORBIDDEN', 'user actor requires user_id');
-    await requirePermission(actor.user_id, 'identity.user.read.any', input.tenant_id);
+    await requirePermission(actor.user_id, 'identity.user.list', input.tenant_id);
   }
 
   const actorPred = sql`(e.actor->>'user_id' = ${input.user_id})`;

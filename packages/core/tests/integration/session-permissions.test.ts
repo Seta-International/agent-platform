@@ -84,7 +84,7 @@ it('applies the tenant overlay during resolution', async () => {
             resolvePermissions: async (roles, tenantId) =>
               new Set(
                 tenantId === overlayTenantId && roles.includes('knowledge.viewer')
-                  ? ['knowledge.file.read', 'knowledge.file.write']
+                  ? ['knowledge.file.read', 'knowledge.file.update']
                   : [],
               ),
           },
@@ -95,7 +95,7 @@ it('applies the tenant overlay during resolution', async () => {
         );
         expect([...scope.permissions].sort()).toEqual([
           'knowledge.file.read',
-          'knowledge.file.write',
+          'knowledge.file.update',
         ]);
       } finally {
         await closePools();

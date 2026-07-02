@@ -51,7 +51,7 @@ export function registerIntegrationsM365Routes(
 ): void {
   app.get('/api/integrations/m365/groups/search', async (c) => {
     const session = c.get('user');
-    requirePermission(session, 'planner.group.link.m365');
+    requirePermission(session, 'planner.group.link_m365');
 
     const q = c.req.query('q') ?? '';
     const safeQ = q.replace(/["'\\]/g, '').trim();

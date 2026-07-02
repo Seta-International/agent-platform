@@ -58,7 +58,7 @@ describe('planner requirePermission', () => {
   it('planner.admin has full access', () => {
     const session = makeSession(['planner.admin']);
     expect(() => requirePermission(session, 'planner.group.delete')).not.toThrow();
-    expect(() => requirePermission(session, 'planner.task.comment.delete.any')).not.toThrow();
+    expect(() => requirePermission(session, 'planner.task.comment.delete')).not.toThrow();
     expect(() => requirePermission(session, 'planner.trash.empty')).not.toThrow();
   });
 

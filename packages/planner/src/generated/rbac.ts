@@ -4,39 +4,39 @@ export type PlannerPermission =
   | 'planner.bucket.delete'
   | 'planner.bucket.read'
   | 'planner.bucket.update'
-  | 'planner.checklist.write'
+  | 'planner.checklist.update'
   | 'planner.group.create'
   | 'planner.group.delete'
-  | 'planner.group.link.m365'
+  | 'planner.group.link_m365'
+  | 'planner.group.mark_sync_status'
   | 'planner.group.member.read'
-  | 'planner.group.member.role.set'
+  | 'planner.group.member.set_role'
   | 'planner.group.member.write'
   | 'planner.group.read'
   | 'planner.group.refresh'
-  | 'planner.group.resolve-conflict'
-  | 'planner.group.sync.mark-status'
+  | 'planner.group.resolve_conflict'
   | 'planner.group.unlink'
   | 'planner.group.update'
   | 'planner.label.read'
-  | 'planner.label.write'
+  | 'planner.label.update'
   | 'planner.plan.create'
   | 'planner.plan.delete'
-  | 'planner.plan.link.m365'
+  | 'planner.plan.link_m365'
+  | 'planner.plan.mark_sync_status'
   | 'planner.plan.read'
   | 'planner.plan.refresh'
-  | 'planner.plan.resolve-conflict'
-  | 'planner.plan.sync.mark-status'
+  | 'planner.plan.resolve_conflict'
   | 'planner.plan.unlink'
   | 'planner.plan.update'
+  | 'planner.reporting.read'
   | 'planner.task.assign'
   | 'planner.task.comment.create'
-  | 'planner.task.comment.delete.any'
+  | 'planner.task.comment.delete'
   | 'planner.task.comment.read'
   | 'planner.task.create'
   | 'planner.task.delete'
+  | 'planner.task.mark_sync_status'
   | 'planner.task.read'
-  | 'planner.task.read.tenant'
-  | 'planner.task.sync.mark-status'
   | 'planner.task.update'
   | 'planner.trash.empty'
   | 'planner.trash.read'
@@ -47,39 +47,39 @@ export const PLANNER_PERMISSIONS: readonly PlannerPermission[] = [
   'planner.bucket.delete',
   'planner.bucket.read',
   'planner.bucket.update',
-  'planner.checklist.write',
+  'planner.checklist.update',
   'planner.group.create',
   'planner.group.delete',
-  'planner.group.link.m365',
+  'planner.group.link_m365',
+  'planner.group.mark_sync_status',
   'planner.group.member.read',
-  'planner.group.member.role.set',
+  'planner.group.member.set_role',
   'planner.group.member.write',
   'planner.group.read',
   'planner.group.refresh',
-  'planner.group.resolve-conflict',
-  'planner.group.sync.mark-status',
+  'planner.group.resolve_conflict',
   'planner.group.unlink',
   'planner.group.update',
   'planner.label.read',
-  'planner.label.write',
+  'planner.label.update',
   'planner.plan.create',
   'planner.plan.delete',
-  'planner.plan.link.m365',
+  'planner.plan.link_m365',
+  'planner.plan.mark_sync_status',
   'planner.plan.read',
   'planner.plan.refresh',
-  'planner.plan.resolve-conflict',
-  'planner.plan.sync.mark-status',
+  'planner.plan.resolve_conflict',
   'planner.plan.unlink',
   'planner.plan.update',
+  'planner.reporting.read',
   'planner.task.assign',
   'planner.task.comment.create',
-  'planner.task.comment.delete.any',
+  'planner.task.comment.delete',
   'planner.task.comment.read',
   'planner.task.create',
   'planner.task.delete',
+  'planner.task.mark_sync_status',
   'planner.task.read',
-  'planner.task.read.tenant',
-  'planner.task.sync.mark-status',
   'planner.task.update',
   'planner.trash.empty',
   'planner.trash.read',

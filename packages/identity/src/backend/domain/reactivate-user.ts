@@ -11,7 +11,7 @@ export async function reactivateUser(userId: string, actor: Actor): Promise<void
 
   if (actor.type === 'user') {
     if (!actor.user_id) throw new IdentityError('FORBIDDEN', 'user actor requires user_id');
-    await requirePermission(actor.user_id, 'identity.user.write', target.tenant_id);
+    await requirePermission(actor.user_id, 'identity.user.update', target.tenant_id);
   }
 
   await withEmit(

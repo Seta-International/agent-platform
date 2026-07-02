@@ -1,7 +1,7 @@
 import { expect, request, test } from '@playwright/test';
 
 // Runs as org.admin (wildcard) from global-setup storage state.
-// Admin holds identity.user.read.any + identity.user.write (role identity.admin).
+// Admin holds identity.user.list + identity.user.update (role identity.admin).
 //
 // Pre-conditions (feature branch CI only):
 //   The feature branch server registers identity.directory-projection.ts, which

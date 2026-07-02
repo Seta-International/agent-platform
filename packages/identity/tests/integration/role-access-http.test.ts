@@ -90,9 +90,9 @@ describe('role-access HTTP routes', () => {
 
   it('PUT a cell persists the overlay', async () => {
     await withDb(async ({ tenant }) => {
-      const app = buildApp(session(tenant, ['identity.role.write']));
+      const app = buildApp(session(tenant, ['identity.role.update']));
       const res = await app.request(
-        '/api/identity/v1/role-access/knowledge.viewer/knowledge.file.write',
+        '/api/identity/v1/role-access/knowledge.viewer/knowledge.file.update',
         {
           method: 'PUT',
           headers: { 'content-type': 'application/json' },
@@ -111,11 +111,11 @@ describe('role-access HTTP routes', () => {
 
   it('POST reset clears overlays for the role', async () => {
     await withDb(async ({ tenant }) => {
-      const app = buildApp(session(tenant, ['identity.role.write']));
+      const app = buildApp(session(tenant, ['identity.role.update']));
       await identityDb().insert(rolePermissionOverlays).values({
         tenant_id: tenant,
         role_slug: 'knowledge.viewer',
-        permission_key: 'knowledge.file.write',
+        permission_key: 'knowledge.file.update',
         effect: 'grant',
       });
       const res = await app.request('/api/identity/v1/role-access/knowledge.viewer/reset', {

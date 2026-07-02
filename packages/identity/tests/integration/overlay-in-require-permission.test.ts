@@ -52,17 +52,17 @@ describe('overlay honored in requirePermission', () => {
       );
 
       await expect(
-        requirePermission(user_id, 'identity.user.read.any', tenant_id),
+        requirePermission(user_id, 'identity.user.list', tenant_id),
       ).resolves.toBeUndefined();
 
       await identityDb().insert(rolePermissionOverlays).values({
         tenant_id,
         role_slug: 'identity.viewer',
-        permission_key: 'identity.user.read.any',
+        permission_key: 'identity.user.list',
         effect: 'revoke',
       });
 
-      await expect(requirePermission(user_id, 'identity.user.read.any', tenant_id)).rejects.toThrow(
+      await expect(requirePermission(user_id, 'identity.user.list', tenant_id)).rejects.toThrow(
         /FORBIDDEN|Missing permission/,
       );
     });
@@ -82,19 +82,19 @@ describe('overlay honored in requirePermission', () => {
         CLI,
       );
 
-      await expect(requirePermission(user_id, 'identity.user.write', tenant_id)).rejects.toThrow(
+      await expect(requirePermission(user_id, 'identity.user.update', tenant_id)).rejects.toThrow(
         /FORBIDDEN|Missing permission/,
       );
 
       await identityDb().insert(rolePermissionOverlays).values({
         tenant_id,
         role_slug: 'identity.viewer',
-        permission_key: 'identity.user.write',
+        permission_key: 'identity.user.update',
         effect: 'grant',
       });
 
       await expect(
-        requirePermission(user_id, 'identity.user.write', tenant_id),
+        requirePermission(user_id, 'identity.user.update', tenant_id),
       ).resolves.toBeUndefined();
     });
   });

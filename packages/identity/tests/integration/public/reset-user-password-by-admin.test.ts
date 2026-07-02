@@ -127,7 +127,7 @@ describe('@seta/identity resetUserPasswordByAdmin', () => {
     );
   });
 
-  it('refuses when caller lacks identity.user.write permission', async () => {
+  it('refuses when caller lacks identity.user.update permission', async () => {
     await withTestDb(
       {
         templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -143,7 +143,7 @@ describe('@seta/identity resetUserPasswordByAdmin', () => {
             `t-${tenantId.slice(0, 8)}`,
           ]);
 
-          // viewer has identity.viewer (read) but not identity.user.write
+          // viewer has identity.viewer (read) but not identity.user.update
           const { user_id: viewerId } = await createUser(
             {
               tenant_id: tenantId,

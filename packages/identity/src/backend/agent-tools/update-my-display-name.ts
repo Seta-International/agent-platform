@@ -13,7 +13,7 @@ export const updateMyDisplayNameTool = defineAgentTool({
     ok: z.boolean(),
     displayName: z.string(),
   }),
-  rbac: 'identity.user.write.self',
+  rbac: 'identity.profile.update',
   needsApproval: true,
   execute: async (input, ctx) => {
     const actor = actorFromContext(ctx);

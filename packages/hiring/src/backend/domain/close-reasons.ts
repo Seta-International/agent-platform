@@ -21,7 +21,7 @@ export async function createCloseReason(input: {
 }
 
 export async function listCloseReasons(session: SessionScope) {
-  requirePermission(session, 'hiring.jd_template.read');
+  requirePermission(session, 'hiring.requisition.read');
   return hiringDb()
     .select()
     .from(openingCloseReason)

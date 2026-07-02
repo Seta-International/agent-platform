@@ -28,7 +28,7 @@ export async function markKnowledgeFileProcessed(
   input: MarkProcessedInput,
   deps: MarkProcessedDeps,
 ): Promise<void> {
-  requirePermission(deps.session, 'knowledge.file.write');
+  requirePermission(deps.session, 'knowledge.file.update');
   const db = knowledgeDb();
   const [row] = await db
     .select({ s3_key: files.s3_key, scan_status: files.scan_status })

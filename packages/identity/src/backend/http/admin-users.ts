@@ -59,7 +59,7 @@ function requireAdmin(c: Context<SessionEnv>): void {
   const isAdmin =
     scope.role_summary.roles.includes('org.admin') ||
     scope.role_summary.roles.includes('identity.admin');
-  if (!isAdmin) throw new IdentityError('FORBIDDEN', 'identity.user.write required');
+  if (!isAdmin) throw new IdentityError('FORBIDDEN', 'identity.user.update required');
 }
 
 export function registerAdminUsersRoutes(app: Hono<SessionEnv>): void {

@@ -22,7 +22,7 @@ export interface SetM365TenantConfigArgs {
 }
 
 export async function setM365TenantConfig(args: SetM365TenantConfigArgs): Promise<void> {
-  requirePermission(args.actor, INTEGRATIONS_PERMISSIONS.m365ConfigWrite);
+  requirePermission(args.actor, INTEGRATIONS_PERMISSIONS.m365Configure);
   if (args.actor.tenantId !== args.tenantId)
     throw new IntegrationsError('FORBIDDEN', 'tenant mismatch');
 

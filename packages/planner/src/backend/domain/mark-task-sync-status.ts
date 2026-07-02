@@ -34,7 +34,7 @@ export async function markTaskSyncStatus(
       if (!plan)
         throw new PlannerError('NOT_FOUND', 'Parent plan not found', { plan_id: task.plan_id });
 
-      requirePermission(input.session, 'planner.task.sync.mark-status', plan.group_id);
+      requirePermission(input.session, 'planner.task.mark_sync_status', plan.group_id);
 
       if (!isM365SystemActor(input.session)) {
         throw new PlannerError(

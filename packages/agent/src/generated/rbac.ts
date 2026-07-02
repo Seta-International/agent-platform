@@ -2,7 +2,7 @@
 export type AgentPermission =
   | 'agent.chat.use'
   | 'agent.config.read'
-  | 'agent.config.write'
+  | 'agent.config.update'
   | 'agent.meta.read.self'
   | 'agent.rate_limit.read'
   | 'agent.specialist.use'
@@ -21,7 +21,7 @@ export type AgentPermission =
 export const AGENT_PERMISSIONS: readonly AgentPermission[] = [
   'agent.chat.use',
   'agent.config.read',
-  'agent.config.write',
+  'agent.config.update',
   'agent.meta.read.self',
   'agent.rate_limit.read',
   'agent.specialist.use',

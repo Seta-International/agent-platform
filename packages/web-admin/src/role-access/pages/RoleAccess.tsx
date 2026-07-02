@@ -32,7 +32,7 @@ const moduleOverrides = (roles: MatrixRole[]) => roles.reduce((n, r) => n + over
 
 export function RoleAccess() {
   const { data, isLoading, error } = useRoleAccessMatrix();
-  const canWrite = usePermission('identity.role.write');
+  const canWrite = usePermission('identity.role.update');
 
   const modules = useMemo(() => {
     const seen: string[] = [];

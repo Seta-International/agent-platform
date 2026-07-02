@@ -8,7 +8,7 @@ import { IdentityError, searchDirectory } from '../../index.ts';
  *
  * FUT-54 root cause: the pickers searched users through the admin user-management
  * endpoint `GET /api/identity/v1/users`, which is gated by an admin role (`requireAdmin`)
- * and rejects everyone else with `identity.user.write required`. A Planner Contributor
+ * and rejects everyone else with `identity.user.update required`. A Planner Contributor
  * has `planner.task.assign` but no identity admin role, so picking an assignee 403'd and
  * the UI showed "No users found."
  *

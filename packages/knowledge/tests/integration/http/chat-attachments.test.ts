@@ -45,7 +45,7 @@ function buildApp(
 const member = (tenant_id: string, user_id: string) => ({
   tenant_id,
   user_id,
-  effective_permissions: new Set(['knowledge.chat_attachment.write']),
+  effective_permissions: new Set(['knowledge.chat_attachment.create']),
   role_summary: { roles: ['org.member'], cross_tenant_read: false },
 });
 

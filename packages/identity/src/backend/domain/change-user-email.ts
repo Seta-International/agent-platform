@@ -33,7 +33,7 @@ export async function changeUserEmail(
   if (input.reason === 'admin') {
     if (actor.type === 'user') {
       if (!actor.user_id) throw new IdentityError('FORBIDDEN', 'user actor requires user_id');
-      await requirePermission(actor.user_id, 'identity.user.email.change', target.tenant_id);
+      await requirePermission(actor.user_id, 'identity.user.change_email', target.tenant_id);
     }
     const [ext] = await identityDb()
       .select({ provider_id: account.provider_id })

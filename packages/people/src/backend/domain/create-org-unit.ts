@@ -9,7 +9,7 @@ export async function createOrgUnit(
   input: CreateOrgUnitInput & { session: SessionScope },
 ): Promise<{ org_unit_id: string }> {
   const { session } = input;
-  requirePermission(session, 'people.worker.provision');
+  requirePermission(session, 'people.worker.create');
   const parsed = createOrgUnitInput.parse(input);
 
   let created!: { id: string; parent_id: string | null; name: string };

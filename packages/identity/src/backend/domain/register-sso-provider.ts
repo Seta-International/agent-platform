@@ -19,7 +19,7 @@ export async function registerSsoProvider(
 ): Promise<ProviderRow> {
   if (actor.type === 'user') {
     if (!actor.user_id) throw new IdentityError('FORBIDDEN', 'user actor requires user_id');
-    await requirePermission(actor.user_id, 'identity.sso.write', input.tenant_id);
+    await requirePermission(actor.user_id, 'identity.sso.update', input.tenant_id);
   }
 
   if (input.provider_id !== 'microsoft-entra-id') {

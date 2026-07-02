@@ -51,7 +51,7 @@ describe('getRoleAccessMatrix', () => {
       await identityDb().insert(rolePermissionOverlays).values({
         tenant_id: tenant,
         role_slug: 'knowledge.viewer',
-        permission_key: 'knowledge.file.write',
+        permission_key: 'knowledge.file.update',
         effect: 'grant',
       });
       const matrix = await getRoleAccessMatrix(sessionWith(tenant, ['identity.role.read']), {
@@ -59,7 +59,7 @@ describe('getRoleAccessMatrix', () => {
       });
       const viewer = matrix.find((r) => r.slug === 'knowledge.viewer');
       expect(viewer).toBeDefined();
-      const write = viewer?.cells.find((c) => c.permission_key === 'knowledge.file.write');
+      const write = viewer?.cells.find((c) => c.permission_key === 'knowledge.file.update');
       const read = viewer?.cells.find((c) => c.permission_key === 'knowledge.file.read');
       const del = viewer?.cells.find((c) => c.permission_key === 'knowledge.file.delete');
       // overlay grant: off-by-seed, now effective + overridden
@@ -90,7 +90,7 @@ describe('getRoleAccessMatrix', () => {
   });
 });
 
-const WRITER = ['identity.role.write'];
+const WRITER = ['identity.role.update'];
 const overlayRows = (tenant: string) =>
   identityDb()
     .select()
@@ -103,14 +103,14 @@ describe('setRolePermission', () => {
       const session = sessionWith(tenant, WRITER);
       await setRolePermission(session, {
         role_slug: 'knowledge.viewer',
-        permission_key: 'knowledge.file.write',
+        permission_key: 'knowledge.file.update',
         enabled: true,
       });
       const rows = await overlayRows(tenant);
       expect(rows).toHaveLength(1);
       expect(rows[0]).toMatchObject({
         role_slug: 'knowledge.viewer',
-        permission_key: 'knowledge.file.write',
+        permission_key: 'knowledge.file.update',
         effect: 'grant',
       });
       const events = (
@@ -143,12 +143,12 @@ describe('setRolePermission', () => {
       // off-by-seed grant, then back to seed-default (disabled) -> row removed
       await setRolePermission(session, {
         role_slug: 'knowledge.viewer',
-        permission_key: 'knowledge.file.write',
+        permission_key: 'knowledge.file.update',
         enabled: true,
       });
       await setRolePermission(session, {
         role_slug: 'knowledge.viewer',
-        permission_key: 'knowledge.file.write',
+        permission_key: 'knowledge.file.update',
         enabled: false,
       });
       expect(await overlayRows(tenant)).toHaveLength(0);
@@ -187,15 +187,15 @@ describe('setRolePermission', () => {
     });
   });
 
-  it('requires identity.role.write', async () => {
+  it('requires identity.role.update', async () => {
     await withDb(async ({ tenant }) => {
       await expect(
         setRolePermission(sessionWith(tenant, []), {
           role_slug: 'knowledge.viewer',
-          permission_key: 'knowledge.file.write',
+          permission_key: 'knowledge.file.update',
           enabled: true,
         }),
-      ).rejects.toThrow(/identity.role.write/);
+      ).rejects.toThrow(/identity.role.update/);
     });
   });
 });
@@ -206,7 +206,7 @@ describe('resetRoleToDefaults', () => {
       const session = sessionWith(tenant, WRITER);
       await setRolePermission(session, {
         role_slug: 'knowledge.viewer',
-        permission_key: 'knowledge.file.write',
+        permission_key: 'knowledge.file.update',
         enabled: true,
       });
       await setRolePermission(session, {
@@ -229,11 +229,11 @@ describe('resetRoleToDefaults', () => {
     });
   });
 
-  it('requires identity.role.write and rejects non-editable roles', async () => {
+  it('requires identity.role.update and rejects non-editable roles', async () => {
     await withDb(async ({ tenant }) => {
       await expect(
         resetRoleToDefaults(sessionWith(tenant, []), { role_slug: 'knowledge.viewer' }),
-      ).rejects.toThrow(/identity.role.write/);
+      ).rejects.toThrow(/identity.role.update/);
       await expect(
         resetRoleToDefaults(sessionWith(tenant, WRITER), { role_slug: 'org.admin' }),
       ).rejects.toThrow(/not editable/);

@@ -127,7 +127,7 @@ export async function addPersonSkill(input: {
   session: SessionScope;
 }): Promise<void> {
   const { person_id, skill_id, level, session } = input;
-  requirePermission(session, 'people.worker.edit');
+  requirePermission(session, 'people.worker.update');
 
   const skills = await listSkills(session);
   const skill = skills.find((s) => s.id === skill_id);
@@ -164,7 +164,7 @@ export async function removePersonSkill(input: {
   session: SessionScope;
 }): Promise<void> {
   const { person_id, skill_id, session } = input;
-  requirePermission(session, 'people.worker.edit');
+  requirePermission(session, 'people.worker.update');
 
   await withEmit(
     { actor: { userId: session.user_id, tenantId: session.tenant_id } },

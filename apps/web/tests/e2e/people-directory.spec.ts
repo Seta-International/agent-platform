@@ -1,7 +1,7 @@
 import { expect, request, test } from '@playwright/test';
 
 // Runs as org.admin (wildcard) from global-setup storage state.
-// Admin holds people.worker.read + people.worker.edit + people.worker.provision.
+// Admin holds people.worker.read + people.worker.update + people.worker.create.
 //
 // Skills are people-owned and synchronous — safe to assert without polling.
 // Account/project projections are async PM→people; do NOT assert on them in time-sensitive paths.

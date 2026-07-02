@@ -157,7 +157,7 @@ describe('GET /api/integrations/m365/groups/search', () => {
     expect(body.groups).toHaveLength(0);
   });
 
-  it('returns 403 for non-admin user without planner.group.link.m365', async () => {
+  it('returns 403 for non-admin user without planner.group.link_m365', async () => {
     const session = buildSession({
       tenant_id: tenantId,
       user_id: userId,
@@ -290,7 +290,7 @@ describe('POST /api/integrations/m365/groups/:groupId/link', () => {
     });
   });
 
-  it('returns 403 for non-admin without planner.group.link.m365', async () => {
+  it('returns 403 for non-admin without planner.group.link_m365', async () => {
     await withTestDb(dbEnv(), async ({ pool, databaseUrl }) => {
       resetCoreDb();
       initPools({ databaseUrl });

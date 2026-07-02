@@ -42,7 +42,7 @@ export async function listDirectory(
   hasMore: boolean;
   total: number;
 }> {
-  await requirePermission(session.user_id, 'identity.user.read.any', session.tenant_id);
+  await requirePermission(session.user_id, 'identity.user.list', session.tenant_id);
 
   const page = Math.max(opts.page ?? 0, 0);
   const pageSize = Math.min(Math.max(opts.pageSize ?? DEFAULT_PAGE_SIZE, 1), MAX_PAGE_SIZE);

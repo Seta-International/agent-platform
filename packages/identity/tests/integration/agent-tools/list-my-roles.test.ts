@@ -13,11 +13,11 @@ describe('identity_listMyRoles tool', () => {
         makeToolContext({ user_id: admin_user_id }),
       )) as { permissions: string[] };
       expect(out.permissions.length).toBeGreaterThan(0);
-      expect(out.permissions).toContain('identity.user.read.self');
+      expect(out.permissions).toContain('identity.profile.read');
     });
   });
 
-  it('is registered with permission identity.user.read.self', () => {
-    expect(requiredPermissionFor(listMyRolesTool)).toBe('identity.user.read.self');
+  it('is registered with permission identity.profile.read', () => {
+    expect(requiredPermissionFor(listMyRolesTool)).toBe('identity.profile.read');
   });
 });

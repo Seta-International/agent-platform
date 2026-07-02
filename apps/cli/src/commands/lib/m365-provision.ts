@@ -51,7 +51,7 @@ export async function provisionM365FromEnv(args: {
     actor: {
       user_id: 0,
       tenantId: args.tenantId,
-      permissions: new Set<string>([INTEGRATIONS_PERMISSIONS.m365ConfigWrite]),
+      permissions: new Set<string>([INTEGRATIONS_PERMISSIONS.m365Configure]),
     },
     input: config,
     crypto: { encrypt: (p) => cryptoSvc.encrypt(p) },

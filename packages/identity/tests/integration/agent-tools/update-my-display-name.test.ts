@@ -19,7 +19,7 @@ describe('identity_updateMyDisplayName tool', () => {
     });
   });
 
-  it('is registered with permission identity.user.write.self', () => {
-    expect(requiredPermissionFor(updateMyDisplayNameTool)).toBe('identity.user.write.self');
+  it('is registered with permission identity.profile.update', () => {
+    expect(requiredPermissionFor(updateMyDisplayNameTool)).toBe('identity.profile.update');
   });
 });
