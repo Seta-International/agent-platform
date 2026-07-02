@@ -5,6 +5,16 @@
 
 Jira: FUT-XXX
 
+## Tier
+<!-- T1: own feature module · T2: multiple modules / shared-* / sdks / contracts · T3: core, identity, shared-ui, migrations, CI (gets its own PR, lead reviews) -->
+T1 / T2 / T3
+
+## Risk / affected modules
+<!-- What could break and which modules are touched.
+     Big diff? Add a review map:
+     Hot (~N lines): files the reviewer must read — logic, contracts, auth, data.
+     Cold (~N lines): generated / boilerplate / renames — and WHY it's safe to skim. -->
+
 ## Evidence
 <!-- Proof it works, not just a claim. Paste the relevant bits:
      - test/CI output (the run that covers this change)
@@ -14,6 +24,9 @@ Jira: FUT-XXX
 ## Checklist
 - [ ] `pnpm typecheck && pnpm lint && pnpm test` pass (`pnpm test:e2e` if UI changed)
 - [ ] Docs updated, or N/A
+- [ ] I read my own full diff, including anything AI-generated
+- [ ] Reviewable in ~30 min, or review map included (hot / cold)
+- [ ] No core changes hiding in here (those get their own PR)
 
 ---
 
