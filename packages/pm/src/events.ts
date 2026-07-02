@@ -89,6 +89,15 @@ export const projectChildChangedPayload = z.object({
 });
 export type ProjectChildChangedPayload = z.infer<typeof projectChildChangedPayload>;
 
+// owner_worker_ids = current level:'owner' workers in pm.project_access, so hiring can
+// project "who manages this project" without a cross-module join (FUT-328).
+export const projectAccessChangedPayload = z.object({
+  project_id: z.string().uuid(),
+  tenant_id: z.string().uuid(),
+  owner_worker_ids: z.array(z.string().uuid()),
+});
+export type ProjectAccessChangedPayload = z.infer<typeof projectAccessChangedPayload>;
+
 export const PM_ACCOUNT_CREATED = 'pm.account.created';
 export const PM_ACCOUNT_UPDATED = 'pm.account.updated';
 export const PM_ACCOUNT_RECRUITER_ASSIGNED = 'pm.account.recruiter.assigned';
@@ -157,7 +166,7 @@ export const PM_EVENTS = {
   'pm.charter.withdrawn': charterWithdrawnPayload,
   'pm.project.created': projectCreatedPayload,
   'pm.project.updated': projectUpdatedPayload,
-  'pm.project.access.changed': projectChildChangedPayload,
+  'pm.project.access.changed': projectAccessChangedPayload,
   'pm.project.staffing_plan.changed': projectChildChangedPayload,
   'pm.allocation.created': allocationCreatedPayload,
   'pm.allocation.removed': allocationRemovedPayload,

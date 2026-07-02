@@ -8,7 +8,12 @@ import { withTestDb } from '@seta/shared-testing';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { hiringDb, resetHiringDb } from '../../src/backend/db/client.ts';
-import { accountProjection, requisition } from '../../src/backend/db/schema.ts';
+import {
+  accountProjection,
+  projectOwnerProjection,
+  projectProjection,
+  requisition,
+} from '../../src/backend/db/schema.ts';
 import { listOpenRequisitions, openRequisition } from '../../src/index.ts';
 import { buildSession, seedTenant } from '../helpers.ts';
 
@@ -195,8 +200,9 @@ describe('account-scoped requisitions board (FUT-327)', () => {
         });
 
         const result = await listOpenRequisitions(recruiter);
-        expect(result.scope).toBe('account');
+        expect(result.scope).toBe('scoped');
         expect(result.scoped_account_names).toEqual(['My Account']);
+        expect(result.scoped_project_names).toEqual([]);
         expect(result.requisitions.map((r) => r.id)).toEqual([mine]);
       } finally {
         resetPmDb();
@@ -235,8 +241,9 @@ describe('account-scoped requisitions board (FUT-327)', () => {
         });
 
         const result = await listOpenRequisitions(unlinked);
-        expect(result.scope).toBe('account');
+        expect(result.scope).toBe('scoped');
         expect(result.scoped_account_names).toEqual([]);
+        expect(result.scoped_project_names).toEqual([]);
         expect(result.requisitions).toEqual([]);
       } finally {
         resetPmDb();
@@ -272,6 +279,180 @@ describe('account-scoped requisitions board (FUT-327)', () => {
         expect(result.scope).toBe('all');
         expect(result.requisitions.map((r) => r.id)).toContain(reqInA);
       } finally {
+        resetHiringDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+});
+
+describe('project-scoped requisitions board (FUT-328)', () => {
+  it('EM/TL/PM sees only requisitions for projects they own, with a scope note', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetHiringDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const leaderUserId = crypto.randomUUID();
+        const workerId = crypto.randomUUID();
+        const myProject = crypto.randomUUID();
+        const otherProject = crypto.randomUUID();
+
+        await hiringDb().insert(projectProjection).values({
+          project_id: myProject,
+          tenant_id: t.tenant_id,
+          account_id: crypto.randomUUID(),
+          name: 'My Project',
+        });
+        await hiringDb()
+          .insert(projectOwnerProjection)
+          .values({ project_id: myProject, tenant_id: t.tenant_id, worker_id: workerId });
+
+        const { requisition_id: mine } = await openRequisition({
+          title: 'Req on my project',
+          kind: 'new',
+          project_id: myProject,
+          session: t.adminSession,
+        });
+        await openRequisition({
+          title: 'Req on another project',
+          kind: 'new',
+          project_id: otherProject,
+          session: t.adminSession,
+        });
+
+        const leader = buildSession({
+          tenant_id: t.tenant_id,
+          user_id: leaderUserId,
+          roles: ['hiring.viewer'],
+          assignments: [{ role_slug: 'hiring.viewer', scope_kind: 'self', scope_id: null }],
+          worker_id: workerId,
+        });
+
+        const result = await listOpenRequisitions(leader);
+        expect(result.scope).toBe('scoped');
+        expect(result.scoped_account_names).toEqual([]);
+        expect(result.scoped_project_names).toEqual(['My Project']);
+        expect(result.requisitions.map((r) => r.id)).toEqual([mine]);
+      } finally {
+        resetHiringDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('a user who is both a recruiter on an account and owner of another project sees the union', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetHiringDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const userId = crypto.randomUUID();
+        const workerId = crypto.randomUUID();
+        const myProject = crypto.randomUUID();
+
+        const manager = buildSession({
+          tenant_id: t.tenant_id,
+          user_id: crypto.randomUUID(),
+          roles: ['hiring.manager', 'pm.manager'],
+        });
+        const { account_id: myAccount } = await createAccount({
+          name: 'My Account',
+          recruiter_worker_ids: [workerId],
+          session: manager,
+        });
+        await hiringDb()
+          .insert(accountProjection)
+          .values({ account_id: myAccount, tenant_id: t.tenant_id, name: 'My Account' });
+        await hiringDb()
+          .insert(projectOwnerProjection)
+          .values({ project_id: myProject, tenant_id: t.tenant_id, worker_id: workerId });
+
+        const { requisition_id: viaAccount } = await openRequisition({
+          title: 'Req via account',
+          kind: 'new',
+          account_id: myAccount,
+          session: manager,
+        });
+        const { requisition_id: viaProject } = await openRequisition({
+          title: 'Req via project',
+          kind: 'new',
+          project_id: myProject,
+          session: manager,
+        });
+
+        const user = buildSession({
+          tenant_id: t.tenant_id,
+          user_id: userId,
+          roles: ['hiring.viewer'],
+          assignments: [{ role_slug: 'hiring.viewer', scope_kind: 'self', scope_id: null }],
+          worker_id: workerId,
+        });
+
+        const result = await listOpenRequisitions(user);
+        expect(result.requisitions.map((r) => r.id).sort()).toEqual(
+          [viaAccount, viaProject].sort(),
+        );
+      } finally {
+        resetPmDb();
+        resetHiringDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('a requisition matching both a recruiter-account and an owned project is not duplicated', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetHiringDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const userId = crypto.randomUUID();
+        const workerId = crypto.randomUUID();
+        const myProject = crypto.randomUUID();
+
+        const manager = buildSession({
+          tenant_id: t.tenant_id,
+          user_id: crypto.randomUUID(),
+          roles: ['hiring.manager', 'pm.manager'],
+        });
+        const { account_id: myAccount } = await createAccount({
+          name: 'My Account',
+          recruiter_worker_ids: [workerId],
+          session: manager,
+        });
+        await hiringDb()
+          .insert(projectOwnerProjection)
+          .values({ project_id: myProject, tenant_id: t.tenant_id, worker_id: workerId });
+
+        const { requisition_id: both } = await openRequisition({
+          title: 'Req on both my account and my project',
+          kind: 'new',
+          account_id: myAccount,
+          project_id: myProject,
+          session: manager,
+        });
+
+        const user = buildSession({
+          tenant_id: t.tenant_id,
+          user_id: userId,
+          roles: ['hiring.viewer'],
+          assignments: [{ role_slug: 'hiring.viewer', scope_kind: 'self', scope_id: null }],
+          worker_id: workerId,
+        });
+
+        const result = await listOpenRequisitions(user);
+        expect(result.requisitions.map((r) => r.id)).toEqual([both]);
+      } finally {
+        resetPmDb();
         resetHiringDb();
         resetCoreDb();
         await closePools();
