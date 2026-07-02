@@ -16,8 +16,8 @@ import type {
 } from '../../../../src/backend/orchestration/weekly-plan/schemas.ts';
 
 const WED_FRI: PlanWindow = {
-  startDay: 'wed',
-  endDay: 'fri',
+  startDay: 'Wednesday',
+  endDay: 'Friday',
   weekStart: '2026-07-08',
   weekEnd: '2026-07-10',
 };
@@ -55,7 +55,10 @@ const builder: SpecializedAgentSpec<BuilderInput, BuilderOutput> = {
     result: {
       plan: {
         days: [
-          { day: 'wed', blocks: [{ label: 'Focus', taskTitles: input.tasks.map((t) => t.title) }] },
+          {
+            day: 'Wednesday',
+            blocks: [{ label: 'Focus', taskTitles: input.tasks.map((t) => t.title) }],
+          },
         ],
         unplaced: [],
       },

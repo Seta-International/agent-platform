@@ -16,7 +16,7 @@ export const WEEKDAY_ORDER: readonly Weekday[] = [
 ];
 
 /** The plannable slice of a week. Current week: startDay = the day the user asks
- *  (weekend asks roll to the upcoming Monday). Next week: always 'mon'. */
+ *  (weekend asks roll to the upcoming Monday). Next week: always 'Monday'. */
 export const PlanWindowSchema = z.object({
   startDay: WeekdaySchema,
   endDay: z.literal('Friday'),

@@ -3,8 +3,8 @@ import { makeWeeklyPlanTaskCollector } from '../../../../src/backend/orchestrati
 import type { PlanWindow } from '../../../../src/backend/orchestration/weekly-plan/schemas.ts';
 
 const WED_FRI: PlanWindow = {
-  startDay: 'wed',
-  endDay: 'fri',
+  startDay: 'Wednesday',
+  endDay: 'Friday',
   weekStart: '2026-07-08',
   weekEnd: '2026-07-10',
 };

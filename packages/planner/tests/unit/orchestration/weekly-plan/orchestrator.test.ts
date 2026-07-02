@@ -36,9 +36,9 @@ describe('weeklyPlan orchestrator', () => {
       { tenantId: 't1', actorUserId: 'u1' },
     );
     expect(res.result.answer).toContain('window-echo');
-    // 'fri' is in every window regardless of the runner's timezone; asserting the
+    // 'Friday' is in every window regardless of the runner's timezone; asserting the
     // exact start day would flake on machines far from UTC.
-    expect(res.result.answer).toContain('fri');
+    expect(res.result.answer).toContain('Friday');
   });
 
   it('streaming entry finalizes to the same answer shape', async () => {
@@ -49,6 +49,6 @@ describe('weeklyPlan orchestrator', () => {
     );
     const final = await run.finalize();
     expect((final.result as { answer: string }).answer).toContain('window-echo');
-    expect((final.result as { answer: string }).answer).toContain('mon'); // next week starts Monday
+    expect((final.result as { answer: string }).answer).toContain('Monday'); // next week starts Monday
   });
 });
