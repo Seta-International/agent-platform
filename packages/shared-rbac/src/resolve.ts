@@ -1,6 +1,6 @@
 import type { RbacRegistry } from './registry.ts';
 
-const WILDCARD = new Set(['org.admin', 'tenant.admin']);
+export const WILDCARD = new Set(['org.admin', 'tenant.admin']);
 export type RoleOverlay = ReadonlyMap<string, ReadonlyMap<string, 'grant' | 'revoke'>>;
 
 export function resolvePermissions(
