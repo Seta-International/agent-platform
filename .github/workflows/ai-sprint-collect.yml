@@ -1,30 +1,38 @@
 name: AI SDLC Metrics — Future
 
+# Runs the shared collector (Seta-International/ai-sdlc-metrics) against this
+# repo and upserts raw metric counts into reporting.metric_counts.
+#
+# Windows:
+#   - sprint : hourly refresh of the current sprint, plus on PR-merge and on
+#              deploy events so the current sprint stays fresh between ticks.
+#   - month  : once a month (1st, 02:00 UTC) for the month that just ended.
+#   - manual : workflow_dispatch with an explicit sprint OR month.
+#
+# Manual maturity inputs (seat adoption, cost improvement, AI code coverage,
+# team size, ...) are NOT collected here anymore — they live in the
+# reporting.manual_inputs table and are entered via the manual-input workflow.
+
 on:
   schedule:
-    - cron: '0 * * * *'   # every hour
+    - cron: '0 * * * *'    # hourly: current sprint
+    - cron: '0 2 1 * *'    # monthly: the month that just ended
   pull_request:
     types: [closed]
   deployment_status:
   workflow_dispatch:
     inputs:
       sprint_label:
-        description: 'Sprint label (e.g. S1). Leave blank for current sprint.'
+        description: 'Sprint label (e.g. S1). Blank = current sprint.'
         required: false
-      a1_adoption_rate:
-        description: 'A1 — seat adoption rate (0-1)'
-        required: false
-      b5_cost_improvement_pct:
-        description: 'B5 — cost improvement vs baseline (0-1)'
-        required: false
-      c3_ai_code_coverage_pct:
-        description: 'C3 — AI code test coverage (0-1)'
+      month:
+        description: 'Calendar month (YYYY-MM). Overrides sprint when set.'
         required: false
 
 jobs:
   collect:
     runs-on: ubuntu-latest
-    # Only run on PR events if the PR was actually merged
+    # On PR events, only run for PRs that actually merged.
     if: >
       github.event_name != 'pull_request' ||
       github.event.pull_request.merged == true
@@ -56,15 +64,35 @@ jobs:
           JIRA_TOKEN: ${{ secrets.JIRA_TOKEN }}
           REPORTING_DB_URL: ${{ secrets.REPORTING_DB_URL }}
           JIRA_AI_USAGE_FIELD: ${{ secrets.JIRA_AI_USAGE_FIELD }}
+          JIRA_BOARD_ID: ${{ secrets.JIRA_BOARD_ID }}
           GH_REPO: seta-international/agent-platform
           JIRA_PROJECT: FUT
           PROJECT_LABEL: Future
           SPRINT_ANCHOR: "2026-06-29"
           SPRINT_LENGTH_DAYS: "14"
+          # Future deploys to the dev and uat GitHub Environments (no
+          # 'production' env). Count both via the deployments strategy.
+          DEPLOY_COUNT_STRATEGY: deployments
+          GH_PROD_ENV: "dev,uat"
+          EVENT_NAME: ${{ github.event_name }}
+          SCHEDULE: ${{ github.event.schedule }}
+          IN_SPRINT: ${{ inputs.sprint_label }}
+          IN_MONTH: ${{ inputs.month }}
         run: |
-          ARGS=""
-          [ -n "${{ inputs.sprint_label }}" ]         && ARGS="$ARGS --sprint ${{ inputs.sprint_label }}"
-          [ -n "${{ inputs.a1_adoption_rate }}" ]      && ARGS="$ARGS --a1 ${{ inputs.a1_adoption_rate }}"
-          [ -n "${{ inputs.b5_cost_improvement_pct }}" ] && ARGS="$ARGS --b5 ${{ inputs.b5_cost_improvement_pct }}"
-          [ -n "${{ inputs.c3_ai_code_coverage_pct }}" ] && ARGS="$ARGS --c3 ${{ inputs.c3_ai_code_coverage_pct }}"
-          python -m collector.collect --project Future $ARGS
+          set -euo pipefail
+          ARGS="--project Future"
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            # Explicit month wins over sprint (the CLI rejects both together).
+            if [ -n "$IN_MONTH" ]; then
+              ARGS="$ARGS --month $IN_MONTH"
+            elif [ -n "$IN_SPRINT" ]; then
+              ARGS="$ARGS --sprint $IN_SPRINT"
+            fi
+          elif [ "$EVENT_NAME" = "schedule" ] && [ "$SCHEDULE" = "0 2 1 * *" ]; then
+            # Monthly tick: collect the month that just ended.
+            ARGS="$ARGS --month $(date -u -d 'last month' +%Y-%m)"
+          fi
+          # All other events (hourly schedule, PR merge, deployment_status)
+          # collect the current sprint with no extra args.
+          echo "Running: python -m collector.collect $ARGS"
+          python -m collector.collect $ARGS
