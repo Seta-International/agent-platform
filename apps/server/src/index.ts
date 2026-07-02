@@ -26,6 +26,7 @@ import { plannerFindSimilarTasksTool } from '@seta/planner/agent-tools';
 import {
   buildAssignmentOrchestrationRuntime,
   buildPlannerQnaRuntime,
+  buildWeeklyPlanRuntime,
   makeAssign,
   makeAvailability,
   makeSkillSearch,
@@ -173,6 +174,11 @@ const plannerQnaOrchestration = buildPlannerQnaRuntime({
   findSimilarTasksTool: plannerFindSimilar,
 });
 
+// Weekly planner runtime — organizes the caller's tasks into a day-by-day plan.
+const weeklyPlanOrchestration = buildWeeklyPlanRuntime({
+  resolveModel: () => resolveModel('auto', { tierHint: 'fast' }).model,
+});
+
 SpecializedAgentRegistry.freeze();
 OrchestrationRegistry.freeze();
 
@@ -186,6 +192,7 @@ const chatRouter = makeChatRouter({
   }),
   assignment: assignmentOrchestration.runStream,
   plannerQna: plannerQnaOrchestration.runStream,
+  weeklyPlanner: weeklyPlanOrchestration.runStream,
 });
 
 // Build the agent engine up front so subscriberBuilders contributed by
