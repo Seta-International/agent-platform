@@ -46,8 +46,12 @@ describe('PERSONA_GROUPS scoping', () => {
     }
   });
 
-  it('pmo, am, admin roles are unscoped (tenant)', () => {
-    for (const slug of ['pmo', 'am', 'admin']) {
+  it('am.pm.manager is self-scoped (reach comes from account/lead relationship arms, not tenant-wide)', () => {
+    expect(roleIn('am', 'pm.manager')?.scope_kind).toBe('self');
+  });
+
+  it('pmo, admin roles are unscoped (tenant)', () => {
+    for (const slug of ['pmo', 'admin']) {
       const group = PERSONA_GROUPS.find((g) => g.slug === slug);
       expect(group).toBeDefined();
       for (const r of group?.roles ?? []) expect(r.scope_kind).toBeUndefined();

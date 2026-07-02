@@ -37,7 +37,10 @@ export const PERSONA_GROUPS: PersonaGroupDef[] = [
     ],
   },
   { slug: 'pmo', name: 'PMO', roles: [{ slug: 'pm.pmo' }] },
-  { slug: 'am', name: 'AM', roles: [{ slug: 'pm.manager' }] },
+  // AM reach is relationship-derived: pm.manager at self scope activates the account/lead arms in
+  // pm's scope-builder, so an AM sees only projects on accounts they manage or lead — not the whole
+  // tenant/org unit. Widen a specific AM by additionally granting pm.manager @ org_unit.
+  { slug: 'am', name: 'AM', roles: [{ slug: 'pm.manager', scope_kind: 'self' }] },
   {
     slug: 'bod',
     name: 'BoD',
