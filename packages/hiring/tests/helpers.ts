@@ -1,4 +1,4 @@
-import { hashRoleSummary, type SessionScope } from '@seta/core';
+import { hashRoleSummary, type SessionAssignment, type SessionScope } from '@seta/core';
 import { createUser } from '@seta/identity';
 import {
   buildRegistry,
@@ -57,9 +57,19 @@ export function buildSession(opts: {
   email?: string;
   display_name?: string;
   roles?: string[];
+  /**
+   * Row-scope assignments driving RBAC scope resolution (see @seta/shared-rbac resolveScope).
+   * Defaults to a tenant-wide assignment per role — existing hiring tests all assume
+   * tenant-wide reads.
+   */
+  assignments?: SessionAssignment[];
+  worker_id?: string | null;
 }): SessionScope {
   const roles = opts.roles ?? [];
-  const role_summary = { roles, cross_tenant_read: false };
+  const role_summary = { roles, cross_tenant_read: false, assignments: [] };
+  const assignments: SessionAssignment[] =
+    opts.assignments ??
+    roles.map((role_slug) => ({ role_slug, scope_kind: 'tenant' as const, scope_id: null }));
   return {
     session_id: crypto.randomUUID(),
     user_id: opts.user_id,
@@ -69,9 +79,10 @@ export function buildSession(opts: {
     role_summary,
     role_summary_hash: hashRoleSummary(role_summary),
     permissions: permsFor(roles),
-    accessible_group_ids: [],
+    assignments,
     group_ids: [],
     product_access: new Set<string>(),
+    worker_id: opts.worker_id ?? null,
     cross_tenant_read: false,
     built_at: new Date(),
     invalidated_at: null,

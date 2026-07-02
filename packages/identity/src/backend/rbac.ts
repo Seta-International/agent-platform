@@ -1,4 +1,8 @@
-import { resolveEffectiveRoleSlugs } from './domain/resolve-effective-roles.ts';
+import { listTenantRoleOverlays } from './domain/list-tenant-role-overlays.ts';
+import {
+  resolveEffectiveAssignments,
+  toRoleSlugs,
+} from './domain/resolve-effective-assignments.ts';
 import { resolveForRoles } from './rbac-registry.ts';
 
 export class IdentityError extends Error {
@@ -15,8 +19,9 @@ export async function requirePermission(
   permission: string,
   tenantId: string,
 ): Promise<void> {
-  const roles = await resolveEffectiveRoleSlugs(userId, tenantId);
-  const perms = resolveForRoles(roles);
+  const roles = toRoleSlugs(await resolveEffectiveAssignments(userId, tenantId));
+  const overlay = await listTenantRoleOverlays(tenantId);
+  const perms = resolveForRoles(roles, overlay);
   if (!perms.has(permission)) {
     throw new IdentityError('FORBIDDEN', `Missing permission: ${permission}`);
   }

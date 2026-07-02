@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Mastra } from '@mastra/core';
+import { RequestContext } from '@mastra/core/request-context';
+import type { SessionLike } from '@seta/agent-sdk';
 import { describe, expect, it, vi } from 'vitest';
 import { cancelWorkflowRun } from '../../../src/backend/domain/cancel-workflow-run.ts';
 import { decideApproval } from '../../../src/backend/domain/decide-approval.ts';
@@ -7,28 +9,8 @@ import { getWorkflowRun } from '../../../src/backend/domain/get-workflow-run.ts'
 import { listMyPendingApprovals } from '../../../src/backend/domain/list-my-pending-approvals.ts';
 import { listWorkflowRuns } from '../../../src/backend/domain/list-workflow-runs.ts';
 import { rerunWorkflow } from '../../../src/backend/domain/rerun-workflow.ts';
-import type { SessionLike } from '../../../src/backend/types.ts';
 import { onLifecycleEvent } from '../../../src/backend/workflows/_infra/lifecycle-hook.ts';
-import { withAgentTestDb } from '../../helpers.ts';
-
-function session(tenantId: string, userId: string, perms: string[]): SessionLike {
-  return {
-    tenant_id: tenantId,
-    user_id: userId,
-    effective_permissions: new Set(perms),
-    role_summary: { roles: [], cross_tenant_read: false },
-  };
-}
-
-const PERMS = {
-  readSelf: 'agent.workflow.run.read.self',
-  readTenant: 'agent.workflow.run.read.tenant',
-  readInstance: 'agent.workflow.run.read.instance',
-  executeSelf: 'agent.workflow.run.execute.self',
-  cancelSelf: 'agent.workflow.run.cancel.self',
-  cancelTenant: 'agent.workflow.run.cancel.tenant',
-  approve: 'agent.workflow.approve',
-} as const;
+import { buildSession, withAgentTestDb } from '../../helpers.ts';
 
 const noopMastra = (): Mastra =>
   ({
@@ -40,6 +22,13 @@ const noopMastra = (): Mastra =>
       }),
     }),
   }) as unknown as Mastra;
+
+function makeRequestContext(session: SessionLike): RequestContext {
+  const ctx = new RequestContext();
+  ctx.set('actor', { type: 'user' as const, user_id: session.user_id });
+  ctx.set('tenant_id', session.tenant_id);
+  return ctx;
+}
 
 async function seedRun(
   pool: import('pg').Pool,
@@ -89,27 +78,33 @@ async function seedRun(
 }
 
 describe('RBAC boundary: workflow runs cross-tenant invisibility', () => {
-  it('listWorkflowRuns scope=tenant excludes other-tenant runs even with read.tenant', async () => {
+  it('listWorkflowRuns scope=tenant excludes other-tenant runs even for agent.viewer @ tenant', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const me = session(randomUUID(), randomUUID(), [PERMS.readSelf, PERMS.readTenant]);
+      const me = buildSession({
+        assignments: [{ role_slug: 'agent.viewer', scope_kind: 'tenant' }],
+      });
       await seedRun(pool, { tenantId: randomUUID(), startedBy: randomUUID() });
       const result = await listWorkflowRuns({ session: me, scope: 'tenant' });
       expect(result.rows).toHaveLength(0);
     });
   });
 
-  it('getWorkflowRun returns null for other-tenant runs to a read.tenant caller', async () => {
+  it('getWorkflowRun returns null for other-tenant runs to an agent.viewer @ tenant caller', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const me = session(randomUUID(), randomUUID(), [PERMS.readSelf, PERMS.readTenant]);
+      const me = buildSession({
+        assignments: [{ role_slug: 'agent.viewer', scope_kind: 'tenant' }],
+      });
       const runId = await seedRun(pool, { tenantId: randomUUID(), startedBy: randomUUID() });
       const row = await getWorkflowRun({ session: me, runId });
       expect(row).toBeNull();
     });
   });
 
-  it('read.instance breaks the tenant boundary (intentional escape hatch for superadmin)', async () => {
+  it('org.viewer (cross_tenant_read) breaks the tenant boundary (intentional escape hatch for superadmin)', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const admin = session(randomUUID(), randomUUID(), [PERMS.readSelf, PERMS.readInstance]);
+      const admin = buildSession({
+        assignments: [{ role_slug: 'org.viewer', scope_kind: 'tenant' }],
+      });
       const runId = await seedRun(pool, { tenantId: randomUUID(), startedBy: randomUUID() });
       const row = await getWorkflowRun({ session: admin, runId });
       expect(row?.runId).toBe(runId);
@@ -118,9 +113,11 @@ describe('RBAC boundary: workflow runs cross-tenant invisibility', () => {
 });
 
 describe('RBAC boundary: approval power separation', () => {
-  it('ops viewer (read.tenant only) cannot call decideApproval', async () => {
+  it('a non-existent approval id resolves not_found', async () => {
     await withAgentTestDb(async ({ pool: _pool }) => {
-      const viewer = session(randomUUID(), randomUUID(), [PERMS.readSelf, PERMS.readTenant]);
+      const viewer = buildSession({
+        assignments: [{ role_slug: 'agent.viewer', scope_kind: 'tenant' }],
+      });
       await expect(
         decideApproval({
           session: viewer,
@@ -128,13 +125,13 @@ describe('RBAC boundary: approval power separation', () => {
           decision: 'approve',
           mastra: noopMastra(),
         }),
-      ).rejects.toThrow(/forbidden|permission/i);
+      ).rejects.toThrow(/not_found/i);
     });
   });
 
-  it('approve without read does not bypass tenant boundary', async () => {
+  it('implicit approve (self scope only) does not bypass the tenant boundary', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const stranger = session(randomUUID(), randomUUID(), [PERMS.approve]);
+      const stranger = buildSession();
       const otherTenant = randomUUID();
       const runId = await seedRun(pool, {
         tenantId: otherTenant,
@@ -160,9 +157,11 @@ describe('RBAC boundary: approval power separation', () => {
 });
 
 describe('RBAC boundary: step-in rule', () => {
-  it('tenant admin (approve + read.tenant) step-in is allowed only when surface_canvas=true', async () => {
+  it('agent.viewer @ tenant step-in is allowed only when surface_canvas=true', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const admin = session(randomUUID(), randomUUID(), [PERMS.approve, PERMS.readTenant]);
+      const admin = buildSession({
+        assignments: [{ role_slug: 'agent.viewer', scope_kind: 'tenant' }],
+      });
       const otherUser = randomUUID();
       const runId = await seedRun(pool, {
         tenantId: admin.tenant_id,
@@ -188,9 +187,11 @@ describe('RBAC boundary: step-in rule', () => {
     });
   });
 
-  it('step-in succeeds when surface_canvas=true + same tenant + read.tenant', async () => {
+  it('step-in succeeds when surface_canvas=true + same tenant + agent.viewer @ tenant', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const admin = session(randomUUID(), randomUUID(), [PERMS.approve, PERMS.readTenant]);
+      const admin = buildSession({
+        assignments: [{ role_slug: 'agent.viewer', scope_kind: 'tenant' }],
+      });
       const otherUser = randomUUID();
       const runId = await seedRun(pool, {
         tenantId: admin.tenant_id,
@@ -216,35 +217,46 @@ describe('RBAC boundary: step-in rule', () => {
   });
 });
 
-describe('RBAC boundary: execute.self gates rerun', () => {
-  it('caller without execute.self cannot rerun even own visible runs', async () => {
+describe('RBAC boundary: execute is implicit — visibility is the remaining boundary', () => {
+  it('an implicit-only session (no agent role at all) can rerun a run it started', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const viewer = session(randomUUID(), randomUUID(), [PERMS.readSelf, PERMS.readTenant]);
+      const viewer = buildSession();
       const runId = await seedRun(pool, { tenantId: viewer.tenant_id, startedBy: viewer.user_id });
-      await expect(rerunWorkflow({ session: viewer, runId, mastra: noopMastra() })).rejects.toThrow(
-        /forbidden|permission/i,
-      );
+      const result = await rerunWorkflow({
+        session: viewer,
+        runId,
+        mastra: noopMastra(),
+        pool,
+        requestContext: makeRequestContext(viewer),
+      });
+      expect(result.newRunId).toBeDefined();
     });
   });
 
-  it('approve permission alone does not grant rerun', async () => {
+  it('cannot rerun a run in another tenant — read-visibility denies it (not_found)', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const approver = session(randomUUID(), randomUUID(), [PERMS.approve, PERMS.readSelf]);
+      const approver = buildSession();
       const runId = await seedRun(pool, {
-        tenantId: approver.tenant_id,
-        startedBy: approver.user_id,
+        tenantId: randomUUID(),
+        startedBy: randomUUID(),
       });
       await expect(
-        rerunWorkflow({ session: approver, runId, mastra: noopMastra() }),
-      ).rejects.toThrow(/forbidden|permission/i);
+        rerunWorkflow({
+          session: approver,
+          runId,
+          mastra: noopMastra(),
+          pool,
+          requestContext: makeRequestContext(approver),
+        }),
+      ).rejects.toThrow(/not_found/i);
     });
   });
 });
 
-describe('RBAC boundary: cancel.self grants cancellation of own runs only', () => {
-  it('cancel.self allows cancelling own running run', async () => {
+describe('RBAC boundary: implicit self scope grants cancellation of own runs only', () => {
+  it('implicit self scope allows cancelling own running run', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const me = session(randomUUID(), randomUUID(), [PERMS.readSelf, PERMS.cancelSelf]);
+      const me = buildSession();
       const runId = await seedRun(pool, { tenantId: me.tenant_id, startedBy: me.user_id });
       const publish = vi.fn().mockResolvedValue(undefined);
       const mastra = { pubsub: { publish } } as unknown as Mastra;
@@ -253,10 +265,17 @@ describe('RBAC boundary: cancel.self grants cancellation of own runs only', () =
     });
   });
 
-  it('cancel.self cannot cancel another user run in same tenant', async () => {
+  it('self-only cancel cannot cancel another user run visible via tenant-wide read', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const me = session(randomUUID(), randomUUID(), [PERMS.readTenant, PERMS.cancelSelf]);
-      const runId = await seedRun(pool, { tenantId: me.tenant_id, startedBy: randomUUID() });
+      const tenantId = randomUUID();
+      const me = buildSession({
+        tenantId,
+        assignments: [
+          { role_slug: 'agent.viewer', scope_kind: 'tenant' },
+          { role_slug: 'agent.member', scope_kind: 'self' },
+        ],
+      });
+      const runId = await seedRun(pool, { tenantId, startedBy: randomUUID() });
       const publish = vi.fn();
       const mastra = { pubsub: { publish } } as unknown as Mastra;
       await expect(cancelWorkflowRun({ session: me, runId, mastra })).rejects.toThrow(/forbidden/i);
@@ -265,11 +284,15 @@ describe('RBAC boundary: cancel.self grants cancellation of own runs only', () =
   });
 });
 
-describe('RBAC boundary: cancel.tenant grants cancellation across tenant runs', () => {
-  it('cancel.tenant allows cancelling another user run in same tenant', async () => {
+describe('RBAC boundary: agent.admin @ tenant grants cancellation across tenant runs', () => {
+  it('agent.admin @ tenant allows cancelling another user run in same tenant', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const ops = session(randomUUID(), randomUUID(), [PERMS.readTenant, PERMS.cancelTenant]);
-      const runId = await seedRun(pool, { tenantId: ops.tenant_id, startedBy: randomUUID() });
+      const tenantId = randomUUID();
+      const ops = buildSession({
+        tenantId,
+        assignments: [{ role_slug: 'agent.admin', scope_kind: 'tenant' }],
+      });
+      const runId = await seedRun(pool, { tenantId, startedBy: randomUUID() });
       const publish = vi.fn().mockResolvedValue(undefined);
       const mastra = { pubsub: { publish } } as unknown as Mastra;
       await cancelWorkflowRun({ session: ops, runId, mastra });
@@ -277,9 +300,11 @@ describe('RBAC boundary: cancel.tenant grants cancellation across tenant runs', 
     });
   });
 
-  it('cancel.tenant does not bypass tenant boundary', async () => {
+  it('agent.admin @ tenant does not bypass the tenant boundary', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const ops = session(randomUUID(), randomUUID(), [PERMS.readTenant, PERMS.cancelTenant]);
+      const ops = buildSession({
+        assignments: [{ role_slug: 'agent.admin', scope_kind: 'tenant' }],
+      });
       const runId = await seedRun(pool, { tenantId: randomUUID(), startedBy: randomUUID() });
       const publish = vi.fn();
       const mastra = { pubsub: { publish } } as unknown as Mastra;
@@ -294,7 +319,7 @@ describe('RBAC boundary: cancel.tenant grants cancellation across tenant runs', 
 describe('RBAC boundary: listMyPendingApprovals scopes to caller', () => {
   it('returns no approvals that belong to other users in same tenant', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const me = session(randomUUID(), randomUUID(), [PERMS.readSelf]);
+      const me = buildSession();
       const other = randomUUID();
       await seedRun(pool, {
         tenantId: me.tenant_id,

@@ -12,7 +12,7 @@ vi.mock('../../src/groups/api/groups-client.ts', () => ({
       kind: 'default',
       is_base: false,
       member_count: 1,
-      role_slugs: [],
+      roles: [],
     },
   ],
   listUserGroups: async () => [{ group_id: 'g', slug: 'hr', name: 'HR' }],

@@ -2,7 +2,7 @@ export const INTEGRATIONS_PERMISSIONS = {
   mailRead: 'integrations.mail.read',
   mailConfigure: 'integrations.mail.configure',
   m365Read: 'integrations.m365.read',
-  m365ConfigWrite: 'integrations.m365.config.write',
+  m365Configure: 'integrations.m365.configure',
 } as const;
 export type IntegrationsPermission =
   (typeof INTEGRATIONS_PERMISSIONS)[keyof typeof INTEGRATIONS_PERMISSIONS];

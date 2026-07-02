@@ -3,12 +3,14 @@ import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import {
+  addGroupMember,
   completeTask,
   createGroup,
   createPlan,
   createTask,
   listMyAccessibleGroups,
   listMyAssignedTasks,
+  removeGroupMember,
 } from '../../src/index.ts';
 import { assignTaskInGroup, buildSession, seedTenant } from '../helpers.ts';
 
@@ -49,7 +51,7 @@ describe('listMyAccessibleGroups', () => {
     );
   });
 
-  it('group-scoped viewer sees only their accessible_group_ids', async () => {
+  it('group-scoped viewer sees only their group memberships', async () => {
     await withTestDb(
       {
         templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -59,8 +61,12 @@ describe('listMyAccessibleGroups', () => {
         resetCoreDb();
         initPools({ databaseUrl });
         try {
-          const seeded = await seedTenant(pool);
+          const seeded = await seedTenant(pool, {
+            users: [{ name: 'Viewer', email: 'viewer-myaccessible@example.test' }],
+          });
           const adminSession = seeded.adminSession;
+          const [viewer] = seeded.users;
+          if (!viewer) throw new Error('Seed did not create viewer');
           const groupA = await createGroup({
             tenant_id: seeded.tenant_id,
             name: 'Alpha',
@@ -72,11 +78,16 @@ describe('listMyAccessibleGroups', () => {
             session: adminSession,
           });
 
+          await addGroupMember({
+            group_id: groupA.id,
+            user_id: viewer.user_id,
+            session: adminSession,
+          });
+
           const viewerSession = buildSession({
             tenant_id: seeded.tenant_id,
-            user_id: seeded.admin.user_id,
+            user_id: viewer.user_id,
             roles: ['planner.viewer'],
-            accessible_group_ids: [groupA.id],
           });
 
           const groups = await listMyAccessibleGroups({ session: viewerSession });
@@ -106,9 +117,8 @@ describe('listMyAccessibleGroups', () => {
 
           const viewerSession = buildSession({
             tenant_id: seeded.tenant_id,
-            user_id: seeded.admin.user_id,
+            user_id: crypto.randomUUID(),
             roles: ['planner.viewer'],
-            accessible_group_ids: [],
           });
 
           const groups = await listMyAccessibleGroups({ session: viewerSession });
@@ -198,7 +208,6 @@ describe('listMyAssignedTasks', () => {
             tenant_id: seeded.tenant_id,
             user_id: alice.user_id,
             roles: ['org.admin'],
-            accessible_group_ids: [],
           });
 
           const result = await listMyAssignedTasks({ session: aliceSession });
@@ -297,7 +306,6 @@ describe('listMyAssignedTasks', () => {
             tenant_id: seeded.tenant_id,
             user_id: alice.user_id,
             roles: ['org.admin'],
-            accessible_group_ids: [],
           });
 
           const result = await listMyAssignedTasks({
@@ -362,7 +370,8 @@ describe('listMyAssignedTasks', () => {
             session: adminSession,
           });
 
-          // Assign alice to tasks in both groups
+          // Assign alice to tasks in both groups, then remove her membership from groupB
+          // (assignment requires membership at assign time; a stale assignment can outlive it).
           await assignTaskInGroup({
             group_id: groupA.id,
             task_id: taskInA.id,
@@ -375,13 +384,17 @@ describe('listMyAssignedTasks', () => {
             user_id: alice.user_id,
             session: adminSession,
           });
+          await removeGroupMember({
+            group_id: groupB.id,
+            user_id: alice.user_id,
+            session: adminSession,
+          });
 
-          // Alice has viewer access to groupA only
+          // Alice is a real member of groupA only.
           const aliceViewerSession = buildSession({
             tenant_id: seeded.tenant_id,
             user_id: alice.user_id,
             roles: ['planner.viewer'],
-            accessible_group_ids: [groupA.id],
           });
 
           const result = await listMyAssignedTasks({ session: aliceViewerSession });

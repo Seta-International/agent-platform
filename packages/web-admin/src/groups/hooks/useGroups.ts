@@ -4,6 +4,7 @@ import {
   addMembers,
   createGroup,
   deleteGroup,
+  type GroupRole,
   listGroups,
   listUserGroups,
   removeMember,
@@ -67,8 +68,7 @@ export function useCreateGroup() {
 export function useSetGroupRoles() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, role_slugs }: { id: string; role_slugs: string[] }) =>
-      setGroupRoles(id, role_slugs),
+    mutationFn: ({ id, roles }: { id: string; roles: GroupRole[] }) => setGroupRoles(id, roles),
     onSuccess: () => toast.success('Roles updated'),
     onError: (e) => toast.error((e as Error).message),
     onSettled: () => qc.invalidateQueries({ queryKey: groupKeys.all }),

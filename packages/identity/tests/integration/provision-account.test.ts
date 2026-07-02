@@ -62,7 +62,7 @@ it('provisions an account for a no-account person; gated + idempotent', async ()
   });
 });
 
-it('rejects a caller lacking identity.user.write', async () => {
+it('rejects a caller lacking identity.user.update', async () => {
   await withTestDb(ctx, async ({ pool, databaseUrl }) => {
     resetCoreDb();
     resetIdentityDb();
@@ -75,7 +75,7 @@ it('rejects a caller lacking identity.user.write', async () => {
         `perm-rej-${tenant.slice(0, 8)}`,
       ]);
 
-      // Caller with no role grants (no identity.user.write).
+      // Caller with no role grants (no identity.user.update).
       const noPerms = await seedDirectoryAccount(pool, {
         tenant_id: tenant,
         email: 'noperms@acme.test',

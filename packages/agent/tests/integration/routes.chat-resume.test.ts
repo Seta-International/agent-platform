@@ -45,7 +45,15 @@ type TestSession = {
   tenant_id: string;
   user_id: string;
   effective_permissions: ReadonlySet<string>;
-  role_summary: { roles: string[]; cross_tenant_read: boolean };
+  role_summary: {
+    roles: string[];
+    cross_tenant_read: boolean;
+    assignments: ReadonlyArray<{
+      role_slug: string;
+      scope_kind: 'tenant' | 'org_unit' | 'self';
+      scope_id: string | null;
+    }>;
+  };
 };
 
 const fakeMastra = { getStorage: () => null } as never;
@@ -171,7 +179,7 @@ function sessionWith(tenantId: string, userId: string, perms: string[]): TestSes
     tenant_id: tenantId,
     user_id: userId,
     effective_permissions: new Set(perms),
-    role_summary: { roles: [], cross_tenant_read: false },
+    role_summary: { roles: [], cross_tenant_read: false, assignments: [] },
   };
 }
 
@@ -282,7 +290,7 @@ describe('POST /api/agent/v1/chat/resume', () => {
       // Attacker has the permission + step-in capability but is in another tenant.
       const attacker = sessionWith(randomUUID(), randomUUID(), [
         'agent.workflow.approve',
-        'agent.workflow.run.read.tenant',
+        'agent.workflow.run.read',
       ]);
       const captured: CapturedResume[] = [];
       const app = buildApp(attacker, makeFakeResume(captured));
@@ -319,7 +327,7 @@ describe('POST /api/agent/v1/chat/resume', () => {
       // (surface_canvas=false on this row).
       const stranger = sessionWith(tenantId, randomUUID(), [
         'agent.workflow.approve',
-        'agent.workflow.run.read.tenant',
+        'agent.workflow.run.read',
       ]);
       const captured: CapturedResume[] = [];
       const app = buildApp(stranger, makeFakeResume(captured));

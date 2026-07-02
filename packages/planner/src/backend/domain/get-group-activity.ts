@@ -24,7 +24,7 @@ export async function getGroupActivity(input: {
   limit?: number;
   session: SessionScope;
 }): Promise<GroupActivityResult> {
-  requirePermission(input.session, 'planner.group.read');
+  await requirePermission(input.session, 'planner.group.read');
 
   const limit = input.limit ?? 8;
   const db = plannerDb();

@@ -93,7 +93,7 @@ export async function setCategoryDescriptionTx(
     });
   }
 
-  requirePermission(input.session, 'planner.plan.update', existing.group_id);
+  await requirePermission(input.session, 'planner.plan.update', existing.group_id);
 
   const key = `category${input.slot}`;
   const currentMap = (existing.category_descriptions ?? {}) as Record<string, string>;

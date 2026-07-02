@@ -69,9 +69,9 @@ MEMBER_COUNT=5 bash scripts/tenant-bootstrap.sh   # admin + 5 members
 SLUG=widgets bash scripts/tenant-bootstrap.sh     # custom slug
 ```
 
-Sign in as `admin@example.com` / `ChangeMe@2026`, or as a member `member1@example.test` / `ChangeMe@2026`. Each member is seeded with `planner.contributor`, `knowledge.member`, and `agent.contributor`, so Planner, Knowledge, and Chat are usable out of the box (nav is permission-gated).
+Sign in as `admin@example.com` / `ChangeMe@2026`, or as a member `member1@example.test` / `ChangeMe@2026`. Each member is seeded with `planner.member`, `knowledge.member`, and `agent.member`, so Planner, Knowledge, and Chat are usable out of the box (nav is permission-gated).
 
-Overridable env vars: `SLUG`, `NAME`, `ADMIN_EMAIL`, `ADMIN_NAME`, `ADMIN_PASSWORD`, `MEMBER_COUNT`, `MEMBER_DOMAIN`, `MEMBER_PASSWORD`, `MEMBER_ROLE` (the primary role; defaults to `planner.contributor`).
+Overridable env vars: `SLUG`, `NAME`, `ADMIN_EMAIL`, `ADMIN_NAME`, `ADMIN_PASSWORD`, `MEMBER_COUNT`, `MEMBER_DOMAIN`, `MEMBER_PASSWORD`, `MEMBER_ROLE` (the primary role; defaults to `planner.member`).
 
 ## 5. Run the app
 
@@ -103,7 +103,7 @@ pnpm -F @seta/cli exec tsx src/index.ts tenant-create \
 
 pnpm -F @seta/cli exec tsx src/index.ts user-create \
   --tenant acme --email member@acme.test --name Member \
-  --role planner.contributor --password 'ChangeMe@2026'
+  --role planner.member --password 'ChangeMe@2026'
 ```
 
 Full command list: `pnpm -F @seta/cli exec tsx src/index.ts --help`. Other useful commands: `role-grant`, `user-deactivate`, `integrations-mail-set`.
@@ -121,6 +121,8 @@ pnpm db:down && pnpm db:up && pnpm db:migrate && pnpm db:seed
 ```
 
 `db:seed` also seeds the core skill catalog (categories + skills) and attaches skills to candidates/requisitions. The seed is idempotent — re-running it adds zero rows. `private/` is gitignored; it never enters the repo. Knowledge files and notification rows are intentionally not seeded directly: they populate through the real upload/scan pipeline and the async event subscriber when the worker runs.
+
+The fixture's delivery-lead demo groups (which demonstrate org-unit-scoped access) only appear after a second `pnpm db:seed` run with the app up: their org-unit grants validate against an async read model that a dispatcherless first seed hasn't populated yet. So on a fresh DB, run `pnpm db:seed` once to provision the tenant and data, start `pnpm dev`, then re-run `pnpm db:seed` — the second pass is a no-op except for creating those groups.
 
 ## Hand it to an agent
 

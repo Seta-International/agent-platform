@@ -9,7 +9,7 @@ import { PlannerError, requirePermission } from '../rbac.ts';
 export async function createJoinRequest(
   input: CreateJoinRequestInput,
 ): Promise<GroupJoinRequestRow> {
-  requirePermission(input.session, 'planner.group.read');
+  await requirePermission(input.session, 'planner.group.read');
 
   let inserted!: typeof groupJoinRequests.$inferSelect;
 

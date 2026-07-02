@@ -13,7 +13,7 @@ export async function setMemberRole(input: {
   role: GroupMemberRole;
   session: PlannerSessionScope;
 }): Promise<void> {
-  requirePermission(input.session, 'planner.group.member.role.set', input.group_id);
+  await requirePermission(input.session, 'planner.group.member.set_role', input.group_id);
 
   await withEmit(
     {

@@ -2,12 +2,7 @@ import type { SessionScope } from '@seta/core';
 import { can } from '@seta/shared-rbac';
 import type { PeoplePermission } from '../rbac.ts';
 
-export type PeopleErrorCode =
-  | 'NOT_FOUND'
-  | 'FORBIDDEN'
-  | 'CONFLICT'
-  | 'VALIDATION'
-  | 'CROSS_TENANT';
+export type PeopleErrorCode = 'NOT_FOUND' | 'FORBIDDEN' | 'CONFLICT' | 'VALIDATION';
 
 export class PeopleError extends Error {
   readonly code: PeopleErrorCode;

@@ -7,7 +7,7 @@ import { insertWorkerAggregate } from './insert-worker-aggregate.ts';
 export async function provisionWorker(
   input: ProvisionWorkerInput & { session: SessionScope },
 ): Promise<{ worker_id: string }> {
-  requirePermission(input.session, 'people.worker.provision');
+  requirePermission(input.session, 'people.worker.create');
   let result!: { worker_id: string };
   await withEmit(
     { actor: { userId: input.session.user_id, tenantId: input.session.tenant_id } },

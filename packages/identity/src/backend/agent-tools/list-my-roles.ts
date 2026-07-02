@@ -10,7 +10,7 @@ export const listMyRolesTool = defineAgentTool({
   output: z.object({
     permissions: z.array(z.string()),
   }),
-  rbac: 'identity.user.read.self',
+  rbac: 'identity.profile.read',
   execute: async (_input, ctx) => {
     const actor = actorFromContext(ctx);
     const permissions = await listMyEffectivePermissions(actor);

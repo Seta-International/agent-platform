@@ -4,6 +4,7 @@ import { addEventTap, type SessionEnv, type SessionScope } from '@seta/core';
 import {
   getGroup,
   linkGroupToM365,
+  listMemberGroupIds,
   PlannerError,
   requirePermission,
   resolveGroupConflict,
@@ -37,11 +38,11 @@ function isGraphPermissionError(err: unknown): boolean {
   return /Authorization_RequestDenied|AccessDenied|Insufficient privileges/i.test(text);
 }
 
-function hasGroupAccess(session: SessionScope, groupId: string): boolean {
+async function hasGroupAccess(session: SessionScope, groupId: string): Promise<boolean> {
   return (
-    session.accessible_group_ids.includes(groupId) ||
     session.role_summary.roles.includes('org.admin') ||
-    session.role_summary.roles.includes('tenant.admin')
+    session.role_summary.roles.includes('tenant.admin') ||
+    (await listMemberGroupIds(session.user_id, session.tenant_id)).includes(groupId)
   );
 }
 
@@ -51,7 +52,7 @@ export function registerIntegrationsM365Routes(
 ): void {
   app.get('/api/integrations/m365/groups/search', async (c) => {
     const session = c.get('user');
-    requirePermission(session, 'planner.group.link.m365');
+    await requirePermission(session, 'planner.group.link_m365');
 
     const q = c.req.query('q') ?? '';
     const safeQ = q.replace(/["'\\]/g, '').trim();
@@ -167,10 +168,14 @@ export function registerIntegrationsM365Routes(
     const session = c.get('user');
     const groupId = c.req.param('groupId');
 
-    requirePermission(session, 'planner.group.refresh', groupId);
+    await requirePermission(session, 'planner.group.refresh', groupId);
 
     const link = (await deps.m365LinksRepo.findByGroup(groupId)) ?? null;
-    if (!link) {
+    // requirePermission's groupId check is tenant-blind (see isGroupMember doc comment);
+    // re-check the fetched link's tenant here rather than trusting groupId alone. A
+    // tenant mismatch gets the same NOT_LINKED response as a missing link so we don't
+    // leak whether the groupId exists in another tenant.
+    if (!link || link.tenantId !== session.tenant_id) {
       return c.json({ error: 'NOT_LINKED' }, 409);
     }
 
@@ -216,7 +221,7 @@ export function registerIntegrationsM365Routes(
     const session = c.get('user');
     const groupId = c.req.param('groupId');
 
-    if (!hasGroupAccess(session, groupId)) {
+    if (!(await hasGroupAccess(session, groupId))) {
       return c.json({ error: 'FORBIDDEN' }, 403);
     }
 
@@ -235,7 +240,7 @@ export function registerIntegrationsM365Routes(
     const session = c.get('user');
     const groupId = c.req.param('groupId');
 
-    if (!hasGroupAccess(session, groupId)) {
+    if (!(await hasGroupAccess(session, groupId))) {
       return c.json({ error: 'FORBIDDEN' }, 403);
     }
 

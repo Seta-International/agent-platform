@@ -1,7 +1,7 @@
 import type { SessionScope } from '@seta/core';
-import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
+import { and, asc, eq, isNull } from 'drizzle-orm';
 import { plannerDb } from '../db/index.ts';
-import { groups } from '../db/schema.ts';
+import { groupMembers, groups } from '../db/schema.ts';
 import type { GroupRow } from '../dto.ts';
 import { requirePermission } from '../rbac.ts';
 import { isTenantAdminish } from '../read-helpers.ts';
@@ -10,7 +10,7 @@ import { groupRowToDto } from './_group-dto.ts';
 export async function listMyAccessibleGroups(input: {
   session: SessionScope;
 }): Promise<GroupRow[]> {
-  requirePermission(input.session, 'planner.group.read');
+  await requirePermission(input.session, 'planner.group.read');
 
   const db = plannerDb();
   const { session } = input;
@@ -26,14 +26,28 @@ export async function listMyAccessibleGroups(input: {
     return rows.map(groupRowToDto);
   }
 
-  if (session.accessible_group_ids.length === 0) {
-    return [];
-  }
-
   const rows = await db
-    .select()
+    .select({
+      id: groups.id,
+      tenant_id: groups.tenant_id,
+      name: groups.name,
+      description: groups.description,
+      theme: groups.theme,
+      visibility: groups.visibility,
+      default_role: groups.default_role,
+      external_source: groups.external_source,
+      external_id: groups.external_id,
+      external_synced_at: groups.external_synced_at,
+      account_id: groups.account_id,
+      created_by: groups.created_by,
+      created_at: groups.created_at,
+      updated_at: groups.updated_at,
+      deleted_at: groups.deleted_at,
+      version: groups.version,
+    })
     .from(groups)
-    .where(and(...baseConditions, inArray(groups.id, session.accessible_group_ids)))
+    .innerJoin(groupMembers, eq(groupMembers.group_id, groups.id))
+    .where(and(...baseConditions, eq(groupMembers.user_id, session.user_id)))
     .orderBy(asc(groups.name));
 
   return rows.map(groupRowToDto);

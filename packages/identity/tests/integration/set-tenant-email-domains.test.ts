@@ -104,7 +104,7 @@ describe('setTenantEmailDomains', () => {
     );
   });
 
-  it('requires core.tenant.write (non-admin user actor → FORBIDDEN)', async () => {
+  it('requires core.tenant.update (non-admin user actor → FORBIDDEN)', async () => {
     await withTestDb(
       {
         templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -120,7 +120,7 @@ describe('setTenantEmailDomains', () => {
             [tenantId],
           );
 
-          // User with no grants — lacks core.tenant.write
+          // User with no grants — lacks core.tenant.update
           const userId = crypto.randomUUID();
           const userActor = { type: 'user' as const, user_id: userId };
 

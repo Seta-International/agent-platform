@@ -8,7 +8,7 @@ import { isM365SystemActor, type PlannerSessionScope } from './_actor.ts';
 export async function markGroupSyncStatus(
   input: MarkGroupSyncStatusInput & { session: PlannerSessionScope },
 ): Promise<void> {
-  requirePermission(input.session, 'planner.group.sync.mark-status', input.group_id);
+  await requirePermission(input.session, 'planner.group.mark_sync_status', input.group_id);
 
   if (!isM365SystemActor(input.session)) {
     throw new PlannerError(

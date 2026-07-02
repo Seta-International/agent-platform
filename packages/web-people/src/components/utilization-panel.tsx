@@ -1,5 +1,4 @@
 import { Card, CardContent, ChartLegend, EmptyState, Input } from '@seta/shared-ui';
-import { usePermission } from '@seta/web-identity';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { Gauge } from 'lucide-react';
@@ -43,7 +42,6 @@ function segmentKeys(
 
 export function UtilizationPanel() {
   const navigate = useNavigate();
-  const canReadAll = usePermission('people.worker.read.all');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
 
@@ -182,7 +180,6 @@ export function UtilizationPanel() {
             <div className="flex items-center justify-between text-body-sm text-ink-muted">
               <span>
                 {filtered.length} people · page {safePage} of {pageCount}
-                {!canReadAll && ' · scoped'}
               </span>
               <div className="flex gap-2">
                 <button

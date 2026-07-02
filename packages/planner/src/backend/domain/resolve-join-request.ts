@@ -10,7 +10,7 @@ import { addGroupMember } from './add-group-member.ts';
 export async function resolveJoinRequest(
   input: ResolveJoinRequestInput,
 ): Promise<GroupJoinRequestRow> {
-  requirePermission(input.session, 'planner.group.member.write', input.group_id);
+  await requirePermission(input.session, 'planner.group.member.write', input.group_id);
 
   const db = plannerDb();
 

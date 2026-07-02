@@ -10,7 +10,7 @@ export async function deleteGroup(input: {
   expected_version: number;
   session: SessionScope;
 }): Promise<void> {
-  requirePermission(input.session, 'planner.group.delete', input.group_id);
+  await requirePermission(input.session, 'planner.group.delete', input.group_id);
 
   await withEmit(
     {

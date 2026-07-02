@@ -8,7 +8,7 @@ import {
 } from '@seta/shared-rbac';
 import type { Pool } from 'pg';
 import { identityDb } from '../../src/backend/db/index.ts';
-import { directoryPerson, roleGrants } from '../../src/backend/db/schema.ts';
+import { directoryPerson, roleAssignments } from '../../src/backend/db/schema.ts';
 import { createUser } from '../../src/backend/domain/create-user.ts';
 import { deactivateUser } from '../../src/backend/domain/deactivate-user.ts';
 
@@ -78,12 +78,12 @@ export async function seedDirectoryAccount(
 
   if (opts.roles && opts.roles.length > 0) {
     for (const role_slug of opts.roles) {
-      await identityDb().insert(roleGrants).values({
+      await identityDb().insert(roleAssignments).values({
         id: crypto.randomUUID(),
         user_id,
         tenant_id,
         role_slug,
-        scope_type: 'tenant',
+        scope_kind: 'tenant',
         scope_id: null,
         granted_by: null,
         granted_via: 'cli',
@@ -178,12 +178,13 @@ export function testSession(opts: {
     tenant_id,
     email: 'test@seed.local',
     display_name: 'Test User',
-    role_summary: { roles, cross_tenant_read: false },
+    role_summary: { roles, cross_tenant_read: false, assignments: [] },
     role_summary_hash: 'test',
     permissions,
-    accessible_group_ids: [],
+    assignments: [],
     group_ids: [],
     product_access: new Set<string>(),
+    worker_id: null,
     cross_tenant_read: false,
     built_at: new Date(),
     invalidated_at: null,

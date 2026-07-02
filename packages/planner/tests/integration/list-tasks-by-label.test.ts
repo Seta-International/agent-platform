@@ -3,6 +3,7 @@ import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import {
+  addGroupMember,
   createGroup,
   createPlan,
   createTask,
@@ -353,8 +354,12 @@ describe('listTasksByLabel', () => {
       resetCoreDb();
       initPools({ databaseUrl });
       try {
-        const seeded = await seedTenant(pool);
+        const seeded = await seedTenant(pool, {
+          users: [{ name: 'Viewer', email: 'viewer-labelrestrict@example.test' }],
+        });
         const admin = seeded.adminSession;
+        const [viewer] = seeded.users;
+        if (!viewer) throw new Error('Seed did not create viewer');
         const groupA = await createGroup({
           tenant_id: seeded.tenant_id,
           name: 'A',
@@ -392,11 +397,12 @@ describe('listTasksByLabel', () => {
           names: ['infrastructure'],
         });
 
+        await addGroupMember({ group_id: groupA.id, user_id: viewer.user_id, session: admin });
+
         const scoped = buildSession({
           tenant_id: seeded.tenant_id,
-          user_id: seeded.admin.user_id,
-          roles: ['planner.contributor'],
-          accessible_group_ids: [groupA.id],
+          user_id: viewer.user_id,
+          roles: ['planner.member'],
         });
 
         const { results } = await listTasksByLabel({

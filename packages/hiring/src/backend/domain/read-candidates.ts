@@ -1,5 +1,6 @@
 import type { SessionScope } from '@seta/core';
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { tenantScoped } from '@seta/shared-rbac';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { hiringDb } from '../db/client.ts';
 import {
   application,
@@ -9,9 +10,9 @@ import {
   requisition,
   requisitionSkill,
 } from '../db/schema.ts';
-import { tenantScoped } from '../db/scope.ts';
 import { HiringError, requirePermission } from '../rbac.ts';
 import { computeFit, type FitResult } from './fit.ts';
+import { buildCandidateScope, buildRequisitionScope } from './scope.ts';
 
 export interface CandidateApplication {
   application_id: string;
@@ -96,6 +97,13 @@ async function fitFor(
 
 export async function listCandidates(session: SessionScope): Promise<CandidateListRow[]> {
   requirePermission(session, 'hiring.candidate.read');
+  const conds = [
+    eq(application.kind, 'external'),
+    eq(application.status, 'active'),
+    tenantScoped(application.tenant_id, session),
+  ];
+  const scope = await buildCandidateScope(session);
+  if (scope) conds.push(scope);
   const rows = await hiringDb()
     .select({
       application_id: application.id,
@@ -113,13 +121,7 @@ export async function listCandidates(session: SessionScope): Promise<CandidateLi
     .from(application)
     .innerJoin(candidate, eq(candidate.id, application.candidate_id))
     .innerJoin(requisition, eq(requisition.id, application.requisition_id))
-    .where(
-      and(
-        eq(application.kind, 'external'),
-        eq(application.status, 'active'),
-        tenantScoped(application.tenant_id, session),
-      ),
-    );
+    .where(and(...conds));
   const { reqSkills, candSkills } = await fitFor(
     session,
     [...new Set(rows.map((r) => r.requisition_id))],
@@ -148,12 +150,26 @@ export async function getCandidate(input: {
 }): Promise<CandidateDetail> {
   const { session, candidate_id } = input;
   requirePermission(session, 'hiring.candidate.read');
+  const scope = await buildCandidateScope(session);
+  const candConds = [eq(candidate.id, candidate_id), tenantScoped(candidate.tenant_id, session)];
+  if (scope) {
+    candConds.push(sql`EXISTS (SELECT 1 FROM ${application}
+      WHERE ${application.candidate_id} = ${candidate.id}
+        AND ${application.tenant_id} = ${session.tenant_id}
+        AND (${scope}))`);
+  }
   const [cand] = await hiringDb()
     .select()
     .from(candidate)
-    .where(and(eq(candidate.id, candidate_id), tenantScoped(candidate.tenant_id, session)))
+    .where(and(...candConds))
     .limit(1);
+  // Invisible-through-scope rows return NOT_FOUND, never FORBIDDEN — don't leak existence.
   if (!cand) throw new HiringError('NOT_FOUND', 'candidate not found');
+  const applicationConds = [
+    eq(application.candidate_id, candidate_id),
+    tenantScoped(application.tenant_id, session),
+  ];
+  if (scope) applicationConds.push(scope);
   const [skills, rawApplications, timeline] = await Promise.all([
     hiringDb()
       .select()
@@ -179,12 +195,7 @@ export async function getCandidate(input: {
       })
       .from(application)
       .innerJoin(requisition, eq(requisition.id, application.requisition_id))
-      .where(
-        and(
-          eq(application.candidate_id, candidate_id),
-          tenantScoped(application.tenant_id, session),
-        ),
-      )
+      .where(and(...applicationConds))
       .orderBy(asc(application.created_at)),
     hiringDb()
       .select()
@@ -231,6 +242,9 @@ export interface TalentPoolRow {
 
 export async function listTalentPool(session: SessionScope): Promise<TalentPoolRow[]> {
   requirePermission(session, 'hiring.candidate.read');
+  const candidateScope = await buildCandidateScope(session);
+  const appConds = [eq(application.kind, 'external'), tenantScoped(application.tenant_id, session)];
+  if (candidateScope) appConds.push(candidateScope);
   const apps = await hiringDb()
     .select({
       candidate_id: application.candidate_id,
@@ -238,7 +252,7 @@ export async function listTalentPool(session: SessionScope): Promise<TalentPoolR
       created_at: application.created_at,
     })
     .from(application)
-    .where(and(eq(application.kind, 'external'), tenantScoped(application.tenant_id, session)));
+    .where(and(...appConds));
 
   const active = new Set(
     apps.filter((a) => a.status === 'active').map((a) => a.candidate_id as string),
@@ -257,18 +271,28 @@ export async function listTalentPool(session: SessionScope): Promise<TalentPoolR
     }
   }
 
+  const candConds = [tenantScoped(candidate.tenant_id, session)];
+  if (candidateScope) {
+    candConds.push(sql`EXISTS (SELECT 1 FROM ${application}
+      WHERE ${application.candidate_id} = ${candidate.id}
+        AND ${application.tenant_id} = ${session.tenant_id}
+        AND (${candidateScope}))`);
+  }
   const cands = await hiringDb()
     .select()
     .from(candidate)
-    .where(tenantScoped(candidate.tenant_id, session));
+    .where(and(...candConds));
 
   const pool = cands.filter((c) => !active.has(c.id) || c.segment === 'alumni');
   if (pool.length === 0) return [];
 
+  const requisitionScope = await buildRequisitionScope(session);
+  const reqConds = [eq(requisition.status, 'open'), tenantScoped(requisition.tenant_id, session)];
+  if (requisitionScope) reqConds.push(requisitionScope);
   const openReqs = await hiringDb()
     .select({ id: requisition.id, title: requisition.title })
     .from(requisition)
-    .where(and(eq(requisition.status, 'open'), tenantScoped(requisition.tenant_id, session)));
+    .where(and(...reqConds));
 
   const { reqSkills, candSkills } = await fitFor(
     session,

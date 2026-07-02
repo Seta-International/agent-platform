@@ -60,7 +60,7 @@ async function moveBucketImpl(
       const [plan] = await tx.select().from(plans).where(eq(plans.id, input.plan_id)).limit(1);
       if (!plan) throw new PlannerError('NOT_FOUND', 'Plan not found', { plan_id: input.plan_id });
 
-      requirePermission(input.session, 'planner.bucket.update', plan.group_id);
+      await requirePermission(input.session, 'planner.bucket.update', plan.group_id);
 
       const ordered = await tx
         .select()

@@ -17,7 +17,7 @@ describe('POST /api/notifications/v1/__dev/synthesize (prod)', () => {
   it('returns 404 when NODE_ENV=production', async () => {
     const tenantId = crypto.randomUUID();
     const userId = crypto.randomUUID();
-    const role_summary = { roles: ['org.admin'], cross_tenant_read: false };
+    const role_summary = { roles: ['org.admin'], cross_tenant_read: false, assignments: [] };
     const session: SessionScope = {
       session_id: crypto.randomUUID(),
       user_id: userId,
@@ -27,9 +27,10 @@ describe('POST /api/notifications/v1/__dev/synthesize (prod)', () => {
       role_summary,
       role_summary_hash: hashRoleSummary(role_summary),
       permissions: resolveTestPermissions(role_summary.roles),
-      accessible_group_ids: [],
+      assignments: [],
       group_ids: [],
       product_access: new Set<string>(),
+      worker_id: null,
       cross_tenant_read: false,
       built_at: new Date(),
       invalidated_at: null,

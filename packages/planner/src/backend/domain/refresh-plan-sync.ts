@@ -30,7 +30,7 @@ export async function refreshPlanSync(
     });
   }
 
-  requirePermission(input.session, 'planner.plan.refresh', existing.group_id);
+  await requirePermission(input.session, 'planner.plan.refresh', existing.group_id);
 
   if (existing.external_source !== 'm365') {
     throw new PlannerError('PLAN_NOT_LINKED', 'Plan is not linked to M365', {

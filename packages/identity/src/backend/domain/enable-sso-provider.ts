@@ -12,7 +12,7 @@ export async function enableSsoProvider(
 ): Promise<ProviderRow> {
   if (actor.type === 'user') {
     if (!actor.user_id) throw new IdentityError('FORBIDDEN', 'user actor requires user_id');
-    await requirePermission(actor.user_id, 'identity.sso.write', args.tenant_id);
+    await requirePermission(actor.user_id, 'identity.sso.update', args.tenant_id);
   }
 
   const row = await requireProviderRow(args.tenant_id, args.provider_id);

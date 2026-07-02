@@ -92,6 +92,13 @@
       "when": 1782723031065,
       "tag": "0012_curvy_doctor_faustus",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1783001225576,
+      "tag": "0013_foamy_magdalene",
+      "breakpoints": true
     }
   ]
 }

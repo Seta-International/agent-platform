@@ -19,6 +19,7 @@ import {
   setGroupRoles,
   updateGroup,
 } from '../domain/groups.ts';
+import { listOrgUnits } from '../domain/list-org-units.ts';
 import { IdentityError } from '../rbac.ts';
 
 const productEffectBody = z.object({ effect: z.enum(['grant', 'revoke']) });
@@ -34,7 +35,15 @@ const patchBody = z.object({
   name: z.string().min(1).optional(),
   description: z.string().nullable().optional(),
 });
-const rolesBody = z.object({ role_slugs: z.array(z.string()) });
+const rolesBody = z.object({
+  roles: z.array(
+    z.object({
+      role_slug: z.string(),
+      scope_kind: z.enum(['tenant', 'org_unit', 'self']).default('tenant'),
+      scope_id: z.string().uuid().nullable().optional(),
+    }),
+  ),
+});
 const membersBody = z.object({ user_ids: z.array(z.string().uuid()) });
 
 function statusFor(code: string): 400 | 403 | 404 {
@@ -110,12 +119,26 @@ export function registerGroupRoutes(app: Hono<SessionEnv>): void {
       const b = parsed.data;
       const s = c.get('user');
       await setGroupRoles(
-        { group_id: c.req.param('id'), tenant_id: s.tenant_id, role_slugs: b.role_slugs },
+        {
+          group_id: c.req.param('id'),
+          tenant_id: s.tenant_id,
+          roles: b.roles.map((r) => ({
+            role_slug: r.role_slug,
+            scope_kind: r.scope_kind,
+            scope_id: r.scope_id ?? null,
+          })),
+        },
         { type: 'user', user_id: s.user_id },
       );
       return c.body(null, 204);
     }),
   );
+
+  app.get('/api/identity/v1/org-units', async (c) => {
+    const session = c.get('user');
+    if (!session) return c.json({ error: 'unauthenticated' }, 401);
+    return c.json({ org_units: await listOrgUnits(session.tenant_id) });
+  });
 
   // Registered BEFORE /:id/members so the literal 'users' segment wins over `:id`.
   app.get('/api/identity/v1/groups/users/:userId/groups', async (c) =>

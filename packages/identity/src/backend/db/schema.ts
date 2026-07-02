@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import {
   boolean,
   index,
@@ -13,21 +14,32 @@ export { identity } from './pg-schema.ts';
 
 import { identity } from './pg-schema.ts';
 
-export const roleGrants = identity.table('role_grants', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  user_id: uuid('user_id').notNull(),
-  tenant_id: uuid('tenant_id').notNull(),
-  role_slug: text('role_slug').notNull(),
-  scope_type: text('scope_type', { enum: ['tenant', 'group'] }).notNull(),
-  scope_id: text('scope_id'),
-  granted_by: uuid('granted_by'),
-  granted_via: text('granted_via', { enum: ['admin', 'cli', 'idp'] })
-    .default('admin')
-    .notNull(),
-  granted_at: timestamp('granted_at', { withTimezone: true }).defaultNow().notNull(),
-  revoked_at: timestamp('revoked_at', { withTimezone: true }),
-  revoked_by: uuid('revoked_by'),
-});
+export const roleAssignments = identity.table(
+  'role_assignments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    user_id: uuid('user_id').notNull(),
+    tenant_id: uuid('tenant_id').notNull(),
+    role_slug: text('role_slug').notNull(),
+    scope_kind: text('scope_kind', { enum: ['tenant', 'org_unit', 'self'] })
+      .default('tenant')
+      .notNull(),
+    scope_id: uuid('scope_id'),
+    granted_by: uuid('granted_by'),
+    granted_via: text('granted_via', { enum: ['admin', 'cli', 'idp'] })
+      .default('admin')
+      .notNull(),
+    granted_at: timestamp('granted_at', { withTimezone: true }).defaultNow().notNull(),
+    revoked_at: timestamp('revoked_at', { withTimezone: true }),
+    revoked_by: uuid('revoked_by'),
+  },
+  (t) => [
+    uniqueIndex('role_assignment_active_unique')
+      .on(t.tenant_id, t.user_id, t.role_slug, t.scope_kind, sql`COALESCE(scope_id::text, '')`)
+      .where(sql`revoked_at IS NULL`),
+    index('role_assignment_by_user').on(t.user_id),
+  ],
+);
 
 export const rolePermissionOverlays = identity.table(
   'role_permission_overlays',
@@ -42,13 +54,24 @@ export const rolePermissionOverlays = identity.table(
   (t) => [primaryKey({ columns: [t.tenant_id, t.role_slug, t.permission_key] })],
 );
 
-export const failedLoginAttempts = identity.table('failed_login_attempts', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  email: text('email').notNull(),
-  ip: text('ip').notNull(),
-  attempted_at: timestamp('attempted_at', { withTimezone: true }).defaultNow().notNull(),
-  reason: text('reason').notNull(),
-});
+export const failedLoginAttempts = identity.table(
+  'failed_login_attempts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    email: text('email').notNull(),
+    ip: text('ip').notNull(),
+    attempted_at: timestamp('attempted_at', { withTimezone: true }).defaultNow().notNull(),
+    reason: text('reason').notNull(),
+  },
+  (t) => [
+    index('failed_login_attempted_at_idx').on(t.attempted_at),
+    index('failed_login_email_ip_idx').on(
+      sql`lower(${t.email})`,
+      t.ip,
+      sql`${t.attempted_at} DESC`,
+    ),
+  ],
+);
 
 export const tenantSsoProviders = identity.table(
   'tenant_sso_providers',
@@ -124,8 +147,24 @@ export const accessGroupRole = identity.table(
   {
     group_id: uuid('group_id').notNull(),
     role_slug: text('role_slug').notNull(),
+    scope_kind: text('scope_kind', { enum: ['tenant', 'org_unit', 'self'] })
+      .default('tenant')
+      .notNull(),
+    scope_id: text('scope_id'),
   },
   (t) => [primaryKey({ columns: [t.group_id, t.role_slug] })],
+);
+
+export const orgUnitProjection = identity.table(
+  'org_unit_projection',
+  {
+    org_unit_id: uuid('org_unit_id').primaryKey(),
+    tenant_id: uuid('tenant_id').notNull(),
+    parent_id: uuid('parent_id'),
+    name: text('name').notNull(),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index('org_unit_projection_by_tenant').on(t.tenant_id)],
 );
 
 export const productGrant = identity.table(

@@ -89,7 +89,7 @@ describe('setPresence / readPresence / agent-tools', () => {
           session: {
             tenant_id: t.tenant_id,
             user_id: t.admin_user_id,
-            role_summary: { roles: ['people.strategic'], cross_tenant_read: false },
+            role_summary: { roles: ['people.manager'], cross_tenant_read: false },
           },
           input: { userId: t.admin_user_id },
         });
@@ -132,7 +132,7 @@ describe('setPresence / readPresence / agent-tools', () => {
           session: {
             tenant_id: t.tenant_id,
             user_id: t.admin_user_id,
-            role_summary: { roles: ['people.strategic'], cross_tenant_read: false },
+            role_summary: { roles: ['people.manager'], cross_tenant_read: false },
           },
           input: { userId: t.admin_user_id },
         });

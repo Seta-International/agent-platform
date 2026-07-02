@@ -24,7 +24,7 @@ export const plannerMembershipJobs: TaskList = {
   'planner.bulk_add_group_members': async (rawPayload) => {
     const payload = rawPayload as BulkAddGroupMembersPayload;
     const roles = ['org.admin'] as string[];
-    const role_summary = { roles, cross_tenant_read: false };
+    const role_summary = { roles, cross_tenant_read: false, assignments: [] };
     const session = {
       session_id: crypto.randomUUID(),
       user_id: payload.actor_user_id,
@@ -34,9 +34,10 @@ export const plannerMembershipJobs: TaskList = {
       role_summary,
       role_summary_hash: hashRoleSummary(role_summary),
       permissions: resolvePermissions(_registry, roles, IMPLICIT_PERMISSIONS),
-      accessible_group_ids: [] as readonly string[],
+      assignments: [] as readonly [],
       group_ids: [] as readonly string[],
       product_access: new Set<string>(),
+      worker_id: null,
       cross_tenant_read: false,
       built_at: new Date(),
       invalidated_at: null,

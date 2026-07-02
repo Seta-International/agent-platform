@@ -74,7 +74,6 @@ export const worker = peopleSchema.table(
     profile_completed_at: timestamp('profile_completed_at', { withTimezone: true }),
     job_title: text('job_title'),
     org_unit_id: uuid('org_unit_id'),
-    manager_id: uuid('manager_id'),
     availability_status: text('availability_status', { enum: ['available', 'busy', 'ooo'] })
       .default('available')
       .notNull(),
@@ -96,7 +95,6 @@ export const worker = peopleSchema.table(
       .where(sql`work_email IS NOT NULL AND deleted_at IS NULL`),
     index('worker_by_tenant_live').on(t.tenant_id, t.deleted_at),
     index('worker_by_org_unit').on(t.tenant_id, t.org_unit_id),
-    index('worker_by_manager').on(t.tenant_id, t.manager_id),
     check('worker_gender_check', sql`gender IN ('male','female','prefer_not_to_say')`),
   ],
 );

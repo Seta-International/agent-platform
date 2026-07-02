@@ -44,7 +44,6 @@ function makeFakeCtx(actor: { type: 'user'; user_id: string }, tenantId: string)
 function makeSessionProvider(tenantId: string) {
   return async (_actor: { user_id: string }) => ({
     tenant_id: tenantId,
-    accessible_group_ids: [] as string[],
   });
 }
 

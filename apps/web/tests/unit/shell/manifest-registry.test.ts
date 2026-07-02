@@ -37,7 +37,7 @@ const manifests: AppManifest[] = [
     routeNamespace: '/admin',
     label: 'Admin',
     icon: Box,
-    requiredPermissions: ['identity.user.read.any'],
+    requiredPermissions: ['identity.user.list'],
     useNavExtensions: noNavExtensions,
     nav: [
       {
@@ -49,7 +49,7 @@ const manifests: AppManifest[] = [
 ];
 
 const s = (perms: string[]): SessionLike => ({ permissions: new Set(perms) });
-const adminSession = s(['identity.user.read.any', 'planner.trash.read']);
+const adminSession = s(['identity.user.list', 'planner.trash.read']);
 const regularSession = s([]);
 
 describe('visibleManifests', () => {
@@ -57,14 +57,14 @@ describe('visibleManifests', () => {
     const m = [
       {
         id: 'admin',
-        requiredPermissions: ['identity.user.read.any'],
+        requiredPermissions: ['identity.user.list'],
         label: '',
         icon: (() => null) as never,
         nav: [],
         useNavExtensions: () => [],
       } as never,
     ];
-    expect(visibleManifests(m, s(['identity.user.read.any']), new Set(['admin']))).toHaveLength(1);
+    expect(visibleManifests(m, s(['identity.user.list']), new Set(['admin']))).toHaveLength(1);
     expect(visibleManifests(m, s([]), new Set(['admin']))).toHaveLength(0);
   });
 

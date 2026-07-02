@@ -18,7 +18,9 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { PlanBoardShell } from '../../../src/pages/plan-board-shell';
 import { useSelectedTaskIds } from '../../../src/state/selected-task-ids';
 
-const server = setupServer();
+const server = setupServer(
+  http.get('*/api/planner/v1/groups/mine', () => HttpResponse.json({ groups: [groupFixture()] })),
+);
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 beforeEach(() => useSelectedTaskIds.getState().clear());
 afterEach(() => server.resetHandlers());
@@ -33,7 +35,6 @@ const session: SessionScopeProjection = {
   display_name: 'Me',
   role_summary: { roles: ['tenant.admin'], cross_tenant_read: false },
   permissions: [],
-  accessible_group_ids: ['g1'],
   cross_tenant_read: false,
   tenant_local_password_disabled: false,
 };

@@ -50,7 +50,7 @@ async function removeTaskReferenceImpl(
           plan_id: task.plan_id,
         });
 
-      requirePermission(input.session, 'planner.task.update', plan.group_id);
+      await requirePermission(input.session, 'planner.task.update', plan.group_id);
 
       const deleted = await tx
         .delete(taskReferences)

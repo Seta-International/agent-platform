@@ -2,27 +2,22 @@
 export type PermissionKey =
   | 'agent.chat.use'
   | 'agent.config.read'
-  | 'agent.config.write'
-  | 'agent.meta.read.self'
+  | 'agent.config.update'
+  | 'agent.meta.read'
   | 'agent.rate_limit.read'
   | 'agent.specialist.use'
-  | 'agent.thread.erase.any'
-  | 'agent.thread.read.self'
-  | 'agent.thread.write.self'
+  | 'agent.thread.read'
+  | 'agent.thread.write'
   | 'agent.workflow.approve'
-  | 'agent.workflow.run.cancel.instance'
-  | 'agent.workflow.run.cancel.self'
-  | 'agent.workflow.run.cancel.tenant'
-  | 'agent.workflow.run.execute.self'
-  | 'agent.workflow.run.read.instance'
-  | 'agent.workflow.run.read.self'
-  | 'agent.workflow.run.read.tenant'
+  | 'agent.workflow.run.cancel'
+  | 'agent.workflow.run.execute'
+  | 'agent.workflow.run.read'
   | 'core.audit.read'
   | 'core.skill.manage'
   | 'core.skill.read'
-  | 'core.tenant.email_domains.write'
+  | 'core.tenant.email_domains.update'
   | 'core.tenant.read'
-  | 'core.tenant.write'
+  | 'core.tenant.update'
   | 'hiring.candidate.create'
   | 'hiring.candidate.manage'
   | 'hiring.candidate.read'
@@ -37,7 +32,7 @@ export type PermissionKey =
   | 'hiring.requisition.open'
   | 'hiring.requisition.read'
   | 'identity.concept_map.read'
-  | 'identity.concept_map.write'
+  | 'identity.concept_map.update'
   | 'identity.group.create'
   | 'identity.group.delete'
   | 'identity.group.membership.manage'
@@ -48,80 +43,79 @@ export type PermissionKey =
   | 'identity.product_access.grant'
   | 'identity.product_access.read'
   | 'identity.product_access.revoke'
+  | 'identity.profile.read'
+  | 'identity.profile.update'
   | 'identity.role.grant'
   | 'identity.role.read'
-  | 'identity.role.write'
+  | 'identity.role.update'
   | 'identity.role_grant.read'
-  | 'identity.role_grant.write'
+  | 'identity.role_grant.update'
   | 'identity.sso.read'
-  | 'identity.sso.write'
+  | 'identity.sso.update'
+  | 'identity.user.change_email'
   | 'identity.user.deactivate'
-  | 'identity.user.email.change'
   | 'identity.user.invite'
+  | 'identity.user.list'
   | 'identity.user.read'
-  | 'identity.user.read.any'
-  | 'identity.user.read.self'
-  | 'identity.user.write'
-  | 'identity.user.write.self'
-  | 'integrations.m365.config.write'
+  | 'identity.user.update'
+  | 'integrations.m365.configure'
   | 'integrations.m365.read'
   | 'integrations.mail.configure'
   | 'integrations.mail.read'
   | 'integrations.mcp.health.read'
   | 'integrations.mcp.read'
-  | 'integrations.mcp.write'
-  | 'knowledge.chat_attachment.write'
+  | 'integrations.mcp.update'
+  | 'knowledge.chat_attachment.create'
   | 'knowledge.file.delete'
   | 'knowledge.file.read'
-  | 'knowledge.file.write'
+  | 'knowledge.file.update'
   | 'knowledge.search.read'
   | 'notifications.category.read'
   | 'notifications.preference.read'
-  | 'notifications.preference.write'
+  | 'notifications.preference.update'
   | 'people.self.manage'
   | 'people.self.read'
-  | 'people.worker.edit'
+  | 'people.worker.create'
   | 'people.worker.manage'
-  | 'people.worker.provision'
   | 'people.worker.read'
-  | 'people.worker.read.all'
+  | 'people.worker.update'
   | 'planner.bucket.create'
   | 'planner.bucket.delete'
   | 'planner.bucket.read'
   | 'planner.bucket.update'
-  | 'planner.checklist.write'
+  | 'planner.checklist.update'
   | 'planner.group.create'
   | 'planner.group.delete'
-  | 'planner.group.link.m365'
+  | 'planner.group.link_m365'
+  | 'planner.group.mark_sync_status'
   | 'planner.group.member.read'
-  | 'planner.group.member.role.set'
+  | 'planner.group.member.set_role'
   | 'planner.group.member.write'
   | 'planner.group.read'
   | 'planner.group.refresh'
-  | 'planner.group.resolve-conflict'
-  | 'planner.group.sync.mark-status'
+  | 'planner.group.resolve_conflict'
   | 'planner.group.unlink'
   | 'planner.group.update'
   | 'planner.label.read'
-  | 'planner.label.write'
+  | 'planner.label.update'
   | 'planner.plan.create'
   | 'planner.plan.delete'
-  | 'planner.plan.link.m365'
+  | 'planner.plan.link_m365'
+  | 'planner.plan.mark_sync_status'
   | 'planner.plan.read'
   | 'planner.plan.refresh'
-  | 'planner.plan.resolve-conflict'
-  | 'planner.plan.sync.mark-status'
+  | 'planner.plan.resolve_conflict'
   | 'planner.plan.unlink'
   | 'planner.plan.update'
+  | 'planner.reporting.read'
   | 'planner.task.assign'
   | 'planner.task.comment.create'
-  | 'planner.task.comment.delete.any'
+  | 'planner.task.comment.delete'
   | 'planner.task.comment.read'
   | 'planner.task.create'
   | 'planner.task.delete'
+  | 'planner.task.mark_sync_status'
   | 'planner.task.read'
-  | 'planner.task.read.tenant'
-  | 'planner.task.sync.mark-status'
   | 'planner.task.update'
   | 'planner.trash.empty'
   | 'planner.trash.read'
@@ -142,27 +136,22 @@ export type PermissionKey =
 export const ALL_PERMISSIONS: readonly PermissionKey[] = [
   'agent.chat.use',
   'agent.config.read',
-  'agent.config.write',
-  'agent.meta.read.self',
+  'agent.config.update',
+  'agent.meta.read',
   'agent.rate_limit.read',
   'agent.specialist.use',
-  'agent.thread.erase.any',
-  'agent.thread.read.self',
-  'agent.thread.write.self',
+  'agent.thread.read',
+  'agent.thread.write',
   'agent.workflow.approve',
-  'agent.workflow.run.cancel.instance',
-  'agent.workflow.run.cancel.self',
-  'agent.workflow.run.cancel.tenant',
-  'agent.workflow.run.execute.self',
-  'agent.workflow.run.read.instance',
-  'agent.workflow.run.read.self',
-  'agent.workflow.run.read.tenant',
+  'agent.workflow.run.cancel',
+  'agent.workflow.run.execute',
+  'agent.workflow.run.read',
   'core.audit.read',
   'core.skill.manage',
   'core.skill.read',
-  'core.tenant.email_domains.write',
+  'core.tenant.email_domains.update',
   'core.tenant.read',
-  'core.tenant.write',
+  'core.tenant.update',
   'hiring.candidate.create',
   'hiring.candidate.manage',
   'hiring.candidate.read',
@@ -177,7 +166,7 @@ export const ALL_PERMISSIONS: readonly PermissionKey[] = [
   'hiring.requisition.open',
   'hiring.requisition.read',
   'identity.concept_map.read',
-  'identity.concept_map.write',
+  'identity.concept_map.update',
   'identity.group.create',
   'identity.group.delete',
   'identity.group.membership.manage',
@@ -188,80 +177,79 @@ export const ALL_PERMISSIONS: readonly PermissionKey[] = [
   'identity.product_access.grant',
   'identity.product_access.read',
   'identity.product_access.revoke',
+  'identity.profile.read',
+  'identity.profile.update',
   'identity.role.grant',
   'identity.role.read',
-  'identity.role.write',
+  'identity.role.update',
   'identity.role_grant.read',
-  'identity.role_grant.write',
+  'identity.role_grant.update',
   'identity.sso.read',
-  'identity.sso.write',
+  'identity.sso.update',
+  'identity.user.change_email',
   'identity.user.deactivate',
-  'identity.user.email.change',
   'identity.user.invite',
+  'identity.user.list',
   'identity.user.read',
-  'identity.user.read.any',
-  'identity.user.read.self',
-  'identity.user.write',
-  'identity.user.write.self',
-  'integrations.m365.config.write',
+  'identity.user.update',
+  'integrations.m365.configure',
   'integrations.m365.read',
   'integrations.mail.configure',
   'integrations.mail.read',
   'integrations.mcp.health.read',
   'integrations.mcp.read',
-  'integrations.mcp.write',
-  'knowledge.chat_attachment.write',
+  'integrations.mcp.update',
+  'knowledge.chat_attachment.create',
   'knowledge.file.delete',
   'knowledge.file.read',
-  'knowledge.file.write',
+  'knowledge.file.update',
   'knowledge.search.read',
   'notifications.category.read',
   'notifications.preference.read',
-  'notifications.preference.write',
+  'notifications.preference.update',
   'people.self.manage',
   'people.self.read',
-  'people.worker.edit',
+  'people.worker.create',
   'people.worker.manage',
-  'people.worker.provision',
   'people.worker.read',
-  'people.worker.read.all',
+  'people.worker.update',
   'planner.bucket.create',
   'planner.bucket.delete',
   'planner.bucket.read',
   'planner.bucket.update',
-  'planner.checklist.write',
+  'planner.checklist.update',
   'planner.group.create',
   'planner.group.delete',
-  'planner.group.link.m365',
+  'planner.group.link_m365',
+  'planner.group.mark_sync_status',
   'planner.group.member.read',
-  'planner.group.member.role.set',
+  'planner.group.member.set_role',
   'planner.group.member.write',
   'planner.group.read',
   'planner.group.refresh',
-  'planner.group.resolve-conflict',
-  'planner.group.sync.mark-status',
+  'planner.group.resolve_conflict',
   'planner.group.unlink',
   'planner.group.update',
   'planner.label.read',
-  'planner.label.write',
+  'planner.label.update',
   'planner.plan.create',
   'planner.plan.delete',
-  'planner.plan.link.m365',
+  'planner.plan.link_m365',
+  'planner.plan.mark_sync_status',
   'planner.plan.read',
   'planner.plan.refresh',
-  'planner.plan.resolve-conflict',
-  'planner.plan.sync.mark-status',
+  'planner.plan.resolve_conflict',
   'planner.plan.unlink',
   'planner.plan.update',
+  'planner.reporting.read',
   'planner.task.assign',
   'planner.task.comment.create',
-  'planner.task.comment.delete.any',
+  'planner.task.comment.delete',
   'planner.task.comment.read',
   'planner.task.create',
   'planner.task.delete',
+  'planner.task.mark_sync_status',
   'planner.task.read',
-  'planner.task.read.tenant',
-  'planner.task.sync.mark-status',
   'planner.task.update',
   'planner.trash.empty',
   'planner.trash.read',

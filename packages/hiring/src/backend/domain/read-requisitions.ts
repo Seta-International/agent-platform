@@ -1,4 +1,5 @@
 import type { SessionScope } from '@seta/core';
+import { tenantScoped } from '@seta/shared-rbac';
 import { and, eq, sql } from 'drizzle-orm';
 import { hiringDb } from '../db/client.ts';
 import {
@@ -8,8 +9,8 @@ import {
   requisitionJdSection,
   requisitionSkill,
 } from '../db/schema.ts';
-import { tenantScoped } from '../db/scope.ts';
 import { HiringError, requirePermission } from '../rbac.ts';
+import { buildRequisitionScope } from './scope.ts';
 
 export interface RequisitionListRow {
   id: string;
@@ -28,6 +29,9 @@ export interface RequisitionListRow {
 
 export async function listRequisitions(session: SessionScope): Promise<RequisitionListRow[]> {
   requirePermission(session, 'hiring.requisition.read');
+  const conds = [tenantScoped(requisition.tenant_id, session)];
+  const scope = await buildRequisitionScope(session);
+  if (scope) conds.push(scope);
   const rows = await hiringDb()
     .select({
       id: requisition.id,
@@ -44,7 +48,7 @@ export async function listRequisitions(session: SessionScope): Promise<Requisiti
       version: requisition.version,
     })
     .from(requisition)
-    .where(tenantScoped(requisition.tenant_id, session));
+    .where(and(...conds));
   return rows;
 }
 
@@ -62,11 +66,15 @@ export async function getRequisition(input: {
 }): Promise<RequisitionDetail> {
   const { session, requisition_id } = input;
   requirePermission(session, 'hiring.requisition.read');
+  const conds = [eq(requisition.id, requisition_id), tenantScoped(requisition.tenant_id, session)];
+  const scope = await buildRequisitionScope(session);
+  if (scope) conds.push(scope);
   const [req] = await hiringDb()
     .select()
     .from(requisition)
-    .where(and(eq(requisition.id, requisition_id), tenantScoped(requisition.tenant_id, session)))
+    .where(and(...conds))
     .limit(1);
+  // Invisible-through-scope rows return NOT_FOUND, never FORBIDDEN — don't leak existence.
   if (!req) throw new HiringError('NOT_FOUND', 'requisition not found');
   const [openings, jd_sections, skills, applicants] = await Promise.all([
     hiringDb().select().from(opening).where(eq(opening.requisition_id, requisition_id)),

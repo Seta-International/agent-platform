@@ -2,16 +2,16 @@
 // the RBAC negative-path contract introduced in the workflow-runs polish PR.
 import { expect, test } from '@playwright/test';
 
-test('contributor cannot select tenant scope in the runs inbox', async ({ page }) => {
+test('member cannot select tenant scope in the runs inbox', async ({ page }) => {
   await page.goto('/login');
-  await page.fill('[name=email]', 'contributor@seta.local');
+  await page.fill('[name=email]', 'member@seta.local');
   await page.fill('[name=password]', 'demo-pass');
   await page.click('button[type=submit]');
 
   await page.goto('/agent/workflows');
   const scope = page.getByLabel(/Scope/);
   await scope.click();
-  // Tenant must be absent for a contributor (lacks agent.workflow.run.read.tenant).
+  // Tenant must be absent for a member (agent.workflow.run.read only resolves to self scope).
   await expect(page.getByRole('option', { name: /tenant/i })).toHaveCount(0);
 });
 

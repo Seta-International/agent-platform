@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { canonicalKeys, toManifest } from '../../src/manifest.ts';
 
-const statement = { 'knowledge.file': ['read', 'write'], 'knowledge.search': ['read'] } as const;
+const statement = { 'knowledge.file': ['read', 'update'], 'knowledge.search': ['read'] } as const;
 
 describe('toManifest', () => {
   it('flattens resource:action into canonical dotted strings', () => {
     expect(canonicalKeys(statement).sort()).toEqual([
       'knowledge.file.read',
-      'knowledge.file.write',
+      'knowledge.file.update',
       'knowledge.search.read',
     ]);
   });

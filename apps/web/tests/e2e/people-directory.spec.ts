@@ -1,7 +1,7 @@
 import { expect, request, test } from '@playwright/test';
 
 // Runs as org.admin (wildcard) from global-setup storage state.
-// Admin holds people.worker.read.all + people.worker.edit + people.worker.provision.
+// Admin holds people.worker.read + people.worker.update + people.worker.create.
 //
 // Skills are people-owned and synchronous — safe to assert without polling.
 // Account/project projections are async PM→people; do NOT assert on them in time-sensitive paths.
@@ -137,15 +137,12 @@ test('directory loads with rich column headers', async ({ page }) => {
   await expect(page.getByRole('columnheader', { name: 'Access' })).toBeVisible();
 });
 
-// ─── Test 2: Admin (read.all) — "Scoped view" badge must NOT appear ──────────
-test('admin (read.all): scoped-view badge is absent and result count is present', async ({
-  page,
-}) => {
+// ─── Test 2: Admin — result count is present ──────────────────────────────────
+test('admin: result count is present', async ({ page }) => {
   await page.goto('/people/employees');
   await expect(page.getByRole('heading', { name: 'People' })).toBeVisible();
   // Wait for data to load (count text appears when query resolves).
   await expect(page.getByText(/\d+ (people|person)/i)).toBeVisible({ timeout: 8_000 });
-  await expect(page.getByText('Scoped view')).not.toBeVisible();
 });
 
 // ─── Test 3: Search filters to the test worker + shows job_title subtitle ────

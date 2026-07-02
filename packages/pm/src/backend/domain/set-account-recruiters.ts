@@ -1,11 +1,11 @@
 import type { SessionScope } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
+import { tenantScoped } from '@seta/shared-rbac';
 import { and, eq } from 'drizzle-orm';
 import type { SetAccountRecruitersInput } from '../../contracts.ts';
 import { PM_ACCOUNT_RECRUITER_ASSIGNED, PM_ACCOUNT_RECRUITER_UNASSIGNED } from '../../events.ts';
 import { pmDb } from '../db/client.ts';
 import { account, accountRecruiter } from '../db/schema.ts';
-import { tenantScoped } from '../db/scope.ts';
 import { PmError, requirePermission } from '../rbac.ts';
 
 export async function setAccountRecruiters(

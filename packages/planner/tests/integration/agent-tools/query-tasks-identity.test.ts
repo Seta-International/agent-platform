@@ -23,7 +23,7 @@ function buildAdminSession(opts: {
   email: string;
 }): SessionScope {
   const roles = ['org.admin'];
-  const role_summary = { roles, cross_tenant_read: false };
+  const role_summary = { roles, cross_tenant_read: false, assignments: [] };
   return {
     session_id: crypto.randomUUID(),
     user_id: opts.user_id,
@@ -33,9 +33,10 @@ function buildAdminSession(opts: {
     role_summary,
     role_summary_hash: hashRoleSummary(role_summary),
     permissions: resolvePermissions(_registry, roles, IMPLICIT_PERMISSIONS),
-    accessible_group_ids: [],
+    assignments: [],
     group_ids: [],
     product_access: new Set<string>(),
+    worker_id: null,
     cross_tenant_read: false,
     built_at: new Date(),
     invalidated_at: null,
@@ -58,7 +59,7 @@ async function seedProjection(
   );
 }
 
-const TOOL_PERMS = ['planner.task.read', 'planner.task.read.tenant', 'planner.group.member.read'];
+const TOOL_PERMS = ['planner.task.read', 'planner.reporting.read', 'planner.group.member.read'];
 
 describe('QnA identity resolution end-to-end (tool chain)', () => {
   it('assigneeScope "me" returns only the caller\'s tasks', async () => {

@@ -1,11 +1,10 @@
 import { resetCoreDb } from '@seta/core/testing';
 import { closePools, initPools } from '@seta/shared-db';
+import { tenantScoped } from '@seta/shared-rbac';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
 import { worker } from '../../src/backend/db/schema.ts';
-import { assertSameTenant, tenantScoped } from '../../src/backend/db/scope.ts';
-import { PeopleError } from '../../src/backend/rbac.ts';
 import { buildSession, seedTenant } from '../helpers.ts';
 
 const ctx = {
@@ -40,9 +39,6 @@ describe('people org isolation', () => {
           .from(worker)
           .where(tenantScoped(worker.tenant_id, bSession));
         expect(rowsForB).toHaveLength(0);
-
-        const rowA = { tenant_id: a.tenant_id };
-        expect(() => assertSameTenant(rowA, bSession)).toThrow(PeopleError);
       } finally {
         resetPeopleDb();
         resetCoreDb();

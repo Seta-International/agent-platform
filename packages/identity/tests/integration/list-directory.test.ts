@@ -51,7 +51,7 @@ it('returns account_status none/active/suspended, role summary, and SQL status f
         admin: false,
         suspended: true,
       });
-      // Admin caller holds identity.user.read.any via a real DB role-grant (requirePermission gate).
+      // Admin caller holds identity.user.list via a real DB role-grant (requirePermission gate).
       const admin = await seedDirectoryAccount(pool, {
         tenant_id: tenant,
         email: 'admin@acme.test',
@@ -107,7 +107,7 @@ it('returns account_status none/active/suspended, role summary, and SQL status f
   });
 });
 
-it('rejects a caller lacking identity.user.read.any', async () => {
+it('rejects a caller lacking identity.user.list', async () => {
   await withTestDb(ctx, async ({ pool, databaseUrl }) => {
     resetCoreDb();
     resetIdentityDb();

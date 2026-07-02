@@ -10,7 +10,7 @@ import { revokeRole } from '../../../src/backend/domain/revoke-role.ts';
 import { registerIdentityContributions } from '../../../src/register.ts';
 
 describe('grantRole / revokeRole', () => {
-  it('inserts a role_grants row + emits identity.role_grant.changed; revoke sets revoked_at', async () => {
+  it('inserts a role_assignments row + emits identity.role_grant.changed; revoke sets revoked_at', async () => {
     await withTestDb(
       {
         templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -50,7 +50,7 @@ describe('grantRole / revokeRole', () => {
               user_id: targetId,
               tenant_id: tenantId,
               role_slug: 'planner.viewer',
-              scope_type: 'tenant',
+              scope_kind: 'tenant',
               scope_id: null,
             },
             { type: 'user', user_id: adminId },
@@ -58,7 +58,7 @@ describe('grantRole / revokeRole', () => {
 
           const active = (
             await pool.query(
-              `SELECT count(*)::int AS n FROM identity.role_grants WHERE user_id = $1 AND role_slug = 'planner.viewer' AND revoked_at IS NULL`,
+              `SELECT count(*)::int AS n FROM identity.role_assignments WHERE user_id = $1 AND role_slug = 'planner.viewer' AND revoked_at IS NULL`,
               [targetId],
             )
           ).rows[0] as { n: number };
@@ -68,7 +68,7 @@ describe('grantRole / revokeRole', () => {
 
           const revokedActive = (
             await pool.query(
-              `SELECT count(*)::int AS n FROM identity.role_grants WHERE id = $1 AND revoked_at IS NULL`,
+              `SELECT count(*)::int AS n FROM identity.role_assignments WHERE id = $1 AND revoked_at IS NULL`,
               [grant_id],
             )
           ).rows[0] as { n: number };

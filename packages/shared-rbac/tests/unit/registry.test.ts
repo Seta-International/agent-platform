@@ -5,7 +5,7 @@ const k = {
   module: 'knowledge',
   permissions: [
     { key: 'knowledge.file.read', description: '' },
-    { key: 'knowledge.file.write', description: '' },
+    { key: 'knowledge.file.update', description: '' },
   ],
   roles: [{ slug: 'knowledge.viewer', description: '', permissions: ['knowledge.file.read'] }],
 };

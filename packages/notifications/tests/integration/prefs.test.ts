@@ -37,7 +37,6 @@ function makeAdminSession(overrides: Partial<SessionScope> = {}): SessionScope {
     role_summary,
     role_summary_hash: 'h',
     permissions: permsFor(role_summary.roles),
-    accessible_group_ids: [],
     cross_tenant_read: false,
     built_at: new Date(),
     invalidated_at: null,

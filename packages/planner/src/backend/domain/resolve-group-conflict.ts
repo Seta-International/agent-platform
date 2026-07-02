@@ -34,7 +34,7 @@ export async function resolveGroupConflict(
   },
   deps: ResolveGroupConflictDeps,
 ): Promise<void> {
-  requirePermission(input.session, 'planner.group.resolve-conflict', input.group_id);
+  await requirePermission(input.session, 'planner.group.resolve_conflict', input.group_id);
 
   if (input.decisions.length === 0) {
     throw new PlannerError('VALIDATION', 'No decisions provided');

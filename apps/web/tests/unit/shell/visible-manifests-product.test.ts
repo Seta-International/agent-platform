@@ -10,7 +10,7 @@ const planner = {
 const admin = {
   id: 'admin',
   routeNamespace: '/admin',
-  requiredPermissions: ['identity.user.read.any'],
+  requiredPermissions: ['identity.user.list'],
   nav: [],
 } as never;
 
@@ -19,7 +19,7 @@ describe('visibleManifests product gate', () => {
     const enabled = new Set(['planner', 'admin']);
     const out = visibleManifests(
       [planner, admin],
-      { permissions: new Set(['identity.user.read.any']), product_access: new Set() },
+      { permissions: new Set(['identity.user.list']), product_access: new Set() },
       enabled,
     );
     expect(out.map((m) => m.id)).toEqual(['admin']); // admin not a product → still visible

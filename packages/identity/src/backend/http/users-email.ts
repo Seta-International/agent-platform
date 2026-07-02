@@ -9,7 +9,7 @@ function requireAdmin(c: Context<SessionEnv>): void {
   const scope = c.get('user');
   const roles = scope.role_summary.roles;
   if (!roles.includes('org.admin') && !roles.includes('identity.admin')) {
-    throw new IdentityError('FORBIDDEN', 'identity.user.email.change required');
+    throw new IdentityError('FORBIDDEN', 'identity.user.change_email required');
   }
 }
 

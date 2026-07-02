@@ -8,6 +8,13 @@ import { identityDb } from '../db/index.ts';
 import { accessGroup, accessGroupMembership, accessGroupRole } from '../db/schema.ts';
 import { IdentityError, requirePermission } from '../rbac.ts';
 import type { Actor } from './create-user.ts';
+import { requireOrgUnitInTenant } from './helpers.ts';
+
+export interface GroupRoleInput {
+  role_slug: string;
+  scope_kind: 'tenant' | 'org_unit' | 'self';
+  scope_id: string | null;
+}
 
 export interface GroupRow {
   group_id: string;
@@ -16,7 +23,7 @@ export interface GroupRow {
   kind: 'default' | 'custom';
   is_base: boolean;
   member_count: number;
-  role_slugs: string[];
+  roles: GroupRoleInput[];
 }
 
 async function requireGroupInTenant(tx: NodeTx, groupId: string, tenantId: string): Promise<void> {
@@ -126,13 +133,19 @@ export async function deleteGroup(
 }
 
 export async function setGroupRoles(
-  input: { group_id: string; tenant_id: string; role_slugs: string[] },
+  input: { group_id: string; tenant_id: string; roles: GroupRoleInput[] },
   actor: Actor,
 ): Promise<void> {
   const by = await actorUserId(actor, input.tenant_id, 'identity.group.role.manage');
   const valid = new Set(ASSIGNABLE_ROLES);
-  for (const r of input.role_slugs) {
-    if (!valid.has(r)) throw new IdentityError('VALIDATION', `unknown role slug: ${r}`);
+  for (const r of input.roles) {
+    if (!valid.has(r.role_slug))
+      throw new IdentityError('VALIDATION', `unknown role slug: ${r.role_slug}`);
+    if (r.scope_kind === 'org_unit') {
+      if (!r.scope_id)
+        throw new IdentityError('VALIDATION', 'scope_id required for org_unit scope');
+      await requireOrgUnitInTenant(input.tenant_id, r.scope_id);
+    }
   }
   let members: { user_id: string }[] = [];
   await withEmit({ actor: { userId: by, tenantId: input.tenant_id } }, async (tx) => {
@@ -142,10 +155,15 @@ export async function setGroupRoles(
       .from(accessGroupMembership)
       .where(eq(accessGroupMembership.group_id, input.group_id));
     await tx.delete(accessGroupRole).where(eq(accessGroupRole.group_id, input.group_id));
-    if (input.role_slugs.length > 0) {
-      await tx
-        .insert(accessGroupRole)
-        .values(input.role_slugs.map((role_slug) => ({ group_id: input.group_id, role_slug })));
+    if (input.roles.length > 0) {
+      await tx.insert(accessGroupRole).values(
+        input.roles.map((r) => ({
+          group_id: input.group_id,
+          role_slug: r.role_slug,
+          scope_kind: r.scope_kind,
+          scope_id: r.scope_id,
+        })),
+      );
     }
     await emit({
       tenantId: input.tenant_id,
@@ -153,7 +171,7 @@ export async function setGroupRoles(
       aggregateId: input.group_id,
       eventType: 'identity.group.roles.changed',
       eventVersion: 1,
-      payload: { group_id: input.group_id, role_slugs: input.role_slugs },
+      payload: { group_id: input.group_id, roles: input.roles },
     });
   });
   for (const m of members) await invalidateUserSessions(m.user_id);
@@ -187,8 +205,12 @@ export async function listGroups(session: SessionScope): Promise<GroupRow[]> {
       ),
     );
   const countBy = new Map(counts.map((c) => [c.group_id, c.n]));
-  const rolesBy = new Map<string, string[]>();
-  for (const r of roles) rolesBy.set(r.group_id, [...(rolesBy.get(r.group_id) ?? []), r.role_slug]);
+  const rolesBy = new Map<string, GroupRoleInput[]>();
+  for (const r of roles)
+    rolesBy.set(r.group_id, [
+      ...(rolesBy.get(r.group_id) ?? []),
+      { role_slug: r.role_slug, scope_kind: r.scope_kind, scope_id: r.scope_id },
+    ]);
   return groups.map((g) => ({
     group_id: g.id,
     slug: g.slug,
@@ -196,6 +218,6 @@ export async function listGroups(session: SessionScope): Promise<GroupRow[]> {
     kind: g.kind,
     is_base: g.is_base,
     member_count: countBy.get(g.id) ?? 0,
-    role_slugs: (rolesBy.get(g.id) ?? []).sort(),
+    roles: (rolesBy.get(g.id) ?? []).sort((a, b) => a.role_slug.localeCompare(b.role_slug)),
   }));
 }

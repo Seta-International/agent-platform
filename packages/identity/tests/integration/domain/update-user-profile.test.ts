@@ -63,7 +63,7 @@ describe('updateUserProfile', () => {
     );
   });
 
-  it('admin can update another user with identity.user.write; non-admin cannot', async () => {
+  it('admin can update another user with identity.user.update; non-admin cannot', async () => {
     await withTestDb(
       {
         templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,

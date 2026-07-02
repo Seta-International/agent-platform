@@ -1,5 +1,6 @@
 import { listSkills, type SessionScope } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
+import { tenantScoped } from '@seta/shared-rbac';
 import { and, eq } from 'drizzle-orm';
 import type {
   AddCandidateInput,
@@ -20,7 +21,6 @@ import {
   candidateSkill,
   requisition,
 } from '../db/schema.ts';
-import { tenantScoped } from '../db/scope.ts';
 import { HiringError, requirePermission } from '../rbac.ts';
 
 type Tx = Parameters<Parameters<typeof withEmit>[1]>[0];

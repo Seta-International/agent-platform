@@ -34,7 +34,7 @@ export async function createLabel(
         });
       }
 
-      requirePermission(input.session, 'planner.plan.update', plan.group_id);
+      await requirePermission(input.session, 'planner.plan.update', plan.group_id);
 
       const [row] = await tx
         .insert(labels)

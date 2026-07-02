@@ -21,6 +21,7 @@ function buildSession(opts: {
   const role_summary = {
     roles: opts.roles ?? ['org.admin'],
     cross_tenant_read: false,
+    assignments: [],
   };
   return {
     session_id: crypto.randomUUID(),
@@ -31,9 +32,10 @@ function buildSession(opts: {
     role_summary,
     role_summary_hash: hashRoleSummary(role_summary),
     permissions: resolveTestPermissions(role_summary.roles),
-    accessible_group_ids: [],
+    assignments: [],
     group_ids: [],
     product_access: new Set<string>(),
+    worker_id: null,
     cross_tenant_read: false,
     built_at: new Date(),
     invalidated_at: null,
@@ -154,11 +156,11 @@ describe('GET /api/integrations/m365/groups/search', () => {
     expect(body.groups).toHaveLength(0);
   });
 
-  it('returns 403 for non-admin user without planner.group.link.m365', async () => {
+  it('returns 403 for non-admin user without planner.group.link_m365', async () => {
     const session = buildSession({
       tenant_id: tenantId,
       user_id: userId,
-      roles: ['planner.contributor'],
+      roles: ['planner.member'],
     });
     const app = buildTestApp(session, async () => {
       throw new Error('should not be called');
@@ -245,7 +247,6 @@ describe('POST /api/integrations/m365/groups/:groupId/link', () => {
             ...session,
             email: adminEmail,
             display_name: 'Admin',
-            accessible_group_ids: [],
             group_ids: [],
             product_access: new Set<string>(),
           },
@@ -287,7 +288,7 @@ describe('POST /api/integrations/m365/groups/:groupId/link', () => {
     });
   });
 
-  it('returns 403 for non-admin without planner.group.link.m365', async () => {
+  it('returns 403 for non-admin without planner.group.link_m365', async () => {
     await withTestDb(dbEnv(), async ({ pool, databaseUrl }) => {
       resetCoreDb();
       initPools({ databaseUrl });
@@ -297,7 +298,6 @@ describe('POST /api/integrations/m365/groups/:groupId/link', () => {
           ...buildSession({ tenant_id: tenantId, user_id: adminUserId }),
           email: adminEmail,
           display_name: 'Admin',
-          accessible_group_ids: [] as string[],
           group_ids: [],
           product_access: new Set<string>(),
         };
@@ -310,7 +310,7 @@ describe('POST /api/integrations/m365/groups/:groupId/link', () => {
         const nonAdminSession = buildSession({
           tenant_id: tenantId,
           user_id: crypto.randomUUID(),
-          roles: ['planner.contributor'],
+          roles: ['planner.member'],
         });
         const app = buildTestApp(nonAdminSession, async () => {
           throw new Error('unused');
@@ -374,7 +374,6 @@ describe('POST /api/integrations/m365/groups/:groupId/unlink', () => {
           ...session,
           email: adminEmail,
           display_name: 'Admin',
-          accessible_group_ids: [] as string[],
           group_ids: [],
           product_access: new Set<string>(),
         };
@@ -425,7 +424,6 @@ describe('POST /api/integrations/m365/groups/:groupId/unlink', () => {
           ...buildSession({ tenant_id: tenantId, user_id: adminUserId }),
           email: adminEmail,
           display_name: 'Admin',
-          accessible_group_ids: [] as string[],
           group_ids: [],
           product_access: new Set<string>(),
         };
@@ -449,7 +447,7 @@ describe('POST /api/integrations/m365/groups/:groupId/unlink', () => {
         const nonAdminSession = buildSession({
           tenant_id: tenantId,
           user_id: crypto.randomUUID(),
-          roles: ['planner.contributor'],
+          roles: ['planner.member'],
         });
         const app = buildTestApp(nonAdminSession, async () => {
           throw new Error('unused');
@@ -547,37 +545,47 @@ describe('POST /api/integrations/m365/groups/:groupId/refresh', () => {
     expect(body.error).toBe('NOT_LINKED');
   });
 
-  it('returns 403 when the user does not have the group in accessible_group_ids', async () => {
-    // Tests the group-scope gate in requirePermission: accessible_group_ids: [] means the
-    // caller has no access to this group, regardless of which roles they hold.
-    const session = buildSession({
-      tenant_id: tenantId,
-      user_id: userId,
-      roles: ['planner.viewer'],
-    });
-    const app = buildTestApp(
-      session,
-      async () => {
-        throw new Error('unused');
-      },
-      {
-        m365LinksRepo: {
-          findByGroup: vi.fn().mockResolvedValue({ tenantId, groupId, externalId: 'ext-x' }),
-          findByExternal: vi.fn(),
-          upsert: vi.fn(),
-          tombstone: vi.fn(),
-          setSyncStatus: vi.fn(),
-        } as unknown as m365.M365GroupLinkRepo,
-      },
-    );
+  it('returns 403 when the user is not a member of the group', async () => {
+    // Tests the group-scope gate in requirePermission: no planner.group_members row means the
+    // caller has no access to this group, regardless of which roles they hold. The membership
+    // check queries plannerDb() live, so this needs a real pool.
+    await withTestDb(dbEnv(), async ({ databaseUrl }) => {
+      resetCoreDb();
+      initPools({ databaseUrl });
+      try {
+        const session = buildSession({
+          tenant_id: tenantId,
+          user_id: userId,
+          roles: ['planner.viewer'],
+        });
+        const app = buildTestApp(
+          session,
+          async () => {
+            throw new Error('unused');
+          },
+          {
+            m365LinksRepo: {
+              findByGroup: vi.fn().mockResolvedValue({ tenantId, groupId, externalId: 'ext-x' }),
+              findByExternal: vi.fn(),
+              upsert: vi.fn(),
+              tombstone: vi.fn(),
+              setSyncStatus: vi.fn(),
+            } as unknown as m365.M365GroupLinkRepo,
+          },
+        );
 
-    const res = await app.request(`/api/integrations/m365/groups/${groupId}/refresh`, {
-      method: 'POST',
-    });
+        const res = await app.request(`/api/integrations/m365/groups/${groupId}/refresh`, {
+          method: 'POST',
+        });
 
-    expect(res.status).toBe(403);
-    const body = (await res.json()) as { error: string };
-    expect(body.error).toBe('FORBIDDEN');
+        expect(res.status).toBe(403);
+        const body = (await res.json()) as { error: string };
+        expect(body.error).toBe('FORBIDDEN');
+      } finally {
+        resetCoreDb();
+        await closePools();
+      }
+    });
   });
 });
 
@@ -658,11 +666,11 @@ describe('POST /api/integrations/m365/groups/:groupId/resolve', () => {
     expect(body.error).toBe('NOT_FOUND');
   });
 
-  it('returns 403 for planner.contributor without resolve permission', async () => {
+  it('returns 403 for planner.member without resolve permission', async () => {
     const session = buildSession({
       tenant_id: tenantId,
       user_id: userId,
-      roles: ['planner.contributor'],
+      roles: ['planner.member'],
     });
     const app = buildTestApp(
       session,
@@ -699,7 +707,6 @@ describe('POST /api/integrations/m365/groups/:groupId/resolve', () => {
           ...buildSession({ tenant_id: tid, user_id: adminUserId }),
           email: adminEmail,
           display_name: 'Admin',
-          accessible_group_ids: [] as string[],
           group_ids: [],
           product_access: new Set<string>(),
         };
@@ -864,32 +871,42 @@ describe('GET /api/integrations/m365/groups/:groupId/sync-status', () => {
   });
 
   it('returns 403 when user does not have access to the group', async () => {
-    const session = buildSession({
-      tenant_id: tenantId,
-      user_id: userId,
-      roles: ['planner.contributor'],
-    });
-    const app = buildTestApp(
-      session,
-      async () => {
-        throw new Error('unused');
-      },
-      {
-        m365LinksRepo: {
-          findByGroup: vi.fn().mockResolvedValue(null),
-          findByExternal: vi.fn(),
-          upsert: vi.fn(),
-          tombstone: vi.fn(),
-          setSyncStatus: vi.fn(),
-          persistDeltaLink: vi.fn(),
-        } as unknown as m365.M365GroupLinkRepo,
-      },
-    );
+    // hasGroupAccess falls through to a live plannerDb() membership query for non-admin roles.
+    await withTestDb(dbEnv(), async ({ databaseUrl }) => {
+      resetCoreDb();
+      initPools({ databaseUrl });
+      try {
+        const session = buildSession({
+          tenant_id: tenantId,
+          user_id: userId,
+          roles: ['planner.member'],
+        });
+        const app = buildTestApp(
+          session,
+          async () => {
+            throw new Error('unused');
+          },
+          {
+            m365LinksRepo: {
+              findByGroup: vi.fn().mockResolvedValue(null),
+              findByExternal: vi.fn(),
+              upsert: vi.fn(),
+              tombstone: vi.fn(),
+              setSyncStatus: vi.fn(),
+              persistDeltaLink: vi.fn(),
+            } as unknown as m365.M365GroupLinkRepo,
+          },
+        );
 
-    const res = await app.request(`/api/integrations/m365/groups/${groupId}/sync-status`);
-    expect(res.status).toBe(403);
-    const body = (await res.json()) as { error: string };
-    expect(body.error).toBe('FORBIDDEN');
+        const res = await app.request(`/api/integrations/m365/groups/${groupId}/sync-status`);
+        expect(res.status).toBe(403);
+        const body = (await res.json()) as { error: string };
+        expect(body.error).toBe('FORBIDDEN');
+      } finally {
+        resetCoreDb();
+        await closePools();
+      }
+    });
   });
 });
 
@@ -899,32 +916,44 @@ describe('GET /api/integrations/m365/groups/:groupId/sync-status/stream', () => 
   const groupId = crypto.randomUUID();
 
   it('returns 403 when user does not have group access', async () => {
-    const session = buildSession({
-      tenant_id: tenantId,
-      user_id: userId,
-      roles: ['planner.contributor'],
-    });
-    const app = buildTestApp(
-      session,
-      async () => {
-        throw new Error('unused');
-      },
-      {
-        m365LinksRepo: {
-          findByGroup: vi.fn().mockResolvedValue(null),
-          findByExternal: vi.fn(),
-          upsert: vi.fn(),
-          tombstone: vi.fn(),
-          setSyncStatus: vi.fn(),
-          persistDeltaLink: vi.fn(),
-        } as unknown as m365.M365GroupLinkRepo,
-      },
-    );
+    // hasGroupAccess falls through to a live plannerDb() membership query for non-admin roles.
+    await withTestDb(dbEnv(), async ({ databaseUrl }) => {
+      resetCoreDb();
+      initPools({ databaseUrl });
+      try {
+        const session = buildSession({
+          tenant_id: tenantId,
+          user_id: userId,
+          roles: ['planner.member'],
+        });
+        const app = buildTestApp(
+          session,
+          async () => {
+            throw new Error('unused');
+          },
+          {
+            m365LinksRepo: {
+              findByGroup: vi.fn().mockResolvedValue(null),
+              findByExternal: vi.fn(),
+              upsert: vi.fn(),
+              tombstone: vi.fn(),
+              setSyncStatus: vi.fn(),
+              persistDeltaLink: vi.fn(),
+            } as unknown as m365.M365GroupLinkRepo,
+          },
+        );
 
-    const res = await app.request(`/api/integrations/m365/groups/${groupId}/sync-status/stream`);
-    expect(res.status).toBe(403);
-    const body = (await res.json()) as { error: string };
-    expect(body.error).toBe('FORBIDDEN');
+        const res = await app.request(
+          `/api/integrations/m365/groups/${groupId}/sync-status/stream`,
+        );
+        expect(res.status).toBe(403);
+        const body = (await res.json()) as { error: string };
+        expect(body.error).toBe('FORBIDDEN');
+      } finally {
+        resetCoreDb();
+        await closePools();
+      }
+    });
   });
 
   it('connects and sends initial sync-status event with SSE headers', async () => {

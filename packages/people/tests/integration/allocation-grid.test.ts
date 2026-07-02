@@ -24,7 +24,7 @@ describe('getAllocationGrid', () => {
       resetPeopleDb();
       initPools({ databaseUrl });
       try {
-        const t = await seedTenant(pool); // adminSession holds people.worker.read.all
+        const t = await seedTenant(pool); // adminSession holds a tenant-scope assignment
         const personId = crypto.randomUUID();
         const accountId = crypto.randomUUID();
         const projA = crypto.randomUUID();

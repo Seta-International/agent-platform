@@ -5,16 +5,21 @@ import { LRUCache } from 'lru-cache';
 import { coreDb } from '../db/client.ts';
 import { sessionScopeCache } from '../db/schema/index.ts';
 
-export interface RoleGrant {
+export interface RoleAssignment {
   role_slug: string;
-  scope_type: 'tenant' | 'group';
+  scope_kind: 'tenant' | 'org_unit' | 'self';
   scope_id: string | null;
   granted_at: Date;
 }
 
-export type ListRoleGrants = (
+export type ListRoleAssignments = (
   userId: string,
-) => Promise<{ tenant_id: string; grants: ReadonlyArray<RoleGrant> }>;
+) => Promise<{ tenant_id: string; assignments: ReadonlyArray<RoleAssignment> }>;
+
+export type ExpandOrgUnits = (
+  tenantId: string,
+  rootIds: readonly string[],
+) => Promise<Record<string, string[]>>;
 
 export type ResolvePermissions = (
   roles: readonly string[],
@@ -29,18 +34,38 @@ export type ResolveProductAccess = (
   groupIds: readonly string[],
 ) => Promise<ReadonlySet<string>>;
 
+export type ResolveWorkerId = (userId: string, tenantId: string) => Promise<string | null>;
+
+export interface SessionAssignment {
+  role_slug: string;
+  scope_kind: 'tenant' | 'org_unit' | 'self';
+  scope_id: string | null;
+  org_unit_ids?: readonly string[];
+}
+
+export interface RoleSummary {
+  roles: string[];
+  cross_tenant_read: boolean;
+  assignments: Array<{
+    role_slug: string;
+    scope_kind: SessionAssignment['scope_kind'];
+    scope_id: string | null;
+  }>;
+}
+
 export interface SessionScope {
   session_id: string;
   user_id: string;
   tenant_id: string;
   email: string;
   display_name: string;
-  role_summary: { roles: string[]; cross_tenant_read: boolean };
+  role_summary: RoleSummary;
   role_summary_hash: string;
   permissions: ReadonlySet<string>;
-  accessible_group_ids: ReadonlyArray<string>;
+  assignments: ReadonlyArray<SessionAssignment>;
   group_ids: ReadonlyArray<string>;
   product_access: ReadonlySet<string>;
+  worker_id: string | null;
   cross_tenant_read: boolean;
   built_at: Date;
   invalidated_at: Date | null;
@@ -62,37 +87,64 @@ function applyProductGate(
   return gated;
 }
 
-export function rollup(grants: ReadonlyArray<RoleGrant>): {
-  roles: string[];
-  cross_tenant_read: boolean;
-} {
-  const roles = Array.from(new Set(grants.map((g) => g.role_slug))).sort();
-  const cross_tenant_read = grants.some((g) => g.role_slug === 'org.viewer');
-  return { roles, cross_tenant_read };
+function assignmentSortKey(a: {
+  role_slug: string;
+  scope_kind: string;
+  scope_id: string | null;
+}): string {
+  return `${a.role_slug}|${a.scope_kind}|${a.scope_id ?? ''}`;
 }
 
-export function hashRoleSummary(summary: { roles: string[]; cross_tenant_read: boolean }): string {
+export function rollup(assignments: ReadonlyArray<RoleAssignment>): RoleSummary {
+  const roles = Array.from(new Set(assignments.map((a) => a.role_slug))).sort();
+  const cross_tenant_read = assignments.some((a) => a.role_slug === 'org.viewer');
+  const summaryAssignments = assignments
+    .map((a) => ({ role_slug: a.role_slug, scope_kind: a.scope_kind, scope_id: a.scope_id }))
+    .sort((a, b) => assignmentSortKey(a).localeCompare(assignmentSortKey(b)));
+  return { roles, cross_tenant_read, assignments: summaryAssignments };
+}
+
+export function hashRoleSummary(summary: RoleSummary): string {
   const canonical = JSON.stringify({
     roles: [...summary.roles].sort(),
     cross_tenant_read: summary.cross_tenant_read,
+    assignments: [...summary.assignments].sort((a, b) =>
+      assignmentSortKey(a).localeCompare(assignmentSortKey(b)),
+    ),
   });
   return createHash('sha256').update(canonical).digest('hex').slice(0, 16);
 }
 
-export function computeAccessibleGroups(grants: ReadonlyArray<RoleGrant>): ReadonlyArray<string> {
-  const groups = new Set<string>();
-  for (const g of grants) {
-    if (g.scope_type === 'group' && g.scope_id) groups.add(g.scope_id);
-  }
-  return Array.from(groups).sort();
+// Expansion is computed fresh on every build/hydrate, never persisted — only
+// {role_slug, scope_kind, scope_id} lives in the jsonb (spec: computed, not stored).
+async function expandAssignments(
+  summary: RoleSummary,
+  tenantId: string,
+  expand?: ExpandOrgUnits,
+): Promise<SessionAssignment[]> {
+  const orgRoots = [
+    ...new Set(
+      summary.assignments
+        .filter((a) => a.scope_kind === 'org_unit' && a.scope_id)
+        .map((a) => a.scope_id as string),
+    ),
+  ];
+  const reach = expand && orgRoots.length ? await expand(tenantId, orgRoots) : {};
+  return summary.assignments.map((a) =>
+    a.scope_kind === 'org_unit' && a.scope_id
+      ? { ...a, org_unit_ids: reach[a.scope_id] ?? [a.scope_id] }
+      : a,
+  );
 }
 
 export async function getSessionScope(
   deps: {
-    listRoleGrants: ListRoleGrants;
+    listRoleAssignments: ListRoleAssignments;
     resolvePermissions: ResolvePermissions;
     resolveGroupIds?: ResolveGroupIds;
     resolveProductAccess?: ResolveProductAccess;
+    resolveWorkerId?: ResolveWorkerId;
+    expandOrgUnits?: ExpandOrgUnits;
   },
   sessionId: string,
   userId: string,
@@ -109,10 +161,19 @@ export async function getSessionScope(
     .where(eq(sessionScopeCache.session_id, sessionId))
     .limit(1);
   if (cached && !cached.invalidated_at) {
-    const rawPermissions = await deps.resolvePermissions(
-      (cached.role_summary as { roles: string[] }).roles,
-      cached.tenant_id,
-    );
+    const cachedSummary = cached.role_summary as RoleSummary;
+    // Back-compat: pre-refactor cached rows have no `assignments` field (dev DBs aren't wiped mid-program).
+    const summary: RoleSummary = cachedSummary.assignments
+      ? cachedSummary
+      : {
+          ...cachedSummary,
+          assignments: cachedSummary.roles.map((r) => ({
+            role_slug: r,
+            scope_kind: 'tenant' as const,
+            scope_id: null,
+          })),
+        };
+    const rawPermissions = await deps.resolvePermissions(summary.roles, cached.tenant_id);
     const group_ids = await resolveGroupIds(cached.user_id);
     const productAccess = deps.resolveProductAccess
       ? await deps.resolveProductAccess(cached.user_id, cached.tenant_id, group_ids)
@@ -120,15 +181,19 @@ export async function getSessionScope(
     const permissions = productAccess
       ? applyProductGate(rawPermissions, productAccess)
       : rawPermissions;
+    const worker_id = deps.resolveWorkerId
+      ? await deps.resolveWorkerId(cached.user_id, cached.tenant_id)
+      : null;
     const scope: SessionScope = {
       session_id: cached.session_id,
       tenant_id: cached.tenant_id,
       user_id: cached.user_id,
       role_summary_hash: cached.role_summary_hash,
-      role_summary: cached.role_summary as { roles: string[]; cross_tenant_read: boolean },
-      accessible_group_ids: cached.accessible_group_ids as string[],
+      role_summary: summary,
+      assignments: await expandAssignments(summary, cached.tenant_id, deps.expandOrgUnits),
       group_ids,
       product_access: productAccess ?? new Set<string>(),
+      worker_id,
       cross_tenant_read: cached.cross_tenant_read,
       built_at: cached.built_at,
       invalidated_at: cached.invalidated_at,
@@ -140,8 +205,8 @@ export async function getSessionScope(
     return scope;
   }
 
-  const { tenant_id, grants } = await deps.listRoleGrants(userId);
-  const role_summary = rollup(grants);
+  const { tenant_id, assignments } = await deps.listRoleAssignments(userId);
+  const role_summary = rollup(assignments);
   const rawPermissions = await deps.resolvePermissions(role_summary.roles, tenant_id);
   const group_ids = await resolveGroupIds(userId);
   const productAccess = deps.resolveProductAccess
@@ -150,6 +215,7 @@ export async function getSessionScope(
   const permissions = productAccess
     ? applyProductGate(rawPermissions, productAccess)
     : rawPermissions;
+  const worker_id = deps.resolveWorkerId ? await deps.resolveWorkerId(userId, tenant_id) : null;
   const scope: SessionScope = {
     session_id: sessionId,
     user_id: userId,
@@ -158,9 +224,10 @@ export async function getSessionScope(
     display_name: displayName,
     role_summary,
     role_summary_hash: hashRoleSummary(role_summary),
-    accessible_group_ids: computeAccessibleGroups(grants),
+    assignments: await expandAssignments(role_summary, tenant_id, deps.expandOrgUnits),
     group_ids,
     product_access: productAccess ?? new Set<string>(),
+    worker_id,
     cross_tenant_read: role_summary.cross_tenant_read,
     built_at: new Date(),
     invalidated_at: null,
@@ -175,7 +242,6 @@ export async function getSessionScope(
       user_id: userId,
       role_summary_hash: scope.role_summary_hash,
       role_summary: scope.role_summary,
-      accessible_group_ids: scope.accessible_group_ids as string[],
       cross_tenant_read: scope.cross_tenant_read,
       built_at: scope.built_at,
       invalidated_at: null,
@@ -187,7 +253,6 @@ export async function getSessionScope(
         user_id: userId,
         role_summary_hash: scope.role_summary_hash,
         role_summary: scope.role_summary,
-        accessible_group_ids: scope.accessible_group_ids as string[],
         cross_tenant_read: scope.cross_tenant_read,
         built_at: scope.built_at,
         invalidated_at: null,

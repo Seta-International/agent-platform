@@ -42,7 +42,7 @@ describe('listTenantRoleOverlays', () => {
           {
             tenant_id: tenant,
             role_slug: 'knowledge.viewer',
-            permission_key: 'knowledge.file.write',
+            permission_key: 'knowledge.file.update',
             effect: 'grant',
           },
           {
@@ -53,7 +53,7 @@ describe('listTenantRoleOverlays', () => {
           },
         ]);
       const overlay = await listTenantRoleOverlays(tenant);
-      expect(overlay.get('knowledge.viewer')?.get('knowledge.file.write')).toBe('grant');
+      expect(overlay.get('knowledge.viewer')?.get('knowledge.file.update')).toBe('grant');
       expect(overlay.get('knowledge.member')?.get('knowledge.file.delete')).toBe('revoke');
     });
   });

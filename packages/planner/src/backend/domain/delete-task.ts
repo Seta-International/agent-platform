@@ -37,7 +37,7 @@ export async function deleteTask(input: {
           plan_id: existing.plan_id,
         });
 
-      requirePermission(input.session, 'planner.task.delete', plan.group_id);
+      await requirePermission(input.session, 'planner.task.delete', plan.group_id);
 
       const deletedAt = new Date();
       const deleted = await tx

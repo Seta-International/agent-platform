@@ -1,9 +1,10 @@
 import type { SessionScope } from '@seta/core';
+import { tenantScoped } from '@seta/shared-rbac';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { pmDb } from '../db/client.ts';
 import { account, accountRecruiter, project } from '../db/schema.ts';
-import { tenantScoped } from '../db/scope.ts';
 import { PmError, requirePermission } from '../rbac.ts';
+import { buildAccountScope } from './scope.ts';
 
 export interface AccountListRow {
   account_id: string;
@@ -17,6 +18,9 @@ export interface AccountListRow {
 export async function listAccounts(session: SessionScope): Promise<AccountListRow[]> {
   requirePermission(session, 'pm.account.read');
 
+  const conds = [tenantScoped(account.tenant_id, session)];
+  const scope = buildAccountScope(session);
+  if (scope) conds.push(scope);
   const accounts = await pmDb()
     .select({
       account_id: account.id,
@@ -25,7 +29,7 @@ export async function listAccounts(session: SessionScope): Promise<AccountListRo
       am_worker_id: account.am_worker_id,
     })
     .from(account)
-    .where(tenantScoped(account.tenant_id, session))
+    .where(and(...conds))
     .orderBy(account.name);
 
   const recruiterCounts = await pmDb()
@@ -59,11 +63,15 @@ export async function getAccount(input: { account_id: string; session: SessionSc
   const { account_id, session } = input;
   requirePermission(session, 'pm.account.read');
 
+  const conds = [eq(account.id, account_id), tenantScoped(account.tenant_id, session)];
+  const scope = buildAccountScope(session);
+  if (scope) conds.push(scope);
   const [a] = await pmDb()
     .select()
     .from(account)
-    .where(and(eq(account.id, account_id), tenantScoped(account.tenant_id, session)))
+    .where(and(...conds))
     .limit(1);
+  // Invisible-through-scope rows return NOT_FOUND, never FORBIDDEN — don't leak existence.
   if (!a) throw new PmError('NOT_FOUND', 'account not found');
 
   const recs = await pmDb()

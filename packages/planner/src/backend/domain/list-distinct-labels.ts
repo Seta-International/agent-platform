@@ -14,7 +14,7 @@ export interface ListDistinctLabelsInput {
  * extraction against the actual vocabulary rather than hallucinated variants.
  */
 export async function listDistinctLabels(input: ListDistinctLabelsInput): Promise<string[]> {
-  requirePermission(input.session, 'planner.task.read');
+  await requirePermission(input.session, 'planner.task.read');
 
   const db = plannerDb();
   const rows = await db

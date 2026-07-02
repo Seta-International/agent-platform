@@ -1,28 +1,7 @@
-import { type Statement, toManifest } from '@seta/shared-rbac';
+import { INVENTORY, inventoryToManifests } from '@seta/shared-rbac';
 
-export const coreStatement = {
-  'core.skill': ['read', 'manage'],
-} as const satisfies Statement;
+export type { CorePermission } from './generated/rbac.ts';
+export { CORE_PERMISSIONS } from './generated/rbac.ts';
 
-const roleStatements = {
-  'core.admin': {
-    'core.skill': ['read', 'manage'],
-  },
-} as const satisfies Record<string, Statement>;
-
-export const coreRbac = toManifest(
-  'core',
-  coreStatement,
-  roleStatements,
-  {
-    'core.admin': 'Manage the system-wide skill catalog',
-  },
-  {
-    'core.skill.read': 'Read the skill catalog',
-    'core.skill.manage': 'Create, edit, and archive catalog skills and categories',
-  },
-);
-
-export type CorePermission = (typeof coreRbac.permissions)[number]['key'];
-
-export const CORE_PERMISSIONS = coreRbac.permissions.map((p) => p.key);
+// biome-ignore lint/style/noNonNullAssertion: 'core' is always in INVENTORY (asserted by codegen-drift.test.ts)
+export const coreRbac = inventoryToManifests(INVENTORY).find((m) => m.module === 'core')!;

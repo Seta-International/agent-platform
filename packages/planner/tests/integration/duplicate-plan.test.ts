@@ -6,7 +6,6 @@ import {
   addChecklistItem,
   addTaskReference,
   applyLabel,
-  assignTask,
   completeTask,
   createBucket,
   createGroup,
@@ -17,7 +16,7 @@ import {
   listTasks,
   updateTask,
 } from '../../src/index.ts';
-import { seedTenant } from '../helpers.ts';
+import { assignTaskInGroup, seedTenant } from '../helpers.ts';
 
 describe('duplicatePlan', () => {
   it('copies buckets, tasks, status, priority, assignees, labels, checklist, and references', async () => {
@@ -56,7 +55,12 @@ describe('duplicatePlan', () => {
             session,
           });
           await addChecklistItem({ task_id: openTask.id, label: 'Step 1', session });
-          await assignTask({ task_id: openTask.id, user_id: otherUser.user_id, session });
+          await assignTaskInGroup({
+            group_id: group.id,
+            task_id: openTask.id,
+            user_id: otherUser.user_id,
+            session,
+          });
 
           const label = await createLabel({
             plan_id: sourcePlan.id,

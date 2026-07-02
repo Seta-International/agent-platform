@@ -1,6 +1,7 @@
 import {
   Alert,
   AlertDescription,
+  AsyncCombobox,
   Badge,
   Button,
   Card,
@@ -23,6 +24,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from '@tanstack/react-router';
 import { ChevronLeft } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { orgUnitSearch } from '../api/org-unit-search.ts';
 import { createPlannerGroup, fetchPlannerGroups } from '../api/planner-client.ts';
 import {
   closeProject,
@@ -261,6 +263,18 @@ export function ProjectDetailPage() {
               <Textarea
                 value={(patchVal('objective', p.objective) ?? '') as string}
                 onChange={(e) => setPatch((s) => ({ ...s, objective: e.target.value }))}
+                disabled={inputsDisabled}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label>Org unit</Label>
+              <AsyncCombobox
+                value={patch.org_unit_id !== undefined ? patch.org_unit_id : p.org_unit_id}
+                onChange={(v) => setPatch((s) => ({ ...s, org_unit_id: v }))}
+                search={orgUnitSearch.search}
+                resolveByIds={orgUnitSearch.resolveByIds}
+                placeholder="Search org units…"
                 disabled={inputsDisabled}
               />
             </div>

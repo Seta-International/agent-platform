@@ -11,7 +11,6 @@ export interface UserCreateOpts {
   name: string;
   password?: string;
   roles?: string[];
-  group?: string;
 }
 
 export async function userCreateCommand(opts: UserCreateOpts): Promise<void> {
@@ -24,15 +23,8 @@ export async function userCreateCommand(opts: UserCreateOpts): Promise<void> {
   );
 
   for (const slug of opts.roles ?? []) {
-    const isGroupScoped = slug.startsWith('planner.') && Boolean(opts.group);
     await grantRole(
-      {
-        user_id,
-        tenant_id: tenantId,
-        role_slug: slug,
-        scope_type: isGroupScoped ? 'group' : 'tenant',
-        scope_id: isGroupScoped ? (opts.group ?? null) : null,
-      },
+      { user_id, tenant_id: tenantId, role_slug: slug, scope_kind: 'tenant', scope_id: null },
       { type: 'cli', user_id: null },
     );
   }

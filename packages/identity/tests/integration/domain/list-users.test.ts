@@ -159,7 +159,7 @@ describe('listUsers', () => {
               user_id: adminId,
               tenant_id: tenantId,
               role_slug: 'org.member',
-              scope_type: 'tenant',
+              scope_kind: 'tenant',
               scope_id: null,
             },
             { type: 'cli', user_id: null },

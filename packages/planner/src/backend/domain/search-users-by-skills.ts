@@ -20,7 +20,7 @@ export async function searchUsersBySkills(input: {
   exclude_user_ids?: string[];
   session: SessionScope;
 }): Promise<CandidateRow[]> {
-  requirePermission(input.session, 'planner.group.member.read', input.group_id);
+  await requirePermission(input.session, 'planner.group.member.read', input.group_id);
 
   const db = plannerDb();
 
@@ -40,7 +40,7 @@ export async function searchUsersBySkills(input: {
     });
   }
 
-  const filter = groupFilterFor(input.session);
+  const filter = await groupFilterFor(input.session);
   if (filter !== null && !filter.includes(input.group_id)) {
     throw new PlannerError('FORBIDDEN', 'No access to group', { group_id: input.group_id });
   }

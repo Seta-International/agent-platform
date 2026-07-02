@@ -12,7 +12,7 @@ export function mountThreadRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDeps
   app.get('/api/agent/v1/threads', async (c) => {
     const check = checkPerm(
       c.get('session') as import('../types.ts').SessionLike | undefined,
-      'agent.thread.read.self',
+      'agent.thread.read',
     );
     if (!check.ok) return c.json(check.denied.body, check.denied.status);
     const storage = getMemoryStore(deps.mastra);
@@ -33,7 +33,7 @@ export function mountThreadRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDeps
   app.get('/api/agent/v1/threads/:id', async (c) => {
     const check = checkPerm(
       c.get('session') as import('../types.ts').SessionLike | undefined,
-      'agent.thread.read.self',
+      'agent.thread.read',
     );
     if (!check.ok) return c.json(check.denied.body, check.denied.status);
     const storage = getMemoryStore(deps.mastra);
@@ -64,7 +64,7 @@ export function mountThreadRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDeps
   app.patch('/api/agent/v1/threads/:id', async (c) => {
     const check = checkPerm(
       c.get('session') as import('../types.ts').SessionLike | undefined,
-      'agent.thread.write.self',
+      'agent.thread.write',
     );
     if (!check.ok) return c.json(check.denied.body, check.denied.status);
     const storage = getMemoryStore(deps.mastra);
@@ -86,7 +86,7 @@ export function mountThreadRoutes(app: Hono<AgentRouteEnv>, deps: AgentRouteDeps
   app.delete('/api/agent/v1/threads/:id', async (c) => {
     const check = checkPerm(
       c.get('session') as import('../types.ts').SessionLike | undefined,
-      'agent.thread.write.self',
+      'agent.thread.write',
     );
     if (!check.ok) return c.json(check.denied.body, check.denied.status);
     const storage = getMemoryStore(deps.mastra);

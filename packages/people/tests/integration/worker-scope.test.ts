@@ -1,5 +1,6 @@
 import { resetCoreDb } from '@seta/core/testing';
 import { closePools, initPools } from '@seta/shared-db';
+import { tenantScoped } from '@seta/shared-rbac';
 import { withTestDb } from '@seta/shared-testing';
 import { and, eq } from 'drizzle-orm';
 import type { Pool } from 'pg';
@@ -11,7 +12,6 @@ import {
   worker,
   workerAllocationProjection,
 } from '../../src/backend/db/schema.ts';
-import { tenantScoped } from '../../src/backend/db/scope.ts';
 import { createWorker } from '../../src/backend/domain/create-worker.ts';
 import { buildWorkerScope } from '../../src/backend/domain/worker-scope.ts';
 import { buildSession, type SeededTenant, seedOrgUnit, seedTenant } from '../helpers.ts';
@@ -60,6 +60,8 @@ interface Graph {
   accountA: string;
   projectAcct: string;
   projectP: string;
+  u1: string;
+  u2: string;
 }
 
 /**
@@ -138,7 +140,7 @@ async function buildGraph(pool: Pool): Promise<Graph> {
     active: true,
   });
 
-  return { t, M, R1, R2, AM, W_am, L, W_lead, U, accountA, projectAcct, projectP };
+  return { t, M, R1, R2, AM, W_am, L, W_lead, U, accountA, projectAcct, projectP, u1, u2 };
 }
 
 function viewer(t: SeededTenant, userId: string): ReturnType<typeof buildSession> {
@@ -231,7 +233,7 @@ describe('buildWorkerScope', () => {
     });
   });
 
-  it('read.all session returns null predicate and sees everyone in tenant', async () => {
+  it('tenant-scoped assignment returns null predicate and sees everyone in tenant', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPeopleDb();
@@ -242,11 +244,67 @@ describe('buildWorkerScope', () => {
         const session = buildSession({
           tenant_id: g.t.tenant_id,
           user_id: adminUser,
-          roles: ['people.strategic'],
+          roles: ['people.manager'],
+          assignments: [{ role_slug: 'people.manager', scope_kind: 'tenant', scope_id: null }],
         });
         expect(buildWorkerScope(session)).toBeNull();
         const seen = await visible(session);
         expect(seen).toEqual(new Set([g.M, g.R1, g.R2, g.AM, g.W_am, g.L, g.W_lead, g.U]));
+      } finally {
+        resetPeopleDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('org_unit-scoped assignment sees the unit subtree members only', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      initPools({ databaseUrl });
+      try {
+        const g = await buildGraph(pool);
+        // Viewer holds no worker record of their own, so the self/relationship arms are all
+        // no-ops (`me` resolves to NULL) — isolates the org_unit arm.
+        const session = buildSession({
+          tenant_id: g.t.tenant_id,
+          user_id: crypto.randomUUID(),
+          roles: ['people.viewer'],
+          assignments: [
+            {
+              role_slug: 'people.viewer',
+              scope_kind: 'org_unit',
+              scope_id: g.u2,
+              org_unit_ids: [g.u2],
+            },
+          ],
+        });
+        const seen = await visible(session);
+        expect(seen).toEqual(new Set([g.R1, g.R2]));
+      } finally {
+        resetPeopleDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('holder with permission but no scoped assignment and no relationships sees nothing', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      initPools({ databaseUrl });
+      try {
+        const g = await buildGraph(pool);
+        const session = buildSession({
+          tenant_id: g.t.tenant_id,
+          user_id: crypto.randomUUID(),
+          roles: ['people.viewer'],
+          assignments: [], // can() passes via role_summary; scope resolves to none
+        });
+        const seen = await visible(session);
+        expect(seen).toEqual(new Set());
       } finally {
         resetPeopleDb();
         resetCoreDb();

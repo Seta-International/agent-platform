@@ -45,6 +45,7 @@ export {
   type UtilizationRow,
   type UtilizationSegment,
 } from './backend/domain/utilization.ts';
+export { getWorkerIdForUser } from './backend/domain/worker-identity.ts';
 export {
   type BackfillPersonProfilesOptions,
   backfillPersonProfiles,

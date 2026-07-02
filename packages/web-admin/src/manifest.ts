@@ -18,7 +18,7 @@ export const adminAppManifest: AppManifest = {
   label: 'Admin',
   icon: Settings,
   color: '#8a8f98',
-  requiredPermissions: ['identity.user.read.any'],
+  requiredPermissions: ['identity.user.list'],
   useNavExtensions: noNavExtensions,
   nav: [
     {
@@ -29,7 +29,7 @@ export const adminAppManifest: AppManifest = {
           icon: Users,
           label: 'Directory',
           to: '/admin/users',
-          requires: ['identity.user.read.any'],
+          requires: ['identity.user.list'],
         },
         {
           id: 'admin.groups',

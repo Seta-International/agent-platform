@@ -33,7 +33,7 @@ export const plannerGetOpenTaskCountSpec: CrossModuleReadToolSpec<
     'Do NOT use when you need the task list — use planner_queryTasks with assigneeUserId instead.',
   inputSchema,
   outputSchema,
-  rbac: 'planner.task.read.tenant',
+  rbac: 'planner.reporting.read',
   availableTo: 'all-specialists',
   execute: async ({ session, input }) => {
     const parsed = inputSchema.parse(input);

@@ -35,7 +35,7 @@ export async function unlinkPlanFromM365(
         });
       }
 
-      requirePermission(input.session, 'planner.plan.unlink', existing.group_id);
+      await requirePermission(input.session, 'planner.plan.unlink', existing.group_id);
 
       if (existing.external_source === 'native') {
         throw new PlannerError('PLAN_NOT_LINKED', 'Plan is not linked to any external source', {

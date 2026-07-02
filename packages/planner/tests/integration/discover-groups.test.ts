@@ -25,7 +25,6 @@ async function makeOutsider(tenantId: string) {
   return buildSession({
     tenant_id: tenantId,
     user_id: created.user_id,
-    accessible_group_ids: [],
     roles: ['planner.viewer'],
   });
 }
@@ -77,7 +76,6 @@ describe('discoverGroups', () => {
           const outsiderSession = buildSession({
             tenant_id: seeded.tenant_id,
             user_id: outsider.user_id,
-            accessible_group_ids: [],
             roles: ['planner.viewer'],
           });
 

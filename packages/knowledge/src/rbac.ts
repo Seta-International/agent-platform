@@ -1,24 +1,7 @@
-import { type Statement, toManifest } from '@seta/shared-rbac';
+import { INVENTORY, inventoryToManifests } from '@seta/shared-rbac';
 
-export const knowledgeStatement = {
-  'knowledge.file': ['read', 'write', 'delete'],
-  'knowledge.search': ['read'],
-  'knowledge.chat_attachment': ['write'],
-} as const satisfies Statement;
+export type { KnowledgePermission } from './generated/rbac.ts';
+export { KNOWLEDGE_PERMISSIONS } from './generated/rbac.ts';
 
-const roleStatements = {
-  'knowledge.member': {
-    'knowledge.file': ['read', 'write', 'delete'],
-    'knowledge.search': ['read'],
-  },
-  'knowledge.viewer': { 'knowledge.file': ['read'], 'knowledge.search': ['read'] },
-} as const satisfies Record<string, Statement>;
-
-export const knowledgeRbac = toManifest('knowledge', knowledgeStatement, roleStatements, {
-  'knowledge.member': 'Read, write, and delete knowledge files',
-  'knowledge.viewer': 'Read knowledge files',
-});
-
-export type KnowledgePermission = (typeof knowledgeRbac.permissions)[number]['key'];
-
-export const KNOWLEDGE_PERMISSIONS = knowledgeRbac.permissions.map((p) => p.key);
+// biome-ignore lint/style/noNonNullAssertion: 'knowledge' is always in INVENTORY (asserted by codegen-drift.test.ts)
+export const knowledgeRbac = inventoryToManifests(INVENTORY).find((m) => m.module === 'knowledge')!;

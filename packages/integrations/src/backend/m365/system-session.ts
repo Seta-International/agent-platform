@@ -29,12 +29,16 @@ export function buildSystemSession(tenantId: string): PlannerSessionScope {
     role_summary: {
       roles: ['system.integrations.m365'],
       cross_tenant_read: false,
+      assignments: [
+        { role_slug: 'system.integrations.m365', scope_kind: 'tenant', scope_id: null },
+      ],
     },
     role_summary_hash: SYSTEM_ROLE_SUMMARY_HASH,
     permissions: SYSTEM_PERMISSIONS,
-    accessible_group_ids: [],
+    assignments: [{ role_slug: 'system.integrations.m365', scope_kind: 'tenant', scope_id: null }],
     group_ids: [],
     product_access: new Set<string>(),
+    worker_id: null,
     cross_tenant_read: false,
     built_at: new Date(),
     invalidated_at: null,

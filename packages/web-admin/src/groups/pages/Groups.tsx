@@ -9,9 +9,10 @@ import { useGroupsQuery } from '../hooks/useGroups.ts';
 import { derivedProducts } from '../lib/role-meta.ts';
 
 function roleProductSummary(group: Group): string {
-  const roles = group.role_slugs.length;
+  const roleSlugs = group.roles.map((r) => r.role_slug);
+  const roles = roleSlugs.length;
   if (roles === 0) return 'No roles';
-  const products = derivedProducts(group.role_slugs).length;
+  const products = derivedProducts(roleSlugs).length;
   const rolePart = `${roles} ${roles === 1 ? 'role' : 'roles'}`;
   return products > 0
     ? `${rolePart} · ${products} ${products === 1 ? 'product' : 'products'}`

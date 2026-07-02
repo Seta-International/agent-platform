@@ -1,9 +1,10 @@
 import { emit, withEmit } from '@seta/core/events';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { identityDb } from '../db/index.ts';
-import { roleGrants, user } from '../db/schema.ts';
+import { roleAssignments, user } from '../db/schema.ts';
 import { IdentityError, requirePermission } from '../rbac.ts';
 import type { Actor } from './create-user.ts';
+import { requireOrgUnitInTenant } from './helpers.ts';
 
 const MAX_BULK = 500;
 
@@ -11,7 +12,7 @@ export interface BulkRoleInput {
   user_ids: string[];
   tenant_id: string;
   role_slug: string;
-  scope_type: 'tenant' | 'group';
+  scope_kind: 'tenant' | 'org_unit' | 'self';
   scope_id: string | null;
 }
 
@@ -43,20 +44,26 @@ export async function bulkGrantRole(input: BulkRoleInput, actor: Actor): Promise
     throw new IdentityError('VALIDATION', `max ${MAX_BULK} users per call`);
   await authorize(actor, input.tenant_id);
 
+  if (input.scope_kind === 'org_unit') {
+    if (!input.scope_id)
+      throw new IdentityError('VALIDATION', 'scope_id required for org_unit scope');
+    await requireOrgUnitInTenant(input.tenant_id, input.scope_id);
+  }
+
   const valid = await tenantUserSet(input.tenant_id, input.user_ids);
   const existing =
     valid.size === 0
       ? []
       : await identityDb()
-          .select({ user_id: roleGrants.user_id })
-          .from(roleGrants)
+          .select({ user_id: roleAssignments.user_id })
+          .from(roleAssignments)
           .where(
             and(
-              eq(roleGrants.tenant_id, input.tenant_id),
-              eq(roleGrants.role_slug, input.role_slug),
-              eq(roleGrants.scope_type, input.scope_type),
-              isNull(roleGrants.revoked_at),
-              inArray(roleGrants.user_id, [...valid]),
+              eq(roleAssignments.tenant_id, input.tenant_id),
+              eq(roleAssignments.role_slug, input.role_slug),
+              eq(roleAssignments.scope_kind, input.scope_kind),
+              isNull(roleAssignments.revoked_at),
+              inArray(roleAssignments.user_id, [...valid]),
             ),
           );
   const held = new Set(existing.map((r) => r.user_id));
@@ -82,13 +89,13 @@ export async function bulkGrantRole(input: BulkRoleInput, actor: Actor): Promise
           result.skipped++;
           continue;
         }
-        const grantId = crypto.randomUUID();
-        await tx.insert(roleGrants).values({
-          id: grantId,
+        const assignmentId = crypto.randomUUID();
+        await tx.insert(roleAssignments).values({
+          id: assignmentId,
           user_id: uid,
           tenant_id: input.tenant_id,
           role_slug: input.role_slug,
-          scope_type: input.scope_type,
+          scope_kind: input.scope_kind,
           scope_id: input.scope_id,
           granted_by: actor.user_id,
           granted_via: grantedVia,
@@ -110,9 +117,9 @@ export async function bulkGrantRole(input: BulkRoleInput, actor: Actor): Promise
             tenant_id: input.tenant_id,
             change: 'granted',
             grant: {
-              grant_id: grantId,
+              grant_id: assignmentId,
               role_slug: input.role_slug,
-              scope_type: input.scope_type,
+              scope_kind: input.scope_kind,
               scope_id: input.scope_id,
               granted_via: grantedVia,
             },
@@ -131,16 +138,22 @@ export async function bulkRevokeRole(input: BulkRoleInput, actor: Actor): Promis
     throw new IdentityError('VALIDATION', `max ${MAX_BULK} users per call`);
   await authorize(actor, input.tenant_id);
 
+  if (input.scope_kind === 'org_unit') {
+    if (!input.scope_id)
+      throw new IdentityError('VALIDATION', 'scope_id required for org_unit scope');
+    await requireOrgUnitInTenant(input.tenant_id, input.scope_id);
+  }
+
   const rows = await identityDb()
     .select()
-    .from(roleGrants)
+    .from(roleAssignments)
     .where(
       and(
-        eq(roleGrants.tenant_id, input.tenant_id),
-        eq(roleGrants.role_slug, input.role_slug),
-        eq(roleGrants.scope_type, input.scope_type),
-        isNull(roleGrants.revoked_at),
-        inArray(roleGrants.user_id, input.user_ids),
+        eq(roleAssignments.tenant_id, input.tenant_id),
+        eq(roleAssignments.role_slug, input.role_slug),
+        eq(roleAssignments.scope_kind, input.scope_kind),
+        isNull(roleAssignments.revoked_at),
+        inArray(roleAssignments.user_id, input.user_ids),
       ),
     );
   const byUser = new Map(rows.map((r) => [r.user_id, r]));
@@ -157,15 +170,15 @@ export async function bulkRevokeRole(input: BulkRoleInput, actor: Actor): Promis
     },
     async (tx) => {
       for (const uid of input.user_ids) {
-        const g = byUser.get(uid);
-        if (!g) {
+        const assignment = byUser.get(uid);
+        if (!assignment) {
           result.skipped++;
           continue;
         }
         await tx
-          .update(roleGrants)
+          .update(roleAssignments)
           .set({ revoked_at: new Date(), revoked_by: actor.user_id })
-          .where(and(eq(roleGrants.id, g.id), isNull(roleGrants.revoked_at)));
+          .where(and(eq(roleAssignments.id, assignment.id), isNull(roleAssignments.revoked_at)));
         await emit({
           tenantId: input.tenant_id,
           aggregateType: 'identity.user',
@@ -183,11 +196,11 @@ export async function bulkRevokeRole(input: BulkRoleInput, actor: Actor): Promis
             tenant_id: input.tenant_id,
             change: 'revoked',
             grant: {
-              grant_id: g.id,
-              role_slug: g.role_slug,
-              scope_type: g.scope_type,
-              scope_id: g.scope_id,
-              granted_via: g.granted_via,
+              grant_id: assignment.id,
+              role_slug: assignment.role_slug,
+              scope_kind: assignment.scope_kind,
+              scope_id: assignment.scope_id,
+              granted_via: assignment.granted_via,
             },
           },
         });

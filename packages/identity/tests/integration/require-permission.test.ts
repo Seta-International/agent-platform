@@ -43,11 +43,11 @@ describe('requirePermission', () => {
             CLI,
           );
 
-          // identity.admin grants identity.user.write per INVENTORY. The old
+          // identity.admin grants identity.user.update per INVENTORY. The old
           // hasPermission stub only allowed org.admin/tenant.admin and would
           // have DENIED this.
           await expect(
-            requirePermission(user_id, 'identity.user.write', tenant_id),
+            requirePermission(user_id, 'identity.user.update', tenant_id),
           ).resolves.toBeUndefined();
         } finally {
           resetCoreDb();
@@ -84,7 +84,7 @@ describe('requirePermission', () => {
           );
 
           await expect(
-            requirePermission(user_id, 'identity.user.write', tenant_id),
+            requirePermission(user_id, 'identity.user.update', tenant_id),
           ).rejects.toBeInstanceOf(IdentityError);
         } finally {
           resetCoreDb();

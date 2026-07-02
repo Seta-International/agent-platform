@@ -181,6 +181,32 @@ describe('project run', () => {
     });
   });
 
+  it('edits org_unit_id and returns it', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const projectId = await liveProject(pool, t.adminSession, t.tenant_id);
+        const orgUnitId = crypto.randomUUID();
+
+        await editProject({
+          project_id: projectId,
+          patch: { org_unit_id: orgUnitId },
+          session: t.adminSession,
+        });
+
+        const p = await getProject({ project_id: projectId, session: t.adminSession });
+        expect(p.org_unit_id).toBe(orgUnitId);
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
   it('reads are tenant-scoped: listProjects and getProject only return own tenant rows', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();

@@ -5,7 +5,7 @@ import {
   accessGroup,
   accessGroupMembership,
   directoryPerson,
-  roleGrants,
+  roleAssignments,
   user,
 } from '../db/schema.ts';
 import { requirePermission } from '../rbac.ts';
@@ -42,7 +42,7 @@ export async function listDirectory(
   hasMore: boolean;
   total: number;
 }> {
-  await requirePermission(session.user_id, 'identity.user.read.any', session.tenant_id);
+  await requirePermission(session.user_id, 'identity.user.list', session.tenant_id);
 
   const page = Math.max(opts.page ?? 0, 0);
   const pageSize = Math.min(Math.max(opts.pageSize ?? DEFAULT_PAGE_SIZE, 1), MAX_PAGE_SIZE);
@@ -121,9 +121,9 @@ export async function listDirectory(
   const grants =
     userIds.length > 0
       ? await identityDb()
-          .select({ user_id: roleGrants.user_id, role_slug: roleGrants.role_slug })
-          .from(roleGrants)
-          .where(and(isNull(roleGrants.revoked_at), inArray(roleGrants.user_id, userIds)))
+          .select({ user_id: roleAssignments.user_id, role_slug: roleAssignments.role_slug })
+          .from(roleAssignments)
+          .where(and(isNull(roleAssignments.revoked_at), inArray(roleAssignments.user_id, userIds)))
       : [];
 
   const rolesByUser = new Map<string, string[]>();

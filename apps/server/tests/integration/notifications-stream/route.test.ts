@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { resolveTestPermissions } from '../../helpers/rbac.ts';
 
 function buildSession(userId: string, tenantId: string): SessionScope {
-  const role_summary = { roles: ['org.admin'], cross_tenant_read: false };
+  const role_summary = { roles: ['org.admin'], cross_tenant_read: false, assignments: [] };
   return {
     session_id: crypto.randomUUID(),
     user_id: userId,
@@ -16,9 +16,10 @@ function buildSession(userId: string, tenantId: string): SessionScope {
     role_summary,
     role_summary_hash: hashRoleSummary(role_summary),
     permissions: resolveTestPermissions(role_summary.roles),
-    accessible_group_ids: [],
+    assignments: [],
     group_ids: [],
     product_access: new Set<string>(),
+    worker_id: null,
     cross_tenant_read: false,
     built_at: new Date(),
     invalidated_at: null,

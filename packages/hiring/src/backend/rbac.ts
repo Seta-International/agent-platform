@@ -2,12 +2,7 @@ import type { SessionScope } from '@seta/core';
 import { can } from '@seta/shared-rbac';
 import type { HiringPermission } from '../rbac.ts';
 
-export type HiringErrorCode =
-  | 'NOT_FOUND'
-  | 'FORBIDDEN'
-  | 'CONFLICT'
-  | 'VALIDATION'
-  | 'CROSS_TENANT';
+export type HiringErrorCode = 'NOT_FOUND' | 'FORBIDDEN' | 'CONFLICT' | 'VALIDATION';
 
 export class HiringError extends Error {
   readonly code: HiringErrorCode;

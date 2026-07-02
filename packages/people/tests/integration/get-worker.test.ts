@@ -57,7 +57,7 @@ function withDb(
 }
 
 describe('getWorker enriched fields', () => {
-  it('returns job_title, manager_name (from manager_id), org_unit, accounts[], skills[]', async () => {
+  it('returns job_title, manager_name (derived from unit head), org_unit, accounts[], skills[]', async () => {
     await withDb(async ({ t }) => {
       const { worker_id: head } = await createWorker({
         full_name: 'The Manager',
@@ -75,7 +75,6 @@ describe('getWorker enriched fields', () => {
         full_name: 'Rich Worker',
         job_title: 'Senior Engineer',
         org_unit_id: unit,
-        manager_id: head,
         session: t.adminSession,
       } as never);
 
@@ -124,6 +123,71 @@ describe('getWorker enriched fields', () => {
       expect(w.org_unit_name).toBeNull();
       expect(w.accounts).toEqual([]);
       expect(w.skills).toEqual([]);
+    });
+  });
+
+  it('returns null manager_name when the worker’s unit has no head', async () => {
+    await withDb(async ({ t }) => {
+      const unit = await seedOrgUnit({
+        tenant_id: t.tenant_id,
+        name: 'Headless Unit',
+        kind: 'operation',
+      });
+      const { worker_id } = await createWorker({
+        full_name: 'Headless Report',
+        org_unit_id: unit,
+        session: t.adminSession,
+      } as never);
+
+      const w = await getWorker({ worker_id, session: t.adminSession });
+
+      expect(w.manager_name).toBeNull();
+    });
+  });
+
+  it('derives manager_name from the parent unit head when the worker is their own unit head', async () => {
+    await withDb(async ({ t }) => {
+      const { worker_id: topHead } = await createWorker({
+        full_name: 'Top Manager M',
+        session: t.adminSession,
+      });
+      const parentUnit = await seedOrgUnit({
+        tenant_id: t.tenant_id,
+        name: 'U1',
+        kind: 'operation',
+        head_worker_id: topHead,
+      });
+      await peopleDb()
+        .update(worker)
+        .set({ org_unit_id: parentUnit })
+        .where(eq(worker.person_id, topHead));
+
+      const { worker_id: r1 } = await createWorker({
+        full_name: 'Report Lead R1',
+        session: t.adminSession,
+      });
+      const childUnit = await seedOrgUnit({
+        tenant_id: t.tenant_id,
+        name: 'U2',
+        kind: 'delivery',
+        parent_id: parentUnit,
+        head_worker_id: r1,
+      });
+      await peopleDb()
+        .update(worker)
+        .set({ org_unit_id: childUnit })
+        .where(eq(worker.person_id, r1));
+
+      const w1 = await getWorker({ worker_id: r1, session: t.adminSession });
+      expect(w1.manager_name).toBe('Top Manager M');
+
+      const { worker_id: w } = await createWorker({
+        full_name: 'Rank and File W',
+        org_unit_id: childUnit,
+        session: t.adminSession,
+      } as never);
+      const w2 = await getWorker({ worker_id: w, session: t.adminSession });
+      expect(w2.manager_name).toBe('Report Lead R1');
     });
   });
 

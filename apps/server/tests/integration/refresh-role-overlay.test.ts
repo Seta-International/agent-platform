@@ -33,7 +33,6 @@ describe('refreshRoleOverlaySubscriber', () => {
             user_id: crypto.randomUUID(),
             role_summary_hash: 'h',
             role_summary: { roles: [], cross_tenant_read: false },
-            accessible_group_ids: [],
             cross_tenant_read: false,
             built_at: new Date(),
             invalidated_at: null,

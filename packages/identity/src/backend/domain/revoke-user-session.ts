@@ -18,7 +18,7 @@ export async function revokeUserSession(
 ): Promise<void> {
   if (actor.type === 'user') {
     if (!actor.user_id) throw new IdentityError('FORBIDDEN', 'user actor requires user_id');
-    await requirePermission(actor.user_id, 'identity.user.write', input.tenant_id);
+    await requirePermission(actor.user_id, 'identity.user.update', input.tenant_id);
   }
   if (input.current_session_id && input.current_session_id === input.session_id) {
     throw new IdentityError('SELF_SESSION', 'Cannot revoke your own session here');

@@ -1,11 +1,11 @@
 import type { SessionScope } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
+import { tenantScoped } from '@seta/shared-rbac';
 import { and, eq } from 'drizzle-orm';
 import type { JdSectionInput, SkillInput } from '../../contracts.ts';
 import { HIRING_REQUISITION_UPDATED } from '../../events.ts';
 import { hiringDb } from '../db/client.ts';
 import { requisition, requisitionJdSection, requisitionSkill } from '../db/schema.ts';
-import { tenantScoped } from '../db/scope.ts';
 import { HiringError, requirePermission } from '../rbac.ts';
 
 async function loadAndGuard(

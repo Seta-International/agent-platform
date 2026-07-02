@@ -1,11 +1,11 @@
 import type { SessionScope } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
+import { tenantScoped } from '@seta/shared-rbac';
 import { and, eq } from 'drizzle-orm';
 import type { SetProjectAccessInput } from '../../contracts.ts';
 import { PM_PROJECT_ACCESS_CHANGED } from '../../events.ts';
 import { pmDb } from '../db/client.ts';
 import { project, projectAccess } from '../db/schema.ts';
-import { tenantScoped } from '../db/scope.ts';
 import { PmError, requirePermission } from '../rbac.ts';
 
 async function assertProject(project_id: string, session: SessionScope) {

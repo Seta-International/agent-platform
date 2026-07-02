@@ -36,6 +36,7 @@ const READ_PREFIXES = [
   'resolve',
   'build',
   'create', // factory style: createXStore returns an object, not a state change
+  'to', // pure converter over already-resolved data, e.g. toRoleSlugs(assignments)
 ];
 const SKIP_FILE_PREFIX = '_';
 const ALLOWLIST_COMMENTS = [

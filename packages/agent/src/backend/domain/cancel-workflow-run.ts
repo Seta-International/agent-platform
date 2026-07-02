@@ -1,6 +1,7 @@
 import type { Mastra } from '@mastra/core';
 import type { SessionLike } from '../types.ts';
 import { getWorkflowRun } from './get-workflow-run.ts';
+import { resolveRunPermissionScope } from './workflow-run-scope.ts';
 
 export interface CancelWorkflowRunOpts {
   session: SessionLike;
@@ -8,16 +9,10 @@ export interface CancelWorkflowRunOpts {
   mastra: Mastra;
 }
 
-const SELF = 'agent.workflow.run.cancel.self';
-const TENANT = 'agent.workflow.run.cancel.tenant';
-const INSTANCE = 'agent.workflow.run.cancel.instance';
-
 export async function cancelWorkflowRun(opts: CancelWorkflowRunOpts): Promise<void> {
-  const perms = opts.session.effective_permissions;
-  if (!perms.has(SELF) && !perms.has(TENANT) && !perms.has(INSTANCE)) {
-    throw Object.assign(new Error('forbidden: cancel requires agent.workflow.run.cancel.*'), {
-      code: 'forbidden',
-    });
+  const scope = resolveRunPermissionScope(opts.session, 'agent.workflow.run.cancel');
+  if (scope.kind === 'none') {
+    throw Object.assign(new Error('forbidden: agent.workflow.run.cancel'), { code: 'forbidden' });
   }
 
   const run = await getWorkflowRun({ session: opts.session, runId: opts.runId });
@@ -26,7 +21,8 @@ export async function cancelWorkflowRun(opts: CancelWorkflowRunOpts): Promise<vo
   }
 
   const ownsRun = run.startedBy === opts.session.user_id;
-  if (!ownsRun && !perms.has(TENANT) && !perms.has(INSTANCE)) {
+  const canCancelAny = scope.kind === 'tenant';
+  if (!ownsRun && !canCancelAny) {
     throw Object.assign(new Error("forbidden: cannot cancel another user's run"), {
       code: 'forbidden',
     });

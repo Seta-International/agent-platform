@@ -1,11 +1,13 @@
 import { createMiddleware } from 'hono/factory';
 import { isIdleExpired } from '../session/idle.ts';
 import {
+  type ExpandOrgUnits,
   getSessionScope,
-  type ListRoleGrants,
+  type ListRoleAssignments,
   type ResolveGroupIds,
   type ResolvePermissions,
   type ResolveProductAccess,
+  type ResolveWorkerId,
   type SessionScope,
 } from '../session/scope.ts';
 
@@ -23,10 +25,12 @@ export interface SessionMiddlewareDeps {
     };
   } | null>;
   signOut: (req: { headers: Headers }) => Promise<void>;
-  listRoleGrants: ListRoleGrants;
+  listRoleAssignments: ListRoleAssignments;
   resolvePermissions: ResolvePermissions;
   resolveGroupIds?: ResolveGroupIds;
   resolveProductAccess?: ResolveProductAccess;
+  resolveWorkerId?: ResolveWorkerId;
+  expandOrgUnits?: ExpandOrgUnits;
 }
 
 export function createSessionMiddleware(deps: SessionMiddlewareDeps) {
@@ -53,10 +57,12 @@ export function createSessionMiddleware(deps: SessionMiddlewareDeps) {
 
     const scope = await getSessionScope(
       {
-        listRoleGrants: deps.listRoleGrants,
+        listRoleAssignments: deps.listRoleAssignments,
         resolvePermissions: deps.resolvePermissions,
         resolveGroupIds: deps.resolveGroupIds,
         resolveProductAccess: deps.resolveProductAccess,
+        resolveWorkerId: deps.resolveWorkerId,
+        expandOrgUnits: deps.expandOrgUnits,
       },
       session.session.id,
       session.user.id,

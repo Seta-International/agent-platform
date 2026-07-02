@@ -115,7 +115,11 @@ function RolesSection({ userId }: { userId: string }) {
 
   const joined = new Set(userGroups.map((g) => g.group_id));
   const roles = [
-    ...new Set(allGroups.filter((g) => joined.has(g.group_id)).flatMap((g) => g.role_slugs)),
+    ...new Set(
+      allGroups
+        .filter((g) => joined.has(g.group_id))
+        .flatMap((g) => g.roles.map((r) => r.role_slug)),
+    ),
   ].sort();
 
   return (

@@ -103,9 +103,9 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
   const canUpdateGroup = usePermission('planner.group.update');
   const canCreatePlan = usePermission('planner.plan.create');
   // Member management maps to dedicated, backend-enforced permissions (not the canManage proxy):
-  // add/remove member + resolve join request => member.write; change role => member.role.set.
+  // add/remove member + resolve join request => member.write; change role => member.set_role.
   const canManageMembers = usePermission('planner.group.member.write');
-  const canSetMemberRole = usePermission('planner.group.member.role.set');
+  const canSetMemberRole = usePermission('planner.group.member.set_role');
 
   const [createPlanOpen, setCreatePlanOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);

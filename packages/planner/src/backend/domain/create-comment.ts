@@ -59,7 +59,7 @@ async function createCommentImpl(
         throw new PlannerError('NOT_FOUND', 'Parent plan not found', { plan_id: task.plan_id });
       }
 
-      requirePermission(input.session, 'planner.task.comment.create', plan.group_id);
+      await requirePermission(input.session, 'planner.task.comment.create', plan.group_id);
 
       const [inserted] = await tx
         .insert(taskComments)

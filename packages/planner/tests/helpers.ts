@@ -108,7 +108,6 @@ export async function seedTenant(
       email: admin.email,
       display_name: admin.name,
       roles: ['org.admin'],
-      accessible_group_ids: [],
     }),
   };
 }
@@ -119,13 +118,13 @@ export function buildSession(opts: {
   email?: string;
   display_name?: string;
   roles?: string[];
-  accessible_group_ids?: string[];
   cross_tenant_read?: boolean;
 }): SessionScope {
   const roles = opts.roles ?? [];
   const role_summary = {
     roles,
     cross_tenant_read: opts.cross_tenant_read ?? false,
+    assignments: [],
   };
   return {
     session_id: crypto.randomUUID(),
@@ -136,9 +135,10 @@ export function buildSession(opts: {
     role_summary,
     role_summary_hash: hashRoleSummary(role_summary),
     permissions: permsFor(roles),
-    accessible_group_ids: opts.accessible_group_ids ?? [],
+    assignments: [],
     group_ids: [],
     product_access: new Set<string>(),
+    worker_id: null,
     cross_tenant_read: role_summary.cross_tenant_read,
     built_at: new Date(),
     invalidated_at: null,
@@ -199,7 +199,6 @@ export async function seedTenantAndTask(
     email: member.email,
     display_name: member.name,
     roles: [opts.role],
-    accessible_group_ids: [group.id],
   });
 
   return {
@@ -216,7 +215,7 @@ export async function seedTenantAndTask(
 /**
  * Create an extra group member with the given group-membership role
  * ('owner'/'member') and return a session for them. Always grants the
- * planner.contributor role on the session so planner permission checks pass —
+ * planner.member role on the session so planner permission checks pass —
  * group-role authorization happens via planner.group_members lookups inside
  * the domain functions.
  */
@@ -255,8 +254,7 @@ export async function makeMemberSession(
     user_id: r.user_id,
     email,
     display_name: `User ${tag}`,
-    roles: ['planner.contributor'],
-    accessible_group_ids: [opts.group_id],
+    roles: ['planner.member'],
   });
 }
 

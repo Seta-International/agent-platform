@@ -1,70 +1,16 @@
-import { type Statement, toManifest } from '@seta/shared-rbac';
+import { INVENTORY, inventoryToManifests } from '@seta/shared-rbac';
+import type { IdentityPermission } from './generated/rbac.ts';
 
-export const identityStatement = {
-  'identity.user': [
-    'read',
-    'read.any',
-    'read.self',
-    'write',
-    'write.self',
-    'deactivate',
-    'invite',
-    'email.change',
-  ],
-  'identity.sso': ['read', 'write'],
-  'identity.role': ['grant', 'read', 'write'],
-  'identity.role_grant': ['read', 'write'],
-  'identity.password': ['disable_local'],
-  'identity.concept_map': ['read', 'write'],
-  'identity.group': ['read', 'create', 'update', 'delete'],
-  'identity.group.membership': ['manage'],
-  'identity.group.role': ['manage'],
-  'identity.product_access': ['read', 'grant', 'revoke'],
-  'core.tenant': ['read', 'write', 'email_domains.write'],
-  'core.audit': ['read'],
-} as const satisfies Statement;
+export type { IdentityPermission } from './generated/rbac.ts';
 
-const roleStatements = {
-  'identity.admin': {
-    'identity.user': ['read.any', 'write', 'deactivate', 'invite', 'email.change'],
-    'identity.sso': ['read', 'write'],
-    // Narrower than core.tenant.write — only the email-domains writer requires this.
-    'core.tenant': ['email_domains.write'],
-    'identity.role': ['grant', 'read', 'write'],
-    'identity.role_grant': ['read', 'write'],
-    'identity.password': ['disable_local'],
-    'identity.concept_map': ['read', 'write'],
-    'identity.group': ['read', 'create', 'update', 'delete'],
-    'identity.group.membership': ['manage'],
-    'identity.group.role': ['manage'],
-    'identity.product_access': ['read', 'grant', 'revoke'],
-  },
-  'identity.viewer': {
-    'identity.user': ['read.any'],
-    'identity.role_grant': ['read'],
-    'identity.concept_map': ['read'],
-  },
-} as const satisfies Record<string, Statement>;
-
-export const identityRbac = toManifest('identity', identityStatement, roleStatements, {
-  'identity.admin': 'Manage users, roles, SSO, and identity settings',
-  'identity.viewer': 'Read users, role grants, and concept maps',
-});
-
-export type IdentityPermission = (typeof identityRbac.permissions)[number]['key'];
-export const IDENTITY_ROLE_SLUGS = identityRbac.roles.map((r) => r.slug) as Array<
-  'identity.admin' | 'identity.viewer'
->;
-export type IdentityRoleSlug = (typeof IDENTITY_ROLE_SLUGS)[number];
-export const IDENTITY_ROLE_PERMISSIONS = Object.fromEntries(
-  identityRbac.roles.map((r) => [r.slug, r.permissions]),
-) as Record<IdentityRoleSlug, string[]>;
+// biome-ignore lint/style/noNonNullAssertion: 'identity' is always in INVENTORY (asserted by codegen-drift.test.ts)
+export const identityRbac = inventoryToManifests(INVENTORY).find((m) => m.module === 'identity')!;
 
 export const A2_PERMISSIONS = [
   'identity.sso.read',
-  'identity.sso.write',
-  'identity.user.email.change',
-  'identity.user.write.self',
-] as const;
+  'identity.sso.update',
+  'identity.user.change_email',
+  'identity.profile.update',
+] as const satisfies readonly IdentityPermission[];
 
 export type A2Permission = (typeof A2_PERMISSIONS)[number];

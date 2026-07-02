@@ -67,12 +67,14 @@ export type { WorkerHandle } from './runtime/workers/index.ts';
 export { invalidateTenantSessions, invalidateUserSessions } from './session/invalidate.ts';
 export { createOverlayStore, type OverlayStore } from './session/overlay-store.ts';
 export {
-  computeAccessibleGroups,
+  type ExpandOrgUnits,
   evictHotAll,
   getSessionScope,
   hashRoleSummary,
-  type ListRoleGrants,
-  type RoleGrant,
+  type ListRoleAssignments,
+  type RoleAssignment,
+  type RoleSummary,
   rollup,
+  type SessionAssignment,
   type SessionScope,
 } from './session/scope.ts';

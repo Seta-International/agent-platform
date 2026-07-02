@@ -76,6 +76,6 @@ function defaultSessionResolver(c: Context): SessionLike | null {
     user_id: claims.userId,
     tenant_id: claims.tenantId,
     effective_permissions: new Set<string>(),
-    role_summary: { roles: [], cross_tenant_read: false },
+    role_summary: { roles: [], cross_tenant_read: false, assignments: [] },
   };
 }

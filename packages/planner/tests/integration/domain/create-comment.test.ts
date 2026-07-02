@@ -19,7 +19,7 @@ describe('createComment', () => {
       initPools({ databaseUrl });
       try {
         const { session, task_id } = await seedTenantAndTask(pool, {
-          role: 'planner.contributor',
+          role: 'planner.member',
         });
 
         const dto = await createComment({ task_id, body: 'Hello world', session });
@@ -42,7 +42,7 @@ describe('createComment', () => {
       initPools({ databaseUrl });
       try {
         const { session, task_id } = await seedTenantAndTask(pool, {
-          role: 'planner.contributor',
+          role: 'planner.member',
         });
         await expect(createComment({ task_id, body: '   ', session })).rejects.toMatchObject({
           code: 'VALIDATION',
@@ -60,7 +60,7 @@ describe('createComment', () => {
       initPools({ databaseUrl });
       try {
         const { session, task_id } = await seedTenantAndTask(pool, {
-          role: 'planner.contributor',
+          role: 'planner.member',
         });
         const body = 'x'.repeat(4001);
         await expect(createComment({ task_id, body, session })).rejects.toMatchObject({
@@ -78,8 +78,8 @@ describe('createComment', () => {
       resetCoreDb();
       initPools({ databaseUrl });
       try {
-        const other = await seedTenantAndTask(pool, { role: 'planner.contributor' });
-        const me = await seedTenantAndTask(pool, { role: 'planner.contributor' });
+        const other = await seedTenantAndTask(pool, { role: 'planner.member' });
+        const me = await seedTenantAndTask(pool, { role: 'planner.member' });
         await expect(
           createComment({ task_id: other.task_id, body: 'x', session: me.session }),
         ).rejects.toMatchObject({ code: expect.stringMatching(/NOT_FOUND|CROSS_TENANT/) });
@@ -114,7 +114,7 @@ describe('createComment', () => {
       initPools({ databaseUrl });
       try {
         const { session, task_id, tenant_id } = await seedTenantAndTask(pool, {
-          role: 'planner.contributor',
+          role: 'planner.member',
         });
         const dto = await createComment({ task_id, body: 'event check', session });
 

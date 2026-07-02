@@ -21,7 +21,7 @@ function buildAdminSession(opts: {
   email: string;
 }): SessionScope {
   const roles = ['org.admin'];
-  const role_summary = { roles, cross_tenant_read: false };
+  const role_summary = { roles, cross_tenant_read: false, assignments: [] };
   return {
     session_id: crypto.randomUUID(),
     user_id: opts.user_id,
@@ -31,9 +31,10 @@ function buildAdminSession(opts: {
     role_summary,
     role_summary_hash: hashRoleSummary(role_summary),
     permissions: resolvePermissions(_registry, roles, IMPLICIT_PERMISSIONS),
-    accessible_group_ids: [],
+    assignments: [],
     group_ids: [],
     product_access: new Set<string>(),
+    worker_id: null,
     cross_tenant_read: false,
     built_at: new Date(),
     invalidated_at: null,
@@ -92,7 +93,7 @@ describe('planner_listGroupMembers tool', () => {
       });
       const group = await createGroup({ tenant_id, name: 'Engineering', session });
 
-      // A non-member, non-admin user with an empty accessible_group_ids set.
+      // A non-member, non-admin user.
       const outsider = await createUser(
         { tenant_id, email: 'out@demo.local', name: 'Out', password: 'password123456' },
         { type: 'cli', user_id: null },

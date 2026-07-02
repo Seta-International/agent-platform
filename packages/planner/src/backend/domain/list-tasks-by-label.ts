@@ -33,12 +33,12 @@ function statusOf(pc: number): 'not_started' | 'in_progress' | 'completed' {
 export async function listTasksByLabel(
   input: ListTasksByLabelInput,
 ): Promise<{ results: ListTasksByLabelRow[] }> {
-  requirePermission(input.session, 'planner.task.read');
+  await requirePermission(input.session, 'planner.task.read');
 
   if (input.names.length === 0) return { results: [] };
 
   const db = plannerDb();
-  const groupFilter = groupFilterFor(input.session);
+  const groupFilter = await groupFilterFor(input.session);
   // Non-admin with no accessible groups sees nothing.
   if (groupFilter !== null && groupFilter.length === 0) return { results: [] };
 

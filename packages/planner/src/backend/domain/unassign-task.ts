@@ -38,7 +38,7 @@ export async function unassignTask(input: {
           plan_id: existing.plan_id,
         });
 
-      requirePermission(input.session, 'planner.task.assign', plan.group_id);
+      await requirePermission(input.session, 'planner.task.assign', plan.group_id);
 
       const deleted = await tx
         .delete(taskAssignments)

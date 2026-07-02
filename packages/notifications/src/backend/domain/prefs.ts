@@ -23,7 +23,7 @@ export class NotificationPrefError extends Error {
 
 function requireNotificationsAdmin(
   session: SessionScope,
-  permission: 'notifications.preference.read' | 'notifications.preference.write',
+  permission: 'notifications.preference.read' | 'notifications.preference.update',
 ): void {
   try {
     requirePermission(session, permission);
@@ -81,7 +81,7 @@ export async function setNotificationPref(input: {
   enabled: boolean;
   session: SessionScope;
 }): Promise<void> {
-  requireNotificationsAdmin(input.session, 'notifications.preference.write');
+  requireNotificationsAdmin(input.session, 'notifications.preference.update');
 
   const cat = findCategory(input.event_type);
   if (!cat) {

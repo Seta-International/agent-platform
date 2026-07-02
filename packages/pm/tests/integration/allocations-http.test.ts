@@ -36,7 +36,7 @@ describe('pm allocations HTTP', () => {
       resetPmDb();
       initPools({ databaseUrl });
       try {
-        const t = await seedTenant(pool); // pm.strategic has pm.project.manage
+        const t = await seedTenant(pool); // pm.manager has pm.project.manage
         const app = appFor(t.adminSession);
         const acc = await pool.query(
           `INSERT INTO pm.account (tenant_id, name) VALUES ($1,'A') RETURNING id`,

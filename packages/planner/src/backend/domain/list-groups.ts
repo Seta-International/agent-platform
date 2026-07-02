@@ -11,10 +11,10 @@ export async function listGroups(input: {
   include_deleted?: boolean;
   session: SessionScope;
 }): Promise<GroupRow[]> {
-  requirePermission(input.session, 'planner.group.read');
+  await requirePermission(input.session, 'planner.group.read');
 
   const db = plannerDb();
-  const filter = groupFilterFor(input.session);
+  const filter = await groupFilterFor(input.session);
 
   const conditions = [eq(groups.tenant_id, input.session.tenant_id)];
 

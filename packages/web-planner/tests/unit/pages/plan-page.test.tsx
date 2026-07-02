@@ -17,7 +17,9 @@ import type { ReactNode } from 'react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { PlanBoardShell } from '../../../src/pages/plan-board-shell';
 
-const server = setupServer();
+const server = setupServer(
+  http.get('*/api/planner/v1/groups/mine', () => HttpResponse.json({ groups: [groupFixture()] })),
+);
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
@@ -31,7 +33,6 @@ const session: SessionScopeProjection = {
   display_name: 'Me',
   role_summary: { roles: ['tenant.admin'], cross_tenant_read: false },
   permissions: [],
-  accessible_group_ids: ['g1'],
   cross_tenant_read: false,
   tenant_local_password_disabled: false,
 };

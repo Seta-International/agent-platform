@@ -31,7 +31,6 @@ const fxSession: SessionScopeProjection = {
   display_name: 'Me',
   role_summary: { roles: ['tenant.admin'], cross_tenant_read: false },
   permissions: [],
-  accessible_group_ids: ['g1'],
   cross_tenant_read: false,
   tenant_local_password_disabled: false,
 };

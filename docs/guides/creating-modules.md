@@ -203,11 +203,11 @@ export const TIMESHEET_EVENTS = {
 `packages/timesheet/src/rbac.ts`:
 
 ```ts
-export const TIMESHEET_ENTRY_WRITE = 'timesheet.entry.write' as const;
+export const TIMESHEET_ENTRY_UPDATE = 'timesheet.entry.update' as const;
 export const TIMESHEET_ENTRY_READ = 'timesheet.entry.read' as const;
 
 export const TIMESHEET_PERMISSIONS = {
-  [TIMESHEET_ENTRY_WRITE]: 'Log timesheet entries',
+  [TIMESHEET_ENTRY_UPDATE]: 'Log timesheet entries',
   [TIMESHEET_ENTRY_READ]: 'Read timesheet entries',
 } as const;
 ```

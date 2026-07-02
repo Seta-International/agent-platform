@@ -1,18 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { listWorkflowRuns } from '../../src/backend/domain/list-workflow-runs.ts';
-import type { SessionLike } from '../../src/backend/types.ts';
 import { onLifecycleEvent } from '../../src/backend/workflows/_infra/lifecycle-hook.ts';
-import { withAgentTestDb } from '../helpers.ts';
-
-function sessionWith(perms: string[], tenantId = randomUUID(), userId = randomUUID()): SessionLike {
-  return {
-    tenant_id: tenantId,
-    user_id: userId,
-    effective_permissions: new Set(perms),
-    role_summary: { roles: [], cross_tenant_read: false },
-  };
-}
+import { buildSession, withAgentTestDb } from '../helpers.ts';
 
 async function seedRun(
   pool: import('pg').Pool,
@@ -37,9 +27,9 @@ async function seedRun(
 }
 
 describe('listWorkflowRuns', () => {
-  it("scope=self returns only the caller's runs in their tenant", async () => {
+  it('member (implicit only, no agent role) sees only their own runs', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const me = sessionWith(['agent.workflow.run.read.self']);
+      const me = buildSession();
       const someoneElseInMyTenant = randomUUID();
       const otherTenant = randomUUID();
 
@@ -55,18 +45,20 @@ describe('listWorkflowRuns', () => {
     });
   });
 
-  it('scope=tenant requires agent.workflow.run.read.tenant', async () => {
+  it('implicit-only session requesting scope=tenant is forbidden', async () => {
     await withAgentTestDb(async ({ pool: _pool }) => {
-      const me = sessionWith(['agent.workflow.run.read.self']);
+      const me = buildSession();
       await expect(listWorkflowRuns({ session: me, scope: 'tenant' })).rejects.toThrow(
         /forbidden|permission/i,
       );
     });
   });
 
-  it('scope=tenant returns all runs in the caller tenant only', async () => {
+  it('agent.viewer @ tenant scope sees every run in the tenant', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const me = sessionWith(['agent.workflow.run.read.self', 'agent.workflow.run.read.tenant']);
+      const me = buildSession({
+        assignments: [{ role_slug: 'agent.viewer', scope_kind: 'tenant' }],
+      });
       await seedRun(pool, { tenantId: me.tenant_id, startedBy: randomUUID() });
       await seedRun(pool, { tenantId: me.tenant_id, startedBy: randomUUID() });
       await seedRun(pool, { tenantId: randomUUID(), startedBy: randomUUID() });
@@ -77,9 +69,45 @@ describe('listWorkflowRuns', () => {
     });
   });
 
+  it('agent.viewer @ self scope sees only their own runs and cannot request tenant scope', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const me = buildSession({
+        assignments: [{ role_slug: 'agent.viewer', scope_kind: 'self' }],
+      });
+      const myRun = await seedRun(pool, { tenantId: me.tenant_id, startedBy: me.user_id });
+      await seedRun(pool, { tenantId: me.tenant_id, startedBy: randomUUID() });
+
+      const result = await listWorkflowRuns({ session: me, scope: 'self' });
+      expect(result.rows).toHaveLength(1);
+      expect(result.rows[0]!.runId).toBe(myRun);
+
+      await expect(listWorkflowRuns({ session: me, scope: 'tenant' })).rejects.toThrow(
+        /forbidden|permission/i,
+      );
+    });
+  });
+
+  it('org.viewer (cross_tenant_read) requesting scope=instance lists runs across tenants', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const admin = buildSession({
+        assignments: [{ role_slug: 'org.viewer', scope_kind: 'tenant' }],
+      });
+      await seedRun(pool, { tenantId: admin.tenant_id, startedBy: randomUUID() });
+      await seedRun(pool, { tenantId: randomUUID(), startedBy: randomUUID() });
+
+      const result = await listWorkflowRuns({ session: admin, scope: 'instance' });
+      expect(result.rows.length).toBeGreaterThanOrEqual(2);
+
+      const lacking = buildSession();
+      await expect(listWorkflowRuns({ session: lacking, scope: 'instance' })).rejects.toThrow(
+        /forbidden|permission/i,
+      );
+    });
+  });
+
   it('paginates by started_at desc using an opaque cursor', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const me = sessionWith(['agent.workflow.run.read.self']);
+      const me = buildSession();
       for (let i = 0; i < 5; i++) {
         await seedRun(pool, { tenantId: me.tenant_id, startedBy: me.user_id });
         await new Promise((r) => setTimeout(r, 5));
@@ -102,7 +130,7 @@ describe('listWorkflowRuns', () => {
 
   it('filters by status', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const me = sessionWith(['agent.workflow.run.read.self']);
+      const me = buildSession();
       await seedRun(pool, { tenantId: me.tenant_id, startedBy: me.user_id });
       const completedRunId = await seedRun(pool, { tenantId: me.tenant_id, startedBy: me.user_id });
       await onLifecycleEvent(pool, {
@@ -137,7 +165,7 @@ describe('listWorkflowRuns', () => {
 
   it('filters by workflowId so cursor pagination respects the definition', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const me = sessionWith(['agent.workflow.run.read.self']);
+      const me = buildSession();
       const wantedId = 'agent.new-task-skill-tag';
       const otherId = 'agent.something-else';
       const wantedA = await seedRun(pool, {
@@ -178,28 +206,9 @@ describe('listWorkflowRuns', () => {
     });
   });
 
-  it('scope=instance requires read.instance and returns all tenants', async () => {
-    await withAgentTestDb(async ({ pool }) => {
-      const admin = sessionWith([
-        'agent.workflow.run.read.self',
-        'agent.workflow.run.read.instance',
-      ]);
-      await seedRun(pool, { tenantId: admin.tenant_id, startedBy: randomUUID() });
-      await seedRun(pool, { tenantId: randomUUID(), startedBy: randomUUID() });
-
-      const result = await listWorkflowRuns({ session: admin, scope: 'instance' });
-      expect(result.rows.length).toBeGreaterThanOrEqual(2);
-
-      const lacking = sessionWith(['agent.workflow.run.read.self']);
-      await expect(listWorkflowRuns({ session: lacking, scope: 'instance' })).rejects.toThrow(
-        /forbidden|permission/i,
-      );
-    });
-  });
-
   it('surfaces the latest approval decision (superseded + reason)', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const me = sessionWith(['agent.workflow.run.read.self']);
+      const me = buildSession();
       const runId = await seedRun(pool, {
         tenantId: me.tenant_id,
         startedBy: me.user_id,
@@ -226,7 +235,7 @@ describe('listWorkflowRuns', () => {
 
   it('returns null latestApproval* when the run has no approvals yet', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const me = sessionWith(['agent.workflow.run.read.self']);
+      const me = buildSession();
       await seedRun(pool, { tenantId: me.tenant_id, startedBy: me.user_id });
       const result = await listWorkflowRuns({ session: me, scope: 'self' });
       expect(result.rows[0]!.latestApprovalKind).toBeNull();

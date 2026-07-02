@@ -1,19 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
-import type { SessionLike } from '../../src/backend/types.ts';
 import { onLifecycleEvent } from '../../src/backend/workflows/_infra/lifecycle-hook.ts';
 import { mountInboxSse } from '../../src/backend/workflows/_infra/sse-inbox.ts';
-import { withAgentTestDb } from '../helpers.ts';
-
-function session(tenantId: string, userId: string, perms: string[]): SessionLike {
-  return {
-    tenant_id: tenantId,
-    user_id: userId,
-    effective_permissions: new Set(perms),
-    role_summary: { roles: [], cross_tenant_read: false },
-  };
-}
+import { buildSession, withAgentTestDb } from '../helpers.ts';
 
 async function readSomeSse(
   res: Response,
@@ -62,7 +52,7 @@ describe('mountInboxSse', () => {
     await withAgentTestDb(async ({ pool }) => {
       const tenantId = randomUUID();
       const userId = randomUUID();
-      const me = session(tenantId, userId, ['agent.workflow.run.read.self']);
+      const me = buildSession({ tenantId, userId });
       const app = new Hono();
       mountInboxSse(app, { pool, resolveSession: () => me });
 
@@ -111,9 +101,9 @@ describe('mountInboxSse', () => {
     });
   });
 
-  it('returns 403 when scope=tenant but caller lacks read.tenant', async () => {
+  it('returns 403 when scope=tenant but caller only has implicit self scope', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const me = session(randomUUID(), randomUUID(), ['agent.workflow.run.read.self']);
+      const me = buildSession();
       const app = new Hono();
       mountInboxSse(app, { pool, resolveSession: () => me });
       const res = await app.request('/api/agent/workflows/runs/stream?scope=tenant');
@@ -124,7 +114,7 @@ describe('mountInboxSse', () => {
   it('filters out other-tenant events at scope=self/tenant', async () => {
     await withAgentTestDb(async ({ pool }) => {
       const tenantId = randomUUID();
-      const me = session(tenantId, randomUUID(), ['agent.workflow.run.read.self']);
+      const me = buildSession({ tenantId });
       const app = new Hono();
       mountInboxSse(app, { pool, resolveSession: () => me });
 

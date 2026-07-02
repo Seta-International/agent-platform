@@ -51,6 +51,7 @@ export const project = pmSchema.table(
     phase: text('phase').notNull().default('initiation'),
     status: text('status').notNull().default('active'),
     planner_group_id: uuid('planner_group_id'),
+    org_unit_id: uuid('org_unit_id'),
     version: integer('version').default(1).notNull(),
     deleted_at: timestamp('deleted_at', { withTimezone: true }),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -58,6 +59,7 @@ export const project = pmSchema.table(
   },
   (t) => [
     index('project_by_account_status').on(t.tenant_id, t.account_id, t.status),
+    index('project_by_org_unit').on(t.tenant_id, t.org_unit_id),
     check(
       'project_phase_check',
       sql`phase IN ('initiation','discovery','execution','stabilize','uat','closed')`,

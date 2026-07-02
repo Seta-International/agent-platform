@@ -12,7 +12,7 @@ export async function setLocalPasswordDisabled(
 ): Promise<void> {
   if (actor.type === 'user') {
     if (!actor.user_id) throw new IdentityError('FORBIDDEN', 'user actor requires user_id');
-    await requirePermission(actor.user_id, 'core.tenant.write', args.tenant_id);
+    await requirePermission(actor.user_id, 'core.tenant.update', args.tenant_id);
   }
 
   if (args.disabled) {

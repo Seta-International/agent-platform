@@ -69,8 +69,12 @@ describe('listGroups', () => {
         resetCoreDb();
         initPools({ databaseUrl });
         try {
-          const seeded = await seedTenant(pool);
+          const seeded = await seedTenant(pool, {
+            users: [{ name: 'Viewer', email: 'viewer-groups@example.test' }],
+          });
           const adminSession = seeded.adminSession;
+          const [viewer] = seeded.users;
+          if (!viewer) throw new Error('Seed did not create viewer');
 
           const groupA = await createGroup({
             tenant_id: seeded.tenant_id,
@@ -83,11 +87,16 @@ describe('listGroups', () => {
             session: adminSession,
           });
 
+          await addGroupMember({
+            group_id: groupA.id,
+            user_id: viewer.user_id,
+            session: adminSession,
+          });
+
           const viewerSession = buildSession({
             tenant_id: seeded.tenant_id,
-            user_id: seeded.admin.user_id,
+            user_id: viewer.user_id,
             roles: ['planner.viewer'],
-            accessible_group_ids: [groupA.id],
           });
 
           const groups = await listGroups({ session: viewerSession });
@@ -149,9 +158,8 @@ describe('listGroups', () => {
 
           const viewerSession = buildSession({
             tenant_id: seeded.tenant_id,
-            user_id: seeded.admin.user_id,
+            user_id: crypto.randomUUID(),
             roles: ['planner.viewer'],
-            accessible_group_ids: [],
           });
 
           const groups = await listGroups({ session: viewerSession });
@@ -231,8 +239,12 @@ describe('getGroup', () => {
         resetCoreDb();
         initPools({ databaseUrl });
         try {
-          const seeded = await seedTenant(pool);
+          const seeded = await seedTenant(pool, {
+            users: [{ name: 'Viewer', email: 'viewer-getgroup@example.test' }],
+          });
           const adminSession = seeded.adminSession;
+          const [viewer] = seeded.users;
+          if (!viewer) throw new Error('Seed did not create viewer');
           const groupA = await createGroup({
             tenant_id: seeded.tenant_id,
             name: 'Alpha',
@@ -244,14 +256,19 @@ describe('getGroup', () => {
             session: adminSession,
           });
 
-          const viewerSession = buildSession({
-            tenant_id: seeded.tenant_id,
-            user_id: seeded.admin.user_id,
-            roles: ['planner.viewer'],
-            accessible_group_ids: [groupA.id],
+          await addGroupMember({
+            group_id: groupA.id,
+            user_id: viewer.user_id,
+            session: adminSession,
           });
 
-          // groupB is outside viewerSession's accessible_group_ids
+          const viewerSession = buildSession({
+            tenant_id: seeded.tenant_id,
+            user_id: viewer.user_id,
+            roles: ['planner.viewer'],
+          });
+
+          // viewer is a member of groupA only, not groupB
           await expect(
             getGroup({ group_id: groupB.id, session: viewerSession }),
           ).rejects.toMatchObject({ code: 'FORBIDDEN' });
@@ -392,8 +409,12 @@ describe('listPlans', () => {
         resetCoreDb();
         initPools({ databaseUrl });
         try {
-          const seeded = await seedTenant(pool);
+          const seeded = await seedTenant(pool, {
+            users: [{ name: 'Viewer', email: 'viewer-plans@example.test' }],
+          });
           const adminSession = seeded.adminSession;
+          const [viewer] = seeded.users;
+          if (!viewer) throw new Error('Seed did not create viewer');
 
           const groupA = await createGroup({
             tenant_id: seeded.tenant_id,
@@ -412,11 +433,16 @@ describe('listPlans', () => {
           });
           await createPlan({ group_id: groupB.id, name: 'Plan B', session: adminSession });
 
+          await addGroupMember({
+            group_id: groupA.id,
+            user_id: viewer.user_id,
+            session: adminSession,
+          });
+
           const viewerSession = buildSession({
             tenant_id: seeded.tenant_id,
-            user_id: seeded.admin.user_id,
+            user_id: viewer.user_id,
             roles: ['planner.viewer'],
-            accessible_group_ids: [groupA.id],
           });
 
           const plans = await listPlans({ session: viewerSession });
@@ -526,8 +552,12 @@ describe('getPlan', () => {
         resetCoreDb();
         initPools({ databaseUrl });
         try {
-          const seeded = await seedTenant(pool);
+          const seeded = await seedTenant(pool, {
+            users: [{ name: 'Viewer', email: 'viewer-getplan@example.test' }],
+          });
           const adminSession = seeded.adminSession;
+          const [viewer] = seeded.users;
+          if (!viewer) throw new Error('Seed did not create viewer');
           const groupA = await createGroup({
             tenant_id: seeded.tenant_id,
             name: 'Alpha',
@@ -544,11 +574,16 @@ describe('getPlan', () => {
             session: adminSession,
           });
 
+          await addGroupMember({
+            group_id: groupA.id,
+            user_id: viewer.user_id,
+            session: adminSession,
+          });
+
           const viewerSession = buildSession({
             tenant_id: seeded.tenant_id,
-            user_id: seeded.admin.user_id,
+            user_id: viewer.user_id,
             roles: ['planner.viewer'],
-            accessible_group_ids: [groupA.id],
           });
 
           await expect(
@@ -635,8 +670,12 @@ describe('listBuckets', () => {
         resetCoreDb();
         initPools({ databaseUrl });
         try {
-          const seeded = await seedTenant(pool);
+          const seeded = await seedTenant(pool, {
+            users: [{ name: 'Viewer', email: 'viewer-listbuckets@example.test' }],
+          });
           const adminSession = seeded.adminSession;
+          const [viewer] = seeded.users;
+          if (!viewer) throw new Error('Seed did not create viewer');
           const groupA = await createGroup({
             tenant_id: seeded.tenant_id,
             name: 'Alpha',
@@ -653,11 +692,16 @@ describe('listBuckets', () => {
             session: adminSession,
           });
 
+          await addGroupMember({
+            group_id: groupA.id,
+            user_id: viewer.user_id,
+            session: adminSession,
+          });
+
           const viewerSession = buildSession({
             tenant_id: seeded.tenant_id,
-            user_id: seeded.admin.user_id,
+            user_id: viewer.user_id,
             roles: ['planner.viewer'],
-            accessible_group_ids: [groupA.id],
           });
 
           await expect(
@@ -807,8 +851,12 @@ describe('listLabels', () => {
         resetCoreDb();
         initPools({ databaseUrl });
         try {
-          const seeded = await seedTenant(pool);
+          const seeded = await seedTenant(pool, {
+            users: [{ name: 'Viewer', email: 'viewer-listlabels@example.test' }],
+          });
           const adminSession = seeded.adminSession;
+          const [viewer] = seeded.users;
+          if (!viewer) throw new Error('Seed did not create viewer');
           const groupA = await createGroup({
             tenant_id: seeded.tenant_id,
             name: 'Alpha',
@@ -825,11 +873,16 @@ describe('listLabels', () => {
             session: adminSession,
           });
 
+          await addGroupMember({
+            group_id: groupA.id,
+            user_id: viewer.user_id,
+            session: adminSession,
+          });
+
           const viewerSession = buildSession({
             tenant_id: seeded.tenant_id,
-            user_id: seeded.admin.user_id,
+            user_id: viewer.user_id,
             roles: ['planner.viewer'],
-            accessible_group_ids: [groupA.id],
           });
 
           await expect(

@@ -67,12 +67,12 @@ describe('People picker routes', () => {
         });
         await createSkill({ input: { category_id: catId, name: 'Vue' }, session: skillAdmin });
 
-        const strategicSession = buildSession({
+        const managerSession = buildSession({
           tenant_id,
           user_id: admin_user_id,
-          roles: ['people.strategic'],
+          roles: ['people.manager'],
         });
-        const app = buildApp(strategicSession);
+        const app = buildApp(managerSession);
 
         const res = await app.request('/api/people/v1/skills?search=rea');
         expect(res.status).toBe(200);
@@ -100,12 +100,12 @@ describe('People picker routes', () => {
         });
         await createSkill({ input: { category_id: catId, name: 'Python' }, session: skillAdmin });
 
-        const strategicSession = buildSession({
+        const managerSession = buildSession({
           tenant_id,
           user_id: admin_user_id,
-          roles: ['people.strategic'],
+          roles: ['people.manager'],
         });
-        const app = buildApp(strategicSession);
+        const app = buildApp(managerSession);
 
         const res = await app.request(`/api/people/v1/skills?ids=${nodeId}`);
         expect(res.status).toBe(200);
@@ -158,7 +158,7 @@ describe('People picker routes', () => {
         const session = buildSession({
           tenant_id,
           user_id: admin_user_id,
-          roles: ['people.strategic'],
+          roles: ['people.manager'],
         });
         const app = buildApp(session);
 
@@ -185,7 +185,7 @@ describe('People picker routes', () => {
         const session = buildSession({
           tenant_id,
           user_id: admin_user_id,
-          roles: ['people.strategic'],
+          roles: ['people.manager'],
         });
         const app = buildApp(session);
 
@@ -212,7 +212,7 @@ describe('People picker routes', () => {
         const session = buildSession({
           tenant_id,
           user_id: admin_user_id,
-          roles: ['people.strategic'],
+          roles: ['people.manager'],
         });
         const app = buildApp(session);
 
@@ -243,7 +243,7 @@ describe('People picker routes', () => {
         const session = buildSession({
           tenant_id,
           user_id: admin_user_id,
-          roles: ['people.strategic'],
+          roles: ['people.manager'],
         });
         const app = buildApp(session);
 
@@ -270,7 +270,7 @@ describe('People picker routes', () => {
         const session = buildSession({
           tenant_id,
           user_id: admin_user_id,
-          roles: ['people.strategic'],
+          roles: ['people.manager'],
         });
         const app = buildApp(session);
 
@@ -297,7 +297,7 @@ describe('People picker routes', () => {
         const session = buildSession({
           tenant_id,
           user_id: admin_user_id,
-          roles: ['people.strategic'],
+          roles: ['people.manager'],
         });
         const app = buildApp(session);
 
@@ -328,7 +328,7 @@ describe('People picker routes', () => {
         const session = buildSession({
           tenant_id,
           user_id: admin_user_id,
-          roles: ['people.strategic'],
+          roles: ['people.manager'],
         });
         const app = buildApp(session);
 

@@ -9,7 +9,7 @@ export async function provisionAccount(
   session: SessionScope,
   input: { person_id: string },
 ): Promise<{ user_id: string; created: boolean }> {
-  await requirePermission(session.user_id, 'identity.user.write', session.tenant_id);
+  await requirePermission(session.user_id, 'identity.user.update', session.tenant_id);
 
   const [row] = await identityDb()
     .select({ email: directoryPerson.work_email, name: directoryPerson.full_name })

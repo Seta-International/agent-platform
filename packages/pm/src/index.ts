@@ -26,6 +26,7 @@ export type {
 export { getCharter, getCharterSummary, listCharters } from './backend/domain/read-charters.ts';
 export type { ProjectListRow } from './backend/domain/read-projects.ts';
 export { getProject, listProjects } from './backend/domain/read-projects.ts';
+export { listRecruiterAccountIds } from './backend/domain/recruiter-accounts.ts';
 export { removeAllocation } from './backend/domain/remove-allocation.ts';
 export { setAccountRecruiters } from './backend/domain/set-account-recruiters.ts';
 export {

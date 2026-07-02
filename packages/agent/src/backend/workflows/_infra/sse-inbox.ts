@@ -1,23 +1,21 @@
 import type { Context, Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
 import type { Pool } from 'pg';
+import {
+  canRequestRunScope,
+  resolveRunPermissionScope,
+  type WorkflowRunScope,
+} from '../../domain/workflow-run-scope.ts';
 import type { SessionLike } from '../../types.ts';
 import { verifySseToken } from './auth-token.ts';
 import { CoalescingEmitter } from './coalescing-emitter.ts';
 
-export type WorkflowRunScope = 'self' | 'group' | 'tenant' | 'instance';
+export type { WorkflowRunScope } from '../../domain/workflow-run-scope.ts';
 
 export interface MountInboxSseDeps {
   pool: Pool;
   resolveSession?: (c: Context) => SessionLike | null;
 }
-
-const SCOPE_PERMISSIONS: Record<WorkflowRunScope, string> = {
-  self: 'agent.workflow.run.read.self',
-  group: 'agent.workflow.run.read.tenant',
-  tenant: 'agent.workflow.run.read.tenant',
-  instance: 'agent.workflow.run.read.instance',
-};
 
 // Broad-scope inbox subscriptions can fire many notifications per run. Coalesce
 // them into one emission per run per second so React Query invalidations don't
@@ -38,10 +36,20 @@ export function mountInboxSse(app: Hono, deps: MountInboxSseDeps): void {
     if (!sess) return c.text('unauthorized', 401);
 
     const url = new URL(c.req.url);
-    const scope = (url.searchParams.get('scope') ?? 'self') as WorkflowRunScope;
-    const required = SCOPE_PERMISSIONS[scope];
-    if (!required) return c.text('invalid_scope', 400);
-    if (!sess.effective_permissions.has(required)) return c.text('forbidden', 403);
+    const scopeRaw = url.searchParams.get('scope') ?? 'self';
+    if (
+      scopeRaw !== 'self' &&
+      scopeRaw !== 'group' &&
+      scopeRaw !== 'tenant' &&
+      scopeRaw !== 'instance'
+    ) {
+      return c.text('invalid_scope', 400);
+    }
+    const scope: WorkflowRunScope = scopeRaw;
+    const decision = resolveRunPermissionScope(sess, 'agent.workflow.run.read');
+    if (!canRequestRunScope(decision, scope, sess.role_summary.cross_tenant_read)) {
+      return c.text('forbidden', 403);
+    }
 
     return streamSSE(c, async (stream) => {
       const client = await deps.pool.connect();
@@ -136,6 +144,6 @@ function defaultSessionResolver(c: Context): SessionLike | null {
     user_id: claims.userId,
     tenant_id: claims.tenantId,
     effective_permissions: new Set<string>(),
-    role_summary: { roles: [], cross_tenant_read: false },
+    role_summary: { roles: [], cross_tenant_read: false, assignments: [] },
   };
 }

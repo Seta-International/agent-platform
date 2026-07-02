@@ -1,12 +1,11 @@
 import type { SessionScope } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
 import { syncLoginIdentity } from '@seta/identity';
-import { can } from '@seta/shared-rbac';
+import { can, tenantScoped } from '@seta/shared-rbac';
 import { and, eq } from 'drizzle-orm';
 import type { EditWorkerInput } from '../../contracts.ts';
 import { peopleDb } from '../db/client.ts';
 import { person, worker, workerHistory } from '../db/schema.ts';
-import { tenantScoped } from '../db/scope.ts';
 import { PeopleError, requirePermission } from '../rbac.ts';
 import { classifyField } from './field-rules.ts';
 
@@ -25,7 +24,7 @@ export async function editWorker(
   if (!current) throw new PeopleError('NOT_FOUND', 'worker not found');
 
   const isOwner = current.person.user_id === session.user_id;
-  const isAdmin = can(session, 'people.worker.edit');
+  const isAdmin = can(session, 'people.worker.update');
 
   const entries = Object.entries(patch).filter(([, v]) => v !== undefined) as [string, unknown][];
   for (const [field] of entries) {

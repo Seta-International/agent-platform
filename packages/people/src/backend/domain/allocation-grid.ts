@@ -1,5 +1,4 @@
 import type { SessionScope } from '@seta/core';
-import { can } from '@seta/shared-rbac';
 import { and, asc, eq, isNotNull, sql } from 'drizzle-orm';
 import { peopleDb } from '../db/client.ts';
 import {
@@ -8,7 +7,7 @@ import {
   worker,
   workerAllocationProjection,
 } from '../db/schema.ts';
-import { PeopleError } from '../rbac.ts';
+import { requirePermission } from '../rbac.ts';
 import { buildWorkerScope } from './worker-scope.ts';
 
 export interface AllocationGridRow {
@@ -108,14 +107,10 @@ export async function getAllocationGrid(
   session: SessionScope,
   query: AllocationGridQuery = {},
 ): Promise<AllocationGrid> {
-  if (!can(session, 'people.worker.read') && !can(session, 'people.worker.read.all')) {
-    throw new PeopleError('FORBIDDEN', 'Missing permission: people.worker.read', {
-      permission: 'people.worker.read',
-    });
-  }
+  requirePermission(session, 'people.worker.read');
 
   const year = query.year ?? new Date().getUTCFullYear();
-  const scope = buildWorkerScope(session); // SQL predicate on worker.person_id, or null for read.all
+  const scope = buildWorkerScope(session); // SQL predicate on worker.person_id, or null for tenant scope
 
   const where = [
     eq(workerAllocationProjection.tenant_id, session.tenant_id),

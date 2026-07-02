@@ -388,7 +388,7 @@ There is no separate publish path. `core.emit()` throws outside an `emitContext`
 
 `@seta/identity` wraps better-auth (local password + Entra OIDC) over `identity.user`, `identity.session`, `identity.account`, `identity.verification` (better-auth's tables) plus a sibling `identity.user_profile` for app-specific fields (skills, availability, working_hours, timezone).
 
-Sessions land in request context via a Hono middleware provided by `@seta/core`. Every public-surface function takes a `session: SessionScope` carrying `tenant_id`, `user_id`, `role_summary` (`{ roles, cross_tenant_read }`), `accessible_group_ids`, `cross_tenant_read`, and a resolved `permissions: ReadonlySet<string>`. The permission set is computed at session-build time from the user's roles via the shared resolver (`@seta/shared-rbac`) and recomputed on cache hydration — it is not persisted.
+Sessions land in request context via a Hono middleware provided by `@seta/core`. Every public-surface function takes a `session: SessionScope` carrying `tenant_id`, `user_id`, `role_summary` (`{ roles, cross_tenant_read }`), the scoped `assignments` (`{ role, scope_kind, scope_id }`) with org-unit reach pre-expanded, `cross_tenant_read`, and a resolved `permissions: ReadonlySet<string>`. The permission set and scope map are computed at session-build time from the user's assignments via the shared resolver (`@seta/shared-rbac`) and recomputed on cache hydration — never persisted.
 
 ### RBAC resolution engine
 

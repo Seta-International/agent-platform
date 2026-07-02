@@ -1,11 +1,11 @@
 import { resetCoreDb } from '@seta/core/testing';
 import { closePools, initPools } from '@seta/shared-db';
+import { tenantScoped } from '@seta/shared-rbac';
 import { withTestDb } from '@seta/shared-testing';
 import { and, eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { hiringDb, resetHiringDb } from '../../src/backend/db/client.ts';
 import { requisition } from '../../src/backend/db/schema.ts';
-import { assertSameTenant, tenantScoped } from '../../src/backend/db/scope.ts';
 import { openRequisition } from '../../src/index.ts';
 import { seedTenant } from '../helpers.ts';
 
@@ -40,12 +40,6 @@ describe('hiring org isolation', () => {
             ),
           );
         expect(visibleToB).toHaveLength(0);
-
-        const [rowA] = await hiringDb()
-          .select()
-          .from(requisition)
-          .where(eq(requisition.id, requisition_id));
-        expect(() => assertSameTenant(rowA!, orgB.adminSession)).toThrow(/another tenant/i);
       } finally {
         resetHiringDb();
         resetCoreDb();

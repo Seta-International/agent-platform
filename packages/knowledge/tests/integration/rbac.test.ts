@@ -30,7 +30,7 @@ const withDb = <T>(fn: () => Promise<T>) =>
   );
 
 describe('knowledge RBAC', () => {
-  it('rejects requestKnowledgeUpload without knowledge.file.write', () =>
+  it('rejects requestKnowledgeUpload without knowledge.file.update', () =>
     withDb(async () => {
       const tenantId = crypto.randomUUID();
       const viewer = buildTestSession({ tenant_id: tenantId, roles: ['knowledge.viewer'] });
@@ -48,7 +48,7 @@ describe('knowledge RBAC', () => {
       ).rejects.toBeInstanceOf(KnowledgeError);
     }));
 
-  it('rejects markKnowledgeFileProcessed without knowledge.file.write', () =>
+  it('rejects markKnowledgeFileProcessed without knowledge.file.update', () =>
     withDb(async () => {
       const tenantId = crypto.randomUUID();
       const viewer = buildTestSession({ tenant_id: tenantId, roles: ['knowledge.viewer'] });
@@ -116,19 +116,20 @@ describe('knowledge RBAC', () => {
         tenant_id: tenantId,
         email: 'viewer@example.test',
         display_name: 'Viewer',
-        role_summary: { roles: ['knowledge.viewer'], cross_tenant_read: false },
+        role_summary: { roles: ['knowledge.viewer'], cross_tenant_read: false, assignments: [] },
         role_summary_hash: 'h',
         permissions: permsFor(['knowledge.viewer']),
-        accessible_group_ids: [] as string[],
+        assignments: [],
         group_ids: [],
         product_access: new Set<string>(),
+        worker_id: null,
         cross_tenant_read: false,
         built_at: new Date(),
         invalidated_at: null,
       };
 
       expect(() => requirePermission(session, 'knowledge.file.read')).not.toThrow();
-      expect(() => requirePermission(session, 'knowledge.file.write')).toThrow(KnowledgeError);
+      expect(() => requirePermission(session, 'knowledge.file.update')).toThrow(KnowledgeError);
       expect(() => requirePermission(session, 'knowledge.file.delete')).toThrow(KnowledgeError);
     });
 
@@ -141,19 +142,20 @@ describe('knowledge RBAC', () => {
         tenant_id: tenantId,
         email: 'member@example.test',
         display_name: 'Member',
-        role_summary: { roles: ['knowledge.member'], cross_tenant_read: false },
+        role_summary: { roles: ['knowledge.member'], cross_tenant_read: false, assignments: [] },
         role_summary_hash: 'h',
         permissions: permsFor(['knowledge.member']),
-        accessible_group_ids: [] as string[],
+        assignments: [],
         group_ids: [],
         product_access: new Set<string>(),
+        worker_id: null,
         cross_tenant_read: false,
         built_at: new Date(),
         invalidated_at: null,
       };
 
       expect(() => requirePermission(session, 'knowledge.file.read')).not.toThrow();
-      expect(() => requirePermission(session, 'knowledge.file.write')).not.toThrow();
+      expect(() => requirePermission(session, 'knowledge.file.update')).not.toThrow();
       expect(() => requirePermission(session, 'knowledge.file.delete')).not.toThrow();
     });
   });

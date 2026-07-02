@@ -21,7 +21,7 @@ export function buildTestSession(opts: {
   roles?: string[];
 }): SessionScope {
   const roles = opts.roles ?? ['org.admin'];
-  const role_summary = { roles, cross_tenant_read: false };
+  const role_summary = { roles, cross_tenant_read: false, assignments: [] };
   return {
     session_id: crypto.randomUUID(),
     user_id: opts.user_id ?? crypto.randomUUID(),
@@ -31,9 +31,10 @@ export function buildTestSession(opts: {
     role_summary,
     role_summary_hash: hashRoleSummary(role_summary),
     permissions: permsFor(roles),
-    accessible_group_ids: [],
+    assignments: [],
     group_ids: [],
     product_access: new Set<string>(),
+    worker_id: null,
     cross_tenant_read: false,
     built_at: new Date(),
     invalidated_at: null,

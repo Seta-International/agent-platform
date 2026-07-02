@@ -10,7 +10,6 @@ const ME_RESPONSE = {
   display_name: 'Ada Lovelace',
   role_summary: { roles: ['pm.user'], cross_tenant_read: false },
   permissions: ['people.worker.read'],
-  accessible_group_ids: [],
   cross_tenant_read: false,
   tenant_local_password_disabled: false,
 };

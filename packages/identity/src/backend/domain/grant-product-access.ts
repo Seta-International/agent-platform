@@ -6,8 +6,8 @@ import { identityDb } from '../db/index.ts';
 import { productGrant } from '../db/schema.ts';
 import { IdentityError, requirePermission } from '../rbac.ts';
 import type { Actor } from './create-user.ts';
-import { listUserGroupIds } from './list-role-grants.ts';
-import { resolveEffectiveRoleSlugs } from './resolve-effective-roles.ts';
+import { listUserGroupIds } from './list-role-assignments.ts';
+import { resolveEffectiveAssignments, toRoleSlugs } from './resolve-effective-assignments.ts';
 import { resolveTenantProducts } from './resolve-product-access.ts';
 
 export interface GrantProductAccessInput {
@@ -186,7 +186,7 @@ export async function listProductAccess(
     result.push({ product_id, source: 'tenant', effect: 'grant' });
   }
 
-  const roles = await resolveEffectiveRoleSlugs(user_id, session.tenant_id);
+  const roles = toRoleSlugs(await resolveEffectiveAssignments(user_id, session.tenant_id));
   for (const r of roles) {
     const ns = r.split('.')[0];
     if (ns && PRODUCT_NAMESPACES.has(ns)) {

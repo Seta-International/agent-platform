@@ -34,7 +34,7 @@ export async function requestKnowledgeUpload(
   input: RequestKnowledgeUploadInput,
   deps: RequestKnowledgeUploadDeps,
 ): Promise<RequestKnowledgeUploadResult> {
-  requirePermission(deps.session, 'knowledge.file.write');
+  requirePermission(deps.session, 'knowledge.file.update');
   const ext = input.filename.split('.').pop()?.toLowerCase() ?? '';
   if (!ALLOWED_EXTENSIONS.has(ext)) {
     throw new Error(

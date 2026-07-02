@@ -39,7 +39,7 @@ export async function assignTask(input: {
           plan_id: existing.plan_id,
         });
 
-      requirePermission(input.session, 'planner.task.assign', plan.group_id);
+      await requirePermission(input.session, 'planner.task.assign', plan.group_id);
 
       await assertAssigneesAreGroupMembers(tx, plan.group_id, [input.user_id]);
 

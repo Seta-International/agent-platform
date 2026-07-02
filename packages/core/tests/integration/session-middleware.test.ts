@@ -1,4 +1,4 @@
-import { createUser, grantRole, listRoleGrants } from '@seta/identity';
+import { createUser, grantRole, listRoleAssignments } from '@seta/identity';
 import { registerIdentityContributions } from '@seta/identity/register';
 import { closePools, getPool, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
@@ -48,7 +48,7 @@ describe('invalidation subscribers drain identity events', () => {
           const sessionId = `sess-${crypto.randomUUID()}`;
           _clearHotForTest();
           await getSessionScope(
-            { listRoleGrants, resolvePermissions: () => new Set() },
+            { listRoleAssignments, resolvePermissions: () => new Set() },
             sessionId,
             user_id,
             'a@d.local',

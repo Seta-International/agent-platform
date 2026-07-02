@@ -57,7 +57,7 @@ export async function duplicatePlan(input: {
         });
       }
 
-      requirePermission(input.session, 'planner.plan.create', source.group_id);
+      await requirePermission(input.session, 'planner.plan.create', source.group_id);
 
       const [group] = await tx
         .select({ name: groups.name })

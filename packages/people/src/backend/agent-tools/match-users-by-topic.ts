@@ -54,7 +54,6 @@ export interface MatchUsersToTopicToolDeps {
   pgVector?: PgVector;
   sessionProvider?: (actor: { user_id: string }) => Promise<{
     tenant_id: string;
-    accessible_group_ids: ReadonlyArray<string>;
   }>;
 }
 

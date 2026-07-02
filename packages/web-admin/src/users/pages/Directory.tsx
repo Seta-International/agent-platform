@@ -115,7 +115,7 @@ export function Directory({ search, onSearch }: DirectoryProps) {
   const [suspendTarget, setSuspendTarget] = useState<DirectoryRow | null>(null);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
 
-  const canWrite = usePermission('identity.user.write');
+  const canWrite = usePermission('identity.user.update');
 
   // URL search params are the source of truth (shareable, survive refresh).
   const status = search.status ?? 'all';

@@ -1,10 +1,10 @@
 import type { SessionScope } from '@seta/core';
 import { listSkills } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
+import { tenantScoped } from '@seta/shared-rbac';
 import { and, eq, inArray } from 'drizzle-orm';
 import { peopleDb } from '../db/client.ts';
 import { person, personSkill } from '../db/schema.ts';
-import { tenantScoped } from '../db/scope.ts';
 import { PeopleError, requirePermission } from '../rbac.ts';
 import { resolveSelfPersonId } from './self.ts';
 
@@ -127,7 +127,7 @@ export async function addPersonSkill(input: {
   session: SessionScope;
 }): Promise<void> {
   const { person_id, skill_id, level, session } = input;
-  requirePermission(session, 'people.worker.edit');
+  requirePermission(session, 'people.worker.update');
 
   const skills = await listSkills(session);
   const skill = skills.find((s) => s.id === skill_id);
@@ -164,7 +164,7 @@ export async function removePersonSkill(input: {
   session: SessionScope;
 }): Promise<void> {
   const { person_id, skill_id, session } = input;
-  requirePermission(session, 'people.worker.edit');
+  requirePermission(session, 'people.worker.update');
 
   await withEmit(
     { actor: { userId: session.user_id, tenantId: session.tenant_id } },

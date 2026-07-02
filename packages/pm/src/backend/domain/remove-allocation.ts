@@ -1,10 +1,10 @@
 import type { SessionScope } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
+import { tenantScoped } from '@seta/shared-rbac';
 import { and, eq, isNull } from 'drizzle-orm';
 import { PM_ALLOCATION_REMOVED } from '../../events.ts';
 import { pmDb } from '../db/client.ts';
 import { allocation, project } from '../db/schema.ts';
-import { tenantScoped } from '../db/scope.ts';
 import { PmError, requirePermission } from '../rbac.ts';
 
 export async function removeAllocation(input: {

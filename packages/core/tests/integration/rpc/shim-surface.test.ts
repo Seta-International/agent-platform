@@ -35,7 +35,11 @@ const adminActor = {
   tenant_id: 't1',
   email: 'u1@example.com',
   display_name: 'U',
-  role_summary: { roles: ['tenant.admin'], cross_tenant_read: false },
+  role_summary: {
+    roles: ['tenant.admin'],
+    cross_tenant_read: false,
+    assignments: [{ role_slug: 'tenant.admin', scope_kind: 'tenant' as const, scope_id: null }],
+  },
   cross_tenant_read: false,
 };
 
@@ -44,13 +48,17 @@ const memberActor = {
   tenant_id: 't1',
   email: 'u2@example.com',
   display_name: 'M',
-  role_summary: { roles: ['member'], cross_tenant_read: false },
+  role_summary: {
+    roles: ['member'],
+    cross_tenant_read: false,
+    assignments: [{ role_slug: 'member', scope_kind: 'tenant' as const, scope_id: null }],
+  },
   cross_tenant_read: false,
 };
 
 const identityMethods = {
   getUserProfile: {
-    permission: 'identity.user.read.any',
+    permission: 'identity.user.list',
     input: z.object({ userId: z.string().min(1) }),
     handler: async (input: unknown) => {
       const { userId } = input as { userId: string };
@@ -77,13 +85,13 @@ describe('rpc shim — public surface', () => {
     expect(() => RpcActorSchema.parse(adminActor)).not.toThrow();
   });
 
-  it('rbacCheck passes for admin, throws RpcForbidden for member', () => {
-    expect(() =>
-      rbacCheck(adminActor, 'identity.user.read.any', 'identity', 'getUserProfile'),
-    ).not.toThrow();
-    expect(() =>
-      rbacCheck(memberActor, 'identity.user.read.any', 'identity', 'getUserProfile'),
-    ).toThrow(RpcForbidden);
+  it('rbacCheck passes for admin, throws RpcForbidden for member', async () => {
+    await expect(
+      rbacCheck(adminActor, 'identity.user.list', 'identity', 'getUserProfile'),
+    ).resolves.toBeUndefined();
+    await expect(
+      rbacCheck(memberActor, 'identity.user.list', 'identity', 'getUserProfile'),
+    ).rejects.toBeInstanceOf(RpcForbidden);
   });
 
   it('peerAuth(bearer) rejects construction with a short secret', () => {
@@ -214,7 +222,7 @@ describe('rpc shim — public surface', () => {
   it('callRemote — maps 403 to RpcForbidden', async () => {
     const fetchFn = vi.fn(
       async () =>
-        new Response(JSON.stringify({ error: 'forbidden', permission: 'identity.user.read.any' }), {
+        new Response(JSON.stringify({ error: 'forbidden', permission: 'identity.user.list' }), {
           status: 403,
           headers: { 'content-type': 'application/json' },
         }),

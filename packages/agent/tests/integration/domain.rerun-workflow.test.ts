@@ -1,26 +1,17 @@
 import { randomUUID } from 'node:crypto';
 import type { Mastra } from '@mastra/core';
 import { RequestContext } from '@mastra/core/request-context';
+import type { SessionLike } from '@seta/agent-sdk';
 import { describe, expect, it, vi } from 'vitest';
 import { rerunWorkflow } from '../../src/backend/domain/rerun-workflow.ts';
-import type { SessionLike } from '../../src/backend/types.ts';
 import { onLifecycleEvent } from '../../src/backend/workflows/_infra/lifecycle-hook.ts';
-import { withAgentTestDb } from '../helpers.ts';
+import { buildSession, withAgentTestDb } from '../helpers.ts';
 
 function makeRequestContext(session: SessionLike): RequestContext {
   const ctx = new RequestContext();
   ctx.set('actor', { type: 'user' as const, user_id: session.user_id });
   ctx.set('tenant_id', session.tenant_id);
   return ctx;
-}
-
-function sessionWith(perms: string[], tenantId = randomUUID(), userId = randomUUID()): SessionLike {
-  return {
-    tenant_id: tenantId,
-    user_id: userId,
-    effective_permissions: new Set(perms),
-    role_summary: { roles: [], cross_tenant_read: false },
-  };
 }
 
 async function seedParent(
@@ -56,29 +47,9 @@ function makeMastra(start: ReturnType<typeof vi.fn>, createRun?: ReturnType<type
 }
 
 describe('rerunWorkflow', () => {
-  it('requires agent.workflow.run.execute.self', async () => {
+  it('returns not_found when parent does not exist (execute is implicit; visibility gates it)', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const viewer = sessionWith([
-        'agent.workflow.run.read.self',
-        'agent.workflow.run.read.tenant',
-      ]);
-      const runId = randomUUID();
-      await seedParent(pool, { runId, tenantId: viewer.tenant_id, startedBy: viewer.user_id });
-      await expect(
-        rerunWorkflow({
-          session: viewer,
-          runId,
-          mastra: makeMastra(vi.fn()),
-          pool,
-          requestContext: makeRequestContext(viewer),
-        }),
-      ).rejects.toThrow(/forbidden|permission/i);
-    });
-  });
-
-  it('returns null-ish (not_found) when parent does not exist', async () => {
-    await withAgentTestDb(async ({ pool }) => {
-      const me = sessionWith(['agent.workflow.run.read.self', 'agent.workflow.run.execute.self']);
+      const me = buildSession();
       await expect(
         rerunWorkflow({
           session: me,
@@ -93,7 +64,7 @@ describe('rerunWorkflow', () => {
 
   it('creates a new run via Mastra and emits rerun_requested outbox event', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const me = sessionWith(['agent.workflow.run.read.self', 'agent.workflow.run.execute.self']);
+      const me = buildSession();
       const parentRunId = randomUUID();
       await seedParent(pool, {
         runId: parentRunId,
@@ -137,7 +108,7 @@ describe('rerunWorkflow', () => {
 
   it('respects inputOverride when provided', async () => {
     await withAgentTestDb(async ({ pool }) => {
-      const me = sessionWith(['agent.workflow.run.read.self', 'agent.workflow.run.execute.self']);
+      const me = buildSession();
       const parentRunId = randomUUID();
       await seedParent(pool, { runId: parentRunId, tenantId: me.tenant_id, startedBy: me.user_id });
 

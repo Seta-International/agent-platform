@@ -18,16 +18,16 @@ const actor = (roles: string[]) => ({
   tenant_id: 't',
   email: 'e',
   display_name: 'd',
-  role_summary: { roles, cross_tenant_read: false },
+  role_summary: { roles, cross_tenant_read: false, assignments: [] },
   cross_tenant_read: false,
 });
 
-it('allows a fine-grained permission via a non-admin role', () => {
-  expect(() => check(actor(['m.viewer']), 'm.a.read', 'm', 'go')).not.toThrow();
+it('allows a fine-grained permission via a non-admin role', async () => {
+  await expect(check(actor(['m.viewer']), 'm.a.read', 'm', 'go')).resolves.toBeUndefined();
 });
-it('forbids a permission the role lacks', () => {
-  expect(() => check(actor(['m.viewer']), 'm.a.write', 'm', 'go')).toThrow();
+it('forbids a permission the role lacks', async () => {
+  await expect(check(actor(['m.viewer']), 'm.a.write', 'm', 'go')).rejects.toThrow();
 });
-it('admin wildcard passes any permission', () => {
-  expect(() => check(actor(['org.admin']), 'm.a.write', 'm', 'go')).not.toThrow();
+it('admin wildcard passes any permission', async () => {
+  await expect(check(actor(['org.admin']), 'm.a.write', 'm', 'go')).resolves.toBeUndefined();
 });

@@ -107,9 +107,9 @@ async function getPlanChartDataImpl(
     });
   }
 
-  requirePermission(session, 'planner.plan.read', plan.group_id);
+  await requirePermission(session, 'planner.plan.read', plan.group_id);
 
-  const groupFilter = groupFilterFor(session);
+  const groupFilter = await groupFilterFor(session);
   if (groupFilter !== null && !groupFilter.includes(plan.group_id)) {
     throw new PlannerError('FORBIDDEN', 'No access to group', { plan_id: input.plan_id });
   }

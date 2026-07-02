@@ -1,11 +1,11 @@
 import type { SessionScope } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
+import { tenantScoped } from '@seta/shared-rbac';
 import { and, eq, sql } from 'drizzle-orm';
 import type { AddOpeningInput, CloseOpeningInput } from '../../contracts.ts';
 import { HIRING_OPENING_CLOSED, HIRING_OPENING_OPENED } from '../../events.ts';
 import { hiringDb } from '../db/client.ts';
 import { opening, requisition } from '../db/schema.ts';
-import { tenantScoped } from '../db/scope.ts';
 import { HiringError, requirePermission } from '../rbac.ts';
 
 export async function addOpening(input: {

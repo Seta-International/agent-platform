@@ -3,19 +3,19 @@
 // Proves that the real identity resolveProductAccess drives the product-gate
 // inside getSessionScope — exactly the wiring build.ts now uses.
 // Tests the SAME dep composition as the composition root:
-//   listRoleGrants + listUserGroupIds + resolveProductAccess (all real, from @seta/identity)
+//   listRoleAssignments + listUserGroupIds + resolveProductAccess (all real, from @seta/identity)
 //   resolvePermissions: faithful stub returning pm.account.read for pm.pmo holders.
 import { createContributionRegistry, getSessionScope, runMigrations } from '@seta/core';
 import { registerCoreContributions } from '@seta/core/register';
 import { _clearHotForTest, resetCoreDb } from '@seta/core/testing';
-import { listRoleGrants, listUserGroupIds, resolveProductAccess } from '@seta/identity';
+import { listRoleAssignments, listUserGroupIds, resolveProductAccess } from '@seta/identity';
 import { registerIdentityContributions } from '@seta/identity/register';
 import { createTestTenantWithAdmin } from '@seta/identity/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { identityDb } from '../../src/backend/db/index.ts';
-import { productGrant, roleGrants } from '../../src/backend/db/schema.ts';
+import { productGrant, roleAssignments } from '../../src/backend/db/schema.ts';
 
 describe('product gate e2e', () => {
   it('hides pm permissions until tenant enables pm product', async () => {
@@ -38,11 +38,11 @@ describe('product gate e2e', () => {
           const db = identityDb();
 
           // Grant the admin user the pm.pmo role (in addition to org.admin from bootstrap)
-          await db.insert(roleGrants).values({
+          await db.insert(roleAssignments).values({
             user_id: admin_user_id,
             tenant_id,
             role_slug: 'pm.pmo',
-            scope_type: 'tenant',
+            scope_kind: 'tenant',
             scope_id: null,
             granted_via: 'admin',
           });
@@ -57,7 +57,7 @@ describe('product gate e2e', () => {
             new Set(roles.includes('pm.pmo') ? ['pm.account.read'] : []);
 
           const deps = {
-            listRoleGrants,
+            listRoleAssignments,
             resolvePermissions,
             resolveGroupIds: listUserGroupIds,
             resolveProductAccess,

@@ -11,7 +11,7 @@ ADMIN_NAME="${ADMIN_NAME:-SETA International Admin}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-ChangeMe@2026}"
 MEMBER_COUNT="${MEMBER_COUNT:-1}"
 MEMBER_PASSWORD="${MEMBER_PASSWORD:-$ADMIN_PASSWORD}"
-MEMBER_ROLE="${MEMBER_ROLE:-planner.contributor}"
+MEMBER_ROLE="${MEMBER_ROLE:-planner.member}"
 MEMBER_DOMAIN="${MEMBER_DOMAIN:-${SLUG}.test}"
 
 if ! [[ "$MEMBER_COUNT" =~ ^[0-9]+$ ]]; then
@@ -46,7 +46,7 @@ for ((i = 1; i <= MEMBER_COUNT; i++)); do
   pnpm -F @seta/cli exec tsx src/index.ts role-grant \
     --user "$email" --tenant "$SLUG" --role knowledge.member --scope tenant --action grant
   pnpm -F @seta/cli exec tsx src/index.ts role-grant \
-    --user "$email" --tenant "$SLUG" --role agent.contributor --scope tenant --action grant
+    --user "$email" --tenant "$SLUG" --role agent.member --scope self --action grant
 done
 
 cat <<EOF

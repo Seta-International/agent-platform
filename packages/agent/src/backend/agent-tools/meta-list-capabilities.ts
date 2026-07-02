@@ -11,7 +11,7 @@ export const metaListCapabilitiesTool = defineAgentTool({
     specialists: z.array(z.object({ domain: z.string(), id: z.string(), description: z.string() })),
     workflows: z.array(z.object({ domain: z.string(), id: z.string(), description: z.string() })),
   }),
-  rbac: 'agent.meta.read.self',
+  rbac: 'agent.meta.read',
   execute: async () => {
     const snap = AgentRegistry.snapshot();
     return {

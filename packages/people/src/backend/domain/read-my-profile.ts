@@ -1,8 +1,8 @@
 import type { SessionScope } from '@seta/core';
+import { tenantScoped } from '@seta/shared-rbac';
 import { and, eq } from 'drizzle-orm';
 import { peopleDb } from '../db/client.ts';
 import { person, worker } from '../db/schema.ts';
-import { tenantScoped } from '../db/scope.ts';
 import { requirePermission } from '../rbac.ts';
 import { fetchPersonSkillNames } from './person-skills.ts';
 import { fetchPresenceByUserId, type PresenceResult } from './read-presence.ts';

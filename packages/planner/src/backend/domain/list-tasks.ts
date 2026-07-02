@@ -185,10 +185,10 @@ export async function listTasks(input: {
   cursor?: string;
   session: SessionScope;
 }): Promise<{ tasks: TaskWithAssigneesRow[]; next_cursor?: string }> {
-  requirePermission(input.session, 'planner.task.read');
+  await requirePermission(input.session, 'planner.task.read');
 
   const db = plannerDb();
-  const groupFilter = groupFilterFor(input.session);
+  const groupFilter = await groupFilterFor(input.session);
   const filters = input.filters ?? {};
   const limit = Math.min(input.limit ?? 50, 200);
 

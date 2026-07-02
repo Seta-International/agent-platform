@@ -10,7 +10,7 @@ export async function removeGroupMember(input: {
   user_id: string;
   session: PlannerSessionScope;
 }): Promise<void> {
-  requirePermission(input.session, 'planner.group.member.write', input.group_id);
+  await requirePermission(input.session, 'planner.group.member.write', input.group_id);
 
   await withEmit(
     {

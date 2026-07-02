@@ -61,7 +61,7 @@ async function updateCommentImpl(
       const [plan] = await tx.select().from(plans).where(eq(plans.id, task.plan_id)).limit(1);
       if (!plan) throw new PlannerError('NOT_FOUND', 'Parent plan not found');
 
-      requirePermission(input.session, 'planner.task.comment.create', plan.group_id);
+      await requirePermission(input.session, 'planner.task.comment.create', plan.group_id);
 
       const beforeBody = existing.body;
       const [updated] = await tx

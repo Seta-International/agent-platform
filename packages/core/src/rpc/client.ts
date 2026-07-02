@@ -41,7 +41,7 @@ export function createModuleClient<M extends RpcMethodMap>(
             `createModuleClient: no current actor for ${module}.${methodName} (set via request middleware)`,
           );
         }
-        rbacCheck(actor, def.permission, module, methodName);
+        await rbacCheck(actor, def.permission, module, methodName);
         return def.handler(parsed.data, { actor });
       }) as ModuleClient<M>[keyof M & string];
     } else {

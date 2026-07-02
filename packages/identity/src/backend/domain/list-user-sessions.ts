@@ -33,7 +33,7 @@ export async function listUserSessions(
 ): Promise<SessionRow[]> {
   if (actor.type === 'user') {
     if (!actor.user_id) throw new IdentityError('FORBIDDEN', 'user actor requires user_id');
-    await requirePermission(actor.user_id, 'identity.user.read.any', input.tenant_id);
+    await requirePermission(actor.user_id, 'identity.user.list', input.tenant_id);
   }
 
   // Confirm the subject exists in the caller's tenant before reading sessions.

@@ -10,7 +10,7 @@ export const Default: Story = {
     title: 'Change display name',
     toolName: 'identity.updateMyDisplayName',
     expiresAt: new Date(Date.now() + 4 * 60_000 + 38_000),
-    permissionHint: 'Requires identity.user.write.self',
+    permissionHint: 'Requires identity.profile.update',
     onApprove: () => undefined,
     onReject: () => undefined,
     children: <div className="text-body-sm">Jane Doe → Jane Q. Doe</div>,

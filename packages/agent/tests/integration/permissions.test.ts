@@ -2,23 +2,22 @@ import { describe, expect, it } from 'vitest';
 import { AGENT_PERMISSIONS } from '../../src/rbac.ts';
 
 describe('AGENT_PERMISSIONS', () => {
-  it('contains chat + thread + workflow self-read permissions', () => {
+  it('contains chat + thread + workflow run permissions', () => {
     expect(AGENT_PERMISSIONS).toEqual(
       expect.arrayContaining([
         'agent.chat.use',
-        'agent.thread.read.self',
-        'agent.thread.write.self',
-        'agent.workflow.run.read.self',
+        'agent.thread.read',
+        'agent.thread.write',
+        'agent.workflow.run.read',
       ]),
     );
   });
 
-  it('contains the four new workflow run + approval permissions', () => {
+  it('contains the workflow run execute/cancel + approval permissions', () => {
     expect(AGENT_PERMISSIONS).toEqual(
       expect.arrayContaining([
-        'agent.workflow.run.read.tenant',
-        'agent.workflow.run.read.instance',
-        'agent.workflow.run.execute.self',
+        'agent.workflow.run.execute',
+        'agent.workflow.run.cancel',
         'agent.workflow.approve',
       ]),
     );

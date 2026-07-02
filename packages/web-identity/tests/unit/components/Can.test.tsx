@@ -15,7 +15,6 @@ function makeSession(permissions: string[]): SessionScopeProjection {
     role_summary: { roles: [], cross_tenant_read: false },
     permissions,
     product_access: [],
-    accessible_group_ids: [],
     cross_tenant_read: false,
     tenant_local_password_disabled: false,
   };
@@ -24,8 +23,8 @@ function makeSession(permissions: string[]): SessionScopeProjection {
 describe('Can', () => {
   it('renders children when the session has the permission', () => {
     render(
-      <SessionProvider session={makeSession(['identity.user.read.any'])}>
-        <Can permission="identity.user.read.any">
+      <SessionProvider session={makeSession(['identity.user.list'])}>
+        <Can permission="identity.user.list">
           <span>visible</span>
         </Can>
       </SessionProvider>,
@@ -36,7 +35,7 @@ describe('Can', () => {
   it('hides children when the session lacks the permission', () => {
     render(
       <SessionProvider session={makeSession([])}>
-        <Can permission="identity.user.read.any">
+        <Can permission="identity.user.list">
           <span>visible</span>
         </Can>
       </SessionProvider>,

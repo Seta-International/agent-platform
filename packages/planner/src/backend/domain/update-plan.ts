@@ -38,7 +38,7 @@ export async function updatePlan(input: {
         });
       }
 
-      requirePermission(input.session, 'planner.plan.update', existing.group_id);
+      await requirePermission(input.session, 'planner.plan.update', existing.group_id);
 
       const before: Partial<Record<PlanFieldKey, unknown>> = {};
       const after: Partial<Record<PlanFieldKey, unknown>> = {};

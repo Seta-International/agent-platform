@@ -24,7 +24,7 @@ function isUniqueViolation(err: unknown): boolean {
 export async function createGroup(
   input: CreateGroupInput & { session: SessionScope },
 ): Promise<GroupRow> {
-  requirePermission(input.session, 'planner.group.create');
+  await requirePermission(input.session, 'planner.group.create');
   if (input.session.tenant_id !== input.tenant_id) {
     throw new PlannerError('CROSS_TENANT', 'Cannot create group in another tenant', {
       session_tenant_id: input.session.tenant_id,

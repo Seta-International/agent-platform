@@ -62,9 +62,9 @@ async function listCommentsImpl(
     throw new PlannerError('NOT_FOUND', 'Parent plan not found', { plan_id: task.plan_id });
   }
 
-  requirePermission(input.session, 'planner.task.comment.read', plan.group_id);
+  await requirePermission(input.session, 'planner.task.comment.read', plan.group_id);
 
-  const groupFilter = groupFilterFor(input.session);
+  const groupFilter = await groupFilterFor(input.session);
   if (groupFilter !== null && !groupFilter.includes(plan.group_id)) {
     throw new PlannerError('FORBIDDEN', 'No access to group', { group_id: plan.group_id });
   }
