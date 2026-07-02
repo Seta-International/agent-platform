@@ -50,7 +50,12 @@ export function isTenantWide(session: SessionScope): boolean {
   );
 }
 
-/** Group reach: does this user have a planner.group_members row for this group? */
+/**
+ * Group reach: does this user have a planner.group_members row for this group?
+ * Tenant-blind — `group_members` carries no tenant column. Callers passing an
+ * externally-sourced groupId must independently verify it belongs to the
+ * caller's tenant (e.g. via `listMemberGroupIds` or a fetched row's tenant_id).
+ */
 export async function isGroupMember(userId: string, groupId: string): Promise<boolean> {
   const rows = await plannerDb()
     .select({ group_id: groupMembers.group_id })

@@ -3,8 +3,8 @@ import type { WorkerHandle } from '@seta/core';
 import { addEventTap, type SessionEnv, type SessionScope } from '@seta/core';
 import {
   getGroup,
-  isGroupMember,
   linkGroupToM365,
+  listMemberGroupIds,
   PlannerError,
   requirePermission,
   resolveGroupConflict,
@@ -42,7 +42,7 @@ async function hasGroupAccess(session: SessionScope, groupId: string): Promise<b
   return (
     session.role_summary.roles.includes('org.admin') ||
     session.role_summary.roles.includes('tenant.admin') ||
-    (await isGroupMember(session.user_id, groupId))
+    (await listMemberGroupIds(session.user_id, session.tenant_id)).includes(groupId)
   );
 }
 
@@ -171,7 +171,11 @@ export function registerIntegrationsM365Routes(
     await requirePermission(session, 'planner.group.refresh', groupId);
 
     const link = (await deps.m365LinksRepo.findByGroup(groupId)) ?? null;
-    if (!link) {
+    // requirePermission's groupId check is tenant-blind (see isGroupMember doc comment);
+    // re-check the fetched link's tenant here rather than trusting groupId alone. A
+    // tenant mismatch gets the same NOT_LINKED response as a missing link so we don't
+    // leak whether the groupId exists in another tenant.
+    if (!link || link.tenantId !== session.tenant_id) {
       return c.json({ error: 'NOT_LINKED' }, 409);
     }
 
