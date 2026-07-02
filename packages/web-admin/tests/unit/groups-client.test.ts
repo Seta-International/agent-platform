@@ -14,7 +14,7 @@ describe('groups-client', () => {
               kind: 'default',
               is_base: false,
               member_count: 2,
-              role_slugs: [],
+              roles: [],
             },
           ],
         }),

@@ -9,6 +9,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
+  AsyncCombobox,
   Badge,
   Button,
   Checkbox,
@@ -20,12 +21,18 @@ import {
   DialogTitle,
   Input,
   Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Textarea,
 } from '@seta/shared-ui';
 import { Boxes, Layers, Pencil, ShieldCheck, Trash2, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { orgUnitSearch } from '../../api/org-unit-search.ts';
 import { StatBar, StatChip } from '../../components/access-console.tsx';
-import type { Group } from '../api/groups-client.ts';
+import type { Group, GroupRole } from '../api/groups-client.ts';
 import { useDeleteGroup, useSetGroupRoles, useUpdateGroup } from '../hooks/useGroups.ts';
 import {
   derivedProducts,
@@ -145,6 +152,55 @@ function RenameDialog({ group }: { group: Group }) {
   );
 }
 
+const SCOPE_LABEL: Record<GroupRole['scope_kind'], string> = {
+  tenant: 'Tenant-wide',
+  org_unit: 'Org unit',
+  self: 'Self',
+};
+
+/** Inline scope control for one checked role row: scope kind + (when org_unit) unit picker. */
+function RoleScopeControl({
+  role,
+  onChange,
+}: {
+  role: GroupRole;
+  onChange: (scope_kind: GroupRole['scope_kind'], scope_id: string | null) => void;
+}) {
+  return (
+    <div className="flex flex-none items-center gap-1.5">
+      <Select
+        value={role.scope_kind}
+        onValueChange={(v) => {
+          const scope_kind = v as GroupRole['scope_kind'];
+          onChange(scope_kind, scope_kind === 'org_unit' ? role.scope_id : null);
+        }}
+      >
+        <SelectTrigger
+          aria-label={`${role.role_slug} scope`}
+          className="h-7 w-[8.5rem] flex-none text-caption"
+        >
+          <SelectValue>{SCOPE_LABEL[role.scope_kind]}</SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="tenant">Tenant-wide</SelectItem>
+          <SelectItem value="org_unit">Org unit</SelectItem>
+          <SelectItem value="self">Self</SelectItem>
+        </SelectContent>
+      </Select>
+      {role.scope_kind === 'org_unit' && (
+        <AsyncCombobox
+          value={role.scope_id}
+          onChange={(scope_id) => onChange('org_unit', scope_id)}
+          search={orgUnitSearch.search}
+          resolveByIds={orgUnitSearch.resolveByIds}
+          placeholder="Org unit…"
+          className="h-7 w-40 flex-none text-caption"
+        />
+      )}
+    </div>
+  );
+}
+
 function DeleteGroupButton({ group, onDeleted }: { group: Group; onDeleted: () => void }) {
   const del = useDeleteGroup();
   return (
@@ -178,20 +234,35 @@ function DeleteGroupButton({ group, onDeleted }: { group: Group; onDeleted: () =
 
 export function GroupDetail({ group, onDeleted }: { group: Group; onDeleted: () => void }) {
   const setRoles = useSetGroupRoles();
-  const [roleValues, setRoleValues] = useState<string[]>(group.role_slugs);
+  const [roleEntries, setRoleEntries] = useState<GroupRole[]>(group.roles);
 
-  // Re-sync local role selection after a save round-trips fresh role_slugs.
-  useEffect(() => setRoleValues(group.role_slugs), [group.role_slugs]);
+  // Re-sync local role selection after a save round-trips fresh roles.
+  useEffect(() => setRoleEntries(group.roles), [group.roles]);
 
-  const handleRoleChange = (next: string[]) => {
-    setRoleValues(next);
-    setRoles.mutate({ id: group.group_id, role_slugs: next });
+  const persistRoles = (next: GroupRole[]) => {
+    setRoleEntries(next);
+    setRoles.mutate({ id: group.group_id, roles: next });
   };
 
   const toggleRole = (slug: string, on: boolean) => {
-    handleRoleChange(on ? [...roleValues, slug] : roleValues.filter((s) => s !== slug));
+    persistRoles(
+      on
+        ? [...roleEntries, { role_slug: slug, scope_kind: 'tenant', scope_id: null }]
+        : roleEntries.filter((r) => r.role_slug !== slug),
+    );
   };
 
+  const setRoleScope = (
+    slug: string,
+    scope_kind: GroupRole['scope_kind'],
+    scope_id: string | null,
+  ) => {
+    persistRoles(
+      roleEntries.map((r) => (r.role_slug === slug ? { ...r, scope_kind, scope_id } : r)),
+    );
+  };
+
+  const roleValues = roleEntries.map((r) => r.role_slug);
   const products = derivedProducts(roleValues);
   const editable = group.kind !== 'default';
 
@@ -254,38 +325,51 @@ export function GroupDetail({ group, onDeleted }: { group: Group; onDeleted: () 
                 </div>
                 <ul className="divide-y divide-hairline-tertiary">
                   {roles.map((r) => {
-                    const checked = roleValues.includes(r.slug);
+                    const entry = roleEntries.find((e) => e.role_slug === r.slug);
+                    const checked = entry != null;
                     return (
                       <li key={r.slug}>
-                        <label
-                          htmlFor={`grouprole-${r.slug}`}
+                        <div
                           className={cn(
-                            'flex cursor-pointer items-center gap-3 px-3.5 py-2.5 transition-colors',
+                            'flex items-center gap-3 px-3.5 py-2.5 transition-colors',
                             checked
                               ? 'bg-primary/[0.06] hover:bg-primary/10'
                               : 'hover:bg-surface-2',
                           )}
                         >
-                          <Checkbox
-                            id={`grouprole-${r.slug}`}
-                            checked={checked}
-                            onCheckedChange={(v) => toggleRole(r.slug, v === true)}
-                            aria-label={r.label}
-                          />
-                          <div className="min-w-0 flex-1">
-                            <span className="text-body-sm font-medium text-ink">
-                              {roleTail(r.slug)}
+                          <label
+                            htmlFor={`grouprole-${r.slug}`}
+                            className="flex min-w-0 flex-1 cursor-pointer items-center gap-3"
+                          >
+                            <Checkbox
+                              id={`grouprole-${r.slug}`}
+                              checked={checked}
+                              onCheckedChange={(v) => toggleRole(r.slug, v === true)}
+                              aria-label={r.label}
+                            />
+                            <div className="min-w-0 flex-1">
+                              <span className="text-body-sm font-medium text-ink">
+                                {roleTail(r.slug)}
+                              </span>
+                              {r.description && (
+                                <p className="mt-0.5 truncate text-caption text-ink-subtle">
+                                  {r.description}
+                                </p>
+                              )}
+                            </div>
+                            <span className="flex-none font-mono text-caption text-ink-tertiary">
+                              {r.slug}
                             </span>
-                            {r.description && (
-                              <p className="mt-0.5 truncate text-caption text-ink-subtle">
-                                {r.description}
-                              </p>
-                            )}
-                          </div>
-                          <span className="flex-none font-mono text-caption text-ink-tertiary">
-                            {r.slug}
-                          </span>
-                        </label>
+                          </label>
+                          {entry && (
+                            <RoleScopeControl
+                              role={entry}
+                              onChange={(scope_kind, scope_id) =>
+                                setRoleScope(r.slug, scope_kind, scope_id)
+                              }
+                            />
+                          )}
+                        </div>
                       </li>
                     );
                   })}

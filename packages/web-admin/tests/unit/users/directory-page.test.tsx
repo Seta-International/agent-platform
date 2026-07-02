@@ -72,7 +72,7 @@ const mockGroup = {
   kind: 'custom' as const,
   is_base: false,
   member_count: 0,
-  role_slugs: [],
+  roles: [],
 };
 
 const noop = vi.fn();

@@ -12,7 +12,7 @@ vi.mock('../../src/groups/api/groups-client.ts', () => ({
       kind: 'default',
       is_base: false,
       member_count: 3,
-      role_slugs: ['people.manager'],
+      roles: [{ role_slug: 'people.manager', scope_kind: 'tenant', scope_id: null }],
     },
   ],
 }));

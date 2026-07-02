@@ -35,7 +35,7 @@ export function BulkGroupBar({ selectedUserIds, onClearSelection }: Props) {
       (groups ?? []).map((g) => ({
         value: g.group_id,
         label: g.name,
-        keywords: [g.slug, ...g.role_slugs],
+        keywords: [g.slug, ...g.roles.map((r) => r.role_slug)],
       })),
     [groups],
   );

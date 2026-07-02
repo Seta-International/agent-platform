@@ -1,3 +1,9 @@
+export interface GroupRole {
+  role_slug: string;
+  scope_kind: 'tenant' | 'org_unit' | 'self';
+  scope_id: string | null;
+}
+
 export interface Group {
   group_id: string;
   slug: string;
@@ -5,7 +11,7 @@ export interface Group {
   kind: 'default' | 'custom';
   is_base: boolean;
   member_count: number;
-  role_slugs: string[];
+  roles: GroupRole[];
 }
 
 async function post<T = unknown>(url: string, body?: unknown): Promise<T> {
@@ -56,8 +62,8 @@ export async function deleteGroup(id: string): Promise<void> {
   return send('DELETE', `/api/identity/v1/groups/${id}`);
 }
 
-export async function setGroupRoles(id: string, role_slugs: string[]): Promise<void> {
-  return send('PUT', `/api/identity/v1/groups/${id}/roles`, { role_slugs });
+export async function setGroupRoles(id: string, roles: GroupRole[]): Promise<void> {
+  return send('PUT', `/api/identity/v1/groups/${id}/roles`, { roles });
 }
 
 export async function addMembers(id: string, user_ids: string[]): Promise<void> {
