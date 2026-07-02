@@ -12,9 +12,13 @@ describe('PERSONA_GROUPS scoping', () => {
   });
 
   it("member's other roles stay tenant (no scope_kind override)", () => {
-    for (const slug of ['planner.member', 'knowledge.member', 'agent.member']) {
+    for (const slug of ['planner.member', 'knowledge.member']) {
       expect(roleIn('member', slug)?.scope_kind).toBeUndefined();
     }
+  });
+
+  it('member.agent.member is self-scoped (post-suffix-retirement, scope comes from assignment scope_kind)', () => {
+    expect(roleIn('member', 'agent.member')?.scope_kind).toBe('self');
   });
 
   it('team-lead-pm.people.viewer is self-scoped', () => {

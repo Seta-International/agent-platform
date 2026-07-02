@@ -22,7 +22,7 @@ export const PERSONA_GROUPS: PersonaGroupDef[] = [
     roles: [
       { slug: 'planner.member' },
       { slug: 'knowledge.member' },
-      { slug: 'agent.member' },
+      { slug: 'agent.member', scope_kind: 'self' },
       { slug: 'people.viewer', scope_kind: 'self' },
     ],
   },
