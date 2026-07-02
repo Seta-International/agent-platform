@@ -7,11 +7,8 @@ import { join } from 'node:path';
 
 // pre-squash collisions, removed by the module's squash PR (ratchet: stale entries fail)
 const KNOWN = new Set([
-  'packages/core/drizzle/migrations:0013',
-  'packages/core/drizzle/migrations:0014',
   'packages/agent/drizzle:0001',
   'packages/hiring/drizzle/migrations:0001',
-  'packages/identity/drizzle:0000',
   'packages/people/drizzle/migrations:0001',
   'packages/people/drizzle/migrations:0005',
   'packages/pm/drizzle/migrations:0001',
