@@ -1,3 +1,4 @@
+import { ASSIGNABLE_ROLES } from '@seta/shared-rbac';
 import { describe, expect, it } from 'vitest';
 import { PERSONA_GROUPS } from '../../src/commands/lib/access-groups.ts';
 
@@ -55,5 +56,13 @@ describe('PERSONA_GROUPS scoping', () => {
 
   it('bod.people.viewer stays tenant (board sees everything, an intended widening)', () => {
     expect(roleIn('bod', 'people.viewer')?.scope_kind).toBeUndefined();
+  });
+
+  it('admin group carries every assignable role (full access by default)', () => {
+    const admin = PERSONA_GROUPS.find((g) => g.slug === 'admin');
+    const adminRoles = new Set(admin?.roles.map((r) => r.slug));
+    expect(admin?.roles).toHaveLength(ASSIGNABLE_ROLES.length);
+    for (const slug of ASSIGNABLE_ROLES) expect(adminRoles.has(slug)).toBe(true);
+    expect(adminRoles.has('org.admin')).toBe(true);
   });
 });

@@ -1,5 +1,6 @@
 import type { SessionScope } from '@seta/core';
 import { type Actor, createGroup, listGroups, setGroupRoles } from '@seta/identity';
+import { ASSIGNABLE_ROLES } from '@seta/shared-rbac';
 
 export interface PersonaRoleDef {
   slug: string;
@@ -52,7 +53,10 @@ export const PERSONA_GROUPS: PersonaGroupDef[] = [
       { slug: 'hiring.recruiter', scope_kind: 'self' },
     ],
   },
-  { slug: 'admin', name: 'Admin', roles: [{ slug: 'org.admin' }, { slug: 'identity.admin' }] },
+  // Admin gets every assignable role at tenant scope so the seeded Admin group has full access by
+  // default (org.admin alone is already a permission wildcard; the explicit set keeps the /admin/groups
+  // view complete and stays in sync as modules add roles).
+  { slug: 'admin', name: 'Admin', roles: ASSIGNABLE_ROLES.map((slug) => ({ slug })) },
 ];
 
 /** Create-or-reuse a group by slug and (re)write its role grants. Shared by persona groups and
