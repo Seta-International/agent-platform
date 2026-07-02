@@ -1,33 +1,12 @@
-import { type Statement, toManifest } from '@seta/shared-rbac';
+import { INVENTORY, inventoryToManifests } from '@seta/shared-rbac';
+import { STAFFING_PERMISSIONS, STAFFING_ROLE_SLUGS } from './generated/rbac.ts';
 
-export const staffingStatement = {
-  staffing: ['read'],
-  'staffing.workflow': ['read', 'run', 'cancel'],
-} as const satisfies Statement;
+export type { StaffingPermission } from './generated/rbac.ts';
+export { STAFFING_PERMISSIONS, STAFFING_ROLE_SLUGS };
 
-const roleStatements = {
-  'staffing.operator': {
-    staffing: ['read'],
-    'staffing.workflow': ['read', 'run', 'cancel'],
-  },
-  'staffing.viewer': {
-    staffing: ['read'],
-    'staffing.workflow': ['read'],
-  },
-} as const satisfies Record<string, Statement>;
+// biome-ignore lint/style/noNonNullAssertion: 'staffing' is always in INVENTORY (asserted by codegen-drift.test.ts)
+export const staffingRbac = inventoryToManifests(INVENTORY).find((m) => m.module === 'staffing')!;
 
-export const staffingRbac = toManifest('staffing', staffingStatement, roleStatements, {
-  'staffing.operator': 'Run and cancel staffing workflows',
-  'staffing.viewer': 'Read staffing workflows',
-});
-
-export type StaffingPermission = (typeof staffingRbac.permissions)[number]['key'];
-
-export const STAFFING_PERMISSIONS = staffingRbac.permissions.map((p) => p.key);
-
-export const STAFFING_ROLE_SLUGS = staffingRbac.roles.map((r) => r.slug) as Array<
-  'staffing.operator' | 'staffing.viewer'
->;
 export type StaffingRoleSlug = (typeof STAFFING_ROLE_SLUGS)[number];
 
 export const STAFFING_ROLE_PERMISSIONS = Object.fromEntries(

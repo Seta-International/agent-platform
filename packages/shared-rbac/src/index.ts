@@ -1,3 +1,4 @@
+export { renderModuleRbac, renderPermissionKeys } from './codegen.ts';
 export type { PermissionKey } from './generated/permission-keys.ts';
 export { ALL_PERMISSIONS } from './generated/permission-keys.ts';
 export type { StatementSpec } from './inventory.ts';

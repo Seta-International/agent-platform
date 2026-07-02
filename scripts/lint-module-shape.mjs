@@ -35,6 +35,7 @@ const SRC_ALLOWLIST = new Set([
   'events.ts',
   'events',
   'rbac.ts',
+  'generated',
   'contracts.ts',
   'contracts',
   'register.ts',

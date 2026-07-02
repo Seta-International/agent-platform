@@ -55,6 +55,9 @@ importers:
       lefthook:
         specifier: ^2.1.9
         version: 2.1.9
+      tsx:
+        specifier: ^4.22.4
+        version: 4.22.4
       turbo:
         specifier: ^2.10.0
         version: 2.10.0
@@ -21942,7 +21945,7 @@ snapshots:
 
   tsx@4.22.4:
     dependencies:
-      esbuild: 0.28.0
+      esbuild: 0.28.1
     optionalDependencies:
       fsevents: 2.3.3
 
