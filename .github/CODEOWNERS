@@ -1,0 +1,31 @@
+# Review tiers — see "How we do PR reviews" (Confluence · FutureApp Docs).
+# T3 paths auto-request the tech lead; core changes always ship as their own PR.
+
+# T3 — core business modules
+/packages/core/       @seta-canhta
+/packages/identity/   @seta-canhta
+
+# T3 — design system / component library
+/packages/shared-ui/  @seta-canhta
+
+# T3 — CI, tooling, infra
+/.github/             @seta-canhta
+/scripts/             @seta-canhta
+/infra/               @seta-canhta
+
+# T3 — DB migrations (generated + hand-written)
+drizzle/              @seta-canhta
+
+# T2 — shared surfaces and SDK contracts
+/packages/shared-config/        @seta-canhta
+/packages/shared-crypto/        @seta-canhta
+/packages/shared-db/            @seta-canhta
+/packages/shared-embeddings/    @seta-canhta
+/packages/shared-mailer/        @seta-canhta
+/packages/shared-orchestration/ @seta-canhta
+/packages/shared-rbac/          @seta-canhta
+/packages/shared-retrieval/     @seta-canhta
+/packages/shared-storage/       @seta-canhta
+/packages/shared-testing/       @seta-canhta
+/packages/shared-types/         @seta-canhta
+/sdks/                          @seta-canhta
